@@ -186,7 +186,11 @@ test('partition /stop keeps edits by default and "丢弃本轮改动" restores o
     const ws = join(readme, '..')
     writeFileSync(readme, '# demo\nlocal work in progress\n') // pre-existing uncommitted change
 
-    await say(page, '@停止 Claude 先创建文件 turn.txt 内容为 x，然后用 Bash 工具执行 `sleep 120`。')
+    // Claude refuses a bare foreground `sleep`; a node timer asks for approval like any command beyond the tier.
+    await say(
+      page,
+      '@停止 Claude 先创建文件 turn.txt 内容为 x，然后用 Bash 工具执行命令 `node -e "setTimeout(() => {}, 120000)"`。',
+    )
     const card = page.getByTestId('run-card').last()
     await expect(card).toContainText('等待审批', { timeout: 3 * 60_000 })
     expect(existsSync(join(ws, 'turn.txt'))).toBe(true)
