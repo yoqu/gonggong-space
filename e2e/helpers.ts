@@ -1,5 +1,8 @@
-import { execFileSync } from 'node:child_process'
+import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
+import { mkdtempSync, readdirSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { expect, type Page } from '@playwright/test'
 
 export const ROOT = join(import.meta.dirname, '..')
 export const SERVER = 'http://127.0.0.1:8790'
@@ -11,4 +14,58 @@ export function buildDaemon() {
 
 export function aiws(args: string[], env: Record<string, string> = {}) {
   return execFileSync(AIWS_BIN, args, { encoding: 'utf8', env: { ...process.env, ...env } })
+}
+
+/** An isolated "member machine": its own AIWS_HOME, running `aiws run` in the background. */
+export function machine() {
+  const home = mkdtempSync(join(tmpdir(), 'aiws-e2e-'))
+  const env = { AIWS_HOME: home, AIWS_LOG: 'info' }
+  let proc: ChildProcess | undefined
+  return {
+    home,
+    login: (code: string) => aiws(['login', '--server', SERVER, '--code', code], env),
+    start() {
+      proc = spawn(AIWS_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
+    },
+    stop: () => proc?.kill(),
+    /** Recursively finds a file by name under this machine's managed workspaces. */
+    find(name: string): string | undefined {
+      const walk = (dir: string): string | undefined => {
+        for (const e of readdirSync(dir)) {
+          const p = join(dir, e)
+          if (e === name) return p
+          if (statSync(p).isDirectory() && e !== 'node_modules') {
+            const hit = walk(p)
+            if (hit) return hit
+          }
+        }
+      }
+      try {
+        return walk(join(home, 'workspaces'))
+      } catch {
+        return undefined
+      }
+    },
+  }
+}
+
+export async function login(page: Page, account: string, password: string) {
+  await page.goto('/login')
+  await page.getByLabel('账号').fill(account)
+  await page.getByLabel('密码').fill(password)
+  await page.getByRole('button', { name: '登录' }).click()
+}
+
+export async function changePassword(page: Page, oldPassword: string, newPassword: string) {
+  await page.getByLabel('当前密码').fill(oldPassword)
+  await page.getByLabel('新密码', { exact: true }).fill(newPassword)
+  await page.getByLabel('确认新密码').fill(newPassword)
+  await page.getByRole('button', { name: '修改密码' }).click()
+  await expect(page.getByLabel('当前密码')).toBeHidden()
+}
+
+export async function logout(page: Page) {
+  await page.getByRole('button', { name: '账户菜单' }).click()
+  await page.getByRole('button', { name: '退出登录' }).click()
+  await expect(page.getByRole('button', { name: '登录' })).toBeVisible()
 }

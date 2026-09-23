@@ -11,7 +11,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'bash ../scripts/pg.sh reset aiws_e2e && pnpm --filter @aiws/server start',
-      env: { PORT: String(SERVER_PORT), AIWS_DB: 'aiws_e2e', AIWS_E2E: '1' },
+      env: { PORT: String(SERVER_PORT), AIWS_DB: 'aiws_e2e', AIWS_ADMIN_PASSWORD: 'admin-init-pass' },
       url: `http://127.0.0.1:${SERVER_PORT}/api/health`,
       reuseExistingServer: false,
     },

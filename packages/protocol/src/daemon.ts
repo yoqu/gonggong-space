@@ -48,18 +48,20 @@ export const RunStart = z.object({
     tier: Tier,
   }),
   workspace: z.object({
-    /** null → managed empty workspace (group without repo). */
-    repo: z.object({ url: z.string(), branch: z.string() }).nullable(),
+    /** null → managed empty workspace (group without repo). Managed path: <home>/workspaces/<groupId>/<botId>/<repo.id | _empty>/ */
+    repo: z.object({ id: z.string(), url: z.string(), branch: z.string() }).nullable(),
     /** Absolute local path when the owner used /cd; null → managed path. */
     cdPath: z.string().nullable(),
   }),
   /** Resume this ACP session if possible; null → start a new one. */
   resumeSessionId: z.string().nullable(),
-  /** When starting a new session because resume failed, replay this many recent messages. */
   prompt: z.object({
     text: z.string(),
     triggeredBy: z.string(),
+    /** Group messages since this bot was last @-ed (humans + other bots' final replies). */
     context: z.array(ContextMessage),
+    /** Last N group messages, replayed only if resuming `resumeSessionId` fails. Empty when not resuming. */
+    fallbackContext: z.array(ContextMessage),
   }),
 })
 export type RunStart = z.infer<typeof RunStart>

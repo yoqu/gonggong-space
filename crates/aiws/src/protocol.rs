@@ -97,6 +97,7 @@ pub struct RunBot {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RepoSpec {
+    pub id: String,
     pub url: String,
     pub branch: String,
 }
@@ -114,6 +115,7 @@ pub struct RunPrompt {
     pub text: String,
     pub triggered_by: String,
     pub context: Vec<ContextMessage>,
+    pub fallback_context: Vec<ContextMessage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
