@@ -1,9 +1,7 @@
-use aiws::conn::handshake;
-use aiws::protocol::{DaemonToServer, MachineInfo, PROTOCOL_VERSION, ServerToDaemon};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "aiws", version, about = "AIWS daemon")]
+#[command(name = "aiws", version, about = "AIWS daemon: runs your team bots on this machine")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -11,28 +9,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Handshake with the server once and print the result.
-    Ping {
-        #[arg(long, env = "AIWS_SERVER")]
-        server: String,
-    },
+    /// List agent CLIs detected on this machine.
+    Agents,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_env("AIWS_LOG")).init();
     match Cli::parse().cmd {
-        Cmd::Ping { server } => {
-            let hello = DaemonToServer::Hello {
-                protocol: PROTOCOL_VERSION,
-                daemon_version: env!("CARGO_PKG_VERSION").into(),
-                machine: MachineInfo { name: "ping".into(), os: std::env::consts::OS.into(), arch: std::env::consts::ARCH.into() },
-                token: String::new(),
-                agents: vec![],
-            };
-            match handshake(&format!("{}/ws/daemon", server.trim_end_matches('/').replacen("http", "ws", 1)), &hello).await? {
-                ServerToDaemon::Welcome { heartbeat_sec, .. } => println!("welcome heartbeat={heartbeat_sec}s"),
-                ServerToDaemon::Reject { message, .. } => anyhow::bail!("rejected: {message}"),
-                other => anyhow::bail!("unexpected: {other:?}"),
+        Cmd::Agents => {
+            for a in aiws::agents::detect() {
+                println!("{:?}\t{}\t{}", a.kind, a.version.as_deref().unwrap_or("-"), a.path.as_deref().unwrap_or("未安装"));
             }
         }
     }

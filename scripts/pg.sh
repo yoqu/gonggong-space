@@ -19,6 +19,12 @@ case "${1:-start}" in
     done
     echo "postgres ready on :$PORT"
     ;;
+  reset)
+    # Recreate a throwaway database, e.g. `pg.sh reset aiws_e2e`.
+    "$0" start >/dev/null
+    dropdb -h /tmp -p "$PORT" -U aiws --if-exists --force "$2"
+    createdb -h /tmp -p "$PORT" -U aiws "$2"
+    ;;
   stop) pg_ctl -D "$DATA" -w stop >/dev/null && echo stopped ;;
   *) echo "usage: pg.sh start|stop"; exit 1 ;;
 esac
