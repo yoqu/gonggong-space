@@ -196,6 +196,11 @@ export const ApprovalDto = z.object({
 export type ApprovalDto = z.infer<typeof ApprovalDto>
 
 export const DecideApprovalReq = z.object({ optionId: z.string() })
+/** POST /api/runs/:id/interrupt — partition /stop leftovers (plan D7). */
+export const InterruptChoiceReq = z.object({ choice: z.enum(['keep', 'discard']) })
+/** POST /api/runs/:id/stop | stop-chain — how many unfinished runs were stopped. */
+export const StopRes = z.object({ stopped: z.number().int() })
+export type StopRes = z.infer<typeof StopRes>
 
 export const RunDto = z.object({
   id: z.string(),

@@ -1,13 +1,14 @@
 import type { Ctx } from '../../context.js'
 import { cd } from './cd.js'
 import { type CommandInput, commands } from './registry.js'
-import { forceSyncOnly, newSession, stopIdle } from './system.js'
+import { stop } from './stop.js'
+import { forceSyncOnly, newSession } from './system.js'
 
 commands.register('new', newSession)
 commands.register('cd', cd)
 commands.register('hold', forceSyncOnly)
 commands.register('release', forceSyncOnly)
-commands.register('stop', stopIdle)
+commands.register('stop', stop)
 
 export { parseCommand } from './parse.js'
 export { commands } from './registry.js'

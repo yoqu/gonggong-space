@@ -285,3 +285,33 @@ async fn repo_workspace_fetches_fast_forwards_and_reports_git_changes() {
     assert_eq!(done.files_changed, 3);
     assert_eq!(done.git, Some(GitStatus { ahead: Some(1), dirty: true, ..clean }));
 }
+
+#[tokio::test]
+async fn discard_restores_the_interrupted_turn_until_the_next_turn_starts() {
+    let mut r = rig(Duration::from_secs(60));
+    let _remote = repo_workspace(&r);
+    let ws = r.workspace();
+    r.run(start("r0", "mock:echo"));
+    let (_, first) = r.finish("r0").await;
+    std::fs::write(ws.join("README.md"), "local wip\n").unwrap();
+
+    r.run(follow_up("r1", "mock:sh echo x > turn.txt && echo y > later.txt", &first));
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.files_changed, 2);
+    r.send(ServerToDaemon::RunDiscard { run_id: "r1".into() });
+    assert_eq!(r.next().await, DaemonToServer::RunDiscarded { run_id: "r1".into(), ok: true, files: 2, error: None });
+    assert!(!ws.join("turn.txt").exists());
+    assert_eq!(std::fs::read_to_string(ws.join("later.txt")).unwrap(), "x\n");
+    assert_eq!(std::fs::read_to_string(ws.join("README.md")).unwrap(), "local wip\n");
+
+    // Once discarded, or once the next turn has started, the snapshot is gone.
+    r.send(ServerToDaemon::RunDiscard { run_id: "r1".into() });
+    assert!(matches!(r.next().await, DaemonToServer::RunDiscarded { ok: false, error: Some(_), .. }));
+    r.run(follow_up("r2", "mock:sh echo z > z.txt", &done));
+    let (_, next) = r.finish("r2").await;
+    r.run(follow_up("r3", "mock:echo", &next));
+    r.finish("r3").await;
+    r.send(ServerToDaemon::RunDiscard { run_id: "r2".into() });
+    assert!(matches!(r.next().await, DaemonToServer::RunDiscarded { ok: false, .. }));
+    assert!(ws.join("z.txt").exists());
+}

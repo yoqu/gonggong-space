@@ -17,6 +17,10 @@ pub fn is_repo(dir: &Path) -> bool {
 }
 
 pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
+    git_bytes(dir, args).await.map(|b| String::from_utf8_lossy(&b).into_owned())
+}
+
+async fn git_bytes(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     let out = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -27,7 +31,7 @@ pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
         .await
         .map_err(|e| format!("无法执行 git：{e}"))?;
     if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        Ok(out.stdout)
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
         Err(err.lines().find(|l| !l.trim().is_empty()).unwrap_or("git 执行失败").trim().to_string())
@@ -171,10 +175,12 @@ impl PreTurn {
     }
 }
 
-/// Work-tree state at the start of a turn, to attribute changes to it afterwards.
+/// Work-tree state at the start of a turn, to attribute changes to it afterwards and to undo them (plan D7).
 pub struct Snapshot {
     head: Option<String>,
     tree: BTreeMap<String, (String, Option<u64>)>,
+    /// Pre-turn content of the paths already dirty then, as blobs written to the object store (None = absent).
+    saved: BTreeMap<String, Option<String>>,
 }
 
 async fn head(dir: &Path) -> Option<String> {
@@ -198,11 +204,82 @@ async fn tree(dir: &Path) -> Result<BTreeMap<String, (String, Option<u64>)>, Str
 }
 
 pub async fn snapshot(dir: &Path) -> Result<Snapshot, String> {
-    Ok(Snapshot { head: head(dir).await, tree: tree(dir).await? })
+    let tree = tree(dir).await?;
+    let (present, absent): (Vec<&String>, Vec<&String>) = tree.keys().partition(|p| dir.join(p).is_file());
+    let mut saved: BTreeMap<String, Option<String>> = absent.into_iter().map(|p| (p.clone(), None)).collect();
+    for chunk in present.chunks(500) {
+        let mut args = vec!["hash-object", "-w", "--no-filters", "--"];
+        args.extend(chunk.iter().map(|p| p.as_str()));
+        let ids = git(dir, &args).await?;
+        saved.extend(chunk.iter().zip(ids.lines()).map(|(p, id)| ((*p).clone(), Some(id.to_string()))));
+    }
+    Ok(Snapshot { head: head(dir).await, tree, saved })
+}
+
+pub async fn changed_since(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
+    Ok(touched(dir, snap).await?.len())
+}
+
+/// Puts back every path the turn touched as it was at the snapshot, leaving other uncommitted work alone.
+/// History is never rewritten: files committed during the turn are restored in the work tree and index only.
+/// Returns the number of paths restored.
+pub async fn discard(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
+    let paths = touched(dir, snap).await?;
+    let (mut from_head, mut created) = (vec![], vec![]);
+    for path in &paths {
+        let file = dir.join(path);
+        match snap.saved.get(path) {
+            Some(Some(blob)) => {
+                let body = git_bytes(dir, &["cat-file", "blob", blob]).await?;
+                if let Some(parent) = file.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                std::fs::write(&file, body).map_err(|e| format!("无法还原 {path}：{e}"))?;
+            }
+            Some(None) => remove(dir, &file)?,
+            None => match &snap.head {
+                Some(h) if git(dir, &["cat-file", "-e", &format!("{h}:{path}")]).await.is_ok() => {
+                    from_head.push(format!(":(literal){path}"))
+                }
+                _ => created.push(path),
+            },
+        }
+    }
+    if let (Some(h), false) = (&snap.head, from_head.is_empty()) {
+        let mut args = vec!["checkout", h.as_str(), "--"];
+        args.extend(from_head.iter().map(String::as_str));
+        git(dir, &args).await?;
+    }
+    if !created.is_empty() {
+        let specs: Vec<String> = created.iter().map(|p| format!(":(literal){p}")).collect();
+        let mut args = vec!["rm", "-q", "--cached", "--ignore-unmatch", "--"];
+        args.extend(specs.iter().map(String::as_str));
+        git(dir, &args).await?;
+        for path in created {
+            remove(dir, &dir.join(path))?;
+        }
+    }
+    Ok(paths.len())
+}
+
+/// Removes a file, then any directories left empty by it (up to the workspace root).
+fn remove(root: &Path, file: &Path) -> Result<(), String> {
+    match std::fs::remove_file(file) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(format!("无法删除 {}：{e}", file.display())),
+        _ => {}
+    }
+    let mut dir = file.parent();
+    while let Some(d) = dir.filter(|d| *d != root && d.starts_with(root)) {
+        if std::fs::remove_dir(d).is_err() {
+            break;
+        }
+        dir = d.parent();
+    }
+    Ok(())
 }
 
 /// Distinct paths the turn touched: committed since the snapshot's HEAD ∪ work-tree entries whose state changed.
-pub async fn changed_since(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
+async fn touched(dir: &Path, snap: &Snapshot) -> Result<BTreeSet<String>, String> {
     let mut paths = BTreeSet::new();
     if let Some(now) = head(dir).await
         && snap.head.as_ref() != Some(&now)
@@ -214,7 +291,7 @@ pub async fn changed_since(dir: &Path, snap: &Snapshot) -> Result<usize, String>
     let now = tree(dir).await?;
     paths.extend(now.iter().filter(|(p, s)| snap.tree.get(*p) != Some(s)).map(|(p, _)| p.clone()));
     paths.extend(snap.tree.keys().filter(|p| !now.contains_key(*p)).cloned());
-    Ok(paths.len())
+    Ok(paths)
 }
 
 #[cfg(test)]
@@ -416,6 +493,62 @@ mod tests {
         run(&w, &["commit", "-q", "-m", "hello"]);
         assert_eq!(changed_since(&w, &snap).await.unwrap(), 1);
         assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().branch.as_deref(), Some("feat/hello"));
+    }
+
+    fn read(w: &Path, f: &str) -> Option<String> {
+        fs::read_to_string(w.join(f)).ok()
+    }
+
+    #[tokio::test]
+    async fn discard_restores_only_what_the_turn_touched() {
+        let r = Remote::new();
+        r.commit("gone.txt", "tracked\n");
+        r.commit("edit.txt", "base\n");
+        let w = r.clone_to("w");
+        // Uncommitted work from before the turn.
+        fs::write(w.join("README.md"), "local wip\n").unwrap();
+        fs::write(w.join("mine.txt"), "untracked wip\n").unwrap();
+        fs::write(w.join("pre.txt"), "pre-turn draft\n").unwrap();
+        fs::write(w.join("drop.txt"), "untracked, deleted by the turn\n").unwrap();
+        let snap = snapshot(&w).await.unwrap();
+
+        fs::write(w.join("pre.txt"), "rewritten by the turn\n").unwrap();
+        fs::remove_file(w.join("drop.txt")).unwrap();
+        fs::write(w.join("edit.txt"), "changed\n").unwrap();
+        fs::remove_file(w.join("gone.txt")).unwrap();
+        fs::create_dir_all(w.join("src/new")).unwrap();
+        fs::write(w.join("src/new/a.rs"), "fn a() {}\n").unwrap();
+        fs::write(w.join("staged*.txt"), "new and staged\n").unwrap();
+        run(&w, &["add", "staged*.txt"]);
+        assert_eq!(changed_since(&w, &snap).await.unwrap(), 6);
+
+        assert_eq!(discard(&w, &snap).await.unwrap(), 6);
+        assert_eq!(read(&w, "README.md").as_deref(), Some("local wip\n"));
+        assert_eq!(read(&w, "mine.txt").as_deref(), Some("untracked wip\n"));
+        assert_eq!(read(&w, "pre.txt").as_deref(), Some("pre-turn draft\n"));
+        assert_eq!(read(&w, "drop.txt").as_deref(), Some("untracked, deleted by the turn\n"));
+        assert_eq!(read(&w, "edit.txt").as_deref(), Some("base\n"));
+        assert_eq!(read(&w, "gone.txt").as_deref(), Some("tracked\n"));
+        assert!(!w.join("src").exists());
+        assert!(!w.join("staged*.txt").exists());
+        assert_eq!(changed_since(&w, &snap).await.unwrap(), 0);
+        let status = git(&w, &["status", "--porcelain"]).await.unwrap();
+        assert_eq!(status, " M README.md\n?? drop.txt\n?? mine.txt\n?? pre.txt\n");
+    }
+
+    #[tokio::test]
+    async fn discard_restores_files_committed_during_the_turn_without_rewriting_history() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        let snap = snapshot(&w).await.unwrap();
+        fs::write(w.join("README.md"), "committed by the turn\n").unwrap();
+        fs::write(w.join("c.txt"), "c").unwrap();
+        run(&w, &["add", "-A"]);
+        run(&w, &["commit", "-q", "-m", "turn"]);
+        assert_eq!(discard(&w, &snap).await.unwrap(), 2);
+        assert_eq!(read(&w, "README.md").as_deref(), Some("hi\n"));
+        assert!(!w.join("c.txt").exists());
+        assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().ahead, Some(1));
     }
 
     #[test]

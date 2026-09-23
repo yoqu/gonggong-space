@@ -70,8 +70,26 @@ impl Handler for Engine {
                 let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move { inner.workspaces.cd(req, &out).await });
             }
-            // Implemented by the M3 approval / stop slices.
-            ServerToDaemon::ApprovalDecision { .. } | ServerToDaemon::RunDiscard { .. } => {}
+            ServerToDaemon::RunDiscard { run_id } => {
+                let sessions: Vec<_> = self.0.actors.lock().unwrap().values().map(|a| a.shared.clone()).collect();
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let mut result = Err("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 bot 已开始新一轮）".to_string());
+                    for shared in sessions {
+                        if let Some(r) = shared.discard(&run_id).await {
+                            result = r;
+                            break;
+                        }
+                    }
+                    let (ok, files, error) = match result {
+                        Ok(n) => (true, n as u32, None),
+                        Err(e) => (false, 0, Some(e)),
+                    };
+                    out.send(DaemonToServer::RunDiscarded { run_id, ok, files, error });
+                });
+            }
+            // Implemented by the M3 approval slice.
+            ServerToDaemon::ApprovalDecision { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }

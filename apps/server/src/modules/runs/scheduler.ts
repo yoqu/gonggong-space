@@ -6,6 +6,7 @@ import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/sch
 import { publishBot } from '../bots/dto.js'
 import { unreadyRepoGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
+import { interruptNote } from './stop.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type Bot = typeof bots.$inferSelect
@@ -63,6 +64,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       }
       if (machineId && busy < bot.concurrency) {
         const start = await buildRunStart(tx, bot, run)
+        if (start.settled) out.push(start.settled)
         // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
         const [running] = await tx
           .update(runs)
@@ -94,7 +96,7 @@ export async function schedule(ctx: Ctx, botId: string) {
 
 async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
   const [trigger] = await tx
-    .select({ seq: messages.seq, body: messages.body, author: users.name })
+    .select({ seq: messages.seq, body: messages.body, at: messages.createdAt, author: users.name })
     .from(messages)
     .leftJoin(users, eq(users.id, messages.authorUserId))
     .where(eq(messages.id, run.triggerMessageId))
@@ -129,6 +131,8 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
         )
       ).reverse()
     : []
+  const interrupted = await interruptNote(tx, run, trigger.at.toISOString())
+  const note = interrupted ? [interrupted.note] : []
   const msg: RunStart = {
     t: 'run.start',
     runId: run.id,
@@ -146,9 +150,14 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     },
     resumeSessionId,
     newSessionReason: gb.newSessionReason,
-    prompt: { text: trigger.body, triggeredBy: trigger.author ?? '', context, fallbackContext },
+    prompt: {
+      text: trigger.body,
+      triggeredBy: trigger.author ?? '',
+      context: [...context, ...note],
+      fallbackContext: resumeSessionId ? [...fallbackContext, ...note] : [],
+    },
   }
-  return { msg, triggerSeq: trigger.seq }
+  return { msg, triggerSeq: trigger.seq, settled: interrupted?.settled }
 }
 
 /** Humans' messages and bots' final replies; `limit` takes the latest ones (newest first). */

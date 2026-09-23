@@ -8,6 +8,7 @@ import { memberIds, postMessage } from '../messages/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { schedule } from './scheduler.js'
+import { notifyChainDone, stoppedDone } from './stop.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -88,6 +89,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       ...(done.usage && { usage: done.usage }),
       newSessionReason: done.newSessionReason,
       endedAt: ctx.now(),
+      ...(await stoppedDone(ctx, owned, done)),
     })
     .where(and(eq(runs.id, done.runId), inArray(runs.status, LIVE)))
     .returning()
@@ -110,4 +112,6 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   await publishRun(ctx, run)
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
+  // Last: relay hops created above keep the chain open.
+  await notifyChainDone(ctx, run)
 }

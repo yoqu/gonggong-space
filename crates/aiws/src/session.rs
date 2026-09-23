@@ -53,6 +53,8 @@ struct State {
     cancelled: HashSet<String>,
     active: Option<Active>,
     conn: Option<(ConnectionTo<Agent>, SessionId)>,
+    /// The last finished turn's snapshot (run id), kept for run.discard until the next turn starts (plan D7).
+    last: Option<(String, GitTurn)>,
 }
 
 impl Shared {
@@ -80,6 +82,7 @@ impl Shared {
             req.out.send(done(run_id, RunOutcome::Interrupted, Turn::default(), None, None, None, None));
             return false;
         }
+        s.last = None;
         s.active = Some(Active {
             run_id: run_id.clone(),
             tier: req.start.bot.tier,
@@ -115,17 +118,31 @@ impl Shared {
 
     /// Records the workspace's git state and the paths changed since `pre_turn` on the active turn.
     async fn post_turn(&self) {
-        let Some(g) = self.0.lock().unwrap().active.as_mut().and_then(|a| a.git.take()) else { return };
+        let Some((run_id, g)) =
+            self.0.lock().unwrap().active.as_mut().and_then(|a| Some((a.run_id.clone(), a.git.take()?)))
+        else {
+            return;
+        };
         let result =
             async { Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?)) };
-        match result.await {
-            Ok(git) => {
-                if let Some(a) = self.0.lock().unwrap().active.as_mut() {
-                    a.turn.git = Some(git);
-                }
-            }
-            Err(e) => tracing::warn!("git post-turn failed: {e}"),
+        let git = result.await.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
+        let mut s = self.0.lock().unwrap();
+        if let Some(a) = s.active.as_mut() {
+            a.turn.git = git;
         }
+        s.last = Some((run_id, g));
+    }
+
+    /// Restores the files `run_id` touched, if it is this conversation's last finished turn. None → not ours.
+    pub(crate) async fn discard(&self, run_id: &str) -> Option<Result<usize, String>> {
+        let g = {
+            let mut s = self.0.lock().unwrap();
+            if s.last.as_ref().is_none_or(|(id, _)| id != run_id) {
+                return None;
+            }
+            s.last.take()?.1
+        };
+        Some(git::discard(&g.cwd, &g.snap).await)
     }
 
     fn stream(&self, cx: &ConnectionTo<Agent>, session: &SessionId) {

@@ -167,6 +167,7 @@ export const RunDiscarded = z.object({
   files: z.number().int(),
   error: z.string().nullable(),
 })
+export type RunDiscarded = z.infer<typeof RunDiscarded>
 
 export const DaemonToServer = z.discriminatedUnion('t', [
   ApprovalRequest,

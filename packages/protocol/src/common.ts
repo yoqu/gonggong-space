@@ -23,6 +23,8 @@ export const RunStatus = z.enum([
 ])
 export type RunStatus = z.infer<typeof RunStatus>
 export const TERMINAL_RUN_STATUS: readonly RunStatus[] = ['forbidden', 'completed', 'interrupted', 'expired']
+/** Minutes a request for an offline bot waits before it expires (spec §4.8); groups override via params.offlineWaitMin. */
+export const DEFAULT_OFFLINE_WAIT_MIN = 30
 
 export const Usage = z.object({
   inputTokens: z.number().int().optional(),
