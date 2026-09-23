@@ -27,22 +27,23 @@ export const PARAM_DEFAULTS: SystemParams = {
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]
 
-let current: SystemParams = PARAM_DEFAULTS
-
-/** Current values, readable from synchronous code; the server runs as a single process so memory is authoritative. */
-export const sysParams = () => current
-
-/** Each param is one `system_params` row keyed by its name; stored values that no longer validate fall back. */
-export async function loadSysParams(db: Db) {
+/**
+ * Each param is one `system_params` row keyed by its name, read on use so every module sees a change at once.
+ * A stored value that no longer validates falls back to its default.
+ */
+export async function sysParams(db: Pick<Db, 'select'>): Promise<SystemParams> {
   const rows = await db.select().from(systemParams).where(inArray(systemParams.key, KEYS))
-  const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]))
-  const parsed = SystemParams.safeParse({ ...PARAM_DEFAULTS, ...stored })
-  current = parsed.success ? parsed.data : PARAM_DEFAULTS
-  return current
+  const out: Record<string, unknown> = { ...PARAM_DEFAULTS }
+  for (const r of rows) {
+    const key = r.key as keyof SystemParams
+    if (SystemParams.shape[key].safeParse(r.value).success) out[key] = r.value
+  }
+  return out as SystemParams
 }
 
 /** Saves the changed params and audits them as `{ key: [old, new] }`. */
 export async function saveSysParams(ctx: Ctx, patch: Partial<SystemParams>, actorUserId: string) {
+  const current = await sysParams(ctx.db)
   const next = SystemParams.parse({ ...current, ...patch })
   const changes = Object.fromEntries(
     KEYS.filter((k) => k in patch && next[k] !== current[k]).map((k) => [k, [current[k], next[k]]]),
@@ -58,7 +59,6 @@ export async function saveSysParams(ctx: Ctx, patch: Partial<SystemParams>, acto
         .onConflictDoUpdate({ target: systemParams.key, set: { value } })
     }
   })
-  current = next
   await audit(ctx, { category: 'admin', actorUserId, action: 'params.update', detail: { changes } })
-  return current
+  return next
 }

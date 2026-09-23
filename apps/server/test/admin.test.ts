@@ -14,7 +14,8 @@ import {
   runs,
   webSessions,
 } from '../src/db/schema.js'
-import { loadSysParams, sysParams } from '../src/modules/admin/params.js'
+import { summarize } from '../src/modules/admin/audit.js'
+import { sysParams } from '../src/modules/admin/params.js'
 import { timeoutMin } from '../src/modules/approvals/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -311,6 +312,17 @@ describe('audit query', () => {
     expect((await admin.get('/api/admin/audit?category=nope')).status).toBe(400)
   })
 
+  it('summarizes group settings changes', () => {
+    const none = { user: () => '', bot: () => '', runBot: () => '' }
+    const s = (action: string, d: Record<string, unknown>) => summarize({ category: 'admin', action }, d, none)
+    expect(s('group.params', { approvalTimeoutMin: 20, chainMaxHops: 1, offlineWaitMin: 30 })).toBe(
+      '修改群级参数：审批等待 20 分钟，接力链长上限 1 跳，离线等待 30 分钟',
+    )
+    expect(s('group.admin.grant', { userName: '李建国' })).toBe('设 李建国 为群管理员')
+    expect(s('group.dissolve', {})).toBe('解散群')
+    expect(s('something.new', {})).toBe('something.new')
+  })
+
   it('is sysadmin only', async () => {
     const m = await t.seed.user()
     expect((await client(t, await t.seed.cookie(m.id)).get('/api/admin/audit')).status).toBe(403)
@@ -347,7 +359,7 @@ describe('system params', () => {
     const res = await put(cookie, '/api/admin/params', { runRetentionDays: 14, chainMaxHops: 5 })
     expect(res.status).toBe(200)
     expect(res.body).toMatchObject({ runRetentionDays: 14, chainMaxHops: 5, offlineWaitMin: 30 })
-    expect(sysParams()).toMatchObject({ runRetentionDays: 14, chainMaxHops: 5 })
+    expect(await sysParams(t.db)).toMatchObject({ runRetentionDays: 14, chainMaxHops: 5 })
     expect((await admin.get<SystemParams>('/api/admin/params')).body.runRetentionDays).toBe(14)
     const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'params.update'))
     expect(log?.detail).toEqual({ changes: { runRetentionDays: [30, 14], chainMaxHops: [3, 5] } })
@@ -363,7 +375,7 @@ describe('system params', () => {
     const cookie = await t.seed.cookie(adminId)
     await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: 90, sessionReplayCount: 20 })
     await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: null })
-    expect(await loadSysParams(t.db)).toMatchObject({
+    expect(await sysParams(t.db)).toMatchObject({
       writerDisconnectReleaseSec: null,
       sessionReplayCount: 20,
     })
@@ -414,8 +426,8 @@ describe('system params', () => {
     )
     expect(tl.body.runs[0]).toMatchObject({ hopMax: 5, offlineWaitMin: 45 })
     const [row] = await t.db.select().from(groups).where(eq(groups.id, g.id))
-    expect(timeoutMin(row!)).toBe(20)
-    expect(timeoutMin({ ...row!, params: { approvalTimeoutMin: 7 } })).toBe(7)
+    expect(await timeoutMin(t.ctx, row!)).toBe(20)
+    expect(await timeoutMin(t.ctx, { ...row!, params: { approvalTimeoutMin: 7 } })).toBe(7)
   })
 
   it('new bots take the default concurrency', async () => {

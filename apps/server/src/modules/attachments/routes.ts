@@ -44,7 +44,7 @@ export function attachmentRoutes(ctx: Ctx) {
     /** multipart: the `groupId` field, then one `file`. */
     app.post('/api/uploads', async (req): Promise<Upload> => {
       const me = await requireUser(ctx, req)
-      const maxMb = sysParams().attachmentMaxMb
+      const maxMb = (await sysParams(ctx.db)).attachmentMaxMb
       const part = await req.file({ limits: { fileSize: maxMb * 1024 * 1024, files: 1 } })
       if (!part) return fail('invalid', '缺少文件')
       const field = part.fields.groupId

@@ -76,13 +76,14 @@ export function daemonGateway(ctx: Ctx) {
           })
           .where(eq(machines.id, machineId))
 
+        const { offlineMisses } = await sysParams(ctx.db)
         const conn: DaemonConn = { send: (m) => send(ws, m), close: (c, r) => ws.close(c, r) }
         let timer: NodeJS.Timeout | undefined
         const armTimeout = () => {
           clearTimeout(timer)
           timer = setTimeout(
             () => ws.close(CLOSE.timeout, 'heartbeat timeout'),
-            ctx.config.heartbeatSec * 1000 * sysParams().offlineMisses,
+            ctx.config.heartbeatSec * 1000 * offlineMisses,
           )
         }
         registered = true

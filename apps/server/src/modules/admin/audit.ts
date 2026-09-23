@@ -102,6 +102,16 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return `吊销 ${n.user(d.ownerId)} 的机器 ${str(d.name)}`
         case 'params.update':
           return `修改系统参数：${paramChanges(d)}`
+        case 'group.update':
+          return '修改群名称与公告'
+        case 'group.params':
+          return `修改群级参数：审批等待 ${d.approvalTimeoutMin} 分钟，接力链长上限 ${d.chainMaxHops} 跳，离线等待 ${d.offlineWaitMin} 分钟`
+        case 'group.admin.grant':
+          return `设 ${str(d.userName)} 为群管理员`
+        case 'group.admin.revoke':
+          return `取消 ${str(d.userName)} 的群管理员`
+        case 'group.dissolve':
+          return '解散群'
       }
   }
   return row.action

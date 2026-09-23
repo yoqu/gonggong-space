@@ -144,7 +144,7 @@ export function botRoutes(ctx: Ctx) {
           machineId: body.machineId,
           binding,
           systemPrompt: body.systemPrompt,
-          concurrency: sysParams().botConcurrencyDefault,
+          concurrency: (await sysParams(ctx.db)).botConcurrencyDefault,
           createdBy: user.id,
         })
         .returning()) as [BotRow]

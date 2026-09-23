@@ -2,13 +2,13 @@ import { buildApp } from './app.js'
 import type { Ctx } from './context.js'
 import { DaemonHub } from './daemon/hub.js'
 import { migrateDb, openDb } from './db/client.js'
-import { loadSysParams } from './modules/admin/params.js'
+import { sysParams } from './modules/admin/params.js'
 import { ensureBootstrapAdmin } from './modules/auth/bootstrap.js'
 import { Bus } from './realtime/bus.js'
 
 const { db } = openDb()
 await migrateDb(db)
-const { heartbeatSec } = await loadSysParams(db)
+const { heartbeatSec } = await sysParams(db)
 const ctx: Ctx = {
   db,
   bus: new Bus(),

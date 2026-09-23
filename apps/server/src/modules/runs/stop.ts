@@ -5,8 +5,8 @@ import type { Db } from '../../db/client.js'
 import { bots, groups, notifications, runs, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { sysParams } from '../admin/params.js'
 import { voidApprovals } from '../approvals/service.js'
+import { groupParamDefaults } from '../groups/params.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { voidQuestions } from '../questions/service.js'
@@ -236,7 +236,8 @@ function discard(ctx: Ctx, machineId: string, runId: string) {
 
 /** Spec §4.8: requests for an offline bot expire after the group's wait and the trigger user is told. */
 export async function expireOfflineRuns(ctx: Ctx) {
-  const waitMin = sql<number>`coalesce((${groups.params}->>'offlineWaitMin')::int, ${sysParams().offlineWaitMin})`
+  const { offlineWaitMin } = await groupParamDefaults(ctx)
+  const waitMin = sql<number>`coalesce((${groups.params}->>'offlineWaitMin')::int, ${offlineWaitMin})`
   const due = await ctx.db
     .select({ run: runs, waitMin, groupName: groups.name, botName: bots.name, trigger: users.name })
     .from(runs)

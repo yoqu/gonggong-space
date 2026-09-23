@@ -137,7 +137,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
         await contextMessages(
           tx,
           and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
-          sysParams().sessionReplayCount,
+          (await sysParams(tx)).sessionReplayCount,
         )
       ).reverse()
     : []

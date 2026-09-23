@@ -37,7 +37,7 @@ export async function onQuestionAsk(ctx: Ctx, machineId: string, ask: QuestionAs
       runId: ask.runId,
       requestId: ask.requestId,
       questions: ask.questions,
-      expiresAt: new Date(ctx.now().getTime() + timeoutMin(row.group) * 60_000),
+      expiresAt: new Date(ctx.now().getTime() + (await timeoutMin(ctx, row.group)) * 60_000),
       createdAt: ctx.now(),
     })
     .returning()) as [QuestionSet]

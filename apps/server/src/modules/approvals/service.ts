@@ -3,7 +3,7 @@ import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
-import { sysParams } from '../admin/params.js'
+import { groupParams } from '../groups/params.js'
 import { notify } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
 
@@ -30,10 +30,10 @@ const scoped = (ctx: Ctx) =>
     .innerJoin(runs, eq(runs.id, approvals.runId))
     .innerJoin(bots, eq(bots.id, runs.botId))
 
-export function timeoutMin(group: typeof groups.$inferSelect) {
+export async function timeoutMin(ctx: Ctx, group: typeof groups.$inferSelect) {
   const custom = (group.params as { approvalTimeoutMin?: unknown }).approvalTimeoutMin
   if (typeof custom === 'number' && custom > 0) return custom
-  return group.mode === 'force' ? FORCE_TIMEOUT_MIN : sysParams().approvalTimeoutMin
+  return group.mode === 'force' ? FORCE_TIMEOUT_MIN : (await groupParams(ctx, group)).approvalTimeoutMin
 }
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */
@@ -45,7 +45,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, req: Approv
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(and(eq(runs.id, req.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
   if (!row) return
-  const expiresAt = new Date(ctx.now().getTime() + timeoutMin(row.group) * 60_000)
+  const expiresAt = new Date(ctx.now().getTime() + (await timeoutMin(ctx, row.group)) * 60_000)
   const [a] = (await ctx.db
     .insert(approvals)
     .values({

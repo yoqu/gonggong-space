@@ -64,7 +64,7 @@ export function adminRoutes(ctx: Ctx) {
 
     app.get('/api/admin/params', async (req): Promise<SystemParams> => {
       await requireSysadmin(ctx, req)
-      return sysParams()
+      return sysParams(ctx.db)
     })
 
     app.put('/api/admin/params', async (req): Promise<SystemParams> => {
