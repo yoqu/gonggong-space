@@ -85,12 +85,13 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
     await expect(bar.getByTestId(`git-${claude.id}`)).toContainText('/cd 绑定', { timeout: 30_000 })
     const foreign = remoteRepo().cloneTo('foreign')
     await say(page, `/cd @仓库 Codex ${foreign}`)
-    await expect(page.getByText(/remote 与群仓库不一致/)).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('main').getByText(/remote 与群仓库不一致/)).toBeVisible({ timeout: 30_000 })
     await expect(bar.getByTestId(`git-${codex.id}`)).toContainText('托管')
 
     // /new → the next run opens a fresh session and says so.
     await say(page, '/new @仓库 Codex')
-    await expect(page.getByText('仓库 Codex 下一轮将开新会话')).toBeVisible()
+    // Scoped to the timeline: the sidebar previews the same line as the group's last message.
+    await expect(page.getByRole('main').getByText('仓库 Codex 下一轮将开新会话')).toBeVisible()
     const fresh = await runTo(page, '@仓库 Codex 只回复 ok')
     await expect(fresh).toContainText('已按要求开启新会话')
   } finally {

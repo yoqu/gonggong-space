@@ -4,7 +4,8 @@ import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
 
 export type MessageRow = typeof messages.$inferSelect
-export type MessageMeta = { mentions?: string[]; clientId?: string }
+/** `command`: the system command this message invoked (never replayed to agents as context). */
+export type MessageMeta = { mentions?: string[]; clientId?: string; command?: string }
 
 export const messageDto = (m: MessageRow, authorName: string): MessageDto => ({
   id: m.id,

@@ -74,7 +74,10 @@ export async function schedule(ctx: Ctx, botId: string) {
           busyGroups.add(run.groupId)
           await tx
             .update(groupBots)
-            .set({ contextSeq: sql`greatest(${groupBots.contextSeq}, ${start.triggerSeq})` })
+            .set({
+              contextSeq: sql`greatest(${groupBots.contextSeq}, ${start.triggerSeq})`,
+              newSessionReason: null,
+            })
             .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, bot.id)))
           out.push(running)
         } else await setRun(run.id, OFFLINE)
@@ -115,7 +118,9 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
     ),
   )
-  const fallbackContext = gb.sessionId
+  // A /new request wins over any session id a still-running turn reported after the request.
+  const resumeSessionId = gb.newSessionReason ? null : gb.sessionId
+  const fallbackContext = resumeSessionId
     ? (
         await contextMessages(
           tx,
@@ -139,8 +144,8 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       repo: repo ? { id: repo.id, url: repo.url, branch: repo.baseBranch } : null,
       cdPath: gb.cdPath,
     },
-    resumeSessionId: gb.sessionId,
-    newSessionReason: null,
+    resumeSessionId,
+    newSessionReason: gb.newSessionReason,
     prompt: { text: trigger.body, triggeredBy: trigger.author ?? '', context, fallbackContext },
   }
   return { msg, triggerSeq: trigger.seq }
@@ -160,7 +165,7 @@ async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): 
     .from(messages)
     .leftJoin(users, eq(users.id, messages.authorUserId))
     .leftJoin(bots, eq(bots.id, messages.authorBotId))
-    .where(and(where, inArray(messages.kind, ['user', 'bot'])))
+    .where(and(where, inArray(messages.kind, ['user', 'bot']), sql`${messages.meta}->>'command' is null`))
   const rows = await (limit ? q.orderBy(desc(messages.seq)).limit(limit) : q.orderBy(asc(messages.seq)))
   return rows.map((r) => ({
     seq: r.seq,

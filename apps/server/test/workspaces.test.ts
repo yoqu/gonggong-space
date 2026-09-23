@@ -10,7 +10,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
-import { requestCd } from '../src/modules/workspaces/provision.js'
+import { requestCd } from '../src/modules/workspaces/cd.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { bareRepo } from './support/git.js'
 import { client } from './support/http.js'
@@ -299,42 +299,43 @@ describe('/cd requests', () => {
     d.send(reply(await d.next()))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
     const repo = await w.repoOf(g.id)
+    const said = (text: string) => until(async () => (await w.bodies(g.id)).includes(text))
 
-    const bad = await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/tmp/foreign' })
+    expect(await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/tmp/foreign' })).toBe(true)
     const badReq = await d.next()
     expect(badReq).toMatchObject({
       t: 'workspace.cd',
-      requestId: bad!.requestId,
       path: '/tmp/foreign',
       repo: { id: repo.id, url: w.repo.url, branch: 'main' },
     })
     d.send(reply(badReq, { state: 'failed', path: null, git: null, error: 'remote 与群仓库不一致（x）' }))
-    expect(await bad!.reply).toMatchObject({ state: 'failed', error: 'remote 与群仓库不一致（x）' })
+    await said('小王的 Claude /cd 失败：remote 与群仓库不一致（x）')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed', error: null })
 
-    const good = await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/clone' })
-    const goodReq = await d.next()
-    d.send(reply(goodReq, { path: '/src/clone', git: { ...git, workspace: 'cd' } }))
-    expect(await good!.reply).toMatchObject({ state: 'ready' })
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/clone' })
+    d.send(reply(await d.next(), { path: '/src/clone', git: { ...git, workspace: 'cd' } }))
+    await said('✓ 小王的 Claude 已绑定到 /src/clone（/cd 绑定）')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'cd' })
     const [row] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, g.id))
     expect(row).toMatchObject({ cdPath: '/src/clone', workspacePath: '/src/clone' })
 
-    const back = await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: null })
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: null })
     const backReq = await d.next()
     expect(backReq).toMatchObject({ t: 'workspace.cd', path: null })
+    d.send(reply(backReq, { state: 'cloning', path: null, git: null }))
     d.send(reply(backReq))
-    await back!.reply
+    await said('✓ 小王的 Claude 已恢复托管工作区')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed' })
+    expect((await w.bodies(g.id)).filter((b) => b.includes('/cd') || b.includes('恢复托管'))).toHaveLength(3)
   })
 
-  it('returns null when the owner is offline or the group has no repo', async () => {
+  it('returns false when the owner is offline or the group has no repo', async () => {
     const w = await world()
     const g = await w.createGroup()
-    expect(await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/x' })).toBeNull()
+    expect(await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/x' })).toBe(false)
     await daemon(w.a.token)
     const plain = await w.createGroup({ repo: false })
-    expect(await requestCd(t.ctx, { groupId: plain.id, botId: w.bot.id, path: '/x' })).toBeNull()
+    expect(await requestCd(t.ctx, { groupId: plain.id, botId: w.bot.id, path: '/x' })).toBe(false)
   })
 })
 

@@ -3,6 +3,7 @@ import type { DaemonToServer, WorkspaceState } from '@aiws/protocol'
 import { and, asc, eq, isNull, ne } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupRepos, groups } from '../../db/schema.js'
+import { onCdResult } from '../commands/cd.js'
 import { postEvent } from '../messages/service.js'
 import { schedule } from '../runs/scheduler.js'
 import { updateBotState } from './state.js'
@@ -10,7 +11,7 @@ import { updateBotState } from './state.js'
 type BotRef = { id: string; name: string; machineId: string | null }
 
 /** An ensure / cd request awaiting its daemon's answer. Only the latest ensure per (group, bot) is kept. */
-interface Pending {
+export interface Pending {
   kind: 'ensure' | 'cd'
   machineId: string
   groupId: string
@@ -20,9 +21,17 @@ interface Pending {
   cdPath: string | null
   /** The ensure was part of the bot joining the group (event wording). */
   joined: boolean
-  resolve?: (s: WorkspaceState | null) => void
 }
 const pending = new Map<string, Pending>()
+
+/** Registers a request about to be sent; returns its requestId. */
+export function track(p: Pending) {
+  const requestId = randomUUID()
+  pending.set(requestId, p)
+  return requestId
+}
+
+export const forget = (requestId: string) => pending.delete(requestId)
 
 const MANAGED = {
   workspaceKind: 'managed',
@@ -42,14 +51,8 @@ export async function currentRepo(ctx: Ctx, groupId: string) {
   return repo ?? null
 }
 
-const onlineMachine = (ctx: Ctx, machineId: string | null) =>
+export const onlineMachine = (ctx: Ctx, machineId: string | null) =>
   machineId && ctx.hub.isOnline(machineId) ? machineId : null
-
-function settle(requestId: string, state: WorkspaceState | null) {
-  const req = pending.get(requestId)
-  pending.delete(requestId)
-  req?.resolve?.(state)
-}
 
 /**
  * Makes the bot's managed workspace match the group's current repo: repo-less groups are ready at once (the daemon
@@ -71,8 +74,7 @@ export async function ensureWorkspace(
   if (!machineId) return
   for (const [id, p] of pending)
     if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) pending.delete(id)
-  const requestId = randomUUID()
-  pending.set(requestId, {
+  const requestId = track({
     kind: 'ensure',
     machineId,
     groupId,
@@ -82,48 +84,9 @@ export async function ensureWorkspace(
     joined: o.joined,
   })
   if (!ctx.hub.send(machineId, { t: 'workspace.ensure', requestId, groupId, botId: bot.id, repo })) {
-    pending.delete(requestId)
+    forget(requestId)
     await updateBotState(ctx, groupId, bot.id, { workspaceState: 'pending' })
   }
-}
-
-/**
- * /cd: asks the owner's daemon to bind the bot to a local directory (`path: null` = back to managed). Returns right
- * after sending; `reply` resolves with the daemon's answer (null if the machine went offline or the request became
- * stale). A refused /cd leaves the current workspace untouched. Returns null when the group has no repo or the
- * machine is offline.
- */
-export async function requestCd(ctx: Ctx, o: { groupId: string; botId: string; path: string | null }) {
-  const repo = await currentRepo(ctx, o.groupId)
-  const [bot] = await ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, o.botId))
-  const machineId = onlineMachine(ctx, bot?.machineId ?? null)
-  if (!repo || !machineId) return null
-  const requestId = randomUUID()
-  const reply = new Promise<WorkspaceState | null>((resolve) =>
-    pending.set(requestId, {
-      kind: 'cd',
-      machineId,
-      ...o,
-      repoId: repo.id,
-      cdPath: o.path,
-      joined: false,
-      resolve,
-    }),
-  )
-  if (
-    !ctx.hub.send(machineId, {
-      t: 'workspace.cd',
-      requestId,
-      groupId: o.groupId,
-      botId: o.botId,
-      repo,
-      path: o.path,
-    })
-  ) {
-    settle(requestId, null)
-    return null
-  }
-  return { requestId, reply }
 }
 
 async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
@@ -144,19 +107,21 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
       ),
     )
   if (!row) return
-  if (req && (await currentRepo(ctx, msg.groupId))?.id !== req.repoId)
-    return settle(msg.requestId as string, null)
-  if (req && msg.state !== 'cloning') settle(msg.requestId as string, msg)
-  if (req?.kind === 'cd' && req.cdPath && msg.state !== 'ready') return
+  if (req && msg.state !== 'cloning') forget(msg.requestId as string)
+  // Answers for the group's previous repo are stale.
+  if (req && (await currentRepo(ctx, msg.groupId))?.id !== req.repoId) return
 
-  await updateBotState(ctx, msg.groupId, msg.botId, {
-    workspaceState: msg.state,
-    workspaceError: msg.error,
-    ...(msg.path && { workspacePath: msg.path }),
-    ...(msg.git && { gitStatus: msg.git }),
-    ...(req?.kind === 'cd' &&
-      msg.state === 'ready' && { workspaceKind: req.cdPath ? 'cd' : 'managed', cdPath: req.cdPath }),
-  })
+  // A refused /cd leaves the current workspace untouched.
+  if (!(req?.kind === 'cd' && req.cdPath && msg.state !== 'ready'))
+    await updateBotState(ctx, msg.groupId, msg.botId, {
+      workspaceState: msg.state,
+      workspaceError: msg.error,
+      ...(msg.path && { workspacePath: msg.path }),
+      ...(msg.git && { gitStatus: msg.git }),
+      ...(req?.kind === 'cd' &&
+        msg.state === 'ready' && { workspaceKind: req.cdPath ? 'cd' : 'managed', cdPath: req.cdPath }),
+    })
+  if (req?.kind === 'cd' && msg.state !== 'cloning') await onCdResult(ctx, msg, req.cdPath === null)
   if (req?.kind === 'ensure' && msg.state === 'ready')
     await postEvent(
       ctx,
@@ -199,7 +164,7 @@ export function startWorkspaceEngine(ctx: Ctx) {
   }
   const online = (machineId: string) => enqueue(() => onOnline(ctx, machineId))
   const offline = (machineId: string) => {
-    for (const [id, p] of pending) if (p.machineId === machineId) settle(id, null)
+    for (const [id, p] of pending) if (p.machineId === machineId) pending.delete(id)
   }
   ctx.hub.on('message', onMessage)
   ctx.hub.on('online', online)
