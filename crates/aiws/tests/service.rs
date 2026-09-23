@@ -37,6 +37,7 @@ fn service(port: u16, handler: Recorder) -> Service<Recorder> {
         handler,
         max_backoff: Duration::from_millis(50),
         upgrader: None,
+        monitor: Default::default(),
     }
 }
 

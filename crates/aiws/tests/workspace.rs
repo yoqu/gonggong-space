@@ -258,6 +258,7 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
     let start = |run_id: &str, cd: Option<&Path>| RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
+        group_name: "支付服务重构".into(),
         bot: RunBot {
             id: "b1".into(),
             name: "bot".into(),

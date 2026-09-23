@@ -79,6 +79,7 @@ export const RunStart = z.object({
   t: z.literal('run.start'),
   runId: z.string(),
   groupId: z.string(),
+  groupName: z.string(),
   bot: z.object({
     id: z.string(),
     name: z.string(),

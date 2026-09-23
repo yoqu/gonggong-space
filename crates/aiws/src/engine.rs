@@ -19,7 +19,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`.
-const ADAPTERS: [(AgentKind, &str, &str); 2] = [
+pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "1.13.0"),
 ];

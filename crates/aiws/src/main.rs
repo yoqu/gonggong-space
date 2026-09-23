@@ -1,12 +1,10 @@
 use aiws::bind::machine_info;
 use aiws::config::{self, Config};
-use aiws::engine::{Engine, EngineConfig};
+use aiws::daemon::{Daemon, Options};
 use aiws::protocol::RejectReason;
-use aiws::service::{Fatal, Service};
-use aiws::upgrade::Upgrader;
+use aiws::service::Fatal;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "aiws", version, about = "AIWS daemon: runs your team bots on this machine")]
@@ -60,9 +58,6 @@ fn config() -> anyhow::Result<Config> {
     Config::load()?.context("尚未绑定，请先执行 aiws login")
 }
 
-const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
-const MAX_BACKOFF: Duration = Duration::from_secs(30);
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_env("AIWS_LOG")).init();
@@ -99,25 +94,12 @@ async fn main() -> anyhow::Result<()> {
             None => println!("未绑定"),
         },
         Cmd::Run { adapter_cmd } => {
-            let config = config()?;
-            let service = Service {
-                config: config.clone(),
-                machine: machine_info(),
-                agents: aiws::agents::detect(),
-                handler: Engine::new(EngineConfig {
-                    home: config::home(),
-                    adapter_cmd,
-                    idle: IDLE_REAP,
-                    api: Some(config.clone()),
-                }),
-                max_backoff: MAX_BACKOFF,
-                upgrader: Upgrader::from_env(config::home(), &config)?,
-            };
-            let fatal = service.run().await;
-            eprintln!("{fatal}");
-            if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = fatal {
+            let options = Options { home: config::home(), config: config()?, adapter_cmd, self_upgrade: true };
+            let stopped = Daemon::start(options)?.wait().await;
+            eprintln!("{}", stopped.fatal);
+            if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = stopped.fatal {
                 eprintln!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据：");
-                for path in aiws::revoke::wipe(&config::home()) {
+                for path in stopped.wiped {
                     eprintln!("  已删除 {}", path.display());
                 }
             }

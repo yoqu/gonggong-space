@@ -1,0 +1,337 @@
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+}
+input {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.dk-window {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-window-bg);
+}
+.dk-flex {
+  flex: 1;
+}
+.dk-strong {
+  font-weight: 600;
+}
+.dk-sub {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.dk-mono {
+  font-family: var(--font-mono);
+}
+.dk-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.dk-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-wrap: pretty;
+}
+.dk-mono-hint {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
+.dk-eyebrow {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  color: var(--color-text-tertiary);
+}
+
+/* Title bar: 70px inset leaves room for the native traffic lights. */
+.dk-titlebar {
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  background: var(--color-titlebar-bg);
+  border-bottom: 1px solid var(--color-separator);
+}
+.dk-titlebar__lights {
+  width: 52px;
+  flex: none;
+}
+.dk-titlebar__name {
+  font-weight: 600;
+}
+.dk-titlebar__ver {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.dk-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  font-size: 11px;
+}
+.dk-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.dk-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.dk-nav {
+  width: 200px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--color-panel-bg);
+  border-right: 1px solid var(--color-separator);
+}
+.dk-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.dk-nav__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dk-nav__item--active,
+.dk-nav__item--active:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.dk-nav__me {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 11px;
+}
+.dk-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dk-main__header h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 600;
+}
+.dk-main__header p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.dk-statusline {
+  height: 28px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--color-titlebar-bg);
+  border-top: 1px solid var(--color-separator);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* Overview */
+.dk-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-separator);
+  overflow: hidden;
+}
+.dk-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  background: var(--color-panel-bg);
+}
+.dk-stat__k,
+.dk-stat__s {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.dk-stat__v {
+  font-size: 15px;
+  font-weight: 600;
+}
+.dk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dk-card {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+}
+.dk-card--muted {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.dk-run {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dk-run__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dk-run__step {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* Settings */
+.dk-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  overflow: hidden;
+}
+.dk-list__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-separator);
+  font-size: 12px;
+}
+.dk-list__row:last-child {
+  border-bottom: 0;
+}
+.dk-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.dk-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Onboarding and shared rows */
+.dk-onboarding {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+.dk-onboarding__panel {
+  width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.dk-onboarding__title {
+  font-size: 24px;
+  font-weight: 600;
+}
+.dk-onboarding__desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}
+.dk-onboarding__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.dk-code-input {
+  height: 40px;
+  font-size: 18px;
+  letter-spacing: 0.16em;
+}
+.dk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.dk-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.dk-row__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dk-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.dk-install {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color-preview-bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.dk-install__cmd {
+  flex: 1;
+  user-select: text;
+  -webkit-user-select: text;
+}

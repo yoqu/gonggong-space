@@ -1,0 +1,72 @@
+import { vi } from 'vitest'
+import type { AppInfo, DaemonStatus, RunInfo } from '../src/ipc'
+
+vi.mock('../src/ipc', () => ({
+  ipc: {
+    appInfo: vi.fn(),
+    snapshot: vi.fn(),
+    login: vi.fn(),
+    detectAgents: vi.fn(),
+    startDaemon: vi.fn(),
+    machineBots: vi.fn(),
+    confirmBots: vi.fn(),
+    overview: vi.fn(),
+    settings: vi.fn(),
+    setAutoUpgrade: vi.fn(),
+    setLaunchAtLogin: vi.fn(),
+    unbind: vi.fn(),
+  },
+  onSnapshot: vi.fn(async () => () => {}),
+}))
+
+export const INFO: AppInfo = {
+  version: '0.1.0',
+  protocol: 1,
+  machine: { name: 'wanglei-mbp', os: 'macos', arch: 'aarch64' },
+  ownerName: '王磊',
+  server: 'https://aiws.corp.cn',
+  certPinned: true,
+  workspacesDir: '/Users/wl/.aiws/workspaces',
+  backupsDir: '/Users/wl/.aiws/backups',
+  adapters: [
+    { kind: 'claude', package: '@agentclientprotocol/claude-agent-acp', version: '0.81.0' },
+    { kind: 'codex', package: '@agentclientprotocol/codex-acp', version: '1.13.0' },
+  ],
+}
+
+export function run(over: Partial<RunInfo>): RunInfo {
+  return {
+    runId: 'r1',
+    groupId: 'g1',
+    groupName: '支付服务重构',
+    botId: 'b1',
+    botName: '小王的 Claude',
+    triggeredBy: '王磊',
+    status: 'running',
+    step: 'go build ./...',
+    queued: false,
+    startedMs: 0,
+    ...over,
+  }
+}
+
+export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
+  return {
+    conn: { state: 'online', sinceMs: 0 },
+    heartbeatSec: 15,
+    lastHeartbeatMs: Date.now() - 3000,
+    latencyMs: 38,
+    agents: [
+      {
+        kind: 'claude',
+        available: true,
+        version: '2.1.4',
+        path: '/opt/homebrew/bin/claude',
+        minVersion: '2.0.0',
+      },
+      { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0' },
+    ],
+    runs: [],
+    ...over,
+  }
+}

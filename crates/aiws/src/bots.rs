@@ -2,10 +2,10 @@
 use crate::config::Config;
 use crate::protocol::AgentKind;
 use anyhow::{Result, anyhow, bail};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-/// Subset of the server's `BotDto` that the CLI needs.
-#[derive(Debug, Clone, Deserialize)]
+/// Subset of the server's `BotDto` that the CLI and the desktop app need.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bot {
     pub id: String,
@@ -13,9 +13,13 @@ pub struct Bot {
     pub agent_kind: AgentKind,
     pub binding: Binding,
     pub presence: String,
+    #[serde(default)]
+    pub system_prompt: String,
+    #[serde(default)]
+    pub concurrency: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Binding {
     PendingBind,

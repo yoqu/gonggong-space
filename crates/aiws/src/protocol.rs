@@ -219,6 +219,8 @@ pub struct RunPrompt {
 pub struct RunStart {
     pub run_id: String,
     pub group_id: String,
+    #[serde(default)]
+    pub group_name: String,
     pub bot: RunBot,
     pub workspace: WorkspaceSpec,
     pub resume_session_id: Option<String>,

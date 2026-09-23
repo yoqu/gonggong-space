@@ -2,7 +2,7 @@ import type { AgentKind, ContextMessage, RunStart, Tier } from '@aiws/protocol'
 import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
+import { bots, groupBots, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
 import { sysParams } from '../admin/params.js'
 import { publishBot } from '../bots/dto.js'
 import { enabledMcpServers } from '../mcp/routes.js'
@@ -110,6 +110,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .leftJoin(users, eq(users.id, messages.authorUserId))
     .leftJoin(bots, eq(bots.id, messages.authorBotId))
     .where(eq(messages.id, run.triggerMessageId))
+  const [group] = await tx.select({ name: groups.name }).from(groups).where(eq(groups.id, run.groupId))
   const [gb] = await tx
     .select()
     .from(groupBots)
@@ -120,7 +121,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .where(eq(groupRepos.groupId, run.groupId))
     .orderBy(asc(groupRepos.createdAt))
     .limit(1)
-  if (!trigger || !gb) throw new Error(`run ${run.id} lost its trigger message or group membership`)
+  if (!trigger || !gb || !group) throw new Error(`run ${run.id} lost its trigger message or group membership`)
   const context = await contextMessages(
     tx,
     and(
@@ -149,6 +150,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     t: 'run.start',
     runId: run.id,
     groupId: run.groupId,
+    groupName: group.name,
     bot: {
       id: bot.id,
       name: bot.name,
