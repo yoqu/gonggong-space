@@ -319,6 +319,15 @@ describe('chat view', () => {
     expect(card.textContent).toContain('会话恢复失败')
     push({ t: 'message.new', message: msg({ seq: 9, authorId: 'u2', authorName: '李建国', body: '收到' }) })
     expect(within(main).getByText('收到')).toBeTruthy()
+
+    expect(within(main).getByTestId('git-bar').textContent).toContain('老李的 Codex待创建托管')
+    const git = { branch: 'main', ahead: 0, behind: 1, dirty: true, workspace: 'managed' as const }
+    push({
+      t: 'group.botState',
+      groupId: 'g1',
+      state: { botId: 'b1', workspace: 'managed', state: 'ready', git, error: null },
+    })
+    expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1 ↑0未提交托管')
   })
 
   it('sends with Enter once, deduping the realtime echo, and suggests @ candidates', async () => {

@@ -1,6 +1,7 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::engine::Inner;
-use crate::protocol::{DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage};
+use crate::git;
+use crate::protocol::{DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind};
 use crate::service::Outbox;
 use crate::turn::{Turn, client_meta, compose_prompt, mode_for, permission_choice, session_failure, system_prompt};
 use agent_client_protocol::schema::ProtocolVersion;
@@ -32,6 +33,14 @@ struct Active {
     turn: Turn,
     /// False while the session is being set up (session/load replays history we must not forward).
     streaming: bool,
+    /// Set when the turn runs in a repo workspace.
+    git: Option<GitTurn>,
+}
+
+struct GitTurn {
+    cwd: PathBuf,
+    kind: WorkspaceKind,
+    snap: git::Snapshot,
 }
 
 /// State shared between the session task, ACP callbacks and the engine (for cancel).
@@ -77,8 +86,46 @@ impl Shared {
             out: req.out.clone(),
             turn: Turn::default(),
             streaming: false,
+            git: None,
         });
         true
+    }
+
+    /// Spec §5.2 before the prompt in a repo workspace: fetch / fast-forward, report it, and arm change tracking.
+    /// Returns the note for the agent's context (§4.5).
+    async fn pre_turn(&self, req: &TurnReq) -> Option<String> {
+        if !git::is_repo(&req.cwd) {
+            return None;
+        }
+        let pre = git::pre_turn(&req.cwd).await.inspect_err(|e| tracing::warn!("git pre-turn failed: {e}")).ok()?;
+        let event = RunEvent::Status { status: RunStatus::Running, step: pre.step() };
+        req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
+        match git::snapshot(&req.cwd).await {
+            Ok(snap) => {
+                let kind =
+                    if req.start.workspace.cd_path.is_some() { WorkspaceKind::Cd } else { WorkspaceKind::Managed };
+                if let Some(a) = self.0.lock().unwrap().active.as_mut() {
+                    a.git = Some(GitTurn { cwd: req.cwd.clone(), kind, snap });
+                }
+            }
+            Err(e) => tracing::warn!("git snapshot failed: {e}"),
+        }
+        Some(pre.note())
+    }
+
+    /// Records the workspace's git state and the paths changed since `pre_turn` on the active turn.
+    async fn post_turn(&self) {
+        let Some(g) = self.0.lock().unwrap().active.as_mut().and_then(|a| a.git.take()) else { return };
+        let result =
+            async { Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?)) };
+        match result.await {
+            Ok(git) => {
+                if let Some(a) = self.0.lock().unwrap().active.as_mut() {
+                    a.turn.git = Some(git);
+                }
+            }
+            Err(e) => tracing::warn!("git post-turn failed: {e}"),
+        }
     }
 
     fn stream(&self, cx: &ConnectionTo<Agent>, session: &SessionId) {
@@ -180,16 +227,18 @@ fn done(
     new_session_reason: Option<String>,
     error: Option<String>,
 ) -> DaemonToServer {
+    // Shell edits (Codex) carry no tool locations: git sees them.
+    let (git, git_changed) = turn.git.map_or((None, 0), |(g, n)| (Some(g), n));
     DaemonToServer::RunDone(RunDone {
         run_id: run_id.into(),
         outcome,
-        files_changed: turn.files.len() as u32,
+        files_changed: turn.files.len().max(git_changed) as u32,
         usage: usage.or(turn.usage),
         reply: turn.reply,
         session_id,
         new_session_reason,
         error,
-        git: None,
+        git,
     })
 }
 
@@ -223,6 +272,7 @@ pub(crate) async fn run(engine: Arc<Inner>, shared: Arc<Shared>, mut rx: mpsc::U
         let error = result.err().unwrap_or_else(|| "agent 进程意外退出".into());
         if shared.0.lock().unwrap().active.is_some() {
             tracing::warn!("adapter ended mid-turn: {error}");
+            shared.post_turn().await;
             shared.finish(Err(error), resume.as_ref(), None);
         }
     }
@@ -326,14 +376,17 @@ impl Conversation<'_> {
                 Err(e) => tracing::warn!("session/set_mode {mode} failed: {e}"),
             }
         }
+        // Before streaming, so a /stop during the fetch still cancels the prompt.
+        let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = compose_prompt(&s.prompt, history);
+        let text = compose_prompt(&s.prompt, history, git_note.as_deref());
         let prompt = PromptRequest::new(session.clone(), vec![ContentBlock::Text(TextContent::new(text))]);
         match self.cx.send_request(prompt).block_task().await {
             // The adapter died: leave the turn active so the caller reports the exit status and stderr instead.
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
+                self.shared.post_turn().await;
                 self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
                 // A failed prompt may mean a broken adapter: restart it for the next turn.
                 error.map_or(Ok(()), Err)

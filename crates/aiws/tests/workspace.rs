@@ -1,8 +1,9 @@
 //! Managed clones and /cd validation against local bare repos, driven through the Engine like the server does.
 use aiws::engine::{Engine, EngineConfig};
+use aiws::git;
 use aiws::protocol::*;
 use aiws::service::{Handler, Outbox};
-use aiws::workspace::{git_status, managed_path};
+use aiws::workspace::managed_path;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -232,7 +233,7 @@ async fn git_status_tracks_ahead_behind_dirty_and_missing_upstream() {
     remote.commit("c.txt", "c");
     git(&dir, &["fetch", "-q"]);
     std::fs::write(dir.join("new.txt"), "x").unwrap();
-    let s = git_status(&dir, WorkspaceKind::Managed).await;
+    let s = git::status(&dir, WorkspaceKind::Managed).await.unwrap();
     assert_eq!(
         s,
         GitStatus {
@@ -245,7 +246,7 @@ async fn git_status_tracks_ahead_behind_dirty_and_missing_upstream() {
     );
 
     git(&dir, &["checkout", "-q", "-b", "feat/x"]);
-    let s = git_status(&dir, WorkspaceKind::Cd).await;
+    let s = git::status(&dir, WorkspaceKind::Cd).await.unwrap();
     assert_eq!((s.branch.as_deref(), s.ahead, s.behind), (Some("feat/x"), None, None));
 }
 

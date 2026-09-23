@@ -8,6 +8,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { Badge, EmptyState, IconButton, Spinner } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { GitBar } from './GitBar'
 import { GroupRepoDialog } from './GroupRepoDialog'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RunCard, UserMessage } from './TimelineItems'
@@ -120,6 +121,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           <span className="chat-notice__text">{group.notice}</span>
         </div>
       ) : null}
+      <GitBar group={group} />
       <div className="timeline" ref={box} onScroll={onScroll}>
         {!tl.loaded ? (
           <div className="timeline__loading">

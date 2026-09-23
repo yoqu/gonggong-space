@@ -5,6 +5,7 @@ import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
 import { publishBot } from '../bots/dto.js'
 import { memberIds, postMessage } from '../messages/service.js'
+import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { schedule } from './scheduler.js'
 
@@ -96,6 +97,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       .update(groupBots)
       .set({ sessionId: done.sessionId })
       .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
+  if (done.git) await updateBotState(ctx, run.groupId, run.botId, { gitStatus: done.git })
   if (done.reply.trim())
     await postMessage(ctx, {
       groupId: run.groupId,

@@ -1,4 +1,12 @@
-import type { BotDto, GroupDto, MachineDto, MessageDto, NotificationDto, WebEvent } from '@aiws/protocol'
+import type {
+  BotDto,
+  GroupBotStateDto,
+  GroupDto,
+  MachineDto,
+  MessageDto,
+  NotificationDto,
+  WebEvent,
+} from '@aiws/protocol'
 import { create } from 'zustand'
 import { api } from '../lib/api'
 import { useSession } from './session'
@@ -9,6 +17,8 @@ interface WorkspaceState {
   bots: BotDto[]
   machines: MachineDto[]
   notifCount: number
+  /** Per-group workspace state of each bot (groupId → botId → state), loaded when a group is opened. */
+  botStates: Record<string, Record<string, GroupBotStateDto>>
   /** The group open in the chat view; its new messages don't count as unread. */
   activeGroupId: string | null
   setActiveGroup: (id: string | null) => void
@@ -35,6 +45,7 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
   bots: [],
   machines: [],
   notifCount: 0,
+  botStates: {},
   activeGroupId: null,
   setActiveGroup: (activeGroupId) => set({ activeGroupId }),
   applyEvent(e) {
@@ -50,8 +61,22 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
     else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
     else if (e.t === 'notification.new') set((s) => ({ notifCount: s.notifCount + 1 }))
     else if (e.t === 'machine.updated') set((s) => ({ machines: upsert(s.machines, e.machine) }))
+    else if (e.t === 'group.botState')
+      set((s) => ({
+        botStates: {
+          ...s.botStates,
+          [e.groupId]: { ...s.botStates[e.groupId], [e.state.botId]: e.state },
+        },
+      }))
   },
 }))
+
+export async function loadBotStates(groupId: string) {
+  const list = await api.get<GroupBotStateDto[]>(`/groups/${groupId}/bot-states`)
+  useWorkspace.setState((s) => ({
+    botStates: { ...s.botStates, [groupId]: Object.fromEntries(list.map((b) => [b.botId, b])) },
+  }))
+}
 
 const unread = async () =>
   (await api.get<NotificationDto[]>('/notifications')).filter((n) => !n.readAt).length

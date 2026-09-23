@@ -37,3 +37,20 @@ it('updates a workspace state and pushes it to group members only', async () => 
     }),
   ).toBeNull()
 })
+
+it('serves the bot states of a group to its members only', async () => {
+  const alice = await t.seed.user()
+  const outsider = await t.seed.user()
+  const bot = await t.seed.bot({ ownerId: alice.id })
+  const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })
+  const get = async (userId: string) =>
+    t.app.inject({
+      method: 'GET',
+      url: `/api/groups/${group.id}/bot-states`,
+      headers: { cookie: await t.seed.cookie(userId) },
+    })
+  const res = await get(alice.id)
+  expect(res.statusCode).toBe(200)
+  expect(res.json()).toEqual(await listBotStates(t.ctx, group.id))
+  expect((await get(outsider.id)).statusCode).toBe(404)
+})

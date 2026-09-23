@@ -41,11 +41,11 @@ export async function buildApp(ctx: Ctx) {
   app.addHook('onClose', stopRunEngine)
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
-  await app.register(workspaceRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))
   await app.register(botRoutes(ctx))
   await app.register(notificationRoutes(ctx))
+  await app.register(workspaceRoutes(ctx))
   return app
 }

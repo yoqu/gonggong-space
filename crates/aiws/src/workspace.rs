@@ -1,5 +1,6 @@
 //! Per-(group, bot) workspaces (spec §4.2, §4.3): managed clones made with the owner's own git credentials, and /cd
 //! bindings to existing local clones of the group repo.
+use crate::git::{self, git};
 use crate::protocol::{
     DaemonToServer, GitStatus, RepoSpec, RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceState,
     WorkspaceStateKind,
@@ -53,8 +54,8 @@ impl Workspaces {
                 let dir = PathBuf::from(path);
                 match check_cd(&dir, &req.repo).await {
                     Ok(()) => {
-                        let git = git_status(&dir, WorkspaceKind::Cd).await;
-                        Ok((dir, Some(git)))
+                        let git = git::status(&dir, WorkspaceKind::Cd).await.ok();
+                        Ok((dir, git))
                     }
                     Err(e) => Err(e),
                 }
@@ -81,7 +82,7 @@ impl Workspaces {
         let dir = managed_path(&self.home, group, bot, repo.map(|r| &*r.id));
         prepare(&dir, repo, on_clone).await?;
         let git = match repo {
-            Some(_) => Some(git_status(&dir, WorkspaceKind::Managed).await),
+            Some(_) => git::status(&dir, WorkspaceKind::Managed).await.ok(),
             None => None,
         };
         Ok((dir, git))
@@ -121,7 +122,7 @@ async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -
 
 async fn is_clone_root(dir: &Path) -> bool {
     let Ok(top) = git(dir, &["rev-parse", "--show-toplevel"]).await else { return false };
-    matches!((Path::new(&top).canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
+    matches!((Path::new(top.trim()).canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
 }
 
 /// Clones next to the target and renames, so an interrupted clone never looks like a valid workspace.
@@ -152,7 +153,7 @@ async fn check_cd(dir: &Path, repo: &RepoSpec) -> Result<(), String> {
     if !dir.is_dir() {
         return Err("目录不存在".into());
     }
-    if git(dir, &["rev-parse", "--is-inside-work-tree"]).await.as_deref() != Ok("true") {
+    if !git(dir, &["rev-parse", "--is-inside-work-tree"]).await.is_ok_and(|s| s.trim() == "true") {
         return Err("不是 git 仓库".into());
     }
     // Exits 1 when there is no remote at all.
@@ -163,22 +164,6 @@ async fn check_cd(dir: &Path, repo: &RepoSpec) -> Result<(), String> {
         return Ok(());
     }
     Err(format!("remote 与群仓库不一致（{}）", if urls.is_empty() { "无 remote".into() } else { urls.join("、") }))
-}
-
-/// Branch, ahead/behind its upstream (None without one) and uncommitted changes.
-pub async fn git_status(dir: &Path, workspace: WorkspaceKind) -> GitStatus {
-    let branch = git(dir, &["symbolic-ref", "--short", "-q", "HEAD"]).await.ok();
-    let counts = git(dir, &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])
-        .await
-        .ok()
-        .and_then(|s| parse_counts(&s));
-    let dirty = git(dir, &["status", "--porcelain"]).await.is_ok_and(|s| !s.is_empty());
-    GitStatus { branch, ahead: counts.map(|c| c.0), behind: counts.map(|c| c.1), dirty, workspace }
-}
-
-fn parse_counts(s: &str) -> Option<(u32, u32)> {
-    let mut it = s.split_whitespace();
-    Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
 }
 
 /// Canonical identity of a remote: `git@host:a/b.git` ≡ `ssh://git@host/a/b` ≡ `https://host/a/b/` → `host/a/b`;
@@ -201,23 +186,6 @@ pub fn normalize_remote(url: &str) -> String {
     let host = authority.rsplit('@').next().unwrap_or(authority);
     let host = host.split(':').next().unwrap_or(host).to_lowercase();
     format!("{host}/{}", trim(path.trim_start_matches('/')))
-}
-
-async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
-    let out = tokio::process::Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args(args)
-        // Fail instead of waiting for a password nobody can type.
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
-        .await
-        .map_err(|e| format!("无法运行 git：{e}"))?;
-    if out.status.success() {
-        return Ok(String::from_utf8_lossy(&out.stdout).trim().to_string());
-    }
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    Err(stderr.lines().rfind(|l| !l.trim().is_empty()).map(str::trim).unwrap_or("git 执行失败").to_string())
 }
 
 #[cfg(test)]
@@ -249,12 +217,5 @@ mod tests {
         assert_eq!(normalize_remote(&format!("file://{plain}")), normalize_remote(&plain));
         assert_eq!(normalize_remote(&format!("file://{plain}/")), normalize_remote(&plain));
         assert_ne!(normalize_remote(&plain), normalize_remote(&dir.path().to_string_lossy()));
-    }
-
-    #[test]
-    fn parses_left_right_counts() {
-        assert_eq!(parse_counts("3\t5"), Some((3, 5)));
-        assert_eq!(parse_counts("0 0\n"), Some((0, 0)));
-        assert_eq!(parse_counts("fatal"), None);
     }
 }
