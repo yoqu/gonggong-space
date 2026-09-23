@@ -117,7 +117,8 @@ export function EventRow({ m }: { m: MessageDto }) {
   )
 }
 
-export function UserMessage({ m, names }: { m: MessageDto; names: string[] }) {
+/** `fanOut`: how many bots this message triggered; ≥ 2 shows the fan-out note (spec §8.6). */
+export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: string[]; fanOut?: number }) {
   return (
     <div className="tl-msg">
       <div className="tl-avatar">{Array.from(m.authorName)[0]}</div>
@@ -125,6 +126,7 @@ export function UserMessage({ m, names }: { m: MessageDto; names: string[] }) {
         <div className="tl-msg__head">
           <span className="tl-msg__who">{m.authorName}</span>
           <span className="tl-time">{fmtTime(m.createdAt)}</span>
+          {fanOut > 1 ? <span className="tl-fan">· 扇出 · {fanOut} 个 bot 并行</span> : null}
         </div>
         <div className="tl-msg__text">
           {splitMentions(m.body, names).map((s, i) =>

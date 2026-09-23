@@ -15,6 +15,7 @@ import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
+import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
@@ -50,5 +51,6 @@ export async function buildApp(ctx: Ctx) {
   await app.register(botRoutes(ctx))
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
+  await app.register(usageRoutes(ctx))
   return app
 }

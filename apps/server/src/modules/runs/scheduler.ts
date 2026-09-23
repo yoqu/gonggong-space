@@ -94,9 +94,10 @@ export async function schedule(ctx: Ctx, botId: string) {
 
 async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
   const [trigger] = await tx
-    .select({ seq: messages.seq, body: messages.body, author: users.name })
+    .select({ seq: messages.seq, body: messages.body, author: users.name, bot: bots.name })
     .from(messages)
     .leftJoin(users, eq(users.id, messages.authorUserId))
+    .leftJoin(bots, eq(bots.id, messages.authorBotId))
     .where(eq(messages.id, run.triggerMessageId))
   const [gb] = await tx
     .select()
@@ -146,7 +147,12 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     },
     resumeSessionId,
     newSessionReason: gb.newSessionReason,
-    prompt: { text: trigger.body, triggeredBy: trigger.author ?? '', context, fallbackContext },
+    prompt: {
+      text: trigger.body,
+      triggeredBy: trigger.author ?? trigger.bot ?? '',
+      context,
+      fallbackContext,
+    },
   }
   return { msg, triggerSeq: trigger.seq }
 }
