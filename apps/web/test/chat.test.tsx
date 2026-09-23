@@ -1,11 +1,10 @@
-import type { GroupCandidatesDto, GroupDto, MessageDto, RunDto, UserDto, WebEvent } from '@aiws/protocol'
+import type { BotDto, GroupDto, MessageDto, RunDto, UserDto, WebEvent } from '@aiws/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { useDirectory } from '../src/features/chat/directory'
 
 const me: UserDto = {
   id: 'u1',
@@ -34,42 +33,50 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   ...o,
 })
 
-const directory: GroupCandidatesDto = {
-  users: [
-    { id: 'u1', name: '王磊' },
-    { id: 'u2', name: '李建国' },
-    { id: 'u3', name: '赵敏' },
-  ],
-  bots: [
-    {
-      id: 'b1',
-      name: '小王的 Claude',
-      ownerId: 'u1',
-      ownerName: '王磊',
-      agentKind: 'claude',
-      binding: 'bound',
-      online: true,
-    },
-    {
-      id: 'b2',
-      name: '老李的 Codex',
-      ownerId: 'u2',
-      ownerName: '李建国',
-      agentKind: 'codex',
-      binding: 'bound',
-      online: false,
-    },
-    {
-      id: 'b3',
-      name: '小王的 Codex',
-      ownerId: 'u1',
-      ownerName: '王磊',
-      agentKind: 'codex',
-      binding: 'pending_confirm',
-      online: false,
-    },
-  ],
-}
+const users = [
+  { id: 'u1', name: '王磊', account: 'wanglei' },
+  { id: 'u2', name: '李建国', account: 'lijg' },
+  { id: 'u3', name: '赵敏', account: 'zhaomin' },
+]
+
+const bot = (o: Partial<BotDto>): BotDto => ({
+  id: 'b1',
+  name: '小王的 Claude',
+  ownerId: 'u1',
+  ownerName: '王磊',
+  agentKind: 'claude',
+  machineId: 'mc1',
+  machineName: 'wanglei-mbp',
+  binding: 'bound',
+  presence: 'online',
+  systemPrompt: '',
+  tier: 'workspace',
+  triggerScope: 'all',
+  triggerList: [],
+  concurrency: 2,
+  createdBy: 'u1',
+  agentVersion: null,
+  groupCount: 0,
+  ...o,
+})
+const bots = [
+  bot({}),
+  bot({
+    id: 'b2',
+    name: '老李的 Codex',
+    ownerId: 'u2',
+    ownerName: '李建国',
+    agentKind: 'codex',
+    presence: 'offline',
+  }),
+  bot({
+    id: 'b3',
+    name: '小王的 Codex',
+    agentKind: 'codex',
+    binding: 'pending_confirm',
+    presence: 'pending_confirm',
+  }),
+]
 
 const at = '2026-09-23T02:21:00.000Z'
 const msg = (o: Partial<MessageDto>): MessageDto => ({
@@ -158,7 +165,10 @@ function mockApi(routes: Record<string, (body: Record<string, unknown> | undefin
 
 const baseRoutes = (groups: GroupDto[]) => ({
   'GET /groups': () => groups,
-  'GET /groups/candidates': () => directory,
+  'GET /users': () => users,
+  'GET /bots': () => bots,
+  'GET /machines': () => [],
+  'GET /notifications': () => [],
   'GET /groups/g1/timeline': () => timeline,
   'POST /groups/g1/read': () => groups[0],
 })
@@ -176,7 +186,6 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', FakeSocket)
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
-  useDirectory.setState({ users: [], bots: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -314,7 +323,6 @@ describe('chat view', () => {
 
   it('sends with Enter once, deduping the realtime echo, and suggests @ candidates', async () => {
     const sent = msg({ id: 'm10', seq: 10, body: '@小王的 Claude 跑一下', mentions: ['b1'] })
-    useDirectory.setState(directory)
     const calls = mockApi({ ...baseRoutes([group()]), 'POST /groups/g1/messages': () => sent })
     renderAt('/g/g1')
     await screen.findByText('最终回复')

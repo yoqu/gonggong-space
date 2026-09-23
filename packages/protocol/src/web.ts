@@ -157,23 +157,6 @@ export const ValidateRepoReq = z.object({ url: z.string(), branch: z.string() })
 export const ValidateRepoRes = z.object({ ok: z.boolean(), message: z.string() })
 export type ValidateRepoRes = z.infer<typeof ValidateRepoRes>
 
-/** People and bots that can be put into a new group / DM. */
-export const GroupCandidatesDto = z.object({
-  users: z.array(z.object({ id: z.string(), name: z.string() })),
-  bots: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      ownerId: z.string(),
-      ownerName: z.string(),
-      agentKind: AgentKind,
-      binding: BotBinding,
-      online: z.boolean(),
-    }),
-  ),
-})
-export type GroupCandidatesDto = z.infer<typeof GroupCandidatesDto>
-
 // ── Timeline ────────────────────────────────────────────────────────────────
 export const MessageDto = z.object({
   id: z.string(),

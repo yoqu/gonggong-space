@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { botsApi } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
-import { useDirectory } from '../features/chat/directory'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
@@ -15,7 +14,7 @@ import { useSession } from './session'
 import { useIsMobile } from './viewport'
 import { useWorkspace } from './workspace'
 
-/** Loads my groups and the team directory; reloads after a realtime reconnect to catch up. */
+/** Loads my groups; reloads after a realtime reconnect to catch up. */
 function useChatData() {
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {
@@ -27,10 +26,6 @@ function useChatData() {
         },
         () => setLoaded(true),
       )
-      useDirectory
-        .getState()
-        .load()
-        .catch(() => {})
     }
     load()
     let wasOpen = realtime.getStatus() === 'open'

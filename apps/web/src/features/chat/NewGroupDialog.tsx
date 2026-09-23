@@ -1,4 +1,4 @@
-import type { GroupDto, UserDto, ValidateRepoRes } from '@aiws/protocol'
+import type { BotDto, GroupDto, UserBriefDto, UserDto, ValidateRepoRes } from '@aiws/protocol'
 import { Check, CircleCheck, CircleX, GitFork } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -6,18 +6,15 @@ import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, Input, Tabs, toast } from '../../ui'
-import { AGENT_LABEL, type DirectoryBot, useDirectory } from './directory'
+import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
 import './chat.css'
 
 export type GroupKind = GroupDto['kind']
 
 const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/)\S+$/
 
-function botState(b: DirectoryBot) {
-  if (b.binding === 'pending_bind') return { label: '待绑定', color: '#636366' }
-  if (b.binding === 'pending_confirm') return { label: '待确认', color: '#FF9F0A' }
-  return b.online ? { label: '在线', color: '#32D74B' } : { label: '离线', color: '#636366' }
-}
+const botState = (b: BotDto) =>
+  b.binding === 'bound' ? PRESENCE[b.presence] : { label: BINDING_LABEL[b.binding], color: '#FF9F0A' }
 
 interface Draft {
   kind: GroupKind
@@ -42,15 +39,16 @@ const blank = (kind: GroupKind): Draft => ({
 })
 
 export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: GroupKind; onClose: () => void }) {
-  const { users, bots, load } = useDirectory()
+  const bots = useWorkspace((s) => s.bots)
+  const [users, setUsers] = useState<UserBriefDto[]>([])
   const navigate = useNavigate()
   const [d, setD] = useState(() => blank(kind))
   const [creating, setCreating] = useState(false)
   const set = (o: Partial<Draft>) => setD((prev) => ({ ...prev, ...o }))
 
   useEffect(() => {
-    load().catch(() => {})
-  }, [load])
+    api.get<UserBriefDto[]>('/users').then(setUsers, () => {})
+  }, [])
 
   const dm = d.kind === 'dm'
   const repo = d.repoMode === 'repo'

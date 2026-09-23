@@ -3,10 +3,10 @@ import { Bot, User } from 'lucide-react'
 import { type KeyboardEvent, useRef, useState } from 'react'
 import { Composer } from '../../app/ChatLayout'
 import { useIsMobile } from '../../app/viewport'
+import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toast } from '../../ui'
-import { useDirectory } from './directory'
 
 const RETRIES = 2
 
@@ -32,7 +32,7 @@ interface Candidate {
 
 export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m: MessageDto) => void }) {
   const mobile = useIsMobile()
-  const bots = useDirectory((s) => s.bots)
+  const bots = useWorkspace((s) => s.bots)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)

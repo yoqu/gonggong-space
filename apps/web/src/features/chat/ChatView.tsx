@@ -6,7 +6,7 @@ import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { Badge, EmptyState, Spinner } from '../../ui'
-import { AGENT_LABEL, useDirectory } from './directory'
+import { AGENT_LABEL } from '../bots/model'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
@@ -18,7 +18,7 @@ const LOAD_OLDER_PX = 40
 
 export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => void }) {
   const tl = useTimeline(group.id)
-  const { bots, users } = useDirectory()
+  const bots = useWorkspace((s) => s.bots)
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
   const box = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
@@ -72,8 +72,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
     [bots, group],
   )
-  const userName = (id: string | null) =>
-    group.members.find((m) => m.userId === id)?.name ?? users.find((u) => u.id === id)?.name ?? '接力'
+  const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
 
   const renderMessage = (m: MessageDto) =>
     m.kind === 'event' ? (

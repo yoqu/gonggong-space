@@ -2,13 +2,12 @@ import { randomUUID } from 'node:crypto'
 import {
   CreateGroupReq,
   GroupBotReq,
-  type GroupCandidatesDto,
   GroupMemberReq,
   MarkReadReq,
   ValidateRepoReq,
   type ValidateRepoRes,
 } from '@aiws/protocol'
-import { and, asc, eq, inArray, isNull, max, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
@@ -90,40 +89,6 @@ export function groupRoutes(ctx: Ctx) {
     app.get('/api/groups', async (req) => {
       const me = await requireUser(ctx, req)
       return groupDtos(ctx, me.id)
-    })
-
-    app.get('/api/groups/candidates', async (req): Promise<GroupCandidatesDto> => {
-      await requireUser(ctx, req)
-      const [people, botRows] = await Promise.all([
-        ctx.db
-          .select({ id: users.id, name: users.name })
-          .from(users)
-          .where(isNull(users.disabledAt))
-          .orderBy(asc(users.createdAt)),
-        ctx.db
-          .select({
-            id: bots.id,
-            name: bots.name,
-            ownerId: bots.ownerId,
-            ownerName: users.name,
-            agentKind: bots.agentKind,
-            binding: bots.binding,
-            machineId: bots.machineId,
-          })
-          .from(bots)
-          .innerJoin(users, eq(users.id, bots.ownerId))
-          .where(isNull(bots.deletedAt))
-          .orderBy(asc(bots.createdAt)),
-      ])
-      return {
-        users: people,
-        bots: botRows.map(({ machineId, ...b }) => ({
-          ...b,
-          agentKind: b.agentKind as GroupCandidatesDto['bots'][number]['agentKind'],
-          binding: b.binding as GroupCandidatesDto['bots'][number]['binding'],
-          online: !!machineId && ctx.hub.isOnline(machineId),
-        })),
-      }
     })
 
     // Format check only; reachability is verified by each daemon when it clones.

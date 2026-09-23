@@ -1,4 +1,4 @@
-import type { GroupCandidatesDto, GroupDto, TimelineDto } from '@aiws/protocol'
+import type { GroupDto, TimelineDto } from '@aiws/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, groupRepos } from '../src/db/schema.js'
@@ -173,21 +173,6 @@ describe('reading groups', () => {
     expect((await p.asZhao.get(`/api/groups/${g.id}/timeline`)).status).toBe(404)
     expect((await p.asZhao.post(`/api/groups/${g.id}/read`, {})).status).toBe(404)
     expect((await p.asZhao.get('/api/groups/not-a-uuid')).status).toBe(404)
-  })
-
-  it('lists candidates: active users and non-deleted bots', async () => {
-    const p = await people()
-    await t.seed.user({ name: '已停用', disabledAt: new Date() })
-    await t.seed.bot({ ownerId: p.wang.id, name: '删掉的', deletedAt: new Date() })
-    const c = (await p.asZhao.get<GroupCandidatesDto>('/api/groups/candidates')).body
-    expect(c.users.map((u) => u.name).sort()).toEqual(['李建国', '王磊', '赵敏'].sort())
-    expect(c.bots.map((b) => b.name).sort()).toEqual(['小王的 Claude', '老李的 Codex'].sort())
-    expect(c.bots.find((b) => b.id === p.wangBot.id)).toMatchObject({
-      ownerName: '王磊',
-      binding: 'bound',
-      online: false,
-      agentKind: 'claude',
-    })
   })
 
   it('validates repo address format', async () => {
