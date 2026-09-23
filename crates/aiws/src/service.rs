@@ -67,7 +67,7 @@ impl<H: Handler> Service<H> {
         outbox: &Outbox,
         rx: &mut mpsc::UnboundedReceiver<DaemonToServer>,
     ) -> anyhow::Result<Option<Fatal>> {
-        let (mut ws, _) = tokio_tungstenite::connect_async(self.config.ws_url()).await?;
+        let mut ws = crate::tls::connect_ws(&self.config).await?;
         let hello = DaemonToServer::Hello {
             protocol: PROTOCOL_VERSION,
             token: self.config.token.clone(),

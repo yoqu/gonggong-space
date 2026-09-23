@@ -1,6 +1,7 @@
 import {
   PROTOCOL_VERSION,
   type RunDetailDto,
+  type RunEvent,
   type RunStart,
   type TimelineDto,
   type WebEvent,
@@ -8,7 +9,9 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { approvals, groupBots, groups, messages, runEvents, runs } from '../src/db/schema.js'
+import { open } from '../src/lib/seal.js'
 import { MASK } from '../src/modules/runs/redact.js'
+import { openEvent } from '../src/modules/runs/sealed.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
@@ -94,7 +97,7 @@ async function world() {
 }
 
 describe('run process', () => {
-  it('redacts events, the patch and the reply before persisting, merging streamed text', async () => {
+  it('redacts events, the patch and the reply before persisting, merging streamed text; seals the process', async () => {
     const w = await world()
     const runId = await w.mention()
     w.send(runId, { kind: 'status', status: 'running', step: 'git fetch 完成，当前分支 main' })
@@ -118,7 +121,11 @@ describe('run process', () => {
     const raw = JSON.stringify(rows)
     expect(raw).not.toContain('ghp_')
     expect(raw).not.toContain('hunter2')
-    expect(rows.map((r) => r.payload)).toEqual([
+    // Free text is encrypted at rest; kind, status, tool titles and steps stay plain for search.
+    expect(raw).not.toContain('先看看')
+    expect(raw).not.toContain('已读取')
+    expect(raw).not.toContain('$ echo')
+    expect(rows.map((r) => openEvent(r.payload as RunEvent))).toEqual([
       { kind: 'status', status: 'running', step: 'git fetch 完成，当前分支 main' },
       { kind: 'thought', delta: '先看看配置' },
       { kind: 'text', delta: `token ${MASK} 已读取` },
@@ -127,15 +134,17 @@ describe('run process', () => {
       { kind: 'status', status: 'running', step: `mysql password=${MASK}` },
     ])
     const [run] = await t.db.select().from(runs).where(eq(runs.id, runId))
-    expect(run!.patch).toBe(`diff --git a/.env b/.env\n+AWS_KEY=${MASK}\n`)
+    expect(run!.patch).toMatch(/^v1:/)
+    const plainPatch = `diff --git a/.env b/.env\n+AWS_KEY=${MASK}\n`
+    expect(open(run!.patch!)).toBe(plainPatch)
     const [reply] = await t.db.select().from(messages).where(eq(messages.runId, runId))
     expect(reply!.body).toBe(`输出：${MASK}`)
     // The card step never carries the raw token either.
     expect(JSON.stringify(w.seen.filter((e) => e.t === 'run.updated'))).not.toContain('ghp_')
 
     const d = await w.detail(runId)
-    expect(d).toMatchObject({ patch: run!.patch, purged: false, sessionId: 'sess-42', retentionDays: 30 })
-    expect(d.events.map((e) => e.event.kind)).toEqual(['status', 'thought', 'text', 'tool', 'tool', 'status'])
+    expect(d).toMatchObject({ patch: plainPatch, purged: false, sessionId: 'sess-42', retentionDays: 30 })
+    expect(d.events.map((e) => e.event)).toEqual(rows.map((r) => openEvent(r.payload as RunEvent)))
   })
 
   it('serves approvals and the group hop limit on detail, timeline and realtime cards', async () => {

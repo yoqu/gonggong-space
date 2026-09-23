@@ -23,6 +23,10 @@ enum Cmd {
         server: String,
         #[arg(long)]
         code: String,
+        /// Expected server certificate SHA-256 (sha256:AB:CD:…) as published by the admin; without it the certificate
+        /// presented now is trusted and printed for you to compare.
+        #[arg(long)]
+        fingerprint: Option<String>,
     },
     /// Unbind this machine locally (removes the saved token).
     Logout,
@@ -71,11 +75,18 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
         }
-        Cmd::Login { server, code } => {
+        Cmd::Login { server, code, fingerprint } => {
             let machine = machine_info();
-            let config = aiws::bind::login(&server, &code, machine.clone()).await?;
+            let config = aiws::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
             config.save()?;
             println!("绑定成功：本机已归属 {}（{}）", config.owner_name, machine.name);
+            match (&config.cert_sha256, fingerprint) {
+                (Some(fp), None) => println!(
+                    "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 aiws logout 并联系管理员"
+                ),
+                (Some(fp), Some(_)) => println!("已按指定指纹固定服务器证书 sha256:{fp}"),
+                (None, _) => {}
+            }
         }
         Cmd::Logout => {
             Config::remove()?;
