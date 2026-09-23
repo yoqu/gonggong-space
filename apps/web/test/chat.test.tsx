@@ -301,9 +301,13 @@ describe('chat view', () => {
     push({ t: 'run.delta', runId: 'r1', text: '正在对比 v1 与 v2 ' })
     push({ t: 'run.delta', runId: 'r1', text: '的字段' })
     expect(card.textContent).toContain('正在对比 v1 与 v2 的字段')
-    push({ t: 'run.updated', run: run({ status: 'completed', usage: null, endedAt: at }) })
+    push({
+      t: 'run.updated',
+      run: run({ status: 'completed', usage: null, endedAt: at, newSessionReason: 'resume_failed' }),
+    })
     expect(card.textContent).toContain('已完成')
     expect(card.textContent).toContain('用量未上报')
+    expect(card.textContent).toContain('会话恢复失败')
     push({ t: 'message.new', message: msg({ seq: 9, authorId: 'u2', authorName: '李建国', body: '收到' }) })
     expect(within(main).getByText('收到')).toBeTruthy()
   })

@@ -31,6 +31,14 @@ export const RUN_STATUS: Record<RunStatus, { label: string; variant: BadgeVarian
   expired: { label: '已作废', variant: 'outline' },
 }
 
+/** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
+const NEW_SESSION: Record<string, string | null> = {
+  first: null,
+  resume_failed: '会话恢复失败，已开新会话并补送最近 50 条群消息',
+  requested: '已按要求开启新会话',
+}
+const newSessionNote = (reason: string | null) => (reason === null ? null : (NEW_SESSION[reason] ?? reason))
+
 const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -173,6 +181,7 @@ export function RunCard({
   const step = streamed || run.step
   const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
+  const sessionNote = newSessionNote(run.newSessionReason)
   return (
     <div className="run-card" data-testid="run-card" data-status={run.status}>
       <div className="run-card__head">
@@ -205,10 +214,10 @@ export function RunCard({
           <span>{fmtUsage(run.usage)}</span>
         </div>
       ) : null}
-      {run.newSessionReason ? (
+      {sessionNote ? (
         <div className="run-card__session">
           <RefreshCw size={11} />
-          {run.newSessionReason}
+          {sessionNote}
         </div>
       ) : null}
     </div>
