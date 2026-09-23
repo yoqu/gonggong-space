@@ -78,7 +78,9 @@ describe('run actions', () => {
   it('an offline request shows the countdown to expiry', () => {
     vi.useFakeTimers({ now: new Date('2026-09-23T10:02:20.000Z') })
     render(<RunActions run={run({ status: 'offline_wait', startedAt: null })} />)
-    expect(screen.getByText('bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊')).toBeTruthy()
+    expect(
+      screen.getByText('bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
+    ).toBeTruthy()
     expect(screen.queryByRole('button', { name: '/stop' })).toBeNull()
   })
 })

@@ -74,7 +74,8 @@ impl Handler for Engine {
                 let sessions: Vec<_> = self.0.actors.lock().unwrap().values().map(|a| a.shared.clone()).collect();
                 let out = out.clone();
                 tokio::spawn(async move {
-                    let mut result = Err("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 bot 已开始新一轮）".to_string());
+                    let mut result =
+                        Err("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 bot 已开始新一轮）".to_string());
                     for shared in sessions {
                         if let Some(r) = shared.discard(&run_id).await {
                             result = r;

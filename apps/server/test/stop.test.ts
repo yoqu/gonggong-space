@@ -51,7 +51,9 @@ async function world(o: { online?: boolean } = {}) {
     memberIds: [li.id, zhao.id],
     botIds: [claude.id, codex.id],
   })
-  await t.db.insert(groupRepos).values({ groupId: g.id, url: 'git@example.com:team/pay.git', baseBranch: 'main' })
+  await t.db
+    .insert(groupRepos)
+    .values({ groupId: g.id, url: 'git@example.com:team/pay.git', baseBranch: 'main' })
   await t.db.update(groupBots).set({ workspaceState: 'ready' }).where(eq(groupBots.groupId, g.id))
   const sent: ServerToDaemon[] = []
   let answer: Answer = () => undefined
@@ -74,7 +76,10 @@ async function world(o: { online?: boolean } = {}) {
   }
   let n = 0
   const say = async (c: typeof as.wang, body: string) => {
-    const res = await c.post<MessageDto>(`/api/groups/${g.id}/messages`, { body, clientId: `stop-msg-${++n}` })
+    const res = await c.post<MessageDto>(`/api/groups/${g.id}/messages`, {
+      body,
+      clientId: `stop-msg-${++n}`,
+    })
     clock = new Date(clock.getTime() + 1000)
     return res
   }
@@ -135,7 +140,13 @@ type World = Awaited<ReturnType<typeof world>>
 async function relay(w: World, parent: typeof runs.$inferSelect, botId: string, status = 'running') {
   const [m] = await t.db
     .insert(messages)
-    .values({ groupId: w.g.id, kind: 'bot', authorBotId: parent.botId, body: '@接力', meta: { mentions: [botId] } })
+    .values({
+      groupId: w.g.id,
+      kind: 'bot',
+      authorBotId: parent.botId,
+      body: '@接力',
+      meta: { mentions: [botId] },
+    })
     .returning()
   const [r] = await t.db
     .insert(runs)
@@ -208,9 +219,12 @@ describe('/stop command', () => {
 
     await w.say(w.as.wang, '/stop')
     expect(await w.events()).toEqual(['王磊 /stop · 未 @ bot，停止本群全部 2 个轮次（含接力链，整条链终止）'])
-    expect(w.sent.filter((m) => m.t === 'run.cancel').map((m) => (m as { runId: string }).runId).sort()).toEqual(
-      [root!.id, hop2.id].sort(),
-    )
+    expect(
+      w.sent
+        .filter((m) => m.t === 'run.cancel')
+        .map((m) => (m as { runId: string }).runId)
+        .sort(),
+    ).toEqual([root!.id, hop2.id].sort())
     expect(await isChainStopped(t.ctx, hop2)).toBe(true)
     expect(await isChainStopped(t.ctx, other)).toBe(true)
     w.done(hop2.id, { filesChanged: 0, git: null })
@@ -262,7 +276,9 @@ describe('run stop endpoints', () => {
     })
     expect((await w.run(root!.id)).stoppedBy).toBe(w.zhao.id)
     expect((await w.run(hop2.id)).stoppedBy).toBe(w.zhao.id)
-    expect(await t.db.select({ action: auditLogs.action }).from(auditLogs)).toEqual([{ action: 'run.stop_chain' }])
+    expect(await t.db.select({ action: auditLogs.action }).from(auditLogs)).toEqual([
+      { action: 'run.stop_chain' },
+    ])
 
     await w.say(w.as.li, '@老李的 Codex 另一件事')
     const single = (await w.runsOf(w.codex.id)).find((r) => r.hop === 1)
@@ -300,7 +316,9 @@ describe('interrupt choice (keep / discard)', () => {
     const r = await pending(w)
     const url = `/api/runs/${r.id}/interrupt`
     w.onSend((m) =>
-      m.t === 'run.discard' ? { t: 'run.discarded', runId: m.runId, ok: false, files: 0, error: '快照已失效' } : null,
+      m.t === 'run.discard'
+        ? { t: 'run.discarded', runId: m.runId, ok: false, files: 0, error: '快照已失效' }
+        : null,
     )
     expect(await w.as.wang.post(url, { choice: 'discard' })).toMatchObject({
       status: 409,
@@ -337,7 +355,12 @@ describe('interrupt choice (keep / discard)', () => {
       (x) => x.status === 'completed',
     )
     await w.say(w.as.li, '@小王的 Claude 再来')
-    expect(w.starts().at(-1)!.prompt.context.some((c) => c.author === 'AIWS')).toBe(false)
+    expect(
+      w
+        .starts()
+        .at(-1)!
+        .prompt.context.some((c) => c.author === 'AIWS'),
+    ).toBe(false)
   })
 
   it('a discarded turn is reported as discarded to the next turn', async () => {
@@ -401,15 +424,15 @@ describe('offline expiry and chain notifications', () => {
     const w = await world()
     await w.say(w.as.li, '@小王的 Claude 开始')
     const [root] = await w.runsOf(w.claude.id)
-    w.done(root!.id, { outcome: 'completed' })
-    await until(
-      () => w.run(root!.id),
-      (r) => r.status === 'completed',
+    w.done(root!.id, { outcome: 'completed', reply: '@老李的 Codex 继续' })
+    const [hop2] = await until(
+      () => w.runsOf(w.codex.id),
+      (r) => r.length > 0,
     )
+    expect(hop2).toMatchObject({ hop: 2, parentRunId: root!.id, status: 'running' })
     expect(await t.db.select().from(notifications)).toEqual([])
 
-    const hop2 = await relay(w, { ...root!, status: 'completed' }, w.codex.id)
-    w.done(hop2.id, { outcome: 'completed' })
+    w.done(hop2!.id, { outcome: 'completed', reply: '好了' })
     await until(
       () => t.db.select().from(notifications),
       (n) => n.length > 0,
@@ -419,8 +442,22 @@ describe('offline expiry and chain notifications', () => {
       expect.objectContaining({
         userId: w.li.id,
         type: 'chain_done',
-        payload: expect.objectContaining({ groupId: w.g.id, rootRunId: root!.id, hops: 2 }),
+        payload: expect.objectContaining({ groupId: w.g.id, rootRunId: root!.id, hops: 2, stopped: false }),
       }),
     ])
+  })
+
+  it('a hop completing after its chain was stopped relays no further', async () => {
+    const w = await world()
+    await w.say(w.as.li, '@小王的 Claude 开始')
+    const [root] = await w.runsOf(w.claude.id)
+    const hop2 = await relay(w, root!, w.codex.id)
+    await w.say(w.as.li, '/stop @小王的 Claude')
+    w.done(hop2.id, { outcome: 'completed', reply: '@小王的 Claude 继续' })
+    await until(
+      () => w.run(hop2.id),
+      (r) => r.status === 'completed',
+    )
+    expect(await w.runsOf(w.claude.id)).toHaveLength(1)
   })
 })

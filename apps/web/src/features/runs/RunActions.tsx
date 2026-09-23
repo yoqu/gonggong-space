@@ -10,7 +10,9 @@ const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'await
 
 /** Group member name, for cards that only carry user ids. */
 export const useMemberName = (groupId: string, userId: string | null) =>
-  useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.members.find((m) => m.userId === userId)?.name ?? '—')
+  useWorkspace(
+    (s) => s.groups.find((g) => g.id === groupId)?.members.find((m) => m.userId === userId)?.name ?? '—',
+  )
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -25,7 +27,7 @@ export function RunActions({ run }: { run: RunDto }) {
     try {
       await api.post(`/runs/${run.id}/${chain ? 'stop-chain' : 'stop'}`, {})
     } catch (e) {
-      toast({ type: 'error', title: (e as Error).message })
+      toast({ type: 'error', message: (e as Error).message })
     } finally {
       setBusy(false)
     }
@@ -33,7 +35,12 @@ export function RunActions({ run }: { run: RunDto }) {
   return (
     <div className="run-actions">
       {chain ? (
-        <button type="button" className="run-actions__btn run-actions__btn--danger" disabled={busy} onClick={stop}>
+        <button
+          type="button"
+          className="run-actions__btn run-actions__btn--danger"
+          disabled={busy}
+          onClick={stop}
+        >
           <OctagonX size={12} />
           终止整条链
         </button>

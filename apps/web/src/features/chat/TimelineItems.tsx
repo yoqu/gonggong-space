@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge, type BadgeVariant } from '../../ui'
+import { InterruptBlock } from '../runs/InterruptBlock'
+import { RunActions } from '../runs/RunActions'
 import { Markdown } from './Markdown'
 
 export const RUN_STATUS: Record<RunStatus, { label: string; variant: BadgeVariant }> = {
@@ -102,7 +104,7 @@ function eventIcon(body: string) {
   if (body.includes(' 加入') || /已 clone 到托管工作区|工作区创建失败/.test(body)) return Bot
   if (body.includes('下一轮将开新会话')) return RefreshCw
   if (/\/cd|绑定到|恢复托管工作区/.test(body)) return FolderInput
-  if (body === '没有运行中的轮次') return Square
+  if (body === '没有运行中的轮次' || body.includes(' /stop · ')) return Square
   return Info
 }
 
@@ -117,7 +119,8 @@ export function EventRow({ m }: { m: MessageDto }) {
   )
 }
 
-export function UserMessage({ m, names }: { m: MessageDto; names: string[] }) {
+/** `fanOut`: how many bots this message triggered; ≥ 2 shows the fan-out note (spec §8.6). */
+export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: string[]; fanOut?: number }) {
   return (
     <div className="tl-msg">
       <div className="tl-avatar">{Array.from(m.authorName)[0]}</div>
@@ -125,6 +128,7 @@ export function UserMessage({ m, names }: { m: MessageDto; names: string[] }) {
         <div className="tl-msg__head">
           <span className="tl-msg__who">{m.authorName}</span>
           <span className="tl-time">{fmtTime(m.createdAt)}</span>
+          {fanOut > 1 ? <span className="tl-fan">· 扇出 · {fanOut} 个 bot 并行</span> : null}
         </div>
         <div className="tl-msg__text">
           {splitMentions(m.body, names).map((s, i) =>
@@ -226,6 +230,8 @@ export function RunCard({
           {sessionNote}
         </div>
       ) : null}
+      <InterruptBlock run={run} />
+      <RunActions run={run} />
     </div>
   )
 }

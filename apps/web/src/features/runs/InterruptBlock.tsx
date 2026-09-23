@@ -27,7 +27,7 @@ export function InterruptBlock({ run }: { run: RunDto }) {
     try {
       await api.post(`/runs/${run.id}/interrupt`, { choice })
     } catch (e) {
-      toast({ type: 'error', title: (e as Error).message })
+      toast({ type: 'error', message: (e as Error).message })
     } finally {
       setBusy(false)
     }
@@ -45,7 +45,12 @@ export function InterruptBlock({ run }: { run: RunDto }) {
           <Button size="sm" disabled={!allowed || busy} onClick={() => choose('keep')}>
             保留改动
           </Button>
-          <Button size="sm" variant="destructive" disabled={!allowed || busy} onClick={() => choose('discard')}>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={!allowed || busy}
+            onClick={() => choose('discard')}
+          >
             丢弃本轮改动
           </Button>
         </div>

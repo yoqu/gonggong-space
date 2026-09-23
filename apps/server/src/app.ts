@@ -16,6 +16,7 @@ import { startRunEngine } from './modules/runs/engine.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
+import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
@@ -51,5 +52,6 @@ export async function buildApp(ctx: Ctx) {
   await app.register(botRoutes(ctx))
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
+  await app.register(usageRoutes(ctx))
   return app
 }

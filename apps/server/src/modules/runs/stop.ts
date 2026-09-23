@@ -110,7 +110,10 @@ export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise
   const kept = done.filesChanged > 0 && done.git !== null
   const step = stopStep(by?.name ?? '', run)
   return kept
-    ? { step: `${step} · 分区模式：已改的 ${done.filesChanged} 个文件留在工作区，未提交`, interrupt: 'pending' }
+    ? {
+        step: `${step} · 分区模式：已改的 ${done.filesChanged} 个文件留在工作区，未提交`,
+        interrupt: 'pending',
+      }
     : { step }
 }
 
@@ -124,7 +127,9 @@ export async function notifyChainDone(ctx: Ctx, run: RunRow) {
   const [sent] = await ctx.db
     .select({ id: notifications.id })
     .from(notifications)
-    .where(and(eq(notifications.type, 'chain_done'), sql`${notifications.payload}->>'rootRunId' = ${root.id}`))
+    .where(
+      and(eq(notifications.type, 'chain_done'), sql`${notifications.payload}->>'rootRunId' = ${root.id}`),
+    )
   if (sent) return
   const [group] = await ctx.db.select({ name: groups.name }).from(groups).where(eq(groups.id, run.groupId))
   await notify(ctx, root.originUserId, 'chain_done', {
@@ -166,7 +171,13 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
       : n > 0
         ? `；本轮改动已保留，上一轮改动的 ${n} 个文件仍在工作区，未提交`
         : ''
-  const note: ContextMessage = { seq: 0, author: 'AIWS', kind: 'user', body: `上一轮被 /stop 中断${detail}。`, at }
+  const note: ContextMessage = {
+    seq: 0,
+    author: 'AIWS',
+    kind: 'user',
+    body: `上一轮被 /stop 中断${detail}。`,
+    at,
+  }
   return { note, settled }
 }
 
@@ -177,7 +188,8 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
     .where(eq(runs.id, runId))
-  if (!row || !(await memberIds(ctx, row.run.groupId)).includes(user.id)) return fail('not_found', '运行不存在')
+  if (!row || !(await memberIds(ctx, row.run.groupId)).includes(user.id))
+    return fail('not_found', '运行不存在')
   const { run, ownerId, machineId } = row
   if (![run.triggerUserId, run.originUserId, ownerId].includes(user.id))
     return fail('forbidden', '仅发起人或 bot 主人可选择')
@@ -233,7 +245,8 @@ export async function expireOfflineRuns(ctx: Ctx) {
     .from(runs)
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .innerJoin(bots, eq(bots.id, runs.botId))
-    .leftJoin(users, eq(users.id, runs.triggerUserId))
+    // Relay hops have no human trigger: their chain's initiator is told instead.
+    .leftJoin(users, eq(users.id, sql`coalesce(${runs.triggerUserId}, ${runs.originUserId})`))
     .where(
       and(
         eq(runs.status, 'offline_wait'),
@@ -252,15 +265,14 @@ export async function expireOfflineRuns(ctx: Ctx) {
       .returning()
     if (!row) continue
     await publishRun(ctx, row)
-    if (row.triggerUserId)
-      await notify(ctx, row.triggerUserId, 'offline_expired', {
-        groupId: row.groupId,
-        groupName,
-        runId: row.id,
-        botId: row.botId,
-        botName,
-        waitMin: min,
-      })
+    await notify(ctx, row.triggerUserId ?? row.originUserId, 'offline_expired', {
+      groupId: row.groupId,
+      groupName,
+      runId: row.id,
+      botId: row.botId,
+      botName,
+      waitMin: min,
+    })
     await notifyChainDone(ctx, row)
   }
 }
