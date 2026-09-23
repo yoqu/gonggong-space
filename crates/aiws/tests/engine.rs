@@ -300,6 +300,8 @@ async fn reports_runs_in_flight_as_active_until_they_end() {
     let mut r = rig(Duration::from_secs(60));
     assert!(r.engine.active_runs().is_empty());
     r.run(start("r1", "mock:slow"));
+    // Active from receipt on, while the workspace is still being prepared (hello reconciliation must not drop it).
+    assert_eq!(r.engine.active_runs(), vec!["r1".to_string()]);
     assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
     assert_eq!(r.engine.active_runs(), vec!["r1".to_string()]);
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });

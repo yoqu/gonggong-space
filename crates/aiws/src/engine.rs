@@ -11,7 +11,7 @@ use crate::turn::system_prompt;
 use crate::workspace::Workspaces;
 use agent_client_protocol::{AcpAgent, AcpAgentConfig};
 use anyhow::{Context, bail};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, Weak};
@@ -44,6 +44,16 @@ pub(crate) struct Inner {
     install: tokio::sync::Mutex<()>,
     /// Started with the first run.
     ask: tokio::sync::OnceCell<AskServer>,
+    /// Runs received but still preparing (workspace, attachments): already active for hello reconciliation.
+    preparing: Mutex<HashSet<String>>,
+}
+
+/// Drops a run from `Inner::preparing` however `start` exits.
+struct Preparing<'a>(&'a Inner, String);
+impl Drop for Preparing<'_> {
+    fn drop(&mut self) {
+        self.0.preparing.lock().unwrap().remove(&self.1);
+    }
 }
 
 struct Actor {
@@ -60,6 +70,7 @@ impl Engine {
             actors: Mutex::default(),
             install: tokio::sync::Mutex::default(),
             ask: tokio::sync::OnceCell::new(),
+            preparing: Mutex::default(),
         }))
     }
 }
@@ -68,6 +79,7 @@ impl Handler for Engine {
     fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
         match msg {
             ServerToDaemon::RunStart(start) => {
+                self.0.preparing.lock().unwrap().insert(start.run_id.clone());
                 tokio::spawn(self.0.clone().start(*start, out.clone()));
             }
             ServerToDaemon::RunCancel { run_id } => {
@@ -133,12 +145,15 @@ impl Handler for Engine {
     }
 
     fn active_runs(&self) -> Vec<String> {
-        self.0.actors.lock().unwrap().values().flat_map(|a| a.shared.runs()).collect()
+        let preparing = self.0.preparing.lock().unwrap().clone();
+        let running = self.0.actors.lock().unwrap().values().flat_map(|a| a.shared.runs()).collect::<Vec<_>>();
+        preparing.into_iter().chain(running).collect::<HashSet<_>>().into_iter().collect()
     }
 }
 
 impl Inner {
     async fn start(self: Arc<Self>, start: RunStart, out: Outbox) {
+        let _preparing = Preparing(&self, start.run_id.clone());
         let cwd = match self.workspaces.resolve(&start).await {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
