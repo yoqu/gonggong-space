@@ -64,6 +64,13 @@ export function runBadge(status: RunStatus | null): { text: string; variant: Bad
   }
 }
 
+/** 在 Finder 中显示, in the platform's words. */
+export function revealLabel(os: string | undefined) {
+  if (os === 'windows') return '在资源管理器中显示'
+  if (os === 'linux') return '在文件管理器中显示'
+  return '在 Finder 中显示'
+}
+
 /** `/Users/wl/.aiws/workspaces` → `~/.aiws/workspaces` */
 export function tildify(path: string) {
   return path.replace(/^\/(Users|home)\/[^/]+/, '~')

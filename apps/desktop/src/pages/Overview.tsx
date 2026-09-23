@@ -52,7 +52,11 @@ export function OverviewPage(_: PageProps) {
           s={`agent 可用 ${agents.filter((a) => a.available).length} / ${agents.length}`}
         />
         <Stat k="并发" v={`${running.length} / ${capacity}`} s={`本机队列 ${queued.length}`} />
-        <Stat k="工作区" v={overview ? `${overview.managedWorkspaces} 个` : '—'} s="托管工作区" />
+        <Stat
+          k="工作区"
+          v={overview ? `${overview.workspaces.count} 个` : '—'}
+          s={overview?.workspaces.detail ?? ''}
+        />
       </div>
       <div className="dk-eyebrow">正在运行</div>
       <div className="dk-stack" data-testid="running">

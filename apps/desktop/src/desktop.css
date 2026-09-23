@@ -335,3 +335,106 @@ input {
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* 工作区 table and 日志与诊断 */
+.dk-table {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  overflow: hidden;
+}
+.dk-ws-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.6fr) 110px 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 14px;
+  font-size: 12px;
+}
+.dk-table__head {
+  background: var(--color-titlebar-bg);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.dk-table__row {
+  border-top: 1px solid var(--color-separator);
+}
+.dk-table__action {
+  display: flex;
+  justify-content: flex-end;
+}
+.dk-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dk-backup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+}
+.dk-backup__icon {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+.dk-backup__path {
+  max-width: 55%;
+}
+.dk-checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.dk-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  min-width: 0;
+}
+.dk-check svg {
+  flex: none;
+}
+.dk-check__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dk-check__label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.dk-logpane {
+  flex: 1;
+  min-height: 240px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-preview-bg);
+  border: 1px solid var(--color-separator);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.dk-log {
+  white-space: pre;
+  color: var(--color-text-secondary);
+}
+.dk-log--warn {
+  color: #ff9f0a;
+}
+.dk-log--error {
+  color: #ff453a;
+}

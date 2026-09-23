@@ -1,9 +1,11 @@
 //! Tauri commands, one module per page. To add a page's commands: create `commands/<page>.rs`, declare it here and
 //! list its commands in `handler()`; mirror each one in `src/ipc.ts`.
+mod logs;
 mod onboarding;
 mod overview;
 mod settings;
 mod shell;
+mod workspaces;
 
 /// Command errors reach the frontend as the rejected promise's message.
 pub type Result<T> = std::result::Result<T, String>;
@@ -22,6 +24,14 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         settings::set_auto_upgrade,
         settings::set_launch_at_login,
         settings::unbind,
+        workspaces::workspaces,
+        workspaces::reveal,
+        workspaces::reset_cd,
+        workspaces::delete_workspace,
+        logs::diagnostics,
+        logs::measure_net,
+        logs::export_diagnostics,
+        logs::recent_logs,
     ]
 }
 
