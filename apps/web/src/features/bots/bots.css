@@ -1,0 +1,339 @@
+/* 管理后台 · Bot and 新建 bot — metrics follow 管理后台.dc.html */
+.bots-page {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+.bots-page__inner {
+  max-width: 1120px;
+  padding: 24px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bots-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.bots-page__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+.bots-page__desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.bots-page__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.bots-table {
+  flex: 1 1 440px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  overflow: hidden;
+}
+.bots-table__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 80px 90px minmax(0, 1fr) 90px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 14px;
+  border: 0;
+  border-top: 1px solid var(--color-separator);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.bots-table__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.bots-table__row.is-selected {
+  background: rgba(10, 132, 255, 0.12);
+}
+.bots-table__head,
+.bots-table__head:hover {
+  padding: 8px 14px;
+  border-top: 0;
+  background: var(--color-titlebar-bg);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  cursor: default;
+}
+.bots-table__bot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.bots-table__name {
+  font-weight: 600;
+}
+.bots-table__agent {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.bots-table__pending {
+  color: #ff9f0a;
+}
+.bots-table__machine {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bots-table__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.bots-detail {
+  flex: 1 1 320px;
+  max-width: 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+}
+.bots-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bots-detail__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.bots-detail__meta,
+.bots-detail__hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.bots-detail__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bots-detail__label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.bots-detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.bots-chip {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+.bots-chip__remove {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+.bots-chip__add {
+  width: 110px;
+}
+.bots-detail__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.bots-detail__grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bots-detail__grid span {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.bots-detail__grid code {
+  font-family: var(--font-mono);
+}
+.bots-detail__confirm {
+  margin-top: 8px;
+}
+.bots-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.newbot {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.newbot__loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+.newbot__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.newbot__label {
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--color-text-secondary);
+}
+.newbot__hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.newbot__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.newbot__chip {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-separator);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.newbot__sub,
+.newbot__muted {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.newbot__card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-separator);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.newbot__card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.newbot__chip.is-selected,
+.newbot__card.is-selected {
+  border-color: #0a84ff;
+  background: rgba(10, 132, 255, 0.08);
+}
+.newbot__radio {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-border-control);
+}
+.is-selected > .newbot__radio {
+  border: 4px solid #0a84ff;
+}
+.newbot__mono {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.newbot__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.newbot__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.newbot__agents {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.newbot__agent {
+  flex: 1;
+  font-weight: 600;
+}
+.newbot__ver {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.newbot__ver.is-missing {
+  color: #ff9f0a;
+}
+.newbot__result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-separator);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+}
+.newbot__result-icon {
+  flex: none;
+  margin-top: 2px;
+}
+.newbot__result-title {
+  font-weight: 600;
+}
+.newbot__result-desc {
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 767px) {
+  .bots-page__inner {
+    padding: 16px 12px 32px;
+  }
+}

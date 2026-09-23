@@ -29,6 +29,10 @@ export type UserDto = z.infer<typeof UserDto>
 
 export const LoginReq = z.object({ account: z.string(), password: z.string() })
 export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword: z.string().min(8) })
+/** Minimal user reference for pickers (GET /api/users). */
+export const UserBriefDto = z.object({ id: z.string(), name: z.string(), account: z.string() })
+export type UserBriefDto = z.infer<typeof UserBriefDto>
+
 export const CreateUserReq = z.object({
   account: z.string().regex(/^[a-z0-9_.-]{2,32}$/),
   name: z.string().min(1),
@@ -75,8 +79,15 @@ export const BotDto = z.object({
   triggerList: z.array(z.string()),
   concurrency: z.number().int(),
   createdBy: z.string(),
+  /** Version of this agent kind last reported by the bound machine. */
+  agentVersion: z.string().nullable(),
+  groupCount: z.number().int(),
 })
 export type BotDto = z.infer<typeof BotDto>
+
+/** GET /api/bots/owners: who the caller may create bots for, with their machines (self only for members). */
+export const BotOwnerDto = z.object({ id: z.string(), name: z.string(), machines: z.array(MachineDto) })
+export type BotOwnerDto = z.infer<typeof BotOwnerDto>
 
 export const CreateBotReq = z.object({
   name: z.string().min(1).max(40),
@@ -94,6 +105,24 @@ export const UpdateBotReq = z.object({
   triggerList: z.array(z.string()).optional(),
   concurrency: z.number().int().min(1).max(8).optional(),
 })
+
+// ── Notifications ───────────────────────────────────────────────────────────
+export const NotificationType = z.enum([
+  'approval',
+  'question',
+  'lock',
+  'offline_expired',
+  'chain_done',
+  'bot_confirm',
+])
+export const NotificationDto = z.object({
+  id: z.string(),
+  type: NotificationType,
+  payload: z.record(z.string(), z.unknown()),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type NotificationDto = z.infer<typeof NotificationDto>
 
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const GroupKind = z.enum(['group', 'dm'])
@@ -168,6 +197,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('run.updated'), run: RunDto }),
   z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
   z.object({ t: z.literal('bot.updated'), bot: BotDto }),
+  z.object({ t: z.literal('bot.removed'), botId: z.string() }),
+  z.object({ t: z.literal('notification.new'), notification: NotificationDto }),
   z.object({ t: z.literal('group.updated'), group: GroupDto }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
 ])

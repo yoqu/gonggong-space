@@ -1,7 +1,8 @@
 import { MessagesSquare, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Badge, EmptyState } from '../ui'
+import { botsApi } from '../features/bots/model'
+import { Badge, EmptyState, toast } from '../ui'
 import { ChatHeader, ChatLayout, Composer, Timeline } from './ChatLayout'
 import { GROUP_MODE_LABEL, Sidebar } from './Sidebar'
 import { useSession } from './session'
@@ -25,6 +26,12 @@ export function ChatPage() {
           groups={groups}
           bots={bots.filter((b) => b.ownerId === me?.id)}
           machines={machines.filter((m) => m.ownerId === me?.id)}
+          onConfirmBot={(id) =>
+            botsApi
+              .confirm(id)
+              .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
+              .catch((e: Error) => toast({ type: 'error', message: e.message }))
+          }
         />
       }
     >
