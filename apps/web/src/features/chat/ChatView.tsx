@@ -86,7 +86,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     ) : m.kind === 'bot' ? (
       <BotReply m={m} />
     ) : (
-      <UserMessage m={m} names={names} />
+      <UserMessage m={m} names={names} fanOut={runsByTrigger.get(m.id)?.length} />
     )
 
   return (
@@ -140,7 +140,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                     delta={tl.deltas[r.id]}
                     botName={bot?.name ?? 'bot'}
                     agent={bot ? AGENT_LABEL[bot.agentKind] : ''}
-                    trigger={userName(r.triggerUserId)}
+                    trigger={r.triggerUserId ? userName(r.triggerUserId) : m.authorName}
                   />
                 )
               })}

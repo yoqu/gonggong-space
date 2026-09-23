@@ -5,6 +5,8 @@ import { useNavigate, useParams } from 'react-router'
 import { botsApi } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
+import { RunRail } from '../features/runs/RunRail'
+import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
 import { EmptyState, Spinner, toast } from '../ui'
@@ -46,11 +48,16 @@ export function ChatPage() {
   const loaded = useChatData()
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const group = groups.find((g) => g.id === groupId)
+  const railRun = useRunRail((s) => s.runId)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the run rail
+  useEffect(() => useRunRail.getState().close, [groupId])
 
   return (
     <>
       <ChatLayout
         mobileView={groupId ? 'chat' : 'list'}
+        rail={railRun ? <RunRail key={railRun} runId={railRun} /> : undefined}
+        railOpen={!!railRun}
         sidebar={
           <Sidebar
             groups={groups}

@@ -1,0 +1,213 @@
+import type { ApprovalDto, RunDetailDto, RunDto } from '@aiws/protocol'
+import { describe, expect, it } from 'vitest'
+import { filePaths } from '../src/features/runs/paths'
+import { buildSteps, findFile, parsePatch } from '../src/features/runs/process'
+
+const patch = [
+  'diff --git a/src/a.ts b/src/a.ts',
+  'index 1111111..2222222 100644',
+  '--- a/src/a.ts',
+  '+++ b/src/a.ts',
+  '@@ -1,2 +1,3 @@',
+  ' keep',
+  '-old',
+  '+new',
+  '+more',
+  'diff --git a/new.txt b/new.txt',
+  'new file mode 100644',
+  'index 0000000..3333333',
+  '--- /dev/null',
+  '+++ b/new.txt',
+  '@@ -0,0 +1 @@',
+  '+fresh',
+  'diff --git a/gone.txt b/gone.txt',
+  'deleted file mode 100644',
+  '--- a/gone.txt',
+  '+++ /dev/null',
+  '@@ -1 +0,0 @@',
+  '-bye',
+  'diff --git a/logo.png b/logo.png',
+  'new file mode 100644',
+  'index 0000000..4444444',
+  'Binary files /dev/null and b/logo.png differ',
+  '… 补丁超过 512 KB，已截断',
+  '',
+].join('\n')
+
+describe('patch parsing', () => {
+  it('lists files with +/− counts, binaries and hunk lines', () => {
+    const files = parsePatch(patch)
+    expect(files.map((f) => [f.path, f.status, f.add, f.del, f.binary])).toEqual([
+      ['src/a.ts', 'modified', 2, 1, false],
+      ['new.txt', 'added', 1, 0, false],
+      ['gone.txt', 'deleted', 0, 1, false],
+      ['logo.png', 'added', 0, 0, true],
+    ])
+    expect(files[0]!.lines).toEqual(['@@ -1,2 +1,3 @@', ' keep', '-old', '+new', '+more'])
+    expect(files[3]!.lines).toEqual([
+      'Binary files /dev/null and b/logo.png differ',
+      '… 补丁超过 512 KB，已截断',
+    ])
+    expect(parsePatch('')).toEqual([])
+  })
+
+  it('matches reply paths against patch paths by suffix', () => {
+    const files = parsePatch(patch)
+    expect(findFile(files, 'src/a.ts')?.path).toBe('src/a.ts')
+    expect(findFile(files, '/Users/me/ws/src/a.ts')?.path).toBe('src/a.ts')
+    expect(findFile(files, './new.txt')?.path).toBe('new.txt')
+    expect(findFile(files, 'a.ts')).toBeUndefined()
+    expect(findFile(files, 'other.go')).toBeUndefined()
+  })
+})
+
+describe('file paths in replies', () => {
+  it('finds paths with a slash or a file extension, outside code blocks and URLs', () => {
+    const md = [
+      '已修改 `server/refund/v2/handler.go` 和README.md，新增了src/a.ts文件。',
+      '参考 https://example.com/docs/x.html 与 @接力 B，版本 v1.2.3，耗时 1.5 秒。',
+      '```sh',
+      'cat build/out.log',
+      '```',
+      '再看 ./scripts/run.sh 与 `handler.go`。',
+    ].join('\n')
+    expect(filePaths(md)).toEqual([
+      'server/refund/v2/handler.go',
+      'README.md',
+      'src/a.ts',
+      './scripts/run.sh',
+      'handler.go',
+    ])
+  })
+})
+
+const at = (s: number) => new Date(Date.UTC(2026, 8, 23, 2, 21, s)).toISOString()
+const run = (o: Partial<RunDto> = {}): RunDto => ({
+  id: 'r1',
+  groupId: 'g1',
+  botId: 'b1',
+  triggerMessageId: 'm1',
+  triggerUserId: 'u1',
+  hop: 1,
+  status: 'completed',
+  step: '',
+  filesChanged: 1,
+  usage: null,
+  newSessionReason: null,
+  queuedAt: at(0),
+  startedAt: at(0),
+  endedAt: at(30),
+  parentRunId: null,
+  hopMax: 3,
+  originUserId: 'u1',
+  approvals: [],
+  interrupt: null,
+  stoppedBy: null,
+  ...o,
+})
+const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
+  id: 'a1',
+  runId: 'r1',
+  title: 'Bash',
+  toolKind: 'execute',
+  detail: 'go build ./...',
+  options: [],
+  status: 'pending',
+  decidedBy: null,
+  decidedByName: null,
+  decidedAt: null,
+  expiresAt: at(59),
+  createdAt: at(9),
+  ...o,
+})
+
+describe('process steps', () => {
+  it('opens with the context step and merges tool updates in order', () => {
+    const detail: RunDetailDto = {
+      run: run({ newSessionReason: 'resume_failed', approvals: [approval({})] }),
+      patch,
+      purged: false,
+      sessionId: 's1',
+      retentionDays: 30,
+      events: [
+        {
+          id: 1,
+          at: at(1),
+          event: { kind: 'status', status: 'running', step: 'git fetch 完成，当前分支 main' },
+        },
+        { id: 2, at: at(2), event: { kind: 'thought', delta: '先看调用方' } },
+        {
+          id: 3,
+          at: at(3),
+          event: {
+            kind: 'tool',
+            toolCallId: 't1',
+            title: '查找调用方',
+            toolKind: 'execute',
+            status: 'in_progress',
+          },
+        },
+        {
+          id: 4,
+          at: at(4),
+          event: {
+            kind: 'tool',
+            toolCallId: 'e1',
+            title: 'Edit src/a.ts',
+            toolKind: 'edit',
+            status: 'completed',
+            detail: '/ws/src/a.ts',
+          },
+        },
+        {
+          id: 5,
+          at: at(7),
+          event: {
+            kind: 'tool',
+            toolCallId: 't1',
+            title: '查找调用方',
+            toolKind: 'execute',
+            status: 'completed',
+            detail: '$ rg RefundV1\nrouter.go:42',
+          },
+        },
+        { id: 6, at: at(8), event: { kind: 'usage', usage: { totalTokens: 10 } } },
+        { id: 7, at: at(10), event: { kind: 'text', delta: '完成' } },
+      ],
+    }
+    const steps = buildSteps(detail)
+    expect(steps.map((s) => [s.kind, s.label])).toEqual([
+      ['context', '开场上下文'],
+      ['thought', '思考'],
+      ['execute', '执行命令'],
+      ['edit', '编辑文件'],
+      ['approval', '权限请求'],
+      ['text', '回复'],
+    ])
+    expect(steps[0]).toMatchObject({
+      meta: '新会话',
+      body: '会话恢复失败，已开新会话并补送最近 50 条群消息。git 默认动作：fetch 完成，当前分支 main',
+    })
+    expect(steps[2]).toMatchObject({ mono: '查找调用方', out: '$ rg RefundV1\nrouter.go:42', meta: '4.0s' })
+    expect(steps[3]).toMatchObject({ mono: '/ws/src/a.ts', meta: '+2 −1' })
+    expect(steps[4]).toMatchObject({ mono: 'go build ./...', body: '等待 bot 主人审批' })
+  })
+
+  it('without git or a new session the context step says the session was resumed', () => {
+    const steps = buildSteps({
+      run: run(),
+      patch: null,
+      purged: false,
+      sessionId: null,
+      retentionDays: 30,
+      events: [],
+    })
+    expect(steps).toEqual([
+      expect.objectContaining({
+        kind: 'context',
+        meta: '续用会话',
+        body: '续用上次会话，补送上次被 @ 以来的群消息',
+      }),
+    ])
+  })
+})

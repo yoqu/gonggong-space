@@ -4,8 +4,7 @@ import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { notify } from '../notifications/notify.js'
-import { publishRun } from '../runs/dto.js'
-import { approvalDto } from './dto.js'
+import { approvalDto, publishRun } from '../runs/dto.js'
 
 type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'

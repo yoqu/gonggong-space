@@ -1,5 +1,5 @@
 import type { RunDone, RunEvent } from '@aiws/protocol'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
@@ -8,7 +8,9 @@ import { publishBot } from '../bots/dto.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
+import { redact, redactDeep } from './redact.js'
 import { schedule } from './scheduler.js'
+import { triggerChain } from './trigger.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -59,14 +61,17 @@ async function liveRun(ctx: Ctx, machineId: string, runId: string) {
   return row?.run
 }
 
-async function onEvent(ctx: Ctx, machineId: string, runId: string, event: RunEvent) {
+async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent) {
   const run = await liveRun(ctx, machineId, runId)
   if (!run) return
-  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: event })
-  if (event.kind === 'text') {
-    ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId, text: event.delta })
+  if (raw.kind === 'text' || raw.kind === 'thought') {
+    await appendStream(ctx, runId, raw.kind, raw.delta)
+    if (raw.kind === 'text')
+      ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId, text: redact(raw.delta) })
     return
   }
+  const event = redactDeep(raw)
+  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: event })
   const patch =
     event.kind === 'status' || event.kind === 'tool'
       ? { step: event.kind === 'tool' ? event.title : event.step }
@@ -78,6 +83,23 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, event: RunEve
     await publishRun(ctx, row)
 }
 
+/**
+ * Streamed chunks extend the run's latest event of the same kind, so redaction sees whole segments even when a
+ * secret is split across chunks.
+ */
+async function appendStream(ctx: Ctx, runId: string, kind: 'text' | 'thought', delta: string) {
+  const [last] = await ctx.db
+    .select()
+    .from(runEvents)
+    .where(eq(runEvents.runId, runId))
+    .orderBy(desc(runEvents.id))
+    .limit(1)
+  if (last?.kind === kind) {
+    const payload = { kind, delta: redact((last.payload as { delta: string }).delta + delta) }
+    await ctx.db.update(runEvents).set({ payload }).where(eq(runEvents.id, last.id))
+  } else await ctx.db.insert(runEvents).values({ runId, kind, payload: { kind, delta: redact(delta) } })
+}
+
 async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   const owned = await liveRun(ctx, machineId, done.runId)
   if (!owned) return
@@ -85,8 +107,9 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
     .update(runs)
     .set({
       status: done.outcome === 'completed' ? 'completed' : 'interrupted',
-      step: done.outcome === 'failed' ? `agent 异常：${done.error ?? '未知错误'}` : '',
+      step: done.outcome === 'failed' ? `agent 异常：${redact(done.error ?? '未知错误')}` : '',
       filesChanged: done.filesChanged,
+      patch: done.patch && redact(done.patch),
       ...(done.usage && { usage: done.usage }),
       newSessionReason: done.newSessionReason,
       endedAt: ctx.now(),
@@ -101,16 +124,18 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       .set({ sessionId: done.sessionId })
       .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
   if (done.git) await updateBotState(ctx, run.groupId, run.botId, { gitStatus: done.git })
-  if (done.reply.trim())
-    await postMessage(ctx, {
-      groupId: run.groupId,
-      kind: 'bot',
-      authorBotId: run.botId,
-      body: done.reply,
-      meta: { mentions: [] },
-      runId: run.id,
-    })
+  const reply = done.reply.trim()
+    ? await postMessage(ctx, {
+        groupId: run.groupId,
+        kind: 'bot',
+        authorBotId: run.botId,
+        body: redact(done.reply),
+        meta: { mentions: [] },
+        runId: run.id,
+      })
+    : null
   await publishRun(ctx, run)
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
+  if (reply) await triggerChain(ctx, run, reply)
 }

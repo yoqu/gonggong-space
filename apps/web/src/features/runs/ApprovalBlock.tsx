@@ -5,7 +5,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { Button, toast } from '../../ui'
-import './runs.css'
+import './approval.css'
 
 /** ACP tool kinds as the prototype names them. */
 const KIND: Record<string, string> = {

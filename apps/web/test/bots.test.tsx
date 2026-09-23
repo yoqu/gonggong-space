@@ -226,4 +226,19 @@ describe('bot detail', () => {
     expect(within(detail).getByText('等待 王磊 确认')).toBeTruthy()
     expect(within(detail).queryByRole('button', { name: '确认' })).toBeNull()
   })
+
+  it('shows last-7-day usage and who used the bot', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['GET /api/usage?by=user&days=7&botId=b1'] = () => [
+      { key: 'u1', name: '王磊', runs: 3, totalTokens: 256_000, unreported: 0 },
+      { key: 'u2', name: '李建国', runs: 1, totalTokens: 0, unreported: 1 },
+    ]
+    renderAt('/admin/bots', wang)
+    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    expect(await within(detail).findByText('256k tokens · 4 轮')).toBeTruthy()
+    const rows = within(detail)
+      .getAllByTestId('usage-row')
+      .map((r) => r.textContent)
+    expect(rows).toEqual(['王磊256k', '李建国未上报'])
+  })
 })
