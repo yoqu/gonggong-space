@@ -10,6 +10,8 @@ import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
+import { candidateRoutes } from './modules/candidates/routes.js'
+import { startCandidates } from './modules/candidates/service.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
@@ -61,5 +63,7 @@ export async function buildApp(ctx: Ctx) {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(usageRoutes(ctx))
+  await app.register(candidateRoutes(ctx))
+  app.addHook('onClose', startCandidates(ctx))
   return app
 }
