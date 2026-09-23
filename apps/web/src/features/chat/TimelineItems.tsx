@@ -2,6 +2,8 @@ import type { MessageDto, RunDto, RunStatus } from '@aiws/protocol'
 import {
   Ban,
   Bot,
+  ChevronDown,
+  ChevronRight,
   CircleDot,
   FileText,
   Folder,
@@ -58,6 +60,7 @@ export const newSessionNote = (reason: string | null) =>
   reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason
 
 const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
+const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -230,13 +233,17 @@ export function RunCard({
   botName,
   agent,
   trigger,
+  foldable = false,
 }: {
   run: RunDto
   delta?: string
   botName: string
   agent: string
   trigger: string
+  /** My 运行卡片默认折叠 pref; cards awaiting my decision always stay open. */
+  foldable?: boolean
 }) {
+  const [expanded, setExpanded] = useState(false)
   const live = LIVE.includes(run.status)
   const now = useNow(live && !!run.startedAt)
   const selected = useRunRail((s) => s.runId === run.id)
@@ -249,6 +256,8 @@ export function RunCard({
   const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const sessionNote = newSessionNote(run.newSessionReason)
+  const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
+  const folded = canFold && !expanded
   return (
     <div
       className={cx('run-card', selected && 'run-card--selected')}
@@ -269,64 +278,79 @@ export function RunCard({
         ) : null}
         <span className="spacer" />
         <Badge variant={status.variant}>{status.label}</Badge>
-      </div>
-      {step ? (
-        <div className="run-card__step">
-          <StepIcon size={12} className={run.status === 'running' ? 'run-card__spin' : undefined} />
-          <span>{step}</span>
-        </div>
-      ) : null}
-      {started !== null ? (
-        <div className="run-card__meta">
-          <span>改动 {run.filesChanged} 个文件</span>
-          <span>·</span>
-          <span>{fmtDuration((run.endedAt ? Date.parse(run.endedAt) : now) - started)}</span>
-          <span>·</span>
-          <span>{fmtUsage(run.usage)}</span>
-        </div>
-      ) : null}
-      {sessionNote ? (
-        <div className="run-card__session">
-          <RefreshCw size={11} />
-          {sessionNote}
-        </div>
-      ) : null}
-      {/* Slice 2 (approvals) */}
-      <ApprovalBlock run={run} />
-      <QuestionBlock run={run} />
-      {NoteIcon ? (
-        <div className="run-card__note">
-          <NoteIcon size={12} />
-          {run.status === 'offline_wait' ? <OfflineNote run={run} /> : <span>{run.step}</span>}
-        </div>
-      ) : null}
-      {/* Slice 4 (/stop leftovers) */}
-      <InterruptBlock run={run} />
-      {NoteIcon ? null : (
-        <div className="run-card__actions">
-          <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
-            <PanelRightOpen size={12} />
-            查看过程
-          </button>
+        {canFold ? (
           <button
             type="button"
-            className="run-card__action"
-            onClick={() =>
-              quote({
-                groupId: run.groupId,
-                kind: 'run',
-                id: run.id,
-                who: `${botName} 的运行卡片`,
-                text: run.step || status.label,
-              })
-            }
+            className="run-card__fold"
+            aria-label={folded ? '展开' : '收起'}
+            title={folded ? '展开' : '收起'}
+            onClick={() => setExpanded(folded)}
           >
-            <Quote size={11} />
-            引用
+            {folded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
           </button>
-          {/* Slice 4 (打断并追加 / stop) */}
-          <RunActions run={run} />
-        </div>
+        ) : null}
+      </div>
+      {folded ? null : (
+        <>
+          {step ? (
+            <div className="run-card__step">
+              <StepIcon size={12} className={run.status === 'running' ? 'run-card__spin' : undefined} />
+              <span>{step}</span>
+            </div>
+          ) : null}
+          {started !== null ? (
+            <div className="run-card__meta">
+              <span>改动 {run.filesChanged} 个文件</span>
+              <span>·</span>
+              <span>{fmtDuration((run.endedAt ? Date.parse(run.endedAt) : now) - started)}</span>
+              <span>·</span>
+              <span>{fmtUsage(run.usage)}</span>
+            </div>
+          ) : null}
+          {sessionNote ? (
+            <div className="run-card__session">
+              <RefreshCw size={11} />
+              {sessionNote}
+            </div>
+          ) : null}
+          {/* Slice 2 (approvals) */}
+          <ApprovalBlock run={run} />
+          <QuestionBlock run={run} />
+          {NoteIcon ? (
+            <div className="run-card__note">
+              <NoteIcon size={12} />
+              {run.status === 'offline_wait' ? <OfflineNote run={run} /> : <span>{run.step}</span>}
+            </div>
+          ) : null}
+          {/* Slice 4 (/stop leftovers) */}
+          <InterruptBlock run={run} />
+          {NoteIcon ? null : (
+            <div className="run-card__actions">
+              <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
+                <PanelRightOpen size={12} />
+                查看过程
+              </button>
+              <button
+                type="button"
+                className="run-card__action"
+                onClick={() =>
+                  quote({
+                    groupId: run.groupId,
+                    kind: 'run',
+                    id: run.id,
+                    who: `${botName} 的运行卡片`,
+                    text: run.step || status.label,
+                  })
+                }
+              >
+                <Quote size={11} />
+                引用
+              </button>
+              {/* Slice 4 (打断并追加 / stop) */}
+              <RunActions run={run} />
+            </div>
+          )}
+        </>
       )}
     </div>
   )

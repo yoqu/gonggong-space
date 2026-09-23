@@ -18,6 +18,7 @@ import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
 import { groupRoutes } from './modules/groups/routes.js'
+import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
@@ -51,6 +52,7 @@ export async function buildApp(ctx: Ctx) {
   await loadSysParams(ctx.db)
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
   await app.register(groupRoutes(ctx))
+  await app.register(groupSettingsRoutes(ctx))
   await app.register(messageRoutes(ctx))
   await app.register(attachmentRoutes(ctx))
   await app.register(webGateway(ctx))

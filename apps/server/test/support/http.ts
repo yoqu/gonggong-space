@@ -4,7 +4,7 @@ import type { TestApp } from './app.js'
 /** JSON client acting as one logged-in browser. */
 export function client(t: TestApp, cookie: string) {
   const call = async <T = { error?: string }>(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     url: string,
     payload?: unknown,
   ) => {
@@ -15,6 +15,7 @@ export function client(t: TestApp, cookie: string) {
     get: <T = { error?: string }>(url: string) => call<T>('GET', url),
     post: <T = { error?: string }>(url: string, body: unknown = {}) => call<T>('POST', url, body),
     patch: <T = { error?: string }>(url: string, body: unknown = {}) => call<T>('PATCH', url, body),
+    put: <T = { error?: string }>(url: string, body: unknown = {}) => call<T>('PUT', url, body),
     del: <T = { error?: string }>(url: string) => call<T>('DELETE', url),
   }
 }

@@ -37,6 +37,9 @@ const group: GroupDto = {
   unread: 0,
   lastSeq: 4,
   last: '',
+  pinned: false,
+  muted: false,
+  foldRuns: false,
 }
 const bot: BotDto = {
   id: 'b1',

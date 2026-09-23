@@ -364,6 +364,9 @@ section:first-child > .sidebar__head {
   font-size: 10px;
   font-weight: 650;
 }
+.sidebar__unread--muted {
+  background: var(--color-border-strong);
+}
 .sidebar__sub {
   font-size: 11px;
   color: var(--color-text-tertiary);

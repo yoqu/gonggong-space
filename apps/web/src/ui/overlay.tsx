@@ -64,14 +64,31 @@ export function Dialog({
   )
 }
 
-export function Drawer({ open, title, leading, onClose, children }: OverlayProps & { leading?: ReactNode }) {
+export function Drawer({
+  open,
+  title,
+  label,
+  leading,
+  onClose,
+  children,
+}: OverlayProps & {
+  leading?: ReactNode
+  /** Fixed accessible name for drawers whose visible title changes with the sub-view. */
+  label?: string
+}) {
   const titleId = useId()
   useEscape(open, onClose)
   if (!open) return null
   return createPortal(
     <>
       <div className="ui-drawer-overlay" onClick={onClose} aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="ui-drawer">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        aria-labelledby={label ? undefined : titleId}
+        className="ui-drawer"
+      >
         <div className="ui-drawer__header">
           {leading}
           <h2 id={titleId} className="ui-drawer__title">

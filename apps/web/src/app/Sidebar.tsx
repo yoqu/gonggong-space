@@ -1,7 +1,8 @@
 import type { BotDto, GroupDto, MachineDto } from '@aiws/protocol'
-import { Hash, Plus, User } from 'lucide-react'
+import { BellOff, Hash, Pin, Plus, User } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { botStateText, PRESENCE } from '../features/bots/model'
+import { cx } from '../lib/cx'
 import { Button } from '../ui'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
@@ -33,16 +34,23 @@ function GroupRow({ g }: { g: GroupDto }) {
   const Icon = g.kind === 'dm' ? User : Hash
   const sub = `${GROUP_MODE_LABEL[g.mode]} · ${g.last || (g.kind === 'dm' ? '仅你和你的 bot' : `${g.members.length} 人`)}`
   return (
-    <NavLink to={`/g/${g.id}`} className="sidebar__item">
+    <NavLink to={`/g/${g.id}`} className="sidebar__item" data-testid={`group-item-${g.id}`}>
       <span className="sidebar__row">
         <Icon size={13} className="muted-icon" />
         <span className="sidebar__name">{g.name}</span>
-        {g.unread > 0 ? <span className="sidebar__unread">{g.unread}</span> : null}
+        {g.pinned ? <Pin size={11} className="muted-icon" data-testid="pinned" aria-label="已置顶" /> : null}
+        {g.muted ? <BellOff size={11} className="muted-icon" aria-label="消息免打扰" /> : null}
+        {g.unread > 0 ? (
+          <span className={cx('sidebar__unread', g.muted && 'sidebar__unread--muted')}>{g.unread}</span>
+        ) : null}
       </span>
       <span className="sidebar__sub">{sub}</span>
     </NavLink>
   )
 }
+
+/** Pinned first; otherwise the server's order (creation time). */
+const byPin = (list: GroupDto[]) => [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 
 export function Sidebar({ groups, bots, machines, onNewGroup, onNewDm, onConfirmBot }: SidebarProps) {
   const online = machines.find((m) => m.online)
@@ -51,14 +59,14 @@ export function Sidebar({ groups, bots, machines, onNewGroup, onNewDm, onConfirm
       label: '群',
       add: onNewGroup,
       addTitle: '新建群',
-      items: groups.filter((g) => g.kind === 'group'),
+      items: byPin(groups.filter((g) => g.kind === 'group')),
       empty: '还没有加入任何群',
     },
     {
       label: '私聊',
       add: onNewDm,
       addTitle: '新建私聊',
-      items: groups.filter((g) => g.kind === 'dm'),
+      items: byPin(groups.filter((g) => g.kind === 'dm')),
       empty: '还没有私聊',
     },
   ]
