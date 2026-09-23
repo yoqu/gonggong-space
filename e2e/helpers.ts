@@ -69,3 +69,51 @@ export async function logout(page: Page) {
   await page.getByRole('button', { name: '退出登录' }).click()
   await expect(page.getByRole('button', { name: '登录' })).toBeVisible()
 }
+
+type Api = import('@playwright/test').APIRequestContext
+
+async function call<T>(api: Api, method: 'get' | 'post', path: string, data?: unknown): Promise<T> {
+  const res = await api[method](path, data === undefined ? undefined : { data })
+  if (!res.ok()) throw new Error(`${method.toUpperCase()} ${path} → ${res.status()} ${await res.text()}`)
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
+}
+
+/** Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine. */
+export async function memberWithMachine(page: Page, account: string) {
+  const admin = page.request
+  let res = await admin.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+  if (!res.ok()) {
+    await call(admin, 'post', '/api/auth/login', { account: 'admin', password: 'admin-init-pass' })
+    await call(admin, 'post', '/api/auth/password', {
+      oldPassword: 'admin-init-pass',
+      newPassword: 'admin-pass-2',
+    })
+  }
+  await call(admin, 'post', '/api/admin/users', {
+    account,
+    name: account,
+    role: 'member',
+    password: 'init-pass-1',
+  })
+  await call(admin, 'post', '/api/auth/logout')
+  res = await page.request.post('/api/auth/login', { data: { account, password: 'init-pass-1' } })
+  await call(page.request, 'post', '/api/auth/password', {
+    oldPassword: 'init-pass-1',
+    newPassword: 'member-pass',
+  })
+  const { code } = await call<{ code: string }>(page.request, 'post', '/api/bind-codes')
+  const m = machine()
+  m.login(code)
+  const api = {
+    call: <T>(method: 'get' | 'post', path: string, data?: unknown) =>
+      call<T>(page.request, method, path, data),
+    async me() {
+      return call<{ id: string }>(page.request, 'get', '/api/me')
+    },
+    async machineId() {
+      return (await call<{ id: string }[]>(page.request, 'get', '/api/machines'))[0]!.id
+    },
+  }
+  return { m, api }
+}

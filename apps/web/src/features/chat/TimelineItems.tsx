@@ -140,7 +140,7 @@ export function UserMessage({ m, names }: { m: MessageDto; names: string[] }) {
 
 export function BotReply({ m }: { m: MessageDto }) {
   return (
-    <div className="tl-msg">
+    <div className="tl-msg" data-testid="bot-reply">
       <div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>
       <div className="tl-msg__main">
         <div className="tl-msg__head">
