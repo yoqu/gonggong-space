@@ -93,6 +93,8 @@ impl Handler for Engine {
                 let actors = self.0.actors.lock().unwrap();
                 actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
             }
+            // Implemented by the M4 candidates / question / append slices.
+            ServerToDaemon::FilesList { .. } | ServerToDaemon::QuestionAnswer { .. } | ServerToDaemon::RunAppend { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }

@@ -162,7 +162,12 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       triggeredBy: trigger.author ?? trigger.bot ?? '',
       context: [...context, ...note],
       fallbackContext: resumeSessionId ? [...fallbackContext, ...note] : [],
+      // Filled by the M4 attachments / quote slice.
+      attachments: [],
+      quote: null,
     },
+    // Filled by the M4 global MCP slice.
+    mcpServers: [],
   }
   return { msg, triggerSeq: trigger.seq, settled: interrupted?.settled }
 }
@@ -189,5 +194,6 @@ async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): 
     kind: r.kind as ContextMessage['kind'],
     body: r.body,
     at: r.at.toISOString(),
+    attachments: [],
   }))
 }

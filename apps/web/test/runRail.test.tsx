@@ -59,6 +59,8 @@ const msg = (o: Partial<MessageDto>): MessageDto => ({
   mentions: [],
   runId: null,
   createdAt: at,
+  attachments: [],
+  quote: null,
   ...o,
 })
 const run = (o: Partial<RunDto> = {}): RunDto => ({
@@ -80,6 +82,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   hopMax: 3,
   offlineWaitMin: 30,
   originUserId: 'u1',
+  questions: [],
   approvals: [
     {
       id: 'a1',

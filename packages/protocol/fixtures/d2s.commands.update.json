@@ -1,0 +1,6 @@
+{
+  "t": "commands.update",
+  "groupId": "g1",
+  "botId": "b1",
+  "commands": [{ "name": "compact", "description": "Compact the conversation" }]
+}

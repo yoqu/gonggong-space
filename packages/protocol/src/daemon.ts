@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentKind, GitStatus, RunStatus, Tier, Usage } from './common.js'
+import { AgentKind, Answer, Attachment, GitStatus, Question, RunStatus, Tier, Usage } from './common.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
@@ -25,6 +25,23 @@ export const DaemonLoginRes = z.object({ token: z.string(), machineId: z.string(
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 
 // ── Shared run payloads ─────────────────────────────────────────────────────
+export const McpServer = z.discriminatedUnion('transport', [
+  z.object({
+    transport: z.literal('stdio'),
+    name: z.string(),
+    command: z.string(),
+    args: z.array(z.string()),
+    env: z.record(z.string(), z.string()),
+  }),
+  z.object({
+    transport: z.literal('http'),
+    name: z.string(),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()),
+  }),
+])
+export type McpServer = z.infer<typeof McpServer>
+
 export const RepoSpec = z.object({ id: z.string(), url: z.string(), branch: z.string() })
 
 /** A group message replayed to a bot as context ("since you were last @-ed"). */
@@ -35,6 +52,8 @@ export const ContextMessage = z.object({
   kind: z.enum(['user', 'bot']),
   body: z.string(),
   at: z.string(),
+  /** Attachments of unmentioned messages are written into the workspace with the context (plan D6). */
+  attachments: z.array(Attachment),
 })
 export type ContextMessage = z.infer<typeof ContextMessage>
 
@@ -66,7 +85,13 @@ export const RunStart = z.object({
     context: z.array(ContextMessage),
     /** Last N group messages, replayed only if resuming `resumeSessionId` fails. Empty when not resuming. */
     fallbackContext: z.array(ContextMessage),
+    /** Files of the trigger message: written into the workspace; images also sent as ACP image content if supported. */
+    attachments: z.array(Attachment),
+    /** Quoted bot message / run card (spec §8.6: quoting a bot = @ it, the quoted content is sent along). */
+    quote: z.object({ author: z.string(), body: z.string() }).nullable(),
   }),
+  /** Global MCP servers (spec §7.2, P1 global layer), injected on session creation only (§7.4). */
+  mcpServers: z.array(McpServer),
 })
 export type RunStart = z.infer<typeof RunStart>
 
@@ -169,7 +194,34 @@ export const RunDiscarded = z.object({
 })
 export type RunDiscarded = z.infer<typeof RunDiscarded>
 
+/** ACP available_commands_update for a (group, bot) session, for the / candidates (spec §8.7). */
+export const CommandsUpdate = z.object({
+  t: z.literal('commands.update'),
+  groupId: z.string(),
+  botId: z.string(),
+  commands: z.array(z.object({ name: z.string(), description: z.string() })),
+})
+
+/** Answer to files.list. */
+export const FilesResult = z.object({
+  t: z.literal('files.result'),
+  requestId: z.string(),
+  entries: z.array(z.object({ path: z.string(), dir: z.boolean(), uncommitted: z.boolean() })),
+  error: z.string().nullable(),
+})
+
+/** The built-in ask tool was called; blocks the agent until question.answer arrives. */
+export const QuestionAsk = z.object({
+  t: z.literal('question.ask'),
+  runId: z.string(),
+  requestId: z.string(),
+  questions: z.array(Question).min(1).max(4),
+})
+
 export const DaemonToServer = z.discriminatedUnion('t', [
+  CommandsUpdate,
+  FilesResult,
+  QuestionAsk,
   ApprovalRequest,
   RunDiscarded,
   Hello,
@@ -225,7 +277,40 @@ export const ApprovalDecision = z.object({
 /** Restore only the files this (finished, interrupted) turn touched; earlier uncommitted work stays (plan D7). */
 export const RunDiscard = z.object({ t: z.literal('run.discard'), runId: z.string() })
 
+/** @ file candidates from a bot's workspace, incl. uncommitted files (spec §8.7). */
+export const FilesList = z.object({
+  t: z.literal('files.list'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  /** Path prefix / fuzzy fragment typed after @. */
+  query: z.string(),
+  limit: z.number().int(),
+})
+
+/** answers null → nobody answered in time: the tool tells the agent to proceed with recommendations (spec §8.8). */
+export const QuestionAnswer = z.object({
+  t: z.literal('question.answer'),
+  runId: z.string(),
+  requestId: z.string(),
+  answers: z.array(Answer).nullable(),
+  attachments: z.array(Attachment),
+  answeredBy: z.string().nullable(),
+})
+
+/** 打断并追加 (spec §8.9): cancel the current prompt, keep edits, continue the same session with this text. */
+export const RunAppend = z.object({
+  t: z.literal('run.append'),
+  runId: z.string(),
+  text: z.string(),
+  from: z.string(),
+  attachments: z.array(Attachment),
+})
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
+  FilesList,
+  QuestionAnswer,
+  RunAppend,
   ApprovalDecision,
   RunDiscard,
   Welcome,

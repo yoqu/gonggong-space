@@ -169,6 +169,8 @@ export const groupBots = pgTable(
     workspaceState: text('workspace_state').notNull().default('pending'),
     workspacePath: text('workspace_path'),
     workspaceError: text('workspace_error'),
+    /** Agent commands last reported over ACP (available_commands_update) for / candidates. */
+    agentCommands: jsonb('agent_commands').notNull().default([]),
     removedAt: ts('removed_at'),
     addedAt: createdAt(),
   },
@@ -279,6 +281,72 @@ export const approvals = pgTable(
   },
   (t) => [index('approvals_run').on(t.runId), index('approvals_pending').on(t.status, t.expiresAt)],
 )
+
+/** Uploaded files (spec §8.7). Stored on the server's disk (encrypted at rest in M5); bound to a message once sent. */
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: id(),
+    uploaderId: uuid('uploader_id')
+      .notNull()
+      .references(() => users.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    /** null until the message (or question answer) that carries it is stored. */
+    messageId: uuid('message_id'),
+    name: text('name').notNull(),
+    size: integer('size').notNull(),
+    mime: text('mime').notNull(),
+    /** Path under the server's data dir. */
+    storageKey: text('storage_key').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('attachments_message').on(t.messageId)],
+)
+
+/** One question card from the built-in ask tool (spec §8.8); answers are kept forever (audit). */
+export const questionSets = pgTable(
+  'question_sets',
+  {
+    id: id(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => runs.id),
+    requestId: text('request_id').notNull(),
+    questions: jsonb('questions').notNull(),
+    /** 'pending' | 'answered' | 'expired' | 'void' */
+    status: text('status').notNull().default('pending'),
+    answers: jsonb('answers'),
+    /** Attachment ids sent with the answer. */
+    attachmentIds: jsonb('attachment_ids').$type<string[]>().notNull().default([]),
+    answeredBy: uuid('answered_by').references(() => users.id),
+    answeredAt: ts('answered_at'),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('question_sets_run').on(t.runId), index('question_sets_pending').on(t.status, t.expiresAt)],
+)
+
+/** Global MCP layer maintained by sysadmins (spec §7.1), injected into new sessions over ACP. */
+export const mcpServers = pgTable('mcp_servers', {
+  id: id(),
+  name: text('name').notNull().unique(),
+  enabled: boolean('enabled').notNull().default(true),
+  config: jsonb('config').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+/** Web Push subscriptions (plan D13). */
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  endpoint: text('endpoint').notNull().unique(),
+  keys: jsonb('keys').notNull(),
+  createdAt: createdAt(),
+})
 
 // ── Cross-cutting ───────────────────────────────────────────────────────────
 export const notifications = pgTable(

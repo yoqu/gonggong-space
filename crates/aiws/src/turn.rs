@@ -250,6 +250,7 @@ mod tests {
             kind: "user".into(),
             body: body.into(),
             at: "2026-09-23T10:12:00.123Z".into(),
+            attachments: vec![],
         }
     }
 
@@ -259,6 +260,8 @@ mod tests {
             triggered_by: "王磊".into(),
             context: vec![],
             fallback_context: vec![],
+            attachments: vec![],
+            quote: None,
         }
     }
 

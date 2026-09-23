@@ -18,6 +18,9 @@ export const messageDto = (m: MessageRow, authorName: string): MessageDto => ({
   mentions: (m.meta as MessageMeta).mentions ?? [],
   runId: m.runId,
   createdAt: m.createdAt.toISOString(),
+  // Filled by the M4 attachments / quote slice.
+  attachments: [],
+  quote: null,
 })
 
 export async function authorName(ctx: Ctx, m: Pick<MessageRow, 'authorUserId' | 'authorBotId'>) {

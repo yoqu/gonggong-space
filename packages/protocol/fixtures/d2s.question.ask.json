@@ -1,0 +1,15 @@
+{
+  "t": "question.ask",
+  "runId": "r1",
+  "requestId": "q1",
+  "questions": [
+    {
+      "id": "1",
+      "type": "single",
+      "title": "v1 的历史退款记录是否迁移？",
+      "options": ["迁移近 90 天", "全部迁移", "不迁移"],
+      "recommended": 0
+    },
+    { "id": "2", "type": "text", "title": "已知异常？", "options": [], "recommended": null }
+  ]
+}

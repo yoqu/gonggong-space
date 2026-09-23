@@ -28,6 +28,8 @@ const msg = (o: Partial<MessageDto>): MessageDto => ({
   mentions: [],
   runId: null,
   createdAt: new Date().toISOString(),
+  attachments: [],
+  quote: null,
   ...o,
 })
 

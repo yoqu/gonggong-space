@@ -44,6 +44,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,
         new_session_reason: None,
+        mcp_servers: vec![],
         prompt: RunPrompt {
             text: text.into(),
             triggered_by: "王磊".into(),
@@ -53,8 +54,11 @@ fn start(run_id: &str, text: &str) -> RunStart {
                 kind: "user".into(),
                 body: "新上下文".into(),
                 at: "2026-09-23T10:12:00Z".into(),
+                attachments: vec![],
             }],
             fallback_context: vec![],
+            attachments: vec![],
+            quote: None,
         },
     }
 }
@@ -254,6 +258,7 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
         kind: "user".into(),
         body: "旧消息".into(),
         at: "2026-09-23T09:00:00Z".into(),
+        attachments: vec![],
     }];
     r.run(s);
     let (_, done) = r.finish("r1").await;

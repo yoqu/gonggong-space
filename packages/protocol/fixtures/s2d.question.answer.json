@@ -1,0 +1,11 @@
+{
+  "t": "question.answer",
+  "runId": "r1",
+  "requestId": "q1",
+  "answers": [
+    { "questionId": "1", "choices": [0], "text": null },
+    { "questionId": "2", "choices": [], "text": "重复提交" }
+  ],
+  "attachments": [{ "id": "a1", "name": "shot.png", "size": 312000, "mime": "image/png", "messageId": "m9" }],
+  "answeredBy": "王磊"
+}

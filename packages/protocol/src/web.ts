@@ -1,6 +1,17 @@
 import { z } from 'zod'
-import { AgentKind, GitStatus, RunStatus, Tier, TriggerScope, Usage } from './common.js'
-import { AgentInfo, MachineInfo, PermissionOption, RunEvent } from './daemon.js'
+import {
+  AgentKind,
+  Answer,
+  Attachment,
+  GitStatus,
+  MAX_ATTACHMENTS,
+  Question,
+  RunStatus,
+  Tier,
+  TriggerScope,
+  Usage,
+} from './common.js'
+import { AgentInfo, MachineInfo, McpServer, PermissionOption, RunEvent } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -175,6 +186,10 @@ export const MessageDto = z.object({
   mentions: z.array(z.string()),
   runId: z.string().nullable(),
   createdAt: z.string(),
+  attachments: z.array(Attachment),
+  quote: z
+    .object({ kind: z.enum(['message', 'run']), id: z.string(), who: z.string(), text: z.string() })
+    .nullable(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
@@ -204,6 +219,26 @@ export const InterruptChoiceReq = z.object({ choice: z.enum(['keep', 'discard'])
 export const StopRes = z.object({ stopped: z.number().int() })
 export type StopRes = z.infer<typeof StopRes>
 
+export const QuestionSetDto = z.object({
+  id: z.string(),
+  runId: z.string(),
+  questions: z.array(Question),
+  status: z.enum(['pending', 'answered', 'expired', 'void']),
+  answers: z.array(Answer).nullable(),
+  attachments: z.array(Attachment),
+  answeredBy: z.string().nullable(),
+  answeredByName: z.string().nullable(),
+  answeredAt: z.string().nullable(),
+  expiresAt: z.string(),
+  createdAt: z.string(),
+})
+export type QuestionSetDto = z.infer<typeof QuestionSetDto>
+
+export const AnswerQuestionsReq = z.object({
+  answers: z.array(Answer),
+  attachmentIds: z.array(z.string()).max(MAX_ATTACHMENTS).default([]),
+})
+
 export const RunDto = z.object({
   id: z.string(),
   groupId: z.string(),
@@ -227,6 +262,7 @@ export const RunDto = z.object({
   /** Human whose @ started the chain; every hop is authorized and answerable by them. */
   originUserId: z.string(),
   approvals: z.array(ApprovalDto),
+  questions: z.array(QuestionSetDto),
   /** Partition-mode /stop leftovers (plan D7): pending = edits kept, discard still possible. */
   interrupt: z.enum(['pending', 'kept', 'discarded']).nullable(),
   /** Who issued /stop. */
@@ -260,7 +296,68 @@ export const SendMessageReq = z.object({
   body: z.string().min(1).max(20000),
   /** Client-generated idempotency key; resending the same id returns the original message. */
   clientId: z.string().min(8),
+  /** Ids from POST /api/uploads. */
+  attachmentIds: z.array(z.string()).max(MAX_ATTACHMENTS).default([]),
+  /** Quoting a bot's reply or run card triggers that bot (spec §8.6); quoting a human message only adds context. */
+  quote: z
+    .object({ kind: z.enum(['message', 'run']), id: z.string() })
+    .nullable()
+    .default(null),
+  /** 打断并追加 into this running run (trigger user or bot owner only). */
+  appendTo: z.string().nullable().default(null),
 })
+
+// ── Composer candidates (spec §8.7) ────────────────────────────────────────
+export const FileCandidatesDto = z.object({
+  /** workspace = the @-ed bot's workspace (incl. uncommitted); mirror = base-branch mirror on the server; authority = P2. */
+  source: z.enum(['workspace', 'mirror', 'none']),
+  /** e.g. 「小王的 Claude 工作区 · 含未提交」 / 「main 镜像 · 3 分钟前更新」 */
+  label: z.string(),
+  entries: z.array(
+    z.object({
+      path: z.string(),
+      dir: z.boolean(),
+      uncommitted: z.boolean(),
+      /** Only in the mirror, not in the @-ed bot's workspace → 「该文件不在你的工作区，可能需要拉取」. */
+      notInWorkspace: z.boolean(),
+    }),
+  ),
+})
+export type FileCandidatesDto = z.infer<typeof FileCandidatesDto>
+
+export const CommandCandidatesDto = z.object({
+  system: z.array(z.object({ name: z.string(), hint: z.string() })),
+  /** P1: agent commands reported over ACP (Claude reports skills as commands); server skill layers are P3. */
+  agent: z.array(z.object({ name: z.string(), hint: z.string(), botId: z.string(), botName: z.string() })),
+})
+export type CommandCandidatesDto = z.infer<typeof CommandCandidatesDto>
+
+// ── Global MCP (spec §7, P1 global layer) ──────────────────────────────────
+export const McpServerDto = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  config: McpServer,
+  updatedAt: z.string(),
+})
+export type McpServerDto = z.infer<typeof McpServerDto>
+export const SaveMcpReq = z.object({
+  enabled: z.boolean(),
+  config: McpServer,
+  /** 「强制相关 bot 下一轮开新会话」 (spec §7.4), default off. */
+  forceNewSession: z.boolean().default(false),
+})
+
+// ── Search (⌘K, plan D9) ────────────────────────────────────────────────────
+export const SearchQuery = z.object({ q: z.string().min(1).max(200), tab: z.enum(['msg', 'file', 'run']) })
+export const SearchResultDto = z.object({
+  kind: z.enum(['msg', 'file', 'run']),
+  title: z.string(),
+  sub: z.string(),
+  groupId: z.string(),
+  messageId: z.string().nullable(),
+  runId: z.string().nullable(),
+})
+export type SearchResultDto = z.infer<typeof SearchResultDto>
 
 // ── Usage (spec §3.7) ───────────────────────────────────────────────────────
 export const UsageQuery = z.object({

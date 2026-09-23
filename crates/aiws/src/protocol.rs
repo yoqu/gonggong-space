@@ -92,6 +92,16 @@ pub struct DaemonLoginRes {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub id: String,
+    pub name: String,
+    pub size: u64,
+    pub mime: String,
+    pub message_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContextMessage {
     pub seq: u64,
     pub author: String,
@@ -99,6 +109,60 @@ pub struct ContextMessage {
     pub kind: String,
     pub body: String,
     pub at: String,
+    pub attachments: Vec<Attachment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "transport", rename_all = "lowercase")]
+pub enum McpServer {
+    Stdio { name: String, command: String, args: Vec<String>, env: std::collections::BTreeMap<String, String> },
+    Http { name: String, url: String, headers: std::collections::BTreeMap<String, String> },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Quote {
+    pub author: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum QuestionType {
+    Single,
+    Multi,
+    Yesno,
+    Text,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Question {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: QuestionType,
+    pub title: String,
+    pub options: Vec<String>,
+    pub recommended: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Answer {
+    pub question_id: String,
+    pub choices: Vec<u32>,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCommand {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FileEntry {
+    pub path: String,
+    pub dir: bool,
+    pub uncommitted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -132,6 +196,8 @@ pub struct RunPrompt {
     pub triggered_by: String,
     pub context: Vec<ContextMessage>,
     pub fallback_context: Vec<ContextMessage>,
+    pub attachments: Vec<Attachment>,
+    pub quote: Option<Quote>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -144,6 +210,7 @@ pub struct RunStart {
     pub resume_session_id: Option<String>,
     pub new_session_reason: Option<String>,
     pub prompt: RunPrompt,
+    pub mcp_servers: Vec<McpServer>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -289,6 +356,12 @@ pub enum DaemonToServer {
     WorkspaceState(WorkspaceState),
     #[serde(rename = "approval.request")]
     ApprovalRequest(ApprovalRequest),
+    #[serde(rename = "commands.update", rename_all = "camelCase")]
+    CommandsUpdate { group_id: String, bot_id: String, commands: Vec<AgentCommand> },
+    #[serde(rename = "files.result", rename_all = "camelCase")]
+    FilesResult { request_id: String, entries: Vec<FileEntry>, error: Option<String> },
+    #[serde(rename = "question.ask", rename_all = "camelCase")]
+    QuestionAsk { run_id: String, request_id: String, questions: Vec<Question> },
     #[serde(rename = "run.discarded", rename_all = "camelCase")]
     RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
 }
@@ -325,4 +398,16 @@ pub enum ServerToDaemon {
     ApprovalDecision { run_id: String, request_id: String, option_id: Option<String> },
     #[serde(rename = "run.discard", rename_all = "camelCase")]
     RunDiscard { run_id: String },
+    #[serde(rename = "files.list", rename_all = "camelCase")]
+    FilesList { request_id: String, group_id: String, bot_id: String, query: String, limit: u32 },
+    #[serde(rename = "question.answer", rename_all = "camelCase")]
+    QuestionAnswer {
+        run_id: String,
+        request_id: String,
+        answers: Option<Vec<Answer>>,
+        attachments: Vec<Attachment>,
+        answered_by: Option<String>,
+    },
+    #[serde(rename = "run.append", rename_all = "camelCase")]
+    RunAppend { run_id: String, text: String, from: String, attachments: Vec<Attachment> },
 }

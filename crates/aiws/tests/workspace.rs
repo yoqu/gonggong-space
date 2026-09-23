@@ -275,7 +275,10 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             triggered_by: "t".into(),
             context: vec![],
             fallback_context: vec![],
+            attachments: vec![],
+            quote: None,
         },
+        mcp_servers: vec![],
     };
     let cwd = |d: &RunDone| -> PathBuf {
         let v: serde_json::Value = serde_json::from_str(&d.reply).unwrap_or_else(|_| panic!("{d:?}"));

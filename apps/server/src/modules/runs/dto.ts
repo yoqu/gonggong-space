@@ -39,6 +39,8 @@ export const runDto = (
   offlineWaitMin: extra.offlineWaitMin ?? DEFAULT_OFFLINE_WAIT_MIN,
   originUserId: r.originUserId,
   approvals: extra.approvals ?? [],
+  // Filled by the M4 question slice.
+  questions: [],
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
   stoppedBy: r.stoppedBy,
 })

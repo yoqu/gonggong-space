@@ -1,0 +1,9 @@
+{
+  "t": "files.result",
+  "requestId": "f1",
+  "entries": [
+    { "path": "server/refund/", "dir": true, "uncommitted": false },
+    { "path": "server/refund/v2/handler.go", "dir": false, "uncommitted": true }
+  ],
+  "error": null
+}

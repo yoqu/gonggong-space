@@ -102,6 +102,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   offlineWaitMin: 30,
   originUserId: 'u1',
   approvals: [],
+  questions: [],
   interrupt: null,
   stoppedBy: null,
   ...o,

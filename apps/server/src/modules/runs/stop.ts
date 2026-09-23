@@ -176,6 +176,7 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
     kind: 'user',
     body: `上一轮被 /stop 中断${detail}。`,
     at,
+    attachments: [],
   }
   return { note, settled }
 }
