@@ -1,6 +1,6 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
-import { mkdtempSync, readdirSync, statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, type Page } from '@playwright/test'
 
@@ -19,7 +19,7 @@ export function aiws(args: string[], env: Record<string, string> = {}) {
 /** An isolated "member machine": its own AIWS_HOME, running `aiws run` in the background. */
 export function machine() {
   const home = mkdtempSync(join(tmpdir(), 'aiws-e2e-'))
-  const env = { AIWS_HOME: home, AIWS_LOG: 'info' }
+  const env = { AIWS_HOME: home, AIWS_LOG: 'info', CODEX_HOME: codexHome() }
   let proc: ChildProcess | undefined
   return {
     home,
@@ -46,6 +46,54 @@ export function machine() {
         return undefined
       }
     },
+  }
+}
+
+/**
+ * The developer's ~/.codex/config.toml may pin a model their account can't use; tests run Codex against a scratch
+ * CODEX_HOME that reuses only the login (auth.json).
+ */
+function codexHome() {
+  const dir = mkdtempSync(join(tmpdir(), 'aiws-codex-'))
+  const auth = join(homedir(), '.codex', 'auth.json')
+  if (existsSync(auth)) copyFileSync(auth, join(dir, 'auth.json'))
+  writeFileSync(join(dir, 'config.toml'), `model = "${process.env.AIWS_E2E_CODEX_MODEL ?? 'gpt-5.5'}"\n`)
+  return dir
+}
+
+/** A bare git repo in a temp dir with one commit on `main`; `commit()` pushes another commit from a scratch clone. */
+export function remoteRepo() {
+  const root = mkdtempSync(join(tmpdir(), 'aiws-repo-'))
+  const bare = join(root, 'remote.git')
+  const git = (cwd: string, ...args: string[]) =>
+    execFileSync('git', ['-c', 'user.name=e2e', '-c', 'user.email=e2e@aiws', ...args], {
+      cwd,
+      encoding: 'utf8',
+    })
+  git(root, 'init', '-q', '--bare', '-b', 'main', bare)
+  const seed = join(root, 'seed')
+  git(root, 'clone', '-q', bare, seed)
+  writeFileSync(join(seed, 'README.md'), '# demo\n')
+  git(seed, 'add', '.')
+  git(seed, 'commit', '-qm', 'init')
+  git(seed, 'push', '-q', 'origin', 'main')
+  return {
+    url: `file://${bare}`,
+    commit(file: string, content: string) {
+      git(seed, 'pull', '-q', '--ff-only', 'origin', 'main')
+      writeFileSync(join(seed, file), content)
+      git(seed, 'add', '.')
+      git(seed, 'commit', '-qm', `add ${file}`)
+      git(seed, 'push', '-q', 'origin', 'main')
+    },
+    /** A clone at a local path, e.g. for /cd. */
+    cloneTo(name: string) {
+      const dir = join(root, name)
+      git(root, 'clone', '-q', bare, dir)
+      return dir
+    },
+    git,
+    root,
   }
 }
 
