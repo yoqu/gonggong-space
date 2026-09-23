@@ -2,8 +2,8 @@
 //! bindings to existing local clones of the group repo.
 use crate::git::{self, git};
 use crate::protocol::{
-    DaemonToServer, GitStatus, RepoSpec, RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceState,
-    WorkspaceStateKind,
+    DaemonToServer, GitStatus, RepoSpec, RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec,
+    WorkspaceState, WorkspaceStateKind,
 };
 use crate::service::Outbox;
 use std::collections::HashMap;
@@ -62,6 +62,14 @@ impl Workspaces {
             }
         };
         reply(Some(outcome));
+    }
+
+    /// The directory a (group, bot) works in: the /cd directory, else the managed path.
+    pub fn dir(&self, group: &str, bot: &str, spec: &WorkspaceSpec) -> PathBuf {
+        match &spec.cd_path {
+            Some(path) => PathBuf::from(path),
+            None => managed_path(&self.home, group, bot, spec.repo.as_ref().map(|r| &*r.id)),
+        }
     }
 
     /// A run's cwd: the /cd directory, else the managed clone (re-cloned if it went missing), else `_empty`.

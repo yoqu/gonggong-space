@@ -191,6 +191,17 @@ pub struct WorkspaceSpec {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FilesList {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub workspace: WorkspaceSpec,
+    pub query: String,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RunPrompt {
     pub text: String,
     pub triggered_by: String,
@@ -398,8 +409,8 @@ pub enum ServerToDaemon {
     ApprovalDecision { run_id: String, request_id: String, option_id: Option<String> },
     #[serde(rename = "run.discard", rename_all = "camelCase")]
     RunDiscard { run_id: String },
-    #[serde(rename = "files.list", rename_all = "camelCase")]
-    FilesList { request_id: String, group_id: String, bot_id: String, query: String, limit: u32 },
+    #[serde(rename = "files.list")]
+    FilesList(FilesList),
     #[serde(rename = "question.answer", rename_all = "camelCase")]
     QuestionAnswer {
         run_id: String,
