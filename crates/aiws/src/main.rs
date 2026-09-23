@@ -1,8 +1,8 @@
 use aiws::bind::machine_info;
 use aiws::config::{self, Config};
 use aiws::configure::{self, BotChange};
-use aiws::diag::Status;
 use aiws::daemon::{Daemon, Options};
+use aiws::diag::Status;
 use aiws::local::Approval;
 use aiws::logs::LogLevel;
 use aiws::protocol::AgentKind;

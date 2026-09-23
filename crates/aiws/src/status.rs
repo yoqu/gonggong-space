@@ -11,11 +11,20 @@ use tokio::sync::watch;
 #[serde(tag = "state", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Conn {
     Connecting,
-    Online { since_ms: u64 },
+    Online {
+        since_ms: u64,
+    },
     /// Disconnected; the next attempt is due at `retry_at_ms` (exponential backoff).
-    Offline { retry_at_ms: u64, error: String },
+    Offline {
+        retry_at_ms: u64,
+        error: String,
+    },
     /// Stopped for good. `wiped` lists what a revocation removed from this machine.
-    Rejected { reason: RejectReason, message: String, wiped: Vec<String> },
+    Rejected {
+        reason: RejectReason,
+        message: String,
+        wiped: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -199,18 +208,27 @@ mod tests {
         m.inbound(&start("r3", "g2"));
         let s = m.snapshot();
         let r1 = &s.runs[0];
-        assert_eq!((r1.bot_name.as_str(), r1.group_name.as_str(), r1.triggered_by.as_str()), ("小王的 Claude", "支付服务重构", "王磊"));
+        assert_eq!(
+            (r1.bot_name.as_str(), r1.group_name.as_str(), r1.triggered_by.as_str()),
+            ("小王的 Claude", "支付服务重构", "王磊")
+        );
         assert_eq!((r1.status, r1.step.as_str()), (None, "准备工作区"));
         assert_eq!(s.runs.iter().map(|r| r.queued).collect::<Vec<_>>(), [false, true, false]);
 
         m.outbound(&event("r1", RunEvent::Text { delta: "x".into() }));
         assert_eq!(m.snapshot().runs[0].status, Some(RunStatus::Running));
-        m.outbound(&event("r1", RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：go build".into() }));
+        m.outbound(&event(
+            "r1",
+            RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：go build".into() },
+        ));
         assert_eq!(m.snapshot().runs[0].step, "等待审批：go build");
         m.outbound(&event("r9", RunEvent::Text { delta: "unknown run".into() }));
 
         m.outbound(&failed("r1", "x".into()));
         let s = m.snapshot();
-        assert_eq!(s.runs.iter().map(|r| (r.run_id.as_str(), r.queued)).collect::<Vec<_>>(), [("r2", false), ("r3", false)]);
+        assert_eq!(
+            s.runs.iter().map(|r| (r.run_id.as_str(), r.queued)).collect::<Vec<_>>(),
+            [("r2", false), ("r3", false)]
+        );
     }
 }

@@ -7,8 +7,8 @@ use std::path::Path;
 #[derive(Debug, thiserror::Error)]
 pub enum LockError {
     #[error(
-        "本机已有 AIWS daemon 在运行{}（aiws run 或桌面端），同一台机器只能运行一个",
-        .pid.map(|p| format!("（pid {p}）")).unwrap_or_default()
+        "本机已有 AIWS daemon 在运行（{}aiws run 或桌面端），同一台机器只能运行一个",
+        .pid.map(|p| format!("pid {p}，")).unwrap_or_default()
     )]
     Held { pid: Option<u32> },
     #[error("无法创建 daemon 锁文件：{0}")]

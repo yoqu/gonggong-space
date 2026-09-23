@@ -6,10 +6,10 @@ mod host;
 
 use host::Host;
 use std::sync::Arc;
-use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
 #[cfg(target_os = "macos")]
 use tauri::RunEvent;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 
 /// Event carrying every `host::Snapshot` change to the UI (`onSnapshot` in `src/ipc.ts`).

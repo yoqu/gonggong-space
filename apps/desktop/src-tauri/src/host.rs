@@ -13,8 +13,12 @@ pub enum Snapshot {
     /// Not running: no binding yet (or unbound).
     Unbound,
     /// Another daemon (`aiws run`) holds this machine's lock.
-    Blocked { message: String },
-    Running { status: Status },
+    Blocked {
+        message: String,
+    },
+    Running {
+        status: Status,
+    },
 }
 
 enum State {

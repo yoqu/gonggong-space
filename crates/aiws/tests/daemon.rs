@@ -86,7 +86,8 @@ async fn reports_connection_heartbeat_latency_reconnects_and_wipes_on_revoke() {
     let online = until(&mut rx, "online", |s| matches!(s.conn, Conn::Online { .. })).await;
     assert_eq!(online.heartbeat_sec, Some(1));
     assert_eq!(text(&mut ws).await["t"], "heartbeat"); // reading also answers the daemon's ping
-    let beat = until(&mut rx, "heartbeat and latency", |s| s.last_heartbeat_ms.is_some() && s.latency_ms.is_some()).await;
+    let beat =
+        until(&mut rx, "heartbeat and latency", |s| s.last_heartbeat_ms.is_some() && s.latency_ms.is_some()).await;
     assert!(beat.last_heartbeat_ms.unwrap() <= now_ms());
 
     drop(ws);
@@ -123,7 +124,9 @@ async fn a_protocol_reject_stops_without_wiping() {
     ws.send(Message::text(r#"{"t":"reject","reason":"protocol","message":"需要协议 v2"}"#)).await.unwrap();
     let mut rx = daemon.subscribe();
     let s = until(&mut rx, "rejected", |s| matches!(s.conn, Conn::Rejected { .. })).await;
-    assert!(matches!(s.conn, Conn::Rejected { reason: RejectReason::Protocol, ref message, ref wiped } if message == "需要协议 v2" && wiped.is_empty()));
+    assert!(
+        matches!(s.conn, Conn::Rejected { reason: RejectReason::Protocol, ref message, ref wiped } if message == "需要协议 v2" && wiped.is_empty())
+    );
     assert!(home.path().join("config.json").exists());
     daemon.stop();
 }

@@ -40,7 +40,10 @@ pub fn app_info(host: State<'_, Host>) -> Result<AppInfo> {
         cert_pinned: config.as_ref().is_some_and(|c| c.cert_sha256.is_some()),
         workspaces_dir: host.home.join("workspaces").display().to_string(),
         backups_dir: host.home.join("backups").display().to_string(),
-        adapters: aiws::engine::ADAPTERS.iter().map(|&(kind, package, version)| Adapter { kind, package, version }).collect(),
+        adapters: aiws::engine::ADAPTERS
+            .iter()
+            .map(|&(kind, package, version)| Adapter { kind, package, version })
+            .collect(),
     })
 }
 

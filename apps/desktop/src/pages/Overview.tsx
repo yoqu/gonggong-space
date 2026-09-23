@@ -5,6 +5,8 @@ import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
 
+const REFRESH_MS = 15_000
+
 export function OverviewPage(_: PageProps) {
   const snapshot = useDaemon((s) => s.snapshot)
   const info = useDaemon((s) => s.info)
@@ -14,12 +16,17 @@ export function OverviewPage(_: PageProps) {
   const [overview, setOverview] = useState<Overview | null>(null)
   const kind = connKind(snapshot)
 
-  // Bot bindings and workspaces change elsewhere: refetch when the connection changes or runs start / finish.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs.length is the refetch trigger
+  // Bot bindings and workspaces change elsewhere: refetch now and then, and as soon as runs start / finish.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs.length is a refetch trigger
   useEffect(() => {
     if (kind !== 'ok') return
-    ipc.machineBots().then(setBots, () => {})
-    ipc.overview().then(setOverview, () => {})
+    const load = () => {
+      ipc.machineBots().then(setBots, () => {})
+      ipc.overview().then(setOverview, () => {})
+    }
+    load()
+    const t = setInterval(load, REFRESH_MS)
+    return () => clearInterval(t)
   }, [kind, runs.length])
 
   const running = runs.filter((r) => !r.queued)
