@@ -1,5 +1,5 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
-use crate::protocol::{AgentKind, ContextMessage, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage};
+use crate::protocol::{AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage};
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallLocation, ToolKind,
 };
@@ -7,9 +7,9 @@ use std::collections::{BTreeSet, HashMap};
 
 const DETAIL_MAX: usize = 200;
 
-/// Context lines (`[time] author: body`) followed by `<trigger> 说：<text>`.
-pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage]) -> String {
-    let mut out = String::new();
+/// Git default-action note, context lines (`[time] author: body`), then `<trigger> 说：<text>`.
+pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], git: Option<&str>) -> String {
+    let mut out = git.map(|g| format!("{g}\n\n")).unwrap_or_default();
     if !history.is_empty() {
         out.push_str("群聊上下文：\n");
         for m in history {
@@ -91,6 +91,8 @@ pub struct Turn {
     pub usage: Option<Usage>,
     /// Terminal agent error reported out of band (e.g. invalid model); the turn still ends with `end_turn`.
     pub failure: Option<String>,
+    /// Repo workspaces only: git state after the turn and the number of paths the turn changed.
+    pub git: Option<(GitStatus, usize)>,
     tools: HashMap<String, ToolState>,
 }
 
@@ -220,10 +222,14 @@ mod tests {
     #[test]
     fn composes_context_then_trigger() {
         assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")]),
+            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], None),
             "群聊上下文：\n[2026-09-23 10:12] 陈晨: 退款 v1 下线\n[2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
         );
-        assert_eq!(compose_prompt(&prompt(), &[]), "王磊 说：@小王 写个脚本");
+        assert_eq!(compose_prompt(&prompt(), &[], None), "王磊 说：@小王 写个脚本");
+        assert_eq!(
+            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], Some("git 默认动作：fetch 完成。")),
+            "git 默认动作：fetch 完成。\n\n群聊上下文：\n[2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
+        );
     }
 
     #[test]

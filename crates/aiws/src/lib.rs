@@ -3,6 +3,7 @@ pub mod bind;
 pub mod bots;
 pub mod config;
 pub mod engine;
+pub mod git;
 pub mod protocol;
 pub mod service;
 mod session;

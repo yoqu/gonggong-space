@@ -112,6 +112,7 @@ async fn streams_a_turn_and_rejects_permissions_below_full_tier() {
     assert_eq!(done.outcome, RunOutcome::Completed);
     assert_eq!(done.reply, "好的，权限被拒绝，未写入。");
     assert_eq!(done.files_changed, 1);
+    assert_eq!(done.git, None);
     assert_eq!(done.usage.as_ref().and_then(|u| u.cost_usd), Some(0.01));
     assert_eq!(done.new_session_reason.as_deref(), Some("first"));
     assert!(done.session_id.as_deref().unwrap().starts_with("mock-"));
@@ -213,6 +214,76 @@ async fn adapter_crash_fails_the_run_and_the_next_turn_recovers() {
     r.run(follow_up("r2", "mock:echo", &done));
     let (_, next) = r.finish("r2").await;
     assert_eq!(next.outcome, RunOutcome::Completed);
+}
+
+fn git(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"])
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+}
+
+/// Clones a fresh bare remote into the bot's workspace, then pushes one more commit it does not have yet.
+fn repo_workspace(r: &Rig) -> tempfile::TempDir {
+    let remote = tempfile::tempdir().unwrap();
+    let root = remote.path();
+    git(root, &["init", "-q", "--bare", "-b", "main", "remote.git"]);
+    git(root, &["clone", "-q", "remote.git", "seed"]);
+    let seed = root.join("seed");
+    let push = |file: &str| {
+        std::fs::write(seed.join(file), "x\n").unwrap();
+        git(&seed, &["add", "-A"]);
+        git(&seed, &["commit", "-q", "-m", file]);
+        git(&seed, &["push", "-q", "origin", "HEAD:main"]);
+    };
+    push("README.md");
+    std::fs::create_dir_all(r.workspace().parent().unwrap()).unwrap();
+    git(root, &["clone", "-q", "remote.git", r.workspace().to_str().unwrap()]);
+    push("later.txt");
+    remote
+}
+
+#[tokio::test]
+async fn repo_workspace_fetches_fast_forwards_and_reports_git_changes() {
+    let mut r = rig(Duration::from_secs(60));
+    let _remote = repo_workspace(&r);
+    r.run(start("r1", "mock:echo"));
+    let (events, done) = r.finish("r1").await;
+    assert_eq!(
+        events.first(),
+        Some(&RunEvent::Status {
+            status: RunStatus::Running,
+            step: "git fetch 完成，当前分支 main，已自动快进 1 个 commit 到 origin/main，落后 origin/main 0 个 commit，领先 0 个"
+                .into()
+        })
+    );
+    assert!(r.workspace().join("later.txt").exists());
+    assert!(
+        echo(&done)["prompt"].as_str().unwrap().starts_with(
+            "git 默认动作：fetch 完成；当前分支 main；已自动快进 1 个 commit 到 origin/main；落后 origin/main 0 个 commit，领先 0 个。\n\n群聊上下文："
+        )
+    );
+    let clean = GitStatus {
+        branch: Some("main".into()),
+        ahead: Some(0),
+        behind: Some(0),
+        dirty: false,
+        workspace: WorkspaceKind::Managed,
+    };
+    assert_eq!(done.git, Some(clean.clone()));
+    assert_eq!(done.files_changed, 0);
+
+    // Shell edits and commits (as Codex does) are counted through git, not tool locations.
+    let sh = "mock:sh echo a > a.txt && echo b > README.md && git add README.md && git -c user.name=t -c user.email=t@t commit -qm edit && echo c > c.txt";
+    r.run(follow_up("r2", sh, &done));
+    let (_, done) = r.finish("r2").await;
+    assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
+    assert_eq!(done.files_changed, 3);
+    assert_eq!(done.git, Some(GitStatus { ahead: Some(1), dirty: true, ..clean }));
 }
 
 #[tokio::test]

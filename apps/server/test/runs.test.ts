@@ -272,6 +272,35 @@ describe('run engine', () => {
     expect(gb?.sessionId).toBe('sess-1')
   })
 
+  it('stores and publishes the workspace git status reported with run.done', async () => {
+    const w = await world()
+    const web = watch(w.bob.id)
+    const d = await daemon(w.token)
+    await w.mention('hi')
+    const first = await d.next()
+    d.send(done(first.runId))
+    await web.until(runUpdated('completed', first.runId))
+    expect(web.seen.some((e) => e.t === 'group.botState')).toBe(false)
+
+    await w.mention('again')
+    const { runId } = await d.next()
+    const git = { branch: 'feat/x', ahead: 1, behind: 0, dirty: true, workspace: 'managed' as const }
+    d.send(done(runId, { git }))
+    const pushed = await web.until<Extract<WebEvent, { t: 'group.botState' }>>(
+      (e) => e.t === 'group.botState',
+    )
+    expect(pushed).toEqual({
+      t: 'group.botState',
+      groupId: w.group.id,
+      state: { botId: w.bot.id, workspace: 'managed', state: 'pending', git, error: null },
+    })
+    const [gb] = await t.db
+      .select()
+      .from(groupBots)
+      .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
+    expect(gb?.gitStatus).toEqual(git)
+  })
+
   it('marks a failed agent run as interrupted with the error', async () => {
     const w = await world()
     const web = watch(w.alice.id)
