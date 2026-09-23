@@ -1,6 +1,6 @@
 import type { GroupDto, MessageDto } from '@aiws/protocol'
 import { Bot, User } from 'lucide-react'
-import { type KeyboardEvent, useRef, useState } from 'react'
+import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
 import { Composer } from '../../app/ChatLayout'
 import { useIsMobile } from '../../app/viewport'
 import { useWorkspace } from '../../app/workspace'
@@ -40,6 +40,16 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
   const [busy, setBusy] = useState(false)
   const sending = useRef(false)
   const input = useRef<HTMLTextAreaElement>(null)
+  /** Caret to restore right after a picked candidate is rendered, before any further keystroke. */
+  const pendingCaret = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    const pos = pendingCaret.current
+    if (pos === null || !input.current) return
+    pendingCaret.current = null
+    input.current.focus()
+    input.current.setSelectionRange(pos, pos)
+  })
 
   const query = /(?:^|\s)@([^\s@]*)$/.exec(draft.slice(0, caret))?.[1]
   const candidates: Candidate[] =
@@ -65,12 +75,9 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
     const insert = `@${c.name} `
     const next = draft.slice(0, start) + insert + draft.slice(caret)
     const pos = start + insert.length
+    pendingCaret.current = pos
     setDraft(next)
     setCaret(pos)
-    requestAnimationFrame(() => {
-      input.current?.focus()
-      input.current?.setSelectionRange(pos, pos)
-    })
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
