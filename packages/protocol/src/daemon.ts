@@ -144,6 +144,8 @@ export const RunDone = z.object({
   git: GitStatus.nullable(),
   /** Unified diff of what this turn changed (repo workspaces; capped by the daemon, see PATCH_MAX_BYTES). */
   patch: z.string().nullable(),
+  /** run.append messages actually fed into this run; the server queues the rest as new runs (spec §8.9 fallback). */
+  appendsApplied: z.number().int(),
 })
 export type RunDone = z.infer<typeof RunDone>
 

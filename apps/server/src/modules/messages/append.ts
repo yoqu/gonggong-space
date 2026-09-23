@@ -1,11 +1,12 @@
 import type { MessageDto } from '@aiws/protocol'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, runs } from '../../db/schema.js'
+import { bots, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { voidApprovals } from '../approvals/service.js'
 import { voidQuestions } from '../questions/service.js'
+import { triggerRuns } from '../runs/trigger.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -29,6 +30,27 @@ export async function appendTarget(
   if (!LIVE.includes(row.run.status) || !row.machineId || !ctx.hub.isOnline(row.machineId))
     return fail('conflict', '该运行已结束，请直接发送')
   return { runId: row.run.id, machineId: row.machineId }
+}
+
+/**
+ * Appends that reached the run after the agent had finished were never applied: they fall back to a queued new
+ * run of the same bot (spec §8.9), unless the run was stopped.
+ */
+export async function requeueAppends(ctx: Ctx, run: typeof runs.$inferSelect, applied: number) {
+  if (run.stoppedBy) return
+  const pending = await ctx.db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.groupId, run.groupId), sql`${messages.meta}->>'appendTo' = ${run.id}`))
+    .orderBy(asc(messages.seq))
+  for (const m of pending.slice(applied)) {
+    const [row] = await ctx.db
+      .update(messages)
+      .set({ meta: sql`${messages.meta} || ${JSON.stringify({ mentions: [run.botId] })}::jsonb` })
+      .where(eq(messages.id, m.id))
+      .returning()
+    if (row) await triggerRuns(ctx, row)
+  }
 }
 
 /** The stored message goes into the running session; whatever it was waiting on is withdrawn with the cancel. */

@@ -60,6 +60,7 @@ describe('run retention', () => {
     expect(await eventsOf(old.id)).toBe(0)
     expect(await rowOf(old.id)).toMatchObject({
       patch: null,
+      appendsApplied: 0,
       purgedAt: clock,
       filesChanged: 1,
       status: 'completed',

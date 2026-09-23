@@ -107,6 +107,7 @@ async function world(o: { online?: boolean } = {}) {
       error: null,
       git: { branch: 'main', ahead: 0, behind: 0, dirty: true, workspace: 'managed' },
       patch: null,
+      appendsApplied: 0,
       ...extra,
     } as never)
   const starts = () => sent.filter((m): m is RunStart => m.t === 'run.start')

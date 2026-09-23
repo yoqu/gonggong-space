@@ -152,6 +152,7 @@ impl Shared {
             return None;
         }
         a.turn.reply.clear();
+        a.turn.appends_applied += s.appends.len() as u32;
         let (texts, files): (Vec<_>, Vec<_>) = std::mem::take(&mut s.appends).into_iter().unzip();
         Some((texts.join("\n\n"), files.concat()))
     }
@@ -427,6 +428,7 @@ fn done(
         error,
         git,
         patch: turn.patch,
+        appends_applied: turn.appends_applied,
     })
 }
 

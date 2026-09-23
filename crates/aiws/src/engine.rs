@@ -259,6 +259,7 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         error: Some(error),
         git: None,
         patch: None,
+        appends_applied: 0,
     })
 }
 

@@ -78,6 +78,7 @@ async function world() {
         error: null,
         git: null,
         patch: null,
+        appendsApplied: 0,
         ...o,
       }),
     )

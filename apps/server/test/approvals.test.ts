@@ -252,6 +252,7 @@ describe('approvals', () => {
       error: null,
       git: null,
       patch: null,
+      appendsApplied: 0,
     })
     const ended = await w.viewerWeb.run((r) => r.id === runId && r.status === 'completed')
     expect(ended.approvals[0]).toMatchObject({ status: 'void', decidedBy: null })

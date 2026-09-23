@@ -136,6 +136,8 @@ pub struct Turn {
     pub usage: Option<Usage>,
     /// Terminal agent error reported out of band (e.g. invalid model); the turn still ends with `end_turn`.
     pub failure: Option<String>,
+    /// run.append messages fed into this turn.
+    pub appends_applied: u32,
     /// Repo workspaces only: git state after the turn and the number of paths the turn changed.
     pub git: Option<(GitStatus, usize)>,
     /// Repo workspaces only: unified diff of the turn's changes.

@@ -42,6 +42,7 @@ async function daemon(token: string) {
           error: null,
           git: null,
           patch: null,
+          appendsApplied: 0,
           ...o,
         }),
       ),

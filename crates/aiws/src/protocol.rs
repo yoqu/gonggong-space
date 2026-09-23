@@ -281,6 +281,7 @@ pub struct RunDone {
     pub error: Option<String>,
     pub git: Option<GitStatus>,
     pub patch: Option<String>,
+    pub appends_applied: u32,
 }
 
 pub const PATCH_MAX_BYTES: usize = 512 * 1024;

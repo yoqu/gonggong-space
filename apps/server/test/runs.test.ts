@@ -113,6 +113,7 @@ const done = (runId: string, o: Record<string, unknown> = {}) => ({
   error: null,
   git: null,
   patch: null,
+  appendsApplied: 0,
   ...o,
 })
 

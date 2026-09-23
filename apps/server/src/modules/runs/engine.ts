@@ -5,6 +5,7 @@ import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
 import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
+import { requeueAppends } from '../messages/append.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { onQuestionAsk, voidQuestions } from '../questions/service.js'
 import { updateBotState } from '../workspaces/state.js'
@@ -143,6 +144,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
   if (reply) await triggerChain(ctx, run, reply)
+  await requeueAppends(ctx, run, done.appendsApplied)
   // Last: a relay hop created above keeps the chain open.
   await notifyChainDone(ctx, run)
 }

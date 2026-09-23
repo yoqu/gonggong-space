@@ -496,6 +496,7 @@ async fn append_cancels_the_prompt_and_continues_the_same_run_in_the_same_sessio
     assert_eq!(done.outcome, RunOutcome::Completed);
     // The final reply is what the agent said after the append.
     assert_eq!(echo(&done)["prompt"], "王磊 追加：mock:echo");
+    assert_eq!(done.appends_applied, 1);
 
     // A pending question is withdrawn by an append; the run still ends once, completed.
     r.run(follow_up("r2", ASK, &done));
@@ -546,6 +547,7 @@ async fn stop_wins_over_a_pending_append() {
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.outcome, RunOutcome::Interrupted);
+    assert_eq!(done.appends_applied, 0);
 }
 
 #[tokio::test]

@@ -102,6 +102,7 @@ const DONE = {
   error: null,
   git: null,
   patch: null,
+  appendsApplied: 0,
 }
 
 async function world() {
@@ -388,9 +389,36 @@ describe('interrupt and append', () => {
 
     // The owner may append as well; a finished run cannot be appended to.
     expect((await send(w.owners, w.group.id, '再补一句', runId)).status).toBe(200)
-    w.d.send({ ...DONE, runId })
+    w.d.send({ ...DONE, runId, appendsApplied: 2 })
     await w.viewerWeb.run((r) => r.id === runId && r.status === 'completed')
     expect((await send(w.triggers, w.group.id, '太晚了', runId)).status).toBe(409)
     expect((await send(w.triggers, w.group.id, '不存在', crypto.randomUUID())).status).toBe(404)
+    expect(await t.db.select().from(runs)).toHaveLength(1)
+  })
+
+  it('queues an append the agent never received as a new run of the same bot (spec §8.9 fallback)', async () => {
+    const w = await world()
+    const runId = await w.start()
+    await t.db.update(runs).set({ status: 'running' }).where(eq(runs.id, runId))
+    expect((await send(w.triggers, w.group.id, '顺便补个单测', runId)).status).toBe(200)
+    await w.d.next()
+    w.d.send({ ...DONE, runId, appendsApplied: 0 })
+    await w.viewerWeb.run((r) => r.id !== runId)
+    const all = await t.db.select().from(runs)
+    expect(all).toHaveLength(2)
+    const next = all.find((r) => r.id !== runId)!
+    expect(next).toMatchObject({ botId: all[0]!.botId, triggerUserId: all[0]!.triggerUserId })
+  })
+
+  it('does not requeue appends of a stopped run', async () => {
+    const w = await world()
+    const runId = await w.start()
+    await t.db.update(runs).set({ status: 'running' }).where(eq(runs.id, runId))
+    expect((await send(w.triggers, w.group.id, '顺便补个单测', runId)).status).toBe(200)
+    await w.d.next()
+    await t.db.update(runs).set({ stoppedBy: w.owner.id }).where(eq(runs.id, runId))
+    w.d.send({ ...DONE, runId, outcome: 'interrupted', appendsApplied: 0 })
+    await w.viewerWeb.run((r) => r.id === runId && r.status === 'interrupted')
+    expect(await t.db.select().from(runs)).toHaveLength(1)
   })
 })
