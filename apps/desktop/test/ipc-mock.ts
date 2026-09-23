@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { AppInfo, DaemonStatus, RunInfo } from '../src/ipc'
+import type { AgentCard, AppInfo, BotCard, DaemonStatus, RunInfo } from '../src/ipc'
 
 vi.mock('../src/ipc', () => ({
   ipc: {
@@ -23,6 +23,13 @@ vi.mock('../src/ipc', () => ({
     measureNet: vi.fn(),
     exportDiagnostics: vi.fn(),
     recentLogs: vi.fn(),
+    agents: vi.fn(),
+    setAgentModel: vi.fn(),
+    setAgentEffort: vi.fn(),
+    pickAgentPath: vi.fn(),
+    resetAgentPath: vi.fn(),
+    bots: vi.fn(),
+    saveBot: vi.fn(),
   },
   onSnapshot: vi.fn(async () => () => {}),
 }))
@@ -75,6 +82,57 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
       { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0' },
     ],
     runs: [],
+    ...over,
+  }
+}
+
+export const CLAUDE: AgentCard = {
+  kind: 'claude',
+  available: true,
+  version: '2.1.4',
+  path: '/opt/homebrew/bin/claude',
+  minVersion: '2.0.0',
+  customPath: false,
+  defaultModel: null,
+  effort: null,
+  catalog: {
+    models: [
+      { value: 'default', name: 'Default (recommended)', description: 'Opus (1M context)' },
+      { value: 'sonnet', name: 'Sonnet 5' },
+      { value: 'haiku', name: 'Haiku 4.5' },
+    ],
+    current: 'default',
+    efforts: ['default', 'low', 'medium', 'high'].map((value) => ({ value, name: value })),
+    currentEffort: 'default',
+  },
+  login: '已登录 · Claude Max',
+}
+
+export const CODEX: AgentCard = {
+  kind: 'codex',
+  available: false,
+  version: null,
+  path: null,
+  minVersion: '0.40.0',
+  customPath: false,
+  defaultModel: null,
+  effort: null,
+  catalog: null,
+  login: null,
+}
+
+export function bot(over: Partial<BotCard>): BotCard {
+  return {
+    id: 'b1',
+    name: '小王的 Claude',
+    agentKind: 'claude',
+    binding: 'bound',
+    presence: 'online',
+    systemPrompt: '',
+    concurrency: 2,
+    model: null,
+    approval: 'ask',
+    allowlist: [],
     ...over,
   }
 }

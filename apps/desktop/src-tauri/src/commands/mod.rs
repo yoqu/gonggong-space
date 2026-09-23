@@ -1,5 +1,7 @@
 //! Tauri commands, one module per page. To add a page's commands: create `commands/<page>.rs`, declare it here and
 //! list its commands in `handler()`; mirror each one in `src/ipc.ts`.
+mod agents;
+mod bots;
 mod logs;
 mod onboarding;
 mod overview;
@@ -32,10 +34,25 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         logs::measure_net,
         logs::export_diagnostics,
         logs::recent_logs,
+        agents::agents,
+        agents::set_agent_model,
+        agents::set_agent_effort,
+        agents::pick_agent_path,
+        agents::reset_agent_path,
+        bots::bots,
+        bots::save_bot,
     ]
 }
 
 fn client() -> Result<aiws::bots::Client> {
     let config = aiws::config::Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
     aiws::bots::Client::new(&config).map_err(|e| e.to_string())
+}
+
+/// Applies a change to the owner's local settings (`local.json`); runs pick it up from their next turn.
+fn local(home: &std::path::Path, change: impl FnOnce(&mut aiws::local::LocalSettings)) -> Result<()> {
+    aiws::local::LocalStore::open(home.to_path_buf())
+        .and_then(|store| store.update(change))
+        .map(drop)
+        .map_err(|e| format!("{e:#}"))
 }

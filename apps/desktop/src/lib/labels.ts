@@ -1,6 +1,6 @@
 import type { AgentKind, RunStatus } from '@aiws/protocol'
 import type { BadgeVariant } from '@web/ui'
-import type { Snapshot } from '../ipc'
+import type { AgentCard, Approval, Snapshot } from '../ipc'
 
 export const AGENTS: Record<AgentKind, { name: string; install: string }> = {
   claude: { name: 'Claude Code', install: 'npm install -g @anthropic-ai/claude-code' },
@@ -69,6 +69,39 @@ export function revealLabel(os: string | undefined) {
   if (os === 'windows') return '在资源管理器中显示'
   if (os === 'linux') return '在文件管理器中显示'
   return '在 Finder 中显示'
+}
+
+export const VENDOR: Record<AgentKind, string> = { claude: 'Anthropic · CLI', codex: 'OpenAI · CLI' }
+
+export const APPROVAL: Record<Approval, string> = {
+  ask: '每次询问',
+  allowlist: '白名单自动',
+  all: '全部自动',
+}
+
+const EFFORT: Record<string, string> = {
+  default: '默认',
+  none: '关闭',
+  minimal: '极低',
+  low: '低',
+  medium: '中',
+  high: '高',
+  xhigh: '超高',
+  max: '最高',
+}
+
+export const effortLabel = (value: string) => EFFORT[value] ?? value
+
+/** The adapter's name for a model id, else the id itself. */
+export function modelName(agent: AgentCard | undefined, value: string) {
+  return agent?.catalog?.models.find((m) => m.value === value)?.name ?? value
+}
+
+/** What a bot following the agent default runs: the owner's default, else the adapter's own. */
+export function agentDefault(agent: AgentCard | undefined) {
+  if (agent?.defaultModel) return modelName(agent, agent.defaultModel)
+  const current = agent?.catalog?.current
+  return current ? `适配器默认（${modelName(agent, current)}）` : '适配器默认'
 }
 
 /** `/Users/wl/.aiws/workspaces` → `~/.aiws/workspaces` */
