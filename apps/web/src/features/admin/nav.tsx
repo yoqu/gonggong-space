@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
+import { UsagePage } from '../usage/UsagePage'
 import { UsersPage } from './UsersPage'
 
 export interface AdminItem {
@@ -82,7 +83,13 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         desc: '每台 daemon 的版本、心跳与网络质量记录。',
         sysadminOnly: true,
       },
-      { path: 'usage', label: '用量', icon: BarChart3, desc: '按 bot、触发人、群汇总 token 用量。' },
+      {
+        path: 'usage',
+        label: '用量',
+        icon: BarChart3,
+        desc: '按 bot、触发人、群汇总 token 用量。',
+        element: <UsagePage />,
+      },
       {
         path: 'audit',
         label: '审计记录',

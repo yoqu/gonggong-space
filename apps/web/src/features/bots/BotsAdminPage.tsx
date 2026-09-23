@@ -1,4 +1,4 @@
-import type { BotDto, Tier, TriggerScope, UserBriefDto, UserDto } from '@aiws/protocol'
+import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@aiws/protocol'
 import { Bot, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useSession } from '../../app/session'
@@ -6,6 +6,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Alert, Button, EmptyState, Select, Tabs, Textarea, toast } from '../../ui'
+import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { AGENT_LABEL, agentCliVersion, agentLine, BINDING_LABEL, botsApi, PRESENCE } from './model'
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
@@ -36,6 +37,12 @@ function warning(bot: BotDto, userName: (id: string) => string) {
   return null
 }
 
+function weekUsage(rows: UsageRowDto[]) {
+  const runs = rows.reduce((n, r) => n + r.runs, 0)
+  const tokens = rows.reduce((n, r) => n + r.totalTokens, 0)
+  return `${tokens || !runs ? `${fmtTokens(tokens)} tokens` : '用量未上报'} · ${runs} 轮`
+}
+
 function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBriefDto[] }) {
   const [prompt, setPrompt] = useState(bot.systemPrompt)
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
@@ -46,6 +53,7 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
   const canEdit = me.id === bot.ownerId || me.role === 'sysadmin'
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '—'
   const warn = warning(bot, userName)
+  const usage = useUsage(`by=user&days=7&botId=${bot.id}`).rows
 
   const save = async () => {
     setSaving(true)
@@ -168,7 +176,8 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
           <code>{agentCliVersion(bot)}</code>
         </div>
         <div>
-          <span>近 7 天用量</span>—
+          <span>近 7 天用量</span>
+          {usage ? weekUsage(usage) : '—'}
         </div>
       </div>
 
@@ -186,7 +195,11 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
 
       <div className="bots-detail__field">
         <span className="bots-detail__label">谁用了这个 bot · 近 7 天</span>
-        <span className="bots-detail__hint">—</span>
+        {usage?.length ? (
+          <UsageBars rows={usage} compact />
+        ) : (
+          <span className="bots-detail__hint">{usage ? '近 7 天无人使用' : '—'}</span>
+        )}
       </div>
 
       {canEdit ? (

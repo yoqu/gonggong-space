@@ -124,4 +124,28 @@ describe('admin console', () => {
     expect(await screen.findByText('仅系统管理员可管理账号与角色')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '新建账号' })).toBeNull()
   })
+
+  it('shows usage by bot, trigger user and group', async () => {
+    useSession.setState({ user: admin, status: 'ready' })
+    mockApi({
+      'GET /usage?by=bot&days=30': [
+        { key: 'b1', name: '小王的 Claude', runs: 58, totalTokens: 412_000, unreported: 0 },
+        { key: 'b2', name: '老李的 Codex', runs: 41, totalTokens: 0, unreported: 41 },
+      ],
+      'GET /usage?by=user&days=30': [
+        { key: 'u1', name: '王磊', runs: 61, totalTokens: 356_000, unreported: 0 },
+      ],
+    })
+    renderAt('/admin/usage')
+    expect(await screen.findByRole('heading', { name: '用量' })).toBeTruthy()
+    await screen.findByText('小王的 Claude')
+    expect(screen.getAllByTestId('usage-row').map((r) => r.textContent)).toEqual([
+      '小王的 Claude412k tokens58 轮',
+      '老李的 Codex未上报41 轮',
+    ])
+    expect(screen.getByText(/不做配额限制/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '按触发人' }))
+    expect(await screen.findByText('王磊')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '按群' })).toBeTruthy()
+  })
 })

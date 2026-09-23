@@ -8,6 +8,7 @@ import { memberIds, postMessage } from '../messages/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { schedule } from './scheduler.js'
+import { triggerChain } from './trigger.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -98,16 +99,18 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       .set({ sessionId: done.sessionId })
       .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
   if (done.git) await updateBotState(ctx, run.groupId, run.botId, { gitStatus: done.git })
-  if (done.reply.trim())
-    await postMessage(ctx, {
-      groupId: run.groupId,
-      kind: 'bot',
-      authorBotId: run.botId,
-      body: done.reply,
-      meta: { mentions: [] },
-      runId: run.id,
-    })
+  const reply = done.reply.trim()
+    ? await postMessage(ctx, {
+        groupId: run.groupId,
+        kind: 'bot',
+        authorBotId: run.botId,
+        body: done.reply,
+        meta: { mentions: [] },
+        runId: run.id,
+      })
+    : null
   await publishRun(ctx, run)
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
+  if (reply) await triggerChain(ctx, run, reply)
 }

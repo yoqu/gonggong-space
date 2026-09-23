@@ -72,6 +72,10 @@
   align-items: baseline;
   gap: 8px;
 }
+.tl-fan {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
 .tl-msg__who {
   font-weight: 600;
 }

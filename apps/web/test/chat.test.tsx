@@ -336,6 +336,41 @@ describe('chat view', () => {
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1 ↑0未提交托管')
   })
 
+  it('marks human fan-out and shows relay hops as triggered by the bot', async () => {
+    mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/timeline': () => ({
+        messages: [
+          msg({ seq: 2, body: '@小王的 Claude @老李的 Codex 迁移', mentions: ['b1', 'b2'] }),
+          msg({
+            seq: 3,
+            kind: 'bot',
+            authorId: 'b1',
+            authorName: '小王的 Claude',
+            body: '@老李的 Codex 补单测',
+          }),
+        ],
+        runs: [
+          run({ id: 'r1', status: 'completed' }),
+          run({ id: 'r2', botId: 'b2', status: 'completed' }),
+          run({
+            id: 'r3',
+            botId: 'b2',
+            triggerMessageId: 'm3',
+            triggerUserId: null,
+            hop: 2,
+            parentRunId: 'r1',
+          }),
+        ],
+      }),
+    })
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    expect(await within(main).findByText(/扇出 · 2 个 bot 并行/)).toBeTruthy()
+    const cards = await within(main).findAllByTestId('run-card')
+    expect(cards[2]!.textContent).toContain('Codex · 小王的 Claude 触发')
+  })
+
   it('sends with Enter once, deduping the realtime echo, and suggests @ candidates', async () => {
     const sent = msg({ id: 'm10', seq: 10, body: '@小王的 Claude 跑一下', mentions: ['b1'] })
     const calls = mockApi({ ...baseRoutes([group()]), 'POST /groups/g1/messages': () => sent })
