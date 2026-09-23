@@ -3,10 +3,11 @@ import { and, asc, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import { groupMembers, runEvents, runs } from '../../db/schema.js'
+import { groupBots, groupMembers, runEvents, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
-import { runDto } from './dto.js'
+import { runDtos } from './dto.js'
+import { runRetentionDays } from './retention.js'
 
 export function runRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -27,10 +28,17 @@ export function runRoutes(ctx: Ctx) {
         .from(runEvents)
         .where(eq(runEvents.runId, row.run.id))
         .orderBy(asc(runEvents.id))
+      const [gb] = await ctx.db
+        .select({ sessionId: groupBots.sessionId })
+        .from(groupBots)
+        .where(and(eq(groupBots.groupId, row.run.groupId), eq(groupBots.botId, row.run.botId)))
+      const [run] = await runDtos(ctx, [row.run])
       return {
-        run: runDto(row.run),
+        run: run!,
         patch: row.run.patch,
         purged: row.run.purgedAt !== null,
+        sessionId: gb?.sessionId ?? null,
+        retentionDays: await runRetentionDays(ctx),
         events: events.map((e) => ({
           id: e.id,
           at: e.createdAt.toISOString(),

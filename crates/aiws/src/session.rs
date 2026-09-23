@@ -113,15 +113,17 @@ impl Shared {
         Some(pre.note())
     }
 
-    /// Records the workspace's git state and the paths changed since `pre_turn` on the active turn.
+    /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn.
     async fn post_turn(&self) {
         let Some(g) = self.0.lock().unwrap().active.as_mut().and_then(|a| a.git.take()) else { return };
         let result =
             async { Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?)) };
+        let patch = git::patch_since(&g.cwd, &g.snap).await.inspect_err(|e| tracing::warn!("git patch failed: {e}"));
         match result.await {
             Ok(git) => {
                 if let Some(a) = self.0.lock().unwrap().active.as_mut() {
                     a.turn.git = Some(git);
+                    a.turn.patch = patch.ok().flatten();
                 }
             }
             Err(e) => tracing::warn!("git post-turn failed: {e}"),
@@ -239,7 +241,7 @@ fn done(
         new_session_reason,
         error,
         git,
-        patch: None,
+        patch: turn.patch,
     })
 }
 

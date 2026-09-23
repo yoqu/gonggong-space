@@ -13,6 +13,7 @@ import { machineRoutes } from './modules/machines/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
+import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
@@ -39,6 +40,8 @@ export async function buildApp(ctx: Ctx) {
   await app.register(runRoutes(ctx))
   const stopRunEngine = startRunEngine(ctx)
   app.addHook('onClose', stopRunEngine)
+  const stopRetention = startRetention(ctx)
+  app.addHook('onClose', stopRetention)
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
   await app.register(authRoutes(ctx))

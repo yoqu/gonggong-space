@@ -1,11 +1,15 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
 use crate::protocol::{AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage};
 use agent_client_protocol::schema::v1::{
-    ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallLocation, ToolKind,
+    ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
+    ToolCallUpdate, ToolKind,
 };
 use std::collections::{BTreeSet, HashMap};
 
 const DETAIL_MAX: usize = 200;
+/// Tail of a shell command's output kept in the tool detail.
+const OUTPUT_LINES: usize = 20;
+const OUTPUT_MAX: usize = 1500;
 
 /// Git default-action note, context lines (`[time] author: body`), then `<trigger> 说：<text>`.
 pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], git: Option<&str>) -> String {
@@ -81,6 +85,23 @@ struct ToolState {
     title: String,
     kind: Option<ToolKind>,
     status: Option<ToolStatus>,
+    location: Option<String>,
+    command: Option<String>,
+    output: Option<String>,
+}
+
+impl ToolState {
+    /// First location, else `$ <command>` plus the tail of its output.
+    fn detail(&self) -> Option<String> {
+        if let Some(l) = &self.location {
+            return Some(l.clone());
+        }
+        let cmd = format!("$ {}", self.command.as_ref()?);
+        Some(match (&self.kind, &self.output) {
+            (Some(ToolKind::Execute), Some(out)) => format!("{cmd}\n{out}"),
+            _ => cmd,
+        })
+    }
 }
 
 /// Accumulates one prompt turn: final reply, changed files, usage, and tool call state across patches.
@@ -93,6 +114,8 @@ pub struct Turn {
     pub failure: Option<String>,
     /// Repo workspaces only: git state after the turn and the number of paths the turn changed.
     pub git: Option<(GitStatus, usize)>,
+    /// Repo workspaces only: unified diff of the turn's changes.
+    pub patch: Option<String>,
     tools: HashMap<String, ToolState>,
 }
 
@@ -104,22 +127,8 @@ impl Turn {
                 RunEvent::Text { delta }
             }),
             SessionUpdate::AgentThoughtChunk(c) => text(c.content).map(|delta| RunEvent::Thought { delta }),
-            SessionUpdate::ToolCall(c) => Some(self.tool(
-                c.tool_call_id.0.to_string(),
-                Some(c.title),
-                Some(c.kind),
-                Some(c.status),
-                &c.locations,
-                c.raw_input.as_ref(),
-            )),
-            SessionUpdate::ToolCallUpdate(u) => Some(self.tool(
-                u.tool_call_id.0.to_string(),
-                u.fields.title,
-                u.fields.kind,
-                u.fields.status,
-                u.fields.locations.as_deref().unwrap_or_default(),
-                u.fields.raw_input.as_ref(),
-            )),
+            SessionUpdate::ToolCall(c) => Some(self.tool(c.into())),
+            SessionUpdate::ToolCallUpdate(u) => Some(self.tool(u)),
             SessionUpdate::UsageUpdate(u) => {
                 let usage = Usage {
                     total_tokens: Some(u.used),
@@ -139,25 +148,29 @@ impl Turn {
         }
     }
 
-    fn tool(
-        &mut self,
-        id: String,
-        title: Option<String>,
-        kind: Option<ToolKind>,
-        status: Option<impl serde::Serialize>,
-        locations: &[ToolCallLocation],
-        raw_input: Option<&serde_json::Value>,
-    ) -> RunEvent {
+    fn tool(&mut self, update: ToolCallUpdate) -> RunEvent {
+        let (id, f) = (update.tool_call_id.0.to_string(), update.fields);
+        let locations = f.locations.as_deref().unwrap_or_default();
         let state = self.tools.entry(id.clone()).or_default();
-        if let Some(t) = title {
+        if let Some(t) = f.title {
             state.title = t;
         }
-        state.kind = kind.or(state.kind.take());
-        if let Some(s) = status.and_then(|s| serde_json::from_value(serde_json::to_value(s).ok()?).ok()) {
+        state.kind = f.kind.or(state.kind.take());
+        if let Some(s) = f.status.and_then(|s| serde_json::from_value(serde_json::to_value(s).ok()?).ok()) {
             state.status = Some(s);
         }
         if matches!(state.kind, Some(ToolKind::Edit | ToolKind::Delete | ToolKind::Move)) {
             self.files.extend(locations.iter().map(|l| l.path.to_string_lossy().into_owned()));
+        }
+        if let Some(l) = locations.first() {
+            let path = l.path.display();
+            state.location = Some(clip(&l.line.map_or_else(|| path.to_string(), |n| format!("{path}:{n}"))));
+        }
+        if let Some(cmd) = f.raw_input.as_ref().and_then(|v| v.get("command")?.as_str()) {
+            state.command = Some(clip(cmd));
+        }
+        if let Some(out) = output_tail(f.content.as_deref().unwrap_or_default()) {
+            state.output = Some(out);
         }
         RunEvent::Tool {
             tool_call_id: id,
@@ -168,7 +181,7 @@ impl Turn {
                 .and_then(|k| serde_json::to_value(k).ok()?.as_str().map(String::from))
                 .unwrap_or_else(|| "other".into()),
             status: state.status.unwrap_or(ToolStatus::Pending),
-            detail: detail(locations, raw_input),
+            detail: state.detail(),
         }
     }
 }
@@ -180,23 +193,39 @@ fn text(block: ContentBlock) -> Option<String> {
     }
 }
 
-/// First location, else the shell command, truncated.
-fn detail(locations: &[ToolCallLocation], raw_input: Option<&serde_json::Value>) -> Option<String> {
-    let s = match locations.first() {
-        Some(l) => match l.line {
-            Some(n) => format!("{}:{n}", l.path.display()),
-            None => l.path.display().to_string(),
-        },
-        None => raw_input?.get("command")?.as_str()?.to_string(),
+fn clip(s: &str) -> String {
+    s.chars().take(DETAIL_MAX).collect()
+}
+
+/// Last lines of a tool's text result, without the adapter's ```console fence.
+fn output_tail(content: &[ToolCallContent]) -> Option<String> {
+    let text: String = content
+        .iter()
+        .filter_map(|c| match c {
+            ToolCallContent::Content(c) => match &c.content {
+                ContentBlock::Text(t) => Some(t.text.as_str()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = match text.trim().strip_prefix("```") {
+        Some(fenced) => fenced.split_once('\n').map_or("", |(_, rest)| rest).trim_end().trim_end_matches("```"),
+        None => text.as_str(),
     };
-    Some(s.chars().take(DETAIL_MAX).collect())
+    let lines: Vec<&str> = body.trim_end().lines().collect();
+    let tail = lines[lines.len().saturating_sub(OUTPUT_LINES)..].join("\n");
+    let skip = tail.chars().count().saturating_sub(OUTPUT_MAX);
+    let tail: String = tail.chars().skip(skip).collect();
+    (!tail.trim().is_empty()).then_some(tail)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use agent_client_protocol::schema::v1::{
-        ContentChunk, Cost, SessionInfoUpdate, TextContent, ToolCall, ToolCallStatus, ToolCallUpdate,
+        ContentChunk, Cost, SessionInfoUpdate, TextContent, ToolCall, ToolCallLocation, ToolCallStatus,
         ToolCallUpdateFields, UsageUpdate,
     };
 
@@ -338,11 +367,34 @@ mod tests {
     }
 
     #[test]
-    fn shell_command_is_the_detail_without_locations() {
+    fn shell_command_and_its_output_tail_are_the_detail_without_locations() {
         let mut t = Turn::default();
         let exec =
             ToolCall::new("x", "Run").kind(ToolKind::Execute).raw_input(serde_json::json!({ "command": "ls -la" }));
         let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCall(exec)) else { panic!() };
-        assert_eq!(detail.as_deref(), Some("ls -la"));
+        assert_eq!(detail.as_deref(), Some("$ ls -la"));
+
+        let lines: Vec<String> = (1..=30).map(|i| format!("line {i}")).collect();
+        let output = format!("```console\n{}\n```", lines.join("\n"));
+        let done = ToolCallUpdate::new(
+            "x",
+            ToolCallUpdateFields::new()
+                .status(ToolCallStatus::Completed)
+                .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new(output)))]),
+        );
+        let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCallUpdate(done)) else { panic!() };
+        let expected = format!("$ ls -la\n{}", lines[30 - OUTPUT_LINES..].join("\n"));
+        assert_eq!(detail.as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn read_results_are_not_output() {
+        let mut t = Turn::default();
+        let read = ToolCall::new("r", "Read a")
+            .kind(ToolKind::Read)
+            .locations(vec![ToolCallLocation::new("/w/a.rs")])
+            .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("fn main() {}")))]);
+        let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCall(read)) else { panic!() };
+        assert_eq!(detail.as_deref(), Some("/w/a.rs"));
     }
 }

@@ -1,0 +1,46 @@
+/** Replacement for anything that looks like a secret (spec §13, plan risk 6). */
+export const MASK = '[已脱敏]'
+
+const KEY = String.raw`[A-Za-z0-9_.-]*(?:password|passwd|secret|token|api_?key)[A-Za-z0-9_]*`
+
+const TOKENS = [
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g,
+  /\bgh[pousr]_[A-Za-z0-9]{36,}\b/g,
+  /\bgithub_pat_[A-Za-z0-9_]{22,}/g,
+  /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  /\bxox[abposr]-[A-Za-z0-9-]{10,}/g,
+  /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+]
+/** `password=…`, `TOKEN="…"` and JSON `"api_key": "…"`. */
+const ASSIGNMENT = new RegExp(String.raw`\b(${KEY}=)(?:"([^"\n]*)"|'([^'\n]*)'|([^\s"'&;]+))`, 'gi')
+const JSON_FIELD = new RegExp(String.raw`("${KEY}"\s*:\s*")[^"\n]*"`, 'gi')
+
+export function redactor(values: string[]) {
+  const known = values
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+  return (text: string) => {
+    let out = text
+    for (const v of known) out = out.split(v).join(MASK)
+    for (const re of TOKENS) out = out.replace(re, MASK)
+    return out
+      .replace(ASSIGNMENT, (_m, key: string, dq?: string, sq?: string) =>
+        dq !== undefined ? `${key}"${MASK}"` : sq !== undefined ? `${key}'${MASK}'` : `${key}${MASK}`,
+      )
+      .replace(JSON_FIELD, `$1${MASK}"`)
+  }
+}
+
+/** Known secret values come from AIWS_REDACT_VALUES (comma list) until team secrets exist (P3). */
+export const redact = redactor((process.env.AIWS_REDACT_VALUES ?? '').split(','))
+
+/** Redacts every string inside a JSON value. */
+export function redactDeep<T>(value: T): T {
+  if (typeof value === 'string') return redact(value) as T
+  if (Array.isArray(value)) return value.map(redactDeep) as T
+  if (value && typeof value === 'object')
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redactDeep(v)])) as T
+  return value
+}
