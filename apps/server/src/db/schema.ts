@@ -163,6 +163,10 @@ export const groupBots = pgTable(
     sessionId: text('session_id'),
     /** Last git status reported after a turn (partition mode status bar). */
     gitStatus: jsonb('git_status'),
+    /** 'pending' | 'cloning' | 'ready' | 'failed' — as last reported by the owner's daemon. */
+    workspaceState: text('workspace_state').notNull().default('pending'),
+    workspacePath: text('workspace_path'),
+    workspaceError: text('workspace_error'),
     removedAt: ts('removed_at'),
     addedAt: createdAt(),
   },
