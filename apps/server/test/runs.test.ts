@@ -71,11 +71,16 @@ async function world(o: { concurrency?: number; binding?: string } = {}) {
   })
   const other = await t.seed.bot({ ownerId: bob.id, name: '陈晨的 Codex', agentKind: 'codex' })
   const group = await t.seed.group({ createdBy: alice.id, memberIds: [bob.id], botIds: [bot.id, other.id] })
-  const say = async (body: string, author: { userId?: string; botId?: string }, mentions: string[] = []) => {
+  const say = async (
+    body: string,
+    author: { userId?: string; botId?: string },
+    mentions: string[] = [],
+    groupId = group.id,
+  ) => {
     const [m] = await t.db
       .insert(messages)
       .values({
-        groupId: group.id,
+        groupId,
         kind: author.botId ? 'bot' : 'user',
         authorUserId: author.userId ?? null,
         authorBotId: author.botId ?? null,
@@ -85,13 +90,15 @@ async function world(o: { concurrency?: number; binding?: string } = {}) {
       .returning()
     return m!
   }
-  const mention = async (body: string) => {
-    const m = await say(body, { userId: alice.id }, [bot.id])
+  /** `inGroup` → mention from another group the bot is in (to exercise bot-level concurrency). */
+  const mention = async (body: string, inGroup = group.id) => {
+    const m = await say(body, { userId: alice.id }, [bot.id], inGroup)
     await triggerRuns(t.ctx, m)
     return m
   }
+  const anotherGroup = async () => (await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })).id
   const runsOf = () => t.db.select().from(runs).where(eq(runs.botId, bot.id)).orderBy(asc(runs.queuedAt))
-  return { alice, bob, machine, token, bot, other, group, say, mention, runsOf }
+  return { alice, bob, machine, token, bot, other, group, say, mention, anotherGroup, runsOf }
 }
 
 const done = (runId: string, o: Record<string, unknown> = {}) => ({
@@ -186,8 +193,8 @@ describe('run engine', () => {
     const web = watch(w.alice.id)
     const d = await daemon(w.token)
     await w.mention('one')
-    await w.mention('two')
-    await w.mention('three')
+    await w.mention('two', await w.anotherGroup())
+    await w.mention('three', await w.anotherGroup())
     const first = await d.next()
     expect(first.prompt.text).toBe('one')
     const [, r2, r3] = await w.runsOf()
@@ -198,6 +205,20 @@ describe('run engine', () => {
     const second = await d.next()
     expect(second.prompt.text).toBe('two')
     await web.until((e) => e.t === 'run.updated' && e.run.id === r3?.id && e.run.step === '该 bot 忙，排第 1')
+  })
+
+  it('runs at most one turn per (group, bot) even with free concurrency slots', async () => {
+    const w = await world({ concurrency: 2 })
+    const d = await daemon(w.token)
+    await w.mention('one')
+    await w.mention('two')
+    const first = await d.next()
+    const [, r2] = await w.runsOf()
+    expect(r2).toMatchObject({ status: 'queued', step: '本群上一轮未结束，排第 1' })
+    d.send(done(first.runId))
+    const second = await d.next()
+    expect(second.prompt.text).toBe('two')
+    expect(second.resumeSessionId).toBe('sess-1')
   })
 
   it('persists run events and the final reply, and publishes them', async () => {

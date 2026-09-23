@@ -142,6 +142,7 @@ pub struct RunStart {
     pub bot: RunBot,
     pub workspace: WorkspaceSpec,
     pub resume_session_id: Option<String>,
+    pub new_session_reason: Option<String>,
     pub prompt: RunPrompt,
 }
 

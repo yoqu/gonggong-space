@@ -57,6 +57,8 @@ export const RunStart = z.object({
   }),
   /** Resume this ACP session if possible; null → start a new one. */
   resumeSessionId: z.string().nullable(),
+  /** Why the server asks for a new session (e.g. 'requested' after /new); reported back in run.done. null → 'first'. */
+  newSessionReason: z.string().nullable(),
   prompt: z.object({
     text: z.string(),
     triggeredBy: z.string(),

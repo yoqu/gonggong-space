@@ -298,15 +298,17 @@ impl Conversation<'_> {
     /// Runs one prompt turn. Only transport-level failures are returned (they tear the adapter down).
     async fn turn(&mut self, req: TurnReq, resume: &mut Option<SessionId>) -> Result<(), agent_client_protocol::Error> {
         let s = &req.start;
-        let (session, reason, history) = match self.session.clone() {
+        // The server owns the session id: reuse the live one only if it asks for it (/new sends none).
+        let wanted = s.resume_session_id.clone().map(SessionId::new);
+        let (session, reason, history) = match self.session.clone().filter(|id| wanted.as_ref() == Some(id)) {
             Some(id) => (id, None, &s.prompt.context),
-            None => match self
-                .open(&req, resume.clone().or_else(|| s.resume_session_id.clone().map(SessionId::new)))
-                .await
-            {
+            None => match self.open(&req, wanted).await {
                 Ok((id, reason)) => {
-                    let history =
-                        if reason == Some("resume_failed") { &s.prompt.fallback_context } else { &s.prompt.context };
+                    let history = if reason.as_deref() == Some("resume_failed") {
+                        &s.prompt.fallback_context
+                    } else {
+                        &s.prompt.context
+                    };
                     (id, reason, history)
                 }
                 Err(e) => {
@@ -332,7 +334,7 @@ impl Conversation<'_> {
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
-                self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason);
+                self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
                 // A failed prompt may mean a broken adapter: restart it for the next turn.
                 error.map_or(Ok(()), Err)
             }
@@ -344,7 +346,7 @@ impl Conversation<'_> {
         &mut self,
         req: &TurnReq,
         resume: Option<SessionId>,
-    ) -> Result<(SessionId, Option<&'static str>), agent_client_protocol::Error> {
+    ) -> Result<(SessionId, Option<String>), agent_client_protocol::Error> {
         let meta = self.meta(&req.start);
         let tried = resume.is_some();
         if let Some(id) = resume {
@@ -358,7 +360,9 @@ impl Conversation<'_> {
         }
         let res = self.cx.send_request(NewSessionRequest::new(&req.cwd).meta(meta)).block_task().await?;
         self.set_modes(res.modes);
-        Ok((res.session_id, Some(if tried { "resume_failed" } else { "first" })))
+        let reason =
+            if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
+        Ok((res.session_id, Some(reason)))
     }
 
     async fn restore(

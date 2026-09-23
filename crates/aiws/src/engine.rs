@@ -182,6 +182,7 @@ mod tests {
             },
             workspace: WorkspaceSpec { repo, cd_path: None },
             resume_session_id: None,
+            new_session_reason: None,
             prompt: RunPrompt {
                 text: String::new(),
                 triggered_by: String::new(),

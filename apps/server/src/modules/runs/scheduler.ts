@@ -1,5 +1,5 @@
 import type { AgentKind, ContextMessage, RunStart, Tier } from '@aiws/protocol'
-import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
@@ -31,17 +31,27 @@ export async function schedule(ctx: Ctx, botId: string) {
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
       .orderBy(asc(messages.seq))
     if (!waiting.length) return []
-    const [active] = await tx
-      .select({ n: count() })
+    const active = await tx
+      .select({ groupId: runs.groupId })
       .from(runs)
       .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
-    let busy = active?.n ?? 0
+    let busy = active.length
+    // One conversation per (group, bot): a group's next turn waits for its previous one (spec §8.9).
+    const busyGroups = new Set(active.map((r) => r.groupId))
+    const groupQueue = new Map<string, number>()
     let position = 0
     const out: RunRow[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
     for (const { run } of waiting) {
       const machineId = bot.machineId && ctx.hub.isOnline(bot.machineId) ? bot.machineId : null
+      if (machineId && busyGroups.has(run.groupId)) {
+        const n = (groupQueue.get(run.groupId) ?? 0) + 1
+        groupQueue.set(run.groupId, n)
+        const step = `本群上一轮未结束，排第 ${n}`
+        if (run.status !== 'queued' || run.step !== step) await setRun(run.id, { status: 'queued', step })
+        continue
+      }
       if (machineId && busy < bot.concurrency) {
         const start = await buildRunStart(tx, bot, run)
         // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
@@ -52,6 +62,7 @@ export async function schedule(ctx: Ctx, botId: string) {
           .returning()
         if (running && ctx.hub.send(machineId, start.msg)) {
           busy += 1
+          busyGroups.add(run.groupId)
           await tx
             .update(groupBots)
             .set({ contextSeq: sql`greatest(${groupBots.contextSeq}, ${start.triggerSeq})` })
@@ -120,6 +131,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       cdPath: gb.cdPath,
     },
     resumeSessionId: gb.sessionId,
+    newSessionReason: null,
     prompt: { text: trigger.body, triggeredBy: trigger.author ?? '', context, fallbackContext },
   }
   return { msg, triggerSeq: trigger.seq }

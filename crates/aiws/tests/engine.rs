@@ -25,6 +25,11 @@ fn rig(idle: Duration) -> Rig {
     Rig { engine, out, rx, home }
 }
 
+/// The follow-up turn as the server sends it: carrying the session id stored from the previous run.done.
+fn follow_up(run_id: &str, text: &str, prev: &RunDone) -> RunStart {
+    RunStart { resume_session_id: prev.session_id.clone(), ..start(run_id, text) }
+}
+
 fn start(run_id: &str, text: &str) -> RunStart {
     RunStart {
         run_id: run_id.into(),
@@ -38,6 +43,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,
+        new_session_reason: None,
         prompt: RunPrompt {
             text: text.into(),
             triggered_by: "王磊".into(),
@@ -132,11 +138,22 @@ async fn injects_cwd_mode_system_prompt_and_context_then_reuses_the_session() {
     assert!(e["systemPrompt"].as_str().unwrap().contains("小王的 Claude"));
     assert_eq!(e["prompt"], "群聊上下文：\n[2026-09-23 10:12] 陈晨: 新上下文\n\n王磊 说：mock:echo");
 
-    r.run(start("r2", "mock:echo again"));
+    r.run(follow_up("r2", "mock:echo again", &first));
     let (_, second) = r.finish("r2").await;
     assert_eq!(second.session_id, first.session_id);
     assert_eq!(second.new_session_reason, None);
     assert_eq!(echo(&second)["pid"], e["pid"]);
+}
+
+#[tokio::test]
+async fn slash_new_drops_the_live_session_and_reports_the_reason() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:echo"));
+    let (_, first) = r.finish("r1").await;
+    r.run(RunStart { new_session_reason: Some("requested".into()), ..start("r2", "mock:echo") });
+    let (_, second) = r.finish("r2").await;
+    assert_ne!(second.session_id, first.session_id);
+    assert_eq!(second.new_session_reason.as_deref(), Some("requested"));
 }
 
 #[tokio::test]
@@ -163,7 +180,7 @@ async fn resumes_a_known_session_in_a_fresh_adapter_after_idle_reap() {
     r.run(start("r1", "mock:echo"));
     let (_, first) = r.finish("r1").await;
     tokio::time::sleep(Duration::from_millis(600)).await;
-    r.run(start("r2", "mock:echo"));
+    r.run(follow_up("r2", "mock:echo", &first));
     let (_, second) = r.finish("r2").await;
     assert_ne!(echo(&second)["pid"], echo(&first)["pid"]);
     assert_eq!(second.session_id, first.session_id);
@@ -179,7 +196,7 @@ async fn cancel_interrupts_and_the_session_continues() {
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.outcome, RunOutcome::Interrupted);
 
-    r.run(start("r2", "mock:echo"));
+    r.run(follow_up("r2", "mock:echo", &done));
     let (_, next) = r.finish("r2").await;
     assert_eq!(next.outcome, RunOutcome::Completed);
     assert_eq!(next.session_id, done.session_id);
@@ -193,7 +210,7 @@ async fn adapter_crash_fails_the_run_and_the_next_turn_recovers() {
     assert_eq!(done.outcome, RunOutcome::Failed);
     assert!(done.error.is_some());
 
-    r.run(start("r2", "mock:echo"));
+    r.run(follow_up("r2", "mock:echo", &done));
     let (_, next) = r.finish("r2").await;
     assert_eq!(next.outcome, RunOutcome::Completed);
 }
