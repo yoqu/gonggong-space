@@ -14,7 +14,14 @@ vi.mock('../src/features/attachments/api', async (orig) => ({
   uploadFile: vi.fn(),
 }))
 
-const me: UserDto = { id: 'u1', account: 'wanglei', name: '王磊', role: 'member', mustChangePassword: false, disabled: false }
+const me: UserDto = {
+  id: 'u1',
+  account: 'wanglei',
+  name: '王磊',
+  role: 'member',
+  mustChangePassword: false,
+  disabled: false,
+}
 const group: GroupDto = {
   id: 'g1',
   name: '退款 v2 迁移',
@@ -113,7 +120,14 @@ const timeline = {
       ],
       quote: { kind: 'message', id: 'm0', who: '小王的 Claude', text: '上次的结论' },
     }),
-    msg({ seq: 3, kind: 'bot', authorId: 'b1', authorName: '小王的 Claude', body: '已修复\n细节见 diff', runId: 'r1' }),
+    msg({
+      seq: 3,
+      kind: 'bot',
+      authorId: 'b1',
+      authorName: '小王的 Claude',
+      body: '已修复\n细节见 diff',
+      runId: 'r1',
+    }),
   ],
   runs: [run],
 }
@@ -161,12 +175,14 @@ const renderChat = () =>
     </MemoryRouter>,
   )
 
-const box = () => screen.getByPlaceholderText('输入消息，@ 触发 bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
+const box = () =>
+  screen.getByPlaceholderText('输入消息，@ 触发 bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
 const file = (name: string, size: number, type: string) => {
   const f = new File(['x'], name, { type })
   Object.defineProperty(f, 'size', { value: size })
   return f
 }
+const composer = () => within(document.querySelector('.composer') as HTMLElement)
 const pick = (input: HTMLInputElement, files: File[]) => fireEvent.change(input, { target: { files } })
 
 beforeEach(() => {
@@ -180,14 +196,19 @@ beforeEach(() => {
   vi.mocked(uploadFile).mockClear()
   vi.mocked(uploadFile).mockImplementation((_g, f, onProgress) => {
     onProgress(50)
-    return { done: Promise.resolve({ id: `up${++n}`, name: f.name, size: f.size, mime: f.type }), abort: vi.fn() }
+    return {
+      done: Promise.resolve({ id: `up${++n}`, name: f.name, size: f.size, mime: f.type }),
+      abort: vi.fn(),
+    }
   })
 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('composer attachments', () => {
   it('uploads picked files as chips, enforces the limits and sends the ids', async () => {
-    const calls = mockApi({ 'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊' }) })
+    const calls = mockApi({
+      'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊' }),
+    })
     renderChat()
     await screen.findByText('最终回复')
     const [images, files] = [...document.querySelectorAll('input[type=file]')] as HTMLInputElement[]
@@ -198,12 +219,15 @@ describe('composer attachments', () => {
 
     pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
     expect(await screen.findByText('screen.png')).toBeTruthy()
-    expect(screen.getByText('486 KB')).toBeTruthy()
+    expect(composer().getByText('486 KB')).toBeTruthy()
     expect(screen.getByText(/1 \/ 10 · 写入工作区 \.aiws\/attachments\/，不进 git · 图片：/)).toBeTruthy()
 
     pick(files!, [file('huge.zip', 51 * 1024 * 1024, 'application/zip')])
     expect(await screen.findByText('huge.zip 超过 50 MB，未添加')).toBeTruthy()
-    pick(files!, Array.from({ length: 10 }, (_, i) => file(`f${i}.txt`, 10, 'text/plain')))
+    pick(
+      files!,
+      Array.from({ length: 10 }, (_, i) => file(`f${i}.txt`, 10, 'text/plain')),
+    )
     expect(await screen.findByText('每条消息最多 10 个附件')).toBeTruthy()
     expect(screen.getByText(/10 \/ 10/)).toBeTruthy()
     expect(uploadFile).toHaveBeenCalledTimes(10)
@@ -214,7 +238,10 @@ describe('composer attachments', () => {
     fireEvent.click(screen.getByRole('button', { name: '发送' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/messages')).toBe(true))
     const post = calls.find((c) => c.path === '/groups/g1/messages')!
-    expect(post.body).toMatchObject({ body: '', attachmentIds: ['up1', 'up2', 'up3', 'up4', 'up5', 'up6', 'up7', 'up8', 'up9'] })
+    expect(post.body).toMatchObject({
+      body: '',
+      attachmentIds: ['up1', 'up2', 'up3', 'up4', 'up5', 'up6', 'up7', 'up8', 'up9'],
+    })
     await waitFor(() => expect(screen.queryByText('screen.png')).toBeNull())
   })
 
@@ -240,17 +267,21 @@ describe('composer attachments', () => {
 
 describe('quotes', () => {
   it('quotes a bot reply or a run card and sends the quote along', async () => {
-    const calls = mockApi({ 'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊', body: '再总结' }) })
+    const calls = mockApi({
+      'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊', body: '再总结' }),
+    })
     renderChat()
     const reply = await screen.findByTestId('bot-reply')
     fireEvent.click(within(reply).getByRole('button', { name: '引用回复' }))
-    expect(screen.getByText('引用 小王的 Claude')).toBeTruthy()
-    expect(screen.getByText('等同 @，引用内容一起发送')).toBeTruthy()
+    expect(composer().getByText('引用 小王的 Claude')).toBeTruthy()
+    expect(composer().getByText('已修复')).toBeTruthy()
+    expect(composer().getByText('等同 @，引用内容一起发送')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '关闭引用' }))
-    expect(screen.queryByText('引用 小王的 Claude')).toBeNull()
+    expect(composer().queryByText('引用 小王的 Claude')).toBeNull()
 
     fireEvent.click(within(screen.getByTestId('run-card')).getByRole('button', { name: '引用' }))
-    expect(screen.getByText('引用 小王的 Claude 的运行卡片')).toBeTruthy()
+    expect(composer().getByText('引用 小王的 Claude 的运行卡片')).toBeTruthy()
+    expect(composer().getByText('改完了 refund.go')).toBeTruthy()
     fireEvent.click(within(reply).getByRole('button', { name: '引用回复' }))
     fireEvent.change(box(), { target: { value: '再总结' } })
     fireEvent.click(screen.getByRole('button', { name: '发送' }))
@@ -302,7 +333,9 @@ describe('message attachments and preview', () => {
 
     fireEvent.click(within(main).getByRole('button', { name: /dump\.bin/ }))
     expect(within(panel()).getByText('该类型暂不支持预览，可下载查看')).toBeTruthy()
-    expect(within(panel()).getByRole('link', { name: '下载' }).getAttribute('href')).toBe('/api/attachments/a4')
+    expect(within(panel()).getByRole('link', { name: '下载' }).getAttribute('href')).toBe(
+      '/api/attachments/a4',
+    )
 
     fireEvent.click(within(panel()).getByRole('button', { name: '关闭' }))
     expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull()

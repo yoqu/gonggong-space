@@ -25,7 +25,12 @@ export function inlineType(mime: string) {
   return null
 }
 
-export const uploadDto = (r: AttachmentRow): Upload => ({ id: r.id, name: r.name, size: r.size, mime: r.mime })
+export const uploadDto = (r: AttachmentRow): Upload => ({
+  id: r.id,
+  name: r.name,
+  size: r.size,
+  mime: r.mime,
+})
 
 /** Binds the uploader's still-unbound uploads in this group to `messageId`, in the given order. */
 export async function claimAttachments(

@@ -28,7 +28,10 @@ function sendFile(reply: FastifyReply, a: AttachmentRow) {
   const inline = inlineType(a.mime)
   return reply
     .header('content-type', inline ?? 'application/octet-stream')
-    .header('content-disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.name)}`)
+    .header(
+      'content-disposition',
+      `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.name)}`,
+    )
     .header('x-content-type-options', 'nosniff')
     .send(createReadStream(join(dataDir(), a.storageKey)))
 }
@@ -94,7 +97,9 @@ export function attachmentRoutes(ctx: Ctx) {
         .select({ id: bots.id })
         .from(groupBots)
         .innerJoin(bots, eq(bots.id, groupBots.botId))
-        .where(and(eq(groupBots.groupId, a.groupId), eq(bots.machineId, machine.id), isNull(groupBots.removedAt)))
+        .where(
+          and(eq(groupBots.groupId, a.groupId), eq(bots.machineId, machine.id), isNull(groupBots.removedAt)),
+        )
         .limit(1)
       if (!hosted) return fail('forbidden', '该机器上没有这个群的 bot')
       return sendFile(reply, a)

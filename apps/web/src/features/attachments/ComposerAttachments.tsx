@@ -48,7 +48,14 @@ export function useUploads(groupId: string) {
           if (e.name !== 'AbortError') toast({ type: 'error', message: `${file.name}：${e.message}` })
         },
       )
-      added.push({ key, name: file.name, size: file.size, image: file.type.startsWith('image/'), progress: 0, abort })
+      added.push({
+        key,
+        name: file.name,
+        size: file.size,
+        image: file.type.startsWith('image/'),
+        progress: 0,
+        abort,
+      })
     }
     live.current = [...live.current, ...added]
     setItems(live.current)

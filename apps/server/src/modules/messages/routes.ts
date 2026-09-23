@@ -68,7 +68,11 @@ export function messageRoutes(ctx: Ctx) {
           )
         if (existing) return { row: existing, created: false }
         const id = randomUUID()
-        const files = await claimAttachments(tx, attachmentIds, { uploaderId: me.id, groupId: group.id, messageId: id })
+        const files = await claimAttachments(tx, attachmentIds, {
+          uploaderId: me.id,
+          groupId: group.id,
+          messageId: id,
+        })
         const meta: MessageMeta = { mentions, clientId, ...(command && { command: command.name }) }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted.quote

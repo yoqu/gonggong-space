@@ -30,7 +30,8 @@ export function uploadFile(groupId: string, file: File, onProgress: (pct: number
 
 export type FileKind = 'image' | 'video' | 'md' | 'text' | 'code' | 'file'
 
-const CODE = /\.(ts|tsx|js|jsx|mjs|cjs|go|rs|py|java|kt|swift|rb|php|c|h|cc|cpp|cs|sh|sql|json|ya?ml|toml|css|scss|html|xml|vue)$/i
+const CODE =
+  /\.(ts|tsx|js|jsx|mjs|cjs|go|rs|py|java|kt|swift|rb|php|c|h|cc|cpp|cs|sh|sql|json|ya?ml|toml|css|scss|html|xml|vue)$/i
 
 /** Preview kind (prototype KIND_*): svg is served as a download, so it is a plain file here. */
 export function kindOf(a: Pick<Attachment, 'name' | 'mime'>): FileKind {

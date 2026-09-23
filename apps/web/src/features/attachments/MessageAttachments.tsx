@@ -1,5 +1,16 @@
 import type { Attachment, MessageDto } from '@aiws/protocol'
-import { File, FileCode, FileText, Image, Maximize2, PanelRightOpen, Play, Quote, ScrollText, Video } from 'lucide-react'
+import {
+  File,
+  FileCode,
+  FileText,
+  Image,
+  Maximize2,
+  PanelRightOpen,
+  Play,
+  Quote,
+  ScrollText,
+  Video,
+} from 'lucide-react'
 import { cx } from '../../lib/cx'
 import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf } from './api'
 import { usePreview } from './preview'

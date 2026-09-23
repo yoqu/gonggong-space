@@ -27,7 +27,13 @@ afterEach(() => t.close())
 
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex')
 
-async function upload(cookie: string, groupId: string | null, name: string, data: Buffer, type = 'image/png') {
+async function upload(
+  cookie: string,
+  groupId: string | null,
+  name: string,
+  data: Buffer,
+  type = 'image/png',
+) {
   const form = new FormData()
   if (groupId) form.set('groupId', groupId)
   form.set('file', new Blob([new Uint8Array(data)], { type }), name)
@@ -65,7 +71,12 @@ describe('uploads', () => {
     const w = await world()
     const res = await upload(w.cookies.li, w.g.id, 'shot.png', PNG)
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ id: expect.any(String), name: 'shot.png', size: PNG.length, mime: 'image/png' })
+    expect(res.body).toEqual({
+      id: expect.any(String),
+      name: 'shot.png',
+      size: PNG.length,
+      mime: 'image/png',
+    })
     const [row] = await t.db.select().from(attachments).where(eq(attachments.id, res.body.id))
     expect(row).toMatchObject({ messageId: null, groupId: w.g.id, uploaderId: w.li.id })
 
@@ -82,16 +93,26 @@ describe('uploads', () => {
 
   it('downloads anything that could run as a page, and strips paths from names', async () => {
     const w = await world()
-    const html = await upload(w.cookies.wang, w.g.id, '../../etc/报告.html', Buffer.from('<script>'), 'text/html')
+    const html = await upload(
+      w.cookies.wang,
+      w.g.id,
+      '../../etc/报告.html',
+      Buffer.from('<script>'),
+      'text/html',
+    )
     expect(html.body.name).toBe('报告.html')
-    const got = await fetch(t.url(`/api/attachments/${html.body.id}`), { headers: { cookie: w.cookies.wang } })
+    const got = await fetch(t.url(`/api/attachments/${html.body.id}`), {
+      headers: { cookie: w.cookies.wang },
+    })
     expect(got.headers.get('content-disposition')).toBe(
       `attachment; filename*=UTF-8''${encodeURIComponent('报告.html')}`,
     )
     expect(got.headers.get('x-content-type-options')).toBe('nosniff')
     await got.arrayBuffer()
     const log = await upload(w.cookies.wang, w.g.id, 'ci.log', Buffer.from('ERROR x'), 'text/plain')
-    const text = await fetch(t.url(`/api/attachments/${log.body.id}`), { headers: { cookie: w.cookies.wang } })
+    const text = await fetch(t.url(`/api/attachments/${log.body.id}`), {
+      headers: { cookie: w.cookies.wang },
+    })
     expect(text.headers.get('content-type')).toBe('text/plain; charset=utf-8')
     expect(text.headers.get('content-disposition')).toMatch(/^inline;/)
     expect(await text.text()).toBe('ERROR x')
@@ -166,7 +187,6 @@ async function botReply(w: Awaited<ReturnType<typeof world>>, botId: string, bod
 }
 
 describe('quotes', () => {
-
   it('quoting a bot reply triggers that bot and snapshots the quote', async () => {
     const w = await world()
     const reply = await botReply(w, w.codex.id, '接口已改好\n细节见 diff')
@@ -195,7 +215,10 @@ describe('quotes', () => {
     expect(res.body.mentions).toEqual([w.codex.id])
     expect(res.body.quote).toMatchObject({ kind: 'run', who: '老李的 Codex 的运行卡片' })
 
-    const human = await send(w.cookies.wang, w.g.id, { body: '好的', quote: { kind: 'message', id: trigger.id } })
+    const human = await send(w.cookies.wang, w.g.id, {
+      body: '好的',
+      quote: { kind: 'message', id: trigger.id },
+    })
     expect(human.body.mentions).toEqual([])
     expect(human.body.quote).toMatchObject({ who: '李建国', text: '@老李的 Codex 改接口' })
     expect(await t.db.select().from(runs).where(eq(runs.triggerMessageId, human.body.id))).toHaveLength(0)
