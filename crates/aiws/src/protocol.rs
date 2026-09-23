@@ -357,7 +357,15 @@ pub struct WorkspaceCd {
 #[serde(tag = "t")]
 pub enum DaemonToServer {
     #[serde(rename = "hello", rename_all = "camelCase")]
-    Hello { protocol: u32, token: String, daemon_version: String, machine: MachineInfo, agents: Vec<AgentInfo> },
+    Hello {
+        protocol: u32,
+        token: String,
+        daemon_version: String,
+        machine: MachineInfo,
+        agents: Vec<AgentInfo>,
+        #[serde(default)]
+        active_runs: Vec<String>,
+    },
     #[serde(rename = "heartbeat")]
     Heartbeat,
     #[serde(rename = "run.event", rename_all = "camelCase")]
@@ -378,6 +386,13 @@ pub enum DaemonToServer {
     RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UpgradeInfo {
+    pub version: String,
+    pub url: String,
+    pub sha256: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RejectReason {
@@ -390,13 +405,15 @@ pub enum RejectReason {
 #[serde(tag = "t")]
 pub enum ServerToDaemon {
     #[serde(rename = "welcome", rename_all = "camelCase")]
-    Welcome { machine_id: String, heartbeat_sec: u64 },
+    Welcome { machine_id: String, heartbeat_sec: u64, upgrade: Option<UpgradeInfo> },
     #[serde(rename = "reject", rename_all = "camelCase")]
     Reject {
         reason: RejectReason,
         message: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         min_protocol: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        upgrade: Option<UpgradeInfo>,
     },
     #[serde(rename = "run.start")]
     RunStart(Box<RunStart>),

@@ -100,7 +100,7 @@ export function daemonGateway(ctx: Ctx) {
             ctx.hub.emit('message', machineId, msg.data)
         })
         armTimeout()
-        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec })
+        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade: null })
         ctx.hub.register(machineId, conn)
       })
     })

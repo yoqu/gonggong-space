@@ -375,6 +375,42 @@ export const SearchResultDto = z.object({
 })
 export type SearchResultDto = z.infer<typeof SearchResultDto>
 
+// ── Group settings (spec §10; group admins) ────────────────────────────────
+export const GroupParams = z.object({
+  approvalTimeoutMin: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60),
+  chainMaxHops: z.number().int().min(1).max(10),
+  offlineWaitMin: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60),
+})
+export type GroupParams = z.infer<typeof GroupParams>
+
+// ── Audit (spec §9, §13) ────────────────────────────────────────────────────
+export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command'])
+export const AuditQuery = z.object({
+  category: AuditCategory.optional(),
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+})
+export const AuditDto = z.object({
+  id: z.number().int(),
+  at: z.string(),
+  category: z.string(),
+  actorName: z.string().nullable(),
+  action: z.string(),
+  groupName: z.string().nullable(),
+  /** Human-readable one-liner (prototype 审计记录 rows). */
+  summary: z.string(),
+  detail: z.record(z.string(), z.unknown()),
+})
+export type AuditDto = z.infer<typeof AuditDto>
+
 // ── Usage (spec §3.7) ───────────────────────────────────────────────────────
 export const UsageQuery = z.object({
   by: z.enum(['bot', 'user', 'group']),

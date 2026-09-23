@@ -125,6 +125,9 @@ export const Hello = z.object({
   daemonVersion: z.string(),
   machine: MachineInfo,
   agents: z.array(AgentInfo),
+  /** Runs this daemon is still executing (spec §14: server outage → turns go on locally). Others marked running
+   * on this machine were lost (daemon restart) and are reconciled as interrupted. */
+  activeRuns: z.array(z.string()).default([]),
 })
 export const Heartbeat = z.object({ t: z.literal('heartbeat') })
 export const RunEventMsg = z.object({ t: z.literal('run.event'), runId: z.string(), event: RunEvent })
@@ -238,10 +241,16 @@ export const DaemonToServer = z.discriminatedUnion('t', [
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
 // ── server → daemon ─────────────────────────────────────────────────────────
+/** Published daemon build for this machine's OS/arch (plan D17); the daemon verifies sha256 before replacing itself. */
+export const UpgradeInfo = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
+export type UpgradeInfo = z.infer<typeof UpgradeInfo>
+
 export const Welcome = z.object({
   t: z.literal('welcome'),
   machineId: z.string(),
   heartbeatSec: z.number().int(),
+  /** Newer build available; null when up to date or none published. */
+  upgrade: UpgradeInfo.nullable(),
 })
 export const RejectReason = z.enum(['protocol', 'revoked', 'unauthorized'])
 export const Reject = z.object({
@@ -249,6 +258,8 @@ export const Reject = z.object({
   reason: RejectReason,
   message: z.string(),
   minProtocol: z.number().int().optional(),
+  /** For protocol rejects: where to get a compatible build. */
+  upgrade: UpgradeInfo.optional(),
 })
 export const RunCancel = z.object({ t: z.literal('run.cancel'), runId: z.string() })
 

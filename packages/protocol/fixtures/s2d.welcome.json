@@ -1,1 +1,10 @@
-{ "t": "welcome", "machineId": "m_01", "heartbeatSec": 15 }
+{
+  "t": "welcome",
+  "machineId": "m_01",
+  "heartbeatSec": 15,
+  "upgrade": {
+    "version": "0.2.0",
+    "url": "https://aiws.corp.cn/downloads/aiws-0.2.0-aarch64-apple-darwin",
+    "sha256": "abababababababababababababababababababababababababababababababab"
+  }
+}

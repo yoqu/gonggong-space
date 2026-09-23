@@ -23,6 +23,11 @@ impl Outbox {
 pub trait Handler: Send + Sync + 'static {
     /// Called for every server message after the handshake. Must not block; spawn long work.
     fn handle(&self, msg: ServerToDaemon, out: &Outbox);
+
+    /// Runs still executing locally, reported in hello so the server can reconcile lost ones (M5).
+    fn active_runs(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -69,10 +74,11 @@ impl<H: Handler> Service<H> {
             daemon_version: env!("CARGO_PKG_VERSION").into(),
             machine: self.machine.clone(),
             agents: self.agents.clone(),
+            active_runs: self.handler.active_runs(),
         };
         ws.send(Message::text(serde_json::to_string(&hello)?)).await?;
         let heartbeat_sec = match next_msg(&mut ws).await? {
-            ServerToDaemon::Welcome { heartbeat_sec, machine_id } => {
+            ServerToDaemon::Welcome { heartbeat_sec, machine_id, .. } => {
                 tracing::info!(machine_id, "connected");
                 heartbeat_sec
             }
