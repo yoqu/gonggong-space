@@ -1,7 +1,7 @@
 import type { GroupDto } from '@aiws/protocol'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { botsApi } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
@@ -39,6 +39,18 @@ function useChatData() {
   return loaded
 }
 
+/** `?run=<id>[&file=<path>]` from a notification or search hit opens that run in the rail, then leaves the URL. */
+function useLinkedRun() {
+  const [params, setParams] = useSearchParams()
+  const run = params.get('run')
+  const file = params.get('file')
+  useEffect(() => {
+    if (!run) return
+    useRunRail.getState().open(run, file ? 'diff' : 'process', file)
+    setParams({}, { replace: true })
+  }, [run, file, setParams])
+}
+
 export function ChatPage() {
   const { groupId } = useParams()
   const navigate = useNavigate()
@@ -51,6 +63,7 @@ export function ChatPage() {
   const railRun = useRunRail((s) => s.runId)
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the run rail
   useEffect(() => useRunRail.getState().close, [groupId])
+  useLinkedRun()
 
   return (
     <>

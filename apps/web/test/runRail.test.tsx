@@ -295,6 +295,18 @@ describe('run rail', () => {
     expect(await within(screen.getByTestId('run-rail')).findByText('该文件本轮未改动')).toBeTruthy()
   })
 
+  it('opens the run (and file) linked from a notification or search hit', async () => {
+    mockApi(detail)
+    render(
+      <MemoryRouter initialEntries={['/g/g1?run=r1&file=src%2Fa.ts']}>
+        <App />
+      </MemoryRouter>,
+    )
+    const rail = await screen.findByTestId('run-rail')
+    expect(await within(rail).findByText('+second line')).toBeTruthy()
+    expect(within(rail).getByRole('tab', { name: '文件 diff' }).getAttribute('aria-selected')).toBe('true')
+  })
+
   it('keeps only the summary once the process has been purged', async () => {
     mockApi(() => detail({ purged: true, patch: null, events: [] }))
     renderChat()

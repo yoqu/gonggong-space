@@ -406,3 +406,39 @@ async fn discard_restores_the_interrupted_turn_until_the_next_turn_starts() {
     assert!(matches!(r.next().await, DaemonToServer::RunDiscarded { ok: false, .. }));
     assert!(ws.join("z.txt").exists());
 }
+
+#[tokio::test]
+async fn injects_global_mcp_servers_into_new_and_resumed_sessions() {
+    let mut r = rig(Duration::from_millis(200));
+    let mut s = start("r1", "mock:echo");
+    s.new_session_reason = Some("config_changed".into());
+    s.mcp_servers = vec![
+        McpServer::Stdio {
+            name: "aiws-echo".into(),
+            command: "node".into(),
+            args: vec!["server.js".into()],
+            env: [("TOKEN".to_string(), "t".to_string())].into(),
+        },
+        McpServer::Http {
+            name: "wiki".into(),
+            url: "https://mcp.corp/wiki".into(),
+            headers: [("Authorization".to_string(), "Bearer x".to_string())].into(),
+        },
+    ];
+    let wire = serde_json::json!([
+        { "name": "aiws-echo", "command": "node", "args": ["server.js"], "env": [{ "name": "TOKEN", "value": "t" }] },
+        { "type": "http", "name": "wiki", "url": "https://mcp.corp/wiki",
+          "headers": [{ "name": "Authorization", "value": "Bearer x" }] },
+    ]);
+    r.run(s.clone());
+    let (_, first) = r.finish("r1").await;
+    assert_eq!(first.new_session_reason.as_deref(), Some("config_changed"));
+    assert_eq!(echo(&first)["mcpServers"], wire);
+
+    // After the adapter is reaped, session/resume in a fresh process carries the servers too.
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    r.run(RunStart { new_session_reason: None, mcp_servers: s.mcp_servers, ..follow_up("r2", "mock:echo", &first) });
+    let (_, second) = r.finish("r2").await;
+    assert_eq!(second.session_id, first.session_id);
+    assert_eq!(echo(&second)["mcpServers"], wire);
+}

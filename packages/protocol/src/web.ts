@@ -140,6 +140,21 @@ export const NotificationDto = z.object({
 })
 export type NotificationDto = z.infer<typeof NotificationDto>
 
+/** Also sent as browser push, only to the people who can act (spec §8.11); others stay in the in-app center. */
+export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
+  'approval',
+  'question',
+  'lock',
+  'offline_expired',
+  'chain_done',
+]
+export const PushKeyDto = z.object({ publicKey: z.string() })
+export const PushSubscriptionReq = z.object({
+  endpoint: z.url(),
+  keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
+})
+export type PushSubscriptionReq = z.infer<typeof PushSubscriptionReq>
+
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const GroupKind = z.enum(['group', 'dm'])
 export const GroupDto = z.object({

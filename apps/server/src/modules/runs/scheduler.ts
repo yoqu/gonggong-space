@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
 import { publishBot } from '../bots/dto.js'
+import { enabledMcpServers } from '../mcp/routes.js'
 import { unreadyRepoGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { interruptNote } from './stop.js'
@@ -166,8 +167,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       attachments: [],
       quote: null,
     },
-    // Filled by the M4 global MCP slice.
-    mcpServers: [],
+    mcpServers: await enabledMcpServers(tx),
   }
   return { msg, triggerSeq: trigger.seq, settled: interrupted?.settled }
 }

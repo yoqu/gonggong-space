@@ -12,6 +12,7 @@ import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
+import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
@@ -19,6 +20,7 @@ import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
+import { searchRoutes } from './modules/search/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
@@ -61,5 +63,7 @@ export async function buildApp(ctx: Ctx) {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(usageRoutes(ctx))
+  await app.register(mcpRoutes(ctx))
+  await app.register(searchRoutes(ctx))
   return app
 }

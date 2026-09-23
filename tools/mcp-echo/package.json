@@ -1,0 +1,12 @@
+{
+  "name": "@aiws/mcp-echo",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "aiws-mcp-echo": "server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "zod": "4.6.5"
+  }
+}
