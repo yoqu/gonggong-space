@@ -19,7 +19,10 @@ struct ApiError {
 /// Exchanges a one-time bind code for this machine's long-lived token.
 pub async fn login(server: &str, code: &str, machine: MachineInfo) -> Result<Config> {
     let server = server.trim_end_matches('/');
-    let res = reqwest::Client::new()
+    // Direct like the daemon WebSocket: an OS-level proxy must not intercept (or 502) an intranet/localhost server.
+    let res = reqwest::Client::builder()
+        .no_proxy()
+        .build()?
         .post(format!("{server}/api/daemon/login"))
         .json(&DaemonLoginReq { code: code.trim().to_uppercase(), machine })
         .send()

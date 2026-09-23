@@ -10,6 +10,11 @@ use tokio_tungstenite::tungstenite::Message;
 pub struct Outbox(mpsc::UnboundedSender<DaemonToServer>);
 
 impl Outbox {
+    pub fn channel() -> (Outbox, mpsc::UnboundedReceiver<DaemonToServer>) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        (Outbox(tx), rx)
+    }
+
     pub fn send(&self, msg: DaemonToServer) {
         let _ = self.0.send(msg);
     }
@@ -37,8 +42,7 @@ pub struct Service<H: Handler> {
 impl<H: Handler> Service<H> {
     /// Runs until the server rejects us for good (protocol / revoked / unauthorized).
     pub async fn run(self) -> Fatal {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let outbox = Outbox(tx);
+        let (outbox, mut rx) = Outbox::channel();
         let mut backoff = Duration::from_secs(1);
         loop {
             match self.session(&outbox, &mut rx).await {

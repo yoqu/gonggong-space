@@ -1,5 +1,10 @@
-use aiws::config::Config;
+use aiws::bind::machine_info;
+use aiws::config::{self, Config};
+use aiws::engine::{Engine, EngineConfig};
+use aiws::service::Service;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "aiws", version, about = "AIWS daemon: runs your team bots on this machine")]
@@ -23,7 +28,34 @@ enum Cmd {
     Logout,
     /// Show which server and owner this machine is bound to.
     Status,
+    /// Connect to the server and run bots dispatched to this machine.
+    Run {
+        /// Replace the ACP adapter command for every agent (debugging / tests).
+        #[arg(long, env = "AIWS_ADAPTER_CMD", hide = true)]
+        adapter_cmd: Option<String>,
+    },
+    /// List the bots bound to this machine.
+    Bots {
+        #[command(subcommand)]
+        cmd: Option<BotsCmd>,
+    },
 }
+
+#[derive(Subcommand)]
+enum BotsCmd {
+    /// Confirm a bot someone else created for you on this machine.
+    Confirm {
+        /// Bot name or id.
+        target: String,
+    },
+}
+
+fn config() -> anyhow::Result<Config> {
+    Config::load()?.context("尚未绑定，请先执行 aiws login")
+}
+
+const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
+const MAX_BACKOFF: Duration = Duration::from_secs(30);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Login { server, code } => {
-            let machine = aiws::bind::machine_info();
+            let machine = machine_info();
             let config = aiws::bind::login(&server, &code, machine.clone()).await?;
             config.save()?;
             println!("绑定成功：本机已归属 {}（{}）", config.owner_name, machine.name);
@@ -48,6 +80,21 @@ async fn main() -> anyhow::Result<()> {
             Some(c) => println!("已绑定：{} · 归属 {} · 机器 {}", c.server, c.owner_name, c.machine_id),
             None => println!("未绑定"),
         },
+        Cmd::Run { adapter_cmd } => {
+            let config = config()?;
+            let service = Service {
+                config,
+                machine: machine_info(),
+                agents: aiws::agents::detect(),
+                handler: Engine::new(EngineConfig { home: config::home(), adapter_cmd, idle: IDLE_REAP }),
+                max_backoff: MAX_BACKOFF,
+            };
+            let fatal = service.run().await;
+            eprintln!("{fatal}");
+            std::process::exit(1);
+        }
+        Cmd::Bots { cmd: None } => aiws::bots::list(&config()?).await?,
+        Cmd::Bots { cmd: Some(BotsCmd::Confirm { target }) } => aiws::bots::confirm(&config()?, &target).await?,
     }
     Ok(())
 }

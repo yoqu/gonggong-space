@@ -19,7 +19,7 @@ import {
 } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { errorText } from '../auth/AuthCard'
-import { AdminPageHeader } from './AdminPage'
+import { AdminPage } from './AdminPage'
 
 const TITLE = '账号与角色'
 const DESC = '系统管理员创建账号、分配角色；停用会吊销该成员所有 daemon 与会话。'
@@ -52,27 +52,25 @@ export function UsersPage() {
 
   if (!isAdmin)
     return (
-      <>
-        <AdminPageHeader title={TITLE} desc={DESC} />
+      <AdminPage title={TITLE} desc={DESC}>
         <EmptyState
           icon={<ShieldX size={20} />}
           title="仅系统管理员可管理账号与角色"
           description="403 · 如需开通账号或调整角色，请联系系统管理员。"
         />
-      </>
+      </AdminPage>
     )
 
   return (
-    <>
-      <AdminPageHeader
-        title={TITLE}
-        desc={DESC}
-        actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            新建账号
-          </Button>
-        }
-      />
+    <AdminPage
+      title={TITLE}
+      desc={DESC}
+      actions={
+        <Button variant="primary" onClick={() => setEditing('new')}>
+          新建账号
+        </Button>
+      }
+    >
       {error ? <Alert variant="error" description={error} /> : null}
       {users ? (
         <div className="admin-table">
@@ -132,7 +130,7 @@ export function UsersPage() {
           }}
         />
       ) : null}
-    </>
+    </AdminPage>
   )
 }
 

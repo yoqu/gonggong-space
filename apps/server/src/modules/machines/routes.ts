@@ -9,10 +9,11 @@ import { bindCodes, machines, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
+import { idParam } from '../../lib/ids.js'
 import { Throttle } from '../../lib/throttle.js'
 import { requireUser } from '../auth/session.js'
 import { onMachineBound } from '../bots/binding.js'
-import { toMachineDto } from './dto.js'
+import { machineDto } from '../bots/dto.js'
 
 const CODE_TTL_MS = 10 * 60_000
 /** No I/O/0/1 so codes survive being read aloud or retyped. */
@@ -41,7 +42,7 @@ export function machineRoutes(ctx: Ctx) {
       const p = (async () => {
         const [m] = await ctx.db.select().from(machines).where(eq(machines.id, machineId))
         if (m && !m.revokedAt)
-          ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: toMachineDto(ctx, m) })
+          ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: machineDto(ctx, m) })
       })()
         .catch((err) => app.log.error(err))
         .finally(() => pending.delete(p))
@@ -106,7 +107,7 @@ export function machineRoutes(ctx: Ctx) {
       }
       const { machine, ownerName } = bound
       await onMachineBound(ctx, machine)
-      ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: toMachineDto(ctx, machine) })
+      ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: machineDto(ctx, machine) })
       return { token, machineId: machine.id, ownerName }
     })
 
@@ -119,12 +120,12 @@ export function machineRoutes(ctx: Ctx) {
         .from(machines)
         .where(and(isNull(machines.revokedAt), all ? undefined : eq(machines.ownerId, user.id)))
         .orderBy(asc(machines.createdAt))
-      return rows.map((m) => toMachineDto(ctx, m))
+      return rows.map((m) => machineDto(ctx, m))
     })
 
-    app.delete('/api/machines/:id', async (req, reply) => {
+    app.delete<{ Params: { id: string } }>('/api/machines/:id', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const { id } = z.object({ id: z.uuid() }).parse(req.params)
+      const id = idParam(req.params.id, '机器')
       const [m] = await ctx.db
         .select()
         .from(machines)

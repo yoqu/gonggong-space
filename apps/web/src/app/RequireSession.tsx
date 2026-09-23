@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { realtime } from '../lib/realtime'
-import { Alert, Button, Spinner } from '../ui'
+import { Alert, Button, Spinner, toast } from '../ui'
 import { useSession } from './session'
-import { useWorkspace } from './workspace'
+import { loadWorkspace, useWorkspace } from './workspace'
 
 export function RequireSession() {
   const { user, status, load } = useSession()
@@ -18,6 +18,7 @@ export function RequireSession() {
     if (!userId) return
     const off = realtime.subscribe(useWorkspace.getState().applyEvent)
     realtime.start()
+    loadWorkspace().catch((e: Error) => toast({ type: 'error', title: '加载工作区失败', message: e.message }))
     return () => {
       off()
       realtime.stop()

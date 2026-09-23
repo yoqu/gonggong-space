@@ -1,16 +1,14 @@
-import { type AdminUserDto, CreateUserReq, UpdateUserReq, type UserBrief } from '@aiws/protocol'
+import { type AdminUserDto, CreateUserReq, UpdateUserReq, type UserBriefDto } from '@aiws/protocol'
 import { hash } from '@node-rs/argon2'
 import { asc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
-import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { machines, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { toUserDto } from './dto.js'
-
-const IdParams = z.object({ id: z.uuid() })
 
 export function userRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -57,9 +55,9 @@ export function userRoutes(ctx: Ctx) {
       return reply.status(201).send(toUserDto(user))
     })
 
-    app.patch('/api/admin/users/:id', async (req) => {
+    app.patch<{ Params: { id: string } }>('/api/admin/users/:id', async (req) => {
       const actor = await requireSysadmin(ctx, req)
-      const { id } = IdParams.parse(req.params)
+      const id = idParam(req.params.id, '账号')
       const patch = UpdateUserReq.parse(req.body)
       if (!Object.keys(patch).length) return fail('invalid', '没有要修改的字段')
       if (id === actor.id && patch.role && patch.role !== actor.role)
@@ -75,13 +73,13 @@ export function userRoutes(ctx: Ctx) {
       return toUserDto(user)
     })
 
-    app.get('/api/users', async (req): Promise<UserBrief[]> => {
+    app.get('/api/users', async (req): Promise<UserBriefDto[]> => {
       await requireUser(ctx, req)
       return ctx.db
-        .select({ id: users.id, account: users.account, name: users.name })
+        .select({ id: users.id, name: users.name, account: users.account })
         .from(users)
         .where(isNull(users.disabledAt))
-        .orderBy(asc(users.account))
+        .orderBy(asc(users.createdAt))
     })
   }
 }

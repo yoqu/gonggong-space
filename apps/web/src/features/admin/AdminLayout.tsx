@@ -48,9 +48,7 @@ export function AdminLayout() {
           ))}
         </nav>
         <main className="admin__main">
-          <div className="admin__page">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
       <Toaster />

@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { BotsAdminPage } from '../bots/BotsAdminPage'
 import { UsersPage } from './UsersPage'
 
 export interface AdminItem {
@@ -41,6 +42,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: 'Bot',
         icon: Bot,
         desc: '新建时直接绑定归属人的机器与 agent；成员本人只能为自己创建，管理员可为任何人创建。',
+        element: <BotsAdminPage />,
       },
       {
         path: 'groups',

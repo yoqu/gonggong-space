@@ -1,0 +1,151 @@
+import type { AgentKind, ContextMessage, RunStart, Tier } from '@aiws/protocol'
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
+import type { Ctx } from '../../context.js'
+import type { Db } from '../../db/client.js'
+import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
+import { publishBot } from '../bots/dto.js'
+import { publishRun, type RunRow } from './dto.js'
+
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
+type Bot = typeof bots.$inferSelect
+
+const WAITING = ['queued', 'offline_wait']
+/** Runs holding one of the bot's concurrency slots. */
+const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+const FALLBACK_LIMIT = 50
+const OFFLINE = { status: 'offline_wait', step: 'bot 离线，等待上线', startedAt: null }
+
+/**
+ * Server-authoritative scheduling (plan D22): dispatches the bot's waiting runs in trigger order while its machine
+ * is online and it has free slots; the rest wait as queued (with position) or offline_wait.
+ */
+export async function schedule(ctx: Ctx, botId: string) {
+  const changed = await ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${botId}))`)
+    const [bot] = await tx.select().from(bots).where(eq(bots.id, botId))
+    if (!bot) return []
+    const waiting = await tx
+      .select({ run: runs })
+      .from(runs)
+      .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
+      .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
+      .orderBy(asc(messages.seq))
+    if (!waiting.length) return []
+    const [active] = await tx
+      .select({ n: count() })
+      .from(runs)
+      .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
+    let busy = active?.n ?? 0
+    let position = 0
+    const out: RunRow[] = []
+    const setRun = async (id: string, patch: Partial<RunRow>) =>
+      out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
+    for (const { run } of waiting) {
+      const machineId = bot.machineId && ctx.hub.isOnline(bot.machineId) ? bot.machineId : null
+      if (machineId && busy < bot.concurrency) {
+        const start = await buildRunStart(tx, bot, run)
+        // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
+        const [running] = await tx
+          .update(runs)
+          .set({ status: 'running', step: '', startedAt: ctx.now() })
+          .where(eq(runs.id, run.id))
+          .returning()
+        if (running && ctx.hub.send(machineId, start.msg)) {
+          busy += 1
+          await tx
+            .update(groupBots)
+            .set({ contextSeq: sql`greatest(${groupBots.contextSeq}, ${start.triggerSeq})` })
+            .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, bot.id)))
+          out.push(running)
+        } else await setRun(run.id, OFFLINE)
+        continue
+      }
+      const next = machineId ? { status: 'queued', step: `该 bot 忙，排第 ${++position}` } : OFFLINE
+      if (next.status !== run.status || next.step !== run.step) await setRun(run.id, next)
+    }
+    return out
+  })
+  for (const run of changed) await publishRun(ctx, run)
+  if (changed.some((r) => r.status === 'running')) await publishBot(ctx, botId)
+}
+
+async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
+  const [trigger] = await tx
+    .select({ seq: messages.seq, body: messages.body, author: users.name })
+    .from(messages)
+    .leftJoin(users, eq(users.id, messages.authorUserId))
+    .where(eq(messages.id, run.triggerMessageId))
+  const [gb] = await tx
+    .select()
+    .from(groupBots)
+    .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, bot.id)))
+  const [repo] = await tx
+    .select()
+    .from(groupRepos)
+    .where(eq(groupRepos.groupId, run.groupId))
+    .orderBy(asc(groupRepos.createdAt))
+    .limit(1)
+  if (!trigger || !gb) throw new Error(`run ${run.id} lost its trigger message or group membership`)
+  const context = await contextMessages(
+    tx,
+    and(
+      eq(messages.groupId, run.groupId),
+      gt(messages.seq, gb.contextSeq),
+      lt(messages.seq, trigger.seq),
+      or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
+    ),
+  )
+  const fallbackContext = gb.sessionId
+    ? (
+        await contextMessages(
+          tx,
+          and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
+          FALLBACK_LIMIT,
+        )
+      ).reverse()
+    : []
+  const msg: RunStart = {
+    t: 'run.start',
+    runId: run.id,
+    groupId: run.groupId,
+    bot: {
+      id: bot.id,
+      name: bot.name,
+      agentKind: bot.agentKind as AgentKind,
+      systemPrompt: bot.systemPrompt,
+      tier: bot.tier as Tier,
+    },
+    workspace: {
+      repo: repo ? { id: repo.id, url: repo.url, branch: repo.baseBranch } : null,
+      cdPath: gb.cdPath,
+    },
+    resumeSessionId: gb.sessionId,
+    prompt: { text: trigger.body, triggeredBy: trigger.author ?? '', context, fallbackContext },
+  }
+  return { msg, triggerSeq: trigger.seq }
+}
+
+/** Humans' messages and bots' final replies; `limit` takes the latest ones (newest first). */
+async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): Promise<ContextMessage[]> {
+  const q = tx
+    .select({
+      seq: messages.seq,
+      kind: messages.kind,
+      body: messages.body,
+      at: messages.createdAt,
+      user: users.name,
+      bot: bots.name,
+    })
+    .from(messages)
+    .leftJoin(users, eq(users.id, messages.authorUserId))
+    .leftJoin(bots, eq(bots.id, messages.authorBotId))
+    .where(and(where, inArray(messages.kind, ['user', 'bot'])))
+  const rows = await (limit ? q.orderBy(desc(messages.seq)).limit(limit) : q.orderBy(asc(messages.seq)))
+  return rows.map((r) => ({
+    seq: r.seq,
+    author: r.user ?? r.bot ?? '',
+    kind: r.kind as ContextMessage['kind'],
+    body: r.body,
+    at: r.at.toISOString(),
+  }))
+}
