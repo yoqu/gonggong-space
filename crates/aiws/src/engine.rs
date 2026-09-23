@@ -89,8 +89,10 @@ impl Handler for Engine {
                     out.send(DaemonToServer::RunDiscarded { run_id, ok, files, error });
                 });
             }
-            // Implemented by the M3 approval slice.
-            ServerToDaemon::ApprovalDecision { .. } => {}
+            ServerToDaemon::ApprovalDecision { run_id, request_id, option_id } => {
+                let actors = self.0.actors.lock().unwrap();
+                actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
+            }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }

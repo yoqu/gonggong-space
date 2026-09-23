@@ -1,24 +1,29 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::engine::Inner;
 use crate::git;
-use crate::protocol::{DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind};
+use crate::protocol::{
+    ApprovalRequest, DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
+};
 use crate::service::Outbox;
-use crate::turn::{Turn, client_meta, compose_prompt, mode_for, permission_choice, session_failure, system_prompt};
+use crate::turn::{
+    Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt, wire_options,
+};
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest,
-    Meta, NewSessionRequest, PromptRequest, PromptResponse, RequestPermissionOutcome, RequestPermissionRequest,
-    RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId, SessionModeState,
-    SessionNotification, SetSessionModeRequest, StopReason, TextContent,
+    Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest,
+    SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest,
+    StopReason, TextContent,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 const ERROR_MAX: usize = 800;
-const PERMISSION_REJECTED: &str = "权限请求已拒绝（审批流程将在 M3 提供）";
+const REJECTED: &str = "请求被拒绝，agent 自行绕路";
 
 pub(crate) struct TurnReq {
     pub start: RunStart,
@@ -53,8 +58,31 @@ struct State {
     cancelled: HashSet<String>,
     active: Option<Active>,
     conn: Option<(ConnectionTo<Agent>, SessionId)>,
+    /// Permission requests of the active turn awaiting the bot owner, by request id.
+    approvals: HashMap<String, Approval>,
+    requests: u64,
     /// The last finished turn's snapshot (run id), kept for run.discard until the next turn starts (plan D7).
     last: Option<(String, GitTurn)>,
+}
+
+struct Approval {
+    title: String,
+    options: Vec<PermissionOption>,
+    tx: oneshot::Sender<Option<PermissionOptionId>>,
+}
+
+/// How to answer an agent's permission request.
+enum Permission {
+    Now(RequestPermissionResponse),
+    /// Resolves with the owner's choice; `None` (or a dropped sender) answers `cancelled`.
+    Ask(oneshot::Receiver<Option<PermissionOptionId>>),
+}
+
+fn permission_response(choice: Option<PermissionOptionId>) -> RequestPermissionResponse {
+    RequestPermissionResponse::new(match choice {
+        Some(id) => RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(id)),
+        None => RequestPermissionOutcome::Cancelled,
+    })
 }
 
 impl Shared {
@@ -70,7 +98,25 @@ impl Shared {
         s.cancelled.insert(run_id.into());
         if s.active.as_ref().is_some_and(|a| a.run_id == run_id && a.streaming) {
             send_cancel(&s);
+            // ACP: after session/cancel every pending permission request is answered `cancelled`.
+            s.approvals.clear();
         }
+    }
+
+    /// Applies the owner's decision to a pending request of `run_id`; false if there is none (e.g. already void).
+    pub(crate) fn decide(&self, run_id: &str, request_id: &str, option_id: Option<String>) -> bool {
+        let mut s = self.0.lock().unwrap();
+        let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
+        let Some(p) = s.approvals.remove(request_id) else { return false };
+        let choice = option_id.and_then(|id| p.options.into_iter().find(|o| *o.option_id.0 == *id));
+        let allowed = choice
+            .as_ref()
+            .is_some_and(|o| matches!(o.kind, PermissionOptionKind::AllowOnce | PermissionOptionKind::AllowAlways));
+        let step = if allowed { format!("已批准：{}", p.title) } else { REJECTED.into() };
+        let event = RunEvent::Status { status: RunStatus::Running, step };
+        out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
+        let _ = p.tx.send(choice.map(|o| o.option_id));
+        true
     }
 
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued.
@@ -116,7 +162,7 @@ impl Shared {
         Some(pre.note())
     }
 
-    /// Records the workspace's git state and the paths changed since `pre_turn` on the active turn.
+    /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn.
     async fn post_turn(&self) {
         let Some((run_id, g)) =
             self.0.lock().unwrap().active.as_mut().and_then(|a| Some((a.run_id.clone(), a.git.take()?)))
@@ -125,9 +171,11 @@ impl Shared {
         };
         let result =
             async { Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?)) };
+        let patch = git::patch_since(&g.cwd, &g.snap).await.inspect_err(|e| tracing::warn!("git patch failed: {e}"));
         let git = result.await.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
         let mut s = self.0.lock().unwrap();
         if let Some(a) = s.active.as_mut() {
+            a.turn.patch = git.as_ref().and(patch.ok().flatten());
             a.turn.git = git;
         }
         s.last = Some((run_id, g));
@@ -165,25 +213,42 @@ impl Shared {
         }
     }
 
-    fn on_permission(&self, req: RequestPermissionRequest) -> RequestPermissionResponse {
-        let s = self.0.lock().unwrap();
-        let Some(a) = s.active.as_ref() else {
-            return RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled);
-        };
-        if a.tier != Tier::Full {
-            let event = RunEvent::Status { status: RunStatus::Running, step: PERMISSION_REJECTED.into() };
-            a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+    /// Plan D15: `full` allows by itself; anything the agent asks beyond other tiers goes to the bot owner.
+    fn on_permission(&self, req: RequestPermissionRequest) -> Permission {
+        let mut s = self.0.lock().unwrap();
+        s.requests += 1;
+        let n = s.requests;
+        let Some(a) = s.active.as_mut() else { return Permission::Now(permission_response(None)) };
+        if a.tier == Tier::Full {
+            return Permission::Now(permission_response(auto_allow(&req.options)));
         }
-        RequestPermissionResponse::new(match permission_choice(a.tier, &req.options) {
-            Some(id) => RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(id)),
-            None => RequestPermissionOutcome::Cancelled,
-        })
+        let Some(RunEvent::Tool { title, tool_kind, detail, .. }) =
+            a.turn.apply(SessionUpdate::ToolCallUpdate(req.tool_call))
+        else {
+            unreachable!("tool call updates always map to tool events")
+        };
+        let (run_id, out) = (a.run_id.clone(), a.out.clone());
+        let event = RunEvent::Status { status: RunStatus::AwaitingApproval, step: format!("等待审批：{title}") };
+        out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
+        let request_id = format!("{run_id}/{n}");
+        out.send(DaemonToServer::ApprovalRequest(ApprovalRequest {
+            run_id,
+            request_id: request_id.clone(),
+            detail: detail.unwrap_or_else(|| title.clone()),
+            title: title.clone(),
+            tool_kind,
+            options: wire_options(&req.options),
+        }));
+        let (tx, rx) = oneshot::channel();
+        s.approvals.insert(request_id, Approval { title, options: req.options, tx });
+        Permission::Ask(rx)
     }
 
     /// Ends the active turn and reports it. `Err` = the agent failed.
     fn finish(&self, result: Result<PromptResponse, String>, session: Option<&SessionId>, reason: Option<&str>) {
         let mut s = self.0.lock().unwrap();
         s.conn = None;
+        s.approvals.clear();
         let Some(a) = s.active.take() else { return };
         s.pending.remove(&a.run_id);
         let cancelled = s.cancelled.remove(&a.run_id);
@@ -256,7 +321,7 @@ fn done(
         new_session_reason,
         error,
         git,
-        patch: None,
+        patch: turn.patch,
     })
 }
 
@@ -315,8 +380,14 @@ async fn connect(
             agent_client_protocol::on_receive_notification!(),
         )
         .on_receive_request(
-            async move |req: RequestPermissionRequest, responder, _cx| {
-                responder.respond(on_permission.on_permission(req))
+            async move |req: RequestPermissionRequest, responder, cx: ConnectionTo<Agent>| match on_permission
+                .on_permission(req)
+            {
+                Permission::Now(res) => responder.respond(res),
+                // Waiting for the owner must not block the dispatch loop (updates, cancel, the prompt reply).
+                Permission::Ask(rx) => {
+                    cx.spawn(async move { responder.respond(permission_response(rx.await.ok().flatten())) })
+                }
             },
             agent_client_protocol::on_receive_request!(),
         )

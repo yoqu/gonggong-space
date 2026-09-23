@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { InterruptBlock } from '../src/features/runs/InterruptBlock'
-import { RunActions } from '../src/features/runs/RunActions'
+import { OfflineNote, RunActions } from '../src/features/runs/RunActions'
 import { mockApi } from './mockApi'
 
 const run = (o: Partial<RunDto> = {}): RunDto => ({
@@ -77,11 +77,10 @@ describe('run actions', () => {
 
   it('an offline request shows the countdown to expiry', () => {
     vi.useFakeTimers({ now: new Date('2026-09-23T10:02:20.000Z') })
-    render(<RunActions run={run({ status: 'offline_wait', startedAt: null })} />)
+    render(<OfflineNote run={run({ status: 'offline_wait', startedAt: null })} />)
     expect(
       screen.getByText('bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
     ).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '/stop' })).toBeNull()
   })
 })
 

@@ -187,6 +187,8 @@ export const ApprovalDto = z.object({
   options: z.array(PermissionOption),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
   status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
+  /** Why a request became void: the run was stopped, its relay chain was stopped, or the run ended first. */
+  voidReason: z.enum(['stopped', 'chain_stopped', 'ended']).nullable(),
   decidedBy: z.string().nullable(),
   decidedByName: z.string().nullable(),
   decidedAt: z.string().nullable(),
@@ -241,6 +243,10 @@ export const RunDetailDto = z.object({
   /** null once the full process has been purged by retention (card keeps the summary). */
   patch: z.string().nullable(),
   purged: z.boolean(),
+  /** The (group, bot) conversation's current agent session. */
+  sessionId: z.string().nullable(),
+  /** System param runRetentionDays: how long the full process is kept. */
+  retentionDays: z.number().int(),
   events: z.array(z.object({ id: z.number().int(), at: z.string(), event: RunEvent })),
 })
 export type RunDetailDto = z.infer<typeof RunDetailDto>

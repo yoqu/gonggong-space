@@ -270,6 +270,8 @@ export const approvals = pgTable(
     options: jsonb('options').notNull(),
     /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */
     status: text('status').notNull().default('pending'),
+    /** 'stopped' | 'chain_stopped' | 'ended' when status = 'void'. */
+    voidReason: text('void_reason'),
     decidedBy: uuid('decided_by').references(() => users.id),
     decidedAt: ts('decided_at'),
     expiresAt: ts('expires_at').notNull(),

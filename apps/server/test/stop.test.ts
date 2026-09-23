@@ -193,8 +193,8 @@ describe('/stop command', () => {
     expect(await w.run(first!.id)).toMatchObject({ status: 'running', stoppedBy: w.zhao.id })
     expect((await w.runsOf(w.codex.id))[0]!.status).toBe('running')
     const [approval] = await t.db.select().from(approvals)
-    expect(approval!.status).toBe('void')
-    expect(await t.db.select().from(auditLogs)).toEqual([
+    expect(approval).toMatchObject({ status: 'void', voidReason: 'stopped' })
+    expect(await t.db.select().from(auditLogs).where(eq(auditLogs.category, 'run'))).toEqual([
       expect.objectContaining({ actorUserId: w.zhao.id, action: 'command.stop', groupId: w.g.id }),
     ])
 
@@ -427,7 +427,7 @@ describe('offline expiry and chain notifications', () => {
     w.done(root!.id, { outcome: 'completed', reply: '@老李的 Codex 继续' })
     const [hop2] = await until(
       () => w.runsOf(w.codex.id),
-      (r) => r.length > 0,
+      (r) => r[0]?.status === 'running',
     )
     expect(hop2).toMatchObject({ hop: 2, parentRunId: root!.id, status: 'running' })
     expect(await t.db.select().from(notifications)).toEqual([])

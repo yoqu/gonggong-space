@@ -1,15 +1,17 @@
 //! Workspace git plumbing for partition mode (spec §5): shells out to the machine's `git` so its credentials apply.
-use crate::protocol::{GitStatus, WorkspaceKind};
+use crate::protocol::{GitStatus, PATCH_MAX_BYTES, WorkspaceKind};
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::path::Path;
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 /// Daemon-private files inside a workspace; never reported as the agent's changes.
 const PRIVATE_DIR: &str = ".aiws/";
 const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
+/// Appended to a patch cut at PATCH_MAX_BYTES.
+pub const PATCH_TRUNCATED: &str = "… 补丁超过 512 KB，已截断\n";
 
 /// Only a workspace root counts: a managed `_empty` dir nested in some other checkout is not a repo.
 pub fn is_repo(dir: &Path) -> bool {
@@ -17,19 +19,21 @@ pub fn is_repo(dir: &Path) -> bool {
 }
 
 pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
-    git_bytes(dir, args).await.map(|b| String::from_utf8_lossy(&b).into_owned())
+    run_git(dir, args, None).await
 }
 
-async fn git_bytes(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args(args)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .kill_on_drop(true)
-        .output()
-        .await
-        .map_err(|e| format!("无法执行 git：{e}"))?;
+/// `index` swaps in another index file (GIT_INDEX_FILE), leaving the workspace's own index untouched.
+async fn run_git(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<String, String> {
+    run_git_raw(dir, args, index).await.map(|out| String::from_utf8_lossy(&out).into_owned())
+}
+
+async fn run_git_raw(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<Vec<u8>, String> {
+    let mut cmd = Command::new("git");
+    cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").kill_on_drop(true);
+    if let Some(index) = index {
+        cmd.env("GIT_INDEX_FILE", index);
+    }
+    let out = cmd.output().await.map_err(|e| format!("无法执行 git：{e}"))?;
     if out.status.success() {
         Ok(out.stdout)
     } else {
@@ -175,12 +179,12 @@ impl PreTurn {
     }
 }
 
-/// Work-tree state at the start of a turn, to attribute changes to it afterwards and to undo them (plan D7).
+/// Work-tree state at the start of a turn, to attribute changes to it afterwards.
 pub struct Snapshot {
     head: Option<String>,
     tree: BTreeMap<String, (String, Option<u64>)>,
-    /// Pre-turn content of the paths already dirty then, as blobs written to the object store (None = absent).
-    saved: BTreeMap<String, Option<String>>,
+    /// Tree object of the whole work tree (untracked files included): the baseline of the turn's patch.
+    base: Option<String>,
 }
 
 async fn head(dir: &Path) -> Option<String> {
@@ -204,45 +208,80 @@ async fn tree(dir: &Path) -> Result<BTreeMap<String, (String, Option<u64>)>, Str
 }
 
 pub async fn snapshot(dir: &Path) -> Result<Snapshot, String> {
-    let tree = tree(dir).await?;
-    let (present, absent): (Vec<&String>, Vec<&String>) = tree.keys().partition(|p| dir.join(p).is_file());
-    let mut saved: BTreeMap<String, Option<String>> = absent.into_iter().map(|p| (p.clone(), None)).collect();
-    for chunk in present.chunks(500) {
-        let mut args = vec!["hash-object", "-w", "--no-filters", "--"];
-        args.extend(chunk.iter().map(|p| p.as_str()));
-        let ids = git(dir, &args).await?;
-        saved.extend(chunk.iter().zip(ids.lines()).map(|(p, id)| ((*p).clone(), Some(id.to_string()))));
+    let base = work_tree(dir).await.inspect_err(|e| tracing::warn!("work tree snapshot failed: {e}")).ok();
+    Ok(Snapshot { head: head(dir).await, tree: tree(dir).await?, base })
+}
+
+/// Writes the current work tree (tracked + untracked, honoring .gitignore, without `.aiws/`) as a tree object,
+/// staging through a scratch copy of the index so the user's staging area stays as it was.
+async fn work_tree(dir: &Path) -> Result<String, String> {
+    let index = PathBuf::from(git(dir, &["rev-parse", "--path-format=absolute", "--git-path", "index"]).await?.trim());
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+    let scratch = std::env::temp_dir().join(format!("aiws-index-{}-{nanos}", std::process::id()));
+    if index.exists() {
+        std::fs::copy(&index, &scratch).map_err(|e| format!("无法复制 git index：{e}"))?;
     }
-    Ok(Snapshot { head: head(dir).await, tree, saved })
+    let tree = async {
+        run_git(dir, &["add", "-A", "--", ".", ":(exclude).aiws"], Some(&scratch)).await?;
+        run_git(dir, &["write-tree"], Some(&scratch)).await
+    }
+    .await;
+    let _ = std::fs::remove_file(&scratch);
+    Ok(tree?.trim().to_string())
+}
+
+/// Unified diff of what changed since the snapshot (None when nothing did), capped at PATCH_MAX_BYTES.
+pub async fn patch_since(dir: &Path, snap: &Snapshot) -> Result<Option<String>, String> {
+    let Some(base) = &snap.base else { return Ok(None) };
+    let now = work_tree(dir).await?;
+    let args =
+        ["diff", "--no-color", "--no-ext-diff", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", base, &now];
+    let patch = git(dir, &args).await?;
+    Ok((!patch.is_empty()).then(|| cap_patch(patch)))
+}
+
+fn cap_patch(mut patch: String) -> String {
+    if patch.len() <= PATCH_MAX_BYTES {
+        return patch;
+    }
+    let mut cut = PATCH_MAX_BYTES - PATCH_TRUNCATED.len();
+    while !patch.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    cut = patch[..cut].rfind('\n').map_or(0, |i| i + 1);
+    patch.truncate(cut);
+    patch.push_str(PATCH_TRUNCATED);
+    patch
 }
 
 pub async fn changed_since(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
     Ok(touched(dir, snap).await?.len())
 }
 
-/// Puts back every path the turn touched as it was at the snapshot, leaving other uncommitted work alone.
-/// History is never rewritten: files committed during the turn are restored in the work tree and index only.
+/// Puts back every path the turn touched as it was at the snapshot (plan D7), leaving other uncommitted work alone.
+/// Paths dirty before the turn get their pre-turn content from the snapshot tree (index untouched); the rest go back
+/// to the snapshot's HEAD (index too) or, if the turn created them, are removed. History is never rewritten.
 /// Returns the number of paths restored.
 pub async fn discard(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
+    let base = snap.base.as_deref().ok_or("这一轮开始时的工作区快照不可用")?;
+    let exists = async |rev: &str, path: &str| git(dir, &["cat-file", "-e", &format!("{rev}:{path}")]).await.is_ok();
     let paths = touched(dir, snap).await?;
     let (mut from_head, mut created) = (vec![], vec![]);
     for path in &paths {
         let file = dir.join(path);
-        match snap.saved.get(path) {
-            Some(Some(blob)) => {
-                let body = git_bytes(dir, &["cat-file", "blob", blob]).await?;
-                if let Some(parent) = file.parent() {
-                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                }
-                std::fs::write(&file, body).map_err(|e| format!("无法还原 {path}：{e}"))?;
-            }
-            Some(None) => remove(dir, &file)?,
-            None => match &snap.head {
-                Some(h) if git(dir, &["cat-file", "-e", &format!("{h}:{path}")]).await.is_ok() => {
-                    from_head.push(format!(":(literal){path}"))
-                }
+        if !snap.tree.contains_key(path) {
+            match &snap.head {
+                Some(h) if exists(h, path).await => from_head.push(format!(":(literal){path}")),
                 _ => created.push(path),
-            },
+            }
+        } else if exists(base, path).await {
+            let body = run_git_raw(dir, &["cat-file", "blob", &format!("{base}:{path}")], None).await?;
+            if let Some(parent) = file.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("无法还原 {path}：{e}"))?;
+            }
+            std::fs::write(&file, body).map_err(|e| format!("无法还原 {path}：{e}"))?;
+        } else {
+            remove(dir, &file)?;
         }
     }
     if let (Some(h), false) = (&snap.head, from_head.is_empty()) {
@@ -264,9 +303,10 @@ pub async fn discard(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
 
 /// Removes a file, then any directories left empty by it (up to the workspace root).
 fn remove(root: &Path, file: &Path) -> Result<(), String> {
-    match std::fs::remove_file(file) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(format!("无法删除 {}：{e}", file.display())),
-        _ => {}
+    if let Err(e) = std::fs::remove_file(file)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        return Err(format!("无法删除 {}：{e}", file.display()));
     }
     let mut dir = file.parent();
     while let Some(d) = dir.filter(|d| *d != root && d.starts_with(root)) {
@@ -495,6 +535,49 @@ mod tests {
         assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().branch.as_deref(), Some("feat/hello"));
     }
 
+    #[tokio::test]
+    async fn patch_holds_only_this_turns_changes() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        fs::write(w.join("gone.txt"), "bye\n").unwrap();
+        run(&w, &["add", "-A"]);
+        run(&w, &["commit", "-q", "-m", "gone"]);
+        fs::write(w.join("pre.txt"), "dirty before\n").unwrap();
+        let snap = snapshot(&w).await.unwrap();
+        assert_eq!(patch_since(&w, &snap).await.unwrap(), None);
+
+        fs::write(w.join("README.md"), "hi\nmore\n").unwrap();
+        fs::write(w.join("new.txt"), "fresh\n").unwrap();
+        fs::remove_file(w.join("gone.txt")).unwrap();
+        fs::write(w.join("pre.txt"), "dirty before\nand during\n").unwrap();
+        fs::write(w.join("logo.bin"), [0u8, 159, 146, 150, 0, 1]).unwrap();
+        fs::create_dir_all(w.join(".aiws")).unwrap();
+        fs::write(w.join(".aiws/state"), "private\n").unwrap();
+        let p = patch_since(&w, &snap).await.unwrap().unwrap();
+        assert!(p.contains("diff --git a/README.md b/README.md\n"), "{p}");
+        assert!(p.contains("\n hi\n+more\n"), "{p}");
+        assert!(p.contains("diff --git a/new.txt b/new.txt\nnew file mode 100644\n"), "{p}");
+        assert!(p.contains("+fresh\n"), "{p}");
+        assert!(p.contains("diff --git a/gone.txt b/gone.txt\ndeleted file mode 100644\n"), "{p}");
+        assert!(p.contains("\n dirty before\n+and during\n"), "pre-turn dirt is the baseline: {p}");
+        assert!(p.contains("Binary files /dev/null and b/logo.bin differ"), "{p}");
+        assert!(!p.contains(".aiws"), "{p}");
+        // The work tree was not touched: the real index still has no staged changes.
+        assert_eq!(run(&w, &["diff", "--cached", "--name-only"]), "");
+    }
+
+    #[tokio::test]
+    async fn patch_includes_changes_committed_during_the_turn() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        let snap = snapshot(&w).await.unwrap();
+        fs::write(w.join("c.txt"), "committed\n").unwrap();
+        run(&w, &["add", "-A"]);
+        run(&w, &["commit", "-q", "-m", "turn"]);
+        let p = patch_since(&w, &snap).await.unwrap().unwrap();
+        assert!(p.contains("+committed\n"), "{p}");
+    }
+
     fn read(w: &Path, f: &str) -> Option<String> {
         fs::read_to_string(w.join(f)).ok()
     }
@@ -549,6 +632,19 @@ mod tests {
         assert_eq!(read(&w, "README.md").as_deref(), Some("hi\n"));
         assert!(!w.join("c.txt").exists());
         assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().ahead, Some(1));
+    }
+
+    #[test]
+    fn caps_patches_at_a_line_boundary() {
+        let small = "diff --git a/a b/a\n+x\n".to_string();
+        assert_eq!(cap_patch(small.clone()), small);
+        let line = format!("+{}\n", "é".repeat(99));
+        let big = line.repeat(PATCH_MAX_BYTES / line.len() + 10);
+        let capped = cap_patch(big);
+        assert!(capped.len() <= PATCH_MAX_BYTES, "{}", capped.len());
+        assert!(capped.ends_with(PATCH_TRUNCATED));
+        let body = capped.strip_suffix(PATCH_TRUNCATED).unwrap();
+        assert!(body.ends_with('\n') && body.lines().all(|l| l == line.trim_end()));
     }
 
     #[test]

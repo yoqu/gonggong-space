@@ -6,6 +6,8 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { approvalRoutes } from './modules/approvals/routes.js'
+import { startApprovalTimer } from './modules/approvals/service.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
@@ -13,6 +15,7 @@ import { machineRoutes } from './modules/machines/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
+import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
@@ -44,8 +47,13 @@ export async function buildApp(ctx: Ctx) {
   app.addHook('onClose', stopRunEngine)
   await app.register(stopRoutes(ctx))
   app.addHook('onClose', startOfflineExpiry(ctx))
+  const stopRetention = startRetention(ctx)
+  app.addHook('onClose', stopRetention)
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
+  const stopApprovalTimer = startApprovalTimer(ctx)
+  app.addHook('onClose', async () => stopApprovalTimer())
+  await app.register(approvalRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))

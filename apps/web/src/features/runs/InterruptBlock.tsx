@@ -5,7 +5,6 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { Button, toast } from '../../ui'
 import { useMemberName } from './RunActions'
-import './runs.css'
 
 const TITLE = {
   pending: (n: number) => `已停止 · 本轮改动 ${n} 个文件留在工作区`,

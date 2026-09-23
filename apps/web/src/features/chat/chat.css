@@ -158,7 +158,8 @@
   font-size: 12px;
   color: var(--color-text-secondary);
 }
-.run-card__step > svg {
+.run-card__step > svg,
+.run-card__note > svg {
   flex: none;
   color: var(--color-text-tertiary);
 }
@@ -196,6 +197,65 @@
   margin: 0 12px 10px;
   font-size: 11px;
   color: #409cff;
+}
+.run-card--selected {
+  border-color: var(--color-system-blue);
+}
+.run-card__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-separator);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.run-card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--color-separator);
+}
+.run-card__action {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+.run-card__action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+}
+.tl-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tl-file {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-separator);
+  background: transparent;
+  color: var(--color-system-blue);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+.tl-file:hover {
+  background: rgba(10, 132, 255, 0.08);
 }
 @media (max-width: 767px) {
   .run-card {

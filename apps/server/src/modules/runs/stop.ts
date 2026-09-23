@@ -8,9 +8,10 @@ import {
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { approvals, bots, groups, notifications, runs, users } from '../../db/schema.js'
+import { bots, groups, notifications, runs, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { voidApprovals } from '../approvals/service.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { publishRun, type RunRow } from './dto.js'
@@ -50,13 +51,6 @@ export async function isChainStopped(ctx: Ctx, run: Pick<RunRow, 'id'>) {
 const stopStep = (name: string, run: Pick<RunRow, 'hop'>) =>
   run.hop > 1 ? `整条链已被 ${name} /stop 终止` : `${name} 执行了 /stop`
 
-async function voidApprovals(ctx: Ctx, runId: string) {
-  await ctx.db
-    .update(approvals)
-    .set({ status: 'void', decidedAt: ctx.now() })
-    .where(and(eq(approvals.runId, runId), eq(approvals.status, 'pending')))
-}
-
 export type StopTarget =
   | { groupId: string; botIds?: string[] }
   | { groupId: string; runId: string; chain?: boolean }
@@ -92,8 +86,13 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
       .returning()
     if (!row) continue
     if (live && machineId) ctx.hub.send(machineId, { t: 'run.cancel', runId: run.id })
-    await voidApprovals(ctx, row.id)
     await publishRun(ctx, row)
+    // Also republishes the run, as running again while the daemon winds the turn down.
+    await voidApprovals(
+      ctx,
+      row.id,
+      ('chain' in target && target.chain) || row.hop > 1 ? 'chain_stopped' : 'stopped',
+    )
     stopped.push(row)
   }
   for (const botId of new Set(stopped.filter((r) => r.status === 'interrupted').map((r) => r.botId))) {
