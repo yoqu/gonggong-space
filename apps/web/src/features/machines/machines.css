@@ -1,0 +1,91 @@
+/* 绑定新机器 (Web 对话.dc.html ovBind) */
+.bind {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bind__code-box {
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--color-preview-bg);
+}
+.bind__code {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+.bind__hint,
+.bind__note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-wrap: pretty;
+}
+.bind__expired {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.bind__cmd-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bind__label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.bind__cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-preview-bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.bind__cmd-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bind__waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.bind__agents {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bind__agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.bind__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-system-blue);
+  font: inherit;
+  cursor: pointer;
+}
+.bind__link:hover {
+  color: var(--color-system-blue-hover);
+}

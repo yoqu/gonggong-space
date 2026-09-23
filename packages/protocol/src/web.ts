@@ -35,9 +35,17 @@ export const CreateUserReq = z.object({
   role: Role,
   password: z.string().min(8),
 })
+export const UpdateUserReq = z.object({ name: z.string().min(1).optional(), role: Role.optional() })
+/** Row of the admin 账号与角色 table. */
+export const AdminUserDto = UserDto.extend({ machineCount: z.number().int(), online: z.boolean() })
+export type AdminUserDto = z.infer<typeof AdminUserDto>
+/** Minimal user entry for pickers (GET /api/users). */
+export const UserBrief = UserDto.pick({ id: true, account: true, name: true })
+export type UserBrief = z.infer<typeof UserBrief>
 
 // ── Machines ────────────────────────────────────────────────────────────────
 export const BindCodeDto = z.object({ code: z.string(), expiresAt: z.string() })
+export type BindCodeDto = z.infer<typeof BindCodeDto>
 export const MachineDto = MachineInfo.extend({
   id: z.string(),
   ownerId: z.string(),

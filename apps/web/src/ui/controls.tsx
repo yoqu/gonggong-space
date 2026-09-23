@@ -170,6 +170,17 @@ export function Textarea({
   return <textarea aria-invalid={invalid || undefined} className={cx('ui-textarea', className)} {...rest} />
 }
 
+/** Stacked form field: caption above the control; the wrapping <label> names the control. */
+export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as children
+    <label className="ui-field">
+      <span className="ui-field__label">{label}</span>
+      {children}
+    </label>
+  )
+}
+
 export interface SelectOption<V extends string> {
   value: V
   label: string
@@ -182,12 +193,15 @@ export function Select<V extends string>({
   onChange,
   placeholder = '请选择',
   disabled,
+  label,
 }: {
   options: SelectOption<V>[]
   value: V | null
   onChange: (value: V) => void
   placeholder?: string
   disabled?: boolean
+  /** Accessible name of the trigger when no visible <label> wraps it. */
+  label?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -208,6 +222,7 @@ export function Select<V extends string>({
         className="ui-select__trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={label}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >

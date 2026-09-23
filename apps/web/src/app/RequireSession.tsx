@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
+import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { realtime } from '../lib/realtime'
 import { Alert, Button, Spinner } from '../ui'
 import { useSession } from './session'
@@ -42,5 +43,6 @@ export function RequireSession() {
       </div>
     )
   if (!user) return <Navigate to="/login" replace />
+  if (user.mustChangePassword) return <ChangePasswordPage />
   return <Outlet />
 }

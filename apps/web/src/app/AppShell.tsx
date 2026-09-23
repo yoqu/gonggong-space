@@ -1,6 +1,7 @@
 import { PROTOCOL_VERSION } from '@aiws/protocol'
 import { Bell, Radar, Search, SlidersHorizontal } from 'lucide-react'
 import { Link, Outlet } from 'react-router'
+import { AccountMenu } from '../features/auth/AccountMenu'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Toaster } from '../ui'
 import { useSession } from './session'
@@ -55,11 +56,7 @@ export function TopBar({
             <span className="topbar__count">{notifCount > 99 ? '99+' : notifCount}</span>
           ) : null}
         </button>
-        {user ? (
-          <button type="button" className="topbar__avatar" aria-label={user.name} title={user.name}>
-            {Array.from(user.name)[0]}
-          </button>
-        ) : null}
+        <AccountMenu />
       </div>
     </header>
   )

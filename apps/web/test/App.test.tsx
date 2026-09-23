@@ -74,7 +74,7 @@ describe('session guard', () => {
     const top = await screen.findByRole('banner')
     expect(within(top).getByText('AI 团队工作区')).toBeTruthy()
     expect(within(top).getByText('管理后台')).toBeTruthy()
-    expect(within(top).getByRole('button', { name: '王磊' })).toBeTruthy()
+    expect(within(top).getByRole('button', { name: '账户菜单' }).textContent).toBe('王')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     for (const s of ['群', '私聊', '我的 BOT']) expect(within(nav).getByText(s)).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()

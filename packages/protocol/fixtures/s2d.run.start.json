@@ -1,1 +1,33 @@
-{"t": "run.start", "runId": "r1", "groupId": "g1", "bot": {"id": "b1", "name": "小王的 Claude", "agentKind": "claude", "systemPrompt": "后端接口开发，只改 server/ 目录", "tier": "workspace"}, "workspace": {"repo": {"id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main"}, "cdPath": null}, "resumeSessionId": "sess-0", "prompt": {"text": "@小王的 Claude 写个脚本", "triggeredBy": "王磊", "context": [{"seq": 3, "author": "陈晨", "kind": "user", "body": "退款 v1 下周一下线", "at": "2026-09-23T10:12:00Z"}], "fallbackContext": [{"seq": 1, "author": "王磊", "kind": "user", "body": "早", "at": "2026-09-23T09:00:00Z"}]}}
+{
+  "t": "run.start",
+  "runId": "r1",
+  "groupId": "g1",
+  "bot": {
+    "id": "b1",
+    "name": "小王的 Claude",
+    "agentKind": "claude",
+    "systemPrompt": "后端接口开发，只改 server/ 目录",
+    "tier": "workspace"
+  },
+  "workspace": {
+    "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" },
+    "cdPath": null
+  },
+  "resumeSessionId": "sess-0",
+  "prompt": {
+    "text": "@小王的 Claude 写个脚本",
+    "triggeredBy": "王磊",
+    "context": [
+      {
+        "seq": 3,
+        "author": "陈晨",
+        "kind": "user",
+        "body": "退款 v1 下周一下线",
+        "at": "2026-09-23T10:12:00Z"
+      }
+    ],
+    "fallbackContext": [
+      { "seq": 1, "author": "王磊", "kind": "user", "body": "早", "at": "2026-09-23T09:00:00Z" }
+    ]
+  }
+}

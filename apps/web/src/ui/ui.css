@@ -307,6 +307,15 @@ input:checked + .ui-checkbox__box {
 }
 
 /* Input / Textarea / Select trigger */
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ui-field__label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
 .ui-input,
 .ui-textarea,
 .ui-select__trigger {
