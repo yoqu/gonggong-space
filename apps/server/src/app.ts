@@ -6,6 +6,8 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { startRunEngine } from './modules/runs/engine.js'
+import { runRoutes } from './modules/runs/routes.js'
 import { webGateway } from './realtime/gateway.js'
 
 export async function buildApp(ctx: Ctx) {
@@ -23,5 +25,8 @@ export async function buildApp(ctx: Ctx) {
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
   await app.register(webGateway(ctx))
   await app.register(daemonGateway(ctx))
+  await app.register(runRoutes(ctx))
+  const stopRunEngine = startRunEngine(ctx)
+  app.addHook('onClose', stopRunEngine)
   return app
 }

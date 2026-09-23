@@ -1,0 +1,132 @@
+import type { RunDone, RunEvent } from '@aiws/protocol'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
+import type { Ctx } from '../../context.js'
+import type { DaemonHub } from '../../daemon/hub.js'
+import { bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
+import { memberIds, publishRun, type RunRow } from './dto.js'
+import { schedule } from './scheduler.js'
+
+const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+
+type DaemonMsg = Parameters<Parameters<DaemonHub['on']>[1]>[1]
+
+/**
+ * Wires daemon run reports into persistence + realtime, and reschedules when machines come online.
+ * Daemon messages are applied strictly in arrival order. Returns a function that detaches and drains.
+ */
+export function startRunEngine(ctx: Ctx) {
+  let chain = Promise.resolve()
+  const enqueue = (job: () => Promise<void>) => {
+    chain = chain.then(job).catch((err) => console.error('run engine:', err))
+  }
+  const onMessage = (machineId: string, msg: DaemonMsg) =>
+    enqueue(() =>
+      msg.t === 'run.event' ? onEvent(ctx, machineId, msg.runId, msg.event) : onDone(ctx, machineId, msg),
+    )
+  const onOnline = (machineId: string) =>
+    enqueue(async () => {
+      const owned = await ctx.db
+        .select({ id: bots.id })
+        .from(bots)
+        .where(and(eq(bots.machineId, machineId), isNull(bots.deletedAt)))
+      for (const bot of owned) await schedule(ctx, bot.id)
+    })
+  ctx.hub.on('message', onMessage)
+  ctx.hub.on('online', onOnline)
+  return async () => {
+    ctx.hub.off('message', onMessage)
+    ctx.hub.off('online', onOnline)
+    await chain
+  }
+}
+
+/**
+ * A live run owned by a bot on this machine; reports from anyone else are dropped. The share lock waits for an
+ * in-flight dispatch transaction, so a report racing the scheduler's commit sees the run as running.
+ */
+async function liveRun(ctx: Ctx, machineId: string, runId: string) {
+  const [row] = await ctx.db
+    .select({ run: runs })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(and(eq(runs.id, runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
+    .for('share', { of: runs })
+  return row?.run
+}
+
+async function onEvent(ctx: Ctx, machineId: string, runId: string, event: RunEvent) {
+  const run = await liveRun(ctx, machineId, runId)
+  if (!run) return
+  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: event })
+  if (event.kind === 'text') {
+    ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId, text: event.delta })
+    return
+  }
+  const patch =
+    event.kind === 'status' || event.kind === 'tool'
+      ? { step: event.kind === 'tool' ? event.title : event.step }
+      : event.kind === 'usage'
+        ? { usage: event.usage }
+        : null
+  if (!patch) return
+  for (const row of await ctx.db.update(runs).set(patch).where(eq(runs.id, runId)).returning())
+    await publishRun(ctx, row)
+}
+
+async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
+  const owned = await liveRun(ctx, machineId, done.runId)
+  if (!owned) return
+  const [run] = await ctx.db
+    .update(runs)
+    .set({
+      status: done.outcome === 'completed' ? 'completed' : 'interrupted',
+      ...(done.outcome === 'failed' && { step: `agent 异常：${done.error ?? '未知错误'}` }),
+      filesChanged: done.filesChanged,
+      ...(done.usage && { usage: done.usage }),
+      newSessionReason: done.newSessionReason,
+      endedAt: ctx.now(),
+    })
+    .where(and(eq(runs.id, done.runId), inArray(runs.status, LIVE)))
+    .returning()
+  if (!run) return
+  if (done.sessionId)
+    await ctx.db
+      .update(groupBots)
+      .set({ sessionId: done.sessionId })
+      .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
+  if (done.reply.trim()) await postReply(ctx, run, done.reply)
+  await publishRun(ctx, run)
+  await schedule(ctx, run.botId)
+}
+
+async function postReply(ctx: Ctx, run: RunRow, body: string) {
+  const [msg] = await ctx.db
+    .insert(messages)
+    .values({
+      groupId: run.groupId,
+      kind: 'bot',
+      authorBotId: run.botId,
+      body,
+      meta: { mentions: [] },
+      runId: run.id,
+      createdAt: ctx.now(),
+    })
+    .returning()
+  const [bot] = await ctx.db.select({ name: bots.name }).from(bots).where(eq(bots.id, run.botId))
+  if (!msg || !bot) return
+  ctx.bus.publish(await memberIds(ctx, run.groupId), {
+    t: 'message.new',
+    message: {
+      id: msg.id,
+      seq: msg.seq,
+      groupId: msg.groupId,
+      kind: 'bot',
+      authorId: run.botId,
+      authorName: bot.name,
+      body: msg.body,
+      mentions: [],
+      runId: run.id,
+      createdAt: msg.createdAt.toISOString(),
+    },
+  })
+}
