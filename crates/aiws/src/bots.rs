@@ -55,7 +55,7 @@ impl Client {
 }
 
 /// Turns a non-2xx response into an error carrying the server's `{ message }`.
-async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
+pub(crate) async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
     if res.status().is_success() {
         return Ok(res);
     }
