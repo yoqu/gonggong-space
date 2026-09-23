@@ -27,6 +27,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   botIds: [],
   unread: 0,
   lastSeq: 0,
+  last: '',
 })
 
 class NoopSocket {
@@ -68,7 +69,9 @@ describe('session guard', () => {
   it('loads the current user and renders the chat shell', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify(me))),
+      vi.fn(async (url: string) =>
+        url === '/api/me' ? new Response(JSON.stringify(me)) : new Response('{}', { status: 404 }),
+      ),
     )
     renderAt('/')
     const top = await screen.findByRole('banner')

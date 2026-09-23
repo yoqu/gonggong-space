@@ -108,6 +108,8 @@ export const GroupDto = z.object({
   botIds: z.array(z.string()),
   unread: z.number().int(),
   lastSeq: z.number().int(),
+  /** One-line preview of the latest message, '' when empty. */
+  last: z.string(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 
@@ -118,6 +120,30 @@ export const CreateGroupReq = z.object({
   botIds: z.array(z.string()).default([]),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),
 })
+export const GroupMemberReq = z.object({ userId: z.string() })
+export const GroupBotReq = z.object({ botId: z.string() })
+/** Moves the read cursor forward; omit `seq` to mark everything read. */
+export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
+export const ValidateRepoReq = z.object({ url: z.string(), branch: z.string() })
+export const ValidateRepoRes = z.object({ ok: z.boolean(), message: z.string() })
+export type ValidateRepoRes = z.infer<typeof ValidateRepoRes>
+
+/** People and bots that can be put into a new group / DM. */
+export const GroupCandidatesDto = z.object({
+  users: z.array(z.object({ id: z.string(), name: z.string() })),
+  bots: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      ownerId: z.string(),
+      ownerName: z.string(),
+      agentKind: AgentKind,
+      binding: BotBinding,
+      online: z.boolean(),
+    }),
+  ),
+})
+export type GroupCandidatesDto = z.infer<typeof GroupCandidatesDto>
 
 // ── Timeline ────────────────────────────────────────────────────────────────
 export const MessageDto = z.object({
@@ -153,6 +179,11 @@ export const RunDto = z.object({
 })
 export type RunDto = z.infer<typeof RunDto>
 
+export const TimelineQuery = z.object({
+  /** Only messages with a smaller seq (older page). */
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
 export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
 export type TimelineDto = z.infer<typeof TimelineDto>
 
@@ -169,6 +200,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
   z.object({ t: z.literal('bot.updated'), bot: BotDto }),
   z.object({ t: z.literal('group.updated'), group: GroupDto }),
+  /** The receiving user is no longer a member. */
+  z.object({ t: z.literal('group.removed'), groupId: z.string() }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
 ])
 export type WebEvent = z.infer<typeof WebEvent>

@@ -6,6 +6,8 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { groupRoutes } from './modules/groups/routes.js'
+import { messageRoutes } from './modules/messages/routes.js'
 import { webGateway } from './realtime/gateway.js'
 
 export async function buildApp(ctx: Ctx) {
@@ -21,6 +23,8 @@ export async function buildApp(ctx: Ctx) {
     return reply.status(500).send({ error: 'invalid', message: 'internal error' })
   })
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
+  await app.register(groupRoutes(ctx))
+  await app.register(messageRoutes(ctx))
   await app.register(webGateway(ctx))
   await app.register(daemonGateway(ctx))
   return app

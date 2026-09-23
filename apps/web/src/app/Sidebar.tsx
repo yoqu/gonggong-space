@@ -36,7 +36,7 @@ function SectionHead({ label, onAdd, addTitle }: { label: string; onAdd?: () => 
 
 function GroupRow({ g }: { g: GroupDto }) {
   const Icon = g.kind === 'dm' ? User : Hash
-  const sub = g.kind === 'dm' ? '私聊' : `${GROUP_MODE_LABEL[g.mode]} · ${g.members.length} 人`
+  const sub = `${GROUP_MODE_LABEL[g.mode]} · ${g.last || (g.kind === 'dm' ? '仅你和你的 bot' : `${g.members.length} 人`)}`
   return (
     <NavLink to={`/g/${g.id}`} className="sidebar__item">
       <span className="sidebar__row">
