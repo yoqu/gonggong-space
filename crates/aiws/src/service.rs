@@ -8,7 +8,7 @@ use crate::upgrade::{self, Upgrader};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
 
 /// Sender for daemon → server messages. Survives reconnects: messages queued while offline are flushed after the next welcome.
@@ -80,7 +80,8 @@ impl Backlog {
 pub struct Service<H: Handler> {
     pub config: Config,
     pub machine: MachineInfo,
-    pub agents: Vec<AgentInfo>,
+    /// Local agent detection; changes after hello are reported as agents.update.
+    pub agents: watch::Receiver<Vec<AgentInfo>>,
     pub handler: H,
     pub max_backoff: Duration,
     /// Self-upgrade when the server offers a newer build; `None` disables it.
@@ -94,7 +95,7 @@ impl<H: Handler> Service<H> {
         let (outbox, mut rx) = Outbox::channel();
         let mut backlog = Backlog::default();
         let mut backoff = Duration::from_secs(1);
-        self.monitor.agents(self.agents.clone());
+        self.monitor.agents(self.agents.borrow().clone());
         loop {
             let error = match self.session(&outbox, &mut rx, &mut backlog).await {
                 Ok(Some(fatal)) => return fatal,
@@ -137,6 +138,8 @@ impl<H: Handler> Service<H> {
         while let Ok(msg) = rx.try_recv() {
             self.queue(backlog, msg);
         }
+        // Each connection reports what it saw at hello, then only later changes.
+        let mut agents = self.agents.clone();
         let mut active_runs = self.handler.active_runs();
         active_runs.extend(backlog.finished_runs());
         let hello = DaemonToServer::Hello {
@@ -144,7 +147,7 @@ impl<H: Handler> Service<H> {
             token: self.config.token.clone(),
             daemon_version: upgrade::CURRENT.into(),
             machine: self.machine.clone(),
-            agents: self.agents.clone(),
+            agents: agents.borrow_and_update().clone(),
             active_runs,
         };
         send(&mut ws, &hello).await?;
@@ -196,6 +199,11 @@ impl<H: Handler> Service<H> {
                     Some(Err(e)) => return Err(e.into()),
                 },
                 Some(out) = rx.recv() => self.queue(backlog, out),
+                Ok(()) = agents.changed() => {
+                    let list = agents.borrow_and_update().clone();
+                    self.monitor.agents(list.clone());
+                    send(&mut ws, &DaemonToServer::AgentsUpdate { agents: list }).await?;
+                }
                 _ = beat.tick() => {
                     send(&mut ws, &DaemonToServer::Heartbeat).await?;
                     self.monitor.heartbeat();

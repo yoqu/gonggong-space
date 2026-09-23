@@ -239,6 +239,9 @@ export const CommandsUpdate = z.object({
   commands: z.array(z.object({ name: z.string(), description: z.string() })),
 })
 
+/** Local agent detection changed after hello (path set / reset, re-check); replaces the machine's agents. */
+export const AgentsUpdate = z.object({ t: z.literal('agents.update'), agents: z.array(AgentInfo) })
+
 /** Answer to files.list. */
 export const FilesResult = z.object({
   t: z.literal('files.result'),
@@ -256,6 +259,7 @@ export const QuestionAsk = z.object({
 })
 
 export const DaemonToServer = z.discriminatedUnion('t', [
+  AgentsUpdate,
   CommandsUpdate,
   FilesResult,
   QuestionAsk,

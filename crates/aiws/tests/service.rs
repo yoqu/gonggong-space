@@ -1,10 +1,13 @@
 use aiws::config::Config;
-use aiws::protocol::{DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon};
+use aiws::protocol::{
+    AgentInfo, AgentKind, DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon,
+};
 use aiws::service::{Fatal, Handler, Outbox, Service};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Clone, Default)]
@@ -24,6 +27,10 @@ impl Handler for Recorder {
 }
 
 fn service(port: u16, handler: Recorder) -> Service<Recorder> {
+    with_agents(port, handler, watch::channel(vec![]).1)
+}
+
+fn with_agents(port: u16, handler: Recorder, agents: watch::Receiver<Vec<AgentInfo>>) -> Service<Recorder> {
     Service {
         config: Config {
             server: format!("http://127.0.0.1:{port}"),
@@ -33,7 +40,7 @@ fn service(port: u16, handler: Recorder) -> Service<Recorder> {
             cert_sha256: None,
         },
         machine: MachineInfo { name: "m".into(), os: "macos".into(), arch: "aarch64".into() },
-        agents: vec![],
+        agents,
         handler,
         max_backoff: Duration::from_millis(50),
         upgrader: None,
@@ -145,5 +152,32 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
     assert_eq!(got[1]["t"], "run.done");
     assert_eq!(got[1]["reply"], "survived");
     assert_eq!(got[2]["t"], "run.discarded");
+    task.abort();
+}
+
+#[tokio::test]
+async fn reports_agent_detection_changes_after_hello() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let claude = |available| AgentInfo {
+        kind: AgentKind::Claude,
+        available,
+        version: None,
+        path: Some("/bin/claude".into()),
+        min_version: None,
+    };
+    let (tx, rx) = watch::channel(vec![claude(false)]);
+    let task = tokio::spawn(with_agents(port, Recorder::default(), rx).run());
+    let (s, _) = listener.accept().await.unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut ws).await["agents"][0]["available"], false);
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":1}"#)).await.unwrap();
+
+    assert!(aiws::daemon::publish_agents(&tx, vec![claude(true)]));
+    let update = text(&mut ws).await;
+    assert_eq!((update["t"].as_str(), &update["agents"][0]["available"]), (Some("agents.update"), &true.into()));
+    // An unchanged detection is not reported: the next message is the heartbeat.
+    assert!(!aiws::daemon::publish_agents(&tx, vec![claude(true)]));
+    assert_eq!(text(&mut ws).await["t"], "heartbeat");
     task.abort();
 }
