@@ -96,10 +96,10 @@ export function splitMentions(text: string, names: string[]) {
 function eventIcon(body: string) {
   if (body.includes('创建了私聊')) return UserPlus
   if (body.includes('创建了群')) return Users
-  if (body.startsWith('群绑定仓库')) return GitBranch
+  if (body.startsWith('群绑定仓库') || body.startsWith('群更换仓库')) return GitBranch
   if (body.startsWith('未绑定仓库')) return Folder
   if (body.includes('移出')) return UserMinus
-  if (body.includes(' 加入')) return Bot
+  if (body.includes(' 加入') || /已 clone 到托管工作区|工作区创建失败/.test(body)) return Bot
   if (body.includes('下一轮将开新会话')) return RefreshCw
   if (/\/cd|绑定到|恢复托管工作区/.test(body)) return FolderInput
   if (body === '没有运行中的轮次') return Square
