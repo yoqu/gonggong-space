@@ -176,6 +176,9 @@ describe('机器与网络', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-23T10:00:00Z'))
     const m = (o: Partial<AdminMachineDto>): AdminMachineDto => ({
+      latencyMs: null,
+      bandwidthMbps: null,
+      netMeasuredAt: null,
       id: 'm1',
       ownerId: 'u1',
       ownerName: '王磊',
