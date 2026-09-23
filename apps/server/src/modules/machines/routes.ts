@@ -1,11 +1,17 @@
 import { randomInt } from 'node:crypto'
-import { type BindCodeDto, DaemonLoginReq, type DaemonLoginRes, type MachineDto } from '@aiws/protocol'
+import {
+  type BindCodeDto,
+  DaemonLoginReq,
+  type DaemonLoginRes,
+  type DaemonToServer,
+  type MachineDto,
+} from '@aiws/protocol'
 import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { CLOSE } from '../../daemon/gateway.js'
-import { bindCodes, machines, users } from '../../db/schema.js'
+import { bindCodes, bots, machines, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
@@ -13,7 +19,7 @@ import { idParam } from '../../lib/ids.js'
 import { Throttle } from '../../lib/throttle.js'
 import { requireUser } from '../auth/session.js'
 import { onMachineBound } from '../bots/binding.js'
-import { machineDto } from '../bots/dto.js'
+import { machineDto, publishBots } from '../bots/dto.js'
 import { netRoutes } from './net.js'
 
 const CODE_TTL_MS = 10 * 60_000
@@ -40,7 +46,7 @@ export function machineRoutes(ctx: Ctx) {
 
     const pending = new Set<Promise<void>>()
     const pushState = (machineId: string) => {
-      const p = (async () => {
+      const p: Promise<void> = (async () => {
         const [m] = await ctx.db.select().from(machines).where(eq(machines.id, machineId))
         if (m && !m.revokedAt)
           ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: machineDto(ctx, m) })
@@ -49,12 +55,26 @@ export function machineRoutes(ctx: Ctx) {
         .finally(() => pending.delete(p))
       pending.add(p)
     }
+    // Detection changed after hello (path set / reset, re-check): bot presence depends on it.
+    const onMessage = (machineId: string, msg: DaemonToServer) => {
+      if (msg.t !== 'agents.update') return
+      const p = (async () => {
+        await ctx.db.update(machines).set({ agents: msg.agents }).where(eq(machines.id, machineId))
+        pushState(machineId)
+        await publishBots(ctx, eq(bots.machineId, machineId))
+      })()
+        .catch((err) => app.log.error(err))
+        .finally(() => pending.delete(p))
+      pending.add(p)
+    }
     await app.register(netRoutes(ctx))
     ctx.hub.on('online', pushState)
     ctx.hub.on('offline', pushState)
+    ctx.hub.on('message', onMessage)
     app.addHook('onClose', async () => {
       ctx.hub.off('online', pushState)
       ctx.hub.off('offline', pushState)
+      ctx.hub.off('message', onMessage)
       await Promise.all(pending)
     })
 

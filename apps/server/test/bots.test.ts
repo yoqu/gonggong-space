@@ -1,10 +1,10 @@
-import type { BotDto, WebEvent } from '@aiws/protocol'
+import { type BotDto, PROTOCOL_VERSION, type WebEvent } from '@aiws/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DaemonConn } from '../src/daemon/hub.js'
-import { auditLogs, groupBots, messages, notifications, runs } from '../src/db/schema.js'
+import { auditLogs, groupBots, machines, messages, notifications, runs } from '../src/db/schema.js'
 import { onMachineBound } from '../src/modules/bots/binding.js'
-import { createTestApp, type TestApp } from './support/app.js'
+import { createTestApp, inbox, type TestApp } from './support/app.js'
 
 let t: TestApp
 beforeEach(async () => {
@@ -281,6 +281,42 @@ describe('confirm', () => {
     })
     expect(denied.statusCode).toBe(401)
     expect(machine.id).toBeTruthy()
+  })
+})
+
+describe('agents.update', () => {
+  it('replaces the machine agents and republishes the machine and its bots', async () => {
+    const wang = await actor()
+    const { machine, token } = await t.seed.machine(wang.user.id, { agents: CLAUDE })
+    const bot = await t.seed.bot({ ownerId: wang.user.id, machineId: machine.id, agentKind: 'codex' })
+    const ws = t.ws('/ws/daemon')
+    const box = inbox(ws)
+    await box.opened
+    const hello = { protocol: PROTOCOL_VERSION, token, daemonVersion: '0.1.0', agents: CLAUDE }
+    ws.send(JSON.stringify({ t: 'hello', machine: { name: 'm', os: 'macos', arch: 'aarch64' }, ...hello }))
+    expect(await box.next()).toMatchObject({ t: 'welcome' })
+    await vi.waitFor(() => expect(t.ctx.hub.isOnline(machine.id)).toBe(true))
+    const presence = async () => (await wang.req('GET', `/api/bots/${bot.id}`)).json<BotDto>().presence
+    expect(await presence()).toBe('agent_missing')
+
+    const seen = events(wang.user.id)
+    const codex = {
+      kind: 'codex',
+      available: true,
+      version: '0.48.0',
+      path: '/x/codex',
+      minVersion: '0.40.0',
+    }
+    ws.send(JSON.stringify({ t: 'agents.update', agents: [...CLAUDE, codex] }))
+    await vi.waitFor(() => expect(botEvents(seen).at(-1)).toMatchObject({ id: bot.id, presence: 'online' }))
+    expect(seen).toContainEqual({
+      t: 'machine.updated',
+      machine: expect.objectContaining({ id: machine.id, agents: [...CLAUDE, codex] }),
+    })
+    const [row] = await t.db.select().from(machines).where(eq(machines.id, machine.id))
+    expect(row?.agents).toEqual([...CLAUDE, codex])
+    expect(await presence()).toBe('online')
+    ws.close()
   })
 })
 

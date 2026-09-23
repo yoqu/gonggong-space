@@ -381,6 +381,8 @@ pub enum DaemonToServer {
     WorkspaceState(WorkspaceState),
     #[serde(rename = "approval.request")]
     ApprovalRequest(ApprovalRequest),
+    #[serde(rename = "agents.update")]
+    AgentsUpdate { agents: Vec<AgentInfo> },
     #[serde(rename = "commands.update", rename_all = "camelCase")]
     CommandsUpdate { group_id: String, bot_id: String, commands: Vec<AgentCommand> },
     #[serde(rename = "files.result", rename_all = "camelCase")]

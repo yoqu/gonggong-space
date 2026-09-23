@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::engine::{Engine, EngineConfig};
 use crate::local::LocalSettings;
 use crate::lock::Lock;
-use crate::protocol::RejectReason;
+use crate::protocol::{AgentInfo, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, Status};
 use crate::upgrade::Upgrader;
@@ -16,6 +16,8 @@ use tokio::task::JoinHandle;
 
 const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
+/// Picks up agents installed or paths changed by the CLI while running.
+const REDETECT: Duration = Duration::from_secs(60);
 
 pub struct Options {
     pub home: PathBuf,
@@ -35,6 +37,8 @@ pub struct Stopped {
 
 pub struct Daemon {
     monitor: Monitor,
+    agents: watch::Sender<Vec<AgentInfo>>,
+    redetect: JoinHandle<()>,
     task: JoinHandle<Stopped>,
     _lock: Lock,
 }
@@ -48,10 +52,12 @@ impl Daemon {
             false => None,
         };
         let monitor = Monitor::default();
+        let (agents, rx) = watch::channel(crate::agents::detect(&LocalSettings::load(&opts.home)?));
+        let redetect = tokio::spawn(redetect(opts.home.clone(), agents.clone()));
         let service = Service {
             config: opts.config.clone(),
             machine: machine_info(),
-            agents: crate::agents::detect(&LocalSettings::load(&opts.home)?),
+            agents: rx,
             handler: Engine::new(EngineConfig {
                 home: opts.home.clone(),
                 adapter_cmd: opts.adapter_cmd,
@@ -70,7 +76,7 @@ impl Daemon {
             m.rejected(*reason, message.clone(), &wiped);
             Stopped { fatal, wiped }
         });
-        Ok(Daemon { monitor, task, _lock: lock })
+        Ok(Daemon { monitor, agents, redetect, task, _lock: lock })
     }
 
     pub fn status(&self) -> Status {
@@ -81,9 +87,16 @@ impl Daemon {
         self.monitor.subscribe()
     }
 
+    /// A fresh local detection (the desktop's 重新检测, a changed path); reported to the server if it differs.
+    pub fn set_agents(&self, agents: Vec<AgentInfo>) {
+        publish_agents(&self.agents, agents);
+    }
+
     /// Runs until the server rejects this machine for good.
     pub async fn wait(mut self) -> Stopped {
-        match (&mut self.task).await {
+        let stopped = (&mut self.task).await;
+        self.redetect.abort();
+        match stopped {
             Ok(stopped) => stopped,
             Err(e) => std::panic::resume_unwind(e.into_panic()),
         }
@@ -91,6 +104,36 @@ impl Daemon {
 
     /// Disconnects and releases the machine lock.
     pub fn stop(self) {
+        self.redetect.abort();
         self.task.abort();
+    }
+}
+
+/// Publishes `agents` when they differ from the last detection; true if they did.
+pub fn publish_agents(tx: &watch::Sender<Vec<AgentInfo>>, agents: Vec<AgentInfo>) -> bool {
+    tx.send_if_modified(|current| {
+        let changed = *current != agents;
+        if changed {
+            *current = agents;
+        }
+        changed
+    })
+}
+
+async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentInfo>>) {
+    let mut tick = tokio::time::interval(REDETECT);
+    tick.tick().await;
+    loop {
+        tick.tick().await;
+        let home = home.clone();
+        let detected =
+            tokio::task::spawn_blocking(move || LocalSettings::load(&home).map(|l| crate::agents::detect(&l))).await;
+        match detected {
+            Ok(Ok(agents)) => {
+                publish_agents(&tx, agents);
+            }
+            Ok(Err(e)) => tracing::warn!("agent detection skipped: {e:#}"),
+            Err(e) => tracing::warn!("agent detection failed: {e}"),
+        }
     }
 }

@@ -78,6 +78,13 @@ impl Host {
         Ok(())
     }
 
+    /// Hands a fresh local detection to the running daemon, which reports it to the server if it changed.
+    pub fn report_agents(&self, agents: Vec<aiws::protocol::AgentInfo>) {
+        if let State::Running(daemon) = &*self.state.lock().unwrap() {
+            daemon.set_agents(agents);
+        }
+    }
+
     /// Stops the daemon and removes the binding, team secrets and managed workspaces like a revocation does;
     /// backups and /cd directories stay.
     pub fn unbind(&self) {

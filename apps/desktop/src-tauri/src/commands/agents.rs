@@ -47,16 +47,19 @@ fn cards(
         .collect()
 }
 
-/// Runs the CLIs (`--version`, login status), so off the async runtime.
+/// Runs the CLIs (`--version`, login status), so off the async runtime. Every call is a 重新检测: a changed
+/// detection (installed, path set or reset) reaches the server right away, updating the bots' presence.
 #[tauri::command]
 pub async fn agents(host: State<'_, Host>) -> Result<Vec<AgentCard>> {
     let home = host.home.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let list = tauri::async_runtime::spawn_blocking(move || {
         let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
-        Ok(cards(&local, load_models(&home), aiws::agents::login_status))
+        Ok::<_, String>(cards(&local, load_models(&home), aiws::agents::login_status))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+    host.report_agents(list.iter().map(|c| c.info.clone()).collect());
+    Ok(list)
 }
 
 /// `None` = the adapter's default.

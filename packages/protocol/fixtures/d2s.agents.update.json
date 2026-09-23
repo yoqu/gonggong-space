@@ -1,0 +1,13 @@
+{
+  "t": "agents.update",
+  "agents": [
+    {
+      "kind": "claude",
+      "available": true,
+      "version": "2.1.4",
+      "path": "/opt/homebrew/bin/claude",
+      "minVersion": "2.0.0"
+    },
+    { "kind": "codex", "available": false, "version": null, "path": null, "minVersion": "0.40.0" }
+  ]
+}
