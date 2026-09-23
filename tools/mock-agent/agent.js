@@ -36,7 +36,6 @@ function open(sessionId, params) {
     mcpServers: params.mcpServers,
     mode: 'default',
     abort: null,
-    mcpServers: params.mcpServers ?? [],
   })
   return { sessionId, modes: { currentModeId: 'default', availableModes: MODES } }
 }
