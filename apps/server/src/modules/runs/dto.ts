@@ -1,4 +1,10 @@
-import type { ApprovalDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
+import {
+  type ApprovalDto,
+  DEFAULT_OFFLINE_WAIT_MIN,
+  type RunDto,
+  type RunStatus,
+  type Usage,
+} from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, groups, runs, users } from '../../db/schema.js'
@@ -10,7 +16,10 @@ type ApprovalRow = typeof approvals.$inferSelect
 export const DEFAULT_CHAIN_MAX_HOPS = 3
 
 /** Pure mapping; `runDtoLoader` loads `approvals` and `hopMax` (defaults: none / 3). */
-export const runDto = (r: RunRow, extra: { approvals?: ApprovalDto[]; hopMax?: number } = {}): RunDto => ({
+export const runDto = (
+  r: RunRow,
+  extra: { approvals?: ApprovalDto[]; hopMax?: number; offlineWaitMin?: number } = {},
+): RunDto => ({
   id: r.id,
   groupId: r.groupId,
   botId: r.botId,
@@ -27,6 +36,7 @@ export const runDto = (r: RunRow, extra: { approvals?: ApprovalDto[]; hopMax?: n
   endedAt: r.endedAt?.toISOString() ?? null,
   parentRunId: r.parentRunId,
   hopMax: extra.hopMax ?? DEFAULT_CHAIN_MAX_HOPS,
+  offlineWaitMin: extra.offlineWaitMin ?? DEFAULT_OFFLINE_WAIT_MIN,
   originUserId: r.originUserId,
   approvals: extra.approvals ?? [],
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
@@ -48,6 +58,12 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
   expiresAt: a.expiresAt.toISOString(),
   createdAt: a.createdAt.toISOString(),
 })
+
+/** Group param `offlineWaitMin` (spec §4.8). */
+const offlineWaitOf = (params: unknown) => {
+  const n = (params as { offlineWaitMin?: unknown }).offlineWaitMin
+  return typeof n === 'number' ? n : DEFAULT_OFFLINE_WAIT_MIN
+}
 
 /** Group param `chainMaxHops` (spec §4.6). */
 export const hopMaxOf = (params: unknown) => {
@@ -81,6 +97,7 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
     runDto(r, {
       approvals: aps.filter((x) => x.a.runId === r.id).map((x) => approvalDto(x.a, x.name)),
       hopMax: hopMaxOf(params.get(r.groupId) ?? {}),
+      offlineWaitMin: offlineWaitOf(params.get(r.groupId) ?? {}),
     })
 }
 

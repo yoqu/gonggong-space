@@ -107,6 +107,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   newSessionReason: null,
   parentRunId: null,
   hopMax: 3,
+  offlineWaitMin: 30,
   originUserId: 'u1',
   approvals: [],
   interrupt: null,

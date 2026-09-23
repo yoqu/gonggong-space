@@ -181,6 +181,7 @@ describe('run process', () => {
 
     const d = await w.detail(runId)
     expect(d.run.hopMax).toBe(5)
+    expect(d.run.offlineWaitMin).toBe(30)
     expect(d.run.approvals).toEqual([
       {
         id: expect.any(String),

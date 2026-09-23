@@ -78,6 +78,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   endedAt: null,
   parentRunId: 'r0',
   hopMax: 3,
+  offlineWaitMin: 30,
   originUserId: 'u1',
   approvals: [
     {
