@@ -112,6 +112,7 @@ const done = (runId: string, o: Record<string, unknown> = {}) => ({
   newSessionReason: 'first',
   error: null,
   git: null,
+  patch: null,
   ...o,
 })
 

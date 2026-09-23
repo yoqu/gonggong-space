@@ -229,6 +229,12 @@ export const runs = pgTable(
     queuedAt: createdAt(),
     startedAt: ts('started_at'),
     endedAt: ts('ended_at'),
+    /** Partition /stop leftovers (plan D7): 'pending' | 'kept' | 'discarded'. */
+    interrupt: text('interrupt'),
+    stoppedBy: uuid('stopped_by').references(() => users.id),
+    /** Unified diff of the turn (redacted); purged with run_events after retention. */
+    patch: text('patch'),
+    purgedAt: ts('purged_at'),
   },
   (t) => [index('runs_bot_status').on(t.botId, t.status), index('runs_group').on(t.groupId)],
 )
@@ -246,6 +252,30 @@ export const runEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('run_events_run').on(t.runId, t.id)],
+)
+
+/** Agent permission requests awaiting / decided by the bot owner (spec §3.4). Kept forever for accountability. */
+export const approvals = pgTable(
+  'approvals',
+  {
+    id: id(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => runs.id),
+    /** Daemon's id for the pending ACP request. */
+    requestId: text('request_id').notNull(),
+    title: text('title').notNull(),
+    toolKind: text('tool_kind').notNull(),
+    detail: text('detail').notNull(),
+    options: jsonb('options').notNull(),
+    /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */
+    status: text('status').notNull().default('pending'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decidedAt: ts('decided_at'),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('approvals_run').on(t.runId), index('approvals_pending').on(t.status, t.expiresAt)],
 )
 
 // ── Cross-cutting ───────────────────────────────────────────────────────────

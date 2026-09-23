@@ -202,6 +202,37 @@ pub struct RunDone {
     pub new_session_reason: Option<String>,
     pub error: Option<String>,
     pub git: Option<GitStatus>,
+    pub patch: Option<String>,
+}
+
+pub const PATCH_MAX_BYTES: usize = 512 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionKind {
+    AllowOnce,
+    AllowAlways,
+    RejectOnce,
+    RejectAlways,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionOption {
+    pub option_id: String,
+    pub name: String,
+    pub kind: PermissionKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalRequest {
+    pub run_id: String,
+    pub request_id: String,
+    pub title: String,
+    pub tool_kind: String,
+    pub detail: String,
+    pub options: Vec<PermissionOption>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -256,6 +287,10 @@ pub enum DaemonToServer {
     RunDone(RunDone),
     #[serde(rename = "workspace.state")]
     WorkspaceState(WorkspaceState),
+    #[serde(rename = "approval.request")]
+    ApprovalRequest(ApprovalRequest),
+    #[serde(rename = "run.discarded", rename_all = "camelCase")]
+    RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -286,4 +321,8 @@ pub enum ServerToDaemon {
     WorkspaceEnsure(WorkspaceEnsure),
     #[serde(rename = "workspace.cd")]
     WorkspaceCd(WorkspaceCd),
+    #[serde(rename = "approval.decision", rename_all = "camelCase")]
+    ApprovalDecision { run_id: String, request_id: String, option_id: Option<String> },
+    #[serde(rename = "run.discard", rename_all = "camelCase")]
+    RunDiscard { run_id: String },
 }

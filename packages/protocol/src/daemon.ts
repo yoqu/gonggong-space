@@ -114,6 +114,8 @@ export const RunDone = z.object({
   error: z.string().nullable(),
   /** Workspace git state after the turn; null for workspaces without a repo. */
   git: GitStatus.nullable(),
+  /** Unified diff of what this turn changed (repo workspaces; capped by the daemon, see PATCH_MAX_BYTES). */
+  patch: z.string().nullable(),
 })
 export type RunDone = z.infer<typeof RunDone>
 
@@ -132,7 +134,43 @@ export const WorkspaceState = z.object({
 })
 export type WorkspaceState = z.infer<typeof WorkspaceState>
 
+export const PATCH_MAX_BYTES = 512 * 1024
+
+export const PermissionOption = z.object({
+  optionId: z.string(),
+  name: z.string(),
+  /** ACP PermissionOptionKind */
+  kind: z.enum(['allow_once', 'allow_always', 'reject_once', 'reject_always']),
+})
+export type PermissionOption = z.infer<typeof PermissionOption>
+
+/** An agent permission request beyond the bot's tier (plan D15), forwarded for the bot owner's decision. */
+export const ApprovalRequest = z.object({
+  t: z.literal('approval.request'),
+  runId: z.string(),
+  /** Daemon-unique; echoed in approval.decision. */
+  requestId: z.string(),
+  title: z.string(),
+  toolKind: z.string(),
+  /** Command line / path / URL the agent wants to touch. */
+  detail: z.string(),
+  options: z.array(PermissionOption),
+})
+export type ApprovalRequest = z.infer<typeof ApprovalRequest>
+
+/** Result of run.discard (partition /stop → 丢弃本轮改动). */
+export const RunDiscarded = z.object({
+  t: z.literal('run.discarded'),
+  runId: z.string(),
+  ok: z.boolean(),
+  /** Files restored to their pre-turn state. */
+  files: z.number().int(),
+  error: z.string().nullable(),
+})
+
 export const DaemonToServer = z.discriminatedUnion('t', [
+  ApprovalRequest,
+  RunDiscarded,
   Hello,
   Heartbeat,
   RunEventMsg,
@@ -175,7 +213,20 @@ export const WorkspaceCd = z.object({
   path: z.string().nullable(),
 })
 
+/** optionId null → the request is cancelled (run stopped / timed out without a reject option). */
+export const ApprovalDecision = z.object({
+  t: z.literal('approval.decision'),
+  runId: z.string(),
+  requestId: z.string(),
+  optionId: z.string().nullable(),
+})
+
+/** Restore only the files this (finished, interrupted) turn touched; earlier uncommitted work stays (plan D7). */
+export const RunDiscard = z.object({ t: z.literal('run.discard'), runId: z.string() })
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
+  ApprovalDecision,
+  RunDiscard,
   Welcome,
   Reject,
   RunStart,

@@ -1,4 +1,4 @@
-import type { RunDto, RunStatus, Usage } from '@aiws/protocol'
+import type { ApprovalDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { runs } from '../../db/schema.js'
@@ -6,7 +6,10 @@ import { memberIds } from '../messages/service.js'
 
 export type RunRow = typeof runs.$inferSelect
 
-export const runDto = (r: RunRow): RunDto => ({
+export const DEFAULT_CHAIN_MAX_HOPS = 3
+
+/** `approvals` and `hopMax` are loaded by callers that have them (listRuns / run detail); cards default to none / 3. */
+export const runDto = (r: RunRow, extra: { approvals?: ApprovalDto[]; hopMax?: number } = {}): RunDto => ({
   id: r.id,
   groupId: r.groupId,
   botId: r.botId,
@@ -21,6 +24,12 @@ export const runDto = (r: RunRow): RunDto => ({
   queuedAt: r.queuedAt.toISOString(),
   startedAt: r.startedAt?.toISOString() ?? null,
   endedAt: r.endedAt?.toISOString() ?? null,
+  parentRunId: r.parentRunId,
+  hopMax: extra.hopMax ?? DEFAULT_CHAIN_MAX_HOPS,
+  originUserId: r.originUserId,
+  approvals: extra.approvals ?? [],
+  interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
+  stoppedBy: r.stoppedBy,
 })
 
 /** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */
@@ -36,7 +45,7 @@ export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: st
       ),
     )
     .orderBy(asc(runs.queuedAt))
-  return rows.map(runDto)
+  return rows.map((r) => runDto(r))
 }
 
 export async function publishRun(ctx: Ctx, run: RunRow) {

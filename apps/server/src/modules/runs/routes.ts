@@ -29,6 +29,8 @@ export function runRoutes(ctx: Ctx) {
         .orderBy(asc(runEvents.id))
       return {
         run: runDto(row.run),
+        patch: row.run.patch,
+        purged: row.run.purgedAt !== null,
         events: events.map((e) => ({
           id: e.id,
           at: e.createdAt.toISOString(),

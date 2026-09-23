@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AgentKind, GitStatus, RunStatus, Tier, TriggerScope, Usage } from './common.js'
-import { AgentInfo, MachineInfo, RunEvent } from './daemon.js'
+import { AgentInfo, MachineInfo, PermissionOption, RunEvent } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -178,6 +178,25 @@ export const MessageDto = z.object({
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
+export const ApprovalDto = z.object({
+  id: z.string(),
+  runId: z.string(),
+  title: z.string(),
+  toolKind: z.string(),
+  detail: z.string(),
+  options: z.array(PermissionOption),
+  /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
+  status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
+  decidedBy: z.string().nullable(),
+  decidedByName: z.string().nullable(),
+  decidedAt: z.string().nullable(),
+  expiresAt: z.string(),
+  createdAt: z.string(),
+})
+export type ApprovalDto = z.infer<typeof ApprovalDto>
+
+export const DecideApprovalReq = z.object({ optionId: z.string() })
+
 export const RunDto = z.object({
   id: z.string(),
   groupId: z.string(),
@@ -193,6 +212,16 @@ export const RunDto = z.object({
   queuedAt: z.string(),
   startedAt: z.string().nullable(),
   endedAt: z.string().nullable(),
+  /** Relay chain (spec §4.6): hop 1 = triggered by a human; hopMax = the group's chain limit. */
+  parentRunId: z.string().nullable(),
+  hopMax: z.number().int(),
+  /** Human whose @ started the chain; every hop is authorized and answerable by them. */
+  originUserId: z.string(),
+  approvals: z.array(ApprovalDto),
+  /** Partition-mode /stop leftovers (plan D7): pending = edits kept, discard still possible. */
+  interrupt: z.enum(['pending', 'kept', 'discarded']).nullable(),
+  /** Who issued /stop. */
+  stoppedBy: z.string().nullable(),
 })
 export type RunDto = z.infer<typeof RunDto>
 
@@ -204,6 +233,9 @@ export const TimelineQuery = z.object({
 /** GET /api/runs/:id — card fields plus the full (redacted) process for the side panel. */
 export const RunDetailDto = z.object({
   run: RunDto,
+  /** null once the full process has been purged by retention (card keeps the summary). */
+  patch: z.string().nullable(),
+  purged: z.boolean(),
   events: z.array(z.object({ id: z.number().int(), at: z.string(), event: RunEvent })),
 })
 export type RunDetailDto = z.infer<typeof RunDetailDto>
@@ -216,6 +248,24 @@ export const SendMessageReq = z.object({
   /** Client-generated idempotency key; resending the same id returns the original message. */
   clientId: z.string().min(8),
 })
+
+// ── Usage (spec §3.7) ───────────────────────────────────────────────────────
+export const UsageQuery = z.object({
+  by: z.enum(['bot', 'user', 'group']),
+  days: z.coerce.number().int().min(1).max(365).default(30),
+  /** Restrict to one bot (its owner sees who used it). */
+  botId: z.string().optional(),
+})
+export const UsageRowDto = z.object({
+  key: z.string(),
+  name: z.string(),
+  runs: z.number().int(),
+  /** Sum over runs that reported usage. */
+  totalTokens: z.number().int(),
+  /** Runs whose adapter did not report usage (shown as 未上报). */
+  unreported: z.number().int(),
+})
+export type UsageRowDto = z.infer<typeof UsageRowDto>
 
 // ── Realtime: WS /ws/web (server → browser only) ────────────────────────────
 /** Per-bot workspace state in a group: drives the partition-mode git status bar (spec §5.3, §8.4). */

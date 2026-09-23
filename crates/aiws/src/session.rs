@@ -239,6 +239,7 @@ fn done(
         new_session_reason,
         error,
         git,
+        patch: None,
     })
 }
 

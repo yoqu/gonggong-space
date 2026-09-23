@@ -70,6 +70,8 @@ impl Handler for Engine {
                 let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move { inner.workspaces.cd(req, &out).await });
             }
+            // Implemented by the M3 approval / stop slices.
+            ServerToDaemon::ApprovalDecision { .. } | ServerToDaemon::RunDiscard { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }
@@ -160,6 +162,7 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         new_session_reason: None,
         error: Some(error),
         git: None,
+        patch: None,
     })
 }
 

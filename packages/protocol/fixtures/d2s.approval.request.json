@@ -1,0 +1,12 @@
+{
+  "t": "approval.request",
+  "runId": "r1",
+  "requestId": "p1",
+  "title": "go build ./...",
+  "toolKind": "execute",
+  "detail": "go build ./... && go vet ./server/refund/...",
+  "options": [
+    { "optionId": "allow", "name": "Allow", "kind": "allow_once" },
+    { "optionId": "reject", "name": "Reject", "kind": "reject_once" }
+  ]
+}
