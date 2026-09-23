@@ -3,8 +3,8 @@ use crate::ask::{self, Asker};
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
-    AgentCommand, Answer, ApprovalRequest, Attachment, DaemonToServer, Question, RunDone, RunEvent, RunOutcome,
-    RunStart, RunStatus, Tier, Usage, WorkspaceKind,
+    AgentCommand, Answer, ApprovalRequest, Attachment, DaemonToServer, McpServer, Question, RunDone, RunEvent,
+    RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -12,11 +12,12 @@ use crate::turn::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest,
-    McpServer, Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest,
-    PromptResponse, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    ResumeSessionRequest, SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate,
-    SetSessionModeRequest, StopReason, TextContent, Usage as AcpUsage,
+    self as acp, CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, HttpHeader, InitializeRequest,
+    InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption,
+    PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
+    RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId,
+    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason, TextContent,
+    Usage as AcpUsage,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -468,16 +469,11 @@ impl Asker for Shared {
     }
 }
 
-/// MCP servers of a new or restored session: the global layer (spec §7.1) plus the built-in ask tool (§7.2).
-fn mcp_servers_for(_start: &RunStart, ask: &McpServer) -> Vec<McpServer> {
-    vec![ask.clone()]
-}
-
 /// Session task: spawns an adapter on demand, runs queued turns in order, reaps the adapter when idle.
 pub(crate) async fn run(
     engine: Arc<Inner>,
     shared: Arc<Shared>,
-    ask: McpServer,
+    ask: acp::McpServer,
     mut rx: mpsc::UnboundedReceiver<TurnReq>,
 ) {
     // Survives adapter restarts so the next process resumes the same conversation.
@@ -503,7 +499,7 @@ pub(crate) async fn run(
 async fn connect(
     engine: &Inner,
     shared: &Arc<Shared>,
-    ask: &McpServer,
+    ask: &acp::McpServer,
     agent: AcpAgent,
     first: TurnReq,
     rx: &mut mpsc::UnboundedReceiver<TurnReq>,
@@ -569,7 +565,7 @@ struct Conversation<'a> {
     cx: &'a ConnectionTo<Agent>,
     init: &'a InitializeResponse,
     shared: &'a Shared,
-    ask: &'a McpServer,
+    ask: &'a acp::McpServer,
     session: Option<SessionId>,
     mode: Option<String>,
 }
@@ -693,4 +689,24 @@ impl Conversation<'_> {
         (start.bot.agent_kind == crate::protocol::AgentKind::Claude)
             .then(|| json.as_object().cloned().unwrap_or_default())
     }
+}
+
+/// MCP servers attached when a session is created or restored: the server's global layer plus the built-in ask
+/// tool, which every session gets (spec §7.2).
+fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer> {
+    start
+        .mcp_servers
+        .iter()
+        .map(|s| match s {
+            McpServer::Stdio { name, command, args, env } => acp::McpServer::Stdio(
+                McpServerStdio::new(name, command)
+                    .args(args.clone())
+                    .env(env.iter().map(|(k, v)| EnvVariable::new(k, v)).collect()),
+            ),
+            McpServer::Http { name, url, headers } => acp::McpServer::Http(
+                McpServerHttp::new(name, url).headers(headers.iter().map(|(k, v)| HttpHeader::new(k, v)).collect()),
+            ),
+        })
+        .chain([ask.clone()])
+        .collect()
 }

@@ -523,6 +523,51 @@ async fn stop_wins_over_a_pending_append() {
 }
 
 #[tokio::test]
+async fn injects_global_mcp_servers_into_new_and_resumed_sessions() {
+    let mut r = rig(Duration::from_millis(200));
+    let mut s = start("r1", "mock:echo");
+    s.new_session_reason = Some("config_changed".into());
+    s.mcp_servers = vec![
+        McpServer::Stdio {
+            name: "aiws-echo".into(),
+            command: "node".into(),
+            args: vec!["server.js".into()],
+            env: [("TOKEN".to_string(), "t".to_string())].into(),
+        },
+        McpServer::Http {
+            name: "wiki".into(),
+            url: "https://mcp.corp/wiki".into(),
+            headers: [("Authorization".to_string(), "Bearer x".to_string())].into(),
+        },
+    ];
+    let wire = serde_json::json!([
+        { "name": "aiws-echo", "command": "node", "args": ["server.js"], "env": [{ "name": "TOKEN", "value": "t" }] },
+        { "type": "http", "name": "wiki", "url": "https://mcp.corp/wiki",
+          "headers": [{ "name": "Authorization", "value": "Bearer x" }] },
+    ]);
+    r.run(s.clone());
+    let (_, first) = r.finish("r1").await;
+    assert_eq!(first.new_session_reason.as_deref(), Some("config_changed"));
+    // The built-in ask tool always comes last, on a per-session loopback URL.
+    let servers = |done: &RunDone| {
+        let mut all = echo(done)["mcpServers"].as_array().unwrap().clone();
+        let ask = all.pop().unwrap();
+        assert_eq!((ask["type"].as_str(), ask["name"].as_str()), (Some("http"), Some("aiws")));
+        assert!(ask["url"].as_str().unwrap().starts_with("http://127.0.0.1:"));
+        (serde_json::Value::Array(all), ask["url"].clone())
+    };
+    let (globals, url) = servers(&first);
+    assert_eq!(globals, wire);
+
+    // After the adapter is reaped, session/resume in a fresh process carries the servers too.
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    r.run(RunStart { new_session_reason: None, mcp_servers: s.mcp_servers, ..follow_up("r2", "mock:echo", &first) });
+    let (_, second) = r.finish("r2").await;
+    assert_eq!(second.session_id, first.session_id);
+    assert_eq!(servers(&second), (wire, url));
+}
+
+#[tokio::test]
 async fn forwards_the_agents_available_commands() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "mock:commands"));

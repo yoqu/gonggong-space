@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { PROTOCOL_VERSION } from '@aiws/protocol'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
@@ -10,10 +11,12 @@ import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
+import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
+import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { questionRoutes } from './modules/questions/routes.js'
@@ -23,6 +26,7 @@ import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
+import { searchRoutes } from './modules/search/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
@@ -68,7 +72,11 @@ export async function buildApp(ctx: Ctx) {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(usageRoutes(ctx))
-  await app.register(candidateRoutes(ctx))
+  // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
+  const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
+  await app.register(mcpRoutes(ctx))
+  await app.register(searchRoutes(ctx, mirrors))
+  await app.register(candidateRoutes(ctx, mirrors))
   app.addHook('onClose', startCandidates(ctx))
   return app
 }

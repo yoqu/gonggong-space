@@ -1,0 +1,119 @@
+.notif__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+.notif {
+  position: fixed;
+  top: 48px;
+  right: 48px;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 64px);
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-elevated);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.66);
+  overflow: hidden;
+}
+@media (max-width: 767px) {
+  .notif {
+    right: 12px;
+  }
+}
+.notif__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-separator);
+}
+.notif__title {
+  font-weight: 600;
+}
+.notif__link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+}
+.notif__link:hover {
+  color: #fff;
+}
+.notif__push-on {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.notif__list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.notif__empty {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.notif__item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-separator);
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.notif__item--unread {
+  opacity: 1;
+}
+.notif__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.notif__icon {
+  flex: none;
+  margin-top: 2px;
+}
+.notif__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.notif__line {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+.notif__type {
+  font-weight: 600;
+}
+.notif__time {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.notif__text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.notif__group {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.notif__foot {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}

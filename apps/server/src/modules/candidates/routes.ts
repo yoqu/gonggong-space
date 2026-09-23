@@ -1,18 +1,16 @@
-import { join } from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
-import { Mirrors } from './mirror.js'
+import type { Mirrors } from './mirror.js'
 import { commandCandidates, fileCandidates } from './service.js'
 
 const FilesQuery = z.object({ q: z.string().max(200).default(''), botId: z.string().optional() })
 /** botId: comma-separated ids of the bots mentioned in the draft. */
 const CommandsQuery = z.object({ botId: z.string().default('') })
 
-export function candidateRoutes(ctx: Ctx) {
-  const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
+export function candidateRoutes(ctx: Ctx, mirrors: Mirrors) {
   return async (app: FastifyInstance) => {
     app.get<{ Params: { id: string } }>('/api/groups/:id/candidates/files', async (req) => {
       const me = await requireUser(ctx, req)
