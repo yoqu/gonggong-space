@@ -583,3 +583,6 @@
   border: 0;
   min-width: 0;
 }
+.mention-pop__cmd {
+  font-family: var(--font-mono);
+}

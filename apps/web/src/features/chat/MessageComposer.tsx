@@ -1,5 +1,5 @@
 import type { GroupDto, MessageDto } from '@aiws/protocol'
-import { Bot, User } from 'lucide-react'
+import { Bot, Terminal, User } from 'lucide-react'
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
 import { Composer } from '../../app/ChatLayout'
 import { useIsMobile } from '../../app/viewport'
@@ -24,10 +24,36 @@ async function postMessage(groupId: string, body: string, clientId: string): Pro
 }
 
 interface Candidate {
-  kind: 'bot' | 'member'
+  kind: 'bot' | 'member' | 'command'
   id: string
   name: string
   hint: string
+}
+
+/** Server-handled system commands (spec §8.7); skills and agent commands join this list later. */
+const SYSTEM_COMMANDS: Candidate[] = (
+  [
+    ['stop', '停止运行（未 @ bot 时停止本群全部）'],
+    ['hold', '连续占用群锁'],
+    ['release', '释放群锁'],
+    ['new', '开新会话'],
+    ['cd', '绑定本机目录（仅分区）'],
+  ] as const
+).map(([name, hint]) => ({ kind: 'command', id: name, name, hint }))
+
+const ICONS = { bot: Bot, member: User, command: Terminal }
+const SECTIONS = [
+  { kind: 'command', label: '系统命令' },
+  { kind: 'bot', label: 'BOT' },
+  { kind: 'member', label: '成员' },
+] as const
+
+/** The token being completed right before the caret: `@name` anywhere, `/command` only as the message's first word. */
+function trigger(before: string) {
+  const at = /(?:^|\s)@([^\s@]*)$/.exec(before)
+  if (at) return { char: '@', query: at[1] ?? '' } as const
+  const slash = /^\s*\/(\S*)$/.exec(before)
+  return slash ? ({ char: '/', query: slash[1] ?? '' } as const) : null
 }
 
 export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m: MessageDto) => void }) {
@@ -51,28 +77,35 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
     input.current.setSelectionRange(pos, pos)
   })
 
-  const query = /(?:^|\s)@([^\s@]*)$/.exec(draft.slice(0, caret))?.[1]
-  const candidates: Candidate[] =
-    query === undefined || dismissed
-      ? []
-      : [
-          ...bots
-            .filter((b) => group.botIds.includes(b.id))
-            .map((b) => ({ kind: 'bot' as const, id: b.id, name: b.name, hint: b.ownerName })),
-          ...group.members.map((m) => ({ kind: 'member' as const, id: m.userId, name: m.name, hint: '' })),
-        ].filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
+  const token = dismissed ? null : trigger(draft.slice(0, caret))
+  const candidates: Candidate[] = !token
+    ? []
+    : (token.char === '/'
+        ? SYSTEM_COMMANDS
+        : [
+            ...bots
+              .filter((b) => group.botIds.includes(b.id))
+              .map((b) => ({ kind: 'bot' as const, id: b.id, name: b.name, hint: b.ownerName })),
+            ...group.members.map((m) => ({ kind: 'member' as const, id: m.userId, name: m.name, hint: '' })),
+          ]
+      ).filter((c) => c.name.toLowerCase().includes(token.query.toLowerCase()))
   const current = Math.min(active, candidates.length - 1)
 
   const change = (value: string) => {
+    // Toolbar buttons (@ / 命令) append while the input is not focused: continue typing at the end.
+    const typed = input.current !== null && document.activeElement === input.current
+    const pos = typed ? (input.current?.selectionStart ?? value.length) : value.length
+    if (!typed) pendingCaret.current = pos
     setDraft(value)
-    setCaret(input.current?.selectionStart ?? value.length)
+    setCaret(pos)
     setDismissed(false)
     setActive(0)
   }
 
   const pick = (c: Candidate) => {
-    const start = draft.slice(0, caret).lastIndexOf('@')
-    const insert = `@${c.name} `
+    if (!token) return
+    const start = draft.slice(0, caret).lastIndexOf(token.char)
+    const insert = `${token.char}${c.name} `
     const next = draft.slice(0, start) + insert + draft.slice(caret)
     const pos = start + insert.length
     pendingCaret.current = pos
@@ -112,10 +145,9 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
     }
   }
 
-  const sections = [
-    { label: 'BOT', items: candidates.filter((c) => c.kind === 'bot') },
-    { label: '成员', items: candidates.filter((c) => c.kind === 'member') },
-  ].filter((s) => s.items.length)
+  const sections = SECTIONS.map((s) => ({ ...s, items: candidates.filter((c) => c.kind === s.kind) })).filter(
+    (s) => s.items.length,
+  )
 
   return (
     <Composer
@@ -128,29 +160,34 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
       hint={mobile ? null : '附件 ≤ 50 MB · 每条 ≤ 10 个 · 不 @ 不触发，会作为上下文补送'}
       popover={
         sections.length ? (
-          <div className="mention-pop" role="listbox" aria-label="@ 候选">
+          <div className="mention-pop" role="listbox" aria-label={token?.char === '/' ? '/ 命令' : '@ 候选'}>
             {sections.map((s) => (
               <fieldset key={s.label} className="mention-pop__group" aria-label={s.label}>
                 <div className="mention-pop__label">{s.label}</div>
-                {s.items.map((c) => (
-                  <button
-                    key={`${c.kind}:${c.id}`}
-                    type="button"
-                    role="option"
-                    aria-selected={candidates[current] === c}
-                    className={cx(
-                      'mention-pop__item',
-                      candidates[current] === c && 'mention-pop__item--active',
-                    )}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => pick(c)}
-                  >
-                    {c.kind === 'bot' ? <Bot size={13} /> : <User size={13} />}
-                    <span>{c.name}</span>
-                    <span className="spacer" />
-                    <span className="mention-pop__hint">{c.hint}</span>
-                  </button>
-                ))}
+                {s.items.map((c) => {
+                  const Icon = ICONS[c.kind]
+                  return (
+                    <button
+                      key={`${c.kind}:${c.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={candidates[current] === c}
+                      className={cx(
+                        'mention-pop__item',
+                        candidates[current] === c && 'mention-pop__item--active',
+                      )}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(c)}
+                    >
+                      <Icon size={13} />
+                      <span className={cx(c.kind === 'command' && 'mention-pop__cmd')}>
+                        {c.kind === 'command' ? `/${c.name}` : c.name}
+                      </span>
+                      <span className="spacer" />
+                      <span className="mention-pop__hint">{c.hint}</span>
+                    </button>
+                  )
+                })}
               </fieldset>
             ))}
           </div>
