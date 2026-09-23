@@ -37,7 +37,7 @@ const countdown = (ms: number) => {
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
   kinds.map((k) => options.find((o) => o.kind === k)).find(Boolean)
 
-function outcome(a: ApprovalDto, run: RunDto) {
+function outcome(a: ApprovalDto) {
   const at = a.decidedAt ? hm(a.decidedAt) : ''
   switch (a.status) {
     case 'approved':
@@ -122,7 +122,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
           </span>
         </div>
       ) : (
-        <div className="approval__done">{outcome(a, run)}</div>
+        <div className="approval__done">{outcome(a)}</div>
       )}
     </div>
   )
