@@ -39,6 +39,9 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   unread: 0,
   lastSeq: 4,
   last: '',
+  pinned: false,
+  muted: false,
+  foldRuns: false,
   ...o,
 })
 
@@ -608,7 +611,9 @@ describe('repo validation and binding', () => {
     })
     renderAt('/g/g1')
     const main = screen.getByRole('main')
-    fireEvent.click(await within(main).findByRole('button', { name: '仓库与基准分支' }))
+    fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('dialog', { name: '群设置' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与基准分支/ }))
     const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
     expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
     expect(within(dialog).getByText('一期一群一仓库')).toBeTruthy()
@@ -632,11 +637,16 @@ describe('repo validation and binding', () => {
     expect(await within(main).findByText('git@git.corp:pay/new.git · dev')).toBeTruthy()
   })
 
-  it('offers repo binding to admins only', async () => {
+  it('locks repo binding for non-admins', async () => {
     mockApi(baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: false }] })]))
     renderAt('/g/g1')
     const main = screen.getByRole('main')
-    expect(await within(main).findByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
-    expect(within(main).queryByRole('button', { name: '仓库与基准分支' })).toBeNull()
+    fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('dialog', { name: '群设置' })
+    expect(
+      within(drawer)
+        .getByRole('button', { name: /仓库与基准分支/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
   })
 })

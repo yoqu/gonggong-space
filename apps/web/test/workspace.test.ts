@@ -15,6 +15,9 @@ const g: GroupDto = {
   unread: 0,
   lastSeq: 0,
   last: '',
+  pinned: false,
+  muted: false,
+  foldRuns: false,
 }
 
 const msg = (o: Partial<MessageDto>): MessageDto => ({

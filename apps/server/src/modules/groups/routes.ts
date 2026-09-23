@@ -17,7 +17,15 @@ import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
 import { ensureWorkspace } from '../workspaces/provision.js'
 import { checkRepo, repoProblem } from './repo.js'
-import { activeBots, groupDto, groupDtos, publishGroup, requireAdmin, requireMember } from './service.js'
+import {
+  activeBots,
+  groupDto,
+  groupDtos,
+  publishGroup,
+  removeMember,
+  requireAdmin,
+  requireMember,
+} from './service.js'
 
 type BotRef = { id: string; name: string; machineId: string | null }
 
@@ -188,29 +196,9 @@ export function groupRoutes(ctx: Ctx) {
       if (target.isAdmin && members.filter((m) => m.isAdmin).length === 1)
         return fail('conflict', '唯一的群管理员不能被移出，请先指定继任者')
 
-      const theirBots = (await activeBots(ctx, group.id)).filter((b) => b.ownerId === userId)
       const [user] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, userId))
-      await ctx.db.transaction(async (tx) => {
-        if (theirBots.length)
-          await tx
-            .update(groupBots)
-            .set({ removedAt: ctx.now() })
-            .where(
-              and(
-                eq(groupBots.groupId, group.id),
-                inArray(
-                  groupBots.botId,
-                  theirBots.map((b) => b.id),
-                ),
-              ),
-            )
-        await tx
-          .delete(groupMembers)
-          .where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, userId)))
-      })
-      for (const b of theirBots) await postEvent(ctx, group.id, `${b.name} 被移出 · 工作区保留`)
+      await removeMember(ctx, group.id, userId, me)
       await postEvent(ctx, group.id, `${me.name} 将 ${user?.name ?? ''} 移出群`)
-      ctx.bus.publish([userId], { t: 'group.removed', groupId: group.id })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })

@@ -4,7 +4,8 @@ import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { memberIds } from '../messages/service.js'
+import { memberIds, postEvent } from '../messages/service.js'
+import { stopRuns } from '../runs/stop.js'
 
 /** Non-members get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
@@ -40,7 +41,7 @@ const preview = (kind: string, author: string | null, body: string) => {
 /** Group DTOs as seen by `userId` (unread is per user). */
 export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
   const rows = await ctx.db
-    .select({ group: groups })
+    .select({ group: groups, me: groupMembers })
     .from(groups)
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
     .where(and(isNull(groups.archivedAt), ids ? inArray(groups.id, ids) : undefined))
@@ -99,7 +100,7 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       .orderBy(messages.groupId, desc(messages.seq)),
   ])
 
-  return rows.map(({ group: g }) => {
+  return rows.map(({ group: g, me }) => {
     const repo = repos.find((r) => r.groupId === g.id)
     const stat = stats.find((s) => s.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
@@ -117,6 +118,9 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       unread: stat?.unread ?? 0,
       lastSeq: stat?.lastSeq ?? 0,
       last: last ? preview(last.kind, last.userName ?? last.botName, last.body) : '',
+      pinned: me.pinned,
+      muted: me.muted,
+      foldRuns: me.foldRuns,
     }
   })
 }
@@ -124,6 +128,27 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
 export async function groupDto(ctx: Ctx, userId: string, groupId: string) {
   const [dto] = await groupDtos(ctx, userId, [groupId])
   return dto ?? fail('not_found', '群不存在或你已不在群内')
+}
+
+type User = { id: string; name: string }
+
+/** Takes `userId` out of the group with their bots (plan D5); those bots' unfinished runs are stopped. */
+export async function removeMember(ctx: Ctx, groupId: string, userId: string, by: User) {
+  const theirBots = (await activeBots(ctx, groupId)).filter((b) => b.ownerId === userId)
+  const botIds = theirBots.map((b) => b.id)
+  await ctx.db.transaction(async (tx) => {
+    if (botIds.length)
+      await tx
+        .update(groupBots)
+        .set({ removedAt: ctx.now() })
+        .where(and(eq(groupBots.groupId, groupId), inArray(groupBots.botId, botIds)))
+    await tx
+      .delete(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+  })
+  if (botIds.length) await stopRuns(ctx, { groupId, botIds }, by)
+  for (const b of theirBots) await postEvent(ctx, groupId, `${b.name} 被移出 · 工作区保留`)
+  ctx.bus.publish([userId], { t: 'group.removed', groupId })
 }
 
 /** Pushes each member their own view of the group. */

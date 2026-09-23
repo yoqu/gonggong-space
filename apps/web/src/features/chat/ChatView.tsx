@@ -1,15 +1,15 @@
 import type { GroupDto, MessageDto, RunDto } from '@aiws/protocol'
-import { GitBranch, Megaphone, Users } from 'lucide-react'
+import { BellOff, Megaphone, PanelRight, Users } from 'lucide-react'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChatHeader } from '../../app/ChatLayout'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
-import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { Badge, EmptyState, IconButton, Spinner } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
+import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
-import { GroupRepoDialog } from './GroupRepoDialog'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
@@ -27,9 +27,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const stick = useRef(true)
   const olderAnchor = useRef<{ id: string; height: number } | null>(null)
   const readSeq = useRef(0)
-  const me = useSession((s) => s.user)
-  const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
-  const [repoOpen, setRepoOpen] = useState(false)
+  const [drawer, setDrawer] = useState<DrawerView | null>(null)
+  const [settings, setSettings] = useState<SettingsTab | null>(null)
 
   useEffect(() => {
     setActiveGroup(group.id)
@@ -98,25 +97,50 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         onBack={onBack}
         actions={
           <>
-            {group.kind === 'group' ? (
-              <span className="chat-header__members" title="群成员">
-                <Users size={14} />
-                {group.members.length + group.botIds.length}
+            {group.muted ? (
+              <span className="chat-header__muted" title="消息免打扰">
+                <BellOff size={13} />
               </span>
+            ) : null}
+            {group.kind === 'group' ? (
+              <button
+                type="button"
+                className="chat-header__members"
+                title="群成员"
+                onClick={() => setDrawer('members')}
+              >
+                <Users size={14} />
+                {group.members.length} · {group.botIds.length}
+              </button>
             ) : (
               <span className="chat-header__note">仅你和你的 bot</span>
             )}
-            {isAdmin ? (
-              <IconButton title="仓库与基准分支" onClick={() => setRepoOpen(true)}>
-                <GitBranch size={14} />
-              </IconButton>
-            ) : null}
+            <IconButton
+              title="群设置"
+              className={drawer ? 'is-active' : undefined}
+              onClick={() => setDrawer(drawer ? null : 'main')}
+            >
+              <PanelRight size={15} />
+            </IconButton>
           </>
         }
       />
-      {repoOpen ? <GroupRepoDialog group={group} onClose={() => setRepoOpen(false)} /> : null}
+      {drawer ? (
+        <GroupDrawer
+          group={group}
+          initialView={drawer}
+          onClose={() => setDrawer(null)}
+          onSettings={(tab) => {
+            setDrawer(null)
+            setSettings(tab)
+          }}
+        />
+      ) : null}
+      {settings ? (
+        <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
+      ) : null}
       {group.notice ? (
-        <div className="chat-notice">
+        <div className="chat-notice" data-testid="group-notice">
           <Megaphone size={13} className="muted-icon" />
           <span className="chat-notice__text">{group.notice}</span>
         </div>
@@ -141,6 +165,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                     botName={bot?.name ?? 'bot'}
                     agent={bot ? AGENT_LABEL[bot.agentKind] : ''}
                     trigger={r.triggerUserId ? userName(r.triggerUserId) : m.authorName}
+                    foldable={group.foldRuns}
                   />
                 )
               })}

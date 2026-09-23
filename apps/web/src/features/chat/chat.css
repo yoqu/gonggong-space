@@ -138,6 +138,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.run-card__fold {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+.run-card__fold:hover {
+  background: var(--color-bg-hover);
+}
 .run-card__hop {
   height: 18px;
   display: inline-flex;

@@ -170,6 +170,10 @@ export const GroupDto = z.object({
   lastSeq: z.number().int(),
   /** One-line preview of the latest message, '' when empty. */
   last: z.string(),
+  /** The requesting user's own prefs. */
+  pinned: z.boolean(),
+  muted: z.boolean(),
+  foldRuns: z.boolean(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 
@@ -390,6 +394,16 @@ export const GroupParams = z.object({
     .max(24 * 60),
 })
 export type GroupParams = z.infer<typeof GroupParams>
+/** PATCH /api/groups/:id (admins). */
+export const UpdateGroupReq = z.object({
+  name: z.string().trim().min(1, '填写群名称').max(60).optional(),
+  notice: z.string().trim().max(500).optional(),
+})
+/** PUT /api/groups/:id/prefs — only for the caller. */
+export const GroupPrefsReq = z
+  .object({ muted: z.boolean(), pinned: z.boolean(), foldRuns: z.boolean() })
+  .partial()
+export type GroupPrefsReq = z.infer<typeof GroupPrefsReq>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
 export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command'])

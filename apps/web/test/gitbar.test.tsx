@@ -16,6 +16,9 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   unread: 0,
   lastSeq: 0,
   last: '',
+  pinned: false,
+  muted: false,
+  foldRuns: false,
   ...o,
 })
 
