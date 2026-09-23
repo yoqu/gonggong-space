@@ -1,7 +1,7 @@
 import type { GitStatus, GroupBotStateDto } from '@aiws/protocol'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, ne } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groupBots } from '../../db/schema.js'
+import { groupBots, groupRepos } from '../../db/schema.js'
 import { memberIds } from '../messages/service.js'
 
 type Row = typeof groupBots.$inferSelect
@@ -43,4 +43,14 @@ export async function updateBotState(
   const state = botStateDto(row)
   ctx.bus.publish(await memberIds(ctx, groupId), { t: 'group.botState', groupId, state })
   return state
+}
+
+/** Groups with a repo where the bot's workspace is not ready yet; the scheduler holds their runs back. */
+export async function unreadyRepoGroups(db: Pick<Ctx['db'], 'selectDistinct'>, botId: string) {
+  const rows = await db
+    .selectDistinct({ groupId: groupBots.groupId })
+    .from(groupBots)
+    .innerJoin(groupRepos, eq(groupRepos.groupId, groupBots.groupId))
+    .where(and(eq(groupBots.botId, botId), ne(groupBots.workspaceState, 'ready')))
+  return new Set(rows.map((r) => r.groupId))
 }

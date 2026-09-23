@@ -6,9 +6,6 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { memberIds } from '../messages/service.js'
 
-export const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/)\S+$/
-export const BRANCH = /^[A-Za-z0-9._/-]+$/
-
 /** Non-members get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
   if (!isUuid(groupId)) return fail('not_found', '群不存在或你已不在群内')

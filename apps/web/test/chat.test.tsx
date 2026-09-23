@@ -157,7 +157,7 @@ function mockApi(routes: Record<string, (body: Record<string, unknown> | undefin
       calls.push({ method, path, body })
       const handler = routes[`${method} ${path.split('?')[0]}`]
       if (!handler) return new Response(JSON.stringify({ error: 'not_found', message: '' }), { status: 404 })
-      return new Response(JSON.stringify(handler(body)))
+      return new Response(JSON.stringify(await handler(body)))
     }),
   )
   return calls
@@ -356,5 +356,82 @@ describe('chat view', () => {
     mockApi(baseRoutes([]))
     renderAt('/g/zz')
     expect(await screen.findByText('群不存在或你已不在群内')).toBeTruthy()
+  })
+})
+
+describe('repo validation and binding', () => {
+  it('shows format, checking, failure and success states in the new group dialog', async () => {
+    let answer: (v: unknown) => void = () => {}
+    mockApi({
+      ...baseRoutes([]),
+      'POST /groups/validate-repo': () => new Promise((r) => (answer = r)),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '仓库协作' } })
+    const url = within(dialog).getByLabelText('仓库地址')
+    fireEvent.change(url, { target: { value: 'ftp://x' } })
+    expect(within(dialog).getByText('地址格式不正确，支持 git@ / https:// / ssh://')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '校验' }).hasAttribute('disabled')).toBe(true)
+
+    fireEvent.change(url, { target: { value: 'file:///srv/git/demo.git' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '校验' }))
+    expect(within(dialog).getByRole('button', { name: '校验中…' }).hasAttribute('disabled')).toBe(true)
+    await act(async () => answer({ ok: false, message: '仓库可访问，但分支 main 不存在' }))
+    expect(within(dialog).getByText('仓库可访问，但分支 main 不存在')).toBeTruthy()
+    expect(within(dialog).getByText('先校验仓库地址')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '校验' }))
+    await act(async () => answer({ ok: true, message: '仓库可访问 · 分支 main 存在 · 最新提交 3f2a91c' }))
+    expect(within(dialog).getByRole('button', { name: '已校验' })).toBeTruthy()
+    expect(within(dialog).queryByText('先校验仓库地址')).toBeNull()
+
+    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
+    expect(within(dialog).queryByText(/最新提交/)).toBeNull()
+    expect(within(dialog).getByRole('button', { name: '校验' })).toBeTruthy()
+  })
+
+  it('lets a group admin change the repo after validating it', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group()]),
+      'POST /groups/validate-repo': () => ({
+        ok: true,
+        message: '仓库可访问 · 分支 dev 存在 · 最新提交 1a2b3c4',
+      }),
+      'PATCH /groups/g1/repo': (body) => group({ repo: body as GroupDto['repo'] }),
+    })
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    fireEvent.click(await within(main).findByRole('button', { name: '仓库与基准分支' }))
+    const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
+    expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
+    expect(within(dialog).getByText('一期一群一仓库')).toBeTruthy()
+    expect(within(dialog).getByText(/更换仓库会重建所有 bot 的托管工作区/)).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '更换' }))
+    const save = within(dialog).getByRole('button', { name: '保存' })
+    expect(save.hasAttribute('disabled')).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText('仓库地址'), {
+      target: { value: 'git@git.corp:pay/new.git' },
+    })
+    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '校验' }))
+    expect(await within(dialog).findByText(/最新提交 1a2b3c4/)).toBeTruthy()
+    fireEvent.click(save)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
+      url: 'git@git.corp:pay/new.git',
+      branch: 'dev',
+    })
+    expect(await within(main).findByText('git@git.corp:pay/new.git · dev')).toBeTruthy()
+  })
+
+  it('offers repo binding to admins only', async () => {
+    mockApi(baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: false }] })]))
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    expect(await within(main).findByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
+    expect(within(main).queryByRole('button', { name: '仓库与基准分支' })).toBeNull()
   })
 })

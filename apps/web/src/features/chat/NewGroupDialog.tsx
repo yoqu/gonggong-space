@@ -1,5 +1,5 @@
-import type { BotDto, GroupDto, UserBriefDto, UserDto, ValidateRepoRes } from '@aiws/protocol'
-import { Check, CircleCheck, CircleX, GitFork } from 'lucide-react'
+import type { BotDto, GroupDto, UserBriefDto, UserDto } from '@aiws/protocol'
+import { Check, GitFork } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
@@ -7,22 +7,18 @@ import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, Input, Tabs, toast } from '../../ui'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
+import { type RepoDraft, RepoFields, repoBody, repoValidated } from './RepoFields'
 import './chat.css'
 
 export type GroupKind = GroupDto['kind']
 
-const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/)\S+$/
-
 const botState = (b: BotDto) =>
   b.binding === 'bound' ? PRESENCE[b.presence] : { label: BINDING_LABEL[b.binding], color: '#FF9F0A' }
 
-interface Draft {
+interface Draft extends RepoDraft {
   kind: GroupKind
   name: string
   repoMode: 'repo' | 'none'
-  url: string
-  branch: string
-  check: 'checking' | ValidateRepoRes | null
   people: string[]
   bots: string[]
 }
@@ -52,29 +48,13 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
 
   const dm = d.kind === 'dm'
   const repo = d.repoMode === 'repo'
-  const urlOk = REPO_URL.test(d.url.trim())
-  const check = d.check === 'checking' ? null : d.check
   const choices = bots.filter((b) => !dm || b.ownerId === me.id)
   const owners = new Set(
     bots.filter((b) => d.bots.includes(b.id) && b.ownerId !== me.id).map((b) => b.ownerId),
   )
   const members = new Set([...d.people, ...owners])
-  const blocked = !d.name.trim() ? '填写群名' : repo && !check?.ok ? '先校验仓库地址' : ''
+  const blocked = !d.name.trim() ? '填写群名' : repo && !repoValidated(d) ? '先校验仓库地址' : ''
   const repoName = d.url.trim().split(/[:/]/).at(-1)
-
-  const validate = async () => {
-    set({ check: 'checking' })
-    try {
-      set({
-        check: await api.post<ValidateRepoRes>('/groups/validate-repo', {
-          url: d.url.trim(),
-          branch: d.branch.trim() || 'main',
-        }),
-      })
-    } catch {
-      set({ check: { ok: false, message: '校验失败，请稍后重试' } })
-    }
-  }
 
   const submit = async () => {
     setCreating(true)
@@ -84,7 +64,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         kind: d.kind,
         memberIds: dm ? [] : d.people,
         botIds: d.bots,
-        repo: repo ? { url: d.url.trim(), branch: d.branch.trim() || 'main' } : null,
+        repo: repo ? repoBody(d) : null,
       })
       useWorkspace.getState().applyEvent({ t: 'group.updated', group })
       onClose()
@@ -160,46 +140,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
           </div>
           {repo ? (
             <>
-              <div className="ng-repo">
-                <Input
-                  mono
-                  aria-label="仓库地址"
-                  value={d.url}
-                  invalid={!!d.url && !urlOk}
-                  placeholder="git@git.corp:team/repo.git"
-                  onChange={(e) => set({ url: e.target.value, check: null })}
-                />
-                <Input
-                  mono
-                  aria-label="基准分支"
-                  value={d.branch}
-                  placeholder="main"
-                  onChange={(e) => set({ branch: e.target.value, check: null })}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!urlOk || d.check === 'checking'}
-                  onClick={() => void validate()}
-                >
-                  {d.check === 'checking' ? '校验中…' : check?.ok ? '已校验' : '校验'}
-                </Button>
-              </div>
-              {d.url && !urlOk ? (
-                <div className="ng-check ng-check--bad">
-                  <CircleX size={12} className="ng-check__icon" />
-                  地址格式不正确，支持 git@ / https:// / ssh://
-                </div>
-              ) : check ? (
-                <div className={cx('ng-check', check.ok ? 'ng-check--ok' : 'ng-check--bad')}>
-                  {check.ok ? (
-                    <CircleCheck size={12} className="ng-check__icon" />
-                  ) : (
-                    <CircleX size={12} className="ng-check__icon" />
-                  )}
-                  <span>{check.message}</span>
-                </div>
-              ) : null}
+              <RepoFields draft={d} set={set} />
               <span className="ng-note">
                 一期一群一仓库。bot 加入后由各自 daemon 用本机 git 凭据 clone
                 到托管工作区；服务器不持有写权限。

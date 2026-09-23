@@ -4,6 +4,7 @@ use crate::protocol::{AgentKind, DaemonToServer, RunBot, RunDone, RunOutcome, Ru
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
 use crate::turn::system_prompt;
+use crate::workspace::Workspaces;
 use agent_client_protocol::{AcpAgent, AcpAgentConfig};
 use anyhow::{Context, bail};
 use std::collections::HashMap;
@@ -32,6 +33,7 @@ pub struct Engine(Arc<Inner>);
 
 pub(crate) struct Inner {
     pub(crate) config: EngineConfig,
+    workspaces: Workspaces,
     actors: Mutex<HashMap<(String, String), Actor>>,
     install: tokio::sync::Mutex<()>,
 }
@@ -43,7 +45,8 @@ struct Actor {
 
 impl Engine {
     pub fn new(config: EngineConfig) -> Self {
-        Engine(Arc::new(Inner { config, actors: Mutex::default(), install: tokio::sync::Mutex::default() }))
+        let workspaces = Workspaces::new(config.home.clone());
+        Engine(Arc::new(Inner { config, workspaces, actors: Mutex::default(), install: tokio::sync::Mutex::default() }))
     }
 }
 
@@ -58,8 +61,15 @@ impl Handler for Engine {
                     actor.shared.cancel(&run_id);
                 }
             }
-            // Implemented by the M2 workspace slice.
-            ServerToDaemon::WorkspaceEnsure(_) | ServerToDaemon::WorkspaceCd(_) => {}
+            // Never block the handler; per-(group, bot) ordering is kept by Workspaces' locks.
+            ServerToDaemon::WorkspaceEnsure(req) => {
+                let (inner, out) = (self.0.clone(), out.clone());
+                tokio::spawn(async move { inner.workspaces.ensure(req, &out).await });
+            }
+            ServerToDaemon::WorkspaceCd(req) => {
+                let (inner, out) = (self.0.clone(), out.clone());
+                tokio::spawn(async move { inner.workspaces.cd(req, &out).await });
+            }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }
@@ -67,13 +77,10 @@ impl Handler for Engine {
 
 impl Inner {
     async fn start(self: Arc<Self>, start: RunStart, out: Outbox) {
-        let cwd = match workspace_dir(&self.config.home, &start) {
+        let cwd = match self.workspaces.resolve(&start).await {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
-        if let Err(e) = tokio::fs::create_dir_all(&cwd).await {
-            return out.send(failed(&start.run_id, format!("无法创建工作区 {}: {e}", cwd.display())));
-        }
         let mut actors = self.actors.lock().unwrap();
         let actor = actors.entry((start.group_id.clone(), start.bot.id.clone())).or_insert_with(|| {
             let (tx, rx) = mpsc::unbounded_channel();
@@ -142,14 +149,6 @@ fn node_major(version: &str) -> Option<u32> {
     version.trim_start_matches('v').split('.').next()?.parse().ok()
 }
 
-/// Managed workspace `<home>/workspaces/<groupId>/<botId>/_empty/`. Repo clones and /cd arrive in M2.
-pub fn workspace_dir(home: &Path, start: &RunStart) -> Result<PathBuf, String> {
-    if start.workspace.repo.is_some() || start.workspace.cd_path.is_some() {
-        return Err("绑定仓库的群与 /cd 工作区将在 M2 支持，当前只能在未绑定仓库的群里运行".into());
-    }
-    Ok(home.join("workspaces").join(&start.group_id).join(&start.bot.id).join("_empty"))
-}
-
 pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
     DaemonToServer::RunDone(RunDone {
         run_id: run_id.into(),
@@ -167,37 +166,6 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{RepoSpec, RunPrompt, Tier, WorkspaceSpec};
-
-    fn start(repo: Option<RepoSpec>) -> RunStart {
-        RunStart {
-            run_id: "r".into(),
-            group_id: "g1".into(),
-            bot: RunBot {
-                id: "b1".into(),
-                name: "x".into(),
-                agent_kind: AgentKind::Claude,
-                system_prompt: String::new(),
-                tier: Tier::Workspace,
-            },
-            workspace: WorkspaceSpec { repo, cd_path: None },
-            resume_session_id: None,
-            new_session_reason: None,
-            prompt: RunPrompt {
-                text: String::new(),
-                triggered_by: String::new(),
-                context: vec![],
-                fallback_context: vec![],
-            },
-        }
-    }
-
-    #[test]
-    fn managed_empty_workspace_path() {
-        assert_eq!(workspace_dir(Path::new("/h"), &start(None)).unwrap(), Path::new("/h/workspaces/g1/b1/_empty"));
-        let repo = RepoSpec { id: "rp".into(), url: "u".into(), branch: "main".into() };
-        assert!(workspace_dir(Path::new("/h"), &start(Some(repo))).is_err());
-    }
 
     #[test]
     fn parses_node_major() {

@@ -7,3 +7,4 @@ pub mod protocol;
 pub mod service;
 mod session;
 pub mod turn;
+pub mod workspace;

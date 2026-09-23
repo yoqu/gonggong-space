@@ -1,12 +1,14 @@
 import type { GroupDto, MessageDto, RunDto } from '@aiws/protocol'
-import { Megaphone, Users } from 'lucide-react'
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { GitBranch, Megaphone, Users } from 'lucide-react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChatHeader } from '../../app/ChatLayout'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
+import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Badge, EmptyState, Spinner } from '../../ui'
+import { Badge, EmptyState, IconButton, Spinner } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { GroupRepoDialog } from './GroupRepoDialog'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
@@ -24,6 +26,9 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const stick = useRef(true)
   const olderAnchor = useRef<{ id: string; height: number } | null>(null)
   const readSeq = useRef(0)
+  const me = useSession((s) => s.user)
+  const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
+  const [repoOpen, setRepoOpen] = useState(false)
 
   useEffect(() => {
     setActiveGroup(group.id)
@@ -91,16 +96,24 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         subtitle={group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 托管空工作区'}
         onBack={onBack}
         actions={
-          group.kind === 'group' ? (
-            <span className="chat-header__members" title="群成员">
-              <Users size={14} />
-              {group.members.length + group.botIds.length}
-            </span>
-          ) : (
-            <span className="chat-header__note">仅你和你的 bot</span>
-          )
+          <>
+            {group.kind === 'group' ? (
+              <span className="chat-header__members" title="群成员">
+                <Users size={14} />
+                {group.members.length + group.botIds.length}
+              </span>
+            ) : (
+              <span className="chat-header__note">仅你和你的 bot</span>
+            )}
+            {isAdmin ? (
+              <IconButton title="仓库与基准分支" onClick={() => setRepoOpen(true)}>
+                <GitBranch size={14} />
+              </IconButton>
+            ) : null}
+          </>
         }
       />
+      {repoOpen ? <GroupRepoDialog group={group} onClose={() => setRepoOpen(false)} /> : null}
       {group.notice ? (
         <div className="chat-notice">
           <Megaphone size={13} className="muted-icon" />

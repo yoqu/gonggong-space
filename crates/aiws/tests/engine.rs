@@ -214,14 +214,3 @@ async fn adapter_crash_fails_the_run_and_the_next_turn_recovers() {
     let (_, next) = r.finish("r2").await;
     assert_eq!(next.outcome, RunOutcome::Completed);
 }
-
-#[tokio::test]
-async fn repo_workspaces_are_not_supported_yet() {
-    let mut r = rig(Duration::from_secs(60));
-    let mut s = start("r1", "hi");
-    s.workspace.repo = Some(RepoSpec { id: "rp".into(), url: "git@x:y.git".into(), branch: "main".into() });
-    r.run(s);
-    let (_, done) = r.finish("r1").await;
-    assert_eq!(done.outcome, RunOutcome::Failed);
-    assert!(done.error.unwrap().contains("M2"));
-}

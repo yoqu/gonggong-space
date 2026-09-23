@@ -21,10 +21,10 @@ export function startRunEngine(ctx: Ctx) {
   const enqueue = (job: () => Promise<void>) => {
     chain = chain.then(job).catch((err) => console.error('run engine:', err))
   }
-  const onMessage = (machineId: string, msg: DaemonMsg) =>
-    enqueue(() =>
-      msg.t === 'run.event' ? onEvent(ctx, machineId, msg.runId, msg.event) : onDone(ctx, machineId, msg),
-    )
+  const onMessage = (machineId: string, msg: DaemonMsg) => {
+    if (msg.t === 'run.event') enqueue(() => onEvent(ctx, machineId, msg.runId, msg.event))
+    else if (msg.t === 'run.done') enqueue(() => onDone(ctx, machineId, msg))
+  }
   const onOnline = (machineId: string) =>
     enqueue(async () => {
       const owned = await ctx.db

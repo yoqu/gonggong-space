@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
 import { publishBot } from '../bots/dto.js'
+import { unreadyRepoGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -14,6 +15,7 @@ const WAITING = ['queued', 'offline_wait']
 const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const FALLBACK_LIMIT = 50
 const OFFLINE = { status: 'offline_wait', step: 'bot 离线，等待上线', startedAt: null }
+const WORKSPACE_WAIT = '工作区准备中'
 
 /**
  * Server-authoritative scheduling (plan D22): dispatches the bot's waiting runs in trigger order while its machine
@@ -35,6 +37,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       .select({ groupId: runs.groupId })
       .from(runs)
       .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
+    const unready = await unreadyRepoGroups(tx, botId)
     let busy = active.length
     // One conversation per (group, bot): a group's next turn waits for its previous one (spec §8.9).
     const busyGroups = new Set(active.map((r) => r.groupId))
@@ -50,6 +53,12 @@ export async function schedule(ctx: Ctx, botId: string) {
         groupQueue.set(run.groupId, n)
         const step = `本群上一轮未结束，排第 ${n}`
         if (run.status !== 'queued' || run.step !== step) await setRun(run.id, { status: 'queued', step })
+        continue
+      }
+      // Repo groups dispatch only once the bot's clone is ready; the workspace engine reschedules then.
+      if (machineId && unready.has(run.groupId)) {
+        if (run.status !== 'queued' || run.step !== WORKSPACE_WAIT)
+          await setRun(run.id, { status: 'queued', step: WORKSPACE_WAIT })
         continue
       }
       if (machineId && busy < bot.concurrency) {

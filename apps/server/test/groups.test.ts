@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, groupRepos } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
+import { bareRepo } from './support/git.js'
 import { client, events } from './support/http.js'
 
 let t: TestApp
@@ -177,10 +178,7 @@ describe('reading groups', () => {
 
   it('validates repo address format', async () => {
     const p = await people()
-    const ok = await p.asWang.post('/api/groups/validate-repo', {
-      url: 'https://git.corp/a/b.git',
-      branch: 'main',
-    })
+    const ok = await p.asWang.post('/api/groups/validate-repo', { url: bareRepo().url, branch: 'main' })
     expect(ok.body).toMatchObject({ ok: true })
     const bad = await p.asWang.post('/api/groups/validate-repo', { url: 'ftp://x', branch: 'main' })
     expect(bad.body).toMatchObject({ ok: false })

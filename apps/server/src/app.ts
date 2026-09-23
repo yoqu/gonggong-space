@@ -15,6 +15,8 @@ import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { userRoutes } from './modules/users/routes.js'
+import { startWorkspaceEngine } from './modules/workspaces/provision.js'
+import { workspaceRoutes } from './modules/workspaces/routes.js'
 import { webGateway } from './realtime/gateway.js'
 
 export async function buildApp(ctx: Ctx) {
@@ -37,6 +39,9 @@ export async function buildApp(ctx: Ctx) {
   await app.register(runRoutes(ctx))
   const stopRunEngine = startRunEngine(ctx)
   app.addHook('onClose', stopRunEngine)
+  const stopWorkspaceEngine = startWorkspaceEngine(ctx)
+  app.addHook('onClose', stopWorkspaceEngine)
+  await app.register(workspaceRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))

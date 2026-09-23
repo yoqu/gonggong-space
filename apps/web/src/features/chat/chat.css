@@ -583,3 +583,28 @@
   border: 0;
   min-width: 0;
 }
+.repo-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.repo-settings__row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 28px;
+  font-size: 12px;
+}
+.repo-settings__key {
+  color: var(--color-text-tertiary);
+}
+.repo-settings__mono {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .repo-settings__row {
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+  }
+}
