@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
+import { daemonWorkspaceRoutes } from './daemon.js'
 import { listBotStates } from './state.js'
 
 export function workspaceRoutes(ctx: Ctx) {
@@ -11,5 +12,6 @@ export function workspaceRoutes(ctx: Ctx) {
       await requireMember(ctx, req.params.id, me.id)
       return listBotStates(ctx, req.params.id)
     })
+    await app.register(daemonWorkspaceRoutes(ctx))
   }
 }

@@ -2,10 +2,10 @@
 use crate::config::Config;
 use crate::protocol::AgentKind;
 use anyhow::{Result, anyhow, bail};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-/// Subset of the server's `BotDto` that the CLI needs.
-#[derive(Debug, Clone, Deserialize)]
+/// Subset of the server's `BotDto` that the CLI and the desktop app need.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bot {
     pub id: String,
@@ -13,9 +13,13 @@ pub struct Bot {
     pub agent_kind: AgentKind,
     pub binding: Binding,
     pub presence: String,
+    #[serde(default)]
+    pub system_prompt: String,
+    #[serde(default)]
+    pub concurrency: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Binding {
     PendingBind,
@@ -52,10 +56,22 @@ impl Client {
             .await?;
         Ok(ok(res).await?.json().await?)
     }
+
+    /// The owner's 并发上限 for a bot on this machine (1–8).
+    pub async fn set_concurrency(&self, id: &str, concurrency: u32) -> Result<Bot> {
+        let res = self
+            .http
+            .patch(format!("{}/api/daemon/bots/{id}", self.base))
+            .bearer_auth(&self.token)
+            .json(&serde_json::json!({ "concurrency": concurrency }))
+            .send()
+            .await?;
+        Ok(ok(res).await?.json().await?)
+    }
 }
 
 /// Turns a non-2xx response into an error carrying the server's `{ message }`.
-async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
+pub(crate) async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
     if res.status().is_success() {
         return Ok(res);
     }

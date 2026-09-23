@@ -93,6 +93,7 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
     RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
+        group_name: "支付服务重构".into(),
         bot: RunBot {
             id: "b1".into(),
             name: "小王的 Claude".into(),

@@ -1,6 +1,6 @@
 //! Self-upgrade (plan D17): the server offers a newer build for this OS/arch; the daemon downloads it, verifies its
 //! sha256, swaps its own executable and re-execs itself once no run is active.
-use crate::config::Config;
+use crate::config::{Config, Settings};
 use crate::protocol::UpgradeInfo;
 use anyhow::Context;
 use sha2::{Digest, Sha256};
@@ -130,9 +130,9 @@ impl Upgrader {
         Upgrader { home, server, http, exe, args, state: Arc::default() }
     }
 
-    /// For the running daemon of `config`; `None` when `AIWS_NO_AUTO_UPGRADE=1`.
+    /// For the running daemon of `config`; `None` when `AIWS_NO_AUTO_UPGRADE=1` or auto upgrade is off in settings.
     pub fn from_env(home: PathBuf, config: &Config) -> anyhow::Result<Option<Self>> {
-        if std::env::var("AIWS_NO_AUTO_UPGRADE").is_ok_and(|v| v == "1") {
+        if std::env::var("AIWS_NO_AUTO_UPGRADE").is_ok_and(|v| v == "1") || !Settings::load(&home)?.auto_upgrade {
             return Ok(None);
         }
         let exe = std::env::current_exe()?;

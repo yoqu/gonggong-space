@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Root of all local state (`~/.aiws`); `AIWS_HOME` overrides it so several daemons can share a machine in tests.
 pub fn home() -> PathBuf {
@@ -56,6 +56,36 @@ impl Config {
     }
 }
 
+/// Local preferences kept across unbinding, in `<home>/settings.json`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Settings {
+    /// Off = the persistent form of `AIWS_NO_AUTO_UPGRADE=1`.
+    pub auto_upgrade: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings { auto_upgrade: true }
+    }
+}
+
+impl Settings {
+    pub fn load(home: &Path) -> Result<Settings> {
+        match std::fs::read_to_string(home.join("settings.json")) {
+            Ok(s) => Ok(serde_json::from_str(&s).context("corrupt settings.json")?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn save(&self, home: &Path) -> Result<()> {
+        std::fs::create_dir_all(home)?;
+        std::fs::write(home.join("settings.json"), serde_json::to_vec_pretty(self)?)?;
+        Ok(())
+    }
+}
+
 #[cfg(unix)]
 fn restrict_permissions(path: &std::path::Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -66,4 +96,17 @@ fn restrict_permissions(path: &std::path::Path) -> Result<()> {
 #[cfg(not(unix))]
 fn restrict_permissions(_: &std::path::Path) -> Result<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+
+    #[test]
+    fn settings_default_to_auto_upgrade_and_round_trip() {
+        let home = tempfile::tempdir().unwrap();
+        assert!(Settings::load(home.path()).unwrap().auto_upgrade);
+        Settings { auto_upgrade: false }.save(home.path()).unwrap();
+        assert!(!Settings::load(home.path()).unwrap().auto_upgrade);
+    }
 }

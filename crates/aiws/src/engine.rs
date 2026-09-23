@@ -4,6 +4,7 @@ use crate::ask::{AskServer, Asker};
 use crate::attachments;
 use crate::config::Config;
 use crate::files;
+use crate::local::LocalSettings;
 use crate::protocol::{AgentKind, Attachment, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -19,7 +20,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`.
-const ADAPTERS: [(AgentKind, &str, &str); 2] = [
+pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "1.13.0"),
 ];
@@ -154,6 +155,11 @@ impl Handler for Engine {
 impl Inner {
     async fn start(self: Arc<Self>, start: RunStart, out: Outbox) {
         let _preparing = Preparing(&self, start.run_id.clone());
+        // Read per run, so edits from the CLI or the desktop app apply from the next turn on.
+        let local = match LocalSettings::load(&self.config.home) {
+            Ok(local) => local,
+            Err(e) => return out.send(failed(&start.run_id, format!("{e:#}"))),
+        };
         let cwd = match self.workspaces.resolve(&start).await {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
@@ -179,7 +185,7 @@ impl Inner {
             Actor { tx, shared }
         });
         actor.shared.enqueue(&start.run_id);
-        let _ = actor.tx.send(TurnReq { start, cwd, out });
+        let _ = actor.tx.send(TurnReq { start, cwd, out, local });
     }
 
     /// Hands an answer / append to the conversation running `run_id`, once its attachments are in that workspace.
@@ -210,7 +216,7 @@ impl Inner {
     }
 
     /// Launch config of the adapter for this bot, with the local agent CLI and per-process system prompt.
-    pub(crate) async fn adapter(&self, bot: &RunBot) -> anyhow::Result<AcpAgentConfig> {
+    pub(crate) async fn adapter(&self, bot: &RunBot, local: &LocalSettings) -> anyhow::Result<AcpAgentConfig> {
         let base = match &self.config.adapter_cmd {
             Some(cmd) => AcpAgent::from_str(cmd)?.into_config(),
             None => {
@@ -218,7 +224,7 @@ impl Inner {
                 AcpAgentConfig::new(node).arg(script.to_string_lossy())
             }
         };
-        let cli = agents::find(agents::binary(bot.agent_kind)).map(|p| p.to_string_lossy().into_owned());
+        let cli = agents::locate(bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
         Ok(match bot.agent_kind {
             AgentKind::Claude => base.envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
             AgentKind::Codex => base

@@ -1,7 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "files": {
-    "includes": ["**", "!**/dist", "!**/target", "!docs", "!.aiws-dev", "!**/drizzle", "!.claude"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/target",
+      "!apps/desktop/src-tauri/gen",
+      "!docs",
+      "!.aiws-dev",
+      "!**/drizzle",
+      "!.claude"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

@@ -18,7 +18,20 @@ function heartbeat(m: AdminMachineDto) {
   return min < 1440 ? `离线 ${Math.floor(min / 60)} 小时` : `离线 ${Math.floor(min / 1440)} 天`
 }
 
-/** 管理后台 · 机器与网络 (spec §8.5). Network quality is only measured once force sync exists (P2). */
+/** Latest measurement reported by the daemon; red past the force-sync thresholds. */
+function NetCell({ text, bad, at }: { text: string | null; bad: boolean; at: string | null }) {
+  if (text === null) return <td>—</td>
+  return (
+    <td
+      className={bad ? 'admin-table__bad' : undefined}
+      title={at ? `测量于 ${new Date(at).toLocaleString()}` : undefined}
+    >
+      {text}
+    </td>
+  )
+}
+
+/** 管理后台 · 机器与网络 (spec §8.5): network quality as last measured by each daemon (`aiws net` / 测量延迟与带宽). */
 export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
   const [error, setError] = useState('')
@@ -57,8 +70,20 @@ export function MachinesPage() {
                   <td className={outdated(m) ? 'admin-table__mono admin-table__warn' : 'admin-table__mono'}>
                     {m.daemonVersion ? `v${m.daemonVersion}` : '—'}
                   </td>
-                  <td>—</td>
-                  <td>—</td>
+                  <NetCell
+                    text={m.latencyMs === null ? null : `${m.latencyMs} ms`}
+                    bad={!!params && m.latencyMs !== null && m.latencyMs > params.forceSyncMaxLatencyMs}
+                    at={m.netMeasuredAt}
+                  />
+                  <NetCell
+                    text={m.bandwidthMbps === null ? null : `${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
+                    bad={
+                      !!params &&
+                      m.bandwidthMbps !== null &&
+                      m.bandwidthMbps < params.forceSyncMinBandwidthMbps
+                    }
+                    at={m.netMeasuredAt}
+                  />
                   <td>
                     <span className="admin-table__presence">
                       <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
@@ -82,8 +107,8 @@ export function MachinesPage() {
       ) : null}
       <p className="admin__foot">
         {params
-          ? `网络质量仅在开启强制同步时测量并记录，不在群里展示。强制同步开启阈值：延迟 ≤ ${params.forceSyncMaxLatencyMs} ms，带宽 ≥ ${params.forceSyncMinBandwidthMbps} Mbps。`
-          : '网络质量仅在开启强制同步时测量并记录，不在群里展示。'}
+          ? `网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ ${params.forceSyncMaxLatencyMs} ms，带宽 ≥ ${params.forceSyncMinBandwidthMbps} Mbps。`
+          : '网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。'}
       </p>
     </AdminPage>
   )

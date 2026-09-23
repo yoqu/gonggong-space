@@ -33,6 +33,24 @@ export const NetReportReq = z.object({ latencyMs: z.number().min(0), bandwidthMb
 export const NET_PROBE_MAX_BYTES = 16 * 1024 * 1024
 /** PATCH /api/daemon/bots/:id: the bot owner changes the concurrency from the desktop app (spec §4.7). */
 export const DaemonBotPatchReq = z.object({ concurrency: z.number().int().min(1).max(8) })
+/**
+ * GET /api/daemon/workspaces: every (group, bot) pair of this machine's bots, removed ones included, so the desktop
+ * app can name and classify the dirs under `<home>/workspaces`. `removed` = bot left the group, bot deleted or group
+ * archived; `repoId` = the group's current repo (the managed dir name). POST …/:groupId/:botId/reset-cd = `/cd --reset`.
+ */
+export const DaemonWorkspaceDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  groupKind: z.enum(['group', 'dm']),
+  botId: z.string(),
+  botName: z.string(),
+  kind: z.enum(['managed', 'cd']),
+  cdPath: z.string().nullable(),
+  repoId: z.string().nullable(),
+  removed: z.boolean(),
+  running: z.boolean(),
+})
+export type DaemonWorkspaceDto = z.infer<typeof DaemonWorkspaceDto>
 
 // ── Shared run payloads ─────────────────────────────────────────────────────
 export const McpServer = z.discriminatedUnion('transport', [
@@ -79,6 +97,7 @@ export const RunStart = z.object({
   t: z.literal('run.start'),
   runId: z.string(),
   groupId: z.string(),
+  groupName: z.string(),
   bot: z.object({
     id: z.string(),
     name: z.string(),

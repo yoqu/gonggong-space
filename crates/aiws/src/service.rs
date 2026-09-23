@@ -2,11 +2,12 @@ use crate::config::Config;
 use crate::protocol::{
     AgentInfo, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon,
 };
+use crate::status::Monitor;
 use crate::tls::Ws;
 use crate::upgrade::{self, Upgrader};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::VecDeque;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -84,6 +85,7 @@ pub struct Service<H: Handler> {
     pub max_backoff: Duration,
     /// Self-upgrade when the server offers a newer build; `None` disables it.
     pub upgrader: Option<Upgrader>,
+    pub monitor: Monitor,
 }
 
 impl<H: Handler> Service<H> {
@@ -92,23 +94,36 @@ impl<H: Handler> Service<H> {
         let (outbox, mut rx) = Outbox::channel();
         let mut backlog = Backlog::default();
         let mut backoff = Duration::from_secs(1);
+        self.monitor.agents(self.agents.clone());
         loop {
-            match self.session(&outbox, &mut rx, &mut backlog).await {
+            let error = match self.session(&outbox, &mut rx, &mut backlog).await {
                 Ok(Some(fatal)) => return fatal,
-                Ok(None) => backoff = Duration::from_secs(1),
-                Err(e) => tracing::warn!("connection failed: {e:#}"),
-            }
+                Ok(None) => {
+                    backoff = Duration::from_secs(1);
+                    "连接已断开".to_string()
+                }
+                Err(e) => {
+                    tracing::warn!("connection failed: {e:#}");
+                    format!("{e:#}")
+                }
+            };
             tracing::info!("reconnecting in {backoff:?}");
+            self.monitor.offline(backoff, error);
             let wait = tokio::time::sleep(backoff);
             tokio::pin!(wait);
             loop {
                 tokio::select! {
                     _ = &mut wait => break,
-                    Some(msg) = rx.recv() => backlog.push(msg),
+                    Some(msg) = rx.recv() => self.queue(&mut backlog, msg),
                 }
             }
             backoff = (backoff * 2).min(self.max_backoff);
         }
+    }
+
+    fn queue(&self, backlog: &mut Backlog, msg: DaemonToServer) {
+        self.monitor.outbound(&msg);
+        backlog.push(msg);
     }
 
     /// One connection lifetime. `Ok(None)` = was connected then dropped; `Ok(Some)` = fatal reject.
@@ -120,7 +135,7 @@ impl<H: Handler> Service<H> {
     ) -> anyhow::Result<Option<Fatal>> {
         let mut ws = crate::tls::connect_ws(&self.config).await?;
         while let Ok(msg) = rx.try_recv() {
-            backlog.push(msg);
+            self.queue(backlog, msg);
         }
         let mut active_runs = self.handler.active_runs();
         active_runs.extend(backlog.finished_runs());
@@ -136,6 +151,7 @@ impl<H: Handler> Service<H> {
         let heartbeat_sec = match next_msg(&mut ws).await? {
             ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade } => {
                 tracing::info!(machine_id, "connected");
+                self.monitor.online(heartbeat_sec);
                 if let (Some(up), Some(info)) = (&self.upgrader, upgrade) {
                     up.offer(info);
                 }
@@ -152,6 +168,9 @@ impl<H: Handler> Service<H> {
         let mut beat = tokio::time::interval(Duration::from_secs(heartbeat_sec.max(1)));
         beat.tick().await;
         let mut idle = tokio::time::interval(Duration::from_secs(1));
+        // Latency = round trip of a WebSocket ping sent with each heartbeat (and right after welcome).
+        let mut ping_at = Some(Instant::now());
+        ws.send(Message::Ping(Default::default())).await?;
         loop {
             // A message leaves the backlog only once written: a failed send keeps it for the next connection.
             while let Some(msg) = backlog.0.front() {
@@ -161,15 +180,28 @@ impl<H: Handler> Service<H> {
             tokio::select! {
                 incoming = ws.next() => match incoming {
                     Some(Ok(Message::Text(t))) => match serde_json::from_str::<ServerToDaemon>(&t) {
-                        Ok(msg) => self.handler.handle(msg, outbox),
+                        Ok(msg) => {
+                            self.monitor.inbound(&msg);
+                            self.handler.handle(msg, outbox);
+                        }
                         Err(e) => tracing::warn!("ignoring unknown server message: {e}"),
                     },
+                    Some(Ok(Message::Pong(_))) => {
+                        if let Some(at) = ping_at.take() {
+                            self.monitor.latency(at.elapsed());
+                        }
+                    }
                     Some(Ok(Message::Close(_))) | None => return Ok(None),
                     Some(Ok(_)) => {}
                     Some(Err(e)) => return Err(e.into()),
                 },
-                Some(out) = rx.recv() => backlog.push(out),
-                _ = beat.tick() => send(&mut ws, &DaemonToServer::Heartbeat).await?,
+                Some(out) = rx.recv() => self.queue(backlog, out),
+                _ = beat.tick() => {
+                    send(&mut ws, &DaemonToServer::Heartbeat).await?;
+                    self.monitor.heartbeat();
+                    ping_at = Some(Instant::now());
+                    ws.send(Message::Ping(Default::default())).await?;
+                }
                 _ = idle.tick() => {
                     // Restart into a staged build only when nothing runs or waits to be reported.
                     if let Some(up) = &self.upgrader

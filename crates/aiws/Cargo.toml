@@ -12,12 +12,15 @@ agent-client-protocol = { version = "2.2.0", features = ["unstable_end_turn_toke
 anyhow = "1.0.104"
 aws-lc-rs = { version = "1.18.1", default-features = false, features = ["aws-lc-sys", "prebuilt-nasm"] }
 base64 = "0.23.1"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 clap = { version = "4.6.7", features = ["derive", "env"] }
+fs4 = "1.1.0"
 futures-util = "0.3.34"
 gethostname = "1.1.0"
 http-body-util = "0.1.5"
 hyper = { version = "1.11.1", features = ["server", "http1"] }
 hyper-util = { version = "0.1.20", features = ["tokio"] }
+regex = "1.13.1"
 reqwest = { version = "0.13.5", features = ["json"] }
 rustls = { version = "0.23.45", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }
@@ -27,8 +30,10 @@ thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["full"] }
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 tracing = "0.1.44"
+tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1.26.1", features = ["v4"] }
+zip = { version = "8.6.0", default-features = false, features = ["chrono", "deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }

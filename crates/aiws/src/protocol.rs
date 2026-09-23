@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u32 = 1;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentKind {
     Claude,
@@ -219,6 +219,8 @@ pub struct RunPrompt {
 pub struct RunStart {
     pub run_id: String,
     pub group_id: String,
+    #[serde(default)]
+    pub group_name: String,
     pub bot: RunBot,
     pub workspace: WorkspaceSpec,
     pub resume_session_id: Option<String>,

@@ -194,7 +194,7 @@ describe('机器与网络', () => {
     })
     mockApi({
       'GET /admin/machines': [
-        m({}),
+        m({ latencyMs: 38, bandwidthMbps: 87.46, netMeasuredAt: '2026-09-23T09:00:00Z' }),
         m({
           id: 'm2',
           ownerName: '周婷',
@@ -204,7 +204,11 @@ describe('机器与网络', () => {
           daemonVersion: '0.8.7',
           protocol: 0,
           lastSeenAt: '2026-09-23T09:18:00Z',
+          latencyMs: 180,
+          bandwidthMbps: 4.2,
+          netMeasuredAt: '2026-09-22T09:00:00Z',
         }),
+        m({ id: 'm3', name: 'never-measured', online: false, lastSeenAt: null }),
       ],
       'GET /admin/params': PARAMS,
     })
@@ -217,13 +221,44 @@ describe('机器与网络', () => {
         .getAllByRole('cell')
         .map((c) => c.textContent)
     await screen.findByRole('cell', { name: 'zt-desktop' })
-    expect(cells('wanglei-mbp')).toEqual(['王磊', 'wanglei-mbp', 'macOS', 'v0.9.3', '—', '—', '在线'])
-    expect(cells('zt-desktop')).toEqual(['周婷', 'zt-desktop', 'Windows', 'v0.8.7', '—', '—', '离线 42 分'])
+    expect(cells('wanglei-mbp')).toEqual([
+      '王磊',
+      'wanglei-mbp',
+      'macOS',
+      'v0.9.3',
+      '38 ms',
+      '87.5 Mbps',
+      '在线',
+    ])
+    expect(cells('zt-desktop')).toEqual([
+      '周婷',
+      'zt-desktop',
+      'Windows',
+      'v0.8.7',
+      '180 ms',
+      '4.2 Mbps',
+      '离线 42 分',
+    ])
+    expect(cells('never-measured')).toEqual([
+      '王磊',
+      'never-measured',
+      'macOS',
+      'v0.9.3',
+      '—',
+      '—',
+      '从未连接',
+    ])
+    await waitFor(() =>
+      expect(screen.getByRole('cell', { name: '180 ms' }).className).toContain('admin-table__bad'),
+    )
+    expect(screen.getByRole('cell', { name: '4.2 Mbps' }).className).toContain('admin-table__bad')
+    expect(screen.getByRole('cell', { name: '38 ms' }).className).not.toContain('admin-table__bad')
+    expect(screen.getByRole('cell', { name: '38 ms' }).title).toMatch(/^测量于 /)
     expect(screen.getByText('1 台 daemon 协议版本过旧')).toBeTruthy()
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
       await screen.findByText(
-        '网络质量仅在开启强制同步时测量并记录，不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
+        '网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
       ),
     ).toBeTruthy()
   })
