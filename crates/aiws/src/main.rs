@@ -63,7 +63,12 @@ async fn main() -> anyhow::Result<()> {
     match Cli::parse().cmd {
         Cmd::Agents => {
             for a in aiws::agents::detect() {
-                println!("{:?}\t{}\t{}", a.kind, a.version.as_deref().unwrap_or("-"), a.path.as_deref().unwrap_or("未安装"));
+                println!(
+                    "{:?}\t{}\t{}",
+                    a.kind,
+                    a.version.as_deref().unwrap_or("-"),
+                    a.path.as_deref().unwrap_or("未安装")
+                );
             }
         }
         Cmd::Login { server, code } => {

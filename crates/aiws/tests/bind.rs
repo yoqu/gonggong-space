@@ -21,14 +21,21 @@ async fn serve_once(status: &'static str, body: &'static str) -> (String, tokio:
             if let Some((head, body)) = req.split_once("\r\n\r\n") {
                 let len = head
                     .lines()
-                    .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap()))
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().parse::<usize>().unwrap())
+                    })
                     .unwrap_or(0);
                 if body.len() >= len {
                     break;
                 }
             }
         }
-        let res = format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+        let res = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
         s.write_all(res.as_bytes()).await.unwrap();
         req
     });

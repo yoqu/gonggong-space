@@ -20,7 +20,12 @@ impl Handler for Recorder {
 
 fn service(port: u16, handler: Recorder) -> Service<Recorder> {
     Service {
-        config: Config { server: format!("http://127.0.0.1:{port}"), token: "mt_1".into(), machine_id: "m1".into(), owner_name: "王磊".into() },
+        config: Config {
+            server: format!("http://127.0.0.1:{port}"),
+            token: "mt_1".into(),
+            machine_id: "m1".into(),
+            owner_name: "王磊".into(),
+        },
         machine: MachineInfo { name: "m".into(), os: "macos".into(), arch: "aarch64".into() },
         agents: vec![],
         handler,
@@ -28,7 +33,9 @@ fn service(port: u16, handler: Recorder) -> Service<Recorder> {
     }
 }
 
-async fn text(ws: &mut (impl StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin)) -> serde_json::Value {
+async fn text(
+    ws: &mut (impl StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin),
+) -> serde_json::Value {
     loop {
         if let Message::Text(t) = ws.next().await.unwrap().unwrap() {
             return serde_json::from_str(&t).unwrap();

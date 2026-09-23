@@ -56,6 +56,26 @@ pub fn permission_choice(tier: Tier, options: &[PermissionOption]) -> Option<Per
     prefs.iter().find_map(|k| options.iter().find(|o| o.kind == *k)).map(|o| o.option_id.clone())
 }
 
+/// Client `_meta` opting into codex-acp's typed session failures (JetBrains AIR extension v1); without it the
+/// adapter reports errors as ordinary reply text.
+pub fn client_meta() -> serde_json::Map<String, serde_json::Value> {
+    let v = serde_json::json!({ "jetbrains": { "air": { "version": 1, "capabilities": ["sessionFailure"] } } });
+    v.as_object().cloned().unwrap_or_default()
+}
+
+/// Error title from a typed session failure in `_meta` (session_info_update or the prompt response).
+/// Provider errors arrive as raw JSON bodies; their inner `error.message` is what users can act on.
+pub fn session_failure(meta: Option<&serde_json::Map<String, serde_json::Value>>) -> Option<String> {
+    let f = meta?.get("jetbrains")?.get("air")?.get("sessionFailure")?;
+    if f.get("severity")?.as_str()? != "error" {
+        return None;
+    }
+    let title = f.get("title").and_then(|t| t.as_str()).unwrap_or("agent 错误");
+    let inner = serde_json::from_str::<serde_json::Value>(title).ok();
+    let message = inner.as_ref().and_then(|v| v.pointer("/error/message")).and_then(|m| m.as_str());
+    Some(message.unwrap_or(title).to_string())
+}
+
 #[derive(Default)]
 struct ToolState {
     title: String,
@@ -69,6 +89,8 @@ pub struct Turn {
     pub reply: String,
     pub files: BTreeSet<String>,
     pub usage: Option<Usage>,
+    /// Terminal agent error reported out of band (e.g. invalid model); the turn still ends with `end_turn`.
+    pub failure: Option<String>,
     tools: HashMap<String, ToolState>,
 }
 
@@ -105,6 +127,12 @@ impl Turn {
                 self.usage = Some(usage.clone());
                 Some(RunEvent::Usage { usage })
             }
+            SessionUpdate::SessionInfoUpdate(u) => {
+                if let Some(title) = session_failure(u.meta.as_ref()) {
+                    self.failure = Some(title);
+                }
+                None
+            }
             _ => None,
         }
     }
@@ -132,7 +160,11 @@ impl Turn {
         RunEvent::Tool {
             tool_call_id: id,
             title: state.title.clone(),
-            tool_kind: state.kind.as_ref().and_then(|k| serde_json::to_value(k).ok()?.as_str().map(String::from)).unwrap_or_else(|| "other".into()),
+            tool_kind: state
+                .kind
+                .as_ref()
+                .and_then(|k| serde_json::to_value(k).ok()?.as_str().map(String::from))
+                .unwrap_or_else(|| "other".into()),
             status: state.status.unwrap_or(ToolStatus::Pending),
             detail: detail(locations, raw_input),
         }
@@ -162,15 +194,27 @@ fn detail(locations: &[ToolCallLocation], raw_input: Option<&serde_json::Value>)
 mod tests {
     use super::*;
     use agent_client_protocol::schema::v1::{
-        ContentChunk, Cost, TextContent, ToolCall, ToolCallStatus, ToolCallUpdate, ToolCallUpdateFields, UsageUpdate,
+        ContentChunk, Cost, SessionInfoUpdate, TextContent, ToolCall, ToolCallStatus, ToolCallUpdate,
+        ToolCallUpdateFields, UsageUpdate,
     };
 
     fn ctx(author: &str, body: &str) -> ContextMessage {
-        ContextMessage { seq: 1, author: author.into(), kind: "user".into(), body: body.into(), at: "2026-09-23T10:12:00.123Z".into() }
+        ContextMessage {
+            seq: 1,
+            author: author.into(),
+            kind: "user".into(),
+            body: body.into(),
+            at: "2026-09-23T10:12:00.123Z".into(),
+        }
     }
 
     fn prompt() -> RunPrompt {
-        RunPrompt { text: "@小王 写个脚本".into(), triggered_by: "王磊".into(), context: vec![], fallback_context: vec![] }
+        RunPrompt {
+            text: "@小王 写个脚本".into(),
+            triggered_by: "王磊".into(),
+            context: vec![],
+            fallback_context: vec![],
+        }
     }
 
     #[test]
@@ -184,7 +228,13 @@ mod tests {
 
     #[test]
     fn system_prompt_appends_bot_instructions() {
-        let bot = RunBot { id: "b".into(), name: "小王".into(), agent_kind: AgentKind::Claude, system_prompt: "只改 server/".into(), tier: Tier::Workspace };
+        let bot = RunBot {
+            id: "b".into(),
+            name: "小王".into(),
+            agent_kind: AgentKind::Claude,
+            system_prompt: "只改 server/".into(),
+            tier: Tier::Workspace,
+        };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 bot「小王」"));
         assert!(s.ends_with("\n\n只改 server/"));
@@ -211,22 +261,48 @@ mod tests {
     fn maps_updates_and_accumulates_reply_files_usage() {
         let mut t = Turn::default();
         let chunk = |s: &str| ContentChunk::new(ContentBlock::Text(TextContent::new(s)));
-        assert_eq!(t.apply(SessionUpdate::AgentMessageChunk(chunk("好的，"))), Some(RunEvent::Text { delta: "好的，".into() }));
-        assert_eq!(t.apply(SessionUpdate::AgentThoughtChunk(chunk("想"))), Some(RunEvent::Thought { delta: "想".into() }));
+        assert_eq!(
+            t.apply(SessionUpdate::AgentMessageChunk(chunk("好的，"))),
+            Some(RunEvent::Text { delta: "好的，".into() })
+        );
+        assert_eq!(
+            t.apply(SessionUpdate::AgentThoughtChunk(chunk("想"))),
+            Some(RunEvent::Thought { delta: "想".into() })
+        );
         t.apply(SessionUpdate::AgentMessageChunk(chunk("完成")));
         assert_eq!(t.reply, "好的，完成");
 
         let read = ToolCall::new("r1", "Read a").kind(ToolKind::Read).locations(vec![ToolCallLocation::new("/w/a.rs")]);
         t.apply(SessionUpdate::ToolCall(read));
-        let edit = ToolCall::new("e1", "Edit b").kind(ToolKind::Edit).status(ToolCallStatus::InProgress).locations(vec![ToolCallLocation::new("/w/b.rs").line(3)]);
+        let edit = ToolCall::new("e1", "Edit b")
+            .kind(ToolKind::Edit)
+            .status(ToolCallStatus::InProgress)
+            .locations(vec![ToolCallLocation::new("/w/b.rs").line(3)]);
         assert_eq!(
             t.apply(SessionUpdate::ToolCall(edit)),
-            Some(RunEvent::Tool { tool_call_id: "e1".into(), title: "Edit b".into(), tool_kind: "edit".into(), status: ToolStatus::InProgress, detail: Some("/w/b.rs:3".into()) })
+            Some(RunEvent::Tool {
+                tool_call_id: "e1".into(),
+                title: "Edit b".into(),
+                tool_kind: "edit".into(),
+                status: ToolStatus::InProgress,
+                detail: Some("/w/b.rs:3".into())
+            })
         );
-        let done = ToolCallUpdate::new("e1", ToolCallUpdateFields::new().status(ToolCallStatus::Completed).locations(vec![ToolCallLocation::new("/w/c.rs")]));
+        let done = ToolCallUpdate::new(
+            "e1",
+            ToolCallUpdateFields::new()
+                .status(ToolCallStatus::Completed)
+                .locations(vec![ToolCallLocation::new("/w/c.rs")]),
+        );
         assert_eq!(
             t.apply(SessionUpdate::ToolCallUpdate(done)),
-            Some(RunEvent::Tool { tool_call_id: "e1".into(), title: "Edit b".into(), tool_kind: "edit".into(), status: ToolStatus::Completed, detail: Some("/w/c.rs".into()) })
+            Some(RunEvent::Tool {
+                tool_call_id: "e1".into(),
+                title: "Edit b".into(),
+                tool_kind: "edit".into(),
+                status: ToolStatus::Completed,
+                detail: Some("/w/c.rs".into())
+            })
         );
         assert_eq!(t.files.iter().cloned().collect::<Vec<_>>(), vec!["/w/b.rs", "/w/c.rs"]);
 
@@ -235,9 +311,31 @@ mod tests {
     }
 
     #[test]
+    fn records_typed_session_failures_but_not_warnings() {
+        let mut t = Turn::default();
+        let info = |severity: &str| {
+            let meta = serde_json::json!({ "jetbrains": { "air": { "version": 1, "sessionFailure": { "severity": severity, "title": "model not supported" } } } });
+            SessionUpdate::SessionInfoUpdate(SessionInfoUpdate::new().meta(meta.as_object().cloned().unwrap()))
+        };
+        t.apply(info("warning"));
+        assert_eq!(t.failure, None);
+        t.apply(info("error"));
+        assert_eq!(t.failure.as_deref(), Some("model not supported"));
+    }
+
+    #[test]
+    fn unwraps_provider_json_error_titles() {
+        let title =
+            r#"{"type":"error","status":400,"error":{"type":"invalid_request_error","message":"model not supported"}}"#;
+        let meta = serde_json::json!({ "jetbrains": { "air": { "sessionFailure": { "severity": "error", "title": title } } } });
+        assert_eq!(session_failure(meta.as_object()).as_deref(), Some("model not supported"));
+    }
+
+    #[test]
     fn shell_command_is_the_detail_without_locations() {
         let mut t = Turn::default();
-        let exec = ToolCall::new("x", "Run").kind(ToolKind::Execute).raw_input(serde_json::json!({ "command": "ls -la" }));
+        let exec =
+            ToolCall::new("x", "Run").kind(ToolKind::Execute).raw_input(serde_json::json!({ "command": "ls -la" }));
         let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCall(exec)) else { panic!() };
         assert_eq!(detail.as_deref(), Some("ls -la"));
     }

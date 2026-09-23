@@ -141,9 +141,16 @@ pub enum ToolStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RunEvent {
-    Status { status: RunStatus, step: String },
-    Text { delta: String },
-    Thought { delta: String },
+    Status {
+        status: RunStatus,
+        step: String,
+    },
+    Text {
+        delta: String,
+    },
+    Thought {
+        delta: String,
+    },
     #[serde(rename_all = "camelCase")]
     Tool {
         tool_call_id: String,
@@ -153,7 +160,9 @@ pub enum RunEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         detail: Option<String>,
     },
-    Usage { usage: Usage },
+    Usage {
+        usage: Usage,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -181,13 +190,7 @@ pub struct RunDone {
 #[serde(tag = "t")]
 pub enum DaemonToServer {
     #[serde(rename = "hello", rename_all = "camelCase")]
-    Hello {
-        protocol: u32,
-        token: String,
-        daemon_version: String,
-        machine: MachineInfo,
-        agents: Vec<AgentInfo>,
-    },
+    Hello { protocol: u32, token: String, daemon_version: String, machine: MachineInfo, agents: Vec<AgentInfo> },
     #[serde(rename = "heartbeat")]
     Heartbeat,
     #[serde(rename = "run.event", rename_all = "camelCase")]

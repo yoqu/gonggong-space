@@ -2,13 +2,13 @@
 use crate::engine::Inner;
 use crate::protocol::{DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage};
 use crate::service::Outbox;
-use crate::turn::{Turn, compose_prompt, mode_for, permission_choice, system_prompt};
+use crate::turn::{Turn, client_meta, compose_prompt, mode_for, permission_choice, session_failure, system_prompt};
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest, Meta, NewSessionRequest,
-    PromptRequest, PromptResponse, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    ResumeSessionRequest, SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification,
-    SetSessionModeRequest, StopReason, TextContent,
+    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest,
+    Meta, NewSessionRequest, PromptRequest, PromptResponse, RequestPermissionOutcome, RequestPermissionRequest,
+    RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId, SessionModeState,
+    SessionNotification, SetSessionModeRequest, StopReason, TextContent,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::HashSet;
@@ -71,7 +71,13 @@ impl Shared {
             req.out.send(done(run_id, RunOutcome::Interrupted, Turn::default(), None, None, None, None));
             return false;
         }
-        s.active = Some(Active { run_id: run_id.clone(), tier: req.start.bot.tier, out: req.out.clone(), turn: Turn::default(), streaming: false });
+        s.active = Some(Active {
+            run_id: run_id.clone(),
+            tier: req.start.bot.tier,
+            out: req.out.clone(),
+            turn: Turn::default(),
+            streaming: false,
+        });
         true
     }
 
@@ -121,7 +127,25 @@ impl Shared {
         let reason = reason.map(String::from);
         let msg = match result {
             Ok(resp) => {
-                let outcome = if cancelled || resp.stop_reason == StopReason::Cancelled { RunOutcome::Interrupted } else { RunOutcome::Completed };
+                if !cancelled
+                    && let Some(error) = a.turn.failure.clone().or_else(|| session_failure(resp.meta.as_ref()))
+                {
+                    a.out.send(done(
+                        &a.run_id,
+                        RunOutcome::Failed,
+                        a.turn,
+                        None,
+                        session,
+                        reason,
+                        Some(truncate(&error)),
+                    ));
+                    return;
+                }
+                let outcome = if cancelled || resp.stop_reason == StopReason::Cancelled {
+                    RunOutcome::Interrupted
+                } else {
+                    RunOutcome::Completed
+                };
                 let cost = a.turn.usage.as_ref().and_then(|u| u.cost_usd);
                 // Claude reports all-zero usage for cancelled turns; treat that as unreported.
                 let usage = resp.usage.filter(|u| u.total_tokens > 0).map(|u| Usage {
@@ -222,11 +246,19 @@ async fn connect(
             agent_client_protocol::on_receive_notification!(),
         )
         .on_receive_request(
-            async move |req: RequestPermissionRequest, responder, _cx| responder.respond(on_permission.on_permission(req)),
+            async move |req: RequestPermissionRequest, responder, _cx| {
+                responder.respond(on_permission.on_permission(req))
+            },
             agent_client_protocol::on_receive_request!(),
         )
         .connect_with(agent, async |cx: ConnectionTo<Agent>| {
-            let init = cx.send_request(InitializeRequest::new(ProtocolVersion::V1)).block_task().await?;
+            let init = cx
+                .send_request(
+                    InitializeRequest::new(ProtocolVersion::V1)
+                        .client_capabilities(ClientCapabilities::new().meta(client_meta())),
+                )
+                .block_task()
+                .await?;
             let caps = &init.agent_capabilities;
             tracing::info!(
                 agent = ?init.agent_info.as_ref().map(|i| format!("{} {}", i.name, i.version)),
@@ -267,9 +299,13 @@ impl Conversation<'_> {
         let s = &req.start;
         let (session, reason, history) = match self.session.clone() {
             Some(id) => (id, None, &s.prompt.context),
-            None => match self.open(&req, resume.clone().or_else(|| s.resume_session_id.clone().map(SessionId::new))).await {
+            None => match self
+                .open(&req, resume.clone().or_else(|| s.resume_session_id.clone().map(SessionId::new)))
+                .await
+            {
                 Ok((id, reason)) => {
-                    let history = if reason == Some("resume_failed") { &s.prompt.fallback_context } else { &s.prompt.context };
+                    let history =
+                        if reason == Some("resume_failed") { &s.prompt.fallback_context } else { &s.prompt.context };
                     (id, reason, history)
                 }
                 Err(e) => {
@@ -303,7 +339,11 @@ impl Conversation<'_> {
     }
 
     /// Resumes `resume` if possible, else opens a new session. Returns the id and the new-session reason.
-    async fn open(&mut self, req: &TurnReq, resume: Option<SessionId>) -> Result<(SessionId, Option<&'static str>), agent_client_protocol::Error> {
+    async fn open(
+        &mut self,
+        req: &TurnReq,
+        resume: Option<SessionId>,
+    ) -> Result<(SessionId, Option<&'static str>), agent_client_protocol::Error> {
         let meta = self.meta(&req.start);
         let tried = resume.is_some();
         if let Some(id) = resume {
@@ -320,7 +360,12 @@ impl Conversation<'_> {
         Ok((res.session_id, Some(if tried { "resume_failed" } else { "first" })))
     }
 
-    async fn restore(&self, id: &SessionId, req: &TurnReq, meta: Option<Meta>) -> Result<Option<SessionModeState>, agent_client_protocol::Error> {
+    async fn restore(
+        &self,
+        id: &SessionId,
+        req: &TurnReq,
+        meta: Option<Meta>,
+    ) -> Result<Option<SessionModeState>, agent_client_protocol::Error> {
         let caps = &self.init.agent_capabilities;
         if caps.session_capabilities.resume.is_some() {
             let req = ResumeSessionRequest::new(id.clone(), &req.cwd).meta(meta);
@@ -341,6 +386,7 @@ impl Conversation<'_> {
     /// Claude reads the per-session system prompt from `_meta`; Codex gets it per process (CODEX_CONFIG).
     fn meta(&self, start: &RunStart) -> Option<Meta> {
         let json = serde_json::json!({ "systemPrompt": { "append": system_prompt(&start.bot) } });
-        (start.bot.agent_kind == crate::protocol::AgentKind::Claude).then(|| json.as_object().cloned().unwrap_or_default())
+        (start.bot.agent_kind == crate::protocol::AgentKind::Claude)
+            .then(|| json.as_object().cloned().unwrap_or_default())
     }
 }

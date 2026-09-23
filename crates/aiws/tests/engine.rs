@@ -29,13 +29,25 @@ fn start(run_id: &str, text: &str) -> RunStart {
     RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
-        bot: RunBot { id: "b1".into(), name: "小王的 Claude".into(), agent_kind: AgentKind::Claude, system_prompt: "只改 server/".into(), tier: Tier::Workspace },
+        bot: RunBot {
+            id: "b1".into(),
+            name: "小王的 Claude".into(),
+            agent_kind: AgentKind::Claude,
+            system_prompt: "只改 server/".into(),
+            tier: Tier::Workspace,
+        },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,
         prompt: RunPrompt {
             text: text.into(),
             triggered_by: "王磊".into(),
-            context: vec![ContextMessage { seq: 3, author: "陈晨".into(), kind: "user".into(), body: "新上下文".into(), at: "2026-09-23T10:12:00Z".into() }],
+            context: vec![ContextMessage {
+                seq: 3,
+                author: "陈晨".into(),
+                kind: "user".into(),
+                body: "新上下文".into(),
+                at: "2026-09-23T10:12:00Z".into(),
+            }],
             fallback_context: vec![],
         },
     }
@@ -83,8 +95,13 @@ async fn streams_a_turn_and_rejects_permissions_below_full_tier() {
     assert!(r.workspace().is_dir());
     assert_eq!(events.first(), Some(&RunEvent::Text { delta: "好的，".into() }));
     assert!(events.contains(&RunEvent::Thought { delta: "需要写一个文件".into() }));
-    assert!(events.iter().any(|e| matches!(e, RunEvent::Tool { tool_kind, title, .. } if tool_kind == "edit" && title == "Write hello.txt")));
-    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "权限请求已拒绝（审批流程将在 M3 提供）".into() }));
+    assert!(events.iter().any(
+        |e| matches!(e, RunEvent::Tool { tool_kind, title, .. } if tool_kind == "edit" && title == "Write hello.txt")
+    ));
+    assert!(events.contains(&RunEvent::Status {
+        status: RunStatus::Running,
+        step: "权限请求已拒绝（审批流程将在 M3 提供）".into()
+    }));
     assert!(events.iter().any(|e| matches!(e, RunEvent::Usage { .. })));
     assert_eq!(done.outcome, RunOutcome::Completed);
     assert_eq!(done.reply, "好的，权限被拒绝，未写入。");
@@ -127,7 +144,13 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
     let mut r = rig(Duration::from_secs(60));
     let mut s = start("r1", "mock:echo");
     s.resume_session_id = Some("gone".into());
-    s.prompt.fallback_context = vec![ContextMessage { seq: 1, author: "王磊".into(), kind: "user".into(), body: "旧消息".into(), at: "2026-09-23T09:00:00Z".into() }];
+    s.prompt.fallback_context = vec![ContextMessage {
+        seq: 1,
+        author: "王磊".into(),
+        kind: "user".into(),
+        body: "旧消息".into(),
+        at: "2026-09-23T09:00:00Z".into(),
+    }];
     r.run(s);
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.new_session_reason.as_deref(), Some("resume_failed"));

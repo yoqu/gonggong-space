@@ -57,7 +57,11 @@ impl<H: Handler> Service<H> {
     }
 
     /// One connection lifetime. `Ok(None)` = was connected then dropped; `Ok(Some)` = fatal reject.
-    async fn session(&self, outbox: &Outbox, rx: &mut mpsc::UnboundedReceiver<DaemonToServer>) -> anyhow::Result<Option<Fatal>> {
+    async fn session(
+        &self,
+        outbox: &Outbox,
+        rx: &mut mpsc::UnboundedReceiver<DaemonToServer>,
+    ) -> anyhow::Result<Option<Fatal>> {
         let (mut ws, _) = tokio_tungstenite::connect_async(self.config.ws_url()).await?;
         let hello = DaemonToServer::Hello {
             protocol: PROTOCOL_VERSION,

@@ -24,9 +24,9 @@ fn every_shared_fixture_round_trips() {
 /// Optional fields may be omitted on one side and `null` on the other; both mean "absent".
 fn strip_nulls(v: serde_json::Value) -> serde_json::Value {
     match v {
-        serde_json::Value::Object(m) => {
-            serde_json::Value::Object(m.into_iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k, strip_nulls(v))).collect())
-        }
+        serde_json::Value::Object(m) => serde_json::Value::Object(
+            m.into_iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k, strip_nulls(v))).collect(),
+        ),
         serde_json::Value::Array(a) => serde_json::Value::Array(a.into_iter().map(strip_nulls).collect()),
         other => other,
     }

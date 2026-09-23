@@ -31,7 +31,11 @@ pub struct Client {
 
 impl Client {
     pub fn new(config: &Config) -> Self {
-        Self { http: crate::bind::http().expect("tls backend"), base: config.server.trim_end_matches('/').to_owned(), token: config.token.clone() }
+        Self {
+            http: crate::bind::http().expect("tls backend"),
+            base: config.server.trim_end_matches('/').to_owned(),
+            token: config.token.clone(),
+        }
     }
 
     pub async fn list(&self) -> Result<Vec<Bot>> {
@@ -40,7 +44,12 @@ impl Client {
     }
 
     pub async fn confirm(&self, id: &str) -> Result<Bot> {
-        let res = self.http.post(format!("{}/api/daemon/bots/{id}/confirm", self.base)).bearer_auth(&self.token).send().await?;
+        let res = self
+            .http
+            .post(format!("{}/api/daemon/bots/{id}/confirm", self.base))
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
         Ok(ok(res).await?.json().await?)
     }
 }

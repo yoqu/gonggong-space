@@ -170,10 +170,21 @@ mod tests {
         RunStart {
             run_id: "r".into(),
             group_id: "g1".into(),
-            bot: RunBot { id: "b1".into(), name: "x".into(), agent_kind: AgentKind::Claude, system_prompt: String::new(), tier: Tier::Workspace },
+            bot: RunBot {
+                id: "b1".into(),
+                name: "x".into(),
+                agent_kind: AgentKind::Claude,
+                system_prompt: String::new(),
+                tier: Tier::Workspace,
+            },
             workspace: WorkspaceSpec { repo, cd_path: None },
             resume_session_id: None,
-            prompt: RunPrompt { text: String::new(), triggered_by: String::new(), context: vec![], fallback_context: vec![] },
+            prompt: RunPrompt {
+                text: String::new(),
+                triggered_by: String::new(),
+                context: vec![],
+                fallback_context: vec![],
+            },
         }
     }
 

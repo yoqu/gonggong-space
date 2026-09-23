@@ -28,7 +28,12 @@ async fn serve(replies: Vec<(u16, &'static str)>) -> (Config, JoinHandle<Vec<Str
         }
         heads
     });
-    let config = Config { server: format!("http://127.0.0.1:{port}/"), token: "mt_1".into(), machine_id: "m1".into(), owner_name: "王磊".into() };
+    let config = Config {
+        server: format!("http://127.0.0.1:{port}/"),
+        token: "mt_1".into(),
+        machine_id: "m1".into(),
+        owner_name: "王磊".into(),
+    };
     (config, task)
 }
 
@@ -46,7 +51,8 @@ async fn lists_bots_with_the_machine_token() {
 
 #[tokio::test]
 async fn confirms_by_name_and_reports_server_errors() {
-    let confirmed = r#"{"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"bound","presence":"agent_missing"}"#;
+    let confirmed =
+        r#"{"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"bound","presence":"agent_missing"}"#;
     let (config, task) = serve(vec![(200, BOTS), (200, confirmed), (200, BOTS)]).await;
     bots::confirm(&config, "小王的 Codex").await.unwrap();
     let err = bots::confirm(&config, "小王的 Claude").await.unwrap_err();
