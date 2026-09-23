@@ -1,0 +1,6 @@
+{
+  "t": "reject",
+  "reason": "protocol",
+  "message": "daemon protocol 0 < required 1, please upgrade",
+  "minProtocol": 1
+}

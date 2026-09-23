@@ -1,0 +1,86 @@
+/* 灵机剪影 — macOS Dark Palette (source: src/ui/styles/tokens.css + DESIGN.md §4) */
+:root {
+  color-scheme: dark;
+
+  /* Core surfaces */
+  --color-window-bg: #1c1c1e;
+  --color-panel-bg: #1e1e20;
+  --color-panel-elevated: #2c2c2e;
+  --color-titlebar-bg: #252527;
+  --color-preview-bg: #141416;
+  --color-timeline-bg: #1a1a1c;
+  --color-control-bg: #3a3a3c;
+
+  /* Surface aliases */
+  --color-bg-canvas: var(--color-window-bg);
+  --color-bg-surface: var(--color-panel-bg);
+  --color-bg-elevated: var(--color-panel-elevated);
+  --color-bg-subtle: rgba(255, 255, 255, 0.035);
+  --color-bg-muted: rgba(255, 255, 255, 0.055);
+  --color-bg-hover: rgba(255, 255, 255, 0.08);
+  --color-panel-solid: var(--color-panel-bg);
+  --color-panel-subtle: rgba(255, 255, 255, 0.05);
+  --color-panel-muted: rgba(255, 255, 255, 0.08);
+  --color-recessed-bg: var(--color-timeline-bg);
+  --color-recessed-border: var(--color-separator);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Borders / separators — solid, never translucent hairlines */
+  --color-separator: #38383a;
+  --color-border-subtle: #38383a;
+  --color-border-strong: #48484a;
+  --color-border-control: #48484a;
+  --color-outline-soft: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #ebebf599;
+  --color-text-secondary-strong: #ebebf580;
+  --color-text-tertiary: #8e8e93;
+  --color-text-quaternary: #636366;
+  --color-text-placeholder: #ebebf560;
+  --color-text-muted: #ebebf54d;
+  --color-text-disabled: #ebebf533;
+
+  /* The single interactive accent — macOS system blue */
+  --color-selection-blue: #0a84ff;
+  --color-selection-blue-hover: #409cff;
+  --color-selection-blue-active: #0071e3;
+  --color-system-blue: var(--color-selection-blue);
+  --color-system-blue-hover: var(--color-selection-blue-hover);
+  --color-system-blue-active: var(--color-selection-blue-active);
+  --color-brand-primary: var(--color-selection-blue);
+  --color-brand-accent: #409cff;
+  --color-brand-info: #409cff;
+  --color-brand-warm: #ff9f0a;
+
+  /* Status — feedback / diagnostics only, never page language */
+  --color-danger: #ff453a;
+  --color-success: #32d74b;
+  --color-warning: #ffd60a;
+
+  /* Tinted functional surfaces (8% wash) */
+  --color-bg-error: rgba(255, 69, 58, 0.08);
+  --color-bg-warning: rgba(255, 159, 10, 0.08);
+  --color-bg-success: rgba(50, 215, 75, 0.08);
+  --color-bg-info: rgba(10, 132, 255, 0.08);
+
+  /* Timeline track tints */
+  --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
+  --color-track-subtitle: color-mix(in srgb, var(--color-brand-warm) 22%, var(--color-panel-bg));
+  --color-track-primary: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-bg));
+  --color-track-secondary: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-panel-bg));
+
+  /* AI-operation cursors ONLY (DESIGN.md §9) — never for regular UI */
+  --color-ai-cursor-generate: #a78bfa;
+  --color-ai-cursor-review: #34d399;
+  --color-ai-waiting-glow: #00d2ff;
+
+  /* Semantic aliases */
+  --text-body: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --surface-card: var(--color-panel-elevated);
+  --surface-page: var(--color-window-bg);
+  --border-hairline: var(--color-separator);
+  --accent: var(--color-system-blue);
+}

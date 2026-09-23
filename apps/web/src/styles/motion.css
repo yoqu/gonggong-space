@@ -1,0 +1,17 @@
+/* Motion — short, damped, no bounce. DESIGN.md §6 */
+:root {
+  --motion-micro: 100ms cubic-bezier(0.3, 0, 0.2, 1); /* @kind other */
+  --motion-fast: 150ms cubic-bezier(0.3, 0, 0.2, 1); /* @kind other */
+  --motion-base: 220ms cubic-bezier(0.2, 0.8, 0.2, 1); /* @kind other */
+
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1); /* @kind other */
+  --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-out-expo: cubic-bezier(0.32, 0.72, 0, 1); /* @kind other */
+  --ease-quart-out: cubic-bezier(0.25, 1, 0.5, 1); /* @kind other */
+
+  --duration-instant: 100ms; /* @kind other */
+  --duration-fast: 180ms; /* @kind other */
+  --duration-base: 260ms; /* @kind other */
+  --duration-smooth: 360ms; /* @kind other */
+  --duration-deliberate: 480ms; /* @kind other */
+}

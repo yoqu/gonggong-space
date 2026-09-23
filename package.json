@@ -1,0 +1,22 @@
+{
+  "name": "aiws",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "db:up": "bash scripts/pg.sh start",
+    "db:down": "bash scripts/pg.sh stop",
+    "dev:server": "pnpm --filter @aiws/server dev",
+    "dev:web": "pnpm --filter @aiws/web dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "test": "pnpm -r test && cargo test --workspace",
+    "e2e": "playwright test -c e2e"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.2",
+    "typescript": "5.9.3"
+  }
+}
