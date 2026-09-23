@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AgentKind, RunStatus, Tier, TriggerScope, Usage } from './common.js'
-import { AgentInfo, MachineInfo } from './daemon.js'
+import { AgentInfo, MachineInfo, RunEvent } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -152,6 +152,13 @@ export const RunDto = z.object({
   endedAt: z.string().nullable(),
 })
 export type RunDto = z.infer<typeof RunDto>
+
+/** GET /api/runs/:id — card fields plus the full (redacted) process for the side panel. */
+export const RunDetailDto = z.object({
+  run: RunDto,
+  events: z.array(z.object({ id: z.number().int(), at: z.string(), event: RunEvent })),
+})
+export type RunDetailDto = z.infer<typeof RunDetailDto>
 
 export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
 export type TimelineDto = z.infer<typeof TimelineDto>
