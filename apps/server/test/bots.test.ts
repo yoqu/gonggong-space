@@ -1,6 +1,6 @@
 import type { BotDto, WebEvent } from '@aiws/protocol'
 import { and, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DaemonConn } from '../src/daemon/hub.js'
 import { auditLogs, groupBots, messages, notifications, runs } from '../src/db/schema.js'
 import { onMachineBound } from '../src/modules/bots/binding.js'
@@ -185,14 +185,16 @@ describe('GET /api/bots', () => {
     const bot = await t.seed.bot({ ownerId: wang.user.id, machineId: machine.id })
     const viewer = await t.seed.user()
     const seen = events(viewer.id)
+    const presences = () => botEvents(seen).map((b) => [b.id, b.presence])
     t.ctx.hub.register(machine.id, fakeConn)
-    await settle()
+    await vi.waitFor(() => expect(presences()).toEqual([[bot.id, 'online']]))
     t.ctx.hub.unregister(machine.id, fakeConn)
-    await settle()
-    expect(botEvents(seen).map((b) => [b.id, b.presence])).toEqual([
-      [bot.id, 'online'],
-      [bot.id, 'offline'],
-    ])
+    await vi.waitFor(() =>
+      expect(presences()).toEqual([
+        [bot.id, 'online'],
+        [bot.id, 'offline'],
+      ]),
+    )
   })
 })
 
