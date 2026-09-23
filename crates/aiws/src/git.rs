@@ -221,8 +221,11 @@ async fn work_tree(dir: &Path) -> Result<String, String> {
     if index.exists() {
         std::fs::copy(&index, &scratch).map_err(|e| format!("无法复制 git index：{e}"))?;
     }
+    // Naming an ignored path in a pathspec is an error, so the exclusion is only spelled out when git doesn't ignore it.
+    let ignored = git(dir, &["check-ignore", "-q", ".aiws"]).await.is_ok();
+    let spec: &[&str] = if ignored { &["."] } else { &[".", ":(exclude).aiws"] };
     let tree = async {
-        run_git(dir, &["add", "-A", "--", ".", ":(exclude).aiws"], Some(&scratch)).await?;
+        run_git(dir, &[&["add", "-A", "--"][..], spec].concat(), Some(&scratch)).await?;
         run_git(dir, &["write-tree"], Some(&scratch)).await
     }
     .await;
@@ -520,6 +523,19 @@ mod tests {
         run(&w, &["commit", "-q", "-m", "turn"]);
         // pre.txt, new.txt, c1.txt, README.md
         assert_eq!(changed_since(&w, &snap).await.unwrap(), 4);
+    }
+
+    #[tokio::test]
+    async fn tracks_changes_when_the_private_dir_is_git_excluded() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        fs::create_dir_all(w.join(".aiws/attachments/m1")).unwrap();
+        fs::write(w.join(".aiws/attachments/m1/shot.png"), "png").unwrap();
+        fs::write(w.join(".git/info/exclude"), ".aiws/\n").unwrap();
+        let snap = snapshot(&w).await.unwrap();
+        fs::write(w.join("new.txt"), "untracked").unwrap();
+        assert_eq!(changed_since(&w, &snap).await.unwrap(), 1);
+        assert!(patch_since(&w, &snap).await.unwrap().is_some_and(|p| p.contains("new.txt")));
     }
 
     #[tokio::test]
