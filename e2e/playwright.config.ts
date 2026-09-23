@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: '.',
   timeout: 120_000,
   workers: 1,
+  // Real agents depend on external model services; a retry absorbs their transient errors and is reported as flaky.
+  retries: 1,
   // The first-run scenario needs the pristine bootstrap admin; everything else runs after it.
   projects: [
     { name: 'first-run', testMatch: /m1-walking-skeleton/ },
