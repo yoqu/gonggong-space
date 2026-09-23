@@ -63,11 +63,14 @@ pub struct GitStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentInfo {
     pub kind: AgentKind,
     pub available: bool,
     pub version: Option<String>,
     pub path: Option<String>,
+    #[serde(default)]
+    pub min_version: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

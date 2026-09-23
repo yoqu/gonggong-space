@@ -97,6 +97,8 @@ export const BotDto = z.object({
   createdBy: z.string(),
   /** Version of this agent kind last reported by the bound machine. */
   agentVersion: z.string().nullable(),
+  /** The adapter's minimum for that CLI; `agentVersion` below it gets a warning. */
+  agentMinVersion: z.string().nullable(),
   groupCount: z.number().int(),
 })
 export type BotDto = z.infer<typeof BotDto>
@@ -390,6 +392,19 @@ export const GroupParams = z.object({
     .max(24 * 60),
 })
 export type GroupParams = z.infer<typeof GroupParams>
+
+// ── Daemon release (plan D17): PUT /api/admin/daemon-release ─────────────────
+export const DaemonBuild = z.object({
+  /** Absolute, or server-relative like `/downloads/<file>` (served from AIWS_DATA_DIR/downloads). */
+  url: z.string().min(1),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/, 'sha256 需为 64 位十六进制'),
+})
+export const DaemonRelease = z.object({
+  version: z.string().regex(/^\d+\.\d+\.\d+$/, '版本号需为 x.y.z'),
+  /** Keyed by `<os>-<arch>` as the daemon reports them, e.g. `macos-aarch64`, `linux-x86_64`. */
+  builds: z.record(z.string(), DaemonBuild),
+})
+export type DaemonRelease = z.infer<typeof DaemonRelease>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
 export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command'])

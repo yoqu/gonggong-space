@@ -7,7 +7,15 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Alert, Button, EmptyState, Select, Tabs, Textarea, toast } from '../../ui'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
-import { AGENT_LABEL, agentCliVersion, agentLine, BINDING_LABEL, botsApi, PRESENCE } from './model'
+import {
+  AGENT_LABEL,
+  agentCliVersion,
+  agentLine,
+  agentOutdated,
+  BINDING_LABEL,
+  botsApi,
+  PRESENCE,
+} from './model'
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
 
@@ -33,6 +41,11 @@ function warning(bot: BotDto, userName: (id: string) => string) {
     return {
       title: `${agent} 未安装`,
       desc: `${bot.machineName} 未上报 ${agent}。在该机器安装并重新检测后自动可用。`,
+    }
+  if (agentOutdated(bot))
+    return {
+      title: 'agent 版本低于适配器要求',
+      desc: `${bot.machineName} 上的 ${agentCliVersion(bot)} 低于 ACP 适配器要求的 ${bot.agentMinVersion}，可能无法正常运行，请升级该 CLI。`,
     }
   return null
 }

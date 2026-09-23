@@ -2,6 +2,7 @@ use aiws::bind::machine_info;
 use aiws::config::{self, Config};
 use aiws::engine::{Engine, EngineConfig};
 use aiws::service::Service;
+use aiws::upgrade::Upgrader;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use std::time::Duration;
@@ -95,9 +96,10 @@ async fn main() -> anyhow::Result<()> {
                     home: config::home(),
                     adapter_cmd,
                     idle: IDLE_REAP,
-                    api: Some(config),
+                    api: Some(config.clone()),
                 }),
                 max_backoff: MAX_BACKOFF,
+                upgrader: Upgrader::from_env(config::home(), config.server),
             };
             let fatal = service.run().await;
             eprintln!("{fatal}");

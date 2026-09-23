@@ -24,8 +24,8 @@ const mbp: MachineDto = {
   arch: 'aarch64',
   online: true,
   agents: [
-    { kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude' },
-    { kind: 'codex', available: false, version: null, path: null },
+    { kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: '2.0.0' },
+    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0' },
   ],
   daemonVersion: '0.1.0',
   lastSeenAt: null,
@@ -48,6 +48,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   concurrency: 2,
   createdBy: 'u1',
   agentVersion: '2.1.4',
+  agentMinVersion: '2.0.0',
   groupCount: 0,
   ...o,
 })
@@ -225,6 +226,14 @@ describe('bot detail', () => {
     const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
     expect(within(detail).getByText('等待 王磊 确认')).toBeTruthy()
     expect(within(detail).queryByRole('button', { name: '确认' })).toBeNull()
+  })
+
+  it('warns when the agent CLI is older than the adapter supports', async () => {
+    routes['GET /api/bots'] = () => [bot({ agentVersion: '1.0.128', agentMinVersion: '2.0.0' })]
+    renderAt('/admin/bots', admin)
+    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    expect(within(detail).getByText('agent 版本低于适配器要求')).toBeTruthy()
+    expect(within(detail).getByText(/claude-code 1.0.128 低于 ACP 适配器要求的 2.0.0/)).toBeTruthy()
   })
 
   it('shows last-7-day usage and who used the bot', async () => {

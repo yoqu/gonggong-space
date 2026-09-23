@@ -16,7 +16,7 @@ const hello = (token: string, protocol = PROTOCOL_VERSION) => ({
   token,
   daemonVersion: '0.1.0',
   machine: { name: 'wanglei-mbp', os: 'macos', arch: 'aarch64' },
-  agents: [{ kind: 'claude', available: true, version: '2.1.280', path: '/bin/claude' }],
+  agents: [{ kind: 'claude', available: true, version: '2.1.280', path: '/bin/claude', minVersion: '2.0.0' }],
 })
 
 async function connect(msg: unknown) {

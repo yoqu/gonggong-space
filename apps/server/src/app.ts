@@ -22,6 +22,7 @@ import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { questionRoutes } from './modules/questions/routes.js'
 import { startQuestionTimer } from './modules/questions/service.js'
+import { releaseRoutes } from './modules/releases/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
@@ -74,6 +75,7 @@ export async function buildApp(ctx: Ctx) {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(usageRoutes(ctx))
+  await app.register(releaseRoutes(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))

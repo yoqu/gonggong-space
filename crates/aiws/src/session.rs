@@ -107,6 +107,11 @@ impl Shared {
         self.0.lock().unwrap().pending.insert(run_id.into());
     }
 
+    /// Runs handed to this conversation that have not ended (the active turn and those queued behind it).
+    pub(crate) fn runs(&self) -> Vec<String> {
+        self.0.lock().unwrap().pending.iter().cloned().collect()
+    }
+
     pub(crate) fn cancel(&self, run_id: &str) {
         let mut s = self.0.lock().unwrap();
         if !s.pending.contains(run_id) {

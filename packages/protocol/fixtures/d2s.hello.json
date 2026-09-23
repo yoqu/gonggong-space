@@ -4,8 +4,14 @@
   "daemonVersion": "0.1.0",
   "machine": { "name": "wanglei-mbp", "os": "macos", "arch": "aarch64" },
   "agents": [
-    { "kind": "claude", "available": true, "version": "2.1.4", "path": "/opt/homebrew/bin/claude" },
-    { "kind": "codex", "available": false, "version": null, "path": null }
+    {
+      "kind": "claude",
+      "available": true,
+      "version": "2.1.4",
+      "path": "/opt/homebrew/bin/claude",
+      "minVersion": "2.0.0"
+    },
+    { "kind": "codex", "available": false, "version": null, "path": null, "minVersion": "0.40.0" }
   ],
   "token": "mt_abc123",
   "activeRuns": ["r1"]

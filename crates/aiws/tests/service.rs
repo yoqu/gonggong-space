@@ -1,5 +1,5 @@
 use aiws::config::Config;
-use aiws::protocol::{DaemonToServer, MachineInfo, RejectReason, ServerToDaemon};
+use aiws::protocol::{DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon};
 use aiws::service::{Fatal, Handler, Outbox, Service};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc, Mutex};
@@ -8,13 +8,18 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Clone, Default)]
-struct Recorder(Arc<Mutex<Vec<ServerToDaemon>>>);
+struct Recorder(Arc<Mutex<Vec<ServerToDaemon>>>, Arc<Mutex<Option<Outbox>>>);
 impl Handler for Recorder {
     fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
         if matches!(msg, ServerToDaemon::RunCancel { .. }) {
             out.send(DaemonToServer::Heartbeat);
         }
+        *self.1.lock().unwrap() = Some(out.clone());
         self.0.lock().unwrap().push(msg);
+    }
+
+    fn active_runs(&self) -> Vec<String> {
+        vec!["r-live".into()]
     }
 }
 
@@ -30,6 +35,7 @@ fn service(port: u16, handler: Recorder) -> Service<Recorder> {
         agents: vec![],
         handler,
         max_backoff: Duration::from_millis(50),
+        upgrader: None,
     }
 }
 
@@ -84,5 +90,58 @@ async fn keeps_retrying_while_server_is_down() {
     let (s, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept()).await.unwrap().unwrap();
     let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
     assert_eq!(text(&mut ws).await["t"], "hello");
+    task.abort();
+}
+
+#[tokio::test]
+async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let rec = Recorder::default();
+    let task = tokio::spawn(service(port, rec.clone()).run());
+
+    let (s, _) = listener.accept().await.unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut ws).await["activeRuns"], serde_json::json!(["r-live"]));
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60,"upgrade":null}"#)).await.unwrap();
+    ws.send(Message::text(r#"{"t":"run.cancel","runId":"r9"}"#)).await.unwrap();
+    assert_eq!(text(&mut ws).await["t"], "heartbeat");
+    let out = rec.1.lock().unwrap().clone().unwrap();
+
+    // Server goes away mid-run; the turn keeps reporting.
+    ws.close(None).await.unwrap();
+    drop(ws);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let delta = |d: &str| DaemonToServer::RunEvent { run_id: "r1".into(), event: RunEvent::Text { delta: d.into() } };
+    out.send(delta("sur"));
+    out.send(delta("vived"));
+    out.send(DaemonToServer::RunDone(RunDone {
+        run_id: "r1".into(),
+        outcome: RunOutcome::Completed,
+        reply: "survived".into(),
+        files_changed: 0,
+        usage: None,
+        session_id: None,
+        new_session_reason: None,
+        error: None,
+        git: None,
+        patch: None,
+        appends_applied: 0,
+    }));
+    out.send(DaemonToServer::RunDiscarded { run_id: "r0".into(), ok: true, files: 1, error: None });
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let (s, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept()).await.unwrap().unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    let hello = text(&mut ws).await;
+    // r1 ended locally: its run.done is on its way, so the server must not reconcile it as lost.
+    assert_eq!(hello["activeRuns"], serde_json::json!(["r-live", "r1"]));
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60,"upgrade":null}"#)).await.unwrap();
+    let got = [text(&mut ws).await, text(&mut ws).await, text(&mut ws).await];
+    assert_eq!(got[0]["t"], "run.event");
+    assert_eq!(got[0]["event"]["delta"], "survived");
+    assert_eq!(got[1]["t"], "run.done");
+    assert_eq!(got[1]["reply"], "survived");
+    assert_eq!(got[2]["t"], "run.discarded");
     task.abort();
 }

@@ -45,6 +45,7 @@ const bot: BotDto = {
   concurrency: 2,
   createdBy: 'u1',
   agentVersion: null,
+  agentMinVersion: null,
   groupCount: 1,
 }
 const at = '2026-09-23T02:21:00.000Z'

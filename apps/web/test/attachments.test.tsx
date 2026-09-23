@@ -55,6 +55,7 @@ const bot: BotDto = {
   concurrency: 2,
   createdBy: 'u1',
   agentVersion: null,
+  agentMinVersion: null,
   groupCount: 0,
 }
 

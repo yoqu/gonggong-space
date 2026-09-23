@@ -5,6 +5,8 @@ import type { WebSocket } from 'ws'
 import type { Ctx } from '../context.js'
 import { machines, users } from '../db/schema.js'
 import { sha256 } from '../lib/crypto.js'
+import { daemonRelease, upgradeFor } from '../modules/releases/routes.js'
+import { reconcileRuns } from '../modules/runs/reconcile.js'
 import type { DaemonConn } from './hub.js'
 
 export const CLOSE = { badHello: 4000, protocol: 4001, replaced: 4002, revoked: 4003, timeout: 4004 } as const
@@ -39,12 +41,14 @@ export function daemonGateway(ctx: Ctx) {
           return ws.close(CLOSE.badHello)
         }
         const hello = parsed.data
+        const upgrade = upgradeFor(await daemonRelease(ctx), hello.machine, hello.daemonVersion)
         if (hello.protocol < PROTOCOL_VERSION) {
           send(ws, {
             t: 'reject',
             reason: 'protocol',
             message: `daemon protocol ${hello.protocol} < required ${PROTOCOL_VERSION}, please upgrade`,
             minProtocol: PROTOCOL_VERSION,
+            ...(upgrade && { upgrade }),
           })
           return ws.close(CLOSE.protocol)
         }
@@ -99,8 +103,10 @@ export function daemonGateway(ctx: Ctx) {
           if (msg.data.t !== 'hello' && msg.data.t !== 'heartbeat')
             ctx.hub.emit('message', machineId, msg.data)
         })
+        await reconcileRuns(ctx, machineId, hello.activeRuns)
+        if (ws.readyState !== ws.OPEN) return
         armTimeout()
-        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade: null })
+        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade })
         ctx.hub.register(machineId, conn)
       })
     })

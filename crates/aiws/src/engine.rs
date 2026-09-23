@@ -131,6 +131,10 @@ impl Handler for Engine {
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }
+
+    fn active_runs(&self) -> Vec<String> {
+        self.0.actors.lock().unwrap().values().flat_map(|a| a.shared.runs()).collect()
+    }
 }
 
 impl Inner {

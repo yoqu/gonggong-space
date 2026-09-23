@@ -296,6 +296,18 @@ async fn cancel_interrupts_and_the_session_continues() {
 }
 
 #[tokio::test]
+async fn reports_runs_in_flight_as_active_until_they_end() {
+    let mut r = rig(Duration::from_secs(60));
+    assert!(r.engine.active_runs().is_empty());
+    r.run(start("r1", "mock:slow"));
+    assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
+    assert_eq!(r.engine.active_runs(), vec!["r1".to_string()]);
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    r.finish("r1").await;
+    assert!(r.engine.active_runs().is_empty());
+}
+
+#[tokio::test]
 async fn adapter_crash_fails_the_run_and_the_next_turn_recovers() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "mock:crash"));

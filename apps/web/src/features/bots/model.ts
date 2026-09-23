@@ -1,4 +1,4 @@
-import type { AgentKind, BotDto, MachineDto } from '@aiws/protocol'
+import { type AgentKind, type BotDto, compareVersions, type MachineDto } from '@aiws/protocol'
 import { refreshNotifCount, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 
@@ -35,6 +35,10 @@ export const botStateText = (b: BotDto) =>
 export const agentLine = (b: BotDto) => [AGENT_LABEL[b.agentKind], b.agentVersion].filter(Boolean).join(' ')
 export const agentCliVersion = (b: BotDto) =>
   b.agentVersion ? `${AGENT_CLI[b.agentKind]} ${b.agentVersion}` : '—'
+
+/** The reported CLI is older than the bundled ACP adapter supports. */
+export const agentOutdated = (b: BotDto) =>
+  !!b.agentVersion && !!b.agentMinVersion && compareVersions(b.agentVersion, b.agentMinVersion) < 0
 
 export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
   m.agents.find((a) => a.kind === kind && a.available)

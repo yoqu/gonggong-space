@@ -12,7 +12,9 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-const CLAUDE = [{ kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude' }]
+const CLAUDE = [
+  { kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: '2.0.0' },
+]
 
 async function actor(o: Parameters<TestApp['seed']['user']>[0] = {}) {
   const user = await t.seed.user(o)
@@ -55,6 +57,7 @@ describe('POST /api/bots', () => {
       presence: 'offline',
       systemPrompt: '后端接口开发',
       agentVersion: '2.1.4',
+      agentMinVersion: '2.0.0',
       groupCount: 0,
       createdBy: wang.user.id,
     })

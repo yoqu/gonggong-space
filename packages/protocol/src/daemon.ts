@@ -9,6 +9,8 @@ export const AgentInfo = z.object({
   available: z.boolean(),
   version: z.string().nullable(),
   path: z.string().nullable(),
+  /** Oldest CLI version the bundled ACP adapter supports; older ones still run but the bot shows a warning. */
+  minVersion: z.string().nullable().default(null),
 })
 export type AgentInfo = z.infer<typeof AgentInfo>
 

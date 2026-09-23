@@ -11,20 +11,27 @@ pub fn binary(kind: AgentKind) -> &'static str {
     }
 }
 
+/// Oldest CLI the pinned ACP adapter (engine::ADAPTERS) supports; older ones get a warning on the bot.
+pub fn min_version(kind: AgentKind) -> &'static str {
+    match kind {
+        AgentKind::Claude => "2.0.0",
+        AgentKind::Codex => "0.40.0",
+    }
+}
+
 /// Detects installed agent CLIs on PATH and common install dirs.
 pub fn detect() -> Vec<AgentInfo> {
     [AgentKind::Claude, AgentKind::Codex].into_iter().map(detect_one).collect()
 }
 
 fn detect_one(kind: AgentKind) -> AgentInfo {
-    match find(binary(kind)) {
-        Some(path) => AgentInfo {
-            kind,
-            available: true,
-            version: version(&path),
-            path: Some(path.to_string_lossy().into_owned()),
-        },
-        None => AgentInfo { kind, available: false, version: None, path: None },
+    let path = find(binary(kind));
+    AgentInfo {
+        kind,
+        available: path.is_some(),
+        version: path.as_deref().and_then(version),
+        path: path.map(|p| p.to_string_lossy().into_owned()),
+        min_version: Some(min_version(kind).into()),
     }
 }
 
