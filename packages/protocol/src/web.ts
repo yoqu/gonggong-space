@@ -460,6 +460,10 @@ export type AdminGroupDto = z.infer<typeof AdminGroupDto>
 export const AdminMachineDto = MachineDto.extend({
   ownerName: z.string(),
   protocol: z.number().int().nullable(),
+  /** Last `aiws net` / desktop 测量延迟与带宽 report (spec §8.5: network quality records, admin-only). */
+  latencyMs: z.number().nullable(),
+  bandwidthMbps: z.number().nullable(),
+  netMeasuredAt: z.string().nullable(),
 })
 export type AdminMachineDto = z.infer<typeof AdminMachineDto>
 

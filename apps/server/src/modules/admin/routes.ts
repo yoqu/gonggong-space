@@ -54,7 +54,14 @@ export function adminRoutes(ctx: Ctx) {
         .innerJoin(users, eq(users.id, machines.ownerId))
         .where(isNull(machines.revokedAt))
         .orderBy(asc(users.createdAt), asc(machines.createdAt))
-      return rows.map(({ m, ownerName }) => ({ ...machineDto(ctx, m), ownerName, protocol: m.protocol }))
+      return rows.map(({ m, ownerName }) => ({
+        ...machineDto(ctx, m),
+        ownerName,
+        protocol: m.protocol,
+        latencyMs: m.latencyMs,
+        bandwidthMbps: m.bandwidthMbps,
+        netMeasuredAt: m.netMeasuredAt?.toISOString() ?? null,
+      }))
     })
 
     app.get('/api/admin/audit', async (req) => {

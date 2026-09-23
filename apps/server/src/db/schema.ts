@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -68,6 +69,9 @@ export const machines = pgTable('machines', {
   agents: jsonb('agents').notNull().default([]),
   lastSeenAt: ts('last_seen_at'),
   revokedAt: ts('revoked_at'),
+  latencyMs: integer('latency_ms'),
+  bandwidthMbps: doublePrecision('bandwidth_mbps'),
+  netMeasuredAt: ts('net_measured_at'),
   createdAt: createdAt(),
 })
 

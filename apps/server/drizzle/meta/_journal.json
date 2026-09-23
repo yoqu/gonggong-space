@@ -43,6 +43,13 @@
       "when": 1790158312581,
       "tag": "0005_m4_shared",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790167614581,
+      "tag": "0006_machine_net",
+      "breakpoints": true
     }
   ]
 }

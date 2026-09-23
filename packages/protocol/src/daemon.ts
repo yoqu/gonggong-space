@@ -26,6 +26,14 @@ export const DaemonLoginReq = z.object({ code: z.string(), machine: MachineInfo 
 export const DaemonLoginRes = z.object({ token: z.string(), machineId: z.string(), ownerName: z.string() })
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 
+// ── REST for the daemon / desktop app (machine token, `Authorization: Bearer`) ─
+/** POST /api/daemon/net: a measured round trip + throughput to the server. */
+export const NetReportReq = z.object({ latencyMs: z.number().min(0), bandwidthMbps: z.number().min(0) })
+/** GET /api/daemon/net/probe?bytes=N streams N random bytes for the bandwidth measurement (max 16 MiB). */
+export const NET_PROBE_MAX_BYTES = 16 * 1024 * 1024
+/** PATCH /api/daemon/bots/:id: the bot owner changes the concurrency from the desktop app (spec §4.7). */
+export const DaemonBotPatchReq = z.object({ concurrency: z.number().int().min(1).max(8) })
+
 // ── Shared run payloads ─────────────────────────────────────────────────────
 export const McpServer = z.discriminatedUnion('transport', [
   z.object({
