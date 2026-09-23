@@ -32,7 +32,6 @@ const botEvents = (list: WebEvent[]) =>
   list.flatMap((e) => (e.t === 'bot.updated' ? [e.bot] : [])) as BotDto[]
 
 const fakeConn: DaemonConn = { send() {}, close() {} }
-const settle = () => new Promise((r) => setTimeout(r, 50))
 
 describe('POST /api/bots', () => {
   it('binds a bot the member creates for herself on her own machine', async () => {
