@@ -59,14 +59,14 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
   try {
     await page.goto(`/g/${group.id}`)
     await viewer.page.goto(`/g/${group.id}`)
-    await say(page, '@审批 A @审批 B 请用 Bash 工具执行命令 `echo hello-approval`，然后只回复命令的输出。')
+    await say(page, '@审批 A @审批 B 请用 Bash 工具执行命令 `node -e "console.log(\'hello-approval\')"`，然后只回复命令的输出。')
     await expect(page.getByText('扇出 · 2 个 bot 并行')).toBeVisible()
 
     const cardA = cardOf(page, '审批 A')
     const cardB = cardOf(page, '审批 B')
     await expect(cardA).toContainText('等待审批', { timeout: 3 * 60_000 })
     await expect(cardB).toContainText('等待审批', { timeout: 3 * 60_000 })
-    await expect(cardA).toContainText('echo hello-approval')
+    await expect(cardA).toContainText("console.log('hello-approval')")
 
     // A non-owner sees the request but cannot act on it.
     const viewerCard = cardOf(viewer.page, '审批 A')
@@ -85,11 +85,11 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     // The side panel keeps the approval record.
     await cardA.getByRole('button', { name: '查看过程' }).click()
     await page.getByRole('tab', { name: '审批记录' }).click()
-    await expect(page.getByTestId('run-rail')).toContainText('echo hello-approval')
+    await expect(page.getByTestId('run-rail')).toContainText("console.log('hello-approval')")
     await page.getByTestId('run-rail').getByRole('button', { name: '关闭' }).click()
 
     // /stop while a request is pending: the run is interrupted and the request is voided.
-    await say(page, '@审批 A 请用 Bash 工具执行命令 `echo second`，然后只回复输出。')
+    await say(page, '@审批 A 请用 Bash 工具执行命令 `node -e "console.log(\'second\')"`，然后只回复输出。')
     const second = cardOf(page, '审批 A').last()
     await expect(second).toContainText('等待审批', { timeout: 3 * 60_000 })
     await say(page, '/stop @审批 A')

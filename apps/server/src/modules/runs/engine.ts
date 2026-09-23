@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
+import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { updateBotState } from '../workspaces/state.js'
@@ -25,6 +26,7 @@ export function startRunEngine(ctx: Ctx) {
   const onMessage = (machineId: string, msg: DaemonMsg) => {
     if (msg.t === 'run.event') enqueue(() => onEvent(ctx, machineId, msg.runId, msg.event))
     else if (msg.t === 'run.done') enqueue(() => onDone(ctx, machineId, msg))
+    else if (msg.t === 'approval.request') enqueue(() => onApprovalRequest(ctx, machineId, msg))
   }
   const onOnline = (machineId: string) =>
     enqueue(async () => {
@@ -92,6 +94,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
     .where(and(eq(runs.id, done.runId), inArray(runs.status, LIVE)))
     .returning()
   if (!run) return
+  await voidApprovals(ctx, run.id, 'ended')
   if (done.sessionId)
     await ctx.db
       .update(groupBots)

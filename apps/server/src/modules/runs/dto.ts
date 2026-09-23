@@ -2,6 +2,7 @@ import type { ApprovalDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { runs } from '../../db/schema.js'
+import { approvalsByRun } from '../approvals/dto.js'
 import { memberIds } from '../messages/service.js'
 
 export type RunRow = typeof runs.$inferSelect
@@ -45,9 +46,14 @@ export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: st
       ),
     )
     .orderBy(asc(runs.queuedAt))
-  return rows.map((r) => runDto(r))
+  const approvals = await approvalsByRun(
+    ctx,
+    rows.map((r) => r.id),
+  )
+  return rows.map((r) => runDto(r, { approvals: approvals.get(r.id) }))
 }
 
 export async function publishRun(ctx: Ctx, run: RunRow) {
-  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: runDto(run) })
+  const approvals = (await approvalsByRun(ctx, [run.id])).get(run.id)
+  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: runDto(run, { approvals }) })
 }

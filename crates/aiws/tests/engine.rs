@@ -93,29 +93,115 @@ fn echo(done: &RunDone) -> serde_json::Value {
     serde_json::from_str(&done.reply).unwrap()
 }
 
+/// Events of the turn up to its approval request.
+async fn until_approval(r: &mut Rig) -> (Vec<RunEvent>, ApprovalRequest) {
+    let mut events = vec![];
+    loop {
+        match r.next().await {
+            DaemonToServer::RunEvent { event, .. } => events.push(event),
+            DaemonToServer::ApprovalRequest(a) => return (events, a),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+}
+
+fn decide(r: &Rig, a: &ApprovalRequest, option_id: Option<&str>) {
+    r.send(ServerToDaemon::ApprovalDecision {
+        run_id: a.run_id.clone(),
+        request_id: a.request_id.clone(),
+        option_id: option_id.map(String::from),
+    });
+}
+
 #[tokio::test]
-async fn streams_a_turn_and_rejects_permissions_below_full_tier() {
+async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "写个文件"));
-    let (events, done) = r.finish("r1").await;
+    let (events, approval) = until_approval(&mut r).await;
     assert!(r.workspace().is_dir());
     assert_eq!(events.first(), Some(&RunEvent::Text { delta: "好的，".into() }));
     assert!(events.contains(&RunEvent::Thought { delta: "需要写一个文件".into() }));
     assert!(events.iter().any(
         |e| matches!(e, RunEvent::Tool { tool_kind, title, .. } if tool_kind == "edit" && title == "Write hello.txt")
     ));
-    assert!(events.contains(&RunEvent::Status {
-        status: RunStatus::Running,
-        step: "权限请求已拒绝（审批流程将在 M3 提供）".into()
-    }));
+    assert_eq!(
+        events.last(),
+        Some(&RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：Write hello.txt".into() })
+    );
+    let file = r.workspace().join("hello.txt");
+    assert_eq!(
+        approval,
+        ApprovalRequest {
+            run_id: "r1".into(),
+            request_id: approval.request_id.clone(),
+            title: "Write hello.txt".into(),
+            tool_kind: "edit".into(),
+            detail: file.display().to_string(),
+            options: vec![
+                PermissionOption { option_id: "allow".into(), name: "Allow".into(), kind: PermissionKind::AllowOnce },
+                PermissionOption {
+                    option_id: "reject".into(),
+                    name: "Reject".into(),
+                    kind: PermissionKind::RejectOnce
+                },
+            ],
+        }
+    );
+    // Decisions for unknown requests are ignored.
+    r.send(ServerToDaemon::ApprovalDecision {
+        run_id: "r1".into(),
+        request_id: "nope".into(),
+        option_id: Some("reject".into()),
+    });
+    decide(&r, &approval, Some("allow"));
+    let (events, done) = r.finish("r1").await;
+    assert_eq!(
+        events.first(),
+        Some(&RunEvent::Status { status: RunStatus::Running, step: "已批准：Write hello.txt".into() })
+    );
     assert!(events.iter().any(|e| matches!(e, RunEvent::Usage { .. })));
     assert_eq!(done.outcome, RunOutcome::Completed);
-    assert_eq!(done.reply, "好的，权限被拒绝，未写入。");
+    assert_eq!(done.reply, "好的，已写入 hello.txt。");
     assert_eq!(done.files_changed, 1);
     assert_eq!(done.git, None);
     assert_eq!(done.usage.as_ref().and_then(|u| u.cost_usd), Some(0.01));
     assert_eq!(done.new_session_reason.as_deref(), Some("first"));
     assert!(done.session_id.as_deref().unwrap().starts_with("mock-"));
+}
+
+#[tokio::test]
+async fn a_rejected_or_timed_out_request_lets_the_agent_carry_on() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "写个文件"));
+    let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, Some("reject"));
+    let (events, done) = r.finish("r1").await;
+    assert_eq!(
+        events.first(),
+        Some(&RunEvent::Status { status: RunStatus::Running, step: "请求被拒绝，agent 自行绕路".into() })
+    );
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "好的，权限被拒绝，未写入。"));
+
+    // No option (timeout without a reject option) answers `cancelled`.
+    r.run(follow_up("r2", "写个文件", &done));
+    let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, None);
+    let (_, done) = r.finish("r2").await;
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "好的，权限被拒绝，未写入。"));
+}
+
+#[tokio::test]
+async fn cancel_answers_a_pending_request_and_interrupts() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "写个文件"));
+    let (_, approval) = until_approval(&mut r).await;
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.outcome, RunOutcome::Interrupted);
+    // A late decision for the finished turn is ignored.
+    decide(&r, &approval, Some("allow"));
+    r.run(follow_up("r2", "mock:echo", &done));
+    assert_eq!(r.finish("r2").await.1.outcome, RunOutcome::Completed);
 }
 
 #[tokio::test]

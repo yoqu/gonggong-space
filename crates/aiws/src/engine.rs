@@ -70,8 +70,12 @@ impl Handler for Engine {
                 let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move { inner.workspaces.cd(req, &out).await });
             }
-            // Implemented by the M3 approval / stop slices.
-            ServerToDaemon::ApprovalDecision { .. } | ServerToDaemon::RunDiscard { .. } => {}
+            ServerToDaemon::ApprovalDecision { run_id, request_id, option_id } => {
+                let actors = self.0.actors.lock().unwrap();
+                actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
+            }
+            // Implemented by the M3 stop slice.
+            ServerToDaemon::RunDiscard { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }

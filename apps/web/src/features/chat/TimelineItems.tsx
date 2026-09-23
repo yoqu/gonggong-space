@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge, type BadgeVariant } from '../../ui'
+import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { Markdown } from './Markdown'
 
 export const RUN_STATUS: Record<RunStatus, { label: string; variant: BadgeVariant }> = {
@@ -226,6 +227,7 @@ export function RunCard({
           {sessionNote}
         </div>
       ) : null}
+      <ApprovalBlock run={run} />
     </div>
   )
 }

@@ -1,5 +1,7 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
-use crate::protocol::{AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage};
+use crate::protocol::{
+    self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage,
+};
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallLocation, ToolKind,
 };
@@ -46,14 +48,26 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
     }
 }
 
-/// M1 has no approval flow: `full` allows, other tiers reject. `None` → answer `cancelled`.
-pub fn permission_choice(tier: Tier, options: &[PermissionOption]) -> Option<PermissionOptionId> {
-    let prefs = if tier == Tier::Full {
-        [PermissionOptionKind::AllowOnce, PermissionOptionKind::AllowAlways]
-    } else {
-        [PermissionOptionKind::RejectOnce, PermissionOptionKind::RejectAlways]
-    };
-    prefs.iter().find_map(|k| options.iter().find(|o| o.kind == *k)).map(|o| o.option_id.clone())
+/// Plan D15: `full` allows on its own; other tiers ask the bot owner. `None` → answer `cancelled`.
+pub fn auto_allow(options: &[PermissionOption]) -> Option<PermissionOptionId> {
+    [PermissionOptionKind::AllowOnce, PermissionOptionKind::AllowAlways]
+        .iter()
+        .find_map(|k| options.iter().find(|o| o.kind == *k))
+        .map(|o| o.option_id.clone())
+}
+
+/// Options as offered to the owner; kinds this protocol version does not know are left out.
+pub fn wire_options(options: &[PermissionOption]) -> Vec<protocol::PermissionOption> {
+    options
+        .iter()
+        .filter_map(|o| {
+            Some(protocol::PermissionOption {
+                option_id: o.option_id.0.to_string(),
+                name: o.name.clone(),
+                kind: serde_json::from_value(serde_json::to_value(o.kind).ok()?).ok()?,
+            })
+        })
+        .collect()
 }
 
 /// Client `_meta` opting into codex-acp's typed session failures (JetBrains AIR extension v1); without it the
@@ -253,14 +267,22 @@ mod tests {
     }
 
     #[test]
-    fn full_tier_allows_others_reject() {
+    fn full_tier_allows_and_options_go_on_the_wire() {
         let opts = vec![
-            PermissionOption::new("a", "Allow", PermissionOptionKind::AllowOnce),
             PermissionOption::new("r", "Reject", PermissionOptionKind::RejectOnce),
+            PermissionOption::new("aa", "Always", PermissionOptionKind::AllowAlways),
+            PermissionOption::new("a", "Allow", PermissionOptionKind::AllowOnce),
         ];
-        assert_eq!(permission_choice(Tier::Full, &opts).unwrap().0.as_ref(), "a");
-        assert_eq!(permission_choice(Tier::Workspace, &opts).unwrap().0.as_ref(), "r");
-        assert!(permission_choice(Tier::ReadOnly, &opts[..1]).is_none());
+        assert_eq!(auto_allow(&opts).unwrap().0.as_ref(), "a");
+        assert!(auto_allow(&opts[..1]).is_none());
+        assert_eq!(
+            wire_options(&opts[..1]),
+            vec![protocol::PermissionOption {
+                option_id: "r".into(),
+                name: "Reject".into(),
+                kind: protocol::PermissionKind::RejectOnce
+            }]
+        );
     }
 
     #[test]

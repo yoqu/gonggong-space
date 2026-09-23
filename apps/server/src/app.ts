@@ -6,6 +6,8 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { approvalRoutes } from './modules/approvals/routes.js'
+import { startApprovalTimer } from './modules/approvals/service.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
@@ -41,6 +43,9 @@ export async function buildApp(ctx: Ctx) {
   app.addHook('onClose', stopRunEngine)
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
+  const stopApprovalTimer = startApprovalTimer(ctx)
+  app.addHook('onClose', async () => stopApprovalTimer())
+  await app.register(approvalRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))
