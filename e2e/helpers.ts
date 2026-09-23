@@ -17,17 +17,22 @@ export function aiws(args: string[], env: Record<string, string> = {}) {
 }
 
 /** An isolated "member machine": its own AIWS_HOME, running `aiws run` in the background. */
-export function machine() {
+export function machine(server = SERVER) {
   const home = mkdtempSync(join(tmpdir(), 'aiws-e2e-'))
   const env = { AIWS_HOME: home, AIWS_LOG: 'info', CODEX_HOME: codexHome() }
   let proc: ChildProcess | undefined
+  let exited: Promise<number | null> = Promise.resolve(null)
   return {
     home,
-    login: (code: string) => aiws(['login', '--server', SERVER, '--code', code], env),
+    login: (code: string) => aiws(['login', '--server', server, '--code', code], env),
     start() {
       proc = spawn(AIWS_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
+      const p = proc
+      exited = new Promise((r) => p.on('exit', (code) => r(code)))
     },
     stop: () => proc?.kill(),
+    /** Resolves with the exit code once `aiws run` terminates (e.g. after being revoked). */
+    exited: () => exited,
     /** Recursively finds a file by name under this machine's managed workspaces. */
     find(name: string): string | undefined {
       const walk = (dir: string): string | undefined => {
