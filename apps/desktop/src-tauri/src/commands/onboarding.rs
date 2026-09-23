@@ -1,6 +1,7 @@
 use super::{Result, client};
 use crate::host::Host;
 use aiws::bots::Bot;
+use aiws::local::LocalSettings;
 use aiws::protocol::AgentInfo;
 use tauri::State;
 
@@ -12,8 +13,8 @@ pub async fn login(server: String, code: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn detect_agents() -> Vec<AgentInfo> {
-    aiws::agents::detect()
+pub fn detect_agents(host: State<'_, Host>) -> Result<Vec<AgentInfo>> {
+    Ok(aiws::agents::detect(&LocalSettings::load(&host.home).map_err(|e| e.to_string())?))
 }
 
 /// Step 2: connecting reports the detected agents in hello. Async so it runs inside the runtime the daemon needs.

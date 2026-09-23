@@ -225,6 +225,9 @@
 .admin-table__warn {
   color: #ff9f0a;
 }
+.admin-table__bad {
+  color: #ff453a;
+}
 .admin-table__presence {
   display: flex;
   align-items: center;

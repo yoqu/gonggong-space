@@ -14,6 +14,7 @@ import { Throttle } from '../../lib/throttle.js'
 import { requireUser } from '../auth/session.js'
 import { onMachineBound } from '../bots/binding.js'
 import { machineDto } from '../bots/dto.js'
+import { netRoutes } from './net.js'
 
 const CODE_TTL_MS = 10 * 60_000
 /** No I/O/0/1 so codes survive being read aloud or retyped. */
@@ -48,6 +49,7 @@ export function machineRoutes(ctx: Ctx) {
         .finally(() => pending.delete(p))
       pending.add(p)
     }
+    await app.register(netRoutes(ctx))
     ctx.hub.on('online', pushState)
     ctx.hub.on('offline', pushState)
     app.addHook('onClose', async () => {

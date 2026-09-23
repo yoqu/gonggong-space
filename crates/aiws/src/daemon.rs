@@ -3,6 +3,7 @@
 use crate::bind::machine_info;
 use crate::config::Config;
 use crate::engine::{Engine, EngineConfig};
+use crate::local::LocalSettings;
 use crate::lock::Lock;
 use crate::protocol::RejectReason;
 use crate::service::{Fatal, Service};
@@ -50,7 +51,7 @@ impl Daemon {
         let service = Service {
             config: opts.config.clone(),
             machine: machine_info(),
-            agents: crate::agents::detect(),
+            agents: crate::agents::detect(&LocalSettings::load(&opts.home)?),
             handler: Engine::new(EngineConfig {
                 home: opts.home.clone(),
                 adapter_cmd: opts.adapter_cmd,

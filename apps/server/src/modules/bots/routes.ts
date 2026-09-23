@@ -1,6 +1,6 @@
-import { type BotOwnerDto, CreateBotReq, UpdateBotReq } from '@aiws/protocol'
+import { type BotOwnerDto, CreateBotReq, DaemonBotPatchReq, UpdateBotReq } from '@aiws/protocol'
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { bots, groupBots, machines, users } from '../../db/schema.js'
@@ -208,12 +208,30 @@ export function botRoutes(ctx: Ctx) {
       return listBotDtos(ctx, eq(bots.machineId, machine.id))
     })
 
-    app.post<IdParams>('/api/daemon/bots/:id/confirm', async (req) => {
+    const loadMachineBot = async (req: FastifyRequest<IdParams>) => {
       const machine = await requireMachine(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
-      if (bot.machineId !== machine.id) fail('not_found', 'bot 不存在')
+      return bot.machineId === machine.id ? bot : fail('not_found', 'bot 不存在')
+    }
+
+    app.post<IdParams>('/api/daemon/bots/:id/confirm', async (req) => {
+      const bot = await loadMachineBot(req)
       if (bot.binding !== 'pending_confirm') fail('conflict', '该 bot 无需确认')
       return confirmBot(ctx, bot)
+    })
+
+    // The desktop app's Bot page (spec §4.7): the machine acts for its owner.
+    app.patch<IdParams>('/api/daemon/bots/:id', async (req) => {
+      const bot = await loadMachineBot(req)
+      const { concurrency } = DaemonBotPatchReq.parse(req.body)
+      await ctx.db.update(bots).set({ concurrency }).where(eq(bots.id, bot.id))
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: bot.ownerId,
+        action: 'bot.concurrency',
+        detail: { botId: bot.id, name: bot.name, from: bot.concurrency, to: concurrency },
+      })
+      return publishBot(ctx, bot.id)
     })
   }
 }

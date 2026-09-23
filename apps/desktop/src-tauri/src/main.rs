@@ -42,16 +42,19 @@ fn tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 fn main() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_env("AIWS_LOG")).init();
+    let home = aiws::config::home();
+    // Same log setup as `aiws run`: <home>/logs plus the in-memory recent lines (`Logs`, managed for the Logs page).
+    let (logs, _log_guard) = aiws::logs::init(&home).expect("cannot set up logging");
     tauri::Builder::default()
+        .manage(logs)
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .invoke_handler(commands::handler())
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
             let notify = Arc::new(move |snapshot| {
                 let _ = handle.emit(SNAPSHOT_EVENT, snapshot);
             });
-            app.manage(Host::new(aiws::config::home(), notify));
+            app.manage(Host::new(home, notify));
             tray(app)?;
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {

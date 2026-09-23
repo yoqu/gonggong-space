@@ -3,6 +3,7 @@ use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
+use crate::local::{self, AgentModels, BotSettings, Choice, Decision, LocalSettings};
 use crate::protocol::{
     AgentCommand, Answer, ApprovalRequest, Attachment, DaemonToServer, McpServer, Question, RunDone, RunEvent,
     RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
@@ -16,8 +17,10 @@ use agent_client_protocol::schema::v1::{
     self as acp, CancelNotification, ClientCapabilities, EnvVariable, HttpHeader, InitializeRequest,
     InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption,
     PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
-    RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId,
-    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason, Usage as AcpUsage,
+    RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome,
+    SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOptions,
+    SessionConfigValueId, SessionId, SessionModeState, SessionNotification, SessionUpdate,
+    SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -32,6 +35,8 @@ pub(crate) struct TurnReq {
     pub start: RunStart,
     pub cwd: PathBuf,
     pub out: Outbox,
+    /// The owner's local settings as of this run.
+    pub local: LocalSettings,
 }
 
 struct Active {
@@ -40,6 +45,8 @@ struct Active {
     /// (group, bot) of the conversation, for commands.update.
     key: (String, String),
     tier: Tier,
+    /// The bot's local approval rules (plan D15).
+    rules: BotSettings,
     out: Outbox,
     turn: Turn,
     /// False while the session is being set up (session/load replays history we must not forward).
@@ -220,6 +227,7 @@ impl Shared {
             cwd: req.cwd.clone(),
             key: (req.start.group_id.clone(), req.start.bot.id.clone()),
             tier: req.start.bot.tier,
+            rules: req.local.bot(&req.start.bot.id),
             out: req.out.clone(),
             turn: Turn::default(),
             streaming: false,
@@ -312,7 +320,7 @@ impl Shared {
         }
     }
 
-    /// Plan D15: `full` allows by itself; anything the agent asks beyond other tiers goes to the bot owner.
+    /// Plan D15: `full` allows by itself, then the owner's local rules; anything else goes to the bot owner.
     fn on_permission(&self, req: RequestPermissionRequest) -> Permission {
         let mut s = self.0.lock().unwrap();
         s.requests += 1;
@@ -320,14 +328,26 @@ impl Shared {
         let Some(a) = s.active.as_mut() else { return Permission::Now(permission_response(None)) };
         // The built-in ask tool only reaches group members: never an owner decision (spec §8.8).
         let ask_tool = req.tool_call.fields.title.as_deref().is_some_and(|t| t.contains(ask::TOOL));
-        if a.tier == Tier::Full || ask_tool {
+        if ask_tool {
             return Permission::Now(permission_response(auto_allow(&req.options)));
         }
+        let command = command_of(req.tool_call.fields.raw_input.as_ref());
         let Some(RunEvent::Tool { title, tool_kind, detail, .. }) =
             a.turn.apply(SessionUpdate::ToolCallUpdate(req.tool_call))
         else {
             unreachable!("tool call updates always map to tool events")
         };
+        let command = command.filter(|_| tool_kind == "execute");
+        match a.rules.decide(a.tier, command.as_deref()) {
+            Decision::Full => return Permission::Now(permission_response(auto_allow(&req.options))),
+            Decision::Local if let Some(allow) = auto_allow(&req.options) => {
+                let step = format!("已按本机规则自动批准：{}", command.unwrap_or(title));
+                let event = RunEvent::Status { status: RunStatus::Running, step };
+                a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+                return Permission::Now(permission_response(Some(allow)));
+            }
+            _ => {}
+        }
         let (run_id, out) = (a.run_id.clone(), a.out.clone());
         let event = RunEvent::Status { status: RunStatus::AwaitingApproval, step: format!("等待审批：{title}") };
         out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
@@ -463,6 +483,35 @@ fn truncate(s: &str) -> String {
     s.chars().take(ERROR_MAX).collect()
 }
 
+/// The shell command of a tool call's raw input: a string (Claude, Codex) or an argv array.
+fn command_of(raw: Option<&serde_json::Value>) -> Option<String> {
+    match raw?.get("command")? {
+        serde_json::Value::String(c) => Some(c.clone()),
+        serde_json::Value::Array(argv) => Some(argv.iter().filter_map(|a| a.as_str()).collect::<Vec<_>>().join(" ")),
+        _ => None,
+    }
+}
+
+/// A select option of the given category: (config id, current value, choices).
+fn select(
+    options: &[SessionConfigOption],
+    category: &SessionConfigOptionCategory,
+) -> Option<(String, String, Vec<Choice>)> {
+    options.iter().filter(|o| o.category.as_ref() == Some(category)).find_map(|o| {
+        let SessionConfigKind::Select(sel) = &o.kind else { return None };
+        let choices = match &sel.options {
+            SessionConfigSelectOptions::Ungrouped(list) => list.iter().collect::<Vec<_>>(),
+            SessionConfigSelectOptions::Grouped(groups) => groups.iter().flat_map(|g| &g.options).collect(),
+            _ => vec![],
+        };
+        let choices = choices
+            .into_iter()
+            .map(|c| Choice { value: c.value.0.to_string(), name: c.name.clone(), description: c.description.clone() })
+            .collect();
+        Some((o.id.0.to_string(), sel.current_value.0.to_string(), choices))
+    })
+}
+
 impl Asker for Shared {
     fn ask(&self, questions: Vec<Question>) -> Result<oneshot::Receiver<String>, String> {
         let mut s = self.0.lock().unwrap();
@@ -498,7 +547,7 @@ pub(crate) async fn run(
         if !shared.begin(&req) {
             continue;
         }
-        let result = match engine.adapter(&req.start.bot).await {
+        let result = match engine.adapter(&req.start.bot, &req.local).await {
             Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), req, &mut rx, &mut resume).await,
             Err(e) => Err(format!("{e:#}")),
         };
@@ -559,7 +608,18 @@ async fn connect(
                 image = caps.prompt_capabilities.image,
                 "adapter initialized"
             );
-            let mut conv = Conversation { cx: &cx, init: &init, shared, ask, session: None, mode: None };
+            let mut conv = Conversation {
+                cx: &cx,
+                init: &init,
+                shared,
+                ask,
+                home: &engine.config.home,
+                session: None,
+                mode: None,
+                options: vec![],
+                initial: HashMap::new(),
+                applied: HashMap::new(),
+            };
             let mut req = first;
             loop {
                 conv.turn(req, resume).await?;
@@ -582,8 +642,14 @@ struct Conversation<'a> {
     init: &'a InitializeResponse,
     shared: &'a Shared,
     ask: &'a acp::McpServer,
+    home: &'a std::path::Path,
     session: Option<SessionId>,
     mode: Option<String>,
+    /// The session's config options as last reported, their values when it was opened, and the values we set
+    /// (by config id; adapters may report a set alias under its canonical id).
+    options: Vec<SessionConfigOption>,
+    initial: HashMap<String, String>,
+    applied: HashMap<String, String>,
 }
 
 impl Conversation<'_> {
@@ -618,6 +684,7 @@ impl Conversation<'_> {
                 Err(e) => tracing::warn!("session/set_mode {mode} failed: {e}"),
             }
         }
+        self.configure(&req, &session).await;
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
@@ -663,8 +730,9 @@ impl Conversation<'_> {
         let tried = resume.is_some();
         if let Some(id) = resume {
             match self.restore(&id, req, meta.clone()).await {
-                Ok(modes) => {
+                Ok((modes, options)) => {
                     self.set_modes(modes);
+                    self.set_options(options.unwrap_or_default());
                     return Ok((id, None));
                 }
                 Err(e) => tracing::info!("resuming session {} failed: {e}", id.0),
@@ -674,6 +742,8 @@ impl Conversation<'_> {
         let new = NewSessionRequest::new(&req.cwd).mcp_servers(servers).meta(meta);
         let res = self.cx.send_request(new).block_task().await?;
         self.set_modes(res.modes);
+        self.set_options(res.config_options.unwrap_or_default());
+        self.save_catalog(req.start.bot.agent_kind);
         let reason =
             if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
         Ok((res.session_id, Some(reason)))
@@ -684,15 +754,17 @@ impl Conversation<'_> {
         id: &SessionId,
         req: &TurnReq,
         meta: Option<Meta>,
-    ) -> Result<Option<SessionModeState>, agent_client_protocol::Error> {
+    ) -> Result<(Option<SessionModeState>, Option<Vec<SessionConfigOption>>), agent_client_protocol::Error> {
         let caps = &self.init.agent_capabilities;
         let servers = mcp_servers_for(&req.start, self.ask);
         if caps.session_capabilities.resume.is_some() {
             let req = ResumeSessionRequest::new(id.clone(), &req.cwd).mcp_servers(servers).meta(meta);
-            Ok(self.cx.send_request(req).block_task().await?.modes)
+            let res = self.cx.send_request(req).block_task().await?;
+            Ok((res.modes, res.config_options))
         } else if caps.load_session {
             let req = LoadSessionRequest::new(id.clone(), &req.cwd).mcp_servers(servers).meta(meta);
-            Ok(self.cx.send_request(req).block_task().await?.modes)
+            let res = self.cx.send_request(req).block_task().await?;
+            Ok((res.modes, res.config_options))
         } else {
             Err(agent_client_protocol::Error::method_not_found())
         }
@@ -701,6 +773,70 @@ impl Conversation<'_> {
     /// Records the session's current mode so the first turn switches it to the tier's mode (D21) when offered.
     fn set_modes(&mut self, modes: Option<SessionModeState>) {
         self.mode = modes.map(|m| m.current_mode_id.0.to_string());
+    }
+
+    fn set_options(&mut self, options: Vec<SessionConfigOption>) {
+        self.initial = [SessionConfigOptionCategory::Model, SessionConfigOptionCategory::ThoughtLevel]
+            .iter()
+            .filter_map(|c| select(&options, c))
+            .map(|(id, current, _)| (id, current))
+            .collect();
+        self.applied.clear();
+        self.options = options;
+    }
+
+    /// Records what a fresh session offers, for the model pickers of the CLI and the desktop app.
+    fn save_catalog(&self, kind: crate::protocol::AgentKind) {
+        let Some((_, current, models)) = select(&self.options, &SessionConfigOptionCategory::Model) else { return };
+        let effort = select(&self.options, &SessionConfigOptionCategory::ThoughtLevel);
+        let catalog = AgentModels {
+            models,
+            current: Some(current),
+            current_effort: effort.as_ref().map(|(_, v, _)| v.clone()),
+            efforts: effort.map(|(.., c)| c).unwrap_or_default(),
+        };
+        if let Err(e) = local::save_models(self.home, kind, catalog) {
+            tracing::warn!("saving the model catalog failed: {e:#}");
+        }
+    }
+
+    /// Switches the session to the owner's model and effort (bot → agent → the session's initial value) when they
+    /// differ from the current ones. Model first: switching it may change the effort levels on offer.
+    async fn configure(&mut self, req: &TurnReq, session: &SessionId) {
+        let (kind, bot) = (req.start.bot.agent_kind, &req.start.bot.id);
+        let wanted = [
+            (SessionConfigOptionCategory::Model, "模型", req.local.model_for(kind, bot)),
+            (SessionConfigOptionCategory::ThoughtLevel, "推理强度", req.local.agent(kind).effort),
+        ];
+        for (category, label, want) in wanted {
+            let Some((id, current, choices)) = select(&self.options, &category) else {
+                if let Some(want) = want {
+                    tracing::warn!("the adapter offers no {category:?} option; ignoring {want}");
+                }
+                continue;
+            };
+            let Some(target) = want.or_else(|| self.initial.get(&id).cloned()) else { continue };
+            if current == target || self.applied.get(&id) == Some(&target) {
+                continue;
+            }
+            let set = SetSessionConfigOptionRequest::new(
+                session.clone(),
+                id.clone(),
+                SessionConfigValueId::new(target.clone()),
+            );
+            let step = match self.cx.send_request(set).block_task().await {
+                Ok(res) => {
+                    self.options = res.config_options;
+                    let name = choices.iter().find(|c| c.value == target).map_or(target.as_str(), |c| &c.name);
+                    let step = format!("已切换{label}：{name}");
+                    self.applied.insert(id, target);
+                    step
+                }
+                Err(e) => format!("本机设置的{label} {target} 不可用：{}", describe(&e)),
+            };
+            let event = RunEvent::Status { status: RunStatus::Running, step };
+            req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
+        }
     }
 
     /// Claude reads the per-session system prompt from `_meta`; Codex gets it per process (CODEX_CONFIG).

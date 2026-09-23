@@ -56,10 +56,22 @@ impl Client {
             .await?;
         Ok(ok(res).await?.json().await?)
     }
+
+    /// The owner's 并发上限 for a bot on this machine (1–8).
+    pub async fn set_concurrency(&self, id: &str, concurrency: u32) -> Result<Bot> {
+        let res = self
+            .http
+            .patch(format!("{}/api/daemon/bots/{id}", self.base))
+            .bearer_auth(&self.token)
+            .json(&serde_json::json!({ "concurrency": concurrency }))
+            .send()
+            .await?;
+        Ok(ok(res).await?.json().await?)
+    }
 }
 
 /// Turns a non-2xx response into an error carrying the server's `{ message }`.
-async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
+pub(crate) async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
     if res.status().is_success() {
         return Ok(res);
     }
