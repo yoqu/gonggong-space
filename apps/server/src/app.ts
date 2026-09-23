@@ -8,7 +8,9 @@ import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
+import { groupRoutes } from './modules/groups/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
+import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { runRoutes } from './modules/runs/routes.js'
@@ -28,6 +30,8 @@ export async function buildApp(ctx: Ctx) {
     return reply.status(500).send({ error: 'invalid', message: 'internal error' })
   })
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
+  await app.register(groupRoutes(ctx))
+  await app.register(messageRoutes(ctx))
   await app.register(webGateway(ctx))
   await app.register(daemonGateway(ctx))
   await app.register(runRoutes(ctx))

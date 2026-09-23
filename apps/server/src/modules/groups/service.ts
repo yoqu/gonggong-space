@@ -1,0 +1,138 @@
+import type { GroupDto } from '@aiws/protocol'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import type { Ctx } from '../../context.js'
+import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
+import { fail } from '../../lib/errors.js'
+import { isUuid } from '../../lib/ids.js'
+import { memberIds } from '../messages/service.js'
+
+export const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/)\S+$/
+export const BRANCH = /^[A-Za-z0-9._/-]+$/
+
+/** Non-members get not_found so group ids don't leak. */
+export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
+  if (!isUuid(groupId)) return fail('not_found', '群不存在或你已不在群内')
+  const [row] = await ctx.db
+    .select({ group: groups, member: groupMembers })
+    .from(groups)
+    .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
+    .where(and(eq(groups.id, groupId), isNull(groups.archivedAt)))
+  return row ?? fail('not_found', '群不存在或你已不在群内')
+}
+
+export async function requireAdmin(ctx: Ctx, groupId: string, userId: string) {
+  const row = await requireMember(ctx, groupId, userId)
+  return row.member.isAdmin ? row : fail('forbidden', '仅群管理员可操作')
+}
+
+/** Bots currently in the group (not removed, not deleted). */
+export function activeBots(ctx: Ctx, groupId: string) {
+  return ctx.db
+    .select({ id: bots.id, name: bots.name, ownerId: bots.ownerId, machineId: bots.machineId })
+    .from(groupBots)
+    .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .where(and(eq(groupBots.groupId, groupId), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
+    .orderBy(asc(groupBots.addedAt))
+}
+
+const preview = (kind: string, author: string | null, body: string) => {
+  const line = body.replace(/\n[\s\S]*$/, '').slice(0, 80)
+  return kind === 'event' ? line : `${author ?? ''}：${line}`
+}
+
+/** Group DTOs as seen by `userId` (unread is per user). */
+export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
+  const rows = await ctx.db
+    .select({ group: groups })
+    .from(groups)
+    .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
+    .where(and(isNull(groups.archivedAt), ids ? inArray(groups.id, ids) : undefined))
+    .orderBy(asc(groups.createdAt))
+  const gids = rows.map((r) => r.group.id)
+  if (!gids.length) return []
+
+  const [members, groupBotRows, repos, stats, lasts] = await Promise.all([
+    ctx.db
+      .select({
+        groupId: groupMembers.groupId,
+        userId: users.id,
+        name: users.name,
+        isAdmin: groupMembers.isAdmin,
+      })
+      .from(groupMembers)
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .where(inArray(groupMembers.groupId, gids))
+      .orderBy(asc(groupMembers.joinedAt)),
+    ctx.db
+      .select({ groupId: groupBots.groupId, botId: groupBots.botId })
+      .from(groupBots)
+      .innerJoin(bots, eq(bots.id, groupBots.botId))
+      .where(and(inArray(groupBots.groupId, gids), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
+      .orderBy(asc(groupBots.addedAt)),
+    ctx.db.select().from(groupRepos).where(inArray(groupRepos.groupId, gids)),
+    ctx.db
+      .select({
+        groupId: messages.groupId,
+        lastSeq: sql<number>`max(${messages.seq})`.mapWith(Number),
+        // System events and my own messages never count as unread.
+        unread: sql<number>`count(*) filter (where ${messages.seq} > ${groupMembers.lastReadSeq}
+          and ${messages.kind} <> 'event' and ${messages.authorUserId} is distinct from ${userId})`.mapWith(
+          Number,
+        ),
+      })
+      .from(messages)
+      .innerJoin(
+        groupMembers,
+        and(eq(groupMembers.groupId, messages.groupId), eq(groupMembers.userId, userId)),
+      )
+      .where(inArray(messages.groupId, gids))
+      .groupBy(messages.groupId, groupMembers.lastReadSeq),
+    ctx.db
+      .selectDistinctOn([messages.groupId], {
+        groupId: messages.groupId,
+        kind: messages.kind,
+        body: messages.body,
+        userName: users.name,
+        botName: bots.name,
+      })
+      .from(messages)
+      .leftJoin(users, eq(users.id, messages.authorUserId))
+      .leftJoin(bots, eq(bots.id, messages.authorBotId))
+      .where(inArray(messages.groupId, gids))
+      .orderBy(messages.groupId, desc(messages.seq)),
+  ])
+
+  return rows.map(({ group: g }) => {
+    const repo = repos.find((r) => r.groupId === g.id)
+    const stat = stats.find((s) => s.groupId === g.id)
+    const last = lasts.find((l) => l.groupId === g.id)
+    return {
+      id: g.id,
+      name: g.name,
+      kind: g.kind as GroupDto['kind'],
+      mode: g.mode as GroupDto['mode'],
+      notice: g.notice,
+      repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,
+      members: members
+        .filter((m) => m.groupId === g.id)
+        .map(({ userId, name, isAdmin }) => ({ userId, name, isAdmin })),
+      botIds: groupBotRows.filter((b) => b.groupId === g.id).map((b) => b.botId),
+      unread: stat?.unread ?? 0,
+      lastSeq: stat?.lastSeq ?? 0,
+      last: last ? preview(last.kind, last.userName ?? last.botName, last.body) : '',
+    }
+  })
+}
+
+export async function groupDto(ctx: Ctx, userId: string, groupId: string) {
+  const [dto] = await groupDtos(ctx, userId, [groupId])
+  return dto ?? fail('not_found', '群不存在或你已不在群内')
+}
+
+/** Pushes each member their own view of the group. */
+export async function publishGroup(ctx: Ctx, groupId: string) {
+  for (const userId of await memberIds(ctx, groupId)) {
+    const [group] = await groupDtos(ctx, userId, [groupId])
+    if (group) ctx.bus.publish([userId], { t: 'group.updated', group })
+  }
+}

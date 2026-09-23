@@ -1,7 +1,8 @@
 import type { RunDto, RunStatus, Usage } from '@aiws/protocol'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groupMembers, runs } from '../../db/schema.js'
+import { runs } from '../../db/schema.js'
+import { memberIds } from '../messages/service.js'
 
 export type RunRow = typeof runs.$inferSelect
 
@@ -22,18 +23,20 @@ export const runDto = (r: RunRow): RunDto => ({
   endedAt: r.endedAt?.toISOString() ?? null,
 })
 
-/** All run cards of a group in trigger order, for the timeline. */
-export async function listRuns(ctx: Ctx, groupId: string): Promise<RunDto[]> {
-  const rows = await ctx.db.select().from(runs).where(eq(runs.groupId, groupId)).orderBy(asc(runs.queuedAt))
-  return rows.map(runDto)
-}
-
-export async function memberIds(ctx: Ctx, groupId: string) {
+/** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */
+export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: string[]): Promise<RunDto[]> {
+  if (triggerMessageIds?.length === 0) return []
   const rows = await ctx.db
-    .select({ id: groupMembers.userId })
-    .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId))
-  return rows.map((r) => r.id)
+    .select()
+    .from(runs)
+    .where(
+      and(
+        eq(runs.groupId, groupId),
+        triggerMessageIds ? inArray(runs.triggerMessageId, triggerMessageIds) : undefined,
+      ),
+    )
+    .orderBy(asc(runs.queuedAt))
+  return rows.map(runDto)
 }
 
 export async function publishRun(ctx: Ctx, run: RunRow) {

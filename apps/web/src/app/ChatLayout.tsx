@@ -1,5 +1,5 @@
 import { AtSign, ChevronLeft, Image, Paperclip, Slash } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, type Ref, useState } from 'react'
 import { cx } from '../lib/cx'
 import { Button, IconButton } from '../ui'
 import { MOBILE_MAX, RAIL_MIN, useViewportWidth } from './viewport'
@@ -90,6 +90,10 @@ export function Composer({
   onSend,
   hint,
   above,
+  popover,
+  inputRef,
+  onKeyDown,
+  busy,
 }: {
   value: string
   onChange: (value: string) => void
@@ -97,22 +101,33 @@ export function Composer({
   hint?: ReactNode
   /** Quote / attachment strips rendered above the textarea. */
   above?: ReactNode
+  /** Floating candidate list anchored above the composer. */
+  popover?: ReactNode
+  inputRef?: Ref<HTMLTextAreaElement>
+  /** Runs first; call preventDefault() to suppress Enter-to-send. */
+  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
+  /** A send is in flight. */
+  busy?: boolean
 }) {
-  const canSend = Boolean(onSend) && value.trim() !== ''
+  const canSend = Boolean(onSend) && value.trim() !== '' && !busy
   return (
     <div className="composer">
+      {popover}
       <div className="composer__box">
         {above}
         <textarea
+          ref={inputRef}
           className="composer__input"
           rows={2}
           value={value}
           placeholder="输入消息，@ 触发 bot 或引用文件，/ 查看命令"
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && canSend) {
+            onKeyDown?.(e)
+            if (e.defaultPrevented) return
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && onSend) {
               e.preventDefault()
-              onSend?.()
+              if (canSend) onSend()
             }
           }}
         />

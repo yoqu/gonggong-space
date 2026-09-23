@@ -142,6 +142,8 @@ export const GroupDto = z.object({
   botIds: z.array(z.string()),
   unread: z.number().int(),
   lastSeq: z.number().int(),
+  /** One-line preview of the latest message, '' when empty. */
+  last: z.string(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 
@@ -152,6 +154,13 @@ export const CreateGroupReq = z.object({
   botIds: z.array(z.string()).default([]),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),
 })
+export const GroupMemberReq = z.object({ userId: z.string() })
+export const GroupBotReq = z.object({ botId: z.string() })
+/** Moves the read cursor forward; omit `seq` to mark everything read. */
+export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
+export const ValidateRepoReq = z.object({ url: z.string(), branch: z.string() })
+export const ValidateRepoRes = z.object({ ok: z.boolean(), message: z.string() })
+export type ValidateRepoRes = z.infer<typeof ValidateRepoRes>
 
 // ── Timeline ────────────────────────────────────────────────────────────────
 export const MessageDto = z.object({
@@ -187,6 +196,11 @@ export const RunDto = z.object({
 })
 export type RunDto = z.infer<typeof RunDto>
 
+export const TimelineQuery = z.object({
+  /** Only messages with a smaller seq (older page). */
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+})
 /** GET /api/runs/:id — card fields plus the full (redacted) process for the side panel. */
 export const RunDetailDto = z.object({
   run: RunDto,
@@ -212,6 +226,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('bot.removed'), botId: z.string() }),
   z.object({ t: z.literal('notification.new'), notification: NotificationDto }),
   z.object({ t: z.literal('group.updated'), group: GroupDto }),
+  /** The receiving user is no longer a member. */
+  z.object({ t: z.literal('group.removed'), groupId: z.string() }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
 ])
 export type WebEvent = z.infer<typeof WebEvent>

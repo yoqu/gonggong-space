@@ -2,9 +2,10 @@ import type { RunDone, RunEvent } from '@aiws/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
-import { bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
+import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
 import { publishBot } from '../bots/dto.js'
-import { memberIds, publishRun, type RunRow } from './dto.js'
+import { memberIds, postMessage } from '../messages/service.js'
+import { publishRun } from './dto.js'
 import { schedule } from './scheduler.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -95,40 +96,16 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       .update(groupBots)
       .set({ sessionId: done.sessionId })
       .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
-  if (done.reply.trim()) await postReply(ctx, run, done.reply)
-  await publishRun(ctx, run)
-  await schedule(ctx, run.botId)
-  await publishBot(ctx, run.botId)
-}
-
-async function postReply(ctx: Ctx, run: RunRow, body: string) {
-  const [msg] = await ctx.db
-    .insert(messages)
-    .values({
+  if (done.reply.trim())
+    await postMessage(ctx, {
       groupId: run.groupId,
       kind: 'bot',
       authorBotId: run.botId,
-      body,
+      body: done.reply,
       meta: { mentions: [] },
       runId: run.id,
-      createdAt: ctx.now(),
     })
-    .returning()
-  const [bot] = await ctx.db.select({ name: bots.name }).from(bots).where(eq(bots.id, run.botId))
-  if (!msg || !bot) return
-  ctx.bus.publish(await memberIds(ctx, run.groupId), {
-    t: 'message.new',
-    message: {
-      id: msg.id,
-      seq: msg.seq,
-      groupId: msg.groupId,
-      kind: 'bot',
-      authorId: run.botId,
-      authorName: bot.name,
-      body: msg.body,
-      mentions: [],
-      runId: run.id,
-      createdAt: msg.createdAt.toISOString(),
-    },
-  })
+  await publishRun(ctx, run)
+  await schedule(ctx, run.botId)
+  await publishBot(ctx, run.botId)
 }

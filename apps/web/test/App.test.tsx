@@ -27,6 +27,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   botIds: [],
   unread: 0,
   lastSeq: 0,
+  last: '',
 })
 
 class NoopSocket {
