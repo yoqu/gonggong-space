@@ -59,8 +59,60 @@ export type MachineBot = Pick<
   'id' | 'name' | 'agentKind' | 'binding' | 'presence' | 'systemPrompt' | 'concurrency'
 >
 
+/** 概览 · 工作区 card: `count` workspaces, `detail` like `托管 4 · /cd 1 · 1.8 GB`. */
 export interface Overview {
-  managedWorkspaces: number
+  workspaces: { count: number; detail: string }
+}
+
+export type WorkspaceState = 'running' | 'idle' | 'removed' | 'unused'
+
+/** One row of 工作区, labels already in the prototype's wording. */
+export interface WorkspaceRow {
+  groupId: string
+  botId: string
+  group: string
+  bot: string
+  kind: 'managed' | 'empty' | 'cd'
+  kindLabel: string
+  path: string
+  state: WorkspaceState
+  stateLabel: string
+  deletable: boolean
+}
+
+export interface BackupRow {
+  name: string
+  path: string
+  size: string
+  modifiedMs: number | null
+}
+
+export interface Workspaces {
+  rows: WorkspaceRow[]
+  backups: BackupRow[]
+  /** The server was unreachable: rows come from disk only, without names or /cd bindings. */
+  offline: boolean
+}
+
+export type CheckStatus = 'ok' | 'warn' | 'error' | 'skipped'
+
+export interface Check {
+  kind: 'server' | 'agent' | 'git' | 'disk' | 'eol'
+  label: string
+  status: CheckStatus
+  detail: string
+}
+
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug'
+
+export interface LogLine {
+  level: LogLevel
+  text: string
+}
+
+export interface NetResult {
+  latencyMs: number
+  bandwidthMbps: number
 }
 
 export interface Settings {
@@ -126,6 +178,16 @@ export const ipc = {
   setAutoUpgrade: (on: boolean) => invoke<void>('set_auto_upgrade', { on }),
   setLaunchAtLogin: (on: boolean) => invoke<void>('set_launch_at_login', { on }),
   unbind: () => invoke<void>('unbind'),
+  workspaces: () => invoke<Workspaces>('workspaces'),
+  reveal: (path: string) => invoke<void>('reveal', { path }),
+  resetCd: (groupId: string, botId: string) => invoke<void>('reset_cd', { groupId, botId }),
+  deleteWorkspace: (groupId: string, botId: string, path: string) =>
+    invoke<void>('delete_workspace', { groupId, botId, path }),
+  diagnostics: () => invoke<Check[]>('diagnostics'),
+  measureNet: () => invoke<NetResult>('measure_net'),
+  /** Asks where to save; resolves with the written path, or null when cancelled. */
+  exportDiagnostics: () => invoke<string | null>('export_diagnostics'),
+  recentLogs: (level: LogLevel, limit: number) => invoke<LogLine[]>('recent_logs', { level, limit }),
   agents: () => invoke<AgentCard[]>('agents'),
   setAgentModel: (kind: AgentKind, model: string | null) => invoke<void>('set_agent_model', { kind, model }),
   setAgentEffort: (kind: AgentKind, effort: string | null) =>

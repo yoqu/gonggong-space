@@ -13,6 +13,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 tauri = { version = "2.11.6", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-dialog = "2.7.3"
+tauri-plugin-opener = "2.5.5"
 tracing = "0.1.44"
 
 [dev-dependencies]

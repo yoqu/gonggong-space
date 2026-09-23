@@ -48,6 +48,7 @@ fn main() {
     tauri::Builder::default()
         .manage(logs)
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .invoke_handler(commands::handler())
         .setup(move |app| {

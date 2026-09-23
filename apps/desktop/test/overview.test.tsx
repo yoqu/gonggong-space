@@ -15,7 +15,7 @@ function show(s: DaemonStatus) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.overview.mockResolvedValue({ managedWorkspaces: 5 })
+  m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · /cd 1 · 1.8 GB' } })
   m.machineBots.mockResolvedValue([
     {
       id: 'b1',
@@ -64,6 +64,7 @@ describe('overview', () => {
     expect(within(stats).getByText('2 / 2')).toBeTruthy()
     expect(within(stats).getByText('本机队列 1')).toBeTruthy()
     expect(await within(stats).findByText('5 个')).toBeTruthy()
+    expect(within(stats).getByText('托管 4 · /cd 1 · 1.8 GB')).toBeTruthy()
 
     const running = screen.getByTestId('running')
     expect(within(running).getByText('等待审批')).toBeTruthy()
