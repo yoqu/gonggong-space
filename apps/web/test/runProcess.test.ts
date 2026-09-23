@@ -113,6 +113,7 @@ const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
   detail: 'go build ./...',
   options: [],
   status: 'pending',
+  voidReason: null,
   decidedBy: null,
   decidedByName: null,
   decidedAt: null,

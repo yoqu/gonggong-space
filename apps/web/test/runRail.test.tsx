@@ -88,6 +88,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
       detail: 'echo hello-approval',
       options: [],
       status: 'approved',
+      voidReason: null,
       decidedBy: 'u1',
       decidedByName: '王磊',
       decidedAt: at,

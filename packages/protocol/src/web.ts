@@ -187,6 +187,8 @@ export const ApprovalDto = z.object({
   options: z.array(PermissionOption),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
   status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
+  /** Why a request became void: the run was stopped, its relay chain was stopped, or the run ended first. */
+  voidReason: z.enum(['stopped', 'chain_stopped', 'ended']).nullable(),
   decidedBy: z.string().nullable(),
   decidedByName: z.string().nullable(),
   decidedAt: z.string().nullable(),

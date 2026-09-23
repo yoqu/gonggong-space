@@ -27,6 +27,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
   status: 'pending',
+  voidReason: null,
   decidedBy: null,
   decidedByName: null,
   decidedAt: null,
@@ -123,13 +124,13 @@ describe('ApprovalBlock', () => {
       {},
       '超时未处理，已自动拒绝 · 10:21 · agent 将自行绕路',
     ],
-    [approval({ status: 'void' }), { status: 'interrupted' }, '运行已停止，请求作废'],
+    [approval({ status: 'void', voidReason: 'stopped' }), { status: 'interrupted' }, '运行已停止，请求作废'],
     [
-      approval({ status: 'void' }),
-      { status: 'interrupted', step: '整条链已被 王磊 /stop 终止' },
+      approval({ status: 'void', voidReason: 'chain_stopped' }),
+      { status: 'interrupted' },
       '链已终止，请求作废',
     ],
-    [approval({ status: 'void' }), { status: 'completed' }, '运行已结束，请求作废'],
+    [approval({ status: 'void', voidReason: 'ended' }), { status: 'completed' }, '运行已结束，请求作废'],
   ] as const)('shows the outcome %#', (a, o, text) => {
     login('u1', '王磊')
     render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)

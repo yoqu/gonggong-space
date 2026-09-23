@@ -61,7 +61,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     await viewer.page.goto(`/g/${group.id}`)
     await say(
       page,
-      '@审批 A @审批 B 请用 Bash 工具执行命令 `node -e "console.log(\'hello-\' + \'approval\')"`，然后只回复命令的输出。',
+      "@审批 A @审批 B 请用 Bash 工具执行命令 `node -e \"console.log('hello-' + 'approval')\"`，然后只回复命令的输出。",
     )
     await expect(page.getByText('扇出 · 2 个 bot 并行')).toBeVisible()
 

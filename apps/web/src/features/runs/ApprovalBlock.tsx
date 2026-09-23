@@ -8,6 +8,12 @@ import { Button, toast } from '../../ui'
 import './approval.css'
 
 /** ACP tool kinds as the prototype names them. */
+export const VOID_TEXT = {
+  stopped: '运行已停止，请求作废',
+  chain_stopped: '链已终止，请求作废',
+  ended: '运行已结束，请求作废',
+} as const
+
 const KIND: Record<string, string> = {
   execute: '执行命令',
   fetch: '访问网络',
@@ -41,8 +47,7 @@ function outcome(a: ApprovalDto, run: RunDto) {
     case 'expired':
       return `超时未处理，已自动拒绝 · ${at} · agent 将自行绕路`
     case 'void':
-      if (run.status !== 'interrupted') return '运行已结束，请求作废'
-      return run.step.includes('链') ? '链已终止，请求作废' : '运行已停止，请求作废'
+      return VOID_TEXT[a.voidReason ?? 'ended']
     default:
       return null
   }

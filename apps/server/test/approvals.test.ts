@@ -6,7 +6,7 @@ import {
   type WebEvent,
 } from '@aiws/protocol'
 import { asc, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, groups, messages, notifications, runs } from '../src/db/schema.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
@@ -129,7 +129,12 @@ describe('approvals', () => {
     })
     const row = await w.run(runId)
     expect(row).toMatchObject({ status: 'awaiting_approval', step: '等待审批：Bash' })
-    const [n] = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+    // The owner is notified right after the request is stored and the card is pushed.
+    const n = await vi.waitFor(async () => {
+      const [row] = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+      if (!row) throw new Error('not yet')
+      return row
+    })
     expect(n).toMatchObject({
       type: 'approval',
       payload: {

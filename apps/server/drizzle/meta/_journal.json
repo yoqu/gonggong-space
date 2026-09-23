@@ -29,6 +29,13 @@
       "when": 1790153870192,
       "tag": "0003_m3_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790156514505,
+      "tag": "0004_approval_void_reason",
+      "breakpoints": true
     }
   ]
 }

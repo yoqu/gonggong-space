@@ -105,7 +105,7 @@ export async function expireApprovals(ctx: Ctx) {
 export async function voidApprovals(ctx: Ctx, runId: string, reason: VoidReason) {
   const voided = await ctx.db
     .update(approvals)
-    .set({ status: 'void' })
+    .set({ status: 'void', voidReason: reason })
     .where(and(eq(approvals.runId, runId), eq(approvals.status, 'pending')))
     .returning()
   if (!voided.length) return

@@ -1,5 +1,6 @@
 import type { ApprovalDto, RunDetailDto, RunEvent } from '@aiws/protocol'
 import { newSessionNote } from '../chat/TimelineItems'
+import { VOID_TEXT } from './ApprovalBlock'
 
 export interface DiffFile {
   path: string
@@ -92,7 +93,7 @@ export function approvalText(a: ApprovalDto) {
     case 'expired':
       return '超时未审批，已自动拒绝'
     case 'void':
-      return '运行已停止，请求作废'
+      return VOID_TEXT[a.voidReason ?? 'ended']
   }
 }
 
