@@ -1,0 +1,116 @@
+.cfg__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cfg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.cfg__list {
+  flex: 1 1 440px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  overflow-x: auto;
+}
+.cfg__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-separator);
+}
+.cfg__icon {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+.cfg__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.cfg__name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cfg__name {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.cfg__desc {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cfg__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--color-titlebar-bg);
+}
+.cfg__preview {
+  flex: 1 1 280px;
+  max-width: 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+}
+.cfg__eyebrow {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  color: var(--color-text-tertiary);
+}
+.cfg__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 10px;
+  border-left: 2px solid;
+}
+.cfg__layer-head {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+.cfg__layer-name {
+  font-weight: 600;
+}
+.cfg__layer-pri {
+  color: var(--color-text-tertiary);
+}
+.cfg__layer-items {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.cfg__note,
+.cfg__hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-wrap: pretty;
+}
+.cfg__mono {
+  font-family: var(--font-mono);
+}

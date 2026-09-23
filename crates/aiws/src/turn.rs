@@ -1,8 +1,8 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
+use crate::attachments::rel_path;
 use crate::protocol::{
     self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage,
 };
-use crate::attachments::rel_path;
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
     ToolCallUpdate, ToolKind,

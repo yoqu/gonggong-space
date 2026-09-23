@@ -3,8 +3,8 @@ use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
-    AgentCommand, ApprovalRequest, DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage,
-    WorkspaceKind,
+    AgentCommand, ApprovalRequest, DaemonToServer, McpServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier,
+    Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -12,11 +12,11 @@ use crate::turn::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ClientCapabilities, InitializeRequest, InitializeResponse, LoadSessionRequest,
-    Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest,
-    SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest,
-    StopReason,
+    self as acp, CancelNotification, ClientCapabilities, EnvVariable, HttpHeader, InitializeRequest,
+    InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption,
+    PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
+    RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId,
+    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -517,7 +517,8 @@ impl Conversation<'_> {
                 Err(e) => tracing::info!("resuming session {} failed: {e}", id.0),
             }
         }
-        let res = self.cx.send_request(NewSessionRequest::new(&req.cwd).meta(meta)).block_task().await?;
+        let new = NewSessionRequest::new(&req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
+        let res = self.cx.send_request(new).block_task().await?;
         self.set_modes(res.modes);
         let reason =
             if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
@@ -532,10 +533,11 @@ impl Conversation<'_> {
     ) -> Result<Option<SessionModeState>, agent_client_protocol::Error> {
         let caps = &self.init.agent_capabilities;
         if caps.session_capabilities.resume.is_some() {
-            let req = ResumeSessionRequest::new(id.clone(), &req.cwd).meta(meta);
+            let req =
+                ResumeSessionRequest::new(id.clone(), &req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else if caps.load_session {
-            let req = LoadSessionRequest::new(id.clone(), &req.cwd).meta(meta);
+            let req = LoadSessionRequest::new(id.clone(), &req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else {
             Err(agent_client_protocol::Error::method_not_found())
@@ -553,4 +555,22 @@ impl Conversation<'_> {
         (start.bot.agent_kind == crate::protocol::AgentKind::Claude)
             .then(|| json.as_object().cloned().unwrap_or_default())
     }
+}
+
+/// MCP servers attached when a session is created or restored: the server's global layer (spec §7.2).
+fn mcp_servers_for(start: &RunStart) -> Vec<acp::McpServer> {
+    start
+        .mcp_servers
+        .iter()
+        .map(|s| match s {
+            McpServer::Stdio { name, command, args, env } => acp::McpServer::Stdio(
+                McpServerStdio::new(name, command)
+                    .args(args.clone())
+                    .env(env.iter().map(|(k, v)| EnvVariable::new(k, v)).collect()),
+            ),
+            McpServer::Http { name, url, headers } => acp::McpServer::Http(
+                McpServerHttp::new(name, url).headers(headers.iter().map(|(k, v)| HttpHeader::new(k, v)).collect()),
+            ),
+        })
+        .collect()
 }

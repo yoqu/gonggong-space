@@ -142,7 +142,10 @@ async fn writes_attachments_into_the_workspace_excluded_from_git_and_sends_image
     let ws = repo();
     let shot = att("a1", "m2", "shot.png", "image/png", PNG.len());
     let ci = att("a2", "m1", "ci.log", "text/plain", log.len());
-    r.engine.handle(ServerToDaemon::RunStart(Box::new(start("r1", ws.path(), vec![shot.clone()], vec![ci.clone()]))), &r.out);
+    r.engine.handle(
+        ServerToDaemon::RunStart(Box::new(start("r1", ws.path(), vec![shot.clone()], vec![ci.clone()]))),
+        &r.out,
+    );
     let done = r.done("r1").await;
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
 
@@ -155,7 +158,9 @@ async fn writes_attachments_into_the_workspace_excluded_from_git_and_sends_image
     let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
     let prompt = echo["prompt"].as_str().unwrap();
     assert!(prompt.contains("[2026-09-23 10:12] 陈晨: CI 挂了（附件：.aiws/attachments/m1/ci.log）\n"), "{prompt}");
-    assert!(prompt.contains("引用 老李的 Codex：已定位\n\n王磊 说：mock:echo 看图\n附件：.aiws/attachments/m2/shot.png"));
+    assert!(
+        prompt.contains("引用 老李的 Codex：已定位\n\n王磊 说：mock:echo 看图\n附件：.aiws/attachments/m2/shot.png")
+    );
     assert_eq!(
         echo["blocks"],
         serde_json::json!([{ "type": "text" }, { "type": "image", "mimeType": "image/png", "bytes": PNG.len() }])

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Scriptable ACP agent for daemon tests. The prompt text picks the behaviour:
-//   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, prompt, blocks)
+//   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, MCP servers, prompt, blocks)
 //   "mock:slow"  stream text until cancelled
 //   "mock:crash" stream one chunk, then exit with code 3
 //   "mock:commands" report available commands (compact, new), then reply "ok"
@@ -19,6 +19,7 @@ function open(sessionId, params) {
   sessions.set(sessionId, {
     cwd: params.cwd,
     systemPrompt: params._meta?.systemPrompt?.append ?? null,
+    mcpServers: params.mcpServers,
     mode: 'default',
     abort: null,
   })
@@ -41,6 +42,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         cwd: s.cwd,
         mode: s.mode,
         systemPrompt: s.systemPrompt,
+        mcpServers: s.mcpServers,
         prompt: text,
         blocks: blocks.map((b) =>
           b.type === 'image'

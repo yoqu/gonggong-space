@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
+import { ConfigPage } from '../config/ConfigPage'
 import { UsagePage } from '../usage/UsagePage'
 import { UsersPage } from './UsersPage'
 
@@ -63,6 +64,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: Layers,
         desc: '仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。',
         sysadminOnly: true,
+        element: <ConfigPage />,
       },
       {
         path: 'params',
