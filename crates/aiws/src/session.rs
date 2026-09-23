@@ -2,8 +2,8 @@
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
-    AgentCommand, ApprovalRequest, DaemonToServer, McpServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage,
-    WorkspaceKind,
+    AgentCommand, ApprovalRequest, DaemonToServer, McpServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier,
+    Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -12,10 +12,10 @@ use crate::turn::{
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     self as acp, CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, HttpHeader, InitializeRequest,
-    InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest,
-    SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest,
-    StopReason, TextContent,
+    InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption,
+    PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
+    RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId,
+    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason, TextContent,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -534,8 +534,7 @@ impl Conversation<'_> {
                 ResumeSessionRequest::new(id.clone(), &req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else if caps.load_session {
-            let req =
-                LoadSessionRequest::new(id.clone(), &req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
+            let req = LoadSessionRequest::new(id.clone(), &req.cwd).mcp_servers(mcp_servers_for(&req.start)).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else {
             Err(agent_client_protocol::Error::method_not_found())
