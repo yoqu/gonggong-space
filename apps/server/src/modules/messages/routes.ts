@@ -5,6 +5,7 @@ import type { Ctx } from '../../context.js'
 import { bots, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
+import { commands, parseCommand, runCommand } from '../commands/index.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
@@ -41,7 +42,10 @@ export function messageRoutes(ctx: Ctx) {
       const { group } = await requireMember(ctx, req.params.id, me.id)
       const { body, clientId } = SendMessageReq.parse(req.body)
       if (!body.trim()) return fail('invalid', '消息不能为空')
-      const mentions = parseMentions(body, await activeBots(ctx, group.id))
+      const inGroup = await activeBots(ctx, group.id)
+      const mentions = parseMentions(body, inGroup)
+      const parsed = parseCommand(body, inGroup)
+      const command = parsed && commands.get(parsed.name) ? parsed : null
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.
       const { row, created } = await ctx.db.transaction(async (tx) => {
@@ -64,7 +68,7 @@ export function messageRoutes(ctx: Ctx) {
             kind: 'user',
             authorUserId: me.id,
             body,
-            meta: { mentions, clientId },
+            meta: { mentions, clientId, ...(command && { command: command.name }) },
           })
           .returning()) as [MessageRow]
         return { row: inserted, created: true }
@@ -73,7 +77,8 @@ export function messageRoutes(ctx: Ctx) {
       const dto = messageDto(row, me.name)
       if (created) {
         await publishMessage(ctx, dto)
-        if (mentions.length) await triggerRuns(ctx, row)
+        if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
+        else if (mentions.length) await triggerRuns(ctx, row)
       }
       return dto
     })

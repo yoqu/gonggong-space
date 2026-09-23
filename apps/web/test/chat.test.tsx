@@ -361,6 +361,50 @@ describe('chat view', () => {
     expect(within(screen.getByRole('main')).getAllByText('跑一下', { exact: false })).toHaveLength(1)
   })
 
+  it('suggests system commands after a leading / with keyboard navigation', async () => {
+    mockApi(baseRoutes([group()]))
+    renderAt('/g/g1')
+    await screen.findByText('最终回复')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
+    const list = screen.getByRole('listbox', { name: '/ 命令' })
+    const options = within(within(list).getByRole('group', { name: '系统命令' })).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual([
+      '/stop停止运行（未 @ bot 时停止本群全部）',
+      '/hold连续占用群锁',
+      '/release释放群锁',
+      '/new开新会话',
+      '/cd绑定本机目录（仅分区）',
+    ])
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(box.value).toBe('/cd ')
+    expect(screen.queryByRole('listbox')).toBeNull()
+
+    fireEvent.change(box, { target: { value: '  /N', selectionStart: 4 } })
+    const filtered = within(screen.getByRole('listbox', { name: '/ 命令' })).getAllByRole('option')
+    expect(filtered.map((o) => o.textContent)).toEqual(['/new开新会话'])
+    fireEvent.keyDown(box, { key: 'Tab' })
+    expect(box.value).toBe('  /new ')
+
+    fireEvent.change(box, { target: { value: '看下 /', selectionStart: 4 } })
+    expect(screen.queryByRole('listbox')).toBeNull()
+    fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
+    fireEvent.keyDown(box, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+
+    // The toolbar's 命令 button inserts `/` at the end and opens the list, even with a stale caret.
+    fireEvent.change(box, { target: { value: '', selectionStart: 0 } })
+    box.setSelectionRange(0, 0)
+    box.blur()
+    fireEvent.click(screen.getByTitle('命令'))
+    expect(box.value).toBe('/')
+    expect(screen.getByRole('listbox', { name: '/ 命令' })).toBeTruthy()
+  })
+
   it('shows a not-found state for groups I am not in', async () => {
     mockApi(baseRoutes([]))
     renderAt('/g/zz')

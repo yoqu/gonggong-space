@@ -3,6 +3,7 @@ import {
   Bot,
   CircleDot,
   Folder,
+  FolderInput,
   GitBranch,
   Hourglass,
   Info,
@@ -11,6 +12,7 @@ import {
   MessageCircleQuestion,
   RefreshCw,
   ShieldAlert,
+  Square,
   UserMinus,
   UserPlus,
   Users,
@@ -98,6 +100,9 @@ function eventIcon(body: string) {
   if (body.startsWith('未绑定仓库')) return Folder
   if (body.includes('移出')) return UserMinus
   if (body.includes(' 加入')) return Bot
+  if (body.includes('下一轮将开新会话')) return RefreshCw
+  if (/\/cd|绑定到|恢复托管工作区/.test(body)) return FolderInput
+  if (body === '没有运行中的轮次') return Square
   return Info
 }
 

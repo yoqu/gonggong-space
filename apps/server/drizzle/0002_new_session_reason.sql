@@ -1,0 +1,1 @@
+ALTER TABLE "group_bots" ADD COLUMN "new_session_reason" text;

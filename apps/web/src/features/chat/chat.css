@@ -583,7 +583,6 @@
   border: 0;
   min-width: 0;
 }
-
 .git-bar {
   flex: none;
   display: flex;
@@ -630,4 +629,7 @@
 }
 .git-bar__ws {
   color: var(--color-text-muted);
+}
+.mention-pop__cmd {
+  font-family: var(--font-mono);
 }
