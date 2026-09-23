@@ -5,6 +5,7 @@ import { ChatPage } from './app/ChatPage'
 import { RequireSession } from './app/RequireSession'
 import { AdminPage } from './features/admin/AdminPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { BotsAdminPage } from './features/bots/BotsAdminPage'
 import './app/shell.css'
 
 const UiGallery = lazy(() => import('./app/UiGallery'))
@@ -27,6 +28,7 @@ export function App() {
         <Route element={<AppShell />}>
           <Route index element={<ChatPage />} />
           <Route path="g/:groupId" element={<ChatPage />} />
+          <Route path="admin/bots" element={<BotsAdminPage />} />
           <Route path="admin/*" element={<AdminPage />} />
         </Route>
       </Route>

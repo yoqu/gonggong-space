@@ -23,6 +23,24 @@ enum Cmd {
         #[arg(long, env = "AIWS_ADAPTER_CMD", hide = true)]
         adapter_cmd: Option<String>,
     },
+    /// List the bots bound to this machine.
+    Bots {
+        #[command(subcommand)]
+        cmd: Option<BotsCmd>,
+    },
+}
+
+#[derive(Subcommand)]
+enum BotsCmd {
+    /// Confirm a bot someone else created for you on this machine.
+    Confirm {
+        /// Bot name or id.
+        target: String,
+    },
+}
+
+fn config() -> anyhow::Result<Config> {
+    Config::load()?.context("尚未绑定，请先执行 aiws login")
 }
 
 const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
@@ -38,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Run { adapter_cmd } => {
-            let config = Config::load()?.context("尚未绑定，请先执行 aiws login")?;
+            let config = config()?;
             let service = Service {
                 config,
                 machine: machine_info(),
@@ -50,6 +68,8 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("{fatal}");
             std::process::exit(1);
         }
+        Cmd::Bots { cmd: None } => aiws::bots::list(&config()?).await?,
+        Cmd::Bots { cmd: Some(BotsCmd::Confirm { target }) } => aiws::bots::confirm(&config()?, &target).await?,
     }
     Ok(())
 }
