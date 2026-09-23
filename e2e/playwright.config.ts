@@ -7,6 +7,11 @@ export default defineConfig({
   testDir: '.',
   timeout: 120_000,
   workers: 1,
+  // The first-run scenario needs the pristine bootstrap admin; everything else runs after it.
+  projects: [
+    { name: 'first-run', testMatch: /m1-walking-skeleton/ },
+    { name: 'rest', testIgnore: /m1-walking-skeleton/, dependencies: ['first-run'] },
+  ],
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure' },
   webServer: [
     {

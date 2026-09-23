@@ -10,3 +10,4 @@ playwright-report/
 test-results/
 .aiws-dev/
 .claude/worktrees/
+test-results/
