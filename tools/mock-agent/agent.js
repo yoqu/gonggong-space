@@ -5,6 +5,7 @@
 //   "mock:crash" stream one chunk, then exit with code 3
 //   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
+//   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
 //   "mock:ask <json>" call the injected aiws MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
@@ -16,6 +17,24 @@ import * as acp from '@agentclientprotocol/sdk'
 const sessions = new Map()
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const MODES = ['default', 'acceptEdits', 'bypassPermissions'].map((id) => ({ id, name: id }))
+const MODELS = [
+  { value: 'default', name: 'Default' },
+  { value: 'haiku', name: 'Haiku', description: 'Fastest' },
+  { value: 'opus', name: 'Opus' },
+]
+const EFFORTS = ['low', 'medium', 'high'].map((value) => ({ value, name: value }))
+
+const configOptions = (s) => [
+  { id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: s.model, options: MODELS },
+  {
+    id: 'effort',
+    name: 'Effort',
+    category: 'thought_level',
+    type: 'select',
+    currentValue: s.effort,
+    options: EFFORTS,
+  },
+]
 
 async function mcp(url, method, params, signal) {
   const res = await fetch(url, {
@@ -35,9 +54,16 @@ function open(sessionId, params) {
     systemPrompt: params._meta?.systemPrompt?.append ?? null,
     mcpServers: params.mcpServers,
     mode: 'default',
+    model: 'default',
+    effort: 'medium',
+    configSets: [],
     abort: null,
   })
-  return { sessionId, modes: { currentModeId: 'default', availableModes: MODES } }
+  return {
+    sessionId,
+    modes: { currentModeId: 'default', availableModes: MODES },
+    configOptions: configOptions(sessions.get(sessionId)),
+  }
 }
 
 async function prompt({ sessionId, prompt: blocks }, client) {
@@ -55,6 +81,9 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         pid: process.pid,
         cwd: s.cwd,
         mode: s.mode,
+        model: s.model,
+        effort: s.effort,
+        configSets: s.configSets,
         systemPrompt: s.systemPrompt,
         mcpServers: s.mcpServers,
         prompt: text,
@@ -81,6 +110,28 @@ async function prompt({ sessionId, prompt: blocks }, client) {
   const sh = text.indexOf('mock:sh ')
   if (sh >= 0) {
     await say(execSync(text.slice(sh + 8), { cwd: s.cwd, encoding: 'utf8' }))
+    return { stopReason: 'end_turn' }
+  }
+  const exec = text.indexOf('mock:exec ')
+  if (exec >= 0) {
+    const command = text.slice(exec + 10)
+    const toolCall = {
+      toolCallId: 'exec-1',
+      title: command,
+      kind: 'execute',
+      status: 'pending',
+      rawInput: { command },
+    }
+    await update({ sessionUpdate: 'tool_call', ...toolCall })
+    const res = await client.request(acp.methods.client.session.requestPermission, {
+      sessionId,
+      toolCall,
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    })
+    await say(res.outcome.outcome === 'selected' && res.outcome.optionId === 'allow' ? 'ran' : 'denied')
     return { stopReason: 'end_turn' }
   }
   const ask = text.indexOf('mock:ask ')
@@ -196,6 +247,16 @@ acp
   .onRequest('session/set_mode', (ctx) => {
     sessions.get(ctx.params.sessionId).mode = ctx.params.modeId
     return {}
+  })
+  .onRequest('session/set_config_option', (ctx) => {
+    const s = sessions.get(ctx.params.sessionId)
+    const { configId, value } = ctx.params
+    const option = configOptions(s).find((o) => o.id === configId)
+    if (!option?.options.some((o) => o.value === value))
+      throw acp.RequestError.invalidParams(undefined, `Invalid value for config option ${configId}: ${value}`)
+    s[configId] = value
+    s.configSets.push(`${configId}=${value}`)
+    return { configOptions: configOptions(s) }
   })
   .onRequest('session/prompt', (ctx) => prompt(ctx.params, ctx.client))
   .onNotification('session/cancel', (ctx) => sessions.get(ctx.params.sessionId)?.abort?.abort())

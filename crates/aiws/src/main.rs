@@ -1,8 +1,11 @@
 use aiws::bind::machine_info;
 use aiws::config::{self, Config};
+use aiws::configure::{self, BotChange};
 use aiws::diag::Status;
 use aiws::engine::{Engine, EngineConfig};
+use aiws::local::{Approval, LocalSettings};
 use aiws::logs::LogLevel;
+use aiws::protocol::AgentKind;
 use aiws::protocol::RejectReason;
 use aiws::service::{Fatal, Service};
 use aiws::upgrade::Upgrader;
@@ -72,6 +75,47 @@ enum Cmd {
         #[arg(long, value_name = "PATH.zip", num_args = 0..=1, default_missing_value = "")]
         export: Option<PathBuf>,
     },
+    /// Local settings of this machine (a value of `default` restores the default).
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    /// Agent CLI path, default model and reasoning effort.
+    Agent {
+        #[arg(value_parser = configure::parse_kind)]
+        kind: AgentKind,
+        /// Model for bots without their own, as the adapter names it (see `aiws agents`).
+        #[arg(long)]
+        model: Option<String>,
+        /// Reasoning effort (Claude effort / Codex reasoning_effort), e.g. low, medium, high.
+        #[arg(long)]
+        effort: Option<String>,
+        /// The agent CLI to use instead of the one found on PATH.
+        #[arg(long)]
+        path: Option<String>,
+    },
+    /// A bot's model, command approval and concurrency.
+    Bot {
+        /// Bot name or id.
+        target: String,
+        #[arg(long)]
+        model: Option<String>,
+        /// ask = 每次询问, allowlist = 白名单自动, all = 全部自动.
+        #[arg(long, value_enum)]
+        approval: Option<Approval>,
+        /// Add a command prefix to the allowlist, e.g. "go build" (repeatable).
+        #[arg(long)]
+        allow: Vec<String>,
+        /// Remove a command prefix from the allowlist (repeatable).
+        #[arg(long)]
+        disallow: Vec<String>,
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=8))]
+        concurrency: Option<u32>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -127,16 +171,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     match cli.cmd {
-        Cmd::Agents => {
-            for a in aiws::agents::detect() {
-                println!(
-                    "{:?}\t{}\t{}",
-                    a.kind,
-                    a.version.as_deref().unwrap_or("-"),
-                    a.path.as_deref().unwrap_or("未安装")
-                );
-            }
-        }
+        Cmd::Agents => configure::print_agents(&config::home())?,
         Cmd::Login { server, code, fingerprint } => {
             let machine = machine_info();
             let config = aiws::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
@@ -163,7 +198,7 @@ async fn main() -> anyhow::Result<()> {
             let service = Service {
                 config: config.clone(),
                 machine: machine_info(),
-                agents: aiws::agents::detect(),
+                agents: aiws::agents::detect(&LocalSettings::load(&config::home())?),
                 handler: Engine::new(EngineConfig {
                     home: config::home(),
                     adapter_cmd,
@@ -240,6 +275,13 @@ async fn main() -> anyhow::Result<()> {
             let checks = aiws::diag::run(&config::home(), config.as_ref()).await;
             let names = aiws::diag::bundle(&config::home(), config.as_ref(), &checks, &dest)?;
             println!("已导出诊断包 {}（{}）", dest.display(), names.join("、"));
+        }
+        Cmd::Config { cmd: ConfigCmd::Agent { kind, model, effort, path } } => {
+            configure::agent(&config::home(), kind, model, effort, path)?
+        }
+        Cmd::Config { cmd: ConfigCmd::Bot { target, model, approval, allow, disallow, concurrency } } => {
+            let change = BotChange { model, approval, allow, disallow, concurrency };
+            configure::bot(&config()?, &config::home(), &target, change).await?
         }
     }
     Ok(())

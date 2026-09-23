@@ -1,5 +1,6 @@
 //! Drives the Engine against the scriptable mock ACP agent (tools/mock-agent) without a server.
 use aiws::engine::{Engine, EngineConfig};
+use aiws::local::{AgentSettings, Approval, BotSettings, LocalSettings, load_models};
 use aiws::protocol::*;
 use aiws::service::{Handler, Outbox};
 use std::path::{Path, PathBuf};
@@ -661,4 +662,109 @@ async fn lists_files_of_the_bot_workspace() {
         }
         other => panic!("unexpected {other:?}"),
     }
+}
+
+fn save_local(r: &Rig, edit: impl FnOnce(&mut LocalSettings)) {
+    let mut local = LocalSettings::default();
+    edit(&mut local);
+    local.save(r.home.path()).unwrap();
+}
+
+fn running(step: &str) -> RunEvent {
+    RunEvent::Status { status: RunStatus::Running, step: step.into() }
+}
+
+#[tokio::test]
+async fn applies_the_local_model_and_effort_once_per_session() {
+    let mut r = rig(Duration::from_secs(60));
+    save_local(&r, |l| {
+        l.bots.insert("b1".into(), BotSettings { model: Some("haiku".into()), ..Default::default() });
+        l.agents.insert(AgentKind::Claude, AgentSettings { effort: Some("high".into()), ..Default::default() });
+    });
+    r.run(start("r1", "mock:echo"));
+    let (events, done) = r.finish("r1").await;
+    let e = echo(&done);
+    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("haiku"), Some("high")));
+    assert_eq!(e["configSets"], serde_json::json!(["model=haiku", "effort=high"]));
+    assert!(events.contains(&running("已切换模型：Haiku")));
+    assert!(events.contains(&running("已切换推理强度：high")));
+    let catalog = load_models(r.home.path()).remove(&AgentKind::Claude).unwrap();
+    assert_eq!(catalog.models.iter().map(|m| m.value.as_str()).collect::<Vec<_>>(), ["default", "haiku", "opus"]);
+    assert_eq!(catalog.models[1].description.as_deref(), Some("Fastest"));
+    assert_eq!((catalog.current.as_deref(), catalog.current_effort.as_deref()), (Some("default"), Some("medium")));
+    assert_eq!(catalog.efforts.len(), 3);
+
+    // Same settings, same session: nothing to switch.
+    r.run(follow_up("r2", "mock:echo", &done));
+    let (events, done) = r.finish("r2").await;
+    assert_eq!(echo(&done)["configSets"].as_array().unwrap().len(), 2);
+    assert!(!events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("已切换"))));
+
+    // Following the agent default.
+    save_local(&r, |l| {
+        l.agents.insert(AgentKind::Claude, AgentSettings { default_model: Some("opus".into()), ..Default::default() });
+    });
+    r.run(follow_up("r3", "mock:echo", &done));
+    let (_, done) = r.finish("r3").await;
+    let e = echo(&done);
+    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("opus"), Some("medium")));
+
+    // Nothing set: back to the adapter's own choice.
+    save_local(&r, |_| {});
+    r.run(follow_up("r4", "mock:echo", &done));
+    let (_, done) = r.finish("r4").await;
+    assert_eq!(echo(&done)["model"], "default");
+
+    // A model the adapter does not offer is reported, and the run goes on with the current one.
+    save_local(&r, |l| {
+        l.bots.insert("b1".into(), BotSettings { model: Some("gpt-x".into()), ..Default::default() });
+    });
+    r.run(follow_up("r5", "mock:echo", &done));
+    let (events, done) = r.finish("r5").await;
+    assert_eq!((done.outcome, echo(&done)["model"].as_str()), (RunOutcome::Completed, Some("default")));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("本机设置的模型 gpt-x 不可用")))
+    );
+}
+
+#[tokio::test]
+async fn local_approval_rules_answer_permissions_without_the_owner() {
+    let mut r = rig(Duration::from_secs(60));
+    save_local(&r, |l| {
+        let bot =
+            BotSettings { approval: Approval::Allowlist, allowlist: vec!["node -e".into()], ..Default::default() };
+        l.bots.insert("b1".into(), bot);
+    });
+    // `finish` panics on an approval.request: none may be sent.
+    r.run(start("r1", "mock:exec node   -e 1"));
+    let (events, done) = r.finish("r1").await;
+    assert!(events.contains(&running("已按本机规则自动批准：node   -e 1")));
+    assert_eq!(done.reply, "ran");
+
+    r.run(follow_up("r2", "mock:exec node -e 1; rm -rf x", &done));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.tool_kind, "execute");
+    decide(&r, &approval, Some("reject"));
+    let (_, done) = r.finish("r2").await;
+    assert_eq!(done.reply, "denied");
+
+    save_local(&r, |l| {
+        l.bots.insert("b1".into(), BotSettings { approval: Approval::All, ..Default::default() });
+    });
+    r.run(follow_up("r3", "写个文件", &done));
+    let (events, done) = r.finish("r3").await;
+    assert!(events.contains(&running("已按本机规则自动批准：Write hello.txt")));
+    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+}
+
+#[tokio::test]
+async fn a_corrupt_local_settings_file_fails_the_run() {
+    let mut r = rig(Duration::from_secs(60));
+    std::fs::write(LocalSettings::path(r.home.path()), "{").unwrap();
+    r.run(start("r1", "mock:echo"));
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.outcome, RunOutcome::Failed);
+    assert!(done.error.unwrap().contains("local.json"), "error names the file");
 }

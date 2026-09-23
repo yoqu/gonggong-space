@@ -67,7 +67,7 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
     let entries = tokio::task::spawn_blocking(move || workspace::list(&home_owned, &pairs)).await.unwrap_or_default();
     vec![
         server,
-        agents(&crate::agents::detect()),
+        agents(&crate::agents::detect(&crate::local::LocalSettings::load(home).unwrap_or_default())),
         git_credentials(&entries).await,
         disk(home, &entries),
         eol(&entries).await,
@@ -222,7 +222,7 @@ pub fn bundle(home: &Path, config: Option<&Config>, checks: &[Check], dest: &Pat
         "protocol": PROTOCOL_VERSION,
         "os": machine.os,
         "arch": machine.arch,
-        "agents": crate::agents::detect(),
+        "agents": crate::agents::detect(&crate::local::LocalSettings::load(home).unwrap_or_default()),
     });
     files.push(("versions.json".into(), serde_json::to_vec_pretty(&versions)?));
     if let Some(c) = config {
