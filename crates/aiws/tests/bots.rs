@@ -5,8 +5,8 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 const BOTS: &str = r#"[
-  {"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","ownerName":"王磊"},
-  {"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"pending_confirm","presence":"pending_confirm","ownerName":"王磊"}
+  {"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","ownerName":"王磊","concurrency":2},
+  {"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"pending_confirm","presence":"pending_confirm","ownerName":"王磊","concurrency":2}
 ]"#;
 
 /// One-shot HTTP server: answers each connection with the next canned `(status, body)` and returns the request heads.
@@ -52,8 +52,7 @@ async fn lists_bots_with_the_machine_token() {
 
 #[tokio::test]
 async fn confirms_by_name_and_reports_server_errors() {
-    let confirmed =
-        r#"{"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"bound","presence":"agent_missing"}"#;
+    let confirmed = r#"{"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"bound","presence":"agent_missing","concurrency":2}"#;
     let (config, task) = serve(vec![(200, BOTS), (200, confirmed), (200, BOTS)]).await;
     bots::confirm(&config, "小王的 Codex").await.unwrap();
     let err = bots::confirm(&config, "小王的 Claude").await.unwrap_err();
@@ -64,6 +63,17 @@ async fn confirms_by_name_and_reports_server_errors() {
     let (config, _task) = serve(vec![(401, r#"{"error":"unauthorized","message":"machine token revoked"}"#)]).await;
     let err = Client::new(&config).unwrap().list().await.unwrap_err();
     assert!(err.to_string().contains("machine token revoked"));
+}
+
+#[tokio::test]
+async fn sets_the_concurrency_of_a_bot() {
+    let updated = r#"{"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","concurrency":3}"#;
+    let (config, task) = serve(vec![(200, updated)]).await;
+    let bot = Client::new(&config).unwrap().set_concurrency("b1", 3).await.unwrap();
+    assert_eq!(bot.concurrency, 3);
+    let heads = task.await.unwrap();
+    assert!(heads[0].starts_with("PATCH /api/daemon/bots/b1 HTTP/1.1"));
+    assert!(heads[0].ends_with(r#"{"concurrency":3}"#));
 }
 
 #[test]

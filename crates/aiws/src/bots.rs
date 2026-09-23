@@ -13,6 +13,7 @@ pub struct Bot {
     pub agent_kind: AgentKind,
     pub binding: Binding,
     pub presence: String,
+    pub concurrency: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -48,6 +49,18 @@ impl Client {
             .http
             .post(format!("{}/api/daemon/bots/{id}/confirm", self.base))
             .bearer_auth(&self.token)
+            .send()
+            .await?;
+        Ok(ok(res).await?.json().await?)
+    }
+
+    /// The owner's 并发上限 for a bot on this machine (1–8).
+    pub async fn set_concurrency(&self, id: &str, concurrency: u32) -> Result<Bot> {
+        let res = self
+            .http
+            .patch(format!("{}/api/daemon/bots/{id}", self.base))
+            .bearer_auth(&self.token)
+            .json(&serde_json::json!({ "concurrency": concurrency }))
             .send()
             .await?;
         Ok(ok(res).await?.json().await?)

@@ -284,6 +284,38 @@ describe('confirm', () => {
   })
 })
 
+describe('PATCH /api/daemon/bots/:id', () => {
+  it('the machine changes the concurrency of its own bots, audited as the owner', async () => {
+    const wang = await actor({ name: '王磊' })
+    const { machine, token } = await t.seed.machine(wang.user.id)
+    const bot = await t.seed.bot({ ownerId: wang.user.id, machineId: machine.id, concurrency: 2 })
+    const seen = events(wang.user.id)
+    const patch = (id: string, payload: object, tok = token) =>
+      t.app.inject({
+        method: 'PATCH',
+        url: `/api/daemon/bots/${id}`,
+        payload,
+        headers: { authorization: `Bearer ${tok}` },
+      })
+
+    const res = await patch(bot.id, { concurrency: 4 })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<BotDto>().concurrency).toBe(4)
+    expect(botEvents(seen).at(-1)?.concurrency).toBe(4)
+    const audits = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.concurrency'))
+    expect(audits).toMatchObject([
+      { category: 'admin', actorUserId: wang.user.id, detail: { botId: bot.id, from: 2, to: 4 } },
+    ])
+
+    expect((await patch(bot.id, { concurrency: 0 })).statusCode).toBe(400)
+    expect((await patch(bot.id, { tier: 'full' })).statusCode).toBe(400)
+    expect((await t.app.inject({ method: 'PATCH', url: `/api/daemon/bots/${bot.id}` })).statusCode).toBe(401)
+    const other = await t.seed.machine(wang.user.id)
+    expect((await patch(bot.id, { concurrency: 1 }, other.token)).statusCode).toBe(404)
+    expect((await patch('nope', { concurrency: 1 })).statusCode).toBe(404)
+  })
+})
+
 describe('DELETE /api/bots/:id', () => {
   it('soft-deletes, removes the bot from groups and hides it', async () => {
     const wang = await actor()
