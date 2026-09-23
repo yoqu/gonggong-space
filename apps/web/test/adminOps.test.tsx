@@ -258,7 +258,7 @@ describe('机器与网络', () => {
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
       await screen.findByText(
-        '网络质量仅在开启强制同步时测量并记录，不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
+        '网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
       ),
     ).toBeTruthy()
   })
