@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Project-local PostgreSQL cluster for dev/test (port 54329), never touches system services.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Git worktrees share the main checkout's cluster (one Postgres per machine on $PORT).
+ROOT="$(cd "$(dirname "$0")/.." && cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 DATA="$ROOT/.aiws-dev/pg"
 PORT="${AIWS_PG_PORT:-54329}"
 case "${1:-start}" in
