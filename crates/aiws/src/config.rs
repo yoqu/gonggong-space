@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 /// Root of all local state (`~/.aiws`); `AIWS_HOME` overrides it so several daemons can share a machine in tests.
 pub fn home() -> PathBuf {
-    std::env::var_os("AIWS_HOME").map(PathBuf::from).unwrap_or_else(|| dirs_home().join(".aiws"))
+    std::env::var_os("AIWS_HOME").map(PathBuf::from).unwrap_or_else(|| user_home().join(".aiws"))
 }
 
-fn dirs_home() -> PathBuf {
+pub fn user_home() -> PathBuf {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).expect("HOME is not set")
 }
 
