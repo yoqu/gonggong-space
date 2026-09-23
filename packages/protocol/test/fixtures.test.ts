@@ -9,9 +9,9 @@ const schemas = { d2s: DaemonToServer, s2d: ServerToDaemon }
 describe('wire fixtures (shared with the Rust daemon)', () => {
   for (const file of readdirSync(dir)) {
     it(file, () => {
-      const [dirn, t] = file.split('.') as [keyof typeof schemas, string]
+      const [dirn, ...rest] = file.split('.') as [keyof typeof schemas, ...string[]]
       const msg = schemas[dirn].parse(JSON.parse(readFileSync(join(dir, file), 'utf8')))
-      expect(msg.t).toBe(t)
+      expect(rest.join('.').startsWith(msg.t)).toBe(true)
     })
   }
 })

@@ -1,0 +1,8 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "usage",
+    "usage": { "inputTokens": 1200, "outputTokens": 300, "totalTokens": 1500, "costUsd": 0.012 }
+  }
+}

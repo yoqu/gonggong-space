@@ -6,5 +6,6 @@
   "agents": [
     { "kind": "claude", "available": true, "version": "2.1.4", "path": "/opt/homebrew/bin/claude" },
     { "kind": "codex", "available": false, "version": null, "path": null }
-  ]
+  ],
+  "token": "mt_abc123"
 }

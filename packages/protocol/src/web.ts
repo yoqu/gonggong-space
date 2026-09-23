@@ -1,0 +1,174 @@
+import { z } from 'zod'
+import { AgentKind, RunStatus, Tier, TriggerScope, Usage } from './common.js'
+import { AgentInfo, MachineInfo } from './daemon.js'
+
+/** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
+export const ErrorCode = z.enum([
+  'unauthorized',
+  'forbidden',
+  'not_found',
+  'invalid',
+  'conflict',
+  'must_change_password',
+  'code_expired',
+  'code_locked',
+])
+export const ApiError = z.object({ error: ErrorCode, message: z.string() })
+
+// ── Users & auth ────────────────────────────────────────────────────────────
+export const Role = z.enum(['sysadmin', 'member'])
+export const UserDto = z.object({
+  id: z.string(),
+  account: z.string(),
+  name: z.string(),
+  role: Role,
+  mustChangePassword: z.boolean(),
+  disabled: z.boolean(),
+})
+export type UserDto = z.infer<typeof UserDto>
+
+export const LoginReq = z.object({ account: z.string(), password: z.string() })
+export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword: z.string().min(8) })
+export const CreateUserReq = z.object({
+  account: z.string().regex(/^[a-z0-9_.-]{2,32}$/),
+  name: z.string().min(1),
+  role: Role,
+  password: z.string().min(8),
+})
+
+// ── Machines ────────────────────────────────────────────────────────────────
+export const BindCodeDto = z.object({ code: z.string(), expiresAt: z.string() })
+export const MachineDto = MachineInfo.extend({
+  id: z.string(),
+  ownerId: z.string(),
+  online: z.boolean(),
+  agents: z.array(AgentInfo),
+  daemonVersion: z.string().nullable(),
+  lastSeenAt: z.string().nullable(),
+})
+export type MachineDto = z.infer<typeof MachineDto>
+
+// ── Bots ────────────────────────────────────────────────────────────────────
+export const BotBinding = z.enum(['pending_bind', 'pending_confirm', 'bound'])
+/** Derived presence shown in UI. */
+export const BotPresence = z.enum([
+  'pending_bind',
+  'pending_confirm',
+  'online',
+  'running',
+  'offline',
+  'agent_missing',
+])
+export const BotDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  ownerId: z.string(),
+  ownerName: z.string(),
+  agentKind: AgentKind,
+  machineId: z.string().nullable(),
+  machineName: z.string().nullable(),
+  binding: BotBinding,
+  presence: BotPresence,
+  systemPrompt: z.string(),
+  tier: Tier,
+  triggerScope: TriggerScope,
+  triggerList: z.array(z.string()),
+  concurrency: z.number().int(),
+  createdBy: z.string(),
+})
+export type BotDto = z.infer<typeof BotDto>
+
+export const CreateBotReq = z.object({
+  name: z.string().min(1).max(40),
+  ownerId: z.string(),
+  agentKind: AgentKind,
+  /** Omit when the owner has no machine yet (bot becomes pending_bind). */
+  machineId: z.string().nullable(),
+  systemPrompt: z.string().max(4000).default(''),
+})
+export const UpdateBotReq = z.object({
+  name: z.string().min(1).max(40).optional(),
+  systemPrompt: z.string().max(4000).optional(),
+  tier: Tier.optional(),
+  triggerScope: TriggerScope.optional(),
+  triggerList: z.array(z.string()).optional(),
+  concurrency: z.number().int().min(1).max(8).optional(),
+})
+
+// ── Groups ──────────────────────────────────────────────────────────────────
+export const GroupKind = z.enum(['group', 'dm'])
+export const GroupDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: GroupKind,
+  mode: z.enum(['partition', 'force']),
+  notice: z.string(),
+  repo: z.object({ url: z.string(), branch: z.string() }).nullable(),
+  members: z.array(z.object({ userId: z.string(), name: z.string(), isAdmin: z.boolean() })),
+  botIds: z.array(z.string()),
+  unread: z.number().int(),
+  lastSeq: z.number().int(),
+})
+export type GroupDto = z.infer<typeof GroupDto>
+
+export const CreateGroupReq = z.object({
+  name: z.string().min(1).max(60),
+  kind: GroupKind,
+  memberIds: z.array(z.string()).default([]),
+  botIds: z.array(z.string()).default([]),
+  repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),
+})
+
+// ── Timeline ────────────────────────────────────────────────────────────────
+export const MessageDto = z.object({
+  id: z.string(),
+  seq: z.number().int(),
+  groupId: z.string(),
+  kind: z.enum(['user', 'bot', 'event']),
+  authorId: z.string().nullable(),
+  authorName: z.string(),
+  body: z.string(),
+  /** Bot ids this message triggers (explicit @ or quote). */
+  mentions: z.array(z.string()),
+  runId: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type MessageDto = z.infer<typeof MessageDto>
+
+export const RunDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  triggerMessageId: z.string(),
+  triggerUserId: z.string().nullable(),
+  hop: z.number().int(),
+  status: RunStatus,
+  step: z.string(),
+  filesChanged: z.number().int(),
+  usage: Usage.nullable(),
+  newSessionReason: z.string().nullable(),
+  queuedAt: z.string(),
+  startedAt: z.string().nullable(),
+  endedAt: z.string().nullable(),
+})
+export type RunDto = z.infer<typeof RunDto>
+
+export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
+export type TimelineDto = z.infer<typeof TimelineDto>
+
+export const SendMessageReq = z.object({
+  body: z.string().min(1).max(20000),
+  /** Client-generated idempotency key; resending the same id returns the original message. */
+  clientId: z.string().min(8),
+})
+
+// ── Realtime: WS /ws/web (server → browser only) ────────────────────────────
+export const WebEvent = z.discriminatedUnion('t', [
+  z.object({ t: z.literal('message.new'), message: MessageDto }),
+  z.object({ t: z.literal('run.updated'), run: RunDto }),
+  z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
+  z.object({ t: z.literal('bot.updated'), bot: BotDto }),
+  z.object({ t: z.literal('group.updated'), group: GroupDto }),
+  z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
+])
+export type WebEvent = z.infer<typeof WebEvent>

@@ -1,0 +1,5 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": { "kind": "status", "status": "running", "step": "读取 server/refund/v1/handler.go" }
+}

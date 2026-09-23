@@ -26,11 +26,13 @@ async fn main() -> anyhow::Result<()> {
                 protocol: PROTOCOL_VERSION,
                 daemon_version: env!("CARGO_PKG_VERSION").into(),
                 machine: MachineInfo { name: "ping".into(), os: std::env::consts::OS.into(), arch: std::env::consts::ARCH.into() },
+                token: String::new(),
                 agents: vec![],
             };
             match handshake(&format!("{}/ws/daemon", server.trim_end_matches('/').replacen("http", "ws", 1)), &hello).await? {
                 ServerToDaemon::Welcome { heartbeat_sec, .. } => println!("welcome heartbeat={heartbeat_sec}s"),
                 ServerToDaemon::Reject { message, .. } => anyhow::bail!("rejected: {message}"),
+                other => anyhow::bail!("unexpected: {other:?}"),
             }
         }
     }

@@ -1,0 +1,11 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "completed",
+  "reply": "已完成。\n\n```bash\nls\n```",
+  "filesChanged": 1,
+  "usage": { "totalTokens": 1500 },
+  "sessionId": "sess-1",
+  "newSessionReason": "first",
+  "error": null
+}
