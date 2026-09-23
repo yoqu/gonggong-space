@@ -1,0 +1,13 @@
+/* Radius — restrained 6–12px; pill only for tags/badges. DESIGN.md §6 */
+:root {
+  --radius: 10px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-pill: 999px;
+  --radius-window: 10px;
+  --radius-dialog: 14px;
+  --radius-dropdown: 12px;
+}

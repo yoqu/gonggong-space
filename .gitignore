@@ -1,0 +1,11 @@
+node_modules/
+target/
+dist/
+.DS_Store
+*.log
+.env
+.env.local
+coverage/
+playwright-report/
+test-results/
+.aiws-dev/

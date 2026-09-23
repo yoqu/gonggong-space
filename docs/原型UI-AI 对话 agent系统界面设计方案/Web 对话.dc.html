@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/styles.css">
+<script src="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/_ds_bundle.js"></script>
+<script src="lc-icon.js"></script>
+<script src="image-slot.js"></script>
+<style>html,body{height:100%;margin:0;overflow:hidden}a{color:#0A84FF}a:hover{color:#409CFF}</style>
+</helmet>
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+<div style="height:100vh;display:flex;align-items:center;justify-content:center;background:var(--color-window-bg)">
+  <div style="width:360px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--color-panel-elevated);border:1px solid var(--color-separator);display:flex;align-items:center;justify-content:center;color:#0A84FF"><lc-icon name="radar" size="18"></lc-icon></div>
+      <div style="font-size:17px;font-weight:600">AI 团队工作区</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:24px;font-weight:600">登录</div>
+      <div style="font-size:13px;color:var(--color-text-secondary)">账号由系统管理员创建，首次登录后需修改密码。</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">账号<input value="wanglei" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:13px"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">密码<input type="password" value="password" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:13px"></label>
+    </div>
+    <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="lg" fullWidth="{{ true }}" onClick="{{ doLogin }}" hint-size="100%,36px">登录</x-import>
+    <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:var(--color-text-muted)"><div style="flex:1;height:1px;background:var(--color-separator)"></div>或<div style="flex:1;height:1px;background:var(--color-separator)"></div></div>
+    <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="lg" fullWidth="{{ true }}" disabled="{{ true }}" hint-size="100%,36px">公司 SSO 登录 · 二期</x-import>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ true }}">
+<div style="height:100vh;display:flex;flex-direction:column;background:var(--color-window-bg);font-size:13px;color:var(--color-text-primary)">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:12px;padding:0 12px 0 16px;background:var(--color-titlebar-bg);border-bottom:1px solid var(--color-separator)">
+    <div style="display:flex;align-items:center;gap:8px;flex:none;width:{{ brandW }}">
+      <div style="width:24px;height:24px;border-radius:6px;background:var(--color-panel-elevated);border:1px solid var(--color-separator);display:flex;align-items:center;justify-content:center;color:#0A84FF"><lc-icon name="radar" size="14"></lc-icon></div>
+      <sc-if value="{{ desk }}" hint-placeholder-val="{{ true }}"><div style="font-weight:600;white-space:nowrap">AI 团队工作区</div></sc-if>
+    </div>
+    <button onClick="{{ openSearch }}" style="flex:1;max-width:520px;margin:0 auto;height:28px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:6px;border:1px solid var(--color-separator);background:var(--color-panel-bg);color:var(--color-text-tertiary);font-size:12px;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">
+      <lc-icon name="search" size="13"></lc-icon><span style="flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">搜索消息、文件、运行</span><sc-if value="{{ desk }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">⌘K</span></sc-if>
+    </button>
+    <div style="display:flex;align-items:center;gap:6px">
+      <a href="管理后台.dc.html" style="height:28px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:6px;color:var(--color-text-secondary);font-size:12px" style-hover="background:rgba(255,255,255,0.06);color:#fff"><lc-icon name="sliders-horizontal" size="13"></lc-icon><sc-if value="{{ desk }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">管理后台</span></sc-if></a>
+      <button onClick="{{ toggleNotif }}" style="position:relative;width:30px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.06)">
+        <lc-icon name="bell" size="15"></lc-icon>
+        <span style="position:absolute;top:3px;right:3px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:#FF453A;color:#fff;font-size:9px;font-weight:650;display:flex;align-items:center;justify-content:center">{{ notifCount }}</span>
+      </button>
+      <button onClick="{{ toggleMenu }}" style="width:28px;height:28px;border-radius:999px;border:1px solid var(--color-border-strong);background:var(--color-control-bg);color:#fff;font-size:12px;font-weight:600;cursor:pointer">王</button>
+    </div>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex">
+
+    <sc-if value="{{ showLeft }}" hint-placeholder-val="{{ true }}">
+    <div style="width:{{ leftW }};flex:none;display:flex;flex-direction:column;background:var(--color-panel-bg);border-right:1px solid var(--color-separator)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 14px 8px">
+        <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">群</div>
+        <button onClick="{{ openNewGroup }}" title="新建群" style="width:22px;height:22px;border:0;border-radius:4px;background:transparent;color:var(--color-text-tertiary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="plus" size="13"></lc-icon></button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:0 8px">
+        <sc-for list="{{ groupList }}" as="g" hint-placeholder-count="3">
+          <button onClick="{{ g.onClick }}" style="display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:8px;background:{{ g.bg }};text-align:left;cursor:pointer;color:inherit" style-hover="background:rgba(255,255,255,0.05)">
+            <div style="display:flex;align-items:center;gap:6px">
+              <lc-icon name="{{ g.icon }}" size="13" style="color:var(--color-text-tertiary)"></lc-icon>
+              <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.name }}</span>
+              <sc-if value="{{ g.pin }}"><lc-icon name="pin" size="11" style="color:var(--color-text-tertiary)"></lc-icon></sc-if>
+              <sc-if value="{{ g.mute }}"><lc-icon name="bell-off" size="11" style="color:var(--color-text-tertiary)"></lc-icon></sc-if>
+              <sc-if value="{{ g.unread }}"><span style="min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:{{ g.badgeBg }};font-size:10px;font-weight:650;display:flex;align-items:center;justify-content:center">{{ g.unread }}</span></sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-tertiary)"><span>{{ g.mode }}</span><span>·</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.last }}</span></div>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 14px 8px">
+        <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">私聊</div>
+        <button onClick="{{ openNewDm }}" title="新建私聊" style="width:22px;height:22px;border:0;border-radius:4px;background:transparent;color:var(--color-text-tertiary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="plus" size="13"></lc-icon></button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:0 8px">
+        <sc-for list="{{ dmList }}" as="g" hint-placeholder-count="1">
+          <button onClick="{{ g.onClick }}" style="display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:8px;background:{{ g.bg }};text-align:left;cursor:pointer;color:inherit" style-hover="background:rgba(255,255,255,0.05)">
+            <div style="display:flex;align-items:center;gap:6px">
+              <lc-icon name="user" size="13" style="color:var(--color-text-tertiary)"></lc-icon>
+              <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.name }}</span>
+              <sc-if value="{{ g.mute }}"><lc-icon name="bell-off" size="11" style="color:var(--color-text-tertiary)"></lc-icon></sc-if>
+              <sc-if value="{{ g.unread }}"><span style="min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:{{ g.badgeBg }};font-size:10px;font-weight:650;display:flex;align-items:center;justify-content:center">{{ g.unread }}</span></sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-tertiary)"><span>{{ g.mode }}</span><span>·</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.last }}</span></div>
+          </button>
+        </sc-for>
+      </div>
+      <div style="padding:16px 14px 8px;font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">我的 BOT</div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:0 8px">
+        <sc-for list="{{ myBots }}" as="b" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px">
+            <div style="width:7px;height:7px;border-radius:999px;background:{{ b.dot }}"></div>
+            <span style="flex:1;font-size:12px;white-space:nowrap">{{ b.name }}</span>
+            <span style="font-size:11px;color:var(--color-text-tertiary)">{{ b.state }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:10px 14px;border-top:1px solid var(--color-separator);display:flex;align-items:center;gap:8px;font-size:11px;color:var(--color-text-tertiary)">
+        <div style="width:7px;height:7px;border-radius:999px;background:#32D74B"></div>本机 daemon 在线 · v0.9.3
+        <a href="Daemon 桌面端.dc.html" style="margin-left:auto;font-size:11px">打开</a>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ showCenter }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <div style="height:52px;flex:none;min-width:0;overflow:hidden;display:flex;align-items:center;gap:10px;padding:0 {{ padX }};border-bottom:1px solid var(--color-separator)">
+        <sc-if value="{{ mobile }}"><button onClick="{{ toList }}" style="width:32px;height:44px;flex:none;margin-left:-6px;border:0;background:transparent;color:#0A84FF;cursor:pointer;display:flex;align-items:center;justify-content:center"><lc-icon name="chevron-left" size="20"></lc-icon></button></sc-if>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ g.name }}</span>
+            <div style="flex:none;display:flex"><x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ g.modeV }}" size="sm" hint-size="auto,18px">{{ g.mode }}</x-import></div></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.repo }} · {{ g.branch }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:2px;flex:none">
+          <sc-if value="{{ gMuted }}"><span title="消息免打扰" style="display:flex;color:var(--color-text-tertiary);padding:0 4px"><lc-icon name="bell-off" size="13"></lc-icon></span></sc-if>
+          <sc-if value="{{ notDm }}"><button onClick="{{ openMembers }}" title="群成员" style="height:28px;display:flex;align-items:center;gap:6px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;white-space:nowrap" style-hover="background:rgba(255,255,255,0.06)"><lc-icon name="users" size="14"></lc-icon><span>{{ memberTotal }}</span></button></sc-if><sc-if value="{{ isDm }}"><span style="padding:0 8px;font-size:11px;color:var(--color-text-tertiary);white-space:nowrap">仅你和你的 bot</span></sc-if>
+          <button onClick="{{ openDrawer }}" title="群设置" style="width:30px;height:28px;display:flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:{{ drawerBtnBg }};color:var(--color-text-secondary);cursor:pointer" style-hover="background:rgba(255,255,255,0.06)"><lc-icon name="panel-right" size="15"></lc-icon></button>
+        </div>
+      </div>
+      <sc-if value="{{ hasNotice }}"><div style="flex:none;display:flex;align-items:center;gap:8px;padding:7px {{ padX }};border-bottom:1px solid var(--color-separator);background:var(--color-titlebar-bg);font-size:12px;color:var(--color-text-secondary)"><lc-icon name="megaphone" size="13" style="color:var(--color-text-tertiary)"></lc-icon><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ gNotice }}</span></div></sc-if>
+
+      <sc-if value="{{ isForce }}">
+        <div style="flex:none;display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--color-timeline-bg);border-bottom:1px solid var(--color-separator);font-size:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px"><lc-icon name="lock" size="13" style="color:#0A84FF"></lc-icon><span style="color:var(--color-text-tertiary)">持锁</span><span style="font-weight:600">{{ lock.holder }}</span><span style="color:var(--color-text-tertiary)">{{ lock.note }}</span></div>
+          <div style="width:1px;height:14px;background:var(--color-separator)"></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="color:var(--color-text-tertiary)">队列</span>
+            <sc-for list="{{ lock.queue }}" as="q" hint-placeholder-count="2"><span style="height:20px;display:inline-flex;align-items:center;padding:0 8px;border-radius:999px;background:rgba(255,255,255,0.06);font-size:11px">{{ q }}</span></sc-for>
+          </div>
+          <div style="width:1px;height:14px;background:var(--color-separator)"></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="color:var(--color-text-tertiary)">权威版本</span><span style="font-family:var(--font-mono);font-weight:600">{{ lock.ver }}</span></div>
+          <div style="width:1px;height:14px;background:var(--color-separator)"></div>
+          <div style="display:flex;align-items:center;gap:6px;color:#FF9F0A"><lc-icon name="alert-triangle" size="12"></lc-icon>落后 {{ lock.lag }} 台</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isPart }}">
+        <div style="flex:none;display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--color-timeline-bg);border-bottom:1px solid var(--color-separator);font-size:11px;overflow-x:auto">
+          <sc-for list="{{ gitBar }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--color-separator);background:var(--color-panel-bg);white-space:nowrap">
+              <span style="font-weight:600">{{ s.name }}</span>
+              <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">{{ s.branch }}</span>
+              <span style="font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ s.ab }}</span>
+              <sc-if value="{{ s.dirty }}"><span style="color:#FF9F0A">未提交</span></sc-if>
+              <span style="color:var(--color-text-muted)">{{ s.ws }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:16px {{ padX }} 8px;display:flex;flex-direction:column;gap:14px">
+        <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
+          <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-if value="{{ it.isEvent }}">
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0;font-size:11px;color:{{ it.color }}"><lc-icon name="{{ it.icon }}" size="12"></lc-icon><span style="max-width:640px;text-align:center;text-wrap:pretty">{{ it.text }}</span><span style="color:var(--color-text-muted)">{{ it.time }}</span></div>
+          </sc-if>
+          <sc-if value="{{ it.isMsg }}">
+            <div style="display:flex;gap:10px">
+              <div style="width:28px;height:28px;flex:none;border-radius:999px;background:var(--color-control-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ it.init }}</div>
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;max-width:720px">
+                <div style="display:flex;align-items:baseline;gap:8px"><span style="font-weight:600">{{ it.who }}</span><span style="font-size:11px;color:var(--color-text-muted)">{{ it.time }}</span>
+                  <sc-if value="{{ it.fan }}"><span style="font-size:11px;color:var(--color-text-tertiary)">· {{ it.fan }}</span></sc-if></div>
+                <sc-if value="{{ it.quote }}"><div style="display:flex;align-items:center;gap:6px;max-width:560px;padding:5px 10px;border-radius:6px;border:1px solid var(--color-separator);background:rgba(255,255,255,0.035);font-size:11px;color:var(--color-text-secondary);min-width:0"><lc-icon name="quote" size="11" style="color:var(--color-text-tertiary);flex:none"></lc-icon><span style="flex:none;color:var(--color-text-tertiary)">引用 {{ it.quote.who }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.quote.text }}</span></div></sc-if>
+                <div style="line-height:1.6;text-wrap:pretty"><sc-for list="{{ it.segs }}" as="sg"><span style="color:{{ sg.c }};font-weight:{{ sg.w }}">{{ sg.t }}</span></sc-for></div>
+                <sc-if value="{{ it.hasMedia }}"><div style="display:grid;grid-template-columns:{{ it.mediaCols }};gap:6px;width:100%;max-width:{{ it.mediaMax }}"><sc-for list="{{ it.media }}" as="md"><div style="position:relative;aspect-ratio:16 / 10;border-radius:10px;overflow:hidden;border:1px solid var(--color-separator);background:var(--color-preview-bg)"><image-slot id="{{ md.slot }}" src="{{ md.src }}" shape="rect" placeholder="{{ md.name }}"></image-slot><div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;gap:6px;padding:18px 8px 6px;background:linear-gradient(to top, rgba(0,0,0,.72), transparent);pointer-events:none;font-size:11px"><sc-if value="{{ md.isVideo }}"><lc-icon name="video" size="11" style="flex:none"></lc-icon></sc-if><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono)">{{ md.name }}</span><span style="flex:none;color:var(--color-text-secondary)">{{ md.meta }}</span></div><sc-if value="{{ md.isVideo }}"><button onClick="{{ md.onPlay }}" title="播放" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center"><lc-icon name="play" size="18"></lc-icon></button></sc-if><button onClick="{{ md.onOpen }}" title="在右侧查看" style="position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:6px;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center"><lc-icon name="maximize-2" size="12"></lc-icon></button></div></sc-for></div></sc-if>
+                <sc-if value="{{ it.hasDocs }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ it.docs }}" as="dc"><button onClick="{{ dc.onOpen }}" style="width:260px;max-width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--color-separator);background:var(--color-panel-bg);color:#fff;text-align:left;cursor:pointer" style-hover="border-color:#0A84FF"><div style="width:32px;height:32px;flex:none;border-radius:6px;background:var(--color-panel-elevated);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary)"><lc-icon name="{{ dc.icon }}" size="15"></lc-icon></div><div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span style="font-family:var(--font-mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dc.name }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ dc.meta }}</span></div><lc-icon name="panel-right-open" size="13" style="color:var(--color-text-tertiary)"></lc-icon></button></sc-for></div></sc-if>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ it.isReply }}">
+            <div style="display:flex;gap:10px">
+              <div style="width:28px;height:28px;flex:none;border-radius:7px;background:var(--color-panel-elevated);border:1px solid var(--color-separator);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#0A84FF">{{ it.init }}</div>
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;max-width:720px">
+                <div style="display:flex;align-items:baseline;gap:8px"><span style="font-weight:600">{{ it.who }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">最终回复</span><span style="font-size:11px;color:var(--color-text-muted)">{{ it.time }}</span><button onClick="{{ it.onQuote }}" title="引用回复等同 @ 该 bot" style="margin-left:auto;height:22px;display:flex;align-items:center;gap:4px;padding:0 6px;border:0;border-radius:4px;background:transparent;color:var(--color-text-tertiary);font-size:11px;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff"><lc-icon name="quote" size="11"></lc-icon>引用回复</button></div>
+                <sc-for list="{{ it.blocks }}" as="bk">
+                  <sc-if value="{{ bk.isH }}"><div style="font-size:{{ bk.hs }};font-weight:600;padding-top:4px">{{ bk.h }}</div></sc-if>
+                  <sc-if value="{{ bk.isP }}"><div style="line-height:1.65;text-wrap:pretty"><sc-for list="{{ bk.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }};font-weight:{{ x.w }};color:{{ x.c }}">{{ x.t }}</span></sc-for></div></sc-if>
+                  <sc-if value="{{ bk.isQuote }}"><div style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.035);color:var(--color-text-secondary);line-height:1.6"><sc-for list="{{ bk.segs }}" as="x"><span style="font-family:{{ x.f }};font-weight:{{ x.w }}">{{ x.t }}</span></sc-for></div></sc-if>
+                  <sc-if value="{{ bk.isUl }}"><div style="display:flex;flex-direction:column;gap:4px"><sc-for list="{{ bk.items }}" as="li"><div style="display:flex;gap:8px;line-height:1.6"><span style="flex:none;min-width:12px;color:var(--color-text-tertiary)">{{ li.mk }}</span><span style="min-width:0;text-wrap:pretty"><sc-for list="{{ li.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }};font-weight:{{ x.w }};color:{{ x.c }}">{{ x.t }}</span></sc-for></span></div></sc-for></div></sc-if>
+                  <sc-if value="{{ bk.isTable }}"><div style="display:grid;grid-template-columns:{{ bk.cols }};gap:1px;border-radius:8px;border:1px solid var(--color-separator);background:var(--color-separator);overflow:hidden;font-size:12px"><sc-for list="{{ bk.cells }}" as="cl"><div style="padding:6px 10px;background:{{ cl.bg }};color:{{ cl.c }};font-weight:{{ cl.w }};min-width:0;overflow-wrap:anywhere"><sc-for list="{{ cl.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }}">{{ x.t }}</span></sc-for></div></sc-for></div></sc-if>
+                  <sc-if value="{{ bk.isCode }}"><div style="border-radius:8px;border:1px solid var(--color-separator);background:var(--color-preview-bg);overflow:hidden"><div style="display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--color-separator);font-size:11px;color:var(--color-text-tertiary)"><span style="font-family:var(--font-mono)">{{ bk.lang }}</span><span style="flex:1"></span><span style="display:flex;align-items:center;gap:4px"><lc-icon name="copy" size="11"></lc-icon>复制</span></div><div style="padding:8px 0;overflow-x:auto;font-family:var(--font-mono);font-size:12px;line-height:1.6"><sc-for list="{{ bk.lines }}" as="cl"><div style="display:flex;white-space:pre"><span style="width:32px;flex:none;padding-right:10px;text-align:right;color:var(--color-text-muted)">{{ cl.n }}</span><span style="padding-right:12px"><sc-for list="{{ cl.toks }}" as="tk"><span style="color:{{ tk.c }}">{{ tk.t }}</span></sc-for></span></div></sc-for></div></div></sc-if>
+                </sc-for>
+                <sc-if value="{{ it.hasMedia }}"><div style="display:grid;grid-template-columns:{{ it.mediaCols }};gap:6px;width:100%;max-width:{{ it.mediaMax }}"><sc-for list="{{ it.media }}" as="md"><div style="position:relative;aspect-ratio:16 / 10;border-radius:10px;overflow:hidden;border:1px solid var(--color-separator);background:var(--color-preview-bg)"><image-slot id="{{ md.slot }}" src="{{ md.src }}" shape="rect" placeholder="{{ md.name }}"></image-slot><div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;gap:6px;padding:18px 8px 6px;background:linear-gradient(to top, rgba(0,0,0,.72), transparent);pointer-events:none;font-size:11px"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono)">{{ md.name }}</span><span style="flex:none;color:var(--color-text-secondary)">{{ md.meta }}</span></div><button onClick="{{ md.onOpen }}" title="在右侧查看" style="position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:6px;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center"><lc-icon name="maximize-2" size="12"></lc-icon></button></div></sc-for></div></sc-if>
+                <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ it.files }}" as="f"><button onClick="{{ f.onClick }}" style="display:flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--color-separator);background:transparent;color:#0A84FF;font-family:var(--font-mono);font-size:11px;cursor:pointer" style-hover="background:rgba(10,132,255,0.08)"><lc-icon name="file-text" size="11"></lc-icon>{{ f.path }}</button></sc-for></div>
+                <sc-if value="{{ it.next }}"><div style="line-height:1.6"><span style="color:#0A84FF;font-weight:600">{{ it.nextAt }}</span> {{ it.next }}</div></sc-if>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ it.isRun }}">
+            <div style="margin-left:{{ cardML }};max-width:680px;display:flex;flex-direction:column;border-radius:10px;border:1px solid {{ it.border }};background:var(--color-panel-elevated);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 12px">
+                <div style="width:22px;height:22px;border-radius:6px;background:var(--color-control-bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#0A84FF">{{ it.init }}</div>
+                <span style="font-weight:600">{{ it.botName }}</span>
+                <span style="font-size:11px;color:var(--color-text-tertiary)">{{ it.agent }} · {{ it.trigger }} 触发</span>
+                <sc-if value="{{ it.hop }}"><span style="height:18px;display:inline-flex;align-items:center;gap:4px;padding:0 6px;border-radius:4px;border:1px solid var(--color-border-strong);font-size:10px;color:var(--color-text-secondary)"><lc-icon name="link-2" size="10"></lc-icon>{{ it.hop }}</span></sc-if>
+                <div style="flex:1"></div>
+                <x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ it.statusV }}" size="sm" hint-size="auto,18px">{{ it.status }}</x-import>
+              </div>
+              <sc-if value="{{ it.step }}">
+                <div style="display:flex;align-items:center;gap:8px;padding:0 12px 8px;font-size:12px;color:var(--color-text-secondary)"><lc-icon name="{{ it.stepIcon }}" size="12" style="color:{{ it.stepColor }}"></lc-icon><span style="font-family:var(--font-mono)">{{ it.step }}</span></div>
+              </sc-if>
+              <sc-if value="{{ it.hasMeta }}">
+                <div style="display:flex;align-items:center;gap:8px;padding:0 12px 10px;font-size:11px;color:var(--color-text-tertiary)"><span>改动 {{ it.files }} 个文件</span><span>·</span><span>{{ it.dur }}</span><span>·</span><span>{{ it.tokens }}</span></div>
+              </sc-if>
+              <sc-if value="{{ it.newSession }}">
+                <div style="display:flex;align-items:center;gap:6px;margin:0 12px 10px;font-size:11px;color:#409CFF"><lc-icon name="refresh-cw" size="11"></lc-icon>{{ it.newSession }}</div>
+              </sc-if>
+
+              <sc-if value="{{ it.ap }}">
+                <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--color-separator);background:rgba(255,159,10,0.06)">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#FF9F0A"><lc-icon name="shield-alert" size="13"></lc-icon>权限请求 · {{ it.ap.kind }}</div>
+                  <div style="padding:8px 10px;border-radius:6px;background:var(--color-preview-bg);font-family:var(--font-mono);font-size:12px">{{ it.ap.cmd }}</div>
+                  <div style="font-size:11px;color:var(--color-text-tertiary)">{{ it.ap.why }}</div>
+                  <sc-if value="{{ it.ap.pending }}">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" disabled="{{ it.ap.locked }}" onClick="{{ it.ap.onOk }}" hint-size="auto,26px">批准</x-import>
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" disabled="{{ it.ap.locked }}" onClick="{{ it.ap.onNo }}" hint-size="auto,26px">拒绝</x-import>
+                      <span style="font-size:11px;color:var(--color-text-tertiary)">{{ it.ap.hint }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ it.ap.done }}"><div style="font-size:12px;color:var(--color-text-secondary)">{{ it.ap.done }}</div></sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.q }}">
+                <div style="display:flex;flex-direction:column;gap:12px;padding:12px;border-top:1px solid var(--color-separator);background:rgba(10,132,255,0.05)">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#409CFF"><lc-icon name="message-circle-question" size="13"></lc-icon>向群成员提问 · {{ it.q.count }} 个问题<span style="font-weight:400;color:var(--color-text-tertiary)">· {{ it.q.who }}</span></div>
+                  <sc-for list="{{ it.q.qs }}" as="qq">
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <div style="font-size:12px"><span style="color:var(--color-text-tertiary)">{{ qq.type }} · </span>{{ qq.title }}</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:6px">
+                        <sc-for list="{{ qq.opts }}" as="o"><button onClick="{{ o.onClick }}" style="height:26px;display:flex;align-items:center;gap:5px;padding:0 10px;border-radius:6px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:#fff;font-size:12px;cursor:pointer">{{ o.label }}<sc-if value="{{ o.rec }}"><span style="font-size:10px;color:{{ o.recC }}">推荐</span></sc-if></button></sc-for>
+                      </div>
+                      <sc-if value="{{ qq.free }}"><textarea rows="2" placeholder="自由作答" style="resize:vertical;padding:6px 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:12px;line-height:1.5"></textarea></sc-if>
+                      <sc-if value="{{ qq.other }}"><input placeholder="其他，我来补充" style="height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:12px"></sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ it.q.open }}">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="sm" hint-size="auto,26px">附图片或附件</x-import>
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ it.q.onSubmit }}" hint-size="auto,26px">提交回答</x-import>
+                      <span style="font-size:11px;color:var(--color-text-tertiary)">{{ it.q.timeout }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ it.q.done }}"><div style="font-size:12px;color:var(--color-text-secondary)">{{ it.q.done }}</div></sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.sy }}">
+                <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--color-separator)">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><lc-icon name="refresh-cw" size="12" style="color:var(--color-text-tertiary)"></lc-icon><span>同步 {{ it.sy.ver }}</span><span style="font-family:var(--font-mono);color:var(--color-text-secondary)">{{ it.sy.done }} / {{ it.sy.total }} 台</span>
+                    <div style="flex:1"></div><button onClick="{{ it.sy.toggle }}" style="border:0;background:transparent;color:var(--color-text-tertiary);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px">{{ it.sy.toggleText }}<lc-icon name="{{ it.sy.chev }}" size="11"></lc-icon></button></div>
+                  <x-import component-from-global-scope="DesignSystem_83d2b2.Progress" value="{{ it.sy.pct }}" size="sm" variant="{{ it.sy.pv }}" hint-size="100%,4px"></x-import>
+                  <sc-if value="{{ it.sy.open }}">
+                    <div style="display:flex;flex-direction:column;border-radius:6px;border:1px solid var(--color-separator);overflow:hidden">
+                      <sc-for list="{{ it.sy.machines }}" as="m">
+                        <div style="display:grid;grid-template-columns:64px minmax(0,1fr) 110px 70px;gap:8px;align-items:center;padding:6px 10px;font-size:11px;border-bottom:1px solid var(--color-separator)">
+                          <span>{{ m.owner }}</span><span style="font-family:var(--font-mono);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.m }}</span><span style="font-family:var(--font-mono);color:var(--color-text-secondary)">{{ m.bytes }}</span><span style="color:{{ m.c }};text-align:right">{{ m.st }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.intr }}">
+                <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--color-separator);background:rgba(255,69,58,0.06)">
+                  <div style="font-size:12px;font-weight:600;color:#FF453A">{{ it.intr.title }}</div>
+                  <div style="font-size:12px;color:var(--color-text-secondary);text-wrap:pretty">{{ it.intr.desc }}</div>
+                  <sc-if value="{{ it.intr.pending }}">
+                    <div style="display:flex;gap:8px">
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="default" size="sm" onClick="{{ it.intr.onKeep }}" hint-size="auto,26px">{{ it.intr.keepLabel }}</x-import>
+                      <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="destructive" size="sm" onClick="{{ it.intr.onDrop }}" hint-size="auto,26px">{{ it.intr.dropLabel }}</x-import>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.note }}">
+                <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-top:1px solid var(--color-separator);font-size:12px;color:var(--color-text-secondary)"><lc-icon name="{{ it.noteIcon }}" size="12"></lc-icon>{{ it.note }}</div>
+              </sc-if>
+
+              <sc-if value="{{ it.hasActions }}">
+                <div style="display:flex;align-items:center;gap:4px;padding:6px 8px;border-top:1px solid var(--color-separator)">
+                  <button onClick="{{ it.onOpen }}" style="height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff"><lc-icon name="panel-right-open" size="12"></lc-icon>查看过程</button>
+                  <button onClick="{{ it.onQuote }}" style="height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff"><lc-icon name="quote" size="11"></lc-icon>引用</button>
+                  <sc-if value="{{ it.running }}">
+                    <button onClick="{{ it.onAppend }}" style="height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff"><lc-icon name="corner-down-right" size="12"></lc-icon>打断并追加</button>
+                    <button onClick="{{ it.onStop }}" style="height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer" style-hover="background:rgba(255,255,255,0.08);color:#fff"><lc-icon name="square" size="11"></lc-icon>/stop</button>
+                  </sc-if>
+                  <sc-if value="{{ it.chain }}">
+                    <button onClick="{{ stopChain }}" style="height:24px;display:flex;align-items:center;gap:5px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:#FF453A;font-size:11px;cursor:pointer" style-hover="background:rgba(255,69,58,0.1)"><lc-icon name="octagon-x" size="12"></lc-icon>终止整条链</button>
+                  </sc-if>
+                  <div style="flex:1"></div>
+                  <span style="font-size:11px;color:var(--color-text-muted);padding-right:4px">{{ it.time }}</span>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex:none;padding:8px {{ padX }} 14px;position:relative">
+        <sc-if value="{{ pop }}">
+          <div style="position:absolute;left:{{ padX }};right:{{ padX }};bottom:calc(100% - 4px);max-width:420px;max-height:360px;overflow-y:auto;display:flex;flex-direction:column;padding:6px;border-radius:12px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);box-shadow:0 10px 30px rgba(0,0,0,.66);z-index:5">
+            <sc-for list="{{ pop.groups }}" as="pg">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 8px 4px;font-size:10px;font-weight:650;letter-spacing:0.12em;color:var(--color-text-tertiary)"><span>{{ pg.label }}</span><span style="letter-spacing:0;font-weight:400">{{ pg.src }}</span></div>
+              <sc-for list="{{ pg.items }}" as="pi">
+                <button onClick="{{ pi.onClick }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#fff;font-size:12px;text-align:left;cursor:pointer" style-hover="background:#0A84FF">
+                  <lc-icon name="{{ pi.icon }}" size="13"></lc-icon><span style="font-family:{{ pi.font }}">{{ pi.label }}</span><span style="flex:1"></span><span style="font-size:11px;opacity:0.6">{{ pi.hint }}</span>
+                </button>
+              </sc-for>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-border-control);background:var(--color-panel-bg)">
+          <sc-if value="{{ appendTarget }}">
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--color-separator);font-size:11px;color:#409CFF"><lc-icon name="corner-down-right" size="11"></lc-icon>打断并追加到 {{ appendTarget }} · 已改内容保留，仍算同一轮<button onClick="{{ cancelAppend }}" style="margin-left:auto;border:0;background:transparent;color:var(--color-text-tertiary);cursor:pointer;font-size:11px">关闭</button></div>
+          </sc-if>
+          <sc-if value="{{ quote }}"><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--color-separator);font-size:11px;min-width:0"><lc-icon name="quote" size="11" style="color:#409CFF;flex:none"></lc-icon><span style="flex:none;color:#409CFF">引用 {{ quote.who }}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-tertiary)">{{ quote.text }}</span><span style="flex:none;color:var(--color-text-tertiary)">等同 @，引用内容一起发送</span><button onClick="{{ cancelQuote }}" style="flex:none;border:0;background:transparent;color:var(--color-text-tertiary);cursor:pointer;font-size:11px">关闭</button></div></sc-if>
+          <sc-if value="{{ hasAtts }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px 0"><sc-for list="{{ atts }}" as="at"><span style="height:24px;display:inline-flex;align-items:center;gap:6px;padding:0 2px 0 8px;border-radius:6px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);font-size:11px"><lc-icon name="{{ at.icon }}" size="12" style="color:var(--color-text-tertiary)"></lc-icon><span style="font-family:var(--font-mono)">{{ at.name }}</span><span style="color:var(--color-text-tertiary)">{{ at.size }}</span><button onClick="{{ at.rm }}" style="width:18px;height:18px;border:0;border-radius:4px;background:transparent;color:var(--color-text-tertiary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="x" size="10"></lc-icon></button></span></sc-for><span style="font-size:11px;color:var(--color-text-muted)">{{ attNote }}</span></div></sc-if>
+          <textarea value="{{ text }}" onChange="{{ onText }}" onKeyDown="{{ onKey }}" placeholder="输入消息，@ 触发 bot 或引用文件，/ 查看命令" rows="2" style="resize:none;border:0;background:transparent;padding:10px 12px 4px;font-size:13px;line-height:1.5;outline:none"></textarea>
+          <div style="display:flex;align-items:center;gap:2px;padding:4px 6px 6px">
+            <button onClick="{{ insAt }}" style="width:28px;height:26px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="at-sign" size="14"></lc-icon></button>
+            <button onClick="{{ insSlash }}" style="width:28px;height:26px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="slash" size="14"></lc-icon></button>
+            <button onClick="{{ addFile }}" title="附件" style="width:28px;height:26px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="paperclip" size="14"></lc-icon></button>
+            <button onClick="{{ addImg }}" title="图片" style="width:28px;height:26px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="image" size="14"></lc-icon></button>
+            <span style="flex:1;min-width:0;font-size:11px;color:var(--color-text-muted);margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ composerHint }}</span>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ send }}" hint-size="auto,26px">发送</x-import>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+    <sc-if value="{{ showRail }}" hint-placeholder-val="{{ true }}"><div style="width:{{ railW }};position:{{ railPos }};inset:0;z-index:25;flex:none;display:flex;flex-direction:column;background:var(--color-panel-bg);border-left:1px solid var(--color-separator)">
+      <sc-if value="{{ run }}">
+        <div style="flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-bottom:1px solid var(--color-separator)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:15px;font-weight:600">{{ run.botName }}</span>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ run.statusV }}" size="sm" hint-size="auto,18px">{{ run.status }}</x-import>
+            <div style="flex:1"></div>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeRun }}" hint-size="20px,20px"></x-import>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:11px">
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="color:var(--color-text-tertiary)">触发人</span><span>{{ run.trigger }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="color:var(--color-text-tertiary)">机器</span><span style="font-family:var(--font-mono)">{{ run.machine }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="color:var(--color-text-tertiary)">耗时 · 用量</span><span>{{ run.dur }} · {{ run.tokens }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="color:var(--color-text-tertiary)">会话</span><span style="font-family:var(--font-mono)">{{ run.session }}</span></div>
+          </div>
+          <x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ sideTab }}" items="{{ sideTabs }}" onChange="{{ setSideTab }}" size="sm" hint-size="100%,28px"></x-import>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+          <sc-if value="{{ tabProcess }}">
+            <sc-for list="{{ detail.steps }}" as="st">
+              <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--color-separator)">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px"><lc-icon name="{{ st.icon }}" size="13" style="color:var(--color-text-tertiary)"></lc-icon><span style="font-weight:600">{{ st.label }}</span><span style="flex:1"></span><span style="font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ st.meta }}</span></div>
+                <sc-if value="{{ st.body }}"><div style="font-size:12px;line-height:1.6;color:var(--color-text-secondary);text-wrap:pretty">{{ st.body }}</div></sc-if>
+                <sc-if value="{{ st.mono }}"><div style="font-family:var(--font-mono);font-size:11px;color:#fff">{{ st.mono }}</div></sc-if>
+                <sc-if value="{{ st.out }}"><pre style="margin:0;padding:8px 10px;border-radius:6px;background:var(--color-preview-bg);font-family:var(--font-mono);font-size:11px;line-height:1.55;color:var(--color-text-secondary);white-space:pre-wrap;word-break:break-all">{{ st.out }}</pre></sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ tabDiff }}">
+            <sc-for list="{{ detail.files }}" as="df">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--font-mono)"><lc-icon name="file-code" size="12" style="color:var(--color-text-tertiary)"></lc-icon><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ df.path }}</span><span style="color:#32D74B">{{ df.add }}</span><span style="color:#FF453A">{{ df.del }}</span></div>
+            </sc-for>
+            <div style="border-radius:6px;border:1px solid var(--color-separator);background:var(--color-preview-bg);overflow:hidden;font-family:var(--font-mono);font-size:11px;line-height:1.6">
+              <div style="padding:6px 10px;border-bottom:1px solid var(--color-separator);color:var(--color-text-tertiary)">{{ detail.diffFile }}</div>
+              <sc-for list="{{ detail.diff }}" as="dl"><div style="padding:0 10px;background:{{ dl.bg }};color:{{ dl.c }};white-space:pre">{{ dl.s }}</div></sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ tabAudit }}">
+            <sc-for list="{{ detail.audit }}" as="au">
+              <div style="display:flex;gap:10px;font-size:12px"><span style="width:44px;flex:none;font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ au.t }}</span><span style="color:var(--color-text-secondary);text-wrap:pretty">{{ au.s }}</span></div>
+            </sc-for>
+            <div style="font-size:11px;color:var(--color-text-muted)">审批与提问记录永久保存；完整运行过程保留 30 天，过期后卡片只保留摘要。</div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ pv }}">
+        <div style="flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-bottom:1px solid var(--color-separator)">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0"><lc-icon name="{{ pv.icon }}" size="14" style="color:var(--color-text-tertiary);flex:none"></lc-icon><span style="flex:1;min-width:0;font-size:13px;font-weight:600;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pv.name }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closePv }}" hint-size="20px,20px"></x-import></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary)">{{ pv.meta }}</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="xs" hint-size="auto,22px">下载</x-import>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" hint-size="auto,22px">复制路径</x-import>
+            <span style="flex:1"></span>
+            <sc-if value="{{ pv.isMd }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ pvTab }}" items="{{ pvTabs }}" onChange="{{ setPvTab }}" size="sm" hint-size="120px,26px"></x-import></sc-if>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ pv.isImage }}"><div style="position:relative;aspect-ratio:{{ pv.ratio }};border-radius:8px;overflow:hidden;border:1px solid var(--color-separator);background:var(--color-preview-bg)"><image-slot id="{{ pv.slot }}" src="{{ pv.src }}" shape="rect" fit="contain" placeholder="{{ pv.name }}"></image-slot></div></sc-if>
+          <sc-if value="{{ pv.isVideo }}">
+            <div style="display:flex;flex-direction:column;border-radius:8px;overflow:hidden;border:1px solid var(--color-separator)">
+              <div style="position:relative;aspect-ratio:16 / 9;background:var(--color-preview-bg)">
+                <image-slot id="{{ pv.slot }}" src="{{ pv.src }}" shape="rect" placeholder="视频封面"></image-slot>
+                <sc-if value="{{ vPaused }}"><button onClick="{{ togglePlay }}" title="播放" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center"><lc-icon name="play" size="22"></lc-icon></button></sc-if>
+                <sc-if value="{{ vPlaying }}"><div style="position:absolute;top:8px;right:8px;height:20px;display:flex;align-items:center;gap:5px;padding:0 8px;border-radius:999px;background:rgba(0,0,0,.6);font-size:11px;pointer-events:none"><span style="width:6px;height:6px;border-radius:999px;background:#0A84FF"></span>播放中</div></sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--color-titlebar-bg)">
+                <button onClick="{{ togglePlay }}" style="width:26px;height:26px;flex:none;border:0;border-radius:6px;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.08)"><lc-icon name="{{ vIcon }}" size="14"></lc-icon></button>
+                <span style="flex:none;font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums">{{ vTime }}</span>
+                <div style="flex:1;min-width:0"><x-import component-from-global-scope="DesignSystem_83d2b2.Progress" value="{{ vPct }}" size="sm" hint-size="100%,4px"></x-import></div>
+                <lc-icon name="volume-2" size="14" style="color:var(--color-text-secondary);flex:none"></lc-icon>
+                <lc-icon name="maximize-2" size="13" style="color:var(--color-text-secondary);flex:none"></lc-icon>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ pv.showBlocks }}">
+            <sc-for list="{{ pv.blocks }}" as="bk">
+              <sc-if value="{{ bk.isH }}"><div style="font-size:{{ bk.hs }};font-weight:600;padding-top:4px">{{ bk.h }}</div></sc-if>
+              <sc-if value="{{ bk.isP }}"><div style="font-size:13px;line-height:1.65;text-wrap:pretty"><sc-for list="{{ bk.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }};font-weight:{{ x.w }};color:{{ x.c }}">{{ x.t }}</span></sc-for></div></sc-if>
+              <sc-if value="{{ bk.isQuote }}"><div style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.035);color:var(--color-text-secondary);font-size:12px;line-height:1.6"><sc-for list="{{ bk.segs }}" as="x"><span style="font-family:{{ x.f }};font-weight:{{ x.w }}">{{ x.t }}</span></sc-for></div></sc-if>
+              <sc-if value="{{ bk.isUl }}"><div style="display:flex;flex-direction:column;gap:4px;font-size:13px"><sc-for list="{{ bk.items }}" as="li"><div style="display:flex;gap:8px;line-height:1.6"><span style="flex:none;min-width:14px;color:var(--color-text-tertiary)">{{ li.mk }}</span><span style="min-width:0;text-wrap:pretty"><sc-for list="{{ li.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }};font-weight:{{ x.w }};color:{{ x.c }}">{{ x.t }}</span></sc-for></span></div></sc-for></div></sc-if>
+              <sc-if value="{{ bk.isTable }}"><div style="display:grid;grid-template-columns:{{ bk.cols }};gap:1px;border-radius:8px;border:1px solid var(--color-separator);background:var(--color-separator);overflow:hidden;font-size:12px"><sc-for list="{{ bk.cells }}" as="cl"><div style="padding:6px 10px;background:{{ cl.bg }};color:{{ cl.c }};font-weight:{{ cl.w }};min-width:0;overflow-wrap:anywhere"><sc-for list="{{ cl.segs }}" as="x"><span style="font-family:{{ x.f }};background:{{ x.bg }};padding:{{ x.pd }};border-radius:4px;font-size:{{ x.fs }}">{{ x.t }}</span></sc-for></div></sc-for></div></sc-if>
+              <sc-if value="{{ bk.isCode }}"><div style="border-radius:8px;border:1px solid var(--color-separator);background:var(--color-preview-bg);overflow:hidden"><div style="padding:5px 10px;border-bottom:1px solid var(--color-separator);font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ bk.lang }}</div><div style="padding:8px 0;overflow-x:auto;font-family:var(--font-mono);font-size:11px;line-height:1.6"><sc-for list="{{ bk.lines }}" as="cl"><div style="display:flex;white-space:pre"><span style="width:28px;flex:none;padding-right:8px;text-align:right;color:var(--color-text-muted)">{{ cl.n }}</span><span style="padding-right:12px"><sc-for list="{{ cl.toks }}" as="tk"><span style="color:{{ tk.c }}">{{ tk.t }}</span></sc-for></span></div></sc-for></div></div></sc-if>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ pv.showLines }}"><div style="border-radius:8px;border:1px solid var(--color-separator);background:var(--color-preview-bg);padding:8px 0;overflow-x:auto;font-family:var(--font-mono);font-size:11px;line-height:1.65"><sc-for list="{{ pv.lines }}" as="cl"><div style="display:flex;white-space:pre"><span style="width:32px;flex:none;padding-right:10px;text-align:right;color:var(--color-text-muted)">{{ cl.n }}</span><span style="padding-right:12px"><sc-for list="{{ cl.toks }}" as="tk"><span style="color:{{ tk.c }}">{{ tk.t }}</span></sc-for></span></div></sc-for></div></sc-if>
+          <sc-if value="{{ pv.lineNote }}"><div style="font-size:11px;color:var(--color-text-muted)">{{ pv.lineNote }}</div></sc-if>
+          <sc-if value="{{ pv.noPreview }}"><div style="padding:24px 12px;border-radius:8px;background:var(--color-preview-bg);text-align:center;font-size:12px;color:var(--color-text-tertiary)">该类型暂不支持预览，可下载查看</div></sc-if>
+          <div style="display:flex;flex-direction:column;border-top:1px solid var(--color-separator)"><sc-for list="{{ pv.rows }}" as="pr"><div style="display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px solid var(--color-separator);font-size:11px"><span style="color:var(--color-text-tertiary)">{{ pr.k }}</span><span style="font-family:{{ pr.f }};color:var(--color-text-secondary);overflow-wrap:anywhere;text-wrap:pretty">{{ pr.v }}</span></div></sc-for></div>
+        </div>
+      </sc-if>
+    </div></sc-if>
+  </div>
+
+  <div style="height:28px;flex:none;display:{{ statusDisp }};align-items:center;gap:10px;padding:0 14px;background:var(--color-titlebar-bg);border-top:1px solid var(--color-separator);font-size:11px;color:var(--color-text-tertiary);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden">
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:999px;background:#32D74B"></span>已连接 · WSS</span><span>|</span><span>{{ statusLine }}</span><span style="flex:1"></span><span>协议 v3 · 服务器 cn-sh-1</span>
+  </div>
+</div>
+
+<sc-if value="{{ ovNotif }}">
+  <div onClick="{{ closeOv }}" style="position:fixed;inset:0;z-index:20"></div>
+  <div style="position:fixed;top:48px;right:48px;width:380px;z-index:21;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);box-shadow:0 10px 30px rgba(0,0,0,.66);overflow:hidden">
+    <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--color-separator)"><span style="font-weight:600">通知</span><span style="flex:1"></span><button style="border:0;background:transparent;color:var(--color-text-tertiary);font-size:11px;cursor:pointer">全部标为已读</button></div>
+    <sc-for list="{{ notifs }}" as="n">
+      <button onClick="{{ n.onClick }}" style="display:flex;gap:10px;padding:10px 14px;border:0;border-bottom:1px solid var(--color-separator);background:transparent;color:#fff;text-align:left;cursor:pointer" style-hover="background:rgba(255,255,255,0.05)">
+        <lc-icon name="{{ n.icon }}" size="14" style="color:{{ n.c }};margin-top:2px"></lc-icon>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><div style="display:flex;gap:6px;font-size:12px"><span style="font-weight:600">{{ n.type }}</span><span style="flex:1"></span><span style="font-size:11px;color:var(--color-text-muted)">{{ n.t }}</span></div><div style="font-size:12px;color:var(--color-text-secondary);text-wrap:pretty">{{ n.s }}</div><div style="font-size:11px;color:var(--color-text-tertiary)">{{ n.g }}</div></div>
+      </button>
+    </sc-for>
+    <div style="padding:8px 14px;font-size:11px;color:var(--color-text-muted)">只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ovMenu }}">
+  <div onClick="{{ closeOv }}" style="position:fixed;inset:0;z-index:20"></div>
+  <div style="position:fixed;top:48px;right:12px;width:220px;z-index:21;display:flex;flex-direction:column;padding:6px;border-radius:12px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);box-shadow:0 10px 30px rgba(0,0,0,.66)">
+    <div style="padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">王磊</span><span style="font-size:11px;color:var(--color-text-tertiary)">群管理员 · wanglei</span></div>
+    <div style="height:1px;background:var(--color-separator);margin:2px 0"></div>
+    <button onClick="{{ openBind }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#fff;font-size:12px;text-align:left;cursor:pointer" style-hover="background:#0A84FF"><lc-icon name="link" size="13"></lc-icon>绑定新机器</button>
+    <a href="管理后台.dc.html" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:#fff;font-size:12px" style-hover="background:#0A84FF;color:#fff"><lc-icon name="bot" size="13"></lc-icon>我的 bot 与用量</a>
+    <div style="height:1px;background:var(--color-separator);margin:2px 0"></div>
+    <button onClick="{{ logout }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#fff;font-size:12px;text-align:left;cursor:pointer" style-hover="background:#0A84FF"><lc-icon name="log-out" size="13"></lc-icon>退出登录</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ovBind }}">
+  <div style="position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center">
+    <div style="width:460px;display:flex;flex-direction:column;gap:16px;padding:20px;border-radius:14px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);box-shadow:0 20px 60px rgba(0,0,0,.66)">
+      <div style="display:flex;align-items:center"><span style="font-size:15px;font-weight:600">绑定新机器</span><span style="flex:1"></span><x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeOv }}" hint-size="20px,20px"></x-import></div>
+      <x-import component-from-global-scope="DesignSystem_83d2b2.StepIndicator" steps="{{ bindSteps }}" hint-size="100%,24px"></x-import>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px;border-radius:10px;background:var(--color-preview-bg)">
+        <div style="font-family:var(--font-mono);font-size:24px;font-weight:600;letter-spacing:0.16em">K7QM-4X2P</div>
+        <div style="font-size:11px;color:var(--color-text-tertiary)">一次性绑定码 · 09:41 后失效</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--color-text-secondary)">在本机终端执行，或在 daemon 桌面端粘贴</span>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:var(--color-preview-bg);border:1px solid var(--color-separator);font-family:var(--font-mono);font-size:12px"><span style="flex:1">aiws login --code K7QM-4X2P</span><lc-icon name="copy" size="13" style="color:var(--color-text-tertiary)"></lc-icon></div></div>
+      <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">绑定后该机器归属于你，daemon 会上报机器名、系统与本机可用的 Claude Code / Codex。未安装 daemon？<a href="Daemon 桌面端.dc.html">下载 macOS / Linux / Windows 版</a></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-secondary)"><x-import component-from-global-scope="DesignSystem_83d2b2.Spinner" hint-size="14px,14px"></x-import>等待 daemon 使用绑定码登录…</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ovNewGroup }}">
+  <div style="position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="width:540px;max-width:100%;max-height:calc(100vh - 32px);display:flex;flex-direction:column;border-radius:14px;border:1px solid var(--color-border-control);background:var(--color-panel-elevated);box-shadow:0 20px 60px rgba(0,0,0,.66);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--color-separator)"><x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeOv }}" hint-size="12px,12px"></x-import><span style="font-size:13px;font-weight:600">{{ ngTitle }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ ngSub }}</span></div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px">
+        <x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ ngType }}" items="{{ ngTypeItems }}" onChange="{{ ngSetType }}" size="sm" hint-size="100%,28px"></x-import>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">名称 *</span><input value="{{ ng.name }}" onChange="{{ ngSetName }}" placeholder="如：退款 v2 迁移" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:13px"></div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">git 仓库</span><div style="flex:1"></div><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ ng.repoMode }}" items="{{ ngRepoItems }}" onChange="{{ ngSetRepoMode }}" size="sm" hint-size="180px,26px"></x-import></div>
+          <sc-if value="{{ ngBindRepo }}">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px auto;gap:8px;align-items:center">
+              <input value="{{ ng.url }}" onChange="{{ ngSetUrl }}" placeholder="git@git.corp:team/repo.git" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid {{ ngUrlBd }};background:var(--color-control-bg);font-family:var(--font-mono);font-size:12px;min-width:0">
+              <input value="{{ ng.branch }}" onChange="{{ ngSetBranch }}" placeholder="main" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:12px;min-width:0">
+              <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ ngCheck }}" disabled="{{ ngCheckDisabled }}" hint-size="auto,30px">{{ ngCheckLabel }}</x-import>
+            </div>
+            <sc-if value="{{ ngCheckMsg }}"><div style="display:flex;align-items:flex-start;gap:6px;font-size:11px;color:{{ ngCheckC }}"><lc-icon name="{{ ngCheckIcon }}" size="12" style="margin-top:1px"></lc-icon><span style="text-wrap:pretty">{{ ngCheckMsg }}</span></div></sc-if>
+            <span style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">一期一群一仓库。bot 加入后由各自 daemon 用本机 git 凭据 clone 到托管工作区；服务器不持有写权限。</span>
+          </sc-if>
+          <sc-if value="{{ ngNoRepo }}"><span style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">每个 bot 得到一个托管的空工作区，只能用分区模式；之后绑定仓库时工作区重建。</span></sc-if>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.035);font-size:12px"><lc-icon name="git-fork" size="14" style="color:var(--color-text-tertiary)"></lc-icon><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-weight:600">同步模式 · 分区模式</span><span style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">{{ ngModeNote }}</span></div></div>
+
+        <sc-if value="{{ ngIsGroup }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">成员 · {{ ngMemberCount }}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ ngPeople }}" as="p"><button onClick="{{ p.toggle }}" style="height:26px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;border:1px solid {{ p.bd }};background:{{ p.bg }};color:#fff;font-size:12px;cursor:{{ p.cur }}"><sc-if value="{{ p.on }}"><lc-icon name="check" size="11"></lc-icon></sc-if>{{ p.name }}<span style="font-size:11px;color:var(--color-text-tertiary)">{{ p.sub }}</span></button></sc-for></div></div></sc-if>
+
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">拉入 bot · {{ ngBotCount }}</span>
+          <sc-for list="{{ ngBots }}" as="b"><button onClick="{{ b.toggle }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;border:1px solid {{ b.bd }};background:{{ b.bg }};color:#fff;font-size:12px;text-align:left;cursor:{{ b.cur }};opacity:{{ b.op }}"><span style="width:14px;height:14px;flex:none;border-radius:4px;border:{{ b.box }};background:{{ b.boxBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><sc-if value="{{ b.on }}"><lc-icon name="check" size="10"></lc-icon></sc-if></span><div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span style="font-weight:600">{{ b.name }}</span><span style="font-size:11px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.sub }}</span></div><span style="display:flex;align-items:center;gap:6px;font-size:11px;color:{{ b.sc }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ b.dot }}"></span>{{ b.st }}</span></button></sc-for>
+          <span style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">{{ ngBotNote }}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--color-separator)"><span style="flex:1;font-size:11px;color:{{ ngFootC }}">{{ ngFoot }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="md" onClick="{{ closeOv }}" hint-size="auto,30px">关闭</x-import><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="md" onClick="{{ ngCreate }}" disabled="{{ ngDisabled }}" hint-size="auto,30px">创建</x-import></div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ovSearch }}">
+  <div onClick="{{ closeOv }}" style="position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6)"></div>
+  <div style="position:fixed;top:80px;left:50%;transform:translateX(-50%);width:640px;max-width:calc(100vw - 40px);z-index:31;display:flex;flex-direction:column;border-radius:14px;border:1px solid var(--color-separator);background:var(--color-panel-elevated);box-shadow:0 20px 60px rgba(0,0,0,.66);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--color-separator)"><lc-icon name="search" size="15" style="color:var(--color-text-tertiary)"></lc-icon><input value="refund" style="flex:1;border:0;background:transparent;font-size:14px;outline:none"><span style="font-size:11px;color:var(--color-text-muted)">esc 关闭</span></div>
+    <div style="padding:8px 14px;border-bottom:1px solid var(--color-separator)"><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ searchTab }}" items="{{ searchTabs }}" onChange="{{ setSearchTab }}" size="sm" hint-size="100%,28px"></x-import></div>
+    <div style="display:flex;flex-direction:column;max-height:420px;overflow-y:auto;padding:6px">
+      <sc-for list="{{ searchResults }}" as="sr">
+        <button onClick="{{ sr.onClick }}" style="display:flex;gap:10px;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:#fff;text-align:left;cursor:pointer" style-hover="background:rgba(255,255,255,0.06)">
+          <lc-icon name="{{ sr.icon }}" size="14" style="color:var(--color-text-tertiary);margin-top:2px"></lc-icon>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><div style="font-size:12px;font-family:{{ sr.font }}">{{ sr.title }}</div><div style="font-size:11px;color:var(--color-text-tertiary)">{{ sr.sub }}</div></div>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ drawerOpen }}">
+  <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:26;background:rgba(0,0,0,0.3)"></div>
+  <div style="position:fixed;top:0;right:0;bottom:0;z-index:27;width:{{ drawerW }};display:flex;flex-direction:column;background:var(--color-panel-bg);border-left:1px solid var(--color-separator);box-shadow:0 20px 60px rgba(0,0,0,.66)">
+    <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--color-separator)">
+      <sc-if value="{{ drSub }}"><button onClick="{{ drBack }}" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(255,255,255,0.06)"><lc-icon name="chevron-left" size="16"></lc-icon></button></sc-if>
+      <span style="font-size:15px;font-weight:600;flex:1">{{ drTitle }}</span>
+      <x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeDrawer }}" hint-size="20px,20px"></x-import>
+    </div>
+    <div style="flex:1;min-height:0;overflow-y:auto">
+
+      <sc-if value="{{ drMain }}">
+        <div style="display:flex;align-items:center;gap:12px;padding:16px">
+          <div style="width:44px;height:44px;flex:none;border-radius:10px;background:var(--color-panel-elevated);border:1px solid var(--color-separator);display:flex;align-items:center;justify-content:center;color:#0A84FF"><lc-icon name="{{ g.icon }}" size="20"></lc-icon></div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1"><span style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.name }}</span><span style="font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.repo }} · {{ g.branch }}</span></div>
+          <x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ g.modeV }}" size="sm" hint-size="auto,18px">{{ g.mode }}</x-import>
+        </div>
+
+        <sc-if value="{{ notDm }}"><button onClick="{{ openMembers }}" style="width:100%;display:flex;flex-direction:column;gap:10px;padding:12px 16px;border:0;border-top:1px solid var(--color-separator);background:transparent;color:inherit;text-align:left;cursor:pointer" style-hover="background:rgba(255,255,255,0.035)">
+          <div style="display:flex;align-items:center;gap:8px;width:100%"><span style="font-size:13px">群成员</span><span style="font-size:12px;color:var(--color-text-tertiary)">{{ peopleCount }}</span><span style="flex:1"></span><lc-icon name="chevron-right" size="14" style="color:var(--color-text-tertiary)"></lc-icon></div>
+          <div style="display:flex;gap:6px"><sc-for list="{{ avatarRow }}" as="av"><div style="width:28px;height:28px;border-radius:999px;background:var(--color-control-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ av }}</div></sc-for></div>
+        </button></sc-if>
+        <button onClick="{{ openBotList }}" style="width:100%;display:flex;flex-direction:column;gap:10px;padding:12px 16px;border:0;border-top:1px solid var(--color-separator);background:transparent;color:inherit;text-align:left;cursor:pointer" style-hover="background:rgba(255,255,255,0.035)">
+          <div style="display:flex;align-items:center;gap:8px;width:100%"><span style="font-size:13px">Bot</span><span style="font-size:12px;color:var(--color-text-tertiary)">{{ botCount }}</span><span style="flex:1"></span><lc-icon name="chevron-right" size="14" style="color:var(--color-text-tertiary)"></lc-icon></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ gBotsLive }}" as="gb"><span style="height:24px;display:inline-flex;align-items:center;gap:6px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,0.06);font-size:12px"><span style="width:6px;height:6px;border-radius:999px;background:{{ gb.dot }}"></span>{{ gb.name }}</span></sc-for></div>
+        </button>
+
+        <div style="height:8px;background:var(--color-window-bg);border-top:1px solid var(--color-separator)"></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px"><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:13px">消息免打扰</span><span style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">普通消息不提醒；@我、我的 bot 待审批、向我提问、锁轮到我仍提醒</span></div><x-import component-from-global-scope="DesignSystem_83d2b2.Switch" checked="{{ gMuted }}" onChange="{{ toggleMute }}" hint-size="44px,24px"></x-import></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--color-separator)"><span style="font-size:13px;flex:1">置顶群聊</span><x-import component-from-global-scope="DesignSystem_83d2b2.Switch" checked="{{ gPinned }}" onChange="{{ togglePin }}" hint-size="44px,24px"></x-import></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--color-separator)"><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:13px">运行卡片默认折叠</span><span style="font-size:11px;color:var(--color-text-tertiary)">只对我生效，审批与提问卡片始终展开</span></div><x-import component-from-global-scope="DesignSystem_83d2b2.Switch" checked="{{ gFold }}" onChange="{{ toggleFold }}" hint-size="44px,24px"></x-import></div>
+
+        <div style="height:8px;background:var(--color-window-bg);border-top:1px solid var(--color-separator)"></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px 4px"><span style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">{{ adminTitle }}</span><span style="flex:1"></span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ adminHint }}</span></div>
+        <sc-for list="{{ adminRows }}" as="ar"><button onClick="{{ ar.onClick }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 16px;border:0;border-top:{{ ar.bt }};background:transparent;color:inherit;text-align:left;cursor:{{ ar.cur }};opacity:{{ ar.op }}" style-hover="background:rgba(255,255,255,0.035)"><lc-icon name="{{ ar.icon }}" size="14" style="color:var(--color-text-tertiary)"></lc-icon><span style="font-size:13px;flex:1">{{ ar.k }}</span><span style="font-size:12px;color:var(--color-text-tertiary);font-family:{{ ar.f }};max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ar.v }}</span><lc-icon name="{{ ar.chev }}" size="14" style="color:var(--color-text-tertiary)"></lc-icon></button></sc-for>
+
+        <div style="height:8px;background:var(--color-window-bg);border-top:1px solid var(--color-separator)"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:16px">
+          <sc-if value="{{ showLeaveNote }}"><div style="font-size:12px;color:var(--color-text-secondary);text-wrap:pretty">{{ leaveNote }}</div></sc-if>
+          <sc-if value="{{ notDm }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="md" onClick="{{ leaveGroup }}" hint-size="100%,30px" style="width:100%">{{ leaveLabel }}</x-import></sc-if>
+          <sc-if value="{{ isAdmin }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="destructive" size="md" onClick="{{ dissolve }}" hint-size="100%,30px" style="width:100%">{{ dissolveLabel }}</x-import></sc-if>
+          <sc-if value="{{ confirmDissolve }}"><div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">{{ dissolveNote }}</div></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ drMembers }}">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px">
+          <div style="flex:1;height:30px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg)"><lc-icon name="search" size="13" style="color:var(--color-text-tertiary)"></lc-icon><input value="{{ memQ }}" onChange="{{ setMemQ }}" placeholder="搜索成员" style="flex:1;min-width:0;border:0;background:transparent;font-size:12px;outline:none"></div>
+          <sc-if value="{{ isAdmin }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ toggleAddMember }}" hint-size="auto,30px">{{ addMemberLabel }}</x-import></sc-if>
+        </div>
+        <sc-if value="{{ addingMember }}"><div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px"><sc-for list="{{ addCandidates }}" as="ac"><button onClick="{{ ac.add }}" style="height:26px;display:flex;align-items:center;gap:4px;padding:0 10px;border-radius:999px;border:1px dashed var(--color-border-strong);background:transparent;color:#fff;font-size:12px;cursor:pointer"><lc-icon name="plus" size="11"></lc-icon>{{ ac.name }}</button></sc-for><sc-if value="{{ noCandidates }}"><span style="font-size:11px;color:var(--color-text-tertiary)">所有账号都已在群里</span></sc-if></div></sc-if>
+        <sc-for list="{{ memberRows }}" as="mr"><div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid var(--color-separator)">
+          <div style="width:30px;height:30px;flex:none;border-radius:999px;background:var(--color-control-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ mr.init }}</div>
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px">{{ mr.name }}</span><sc-if value="{{ mr.role }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ mr.roleV }}" size="xs" hint-size="auto,16px">{{ mr.role }}</x-import></sc-if></div><span style="font-size:11px;color:var(--color-text-tertiary)">{{ mr.sub }}</span></div>
+          <sc-if value="{{ mr.canManage }}"><div style="display:flex;gap:2px"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ mr.toggleAdmin }}" hint-size="auto,22px">{{ mr.adminLabel }}</x-import><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ mr.remove }}" hint-size="auto,22px">移出</x-import></div></sc-if>
+        </div></sc-for>
+        <div style="padding:12px 16px;font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty;border-top:1px solid var(--color-separator)">移出成员时，其 bot 一并移出；持锁中的 bot 按非主动中断处理。</div>
+      </sc-if>
+
+      <sc-if value="{{ drBots }}">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px"><span style="flex:1;font-size:12px;color:var(--color-text-secondary)">{{ botCount }} · 在线 {{ botOnline }}</span><sc-if value="{{ isAdmin }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ toggleAddBot }}" hint-size="auto,30px">{{ addBotLabel }}</x-import></sc-if></div>
+        <sc-if value="{{ addingBot }}"><div style="display:flex;flex-direction:column;gap:6px;padding:0 16px 12px"><sc-for list="{{ botCandidates }}" as="bc"><button onClick="{{ bc.add }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px dashed var(--color-border-strong);background:transparent;color:#fff;font-size:12px;text-align:left;cursor:pointer"><lc-icon name="plus" size="12"></lc-icon><span style="font-weight:600">{{ bc.name }}</span><span style="flex:1;font-size:11px;color:var(--color-text-tertiary)">{{ bc.sub }}</span></button></sc-for><sc-if value="{{ noBotCandidates }}"><span style="font-size:11px;color:var(--color-text-tertiary)">没有可拉入的 bot</span></sc-if></div></sc-if>
+        <sc-for list="{{ gBotsLive }}" as="gb"><div style="display:flex;flex-direction:column;gap:6px;padding:12px 16px;border-top:1px solid var(--color-separator)">
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;flex:none;border-radius:8px;background:var(--color-panel-elevated);display:flex;align-items:center;justify-content:center;color:#0A84FF"><lc-icon name="bot" size="15"></lc-icon></div><div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><span style="font-size:13px;font-weight:600">{{ gb.name }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ gb.agent }} · 主人 {{ gb.owner }}</span></div><span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-secondary)"><span style="width:6px;height:6px;border-radius:999px;background:{{ gb.dot }}"></span>{{ gb.state }}</span></div>
+          <div style="font-size:12px;color:var(--color-text-secondary);text-wrap:pretty">{{ gb.intro }}</div>
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--color-text-tertiary)"><span>档位 {{ gb.tier }}</span><span>触发 {{ gb.scope }}</span><span style="font-family:var(--font-mono)">{{ gb.extra }}</span><span style="flex:1"></span><sc-if value="{{ isAdmin }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ gb.remove }}" hint-size="auto,22px">移出</x-import></sc-if></div>
+        </div></sc-for>
+        <div style="padding:12px 16px;font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty;border-top:1px solid var(--color-separator)">档位与触发范围由 bot 主人设置。移出后保留工作区，由主人决定是否删除。</div>
+      </sc-if>
+
+      <sc-if value="{{ drInfo }}">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:16px">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">群名称</span><input value="{{ edName }}" onChange="{{ setEdName }}" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:13px"></div>
+          <sc-if value="{{ notDm }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">群公告 · 置顶展示在对话顶部</span><textarea rows="4" value="{{ edNotice }}" onChange="{{ setEdNotice }}" placeholder="如：每个 bot 独立分支，走 PR；退款 v1 下周一下线" style="resize:vertical;padding:8px 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:12px;line-height:1.5"></textarea></div></sc-if>
+          <div style="display:flex;justify-content:flex-end"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ saveInfo }}" hint-size="auto,26px">保存</x-import></div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ ovSettings }}">
+  <div style="position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center">
+    <div style="width:820px;max-width:calc(100vw - 40px);height:580px;max-height:calc(100vh - 40px);display:flex;border-radius:14px;border:1px solid var(--color-separator);background:var(--color-panel-bg);box-shadow:0 20px 60px rgba(0,0,0,.66);overflow:hidden">
+      <div style="width:{{ setNavW }};flex:none;display:flex;flex-direction:column;gap:2px;padding:14px 8px;background:var(--color-titlebar-bg);border-right:1px solid var(--color-separator)">
+        <div style="padding:0 8px 10px;font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">群设置</div>
+        <sc-for list="{{ setTabs }}" as="stb"><button onClick="{{ stb.onClick }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border:0;border-radius:6px;background:{{ stb.bg }};color:#fff;font-size:12px;text-align:left;cursor:pointer"><lc-icon name="{{ stb.icon }}" size="13"></lc-icon>{{ stb.label }}</button></sc-for>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--color-separator)"><span style="font-size:15px;font-weight:600">{{ setTitle }}</span><span style="flex:1"></span><x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeOv }}" hint-size="20px,20px"></x-import></div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+          <sc-if value="{{ stBasic }}">
+            <sc-for list="{{ basicRows }}" as="br"><div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;align-items:center;font-size:12px"><span style="color:var(--color-text-tertiary)">{{ br.k }}</span><span style="font-family:{{ br.font }}">{{ br.v }}</span></div></sc-for>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="info" title="一期一群一仓库" description="数据模型已按「群 → 多仓库」设计，二期开放多仓库绑定。更换仓库会重建所有 bot 的托管工作区。" hint-size="100%,64px"></x-import>
+          </sc-if>
+          <sc-if value="{{ stBots }}">
+            <sc-for list="{{ groupBots }}" as="gb">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-separator);font-size:12px"><div style="width:7px;height:7px;border-radius:999px;background:{{ gb.dot }}"></div><span style="font-weight:600;width:110px">{{ gb.name }}</span><span style="flex:1;color:var(--color-text-tertiary)">{{ gb.owner }} · {{ gb.extra }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" hint-size="auto,22px">移出群</x-import></div>
+            </sc-for>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" hint-size="auto,26px">拉入 bot</x-import>
+            <div style="font-size:11px;color:var(--color-text-tertiary)">移出正在持锁的 bot 按非主动中断处理；工作区保留在主人本机，由主人决定是否删除。</div>
+          </sc-if>
+          <sc-if value="{{ stParams }}">
+            <sc-for list="{{ params }}" as="pr"><div style="display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--color-separator);font-size:12px"><span>{{ pr.k }}</span><input value="{{ pr.v }}" style="height:26px;padding:0 8px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-size:12px;text-align:right;font-variant-numeric:tabular-nums"></div></sc-for>
+          </sc-if>
+          <sc-if value="{{ stMode }}">
+            <sc-if value="{{ modeIsPart }}">
+              <div style="font-size:12px;color:var(--color-text-secondary);text-wrap:pretty">当前为分区模式。切换到强制同步后，同一时刻只有一个写入者，每轮结束后所有在线机器的工作树保持一致（不同步 .git）。</div>
+              <x-import component-from-global-scope="DesignSystem_83d2b2.StepIndicator" steps="{{ wizSteps }}" hint-size="100%,24px"></x-import>
+              <sc-if value="{{ wiz0 }}">
+                <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:var(--color-text-secondary)">远端基准分支</span>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ branches }}" as="brc"><button onClick="{{ brc.onClick }}" style="height:28px;padding:0 12px;border-radius:6px;border:1px solid {{ brc.bd }};background:{{ brc.bg }};color:#fff;font-family:var(--font-mono);font-size:12px;cursor:pointer">{{ brc.name }}</button></sc-for></div>
+                  <div style="font-size:11px;color:var(--color-text-tertiary)">服务器将用只读部署密钥从该分支建立权威副本 v1。</div></div>
+              </sc-if>
+              <sc-if value="{{ wiz1 }}">
+                <div style="display:flex;flex-direction:column;border-radius:8px;border:1px solid var(--color-separator);overflow:hidden">
+                  <div style="display:grid;grid-template-columns:70px minmax(0,1fr) 80px 90px 70px;gap:8px;padding:6px 10px;background:var(--color-titlebar-bg);font-size:11px;color:var(--color-text-tertiary)"><span>主人</span><span>机器</span><span>延迟</span><span>带宽</span><span>结果</span></div>
+                  <sc-for list="{{ netRows }}" as="nr"><div style="display:grid;grid-template-columns:70px minmax(0,1fr) 80px 90px 70px;gap:8px;padding:7px 10px;border-top:1px solid var(--color-separator);font-size:12px;font-variant-numeric:tabular-nums"><span>{{ nr.o }}</span><span style="font-family:var(--font-mono);color:var(--color-text-secondary)">{{ nr.m }}</span><span style="color:{{ nr.lc }}">{{ nr.lat }}</span><span style="color:{{ nr.bc }}">{{ nr.bw }}</span><span style="color:{{ nr.rc }}">{{ nr.r }}</span></div></sc-for>
+                </div>
+                <sc-if value="{{ netFail }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="error" title="1 台机器不达标，拒绝开启" description="阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps（系统管理员可调）。请周婷改善网络后重新检测。" hint-size="100%,64px"></x-import></sc-if>
+                <div><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ rerunNet }}" hint-size="auto,26px">重新检测</x-import></div>
+              </sc-if>
+              <sc-if value="{{ wiz2 }}">
+                <sc-for list="{{ readyRows }}" as="rr"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-separator);font-size:12px"><lc-icon name="{{ rr.icon }}" size="13" style="color:{{ rr.c }}"></lc-icon><span style="font-weight:600;width:110px">{{ rr.name }}</span><span style="flex:1;color:var(--color-text-secondary)">{{ rr.s }}</span><span style="color:{{ rr.c }}">{{ rr.r }}</span></div></sc-for>
+                <div style="font-size:11px;color:var(--color-text-tertiary)">「不参与」的 bot 不阻塞切换；推送改动或改回托管路径后可重新加入。</div>
+              </sc-if>
+              <sc-if value="{{ wiz3 }}">
+                <x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="info" title="切换请求将进入队列末尾" description="前方 2 个请求按分区模式跑完后执行切换；之后进来的请求按强制同步运行。" hint-size="100%,64px"></x-import>
+                <x-import component-from-global-scope="DesignSystem_83d2b2.Checkbox" label="要求相关 bot 下一轮开新会话" checked="{{ true }}" hint-size="auto,20px"></x-import>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ modeIsForce }}">
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;font-size:12px"><span style="color:var(--color-text-tertiary)">当前模式</span><span>强制同步 · 权威版本 {{ lock.ver }}</span><span style="color:var(--color-text-tertiary)">基准分支</span><span style="font-family:var(--font-mono)">main</span><span style="color:var(--color-text-tertiary)">开启于</span><span>昨天 16:40 · 陈晨</span></div>
+              <x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="切回分区模式" description="直接解除群锁，各机器保留当前文件独立演进；服务器归档权威副本。请求会排在当前锁队列末尾。" hint-size="100%,64px"></x-import>
+            </sc-if>
+          </sc-if>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--color-separator)">
+          <span style="font-size:11px;color:var(--color-text-tertiary)">{{ setFoot }}</span><span style="flex:1"></span>
+          <sc-if value="{{ showWizNav }}">
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="md" onClick="{{ wizPrev }}" disabled="{{ wizFirst }}" hint-size="auto,30px">上一步</x-import>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="md" onClick="{{ wizNext }}" disabled="{{ wizBlocked }}" hint-size="auto,30px">{{ wizNextLabel }}</x-import>
+          </sc-if>
+          <sc-if value="{{ showSave }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="md" onClick="{{ closeOv }}" hint-size="auto,30px">{{ saveLabel }}</x-import></sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const ME = '王磊';
+const BOTS = {
+  b1: { name: '小王的 Claude', init: '王', agent: 'Claude Code', owner: '王磊', machine: 'wanglei-mbp', intro: '后端接口开发，只改 server/ 目录', scope: '指定名单 3 人', tier: 'workspace' },
+  b2: { name: '老李的 Codex', init: '李', agent: 'Codex', owner: '李建国', machine: 'lijg-thinkpad', intro: '单元测试与 CI 维护', scope: '任何群成员', tier: 'workspace' },
+  b3: { name: '阿杰的 Claude', init: '杰', agent: 'Claude Code', owner: '张杰', machine: 'zhangjie-imac', intro: '文档与前端页面', scope: '任何群成员', tier: 'workspace' },
+  b4: { name: '小周的 Codex', init: '周', agent: 'Codex', owner: '周婷', machine: 'zt-desktop', intro: 'CI 排障，只读分析', scope: '任何群成员', tier: 'read-only' },
+};
+const SV = { '运行中': 'info', '等待审批': 'warning', '等待锁': 'secondary', '同步中': 'info', '已完成': 'success', '已中断': 'destructive', '排队中': 'secondary', '离线': 'outline', '无权触发': 'outline' };
+const GROUPS = [
+  { id: 'g1', name: '支付服务重构', mode: '分区模式', repo: 'git.corp/pay/pay-server', branch: 'main', unread: 2, last: '老李的 Codex 在等你回答', members: '6 人 · 4 bot', icon: 'hash' },
+  { id: 'g2', name: '官网改版', mode: '强制同步', repo: 'git.corp/web/site', branch: 'main', unread: 3, last: '同步 v17 · 1 台落后', members: '5 人 · 4 bot', icon: 'hash' },
+  { id: 'g3', name: '退款小脚本', dm: true, mode: '分区模式', repo: '未绑定仓库', branch: '托管空工作区', unread: 0, last: 'dedupe_refund.py', members: '仅你 · 1 bot', icon: 'user' },
+];
+const M5 = [
+  { owner: '王磊', m: 'wanglei-mbp · macOS', s: 'ok' }, { owner: '李建国', m: 'lijg-thinkpad · Linux', s: 'ok' },
+  { owner: '张杰', m: 'zhangjie-imac · macOS', s: 'ok' }, { owner: '陈晨', m: 'chenchen-mini · macOS', s: 'ok' },
+  { owner: '周婷', m: 'zt-desktop · Windows', s: 'lag' },
+];
+const PEOPLE = ['陈晨', '李建国', '张杰', '周婷', '赵敏'];
+const BOT_ST = { b1: ['在线', '#32D74B'], b2: ['在线', '#32D74B'], b3: ['在线', '#32D74B'], b4: ['离线', '#636366'] };
+const ngBlank = (type = 'group') => ({ type, name: '', repoMode: 'repo', url: '', branch: 'main', check: null, people: [], bots: ['b1'] });
+const KW = /^(func|return|package|import|type|struct|if|else|for|range|def|in|not|from|as|with|const|let|class|true|false|nil|None|string|int64|int|python)$/;
+const SEC = 'var(--color-text-secondary)';
+function toks(line) {
+  const out = []; const re = /(\/\/.*$|#.*$|"[^"]*"|`[^`]*`|'[^']*'|\b[A-Za-z_]+\b|\b\d+\b)/g; let last = 0, m;
+  while ((m = re.exec(line))) {
+    if (m.index > last) out.push({ t: line.slice(last, m.index), c: SEC });
+    const x = m[0];
+    out.push({ t: x, c: /^(\/\/|#)/.test(x) ? 'var(--color-text-muted)' : /^["'`]/.test(x) ? 'oklch(0.80 0.10 150)' : /^\d/.test(x) ? 'oklch(0.82 0.10 70)' : KW.test(x) ? 'oklch(0.76 0.12 250)' : SEC });
+    last = m.index + x.length;
+  }
+  if (last < line.length) out.push({ t: line.slice(last), c: SEC });
+  return out.length ? out : [{ t: ' ', c: SEC }];
+}
+function inl(t) {
+  return t.split(/(`[^`]+`|\*\*[^*]+\*\*)/).filter(Boolean).map(p => p[0] === '`' ? { t: p.slice(1, -1), f: 'var(--font-mono)', bg: 'rgba(255,255,255,0.08)', pd: '1px 5px', fs: '12px', w: 400, c: '#fff' }
+    : p.startsWith('**') ? { t: p.slice(2, -2), f: 'inherit', bg: 'transparent', pd: '0', fs: 'inherit', w: 600, c: '#fff' }
+    : { t: p, f: 'inherit', bg: 'transparent', pd: '0', fs: 'inherit', w: 400, c: 'inherit' });
+}
+function mdBlocks(src) {
+  const L = src.split('\n'); const out = []; let i = 0;
+  const B = o => ({ isH: false, isP: false, isUl: false, isCode: false, isTable: false, isQuote: false, ...o });
+  const special = /^(#{1,3} |\||```|[-*] |\d+\. |> )/;
+  while (i < L.length) {
+    const l = L[i];
+    if (!l.trim()) { i++; continue; }
+    if (l.startsWith('```')) { const lang = l.slice(3).trim() || 'text'; const buf = []; i++; while (i < L.length && !L[i].startsWith('```')) buf.push(L[i++]); i++; out.push(B({ isCode: true, lang, lines: buf.map((x, n) => ({ n: n + 1, toks: toks(x) })) })); continue; }
+    if (/^#{1,3} /.test(l)) { const lv = l.match(/^#+/)[0].length; out.push(B({ isH: true, h: l.replace(/^#+ /, ''), hs: lv === 1 ? '17px' : lv === 2 ? '14px' : '13px' })); i++; continue; }
+    if (l.startsWith('|')) { const rows = []; while (i < L.length && L[i].startsWith('|')) { if (!/^\|[\s|:-]+\|$/.test(L[i])) rows.push(L[i].split('|').slice(1, -1).map(c => c.trim())); i++; }
+      out.push(B({ isTable: true, cols: 'repeat(' + rows[0].length + ', minmax(0,1fr))', cells: rows.flatMap((r, ri) => r.map(c => ({ segs: inl(c), bg: ri === 0 ? 'var(--color-titlebar-bg)' : 'var(--color-panel-bg)', w: ri === 0 ? 600 : 400, c: ri === 0 ? SEC : 'inherit' }))) })); continue; }
+    if (/^([-*]|\d+\.) /.test(l)) { const items = []; const ord = /^\d/.test(l); while (i < L.length && /^([-*]|\d+\.) /.test(L[i])) { items.push({ mk: ord ? (items.length + 1) + '.' : '•', segs: inl(L[i].replace(/^([-*]|\d+\.) /, '')) }); i++; } out.push(B({ isUl: true, items })); continue; }
+    if (l.startsWith('> ')) { out.push(B({ isQuote: true, segs: inl(l.slice(2)) })); i++; continue; }
+    const buf = [l]; i++; while (i < L.length && L[i].trim() && !special.test(L[i])) buf.push(L[i++]);
+    out.push(B({ isP: true, segs: inl(buf.join(' ')) }));
+  }
+  return out;
+}
+const fmt = sec => String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+const KIND_ICON = { image: 'image', video: 'video', md: 'file-text', text: 'scroll-text', code: 'file-code', file: 'file' };
+const KIND_LABEL = { image: '图片', video: '视频', md: 'Markdown', text: '文本日志', code: '代码', file: '文件' };
+const MD_R0 = ['字段变化如下，v2 金额统一为**分**，新增渠道枚举。', '', '| v1 | v2 | 说明 |', '|---|---|---|', '| `refund_id` | `refund_no` | 前缀 RF |', '| `amount` int | `amount_cents` int64 | 单位改为分 |', '| `reason` | `reason` | 保留 |', '| — | `channel` | wechat · alipay · unionpay |', '', '## 迁移注意',
+  '- 张杰录屏里的重复提交：v2 以 `refund_no` 做幂等键', '- v1 接口保持只读兼容，下线前不删', '', '```go', 'type RefundV2 struct {', '    RefundNo    string `json:"refund_no"`', '    AmountCents int64  `json:"amount_cents"`', '    Channel     string `json:"channel"` // wechat | alipay | unionpay', '}', '```'].join('\n');
+const FILES = {
+  'ci-fail.png': { kind: 'image', size: '312 KB', dim: '1440×900', src: 'assets/chat/shot-1.png' },
+  'refund-page.png': { kind: 'image', size: '468 KB', dim: '1280×800', src: 'assets/chat/shot-2.png' },
+  'refund-dup-repro.mov': { kind: 'video', size: '8.6 MB', dim: '1920×1080', dur: 48, src: 'assets/chat/shot-3.png' },
+  'hero-mock.png': { kind: 'image', size: '1.4 MB', dim: '2560×1600', src: 'assets/chat/shot-4.png' },
+  'pricing-before.png': { kind: 'image', size: '286 KB', dim: '1440×900', src: 'assets/chat/shot-2.png' },
+  'pricing-after.png': { kind: 'image', size: '301 KB', dim: '1440×900', src: 'assets/chat/shot-4.png' },
+  'pipeline-4821.log': { kind: 'text', size: '1.2 MB', text: ['[10:27:02] ▶ job test-refund (runner linux-amd64-3)', '[10:27:04] $ go test ./server/refund/...', '[10:27:31] ok   server/refund/v1   1.204s', '[10:27:39] --- FAIL: TestRefundV2_Idempotent (0.31s)', '[10:27:39]     handler_test.go:88: expected 1 refund, got 2', '[10:27:39] FAIL server/refund/v2   2.117s', '[10:27:40] WARN  coverage 61.2% below threshold 70%', '[10:27:40] ERROR job failed with exit code 1'] },
+  'copy.md': { kind: 'md', size: '3 KB', md: ['# 首页 Hero 文案 v3', '', '> 定稿 9/22，替换现有 hero 区域全部文案', '', '## 主标题', '一个群，指挥全队的 AI', '', '## 副标题', '在群里 @ 各自机器上的 Claude Code / Codex，在同一个仓库上协作。', '', '## 按钮', '- 主按钮：`开始使用`', '- 次按钮：`查看文档`'].join('\n') },
+  'docs/api/refund.md': { kind: 'md', size: '6 KB', path: 'docs/api/refund.md', md: ['# 退款接口 v2', '', 'v2 统一金额单位为**分**，以 `refund_no` 作为幂等键。v1 保持只读兼容至下线。', '', '## 创建退款', '`POST /api/v2/refund`', '', '| 字段 | 类型 | 说明 |', '|---|---|---|', '| refund_no | string | 前缀 RF，幂等键 |', '| amount_cents | int64 | 单位分 |', '| channel | enum | wechat · alipay · unionpay |', '| reason | string | 可选 |', '', '## 示例', '```json', '{ "refund_no": "RF20260923001", "amount_cents": 1990, "channel": "wechat" }', '```', '', '## 变更记录', '1. 金额字段 `amount` → `amount_cents`', '2. 新增 `channel`', '3. 重复提交返回首次结果，不再生成新单'].join('\n') },
+  'dedupe_refund.py': { kind: 'code', size: '1 KB', path: 'dedupe_refund.py', code: ['import csv, sys', '', 'def main(path):', '    latest = {}', '    with open(path, newline="") as f:', '        for row in csv.DictReader(f):', '            key = row["refund_no"]', '            # 按 updated_at 保留最新一条', '            if key not in latest or row["updated_at"] > latest[key]["updated_at"]:', '                latest[key] = row', '    w = csv.DictWriter(sys.stdout, fieldnames=list(next(iter(latest.values())).keys()))', '    w.writeheader()', '    w.writerows(latest.values())', '', 'if __name__ == "__main__":', '    main(sys.argv[1])'].join('\n') },
+};
+function segs(t) {
+  return t.split(/(@[^\s@，。：]+ (?:Claude|Codex)|@[^\s@，。：]+)/).filter(Boolean).map(p => p[0] === '@' ? { t: p, c: '#0A84FF', w: 600 } : { t: p, c: 'inherit', w: 400 });
+}
+class Component extends DCLogic {
+  state = { login: false, gid: 'g1', runKey: null, sideTab: 'process', ov: null, text: '', ap: {}, qa: {}, qDone: {}, intr: null, chainStop: false, syncOpen: { rb: true }, setTab: 'mode', wiz: 0, netTry: 0, branch: 'main', searchTab: 'msg', appendTo: null, extra: { g1: [], g2: [], g3: [] }, groups: GROUPS, created: {}, ng: null, quote: null, atts: [], stopped: {}, pstop: {}, preview: null, pvTab: 'preview', vt: 0, vplay: false,
+    drawer: null, pinned: { g1: true }, muted: { g3: true }, fold: {}, memQ: '', addingMember: false, addingBot: false, confirmLeave: false, confirmDissolve: false, ed: null,
+    gm: { g1: ['陈晨', '李建国', '张杰', '周婷', '赵敏'], g2: ['陈晨', '李建国', '张杰', '周婷'], g3: [] },
+    admins: { g1: [ME], g2: ['陈晨'], g3: [ME] }, rmBots: {}, addBots: {}, notices: { g1: '每个 bot 独立分支，走 PR；退款 v1 下周一下线。' } };
+
+  dropGroup(gid) { const rest = this.state.groups.filter(x => x.id !== gid); this.setState({ groups: rest, gid: rest[0].id, drawer: null, confirmLeave: false, confirmDissolve: false, runKey: null }); }
+  componentDidMount() { this._rs = () => this.setState({ vw: window.innerWidth }); window.addEventListener('resize', this._rs); this._rs(); }
+  componentWillUnmount() { window.removeEventListener('resize', this._rs); clearInterval(this._v); }
+  attView(list = [], ctx, from) {
+    const all = list.map(a => typeof a === 'string' ? { name: a, ...FILES[a] } : { name: a.name, size: a.size, kind: a.icon === 'image' ? 'image' : 'file' });
+    const slug = x => String(x).replace(/[^a-z0-9]/gi, '-');
+    const media = all.filter(a => a.kind === 'image' || a.kind === 'video').map(a => ({ name: a.name, src: a.src || '', slot: 'wc-' + slug(ctx) + '-' + slug(a.name), isVideo: a.kind === 'video', meta: a.kind === 'video' ? fmt(a.dur) + ' · ' + a.size : a.size, onOpen: () => this.openPv(a, from), onPlay: () => this.openPv(a, from, true) }));
+    const docs = all.filter(a => a.kind !== 'image' && a.kind !== 'video').map(a => ({ name: a.name, icon: KIND_ICON[a.kind] || 'file', meta: (KIND_LABEL[a.kind] || '文件') + ' · ' + a.size + (FILES[a.name] ? ' · 点击预览' : ''), onOpen: () => this.openPv(a, from) }));
+    return { media, docs, hasMedia: media.length > 0, hasDocs: docs.length > 0, mediaCols: media.length > 1 ? 'repeat(2, minmax(0,1fr))' : 'minmax(0,1fr)', mediaMax: media.length > 1 ? '440px' : '360px' };
+  }
+  openPv(a, from, play) {
+    const f = typeof a === 'string' ? { name: a, ...FILES[a] } : a;
+    clearInterval(this._v);
+    this.setState({ preview: { ...f, from }, runKey: null, pvTab: 'preview', vt: 0, vplay: false }, () => play && this.togglePlay());
+  }
+  togglePlay = () => {
+    const st0 = this.state; const on = !st0.vplay; clearInterval(this._v);
+    const d = (st0.preview && st0.preview.dur) || 1;
+    this.setState(on && st0.vt >= d ? { vplay: true, vt: 0 } : { vplay: on });
+    if (on) this._v = setInterval(() => { const st = this.state; if (!st.vplay || !st.preview) return clearInterval(this._v); if (st.vt + 1 >= d) { clearInterval(this._v); this.setState({ vt: d, vplay: false }); } else this.setState({ vt: st.vt + 1 }); }, 1000);
+  };
+  raw(gid) {
+    const s = this.state;
+    if (s.created[gid]) return s.created[gid];
+    if (gid === 'g1') return [
+      { kind: 'event', icon: 'git-branch', text: '群绑定仓库 git.corp/pay/pay-server · 基准分支 main · 分区模式', time: '09:02' },
+      { kind: 'msg', who: '陈晨', time: '10:12', text: '退款 v1 下周一下线，今天把 v2 迁移收尾。' },
+      { kind: 'msg', who: '张杰', time: '10:13', text: '退款页重复提交的复现录屏和截图，迁移时注意幂等。', atts: ['refund-dup-repro.mov', 'refund-page.png'], fan: '未 @ bot · 下次 @ 时作为上下文补送（含附件）' },
+      { kind: 'msg', who: ME, time: '10:14', text: '@小王的 Claude 梳理一下退款 v2 相对 v1 的字段变化，结果给文档同学。' },
+      { kind: 'run', key: 'r0', bot: 'b1', trigger: ME, status: '已完成', files: 0, dur: '01:48', tokens: '9.4k tokens', time: '10:14' },
+      { kind: 'reply', bot: 'b1', time: '10:16', run: 'r0', md: MD_R0, files: ['server/refund/v2/types.go', 'docs/api/refund.md'], nextAt: '@阿杰的 Claude', next: '请按上表更新 docs/api/refund.md。' },
+      { kind: 'run', key: 'r1', bot: 'b3', trigger: ME, hop: '接力 2/3', status: s.chainStop ? '已中断' : (s.ap.r1 ? '运行中' : '等待审批'), step: s.chainStop ? '整条链已被 王磊 /stop 终止' : '访问网络 wiki.corp', files: 1, dur: '02:05', tokens: '6.1k tokens', chain: !s.chainStop, time: '10:16',
+        ap: { kind: '访问网络', cmd: 'fetch https://wiki.corp/pay/refund-v2-spec', why: '超出 workspace 档位 · 5 分钟内未处理将自动拒绝，agent 自行绕路', owner: '张杰', mine: false } },
+      { kind: 'msg', who: ME, time: '10:21', text: '@小王的 Claude @老李的 Codex 把退款接口从 v1 迁到 v2：小王的 Claude 改 server/refund/，老李的 Codex 补单测。', fan: '扇出 · 2 个 bot 并行' },
+      { kind: 'run', key: 'r2', bot: 'b1', trigger: ME, status: s.stopped.r2 ? '已中断' : s.ap.r2 === '批准' ? '运行中' : (s.ap.r2 ? '运行中' : '等待审批'), step: s.stopped.r2 ? '王磊 执行了 /stop · 分区模式：已改的 4 个文件留在工作区，未提交' : s.ap.r2 === '批准' ? '执行 go build ./...' : (s.ap.r2 ? '请求被拒绝，agent 改用本地缓存' : '请求执行命令'), files: 4, dur: '03:12', tokens: '18.2k tokens', time: '10:21',
+        ap: { kind: '执行命令', cmd: 'go build ./... && go vet ./server/refund/...', why: '需要访问 proxy.golang.org · 28:14 后自动拒绝', owner: ME, mine: true } },
+      { kind: 'run', key: 'r3', bot: 'b2', trigger: ME, status: '运行中', step: s.qDone.r3 ? '继续编写 refund_v2_test.go' : '等待回答 · 4 个问题', files: 2, dur: '02:40', tokens: '用量未上报', time: '10:21', newSession: '本轮因配置变更开启新会话', q: true },
+      { kind: 'msg', who: '赵敏', time: '10:30', text: '@小周的 Codex 看下 CI 为什么挂了，pipeline #4821', atts: ['pipeline-4821.log', 'ci-fail.png'] },
+      { kind: 'run', key: 'r4', bot: 'b4', trigger: '赵敏', status: '离线', note: 'bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知赵敏', noteIcon: 'wifi-off', time: '10:30', noActions: true },
+      { kind: 'msg', who: '赵敏', time: '10:31', text: '@小王的 Claude 帮我看下 refund 日志' },
+      { kind: 'run', key: 'r5', bot: 'b1', trigger: '赵敏', status: '无权触发', note: '该 bot 仅允许指定名单触发，未启动运行', noteIcon: 'ban', time: '10:31', noActions: true },
+    ];
+    if (gid === 'g2') {
+      const it = s.intr;
+      return [
+        { kind: 'event', icon: 'lock', text: '陈晨 将群切换为强制同步 · 基准分支 main · 已建立权威副本 v1', time: '昨天 16:40' },
+        { kind: 'event', icon: 'lock', text: '张杰 /hold 拿到群锁 · 在本机 IDE 修改托管工作区 · 无操作 15 分钟自动释放', time: '09:10' },
+        { kind: 'event', icon: 'unlock', text: '张杰 /release · 本地手动修改发布为 v15 · 5 / 5 台已同步', time: '09:31' },
+        { kind: 'msg', who: '张杰', time: '09:40', text: '@阿杰的 Claude 首页 hero 换成新文案，文案和稿图见附件', atts: ['hero-mock.png', 'copy.md'] },
+        { kind: 'run', key: 'ra', bot: 'b3', trigger: '张杰', status: '已完成', files: 3, dur: '04:21', tokens: '22.7k tokens', time: '09:40', sync: { ver: 'v16', lag: false }, note: '上传端检测拒绝 1 处改动：src/assets/Logo.svg 与 logo.svg 仅大小写不同，会在 macOS / Windows 上冲突。其余 3 个文件已提交为 v16', noteIcon: 'shield-x' },
+        { kind: 'msg', who: ME, time: '09:52', text: '@小王的 Claude 把定价页的价格卡片拆成独立组件' },
+        { kind: 'run', key: 'rb', bot: 'b1', trigger: ME, status: '已完成', files: 6, dur: '06:03', tokens: '31.0k tokens', time: '09:52', sync: { ver: 'v17', lag: true } },
+        { kind: 'reply', bot: 'b1', time: '09:58', run: 'rb', md: '价格卡片已拆成独立组件 `PriceCard`，三档共用同一套结构。\n\n- 价格、权益列表、按钮文案走 props\n- 「推荐」档位用 `highlight` 属性，不再复制一份 JSX\n\n改动前后截图：', atts: ['pricing-before.png', 'pricing-after.png'], files: ['src/components/PriceCard.tsx'] },
+        { kind: 'event', icon: 'alert-triangle', color: '#FF9F0A', text: '周婷 · zt-desktop 分发 v17 超过 60 秒未确认，标为落后；恢复后自动补齐，补齐前不能拿锁', time: '10:00' },
+        { kind: 'event', icon: 'octagon-x', color: '#FF453A', text: '阿杰的 Claude agent 崩溃 · 暂存修改已丢弃，半成品移入 zhangjie-imac 本机备份目录并回滚到 v17 · 群锁已立即释放', time: '10:01' },
+        { kind: 'event', icon: 'archive', text: '你在未持锁时修改了 src/pages/pricing.tsx，已备份到 ~/.aiws/backups/web-site/0923-1002/ 后被 v17 覆盖', time: '10:02' },
+        { kind: 'msg', who: ME, time: '10:05', text: '@小王的 Claude 顺便重写顶部导航' },
+        { kind: 'run', key: 'rc', bot: 'b1', trigger: ME, status: '已中断', step: '王磊 执行了 /stop', files: 2, dur: '01:37', tokens: '7.8k tokens', time: '10:05',
+          intr: it ? { title: it === 'keep' ? '已保留为版本 v18（标记「中断」）' : '已丢弃，本机回滚到 v17', desc: it === 'keep' ? '暂存修改已提交并分发，锁已释放。' : '暂存区已清空，锁已释放。', pending: false }
+            : { title: '选择如何处理暂存修改', desc: '已改 2 个文件（src/components/Nav.tsx 等）。保留则提交为版本并标记「中断」；丢弃则本机回滚到 v17。处理完成前群锁不释放。仅发起人 王磊 可选择。', pending: true } },
+        { kind: 'msg', who: '李建国', time: '10:08', text: '@老李的 Codex 图片改成懒加载' },
+        { kind: 'run', key: 'rd', bot: 'b2', trigger: '李建国', status: it ? '运行中' : '等待锁', step: it ? '已拿到群锁 · 基于 ' + (it === 'keep' ? 'v18' : 'v17') : '排第 1 · 等待 小王的 Claude 处理中断', files: it ? 1 : 0, dur: it ? '00:24' : '—', tokens: it ? '1.2k tokens' : '—', time: '10:08' },
+        { kind: 'event', icon: 'repeat', text: '陈晨 请求切换回分区模式 · 已排入锁队列第 3 位，前方请求按强制同步跑完后执行', time: '10:10' },
+      ];
+    }
+    return [
+      { kind: 'event', icon: 'folder', text: '私聊 · 未绑定仓库 · 托管空工作区，仅分区模式', time: '昨天' },
+      { kind: 'msg', who: ME, time: '11:02', text: '@小王的 Claude 写个脚本，把 CSV 里的退款单号去重，保留最新一条' },
+      { kind: 'run', key: 'rz', bot: 'b1', trigger: ME, status: '已完成', files: 1, dur: '00:52', tokens: '3.2k tokens', time: '11:02', newSession: '会话恢复失败（daemon 重启），已开新会话并补送最近 50 条群消息' },
+      { kind: 'reply', bot: 'b1', time: '11:03', run: 'rz', md: '已生成脚本：按 `refund_no` 分组，按 `updated_at` 取最新一条。\n\n```bash\npython dedupe_refund.py input.csv > out.csv\n```', files: ['dedupe_refund.py'] },
+    ];
+  }
+
+  buildItems(gid) {
+    const s = this.state;
+    const list = this.raw(gid).concat(s.extra[gid] || []);
+    return list.map((r0, i) => {
+      const r = r0.kind === 'run' && s.stopped[r0.key] && r0.key !== 'r2' ? { ...r0, status: '已中断', step: ME + ' 执行了 /stop' + (gid === 'g2' ? ' · 已移出锁队列' : ''), chain: false, ap: null, q: false } : r0;
+      const base = { isMsg: r.kind === 'msg', isRun: r.kind === 'run', isEvent: r.kind === 'event', isReply: r.kind === 'reply', time: r.time };
+      if (r.kind === 'event') return { ...base, icon: r.icon, text: r.text, color: r.color || 'var(--color-text-tertiary)' };
+      if (r.kind === 'msg') return { ...base, who: r.who, init: r.who[0], segs: segs(r.text), fan: r.fan || '', quote: r.quote || null, ...this.attView(r.atts, gid + r.time + i, r.who + ' · ' + r.time) };
+      const b = BOTS[r.bot];
+      if (r.kind === 'reply') return { ...base, who: b.name, init: b.init, blocks: mdBlocks(r.md || ''), ...this.attView(r.atts, gid + r.time + i, b.name + ' · ' + r.time), nextAt: r.nextAt || '', next: r.next || '', onQuote: () => this.setState({ quote: { who: b.name, bot: r.bot, text: (r.md || '').split('\n')[0].replace(/[`*]/g, '') } }), files: (r.files || []).map(p => ({ path: p, onClick: () => FILES[p] ? this.openPv(p, b.name + ' 工作区') : this.setState({ runKey: r.run || 'r0', sideTab: 'diff', preview: null }) })) };
+      const running = ['运行中', '等待审批'].includes(r.status);
+      const o = { ...base, key: r.key, botName: b.name, init: b.init, agent: b.agent, trigger: r.trigger, hop: r.hop || '', status: r.status, statusV: SV[r.status] || 'secondary',
+        step: r.step || '', stepIcon: r.status === '运行中' ? 'loader' : r.status === '等待锁' ? 'hourglass' : r.status === '等待审批' ? 'shield-alert' : 'circle-dot',
+        stepColor: r.status === '运行中' ? '#0A84FF' : 'var(--color-text-tertiary)',
+        hasMeta: r.files !== undefined, files: r.files, dur: r.dur, tokens: r.tokens, newSession: r.newSession || '',
+        border: s.runKey === r.key ? '#0A84FF' : 'var(--color-separator)', running: running && !r.chain, chain: !!r.chain,
+        hasActions: !r.noActions, note: r.note || '', noteIcon: r.noteIcon || 'info', onOpen: () => this.setState({ runKey: r.key, sideTab: 'process', preview: null }), onAppend: () => this.setState({ appendTo: b.name }),
+        onQuote: () => this.setState({ quote: { who: b.name + ' 的运行卡片', bot: r.bot, text: r.step || r.status } }), onStop: () => this.setState({ stopped: { ...s.stopped, [r.key]: true } }) };
+      if (r.ap) {
+        const d = s.ap[r.key];
+        o.ap = { kind: r.ap.kind, cmd: r.ap.cmd, why: r.ap.why, pending: !d && !(r.key === 'r1' && s.chainStop) && !s.stopped[r.key], locked: !r.ap.mine,
+          hint: r.ap.mine ? '你是 bot 主人' : '仅 bot 主人 ' + r.ap.owner + ' 可操作，你只能查看',
+          done: d ? (d === '批准' ? '王磊 已批准 · 10:23' : '王磊 已拒绝 · 10:23 · agent 将自行绕路') : (r.key === 'r1' && s.chainStop ? '链已终止，请求作废' : s.stopped[r.key] ? '运行已停止，请求作废' : ''),
+          onOk: () => this.setState({ ap: { ...s.ap, [r.key]: '批准' } }), onNo: () => this.setState({ ap: { ...s.ap, [r.key]: '拒绝' } }) };
+      }
+      if (r.q) {
+        const qs = [
+          { title: 'v1 的历史退款记录是否迁移到 v2 表？', type: '单选', multi: false, opts: ['迁移近 90 天', '全部迁移', '不迁移，只读兼容'], rec: 0 },
+          { title: '单测覆盖哪些渠道？', type: '多选', multi: true, opts: ['微信支付', '支付宝', '银联'], rec: -1 },
+          { title: '允许修改 testdata/ 下的 fixture 吗？', type: '是/否', multi: false, opts: ['是', '否'], rec: 0 },
+          { title: '有哪些已知的线上退款异常需要单独覆盖？', type: '自由文本', multi: false, opts: [], rec: -1, free: true },
+        ];
+        const done = s.qDone[r.key];
+        o.q = { count: qs.length, who: '触发人 王磊 或 bot 主人 李建国 可回答', open: !done, done: done ? '王磊 已回答 · 10:26 · 已写入审计记录' : '', timeout: '27:02 后超时，agent 按推荐项继续并在最终回复列出假设',
+          onSubmit: () => this.setState({ qDone: { ...s.qDone, [r.key]: true } }),
+          qs: qs.map((q, qi) => ({ title: q.title, type: q.type, free: !!q.free, other: q.type === '单选' || q.type === '多选', opts: q.opts.map((lab, oi) => {
+            const k = r.key + '-' + qi; const cur = s.qa[k] || []; const sel = cur.includes(oi);
+            return { label: lab, rec: q.rec === oi, recC: sel ? '#fff' : '#409CFF', bg: sel ? '#0A84FF' : 'transparent', bd: sel ? '#0A84FF' : 'var(--color-border-strong)',
+              onClick: () => { if (done) return; const nx = q.multi ? (sel ? cur.filter(x => x !== oi) : cur.concat(oi)) : [oi]; this.setState({ qa: { ...s.qa, [k]: nx } }); } };
+          }) })) };
+      }
+      if (r.sync) {
+        const open = !!s.syncOpen[r.key];
+        const done = r.sync.lag ? 4 : 5;
+        o.sy = { ver: r.sync.ver, done, total: 5, pct: done * 20, pv: r.sync.lag ? 'warning' : 'success', open, toggleText: open ? '收起' : '逐机器', chev: open ? 'chevron-up' : 'chevron-down',
+          toggle: () => this.setState({ syncOpen: { ...s.syncOpen, [r.key]: !open } }),
+          machines: M5.map(m => { const lag = r.sync.lag && m.s === 'lag'; return { owner: m.owner, m: m.m, bytes: lag ? '0.9 / 2.4 MB' : '2.4 / 2.4 MB', st: lag ? '超时落后' : '完成', c: lag ? '#FF9F0A' : '#32D74B' }; }) };
+      }
+      if (r.intr) o.intr = { keepLabel: '保留为版本', dropLabel: '丢弃改动', ...r.intr, onKeep: () => this.setState({ intr: 'keep' }), onDrop: () => this.setState({ intr: 'drop' }) };
+      if (s.stopped[r.key] && gid !== 'g2' && r.files) {
+        const d = s.pstop[r.key]; const set = v => this.setState({ pstop: { ...s.pstop, [r.key]: v } });
+        o.intr = { title: d === 'drop' ? '已丢弃本轮改动 · 之前已有的未提交内容不动' : d === 'keep' ? '已保留本轮改动 · 留在工作区，未提交' : '已停止 · 本轮改动 ' + r.files + ' 个文件留在工作区',
+          desc: d ? '下一轮上下文会告诉 agent：上一轮被 /stop 中断，以及这些文件的当前状态。' : '默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 ' + r.trigger + ' 或 bot 主人可选，无超时。',
+          pending: !d, keepLabel: '保留改动', dropLabel: '丢弃本轮改动', onKeep: () => set('keep'), onDrop: () => set('drop') };
+      }
+      return o;
+    });
+  }
+
+  findRun() {
+    for (const g of ['g1', 'g2', 'g3']) { const f = this.buildItems(g).find(x => x.isRun && x.key === this.state.runKey); if (f) return { ...f, gid: g }; }
+    return null;
+  }
+
+  popData() {
+    const s = this.state; const m = s.text.match(/(^|\s)([@/])([^\s]*)$/);
+    if (!m) return null;
+    const q = m[3]; const pick = v => () => this.setState({ text: s.text.slice(0, s.text.length - m[3].length - 1) + v + ' ' });
+    const f = arr => arr.filter(x => !q || x.label.toLowerCase().includes(q.toLowerCase()));
+    const botAt = Object.values(BOTS).find(b => s.text.includes('@' + b.name));
+    const dm = !!(s.groups.find(x => x.id === s.gid) || {}).dm;
+    if (m[2] === '@') {
+      const people = f(Object.values(BOTS).filter(b => !dm || b.owner === ME).map(b => ({ icon: 'bot', label: b.name, hint: b.intro, font: 'inherit', v: '@' + b.name }))
+        .concat((dm ? [] : ['陈晨', '李建国', '张杰', '赵敏']).map(n => ({ icon: 'user', label: n, hint: '成员', font: 'inherit', v: '@' + n }))));
+      const src = s.gid === 'g2' ? '权威副本 v17' : (botAt ? botAt.name + ' 工作区 · 含未提交' : 'main 镜像 · 3 分钟前更新');
+      const files = f([
+        { icon: 'file-code', label: 'server/refund/v2/handler.go', hint: botAt ? '未提交' : '', font: 'var(--font-mono)' },
+        { icon: 'file-code', label: 'server/refund/v2/types.go', hint: '', font: 'var(--font-mono)' },
+        { icon: 'folder', label: 'server/refund/', hint: '文件夹', font: 'var(--font-mono)' },
+        { icon: 'file-text', label: 'docs/api/refund.md', hint: botAt ? '' : '可能不在 bot 工作区', font: 'var(--font-mono)' },
+      ].map(x => ({ ...x, v: '@' + x.label })));
+      return { groups: [{ label: '成员 / BOT', src: '', items: people.map(x => ({ ...x, onClick: pick(x.v) })) }, { label: '文件', src: '来源：' + src, items: files.map(x => ({ ...x, onClick: pick(x.v) })) }].filter(g => g.items.length) };
+    }
+    const sys = f(['stop 停止运行（未 @ bot 时停止本群全部）', 'hold 连续占用群锁', 'release 释放群锁', 'new 开新会话', 'cd 绑定本机目录（仅分区）'].map(x => { const [c, h] = x.split(' '); return { icon: 'terminal', label: '/' + c, hint: h, font: 'var(--font-mono)' }; }));
+    const skills = f([{ icon: 'sparkles', label: '/review-pr', hint: '全局层' }, { icon: 'sparkles', label: '/write-migration', hint: '群层' }].concat(botAt ? [{ icon: 'sparkles', label: '/gen-mock', hint: '仓库基线' }] : []).map(x => ({ ...x, font: 'var(--font-mono)' })));
+    const agent = botAt ? f([{ icon: 'cpu', label: '/compact', hint: botAt.name, font: 'var(--font-mono)' }, { icon: 'cpu', label: '/' + botAt.name.replace(' ', '') + ':new', hint: '与系统命令重名', font: 'var(--font-mono)' }]) : [];
+    return { groups: [{ label: '系统命令', src: '', items: sys }, { label: 'SKILL', src: botAt ? '已合并 仓库 + 全局 + 群' : '全局 + 群层', items: skills }, { label: 'AGENT 命令', src: botAt ? 'ACP 上报' : '', items: agent }]
+      .filter(g => g.items.length).map(g => ({ ...g, items: g.items.map(x => ({ ...x, onClick: pick(x.label) })) })) };
+  }
+
+  send = () => {
+    const s = this.state; const t = s.text.trim(); if (!t && !s.atts.length) return;
+    const isForce = s.gid === 'g2'; const g = s.groups.find(x => x.id === s.gid);
+    const ev = (icon, text, color) => ({ kind: 'event', icon, text, color, time: '刚刚' });
+    const cmd = t.match(/^\/(hold|release|new|cd|stop)(\s|$)/);
+    let add, stopKeys = [], chainHit = false;
+    if (cmd) {
+      const botAt = Object.values(BOTS).find(b => t.includes('@' + b.name));
+      const r = {
+        hold: isForce ? ev('lock', ME + ' 请求 /hold · 已进入锁队列，排第 3 · 拿到锁后可连续发多轮消息，/release 或无操作 15 分钟自动释放') : ev('info', '/hold 仅在强制同步群可用'),
+        release: isForce ? ev('unlock', '你当前未持有群锁，排队中的 /hold 请求已撤回') : ev('info', '/release 仅在强制同步群可用'),
+        new: botAt ? ev('refresh-cw', botAt.name + ' 下一轮将开新会话') : ev('info', '/new 需要同时 @ 一个 bot，如 /new @小王的 Claude'),
+        cd: isForce ? ev('alert-triangle', '/cd 仅分区模式可用；强制同步群里非托管工作区的 bot 为「不参与」', '#FF9F0A') : ev('folder-input', '/cd 需由 bot 主人在本机 daemon 选择目录 · 将校验 git remote 与 ' + g.repo + ' 一致'),
+        stop: (() => {
+          const act = this.buildItems(s.gid).filter(x => x.isRun && ['运行中', '等待审批', '等待锁', '排队中'].includes(x.status) && (!botAt || x.botName === botAt.name));
+          if (!act.length) return ev('square', '没有运行中的轮次');
+          stopKeys = act.map(x => x.key); chainHit = act.some(x => x.chain);
+          return ev('square', ME + ' /stop · ' + (botAt ? '停止 ' + botAt.name + ' 的 ' : '未 @ bot，停止本群全部 ') + act.length + ' 个轮次' + (chainHit ? '（含接力链，整条链终止）' : ''));
+        })(),
+      }[cmd[1]];
+      add = [{ kind: 'msg', who: ME, time: '刚刚', text: t }, r];
+    } else {
+      const targets = Object.keys(BOTS).filter(id => (!g.dm || BOTS[id].owner === ME) && (t.includes('@' + BOTS[id].name) || (s.quote && s.quote.bot === id)));
+      add = [{ kind: 'msg', who: ME, time: '刚刚', text: t, quote: s.quote ? { who: s.quote.who, text: s.quote.text } : null, atts: s.atts,
+        fan: targets.length > 1 ? '扇出 · ' + targets.length + ' 个 bot ' + (isForce ? '按 @ 顺序排队' : '并行') : targets.length ? '' : '未 @ bot · 下次 @ 时作为上下文补送' }];
+      targets.forEach((id, i) => add.push({ kind: 'run', key: 'n' + Date.now() + id, bot: id, trigger: ME, status: isForce ? '等待锁' : '排队中', step: isForce ? '已进入锁队列 · 排第 ' + (3 + i) : 'bot 忙，排第 1', time: '刚刚' }));
+    }
+    this.setState({ text: '', appendTo: null, quote: null, atts: [], extra: { ...s.extra, [s.gid]: s.extra[s.gid].concat(add) },
+      stopped: { ...s.stopped, ...Object.fromEntries(stopKeys.map(k => [k, true])) }, chainStop: s.chainStop || chainHit });
+  };
+
+  pvVals(run) {
+    const s = this.state; const P = !run && s.preview;
+    const base = { pvTab: s.pvTab, pvTabs: [{ value: 'preview', label: '预览' }, { value: 'source', label: '源码' }], setPvTab: v => this.setState({ pvTab: v }),
+      closePv: () => { clearInterval(this._v); this.setState({ preview: null, vplay: false }); }, togglePlay: this.togglePlay };
+    if (!P) return { ...base, pv: null };
+    const k = P.kind || 'file'; const d = P.dur || 1;
+    const loc = P.path ? P.path + ' · bot 工作区' : '.aiws/attachments/msg-' + ((P.from || '').replace(/\D/g, '').slice(-4) || '0000') + '/' + P.name;
+    const lines = k === 'text' ? P.text.map((x, n) => ({ n: n + 1, toks: [{ t: x || ' ', c: /ERROR|FAIL/.test(x) ? '#FF453A' : /WARN/.test(x) ? '#FF9F0A' : SEC }] }))
+      : k === 'code' ? P.code.split('\n').map((x, n) => ({ n: n + 1, toks: toks(x) }))
+      : k === 'md' && s.pvTab === 'source' ? P.md.split('\n').map((x, n) => ({ n: n + 1, toks: [{ t: x || ' ', c: SEC }] })) : [];
+    const rows = [['来源', P.from || '—']].concat(P.dim ? [[k === 'video' ? '分辨率' : '尺寸', P.dim]] : [], k === 'video' ? [['时长', fmt(P.dur)]] : [], [['大小', P.size || '—'], ['位置', loc]],
+      k === 'image' ? [['发送给 bot', 'Claude Code 以 ACP 图片内容直接发送；Codex 仅落盘，按路径读取']] : k === 'video' ? [['发送给 bot', '视频不直接发送，agent 按路径读取']] : P.path ? [] : [['工作树', '已加入 .git/info/exclude，不进 git']]);
+    return { ...base,
+      pv: { name: P.name, icon: KIND_ICON[k] || 'file', meta: (KIND_LABEL[k] || '文件') + ' · ' + (P.size || '') + ' · ' + (P.from || ''),
+        isImage: k === 'image', isVideo: k === 'video', isMd: k === 'md', showBlocks: k === 'md' && s.pvTab !== 'source', blocks: k === 'md' ? mdBlocks(P.md) : [],
+        showLines: lines.length > 0, lines, lineNote: k === 'text' ? '预览前 ' + P.text.length + ' 行 · 完整文件 ' + P.size : '',
+        noPreview: !['image', 'video', 'md', 'text', 'code'].includes(k),
+        slot: 'wc-pv-' + P.name.replace(/[^a-z0-9]/gi, '-'), src: P.src || '', ratio: P.dim ? P.dim.replace('×', ' / ') : '16 / 10',
+        rows: rows.map(([a, v]) => ({ k: a, v, f: a === '位置' ? 'var(--font-mono)' : 'inherit' })) },
+      vPaused: !s.vplay, vPlaying: s.vplay, vIcon: s.vplay ? 'pause' : 'play', vTime: fmt(s.vt) + ' / ' + fmt(d), vPct: Math.round(s.vt / d * 100) };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const g = s.groups.find(x => x.id === s.gid);
+    const isForce = s.gid === 'g2';
+    const isDm = !!g.dm;
+    const mobile = (s.vw || 1400) < 768;
+    const run = s.runKey ? this.findRun() : null;
+    const rb = run ? BOTS[Object.keys(BOTS).find(k => BOTS[k].name === run.botName)] : null;
+    const botStates = s.gid === 'g2'
+      ? { b1: [s.intr ? '在线空闲' : '持锁 · 中断处理', '#0A84FF', '本地 v17'], b2: [s.intr ? '运行中 · 持锁' : '等待锁', s.intr ? '#0A84FF' : '#8E8E93', '本地 v17'], b3: ['在线空闲', '#32D74B', '本地 v17'], b4: ['落后', '#FF9F0A', '本地 v16 · 补齐中'] }
+      : s.gid === 'g1'
+      ? { b1: ['等待审批', '#FF9F0A', 'feat/refund-v2 ↑3 · 托管'], b2: ['运行中', '#0A84FF', 'test/refund-v2 ↓2 · 托管'], b3: ['运行中 · 接力', '#0A84FF', 'docs/refund ↑1 · 托管'], b4: ['离线', '#636366', 'main ↓5 · /cd 绑定'] }
+      : { b1: ['在线空闲', '#32D74B', '托管空工作区'] };
+    const bs2 = g.newBots ? Object.fromEntries(g.newBots.map(k => [k, BOT_ST[k][0] === '离线' ? ['离线', '#636366', '上线后 clone'] : ['在线空闲', '#32D74B', g.repoBound ? '托管 · 已 clone ' + g.branch : '托管空工作区']])) : botStates;
+    const groupBots = Object.keys(bs2).map(k => ({ ...BOTS[k], state: bs2[k][0], dot: bs2[k][1], extra: bs2[k][2] }));
+    const gid = s.gid;
+    const gMem = s.gm[gid] || [];
+    const gAdm = s.admins[gid] || [ME];
+    const isAdmin = gAdm.includes(ME);
+    const inGroup = o => o === ME || gMem.includes(o);
+    const liveKeys = Object.keys(bs2).filter(k => !(s.rmBots[gid] || []).includes(k)).concat((s.addBots[gid] || []).filter(k => !bs2[k])).filter(k => inGroup(BOTS[k].owner));
+    const gBotsLive = liveKeys.map(k => { const st = bs2[k] || (BOT_ST[k][0] === '离线' ? ['离线', '#636366', '上线后创建工作区'] : ['在线空闲', '#32D74B', '托管 · 刚加入']); return { ...BOTS[k], state: st[0], dot: st[1], extra: st[2], remove: () => this.setState({ rmBots: { ...s.rmBots, [gid]: [...(s.rmBots[gid] || []), k] }, addBots: { ...s.addBots, [gid]: (s.addBots[gid] || []).filter(x => x !== k) } }) }; });
+    const allPeople = [ME, ...gMem];
+    const drawer = s.drawer;
+    const toSettings = tab => () => isAdmin && this.setState({ drawer: null, ov: 'settings', setTab: tab, wiz: 0 });
+    const onlyAdmin = isAdmin && gAdm.length === 1 && gMem.length > 0;
+    const dv = {
+      drawerOpen: !!drawer, drawerW: mobile ? '100%' : '380px', drawerBtnBg: drawer ? 'rgba(255,255,255,0.1)' : 'transparent',
+      openDrawer: () => this.setState({ drawer: drawer ? null : 'main', confirmLeave: false, confirmDissolve: false }),
+      openMembers: () => this.setState({ drawer: 'members', memQ: '', addingMember: false }), openBotList: () => this.setState({ drawer: 'bots', addingBot: false }),
+      closeDrawer: () => this.setState({ drawer: null }), drBack: () => this.setState({ drawer: 'main' }),
+      drMain: drawer === 'main', drMembers: drawer === 'members', drBots: drawer === 'bots', drInfo: drawer === 'info', drSub: !!drawer && drawer !== 'main',
+      drTitle: { main: isDm ? '私聊设置' : '群设置', members: '群成员 · ' + allPeople.length, bots: 'Bot · ' + gBotsLive.length, info: isDm ? '名称' : '群名称与公告' }[drawer] || '',
+      isDm, notDm: !isDm, adminTitle: isDm ? '设置' : '群管理', showLeaveNote: s.confirmLeave && !isDm,
+      dissolveNote: isDm ? '删除后消息与审计记录保留；bot 的托管工作区保留在本机，由你决定是否删除。再次点击确认。' : '解散后群归档，消息与审计记录保留；强制同步群的权威副本归档 30 天后清除；各 bot 的托管工作区保留，由主人决定是否删除。再次点击确认。',
+      gMuted: !!s.muted[gid], gPinned: !!s.pinned[gid], gFold: !!s.fold[gid],
+      toggleMute: v => this.setState({ muted: { ...s.muted, [gid]: v } }), togglePin: v => this.setState({ pinned: { ...s.pinned, [gid]: v } }), toggleFold: v => this.setState({ fold: { ...s.fold, [gid]: v } }),
+      memberTotal: allPeople.length + ' · ' + gBotsLive.length, peopleCount: allPeople.length + ' 人', botCount: gBotsLive.length + ' 个', botOnline: gBotsLive.filter(b => b.state !== '离线').length,
+      avatarRow: allPeople.slice(0, 8).map(p => p[0]), gBotsLive, isAdmin,
+      adminHint: isDm ? '' : isAdmin ? '你是群管理员' : '仅群管理员 · ' + gAdm.join('、'),
+      adminRows: [['info', isDm ? '名称' : '群名称与公告', g.name, 'inherit', () => isAdmin && this.setState({ drawer: 'info', ed: { name: g.name, notice: s.notices[gid] || '' } })], ['git-branch', '仓库与基准分支', g.repo, 'var(--font-mono)', toSettings('basic')], ['refresh-cw', '同步模式', g.mode, 'inherit', toSettings('mode')], ['sliders-horizontal', '群级参数', '审批 30 分 · 接力 3 跳', 'inherit', toSettings('params')]]
+        .map(([icon, k, v, f, onClick], i) => ({ icon, k, v, f, onClick, bt: i ? '1px solid var(--color-separator)' : '0', cur: isAdmin ? 'pointer' : 'default', op: isAdmin ? 1 : 0.55, chev: isAdmin ? 'chevron-right' : 'lock' })),
+      confirmLeave: s.confirmLeave, confirmDissolve: s.confirmDissolve,
+      leaveNote: onlyAdmin ? '你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。' : '退出后你的 bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。',
+      leaveLabel: s.confirmLeave && !onlyAdmin ? '确认退出' : '退出群聊',
+      leaveGroup: () => { if (!s.confirmLeave) return this.setState({ confirmLeave: true, confirmDissolve: false }); if (onlyAdmin) return this.setState({ drawer: 'members' }); this.dropGroup(gid); },
+      dissolveLabel: isDm ? (s.confirmDissolve ? '确认删除' : '删除私聊') : s.confirmDissolve ? '确认解散' : '解散群',
+      dissolve: () => s.confirmDissolve ? this.dropGroup(gid) : this.setState({ confirmDissolve: true, confirmLeave: false }),
+      memQ: s.memQ, setMemQ: e => this.setState({ memQ: e.target.value }),
+      addingMember: s.addingMember, toggleAddMember: () => this.setState({ addingMember: !s.addingMember }), addMemberLabel: s.addingMember ? '完成' : '添加成员',
+      addCandidates: PEOPLE.filter(p => !gMem.includes(p)).map(p => ({ name: p, add: () => this.setState({ gm: { ...s.gm, [gid]: [...gMem, p] } }) })), noCandidates: PEOPLE.every(p => gMem.includes(p)),
+      memberRows: allPeople.filter(p => !s.memQ || p.includes(s.memQ)).map(p => { const adm = gAdm.includes(p); const nb = liveKeys.filter(k => BOTS[k].owner === p).map(k => BOTS[k].name); return { name: p + (p === ME ? '（我）' : ''), init: p[0], role: adm ? '群管理员' : '', roleV: 'info', sub: nb.length ? '带入 ' + nb.join('、') : '未带入 bot', canManage: isAdmin && p !== ME,
+        adminLabel: adm ? '取消管理员' : '设为管理员', toggleAdmin: () => this.setState({ admins: { ...s.admins, [gid]: adm ? gAdm.filter(x => x !== p) : [...gAdm, p] } }),
+        remove: () => this.setState({ gm: { ...s.gm, [gid]: gMem.filter(x => x !== p) }, admins: { ...s.admins, [gid]: gAdm.filter(x => x !== p) } }) }; }),
+      addingBot: s.addingBot, toggleAddBot: () => this.setState({ addingBot: !s.addingBot }), addBotLabel: s.addingBot ? '完成' : '拉入 bot',
+      botCandidates: Object.keys(BOTS).filter(k => !liveKeys.includes(k) && (!isDm || BOTS[k].owner === ME)).map(k => ({ name: BOTS[k].name, sub: BOTS[k].agent + ' · ' + BOTS[k].owner + (inGroup(BOTS[k].owner) ? '' : ' · 主人将一并加入'), add: () => this.setState({ gm: inGroup(BOTS[k].owner) ? s.gm : { ...s.gm, [gid]: [...gMem, BOTS[k].owner] }, rmBots: { ...s.rmBots, [gid]: (s.rmBots[gid] || []).filter(x => x !== k) }, addBots: { ...s.addBots, [gid]: [...(s.addBots[gid] || []), k] } }) })),
+      noBotCandidates: Object.keys(BOTS).every(k => liveKeys.includes(k) || (isDm && BOTS[k].owner !== ME)),
+      edName: s.ed ? s.ed.name : '', edNotice: s.ed ? s.ed.notice : '',
+      setEdName: e => this.setState({ ed: { ...s.ed, name: e.target.value } }), setEdNotice: e => this.setState({ ed: { ...s.ed, notice: e.target.value } }),
+      saveInfo: () => this.setState({ groups: s.groups.map(x => x.id === gid ? { ...x, name: s.ed.name.trim() || x.name } : x), notices: { ...s.notices, [gid]: s.ed.notice.trim() }, drawer: 'main' }),
+      gNotice: s.notices[gid] || '', hasNotice: !!s.notices[gid],
+    };
+    const ng = s.ng;
+    const ngv = ng ? (() => {
+      const set = o => this.setState({ ng: { ...ng, ...o } });
+      const repo = ng.repoMode === 'repo';
+      const dmT = ng.type === 'dm';
+      const urlOk = /^(git@|https?:\/\/|ssh:\/\/)[^\s]+$/.test(ng.url.trim());
+      const chk = ng.check;
+      const owners = ng.bots.map(k => BOTS[k].owner).filter(o => o !== ME);
+      const blocked = !ng.name.trim() ? '填写群名' : repo && chk !== 'ok' ? '先校验仓库地址' : '';
+      return {
+        ng, ngBindRepo: repo, ngNoRepo: !repo, ngType: ng.type, ngIsGroup: !dmT,
+        ngTypeItems: [{ value: 'group', label: '群聊' }, { value: 'dm', label: '私聊' }], ngSetType: v => set({ type: v, people: [], bots: ['b1'] }),
+        ngTitle: dmT ? '新建私聊' : '新建群', ngSub: dmT ? '只有你和你的 bot' : '创建者即群管理员',
+        ngBotNote: dmT ? '私聊只能拉入你自己的 bot；其他人不能加入，也不能触发。可绑仓库、可选同步模式，规则与群相同。' : 'bot 的主人会自动成为群成员；谁能触发由 bot 自己的触发范围决定。',
+        ngRepoItems: [{ value: 'repo', label: '绑定仓库' }, { value: 'none', label: '暂不绑定' }],
+        ngSetRepoMode: v => set({ repoMode: v }), ngSetName: e => set({ name: e.target.value }),
+        ngSetUrl: e => set({ url: e.target.value, check: null }), ngSetBranch: e => set({ branch: e.target.value, check: null }),
+        ngUrlBd: ng.url && !urlOk ? '#FF453A' : chk === 'ok' ? 'rgba(50,215,75,0.6)' : 'var(--color-border-control)',
+        ngCheckDisabled: !urlOk || chk === 'checking', ngCheckLabel: chk === 'checking' ? '校验中…' : chk === 'ok' ? '已校验' : '校验',
+        ngCheck: () => { set({ check: 'checking' }); setTimeout(() => this.setState(st => st.ng ? { ng: { ...st.ng, check: /fail|x\.git$/.test(st.ng.url) ? 'fail' : 'ok' } } : {}), 900); },
+        ngCheckMsg: ng.url && !urlOk ? '地址格式不正确，支持 git@ / https:// / ssh://' : chk === 'ok' ? '仓库可访问 · 分支 ' + (ng.branch || 'main') + ' 存在 · 最新提交 3f2a91c' : chk === 'fail' ? '无法访问该仓库或分支不存在，检查地址与权限' : '',
+        ngCheckC: chk === 'ok' ? '#32D74B' : '#FF453A', ngCheckIcon: chk === 'ok' ? 'check-circle' : 'x-circle',
+        ngModeNote: repo ? '新群默认分区模式。需要强制同步时，在群设置中切换（含网络检测与就绪检查）。' : '未绑定仓库的群只能使用分区模式。',
+        ngMemberCount: (1 + new Set([...ng.people, ...owners]).size) + ' 人',
+        ngPeople: [{ name: ME, sub: '群管理员', on: true, bd: '#0A84FF', bg: 'rgba(10,132,255,0.12)', cur: 'default', toggle: () => {} }].concat(PEOPLE.map(p => { const auto = owners.includes(p); const on = auto || ng.people.includes(p); return { name: p, sub: auto ? 'bot 主人' : '', on, bd: on ? '#0A84FF' : 'var(--color-border-strong)', bg: on ? 'rgba(10,132,255,0.12)' : 'transparent', cur: auto ? 'default' : 'pointer', toggle: () => !auto && set({ people: on ? ng.people.filter(x => x !== p) : [...ng.people, p] }) }; })),
+        ngBotCount: ng.bots.length + ' 个',
+        ngBots: Object.keys(BOTS).filter(k => !dmT || BOTS[k].owner === ME).map(k => { const b = BOTS[k], on = ng.bots.includes(k), st = BOT_ST[k]; return { name: b.name, sub: b.agent + ' · ' + b.owner + ' · ' + b.intro, st: st[0], dot: st[1], sc: 'var(--color-text-secondary)', on, op: 1, cur: 'pointer', bd: on ? '#0A84FF' : 'var(--color-separator)', bg: on ? 'rgba(10,132,255,0.08)' : 'rgba(255,255,255,0.035)', box: on ? '0' : '1.5px solid var(--color-border-control)', boxBg: on ? '#0A84FF' : 'transparent', toggle: () => set({ bots: on ? ng.bots.filter(x => x !== k) : [...ng.bots, k] }) }; })
+          .concat([{ name: '小王的 Codex', sub: 'Codex · 王磊 · 待你在 daemon 确认', st: '待确认', dot: '#FF9F0A', sc: '#FF9F0A', on: false, op: 0.5, cur: 'not-allowed', bd: 'var(--color-separator)', bg: 'transparent', box: '1.5px solid var(--color-border-control)', boxBg: 'transparent', toggle: () => {} }]),
+        ngFoot: blocked || (repo ? ng.bots.length + ' 个 bot 将 clone ' + ng.url.split(/[:/]/).slice(-1)[0] : ng.bots.length + ' 个 bot 将获得托管空工作区'), ngFootC: blocked ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
+        ngDisabled: !!blocked,
+        ngCreate: () => {
+          const id = 'n' + Date.now(); const url = ng.url.trim(); const br = ng.branch.trim() || 'main';
+          const all = [...new Set([...ng.people, ...owners])];
+          const grp = { id, people: all, dm: dmT, name: ng.name.trim(), mode: '分区模式', repo: repo ? url : '未绑定仓库', branch: repo ? br : '托管空工作区', unread: 0, last: '刚刚创建', members: dmT ? '仅你 · ' + ng.bots.length + ' bot' : (all.length + 1) + ' 人 · ' + ng.bots.length + ' bot', icon: dmT ? 'user' : 'hash', newBots: ng.bots, repoBound: repo };
+          const ev = [{ kind: 'event', icon: dmT ? 'user' : 'users', text: dmT ? ME + ' 创建了私聊 · 仅你和你的 bot' : ME + ' 创建了群 · 成为群管理员' + (all.length ? ' · 邀请 ' + all.join('、') : ''), time: '刚刚' },
+            { kind: 'event', icon: repo ? 'git-branch' : 'folder', text: repo ? '群绑定仓库 ' + url + ' · 基准分支 ' + br + ' · 分区模式' : '未绑定仓库 · 托管空工作区，仅分区模式', time: '刚刚' }]
+            .concat(ng.bots.map(k => ({ kind: 'event', icon: 'bot', text: BOTS[k].name + ' 加入 · ' + (BOT_ST[k][0] === '离线' ? 'daemon 离线，上线后创建工作区' : repo ? 'daemon 已 clone 到托管工作区' : '已创建托管空工作区'), time: '刚刚' })));
+          this.setState({ groups: [...s.groups, grp], gm: { ...s.gm, [id]: all }, admins: { ...s.admins, [id]: [ME] }, created: { ...s.created, [id]: ev }, extra: { ...s.extra, [id]: [] }, gid: id, runKey: null, ov: null, ng: null });
+        },
+      };
+    })() : {};
+    const setTabDefs = [['basic', '基本信息', 'info'], ['bots', isDm ? 'Bot' : '成员与 bot', isDm ? 'bot' : 'users'], ['mode', '同步模式', 'refresh-cw'], ['params', isDm ? '参数' : '群级参数', 'sliders-horizontal']];
+    const netOk = s.netTry > 0;
+    const wizLabels = ['选择基准分支', '网络检测', '就绪检查', '确认切换'];
+    const ctxStep = !run ? null : run.gid === 'g2'
+      ? { icon: 'inbox', label: '开场上下文', meta: 'v12 → v17', body: '自你上次工作后权威版本从 v12 到了 v17。本机 git：main 领先 1 · 落后 3 · 有未提交改动（强制同步不对齐 git 状态，提交与推送由你决定）。补送群消息 5 条。' }
+      : run.gid === 'g3'
+      ? { icon: 'inbox', label: '开场上下文', meta: '新会话', body: '会话恢复失败，已开新会话；补送最近 50 条群消息作为开场上下文。' }
+      : { icon: 'inbox', label: '开场上下文', meta: '补送 6 条', body: '补送上次被 @ 以来的群消息：人的发言 4 条 + 其他 bot 最终回复 2 条（不含工具调用过程）。git 默认动作：fetch 完成；工作树有未提交改动，未自动快进；落后 origin/feat/refund-v2 0 个 commit。' };
+    const detailSteps = run ? [ctxStep,
+      { icon: 'brain', label: '思考', meta: '', body: '先确认 v1 handler 的调用方和路由注册位置，再在 v2 目录新建 handler，保持 v1 只读兼容直到下线。' },
+      { icon: 'file-text', label: '读取文件', meta: '0.2s', mono: 'server/refund/v1/handler.go' },
+      { icon: 'terminal', label: '执行命令', meta: '1.4s', mono: 'rg "RefundV1" -n server/', out: 'server/refund/router.go:42:  r.POST("/refund", v1.RefundV1)\nserver/refund/v1/handler.go:18: func RefundV1(c *gin.Context) {' },
+      { icon: 'pen-line', label: '编辑文件', meta: '+42 −18', mono: 'server/refund/v2/handler.go' },
+      { icon: 'shield-alert', label: '权限请求', meta: '10:21', mono: 'go build ./...', body: '等待 bot 主人审批 · 档位 workspace' },
+    ] : [];
+    return {
+      isLogin: s.login, isApp: !s.login, doLogin: () => this.setState({ login: false }), logout: () => this.setState({ login: true, ov: null }),
+      ...ngv, ...dv, ovNewGroup: s.ov === 'newGroup' && !!ng, openNewGroup: () => this.setState({ ov: 'newGroup', ng: ngBlank(), drawer: null }), openNewDm: () => this.setState({ ov: 'newGroup', ng: ngBlank('dm'), drawer: null }),
+      dmList: s.groups.filter(x => x.dm).map(x => ({ ...x, mute: !!s.muted[x.id], badgeBg: s.muted[x.id] ? '#48484A' : '#0A84FF', unread: x.id === s.gid ? 0 : x.unread, bg: x.id === s.gid ? 'rgba(255,255,255,0.08)' : 'transparent', onClick: () => this.setState({ gid: x.id, runKey: null, preview: null, mView: 'chat', drawer: null }) })),
+      groupList: [...s.groups].filter(x => !x.dm).sort((a, b) => (s.pinned[b.id] ? 1 : 0) - (s.pinned[a.id] ? 1 : 0)).map(x => ({ ...x, pin: !!s.pinned[x.id], mute: !!s.muted[x.id], badgeBg: s.muted[x.id] ? '#48484A' : '#0A84FF', unread: x.id === s.gid ? 0 : x.unread, bg: x.id === s.gid ? 'rgba(255,255,255,0.08)' : 'transparent', onClick: () => this.setState({ gid: x.id, runKey: null, infoOpen: false, mView: 'chat', drawer: null }) })),
+      myBots: [{ name: '小王的 Claude', state: 'wanglei-mbp · 2/2 并发', dot: '#0A84FF' }, { name: '小王的 Codex', state: '待确认', dot: '#636366' }],
+      g: { ...g, modeV: isForce ? 'info' : 'secondary' }, isForce, isPart: !isForce && s.gid === 'g1',
+      lock: { holder: s.intr ? '老李的 Codex' : '小王的 Claude', note: s.intr ? '运行中 · 本轮结束自动释放' : '中断处理中 · 等待 王磊 选择', queue: s.intr ? ['王磊 · /hold', '模式切换 · 陈晨'] : ['老李的 Codex', '王磊 · /hold', '模式切换 · 陈晨'], ver: s.intr === 'keep' ? 'v18' : 'v17', lag: 1 },
+      gitBar: [
+        { name: '小王的 Claude', branch: 'feat/refund-v2', ab: '↓0 ↑3', dirty: true, ws: '托管' },
+        { name: '老李的 Codex', branch: 'test/refund-v2', ab: '↓2 ↑0', dirty: false, ws: '托管' },
+        { name: '阿杰的 Claude', branch: 'docs/refund', ab: '↓0 ↑1', dirty: false, ws: '托管' },
+        { name: '小周的 Codex', branch: 'main', ab: '↓5 ↑0', dirty: false, ws: '/cd 绑定' },
+      ],
+      items: this.buildItems(s.gid), stopChain: () => this.setState({ chainStop: true }),
+      pop: this.popData(), text: s.text, onText: e => this.setState({ text: e.target.value }),
+      onKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } },
+      insAt: () => this.setState({ text: s.text + (s.text && !s.text.endsWith(' ') ? ' @' : '@') }),
+      insSlash: () => this.setState({ text: s.text + (s.text && !s.text.endsWith(' ') ? ' /' : '/') }),
+      send: this.send, appendTarget: s.appendTo, cancelAppend: () => this.setState({ appendTo: null }),
+      run: run ? { ...run, machine: rb.machine, session: 'acp-' + (run.key || '') + '-7f3a', dur: run.dur || '—', tokens: run.tokens || '—' } : null, noRun: !run,
+      ...this.pvVals(run),
+      showRail: !!run || (!!s.preview && !run),
+      mobile, desk: !mobile, showLeft: !mobile || s.mView === 'list', showCenter: !mobile || s.mView !== 'list',
+      leftW: mobile ? '100%' : '240px', brandW: mobile ? 'auto' : '228px', padX: mobile ? '12px' : '20px', cardML: mobile ? '0' : '38px',
+      railW: mobile ? '100%' : (!run && s.preview ? '440px' : '320px'), railPos: mobile ? 'fixed' : 'relative', statusDisp: mobile ? 'none' : 'flex', setNavW: mobile ? '112px' : '190px',
+      composerHint: mobile ? '' : '附件 ≤ 50 MB · 每条 ≤ 10 个 · 不 @ 不触发，会作为上下文补送',
+      toList: () => this.setState({ mView: 'list', runKey: null, infoOpen: false }),
+      closeRun: () => this.setState({ runKey: null, infoOpen: false }), sideTab: s.sideTab, setSideTab: v => this.setState({ sideTab: v }),
+      sideTabs: [{ value: 'process', label: '过程' }, { value: 'diff', label: '文件 diff' }, { value: 'audit', label: '审批记录' }],
+      tabProcess: s.sideTab === 'process', tabDiff: s.sideTab === 'diff', tabAudit: s.sideTab === 'audit',
+      detail: {
+        steps: detailSteps,
+        files: [{ path: 'server/refund/v2/handler.go', add: '+42', del: '−18' }, { path: 'server/refund/v2/types.go', add: '+26', del: '−0' }, { path: 'server/refund/router.go', add: '+3', del: '−1' }, { path: 'server/refund/v1/handler.go', add: '+2', del: '−0' }],
+        diffFile: 'server/refund/router.go',
+        diff: [[' ', '  g := r.Group("/api")'], ['-', '  g.POST("/refund", v1.RefundV1)'], ['+', '  g.POST("/refund", v1.RefundV1) // deprecated'], ['+', '  g.POST("/v2/refund", v2.Refund)'], ['+', '  g.GET("/v2/refund/:no", v2.Get)'], [' ', '  return g']]
+          .map(([t, x]) => ({ s: t + ' ' + x, c: t === '+' ? '#32D74B' : t === '-' ? '#FF453A' : 'var(--color-text-secondary)', bg: t === '+' ? 'rgba(50,215,75,0.08)' : t === '-' ? 'rgba(255,69,58,0.08)' : 'transparent' })),
+        audit: [{ t: '10:21', s: '王磊 触发运行 · 扇出 2 个 bot' }, { t: '10:22', s: '权限请求：写入 server/refund/v2/ · 档位内自动允许' }, { t: '10:23', s: '权限请求：go build ./... · 等待 王磊 审批' }],
+      },
+      groupBots, members: ['王磊 · 群管理员', '陈晨', '李建国', '张杰', '周婷', '赵敏'],
+      statusLine: isForce ? '官网改版 · 本机 v17 = 权威 v17 · 已同步' : '我的 bot 1 台在线 · 并发 2/2 · 本机队列 0',
+      notifCount: 5,
+      quote: s.quote, cancelQuote: () => this.setState({ quote: null }),
+      atts: s.atts.map((a, i) => ({ ...a, rm: () => this.setState({ atts: s.atts.filter((_, j) => j !== i) }) })), hasAtts: s.atts.length > 0,
+      attNote: s.atts.length + ' / 10 · 写入工作区 .aiws/attachments/，不进 git' + (s.atts.some(a => a.icon === 'image') ? ' · 图片：Claude Code 以 ACP 图片发送，Codex 仅落盘' : ''),
+      addFile: () => s.atts.length < 10 && this.setState({ atts: s.atts.concat({ name: ['refund-v1-sample.csv', 'error.log', 'spec.pdf'][s.atts.length % 3], size: ['2.4 MB', '84 KB', '1.1 MB'][s.atts.length % 3], icon: 'file-text' }) }),
+      addImg: () => s.atts.length < 10 && this.setState({ atts: s.atts.concat({ name: 'screenshot-' + (s.atts.length + 1) + '.png', size: '486 KB', icon: 'image' }) }),
+      openSearch: () => this.setState({ ov: 'search' }), toggleNotif: () => this.setState({ ov: s.ov === 'notif' ? null : 'notif' }), toggleMenu: () => this.setState({ ov: s.ov === 'menu' ? null : 'menu' }),
+      openBind: () => this.setState({ ov: 'bind' }), openSettings: () => this.setState({ ov: 'settings', setTab: 'mode', wiz: 0 }), showInfo: () => this.setState({ runKey: null, infoOpen: !(s.infoOpen && !s.runKey) }), closeOv: () => this.setState({ ov: null }),
+      ovNotif: s.ov === 'notif', ovMenu: s.ov === 'menu', ovBind: s.ov === 'bind', ovSearch: s.ov === 'search', ovSettings: s.ov === 'settings',
+      notifs: [
+        { icon: 'shield-alert', c: '#FF9F0A', type: '待审批', t: '10:23', s: '小王的 Claude 请求执行 go build ./...', g: '支付服务重构', onClick: () => this.setState({ ov: null, gid: 'g1', runKey: 'r2' }) },
+        { icon: 'message-circle-question', c: '#409CFF', type: '待回答', t: '10:22', s: '老李的 Codex 向你提了 4 个问题', g: '支付服务重构', onClick: () => this.setState({ ov: null, gid: 'g1', runKey: 'r3' }) },
+        { icon: 'lock', c: '#0A84FF', type: '锁轮到你', t: '10:05', s: '小王的 Claude 在 官网改版 拿到群锁', g: '官网改版', onClick: () => this.setState({ ov: null, gid: 'g2' }) },
+        { icon: 'wifi-off', c: '#FF9F0A', type: 'bot 离线作废', t: '昨天', s: '你 @小周的 Codex 的请求等待 30 分钟未上线，已作废', g: '支付服务重构', onClick: () => this.setState({ ov: null, gid: 'g1' }) },
+        { icon: 'link-2', c: 'var(--color-text-tertiary)', type: '接力链结束', t: '昨天', s: '3 跳完成 · 小王的 Claude → 阿杰的 Claude → 老李的 Codex', g: '支付服务重构', onClick: () => this.setState({ ov: null, gid: 'g1' }) },
+      ],
+      bindSteps: [{ label: '生成绑定码', status: 'completed' }, { label: 'daemon 登录', status: 'active' }, { label: '上报机器与 agent', status: 'pending' }, { label: '认领 bot', status: 'pending' }],
+      searchTab: s.searchTab, setSearchTab: v => this.setState({ searchTab: v }),
+      searchTabs: [{ value: 'msg', label: '消息' }, { value: 'file', label: '文件' }, { value: 'run', label: '运行' }],
+      searchResults: (s.searchTab === 'msg' ? [
+        { icon: 'message-square', title: '把退款接口从 v1 迁到 v2：小王的 Claude 改 server/refund/…', sub: '王磊 · 支付服务重构 · 10:21' },
+        { icon: 'message-square', title: '退款 v1 下周一下线，今天把 v2 迁移收尾。', sub: '陈晨 · 支付服务重构 · 10:12' },
+        { icon: 'bot', title: '字段变化如下，v2 金额统一为分，新增渠道枚举', sub: '小王的 Claude 最终回复 · 10:16' },
+      ] : s.searchTab === 'file' ? [
+        { icon: 'file-code', title: 'server/refund/v2/handler.go', sub: '小王的 Claude 工作区 · 未提交', font: 'var(--font-mono)' },
+        { icon: 'file-code', title: 'server/refund/v1/handler.go', sub: 'main 镜像 · 3 分钟前', font: 'var(--font-mono)' },
+        { icon: 'file-text', title: 'docs/api/refund.md', sub: '阿杰的 Claude 工作区', font: 'var(--font-mono)' },
+      ] : [
+        { icon: 'play', title: '小王的 Claude · 迁移退款接口 · 等待审批', sub: '支付服务重构 · 改动 4 文件 · 18.2k tokens', k: 'r2', gg: 'g1' },
+        { icon: 'play', title: '小王的 Claude · 梳理 v2 字段 · 已完成', sub: '支付服务重构 · 9.4k tokens', k: 'r0', gg: 'g1' },
+        { icon: 'play', title: '小王的 Claude · 拆分价格卡片 · 同步 v17', sub: '官网改版 · 改动 6 文件', k: 'rb', gg: 'g2' },
+        { icon: 'archive', title: '阿杰的 Claude · 首页埋点改造 · 已完成', sub: '官网改版 · 2026-08-12 · 运行过程已过期（30 天），仅保留卡片摘要' },
+      ]).map(x => ({ font: 'inherit', ...x, onClick: () => this.setState(x.k ? { ov: null, gid: x.gg, runKey: x.k } : { ov: null }) })),
+      setTabs: setTabDefs.map(([k, l, ic]) => ({ label: l, icon: ic, bg: s.setTab === k ? 'rgba(255,255,255,0.1)' : 'transparent', onClick: () => this.setState({ setTab: k }) })),
+      setTitle: setTabDefs.find(x => x[0] === s.setTab)[1] + ' · ' + g.name,
+      stBasic: s.setTab === 'basic', stBots: s.setTab === 'bots', stParams: s.setTab === 'params', stMode: s.setTab === 'mode',
+      basicRows: [{ k: isDm ? '私聊名' : '群名', v: g.name }, { k: '远端仓库', v: g.repo, font: 'var(--font-mono)' }, { k: '基准分支', v: g.branch, font: 'var(--font-mono)' }, isDm ? { k: '类型', v: '私聊 · 仅你和你的 bot，不能邀请他人' } : { k: '群管理员', v: '王磊、陈晨' }, { k: '创建时间', v: '2026-09-01' }].map(x => ({ font: 'inherit', ...x })),
+      params: [{ k: '/hold 无操作自动释放（分钟）', v: '15' }, { k: '权限审批等待 · 分区（分钟）', v: '30' }, { k: '权限审批等待 · 强制同步（分钟）', v: '5' }, { k: '单台机器分发超时（秒）', v: '60' }, { k: '接力链长上限（跳）', v: '3' }, { k: 'bot 离线等待上线（分钟）', v: '30' }],
+      modeIsPart: !isForce, modeIsForce: isForce,
+      wizSteps: wizLabels.map((l, i) => ({ label: l, status: i < s.wiz ? 'completed' : i === s.wiz ? (i === 1 && !netOk ? 'error' : 'active') : 'pending' })),
+      wiz0: s.wiz === 0, wiz1: s.wiz === 1, wiz2: s.wiz === 2, wiz3: s.wiz === 3,
+      branches: ['main', 'release/2026.10', 'develop'].map(n => ({ name: n, bg: s.branch === n ? 'rgba(10,132,255,0.15)' : 'transparent', bd: s.branch === n ? '#0A84FF' : 'var(--color-border-strong)', onClick: () => this.setState({ branch: n }) })),
+      netRows: [['王磊', 'wanglei-mbp', 38, 92], ['李建国', 'lijg-thinkpad', 45, 64], ['张杰', 'zhangjie-imac', 52, 48], ['周婷', 'zt-desktop', netOk ? 96 : 186, netOk ? 18.4 : 3.2]].map(([o, m, lat, bw]) => {
+        const lo = lat <= 120, bo = bw >= 10; return { o, m, lat: lat + ' ms', bw: bw + ' Mbps', lc: lo ? 'inherit' : '#FF453A', bc: bo ? 'inherit' : '#FF453A', r: lo && bo ? '达标' : '不达标', rc: lo && bo ? '#32D74B' : '#FF453A' };
+      }),
+      netFail: !netOk, rerunNet: () => this.setState({ netTry: s.netTry + 1 }),
+      readyRows: [
+        { name: '小王的 Claude', s: 'feat/refund-v2 有 3 个未推送 commit', r: '不参与', icon: 'minus-circle', c: '#FF9F0A' },
+        { name: '老李的 Codex', s: '工作树干净，已推送', r: '对齐到 v1', icon: 'check-circle', c: '#32D74B' },
+        { name: '阿杰的 Claude', s: '工作树干净，已推送', r: '对齐到 v1', icon: 'check-circle', c: '#32D74B' },
+        { name: '小周的 Codex', s: '/cd 绑定到非托管目录', r: '不参与', icon: 'minus-circle', c: '#FF9F0A' },
+      ],
+      showWizNav: s.setTab === 'mode' && !isForce, showSave: s.setTab !== 'mode' || isForce, saveLabel: isForce && s.setTab === 'mode' ? '请求切回分区' : '保存',
+      wizFirst: s.wiz === 0, wizBlocked: s.wiz === 1 && !netOk, wizNextLabel: s.wiz === 3 ? '提交切换请求' : '下一步',
+      wizPrev: () => this.setState({ wiz: Math.max(0, s.wiz - 1) }), wizNext: () => s.wiz === 3 ? this.setState({ ov: null, wiz: 0 }) : this.setState({ wiz: s.wiz + 1 }),
+      setFoot: s.setTab === 'mode' ? (isForce ? '仅群管理员可切换' : '步骤 ' + (s.wiz + 1) + ' / 4') : '保存后对新会话生效',
+    };
+  }
+}
+</script>
+</body>
+</html>

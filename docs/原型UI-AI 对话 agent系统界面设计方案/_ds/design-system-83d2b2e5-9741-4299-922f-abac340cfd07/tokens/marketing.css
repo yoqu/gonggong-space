@@ -1,0 +1,18 @@
+/* Marketing site scope — lingji-cut-homepage/src/index.css.
+   Same macOS-dark language, slightly deeper background and the web accent #007AFF. */
+.theme-marketing {
+  --color-window-bg: #0A0A0A;
+  --color-panel-bg: #141414;
+  --color-panel-elevated: #1C1C1E;
+  --color-control-bg: #2C2C2E;
+  --color-separator: #27272A;
+  --color-border-control: #27272A;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-system-blue: #007AFF;
+  --color-selection-blue: #007AFF;
+  --color-selection-blue-hover: #409CFF;
+  --glass-bg: rgba(28, 28, 30, 0.72);
+  --glass-blur: blur(20px) saturate(180%); /* @kind other */
+  --glow-blue: 0 0 60px rgba(0, 122, 255, 0.15), 0 0 120px rgba(0, 122, 255, 0.05);
+}

@@ -1,0 +1,25 @@
+/* Base reset — mirrors src/ui/styles/base.css */
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--color-window-bg); }
+body {
+  margin: 0;
+  background: var(--color-window-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-lg);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input, textarea, select { font-family: inherit; letter-spacing: inherit; color: inherit; }
+button { margin: 0; appearance: none; -webkit-appearance: none; }
+input, textarea, select { appearance: none; -webkit-appearance: none; }
+a { color: var(--color-system-blue); text-decoration: none; }
+a:hover { color: var(--color-system-blue-hover); }
+:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+::selection { background: rgba(10, 132, 255, 0.3); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: rgba(255,255,255,0.15); background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }

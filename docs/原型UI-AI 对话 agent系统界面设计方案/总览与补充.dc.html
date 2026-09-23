@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/styles.css">
+<script src="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/_ds_bundle.js"></script>
+<script src="lc-icon.js"></script>
+<style>a{color:#0A84FF}a:hover{color:#409CFF}</style>
+</helmet>
+<div style="min-height:100vh;background:var(--color-window-bg);color:#fff;font-size:13px">
+  <div style="max-width:1040px;margin:0 auto;padding:40px 28px 64px;display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:10px;font-weight:650;letter-spacing:0.16em;color:var(--color-text-tertiary)">AI 团队工作区指挥平台 · 界面设计 v1</div>
+      <div style="font-size:24px;font-weight:600">三个端 · 可点击原型</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);max-width:680px;text-wrap:pretty">基于需求规格 v1.0。所有界面沿用深色专业工具语言：层级靠背景阶梯与分隔线，蓝色只表示可交互与进行中，状态色只出现在反馈里。</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+      <sc-for list="{{ surfaces }}" as="s" hint-placeholder-count="4">
+        <a href="{{ s.href }}" style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:12px;border:1px solid var(--color-separator);background:var(--color-panel-bg);color:#fff" style-hover="border-color:#0A84FF;color:#fff">
+          <div style="display:flex;align-items:center;gap:8px"><lc-icon name="{{ s.icon }}" size="16" style="color:#0A84FF"></lc-icon><span style="font-size:15px;font-weight:600">{{ s.name }}</span></div>
+          <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;text-wrap:pretty">{{ s.desc }}</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);line-height:1.6;text-wrap:pretty">{{ s.try }}</div>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:15px;font-weight:600">原型里补上的界面与状态</div>
+      <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);overflow:hidden">
+        <sc-for list="{{ added }}" as="a"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:4px 14px;padding:10px 14px;border-bottom:1px solid var(--color-separator);font-size:12px"><span style="font-weight:600">{{ a.k }}</span><span style="color:var(--color-text-secondary);line-height:1.6;text-wrap:pretty">{{ a.v }}</span><span style="color:var(--color-text-tertiary);text-align:right">{{ a.where }}</span></div></sc-for>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:15px;font-weight:600">建议补进 spec 的规则 · 需要你拍板</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ gaps }}" as="g"><div style="display:flex;gap:12px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.035)">
+          <span style="width:26px;flex:none;font-family:var(--font-mono);font-size:12px;color:var(--color-text-tertiary)">{{ g.n }}</span>
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:600">{{ g.t }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ g.ref }}</span></div><span style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;text-wrap:pretty">{{ g.s }}</span></div>
+        </div></sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      surfaces: [
+        { href: 'Web 对话.dc.html', icon: 'message-square', name: 'Web 对话', desc: '三栏：群列表 · 时间线 · 运行侧边栏。运行卡片、审批、提问、同步进度、常驻状态栏。', try: '试：左侧切换 3 个群 · 批准权限 · 回答提问 · 中断选保留/丢弃 · 输入 @ 或 / · ⌘K 搜索 · 群设置 → 同步模式向导 · 头像 → 绑定新机器 / 退出登录' },
+        { href: '管理后台.dc.html', icon: 'sliders-horizontal', name: '管理后台', desc: '账号、Bot 详情（提示词 / 触发范围 / 档位 / 用量）、群、配置中心、机器与网络、用量、审计、系统参数。', try: '试：Bot 选中切换 · 档位选 full 看触发范围联动 · 配置中心切层与类型后保存 · 审计筛选 · 账号停用' },
+        { href: 'Daemon 桌面端.dc.html', icon: 'monitor', name: 'Daemon 桌面端', desc: '本机执行端：概览、Bot 与 Agent、工作区与备份、同步补齐、个人密钥、日志与诊断、设置。', try: '试：概览 → 模拟服务器断开 · 设置 → 解除绑定进入首次绑定引导（3 步）' },
+      ],
+      added: [
+        { k: '登录与首次绑定', v: 'Web 登录（SSO 占位）；绑定码弹窗含有效期与等价命令；daemon 端 3 步引导：绑定码 → 检测 agent → 认领 bot。', where: 'Web · Daemon' },
+        { k: 'Bot 详情', v: '系统提示词即群内简介，标注生效时机与优先级；full 档位强制指定名单；谁用了我的 bot；agent 版本过低与个人密钥缺值提示。', where: '管理后台' },
+        { k: '模式切换向导', v: '选基准分支 → 网络检测（不达标拒绝并列出机器）→ 就绪检查（标出「不参与」）→ 确认后进入锁队列末尾。', where: 'Web · 群设置' },
+        { k: '运行卡片补充状态', v: '「离线等待上线」「无权触发」「接力 n/3」「因配置变更开新会话」「用量未上报」都作为卡片内的明确状态。', where: 'Web 对话' },
+        { k: '@ / 候选的来源标注', v: '文件组标注来源（工作区含未提交 / 权威副本 vN / main 镜像 + 更新时间）；skill 标注层级；agent 命令重名显示为 /bot名:命令。', where: 'Web 对话' },
+        { k: '响应式布局', v: '宽度 < 1100px 右侧栏默认收起、按需展开；< 768px 群列表与会话分屏切换，侧边栏全屏覆盖，管理后台导航变为顶部横向条、表格横向滚动。', where: 'Web 对话 · 管理后台' },
+        { k: '全局搜索 / 通知中心', v: '⌘K 搜消息、文件、运行；通知只列需要本人操作的五类事项，群级事件不推送。', where: 'Web 对话' },
+        { k: '工作区与备份', v: '托管 / /cd / 已移出（保留占用空间，由主人删除）；本机备份目录列表，不上传。', where: 'Daemon' },
+        { k: '引用回复 · 附件', v: 'bot 最终回复与运行卡片可「引用」，等同 @ 该 bot；输入框附件 / 图片 chips（≤ 10 个，标注写入 .aiws/attachments/ 与 Codex 图片仅落盘），消息内展示附件。', where: 'Web 对话' },
+        { k: '系统命令反馈', v: '/hold /release /new /cd /stop 发送后给出即时反馈与模式限制（/hold 仅强制同步、/cd 仅分区、/new 需 @ bot）；未 @ 的消息标注「作为上下文补送」。', where: 'Web 对话' },
+        { k: '提问卡片 4 题型', v: '单选 · 多选 · 是/否 · 自由文本；选择题各自带「其他，我来补充」；回答可附图片与附件。', where: 'Web 对话' },
+        { k: '强制同步细节', v: '/hold → 手动修改 → /release 发布版本；agent 崩溃事件；上传端大小写冲突拒绝；/stop 中断仅发起人可选；锁队列含 /hold 与模式切换。', where: 'Web 对话' },
+        { k: '开场上下文', v: '侧边栏第一步展示补送消息数、git 默认动作结果（分区）、版本跨度 v12 → v17 与本机 git 状态（强制同步）、会话重建（私聊）。', where: 'Web 对话' },
+        { k: 'daemon 连接异常', v: '服务器不可用（退避重连、本地缓存）· 协议不兼容（待重启升级）· token 吊销（清除密钥与工作区）；未持锁本地修改即时提醒。', where: 'Daemon' },
+        { k: '日志与诊断', v: '连接、ACP、git 凭据、磁盘、换行符、个人密钥六项自检；分级日志；导出诊断包；手动测速。', where: 'Daemon' },
+      ],
+      gaps: [
+        { n: '01', t: '运行卡片状态增加「等待回答」', ref: '§8.1 · §8.8', s: '提问会阻塞工具调用，但 7 个状态里没有它。建议与「等待审批」并列，便于通知、筛选与统计超时。同理「离线等待」「无权触发」建议进入状态枚举。' },
+        { n: '02', t: '绑定码有效期与失败次数', ref: '§3.2', s: '建议 10 分钟有效、单次使用、连续 5 次错误作废；Web 端可查看并吊销已绑定机器。' },
+        { n: '03', t: '主人不在线时的审批', ref: '§3.4', s: '只有主人可批，强制同步 5 分钟超时，主人离开电脑时会频繁自动拒绝。可选：允许主人设「代审批人」，或依赖浏览器推送在手机浏览器上审批（Web 端已做响应式）。' },
+        { n: '04', t: '未持锁的本地修改实时提醒', ref: '§6.2', s: '目前等到下次同步才覆盖并备份。建议 daemon 监听托管工作区，检测到未持锁写入时立即在本机通知并提示 /hold，减少丢失感。' },
+        { n: '05', t: '群成员（人）的管理', ref: '§4.1', s: 'spec 只写了拉入 / 移除 bot。需要补：谁能邀请成员、谁任命群管理员、成员退群后其 bot 是否一并移出。' },
+        { n: '06', t: '分区群的附件落在哪个工作区', ref: '§8.7', s: '建议写入本条消息所有被 @ bot 的工作区；未 @ 的消息附件在下次 @ 时随上下文补写。' },
+        { n: '07', t: '强制同步的大文件与仓库体积上限', ref: '§6.3 · §6.4', s: '未定义单文件与权威副本上限。建议单文件超过阈值（如 50 MB）拒绝同步并在卡片提示，避免一次分发超时导致全员落后。' },
+        { n: '08', t: '/stop 的作用范围', ref: '§4.6 · §6.7', s: '卡片上区分「停止本轮」与「终止整条链」；并规定谁能 /stop：spec 写「任何成员」，建议与触发范围一致或至少写入审计。' },
+        { n: '09', t: '会话恢复失败的可见提示', ref: '§4.4', s: '原型已在卡片标注「会话恢复失败，已开新会话」，建议写进 §8.1 字段。' },
+        { n: '10', t: '搜索与权限', ref: '§9', s: '建议搜索只覆盖本人所在群；运行过程 30 天过期后只搜得到卡片摘要。' },
+        { n: '11', t: '浅色主题', ref: '跟随系统', s: '当前设计系统只定义了深色调色板。跟随系统需要先补一套浅色 token（表面阶梯、文字四级、分隔线），原型暂以深色交付。' },
+        { n: '12', t: '推荐 · 分区模式 /stop', ref: '§6.7 补充', s: '① 经 ACP 取消当前指令，本轮结束，会话保留。② 默认保留改动：不回滚、不自动提交、不 stash。③ 卡片给「丢弃本轮改动」，只还原本轮触及的文件，不动此前已有的未提交内容；发起人或 bot 主人可选，无超时（没有锁要释放）。④ 等待中的权限请求与提问作废。⑤ 下一轮上下文告知 agent「上一轮被中断」及文件状态。⑥ /stop 与丢弃写入审计。' },
+        { n: '13', t: '已定 · /stop 作用范围', ref: '§8.7', s: '@ 了 bot 只停该 bot；未 @ 时停止本群所有运行中、等待审批、等待锁、排队中的轮次，含接力链。/new 仍须 @ 一个 bot。' },
+        { n: '14', t: '已定 · 触发规则', ref: '§8.6', s: '只有 @ bot 或引用 bot 的消息 / 运行卡片才触发。引用人的消息不触发，只作为上下文补送。' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

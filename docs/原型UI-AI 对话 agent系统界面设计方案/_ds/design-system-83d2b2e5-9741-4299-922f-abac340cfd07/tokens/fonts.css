@@ -1,0 +1,10 @@
+/* Webfonts shipped with this design system.
+   SF Pro Text / SF Pro Display / PingFang SC remain system fonts (no files supplied).
+   Arial Unicode MS is self-hosted as the last-resort Unicode/CJK fallback. */
+@font-face {
+  font-family: "Arial Unicode MS";
+  src: url("../fonts/Arial_Unicode.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

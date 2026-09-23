@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/styles.css">
+<script src="_ds/design-system-83d2b2e5-9741-4299-922f-abac340cfd07/_ds_bundle.js"></script>
+<script src="lc-icon.js"></script>
+<style>html,body{height:100%;margin:0}body{background:#141416}a{color:#0A84FF}a:hover{color:#409CFF}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:var(--color-preview-bg);font-size:13px;color:var(--color-text-primary);font-variant-numeric:tabular-nums">
+  <div style="width:1100px;max-width:100%;height:720px;position:relative;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-border-strong);background:var(--color-window-bg);box-shadow:0 18px 44px rgba(0,0,0,.44);overflow:hidden">
+    <div style="height:44px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;background:var(--color-titlebar-bg);border-bottom:1px solid var(--color-separator)">
+      <x-import component-from-global-scope="DesignSystem_83d2b2.TrafficLights" hint-size="52px,12px"></x-import>
+      <span style="font-weight:600">AIWS Daemon</span>
+      <span style="font-size:11px;color:var(--color-text-tertiary)">v0.9.3 · 协议 v3</span>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:{{ connBg }};font-size:11px;color:{{ connC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ connC }}"></span>{{ connText }}</div>
+    </div>
+
+    <sc-if value="{{ onboarding }}">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center">
+        <div style="width:480px;display:flex;flex-direction:column;gap:18px">
+          <x-import component-from-global-scope="DesignSystem_83d2b2.StepIndicator" steps="{{ obSteps }}" hint-size="100%,24px"></x-import>
+          <sc-if value="{{ ob0 }}">
+            <div style="font-size:24px;font-weight:600">绑定到团队服务器</div>
+            <div style="font-size:13px;color:var(--color-text-secondary);text-wrap:pretty">在 Web 端头像菜单选择「绑定新机器」生成一次性绑定码。绑定后本机归属于你，所有连接均由本机向外发起。</div>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">服务器<input value="https://aiws.corp.cn" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:12px"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">绑定码<input value="K7QM-4X2P" style="height:40px;padding:0 12px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:18px;letter-spacing:0.16em"></label>
+            <div style="font-size:11px;color:var(--color-text-tertiary);font-family:var(--font-mono)">等价命令：aiws login --code K7QM-4X2P</div>
+          </sc-if>
+          <sc-if value="{{ ob1 }}">
+            <div style="font-size:24px;font-weight:600">检测本机 agent</div>
+            <sc-for list="{{ agents }}" as="a"><div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.035)"><div style="display:flex;align-items:center;gap:10px"><lc-icon name="{{ a.icon }}" size="15" style="color:{{ a.c }}"></lc-icon><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-weight:600">{{ a.name }}</span><span style="font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ a.path }}</span></div><span style="font-size:12px;color:{{ a.c }}">{{ a.st }}</span></div><sc-if value="{{ a.missing }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:var(--color-preview-bg);font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary)"><span style="flex:1">{{ a.install }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ a.recheck }}" hint-size="auto,22px">{{ a.recheckLabel }}</x-import></div></sc-if></div></sc-for>
+            <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">未安装的 agent 可以稍后在「Agent」页安装并重新检测；依赖它的 bot 在此之前不能被触发。至少需要一个可用 agent 才能继续。</div>
+          </sc-if>
+          <sc-if value="{{ ob2 }}">
+            <div style="font-size:24px;font-weight:600">确认 bot</div>
+            <div style="font-size:13px;color:var(--color-text-secondary);text-wrap:pretty">你自己创建的 bot 已直接绑定到本机，无需操作。以下由管理员为你创建并指定到本机，确认后才能被触发。</div>
+            <sc-for list="{{ claimList }}" as="c"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.035)"><lc-icon name="bot" size="15" style="color:#0A84FF"></lc-icon><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-weight:600">{{ c.name }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ c.desc }}</span></div><x-import component-from-global-scope="DesignSystem_83d2b2.Checkbox" checked="{{ true }}" hint-size="20px,20px"></x-import></div></sc-for>
+          </sc-if>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="lg" onClick="{{ obNext }}" hint-size="auto,36px">{{ obNextLabel }}</x-import>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ bound }}">
+    <div style="flex:1;min-height:0;display:flex">
+      <div style="width:200px;flex:none;display:flex;flex-direction:column;gap:2px;padding:12px 8px;background:var(--color-panel-bg);border-right:1px solid var(--color-separator)">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7"><button onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:0;border-radius:6px;background:{{ n.bg }};color:{{ n.c }};font-size:12px;text-align:left;cursor:pointer" style-hover="background:rgba(255,255,255,0.06)"><lc-icon name="{{ n.icon }}" size="14"></lc-icon><span style="flex:1">{{ n.label }}</span><sc-if value="{{ n.badge }}"><span style="min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:{{ n.bc }};color:#fff;font-size:10px;font-weight:650;display:flex;align-items:center;justify-content:center">{{ n.badge }}</span></sc-if></button></sc-for>
+        <div style="flex:1"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.035);font-size:11px"><span style="font-weight:600">王磊</span><span style="color:var(--color-text-tertiary);font-family:var(--font-mono)">wanglei-mbp · macOS</span></div>
+      </div>
+      <div style="flex:1;min-width:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:flex-end;gap:10px"><div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:24px;font-weight:600">{{ title }}</div><div style="font-size:12px;color:var(--color-text-secondary)">{{ desc }}</div></div><div style="flex:1"></div>
+          <sc-if value="{{ pOverview }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ toggleConn }}" hint-size="auto,26px">{{ connToggle }}</x-import></sc-if><sc-if value="{{ pAgents }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ toggleCodex }}" hint-size="auto,26px">{{ codexToggle }}</x-import></sc-if></div>
+
+        <sc-if value="{{ pOverview }}">
+          <sc-if value="{{ offline }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="服务器不可用 · 指数退避重连中（下次 16 秒后）" description="运行中的轮次在本地继续并缓存输出，重连后补传；强制同步群该轮结束后的提交等服务器恢复后执行。" hint-size="100%,64px"></x-import></sc-if>
+          <sc-if value="{{ protoBad }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="error" title="协议版本不兼容 · 服务器拒绝连接" description="本机 daemon v0.8.7 使用协议 v2，服务器要求协议 v3。自动升级已下载 v0.9.3，重启 daemon 后生效；升级前本机 bot 显示离线。" hint-size="100%,64px"></x-import></sc-if>
+          <sc-if value="{{ revoked }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="error" title="token 已被吊销 · 账号已停用" description="已清除本机团队密钥与 5 个托管工作区（尽力而非保证）；/cd 绑定的目录与本机备份目录不动。如有误，请联系系统管理员后重新绑定。" hint-size="100%,64px"></x-import></sc-if>
+          <sc-if value="{{ connOk }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="检测到未持锁的本地修改 · 官网改版" description="src/pages/pricing.tsx 在未持锁时被修改。下次同步会先备份到 ~/.aiws/backups/ 再覆盖；要保留，请先在群里 /hold，改完 /release 发布为新版本。" hint-size="100%,64px"></x-import></sc-if>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-separator);overflow:hidden">
+            <sc-for list="{{ stats }}" as="st"><div style="display:flex;flex-direction:column;gap:4px;padding:14px;background:var(--color-panel-bg)"><span style="font-size:11px;color:var(--color-text-tertiary)">{{ st.k }}</span><span style="font-size:15px;font-weight:600">{{ st.v }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ st.s }}</span></div></sc-for>
+          </div>
+          <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">正在运行</div>
+          <sc-for list="{{ runs }}" as="r"><div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg)"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">{{ r.bot }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ r.g }} · {{ r.who }} 触发</span><div style="flex:1"></div><x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ r.v }}" size="sm" hint-size="auto,18px">{{ r.st }}</x-import></div><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary)">{{ r.step }}</div><sc-if value="{{ r.pct }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Progress" value="{{ r.pct }}" size="sm" hint-size="100%,4px"></x-import></sc-if></div></sc-for>
+          <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">本机队列</div>
+          <div style="padding:10px 14px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);font-size:12px;color:var(--color-text-secondary)">小王的 Claude · 数据平台 · 陈晨 触发 · 并发已满，排第 1</div>
+        </sc-if>
+
+        <sc-if value="{{ pAgents }}">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.035);font-size:12px;color:var(--color-text-secondary)"><lc-icon name="info" size="13" style="color:var(--color-text-tertiary)"></lc-icon><span style="flex:1;text-wrap:pretty">Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团队里的身份，认领后调用这里的某个 agent 执行。</span></div>
+          <sc-for list="{{ agentCards }}" as="a"><div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid {{ a.border }};background:var(--color-panel-bg)">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px">
+              <div style="width:30px;height:30px;border-radius:8px;background:var(--color-panel-elevated);display:flex;align-items:center;justify-content:center"><lc-icon name="{{ a.icon }}" size="15" style="color:var(--color-text-secondary)"></lc-icon></div>
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">{{ a.name }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ a.vendor }}</span></div>
+              <x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ a.v }}" size="sm" hint-size="auto,18px">{{ a.st }}</x-import>
+              <div style="flex:1"></div>
+              <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="sm" onClick="{{ a.recheck }}" hint-size="auto,26px">{{ a.recheckLabel }}</x-import>
+            </div>
+            <sc-if value="{{ a.installed }}">
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px 14px;border-top:1px solid var(--color-separator);font-size:12px">
+                <sc-for list="{{ a.meta }}" as="m"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11px;color:var(--color-text-tertiary)">{{ m.k }}</span><span style="font-family:{{ m.f }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.v }}</span></div></sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;padding:12px 14px;border-top:1px solid var(--color-separator)">
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--color-text-tertiary)">默认模型 · bot 未单独指定时使用</span><x-import component-from-global-scope="DesignSystem_83d2b2.Select" options="{{ a.models }}" value="{{ a.model }}" onChange="{{ a.setModel }}" hint-size="100%,36px"></x-import></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--color-text-tertiary)">{{ a.extraLabel }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ a.extra }}" items="{{ a.extraItems }}" onChange="{{ a.setExtra }}" size="sm" hint-size="100%,28px"></x-import></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--color-separator);font-size:11px;color:var(--color-text-tertiary)"><span style="flex:1">{{ a.usedBy }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" hint-size="auto,22px">更换路径</x-import></div>
+            </sc-if>
+            <sc-if value="{{ a.missing }}">
+              <div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-top:1px solid var(--color-separator)">
+                <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#FF9F0A"><lc-icon name="alert-triangle" size="13" style="margin-top:2px"></lc-icon><span style="text-wrap:pretty">{{ a.missingText }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--color-text-tertiary)">安装命令</span><div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 6px 0 10px;border-radius:6px;background:var(--color-preview-bg);border:1px solid var(--color-separator);font-family:var(--font-mono);font-size:12px"><span style="flex:1">{{ a.install }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ a.copy }}" hint-size="auto,22px">{{ a.copyLabel }}</x-import></div></div>
+                <div style="display:flex;align-items:center;gap:8px"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ a.recheck }}" hint-size="auto,26px">已安装，重新检测</x-import><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" hint-size="auto,26px">手动指定路径</x-import><div style="flex:1"></div><span style="font-size:11px;color:var(--color-text-tertiary)">{{ a.usedBy }}</span></div>
+              </div>
+            </sc-if>
+          </div></sc-for>
+        </sc-if>
+
+        <sc-if value="{{ pBots }}">
+          <sc-for list="{{ botCards }}" as="b"><div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg)">
+            <div style="display:flex;align-items:center;gap:8px"><lc-icon name="bot" size="15" style="color:#0A84FF"></lc-icon><span style="font-size:15px;font-weight:600">{{ b.name }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="{{ b.v }}" size="sm" hint-size="auto,18px">{{ b.st }}</x-import><span style="font-size:11px;color:var(--color-text-tertiary)">{{ b.owner }}</span><div style="flex:1"></div>
+              <sc-if value="{{ b.unclaimed }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ b.claim }}" hint-size="auto,26px">确认</x-import></sc-if>
+              <x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" onClick="{{ b.edit }}" hint-size="auto,26px">设置</x-import></div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;font-size:12px"><sc-for list="{{ b.meta }}" as="m"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:var(--color-text-tertiary)">{{ m.k }}</span><span style="color:{{ m.c }}">{{ m.v }}</span></div></sc-for></div>
+            <sc-if value="{{ b.warn }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ b.warnC }}"><lc-icon name="alert-triangle" size="12"></lc-icon><span style="flex:1">{{ b.warn }}</span><sc-if value="{{ b.goAgent }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" onClick="{{ goAgents }}" hint-size="auto,22px">前往 Agent</x-import></sc-if></div></sc-if>
+          </div></sc-for>
+          <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个 agent、哪个模型、并发与审批。</div>
+        </sc-if>
+
+        <sc-if value="{{ pWs }}">
+          <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);overflow:hidden">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px minmax(0,1.6fr) 90px 80px;gap:10px;padding:8px 14px;background:var(--color-titlebar-bg);font-size:11px;color:var(--color-text-tertiary)"><span>群 × bot</span><span>类型</span><span>路径</span><span>状态</span><span></span></div>
+            <sc-for list="{{ workspaces }}" as="w"><div style="display:grid;grid-template-columns:minmax(0,1fr) 110px minmax(0,1.6fr) 90px 80px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--color-separator);font-size:12px"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">{{ w.g }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ w.b }}</span></div><span>{{ w.t }}</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ w.p }}</span><span style="color:{{ w.c }}">{{ w.s }}</span><div style="display:flex;justify-content:flex-end"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" hint-size="auto,22px">{{ w.a }}</x-import></div></div></sc-for>
+          </div>
+          <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">本机备份 · 不上传</div>
+          <sc-for list="{{ backups }}" as="bk"><div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;background:rgba(255,255,255,0.035);font-size:12px"><lc-icon name="archive" size="13" style="color:var(--color-text-tertiary)"></lc-icon><span style="flex:1">{{ bk.s }}</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary)">{{ bk.p }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="xs" hint-size="auto,22px">在 Finder 中显示</x-import></div></sc-for>
+        </sc-if>
+
+        <sc-if value="{{ pSync }}">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg)">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">官网改版</span><x-import component-from-global-scope="DesignSystem_83d2b2.Badge" variant="info" size="sm" hint-size="auto,18px">强制同步</x-import><div style="flex:1"></div><span style="font-family:var(--font-mono);font-size:12px">本机 v17 · 权威 v18</span></div>
+            <x-import component-from-global-scope="DesignSystem_83d2b2.Progress" value="{{ 64 }}" size="sm" hint-size="100%,4px"></x-import>
+            <div style="font-size:11px;color:var(--color-text-secondary)">正在补齐 v18 · 1.5 / 2.4 MB · 补齐前不能拿锁</div>
+          </div>
+          <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);overflow:hidden">
+            <sc-for list="{{ syncEvents }}" as="e"><div style="display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;padding:8px 14px;border-bottom:1px solid var(--color-separator);font-size:12px"><span style="font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ e.t }}</span><span style="color:var(--color-text-secondary)">{{ e.s }}</span></div></sc-for>
+          </div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">托管工作区已统一关闭 core.autocrlf，以仓库 .gitattributes 为准。上传端检测大小写冲突、路径长度、符号链接与可执行位，会在其他平台损坏的改动将被拒绝。</div>
+        </sc-if>
+
+        <sc-if value="{{ pSecrets }}">
+          <x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="info" title="个人密钥只存在本机" description="服务器只知道引用名。配置中的 ${secret:NAME} 由 daemon 替换为实值后注入 agent 进程；管理员无法读取。" hint-size="100%,64px"></x-import>
+          <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);overflow:hidden">
+            <sc-for list="{{ secrets }}" as="k"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--color-separator)"><lc-icon name="key-round" size="14" style="color:var(--color-text-tertiary)"></lc-icon><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-family:var(--font-mono);font-size:12px;font-weight:600">{{ k.n }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ k.u }}</span></div><span style="font-family:var(--font-mono);font-size:12px;color:{{ k.c }}">{{ k.v }}</span><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="{{ k.bv }}" size="xs" hint-size="auto,22px">{{ k.a }}</x-import></div></sc-for>
+          </div>
+          <div style="font-size:10px;font-weight:650;letter-spacing:0.14em;color:var(--color-text-tertiary)">团队密钥 · 服务器按机器加密下发</div>
+          <div style="padding:10px 14px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);font-size:12px;color:var(--color-text-secondary);font-family:var(--font-mono)">WIKI_TOKEN · INTERNAL_API_KEY — 仅注入进程环境变量，不落盘</div>
+        </sc-if>
+
+        <sc-if value="{{ pLogs }}">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+            <sc-for list="{{ diag }}" as="d"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid var(--color-separator);background:var(--color-panel-bg)"><lc-icon name="{{ d.icon }}" size="14" style="color:{{ d.c }}"></lc-icon><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:12px;font-weight:600">{{ d.k }}</span><span style="font-size:11px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.v }}</span></div></div></sc-for>
+          </div>
+          <div style="display:flex;gap:8px"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" hint-size="auto,26px">测量延迟与带宽</x-import><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="outline" size="sm" hint-size="auto,26px">导出诊断包</x-import><div style="flex:1"></div><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ logLevel }}" items="{{ logLevels }}" onChange="{{ setLogLevel }}" size="sm" hint-size="220px,28px"></x-import></div>
+          <div style="flex:1;min-height:240px;padding:10px 12px;border-radius:8px;background:var(--color-preview-bg);border:1px solid var(--color-separator);font-family:var(--font-mono);font-size:11px;line-height:1.7;overflow:auto">
+            <sc-for list="{{ logs }}" as="l"><div style="white-space:pre;color:{{ l.c }}">{{ l.s }}</div></sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pSettings }}">
+          <div style="display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-panel-bg);overflow:hidden">
+            <sc-for list="{{ settings }}" as="st"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--color-separator)"><div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:12px">{{ st.k }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ st.d }}</span></div><sc-if value="{{ st.sw }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Switch" checked="{{ st.on }}" onChange="{{ st.toggle }}" hint-size="44px,24px"></x-import></sc-if><sc-if value="{{ st.v }}"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-secondary)">{{ st.v }}</span></sc-if></div></sc-for>
+          </div>
+          <div style="display:flex;gap:8px"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="destructive" size="sm" onClick="{{ unbind }}" hint-size="auto,26px">解除绑定</x-import><span style="font-size:11px;color:var(--color-text-tertiary);align-self:center">解除后清除团队密钥与托管工作区，本机备份保留。</span></div>
+        </sc-if>
+      </div>
+    </div>
+    <div style="height:28px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--color-titlebar-bg);border-top:1px solid var(--color-separator);font-size:11px;color:var(--color-text-tertiary)"><span>心跳 15s · 上次 3 秒前</span><span>|</span><span>延迟 38 ms · 92 Mbps</span><span>|</span><span>运行 2 · 队列 1</span><span style="flex:1"></span><span>{{ acpText }}</span></div>
+    </sc-if>
+    <sc-if value="{{ editing }}">
+      <div style="position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)">
+        <div style="width:480px;max-height:640px;display:flex;flex-direction:column;border-radius:14px;border:1px solid var(--color-border-control);background:var(--color-panel-elevated);box-shadow:var(--shadow-modal);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--color-separator)"><x-import component-from-global-scope="DesignSystem_83d2b2.CloseButton" onClick="{{ closeEdit }}" hint-size="12px,12px"></x-import><span style="font-size:13px;font-weight:600">{{ dTitle }}</span></div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">使用 agent</span>
+              <sc-for list="{{ dAgents }}" as="o"><button onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid {{ o.border }};background:{{ o.bg }};color:var(--color-text-primary);font-size:12px;text-align:left;cursor:{{ o.cursor }};opacity:{{ o.op }}"><span style="width:14px;height:14px;border-radius:999px;border:{{ o.ring }};box-sizing:border-box"></span><span style="flex:1;font-weight:600">{{ o.name }}</span><span style="font-size:11px;color:{{ o.sc }}">{{ o.st }}</span></button></sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">模型</span>
+              <sc-for list="{{ dModels }}" as="o"><button onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;border:1px solid {{ o.border }};background:{{ o.bg }};color:var(--color-text-primary);font-size:12px;text-align:left;cursor:pointer"><span style="width:14px;height:14px;border-radius:999px;border:{{ o.ring }};box-sizing:border-box"></span><span style="flex:1">{{ o.label }}</span><span style="font-size:11px;font-family:var(--font-mono);color:var(--color-text-tertiary)">{{ o.id }}</span></button></sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:14px">
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">并发上限</span><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ dConc }}" items="{{ concItems }}" onChange="{{ setConc }}" size="sm" hint-size="100%,28px"></x-import></div>
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:10px;font-weight:650;color:var(--color-text-secondary)">命令审批</span><x-import component-from-global-scope="DesignSystem_83d2b2.Tabs" value="{{ dAppr }}" items="{{ apprItems }}" onChange="{{ setAppr }}" size="sm" hint-size="100%,28px"></x-import></div>
+            </div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">{{ dNote }}</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--color-separator)"><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="ghost" size="sm" onClick="{{ closeEdit }}" hint-size="auto,26px">关闭</x-import><x-import component-from-global-scope="DesignSystem_83d2b2.Button" variant="primary" size="sm" onClick="{{ saveEdit }}" hint-size="auto,26px">保存</x-import></div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ toast }}"><div style="position:absolute;right:16px;bottom:40px;z-index:30;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid var(--color-border-control);background:var(--color-panel-elevated);box-shadow:0 8px 24px rgba(0,0,0,0.66);font-size:12px"><lc-icon name="check-circle" size="13" style="color:#32D74B"></lc-icon>{{ toast }}</div></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const NAV = [['overview', '概览', 'layout-dashboard'], ['agents', 'Agent', 'cpu'], ['bots', 'Bot', 'bot'], ['ws', '工作区', 'folder-git-2'], ['sync', '同步', 'refresh-cw'], ['secrets', '个人密钥', 'key-round'], ['logs', '日志与诊断', 'activity'], ['settings', '设置', 'settings']];
+const AG = {
+  claude: { name: 'Claude Code', vendor: 'Anthropic · CLI', icon: 'terminal', ver: '2.1.4', path: '/opt/homebrew/bin/claude', auth: '已登录 · Claude Max', acp: 'claude 1.4.2', req: '≥ 2.0', install: 'npm install -g @anthropic-ai/claude-code',
+    models: [['claude-sonnet-4-5', 'Claude Sonnet 4.5'], ['claude-opus-4-1', 'Claude Opus 4.1'], ['claude-haiku-4-5', 'Claude Haiku 4.5']],
+    extraLabel: '扩展思考', extraItems: [['off', '关闭'], ['auto', '自动'], ['on', '始终']] },
+  codex: { name: 'Codex', vendor: 'OpenAI · CLI', icon: 'square-terminal', ver: '0.48.0', path: '~/.local/bin/codex', auth: '已登录 · ChatGPT Pro', acp: 'codex 0.9.0', req: '≥ 0.40', install: 'npm install -g @openai/codex',
+    models: [['gpt-5-codex', 'GPT-5 Codex'], ['gpt-5', 'GPT-5'], ['gpt-5-mini', 'GPT-5 mini']],
+    extraLabel: '推理强度', extraItems: [['low', '低'], ['medium', '中'], ['high', '高']] },
+};
+const mLabel = (a, id) => (AG[a].models.find(m => m[0] === id) || [id, id])[1];
+const APPR = { ask: '每次询问', allow: '白名单自动', auto: '全部自动' };
+const TITLES = { overview: ['概览', '本机执行端状态与正在运行的轮次'], agents: ['Agent', '本机安装的 CLI 运行时：检测、路径、登录状态与默认模型'], bots: ['Bot', '认领到本机的团队 bot：指定 agent、模型、并发与审批'], ws: ['工作区', '每个「群 × bot」一个托管目录，或 /cd 绑定的本机目录'], sync: ['同步', '强制同步群的本机版本、补齐进度与事件'], secrets: ['个人密钥', '只保存在本机钥匙串，用于替换 ${secret:NAME}'], logs: ['日志与诊断', '连接、ACP、git 与同步日志；运行过程入库前已脱敏'], settings: ['设置', '升级、启动项与存储位置'] };
+const CONN_NEXT = { ok: 'offline', offline: 'proto', proto: 'revoked', revoked: 'ok' };
+class Component extends DCLogic {
+  state = { bound: true, ob: 0, page: 'agents', conn: 'ok', logLevel: 'info',
+    inst: { claude: true, codex: false }, checking: null, copied: null,
+    agModel: { claude: 'claude-sonnet-4-5', codex: 'gpt-5-codex' }, agExtra: { claude: 'auto', codex: 'medium' },
+    bots: [
+      { id: 'b1', name: '小王的 Claude', owner: '自己创建', agent: 'claude', model: 'inherit', conc: '2', appr: 'ask', claimed: true },
+      { id: 'b2', name: '小王的 Codex', owner: '陈晨 为你创建', agent: 'codex', model: 'gpt-5', conc: '1', appr: 'allow', claimed: false },
+    ],
+    draft: null, toast: '', sw: { upd: true, boot: true } };
+  flash(t) { this.setState({ toast: t }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2200); }
+  recheck(k) { this.setState({ checking: k }); setTimeout(() => { this.setState(s => ({ checking: null, inst: { ...s.inst, [k]: true } })); this.flash(AG[k].name + ' ' + AG[k].ver + ' 已检测到'); }, 1200); }
+  renderVals() {
+    const s = this.state;
+    const T = TITLES[s.page];
+    const p = k => s.page === k;
+    return {
+      onboarding: !s.bound, bound: s.bound,
+      obSteps: ['输入绑定码', '检测 agent', '确认 bot'].map((l, i) => ({ label: l, status: i < s.ob ? 'completed' : i === s.ob ? 'active' : 'pending' })),
+      ob0: s.ob === 0, ob1: s.ob === 1, ob2: s.ob === 2, obNextLabel: ['登录', '上报并继续', '完成'][s.ob],
+      obNext: () => s.ob === 2 ? this.setState({ bound: true, ob: 0, page: 'overview' }) : this.setState({ ob: s.ob + 1 }),
+      agents: Object.keys(AG).map(k => { const A = AG[k], ok = s.inst[k], ck = s.checking === k; return { name: ok ? A.name + ' ' + A.ver : A.name, path: ok ? A.path : '未在 PATH、~/.local/bin、/opt/homebrew/bin 中找到', st: ck ? '检测中…' : ok ? '可用' : '未安装', c: ok ? '#32D74B' : '#FF9F0A', icon: ok ? 'check-circle' : 'alert-triangle', missing: !ok, install: A.install, recheck: () => this.recheck(k), recheckLabel: ck ? '检测中…' : '重新检测' }; }),
+      pAgents: p('agents'), goAgents: () => this.setState({ page: 'agents' }),
+      toggleCodex: () => this.setState({ inst: { ...s.inst, codex: !s.inst.codex } }), codexToggle: s.inst.codex ? '模拟：Codex 未安装' : '模拟：Codex 已安装',
+      agentCards: Object.keys(AG).map(k => { const A = AG[k], ok = s.inst[k], ck = s.checking === k; const users = s.bots.filter(b => b.agent === k);
+        return { name: A.name, vendor: A.vendor, icon: A.icon, installed: ok, missing: !ok, v: ck ? 'info' : ok ? 'success' : 'warning', st: ck ? '检测中' : ok ? '已安装 ' + A.ver : '未安装', border: ok ? 'var(--color-separator)' : 'rgba(255,159,10,0.25)',
+          recheck: () => this.recheck(k), recheckLabel: ck ? '检测中…' : '重新检测',
+          meta: [{ k: '路径', v: A.path, f: 'var(--font-mono)' }, { k: '版本', v: A.ver + ' · 满足 ' + A.req, f: 'inherit' }, { k: '登录', v: A.auth, f: 'inherit' }, { k: 'ACP 适配器', v: A.acp + ' · 随 daemon', f: 'inherit' }],
+          models: A.models.map(([value, label]) => ({ value, label })), model: s.agModel[k], setModel: v => { this.setState({ agModel: { ...s.agModel, [k]: v } }); this.flash(A.name + ' 默认模型已设为 ' + mLabel(k, v)); },
+          extraLabel: A.extraLabel, extraItems: A.extraItems.map(([value, label]) => ({ value, label })), extra: s.agExtra[k], setExtra: v => this.setState({ agExtra: { ...s.agExtra, [k]: v } }),
+          usedBy: users.length ? '被 ' + users.map(b => b.name).join('、') + ' 使用' : '暂无 bot 使用',
+          missingText: '本机未检测到 ' + A.name + '（已检查 PATH、~/.local/bin、/opt/homebrew/bin）。' + (users.length ? users.map(b => b.name).join('、') + ' 依赖它，安装前收到的消息会被拒绝，并在群里提示发起人「执行机器缺少 ' + A.name + '」。' : ''),
+          install: A.install, copy: () => { this.setState({ copied: k }); this.flash('安装命令已复制'); }, copyLabel: s.copied === k ? '已复制' : '复制' }; }),
+      acpText: 'ACP 适配器 ' + Object.keys(AG).filter(k => s.inst[k]).map(k => AG[k].acp).join(' · '),
+      claimList: [{ name: '小王的 Claude', desc: 'Claude Code · 后端接口开发，只改 server/ 目录' }, { name: '小王的 Codex', desc: 'Codex · 陈晨 为你创建' }],
+      connText: { ok: '已连接 aiws.corp.cn', offline: '重连中', proto: '协议不兼容', revoked: 'token 已吊销' }[s.conn], connC: { ok: '#32D74B', offline: '#FF9F0A', proto: '#FF453A', revoked: '#FF453A' }[s.conn], connBg: { ok: 'rgba(50,215,75,0.1)', offline: 'rgba(255,159,10,0.1)', proto: 'rgba(255,69,58,0.1)', revoked: 'rgba(255,69,58,0.1)' }[s.conn],
+      nav: NAV.map(([k, l, ic]) => ({ label: l, icon: ic, bg: p(k) ? 'rgba(255,255,255,0.1)' : 'transparent', c: p(k) ? '#fff' : 'var(--color-text-secondary)', badge: k === 'secrets' ? '1' : k === 'sync' ? '1' : '', bc: k === 'secrets' ? '#FF9F0A' : '#0A84FF', onClick: () => this.setState({ page: k }) })),
+      title: T[0], desc: T[1],
+      pOverview: p('overview'), pBots: p('bots'), pWs: p('ws'), pSync: p('sync'), pSecrets: p('secrets'), pLogs: p('logs'), pSettings: p('settings'),
+      offline: s.conn === 'offline', protoBad: s.conn === 'proto', revoked: s.conn === 'revoked', connOk: s.conn === 'ok',
+      toggleConn: () => this.setState({ conn: CONN_NEXT[s.conn] }), connToggle: '模拟：' + { ok: '服务器断开', offline: '协议不兼容', proto: 'token 吊销', revoked: '恢复连接' }[s.conn],
+      stats: [{ k: '连接', v: { ok: '在线', offline: '重连中', proto: '已拒绝', revoked: '已吊销' }[s.conn], s: 'WSS · 证书固定' }, { k: 'bot', v: s.bots.filter(b => b.claimed).length + ' 已绑定', s: 'agent 可用 ' + Object.values(s.inst).filter(Boolean).length + ' / 2' }, { k: '并发', v: '2 / 2', s: '本机队列 1' }, { k: '工作区', v: '5 个', s: '托管 4 · /cd 1 · 1.8 GB' }],
+      runs: [
+        { bot: '小王的 Claude', g: '支付服务重构', who: '王磊', st: '等待审批', v: 'warning', step: 'go build ./... · 等待你在 Web 端批准', pct: 0 },
+        { bot: '小王的 Claude', g: '官网改版', who: '王磊', st: '同步中', v: 'info', step: '上传暂存增量 · 6 个文件 · 412 KB', pct: 72 },
+      ],
+      botCards: s.bots.map(b => { const ok = s.inst[b.agent], A = AG[b.agent]; const inherit = b.model === 'inherit'; const pri = 'var(--color-text-primary)';
+        return { name: b.name, owner: b.owner, unclaimed: !b.claimed, st: !b.claimed ? '待确认' : !ok ? 'agent 缺失' : '在线', v: !b.claimed ? 'warning' : !ok ? 'error' : 'success',
+          meta: [{ k: 'Agent', v: A.name + (ok ? ' ' + A.ver : ' · 未安装'), c: ok ? pri : '#FF9F0A' }, { k: '模型', v: inherit ? mLabel(b.agent, s.agModel[b.agent]) + ' · 跟随默认' : mLabel(b.agent, b.model), c: pri }, { k: '并发上限', v: b.conc, c: pri }, { k: '命令审批', v: APPR[b.appr], c: pri }],
+          warn: !ok ? '本机未安装 ' + A.name + '，该 bot 暂不能执行' : !b.claimed ? '陈晨 为你创建并指定到本机，确认后才能被触发' : '', warnC: !ok ? '#FF9F0A' : 'var(--color-text-tertiary)', goAgent: !ok,
+          claim: () => { this.setState({ bots: s.bots.map(x => x.id === b.id ? { ...x, claimed: true } : x) }); this.flash(b.name + ' 已确认'); },
+          edit: () => this.setState({ draft: { ...b } }) }; }),
+      editing: !!s.draft, closeEdit: () => this.setState({ draft: null }),
+      saveEdit: () => { const d = s.draft; this.setState({ bots: s.bots.map(x => x.id === d.id ? d : x), draft: null }); this.flash(d.name + ' 设置已保存'); },
+      ...(s.draft ? (() => { const d = s.draft, set = o => this.setState({ draft: { ...d, ...o } }); const sel = on => ({ border: on ? '#0A84FF' : 'var(--color-separator)', bg: on ? 'rgba(10,132,255,0.08)' : 'rgba(255,255,255,0.035)', ring: on ? '4px solid #0A84FF' : '1.5px solid var(--color-border-control)' });
+        return { dTitle: d.name + ' · 本机设置',
+          dAgents: Object.keys(AG).map(k => { const ok = s.inst[k]; return { name: AG[k].name, st: ok ? AG[k].ver : '未安装 · 先在 Agent 页安装', sc: ok ? 'var(--color-text-tertiary)' : '#FF9F0A', op: ok || d.agent === k ? 1 : 0.5, cursor: ok ? 'pointer' : 'not-allowed', ...sel(d.agent === k), pick: () => ok && d.agent !== k && set({ agent: k, model: 'inherit' }) }; }),
+          dModels: [['inherit', '跟随 agent 默认 · ' + mLabel(d.agent, s.agModel[d.agent])], ...AG[d.agent].models].map(([id, label]) => ({ id: id === 'inherit' ? '' : id, label, ...sel(d.model === id), pick: () => set({ model: id }) })),
+          dConc: d.conc, setConc: v => set({ conc: v }), dAppr: d.appr, setAppr: v => set({ appr: v }),
+          dNote: s.inst[d.agent] ? '切换 agent 会结束该 bot 在各群的会话上下文，下一轮重新开始；工作区与文件不受影响。' : '当前 agent 未安装。模型与并发可先保存，安装并检测通过后生效。' }; })() : {}),
+      concItems: ['1', '2', '3', '4'].map(v => ({ value: v, label: v })), apprItems: Object.entries(APPR).map(([value, label]) => ({ value, label })),
+      workspaces: [
+        { g: '支付服务重构', b: '小王的 Claude', t: '托管', p: '~/.aiws/workspaces/g_pay/b_wl_claude/r_pay-server/', s: '运行中', c: '#0A84FF', a: '打开' },
+        { g: '官网改版', b: '小王的 Claude', t: '托管 · 强制同步', p: '~/.aiws/workspaces/g_site/b_wl_claude/r_site/', s: 'v17', c: 'var(--color-text-secondary)', a: '打开' },
+        { g: '数据平台', b: '小王的 Claude', t: '/cd 绑定', p: '~/code/data-etl', s: '空闲', c: 'var(--color-text-secondary)', a: '改回托管' },
+        { g: '私聊', b: '小王的 Claude', t: '托管 · 无仓库', p: '~/.aiws/workspaces/g_dm_wl/b_wl_claude/_empty/', s: '空闲', c: 'var(--color-text-secondary)', a: '打开' },
+        { g: '旧版后台（已移出）', b: '小王的 Claude', t: '托管', p: '~/.aiws/workspaces/g_admin/b_wl_claude/r_admin/', s: '已移出 · 412 MB', c: '#FF9F0A', a: '删除' },
+      ],
+      backups: [{ s: '未持锁时的本地修改 · 官网改版 · 被 v17 覆盖前', p: '~/.aiws/backups/web-site/0923-1002/' }, { s: '中断半成品 · 官网改版 · agent 崩溃', p: '~/.aiws/backups/web-site/0921-1540/' }],
+      syncEvents: [['10:12:40', '开始补齐 v17 → v18 · 来源：服务器权威副本'], ['10:05:31', 'v18 由 小王的 Claude 提交（标记中断）'], ['10:04:02', '上传增量到暂存区 · 6 个文件'], ['09:52:10', '拿到群锁 · 基于 v16'], ['09:40:55', '应用 v16 · 已确认']].map(([t, x]) => ({ t, s: x })),
+      secrets: [
+        { n: 'JIRA_TOKEN', u: '被 jira MCP 引用 · 全局层', v: '未设置', c: '#FF9F0A', a: '设置', bv: 'primary' },
+        { n: 'GITHUB_TOKEN', u: '被 github MCP 引用 · 群层 · 支付服务重构', v: '••••••••', c: 'var(--color-text-secondary)', a: '更换', bv: 'outline' },
+      ],
+      diag: [
+        { icon: 'server', k: '服务器连接', v: 'WSS 正常 · 证书固定通过', c: '#32D74B' },
+        { icon: 'plug', k: 'Agent', v: s.inst.codex ? 'Claude Code · Codex 可用' : 'Codex 未安装', c: s.inst.codex ? '#32D74B' : '#FF9F0A' },
+        { icon: 'git-branch', k: 'git 凭据', v: 'SSH agent · 本机', c: '#32D74B' },
+        { icon: 'hard-drive', k: '磁盘', v: '工作区 1.8 GB · 剩余 212 GB', c: '#32D74B' },
+        { icon: 'file-warning', k: '换行符', v: 'core.autocrlf 已关闭', c: '#32D74B' },
+        { icon: 'key-round', k: '个人密钥', v: 'JIRA_TOKEN 缺值 · jira MCP 已禁用', c: '#FF9F0A' },
+      ],
+      logLevel: s.logLevel, setLogLevel: v => this.setState({ logLevel: v }), logLevels: [{ value: 'info', label: 'info' }, { value: 'warn', label: 'warn' }, { value: 'debug', label: 'debug' }],
+      logs: [
+        ['10:23:01 INFO  acp     session acp-r2-7f3a permission_request go build ./...', 0],
+        ['10:22:48 INFO  git     fetch origin · feat/refund-v2 ahead 3 · dirty · skip fast-forward', 0],
+        ['10:21:12 INFO  router  msg m_8812 → 小王的 Claude @ 支付服务重构 · slot 2/2', 0],
+        ['10:12:40 INFO  sync    catch-up v17→v18 1.5/2.4 MB', 0],
+        ['10:05:02 WARN  sync    local edit without lock: src/pages/pricing.tsx → backup', 1],
+        ['09:58:30 INFO  config  merged layers repo+global+group · mcp=3 skill=2 exclude updated', 0],
+        ['09:40:11 WARN  secret  JIRA_TOKEN missing · mcp jira disabled on this machine', 1],
+        ['09:31:00 INFO  update  v0.9.3 installed · protocol v3', 0],
+      ].filter(([, w]) => s.logLevel !== 'warn' || w).map(([x, w]) => ({ s: x, c: w ? '#FF9F0A' : 'var(--color-text-secondary)' })),
+      settings: [
+        { k: '自动升级', d: '服务器公布协议版本，不兼容时拒绝连接并提示升级', sw: true, on: s.sw.upd, toggle: v => this.setState({ sw: { ...s.sw, upd: v } }) },
+        { k: '开机启动', d: '登录系统后在后台运行', sw: true, on: s.sw.boot, toggle: v => this.setState({ sw: { ...s.sw, boot: v } }) },
+        { k: '工作区根目录', d: '托管工作区与附件目录', v: '~/.aiws/workspaces' },
+        { k: '备份目录', d: '被覆盖的本地修改、中断的半成品', v: '~/.aiws/backups' },
+        { k: '服务器', d: '只出站连接 · HTTPS / WSS', v: 'aiws.corp.cn' },
+      ],
+      unbind: () => this.setState({ bound: false, ob: 0 }),
+    };
+  }
+}
+</script>
+</body>
+</html>
