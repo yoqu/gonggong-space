@@ -46,6 +46,22 @@ pub struct Usage {
     pub cost_usd: Option<f64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkspaceKind {
+    Managed,
+    Cd,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitStatus {
+    pub branch: Option<String>,
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    pub dirty: bool,
+    pub workspace: WorkspaceKind,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentInfo {
     pub kind: AgentKind,
@@ -184,6 +200,46 @@ pub struct RunDone {
     pub session_id: Option<String>,
     pub new_session_reason: Option<String>,
     pub error: Option<String>,
+    pub git: Option<GitStatus>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkspaceStateKind {
+    Cloning,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceState {
+    pub group_id: String,
+    pub bot_id: String,
+    pub request_id: Option<String>,
+    pub state: WorkspaceStateKind,
+    pub path: Option<String>,
+    pub git: Option<GitStatus>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceEnsure {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub repo: Option<RepoSpec>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceCd {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub repo: RepoSpec,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -197,6 +253,8 @@ pub enum DaemonToServer {
     RunEvent { run_id: String, event: RunEvent },
     #[serde(rename = "run.done")]
     RunDone(RunDone),
+    #[serde(rename = "workspace.state")]
+    WorkspaceState(WorkspaceState),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -223,4 +281,8 @@ pub enum ServerToDaemon {
     RunStart(Box<RunStart>),
     #[serde(rename = "run.cancel", rename_all = "camelCase")]
     RunCancel { run_id: String },
+    #[serde(rename = "workspace.ensure")]
+    WorkspaceEnsure(WorkspaceEnsure),
+    #[serde(rename = "workspace.cd")]
+    WorkspaceCd(WorkspaceCd),
 }

@@ -7,5 +7,6 @@
   "usage": { "totalTokens": 1500 },
   "sessionId": "sess-1",
   "newSessionReason": "first",
-  "error": null
+  "error": null,
+  "git": { "branch": "feat/refund-v2", "ahead": 3, "behind": 0, "dirty": true, "workspace": "managed" }
 }

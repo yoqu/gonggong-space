@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentKind, RunStatus, Tier, TriggerScope, Usage } from './common.js'
+import { AgentKind, GitStatus, RunStatus, Tier, TriggerScope, Usage } from './common.js'
 import { AgentInfo, MachineInfo, RunEvent } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
@@ -218,7 +218,18 @@ export const SendMessageReq = z.object({
 })
 
 // ── Realtime: WS /ws/web (server → browser only) ────────────────────────────
+/** Per-bot workspace state in a group: drives the partition-mode git status bar (spec §5.3, §8.4). */
+export const GroupBotStateDto = z.object({
+  botId: z.string(),
+  workspace: z.enum(['managed', 'cd']),
+  state: z.enum(['pending', 'cloning', 'ready', 'failed']),
+  git: GitStatus.nullable(),
+  error: z.string().nullable(),
+})
+export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
+
 export const WebEvent = z.discriminatedUnion('t', [
+  z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),
   z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),

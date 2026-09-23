@@ -104,6 +104,7 @@ const done = (runId: string, o: Record<string, unknown> = {}) => ({
   sessionId: 'sess-1',
   newSessionReason: 'first',
   error: null,
+  git: null,
   ...o,
 })
 

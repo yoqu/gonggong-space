@@ -58,6 +58,8 @@ impl Handler for Engine {
                     actor.shared.cancel(&run_id);
                 }
             }
+            // Implemented by the M2 workspace slice.
+            ServerToDaemon::WorkspaceEnsure(_) | ServerToDaemon::WorkspaceCd(_) => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }
@@ -158,6 +160,7 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         session_id: None,
         new_session_reason: None,
         error: Some(error),
+        git: None,
     })
 }
 

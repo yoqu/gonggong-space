@@ -1,0 +1,7 @@
+{
+  "t": "workspace.ensure",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" }
+}

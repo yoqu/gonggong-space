@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentKind, RunStatus, Tier, Usage } from './common.js'
+import { AgentKind, GitStatus, RunStatus, Tier, Usage } from './common.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
@@ -25,6 +25,8 @@ export const DaemonLoginRes = z.object({ token: z.string(), machineId: z.string(
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 
 // ── Shared run payloads ─────────────────────────────────────────────────────
+export const RepoSpec = z.object({ id: z.string(), url: z.string(), branch: z.string() })
+
 /** A group message replayed to a bot as context ("since you were last @-ed"). */
 export const ContextMessage = z.object({
   seq: z.number().int(),
@@ -49,7 +51,7 @@ export const RunStart = z.object({
   }),
   workspace: z.object({
     /** null → managed empty workspace (group without repo). Managed path: <home>/workspaces/<groupId>/<botId>/<repo.id | _empty>/ */
-    repo: z.object({ id: z.string(), url: z.string(), branch: z.string() }).nullable(),
+    repo: RepoSpec.nullable(),
     /** Absolute local path when the owner used /cd; null → managed path. */
     cdPath: z.string().nullable(),
   }),
@@ -108,10 +110,33 @@ export const RunDone = z.object({
   /** Set when a new session was opened, e.g. 'resume_failed' | 'first' | 'requested'. */
   newSessionReason: z.string().nullable(),
   error: z.string().nullable(),
+  /** Workspace git state after the turn; null for workspaces without a repo. */
+  git: GitStatus.nullable(),
 })
 export type RunDone = z.infer<typeof RunDone>
 
-export const DaemonToServer = z.discriminatedUnion('t', [Hello, Heartbeat, RunEventMsg, RunDone])
+/** Result of workspace.ensure / workspace.cd, and any later state change of a (group, bot) workspace. */
+export const WorkspaceState = z.object({
+  t: z.literal('workspace.state'),
+  groupId: z.string(),
+  botId: z.string(),
+  /** Echoes the server's requestId when answering workspace.ensure / workspace.cd. */
+  requestId: z.string().nullable(),
+  state: z.enum(['cloning', 'ready', 'failed']),
+  /** Absolute local path in use (managed or /cd). */
+  path: z.string().nullable(),
+  git: GitStatus.nullable(),
+  error: z.string().nullable(),
+})
+export type WorkspaceState = z.infer<typeof WorkspaceState>
+
+export const DaemonToServer = z.discriminatedUnion('t', [
+  Hello,
+  Heartbeat,
+  RunEventMsg,
+  RunDone,
+  WorkspaceState,
+])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
 // ── server → daemon ─────────────────────────────────────────────────────────
@@ -129,5 +154,31 @@ export const Reject = z.object({
 })
 export const RunCancel = z.object({ t: z.literal('run.cancel'), runId: z.string() })
 
-export const ServerToDaemon = z.discriminatedUnion('t', [Welcome, Reject, RunStart, RunCancel])
+/** Create (clone) the managed workspace when a bot joins a group, or re-create it after the group binds a repo. */
+export const WorkspaceEnsure = z.object({
+  t: z.literal('workspace.ensure'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  repo: RepoSpec.nullable(),
+})
+
+/** /cd: bind to an existing local directory (validated on the machine), or `path: null` to go back to managed. */
+export const WorkspaceCd = z.object({
+  t: z.literal('workspace.cd'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  repo: RepoSpec,
+  path: z.string().nullable(),
+})
+
+export const ServerToDaemon = z.discriminatedUnion('t', [
+  Welcome,
+  Reject,
+  RunStart,
+  RunCancel,
+  WorkspaceEnsure,
+  WorkspaceCd,
+])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

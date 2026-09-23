@@ -31,3 +31,14 @@ export const Usage = z.object({
   costUsd: z.number().optional(),
 })
 export type Usage = z.infer<typeof Usage>
+
+/** Partition-mode git state of one (group, bot) workspace, refreshed after every turn (spec §5.3). */
+export const GitStatus = z.object({
+  branch: z.string().nullable(),
+  /** null when the branch has no upstream. */
+  ahead: z.number().int().nullable(),
+  behind: z.number().int().nullable(),
+  dirty: z.boolean(),
+  workspace: z.enum(['managed', 'cd']),
+})
+export type GitStatus = z.infer<typeof GitStatus>

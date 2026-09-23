@@ -189,6 +189,7 @@ fn done(
         session_id,
         new_session_reason,
         error,
+        git: None,
     })
 }
 
