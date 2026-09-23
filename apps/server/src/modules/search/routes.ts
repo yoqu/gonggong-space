@@ -3,8 +3,10 @@ import { and, desc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-
 import { alias } from 'drizzle-orm/pg-core'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groupMembers, groups, messages, runEvents, runs, users } from '../../db/schema.js'
+import { bots, groupMembers, groupRepos, groups, messages, runEvents, runs, users } from '../../db/schema.js'
 import { requireUser } from '../auth/session.js'
+import { pick } from '../candidates/match.js'
+import type { Mirrors } from '../candidates/mirror.js'
 
 const LIMIT = 20
 /** Recent patches scanned for file paths; enough to fill a page of distinct files. */
@@ -23,7 +25,7 @@ function snippet(body: string, q: string) {
 const patchPaths = (patch: string) =>
   [...patch.matchAll(/^diff --git a\/.+? b\/(?<path>.+)$/gm)].map((m) => m.groups?.path ?? '')
 
-export function searchRoutes(ctx: Ctx) {
+export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
   const myGroups = (userId: string) =>
     ctx.db
       .select({ id: groupMembers.groupId })
@@ -57,9 +59,14 @@ export function searchRoutes(ctx: Ctx) {
     }))
   }
 
-  /** Files touched by recent turns, read from their patch headers (purged with the run process). */
+  /** Files changed by recent turns (from their patch headers), then base-branch files from the group mirrors. */
   async function searchFiles(userId: string, q: string): Promise<SearchResultDto[]> {
-    const rows = await ctx.db
+    const out = new Map<string, SearchResultDto>()
+    const add = (r: SearchResultDto) => {
+      const key = `${r.groupId}\n${r.title}`
+      if (!out.has(key)) out.set(key, r)
+    }
+    const changed = await ctx.db
       .select({ id: runs.id, groupId: runs.groupId, patch: runs.patch, bot: bots.name, group: groups.name })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
@@ -67,12 +74,11 @@ export function searchRoutes(ctx: Ctx) {
       .where(and(inArray(runs.groupId, myGroups(userId)), ilike(runs.patch, likePattern(q))))
       .orderBy(desc(runs.queuedAt))
       .limit(PATCH_SCAN)
-    const out = new Map<string, SearchResultDto>()
     const needle = q.toLowerCase()
-    for (const r of rows)
+    for (const r of changed)
       for (const path of patchPaths(r.patch ?? ''))
-        if (path.toLowerCase().includes(needle) && !out.has(`${r.groupId}\n${path}`))
-          out.set(`${r.groupId}\n${path}`, {
+        if (path.toLowerCase().includes(needle))
+          add({
             kind: 'file',
             title: path,
             sub: `${r.bot} 工作区 · ${r.group}`,
@@ -80,6 +86,33 @@ export function searchRoutes(ctx: Ctx) {
             messageId: null,
             runId: r.id,
           })
+
+    const repos = await ctx.db
+      .select({
+        id: groupRepos.id,
+        url: groupRepos.url,
+        branch: groupRepos.baseBranch,
+        groupId: groupRepos.groupId,
+        group: groups.name,
+      })
+      .from(groupRepos)
+      .innerJoin(groups, eq(groups.id, groupRepos.groupId))
+      .where(inArray(groupRepos.groupId, myGroups(userId)))
+    const trees = await Promise.all(repos.map(async (repo) => ({ repo, tree: await mirrors.get(repo) })))
+    for (const { repo, tree } of trees)
+      for (const e of pick(
+        tree.entries.filter((f) => !f.dir && f.path.toLowerCase().includes(needle)),
+        q,
+        LIMIT,
+      ))
+        add({
+          kind: 'file',
+          title: e.path,
+          sub: `${repo.branch} 镜像 · ${repo.group}`,
+          groupId: repo.groupId,
+          messageId: null,
+          runId: null,
+        })
     return [...out.values()].slice(0, LIMIT)
   }
 

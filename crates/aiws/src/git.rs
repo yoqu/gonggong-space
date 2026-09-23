@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 /// Daemon-private files inside a workspace; never reported as the agent's changes.
-const PRIVATE_DIR: &str = ".aiws/";
+pub(crate) const PRIVATE_DIR: &str = ".aiws/";
 const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 /// Appended to a patch cut at PATCH_MAX_BYTES.
@@ -75,7 +75,7 @@ pub async fn status(dir: &Path, workspace: WorkspaceKind) -> Result<GitStatus, S
 }
 
 /// Porcelain entries (path → `XY`) including untracked files, without the daemon's private dir.
-async fn porcelain(dir: &Path) -> Result<BTreeMap<String, String>, String> {
+pub(crate) async fn porcelain(dir: &Path) -> Result<BTreeMap<String, String>, String> {
     let raw = git(dir, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]).await?;
     let mut entries = BTreeMap::new();
     let mut tokens = raw.split('\0').filter(|t| !t.is_empty());

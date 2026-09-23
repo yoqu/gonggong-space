@@ -1,5 +1,6 @@
 //! Executes server-dispatched runs: one adapter process per (group, bot) session (plan D20).
 use crate::agents;
+use crate::files;
 use crate::protocol::{AgentKind, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -93,8 +94,19 @@ impl Handler for Engine {
                 let actors = self.0.actors.lock().unwrap();
                 actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
             }
-            // Implemented by the M4 candidates / question / append slices.
-            ServerToDaemon::FilesList { .. } | ServerToDaemon::QuestionAnswer { .. } | ServerToDaemon::RunAppend { .. } => {}
+            ServerToDaemon::FilesList(req) => {
+                let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let (entries, error) = match files::list(&dir, &req.query, req.limit as usize).await {
+                        Ok(entries) => (entries, None),
+                        Err(e) => (vec![], Some(e)),
+                    };
+                    out.send(DaemonToServer::FilesResult { request_id: req.request_id, entries, error });
+                });
+            }
+            // Implemented by the M4 question / append slices.
+            ServerToDaemon::QuestionAnswer { .. } | ServerToDaemon::RunAppend { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }

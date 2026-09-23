@@ -3,6 +3,7 @@
 //   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, MCP servers, prompt)
 //   "mock:slow"  stream text until cancelled
 //   "mock:crash" stream one chunk, then exit with code 3
+//   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
@@ -45,6 +46,17 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         prompt: text,
       }),
     )
+    return { stopReason: 'end_turn' }
+  }
+  if (text.includes('mock:commands')) {
+    await update({
+      sessionUpdate: 'available_commands_update',
+      availableCommands: [
+        { name: 'compact', description: 'Compact the conversation' },
+        { name: 'new', description: 'Start a new conversation' },
+      ],
+    })
+    await say('ok')
     return { stopReason: 'end_turn' }
   }
   const sh = text.indexOf('mock:sh ')

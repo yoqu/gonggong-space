@@ -17,10 +17,13 @@ export interface CommandInput {
 /** Posts its feedback as group events; must not trigger runs. */
 export type CommandHandler = (ctx: Ctx, input: CommandInput) => Promise<void>
 
-const handlers = new Map<string, CommandHandler>()
+const handlers = new Map<string, { handler: CommandHandler; hint: string }>()
 
 /** System commands (spec §8.7): reserved names that take precedence over agent / skill commands. */
 export const commands = {
-  register: (name: string, handler: CommandHandler) => void handlers.set(name, handler),
-  get: (name: string) => handlers.get(name),
+  /** `hint` is shown in the / candidates; registration order is the display order. */
+  register: (name: string, handler: CommandHandler, hint: string) =>
+    void handlers.set(name, { handler, hint }),
+  get: (name: string) => handlers.get(name)?.handler,
+  list: () => [...handlers].map(([name, { hint }]) => ({ name, hint })),
 }

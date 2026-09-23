@@ -442,3 +442,57 @@ async fn injects_global_mcp_servers_into_new_and_resumed_sessions() {
     assert_eq!(second.session_id, first.session_id);
     assert_eq!(echo(&second)["mcpServers"], wire);
 }
+
+#[tokio::test]
+async fn forwards_the_agents_available_commands() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:commands"));
+    let commands = loop {
+        match r.next().await {
+            DaemonToServer::CommandsUpdate { group_id, bot_id, commands } => {
+                assert_eq!((group_id.as_str(), bot_id.as_str()), ("g1", "b1"));
+                break commands;
+            }
+            DaemonToServer::RunEvent { .. } => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    };
+    let names: Vec<_> = commands.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, ["compact", "new"]);
+    assert_eq!(commands[0].description, "Compact the conversation");
+    assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Completed);
+}
+
+#[tokio::test]
+async fn lists_files_of_the_bot_workspace() {
+    let mut r = rig(Duration::from_secs(60));
+    let _remote = repo_workspace(&r);
+    std::fs::write(r.workspace().join("notes.md"), "x").unwrap();
+    let list = |request_id: &str, cd_path: Option<String>| {
+        ServerToDaemon::FilesList(FilesList {
+            request_id: request_id.into(),
+            group_id: "g1".into(),
+            bot_id: "b1".into(),
+            workspace: WorkspaceSpec { repo: None, cd_path },
+            query: "".into(),
+            limit: 10,
+        })
+    };
+    r.send(list("f1", None));
+    match r.next().await {
+        DaemonToServer::FilesResult { request_id, entries, error } => {
+            assert_eq!((request_id.as_str(), error), ("f1", None));
+            let got: Vec<_> = entries.iter().map(|e| (e.path.as_str(), e.uncommitted)).collect();
+            assert_eq!(got, [("README.md", false), ("notes.md", true)]);
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+    r.send(list("f2", Some("/definitely/not/here".into())));
+    match r.next().await {
+        DaemonToServer::FilesResult { request_id, entries, error } => {
+            assert_eq!(request_id, "f2");
+            assert!(entries.is_empty() && error.is_some());
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+}

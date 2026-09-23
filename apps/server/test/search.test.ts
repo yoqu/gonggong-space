@@ -1,7 +1,8 @@
 import type { SearchResultDto } from '@aiws/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { messages, runEvents, runs } from '../src/db/schema.js'
+import { groupRepos, messages, runEvents, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
+import { bareRepo } from './support/git.js'
 import { client } from './support/http.js'
 
 let t: TestApp
@@ -108,6 +109,21 @@ describe('⌘K search', () => {
     })
     expect(hits[0]!.runId).not.toBe(a.id)
     expect((await w.search('api.md', 'file')).map((h) => h.title)).toEqual(['docs/api.md'])
+  })
+
+  it('also finds base-branch files from the mirror of my groups, after workspace changes', async () => {
+    const w = await world()
+    const remote = bareRepo()
+    remote.commit('server/refund/v1/handler.go', 'package v1\n')
+    remote.commit('server/refund/v2/handler.go', 'package v2\n')
+    for (const groupId of [w.mine.id, w.theirs.id])
+      await t.db.insert(groupRepos).values({ groupId, url: remote.url, baseBranch: 'main' })
+    const run = await w.run(w.mine.id, { patch: PATCH })
+    const hits = await w.search('handler', 'file')
+    expect(hits.map((h) => [h.title, h.sub, h.runId])).toEqual([
+      ['server/refund/v2/handler.go', '小王的 Claude 工作区 · 支付服务重构', run.id],
+      ['server/refund/v1/handler.go', 'main 镜像 · 支付服务重构', null],
+    ])
   })
 
   it('finds runs by bot, step, reply or process; expired processes only by their card summary', async () => {

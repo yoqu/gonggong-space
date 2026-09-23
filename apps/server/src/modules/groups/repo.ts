@@ -15,10 +15,17 @@ export function repoProblem(url: string, branch: string) {
 }
 
 /**
- * Read-only reachability check with the server process's own git credentials — the read-only deploy credential of
- * spec §3.5 (e.g. `GIT_SSH_COMMAND="ssh -i /etc/aiws/deploy_key -o IdentitiesOnly=yes"` or a credential helper).
- * Prompts are disabled so a missing credential fails fast instead of hanging.
+ * Env for the server process's own git credentials — the read-only deploy credential of spec §3.5 (e.g.
+ * `GIT_SSH_COMMAND="ssh -i /etc/aiws/deploy_key -o IdentitiesOnly=yes"` or a credential helper). Prompts are disabled
+ * so a missing credential fails fast instead of hanging.
  */
+export const gitEnv = () => ({
+  ...process.env,
+  GIT_TERMINAL_PROMPT: '0',
+  GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
+})
+
+/** Read-only reachability check with the deploy credential. */
 export async function checkRepo(url: string, branch: string): Promise<ValidateRepoRes> {
   const problem = repoProblem(url, branch)
   if (problem) return { ok: false, message: problem }
@@ -27,11 +34,7 @@ export async function checkRepo(url: string, branch: string): Promise<ValidateRe
   try {
     ;({ stdout } = await run('git', ['ls-remote', '--heads', url, ref], {
       timeout: TIMEOUT_MS,
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: '0',
-        GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
-      },
+      env: gitEnv(),
     }))
   } catch {
     return { ok: false, message: '无法访问该仓库，检查地址与权限' }
