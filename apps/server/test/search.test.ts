@@ -1,6 +1,8 @@
 import type { SearchResultDto } from '@aiws/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupRepos, messages, runEvents, runs } from '../src/db/schema.js'
+import { seal } from '../src/lib/seal.js'
+import { sealEvent } from '../src/modules/runs/sealed.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { bareRepo } from './support/git.js'
 import { client } from './support/http.js'
@@ -111,6 +113,14 @@ describe('⌘K search', () => {
     expect((await w.search('api.md', 'file')).map((h) => h.title)).toEqual(['docs/api.md'])
   })
 
+  it('reads file paths from sealed patches', async () => {
+    const w = await world()
+    const r = await w.run(w.mine.id, { patch: seal(PATCH) })
+    expect((await w.search('handler', 'file')).map((h) => [h.title, h.runId])).toEqual([
+      ['server/refund/v2/handler.go', r.id],
+    ])
+  })
+
   it('also finds base-branch files from the mirror of my groups, after workspace changes', async () => {
     const w = await world()
     const remote = bareRepo()
@@ -139,6 +149,12 @@ describe('⌘K search', () => {
     await w.say(w.mine.id, '埋点已改完', { botId: w.bot.id, runId: expired.id })
     await w.run(w.theirs.id, { step: '正在编译' })
 
+    const sealed = await w.run(w.mine.id, { step: '' })
+    await t.db.insert(runEvents).values({
+      runId: sealed.id,
+      kind: 'text',
+      payload: sealEvent({ kind: 'text', delta: '私密输出 go build' }),
+    })
     expect((await w.search('go build', 'run')).map((h) => h.runId)).toEqual([live.id])
     expect((await w.search('编译', 'run'))[0]).toEqual({
       kind: 'run',
@@ -151,6 +167,8 @@ describe('⌘K search', () => {
     const exp = await w.search('埋点', 'run')
     expect(exp.map((h) => h.runId)).toEqual([expired.id])
     expect(exp[0]!.sub).toBe('支付服务重构 · 首页埋点改造 · 运行过程已过期，仅保留卡片摘要')
-    expect((await w.search('小王', 'run')).map((h) => h.runId)).toEqual([expired.id, live.id])
+    expect((await w.search('小王', 'run')).map((h) => h.runId)).toEqual([sealed.id, expired.id, live.id])
+    // Ciphertext never matches: sealed output is not searchable.
+    expect(await w.search('v1:', 'run')).toEqual([])
   })
 })

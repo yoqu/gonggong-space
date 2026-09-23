@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, groups, messages, notifications, runs } from '../src/db/schema.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
+import { MASK } from '../src/modules/runs/redact.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -195,6 +196,30 @@ describe('approvals', () => {
     await w.d.next()
     expect((await w.run(runId)).status).toBe('awaiting_approval')
     expect((await w.audit()).map((a) => a.action)).toEqual(['rejected'])
+  })
+
+  it('masks secrets in the requested command before storing or notifying', async () => {
+    const w = await world()
+    const { runId } = await w.request()
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-2',
+      title: 'curl -H "Authorization: Bearer abcDEF0123456789xyz"',
+      toolKind: 'execute',
+      detail: 'GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789 gh pr list',
+      options: OPTIONS,
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    expect(run.approvals[1]).toMatchObject({
+      title: `curl -H "Authorization: Bearer ${MASK}"`,
+      detail: `GITHUB_TOKEN=${MASK} gh pr list`,
+    })
+    await vi.waitFor(async () => {
+      const rows = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+      expect(rows).toHaveLength(2)
+      expect(JSON.stringify(rows)).not.toContain('ghp_')
+    })
   })
 
   it('auto-rejects on timeout (group param overrides the default) and the run continues', async () => {

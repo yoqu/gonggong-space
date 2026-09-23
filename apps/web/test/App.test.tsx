@@ -28,6 +28,9 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   unread: 0,
   lastSeq: 0,
   last: '',
+  pinned: false,
+  muted: false,
+  foldRuns: false,
 })
 
 class NoopSocket {

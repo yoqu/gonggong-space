@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::protocol::{
     AgentInfo, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon,
 };
+use crate::tls::Ws;
 use crate::upgrade::{self, Upgrader};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::VecDeque;
@@ -85,8 +86,6 @@ pub struct Service<H: Handler> {
     pub upgrader: Option<Upgrader>,
 }
 
-type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-
 impl<H: Handler> Service<H> {
     /// Runs until the server rejects us for good (protocol / revoked / unauthorized).
     pub async fn run(self) -> Fatal {
@@ -119,7 +118,7 @@ impl<H: Handler> Service<H> {
         rx: &mut mpsc::UnboundedReceiver<DaemonToServer>,
         backlog: &mut Backlog,
     ) -> anyhow::Result<Option<Fatal>> {
-        let (mut ws, _) = tokio_tungstenite::connect_async(self.config.ws_url()).await?;
+        let mut ws = crate::tls::connect_ws(&self.config).await?;
         while let Ok(msg) = rx.try_recv() {
             backlog.push(msg);
         }

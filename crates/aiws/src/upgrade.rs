@@ -1,5 +1,6 @@
 //! Self-upgrade (plan D17): the server offers a newer build for this OS/arch; the daemon downloads it, verifies its
 //! sha256, swaps its own executable and re-execs itself once no run is active.
+use crate::config::Config;
 use crate::protocol::UpgradeInfo;
 use anyhow::Context;
 use sha2::{Digest, Sha256};
@@ -31,15 +32,21 @@ pub enum StageError {
 }
 
 /// Downloads `info` into `<home>/updates/` and verifies it; the file only appears there once verified.
-/// Server-relative URLs (`/downloads/...`) resolve against `server`.
-pub async fn stage(home: &Path, server: &str, info: &UpgradeInfo) -> Result<PathBuf, StageError> {
-    let url = if info.url.starts_with('/') {
-        format!("{}{}", server.trim_end_matches('/'), info.url)
+/// Server-relative URLs (`/downloads/...`) resolve against `server` and go through its (pinned) client `http`;
+/// builds hosted elsewhere use the system trust store. Either way the sha256 decides.
+pub async fn stage(
+    home: &Path,
+    server: &str,
+    http: &reqwest::Client,
+    info: &UpgradeInfo,
+) -> Result<PathBuf, StageError> {
+    let (url, http) = if info.url.starts_with('/') {
+        (format!("{}{}", server.trim_end_matches('/'), info.url), http.clone())
     } else {
-        info.url.clone()
+        (info.url.clone(), reqwest::Client::new())
     };
     let bytes = async {
-        let res = reqwest::get(&url).await?.error_for_status()?;
+        let res = http.get(&url).send().await?.error_for_status()?;
         anyhow::Ok(res.bytes().await?)
     }
     .await
@@ -112,23 +119,25 @@ struct State {
 pub struct Upgrader {
     home: PathBuf,
     server: String,
+    http: reqwest::Client,
     exe: PathBuf,
     args: Vec<OsString>,
     state: Arc<Mutex<State>>,
 }
 
 impl Upgrader {
-    pub fn new(home: PathBuf, server: String, exe: PathBuf, args: Vec<OsString>) -> Self {
-        Upgrader { home, server, exe, args, state: Arc::default() }
+    pub fn new(home: PathBuf, server: String, http: reqwest::Client, exe: PathBuf, args: Vec<OsString>) -> Self {
+        Upgrader { home, server, http, exe, args, state: Arc::default() }
     }
 
-    /// For the running daemon; `None` when `AIWS_NO_AUTO_UPGRADE=1`.
-    pub fn from_env(home: PathBuf, server: String) -> Option<Self> {
+    /// For the running daemon of `config`; `None` when `AIWS_NO_AUTO_UPGRADE=1`.
+    pub fn from_env(home: PathBuf, config: &Config) -> anyhow::Result<Option<Self>> {
         if std::env::var("AIWS_NO_AUTO_UPGRADE").is_ok_and(|v| v == "1") {
-            return None;
+            return Ok(None);
         }
-        let exe = std::env::current_exe().ok()?;
-        Some(Upgrader::new(home, server, exe, std::env::args_os().skip(1).collect()))
+        let exe = std::env::current_exe()?;
+        let http = crate::tls::client(config)?;
+        Ok(Some(Upgrader::new(home, config.server.clone(), http, exe, std::env::args_os().skip(1).collect())))
     }
 
     /// Starts downloading `info` in the background unless it is not newer than this build, already staged, in
@@ -145,9 +154,10 @@ impl Upgrader {
             }
             s.busy = Some(info.version.clone());
         }
-        let (home, server, state) = (self.home.clone(), self.server.clone(), self.state.clone());
+        let (home, server, http, state) =
+            (self.home.clone(), self.server.clone(), self.http.clone(), self.state.clone());
         tokio::spawn(async move {
-            let res = stage(&home, &server, &info).await;
+            let res = stage(&home, &server, &http, &info).await;
             let mut s = state.lock().unwrap();
             s.busy = None;
             match res {
@@ -189,7 +199,7 @@ impl Upgrader {
         if !is_newer(&info.version, CURRENT) {
             return;
         }
-        match stage(&self.home, &self.server, &info).await {
+        match stage(&self.home, &self.server, &self.http, &info).await {
             Ok(path) => {
                 self.state.lock().unwrap().staged = Some((info.version, path));
                 self.apply_staged();

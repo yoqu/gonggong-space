@@ -10,6 +10,7 @@ pub mod git;
 pub mod protocol;
 pub mod service;
 mod session;
+pub mod tls;
 pub mod turn;
 pub mod upgrade;
 pub mod workspace;

@@ -5,9 +5,11 @@ import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, runEvents, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { runDtoLoader } from './dto.js'
 import { runRetentionDays } from './retention.js'
+import { openEvent } from './sealed.js'
 
 export function runRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -35,14 +37,14 @@ export function runRoutes(ctx: Ctx) {
       const toDto = await runDtoLoader(ctx, [row.run])
       return {
         run: toDto(row.run),
-        patch: row.run.patch,
+        patch: row.run.patch && open(row.run.patch),
         purged: row.run.purgedAt !== null,
         sessionId: gb?.sessionId ?? null,
         retentionDays: await runRetentionDays(ctx),
         events: events.map((e) => ({
           id: e.id,
           at: e.createdAt.toISOString(),
-          event: e.payload as RunEvent,
+          event: openEvent(e.payload as RunEvent),
         })),
       }
     })

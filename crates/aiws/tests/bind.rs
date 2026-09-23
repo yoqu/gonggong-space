@@ -45,7 +45,7 @@ async fn serve_once(status: &'static str, body: &'static str) -> (String, tokio:
 #[tokio::test]
 async fn login_exchanges_the_code_for_a_config() {
     let (url, req) = serve_once("200 OK", r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊"}"#).await;
-    let cfg = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine()).await.unwrap();
+    let cfg = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine(), None).await.unwrap();
     assert_eq!(cfg.server, url);
     assert_eq!(cfg.token, "mt_abc");
     assert_eq!(cfg.machine_id, "m1");
@@ -66,7 +66,7 @@ async fn login_explains_rejections_in_chinese() {
         ("400 Bad Request", r#"{"error":"invalid","message":"x"}"#, "XXXX-XXXX"),
     ] {
         let (url, _) = serve_once(status, body).await;
-        let err = bind::login(&url, "AAAA-AAAA", machine()).await.unwrap_err().to_string();
+        let err = bind::login(&url, "AAAA-AAAA", machine(), None).await.unwrap_err().to_string();
         assert!(err.starts_with("绑定失败："), "{err}");
         assert!(err.contains(expect), "{err}");
     }
@@ -77,7 +77,7 @@ async fn login_reports_unreachable_servers() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
-    let err = format!("{:#}", bind::login(&url, "AAAA-AAAA", machine()).await.unwrap_err());
+    let err = format!("{:#}", bind::login(&url, "AAAA-AAAA", machine(), None).await.unwrap_err());
     assert!(err.contains("无法连接服务器"), "{err}");
 }
 

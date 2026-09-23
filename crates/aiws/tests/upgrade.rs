@@ -45,7 +45,10 @@ fn only_strictly_newer_versions_count() {
 async fn stages_a_verified_build_from_a_server_relative_url() {
     let home = tempfile::tempdir().unwrap();
     let server = serve(b"new-build").await;
-    let path = stage(home.path(), &server, &info("9.0.0", "/downloads/aiws", sha(b"new-build"))).await.unwrap();
+    let path =
+        stage(home.path(), &server, &reqwest::Client::new(), &info("9.0.0", "/downloads/aiws", sha(b"new-build")))
+            .await
+            .unwrap();
     assert!(path.starts_with(home.path().join("updates")));
     assert_eq!(std::fs::read(&path).unwrap(), b"new-build");
 }
@@ -54,13 +57,15 @@ async fn stages_a_verified_build_from_a_server_relative_url() {
 async fn refuses_a_build_whose_sha256_does_not_match() {
     let home = tempfile::tempdir().unwrap();
     let server = serve(b"tampered").await;
-    let err = stage(home.path(), &server, &info("9.0.0", "/downloads/aiws", sha(b"genuine"))).await.unwrap_err();
+    let err = stage(home.path(), &server, &reqwest::Client::new(), &info("9.0.0", "/downloads/aiws", sha(b"genuine")))
+        .await
+        .unwrap_err();
     assert!(matches!(err, StageError::Mismatch { .. }));
     let left = std::fs::read_dir(home.path().join("updates")).map(|d| d.count()).unwrap_or(0);
     assert_eq!(left, 0, "nothing unverified is kept");
 
     // A refused version is never downloaded again by this process.
-    let up = Upgrader::new(home.path().into(), server, "/nonexistent".into(), vec![]);
+    let up = Upgrader::new(home.path().into(), server, reqwest::Client::new(), "/nonexistent".into(), vec![]);
     let bad = info("9.0.0", "/downloads/aiws", sha(b"genuine"));
     assert!(up.offer(bad.clone()));
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -71,7 +76,13 @@ async fn refuses_a_build_whose_sha256_does_not_match() {
 #[tokio::test]
 async fn ignores_offers_that_are_not_newer() {
     let home = tempfile::tempdir().unwrap();
-    let up = Upgrader::new(home.path().into(), "http://127.0.0.1:1".into(), "/nonexistent".into(), vec![]);
+    let up = Upgrader::new(
+        home.path().into(),
+        "http://127.0.0.1:1".into(),
+        reqwest::Client::new(),
+        "/nonexistent".into(),
+        vec![],
+    );
     assert!(!up.offer(info(CURRENT, "/downloads/aiws", sha(b"x"))));
     assert!(!up.offer(info("0.0.1", "/downloads/aiws", sha(b"x"))));
     assert!(up.staged().is_none());
@@ -81,7 +92,7 @@ async fn ignores_offers_that_are_not_newer() {
 async fn an_offer_stages_once() {
     let home = tempfile::tempdir().unwrap();
     let server = serve(b"new-build").await;
-    let up = Upgrader::new(home.path().into(), server, "/nonexistent".into(), vec![]);
+    let up = Upgrader::new(home.path().into(), server, reqwest::Client::new(), "/nonexistent".into(), vec![]);
     let offer = info("9.0.0", "/downloads/aiws", sha(b"new-build"));
     assert!(up.offer(offer.clone()));
     assert!(!up.offer(offer.clone()), "already downloading");
