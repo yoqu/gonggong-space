@@ -14,6 +14,8 @@ import { groupRoutes } from './modules/groups/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
+import { questionRoutes } from './modules/questions/routes.js'
+import { startQuestionTimer } from './modules/questions/service.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
@@ -54,6 +56,9 @@ export async function buildApp(ctx: Ctx) {
   const stopApprovalTimer = startApprovalTimer(ctx)
   app.addHook('onClose', async () => stopApprovalTimer())
   await app.register(approvalRoutes(ctx))
+  const stopQuestionTimer = startQuestionTimer(ctx)
+  app.addHook('onClose', async () => stopQuestionTimer())
+  await app.register(questionRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))

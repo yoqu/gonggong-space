@@ -1,8 +1,10 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
+use crate::ask::{self, Asker};
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
-    ApprovalRequest, DaemonToServer, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
+    Answer, ApprovalRequest, Attachment, DaemonToServer, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus,
+    Tier, Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -11,10 +13,10 @@ use crate::turn::{
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest,
-    Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest,
-    SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest,
-    StopReason, TextContent,
+    McpServer, Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest,
+    PromptResponse, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    ResumeSessionRequest, SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate,
+    SetSessionModeRequest, StopReason, TextContent, Usage as AcpUsage,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -40,6 +42,8 @@ struct Active {
     streaming: bool,
     /// Set when the turn runs in a repo workspace.
     git: Option<GitTurn>,
+    /// The last prompt has ended: no more appends (spec §8.9) are taken.
+    sealed: bool,
 }
 
 struct GitTurn {
@@ -63,6 +67,15 @@ struct State {
     requests: u64,
     /// The last finished turn's snapshot (run id), kept for run.discard until the next turn starts (plan D7).
     last: Option<(String, GitTurn)>,
+    /// Ask-tool calls of the active turn awaiting the group, by request id.
+    questions: HashMap<String, Asked>,
+    /// 打断并追加 prompts waiting for the cancelled prompt to end.
+    appends: Vec<String>,
+}
+
+struct Asked {
+    questions: Vec<Question>,
+    tx: oneshot::Sender<String>,
 }
 
 struct Approval {
@@ -97,10 +110,66 @@ impl Shared {
         }
         s.cancelled.insert(run_id.into());
         if s.active.as_ref().is_some_and(|a| a.run_id == run_id && a.streaming) {
-            send_cancel(&s);
-            // ACP: after session/cancel every pending permission request is answered `cancelled`.
-            s.approvals.clear();
+            interrupt(&mut s);
         }
+    }
+
+    /// 打断并追加 (spec §8.9): cancels the current prompt; the turn then continues with `text` (see `take_append`).
+    pub(crate) fn append(&self, run_id: &str, from: &str, text: &str, attachments: &[Attachment]) -> bool {
+        let mut s = self.0.lock().unwrap();
+        let Some(a) = s.active.as_ref().filter(|a| a.run_id == run_id && !a.sealed) else { return false };
+        if s.cancelled.contains(run_id) {
+            return false;
+        }
+        let event = RunEvent::Status { status: RunStatus::Running, step: format!("{from} 打断并追加") };
+        a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
+        let streaming = a.streaming;
+        let note = ask::attachment_note(attachments);
+        s.appends.push(if note.is_empty() {
+            format!("{from} 追加：{text}")
+        } else {
+            format!("{from} 追加：{text}\n\n{note}")
+        });
+        if streaming {
+            interrupt(&mut s);
+        }
+        true
+    }
+
+    /// Next prompt of the active turn after the current one ended: the queued appends, unless it was stopped.
+    /// Otherwise seals the turn, so it ends with the reply of its last prompt.
+    fn take_append(&self) -> Option<String> {
+        let mut s = self.0.lock().unwrap();
+        let s = &mut *s;
+        let a = s.active.as_mut()?;
+        if s.cancelled.contains(&a.run_id) || s.appends.is_empty() {
+            a.sealed = true;
+            return None;
+        }
+        a.turn.reply.clear();
+        Some(std::mem::take(&mut s.appends).join("\n\n"))
+    }
+
+    /// The group's answer to an ask-tool call of `run_id`; `answers: None` = nobody answered in time.
+    pub(crate) fn answer(
+        &self,
+        run_id: &str,
+        request_id: &str,
+        answers: Option<&[Answer]>,
+        attachments: &[Attachment],
+        answered_by: Option<&str>,
+    ) -> bool {
+        let mut s = self.0.lock().unwrap();
+        let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
+        let Some(q) = s.questions.remove(request_id) else { return false };
+        let step = match answers {
+            Some(_) => format!("{} 已回答", answered_by.unwrap_or("群成员")),
+            None => "无人回答，agent 按推荐项继续".into(),
+        };
+        let event = RunEvent::Status { status: RunStatus::Running, step };
+        out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
+        let _ = q.tx.send(ask::format_answers(&q.questions, answers, attachments, answered_by));
+        true
     }
 
     /// Applies the owner's decision to a pending request of `run_id`; false if there is none (e.g. already void).
@@ -136,6 +205,7 @@ impl Shared {
             turn: Turn::default(),
             streaming: false,
             git: None,
+            sealed: false,
         });
         true
     }
@@ -219,7 +289,9 @@ impl Shared {
         s.requests += 1;
         let n = s.requests;
         let Some(a) = s.active.as_mut() else { return Permission::Now(permission_response(None)) };
-        if a.tier == Tier::Full {
+        // The built-in ask tool only reaches group members: never an owner decision (spec §8.8).
+        let ask_tool = req.tool_call.fields.title.as_deref().is_some_and(|t| t.contains(ask::TOOL));
+        if a.tier == Tier::Full || ask_tool {
             return Permission::Now(permission_response(auto_allow(&req.options)));
         }
         let Some(RunEvent::Tool { title, tool_kind, detail, .. }) =
@@ -249,6 +321,8 @@ impl Shared {
         let mut s = self.0.lock().unwrap();
         s.conn = None;
         s.approvals.clear();
+        s.questions.clear();
+        s.appends.clear();
         let Some(a) = s.active.take() else { return };
         s.pending.remove(&a.run_id);
         let cancelled = s.cancelled.remove(&a.run_id);
@@ -290,6 +364,14 @@ impl Shared {
         };
         a.out.send(msg);
     }
+}
+
+/// Cancels the prompt in flight. ACP: every pending permission request is then answered `cancelled`; pending
+/// questions are withdrawn with it.
+fn interrupt(s: &mut State) {
+    send_cancel(s);
+    s.approvals.clear();
+    s.questions.clear();
 }
 
 fn send_cancel(s: &State) {
@@ -335,12 +417,56 @@ fn describe(e: &agent_client_protocol::Error) -> String {
     }
 }
 
+/// Token usage of a turn spanning several prompts (打断并追加).
+fn add_usage(a: Option<AcpUsage>, b: Option<AcpUsage>) -> Option<AcpUsage> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(AcpUsage::new(
+            a.total_tokens + b.total_tokens,
+            a.input_tokens + b.input_tokens,
+            a.output_tokens + b.output_tokens,
+        )),
+        (a, b) => a.or(b),
+    }
+}
+
 fn truncate(s: &str) -> String {
     s.chars().take(ERROR_MAX).collect()
 }
 
+impl Asker for Shared {
+    fn ask(&self, questions: Vec<Question>) -> Result<oneshot::Receiver<String>, String> {
+        let mut s = self.0.lock().unwrap();
+        s.requests += 1;
+        let n = s.requests;
+        let Some(a) = s.active.as_ref().filter(|a| a.streaming && !a.sealed) else {
+            return Err("当前没有进行中的运行，无法提问".into());
+        };
+        let (run_id, out) = (a.run_id.clone(), a.out.clone());
+        let step = format!("等待回答：{} 个问题", questions.len());
+        out.send(DaemonToServer::RunEvent {
+            run_id: run_id.clone(),
+            event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
+        });
+        let request_id = format!("{run_id}/q{n}");
+        out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
+        let (tx, rx) = oneshot::channel();
+        s.questions.insert(request_id, Asked { questions, tx });
+        Ok(rx)
+    }
+}
+
+/// MCP servers of a new or restored session: the global layer (spec §7.1) plus the built-in ask tool (§7.2).
+fn mcp_servers_for(_start: &RunStart, ask: &McpServer) -> Vec<McpServer> {
+    vec![ask.clone()]
+}
+
 /// Session task: spawns an adapter on demand, runs queued turns in order, reaps the adapter when idle.
-pub(crate) async fn run(engine: Arc<Inner>, shared: Arc<Shared>, mut rx: mpsc::UnboundedReceiver<TurnReq>) {
+pub(crate) async fn run(
+    engine: Arc<Inner>,
+    shared: Arc<Shared>,
+    ask: McpServer,
+    mut rx: mpsc::UnboundedReceiver<TurnReq>,
+) {
     // Survives adapter restarts so the next process resumes the same conversation.
     let mut resume: Option<SessionId> = None;
     while let Some(req) = rx.recv().await {
@@ -348,7 +474,7 @@ pub(crate) async fn run(engine: Arc<Inner>, shared: Arc<Shared>, mut rx: mpsc::U
             continue;
         }
         let result = match engine.adapter(&req.start.bot).await {
-            Ok(config) => connect(&engine, &shared, AcpAgent::new(config), req, &mut rx, &mut resume).await,
+            Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), req, &mut rx, &mut resume).await,
             Err(e) => Err(format!("{e:#}")),
         };
         // A turn still active here was cut short by the adapter exiting or failing to start.
@@ -364,6 +490,7 @@ pub(crate) async fn run(engine: Arc<Inner>, shared: Arc<Shared>, mut rx: mpsc::U
 async fn connect(
     engine: &Inner,
     shared: &Arc<Shared>,
+    ask: &McpServer,
     agent: AcpAgent,
     first: TurnReq,
     rx: &mut mpsc::UnboundedReceiver<TurnReq>,
@@ -407,7 +534,7 @@ async fn connect(
                 image = caps.prompt_capabilities.image,
                 "adapter initialized"
             );
-            let mut conv = Conversation { cx: &cx, init: &init, shared, session: None, mode: None };
+            let mut conv = Conversation { cx: &cx, init: &init, shared, ask, session: None, mode: None };
             let mut req = first;
             loop {
                 conv.turn(req, resume).await?;
@@ -429,6 +556,7 @@ struct Conversation<'a> {
     cx: &'a ConnectionTo<Agent>,
     init: &'a InitializeResponse,
     shared: &'a Shared,
+    ask: &'a McpServer,
     session: Option<SessionId>,
     mode: Option<String>,
 }
@@ -468,9 +596,22 @@ impl Conversation<'_> {
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = compose_prompt(&s.prompt, history, git_note.as_deref());
-        let prompt = PromptRequest::new(session.clone(), vec![ContentBlock::Text(TextContent::new(text))]);
-        match self.cx.send_request(prompt).block_task().await {
+        let mut text = compose_prompt(&s.prompt, history, git_note.as_deref());
+        let mut spent: Option<AcpUsage> = None;
+        // 打断并追加 cancels a prompt and continues the same turn with the appended text (spec §8.9).
+        let result = loop {
+            let prompt = PromptRequest::new(session.clone(), vec![ContentBlock::Text(TextContent::new(text))]);
+            let result = self.cx.send_request(prompt).block_task().await.map(|mut resp| {
+                spent = add_usage(spent.take(), resp.usage.take());
+                resp.usage = spent.clone();
+                resp
+            });
+            match self.shared.take_append() {
+                Some(next) if result.is_ok() => text = next,
+                _ => break result,
+            }
+        };
+        match result {
             // The adapter died: leave the turn active so the caller reports the exit status and stderr instead.
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
@@ -500,7 +641,9 @@ impl Conversation<'_> {
                 Err(e) => tracing::info!("resuming session {} failed: {e}", id.0),
             }
         }
-        let res = self.cx.send_request(NewSessionRequest::new(&req.cwd).meta(meta)).block_task().await?;
+        let servers = mcp_servers_for(&req.start, self.ask);
+        let new = NewSessionRequest::new(&req.cwd).mcp_servers(servers).meta(meta);
+        let res = self.cx.send_request(new).block_task().await?;
         self.set_modes(res.modes);
         let reason =
             if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
@@ -514,11 +657,12 @@ impl Conversation<'_> {
         meta: Option<Meta>,
     ) -> Result<Option<SessionModeState>, agent_client_protocol::Error> {
         let caps = &self.init.agent_capabilities;
+        let servers = mcp_servers_for(&req.start, self.ask);
         if caps.session_capabilities.resume.is_some() {
-            let req = ResumeSessionRequest::new(id.clone(), &req.cwd).meta(meta);
+            let req = ResumeSessionRequest::new(id.clone(), &req.cwd).mcp_servers(servers).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else if caps.load_session {
-            let req = LoadSessionRequest::new(id.clone(), &req.cwd).meta(meta);
+            let req = LoadSessionRequest::new(id.clone(), &req.cwd).mcp_servers(servers).meta(meta);
             Ok(self.cx.send_request(req).block_task().await?.modes)
         } else {
             Err(agent_client_protocol::Error::method_not_found())

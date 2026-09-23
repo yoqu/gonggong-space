@@ -9,6 +9,7 @@ import { commands, parseCommand, runCommand } from '../commands/index.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { appendTarget, sendAppend } from './append.js'
 import { parseMentions } from './mentions.js'
 import { type MessageRow, messageDto, publishMessage } from './service.js'
 
@@ -40,8 +41,9 @@ export function messageRoutes(ctx: Ctx) {
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const { body, clientId } = SendMessageReq.parse(req.body)
+      const { body, clientId, appendTo } = SendMessageReq.parse(req.body)
       if (!body.trim()) return fail('invalid', '消息不能为空')
+      const target = appendTo ? await appendTarget(ctx, group.id, me.id, appendTo) : null
       const inGroup = await activeBots(ctx, group.id)
       const mentions = parseMentions(body, inGroup)
       const parsed = parseCommand(body, inGroup)
@@ -68,7 +70,12 @@ export function messageRoutes(ctx: Ctx) {
             kind: 'user',
             authorUserId: me.id,
             body,
-            meta: { mentions, clientId, ...(command && { command: command.name }) },
+            meta: {
+              mentions,
+              clientId,
+              ...(command && !target && { command: command.name }),
+              ...(target && { appendTo: target.runId }),
+            },
           })
           .returning()) as [MessageRow]
         return { row: inserted, created: true }
@@ -77,7 +84,8 @@ export function messageRoutes(ctx: Ctx) {
       const dto = messageDto(row, me.name)
       if (created) {
         await publishMessage(ctx, dto)
-        if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
+        if (target) await sendAppend(ctx, target, dto)
+        else if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
         else if (mentions.length) await triggerRuns(ctx, row)
       }
       return dto

@@ -1,11 +1,14 @@
 import type { RunDto, RunStatus } from '@aiws/protocol'
-import { OctagonX, Square } from 'lucide-react'
+import { CornerDownRight, OctagonX, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toast } from '../../ui'
+import { useAppend } from './append'
 
 const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'awaiting_answer']
+const APPENDABLE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 
 /** Group member name, for cards that only carry user ids. */
 export const useMemberName = (groupId: string, userId: string | null) =>
@@ -15,7 +18,25 @@ export const useMemberName = (groupId: string, userId: string | null) =>
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-/** Card actions of plan D7: /stop for a run, 终止整条链 for relay hops. */
+/** Spec §8.9: the trigger user (chain initiator) or the bot owner may send the next message into a live run. */
+function AppendAction({ run }: { run: RunDto }) {
+  const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
+  const me = useSession((s) => s.user?.id)
+  const start = useAppend((s) => s.start)
+  if (!APPENDABLE.includes(run.status) || !bot || (me !== run.originUserId && me !== bot.ownerId)) return null
+  return (
+    <button
+      type="button"
+      className="run-card__action"
+      onClick={() => start({ runId: run.id, groupId: run.groupId, botName: bot.name })}
+    >
+      <CornerDownRight size={12} />
+      打断并追加
+    </button>
+  )
+}
+
+/** Card actions: 打断并追加 (spec §8.9), then /stop for a run or 终止整条链 for relay hops (plan D7). */
 export function RunActions({ run }: { run: RunDto }) {
   const [busy, setBusy] = useState(false)
   if (!STOPPABLE.includes(run.status)) return null
@@ -30,7 +51,7 @@ export function RunActions({ run }: { run: RunDto }) {
       setBusy(false)
     }
   }
-  return chain ? (
+  const stopAction = chain ? (
     <button
       type="button"
       className="run-card__action run-card__action--danger"
@@ -45,6 +66,12 @@ export function RunActions({ run }: { run: RunDto }) {
       <Square size={11} />
       /stop
     </button>
+  )
+  return (
+    <>
+      <AppendAction run={run} />
+      {stopAction}
+    </>
   )
 }
 

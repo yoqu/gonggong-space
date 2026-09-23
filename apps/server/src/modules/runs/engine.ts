@@ -6,6 +6,7 @@ import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
 import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { memberIds, postMessage } from '../messages/service.js'
+import { onQuestionAsk, voidQuestions } from '../questions/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { redact, redactDeep } from './redact.js'
@@ -30,6 +31,7 @@ export function startRunEngine(ctx: Ctx) {
     if (msg.t === 'run.event') enqueue(() => onEvent(ctx, machineId, msg.runId, msg.event))
     else if (msg.t === 'run.done') enqueue(() => onDone(ctx, machineId, msg))
     else if (msg.t === 'approval.request') enqueue(() => onApprovalRequest(ctx, machineId, msg))
+    else if (msg.t === 'question.ask') enqueue(() => onQuestionAsk(ctx, machineId, msg))
   }
   const onOnline = (machineId: string) =>
     enqueue(async () => {
@@ -120,6 +122,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
     .returning()
   if (!run) return
   await voidApprovals(ctx, run.id, 'ended')
+  await voidQuestions(ctx, run.id)
   if (done.sessionId)
     await ctx.db
       .update(groupBots)

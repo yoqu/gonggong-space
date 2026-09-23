@@ -7,14 +7,21 @@ import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toast } from '../../ui'
+import { AppendBanner } from '../runs/AppendBanner'
+import { useAppend } from '../runs/append'
 
 const RETRIES = 2
 
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
-async function postMessage(groupId: string, body: string, clientId: string): Promise<MessageDto> {
+async function postMessage(
+  groupId: string,
+  body: string,
+  clientId: string,
+  appendTo: string | null,
+): Promise<MessageDto> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await api.post<MessageDto>(`/groups/${groupId}/messages`, { body, clientId })
+      return await api.post<MessageDto>(`/groups/${groupId}/messages`, { body, clientId, appendTo })
     } catch (e) {
       const transient = !(e instanceof ApiError) || e.status >= 500
       if (!transient || attempt >= RETRIES) throw e
@@ -135,7 +142,10 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
     sending.current = true
     setBusy(true)
     try {
-      onSent(await postMessage(group.id, body, crypto.randomUUID()))
+      const target = useAppend.getState().target
+      const appendTo = target?.groupId === group.id ? target.runId : null
+      onSent(await postMessage(group.id, body, crypto.randomUUID(), appendTo))
+      if (appendTo) useAppend.getState().clear()
       setDraft((d) => (d === body ? '' : d))
     } catch (e) {
       toast({ type: 'error', message: e instanceof ApiError ? e.message : '发送失败，请检查网络后重试' })
@@ -157,6 +167,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
       busy={busy}
       inputRef={input}
       onKeyDown={onKeyDown}
+      above={<AppendBanner groupId={group.id} />}
       hint={mobile ? null : '附件 ≤ 50 MB · 每条 ≤ 10 个 · 不 @ 不触发，会作为上下文补送'}
       popover={
         sections.length ? (

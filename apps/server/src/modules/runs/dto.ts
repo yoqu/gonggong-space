@@ -1,24 +1,31 @@
 import {
   type ApprovalDto,
   DEFAULT_OFFLINE_WAIT_MIN,
+  type QuestionSetDto,
   type RunDto,
   type RunStatus,
   type Usage,
 } from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { approvals, groups, runs, users } from '../../db/schema.js'
+import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
 import { memberIds } from '../messages/service.js'
+import { questionSetDto } from '../questions/dto.js'
 
 export type RunRow = typeof runs.$inferSelect
 type ApprovalRow = typeof approvals.$inferSelect
 
 export const DEFAULT_CHAIN_MAX_HOPS = 3
 
-/** Pure mapping; `runDtoLoader` loads `approvals` and `hopMax` (defaults: none / 3). */
+/** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / 3). */
 export const runDto = (
   r: RunRow,
-  extra: { approvals?: ApprovalDto[]; hopMax?: number; offlineWaitMin?: number } = {},
+  extra: {
+    approvals?: ApprovalDto[]
+    questions?: QuestionSetDto[]
+    hopMax?: number
+    offlineWaitMin?: number
+  } = {},
 ): RunDto => ({
   id: r.id,
   groupId: r.groupId,
@@ -39,8 +46,7 @@ export const runDto = (
   offlineWaitMin: extra.offlineWaitMin ?? DEFAULT_OFFLINE_WAIT_MIN,
   originUserId: r.originUserId,
   approvals: extra.approvals ?? [],
-  // Filled by the M4 question slice.
-  questions: [],
+  questions: extra.questions ?? [],
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
   stoppedBy: r.stoppedBy,
 })
@@ -87,6 +93,21 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
       ),
     )
     .orderBy(asc(approvals.createdAt))
+  const qs = await ctx.db
+    .select({ q: questionSets, name: users.name })
+    .from(questionSets)
+    .leftJoin(users, eq(users.id, questionSets.answeredBy))
+    .where(
+      inArray(
+        questionSets.runId,
+        rows.map((r) => r.id),
+      ),
+    )
+    .orderBy(asc(questionSets.createdAt))
+  const fileIds = qs.flatMap((x) => x.q.attachmentIds)
+  const files = fileIds.length
+    ? await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))
+    : []
   const params = new Map(
     (
       await ctx.db
@@ -98,6 +119,7 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
   return (r) =>
     runDto(r, {
       approvals: aps.filter((x) => x.a.runId === r.id).map((x) => approvalDto(x.a, x.name)),
+      questions: qs.filter((x) => x.q.runId === r.id).map((x) => questionSetDto(x.q, x.name, files)),
       hopMax: hopMaxOf(params.get(r.groupId) ?? {}),
       offlineWaitMin: offlineWaitOf(params.get(r.groupId) ?? {}),
     })

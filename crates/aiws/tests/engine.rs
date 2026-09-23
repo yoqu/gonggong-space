@@ -406,3 +406,118 @@ async fn discard_restores_the_interrupted_turn_until_the_next_turn_starts() {
     assert!(matches!(r.next().await, DaemonToServer::RunDiscarded { ok: false, .. }));
     assert!(ws.join("z.txt").exists());
 }
+
+const ASK: &str =
+    r#"mock:ask {"questions":[{"type":"single","title":"用哪种语言？","options":["Python","Go"],"recommended":0}]}"#;
+
+/// Events of the turn up to its question card.
+async fn until_question(r: &mut Rig) -> (Vec<RunEvent>, String, Vec<Question>) {
+    let mut events = vec![];
+    loop {
+        match r.next().await {
+            DaemonToServer::RunEvent { event, .. } => events.push(event),
+            DaemonToServer::QuestionAsk { request_id, questions, .. } => return (events, request_id, questions),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+}
+
+fn answer(r: &Rig, run_id: &str, request_id: &str, answers: Option<Vec<Answer>>) {
+    r.send(ServerToDaemon::QuestionAnswer {
+        run_id: run_id.into(),
+        request_id: request_id.into(),
+        answers,
+        attachments: vec![],
+        answered_by: Some("王磊".into()),
+    });
+}
+
+#[tokio::test]
+async fn the_injected_ask_tool_waits_for_the_answer_without_an_approval() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", ASK));
+    let (events, request_id, questions) = until_question(&mut r).await;
+    assert_eq!(
+        events.last(),
+        Some(&RunEvent::Status { status: RunStatus::AwaitingAnswer, step: "等待回答：1 个问题".into() })
+    );
+    assert_eq!(
+        questions,
+        vec![Question {
+            id: "q1".into(),
+            kind: QuestionType::Single,
+            title: "用哪种语言？".into(),
+            options: vec!["Python".into(), "Go".into()],
+            recommended: Some(0),
+        }]
+    );
+    // Answers for other runs or requests are ignored.
+    answer(&r, "r9", &request_id, Some(vec![]));
+    answer(&r, "r1", "nope", Some(vec![]));
+    answer(&r, "r1", &request_id, Some(vec![Answer { question_id: "q1".into(), choices: vec![1], text: None }]));
+    let (events, done) = r.finish("r1").await;
+    assert_eq!(events.first(), Some(&RunEvent::Status { status: RunStatus::Running, step: "王磊 已回答".into() }));
+    assert_eq!(
+        (done.outcome, done.reply.as_str()),
+        (RunOutcome::Completed, "王磊 的回答：\n1. 用哪种语言？（单选）→ Go")
+    );
+
+    // Nobody answered in time: the agent is told to go on with its best judgement.
+    r.run(follow_up("r2", ASK, &done));
+    let (_, request_id, _) = until_question(&mut r).await;
+    answer(&r, "r2", &request_id, None);
+    let (events, done) = r.finish("r2").await;
+    assert_eq!(
+        events.first(),
+        Some(&RunEvent::Status { status: RunStatus::Running, step: "无人回答，agent 按推荐项继续".into() })
+    );
+    assert_eq!(done.reply, aiws::ask::NO_ANSWER);
+}
+
+fn append(r: &Rig, run_id: &str, text: &str) {
+    r.send(ServerToDaemon::RunAppend {
+        run_id: run_id.into(),
+        text: text.into(),
+        from: "王磊".into(),
+        attachments: vec![],
+    });
+}
+
+#[tokio::test]
+async fn append_cancels_the_prompt_and_continues_the_same_run_in_the_same_session() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:slow"));
+    assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
+    append(&r, "r9", "mock:echo");
+    append(&r, "r1", "mock:echo");
+    let (events, done) = r.finish("r1").await;
+    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "王磊 打断并追加".into() }));
+    assert_eq!(done.outcome, RunOutcome::Completed);
+    // The final reply is what the agent said after the append.
+    assert_eq!(echo(&done)["prompt"], "王磊 追加：mock:echo");
+
+    // A pending question is withdrawn by an append; the run still ends once, completed.
+    r.run(follow_up("r2", ASK, &done));
+    let (_, request_id, _) = until_question(&mut r).await;
+    append(&r, "r2", "mock:echo");
+    let (_, next) = r.finish("r2").await;
+    assert_eq!(next.outcome, RunOutcome::Completed);
+    assert_eq!(next.session_id, done.session_id);
+    assert_eq!(echo(&next)["prompt"], "王磊 追加：mock:echo");
+    // A late answer to the withdrawn question and a late append are ignored.
+    answer(&r, "r2", &request_id, None);
+    append(&r, "r2", "mock:echo");
+    r.run(follow_up("r3", "mock:echo", &next));
+    assert_eq!(r.finish("r3").await.1.outcome, RunOutcome::Completed);
+}
+
+#[tokio::test]
+async fn stop_wins_over_a_pending_append() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:slow"));
+    assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
+    append(&r, "r1", "mock:echo");
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.outcome, RunOutcome::Interrupted);
+}

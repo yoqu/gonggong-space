@@ -14,6 +14,7 @@ import { fail } from '../../lib/errors.js'
 import { voidApprovals } from '../approvals/service.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
+import { voidQuestions } from '../questions/service.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 
@@ -93,6 +94,7 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
       row.id,
       ('chain' in target && target.chain) || row.hop > 1 ? 'chain_stopped' : 'stopped',
     )
+    await voidQuestions(ctx, row.id)
     stopped.push(row)
   }
   for (const botId of new Set(stopped.filter((r) => r.status === 'interrupted').map((r) => r.botId))) {

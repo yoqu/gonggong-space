@@ -29,7 +29,7 @@ const scoped = (ctx: Ctx) =>
     .innerJoin(runs, eq(runs.id, approvals.runId))
     .innerJoin(bots, eq(bots.id, runs.botId))
 
-function timeoutMin(group: typeof groups.$inferSelect) {
+export function timeoutMin(group: typeof groups.$inferSelect) {
   const custom = (group.params as { approvalTimeoutMin?: unknown }).approvalTimeoutMin
   if (typeof custom === 'number' && custom > 0) return custom
   return group.mode === 'force' ? TIMEOUT_MIN.force : TIMEOUT_MIN.partition

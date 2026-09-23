@@ -1,0 +1,125 @@
+/* 向群成员提问 block inside a run card (prototype it.q) */
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--color-separator);
+  background: rgba(10, 132, 255, 0.05);
+}
+.question__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #409cff;
+}
+.question__who {
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+.question__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.question__q {
+  font-size: 12px;
+}
+.question__type {
+  color: var(--color-text-tertiary);
+}
+.question__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.question__opt {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.question__opt--on {
+  border-color: #0a84ff;
+  background: #0a84ff;
+  color: #fff;
+}
+.question__opt:disabled {
+  cursor: default;
+}
+.question__opt:disabled:not(.question__opt--on) {
+  opacity: 0.6;
+}
+.question__rec {
+  font-size: 10px;
+  color: #409cff;
+}
+.question__opt--on .question__rec {
+  color: #fff;
+}
+.question__free {
+  font-size: 12px;
+}
+.question__actions,
+.question__files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.question__file {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-separator);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.question__file button {
+  display: flex;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+.question__timeout {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.question__done {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* 打断并追加 strip above the composer input */
+.append-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-separator);
+  font-size: 11px;
+  color: #409cff;
+}
+.append-banner__close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+}

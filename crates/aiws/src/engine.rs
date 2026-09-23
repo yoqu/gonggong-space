@@ -1,5 +1,6 @@
 //! Executes server-dispatched runs: one adapter process per (group, bot) session (plan D20).
 use crate::agents;
+use crate::ask::{AskServer, Asker};
 use crate::protocol::{AgentKind, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -10,7 +11,7 @@ use anyhow::{Context, bail};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -36,6 +37,8 @@ pub(crate) struct Inner {
     workspaces: Workspaces,
     actors: Mutex<HashMap<(String, String), Actor>>,
     install: tokio::sync::Mutex<()>,
+    /// Started with the first run.
+    ask: tokio::sync::OnceCell<AskServer>,
 }
 
 struct Actor {
@@ -46,7 +49,13 @@ struct Actor {
 impl Engine {
     pub fn new(config: EngineConfig) -> Self {
         let workspaces = Workspaces::new(config.home.clone());
-        Engine(Arc::new(Inner { config, workspaces, actors: Mutex::default(), install: tokio::sync::Mutex::default() }))
+        Engine(Arc::new(Inner {
+            config,
+            workspaces,
+            actors: Mutex::default(),
+            install: tokio::sync::Mutex::default(),
+            ask: tokio::sync::OnceCell::new(),
+        }))
     }
 }
 
@@ -93,8 +102,20 @@ impl Handler for Engine {
                 let actors = self.0.actors.lock().unwrap();
                 actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
             }
-            // Implemented by the M4 candidates / question / append slices.
-            ServerToDaemon::FilesList { .. } | ServerToDaemon::QuestionAnswer { .. } | ServerToDaemon::RunAppend { .. } => {}
+            ServerToDaemon::QuestionAnswer { run_id, request_id, answers, attachments, answered_by } => {
+                let actors = self.0.actors.lock().unwrap();
+                actors.values().any(|a| {
+                    a.shared.answer(&run_id, &request_id, answers.as_deref(), &attachments, answered_by.as_deref())
+                });
+            }
+            ServerToDaemon::RunAppend { run_id, text, from, attachments } => {
+                let actors = self.0.actors.lock().unwrap();
+                if !actors.values().any(|a| a.shared.append(&run_id, &from, &text, &attachments)) {
+                    tracing::warn!("append to {run_id} dropped: the run is no longer running here");
+                }
+            }
+            // Implemented by the M4 candidates slice.
+            ServerToDaemon::FilesList { .. } => {}
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }
     }
@@ -106,11 +127,16 @@ impl Inner {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
+        let ask = match self.ask.get_or_try_init(AskServer::start).await {
+            Ok(ask) => ask,
+            Err(e) => return out.send(failed(&start.run_id, format!("无法启动「向群成员提问」工具：{e}"))),
+        };
         let mut actors = self.actors.lock().unwrap();
         let actor = actors.entry((start.group_id.clone(), start.bot.id.clone())).or_insert_with(|| {
             let (tx, rx) = mpsc::unbounded_channel();
             let shared = Arc::new(Shared::default());
-            tokio::spawn(session::run(self.clone(), shared.clone(), rx));
+            let entry = ask.register(Arc::downgrade(&shared) as Weak<dyn Asker>);
+            tokio::spawn(session::run(self.clone(), shared.clone(), entry, rx));
             Actor { tx, shared }
         });
         actor.shared.enqueue(&start.run_id);

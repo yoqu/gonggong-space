@@ -25,11 +25,11 @@ const KIND: Record<string, string> = {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
-const hm = (iso: string) => {
+export const hm = (iso: string) => {
   const d = new Date(iso)
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
-const countdown = (ms: number) => {
+export const countdown = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000))
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
@@ -53,7 +53,7 @@ function outcome(a: ApprovalDto) {
   }
 }
 
-function useNow(ticking: boolean) {
+export function useNow(ticking: boolean) {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     if (!ticking) return

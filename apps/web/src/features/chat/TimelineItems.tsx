@@ -27,6 +27,7 @@ import { Badge, type BadgeVariant } from '../../ui'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { filePaths } from '../runs/paths'
+import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
 import { useRunRail } from '../runs/rail'
 import { Markdown } from './Markdown'
@@ -263,6 +264,7 @@ export function RunCard({
       ) : null}
       {/* Slice 2 (approvals) */}
       <ApprovalBlock run={run} />
+      <QuestionBlock run={run} />
       {NoteIcon ? (
         <div className="run-card__note">
           <NoteIcon size={12} />
