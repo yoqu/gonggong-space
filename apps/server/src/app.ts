@@ -7,6 +7,8 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { loadSysParams } from './modules/admin/params.js'
+import { adminRoutes } from './modules/admin/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { attachmentRoutes } from './modules/attachments/routes.js'
@@ -46,6 +48,7 @@ export async function buildApp(ctx: Ctx) {
     app.log.error(err)
     return reply.status(500).send({ error: 'invalid', message: 'internal error' })
   })
+  await loadSysParams(ctx.db)
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
   await app.register(groupRoutes(ctx))
   await app.register(messageRoutes(ctx))
@@ -74,6 +77,7 @@ export async function buildApp(ctx: Ctx) {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(usageRoutes(ctx))
+  await app.register(adminRoutes(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))

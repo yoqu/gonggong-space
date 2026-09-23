@@ -1,16 +1,11 @@
-import {
-  type ContextMessage,
-  DEFAULT_OFFLINE_WAIT_MIN,
-  type RunDiscarded,
-  type RunDone,
-  TERMINAL_RUN_STATUS,
-} from '@aiws/protocol'
+import { type ContextMessage, type RunDiscarded, type RunDone, TERMINAL_RUN_STATUS } from '@aiws/protocol'
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groups, notifications, runs, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { sysParams } from '../admin/params.js'
 import { voidApprovals } from '../approvals/service.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
@@ -241,7 +236,7 @@ function discard(ctx: Ctx, machineId: string, runId: string) {
 
 /** Spec §4.8: requests for an offline bot expire after the group's wait and the trigger user is told. */
 export async function expireOfflineRuns(ctx: Ctx) {
-  const waitMin = sql<number>`coalesce((${groups.params}->>'offlineWaitMin')::int, ${DEFAULT_OFFLINE_WAIT_MIN})`
+  const waitMin = sql<number>`coalesce((${groups.params}->>'offlineWaitMin')::int, ${sysParams().offlineWaitMin})`
   const due = await ctx.db
     .select({ run: runs, waitMin, groupName: groups.name, botName: bots.name, trigger: users.name })
     .from(runs)

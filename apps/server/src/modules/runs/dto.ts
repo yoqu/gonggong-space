@@ -1,23 +1,15 @@
-import {
-  type ApprovalDto,
-  DEFAULT_OFFLINE_WAIT_MIN,
-  type QuestionSetDto,
-  type RunDto,
-  type RunStatus,
-  type Usage,
-} from '@aiws/protocol'
+import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
+import { sysParams } from '../admin/params.js'
 import { memberIds } from '../messages/service.js'
 import { attachmentDto, questionSetDto } from '../questions/dto.js'
 
 export type RunRow = typeof runs.$inferSelect
 type ApprovalRow = typeof approvals.$inferSelect
 
-export const DEFAULT_CHAIN_MAX_HOPS = 3
-
-/** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / 3). */
+/** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / system param). */
 export const runDto = (
   r: RunRow,
   extra: {
@@ -42,8 +34,8 @@ export const runDto = (
   startedAt: r.startedAt?.toISOString() ?? null,
   endedAt: r.endedAt?.toISOString() ?? null,
   parentRunId: r.parentRunId,
-  hopMax: extra.hopMax ?? DEFAULT_CHAIN_MAX_HOPS,
-  offlineWaitMin: extra.offlineWaitMin ?? DEFAULT_OFFLINE_WAIT_MIN,
+  hopMax: extra.hopMax ?? sysParams().chainMaxHops,
+  offlineWaitMin: extra.offlineWaitMin ?? sysParams().offlineWaitMin,
   originUserId: r.originUserId,
   approvals: extra.approvals ?? [],
   questions: extra.questions ?? [],
@@ -70,13 +62,13 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
 /** Group param `offlineWaitMin` (spec §4.8). */
 const offlineWaitOf = (params: unknown) => {
   const n = (params as { offlineWaitMin?: unknown }).offlineWaitMin
-  return typeof n === 'number' ? n : DEFAULT_OFFLINE_WAIT_MIN
+  return typeof n === 'number' ? n : sysParams().offlineWaitMin
 }
 
 /** Group param `chainMaxHops` (spec §4.6). */
 export const hopMaxOf = (params: unknown) => {
   const n = (params as { chainMaxHops?: unknown }).chainMaxHops
-  return typeof n === 'number' ? n : DEFAULT_CHAIN_MAX_HOPS
+  return typeof n === 'number' ? n : sysParams().chainMaxHops
 }
 
 /** Loads what cards need beyond the row (approval records, the group's hop limit) for `rows`, then maps them. */

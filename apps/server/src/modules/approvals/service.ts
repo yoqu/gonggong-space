@@ -3,6 +3,7 @@ import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { sysParams } from '../admin/params.js'
 import { notify } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
 
@@ -10,8 +11,8 @@ type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'
 export type VoidReason = 'stopped' | 'chain_stopped' | 'ended'
 
-/** Spec §3.4 defaults per sync mode; group admins override via `groups.params.approvalTimeoutMin`. */
-const TIMEOUT_MIN = { partition: 30, force: 5 }
+/** Force-sync default (P2); partition groups default to the system param. Group admins override both. */
+const FORCE_TIMEOUT_MIN = 5
 const TICK_MS = 15_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -32,7 +33,7 @@ const scoped = (ctx: Ctx) =>
 export function timeoutMin(group: typeof groups.$inferSelect) {
   const custom = (group.params as { approvalTimeoutMin?: unknown }).approvalTimeoutMin
   if (typeof custom === 'number' && custom > 0) return custom
-  return group.mode === 'force' ? TIMEOUT_MIN.force : TIMEOUT_MIN.partition
+  return group.mode === 'force' ? FORCE_TIMEOUT_MIN : sysParams().approvalTimeoutMin
 }
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */

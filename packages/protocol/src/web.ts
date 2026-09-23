@@ -4,7 +4,9 @@ import {
   Answer,
   Attachment,
   GitStatus,
+  MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
+  MAX_QUESTIONS,
   Question,
   RunStatus,
   Tier,
@@ -410,6 +412,71 @@ export const AuditDto = z.object({
   detail: z.record(z.string(), z.unknown()),
 })
 export type AuditDto = z.infer<typeof AuditDto>
+
+// ── Admin console (spec §8.5, §10) ──────────────────────────────────────────
+/** Row of 管理后台 · 群 (archived groups included). */
+export const AdminGroupDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(['group', 'dm']),
+  mode: z.enum(['partition', 'force']),
+  repo: z.string().nullable(),
+  members: z.number().int(),
+  bots: z.number().int(),
+  archivedAt: z.string().nullable(),
+})
+export type AdminGroupDto = z.infer<typeof AdminGroupDto>
+
+/** Row of 管理后台 · 机器与网络. */
+export const AdminMachineDto = MachineDto.extend({
+  ownerName: z.string(),
+  protocol: z.number().int().nullable(),
+})
+export type AdminMachineDto = z.infer<typeof AdminMachineDto>
+
+/** System-wide defaults editable by the sysadmin (spec §10); group params override the group-level ones. */
+export const SystemParams = GroupParams.extend({
+  /** Lock release after the writer disconnects (P2, 待定 until measured). */
+  writerDisconnectReleaseSec: z.number().int().min(1).max(3600).nullable(),
+  /** Network thresholds for enabling force sync (P2, 需实测). */
+  forceSyncMaxLatencyMs: z.number().int().min(1).max(10_000),
+  forceSyncMinBandwidthMbps: z.number().min(0.1).max(10_000),
+  sessionReplayCount: z.number().int().min(1).max(500),
+  runRetentionDays: z.number().int().min(1).max(3650),
+  attachmentMaxMb: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_ATTACHMENT_BYTES / 1024 / 1024),
+  attachmentsPerMessage: z.number().int().min(1).max(MAX_ATTACHMENTS),
+  questionsPerCard: z.number().int().min(1).max(MAX_QUESTIONS),
+  heartbeatSec: z.number().int().min(5).max(120),
+  offlineMisses: z.number().int().min(2).max(10),
+  botConcurrencyDefault: z.number().int().min(1).max(10),
+  backupRetentionDays: z.number().int().min(1).max(365),
+  archiveRetentionDays: z.number().int().min(1).max(365),
+})
+export type SystemParams = z.infer<typeof SystemParams>
+export const UpdateSystemParamsReq = SystemParams.partial()
+/** Display order, labels and units of 系统参数 (also used by audit summaries); `measure` = 需实测 (spec §10 待定). */
+export const SYSTEM_PARAM_VIEW: { key: keyof SystemParams; label: string; unit: string; measure?: true }[] = [
+  { key: 'writerDisconnectReleaseSec', label: '写入方断线后释放锁', unit: '秒', measure: true },
+  { key: 'forceSyncMaxLatencyMs', label: '开启强制同步 · 延迟阈值', unit: 'ms', measure: true },
+  { key: 'forceSyncMinBandwidthMbps', label: '开启强制同步 · 带宽阈值', unit: 'Mbps', measure: true },
+  { key: 'sessionReplayCount', label: '会话恢复失败时补送群消息数', unit: '条' },
+  { key: 'runRetentionDays', label: '完整运行过程保留', unit: '天' },
+  { key: 'attachmentMaxMb', label: '单个附件大小上限', unit: 'MB' },
+  { key: 'attachmentsPerMessage', label: '每条消息附件数', unit: '个' },
+  { key: 'questionsPerCard', label: '提问卡片每张题数上限', unit: '题' },
+  { key: 'heartbeatSec', label: 'daemon 心跳间隔', unit: '秒' },
+  { key: 'offlineMisses', label: 'daemon 离线判定（连续未收到心跳）', unit: '次' },
+  { key: 'backupRetentionDays', label: '服务器备份（每日）保留', unit: '天' },
+  { key: 'archiveRetentionDays', label: '删群后权威副本归档', unit: '天' },
+  { key: 'approvalTimeoutMin', label: '权限审批等待（分区模式）· 群默认', unit: '分钟' },
+  { key: 'chainMaxHops', label: '接力链长上限 · 群默认', unit: '跳' },
+  { key: 'offlineWaitMin', label: 'bot 离线时请求等待上线 · 群默认', unit: '分钟' },
+  { key: 'botConcurrencyDefault', label: 'bot 并发上限 · 新建默认', unit: '个' },
+]
 
 // ── Usage (spec §3.7) ───────────────────────────────────────────────────────
 export const UsageQuery = z.object({

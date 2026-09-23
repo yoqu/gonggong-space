@@ -4,7 +4,7 @@ import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, type messages, runs } from '../../db/schema.js'
 import { activeBots } from '../groups/service.js'
 import { parseMentions } from '../messages/mentions.js'
-import { DEFAULT_CHAIN_MAX_HOPS, publishRun, type RunRow } from './dto.js'
+import { hopMaxOf, publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 import { isChainStopped } from './stop.js'
 
@@ -108,10 +108,7 @@ export async function triggerChain(ctx: Ctx, parent: RunRow, reply: MessageDto):
     .from(groups)
     .where(eq(groups.id, parent.groupId))
   const hop = parent.hop + 1
-  if (
-    hop > ((group?.params as { chainMaxHops?: number } | undefined)?.chainMaxHops ?? DEFAULT_CHAIN_MAX_HOPS)
-  )
-    return
+  if (hop > hopMaxOf(group?.params ?? {})) return
   const mentioned = parseMentions(reply.body, await activeBots(ctx, parent.groupId))
   await createRuns(ctx, {
     groupId: parent.groupId,

@@ -2,18 +2,20 @@ import { buildApp } from './app.js'
 import type { Ctx } from './context.js'
 import { DaemonHub } from './daemon/hub.js'
 import { migrateDb, openDb } from './db/client.js'
+import { loadSysParams } from './modules/admin/params.js'
 import { ensureBootstrapAdmin } from './modules/auth/bootstrap.js'
 import { Bus } from './realtime/bus.js'
 
 const { db } = openDb()
 await migrateDb(db)
+const { heartbeatSec } = await loadSysParams(db)
 const ctx: Ctx = {
   db,
   bus: new Bus(),
   hub: new DaemonHub(),
   now: () => new Date(),
   config: {
-    heartbeatSec: Number(process.env.AIWS_HEARTBEAT_SEC ?? 15),
+    heartbeatSec: Number(process.env.AIWS_HEARTBEAT_SEC ?? heartbeatSec),
     secureCookies: process.env.AIWS_SECURE_COOKIES === '1',
   },
 }

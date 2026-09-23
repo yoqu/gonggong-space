@@ -8,6 +8,7 @@ pub mod engine;
 pub mod files;
 pub mod git;
 pub mod protocol;
+pub mod revoke;
 pub mod service;
 mod session;
 pub mod turn;

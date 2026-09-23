@@ -5,10 +5,10 @@ import type { WebSocket } from 'ws'
 import type { Ctx } from '../context.js'
 import { machines, users } from '../db/schema.js'
 import { sha256 } from '../lib/crypto.js'
+import { sysParams } from '../modules/admin/params.js'
 import type { DaemonConn } from './hub.js'
 
 export const CLOSE = { badHello: 4000, protocol: 4001, replaced: 4002, revoked: 4003, timeout: 4004 } as const
-const MISSED_HEARTBEATS = 3
 
 const send = (ws: WebSocket, msg: ServerToDaemon) => ws.send(JSON.stringify(msg))
 
@@ -82,7 +82,7 @@ export function daemonGateway(ctx: Ctx) {
           clearTimeout(timer)
           timer = setTimeout(
             () => ws.close(CLOSE.timeout, 'heartbeat timeout'),
-            ctx.config.heartbeatSec * 1000 * MISSED_HEARTBEATS,
+            ctx.config.heartbeatSec * 1000 * sysParams().offlineMisses,
           )
         }
         registered = true

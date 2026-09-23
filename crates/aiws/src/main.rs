@@ -1,7 +1,8 @@
 use aiws::bind::machine_info;
 use aiws::config::{self, Config};
 use aiws::engine::{Engine, EngineConfig};
-use aiws::service::Service;
+use aiws::protocol::RejectReason;
+use aiws::service::{Fatal, Service};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use std::time::Duration;
@@ -101,6 +102,12 @@ async fn main() -> anyhow::Result<()> {
             };
             let fatal = service.run().await;
             eprintln!("{fatal}");
+            if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = fatal {
+                eprintln!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据：");
+                for path in aiws::revoke::wipe(&config::home()) {
+                    eprintln!("  已删除 {}", path.display());
+                }
+            }
             std::process::exit(1);
         }
         Cmd::Bots { cmd: None } => aiws::bots::list(&config()?).await?,
