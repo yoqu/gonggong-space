@@ -1,4 +1,5 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
+use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
@@ -10,11 +11,11 @@ use crate::turn::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, InitializeResponse, LoadSessionRequest,
+    CancelNotification, ClientCapabilities, InitializeRequest, InitializeResponse, LoadSessionRequest,
     Meta, NewSessionRequest, PermissionOption, PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse,
     RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest,
     SelectedPermissionOutcome, SessionId, SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest,
-    StopReason, TextContent,
+    StopReason,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -469,7 +470,9 @@ impl Conversation<'_> {
         let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
         let text = compose_prompt(&s.prompt, history, git_note.as_deref());
-        let prompt = PromptRequest::new(session.clone(), vec![ContentBlock::Text(TextContent::new(text))]);
+        let image = self.init.agent_capabilities.prompt_capabilities.image;
+        let blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
+        let prompt = PromptRequest::new(session.clone(), blocks);
         match self.cx.send_request(prompt).block_task().await {
             // The adapter died: leave the turn active so the caller reports the exit status and stderr instead.
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),

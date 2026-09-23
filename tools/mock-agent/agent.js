@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Scriptable ACP agent for daemon tests. The prompt text picks the behaviour:
-//   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, prompt)
+//   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, prompt, blocks)
 //   "mock:slow"  stream text until cancelled
 //   "mock:crash" stream one chunk, then exit with code 3
 //   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
@@ -41,6 +41,11 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         mode: s.mode,
         systemPrompt: s.systemPrompt,
         prompt: text,
+        blocks: blocks.map((b) =>
+          b.type === 'image'
+            ? { type: b.type, mimeType: b.mimeType, bytes: Buffer.from(b.data, 'base64').length }
+            : { type: b.type },
+        ),
       }),
     )
     return { stopReason: 'end_turn' }
@@ -110,7 +115,11 @@ acp
   .agent({ name: 'aiws-mock-agent' })
   .onRequest('initialize', () => ({
     protocolVersion: acp.PROTOCOL_VERSION,
-    agentCapabilities: { loadSession: false, sessionCapabilities: { resume: {} } },
+    agentCapabilities: {
+      loadSession: false,
+      sessionCapabilities: { resume: {} },
+      promptCapabilities: { image: true },
+    },
   }))
   .onRequest('session/new', (ctx) => open(`mock-${crypto.randomUUID()}`, ctx.params))
   .onRequest('session/resume', (ctx) => {

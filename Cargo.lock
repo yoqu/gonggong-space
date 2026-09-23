@@ -67,6 +67,7 @@ version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
+ "base64 0.23.1",
  "clap",
  "futures-util",
  "gethostname",

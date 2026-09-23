@@ -1,11 +1,17 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { Attachment, MessageDto } from '@aiws/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
 
 export type MessageRow = typeof messages.$inferSelect
 /** `command`: the system command this message invoked (never replayed to agents as context). */
-export type MessageMeta = { mentions?: string[]; clientId?: string; command?: string }
+export type MessageMeta = {
+  mentions?: string[]
+  clientId?: string
+  command?: string
+  attachments?: Attachment[]
+  quote?: MessageDto['quote']
+}
 
 export const messageDto = (m: MessageRow, authorName: string): MessageDto => ({
   id: m.id,
@@ -18,9 +24,8 @@ export const messageDto = (m: MessageRow, authorName: string): MessageDto => ({
   mentions: (m.meta as MessageMeta).mentions ?? [],
   runId: m.runId,
   createdAt: m.createdAt.toISOString(),
-  // Filled by the M4 attachments / quote slice.
-  attachments: [],
-  quote: null,
+  attachments: (m.meta as MessageMeta).attachments ?? [],
+  quote: (m.meta as MessageMeta).quote ?? null,
 })
 
 export async function authorName(ctx: Ctx, m: Pick<MessageRow, 'authorUserId' | 'authorBotId'>) {

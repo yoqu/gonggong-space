@@ -1,5 +1,7 @@
 //! Executes server-dispatched runs: one adapter process per (group, bot) session (plan D20).
 use crate::agents;
+use crate::attachments;
+use crate::config::Config;
 use crate::protocol::{AgentKind, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -27,6 +29,8 @@ pub struct EngineConfig {
     pub adapter_cmd: Option<String>,
     /// Adapter processes idle this long are reaped; the next turn resumes the session in a new one.
     pub idle: Duration,
+    /// Server REST access for downloading attachments; `None` (tests) skips them.
+    pub api: Option<Config>,
 }
 
 pub struct Engine(Arc<Inner>);
@@ -106,6 +110,14 @@ impl Inner {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
+        if let Some(api) = &self.config.api {
+            let p = &start.prompt;
+            let context = p.context.iter().chain(&p.fallback_context).flat_map(|m| &m.attachments);
+            let all: Vec<_> = p.attachments.iter().chain(context).collect();
+            if let Err(e) = attachments::fetch(api, &cwd, all).await {
+                return out.send(failed(&start.run_id, e));
+            }
+        }
         let mut actors = self.actors.lock().unwrap();
         let actor = actors.entry((start.group_id.clone(), start.bot.id.clone())).or_insert_with(|| {
             let (tx, rx) = mpsc::unbounded_channel();

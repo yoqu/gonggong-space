@@ -1,4 +1,5 @@
 pub mod agents;
+pub mod attachments;
 pub mod bind;
 pub mod bots;
 pub mod config;

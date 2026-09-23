@@ -71,6 +71,7 @@ fn rig() -> Rig {
         home: home.path().to_path_buf(),
         adapter_cmd: Some(format!("node {}", agent.display())),
         idle: Duration::from_secs(60),
+        api: None,
     });
     let (out, rx) = Outbox::channel();
     Rig { engine, out, rx, home }
