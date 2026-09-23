@@ -3,6 +3,7 @@
 //   "mock:echo"  reply with a JSON summary of what the agent received (pid, cwd, mode, system prompt, prompt)
 //   "mock:slow"  stream text until cancelled
 //   "mock:crash" stream one chunk, then exit with code 3
+//   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
 //   "mock:ask <json>" call the injected aiws MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
@@ -58,6 +59,17 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         prompt: text,
       }),
     )
+    return { stopReason: 'end_turn' }
+  }
+  if (text.includes('mock:commands')) {
+    await update({
+      sessionUpdate: 'available_commands_update',
+      availableCommands: [
+        { name: 'compact', description: 'Compact the conversation' },
+        { name: 'new', description: 'Start a new conversation' },
+      ],
+    })
+    await say('ok')
     return { stopReason: 'end_turn' }
   }
   const sh = text.indexOf('mock:sh ')

@@ -1,4 +1,13 @@
-import type { BotDto, GroupDto, MessageDto, RunDto, UserDto, WebEvent } from '@aiws/protocol'
+import type {
+  BotDto,
+  CommandCandidatesDto,
+  FileCandidatesDto,
+  GroupDto,
+  MessageDto,
+  RunDto,
+  UserDto,
+  WebEvent,
+} from '@aiws/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -119,6 +128,17 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   startedAt: at,
   endedAt: null,
   ...o,
+})
+
+const commandCandidates = (agent: CommandCandidatesDto['agent'] = []): CommandCandidatesDto => ({
+  system: [
+    { name: 'stop', hint: '停止运行（未 @ bot 时停止本群全部）' },
+    { name: 'hold', hint: '连续占用群锁' },
+    { name: 'release', hint: '释放群锁' },
+    { name: 'new', hint: '开新会话' },
+    { name: 'cd', hint: '绑定本机目录（仅分区）' },
+  ],
+  agent,
 })
 
 const reply = [
@@ -388,7 +408,9 @@ describe('chat view', () => {
     const list = screen.getByRole('listbox', { name: '@ 候选' })
     expect(within(list).getByRole('option', { name: /老李的 Codex/ })).toBeTruthy()
     expect(
-      within(within(list).getByRole('group', { name: '成员' })).getByRole('option', { name: /李建国/ }),
+      within(within(list).getByRole('group', { name: '成员 / BOT' })).getByRole('option', {
+        name: /^李建国/,
+      }),
     ).toBeTruthy()
     fireEvent.click(within(list).getByRole('option', { name: /小王的 Claude/ }))
     expect(box.value).toBe('@小王的 Claude ')
@@ -407,7 +429,7 @@ describe('chat view', () => {
   })
 
   it('suggests system commands after a leading / with keyboard navigation', async () => {
-    mockApi(baseRoutes([group()]))
+    mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/candidates/commands': () => commandCandidates() })
     renderAt('/g/g1')
     await screen.findByText('最终回复')
     const box = screen.getByPlaceholderText(
@@ -415,7 +437,7 @@ describe('chat view', () => {
     ) as HTMLTextAreaElement
 
     fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
-    const list = screen.getByRole('listbox', { name: '/ 命令' })
+    const list = await screen.findByRole('listbox', { name: '/ 命令' })
     const options = within(within(list).getByRole('group', { name: '系统命令' })).getAllByRole('option')
     expect(options.map((o) => o.textContent)).toEqual([
       '/stop停止运行（未 @ bot 时停止本群全部）',
@@ -448,6 +470,91 @@ describe('chat view', () => {
     fireEvent.click(screen.getByTitle('命令'))
     expect(box.value).toBe('/')
     expect(screen.getByRole('listbox', { name: '/ 命令' })).toBeTruthy()
+  })
+
+  it('groups file candidates by source with hints and inserts paths', async () => {
+    let files: FileCandidatesDto = {
+      source: 'workspace',
+      label: '小王的 Claude 工作区 · 含未提交',
+      entries: [
+        { path: 'server/refund/', dir: true, uncommitted: false, notInWorkspace: false },
+        { path: 'server/refund/v2/handler.go', dir: false, uncommitted: true, notInWorkspace: false },
+        { path: 'server/refund.md', dir: false, uncommitted: false, notInWorkspace: true },
+      ],
+    }
+    const calls = mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/candidates/files': () => files })
+    renderAt('/g/g1')
+    await screen.findByText('最终回复')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '@小王的 Claude @ser', selectionStart: 17 } })
+    const pop = await screen.findByTestId('composer-popover')
+    const group_ = await within(pop).findByRole('group', { name: '文件' })
+    expect(group_.textContent).toContain('来源：小王的 Claude 工作区 · 含未提交')
+    expect(
+      within(group_)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual([
+      'server/refund/文件夹',
+      'server/refund/v2/handler.go未提交',
+      'server/refund.md该文件不在你的工作区，可能需要拉取',
+    ])
+    expect(calls.map((c) => c.path)).toContain('/groups/g1/candidates/files?q=ser&botId=b1')
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(box.value).toBe('@小王的 Claude @server/refund/ ')
+
+    files = {
+      source: 'mirror',
+      label: 'main 镜像 · 3 分钟前更新',
+      entries: [{ path: 'README.md', dir: false, uncommitted: false, notInWorkspace: false }],
+    }
+    fireEvent.change(box, { target: { value: '@READ', selectionStart: 5 } })
+    expect(await screen.findByText('来源：main 镜像 · 3 分钟前更新')).toBeTruthy()
+    expect(calls.map((c) => c.path)).toContain('/groups/g1/candidates/files?q=READ')
+    fireEvent.click(
+      within(screen.getByTestId('composer-popover')).getByRole('option', { name: /README\.md/ }),
+    )
+    expect(box.value).toBe('@README.md ')
+  })
+
+  it('lists agent commands of the mentioned bot after the mention', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/candidates/commands': () =>
+        commandCandidates([
+          { name: 'compact', hint: 'Compact the conversation', botId: 'b1', botName: '小王的 Claude' },
+          { name: '小王的Claude:new', hint: '与系统命令重名', botId: 'b1', botName: '小王的 Claude' },
+        ]),
+    })
+    renderAt('/g/g1')
+    await screen.findByText('最终回复')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+
+    fireEvent.change(box, { target: { value: '@小王的 Claude /', selectionStart: 14 } })
+    const list = await screen.findByRole('listbox', { name: '/ 命令' })
+    const agent = await within(list).findByRole('group', { name: 'AGENT 命令' })
+    expect(agent.textContent).toContain('ACP 上报')
+    expect(
+      within(agent)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['/compactCompact the conversation', '/小王的Claude:new与系统命令重名'])
+    expect(calls.map((c) => c.path)).toContain('/groups/g1/candidates/commands?botId=b1')
+    fireEvent.change(box, { target: { value: '@小王的 Claude /com', selectionStart: 17 } })
+    expect(
+      within(list)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['/compactCompact the conversation'])
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(box.value).toBe('@小王的 Claude /compact ')
   })
 
   it('shows a not-found state for groups I am not in', async () => {

@@ -57,6 +57,14 @@ export const ContextMessage = z.object({
 })
 export type ContextMessage = z.infer<typeof ContextMessage>
 
+/** Which directory a (group, bot) works in. */
+export const WorkspaceSpec = z.object({
+  /** null → managed empty workspace (group without repo). Managed path: <home>/workspaces/<groupId>/<botId>/<repo.id | _empty>/ */
+  repo: RepoSpec.nullable(),
+  /** Absolute local path when the owner used /cd; null → managed path. */
+  cdPath: z.string().nullable(),
+})
+
 export const RunStart = z.object({
   t: z.literal('run.start'),
   runId: z.string(),
@@ -68,12 +76,7 @@ export const RunStart = z.object({
     systemPrompt: z.string(),
     tier: Tier,
   }),
-  workspace: z.object({
-    /** null → managed empty workspace (group without repo). Managed path: <home>/workspaces/<groupId>/<botId>/<repo.id | _empty>/ */
-    repo: RepoSpec.nullable(),
-    /** Absolute local path when the owner used /cd; null → managed path. */
-    cdPath: z.string().nullable(),
-  }),
+  workspace: WorkspaceSpec,
   /** Resume this ACP session if possible; null → start a new one. */
   resumeSessionId: z.string().nullable(),
   /** Why the server asks for a new session (e.g. 'requested' after /new); reported back in run.done. null → 'first'. */
@@ -283,6 +286,7 @@ export const FilesList = z.object({
   requestId: z.string(),
   groupId: z.string(),
   botId: z.string(),
+  workspace: WorkspaceSpec,
   /** Path prefix / fuzzy fragment typed after @. */
   query: z.string(),
   limit: z.number().int(),

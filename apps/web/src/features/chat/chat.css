@@ -434,11 +434,40 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.66);
 }
 .mention-pop__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 8px 4px;
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.12em;
   color: var(--color-text-tertiary);
+}
+.mention-pop__src {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.mention-pop__icon {
+  flex: none;
+}
+.mention-pop__name {
+  flex: none;
+  max-width: 70%;
+}
+.mention-pop__name,
+.mention-pop__hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mention-pop__mono {
+  font-family: var(--font-mono);
 }
 .mention-pop__item {
   width: 100%;

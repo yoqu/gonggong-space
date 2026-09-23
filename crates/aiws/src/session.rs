@@ -3,8 +3,8 @@ use crate::ask::{self, Asker};
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
-    Answer, ApprovalRequest, Attachment, DaemonToServer, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus,
-    Tier, Usage, WorkspaceKind,
+    AgentCommand, Answer, ApprovalRequest, Attachment, DaemonToServer, Question, RunDone, RunEvent, RunOutcome,
+    RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -35,6 +35,8 @@ pub(crate) struct TurnReq {
 
 struct Active {
     run_id: String,
+    /// (group, bot) of the conversation, for commands.update.
+    key: (String, String),
     tier: Tier,
     out: Outbox,
     turn: Turn,
@@ -200,6 +202,7 @@ impl Shared {
         s.last = None;
         s.active = Some(Active {
             run_id: run_id.clone(),
+            key: (req.start.group_id.clone(), req.start.bot.id.clone()),
             tier: req.start.bot.tier,
             out: req.out.clone(),
             turn: Turn::default(),
@@ -276,6 +279,16 @@ impl Shared {
 
     fn on_update(&self, n: SessionNotification) {
         let mut s = self.0.lock().unwrap();
+        // Sent right after session creation (before streaming); feeds the / candidates.
+        if let (SessionUpdate::AvailableCommandsUpdate(u), Some(a)) = (&n.update, s.active.as_ref()) {
+            let commands = u
+                .available_commands
+                .iter()
+                .map(|c| AgentCommand { name: c.name.clone(), description: c.description.clone() })
+                .collect();
+            let (group_id, bot_id) = a.key.clone();
+            return a.out.send(DaemonToServer::CommandsUpdate { group_id, bot_id, commands });
+        }
         if let Some(a) = s.active.as_mut().filter(|a| a.streaming)
             && let Some(event) = a.turn.apply(n.update)
         {
