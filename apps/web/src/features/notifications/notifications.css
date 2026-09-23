@@ -32,10 +32,12 @@
   border-bottom: 1px solid var(--color-separator);
 }
 .notif__title {
+  flex: none;
   font-weight: 600;
 }
 .notif__link {
   border: 0;
+  flex: none;
   padding: 0;
   background: transparent;
   color: var(--color-text-tertiary);
