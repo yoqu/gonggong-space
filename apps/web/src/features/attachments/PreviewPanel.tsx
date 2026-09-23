@@ -12,7 +12,7 @@ const LINES_MAX = 500
 const TEXTUAL: FileKind[] = ['md', 'text', 'code']
 
 const SEND_NOTE: Partial<Record<FileKind, string>> = {
-  image: 'Claude Code 以 ACP 图片内容直接发送；Codex 仅落盘，按路径读取',
+  image: 'agent 声明支持图片时以 ACP 图片内容直接发送，同时落盘供按路径读取',
   video: '视频不直接发送，agent 按路径读取',
 }
 

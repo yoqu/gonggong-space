@@ -141,7 +141,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
         </span>
       ))}
       <span className="att-chips__note">
-        {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .aiws/attachments/，不进 git${image ? ' · 图片：Claude Code 以 ACP 图片发送，Codex 仅落盘' : ''}`}
+        {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .aiws/attachments/，不进 git${image ? ' · 图片：agent 支持时同时以 ACP 图片发送' : ''}`}
       </span>
     </div>
   )
