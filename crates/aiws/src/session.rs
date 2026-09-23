@@ -1,5 +1,6 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::ask::{self, Asker};
+use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
 use crate::protocol::{
@@ -12,12 +13,11 @@ use crate::turn::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    self as acp, CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, HttpHeader, InitializeRequest,
+    self as acp, CancelNotification, ClientCapabilities, EnvVariable, HttpHeader, InitializeRequest,
     InitializeResponse, LoadSessionRequest, McpServerHttp, McpServerStdio, Meta, NewSessionRequest, PermissionOption,
     PermissionOptionId, PermissionOptionKind, PromptRequest, PromptResponse, RequestPermissionOutcome,
     RequestPermissionRequest, RequestPermissionResponse, ResumeSessionRequest, SelectedPermissionOutcome, SessionId,
-    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason, TextContent,
-    Usage as AcpUsage,
+    SessionModeState, SessionNotification, SessionUpdate, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
 use std::collections::{HashMap, HashSet};
@@ -36,6 +36,7 @@ pub(crate) struct TurnReq {
 
 struct Active {
     run_id: String,
+    cwd: PathBuf,
     /// (group, bot) of the conversation, for commands.update.
     key: (String, String),
     tier: Tier,
@@ -72,8 +73,8 @@ struct State {
     last: Option<(String, GitTurn)>,
     /// Ask-tool calls of the active turn awaiting the group, by request id.
     questions: HashMap<String, Asked>,
-    /// 打断并追加 prompts waiting for the cancelled prompt to end.
-    appends: Vec<String>,
+    /// 打断并追加 prompts (text, attachments) waiting for the cancelled prompt to end.
+    appends: Vec<(String, Vec<Attachment>)>,
 }
 
 struct Asked {
@@ -118,7 +119,7 @@ impl Shared {
     }
 
     /// 打断并追加 (spec §8.9): cancels the current prompt; the turn then continues with `text` (see `take_append`).
-    pub(crate) fn append(&self, run_id: &str, from: &str, text: &str, attachments: &[Attachment]) -> bool {
+    pub(crate) fn append(&self, run_id: &str, from: &str, text: &str, attachments: Vec<Attachment>) -> bool {
         let mut s = self.0.lock().unwrap();
         let Some(a) = s.active.as_ref().filter(|a| a.run_id == run_id && !a.sealed) else { return false };
         if s.cancelled.contains(run_id) {
@@ -127,12 +128,13 @@ impl Shared {
         let event = RunEvent::Status { status: RunStatus::Running, step: format!("{from} 打断并追加") };
         a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
         let streaming = a.streaming;
-        let note = ask::attachment_note(attachments);
-        s.appends.push(if note.is_empty() {
+        let note = ask::attachment_note(&attachments);
+        let text = if note.is_empty() {
             format!("{from} 追加：{text}")
         } else {
             format!("{from} 追加：{text}\n\n{note}")
-        });
+        };
+        s.appends.push((text, attachments));
         if streaming {
             interrupt(&mut s);
         }
@@ -141,7 +143,7 @@ impl Shared {
 
     /// Next prompt of the active turn after the current one ended: the queued appends, unless it was stopped.
     /// Otherwise seals the turn, so it ends with the reply of its last prompt.
-    fn take_append(&self) -> Option<String> {
+    fn take_append(&self) -> Option<(String, Vec<Attachment>)> {
         let mut s = self.0.lock().unwrap();
         let s = &mut *s;
         let a = s.active.as_mut()?;
@@ -150,7 +152,13 @@ impl Shared {
             return None;
         }
         a.turn.reply.clear();
-        Some(std::mem::take(&mut s.appends).join("\n\n"))
+        let (texts, files): (Vec<_>, Vec<_>) = std::mem::take(&mut s.appends).into_iter().unzip();
+        Some((texts.join("\n\n"), files.concat()))
+    }
+
+    /// Workspace of the active turn if it is `run_id`.
+    pub(crate) fn cwd(&self, run_id: &str) -> Option<PathBuf> {
+        self.0.lock().unwrap().active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.cwd.clone())
     }
 
     /// The group's answer to an ask-tool call of `run_id`; `answers: None` = nobody answered in time.
@@ -203,6 +211,7 @@ impl Shared {
         s.last = None;
         s.active = Some(Active {
             run_id: run_id.clone(),
+            cwd: req.cwd.clone(),
             key: (req.start.group_id.clone(), req.start.bot.id.clone()),
             tier: req.start.bot.tier,
             out: req.out.clone(),
@@ -605,18 +614,22 @@ impl Conversation<'_> {
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let mut text = compose_prompt(&s.prompt, history, git_note.as_deref());
+        let text = compose_prompt(&s.prompt, history, git_note.as_deref());
+        let image = self.init.agent_capabilities.prompt_capabilities.image;
+        let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
         let mut spent: Option<AcpUsage> = None;
         // 打断并追加 cancels a prompt and continues the same turn with the appended text (spec §8.9).
         let result = loop {
-            let prompt = PromptRequest::new(session.clone(), vec![ContentBlock::Text(TextContent::new(text))]);
+            let prompt = PromptRequest::new(session.clone(), blocks);
             let result = self.cx.send_request(prompt).block_task().await.map(|mut resp| {
                 spent = add_usage(spent.take(), resp.usage.take());
                 resp.usage = spent.clone();
                 resp
             });
             match self.shared.take_append() {
-                Some(next) if result.is_ok() => text = next,
+                Some((text, files)) if result.is_ok() => {
+                    blocks = attachments::prompt_blocks(&req.cwd, text, &files, image);
+                }
                 _ => break result,
             }
         };

@@ -21,12 +21,14 @@ export function ChatLayout({
   children,
   rail,
   railOpen = false,
+  railClass,
   mobileView,
 }: {
   sidebar: ReactNode
   children: ReactNode
   rail?: ReactNode
   railOpen?: boolean
+  railClass?: string
   /** Under 768px only one column is shown. */
   mobileView: 'list' | 'chat'
 }) {
@@ -40,7 +42,7 @@ export function ChatLayout({
       ) : null}
       {!mobile || mobileView === 'chat' ? <main className="chat__center">{children}</main> : null}
       {rail && railOpen ? (
-        <aside aria-label="侧栏" className={cx('chat__rail', mobile && 'chat__rail--overlay')}>
+        <aside aria-label="侧栏" className={cx('chat__rail', railClass, mobile && 'chat__rail--overlay')}>
           {rail}
         </aside>
       ) : null}
@@ -94,6 +96,10 @@ export function Composer({
   inputRef,
   onKeyDown,
   busy,
+  attachments = 0,
+  uploading = false,
+  onAttach,
+  onImage,
 }: {
   value: string
   onChange: (value: string) => void
@@ -108,8 +114,13 @@ export function Composer({
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
   /** A send is in flight. */
   busy?: boolean
+  /** Attached files make an empty text sendable; sending waits for their uploads. */
+  attachments?: number
+  uploading?: boolean
+  onAttach?: () => void
+  onImage?: () => void
 }) {
-  const canSend = Boolean(onSend) && value.trim() !== '' && !busy
+  const canSend = Boolean(onSend) && (value.trim() !== '' || attachments > 0) && !busy && !uploading
   return (
     <div className="composer">
       {popover}
@@ -138,10 +149,10 @@ export function Composer({
           <IconButton title="命令" onClick={() => onChange(`${value}/`)}>
             <Slash size={14} />
           </IconButton>
-          <IconButton title="附件">
+          <IconButton title="附件" onClick={onAttach}>
             <Paperclip size={14} />
           </IconButton>
-          <IconButton title="图片">
+          <IconButton title="图片" onClick={onImage}>
             <Image size={14} />
           </IconButton>
           <span className="composer__hint">{hint}</span>

@@ -1,11 +1,13 @@
-import type { Answer, Attachment, Question, QuestionSetDto, RunDto } from '@aiws/protocol'
-import { MessageCircleQuestion, X } from 'lucide-react'
+import type { Answer, Question, QuestionSetDto, RunDto } from '@aiws/protocol'
+import { MessageCircleQuestion } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Button, Input, Textarea, toast } from '../../ui'
+import { workspacePath } from '../attachments/api'
+import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { countdown, hm, useNow } from './ApprovalBlock'
 import { useMemberName } from './RunActions'
 import './question.css'
@@ -19,7 +21,6 @@ const TYPE: Record<Question['type'], string> = {
 const LIVE: RunDto['status'][] = ['running', 'awaiting_approval', 'awaiting_answer']
 
 type Draft = { choices: number[]; text: string }
-type Upload = Pick<Attachment, 'id' | 'name'>
 
 const EMPTY: Draft = { choices: [], text: '' }
 
@@ -35,17 +36,6 @@ const answered = (q: Question, d: Draft) => {
     case 'multi':
       return d.choices.length > 0 || text
   }
-}
-
-/** Multipart upload (spec §8.7): `groupId` first, then the file. */
-async function upload(groupId: string, file: File): Promise<Upload> {
-  const form = new FormData()
-  form.append('groupId', groupId)
-  form.append('file', file)
-  const res = await fetch('/api/uploads', { method: 'POST', credentials: 'include', body: form })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(res.status, body.error ?? 'http_error', body.message ?? '上传失败')
-  return body
 }
 
 function outcome(q: QuestionSetDto, run: RunDto) {
@@ -76,7 +66,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   const pending = set.status === 'pending'
   const now = useNow(pending)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
-  const [files, setFiles] = useState<Upload[]>([])
+  const uploads = useUploads(run.groupId)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const canAnswer = pending && !!me && (me === run.originUserId || me === bot?.ownerId)
@@ -100,22 +90,6 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
     edit(question, { choices: question.type === 'single' && text.trim() ? [] : d.choices, text })
   }
 
-  const attach = async (list: FileList | null) => {
-    if (!list?.length) return
-    setBusy(true)
-    try {
-      for (const file of Array.from(list)) {
-        const up = await upload(run.groupId, file)
-        setFiles((f) => [...f, { id: up.id, name: up.name }])
-      }
-    } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '上传失败' })
-    } finally {
-      setBusy(false)
-      if (fileInput.current) fileInput.current.value = ''
-    }
-  }
-
   const submit = async () => {
     const answers: Answer[] = set.questions.map((question) => {
       const d = draftOf(question)
@@ -130,7 +104,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
     try {
       await api.post(`/runs/${run.id}/questions/${set.id}/answers`, {
         answers,
-        attachmentIds: files.map((f) => f.id),
+        attachmentIds: uploads.ids,
       })
     } catch (e) {
       toast({ type: 'error', message: e instanceof ApiError ? e.message : '提交失败' })
@@ -207,33 +181,36 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
       {set.attachments.length ? (
         <div className="question__files">
           {set.attachments.map((a) => (
-            <span key={a.id} className="question__file">
+            <span key={a.id} className="question__file" title={workspacePath(a)}>
               {a.name}
             </span>
           ))}
         </div>
       ) : null}
+      {pending ? <AttachmentChips uploads={uploads} /> : null}
       {pending ? (
         <div className="question__actions">
-          <input ref={fileInput} type="file" multiple hidden onChange={(e) => void attach(e.target.files)} />
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              uploads.add([...(e.target.files ?? [])])
+              e.target.value = ''
+            }}
+          />
           <Button variant="ghost" size="sm" disabled={locked} onClick={() => fileInput.current?.click()}>
             附图片或附件
           </Button>
-          <Button variant="primary" size="sm" disabled={locked || !ready} onClick={() => void submit()}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={locked || !ready || uploads.uploading}
+            onClick={() => void submit()}
+          >
             提交回答
           </Button>
-          {files.map((f) => (
-            <span key={f.id} className="question__file">
-              {f.name}
-              <button
-                type="button"
-                aria-label={`移除 ${f.name}`}
-                onClick={() => setFiles((all) => all.filter((x) => x.id !== f.id))}
-              >
-                <X size={10} />
-              </button>
-            </span>
-          ))}
           <span className="question__timeout">
             {countdown(Date.parse(set.expiresAt) - now)} 后超时，agent 按推荐项继续并在最终回复列出假设
           </span>

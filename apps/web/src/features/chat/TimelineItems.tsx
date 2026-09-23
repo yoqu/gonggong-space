@@ -13,6 +13,7 @@ import {
   Loader,
   MessageCircleQuestion,
   PanelRightOpen,
+  Quote,
   RefreshCw,
   ShieldAlert,
   Square,
@@ -24,6 +25,8 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Badge, type BadgeVariant } from '../../ui'
+import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
+import { useQuote } from '../attachments/quote'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { filePaths } from '../runs/paths'
@@ -140,6 +143,7 @@ export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: st
           <span className="tl-time">{fmtTime(m.createdAt)}</span>
           {fanOut > 1 ? <span className="tl-fan">· 扇出 · {fanOut} 个 bot 并行</span> : null}
         </div>
+        <MessageQuote quote={m.quote} />
         <div className="tl-msg__text">
           {splitMentions(m.body, names).map((s, i) =>
             s.mention ? (
@@ -152,15 +156,20 @@ export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: st
             ),
           )}
         </div>
+        <MessageAttachments list={m.attachments} from={m.authorName} />
       </div>
     </div>
   )
 }
 
+/** First line of a quoted text, without markdown emphasis (prototype quote chip). */
+const quoteLine = (text: string) => (text.split('\n')[0] ?? '').replace(/[`*]/g, '')
+
 export function BotReply({ m }: { m: MessageDto }) {
   const open = useRunRail((s) => s.open)
   const runId = m.runId
   const files = useMemo(() => (runId ? filePaths(m.body) : []), [runId, m.body])
+  const quote = useQuote((s) => s.set)
   return (
     <div className="tl-msg" data-testid="bot-reply">
       <div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>
@@ -169,8 +178,26 @@ export function BotReply({ m }: { m: MessageDto }) {
           <span className="tl-msg__who">{m.authorName}</span>
           <span className="tl-reply-tag">最终回复</span>
           <span className="tl-time">{fmtTime(m.createdAt)}</span>
+          <button
+            type="button"
+            className="tl-quote-btn"
+            title="引用回复等同 @ 该 bot"
+            onClick={() =>
+              quote({
+                groupId: m.groupId,
+                kind: 'message',
+                id: m.id,
+                who: m.authorName,
+                text: quoteLine(m.body),
+              })
+            }
+          >
+            <Quote size={11} />
+            引用回复
+          </button>
         </div>
         <Markdown text={m.body} />
+        <MessageAttachments list={m.attachments} from={m.authorName} />
         {runId && files.length ? (
           <div className="tl-files">
             {files.map((f) => (
@@ -214,6 +241,7 @@ export function RunCard({
   const now = useNow(live && !!run.startedAt)
   const selected = useRunRail((s) => s.runId === run.id)
   const openRail = useRunRail((s) => s.open)
+  const quote = useQuote((s) => s.set)
   const status = RUN_STATUS[run.status]
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const NoteIcon = NOTE_ICON[run.status]
@@ -279,6 +307,22 @@ export function RunCard({
           <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
             <PanelRightOpen size={12} />
             查看过程
+          </button>
+          <button
+            type="button"
+            className="run-card__action"
+            onClick={() =>
+              quote({
+                groupId: run.groupId,
+                kind: 'run',
+                id: run.id,
+                who: `${botName} 的运行卡片`,
+                text: run.step || status.label,
+              })
+            }
+          >
+            <Quote size={11} />
+            引用
           </button>
           {/* Slice 4 (打断并追加 / stop) */}
           <RunActions run={run} />

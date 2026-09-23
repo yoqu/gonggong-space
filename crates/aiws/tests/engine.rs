@@ -20,6 +20,7 @@ fn rig(idle: Duration) -> Rig {
         home: home.path().to_path_buf(),
         adapter_cmd: Some(format!("node {}", agent.display())),
         idle,
+        api: None,
     });
     let (out, rx) = Outbox::channel();
     Rig { engine, out, rx, home }
@@ -509,6 +510,31 @@ async fn append_cancels_the_prompt_and_continues_the_same_run_in_the_same_sessio
     append(&r, "r2", "mock:echo");
     r.run(follow_up("r3", "mock:echo", &next));
     assert_eq!(r.finish("r3").await.1.outcome, RunOutcome::Completed);
+}
+
+#[tokio::test]
+async fn appended_attachments_are_named_by_their_workspace_path() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:slow"));
+    assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
+    let file = Attachment {
+        id: "a1".into(),
+        name: "log.txt".into(),
+        size: 3,
+        mime: "text/plain".into(),
+        message_id: "m2".into(),
+    };
+    r.send(ServerToDaemon::RunAppend {
+        run_id: "r1".into(),
+        text: "mock:echo".into(),
+        from: "王磊".into(),
+        attachments: vec![file],
+    });
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(
+        echo(&done)["prompt"],
+        "王磊 追加：mock:echo\n\n附件（已放入工作区）：\n- .aiws/attachments/m2/log.txt\n"
+    );
 }
 
 #[tokio::test]

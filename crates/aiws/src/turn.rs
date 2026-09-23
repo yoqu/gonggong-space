@@ -1,4 +1,5 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
+use crate::attachments::rel_path;
 use crate::protocol::{
     self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage,
 };
@@ -13,17 +14,26 @@ const DETAIL_MAX: usize = 200;
 const OUTPUT_LINES: usize = 20;
 const OUTPUT_MAX: usize = 1500;
 
-/// Git default-action note, context lines (`[time] author: body`), then `<trigger> 说：<text>`.
+/// Git default-action note, context lines (`[time] author: body（附件：…）`), the quote, then
+/// `<trigger> 说：<text>` with one `附件：<path>` line per attachment.
 pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], git: Option<&str>) -> String {
     let mut out = git.map(|g| format!("{g}\n\n")).unwrap_or_default();
     if !history.is_empty() {
         out.push_str("群聊上下文：\n");
         for m in history {
-            out.push_str(&format!("[{}] {}: {}\n", short_time(&m.at), m.author, m.body));
+            let files: Vec<String> = m.attachments.iter().map(rel_path).collect();
+            let files = if files.is_empty() { String::new() } else { format!("（附件：{}）", files.join("、")) };
+            out.push_str(&format!("[{}] {}: {}{files}\n", short_time(&m.at), m.author, m.body));
         }
         out.push('\n');
     }
+    if let Some(q) = &prompt.quote {
+        out.push_str(&format!("引用 {}：{}\n\n", q.author, q.body));
+    }
     out.push_str(&format!("{} 说：{}", prompt.triggered_by, prompt.text));
+    for a in &prompt.attachments {
+        out.push_str(&format!("\n附件：{}", rel_path(a)));
+    }
     out
 }
 

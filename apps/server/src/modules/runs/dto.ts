@@ -10,7 +10,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
 import { memberIds } from '../messages/service.js'
-import { questionSetDto } from '../questions/dto.js'
+import { attachmentDto, questionSetDto } from '../questions/dto.js'
 
 export type RunRow = typeof runs.$inferSelect
 type ApprovalRow = typeof approvals.$inferSelect
@@ -106,7 +106,7 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
     .orderBy(asc(questionSets.createdAt))
   const fileIds = qs.flatMap((x) => x.q.attachmentIds)
   const files = fileIds.length
-    ? await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))
+    ? (await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))).map(attachmentDto)
     : []
   const params = new Map(
     (

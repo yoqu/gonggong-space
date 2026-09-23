@@ -3,11 +3,17 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { uploadFile } from '../src/features/attachments/api'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { useAppend } from '../src/features/runs/append'
 import { QuestionBlock } from '../src/features/runs/QuestionBlock'
 import { RunActions } from '../src/features/runs/RunActions'
 import { apiError, mockApi } from './mockApi'
+
+vi.mock('../src/features/attachments/api', async (orig) => ({
+  ...(await orig<typeof import('../src/features/attachments/api')>()),
+  uploadFile: vi.fn(),
+}))
 
 const NOW = new Date(2026, 8, 23, 10, 21, 0)
 
@@ -154,19 +160,21 @@ describe('QuestionBlock', () => {
   })
 
   it('uploads attachments for the answer', async () => {
-    const calls = mockApi({
-      'POST /uploads': { id: 'att1', name: 'shot.png', size: 3, mime: 'image/png' },
-      'POST /runs/r1/questions/qs1/answers': set({ status: 'answered' }),
-    })
+    vi.mocked(uploadFile).mockImplementation((_g, f) => ({
+      done: Promise.resolve({ id: 'att1', name: f.name, size: f.size, mime: f.type }),
+      abort: vi.fn(),
+    }))
+    const calls = mockApi({ 'POST /runs/r1/questions/qs1/answers': set({ status: 'answered' }) })
     const one = run({ questions: [set({ questions: [set().questions[3]!] })] })
     const { container } = render(<QuestionBlock run={one} />)
     const input = container.querySelector('input[type=file]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [new File(['png'], 'shot.png', { type: 'image/png' })] } })
     await screen.findByText('shot.png')
     fireEvent.change(screen.getByPlaceholderText('自由作答'), { target: { value: '见截图' } })
+    await waitFor(() => expect(button('提交回答').disabled).toBe(false))
     fireEvent.click(button('提交回答'))
-    await waitFor(() => expect(calls).toHaveLength(2))
-    expect(calls[1]?.body).toMatchObject({ attachmentIds: ['att1'] })
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]?.body).toMatchObject({ attachmentIds: ['att1'] })
   })
 
   it('lets the bot owner answer too, and reports a failed submit', async () => {

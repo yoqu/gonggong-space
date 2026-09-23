@@ -2,6 +2,8 @@ import type { GroupDto } from '@aiws/protocol'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { PreviewPanel } from '../features/attachments/PreviewPanel'
+import { usePreview } from '../features/attachments/preview'
 import { botsApi } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
@@ -61,16 +63,30 @@ export function ChatPage() {
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const group = groups.find((g) => g.id === groupId)
   const railRun = useRunRail((s) => s.runId)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the run rail
-  useEffect(() => useRunRail.getState().close, [groupId])
+  const preview = usePreview((s) => s.open)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
+  useEffect(
+    () => () => {
+      useRunRail.getState().close()
+      usePreview.getState().close()
+    },
+    [groupId],
+  )
   useLinkedRun()
 
   return (
     <>
       <ChatLayout
         mobileView={groupId ? 'chat' : 'list'}
-        rail={railRun ? <RunRail key={railRun} runId={railRun} /> : undefined}
-        railOpen={!!railRun}
+        rail={
+          railRun ? (
+            <RunRail key={railRun} runId={railRun} />
+          ) : preview ? (
+            <PreviewPanel key={preview.attachment.id} target={preview} />
+          ) : undefined
+        }
+        railOpen={!!railRun || !!preview}
+        railClass={!railRun && preview ? 'chat__rail--preview' : undefined}
         sidebar={
           <Sidebar
             groups={groups}

@@ -88,10 +88,15 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Run { adapter_cmd } => {
             let config = config()?;
             let service = Service {
-                config,
+                config: config.clone(),
                 machine: machine_info(),
                 agents: aiws::agents::detect(),
-                handler: Engine::new(EngineConfig { home: config::home(), adapter_cmd, idle: IDLE_REAP }),
+                handler: Engine::new(EngineConfig {
+                    home: config::home(),
+                    adapter_cmd,
+                    idle: IDLE_REAP,
+                    api: Some(config),
+                }),
                 max_backoff: MAX_BACKOFF,
             };
             let fatal = service.run().await;

@@ -1,8 +1,10 @@
 //! Executes server-dispatched runs: one adapter process per (group, bot) session (plan D20).
 use crate::agents;
 use crate::ask::{AskServer, Asker};
+use crate::attachments;
+use crate::config::Config;
 use crate::files;
-use crate::protocol::{AgentKind, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
+use crate::protocol::{AgentKind, Attachment, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
 use crate::turn::system_prompt;
@@ -29,6 +31,8 @@ pub struct EngineConfig {
     pub adapter_cmd: Option<String>,
     /// Adapter processes idle this long are reaped; the next turn resumes the session in a new one.
     pub idle: Duration,
+    /// Server REST access for downloading attachments; `None` (tests) skips them.
+    pub api: Option<Config>,
 }
 
 pub struct Engine(Arc<Inner>);
@@ -104,16 +108,14 @@ impl Handler for Engine {
                 actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
             }
             ServerToDaemon::QuestionAnswer { run_id, request_id, answers, attachments, answered_by } => {
-                let actors = self.0.actors.lock().unwrap();
-                actors.values().any(|a| {
-                    a.shared.answer(&run_id, &request_id, answers.as_deref(), &attachments, answered_by.as_deref())
+                self.0.clone().deliver(run_id.clone(), attachments.clone(), move |shared| {
+                    shared.answer(&run_id, &request_id, answers.as_deref(), &attachments, answered_by.as_deref())
                 });
             }
             ServerToDaemon::RunAppend { run_id, text, from, attachments } => {
-                let actors = self.0.actors.lock().unwrap();
-                if !actors.values().any(|a| a.shared.append(&run_id, &from, &text, &attachments)) {
-                    tracing::warn!("append to {run_id} dropped: the run is no longer running here");
-                }
+                self.0.clone().deliver(run_id.clone(), attachments.clone(), move |shared| {
+                    shared.append(&run_id, &from, &text, attachments.clone())
+                });
             }
             ServerToDaemon::FilesList(req) => {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
@@ -141,6 +143,14 @@ impl Inner {
             Ok(ask) => ask,
             Err(e) => return out.send(failed(&start.run_id, format!("无法启动「向群成员提问」工具：{e}"))),
         };
+        if let Some(api) = &self.config.api {
+            let p = &start.prompt;
+            let context = p.context.iter().chain(&p.fallback_context).flat_map(|m| &m.attachments);
+            let all: Vec<_> = p.attachments.iter().chain(context).collect();
+            if let Err(e) = attachments::fetch(api, &cwd, all).await {
+                return out.send(failed(&start.run_id, e));
+            }
+        }
         let mut actors = self.actors.lock().unwrap();
         let actor = actors.entry((start.group_id.clone(), start.bot.id.clone())).or_insert_with(|| {
             let (tx, rx) = mpsc::unbounded_channel();
@@ -151,6 +161,33 @@ impl Inner {
         });
         actor.shared.enqueue(&start.run_id);
         let _ = actor.tx.send(TurnReq { start, cwd, out });
+    }
+
+    /// Hands an answer / append to the conversation running `run_id`, once its attachments are in that workspace.
+    fn deliver(
+        self: Arc<Self>,
+        run_id: String,
+        list: Vec<Attachment>,
+        apply: impl Fn(&Shared) -> bool + Send + 'static,
+    ) {
+        let apply_all = move |inner: &Inner, run_id: &str| {
+            let actors = inner.actors.lock().unwrap();
+            if !actors.values().any(|a| apply(&a.shared)) {
+                tracing::warn!("message for {run_id} dropped: the run is no longer running here");
+            }
+        };
+        let Some(api) = self.config.api.clone().filter(|_| !list.is_empty()) else {
+            return apply_all(&self, &run_id);
+        };
+        tokio::spawn(async move {
+            let cwd = self.actors.lock().unwrap().values().find_map(|a| a.shared.cwd(&run_id));
+            if let Some(cwd) = cwd
+                && let Err(e) = attachments::fetch(&api, &cwd, &list).await
+            {
+                tracing::warn!("{e}");
+            }
+            apply_all(&self, &run_id);
+        });
     }
 
     /// Launch config of the adapter for this bot, with the local agent CLI and per-process system prompt.

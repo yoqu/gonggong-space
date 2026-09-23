@@ -308,7 +308,8 @@ export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.arr
 export type TimelineDto = z.infer<typeof TimelineDto>
 
 export const SendMessageReq = z.object({
-  body: z.string().min(1).max(20000),
+  /** May be empty when the message carries attachments. */
+  body: z.string().max(20000),
   /** Client-generated idempotency key; resending the same id returns the original message. */
   clientId: z.string().min(8),
   /** Ids from POST /api/uploads. */

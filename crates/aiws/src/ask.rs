@@ -263,8 +263,7 @@ pub fn attachment_note(attachments: &[Attachment]) -> String {
     if attachments.is_empty() {
         return String::new();
     }
-    let paths: String =
-        attachments.iter().map(|a| format!("- .aiws/attachments/{}/{}\n", a.message_id, a.name)).collect();
+    let paths: String = attachments.iter().map(|a| format!("- {}\n", crate::attachments::rel_path(a))).collect();
     format!("附件（已放入工作区）：\n{paths}")
 }
 

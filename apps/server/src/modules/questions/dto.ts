@@ -15,17 +15,14 @@ export const attachmentDto = (a: AttachmentRow): Attachment => ({
 export const questionSetDto = (
   q: QuestionSet,
   answeredByName: string | null,
-  files: AttachmentRow[],
+  files: Attachment[],
 ): QuestionSetDto => ({
   id: q.id,
   runId: q.runId,
   questions: q.questions as Question[],
   status: q.status as QuestionSetDto['status'],
   answers: (q.answers as Answer[] | null) ?? null,
-  attachments: q.attachmentIds.flatMap((id) => {
-    const a = files.find((f) => f.id === id)
-    return a ? [attachmentDto(a)] : []
-  }),
+  attachments: q.attachmentIds.flatMap((id) => files.filter((f) => f.id === id)),
   answeredBy: q.answeredBy,
   answeredByName,
   answeredAt: q.answeredAt?.toISOString() ?? null,

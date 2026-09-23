@@ -1,12 +1,13 @@
 import type { Answer, DaemonToServer, Question } from '@aiws/protocol'
-import { and, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { attachments, auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
+import { auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { timeoutMin } from '../approvals/service.js'
+import { claimAttachments } from '../attachments/service.js'
 import { notify } from '../notifications/notify.js'
 import { publishRun } from '../runs/dto.js'
-import { attachmentDto, questionSetDto } from './dto.js'
+import { questionSetDto } from './dto.js'
 
 type QuestionSet = typeof questionSets.$inferSelect
 type QuestionAsk = Extract<DaemonToServer, { t: 'question.ask' }>
@@ -92,44 +93,28 @@ export async function answerQuestions(
     return fail('forbidden', '仅触发人或 bot 主人可以回答')
   if (row.q.status !== 'pending') return fail('conflict', '该提问已处理')
   if (!validAnswers(row.q.questions as Question[], answers)) return fail('invalid', '回答与问题不匹配')
-  const ids = [...new Set(attachmentIds)]
-  const files = ids.length
-    ? await ctx.db
-        .select()
-        .from(attachments)
-        .where(
-          and(
-            inArray(attachments.id, ids),
-            eq(attachments.uploaderId, user.id),
-            eq(attachments.groupId, row.run.groupId),
-            isNull(attachments.messageId),
-          ),
-        )
-    : []
-  if (files.length !== ids.length) return fail('invalid', '附件无效')
-  const settled = await settle(
-    ctx,
-    row,
-    'answered',
-    { answers, attachmentIds: ids, answeredBy: user.id },
-    user,
-  )
-  if (!settled) return fail('conflict', '该提问已处理')
-  const bound = ids.length
-    ? await ctx.db.update(attachments).set({ messageId: id }).where(inArray(attachments.id, ids)).returning()
-    : []
-  const forwarded = ids.flatMap((i) => bound.filter((b) => b.id === i).map(attachmentDto))
+  // The card id is the attachments' "message": the daemon writes them to .aiws/attachments/<card id>/.
+  const { settled, files } = await ctx.db.transaction(async (tx) => {
+    const files = await claimAttachments(tx, attachmentIds, {
+      uploaderId: user.id,
+      groupId: row.run.groupId,
+      messageId: id,
+    })
+    const values = { answers, attachmentIds, answeredBy: user.id }
+    const settled = await settle(ctx, tx, row, 'answered', values, user)
+    return { settled: settled ?? fail('conflict', '该提问已处理'), files }
+  })
   if (row.machineId)
     ctx.hub.send(row.machineId, {
       t: 'question.answer',
       runId,
       requestId: settled.requestId,
       answers,
-      attachments: forwarded,
+      attachments: files,
       answeredBy: user.name,
     })
   await syncRun(ctx, runId)
-  return questionSetDto(settled, user.name, bound)
+  return questionSetDto(settled, user.name, files)
 }
 
 /** Overdue cards: the agent proceeds with the recommendations and lists its assumptions (spec §8.8). */
@@ -138,7 +123,7 @@ export async function expireQuestions(ctx: Ctx) {
     and(eq(questionSets.status, 'pending'), lte(questionSets.expiresAt, ctx.now())),
   )
   for (const row of due) {
-    const settled = await settle(ctx, row, 'expired', {}, null)
+    const settled = await settle(ctx, ctx.db, row, 'expired', {}, null)
     if (!settled) continue
     if (row.machineId)
       ctx.hub.send(row.machineId, {
@@ -184,18 +169,19 @@ export function startQuestionTimer(ctx: Ctx) {
 /** Records the outcome once (a racing answer / timeout loses) and audits it. */
 async function settle(
   ctx: Ctx,
+  db: Pick<Ctx['db'], 'update' | 'insert'>,
   row: { q: QuestionSet; run: { groupId: string } },
   status: 'answered' | 'expired',
   values: Partial<QuestionSet>,
   actor: { id: string } | null,
 ) {
-  const [q] = await ctx.db
+  const [q] = await db
     .update(questionSets)
     .set({ ...values, status, answeredAt: actor ? ctx.now() : null })
     .where(and(eq(questionSets.id, row.q.id), eq(questionSets.status, 'pending')))
     .returning()
   if (!q) return null
-  await ctx.db.insert(auditLogs).values({
+  await db.insert(auditLogs).values({
     category: 'question',
     actorUserId: actor?.id ?? null,
     action: status,

@@ -5,6 +5,7 @@ import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
 import { publishBot } from '../bots/dto.js'
 import { enabledMcpServers } from '../mcp/routes.js'
+import type { MessageMeta } from '../messages/service.js'
 import { unreadyRepoGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { interruptNote } from './stop.js'
@@ -100,6 +101,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .select({
       seq: messages.seq,
       body: messages.body,
+      meta: messages.meta,
       at: messages.createdAt,
       author: users.name,
       bot: bots.name,
@@ -163,9 +165,8 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       triggeredBy: trigger.author ?? trigger.bot ?? '',
       context: [...context, ...note],
       fallbackContext: resumeSessionId ? [...fallbackContext, ...note] : [],
-      // Filled by the M4 attachments / quote slice.
-      attachments: [],
-      quote: null,
+      attachments: (trigger.meta as MessageMeta).attachments ?? [],
+      quote: quoteOf(trigger.meta as MessageMeta),
     },
     mcpServers: await enabledMcpServers(tx),
   }
@@ -179,6 +180,7 @@ async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): 
       seq: messages.seq,
       kind: messages.kind,
       body: messages.body,
+      meta: messages.meta,
       at: messages.createdAt,
       user: users.name,
       bot: bots.name,
@@ -194,6 +196,10 @@ async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): 
     kind: r.kind as ContextMessage['kind'],
     body: r.body,
     at: r.at.toISOString(),
-    attachments: [],
+    attachments: (r.meta as MessageMeta).attachments ?? [],
   }))
+}
+
+function quoteOf(meta: MessageMeta): RunStart['prompt']['quote'] {
+  return meta.quote ? { author: meta.quote.who, body: meta.quote.text } : null
 }
