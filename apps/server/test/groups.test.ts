@@ -1,7 +1,7 @@
 import type { GroupDto, TimelineDto } from '@aiws/protocol'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groupBots, groupRepos } from '../src/db/schema.js'
+import { auditLogs, groupBots, groupRepos } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { bareRepo } from './support/git.js'
 import { client, events } from './support/http.js'
@@ -259,6 +259,35 @@ describe('membership management', () => {
     expect((await p.asWang.post(`/api/groups/${dm.id}/bots`, { botId: p.liBot.id })).status).toBe(403)
     expect((await p.asWang.post(`/api/groups/${dm.id}/members`, { userId: p.li.id })).status).toBe(400)
     expect((await p.asWang.post(`/api/groups/${dm.id}/bots`, { botId: p.wangBot.id })).status).toBe(200)
+  })
+
+  it('audits every admin action', async () => {
+    const p = await people()
+    const g = (
+      await p.asWang.post<GroupDto>('/api/groups', { name: 'g', kind: 'group', memberIds: [], botIds: [] })
+    ).body
+    await p.asWang.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })
+    await p.asWang.post(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
+    await p.asWang.del(`/api/groups/${g.id}/bots/${p.liBot.id}`)
+    await p.asWang.del(`/api/groups/${g.id}/members/${p.zhao.id}`)
+    await p.asWang.patch(`/api/groups/${g.id}/repo`, { url: 'git@git.corp:team/refund.git', branch: 'main' })
+    const rows = await t.db.select().from(auditLogs).orderBy(asc(auditLogs.id))
+    expect(rows.map((r) => [r.category, r.action, r.actorUserId, r.groupId])).toEqual(
+      [
+        'group.member.add',
+        'group.bot.add',
+        'group.bot.remove',
+        'group.member.remove',
+        'group.repo.change',
+      ].map((a) => ['admin', a, p.wang.id, g.id]),
+    )
+    expect(rows.map((r) => r.detail)).toEqual([
+      { userId: p.zhao.id, name: '赵敏' },
+      { botId: p.liBot.id, name: '老李的 Codex' },
+      { botId: p.liBot.id, name: '老李的 Codex' },
+      { userId: p.zhao.id, name: '赵敏' },
+      { url: 'git@git.corp:team/refund.git', branch: 'main', previous: null },
+    ])
   })
 
   it('non-members get not_found on management routes', async () => {

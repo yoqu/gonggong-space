@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createReadStream, createWriteStream } from 'node:fs'
+import { createWriteStream } from 'node:fs'
 import { mkdir, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -11,6 +11,7 @@ import { requireMachine } from '../../daemon/auth.js'
 import { attachments, bots, groupBots } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
@@ -24,7 +25,7 @@ async function findAttachment(ctx: Ctx, id: string) {
   return row ?? fail('not_found', '附件不存在')
 }
 
-function sendFile(reply: FastifyReply, a: AttachmentRow) {
+async function sendFile(reply: FastifyReply, a: AttachmentRow) {
   const inline = inlineType(a.mime)
   return reply
     .header('content-type', inline ?? 'application/octet-stream')
@@ -33,7 +34,7 @@ function sendFile(reply: FastifyReply, a: AttachmentRow) {
       `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.name)}`,
     )
     .header('x-content-type-options', 'nosniff')
-    .send(createReadStream(join(dataDir(), a.storageKey)))
+    .send(await openFile(join(dataDir(), a.storageKey)))
 }
 
 /** Spec §8.7: files attached to messages, size and count bounded by system params; the message send binds them. */
@@ -61,7 +62,7 @@ export function attachmentRoutes(ctx: Ctx) {
       const path = join(dataDir(), storageKey)
       await mkdir(join(dataDir(), 'attachments'), { recursive: true })
       try {
-        await pipeline(part.file, createWriteStream(path))
+        await pipeline(part.file, sealStream(), createWriteStream(path))
         // busboy stops at the limit and marks the stream truncated instead of failing it.
         if (part.file.truncated) fail('invalid', `单个附件不能超过 ${maxMb} MB`)
       } catch (e) {
@@ -75,7 +76,7 @@ export function attachmentRoutes(ctx: Ctx) {
           uploaderId: me.id,
           groupId,
           name: safeName(part.filename),
-          size: (await stat(path)).size,
+          size: (await stat(path)).size - FILE_OVERHEAD,
           mime: part.mimetype || 'application/octet-stream',
           storageKey,
         })

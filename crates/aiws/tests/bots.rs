@@ -33,6 +33,7 @@ async fn serve(replies: Vec<(u16, &'static str)>) -> (Config, JoinHandle<Vec<Str
         token: "mt_1".into(),
         machine_id: "m1".into(),
         owner_name: "王磊".into(),
+        cert_sha256: None,
     };
     (config, task)
 }
@@ -40,7 +41,7 @@ async fn serve(replies: Vec<(u16, &'static str)>) -> (Config, JoinHandle<Vec<Str
 #[tokio::test]
 async fn lists_bots_with_the_machine_token() {
     let (config, task) = serve(vec![(200, BOTS)]).await;
-    let list = Client::new(&config).list().await.unwrap();
+    let list = Client::new(&config).unwrap().list().await.unwrap();
     assert_eq!(list.len(), 2);
     assert_eq!(bots::state_label(&list[0]), "在线");
     assert_eq!(bots::state_label(&list[1]), "待确认 · 运行 aiws bots confirm 小王的 Codex");
@@ -61,7 +62,7 @@ async fn confirms_by_name_and_reports_server_errors() {
     assert!(heads[1].starts_with("POST /api/daemon/bots/b2/confirm HTTP/1.1"));
 
     let (config, _task) = serve(vec![(401, r#"{"error":"unauthorized","message":"machine token revoked"}"#)]).await;
-    let err = Client::new(&config).list().await.unwrap_err();
+    let err = Client::new(&config).unwrap().list().await.unwrap_err();
     assert!(err.to_string().contains("machine token revoked"));
 }
 

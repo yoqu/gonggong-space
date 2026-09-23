@@ -11,5 +11,6 @@ pub mod protocol;
 pub mod revoke;
 pub mod service;
 mod session;
+pub mod tls;
 pub mod turn;
 pub mod workspace;

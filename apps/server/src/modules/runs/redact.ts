@@ -11,6 +11,17 @@ const TOKENS = [
   /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
   /\bxox[abposr]-[A-Za-z0-9-]{10,}/g,
   /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+  /\bAIza[0-9A-Za-z_-]{35}/g,
+  /\b[rs]k_(?:live|test)_[0-9A-Za-z]{16,}/g,
+  /\bglpat-[0-9A-Za-z_-]{20,}/g,
+  /\bnpm_[A-Za-z0-9]{36}\b/g,
+]
+/** Credentials after a label that stays readable: auth headers, API key headers, long hex near a keyword. */
+const LABELLED = [
+  /\b(authorization\s*:\s*(?:(?:basic|bearer|token|digest)\s+)?)[^\s"']+/gi,
+  /\b(bearer\s+)[A-Za-z0-9._~+/-]{16,}=*/gi,
+  /\b((?:x-)?api-key\s*:\s*|x-auth-token\s*:\s*|private-token\s*:\s*)[^\s"',;]+/gi,
+  /((?:secret|token|key|passw(?:or)?d|auth)[^\n]{0,20}?)\b[0-9a-f]{40,}\b/gi,
 ]
 /** `password=…`, `TOKEN="…"` and JSON `"api_key": "…"`. */
 const ASSIGNMENT = new RegExp(String.raw`\b(${KEY}=)(?:"([^"\n]*)"|'([^'\n]*)'|([^\s"'&;]+))`, 'gi')
@@ -25,6 +36,7 @@ export function redactor(values: string[]) {
     let out = text
     for (const v of known) out = out.split(v).join(MASK)
     for (const re of TOKENS) out = out.replace(re, MASK)
+    for (const re of LABELLED) out = out.replace(re, `$1${MASK}`)
     return out
       .replace(ASSIGNMENT, (_m, key: string, dq?: string, sq?: string) =>
         dq !== undefined ? `${key}"${MASK}"` : sq !== undefined ? `${key}'${MASK}'` : `${key}${MASK}`,

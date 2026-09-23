@@ -314,12 +314,18 @@ describe('audit query', () => {
 
   it('summarizes group settings changes', () => {
     const none = { user: () => '', bot: () => '', runBot: () => '' }
-    const s = (action: string, d: Record<string, unknown>) => summarize({ category: 'admin', action }, d, none)
+    const s = (action: string, d: Record<string, unknown>) =>
+      summarize({ category: 'admin', action }, d, none)
     expect(s('group.params', { approvalTimeoutMin: 20, chainMaxHops: 1, offlineWaitMin: 30 })).toBe(
       '修改群级参数：审批等待 20 分钟，接力链长上限 1 跳，离线等待 30 分钟',
     )
     expect(s('group.admin.grant', { userName: '李建国' })).toBe('设 李建国 为群管理员')
     expect(s('group.dissolve', {})).toBe('解散群')
+    expect(s('group.member.remove', { name: '王磊' })).toBe('将 王磊 移出群')
+    expect(s('group.bot.add', { name: '小王的 Claude' })).toBe('拉入 bot 小王的 Claude')
+    expect(s('group.repo.change', { url: 'git.corp/pay', branch: 'main', previous: null })).toBe(
+      '绑定仓库 git.corp/pay · 基准分支 main',
+    )
     expect(s('something.new', {})).toBe('something.new')
   })
 

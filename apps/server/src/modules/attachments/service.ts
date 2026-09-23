@@ -6,6 +6,7 @@ import { attachments } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { sysParams } from '../admin/params.js'
+import { redact } from '../runs/redact.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 export type AttachmentRow = typeof attachments.$inferSelect
@@ -13,9 +14,12 @@ export type Upload = Omit<Attachment, 'messageId'>
 
 export const dataDir = () => resolve(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data')
 
-/** Base name only: the daemon writes it under `.aiws/attachments/<messageId>/`. */
+/** Base name only: the daemon writes it under `.aiws/attachments/<messageId>/`. Names are shown to the group, so
+ * secrets in them are masked like run output. */
 export function safeName(raw: string) {
-  const base = (raw.split(/[/\\]/).pop() ?? '').replace(/[\p{Cc}]/gu, '').trim()
+  const base = redact(raw.split(/[/\\]/).pop() ?? '')
+    .replace(/[\p{Cc}]/gu, '')
+    .trim()
   return (base === '.' || base === '..' ? '' : base).slice(0, 200) || 'file'
 }
 

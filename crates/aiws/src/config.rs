@@ -18,6 +18,9 @@ pub struct Config {
     pub token: String,
     pub machine_id: String,
     pub owner_name: String,
+    /// SHA-256 of the server's leaf certificate, pinned at login (https servers only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert_sha256: Option<String>,
 }
 
 impl Config {

@@ -112,6 +112,16 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return `取消 ${str(d.userName)} 的群管理员`
         case 'group.dissolve':
           return '解散群'
+        case 'group.member.add':
+          return `邀请 ${str(d.name)} 入群`
+        case 'group.member.remove':
+          return `将 ${str(d.name)} 移出群`
+        case 'group.bot.add':
+          return `拉入 bot ${str(d.name)}`
+        case 'group.bot.remove':
+          return `移出 bot ${str(d.name)}`
+        case 'group.repo.change':
+          return `${d.previous ? '更换' : '绑定'}仓库 ${str(d.url)} · 基准分支 ${str(d.branch)}`
       }
   }
   return row.action

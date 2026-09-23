@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::protocol::{DaemonLoginReq, DaemonLoginRes, MachineInfo};
+use crate::tls;
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 
@@ -16,16 +17,12 @@ struct ApiError {
     message: String,
 }
 
-/// HTTP client for the team server. Direct like the daemon WebSocket: an OS-level proxy must not intercept
-/// (or 502) an intranet/localhost server.
-pub fn http() -> reqwest::Result<reqwest::Client> {
-    reqwest::Client::builder().no_proxy().build()
-}
-
-/// Exchanges a one-time bind code for this machine's long-lived token.
-pub async fn login(server: &str, code: &str, machine: MachineInfo) -> Result<Config> {
+/// Exchanges a one-time bind code for this machine's long-lived token. For https servers the certificate is pinned:
+/// to `fingerprint` when given, otherwise to whatever the server presents now (trust on first use).
+pub async fn login(server: &str, code: &str, machine: MachineInfo, fingerprint: Option<&str>) -> Result<Config> {
     let server = server.trim_end_matches('/');
-    let res = http()?
+    let pinning = tls::pinning(server, fingerprint.map(tls::parse_fingerprint).transpose()?)?;
+    let res = tls::http(pinning.as_ref())?
         .post(format!("{server}/api/daemon/login"))
         .json(&DaemonLoginReq { code: code.trim().to_uppercase(), machine })
         .send()
@@ -46,5 +43,11 @@ pub async fn login(server: &str, code: &str, machine: MachineInfo) -> Result<Con
         bail!("绑定失败：{reason}");
     }
     let body: DaemonLoginRes = res.json().await.context("服务器响应无法解析")?;
-    Ok(Config { server: server.into(), token: body.token, machine_id: body.machine_id, owner_name: body.owner_name })
+    Ok(Config {
+        server: server.into(),
+        token: body.token,
+        machine_id: body.machine_id,
+        owner_name: body.owner_name,
+        cert_sha256: pinning.and_then(|p| p.seen()),
+    })
 }
