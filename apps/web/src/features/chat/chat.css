@@ -96,6 +96,7 @@
 
 /* Run card */
 .run-card {
+  flex: none;
   margin-left: 38px;
   max-width: 680px;
   display: flex;
