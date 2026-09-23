@@ -1,0 +1,11 @@
+{
+  "name": "@aiws/mock-agent",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "aiws-mock-agent": "agent.js"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "1.5.0"
+  }
+}
