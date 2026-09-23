@@ -3,7 +3,6 @@ import { createWriteStream } from 'node:fs'
 import { mkdir, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import { MAX_ATTACHMENT_BYTES } from '@aiws/protocol'
 import multipart from '@fastify/multipart'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply } from 'fastify'
@@ -13,6 +12,7 @@ import { attachments, bots, groupBots } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
+import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { type AttachmentRow, dataDir, inlineType, safeName, type Upload, uploadDto } from './service.js'
@@ -37,7 +37,7 @@ async function sendFile(reply: FastifyReply, a: AttachmentRow) {
     .send(await openFile(join(dataDir(), a.storageKey)))
 }
 
-/** Spec §8.7: files attached to messages, ≤ 50 MB each; the message send binds them (≤ 10 per message). */
+/** Spec §8.7: files attached to messages, size and count bounded by system params; the message send binds them. */
 export function attachmentRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     await app.register(multipart)
@@ -45,7 +45,8 @@ export function attachmentRoutes(ctx: Ctx) {
     /** multipart: the `groupId` field, then one `file`. */
     app.post('/api/uploads', async (req): Promise<Upload> => {
       const me = await requireUser(ctx, req)
-      const part = await req.file({ limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 } })
+      const maxMb = (await sysParams(ctx.db)).attachmentMaxMb
+      const part = await req.file({ limits: { fileSize: maxMb * 1024 * 1024, files: 1 } })
       if (!part) return fail('invalid', '缺少文件')
       const field = part.fields.groupId
       const groupId = field && 'value' in field ? String(field.value) : ''
@@ -63,7 +64,7 @@ export function attachmentRoutes(ctx: Ctx) {
       try {
         await pipeline(part.file, sealStream(), createWriteStream(path))
         // busboy stops at the limit and marks the stream truncated instead of failing it.
-        if (part.file.truncated) fail('invalid', '单个附件不能超过 50 MB')
+        if (part.file.truncated) fail('invalid', `单个附件不能超过 ${maxMb} MB`)
       } catch (e) {
         await unlink(path).catch(() => {})
         throw e

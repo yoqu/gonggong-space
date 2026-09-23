@@ -13,6 +13,10 @@ import type { ReactNode } from 'react'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
 import { ConfigPage } from '../config/ConfigPage'
 import { UsagePage } from '../usage/UsagePage'
+import { AuditPage } from './AuditPage'
+import { GroupsPage } from './GroupsPage'
+import { MachinesPage } from './MachinesPage'
+import { ParamsPage } from './ParamsPage'
 import { UsersPage } from './UsersPage'
 
 export interface AdminItem {
@@ -52,6 +56,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: Hash,
         desc: '所有群的模式、仓库与权威副本状态。',
         sysadminOnly: true,
+        element: <GroupsPage />,
       },
     ],
   },
@@ -72,6 +77,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: SlidersHorizontal,
         desc: '全局默认值；群级参数由群管理员在群设置中调整。',
         sysadminOnly: true,
+        element: <ParamsPage />,
       },
     ],
   },
@@ -84,6 +90,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: Server,
         desc: '每台 daemon 的版本、心跳与网络质量记录。',
         sysadminOnly: true,
+        element: <MachinesPage />,
       },
       {
         path: 'usage',
@@ -98,6 +105,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: ScrollText,
         desc: '审批、提问、锁与同步事件、管理员操作，永久保存。',
         sysadminOnly: true,
+        element: <AuditPage />,
       },
     ],
   },

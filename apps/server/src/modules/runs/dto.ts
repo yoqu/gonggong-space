@@ -1,23 +1,16 @@
-import {
-  type ApprovalDto,
-  DEFAULT_OFFLINE_WAIT_MIN,
-  type QuestionSetDto,
-  type RunDto,
-  type RunStatus,
-  type Usage,
-} from '@aiws/protocol'
+import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
+import { PARAM_DEFAULTS } from '../admin/params.js'
+import { groupParamDefaults, withDefaults } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
 import { attachmentDto, questionSetDto } from '../questions/dto.js'
 
 export type RunRow = typeof runs.$inferSelect
 type ApprovalRow = typeof approvals.$inferSelect
 
-export const DEFAULT_CHAIN_MAX_HOPS = 3
-
-/** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / 3). */
+/** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / system param). */
 export const runDto = (
   r: RunRow,
   extra: {
@@ -42,8 +35,8 @@ export const runDto = (
   startedAt: r.startedAt?.toISOString() ?? null,
   endedAt: r.endedAt?.toISOString() ?? null,
   parentRunId: r.parentRunId,
-  hopMax: extra.hopMax ?? DEFAULT_CHAIN_MAX_HOPS,
-  offlineWaitMin: extra.offlineWaitMin ?? DEFAULT_OFFLINE_WAIT_MIN,
+  hopMax: extra.hopMax ?? PARAM_DEFAULTS.chainMaxHops,
+  offlineWaitMin: extra.offlineWaitMin ?? PARAM_DEFAULTS.offlineWaitMin,
   originUserId: r.originUserId,
   approvals: extra.approvals ?? [],
   questions: extra.questions ?? [],
@@ -66,18 +59,6 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
   expiresAt: a.expiresAt.toISOString(),
   createdAt: a.createdAt.toISOString(),
 })
-
-/** Group param `offlineWaitMin` (spec §4.8). */
-const offlineWaitOf = (params: unknown) => {
-  const n = (params as { offlineWaitMin?: unknown }).offlineWaitMin
-  return typeof n === 'number' ? n : DEFAULT_OFFLINE_WAIT_MIN
-}
-
-/** Group param `chainMaxHops` (spec §4.6). */
-export const hopMaxOf = (params: unknown) => {
-  const n = (params as { chainMaxHops?: unknown }).chainMaxHops
-  return typeof n === 'number' ? n : DEFAULT_CHAIN_MAX_HOPS
-}
 
 /** Loads what cards need beyond the row (approval records, the group's hop limit) for `rows`, then maps them. */
 export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow) => RunDto> {
@@ -116,13 +97,16 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
         .where(inArray(groups.id, [...new Set(rows.map((r) => r.groupId))]))
     ).map((g) => [g.id, g.params]),
   )
-  return (r) =>
-    runDto(r, {
+  const defaults = await groupParamDefaults(ctx)
+  return (r) => {
+    const p = withDefaults(params.get(r.groupId) ?? {}, defaults)
+    return runDto(r, {
       approvals: aps.filter((x) => x.a.runId === r.id).map((x) => approvalDto(x.a, x.name)),
       questions: qs.filter((x) => x.q.runId === r.id).map((x) => questionSetDto(x.q, x.name, files)),
-      hopMax: hopMaxOf(params.get(r.groupId) ?? {}),
-      offlineWaitMin: offlineWaitOf(params.get(r.groupId) ?? {}),
+      hopMax: p.chainMaxHops,
+      offlineWaitMin: p.offlineWaitMin,
     })
+  }
 }
 
 /** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */

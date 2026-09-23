@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } fr
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
+import { sysParams } from '../admin/params.js'
 import { publishBot } from '../bots/dto.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
@@ -16,7 +17,6 @@ type Bot = typeof bots.$inferSelect
 const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
 const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
-const FALLBACK_LIMIT = 50
 const OFFLINE = { status: 'offline_wait', step: 'bot 离线，等待上线', startedAt: null }
 const WORKSPACE_WAIT = '工作区准备中'
 
@@ -137,7 +137,9 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
         await contextMessages(
           tx,
           and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
-          FALLBACK_LIMIT,
+          (
+            await sysParams(tx)
+          ).sessionReplayCount,
         )
       ).reverse()
     : []

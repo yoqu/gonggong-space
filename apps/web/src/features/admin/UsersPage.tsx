@@ -38,6 +38,7 @@ export function UsersPage() {
   const [users, setUsers] = useState<AdminUserDto[] | null>(null)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<AdminUserDto | 'new' | null>(null)
+  const [disabling, setDisabling] = useState<AdminUserDto | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -49,6 +50,16 @@ export function UsersPage() {
   useEffect(() => {
     if (isAdmin) void load()
   }, [isAdmin, load])
+
+  async function enable(u: AdminUserDto) {
+    try {
+      await api.post(`/admin/users/${u.id}/enable`)
+      toast({ type: 'success', message: `已启用 ${u.name}，需重新绑定机器` })
+      void load()
+    } catch (err) {
+      toast({ type: 'error', message: errorText(err) })
+    }
+  }
 
   if (!isAdmin)
     return (
@@ -106,6 +117,15 @@ export function UsersPage() {
                       <Button variant="ghost" size="xs" onClick={() => setEditing(u)}>
                         编辑
                       </Button>
+                      {u.id === me.id ? null : u.disabled ? (
+                        <Button variant="ghost" size="xs" onClick={() => void enable(u)}>
+                          启用
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="xs" onClick={() => setDisabling(u)}>
+                          停用
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -119,6 +139,16 @@ export function UsersPage() {
       <p className="admin__foot">
         一期由系统管理员手动创建账号；认证模块已预留 OIDC 接口，二期接入公司 SSO。
       </p>
+      {disabling ? (
+        <DisableDialog
+          user={disabling}
+          onClose={() => setDisabling(null)}
+          onDone={() => {
+            setDisabling(null)
+            void load()
+          }}
+        />
+      ) : null}
       {editing ? (
         <UserDialog
           user={editing === 'new' ? null : editing}
@@ -131,6 +161,57 @@ export function UsersPage() {
         />
       ) : null}
     </AdminPage>
+  )
+}
+
+/** 管理后台.dc.html disableUser dialog (spec §9 账号停用). */
+function DisableDialog({
+  user,
+  onClose,
+  onDone,
+}: {
+  user: AdminUserDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function disable() {
+    setBusy(true)
+    try {
+      await api.post(`/admin/users/${user.id}/disable`)
+      toast({ type: 'success', message: `已停用 ${user.name}` })
+      onDone()
+    } catch (err) {
+      setError(errorText(err))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={`停用账号 ${user.name}`}
+      onClose={onClose}
+      width={440}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            关闭
+          </Button>
+          <Button variant="destructive" disabled={busy} onClick={() => void disable()}>
+            停用
+          </Button>
+        </>
+      }
+    >
+      <ul className="admin-consequences">
+        <li>立即吊销其所有 daemon token 和 Web 会话</li>
+        <li>daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）</li>
+        <li>其 bot 从所有群移除；持锁中的 bot 按非主动中断处理</li>
+        <li>群消息与审计记录保留</li>
+      </ul>
+      {error ? <Alert variant="error" description={error} /> : null}
+    </Dialog>
   )
 }
 

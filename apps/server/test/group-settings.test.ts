@@ -149,7 +149,7 @@ describe('group params', () => {
       offlineWaitMin: 30,
     })
     const [group] = await t.db.select().from(groups).where(eq(groups.id, w.g.id))
-    expect(timeoutMin(group!)).toBe(12)
+    expect(await timeoutMin(t.ctx, group!)).toBe(12)
 
     const parent = await queuedRun(w, w.wangBot.id, 'completed')
     const [reply] = await t.db

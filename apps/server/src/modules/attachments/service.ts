@@ -5,6 +5,7 @@ import type { Db } from '../../db/client.js'
 import { attachments } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { sysParams } from '../admin/params.js'
 import { redact } from '../runs/redact.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -43,6 +44,8 @@ export async function claimAttachments(
   o: { uploaderId: string; groupId: string; messageId: string },
 ): Promise<Attachment[]> {
   if (!ids.length) return []
+  const max = (await sysParams(tx)).attachmentsPerMessage
+  if (ids.length > max) return fail('invalid', `每条消息最多 ${max} 个附件`)
   if (new Set(ids).size !== ids.length || !ids.every(isUuid)) return fail('invalid', '附件无效')
   const rows = await tx
     .update(attachments)

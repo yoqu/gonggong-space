@@ -7,6 +7,7 @@ import { bots, groupBots, machines, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
+import { sysParams } from '../admin/params.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
 import { notify } from '../notifications/notify.js'
 import { confirmBot } from './binding.js'
@@ -143,6 +144,7 @@ export function botRoutes(ctx: Ctx) {
           machineId: body.machineId,
           binding,
           systemPrompt: body.systemPrompt,
+          concurrency: (await sysParams(ctx.db)).botConcurrencyDefault,
           createdBy: user.id,
         })
         .returning()) as [BotRow]

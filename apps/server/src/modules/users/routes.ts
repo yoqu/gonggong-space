@@ -8,6 +8,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { disableUser, enableUser } from './disable.js'
 import { toUserDto } from './dto.js'
 
 export function userRoutes(ctx: Ctx) {
@@ -72,6 +73,14 @@ export function userRoutes(ctx: Ctx) {
       })
       return toUserDto(user)
     })
+
+    app.post<{ Params: { id: string } }>('/api/admin/users/:id/disable', async (req) =>
+      disableUser(ctx, idParam(req.params.id, '账号'), await requireSysadmin(ctx, req)),
+    )
+
+    app.post<{ Params: { id: string } }>('/api/admin/users/:id/enable', async (req) =>
+      enableUser(ctx, idParam(req.params.id, '账号'), await requireSysadmin(ctx, req)),
+    )
 
     app.get('/api/users', async (req): Promise<UserBriefDto[]> => {
       await requireUser(ctx, req)

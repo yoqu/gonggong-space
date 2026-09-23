@@ -5,12 +5,12 @@ import type { WebSocket } from 'ws'
 import type { Ctx } from '../context.js'
 import { machines, users } from '../db/schema.js'
 import { sha256 } from '../lib/crypto.js'
+import { sysParams } from '../modules/admin/params.js'
 import { daemonRelease, upgradeFor } from '../modules/releases/routes.js'
 import { reconcileRuns } from '../modules/runs/reconcile.js'
 import type { DaemonConn } from './hub.js'
 
 export const CLOSE = { badHello: 4000, protocol: 4001, replaced: 4002, revoked: 4003, timeout: 4004 } as const
-const MISSED_HEARTBEATS = 3
 
 const send = (ws: WebSocket, msg: ServerToDaemon) => ws.send(JSON.stringify(msg))
 
@@ -80,13 +80,14 @@ export function daemonGateway(ctx: Ctx) {
           })
           .where(eq(machines.id, machineId))
 
+        const { offlineMisses } = await sysParams(ctx.db)
         const conn: DaemonConn = { send: (m) => send(ws, m), close: (c, r) => ws.close(c, r) }
         let timer: NodeJS.Timeout | undefined
         const armTimeout = () => {
           clearTimeout(timer)
           timer = setTimeout(
             () => ws.close(CLOSE.timeout, 'heartbeat timeout'),
-            ctx.config.heartbeatSec * 1000 * MISSED_HEARTBEATS,
+            ctx.config.heartbeatSec * 1000 * offlineMisses,
           )
         }
         registered = true

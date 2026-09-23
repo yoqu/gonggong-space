@@ -3,6 +3,7 @@ import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { groupParams } from '../groups/params.js'
 import { notify } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
 import { redact } from '../runs/redact.js'
@@ -11,8 +12,8 @@ type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'
 export type VoidReason = 'stopped' | 'chain_stopped' | 'ended'
 
-/** Spec §3.4 defaults per sync mode; group admins override via `groups.params.approvalTimeoutMin`. */
-const TIMEOUT_MIN = { partition: 30, force: 5 }
+/** Force-sync default (P2); partition groups default to the system param. Group admins override both. */
+const FORCE_TIMEOUT_MIN = 5
 const TICK_MS = 15_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -30,10 +31,10 @@ const scoped = (ctx: Ctx) =>
     .innerJoin(runs, eq(runs.id, approvals.runId))
     .innerJoin(bots, eq(bots.id, runs.botId))
 
-export function timeoutMin(group: typeof groups.$inferSelect) {
+export async function timeoutMin(ctx: Ctx, group: typeof groups.$inferSelect) {
   const custom = (group.params as { approvalTimeoutMin?: unknown }).approvalTimeoutMin
   if (typeof custom === 'number' && custom > 0) return custom
-  return group.mode === 'force' ? TIMEOUT_MIN.force : TIMEOUT_MIN.partition
+  return group.mode === 'force' ? FORCE_TIMEOUT_MIN : (await groupParams(ctx, group)).approvalTimeoutMin
 }
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */
@@ -46,7 +47,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(and(eq(runs.id, req.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
   if (!row) return
-  const expiresAt = new Date(ctx.now().getTime() + timeoutMin(row.group) * 60_000)
+  const expiresAt = new Date(ctx.now().getTime() + (await timeoutMin(ctx, row.group)) * 60_000)
   const [a] = (await ctx.db
     .insert(approvals)
     .values({
