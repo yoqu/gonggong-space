@@ -336,4 +336,10 @@
   .bots-page__inner {
     padding: 16px 12px 32px;
   }
+  .bots-table {
+    overflow-x: auto;
+  }
+  .bots-table__row {
+    min-width: 540px;
+  }
 }

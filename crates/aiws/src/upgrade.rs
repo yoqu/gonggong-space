@@ -174,7 +174,10 @@ impl Upgrader {
         let Some((version, path)) = self.state.lock().unwrap().staged.take() else { return };
         tracing::info!(version, "upgrading daemon {CURRENT} → {version} and restarting");
         let err = match install(&path, &self.exe) {
-            Ok(()) => exec(restart_command(&self.exe, &self.args)),
+            Ok(()) => {
+                let _ = std::fs::remove_file(&path);
+                exec(restart_command(&self.exe, &self.args))
+            }
             Err(e) => e,
         };
         tracing::error!(version, "daemon upgrade failed: {err:#}");

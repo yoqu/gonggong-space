@@ -141,6 +141,7 @@
 @media (max-width: 767px) {
   .admin__product,
   .admin__slash,
+  .admin__role,
   .admin__head {
     display: none;
   }
