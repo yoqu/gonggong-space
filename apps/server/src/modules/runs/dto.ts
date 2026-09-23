@@ -9,7 +9,7 @@ type ApprovalRow = typeof approvals.$inferSelect
 
 export const DEFAULT_CHAIN_MAX_HOPS = 3
 
-/** Pure mapping; `runDtos` loads `approvals` and `hopMax` (defaults: none / 3). */
+/** Pure mapping; `runDtoLoader` loads `approvals` and `hopMax` (defaults: none / 3). */
 export const runDto = (r: RunRow, extra: { approvals?: ApprovalDto[]; hopMax?: number } = {}): RunDto => ({
   id: r.id,
   groupId: r.groupId,
@@ -54,9 +54,9 @@ export const hopMaxOf = (params: unknown) => {
   return typeof n === 'number' ? n : DEFAULT_CHAIN_MAX_HOPS
 }
 
-/** Card DTOs with their approval records and their group's hop limit. */
-export async function runDtos(ctx: Ctx, rows: RunRow[]): Promise<RunDto[]> {
-  if (!rows.length) return []
+/** Loads what cards need beyond the row (approval records, the group's hop limit) for `rows`, then maps them. */
+export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow) => RunDto> {
+  if (!rows.length) return (r) => runDto(r)
   const aps = await ctx.db
     .select({ a: approvals, name: users.name })
     .from(approvals)
@@ -76,12 +76,11 @@ export async function runDtos(ctx: Ctx, rows: RunRow[]): Promise<RunDto[]> {
         .where(inArray(groups.id, [...new Set(rows.map((r) => r.groupId))]))
     ).map((g) => [g.id, g.params]),
   )
-  return rows.map((r) =>
+  return (r) =>
     runDto(r, {
       approvals: aps.filter((x) => x.a.runId === r.id).map((x) => approvalDto(x.a, x.name)),
       hopMax: hopMaxOf(params.get(r.groupId) ?? {}),
-    }),
-  )
+    })
 }
 
 /** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */
@@ -97,10 +96,10 @@ export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: st
       ),
     )
     .orderBy(asc(runs.queuedAt))
-  return runDtos(ctx, rows)
+  return rows.map(await runDtoLoader(ctx, rows))
 }
 
 export async function publishRun(ctx: Ctx, run: RunRow) {
-  const [dto] = await runDtos(ctx, [run])
-  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: dto! })
+  const toDto = await runDtoLoader(ctx, [run])
+  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
 }

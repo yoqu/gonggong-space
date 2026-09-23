@@ -58,14 +58,22 @@ describe('run retention', () => {
 
     expect(await purgeExpiredRuns(t.ctx)).toBe(1)
     expect(await eventsOf(old.id)).toBe(0)
-    expect(await rowOf(old.id)).toMatchObject({ patch: null, purgedAt: clock, filesChanged: 1, status: 'completed' })
+    expect(await rowOf(old.id)).toMatchObject({
+      patch: null,
+      purgedAt: clock,
+      filesChanged: 1,
+      status: 'completed',
+    })
     for (const r of [recent, live]) {
       expect(await eventsOf(r.id)).toBe(1)
       expect(await rowOf(r.id)).toMatchObject({ patch: 'diff --git a/x b/x\n', purgedAt: null })
     }
     expect(await purgeExpiredRuns(t.ctx)).toBe(0)
 
-    const res = await t.app.inject({ url: `/api/runs/${old.id}`, headers: { cookie: await t.seed.cookie(w.user.id) } })
+    const res = await t.app.inject({
+      url: `/api/runs/${old.id}`,
+      headers: { cookie: await t.seed.cookie(w.user.id) },
+    })
     expect(res.json()).toMatchObject({ purged: true, patch: null, events: [], retentionDays: 30 })
   })
 

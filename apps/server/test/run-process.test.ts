@@ -1,4 +1,10 @@
-import { PROTOCOL_VERSION, type RunDetailDto, type RunStart, type TimelineDto, type WebEvent } from '@aiws/protocol'
+import {
+  PROTOCOL_VERSION,
+  type RunDetailDto,
+  type RunStart,
+  type TimelineDto,
+  type WebEvent,
+} from '@aiws/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { approvals, groupBots, groups, messages, runEvents, runs } from '../src/db/schema.js'
@@ -18,7 +24,12 @@ async function world() {
   const alice = await t.seed.user({ name: '王磊' })
   const bob = await t.seed.user({ name: '陈晨' })
   const { machine, token } = await t.seed.machine(alice.id)
-  const bot = await t.seed.bot({ ownerId: alice.id, name: '小王的 Claude', machineId: machine.id, binding: 'bound' })
+  const bot = await t.seed.bot({
+    ownerId: alice.id,
+    name: '小王的 Claude',
+    machineId: machine.id,
+    binding: 'bound',
+  })
   const group = await t.seed.group({ createdBy: alice.id, memberIds: [bob.id], botIds: [bot.id] })
 
   const ws = t.ws('/ws/daemon')
@@ -41,7 +52,13 @@ async function world() {
   const mention = async () => {
     const [m] = await t.db
       .insert(messages)
-      .values({ groupId: group.id, kind: 'user', authorUserId: alice.id, body: '@bot go', meta: { mentions: [bot.id] } })
+      .values({
+        groupId: group.id,
+        kind: 'user',
+        authorUserId: alice.id,
+        body: '@bot go',
+        meta: { mentions: [bot.id] },
+      })
       .returning()
     await triggerRuns(t.ctx, m!)
     return (await box.next<RunStart>()).runId
@@ -65,11 +82,13 @@ async function world() {
       }),
     )
   const ended = (runId: string) =>
-    expect.poll(() => seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.endedAt)).toBe(true)
+    expect
+      .poll(() => seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.endedAt))
+      .toBe(true)
   const detail = async (runId: string, userId = bob.id) =>
-    (await t.app.inject({ url: `/api/runs/${runId}`, headers: { cookie: await t.seed.cookie(userId) } })).json<
-      RunDetailDto
-    >()
+    (
+      await t.app.inject({ url: `/api/runs/${runId}`, headers: { cookie: await t.seed.cookie(userId) } })
+    ).json<RunDetailDto>()
   return { alice, bob, bot, group, mention, send, done, ended, detail, seen }
 }
 
@@ -90,7 +109,11 @@ describe('run process', () => {
     w.done(runId, { reply: `输出：${GH}`, patch })
     await w.ended(runId)
 
-    const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId)).orderBy(asc(runEvents.id))
+    const rows = await t.db
+      .select()
+      .from(runEvents)
+      .where(eq(runEvents.runId, runId))
+      .orderBy(asc(runEvents.id))
     const raw = JSON.stringify(rows)
     expect(raw).not.toContain('ghp_')
     expect(raw).not.toContain('hunter2')
@@ -151,7 +174,9 @@ describe('run process', () => {
     w.send(runId, { kind: 'tool', toolCallId: 'c1', title: 'Read a', toolKind: 'read', status: 'completed' })
     await expect
       .poll(() => w.seen.find((e) => e.t === 'run.updated' && e.run.step === 'Read a'))
-      .toMatchObject({ run: { hopMax: 5, approvals: [{ detail: 'echo hello-approval' }, { status: 'pending' }] } })
+      .toMatchObject({
+        run: { hopMax: 5, approvals: [{ detail: 'echo hello-approval' }, { status: 'pending' }] },
+      })
 
     const d = await w.detail(runId)
     expect(d.run.hopMax).toBe(5)
@@ -180,7 +205,11 @@ describe('run process', () => {
         headers: { cookie: await t.seed.cookie(w.bob.id) },
       })
     ).json<TimelineDto>()
-    expect(tl.runs[0]).toMatchObject({ id: runId, hopMax: 5, approvals: [{ status: 'approved' }, { status: 'pending' }] })
+    expect(tl.runs[0]).toMatchObject({
+      id: runId,
+      hopMax: 5,
+      approvals: [{ status: 'approved' }, { status: 'pending' }],
+    })
     await t.db.update(groupBots).set({ sessionId: 's-9' }).where(eq(groupBots.groupId, w.group.id))
     expect((await w.detail(runId)).sessionId).toBe('s-9')
   })

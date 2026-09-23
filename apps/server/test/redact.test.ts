@@ -18,7 +18,11 @@ describe('redaction', () => {
       'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
       `Bearer ${MASK}`,
     ],
-    ['password assignment', 'mysql -u root password=s3cr3t! --host db', `mysql -u root password=${MASK} --host db`],
+    [
+      'password assignment',
+      'mysql -u root password=s3cr3t! --host db',
+      `mysql -u root password=${MASK} --host db`,
+    ],
     ['token assignment', 'GITHUB_TOKEN=abc123 npm publish', `GITHUB_TOKEN=${MASK} npm publish`],
     ['quoted secret assignment', 'client_secret="a b"', `client_secret="${MASK}"`],
     ['JSON secret', '{"api_key": "zzz-111", "name": "x"}', `{"api_key": "${MASK}", "name": "x"}`],

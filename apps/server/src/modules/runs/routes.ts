@@ -6,7 +6,7 @@ import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, runEvents, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
-import { runDtos } from './dto.js'
+import { runDtoLoader } from './dto.js'
 import { runRetentionDays } from './retention.js'
 
 export function runRoutes(ctx: Ctx) {
@@ -32,9 +32,9 @@ export function runRoutes(ctx: Ctx) {
         .select({ sessionId: groupBots.sessionId })
         .from(groupBots)
         .where(and(eq(groupBots.groupId, row.run.groupId), eq(groupBots.botId, row.run.botId)))
-      const [run] = await runDtos(ctx, [row.run])
+      const toDto = await runDtoLoader(ctx, [row.run])
       return {
-        run: run!,
+        run: toDto(row.run),
         patch: row.run.patch,
         purged: row.run.purgedAt !== null,
         sessionId: gb?.sessionId ?? null,

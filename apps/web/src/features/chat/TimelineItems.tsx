@@ -1,7 +1,9 @@
 import type { MessageDto, RunDto, RunStatus } from '@aiws/protocol'
 import {
+  Ban,
   Bot,
   CircleDot,
+  FileText,
   Folder,
   FolderInput,
   GitBranch,
@@ -10,15 +12,23 @@ import {
   Link2,
   Loader,
   MessageCircleQuestion,
+  PanelRightOpen,
   RefreshCw,
   ShieldAlert,
   Square,
   UserMinus,
   UserPlus,
   Users,
+  WifiOff,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { cx } from '../../lib/cx'
 import { Badge, type BadgeVariant } from '../../ui'
+import { ApprovalBlock } from '../runs/ApprovalBlock'
+import { InterruptBlock } from '../runs/InterruptBlock'
+import { filePaths } from '../runs/paths'
+import { RunActions } from '../runs/RunActions'
+import { useRunRail } from '../runs/rail'
 import { Markdown } from './Markdown'
 
 export const RUN_STATUS: Record<RunStatus, { label: string; variant: BadgeVariant }> = {
@@ -52,18 +62,18 @@ export function fmtTime(iso: string) {
   return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`
 }
 
-const fmtDuration = (ms: number) => {
+export const fmtDuration = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
 
-function fmtUsage(u: RunDto['usage']) {
+export function fmtUsage(u: RunDto['usage']) {
   const total = u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
   if (!total) return '用量未上报'
   return total >= 1000 ? `${(total / 1000).toFixed(1)}k tokens` : `${total} tokens`
 }
 
-function useNow(ticking: boolean) {
+export function useNow(ticking: boolean) {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     if (!ticking) return
@@ -146,6 +156,9 @@ export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: st
 }
 
 export function BotReply({ m }: { m: MessageDto }) {
+  const open = useRunRail((s) => s.open)
+  const runId = m.runId
+  const files = useMemo(() => (runId ? filePaths(m.body) : []), [runId, m.body])
   return (
     <div className="tl-msg" data-testid="bot-reply">
       <div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>
@@ -156,6 +169,16 @@ export function BotReply({ m }: { m: MessageDto }) {
           <span className="tl-time">{fmtTime(m.createdAt)}</span>
         </div>
         <Markdown text={m.body} />
+        {runId && files.length ? (
+          <div className="tl-files">
+            {files.map((f) => (
+              <button key={f} type="button" className="tl-file" onClick={() => open(runId, 'diff', f)}>
+                <FileText size={11} />
+                {f}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -168,6 +191,9 @@ const STEP_ICON: Partial<Record<RunStatus, typeof CircleDot>> = {
   awaiting_approval: ShieldAlert,
   awaiting_answer: MessageCircleQuestion,
 }
+
+/** Runs that never started show their reason as a note instead of a step, without actions (prototype r4 / r5). */
+const NOTE_ICON: Partial<Record<RunStatus, typeof CircleDot>> = { forbidden: Ban, offline_wait: WifiOff }
 
 export function RunCard({
   run,
@@ -184,14 +210,21 @@ export function RunCard({
 }) {
   const live = LIVE.includes(run.status)
   const now = useNow(live && !!run.startedAt)
+  const selected = useRunRail((s) => s.runId === run.id)
+  const openRail = useRunRail((s) => s.open)
   const status = RUN_STATUS[run.status]
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
-  const step = streamed || run.step
+  const NoteIcon = NOTE_ICON[run.status]
+  const step = NoteIcon ? '' : streamed || run.step
   const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const sessionNote = newSessionNote(run.newSessionReason)
   return (
-    <div className="run-card" data-testid="run-card" data-status={run.status}>
+    <div
+      className={cx('run-card', selected && 'run-card--selected')}
+      data-testid="run-card"
+      data-status={run.status}
+    >
       <div className="run-card__head">
         <div className="run-card__init">{Array.from(botName)[0]}</div>
         <span className="run-card__bot">{botName}</span>
@@ -201,7 +234,7 @@ export function RunCard({
         {run.hop > 1 ? (
           <span className="run-card__hop">
             <Link2 size={10} />
-            接力 {run.hop}
+            接力 {run.hop}/{run.hopMax}
           </span>
         ) : null}
         <span className="spacer" />
@@ -228,6 +261,26 @@ export function RunCard({
           {sessionNote}
         </div>
       ) : null}
+      {/* Slice 2 (approvals) */}
+      <ApprovalBlock run={run} />
+      {NoteIcon ? (
+        <div className="run-card__note">
+          <NoteIcon size={12} />
+          <span>{run.step}</span>
+        </div>
+      ) : null}
+      {/* Slice 4 (/stop leftovers) */}
+      <InterruptBlock run={run} />
+      {NoteIcon ? null : (
+        <div className="run-card__actions">
+          <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
+            <PanelRightOpen size={12} />
+            查看过程
+          </button>
+          {/* Slice 4 (打断并追加 / stop) */}
+          <RunActions run={run} />
+        </div>
+      )}
     </div>
   )
 }
