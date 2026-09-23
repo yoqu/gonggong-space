@@ -1,12 +1,35 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense } from 'react'
+import { Route, Routes } from 'react-router'
+import { AppShell } from './app/AppShell'
+import { ChatPage } from './app/ChatPage'
+import { RequireSession } from './app/RequireSession'
+import { AdminPage } from './features/admin/AdminPage'
+import { LoginPage } from './features/auth/LoginPage'
+import './app/shell.css'
+
+const UiGallery = lazy(() => import('./app/UiGallery'))
 
 export function App() {
-  const [status, setStatus] = useState('连接中…')
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then((h: { protocol: number }) => setStatus(`已连接 · 协议 v${h.protocol}`))
-      .catch(() => setStatus('服务器不可用'))
-  }, [])
-  return <div style={{ padding: 24 }}>{status}</div>
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      {import.meta.env.DEV ? (
+        <Route
+          path="/_ui"
+          element={
+            <Suspense>
+              <UiGallery />
+            </Suspense>
+          }
+        />
+      ) : null}
+      <Route element={<RequireSession />}>
+        <Route element={<AppShell />}>
+          <Route index element={<ChatPage />} />
+          <Route path="g/:groupId" element={<ChatPage />} />
+          <Route path="admin/*" element={<AdminPage />} />
+        </Route>
+      </Route>
+    </Routes>
+  )
 }
