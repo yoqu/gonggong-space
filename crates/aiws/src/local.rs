@@ -269,7 +269,11 @@ pub fn load_models(home: &Path) -> BTreeMap<AgentKind, AgentModels> {
     std::fs::read_to_string(models_path(home)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
+/// Sessions of several bots start concurrently; their read-modify-write of the shared catalog must not interleave.
+static MODELS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub fn save_models(home: &Path, kind: AgentKind, models: AgentModels) -> Result<()> {
+    let _guard = MODELS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut all = load_models(home);
     if all.get(&kind) == Some(&models) {
         return Ok(());
@@ -288,6 +292,23 @@ mod tests {
 
     fn bot(approval: Approval, allowlist: &[&str]) -> BotSettings {
         BotSettings { model: None, approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
+    }
+
+    #[test]
+    fn concurrent_catalog_saves_neither_fail_nor_lose_updates() {
+        let home = tempfile::tempdir().unwrap();
+        let catalog = |current: &str| AgentModels { current: Some(current.into()), ..AgentModels::default() };
+        std::thread::scope(|s| {
+            for i in 0..16 {
+                let home = home.path();
+                s.spawn(move || {
+                    let kind = if i % 2 == 0 { AgentKind::Claude } else { AgentKind::Codex };
+                    save_models(home, kind, catalog(&format!("m{i}"))).unwrap();
+                });
+            }
+        });
+        let all = load_models(home.path());
+        assert!(all.contains_key(&AgentKind::Claude) && all.contains_key(&AgentKind::Codex));
     }
 
     #[test]

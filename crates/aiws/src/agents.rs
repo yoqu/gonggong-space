@@ -3,7 +3,6 @@ use crate::protocol::{AgentInfo, AgentKind};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-
 pub fn binary(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "claude",
@@ -156,7 +155,8 @@ mod tests {
 
     #[test]
     fn windows_runs_exe_or_npm_cmd_shims_never_the_extensionless_sh_script() {
-        let want: Vec<String> = if cfg!(windows) { vec!["node.exe".into(), "node.cmd".into()] } else { vec!["node".into()] };
+        let want: Vec<String> =
+            if cfg!(windows) { vec!["node.exe".into(), "node.cmd".into()] } else { vec!["node".into()] };
         assert_eq!(file_names("node"), want);
     }
 }
