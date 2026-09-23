@@ -3,7 +3,6 @@ use crate::protocol::{AgentInfo, AgentKind};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const EXTRA_DIRS: &[&str] = &["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "~/.npm-global/bin"];
 
 pub fn binary(kind: AgentKind) -> &'static str {
     match kind {
@@ -43,15 +42,33 @@ pub fn locate(kind: AgentKind, local: &LocalSettings) -> Option<PathBuf> {
 }
 
 pub fn find(bin: &str) -> Option<PathBuf> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let exe = if cfg!(windows) { format!("{bin}.cmd") } else { bin.to_string() };
+    let names = file_names(bin);
     std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
-        .chain(EXTRA_DIRS.iter().map(|d| PathBuf::from(d.replacen('~', &home, 1))))
-        .flat_map(|dir| [dir.join(bin), dir.join(&exe)])
+        .chain(extra_dirs())
+        .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|p| p.is_file())
+}
+
+/// Windows can only run `.exe` files and (via cmd.exe) the `.cmd` shims npm installs; the extensionless file npm
+/// puts next to them is a sh script.
+fn file_names(bin: &str) -> Vec<String> {
+    if cfg!(windows) { vec![format!("{bin}.exe"), format!("{bin}.cmd")] } else { vec![bin.into()] }
+}
+
+/// Common install dirs missing from the PATH of GUI apps and services.
+fn extra_dirs() -> Vec<PathBuf> {
+    let home = crate::config::user_home();
+    let mut dirs = vec![home.join(".local/bin")];
+    if cfg!(windows) {
+        dirs.extend(std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("npm")));
+    } else {
+        dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    }
+    dirs.push(home.join(".npm-global/bin"));
+    dirs
 }
 
 /// First semver-looking token of `<bin> --version`, e.g. "codex-cli 0.156.1" → "0.156.1".
@@ -109,7 +126,7 @@ pub fn parse_version(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_version;
+    use super::{file_names, parse_version};
 
     #[test]
     fn labels_the_login_state() {
@@ -135,5 +152,11 @@ mod tests {
         assert_eq!(parse_version("2.1.280 (Claude Code)"), Some("2.1.280".into()));
         assert_eq!(parse_version("codex-cli 0.156.1"), Some("0.156.1".into()));
         assert_eq!(parse_version("no version here"), None);
+    }
+
+    #[test]
+    fn windows_runs_exe_or_npm_cmd_shims_never_the_extensionless_sh_script() {
+        let want: Vec<String> = if cfg!(windows) { vec!["node.exe".into(), "node.cmd".into()] } else { vec!["node".into()] };
+        assert_eq!(file_names("node"), want);
     }
 }
