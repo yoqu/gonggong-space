@@ -11,6 +11,7 @@ import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
+import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -74,6 +75,13 @@ async function isMember(ctx: Ctx, groupId: string, userId: string) {
 }
 
 export function groupRoutes(ctx: Ctx) {
+  const auditAdmin = (
+    actorUserId: string,
+    groupId: string,
+    action: string,
+    detail: Record<string, unknown>,
+  ) => audit(ctx, { category: 'admin', actorUserId, groupId, action, detail })
+
   return async (app: FastifyInstance) => {
     app.get('/api/groups', async (req) => {
       const me = await requireUser(ctx, req)
@@ -173,6 +181,7 @@ export function groupRoutes(ctx: Ctx) {
       if (!(await isMember(ctx, group.id, user.id))) {
         await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: user.id })
         await postEvent(ctx, group.id, `${me.name} 邀请 ${user.name} 加入群`)
+        await auditAdmin(me.id, group.id, 'group.member.add', { userId: user.id, name: user.name })
         await publishGroup(ctx, group.id)
       }
       return groupDto(ctx, me.id, group.id)
@@ -210,6 +219,7 @@ export function groupRoutes(ctx: Ctx) {
       })
       for (const b of theirBots) await postEvent(ctx, group.id, `${b.name} 被移出 · 工作区保留`)
       await postEvent(ctx, group.id, `${me.name} 将 ${user?.name ?? ''} 移出群`)
+      await auditAdmin(me.id, group.id, 'group.member.remove', { userId, name: user?.name ?? null })
       ctx.bus.publish([userId], { t: 'group.removed', groupId: group.id })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
@@ -241,6 +251,7 @@ export function groupRoutes(ctx: Ctx) {
         await postEvent(ctx, group.id, `${owner?.name ?? ''} 作为 ${bot.name} 的主人一并加入群`)
       }
       await joinBot(ctx, group.id, bot, await hasRepo(ctx, group.id))
+      await auditAdmin(me.id, group.id, 'group.bot.add', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })
@@ -282,6 +293,11 @@ export function groupRoutes(ctx: Ctx) {
           ? `群更换仓库 ${url} · 基准分支 ${branch} · 重建所有 bot 的托管工作区`
           : `群绑定仓库 ${url} · 基准分支 ${branch} · 分区模式`,
       )
+      await auditAdmin(me.id, group.id, 'group.repo.change', {
+        url,
+        branch,
+        previous: old ? { url: old.url, branch: old.baseBranch } : null,
+      })
       for (const bot of await activeBots(ctx, group.id))
         await ensureWorkspace(ctx, group.id, bot, { joined: false })
       await publishGroup(ctx, group.id)
@@ -298,6 +314,7 @@ export function groupRoutes(ctx: Ctx) {
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
       await postEvent(ctx, group.id, `${bot.name} 被移出 · 工作区保留`)
+      await auditAdmin(me.id, group.id, 'group.bot.remove', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })

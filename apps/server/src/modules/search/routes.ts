@@ -1,15 +1,16 @@
 import { SearchQuery, type SearchResultDto } from '@aiws/protocol'
-import { and, desc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, exists, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groupRepos, groups, messages, runEvents, runs, users } from '../../db/schema.js'
+import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
 
 const LIMIT = 20
-/** Recent patches scanned for file paths; enough to fill a page of distinct files. */
+/** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
 const PATCH_SCAN = 100
 const EXPIRED = '运行过程已过期，仅保留卡片摘要'
 
@@ -71,12 +72,12 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
-      .where(and(inArray(runs.groupId, myGroups(userId)), ilike(runs.patch, likePattern(q))))
+      .where(and(inArray(runs.groupId, myGroups(userId)), isNotNull(runs.patch)))
       .orderBy(desc(runs.queuedAt))
       .limit(PATCH_SCAN)
     const needle = q.toLowerCase()
     for (const r of changed)
-      for (const path of patchPaths(r.patch ?? ''))
+      for (const path of patchPaths(open(r.patch ?? '')))
         if (path.toLowerCase().includes(needle))
           add({
             kind: 'file',
@@ -116,7 +117,8 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     return [...out.values()].slice(0, LIMIT)
   }
 
-  /** Runs by their card (bot, step, summary, reply); the process only while it is retained (plan D9). */
+  /** Runs by their card (bot, step, summary, reply); the process (tool titles and steps; its free text is sealed)
+   * only while it is retained (plan D9). */
   async function searchRuns(userId: string, q: string): Promise<SearchResultDto[]> {
     const p = likePattern(q)
     const trigger = alias(messages, 'trigger')
@@ -146,7 +148,15 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
                 ctx.db
                   .select({ one: sql`1` })
                   .from(runEvents)
-                  .where(and(eq(runEvents.runId, runs.id), sql`${runEvents.payload}::text ilike ${p}`)),
+                  .where(
+                    and(
+                      eq(runEvents.runId, runs.id),
+                      or(
+                        sql`${runEvents.payload}->>'title' ilike ${p}`,
+                        sql`${runEvents.payload}->>'step' ilike ${p}`,
+                      ),
+                    ),
+                  ),
               ),
             ),
           ),

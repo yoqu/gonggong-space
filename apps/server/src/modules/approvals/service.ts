@@ -5,6 +5,7 @@ import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { notify } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
+import { redact } from '../runs/redact.js'
 
 type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'
@@ -36,7 +37,8 @@ export function timeoutMin(group: typeof groups.$inferSelect) {
 }
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */
-export async function onApprovalRequest(ctx: Ctx, machineId: string, req: ApprovalRequest) {
+export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: ApprovalRequest) {
+  const req = { ...raw, title: redact(raw.title), detail: redact(raw.detail) }
   const [row] = await ctx.db
     .select({ run: runs, bot: bots, group: groups })
     .from(runs)

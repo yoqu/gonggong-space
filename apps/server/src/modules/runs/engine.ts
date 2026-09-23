@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
+import { open, seal } from '../../lib/seal.js'
 import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { requeueAppends } from '../messages/append.js'
@@ -12,6 +13,7 @@ import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { redact, redactDeep } from './redact.js'
 import { schedule } from './scheduler.js'
+import { sealEvent } from './sealed.js'
 import { notifyChainDone, stoppedDone } from './stop.js'
 import { triggerChain } from './trigger.js'
 
@@ -75,7 +77,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
     return
   }
   const event = redactDeep(raw)
-  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: event })
+  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: sealEvent(event) })
   const patch =
     event.kind === 'status' || event.kind === 'tool'
       ? { step: event.kind === 'tool' ? event.title : event.step }
@@ -99,9 +101,9 @@ async function appendStream(ctx: Ctx, runId: string, kind: 'text' | 'thought', d
     .orderBy(desc(runEvents.id))
     .limit(1)
   if (last?.kind === kind) {
-    const payload = { kind, delta: redact((last.payload as { delta: string }).delta + delta) }
+    const payload = { kind, delta: seal(redact(open((last.payload as { delta: string }).delta) + delta)) }
     await ctx.db.update(runEvents).set({ payload }).where(eq(runEvents.id, last.id))
-  } else await ctx.db.insert(runEvents).values({ runId, kind, payload: { kind, delta: redact(delta) } })
+  } else await ctx.db.insert(runEvents).values({ runId, kind, payload: { kind, delta: seal(redact(delta)) } })
 }
 
 async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
@@ -113,7 +115,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       status: done.outcome === 'completed' ? 'completed' : 'interrupted',
       step: done.outcome === 'failed' ? `agent 异常：${redact(done.error ?? '未知错误')}` : '',
       filesChanged: done.filesChanged,
-      patch: done.patch && redact(done.patch),
+      patch: done.patch && seal(redact(done.patch)),
       ...(done.usage && { usage: done.usage }),
       newSessionReason: done.newSessionReason,
       endedAt: ctx.now(),

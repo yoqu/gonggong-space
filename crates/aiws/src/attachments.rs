@@ -1,8 +1,8 @@
 //! Message attachments in the workspace (spec §8.7): `.aiws/attachments/<messageId>/<name>`, kept out of git.
-use crate::bind;
 use crate::config::Config;
 use crate::git;
 use crate::protocol::Attachment;
+use crate::tls;
 use agent_client_protocol::schema::v1::{ContentBlock, ImageContent, TextContent};
 use base64::prelude::{BASE64_STANDARD, Engine as _};
 use std::collections::HashSet;
@@ -46,7 +46,7 @@ pub async fn fetch<'a>(api: &Config, cwd: &Path, list: impl IntoIterator<Item = 
 
 async fn download(api: &Config, a: &Attachment, path: &Path) -> anyhow::Result<()> {
     let url = format!("{}/api/daemon/attachments/{}", api.server.trim_end_matches('/'), a.id);
-    let mut res = bind::http()?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?;
+    let mut res = tls::client(api)?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?;
     tokio::fs::create_dir_all(path.parent().expect("attachment paths have a parent")).await?;
     // Written aside and renamed, so a cut-off download is never taken for the file.
     let mut part = path.as_os_str().to_owned();

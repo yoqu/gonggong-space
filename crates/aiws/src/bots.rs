@@ -30,12 +30,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(config: &Config) -> Self {
-        Self {
-            http: crate::bind::http().expect("tls backend"),
+    pub fn new(config: &Config) -> Result<Self> {
+        Ok(Self {
+            http: crate::tls::client(config)?,
             base: config.server.trim_end_matches('/').to_owned(),
             token: config.token.clone(),
-        }
+        })
     }
 
     pub async fn list(&self) -> Result<Vec<Bot>> {
@@ -91,7 +91,7 @@ pub fn state_label(bot: &Bot) -> String {
 }
 
 pub async fn list(config: &Config) -> Result<()> {
-    let bots = Client::new(config).list().await?;
+    let bots = Client::new(config)?.list().await?;
     if bots.is_empty() {
         println!("本机还没有 bot");
     }
@@ -102,7 +102,7 @@ pub async fn list(config: &Config) -> Result<()> {
 }
 
 pub async fn confirm(config: &Config, target: &str) -> Result<()> {
-    let client = Client::new(config);
+    let client = Client::new(config)?;
     let bots = client.list().await?;
     let bot = find(&bots, target)?;
     if bot.binding != Binding::PendingConfirm {

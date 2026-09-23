@@ -12,6 +12,7 @@
 ## 命令
 - `pnpm db:up` 启动项目内 PostgreSQL（端口 54329，不碰系统服务）
 - `pnpm -r test`、`cargo test --workspace`、`pnpm typecheck`、`pnpm lint`（biome）
+- HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `AIWS_TLS_CERT/AIWS_TLS_KEY` 与指纹，daemon 用 `aiws login --server https://127.0.0.1:<port> [--fingerprint sha256:…]`（见 `docs/plan/安全说明.md`）
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @aiws/server db:generate`
 
 ## 规则

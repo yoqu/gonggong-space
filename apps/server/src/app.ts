@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { PROTOCOL_VERSION } from '@aiws/protocol'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
-import Fastify from 'fastify'
+import Fastify, { type FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
@@ -33,9 +33,12 @@ import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
 import { webGateway } from './realtime/gateway.js'
+import type { TlsOptions } from './tls.js'
 
-export async function buildApp(ctx: Ctx) {
-  const app = Fastify({ logger: process.env.AIWS_LOG === '1' })
+export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {}) {
+  const logger = process.env.AIWS_LOG === '1'
+  // Route plugins are typed for the default http server; the https instance exposes the same API.
+  const app = (opts.https ? Fastify({ logger, https: opts.https }) : Fastify({ logger })) as FastifyInstance
   await app.register(cookie)
   await app.register(websocket)
   app.setErrorHandler((err, _req, reply) => {

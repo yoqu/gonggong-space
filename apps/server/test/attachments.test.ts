@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -11,6 +11,8 @@ import {
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { attachments, messages, runs } from '../src/db/schema.js'
+import { FILE_OVERHEAD } from '../src/lib/seal.js'
+import { MASK } from '../src/modules/runs/redact.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -116,6 +118,25 @@ describe('uploads', () => {
     expect(text.headers.get('content-type')).toBe('text/plain; charset=utf-8')
     expect(text.headers.get('content-disposition')).toMatch(/^inline;/)
     expect(await text.text()).toBe('ERROR x')
+  })
+
+  it('stores files encrypted at rest and masks secrets in their names', async () => {
+    const w = await world()
+    const secret = Buffer.from('CONFIDENTIAL payroll table')
+    const res = await upload(
+      w.cookies.wang,
+      w.g.id,
+      'dump-ghp_abcdefghijklmnopqrstuvwxyz0123456789.txt',
+      secret,
+      'text/plain',
+    )
+    expect(res.body).toMatchObject({ name: `dump-${MASK}.txt`, size: secret.length })
+    const [row] = await t.db.select().from(attachments).where(eq(attachments.id, res.body.id))
+    const disk = readFileSync(join(process.env.AIWS_DATA_DIR as string, row!.storageKey))
+    expect(disk.length).toBe(secret.length + FILE_OVERHEAD)
+    expect(disk.includes('CONFIDENTIAL')).toBe(false)
+    const got = await fetch(t.url(`/api/attachments/${res.body.id}`), { headers: { cookie: w.cookies.li } })
+    expect(await got.text()).toBe(secret.toString())
   })
 
   it('rejects non-members, a missing group and files over the size limit', async () => {
