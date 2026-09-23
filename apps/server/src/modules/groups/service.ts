@@ -3,10 +3,8 @@ import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { isUuid } from '../../lib/ids.js'
 import { memberIds } from '../messages/service.js'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-export const isUuid = (s: string) => UUID.test(s)
 
 export const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/)\S+$/
 export const BRANCH = /^[A-Za-z0-9._/-]+$/

@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, s
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, messages, runs, users } from '../../db/schema.js'
+import { publishBot } from '../bots/dto.js'
 import { publishRun, type RunRow } from './dto.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -65,6 +66,7 @@ export async function schedule(ctx: Ctx, botId: string) {
     return out
   })
   for (const run of changed) await publishRun(ctx, run)
+  if (changed.some((r) => r.status === 'running')) await publishBot(ctx, botId)
 }
 
 async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {

@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
 import {
@@ -20,7 +21,6 @@ import {
   BRANCH,
   groupDto,
   groupDtos,
-  isUuid,
   publishGroup,
   REPO_URL,
   requireAdmin,

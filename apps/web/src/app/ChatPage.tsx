@@ -2,12 +2,13 @@ import type { GroupDto } from '@aiws/protocol'
 import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { botsApi } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { useDirectory } from '../features/chat/directory'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { EmptyState, Spinner } from '../ui'
+import { EmptyState, Spinner, toast } from '../ui'
 import { ChatLayout } from './ChatLayout'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
@@ -62,6 +63,12 @@ export function ChatPage() {
             machines={machines.filter((m) => m.ownerId === me?.id)}
             onNewGroup={() => setCreating('group')}
             onNewDm={() => setCreating('dm')}
+            onConfirmBot={(id) =>
+              botsApi
+                .confirm(id)
+                .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
+                .catch((e: Error) => toast({ type: 'error', message: e.message }))
+            }
           />
         }
       >

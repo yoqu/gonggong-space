@@ -69,9 +69,7 @@ describe('session guard', () => {
   it('loads the current user and renders the chat shell', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (url: string) =>
-        url === '/api/me' ? new Response(JSON.stringify(me)) : new Response('{}', { status: 404 }),
-      ),
+      vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/me' ? me : []))),
     )
     renderAt('/')
     const top = await screen.findByRole('banner')

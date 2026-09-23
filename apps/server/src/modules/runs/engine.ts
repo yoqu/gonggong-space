@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
+import { publishBot } from '../bots/dto.js'
 import { memberIds, publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 
@@ -80,7 +81,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
     .update(runs)
     .set({
       status: done.outcome === 'completed' ? 'completed' : 'interrupted',
-      ...(done.outcome === 'failed' && { step: `agent 异常：${done.error ?? '未知错误'}` }),
+      step: done.outcome === 'failed' ? `agent 异常：${done.error ?? '未知错误'}` : '',
       filesChanged: done.filesChanged,
       ...(done.usage && { usage: done.usage }),
       newSessionReason: done.newSessionReason,
@@ -97,6 +98,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   if (done.reply.trim()) await postReply(ctx, run, done.reply)
   await publishRun(ctx, run)
   await schedule(ctx, run.botId)
+  await publishBot(ctx, run.botId)
 }
 
 async function postReply(ctx: Ctx, run: RunRow, body: string) {

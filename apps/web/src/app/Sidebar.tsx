@@ -1,17 +1,10 @@
 import type { BotDto, GroupDto, MachineDto } from '@aiws/protocol'
 import { Hash, Plus, User } from 'lucide-react'
 import { NavLink } from 'react-router'
+import { botStateText, PRESENCE } from '../features/bots/model'
+import { Button } from '../ui'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
-
-const PRESENCE: Record<BotDto['presence'], { label: string; color: string }> = {
-  online: { label: '在线空闲', color: '#32D74B' },
-  running: { label: '运行中', color: '#0A84FF' },
-  offline: { label: '离线', color: '#636366' },
-  pending_bind: { label: '待绑定', color: '#636366' },
-  pending_confirm: { label: '待确认', color: '#636366' },
-  agent_missing: { label: 'agent 不可用', color: '#FF9F0A' },
-}
 
 export interface SidebarProps {
   groups: GroupDto[]
@@ -19,6 +12,8 @@ export interface SidebarProps {
   machines: MachineDto[]
   onNewGroup?: () => void
   onNewDm?: () => void
+  /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
+  onConfirmBot?: (botId: string) => void
 }
 
 function SectionHead({ label, onAdd, addTitle }: { label: string; onAdd?: () => void; addTitle?: string }) {
@@ -49,7 +44,7 @@ function GroupRow({ g }: { g: GroupDto }) {
   )
 }
 
-export function Sidebar({ groups, bots, machines, onNewGroup, onNewDm }: SidebarProps) {
+export function Sidebar({ groups, bots, machines, onNewGroup, onNewDm, onConfirmBot }: SidebarProps) {
   const online = machines.find((m) => m.online)
   const lists = [
     {
@@ -90,7 +85,12 @@ export function Sidebar({ groups, bots, machines, onNewGroup, onNewDm }: Sidebar
                 <div key={b.id} className="sidebar__bot">
                   <span className="dot" style={{ background: PRESENCE[b.presence].color }} />
                   <span className="sidebar__bot-name">{b.name}</span>
-                  <span className="sidebar__bot-state">{PRESENCE[b.presence].label}</span>
+                  <span className="sidebar__bot-state">{botStateText(b)}</span>
+                  {b.binding === 'pending_confirm' && onConfirmBot ? (
+                    <Button size="xs" variant="primary" onClick={() => onConfirmBot(b.id)}>
+                      确认
+                    </Button>
+                  ) : null}
                 </div>
               ))
             ) : (
