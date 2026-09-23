@@ -12,6 +12,7 @@ version="$(aiws_version)" key="macos-$(uname -m | sed 's/arm64/aarch64/')"
 daemon_pid=""
 
 cleanup() {
+  trap - ERR
   [ -z "$daemon_pid" ] || kill "$daemon_pid" 2>/dev/null || true
   lsof -ti "tcp:$PORT" -sTCP:LISTEN | xargs kill 2>/dev/null || true
 }
@@ -58,7 +59,7 @@ AIWS_DATA_DIR="$WORK/data" AIWS_ADMIN_PASSWORD=$PASS bash "$ROOT/scripts/release
 want="$(jq -r ".builds[\"$key\"].sha256" "$ROOT/dist/$version/manifest.json")"
 
 echo "== old daemon binds and upgrades itself"
-code="$(api POST /api/bind-codes | jq -r .code)"
+code="$(api POST /api/bind-codes -d '{}' | jq -r .code)"
 export AIWS_HOME="$WORK/member/home" AIWS_LOG=info
 "$WORK/member/aiws" login --server "$URL" --code "$code"
 "$WORK/member/aiws" run > "$WORK/daemon.log" 2>&1 &

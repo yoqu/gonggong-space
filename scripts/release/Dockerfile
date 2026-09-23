@@ -16,4 +16,4 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
     CC_x86_64_unknown_linux_gnu=x86_64-linux-gnu-gcc \
     CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
-    CARGO_TARGET_DIR=/target
+    CARGO_TARGET_DIR=/target CARGO_NET_RETRY=10 CARGO_PROFILE_DEV_DEBUG=line-tables-only

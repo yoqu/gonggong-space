@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Release builds of the aiws daemon (plan D16/D17).
-#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...] [--publish <server-url>]
-# Writes dist/<version>/: aiws-<version>-<os>-<arch>[.exe], SHA256SUMS and manifest.json
-# ({version, builds: {<os>-<arch>: {url, sha256}}}). URLs are /downloads/<file>, served by the server from
-# AIWS_DATA_DIR/downloads, or AIWS_DOWNLOAD_BASE/<file> when set.
+#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop] [--publish <server-url>]
+# Writes dist/<version>/: aiws-<version>-<os>-<arch>[.exe], SHA256SUMS, manifest.json
+# ({version, builds: {<os>-<arch>: {url, sha256}}}) and the macOS desktop .dmg (apps/desktop). URLs are
+# /downloads/<file>, served by the server from AIWS_DATA_DIR/downloads, or AIWS_DOWNLOAD_BASE/<file> when set.
 # --publish copies the builds into $AIWS_DATA_DIR/downloads (when set) and PUTs the manifest to
 # <server-url>/api/admin/daemon-release as AIWS_ADMIN_ACCOUNT (default admin) / AIWS_ADMIN_PASSWORD;
 # AIWS_CACERT trusts a self-signed server certificate.
@@ -62,12 +62,12 @@ if [ ${#docker_targets[@]} -gt 0 ]; then
   builder "$out" "$script"
 fi
 
-# Desktop app (Tauri, macOS only in P1): bundled when apps/desktop exists on this branch.
+# Desktop app (Tauri; only macOS is bundled in P1): `--only desktop` or a full release.
 if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
   echo "== desktop (.app/.dmg)"
+  rm -rf "$ROOT/target/release/bundle"
   (cd "$ROOT" && pnpm --filter @aiws/desktop tauri build --bundles app,dmg)
-  find "$ROOT/target/release/bundle/dmg" "$ROOT/apps/desktop/src-tauri/target/release/bundle/dmg" \
-    -name '*.dmg' -exec cp {} "$out/" \; 2>/dev/null || true
+  cp "$ROOT"/target/release/bundle/dmg/*.dmg "$out/"
 fi
 
 cd "$out"

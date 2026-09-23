@@ -12,6 +12,7 @@ URL="https://127.0.0.1:$PORT" JAR="$WORK/cookies"
 box=""
 
 cleanup() {
+  trap - ERR
   [ -z "$box" ] || docker rm -f "$box" >/dev/null
   lsof -ti "tcp:$PORT" -sTCP:LISTEN | xargs kill 2>/dev/null || true
 }
@@ -56,7 +57,7 @@ wait_for server 60 api GET /api/health
 api POST /api/auth/login -d '{"account":"admin","password":"admin-init"}' >/dev/null
 api POST /api/auth/password -d "{\"oldPassword\":\"admin-init\",\"newPassword\":\"$PASS\"}" >/dev/null
 me="$(api GET /api/me | jq -r .id)"
-code="$(api POST /api/bind-codes | jq -r .code)"
+code="$(api POST /api/bind-codes -d '{}' | jq -r .code)"
 
 git init -q --bare -b main "$WORK/repo.git"
 git clone -q "$WORK/repo.git" "$WORK/seed" 2>/dev/null
