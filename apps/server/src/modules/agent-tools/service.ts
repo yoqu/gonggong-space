@@ -95,6 +95,7 @@ function messageRows(
         where,
         inArray(messages.kind, ['user', 'bot']),
         sql`${messages.meta}->>'command' is null`,
+        isNull(messages.recalledAt),
         f.author
           ? or(ilike(users.name, likePattern(f.author)), ilike(bots.name, likePattern(f.author)))
           : undefined,

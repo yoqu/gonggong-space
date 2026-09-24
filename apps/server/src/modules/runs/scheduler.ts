@@ -179,7 +179,12 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
 }
 
 const contextFilter = (where: SQL | undefined) =>
-  and(where, inArray(messages.kind, ['user', 'bot']), sql`${messages.meta}->>'command' is null`)
+  and(
+    where,
+    inArray(messages.kind, ['user', 'bot']),
+    sql`${messages.meta}->>'command' is null`,
+    isNull(messages.recalledAt),
+  )
 
 async function countContext(tx: Tx, where: SQL | undefined) {
   const [row] = await tx.select({ n: count() }).from(messages).where(contextFilter(where))

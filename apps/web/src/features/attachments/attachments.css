@@ -4,8 +4,10 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-separator);
+  padding: 6px 8px 6px 10px;
+  border-radius: max(var(--radius-min), calc(var(--r-outer, 0px) - var(--pad, 0px)));
+  box-shadow: inset 2px 0 0 var(--color-brand-accent);
+  background: var(--color-bg-muted);
   font-size: 11px;
 }
 .quote-chip__icon,
@@ -39,15 +41,14 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px 0;
 }
 .att-chip {
-  height: 24px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 0 2px 0 8px;
-  border-radius: var(--radius-md);
+  border-radius: max(var(--radius-min), calc(var(--r-outer, 0px) - var(--pad, 0px)));
   border: 1px solid var(--color-separator);
   background: var(--color-panel-elevated);
   font-size: 11px;
@@ -64,8 +65,8 @@
   font-variant-numeric: tabular-nums;
 }
 .att-chip__rm {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -260,9 +261,6 @@
 }
 
 /* Preview rail */
-.chat__rail--preview {
-  width: 440px;
-}
 .pv {
   display: flex;
   flex-direction: column;

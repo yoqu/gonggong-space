@@ -219,7 +219,7 @@ describe('run card merged with the final reply', () => {
     const card = await screen.findByTestId('run-card')
     expect(precedes(card, screen.getByText('插一句'))).toBe(true)
     expect(screen.queryByTestId('bot-reply')).toBeNull()
-    fireEvent.click(within(card).getByRole('button', { name: '引用' }))
+    fireEvent.click(within(card).getByRole('button', { name: '引用回复' }))
     expect(useQuote.getState().quote).toMatchObject({
       kind: 'run',
       id: 'r1',
@@ -395,6 +395,46 @@ describe('composer', () => {
     Object.defineProperty(box(), 'scrollHeight', { configurable: true, value: 120 })
     fireEvent.change(box(), { target: { value: 'a\nb\nc\nd' } })
     expect(box().style.height).toBe('120px')
+    expect(box().style.overflowY).toBe('hidden')
+  })
+
+  it('caps its growth and scrolls beyond the cap', async () => {
+    mockApi({ messages: [], runs: [] })
+    renderAt()
+    await screen.findByText('还没有消息')
+    Object.defineProperty(box(), 'scrollHeight', { configurable: true, value: 2000 })
+    fireEvent.change(box(), { target: { value: 'long\n'.repeat(100) } })
+    expect(box().style.height).toBe('240px')
+    expect(box().style.overflowY).toBe('auto')
+  })
+
+  it('shows quote and attachment chips inside the input block, above the text', async () => {
+    mockApi({ messages: [], runs: [] })
+    renderAt()
+    await screen.findByText('还没有消息')
+    act(() =>
+      useQuote.getState().set({ kind: 'message', id: 'm1', who: '李建国', text: '看下字段', groupId: 'g1' }),
+    )
+    fireEvent.paste(box(), { clipboardData: { files: [new File(['x'], 'shot.png', { type: 'image/png' })] } })
+    const block = document.querySelector('.composer__box') as HTMLElement
+    const chips = within(block).getByTestId('composer-chips')
+    expect(within(chips).getByText('引用 李建国')).toBeTruthy()
+    expect(await within(chips).findByText('shot.png')).toBeTruthy()
+    expect(precedes(chips, box())).toBe(true)
+    expect(precedes(box(), within(block).getByRole('button', { name: '发送' }))).toBe(true)
+  })
+
+  it('shows the send state and replays the sent animation after each send', async () => {
+    mockApi({ messages: [], runs: [] }, { 'POST /groups/g1/messages': () => msg({ seq: 9, body: '你好' }) })
+    renderAt()
+    await screen.findByText('还没有消息')
+    expect(sendButton().dataset.state).toBe('idle')
+    fireEvent.change(box(), { target: { value: '你好' } })
+    expect(sendButton().dataset.state).toBe('ready')
+    expect(sendButton().dataset.sent).toBe('0')
+    fireEvent.click(sendButton())
+    await waitFor(() => expect(sendButton().dataset.sent).toBe('1'))
+    expect(sendButton().dataset.state).toBe('idle')
   })
 
   it('adds pasted and dropped files to the uploads', async () => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { STEP_ICON } from '../src/features/runs/RunRail'
 import { useRunRail } from '../src/features/runs/rail'
 
 const me: UserDto = {
@@ -361,5 +362,69 @@ describe('run rail', () => {
     expect((await screen.findByRole('complementary', { name: '侧栏' })).className).toContain(
       'chat__rail--overlay',
     )
+  })
+})
+
+describe('process timeline', () => {
+  const openRail = async () => {
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
+    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
+    return screen.findByTestId('run-rail')
+  }
+  const tool = (
+    id: number,
+    toolKind: string,
+    status: 'completed' | 'in_progress' | 'failed',
+    detail: string,
+  ) => ({
+    id,
+    at,
+    event: { kind: 'tool' as const, toolCallId: `t${id}`, title: `t${id}`, toolKind, status, detail },
+  })
+
+  it('has an icon for every step kind', () => {
+    const kinds = ['context', 'thought', 'text', 'status', 'approval', 'other']
+    for (const k of [...kinds, 'read', 'edit', 'delete', 'move', 'search', 'execute', 'think', 'fetch'])
+      expect(STEP_ICON[k], k).toBeTruthy()
+  })
+
+  it('draws steps as labelled nodes on a line, marking the running and failed ones', async () => {
+    const base = detail()
+    mockApi(() => ({
+      ...base,
+      events: [
+        ...base.events,
+        tool(4, 'edit', 'completed', 'src/a.ts'),
+        tool(5, 'execute', 'failed', '$ make\nboom'),
+        tool(6, 'read', 'in_progress', 'README.md'),
+      ],
+    }))
+    renderChat()
+    const rail = await openRail()
+    const list = await within(rail).findByRole('list', { name: '运行过程' })
+    const node = (name: string) => within(list).getByRole('img', { name })
+    expect(node('本轮上下文')).toBeTruthy()
+    expect(node('思考')).toBeTruthy()
+    expect(node('读取文件 · 进行中').closest('li')?.dataset.state).toBe('running')
+    expect(node('执行命令 · 失败').closest('li')?.dataset.state).toBe('failed')
+    expect(node('编辑文件').closest('li')?.dataset.state).toBe('done')
+    // Commands, paths and outputs stay text.
+    expect(list.textContent).toContain('README.md')
+    expect(list.textContent).toContain('boom')
+    const edit = node('编辑文件').closest('li')!
+    expect(within(edit).getByRole('img', { name: '新增 2 行，删除 1 行' })).toBeTruthy()
+    expect(edit.textContent).toContain('+2 −1')
+  })
+
+  it('shows a five-cell +/− bar per file in the diff tab', async () => {
+    mockApi(detail)
+    renderChat()
+    const rail = await openRail()
+    await within(rail).findByText('本轮上下文')
+    fireEvent.click(within(rail).getByRole('tab', { name: '文件 diff' }))
+    const file = within(rail).getByRole('button', { name: /src\/a\.ts/ })
+    const bar = within(file).getByRole('img', { name: '新增 2 行，删除 1 行' })
+    const cells = [...bar.children].map((c) => (c as HTMLElement).dataset.cell)
+    expect(cells).toEqual(['add', 'add', 'del', 'none', 'none'])
   })
 })

@@ -1,7 +1,7 @@
 import type { ApprovalDto, RunDetailDto, RunDto } from '@aiws/protocol'
 import { describe, expect, it } from 'vitest'
 import { filePaths } from '../src/features/runs/paths'
-import { buildSteps, findFile, parsePatch } from '../src/features/runs/process'
+import { buildSteps, diffCells, findFile, parsePatch } from '../src/features/runs/process'
 
 const patch = [
   'diff --git a/src/a.ts b/src/a.ts',
@@ -215,5 +215,65 @@ describe('process steps', () => {
         body: '续用上次会话，补送上次被 @ 以来的群消息',
       }),
     ])
+  })
+
+  it('marks running and failed steps and carries per-file diff counts', () => {
+    const tool = (
+      id: number,
+      toolCallId: string,
+      toolKind: string,
+      status: 'completed' | 'in_progress' | 'failed',
+      detail?: string,
+    ) => ({
+      id,
+      at: at(id),
+      event: { kind: 'tool' as const, toolCallId, title: toolCallId, toolKind, status, detail },
+    })
+    const steps = buildSteps({
+      run: run({ status: 'running', approvals: [approval({ createdAt: at(1) })] }),
+      patch,
+      purged: false,
+      sessionId: null,
+      retentionDays: 30,
+      events: [
+        tool(2, 'e1', 'edit', 'completed', '/ws/src/a.ts'),
+        tool(3, 'x1', 'execute', 'failed', '$ make\nboom'),
+        tool(4, 'r1', 'read', 'in_progress', 'README.md'),
+        { id: 5, at: at(5), event: { kind: 'text', delta: '正在' } },
+      ],
+    })
+    const by = (kind: string) => steps.find((s) => s.kind === kind)
+    expect(by('approval')).toMatchObject({ running: true })
+    expect(by('edit')).toMatchObject({ diff: { add: 2, del: 1 } })
+    expect(by('edit')?.running).toBeFalsy()
+    expect(by('execute')).toMatchObject({ failed: true })
+    expect(by('read')).toMatchObject({ running: true })
+    // The reply being streamed is the current step of a running run.
+    expect(by('text')).toMatchObject({ running: true })
+  })
+
+  it('stops marking the streamed reply once the run has ended', () => {
+    const steps = buildSteps({
+      run: run({ status: 'completed' }),
+      patch: null,
+      purged: false,
+      sessionId: null,
+      retentionDays: 30,
+      events: [{ id: 1, at: at(1), event: { kind: 'text', delta: '完成' } }],
+    })
+    expect(steps.some((s) => s.running)).toBe(false)
+  })
+})
+
+describe('diff bar', () => {
+  it('splits five cells between additions and deletions like GitHub', () => {
+    expect(diffCells(0, 0)).toEqual(['none', 'none', 'none', 'none', 'none'])
+    expect(diffCells(2, 1)).toEqual(['add', 'add', 'del', 'none', 'none'])
+    expect(diffCells(100, 0)).toEqual(['add', 'add', 'add', 'add', 'add'])
+    expect(diffCells(0, 7)).toEqual(['del', 'del', 'del', 'del', 'del'])
+    expect(diffCells(30, 20)).toEqual(['add', 'add', 'add', 'del', 'del'])
+    // A side that exists always keeps at least one cell.
+    expect(diffCells(1, 99)).toEqual(['add', 'del', 'del', 'del', 'del'])
+    expect(diffCells(99, 1)).toEqual(['add', 'add', 'add', 'add', 'del'])
   })
 })

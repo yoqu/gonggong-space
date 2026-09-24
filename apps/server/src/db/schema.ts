@@ -210,8 +210,41 @@ export const messages = pgTable(
     meta: jsonb('meta').notNull().default({}),
     runId: uuid('run_id'),
     createdAt: createdAt(),
+    /** Recalled by its author: body and meta attachments/quote are erased at that moment. */
+    recalledAt: ts('recalled_at'),
   },
   (t) => [index('messages_group_seq').on(t.groupId, t.seq)],
+)
+
+/** 删除: messages a user hid from their own timeline only. */
+export const messageHides = pgTable(
+  'message_hides',
+  {
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.messageId] })],
+)
+
+/** Emoji reactions: one row per (message, user, emoji). */
+export const messageReactions = pgTable(
+  'message_reactions',
+  {
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    emoji: text('emoji').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.messageId, t.userId, t.emoji] })],
 )
 
 export const runs = pgTable(

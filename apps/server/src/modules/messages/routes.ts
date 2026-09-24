@@ -9,11 +9,13 @@ import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { commands, parseCommand, runCommand } from '../commands/index.js'
 import { activeBots, requireMember } from '../groups/service.js'
+import { reactionsFor } from '../reactions/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { appendTarget, sendAppend } from './append.js'
 import { parseMentions } from './mentions.js'
 import { resolveQuote } from './quote.js'
+import { hideMessage, notHiddenBy, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
 
 export function messageRoutes(ctx: Ctx) {
@@ -27,10 +29,23 @@ export function messageRoutes(ctx: Ctx) {
         .from(messages)
         .leftJoin(users, eq(users.id, messages.authorUserId))
         .leftJoin(bots, eq(bots.id, messages.authorBotId))
-        .where(and(eq(messages.groupId, req.params.id), before ? lt(messages.seq, before) : undefined))
+        .where(
+          and(
+            eq(messages.groupId, req.params.id),
+            before ? lt(messages.seq, before) : undefined,
+            notHiddenBy(ctx, me.id),
+          ),
+        )
         .orderBy(desc(messages.seq))
         .limit(limit)
-      const page = rows.reverse().map((r) => messageDto(r.m, r.userName ?? r.botName ?? ''))
+      const reactions = await reactionsFor(
+        ctx,
+        rows.map((r) => r.m.id),
+        me.id,
+      )
+      const page = rows
+        .reverse()
+        .map((r) => messageDto(r.m, r.userName ?? r.botName ?? '', reactions.get(r.m.id)))
       return {
         messages: page,
         runs: await listRuns(
@@ -98,6 +113,15 @@ export function messageRoutes(ctx: Ctx) {
         else if (mentions.length) await triggerRuns(ctx, row)
       }
       return dto
+    })
+
+    app.post<{ Params: { id: string } }>('/api/messages/:id/recall', async (req) =>
+      recallMessage(ctx, await requireUser(ctx, req), req.params.id),
+    )
+
+    app.post<{ Params: { id: string } }>('/api/messages/:id/hide', async (req, reply) => {
+      await hideMessage(ctx, (await requireUser(ctx, req)).id, req.params.id)
+      return reply.status(204).send()
     })
   }
 }

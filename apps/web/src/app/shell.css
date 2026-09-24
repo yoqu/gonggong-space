@@ -251,12 +251,49 @@ body {
   flex-direction: column;
 }
 .chat__rail {
+  position: relative;
   width: 320px;
   flex: none;
   display: flex;
   flex-direction: column;
   background: var(--color-panel-bg);
   border-left: 1px solid var(--color-separator);
+}
+/* Drag strip straddling the rail's left border; the line brightens on hover, drag and focus. */
+.chat__rail-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 2;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.chat__rail-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background-color var(--motion-fast);
+}
+.chat__rail-handle:hover::after,
+.chat__rail-handle:focus-visible::after,
+[data-resizing] .chat__rail-handle::after {
+  background: var(--color-system-blue);
+}
+.chat__rail-handle:focus-visible {
+  outline: none;
+}
+/* While dragging, keep the resize cursor everywhere and stop text selection. */
+[data-resizing],
+[data-resizing] * {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat every control's own cursor while dragging */
+  cursor: col-resize !important;
+  user-select: none;
 }
 /* Under 1100px the rail is collapsed by default and floats over the chat when opened. */
 @media (max-width: 1099px) {
@@ -630,7 +667,7 @@ section:first-child > .sidebar__head {
   white-space: nowrap;
 }
 
-/* Timeline & composer */
+/* Timeline */
 .timeline {
   position: relative;
   flex: 1;
@@ -643,65 +680,6 @@ section:first-child > .sidebar__head {
 }
 .timeline > .ui-empty {
   margin: auto;
-}
-.composer {
-  flex: none;
-  position: relative;
-  width: 100%;
-  max-width: calc(var(--chat-max, 760px) + 40px);
-  margin: 0 auto;
-  padding: 8px 20px 14px;
-}
-.composer__box {
-  --r-outer: var(--radius-xl);
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--r-outer);
-  border: 1px solid var(--color-border-control);
-  background: var(--color-panel-bg);
-}
-.composer__box:focus-within,
-.composer__box--drop {
-  border-color: var(--color-system-blue);
-  box-shadow: var(--shadow-focus);
-}
-.composer__input {
-  resize: none;
-  border: 0;
-  background: transparent;
-  padding: 10px 12px 4px;
-  font-size: 13px;
-  line-height: 1.5;
-  max-height: 40vh;
-  overflow-y: auto;
-  outline: none;
-}
-.composer__input::placeholder {
-  color: var(--color-text-placeholder);
-}
-.composer__input:focus-visible {
-  box-shadow: none;
-}
-.composer__bar {
-  --pad: 6px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px var(--pad) var(--pad);
-}
-.composer__bar > .ui-icon-btn,
-.composer__bar > .ui-btn {
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-}
-.composer__hint {
-  flex: 1;
-  min-width: 0;
-  margin-left: 6px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Dev gallery (/_ui) */
@@ -789,14 +767,6 @@ section:first-child > .sidebar__head {
   }
   .timeline {
     padding: 16px 12px 8px;
-  }
-  .composer {
-    max-width: none;
-    padding: 8px 12px 14px;
-  }
-  /* Below 16px iOS zooms the page on focus. */
-  .composer__input {
-    font-size: 16px;
   }
   .chat-notice {
     padding: 7px 12px;

@@ -9,6 +9,7 @@ import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
+import { notHiddenBy } from '../messages/recall.js'
 
 const LIMIT = 20
 /** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
@@ -35,6 +36,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
           inArray(messages.groupId, myGroups(userId)),
           inArray(messages.kind, ['user', 'bot']),
           ilike(messages.body, likePattern(q)),
+          notHiddenBy(ctx, userId),
         ),
       )
       .orderBy(desc(messages.seq))

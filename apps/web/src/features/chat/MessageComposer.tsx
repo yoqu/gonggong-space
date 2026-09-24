@@ -1,6 +1,5 @@
 import type { GroupDto, MessageDto } from '@aiws/protocol'
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { Composer } from '../../app/ChatLayout'
 import { useIsMobile } from '../../app/viewport'
 import { ApiError, api } from '../../lib/api'
 import { toast } from '../../ui'
@@ -8,6 +7,7 @@ import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachme
 import { useQuote } from '../attachments/quote'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
+import { Composer } from './Composer'
 import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandidates'
 
 const RETRIES = 2
@@ -49,6 +49,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(0)
   const sending = useRef(false)
   const uploads = useUploads(group.id)
   const quote = useQuote((s) => (s.quote?.groupId === group.id ? s.quote : null))
@@ -135,6 +136,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
       const appendTo = target?.groupId === group.id ? target.runId : null
       const req = { body, clientId: crypto.randomUUID(), attachmentIds, quote: q, appendTo }
       onSent(await postMessage(group.id, req))
+      setSent((n) => n + 1)
       if (appendTo) useAppend.getState().clear()
       setDraft((d) => (d === body ? '' : d))
       uploads.clear()
@@ -153,6 +155,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
       onChange={change}
       onSend={() => void send()}
       busy={busy}
+      sent={sent}
       attachments={uploads.items.length}
       uploading={uploads.uploading}
       onImage={() => imagePicker.current?.click()}

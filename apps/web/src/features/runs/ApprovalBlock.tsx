@@ -5,6 +5,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { Button, toast } from '../../ui'
+import { CountdownRing } from '../chat/RunGraphics'
 import { TIER_LABEL } from './tier'
 import './approval.css'
 
@@ -79,6 +80,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   const always = a.options.find((o) => o.kind === 'allow_always' && o !== allow)
   const reject = pick(a.options, ['reject_once', 'reject_always'])
   const tier = `超出「${TIER_LABEL[bot?.tier ?? 'workspace']}」档位`
+  const left = Date.parse(a.expiresAt) - now
 
   const decide = async (option: PermissionOption) => {
     setBusy(true)
@@ -94,12 +96,22 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   return (
     <div className="approval">
       <div className="approval__title">
-        <ShieldAlert size={13} />
+        {pending ? (
+          <CountdownRing
+            left={left}
+            total={Date.parse(a.expiresAt) - Date.parse(a.createdAt)}
+            text={countdown(left)}
+          >
+            <ShieldAlert size={10} />
+          </CountdownRing>
+        ) : (
+          <ShieldAlert size={13} />
+        )}
         权限请求 · {KIND[a.toolKind] ?? '其他操作'}
       </div>
       <div className="approval__cmd">{a.detail}</div>
       <div className="approval__why">
-        {pending ? `${tier} · ${countdown(Date.parse(a.expiresAt) - now)} 后自动拒绝，agent 自行绕路` : tier}
+        {pending ? `${tier} · ${countdown(left)} 后自动拒绝，agent 自行绕路` : tier}
       </div>
       {pending ? (
         <div className="approval__actions">

@@ -25,6 +25,8 @@ export const ErrorCode = z.enum([
   'must_change_password',
   'code_expired',
   'code_locked',
+  /** POST /api/messages/:id/recall past RECALL_WINDOW_MS. */
+  'recall_expired',
 ])
 export const ApiError = z.object({ error: ErrorCode, message: z.string() })
 
@@ -45,6 +47,9 @@ export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword
 /** Minimal user reference for pickers (GET /api/users). */
 export const UserBriefDto = z.object({ id: z.string(), name: z.string(), account: z.string() })
 export type UserBriefDto = z.infer<typeof UserBriefDto>
+/** GET /api/users/:id/card?groupId= — hover card; `groupAdmin` is for `groupId`, `online` = has a live web session. */
+export const UserCardDto = UserBriefDto.extend({ role: Role, groupAdmin: z.boolean(), online: z.boolean() })
+export type UserCardDto = z.infer<typeof UserCardDto>
 
 export const CreateUserReq = z.object({
   account: z.string().regex(/^[a-z0-9_.-]{2,32}$/),
@@ -221,6 +226,26 @@ export const ValidateRepoRes = z.object({ ok: z.boolean(), message: z.string() }
 export type ValidateRepoRes = z.infer<typeof ValidateRepoRes>
 
 // ── Timeline ────────────────────────────────────────────────────────────────
+/** Fixed set of emoji reactions, in display order. */
+export const REACTION_EMOJIS = ['👍', '✅', '👀', '🎉', '❤️', '😂'] as const
+export const ReactionEmoji = z.enum(REACTION_EMOJIS)
+export type ReactionEmoji = z.infer<typeof ReactionEmoji>
+/** One emoji's aggregate on a message, from the viewer's perspective; `users`: reactors, oldest first. */
+export const ReactionDto = z.object({
+  emoji: ReactionEmoji,
+  count: z.number().int().positive(),
+  mine: z.boolean(),
+  users: z.array(z.object({ id: z.string(), name: z.string() })),
+})
+export type ReactionDto = z.infer<typeof ReactionDto>
+/** PUT | DELETE /api/messages/:id/reactions/:emoji — the message's reactions after the change. */
+export const ReactionsDto = z.object({
+  groupId: z.string(),
+  messageId: z.string(),
+  reactions: z.array(ReactionDto),
+})
+export type ReactionsDto = z.infer<typeof ReactionsDto>
+
 export const MessageDto = z.object({
   id: z.string(),
   seq: z.number().int(),
@@ -237,8 +262,19 @@ export const MessageDto = z.object({
   quote: z
     .object({ kind: z.enum(['message', 'run']), id: z.string(), who: z.string(), text: z.string() })
     .nullable(),
+  /** Ordered by first reaction; always sent by the server (optional only for older clients' literals). */
+  reactions: z.array(ReactionDto).optional(),
+  /** Recalled by its author: body, attachments, quote, mentions and reactions are blanked. Always sent by the server. */
+  recalled: z.boolean().optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
+/**
+ * POST /api/messages/:id/recall (author, own user message, within the window) → the blanked MessageDto.
+ * POST /api/messages/:id/hide (author, any time) → 204; hides it from the author only.
+ */
+export const RECALL_WINDOW_MS = 24 * 3600_000
+/** Quote snapshot text of a message that was recalled after being quoted. */
+export const RECALLED_QUOTE = '该消息已撤回'
 
 export const ApprovalDto = z.object({
   id: z.string(),
@@ -574,6 +610,12 @@ export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
+  /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
+  ReactionsDto.extend({ t: z.literal('message.reactions') }),
+  /** Sent to every member; quotes of it now read RECALLED_QUOTE. */
+  z.object({ t: z.literal('message.recalled'), groupId: z.string(), messageId: z.string() }),
+  /** Sent to the author only (their other sessions). */
+  z.object({ t: z.literal('message.hidden'), groupId: z.string(), messageId: z.string() }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),
   z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
   z.object({ t: z.literal('bot.updated'), bot: BotDto }),

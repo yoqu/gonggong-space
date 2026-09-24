@@ -8,6 +8,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { userCard } from './card.js'
 import { disableUser, enableUser } from './disable.js'
 import { toUserDto } from './dto.js'
 
@@ -90,5 +91,14 @@ export function userRoutes(ctx: Ctx) {
         .where(isNull(users.disabledAt))
         .orderBy(asc(users.createdAt))
     })
+
+    app.get<{ Params: { id: string }; Querystring: { groupId?: string } }>(
+      '/api/users/:id/card',
+      async (req) => {
+        const viewer = await requireUser(ctx, req)
+        const { groupId } = req.query
+        return userCard(ctx, viewer, idParam(req.params.id, '账号'), groupId && idParam(groupId, '群'))
+      },
+    )
   }
 }

@@ -11,44 +11,61 @@ import {
   GitBranch,
   Hourglass,
   Info,
-  Link2,
   Loader,
   MessageCircleQuestion,
-  PanelRightOpen,
-  Quote,
   RefreshCw,
   ShieldAlert,
   Square,
+  Undo2,
   UserMinus,
   UserPlus,
   Users,
-  WifiOff,
 } from 'lucide-react'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
-import { Badge, type BadgeVariant } from '../../ui'
+import type { BadgeVariant } from '../../ui'
 import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
+import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { filePaths } from '../runs/paths'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
 import { useRunRail } from '../runs/rail'
+import { UserCardTrigger } from '../users'
+import { isRich } from './grouping'
 import { Markdown } from './Markdown'
+import { MessageActions } from './MessageActions'
+import {
+  ClockFact,
+  FanOut,
+  FilesFact,
+  HopChain,
+  OfflineGlyph,
+  RunStatusIcon,
+  STATUS_LABEL,
+  TokenFact,
+} from './RunGraphics'
+import './recall.css'
 
-export const RUN_STATUS: Record<RunStatus, { label: string; variant: BadgeVariant }> = {
-  queued: { label: '排队中', variant: 'secondary' },
-  offline_wait: { label: '离线等待', variant: 'outline' },
-  forbidden: { label: '无权触发', variant: 'outline' },
-  running: { label: '运行中', variant: 'info' },
-  awaiting_approval: { label: '等待审批', variant: 'warning' },
-  awaiting_answer: { label: '等待回答', variant: 'warning' },
-  completed: { label: '已完成', variant: 'success' },
-  interrupted: { label: '已中断', variant: 'destructive' },
-  expired: { label: '已作废', variant: 'outline' },
+const VARIANT: Record<RunStatus, BadgeVariant> = {
+  queued: 'secondary',
+  offline_wait: 'outline',
+  forbidden: 'outline',
+  running: 'info',
+  awaiting_approval: 'warning',
+  awaiting_answer: 'warning',
+  completed: 'success',
+  interrupted: 'destructive',
+  expired: 'outline',
 }
+
+/** Status label + badge variant (the run rail still shows badges). */
+export const RUN_STATUS = Object.fromEntries(
+  Object.entries(VARIANT).map(([k, variant]) => [k, { label: STATUS_LABEL[k as RunStatus], variant }]),
+) as Record<RunStatus, { label: string; variant: BadgeVariant }>
 
 /** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
 const NEW_SESSION: Record<string, string | null> = {
@@ -97,8 +114,10 @@ export const fmtDuration = (ms: number) => {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
 
+const usageTotal = (u: RunDto['usage']) => u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
+
 export function fmtUsage(u: RunDto['usage']) {
-  const total = u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
+  const total = usageTotal(u)
   if (!total) return '用量未上报'
   return total >= 1000 ? `${(total / 1000).toFixed(1)}k tokens` : `${total} tokens`
 }
@@ -149,48 +168,21 @@ function eventIcon(body: string) {
 export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
   const Icon = eventIcon(m.body)
   return (
-    <div className="tl-event">
-      <Icon size={12} />
+    <div className="tl-event" title={m.body}>
+      <Icon size={13} className="tl-event__icon" />
       <span className="tl-event__text">{m.body}</span>
       <Time iso={m.createdAt} />
     </div>
   )
 })
 
-/** `fanOut`: how many bots this message triggered; ≥ 2 shows the fan-out note (spec §8.6). */
-export const UserMessage = memo(function UserMessage({
-  m,
-  names,
-  fanOut = 0,
-}: {
-  m: MessageDto
-  names: string[]
-  fanOut?: number
-}) {
+/** A recalled message: a centered notice in place of the content (Feishu). */
+export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   return (
-    <div className="tl-msg">
-      <div className="tl-avatar">{Array.from(m.authorName)[0]}</div>
-      <div className="tl-msg__main">
-        <div className="tl-msg__head">
-          <span className="tl-msg__who">{m.authorName}</span>
-          <Time iso={m.createdAt} />
-          {fanOut > 1 ? <span className="tl-fan">· 扇出 · {fanOut} 个 bot 并行</span> : null}
-        </div>
-        <MessageQuote quote={m.quote} />
-        <div className="tl-msg__text">
-          {splitMentions(m.body, names).map((s, i) =>
-            s.mention ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
-              <span key={i} className="tl-mention">
-                {s.text}
-              </span>
-            ) : (
-              s.text
-            ),
-          )}
-        </div>
-        <MessageAttachments list={m.attachments} from={m.authorName} />
-      </div>
+    <div className="tl-event tl-event--recall">
+      <Undo2 size={13} className="tl-event__icon" />
+      <span className="tl-event__text">{mine ? '你' : `${m.authorName} `}撤回了一条消息</span>
+      <Time iso={m.createdAt} />
     </div>
   )
 })
@@ -198,7 +190,7 @@ export const UserMessage = memo(function UserMessage({
 /** First line of a quoted text, without markdown emphasis (prototype quote chip). */
 const quoteLine = (text: string) => (text.split('\n')[0] ?? '').replace(/[`*]/g, '')
 
-const quoteReply = (m: MessageDto) =>
+const quoteMessage = (m: MessageDto) =>
   useQuote.getState().set({
     groupId: m.groupId,
     kind: 'message',
@@ -206,6 +198,127 @@ const quoteReply = (m: MessageDto) =>
     who: m.authorName,
     text: quoteLine(m.body),
   })
+
+const link = (groupId: string, query: string) => `${location.origin}/g/${groupId}?${query}`
+
+/** Quoting a bot = @ that bot (spec §8.6). */
+const BOT_QUOTE = '引用回复等同 @ 该 bot'
+
+function MessageBar({ m, own = false }: { m: MessageDto; own?: boolean }) {
+  return (
+    <MessageActions
+      message={m}
+      own={own}
+      link={link(m.groupId, `msg=${m.id}`)}
+      quoteTitle={m.kind === 'bot' ? BOT_QUOTE : undefined}
+      onQuote={() => quoteMessage(m)}
+      copyText={m.body}
+    />
+  )
+}
+
+/** One author row: avatar + name on the first message of a group; `compact` rows continue the group (C1). */
+function Row({
+  m,
+  mine = false,
+  compact = false,
+  avatar,
+  children,
+  testId,
+}: {
+  m: MessageDto
+  mine?: boolean
+  compact?: boolean
+  avatar: ReactNode
+  children: ReactNode
+  testId?: string
+}) {
+  const person = m.kind === 'user' && !mine ? m.authorId : null
+  const who = <span className="tl-msg__who">{m.authorName}</span>
+  return (
+    <div className={cx('tl-msg', mine && 'tl-msg--mine', compact && 'tl-msg--compact')} data-testid={testId}>
+      {mine ? null : compact ? (
+        <Time iso={m.createdAt} />
+      ) : person ? (
+        <UserCardTrigger
+          userId={person}
+          groupId={m.groupId}
+          tabIndex={-1}
+          className="user-card-trigger--block"
+        >
+          {avatar}
+        </UserCardTrigger>
+      ) : (
+        avatar
+      )}
+      <div className="tl-msg__main">
+        {compact ? null : (
+          <div className="tl-msg__head">
+            {mine ? null : person ? (
+              <UserCardTrigger userId={person} groupId={m.groupId}>
+                {who}
+              </UserCardTrigger>
+            ) : (
+              who
+            )}
+            <Time iso={m.createdAt} />
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** `fanOut`: names of the bots this message triggered; two or more draw the fan-out (spec §8.6). */
+export const UserMessage = memo(function UserMessage({
+  m,
+  names,
+  fanOut = [],
+  mine = false,
+  compact = false,
+}: {
+  m: MessageDto
+  names: string[]
+  fanOut?: string[]
+  mine?: boolean
+  compact?: boolean
+}) {
+  return (
+    <Row
+      m={m}
+      mine={mine}
+      compact={compact}
+      avatar={<div className="tl-avatar">{Array.from(m.authorName)[0]}</div>}
+    >
+      <div className="tl-bubble-host">
+        {m.body || m.quote ? (
+          <div className="tl-bubble">
+            <MessageQuote quote={m.quote} />
+            {m.body ? (
+              <div className="tl-msg__text">
+                {splitMentions(m.body, names).map((s, i) =>
+                  s.mention ? (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
+                    <span key={i} className="tl-mention">
+                      {s.text}
+                    </span>
+                  ) : (
+                    s.text
+                  ),
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <MessageAttachments list={m.attachments} from={m.authorName} />
+        <ReactionBar message={m} />
+        <MessageBar m={m} own={mine} />
+      </div>
+      {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
+    </Row>
+  )
+})
 
 function FileChips({ runId, text }: { runId: string; text: string }) {
   const open = useRunRail((s) => s.open)
@@ -224,29 +337,24 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
 }
 
 /** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */
-export const BotReply = memo(function BotReply({ m }: { m: MessageDto }) {
+export const BotReply = memo(function BotReply({ m, compact = false }: { m: MessageDto; compact?: boolean }) {
   return (
-    <div className="tl-msg" data-testid="bot-reply">
-      <div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>
-      <div className="tl-msg__main">
-        <div className="tl-msg__head">
-          <span className="tl-msg__who">{m.authorName}</span>
-          <Time iso={m.createdAt} />
-          <button
-            type="button"
-            className="tl-quote-btn"
-            title="引用回复等同 @ 该 bot"
-            onClick={() => quoteReply(m)}
-          >
-            <Quote size={11} />
-            引用回复
-          </button>
+    <Row
+      m={m}
+      compact={compact}
+      testId="bot-reply"
+      avatar={<div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>}
+    >
+      <div className="tl-bubble-host">
+        <div className={cx('tl-bubble', isRich(m) && 'tl-bubble--wide')}>
+          <Markdown text={m.body} />
         </div>
-        <Markdown text={m.body} />
         <MessageAttachments list={m.attachments} from={m.authorName} />
         {m.runId ? <FileChips runId={m.runId} text={m.body} /> : null}
+        <ReactionBar message={m} />
+        <MessageBar m={m} />
       </div>
-    </div>
+    </Row>
   )
 })
 
@@ -259,9 +367,12 @@ const STEP_ICON: Partial<Record<RunStatus, typeof CircleDot>> = {
 }
 
 /** Runs that never started show their reason as a note instead of a step, without actions (prototype r4 / r5). */
-const NOTE_ICON: Partial<Record<RunStatus, typeof CircleDot>> = { forbidden: Ban, offline_wait: WifiOff }
+const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
 
-/** One run; once its final reply exists the card also carries the reply and sits at the reply's place. */
+/**
+ * One run; once its final reply exists the card also carries the reply and sits at the reply's place.
+ * Plain-text replies read as a bubble; code, tables, files and attachments keep the wide card (C2).
+ */
 export const RunCard = memo(function RunCard({
   run,
   delta,
@@ -287,48 +398,43 @@ export const RunCard = memo(function RunCard({
   const selected = useRunRail((s) => s.runId === run.id)
   const openRail = useRunRail((s) => s.open)
   const quote = useQuote((s) => s.set)
-  const status = RUN_STATUS[run.status]
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
-  const NoteIcon = NOTE_ICON[run.status]
-  const step = NoteIcon || reply ? '' : streamed || run.step
+  const note = NOTE.includes(run.status)
+  const step = note || reply ? '' : streamed || run.step
   const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
+  const elapsed = started === null ? 0 : (run.endedAt ? Date.parse(run.endedAt) : now) - started
   const sessionNote = newSessionNote(run.newSessionReason)
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
   const body = usePresence(!folded, { timeout: 700 })
-  const actions = (
-    <div className="run-card__actions">
-      <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
-        <PanelRightOpen size={12} />
-        查看过程
-      </button>
-      <button
-        type="button"
-        className="run-card__action"
-        title={reply ? '引用回复等同 @ 该 bot' : undefined}
-        onClick={() =>
-          reply
-            ? quoteReply(reply)
-            : quote({
-                groupId: run.groupId,
-                kind: 'run',
-                id: run.id,
-                who: `${botName} 的运行卡片`,
-                text: run.step || status.label,
-              })
-        }
-      >
-        <Quote size={11} />
-        {reply ? '引用回复' : '引用'}
-      </button>
-      {/* Slice 4 (打断并追加 / stop) */}
-      <RunActions run={run} />
-    </div>
+  const bar = (
+    <MessageActions
+      message={reply ?? null}
+      link={link(run.groupId, reply ? `msg=${reply.id}` : `run=${run.id}`)}
+      quoteTitle={BOT_QUOTE}
+      onQuote={() =>
+        reply
+          ? quoteMessage(reply)
+          : quote({
+              groupId: run.groupId,
+              kind: 'run',
+              id: run.id,
+              who: `${botName} 的运行卡片`,
+              text: run.step || STATUS_LABEL[run.status],
+            })
+      }
+      copyText={reply?.body}
+      onProcess={note ? undefined : () => openRail(run.id)}
+    />
   )
   return (
     <div
-      className={cx('run-card', selected && 'run-card--selected')}
+      className={cx(
+        'run-card',
+        reply && !isRich(reply) && 'run-card--bubble',
+        selected && 'run-card--selected',
+      )}
       data-testid="run-card"
       data-status={run.status}
     >
@@ -339,14 +445,9 @@ export const RunCard = memo(function RunCard({
           {agent} · {trigger} 触发
         </span>
         {reply ? <Time iso={reply.createdAt} /> : null}
-        {run.hop > 1 ? (
-          <span className="run-card__hop">
-            <Link2 size={10} />
-            接力 {run.hop}/{run.hopMax}
-          </span>
-        ) : null}
+        {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
         <span className="spacer" />
-        <Badge variant={status.variant}>{status.label}</Badge>
+        <RunStatusIcon status={run.status} />
         {canFold ? (
           <button
             type="button"
@@ -376,11 +477,9 @@ export const RunCard = memo(function RunCard({
             ) : null}
             {started !== null ? (
               <div className="run-card__meta">
-                <span>改动 {run.filesChanged} 个文件</span>
-                <span>·</span>
-                <span>{fmtDuration((run.endedAt ? Date.parse(run.endedAt) : now) - started)}</span>
-                <span>·</span>
-                <span>{fmtUsage(run.usage)}</span>
+                <FilesFact n={run.filesChanged} />
+                <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
+                <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
               </div>
             ) : null}
             {sessionNote ? (
@@ -392,15 +491,28 @@ export const RunCard = memo(function RunCard({
             {/* Slice 2 (approvals) */}
             <ApprovalBlock run={run} />
             <QuestionBlock run={run} />
-            {NoteIcon ? (
+            {note ? (
               <div className="run-card__note">
-                <NoteIcon size={12} />
-                {run.status === 'offline_wait' ? <OfflineNote run={run} /> : <span>{run.step}</span>}
+                {run.status === 'offline_wait' ? (
+                  <>
+                    <OfflineGlyph />
+                    <OfflineNote run={run} />
+                  </>
+                ) : (
+                  <>
+                    <Ban size={12} />
+                    <span>{run.step}</span>
+                  </>
+                )}
               </div>
             ) : null}
             {/* Slice 4 (/stop leftovers) */}
             <InterruptBlock run={run} />
-            {NoteIcon || reply ? null : actions}
+            {note || reply ? null : (
+              <div className="run-card__actions">
+                <RunActions run={run} />
+              </div>
+            )}
           </div>
         </div>
       ) : null}
@@ -409,9 +521,12 @@ export const RunCard = memo(function RunCard({
           <Markdown text={reply.body} />
           <MessageAttachments list={reply.attachments} from={reply.authorName} />
           <FileChips runId={run.id} text={reply.body} />
-          {actions}
+          <ReactionBar message={reply} />
+          {bar}
         </div>
-      ) : null}
+      ) : (
+        bar
+      )}
     </div>
   )
 })

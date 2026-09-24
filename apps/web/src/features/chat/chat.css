@@ -1,4 +1,4 @@
-/* Chat timeline, run cards, composer candidates and the new-group dialog — metrics follow Web 对话.dc.html */
+/* Chat timeline, run cards and the new-group dialog — metrics follow Web 对话.dc.html */
 .chat-notice {
   display: flex;
   align-items: center;
@@ -12,8 +12,9 @@
   white-space: nowrap;
 }
 .chat__center {
-  /* One content column for the timeline and the composer. */
-  --chat-max: 760px;
+  /* Timeline and composer fill the pane (Feishu); bubbles and cards cap their own width. */
+  --chat-max: 100%;
+  --card-max: 960px;
 }
 .timeline__inner {
   flex: 1 0 auto;
@@ -59,19 +60,6 @@
   font-size: 12px;
   cursor: pointer;
 }
-.tl-day {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-.tl-day::before,
-.tl-day::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--color-separator);
-}
 .tl-item {
   border-radius: var(--radius-xl);
 }
@@ -101,27 +89,6 @@
   font-size: 11px;
   color: var(--color-text-muted);
   white-space: nowrap;
-}
-.tl-event {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 2px 0;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-.tl-event > svg {
-  flex: none;
-}
-.tl-event__text {
-  max-width: 640px;
-  text-align: center;
-  text-wrap: pretty;
-}
-.tl-msg {
-  display: flex;
-  gap: 10px;
 }
 .tl-avatar {
   width: 28px;
@@ -153,10 +120,6 @@
   align-items: baseline;
   gap: 8px;
 }
-.tl-fan {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
 .tl-msg__who {
   font-weight: 600;
 }
@@ -173,8 +136,10 @@
 
 /* Run card */
 .run-card {
+  position: relative;
   flex: none;
   margin-left: 38px;
+  max-width: min(100% - 38px, var(--card-max));
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-xl);
@@ -256,18 +221,6 @@
 .run-card__fold:hover {
   background: var(--color-bg-hover);
 }
-.run-card__hop {
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-strong);
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
 .run-card__step {
   display: flex;
   align-items: center;
@@ -293,11 +246,6 @@
 }
 .run-card__spin {
   animation: run-spin 1.2s linear infinite;
-}
-@keyframes run-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .run-card__meta {
   display: flex;
@@ -337,14 +285,15 @@
   border-top: 1px solid var(--color-separator);
 }
 .run-card__reply {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px 0;
+  padding: 10px 12px;
   border-top: 1px solid var(--color-separator);
 }
-.run-card__reply > .run-card__actions {
-  margin: 0 -12px;
+.run-card__actions:empty {
+  display: none;
 }
 .run-card__action {
   height: 24px;
@@ -388,6 +337,7 @@
 @media (max-width: 767px) {
   .run-card {
     margin-left: 0;
+    max-width: 100%;
   }
 }
 
@@ -546,100 +496,6 @@
 }
 .hljs-deletion {
   color: var(--color-danger);
-}
-
-/* @ candidates */
-.mention-pop {
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: calc(100% - 4px);
-  z-index: 5;
-  max-width: 420px;
-  max-height: 360px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  --r-outer: var(--radius-dropdown);
-  --pad: 6px;
-  padding: var(--pad);
-  border-radius: var(--r-outer);
-  border: 1px solid var(--color-separator);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-dropdown);
-}
-.mention-pop__label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 8px 4px;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  color: var(--color-text-tertiary);
-}
-.mention-pop__src {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: 0;
-  font-weight: 400;
-}
-.mention-pop__icon {
-  flex: none;
-}
-.mention-pop__name {
-  flex: none;
-  max-width: 70%;
-}
-.mention-pop__name,
-.mention-pop__hint {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mention-pop__mono {
-  font-family: var(--font-mono);
-}
-.mention-pop__item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-.mention-pop__item:hover,
-.mention-pop__item--active {
-  background: var(--color-system-blue);
-  color: var(--color-on-accent);
-}
-.mention-pop__hint {
-  font-size: 11px;
-  opacity: 0.6;
-}
-.mention-pop__status {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  opacity: 0.8;
-}
-@media (max-width: 767px) {
-  .mention-pop {
-    left: 12px;
-    right: 12px;
-  }
 }
 
 /* New group / DM dialog */
@@ -814,8 +670,7 @@
     grid-column: 1 / -1;
   }
 }
-.ng-chips,
-.mention-pop__group {
+.ng-chips {
   margin: 0;
   padding: 0;
   border: 0;
@@ -876,9 +731,6 @@
   .git-bar::-webkit-scrollbar {
     display: none;
   }
-}
-.mention-pop__cmd {
-  font-family: var(--font-mono);
 }
 .repo-settings {
   display: flex;

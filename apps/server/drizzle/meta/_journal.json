@@ -78,6 +78,20 @@
       "when": 1790230609060,
       "tag": "0010_machine_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790234086688,
+      "tag": "0011_lean_wong",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790236554020,
+      "tag": "0012_flashy_phil_sheldon",
+      "breakpoints": true
     }
   ]
 }

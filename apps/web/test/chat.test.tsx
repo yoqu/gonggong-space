@@ -452,7 +452,9 @@ describe('chat view', () => {
     expect(within(main).getByText('@小王的 Claude').className).toContain('mention')
     expect(within(main).getByTestId('bot-reply').textContent).toContain('字段变化如下')
     expect(within(main).getByRole('cell', { name: '分' })).toBeTruthy()
-    expect(within(main).getByRole('button', { name: '复制' })).toBeTruthy()
+    expect(
+      within(main.querySelector('.md-code') as HTMLElement).getByRole('button', { name: '复制' }),
+    ).toBeTruthy()
 
     const card = within(main).getByTestId('run-card')
     expect(card.textContent).toContain('小王的 Claude')
@@ -538,7 +540,7 @@ describe('chat view', () => {
     })
     renderAt('/g/g1')
     const main = screen.getByRole('main')
-    expect(await within(main).findByText(/扇出 · 2 个 bot 并行/)).toBeTruthy()
+    expect(await within(main).findByText('扇出 · 2 个 Bot 并行')).toBeTruthy()
     const cards = await within(main).findAllByTestId('run-card')
     expect(cards[2]!.textContent).toContain('Codex · 小王的 Claude 触发')
   })

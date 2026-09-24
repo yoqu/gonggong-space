@@ -1,0 +1,92 @@
+/* User hover card (Feishu-style profile card); a portaled popover so its glass samples the page. */
+.user-card-trigger {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+/* Around a block such as an avatar in a flex row: hug it instead of stretching. */
+.user-card-trigger--block {
+  display: block;
+  flex: none;
+  align-self: flex-start;
+}
+.user-card-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+.user-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 248px;
+  --r-outer: var(--radius-dropdown);
+  --pad: 14px;
+  padding: var(--pad);
+  border-radius: var(--r-outer);
+  border: 1px solid var(--color-border-control);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  cursor: default;
+}
+.user-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-card__id {
+  min-width: 0;
+}
+.user-card__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.user-card__name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-card__account {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.user-card__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-separator);
+}
+.user-card__meta dt {
+  color: var(--color-text-muted);
+}
+.user-card__meta dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.user-card__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+}
+.user-card__dot[data-online] {
+  background: var(--color-success);
+}
+.user-card__status {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+  color: var(--color-text-secondary);
+}

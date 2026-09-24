@@ -11,6 +11,7 @@
   "dependencies": {
     "@aiws/protocol": "workspace:*",
     "lucide-react": "1.47.0",
+    "motion": "13.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",

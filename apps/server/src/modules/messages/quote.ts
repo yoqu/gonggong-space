@@ -18,12 +18,19 @@ export async function resolveQuote(ctx: Ctx, groupId: string, q: { kind: 'messag
   const id = idParam(q.id, '引用的内容')
   if (q.kind === 'message') {
     const [m] = await ctx.db
-      .select({ body: messages.body, botId: messages.authorBotId, bot: bots.name, user: users.name })
+      .select({
+        body: messages.body,
+        botId: messages.authorBotId,
+        bot: bots.name,
+        user: users.name,
+        recalledAt: messages.recalledAt,
+      })
       .from(messages)
       .leftJoin(users, eq(users.id, messages.authorUserId))
       .leftJoin(bots, eq(bots.id, messages.authorBotId))
       .where(and(eq(messages.id, id), eq(messages.groupId, groupId)))
     if (!m) return fail('not_found', '引用的消息不存在')
+    if (m.recalledAt) return fail('conflict', '该消息已撤回')
     return { quote: snapshot(q.kind, id, m.bot ?? m.user ?? '', m.body), botId: m.botId }
   }
   const [r] = await ctx.db

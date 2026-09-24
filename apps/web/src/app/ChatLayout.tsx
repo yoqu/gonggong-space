@@ -1,7 +1,7 @@
-import { AtSign, ChevronLeft, Image, Paperclip, Slash } from 'lucide-react'
-import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from 'react'
 import { cx } from '../lib/cx'
-import { Button, IconButton, Toolbar } from '../ui'
+import { Toolbar } from '../ui'
 import { MOBILE_MAX, RAIL_MIN, useViewportWidth } from './viewport'
 
 /** Rail open state: defaults to open on wide screens and resets whenever the 1100px breakpoint is crossed. */
@@ -16,23 +16,78 @@ export function useRailOpen() {
   return [open, setOpen] as const
 }
 
+export type RailKind = 'run' | 'preview'
+
+const RAIL_DEFAULT: Record<RailKind, number> = { run: 320, preview: 440 }
+const RAIL_MIN_WIDTH = 280
+const RAIL_MAX_SHARE = 0.6
+const RAIL_STEP = 16
+const railKey = (kind: RailKind) => `aiws.railWidth.${kind}`
+
+const storedWidth = (kind: RailKind) => {
+  try {
+    return Number(localStorage.getItem(railKey(kind))) || RAIL_DEFAULT[kind]
+  } catch {
+    return RAIL_DEFAULT[kind]
+  }
+}
+
+/** Rail width per kind, dragged or arrowed on its left edge and kept in this browser. */
+function useRailWidth(kind: RailKind) {
+  const [widths, setWidths] = useState<Partial<Record<RailKind, number>>>({})
+  const clamp = (w: number) =>
+    Math.round(Math.min(Math.max(w, RAIL_MIN_WIDTH), window.innerWidth * RAIL_MAX_SHARE))
+  const width = clamp(widths[kind] ?? storedWidth(kind))
+  const set = (w: number) => {
+    const next = clamp(w)
+    setWidths((all) => ({ ...all, [kind]: next }))
+    try {
+      localStorage.setItem(railKey(kind), String(next))
+    } catch {
+      // storage unavailable (private mode): the width lasts for this page only
+    }
+  }
+  const onPointerDown = (e: PointerEvent) => {
+    e.preventDefault()
+    const from = e.clientX
+    const start = width
+    document.documentElement.dataset.resizing = ''
+    const move = (ev: globalThis.PointerEvent) => set(start + from - ev.clientX)
+    const up = () => {
+      delete document.documentElement.dataset.resizing
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  const onKeyDown = (e: KeyboardEvent) => {
+    const delta = e.key === 'ArrowLeft' ? RAIL_STEP : e.key === 'ArrowRight' ? -RAIL_STEP : 0
+    if (!delta) return
+    e.preventDefault()
+    set(width + delta)
+  }
+  return { width, onPointerDown, onKeyDown }
+}
+
 export function ChatLayout({
   sidebar,
   children,
   rail,
   railOpen = false,
-  railClass,
+  railKind = 'run',
   mobileView,
 }: {
   sidebar: ReactNode
   children: ReactNode
   rail?: ReactNode
   railOpen?: boolean
-  railClass?: string
+  railKind?: RailKind
   /** Under 768px only one column is shown. */
   mobileView: 'list' | 'chat'
 }) {
   const mobile = useViewportWidth() < MOBILE_MAX
+  const resize = useRailWidth(railKind)
   return (
     <div className="chat">
       {!mobile || mobileView === 'list' ? (
@@ -42,7 +97,25 @@ export function ChatLayout({
       ) : null}
       {!mobile || mobileView === 'chat' ? <main className="chat__center">{children}</main> : null}
       {rail && railOpen ? (
-        <aside aria-label="侧栏" className={cx('chat__rail', railClass, mobile && 'chat__rail--overlay')}>
+        <aside
+          aria-label="侧栏"
+          className={cx('chat__rail', mobile && 'chat__rail--overlay')}
+          style={mobile ? undefined : { width: resize.width }}
+        >
+          {mobile ? null : (
+            // biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be focused and dragged; this is the ARIA window splitter pattern
+            <div
+              role="separator"
+              aria-label="调整侧栏宽度"
+              aria-orientation="vertical"
+              aria-valuenow={resize.width}
+              aria-valuemin={RAIL_MIN_WIDTH}
+              tabIndex={0}
+              className="chat__rail-handle"
+              onPointerDown={resize.onPointerDown}
+              onKeyDown={resize.onKeyDown}
+            />
+          )}
           {rail}
         </aside>
       ) : null}
@@ -87,142 +160,4 @@ export function ChatHeader({
 
 export function Timeline({ children }: { children: ReactNode }) {
   return <div className="timeline">{children}</div>
-}
-
-/** Bare `@` / `/` only open the candidate list; they are not a message. */
-const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
-
-export function Composer({
-  value,
-  onChange,
-  onSend,
-  hint,
-  above,
-  popover,
-  inputRef,
-  onKeyDown,
-  onFiles,
-  combobox,
-  busy,
-  attachments = 0,
-  uploading = false,
-  onAttach,
-  onImage,
-}: {
-  value: string
-  onChange: (value: string) => void
-  onSend?: () => void
-  hint?: ReactNode
-  /** Quote / attachment strips rendered above the textarea. */
-  above?: ReactNode
-  /** Floating candidate list anchored above the composer. */
-  popover?: ReactNode
-  inputRef?: RefObject<HTMLTextAreaElement | null>
-  /** Runs first; call preventDefault() to suppress Enter-to-send. Never called during IME composition. */
-  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
-  /** Pasted or dropped files. */
-  onFiles?: (files: File[]) => void
-  /** ARIA combobox state of the candidate list. */
-  combobox?: { controls: string; expanded: boolean; active?: string }
-  /** A send is in flight. */
-  busy?: boolean
-  /** Attached files make an empty text sendable; sending waits for their uploads. */
-  attachments?: number
-  uploading?: boolean
-  onAttach?: () => void
-  onImage?: () => void
-}) {
-  const own = useRef<HTMLTextAreaElement>(null)
-  const ref = inputRef ?? own
-  const composing = useRef(false)
-  const [dropping, setDropping] = useState(false)
-  const canSend = Boolean(onSend) && (hasText(value) || attachments > 0) && !busy && !uploading
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value, ref])
-
-  const takeFiles = (files: FileList, e: { preventDefault: () => void }) => {
-    if (!onFiles || !files.length) return
-    e.preventDefault()
-    onFiles(Array.from(files))
-  }
-
-  return (
-    <div className="composer">
-      {popover}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: a file drop target; pickers and paste are the keyboard path */}
-      <div
-        className={cx('composer__box', dropping && 'composer__box--drop')}
-        onDragOver={(e) => {
-          if (!onFiles || !e.dataTransfer.types.includes('Files')) return
-          e.preventDefault()
-          setDropping(true)
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
-        }}
-        onDrop={(e) => {
-          setDropping(false)
-          takeFiles(e.dataTransfer.files, e)
-        }}
-      >
-        {above}
-        <textarea
-          ref={ref}
-          className="composer__input"
-          rows={2}
-          value={value}
-          placeholder="输入消息，@ 触发 bot 或引用文件，/ 查看命令"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={combobox?.expanded ?? false}
-          aria-controls={combobox?.controls}
-          aria-activedescendant={combobox?.active}
-          onChange={(e) => onChange(e.target.value)}
-          onPaste={(e) => takeFiles(e.clipboardData.files, e)}
-          onCompositionStart={() => {
-            composing.current = true
-          }}
-          onCompositionEnd={() => {
-            // Safari fires the committing Enter's keydown right after compositionend, with isComposing false.
-            setTimeout(() => {
-              composing.current = false
-            })
-          }}
-          onKeyDown={(e) => {
-            if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
-            onKeyDown?.(e)
-            if (e.defaultPrevented) return
-            if (e.key === 'Enter' && !e.shiftKey && onSend) {
-              e.preventDefault()
-              if (canSend) onSend()
-            }
-          }}
-        />
-        <div className="composer__bar">
-          <IconButton title="@ 提及" onClick={() => onChange(`${value}@`)}>
-            <AtSign size={14} />
-          </IconButton>
-          <IconButton title="命令" onClick={() => onChange(`${value}/`)}>
-            <Slash size={14} />
-          </IconButton>
-          <IconButton title="附件" onClick={onAttach}>
-            <Paperclip size={14} />
-          </IconButton>
-          <IconButton title="图片" onClick={onImage}>
-            <Image size={14} />
-          </IconButton>
-          <span className="composer__hint">{hint}</span>
-          <Button variant="primary" size="sm" disabled={!canSend} onClick={onSend}>
-            发送
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
 }

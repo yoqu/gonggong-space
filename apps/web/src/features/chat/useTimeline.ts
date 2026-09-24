@@ -1,4 +1,4 @@
-import type { MessageDto, RunDto, TimelineDto } from '@aiws/protocol'
+import { type MessageDto, RECALLED_QUOTE, type RunDto, type TimelineDto, type WebEvent } from '@aiws/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
@@ -42,6 +42,29 @@ const addLive = (s: TimelineState, m: MessageDto): TimelineState => ({
   arrived: s.loaded && !s.messages.some((x) => x.id === m.id) ? new Set(s.arrived).add(m.id) : s.arrived,
 })
 
+type Withdrawn = Extract<WebEvent, { t: 'message.recalled' | 'message.hidden' }>
+
+/** A recalled message keeps only its envelope; quotes of it say so. Deleted ones leave my timeline. */
+const withdraw = (s: TimelineState, e: Withdrawn): TimelineState => ({
+  ...s,
+  messages:
+    e.t === 'message.hidden'
+      ? s.messages.filter((m) => m.id !== e.messageId)
+      : s.messages.map((m) =>
+          m.id === e.messageId
+            ? { ...m, recalled: true, body: '', attachments: [], quote: null, mentions: [], reactions: [] }
+            : m.quote?.kind === 'message' && m.quote.id === e.messageId
+              ? { ...m, quote: { ...m.quote, text: RECALLED_QUOTE } }
+              : m,
+        ),
+})
+
+const local = new Set<(e: Withdrawn) => void>()
+/** Applies my confirmed recall / delete at once instead of waiting for its realtime echo. */
+export const applyWithdrawn = (e: Withdrawn) => {
+  for (const h of local) h(e)
+}
+
 const mergeRuns = (runs: Record<string, RunDto>, list: RunDto[]) => {
   const next = { ...runs }
   for (const r of list) next[r.id] = r
@@ -83,8 +106,13 @@ export function useTimeline(groupId: string) {
         () => alive && setState((s) => (s.loaded ? s : { ...s, failed: true })),
       )
     void latest()
+    const onWithdrawn = (e: Withdrawn) => {
+      if (e.groupId === groupId) setState((s) => withdraw(s, e))
+    }
+    local.add(onWithdrawn)
     const offEvents = realtime.subscribe((e) => {
       if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
+      else if (e.t === 'message.recalled' || e.t === 'message.hidden') onWithdrawn(e)
       else if (e.t === 'run.updated' && e.run.groupId === groupId)
         setState((s) => ({ ...s, runs: mergeRuns(s.runs, [e.run]) }))
       else if (e.t === 'run.delta')
@@ -105,6 +133,7 @@ export function useTimeline(groupId: string) {
     })
     return () => {
       alive = false
+      local.delete(onWithdrawn)
       offEvents()
       offStatus()
     }

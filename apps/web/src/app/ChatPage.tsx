@@ -1,7 +1,9 @@
 import type { GroupDto } from '@aiws/protocol'
-import { MessagesSquare } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
+import deniedArt from '../assets/illustrations/denied.png'
+import failedArt from '../assets/illustrations/failed.png'
+import pickChatArt from '../assets/illustrations/pick-chat.png'
 import { PreviewPanel } from '../features/attachments/PreviewPanel'
 import { usePreview } from '../features/attachments/preview'
 import { BotDialog } from '../features/bots/BotDialog'
@@ -128,7 +130,7 @@ export function ChatPage() {
           ) : undefined
         }
         railOpen={!!railRun || !!preview}
-        railClass={!railRun && preview ? 'chat__rail--preview' : undefined}
+        railKind={!railRun && preview ? 'preview' : 'run'}
         sidebar={
           <Sidebar
             groups={groups}
@@ -160,7 +162,7 @@ export function ChatPage() {
           <div className="chat__placeholder">
             <EmptyState
               bare
-              icon={<MessagesSquare size={28} />}
+              illustration={failedArt}
               title="加载失败"
               description="无法获取群列表，请检查网络后重试。"
               actions={
@@ -174,7 +176,7 @@ export function ChatPage() {
           <div className="chat__placeholder">
             <EmptyState
               bare
-              icon={<MessagesSquare size={28} />}
+              illustration={groupId ? deniedArt : pickChatArt}
               title={groupId ? '群不存在或你已不在群内' : '选择一个群或私聊开始'}
               description="在左侧选择会话；@ bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。"
             />

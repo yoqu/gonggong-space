@@ -1,0 +1,191 @@
+/* Run card graphics (聊天内容区计划 §3): SF-Symbols-like line glyphs with a 40% secondary layer. */
+.sf-2 {
+  opacity: 0.4;
+}
+/* Visually hidden: read by screen readers (and text search) while the graphic shows it. */
+.run-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.run-status {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.run-status__glyph {
+  display: grid;
+  width: 15px;
+  height: 15px;
+}
+.run-status__glyph > svg {
+  grid-area: 1 / 1;
+}
+.run-status[data-status="running"] {
+  color: var(--color-system-blue);
+}
+.run-status[data-status="awaiting_approval"],
+.run-status[data-status="awaiting_answer"] {
+  color: var(--color-warning-text);
+}
+.run-status[data-status="completed"] {
+  color: var(--color-success);
+}
+.run-status[data-status="interrupted"] {
+  color: var(--color-danger);
+}
+.run-status[data-status="queued"] {
+  color: var(--color-text-secondary);
+}
+.run-status__spin {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+  animation: run-spin 1s linear infinite;
+}
+.run-status__pulse {
+  animation: run-pulse 1.6s ease-in-out infinite;
+}
+@keyframes run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes run-pulse {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.run-fact {
+  position: relative;
+  white-space: nowrap;
+}
+.run-fact__art {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.run-fact__art > svg {
+  flex: none;
+}
+.clock-ring__arc {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+  transform: rotate(-90deg);
+}
+.run-fact--live {
+  color: var(--color-system-blue);
+}
+.token-meter {
+  width: 14px;
+  height: 6px;
+  flex: none;
+  display: flex;
+  border-radius: var(--radius-pill);
+  background: var(--color-control-bg);
+  overflow: hidden;
+}
+.token-meter > span {
+  background: var(--color-system-blue);
+}
+
+.hop-chain {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.hop-chain__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  border: 1.3px solid var(--color-text-tertiary);
+  transition:
+    background-color var(--fade-in),
+    border-color var(--fade-in);
+}
+.hop-chain__dot--on {
+  border-color: var(--color-system-blue);
+  background: var(--color-system-blue);
+}
+
+.tl-fan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: var(--color-text-tertiary);
+}
+.tl-fan > svg {
+  display: block;
+}
+.tl-fan__bots {
+  display: flex;
+}
+.tl-fan__bot {
+  width: 20px;
+  height: 20px;
+  margin: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-elevated);
+  color: var(--color-system-blue);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.countdown-ring {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+}
+.countdown-ring > svg {
+  grid-area: 1 / 1;
+  transform: rotate(-90deg);
+}
+.countdown-ring__arc {
+  transition: stroke-dasharray 1s linear;
+}
+.countdown-ring__icon {
+  grid-area: 1 / 1;
+  display: flex;
+}
+.countdown-ring--urgent {
+  color: var(--color-warning);
+}
+
+.offline-glyph {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+.offline-glyph__link {
+  animation: link-flow 1.2s linear infinite;
+}
+@keyframes link-flow {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-glyph__link,
+  .countdown-ring__arc {
+    animation: none;
+    transition: none;
+  }
+}

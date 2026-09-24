@@ -25,6 +25,7 @@ import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
 import { questionRoutes } from './modules/questions/routes.js'
 import { startQuestionTimer } from './modules/questions/service.js'
+import { reactionRoutes } from './modules/reactions/routes.js'
 import { releaseRoutes } from './modules/releases/routes.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { startRetention } from './modules/runs/retention.js'
@@ -57,6 +58,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(groupRoutes(ctx))
   await app.register(groupSettingsRoutes(ctx))
   await app.register(messageRoutes(ctx))
+  await app.register(reactionRoutes(ctx))
   await app.register(attachmentRoutes(ctx))
   await app.register(webGateway(ctx))
   await app.register(daemonGateway(ctx))

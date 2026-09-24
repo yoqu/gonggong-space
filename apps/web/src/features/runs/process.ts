@@ -63,6 +63,22 @@ export interface Step {
   /** Command output etc., shown in a <pre>. */
   out?: string
   failed?: boolean
+  /** The step still in progress: a running tool, a pending approval, or the reply being streamed. */
+  running?: boolean
+  /** Lines this step's file changed in the run's patch. */
+  diff?: { add: number; del: number }
+}
+
+export type DiffCell = 'add' | 'del' | 'none'
+
+/** GitHub-style five-cell bar: one cell per changed line up to five, split by ratio, each present side kept visible. */
+export function diffCells(add: number, del: number): DiffCell[] {
+  const total = add + del
+  const colored = Math.min(5, total)
+  let adds = total ? Math.round((add / total) * colored) : 0
+  if (add && !adds) adds = 1
+  if (del && adds === colored) adds = colored - 1
+  return Array.from({ length: 5 }, (_, i) => (i < adds ? 'add' : i < colored ? 'del' : 'none'))
 }
 
 export const TOOL_LABEL: Record<string, string> = {
@@ -147,9 +163,12 @@ export function buildSteps(d: RunDetailDto): Step[] {
         meta: hhmm(a.createdAt),
         mono: a.detail,
         body: approvalText(a),
+        running: a.status === 'pending',
       },
     })
   timed.sort((x, y) => Date.parse(x.at) - Date.parse(y.at))
+  const last = timed.at(-1)?.step
+  if (d.run.status === 'running' && (last?.kind === 'text' || last?.kind === 'thought')) last.running = true
   const gitStep = gitEvent?.event.kind === 'status' ? gitEvent.event.step : undefined
   return [contextStep(d, gitStep), ...timed.map((t) => t.step)]
 }
@@ -179,18 +198,16 @@ function toolStep(e: Extract<RunEvent, { kind: 'tool' }>, ms: number, files: Dif
       mono: e.detail?.startsWith(`$ ${e.title}`) ? undefined : e.title,
       out: e.detail,
       failed,
+      running,
       meta: failed ? '失败' : running ? '进行中' : ms ? `${(ms / 1000).toFixed(1)}s` : undefined,
     }
   const file = e.detail ? findFile(files, e.detail.replace(/:\d+$/, '')) : undefined
+  const diff = file && !file.binary ? { add: file.add, del: file.del } : undefined
   return {
     mono: e.detail ?? e.title,
     failed,
-    meta: failed
-      ? '失败'
-      : running
-        ? '进行中'
-        : file && !file.binary
-          ? `+${file.add} −${file.del}`
-          : undefined,
+    running,
+    diff,
+    meta: failed ? '失败' : running ? '进行中' : diff ? `+${diff.add} −${diff.del}` : undefined,
   }
 }

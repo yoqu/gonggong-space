@@ -4,7 +4,10 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { useSearchParams } from 'react-router'
 import { ChatHeader } from '../../app/ChatLayout'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
+import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import emptyChatArt from '../../assets/illustrations/empty-chat.png'
+import failedArt from '../../assets/illustrations/failed.png'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Badge, Button, EmptyState, IconButton, Spinner, useScrollEdge } from '../../ui'
@@ -12,11 +15,13 @@ import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
+import { continues, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
-import { BotReply, dayLabel, EventRow, RunCard, UserMessage } from './TimelineItems'
+import { BotReply, dayLabel, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
+import './timeline.css'
 
 /** Distance from the bottom (px) within which new items keep the view pinned to the end. */
 const STICK_PX = 80
@@ -25,12 +30,11 @@ const LOAD_OLDER_PX = 40
 const LINK_PAGES = 10
 const FLASH_MS = 2000
 
-const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString()
-
 export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => void }) {
   const tl = useTimeline(group.id)
   const bots = useWorkspace((s) => s.bots)
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
+  const meId = useSession((s) => s.user?.id)
   const box = useRef<HTMLDivElement>(null)
   const [edge, scrolled] = useScrollEdge()
   const stick = useRef(true)
@@ -45,6 +49,10 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const linked = params.get('msg')
   const linkPages = useRef(0)
   const [flash, setFlash] = useState<string | null>(null)
+  /** Unread count when entering; the divider stays where it was placed while new messages arrive. */
+  const [entryUnread] = useState(group.unread)
+  const [unreadAt, setUnreadAt] = useState<string | null | undefined>(undefined)
+  if (unreadAt === undefined && tl.loaded) setUnreadAt(unreadStart(tl.messages, entryUnread, meId))
 
   useEffect(() => {
     setActiveGroup(group.id)
@@ -150,6 +158,18 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     return { runsByTrigger, replies, byId }
   }, [tl.messages, tl.runs])
 
+  /** Bot names per fan-out message (two or more runs); a stable prop keeps other rows memoized. */
+  const fanOuts = useMemo(() => {
+    const out = new Map<string, string[]>()
+    for (const [id, rs] of runsByTrigger)
+      if (rs.length > 1)
+        out.set(
+          id,
+          rs.map((r) => botsById.get(r.botId)?.name ?? 'Bot'),
+        )
+    return out
+  }, [runsByTrigger, botsById])
+
   const names = useMemo(
     () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
     [bots, group],
@@ -174,12 +194,33 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     )
   }
 
-  const renderMessage = (m: MessageDto) => {
-    const run = m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined
+  const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
+  /** Merged under the previous message: nothing (run card, divider) is drawn between them. */
+  const isCompact = (prev: MessageDto | undefined, m: MessageDto) =>
+    !!prev &&
+    !prev.recalled &&
+    !m.recalled &&
+    m.id !== unreadAt &&
+    continues(prev, m) &&
+    !replyRun(prev) &&
+    !replyRun(m) &&
+    !runsByTrigger.get(prev.id)?.some((r) => !replies.has(r.id))
+
+  const renderMessage = (m: MessageDto, compact: boolean) => {
+    const run = replyRun(m)
     if (run) return card(run, m)
     if (m.kind === 'event') return <EventRow m={m} />
-    if (m.kind === 'bot') return <BotReply m={m} />
-    return <UserMessage m={m} names={names} fanOut={runsByTrigger.get(m.id)?.length} />
+    if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
+    if (m.kind === 'bot') return <BotReply m={m} compact={compact} />
+    return (
+      <UserMessage
+        m={m}
+        names={names}
+        mine={m.authorId === meId}
+        compact={compact}
+        fanOut={fanOuts.get(m.id)}
+      />
+    )
   }
 
   const botCount = group.botIds.length
@@ -265,6 +306,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           {tl.failed ? (
             <EmptyState
               bare
+              illustration={failedArt}
               title="消息加载失败"
               description="请检查网络后重试。"
               actions={
@@ -287,6 +329,11 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                       <span>{dayLabel(m.createdAt)}</span>
                     </div>
                   )}
+                  {m.id === unreadAt ? (
+                    <div className="tl-unread">
+                      <span>以下为新消息</span>
+                    </div>
+                  ) : null}
                   <div
                     data-msg-id={m.id}
                     className={cx(
@@ -295,7 +342,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                       flash === m.id && 'tl-item--flash',
                     )}
                   >
-                    {renderMessage(m)}
+                    {renderMessage(m, isCompact(prev, m))}
                   </div>
                   {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}
                 </Fragment>
@@ -304,6 +351,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           ) : (
             <EmptyState
               bare
+              illustration={emptyChatArt}
               title="还没有消息"
               description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
             />

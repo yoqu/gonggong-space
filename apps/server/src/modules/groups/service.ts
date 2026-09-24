@@ -38,6 +38,9 @@ const preview = (kind: string, author: string | null, body: string) => {
   return kind === 'event' ? line : `${author ?? ''}：${line}`
 }
 
+const recallNote = (mine: boolean, author: string | null) =>
+  `${mine ? '你' : `${author ?? ''} `}撤回了一条消息`
+
 /** Group DTOs as seen by `userId` (unread is per user). */
 export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
   const rows = await ctx.db
@@ -92,6 +95,8 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
         body: messages.body,
         userName: users.name,
         botName: bots.name,
+        authorUserId: messages.authorUserId,
+        recalledAt: messages.recalledAt,
       })
       .from(messages)
       .leftJoin(users, eq(users.id, messages.authorUserId))
@@ -117,7 +122,11 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       botIds: groupBotRows.filter((b) => b.groupId === g.id).map((b) => b.botId),
       unread: stat?.unread ?? 0,
       lastSeq: stat?.lastSeq ?? 0,
-      last: last ? preview(last.kind, last.userName ?? last.botName, last.body) : '',
+      last: !last
+        ? ''
+        : last.recalledAt
+          ? recallNote(last.authorUserId === userId, last.userName)
+          : preview(last.kind, last.userName ?? last.botName, last.body),
       pinned: me.pinned,
       muted: me.muted,
       foldRuns: me.foldRuns,

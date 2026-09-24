@@ -1,4 +1,4 @@
-import type { Attachment, MessageDto } from '@aiws/protocol'
+import type { Attachment, MessageDto, ReactionDto } from '@aiws/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
@@ -17,20 +17,26 @@ export type MessageMeta = {
   quote?: MessageDto['quote']
 }
 
-export const messageDto = (m: MessageRow, authorName: string): MessageDto => ({
-  id: m.id,
-  seq: m.seq,
-  groupId: m.groupId,
-  kind: m.kind as MessageDto['kind'],
-  authorId: m.authorUserId ?? m.authorBotId,
-  authorName,
-  body: m.body,
-  mentions: (m.meta as MessageMeta).mentions ?? [],
-  runId: m.runId,
-  createdAt: m.createdAt.toISOString(),
-  attachments: (m.meta as MessageMeta).attachments ?? [],
-  quote: (m.meta as MessageMeta).quote ?? null,
-})
+/** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */
+export const messageDto = (m: MessageRow, authorName: string, reactions: ReactionDto[] = []): MessageDto => {
+  const recalled = m.recalledAt !== null
+  return {
+    id: m.id,
+    seq: m.seq,
+    groupId: m.groupId,
+    kind: m.kind as MessageDto['kind'],
+    authorId: m.authorUserId ?? m.authorBotId,
+    authorName,
+    body: m.body,
+    mentions: recalled ? [] : ((m.meta as MessageMeta).mentions ?? []),
+    runId: m.runId,
+    createdAt: m.createdAt.toISOString(),
+    attachments: (m.meta as MessageMeta).attachments ?? [],
+    quote: (m.meta as MessageMeta).quote ?? null,
+    reactions: recalled ? [] : reactions,
+    recalled,
+  }
+}
 
 export async function authorName(ctx: Ctx, m: Pick<MessageRow, 'authorUserId' | 'authorBotId'>) {
   if (m.authorUserId) {
