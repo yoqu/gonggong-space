@@ -13,12 +13,12 @@ export const BINDING_LABEL: Record<BotDto['binding'], string> = {
 }
 
 export const PRESENCE: Record<BotDto['presence'], { label: string; color: string }> = {
-  online: { label: '在线空闲', color: '#32D74B' },
-  running: { label: '运行中', color: '#0A84FF' },
-  offline: { label: '离线', color: '#636366' },
-  agent_missing: { label: 'agent 缺失', color: '#FF9F0A' },
-  pending_bind: { label: '不可触发', color: '#636366' },
-  pending_confirm: { label: '不可触发', color: '#636366' },
+  online: { label: '在线空闲', color: 'var(--color-success)' },
+  running: { label: '运行中', color: 'var(--color-selection-blue)' },
+  offline: { label: '离线', color: 'var(--color-status-offline)' },
+  agent_missing: { label: 'agent 缺失', color: 'var(--color-brand-warm)' },
+  pending_bind: { label: '不可触发', color: 'var(--color-status-offline)' },
+  pending_confirm: { label: '不可触发', color: 'var(--color-status-offline)' },
 }
 
 const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
@@ -60,6 +60,12 @@ export const botsApi = {
     id: string,
     body: Partial<Pick<BotDto, 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList'>>,
   ) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
+  setDefaultWorkspace: (id: string, path: string | null) =>
+    api.put<BotDto>(`/bots/${id}/default-workspace`, { path }).then(saveBot),
+  remove: async (id: string) => {
+    await api.del(`/bots/${id}`)
+    useWorkspace.getState().applyEvent({ t: 'bot.removed', botId: id })
+  },
   confirm: async (id: string) => {
     const bot = saveBot(await api.post<BotDto>(`/bots/${id}/confirm`))
     await refreshNotifCount()

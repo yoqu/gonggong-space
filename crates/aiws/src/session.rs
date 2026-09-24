@@ -243,13 +243,14 @@ impl Shared {
         if !git::is_repo(&req.cwd) {
             return None;
         }
-        let pre = git::pre_turn(&req.cwd).await.inspect_err(|e| tracing::warn!("git pre-turn failed: {e}")).ok()?;
+        let managed = req.start.workspace.cd_path.is_none();
+        let pre =
+            git::pre_turn(&req.cwd, managed).await.inspect_err(|e| tracing::warn!("git pre-turn failed: {e}")).ok()?;
         let event = RunEvent::Status { status: RunStatus::Running, step: pre.step() };
         req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
         match git::snapshot(&req.cwd).await {
             Ok(snap) => {
-                let kind =
-                    if req.start.workspace.cd_path.is_some() { WorkspaceKind::Cd } else { WorkspaceKind::Managed };
+                let kind = if managed { WorkspaceKind::Managed } else { WorkspaceKind::Cd };
                 if let Some(a) = self.0.lock().unwrap().active.as_mut() {
                     a.git = Some(GitTurn { cwd: req.cwd.clone(), kind, snap });
                 }
@@ -622,7 +623,10 @@ async fn connect(
             };
             let mut req = first;
             loop {
-                conv.turn(req, resume).await?;
+                {
+                    let _dir = engine.workspaces.occupy(&req).await;
+                    conv.turn(req, resume).await?;
+                }
                 req = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
                         Ok(Some(next)) if shared.begin(&next) => break next,

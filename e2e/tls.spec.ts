@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, request, test } from '@playwright/test'
-import { AIWS_BIN, buildDaemon, machine, ROOT } from './helpers'
+import { AIWS_BIN, bindManaged, buildDaemon, machine, ROOT } from './helpers'
 
 test.skip(process.env.AIWS_E2E_TLS !== '1', 'set AIWS_E2E_TLS=1 to run the TLS path')
 test.beforeAll(buildDaemon)
@@ -64,6 +64,7 @@ test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a chang
     const group = await (
       await api.post('/api/groups', { data: { name: 'TLS', kind: 'dm', botIds: [bot.id] } })
     ).json()
+    await bindManaged(api, group.id, [bot.id])
     await api.post(`/api/groups/${group.id}/messages`, {
       data: { body: '@TLS Claude 不要调用任何工具，只回复 pong-tls', clientId: crypto.randomUUID() },
     })

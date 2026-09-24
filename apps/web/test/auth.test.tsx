@@ -1,9 +1,10 @@
 import type { UserDto } from '@aiws/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { initTheme, setTheme, THEME_STORAGE_KEY } from '../src/app/theme'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -109,5 +110,102 @@ describe('account menu', () => {
     fireEvent.click(within(menu).getByRole('button', { name: '退出登录' }))
     expect(await screen.findByTestId('login-page')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
+  })
+})
+
+describe('account menu appearance', () => {
+  type ChangeListener = (event: { matches: boolean }) => void
+  let systemDark = false
+  let changeListeners: Set<ChangeListener> = new Set()
+
+  // same matchMedia stub as theme.test.ts: jsdom has no implementation
+  const installMatchMedia = () => {
+    changeListeners = new Set()
+    window.matchMedia = ((query: string) => ({
+      media: query,
+      get matches() {
+        return systemDark
+      },
+      onchange: null,
+      addEventListener: (_: string, cb: ChangeListener) => changeListeners.add(cb),
+      removeEventListener: (_: string, cb: ChangeListener) => changeListeners.delete(cb),
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+  }
+
+  const setSystemDark = (dark: boolean) => {
+    systemDark = dark
+    for (const cb of changeListeners) cb({ matches: dark })
+  }
+
+  const openMenu = async () => {
+    mockApi({ 'GET /me': me })
+    renderAt('/')
+    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
+    return screen.getByTestId('account-menu')
+  }
+
+  beforeEach(() => {
+    systemDark = false
+    installMatchMedia()
+    window.localStorage.clear()
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  afterEach(() => {
+    // detach any system-mode listener the theme module installed, then reset DOM state
+    setTheme('light')
+    window.localStorage.clear()
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('offers light / dark / system with the current preference marked', async () => {
+    setTheme('dark')
+    const menu = await openMenu()
+    expect(within(menu).getByText('外观')).toBeTruthy()
+    expect(within(menu).getByRole('menuitemradio', { name: '浅色' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
+    expect(within(menu).getByRole('menuitemradio', { name: '深色' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    expect(within(menu).getByRole('menuitemradio', { name: '跟随系统' }).getAttribute('aria-checked')).toBe(
+      'false',
+    )
+  })
+
+  it('applies the choice immediately and persists across reload and remount', async () => {
+    const menu = await openMenu()
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '深色' }))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
+
+    // simulate a reload: startup code re-applies the stored preference
+    document.documentElement.removeAttribute('data-theme')
+    initTheme()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    cleanup()
+    const remounted = await openMenu()
+    expect(within(remounted).getByRole('menuitemradio', { name: '深色' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+
+    fireEvent.click(within(remounted).getByRole('menuitemradio', { name: '浅色' }))
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+  })
+
+  it('follows the OS appearance in system mode', async () => {
+    setSystemDark(true)
+    const menu = await openMenu()
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '跟随系统' }))
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    setSystemDark(false)
+    expect(document.documentElement.dataset.theme).toBe('light')
   })
 })

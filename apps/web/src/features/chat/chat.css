@@ -211,7 +211,7 @@
   gap: 6px;
   margin: 0 12px 10px;
   font-size: 11px;
-  color: #409cff;
+  color: var(--color-brand-info);
 }
 .run-card--selected {
   border-color: var(--color-system-blue);
@@ -247,7 +247,7 @@
   cursor: pointer;
 }
 .run-card__action:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 .tl-files {
@@ -270,7 +270,7 @@
   cursor: pointer;
 }
 .tl-file:hover {
-  background: rgba(10, 132, 255, 0.08);
+  background: var(--color-bg-info);
 }
 @media (max-width: 767px) {
   .run-card {
@@ -322,13 +322,13 @@
   margin: 0;
   padding: 6px 10px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--color-bg-subtle);
   color: var(--color-text-secondary);
 }
 .md :not(pre) > code {
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -350,7 +350,7 @@
   border-bottom: 1px solid var(--color-separator);
 }
 .md-table th {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-panel-subtle);
   font-weight: 600;
 }
 .md-table tr:last-child td {
@@ -402,24 +402,24 @@
 .hljs-type,
 .hljs-selector-tag,
 .hljs-literal {
-  color: oklch(0.76 0.12 250);
+  color: var(--color-syntax-keyword);
 }
 .hljs-string,
 .hljs-regexp,
 .hljs-addition {
-  color: oklch(0.8 0.1 150);
+  color: var(--color-syntax-string);
 }
 .hljs-number,
 .hljs-attr,
 .hljs-attribute,
 .hljs-variable,
 .hljs-template-variable {
-  color: oklch(0.82 0.1 70);
+  color: var(--color-syntax-number);
 }
 .hljs-title,
 .hljs-title.function_,
 .hljs-section {
-  color: oklch(0.82 0.11 300);
+  color: var(--color-syntax-title);
 }
 .hljs-comment,
 .hljs-quote,
@@ -446,7 +446,7 @@
   border-radius: 12px;
   border: 1px solid var(--color-separator);
   background: var(--color-panel-elevated);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.66);
+  box-shadow: var(--shadow-dropdown);
 }
 .mention-pop__label {
   display: flex;
@@ -493,7 +493,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
@@ -501,6 +501,7 @@
 .mention-pop__item:hover,
 .mention-pop__item--active {
   background: var(--color-system-blue);
+  color: var(--color-on-accent);
 }
 .mention-pop__hint {
   font-size: 11px;
@@ -567,7 +568,7 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--color-bg-subtle);
   font-size: 12px;
 }
 .ng-mode__text {
@@ -593,13 +594,13 @@
   border-radius: 999px;
   border: 1px solid var(--color-border-strong);
   background: transparent;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 12px;
   cursor: pointer;
 }
 .ng-chip--on {
   border-color: var(--color-system-blue);
-  background: rgba(10, 132, 255, 0.12);
+  background: var(--color-bg-accent-strong);
 }
 .ng-chip--fixed {
   cursor: default;
@@ -615,15 +616,15 @@
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--color-separator);
-  background: rgba(255, 255, 255, 0.035);
-  color: #fff;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
 .ng-bot--on {
   border-color: var(--color-system-blue);
-  background: rgba(10, 132, 255, 0.08);
+  background: var(--color-bg-info);
 }
 .ng-bot:disabled {
   opacity: 0.5;
@@ -727,7 +728,7 @@
   color: var(--color-text-tertiary);
 }
 .git-bar__dirty {
-  color: #ff9f0a;
+  color: var(--color-brand-warm);
 }
 .git-bar__hint {
   color: var(--color-text-tertiary);

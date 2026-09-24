@@ -27,6 +27,7 @@ const bot = (id: string, name: string) => ({ id, name }) as BotDto
 const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateDto => ({
   botId,
   workspace: 'managed',
+  path: null,
   state: 'ready',
   git: null,
   error: null,
@@ -81,7 +82,7 @@ describe('git status bar', () => {
     expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codexclone 中…托管')
     expect(screen.getByTestId('git-b3').textContent).toBe('阿杰的 Claude工作区创建失败托管')
     expect(screen.getByText('工作区创建失败').getAttribute('title')).toBe('Permission denied (publickey)')
-    expect(screen.getByTestId('git-b4').textContent).toBe('小周的 Codex—/cd 绑定')
+    expect(screen.getByTestId('git-b4').textContent).toBe('小周的 Codex—本机目录')
   })
 
   it('shows 待创建 before the daemon reports and follows realtime updates', async () => {
@@ -99,18 +100,24 @@ describe('git status bar', () => {
       state: state('b1', { state: 'pending', git: git({ behind: 2 }) }),
     })
     await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓2 ↑0托管'))
+    useWorkspace
+      .getState()
+      .applyEvent({ t: 'group.botState', groupId: 'g1', state: state('b1', { state: 'unbound' }) })
+    await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude待绑定托管'))
   })
 
-  it('is hidden outside partition groups with a repo', () => {
+  it('is hidden outside partition groups with a repo; repo-less partition groups still load states', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('[]')),
     )
-    const { rerender } = render(<GitBar group={group({ repo: null })} />)
-    expect(screen.queryByTestId('git-bar')).toBeNull()
-    rerender(<GitBar group={group({ mode: 'force' })} />)
+    const { unmount } = render(<GitBar group={group({ mode: 'force' })} />)
     expect(screen.queryByTestId('git-bar')).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
+    unmount()
+    render(<GitBar group={group({ repo: null })} />)
+    expect(screen.queryByTestId('git-bar')).toBeNull()
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/groups/g1/bot-states', expect.anything()))
   })
 })
 

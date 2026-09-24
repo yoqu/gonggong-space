@@ -1,12 +1,13 @@
 //! Per-(group, bot) workspaces (spec §4.2, §4.3): managed clones made with the owner's own git credentials, and /cd
-//! bindings to existing local clones of the group repo. Also the desktop 工作区 page: listing, sizes and cleanup.
-use crate::config::Config;
+//! bindings to the owner's existing directories. Also the directory picker and the desktop 工作区 page.
+use crate::config::{Config, user_home};
 use crate::git::{self, git};
 use crate::protocol::{
-    DaemonToServer, GitStatus, RepoSpec, RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec,
-    WorkspaceState, WorkspaceStateKind,
+    DaemonToServer, DirEntry, DirGit, DirResult, GitStatus, RepoSpec, RunEvent, RunStart, RunStatus, WorkspaceCd,
+    WorkspaceEnsure, WorkspaceKind, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
 };
 use crate::service::Outbox;
+use crate::session::TurnReq;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -24,13 +25,30 @@ type Locks = Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>;
 pub struct Workspaces {
     home: PathBuf,
     locks: Locks,
+    /// One turn at a time per real directory, across groups and bots sharing it (plan W10).
+    dirs: Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 type Outcome = Result<(PathBuf, Option<GitStatus>), String>;
 
 impl Workspaces {
     pub fn new(home: PathBuf) -> Self {
-        Workspaces { home, locks: Mutex::default() }
+        Workspaces { home, locks: Mutex::default(), dirs: Mutex::default() }
+    }
+
+    /// Holds the turn's directory for its duration, telling the run when it has to wait for another one.
+    pub(crate) async fn occupy(&self, req: &TurnReq) -> tokio::sync::OwnedMutexGuard<()> {
+        let key = req.cwd.canonicalize().unwrap_or_else(|_| req.cwd.clone());
+        let lock = self.dirs.lock().unwrap().entry(key).or_default().clone();
+        if let Ok(guard) = lock.clone().try_lock_owned() {
+            return guard;
+        }
+        let event = RunEvent::Status {
+            status: RunStatus::Running,
+            step: "等待工作区空闲（同目录有其他会话在运行）".into(),
+        };
+        req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
+        lock.lock_owned().await
     }
 
     fn lock(&self, group: &str, bot: &str) -> Arc<tokio::sync::Mutex<()>> {
@@ -46,18 +64,21 @@ impl Workspaces {
         reply(Some(outcome));
     }
 
-    /// workspace.cd: bind to a validated local clone of the group repo, or go back to the managed clone (`path: None`).
+    /// workspace.cd: bind to a validated local directory, or go back to the managed workspace (`path: None`).
     pub async fn cd(&self, req: WorkspaceCd, out: &Outbox) {
         let lock = self.lock(&req.group_id, &req.bot_id);
         let _guard = lock.lock().await;
         let reply = |outcome| report(out, &req.group_id, &req.bot_id, &req.request_id, outcome);
         let outcome = match &req.path {
-            None => self.managed(&req.group_id, &req.bot_id, Some(&req.repo), || reply(None)).await,
+            None => self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None)).await,
             Some(path) => {
                 let dir = PathBuf::from(path);
-                match check_cd(&dir, &req.repo).await {
+                match check_cd(&dir, req.repo.as_ref()).await {
                     Ok(()) => {
-                        let git = git::status(&dir, WorkspaceKind::Cd).await.ok();
+                        let git = match git::is_repo(&dir) {
+                            true => git::status(&dir, WorkspaceKind::Cd).await.ok(),
+                            false => None,
+                        };
                         Ok((dir, git))
                     }
                     Err(e) => Err(e),
@@ -156,25 +177,90 @@ async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), String> {
     tokio::fs::rename(&partial, dir).await.map_err(io)
 }
 
-/// /cd target must be an absolute, existing git work tree with a remote pointing at the group repo.
-async fn check_cd(dir: &Path, repo: &RepoSpec) -> Result<(), String> {
+/// /cd target must be an absolute, existing, usable directory; with a group repo also a work tree of that repo.
+async fn check_cd(dir: &Path, repo: Option<&RepoSpec>) -> Result<(), String> {
+    existing_dir(dir)?;
+    if let Some(why) = unusable(dir) {
+        return Err(why);
+    }
+    let Some(repo) = repo else { return Ok(()) };
+    if !git(dir, &["rev-parse", "--is-inside-work-tree"]).await.is_ok_and(|s| s.trim() == "true") {
+        return Err("不是 git 仓库".into());
+    }
+    let urls = remotes(dir).await;
+    let want = normalize_remote(&repo.url);
+    if urls.iter().any(|u| normalize_remote(u) == want) {
+        return Ok(());
+    }
+    Err(format!("remote 与群仓库不一致（{}）", if urls.is_empty() { "无 remote".into() } else { urls.join("、") }))
+}
+
+fn existing_dir(dir: &Path) -> Result<(), String> {
     if !dir.is_absolute() {
         return Err("需要本机绝对路径".into());
     }
     if !dir.is_dir() {
         return Err("目录不存在".into());
     }
-    if !git(dir, &["rev-parse", "--is-inside-work-tree"]).await.is_ok_and(|s| s.trim() == "true") {
-        return Err("不是 git 仓库".into());
+    Ok(())
+}
+
+const SYSTEM_DIRS: &[&str] =
+    &["/System", "/usr", "/bin", "/sbin", "/etc", "/boot", "/proc", "/sys", "/dev", "C:\\Windows", "C:\\Program Files"];
+
+/// Why `dir` must not be handed to an agent as its workspace (plan W8); None = fine.
+pub fn unusable(dir: &Path) -> Option<String> {
+    let real = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    let home = user_home();
+    if real.parent().is_none() || real == home.canonicalize().unwrap_or(home) {
+        return Some("目录范围过大，请选择具体的项目目录".into());
     }
+    SYSTEM_DIRS.iter().any(|d| real.starts_with(d)).then(|| "不能使用系统目录".into())
+}
+
+/// Remote URLs configured in the repo containing `dir`.
+async fn remotes(dir: &Path) -> Vec<String> {
     // Exits 1 when there is no remote at all.
     let listed = git(dir, &["config", "--get-regexp", r"^remote\..*\.url$"]).await.unwrap_or_default();
-    let urls: Vec<&str> = listed.lines().filter_map(|l| l.split_once(' ').map(|(_, url)| url)).collect();
-    let want = normalize_remote(&repo.url);
-    if urls.iter().any(|u| normalize_remote(u) == want) {
-        return Ok(());
+    listed.lines().filter_map(|l| l.split_once(' ').map(|(_, url)| url.to_string())).collect()
+}
+
+const DIR_LIST_MAX: usize = 500;
+
+/// dir.list for the workspace picker: subdirectories of `path` (home when None) and the repo containing it.
+pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
+    let dir = path.map(PathBuf::from).unwrap_or_else(user_home);
+    let mut result = DirResult {
+        request_id,
+        path: dir.to_string_lossy().into_owned(),
+        entries: vec![],
+        git: None,
+        unusable: None,
+        error: None,
+    };
+    if let Err(e) = existing_dir(&dir) {
+        result.error = Some(e);
+        return result;
     }
-    Err(format!("remote 与群仓库不一致（{}）", if urls.is_empty() { "无 remote".into() } else { urls.join("、") }))
+    let mut entries: Vec<DirEntry> = std::fs::read_dir(&dir)
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| e.path().is_dir())
+                .filter_map(|e| e.file_name().into_string().ok().map(|name| (name, e.path())))
+                .filter(|(name, _)| !name.starts_with('.'))
+                .map(|(name, path)| DirEntry { name, git: git::is_repo(&path) })
+                .collect()
+        })
+        .unwrap_or_default();
+    entries.sort_by_key(|e| e.name.to_lowercase());
+    entries.truncate(DIR_LIST_MAX);
+    result.entries = entries;
+    if let Ok(root) = git(&dir, &["rev-parse", "--show-toplevel"]).await {
+        let branch = git(&dir, &["symbolic-ref", "--short", "-q", "HEAD"]).await.ok().map(|b| b.trim().to_string());
+        result.git = Some(DirGit { root: root.trim().into(), remotes: remotes(&dir).await, branch });
+    }
+    result.unusable = unusable(&dir);
+    result
 }
 
 /// Canonical identity of a remote: `git@host:a/b.git` ≡ `ssh://git@host/a/b` ≡ `https://host/a/b/` → `host/a/b`;

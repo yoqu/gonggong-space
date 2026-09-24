@@ -13,6 +13,7 @@ import { GitBar } from './GitBar'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
+import { WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
 
 /** Distance from the bottom (px) within which new items keep the view pinned to the end. */
@@ -93,7 +94,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       <ChatHeader
         title={group.name}
         badge={<Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>}
-        subtitle={group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 托管空工作区'}
+        subtitle={group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 bot 使用本机目录'}
         onBack={onBack}
         actions={
           <>
@@ -146,6 +147,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         </div>
       ) : null}
       <GitBar group={group} />
+      <WorkspaceBanner group={group} />
       <div className="timeline" ref={box} onScroll={onScroll}>
         {!tl.loaded ? (
           <div className="timeline__loading">

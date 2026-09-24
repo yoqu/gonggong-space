@@ -83,7 +83,7 @@ impl Rig {
         self.engine.handle(ServerToDaemon::WorkspaceEnsure(msg), &self.out);
     }
 
-    fn cd(&self, id: &str, repo: RepoSpec, path: Option<&Path>) {
+    fn cd(&self, id: &str, repo: Option<RepoSpec>, path: Option<&Path>) {
         let msg = WorkspaceCd {
             request_id: id.into(),
             group_id: "g1".into(),
@@ -206,23 +206,81 @@ async fn cd_validates_directory_repo_and_remote() {
     ];
     for (i, (path, error)) in cases.iter().enumerate() {
         let id = format!("c{i}");
-        r.cd(&id, remote.spec("rp"), Some(path));
+        r.cd(&id, Some(remote.spec("rp")), Some(path));
         let (s, _) = r.settled(&id).await;
         assert_eq!((s.state, s.error.as_deref()), (WorkspaceStateKind::Failed, Some(error.as_str())), "{path:?}");
     }
 
     let local = remote.clone_to("local");
-    r.cd("ok", remote.spec("rp"), Some(&local));
+    r.cd("ok", Some(remote.spec("rp")), Some(&local));
     let (s, _) = r.settled("ok").await;
     assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
     assert_eq!(s.path.as_deref(), Some(&*local.to_string_lossy()));
     assert_eq!(s.git, Some(clean("main", WorkspaceKind::Cd)));
 
-    r.cd("back", remote.spec("rp"), None);
+    r.cd("back", Some(remote.spec("rp")), None);
     let (s, _) = r.settled("back").await;
     assert_eq!(s.state, WorkspaceStateKind::Ready);
     assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
     assert_eq!(s.git.unwrap().workspace, WorkspaceKind::Managed);
+}
+
+#[tokio::test]
+async fn cd_without_group_repo_accepts_any_usable_directory() {
+    let remote = Remote::new();
+    let mut r = rig();
+    let plain = tempfile::tempdir().unwrap();
+    r.cd("plain", None, Some(plain.path()));
+    let (s, _) = r.settled("plain").await;
+    assert_eq!((s.state, s.git), (WorkspaceStateKind::Ready, None), "{:?}", s.error);
+
+    let foreign = remote.clone_to("any");
+    r.cd("repo", None, Some(&foreign));
+    let (s, _) = r.settled("repo").await;
+    assert_eq!(s.git, Some(clean("main", WorkspaceKind::Cd)));
+
+    let home = aiws::config::user_home();
+    for (i, path) in [PathBuf::from("/"), home].iter().enumerate() {
+        let id = format!("bad{i}");
+        r.cd(&id, None, Some(path));
+        let (s, _) = r.settled(&id).await;
+        assert_eq!(s.state, WorkspaceStateKind::Failed, "{path:?}");
+        assert!(s.error.unwrap().contains("范围过大"), "{path:?}");
+    }
+}
+
+#[tokio::test]
+async fn dir_list_shows_subdirectories_with_git_info() {
+    let remote = Remote::new();
+    let mut r = rig();
+    let root = remote.root.path();
+    std::fs::create_dir(root.join(".hidden")).unwrap();
+    std::fs::write(root.join("file.txt"), "x").unwrap();
+    let list = |r: &Rig, id: &str, path: Option<&Path>| {
+        let msg = ServerToDaemon::DirList { request_id: id.into(), path: path.map(|p| p.to_string_lossy().into()) };
+        r.engine.handle(msg, &r.out);
+    };
+    list(&r, "d1", Some(root));
+    let d = dir_result(&mut r.rx).await;
+    assert_eq!(d.request_id, "d1");
+    let names: Vec<_> = d.entries.iter().map(|e| (e.name.as_str(), e.git)).collect();
+    assert_eq!(names, [("remote.git", false), ("seed", true)]);
+    assert_eq!((d.git, d.unusable, d.error), (None, None, None));
+
+    let seed = root.join("seed");
+    list(&r, "d2", Some(&seed));
+    let d = dir_result(&mut r.rx).await;
+    let g = d.git.unwrap();
+    assert_eq!((g.branch.as_deref(), g.remotes.len()), (Some("main"), 1));
+    assert_eq!(Path::new(&g.root).canonicalize().unwrap(), seed.canonicalize().unwrap());
+
+    list(&r, "d3", None);
+    let d = dir_result(&mut r.rx).await;
+    assert_eq!(PathBuf::from(&d.path), aiws::config::user_home());
+    assert!(d.unusable.is_some());
+
+    list(&r, "d4", Some(&root.join("missing")));
+    assert_eq!(dir_result(&mut r.rx).await.error.as_deref(), Some("目录不存在"));
 }
 
 #[tokio::test]
@@ -302,6 +360,56 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
     let d = done(&mut r.rx).await;
     assert_eq!(d.outcome, RunOutcome::Failed);
     assert!(d.error.unwrap().contains("目录不存在"));
+}
+
+#[tokio::test]
+async fn runs_of_different_groups_in_one_directory_take_turns() {
+    let mut r = rig();
+    let dir = tempfile::tempdir().unwrap();
+    let cmd = "mock:sh echo start >> log; sleep 1; echo end >> log";
+    for (run, group) in [("r1", "g1"), ("r2", "g2")] {
+        let mut s = run_start(run, group, dir.path());
+        s.prompt.text = cmd.into();
+        r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
+    }
+    done(&mut r.rx).await;
+    done(&mut r.rx).await;
+    let log = std::fs::read_to_string(dir.path().join("log")).unwrap();
+    assert_eq!(log, "start\nend\nstart\nend\n");
+}
+
+fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
+    RunStart {
+        run_id: run_id.into(),
+        group_id: group.into(),
+        group_name: String::new(),
+        bot: RunBot {
+            id: "b1".into(),
+            name: "bot".into(),
+            agent_kind: AgentKind::Claude,
+            system_prompt: String::new(),
+            tier: Tier::Full,
+        },
+        workspace: WorkspaceSpec { repo: None, cd_path: Some(cd.to_string_lossy().into_owned()) },
+        resume_session_id: None,
+        new_session_reason: None,
+        prompt: RunPrompt {
+            text: "mock:echo".into(),
+            triggered_by: "t".into(),
+            context: vec![],
+            fallback_context: vec![],
+            attachments: vec![],
+            quote: None,
+        },
+        mcp_servers: vec![],
+    }
+}
+
+async fn dir_result(rx: &mut UnboundedReceiver<DaemonToServer>) -> DirResult {
+    match tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.unwrap().unwrap() {
+        DaemonToServer::DirResult(d) => d,
+        other => panic!("unexpected {other:?}"),
+    }
 }
 
 async fn done(rx: &mut UnboundedReceiver<DaemonToServer>) -> RunDone {

@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "default_workspace" text;

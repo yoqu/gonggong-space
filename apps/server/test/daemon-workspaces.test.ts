@@ -28,7 +28,7 @@ async function world() {
     .values({ groupId: data.id, url: 'git@example.com:team/etl.git', baseBranch: 'main' })
   await t.db
     .update(groupBots)
-    .set({ workspaceKind: 'cd', cdPath: '/Users/wang/code/etl' })
+    .set({ workspaceKind: 'cd', cdPath: '/Users/wang/code/etl', workspaceState: 'ready' })
     .where(eq(groupBots.groupId, data.id))
   const old = await t.seed.group({ createdBy: wang.id, name: '旧版后台', botIds: [claude.id] })
   await t.db.update(groupBots).set({ removedAt: new Date() }).where(eq(groupBots.groupId, old.id))
@@ -117,7 +117,7 @@ describe('POST /api/daemon/workspaces/:groupId/:botId/reset-cd', () => {
       .from(messages)
       .where(and(eq(messages.groupId, w.data.id), eq(messages.kind, 'event')))
       .orderBy(asc(messages.seq))
-    expect(events.map((e) => e.body)).toEqual(['已请求 小王的 Claude 恢复托管工作区，等待本机确认…'])
+    expect(events.map((e) => e.body)).toEqual(['已请求 小王的 Claude 使用托管工作区，等待本机确认…'])
     const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'command.cd'))
     expect(log).toMatchObject({
       actorUserId: w.wang.id,

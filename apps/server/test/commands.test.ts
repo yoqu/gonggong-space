@@ -130,12 +130,12 @@ describe('/cd', () => {
     ])
     expect(await w.eventsText()).toEqual([
       '已请求 小王的 Claude 绑定到 /Users/wang/code/pay api，等待本机校验…',
-      '已请求 小王的 Claude 恢复托管工作区，等待本机确认…',
+      '已请求 小王的 Claude 使用托管工作区，等待本机确认…',
     ])
     expect(await t.db.select().from(auditLogs)).toHaveLength(2)
   })
 
-  it('rejects non-owners, bad targets, relative paths and groups without a partition repo', async () => {
+  it('rejects non-owners, bad targets, relative paths and force-sync groups', async () => {
     const w = await world()
     await w.say(w.asLi, '/cd @小王的 Claude /tmp/x')
     await w.say(w.asWang, '/cd /tmp/x')
@@ -143,9 +143,6 @@ describe('/cd', () => {
     await w.say(w.asWang, '/cd @小王的 Claude code/x')
     await w.say(w.asWang, '/cd @小王的 Claude')
     await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.g.id))
-    await w.say(w.asWang, '/cd @小王的 Claude /tmp/x')
-    await t.db.update(groups).set({ mode: 'partition' }).where(eq(groups.id, w.g.id))
-    await t.db.delete(groupRepos).where(eq(groupRepos.groupId, w.g.id))
     await w.say(w.asWang, '/cd @小王的 Claude /tmp/x')
     const usage =
       '/cd 需要 @ 一个 bot，如 /cd @小王的 Claude /本机/绝对路径，或 /cd @小王的 Claude --reset 回到托管'
@@ -156,7 +153,6 @@ describe('/cd', () => {
       '/cd 需要本机绝对路径，如 /Users/me/code/repo',
       usage,
       '/cd 仅分区模式可用；强制同步群里非托管工作区的 bot 为「不参与」',
-      '未绑定仓库的群不能使用 /cd',
     ])
     expect(w.sent).toEqual([])
   })
@@ -180,9 +176,9 @@ describe('/cd', () => {
     await onCdResult(t.ctx, { ...base, state: 'ready', path: '/managed/p', error: null }, true)
     await onCdResult(t.ctx, { ...base, state: 'failed', path: null, error: 'remote 与群仓库不一致' }, false)
     expect(await w.eventsText()).toEqual([
-      '✓ 小王的 Claude 已绑定到 /tmp/x（/cd 绑定）',
-      '✓ 小王的 Claude 已恢复托管工作区',
-      '小王的 Claude /cd 失败：remote 与群仓库不一致',
+      '✓ 小王的 Claude 已绑定到 /tmp/x（本机目录）',
+      '✓ 小王的 Claude 已使用托管工作区',
+      '小王的 Claude 绑定工作区失败：remote 与群仓库不一致',
     ])
   })
 })

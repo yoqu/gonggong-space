@@ -250,6 +250,22 @@ export const FilesResult = z.object({
   error: z.string().nullable(),
 })
 
+/** Answer to dir.list. */
+export const DirResult = z.object({
+  t: z.literal('dir.result'),
+  requestId: z.string(),
+  /** Absolute path listed (the home dir when the request had none). */
+  path: z.string(),
+  /** Immediate subdirectories, hidden ones skipped; `git` = the subdirectory is a work tree root. */
+  entries: z.array(z.object({ name: z.string(), git: z.boolean() })),
+  /** Repo containing `path`, if any. */
+  git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
+  /** Why `path` cannot be a workspace (root, home, system dir, …); null = usable. */
+  unusable: z.string().nullable(),
+  error: z.string().nullable(),
+})
+export type DirResult = z.infer<typeof DirResult>
+
 /** The built-in ask tool was called; blocks the agent until question.answer arrives. */
 export const QuestionAsk = z.object({
   t: z.literal('question.ask'),
@@ -261,6 +277,7 @@ export const QuestionAsk = z.object({
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
+  DirResult,
   FilesResult,
   QuestionAsk,
   ApprovalRequest,
@@ -305,13 +322,16 @@ export const WorkspaceEnsure = z.object({
   repo: RepoSpec.nullable(),
 })
 
-/** /cd: bind to an existing local directory (validated on the machine), or `path: null` to go back to managed. */
+/**
+ * /cd: bind to an existing local directory (validated on the machine), or `path: null` to go back to managed.
+ * `repo` null (group without repo) → any usable directory, git or not.
+ */
 export const WorkspaceCd = z.object({
   t: z.literal('workspace.cd'),
   requestId: z.string(),
   groupId: z.string(),
   botId: z.string(),
-  repo: RepoSpec,
+  repo: RepoSpec.nullable(),
   path: z.string().nullable(),
 })
 
@@ -338,6 +358,13 @@ export const FilesList = z.object({
   limit: z.number().int(),
 })
 
+/** Browse the machine's directories for the workspace picker; `path` null → the home dir. */
+export const DirList = z.object({
+  t: z.literal('dir.list'),
+  requestId: z.string(),
+  path: z.string().nullable(),
+})
+
 /** answers null → nobody answered in time: the tool tells the agent to proceed with recommendations (spec §8.8). */
 export const QuestionAnswer = z.object({
   t: z.literal('question.answer'),
@@ -358,6 +385,7 @@ export const RunAppend = z.object({
 })
 
 export const ServerToDaemon = z.discriminatedUnion('t', [
+  DirList,
   FilesList,
   QuestionAnswer,
   RunAppend,

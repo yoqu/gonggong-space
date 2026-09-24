@@ -1,5 +1,8 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { buildDaemon, memberWithMachine } from './helpers'
+import { buildDaemon, memberWithMachine, setDefaultWorkspace } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -18,6 +21,12 @@ test('offline bot waits, runs when its machine comes online, and resumes the ses
     machineId: await api.machineId(),
     systemPrompt: '',
   })
+  // The default workspace is checked while the machine is online; the group then joins while it is offline.
+  m.start()
+  await setDefaultWorkspace(page.request, bot.id, mkdtempSync(join(tmpdir(), 'aiws-offline-')))
+  m.stop()
+  const online = async () => (await api.call<{ online: boolean }[]>('get', '/api/machines'))[0]?.online
+  await expect.poll(online, { timeout: 30_000 }).toBe(false)
   const group = await api.call<{ id: string }>('post', '/api/groups', {
     name: '离线',
     kind: 'dm',

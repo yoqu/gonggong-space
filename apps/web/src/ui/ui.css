@@ -61,11 +61,11 @@
 }
 .ui-btn--default {
   background: var(--color-control-bg);
-  color: #fff;
+  color: var(--color-text-primary);
 }
 .ui-btn--primary {
   background: var(--color-system-blue);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .ui-btn--default:hover:not(:disabled),
 .ui-btn--primary:hover:not(:disabled) {
@@ -77,22 +77,22 @@
   border-color: var(--color-border-control);
 }
 .ui-btn--outline:hover:not(:disabled) {
-  background: rgba(58, 58, 60, 0.5);
+  background: var(--color-bg-hover);
 }
 .ui-btn--ghost {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-panel-subtle);
   color: var(--color-text-muted);
 }
 .ui-btn--ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-overlay-hover);
 }
 .ui-btn--destructive {
-  background: rgba(255, 69, 58, 0.1);
+  background: var(--color-bg-error);
   color: var(--color-danger);
-  border-color: rgba(255, 69, 58, 0.25);
+  border-color: var(--color-border-error);
 }
 .ui-btn--destructive:hover:not(:disabled) {
-  background: rgba(255, 69, 58, 0.2);
+  background: var(--color-bg-error-strong);
 }
 
 /* Icon button (bare, used across the shell chrome) */
@@ -111,7 +111,7 @@
   cursor: pointer;
 }
 .ui-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
 }
 
 /* Close button (macOS red light) */
@@ -174,20 +174,20 @@
   border-color: var(--color-separator);
 }
 .ui-badge--info {
-  background: rgba(10, 132, 255, 0.15);
-  color: #409cff;
+  background: var(--color-bg-accent-strong);
+  color: var(--color-brand-info);
 }
 .ui-badge--success {
-  background: rgba(50, 215, 75, 0.15);
-  color: #32d74b;
+  background: var(--color-bg-success);
+  color: var(--color-success);
 }
 .ui-badge--warning {
-  background: rgba(255, 159, 10, 0.15);
-  color: #ffd60a;
+  background: var(--color-bg-warning);
+  color: var(--color-warning);
 }
 .ui-badge--destructive {
-  background: rgba(255, 69, 58, 0.15);
-  color: #ff453a;
+  background: var(--color-bg-error-strong);
+  color: var(--color-danger);
 }
 
 /* Tabs (segmented control) */
@@ -276,8 +276,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  background: var(--color-on-accent);
+  box-shadow: var(--shadow-card);
   transition: transform var(--duration-base) var(--ease-apple);
 }
 input:checked + .ui-switch__track {
@@ -292,7 +292,7 @@ input:checked + .ui-switch__track .ui-switch__thumb {
   justify-content: center;
   width: 16px;
   height: 16px;
-  color: #fff;
+  color: var(--color-on-accent);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-control);
   background: var(--color-panel-elevated);
@@ -357,11 +357,11 @@ input:checked + .ui-checkbox__box {
 .ui-input:focus,
 .ui-textarea:focus {
   border-color: var(--color-system-blue);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+  box-shadow: var(--shadow-focus);
 }
 .ui-input[aria-invalid="true"],
 .ui-textarea[aria-invalid="true"] {
-  border-color: rgba(255, 69, 58, 0.6);
+  border-color: var(--color-border-error);
   box-shadow: none;
 }
 .ui-input:disabled,
@@ -386,7 +386,7 @@ input:checked + .ui-checkbox__box {
 }
 .ui-select--open .ui-select__trigger {
   border-color: var(--color-system-blue);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+  box-shadow: var(--shadow-focus);
 }
 .ui-select__trigger:disabled {
   opacity: 0.5;
@@ -438,7 +438,7 @@ input:checked + .ui-checkbox__box {
 .ui-select__option:hover:not(:disabled),
 .ui-select__option[aria-selected="true"] {
   background: var(--color-system-blue);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .ui-select__option:disabled {
   opacity: 0.5;
@@ -480,24 +480,24 @@ input:checked + .ui-checkbox__box {
   margin-top: 4px;
 }
 .ui-alert--info {
-  background: rgba(10, 132, 255, 0.08);
-  border-color: rgba(10, 132, 255, 0.25);
-  --alert-accent: #409cff;
+  background: var(--color-bg-info);
+  border-color: color-mix(in srgb, var(--color-selection-blue) 25%, transparent);
+  --alert-accent: var(--color-brand-info);
 }
 .ui-alert--success {
-  background: rgba(50, 215, 75, 0.08);
-  border-color: rgba(50, 215, 75, 0.25);
-  --alert-accent: #32d74b;
+  background: var(--color-bg-success);
+  border-color: color-mix(in srgb, var(--color-success) 25%, transparent);
+  --alert-accent: var(--color-success);
 }
 .ui-alert--warning {
-  background: rgba(255, 159, 10, 0.08);
-  border-color: rgba(255, 159, 10, 0.25);
-  --alert-accent: #ff9f0a;
+  background: var(--color-bg-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 25%, transparent);
+  --alert-accent: var(--color-warning);
 }
 .ui-alert--error {
-  background: rgba(255, 69, 58, 0.08);
-  border-color: rgba(255, 69, 58, 0.25);
-  --alert-accent: #ff453a;
+  background: var(--color-bg-error);
+  border-color: var(--color-border-error);
+  --alert-accent: var(--color-danger);
 }
 .ui-alert__icon {
   color: var(--alert-accent);
@@ -585,7 +585,7 @@ input:checked + .ui-checkbox__box {
   flex: none;
   border-radius: 999px;
   background: var(--color-control-bg);
-  color: #fff;
+  color: var(--color-text-primary);
   font-weight: 600;
   user-select: none;
 }
@@ -639,7 +639,7 @@ input:checked + .ui-checkbox__box {
 .ui-overlay__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-overlay);
 }
 .ui-dialog {
   position: relative;
@@ -691,7 +691,7 @@ input:checked + .ui-checkbox__box {
   position: fixed;
   inset: 0;
   z-index: 26;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--color-overlay);
 }
 .ui-drawer {
   position: fixed;
@@ -782,4 +782,19 @@ input:checked + .ui-checkbox__box {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
+}
+
+/* Bullet list of what a destructive action does */
+.ui-consequences {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.ui-consequences li::before {
+  content: "· ";
 }

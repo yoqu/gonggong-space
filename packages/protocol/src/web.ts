@@ -102,8 +102,24 @@ export const BotDto = z.object({
   /** The adapter's minimum for that CLI; `agentVersion` below it gets a warning. */
   agentMinVersion: z.string().nullable(),
   groupCount: z.number().int(),
+  /** Owner's directory the bot works in when a group has no binding of its own (plan W1). */
+  defaultWorkspace: z.string().nullable(),
 })
 export type BotDto = z.infer<typeof BotDto>
+
+/** GET /api/machines/:id/dirs?path= — a machine's directories for the workspace picker (its owner only). */
+export const DirListingDto = z.object({
+  path: z.string(),
+  entries: z.array(z.object({ name: z.string(), git: z.boolean() })),
+  git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
+  /** Why `path` cannot be a workspace; null = selectable. */
+  unusable: z.string().nullable(),
+})
+export type DirListingDto = z.infer<typeof DirListingDto>
+/** PUT /api/bots/:id/default-workspace; null clears it. */
+export const DefaultWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
+/** PUT /api/groups/:id/bots/:botId/workspace (bot owner): a local directory, or null = managed workspace. */
+export const BindWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
 
 /** GET /api/bots/owners: who the caller may create bots for, with their machines (self only for members). */
 export const BotOwnerDto = z.object({ id: z.string(), name: z.string(), machines: z.array(MachineDto) })
@@ -534,7 +550,9 @@ export type UsageRowDto = z.infer<typeof UsageRowDto>
 export const GroupBotStateDto = z.object({
   botId: z.string(),
   workspace: z.enum(['managed', 'cd']),
-  state: z.enum(['pending', 'cloning', 'ready', 'failed']),
+  /** unbound = waiting for the owner to pick a workspace; the bot is not run meanwhile (plan W5). */
+  state: z.enum(['pending', 'cloning', 'ready', 'failed', 'unbound']),
+  path: z.string().nullable(),
   git: GitStatus.nullable(),
   error: z.string().nullable(),
 })
@@ -552,5 +570,6 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** The receiving user is no longer a member. */
   z.object({ t: z.literal('group.removed'), groupId: z.string() }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
+  z.object({ t: z.literal('machine.removed'), machineId: z.string() }),
 ])
 export type WebEvent = z.infer<typeof WebEvent>

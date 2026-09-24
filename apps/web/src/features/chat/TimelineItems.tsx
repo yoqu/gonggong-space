@@ -119,7 +119,7 @@ function eventIcon(body: string) {
   if (body.includes('移出')) return UserMinus
   if (body.includes(' 加入') || /已 clone 到托管工作区|工作区创建失败/.test(body)) return Bot
   if (body.includes('下一轮将开新会话')) return RefreshCw
-  if (/\/cd|绑定到|恢复托管工作区/.test(body)) return FolderInput
+  if (/\/cd|绑定到|绑定工作区|托管工作区|默认工作区/.test(body)) return FolderInput
   if (body === '没有运行中的轮次' || body.includes(' /stop · ')) return Square
   return Info
 }

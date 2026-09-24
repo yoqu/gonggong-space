@@ -3,6 +3,7 @@ import type {
   CommandCandidatesDto,
   FileCandidatesDto,
   GroupDto,
+  MachineDto,
   MessageDto,
   RunDto,
   UserDto,
@@ -70,6 +71,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentVersion: null,
   agentMinVersion: null,
   groupCount: 0,
+  defaultWorkspace: null,
   ...o,
 })
 const bots = [
@@ -90,6 +92,18 @@ const bots = [
     presence: 'pending_confirm',
   }),
 ]
+
+const machine: MachineDto = {
+  id: 'mc1',
+  ownerId: 'u1',
+  name: 'wanglei-mbp',
+  os: 'macos',
+  arch: 'aarch64',
+  online: true,
+  agents: [],
+  daemonVersion: '0.1.0',
+  lastSeenAt: null,
+}
 
 const at = '2026-09-23T02:21:00.000Z'
 const msg = (o: Partial<MessageDto>): MessageDto => ({
@@ -239,6 +253,90 @@ describe('sidebar', () => {
     expect(within(row).getByText('3')).toBeTruthy()
     expect(within(nav).getByRole('link', { name: /脚本实验/ })).toBeTruthy()
   })
+
+  it('guides a new user to bind a machine and create a bot, then hides once both exist', async () => {
+    mockApi({
+      ...baseRoutes([]),
+      'GET /bots': () => [],
+      'POST /bind-codes': () => ({
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      }),
+      'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }],
+    })
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const guide = await within(nav).findByRole('region', { name: '开始使用' })
+    fireEvent.click(within(guide).getByRole('button', { name: /绑定机器/ }))
+    expect(await screen.findByText('K7QM-4X2P')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+
+    fireEvent.click(within(guide).getByRole('button', { name: /新建 bot/ }))
+    expect(
+      await screen.findByText('王磊 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。'),
+    ).toBeTruthy()
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: /新建 bot/ })).getAllByRole('button', { name: '关闭' })[0]!,
+    )
+
+    act(() => {
+      useWorkspace.setState({ machines: [machine], bots: [bot({})] })
+    })
+    expect(within(nav).queryByRole('region', { name: '开始使用' })).toBeNull()
+  })
+
+  it('opens the new bot dialog from the 我的 BOT section', async () => {
+    mockApi({ ...baseRoutes([]), 'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }] })
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    fireEvent.click(within(nav).getByRole('button', { name: '新建 bot' }))
+    expect(await screen.findByRole('dialog', { name: /新建 bot/ })).toBeTruthy()
+  })
+})
+
+describe('my machines and bots', () => {
+  const oldBox: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux', online: false }
+
+  it('lists my machines and revokes one that has no bots', async () => {
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /machines': () => [machine, oldBox],
+      'DELETE /machines/mc2': () => null,
+    })
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const section = await within(nav).findByRole('region', { name: '我的机器' })
+    await within(section).findByText('old-box')
+    const busy = within(section).getByRole('button', { name: '吊销 wanglei-mbp' }) as HTMLButtonElement
+    expect(busy.disabled).toBe(true)
+
+    fireEvent.click(within(section).getByRole('button', { name: '吊销 old-box' }))
+    const dialog = await screen.findByRole('dialog', { name: /吊销机器 old-box/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: '吊销' }))
+    await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
+  })
+
+  it('opens a bot from the sidebar and deletes it after confirmation', async () => {
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /machines': () => [machine],
+      'GET /usage': () => [],
+      'DELETE /bots/b1': () => null,
+    })
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    fireEvent.click(await within(nav).findByRole('button', { name: /小王的 Claude/ }))
+    const detail = await screen.findByRole('dialog', { name: /bot 详情/ })
+    expect(within(detail).getByText('系统提示词 · 同时作为群内简介')).toBeTruthy()
+
+    fireEvent.click(within(detail).getByRole('button', { name: '删除' }))
+    const confirm = await screen.findByRole('dialog', { name: /删除 小王的 Claude/ })
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(within(nav).queryByRole('button', { name: /小王的 Claude/ })).toBeNull()
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/bots/b1' }))
+  })
 })
 
 describe('new group dialog', () => {
@@ -359,7 +457,7 @@ describe('chat view', () => {
     push({
       t: 'group.botState',
       groupId: 'g1',
-      state: { botId: 'b1', workspace: 'managed', state: 'ready', git, error: null },
+      state: { botId: 'b1', workspace: 'managed', state: 'ready', path: null, git, error: null },
     })
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1 ↑0未提交托管')
   })

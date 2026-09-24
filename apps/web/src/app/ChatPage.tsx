@@ -4,9 +4,13 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { PreviewPanel } from '../features/attachments/PreviewPanel'
 import { usePreview } from '../features/attachments/preview'
+import { BotDialog } from '../features/bots/BotDialog'
 import { botsApi } from '../features/bots/model'
+import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
+import { BindMachineDialog } from '../features/machines/BindMachineDialog'
+import { RevokeMachineDialog } from '../features/machines/RevokeMachineDialog'
 import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
@@ -58,9 +62,15 @@ export function ChatPage() {
   const navigate = useNavigate()
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
-  const { groups, bots, machines } = useWorkspace()
+  const { groups, bots, machines, loaded: workspaceLoaded } = useWorkspace()
   const loaded = useChatData()
   const [creating, setCreating] = useState<GroupKind | null>(null)
+  const [binding, setBinding] = useState(false)
+  const [newBot, setNewBot] = useState(false)
+  const [openBotId, setOpenBotId] = useState<string | null>(null)
+  const [revokeId, setRevokeId] = useState<string | null>(null)
+  const openBot = bots.find((b) => b.id === openBotId)
+  const revoking = machines.find((m) => m.id === revokeId)
   const group = groups.find((g) => g.id === groupId)
   const railRun = useRunRail((s) => s.runId)
   const preview = usePreview((s) => s.open)
@@ -94,6 +104,11 @@ export function ChatPage() {
             machines={machines.filter((m) => m.ownerId === me?.id)}
             onNewGroup={() => setCreating('group')}
             onNewDm={() => setCreating('dm')}
+            loaded={workspaceLoaded}
+            onBindMachine={() => setBinding(true)}
+            onNewBot={() => setNewBot(true)}
+            onOpenBot={setOpenBotId}
+            onRevokeMachine={setRevokeId}
             onConfirmBot={(id) =>
               botsApi
                 .confirm(id)
@@ -121,6 +136,10 @@ export function ChatPage() {
         )}
       </ChatLayout>
       {creating && me ? <NewGroupDialog me={me} kind={creating} onClose={() => setCreating(null)} /> : null}
+      <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
+      {newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}
+      {openBot && me ? <BotDialog bot={openBot} me={me} onClose={() => setOpenBotId(null)} /> : null}
+      {revoking ? <RevokeMachineDialog machine={revoking} onClose={() => setRevokeId(null)} /> : null}
     </>
   )
 }

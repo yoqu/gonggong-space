@@ -1,0 +1,9 @@
+{
+  "t": "dir.result",
+  "requestId": "d1",
+  "path": "/Users/w/code",
+  "entries": [{ "name": "pay-server", "git": true }, { "name": "notes", "git": false }],
+  "git": null,
+  "unusable": null,
+  "error": null
+}

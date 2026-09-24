@@ -7,6 +7,8 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Alert, Button, EmptyState, Select, Tabs, Textarea, toast } from '../../ui'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
+import { DirPicker } from '../workspaces/DirPicker'
+import { DeleteBotDialog } from './DeleteBotDialog'
 import {
   AGENT_LABEL,
   agentCliVersion,
@@ -56,12 +58,25 @@ function weekUsage(rows: UsageRowDto[]) {
   return `${tokens || !runs ? `${fmtTokens(tokens)} tokens` : '用量未上报'} · ${runs} 轮`
 }
 
-function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBriefDto[] }) {
+export function BotDetail({
+  bot,
+  me,
+  users,
+  plain,
+}: {
+  bot: BotDto
+  me: UserDto
+  users: UserBriefDto[]
+  /** Embedded in a dialog: no card chrome. */
+  plain?: boolean
+}) {
   const [prompt, setPrompt] = useState(bot.systemPrompt)
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
   const [list, setList] = useState(bot.triggerList)
   const [tier, setTier] = useState<Tier>(bot.tier)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [picking, setPicking] = useState(false)
   const promptId = useId()
   const canEdit = me.id === bot.ownerId || me.role === 'sysadmin'
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '—'
@@ -79,6 +94,11 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
       setSaving(false)
     }
   }
+  const setDefault = (path: string | null) =>
+    botsApi
+      .setDefaultWorkspace(bot.id, path)
+      .then(() => setPicking(false))
+      .catch((e: Error) => toast({ type: 'error', message: e.message }))
   const confirm = () =>
     botsApi
       .confirm(bot.id)
@@ -86,7 +106,7 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
       .catch((e: Error) => toast({ type: 'error', message: e.message }))
 
   return (
-    <aside className="bots-detail" aria-label="bot 详情">
+    <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="bot 详情">
       <div className="bots-detail__head">
         <span className="bots-detail__name">{bot.name}</span>
         <span className="bots-detail__meta">
@@ -109,6 +129,35 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
           下一次新开会话时生效 · 优先级：仓库基线 &lt; 本提示词 &lt; 全局层 &lt; 群层
         </span>
       </div>
+
+      {me.id === bot.ownerId && bot.machineId ? (
+        <div className="bots-detail__field">
+          <span className="bots-detail__label">默认工作区</span>
+          <div className="bots-detail__workspace">
+            <span className="bots-detail__path" data-testid="default-workspace">
+              {bot.defaultWorkspace ?? '未设置'}
+            </span>
+            <Button size="xs" onClick={() => setPicking(true)}>
+              选择
+            </Button>
+            {bot.defaultWorkspace ? (
+              <Button size="xs" variant="ghost" onClick={() => void setDefault(null)}>
+                清除
+              </Button>
+            ) : null}
+          </div>
+          <span className="bots-detail__hint">进群时自动使用；群绑定了仓库时需与其 remote 一致</span>
+          {picking ? (
+            <DirPicker
+              machineId={bot.machineId}
+              title="默认工作区"
+              start={bot.defaultWorkspace}
+              onPick={(path) => void setDefault(path)}
+              onClose={() => setPicking(false)}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="bots-detail__field">
         <span className="bots-detail__label">触发范围</span>
@@ -217,11 +266,16 @@ function BotDetail({ bot, me, users }: { bot: BotDto; me: UserDto; users: UserBr
 
       {canEdit ? (
         <div className="bots-detail__actions">
+          <Button variant="ghost" size="sm" className="bots-detail__delete" onClick={() => setDeleting(true)}>
+            删除
+          </Button>
+          <span className="spacer" />
           <Button variant="primary" size="sm" disabled={saving} onClick={() => void save()}>
             保存
           </Button>
         </div>
       ) : null}
+      {deleting ? <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} /> : null}
     </aside>
   )
 }

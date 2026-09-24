@@ -204,7 +204,7 @@ function DisableDialog({
         </>
       }
     >
-      <ul className="admin-consequences">
+      <ul className="ui-consequences">
         <li>立即吊销其所有 daemon token 和 Web 会话</li>
         <li>daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）</li>
         <li>其 bot 从所有群移除；持锁中的 bot 按非主动中断处理</li>

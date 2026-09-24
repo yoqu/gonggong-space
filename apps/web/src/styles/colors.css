@@ -1,5 +1,109 @@
-/* 灵机剪影 — macOS Dark Palette (source: src/ui/styles/tokens.css + DESIGN.md §4) */
+/* macOS palette, two themes: light lives in :root (default), dark overrides under
+   [data-theme="dark"] with the original dark values kept verbatim (zero regression). */
 :root {
+  color-scheme: light;
+
+  /* Core surfaces */
+  --color-window-bg: #f5f5f7;
+  --color-panel-bg: #ffffff;
+  --color-panel-elevated: #ffffff;
+  --color-titlebar-bg: #ececef;
+  --color-preview-bg: #f0f0f3;
+  --color-timeline-bg: #f2f2f5;
+  --color-control-bg: #e4e4e8;
+
+  /* Surface aliases */
+  --color-bg-canvas: var(--color-window-bg);
+  --color-bg-surface: var(--color-panel-bg);
+  --color-bg-elevated: var(--color-panel-elevated);
+  --color-bg-subtle: rgba(0, 0, 0, 0.035);
+  --color-bg-muted: rgba(0, 0, 0, 0.055);
+  --color-bg-hover: rgba(0, 0, 0, 0.08);
+  --color-panel-solid: var(--color-panel-bg);
+  --color-panel-subtle: rgba(0, 0, 0, 0.05);
+  --color-panel-muted: rgba(0, 0, 0, 0.08);
+  --color-recessed-bg: var(--color-timeline-bg);
+  --color-recessed-border: var(--color-separator);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-overlay-hover: rgba(0, 0, 0, 0.1);
+
+  /* Borders / separators — solid, never translucent hairlines */
+  --color-separator: #d9d9de;
+  --color-border-subtle: #d9d9de;
+  --color-border-strong: #c7c7cc;
+  --color-border-control: #c7c7cc;
+  --color-outline-soft: rgba(0, 0, 0, 0.16);
+  --color-border-error: rgba(255, 59, 48, 0.3);
+
+  /* Text */
+  --color-text-primary: #1c1c1e;
+  --color-text-secondary: #00000099;
+  --color-text-secondary-strong: #00000080;
+  --color-text-tertiary: #6e6e73;
+  --color-text-quaternary: #8e8e93;
+  --color-text-placeholder: #00000060;
+  --color-text-muted: #0000004d;
+  --color-text-disabled: #00000033;
+
+  /* The single interactive accent — macOS system blue */
+  --color-selection-blue: #007aff;
+  --color-selection-blue-hover: #0066d6;
+  --color-selection-blue-active: #005bb5;
+  --color-system-blue: var(--color-selection-blue);
+  --color-system-blue-hover: var(--color-selection-blue-hover);
+  --color-system-blue-active: var(--color-selection-blue-active);
+  --color-brand-primary: var(--color-selection-blue);
+  --color-brand-accent: #0a84ff;
+  --color-brand-info: #0a84ff;
+  --color-brand-warm: #ff9500;
+  --color-on-accent: #ffffff;
+  --color-selection: rgba(0, 122, 255, 0.3);
+
+  /* Status — feedback / diagnostics only, never page language */
+  --color-danger: #ff3b30;
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-status-offline: #8e8e93;
+
+  /* Tinted functional surfaces (8% wash) */
+  --color-bg-error: rgba(255, 59, 48, 0.08);
+  --color-bg-warning: rgba(255, 149, 0, 0.08);
+  --color-bg-success: rgba(52, 199, 89, 0.08);
+  --color-bg-info: rgba(0, 122, 255, 0.08);
+  --color-bg-error-strong: rgba(255, 59, 48, 0.2);
+  --color-bg-accent-strong: rgba(0, 122, 255, 0.15);
+
+  /* Timeline track tints */
+  --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
+  --color-track-subtitle: color-mix(in srgb, var(--color-brand-warm) 22%, var(--color-panel-bg));
+  --color-track-primary: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-bg));
+  --color-track-secondary: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-panel-bg));
+
+  /* AI-operation cursors ONLY (DESIGN.md §9) — never for regular UI */
+  --color-ai-cursor-generate: #7c3aed;
+  --color-ai-cursor-review: #059669;
+  --color-ai-waiting-glow: #0891b2;
+
+  /* Scrollbar (base.css ::-webkit-scrollbar-thumb) */
+  --color-scrollbar: rgba(0, 0, 0, 0.2);
+  --color-scrollbar-hover: rgba(0, 0, 0, 0.3);
+
+  /* Syntax highlight — Xcode-style light palette, ≥4.5:1 on --color-preview-bg */
+  --color-syntax-keyword: #ad3da4;
+  --color-syntax-string: #c41a15;
+  --color-syntax-number: #272ad8;
+  --color-syntax-title: #703daa;
+
+  /* Semantic aliases */
+  --text-body: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --surface-card: var(--color-panel-elevated);
+  --surface-page: var(--color-window-bg);
+  --border-hairline: var(--color-separator);
+  --accent: var(--color-system-blue);
+}
+
+[data-theme="dark"] {
   color-scheme: dark;
 
   /* Core surfaces */
@@ -24,6 +128,7 @@
   --color-recessed-bg: var(--color-timeline-bg);
   --color-recessed-border: var(--color-separator);
   --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-overlay-hover: rgba(255, 255, 255, 0.1);
 
   /* Borders / separators — solid, never translucent hairlines */
   --color-separator: #38383a;
@@ -31,6 +136,7 @@
   --color-border-strong: #48484a;
   --color-border-control: #48484a;
   --color-outline-soft: rgba(255, 255, 255, 0.16);
+  --color-border-error: rgba(255, 69, 58, 0.25);
 
   /* Text */
   --color-text-primary: #ffffff;
@@ -53,17 +159,22 @@
   --color-brand-accent: #409cff;
   --color-brand-info: #409cff;
   --color-brand-warm: #ff9f0a;
+  --color-on-accent: #ffffff;
+  --color-selection: rgba(10, 132, 255, 0.3);
 
   /* Status — feedback / diagnostics only, never page language */
   --color-danger: #ff453a;
   --color-success: #32d74b;
   --color-warning: #ffd60a;
+  --color-status-offline: #636366;
 
   /* Tinted functional surfaces (8% wash) */
   --color-bg-error: rgba(255, 69, 58, 0.08);
   --color-bg-warning: rgba(255, 159, 10, 0.08);
   --color-bg-success: rgba(50, 215, 75, 0.08);
   --color-bg-info: rgba(10, 132, 255, 0.08);
+  --color-bg-error-strong: rgba(255, 69, 58, 0.2);
+  --color-bg-accent-strong: rgba(10, 132, 255, 0.15);
 
   /* Timeline track tints */
   --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
@@ -75,6 +186,16 @@
   --color-ai-cursor-generate: #a78bfa;
   --color-ai-cursor-review: #34d399;
   --color-ai-waiting-glow: #00d2ff;
+
+  /* Scrollbar (base.css ::-webkit-scrollbar-thumb) */
+  --color-scrollbar: rgba(255, 255, 255, 0.15);
+  --color-scrollbar-hover: rgba(255, 255, 255, 0.25);
+
+  /* Syntax highlight — original pastel values kept verbatim from chat.css */
+  --color-syntax-keyword: oklch(0.76 0.12 250);
+  --color-syntax-string: oklch(0.8 0.1 150);
+  --color-syntax-number: oklch(0.82 0.1 70);
+  --color-syntax-title: oklch(0.82 0.11 300);
 
   /* Semantic aliases */
   --text-body: var(--color-text-primary);

@@ -1,5 +1,5 @@
 import type { GitStatus, GroupBotStateDto } from '@aiws/protocol'
-import { and, eq, isNull, ne } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
 import { memberIds } from '../messages/service.js'
@@ -10,6 +10,7 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   botId: r.botId,
   workspace: r.workspaceKind === 'cd' ? 'cd' : 'managed',
   state: r.workspaceState as GroupBotStateDto['state'],
+  path: r.workspacePath,
   git: (r.gitStatus as GitStatus | null) ?? null,
   error: r.workspaceError,
 })
@@ -45,12 +46,21 @@ export async function updateBotState(
   return state
 }
 
-/** Groups with a repo where the bot's workspace is not ready yet; the scheduler holds their runs back. */
-export async function unreadyRepoGroups(db: Pick<Ctx['db'], 'selectDistinct'>, botId: string) {
+/**
+ * Groups where the bot's clone or directory binding is not ready yet; the scheduler holds their runs back.
+ * Repo-less managed workspaces need no daemon round trip and never wait.
+ */
+export async function unreadyGroups(db: Pick<Ctx['db'], 'selectDistinct'>, botId: string) {
   const rows = await db
     .selectDistinct({ groupId: groupBots.groupId })
     .from(groupBots)
-    .innerJoin(groupRepos, eq(groupRepos.groupId, groupBots.groupId))
-    .where(and(eq(groupBots.botId, botId), ne(groupBots.workspaceState, 'ready')))
+    .leftJoin(groupRepos, eq(groupRepos.groupId, groupBots.groupId))
+    .where(
+      and(
+        eq(groupBots.botId, botId),
+        ne(groupBots.workspaceState, 'ready'),
+        or(isNotNull(groupRepos.id), eq(groupBots.workspaceKind, 'cd')),
+      ),
+    )
   return new Set(rows.map((r) => r.groupId))
 }

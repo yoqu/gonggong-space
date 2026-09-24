@@ -10,7 +10,7 @@ export async function logout() {
     await disablePush().catch((e: Error) => console.warn('push unsubscribe failed:', e))
     await api.post('/auth/logout')
   } finally {
-    useWorkspace.setState({ groups: [], bots: [], machines: [], notifCount: 0 })
+    useWorkspace.setState({ groups: [], bots: [], machines: [], notifCount: 0, loaded: false })
     useSession.getState().setUser(null)
   }
 }

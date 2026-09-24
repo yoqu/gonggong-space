@@ -9,7 +9,7 @@ use crate::protocol::{AgentKind, Attachment, DaemonToServer, RunBot, RunDone, Ru
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
 use crate::turn::system_prompt;
-use crate::workspace::Workspaces;
+use crate::workspace::{self, Workspaces};
 use agent_client_protocol::{AcpAgent, AcpAgentConfig};
 use anyhow::{Context, bail};
 use std::collections::{HashMap, HashSet};
@@ -40,7 +40,7 @@ pub struct Engine(Arc<Inner>);
 
 pub(crate) struct Inner {
     pub(crate) config: EngineConfig,
-    workspaces: Workspaces,
+    pub(crate) workspaces: Workspaces,
     actors: Mutex<HashMap<(String, String), Actor>>,
     install: tokio::sync::Mutex<()>,
     /// Started with the first run.
@@ -129,6 +129,12 @@ impl Handler for Engine {
                 self.0.clone().deliver(run_id.clone(), attachments.clone(), move |shared| {
                     shared.append(&run_id, &from, &text, attachments.clone())
                 });
+            }
+            ServerToDaemon::DirList { request_id, path } => {
+                let out = out.clone();
+                tokio::spawn(
+                    async move { out.send(DaemonToServer::DirResult(workspace::browse(request_id, path).await)) },
+                );
             }
             ServerToDaemon::FilesList(req) => {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);

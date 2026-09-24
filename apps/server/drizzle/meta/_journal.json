@@ -50,6 +50,13 @@
       "when": 1790167614581,
       "tag": "0006_machine_net",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790218417206,
+      "tag": "0007_default_workspace",
+      "breakpoints": true
     }
   ]
 }

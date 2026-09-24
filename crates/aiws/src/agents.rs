@@ -70,6 +70,36 @@ fn extra_dirs() -> Vec<PathBuf> {
     dirs
 }
 
+const PATH_MARK: &str = "__AIWS_PATH__";
+
+/// PATH as the user's interactive login shell builds it (nvm, volta, asdf…). Apps opened from Finder/Dock only get
+/// launchd's minimal PATH, so neither the agent CLIs nor the `node` their shebang needs would be found.
+#[cfg(unix)]
+pub fn login_shell_path() -> Option<String> {
+    use std::process::Stdio;
+    use std::time::Duration;
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+    let script = format!("printf '{PATH_MARK}%s{PATH_MARK}' \"$PATH\"");
+    let child = Command::new(shell)
+        .args(["-ilc", &script])
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .stdout(Stdio::piped())
+        .spawn()
+        .ok()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || tx.send(child.wait_with_output()));
+    // A broken rc file must not hang startup.
+    let out = rx.recv_timeout(Duration::from_secs(5)).ok()?.ok()?;
+    marked_path(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// The PATH between the markers, ignoring whatever the rc files print around it.
+fn marked_path(out: &str) -> Option<String> {
+    let rest = &out[out.find(PATH_MARK)? + PATH_MARK.len()..];
+    Some(rest[..rest.find(PATH_MARK)?].to_string()).filter(|p| !p.is_empty())
+}
+
 /// First semver-looking token of `<bin> --version`, e.g. "codex-cli 0.156.1" → "0.156.1".
 fn version(path: &Path) -> Option<String> {
     let out = Command::new(path).arg("--version").output().ok()?;
@@ -125,7 +155,15 @@ pub fn parse_version(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{file_names, parse_version};
+    use super::{file_names, marked_path, parse_version};
+
+    #[test]
+    fn extracts_the_path_from_noisy_shell_output() {
+        let out = "Welcome!\n__AIWS_PATH__/a/bin:/usr/bin__AIWS_PATH__\nbye";
+        assert_eq!(marked_path(out).as_deref(), Some("/a/bin:/usr/bin"));
+        assert_eq!(marked_path("__AIWS_PATH____AIWS_PATH__"), None);
+        assert_eq!(marked_path("no marker"), None);
+    }
 
     #[test]
     fn labels_the_login_state() {

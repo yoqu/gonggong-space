@@ -16,7 +16,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
-import { ensureWorkspace } from '../workspaces/provision.js'
+import { joinWorkspace } from '../workspaces/provision.js'
 import { checkRepo, repoProblem } from './repo.js'
 import {
   activeBots,
@@ -28,21 +28,7 @@ import {
   requireMember,
 } from './service.js'
 
-type BotRef = { id: string; name: string; machineId: string | null }
-
 const uniq = (ids: string[]) => [...new Set(ids)]
-
-/** Announces a joining bot and provisions its workspace; a clone's outcome is announced when the daemon answers. */
-async function joinBot(ctx: Ctx, groupId: string, bot: BotRef, hasRepo: boolean) {
-  const note =
-    !bot.machineId || !ctx.hub.isOnline(bot.machineId)
-      ? 'daemon 离线，上线后创建工作区'
-      : hasRepo
-        ? null
-        : '已创建托管空工作区'
-  if (note) await postEvent(ctx, groupId, `${bot.name} 加入 · ${note}`)
-  await ensureWorkspace(ctx, groupId, bot, { joined: true, reset: true })
-}
 
 async function activeUsers(ctx: Ctx, ids: string[]) {
   if (!ids.length) return []
@@ -69,10 +55,6 @@ async function liveBots(ctx: Ctx, ids: string[]) {
 const oneUser = async (ctx: Ctx, id: string) =>
   (await activeUsers(ctx, [id]))[0] ?? fail('invalid', '成员不存在')
 const oneBot = async (ctx: Ctx, id: string) => (await liveBots(ctx, [id]))[0] ?? fail('invalid', 'bot 不存在')
-
-const hasRepo = async (ctx: Ctx, groupId: string) =>
-  (await ctx.db.select({ id: groupRepos.id }).from(groupRepos).where(eq(groupRepos.groupId, groupId)))
-    .length > 0
 
 async function isMember(ctx: Ctx, groupId: string, userId: string) {
   const [row] = await ctx.db
@@ -147,9 +129,9 @@ export function groupRoutes(ctx: Ctx) {
         group.id,
         repo
           ? `群绑定仓库 ${repo.url} · 基准分支 ${repo.branch} · 分区模式`
-          : '未绑定仓库 · 托管空工作区，仅分区模式',
+          : '未绑定仓库 · 各 bot 使用主人绑定的目录，仅分区模式',
       )
-      for (const b of picked) await joinBot(ctx, group.id, b, !!repo)
+      for (const b of picked) await joinWorkspace(ctx, group.id, b, { joined: true })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })
@@ -238,13 +220,13 @@ export function groupRoutes(ctx: Ctx) {
         const [owner] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, bot.ownerId))
         await postEvent(ctx, group.id, `${owner?.name ?? ''} 作为 ${bot.name} 的主人一并加入群`)
       }
-      await joinBot(ctx, group.id, bot, await hasRepo(ctx, group.id))
+      await joinWorkspace(ctx, group.id, bot, { joined: true })
       await auditAdmin(me.id, group.id, 'group.bot.add', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })
 
-    // P1: exactly one repo per group, never unbound. A new repo gets a new id, so every bot rebuilds its clone.
+    // P1: exactly one repo per group, never unbound. Old workspaces belong to the previous repo: every bot binds again.
     app.patch<{ Params: { id: string } }>('/api/groups/:id/repo', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
@@ -278,7 +260,7 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         old
-          ? `群更换仓库 ${url} · 基准分支 ${branch} · 重建所有 bot 的托管工作区`
+          ? `群更换仓库 ${url} · 基准分支 ${branch} · 各 bot 需重新绑定工作区`
           : `群绑定仓库 ${url} · 基准分支 ${branch} · 分区模式`,
       )
       await auditAdmin(me.id, group.id, 'group.repo.change', {
@@ -287,7 +269,7 @@ export function groupRoutes(ctx: Ctx) {
         previous: old ? { url: old.url, branch: old.baseBranch } : null,
       })
       for (const bot of await activeBots(ctx, group.id))
-        await ensureWorkspace(ctx, group.id, bot, { joined: false })
+        await joinWorkspace(ctx, group.id, bot, { joined: false })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })

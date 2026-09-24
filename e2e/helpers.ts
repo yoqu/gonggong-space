@@ -132,6 +132,27 @@ async function call<T>(api: Api, method: 'get' | 'post', path: string, data?: un
   return (text ? JSON.parse(text) : undefined) as T
 }
 
+/** Binds each bot to its managed workspace (bots join unbound, plan W5) once its machine is online; waits until ready. */
+export async function bindManaged(api: Api, groupId: string, botIds: string[]) {
+  const bind = (id: string) =>
+    api.put(`/api/groups/${groupId}/bots/${id}/workspace`, { data: { path: null } })
+  for (const id of botIds)
+    await expect.poll(async () => (await bind(id)).status(), { timeout: 60_000 }).toBe(204)
+  const ready = async () => {
+    const states: { botId: string; state: string }[] = await (
+      await api.get(`/api/groups/${groupId}/bot-states`)
+    ).json()
+    return botIds.every((id) => states.find((s) => s.botId === id)?.state === 'ready')
+  }
+  await expect.poll(ready, { timeout: 120_000 }).toBe(true)
+}
+
+/** Sets the bot's default workspace once its machine is online (the daemon validates the path). */
+export async function setDefaultWorkspace(api: Api, botId: string, path: string) {
+  const put = () => api.put(`/api/bots/${botId}/default-workspace`, { data: { path } })
+  await expect.poll(async () => (await put()).status(), { timeout: 60_000 }).toBe(200)
+}
+
 /** Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine. */
 export async function memberWithMachine(page: Page, account: string) {
   const admin = page.request

@@ -19,12 +19,12 @@ import { enablePush, type PushState, pushState } from './push'
 import './notifications.css'
 
 const ICON: Record<NotificationDto['type'], { icon: LucideIcon; color: string }> = {
-  approval: { icon: ShieldAlert, color: '#FF9F0A' },
-  question: { icon: MessageCircleQuestionMark, color: '#409CFF' },
-  lock: { icon: Lock, color: '#0A84FF' },
-  offline_expired: { icon: WifiOff, color: '#FF9F0A' },
+  approval: { icon: ShieldAlert, color: 'var(--color-brand-warm)' },
+  question: { icon: MessageCircleQuestionMark, color: 'var(--color-brand-info)' },
+  lock: { icon: Lock, color: 'var(--color-selection-blue)' },
+  offline_expired: { icon: WifiOff, color: 'var(--color-brand-warm)' },
   chain_done: { icon: Link2, color: 'var(--color-text-tertiary)' },
-  bot_confirm: { icon: Bot, color: '#FF9F0A' },
+  bot_confirm: { icon: Bot, color: 'var(--color-brand-warm)' },
 }
 
 function PushAction() {

@@ -6,7 +6,7 @@ import {
   type DaemonToServer,
   type MachineDto,
 } from '@aiws/protocol'
-import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
@@ -154,8 +154,14 @@ export function machineRoutes(ctx: Ctx) {
         .where(and(eq(machines.id, id), isNull(machines.revokedAt)))
       if (!m) return fail('not_found', '机器不存在')
       if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能吊销自己的机器')
+      const [{ n } = { n: 0 }] = await ctx.db
+        .select({ n: count() })
+        .from(bots)
+        .where(and(eq(bots.machineId, id), isNull(bots.deletedAt)))
+      if (n) return fail('conflict', `还有 ${n} 个 bot 绑定在这台机器上，请先删除`)
       await ctx.db.update(machines).set({ revokedAt: ctx.now() }).where(eq(machines.id, id))
       ctx.hub.kick(id, CLOSE.revoked, 'revoked')
+      ctx.bus.publish([m.ownerId], { t: 'machine.removed', machineId: id })
       await audit(ctx, {
         category: 'admin',
         actorUserId: user.id,

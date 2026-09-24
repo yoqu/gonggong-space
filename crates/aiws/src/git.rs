@@ -106,15 +106,16 @@ pub struct PreTurn {
     dirty: bool,
 }
 
-/// `git fetch --prune`, then fast-forward only when the tree is clean and the branch is strictly behind its upstream.
-pub async fn pre_turn(dir: &Path) -> Result<PreTurn, String> {
+/// `git fetch --prune`, then (when `fast_forward`) fast-forward only when the tree is clean and the branch is strictly
+/// behind its upstream. The owner's own directories are never moved (plan W9).
+pub async fn pre_turn(dir: &Path, fast_forward: bool) -> Result<PreTurn, String> {
     let fetch_error = match tokio::time::timeout(FETCH_TIMEOUT, git(dir, &["fetch", "--prune", "--quiet"])).await {
         Ok(r) => r.err(),
         Err(_) => Some("超时".into()),
     };
     let mut p = probe(dir).await?;
     let (mut forwarded, mut ff_error) = (0, None);
-    if let (false, Some(behind @ 1..), Some(0)) = (p.dirty, p.behind, p.ahead) {
+    if let (true, false, Some(behind @ 1..), Some(0)) = (fast_forward, p.dirty, p.behind, p.ahead) {
         match git(dir, &["merge", "--ff-only", "--quiet", "@{upstream}"]).await {
             Ok(_) => {
                 forwarded = behind;
@@ -404,12 +405,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn owner_directories_only_fetch() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        r.commit("a.txt", "a");
+        let pre = pre_turn(&w, false).await.unwrap();
+        assert_eq!(pre.forwarded, 0);
+        assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(1), false));
+        assert!(!w.join("a.txt").exists());
+    }
+
+    #[tokio::test]
     async fn clean_and_behind_fast_forwards() {
         let r = Remote::new();
         let w = r.clone_to("w");
         r.commit("a.txt", "a");
         r.commit("b.txt", "b");
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert_eq!(pre.forwarded, 2);
         assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(0), false));
         assert!(w.join("b.txt").exists());
@@ -437,7 +449,7 @@ mod tests {
         let w = r.clone_to("w");
         r.commit("a.txt", "a");
         fs::write(w.join("README.md"), "local edit\n").unwrap();
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert_eq!(pre.forwarded, 0);
         assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(1), true));
         assert!(!w.join("a.txt").exists());
@@ -466,7 +478,7 @@ mod tests {
         fs::write(w.join("mine.txt"), "m").unwrap();
         run(&w, &["add", "-A"]);
         run(&w, &["commit", "-q", "-m", "mine"]);
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert_eq!(pre.forwarded, 0);
         assert_eq!(status_of(&pre), (Some("main"), Some(1), Some(1), false));
         assert!(pre.note().contains("本地与上游已分叉，未自动快进；落后 origin/main 1 个 commit，领先 1 个"));
@@ -477,7 +489,7 @@ mod tests {
         let r = Remote::new();
         let w = r.clone_to("w");
         run(&w, &["checkout", "-q", "-b", "feat/x"]);
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert_eq!(status_of(&pre), (Some("feat/x"), None, None, false));
         assert_eq!(pre.note(), "git 默认动作：fetch 完成；当前分支 feat/x；当前分支没有上游，未自动快进。");
     }
@@ -487,7 +499,7 @@ mod tests {
         let r = Remote::new();
         let w = r.clone_to("w");
         run(&w, &["checkout", "-q", "--detach"]);
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert_eq!(status_of(&pre), (None, None, None, false));
         assert!(pre.note().contains("HEAD 处于游离状态（detached），未自动快进"));
         assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().branch, None);
@@ -498,7 +510,7 @@ mod tests {
         let r = Remote::new();
         let w = r.clone_to("w");
         fs::remove_dir_all(r.url()).unwrap();
-        let pre = pre_turn(&w).await.unwrap();
+        let pre = pre_turn(&w, true).await.unwrap();
         assert!(pre.fetch_error.is_some());
         assert!(pre.note().starts_with("git 默认动作：fetch 失败（"), "{}", pre.note());
         assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(0), false));

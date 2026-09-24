@@ -7,10 +7,10 @@ import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
 const STATE_COLOR: Record<WorkspaceState, string> = {
-  running: '#0A84FF',
+  running: 'var(--color-selection-blue)',
   idle: 'var(--color-text-secondary)',
-  removed: '#FF9F0A',
-  unused: '#FF9F0A',
+  removed: 'var(--color-warning)',
+  unused: 'var(--color-warning)',
 }
 
 const RESET_RELOAD_MS = 2000

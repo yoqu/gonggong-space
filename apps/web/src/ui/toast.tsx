@@ -28,10 +28,10 @@ export function toast(t: Omit<ToastItem, 'id' | 'type'> & { type?: ToastType }) 
 }
 
 const ICON = {
-  info: <Info size={16} color="#409CFF" />,
-  success: <CircleCheck size={16} color="#32D74B" />,
-  warning: <TriangleAlert size={16} color="#FF9F0A" />,
-  error: <CircleAlert size={16} color="#FF453A" />,
+  info: <Info size={16} color="var(--color-brand-info)" />,
+  success: <CircleCheck size={16} color="var(--color-success)" />,
+  warning: <TriangleAlert size={16} color="var(--color-brand-warm)" />,
+  error: <CircleAlert size={16} color="var(--color-danger)" />,
 }
 
 export function Toaster() {

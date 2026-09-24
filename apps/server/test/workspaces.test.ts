@@ -1,4 +1,6 @@
 import {
+  type BotDto,
+  type DirListingDto,
   type GroupBotStateDto,
   type GroupDto,
   PROTOCOL_VERSION,
@@ -8,7 +10,7 @@ import {
 } from '@aiws/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
+import { bots, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { requestCd } from '../src/modules/workspaces/cd.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
@@ -21,7 +23,12 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-type Msg = Record<string, unknown> & { t: string; requestId?: string; repo?: { id: string; url: string } }
+type Msg = Record<string, unknown> & {
+  t: string
+  requestId?: string
+  path?: string | null
+  repo?: { id: string; url: string }
+}
 
 async function daemon(token: string) {
   const ws = t.ws('/ws/daemon')
@@ -123,21 +130,39 @@ describe('validate-repo', () => {
   })
 })
 
-describe('provisioning', () => {
-  it('asks the online daemon to clone on group creation and reports the result', async () => {
+/** The owner picks the managed workspace for a bot waiting in `groupId` (repo groups clone). */
+async function useManaged(w: Awaited<ReturnType<typeof world>>, groupId: string) {
+  const res = await w.asAlice.put(`/api/groups/${groupId}/bots/${w.bot.id}/workspace`, { path: null })
+  expect(res.status).toBe(204)
+}
+
+describe('joining without a workspace choice', () => {
+  it('leaves a bot without default unbound until its owner picks one, asking the daemon nothing', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    for (const repo of [true, false]) {
+      const g = await w.createGroup({ repo })
+      expect(await w.stateOf(g.id)).toMatchObject({ state: 'unbound', workspace: 'managed', path: null })
+      expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · 等待 王磊 绑定工作区')
+    }
+    const late = Promise.race([d.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
+    expect(await late).toBe('quiet')
+  })
+
+  it('clones once the owner picks the managed workspace and reports the result', async () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = await w.createGroup()
+    await useManaged(w, g.id)
     const req = await d.next()
     const repo = await w.repoOf(g.id)
     expect(req).toMatchObject({
-      t: 'workspace.ensure',
+      t: 'workspace.cd',
       groupId: g.id,
       botId: w.bot.id,
+      path: null,
       repo: { id: repo.id, url: w.repo.url, branch: 'main' },
     })
-    expect(await w.stateOf(g.id)).toMatchObject({ state: 'cloning', error: null })
-
     d.send(reply(req, { state: 'cloning', git: null, path: null }))
     d.send(reply(req))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
@@ -145,48 +170,73 @@ describe('provisioning', () => {
       botId: w.bot.id,
       workspace: 'managed',
       state: 'ready',
+      path: `/h/workspaces/${g.id}/${w.bot.id}/${repo.id}`,
       git,
       error: null,
     })
-    const [row] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, g.id))
-    expect(row!.workspacePath).toBe(`/h/workspaces/${g.id}/${w.bot.id}/${repo.id}`)
-    await until(async () =>
-      (await w.bodies(g.id)).includes('小王的 Claude 加入 · daemon 已 clone 到托管工作区'),
-    )
-    expect((await w.bodies(g.id)).filter((b) => b.startsWith('小王的 Claude'))).toHaveLength(1)
+    await until(async () => (await w.bodies(g.id)).includes('✓ 小王的 Claude 已使用托管工作区'))
   })
 
-  it('reports clone failures once, retries when the owner reconnects', async () => {
+  it('only lets the bot owner bind, and only while the machine is online', async () => {
     const w = await world()
+    const g = await w.createGroup()
+    await w.asAlice.post(`/api/groups/${g.id}/members`, { userId: w.bob.id })
+    const url = `/api/groups/${g.id}/bots/${w.bot.id}/workspace`
+    expect((await w.asBob.put(url, { path: '/src/x' })).status).toBe(403)
+    expect((await w.asAlice.put(url, { path: 'relative' })).status).toBe(400)
+    const offline = await w.asAlice.put<{ message: string }>(url, { path: '/src/x' })
+    expect([offline.status, offline.body.message]).toEqual([409, '小王的 Claude 离线，无法绑定工作区'])
+  })
+})
+
+describe('default workspace', () => {
+  const setDefault = (w: Awaited<ReturnType<typeof world>>, path: string) =>
+    t.db.update(bots).set({ defaultWorkspace: path }).where(eq(bots.id, w.bot.id))
+
+  it('binds a repo-less group to the default directory on join', async () => {
+    const w = await world()
+    await setDefault(w, '/src/notes')
+    const d = await daemon(w.a.token)
+    const g = await w.createGroup({ repo: false })
+    const req = await d.next()
+    expect(req).toMatchObject({ t: 'workspace.cd', groupId: g.id, repo: null, path: '/src/notes' })
+    d.send(reply(req, { path: '/src/notes', git: null }))
+    await until(async () => (await w.stateOf(g.id)).state === 'ready')
+    expect(await w.stateOf(g.id)).toMatchObject({ workspace: 'cd', path: '/src/notes' })
+    await until(async () =>
+      (await w.bodies(g.id)).includes('小王的 Claude 加入 · 使用默认工作区 /src/notes（主人可改绑）'),
+    )
+  })
+
+  it('checks the default against the group repo and waits for the owner when it does not match', async () => {
+    const w = await world()
+    await setDefault(w, '/src/other')
     const d = await daemon(w.a.token)
     const g = await w.createGroup()
-    d.send(reply(await d.next(), { state: 'failed', git: null, error: 'Permission denied' }))
-    await until(async () => (await w.stateOf(g.id)).state === 'failed')
-    expect((await w.stateOf(g.id)).error).toBe('Permission denied')
-    await d.close()
-
-    const again = await daemon(w.a.token)
-    const retry = await again.next()
-    expect(retry).toMatchObject({ t: 'workspace.ensure', botId: w.bot.id })
-    again.send(reply(retry, { state: 'failed', git: null, error: 'Permission denied' }))
-    await until(async () => (await w.stateOf(g.id)).state === 'failed')
-    expect((await w.bodies(g.id)).filter((b) => b.includes('工作区创建失败'))).toEqual([
-      '小王的 Claude 工作区创建失败：Permission denied',
-    ])
+    const req = await d.next()
+    expect(req).toMatchObject({ t: 'workspace.cd', path: '/src/other', repo: { url: w.repo.url } })
+    d.send(reply(req, { state: 'failed', path: null, git: null, error: 'remote 与群仓库不一致（x）' }))
+    await until(async () => (await w.stateOf(g.id)).state === 'unbound')
+    expect(await w.stateOf(g.id)).toMatchObject({ workspace: 'managed', error: 'remote 与群仓库不一致（x）' })
+    await until(async () =>
+      (await w.bodies(g.id)).includes(
+        '小王的 Claude 默认工作区不可用：remote 与群仓库不一致（x），等待 王磊 绑定工作区',
+      ),
+    )
   })
 
-  it('waits for an offline daemon, clones once it comes online, and not again after', async () => {
+  it('waits for an offline daemon and binds the default once it comes online, not again after', async () => {
     const w = await world()
-    const g = await w.createGroup()
-    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · daemon 离线，上线后创建工作区')
+    await setDefault(w, '/src/notes')
+    const g = await w.createGroup({ repo: false })
+    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · daemon 离线，上线后使用默认工作区')
     expect((await w.stateOf(g.id)).state).toBe('pending')
 
     const d = await daemon(w.a.token)
     const req = await d.next()
-    expect(req).toMatchObject({ t: 'workspace.ensure', groupId: g.id, botId: w.bot.id })
-    d.send(reply(req))
+    expect(req).toMatchObject({ t: 'workspace.cd', path: '/src/notes' })
+    d.send(reply(req, { path: '/src/notes', git: null }))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
-    await until(async () => (await w.bodies(g.id)).includes('小王的 Claude · daemon 已 clone 到托管工作区'))
     await d.close()
 
     const again = await daemon(w.a.token)
@@ -194,22 +244,26 @@ describe('provisioning', () => {
     const late = Promise.race([again.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
     expect(await late).toBe('quiet')
   })
+})
 
-  it('makes repo-less workspaces ready without asking the daemon', async () => {
+describe('provisioning', () => {
+  it('reports clone failures once, retries when the owner reconnects', async () => {
     const w = await world()
     const d = await daemon(w.a.token)
-    const g = await w.createGroup({ repo: false })
-    expect((await w.stateOf(g.id)).state).toBe('ready')
-    const late = Promise.race([d.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
-    expect(await late).toBe('quiet')
-  })
+    const g = await w.createGroup()
+    await useManaged(w, g.id)
+    d.send(reply(await d.next(), { state: 'failed', git: null, error: 'Permission denied' }))
+    await until(async () => (await w.stateOf(g.id)).error === 'Permission denied')
+    await d.close()
 
-  it('ensures a bot added later', async () => {
-    const w = await world()
-    const d = await daemon(w.a.token)
-    const g = await w.createGroup({ botIds: [] })
-    await w.asAlice.post(`/api/groups/${g.id}/bots`, { botId: w.bot.id })
-    expect(await d.next()).toMatchObject({ t: 'workspace.ensure', groupId: g.id, botId: w.bot.id })
+    const again = await daemon(w.a.token)
+    const retry = await again.next()
+    expect(retry).toMatchObject({ t: 'workspace.ensure', botId: w.bot.id })
+    again.send(reply(retry, { state: 'failed', git: null, error: 'Permission denied' }))
+    await until(async () => (await w.stateOf(g.id)).state === 'failed')
+    expect((await w.bodies(g.id)).filter((b) => b.includes('Permission denied'))).toEqual([
+      '小王的 Claude 绑定工作区失败：Permission denied',
+    ])
   })
 
   it('ignores states from machines that do not own the bot and stale or unknown requests', async () => {
@@ -217,11 +271,12 @@ describe('provisioning', () => {
     const d = await daemon(w.a.token)
     const intruder = await daemon(w.b.token)
     const g = await w.createGroup()
+    await useManaged(w, g.id)
     const req = await d.next()
     intruder.send(reply(req))
     d.send(reply(req, { requestId: 'unknown' }))
     await new Promise((r) => setTimeout(r, 200))
-    expect((await w.stateOf(g.id)).state).toBe('cloning')
+    expect((await w.stateOf(g.id)).state).toBe('unbound')
   })
 })
 
@@ -239,10 +294,11 @@ describe('rebinding the repo', () => {
     ).toBe(400)
   })
 
-  it('replaces the repo and rebuilds every bot workspace, dropping stale replies', async () => {
+  it('replaces the repo and asks every bot to bind again, dropping stale replies', async () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = await w.createGroup()
+    await useManaged(w, g.id)
     const first = await d.next()
     d.send(reply(first))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
@@ -258,28 +314,32 @@ describe('rebinding the repo', () => {
     expect(res.body.repo).toEqual({ url: other.url, branch: 'main' })
     const now = await w.repoOf(g.id)
     expect(now.id).not.toBe(old.id)
-    const rebuild = await d.next()
-    expect(rebuild).toMatchObject({ t: 'workspace.ensure', repo: { id: now.id, url: other.url } })
-    expect(await w.stateOf(g.id)).toMatchObject({ state: 'cloning', workspace: 'managed', git: null })
+    expect(await w.stateOf(g.id)).toMatchObject({ state: 'unbound', workspace: 'managed', git: null })
     const [row] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, g.id))
     expect(row).toMatchObject({ cdPath: null, sessionId: null })
 
+    await useManaged(w, g.id)
+    const rebuild = await d.next()
+    expect(rebuild).toMatchObject({ t: 'workspace.cd', path: null, repo: { id: now.id, url: other.url } })
     d.send(reply(first))
     await new Promise((r) => setTimeout(r, 200))
-    expect((await w.stateOf(g.id)).state).toBe('cloning')
+    expect((await w.stateOf(g.id)).state).toBe('unbound')
     d.send(reply(rebuild))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
     expect(await w.bodies(g.id)).toContain(
-      `群更换仓库 ${other.url} · 基准分支 main · 重建所有 bot 的托管工作区`,
+      `群更换仓库 ${other.url} · 基准分支 main · 各 bot 需重新绑定工作区`,
     )
   })
 
-  it('binds a repo to a repo-less group', async () => {
+  it('binds a repo to a repo-less group, re-checking the default workspace against it', async () => {
     const w = await world()
+    await t.db.update(bots).set({ defaultWorkspace: '/src/pay' }).where(eq(bots.id, w.bot.id))
     const d = await daemon(w.a.token)
     const g = await w.createGroup({ repo: false })
+    d.send(reply(await d.next(), { path: '/src/pay', git: null }))
+    await until(async () => (await w.stateOf(g.id)).state === 'ready')
     await w.asAlice.patch(`/api/groups/${g.id}/repo`, { url: w.repo.url, branch: 'main' })
-    expect(await d.next()).toMatchObject({ t: 'workspace.ensure', repo: { url: w.repo.url } })
+    expect(await d.next()).toMatchObject({ t: 'workspace.cd', path: '/src/pay', repo: { url: w.repo.url } })
     expect(await w.bodies(g.id)).toContain(`群绑定仓库 ${w.repo.url} · 基准分支 main · 分区模式`)
   })
 })
@@ -296,6 +356,7 @@ describe('/cd requests', () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = await w.createGroup()
+    await useManaged(w, g.id)
     d.send(reply(await d.next()))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
     const repo = await w.repoOf(g.id)
@@ -309,12 +370,12 @@ describe('/cd requests', () => {
       repo: { id: repo.id, url: w.repo.url, branch: 'main' },
     })
     d.send(reply(badReq, { state: 'failed', path: null, git: null, error: 'remote 与群仓库不一致（x）' }))
-    await said('小王的 Claude /cd 失败：remote 与群仓库不一致（x）')
+    await said('小王的 Claude 绑定工作区失败：remote 与群仓库不一致（x）')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed', error: null })
 
     await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/clone' })
     d.send(reply(await d.next(), { path: '/src/clone', git: { ...git, workspace: 'cd' } }))
-    await said('✓ 小王的 Claude 已绑定到 /src/clone（/cd 绑定）')
+    await said('✓ 小王的 Claude 已绑定到 /src/clone（本机目录）')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'cd' })
     const [row] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, g.id))
     expect(row).toMatchObject({ cdPath: '/src/clone', workspacePath: '/src/clone' })
@@ -324,18 +385,19 @@ describe('/cd requests', () => {
     expect(backReq).toMatchObject({ t: 'workspace.cd', path: null })
     d.send(reply(backReq, { state: 'cloning', path: null, git: null }))
     d.send(reply(backReq))
-    await said('✓ 小王的 Claude 已恢复托管工作区')
+    const managed = async () => (await w.bodies(g.id)).filter((b) => b === '✓ 小王的 Claude 已使用托管工作区')
+    await until(async () => (await managed()).length === 2)
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed' })
-    expect((await w.bodies(g.id)).filter((b) => b.includes('/cd') || b.includes('恢复托管'))).toHaveLength(3)
   })
 
-  it('returns false when the owner is offline or the group has no repo', async () => {
+  it('returns false when the owner is offline; repo-less groups send no repo', async () => {
     const w = await world()
     const g = await w.createGroup()
     expect(await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/x' })).toBe(false)
-    await daemon(w.a.token)
+    const d = await daemon(w.a.token)
     const plain = await w.createGroup({ repo: false })
-    expect(await requestCd(t.ctx, { groupId: plain.id, botId: w.bot.id, path: '/x' })).toBe(false)
+    expect(await requestCd(t.ctx, { groupId: plain.id, botId: w.bot.id, path: '/x' })).toBe(true)
+    expect(await d.next()).toMatchObject({ t: 'workspace.cd', repo: null, path: '/x' })
   })
 })
 
@@ -344,7 +406,10 @@ describe('scheduling', () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = await w.createGroup()
+    await useManaged(w, g.id)
     const req = await d.next()
+    d.send(reply(req, { state: 'cloning', git: null, path: null }))
+    await until(async () => (await w.stateOf(g.id)).state === 'cloning')
     const seen: WebEvent[] = []
     t.ctx.bus.attach(w.alice.id, (e) => seen.push(e))
     const [m] = await t.db
@@ -365,5 +430,79 @@ describe('scheduling', () => {
     const start = await d.next()
     expect(start).toMatchObject({ t: 'run.start', runId: queued!.id })
     await until(() => seen.some((e) => e.t === 'run.updated' && e.run.status === 'running'))
+  })
+
+  it('does not run an unbound bot and reminds its owner instead, without replay after binding', async () => {
+    const w = await world()
+    const g = await w.createGroup({ repo: false })
+    const [m] = await t.db
+      .insert(messages)
+      .values({
+        groupId: g.id,
+        kind: 'user',
+        authorUserId: w.alice.id,
+        body: '@bot hi',
+        meta: { mentions: [w.bot.id] },
+      })
+      .returning()
+    await triggerRuns(t.ctx, m!)
+    expect(await t.db.select().from(runs).where(eq(runs.groupId, g.id))).toEqual([])
+    expect(await w.bodies(g.id)).toContain('小王的 Claude 还没有工作区，需 王磊 先绑定；绑定后请重新发起')
+  })
+})
+
+describe('directory picker and default workspace', () => {
+  const dirResult = (req: Msg, o: Record<string, unknown> = {}) => ({
+    t: 'dir.result',
+    requestId: req.requestId,
+    path: req.path ?? '/Users/w',
+    entries: [{ name: 'pay', git: true }],
+    git: null,
+    unusable: null,
+    error: null,
+    ...o,
+  })
+
+  it("lists a machine's directories for its owner only", async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const dirs = `/api/machines/${w.a.machine.id}/dirs`
+    const pending = w.asAlice.get<DirListingDto>(`${dirs}?path=${encodeURIComponent('/src')}`)
+    const req = await d.next()
+    expect(req).toMatchObject({ t: 'dir.list', path: '/src' })
+    d.send(dirResult(req))
+    expect((await pending).body).toEqual({
+      path: '/src',
+      entries: [{ name: 'pay', git: true }],
+      git: null,
+      unusable: null,
+    })
+
+    const home = w.asAlice.get<DirListingDto>(dirs)
+    const homeReq = await d.next()
+    expect(homeReq).toMatchObject({ t: 'dir.list', path: null })
+    d.send(dirResult(homeReq, { error: '目录不存在' }))
+    expect(await home).toMatchObject({ status: 400, body: { message: '目录不存在' } })
+
+    expect((await w.asBob.get(dirs)).status).toBe(403)
+    const offline = await w.asBob.get<{ message: string }>(`/api/machines/${w.b.machine.id}/dirs`)
+    expect([offline.status, offline.body.message]).toEqual([409, `${w.b.machine.name} 离线，无法浏览目录`])
+  })
+
+  it('stores the default workspace only after the daemon accepts it', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const url = `/api/bots/${w.bot.id}/default-workspace`
+
+    const bad = w.asAlice.put(url, { path: '/' })
+    d.send(dirResult(await d.next(), { path: '/', unusable: '目录范围过大，请选择具体的项目目录' }))
+    expect(await bad).toMatchObject({ status: 400, body: { message: '目录范围过大，请选择具体的项目目录' } })
+
+    const ok = w.asAlice.put<BotDto>(url, { path: '/src/pay' })
+    d.send(dirResult(await d.next()))
+    expect((await ok).body.defaultWorkspace).toBe('/src/pay')
+
+    expect((await w.asAlice.put<BotDto>(url, { path: null })).body.defaultWorkspace).toBeNull()
+    expect((await w.asBob.put(url, { path: '/src' })).status).toBe(403)
   })
 })

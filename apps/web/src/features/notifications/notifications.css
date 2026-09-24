@@ -16,7 +16,7 @@
   border-radius: 12px;
   border: 1px solid var(--color-separator);
   background: var(--color-panel-elevated);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.66);
+  box-shadow: var(--shadow-dropdown);
   overflow: hidden;
 }
 @media (max-width: 767px) {
@@ -45,7 +45,7 @@
   cursor: pointer;
 }
 .notif__link:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 .notif__push-on {
   font-size: 11px;
@@ -70,7 +70,7 @@
   border: 0;
   border-bottom: 1px solid var(--color-separator);
   background: transparent;
-  color: #fff;
+  color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
   opacity: 0.6;
@@ -79,7 +79,7 @@
   opacity: 1;
 }
 .notif__item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-muted);
 }
 .notif__icon {
   flex: none;

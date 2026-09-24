@@ -42,6 +42,11 @@ fn tray(app: &tauri::App) -> tauri::Result<()> {
 }
 
 fn main() {
+    #[cfg(unix)]
+    if let Some(path) = aiws::agents::login_shell_path() {
+        // SAFETY: first thing in main, before any other thread exists.
+        unsafe { std::env::set_var("PATH", path) };
+    }
     let home = aiws::config::home();
     // Same log setup as `aiws run`: <home>/logs plus the in-memory recent lines (`Logs`, managed for the Logs page).
     let (logs, _log_guard) = aiws::logs::init(&home).expect("cannot set up logging");

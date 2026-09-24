@@ -110,7 +110,7 @@
   gap: 6px;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-muted);
   font-size: 12px;
 }
 .gs-gap {
@@ -338,7 +338,7 @@
   cursor: pointer;
 }
 .gs-settings__tab--on {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-overlay-hover);
 }
 .gs-settings__body {
   flex: 1;
@@ -400,7 +400,7 @@ button.chat-header__members {
 }
 button.chat-header__members:hover,
 .ui-icon-btn.is-active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
 }
 .chat-header__muted {
   display: flex;

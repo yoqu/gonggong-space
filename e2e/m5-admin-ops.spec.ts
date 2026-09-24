@@ -2,7 +2,7 @@ import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, request, test } from '@playwright/test'
-import { buildDaemon, machine, memberWithMachine, ROOT } from './helpers'
+import { bindManaged, buildDaemon, machine, memberWithMachine, ROOT } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -41,6 +41,7 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
       kind: 'dm',
       botIds: [bot.id],
     })
+    await bindManaged(page.request, group.id, [bot.id])
     await page.goto(`/g/${group.id}`)
     await say(page, '@将停用 Claude 在当前目录创建 keep.txt，只回复 ok')
     await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
@@ -147,6 +148,7 @@ test('ops: a run survives a server outage; a daemon restart reconciles the lost 
     const group = await (
       await api.post('/api/groups', { data: { name: '运维', kind: 'dm', botIds: [bot.id] } })
     ).json()
+    await bindManaged(api, group.id, [bot.id])
     const post = (body: string) =>
       api.post(`/api/groups/${group.id}/messages`, { data: { body, clientId: crypto.randomUUID() } })
     const runs = async () =>

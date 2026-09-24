@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { buildDaemon, changePassword, login, logout, machine } from './helpers'
 
@@ -52,7 +55,19 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await page.getByRole('button', { name: /小王的 Claude/ }).click()
     await page.getByRole('button', { name: '创建' }).click()
 
-    // @ the bot → run card goes running → completed, final reply shows up, file lands in the managed workspace.
+    // The bot joins unbound; its owner picks a local directory through the daemon-backed picker.
+    const dir = mkdtempSync(join(tmpdir(), 'aiws-dm-'))
+    await page.getByRole('button', { name: '绑定工作区' }).click()
+    const picker = page.getByRole('dialog', { name: '小王的 Claude 的工作目录' })
+    // Starts at the machine's home dir once the daemon answers.
+    await expect(picker.getByLabel('目录路径')).not.toHaveValue('')
+    await picker.getByLabel('目录路径').fill(dir)
+    await picker.getByLabel('目录路径').press('Enter')
+    await expect(picker.getByText('没有子目录')).toBeVisible()
+    await picker.getByRole('button', { name: '选择此目录' }).click()
+    await expect(page.getByRole('main').getByText(/已绑定到 .+（本机目录）/)).toBeVisible({ timeout: 30_000 })
+
+    // @ the bot → run card goes running → completed, final reply shows up, file lands in the chosen directory.
     const box = page.getByPlaceholder('输入消息，@ 触发 bot 或引用文件，/ 查看命令')
     await box.fill('@小王的 Claude 请在当前工作目录创建文件 hello.txt，内容只有 hi。完成后只回复 done。')
     await page.getByRole('button', { name: '发送' }).click()
@@ -60,7 +75,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await expect(card).toContainText(/运行中|已完成/, { timeout: 60_000 })
     await expect(card).toContainText('已完成', { timeout: 4 * 60_000 })
     await expect(page.getByText('最终回复').last()).toBeVisible()
-    expect(m.find('hello.txt')).toMatch(/workspaces\/.+\/_empty\/hello\.txt$/)
+    expect(existsSync(join(dir, 'hello.txt'))).toBe(true)
   } finally {
     m.stop()
   }

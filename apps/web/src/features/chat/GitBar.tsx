@@ -3,12 +3,14 @@ import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { realtime } from '../../lib/realtime'
 
-const WORKSPACE_LABEL = { managed: '托管', cd: '/cd 绑定' } as const
+const WORKSPACE_LABEL = { managed: '托管', cd: '本机目录' } as const
 
 function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
   const git = s.git
   const hint =
-    s.state === 'pending' && !git ? (
+    s.state === 'unbound' ? (
+      <span className="git-bar__hint">待绑定</span>
+    ) : s.state === 'pending' && !git ? (
       <span className="git-bar__hint">待创建</span>
     ) : s.state === 'cloning' ? (
       <span className="git-bar__hint">clone 中…</span>
@@ -34,21 +36,25 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
   )
 }
 
-/** Partition-mode top bar (spec §5.3 / §8.4): each bot's git status, refreshed after every turn. */
+/**
+ * Partition-mode top bar (spec §5.3 / §8.4): each bot's git status, refreshed after every turn. Shown for repo groups;
+ * the states are loaded for every partition group since the workspace banner needs them too.
+ */
 export function GitBar({ group }: { group: GroupDto }) {
-  const shown = group.mode === 'partition' && !!group.repo
+  const partition = group.mode === 'partition'
+  const shown = partition && !!group.repo
   const states = useWorkspace((s) => s.botStates[group.id])
   const bots = useWorkspace((s) => s.bots)
   const botKey = group.botIds.join()
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the group's bots change
   useEffect(() => {
-    if (!shown) return
+    if (!partition) return
     const load = () => loadBotStates(group.id).catch(() => {})
     load()
     // Updates pushed while the socket was down are lost: catch up on reconnect.
     return realtime.onStatus((st) => st === 'open' && load())
-  }, [shown, group.id, botKey])
+  }, [partition, group.id, botKey])
 
   if (!shown) return null
   return (
@@ -57,7 +63,16 @@ export function GitBar({ group }: { group: GroupDto }) {
         <Item
           key={id}
           name={bots.find((b) => b.id === id)?.name ?? 'bot'}
-          s={states?.[id] ?? { botId: id, workspace: 'managed', state: 'pending', git: null, error: null }}
+          s={
+            states?.[id] ?? {
+              botId: id,
+              workspace: 'managed',
+              state: 'pending',
+              path: null,
+              git: null,
+              error: null,
+            }
+          }
         />
       ))}
     </div>

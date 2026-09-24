@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { buildDaemon, memberWithMachine, remoteRepo } from './helpers'
+import { bindManaged, buildDaemon, memberWithMachine, remoteRepo } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -54,8 +54,10 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
       repo: { url: repo.url, branch: 'main' },
     })
     await page.goto(`/g/${group.id}`)
+    await expect(page.getByTestId(`ws-banner-${claude.id}`)).toBeVisible()
 
-    // Both bots get a managed clone on main; the status bar shows it.
+    // The owner picks managed clones for both bots; the status bar shows them on main.
+    await bindManaged(page.request, group.id, [claude.id, codex.id])
     const bar = page.getByTestId('git-bar')
     await expect(bar).toContainText('仓库 Claude')
     await expect(bar.getByTestId(`git-${claude.id}`)).toContainText('main', { timeout: 60_000 })
@@ -79,10 +81,10 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
     await expect(page.getByTestId('bot-reply').last()).toContainText('from-main.txt')
     await expect(bar.getByTestId(`git-${codex.id}`)).toContainText('↓0')
 
-    // /cd to a matching local clone → status shows /cd 绑定; a clone of another repo is refused.
+    // /cd to a matching local clone → status shows 本机目录; a clone of another repo is refused.
     const local = repo.cloneTo('local-clone')
     await say(page, `/cd @仓库 Claude ${local}`)
-    await expect(bar.getByTestId(`git-${claude.id}`)).toContainText('/cd 绑定', { timeout: 30_000 })
+    await expect(bar.getByTestId(`git-${claude.id}`)).toContainText('本机目录', { timeout: 30_000 })
     const foreign = remoteRepo().cloneTo('foreign')
     await say(page, `/cd @仓库 Codex ${foreign}`)
     await expect(page.getByRole('main').getByText(/remote 与群仓库不一致/)).toBeVisible({ timeout: 30_000 })

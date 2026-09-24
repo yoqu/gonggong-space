@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AIWS Daemon</title>
+    <script>
+      // Same pre-paint theme bootstrap as the web app (key aiws.theme, fallback light).
+      ;(() => {
+        let theme = 'light'
+        try {
+          const pref = localStorage.getItem('aiws.theme')
+          if (pref === 'dark' || pref === 'system') {
+            theme =
+              pref === 'dark' || window.matchMedia?.('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+          }
+        } catch {
+          theme = 'light'
+        }
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

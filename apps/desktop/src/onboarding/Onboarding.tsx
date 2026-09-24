@@ -168,7 +168,7 @@ function AgentRow({
   onRecheck: () => void
 }) {
   const meta = AGENTS[agent.kind]
-  const color = agent.available ? '#32D74B' : '#FF9F0A'
+  const color = agent.available ? 'var(--color-success)' : 'var(--color-warning)'
   const Icon = agent.available ? CircleCheck : TriangleAlert
   return (
     <div className="dk-row dk-row--stack">

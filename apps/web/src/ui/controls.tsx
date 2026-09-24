@@ -54,7 +54,7 @@ export function CloseButton({ onClick, title = '关闭' }: { onClick?: () => voi
         height="8"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="rgba(0,0,0,0.55)"
+        stroke="var(--color-overlay)"
         strokeWidth="3.5"
         strokeLinecap="round"
         aria-hidden="true"

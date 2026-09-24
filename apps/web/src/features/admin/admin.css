@@ -40,8 +40,8 @@
   white-space: nowrap;
 }
 .admin__back:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 .admin__role {
   height: 24px;
@@ -49,7 +49,7 @@
   align-items: center;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-muted);
   font-size: 11px;
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -93,12 +93,12 @@
   white-space: nowrap;
 }
 .admin__item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-hover);
   color: var(--color-text-secondary);
 }
 .admin__item[aria-current="page"] {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--color-overlay-hover);
+  color: var(--color-text-primary);
 }
 .admin__main {
   flex: 1;
@@ -223,10 +223,10 @@
   white-space: nowrap;
 }
 .admin-table__warn {
-  color: #ff9f0a;
+  color: var(--color-brand-warm);
 }
 .admin-table__bad {
-  color: #ff453a;
+  color: var(--color-danger);
 }
 .admin-table__presence {
   display: flex;
@@ -241,23 +241,10 @@
   height: 7px;
   flex: none;
   border-radius: 999px;
-  background: #636366;
+  background: var(--color-status-offline);
 }
 .admin-dot--on {
-  background: #32d74b;
-}
-.admin-consequences {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-.admin-consequences li::before {
-  content: "· ";
+  background: var(--color-success);
 }
 
 /* Row lists (审计记录, 系统参数) */
@@ -286,13 +273,13 @@
   border-radius: 999px;
   border: 1px solid var(--color-border-strong);
   background: transparent;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 12px;
   cursor: pointer;
 }
 .admin-chip[aria-pressed="true"] {
-  border-color: #0a84ff;
-  background: rgba(10, 132, 255, 0.15);
+  border-color: var(--color-selection-blue);
+  background: var(--color-bg-accent-strong);
 }
 .admin-audit {
   display: grid;
@@ -334,7 +321,7 @@
   text-align: right;
 }
 .admin-param__input--measure {
-  border-color: rgba(255, 159, 10, 0.5);
+  border-color: var(--color-brand-warm);
 }
 .admin-param__unit {
   flex: none;
@@ -347,7 +334,7 @@
   color: var(--color-text-tertiary);
 }
 .admin-param__note--measure {
-  color: #ff9f0a;
+  color: var(--color-brand-warm);
 }
 @media (max-width: 767px) {
   .admin-audit {

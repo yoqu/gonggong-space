@@ -169,10 +169,10 @@ summary.run-step__head::-webkit-details-marker {
   white-space: nowrap;
 }
 .run-diff__add {
-  color: #32d74b;
+  color: var(--color-success);
 }
 .run-diff__del {
-  color: #ff453a;
+  color: var(--color-danger);
 }
 .run-diff {
   border-radius: 6px;
@@ -200,12 +200,12 @@ summary.run-step__head::-webkit-details-marker {
   white-space: pre;
 }
 .run-diff__line--add {
-  background: rgba(50, 215, 75, 0.08);
-  color: #32d74b;
+  background: var(--color-bg-success);
+  color: var(--color-success);
 }
 .run-diff__line--del {
-  background: rgba(255, 69, 58, 0.08);
-  color: #ff453a;
+  background: var(--color-bg-error);
+  color: var(--color-danger);
 }
 .run-diff__line--hunk {
   color: var(--color-system-blue);
@@ -237,11 +237,11 @@ summary.run-step__head::-webkit-details-marker {
 
 /* /stop actions and partition leftovers (plan D7) */
 .run-card__action--danger {
-  color: #ff453a;
+  color: var(--color-danger);
 }
 .run-card__action--danger:hover {
-  background: rgba(255, 69, 58, 0.1);
-  color: #ff453a;
+  background: var(--color-bg-error);
+  color: var(--color-danger);
 }
 .run-card__action:disabled {
   opacity: 0.5;
@@ -253,12 +253,12 @@ summary.run-step__head::-webkit-details-marker {
   gap: 8px;
   padding: 10px 12px;
   border-top: 1px solid var(--color-separator);
-  background: rgba(255, 69, 58, 0.06);
+  background: var(--color-bg-error);
 }
 .run-interrupt__title {
   font-size: 12px;
   font-weight: 600;
-  color: #ff453a;
+  color: var(--color-danger);
 }
 .run-interrupt__desc {
   font-size: 12px;

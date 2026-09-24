@@ -94,6 +94,8 @@ export const bots = pgTable('bots', {
   triggerScope: text('trigger_scope').notNull().default('all'),
   triggerList: jsonb('trigger_list').$type<string[]>().notNull().default([]),
   concurrency: integer('concurrency').notNull().default(2),
+  /** Owner's local directory used when a group has no binding of its own. */
+  defaultWorkspace: text('default_workspace'),
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),
@@ -169,7 +171,7 @@ export const groupBots = pgTable(
     newSessionReason: text('new_session_reason'),
     /** Last git status reported after a turn (partition mode status bar). */
     gitStatus: jsonb('git_status'),
-    /** 'pending' | 'cloning' | 'ready' | 'failed' — as last reported by the owner's daemon. */
+    /** 'pending' | 'cloning' | 'ready' | 'failed' as last reported by the owner's daemon; 'unbound' until the owner picks one. */
     workspaceState: text('workspace_state').notNull().default('pending'),
     workspacePath: text('workspace_path'),
     workspaceError: text('workspace_error'),

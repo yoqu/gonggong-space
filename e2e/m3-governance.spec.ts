@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
-import { buildDaemon, memberWithMachine, remoteRepo } from './helpers'
+import { bindManaged, buildDaemon, memberWithMachine, remoteRepo } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -57,6 +57,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
   })
   m.start()
   try {
+    await bindManaged(page.request, group.id, [a.id, b.id])
     await page.goto(`/g/${group.id}`)
     await viewer.page.goto(`/g/${group.id}`)
     await say(
@@ -130,6 +131,7 @@ test('relay chain stops at 3 hops and every hop is authorized against the chain 
   })
   m.start()
   try {
+    await bindManaged(page.request, group.id, [a.id, b.id])
     await page.goto(`/g/${group.id}`)
     await say(page, '@接力 A 开始')
     const cards = page.getByTestId('run-card')
@@ -180,6 +182,7 @@ test('partition /stop keeps edits by default and "丢弃本轮改动" restores o
       botIds: [bot.id],
       repo: { url: repo.url, branch: 'main' },
     })
+    await bindManaged(page.request, group.id, [bot.id])
     await page.goto(`/g/${group.id}`)
     await expect(page.getByTestId(`git-${bot.id}`)).toContainText('main', { timeout: 60_000 })
     const readme = m.find('README.md')!

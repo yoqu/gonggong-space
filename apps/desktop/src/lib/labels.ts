@@ -17,10 +17,10 @@ export function connKind(s: Snapshot): ConnKind {
   return c.state
 }
 
-const GREEN = '#32D74B'
-const ORANGE = '#FF9F0A'
-const RED = '#FF453A'
-const GRAY = '#98989D'
+const GREEN = 'var(--color-success)'
+const ORANGE = 'var(--color-warning)'
+const RED = 'var(--color-danger)'
+const GRAY = 'var(--color-status-offline)'
 
 export const PILL: Record<ConnKind, { text: string; color: string }> = {
   ok: { text: '已连接', color: GREEN },

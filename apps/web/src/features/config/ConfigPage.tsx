@@ -181,15 +181,25 @@ export function ConfigPage() {
         <div className="cfg__preview">
           <div className="cfg__eyebrow">合并预览 · 全部 bot</div>
           {[
-            { name: '服务器群层', pri: '优先级高', color: '#0A84FF', text: '三期提供' },
+            { name: '服务器群层', pri: '优先级高', color: 'var(--color-selection-blue)', text: '三期提供' },
             {
               name: '服务器全局层',
               pri: '中',
-              color: '#409CFF',
+              color: 'var(--color-brand-info)',
               text: `mcp: ${enabledNames.join(', ') || '无'}`,
             },
-            { name: 'bot 系统提示词', pri: '', color: '#8E8E93', text: '各 bot 在 Bot 页设置' },
-            { name: '仓库基线', pri: '低', color: '#48484A', text: '.mcp.json · .claude/ · AGENTS.md' },
+            {
+              name: 'bot 系统提示词',
+              pri: '',
+              color: 'var(--color-text-tertiary)',
+              text: '各 bot 在 Bot 页设置',
+            },
+            {
+              name: '仓库基线',
+              pri: '低',
+              color: 'var(--color-border-strong)',
+              text: '.mcp.json · .claude/ · AGENTS.md',
+            },
           ].map((l) => (
             <div key={l.name} className="cfg__layer" style={{ borderLeftColor: l.color }}>
               <div className="cfg__layer-head">

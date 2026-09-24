@@ -17,6 +17,8 @@ interface WorkspaceState {
   bots: BotDto[]
   machines: MachineDto[]
   notifCount: number
+  /** The initial bots/machines snapshot has arrived, so empty lists mean "none" rather than "not yet". */
+  loaded: boolean
   /** Per-group workspace state of each bot (groupId → botId → state), loaded when a group is opened. */
   botStates: Record<string, Record<string, GroupBotStateDto>>
   /** The group open in the chat view; its new messages don't count as unread. */
@@ -45,6 +47,7 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
   bots: [],
   machines: [],
   notifCount: 0,
+  loaded: false,
   botStates: {},
   activeGroupId: null,
   setActiveGroup: (activeGroupId) => set({ activeGroupId }),
@@ -61,6 +64,8 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
     else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
     else if (e.t === 'notification.new') set((s) => ({ notifCount: s.notifCount + 1 }))
     else if (e.t === 'machine.updated') set((s) => ({ machines: upsert(s.machines, e.machine) }))
+    else if (e.t === 'machine.removed')
+      set((s) => ({ machines: s.machines.filter((m) => m.id !== e.machineId) }))
     else if (e.t === 'group.botState')
       set((s) => ({
         botStates: {
@@ -88,7 +93,7 @@ export async function loadWorkspace() {
     api.get<MachineDto[]>('/machines'),
     unread(),
   ])
-  useWorkspace.setState({ bots, machines, notifCount })
+  useWorkspace.setState({ bots, machines, notifCount, loaded: true })
 }
 
 /** Re-counts unread notifications after an action that resolves some of them server-side. */

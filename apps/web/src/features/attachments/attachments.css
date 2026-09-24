@@ -161,7 +161,7 @@
   align-items: flex-end;
   gap: 6px;
   padding: 18px 8px 6px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent);
+  background: linear-gradient(to top, var(--color-overlay), transparent);
   pointer-events: none;
   font-size: 11px;
 }
@@ -184,8 +184,8 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  background: var(--color-overlay);
+  color: var(--color-on-accent);
   cursor: pointer;
 }
 .att-tile__open {
@@ -202,7 +202,7 @@
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--color-outline-soft);
 }
 .att-docs {
   display: flex;

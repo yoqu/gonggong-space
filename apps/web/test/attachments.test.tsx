@@ -60,6 +60,7 @@ const bot: BotDto = {
   agentVersion: null,
   agentMinVersion: null,
   groupCount: 0,
+  defaultWorkspace: null,
 }
 
 const at = '2026-09-23T02:21:00.000Z'

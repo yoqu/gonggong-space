@@ -1,12 +1,24 @@
-/* Shadows — overlays only. Work-area panels carry NO shadow. DESIGN.md §6 */
+/* Shadows — overlays only. Work-area panels carry NO shadow. DESIGN.md §6
+   Light set in :root (reduced opacity); dark set keeps the original values. */
 :root {
   --backdrop-blur: blur(12px); /* @kind other */
+  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.18);
+  --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.14);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --shadow-focus: 0 0 0 3px rgba(0, 122, 255, 0.33);
+  --shadow-window: 0 18px 44px rgba(0, 0, 0, 0.16);
+  --shadow-drawer: -8px 0 24px rgba(0, 0, 0, 0.12); /* shell.css slide-over panel */
+  --z-modal: 120; /* @kind other */
+  --z-toast: 180; /* @kind other */
+}
+
+[data-theme="dark"] {
   --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.24);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.66);
   --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.66);
   --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.66);
   --shadow-focus: 0 0 0 3px rgba(10, 132, 255, 0.33);
   --shadow-window: 0 18px 44px rgba(0, 0, 0, 0.44);
-  --z-modal: 120; /* @kind other */
-  --z-toast: 180; /* @kind other */
+  --shadow-drawer: -8px 0 24px rgba(0, 0, 0, 0.35);
 }

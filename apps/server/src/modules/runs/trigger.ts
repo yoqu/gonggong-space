@@ -1,10 +1,11 @@
 import type { MessageDto } from '@aiws/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groups, type messages, runs } from '../../db/schema.js'
+import { bots, groupBots, groups, type messages, runs, users } from '../../db/schema.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { parseMentions } from '../messages/mentions.js'
+import { postEvent } from '../messages/service.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 import { isChainStopped } from './stop.js'
@@ -33,7 +34,10 @@ interface Trigger {
   parentRunId: string | null
 }
 
-/** One run per bot in the group; out-of-scope bots get a `forbidden` card instead of a run (fan-out = parallel). */
+/**
+ * One run per bot in the group; out-of-scope bots get a `forbidden` card instead of a run (fan-out = parallel).
+ * Bots without a workspace are not run at all: their owner is reminded and the message is not replayed (plan W5).
+ */
 async function createRuns(ctx: Ctx, t: Trigger) {
   if (!t.botIds.length) return
   const targets = await ctx.db
@@ -44,9 +48,13 @@ async function createRuns(ctx: Ctx, t: Trigger) {
       tier: bots.tier,
       triggerScope: bots.triggerScope,
       triggerList: bots.triggerList,
+      name: bots.name,
+      ownerName: users.name,
+      workspaceState: groupBots.workspaceState,
     })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .innerJoin(users, eq(users.id, bots.ownerId))
     .where(
       and(
         eq(groupBots.groupId, t.groupId),
@@ -58,6 +66,12 @@ async function createRuns(ctx: Ctx, t: Trigger) {
   await Promise.all(
     targets.map(async (bot) => {
       const refused = refusal(bot, t.originUserId)
+      if (!refused && bot.workspaceState === 'unbound')
+        return void (await postEvent(
+          ctx,
+          t.groupId,
+          `${bot.name} 还没有工作区，需 ${bot.ownerName} 先绑定；绑定后请重新发起`,
+        ))
       const [run] = await ctx.db
         .insert(runs)
         .values({

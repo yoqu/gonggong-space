@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
-import { buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
+import { bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -36,6 +36,7 @@ async function setup(page: Page, account: string, opts: { tier?: 'full'; repo?: 
     botIds: [bot.id],
     repo: repo ? { url: repo.url, branch: 'main' } : null,
   })
+  await bindManaged(page.request, group.id, [bot.id])
   await page.goto(`/g/${group.id}`)
   if (repo) await expect(page.getByTestId(`git-${bot.id}`)).toContainText('main', { timeout: 60_000 })
   return { m, api, me, bot, group, name: `${account} Claude` }

@@ -48,7 +48,7 @@ a:hover {
   box-shadow: var(--shadow-focus);
 }
 ::selection {
-  background: rgba(10, 132, 255, 0.3);
+  background: var(--color-selection);
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -60,11 +60,11 @@ a:hover {
 ::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-scrollbar);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--color-scrollbar-hover);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-corner {

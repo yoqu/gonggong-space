@@ -120,7 +120,7 @@ body {
   cursor: pointer;
 }
 .topbar__search:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-panel-subtle);
 }
 .topbar__search-text {
   flex: 1;
@@ -152,8 +152,8 @@ body {
   white-space: nowrap;
 }
 .topbar__link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
 }
 .topbar__bell {
   position: relative;
@@ -169,7 +169,7 @@ body {
   cursor: pointer;
 }
 .topbar__bell:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-muted);
 }
 .topbar__count {
   position: absolute;
@@ -182,8 +182,8 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #ff453a;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-on-accent);
   font-size: 9px;
   font-weight: 650;
 }
@@ -193,7 +193,7 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-border-strong);
   background: var(--color-control-bg);
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -257,7 +257,7 @@ body {
     right: 0;
     bottom: 0;
     z-index: 25;
-    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--shadow-drawer);
   }
 }
 .chat__rail--overlay {
@@ -315,7 +315,7 @@ section:first-child > .sidebar__head {
   cursor: pointer;
 }
 .sidebar__add:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
 }
 .sidebar__list {
   display: flex;
@@ -333,10 +333,10 @@ section:first-child > .sidebar__head {
 }
 .sidebar__item:hover {
   color: inherit;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-panel-subtle);
 }
 .sidebar__item[aria-current="page"] {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
 }
 .sidebar__row {
   display: flex;
@@ -386,6 +386,40 @@ section:first-child > .sidebar__head {
   padding: 6px 10px;
   border-radius: 6px;
 }
+.sidebar__bot-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px -10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar__bot-open:hover {
+  background: var(--color-panel-subtle);
+}
+.sidebar__machine .sidebar__revoke {
+  visibility: hidden;
+}
+.sidebar__machine:hover .sidebar__revoke,
+.sidebar__revoke:focus-visible {
+  visibility: visible;
+}
+.sidebar__revoke:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+@media (hover: none) {
+  .sidebar__machine .sidebar__revoke {
+    visibility: visible;
+  }
+}
 .sidebar__bot-name {
   flex: 1;
   min-width: 0;
@@ -398,6 +432,68 @@ section:first-child > .sidebar__head {
   font-size: 11px;
   color: var(--color-text-tertiary);
   white-space: nowrap;
+}
+.sidebar-guide {
+  margin: 12px 8px 0;
+  padding: 10px 6px 6px;
+  border: 1px solid var(--color-separator);
+  border-radius: 10px;
+  background: var(--color-bg-subtle);
+}
+.sidebar-guide__title {
+  padding: 0 6px 6px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.sidebar-guide__step {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-guide__step:hover:not(:disabled) {
+  background: var(--color-bg-muted);
+}
+.sidebar-guide__step:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.sidebar-guide__mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-system-blue);
+  font-size: 10px;
+  font-weight: 650;
+}
+.sidebar-guide__step[data-done] .sidebar-guide__mark {
+  background: var(--color-success);
+}
+.sidebar-guide__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-guide__label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sidebar-guide__hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
 }
 .sidebar__foot {
   flex: none;

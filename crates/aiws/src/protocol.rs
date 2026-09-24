@@ -169,6 +169,30 @@ pub struct FileEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DirEntry {
+    pub name: String,
+    pub git: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DirGit {
+    pub root: String,
+    pub remotes: Vec<String>,
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirResult {
+    pub request_id: String,
+    pub path: String,
+    pub entries: Vec<DirEntry>,
+    pub git: Option<DirGit>,
+    pub unusable: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunBot {
     pub id: String,
@@ -354,7 +378,7 @@ pub struct WorkspaceCd {
     pub request_id: String,
     pub group_id: String,
     pub bot_id: String,
-    pub repo: RepoSpec,
+    pub repo: Option<RepoSpec>,
     pub path: Option<String>,
 }
 
@@ -385,6 +409,8 @@ pub enum DaemonToServer {
     AgentsUpdate { agents: Vec<AgentInfo> },
     #[serde(rename = "commands.update", rename_all = "camelCase")]
     CommandsUpdate { group_id: String, bot_id: String, commands: Vec<AgentCommand> },
+    #[serde(rename = "dir.result")]
+    DirResult(DirResult),
     #[serde(rename = "files.result", rename_all = "camelCase")]
     FilesResult { request_id: String, entries: Vec<FileEntry>, error: Option<String> },
     #[serde(rename = "question.ask", rename_all = "camelCase")]
@@ -436,6 +462,8 @@ pub enum ServerToDaemon {
     RunDiscard { run_id: String },
     #[serde(rename = "files.list")]
     FilesList(FilesList),
+    #[serde(rename = "dir.list", rename_all = "camelCase")]
+    DirList { request_id: String, path: Option<String> },
     #[serde(rename = "question.answer", rename_all = "camelCase")]
     QuestionAnswer {
         run_id: String,

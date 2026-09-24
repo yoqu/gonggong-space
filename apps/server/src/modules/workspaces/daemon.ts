@@ -4,11 +4,9 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { bots, groupBots, groupRepos, groups, runs } from '../../db/schema.js'
-import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { postEvent } from '../messages/service.js'
-import { requestCd } from './cd.js'
+import { announceCd, requestCd } from './cd.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -69,14 +67,7 @@ export function daemonWorkspaceRoutes(ctx: Ctx) {
       if (row.gb.workspaceKind !== 'cd') return fail('conflict', '该工作区不是 /cd 绑定')
       if (!(await requestCd(ctx, { groupId, botId, path: null })))
         return fail('conflict', '本机未连接服务器，无法改回托管')
-      await audit(ctx, {
-        category: 'run',
-        actorUserId: row.bot.ownerId,
-        action: 'command.cd',
-        groupId,
-        detail: { botId, path: null },
-      })
-      await postEvent(ctx, groupId, `已请求 ${row.bot.name} 恢复托管工作区，等待本机确认…`)
+      await announceCd(ctx, { groupId, userId: row.bot.ownerId, bot: row.bot, path: null })
       return reply.status(204).send()
     })
   }

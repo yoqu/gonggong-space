@@ -7,7 +7,7 @@ import { sysParams } from '../admin/params.js'
 import { publishBot } from '../bots/dto.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
-import { unreadyRepoGroups } from '../workspaces/state.js'
+import { unreadyGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { interruptNote } from './stop.js'
 
@@ -40,7 +40,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       .select({ groupId: runs.groupId })
       .from(runs)
       .where(and(eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
-    const unready = await unreadyRepoGroups(tx, botId)
+    const unready = await unreadyGroups(tx, botId)
     let busy = active.length
     // One conversation per (group, bot): a group's next turn waits for its previous one (spec §8.9).
     const busyGroups = new Set(active.map((r) => r.groupId))
@@ -58,7 +58,7 @@ export async function schedule(ctx: Ctx, botId: string) {
         if (run.status !== 'queued' || run.step !== step) await setRun(run.id, { status: 'queued', step })
         continue
       }
-      // Repo groups dispatch only once the bot's clone is ready; the workspace engine reschedules then.
+      // Dispatch only once the bot's clone / directory is ready; the workspace engine reschedules then.
       if (machineId && unready.has(run.groupId)) {
         if (run.status !== 'queued' || run.step !== WORKSPACE_WAIT)
           await setRun(run.id, { status: 'queued', step: WORKSPACE_WAIT })

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { DaemonToServer, WorkspaceState } from '@aiws/protocol'
-import { and, asc, eq, isNull, ne } from 'drizzle-orm'
+import { and, asc, eq, isNull, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groupRepos, groups } from '../../db/schema.js'
+import { bots, groupBots, groupRepos, groups, users } from '../../db/schema.js'
 import { onCdResult } from '../commands/cd.js'
 import { postEvent } from '../messages/service.js'
 import { schedule } from '../runs/scheduler.js'
@@ -10,16 +10,20 @@ import { updateBotState } from './state.js'
 
 type BotRef = { id: string; name: string; machineId: string | null }
 
-/** An ensure / cd request awaiting its daemon's answer. Only the latest ensure per (group, bot) is kept. */
+/**
+ * An ensure / cd request awaiting its daemon's answer. Only the latest ensure per (group, bot) is kept.
+ * 'default' = a cd to the bot's default workspace made on join (plan W2–W4).
+ */
 export interface Pending {
-  kind: 'ensure' | 'cd'
+  kind: 'ensure' | 'cd' | 'default'
   machineId: string
   groupId: string
   botId: string
-  repoId: string
+  /** The group's repo when sent; null for repo-less groups. */
+  repoId: string | null
   /** cd target; null = back to managed. */
   cdPath: string | null
-  /** The ensure was part of the bot joining the group (event wording). */
+  /** The request was part of the bot joining the group (event wording). */
   joined: boolean
 }
 const pending = new Map<string, Pending>()
@@ -54,23 +58,97 @@ export async function currentRepo(ctx: Ctx, groupId: string) {
 export const onlineMachine = (ctx: Ctx, machineId: string | null) =>
   machineId && ctx.hub.isOnline(machineId) ? machineId : null
 
-/**
- * Makes the bot's managed workspace match the group's current repo: repo-less groups are ready at once (the daemon
- * creates `_empty` on first run); otherwise the owner's daemon is asked to clone, or the bot waits as `pending` until
- * its machine comes online. `reset` also drops any /cd binding (bot (re)joining).
- */
-export async function ensureWorkspace(
-  ctx: Ctx,
-  groupId: string,
-  bot: BotRef,
-  o: { joined: boolean; reset?: boolean },
-) {
+async function ownerName(ctx: Ctx, botId: string) {
+  const [row] = await ctx.db
+    .select({ name: users.name })
+    .from(bots)
+    .innerJoin(users, eq(users.id, bots.ownerId))
+    .where(eq(bots.id, botId))
+  return row?.name ?? ''
+}
+
+/** Asks the owner's daemon to validate and bind the default directory; false when the machine is offline. */
+async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string, joined: boolean) {
+  const machineId = onlineMachine(ctx, bot.machineId)
+  if (!machineId) return false
   const repo = await currentRepo(ctx, groupId)
-  const base = o.reset ? MANAGED : {}
-  if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { ...base, workspaceState: 'ready' }))
+  const requestId = track({
+    kind: 'default',
+    machineId,
+    groupId,
+    botId: bot.id,
+    repoId: repo?.id ?? null,
+    cdPath: path,
+    joined,
+  })
+  const sent = ctx.hub.send(machineId, { t: 'workspace.cd', requestId, groupId, botId: bot.id, repo, path })
+  if (!sent) forget(requestId)
+  return sent
+}
+
+/**
+ * Picks a joining bot's workspace (plan W2–W5): its default directory, validated against the group repo by the
+ * owner's daemon; without one the bot stays `unbound` until the owner binds it. Also used after a repo change.
+ */
+export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: { joined: boolean }) {
+  const [row] = await ctx.db.select({ path: bots.defaultWorkspace }).from(bots).where(eq(bots.id, bot.id))
+  const lead = `${bot.name}${o.joined ? ' 加入' : ''}`
+  const path = row?.path
+  if (!path) {
+    await updateBotState(ctx, groupId, bot.id, { ...MANAGED, workspaceState: 'unbound' })
+    return void (await postEvent(ctx, groupId, `${lead} · 等待 ${await ownerName(ctx, bot.id)} 绑定工作区`))
+  }
+  await updateBotState(ctx, groupId, bot.id, {
+    ...MANAGED,
+    workspaceKind: 'cd',
+    cdPath: path,
+    workspaceState: 'pending',
+  })
+  if (!(await sendDefault(ctx, groupId, bot, path, o.joined)))
+    await postEvent(ctx, groupId, `${lead} · daemon 离线，上线后使用默认工作区`)
+}
+
+async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: string) {
+  if (msg.state === 'cloning') return
+  if (msg.state === 'failed') {
+    await updateBotState(ctx, msg.groupId, msg.botId, {
+      ...MANAGED,
+      workspaceState: 'unbound',
+      workspaceError: msg.error,
+    })
+    const owner = await ownerName(ctx, msg.botId)
+    return void (await postEvent(
+      ctx,
+      msg.groupId,
+      `${name} 默认工作区不可用：${msg.error ?? '未知错误'}，等待 ${owner} 绑定工作区`,
+    ))
+  }
+  await updateBotState(ctx, msg.groupId, msg.botId, {
+    workspaceKind: 'cd',
+    cdPath: req.cdPath,
+    workspaceState: 'ready',
+    workspacePath: msg.path,
+    gitStatus: msg.git,
+    workspaceError: null,
+  })
+  await postEvent(
+    ctx,
+    msg.groupId,
+    `${name}${req.joined ? ' 加入' : ''} · 使用默认工作区 ${req.cdPath}（主人可改绑）`,
+  )
+  await schedule(ctx, msg.botId)
+}
+
+/**
+ * Re-requests the managed workspace the owner chose, after its machine reconnected: repo-less groups are ready at once
+ * (the daemon creates `_empty` on first run); otherwise the daemon is asked to clone.
+ */
+async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef) {
+  const repo = await currentRepo(ctx, groupId)
+  if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }))
   const machineId = onlineMachine(ctx, bot.machineId)
   // Written before sending so a fast answer can't be overwritten by this state.
-  await updateBotState(ctx, groupId, bot.id, { ...base, workspaceState: machineId ? 'cloning' : 'pending' })
+  await updateBotState(ctx, groupId, bot.id, { workspaceState: machineId ? 'cloning' : 'pending' })
   if (!machineId) return
   for (const [id, p] of pending)
     if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) pending.delete(id)
@@ -81,7 +159,7 @@ export async function ensureWorkspace(
     botId: bot.id,
     repoId: repo.id,
     cdPath: null,
-    joined: o.joined,
+    joined: false,
   })
   if (!ctx.hub.send(machineId, { t: 'workspace.ensure', requestId, groupId, botId: bot.id, repo })) {
     forget(requestId)
@@ -109,7 +187,8 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   if (!row) return
   if (req && msg.state !== 'cloning') forget(msg.requestId as string)
   // Answers for the group's previous repo are stale.
-  if (req && (await currentRepo(ctx, msg.groupId))?.id !== req.repoId) return
+  if (req && ((await currentRepo(ctx, msg.groupId))?.id ?? null) !== req.repoId) return
+  if (req?.kind === 'default') return onDefault(ctx, req, msg, row.name)
 
   // A refused /cd leaves the current workspace untouched.
   if (!(req?.kind === 'cd' && req.cdPath && msg.state !== 'ready'))
@@ -123,21 +202,26 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
     })
   if (req?.kind === 'cd' && msg.state !== 'cloning') await onCdResult(ctx, msg, req.cdPath === null)
   if (req?.kind === 'ensure' && msg.state === 'ready')
-    await postEvent(
-      ctx,
-      msg.groupId,
-      `${row.name}${req.joined ? ' 加入' : ''} · daemon 已 clone 到托管工作区`,
-    )
+    await postEvent(ctx, msg.groupId, `${row.name} · daemon 已 clone 到托管工作区`)
   // A retry failing the same way (e.g. on every reconnect) is not announced again.
   if (req?.kind === 'ensure' && msg.state === 'failed' && msg.error !== row.error)
     await postEvent(ctx, msg.groupId, `${row.name} 工作区创建失败：${msg.error ?? '未知错误'}`)
   if (msg.state === 'ready') await schedule(ctx, msg.botId)
 }
 
-/** Workspaces not ready for their group's current repo are (re)ensured whenever the owner's machine connects. */
+/**
+ * Workspaces not ready yet are (re)ensured whenever the owner's machine connects: managed clones, and default
+ * directories that could not be checked while it was offline. Unbound ones wait for their owner.
+ */
 async function onOnline(ctx: Ctx, machineId: string) {
   const rows = await ctx.db
-    .select({ groupId: groupBots.groupId, id: bots.id, name: bots.name, machineId: bots.machineId })
+    .select({
+      groupId: groupBots.groupId,
+      id: bots.id,
+      name: bots.name,
+      machineId: bots.machineId,
+      cdPath: groupBots.cdPath,
+    })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
@@ -147,10 +231,12 @@ async function onOnline(ctx: Ctx, machineId: string) {
         isNull(bots.deletedAt),
         isNull(groupBots.removedAt),
         isNull(groups.archivedAt),
-        ne(groupBots.workspaceState, 'ready'),
+        notInArray(groupBots.workspaceState, ['ready', 'unbound']),
       ),
     )
-  for (const { groupId, ...bot } of rows) await ensureWorkspace(ctx, groupId, bot, { joined: false })
+  for (const { groupId, cdPath, ...bot } of rows)
+    if (cdPath) await sendDefault(ctx, groupId, bot, cdPath, false)
+    else await ensureWorkspace(ctx, groupId, bot)
 }
 
 /** Wires daemon workspace reports and machine presence; handled in arrival order. Returns a drain-and-detach fn. */

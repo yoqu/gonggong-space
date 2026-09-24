@@ -5,12 +5,13 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, Input, Spinner, Textarea, toast } from '../../ui'
+import { DirPicker } from '../workspaces/DirPicker'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
 
 interface Props {
   me: UserDto
   onClose: () => void
-  onCreated: (bot: BotDto) => void
+  onCreated?: (bot: BotDto) => void
 }
 
 interface Draft {
@@ -20,13 +21,15 @@ interface Draft {
   name: string
   touched: boolean
   prompt: string
+  /** Default workspace; only the owner may browse their own online machine (plan W1). */
+  workspace: string | null
 }
 
 const TONE = {
-  pending: { icon: Clock, color: '#8E8E93' },
-  warn: { icon: TriangleAlert, color: '#FF9F0A' },
-  ok: { icon: CircleCheck, color: '#32D74B' },
-  confirm: { icon: UserCheck, color: '#0A84FF' },
+  pending: { icon: Clock, color: 'var(--color-text-tertiary)' },
+  warn: { icon: TriangleAlert, color: 'var(--color-brand-warm)' },
+  ok: { icon: CircleCheck, color: 'var(--color-success)' },
+  confirm: { icon: UserCheck, color: 'var(--color-selection-blue)' },
 }
 
 const autoName = (owner: BotOwnerDto, agent: AgentKind) => `${owner.name}的 ${AGENT_LABEL[agent]}`
@@ -41,6 +44,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     name: autoName(owner, agent),
     touched: false,
     prompt,
+    workspace: null,
   }
 }
 
@@ -75,6 +79,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
+  const [picking, setPicking] = useState(false)
   const live = useWorkspace((s) => s.machines)
   const nameId = useId()
   const promptId = useId()
@@ -150,8 +155,12 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         machineId: m?.id ?? null,
         systemPrompt: draft.prompt,
       })
+      if (draft.workspace)
+        await botsApi
+          .setDefaultWorkspace(bot.id, draft.workspace)
+          .catch((e: Error) => toast({ type: 'error', message: `默认工作区未设置：${e.message}` }))
       toast({ type: 'success', message: `${bot.name} 已创建 · ${BINDING_LABEL[bot.binding]}` })
-      onCreated(bot)
+      onCreated?.(bot)
       onClose()
     } catch (e) {
       toast({ type: 'error', message: (e as Error).message })
@@ -198,7 +207,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 const agent = reportedAgent(x, draft.agent)
                   ? draft.agent
                   : (AGENTS.find((k) => reportedAgent(x, k)) ?? draft.agent)
-                set({ machineId: x.id, agent, ...named(agent) })
+                set({ machineId: x.id, agent, workspace: null, ...named(agent) })
               }}
             >
               <span className="newbot__radio" />
@@ -206,7 +215,10 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
               <span className="newbot__muted">{x.os}</span>
               <span className="spacer" />
               <span className="newbot__status">
-                <span className="dot dot--sm" style={{ background: x.online ? '#32D74B' : '#636366' }} />
+                <span
+                  className="dot dot--sm"
+                  style={{ background: x.online ? 'var(--color-success)' : 'var(--color-status-offline)' }}
+                />
                 {x.online ? '在线' : '离线'}
               </span>
             </button>
@@ -267,11 +279,38 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           />
         </section>
 
+        {self && m?.online ? (
+          <section className="newbot__field">
+            <span className="newbot__label">默认工作区 · 可选</span>
+            <div className="newbot__workspace">
+              <span className="newbot__mono newbot__path">{draft.workspace ?? '未设置，进群时再选择'}</span>
+              <Button size="xs" onClick={() => setPicking(true)}>
+                选择目录
+              </Button>
+            </div>
+            {picking ? (
+              <DirPicker
+                machineId={m.id}
+                title="默认工作区"
+                start={draft.workspace}
+                onPick={(workspace) => {
+                  set({ workspace })
+                  setPicking(false)
+                }}
+                onClose={() => setPicking(false)}
+              />
+            ) : null}
+          </section>
+        ) : null}
+
         <div
           className="newbot__result"
           style={
             tinted
-              ? { borderColor: `${result.tone.color}40`, background: `${result.tone.color}14` }
+              ? {
+                  borderColor: `color-mix(in srgb, ${result.tone.color} 25%, transparent)`,
+                  background: `color-mix(in srgb, ${result.tone.color} 8%, transparent)`,
+                }
               : undefined
           }
         >

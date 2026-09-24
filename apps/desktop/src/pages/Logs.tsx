@@ -13,9 +13,9 @@ const ICONS: Record<Check['kind'], LucideIcon> = {
 }
 
 const STATUS_COLOR: Record<CheckStatus, string> = {
-  ok: '#32D74B',
-  warn: '#FF9F0A',
-  error: '#FF453A',
+  ok: 'var(--color-success)',
+  warn: 'var(--color-warning)',
+  error: 'var(--color-danger)',
   skipped: 'var(--color-text-tertiary)',
 }
 

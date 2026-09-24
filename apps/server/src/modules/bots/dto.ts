@@ -73,6 +73,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       triggerList: bot.triggerList,
       concurrency: bot.concurrency,
       createdBy: bot.createdBy,
+      defaultWorkspace: bot.defaultWorkspace,
       agentVersion: agent?.version ?? null,
       agentMinVersion: agent?.minVersion ?? null,
       groupCount: groupCount.get(bot.id) ?? 0,

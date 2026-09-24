@@ -204,6 +204,21 @@ describe('machines', () => {
     expect(await box.next()).toMatchObject({ t: 'reject', reason: 'revoked' })
   })
 
+  it('refuses to revoke a machine that still has bots, then notifies the owner once revoked', async () => {
+    const { machine } = await t.seed.machine(owner.id)
+    const bot = await t.seed.bot({ ownerId: owner.id, machineId: machine.id })
+    const del = () =>
+      t.app.inject({ method: 'DELETE', url: `/api/machines/${machine.id}`, headers: { cookie } })
+    const blocked = await del()
+    expect(blocked.statusCode).toBe(409)
+    expect(blocked.json().message).toContain('1 个 bot')
+
+    await t.app.inject({ method: 'DELETE', url: `/api/bots/${bot.id}`, headers: { cookie } })
+    const got = events(owner.id)
+    expect((await del()).statusCode).toBe(204)
+    expect(got).toContainEqual({ t: 'machine.removed', machineId: machine.id })
+  })
+
   it('sysadmin can revoke any machine; unknown id is 404', async () => {
     const { machine } = await t.seed.machine(owner.id)
     const admin = await t.seed.user({ role: 'sysadmin' })

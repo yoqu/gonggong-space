@@ -169,7 +169,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
               <li key={a.kind} className="bind__agent">
                 <span
                   className="dot"
-                  style={{ background: a.available ? 'var(--color-success)' : '#636366' }}
+                  style={{ background: a.available ? 'var(--color-success)' : 'var(--color-status-offline)' }}
                 />
                 <span>{`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}</span>
               </li>

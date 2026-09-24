@@ -1,0 +1,9 @@
+/* Appearance group in the account menu; kept out of auth.css which is owned by another slice. */
+.account__label {
+  padding: 4px 8px 2px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.account__check {
+  margin-left: auto;
+}

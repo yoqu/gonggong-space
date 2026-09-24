@@ -50,6 +50,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentVersion: '2.1.4',
   agentMinVersion: '2.0.0',
   groupCount: 0,
+  defaultWorkspace: null,
   ...o,
 })
 
@@ -179,6 +180,27 @@ describe('新建 bot', () => {
     expect(screen.getAllByText('小王的 Claude').length).toBeGreaterThan(0)
   })
 
+  it('lets the owner pick a default workspace on their online machine and saves it after creating', async () => {
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
+    routes['POST /api/bots'] = () => bot({})
+    routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
+    routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/admin/bots', wang)
+    fireEvent.click(screen.getByRole('button', { name: '新建 bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录' }))
+    const picker = await screen.findByRole('dialog', { name: '默认工作区' })
+    await within(picker).findByText('没有子目录')
+    fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
+    expect(await within(dialog).findByText('/Users/w')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({
+        path: '/Users/w',
+      }),
+    )
+  })
+
   it('previews confirmation and pending_bind when an admin creates for others', async () => {
     routes['GET /api/bots/owners'] = owners
     renderAt('/admin/bots', admin)
@@ -216,6 +238,21 @@ describe('bot detail', () => {
         tier: 'full',
       }),
     )
+  })
+
+  it('shows the default workspace to its owner only, who can clear it', async () => {
+    routes['GET /api/bots'] = () => [bot({ defaultWorkspace: '/src/pay' })]
+    routes['PUT /api/bots/b1/default-workspace'] = () => bot({})
+    const { unmount } = renderAt('/admin/bots', admin)
+    const other = await screen.findByRole('complementary', { name: 'bot 详情' })
+    expect(within(other).queryByTestId('default-workspace')).toBeNull()
+    unmount()
+    renderAt('/admin/bots', wang)
+    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    expect(within(detail).getByTestId('default-workspace').textContent).toBe('/src/pay')
+    fireEvent.click(within(detail).getByRole('button', { name: '清除' }))
+    await waitFor(() => expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置'))
+    expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({ path: null })
   })
 
   it('warns when the bot waits for its owner', async () => {

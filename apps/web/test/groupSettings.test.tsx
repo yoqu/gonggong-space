@@ -56,6 +56,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentVersion: null,
   agentMinVersion: null,
   groupCount: 1,
+  defaultWorkspace: null,
   ...o,
 })
 const bots = [

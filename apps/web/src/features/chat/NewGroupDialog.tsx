@@ -13,7 +13,9 @@ import './chat.css'
 export type GroupKind = GroupDto['kind']
 
 const botState = (b: BotDto) =>
-  b.binding === 'bound' ? PRESENCE[b.presence] : { label: BINDING_LABEL[b.binding], color: '#FF9F0A' }
+  b.binding === 'bound'
+    ? PRESENCE[b.presence]
+    : { label: BINDING_LABEL[b.binding], color: 'var(--color-brand-warm)' }
 
 interface Draft extends RepoDraft {
   kind: GroupKind
@@ -91,8 +93,8 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
           <span className={cx('ng-foot', blocked && 'ng-foot--muted')}>
             {blocked ||
               (repo
-                ? `${d.bots.length} 个 bot 将 clone ${repoName}`
-                : `${d.bots.length} 个 bot 将获得托管空工作区`)}
+                ? `${d.bots.length} 个 bot 进群后绑定工作区，可托管克隆 ${repoName}`
+                : `${d.bots.length} 个 bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
           <Button variant="ghost" onClick={onClose}>
             关闭

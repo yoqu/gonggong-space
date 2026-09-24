@@ -5,7 +5,7 @@
   gap: 12px;
   padding: 12px;
   border-top: 1px solid var(--color-separator);
-  background: rgba(10, 132, 255, 0.05);
+  background: var(--color-bg-info);
 }
 .question__title {
   display: flex;
@@ -14,7 +14,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #409cff;
+  color: var(--color-brand-info);
 }
 .question__who {
   font-weight: 400;
@@ -50,9 +50,9 @@
   cursor: pointer;
 }
 .question__opt--on {
-  border-color: #0a84ff;
-  background: #0a84ff;
-  color: #fff;
+  border-color: var(--color-selection-blue);
+  background: var(--color-selection-blue);
+  color: var(--color-on-accent);
 }
 .question__opt:disabled {
   cursor: default;
@@ -62,10 +62,10 @@
 }
 .question__rec {
   font-size: 10px;
-  color: #409cff;
+  color: var(--color-brand-info);
 }
 .question__opt--on .question__rec {
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .question__free {
   font-size: 12px;
@@ -113,7 +113,7 @@
   padding: 6px 10px;
   border-bottom: 1px solid var(--color-separator);
   font-size: 11px;
-  color: #409cff;
+  color: var(--color-brand-info);
 }
 .append-banner__close {
   margin-left: auto;
