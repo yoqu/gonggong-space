@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Button, toast } from '../../ui'
+import { Button, Presence, toast } from '../../ui'
 import { DirPicker } from '../workspaces/DirPicker'
 
 /** Bots waiting for a workspace (plan W5): their owner binds one here; nobody else can, and they are not run meanwhile. */
@@ -44,31 +44,33 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
           </div>
         )
       })}
-      {picking?.machineId ? (
-        <DirPicker
-          machineId={picking.machineId}
-          title={`${picking.name} 的工作目录`}
-          start={picking.defaultWorkspace}
-          onPick={(path) => void bind(picking, path)}
-          onClose={() => setPicking(null)}
-          extra={
-            picking.defaultWorkspace || group.repo ? (
-              <div className="dirpick__choices">
-                {picking.defaultWorkspace ? (
-                  <Button size="sm" onClick={() => void bind(picking, picking.defaultWorkspace)}>
-                    使用默认工作区
-                  </Button>
-                ) : null}
-                {group.repo ? (
-                  <Button size="sm" onClick={() => void bind(picking, null)}>
-                    托管克隆群仓库
-                  </Button>
-                ) : null}
-              </div>
-            ) : null
-          }
-        />
-      ) : null}
+      <Presence>
+        {picking?.machineId ? (
+          <DirPicker
+            machineId={picking.machineId}
+            title={`${picking.name} 的工作目录`}
+            start={picking.defaultWorkspace}
+            onPick={(path) => void bind(picking, path)}
+            onClose={() => setPicking(null)}
+            extra={
+              picking.defaultWorkspace || group.repo ? (
+                <div className="dirpick__choices">
+                  {picking.defaultWorkspace ? (
+                    <Button size="sm" onClick={() => void bind(picking, picking.defaultWorkspace)}>
+                      使用默认工作区
+                    </Button>
+                  ) : null}
+                  {group.repo ? (
+                    <Button size="sm" onClick={() => void bind(picking, null)}>
+                      托管克隆群仓库
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null
+            }
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

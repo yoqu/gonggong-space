@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Button, Dialog, Drawer, Input, Select, Tabs, Toaster, toast, useToasts } from '../src/ui'
+import { Button, Dialog, Drawer, Input, Presence, Select, Tabs, Toaster, toast, useToasts } from '../src/ui'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -62,6 +62,42 @@ describe('Dialog focus management', () => {
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
     expect(onClose).toHaveBeenCalledOnce()
+  })
+})
+
+describe('Presence', () => {
+  function Host() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <Button onClick={() => setOpen(true)}>打开</Button>
+        <Presence>
+          {open ? (
+            <Dialog open title="确认" onClose={() => setOpen(false)}>
+              内容
+            </Dialog>
+          ) : null}
+        </Presence>
+      </>
+    )
+  }
+
+  it('keeps a conditionally rendered dialog mounted while it animates out, then removes it', () => {
+    render(<Host />)
+    fireEvent.click(screen.getByRole('button', { name: '打开' }))
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.closest('.ui-overlay')?.getAttribute('data-state')).toBe('closed')
+    fireEvent.animationEnd(dialog)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('reopens a dialog that is still animating out', () => {
+    render(<Host />)
+    fireEvent.click(screen.getByRole('button', { name: '打开' }))
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开' }))
+    expect(screen.getByRole('dialog').closest('.ui-overlay')?.getAttribute('data-state')).toBe('open')
   })
 })
 

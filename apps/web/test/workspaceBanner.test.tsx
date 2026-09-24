@@ -58,7 +58,7 @@ describe('workspace banner', () => {
         body: { path: '/Users/w/pay' },
       }),
     )
-    expect(screen.queryByText('选择此目录')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('选择此目录')).toBeNull())
   })
 
   it('offers the default workspace and the managed clone of the group repo', async () => {

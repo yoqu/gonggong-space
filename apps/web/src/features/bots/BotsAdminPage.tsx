@@ -6,7 +6,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, EmptyState, Select, Tabs, Textarea, Toolbar, toast } from '../../ui'
+import { Alert, Button, EmptyState, Presence, Select, Tabs, Textarea, Toolbar, toast } from '../../ui'
 import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
@@ -146,15 +146,17 @@ export function BotDetail({
             ) : null}
           </div>
           <span className="bots-detail__hint">进群时自动使用；群绑定了仓库时需与其 remote 一致</span>
-          {picking ? (
-            <DirPicker
-              machineId={bot.machineId}
-              title="默认工作区"
-              start={bot.defaultWorkspace}
-              onPick={(path) => void setDefault(path)}
-              onClose={() => setPicking(false)}
-            />
-          ) : null}
+          <Presence>
+            {picking ? (
+              <DirPicker
+                machineId={bot.machineId}
+                title="默认工作区"
+                start={bot.defaultWorkspace}
+                onPick={(path) => void setDefault(path)}
+                onClose={() => setPicking(false)}
+              />
+            ) : null}
+          </Presence>
         </div>
       ) : null}
 
@@ -271,7 +273,9 @@ export function BotDetail({
           </Button>
         </div>
       ) : null}
-      {deleting ? <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} /> : null}
+      <Presence>
+        {deleting ? <DeleteBotDialog bot={bot} onClose={() => setDeleting(false)} /> : null}
+      </Presence>
     </aside>
   )
 }
@@ -355,9 +359,11 @@ export function BotsAdminPage() {
           {selected ? <BotDetail key={selected.id} bot={selected} me={me} users={users} /> : null}
         </div>
       </div>
-      {creating ? (
-        <NewBotDialog me={me} onClose={() => setCreating(false)} onCreated={(b) => setSelectedId(b.id)} />
-      ) : null}
+      <Presence>
+        {creating ? (
+          <NewBotDialog me={me} onClose={() => setCreating(false)} onCreated={(b) => setSelectedId(b.id)} />
+        ) : null}
+      </Presence>
     </div>
   )
 }

@@ -28,6 +28,7 @@ import {
   Field,
   IconButton,
   Input,
+  Presence,
   Switch,
   Textarea,
   toast,
@@ -518,16 +519,18 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
           )
         })}
       <div className="gs-foot">移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。</div>
-      {removing ? (
-        <ConfirmRemove
-          title={`移出成员 ${removing.name}`}
-          desc="其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。"
-          onClose={() => setRemoving(null)}
-          onConfirm={() =>
-            removeWithToast(() => groupsApi.removeMember(group.id, removing.userId), removing.name)
-          }
-        />
-      ) : null}
+      <Presence>
+        {removing ? (
+          <ConfirmRemove
+            title={`移出成员 ${removing.name}`}
+            desc="其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。"
+            onClose={() => setRemoving(null)}
+            onConfirm={() =>
+              removeWithToast(() => groupsApi.removeMember(group.id, removing.userId), removing.name)
+            }
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }
@@ -615,14 +618,16 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         档位与触发范围由 Bot 主人在「Bot」页设置，对所有群生效；想少审批，可在桌面端「Bot →
         命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
       </div>
-      {removing ? (
-        <ConfirmRemove
-          title={`移出 Bot ${removing.name}`}
-          desc="移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。"
-          onClose={() => setRemoving(null)}
-          onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
-        />
-      ) : null}
+      <Presence>
+        {removing ? (
+          <ConfirmRemove
+            title={`移出 Bot ${removing.name}`}
+            desc="移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。"
+            onClose={() => setRemoving(null)}
+            onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

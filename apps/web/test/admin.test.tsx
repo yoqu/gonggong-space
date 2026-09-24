@@ -1,5 +1,5 @@
 import type { AdminUserDto, UserDto } from '@aiws/protocol'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -119,7 +119,7 @@ describe('admin console', () => {
       role: 'member',
       password: 'wanglei-init',
     })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('tells members they cannot manage accounts', async () => {

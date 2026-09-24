@@ -13,6 +13,7 @@ import {
   EmptyState,
   Field,
   Input,
+  Presence,
   Select,
   Spinner,
   toast,
@@ -136,27 +137,31 @@ export function UsersPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
-      {disabling ? (
-        <DisableDialog
-          user={disabling}
-          onClose={() => setDisabling(null)}
-          onDone={() => {
-            setDisabling(null)
-            void load()
-          }}
-        />
-      ) : null}
-      {editing ? (
-        <UserDialog
-          user={editing === 'new' ? null : editing}
-          self={editing !== 'new' && editing.id === me.id}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null)
-            void load()
-          }}
-        />
-      ) : null}
+      <Presence>
+        {disabling ? (
+          <DisableDialog
+            user={disabling}
+            onClose={() => setDisabling(null)}
+            onDone={() => {
+              setDisabling(null)
+              void load()
+            }}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {editing ? (
+          <UserDialog
+            user={editing === 'new' ? null : editing}
+            self={editing !== 'new' && editing.id === me.id}
+            onClose={() => setEditing(null)}
+            onSaved={() => {
+              setEditing(null)
+              void load()
+            }}
+          />
+        ) : null}
+      </Presence>
     </AdminPage>
   )
 }

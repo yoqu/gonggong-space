@@ -7,7 +7,7 @@ import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Badge, Button, EmptyState, IconButton, Spinner, useScrollEdge } from '../../ui'
+import { Badge, Button, EmptyState, IconButton, Presence, Spinner, useScrollEdge } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
@@ -225,20 +225,24 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           </>
         }
       />
-      {drawer ? (
-        <GroupDrawer
-          group={group}
-          initialView={drawer}
-          onClose={() => setDrawer(null)}
-          onSettings={(tab) => {
-            setDrawer(null)
-            setSettings(tab)
-          }}
-        />
-      ) : null}
-      {settings ? (
-        <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
-      ) : null}
+      <Presence>
+        {drawer ? (
+          <GroupDrawer
+            group={group}
+            initialView={drawer}
+            onClose={() => setDrawer(null)}
+            onSettings={(tab) => {
+              setDrawer(null)
+              setSettings(tab)
+            }}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {settings ? (
+          <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
+        ) : null}
+      </Presence>
       {group.notice ? (
         <div className="chat-notice" data-testid="group-notice">
           <Megaphone size={13} className="muted-icon" />

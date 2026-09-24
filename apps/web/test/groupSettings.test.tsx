@@ -366,7 +366,7 @@ describe('group settings drawer', () => {
     fireEvent.click(ok)
     expect(await screen.findByText('已移出 李建国')).toBeTruthy()
     expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(1)
-    expect(screen.queryByRole('dialog', { name: '移出成员 李建国' })).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '移出成员 李建国' })).toBeNull())
   })
 
   it('confirms removing a bot and reports success', async () => {

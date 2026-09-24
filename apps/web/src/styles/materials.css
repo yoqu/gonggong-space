@@ -2,6 +2,9 @@
    (toolbar, menus, dialogs, toasts). Levels via [data-glass]: clear | standard (default) | tinted. */
 :root {
   --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 72%, transparent);
+  /* Text-heavy panels over a dimming scrim (dialogs): translucency there only greys the fill,
+     so they stay near-opaque at every level to keep secondary text ≥ 4.5:1. */
+  --glass-fill-thick: color-mix(in srgb, var(--color-panel-elevated) 96%, transparent);
   --glass-filter: blur(24px) saturate(180%);
   --glass-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -21,6 +24,7 @@
 
 [data-glass="tinted"] {
   --glass-fill: var(--color-panel-elevated);
+  --glass-fill-thick: var(--color-panel-elevated);
   --glass-filter: none;
 }
 
@@ -28,6 +32,7 @@
   :root,
   [data-glass] {
     --glass-fill: var(--color-panel-elevated);
+    --glass-fill-thick: var(--color-panel-elevated);
     --glass-filter: none;
   }
 }
