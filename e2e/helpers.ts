@@ -153,17 +153,21 @@ export async function setDefaultWorkspace(api: Api, botId: string, path: string)
   await expect.poll(async () => (await put()).status(), { timeout: 60_000 }).toBe(200)
 }
 
+/** Logs the bootstrap admin into `api`, completing the forced first password change if still pending. */
+export async function adminSession(api: Api) {
+  const res = await api.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
+  if (res.ok()) return
+  await call(api, 'post', '/api/auth/login', { account: 'admin', password: 'admin-init-pass' })
+  await call(api, 'post', '/api/auth/password', {
+    oldPassword: 'admin-init-pass',
+    newPassword: 'admin-pass-2',
+  })
+}
+
 /** Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine. */
 export async function memberWithMachine(page: Page, account: string) {
   const admin = page.request
-  let res = await admin.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
-  if (!res.ok()) {
-    await call(admin, 'post', '/api/auth/login', { account: 'admin', password: 'admin-init-pass' })
-    await call(admin, 'post', '/api/auth/password', {
-      oldPassword: 'admin-init-pass',
-      newPassword: 'admin-pass-2',
-    })
-  }
+  await adminSession(admin)
   await call(admin, 'post', '/api/admin/users', {
     account,
     name: account,
@@ -171,7 +175,7 @@ export async function memberWithMachine(page: Page, account: string) {
     password: 'init-pass-1',
   })
   await call(admin, 'post', '/api/auth/logout')
-  res = await page.request.post('/api/auth/login', { data: { account, password: 'init-pass-1' } })
+  await page.request.post('/api/auth/login', { data: { account, password: 'init-pass-1' } })
   await call(page.request, 'post', '/api/auth/password', {
     oldPassword: 'init-pass-1',
     newPassword: 'member-pass',

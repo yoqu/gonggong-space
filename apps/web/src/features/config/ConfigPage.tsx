@@ -12,6 +12,7 @@ import {
   Field,
   IconButton,
   Input,
+  Presence,
   Switch,
   Tabs,
   Textarea,
@@ -244,16 +245,18 @@ export function ConfigPage() {
           )}
         </div>
       </div>
-      {adding && items ? (
-        <AddMcpDialog
-          taken={items.map((i) => i.config.name)}
-          onClose={() => setAdding(false)}
-          onAdd={(config) => {
-            edit([...items, { key: `new:${config.name}`, enabled: true, config, saved: null }])
-            setAdding(false)
-          }}
-        />
-      ) : null}
+      <Presence>
+        {adding && items ? (
+          <AddMcpDialog
+            taken={items.map((i) => i.config.name)}
+            onClose={() => setAdding(false)}
+            onAdd={(config) => {
+              edit([...items, { key: `new:${config.name}`, enabled: true, config, saved: null }])
+              setAdding(false)
+            }}
+          />
+        ) : null}
+      </Presence>
     </AdminPage>
   )
 }

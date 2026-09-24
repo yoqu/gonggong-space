@@ -1,7 +1,7 @@
 import type { MachineDto } from '@aiws/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Button, Dialog, Input, toast } from '../../ui'
+import { Button, Dialog, Input, Presence, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -109,16 +109,18 @@ export function MachineDialog({
           </dl>
         </div>
       </Dialog>
-      {revoking ? (
-        <RevokeMachineDialog
-          machine={machine}
-          onRevoked={() => {
-            onChanged?.()
-            onClose()
-          }}
-          onClose={() => setRevoking(false)}
-        />
-      ) : null}
+      <Presence>
+        {revoking ? (
+          <RevokeMachineDialog
+            machine={machine}
+            onRevoked={() => {
+              onChanged?.()
+              onClose()
+            }}
+            onClose={() => setRevoking(false)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

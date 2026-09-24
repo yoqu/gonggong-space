@@ -94,7 +94,7 @@ describe('账号与角色 · 停用 / 启用', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '停用' }))
     await waitFor(() => expect(within(rowOf('wanglei')).getByText('已停用')).toBeTruthy())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/users/u1/disable')).toBe(true)
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(within(rowOf('wanglei')).getByRole('button', { name: '启用' })).toBeTruthy()
   })
 
@@ -113,7 +113,7 @@ describe('账号与角色 · 停用 / 启用', () => {
     await waitFor(() => expect(within(rowOf('liuyang')).getByRole('button', { name: '停用' })).toBeTruthy())
     fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '停用' }))
     fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '关闭' }).at(-1)!)
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/admin/users/u3/enable'])
   })
 })

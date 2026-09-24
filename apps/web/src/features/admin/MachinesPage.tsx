@@ -2,7 +2,7 @@ import { type AdminMachineDto, PROTOCOL_VERSION } from '@aiws/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Spinner } from '../../ui'
+import { Alert, Presence, Spinner } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
@@ -139,15 +139,17 @@ export function MachinesPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
-      {open ? (
-        <MachineDialog
-          key={open.id}
-          machine={open}
-          ownerName={open.ownerName}
-          onChanged={() => void load()}
-          onClose={() => setOpenId(null)}
-        />
-      ) : null}
+      <Presence>
+        {open ? (
+          <MachineDialog
+            key={open.id}
+            machine={open}
+            ownerName={open.ownerName}
+            onChanged={() => void load()}
+            onClose={() => setOpenId(null)}
+          />
+        ) : null}
+      </Presence>
       {old.length ? (
         <Alert
           variant="warning"

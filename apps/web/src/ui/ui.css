@@ -741,9 +741,69 @@ input:checked + .ui-checkbox__box svg {
 .ui-empty__art {
   width: 160px;
   max-width: 100%;
-  height: auto;
   margin-bottom: 4px;
   animation: ui-float 6s ease-in-out infinite;
+}
+.ui-empty__art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.art-wash {
+  fill: color-mix(in srgb, var(--color-selection-blue) 8%, transparent);
+}
+.art-card {
+  fill: var(--color-panel-elevated);
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+.art-muted {
+  fill: var(--color-bg-muted);
+}
+.art-cutout {
+  stroke: var(--color-panel-elevated);
+  stroke-width: 2.5;
+  fill: color-mix(in srgb, var(--color-text-quaternary) 35%, var(--color-panel-elevated));
+}
+.art-accent {
+  fill: var(--color-selection-blue);
+}
+.art-accent-soft {
+  fill: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-elevated));
+}
+.art-warn {
+  fill: var(--color-warning);
+}
+.art-ink {
+  fill: var(--color-on-accent);
+}
+.art-glyph {
+  font: 700 14px var(--font-sans, system-ui);
+}
+.art-stroke-accent,
+.art-stroke-muted {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 3;
+  stroke: var(--color-selection-blue);
+}
+.art-stroke-muted {
+  stroke: var(--color-border-strong);
+}
+.art-shackle {
+  stroke-width: 6;
+}
+.art-ripple {
+  fill: none;
+  stroke: var(--color-selection-blue);
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+.art-pointer {
+  fill: var(--color-text-primary);
+  stroke: var(--color-panel-elevated);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 @keyframes ui-float {
   50% {
@@ -810,8 +870,7 @@ input:checked + .ui-checkbox__box svg {
   overflow: hidden;
   border-radius: var(--radius-dialog);
   border: 1px solid var(--color-border-control);
-  /* Over the dimmed scrim a translucent fill turns grey: dialogs use the near-opaque regular material. */
-  background: color-mix(in srgb, var(--color-panel-elevated) 94%, var(--glass-fill));
+  background: var(--glass-fill-thick);
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
   box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-modal);

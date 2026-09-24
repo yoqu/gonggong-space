@@ -2,7 +2,7 @@ import { type MessageDto, RECALL_WINDOW_MS } from '@aiws/protocol'
 import { Copy, Ellipsis, Link, PanelRightOpen, Quote, Trash2, Undo2 } from 'lucide-react'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
-import { Button, Dialog, toast, useEscape, usePresence } from '../../ui'
+import { Button, Dialog, Presence, toast, useEscape, usePresence } from '../../ui'
 import { ReactionPicker } from '../reactions'
 import { applyWithdrawn } from './useTimeline'
 import './recall.css'
@@ -245,7 +245,9 @@ export function MessageActions({
           ) : null}
         </div>
       ) : null}
-      {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
+      <Presence>
+        {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
+      </Presence>
     </div>
   )
 }

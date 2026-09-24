@@ -17,7 +17,7 @@ import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { Button, EmptyState, Spinner, toast } from '../ui'
+import { Button, EmptyState, Presence, Spinner, toast } from '../ui'
 import { ChatLayout } from './ChatLayout'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
@@ -183,11 +183,17 @@ export function ChatPage() {
           </div>
         )}
       </ChatLayout>
-      {creating && me ? <NewGroupDialog me={me} kind={creating} onClose={() => setCreating(null)} /> : null}
+      <Presence>
+        {creating && me ? <NewGroupDialog me={me} kind={creating} onClose={() => setCreating(null)} /> : null}
+      </Presence>
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
-      {newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}
-      {openBot && me ? <BotDialog bot={openBot} me={me} onClose={() => setOpenBotId(null)} /> : null}
-      {openMachine ? <MachineDialog machine={openMachine} onClose={() => setMachineId(null)} /> : null}
+      <Presence>{newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}</Presence>
+      <Presence>
+        {openBot && me ? <BotDialog bot={openBot} me={me} onClose={() => setOpenBotId(null)} /> : null}
+      </Presence>
+      <Presence>
+        {openMachine ? <MachineDialog machine={openMachine} onClose={() => setMachineId(null)} /> : null}
+      </Presence>
     </>
   )
 }

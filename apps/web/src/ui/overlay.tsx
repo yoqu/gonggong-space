@@ -1,4 +1,4 @@
-import { type ReactNode, type RefObject, useEffect, useId, useRef } from 'react'
+import { createContext, type ReactNode, type RefObject, useContext, useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseButton } from './controls'
 import { usePresence } from './presence'
@@ -75,6 +75,20 @@ function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean) {
   }, [open, ref])
 }
 
+const PresenceOpen = createContext(true)
+
+/**
+ * Wraps a conditionally rendered overlay (`{cond ? <XDialog open … /> : null}`) so that, when the
+ * condition clears, the last element stays mounted as closed and can play its exit animation.
+ */
+export function Presence({ children }: { children: ReactNode }) {
+  const shown = children != null && children !== false
+  const last = useRef(children)
+  if (shown) last.current = children
+  const { mounted } = usePresence(shown)
+  return mounted ? <PresenceOpen.Provider value={shown}>{last.current}</PresenceOpen.Provider> : null
+}
+
 interface OverlayProps {
   open: boolean
   title: ReactNode
@@ -96,9 +110,11 @@ export function Dialog({
 }: OverlayProps & { subtitle?: ReactNode; footer?: ReactNode; width?: number }) {
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
-  const presence = usePresence(open)
-  useEscape(onClose, open)
-  useFocusTrap(ref, open)
+  const shown = useContext(PresenceOpen)
+  const visible = open && shown
+  const presence = usePresence(visible)
+  useEscape(onClose, visible)
+  useFocusTrap(ref, visible)
   if (!presence.mounted) return null
   return createPortal(
     <div className="ui-overlay" data-state={presence.state}>
@@ -148,9 +164,11 @@ export function Drawer({
 }) {
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
-  const presence = usePresence(open)
-  useEscape(onClose, open)
-  useFocusTrap(ref, open)
+  const shown = useContext(PresenceOpen)
+  const visible = open && shown
+  const presence = usePresence(visible)
+  useEscape(onClose, visible)
+  useFocusTrap(ref, visible)
   if (!presence.mounted) return null
   return createPortal(
     <>

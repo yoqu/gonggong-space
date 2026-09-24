@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Dialog, Input, Spinner, Textarea, toast } from '../../ui'
+import { Button, Dialog, Input, Presence, Spinner, Textarea, toast } from '../../ui'
 import { DirPicker } from '../workspaces/DirPicker'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
 
@@ -288,18 +288,20 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 选择目录
               </Button>
             </div>
-            {picking ? (
-              <DirPicker
-                machineId={m.id}
-                title="默认工作区"
-                start={draft.workspace}
-                onPick={(workspace) => {
-                  set({ workspace })
-                  setPicking(false)
-                }}
-                onClose={() => setPicking(false)}
-              />
-            ) : null}
+            <Presence>
+              {picking ? (
+                <DirPicker
+                  machineId={m.id}
+                  title="默认工作区"
+                  start={draft.workspace}
+                  onPick={(workspace) => {
+                    set({ workspace })
+                    setPicking(false)
+                  }}
+                  onClose={() => setPicking(false)}
+                />
+              ) : null}
+            </Presence>
           </section>
         ) : null}
 

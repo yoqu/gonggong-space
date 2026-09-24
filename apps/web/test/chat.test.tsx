@@ -337,7 +337,7 @@ describe('my machines and bots', () => {
     const confirm = await screen.findByRole('dialog', { name: /吊销机器 old-box/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '吊销' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
   })
 

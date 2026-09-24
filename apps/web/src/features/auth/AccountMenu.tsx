@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
-import { useEscape, usePresence } from '../../ui'
+import { Presence, useEscape, usePresence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { UsageDialog } from '../usage/UsagePage'
 import { logout } from './logout'
@@ -147,7 +147,7 @@ export function AccountMenu() {
         </>
       ) : null}
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
-      {usage ? <UsageDialog onClose={() => setUsage(false)} /> : null}
+      <Presence>{usage ? <UsageDialog onClose={() => setUsage(false)} /> : null}</Presence>
     </div>
   )
 }
