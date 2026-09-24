@@ -27,6 +27,7 @@ import {
 import { memo, useEffect, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Badge, type BadgeVariant } from '../../ui'
+import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
@@ -279,7 +280,8 @@ export const RunCard = memo(function RunCard({
   /** My 运行卡片默认折叠 pref (the reply stays visible); cards awaiting my decision always stay open. */
   foldable?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
+  /** null until the user toggles, so the fold animation never plays on first render. */
+  const [expanded, setExpanded] = useState<boolean | null>(null)
   const live = LIVE.includes(run.status)
   const now = useNow(live && !!run.startedAt)
   const selected = useRunRail((s) => s.runId === run.id)
@@ -294,6 +296,7 @@ export const RunCard = memo(function RunCard({
   const sessionNote = newSessionNote(run.newSessionReason)
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
+  const body = usePresence(!folded, { timeout: 700 })
   const actions = (
     <div className="run-card__actions">
       <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
@@ -349,6 +352,7 @@ export const RunCard = memo(function RunCard({
             type="button"
             className="run-card__fold"
             aria-label={folded ? '展开' : '收起'}
+            aria-expanded={!folded}
             title={folded ? '展开' : '收起'}
             onClick={() => setExpanded(folded)}
           >
@@ -356,43 +360,50 @@ export const RunCard = memo(function RunCard({
           </button>
         ) : null}
       </div>
-      {folded ? null : (
-        <>
-          {step ? (
-            <div className="run-card__step">
-              <StepIcon size={12} className={run.status === 'running' ? 'run-card__spin' : undefined} />
-              <span>{step}</span>
-            </div>
-          ) : null}
-          {started !== null ? (
-            <div className="run-card__meta">
-              <span>改动 {run.filesChanged} 个文件</span>
-              <span>·</span>
-              <span>{fmtDuration((run.endedAt ? Date.parse(run.endedAt) : now) - started)}</span>
-              <span>·</span>
-              <span>{fmtUsage(run.usage)}</span>
-            </div>
-          ) : null}
-          {sessionNote ? (
-            <div className="run-card__session">
-              <RefreshCw size={11} />
-              {sessionNote}
-            </div>
-          ) : null}
-          {/* Slice 2 (approvals) */}
-          <ApprovalBlock run={run} />
-          <QuestionBlock run={run} />
-          {NoteIcon ? (
-            <div className="run-card__note">
-              <NoteIcon size={12} />
-              {run.status === 'offline_wait' ? <OfflineNote run={run} /> : <span>{run.step}</span>}
-            </div>
-          ) : null}
-          {/* Slice 4 (/stop leftovers) */}
-          <InterruptBlock run={run} />
-          {NoteIcon || reply ? null : actions}
-        </>
-      )}
+      {body.mounted ? (
+        <div
+          className="run-card__body"
+          data-state={expanded === null ? undefined : body.state}
+          inert={folded}
+          onAnimationEnd={body.onAnimationEnd}
+        >
+          <div>
+            {step ? (
+              <div className="run-card__step">
+                <StepIcon size={12} className={run.status === 'running' ? 'run-card__spin' : undefined} />
+                <span>{step}</span>
+              </div>
+            ) : null}
+            {started !== null ? (
+              <div className="run-card__meta">
+                <span>改动 {run.filesChanged} 个文件</span>
+                <span>·</span>
+                <span>{fmtDuration((run.endedAt ? Date.parse(run.endedAt) : now) - started)}</span>
+                <span>·</span>
+                <span>{fmtUsage(run.usage)}</span>
+              </div>
+            ) : null}
+            {sessionNote ? (
+              <div className="run-card__session">
+                <RefreshCw size={11} />
+                {sessionNote}
+              </div>
+            ) : null}
+            {/* Slice 2 (approvals) */}
+            <ApprovalBlock run={run} />
+            <QuestionBlock run={run} />
+            {NoteIcon ? (
+              <div className="run-card__note">
+                <NoteIcon size={12} />
+                {run.status === 'offline_wait' ? <OfflineNote run={run} /> : <span>{run.step}</span>}
+              </div>
+            ) : null}
+            {/* Slice 4 (/stop leftovers) */}
+            <InterruptBlock run={run} />
+            {NoteIcon || reply ? null : actions}
+          </div>
+        </div>
+      ) : null}
       {reply ? (
         <div className="run-card__reply" data-testid="bot-reply">
           <Markdown text={reply.body} />

@@ -283,7 +283,14 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                       <span>{dayLabel(m.createdAt)}</span>
                     </div>
                   )}
-                  <div data-msg-id={m.id} className={cx('tl-item', flash === m.id && 'tl-item--flash')}>
+                  <div
+                    data-msg-id={m.id}
+                    className={cx(
+                      'tl-item',
+                      tl.arrived.has(m.id) && 'tl-item--enter',
+                      flash === m.id && 'tl-item--flash',
+                    )}
+                  >
                     {renderMessage(m)}
                   </div>
                   {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}

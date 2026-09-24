@@ -462,6 +462,28 @@ describe('chat view', () => {
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1未提交托管')
   })
 
+  it('plays the enter animation only for messages that arrive after the first load', async () => {
+    mockApi(baseRoutes([group()]))
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    await within(main).findByText('王磊 创建了群 · 成为群管理员')
+    const entering = () => main.querySelectorAll('.tl-item--enter')
+    expect(entering()).toHaveLength(0)
+
+    push({ t: 'run.delta', runId: 'r1', text: '流式输出' })
+    push({ t: 'message.new', message: timeline.messages[1]! })
+    expect(entering()).toHaveLength(0)
+
+    push({ t: 'message.new', message: msg({ seq: 9, authorId: 'u2', authorName: '李建国', body: '收到' }) })
+    const item = within(main).getByText('收到').closest('.tl-item')
+    expect(item?.classList.contains('tl-item--enter')).toBe(true)
+    expect(entering()).toHaveLength(1)
+
+    push({ t: 'message.new', message: msg({ seq: 9, authorId: 'u2', authorName: '李建国', body: '收到了' }) })
+    expect(within(main).getByText('收到了').closest('.tl-item')).toBe(item)
+    expect(entering()).toHaveLength(1)
+  })
+
   it('marks human fan-out and shows relay hops as triggered by the bot', async () => {
     mockApi({
       ...baseRoutes([group()]),

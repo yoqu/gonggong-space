@@ -514,7 +514,22 @@ describe('run cards folded by default', () => {
     expect(cards).toHaveLength(2)
     expect(within(cards[0]!).queryByText('查看过程')).toBeNull()
     expect(within(cards[1]!).getByText('查看过程')).toBeTruthy()
-    fireEvent.click(within(cards[0]!).getByRole('button', { name: '展开' }))
+    const toggle = within(cards[0]!).getByRole('button', { name: '展开' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(toggle)
     expect(within(cards[0]!).getByText('查看过程')).toBeTruthy()
+    const body = cards[0]!.querySelector('.run-card__body') as HTMLElement
+    expect(body.dataset.state).toBe('open')
+    expect(body.hasAttribute('inert')).toBe(false)
+    expect(cards[1]!.querySelector('.run-card__body')?.hasAttribute('data-state')).toBe(false)
+
+    fireEvent.click(within(cards[0]!).getByRole('button', { name: '收起' }))
+    expect(within(cards[0]!).getByRole('button', { name: '展开' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    )
+    expect(body.dataset.state).toBe('closed')
+    expect(body.hasAttribute('inert')).toBe(true)
+    fireEvent.animationEnd(body)
+    expect(within(cards[0]!).queryByText('查看过程')).toBeNull()
   })
 })

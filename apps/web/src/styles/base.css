@@ -59,6 +59,12 @@ a:hover {
     animation: focus-ring-in 120ms ease-out;
   }
 }
+/* Theme switch (app/theme.ts setTheme) cross-fades the whole page. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
 /* Reduced motion: movement (springs, transforms) becomes instant; opacity/color fades and spinners stay. */
 @media (prefers-reduced-motion: reduce) {
   :root {

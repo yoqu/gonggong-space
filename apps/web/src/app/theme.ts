@@ -62,7 +62,11 @@ export const setTheme = (preference: ThemePreference): void => {
     // storage can be unavailable (private mode); the visual switch still applies
   }
   syncSystemListener(sanitized)
-  applyDataset(resolveTheme(sanitized))
+  const apply = () => applyDataset(resolveTheme(sanitized))
+  const reduced =
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (typeof document.startViewTransition === 'function' && !reduced) document.startViewTransition(apply)
+  else apply()
 }
 
 // Call once at startup (main.tsx) so a stored 'system' preference keeps following the OS.

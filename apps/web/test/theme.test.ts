@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getTheme, initTheme, resolveTheme, setTheme, THEME_STORAGE_KEY } from '../src/app/theme'
 
 type ChangeListener = (event: { matches: boolean }) => void
@@ -121,5 +121,33 @@ describe('invalid stored values', () => {
     expect(getTheme()).toBe('light')
     initTheme()
     expect(document.documentElement.dataset.theme).toBe('light')
+  })
+})
+
+describe('view transition', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'startViewTransition')
+  })
+
+  it('cross-fades through document.startViewTransition when available', () => {
+    const start = vi.fn((update: () => void) => update())
+    Object.assign(document, { startViewTransition: start })
+    setTheme('dark')
+    expect(start).toHaveBeenCalledOnce()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('skips the transition under reduced motion', () => {
+    systemDark = true // the stub answers every media query, including prefers-reduced-motion
+    const start = vi.fn()
+    Object.assign(document, { startViewTransition: start })
+    setTheme('dark')
+    expect(start).not.toHaveBeenCalled()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('applies synchronously without the API', () => {
+    setTheme('dark')
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })

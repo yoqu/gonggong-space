@@ -75,6 +75,13 @@
 .tl-item {
   border-radius: 10px;
 }
+/* Live arrivals only (useTimeline `arrived`); history and streaming updates never replay it. */
+.tl-item--enter {
+  --enter-y: 6px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
 .tl-item--flash {
   animation: tl-flash 2s ease-out;
 }
@@ -174,6 +181,33 @@
   border: 1px solid var(--color-separator);
   background: var(--color-panel-elevated);
   overflow: hidden;
+}
+/* Folding body: rows 0fr↔1fr + fade, only after the user toggles (data-state is unset before that). */
+.run-card__body {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.run-card__body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.run-card__body[data-state="open"] {
+  animation: var(--spring-smooth) run-card-expand;
+}
+.run-card__body[data-state="closed"] {
+  animation: var(--spring-smooth) run-card-collapse forwards;
+}
+@keyframes run-card-expand {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes run-card-collapse {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
 }
 .run-card__head {
   display: flex;

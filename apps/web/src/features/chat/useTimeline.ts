@@ -11,6 +11,8 @@ interface TimelineState {
   messages: MessageDto[]
   runs: Record<string, RunDto>
   deltas: Record<string, string>
+  /** Messages that arrived live after the first page; only these play the enter animation. */
+  arrived: ReadonlySet<string>
   hasMore: boolean
   loaded: boolean
   /** The first page failed; realtime events still apply once a retry succeeds. */
@@ -21,6 +23,7 @@ const EMPTY: TimelineState = {
   messages: [],
   runs: {},
   deltas: {},
+  arrived: new Set(),
   hasMore: false,
   loaded: false,
   failed: false,
@@ -31,6 +34,13 @@ const mergeMessages = (a: MessageDto[], b: MessageDto[]) => {
   for (const m of b) byId.set(m.id, m)
   return [...byId.values()].sort((x, y) => x.seq - y.seq)
 }
+
+/** Merges one message; a new one arriving after the first page is marked as arrived. */
+const addLive = (s: TimelineState, m: MessageDto): TimelineState => ({
+  ...s,
+  messages: mergeMessages(s.messages, [m]),
+  arrived: s.loaded && !s.messages.some((x) => x.id === m.id) ? new Set(s.arrived).add(m.id) : s.arrived,
+})
 
 const mergeRuns = (runs: Record<string, RunDto>, list: RunDto[]) => {
   const next = { ...runs }
@@ -74,8 +84,7 @@ export function useTimeline(groupId: string) {
       )
     void latest()
     const offEvents = realtime.subscribe((e) => {
-      if (e.t === 'message.new' && e.message.groupId === groupId)
-        setState((s) => ({ ...s, messages: mergeMessages(s.messages, [e.message]) }))
+      if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
       else if (e.t === 'run.updated' && e.run.groupId === groupId)
         setState((s) => ({ ...s, runs: mergeRuns(s.runs, [e.run]) }))
       else if (e.t === 'run.delta')
@@ -117,10 +126,7 @@ export function useTimeline(groupId: string) {
     }
   }, [state.hasMore, state.messages, fetchPage, applyPage])
 
-  const addMessage = useCallback(
-    (m: MessageDto) => setState((s) => ({ ...s, messages: mergeMessages(s.messages, [m]) })),
-    [],
-  )
+  const addMessage = useCallback((m: MessageDto) => setState((s) => addLive(s, m)), [])
 
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
