@@ -10,7 +10,7 @@
     "dev:web": "pnpm --filter @aiws/web dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
-    "test": "pnpm -r test && cargo test --workspace",
+    "test": "node --test tools/*.test.mjs && pnpm -r test && cargo test --workspace",
     "e2e": "playwright test -c e2e"
   },
   "devDependencies": {

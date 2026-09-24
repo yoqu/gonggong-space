@@ -31,6 +31,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+const SPRINGS = ['snappy', 'smooth', 'bouncy', 'interactive'] as const
+type Glass = 'clear' | 'standard' | 'tinted'
+
 /** Dev-only visual review of every design-system component. */
 export default function UiGallery() {
   const [tab, setTab] = useState<'process' | 'diff' | 'audit'>('process')
@@ -39,6 +42,9 @@ export default function UiGallery() {
   const [agent, setAgent] = useState<'claude' | 'codex'>('claude')
   const [dialog, setDialog] = useState(false)
   const [drawer, setDrawer] = useState(false)
+  const [moved, setMoved] = useState<Record<string, boolean>>({})
+  const [shown, setShown] = useState(true)
+  const [glass, setGlass] = useState<Glass>('standard')
 
   return (
     <div className="gallery">
@@ -186,6 +192,59 @@ export default function UiGallery() {
           Toast
         </Button>
         <Button onClick={() => toast({ type: 'error', message: '发送失败，请重试' })}>Toast 错误</Button>
+      </Section>
+
+      <Section title="动效">
+        <div className="gallery__col">
+          {SPRINGS.map((s) => (
+            <div key={s} className="gallery__motion">
+              <Button size="sm" onClick={() => setMoved((m) => ({ ...m, [s]: !m[s] }))}>
+                {s}
+              </Button>
+              <div className="gallery__track">
+                <div
+                  data-testid={`spring-${s}`}
+                  className="gallery__knob"
+                  data-on={moved[s] || undefined}
+                  style={{ transition: `transform var(--spring-${s})` }}
+                />
+              </div>
+            </div>
+          ))}
+          <div className="gallery__motion">
+            <Button size="sm" onClick={() => setShown(!shown)}>
+              fade
+            </Button>
+            <div className="gallery__track">
+              <div
+                className="gallery__knob"
+                style={{
+                  opacity: shown ? 1 : 0,
+                  transition: `opacity var(${shown ? '--fade-in' : '--fade-out'})`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="材质">
+        <div className="gallery__col">
+          <Tabs
+            value={glass}
+            onChange={setGlass}
+            items={[
+              { value: 'clear', label: '清透' },
+              { value: 'standard', label: '标准' },
+              { value: 'tinted', label: '着色' },
+            ]}
+          />
+          <div data-testid="glass-backdrop" className="gallery__backdrop" data-glass={glass}>
+            <div className="gallery__glass glass">
+              <div className="gallery__glass-inner concentric">同心圆角 · 工具栏、菜单、弹窗用玻璃</div>
+            </div>
+          </div>
+        </div>
       </Section>
 
       <Dialog

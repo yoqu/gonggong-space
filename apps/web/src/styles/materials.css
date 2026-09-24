@@ -1,0 +1,53 @@
+/* Liquid Glass (macOS 27): frosted fill + dark edge + top highlight, for functional layers only
+   (toolbar, menus, dialogs, toasts). Levels via [data-glass]: clear | standard (default) | tinted. */
+:root {
+  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 72%, transparent);
+  --glass-filter: blur(24px) saturate(180%);
+  --glass-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --scroll-edge-hard: linear-gradient(to bottom, var(--color-window-bg) 55%, transparent);
+}
+
+[data-theme="dark"] {
+  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 66%, transparent);
+  --glass-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.55);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-glass="clear"] {
+  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 42%, transparent);
+  --glass-filter: blur(12px) saturate(160%);
+}
+
+[data-glass="tinted"] {
+  --glass-fill: var(--color-panel-elevated);
+  --glass-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-glass] {
+    --glass-fill: var(--color-panel-elevated);
+    --glass-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root,
+  [data-glass] {
+    --glass-edge: inset 0 0 0 1px var(--color-border-strong);
+  }
+}
+
+.glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-edge), var(--glass-highlight);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--color-panel-elevated);
+  }
+}

@@ -711,6 +711,49 @@ section:first-child > .sidebar__head {
 .gallery__field {
   width: 240px;
 }
+.gallery__motion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gallery__motion > button {
+  width: 88px;
+}
+.gallery__track {
+  flex: 1;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-muted);
+}
+.gallery__knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-system-blue);
+}
+.gallery__knob[data-on] {
+  transform: translateX(200px);
+}
+.gallery__backdrop {
+  padding: 32px;
+  border-radius: var(--radius-2xl);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-system-blue) 0 18px,
+    var(--color-brand-warm) 18px 36px,
+    var(--color-success) 36px 54px
+  );
+}
+.gallery__glass {
+  --r-outer: 18px;
+  --pad: 8px;
+  padding: var(--pad);
+  border-radius: var(--r-outer);
+}
+.gallery__glass-inner {
+  padding: 16px;
+  background: var(--color-bg-muted);
+}
 
 @media (max-width: 767px) {
   .gallery {

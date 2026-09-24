@@ -48,14 +48,15 @@ a:hover {
   outline: 2px solid transparent;
   box-shadow: var(--shadow-focus);
 }
+/* Reduced motion: movement (springs, transforms) becomes instant; opacity/color fades and spinners stay. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
-    animation: none !important;
-    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
-    transition: none !important;
+  :root {
+    --spring-snappy: 0s linear;
+    --spring-smooth: 0s linear;
+    --spring-bouncy: 0s linear;
+    --spring-interactive: 0s linear;
+    --motion-base: 0s linear;
+    --duration-base: 0s;
   }
 }
 ::selection {

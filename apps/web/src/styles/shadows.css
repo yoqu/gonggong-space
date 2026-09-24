@@ -1,7 +1,6 @@
 /* Shadows — overlays only. Work-area panels carry NO shadow. DESIGN.md §6
    Light set in :root (reduced opacity); dark set keeps the original values. */
 :root {
-  --backdrop-blur: blur(12px); /* @kind other */
   --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.08);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.18);
   --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.14);
