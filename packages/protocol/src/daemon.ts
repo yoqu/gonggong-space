@@ -14,16 +14,39 @@ export const AgentInfo = z.object({
 })
 export type AgentInfo = z.infer<typeof AgentInfo>
 
+/** Host facts shown to the owner and sysadmin; any of them may be unavailable on a given OS. */
+export const SystemInfo = z.object({
+  osVersion: z.string().nullable(),
+  kernel: z.string().nullable(),
+  cpuModel: z.string().nullable(),
+  cpuCores: z.number().int().nullable(),
+  memoryBytes: z.number().nullable(),
+  macAddress: z.string().nullable(),
+})
+export type SystemInfo = z.infer<typeof SystemInfo>
+
 export const MachineInfo = z.object({
   name: z.string().min(1),
   os: z.enum(['macos', 'linux', 'windows']),
   arch: z.string(),
+  /**
+   * sha256 of the OS machine id (IOPlatformUUID / machine-id / MachineGuid): logging in again from the same host
+   * restores its machine instead of adding one. Null from daemons that predate it.
+   */
+  hardwareId: z.string().nullable().default(null),
+  system: SystemInfo.nullable().default(null),
 })
 export type MachineInfo = z.infer<typeof MachineInfo>
 
 // ── REST: POST /api/daemon/login (bind code → long-lived machine token) ──────
 export const DaemonLoginReq = z.object({ code: z.string(), machine: MachineInfo })
-export const DaemonLoginRes = z.object({ token: z.string(), machineId: z.string(), ownerName: z.string() })
+/** `restored`: this host was bound before, so its machine (and the bots on it) is reused. */
+export const DaemonLoginRes = z.object({
+  token: z.string(),
+  machineId: z.string(),
+  ownerName: z.string(),
+  restored: z.boolean(),
+})
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 
 // ── REST for the daemon / desktop app (machine token, `Authorization: Bearer`) ─

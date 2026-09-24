@@ -2,7 +2,20 @@
   "t": "hello",
   "protocol": 1,
   "daemonVersion": "0.1.0",
-  "machine": { "name": "wanglei-mbp", "os": "macos", "arch": "aarch64" },
+  "machine": {
+    "name": "wanglei-mbp",
+    "os": "macos",
+    "arch": "aarch64",
+    "hardwareId": "9f2c4e1a7b3d5f60e8a1c2b4d6f8091a3c5e7f9b1d3f5a7c9e0b2d4f6a8c0e1f",
+    "system": {
+      "osVersion": "macOS 15.2 Sequoia",
+      "kernel": "24.2.0",
+      "cpuModel": "Apple M3 Pro",
+      "cpuCores": 12,
+      "memoryBytes": 38654705664,
+      "macAddress": "a4:83:e7:12:34:56"
+    }
+  },
   "agents": [
     {
       "kind": "claude",
@@ -11,7 +24,13 @@
       "path": "/opt/homebrew/bin/claude",
       "minVersion": "2.0.0"
     },
-    { "kind": "codex", "available": false, "version": null, "path": null, "minVersion": "0.40.0" }
+    {
+      "kind": "codex",
+      "available": false,
+      "version": null,
+      "path": null,
+      "minVersion": "0.40.0"
+    }
   ],
   "token": "mt_abc123",
   "activeRuns": ["r1"]

@@ -26,6 +26,10 @@ const old: MachineDto = {
   agents: [],
   daemonVersion: '0.1.0',
   lastSeenAt: null,
+  hostname: 'old-box',
+  system: null,
+  boundAt: '2026-09-01T00:00:00Z',
+  createdAt: '2026-09-01T00:00:00Z',
 }
 const fresh: MachineDto = {
   ...old,
@@ -91,6 +95,18 @@ describe('bind machine dialog', () => {
     })
     expect(screen.getByText('Claude Code 2.1.4')).toBeTruthy()
     expect(screen.getByText('Codex 未安装')).toBeTruthy()
+  })
+
+  it('recognizes a known host logging in again as a restored machine', async () => {
+    api()
+    render(<BindMachineDialog open onClose={() => {}} />)
+    await screen.findByTestId('bind-code')
+    await act(async () => {})
+    emit({ ...old, online: false })
+    expect(screen.queryByText('绑定成功')).toBeNull()
+    emit({ ...old, boundAt: '2026-09-24T08:00:00Z' })
+    expect(screen.getByText('已恢复原有机器')).toBeTruthy()
+    expect(screen.getByText(/old-box/)).toBeTruthy()
   })
 
   it('offers a new code once the current one expires', async () => {

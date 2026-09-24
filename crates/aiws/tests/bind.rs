@@ -4,7 +4,13 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
 fn machine() -> MachineInfo {
-    MachineInfo { name: "wanglei-mbp".into(), os: "macos".into(), arch: "aarch64".into() }
+    MachineInfo {
+        name: "wanglei-mbp".into(),
+        os: "macos".into(),
+        arch: "aarch64".into(),
+        hardware_id: Some("hw-1".into()),
+        ..Default::default()
+    }
 }
 
 /// One-shot HTTP server: records the request, answers with `status` + JSON `body`.
@@ -44,8 +50,10 @@ async fn serve_once(status: &'static str, body: &'static str) -> (String, tokio:
 
 #[tokio::test]
 async fn login_exchanges_the_code_for_a_config() {
-    let (url, req) = serve_once("200 OK", r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊"}"#).await;
-    let cfg = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine(), None).await.unwrap();
+    let (url, req) =
+        serve_once("200 OK", r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","restored":true}"#).await;
+    let (cfg, restored) = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine(), None).await.unwrap();
+    assert!(restored);
     assert_eq!(cfg.server, url);
     assert_eq!(cfg.token, "mt_abc");
     assert_eq!(cfg.machine_id, "m1");
@@ -55,6 +63,23 @@ async fn login_exchanges_the_code_for_a_config() {
     let body: serde_json::Value = serde_json::from_str(req.split_once("\r\n\r\n").unwrap().1).unwrap();
     assert_eq!(body["code"], "K7QM-4X2P");
     assert_eq!(body["machine"]["name"], "wanglei-mbp");
+    assert_eq!(body["machine"]["hardwareId"], "hw-1");
+}
+
+#[tokio::test]
+async fn logout_voids_the_token_on_the_server() {
+    let (url, req) = serve_once("204 No Content", "").await;
+    let config = aiws::config::Config {
+        server: url,
+        token: "mt_abc".into(),
+        machine_id: "m1".into(),
+        owner_name: "王磊".into(),
+        cert_sha256: None,
+    };
+    bind::logout(&config).await.unwrap();
+    let req = req.await.unwrap();
+    assert!(req.starts_with("POST /api/daemon/logout "));
+    assert!(req.to_ascii_lowercase().contains("authorization: bearer mt_abc"), "{req}");
 }
 
 #[tokio::test]
@@ -87,4 +112,11 @@ fn machine_info_describes_this_host() {
     assert!(!m.name.is_empty() && !m.name.contains('.'));
     assert!(["macos", "linux", "windows"].contains(&m.os.as_str()));
     assert_eq!(m.arch, std::env::consts::ARCH);
+    let hw = m.hardware_id.expect("hardware id");
+    assert!(hw.len() == 64 && hw.chars().all(|c| c.is_ascii_hexdigit()), "{hw}");
+    assert_eq!(bind::machine_info().hardware_id.as_deref(), Some(hw.as_str()), "stable across calls");
+    let sys = m.system.expect("system info");
+    assert!(sys.memory_bytes.unwrap() > 0);
+    assert!(sys.cpu_cores.unwrap() > 0);
+    assert!(sys.os_version.is_some());
 }

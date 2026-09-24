@@ -60,15 +60,21 @@ export type AdminUserDto = z.infer<typeof AdminUserDto>
 // ── Machines ────────────────────────────────────────────────────────────────
 export const BindCodeDto = z.object({ code: z.string(), expiresAt: z.string() })
 export type BindCodeDto = z.infer<typeof BindCodeDto>
-export const MachineDto = MachineInfo.extend({
+/** `name` is the owner's label when set, else `hostname`. */
+export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
   id: z.string(),
   ownerId: z.string(),
+  hostname: z.string(),
+  boundAt: z.string(),
+  createdAt: z.string(),
   online: z.boolean(),
   agents: z.array(AgentInfo),
   daemonVersion: z.string().nullable(),
   lastSeenAt: z.string().nullable(),
 })
 export type MachineDto = z.infer<typeof MachineDto>
+/** PATCH /api/machines/:id; an empty name falls back to the hostname. */
+export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
 
 // ── Bots ────────────────────────────────────────────────────────────────────
 export const BotBinding = z.enum(['pending_bind', 'pending_confirm', 'bound'])

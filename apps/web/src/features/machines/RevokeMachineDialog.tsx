@@ -5,7 +5,15 @@ import { api } from '../../lib/api'
 import { Alert, Button, Dialog, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 
-export function RevokeMachineDialog({ machine, onClose }: { machine: MachineDto; onClose: () => void }) {
+export function RevokeMachineDialog({
+  machine,
+  onRevoked,
+  onClose,
+}: {
+  machine: MachineDto
+  onRevoked?: () => void
+  onClose: () => void
+}) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function revoke() {
@@ -14,7 +22,7 @@ export function RevokeMachineDialog({ machine, onClose }: { machine: MachineDto;
       await api.del(`/machines/${machine.id}`)
       useWorkspace.getState().applyEvent({ t: 'machine.removed', machineId: machine.id })
       toast({ type: 'success', message: `已吊销 ${machine.name}` })
-      onClose()
+      ;(onRevoked ?? onClose)()
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
@@ -39,7 +47,7 @@ export function RevokeMachineDialog({ machine, onClose }: { machine: MachineDto;
     >
       <ul className="ui-consequences">
         <li>该机器的 daemon 立即断开，需重新生成绑定码才能再次使用</li>
-        <li>本机工作区与备份保留在本地，不会被删除</li>
+        <li>daemon 会清理本机托管工作区；/cd 目录与备份保留</li>
       </ul>
       {error ? <Alert variant="error" description={error} /> : null}
     </Dialog>

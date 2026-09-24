@@ -1,5 +1,5 @@
 import { DaemonToServer, PROTOCOL_VERSION, type ServerToDaemon } from '@aiws/protocol'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
 import type { Ctx } from '../context.js'
@@ -73,12 +73,26 @@ export function daemonGateway(ctx: Ctx) {
             name: hello.machine.name,
             os: hello.machine.os,
             arch: hello.machine.arch,
+            system: hello.machine.system,
             agents: hello.agents,
             daemonVersion: hello.daemonVersion,
             protocol: hello.protocol,
             lastSeenAt: ctx.now(),
           })
           .where(eq(machines.id, machineId))
+        // Machines bound before hardware ids existed adopt theirs, so the next login from this host restores them.
+        const hw = hello.machine.hardwareId
+        if (hw && !row.machine.hardwareId)
+          await ctx.db
+            .update(machines)
+            .set({ hardwareId: hw })
+            .where(
+              and(
+                eq(machines.id, machineId),
+                isNull(machines.hardwareId),
+                sql`not exists (select 1 from ${machines} where ${machines.hardwareId} = ${hw})`,
+              ),
+            )
 
         const { offlineMisses } = await sysParams(ctx.db)
         const conn: DaemonConn = { send: (m) => send(ws, m), close: (c, r) => ws.close(c, r) }

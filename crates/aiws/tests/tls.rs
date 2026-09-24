@@ -63,7 +63,7 @@ async fn serve(reply: Reply) -> (String, String) {
 }
 
 fn machine() -> MachineInfo {
-    MachineInfo { name: "mbp".into(), os: "macos".into(), arch: "aarch64".into() }
+    MachineInfo { name: "mbp".into(), os: "macos".into(), arch: "aarch64".into(), ..Default::default() }
 }
 
 fn config(server: &str, pin: Option<&str>) -> Config {
@@ -76,12 +76,12 @@ fn config(server: &str, pin: Option<&str>) -> Config {
     }
 }
 
-const LOGIN: &str = r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊"}"#;
+const LOGIN: &str = r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","restored":false}"#;
 
 #[tokio::test]
 async fn login_trusts_the_first_certificate_and_records_it() {
     let (url, fp) = serve(Reply::Json(LOGIN)).await;
-    let cfg = bind::login(&url, "AAAA-AAAA", machine(), None).await.unwrap();
+    let (cfg, _) = bind::login(&url, "AAAA-AAAA", machine(), None).await.unwrap();
     assert_eq!(cfg.cert_sha256.as_deref(), Some(fp.as_str()));
     assert_eq!(cfg.token, "mt_abc");
 }
@@ -90,7 +90,7 @@ async fn login_trusts_the_first_certificate_and_records_it() {
 async fn login_with_a_fingerprint_accepts_only_that_certificate() {
     let (url, fp) = serve(Reply::Json(LOGIN)).await;
     let lower = format!("sha256:{}", fp.to_lowercase());
-    let cfg = bind::login(&url, "AAAA-AAAA", machine(), Some(&lower)).await.unwrap();
+    let (cfg, _) = bind::login(&url, "AAAA-AAAA", machine(), Some(&lower)).await.unwrap();
     assert_eq!(cfg.cert_sha256, Some(fp));
     let err = format!("{:#}", bind::login(&url, "AAAA-AAAA", machine(), Some(WRONG)).await.unwrap_err());
     assert!(err.contains("证书指纹不匹配"), "{err}");

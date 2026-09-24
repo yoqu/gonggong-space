@@ -169,9 +169,13 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Agents => configure::print_agents(&config::home())?,
         Cmd::Login { server, code, fingerprint } => {
             let machine = machine_info();
-            let config = aiws::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
+            let (config, restored) = aiws::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
             config.save()?;
-            println!("绑定成功：本机已归属 {}（{}）", config.owner_name, machine.name);
+            if restored {
+                println!("绑定成功：已恢复本机原有机器记录（{}），原有 bot 绑定保持不变", machine.name);
+            } else {
+                println!("绑定成功：本机已归属 {}（{}）", config.owner_name, machine.name);
+            }
             match (&config.cert_sha256, fingerprint) {
                 (Some(fp), None) => println!(
                     "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 aiws logout 并联系管理员"
@@ -181,8 +185,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Logout => {
+            if let Some(config) = Config::load()?
+                && let Err(e) = aiws::bind::logout(&config).await
+            {
+                eprintln!("未能通知服务器（{e:#}），本机凭据仍会删除；如需停用该机器请在 Web 端移除");
+            }
             Config::remove()?;
-            println!("已解除本机绑定");
+            println!("已退出登录；再次 aiws login 会恢复这台机器及其 bot");
         }
         Cmd::Status => match Config::load()? {
             Some(c) => println!("已绑定：{} · 归属 {} · 机器 {}", c.server, c.owner_name, c.machine_id),

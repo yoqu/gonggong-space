@@ -39,7 +39,7 @@ fn with_agents(port: u16, handler: Recorder, agents: watch::Receiver<Vec<AgentIn
             owner_name: "王磊".into(),
             cert_sha256: None,
         },
-        machine: MachineInfo { name: "m".into(), os: "macos".into(), arch: "aarch64".into() },
+        machine: MachineInfo { name: "m".into(), os: "macos".into(), arch: "aarch64".into(), ..Default::default() },
         agents,
         handler,
         max_backoff: Duration::from_millis(50),

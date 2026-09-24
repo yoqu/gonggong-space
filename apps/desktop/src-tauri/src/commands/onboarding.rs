@@ -8,7 +8,7 @@ use tauri::State;
 /// Step 1: exchanges the bind code for this machine's token, like `aiws login`.
 #[tauri::command]
 pub async fn login(server: String, code: String) -> Result<()> {
-    let config =
+    let (config, _) =
         aiws::bind::login(&server, &code, aiws::bind::machine_info(), None).await.map_err(|e| format!("{e:#}"))?;
     config.save().map_err(|e| e.to_string())
 }

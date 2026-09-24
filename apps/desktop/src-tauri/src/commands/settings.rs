@@ -33,7 +33,14 @@ pub fn set_launch_at_login(on: bool, app: AppHandle) -> Result<()> {
     if on { autostart.enable() } else { autostart.disable() }.map_err(|e| e.to_string())
 }
 
+/// Best effort: the local unbind proceeds even when the server can't be told.
 #[tauri::command]
-pub fn unbind(host: State<'_, Host>) {
+pub async fn unbind(host: State<'_, Host>) -> Result<()> {
+    if let Ok(Some(config)) = aiws::config::Config::load()
+        && let Err(e) = aiws::bind::logout(&config).await
+    {
+        tracing::warn!("logout not reported to the server: {e:#}");
+    }
     host.unbind();
+    Ok(())
 }

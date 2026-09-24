@@ -4,12 +4,12 @@ import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { Alert, Spinner } from '../../ui'
 import { errorText } from '../auth/AuthCard'
+import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
+import '../machines/machines.css'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
 
-const OS: Record<AdminMachineDto['os'], string> = { macos: 'macOS', linux: 'Linux', windows: 'Windows' }
-
-const outdated = (m: AdminMachineDto) => m.protocol !== null && m.protocol < PROTOCOL_VERSION
+const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION
 
 /** Machine events only reach their owner, so the list is also refreshed on a heartbeat-sized interval. */
 const POLL_MS = 15_000
@@ -37,9 +37,10 @@ function NetCell({ text, bad, at }: { text: string | null; bad: boolean; at: str
   )
 }
 
-/** 管理后台 · 机器与网络 (spec §8.5): network quality as last measured by each daemon (`aiws net` / 测量延迟与带宽). */
+/** 管理后台 · 机器: every machine plus the network quality last measured by each daemon (spec §8.5). */
 export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const params = useSystemParams()
   const load = useCallback(
@@ -69,9 +70,10 @@ export function MachinesPage() {
     }
   }, [load])
   const old = machines?.filter(outdated) ?? []
+  const open = machines?.find((m) => m.id === openId)
 
   return (
-    <AdminPage title="机器与网络" desc="每台机器的 daemon 版本、在线状态与网络质量记录。">
+    <AdminPage title="机器与网络" desc="所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。">
       {error ? <Alert variant="error" description={error} /> : null}
       {machines ? (
         <div className="admin-table">
@@ -81,6 +83,7 @@ export function MachinesPage() {
                 <th>主人</th>
                 <th>机器</th>
                 <th>系统</th>
+                <th>硬件</th>
                 <th>daemon</th>
                 <th>延迟</th>
                 <th>带宽</th>
@@ -92,21 +95,26 @@ export function MachinesPage() {
               {machines.map((m) => (
                 <tr key={m.id}>
                   <td>{m.ownerName}</td>
-                  <td className="admin-table__mono">{m.name}</td>
-                  <td>{OS[m.os]}</td>
+                  <td className="admin-table__mono" title={m.name === m.hostname ? undefined : m.hostname}>
+                    <button type="button" className="machine__open" onClick={() => setOpenId(m.id)}>
+                      {m.name}
+                    </button>
+                  </td>
+                  <td>{osText(m)}</td>
+                  <td>{hardwareText(m)}</td>
                   <td className={outdated(m) ? 'admin-table__mono admin-table__warn' : 'admin-table__mono'}>
                     {m.daemonVersion ? `v${m.daemonVersion}` : '—'}
                   </td>
                   <NetCell
-                    text={m.latencyMs === null ? null : `${m.latencyMs} ms`}
-                    bad={!!params && m.latencyMs !== null && m.latencyMs > params.forceSyncMaxLatencyMs}
+                    text={m.latencyMs == null ? null : `${m.latencyMs} ms`}
+                    bad={!!params && m.latencyMs != null && m.latencyMs > params.forceSyncMaxLatencyMs}
                     at={m.netMeasuredAt}
                   />
                   <NetCell
-                    text={m.bandwidthMbps === null ? null : `${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
+                    text={m.bandwidthMbps == null ? null : `${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
                     bad={
                       !!params &&
-                      m.bandwidthMbps !== null &&
+                      m.bandwidthMbps != null &&
                       m.bandwidthMbps < params.forceSyncMinBandwidthMbps
                     }
                     at={m.netMeasuredAt}
@@ -131,6 +139,15 @@ export function MachinesPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
+      {open ? (
+        <MachineDialog
+          key={open.id}
+          machine={open}
+          ownerName={open.ownerName}
+          onChanged={() => void load()}
+          onClose={() => setOpenId(null)}
+        />
+      ) : null}
       {old.length ? (
         <Alert
           variant="warning"

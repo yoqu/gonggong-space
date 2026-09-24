@@ -44,6 +44,10 @@ const machine = (id: string, online: boolean): MachineDto => ({
   agents: [],
   daemonVersion: '0.1.0',
   lastSeenAt: null,
+  hostname: id,
+  system: null,
+  boundAt: '2026-09-01T00:00:00Z',
+  createdAt: '2026-09-01T00:00:00Z',
 })
 
 class FakeSocket {

@@ -29,6 +29,10 @@ const mbp: MachineDto = {
   ],
   daemonVersion: '0.1.0',
   lastSeenAt: null,
+  hostname: 'wanglei-mbp',
+  system: null,
+  boundAt: '2026-09-01T00:00:00Z',
+  createdAt: '2026-09-01T00:00:00Z',
 }
 
 const bot = (o: Partial<BotDto>): BotDto => ({

@@ -1,4 +1,4 @@
-import type { AgentInfo, BotDto, MachineDto } from '@aiws/protocol'
+import type { AgentInfo, BotDto, MachineDto, SystemInfo } from '@aiws/protocol'
 import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
@@ -12,13 +12,17 @@ export const machineAgents = (m: MachineRow) => m.agents as AgentInfo[]
 export const machineDto = (ctx: Ctx, m: MachineRow): MachineDto => ({
   id: m.id,
   ownerId: m.ownerId,
-  name: m.name,
+  name: m.label ?? m.name,
+  hostname: m.name,
   os: m.os as MachineDto['os'],
   arch: m.arch,
+  system: m.system as SystemInfo | null,
   online: ctx.hub.isOnline(m.id),
   agents: machineAgents(m),
   daemonVersion: m.daemonVersion,
   lastSeenAt: m.lastSeenAt?.toISOString() ?? null,
+  boundAt: m.boundAt.toISOString(),
+  createdAt: m.createdAt.toISOString(),
 })
 
 function presence(ctx: Ctx, bot: BotRow, agent: AgentInfo | undefined, running: boolean): BotDto['presence'] {

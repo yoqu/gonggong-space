@@ -59,9 +59,15 @@ export const machines = pgTable('machines', {
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id),
+  /** Hostname as last reported by the daemon. */
   name: text('name').notNull(),
+  /** Owner-chosen display name; null shows the hostname. */
+  label: text('label'),
   os: text('os').notNull(),
   arch: text('arch').notNull(),
+  hardwareId: text('hardware_id').unique(),
+  /** SystemInfo as last reported by the daemon. */
+  system: jsonb('system'),
   tokenHash: text('token_hash').notNull().unique(),
   daemonVersion: text('daemon_version'),
   protocol: integer('protocol'),
@@ -72,6 +78,8 @@ export const machines = pgTable('machines', {
   latencyMs: integer('latency_ms'),
   bandwidthMbps: doublePrecision('bandwidth_mbps'),
   netMeasuredAt: ts('net_measured_at'),
+  /** Latest successful `aiws login`; differs from createdAt once the host was restored or transferred. */
+  boundAt: timestamp('bound_at', { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 })
 

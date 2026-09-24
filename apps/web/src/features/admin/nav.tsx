@@ -85,10 +85,10 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
     head: '观测',
     items: [
       {
-        path: 'net',
-        label: '机器与网络',
+        path: 'machines',
+        label: '机器',
         icon: Server,
-        desc: '每台 daemon 的版本、心跳与网络质量记录。',
+        desc: '所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。',
         sysadminOnly: true,
         element: <MachinesPage />,
       },

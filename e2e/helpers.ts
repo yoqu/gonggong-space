@@ -19,7 +19,7 @@ export function aiws(args: string[], env: Record<string, string> = {}) {
 /** An isolated "member machine": its own AIWS_HOME, running `aiws run` in the background. */
 export function machine(server = SERVER) {
   const home = mkdtempSync(join(tmpdir(), 'aiws-e2e-'))
-  const env = { AIWS_HOME: home, AIWS_LOG: 'info', CODEX_HOME: codexHome() }
+  const env = { AIWS_HOME: home, AIWS_MACHINE_ID: home, AIWS_LOG: 'info', CODEX_HOME: codexHome() }
   let proc: ChildProcess | undefined
   let exited: Promise<number | null> = Promise.resolve(null)
   return {

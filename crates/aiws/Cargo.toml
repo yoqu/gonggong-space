@@ -20,12 +20,14 @@ gethostname = "1.1.0"
 http-body-util = "0.1.5"
 hyper = { version = "1.11.1", features = ["server", "http1"] }
 hyper-util = { version = "0.1.20", features = ["tokio"] }
+machine-uid = "0.6.0"
 regex = "1.13.1"
 reqwest = { version = "0.13.5", features = ["json"] }
 rustls = { version = "0.23.45", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"
+sysinfo = { version = "0.39.6", default-features = false, features = ["system", "network"] }
 thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["full"] }
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }

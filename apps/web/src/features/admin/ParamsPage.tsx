@@ -9,14 +9,15 @@ import { AdminPage } from './AdminPage'
 type Key = keyof SystemParams
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
-export function useSystemParams() {
+export function useSystemParams(enabled = true) {
   const [params, setParams] = useState<SystemParams | null>(null)
   useEffect(() => {
+    if (!enabled) return
     api
       .get<SystemParams>('/admin/params')
       .then(setParams)
       .catch(() => {})
-  }, [])
+  }, [enabled])
   return params
 }
 

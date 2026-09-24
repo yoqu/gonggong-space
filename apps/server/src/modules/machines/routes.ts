@@ -5,11 +5,13 @@ import {
   type DaemonLoginRes,
   type DaemonToServer,
   type MachineDto,
+  UpdateMachineReq,
 } from '@aiws/protocol'
 import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
+import { requireMachine } from '../../daemon/auth.js'
 import { CLOSE } from '../../daemon/gateway.js'
 import { bindCodes, bots, machines, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
@@ -109,11 +111,35 @@ export function machineRoutes(ctx: Ctx) {
           .returning()
         if (!claimed) return null
         const [owner] = await tx.select({ name: users.name }).from(users).where(eq(users.id, claimed.userId))
-        const [machine] = await tx
-          .insert(machines)
-          .values({ ownerId: claimed.userId, ...body.machine, tokenHash: sha256(token), createdAt: now })
-          .returning()
-        return machine && owner && { machine, ownerName: owner.name }
+        const { hardwareId } = body.machine
+        const [prev] = hardwareId
+          ? await tx.select().from(machines).where(eq(machines.hardwareId, hardwareId)).for('update')
+          : []
+        if (prev && prev.ownerId !== claimed.userId && !prev.revokedAt) {
+          const [{ n } = { n: 0 }] = await tx
+            .select({ n: count() })
+            .from(bots)
+            .where(and(eq(bots.machineId, prev.id), isNull(bots.deletedAt)))
+          if (n) {
+            const [holder] = await tx
+              .select({ name: users.name })
+              .from(users)
+              .where(eq(users.id, prev.ownerId))
+            fail('conflict', `这台机器已归属 ${holder?.name}，其上还有 ${n} 个 bot，需先删除后才能转给你`)
+          }
+        }
+        const values = { ownerId: claimed.userId, ...body.machine, tokenHash: sha256(token), boundAt: now }
+        const [machine] = prev
+          ? await tx
+              .update(machines)
+              .set({ ...values, revokedAt: null, label: prev.ownerId === claimed.userId ? prev.label : null })
+              .where(eq(machines.id, prev.id))
+              .returning()
+          : await tx
+              .insert(machines)
+              .values({ ...values, createdAt: now })
+              .returning()
+        return machine && owner && { machine, ownerName: owner.name, prev }
       })
       if (!bound) {
         ipThrottle.fail(req.ip)
@@ -127,10 +153,32 @@ export function machineRoutes(ctx: Ctx) {
           return fail('code_locked', '绑定码已作废，请在 Web 端重新生成')
         return fail('code_expired', `绑定码${row.usedAt ? '已被使用' : '已过期'}，请在 Web 端重新生成`)
       }
-      const { machine, ownerName } = bound
+      const { machine, ownerName, prev } = bound
+      // A daemon still running on the old token must not keep serving; it reconnects and is told to log in.
+      if (prev) ctx.hub.kick(prev.id, CLOSE.replaced, 'rebound')
+      const transferred = prev && prev.ownerId !== machine.ownerId
+      if (transferred) {
+        if (!prev.revokedAt) ctx.bus.publish([prev.ownerId], { t: 'machine.removed', machineId: prev.id })
+        await audit(ctx, {
+          category: 'admin',
+          actorUserId: machine.ownerId,
+          action: 'machine.transfer',
+          detail: { machineId: machine.id, name: machine.name, fromOwnerId: prev.ownerId },
+        })
+      }
       await onMachineBound(ctx, machine)
       ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: machineDto(ctx, machine) })
-      return { token, machineId: machine.id, ownerName }
+      return { token, machineId: machine.id, ownerName, restored: !!prev && !transferred }
+    })
+
+    app.post('/api/daemon/logout', async (req, reply) => {
+      const m = await requireMachine(ctx, req)
+      await ctx.db
+        .update(machines)
+        .set({ tokenHash: sha256(newToken('void')) })
+        .where(eq(machines.id, m.id))
+      ctx.hub.kick(m.id, CLOSE.replaced, 'logged out')
+      return reply.status(204).send()
     })
 
     app.get('/api/machines', async (req): Promise<MachineDto[]> => {
@@ -143,6 +191,23 @@ export function machineRoutes(ctx: Ctx) {
         .where(and(isNull(machines.revokedAt), all ? undefined : eq(machines.ownerId, user.id)))
         .orderBy(asc(machines.createdAt))
       return rows.map((m) => machineDto(ctx, m))
+    })
+
+    app.patch<{ Params: { id: string } }>('/api/machines/:id', async (req): Promise<MachineDto> => {
+      const user = await requireUser(ctx, req)
+      const id = idParam(req.params.id, '机器')
+      const { name } = UpdateMachineReq.parse(req.body)
+      const [m] = await ctx.db
+        .select()
+        .from(machines)
+        .where(and(eq(machines.id, id), isNull(machines.revokedAt)))
+      if (!m) return fail('not_found', '机器不存在')
+      if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能修改自己的机器')
+      const label = name || null
+      await ctx.db.update(machines).set({ label }).where(eq(machines.id, id))
+      const dto = machineDto(ctx, { ...m, label })
+      ctx.bus.publish([m.ownerId], { t: 'machine.updated', machine: dto })
+      return dto
     })
 
     app.delete<{ Params: { id: string } }>('/api/machines/:id', async (req, reply) => {

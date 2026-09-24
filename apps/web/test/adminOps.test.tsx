@@ -192,11 +192,27 @@ describe('机器与网络', () => {
       daemonVersion: '0.9.3',
       protocol: 1,
       lastSeenAt: '2026-09-23T09:59:57Z',
+      hostname: 'wanglei-mbp',
+      system: null,
+      boundAt: '2026-09-01T00:00:00Z',
+      createdAt: '2026-09-01T00:00:00Z',
       ...o,
     })
     mockApi({
       'GET /admin/machines': [
-        m({ latencyMs: 38, bandwidthMbps: 87.46, netMeasuredAt: '2026-09-23T09:00:00Z' }),
+        m({
+          latencyMs: 38,
+          bandwidthMbps: 87.46,
+          netMeasuredAt: '2026-09-23T09:00:00Z',
+          system: {
+            osVersion: 'macOS 15.2 Sequoia',
+            kernel: '24.2.0',
+            cpuModel: 'Apple M3 Pro',
+            cpuCores: 12,
+            memoryBytes: 38654705664,
+            macAddress: 'a4:83:e7:12:34:56',
+          },
+        }),
         m({
           id: 'm2',
           ownerName: '周婷',
@@ -214,9 +230,9 @@ describe('机器与网络', () => {
       ],
       'GET /admin/params': PARAMS,
     })
-    renderAt('/admin/net')
+    renderAt('/admin/machines')
     expect(await screen.findByRole('heading', { name: '机器与网络' })).toBeTruthy()
-    for (const h of ['主人', '机器', '系统', 'daemon', '延迟', '带宽', '状态', '最后心跳'])
+    for (const h of ['主人', '机器', '系统', '硬件', 'daemon', '延迟', '带宽', '状态', '最后心跳'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
@@ -226,7 +242,8 @@ describe('机器与网络', () => {
     expect(cells('wanglei-mbp')).toEqual([
       '王磊',
       'wanglei-mbp',
-      'macOS',
+      'macOS 15.2 Sequoia',
+      'Apple M3 Pro · 12 核 · 36 GB',
       'v0.9.3',
       '38 ms',
       '87.5 Mbps',
@@ -237,6 +254,7 @@ describe('机器与网络', () => {
       '周婷',
       'zt-desktop',
       'Windows',
+      '—',
       'v0.8.7',
       '180 ms',
       '4.2 Mbps',
@@ -247,6 +265,7 @@ describe('机器与网络', () => {
       '王磊',
       'never-measured',
       'macOS',
+      '—',
       'v0.9.3',
       '—',
       '—',
@@ -297,6 +316,10 @@ describe('机器与网络 · 实时', () => {
       daemonVersion: '0.9.3',
       protocol: 1,
       lastSeenAt: null,
+      hostname: 'cc-mbp',
+      system: null,
+      boundAt: '2026-09-01T00:00:00Z',
+      createdAt: '2026-09-01T00:00:00Z',
     }
     let online = false
     const calls = mockApi({
@@ -306,7 +329,7 @@ describe('机器与网络 · 实时', () => {
       'GET /machines': [],
       'GET /notifications': [],
     })
-    renderAt('/admin/net')
+    renderAt('/admin/machines')
     await screen.findByRole('cell', { name: 'cc-mbp' })
     expect(within(rowOf('cc-mbp')).getByText('离线')).toBeTruthy()
     online = true

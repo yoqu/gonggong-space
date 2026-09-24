@@ -89,3 +89,50 @@
 .bind__link:hover {
   color: var(--color-system-blue-hover);
 }
+
+/* 机器详情 */
+.machine {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.machine__rename {
+  display: flex;
+  gap: 8px;
+}
+.machine__rename .ui-input {
+  flex: 1;
+  min-width: 0;
+}
+.machine__facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  font-size: 12px;
+}
+.machine__fact {
+  display: contents;
+}
+.machine__fact dt {
+  color: var(--color-text-tertiary);
+}
+.machine__fact dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  overflow-wrap: anywhere;
+}
+.machine__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--color-system-blue);
+  cursor: pointer;
+  text-align: left;
+}
+.machine__open:hover {
+  text-decoration: underline;
+}

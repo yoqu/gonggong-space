@@ -35,7 +35,8 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
   const [code, setCode] = useState<BindCodeDto | null>(null)
   const [error, setError] = useState('')
   const [bound, setBound] = useState<MachineDto | null>(null)
-  const known = useRef<Set<string> | null>(null)
+  /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
+  const known = useRef<Map<string, string> | null>(null)
   const now = useNow(open && !!code && !bound)
 
   const generate = useCallback(async () => {
@@ -53,14 +54,20 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
     setBound(null)
     known.current = null
     void api.get<MachineDto[]>('/machines').then((list) => {
-      known.current = new Set(list.map((m) => m.id))
+      known.current = new Map(list.map((m) => [m.id, m.boundAt]))
     })
     void generate()
     return realtime.subscribe((e) => {
       if (e.t !== 'machine.updated') return
       const m = e.machine
       setBound((prev) =>
-        prev ? (prev.id === m.id ? m : prev) : known.current?.has(m.id) === false ? m : null,
+        prev
+          ? prev.id === m.id
+            ? m
+            : prev
+          : known.current && known.current.get(m.id) !== m.boundAt
+            ? m
+            : null,
       )
     })
   }, [open, generate])
@@ -131,7 +138,8 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
               </div>
             </div>
             <p className="bind__note">
-              绑定后该机器归属于你，daemon 会上报机器名、系统与本机可用的 Claude Code / Codex。未安装 daemon？
+              绑定后该机器归属于你，daemon 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
+              Codex；同一台机器重新绑定会恢复原记录。未安装 daemon？
               <button
                 type="button"
                 className="bind__link"
@@ -154,12 +162,17 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
 }
 
 function BoundMachine({ machine }: { machine: MachineDto }) {
+  const restored = machine.boundAt !== machine.createdAt
   return (
     <>
       <Alert
         variant="success"
-        title="绑定成功"
-        description={`本机已归属你 · ${machine.name}（${OS_LABEL[machine.os]} · ${machine.arch}）`}
+        title={restored ? '已恢复原有机器' : '绑定成功'}
+        description={
+          restored
+            ? `${machine.name} 之前绑定过，已沿用原机器记录与其上的 bot（${OS_LABEL[machine.os]} · ${machine.arch}）`
+            : `本机已归属你 · ${machine.name}（${OS_LABEL[machine.os]} · ${machine.arch}）`
+        }
       />
       <div className="bind__cmd-wrap">
         <span className="bind__label">本机 agent</span>

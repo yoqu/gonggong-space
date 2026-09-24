@@ -73,11 +73,27 @@ pub struct AgentInfo {
     pub min_version: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    pub os_version: Option<String>,
+    pub kernel: Option<String>,
+    pub cpu_model: Option<String>,
+    pub cpu_cores: Option<u32>,
+    pub memory_bytes: Option<u64>,
+    pub mac_address: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MachineInfo {
     pub name: String,
     pub os: String,
     pub arch: String,
+    #[serde(default)]
+    pub hardware_id: Option<String>,
+    #[serde(default)]
+    pub system: Option<SystemInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -92,6 +108,8 @@ pub struct DaemonLoginRes {
     pub token: String,
     pub machine_id: String,
     pub owner_name: String,
+    #[serde(default)]
+    pub restored: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
