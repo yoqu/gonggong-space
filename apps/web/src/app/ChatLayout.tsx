@@ -1,7 +1,7 @@
 import { AtSign, ChevronLeft, Image, Paperclip, Slash } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
-import { Button, IconButton } from '../ui'
+import { Button, IconButton, Toolbar } from '../ui'
 import { MOBILE_MAX, RAIL_MIN, useViewportWidth } from './viewport'
 
 /** Rail open state: defaults to open on wide screens and resets whenever the 1100px breakpoint is crossed. */
@@ -56,15 +56,18 @@ export function ChatHeader({
   subtitle,
   actions,
   onBack,
+  scrolled,
 }: {
   title: ReactNode
   badge?: ReactNode
   subtitle?: ReactNode
   actions?: ReactNode
   onBack?: () => void
+  /** The timeline has scrolled under the header. */
+  scrolled: boolean
 }) {
   return (
-    <div className="chat-header">
+    <Toolbar className="chat-header" scrolled={scrolled}>
       {onBack ? (
         <button type="button" className="chat-header__back" aria-label="返回" onClick={onBack}>
           <ChevronLeft size={20} />
@@ -78,7 +81,7 @@ export function ChatHeader({
         {subtitle ? <div className="chat-header__sub">{subtitle}</div> : null}
       </div>
       {actions ? <div className="chat-header__actions">{actions}</div> : null}
-    </div>
+    </Toolbar>
   )
 }
 

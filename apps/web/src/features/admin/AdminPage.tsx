@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { EmptyState } from '../../ui'
+import { EmptyState, Toolbar } from '../../ui'
 import type { AdminItem } from './nav'
 
 /** Page frame of 管理后台.dc.html: title, subtitle, optional primary action, then content. */
@@ -16,14 +16,14 @@ export function AdminPage({
 }) {
   return (
     <div className="admin__page">
-      <div className="admin__page-head">
+      <Toolbar className="admin__page-head">
         <div className="admin__titles">
           <h1 className="admin__title">{title}</h1>
           <p className="admin__desc">{desc}</p>
         </div>
         <span className="spacer" />
         {actions}
-      </div>
+      </Toolbar>
       {children}
     </div>
   )

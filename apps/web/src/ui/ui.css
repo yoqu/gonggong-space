@@ -996,3 +996,32 @@ input:checked + .ui-checkbox__box svg {
 .ui-consequences li::before {
   content: "· ";
 }
+
+/* Unified toolbar (plan R3): no backing at rest; once content scrolls under it, glass + hard scroll edge + separator.
+   The sentinel sits at the top of the scroll container, which must be positioned. */
+.ui-toolbar-sentinel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.ui-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-shadow: inset 0 -1px 0 transparent;
+  transition:
+    color var(--fade-in),
+    box-shadow var(--fade-out);
+}
+.ui-toolbar[data-scrolled] {
+  background: var(--scroll-edge-hard), var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: inset 0 -1px 0 var(--color-separator);
+}
+:root[data-window-inactive] .ui-toolbar {
+  color: var(--color-text-secondary);
+}

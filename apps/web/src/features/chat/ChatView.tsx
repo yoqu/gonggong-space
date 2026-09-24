@@ -7,7 +7,7 @@ import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Badge, Button, EmptyState, IconButton, Spinner } from '../../ui'
+import { Badge, Button, EmptyState, IconButton, Spinner, useScrollEdge } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
@@ -32,6 +32,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const bots = useWorkspace((s) => s.bots)
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
   const box = useRef<HTMLDivElement>(null)
+  const [edge, scrolled] = useScrollEdge()
   const stick = useRef(true)
   const olderAnchor = useRef<{ id: string; height: number } | null>(null)
   const readSeq = useRef(0)
@@ -186,6 +187,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     <>
       <ChatHeader
         title={group.name}
+        scrolled={scrolled}
         badge={<Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>}
         subtitle={
           group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 bot 使用本机目录'
@@ -213,6 +215,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               <span className="chat-header__note">仅你和你的 bot</span>
             )}
             <IconButton
+              variant="glass"
               title="群设置"
               className={drawer ? 'is-active' : undefined}
               onClick={() => setDrawer(drawer ? null : 'main')}
@@ -245,6 +248,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       <GitBar group={group} />
       <WorkspaceBanner group={group} />
       <div className="timeline" ref={box} onScroll={onScroll}>
+        <div ref={edge} className="ui-toolbar-sentinel" aria-hidden="true" />
         <div className="timeline__inner">
           {tl.older === 'loading' ? (
             <div className="timeline__older" data-testid="older-loading">

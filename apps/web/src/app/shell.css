@@ -297,10 +297,33 @@ body {
   flex-direction: column;
 }
 .sidebar__scroll {
+  position: relative;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 8px;
+}
+/* Selection capsule (plan R4): one element slides to the current row; rows themselves stay transparent. */
+.sidebar__scroll::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: var(--capsule-h, 0);
+  transform: translateY(var(--capsule-y, 0));
+  border-radius: 8px;
+  background: var(--color-bg-accent-strong);
+  pointer-events: none;
+  transition:
+    transform var(--spring-interactive),
+    height var(--spring-interactive),
+    background-color var(--fade-in);
+}
+:root[data-window-inactive] .sidebar__scroll::before {
+  background: var(--color-bg-hover);
 }
 .sidebar__head {
   display: flex;
@@ -344,8 +367,18 @@ section:first-child > .sidebar__head {
   color: inherit;
   background: var(--color-panel-subtle);
 }
-.sidebar__item[aria-current="page"] {
-  background: var(--color-bg-hover);
+.sidebar__icon {
+  flex: none;
+  transition: filter var(--fade-in);
+}
+.sidebar__icon--group {
+  color: var(--color-system-blue);
+}
+.sidebar__icon--dm {
+  color: var(--color-brand-warm);
+}
+:root[data-window-inactive] .sidebar__icon {
+  filter: grayscale(1) opacity(0.6);
 }
 .sidebar__row {
   display: flex;
@@ -356,10 +389,12 @@ section:first-child > .sidebar__head {
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sidebar__item[aria-current="page"] .sidebar__name {
+  font-weight: 600;
 }
 .sidebar__unread {
   min-width: 16px;
@@ -533,7 +568,6 @@ section:first-child > .sidebar__head {
   align-items: center;
   gap: 10px;
   padding: 0 20px;
-  border-bottom: 1px solid var(--color-separator);
 }
 .chat-header__back {
   width: 32px;
@@ -614,6 +648,7 @@ section:first-child > .sidebar__head {
 
 /* Timeline & composer */
 .timeline {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
