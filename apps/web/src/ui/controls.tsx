@@ -7,6 +7,7 @@ import {
   type TextareaHTMLAttributes,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -45,8 +46,20 @@ export function Button({
   )
 }
 
-export function IconButton({ className, type = 'button', ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type={type} aria-label={rest.title} className={cx('ui-icon-btn', className)} {...rest} />
+export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** `glass`: toolbar button — glass capsule on hover, springy press (macOS 27 interactive glass). */
+  variant?: 'plain' | 'glass'
+}
+
+export function IconButton({ variant = 'plain', className, type = 'button', ...rest }: IconButtonProps) {
+  return (
+    <button
+      type={type}
+      aria-label={rest.title}
+      className={cx('ui-icon-btn', variant === 'glass' && 'ui-icon-btn--glass', className)}
+      {...rest}
+    />
+  )
 }
 
 export function CloseButton({ onClick, title = '关闭' }: { onClick?: () => void; title?: string }) {
@@ -85,6 +98,21 @@ export function Tabs<V extends string>({
 }) {
   const current = items.findIndex((it) => it.value === value)
   const focusable = current >= 0 ? current : nextEnabled(items, -1, 1)
+  const list = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = list.current
+    if (!el) return
+    const measure = () => {
+      const tab = current >= 0 ? (el.children[current] as HTMLElement | undefined) : undefined
+      el.style.setProperty('--indicator-x', `${tab?.offsetLeft ?? 0}px`)
+      el.style.setProperty('--indicator-w', `${tab?.offsetWidth ?? 0}px`)
+    }
+    measure()
+    // The inline-flex list resizes with its labels, and tabs mounted while hidden measure 0 until shown.
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [current])
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!step) return
@@ -97,7 +125,12 @@ export function Tabs<V extends string>({
     if (it) onChange(it.value)
   }
   return (
-    <div role="tablist" className={cx('ui-tabs', size === 'sm' && 'ui-tabs--sm')} onKeyDown={onKeyDown}>
+    <div
+      ref={list}
+      role="tablist"
+      className={cx('ui-tabs', size === 'sm' && 'ui-tabs--sm')}
+      onKeyDown={onKeyDown}
+    >
       {items.map((it, i) => (
         <button
           key={it.value}
@@ -154,7 +187,9 @@ export function Checkbox({ checked, onChange, label, disabled }: ToggleProps) {
           disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <span className="ui-checkbox__box">{checked ? <Check size={11} strokeWidth={3} /> : null}</span>
+        <span className="ui-checkbox__box">
+          <Check size={11} strokeWidth={3} aria-hidden="true" />
+        </span>
       </span>
       {label ? <span>{label}</span> : null}
     </label>
