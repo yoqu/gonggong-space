@@ -202,7 +202,7 @@ export function GroupDrawer({
       onClose={onClose}
       leading={
         view === 'main' ? null : (
-          <IconButton title="返回" onClick={() => setView('main')}>
+          <IconButton variant="glass" title="返回" onClick={() => setView('main')}>
             <ChevronLeft size={16} />
           </IconButton>
         )

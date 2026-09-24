@@ -109,6 +109,7 @@
   color: var(--color-text-primary);
 }
 .admin__main {
+  position: relative;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -124,6 +125,9 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
+  /* Bleeds to the page edges so the scroll-edge backing spans the width; net layout is unchanged. */
+  margin: -16px -32px -12px;
+  padding: 16px 32px 12px;
 }
 .admin__titles {
   display: flex;
@@ -168,6 +172,10 @@
   }
   .admin__page {
     padding: 16px;
+  }
+  .admin__page-head {
+    margin-inline: -16px;
+    padding-inline: 16px;
   }
 }
 

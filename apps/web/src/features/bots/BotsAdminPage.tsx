@@ -6,7 +6,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, EmptyState, Select, Tabs, Textarea, toast } from '../../ui'
+import { Alert, Button, EmptyState, Select, Tabs, Textarea, Toolbar, toast } from '../../ui'
 import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
@@ -298,7 +298,7 @@ export function BotsAdminPage() {
   return (
     <div className="bots-page">
       <div className="bots-page__inner">
-        <div className="bots-page__head">
+        <Toolbar className="bots-page__head">
           <div>
             <h1 className="bots-page__title">Bot</h1>
             <p className="bots-page__desc">
@@ -309,7 +309,7 @@ export function BotsAdminPage() {
           <Button variant="primary" onClick={() => setCreating(true)}>
             新建 Bot
           </Button>
-        </div>
+        </Toolbar>
 
         <div className="bots-page__body">
           <div className="bots-table">

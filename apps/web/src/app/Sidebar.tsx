@@ -1,6 +1,7 @@
 import type { BotDto, GroupDto, MachineDto } from '@aiws/protocol'
 import { BellOff, Check, ChevronRight, Hash, Pin, Plus, Trash2, User } from 'lucide-react'
-import { NavLink } from 'react-router'
+import { useLayoutEffect, useRef } from 'react'
+import { NavLink, useLocation } from 'react-router'
 import { botStateText, PRESENCE } from '../features/bots/model'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
 import { cx } from '../lib/cx'
@@ -43,7 +44,7 @@ function GroupRow({ g }: { g: GroupDto }) {
   return (
     <NavLink to={`/g/${g.id}`} className="sidebar__item" data-testid={`group-item-${g.id}`}>
       <span className="sidebar__row">
-        <Icon size={13} className="muted-icon" />
+        <Icon size={13} className={cx('sidebar__icon', `sidebar__icon--${g.kind}`)} />
         <span className="sidebar__name">{g.name}</span>
         {g.pinned ? <Pin size={11} className="muted-icon" data-testid="pinned" aria-label="已置顶" /> : null}
         {g.muted ? <BellOff size={11} className="muted-icon" aria-label="消息免打扰" /> : null}
@@ -106,6 +107,27 @@ function SetupGuide({
 /** Pinned first; otherwise the server's order (creation time). */
 const byPin = (list: GroupDto[]) => [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 
+/** Positions the selection capsule under the current conversation so it slides between rows. */
+function useSelectionCapsule(groups: GroupDto[]) {
+  const scroll = useRef<HTMLDivElement>(null)
+  const { pathname } = useLocation()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the route or the rows change
+  useLayoutEffect(() => {
+    const el = scroll.current
+    if (!el) return
+    const measure = () => {
+      const item = el.querySelector<HTMLElement>('.sidebar__item[aria-current="page"]')
+      el.style.setProperty('--capsule-y', `${item?.offsetTop ?? 0}px`)
+      el.style.setProperty('--capsule-h', `${item?.offsetHeight ?? 0}px`)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [pathname, groups])
+  return scroll
+}
+
 export function Sidebar({
   groups,
   bots,
@@ -119,6 +141,7 @@ export function Sidebar({
   onRevokeMachine,
   onConfirmBot,
 }: SidebarProps) {
+  const scroll = useSelectionCapsule(groups)
   const online = machines.filter((m) => m.online).length
   const empty = (text: string) => (loaded ? <div className="sidebar__empty">{text}</div> : null)
   const lists = [
@@ -139,7 +162,7 @@ export function Sidebar({
   ]
   return (
     <div className="sidebar">
-      <div className="sidebar__scroll">
+      <div ref={scroll} className="sidebar__scroll">
         {loaded && !(machines.length && bots.length) ? (
           <SetupGuide
             bound={machines.length > 0}

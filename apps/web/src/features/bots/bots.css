@@ -2,7 +2,6 @@
 .bots-page {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
 }
 .bots-page__inner {
   max-width: 1120px;
@@ -16,6 +15,8 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
+  margin: -16px -28px -12px;
+  padding: 16px 28px 12px;
 }
 .bots-page__title {
   margin: 0;
@@ -370,6 +371,10 @@
 @media (max-width: 767px) {
   .bots-page__inner {
     padding: 16px 12px 32px;
+  }
+  .bots-page__head {
+    margin: -12px;
+    padding: 12px;
   }
   .bots-table {
     overflow-x: auto;
