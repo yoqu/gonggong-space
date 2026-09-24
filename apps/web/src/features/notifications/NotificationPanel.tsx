@@ -8,13 +8,13 @@ import {
   ShieldAlert,
   WifiOff,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
-import { Badge, Spinner, toast, useEscape } from '../../ui'
+import { Badge, type PresenceState, Spinner, toast, useEscape, usePresence } from '../../ui'
 import { fmtTime } from '../chat/TimelineItems'
 import { enablePush, type PushState, pushState } from './push'
 import './notifications.css'
@@ -50,12 +50,27 @@ function PushAction() {
 }
 
 /** Top-bar notification popover (Web 对话.dc.html `notifs`). */
-export function NotificationPanel({ onClose }: { onClose: () => void }) {
+export function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const presence = usePresence(open)
+  return presence.mounted ? (
+    <Panel state={presence.state} onAnimationEnd={presence.onAnimationEnd} onClose={onClose} />
+  ) : null
+}
+
+function Panel({
+  state,
+  onAnimationEnd,
+  onClose,
+}: {
+  state: PresenceState
+  onAnimationEnd: (e: AnimationEvent) => void
+  onClose: () => void
+}) {
   const navigate = useNavigate()
   const [items, setItems] = useState<NotificationDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const count = useWorkspace((s) => s.notifCount)
-  useEscape(onClose)
+  useEscape(onClose, state === 'open')
 
   const load = useCallback(() => {
     setFailed(false)
@@ -99,8 +114,14 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="notif__backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="notif" role="dialog" aria-label="通知">
+      {state === 'open' ? <div className="notif__backdrop" onClick={onClose} aria-hidden="true" /> : null}
+      <div
+        className="notif ui-popover"
+        role="dialog"
+        aria-label="通知"
+        data-state={state}
+        onAnimationEnd={onAnimationEnd}
+      >
         <div className="notif__head">
           <span className="notif__title">通知</span>
           <span className="spacer" />

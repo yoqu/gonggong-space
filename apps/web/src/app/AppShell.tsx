@@ -133,7 +133,7 @@ export function AppShell() {
         <Outlet />
       </div>
       {mobile ? null : <StatusBar />}
-      {overlay === 'notif' ? <NotificationPanel onClose={close} /> : null}
+      <NotificationPanel open={overlay === 'notif'} onClose={close} />
       {overlay === 'search' ? <SearchOverlay onClose={close} /> : null}
       <Toaster />
     </div>

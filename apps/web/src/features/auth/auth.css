@@ -74,8 +74,7 @@
   padding: 6px;
   border-radius: 12px;
   border: 1px solid var(--color-separator);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-dropdown);
+  transform-origin: top right;
 }
 .account__who {
   display: flex;

@@ -1,6 +1,7 @@
 import { type ReactNode, type RefObject, useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseButton } from './controls'
+import { usePresence } from './presence'
 
 /** Open overlays; Escape only reaches the one opened last (highest `seq`, taken at render so parents precede children). */
 const escapeStack: { seq: number; close: () => void }[] = []
@@ -95,11 +96,12 @@ export function Dialog({
 }: OverlayProps & { subtitle?: ReactNode; footer?: ReactNode; width?: number }) {
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
+  const presence = usePresence(open)
   useEscape(onClose, open)
   useFocusTrap(ref, open)
-  if (!open) return null
+  if (!presence.mounted) return null
   return createPortal(
-    <div className="ui-overlay">
+    <div className="ui-overlay" data-state={presence.state}>
       <div
         className="ui-overlay__backdrop"
         data-testid="dialog-overlay"
@@ -114,6 +116,7 @@ export function Dialog({
         tabIndex={-1}
         className="ui-dialog"
         style={{ maxWidth: width }}
+        onAnimationEnd={presence.onAnimationEnd}
       >
         <div className="ui-dialog__header">
           <h2 id={titleId} className="ui-dialog__title">
@@ -145,12 +148,18 @@ export function Drawer({
 }) {
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
+  const presence = usePresence(open)
   useEscape(onClose, open)
   useFocusTrap(ref, open)
-  if (!open) return null
+  if (!presence.mounted) return null
   return createPortal(
     <>
-      <div className="ui-drawer-overlay" onClick={closeOnBackdrop ? onClose : undefined} aria-hidden="true" />
+      <div
+        className="ui-drawer-overlay"
+        data-state={presence.state}
+        onClick={closeOnBackdrop ? onClose : undefined}
+        aria-hidden="true"
+      />
       <div
         ref={ref}
         role="dialog"
@@ -159,6 +168,8 @@ export function Drawer({
         aria-labelledby={label ? undefined : titleId}
         tabIndex={-1}
         className="ui-drawer"
+        data-state={presence.state}
+        onAnimationEnd={presence.onAnimationEnd}
       >
         <div className="ui-drawer__header">
           {leading}
