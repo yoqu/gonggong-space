@@ -1,12 +1,12 @@
 import type { UserDto } from '@aiws/protocol'
-import { Bot, Check, Droplet, Layers, Link2, LogOut, Monitor, Moon, Palette, Sun } from 'lucide-react'
+import { BarChart3, Check, Droplet, Layers, Link2, LogOut, Monitor, Moon, Palette, Sun } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
 import { useEscape, usePresence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
+import { UsageDialog } from '../usage/UsagePage'
 import { logout } from './logout'
 import './auth.css'
 import './account-menu.css'
@@ -30,6 +30,7 @@ export function AccountMenu() {
   const user = useSession((s) => s.user)
   const [open, setOpen] = useState(false)
   const [binding, setBinding] = useState(false)
+  const [usage, setUsage] = useState(false)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
   const [glass, setGlassState] = useState<GlassPreference>(getGlass)
 
@@ -95,10 +96,17 @@ export function AccountMenu() {
               <Link2 size={13} />
               绑定新机器
             </button>
-            <Link to="/admin/bots" className="account__item" onClick={() => setOpen(false)}>
-              <Bot size={13} />
-              我的 bot 与用量
-            </Link>
+            <button
+              type="button"
+              className="account__item"
+              onClick={() => {
+                setOpen(false)
+                setUsage(true)
+              }}
+            >
+              <BarChart3 size={13} />
+              我的用量
+            </button>
             <div className="account__sep" />
             <div className="account__label">外观</div>
             {THEME_OPTIONS.map(({ value, label, Icon }) => (
@@ -139,6 +147,7 @@ export function AccountMenu() {
         </>
       ) : null}
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
+      {usage ? <UsageDialog onClose={() => setUsage(false)} /> : null}
     </div>
   )
 }

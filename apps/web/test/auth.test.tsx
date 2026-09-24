@@ -96,18 +96,31 @@ describe('forced password change', () => {
 })
 
 describe('account menu', () => {
-  it('shows who I am, links to binding and my bots, and logs out', async () => {
-    const calls = mockApi({ 'GET /me': me, 'POST /auth/logout': undefined })
+  it('shows who I am, binding and my usage without leaving the chat, and logs out', async () => {
+    const calls = mockApi({
+      'GET /me': me,
+      'POST /auth/logout': undefined,
+      'GET /usage?by=bot&days=30': [
+        { key: 'b1', name: '小王的 Claude', runs: 12, totalTokens: 98_000, unreported: 0 },
+      ],
+    })
     renderAt('/')
     fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
     const menu = screen.getByTestId('account-menu')
     expect(within(menu).getByText('王磊')).toBeTruthy()
     expect(within(menu).getByText('普通成员 · wanglei')).toBeTruthy()
     expect(within(menu).getByRole('button', { name: '绑定新机器' })).toBeTruthy()
-    expect(within(menu).getByRole('link', { name: '我的 bot 与用量' }).getAttribute('href')).toBe(
-      '/admin/bots',
-    )
-    fireEvent.click(within(menu).getByRole('button', { name: '退出登录' }))
+    expect(within(menu).queryAllByRole('link')).toEqual([])
+
+    fireEvent.click(within(menu).getByRole('button', { name: '我的用量' }))
+    const usage = await screen.findByRole('dialog', { name: '我的用量' })
+    expect(await within(usage).findByText('小王的 Claude')).toBeTruthy()
+    expect(within(usage).getByTestId('usage-row').textContent).toBe('小王的 Claude98k tokens12 轮')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '我的用量' })).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    fireEvent.click(within(screen.getByTestId('account-menu')).getByRole('button', { name: '退出登录' }))
     expect(await screen.findByTestId('login-page')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
   })

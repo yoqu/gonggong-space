@@ -450,22 +450,6 @@ section:first-child > .sidebar__head {
 .sidebar__bot-open:hover {
   background: var(--color-panel-subtle);
 }
-.sidebar__machine .sidebar__revoke {
-  visibility: hidden;
-}
-.sidebar__machine:hover .sidebar__revoke,
-.sidebar__revoke:focus-visible {
-  visibility: visible;
-}
-.sidebar__revoke:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-@media (hover: none) {
-  .sidebar__machine .sidebar__revoke {
-    visibility: visible;
-  }
-}
 .sidebar__bot-name {
   flex: 1 1 auto;
   min-width: 2em;

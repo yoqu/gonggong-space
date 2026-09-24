@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
-import { apiError, mockApi } from './mockApi'
+import { mockApi } from './mockApi'
 
 const admin: UserDto = {
   id: 'u0',
@@ -122,12 +122,13 @@ describe('admin console', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('tells members they cannot manage accounts', async () => {
+  it('keeps members out of the admin console', async () => {
     useSession.setState({ user: { ...admin, role: 'member' }, status: 'ready' })
-    mockApi({ 'GET /admin/users': () => apiError(403, 'forbidden', '仅系统管理员可操作') })
-    renderAt('/admin/users')
-    expect(await screen.findByText('仅系统管理员可管理账号与角色')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '新建账号' })).toBeNull()
+    mockApi({ 'GET /groups': [], 'GET /bots': [], 'GET /machines': [], 'GET /notifications': [] })
+    renderAt('/admin/bots')
+    expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
+    expect(screen.queryByRole('navigation', { name: '管理后台' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '管理后台' })).toBeNull()
   })
 
   it('shows usage by bot, trigger user and group', async () => {

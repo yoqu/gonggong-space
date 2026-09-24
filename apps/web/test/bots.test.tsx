@@ -104,6 +104,13 @@ function renderAt(path: string, user: UserDto) {
   )
 }
 
+/** Members manage their bots from the chat sidebar. */
+async function openMyBot(name = '小王的 Claude') {
+  const nav = screen.getByRole('navigation', { name: '会话列表' })
+  fireEvent.click(await within(nav).findByRole('button', { name: new RegExp(name) }))
+  return screen.findByRole('complementary', { name: 'Bot 详情' })
+}
+
 describe('workspace store', () => {
   it('loads bots, machines and unread notifications, then follows realtime events', async () => {
     routes['GET /api/bots'] = () => [bot({})]
@@ -167,7 +174,7 @@ describe('新建 Bot', () => {
   it('creates a bot for myself on my machine', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = (b) => bot({ name: (b as { name: string }).name })
-    renderAt('/admin/bots', wang)
+    renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     const name = await within(dialog).findByLabelText('名称')
@@ -196,7 +203,7 @@ describe('新建 Bot', () => {
     routes['POST /api/bots'] = () => bot({})
     routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
     routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
-    renderAt('/admin/bots', wang)
+    renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录' }))
@@ -232,8 +239,8 @@ describe('bot detail', () => {
   it('forces the trigger list for the full tier and saves', async () => {
     routes['GET /api/bots'] = () => [bot({ triggerScope: 'list', triggerList: ['u2'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
-    renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    renderAt('/', wang)
+    const detail = await openMyBot()
     expect(within(detail).getByText('李建国')).toBeTruthy()
     for (const t of ['只读', '工作区写入', '完全访问'])
       expect(within(detail).getByRole('tab', { name: t })).toBeTruthy()
@@ -264,8 +271,8 @@ describe('bot detail', () => {
     const other = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(other).queryByTestId('default-workspace')).toBeNull()
     unmount()
-    renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    renderAt('/', wang)
+    const detail = await openMyBot()
     expect(within(detail).getByTestId('default-workspace').textContent).toBe('/src/pay')
     fireEvent.click(within(detail).getByRole('button', { name: '清除' }))
     await waitFor(() => expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置'))
@@ -296,8 +303,8 @@ describe('bot detail', () => {
       { key: 'u1', name: '王磊', runs: 3, totalTokens: 256_000, unreported: 0 },
       { key: 'u2', name: '李建国', runs: 1, totalTokens: 0, unreported: 1 },
     ]
-    renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    renderAt('/', wang)
+    const detail = await openMyBot()
     expect(await within(detail).findByText('256k tokens · 4 轮')).toBeTruthy()
     const rows = within(detail)
       .getAllByTestId('usage-row')

@@ -1,5 +1,4 @@
 import type { AdminUserDto, UserDto } from '@aiws/protocol'
-import { ShieldX } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
@@ -33,8 +32,8 @@ function status(u: AdminUserDto): [string, BadgeVariant] {
 
 /** 管理后台 · 账号与角色 (sysadmin only). */
 export function UsersPage() {
-  const me = useSession((s) => s.user)
-  const isAdmin = me?.role === 'sysadmin'
+  // AdminLayout guarantees a sysadmin.
+  const me = useSession((s) => s.user) as UserDto
   const [users, setUsers] = useState<AdminUserDto[] | null>(null)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<AdminUserDto | 'new' | null>(null)
@@ -48,8 +47,8 @@ export function UsersPage() {
     }
   }, [])
   useEffect(() => {
-    if (isAdmin) void load()
-  }, [isAdmin, load])
+    void load()
+  }, [load])
 
   async function enable(u: AdminUserDto) {
     try {
@@ -60,17 +59,6 @@ export function UsersPage() {
       toast({ type: 'error', message: errorText(err) })
     }
   }
-
-  if (!isAdmin)
-    return (
-      <AdminPage title={TITLE} desc={DESC}>
-        <EmptyState
-          icon={<ShieldX size={20} />}
-          title="仅系统管理员可管理账号与角色"
-          description="403 · 如需开通账号或调整角色，请联系系统管理员。"
-        />
-      </AdminPage>
-    )
 
   return (
     <AdminPage

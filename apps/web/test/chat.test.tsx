@@ -301,23 +301,43 @@ describe('sidebar', () => {
 describe('my machines and bots', () => {
   const oldBox: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux', online: false }
 
-  it('lists my machines and revokes one that has no bots', async () => {
+  it('opens a machine from the sidebar to see, rename and revoke it', async () => {
+    const detailed: MachineDto = {
+      ...oldBox,
+      agents: [{ kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: null }],
+      system: {
+        osVersion: 'Ubuntu 24.04',
+        kernel: '6.8.0',
+        cpuModel: 'AMD EPYC',
+        cpuCores: 8,
+        memoryBytes: 17179869184,
+        macAddress: 'a4:83:e7:12:34:56',
+      },
+    }
     const calls = mockApi({
       ...baseRoutes([]),
-      'GET /machines': () => [machine, oldBox],
+      'GET /machines': () => [machine, detailed],
+      'PATCH /machines/mc2': (b) => ({ ...detailed, name: b?.name }),
       'DELETE /machines/mc2': () => null,
     })
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     const section = await within(nav).findByRole('region', { name: '我的机器' })
-    await within(section).findByText('old-box')
-    const busy = within(section).getByRole('button', { name: '吊销 wanglei-mbp' }) as HTMLButtonElement
-    expect(busy.disabled).toBe(true)
+    fireEvent.click(await within(section).findByRole('button', { name: /old-box/ }))
+    const dialog = await screen.findByRole('dialog', { name: '机器详情' })
+    for (const text of ['Ubuntu 24.04', '6.8.0', 'AMD EPYC · 8 核', '16 GB', 'Claude Code 2.1.4'])
+      expect(within(dialog).getByText(text)).toBeTruthy()
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '名称' }), { target: { value: '旧服务器' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/mc2', body: { name: '旧服务器' } }),
+    )
 
-    fireEvent.click(within(section).getByRole('button', { name: '吊销 old-box' }))
-    const dialog = await screen.findByRole('dialog', { name: /吊销机器 old-box/ })
     fireEvent.click(within(dialog).getByRole('button', { name: '吊销' }))
+    const confirm = await screen.findByRole('dialog', { name: /吊销机器 old-box/ })
+    fireEvent.click(within(confirm).getByRole('button', { name: '吊销' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
   })
 

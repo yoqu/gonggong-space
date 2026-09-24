@@ -2,7 +2,7 @@ import type { UsageRowDto } from '@aiws/protocol'
 import { BarChart3 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, EmptyState, Spinner, Tabs } from '../../ui'
+import { Alert, Dialog, EmptyState, Spinner, Tabs } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { errorText } from '../auth/AuthCard'
 import './usage.css'
@@ -53,12 +53,12 @@ export function UsageBars({ rows, compact }: { rows: UsageRowDto[]; compact?: bo
   )
 }
 
-/** 管理后台 · 用量 (spec §3.7). Sysadmins see everyone; members see their own bots. */
-export function UsagePage() {
+/** Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7). */
+function UsagePanel() {
   const [by, setBy] = useState<By>('bot')
   const { rows, error } = useUsage(`by=${by}&days=30`)
   return (
-    <AdminPage title="用量" desc="按 bot、触发人、群汇总 token 用量。">
+    <>
       <Tabs size="sm" value={by} onChange={setBy} items={TABS} />
       {error ? <Alert variant="error" description={error} /> : null}
       <div className="usage-panel">
@@ -75,6 +75,24 @@ export function UsagePage() {
       <p className="usage-note">
         近 30 天 · 不做配额限制 · Codex 适配器未上报的轮次计为「未上报」，不计入 token 合计。
       </p>
+    </>
+  )
+}
+
+/** 管理后台 · 用量: every bot in the system. */
+export function UsagePage() {
+  return (
+    <AdminPage title="用量" desc="按 bot、触发人、群汇总 token 用量。">
+      <UsagePanel />
     </AdminPage>
+  )
+}
+
+/** 我的用量 from the account menu: my bots only. */
+export function UsageDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog open title="我的用量" subtitle="我的 bot 近 30 天用量" width={560} onClose={onClose}>
+      <UsagePanel />
+    </Dialog>
   )
 }

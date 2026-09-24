@@ -419,7 +419,7 @@ describe('group settings drawer', () => {
     expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
   })
 
-  it('sends a bot owner to the bot page to change the tier; others only read it', async () => {
+  it('lets a bot owner change the tier in place; others only read it', async () => {
     const mine = bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex' })
     mockApi(
       routes([group({ botIds: ['b1', 'b2', 'b3'] })], { 'GET /bots': [...bots.slice(0, 1), mine, bots[2]] }),
@@ -432,12 +432,10 @@ describe('group settings drawer', () => {
     expect(d.textContent).toContain('桌面端')
 
     fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '修改档位' }))
-    const selected = await waitFor(() => {
-      const el = document.querySelector('.bots-table__row.is-selected')
-      expect(el).not.toBeNull()
-      return el as HTMLElement
-    })
-    expect(selected.textContent).toContain('小王的 Codex')
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    expect(within(detail).getByText('小王的 Codex')).toBeTruthy()
+    expect(within(detail).getByRole('tab', { name: '工作区写入' })).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: '会话列表' })).toBeTruthy()
   })
 })
 

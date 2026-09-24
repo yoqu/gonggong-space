@@ -1,5 +1,5 @@
 import type { BotDto, GroupDto, MachineDto } from '@aiws/protocol'
-import { BellOff, Check, ChevronRight, Hash, Pin, Plus, Trash2, User } from 'lucide-react'
+import { BellOff, Check, ChevronRight, Hash, Pin, Plus, User } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { botStateText, PRESENCE } from '../features/bots/model'
@@ -20,7 +20,7 @@ export interface SidebarProps {
   onBindMachine?: () => void
   onNewBot?: () => void
   onOpenBot?: (botId: string) => void
-  onRevokeMachine?: (machineId: string) => void
+  onOpenMachine?: (machineId: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
   onConfirmBot?: (botId: string) => void
 }
@@ -138,7 +138,7 @@ export function Sidebar({
   onBindMachine,
   onNewBot,
   onOpenBot,
-  onRevokeMachine,
+  onOpenMachine,
   onConfirmBot,
 }: SidebarProps) {
   const scroll = useSelectionCapsule(groups)
@@ -213,31 +213,22 @@ export function Sidebar({
                   const bound = bots.filter((b) => b.machineId === m.id).length
                   const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 bot` : ''}`
                   return (
-                    <div
-                      key={m.id}
-                      className="sidebar__bot sidebar__machine"
-                      title={`${m.name} · ${m.online ? '在线' : '离线'} · ${meta}`}
-                    >
-                      <span
-                        className="dot"
-                        style={{
-                          background: m.online ? 'var(--color-success)' : 'var(--color-status-offline)',
-                        }}
-                      />
-                      <span className="sidebar__bot-name">{m.name}</span>
-                      <span className="sidebar__bot-state">{meta}</span>
-                      {onRevokeMachine ? (
-                        <button
-                          type="button"
-                          className="sidebar__add sidebar__revoke"
-                          aria-label={`吊销 ${m.name}`}
-                          title={bound ? '先删除绑定在这台机器上的 bot' : '吊销'}
-                          disabled={bound > 0}
-                          onClick={() => onRevokeMachine(m.id)}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      ) : null}
+                    <div key={m.id} className="sidebar__bot">
+                      <button
+                        type="button"
+                        className="sidebar__bot-open"
+                        title={`${m.name} · ${m.online ? '在线' : '离线'} · ${meta}`}
+                        onClick={() => onOpenMachine?.(m.id)}
+                      >
+                        <span
+                          className="dot"
+                          style={{
+                            background: m.online ? 'var(--color-success)' : 'var(--color-status-offline)',
+                          }}
+                        />
+                        <span className="sidebar__bot-name">{m.name}</span>
+                        <span className="sidebar__bot-state">{meta}</span>
+                      </button>
                     </div>
                   )
                 })

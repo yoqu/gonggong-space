@@ -10,7 +10,7 @@ import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
-import { RevokeMachineDialog } from '../features/machines/RevokeMachineDialog'
+import { MachineDialog } from '../features/machines/MachineDialog'
 import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
@@ -91,9 +91,9 @@ export function ChatPage() {
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
   const [openBotId, setOpenBotId] = useState<string | null>(null)
-  const [revokeId, setRevokeId] = useState<string | null>(null)
+  const [machineId, setMachineId] = useState<string | null>(null)
   const openBot = bots.find((b) => b.id === openBotId)
-  const revoking = machines.find((m) => m.id === revokeId)
+  const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
   const railRun = useRunRail((s) => s.runId)
   const preview = usePreview((s) => s.open)
@@ -140,7 +140,7 @@ export function ChatPage() {
             onBindMachine={() => setBinding(true)}
             onNewBot={() => setNewBot(true)}
             onOpenBot={setOpenBotId}
-            onRevokeMachine={setRevokeId}
+            onOpenMachine={setMachineId}
             onConfirmBot={(id) =>
               botsApi
                 .confirm(id)
@@ -185,7 +185,7 @@ export function ChatPage() {
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
       {newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}
       {openBot && me ? <BotDialog bot={openBot} me={me} onClose={() => setOpenBotId(null)} /> : null}
-      {revoking ? <RevokeMachineDialog machine={revoking} onClose={() => setRevokeId(null)} /> : null}
+      {openMachine ? <MachineDialog machine={openMachine} onClose={() => setMachineId(null)} /> : null}
     </>
   )
 }

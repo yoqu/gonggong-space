@@ -32,6 +32,7 @@ import {
   Textarea,
   toast,
 } from '../../ui'
+import { BotDialog } from '../bots/BotDialog'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
 import { TIER_LABEL } from '../runs/tier'
 import { groupsApi, paramsSummary } from './api'
@@ -534,10 +535,11 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
 
 export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) {
   const me = useSession((s) => s.user)
-  const navigate = useNavigate()
   const allBots = useWorkspace((s) => s.bots)
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<BotDto | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const editing = allBots.find((b) => b.id === editingId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
   const candidates = allBots.filter(
     (b) => !group.botIds.includes(b.id) && (group.kind === 'group' || b.ownerId === me?.id),
@@ -599,7 +601,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
             <span>触发 {SCOPE_LABEL(b)}</span>
             <span className="spacer" />
             {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
-              <Button variant="ghost" size="xs" onClick={() => navigate(`/admin/bots?bot=${b.id}`)}>
+              <Button variant="ghost" size="xs" onClick={() => setEditingId(b.id)}>
                 修改档位
               </Button>
             ) : null}
@@ -612,7 +614,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         </div>
       ))}
       <div className="gs-foot">
-        档位与触发范围由 Bot 主人在「Bot」页设置，对所有群生效；想少审批，可在桌面端「Bot →
+        档位与触发范围由 Bot 主人在 Bot 详情中设置，对所有群生效；想少审批，可在桌面端「Bot →
         命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
       </div>
       {removing ? (
@@ -623,6 +625,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
           onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
         />
       ) : null}
+      {editing && me ? <BotDialog bot={editing} me={me} onClose={() => setEditingId(null)} /> : null}
     </>
   )
 }

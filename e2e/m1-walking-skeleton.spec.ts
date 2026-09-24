@@ -39,16 +39,14 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   m.start()
 
   try {
-    // Create a bot for myself: bound directly to the machine.
-    await page.goto('/admin/bots')
-    await page.getByRole('button', { name: '新建 Bot' }).click()
+    // Create a bot for myself from the sidebar: bound directly to the machine.
+    await page.getByRole('button', { name: '新建 Bot', exact: true }).click()
     await page.getByRole('button', { name: /Claude Code/ }).click()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
     await expect(page.getByText('小王的 Claude').first()).toBeVisible()
 
     // Private chat without a repo, with that bot.
-    await page.goto('/')
     await page.getByRole('button', { name: '新建私聊' }).click()
     await page.getByLabel('名称').fill('脚本实验')
     await page.getByRole('tab', { name: '暂不绑定' }).click()

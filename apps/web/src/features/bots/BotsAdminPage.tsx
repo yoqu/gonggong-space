@@ -1,7 +1,6 @@
 import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@aiws/protocol'
 import { Bot, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
-import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -276,14 +275,12 @@ export function BotDetail({
   )
 }
 
-/** 管理后台 · Bot. Sysadmins see every bot; members manage their own. */
+/** 管理后台 · Bot: every bot in the system. */
 export function BotsAdminPage() {
-  // RequireSession guarantees a user on every app route.
+  // AdminLayout guarantees a sysadmin.
   const me = useSession((s) => s.user) as UserDto
-  const all = useWorkspace((s) => s.bots)
-  const bots = me.role === 'sysadmin' ? all : all.filter((b) => b.ownerId === me.id)
-  const [search] = useSearchParams()
-  const [selectedId, setSelectedId] = useState(search.get('bot'))
+  const bots = useWorkspace((s) => s.bots)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [users, setUsers] = useState<UserBriefDto[]>([])
   const selected = bots.find((b) => b.id === selectedId) ?? bots[0]
@@ -302,7 +299,7 @@ export function BotsAdminPage() {
           <div>
             <h1 className="bots-page__title">Bot</h1>
             <p className="bots-page__desc">
-              新建时直接绑定归属人的机器与 agent；成员本人只能为自己创建，管理员可为任何人创建。
+              全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。
             </p>
           </div>
           <span className="spacer" />
