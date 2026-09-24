@@ -1,4 +1,4 @@
-import { Inbox, Plus } from 'lucide-react'
+import { Bell, Inbox, Plus, Search } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   Dialog,
   Drawer,
   EmptyState,
+  IconButton,
   Input,
   Progress,
   Select,
@@ -72,6 +73,18 @@ export default function UiGallery() {
             fullWidth
           </Button>
         </div>
+      </Section>
+
+      <Section title="ICON BUTTON · plain / glass">
+        <IconButton title="搜索">
+          <Search size={16} />
+        </IconButton>
+        <IconButton title="玻璃搜索" variant="glass">
+          <Search size={16} />
+        </IconButton>
+        <IconButton title="玻璃通知" variant="glass">
+          <Bell size={16} />
+        </IconButton>
       </Section>
 
       <Section title="BADGE">

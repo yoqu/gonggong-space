@@ -23,10 +23,10 @@
     background var(--motion-fast),
     color var(--motion-fast),
     filter var(--motion-fast),
-    transform 80ms ease;
+    transform var(--spring-interactive);
 }
 .ui-btn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .ui-btn:disabled {
   opacity: 0.5;
@@ -110,9 +110,34 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
+  transition: background var(--motion-fast);
 }
 .ui-icon-btn:hover {
   background: var(--color-bg-hover);
+}
+/* Toolbar glass button: the only control with bounce (plan D9). Press is quick; release springs back. */
+.ui-icon-btn--glass {
+  border-radius: var(--radius-pill);
+  transition:
+    background var(--motion-fast),
+    box-shadow var(--motion-fast),
+    transform var(--spring-bouncy);
+}
+.ui-icon-btn--glass:hover {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-edge), var(--glass-highlight);
+}
+.ui-icon-btn--glass:hover:focus-visible {
+  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-focus);
+}
+.ui-icon-btn--glass:active:not(:disabled) {
+  transform: scale(0.94);
+  transition:
+    background var(--motion-fast),
+    box-shadow var(--motion-fast),
+    transform var(--spring-interactive);
 }
 
 /* Close button (×) */
@@ -202,8 +227,9 @@
   color: var(--color-danger-text);
 }
 
-/* Tabs (segmented control) */
+/* Tabs (segmented control). The selected pill is one ::before sliding to --indicator-x/-w set by Tabs. */
 .ui-tabs {
+  position: relative;
   display: inline-flex;
   align-items: center;
   height: 32px;
@@ -216,7 +242,24 @@
 .ui-tabs--sm {
   height: 28px;
 }
+.ui-tabs::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--indicator-w, 0);
+  transform: translateX(var(--indicator-x, 0));
+  border-radius: var(--radius-md);
+  /* inset shadow instead of border so a 0-width indicator is invisible */
+  box-shadow: inset 0 0 0 1px var(--color-separator);
+  background: var(--color-window-bg);
+  transition:
+    transform var(--spring-interactive),
+    width var(--spring-interactive);
+}
 .ui-tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -232,14 +275,12 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--motion-fast);
+  transition: color var(--motion-fast);
 }
 .ui-tabs--sm .ui-tab {
   height: 22px;
 }
 .ui-tab[aria-selected="true"] {
-  border-color: var(--color-separator);
-  background: var(--color-window-bg);
   color: var(--color-text-primary);
 }
 .ui-tab:disabled {
@@ -282,21 +323,30 @@
   padding: 2px;
   border-radius: var(--radius-pill);
   background: var(--color-control-bg);
-  transition: background var(--duration-base) var(--ease-apple);
+  transition: background var(--fade-in);
 }
 .ui-switch__thumb {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--color-on-accent);
   box-shadow: var(--shadow-card);
-  transition: transform var(--duration-base) var(--ease-apple);
+  transition:
+    transform var(--spring-bouncy),
+    width var(--spring-bouncy);
 }
 input:checked + .ui-switch__track {
   background: var(--color-system-blue);
 }
 input:checked + .ui-switch__track .ui-switch__thumb {
   transform: translateX(20px);
+}
+/* Held down, the knob stretches toward the far side; when on it stays anchored to the right edge. */
+.ui-toggle:not(.ui-toggle--disabled):active .ui-switch__thumb {
+  width: 26px;
+}
+.ui-toggle:not(.ui-toggle--disabled):active input:checked + .ui-switch__track .ui-switch__thumb {
+  transform: translateX(14px);
 }
 .ui-checkbox__box {
   display: flex;
@@ -314,8 +364,27 @@ input:checked + .ui-checkbox__box {
   border-color: var(--color-system-blue);
   background: var(--color-system-blue);
 }
+.ui-checkbox__box svg {
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity var(--fade-out),
+    transform var(--spring-snappy);
+}
+input:checked + .ui-checkbox__box svg {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--fade-in),
+    transform var(--spring-snappy);
+}
 .ui-toggle__control input:focus-visible + span {
   box-shadow: var(--shadow-focus);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-toggle__control input:focus-visible + span {
+    animation: focus-ring-in 120ms ease-out;
+  }
 }
 
 /* Input / Textarea / Select trigger */

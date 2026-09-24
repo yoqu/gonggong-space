@@ -48,6 +48,17 @@ a:hover {
   outline: 2px solid transparent;
   box-shadow: var(--shadow-focus);
 }
+/* macOS focus ring "snaps in" from a wider spread. */
+@keyframes focus-ring-in {
+  from {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    animation: focus-ring-in 120ms ease-out;
+  }
+}
 /* Reduced motion: movement (springs, transforms) becomes instant; opacity/color fades and spinners stay. */
 @media (prefers-reduced-motion: reduce) {
   :root {
