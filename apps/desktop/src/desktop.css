@@ -86,14 +86,14 @@ input {
   gap: 6px;
   height: 24px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, currentColor 10%, transparent);
   font-size: 11px;
 }
 .dk-pill__dot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .dk-body {
@@ -117,7 +117,7 @@ input {
   gap: 8px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -137,7 +137,7 @@ input {
   flex-direction: column;
   gap: 2px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-subtle);
   font-size: 11px;
 }
@@ -178,7 +178,7 @@ input {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-separator);
   overflow: hidden;
@@ -206,7 +206,7 @@ input {
 }
 .dk-card {
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
 }
@@ -235,7 +235,7 @@ input {
 .dk-list {
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   overflow: hidden;
@@ -303,7 +303,7 @@ input {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-subtle);
 }
 .dk-row--stack {
@@ -328,7 +328,7 @@ input {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--color-preview-bg);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -346,7 +346,7 @@ input {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-subtle);
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -355,7 +355,7 @@ input {
 .dk-agent {
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
 }
@@ -372,7 +372,7 @@ input {
   width: 30px;
   height: 30px;
   flex: none;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-panel-elevated);
   display: flex;
   align-items: center;
@@ -476,7 +476,7 @@ input {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-bg-subtle);
   color: var(--color-text-primary);
@@ -499,7 +499,7 @@ input {
   width: 14px;
   height: 14px;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1.5px solid var(--color-border-control);
   box-sizing: border-box;
 }
@@ -520,7 +520,7 @@ input {
   align-items: center;
   gap: 4px;
   padding: 2px 4px 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--color-panel-elevated);
   border: 1px solid var(--color-separator);
   font-size: 11px;
@@ -538,7 +538,7 @@ input {
 .dk-table {
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   overflow: hidden;
@@ -573,7 +573,7 @@ input {
   align-items: center;
   gap: 10px;
   padding: 9px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-subtle);
   font-size: 12px;
 }
@@ -594,7 +594,7 @@ input {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   min-width: 0;
@@ -616,7 +616,7 @@ input {
   flex: 1;
   min-height: 240px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-preview-bg);
   border: 1px solid var(--color-separator);
   font-family: var(--font-mono);

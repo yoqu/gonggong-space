@@ -82,7 +82,7 @@
   height: auto;
   min-height: 28px;
   padding: 0 8px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   font-size: 10px;
 }
 .ui-btn--sm {
@@ -275,10 +275,12 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  --r-outer: var(--radius-lg);
+  --pad: 2px;
   height: 32px;
-  padding: 2px;
+  padding: var(--pad);
   gap: 2px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-outer);
   border: 1px solid var(--color-separator);
   background: var(--color-control-bg);
 }
@@ -293,7 +295,7 @@
   left: 0;
   width: var(--indicator-w, 0);
   transform: translateX(var(--indicator-x, 0));
-  border-radius: var(--radius-md);
+  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
   /* inset shadow instead of border so a 0-width indicator is invisible */
   box-shadow: inset 0 0 0 1px var(--color-separator);
   background: var(--color-window-bg);
@@ -312,7 +314,7 @@
   padding: 0 10px;
   white-space: nowrap;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 12px;
@@ -543,9 +545,11 @@ input:checked + .ui-checkbox__box svg {
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  --r-outer: var(--radius-dropdown);
+  --pad: 4px;
   gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-dropdown);
+  padding: var(--pad);
+  border-radius: var(--r-outer);
   border: 1px solid var(--color-border-control);
   transform-origin: top left;
 }
@@ -554,7 +558,7 @@ input:checked + .ui-checkbox__box svg {
   align-items: center;
   padding: 6px 8px;
   border: 0;
-  border-radius: var(--radius-lg);
+  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
   background: transparent;
   color: var(--color-text-primary);
   font-size: 13px;
@@ -579,7 +583,7 @@ input:checked + .ui-checkbox__box svg {
   align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid;
 }
 .ui-alert__icon {
@@ -711,7 +715,7 @@ input:checked + .ui-checkbox__box svg {
   align-items: center;
   justify-content: center;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-control-bg);
   color: var(--color-text-primary);
   font-weight: 600;
@@ -931,7 +935,7 @@ input:checked + .ui-checkbox__box svg {
   width: 360px;
   max-width: 100%;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-border-control);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-filter);

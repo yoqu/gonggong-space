@@ -71,8 +71,10 @@
   width: 220px;
   display: flex;
   flex-direction: column;
-  padding: 6px;
-  border-radius: 12px;
+  --r-outer: var(--radius-dropdown);
+  --pad: 6px;
+  padding: var(--pad);
+  border-radius: var(--r-outer);
   border: 1px solid var(--color-separator);
   transform-origin: top right;
 }
@@ -100,7 +102,7 @@
   gap: 8px;
   padding: 6px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
   background: transparent;
   color: var(--color-text-primary);
   font-size: 12px;

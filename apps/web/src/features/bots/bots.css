@@ -40,7 +40,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   overflow: hidden;
@@ -113,7 +113,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
 }
@@ -172,7 +172,7 @@
   align-items: center;
   gap: 4px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-bg-muted);
   font-size: 11px;
 }
@@ -192,7 +192,7 @@
   padding: 0 8px;
   border-style: dashed;
   border-color: var(--color-selection-blue);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font-size: 11px;
 }
@@ -262,7 +262,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-separator);
   background: var(--color-bg-subtle);
   color: var(--color-text-primary);
@@ -280,7 +280,7 @@
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-bg-subtle);
   color: var(--color-text-primary);
@@ -303,7 +303,7 @@
   height: 14px;
   flex: none;
   box-sizing: border-box;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1.5px solid var(--color-border-control);
 }
 .is-selected > .newbot__radio {
@@ -325,7 +325,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-subtle);
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -351,7 +351,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-bg-subtle);
   font-size: 12px;

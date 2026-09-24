@@ -28,15 +28,17 @@
   height: 280px;
   overflow-y: auto;
   border: 1px solid var(--color-separator);
-  border-radius: 8px;
-  padding: 4px;
+  --r-outer: var(--radius-lg);
+  --pad: 4px;
+  border-radius: var(--r-outer);
+  padding: var(--pad);
 }
 .dirpick__item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
   font-size: 13px;
   color: var(--color-text-primary);
   text-align: left;

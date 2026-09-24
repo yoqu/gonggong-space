@@ -17,7 +17,7 @@
 }
 .approval__cmd {
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--color-preview-bg);
   font-family: var(--font-mono);
   font-size: 12px;

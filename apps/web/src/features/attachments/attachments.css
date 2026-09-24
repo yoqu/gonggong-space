@@ -47,7 +47,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 2px 0 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-elevated);
   font-size: 11px;
@@ -70,7 +70,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
@@ -91,7 +91,7 @@
   max-width: 560px;
   min-width: 0;
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-separator);
   background: var(--color-bg-subtle);
   font-size: 11px;
@@ -116,7 +116,7 @@
   gap: 4px;
   padding: 0 6px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-tertiary);
   font-size: 11px;
@@ -140,7 +140,7 @@
 .att-tile {
   position: relative;
   aspect-ratio: 16 / 10;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   border: 1px solid var(--color-separator);
   background: var(--color-preview-bg);
@@ -193,7 +193,7 @@
   left: 6px;
   width: 26px;
   height: 26px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .att-tile__play {
   left: 50%;
@@ -201,7 +201,7 @@
   transform: translate(-50%, -50%);
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-outline-soft);
 }
 .att-docs {
@@ -216,7 +216,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   color: var(--color-text-primary);
@@ -233,7 +233,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--color-panel-elevated);
   color: var(--color-text-secondary);
 }
@@ -316,7 +316,7 @@
   gap: 12px;
 }
 .pv__media {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--color-separator);
   background: var(--color-preview-bg);
@@ -332,7 +332,7 @@
   font-size: 13px;
 }
 .pv-lines {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-separator);
   background: var(--color-preview-bg);
   padding: 8px 0;
@@ -368,7 +368,7 @@
 }
 .pv__none {
   padding: 24px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-preview-bg);
   text-align: center;
   font-size: 12px;
