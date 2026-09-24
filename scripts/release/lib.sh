@@ -2,6 +2,9 @@
 # so they also work where Docker cannot share the checkout's folder.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILDER=aiws-build:1.98-bullseye
+# Docker Desktop's `credsStore: desktop` needs its credential helper, which a Homebrew docker CLI does not put on PATH.
+DOCKER_DESKTOP_BIN=/Applications/Docker.app/Contents/Resources/bin
+[ -d "$DOCKER_DESKTOP_BIN" ] && PATH="$PATH:$DOCKER_DESKTOP_BIN"
 
 aiws_version() { sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/crates/aiws/Cargo.toml" | head -1; }
 

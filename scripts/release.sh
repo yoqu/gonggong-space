@@ -41,10 +41,10 @@ for p in "${PLATFORMS[@]}"; do
   if [[ $key == macos-* ]]; then
     [ "$(uname -s)" = Darwin ] || { echo "skip $key: needs a macOS host" >&2; continue; }
     echo "== $key ($target)"
-    # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not.
+    # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not. `rustup run` (not the
+    # bare toolchain binaries) also sets the library path rust-objcopy needs to find libLLVM when stripping.
     rustup="$(command -v rustup || echo /opt/homebrew/opt/rustup/bin/rustup)"
-    (cd "$ROOT" && RUSTC="$("$rustup" which --toolchain stable rustc)" \
-      "$("$rustup" which --toolchain stable cargo)" build -q --release --locked -p aiws --target "$target")
+    (cd "$ROOT" && "$rustup" run stable cargo build -q --release --locked -p aiws --target "$target")
     cp "$ROOT/target/$target/release/aiws" "$out/$(artifact "$key")"
   else
     docker_targets+=("$key:$target")
