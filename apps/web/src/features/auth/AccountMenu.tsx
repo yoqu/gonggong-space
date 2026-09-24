@@ -1,7 +1,8 @@
 import type { UserDto } from '@aiws/protocol'
-import { Bot, Check, Link2, LogOut, Monitor, Moon, Sun } from 'lucide-react'
+import { Bot, Check, Droplet, Layers, Link2, LogOut, Monitor, Moon, Palette, Sun } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
 import { useEscape } from '../../ui'
@@ -18,24 +19,39 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }
   { value: 'system', label: '跟随系统', Icon: Monitor },
 ]
 
+const GLASS_OPTIONS: { value: GlassPreference; label: string; Icon: typeof Sun }[] = [
+  { value: 'clear', label: '清透', Icon: Droplet },
+  { value: 'standard', label: '标准', Icon: Layers },
+  { value: 'tinted', label: '着色', Icon: Palette },
+]
+
 /** Avatar button + dropdown (Web 对话.dc.html ovMenu). */
 export function AccountMenu() {
   const user = useSession((s) => s.user)
   const [open, setOpen] = useState(false)
   const [binding, setBinding] = useState(false)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
+  const [glass, setGlassState] = useState<GlassPreference>(getGlass)
 
   useEscape(() => setOpen(false), open)
 
   const toggleOpen = () => {
     // re-read on open so the marker reflects changes made elsewhere (e.g. desktop settings)
-    if (!open) setThemeState(getTheme())
+    if (!open) {
+      setThemeState(getTheme())
+      setGlassState(getGlass())
+    }
     setOpen(!open)
   }
 
   const chooseTheme = (value: ThemePreference) => {
     setTheme(value)
     setThemeState(value)
+  }
+
+  const chooseGlass = (value: GlassPreference) => {
+    setGlass(value)
+    setGlassState(value)
   }
 
   if (!user) return null
@@ -89,6 +105,21 @@ export function AccountMenu() {
                 <Icon size={13} />
                 {label}
                 {theme === value ? <Check size={13} className="account__check" aria-hidden="true" /> : null}
+              </button>
+            ))}
+            <div className="account__label">玻璃效果</div>
+            {GLASS_OPTIONS.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={glass === value}
+                className="account__item"
+                onClick={() => chooseGlass(value)}
+              >
+                <Icon size={13} />
+                {label}
+                {glass === value ? <Check size={13} className="account__check" aria-hidden="true" /> : null}
               </button>
             ))}
             <div className="account__sep" />

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
+import { GLASS_STORAGE_KEY } from '../src/app/glass'
 import { useSession } from '../src/app/session'
 import { initTheme, setTheme, THEME_STORAGE_KEY } from '../src/app/theme'
 import { apiError, mockApi } from './mockApi'
@@ -158,6 +159,7 @@ describe('account menu appearance', () => {
     setTheme('light')
     window.localStorage.clear()
     document.documentElement.removeAttribute('data-theme')
+    document.documentElement.removeAttribute('data-glass')
   })
 
   it('offers light / dark / system with the current preference marked', async () => {
@@ -206,5 +208,30 @@ describe('account menu appearance', () => {
 
     setSystemDark(false)
     expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('offers clear / standard / tinted glass with standard marked by default', async () => {
+    const menu = await openMenu()
+    expect(within(menu).getByText('玻璃效果')).toBeTruthy()
+    const checked = (name: string) =>
+      within(menu).getByRole('menuitemradio', { name }).getAttribute('aria-checked')
+    expect(checked('清透')).toBe('false')
+    expect(checked('标准')).toBe('true')
+    expect(checked('着色')).toBe('false')
+  })
+
+  it('applies the glass choice immediately and persists across remount', async () => {
+    const menu = await openMenu()
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '着色' }))
+    expect(document.documentElement.dataset.glass).toBe('tinted')
+    expect(window.localStorage.getItem(GLASS_STORAGE_KEY)).toBe('tinted')
+
+    cleanup()
+    const remounted = await openMenu()
+    expect(within(remounted).getByRole('menuitemradio', { name: '着色' }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    fireEvent.click(within(remounted).getByRole('menuitemradio', { name: '清透' }))
+    expect(document.documentElement.dataset.glass).toBe('clear')
   })
 })

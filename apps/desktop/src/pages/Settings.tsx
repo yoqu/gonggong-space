@@ -1,3 +1,4 @@
+import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
 import { Button, Dialog, Switch, Tabs, toast } from '@web/ui'
 import { type ReactNode, useEffect, useState } from 'react'
 import { ipc, type Settings } from '../ipc'
@@ -12,10 +13,17 @@ const APPEARANCE: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: '跟随系统' },
 ]
 
+const GLASS: { value: GlassPreference; label: string }[] = [
+  { value: 'clear', label: '清透' },
+  { value: 'standard', label: '标准' },
+  { value: 'tinted', label: '着色' },
+]
+
 export function SettingsPage(_: PageProps) {
   const info = useDaemon((s) => s.info)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [theme, setThemeState] = useState<ThemePreference>(() => getTheme())
+  const [glass, setGlassState] = useState<GlassPreference>(() => getGlass())
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
@@ -42,6 +50,17 @@ export function SettingsPage(_: PageProps) {
             onChange={(v) => {
               setTheme(v)
               setThemeState(v)
+            }}
+          />
+        </Row>
+        <Row k="玻璃效果" d="清透、标准或着色">
+          <Tabs
+            size="sm"
+            items={GLASS}
+            value={glass}
+            onChange={(v) => {
+              setGlass(v)
+              setGlassState(v)
             }}
           />
         </Row>

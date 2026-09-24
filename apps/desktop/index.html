@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AIWS Daemon</title>
     <script>
-      // Same pre-paint theme bootstrap as the web app (key aiws.theme, fallback light).
+      // Same pre-paint theme bootstrap as the web app (keys aiws.theme / aiws.glass).
       ;(() => {
         let theme = 'light'
         try {
@@ -20,6 +20,12 @@
           theme = 'light'
         }
         document.documentElement.dataset.theme = theme
+        let glass = 'standard'
+        try {
+          const level = localStorage.getItem('aiws.glass')
+          if (level === 'clear' || level === 'tinted') glass = level
+        } catch {}
+        document.documentElement.dataset.glass = glass
       })()
     </script>
   </head>

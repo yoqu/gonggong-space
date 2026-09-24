@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
+import { GLASS_STORAGE_KEY } from '@web/app/glass'
 import { ipc } from '../src/ipc'
 import { SettingsPage } from '../src/pages/Settings'
 import { useDaemon } from '../src/store'
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   window.localStorage.clear()
   delete document.documentElement.dataset.theme
+  delete document.documentElement.dataset.glass
   vi.mocked(ipc).settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false })
   useDaemon.setState({ info: INFO })
 })
@@ -42,6 +44,16 @@ it('settings page shows the current appearance and switching applies instantly a
   expect(document.documentElement.dataset.theme).toBe('light')
   expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
   expect(screen.getByRole('tab', { name: '浅色' }).getAttribute('aria-selected')).toBe('true')
+})
+
+it('settings page switches the glass level and persists it', () => {
+  render(<SettingsPage go={() => {}} />)
+  expect(screen.getByRole('tab', { name: '标准' }).getAttribute('aria-selected')).toBe('true')
+
+  fireEvent.click(screen.getByRole('tab', { name: '清透' }))
+  expect(document.documentElement.dataset.glass).toBe('clear')
+  expect(window.localStorage.getItem(GLASS_STORAGE_KEY)).toBe('clear')
+  expect(screen.getByRole('tab', { name: '清透' }).getAttribute('aria-selected')).toBe('true')
 })
 
 it('跟随系统 resolves through prefers-color-scheme', () => {
