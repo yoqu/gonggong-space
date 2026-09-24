@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { create } from 'zustand'
+import { usePresence } from './presence'
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -46,20 +47,28 @@ const ICON = {
 }
 
 /** Errors stay until dismissed; others auto-dismiss, paused while hovered and restarted by a repeat. */
-function Toast({ t }: { t: ToastItem }) {
+function Toast({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: () => void }) {
   const [hover, setHover] = useState(false)
+  const presence = usePresence(open)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: onExited is recreated every render
+  useEffect(() => {
+    if (!presence.mounted) onExited()
+  }, [presence.mounted])
   const persistent = t.type === 'error'
   // biome-ignore lint/correctness/useExhaustiveDependencies: a repeat (count) restarts the timer
   useEffect(() => {
-    if (persistent || hover) return
+    if (persistent || hover || !open) return
     const timer = setTimeout(() => dismissToast(t.id), DURATION)
     return () => clearTimeout(timer)
-  }, [persistent, hover, t.id, t.count])
+  }, [persistent, hover, open, t.id, t.count])
+  if (!presence.mounted) return null
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover only pauses the auto-dismiss timer
     <div
       className="ui-toast"
+      data-state={presence.state}
       role={persistent ? 'alert' : 'status'}
+      onAnimationEnd={presence.onAnimationEnd}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -78,11 +87,26 @@ function Toast({ t }: { t: ToastItem }) {
 
 export function Toaster() {
   const items = useToasts((s) => s.items)
+  const [prev, setPrev] = useState(items)
+  // Dismissed toasts stay rendered until their exit animation ends.
+  const [leaving, setLeaving] = useState<ToastItem[]>([])
+  if (prev !== items) {
+    setPrev(items)
+    const gone = prev.filter((p) => !items.some((t) => t.id === p.id))
+    if (gone.length) setLeaving((l) => [...l, ...gone])
+  }
   return (
     <div className="ui-toasts">
-      {items.map((t) => (
-        <Toast key={t.id} t={t} />
-      ))}
+      {[...items, ...leaving]
+        .sort((a, b) => a.id - b.id)
+        .map((t) => (
+          <Toast
+            key={t.id}
+            t={t}
+            open={!leaving.includes(t)}
+            onExited={() => setLeaving((l) => l.filter((x) => x !== t))}
+          />
+        ))}
     </div>
   )
 }

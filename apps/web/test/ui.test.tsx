@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -82,7 +82,7 @@ describe('Switch and Checkbox', () => {
 })
 
 describe('Select', () => {
-  it('opens the list and picks an option', () => {
+  it('opens the list and picks an option', async () => {
     const onChange = vi.fn()
     render(
       <Select
@@ -97,7 +97,7 @@ describe('Select', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Claude Code' }))
     fireEvent.click(screen.getByRole('option', { name: 'Codex' }))
     expect(onChange).toHaveBeenCalledWith('codex')
-    expect(screen.queryByRole('option')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('option')).toBeNull())
   })
 })
 
@@ -169,15 +169,18 @@ describe('Toast', () => {
     act(() => {
       vi.advanceTimersByTime(5000)
     })
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
     expect(screen.queryByText('已保存')).toBeNull()
   })
 
-  it('closes a toast manually', () => {
+  it('closes a toast manually', async () => {
     render(<Toaster />)
     act(() => {
       toast({ type: 'error', message: '发送失败' })
     })
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
-    expect(screen.queryByText('发送失败')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('发送失败')).toBeNull())
   })
 })

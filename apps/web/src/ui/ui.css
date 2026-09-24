@@ -6,6 +6,49 @@
   }
 }
 
+/* Enter/exit motion (plan §4.3) for elements whose data-state comes from usePresence.
+   Opacity runs on --fade-in so it survives reduced motion (springs collapse to 0s there);
+   exits keep `forwards` so nothing flashes between animationend and unmount. */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ui-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ui-enter {
+  from {
+    transform: translate(var(--enter-x, 0), var(--enter-y, 0)) scale(var(--enter-scale, 1));
+  }
+}
+@keyframes ui-exit {
+  to {
+    opacity: 0;
+    transform: translateX(var(--exit-x, 0)) scale(var(--exit-scale, 1));
+  }
+}
+
+/* Glass menu/popover: scales in from its trigger corner (set transform-origin), fades out. */
+.ui-popover {
+  --enter-scale: 0.97;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-dropdown);
+}
+.ui-popover[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.ui-popover[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}
+
 /* Button */
 .ui-btn {
   display: inline-flex;
@@ -504,8 +547,7 @@ input:checked + .ui-checkbox__box svg {
   padding: 4px;
   border-radius: var(--radius-dropdown);
   border: 1px solid var(--color-border-control);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-dropdown);
+  transform-origin: top left;
 }
 .ui-select__option {
   display: flex;
@@ -722,12 +764,23 @@ input:checked + .ui-checkbox__box svg {
   justify-content: center;
   padding: 16px;
 }
+.ui-overlay[data-state="closed"] {
+  pointer-events: none;
+}
 .ui-overlay__backdrop {
   position: absolute;
   inset: 0;
   background: var(--color-overlay);
 }
+.ui-overlay[data-state="open"] .ui-overlay__backdrop {
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-overlay[data-state="closed"] .ui-overlay__backdrop {
+  animation: var(--fade-out) ui-fade-out forwards;
+}
 .ui-dialog {
+  --enter-scale: 0.96;
+  --exit-scale: 0.96;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -736,11 +789,23 @@ input:checked + .ui-checkbox__box svg {
   overflow: hidden;
   border-radius: var(--radius-dialog);
   border: 1px solid var(--color-border-control);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-modal);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-modal);
+}
+.ui-overlay[data-state="open"] .ui-dialog {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.ui-overlay[data-state="closed"] .ui-dialog {
+  animation: var(--fade-out) ui-exit forwards;
 }
 /* Focused programmatically on open; the modal shadow already marks it. */
-.ui-dialog:focus-visible,
+.ui-dialog:focus-visible {
+  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-modal);
+}
 .ui-drawer:focus-visible {
   box-shadow: var(--shadow-modal);
 }
@@ -787,7 +852,16 @@ input:checked + .ui-checkbox__box svg {
   z-index: 26;
   background: var(--color-overlay);
 }
+.ui-drawer-overlay[data-state="open"] {
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-drawer-overlay[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}
 .ui-drawer {
+  --enter-x: 24px;
+  --exit-x: 24px;
   position: fixed;
   top: 0;
   right: 0;
@@ -801,6 +875,15 @@ input:checked + .ui-checkbox__box svg {
   border-left: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   box-shadow: var(--shadow-modal);
+}
+.ui-drawer[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.ui-drawer[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
 }
 @media (max-width: 767px) {
   .ui-drawer {
@@ -840,6 +923,8 @@ input:checked + .ui-checkbox__box svg {
   max-width: calc(100vw - 32px);
 }
 .ui-toast {
+  --enter-y: -8px;
+  --exit-x: 24px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -848,8 +933,19 @@ input:checked + .ui-checkbox__box svg {
   padding: 14px 16px;
   border-radius: 10px;
   border: 1px solid var(--color-border-control);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-toast);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-toast);
+}
+.ui-toast[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.ui-toast[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
 }
 .ui-toast__icon {
   display: flex;

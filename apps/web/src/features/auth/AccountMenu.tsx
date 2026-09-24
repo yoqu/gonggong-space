@@ -5,7 +5,7 @@ import { Link } from 'react-router'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
-import { useEscape } from '../../ui'
+import { useEscape, usePresence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { logout } from './logout'
 import './auth.css'
@@ -34,6 +34,7 @@ export function AccountMenu() {
   const [glass, setGlassState] = useState<GlassPreference>(getGlass)
 
   useEscape(() => setOpen(false), open)
+  const menu = usePresence(open)
 
   const toggleOpen = () => {
     // re-read on open so the marker reflects changes made elsewhere (e.g. desktop settings)
@@ -67,10 +68,17 @@ export function AccountMenu() {
       >
         {Array.from(user.name)[0]}
       </button>
-      {open ? (
+      {menu.mounted ? (
         <>
-          <div className="account__backdrop" aria-hidden="true" onClick={() => setOpen(false)} />
-          <div className="account__menu" data-testid="account-menu">
+          {open ? (
+            <div className="account__backdrop" aria-hidden="true" onClick={() => setOpen(false)} />
+          ) : null}
+          <div
+            className="account__menu ui-popover"
+            data-testid="account-menu"
+            data-state={menu.state}
+            onAnimationEnd={menu.onAnimationEnd}
+          >
             <div className="account__who">
               <span className="account__name">{user.name}</span>
               <span className="account__sub">{`${ROLE_LABEL[user.role]} · ${user.account}`}</span>

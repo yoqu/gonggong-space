@@ -13,6 +13,7 @@ import {
 } from 'react'
 import { cx } from '../lib/cx'
 import { useEscape } from './overlay'
+import { usePresence } from './presence'
 
 export type ButtonVariant = 'default' | 'primary' | 'outline' | 'ghost' | 'destructive'
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg'
@@ -273,6 +274,7 @@ export function Select<V extends string>({
     trigger.current?.focus()
   }
   useEscape(close, open)
+  const menu = usePresence(open)
   const selected = options.find((o) => o.value === value)
   const show = () => {
     const i = options.findIndex((o) => o.value === value)
@@ -317,14 +319,16 @@ export function Select<V extends string>({
         </span>
         <ChevronDown size={16} className="ui-select__chevron" aria-hidden="true" />
       </button>
-      {open ? (
+      {menu.mounted ? (
         <div
           ref={list}
           role="listbox"
           tabIndex={-1}
           aria-label={label}
           aria-activedescendant={`${id}-${active}`}
-          className="ui-select__menu"
+          className="ui-select__menu ui-popover"
+          data-state={menu.state}
+          onAnimationEnd={menu.onAnimationEnd}
           onKeyDown={onListKey}
         >
           {options.map((o, i) => (

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Button, Dialog, Drawer, Input, Select, Tabs, Toaster, toast, useToasts } from '../src/ui'
@@ -34,7 +34,7 @@ function FormDialog({ onClose = () => {} }: { onClose?: () => void }) {
 }
 
 describe('Dialog focus management', () => {
-  it('focuses the first field, traps Tab, and restores focus to the trigger', () => {
+  it('focuses the first field, traps Tab, and restores focus to the trigger', async () => {
     render(<FormDialog />)
     const trigger = screen.getByRole('button', { name: '打开' })
     trigger.focus()
@@ -50,8 +50,8 @@ describe('Dialog focus management', () => {
     expect(document.activeElement).toBe(create)
 
     esc()
-    expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(trigger)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('keeps a form dialog open on backdrop click when closeOnBackdrop is false', () => {
@@ -105,7 +105,7 @@ describe('Select keyboard', () => {
     )
   }
 
-  it('opens with ArrowDown, skips disabled options, selects with Enter and closes with Escape', () => {
+  it('opens with ArrowDown, skips disabled options, selects with Enter and closes with Escape', async () => {
     const onChange = vi.fn()
     render(<Harness onChange={onChange} />)
     const trigger = screen.getByRole('button', { name: 'agent' })
@@ -118,17 +118,17 @@ describe('Select keyboard', () => {
     expect(active()?.textContent).toBe('Gemini')
     fireEvent.keyDown(list, { key: 'Enter' })
     expect(onChange).toHaveBeenCalledWith('c')
-    expect(screen.queryByRole('listbox')).toBeNull()
     expect(document.activeElement).toBe(trigger)
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
 
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
     expect(screen.getByRole('option', { name: 'Gemini' }).getAttribute('aria-selected')).toBe('true')
     esc()
-    expect(screen.queryByRole('listbox')).toBeNull()
     expect(document.activeElement).toBe(trigger)
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
   })
 
-  it('closes the list, not the dialog, on Escape', () => {
+  it('closes the list, not the dialog, on Escape', async () => {
     const onClose = vi.fn()
     render(
       <Dialog open title="新建 Bot" onClose={onClose}>
@@ -137,7 +137,7 @@ describe('Select keyboard', () => {
     )
     fireEvent.keyDown(screen.getByRole('button', { name: 'agent' }), { key: 'ArrowDown' })
     esc()
-    expect(screen.queryByRole('listbox')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
     expect(onClose).not.toHaveBeenCalled()
   })
 })
@@ -199,6 +199,9 @@ describe('Toast behavior', () => {
     fireEvent.mouseLeave(screen.getByRole('status'))
     act(() => {
       vi.advanceTimersByTime(4_100)
+    })
+    act(() => {
+      vi.advanceTimersByTime(300)
     })
     expect(screen.queryByText('已保存')).toBeNull()
   })

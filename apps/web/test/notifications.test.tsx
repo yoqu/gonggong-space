@@ -111,7 +111,7 @@ describe('notification center', () => {
     fireEvent.click(within(list).getByText('小王的 Claude 请求执行 go build ./...'))
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1?run=r2'))
     expect(calls.some((c) => c.path === '/notifications/n1/read')).toBe(true)
-    expect(screen.queryByTestId('notification-list')).toBeNull()
+    await waitFor(() => expect(screen.queryByTestId('notification-list')).toBeNull())
   })
 
   it('shows handled items as 已处理, follows live resolutions and clamps long text', async () => {
@@ -148,7 +148,7 @@ describe('notification center', () => {
     fireEvent.keyDown(document, { key: 'Escape', isComposing: true })
     expect(screen.getByRole('dialog', { name: '通知' })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog', { name: '通知' })).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '通知' })).toBeNull())
   })
 
   it('shows loading, then a retryable error instead of 暂无通知', async () => {

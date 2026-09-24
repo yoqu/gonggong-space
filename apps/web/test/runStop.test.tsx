@@ -76,7 +76,7 @@ describe('run actions', () => {
     fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
     const dialog = screen.getByRole('dialog', { name: '终止整条链' })
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls).toEqual([])
 
     fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
