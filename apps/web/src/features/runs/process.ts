@@ -107,13 +107,13 @@ function contextStep(d: RunDetailDto, gitStep: string | undefined): Step {
   return {
     key: 'context',
     kind: 'context',
-    label: '开场上下文',
+    label: '本轮上下文',
     meta: reason === null ? '续用会话' : '新会话',
     body: [session, git].filter(Boolean).join('。'),
   }
 }
 
-/** Side-panel 过程 steps: opening context, then thoughts / replies / tool calls / statuses / approvals in time order. */
+/** Side-panel 过程 steps: this turn's context, then thoughts / replies / tool calls / statuses / approvals in time order. */
 export function buildSteps(d: RunDetailDto): Step[] {
   const files = parsePatch(d.patch ?? '')
   const firstReal = d.events.findIndex((e) => e.event.kind !== 'status')

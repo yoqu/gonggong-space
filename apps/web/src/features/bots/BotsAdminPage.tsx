@@ -1,11 +1,13 @@
 import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@aiws/protocol'
 import { Bot, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Alert, Button, EmptyState, Select, Tabs, Textarea, toast } from '../../ui'
+import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { DeleteBotDialog } from './DeleteBotDialog'
@@ -21,11 +23,8 @@ import {
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
 
-const TIERS: { value: Tier; label: string }[] = [
-  { value: 'full', label: 'full' },
-  { value: 'workspace', label: 'workspace' },
-  { value: 'read-only', label: 'read-only' },
-]
+const TIERS: Tier[] = ['read-only', 'workspace', 'full']
+const FULL_HINT = '完全访问档位只允许指定名单触发'
 
 function warning(bot: BotDto, userName: (id: string) => string) {
   const agent = AGENT_LABEL[bot.agentKind]
@@ -106,7 +105,7 @@ export function BotDetail({
       .catch((e: Error) => toast({ type: 'error', message: e.message }))
 
   return (
-    <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="bot 详情">
+    <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="Bot 详情">
       <div className="bots-detail__head">
         <span className="bots-detail__name">{bot.name}</span>
         <span className="bots-detail__meta">
@@ -137,11 +136,11 @@ export function BotDetail({
             <span className="bots-detail__path" data-testid="default-workspace">
               {bot.defaultWorkspace ?? '未设置'}
             </span>
-            <Button size="xs" onClick={() => setPicking(true)}>
+            <Button size="xs" variant="outline" onClick={() => setPicking(true)}>
               选择
             </Button>
             {bot.defaultWorkspace ? (
-              <Button size="xs" variant="ghost" onClick={() => void setDefault(null)}>
+              <Button size="xs" variant="outline" onClick={() => void setDefault(null)}>
                 清除
               </Button>
             ) : null}
@@ -161,16 +160,19 @@ export function BotDetail({
 
       <div className="bots-detail__field">
         <span className="bots-detail__label">触发范围</span>
-        <Tabs<TriggerScope>
-          size="sm"
-          value={scope}
-          onChange={setScope}
-          items={[
-            { value: 'all', label: '任何群成员', disabled: !canEdit || tier === 'full' },
-            { value: 'list', label: '指定名单', disabled: !canEdit },
-            { value: 'self', label: '仅本人', disabled: !canEdit },
-          ]}
-        />
+        <div title={tier === 'full' ? FULL_HINT : undefined}>
+          <Tabs<TriggerScope>
+            size="sm"
+            value={scope}
+            onChange={setScope}
+            items={[
+              { value: 'all', label: '任何群成员', disabled: !canEdit || tier === 'full' },
+              { value: 'list', label: '指定名单', disabled: !canEdit },
+              { value: 'self', label: '仅本人', disabled: !canEdit },
+            ]}
+          />
+        </div>
+        {tier === 'full' ? <span className="bots-detail__hint">{FULL_HINT}</span> : null}
         {scope === 'list' ? (
           <div className="bots-detail__chips">
             {list.map((id) => (
@@ -191,7 +193,8 @@ export function BotDetail({
             {canEdit ? (
               <div className="bots-chip__add">
                 <Select
-                  placeholder="添加"
+                  label="添加触发人"
+                  placeholder="+ 添加成员"
                   value={null}
                   options={users
                     .filter((u) => !list.includes(u.id))
@@ -213,15 +216,8 @@ export function BotDetail({
             setTier(v)
             if (v === 'full' && scope === 'all') setScope('list')
           }}
-          items={TIERS.map((t) => ({ ...t, disabled: !canEdit }))}
+          items={TIERS.map((t) => ({ value: t, label: TIER_LABEL[t], disabled: !canEdit }))}
         />
-        {tier === 'full' ? (
-          <Alert
-            variant="warning"
-            title="full 档位强制使用指定名单"
-            description="触发范围已自动切换为「指定名单」。"
-          />
-        ) : null}
       </div>
 
       <div className="bots-detail__grid">
@@ -256,7 +252,7 @@ export function BotDetail({
       ) : null}
 
       <div className="bots-detail__field">
-        <span className="bots-detail__label">谁用了这个 bot · 近 7 天</span>
+        <span className="bots-detail__label">谁用了这个 Bot · 近 7 天</span>
         {usage?.length ? (
           <UsageBars rows={usage} compact />
         ) : (
@@ -286,7 +282,8 @@ export function BotsAdminPage() {
   const me = useSession((s) => s.user) as UserDto
   const all = useWorkspace((s) => s.bots)
   const bots = me.role === 'sysadmin' ? all : all.filter((b) => b.ownerId === me.id)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [search] = useSearchParams()
+  const [selectedId, setSelectedId] = useState(search.get('bot'))
   const [creating, setCreating] = useState(false)
   const [users, setUsers] = useState<UserBriefDto[]>([])
   const selected = bots.find((b) => b.id === selectedId) ?? bots[0]
@@ -310,14 +307,14 @@ export function BotsAdminPage() {
           </div>
           <span className="spacer" />
           <Button variant="primary" onClick={() => setCreating(true)}>
-            新建 bot
+            新建 Bot
           </Button>
         </div>
 
         <div className="bots-page__body">
           <div className="bots-table">
             <div className="bots-table__row bots-table__head">
-              <span>bot</span>
+              <span>Bot</span>
               <span>归属人</span>
               <span>绑定</span>
               <span>机器</span>
@@ -350,8 +347,8 @@ export function BotsAdminPage() {
               <EmptyState
                 bare
                 icon={<Bot size={24} />}
-                title="还没有 bot"
-                description="点击「新建 bot」开始。"
+                title="还没有 Bot"
+                description="点击「新建 Bot」开始。"
               />
             )}
           </div>

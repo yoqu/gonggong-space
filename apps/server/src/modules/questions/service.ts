@@ -5,7 +5,7 @@ import { auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { timeoutMin } from '../approvals/service.js'
 import { claimAttachments } from '../attachments/service.js'
-import { notify } from '../notifications/notify.js'
+import { notify, resolveNotifications } from '../notifications/notify.js'
 import { publishRun } from '../runs/dto.js'
 import { questionSetDto } from './dto.js'
 
@@ -104,6 +104,7 @@ export async function answerQuestions(
     const settled = await settle(ctx, tx, row, 'answered', values, user)
     return { settled: settled ?? fail('conflict', '该提问已处理'), files }
   })
+  await resolveNotifications(ctx, 'question', 'questionSetId', [id])
   if (row.machineId)
     ctx.hub.send(row.machineId, {
       t: 'question.answer',
@@ -125,6 +126,7 @@ export async function expireQuestions(ctx: Ctx) {
   for (const row of due) {
     const settled = await settle(ctx, ctx.db, row, 'expired', {}, null)
     if (!settled) continue
+    await resolveNotifications(ctx, 'question', 'questionSetId', [settled.id])
     if (row.machineId)
       ctx.hub.send(row.machineId, {
         t: 'question.answer',
@@ -155,6 +157,12 @@ export async function voidQuestions(ctx: Ctx, runId: string) {
       detail: auditDetail(q),
       createdAt: ctx.now(),
     })),
+  )
+  await resolveNotifications(
+    ctx,
+    'question',
+    'questionSetId',
+    voided.map((q) => q.id),
   )
   await syncRun(ctx, runId)
 }

@@ -14,16 +14,25 @@ const DETAIL_MAX: usize = 200;
 const OUTPUT_LINES: usize = 20;
 const OUTPUT_MAX: usize = 1500;
 
-/// Git default-action note, context lines (`[time] author: body（附件：…）`), the quote, then
-/// `<trigger> 说：<text>` with one `附件：<path>` line per attachment.
-pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], git: Option<&str>) -> String {
+/// Git default-action note, context lines (`[#seq time] author: body（附件：…）`) led by a pointer to the aiws tools
+/// when `omitted` older ones were left out, the quote, then `<trigger> 说：<text>` with one `附件：<path>` line per
+/// attachment.
+pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], omitted: u32, git: Option<&str>) -> String {
     let mut out = git.map(|g| format!("{g}\n\n")).unwrap_or_default();
-    if !history.is_empty() {
-        out.push_str("群聊上下文：\n");
+    if let Some(first) = history.first() {
+        let more = if omitted == 0 {
+            String::new()
+        } else {
+            format!(
+                "（此前还有 {omitted} 条未展示，需要时用 aiws 的 list_messages(before={}) 或 search_messages 查看）",
+                first.seq
+            )
+        };
+        out.push_str(&format!("群聊上下文{more}：\n"));
         for m in history {
             let files: Vec<String> = m.attachments.iter().map(rel_path).collect();
             let files = if files.is_empty() { String::new() } else { format!("（附件：{}）", files.join("、")) };
-            out.push_str(&format!("[{}] {}: {}{files}\n", short_time(&m.at), m.author, m.body));
+            out.push_str(&format!("[#{} {}] {}: {}{files}\n", m.seq, short_time(&m.at), m.author, m.body));
         }
         out.push('\n');
     }
@@ -44,7 +53,8 @@ fn short_time(iso: &str) -> String {
 
 pub fn system_prompt(bot: &RunBot) -> String {
     let base = format!(
-        "你是团队群聊里的 bot「{}」。群成员 @ 你时，消息以「<名字> 说：」开头，之前可能附有群聊上下文。最终回复会作为你的群消息发出。",
+        "你是团队群聊里的 bot「{}」。群成员 @ 你时，消息以「<名字> 说：」开头，之前可能附有最近的群聊上下文。最终回复会作为你的群消息发出。\
+        需要更早的群聊记录、群成员、其他 bot 的运行结果时，用 aiws 工具查询，不要猜。",
         bot.name
     );
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
@@ -271,6 +281,7 @@ mod tests {
             text: "@小王 写个脚本".into(),
             triggered_by: "王磊".into(),
             context: vec![],
+            omitted: 0,
             fallback_context: vec![],
             attachments: vec![],
             quote: None,
@@ -280,13 +291,21 @@ mod tests {
     #[test]
     fn composes_context_then_trigger() {
         assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], None),
-            "群聊上下文：\n[2026-09-23 10:12] 陈晨: 退款 v1 下线\n[2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
+            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], 0, None),
+            "群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: 退款 v1 下线\n[#1 2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
         );
-        assert_eq!(compose_prompt(&prompt(), &[], None), "王磊 说：@小王 写个脚本");
+        assert_eq!(compose_prompt(&prompt(), &[], 0, None), "王磊 说：@小王 写个脚本");
         assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], Some("git 默认动作：fetch 完成。")),
-            "git 默认动作：fetch 完成。\n\n群聊上下文：\n[2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
+            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 0, Some("git 默认动作：fetch 完成。")),
+            "git 默认动作：fetch 完成。\n\n群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
+        );
+    }
+
+    #[test]
+    fn points_the_agent_at_the_aiws_tools_for_omitted_context() {
+        assert_eq!(
+            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 12, None),
+            "群聊上下文（此前还有 12 条未展示，需要时用 aiws 的 list_messages(before=1) 或 search_messages 查看）：\n[#1 2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
         );
     }
 
@@ -301,6 +320,7 @@ mod tests {
         };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 bot「小王」"));
+        assert!(s.contains("用 aiws 工具查询"));
         assert!(s.ends_with("\n\n只改 server/"));
     }
 

@@ -4,7 +4,7 @@ import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { groupParams } from '../groups/params.js'
-import { notify } from '../notifications/notify.js'
+import { notify, resolveNotifications } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
 import { redact } from '../runs/redact.js'
 
@@ -122,6 +122,12 @@ export async function voidApprovals(ctx: Ctx, runId: string, reason: VoidReason)
       createdAt: ctx.now(),
     })),
   )
+  await resolveNotifications(
+    ctx,
+    'approval',
+    'approvalId',
+    voided.map((a) => a.id),
+  )
   await syncRun(ctx, runId)
 }
 
@@ -156,6 +162,7 @@ async function settle(
     detail: { ...auditDetail(a), optionId },
     createdAt: ctx.now(),
   })
+  await resolveNotifications(ctx, 'approval', 'approvalId', [a.id])
   await syncRun(ctx, a.runId)
   return a
 }

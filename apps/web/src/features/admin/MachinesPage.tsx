@@ -1,6 +1,7 @@
 import { type AdminMachineDto, PROTOCOL_VERSION } from '@aiws/protocol'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { realtime } from '../../lib/realtime'
 import { Alert, Spinner } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
@@ -10,12 +11,17 @@ const OS: Record<AdminMachineDto['os'], string> = { macos: 'macOS', linux: 'Linu
 
 const outdated = (m: AdminMachineDto) => m.protocol !== null && m.protocol < PROTOCOL_VERSION
 
-function heartbeat(m: AdminMachineDto) {
-  if (m.online) return '在线'
+/** Machine events only reach their owner, so the list is also refreshed on a heartbeat-sized interval. */
+const POLL_MS = 15_000
+
+/** The server stamps lastSeenAt on connect and disconnect only, so an online machine is live by definition. */
+function lastHeartbeat(m: AdminMachineDto) {
+  if (m.online) return '刚刚'
   if (!m.lastSeenAt) return '从未连接'
   const min = Math.floor((Date.now() - Date.parse(m.lastSeenAt)) / 60_000)
-  if (min < 60) return `离线 ${min} 分`
-  return min < 1440 ? `离线 ${Math.floor(min / 60)} 小时` : `离线 ${Math.floor(min / 1440)} 天`
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
 }
 
 /** Latest measurement reported by the daemon; red past the force-sync thresholds. */
@@ -36,16 +42,36 @@ export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
   const [error, setError] = useState('')
   const params = useSystemParams()
+  const load = useCallback(
+    () =>
+      api
+        .get<AdminMachineDto[]>('/admin/machines')
+        .then((list) => {
+          setMachines(list)
+          setError('')
+        })
+        .catch((e) => setError(errorText(e))),
+    [],
+  )
   useEffect(() => {
-    api
-      .get<AdminMachineDto[]>('/admin/machines')
-      .then(setMachines)
-      .catch((e) => setError(errorText(e)))
-  }, [])
+    void load()
+    const timer = setInterval(() => void load(), POLL_MS)
+    const offEvents = realtime.subscribe((e) => {
+      if (e.t === 'machine.updated' || e.t === 'machine.removed') void load()
+    })
+    const offStatus = realtime.onStatus((st) => {
+      if (st === 'open') void load()
+    })
+    return () => {
+      clearInterval(timer)
+      offEvents()
+      offStatus()
+    }
+  }, [load])
   const old = machines?.filter(outdated) ?? []
 
   return (
-    <AdminPage title="机器与网络" desc="每台 daemon 的版本、心跳与网络质量记录。">
+    <AdminPage title="机器与网络" desc="每台机器的 daemon 版本、在线状态与网络质量记录。">
       {error ? <Alert variant="error" description={error} /> : null}
       {machines ? (
         <div className="admin-table">
@@ -58,7 +84,8 @@ export function MachinesPage() {
                 <th>daemon</th>
                 <th>延迟</th>
                 <th>带宽</th>
-                <th>心跳</th>
+                <th>状态</th>
+                <th>最后心跳</th>
               </tr>
             </thead>
             <tbody>
@@ -87,8 +114,14 @@ export function MachinesPage() {
                   <td>
                     <span className="admin-table__presence">
                       <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
-                      {heartbeat(m)}
+                      {m.online ? '在线' : '离线'}
                     </span>
+                  </td>
+                  <td
+                    className="admin-table__muted"
+                    title={m.lastSeenAt ? new Date(m.lastSeenAt).toLocaleString() : undefined}
+                  >
+                    {lastHeartbeat(m)}
                   </td>
                 </tr>
               ))}

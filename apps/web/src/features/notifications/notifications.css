@@ -58,6 +58,10 @@
   overflow-y: auto;
 }
 .notif__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 24px 14px;
   text-align: center;
   font-size: 12px;
@@ -77,6 +81,9 @@
 }
 .notif__item--unread {
   opacity: 1;
+}
+.notif__item--resolved {
+  opacity: 0.5;
 }
 .notif__item:hover {
   background: var(--color-bg-muted);
@@ -109,6 +116,11 @@
   color: var(--color-text-secondary);
   text-wrap: pretty;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 .notif__group {
   font-size: 11px;

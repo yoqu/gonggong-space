@@ -14,7 +14,7 @@ export interface SidebarProps {
   machines: MachineDto[]
   onNewGroup?: () => void
   onNewDm?: () => void
-  /** Shows the 开始使用 guide while the user still lacks a machine or a bot. */
+  /** All lists have arrived: empty states and the 开始使用 guide wait for it so "not yet" never reads as "none". */
   loaded?: boolean
   onBindMachine?: () => void
   onNewBot?: () => void
@@ -48,7 +48,13 @@ function GroupRow({ g }: { g: GroupDto }) {
         {g.pinned ? <Pin size={11} className="muted-icon" data-testid="pinned" aria-label="已置顶" /> : null}
         {g.muted ? <BellOff size={11} className="muted-icon" aria-label="消息免打扰" /> : null}
         {g.unread > 0 ? (
-          <span className={cx('sidebar__unread', g.muted && 'sidebar__unread--muted')}>{g.unread}</span>
+          <span
+            className={cx('sidebar__unread', g.muted && 'sidebar__unread--muted')}
+            role="img"
+            aria-label={`${g.unread} 条未读`}
+          >
+            {g.unread}
+          </span>
         ) : null}
       </span>
       <span className="sidebar__sub">{sub}</span>
@@ -68,8 +74,8 @@ function SetupGuide({
   onNewBot?: () => void
 }) {
   const steps = [
-    { label: '绑定机器', hint: '在电脑上运行 daemon，用绑定码关联账号', done: bound, onClick: onBindMachine },
-    { label: '新建 bot', hint: '选择机器上的 Claude Code 或 Codex', done: hasBot, onClick: onNewBot },
+    { label: '绑定机器', hint: '在机器上运行 daemon，用绑定码关联账号', done: bound, onClick: onBindMachine },
+    { label: '新建 Bot', hint: '选择机器上的 Claude Code 或 Codex', done: hasBot, onClick: onNewBot },
   ]
   return (
     <section className="sidebar-guide" aria-label="开始使用">
@@ -113,7 +119,8 @@ export function Sidebar({
   onRevokeMachine,
   onConfirmBot,
 }: SidebarProps) {
-  const online = machines.find((m) => m.online)
+  const online = machines.filter((m) => m.online).length
+  const empty = (text: string) => (loaded ? <div className="sidebar__empty">{text}</div> : null)
   const lists = [
     {
       label: '群',
@@ -145,87 +152,85 @@ export function Sidebar({
           <section key={l.label}>
             <SectionHead label={l.label} onAdd={l.add} addTitle={l.addTitle} />
             <div className="sidebar__list">
-              {l.items.length ? (
-                l.items.map((g) => <GroupRow key={g.id} g={g} />)
-              ) : (
-                <div className="sidebar__empty">{l.empty}</div>
-              )}
+              {l.items.length ? l.items.map((g) => <GroupRow key={g.id} g={g} />) : empty(l.empty)}
             </div>
           </section>
         ))}
         <section>
-          <SectionHead label="我的 BOT" onAdd={onNewBot} addTitle={onNewBot && '新建 bot'} />
+          <SectionHead label="我的 Bot" onAdd={onNewBot} addTitle={onNewBot && '新建 Bot'} />
           <div className="sidebar__list">
-            {bots.length ? (
-              bots.map((b) => (
-                <div key={b.id} className="sidebar__bot">
-                  <button type="button" className="sidebar__bot-open" onClick={() => onOpenBot?.(b.id)}>
-                    <span className="dot" style={{ background: PRESENCE[b.presence].color }} />
-                    <span className="sidebar__bot-name">{b.name}</span>
-                    <span className="sidebar__bot-state">{botStateText(b)}</span>
-                  </button>
-                  {b.binding === 'pending_confirm' && onConfirmBot ? (
-                    <Button size="xs" variant="primary" onClick={() => onConfirmBot(b.id)}>
-                      确认
-                    </Button>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <div className="sidebar__empty">还没有 bot</div>
-            )}
+            {bots.length
+              ? bots.map((b) => (
+                  <div key={b.id} className="sidebar__bot">
+                    <button
+                      type="button"
+                      className="sidebar__bot-open"
+                      title={`${b.name} · ${botStateText(b)}`}
+                      onClick={() => onOpenBot?.(b.id)}
+                    >
+                      <span className="dot" style={{ background: PRESENCE[b.presence].color }} />
+                      <span className="sidebar__bot-name">{b.name}</span>
+                      <span className="sidebar__bot-state">{botStateText(b)}</span>
+                    </button>
+                    {b.binding === 'pending_confirm' && onConfirmBot ? (
+                      <Button size="xs" variant="primary" onClick={() => onConfirmBot(b.id)}>
+                        确认
+                      </Button>
+                    ) : null}
+                  </div>
+                ))
+              : empty('还没有 bot')}
           </div>
         </section>
         <section aria-label="我的机器">
           <SectionHead label="我的机器" onAdd={onBindMachine} addTitle={onBindMachine && '绑定新机器'} />
           <div className="sidebar__list">
-            {machines.length ? (
-              machines.map((m) => {
-                const bound = bots.filter((b) => b.machineId === m.id).length
-                return (
-                  <div key={m.id} className="sidebar__bot sidebar__machine">
-                    <span
-                      className="dot"
-                      style={{
-                        background: m.online ? 'var(--color-success)' : 'var(--color-status-offline)',
-                      }}
-                    />
-                    <span className="sidebar__bot-name">{m.name}</span>
-                    <span className="sidebar__bot-state">
-                      {`${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 bot` : ''}`}
-                    </span>
-                    {onRevokeMachine ? (
-                      <button
-                        type="button"
-                        className="sidebar__add sidebar__revoke"
-                        aria-label={`吊销 ${m.name}`}
-                        title={bound ? '先删除绑定在这台机器上的 bot' : '吊销'}
-                        disabled={bound > 0}
-                        onClick={() => onRevokeMachine(m.id)}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    ) : null}
-                  </div>
-                )
-              })
-            ) : (
-              <div className="sidebar__empty">还没有绑定机器</div>
-            )}
+            {machines.length
+              ? machines.map((m) => {
+                  const bound = bots.filter((b) => b.machineId === m.id).length
+                  const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 bot` : ''}`
+                  return (
+                    <div
+                      key={m.id}
+                      className="sidebar__bot sidebar__machine"
+                      title={`${m.name} · ${m.online ? '在线' : '离线'} · ${meta}`}
+                    >
+                      <span
+                        className="dot"
+                        style={{
+                          background: m.online ? 'var(--color-success)' : 'var(--color-status-offline)',
+                        }}
+                      />
+                      <span className="sidebar__bot-name">{m.name}</span>
+                      <span className="sidebar__bot-state">{meta}</span>
+                      {onRevokeMachine ? (
+                        <button
+                          type="button"
+                          className="sidebar__add sidebar__revoke"
+                          aria-label={`吊销 ${m.name}`}
+                          title={bound ? '先删除绑定在这台机器上的 bot' : '吊销'}
+                          disabled={bound > 0}
+                          onClick={() => onRevokeMachine(m.id)}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      ) : null}
+                    </div>
+                  )
+                })
+              : empty('还没有绑定机器')}
           </div>
         </section>
       </div>
-      <div className="sidebar__foot">
-        <span
-          className="dot"
-          style={{ background: online ? 'var(--color-success)' : 'var(--color-status-offline)' }}
-        />
-        {online
-          ? `本机 daemon 在线${online.daemonVersion ? ` · v${online.daemonVersion}` : ''}`
-          : machines.length
-            ? '本机 daemon 离线'
-            : '尚未绑定机器'}
-      </div>
+      {machines.length ? (
+        <div className="sidebar__foot">
+          <span
+            className="dot"
+            style={{ background: online ? 'var(--color-success)' : 'var(--color-status-offline)' }}
+          />
+          {`${online} 台机器在线`}
+        </div>
+      ) : null}
     </div>
   )
 }

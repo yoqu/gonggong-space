@@ -5,6 +5,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { Button, toast } from '../../ui'
+import { TIER_LABEL } from './tier'
 import './approval.css'
 
 /** ACP tool kinds as the prototype names them. */
@@ -75,8 +76,9 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   if (!a) return null
   const mine = !!me && me.id === bot?.ownerId
   const allow = pick(a.options, ['allow_once', 'allow_always'])
+  const always = a.options.find((o) => o.kind === 'allow_always' && o !== allow)
   const reject = pick(a.options, ['reject_once', 'reject_always'])
-  const tier = `超出 ${bot?.tier ?? 'workspace'} 档位`
+  const tier = `超出「${TIER_LABEL[bot?.tier ?? 'workspace']}」档位`
 
   const decide = async (option: PermissionOption) => {
     setBusy(true)
@@ -109,6 +111,11 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
           >
             批准
           </Button>
+          {always && (
+            <Button variant="outline" size="sm" disabled={!mine || busy} onClick={() => decide(always)}>
+              始终允许
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

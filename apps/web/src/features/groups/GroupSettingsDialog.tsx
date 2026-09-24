@@ -14,7 +14,7 @@ import { BotsView, type SettingsTab } from './GroupDrawer'
 const PARAMS: { key: keyof GroupParams; label: string }[] = [
   { key: 'approvalTimeoutMin', label: '权限审批等待 · 分区（分钟）' },
   { key: 'chainMaxHops', label: '接力链长上限（跳）' },
-  { key: 'offlineWaitMin', label: 'bot 离线等待上线（分钟）' },
+  { key: 'offlineWaitMin', label: 'Bot 离线等待上线（分钟）' },
 ]
 
 type Draft = Record<keyof GroupParams, string>
@@ -39,7 +39,7 @@ export function GroupSettingsDialog({
   const dm = group.kind === 'dm'
   const tabs: { value: SettingsTab; label: string; icon: typeof Info }[] = [
     { value: 'basic', label: '基本信息', icon: Info },
-    { value: 'bots', label: dm ? 'Bot' : '成员与 bot', icon: dm ? Bot : Users },
+    { value: 'bots', label: dm ? 'Bot' : '成员与 Bot', icon: dm ? Bot : Users },
     { value: 'mode', label: '同步模式', icon: RefreshCw },
     { value: 'params', label: dm ? '参数' : '群级参数', icon: SlidersHorizontal },
   ]
@@ -60,7 +60,7 @@ export function GroupSettingsDialog({
         await groupsApi.setRepo(group.id, repoBody(repo))
         toast({
           type: 'success',
-          message: group.repo ? '已更换仓库 · 各 bot 的托管工作区将重建' : '已绑定仓库',
+          message: group.repo ? '已更换仓库 · 各 Bot 的托管工作区将重建' : '已绑定仓库',
         })
       } else if (parsed?.success) {
         await groupsApi.saveParams(group.id, parsed.data)
@@ -128,7 +128,7 @@ export function GroupSettingsDialog({
                   切换到强制同步
                 </Button>
               </div>
-              <div className="gs-desc">强制同步为二期</div>
+              <div className="gs-desc">强制同步暂未开放</div>
             </div>
           ) : params ? (
             <div className="gs-params">
@@ -171,7 +171,7 @@ function BasicTab({
     { k: '远端仓库', v: group.repo?.url ?? '未绑定', mono: !!group.repo },
     { k: '基准分支', v: group.repo?.branch ?? '—', mono: !!group.repo },
     dm
-      ? { k: '类型', v: '私聊 · 仅你和你的 bot，不能邀请他人', mono: false }
+      ? { k: '类型', v: '私聊 · 仅你和你的 Bot，不能邀请他人', mono: false }
       : {
           k: '群管理员',
           v: group.members
@@ -199,11 +199,7 @@ function BasicTab({
         </div>
       ))}
       {draft ? <RepoFields draft={draft} set={(o) => setDraft((d) => d && { ...d, ...o })} /> : null}
-      <Alert
-        variant="info"
-        title="一期一群一仓库"
-        description="数据模型已按「群 → 多仓库」设计，二期开放多仓库绑定。更换仓库会重建所有 bot 的托管工作区。"
-      />
+      <Alert variant="info" title="每个群绑定一个仓库" description="更换仓库会重建所有 bot 的托管工作区。" />
     </div>
   )
 }

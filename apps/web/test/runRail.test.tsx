@@ -231,7 +231,8 @@ describe('run card', () => {
     mockApi(detail)
     renderChat()
     const cards = await screen.findAllByTestId('run-card')
-    const [live, forbidden, offline] = cards as [HTMLElement, HTMLElement, HTMLElement]
+    // r1 has its final reply, so its card sits at the reply, after the cards still under the trigger.
+    const [forbidden, offline, live] = cards as [HTMLElement, HTMLElement, HTMLElement]
     expect(live.textContent).toContain('接力 2/3')
     expect(live.textContent).toContain('改动 1 个文件')
     expect(live.textContent).toContain('1.5k tokens')
@@ -249,10 +250,10 @@ describe('run rail', () => {
     let current = detail()
     const calls = mockApi(() => current)
     renderChat()
-    const [card] = await screen.findAllByTestId('run-card')
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
     const rail = await screen.findByTestId('run-rail')
-    expect(await within(rail).findByText('开场上下文')).toBeTruthy()
+    expect(await within(rail).findByText('本轮上下文')).toBeTruthy()
     expect(rail.textContent).toContain('git 默认动作：fetch 完成，当前分支 main')
     expect(rail.textContent).toContain('wanglei-mbp')
     expect(rail.textContent).toContain('sess-7f3a')
@@ -288,6 +289,34 @@ describe('run rail', () => {
     expect(screen.queryByTestId('run-rail')).toBeNull()
   })
 
+  it('renders replies as markdown, copies the session id and closes on Escape (not mid-IME)', async () => {
+    const base = detail()
+    mockApi(() => ({
+      ...base,
+      events: [...base.events, { id: 9, at, event: { kind: 'text', delta: '改好了 **加粗** `code`' } }],
+    }))
+    const writeText = vi.fn(async (_: string) => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    renderChat()
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
+    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
+    const rail = await screen.findByTestId('run-rail')
+    expect((await within(rail).findByText('加粗')).tagName).toBe('STRONG')
+    expect(within(rail).getByText('code').tagName).toBe('CODE')
+    expect(rail.textContent).not.toContain('**')
+
+    fireEvent.click(within(rail).getByRole('button', { name: '复制会话 ID' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('sess-7f3a'))
+    writeText.mockRejectedValueOnce(new Error('denied'))
+    fireEvent.click(within(rail).getByRole('button', { name: '复制会话 ID' }))
+    expect(await screen.findByText('复制失败')).toBeTruthy()
+
+    fireEvent.keyDown(document, { key: 'Escape', isComposing: true })
+    expect(screen.getByTestId('run-rail')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('run-rail')).toBeNull()
+  })
+
   it('opens the diff of a file path clicked in a bot reply', async () => {
     mockApi(detail)
     renderChat()
@@ -315,7 +344,7 @@ describe('run rail', () => {
   it('keeps only the summary once the process has been purged', async () => {
     mockApi(() => detail({ purged: true, patch: null, events: [] }))
     renderChat()
-    const [card] = await screen.findAllByTestId('run-card')
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
     const rail = await screen.findByTestId('run-rail')
     expect(await within(rail).findByText('运行过程已过期，仅保留摘要')).toBeTruthy()
@@ -327,7 +356,7 @@ describe('run rail', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
     mockApi(detail)
     renderChat()
-    const [card] = await screen.findAllByTestId('run-card')
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
     expect((await screen.findByRole('complementary', { name: '侧栏' })).className).toContain(
       'chat__rail--overlay',

@@ -59,6 +59,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
                 at: "2026-09-23T10:12:00Z".into(),
                 attachments: vec![],
             }],
+            omitted: 0,
             fallback_context: vec![],
             attachments: vec![],
             quote: None,
@@ -230,7 +231,7 @@ async fn injects_cwd_mode_system_prompt_and_context_then_reuses_the_session() {
     assert_eq!(Path::new(e["cwd"].as_str().unwrap()).canonicalize().unwrap(), r.workspace().canonicalize().unwrap());
     assert_eq!(e["mode"], "acceptEdits");
     assert!(e["systemPrompt"].as_str().unwrap().contains("小王的 Claude"));
-    assert_eq!(e["prompt"], "群聊上下文：\n[2026-09-23 10:12] 陈晨: 新上下文\n\n王磊 说：mock:echo");
+    assert_eq!(e["prompt"], "群聊上下文：\n[#3 2026-09-23 10:12] 陈晨: 新上下文\n\n王磊 说：mock:echo");
 
     r.run(follow_up("r2", "mock:echo again", &first));
     let (_, second) = r.finish("r2").await;
@@ -255,6 +256,8 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
     let mut r = rig(Duration::from_secs(60));
     let mut s = start("r1", "mock:echo");
     s.resume_session_id = Some("gone".into());
+    // Counts messages left out of `context`, which the fallback replaces.
+    s.prompt.omitted = 5;
     s.prompt.fallback_context = vec![ContextMessage {
         seq: 1,
         author: "王磊".into(),
@@ -266,7 +269,7 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
     r.run(s);
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.new_session_reason.as_deref(), Some("resume_failed"));
-    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[2026-09-23 09:00] 王磊: 旧消息\n"));
+    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00] 王磊: 旧消息\n"));
 }
 
 #[tokio::test]
@@ -758,6 +761,26 @@ async fn local_approval_rules_answer_permissions_without_the_owner() {
     let (events, done) = r.finish("r3").await;
     assert!(events.contains(&running("已按本机规则自动批准：Write hello.txt")));
     assert_eq!(done.reply, "好的，已写入 hello.txt。");
+}
+
+#[tokio::test]
+async fn always_allowing_a_command_trusts_it_for_the_conversation() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:exec pnpm lint"));
+    let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, Some("always"));
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.reply, "ran");
+
+    r.run(follow_up("r2", "mock:exec pnpm lint 2>&1 | tail -3", &done));
+    let (events, done) = r.finish("r2").await;
+    assert!(events.contains(&running("已按本机规则自动批准：pnpm lint 2>&1 | tail -3")));
+    assert_eq!(done.reply, "ran");
+
+    r.run(follow_up("r3", "mock:exec pnpm lint && rm -rf x", &done));
+    let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, Some("reject"));
+    assert_eq!(r.finish("r3").await.1.reply, "denied");
 }
 
 #[tokio::test]

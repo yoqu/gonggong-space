@@ -89,7 +89,7 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
   expect(params.chainMaxHops).toBe(1)
 
   await page.getByRole('button', { name: '群设置' }).click()
-  await page.getByRole('switch', { name: '置顶群聊' }).click()
+  await page.getByRole('switch', { name: '置顶群' }).click()
   await page.getByRole('switch', { name: '消息免打扰' }).click()
   await expect(page.getByTestId(`group-item-${group.id}`).getByTestId('pinned')).toBeVisible()
   await page.getByRole('button', { name: '解散群' }).click()

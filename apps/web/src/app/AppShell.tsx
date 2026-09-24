@@ -39,7 +39,9 @@ export function TopBar({
       <button type="button" className="topbar__search" onClick={onSearch}>
         <Search size={13} />
         <span className="topbar__search-text">搜索消息、文件、运行</span>
-        {mobile ? null : <kbd className="topbar__kbd">⌘K</kbd>}
+        {mobile ? null : (
+          <kbd className="topbar__kbd">{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K'}</kbd>
+        )}
       </button>
       <div className="topbar__actions">
         {user?.role === 'sysadmin' ? (
@@ -52,7 +54,7 @@ export function TopBar({
           type="button"
           className="topbar__bell"
           title="通知"
-          aria-label="通知"
+          aria-label={notifCount > 0 ? `通知（${notifCount} 条未读）` : '通知'}
           onClick={onNotifications}
         >
           <Bell size={15} />
@@ -64,6 +66,14 @@ export function TopBar({
       </div>
     </header>
   )
+}
+
+/** True once a connection that had been open is lost, until it reopens. */
+function useConnectionLost() {
+  const status = useRealtimeStatus()
+  const [wasOpen, setWasOpen] = useState(false)
+  if (status === 'open' && !wasOpen) setWasOpen(true)
+  return wasOpen && status !== 'open'
 }
 
 export function StatusBar() {
@@ -78,7 +88,7 @@ export function StatusBar() {
         {conn.label}
       </span>
       <span>|</span>
-      <span>bot {online} 个在线</span>
+      <span>Bot {online} 个在线</span>
       <span className="spacer" />
       <span>协议 v{PROTOCOL_VERSION}</span>
     </footer>
@@ -95,6 +105,7 @@ function usePushSync() {
 export function AppShell() {
   const mobile = useIsMobile()
   const [overlay, setOverlay] = useState<'search' | 'notif' | null>(null)
+  const lost = useConnectionLost()
   usePushSync()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -113,6 +124,11 @@ export function AppShell() {
         onSearch={() => setOverlay('search')}
         onNotifications={() => setOverlay((o) => (o === 'notif' ? null : 'notif'))}
       />
+      {mobile && lost ? (
+        <div className="app__offline" role="status">
+          连接已断开，正在重连…
+        </div>
+      ) : null}
       <div className="app__body">
         <Outlet />
       </div>

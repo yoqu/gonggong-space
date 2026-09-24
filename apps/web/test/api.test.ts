@@ -59,3 +59,32 @@ describe('api client', () => {
     expect(onUnauthorized).toHaveBeenCalledOnce()
   })
 })
+
+describe('api client error messages', () => {
+  it('turns a network failure into a Chinese ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    await expect(api.get('/me')).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'network_error',
+      message: '网络连接失败，请检查网络后重试',
+    })
+  })
+
+  it('hides raw HTML of non-JSON failures behind a Chinese message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>Bad Gateway</html>', { status: 502 })),
+    )
+    await expect(api.get('/me')).rejects.toMatchObject({ message: '服务暂时不可用（HTTP 502）' })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('Not Found', { status: 404 })),
+    )
+    await expect(api.get('/me')).rejects.toMatchObject({ message: '请求失败（HTTP 404）' })
+  })
+})

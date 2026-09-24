@@ -13,9 +13,18 @@ interface TimelineState {
   deltas: Record<string, string>
   hasMore: boolean
   loaded: boolean
+  /** The first page failed; realtime events still apply once a retry succeeds. */
+  failed: boolean
 }
 
-const EMPTY: TimelineState = { messages: [], runs: {}, deltas: {}, hasMore: false, loaded: false }
+const EMPTY: TimelineState = {
+  messages: [],
+  runs: {},
+  deltas: {},
+  hasMore: false,
+  loaded: false,
+  failed: false,
+}
 
 const mergeMessages = (a: MessageDto[], b: MessageDto[]) => {
   const byId = new Map(a.map((m) => [m.id, m]))
@@ -32,6 +41,8 @@ const mergeRuns = (runs: Record<string, RunDto>, list: RunDto[]) => {
 /** Messages + run cards of one group, kept live from realtime events. */
 export function useTimeline(groupId: string) {
   const [state, setState] = useState<TimelineState>(EMPTY)
+  const [older, setOlder] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [attempt, setAttempt] = useState(0)
   const loadingOlder = useRef(false)
 
   const fetchPage = useCallback(
@@ -47,16 +58,19 @@ export function useTimeline(groupId: string) {
       runs: mergeRuns(s.runs, page.runs),
       hasMore: older || !s.loaded ? page.messages.length === PAGE : s.hasMore,
       loaded: true,
+      failed: false,
     }))
   }, [])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the first load on retry
   useEffect(() => {
     setState(EMPTY)
     let alive = true
     const latest = () =>
       fetchPage().then(
         (page) => alive && applyPage(page, false),
-        () => {},
+        // A failed refill after reconnect keeps what is shown; only a failed first page is an error.
+        () => alive && setState((s) => (s.loaded ? s : { ...s, failed: true })),
       )
     void latest()
     const offEvents = realtime.subscribe((e) => {
@@ -85,14 +99,19 @@ export function useTimeline(groupId: string) {
       offEvents()
       offStatus()
     }
-  }, [groupId, fetchPage, applyPage])
+  }, [groupId, fetchPage, applyPage, attempt])
 
   const loadOlder = useCallback(async () => {
     const first = state.messages[0]
     if (!state.hasMore || !first || loadingOlder.current) return
     loadingOlder.current = true
+    setOlder('loading')
     try {
       applyPage(await fetchPage(first.seq), true)
+      setOlder('idle')
+    } catch (e) {
+      setOlder('failed')
+      throw e
     } finally {
       loadingOlder.current = false
     }
@@ -103,5 +122,7 @@ export function useTimeline(groupId: string) {
     [],
   )
 
-  return { ...state, loadOlder, addMessage }
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  return { ...state, older, loadOlder, addMessage, retry }
 }

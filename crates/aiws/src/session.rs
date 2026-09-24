@@ -75,6 +75,8 @@ struct State {
     conn: Option<(ConnectionTo<Agent>, SessionId)>,
     /// Permission requests of the active turn awaiting the bot owner, by request id.
     approvals: HashMap<String, Approval>,
+    /// Commands the owner allowed always, trusted for the rest of the conversation.
+    always: Vec<String>,
     requests: u64,
     /// The last finished turn's snapshot (run id), kept for run.discard until the next turn starts (plan D7).
     last: Option<(String, GitTurn)>,
@@ -91,6 +93,7 @@ struct Asked {
 
 struct Approval {
     title: String,
+    command: Option<String>,
     options: Vec<PermissionOption>,
     tx: oneshot::Sender<Option<PermissionOptionId>>,
 }
@@ -202,6 +205,11 @@ impl Shared {
         let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
         let Some(p) = s.approvals.remove(request_id) else { return false };
         let choice = option_id.and_then(|id| p.options.into_iter().find(|o| *o.option_id.0 == *id));
+        if let Some(command) =
+            p.command.filter(|_| choice.as_ref().is_some_and(|o| o.kind == PermissionOptionKind::AllowAlways))
+        {
+            s.always.extend(local::remembered(&command));
+        }
         let allowed = choice
             .as_ref()
             .is_some_and(|o| matches!(o.kind, PermissionOptionKind::AllowOnce | PermissionOptionKind::AllowAlways));
@@ -323,13 +331,13 @@ impl Shared {
 
     /// Plan D15: `full` allows by itself, then the owner's local rules; anything else goes to the bot owner.
     fn on_permission(&self, req: RequestPermissionRequest) -> Permission {
-        let mut s = self.0.lock().unwrap();
+        let mut guard = self.0.lock().unwrap();
+        let s = &mut *guard;
         s.requests += 1;
         let n = s.requests;
         let Some(a) = s.active.as_mut() else { return Permission::Now(permission_response(None)) };
-        // The built-in ask tool only reaches group members: never an owner decision (spec §8.8).
-        let ask_tool = req.tool_call.fields.title.as_deref().is_some_and(|t| t.contains(ask::TOOL));
-        if ask_tool {
+        // The built-in aiws tools only ask or read the group: never an owner decision (spec §8.8).
+        if req.tool_call.fields.title.as_deref().is_some_and(ask::is_builtin) {
             return Permission::Now(permission_response(auto_allow(&req.options)));
         }
         let command = command_of(req.tool_call.fields.raw_input.as_ref());
@@ -339,7 +347,7 @@ impl Shared {
             unreachable!("tool call updates always map to tool events")
         };
         let command = command.filter(|_| tool_kind == "execute");
-        match a.rules.decide(a.tier, command.as_deref()) {
+        match a.rules.decide(a.tier, command.as_deref(), &a.cwd, &s.always) {
             Decision::Full => return Permission::Now(permission_response(auto_allow(&req.options))),
             Decision::Local if let Some(allow) = auto_allow(&req.options) => {
                 let step = format!("已按本机规则自动批准：{}", command.unwrap_or(title));
@@ -362,7 +370,7 @@ impl Shared {
             options: wire_options(&req.options),
         }));
         let (tx, rx) = oneshot::channel();
-        s.approvals.insert(request_id, Approval { title, options: req.options, tx });
+        s.approvals.insert(request_id, Approval { title, command, options: req.options, tx });
         Permission::Ask(rx)
     }
 
@@ -533,6 +541,11 @@ impl Asker for Shared {
         s.questions.insert(request_id, Asked { questions, tx });
         Ok(rx)
     }
+
+    fn active_run(&self) -> Option<(String, PathBuf)> {
+        let s = self.0.lock().unwrap();
+        s.active.as_ref().filter(|a| a.streaming && !a.sealed).map(|a| (a.run_id.clone(), a.cwd.clone()))
+    }
 }
 
 /// Session task: spawns an adapter on demand, runs queued turns in order, reaps the adapter when idle.
@@ -662,14 +675,16 @@ impl Conversation<'_> {
         let s = &req.start;
         // The server owns the session id: reuse the live one only if it asks for it (/new sends none).
         let wanted = s.resume_session_id.clone().map(SessionId::new);
-        let (session, reason, history) = match self.session.clone().filter(|id| wanted.as_ref() == Some(id)) {
-            Some(id) => (id, None, &s.prompt.context),
+        let context = (&s.prompt.context, s.prompt.omitted);
+        let (session, reason, (history, omitted)) = match self.session.clone().filter(|id| wanted.as_ref() == Some(id))
+        {
+            Some(id) => (id, None, context),
             None => match self.open(&req, wanted).await {
                 Ok((id, reason)) => {
                     let history = if reason.as_deref() == Some("resume_failed") {
-                        &s.prompt.fallback_context
+                        (&s.prompt.fallback_context, 0)
                     } else {
-                        &s.prompt.context
+                        context
                     };
                     (id, reason, history)
                 }
@@ -692,7 +707,7 @@ impl Conversation<'_> {
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         let git_note = self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = compose_prompt(&s.prompt, history, git_note.as_deref());
+        let text = compose_prompt(&s.prompt, history, omitted, git_note.as_deref());
         let image = self.init.agent_capabilities.prompt_capabilities.image;
         let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
         let mut spent: Option<AcpUsage> = None;

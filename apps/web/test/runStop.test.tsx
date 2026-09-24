@@ -1,5 +1,5 @@
 import type { BotDto, GroupDto, RunDto, UserDto } from '@aiws/protocol'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -57,24 +57,32 @@ afterEach(() => {
 })
 
 describe('run actions', () => {
-  it('any member can /stop an unfinished run', async () => {
+  it('any member can stop an unfinished run', async () => {
     const calls = mockApi({ 'POST /runs/r1/stop': { stopped: 1 } })
     const { rerender } = render(<RunActions run={run()} />)
-    fireEvent.click(screen.getByRole('button', { name: '/stop' }))
+    fireEvent.click(screen.getByRole('button', { name: '停止' }))
     await waitFor(() => expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/stop', body: {} }]))
     expect(screen.queryByRole('button', { name: '终止整条链' })).toBeNull()
     rerender(<RunActions run={run({ status: 'queued' })} />)
-    expect(screen.getByRole('button', { name: '/stop' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '停止' })).toBeTruthy()
     rerender(<RunActions run={run({ status: 'completed' })} />)
-    expect(screen.queryByRole('button', { name: '/stop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '停止' })).toBeNull()
   })
 
   it('chained hops offer 终止整条链 instead', async () => {
     const calls = mockApi({ 'POST /runs/r1/stop-chain': { stopped: 2 } })
     render(<RunActions run={run({ hop: 2, status: 'awaiting_approval' })} />)
-    expect(screen.queryByRole('button', { name: '/stop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '停止' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
+    const dialog = screen.getByRole('dialog', { name: '终止整条链' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(calls).toEqual([])
+
+    fireEvent.click(screen.getByRole('button', { name: '终止整条链' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '终止' }))
     await waitFor(() => expect(calls.map((c) => c.path)).toEqual(['/runs/r1/stop-chain']))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('an offline request shows the countdown to expiry', () => {

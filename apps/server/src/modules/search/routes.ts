@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groupRepos, groups, messages, runEvents, runs, users } from '../../db/schema.js'
 import { open } from '../../lib/seal.js'
+import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
@@ -13,18 +14,6 @@ const LIMIT = 20
 /** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
 const PATCH_SCAN = 100
 const EXPIRED = '运行过程已过期，仅保留卡片摘要'
-
-const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, '\\$&')}%`
-
-/** One line around the first match, so long messages still show why they matched. */
-function snippet(body: string, q: string) {
-  const line = body.replace(/\s+/g, ' ').trim()
-  const at = line.toLowerCase().indexOf(q.toLowerCase())
-  return at > 40 ? `…${line.slice(at - 20, at + 100)}` : line.slice(0, 120)
-}
-
-const patchPaths = (patch: string) =>
-  [...patch.matchAll(/^diff --git a\/.+? b\/(?<path>.+)$/gm)].map((m) => m.groups?.path ?? '')
 
 export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
   const myGroups = (userId: string) =>
@@ -57,6 +46,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       groupId: m.groupId,
       messageId: m.id,
       runId: m.runId,
+      at: m.createdAt.toISOString(),
     }))
   }
 
@@ -68,7 +58,14 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       if (!out.has(key)) out.set(key, r)
     }
     const changed = await ctx.db
-      .select({ id: runs.id, groupId: runs.groupId, patch: runs.patch, bot: bots.name, group: groups.name })
+      .select({
+        id: runs.id,
+        groupId: runs.groupId,
+        patch: runs.patch,
+        queuedAt: runs.queuedAt,
+        bot: bots.name,
+        group: groups.name,
+      })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
@@ -86,6 +83,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
             groupId: r.groupId,
             messageId: null,
             runId: r.id,
+            at: r.queuedAt.toISOString(),
           })
 
     const repos = await ctx.db
@@ -113,6 +111,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
           groupId: repo.groupId,
           messageId: null,
           runId: null,
+          at: null,
         })
     return [...out.values()].slice(0, LIMIT)
   }
@@ -178,6 +177,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       groupId: r.groupId,
       messageId: null,
       runId: r.id,
+      at: r.queuedAt.toISOString(),
     }))
   }
 

@@ -6,6 +6,7 @@ const n = (type: NotificationDto['type'], payload: Record<string, unknown>): Not
   type,
   payload,
   readAt: null,
+  resolvedAt: null,
   createdAt: '2026-09-23T10:00:00Z',
 })
 
@@ -32,11 +33,14 @@ describe('notificationView', () => {
         n('question', { groupId: 'g1', groupName: '支付', runId: 'r1', botName: 'Codex', count: 4 }),
       ),
     ).toMatchObject({ label: '待回答', text: 'Codex 向你提了 4 个问题', href: '/g/g1?run=r1' })
+    const done = (type: 'approval' | 'question') => ({ ...n(type, {}), resolvedAt: '2026-09-24T00:00:00Z' })
+    expect(notificationView(done('approval')).label).toBe('审批请求')
+    expect(notificationView(done('question')).label).toBe('提问')
     expect(
       notificationView(
         n('offline_expired', { groupId: 'g1', groupName: '支付', runId: 'r2', botName: 'C', waitMin: 30 }),
       ),
-    ).toMatchObject({ label: 'bot 离线作废', text: '你 @C 的请求等待 30 分钟未上线，已作废' })
+    ).toMatchObject({ label: 'Bot 离线作废', text: '你 @C 的请求等待 30 分钟未上线，已作废' })
     expect(
       notificationView(
         n('chain_done', { groupId: 'g1', groupName: '支付', rootRunId: 'r0', hops: 3, stopped: false }),
@@ -50,7 +54,7 @@ describe('notificationView', () => {
       href: '/g/g2',
     })
     expect(notificationView(n('bot_confirm', { botName: 'B', byName: '陈晨' }))).toEqual({
-      label: '待确认 bot',
+      label: '待确认 Bot',
       text: '陈晨 为你创建了 B，请确认绑定',
       group: '',
       href: '/admin/bots',

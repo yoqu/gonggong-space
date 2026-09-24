@@ -10,10 +10,11 @@ export const PARAM_DEFAULTS: SystemParams = {
   approvalTimeoutMin: 30,
   chainMaxHops: 3,
   offlineWaitMin: DEFAULT_OFFLINE_WAIT_MIN,
-  writerDisconnectReleaseSec: null,
+  writerDisconnectReleaseSec: 60,
   forceSyncMaxLatencyMs: 120,
   forceSyncMinBandwidthMbps: 10,
   sessionReplayCount: 50,
+  contextInlineMax: 20,
   runRetentionDays: 30,
   attachmentMaxMb: 50,
   attachmentsPerMessage: MAX_ATTACHMENTS,
@@ -51,7 +52,7 @@ export async function saveSysParams(ctx: Ctx, patch: Partial<SystemParams>, acto
   if (!Object.keys(changes).length) return current
   await ctx.db.transaction(async (tx) => {
     for (const key of Object.keys(changes) as (keyof SystemParams)[]) {
-      // Drizzle drops a plain null for jsonb; 待定 must be stored as JSON null.
+      // Drizzle drops a plain null for jsonb; an unset param must be stored as JSON null.
       const value = sql`${JSON.stringify(next[key])}::jsonb`
       await tx
         .insert(systemParams)

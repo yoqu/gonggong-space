@@ -344,6 +344,31 @@ describe('questions', () => {
     ])
   })
 
+  it('marks the question notifications of both recipients handled once answered or voided', async () => {
+    const w = await world()
+    const notesOf = (id: string) =>
+      vi.waitFor(async () => {
+        const rows = (await t.db.select().from(notifications)).filter(
+          (r) => (r.payload as { questionSetId: string }).questionSetId === id,
+        )
+        if (rows.length < 2) throw new Error('not yet')
+        return rows
+      })
+    const runId = await w.start()
+    const q = await w.ask(runId)
+    await notesOf(q.id)
+    await w.answer(w.triggers, q)
+    expect((await notesOf(q.id)).map((n) => [n.resolvedAt, n.readAt])).toEqual([
+      [clock, clock],
+      [clock, clock],
+    ])
+
+    const second = await w.ask(runId, 'r/q2')
+    await notesOf(second.id)
+    await voidQuestions(t.ctx, runId)
+    expect((await notesOf(second.id)).every((n) => n.resolvedAt)).toBe(true)
+  })
+
   it('ignores asks for runs that are not live on the reporting machine', async () => {
     const w = await world()
     const runId = await w.start()

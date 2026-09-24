@@ -58,11 +58,6 @@ export function LoginPage() {
       <Button type="submit" variant="primary" size="lg" fullWidth disabled={busy || !account || !password}>
         登录
       </Button>
-      <div className="auth__or">或</div>
-      {/* Phase-2 placeholder, deliberately not a <button>: nothing to press, and 登录 stays the only login button. */}
-      <div className="ui-btn ui-btn--outline ui-btn--lg ui-btn--full auth__sso" title="二期接入公司 SSO">
-        公司 SSO 登录 · 二期
-      </div>
     </AuthCard>
   )
 }

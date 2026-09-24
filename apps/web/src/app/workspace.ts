@@ -63,6 +63,7 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
     else if (e.t === 'bot.updated') set((s) => ({ bots: upsert(s.bots, e.bot) }))
     else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
     else if (e.t === 'notification.new') set((s) => ({ notifCount: s.notifCount + 1 }))
+    else if (e.t === 'notification.resolved') set({ notifCount: e.unread })
     else if (e.t === 'machine.updated') set((s) => ({ machines: upsert(s.machines, e.machine) }))
     else if (e.t === 'machine.removed')
       set((s) => ({ machines: s.machines.filter((m) => m.id !== e.machineId) }))

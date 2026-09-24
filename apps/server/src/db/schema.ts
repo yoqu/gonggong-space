@@ -366,6 +366,8 @@ export const notifications = pgTable(
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
     readAt: ts('read_at'),
+    /** approval / question: the request was settled, so there is nothing left to act on. */
+    resolvedAt: ts('resolved_at'),
     createdAt: createdAt(),
   },
   (t) => [index('notifications_user').on(t.userId, t.createdAt)],

@@ -15,34 +15,57 @@ import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { EmptyState, Spinner, toast } from '../ui'
+import { Button, EmptyState, Spinner, toast } from '../ui'
 import { ChatLayout } from './ChatLayout'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
 import { useWorkspace } from './workspace'
 
+const LAST_GROUP_KEY = 'aiws.lastGroup'
+
+const lastGroup = () => {
+  try {
+    return localStorage.getItem(LAST_GROUP_KEY)
+  } catch {
+    return null
+  }
+}
+
+const rememberGroup = (id: string) => {
+  try {
+    localStorage.setItem(LAST_GROUP_KEY, id)
+  } catch {
+    // storage unavailable (private mode): home just falls back to the first group
+  }
+}
+
+function loadGroups(setState: (s: 'ready' | 'error') => void) {
+  api.get<GroupDto[]>('/groups').then(
+    (groups) => {
+      useWorkspace.setState({ groups })
+      setState('ready')
+    },
+    () => setState('error'),
+  )
+}
+
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
 function useChatData() {
-  const [loaded, setLoaded] = useState(false)
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   useEffect(() => {
-    const load = () => {
-      api.get<GroupDto[]>('/groups').then(
-        (groups) => {
-          useWorkspace.setState({ groups })
-          setLoaded(true)
-        },
-        () => setLoaded(true),
-      )
-    }
-    load()
+    loadGroups(setState)
     let wasOpen = realtime.getStatus() === 'open'
     return realtime.onStatus((st) => {
-      if (st === 'open' && wasOpen) load()
+      if (st === 'open' && wasOpen) loadGroups(setState)
       if (st === 'open') wasOpen = true
     })
   }, [])
-  return loaded
+  const retry = () => {
+    setState('loading')
+    loadGroups(setState)
+  }
+  return [state, retry] as const
 }
 
 /** `?run=<id>[&file=<path>]` from a notification or search hit opens that run in the rail, then leaves the URL. */
@@ -63,7 +86,7 @@ export function ChatPage() {
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
   const { groups, bots, machines, loaded: workspaceLoaded } = useWorkspace()
-  const loaded = useChatData()
+  const [groupsState, retryGroups] = useChatData()
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
@@ -83,6 +106,15 @@ export function ChatPage() {
     [groupId],
   )
   useLinkedRun()
+  useEffect(() => {
+    if (group) rememberGroup(group.id)
+  }, [group])
+  // Desktop home resumes the last opened group; mobile home is the conversation list itself.
+  useEffect(() => {
+    if (groupId || mobile || groupsState !== 'ready' || !groups.length) return
+    const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
+    if (target) navigate(`/g/${target.id}`, { replace: true })
+  }, [groupId, mobile, groupsState, groups, navigate])
 
   return (
     <>
@@ -104,7 +136,7 @@ export function ChatPage() {
             machines={machines.filter((m) => m.ownerId === me?.id)}
             onNewGroup={() => setCreating('group')}
             onNewDm={() => setCreating('dm')}
-            loaded={workspaceLoaded}
+            loaded={workspaceLoaded && groupsState === 'ready'}
             onBindMachine={() => setBinding(true)}
             onNewBot={() => setNewBot(true)}
             onOpenBot={setOpenBotId}
@@ -120,9 +152,23 @@ export function ChatPage() {
       >
         {group ? (
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
-        ) : groupId && !loaded ? (
+        ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
             <Spinner />
+          </div>
+        ) : groupsState === 'error' ? (
+          <div className="chat__placeholder">
+            <EmptyState
+              bare
+              icon={<MessagesSquare size={28} />}
+              title="加载失败"
+              description="无法获取群列表，请检查网络后重试。"
+              actions={
+                <Button size="sm" onClick={retryGroups}>
+                  重试
+                </Button>
+              }
+            />
           </div>
         ) : (
           <div className="chat__placeholder">

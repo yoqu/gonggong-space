@@ -1,4 +1,4 @@
-/* 管理后台 · Bot and 新建 bot — metrics follow 管理后台.dc.html */
+/* 管理后台 · Bot and 新建 Bot — metrics follow 管理后台.dc.html */
 .bots-page {
   flex: 1;
   min-width: 0;
@@ -184,7 +184,19 @@
   cursor: pointer;
 }
 .bots-chip__add {
-  width: 110px;
+  width: 120px;
+}
+.bots-detail .bots-chip__add .ui-select__trigger {
+  height: 22px;
+  padding: 0 8px;
+  border-style: dashed;
+  border-color: var(--color-selection-blue);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 11px;
+}
+.bots-detail .bots-chip__add .ui-select__placeholder {
+  color: var(--color-selection-blue);
 }
 .bots-detail__grid {
   display: grid;

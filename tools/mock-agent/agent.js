@@ -8,6 +8,7 @@
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
 //   "mock:ask <json>" call the injected aiws MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
+//   "mock:tool <name> <json>" the same for any aiws tool
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
 import { execSync } from 'node:child_process'
@@ -128,17 +129,27 @@ async function prompt({ sessionId, prompt: blocks }, client) {
       toolCall,
       options: [
         { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'always', name: 'Always', kind: 'allow_always' },
         { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
       ],
     })
-    await say(res.outcome.outcome === 'selected' && res.outcome.optionId === 'allow' ? 'ran' : 'denied')
+    const ran = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
+    await say(ran ? 'ran' : 'denied')
     return { stopReason: 'end_turn' }
   }
   const ask = text.indexOf('mock:ask ')
-  if (ask >= 0) {
+  const anyTool = text.indexOf('mock:tool ')
+  if (ask >= 0 || anyTool >= 0) {
+    const [name, raw] =
+      ask >= 0
+        ? ['ask_group_members', text.slice(ask + 9)]
+        : text
+            .slice(anyTool + 10)
+            .split(/ (.*)/s)
+            .slice(0, 2)
     const toolCall = {
-      toolCallId: 'ask-1',
-      title: 'mcp__aiws__ask_group_members',
+      toolCallId: `${name}-1`,
+      title: `mcp__aiws__${name}`,
       kind: 'other',
       status: 'pending',
     }
@@ -157,14 +168,9 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     }
     const server = s.mcpServers.find((m) => m.type === 'http' && m.name === 'aiws')
     try {
-      const args = JSON.parse(text.slice(ask + 9))
+      const args = JSON.parse(raw)
       await mcp(server.url, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} }, abort.signal)
-      const result = await mcp(
-        server.url,
-        'tools/call',
-        { name: 'ask_group_members', arguments: args },
-        abort.signal,
-      )
+      const result = await mcp(server.url, 'tools/call', { name, arguments: args }, abort.signal)
       await say(result.content[0].text)
     } catch (e) {
       if (abort.signal.aborted) return { stopReason: 'cancelled' }

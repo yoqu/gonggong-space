@@ -163,11 +163,11 @@ describe('group settings drawer', () => {
     expect(within(d).getByRole('button', { name: /群成员\s*2 人/ })).toBeTruthy()
     expect(within(d).getByRole('button', { name: /Bot\s*2 个/ })).toBeTruthy()
     expect(within(d).getByRole('switch', { name: /消息免打扰/ })).toBeTruthy()
-    expect(within(d).getByText('普通消息不提醒；@我、我的 bot 待审批、向我提问、锁轮到我仍提醒')).toBeTruthy()
+    expect(within(d).getByText('普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒')).toBeTruthy()
     expect(within(d).getByText('只对我生效，审批与提问卡片始终展开')).toBeTruthy()
     expect(within(d).getByText('你是群管理员')).toBeTruthy()
     expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()
-    expect(within(d).getByRole('button', { name: '退出群聊' })).toBeTruthy()
+    expect(within(d).getByRole('button', { name: '退出群' })).toBeTruthy()
     expect(within(d).getByRole('button', { name: '解散群' })).toBeTruthy()
   })
 
@@ -222,7 +222,7 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('switch', { name: '置顶群聊' }))
+    fireEvent.click(within(d).getByRole('switch', { name: '置顶群' }))
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     await waitFor(() =>
       expect(within(screen.getByTestId('group-item-g1')).getByTestId('pinned')).toBeTruthy(),
@@ -257,7 +257,7 @@ describe('group settings drawer', () => {
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
     const d = await screen.findByRole('dialog', { name: '私聊设置' })
     expect(within(d).queryByRole('button', { name: /群成员/ })).toBeNull()
-    expect(within(d).queryByRole('button', { name: '退出群聊' })).toBeNull()
+    expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     fireEvent.click(within(d).getByRole('button', { name: '删除私聊' }))
     expect(within(d).getByRole('button', { name: '确认删除' })).toBeTruthy()
   })
@@ -280,8 +280,8 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: '退出群聊' }))
-    expect(within(d).getByText(/退出后你的 bot 一并移出本群/)).toBeTruthy()
+    fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
+    expect(within(d).getByText(/退出后你的 Bot 一并移出本群/)).toBeTruthy()
     fireEvent.click(within(d).getByRole('button', { name: '确认退出' }))
     await waitFor(() => expect(screen.queryByTestId('group-item-g1')).toBeNull())
     expect(calls.some((c) => c.path === '/groups/g1/leave')).toBe(true)
@@ -300,9 +300,9 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: '退出群聊' }))
+    fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
     expect(within(d).getByText('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')).toBeTruthy()
-    fireEvent.click(within(d).getByRole('button', { name: '退出群聊' }))
+    fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
     expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
     const li = within(d).getByTestId('member-u2')
     expect(within(li).getByText('带入 老李的 Codex')).toBeTruthy()
@@ -330,13 +330,114 @@ describe('group settings drawer', () => {
 
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
     fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
-    fireEvent.click(within(d).getByRole('button', { name: '拉入 bot' }))
+    fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
     const cand = within(d).getByRole('button', { name: /小周的 Codex/ })
     expect(cand.textContent).toContain('主人将一并加入')
     fireEvent.click(cand)
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/bots')?.body).toEqual({ botId: 'b3' }),
     )
+  })
+
+  it('hides leaving when I am the only member; dissolving stays in the danger zone', async () => {
+    mockApi(routes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: true }] })]))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
+    const dissolve = within(d).getByRole('button', { name: '解散群' })
+    expect(dissolve.closest('.gs-danger')).toBeTruthy()
+  })
+
+  it('confirms removing a member, blocks double submits and reports success', async () => {
+    const calls = mockApi(
+      routes([group()], {
+        'DELETE /groups/g1/members/u2': group({ members: [{ userId: 'u1', name: '王磊', isAdmin: true }] }),
+      }),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /群成员/ }))
+    fireEvent.click(within(within(d).getByTestId('member-u2')).getByRole('button', { name: '移出' }))
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    const confirm = await screen.findByRole('dialog', { name: '移出成员 李建国' })
+    expect(confirm.textContent).toContain('其 Bot 一并移出')
+    const ok = within(confirm).getByRole('button', { name: '移出' })
+    fireEvent.click(ok)
+    fireEvent.click(ok)
+    expect(await screen.findByText('已移出 李建国')).toBeTruthy()
+    expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(1)
+    expect(screen.queryByRole('dialog', { name: '移出成员 李建国' })).toBeNull()
+  })
+
+  it('confirms removing a bot and reports success', async () => {
+    const calls = mockApi(routes([group()], { 'DELETE /groups/g1/bots/b2': group({ botIds: ['b1'] }) }))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    const row = within(d).getByText('老李的 Codex').closest('.gs-bot') as HTMLElement
+    fireEvent.click(within(row).getByRole('button', { name: '移出' }))
+    const confirm = await screen.findByRole('dialog', { name: '移出 Bot 老李的 Codex' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '移出' }))
+    expect(await screen.findByText('已移出 老李的 Codex')).toBeTruthy()
+    expect(calls.find((c) => c.method === 'DELETE')?.path).toBe('/groups/g1/bots/b2')
+  })
+
+  it('flips a pref at once and rolls it back when saving fails', async () => {
+    mockApi(routes([group()], { 'PUT /groups/g1/prefs': () => apiError(500, 'internal', '保存失败') }))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    const pin = within(d).getByRole('switch', { name: '置顶群' }) as HTMLInputElement
+    fireEvent.click(pin)
+    expect(pin.checked).toBe(true)
+    expect(pin.disabled).toBe(true)
+    await waitFor(() => expect(pin.disabled).toBe(false))
+    expect(pin.checked).toBe(false)
+    expect(await screen.findByText('保存失败')).toBeTruthy()
+  })
+
+  it('shows failed loads inline with a retry', async () => {
+    let fail = true
+    mockApi(
+      routes([group()], {
+        'GET /groups/g1/params': () => (fail ? apiError(500, 'internal', 'boom') : params),
+        'GET /users': () => (fail ? apiError(500, 'internal', 'boom') : users),
+      }),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    expect(await within(d).findByText('群级参数加载失败')).toBeTruthy()
+    fail = false
+    fireEvent.click(within(d).getByRole('button', { name: '重试' }))
+    expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()
+
+    fail = true
+    fireEvent.click(within(d).getByRole('button', { name: /群成员/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
+    expect(await within(d).findByText('成员列表加载失败')).toBeTruthy()
+    fail = false
+    fireEvent.click(within(d).getByRole('button', { name: '重试' }))
+    expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
+  })
+
+  it('sends a bot owner to the bot page to change the tier; others only read it', async () => {
+    const mine = bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex' })
+    mockApi(
+      routes([group({ botIds: ['b1', 'b2', 'b3'] })], { 'GET /bots': [...bots.slice(0, 1), mine, bots[2]] }),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    const row = (name: string) => within(d).getByText(name).closest('.gs-bot') as HTMLElement
+    expect(within(row('小周的 Codex')).queryByRole('button', { name: '修改档位' })).toBeNull()
+    expect(d.textContent).toContain('桌面端')
+
+    fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '修改档位' }))
+    const selected = await waitFor(() => {
+      const el = document.querySelector('.bots-table__row.is-selected')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    expect(selected.textContent).toContain('小王的 Codex')
   })
 })
 
@@ -351,7 +452,7 @@ describe('group settings dialog', () => {
     const hops = (await within(dlg).findByLabelText('接力链长上限（跳）')) as HTMLInputElement
     expect(hops.value).toBe('3')
     expect((within(dlg).getByLabelText('权限审批等待 · 分区（分钟）') as HTMLInputElement).value).toBe('30')
-    expect((within(dlg).getByLabelText('bot 离线等待上线（分钟）') as HTMLInputElement).value).toBe('30')
+    expect((within(dlg).getByLabelText('Bot 离线等待上线（分钟）') as HTMLInputElement).value).toBe('30')
     fireEvent.change(hops, { target: { value: '1' } })
     fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -376,14 +477,14 @@ describe('group settings dialog', () => {
     expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
   })
 
-  it('shows the sync mode as partition with forced sync deferred to phase 2', async () => {
+  it('shows the sync mode as partition with forced sync not yet available', async () => {
     mockApi(routes([group()]))
     renderAt('/g/g1')
     fireEvent.click(within(await openDrawer()).getByRole('button', { name: /同步模式/ }))
     const dlg = await screen.findByRole('dialog', { name: '同步模式 · 支付服务重构' })
     expect(within(dlg).getAllByText('分区模式').length).toBeGreaterThan(0)
     expect(within(dlg).getByRole('button', { name: '切换到强制同步' }).hasAttribute('disabled')).toBe(true)
-    expect(within(dlg).getByText('强制同步为二期')).toBeTruthy()
+    expect(within(dlg).getByText('强制同步暂未开放')).toBeTruthy()
     fireEvent.click(within(dlg).getByRole('button', { name: '群级参数' }))
     expect(await screen.findByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
   })

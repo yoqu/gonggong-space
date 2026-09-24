@@ -271,12 +271,12 @@ describe('sidebar', () => {
     expect(await screen.findByText('K7QM-4X2P')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
 
-    fireEvent.click(within(guide).getByRole('button', { name: /新建 bot/ }))
+    fireEvent.click(within(guide).getByRole('button', { name: /新建 Bot/ }))
     expect(
       await screen.findByText('王磊 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。'),
     ).toBeTruthy()
     fireEvent.click(
-      within(screen.getByRole('dialog', { name: /新建 bot/ })).getAllByRole('button', { name: '关闭' })[0]!,
+      within(screen.getByRole('dialog', { name: /新建 Bot/ })).getAllByRole('button', { name: '关闭' })[0]!,
     )
 
     act(() => {
@@ -289,8 +289,8 @@ describe('sidebar', () => {
     mockApi({ ...baseRoutes([]), 'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }] })
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    fireEvent.click(within(nav).getByRole('button', { name: '新建 bot' }))
-    expect(await screen.findByRole('dialog', { name: /新建 bot/ })).toBeTruthy()
+    fireEvent.click(within(nav).getByRole('button', { name: '新建 Bot' }))
+    expect(await screen.findByRole('dialog', { name: /新建 Bot/ })).toBeTruthy()
   })
 })
 
@@ -327,7 +327,7 @@ describe('my machines and bots', () => {
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     fireEvent.click(await within(nav).findByRole('button', { name: /小王的 Claude/ }))
-    const detail = await screen.findByRole('dialog', { name: /bot 详情/ })
+    const detail = await screen.findByRole('dialog', { name: /Bot 详情/ })
     expect(within(detail).getByText('系统提示词 · 同时作为群内简介')).toBeTruthy()
 
     fireEvent.click(within(detail).getByRole('button', { name: '删除' }))
@@ -426,7 +426,7 @@ describe('chat view', () => {
 
     expect(await within(main).findByText('王磊 创建了群 · 成为群管理员')).toBeTruthy()
     expect(within(main).getByText('@小王的 Claude').className).toContain('mention')
-    expect(within(main).getByText('最终回复')).toBeTruthy()
+    expect(within(main).getByTestId('bot-reply').textContent).toContain('字段变化如下')
     expect(within(main).getByRole('cell', { name: '分' })).toBeTruthy()
     expect(within(main).getByRole('button', { name: '复制' })).toBeTruthy()
 
@@ -459,7 +459,7 @@ describe('chat view', () => {
       groupId: 'g1',
       state: { botId: 'b1', workspace: 'managed', state: 'ready', path: null, git, error: null },
     })
-    expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1 ↑0未提交托管')
+    expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1未提交托管')
   })
 
   it('marks human fan-out and shows relay hops as triggered by the bot', async () => {
@@ -501,7 +501,7 @@ describe('chat view', () => {
     const sent = msg({ id: 'm10', seq: 10, body: '@小王的 Claude 跑一下', mentions: ['b1'] })
     const calls = mockApi({ ...baseRoutes([group()]), 'POST /groups/g1/messages': () => sent })
     renderAt('/g/g1')
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
       '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
@@ -533,7 +533,7 @@ describe('chat view', () => {
   it('suggests system commands after a leading / with keyboard navigation', async () => {
     mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/candidates/commands': () => commandCandidates() })
     renderAt('/g/g1')
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
       '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
@@ -586,7 +586,7 @@ describe('chat view', () => {
     }
     const calls = mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/candidates/files': () => files })
     renderAt('/g/g1')
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
       '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
@@ -634,7 +634,7 @@ describe('chat view', () => {
         ]),
     })
     renderAt('/g/g1')
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
       '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
@@ -715,7 +715,7 @@ describe('repo validation and binding', () => {
     fireEvent.click(within(drawer).getByRole('button', { name: /仓库与基准分支/ }))
     const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
     expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
-    expect(within(dialog).getByText('一期一群一仓库')).toBeTruthy()
+    expect(within(dialog).getByText('每个群绑定一个仓库')).toBeTruthy()
     expect(within(dialog).getByText(/更换仓库会重建所有 bot 的托管工作区/)).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '更换' }))

@@ -1,14 +1,20 @@
+import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-const server = process.env.AIWS_SERVER ?? 'http://127.0.0.1:8787'
+// Same certificate as the server: LAN daemons bind to this origin and pin its fingerprint, and Secure cookies need https.
+const { AIWS_TLS_CERT: cert, AIWS_TLS_KEY: key } = process.env
+const https = cert && key ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined
+const server = process.env.AIWS_SERVER ?? `${https ? 'https' : 'http'}://127.0.0.1:8787`
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '127.0.0.1',
+    host: process.env.WEB_HOST ?? '127.0.0.1',
     port: Number(process.env.WEB_PORT ?? 5173),
-    proxy: { '/api': server, '/ws': { target: server, ws: true } },
+    https,
+    // The upstream is our own loopback server with a self-signed certificate.
+    proxy: { '/api': { target: server, secure: false }, '/ws': { target: server, ws: true, secure: false } },
   },
   test: { environment: 'jsdom', globals: false, setupFiles: ['./test/setup.ts'] },
 })

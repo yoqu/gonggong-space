@@ -78,7 +78,7 @@ describe('git status bar', () => {
     render(<GitBar group={group()} />)
     const b1 = await screen.findByTestId('git-b1')
     expect(fetch).toHaveBeenCalledWith('/api/groups/g1/bot-states', expect.anything())
-    expect(b1.textContent).toBe('小王的 Claudefeat/refund-v2↓0 ↑3未提交托管')
+    expect(b1.textContent).toBe('小王的 Claudefeat/refund-v2↑3未提交托管')
     expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codexclone 中…托管')
     expect(screen.getByTestId('git-b3').textContent).toBe('阿杰的 Claude工作区创建失败托管')
     expect(screen.getByText('工作区创建失败').getAttribute('title')).toBe('Permission denied (publickey)')
@@ -99,7 +99,7 @@ describe('git status bar', () => {
       // A turn's git report counts even before a workspace.state arrives.
       state: state('b1', { state: 'pending', git: git({ behind: 2 }) }),
     })
-    await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓2 ↑0托管'))
+    await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓2托管'))
     useWorkspace
       .getState()
       .applyEvent({ t: 'group.botState', groupId: 'g1', state: state('b1', { state: 'unbound' }) })

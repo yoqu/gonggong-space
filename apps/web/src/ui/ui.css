@@ -36,7 +36,8 @@
   width: 100%;
 }
 .ui-btn--xs {
-  height: 22px;
+  height: auto;
+  min-height: 28px;
   padding: 0 8px;
   border-radius: 5px;
   font-size: 10px;
@@ -64,7 +65,7 @@
   color: var(--color-text-primary);
 }
 .ui-btn--primary {
-  background: var(--color-system-blue);
+  background: var(--color-accent-fill);
   color: var(--color-on-accent);
 }
 .ui-btn--default:hover:not(:disabled),
@@ -88,7 +89,7 @@
 }
 .ui-btn--destructive {
   background: var(--color-bg-error);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   border-color: var(--color-border-error);
 }
 .ui-btn--destructive:hover:not(:disabled) {
@@ -101,8 +102,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 28px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-md);
@@ -114,27 +115,38 @@
   background: var(--color-bg-hover);
 }
 
-/* Close button (macOS red light) */
+/* Close button (×) */
 .ui-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: #ff5f57;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
   cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
-.ui-close svg {
-  opacity: 0;
-  transition: opacity var(--motion-fast);
+.ui-close:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
-.ui-close:hover svg,
-.ui-close:focus-visible svg {
-  opacity: 1;
+
+@media (max-width: 767px) {
+  .ui-icon-btn,
+  .ui-close {
+    width: 44px;
+    height: 44px;
+  }
+  .ui-btn--xs {
+    min-height: 36px;
+  }
 }
 
 /* Badge */
@@ -175,19 +187,19 @@
 }
 .ui-badge--info {
   background: var(--color-bg-accent-strong);
-  color: var(--color-brand-info);
+  color: var(--color-info-text);
 }
 .ui-badge--success {
   background: var(--color-bg-success);
-  color: var(--color-success);
+  color: var(--color-success-text);
 }
 .ui-badge--warning {
   background: var(--color-bg-warning);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 .ui-badge--destructive {
   background: var(--color-bg-error-strong);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 /* Tabs (segmented control) */
@@ -322,9 +334,9 @@ input:checked + .ui-checkbox__box {
   width: 100%;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-control);
-  background: var(--color-control-bg);
+  background: var(--color-bg-elevated);
   color: var(--color-text-primary);
-  outline: none;
+  outline: 2px solid transparent;
   transition:
     border-color var(--motion-base),
     box-shadow var(--motion-base);
@@ -365,7 +377,9 @@ input:checked + .ui-checkbox__box {
   box-shadow: none;
 }
 .ui-input:disabled,
-.ui-textarea:disabled {
+.ui-textarea:disabled,
+.ui-select__trigger:disabled {
+  background: var(--color-control-bg);
   opacity: 0.5;
 }
 
@@ -384,6 +398,7 @@ input:checked + .ui-checkbox__box {
   text-align: left;
   cursor: pointer;
 }
+.ui-select__trigger:focus-visible,
 .ui-select--open .ui-select__trigger {
   border-color: var(--color-system-blue);
   box-shadow: var(--shadow-focus);
@@ -435,12 +450,14 @@ input:checked + .ui-checkbox__box {
   text-align: left;
   cursor: pointer;
 }
-.ui-select__option:hover:not(:disabled),
 .ui-select__option[aria-selected="true"] {
-  background: var(--color-system-blue);
+  font-weight: 600;
+}
+.ui-select__option[data-active] {
+  background: var(--color-accent-fill);
   color: var(--color-on-accent);
 }
-.ui-select__option:disabled {
+.ui-select__option[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -646,11 +663,16 @@ input:checked + .ui-checkbox__box {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   border-radius: var(--radius-dialog);
   border: 1px solid var(--color-border-control);
   background: var(--color-panel-elevated);
+  box-shadow: var(--shadow-modal);
+}
+/* Focused programmatically on open; the modal shadow already marks it. */
+.ui-dialog:focus-visible,
+.ui-drawer:focus-visible {
   box-shadow: var(--shadow-modal);
 }
 .ui-dialog__header {
@@ -660,6 +682,9 @@ input:checked + .ui-checkbox__box {
   flex: none;
   padding: 14px 16px;
   border-bottom: 1px solid var(--color-separator);
+}
+.ui-dialog__header .ui-close {
+  margin: -8px -8px -8px auto;
 }
 .ui-dialog__title {
   margin: 0;
@@ -703,6 +728,7 @@ input:checked + .ui-checkbox__box {
   flex-direction: column;
   width: 380px;
   max-width: 100%;
+  max-height: 100dvh;
   border-left: 1px solid var(--color-separator);
   background: var(--color-panel-bg);
   box-shadow: var(--shadow-modal);
@@ -772,6 +798,13 @@ input:checked + .ui-checkbox__box {
 }
 .ui-toast__message {
   font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.ui-toast__count {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
 .ui-toast__close {

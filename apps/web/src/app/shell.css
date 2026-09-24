@@ -220,6 +220,15 @@ body {
   align-items: center;
   gap: 6px;
 }
+.app__offline {
+  flex: none;
+  padding: 4px 12px;
+  background: var(--color-bg-warning);
+  border-bottom: 1px solid var(--color-separator);
+  color: var(--color-warning-text);
+  font-size: 12px;
+  text-align: center;
+}
 
 /* Three-column chat layout */
 .chat {
@@ -360,12 +369,14 @@ section:first-child > .sidebar__head {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--color-system-blue);
+  background: var(--color-accent-fill);
+  color: var(--color-on-accent);
   font-size: 10px;
   font-weight: 650;
 }
 .sidebar__unread--muted {
   background: var(--color-border-strong);
+  color: var(--color-text-primary);
 }
 .sidebar__sub {
   font-size: 11px;
@@ -421,14 +432,19 @@ section:first-child > .sidebar__head {
   }
 }
 .sidebar__bot-name {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 2em;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The name keeps its width; the meta shrinks first and disappears when the row is too narrow. */
 .sidebar__bot-state {
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 11px;
   color: var(--color-text-tertiary);
   white-space: nowrap;
@@ -473,7 +489,8 @@ section:first-child > .sidebar__head {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--color-system-blue);
+  background: var(--color-accent-fill);
+  color: var(--color-on-accent);
   font-size: 10px;
   font-weight: 650;
 }
@@ -611,6 +628,9 @@ section:first-child > .sidebar__head {
 .composer {
   flex: none;
   position: relative;
+  width: 100%;
+  max-width: calc(var(--chat-max, 760px) + 40px);
+  margin: 0 auto;
   padding: 8px 20px 14px;
 }
 .composer__box {
@@ -620,8 +640,10 @@ section:first-child > .sidebar__head {
   border: 1px solid var(--color-border-control);
   background: var(--color-panel-bg);
 }
-.composer__box:focus-within {
-  border-color: var(--color-border-strong);
+.composer__box:focus-within,
+.composer__box--drop {
+  border-color: var(--color-system-blue);
+  box-shadow: var(--shadow-focus);
 }
 .composer__input {
   resize: none;
@@ -630,6 +652,8 @@ section:first-child > .sidebar__head {
   padding: 10px 12px 4px;
   font-size: 13px;
   line-height: 1.5;
+  max-height: 40vh;
+  overflow-y: auto;
   outline: none;
 }
 .composer__input::placeholder {
@@ -699,9 +723,21 @@ section:first-child > .sidebar__head {
     padding: 16px 12px 8px;
   }
   .composer {
+    max-width: none;
     padding: 8px 12px 14px;
+  }
+  /* Below 16px iOS zooms the page on focus. */
+  .composer__input {
+    font-size: 16px;
   }
   .chat-notice {
     padding: 7px 12px;
   }
+}
+
+.not-found {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  background: var(--color-panel-bg);
 }

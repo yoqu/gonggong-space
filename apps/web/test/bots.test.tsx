@@ -114,7 +114,14 @@ describe('workspace store', () => {
     s.applyEvent({ t: 'bot.removed', botId: 'b1' })
     s.applyEvent({
       t: 'notification.new',
-      notification: { id: 'n3', type: 'bot_confirm', payload: {}, readAt: null, createdAt: '' },
+      notification: {
+        id: 'n3',
+        type: 'bot_confirm',
+        payload: {},
+        readAt: null,
+        resolvedAt: null,
+        createdAt: '',
+      },
     })
     expect(useWorkspace.getState()).toMatchObject({ bots: [], notifCount: 2 })
   })
@@ -146,7 +153,7 @@ describe('sidebar 我的 BOT', () => {
   })
 })
 
-describe('新建 bot', () => {
+describe('新建 Bot', () => {
   const owners = (): BotOwnerDto[] => [
     { id: 'u9', name: '陈晨', machines: [] },
     { id: 'u1', name: '王磊', machines: [mbp] },
@@ -157,8 +164,8 @@ describe('新建 bot', () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = (b) => bot({ name: (b as { name: string }).name })
     renderAt('/admin/bots', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 bot' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建 bot' })
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     const name = await within(dialog).findByLabelText('名称')
     expect((name as HTMLInputElement).value).toBe('王磊的 Claude Code')
     expect(
@@ -186,8 +193,8 @@ describe('新建 bot', () => {
     routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
     routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 bot' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建 bot' })
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录' }))
     const picker = await screen.findByRole('dialog', { name: '默认工作区' })
     await within(picker).findByText('没有子目录')
@@ -204,8 +211,8 @@ describe('新建 bot', () => {
   it('previews confirmation and pending_bind when an admin creates for others', async () => {
     routes['GET /api/bots/owners'] = owners
     renderAt('/admin/bots', admin)
-    fireEvent.click(screen.getByRole('button', { name: '新建 bot' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建 bot' })
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     await within(dialog).findByText('陈晨 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。')
     expect(within(dialog).getByRole('button', { name: /陈晨\s*我/ })).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建' })).toBeTruthy()
@@ -222,12 +229,18 @@ describe('bot detail', () => {
     routes['GET /api/bots'] = () => [bot({ triggerScope: 'list', triggerList: ['u2'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).getByText('李建国')).toBeTruthy()
+    for (const t of ['只读', '工作区写入', '完全访问'])
+      expect(within(detail).getByRole('tab', { name: t })).toBeTruthy()
     fireEvent.click(within(detail).getByRole('tab', { name: '任何群成员' }))
-    fireEvent.click(within(detail).getByRole('tab', { name: 'full' }))
-    expect(within(detail).getByText('full 档位强制使用指定名单')).toBeTruthy()
-    expect(within(detail).getByRole('tab', { name: '任何群成员' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.click(within(detail).getByRole('tab', { name: '完全访问' }))
+    expect(within(detail).queryByRole('alert')).toBeNull()
+    const anyone = within(detail).getByRole('tab', { name: '任何群成员' })
+    expect(anyone.hasAttribute('disabled')).toBe(true)
+    expect(anyone.closest('[title]')?.getAttribute('title')).toBe('完全访问档位只允许指定名单触发')
+    expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
+    expect(within(detail).getByRole('button', { name: '添加触发人' })).toBeTruthy()
     expect(within(detail).getByRole('tab', { name: '指定名单' }).getAttribute('aria-selected')).toBe('true')
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
@@ -244,11 +257,11 @@ describe('bot detail', () => {
     routes['GET /api/bots'] = () => [bot({ defaultWorkspace: '/src/pay' })]
     routes['PUT /api/bots/b1/default-workspace'] = () => bot({})
     const { unmount } = renderAt('/admin/bots', admin)
-    const other = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const other = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(other).queryByTestId('default-workspace')).toBeNull()
     unmount()
     renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).getByTestId('default-workspace').textContent).toBe('/src/pay')
     fireEvent.click(within(detail).getByRole('button', { name: '清除' }))
     await waitFor(() => expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置'))
@@ -260,7 +273,7 @@ describe('bot detail', () => {
       bot({ binding: 'pending_confirm', presence: 'pending_confirm', createdBy: 'u9', agentVersion: null }),
     ]
     renderAt('/admin/bots', admin)
-    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).getByText('等待 王磊 确认')).toBeTruthy()
     expect(within(detail).queryByRole('button', { name: '确认' })).toBeNull()
   })
@@ -268,7 +281,7 @@ describe('bot detail', () => {
   it('warns when the agent CLI is older than the adapter supports', async () => {
     routes['GET /api/bots'] = () => [bot({ agentVersion: '1.0.128', agentMinVersion: '2.0.0' })]
     renderAt('/admin/bots', admin)
-    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).getByText('agent 版本低于适配器要求')).toBeTruthy()
     expect(within(detail).getByText(/claude-code 1.0.128 低于 ACP 适配器要求的 2.0.0/)).toBeTruthy()
   })
@@ -280,7 +293,7 @@ describe('bot detail', () => {
       { key: 'u2', name: '李建国', runs: 1, totalTokens: 0, unreported: 1 },
     ]
     renderAt('/admin/bots', wang)
-    const detail = await screen.findByRole('complementary', { name: 'bot 详情' })
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(await within(detail).findByText('256k tokens · 4 轮')).toBeTruthy()
     const rows = within(detail)
       .getAllByTestId('usage-row')

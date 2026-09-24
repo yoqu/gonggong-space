@@ -1,6 +1,6 @@
 import type { ErrorCode } from '@aiws/protocol'
 
-export type ApiErrorCode = ReturnType<(typeof ErrorCode)['parse']> | 'http_error'
+export type ApiErrorCode = ReturnType<(typeof ErrorCode)['parse']> | 'http_error' | 'network_error'
 
 export class ApiError extends Error {
   constructor(
@@ -25,16 +25,23 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     init.headers = { 'content-type': 'application/json' }
     init.body = JSON.stringify(body)
   }
-  const res = await fetch(`/api${path}`, init)
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, init)
+  } catch {
+    throw new ApiError(0, 'network_error', '网络连接失败，请检查网络后重试')
+  }
   if (res.ok) return (res.status === 204 ? undefined : await res.json()) as T
 
   if (res.status === 401) onUnauthorized?.()
   const text = await res.text()
   let parsed: { error?: ApiErrorCode; message?: string } = {}
   try {
-    parsed = JSON.parse(text)
+    parsed = JSON.parse(text) ?? {}
   } catch {}
-  throw new ApiError(res.status, parsed.error ?? 'http_error', parsed.message ?? (text || res.statusText))
+  const fallback =
+    res.status >= 500 ? `服务暂时不可用（HTTP ${res.status}）` : `请求失败（HTTP ${res.status}）`
+  throw new ApiError(res.status, parsed.error ?? 'http_error', parsed.message || fallback)
 }
 
 export const api = {

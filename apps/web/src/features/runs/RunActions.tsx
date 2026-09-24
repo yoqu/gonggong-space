@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { toast } from '../../ui'
+import { Button, Dialog, toast } from '../../ui'
 import { useAppend } from './append'
 
 const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'awaiting_answer']
@@ -36,15 +36,17 @@ function AppendAction({ run }: { run: RunDto }) {
   )
 }
 
-/** Card actions: 打断并追加 (spec §8.9), then /stop for a run or 终止整条链 for relay hops (plan D7). */
+/** Card actions: 打断并追加 (spec §8.9), then 停止 for a run or 终止整条链 for relay hops (plan D7). */
 export function RunActions({ run }: { run: RunDto }) {
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   if (!STOPPABLE.includes(run.status)) return null
   const chain = run.hop > 1
   const stop = async () => {
     setBusy(true)
     try {
       await api.post(`/runs/${run.id}/${chain ? 'stop-chain' : 'stop'}`, {})
+      setConfirming(false)
     } catch (e) {
       toast({ type: 'error', message: (e as Error).message })
     } finally {
@@ -52,19 +54,42 @@ export function RunActions({ run }: { run: RunDto }) {
     }
   }
   const stopAction = chain ? (
-    <button
-      type="button"
-      className="run-card__action run-card__action--danger"
-      disabled={busy}
-      onClick={stop}
-    >
-      <OctagonX size={12} />
-      终止整条链
-    </button>
+    <>
+      <button
+        type="button"
+        className="run-card__action run-card__action--danger"
+        disabled={busy}
+        onClick={() => setConfirming(true)}
+      >
+        <OctagonX size={12} />
+        终止整条链
+      </button>
+      <Dialog
+        open={confirming}
+        title="终止整条链"
+        onClose={() => setConfirming(false)}
+        width={420}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirming(false)}>
+              取消
+            </Button>
+            <Button variant="destructive" disabled={busy} onClick={() => void stop()}>
+              终止
+            </Button>
+          </>
+        }
+      >
+        <ul className="ui-consequences">
+          <li>停止这条接力链上所有未完成的轮次</li>
+          <li>后续接力不再触发</li>
+        </ul>
+      </Dialog>
+    </>
   ) : (
     <button type="button" className="run-card__action" disabled={busy} onClick={stop}>
       <Square size={11} />
-      /stop
+      停止
     </button>
   )
   return (

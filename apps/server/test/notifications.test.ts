@@ -1,8 +1,8 @@
-import type { NotificationDto } from '@aiws/protocol'
+import type { NotificationDto, WebEvent } from '@aiws/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { notifications, pushSubscriptions, systemParams } from '../src/db/schema.js'
-import { notify } from '../src/modules/notifications/notify.js'
+import { notify, resolveNotifications } from '../src/modules/notifications/notify.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -42,6 +42,34 @@ describe('notification center', () => {
     expect(mine.every((n) => n.readAt)).toBe(true)
     const theirs = (await b.api.get<NotificationDto[]>('/api/notifications')).body
     expect(theirs[0]!.readAt).toBeNull()
+  })
+
+  it('resolves the notifications of a settled request for every recipient and tells them live', async () => {
+    const a = await login()
+    const b = await login()
+    const seen: WebEvent[] = []
+    t.ctx.bus.attach(a.user.id, (e) => seen.push(e))
+    await notify(t.ctx, a.user.id, 'question', { questionSetId: 'q1' })
+    await notify(t.ctx, a.user.id, 'question', { questionSetId: 'q2' })
+    await notify(t.ctx, b.user.id, 'question', { questionSetId: 'q1' })
+    await notify(t.ctx, a.user.id, 'approval', { approvalId: 'q1' })
+    await b.api.post('/api/notifications/read-all')
+    const [bRead] = (await b.api.get<NotificationDto[]>('/api/notifications')).body
+
+    await resolveNotifications(t.ctx, 'question', 'questionSetId', ['q1'])
+    const mine = (await a.api.get<NotificationDto[]>('/api/notifications')).body
+    const q1 = mine.find((n) => n.payload.questionSetId === 'q1')!
+    expect(q1.resolvedAt).not.toBeNull()
+    expect(q1.readAt).toBe(q1.resolvedAt)
+    expect(mine.filter((n) => n.id !== q1.id).every((n) => !n.resolvedAt && !n.readAt)).toBe(true)
+    const [theirs] = (await b.api.get<NotificationDto[]>('/api/notifications')).body
+    expect(theirs).toMatchObject({ readAt: bRead!.readAt, resolvedAt: expect.any(String) })
+    expect(seen.filter((e) => e.t === 'notification.resolved')).toEqual([
+      { t: 'notification.resolved', notifications: [q1], unread: 2 },
+    ])
+
+    await resolveNotifications(t.ctx, 'question', 'questionSetId', ['q1'])
+    expect(seen.filter((e) => e.t === 'notification.resolved')).toHaveLength(1)
   })
 })
 

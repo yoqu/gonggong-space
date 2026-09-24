@@ -25,7 +25,7 @@ const VOID_REASON: Record<string, string> = {
 const MCP: Record<string, string> = { 'mcp.create': '添加', 'mcp.update': '修改', 'mcp.delete': '删除' }
 const ROLE: Record<string, string> = { sysadmin: '系统管理员', member: '普通成员' }
 
-const paramValue = (v: unknown, unit: string) => (v === null ? '待定' : `${v}${unit}`)
+const paramValue = (v: unknown, unit: string) => (v === null ? '未设置' : `${v}${unit}`)
 
 function paramChanges(d: Detail) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
@@ -78,7 +78,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         return `${MCP[row.action]}全局层 MCP：${d.enabled === false ? '停用' : '启用'} ${str(d.name)} · ${d.forceNewSession ? '已勾选' : '未勾选'}强制新会话`
       switch (row.action) {
         case 'bot.create':
-          return `为 ${n.user(d.ownerId)} 新建 bot ${str(d.name)}`
+          return `为 ${n.user(d.ownerId)} 新建 Bot ${str(d.name)}`
         case 'bot.update':
           return `修改 ${n.user(d.ownerId)} 的 bot ${str(d.name)}`
         case 'bot.delete':

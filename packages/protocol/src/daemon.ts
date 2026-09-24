@@ -34,6 +34,17 @@ export const NET_PROBE_MAX_BYTES = 16 * 1024 * 1024
 /** PATCH /api/daemon/bots/:id: the bot owner changes the concurrency from the desktop app (spec §4.7). */
 export const DaemonBotPatchReq = z.object({ concurrency: z.number().int().min(1).max(8) })
 /**
+ * POST /api/daemon/runs/:runId/tools/:name: an aiws MCP tool call made during that run (see tools.ts). Tool-level
+ * failures come back as `isError` text for the agent; `attachments` are written into the workspace by the daemon.
+ */
+export const ToolCallReq = z.object({ arguments: z.unknown() })
+export const ToolCallRes = z.object({
+  text: z.string(),
+  isError: z.boolean(),
+  attachments: z.array(Attachment),
+})
+export type ToolCallRes = z.infer<typeof ToolCallRes>
+/**
  * GET /api/daemon/workspaces: every (group, bot) pair of this machine's bots, removed ones included, so the desktop
  * app can name and classify the dirs under `<home>/workspaces`. `removed` = bot left the group, bot deleted or group
  * archived; `repoId` = the group's current repo (the managed dir name). POST …/:groupId/:botId/reset-cd = `/cd --reset`.
@@ -113,8 +124,10 @@ export const RunStart = z.object({
   prompt: z.object({
     text: z.string(),
     triggeredBy: z.string(),
-    /** Group messages since this bot was last @-ed (humans + other bots' final replies). */
+    /** The latest group messages since this bot was last @-ed (humans + other bots' final replies). */
     context: z.array(ContextMessage),
+    /** Messages since the last @ left out of `context` (over `contextInlineMax`); the agent reads them with aiws tools. */
+    omitted: z.number().int().min(0),
     /** Last N group messages, replayed only if resuming `resumeSessionId` fails. Empty when not resuming. */
     fallbackContext: z.array(ContextMessage),
     /** Files of the trigger message: written into the workspace; images also sent as ACP image content if supported. */

@@ -53,7 +53,7 @@ function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ReactNod
     <Dialog
       open
       width={520}
-      title="新建 bot"
+      title="新建 Bot"
       subtitle="创建时直接绑定到归属人的机器"
       onClose={onClose}
       footer={
@@ -74,7 +74,7 @@ function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ReactNod
   )
 }
 
-/** 新建 bot (管理后台.dc.html): owner → machine → agent → name/prompt, previewing the resulting binding. */
+/** 新建 Bot (管理后台.dc.html): owner → machine → agent → name/prompt, previewing the resulting binding. */
 export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)

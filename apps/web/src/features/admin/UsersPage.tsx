@@ -114,15 +114,15 @@ export function UsersPage() {
                       <Badge variant={variant}>{label}</Badge>
                     </td>
                     <td className="admin-table__actions">
-                      <Button variant="ghost" size="xs" onClick={() => setEditing(u)}>
+                      <Button variant="outline" size="xs" onClick={() => setEditing(u)}>
                         编辑
                       </Button>
                       {u.id === me.id ? null : u.disabled ? (
-                        <Button variant="ghost" size="xs" onClick={() => void enable(u)}>
+                        <Button variant="outline" size="xs" onClick={() => void enable(u)}>
                           启用
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="xs" onClick={() => setDisabling(u)}>
+                        <Button variant="outline" size="xs" onClick={() => setDisabling(u)}>
                           停用
                         </Button>
                       )}
@@ -136,9 +136,6 @@ export function UsersPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
-      <p className="admin__foot">
-        一期由系统管理员手动创建账号；认证模块已预留 OIDC 接口，二期接入公司 SSO。
-      </p>
       {disabling ? (
         <DisableDialog
           user={disabling}
@@ -300,7 +297,7 @@ function UserDialog({
         )}
         {error ? <Alert variant="error" description={error} /> : null}
         <div className="admin-form__actions">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             取消
           </Button>
           <Button type="submit" variant="primary" disabled={busy}>

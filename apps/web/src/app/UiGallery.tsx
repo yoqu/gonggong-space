@@ -172,7 +172,7 @@ export default function UiGallery() {
             description="新建一个 bot，绑定到你的机器上的 Claude Code 或 Codex。"
             actions={
               <Button size="sm" variant="primary">
-                新建 bot
+                新建 Bot
               </Button>
             }
           />

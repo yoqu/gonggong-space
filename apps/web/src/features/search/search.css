@@ -59,6 +59,8 @@
   display: none;
 }
 .search__empty {
+  display: flex;
+  align-items: center;
   padding: 16px 10px;
   font-size: 12px;
   color: var(--color-text-muted);
@@ -74,8 +76,31 @@
   text-align: left;
   cursor: pointer;
 }
-.search__row:hover {
+.search__list {
+  display: flex;
+  flex-direction: column;
+}
+.search__row--active {
   background: var(--color-bg-muted);
+}
+.search__time {
+  flex: none;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.search__retry {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-selection-blue);
+  font-size: 12px;
+  cursor: pointer;
+}
+.search__title mark {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-brand-warm) 30%, transparent);
+  color: inherit;
 }
 .search__icon {
   flex: none;

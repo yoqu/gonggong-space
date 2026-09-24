@@ -45,7 +45,6 @@ describe('login page', () => {
     })
     renderAt('/login')
     expect(screen.getByRole('heading', { name: '登录' })).toBeTruthy()
-    expect(screen.getByText('公司 SSO 登录 · 二期')).toBeTruthy()
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['登录'])
     fill('账号', 'wanglei')
     fill('密码', 'password123')

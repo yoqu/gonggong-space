@@ -8,6 +8,7 @@ import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
 import { adminRoutes } from './modules/admin/routes.js'
+import { agentToolRoutes } from './modules/agent-tools/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { attachmentRoutes } from './modules/attachments/routes.js'
@@ -86,6 +87,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))
+  await app.register(agentToolRoutes(ctx))
   await app.register(searchRoutes(ctx, mirrors))
   await app.register(candidateRoutes(ctx, mirrors))
   app.addHook('onClose', startCandidates(ctx))

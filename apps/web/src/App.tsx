@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router'
+import { Link, Route, Routes } from 'react-router'
 import { AppShell } from './app/AppShell'
 import { ChatPage } from './app/ChatPage'
 import { RequireSession } from './app/RequireSession'
@@ -7,9 +7,27 @@ import { AdminIndex, AdminLayout } from './features/admin/AdminLayout'
 import { AdminPlaceholder } from './features/admin/AdminPage'
 import { ADMIN_NAV } from './features/admin/nav'
 import { LoginPage } from './features/auth/LoginPage'
+import { EmptyState } from './ui'
 import './app/shell.css'
 
 const UiGallery = lazy(() => import('./app/UiGallery'))
+
+function NotFound() {
+  return (
+    <div className="not-found">
+      <EmptyState
+        bare
+        title="页面不存在"
+        description="链接可能已失效，或你没有访问权限。"
+        actions={
+          <Link to="/" className="ui-btn ui-btn--primary ui-btn--md">
+            返回群聊
+          </Link>
+        }
+      />
+    </div>
+  )
+}
 
 export function App() {
   return (
@@ -36,6 +54,7 @@ export function App() {
             <Route key={i.path} path={i.path} element={i.element ?? <AdminPlaceholder item={i} />} />
           ))}
         </Route>
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   )

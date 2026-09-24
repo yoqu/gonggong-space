@@ -260,7 +260,7 @@ describe('interrupt and append', () => {
     expect(screen.queryByText(/打断并追加到/)).toBeNull()
     act(() => useAppend.getState().start({ runId: 'r1', groupId: 'g1', botName: '小王的 Claude' }))
     expect(screen.getByText('打断并追加到 小王的 Claude · 已改内容保留，仍算同一轮')).toBeTruthy()
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '直接回复 appended' } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '直接回复 appended' } })
     fireEvent.click(button('发送'))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0]?.body).toMatchObject({ body: '直接回复 appended', appendTo: 'r1' })

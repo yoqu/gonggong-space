@@ -1,7 +1,7 @@
 import { PROTOCOL_VERSION, type RunStart, type WebEvent } from '@aiws/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groupBots, messages, runEvents, runs } from '../src/db/schema.js'
+import { groupBots, messages, runEvents, runs, systemParams } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
@@ -175,6 +175,22 @@ describe('run engine', () => {
     expect(start.resumeSessionId).toBeNull()
     expect(start.prompt.context.map((c) => c.body)).toEqual(['早'])
     expect(start.prompt.fallbackContext).toEqual([])
+    expect(start.prompt.omitted).toBe(0)
+  })
+
+  it('inlines only the latest contextInlineMax messages and counts the rest for the aiws tools', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await t.db.insert(systemParams).values({ key: 'contextInlineMax', value: 2 })
+    await t.db.update(groupBots).set({ sessionId: 'sess-0' }).where(eq(groupBots.botId, w.bot.id))
+    for (const body of ['一', '二', '三', '四']) await w.say(body, { userId: w.bob.id })
+    const trigger = await w.mention('@小王的 Claude hi')
+    const start = await d.next()
+    expect(start.prompt.context.map((c) => c.body)).toEqual(['三', '四'])
+    expect(start.prompt.omitted).toBe(2)
+    expect(start.prompt.fallbackContext.map((c) => c.body)).toEqual(['三', '四'])
+    const [gb] = await t.db.select().from(groupBots).where(eq(groupBots.botId, w.bot.id))
+    expect(gb?.contextSeq).toBe(trigger.seq)
   })
 
   it('waits while the machine is offline and dispatches when it connects', async () => {

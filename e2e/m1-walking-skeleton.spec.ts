@@ -41,7 +41,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   try {
     // Create a bot for myself: bound directly to the machine.
     await page.goto('/admin/bots')
-    await page.getByRole('button', { name: '新建 bot' }).click()
+    await page.getByRole('button', { name: '新建 Bot' }).click()
     await page.getByRole('button', { name: /Claude Code/ }).click()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
@@ -74,7 +74,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     const card = page.getByTestId('run-card').last()
     await expect(card).toContainText(/运行中|已完成/, { timeout: 60_000 })
     await expect(card).toContainText('已完成', { timeout: 4 * 60_000 })
-    await expect(page.getByText('最终回复').last()).toBeVisible()
+    await expect(page.getByTestId('bot-reply').last()).toBeVisible()
     expect(existsSync(join(dir, 'hello.txt'))).toBe(true)
   } finally {
     m.stop()

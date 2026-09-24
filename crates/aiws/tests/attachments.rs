@@ -14,7 +14,8 @@ use tokio::sync::mpsc::UnboundedReceiver;
 const TOKEN: &str = "mt_secret";
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\nfake-image";
 
-/// Serves `GET /api/daemon/attachments/<id>` for the machine token; records every requested path.
+/// Serves `GET /api/daemon/attachments/<id>` (or any request by its full path) for the machine token; records every
+/// requested path.
 async fn file_server(files: HashMap<String, Vec<u8>>) -> (String, Arc<Mutex<Vec<String>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
@@ -116,6 +117,7 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
                 at: "2026-09-23T10:12:00Z".into(),
                 attachments: context,
             }],
+            omitted: 0,
             fallback_context: vec![],
             attachments,
             quote: Some(Quote { author: "老李的 Codex".into(), body: "已定位".into() }),
@@ -159,7 +161,7 @@ async fn writes_attachments_into_the_workspace_excluded_from_git_and_sends_image
 
     let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
     let prompt = echo["prompt"].as_str().unwrap();
-    assert!(prompt.contains("[2026-09-23 10:12] 陈晨: CI 挂了（附件：.aiws/attachments/m1/ci.log）\n"), "{prompt}");
+    assert!(prompt.contains("[#1 2026-09-23 10:12] 陈晨: CI 挂了（附件：.aiws/attachments/m1/ci.log）\n"), "{prompt}");
     assert!(
         prompt.contains("引用 老李的 Codex：已定位\n\n王磊 说：mock:echo 看图\n附件：.aiws/attachments/m2/shot.png")
     );
@@ -186,4 +188,21 @@ async fn a_failed_download_fails_the_run() {
     let done = r.done("r1").await;
     assert_eq!(done.outcome, RunOutcome::Failed);
     assert!(done.error.unwrap().starts_with("附件下载失败：shot.png"));
+}
+
+#[tokio::test]
+async fn aiws_tools_reach_the_server_for_the_live_run_without_asking_the_owner() {
+    let tool = "/api/daemon/runs/r1/tools/fetch_attachments";
+    let res = r##"{"text":"#1 的附件：","isError":false,"attachments":[{"id":"a2","name":"ci.log","size":4,"mime":"text/plain","messageId":"m1"}]}"##;
+    let files = HashMap::from([("a2".to_string(), b"boom".to_vec()), (tool.to_string(), res.as_bytes().to_vec())]);
+    let (url, hits) = file_server(files).await;
+    let mut r = rig(&url);
+    let ws = tempfile::tempdir().unwrap();
+    let mut s = start("r1", ws.path(), vec![], vec![]);
+    s.prompt.text = r#"mock:tool fetch_attachments {"message":1}"#.into();
+    r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
+    let done = r.done("r1").await;
+    assert_eq!(done.reply, "#1 的附件：\n附件（已放入工作区）：\n- .aiws/attachments/m1/ci.log", "{:?}", done.error);
+    assert_eq!(std::fs::read(ws.path().join(".aiws/attachments/m1/ci.log")).unwrap(), b"boom");
+    assert_eq!(*hits.lock().unwrap(), [tool, "/api/daemon/attachments/a2"]);
 }

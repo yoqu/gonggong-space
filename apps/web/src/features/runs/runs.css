@@ -269,3 +269,32 @@ summary.run-step__head::-webkit-details-marker {
   display: flex;
   gap: 8px;
 }
+.run-rail__session {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.run-rail__session-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.run-rail__copy {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+.run-rail__copy:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+.run-step__md {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

@@ -41,8 +41,8 @@
   --color-text-secondary-strong: #00000080;
   --color-text-tertiary: #6e6e73;
   --color-text-quaternary: #8e8e93;
-  --color-text-placeholder: #00000060;
-  --color-text-muted: #0000004d;
+  --color-text-placeholder: #00000073;
+  --color-text-muted: #6e6e73;
   --color-text-disabled: #00000033;
 
   /* The single interactive accent — macOS system blue */
@@ -58,12 +58,19 @@
   --color-brand-warm: #ff9500;
   --color-on-accent: #ffffff;
   --color-selection: rgba(0, 122, 255, 0.3);
+  /* Filled accent under white text (primary button, active option): ≥4.5:1 with --color-on-accent */
+  --color-accent-fill: #0066d6;
 
   /* Status — feedback / diagnostics only, never page language */
   --color-danger: #ff3b30;
   --color-success: #34c759;
   --color-warning: #ff9500;
   --color-status-offline: #8e8e93;
+  /* Status text on tinted surfaces (badges, destructive buttons): ≥4.5:1 on their wash */
+  --color-info-text: #0059b3;
+  --color-success-text: #1f7a35;
+  --color-warning-text: #b25000;
+  --color-danger-text: #b8000d;
 
   /* Tinted functional surfaces (8% wash) */
   --color-bg-error: rgba(255, 59, 48, 0.08);
@@ -144,8 +151,8 @@
   --color-text-secondary-strong: #ebebf580;
   --color-text-tertiary: #8e8e93;
   --color-text-quaternary: #636366;
-  --color-text-placeholder: #ebebf560;
-  --color-text-muted: #ebebf54d;
+  --color-text-placeholder: #ebebf573;
+  --color-text-muted: #98989d;
   --color-text-disabled: #ebebf533;
 
   /* The single interactive accent — macOS system blue */
@@ -161,12 +168,17 @@
   --color-brand-warm: #ff9f0a;
   --color-on-accent: #ffffff;
   --color-selection: rgba(10, 132, 255, 0.3);
+  --color-accent-fill: #0071e3;
 
   /* Status — feedback / diagnostics only, never page language */
   --color-danger: #ff453a;
   --color-success: #32d74b;
   --color-warning: #ffd60a;
   --color-status-offline: #636366;
+  --color-info-text: #70b5ff;
+  --color-success-text: #32d74b;
+  --color-warning-text: #ffd60a;
+  --color-danger-text: #ff8a82;
 
   /* Tinted functional surfaces (8% wash) */
   --color-bg-error: rgba(255, 69, 58, 0.08);

@@ -1,9 +1,10 @@
 import type { UserDto } from '@aiws/protocol'
 import { Bot, Check, Link2, LogOut, Monitor, Moon, Sun } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
+import { useEscape } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { logout } from './logout'
 import './auth.css'
@@ -24,12 +25,7 @@ export function AccountMenu() {
   const [binding, setBinding] = useState(false)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+  useEscape(() => setOpen(false), open)
 
   const toggleOpen = () => {
     // re-read on open so the marker reflects changes made elsewhere (e.g. desktop settings)

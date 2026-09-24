@@ -31,6 +31,7 @@ const PARAMS: SystemParams = {
   forceSyncMaxLatencyMs: 120,
   forceSyncMinBandwidthMbps: 10,
   sessionReplayCount: 50,
+  contextInlineMax: 20,
   runRetentionDays: 30,
   attachmentMaxMb: 50,
   attachmentsPerMessage: 10,
@@ -118,10 +119,11 @@ describe('账号与角色 · 停用 / 启用', () => {
 })
 
 describe('群', () => {
-  it('lists every group with mode, repo, members, bots and the authoritative copy', async () => {
+  it('lists every group with mode, repo, members, bots and the archive state', async () => {
     const g = (o: Partial<AdminGroupDto>): AdminGroupDto => ({
       id: 'g1',
       name: '支付服务重构',
+      ownerName: '王磊',
       kind: 'group',
       mode: 'partition',
       repo: 'git.corp/pay/pay-server',
@@ -135,7 +137,7 @@ describe('群', () => {
     mockApi({
       'GET /admin/groups': [
         g({}),
-        g({ id: 'g2', name: '王磊', kind: 'dm', repo: null, members: 1, bots: 1 }),
+        g({ id: 'g2', name: '1', ownerName: '王磊', kind: 'dm', repo: null, members: 1, bots: 1 }),
         g({
           id: 'g3',
           name: '旧版后台',
@@ -149,7 +151,7 @@ describe('群', () => {
     })
     renderAt('/admin/groups')
     expect(await screen.findByRole('heading', { name: '群' })).toBeTruthy()
-    for (const h of ['群', '模式', '仓库', '成员', 'bot', '权威副本'])
+    for (const h of ['群', '模式', '仓库', '成员', 'Bot', '存档'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
@@ -164,7 +166,7 @@ describe('群', () => {
       '4',
       '—',
     ])
-    expect(cells('私聊 · 王磊')).toEqual(['私聊 · 王磊', '分区模式', '未绑定', '1', '1', '—'])
+    expect(cells('王磊 的私聊')).toEqual(['王磊 的私聊', '分区模式', '未绑定', '1', '1', '—'])
     await waitFor(() =>
       expect(cells('旧版后台')).toEqual(['旧版后台', '已归档', '未绑定', '3', '0', '归档 · 21 天后清除']),
     )
@@ -214,7 +216,7 @@ describe('机器与网络', () => {
     })
     renderAt('/admin/net')
     expect(await screen.findByRole('heading', { name: '机器与网络' })).toBeTruthy()
-    for (const h of ['主人', '机器', '系统', 'daemon', '延迟', '带宽', '心跳'])
+    for (const h of ['主人', '机器', '系统', 'daemon', '延迟', '带宽', '状态', '最后心跳'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
@@ -229,6 +231,7 @@ describe('机器与网络', () => {
       '38 ms',
       '87.5 Mbps',
       '在线',
+      '刚刚',
     ])
     expect(cells('zt-desktop')).toEqual([
       '周婷',
@@ -237,7 +240,8 @@ describe('机器与网络', () => {
       'v0.8.7',
       '180 ms',
       '4.2 Mbps',
-      '离线 42 分',
+      '离线',
+      '42 分钟前',
     ])
     expect(cells('never-measured')).toEqual([
       '王磊',
@@ -246,6 +250,7 @@ describe('机器与网络', () => {
       'v0.9.3',
       '—',
       '—',
+      '离线',
       '从未连接',
     ])
     await waitFor(() =>
@@ -261,6 +266,63 @@ describe('机器与网络', () => {
         '网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
       ),
     ).toBeTruthy()
+  })
+})
+
+describe('机器与网络 · 实时', () => {
+  it('refetches when a machine goes online and polls while open', async () => {
+    const sockets: { onmessage: ((e: { data: string }) => void) | null }[] = []
+    vi.stubGlobal(
+      'WebSocket',
+      class {
+        onmessage: ((e: { data: string }) => void) | null = null
+        constructor() {
+          sockets.push(this)
+        }
+        close() {}
+      },
+    )
+    const machine = {
+      latencyMs: null,
+      bandwidthMbps: null,
+      netMeasuredAt: null,
+      id: 'm1',
+      ownerId: 'u0',
+      ownerName: '陈晨',
+      name: 'cc-mbp',
+      os: 'macos' as const,
+      arch: 'aarch64',
+      online: false,
+      agents: [],
+      daemonVersion: '0.9.3',
+      protocol: 1,
+      lastSeenAt: null,
+    }
+    let online = false
+    const calls = mockApi({
+      'GET /admin/machines': () => [{ ...machine, online }],
+      'GET /admin/params': PARAMS,
+      'GET /bots': [],
+      'GET /machines': [],
+      'GET /notifications': [],
+    })
+    renderAt('/admin/net')
+    await screen.findByRole('cell', { name: 'cc-mbp' })
+    expect(within(rowOf('cc-mbp')).getByText('离线')).toBeTruthy()
+    online = true
+    const {
+      ownerName: _,
+      protocol: __,
+      latencyMs: ___,
+      bandwidthMbps: ____,
+      netMeasuredAt: _____,
+      ...dto
+    } = machine
+    sockets.at(-1)?.onmessage?.({
+      data: JSON.stringify({ t: 'machine.updated', machine: { ...dto, online: true } }),
+    })
+    await waitFor(() => expect(within(rowOf('cc-mbp')).getByText('在线')).toBeTruthy())
+    expect(calls.filter((c) => c.path === '/admin/machines').length).toBe(2)
   })
 })
 
@@ -308,24 +370,85 @@ describe('审计记录', () => {
     expect(screen.getByRole('button', { name: '管理' }).getAttribute('aria-pressed')).toBe('true')
     expect(calls.map((c) => c.path)).toContain('/admin/audit?category=admin&limit=50')
   })
+
+  it('filters loaded rows by keyword and actor, and clamps long summaries', async () => {
+    const long = `批准 小王的 Claude 执行 ${'npm run build && '.repeat(10)}echo ok · 支付服务重构`
+    mockApi({
+      'GET /admin/audit?limit=50': [
+        a(3, { summary: long }),
+        a(2, { actorName: '李建国', summary: '拒绝 老李的 Codex 执行 rm -rf dist' }),
+        a(1, { category: 'admin', actorName: null, summary: '停用账号 wanglei' }),
+      ],
+    })
+    renderAt('/admin/audit')
+    const list = await screen.findByTestId('audit-list')
+    await within(list).findByText('停用账号 wanglei')
+    const summary = within(list).getByText(long)
+    expect(summary.className).toContain('is-clamped')
+    fireEvent.click(within(list).getByRole('button', { name: '展开' }))
+    expect(summary.className).not.toContain('is-clamped')
+    expect(within(list).getByRole('button', { name: '收起' })).toBeTruthy()
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索审计记录' }), { target: { value: 'rm -rf' } })
+    expect(within(list).getAllByTestId('audit-row')).toHaveLength(1)
+    expect(within(list).getByText('拒绝 老李的 Codex 执行 rm -rf dist')).toBeTruthy()
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索审计记录' }), { target: { value: '' } })
+
+    fireEvent.click(screen.getByRole('button', { name: '操作人' }))
+    fireEvent.click(screen.getByRole('option', { name: '系统' }))
+    expect(within(list).getAllByTestId('audit-row')).toHaveLength(1)
+    expect(within(list).getByText('停用账号 wanglei')).toBeTruthy()
+  })
 })
 
 describe('系统参数', () => {
-  it('edits defaults, marks the ones to be measured and saves only what changed', async () => {
+  it('groups params into sections, marks edits and saves only what changed from the save bar', async () => {
     const calls = mockApi({
-      'GET /admin/params': PARAMS,
-      'PUT /admin/params': (body: unknown) => ({ ...PARAMS, ...(body as object) }),
+      'GET /admin/params': { ...PARAMS, writerDisconnectReleaseSec: 60 },
+      'PUT /admin/params': (body: unknown) => ({
+        ...PARAMS,
+        writerDisconnectReleaseSec: 60,
+        ...(body as object),
+      }),
     })
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     expect(retention.value).toBe('30')
-    expect((screen.getByLabelText('写入方断线后释放锁') as HTMLInputElement).placeholder).toBe('待定')
-    expect(screen.getAllByText('需实测')).toHaveLength(3)
+    for (const h of ['同步与锁', '运行与会话', '附件', 'daemon', '数据保留', '群与 Bot 默认值'])
+      expect(screen.getByRole('heading', { name: h })).toBeTruthy()
+    expect((screen.getByLabelText('写入方断线后释放锁') as HTMLInputElement).value).toBe('60')
+    expect(screen.queryByText('需实测')).toBeNull()
+    expect(screen.queryByPlaceholderText('待定')).toBeNull()
+    expect(screen.queryByRole('button', { name: '保存' })).toBeNull()
+
     fireEvent.change(retention, { target: { value: '14' } })
     fireEvent.change(screen.getByLabelText('接力链长上限 · 群默认'), { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(retention.closest('.admin-param')?.className).toContain('is-dirty')
+    const bar = screen.getByRole('region', { name: '未保存的修改' })
+    expect(bar.textContent).toContain('已修改 2 项')
+
+    fireEvent.change(screen.getByLabelText('接力链长上限 · 群默认'), { target: { value: '3' } })
+    expect(bar.textContent).toContain('已修改 1 项')
+    fireEvent.click(within(bar).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ runRetentionDays: 14, chainMaxHops: 5 })
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ runRetentionDays: 14 })
+    await waitFor(() => expect(screen.queryByRole('region', { name: '未保存的修改' })).toBeNull())
+  })
+
+  it('discards edits and warns before unloading with unsaved changes', async () => {
+    mockApi({ 'GET /admin/params': PARAMS })
+    renderAt('/admin/params')
+    const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
+    fireEvent.change(retention, { target: { value: '14' } })
+    const unload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unload)
+    expect(unload.defaultPrevented).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '放弃' }))
+    expect(retention.value).toBe('30')
+    expect(screen.queryByRole('region', { name: '未保存的修改' })).toBeNull()
+    const clean = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(clean)
+    expect(clean.defaultPrevented).toBe(false)
   })
 
   it('shows the server’s validation message', async () => {
@@ -337,5 +460,22 @@ describe('系统参数', () => {
     fireEvent.change(await screen.findByLabelText('完整运行过程保留'), { target: { value: '0' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(await screen.findByText('Too small: expected number to be >=1')).toBeTruthy()
+  })
+})
+
+describe('admin shell', () => {
+  it('fills the width and shows the user pill without repeating the role', async () => {
+    useSession.setState({ user: { ...admin, name: '系统管理员' }, status: 'ready' })
+    mockApi({ 'GET /admin/users': [] })
+    renderAt('/admin/users')
+    const pill = await screen.findByTestId('admin-role')
+    expect(pill.textContent).toBe('系统管理员')
+  })
+
+  it('shows name and role when they differ', async () => {
+    mockApi({ 'GET /admin/users': [] })
+    renderAt('/admin/users')
+    const pill = await screen.findByTestId('admin-role')
+    expect(pill.textContent).toBe('陈晨系统管理员')
   })
 })

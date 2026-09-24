@@ -1,23 +1,44 @@
-import { Check, Copy } from 'lucide-react'
-import { type ComponentProps, isValidElement, memo, useRef, useState } from 'react'
+import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react'
+import { type ComponentProps, isValidElement, memo, useLayoutEffect, useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
+import { cx } from '../../lib/cx'
+import { toast } from '../../ui'
+
+/** Blocks longer than this are capped (about 400px) until expanded. */
+const LONG_LINES = 20
 
 function CodeBlock({ children }: ComponentProps<'pre'>) {
   const ref = useRef<HTMLPreElement>(null)
   const [copied, setCopied] = useState(false)
+  const [long, setLong] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const className = isValidElement<{ className?: string }>(children) ? (children.props.className ?? '') : ''
   const lang = /language-([\w+-]+)/.exec(className)?.[1] ?? 'text'
+  useLayoutEffect(() => {
+    setLong((ref.current?.textContent ?? '').trimEnd().split('\n').length > LONG_LINES)
+  })
   const copy = async () => {
-    await navigator.clipboard.writeText(ref.current?.textContent ?? '')
+    try {
+      await navigator.clipboard.writeText(ref.current?.textContent ?? '')
+    } catch {
+      toast({ type: 'error', message: '复制失败' })
+      return
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
   return (
-    <div className="md-code">
+    <div className={cx('md-code', long && !expanded && 'md-code--capped')}>
       <div className="md-code__head">
         <span className="md-code__lang">{lang}</span>
+        {long ? (
+          <button type="button" className="md-code__copy" onClick={() => setExpanded(!expanded)}>
+            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            {expanded ? '收起' : '展开'}
+          </button>
+        ) : null}
         <button type="button" className="md-code__copy" onClick={() => void copy()}>
           {copied ? <Check size={11} /> : <Copy size={11} />}
           {copied ? '已复制' : '复制'}

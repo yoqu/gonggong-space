@@ -293,6 +293,47 @@ describe('approvals', () => {
     ])
   })
 
+  it('marks the approval notification handled once the request is decided, expired or voided', async () => {
+    const w = await world()
+    const noteOf = async (approvalId: string) =>
+      vi.waitFor(async () => {
+        const rows = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+        const n = rows.find((r) => (r.payload as { approvalId: string }).approvalId === approvalId)
+        if (!n) throw new Error('not yet')
+        return n
+      })
+    const { runId, approval } = await w.request()
+    const more = async (requestId: string, n: number) => {
+      w.d.send({
+        t: 'approval.request',
+        runId,
+        requestId,
+        title: 'Bash',
+        toolKind: 'execute',
+        detail: 'ls',
+        options: OPTIONS,
+      })
+      const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === n)
+      return run.approvals[n - 1]!
+    }
+    await noteOf(approval.id)
+    await w.decide(w.owners, approval, 'allow')
+    expect(await noteOf(approval.id)).toMatchObject({ resolvedAt: clock, readAt: clock })
+    expect(w.ownerWeb.seen.find((e) => e.t === 'notification.resolved')).toMatchObject({ unread: 0 })
+    expect(w.viewerWeb.seen.some((e) => e.t === 'notification.resolved')).toBe(false)
+
+    const expired = await more('req-2', 2)
+    await noteOf(expired.id)
+    clock = new Date(clock.getTime() + 31 * 60_000)
+    await expireApprovals(t.ctx)
+    expect((await noteOf(expired.id)).resolvedAt).toEqual(clock)
+
+    const voided = await more('req-3', 3)
+    await noteOf(voided.id)
+    await voidApprovals(t.ctx, runId, 'stopped')
+    expect((await noteOf(voided.id)).resolvedAt).toEqual(clock)
+  })
+
   it('ignores requests for runs that are not live on the reporting machine', async () => {
     const w = await world()
     const { runId } = await w.request()

@@ -1,0 +1,1 @@
+ALTER TABLE "notifications" ADD COLUMN "resolved_at" timestamp with time zone;

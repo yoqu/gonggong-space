@@ -80,7 +80,7 @@ describe('session guard', () => {
     expect(within(top).getByText('管理后台')).toBeTruthy()
     expect(within(top).getByRole('button', { name: '账户菜单' }).textContent).toBe('王')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    for (const s of ['群', '私聊', '我的 BOT']) expect(within(nav).getByText(s)).toBeTruthy()
+    for (const s of ['群', '私聊', '我的 Bot']) expect(within(nav).getByText(s)).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()
     expect(useSession.getState().user?.name).toBe('王磊')
   })
@@ -138,5 +138,17 @@ describe('right rail', () => {
     render(<Page />)
     expect(screen.queryByText('rail content')).toBeNull()
     expect(screen.getByText('center')).toBeTruthy()
+  })
+})
+
+describe('unknown routes', () => {
+  it('shows a not-found page with a way back instead of a blank screen', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/me' ? me : []))),
+    )
+    renderAt('/admin/nope')
+    expect(await screen.findByText('页面不存在')).toBeTruthy()
+    expect(screen.getByRole('link', { name: '返回群聊' }).getAttribute('href')).toBe('/')
   })
 })

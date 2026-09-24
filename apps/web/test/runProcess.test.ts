@@ -62,9 +62,10 @@ describe('patch parsing', () => {
 })
 
 describe('file paths in replies', () => {
-  it('finds paths with a slash or a file extension, outside code blocks and URLs', () => {
+  it('finds paths ending in a file extension or dotfiles, outside code blocks and URLs', () => {
     const md = [
       '已修改 `server/refund/v2/handler.go` 和README.md，新增了src/a.ts文件。',
+      '已推送到 origin/main，比对 feat/refund-v2 分支，另改了 .env 与 config/.env.local。',
       '参考 https://example.com/docs/x.html 与 @接力 B，版本 v1.2.3，耗时 1.5 秒。',
       '```sh',
       'cat build/out.log',
@@ -75,6 +76,8 @@ describe('file paths in replies', () => {
       'server/refund/v2/handler.go',
       'README.md',
       'src/a.ts',
+      '.env',
+      'config/.env.local',
       './scripts/run.sh',
       'handler.go',
     ])
@@ -180,7 +183,7 @@ describe('process steps', () => {
     }
     const steps = buildSteps(detail)
     expect(steps.map((s) => [s.kind, s.label])).toEqual([
-      ['context', '开场上下文'],
+      ['context', '本轮上下文'],
       ['thought', '思考'],
       ['execute', '执行命令'],
       ['edit', '编辑文件'],

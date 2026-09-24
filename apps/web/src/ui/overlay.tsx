@@ -1,18 +1,77 @@
-import { type ReactNode, useEffect, useId, useRef } from 'react'
+import { type ReactNode, type RefObject, useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseButton } from './controls'
 
-function useEscape(active: boolean, onClose: () => void) {
+/** Open overlays; Escape only reaches the one opened last (highest `seq`, taken at render so parents precede children). */
+const escapeStack: { seq: number; close: () => void }[] = []
+let nextSeq = 0
+
+function onEscape(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return
+  const top = escapeStack.reduce<(typeof escapeStack)[number] | undefined>(
+    (a, b) => (a && a.seq > b.seq ? a : b),
+    undefined,
+  )
+  if (!top) return
+  e.preventDefault()
+  top.close()
+}
+
+/** Registers `onClose` on the shared Escape stack while `enabled`. */
+export function useEscape(onClose: () => void, enabled = true) {
   const ref = useRef(onClose)
   ref.current = onClose
+  const seq = useRef<number | null>(null)
+  if (!enabled) seq.current = null
+  else if (seq.current === null) seq.current = nextSeq++
   useEffect(() => {
-    if (!active) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') ref.current()
+    if (!enabled) return
+    const entry = { seq: seq.current ?? nextSeq++, close: () => ref.current() }
+    escapeStack.push(entry)
+    if (escapeStack.length === 1) document.addEventListener('keydown', onEscape)
+    return () => {
+      escapeStack.splice(escapeStack.indexOf(entry), 1)
+      if (!escapeStack.length) document.removeEventListener('keydown', onEscape)
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [active])
+  }, [enabled])
+}
+
+const FOCUSABLE =
+  'a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+const FIELD =
+  'input:not([type="checkbox"]):not([type="radio"]):not(:disabled), textarea:not(:disabled), select:not(:disabled)'
+
+/** Focuses the first field (or the container), keeps Tab inside, and refocuses the trigger on close. */
+function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean) {
+  const trigger = useRef<Element | null>(null)
+  if (open && !trigger.current) trigger.current = document.activeElement
+  useEffect(() => {
+    const node = ref.current
+    if (!open || !node) return
+    if (!node.contains(document.activeElement)) (node.querySelector<HTMLElement>(FIELD) ?? node).focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || e.defaultPrevented) return
+      const items = [...node.querySelectorAll<HTMLElement>(FOCUSABLE)]
+      const first = items[0]
+      const last = items.at(-1)
+      const at = document.activeElement
+      if (!first || !last) e.preventDefault()
+      else if (e.shiftKey && (at === first || at === node)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && at === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    node.addEventListener('keydown', onKey)
+    return () => {
+      node.removeEventListener('keydown', onKey)
+      const el = trigger.current
+      trigger.current = null
+      if (el instanceof HTMLElement && el.isConnected) el.focus()
+    }
+  }, [open, ref])
 }
 
 interface OverlayProps {
@@ -20,6 +79,8 @@ interface OverlayProps {
   title: ReactNode
   onClose: () => void
   children: ReactNode
+  /** Set false on form dialogs so a stray backdrop click doesn't discard input. */
+  closeOnBackdrop?: boolean
 }
 
 export function Dialog({
@@ -29,32 +90,37 @@ export function Dialog({
   footer,
   width = 460,
   onClose,
+  closeOnBackdrop = true,
   children,
 }: OverlayProps & { subtitle?: ReactNode; footer?: ReactNode; width?: number }) {
   const titleId = useId()
-  useEscape(open, onClose)
+  const ref = useRef<HTMLDivElement>(null)
+  useEscape(onClose, open)
+  useFocusTrap(ref, open)
   if (!open) return null
   return createPortal(
     <div className="ui-overlay">
       <div
         className="ui-overlay__backdrop"
         data-testid="dialog-overlay"
-        onClick={onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />
       <div
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         className="ui-dialog"
         style={{ maxWidth: width }}
       >
         <div className="ui-dialog__header">
-          <CloseButton onClick={onClose} />
           <h2 id={titleId} className="ui-dialog__title">
             {title}
           </h2>
           {subtitle ? <span className="ui-dialog__subtitle">{subtitle}</span> : null}
+          <CloseButton onClick={onClose} />
         </div>
         <div className="ui-dialog__body">{children}</div>
         {footer ? <div className="ui-dialog__footer">{footer}</div> : null}
@@ -70,6 +136,7 @@ export function Drawer({
   label,
   leading,
   onClose,
+  closeOnBackdrop = true,
   children,
 }: OverlayProps & {
   leading?: ReactNode
@@ -77,16 +144,20 @@ export function Drawer({
   label?: string
 }) {
   const titleId = useId()
-  useEscape(open, onClose)
+  const ref = useRef<HTMLDivElement>(null)
+  useEscape(onClose, open)
+  useFocusTrap(ref, open)
   if (!open) return null
   return createPortal(
     <>
-      <div className="ui-drawer-overlay" onClick={onClose} aria-hidden="true" />
+      <div className="ui-drawer-overlay" onClick={closeOnBackdrop ? onClose : undefined} aria-hidden="true" />
       <div
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={label}
         aria-labelledby={label ? undefined : titleId}
+        tabIndex={-1}
         className="ui-drawer"
       >
         <div className="ui-drawer__header">

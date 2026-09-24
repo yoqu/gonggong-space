@@ -55,6 +55,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cfg__tools {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
 .cfg__foot {
   display: flex;
   align-items: center;
@@ -113,4 +117,7 @@
 }
 .cfg__mono {
   font-family: var(--font-mono);
+}
+.cfg__retry {
+  margin-top: 8px;
 }

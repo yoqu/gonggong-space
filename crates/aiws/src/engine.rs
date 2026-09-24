@@ -170,9 +170,9 @@ impl Inner {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
-        let ask = match self.ask.get_or_try_init(AskServer::start).await {
+        let ask = match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone())).await {
             Ok(ask) => ask,
-            Err(e) => return out.send(failed(&start.run_id, format!("无法启动「向群成员提问」工具：{e}"))),
+            Err(e) => return out.send(failed(&start.run_id, format!("无法启动内置 aiws 工具：{e}"))),
         };
         if let Some(api) = &self.config.api {
             let p = &start.prompt;

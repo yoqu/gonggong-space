@@ -68,12 +68,12 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([approval()])} />)
     expect(screen.getByText('权限请求 · 执行命令')).toBeTruthy()
     expect(screen.getByText('go build ./...')).toBeTruthy()
-    expect(screen.getByText('超出 workspace 档位 · 01:30 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText('超出「工作区写入」档位 · 01:30 后自动拒绝，agent 自行绕路')).toBeTruthy()
     expect(screen.getByText('你是 bot 主人')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(screen.getByText('超出 workspace 档位 · 01:29 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText('超出「工作区写入」档位 · 01:29 后自动拒绝，agent 自行绕路')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '批准' }))
     await waitFor(() => expect(calls).toHaveLength(1))
@@ -84,12 +84,26 @@ describe('ApprovalBlock', () => {
     })
   })
 
+  it('offers allow-always only when the agent does', async () => {
+    login('u1', '王磊')
+    const calls = mockApi({ 'POST /runs/r1/approvals/a1': approval({ status: 'approved' }) })
+    const { rerender } = render(<ApprovalBlock run={run([approval()])} />)
+    expect(screen.queryByRole('button', { name: '始终允许' })).toBeNull()
+    const options = [
+      { optionId: 'always', name: 'Always', kind: 'allow_always' },
+      ...approval().options,
+    ] as ApprovalDto['options']
+    rerender(<ApprovalBlock run={run([approval({ options })])} />)
+    fireEvent.click(screen.getByRole('button', { name: '始终允许' }))
+    await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'always' }))
+  })
+
   it('counts down from the moment a request arrives', () => {
     login('u1', '王磊')
     const { rerender } = render(<ApprovalBlock run={run([])} />)
     vi.setSystemTime(NOW.getTime() + 20_000)
     rerender(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.getByText('超出 workspace 档位 · 01:10 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText('超出「工作区写入」档位 · 01:10 后自动拒绝，agent 自行绕路')).toBeTruthy()
   })
 
   it('sends the reject option and shows a failed decision', async () => {
@@ -136,7 +150,7 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)
     expect(screen.getByText(text)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
-    expect(screen.getByText('超出 workspace 档位')).toBeTruthy()
+    expect(screen.getByText('超出「工作区写入」档位')).toBeTruthy()
   })
 
   it('shows the latest request of the run', () => {

@@ -89,6 +89,7 @@ describe('⌘K search', () => {
       groupId: w.mine.id,
       messageId: reply.id,
       runId: r.id,
+      at: expect.any(String),
     })
     expect(hits[2]!.sub).toBe('王磊 · 支付服务重构')
     expect((await w.search('%', 'msg')).map((h) => h.title)).toEqual(['100% 完成'])
@@ -163,6 +164,7 @@ describe('⌘K search', () => {
       groupId: w.mine.id,
       messageId: null,
       runId: live.id,
+      at: expect.any(String),
     })
     const exp = await w.search('埋点', 'run')
     expect(exp.map((h) => h.runId)).toEqual([expired.id])

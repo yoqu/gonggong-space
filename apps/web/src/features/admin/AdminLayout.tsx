@@ -30,7 +30,14 @@ export function AdminLayout() {
           <MessageSquare size={13} />
           返回群聊
         </Link>
-        {user ? <span className="admin__role">{`${user.name} · ${ROLE_LABEL[user.role]}`}</span> : null}
+        {user ? (
+          <span className="admin__role" data-testid="admin-role">
+            {user.name}
+            {user.name === ROLE_LABEL[user.role] ? null : (
+              <span className="admin__role-badge">{ROLE_LABEL[user.role]}</span>
+            )}
+          </span>
+        ) : null}
         <AccountMenu />
       </header>
       <div className="admin__body">

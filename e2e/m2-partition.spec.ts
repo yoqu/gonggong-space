@@ -79,7 +79,7 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
     repo.commit('from-main.txt', 'x\n')
     await runTo(page, '@仓库 Codex 列出当前目录下的文件名（不含隐藏文件），每行一个，不要做其他事。')
     await expect(page.getByTestId('bot-reply').last()).toContainText('from-main.txt')
-    await expect(bar.getByTestId(`git-${codex.id}`)).toContainText('↓0')
+    await expect(bar.getByTestId(`git-${codex.id}`)).not.toContainText('↓')
 
     // /cd to a matching local clone → status shows 本机目录; a clone of another repo is refused.
     const local = repo.cloneTo('local-clone')

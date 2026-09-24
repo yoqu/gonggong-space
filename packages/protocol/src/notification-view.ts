@@ -15,10 +15,15 @@ export function notificationView(n: NotificationDto): NotificationView {
   const at = (runKey: string) => (p(runKey) ? `/g/${p('groupId')}?run=${p(runKey)}` : `/g/${p('groupId')}`)
   switch (n.type) {
     case 'approval':
-      return { label: '待审批', text: `${p('botName')} 请求执行 ${p('title')}`, group, href: at('runId') }
+      return {
+        label: n.resolvedAt ? '审批请求' : '待审批',
+        text: `${p('botName')} 请求执行 ${p('title')}`,
+        group,
+        href: at('runId'),
+      }
     case 'question':
       return {
-        label: '待回答',
+        label: n.resolvedAt ? '提问' : '待回答',
         text: `${p('botName')} 向你提了 ${p('count')} 个问题`,
         group,
         href: at('runId'),
@@ -27,7 +32,7 @@ export function notificationView(n: NotificationDto): NotificationView {
       return { label: '锁轮到你', text: `${p('botName')} 在 ${group} 拿到群锁`, group, href: at('runId') }
     case 'offline_expired':
       return {
-        label: 'bot 离线作废',
+        label: 'Bot 离线作废',
         text: `你 @${p('botName')} 的请求等待 ${p('waitMin')} 分钟未上线，已作废`,
         group,
         href: at('runId'),
@@ -41,7 +46,7 @@ export function notificationView(n: NotificationDto): NotificationView {
       }
     case 'bot_confirm':
       return {
-        label: '待确认 bot',
+        label: '待确认 Bot',
         text: `${p('byName')} 为你创建了 ${p('botName')}，请确认绑定`,
         group: '',
         href: '/admin/bots',

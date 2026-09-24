@@ -148,6 +148,22 @@
   gap: 8px;
   padding: 16px;
 }
+.gs-danger {
+  border-top: 1px solid var(--color-separator);
+}
+.gs-danger__title {
+  font-size: 11px;
+  color: var(--color-danger);
+}
+.gs-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-danger);
+}
 .gs-note {
   font-size: 12px;
   color: var(--color-text-secondary);

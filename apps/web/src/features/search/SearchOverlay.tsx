@@ -1,9 +1,11 @@
 import type { SearchResultDto } from '@aiws/protocol'
 import { Archive, FileCode, type LucideIcon, MessageSquare, Play, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { type KeyboardEvent, useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
-import { Tabs } from '../../ui'
+import { cx } from '../../lib/cx'
+import { Spinner, Tabs, useEscape } from '../../ui'
+import { fmtTime } from '../chat/TimelineItems'
 import './search.css'
 
 type Tab = SearchResultDto['kind']
@@ -18,42 +20,90 @@ const DEBOUNCE_MS = 200
 
 const hrefOf = (r: SearchResultDto) => {
   const q = new URLSearchParams()
+  if (r.kind === 'msg' && r.messageId) q.set('msg', r.messageId)
   if (r.kind !== 'msg' && r.runId) q.set('run', r.runId)
   if (r.kind === 'file') q.set('file', r.title)
   return `/g/${r.groupId}${q.size ? `?${q}` : ''}`
 }
 
+/** Snippets are flattened to one line, so block markers can sit anywhere after a space. */
+const plainText = (s: string) =>
+  s
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(^|\s)(?:#{1,6}|>)\s+/g, '$1')
+    .replace(/^(?:…)?\s*(?:[-*+]|\d+[.)])\s+/, '')
+    .replace(/\*\*|__|~~|`+/g, '')
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  const terms = query
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  if (!terms.length) return text
+  // A capturing split puts the matches at odd indices.
+  return text.split(new RegExp(`(${terms.join('|')})`, 'gi')).map((part, i) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and rebuilt on every query
+    i % 2 ? <mark key={i}>{part}</mark> : part,
+  )
+}
+
 /** ⌘K overlay (Web 对话.dc.html `ovSearch`): messages, files and runs of my groups. */
 export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
+  const listId = useId()
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Tab>('msg')
+  const [attempt, setAttempt] = useState(0)
   /** Results tagged with the query they answer, so "no results" never shows for a pending query. */
-  const [found, setFound] = useState<{ key: string; list: SearchResultDto[] }>({ key: '', list: [] })
-  const key = q.trim() && `${tab}:${q.trim()}`
-  const results = key ? found.list : []
+  const [found, setFound] = useState<{ key: string; list: SearchResultDto[]; failed: boolean }>({
+    key: '',
+    list: [],
+    failed: false,
+  })
+  const [active, setActive] = useState(0)
+  const key = q.trim() && `${tab}:${q.trim()}:${attempt}`
+  const settled = !!key && found.key === key
+  const results = settled ? found.list : []
+  useEscape(onClose)
 
   useEffect(() => {
     const text = q.trim()
     if (!text) return
     let live = true
-    const done = (list: SearchResultDto[]) => live && setFound({ key: `${tab}:${text}`, list })
+    const done = (list: SearchResultDto[], failed = false) => {
+      if (!live) return
+      setFound({ key: `${tab}:${text}:${attempt}`, list, failed })
+      setActive(0)
+    }
     const timer = setTimeout(() => {
-      api
-        .get<SearchResultDto[]>(`/search?${new URLSearchParams({ q: text, tab })}`)
-        .then(done, () => done([]))
+      api.get<SearchResultDto[]>(`/search?${new URLSearchParams({ q: text, tab })}`).then(
+        (list) => done(list),
+        () => done([], true),
+      )
     }, DEBOUNCE_MS)
     return () => {
       live = false
       clearTimeout(timer)
     }
-  }, [q, tab])
+  }, [q, tab, attempt])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const go = (r: SearchResultDto) => {
+    onClose()
+    navigate(hrefOf(r))
+  }
+  const optionId = (i: number) => `${listId}-${i}`
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!results.length || e.nativeEvent.isComposing) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setActive((i) => (i + step + results.length) % results.length)
+    } else if (e.key === 'Enter') {
+      const r = results[active]
+      if (r) go(r)
+    }
+  }
 
   return (
     <>
@@ -66,8 +116,13 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             autoFocus
             className="search__input"
             placeholder="搜索消息、文件、运行"
+            role="combobox"
+            aria-expanded={results.length > 0}
+            aria-controls={listId}
+            aria-activedescendant={results.length ? optionId(active) : undefined}
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKeyDown}
           />
           <span className="search__esc">esc 关闭</span>
         </div>
@@ -75,31 +130,51 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
         </div>
         <div className="search__results" data-testid="search-results">
-          {key && found.key === key && !results.length ? (
+          {key && !settled ? (
+            <div className="search__empty">
+              <Spinner />
+            </div>
+          ) : settled && found.failed ? (
+            <div className="search__empty">
+              搜索失败
+              <button type="button" className="search__retry" onClick={() => setAttempt((a) => a + 1)}>
+                重试
+              </button>
+            </div>
+          ) : settled && !results.length ? (
             <div className="search__empty">没有匹配的结果</div>
           ) : null}
-          {results.map((r) => {
-            const Icon = r.kind === 'run' && r.sub.includes('运行过程已过期') ? Archive : ICON[r.kind]
-            return (
-              <button
-                key={`${r.groupId}:${r.messageId ?? r.runId}:${r.title}`}
-                type="button"
-                className="search__row"
-                onClick={() => {
-                  onClose()
-                  navigate(hrefOf(r))
-                }}
-              >
-                <Icon size={14} className="search__icon" />
-                <div className="search__text">
-                  <div className={r.kind === 'file' ? 'search__title search__title--mono' : 'search__title'}>
-                    {r.title}
-                  </div>
-                  <div className="search__sub">{r.sub}</div>
-                </div>
-              </button>
-            )
-          })}
+          {results.length ? (
+            <div id={listId} role="listbox" aria-label="搜索结果" className="search__list">
+              {results.map((r, i) => {
+                const Icon = r.kind === 'run' && r.sub.includes('运行过程已过期') ? Archive : ICON[r.kind]
+                const title = r.kind === 'file' ? r.title : plainText(r.title)
+                return (
+                  <button
+                    key={`${r.groupId}:${r.messageId ?? r.runId}:${r.title}`}
+                    id={optionId(i)}
+                    ref={i === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
+                    type="button"
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={i === active}
+                    className={cx('search__row', i === active && 'search__row--active')}
+                    onMouseMove={() => setActive(i)}
+                    onClick={() => go(r)}
+                  >
+                    <Icon size={14} className="search__icon" />
+                    <div className="search__text">
+                      <div className={cx('search__title', r.kind === 'file' && 'search__title--mono')}>
+                        <Highlight text={title} query={q.trim()} />
+                      </div>
+                      <div className="search__sub">{r.sub}</div>
+                    </div>
+                    {r.at ? <span className="search__time">{fmtTime(r.at)}</span> : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
       </div>
     </>

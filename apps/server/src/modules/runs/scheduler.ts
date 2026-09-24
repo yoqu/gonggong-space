@@ -1,5 +1,5 @@
 import type { AgentKind, ContextMessage, RunStart, Tier } from '@aiws/protocol'
-import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
@@ -122,15 +122,17 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .orderBy(asc(groupRepos.createdAt))
     .limit(1)
   if (!trigger || !gb || !group) throw new Error(`run ${run.id} lost its trigger message or group membership`)
-  const context = await contextMessages(
-    tx,
-    and(
-      eq(messages.groupId, run.groupId),
-      gt(messages.seq, gb.contextSeq),
-      lt(messages.seq, trigger.seq),
-      or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
-    ),
+  const params = await sysParams(tx)
+  const since = and(
+    eq(messages.groupId, run.groupId),
+    gt(messages.seq, gb.contextSeq),
+    lt(messages.seq, trigger.seq),
+    or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
   )
+  // Older messages stay out of the prompt; the agent reads them with the aiws tools (plan C1).
+  const context = (await contextMessages(tx, since, params.contextInlineMax)).reverse()
+  const omitted =
+    context.length < params.contextInlineMax ? 0 : (await countContext(tx, since)) - context.length
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = gb.newSessionReason ? null : gb.sessionId
   const fallbackContext = resumeSessionId
@@ -138,9 +140,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
         await contextMessages(
           tx,
           and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
-          (
-            await sysParams(tx)
-          ).sessionReplayCount,
+          Math.min(params.sessionReplayCount, params.contextInlineMax),
         )
       ).reverse()
     : []
@@ -168,6 +168,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       text: trigger.body,
       triggeredBy: trigger.author ?? trigger.bot ?? '',
       context: [...context, ...note],
+      omitted,
       fallbackContext: resumeSessionId ? [...fallbackContext, ...note] : [],
       attachments: (trigger.meta as MessageMeta).attachments ?? [],
       quote: quoteOf(trigger.meta as MessageMeta),
@@ -177,9 +178,17 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
   return { msg, triggerSeq: trigger.seq, settled: interrupted?.settled }
 }
 
-/** Humans' messages and bots' final replies; `limit` takes the latest ones (newest first). */
-async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): Promise<ContextMessage[]> {
-  const q = tx
+const contextFilter = (where: SQL | undefined) =>
+  and(where, inArray(messages.kind, ['user', 'bot']), sql`${messages.meta}->>'command' is null`)
+
+async function countContext(tx: Tx, where: SQL | undefined) {
+  const [row] = await tx.select({ n: count() }).from(messages).where(contextFilter(where))
+  return row?.n ?? 0
+}
+
+/** Humans' messages and bots' final replies; the latest `limit` ones, newest first. */
+async function contextMessages(tx: Tx, where: SQL | undefined, limit: number): Promise<ContextMessage[]> {
+  const rows = await tx
     .select({
       seq: messages.seq,
       kind: messages.kind,
@@ -192,8 +201,9 @@ async function contextMessages(tx: Tx, where: SQL | undefined, limit?: number): 
     .from(messages)
     .leftJoin(users, eq(users.id, messages.authorUserId))
     .leftJoin(bots, eq(bots.id, messages.authorBotId))
-    .where(and(where, inArray(messages.kind, ['user', 'bot']), sql`${messages.meta}->>'command' is null`))
-  const rows = await (limit ? q.orderBy(desc(messages.seq)).limit(limit) : q.orderBy(asc(messages.seq)))
+    .where(contextFilter(where))
+    .orderBy(desc(messages.seq))
+    .limit(limit)
   return rows.map((r) => ({
     seq: r.seq,
     author: r.user ?? r.bot ?? '',

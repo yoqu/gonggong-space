@@ -8,12 +8,13 @@ import {
   ShieldAlert,
   WifiOff,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { toast } from '../../ui'
+import { realtime } from '../../lib/realtime'
+import { Badge, Spinner, toast, useEscape } from '../../ui'
 import { fmtTime } from '../chat/TimelineItems'
 import { enablePush, type PushState, pushState } from './push'
 import './notifications.css'
@@ -52,16 +53,36 @@ function PushAction() {
 export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const [items, setItems] = useState<NotificationDto[] | null>(null)
+  const [failed, setFailed] = useState(false)
   const count = useWorkspace((s) => s.notifCount)
+  useEscape(onClose)
+
+  const load = useCallback(() => {
+    setFailed(false)
+    api.get<NotificationDto[]>('/notifications').then(setItems, () => setFailed(true))
+  }, [])
 
   // Refetch whenever a new one arrives while open.
   // biome-ignore lint/correctness/useExhaustiveDependencies: count is the refresh trigger
-  useEffect(() => {
-    api.get<NotificationDto[]>('/notifications').then(setItems, () => setItems([]))
-  }, [count])
+  useEffect(load, [count])
+
+  useEffect(
+    () =>
+      realtime.subscribe((e) => {
+        if (e.t !== 'notification.resolved') return
+        const done = new Map(e.notifications.map((n) => [n.id, n]))
+        setItems((list) => list?.map((n) => done.get(n.id) ?? n) ?? null)
+      }),
+    [],
+  )
 
   const readAll = async () => {
-    await api.post('/notifications/read-all')
+    try {
+      await api.post('/notifications/read-all')
+    } catch (e) {
+      toast({ type: 'error', title: '标记已读失败', message: (e as Error).message })
+      return
+    }
     const now = new Date().toISOString()
     setItems((list) => list?.map((n) => ({ ...n, readAt: n.readAt ?? now })) ?? null)
     useWorkspace.setState({ notifCount: 0 })
@@ -89,30 +110,52 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="notif__list" data-testid="notification-list">
-          {items?.length === 0 ? <div className="notif__empty">暂无通知</div> : null}
-          {items?.map((n) => {
-            const v = notificationView(n)
-            const { icon: Icon, color } = ICON[n.type]
-            return (
-              <button
-                key={n.id}
-                type="button"
-                className={cx('notif__item', !n.readAt && 'notif__item--unread')}
-                onClick={() => open(n)}
-              >
-                <Icon size={14} color={color} className="notif__icon" />
-                <div className="notif__body">
-                  <div className="notif__line">
-                    <span className="notif__type">{v.label}</span>
-                    <span className="spacer" />
-                    <span className="notif__time">{fmtTime(n.createdAt)}</span>
-                  </div>
-                  <div className="notif__text">{v.text}</div>
-                  {v.group ? <div className="notif__group">{v.group}</div> : null}
-                </div>
+          {failed ? (
+            <div className="notif__empty">
+              加载失败
+              <button type="button" className="notif__link" onClick={load}>
+                重试
               </button>
-            )
-          })}
+            </div>
+          ) : !items ? (
+            <div className="notif__empty">
+              <Spinner />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="notif__empty">暂无通知</div>
+          ) : null}
+          {failed
+            ? null
+            : items?.map((n) => {
+                const v = notificationView(n)
+                const { icon: Icon, color } = ICON[n.type]
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className={cx(
+                      'notif__item',
+                      !n.readAt && 'notif__item--unread',
+                      n.resolvedAt && 'notif__item--resolved',
+                    )}
+                    onClick={() => open(n)}
+                  >
+                    <Icon size={14} color={color} className="notif__icon" />
+                    <div className="notif__body">
+                      <div className="notif__line">
+                        <span className="notif__type">{v.label}</span>
+                        {n.resolvedAt ? <Badge size="xs">已处理</Badge> : null}
+                        <span className="spacer" />
+                        <span className="notif__time">{fmtTime(n.createdAt)}</span>
+                      </div>
+                      <div className="notif__text" title={v.text}>
+                        {v.text}
+                      </div>
+                      {v.group ? <div className="notif__group">{v.group}</div> : null}
+                    </div>
+                  </button>
+                )
+              })}
         </div>
         <div className="notif__foot">只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。</div>
       </div>

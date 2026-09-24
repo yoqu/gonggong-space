@@ -196,6 +196,7 @@ describe('admin groups and machines', () => {
     expect(res.status).toBe(200)
     expect(res.body.find((g) => g.id === pay.id)).toMatchObject({
       name: '支付服务重构',
+      ownerName: '王磊',
       mode: 'partition',
       repo: 'git.corp/pay/pay-server',
       members: 1,
@@ -294,7 +295,7 @@ describe('audit query', () => {
       '停用账号 wanglei',
       '/stop 中断 小王的 Claude · 支付服务重构',
       '修改全局层 MCP：启用 wiki-search · 未勾选强制新会话',
-      '为 王磊 新建 bot 小王的 Codex',
+      '为 王磊 新建 Bot 小王的 Codex',
       '回答 小王的 Claude 的 3 个问题 · 支付服务重构',
       '批准 小王的 Claude 执行 go build ./... · 支付服务重构',
     ])
@@ -342,10 +343,11 @@ describe('system params', () => {
       approvalTimeoutMin: 30,
       chainMaxHops: 3,
       offlineWaitMin: 30,
-      writerDisconnectReleaseSec: null,
+      writerDisconnectReleaseSec: 60,
       forceSyncMaxLatencyMs: 120,
       forceSyncMinBandwidthMbps: 10,
       sessionReplayCount: 50,
+      contextInlineMax: 20,
       runRetentionDays: 30,
       attachmentMaxMb: 50,
       attachmentsPerMessage: 10,
@@ -377,7 +379,7 @@ describe('system params', () => {
     )
   })
 
-  it('persists across restarts, including params set back to 待定', async () => {
+  it('persists across restarts, including params cleared to unset', async () => {
     const cookie = await t.seed.cookie(adminId)
     await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: 90, sessionReplayCount: 20 })
     await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: null })
@@ -385,6 +387,8 @@ describe('system params', () => {
       writerDisconnectReleaseSec: null,
       sessionReplayCount: 20,
     })
+    const [a] = (await admin.get<AuditDto[]>('/api/admin/audit')).body
+    expect(a?.summary).toBe('修改系统参数：写入方断线后释放锁 90 → 未设置')
   })
 
   it('the attachment limits bound uploads and message sends', async () => {

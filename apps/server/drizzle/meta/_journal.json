@@ -57,6 +57,20 @@
       "when": 1790218417206,
       "tag": "0007_default_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790225023252,
+      "tag": "0008_notification_resolved",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790226108396,
+      "tag": "0009_notification_resolved_backfill",
+      "breakpoints": true
     }
   ]
 }

@@ -156,6 +156,8 @@ export const NotificationDto = z.object({
   type: NotificationType,
   payload: z.record(z.string(), z.unknown()),
   readAt: z.string().nullable(),
+  /** The approval / question it asks for was settled (by anyone, a timeout, or the run ending). */
+  resolvedAt: z.string().nullable(),
   createdAt: z.string(),
 })
 export type NotificationDto = z.infer<typeof NotificationDto>
@@ -396,6 +398,8 @@ export const SearchResultDto = z.object({
   groupId: z.string(),
   messageId: z.string().nullable(),
   runId: z.string().nullable(),
+  /** When the message was sent / the run was queued; null for base-branch files. */
+  at: z.string().nullable(),
 })
 export type SearchResultDto = z.infer<typeof SearchResultDto>
 
@@ -463,6 +467,7 @@ export type AuditDto = z.infer<typeof AuditDto>
 export const AdminGroupDto = z.object({
   id: z.string(),
   name: z.string(),
+  ownerName: z.string().nullable(),
   kind: z.enum(['group', 'dm']),
   mode: z.enum(['partition', 'force']),
   repo: z.string().nullable(),
@@ -491,6 +496,7 @@ export const SystemParams = GroupParams.extend({
   forceSyncMaxLatencyMs: z.number().int().min(1).max(10_000),
   forceSyncMinBandwidthMbps: z.number().min(0.1).max(10_000),
   sessionReplayCount: z.number().int().min(1).max(500),
+  contextInlineMax: z.number().int().min(1).max(200),
   runRetentionDays: z.number().int().min(1).max(3650),
   attachmentMaxMb: z
     .number()
@@ -513,6 +519,7 @@ export const SYSTEM_PARAM_VIEW: { key: keyof SystemParams; label: string; unit: 
   { key: 'forceSyncMaxLatencyMs', label: '开启强制同步 · 延迟阈值', unit: 'ms', measure: true },
   { key: 'forceSyncMinBandwidthMbps', label: '开启强制同步 · 带宽阈值', unit: 'Mbps', measure: true },
   { key: 'sessionReplayCount', label: '会话恢复失败时补送群消息数', unit: '条' },
+  { key: 'contextInlineMax', label: '每轮随消息附带的群聊上下文', unit: '条' },
   { key: 'runRetentionDays', label: '完整运行过程保留', unit: '天' },
   { key: 'attachmentMaxMb', label: '单个附件大小上限', unit: 'MB' },
   { key: 'attachmentsPerMessage', label: '每条消息附件数', unit: '个' },
@@ -520,11 +527,11 @@ export const SYSTEM_PARAM_VIEW: { key: keyof SystemParams; label: string; unit: 
   { key: 'heartbeatSec', label: 'daemon 心跳间隔', unit: '秒' },
   { key: 'offlineMisses', label: 'daemon 离线判定（连续未收到心跳）', unit: '次' },
   { key: 'backupRetentionDays', label: '服务器备份（每日）保留', unit: '天' },
-  { key: 'archiveRetentionDays', label: '删群后权威副本归档', unit: '天' },
+  { key: 'archiveRetentionDays', label: '删群后存档保留', unit: '天' },
   { key: 'approvalTimeoutMin', label: '权限审批等待（分区模式）· 群默认', unit: '分钟' },
   { key: 'chainMaxHops', label: '接力链长上限 · 群默认', unit: '跳' },
-  { key: 'offlineWaitMin', label: 'bot 离线时请求等待上线 · 群默认', unit: '分钟' },
-  { key: 'botConcurrencyDefault', label: 'bot 并发上限 · 新建默认', unit: '个' },
+  { key: 'offlineWaitMin', label: 'Bot 离线时请求等待上线 · 群默认', unit: '分钟' },
+  { key: 'botConcurrencyDefault', label: 'Bot 并发上限 · 新建默认', unit: '个' },
 ]
 
 // ── Usage (spec §3.7) ───────────────────────────────────────────────────────
@@ -566,6 +573,12 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('bot.updated'), bot: BotDto }),
   z.object({ t: z.literal('bot.removed'), botId: z.string() }),
   z.object({ t: z.literal('notification.new'), notification: NotificationDto }),
+  /** Some of the user's notifications were settled server-side; `unread` is their fresh unread count. */
+  z.object({
+    t: z.literal('notification.resolved'),
+    notifications: z.array(NotificationDto),
+    unread: z.number().int(),
+  }),
   z.object({ t: z.literal('group.updated'), group: GroupDto }),
   /** The receiving user is no longer a member. */
   z.object({ t: z.literal('group.removed'), groupId: z.string() }),

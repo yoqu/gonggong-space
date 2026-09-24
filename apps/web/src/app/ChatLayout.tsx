@@ -1,5 +1,5 @@
 import { AtSign, ChevronLeft, Image, Paperclip, Slash } from 'lucide-react'
-import { type KeyboardEvent, type ReactNode, type Ref, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
 import { Button, IconButton } from '../ui'
 import { MOBILE_MAX, RAIL_MIN, useViewportWidth } from './viewport'
@@ -86,6 +86,9 @@ export function Timeline({ children }: { children: ReactNode }) {
   return <div className="timeline">{children}</div>
 }
 
+/** Bare `@` / `/` only open the candidate list; they are not a message. */
+const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
+
 export function Composer({
   value,
   onChange,
@@ -95,6 +98,8 @@ export function Composer({
   popover,
   inputRef,
   onKeyDown,
+  onFiles,
+  combobox,
   busy,
   attachments = 0,
   uploading = false,
@@ -109,9 +114,13 @@ export function Composer({
   above?: ReactNode
   /** Floating candidate list anchored above the composer. */
   popover?: ReactNode
-  inputRef?: Ref<HTMLTextAreaElement>
-  /** Runs first; call preventDefault() to suppress Enter-to-send. */
+  inputRef?: RefObject<HTMLTextAreaElement | null>
+  /** Runs first; call preventDefault() to suppress Enter-to-send. Never called during IME composition. */
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
+  /** Pasted or dropped files. */
+  onFiles?: (files: File[]) => void
+  /** ARIA combobox state of the candidate list. */
+  combobox?: { controls: string; expanded: boolean; active?: string }
   /** A send is in flight. */
   busy?: boolean
   /** Attached files make an empty text sendable; sending waits for their uploads. */
@@ -120,23 +129,73 @@ export function Composer({
   onAttach?: () => void
   onImage?: () => void
 }) {
-  const canSend = Boolean(onSend) && (value.trim() !== '' || attachments > 0) && !busy && !uploading
+  const own = useRef<HTMLTextAreaElement>(null)
+  const ref = inputRef ?? own
+  const composing = useRef(false)
+  const [dropping, setDropping] = useState(false)
+  const canSend = Boolean(onSend) && (hasText(value) || attachments > 0) && !busy && !uploading
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value, ref])
+
+  const takeFiles = (files: FileList, e: { preventDefault: () => void }) => {
+    if (!onFiles || !files.length) return
+    e.preventDefault()
+    onFiles(Array.from(files))
+  }
+
   return (
     <div className="composer">
       {popover}
-      <div className="composer__box">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a file drop target; pickers and paste are the keyboard path */}
+      <div
+        className={cx('composer__box', dropping && 'composer__box--drop')}
+        onDragOver={(e) => {
+          if (!onFiles || !e.dataTransfer.types.includes('Files')) return
+          e.preventDefault()
+          setDropping(true)
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+        }}
+        onDrop={(e) => {
+          setDropping(false)
+          takeFiles(e.dataTransfer.files, e)
+        }}
+      >
         {above}
         <textarea
-          ref={inputRef}
+          ref={ref}
           className="composer__input"
           rows={2}
           value={value}
           placeholder="输入消息，@ 触发 bot 或引用文件，/ 查看命令"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={combobox?.expanded ?? false}
+          aria-controls={combobox?.controls}
+          aria-activedescendant={combobox?.active}
           onChange={(e) => onChange(e.target.value)}
+          onPaste={(e) => takeFiles(e.clipboardData.files, e)}
+          onCompositionStart={() => {
+            composing.current = true
+          }}
+          onCompositionEnd={() => {
+            // Safari fires the committing Enter's keydown right after compositionend, with isComposing false.
+            setTimeout(() => {
+              composing.current = false
+            })
+          }}
           onKeyDown={(e) => {
+            if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
             onKeyDown?.(e)
             if (e.defaultPrevented) return
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && onSend) {
+            if (e.key === 'Enter' && !e.shiftKey && onSend) {
               e.preventDefault()
               if (canSend) onSend()
             }

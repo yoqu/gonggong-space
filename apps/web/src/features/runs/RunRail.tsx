@@ -2,6 +2,7 @@ import type { RunDetailDto } from '@aiws/protocol'
 import {
   Brain,
   CircleDot,
+  Copy,
   FileCode,
   FileText,
   Globe,
@@ -20,7 +21,8 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
-import { Badge, CloseButton, EmptyState, Spinner, Tabs } from '../../ui'
+import { Badge, CloseButton, EmptyState, Spinner, Tabs, toast, useEscape } from '../../ui'
+import { Markdown } from '../chat/Markdown'
 import { fmtDuration, fmtUsage, RUN_STATUS, useNow } from '../chat/TimelineItems'
 import { approvalText, buildSteps, type DiffFile, findFile, hhmm, parsePatch, type Step } from './process'
 import { type RailTab, useRunRail } from './rail'
@@ -103,6 +105,7 @@ function useRunDetail(runId: string) {
 export function RunRail({ runId }: { runId: string }) {
   const { tab, file, setTab, setFile, close } = useRunRail()
   const { detail, error } = useRunDetail(runId)
+  useEscape(close)
   const bots = useWorkspace((s) => s.bots)
   const groups = useWorkspace((s) => s.groups)
   const run = detail?.run
@@ -133,7 +136,7 @@ export function RunRail({ runId }: { runId: string }) {
               {started === null ? '—' : fmtDuration(ended - started)} · {fmtUsage(run.usage)}
             </Fact>
             <Fact label="会话" mono>
-              {detail.sessionId ?? '—'}
+              {detail.sessionId ? <SessionId id={detail.sessionId} /> : '—'}
             </Fact>
           </dl>
         ) : null}
@@ -171,6 +174,34 @@ function Fact({ label, mono, children }: { label: string; mono?: boolean; childr
   )
 }
 
+function SessionId({ id }: { id: string }) {
+  // navigator.clipboard is missing outside secure contexts, so the call itself may throw.
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(id)
+      toast({ type: 'success', message: '已复制会话 ID' })
+    } catch {
+      toast({ type: 'error', message: '复制失败' })
+    }
+  }
+  return (
+    <span className="run-rail__session">
+      <span className="run-rail__session-id" title={id}>
+        {id}
+      </span>
+      <button
+        type="button"
+        className="run-rail__copy"
+        aria-label="复制会话 ID"
+        title="复制会话 ID"
+        onClick={() => void copy()}
+      >
+        <Copy size={11} />
+      </button>
+    </span>
+  )
+}
+
 function StepRow({ step }: { step: Step }) {
   const Icon = STEP_ICON[step.kind] ?? CircleDot
   const head = (
@@ -193,7 +224,15 @@ function StepRow({ step }: { step: Step }) {
   return (
     <div className="run-step">
       <div className="run-step__head">{head}</div>
-      {step.body ? <div className="run-step__body">{step.body}</div> : null}
+      {step.body ? (
+        step.kind === 'text' ? (
+          <div className="run-step__md">
+            <Markdown text={step.body} />
+          </div>
+        ) : (
+          <div className="run-step__body">{step.body}</div>
+        )
+      ) : null}
       {step.mono ? <div className="run-step__mono">{step.mono}</div> : null}
       {step.out ? <pre className="run-step__out">{step.out}</pre> : null}
     </div>
@@ -285,7 +324,7 @@ function AuditTab({ detail, userName }: { detail: RunDetailDto; userName: (id: s
     },
     ...run.approvals.map((a) => ({ at: a.createdAt, text: `权限请求：${a.detail} · ${approvalText(a)}` })),
     ...(run.stoppedBy && run.endedAt
-      ? [{ at: run.endedAt, text: `${userName(run.stoppedBy)} 执行了 /stop` }]
+      ? [{ at: run.endedAt, text: `${userName(run.stoppedBy)} 停止了运行` }]
       : []),
   ]
   return (

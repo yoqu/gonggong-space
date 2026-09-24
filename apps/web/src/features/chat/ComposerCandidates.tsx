@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { PRESENCE } from '../bots/model'
 
 export interface Candidate {
   key: string
@@ -14,6 +15,8 @@ export interface Candidate {
   hint: string
   /** Replaces the typed `@query` / `/query`. */
   insert: string
+  /** Bots only: presence dot + text. */
+  status?: { label: string; color: string }
 }
 
 interface Section {
@@ -73,7 +76,13 @@ function fileHint(e: FileCandidatesDto['entries'][number]) {
 export function useCandidates(group: GroupDto, before: string | null) {
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const people = [
-    ...bots.map((b) => ({ key: `bot:${b.id}`, icon: Bot, name: b.name, hint: b.ownerName })),
+    ...bots.map((b) => ({
+      key: `bot:${b.id}`,
+      icon: Bot,
+      name: b.name,
+      hint: b.ownerName,
+      status: PRESENCE[b.presence],
+    })),
     ...group.members.map((m) => ({ key: `member:${m.userId}`, icon: User, name: m.name, hint: '成员' })),
   ]
   const token =
@@ -165,18 +174,23 @@ export function useCandidates(group: GroupDto, before: string | null) {
 }
 
 export function CandidatePopover({
+  id,
   char,
   sections,
   active,
   onPick,
 }: {
+  /** Options get `${id}-${index}` ids for the textarea's aria-activedescendant. */
+  id: string
   char: '@' | '/'
   sections: Section[]
   active: Candidate | undefined
   onPick: (c: Candidate) => void
 }) {
+  const flat = sections.flatMap((s) => s.items)
   return (
     <div
+      id={id}
       className="mention-pop"
       role="listbox"
       aria-label={char === '/' ? '/ 命令' : '@ 候选'}
@@ -191,8 +205,10 @@ export function CandidatePopover({
           {s.items.map((c) => (
             <button
               key={c.key}
+              id={`${id}-${flat.indexOf(c)}`}
               type="button"
               role="option"
+              tabIndex={-1}
               aria-selected={active === c}
               // Keyboard navigation through long lists (e.g. every Claude skill) keeps the active item in view.
               ref={active === c ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
@@ -203,6 +219,12 @@ export function CandidatePopover({
               <c.icon size={13} className="mention-pop__icon" />
               <span className={cx('mention-pop__name', c.mono && 'mention-pop__mono')}>{c.label}</span>
               <span className="spacer" />
+              {c.status ? (
+                <span className="mention-pop__status">
+                  <span className="dot" style={{ background: c.status.color }} />
+                  {c.status.label}
+                </span>
+              ) : null}
               <span className="mention-pop__hint" title={c.hint}>
                 {c.hint}
               </span>

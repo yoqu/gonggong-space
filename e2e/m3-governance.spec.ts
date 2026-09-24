@@ -197,7 +197,7 @@ test('partition /stop keeps edits by default and "丢弃本轮改动" restores o
     const card = page.getByTestId('run-card').last()
     await expect(card).toContainText('等待审批', { timeout: 3 * 60_000 })
     expect(existsSync(join(ws, 'turn.txt'))).toBe(true)
-    await card.getByRole('button', { name: '/stop' }).click()
+    await card.getByRole('button', { name: '停止' }).click()
     await expect(card).toContainText('已中断')
     await expect(card).toContainText('已停止 · 本轮改动 1 个文件留在工作区')
     await card.getByRole('button', { name: '丢弃本轮改动' }).click()

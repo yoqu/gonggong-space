@@ -44,8 +44,19 @@ a:hover {
   color: var(--color-system-blue-hover);
 }
 :focus-visible {
-  outline: none;
+  /* transparent outline stays visible in forced-colors mode, where box-shadow is dropped */
+  outline: 2px solid transparent;
   box-shadow: var(--shadow-focus);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must override every component's motion */
+    transition: none !important;
+  }
 }
 ::selection {
   background: var(--color-selection);

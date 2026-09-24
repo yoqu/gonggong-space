@@ -70,9 +70,12 @@ describe('配置中心', () => {
     expect(row('grafana').textContent).toContain('https://mcp.corp/grafana')
     expect(within(row('wiki-search')).getByRole('switch').getAttribute('aria-checked')).toBe('true')
     expect(within(row('grafana')).getByRole('switch').getAttribute('aria-checked')).toBe('false')
-    const ask = row('ask-group-members')
-    expect(ask.textContent).toContain('系统内置 · 始终注入，不受层级影响')
-    expect((within(ask).getByRole('switch') as HTMLInputElement).disabled).toBe(true)
+    const builtin = row('aiws')
+    expect(builtin.textContent).toContain('系统内置 · 始终注入，不受层级影响')
+    expect(builtin.textContent).toContain(
+      '向群成员提问、读取聊天记录、检索聊天记录、群信息与成员、查看运行记录、提问卡片历史、下载历史附件',
+    )
+    expect((within(builtin).getByRole('switch') as HTMLInputElement).disabled).toBe(true)
     expect(screen.getByText(/合并预览/)).toBeTruthy()
     expect(screen.getByText(/MCP 在新建会话时经 ACP 注入不落盘/)).toBeTruthy()
     expect(
@@ -80,7 +83,8 @@ describe('配置中心', () => {
     ).toBe(false)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Skill' }))
-    expect(screen.getByText('Skill 为三期功能')).toBeTruthy()
+    expect(screen.getByText('暂不支持 Skill')).toBeTruthy()
+    expect(screen.queryByText(/一期|二期|三期/)).toBeNull()
     expect(screen.queryByText('wiki-search')).toBeNull()
   })
 
@@ -172,5 +176,24 @@ describe('配置中心', () => {
     fireEvent.click(within(row('wiki-search')).getByRole('switch'))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(await screen.findByText('运行中的轮次不受影响；已有会话继续使用旧配置。')).toBeTruthy()
+  })
+
+  it('shows a failed load inline with one message and retries', async () => {
+    let down = true
+    mockApi({
+      'GET /admin/mcp': () => (down ? new Response('', { status: 502, statusText: 'Bad Gateway' }) : [wiki]),
+      'GET /bots': [],
+      'GET /machines': [],
+      'GET /notifications': [],
+    })
+    renderConfig()
+    const alert = await screen.findByText('配置加载失败')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.queryByText(/Bad Gateway/)).toBeNull()
+    expect(alert).toBeTruthy()
+    down = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByText('wiki-search')).toBeTruthy()
+    expect(screen.queryByText('配置加载失败')).toBeNull()
   })
 })

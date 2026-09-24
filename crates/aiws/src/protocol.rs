@@ -227,12 +227,24 @@ pub struct FilesList {
     pub limit: u32,
 }
 
+/// Response of `POST /api/daemon/runs/:runId/tools/:name` (an aiws MCP tool answered by the server).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallRes {
+    pub text: String,
+    pub is_error: bool,
+    pub attachments: Vec<Attachment>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunPrompt {
     pub text: String,
     pub triggered_by: String,
     pub context: Vec<ContextMessage>,
+    /// Messages since the last @ left out of `context`; the agent reads them with the aiws tools.
+    #[serde(default)]
+    pub omitted: u32,
     pub fallback_context: Vec<ContextMessage>,
     pub attachments: Vec<Attachment>,
     pub quote: Option<Quote>,

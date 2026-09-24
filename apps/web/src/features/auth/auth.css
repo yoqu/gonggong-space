@@ -42,24 +42,6 @@
   flex-direction: column;
   gap: 12px;
 }
-.auth__or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.auth__or::before,
-.auth__or::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--color-separator);
-}
-.auth__sso {
-  opacity: 0.5;
-  cursor: default;
-}
 .auth__link {
   align-self: center;
   border: 0;
@@ -127,6 +109,6 @@
   cursor: pointer;
 }
 .account__item:hover {
-  background: var(--color-system-blue);
+  background: var(--color-accent-fill);
   color: var(--color-on-accent);
 }

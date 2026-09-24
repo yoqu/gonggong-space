@@ -85,6 +85,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
     <Dialog
       open
       width={540}
+      closeOnBackdrop={false}
       title={dm ? '新建私聊' : '新建群'}
       subtitle={dm ? '只有你和你的 bot' : '创建者即群管理员'}
       onClose={onClose}
@@ -144,7 +145,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
             <>
               <RepoFields draft={d} set={set} />
               <span className="ng-note">
-                一期一群一仓库。bot 加入后由各自 daemon 用本机 git 凭据 clone
+                每个群绑定一个仓库。Bot 加入后由各自 daemon 用本机 git 凭据 clone
                 到托管工作区；服务器不持有写权限。
               </span>
             </>

@@ -24,7 +24,7 @@ import {
   Users,
   WifiOff,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Badge, type BadgeVariant } from '../../ui'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
@@ -68,6 +68,27 @@ export function fmtTime(iso: string) {
   const d = new Date(iso)
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
   return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`
+}
+
+const fullTime = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+
+function Time({ iso }: { iso: string }) {
+  return (
+    <time className="tl-time" dateTime={iso} title={fullTime(new Date(iso))}>
+      {fmtTime(iso)}
+    </time>
+  )
+}
+
+/** Day separator label: 今天 / 昨天 / M月D日. */
+export function dayLabel(iso: string) {
+  const d = new Date(iso)
+  const today = new Date()
+  if (d.toDateString() === today.toDateString()) return '今天'
+  today.setDate(today.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return '昨天'
+  return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 export const fmtDuration = (ms: number) => {
@@ -124,26 +145,34 @@ function eventIcon(body: string) {
   return Info
 }
 
-export function EventRow({ m }: { m: MessageDto }) {
+export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
   const Icon = eventIcon(m.body)
   return (
     <div className="tl-event">
       <Icon size={12} />
       <span className="tl-event__text">{m.body}</span>
-      <span className="tl-time">{fmtTime(m.createdAt)}</span>
+      <Time iso={m.createdAt} />
     </div>
   )
-}
+})
 
 /** `fanOut`: how many bots this message triggered; ≥ 2 shows the fan-out note (spec §8.6). */
-export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: string[]; fanOut?: number }) {
+export const UserMessage = memo(function UserMessage({
+  m,
+  names,
+  fanOut = 0,
+}: {
+  m: MessageDto
+  names: string[]
+  fanOut?: number
+}) {
   return (
     <div className="tl-msg">
       <div className="tl-avatar">{Array.from(m.authorName)[0]}</div>
       <div className="tl-msg__main">
         <div className="tl-msg__head">
           <span className="tl-msg__who">{m.authorName}</span>
-          <span className="tl-time">{fmtTime(m.createdAt)}</span>
+          <Time iso={m.createdAt} />
           {fanOut > 1 ? <span className="tl-fan">· 扇出 · {fanOut} 个 bot 并行</span> : null}
         </div>
         <MessageQuote quote={m.quote} />
@@ -163,37 +192,50 @@ export function UserMessage({ m, names, fanOut = 0 }: { m: MessageDto; names: st
       </div>
     </div>
   )
-}
+})
 
 /** First line of a quoted text, without markdown emphasis (prototype quote chip). */
 const quoteLine = (text: string) => (text.split('\n')[0] ?? '').replace(/[`*]/g, '')
 
-export function BotReply({ m }: { m: MessageDto }) {
+const quoteReply = (m: MessageDto) =>
+  useQuote.getState().set({
+    groupId: m.groupId,
+    kind: 'message',
+    id: m.id,
+    who: m.authorName,
+    text: quoteLine(m.body),
+  })
+
+function FileChips({ runId, text }: { runId: string; text: string }) {
   const open = useRunRail((s) => s.open)
-  const runId = m.runId
-  const files = useMemo(() => (runId ? filePaths(m.body) : []), [runId, m.body])
-  const quote = useQuote((s) => s.set)
+  const files = useMemo(() => filePaths(text), [text])
+  if (!files.length) return null
+  return (
+    <div className="tl-files">
+      {files.map((f) => (
+        <button key={f} type="button" className="tl-file" onClick={() => open(runId, 'diff', f)}>
+          <FileText size={11} />
+          {f}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */
+export const BotReply = memo(function BotReply({ m }: { m: MessageDto }) {
   return (
     <div className="tl-msg" data-testid="bot-reply">
       <div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>
       <div className="tl-msg__main">
         <div className="tl-msg__head">
           <span className="tl-msg__who">{m.authorName}</span>
-          <span className="tl-reply-tag">最终回复</span>
-          <span className="tl-time">{fmtTime(m.createdAt)}</span>
+          <Time iso={m.createdAt} />
           <button
             type="button"
             className="tl-quote-btn"
             title="引用回复等同 @ 该 bot"
-            onClick={() =>
-              quote({
-                groupId: m.groupId,
-                kind: 'message',
-                id: m.id,
-                who: m.authorName,
-                text: quoteLine(m.body),
-              })
-            }
+            onClick={() => quoteReply(m)}
           >
             <Quote size={11} />
             引用回复
@@ -201,20 +243,11 @@ export function BotReply({ m }: { m: MessageDto }) {
         </div>
         <Markdown text={m.body} />
         <MessageAttachments list={m.attachments} from={m.authorName} />
-        {runId && files.length ? (
-          <div className="tl-files">
-            {files.map((f) => (
-              <button key={f} type="button" className="tl-file" onClick={() => open(runId, 'diff', f)}>
-                <FileText size={11} />
-                {f}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {m.runId ? <FileChips runId={m.runId} text={m.body} /> : null}
       </div>
     </div>
   )
-}
+})
 
 const STEP_ICON: Partial<Record<RunStatus, typeof CircleDot>> = {
   running: Loader,
@@ -227,9 +260,11 @@ const STEP_ICON: Partial<Record<RunStatus, typeof CircleDot>> = {
 /** Runs that never started show their reason as a note instead of a step, without actions (prototype r4 / r5). */
 const NOTE_ICON: Partial<Record<RunStatus, typeof CircleDot>> = { forbidden: Ban, offline_wait: WifiOff }
 
-export function RunCard({
+/** One run; once its final reply exists the card also carries the reply and sits at the reply's place. */
+export const RunCard = memo(function RunCard({
   run,
   delta,
+  reply,
   botName,
   agent,
   trigger,
@@ -237,10 +272,11 @@ export function RunCard({
 }: {
   run: RunDto
   delta?: string
+  reply?: MessageDto
   botName: string
   agent: string
   trigger: string
-  /** My 运行卡片默认折叠 pref; cards awaiting my decision always stay open. */
+  /** My 运行卡片默认折叠 pref (the reply stays visible); cards awaiting my decision always stay open. */
   foldable?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -252,12 +288,41 @@ export function RunCard({
   const status = RUN_STATUS[run.status]
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const NoteIcon = NOTE_ICON[run.status]
-  const step = NoteIcon ? '' : streamed || run.step
+  const step = NoteIcon || reply ? '' : streamed || run.step
   const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const sessionNote = newSessionNote(run.newSessionReason)
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
+  const actions = (
+    <div className="run-card__actions">
+      <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
+        <PanelRightOpen size={12} />
+        查看过程
+      </button>
+      <button
+        type="button"
+        className="run-card__action"
+        title={reply ? '引用回复等同 @ 该 bot' : undefined}
+        onClick={() =>
+          reply
+            ? quoteReply(reply)
+            : quote({
+                groupId: run.groupId,
+                kind: 'run',
+                id: run.id,
+                who: `${botName} 的运行卡片`,
+                text: run.step || status.label,
+              })
+        }
+      >
+        <Quote size={11} />
+        {reply ? '引用回复' : '引用'}
+      </button>
+      {/* Slice 4 (打断并追加 / stop) */}
+      <RunActions run={run} />
+    </div>
+  )
   return (
     <div
       className={cx('run-card', selected && 'run-card--selected')}
@@ -270,6 +335,7 @@ export function RunCard({
         <span className="run-card__sub">
           {agent} · {trigger} 触发
         </span>
+        {reply ? <Time iso={reply.createdAt} /> : null}
         {run.hop > 1 ? (
           <span className="run-card__hop">
             <Link2 size={10} />
@@ -324,34 +390,17 @@ export function RunCard({
           ) : null}
           {/* Slice 4 (/stop leftovers) */}
           <InterruptBlock run={run} />
-          {NoteIcon ? null : (
-            <div className="run-card__actions">
-              <button type="button" className="run-card__action" onClick={() => openRail(run.id)}>
-                <PanelRightOpen size={12} />
-                查看过程
-              </button>
-              <button
-                type="button"
-                className="run-card__action"
-                onClick={() =>
-                  quote({
-                    groupId: run.groupId,
-                    kind: 'run',
-                    id: run.id,
-                    who: `${botName} 的运行卡片`,
-                    text: run.step || status.label,
-                  })
-                }
-              >
-                <Quote size={11} />
-                引用
-              </button>
-              {/* Slice 4 (打断并追加 / stop) */}
-              <RunActions run={run} />
-            </div>
-          )}
+          {NoteIcon || reply ? null : actions}
         </>
       )}
+      {reply ? (
+        <div className="run-card__reply" data-testid="bot-reply">
+          <Markdown text={reply.body} />
+          <MessageAttachments list={reply.attachments} from={reply.authorName} />
+          <FileChips runId={run.id} text={reply.body} />
+          {actions}
+        </div>
+      ) : null}
     </div>
   )
-}
+})

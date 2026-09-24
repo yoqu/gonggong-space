@@ -25,8 +25,12 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
       {hint ?? (
         <>
           <span className="git-bar__branch">{git?.branch ?? '—'}</span>
-          {git && git.behind !== null && git.ahead !== null ? (
-            <span className="git-bar__ab">{`↓${git.behind} ↑${git.ahead}`}</span>
+          {git?.behind || git?.ahead ? (
+            <span className="git-bar__ab">
+              {[git.behind ? `↓${git.behind}` : '', git.ahead ? `↑${git.ahead}` : '']
+                .filter(Boolean)
+                .join(' ')}
+            </span>
           ) : null}
           {git?.dirty ? <span className="git-bar__dirty">未提交</span> : null}
         </>

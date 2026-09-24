@@ -20,7 +20,11 @@ export function adminRoutes(ctx: Ctx) {
     app.get('/api/admin/groups', async (req): Promise<AdminGroupDto[]> => {
       await requireSysadmin(ctx, req)
       const [rows, repos, members, bots] = await Promise.all([
-        ctx.db.select().from(groups).orderBy(desc(groups.createdAt)),
+        ctx.db
+          .select({ g: groups, owner: users.name })
+          .from(groups)
+          .leftJoin(users, eq(users.id, groups.createdBy))
+          .orderBy(desc(groups.createdAt)),
         ctx.db.select({ groupId: groupRepos.groupId, url: groupRepos.url }).from(groupRepos),
         ctx.db
           .select({ groupId: groupMembers.groupId, n: count() })
@@ -34,9 +38,10 @@ export function adminRoutes(ctx: Ctx) {
       ])
       const n = (list: { groupId: string; n: number }[], id: string) =>
         list.find((x) => x.groupId === id)?.n ?? 0
-      return rows.map((g) => ({
+      return rows.map(({ g, owner }) => ({
         id: g.id,
         name: g.name,
+        ownerName: owner,
         kind: g.kind as AdminGroupDto['kind'],
         mode: g.mode as AdminGroupDto['mode'],
         repo: repos.find((r) => r.groupId === g.id)?.url ?? null,

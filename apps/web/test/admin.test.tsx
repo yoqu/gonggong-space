@@ -81,6 +81,11 @@ describe('admin console', () => {
     expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台', '离线'])
     expect(cells('zhaomin').slice(3, 5)).toEqual(['0 台', '未绑定'])
     expect(cells('liuyang').slice(3, 5)).toEqual(['—', '已停用'])
+    const edit = within(
+      screen.getByRole('cell', { name: 'chenchen' }).closest('tr') as HTMLElement,
+    ).getByRole('button', { name: '编辑' })
+    expect(edit.className).toContain('ui-btn--outline')
+    expect(screen.queryByText(/一期|二期|OIDC/)).toBeNull()
   })
 
   it('creates an account', async () => {

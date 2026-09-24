@@ -215,7 +215,7 @@ describe('composer attachments', () => {
       'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊' }),
     })
     renderChat()
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     const [images, files] = [...document.querySelectorAll('input[type=file]')] as HTMLInputElement[]
     expect(images!.accept).toBe('image/*')
     const click = vi.spyOn(images!, 'click')
@@ -260,7 +260,7 @@ describe('composer attachments', () => {
       abort: vi.fn(),
     }))
     renderChat()
-    await screen.findByText('最终回复')
+    await screen.findByTestId('bot-reply')
     pick(document.querySelector('input[type=file]') as HTMLInputElement, [file('a.png', 10, 'image/png')])
     fireEvent.change(box(), { target: { value: 'hi' } })
     const send = screen.getByRole('button', { name: '发送' }) as HTMLButtonElement
@@ -271,7 +271,7 @@ describe('composer attachments', () => {
 })
 
 describe('quotes', () => {
-  it('quotes a bot reply or a run card and sends the quote along', async () => {
+  it('quotes a bot reply and sends the quote along', async () => {
     const calls = mockApi({
       'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊', body: '再总结' }),
     })
@@ -284,9 +284,8 @@ describe('quotes', () => {
     fireEvent.click(screen.getByRole('button', { name: '关闭引用' }))
     expect(composer().queryByText('引用 小王的 Claude')).toBeNull()
 
-    fireEvent.click(within(screen.getByTestId('run-card')).getByRole('button', { name: '引用' }))
-    expect(composer().getByText('引用 小王的 Claude 的运行卡片')).toBeTruthy()
-    expect(composer().getByText('改完了 refund.go')).toBeTruthy()
+    // The reply is merged into its run card, which then offers only the reply quote.
+    expect(within(screen.getByTestId('run-card')).queryByRole('button', { name: '引用' })).toBeNull()
     fireEvent.click(within(reply).getByRole('button', { name: '引用回复' }))
     fireEvent.change(box(), { target: { value: '再总结' } })
     fireEvent.click(screen.getByRole('button', { name: '发送' }))
