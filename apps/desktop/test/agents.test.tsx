@@ -19,6 +19,7 @@ beforeEach(() => {
   m.setAgentEffort.mockResolvedValue()
   m.pickAgentPath.mockResolvedValue(true)
   m.resetAgentPath.mockResolvedValue()
+  m.reveal.mockResolvedValue()
 })
 
 const card = async (name: string) => (await screen.findByText(name)).closest('.dk-agent') as HTMLElement
@@ -27,7 +28,9 @@ it('shows an installed agent and saves its default model and effort', async () =
   render(<AgentsPage go={() => {}} />)
   const claude = within(await card('Claude Code'))
   expect(claude.getByText('已安装 2.1.4')).toBeTruthy()
-  expect(claude.getByText('/opt/homebrew/bin/claude')).toBeTruthy()
+  const path = claude.getByRole('navigation', { name: '/opt/homebrew/bin/claude' })
+  fireEvent.click(within(path).getByRole('button', { name: 'homebrew' }))
+  expect(m.reveal).toHaveBeenCalledWith('/opt/homebrew')
   expect(claude.getByText('2.1.4 · 满足 ≥ 2.0.0')).toBeTruthy()
   expect(claude.getByText('已登录 · Claude Max')).toBeTruthy()
   expect(claude.getByText('0.81.0 · 随 daemon')).toBeTruthy()

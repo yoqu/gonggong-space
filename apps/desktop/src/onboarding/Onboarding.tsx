@@ -1,10 +1,9 @@
 import type { AgentInfo } from '@gonggong/protocol'
-import { Alert, Button, Checkbox, GroupBox, Icon, TextField } from '@web/ui'
+import { Alert, Button, Checkbox, EmptyState, Form, FormRow, GroupBox, Icon, Input, Tag } from '@web/ui'
 import { useState } from 'react'
 import logo from '../assets/logo.svg'
 import { ipc, type MachineBot } from '../ipc'
 import { AGENTS } from '../lib/labels'
-import { StatusText } from '../lib/ui'
 import { TitleBar } from '../shell/TitleBar'
 import { refreshInfo } from '../store'
 
@@ -91,26 +90,30 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 在 Web
                 端头像菜单选择「绑定新机器」生成一次性绑定码。绑定后本机归属于你，所有连接均由本机向外发起。
               </p>
-              <div className="dk-form">
-                <TextField
-                  label="服务器"
-                  size="large"
-                  mono
-                  value={server}
-                  placeholder="https://gonggong.corp.cn"
-                  onChange={(e) => setServer(e.target.value)}
-                />
-                <TextField
+              <Form aria-label="绑定到团队服务器">
+                <FormRow label="服务器">
+                  <Input
+                    aria-label="服务器"
+                    mono
+                    value={server}
+                    placeholder="https://gonggong.corp.cn"
+                    onChange={(e) => setServer(e.target.value)}
+                  />
+                </FormRow>
+                <FormRow
                   label="绑定码"
-                  size="large"
-                  mono
-                  className="dk-code-input"
-                  value={code}
-                  placeholder="K7QM-4X2P"
-                  onChange={(e) => setCode(e.target.value)}
                   hint={`等价命令：gg login --server ${server.trim() || '<服务器>'} --code ${normalized || '<绑定码>'}`}
-                />
-              </div>
+                >
+                  <Input
+                    aria-label="绑定码"
+                    mono
+                    className="dk-code-input"
+                    value={code}
+                    placeholder="K7QM-4X2P"
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                </FormRow>
+              </Form>
             </>
           ) : null}
           {step === 1 ? (
@@ -135,7 +138,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 已直接绑定到本机，无需操作。以下由管理员为你创建并指定到本机，确认后才能被触发。
               </p>
               <GroupBox>
-                {bots.length === 0 ? <div className="dk-row dk-row--empty">没有待确认的 Bot。</div> : null}
+                {bots.length === 0 ? <EmptyState compact icon="bot" title="没有待确认的 Bot" /> : null}
                 {bots.map((b) => (
                   <div key={b.id} className="dk-row">
                     <span className="dk-tile" style={{ background: 'var(--system-indigo)' }}>
@@ -183,6 +186,7 @@ function AgentRow({
 }) {
   const meta = AGENTS[agent.kind]
   const color = agent.available ? 'var(--system-green)' : 'var(--system-orange)'
+  const tone = checking ? 'blue' : agent.available ? 'green' : 'orange'
   return (
     <>
       <div className="dk-row">
@@ -195,7 +199,7 @@ function AgentRow({
             {agent.path ?? '未在 PATH、~/.local/bin、/opt/homebrew/bin 中找到'}
           </span>
         </div>
-        <StatusText color={color}>{checking ? '检测中…' : agent.available ? '可用' : '未安装'}</StatusText>
+        <Tag tone={tone}>{checking ? '检测中…' : agent.available ? '可用' : '未安装'}</Tag>
       </div>
       {agent.available ? null : (
         <div className="dk-row dk-row--sub">

@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, GroupBox, Icon } from '@web/ui'
+import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
 import { type ReactNode, useEffect, useState } from 'react'
 import { type DaemonStatus, ipc, type MachineBot, type Overview } from '../ipc'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
@@ -62,7 +62,7 @@ export function OverviewPage(_: PageProps) {
       <Section title="正在运行">
         <GroupBox>
           <div data-testid="running">
-            {running.length === 0 ? <div className="dk-row dk-row--empty">当前没有运行中的轮次</div> : null}
+            {running.length === 0 ? <EmptyState compact icon="bot" title="当前没有运行中的轮次" /> : null}
             {running.map((r) => {
               const badge = runBadge(r.status)
               return (
@@ -86,7 +86,7 @@ export function OverviewPage(_: PageProps) {
       </Section>
       <Section title="本机队列">
         <GroupBox>
-          {queued.length === 0 ? <div className="dk-row dk-row--empty">本机队列为空</div> : null}
+          {queued.length === 0 ? <EmptyState compact icon="tray" title="本机队列为空" /> : null}
           {queued.map((r, i) => (
             <div key={r.runId} className="dk-row">
               <span className="dk-row__main">

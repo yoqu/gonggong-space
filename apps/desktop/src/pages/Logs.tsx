@@ -1,7 +1,18 @@
-import { Button, GroupBox, Icon, type IconName, SegmentedControl, toast } from '@web/ui'
+import {
+  Button,
+  EmptyState,
+  GroupBox,
+  Icon,
+  type IconName,
+  SegmentedControl,
+  Skeleton,
+  Tag,
+  type TagTone,
+  toast,
+} from '@web/ui'
 import { useEffect, useState } from 'react'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
-import { Section, StatusText } from '../lib/ui'
+import { Section } from '../lib/ui'
 import type { PageProps } from '.'
 
 const ICONS: Record<Check['kind'], IconName> = {
@@ -12,11 +23,11 @@ const ICONS: Record<Check['kind'], IconName> = {
   eol: 'doc-warning',
 }
 
-const STATUS: Record<CheckStatus, { color: string; text: string }> = {
-  ok: { color: 'var(--system-green)', text: '正常' },
-  warn: { color: 'var(--system-orange)', text: '注意' },
-  error: { color: 'var(--system-red)', text: '异常' },
-  skipped: { color: 'var(--system-gray)', text: '跳过' },
+const STATUS: Record<CheckStatus, { color: string; tone: TagTone; text: string }> = {
+  ok: { color: 'var(--system-green)', tone: 'green', text: '正常' },
+  warn: { color: 'var(--system-orange)', tone: 'orange', text: '注意' },
+  error: { color: 'var(--system-red)', tone: 'red', text: '异常' },
+  skipped: { color: 'var(--system-gray)', tone: 'gray', text: '跳过' },
 }
 
 const LEVELS: { value: LogLevel; label: string }[] = [
@@ -82,10 +93,14 @@ export function LogsPage(_: PageProps) {
                   {c.detail}
                 </span>
               </div>
-              <StatusText color={STATUS[c.status].color}>{STATUS[c.status].text}</StatusText>
+              <Tag tone={STATUS[c.status].tone}>{STATUS[c.status].text}</Tag>
             </div>
           ))}
-          {checks ? null : <div className="dk-row dk-row--empty">检测中…</div>}
+          {checks ? null : (
+            <div className="dk-row">
+              <Skeleton count={3} label="检测中" />
+            </div>
+          )}
         </GroupBox>
         <div className="dk-inline">
           <Button onClick={measure} disabled={net === 'measuring'}>
@@ -116,7 +131,7 @@ export function LogsPage(_: PageProps) {
         }
       >
         <div className="dk-logpane" data-testid="log-pane">
-          {lines.length === 0 ? <div className="dk-log dk-log--empty">暂无日志</div> : null}
+          {lines.length === 0 ? <EmptyState compact icon="doc-text" title="暂无日志" /> : null}
           {lines.map((l, i) => (
             // Lines have no identity; the list is replaced wholesale on every refresh.
             // biome-ignore lint/suspicious/noArrayIndexKey: see above

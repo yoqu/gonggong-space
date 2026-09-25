@@ -1,14 +1,7 @@
+import { type IconName, PathControl, toast } from '@web/ui'
 import type { ReactNode } from 'react'
-
-/** Status as a colored dot plus text, so it never relies on color alone. */
-export function StatusText({ color, children }: { color: string; children: ReactNode }) {
-  return (
-    <span className="dk-status" style={{ color }}>
-      <span className="dk-status__dot" />
-      <span className="dk-status__text">{children}</span>
-    </span>
-  )
-}
+import { ipc } from '../ipc'
+import { tildify } from './labels'
 
 /** A titled block of page content; the title reads like a macOS settings group heading. */
 export function Section({
@@ -31,12 +24,21 @@ export function Section({
   )
 }
 
-/** Caption over a value, laid out in a row of four inside a group. */
-export function Meta({ k, mono, children }: { k: string; mono?: boolean; children: ReactNode }) {
+/** A local path as a path control (home shown as ~); each level reveals itself in the file manager. */
+export function PathValue({ path, leaf = 'folder' }: { path: string; leaf?: IconName }) {
+  const shown = tildify(path)
+  const home = shown === path ? '' : path.slice(0, path.length - shown.length + 1)
+  const parts = shown.split('/')
+  const items = parts.flatMap((label, i) => {
+    if (!label) return []
+    const id = parts.slice(0, i + 1).join('/')
+    return [{ id: home ? id.replace(/^~/, home) : id, label }]
+  })
   return (
-    <div className="dk-meta">
-      <span className="dk-meta__k">{k}</span>
-      <span className={mono ? 'dk-meta__v dk-mono' : 'dk-meta__v'}>{children}</span>
-    </div>
+    <PathControl
+      aria-label={shown}
+      items={items.map((it, i) => ({ ...it, icon: i === items.length - 1 ? leaf : 'folder' }))}
+      onSelect={(id) => ipc.reveal(id).catch((e) => toast({ type: 'error', message: String(e) }))}
+    />
   )
 }
