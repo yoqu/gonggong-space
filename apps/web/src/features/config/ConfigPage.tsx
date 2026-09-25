@@ -1,5 +1,5 @@
 import { GONGGONG_TOOLS, type McpServer, type McpServerDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useId, useState } from 'react'
 import { api } from '../../lib/api'
 import {
   Alert,
@@ -230,11 +230,11 @@ export function ConfigPage() {
             {
               name: '仓库基线',
               pri: '低',
-              color: 'var(--separator)',
+              color: 'var(--label-tertiary)',
               text: '.mcp.json · .claude/ · AGENTS.md',
             },
           ].map((l) => (
-            <div key={l.name} className="cfg__layer" style={{ borderLeftColor: l.color }}>
+            <div key={l.name} className="cfg__layer" style={{ '--layer-color': l.color } as CSSProperties}>
               <div className="cfg__layer-head">
                 <span className="cfg__layer-name">{l.name}</span>
                 <span className="cfg__layer-pri">{l.pri}</span>

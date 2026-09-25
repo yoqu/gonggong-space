@@ -123,6 +123,12 @@
   display: block;
   white-space: nowrap;
 }
+.ui-table__cell > span:not([class]) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ui-table__cell svg {
   flex: none;
   width: 16px;
