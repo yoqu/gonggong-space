@@ -1,19 +1,44 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '../../lib/cx'
-import { CloseButton, type Glyph, renderGlyph } from '../controls'
+import { type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
 import './notice.css'
+
+/** 24px round xmark used inside capsules (banner, reply quote). */
+export function SmallClose({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="pn-pinned__close" aria-label={label} title={label} onClick={onClick}>
+      <Icon name="xmark" weight={2.2} />
+    </button>
+  )
+}
 
 export function ChatNotice({
   kind = 'system',
   day,
+  action,
   children,
 }: {
-  kind?: 'date' | 'system' | 'unread' | 'urgent'
+  kind?: 'date' | 'system' | 'unread' | 'urgent' | 'recalled'
   /** Bold day label for `date`:「今天」「昨天」. */
   day?: string
+  /** `recalled` only, e.g.「重新编辑」within two minutes of the own recall. */
+  action?: { label: string; onClick?: () => void }
   children?: ReactNode
 }) {
+  if (kind === 'recalled')
+    return (
+      <div className="pn-notice pn-notice--system">
+        <span>
+          {children ?? '你撤回了一条消息'}
+          {action && (
+            <button type="button" className="pn-notice__action" onClick={action.onClick}>
+              {action.label}
+            </button>
+          )}
+        </span>
+      </div>
+    )
   if (kind === 'unread')
     return (
       // biome-ignore lint/a11y/useSemanticElements: a labelled divider; <hr> cannot hold text
@@ -77,7 +102,7 @@ export function PinnedBanner({
       {title != null && <span className="pn-pinned__title">{title}</span>}
       <span className="pn-pinned__text">{text}</span>
       {action}
-      {onClose && <CloseButton onClick={onClose} />}
+      {onClose && <SmallClose label="关闭" onClick={onClose} />}
     </div>
   )
 }

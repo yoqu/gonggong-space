@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
 import { Button, type Glyph, renderGlyph } from './controls'
 import { ProgressIndicator } from './display'
-import { Icon, type IconName } from './icon'
+import { Icon } from './icon'
 import './form.css'
 import './dropzone.css'
 
@@ -64,8 +64,7 @@ export function DropZone({
   overTitle = '松开以添加',
   description,
   buttonLabel = '选择文件…',
-  // TODO(Va): `upload` joins IconName with the Pane v2 icons.
-  icon = 'upload' as IconName,
+  icon = 'upload',
   files = [],
   onRemove,
   compact,

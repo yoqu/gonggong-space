@@ -3,7 +3,7 @@ import { cx } from '../lib/cx'
 import { Float, type Placement, useDismiss } from './anchor'
 import { useControlled } from './controlled'
 import { Button } from './controls'
-import { Icon, type IconName } from './icon'
+import { Icon } from './icon'
 import './form.css'
 import './calendar.css'
 
@@ -250,8 +250,7 @@ export function DatePicker({
           disabled={disabled}
           onClick={() => setOpen(!open)}
         >
-          {/* TODO(Va): `calendar` joins IconName with the Pane v2 icons. */}
-          <Icon name={'calendar' as IconName} />
+          <Icon name="calendar" />
           <span className={cx('ui-datepicker__value', !v && 'ui-datepicker__ph')}>
             {v ? formatDate(v, showWeekday) : placeholder}
           </span>

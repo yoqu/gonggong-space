@@ -314,9 +314,8 @@ export function Link({ external, className, children, target, rel, ...rest }: Li
       {...rest}
     >
       {children}
-      {/* TODO(Va): `external` joins IconName with the Pane v2 icons. */}
       {external ? (
-        <Icon name={'external' as IconName} weight={1.6} label="（在新窗口打开）" className="ui-link__ext" />
+        <Icon name="external" weight={1.6} label="（在新窗口打开）" className="ui-link__ext" />
       ) : null}
     </a>
   )

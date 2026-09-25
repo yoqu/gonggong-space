@@ -1,0 +1,76 @@
+.ui-divider {
+  height: 1px;
+  border: 0;
+  background: var(--separator);
+}
+.ui-divider--v {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  vertical-align: middle;
+}
+.ui-divider--label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: auto;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+.ui-divider--label::before,
+.ui-divider--label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--separator);
+}
+
+.ui-form {
+  display: grid;
+  align-items: center;
+  gap: var(--space-12);
+}
+.ui-form__label {
+  color: var(--label);
+  text-align: right;
+  white-space: nowrap;
+}
+.ui-form__label--top,
+.ui-form__control--top {
+  align-self: start;
+}
+.ui-form__label--top {
+  padding-top: 4px;
+}
+.ui-form__control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.ui-form__control > .ui-field {
+  width: 100%;
+  min-width: 0;
+  max-width: 320px;
+}
+.ui-form__hint {
+  max-width: 360px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--label-secondary);
+}
+.ui-form > .ui-divider {
+  grid-column: 1 / -1;
+  margin: var(--space-4) 0;
+}
+.ui-form__actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}

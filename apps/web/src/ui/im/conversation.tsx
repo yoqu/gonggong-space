@@ -1,8 +1,9 @@
-import { type CSSProperties, type ReactNode, useState } from 'react'
+import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Avatar, type AvatarProps, Badge, Tag } from '../display'
 import { Icon } from '../icon'
-import type { TagSpec } from './primitives'
+import { keyNav } from './keynav'
+import type { TagSpec } from './types'
 import './conversation.css'
 
 export interface Conversation {
@@ -96,13 +97,25 @@ export function ConversationItem({
   item,
   selected,
   onClick,
+  tabIndex,
 }: {
   item: Conversation
   selected?: boolean
   onClick?: () => void
+  /** Roving tab stop inside ConversationList. */
+  tabIndex?: number
 }) {
   return (
-    <button type="button" className="pn-conv" aria-current={selected ? 'true' : undefined} onClick={onClick}>
+    // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: Pane rows are buttons in a role="list" with one roving tab stop
+    // biome-ignore lint/a11y/useSemanticElements: same reason
+    <button
+      type="button"
+      role="listitem"
+      className="pn-conv"
+      aria-current={selected ? 'true' : undefined}
+      tabIndex={tabIndex}
+      onClick={onClick}
+    >
       <ConversationContent item={item} />
     </button>
   )
@@ -132,22 +145,32 @@ export function ConversationList({
 }: ConversationListProps) {
   const [own, setOwn] = useState(defaultSelected)
   const current = selected ?? own
+  const ref = useRef<HTMLDivElement>(null)
+  const anySelected = items.some((it) => it.id === current)
   return (
     <div className={cx('pn-convlist', className)} style={style}>
       {header && <div className="pn-convlist__header">{header}</div>}
-      <nav className="pn-convlist__items" aria-label={label}>
-        {items.map((it) => (
+      {/* biome-ignore lint/a11y/useSemanticElements: rows are buttons, which <ul> cannot hold directly */}
+      <div
+        ref={ref}
+        className="pn-convlist__items"
+        role="list"
+        aria-label={label}
+        onKeyDown={(e) => keyNav(e, ref.current, '.pn-conv', { select: true })}
+      >
+        {items.map((it, i) => (
           <ConversationItem
             key={it.id}
             item={it}
             selected={current === it.id}
+            tabIndex={current === it.id || (!anySelected && i === 0) ? 0 : -1}
             onClick={() => {
               setOwn(it.id)
               onSelect?.(it.id)
             }}
           />
         ))}
-      </nav>
+      </div>
     </div>
   )
 }

@@ -9,6 +9,7 @@
   --z-toast: 180;
 }
 
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-theme="hc-dark"] {
   --shadow-drawer: -8px 0 24px rgba(0, 0, 0, 0.35);
 }

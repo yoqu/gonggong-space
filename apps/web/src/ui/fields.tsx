@@ -3,11 +3,8 @@ import { cx } from '../lib/cx'
 import { useDismiss } from './anchor'
 import { useControlled } from './controlled'
 import { type LineFieldProps, TextField } from './form'
-import { Icon, type IconName } from './icon'
+import { Icon } from './icon'
 import './fields.css'
-
-/* TODO(Va): `capslock` joins IconName with the Pane v2 icons. */
-const CAPS = 'capslock' as IconName
 
 export interface SecureFieldProps extends Omit<LineFieldProps, 'type' | 'multiline'> {
   /** `false` hides the show-password button (confirming an old password). */
@@ -47,7 +44,7 @@ export function SecureField({
       hint={
         caps ? (
           <span className="ui-caps">
-            <Icon name={CAPS} />
+            <Icon name="capslock" />
             大写锁定已打开
           </span>
         ) : (
@@ -58,7 +55,7 @@ export function SecureField({
         <>
           {caps ? (
             <span className="ui-inputwrap__affix" title="大写锁定已打开">
-              <Icon name={CAPS} />
+              <Icon name="capslock" />
             </span>
           ) : null}
           {revealable ? (

@@ -10,8 +10,6 @@ import {
   Dialog,
   Drawer,
   EmptyState,
-  ICON_NAMES,
-  Icon,
   IconButton,
   Input,
   Progress,
@@ -25,6 +23,8 @@ import {
   toast,
 } from '../ui'
 import { ControlsGallery } from './gallery/ControlsGallery'
+import { DataGallery } from './gallery/DataGallery'
+import { FoundationGallery } from './gallery/FoundationGallery'
 import { IMGallery } from './gallery/IMGallery'
 import { OverlayGallery } from './gallery/OverlayGallery'
 
@@ -56,28 +56,9 @@ export default function UiGallery() {
     <div className="gallery">
       <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>组件库</h1>
 
-      <section className="gallery__section" data-testid="icon-overview">
-        <h2 className="eyebrow">ICONS · {ICON_NAMES.length}</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 4 }}>
-          {ICON_NAMES.map((name) => (
-            <div
-              key={name}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 6,
-                padding: '10px 4px',
-              }}
-            >
-              <Icon name={name} size={24} />
-              <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{name}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      <FoundationGallery />
       <ControlsGallery />
+      <DataGallery />
       <Section title="BUTTON">
         {(['primary', 'default', 'outline', 'ghost', 'destructive'] as const).map((v) => (
           <Button key={v} variant={v}>

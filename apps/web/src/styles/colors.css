@@ -74,7 +74,8 @@
   --color-syntax-title: #703daa;
 }
 
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-theme="hc-dark"] {
   --color-overlay: rgba(0, 0, 0, 0.6);
   --color-scrollbar: rgba(255, 255, 255, 0.15);
   --color-scrollbar-hover: rgba(255, 255, 255, 0.25);

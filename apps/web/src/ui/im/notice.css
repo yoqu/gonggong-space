@@ -14,6 +14,15 @@
 .pn-notice--system > span {
   max-width: 70%;
 }
+.pn-notice__action {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--accent-text);
+  padding: 0 0 0 6px;
+  cursor: default;
+}
 .pn-notice--unread {
   align-items: center;
   gap: var(--space-12);
@@ -78,4 +87,25 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--label-secondary);
+}
+.pn-pinned__close {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--label-secondary);
+  display: grid;
+  place-items: center;
+  flex: none;
+  cursor: default;
+}
+.pn-pinned__close:hover {
+  background: var(--control-track);
+}
+.pn-pinned__close svg {
+  width: 10px;
+  height: 10px;
 }
