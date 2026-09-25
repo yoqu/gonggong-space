@@ -326,7 +326,7 @@ export function MeetingCard({
             加入会议
           </Button>
         ) : onReplay ? (
-          <Button icon="play" onClick={onReplay}>
+          <Button icon="record" onClick={onReplay}>
             查看回放
           </Button>
         ) : null}
@@ -398,7 +398,7 @@ export function EventCard({
           </div>
           {location && (
             <div className="pn-event__line">
-              <Icon name="pin" />
+              <Icon name="mappin" />
               {location}
             </div>
           )}

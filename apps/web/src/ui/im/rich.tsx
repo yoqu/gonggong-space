@@ -85,7 +85,7 @@ export function LinkPreview({
       )}
       <span className="pn-link__body">
         <span className="pn-link__site">
-          <Icon name="link" />
+          <Icon name="globe" />
           {site ?? url.replace(/^https?:\/\//, '').split('/')[0]}
         </span>
         <span className="pn-link__title">{title}</span>

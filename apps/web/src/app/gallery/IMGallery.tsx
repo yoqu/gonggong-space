@@ -131,12 +131,12 @@ function Card({ title, children, style }: { title: string; children: ReactNode; 
 }
 
 const RAIL: { id: string; label: string; icon: IconName; badge?: number; dot?: boolean }[] = [
-  { id: 'msg', label: '消息', icon: 'bubble', badge: 18 },
-  { id: 'cal', label: '日历', icon: 'clock', dot: true },
+  { id: 'msg', label: '消息', icon: 'message', badge: 18 },
+  { id: 'cal', label: '日历', icon: 'calendar', dot: true },
   { id: 'docs', label: '云文档', icon: 'doc' },
   { id: 'meet', label: '会议', icon: 'video' },
-  { id: 'contacts', label: '通讯录', icon: 'person-2' },
-  { id: 'apps', label: '工作台', icon: 'grid' },
+  { id: 'contacts', label: '通讯录', icon: 'contacts' },
+  { id: 'apps', label: '工作台', icon: 'apps' },
 ]
 
 /** Stand-in for NavRail (built in ui/ by another slice), sized like Pane's `.pn-rail`. */
