@@ -1,0 +1,64 @@
+/* Pane Sidebar (plan R4): flush, sidebar-bg, only a separator hairline toward the content. */
+.ui-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 220px;
+  padding: var(--space-8) 10px;
+  overflow: auto;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--separator);
+}
+.ui-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ui-sidebar__title {
+  padding: 0 var(--space-8) var(--space-4);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+.ui-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--sidebar-row);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-field);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.ui-sidebar__item[aria-current] {
+  background: var(--selection-fill);
+  font-weight: 600;
+}
+.ui-sidebar__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  color: var(--icon-color, var(--accent));
+}
+/* Inactive window (plan R7): icons lose their color. */
+:root[data-window-inactive] .ui-sidebar__icon {
+  color: var(--label-secondary);
+}
+.ui-sidebar__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-sidebar__badge {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}

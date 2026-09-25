@@ -10,6 +10,13 @@
   --scroll-edge-hard: linear-gradient(to bottom, var(--window-bg) 55%, transparent);
 }
 
+:root {
+  --scrim: rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] {
+  --scrim: rgba(0, 0, 0, 0.45);
+}
+
 [data-glass="clear"] {
   --glass-fill: var(--glass-fill-clear);
   --glass-blur: blur(12px) saturate(160%);
@@ -27,6 +34,26 @@
     --glass-fill: var(--content-bg);
     --glass-fill-thick: var(--content-bg);
     --glass-blur: none;
+  }
+}
+
+/* Increased contrast: the Pane glass edge doubles to a full pixel so glass keeps its outline on any backdrop. */
+@media (prefers-contrast: more) {
+  :root {
+    --shadow-glass:
+      inset 0 1px 0 var(--glass-specular), inset 0 0 0 1px var(--glass-edge), 0 0 0 1px var(--glass-edge),
+      0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-menu:
+      inset 0 1px 0 var(--glass-specular), inset 0 0 0 1px var(--glass-edge), 0 0 0 1px var(--glass-edge),
+      0 12px 32px rgba(0, 0, 0, 0.2);
+  }
+  [data-theme="dark"] {
+    --shadow-glass:
+      inset 0 1px 0 var(--glass-specular), inset 0 0 0 1px var(--glass-edge), 0 0 0 1px var(--glass-edge),
+      0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow-menu:
+      inset 0 1px 0 var(--glass-specular), inset 0 0 0 1px var(--glass-edge), 0 0 0 1px var(--glass-edge),
+      0 12px 32px rgba(0, 0, 0, 0.5);
   }
 }
 

@@ -25,6 +25,7 @@ import {
   toast,
 } from '../ui'
 import { IMGallery } from './gallery/IMGallery'
+import { OverlayGallery } from './gallery/OverlayGallery'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -230,6 +231,8 @@ export default function UiGallery() {
         </Button>
         <Button onClick={() => toast({ type: 'error', message: '发送失败，请重试' })}>Toast 错误</Button>
       </Section>
+
+      <OverlayGallery />
 
       <Section title="动效">
         <div className="gallery__col">
