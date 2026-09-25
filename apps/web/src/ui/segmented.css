@@ -1,0 +1,50 @@
+/* SegmentedControl / Tabs */
+.ui-seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  height: var(--control-regular);
+  padding: 2px;
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
+}
+.ui-seg--small {
+  height: var(--control-small);
+  font-size: 11px;
+}
+.ui-seg--large {
+  height: var(--control-large);
+}
+.ui-seg__item {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-width: 56px;
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  white-space: nowrap;
+  cursor: default;
+  transition:
+    background var(--fade-in),
+    box-shadow var(--fade-in);
+}
+.ui-seg__item svg {
+  width: 14px;
+  height: 14px;
+}
+.ui-seg__item[data-selected] {
+  background: var(--control-fill);
+  box-shadow: var(--shadow-control);
+  font-weight: 500;
+}
+.ui-seg__item:disabled {
+  opacity: 0.45;
+}

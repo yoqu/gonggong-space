@@ -1,37 +1,45 @@
-import { Check, ChevronDown, X } from 'lucide-react'
 import {
   type ButtonHTMLAttributes,
-  type InputHTMLAttributes,
-  type KeyboardEvent,
+  type ReactElement,
   type ReactNode,
   type Ref,
-  type TextareaHTMLAttributes,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
-  useState,
 } from 'react'
 import { cx } from '../lib/cx'
-import { useEscape } from './overlay'
-import { usePresence } from './presence'
+import { useControlled } from './controlled'
+import { Icon, type IconName } from './icon'
 import './controls.css'
 
-export type ButtonVariant = 'default' | 'primary' | 'outline' | 'ghost' | 'destructive'
-export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg'
+/** An icon by name, or a ready-made icon element. */
+export type Glyph = IconName | ReactElement
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export const renderGlyph = (g: Glyph) => (typeof g === 'string' ? <Icon name={g} /> : g)
+
+/** `outline` and `ghost` are pre-Pane names kept for existing callers; they render as default and plain-muted. */
+export type ButtonVariant = 'default' | 'primary' | 'destructive' | 'glass' | 'plain' | 'outline' | 'ghost'
+/** `xs`/`sm`/`md`/`lg` are pre-Pane names: xs and sm → small, md → regular, lg → large. */
+export type ButtonSize = 'small' | 'regular' | 'large' | 'xlarge' | 'xs' | 'sm' | 'md' | 'lg'
+
+interface ButtonBaseProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  ref?: Ref<HTMLButtonElement>
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
 }
 
+export type ButtonProps = ButtonBaseProps &
+  ({ icon?: Glyph; children: ReactNode } | { icon: Glyph; children?: undefined; 'aria-label': string })
+
 export function Button({
   variant = 'default',
-  size = 'md',
+  size = 'regular',
   fullWidth,
+  icon,
   className,
   type = 'button',
+  children,
   ...rest
 }: ButtonProps) {
   return (
@@ -39,27 +47,45 @@ export function Button({
       type={type}
       className={cx(
         'ui-btn',
-        `ui-btn--${variant}`,
-        `ui-btn--${size}`,
+        variant !== 'default' && `ui-btn--${variant}`,
+        size !== 'regular' && size !== 'md' && `ui-btn--${size}`,
+        icon && children == null && 'ui-btn--icon',
         fullWidth && 'ui-btn--full',
         className,
       )}
       {...rest}
-    />
+    >
+      {icon ? renderGlyph(icon) : null}
+      {children}
+    </button>
   )
 }
 
-export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** `glass`: toolbar button — glass capsule on hover, springy press (macOS 27 interactive glass). */
+export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  /** Accessible name and tooltip. */
+  title: string
+  /** `glass`: toolbar button on a glass capsule. */
   variant?: 'plain' | 'glass'
+  size?: ButtonSize
+  children: Glyph
 }
 
-export function IconButton({ variant = 'plain', className, type = 'button', ...rest }: IconButtonProps) {
+export function IconButton({
+  title,
+  variant = 'plain',
+  size = 'large',
+  children,
+  className,
+  ...rest
+}: IconButtonProps) {
   return (
-    <button
-      type={type}
-      aria-label={rest.title}
-      className={cx('ui-icon-btn', variant === 'glass' && 'ui-icon-btn--glass', className)}
+    <Button
+      variant={variant}
+      size={size}
+      icon={children}
+      title={title}
+      aria-label={title}
+      className={cx('ui-icon-btn', className)}
       {...rest}
     />
   )
@@ -67,295 +93,149 @@ export function IconButton({ variant = 'plain', className, type = 'button', ...r
 
 export function CloseButton({ onClick, title = '关闭' }: { onClick?: () => void; title?: string }) {
   return (
-    <button type="button" className="ui-close" onClick={onClick} title={title} aria-label={title}>
-      <X size={16} aria-hidden="true" />
-    </button>
+    <IconButton title={title} onClick={onClick} className="ui-close">
+      <Icon name="xmark" />
+    </IconButton>
   )
 }
 
-export interface TabItem<V extends string> {
-  value: V
-  label: ReactNode
+export interface SwitchProps {
+  checked?: boolean
+  defaultChecked?: boolean
+  onChange?: (checked: boolean) => void
+  size?: 'small' | 'regular'
   disabled?: boolean
-}
-
-/** Index of the next enabled item from `from` in direction `step`, wrapping around. */
-function nextEnabled(items: { disabled?: boolean }[], from: number, step: 1 | -1) {
-  for (let i = 1; i <= items.length; i++) {
-    const j = (from + step * i + items.length) % items.length
-    if (!items[j]?.disabled) return j
-  }
-  return from
-}
-
-export function Tabs<V extends string>({
-  items,
-  value,
-  onChange,
-  size = 'md',
-}: {
-  items: TabItem<V>[]
-  value: V
-  onChange: (value: V) => void
-  size?: 'sm' | 'md'
-}) {
-  const current = items.findIndex((it) => it.value === value)
-  const focusable = current >= 0 ? current : nextEnabled(items, -1, 1)
-  const list = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const el = list.current
-    if (!el) return
-    const measure = () => {
-      const tab = current >= 0 ? (el.children[current] as HTMLElement | undefined) : undefined
-      el.style.setProperty('--indicator-x', `${tab?.offsetLeft ?? 0}px`)
-      el.style.setProperty('--indicator-w', `${tab?.offsetWidth ?? 0}px`)
-    }
-    measure()
-    // The inline-flex list resizes with its labels, and tabs mounted while hidden measure 0 until shown.
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [current])
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-    if (!step) return
-    e.preventDefault()
-    const tabs = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    const from = [...tabs].indexOf(e.target as HTMLButtonElement)
-    const next = nextEnabled(items, from < 0 ? focusable : from, step)
-    tabs[next]?.focus()
-    const it = items[next]
-    if (it) onChange(it.value)
-  }
-  return (
-    <div
-      ref={list}
-      role="tablist"
-      className={cx('ui-tabs', size === 'sm' && 'ui-tabs--sm')}
-      onKeyDown={onKeyDown}
-    >
-      {items.map((it, i) => (
-        <button
-          key={it.value}
-          type="button"
-          role="tab"
-          className="ui-tab"
-          aria-selected={it.value === value}
-          tabIndex={i === focusable ? 0 : -1}
-          disabled={it.disabled}
-          onClick={() => onChange(it.value)}
-        >
-          {it.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-interface ToggleProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
   label?: ReactNode
-  /** Accessible name when the visible label is not the control's name (e.g. a state text). */
+  labelPosition?: 'before' | 'after'
+  'aria-label'?: string
+  /** Pre-Pane alias of `aria-label`, for when the visible label is a state text. */
   ariaLabel?: string
-  disabled?: boolean
 }
 
-export function Switch({ checked, onChange, label, ariaLabel, disabled }: ToggleProps) {
-  return (
-    <label className={cx('ui-toggle', disabled && 'ui-toggle--disabled')}>
-      <span className="ui-toggle__control">
-        <input
-          type="checkbox"
-          role="switch"
-          aria-label={ariaLabel}
-          aria-checked={checked}
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="ui-switch__track">
-          <span className="ui-switch__thumb" />
-        </span>
-      </span>
-      {label ? <span>{label}</span> : null}
-    </label>
-  )
-}
-
-export function Checkbox({ checked, onChange, label, disabled }: ToggleProps) {
-  return (
-    <label className={cx('ui-toggle', disabled && 'ui-toggle--disabled')}>
-      <span className="ui-toggle__control">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span className="ui-checkbox__box">
-          <Check size={11} strokeWidth={3} aria-hidden="true" />
-        </span>
-      </span>
-      {label ? <span>{label}</span> : null}
-    </label>
-  )
-}
-
-export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  ref?: Ref<HTMLInputElement>
-  size?: 'sm' | 'md'
-  mono?: boolean
-  invalid?: boolean
-}
-
-export function Input({ size = 'md', mono, invalid, className, ...rest }: InputProps) {
-  return (
-    <input
-      aria-invalid={invalid || undefined}
-      className={cx('ui-input', size === 'sm' && 'ui-input--sm', mono && 'ui-input--mono', className)}
-      {...rest}
-    />
-  )
-}
-
-export function Textarea({
-  invalid,
-  className,
-  ...rest
-}: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
-  return <textarea aria-invalid={invalid || undefined} className={cx('ui-textarea', className)} {...rest} />
-}
-
-/** Stacked form field: caption above the control; the wrapping <label> names the control. */
-export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as children
-    <label className="ui-field">
-      <span className="ui-field__label">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-export interface SelectOption<V extends string> {
-  value: V
-  label: string
-  disabled?: boolean
-}
-
-export function Select<V extends string>({
-  options,
-  value,
+export function Switch({
+  checked,
+  defaultChecked = false,
   onChange,
-  placeholder = '请选择',
+  size = 'regular',
   disabled,
   label,
-}: {
-  options: SelectOption<V>[]
-  value: V | null
-  onChange: (value: V) => void
-  placeholder?: string
-  disabled?: boolean
-  /** Accessible name of the trigger when no visible <label> wraps it. */
-  label?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const list = useRef<HTMLDivElement>(null)
-  const id = useId()
-  useEffect(() => {
-    if (!open) return
-    list.current?.focus()
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-  const close = () => {
-    setOpen(false)
-    trigger.current?.focus()
-  }
-  useEscape(close, open)
-  const menu = usePresence(open)
-  const selected = options.find((o) => o.value === value)
-  const show = () => {
-    const i = options.findIndex((o) => o.value === value)
-    setActive(i >= 0 ? i : nextEnabled(options, -1, 1))
-    setOpen(true)
-  }
-  const pick = (o: SelectOption<V>) => {
-    if (o.disabled) return
-    close()
-    onChange(o.value)
-  }
-  const onListKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((i) => nextEnabled(options, i, e.key === 'ArrowDown' ? 1 : -1))
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      const o = options[active]
-      if (o) pick(o)
-    } else if (e.key === 'Tab') close()
-  }
-
+  labelPosition = 'before',
+  ariaLabel,
+  ...aria
+}: SwitchProps) {
+  const [on, setOn] = useControlled(checked, defaultChecked)
+  const text = label ? <span>{label}</span> : null
   return (
-    <div ref={ref} className={cx('ui-select', open && 'ui-select--open')}>
-      <button
-        ref={trigger}
-        type="button"
-        className="ui-select__trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
+    <label className={cx('ui-switch', size === 'small' && 'ui-switch--small', disabled && 'ui-disabled')}>
+      {labelPosition === 'before' ? text : null}
+      <input
+        type="checkbox"
+        role="switch"
+        aria-label={ariaLabel ?? aria['aria-label']}
+        aria-checked={on}
+        checked={on}
         disabled={disabled}
-        onClick={() => (open ? setOpen(false) : show())}
-        onKeyDown={(e) => {
-          if (open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
-          e.preventDefault()
-          show()
+        onChange={(e) => {
+          setOn(e.target.checked)
+          onChange?.(e.target.checked)
         }}
-      >
-        <span className={cx('ui-select__value', !selected && 'ui-select__placeholder')}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <ChevronDown size={16} className="ui-select__chevron" aria-hidden="true" />
-      </button>
-      {menu.mounted ? (
-        <div
-          ref={list}
-          role="listbox"
-          tabIndex={-1}
-          aria-label={label}
-          aria-activedescendant={`${id}-${active}`}
-          className="ui-select__menu ui-popover"
-          data-state={menu.state}
-          onAnimationEnd={menu.onAnimationEnd}
-          onKeyDown={onListKey}
-        >
-          {options.map((o, i) => (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is handled by the listbox (aria-activedescendant)
-            // biome-ignore lint/a11y/useFocusableInteractive: focus stays on the listbox (aria-activedescendant)
-            <div
-              key={o.value}
-              id={`${id}-${i}`}
-              role="option"
-              className="ui-select__option"
-              data-active={i === active || undefined}
-              aria-selected={o.value === value}
-              aria-disabled={o.disabled || undefined}
-              onMouseEnter={() => !o.disabled && setActive(i)}
-              onClick={() => pick(o)}
-            >
-              {o.label}
-            </div>
-          ))}
-        </div>
-      ) : null}
+      />
+      <span className="ui-switch__track">
+        <span className="ui-switch__knob" />
+      </span>
+      {labelPosition === 'after' ? text : null}
+    </label>
+  )
+}
+
+export interface CheckboxProps {
+  checked?: boolean
+  defaultChecked?: boolean
+  indeterminate?: boolean
+  onChange?: (checked: boolean) => void
+  label?: ReactNode
+  disabled?: boolean
+}
+
+export function Checkbox({
+  checked,
+  defaultChecked = false,
+  indeterminate = false,
+  onChange,
+  label,
+  disabled,
+}: CheckboxProps) {
+  const [on, setOn] = useControlled(checked, defaultChecked)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+  return (
+    <label className={cx('ui-check', indeterminate && 'ui-check--mixed', disabled && 'ui-disabled')}>
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={on}
+        disabled={disabled}
+        onChange={(e) => {
+          setOn(e.target.checked)
+          onChange?.(e.target.checked)
+        }}
+      />
+      <span className="ui-check__box">
+        <Icon name={indeterminate ? 'minus' : 'check'} weight={2.4} />
+      </span>
+      {label != null ? <span>{label}</span> : null}
+    </label>
+  )
+}
+
+export interface RadioGroupProps<V extends string> {
+  options: { value: V; label: ReactNode; disabled?: boolean }[]
+  value?: V
+  defaultValue?: V
+  onChange?: (value: V) => void
+  direction?: 'column' | 'row'
+  name?: string
+  disabled?: boolean
+  'aria-label'?: string
+}
+
+export function RadioGroup<V extends string>({
+  options,
+  value,
+  defaultValue,
+  onChange,
+  direction = 'column',
+  name,
+  disabled,
+  ...aria
+}: RadioGroupProps<V>) {
+  const [current, setCurrent] = useControlled(value, defaultValue)
+  const fallbackName = useId()
+  return (
+    <div
+      role="radiogroup"
+      aria-label={aria['aria-label']}
+      className={cx('ui-radiogroup', direction === 'row' && 'ui-radiogroup--row')}
+    >
+      {options.map((o) => (
+        <label key={o.value} className={cx('ui-radio', (disabled || o.disabled) && 'ui-disabled')}>
+          <input
+            type="radio"
+            name={name ?? fallbackName}
+            value={o.value}
+            checked={current === o.value}
+            disabled={disabled || o.disabled}
+            onChange={() => {
+              setCurrent(o.value)
+              onChange?.(o.value)
+            }}
+          />
+          <span className="ui-radio__dot" />
+          <span>{o.label}</span>
+        </label>
+      ))}
     </div>
   )
 }

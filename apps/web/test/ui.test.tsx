@@ -139,9 +139,9 @@ describe('Dialog and Drawer', () => {
 })
 
 describe('display components', () => {
-  it('Avatar shows the first character', () => {
+  it('Avatar shows a Chinese name in full when it is two characters', () => {
     render(<Avatar name="王磊" />)
-    expect(screen.getByText('王')).toBeTruthy()
+    expect(screen.getByText('王磊')).toBeTruthy()
   })
 
   it('StepIndicator exposes each step status', () => {

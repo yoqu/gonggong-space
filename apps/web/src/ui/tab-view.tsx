@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { Tabs } from './controls'
+import { Tabs } from './segmented'
 import './tab-view.css'
 
 export interface TabViewProps {

@@ -8,7 +8,8 @@ import './primitives.css'
 export type IconLike = IconName | ReactElement
 export const renderIcon = (icon: IconLike) => (typeof icon === 'string' ? <Icon name={icon} /> : icon)
 
-export type TagTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | 'solid-red'
+import type { TagTone } from '../display'
+export type { TagTone }
 export interface TagSpec {
   label: string
   tone: TagTone
