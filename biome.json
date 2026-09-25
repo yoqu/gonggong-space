@@ -9,7 +9,8 @@
       "!docs",
       "!.gonggong-dev",
       "!**/drizzle",
-      "!.claude"
+      "!.claude",
+      "!.obsidian"
     ]
   },
   "formatter": {
