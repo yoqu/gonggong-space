@@ -1,5 +1,5 @@
-/* Unified toolbar (plan R3): no backing at rest; once content scrolls under it, glass + hard scroll edge + separator.
-   The sentinel sits at the top of the scroll container, which must be positioned. */
+/* Unified toolbar (Pane Toolbar + plan R3): no backing at rest; once content scrolls under it, glass + hard scroll
+   edge + separator. The sentinel sits at the top of the scroll container, which must be positioned. */
 .ui-toolbar-sentinel {
   position: absolute;
   top: 0;
@@ -17,12 +17,85 @@
     color var(--fade-in),
     box-shadow var(--fade-out);
 }
+/* Zero specificity so existing page heads keep their own layout. */
+:where(.ui-toolbar) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--toolbar-height);
+  padding: 0 var(--space-12);
+}
 .ui-toolbar[data-scrolled] {
   background: var(--scroll-edge-hard), var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow: inset 0 -1px 0 var(--color-separator);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 -1px 0 var(--separator);
 }
 :root[data-window-inactive] .ui-toolbar {
-  color: var(--color-text-secondary);
+  color: var(--label-secondary);
+}
+.ui-toolbar__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-right: auto;
+  padding-left: var(--space-4);
+}
+.ui-toolbar__title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-toolbar__subtitle {
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+.ui-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 32px;
+  padding: 0 2px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+/* Interactive glass (plan R6): press squeezes, release springs back. */
+.ui-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: 28px;
+  min-width: 32px;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  cursor: default;
+  transition:
+    background var(--motion-fast),
+    transform var(--spring-bouncy);
+}
+.ui-toolbar__btn:hover:not(:disabled) {
+  background: var(--control-track);
+}
+.ui-toolbar__btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.ui-toolbar__btn[aria-pressed="true"] {
+  color: var(--accent-text);
+}
+.ui-toolbar__btn:disabled {
+  opacity: 0.45;
 }

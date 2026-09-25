@@ -1,0 +1,17 @@
+/* Pane TabView: the tab control overlaps the panel's top edge by half its height. */
+.ui-tab-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ui-tab-view__bar {
+  position: relative;
+  z-index: 1;
+  margin-bottom: calc(var(--control-regular) / -2);
+}
+.ui-tab-view__panel {
+  align-self: stretch;
+  padding: calc(var(--control-regular) / 2 + var(--space-16)) var(--space-16) var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+}

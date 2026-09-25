@@ -1,6 +1,6 @@
-import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { create } from 'zustand'
+import { Icon } from './icon'
 import { usePresence } from './presence'
 import './toast.css'
 
@@ -41,10 +41,10 @@ export function toast({
 }
 
 const ICON = {
-  info: <Info size={16} color="var(--color-brand-info)" />,
-  success: <CircleCheck size={16} color="var(--color-success)" />,
-  warning: <TriangleAlert size={16} color="var(--color-brand-warm)" />,
-  error: <CircleAlert size={16} color="var(--color-danger)" />,
+  info: <Icon name="info" color="var(--system-blue)" />,
+  success: <Icon name="checkmark-circle" color="var(--system-green)" />,
+  warning: <Icon name="warning" color="var(--system-orange)" />,
+  error: <Icon name="exclamation-circle" color="var(--system-red)" />,
 }
 
 /** Errors stay until dismissed; others auto-dismiss, paused while hovered and restarted by a repeat. */
@@ -80,7 +80,7 @@ function Toast({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: (
       </div>
       {t.count > 1 ? <span className="ui-toast__count">×{t.count}</span> : null}
       <button type="button" className="ui-toast__close" aria-label="关闭" onClick={() => dismissToast(t.id)}>
-        <X size={14} />
+        <Icon name="xmark" size={12} weight={1.8} />
       </button>
     </div>
   )
