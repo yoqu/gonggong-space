@@ -4,12 +4,17 @@
   align-items: center;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   font-size: var(--text-callout-size);
 }
+/* Ancestors give up width first; the current location keeps its name longest, then ellipsizes. */
 .ui-path__seg {
   display: inline-flex;
+  flex: 0 1000 auto;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   max-width: 180px;
   height: 22px;
   padding: 0 6px;
@@ -32,10 +37,20 @@
   outline-offset: 1px;
 }
 .ui-path__seg--last {
+  flex-shrink: 1;
   font-weight: 600;
   color: var(--label);
 }
+.ui-path__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-path__seg:not(:has(.ui-path__label)) {
+  flex: none;
+}
 .ui-path__icon {
+  flex: none;
   display: grid;
   place-items: center;
 }
@@ -44,6 +59,7 @@
   height: 14px;
 }
 .ui-path__sep {
+  flex: none;
   display: grid;
   place-items: center;
   color: var(--label-tertiary);

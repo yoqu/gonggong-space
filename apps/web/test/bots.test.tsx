@@ -290,6 +290,15 @@ describe('bot detail', () => {
     expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({ path: null })
   })
 
+  it('deletes a bot from its row menu in the admin list', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    renderAt('/admin/bots', admin)
+    const grid = await screen.findByRole('grid', { name: 'Bot 列表' })
+    fireEvent.click(within(grid).getByRole('button', { name: '操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '删除 Bot…' }))
+    expect(within(await screen.findByRole('alertdialog')).getByText('要删除 小王的 Claude 吗？')).toBeTruthy()
+  })
+
   it('warns when the bot waits for its owner', async () => {
     routes['GET /api/bots'] = () => [
       bot({ binding: 'pending_confirm', presence: 'pending_confirm', createdBy: 'u9', agentVersion: null }),

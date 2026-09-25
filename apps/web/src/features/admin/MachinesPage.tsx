@@ -6,6 +6,7 @@ import { Alert, Presence, SearchField, Spinner, Table, ToolbarButton, ToolbarGro
 import { errorText } from '../auth/AuthCard'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
+import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
 
@@ -41,6 +42,7 @@ export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<AdminMachineDto | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const params = useSystemParams()
@@ -106,6 +108,12 @@ export function MachinesPage() {
           onSelectionChange={(ids) => setSelected(ids[0] ? String(ids[0]) : null)}
           defaultSort={{ key: 'ownerName', dir: 'asc' }}
           onOpen={(m) => setOpenId(m.id)}
+          rowActions={() => [
+            { label: '机器详情…', value: 'open' },
+            { separator: true },
+            { label: '吊销机器…', value: 'revoke', destructive: true },
+          ]}
+          onRowAction={(action, m) => (action === 'open' ? setOpenId(m.id) : setRevoking(m))}
           emptyText={q ? '没有匹配的机器' : '还没有机器'}
           columns={[
             { key: 'ownerName', title: '主人', width: 88, sortable: true },
@@ -200,6 +208,18 @@ export function MachinesPage() {
             ownerName={open.ownerName}
             onChanged={() => void load()}
             onClose={() => setOpenId(null)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {revoking ? (
+          <RevokeMachineDialog
+            machine={revoking}
+            onRevoked={() => {
+              setRevoking(null)
+              void load()
+            }}
+            onClose={() => setRevoking(null)}
           />
         ) : null}
       </Presence>

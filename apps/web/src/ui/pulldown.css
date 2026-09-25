@@ -38,3 +38,11 @@
   pointer-events: none;
   animation: var(--fade-out) ui-fade-out forwards;
 }
+.ui-pulldown__btn--bare.ui-pulldown__btn--icon {
+  padding: 0;
+  aspect-ratio: 1;
+}
+.ui-pulldown__menu--fixed {
+  position: fixed;
+  z-index: 60;
+}

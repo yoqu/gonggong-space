@@ -25,6 +25,13 @@ class NoopSocket {
   close() {}
 }
 
+/** Picks an item from a row's trailing「操作」pull-down. */
+const rowAction = (r: HTMLElement, item: string) => {
+  fireEvent.click(within(r).getByRole('button', { name: '操作' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: item }))
+}
+const menuItems = () => screen.getAllByRole('menuitem').map((m) => m.textContent)
+
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -79,12 +86,28 @@ describe('admin console', () => {
       within(rowOf(account))
         .getAllByRole('gridcell')
         .map((c) => c.textContent)
-    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑…'])
+    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', ''])
     expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台 · 离线', '正常'])
     expect(cells('zhaomin').slice(3, 5)).toEqual(['未绑定', '待修改密码'])
     expect(cells('liuyang').slice(3, 5)).toEqual(['--', '已停用'])
-    const edit = within(rowOf('chenchen')).getByRole('button', { name: '编辑…' })
-    expect(edit.className).toContain('ui-btn--small')
+    // Row actions live in one trailing「操作」pull-down; my own row can only be edited.
+    const more = within(rowOf('chenchen')).getByRole('button', { name: '操作' })
+    expect(more.className).toContain('ui-btn--small')
+    fireEvent.click(more)
+    expect(menuItems()).toEqual(['编辑…'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    fireEvent.click(within(rowOf('wanglei')).getByRole('button', { name: '操作' }))
+    expect(menuItems()).toEqual(['编辑…', '重置密码…', '停用…'])
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    // Right-click offers the same actions.
+    fireEvent.contextMenu(rowOf('liuyang'))
+    expect(menuItems()).toEqual(['编辑…', '启用'])
+    fireEvent.click(screen.getByRole('menuitem', { name: '编辑…' }))
+    expect(await screen.findByRole('dialog', { name: '编辑成员 刘洋' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     // Enter (or a double click) on a selected row opens the same dialog.
     fireEvent.mouseDown(rowOf('wanglei'))
     fireEvent.keyDown(screen.getByRole('grid', { name: '账号列表' }), { key: 'Enter' })
@@ -136,8 +159,9 @@ describe('admin console', () => {
     renderAt('/admin/users')
     const rowOf = async (a: string) =>
       (await screen.findByRole('gridcell', { name: a })).closest('[role="row"]') as HTMLElement
-    expect(within(await rowOf('chenchen')).queryByRole('button', { name: '重置密码…' })).toBeNull()
-    fireEvent.click(within(await rowOf('wanglei')).getByRole('button', { name: '重置密码…' }))
+    fireEvent.click(within(await rowOf('chenchen')).getByRole('button', { name: '操作' }))
+    expect(screen.queryByRole('menuitem', { name: '重置密码…' })).toBeNull()
+    rowAction(await rowOf('wanglei'), '重置密码…')
     const dialog = screen.getByRole('dialog', { name: '重置 王磊 的密码' })
     const temp = (within(dialog).getByLabelText('临时密码') as HTMLInputElement).value
     expect(temp).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{2}$/)

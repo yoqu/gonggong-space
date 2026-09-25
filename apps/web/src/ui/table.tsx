@@ -8,8 +8,11 @@ import {
   useState,
 } from 'react'
 import { cx } from '../lib/cx'
+import { ContextMenu } from './context-menu'
 import { useControlled } from './controlled'
 import { Icon } from './icon'
+import type { MenuItem } from './menu'
+import { PullDownButton } from './pulldown'
 import './disclosure.css'
 import './table.css'
 
@@ -52,6 +55,9 @@ export interface TableProps<R extends TableRow = TableRow> {
   sortRows?: boolean
   defaultExpanded?: RowId[]
   onOpen?: (row: R) => void
+  /** Row actions: a trailing「操作」pull-down per row, also shown on right-click; empty hides it for that row. */
+  rowActions?: (row: R) => MenuItem[]
+  onRowAction?: (value: string, row: R) => void
   alternating?: boolean
   density?: 'regular' | 'compact'
   /** Force the focused selection style (demo only). */
@@ -80,6 +86,8 @@ export function Table<R extends TableRow = TableRow>({
   sortRows = true,
   defaultExpanded = [],
   onOpen,
+  rowActions,
+  onRowAction,
   alternating = true,
   density = 'regular',
   active,
@@ -93,12 +101,14 @@ export function Table<R extends TableRow = TableRow>({
   const [sel, setSelState] = useControlled(selection, defaultSelection)
   const [order, setOrder] = useControlled<TableSort | null>(sort, defaultSort ?? null)
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const [menuRow, setMenuRow] = useState<R | null>(null)
   const anchor = useRef<RowId | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const isTree = rows.some((r) => r.children?.length)
-  const template = columns
-    .map((c) => (typeof c.width === 'number' ? `${c.width}px` : (c.width ?? 'minmax(0, 1fr)')))
-    .join(' ')
+  const template = [
+    ...columns.map((c) => (typeof c.width === 'number' ? `${c.width}px` : (c.width ?? 'minmax(0, 1fr)'))),
+    ...(rowActions ? [`${ACTIONS_WIDTH}px`] : []),
+  ].join(' ')
 
   const compare = (a: R, b: R) => {
     if (!order) return 0
@@ -158,7 +168,15 @@ export function Table<R extends TableRow = TableRow>({
   }, [sel])
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    // Keys pressed in a row's action button or its menu belong to them.
+    if (e.target !== e.currentTarget) return
     const i = last == null ? -1 : ids.indexOf(last)
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      const row = i >= 0 ? (visible[i] as (typeof visible)[number]).row : null
+      if (row && rowActions?.(row).length) setMenuRow(row)
+      else e.stopPropagation()
+      return
+    }
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
       e.preventDefault()
       const n =
@@ -198,7 +216,7 @@ export function Table<R extends TableRow = TableRow>({
 
   const align = (a?: TableColumn['align']) => a && a !== 'left' && `ui-align-${a}`
 
-  return (
+  const table = (
     // biome-ignore lint/a11y/noStaticElementInteractions: role is grid or treegrid, chosen at runtime
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is grid or treegrid, chosen at runtime
     <div
@@ -216,6 +234,18 @@ export function Table<R extends TableRow = TableRow>({
       )}
       style={{ height, maxHeight, ...style }}
       onKeyDown={onKeyDown}
+      onContextMenu={(e) => {
+        // Only a row with actions opens the context menu; elsewhere the event never reaches it.
+        const el = (e.target as Element).closest('[data-row-id]')
+        const row =
+          el && ref.current?.contains(el)
+            ? visible.find((v) => String(v.row.id) === el.getAttribute('data-row-id'))?.row
+            : undefined
+        if (!row || !rowActions?.(row).length) return e.stopPropagation()
+        selectOne(row.id)
+        ref.current?.focus()
+        setMenuRow(row)
+      }}
     >
       {/* biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header */}
       {/* biome-ignore lint/a11y/useFocusableInteractive: the grid owns focus */}
@@ -251,6 +281,11 @@ export function Table<R extends TableRow = TableRow>({
             </div>
           )
         })}
+        {rowActions ? (
+          // biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header
+          // biome-ignore lint/a11y/useFocusableInteractive: the grid owns focus
+          <div role="columnheader" aria-label="操作" className="ui-table__th" />
+        ) : null}
       </div>
       {visible.length ? (
         // biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header
@@ -312,6 +347,9 @@ export function Table<R extends TableRow = TableRow>({
                     </div>
                   )
                 })}
+                {rowActions ? (
+                  <ActionsCell items={rowActions(row)} onSelect={(v) => onRowAction?.(v, row)} />
+                ) : null}
               </div>
             )
           })}
@@ -319,6 +357,45 @@ export function Table<R extends TableRow = TableRow>({
       ) : (
         <div className="ui-table__empty">{emptyText}</div>
       )}
+    </div>
+  )
+
+  if (!rowActions) return table
+  return (
+    <ContextMenu
+      className="ui-table-ctx"
+      items={menuRow ? rowActions(menuRow) : []}
+      onSelect={(v) => menuRow && onRowAction?.(v, menuRow)}
+    >
+      {table}
+    </ContextMenu>
+  )
+}
+
+const ACTIONS_WIDTH = 32
+
+function ActionsCell({ items, onSelect }: { items: MenuItem[]; onSelect: (value: string) => void }) {
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header
+    // biome-ignore lint/a11y/useFocusableInteractive: the action button is the focus stop
+    <div
+      role="gridcell"
+      className="ui-table__td ui-table__actions"
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      {items.length ? (
+        <PullDownButton
+          icon="more"
+          aria-label="操作"
+          variant="plain"
+          size="small"
+          align="end"
+          portal
+          indicator={false}
+          items={items}
+          onSelect={onSelect}
+        />
+      ) : null}
     </div>
   )
 }

@@ -82,7 +82,7 @@ export function WorkspacePath({ path, onPick }: { path: string; onPick: (start: 
     label: p,
     icon: 'folder' as const,
   }))
-  return <PathControl items={items} maxItems={4} onSelect={onPick} aria-label="默认工作区路径" />
+  return <PathControl items={items} maxItems={3} onSelect={onPick} aria-label="默认工作区路径" />
 }
 
 export function BotDetail({
@@ -174,7 +174,7 @@ export function BotDetail({
         </FormRow>
 
         {me.id === bot.ownerId && bot.machineId ? (
-          <FormRow label="默认工作区" hint="进群时自动使用；群绑定了仓库时需与其 remote 一致">
+          <FormRow label="默认工作区" align="top" hint="进群时自动使用；群绑定了仓库时需与其 remote 一致">
             <div
               className="bots-detail__workspace"
               data-testid="default-workspace"
@@ -301,6 +301,7 @@ export function BotsAdminPage() {
   const bots = useWorkspace((s) => s.bots)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [deleting, setDeleting] = useState<BotDto | null>(null)
   const [users, setUsers] = useState<UserBriefDto[]>([])
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
@@ -340,6 +341,8 @@ export function BotsAdminPage() {
               if (ids[0] != null) setSelectedId(String(ids[0]))
             }}
             defaultSort={{ key: 'name', dir: 'asc' }}
+            rowActions={() => [{ label: '删除 Bot…', value: 'delete', destructive: true }]}
+            onRowAction={(_, b) => setDeleting(b)}
             emptyText="没有匹配的 Bot"
             columns={[
               {
@@ -356,6 +359,7 @@ export function BotsAdminPage() {
               {
                 key: 'agent',
                 title: 'Agent',
+                width: 96,
                 secondary: true,
                 sortable: true,
                 sortValue: agentLine,
@@ -365,7 +369,7 @@ export function BotsAdminPage() {
               {
                 key: 'binding',
                 title: '绑定',
-                width: 80,
+                width: 64,
                 sortable: true,
                 sortValue: (b) => BINDING_LABEL[b.binding],
                 render: (b) =>
@@ -401,6 +405,9 @@ export function BotsAdminPage() {
           action={<Button onClick={() => setCreating(true)}>新建 Bot…</Button>}
         />
       )}
+      <Presence>
+        {deleting ? <DeleteBotDialog bot={deleting} onClose={() => setDeleting(null)} /> : null}
+      </Presence>
       <Presence>
         {creating ? (
           <NewBotDialog me={me} onClose={() => setCreating(false)} onCreated={(b) => setSelectedId(b.id)} />
