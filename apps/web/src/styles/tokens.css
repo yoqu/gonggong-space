@@ -1,0 +1,258 @@
+/* Pane design tokens, transcribed verbatim from docs/design/pane/tokens.json (test/tokens.test.ts guards it).
+   Light lives in :root; app/theme.ts resolves light/dark/system and sets data-theme on <html>. */
+/* biome-ignore format: values stay byte-identical to tokens.json */
+:root {
+  color-scheme: light;
+
+  /* Color */
+  --window-bg: #f5f5f5;
+  --content-bg: #ffffff;
+  --sidebar-bg: #ececec;
+  --group-bg: #0000000a;
+  --label: #000000d9;
+  --label-secondary: #00000094;
+  --label-tertiary: #00000042;
+  --separator: #0000001a;
+  --control-fill: #ffffff;
+  --control-fill-pressed: #ebebeb;
+  --control-track: #00000017;
+  --control-stroke: #00000024;
+  --knob: #ffffff;
+  --accent: #0088ff;
+  --accent-text: #0071e3;
+  --accent-fill: #0071e3;
+  --on-accent: #ffffff;
+  --destructive-fill: #e0282c;
+  --focus-ring: #0088ff;
+  --selection-fill: #0000000f;
+  --menu-highlight: #0088ff;
+  --glass-fill: #ffffffb8;
+  --glass-fill-clear: #ffffff66;
+  --glass-specular: #ffffffe6;
+  --glass-edge: #0000001f;
+  --system-red: #ff383c;
+  --system-orange: #ff8d28;
+  --system-yellow: #ffcc00;
+  --system-green: #34c759;
+  --system-mint: #00c8b3;
+  --system-teal: #00c3d0;
+  --system-cyan: #00c0e8;
+  --system-blue: #0088ff;
+  --system-indigo: #6155f5;
+  --system-purple: #cb30e0;
+  --system-pink: #ff2d55;
+  --system-brown: #ac7f5e;
+  --system-gray: #8e8e93;
+  --traffic-close: #ff5f57;
+  --traffic-minimize: #febc2e;
+  --traffic-zoom: #28c840;
+  --traffic-inactive: #dcdcdc;
+  --wallpaper-1: #e8743b;
+  --wallpaper-2: #1f4e6b;
+  --wallpaper-3: #f3d9b1;
+  --bubble-in: #f0f0f2;
+  --bubble-out: #dbeaff;
+  --bubble-link: #005bb5;
+  --quote-fill: #0000000d;
+  --badge-fill: #e0282c;
+  --badge-muted: #6e6e73;
+  --tint-blue: #e0efff;
+  --tint-blue-text: #0060c0;
+  --tint-green: #e2f5e7;
+  --tint-green-text: #1a7a36;
+  --tint-orange: #ffefdf;
+  --tint-orange-text: #a34a00;
+  --tint-red: #ffe6e5;
+  --tint-red-text: #c01f1c;
+  --tint-purple: #f4e6fa;
+  --tint-purple-text: #8a2bb3;
+  --tint-gray: #ececef;
+  --tint-gray-text: #5c5c61;
+  --avatar-1: #1f6fd1;
+  --avatar-2: #1d7f45;
+  --avatar-3: #b04e17;
+  --avatar-4: #b8233e;
+  --avatar-5: #7a3fd1;
+  --avatar-6: #0e7a82;
+
+  /* Shadow */
+  --shadow-window: 0 0 0 0.5px rgba(0,0,0,0.18), 0 22px 70px 4px rgba(0,0,0,0.3);
+  --shadow-window-inactive: 0 0 0 0.5px rgba(0,0,0,0.12), 0 10px 30px 0 rgba(0,0,0,0.14);
+  --shadow-control: 0 0 0 0.5px rgba(0,0,0,0.1), 0 0.5px 1.5px rgba(0,0,0,0.18);
+  --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 0.5px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-menu: inset 0 1px 0 rgba(255,255,255,0.9), 0 0 0 0.5px rgba(0,0,0,0.16), 0 12px 32px rgba(0,0,0,0.2);
+
+  /* Font */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Text styles: family / size / line / weight / tracking */
+  --text-large-title-family: var(--font-display);
+  --text-large-title-size: 26px;
+  --text-large-title-line: 32px;
+  --text-large-title-weight: 400;
+  --text-large-title-tracking: 0.22px;
+  --text-title-1-family: var(--font-display);
+  --text-title-1-size: 22px;
+  --text-title-1-line: 26px;
+  --text-title-1-weight: 400;
+  --text-title-1-tracking: -0.26px;
+  --text-title-2-family: var(--font-sans);
+  --text-title-2-size: 17px;
+  --text-title-2-line: 22px;
+  --text-title-2-weight: 400;
+  --text-title-2-tracking: -0.43px;
+  --text-title-3-family: var(--font-sans);
+  --text-title-3-size: 15px;
+  --text-title-3-line: 20px;
+  --text-title-3-weight: 400;
+  --text-title-3-tracking: -0.23px;
+  --text-headline-family: var(--font-sans);
+  --text-headline-size: 13px;
+  --text-headline-line: 16px;
+  --text-headline-weight: 700;
+  --text-headline-tracking: -0.08px;
+  --text-body-family: var(--font-sans);
+  --text-body-size: 13px;
+  --text-body-line: 16px;
+  --text-body-weight: 400;
+  --text-body-tracking: -0.08px;
+  --text-callout-family: var(--font-sans);
+  --text-callout-size: 12px;
+  --text-callout-line: 15px;
+  --text-callout-weight: 400;
+  --text-callout-tracking: normal;
+  --text-subheadline-family: var(--font-sans);
+  --text-subheadline-size: 11px;
+  --text-subheadline-line: 14px;
+  --text-subheadline-weight: 400;
+  --text-subheadline-tracking: 0.06px;
+  --text-footnote-family: var(--font-sans);
+  --text-footnote-size: 10px;
+  --text-footnote-line: 13px;
+  --text-footnote-weight: 400;
+  --text-footnote-tracking: 0.12px;
+  --text-caption-family: var(--font-sans);
+  --text-caption-size: 10px;
+  --text-caption-line: 13px;
+  --text-caption-weight: 500;
+  --text-caption-tracking: 0.12px;
+
+  /* Spacing */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-32: 32px;
+
+  /* Radius */
+  --radius-check: 5px;
+  --radius-field: 8px;
+  --radius-menu: 12px;
+  --radius-bubble: 16px;
+  --radius-window: 14px;
+  --radius-capsule: 999px;
+
+  /* Material */
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-blur-sidebar: blur(40px) saturate(150%);
+
+  /* Size */
+  --control-small: 20px;
+  --control-regular: 24px;
+  --control-large: 30px;
+  --control-xlarge: 36px;
+  --toolbar-height: 52px;
+  --sidebar-row: 28px;
+  --avatar-small: 20px;
+  --avatar-regular: 32px;
+  --avatar-large: 40px;
+  --conversation-row: 64px;
+}
+
+/* biome-ignore format: values stay byte-identical to tokens.json */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Color */
+  --window-bg: #1e1e1e;
+  --content-bg: #161616;
+  --sidebar-bg: #262626;
+  --group-bg: #ffffff0d;
+  --label: #ffffffd9;
+  --label-secondary: #ffffff8c;
+  --label-tertiary: #ffffff40;
+  --separator: #ffffff1a;
+  --control-fill: #ffffff24;
+  --control-fill-pressed: #ffffff38;
+  --control-track: #ffffff1f;
+  --control-stroke: #ffffff1f;
+  --knob: #e8e8e8;
+  --accent: #0091ff;
+  --accent-text: #0091ff;
+  --accent-fill: #0071e3;
+  --on-accent: #ffffff;
+  --destructive-fill: #e0282c;
+  --focus-ring: #0091ff;
+  --selection-fill: #ffffff17;
+  --menu-highlight: #0070e0;
+  --glass-fill: #282828b8;
+  --glass-fill-clear: #1e1e1e66;
+  --glass-specular: #ffffff38;
+  --glass-edge: #00000080;
+  --system-red: #ff4245;
+  --system-orange: #ff9230;
+  --system-yellow: #ffd600;
+  --system-green: #30d158;
+  --system-mint: #00dac3;
+  --system-teal: #00d2e0;
+  --system-cyan: #3cd3fe;
+  --system-blue: #0091ff;
+  --system-indigo: #6d7cff;
+  --system-purple: #db34f2;
+  --system-pink: #ff375f;
+  --system-brown: #b78a66;
+  --system-gray: #8e8e93;
+  --traffic-close: #ff5f57;
+  --traffic-minimize: #febc2e;
+  --traffic-zoom: #28c840;
+  --traffic-inactive: #4d4d4d;
+  --wallpaper-1: #b8532a;
+  --wallpaper-2: #0f2a3d;
+  --wallpaper-3: #3a2a22;
+  --bubble-in: #2c2c2e;
+  --bubble-out: #1c3d66;
+  --bubble-link: #7cc0ff;
+  --quote-fill: #ffffff14;
+  --badge-fill: #e0282c;
+  --badge-muted: #636366;
+  --tint-blue: #0d2a47;
+  --tint-blue-text: #6cb6ff;
+  --tint-green: #0f3319;
+  --tint-green-text: #4cd774;
+  --tint-orange: #3d2410;
+  --tint-orange-text: #ffab5e;
+  --tint-red: #421414;
+  --tint-red-text: #ff8080;
+  --tint-purple: #361340;
+  --tint-purple-text: #e38cf5;
+  --tint-gray: #2e2e31;
+  --tint-gray-text: #b4b4b9;
+  --avatar-1: #1f6fd1;
+  --avatar-2: #1d7f45;
+  --avatar-3: #b04e17;
+  --avatar-4: #b8233e;
+  --avatar-5: #7a3fd1;
+  --avatar-6: #0e7a82;
+
+  /* Shadow */
+  --shadow-window: 0 0 0 0.5px rgba(0,0,0,0.9), inset 0 0 0 0.5px rgba(255,255,255,0.14), 0 22px 70px 4px rgba(0,0,0,0.6);
+  --shadow-window-inactive: 0 0 0 0.5px rgba(0,0,0,0.8), inset 0 0 0 0.5px rgba(255,255,255,0.1), 0 10px 30px 0 rgba(0,0,0,0.4);
+  --shadow-control: inset 0 0.5px 0 rgba(255,255,255,0.12), 0 0.5px 1px rgba(0,0,0,0.4);
+  --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 0.5px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-menu: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.5);
+}

@@ -1,6 +1,5 @@
+@import "./tokens.css";
 @import "./colors.css";
-@import "./typography.css";
-@import "./spacing.css";
 @import "./radius.css";
 @import "./shadows.css";
 @import "./motion.css";

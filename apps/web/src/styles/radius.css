@@ -1,16 +1,14 @@
-/* Radius — restrained 6–12px; pill only for tags/badges. DESIGN.md §6 */
+/* Legacy radius names aliased to Pane radii (tokens.css); W3 deletes the aliases. */
 :root {
-  --radius: 10px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 12px;
-  --radius-pill: 999px;
-  --radius-window: 10px;
-  --radius-dialog: 14px;
-  --radius-dropdown: 12px;
-  --radius-min: 4px;
+  --radius-sm: var(--radius-check);
+  --radius-md: var(--radius-field);
+  --radius-lg: var(--radius-field);
+  --radius-xl: var(--radius-menu);
+  --radius-2xl: var(--radius-menu);
+  --radius-pill: var(--radius-capsule);
+  --radius-dialog: var(--radius-window);
+  --radius-dropdown: var(--radius-menu);
+  --radius-min: var(--radius-check);
 }
 
 /* Concentric corners (macOS 27 containerConcentric): a child near its container's corner takes the

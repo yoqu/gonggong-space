@@ -1,4 +1,5 @@
 import { type AnimationEvent, useEffect, useState } from 'react'
+import './motion.css'
 
 export type PresenceState = 'open' | 'closed'
 

@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { cx } from '../lib/cx'
+import './brand.css'
 
 /**
  * 共工 mark: two wave crests (the oracle-bone 共 is two hands raising one object) lift a jade above the water.

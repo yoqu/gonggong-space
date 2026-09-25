@@ -1,23 +1,14 @@
-/* Shadows — overlays only. Work-area panels carry NO shadow. DESIGN.md §6
-   Light set in :root (reduced opacity); dark set keeps the original values. */
+/* Legacy shadow names aliased to Pane shadows (tokens.css); W3 deletes the aliases. Work-area panels carry NO shadow. */
 :root {
-  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.08);
-  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.18);
-  --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.14);
-  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.16);
-  --shadow-focus: 0 0 0 3px rgba(14, 124, 120, 0.3);
-  --shadow-window: 0 18px 44px rgba(0, 0, 0, 0.16);
+  --shadow-card: var(--shadow-control);
+  --shadow-modal: var(--shadow-window);
+  --shadow-dropdown: var(--shadow-menu);
+  --shadow-toast: var(--shadow-glass);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
   --shadow-drawer: -8px 0 24px rgba(0, 0, 0, 0.12); /* shell.css slide-over panel */
-  --z-modal: 120; /* @kind other */
-  --z-toast: 180; /* @kind other */
+  --z-toast: 180;
 }
 
 [data-theme="dark"] {
-  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.24);
-  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.66);
-  --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.66);
-  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.66);
-  --shadow-focus: 0 0 0 3px rgba(47, 194, 184, 0.35);
-  --shadow-window: 0 18px 44px rgba(0, 0, 0, 0.44);
   --shadow-drawer: -8px 0 24px rgba(0, 0, 0, 0.35);
 }

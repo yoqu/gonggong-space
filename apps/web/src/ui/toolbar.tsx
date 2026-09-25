@@ -1,5 +1,6 @@
 import { type HTMLAttributes, useCallback, useState } from 'react'
 import { cx } from '../lib/cx'
+import './toolbar.css'
 
 /** Ref callback for a sentinel at the top of a scroll container, and whether content has scrolled past it. */
 export function useScrollEdge() {

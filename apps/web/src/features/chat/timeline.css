@@ -20,7 +20,7 @@
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-dropdown);
+  box-shadow: var(--shadow-menu);
   color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 500;
@@ -171,7 +171,7 @@
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-edge), var(--glass-highlight), var(--shadow-dropdown);
+  box-shadow: var(--shadow-menu);
   opacity: 0;
   pointer-events: none;
   transition: opacity 100ms ease-out;

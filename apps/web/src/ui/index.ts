@@ -1,5 +1,3 @@
-import './ui.css'
-
 export * from './brand'
 export * from './controls'
 export * from './display'

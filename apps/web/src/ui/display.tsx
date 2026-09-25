@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cx } from '../lib/cx'
+import './display.css'
 
 export type BadgeVariant =
   | 'default'
