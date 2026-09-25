@@ -39,8 +39,10 @@ export interface MenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelec
   onClose?: () => void
   /** Pre-highlighted item (demo only). */
   activeValue?: string
-  /** Focus the active (or first) item on mount — pass for popup menus; `'menu'` focuses the menu itself, highlighting nothing (pointer-opened). */
-  autoFocus?: boolean | 'menu'
+  /** Focus the active (or first) item on mount — pass for popup menus. */
+  autoFocus?: boolean
+  /** With `autoFocus`, focus the menu itself and highlight nothing (menus opened with the pointer). */
+  focusMenu?: boolean
   /** Index in `items` of a submenu shown open on mount (demo only). */
   defaultOpenSubmenu?: number
   isSubmenu?: boolean
@@ -66,6 +68,7 @@ export function Menu({
   onClose,
   activeValue,
   autoFocus,
+  focusMenu,
   defaultOpenSubmenu = -1,
   isSubmenu,
   className,
@@ -85,7 +88,7 @@ export function Menu({
   useEffect(() => {
     const menu = own.current
     if (!autoFocus || !menu) return
-    if (autoFocus === 'menu') return menu.focus()
+    if (focusMenu) return menu.focus()
     const list = ownItems(menu)
     ;(list.find((el) => el.dataset.value === activeValue) ?? list[0] ?? menu).focus()
   }, [])
@@ -298,7 +301,8 @@ export function MenuButton({
       {presence.mounted ? (
         <Menu
           items={items}
-          autoFocus={byPointer ? 'menu' : true}
+          autoFocus
+          focusMenu={byPointer}
           className={cx(
             'ui-menu--popover',
             align === 'end' && 'ui-menu--end',
