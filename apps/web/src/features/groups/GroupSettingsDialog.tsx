@@ -12,8 +12,8 @@ import {
   GroupRow,
   Icon,
   type IconName,
-  Input,
   Spinner,
+  Stepper,
   toast,
 } from '../../ui'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from '../chat/RepoFields'
@@ -27,10 +27,9 @@ const PARAMS: { key: keyof GroupParams; label: string }[] = [
   { key: 'offlineWaitMin', label: 'Bot 离线等待上线（分钟）' },
 ]
 
-type Draft = Record<keyof GroupParams, string>
+type Draft = Record<keyof GroupParams, number | null>
 
-const parseDraft = (d: Draft) =>
-  GroupParams.safeParse(Object.fromEntries(PARAMS.map((p) => [p.key, Number(d[p.key])])))
+const parseDraft = (d: Draft) => GroupParams.safeParse(d)
 
 /** Group settings dialog (prototype ovSettings); admins only. */
 export function GroupSettingsDialog({
@@ -56,7 +55,7 @@ export function GroupSettingsDialog({
 
   useEffect(() => {
     groupsApi.params(group.id).then(
-      (p) => setParams(Object.fromEntries(PARAMS.map(({ key }) => [key, String(p[key])])) as Draft),
+      (p) => setParams(Object.fromEntries(PARAMS.map(({ key }) => [key, p[key]])) as Draft),
       () => {},
     )
   }, [group.id])
@@ -140,14 +139,12 @@ export function GroupSettingsDialog({
           ) : params ? (
             <GroupBox>
               {PARAMS.map((p) => (
-                <GroupRow key={p.key} label={<label htmlFor={`gp-${p.key}`}>{p.label}</label>}>
-                  <Input
-                    id={`gp-${p.key}`}
-                    className="gs-param__input"
-                    inputMode="numeric"
+                <GroupRow key={p.key} label={p.label}>
+                  <Stepper
+                    aria-label={p.label}
+                    width={80}
                     value={params[p.key]}
-                    invalid={!GroupParams.shape[p.key].safeParse(Number(params[p.key])).success}
-                    onChange={(e) => setParams({ ...params, [p.key]: e.target.value.trim() })}
+                    onChange={(v) => setParams({ ...params, [p.key]: v })}
                   />
                 </GroupRow>
               ))}

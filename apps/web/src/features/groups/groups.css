@@ -172,7 +172,12 @@
 .gs-settings {
   display: flex;
   min-height: 420px;
-  margin: calc(var(--space-8) * -1) calc(var(--space-20) * -1) calc(var(--space-16) * -1);
+  margin: calc(var(--space-4) * -1) 0;
+}
+/* The nav runs edge to edge: the body spans the panel width instead of bleeding past its own scroll box. */
+.ui-dialog__body:has(> .gs-settings) {
+  margin-inline: calc(var(--space-20) * -1);
+  padding-inline: 0;
 }
 .gs-settings__nav {
   width: 180px;
@@ -230,11 +235,6 @@
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
-}
-.gs-param__input {
-  width: 96px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .gs-mode {
   display: flex;
