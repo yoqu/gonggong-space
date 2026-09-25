@@ -309,7 +309,12 @@ export function Table<R extends TableRow = TableRow>({
               >
                 {columns.map((c, ci) => {
                   const value = c.render ? c.render(row) : field(row, c.key)
-                  const cell = <span className="ui-table__cell">{(value ?? '--') as ReactNode}</span>
+                  const text = value == null || typeof value === 'string' || typeof value === 'number'
+                  const cell = (
+                    <span className={cx('ui-table__cell', text && 'ui-table__cell--text')}>
+                      {(value ?? '--') as ReactNode}
+                    </span>
+                  )
                   return (
                     // biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header
                     // biome-ignore lint/a11y/useFocusableInteractive: the grid owns focus; cells are not focus stops

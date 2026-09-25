@@ -118,6 +118,11 @@
   text-overflow: ellipsis;
   vertical-align: middle;
 }
+/* Plain text: a flex container can't ellipsize its anonymous text item, so text cells are blocks. */
+.ui-table__cell--text {
+  display: block;
+  white-space: nowrap;
+}
 .ui-table__cell svg {
   flex: none;
   width: 16px;

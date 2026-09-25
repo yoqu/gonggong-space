@@ -83,9 +83,15 @@ export function PullDownButton({
   })
   // Focus only on a closed → open change, so a demo `defaultOpen` menu doesn't steal focus on mount.
   const wasOpen = useRef(open)
+  // macOS highlights the first item only when the menu was opened from the keyboard.
+  const byPointer = useRef(false)
   useEffect(() => {
     if (open && !wasOpen.current)
-      (menu.current?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? menu.current)?.focus()
+      (
+        (!byPointer.current &&
+          menu.current?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')) ||
+        menu.current
+      )?.focus()
     wasOpen.current = open
   }, [open])
 
@@ -105,10 +111,14 @@ export function PullDownButton({
           label == null && 'ui-pulldown__btn--icon',
           !indicator && 'ui-pulldown__btn--bare',
         )}
-        onClick={() => setOpen(!open)}
+        onClick={(e) => {
+          byPointer.current = e.detail > 0
+          setOpen(!open)
+        }}
         onKeyDown={(e) => {
           if (open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
           e.preventDefault()
+          byPointer.current = false
           setOpen(true)
         }}
       >

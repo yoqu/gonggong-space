@@ -359,13 +359,13 @@ export function BotsAdminPage() {
               {
                 key: 'agent',
                 title: 'Agent',
-                width: 96,
+                width: 150,
                 secondary: true,
                 sortable: true,
                 sortValue: agentLine,
                 render: agentLine,
               },
-              { key: 'ownerName', title: '归属人', width: 80, sortable: true },
+              { key: 'ownerName', title: '归属人', width: 96, sortable: true },
               {
                 key: 'binding',
                 title: '绑定',
@@ -379,7 +379,7 @@ export function BotsAdminPage() {
                     <Tag tone="orange">{BINDING_LABEL[b.binding]}</Tag>
                   ),
               },
-              { key: 'machineName', title: '机器', mono: true, secondary: true, sortable: true },
+              { key: 'machineName', title: '机器', width: 200, mono: true, secondary: true, sortable: true },
               {
                 key: 'presence',
                 title: '状态',
