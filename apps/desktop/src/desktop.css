@@ -113,14 +113,60 @@ code,
 .dk-conn {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-6);
   height: 28px;
   padding: 0 var(--space-12);
 }
+/* The connection is a colored dot plus text, so it never relies on color alone. */
+.dk-conn::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-capsule);
+  background: currentColor;
+}
+.dk-conn__text {
+  color: var(--label);
+}
 .dk-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding: var(--space-4) var(--space-20) var(--space-20);
+  padding: var(--space-4) calc(var(--space-20) + var(--space-8)) var(--space-20);
+}
+.dk-sentinel {
+  position: absolute;
+  top: 0;
+  height: 1px;
+}
+/* Large title of a settings pane; the toolbar shows the title once this passes under it. */
+.dk-largetitle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-8);
+}
+.dk-largetitle h1 {
+  margin: 0;
+  font-family: var(--text-large-title-family);
+  font-size: var(--text-large-title-size);
+  line-height: var(--text-large-title-line);
+  font-weight: 700;
+  letter-spacing: var(--text-large-title-tracking);
+}
+.dk-largetitle p {
+  margin: 0;
+  color: var(--label-secondary);
+}
+.dk-largetitle .dk-sentinel {
+  top: auto;
+  bottom: var(--toolbar-height);
+}
+/* Long values (model names, versions) get the room of the row instead of GroupRow's 160px cap. */
+.dk-content .ui-group__value {
+  max-width: none;
 }
 .dk-statusline {
   flex: none;
@@ -135,24 +181,6 @@ code,
   color: var(--label-secondary);
   white-space: nowrap;
 }
-
-/* Status: dot + text. */
-.dk-status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-6);
-}
-.dk-status__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-capsule);
-  background: currentColor;
-}
-.dk-status__text {
-  color: var(--label);
-}
-
 /* Page building blocks. */
 .dk-section {
   display: flex;
@@ -203,9 +231,6 @@ code,
   min-height: 40px;
   padding: var(--space-8) var(--space-12);
 }
-.dk-row--empty {
-  color: var(--label-secondary);
-}
 .ui-group > * + *,
 .ui-group > * > .dk-row + .dk-row {
   border-top: 1px solid var(--separator);
@@ -241,26 +266,6 @@ code,
   height: 28px;
   border-radius: var(--radius-field);
   color: var(--on-accent);
-}
-.dk-grid4 {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--space-16);
-}
-.dk-meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.dk-meta__k {
-  font-size: var(--text-subheadline-size);
-  line-height: var(--text-subheadline-line);
-  color: var(--label-secondary);
-}
-.dk-meta__v {
-  overflow-wrap: anywhere;
 }
 .dk-value {
   font-family: var(--font-mono);
@@ -323,41 +328,6 @@ code,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* 工作区: a list table on content-bg with hairline rows. */
-.dk-table {
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-menu);
-  overflow: hidden;
-}
-.dk-ws-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) 76px minmax(0, 2fr) 128px 92px;
-  align-items: center;
-  gap: var(--space-12);
-  padding: 0 var(--space-12);
-}
-.dk-table__head {
-  height: 28px;
-  background: var(--window-bg);
-  border-bottom: 1px solid var(--separator);
-  font-size: var(--text-subheadline-size);
-  font-weight: 600;
-  color: var(--label-secondary);
-}
-.dk-table__row {
-  min-height: 44px;
-  padding-top: var(--space-6);
-  padding-bottom: var(--space-6);
-}
-.dk-table__row + .dk-table__row {
-  border-top: 1px solid var(--separator);
-}
-.dk-table__action {
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* 日志与诊断 */
 .dk-logpane {
   max-height: 360px;
@@ -378,7 +348,6 @@ code,
 .dk-log + .dk-log {
   border-top: 1px solid var(--separator);
 }
-.dk-log--empty,
 .dk-log--debug {
   color: var(--label-secondary);
 }
@@ -388,70 +357,6 @@ code,
 .dk-log--error {
   color: var(--tint-red-text);
 }
-
-/* Bot 设置 dialog */
-.dk-inline--fill {
-  flex-wrap: nowrap;
-}
-.dk-inline--fill > .ui-input {
-  flex: 1;
-  min-width: 0;
-}
-.dk-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-}
-.dk-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  min-width: 0;
-}
-.dk-field__title {
-  font-weight: 600;
-}
-.dk-choice {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-8);
-}
-.dk-split {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-16) var(--space-32);
-}
-.dk-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
-}
-.dk-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  height: var(--control-small);
-  padding: 0 var(--space-4) 0 var(--space-8);
-  border-radius: var(--radius-capsule);
-  background: var(--control-track);
-  font-size: var(--text-subheadline-size);
-}
-.dk-chip button {
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: transparent;
-  color: var(--label-secondary);
-}
-.dk-chip button:hover {
-  background: var(--control-fill-pressed);
-  color: var(--label);
-}
-
 /* 首次引导 */
 .dk-onboarding {
   flex: 1;
@@ -511,7 +416,7 @@ code,
 .dk-steps__dot:last-of-type {
   margin-right: var(--space-4);
 }
-.dk-code-input input {
+.dk-code-input {
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }

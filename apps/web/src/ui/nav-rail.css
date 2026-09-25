@@ -83,3 +83,35 @@
   background: var(--badge-fill);
   box-shadow: 0 0 0 2px var(--sidebar-bg);
 }
+.ui-rail__trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Bottom tab bar for narrow windows: the same items in a row, split from the content by a hairline. */
+.ui-rail--bar {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  padding: var(--space-4) var(--space-8) calc(var(--space-4) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--separator);
+}
+.ui-rail--bar .ui-rail__me {
+  display: none;
+}
+.ui-rail--bar .ui-rail__items {
+  flex-direction: row;
+  flex: 1;
+  justify-content: space-around;
+  gap: 0;
+  margin: 0;
+}
+/* Centre the avatar on the icon tiles (32px), not on tile + label. */
+.ui-rail--bar .ui-rail__trailing {
+  justify-content: flex-start;
+  padding-top: var(--space-4);
+  width: 64px;
+  margin: 0;
+}

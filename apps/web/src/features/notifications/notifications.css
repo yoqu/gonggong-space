@@ -1,4 +1,4 @@
-/* Liquid Glass panel dropped from the bell in the sidebar toolbar (top-left). */
+/* Liquid Glass popover beside the NavRail's 通知 item; above the bottom tab bar on phones. */
 .notif__backdrop {
   position: fixed;
   inset: 0;
@@ -6,12 +6,12 @@
 }
 .notif {
   position: fixed;
-  top: calc(var(--toolbar-height) - var(--space-4));
-  left: var(--space-8);
+  top: var(--space-8);
+  left: calc(76px + var(--space-8));
   z-index: 21;
   width: 380px;
   max-width: calc(100vw - 2 * var(--space-8));
-  max-height: calc(100dvh - var(--toolbar-height) - var(--space-16));
+  max-height: calc(100dvh - var(--space-16));
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-menu);
@@ -138,4 +138,15 @@
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
   color: var(--label-secondary);
+}
+@media (max-width: 767px) {
+  .notif {
+    top: auto;
+    left: var(--space-8);
+    right: var(--space-8);
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: calc(100dvh - 64px - var(--space-32));
+    transform-origin: bottom center;
+  }
 }

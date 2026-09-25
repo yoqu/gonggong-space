@@ -1,9 +1,19 @@
 import { type AgentKind, compareVersions } from '@gonggong/protocol'
-import { Button, GroupBox, GroupRow, Icon, SegmentedControl, Select, Tag, toast } from '@web/ui'
+import {
+  Button,
+  GroupBox,
+  GroupRow,
+  Icon,
+  PopUpButton,
+  SegmentedControl,
+  Skeleton,
+  Tag,
+  toast,
+} from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { type AgentCard, type BotCard, ipc } from '../ipc'
-import { AGENTS, effortLabel, modelName, tildify, VENDOR } from '../lib/labels'
-import { Meta } from '../lib/ui'
+import { AGENTS, effortLabel, modelName, VENDOR } from '../lib/labels'
+import { PathValue } from '../lib/ui'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
@@ -53,6 +63,7 @@ export function AgentsPage(_: PageProps) {
           执行。
         </span>
       </p>
+      {agents ? null : <Skeleton variant="conversation" count={2} />}
       {agents?.map((a) => (
         <Agent
           key={a.kind}
@@ -146,22 +157,23 @@ function Agent({
         </div>
         {a.available ? (
           <>
-            <div className="dk-row dk-grid4">
-              <Meta k="路径" mono>
-                {tildify(a.path ?? '')}
-              </Meta>
-              <Meta k="版本">
-                {meets
-                  ? `${a.version} · 满足 ≥ ${a.minVersion}`
-                  : `${a.version} · 低于要求的 ≥ ${a.minVersion}`}
-              </Meta>
-              <Meta k="登录">{a.login ?? '未知'}</Meta>
-              <Meta k="ACP 适配器">{adapter ? `${adapter.version} · 随 daemon` : '随 daemon'}</Meta>
-            </div>
+            <GroupRow label="路径">{a.path ? <PathValue path={a.path} leaf="terminal" /> : null}</GroupRow>
+            <GroupRow
+              label="版本"
+              value={
+                meets ? (
+                  `${a.version} · 满足 ≥ ${a.minVersion}`
+                ) : (
+                  <span className="dk-danger">{`${a.version} · 低于要求的 ≥ ${a.minVersion}`}</span>
+                )
+              }
+            />
+            <GroupRow label="登录" value={a.login ?? '未知'} />
+            <GroupRow label="ACP 适配器" value={adapter ? `${adapter.version} · 随 daemon` : '随 daemon'} />
             <GroupRow label="默认模型" description="Bot 未单独指定时使用">
               {a.catalog?.models.length ? (
-                <Select
-                  label="默认模型"
+                <PopUpButton
+                  aria-label="默认模型"
                   options={modelOptions(a)}
                   value={a.defaultModel ?? ''}
                   onChange={setModel}

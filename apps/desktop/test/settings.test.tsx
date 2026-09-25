@@ -14,13 +14,16 @@ beforeEach(() => {
   m.setAutoUpgrade.mockResolvedValue()
   m.setLaunchAtLogin.mockResolvedValue()
   m.unbind.mockResolvedValue()
+  m.reveal.mockResolvedValue()
   useDaemon.setState({ info: INFO })
 })
 
 it('shows local paths and the server, toggles preferences and unbinds after confirmation', async () => {
   render(<SettingsPage go={() => {}} />)
-  expect(screen.getByText('~/.gonggong/workspaces')).toBeTruthy()
-  expect(screen.getByText('~/.gonggong/backups')).toBeTruthy()
+  expect(screen.getByRole('navigation', { name: '~/.gonggong/workspaces' })).toBeTruthy()
+  const backups = screen.getByRole('navigation', { name: '~/.gonggong/backups' })
+  fireEvent.click(within(backups).getByRole('button', { name: 'backups' }))
+  expect(m.reveal).toHaveBeenCalledWith('/Users/wl/.gonggong/backups')
   expect(screen.getByText('gonggong.corp.cn')).toBeTruthy()
 
   const upgrade = screen.getByRole('switch', { name: '自动升级' })

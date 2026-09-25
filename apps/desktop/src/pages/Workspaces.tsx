@@ -1,17 +1,34 @@
-import { Alert, AlertDialog, Button, EmptyState, GroupBox, Icon, Spinner, toast } from '@web/ui'
+import {
+  Alert,
+  AlertDialog,
+  Button,
+  EmptyState,
+  GroupBox,
+  HelpButton,
+  Icon,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Tag,
+  type TagTone,
+  toast,
+} from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
+import logo from '../assets/logo.svg'
 import { ipc, type WorkspaceRow, type WorkspaceState, type Workspaces } from '../ipc'
 import { revealLabel, tildify } from '../lib/labels'
-import { Section, StatusText } from '../lib/ui'
+import { Section } from '../lib/ui'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
-const STATE_COLOR: Record<WorkspaceState, string> = {
-  running: 'var(--system-blue)',
-  idle: 'var(--system-gray)',
-  removed: 'var(--system-orange)',
-  unused: 'var(--system-orange)',
+const STATE_TONE: Record<WorkspaceState, TagTone> = {
+  running: 'blue',
+  idle: 'gray',
+  removed: 'orange',
+  unused: 'orange',
 }
+
+type Row = WorkspaceRow & { id: string }
 
 const RESET_RELOAD_MS = 2000
 
@@ -51,7 +68,46 @@ export function WorkspacesPage(_: PageProps) {
     await load()
   }
 
-  if (!data) return <Spinner size={16} />
+  if (!data) return <Skeleton count={4} />
+
+  const columns: TableColumn<Row>[] = [
+    { key: 'group', title: '群', width: '1.2fr' },
+    { key: 'bot', title: 'Bot', width: '1fr', secondary: true },
+    { key: 'kindLabel', title: '类型', width: 84 },
+    { key: 'path', title: '路径', width: '2fr', mono: true, secondary: true, render: (w) => tildify(w.path) },
+    {
+      key: 'state',
+      title: '状态',
+      width: 128,
+      render: (w) => <Tag tone={STATE_TONE[w.state]}>{w.stateLabel}</Tag>,
+    },
+    {
+      key: 'action',
+      title: '',
+      width: 96,
+      align: 'right',
+      render: (w) =>
+        w.kind === 'cd' ? (
+          <Button size="small" onClick={() => resetCd(w)}>
+            改回托管
+          </Button>
+        ) : w.deletable ? (
+          <Button
+            size="small"
+            onClick={() => {
+              setDoomed(w)
+              setConfirming(true)
+            }}
+          >
+            删除…
+          </Button>
+        ) : (
+          <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
+            打开
+          </Button>
+        ),
+    },
+  ]
 
   return (
     <>
@@ -62,53 +118,20 @@ export function WorkspacesPage(_: PageProps) {
           description="群与 Bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。"
         />
       ) : null}
-      <div className="dk-table">
-        <div className="dk-table__head dk-ws-grid">
-          <span>群 × Bot</span>
-          <span>类型</span>
-          <span>路径</span>
-          <span>状态</span>
-          <span />
-        </div>
-        {data.rows.length === 0 ? <EmptyState bare title="本机还没有工作区" /> : null}
-        {data.rows.map((w) => (
-          <div key={w.path} className="dk-table__row dk-ws-grid" data-testid="ws-row">
-            <div className="dk-row__main">
-              <span className="dk-strong dk-ellipsis">{w.group}</span>
-              <span className="dk-sub dk-ellipsis">{w.bot}</span>
-            </div>
-            <span>{w.kindLabel}</span>
-            <span className="dk-ellipsis dk-mono dk-sub" title={w.path}>
-              {tildify(w.path)}
-            </span>
-            <StatusText color={STATE_COLOR[w.state]}>{w.stateLabel}</StatusText>
-            <div className="dk-table__action">
-              {w.kind === 'cd' ? (
-                <Button size="small" onClick={() => resetCd(w)}>
-                  改回托管
-                </Button>
-              ) : w.deletable ? (
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setDoomed(w)
-                    setConfirming(true)
-                  }}
-                >
-                  删除…
-                </Button>
-              ) : (
-                <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
-                  打开
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <Section title="本机备份 · 不上传">
+      <Table<Row>
+        aria-label="工作区"
+        multiple={false}
+        columns={columns}
+        rows={data.rows.map((w) => ({ ...w, id: w.path }))}
+        onOpen={(w) => ipc.reveal(w.path).catch(fail)}
+        emptyText={<EmptyState compact icon="folder" title="本机还没有工作区" />}
+      />
+      <Section
+        title="本机备份 · 不上传"
+        aside={<HelpButton help="被覆盖的本地修改、中断的半成品保存在这里，不上传服务器。" />}
+      >
         <GroupBox>
-          {data.backups.length === 0 ? <div className="dk-row dk-row--empty">暂无本机备份</div> : null}
+          {data.backups.length === 0 ? <EmptyState compact icon="archive" title="暂无本机备份" /> : null}
           {data.backups.map((b) => (
             <div key={b.path} className="dk-row">
               <Icon name="archive" size={16} color="var(--system-brown)" />
@@ -128,6 +151,7 @@ export function WorkspacesPage(_: PageProps) {
       <AlertDialog
         open={confirming}
         onClose={() => setConfirming(false)}
+        icon={<img src={logo} alt="" width={48} height={48} />}
         title={doomed ? `要从本机删除“${doomed.group} × ${doomed.bot}”的工作区吗？` : ''}
         message={
           doomed

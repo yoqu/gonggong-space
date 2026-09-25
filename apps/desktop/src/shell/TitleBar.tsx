@@ -1,6 +1,5 @@
 import { Toolbar, ToolbarGroup } from '@web/ui'
 import { connKind, host, PILL } from '../lib/labels'
-import { StatusText } from '../lib/ui'
 import { useDaemon } from '../store'
 
 /**
@@ -32,8 +31,8 @@ export function TitleBar({
     >
       {title ? null : <span className="dk-flex" />}
       <ToolbarGroup>
-        <span className="dk-conn" data-testid="conn-pill">
-          <StatusText color={pill.color}>{text}</StatusText>
+        <span className="dk-conn" data-testid="conn-pill" style={{ color: pill.color }}>
+          <span className="dk-conn__text">{text}</span>
         </span>
       </ToolbarGroup>
     </Toolbar>

@@ -239,6 +239,8 @@ export interface MenuButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   onSelect: (value: string) => void
   /** Which trigger edge the menu lines up with. */
   align?: 'start' | 'end'
+  /** Open upward, for triggers pinned to the bottom of the window. */
+  placement?: 'below' | 'above'
   onOpenChange?: (open: boolean) => void
 }
 
@@ -247,6 +249,7 @@ export function MenuButton({
   items,
   onSelect,
   align = 'start',
+  placement = 'below',
   onOpenChange,
   onClick,
   onKeyDown,
@@ -291,7 +294,11 @@ export function MenuButton({
         <Menu
           items={items}
           autoFocus
-          className={cx('ui-menu--popover', align === 'end' && 'ui-menu--end')}
+          className={cx(
+            'ui-menu--popover',
+            align === 'end' && 'ui-menu--end',
+            placement === 'above' && 'ui-menu--above',
+          )}
           data-state={presence.state}
           onAnimationEnd={presence.onAnimationEnd}
           onSelect={(value) => {

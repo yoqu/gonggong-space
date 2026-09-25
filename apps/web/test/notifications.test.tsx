@@ -2,6 +2,7 @@ import type { NotificationDto, SearchResultDto, UserDto, WebEvent } from '@gongg
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AppRail } from '../src/app/AppRail'
 import { AppShell, ShellBar } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -60,6 +61,7 @@ const renderShell = () =>
             path="*"
             element={
               <>
+                <AppRail />
                 <ShellBar />
                 <Where />
               </>

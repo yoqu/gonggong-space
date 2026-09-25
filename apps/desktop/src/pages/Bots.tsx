@@ -3,24 +3,31 @@ import {
   Button,
   Dialog,
   EmptyState,
+  Form,
+  FormRow,
   GroupBox,
+  GroupRow,
+  HelpButton,
   Icon,
-  Input,
-  RadioGroup,
+  Kbd,
+  PopUpButton,
   SegmentedControl,
+  Skeleton,
+  Stepper,
   Tag,
   type TagTone,
+  type Token,
+  TokenField,
   toast,
 } from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { type AgentCard, type Approval, type BotCard, ipc } from '../ipc'
 import { AGENTS, APPROVAL, agentDefault, modelName } from '../lib/labels'
-import { Meta } from '../lib/ui'
 import type { PageProps } from '.'
 
 const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 const KINDS: AgentKind[] = ['claude', 'codex']
-const CONCURRENCY = ['1', '2', '3', '4']
+const MAX_CONCURRENCY = 8
 
 function status(b: BotCard, agent: AgentCard | undefined): { text: string; tone: TagTone } {
   if (b.binding === 'pending_confirm') return { text: '待确认', tone: 'orange' }
@@ -55,7 +62,14 @@ export function BotsPage({ go }: PageProps) {
 
   return (
     <>
-      {bots?.length === 0 ? <EmptyState title="本机还没有 Bot" /> : null}
+      {bots ? null : <Skeleton variant="conversation" count={3} />}
+      {bots?.length === 0 ? (
+        <EmptyState
+          icon="bot"
+          title="本机还没有 Bot"
+          description="在 Web 端创建 Bot 并指定到这台机器后，会显示在这里。"
+        />
+      ) : null}
       {bots?.map((b) => {
         const agent = agentOf(b)
         const badge = status(b, agent)
@@ -83,20 +97,22 @@ export function BotsPage({ go }: PageProps) {
                 ) : null}
                 <Button onClick={() => setEditing(b)}>设置…</Button>
               </div>
-              <div className="dk-row dk-grid4">
-                <Meta k="Agent">
-                  {missing ? (
+              <GroupRow
+                label="Agent"
+                value={
+                  missing ? (
                     <span className="dk-danger">{`${name} · 未安装`}</span>
                   ) : (
                     `${name} ${agent?.version ?? ''}`.trim()
-                  )}
-                </Meta>
-                <Meta k="模型">
-                  {b.model ? modelName(agent, b.model) : `${agentDefault(agent)} · 跟随默认`}
-                </Meta>
-                <Meta k="并发上限">{b.concurrency}</Meta>
-                <Meta k="命令审批">{APPROVAL[b.approval]}</Meta>
-              </div>
+                  )
+                }
+              />
+              <GroupRow
+                label="模型"
+                value={b.model ? modelName(agent, b.model) : `${agentDefault(agent)} · 跟随默认`}
+              />
+              <GroupRow label="并发上限" value={b.concurrency} />
+              <GroupRow label="命令审批" value={APPROVAL[b.approval]} />
               {missing ? (
                 <div className="dk-row dk-warn">
                   <Icon name="warning" size={16} color="var(--system-red)" />
@@ -113,10 +129,12 @@ export function BotsPage({ go }: PageProps) {
           </div>
         )
       })}
-      <p className="dk-footnote">
-        Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个
-        agent、哪个模型、并发与审批。
-      </p>
+      {bots?.length ? (
+        <p className="dk-footnote">
+          Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个
+          agent、哪个模型、并发与审批。
+        </p>
+      ) : null}
       {editing ? (
         <BotDialog
           bot={editing}
@@ -132,6 +150,13 @@ export function BotsPage({ go }: PageProps) {
   )
 }
 
+/** Collapses inner whitespace and drops duplicates, so `go  build` and `go build` are one prefix. */
+const prefixes = (tokens: Token[]) => [
+  ...new Set(
+    tokens.map((t) => (typeof t === 'string' ? t : t.label).trim().replace(/\s+/g, ' ')).filter(Boolean),
+  ),
+]
+
 function BotDialog({
   bot,
   agents,
@@ -143,34 +168,23 @@ function BotDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [model, setModel] = useState(bot.model)
-  const [concurrency, setConcurrency] = useState(String(bot.concurrency))
+  const [model, setModel] = useState(bot.model ?? '')
+  const [concurrency, setConcurrency] = useState(bot.concurrency)
   const [approval, setApproval] = useState<Approval>(bot.approval)
   const [allowlist, setAllowlist] = useState(bot.allowlist)
-  const [prefix, setPrefix] = useState('')
   const [saving, setSaving] = useState(false)
   const agent = agents.find((a) => a.kind === bot.agentKind)
   const models = (agent?.catalog?.models ?? []).filter((m) => m.value !== 'default')
   const custom = model && !models.some((m) => m.value === model) ? [{ value: model, name: model }] : []
-  const concurrencies = CONCURRENCY.includes(String(bot.concurrency))
-    ? CONCURRENCY
-    : [...CONCURRENCY, String(bot.concurrency)]
-
-  const add = () => {
-    const p = prefix.trim().replace(/\s+/g, ' ')
-    if (p && !allowlist.includes(p)) setAllowlist([...allowlist, p])
-    setPrefix('')
-  }
 
   const save = async () => {
     setSaving(true)
     try {
-      const n = Number(concurrency)
       await ipc.saveBot(bot.id, {
-        model,
+        model: model || null,
         approval,
         allowlist,
-        concurrency: n === bot.concurrency ? null : n,
+        concurrency: concurrency === bot.concurrency ? null : concurrency,
       })
       toast({ type: 'success', message: `${bot.name} 设置已保存` })
       onSaved()
@@ -183,126 +197,89 @@ function BotDialog({
   return (
     <Dialog
       open
-      width={480}
+      width={520}
+      closeOnScrim={false}
       onClose={onClose}
       title={`${bot.name} · 本机设置`}
-      footer={
-        <>
-          <Button onClick={onClose}>关闭</Button>
-          <Button variant="primary" onClick={save} disabled={saving}>
-            保存
-          </Button>
-        </>
+      message={
+        agent?.available
+          ? '模型与审批在该 Bot 下一轮运行时生效；并发上限保存到服务器。'
+          : '当前 agent 未安装。模型与审批可先保存，安装并检测通过后生效。'
       }
+      footer={
+        <HelpButton help="Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式。" />
+      }
+      actions={[
+        { label: '取消', onClick: onClose },
+        { label: '保存', variant: 'primary', onClick: save, disabled: saving },
+      ]}
     >
-      <div className="dk-form">
-        <div className="dk-field">
-          <span className="dk-field__title">使用 agent</span>
-          <RadioGroup
+      <Form aria-label="本机设置">
+        <FormRow
+          label="使用 agent"
+          hint="Bot 使用哪个 agent 由 Web 端设定。切换 agent 会结束该 Bot 在各群的会话上下文，下一轮重新开始；工作区与文件不受影响。"
+        >
+          <PopUpButton
             aria-label="使用 agent"
+            disabled
             value={bot.agentKind}
             options={KINDS.map((kind) => {
               const a = agents.find((x) => x.kind === kind)
               return {
                 value: kind,
-                disabled: bot.agentKind !== kind,
-                label: (
-                  <span className="dk-choice">
-                    <span>{AGENTS[kind].name}</span>
-                    <span className="dk-sub">{a?.available ? a.version : '未安装 · 先在 Agent 页安装'}</span>
-                  </span>
-                ),
+                label: `${AGENTS[kind].name} · ${a?.available ? a.version : '未安装'}`,
               }
             })}
           />
-          <span className="dk-sub">
-            Bot 使用哪个 agent 由 Web 端设定。切换 agent 会结束该 Bot
-            在各群的会话上下文，下一轮重新开始；工作区与文件不受影响。
-          </span>
-        </div>
-        <div className="dk-field">
-          <span className="dk-field__title">模型</span>
-          <RadioGroup
+        </FormRow>
+        <FormRow label="模型" hint={models.length ? null : '运行一次后显示可用模型'}>
+          <PopUpButton
             aria-label="模型"
-            value={model ?? ''}
-            onChange={(v) => setModel(v || null)}
+            value={model}
+            onChange={setModel}
             options={[
               { value: '', label: `跟随 agent 默认 · ${agentDefault(agent)}` },
-              ...[...models, ...custom].map((m) => ({
-                value: m.value,
-                label: (
-                  <span className="dk-choice">
-                    <span>{m.name}</span>
-                    <span className="dk-sub dk-mono">{m.value}</span>
-                  </span>
-                ),
-              })),
+              ...[...models, ...custom].map((m) => ({ value: m.value, label: m.name })),
             ]}
           />
-          {models.length ? null : <span className="dk-sub">运行一次后显示可用模型</span>}
-        </div>
-        <div className="dk-split">
-          <div className="dk-field">
-            <span className="dk-field__title">并发上限</span>
-            <SegmentedControl
-              aria-label="并发上限"
-              items={concurrencies.map((v) => ({ value: v, label: v }))}
-              value={concurrency}
-              onChange={setConcurrency}
-            />
-          </div>
-          <div className="dk-field">
-            <span className="dk-field__title">命令审批</span>
-            <SegmentedControl
-              aria-label="命令审批"
-              items={(Object.keys(APPROVAL) as Approval[]).map((v) => ({ value: v, label: APPROVAL[v] }))}
-              value={approval}
-              onChange={setApproval}
-            />
-          </div>
-        </div>
+        </FormRow>
+        <FormRow label="并发上限" hint="同时运行的轮次，超出的在本机排队">
+          <Stepper
+            aria-label="并发上限"
+            min={1}
+            max={Math.max(MAX_CONCURRENCY, bot.concurrency)}
+            value={concurrency}
+            onChange={setConcurrency}
+            width={48}
+          />
+        </FormRow>
+        <FormRow label="命令审批">
+          <SegmentedControl
+            aria-label="命令审批"
+            items={(Object.keys(APPROVAL) as Approval[]).map((v) => ({ value: v, label: APPROVAL[v] }))}
+            value={approval}
+            onChange={setApproval}
+          />
+        </FormRow>
         {approval === 'allowlist' ? (
-          <div className="dk-field">
-            <span className="dk-field__title">命令白名单</span>
-            {allowlist.length ? (
-              <div className="dk-chips">
-                {allowlist.map((c) => (
-                  <span key={c} className="dk-chip">
-                    <span className="dk-mono">{c}</span>
-                    <button
-                      type="button"
-                      aria-label={`移除 ${c}`}
-                      onClick={() => setAllowlist(allowlist.filter((x) => x !== c))}
-                    >
-                      <Icon name="xmark" size={10} weight={2} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <div className="dk-inline dk-inline--fill">
-              <Input
-                mono
-                value={prefix}
-                placeholder="命令前缀，如 go build"
-                onChange={(e) => setPrefix(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') add()
-                }}
-              />
-              <Button onClick={add}>添加</Button>
-            </div>
-            <span className="dk-sub">
-              以这些前缀开头的单条命令自动批准；含 &&、;、| 等组合或重定向的命令仍需你审批。
-            </span>
-          </div>
+          <FormRow
+            label="命令白名单"
+            align="top"
+            hint={
+              <>
+                输入命令前缀后按 <Kbd>↩</Kbd> 添加。以这些前缀开头的单条命令自动批准；含 &&、;、|
+                等组合或重定向的命令仍需你审批。
+              </>
+            }
+          >
+            <TokenField
+              value={allowlist}
+              placeholder="命令前缀，如 go build"
+              onChange={(tokens) => setAllowlist(prefixes(tokens))}
+            />
+          </FormRow>
         ) : null}
-        <span className="dk-sub">
-          {agent?.available
-            ? '模型与审批在该 Bot 下一轮运行时生效；并发上限保存到服务器。'
-            : '当前 agent 未安装。模型与审批可先保存，安装并检测通过后生效。'}
-        </span>
-      </div>
+      </Form>
     </Dialog>
   )
 }

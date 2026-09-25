@@ -1,9 +1,19 @@
 import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
-import { AlertDialog, Button, GroupBox, GroupRow, SegmentedControl, Switch, toast } from '@web/ui'
+import {
+  AlertDialog,
+  GroupBox,
+  GroupRow,
+  HelpButton,
+  SegmentedControl,
+  Skeleton,
+  Switch,
+  toast,
+} from '@web/ui'
 import { useEffect, useState } from 'react'
+import logo from '../assets/logo.svg'
 import { ipc, type Settings } from '../ipc'
-import { host, tildify } from '../lib/labels'
-import { Section } from '../lib/ui'
+import { host } from '../lib/labels'
+import { PathValue } from '../lib/ui'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
 import type { PageProps } from '.'
@@ -42,77 +52,70 @@ export function SettingsPage(_: PageProps) {
 
   return (
     <>
-      <Section title="外观">
-        <GroupBox>
-          <GroupRow label="主题" description="浅色、深色或跟随系统">
-            <SegmentedControl
-              aria-label="主题"
-              items={APPEARANCE}
-              value={theme}
-              onChange={(v) => {
-                setTheme(v)
-                setThemeState(v)
-              }}
-            />
-          </GroupRow>
-          <GroupRow label="玻璃效果" description="清透、标准或着色">
-            <SegmentedControl
-              aria-label="玻璃效果"
-              items={GLASS}
-              value={glass}
-              onChange={(v) => {
-                setGlass(v)
-                setGlassState(v)
-              }}
-            />
-          </GroupRow>
-        </GroupBox>
-      </Section>
-      <Section title="通用">
-        <GroupBox>
-          <GroupRow label="自动升级" description="服务器公布协议版本，不兼容时拒绝连接并提示升级">
+      <GroupBox>
+        <GroupRow label="主题">
+          <SegmentedControl
+            aria-label="主题"
+            items={APPEARANCE}
+            value={theme}
+            onChange={(v) => {
+              setTheme(v)
+              setThemeState(v)
+            }}
+          />
+        </GroupRow>
+        <GroupRow label="玻璃效果" description="调节侧栏、菜单和浮层的透明程度">
+          <SegmentedControl
+            aria-label="玻璃效果"
+            items={GLASS}
+            value={glass}
+            onChange={(v) => {
+              setGlass(v)
+              setGlassState(v)
+            }}
+          />
+        </GroupRow>
+      </GroupBox>
+      <GroupBox>
+        <GroupRow label="自动升级">
+          <span className="dk-inline">
+            <HelpButton help="服务器公布协议版本，不兼容时拒绝连接并提示升级。" />
             <Switch
               aria-label="自动升级"
               checked={settings?.autoUpgrade ?? false}
               disabled={!settings}
               onChange={toggle('autoUpgrade', ipc.setAutoUpgrade)}
             />
-          </GroupRow>
-          <GroupRow label="开机启动" description="登录系统后在后台运行">
-            <Switch
-              aria-label="开机启动"
-              checked={settings?.launchAtLogin ?? false}
-              disabled={!settings}
-              onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
-            />
-          </GroupRow>
-        </GroupBox>
-      </Section>
-      <Section title="存储与连接">
-        <GroupBox>
-          <GroupRow label="工作区根目录" description="托管工作区与附件目录">
-            <span className="dk-value">{info ? tildify(info.workspacesDir) : ''}</span>
-          </GroupRow>
-          <GroupRow label="备份目录" description="被覆盖的本地修改、中断的半成品">
-            <span className="dk-value">{info ? tildify(info.backupsDir) : ''}</span>
-          </GroupRow>
-          <GroupRow label="服务器" description="只出站连接 · HTTPS / WSS">
-            <span className="dk-value">{host(info?.server)}</span>
-          </GroupRow>
-        </GroupBox>
-      </Section>
-      <Section title="绑定">
-        <GroupBox>
-          <GroupRow label="解除绑定" description="解除后清除团队密钥与托管工作区，本机备份保留。">
-            <Button variant="destructive" onClick={() => setConfirming(true)}>
-              解除绑定…
-            </Button>
-          </GroupRow>
-        </GroupBox>
-      </Section>
+          </span>
+        </GroupRow>
+        <GroupRow label="开机启动" description="登录系统后在后台运行">
+          <Switch
+            aria-label="开机启动"
+            checked={settings?.launchAtLogin ?? false}
+            disabled={!settings}
+            onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
+          />
+        </GroupRow>
+      </GroupBox>
+      <GroupBox>
+        <GroupRow label="工作区根目录" description="托管工作区与附件目录">
+          {info ? <PathValue path={info.workspacesDir} /> : <Skeleton count={1} width={160} />}
+        </GroupRow>
+        <GroupRow label="备份目录" description="被覆盖的本地修改、中断的半成品">
+          {info ? <PathValue path={info.backupsDir} /> : <Skeleton count={1} width={160} />}
+        </GroupRow>
+        <GroupRow label="服务器" description="只出站连接 · HTTPS / WSS">
+          <span className="dk-value">{host(info?.server)}</span>
+        </GroupRow>
+      </GroupBox>
+      <GroupBox>
+        <GroupRow label="解除绑定…" destructive onClick={() => setConfirming(true)} />
+      </GroupBox>
+      <p className="dk-footnote">解除绑定后清除团队密钥与托管工作区，本机备份保留。</p>
       <AlertDialog
         open={confirming}
         onClose={() => setConfirming(false)}
+        icon={<img src={logo} alt="" width={48} height={48} />}
         title="要解除本机与团队服务器的绑定吗？"
         message="本机将断开连接，清除团队密钥与托管工作区（/cd 绑定的目录与本机备份保留），并回到首次绑定引导。此操作不可撤销。"
         actions={[

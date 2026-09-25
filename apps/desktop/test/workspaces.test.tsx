@@ -54,7 +54,7 @@ const DATA: Workspaces = {
   offline: false,
 }
 
-const rowOf = (text: string) => screen.getByText(text).closest('[data-testid="ws-row"]') as HTMLElement
+const rowOf = (text: string) => screen.getByText(text).closest('[role="row"]') as HTMLElement
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -69,7 +69,8 @@ describe('工作区', () => {
   it('lists group × bot, kind, path and state with one action each, plus local backups', async () => {
     render(<WorkspacesPage go={() => {}} />)
     await screen.findByText('支付服务重构')
-    for (const h of ['群 × Bot', '类型', '路径', '状态']) expect(screen.getByText(h)).toBeTruthy()
+    for (const h of ['群', 'Bot', '类型', '路径', '状态'])
+      expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const pay = rowOf('支付服务重构')
     expect(within(pay).getByText('托管')).toBeTruthy()
     expect(within(pay).getByText('~/.gonggong/workspaces/g1/b1/r1')).toBeTruthy()

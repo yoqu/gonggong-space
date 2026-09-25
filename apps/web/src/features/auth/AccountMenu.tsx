@@ -24,8 +24,16 @@ const GLASS_OPTIONS: { value: GlassPreference; label: string }[] = [
   { value: 'tinted', label: '着色' },
 ]
 
-/** Avatar button with the glass account menu (Pane MenuButton + Menu). */
-export function AccountMenu() {
+/** Avatar button with the glass account menu (Pane MenuButton + Menu); at the NavRail foot it opens upward. */
+export function AccountMenu({
+  size = 24,
+  align = 'end',
+  placement = 'below',
+}: {
+  size?: number
+  align?: 'start' | 'end'
+  placement?: 'below' | 'above'
+}) {
   const user = useSession((s) => s.user)
   const [dialog, setDialog] = useState<'bind' | 'usage' | 'password' | null>(null)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
@@ -73,7 +81,8 @@ export function AccountMenu() {
         className="account__trigger"
         aria-label="账户菜单"
         title={user.name}
-        align="end"
+        align={align}
+        placement={placement}
         items={items}
         onSelect={select}
         onOpenChange={(open) => {
@@ -83,7 +92,7 @@ export function AccountMenu() {
           setGlassState(getGlass())
         }}
       >
-        <Avatar name={user.name} size={24} />
+        <Avatar name={user.name} size={size} />
       </MenuButton>
       <BindMachineDialog open={dialog === 'bind'} onClose={() => setDialog(null)} />
       <Presence>{dialog === 'usage' ? <UsageDialog onClose={() => setDialog(null)} /> : null}</Presence>

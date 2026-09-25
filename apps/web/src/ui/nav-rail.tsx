@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { type Glyph, renderGlyph } from './controls'
@@ -22,6 +22,10 @@ export interface NavRailProps {
   /** Pinned to the bottom, e.g. settings. */
   footer?: NavRailItem[]
   avatar?: AvatarProps
+  /** Pinned below the footer items, e.g. the account menu trigger. */
+  trailing?: ReactNode
+  /** `horizontal` lays the rail out as a bottom tab bar (narrow windows); ←→ then switch modules. */
+  orientation?: 'vertical' | 'horizontal'
   selected?: string
   defaultSelected?: string
   onSelect?: (id: string) => void
@@ -30,11 +34,18 @@ export interface NavRailProps {
   'aria-label'?: string
 }
 
-const KEYS = ['ArrowDown', 'ArrowUp', 'Home', 'End']
+const PREV = { vertical: 'ArrowUp', horizontal: 'ArrowLeft' }
+const NEXT = { vertical: 'ArrowDown', horizontal: 'ArrowRight' }
 
-/** Moves focus among `selector` inside the list with ↑↓ Home End and selects by clicking the new row. */
-export function selectFollowsFocus(e: KeyboardEvent<HTMLElement>, selector: string) {
-  if (!KEYS.includes(e.key)) return
+/** Moves focus among `selector` inside the list with ↑↓ (←→ when horizontal) Home End and selects by clicking the new row. */
+export function selectFollowsFocus(
+  e: KeyboardEvent<HTMLElement>,
+  selector: string,
+  orientation: 'vertical' | 'horizontal' = 'vertical',
+) {
+  const prev = PREV[orientation]
+  const fwd = NEXT[orientation]
+  if (![prev, fwd, 'Home', 'End'].includes(e.key)) return
   const rows = [...e.currentTarget.querySelectorAll<HTMLElement>(selector)].filter(
     (el) => !(el as HTMLButtonElement).disabled,
   )
@@ -45,7 +56,7 @@ export function selectFollowsFocus(e: KeyboardEvent<HTMLElement>, selector: stri
       ? 0
       : e.key === 'End'
         ? rows.length - 1
-        : Math.max(0, Math.min(rows.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))
+        : Math.max(0, Math.min(rows.length - 1, at + (e.key === fwd ? 1 : -1)))
   e.preventDefault()
   rows[next]?.focus()
   rows[next]?.click()
@@ -56,6 +67,8 @@ export function NavRail({
   items,
   footer,
   avatar,
+  trailing,
+  orientation = 'vertical',
   selected,
   defaultSelected,
   onSelect,
@@ -75,6 +88,9 @@ export function NavRail({
         className="ui-rail__item"
         aria-current={on ? 'page' : undefined}
         title={it.label}
+        aria-label={
+          it.badge ? `${it.label}（${it.badge} 条未读）` : it.dot ? `${it.label}（有新内容）` : it.label
+        }
         tabIndex={it.id === stop ? 0 : -1}
         onClick={() => {
           setCurrent(it.id)
@@ -97,10 +113,10 @@ export function NavRail({
   }
   return (
     <nav
-      className={cx('ui-rail', className)}
+      className={cx('ui-rail', orientation === 'horizontal' && 'ui-rail--bar', className)}
       style={style}
       aria-label={label}
-      onKeyDown={(e) => selectFollowsFocus(e, '.ui-rail__item')}
+      onKeyDown={(e) => selectFollowsFocus(e, '.ui-rail__item', orientation)}
     >
       {avatar ? (
         <div className="ui-rail__me">
@@ -109,6 +125,9 @@ export function NavRail({
       ) : null}
       <div className="ui-rail__items">{items.map(item)}</div>
       {footer ? <div className="ui-rail__items ui-rail__footer">{footer.map(item)}</div> : null}
+      {trailing ? (
+        <div className={cx('ui-rail__trailing', !footer && 'ui-rail__footer')}>{trailing}</div>
+      ) : null}
     </nav>
   )
 }

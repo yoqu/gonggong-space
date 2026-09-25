@@ -1,10 +1,12 @@
 import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
 import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { botStateText, PRESENCE } from '../features/bots/model'
+import { BINDING_LABEL, PRESENCE } from '../features/bots/model'
+import { draftKey } from '../features/chat/MessageComposer'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Button, ConversationContent, Icon } from '../ui'
+import { keyNav } from '../ui/im/keynav'
 import { useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
@@ -52,21 +54,41 @@ function SectionHead({ label, onAdd, addTitle }: { label: string; onAdd?: () => 
   )
 }
 
-/** Unsent text MessageComposer keeps per group (its `gonggong:draft:<id>` sessionStorage key). */
+/** Unsent text MessageComposer keeps per group. */
 const draftOf = (groupId: string) => {
   try {
-    return sessionStorage.getItem(`gonggong:draft:${groupId}`) ?? undefined
+    return sessionStorage.getItem(draftKey(groupId)) ?? undefined
   } catch {
     return undefined
   }
 }
 
-function GroupRow({ g, current }: { g: GroupDto; current: boolean }) {
+/** Second line of a Bot row: its machine and state, or the binding state; missing parts are left out. */
+const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
+  online: '在线',
+  running: '运行中',
+  offline: '离线',
+  agent_missing: 'agent 缺失',
+}
+const botMeta = (b: BotDto) =>
+  b.binding === 'bound'
+    ? [b.machineName, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
+    : BINDING_LABEL[b.binding]
+
+function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabStop: boolean }) {
   const dm = g.kind === 'dm'
   // The mode lives in the chat header; the row's second line is for the latest message.
   const preview = g.last || (dm ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
   return (
-    <NavLink to={`/g/${g.id}`} className="pn-conv" data-testid={`group-item-${g.id}`}>
+    <NavLink
+      to={`/g/${g.id}`}
+      className="pn-conv"
+      data-testid={`group-item-${g.id}`}
+      tabIndex={tabStop ? 0 : -1}
+      onKeyDown={(e) =>
+        keyNav(e, e.currentTarget.closest<HTMLElement>('.sidebar__scroll'), '.pn-conv', { select: true })
+      }
+    >
       <ConversationContent
         item={{
           id: g.id,
@@ -200,6 +222,9 @@ export function Sidebar({
       empty: '还没有私聊',
     },
   ]
+  // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
+  const rows = lists.flatMap((l) => l.items)
+  const stop = rows.find((g) => pathname === `/g/${g.id}`)?.id ?? rows[0]?.id
   return (
     <div className="sidebar">
       {header}
@@ -219,7 +244,9 @@ export function Sidebar({
             <SectionHead label={l.label} onAdd={l.add} addTitle={l.addTitle} />
             <div className="sidebar__list">
               {l.items.length
-                ? l.items.map((g) => <GroupRow key={g.id} g={g} current={pathname === `/g/${g.id}`} />)
+                ? l.items.map((g) => (
+                    <GroupRow key={g.id} g={g} current={pathname === `/g/${g.id}`} tabStop={g.id === stop} />
+                  ))
                 : empty(l.empty)}
             </div>
           </section>
@@ -233,12 +260,14 @@ export function Sidebar({
                     <button
                       type="button"
                       className="sidebar__open"
-                      title={`${b.name} · ${botStateText(b)}`}
+                      title={`${b.name} · ${botMeta(b)}`}
                       onClick={() => onOpenBot?.(b.id)}
                     >
                       <span className="sidebar__dot" style={{ background: PRESENCE[b.presence].color }} />
-                      <span className="sidebar__name">{b.name}</span>
-                      <span className="sidebar__meta">{botStateText(b)}</span>
+                      <span className="sidebar__text">
+                        <span className="sidebar__name">{b.name}</span>
+                        <span className="sidebar__meta">{botMeta(b)}</span>
+                      </span>
                     </button>
                     {b.binding === 'pending_confirm' && onConfirmBot ? (
                       <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
@@ -256,21 +285,23 @@ export function Sidebar({
             {machines.length
               ? machines.map((m) => {
                   const bound = bots.filter((b) => b.machineId === m.id).length
-                  const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 Bot` : ''}`
+                  const meta = [OS_LABEL[m.os], bound && `${bound} 个 Bot`].filter(Boolean).join(' · ')
                   return (
                     <div key={m.id} className="sidebar__row">
                       <button
                         type="button"
                         className="sidebar__open"
-                        title={`${m.name} · ${m.online ? '在线' : '离线'} · ${meta}`}
+                        title={[m.name, m.online ? '在线' : '离线', meta].filter(Boolean).join(' · ')}
                         onClick={() => onOpenMachine?.(m.id)}
                       >
                         <span
                           className="sidebar__dot"
                           style={{ background: m.online ? 'var(--system-green)' : 'var(--system-gray)' }}
                         />
-                        <span className="sidebar__name">{m.name}</span>
-                        <span className="sidebar__meta">{meta}</span>
+                        <span className="sidebar__text">
+                          <span className="sidebar__name">{m.name}</span>
+                          {meta ? <span className="sidebar__meta">{meta}</span> : null}
+                        </span>
                       </button>
                     </div>
                   )

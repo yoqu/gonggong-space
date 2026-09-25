@@ -20,6 +20,8 @@ export interface Page {
   /** A `var(--system-*)` sidebar icon color. */
   color: string
   desc: string
+  /** Shows a large title in the content, moving it into the toolbar once scrolled (macOS settings panes). */
+  largeTitle?: boolean
   Component: ComponentType<PageProps>
 }
 
@@ -82,7 +84,8 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: '设置',
         icon: 'gear',
         color: 'var(--system-gray)',
-        desc: '升级、启动项与存储位置',
+        desc: '外观、升级、启动项与存储位置',
+        largeTitle: true,
         Component: SettingsPage,
       },
     ],
