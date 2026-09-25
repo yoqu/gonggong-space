@@ -19,7 +19,7 @@ export function ReactionPicker({
   return (
     <Popover
       className="reaction-picker"
-      placement="top-end"
+      placement="top-start"
       open={open}
       onOpenChange={onOpenChange}
       aria-label="表情回应"

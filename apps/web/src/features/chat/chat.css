@@ -297,6 +297,7 @@
   padding: 0 var(--space-8);
   border-radius: var(--radius-capsule);
   background: var(--quote-fill);
+  box-shadow: var(--shadow-outline, none);
   white-space: nowrap;
 }
 .git-bar__name {

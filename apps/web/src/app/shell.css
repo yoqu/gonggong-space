@@ -187,6 +187,7 @@ body {
   border: 0;
   border-radius: var(--radius-capsule);
   background: var(--control-track);
+  box-shadow: var(--shadow-outline, none);
   color: var(--label-secondary);
   font: inherit;
   text-align: left;

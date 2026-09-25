@@ -226,6 +226,10 @@
 .run-card .pn-msg__col {
   max-width: min(88%, 560px);
 }
+/* The card's own gap spaces its reply; the list-level pull-up for continued messages would overlap the card. */
+.run-card .pn-msg--cont {
+  margin-top: 0;
+}
 /* A finished run's actions sit on its reply; hovering the card above it reveals them too. */
 .run-card:hover .pn-msg__actions {
   opacity: 1;

@@ -264,6 +264,11 @@ describe('Avatar', () => {
     expect(text(screen.getByRole('img', { name: 'Mia Chen' }))).toBe('MC')
   })
 
+  it('uses word initials when a mixed name has a lone Chinese character', () => {
+    render(<Avatar name="yoqu的 Codex" shape="square" />)
+    expect(text(screen.getByRole('img', { name: 'yoqu的 Codex' }))).toBe('YC')
+  })
+
   it('hashes the name to a stable avatar color', () => {
     const { rerender } = render(<Avatar name="张三" />)
     const first = screen.getByRole('img', { name: '张三' }).style.background

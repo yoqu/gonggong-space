@@ -97,7 +97,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
                 : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
-          <Button onClick={onClose}>关闭</Button>
+          <Button onClick={onClose}>取消</Button>
           <Button variant="primary" disabled={!!blocked || creating} onClick={() => void submit()}>
             创建
           </Button>

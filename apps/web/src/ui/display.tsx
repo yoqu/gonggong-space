@@ -71,12 +71,13 @@ const STATUS_TEXT = { online: '在线', busy: '忙碌', away: '离开' }
 
 /**
  * Chinese person name (2–3 characters) → last two characters; groups and longer Chinese names
- * (roles like 「系统管理员」) → first two; otherwise first letters of the first two words.
+ * (roles like 「系统管理员」) → first two; otherwise (incl. mixed names with a lone Chinese character such as
+ * 「yoqu的 Codex」) first letters of the first two words.
  */
 function initials(name: string, group: boolean) {
   const n = name.trim()
-  if (HAN.test(n)) {
-    const han = n.replace(HAN_ALL, '')
+  const han = n.replace(HAN_ALL, '')
+  if (HAN.test(n) && han.length >= 2) {
     return group || han.length > 3 ? han.slice(0, 2) : han.slice(-2)
   }
   const [first = '', second = ''] = n.split(/\s+/)
