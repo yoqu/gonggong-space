@@ -14,7 +14,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
-import { RUN_STATUS } from '../src/features/chat/TimelineItems'
+import { fmtDuration, RUN_STATUS } from '../src/features/chat/TimelineItems'
 import { EmptyChatArt, EmptyState } from '../src/ui'
 import { mockApi } from './mockApi'
 
@@ -212,6 +212,13 @@ describe('bot reply layout (C2)', () => {
   })
 })
 
+describe('run duration', () => {
+  it('reads m:ss under an hour and h:mm:ss beyond', () => {
+    expect(fmtDuration(65_000)).toBe('01:05')
+    expect(fmtDuration((1 * 3600 + 57 * 60 + 39) * 1000)).toBe('1:57:39')
+  })
+})
+
 describe('run status icons', () => {
   it('draws every status with a label; only awaiting states show the text', () => {
     for (const status of RunStatus.options) {
@@ -333,6 +340,46 @@ describe('hover action bar', () => {
     expect(within(card).getByRole('button', { name: '查看过程' })).toBeTruthy()
     const row = screen.getByText('第 1 条').closest('.pn-msg') as HTMLElement
     expect(within(row).queryByRole('button', { name: '查看过程' })).toBeNull()
+  })
+
+  it('right-click opens a menu with every action of the bar, including the ones under 更多', async () => {
+    renderChat({ messages: [msg({ seq: 1, body: '你好' })], runs: [] })
+    const bubble = await screen.findByText('你好')
+    fireEvent.contextMenu(bubble)
+    const menu = screen.getByRole('menu')
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(['表情回应', '引用回复', '复制', '复制链接'])
+    fireEvent.click(within(menu).getByRole('menuitem', { name: '表情回应' }))
+    const row = bubble.closest('.pn-msg') as HTMLElement
+    expect(within(row).getByRole('button', { name: '添加表情回应' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    )
+    expect(within(row).getByRole('toolbar', { name: '消息操作' }).dataset.open).toBe('true')
+  })
+
+  it('run cards add 查看过程 to their menu', async () => {
+    renderChat({ messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })], runs: [run()] })
+    fireEvent.contextMenu(await screen.findByTestId('run-card'))
+    expect(screen.getByRole('menuitem', { name: '查看过程' })).toBeTruthy()
+  })
+
+  it('ends the list with the working Bots while a run executes', async () => {
+    renderChat({ messages: [msg({ seq: 1 })], runs: [run()] })
+    expect((await screen.findByText('小王的 Claude 正在处理…')).closest('[role=status]')).toBeTruthy()
+  })
+
+  it('shows a drop zone while files are dragged over the chat', async () => {
+    renderChat({ messages: [msg({ seq: 1 })], runs: [] })
+    const view = (await screen.findByText('第 1 条')).closest('.chat-view') as HTMLElement
+    fireEvent.dragEnter(view, { dataTransfer: { types: ['text/plain'] } })
+    expect(screen.queryByRole('group', { name: '添加附件' })).toBeNull()
+    fireEvent.dragEnter(view, { dataTransfer: { types: ['Files'] } })
+    expect(screen.getByRole('group', { name: '添加附件' })).toBeTruthy()
+    fireEvent.dragLeave(view, { dataTransfer: { types: ['Files'] } })
+    expect(screen.queryByRole('group', { name: '添加附件' })).toBeNull()
   })
 
   it('opens on a touch long-press', async () => {

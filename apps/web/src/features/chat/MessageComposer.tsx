@@ -1,5 +1,13 @@
 import type { GroupDto, MessageDto } from '@gonggong/protocol'
-import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type RefObject,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useIsMobile } from '../../app/viewport'
 import { ApiError, api } from '../../lib/api'
 import { Composer, toast } from '../../ui'
@@ -49,7 +57,16 @@ async function postMessage(groupId: string, req: SendBody): Promise<MessageDto> 
   }
 }
 
-export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m: MessageDto) => void }) {
+export function MessageComposer({
+  group,
+  onSent,
+  dropFiles,
+}: {
+  group: GroupDto
+  onSent: (m: MessageDto) => void
+  /** Filled with the upload entry point, so files dropped anywhere on the chat attach here. */
+  dropFiles?: RefObject<((files: File[]) => void) | null>
+}) {
   const mobile = useIsMobile()
   const [draft, setDraft] = useState(() => loadDraft(group.id))
   const [caret, setCaret] = useState(0)
@@ -59,6 +76,9 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
   const [sent, setSent] = useState(0)
   const sending = useRef(false)
   const uploads = useUploads(group.id)
+  useEffect(() => {
+    if (dropFiles) dropFiles.current = uploads.add
+  })
   const quote = useQuote((s) => (s.quote?.groupId === group.id ? s.quote : null))
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)

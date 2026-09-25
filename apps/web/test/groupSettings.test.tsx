@@ -143,7 +143,7 @@ function renderAt(path: string) {
 async function openDrawer() {
   const main = screen.getByRole('main')
   fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
-  return screen.findByRole('dialog', { name: '群设置' })
+  return screen.findByRole('complementary', { name: '群设置' })
 }
 
 beforeEach(() => {
@@ -154,14 +154,14 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-describe('group settings drawer', () => {
+describe('group settings inspector', () => {
   it('shows an admin the group card, members, bots, switches and management rows', async () => {
     mockApi(routes([group()]))
     renderAt('/g/g1')
     const d = await openDrawer()
     expect(within(d).getByText('git@git.corp:pay/pay-server.git · main')).toBeTruthy()
-    expect(within(d).getByRole('button', { name: /群成员\s*2 人/ })).toBeTruthy()
-    expect(within(d).getByRole('button', { name: /Bot\s*2 个/ })).toBeTruthy()
+    expect(within(within(d).getByRole('region', { name: '群成员' })).getByText('2')).toBeTruthy()
+    expect(within(d).getByRole('button', { name: /^Bot.*2 个$/ })).toBeTruthy()
     expect(within(d).getByRole('switch', { name: /消息免打扰/ })).toBeTruthy()
     expect(within(d).getByText('普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒')).toBeTruthy()
     expect(within(d).getByText('只对我生效，审批与提问卡片始终展开')).toBeTruthy()
@@ -199,7 +199,7 @@ describe('group settings drawer', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: /群名称与公告/ }))
-    const info = await screen.findByRole('dialog', { name: '群设置' })
+    const info = await screen.findByRole('complementary', { name: '群设置' })
     fireEvent.change(within(info).getByLabelText('群名称'), { target: { value: '设置后' } })
     fireEvent.change(within(info).getByLabelText(/群公告/), { target: { value: '每个 Bot 独立分支，走 PR' } })
     fireEvent.click(within(info).getByRole('button', { name: '保存' }))
@@ -255,8 +255,8 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
-    const d = await screen.findByRole('dialog', { name: '私聊设置' })
-    expect(within(d).queryByRole('button', { name: /群成员/ })).toBeNull()
+    const d = await screen.findByRole('complementary', { name: '私聊设置' })
+    expect(within(d).queryByRole('region', { name: '群成员' })).toBeNull()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     fireEvent.click(within(d).getByRole('button', { name: '删除私聊' }))
     expect(within(d).getByRole('button', { name: '确认删除' })).toBeTruthy()
@@ -321,7 +321,7 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /群成员/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
     fireEvent.click(await within(d).findByRole('button', { name: '赵敏' }))
     await waitFor(() =>
@@ -339,13 +339,24 @@ describe('group settings drawer', () => {
     )
   })
 
+  it('the 添加 tile opens 群成员 with the candidates already listed', async () => {
+    mockApi(routes([group()]))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: '添加' }))
+    expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
+    expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
+    fireEvent.click(within(d).getByRole('button', { name: '返回' }))
+    expect(within(d).getByRole('heading', { name: '群设置' })).toBeTruthy()
+  })
+
   it('hides leaving when I am the only member; dissolving stays in the danger zone', async () => {
     mockApi(routes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: true }] })]))
     renderAt('/g/g1')
     const d = await openDrawer()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     const dissolve = within(d).getByRole('button', { name: '解散群' })
-    expect(dissolve.closest('.gs-danger')).toBeTruthy()
+    expect(dissolve.closest('.pn-info__group--danger')).toBeTruthy()
   })
 
   it('confirms removing a member, blocks double submits and reports success', async () => {
@@ -356,7 +367,7 @@ describe('group settings drawer', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /群成员/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(within(d).getByTestId('member-u2')).getByRole('button', { name: '移出' }))
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
     const confirm = await screen.findByRole('dialog', { name: '移出成员 李建国' })
@@ -411,7 +422,7 @@ describe('group settings drawer', () => {
     expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()
 
     fail = true
-    fireEvent.click(within(d).getByRole('button', { name: /群成员/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
     expect(await within(d).findByText('成员列表加载失败')).toBeTruthy()
     fail = false

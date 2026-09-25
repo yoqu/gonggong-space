@@ -148,6 +148,6 @@ describe('timeline wiring', () => {
     expect(screen.getByRole('img', { name: '李建国' }).closest('[aria-haspopup="dialog"]')).not.toBeNull()
     unmount()
     render(<BotReply m={m({ kind: 'bot', authorId: 'b1', authorName: '小王的 Claude' })} />)
-    expect(document.querySelector('[aria-haspopup="dialog"]')).toBeNull()
+    expect(document.querySelector('[aria-haspopup="dialog"]:not([aria-label="添加表情回应"])')).toBeNull()
   })
 })

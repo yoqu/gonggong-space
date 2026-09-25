@@ -1,4 +1,4 @@
-/* Reactions: Pane pills (pn-reaction) with clickable reactor names; picker popover on the hover bar. */
+/* Reactions: Pane pills (pn-reaction) with clickable reactor names; Pane EmojiPicker on the hover bar. */
 .reaction-bar {
   transform-origin: left center;
 }
@@ -41,41 +41,13 @@
   text-decoration: underline;
 }
 
-.reaction-picker {
-  position: relative;
-  display: inline-flex;
-}
-.reaction-picker__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-}
-.reaction-picker__menu {
-  position: absolute;
-  bottom: calc(100% + var(--space-6));
-  right: 0;
-  z-index: 21;
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border-radius: var(--radius-capsule);
-  transform-origin: bottom right;
-}
-.reaction-picker__item {
-  width: var(--control-large);
-  height: var(--control-large);
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  font-size: 18px;
-  line-height: 1;
-  cursor: default;
-  transition: transform var(--fade-in);
-}
-.reaction-picker__item:hover {
-  background: var(--control-track);
-  transform: scale(1.15);
-}
-.reaction-picker__item[aria-checked="true"] {
-  background: var(--tint-blue);
+/* The fixed six-emoji picker is a compact row. It sits inside the glass hover bar, where a nested backdrop blur
+   cannot sample the page, so it takes the opaque content surface instead of see-through glass. */
+.reaction-picker > .ui-popover {
+  min-width: 0;
+  background: var(--content-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: var(--space-6);
+  border-radius: var(--radius-menu);
 }

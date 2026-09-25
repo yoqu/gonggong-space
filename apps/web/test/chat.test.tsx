@@ -472,7 +472,7 @@ describe('chat view', () => {
     expect(within(main).getByTestId('bot-reply').textContent).toContain('字段变化如下')
     expect(within(main).getByRole('cell', { name: '分' })).toBeTruthy()
     expect(
-      within(main.querySelector('.md-code') as HTMLElement).getByRole('button', { name: '复制' }),
+      within(main.querySelector('.pn-code') as HTMLElement).getByRole('button', { name: '复制' }),
     ).toBeTruthy()
 
     const card = within(main).getByTestId('run-card')
@@ -778,7 +778,7 @@ describe('repo validation and binding', () => {
     renderAt('/g/g1')
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
-    const drawer = await screen.findByRole('dialog', { name: '群设置' })
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
     fireEvent.click(within(drawer).getByRole('button', { name: /仓库与基准分支/ }))
     const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
     expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
@@ -808,7 +808,7 @@ describe('repo validation and binding', () => {
     renderAt('/g/g1')
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
-    const drawer = await screen.findByRole('dialog', { name: '群设置' })
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
     expect(
       within(drawer)
         .getByRole('button', { name: /仓库与基准分支/ })

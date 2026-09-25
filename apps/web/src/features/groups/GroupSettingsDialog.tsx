@@ -18,7 +18,7 @@ import {
 } from '../../ui'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from '../chat/RepoFields'
 import { groupsApi } from './api'
-import { BotsView, type SettingsTab } from './GroupDrawer'
+import { BotsView, type SettingsTab } from './GroupInfo'
 
 /** Only the P1 params are adjustable (spec §10); /hold, forced-sync approval wait and dispatch timeout are P2. */
 const PARAMS: { key: keyof GroupParams; label: string }[] = [

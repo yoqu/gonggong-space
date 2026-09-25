@@ -11,13 +11,20 @@ function PanelHead({
   children,
   onClose,
   closeLabel,
+  onBack,
 }: {
   children: ReactNode
   onClose?: () => void
   closeLabel: string
+  onBack?: () => void
 }) {
   return (
     <div className="pn-info__head">
+      {onBack && (
+        <button type="button" className="pn-info__close" aria-label="返回" title="返回" onClick={onBack}>
+          <Icon name="chevron-left" weight={2} />
+        </button>
+      )}
       {children}
       {onClose && (
         <button type="button" className="pn-info__close" aria-label={closeLabel} onClick={onClose}>
@@ -36,9 +43,25 @@ export interface ChatInfoRow {
   onClick?: () => void
   /** Right-side control such as a Switch; takes effect immediately. */
   control?: ReactNode
+  /** A clickable row the viewer may not use: greyed, with a lock instead of the chevron. */
+  disabled?: boolean
 }
 
-function InfoRow({ label, description, value, onClick, control }: ChatInfoRow) {
+/** A titled group of rows, e.g.「群管理」with a note such as「你是群管理员」. */
+export interface ChatInfoGroup {
+  title?: ReactNode
+  note?: ReactNode
+  rows: ChatInfoRow[]
+}
+
+export interface ChatInfoDanger {
+  label: string
+  onClick?: () => void
+  /** Shown under the row, e.g. what confirming will do. */
+  note?: ReactNode
+}
+
+function InfoRow({ label, description, value, onClick, control, disabled }: ChatInfoRow) {
   const inner = (
     <>
       <span className="pn-info__rowtext">
@@ -48,12 +71,12 @@ function InfoRow({ label, description, value, onClick, control }: ChatInfoRow) {
       <span className="pn-info__trail">
         {control}
         {value != null && <span className="pn-info__value">{value}</span>}
-        {onClick && <Icon name="chevron-right" weight={1.8} />}
+        {onClick && <Icon name={disabled ? 'lock' : 'chevron-right'} weight={1.8} />}
       </span>
     </>
   )
   return onClick ? (
-    <button type="button" className="pn-info__row pn-info__row--button" onClick={onClick}>
+    <button type="button" className="pn-info__row pn-info__row--button" disabled={disabled} onClick={onClick}>
       {inner}
     </button>
   ) : (
@@ -78,19 +101,75 @@ export interface ChatInfoPanelProps {
   maxMembers?: number
   onAddMember?: () => void
   onShowAllMembers?: () => void
-  settings?: ChatInfoRow[]
-  /** Red centred row in its own group, e.g.「退出群聊」. */
-  danger?: { label: string; onClick?: () => void }
+  /** One group of rows, or several titled groups. */
+  settings?: ChatInfoRow[] | ChatInfoGroup[]
+  /** Red centred rows in their own group, e.g.「退出群聊」. */
+  danger?: ChatInfoDanger | ChatInfoDanger[]
   /** Inserted between members and settings. */
   children?: ReactNode
   className?: string
   style?: CSSProperties
 }
 
-/** Group info inspector (300px): identity, shortcuts, members, settings, then the destructive action. */
-export function ChatInfoPanel({
-  title = '群设置',
+const isGroups = (s: ChatInfoRow[] | ChatInfoGroup[]): s is ChatInfoGroup[] => !!s[0] && 'rows' in s[0]
+
+function RowGroup({ rows }: { rows: ChatInfoRow[] }) {
+  return (
+    <div className="pn-info__group">
+      {rows.map((r, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional and labels may be nodes
+        <InfoRow key={i} {...r} />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Inspector shell shared by the info panels: 52px head (back, title, close) over a scrolling body. `label` names the
+ * landmark when the visible title changes between sub-views.
+ */
+export function InspectorPanel({
+  title,
+  label,
+  onBack,
   onClose,
+  children,
+  className,
+  style,
+}: {
+  title: ReactNode
+  label?: string
+  onBack?: () => void
+  onClose?: () => void
+  children?: ReactNode
+  className?: string
+  style?: CSSProperties
+}) {
+  return (
+    <aside
+      className={cx('pn-info', className)}
+      style={style}
+      aria-label={label ?? (typeof title === 'string' ? title : undefined)}
+    >
+      <PanelHead onClose={onClose} onBack={onBack} closeLabel="关闭">
+        <h2 className="pn-info__title">{title}</h2>
+      </PanelHead>
+      <div className="pn-info__scroll">{children}</div>
+    </aside>
+  )
+}
+
+/** Group info inspector (300px): identity, shortcuts, members, settings, then the destructive action. */
+export function ChatInfoPanel({ title = '群设置', onClose, className, style, ...body }: ChatInfoPanelProps) {
+  return (
+    <InspectorPanel title={title} onClose={onClose} className={className} style={style}>
+      <ChatInfoBody {...body} />
+    </InspectorPanel>
+  )
+}
+
+/** The ChatInfoPanel content alone, for an inspector that also hosts sub-views under the same head. */
+export function ChatInfoBody({
   name,
   group = true,
   avatar,
@@ -105,95 +184,100 @@ export function ChatInfoPanel({
   settings,
   danger,
   children,
-  className,
-  style,
-}: ChatInfoPanelProps) {
+}: Omit<ChatInfoPanelProps, 'title' | 'onClose' | 'className' | 'style'>) {
+  const dangers = danger ? (Array.isArray(danger) ? danger : [danger]) : []
   return (
-    <aside className={cx('pn-info', className)} style={style} aria-label={title}>
-      <PanelHead onClose={onClose} closeLabel="关闭">
-        <span>{title}</span>
-      </PanelHead>
-      <div className="pn-info__scroll">
-        <div className="pn-info__id">
-          {avatar ?? (
-            <Avatar
-              name={typeof name === 'string' ? name : ''}
-              size={56}
-              shape={group ? 'square' : 'circle'}
-            />
-          )}
-          <div className="pn-info__name">
-            {name}
-            {tags?.map((t) => (
-              <Tag key={t.label} tone={t.tone}>
-                {t.label}
-              </Tag>
-            ))}
-          </div>
-          {description && <div className="pn-info__desc">{description}</div>}
+    <>
+      <div className="pn-info__id">
+        {avatar ?? (
+          <Avatar name={typeof name === 'string' ? name : ''} size={56} shape={group ? 'square' : 'circle'} />
+        )}
+        <div className="pn-info__name">
+          {name}
+          {tags?.map((t) => (
+            <Tag key={t.label} tone={t.tone}>
+              {t.label}
+            </Tag>
+          ))}
         </div>
-        {shortcuts && shortcuts.length > 0 && (
-          <div className="pn-info__shortcuts">
-            {shortcuts.map((s) => (
-              <button key={s.label} type="button" className="pn-info__shortcut" onClick={s.onClick}>
-                <span className="pn-info__shortcut-icon">{renderGlyph(s.icon)}</span>
-                <span>{s.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {members.length > 0 && (
-          <section className="pn-info__section" aria-label="群成员">
-            <div className="pn-info__section-head">
-              <span>
-                群成员 <span className="pn-info__count">{memberCount ?? members.length}</span>
-              </span>
-              {onShowAllMembers && (
-                <button type="button" className="pn-info__link" onClick={onShowAllMembers}>
-                  查看全部
-                </button>
-              )}
-            </div>
-            <div className="pn-info__members">
-              {onAddMember && (
-                <button type="button" className="pn-info__member" onClick={onAddMember}>
-                  <span className="pn-info__add" aria-hidden="true">
-                    <Icon name="plus" weight={1.8} />
-                  </span>
-                  <span>添加</span>
-                </button>
-              )}
-              {members.slice(0, maxMembers).map((m) => (
-                <div key={m.name} className="pn-info__member">
-                  <Avatar size={36} {...m} />
-                  <span aria-hidden="true">{m.name}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-        {children}
-        {settings && settings.length > 0 && (
-          <div className="pn-info__group">
-            {settings.map((r, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional and labels may be nodes
-              <InfoRow key={i} {...r} />
-            ))}
-          </div>
-        )}
-        {danger && (
-          <div className="pn-info__group">
-            <button
-              type="button"
-              className="pn-info__row pn-info__row--button pn-info__row--danger"
-              onClick={danger.onClick}
-            >
-              {danger.label}
-            </button>
-          </div>
-        )}
+        {description && <div className="pn-info__desc">{description}</div>}
       </div>
-    </aside>
+      {shortcuts && shortcuts.length > 0 && (
+        <div className="pn-info__shortcuts">
+          {shortcuts.map((s) => (
+            <button key={s.label} type="button" className="pn-info__shortcut" onClick={s.onClick}>
+              <span className="pn-info__shortcut-icon">{renderGlyph(s.icon)}</span>
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {members.length > 0 && (
+        <section className="pn-info__section" aria-label="群成员">
+          <div className="pn-info__section-head">
+            <span>
+              群成员 <span className="pn-info__count">{memberCount ?? members.length}</span>
+            </span>
+            {onShowAllMembers && (
+              <button type="button" className="pn-info__link" onClick={onShowAllMembers}>
+                查看全部
+              </button>
+            )}
+          </div>
+          <div className="pn-info__members">
+            {onAddMember && (
+              <button type="button" className="pn-info__member" onClick={onAddMember}>
+                <span className="pn-info__add" aria-hidden="true">
+                  <Icon name="plus" weight={1.8} />
+                </span>
+                <span>添加</span>
+              </button>
+            )}
+            {members.slice(0, maxMembers).map((m) => (
+              <div key={m.name} className="pn-info__member">
+                <Avatar size={36} {...m} />
+                <span aria-hidden="true">{m.name}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {children}
+      {settings && settings.length > 0 ? (
+        isGroups(settings) ? (
+          settings.map((g, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: groups are positional
+            <section key={i} className="pn-info__section">
+              {g.title || g.note ? (
+                <div className="pn-info__section-head">
+                  <span>{g.title}</span>
+                  {g.note ? <span className="pn-info__count">{g.note}</span> : null}
+                </div>
+              ) : null}
+              <RowGroup rows={g.rows} />
+            </section>
+          ))
+        ) : (
+          <RowGroup rows={settings} />
+        )
+      ) : null}
+      {dangers.length > 0 && (
+        <div className="pn-info__group pn-info__group--danger">
+          {dangers.map((d) => (
+            <div key={d.label} className="pn-info__danger">
+              <button
+                type="button"
+                className="pn-info__row pn-info__row--button pn-info__row--danger"
+                onClick={d.onClick}
+              >
+                {d.label}
+              </button>
+              {d.note ? <div className="pn-info__danger-note">{d.note}</div> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -278,7 +362,8 @@ export function ThreadPanel({
 export interface ProfileCardProps {
   name: string
   avatar?: string
-  status?: AvatarProps['status']
+  /** `offline` greys the status dot and shows no avatar badge. */
+  status?: AvatarProps['status'] | 'offline'
   /** e.g.「会议中 · 至 11:00」. */
   statusText?: ReactNode
   title?: ReactNode
@@ -306,7 +391,7 @@ export function ProfileCard({
   return (
     <div className={cx('pn-profile', className)} style={style}>
       <div className="pn-profile__top">
-        <Avatar name={name} src={avatar} size={56} status={status} />
+        <Avatar name={name} src={avatar} size={56} status={status === 'offline' ? undefined : status} />
         <div className="pn-profile__id">
           <div className="pn-profile__name">
             {name}

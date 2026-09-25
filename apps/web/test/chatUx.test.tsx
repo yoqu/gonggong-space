@@ -505,23 +505,24 @@ describe('composer', () => {
 })
 
 describe('markdown code blocks', () => {
-  it('folds long blocks and reports copy failures', async () => {
+  it('renders fenced code as a Pane CodeBlock, uncoloured, scrolling inside its cap, and reports copy failures', async () => {
     const code = Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n')
     render(<Markdown text={`\`\`\`ts\n${code}\n\`\`\``} />)
-    const block = document.querySelector('.md-code') as HTMLElement
-    const toggle = await screen.findByRole('button', { name: '展开' })
-    expect(block.className).toContain('md-code--capped')
-    fireEvent.click(toggle)
-    expect(block.className).not.toContain('md-code--capped')
-    expect(screen.getByRole('button', { name: '收起' })).toBeTruthy()
+    const block = document.querySelector('.pn-code') as HTMLElement
+    expect(within(block).getByText('ts')).toBeTruthy()
+    const pre = block.querySelector('pre') as HTMLElement
+    expect(pre.textContent).toBe(code)
+    expect(pre.tabIndex).toBe(0)
+    expect(pre.querySelector('span')).toBeNull()
 
     vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.reject(new Error('denied')) } })
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     await waitFor(() => expect(useToasts.getState().items.map((t) => t.message)).toContain('复制失败'))
   })
 
-  it('does not fold short blocks', () => {
-    render(<Markdown text={'```ts\nconst a = 1\n```'} />)
-    expect(screen.queryByRole('button', { name: '展开' })).toBeNull()
+  it('keeps inline code in the text', () => {
+    render(<Markdown text={'run `pnpm test` now'} />)
+    expect(document.querySelector('.pn-code')).toBeNull()
+    expect(screen.getByText('pnpm test').tagName).toBe('CODE')
   })
 })

@@ -5,17 +5,20 @@ import './rich.css'
 
 const COPIED_MS = 1500
 
-/** Multi-line code in a message: language/filename header, 拷贝 button, mono text scrolling sideways, 240px tall at most. No syntax colouring (Pane). */
+/** Multi-line code in a message: language/filename header, 复制 button, mono text scrolling sideways, 240px tall at most. No syntax colouring (Pane). */
 export function CodeBlock({
   code,
   language,
   filename,
+  onCopyError,
   className,
   style,
 }: {
   code: string
   language?: string
   filename?: string
+  /** The clipboard refused (insecure context, denied permission). */
+  onCopyError?: () => void
   className?: string
   style?: CSSProperties
 }) {
@@ -32,16 +35,20 @@ export function CodeBlock({
         <button
           type="button"
           className="pn-code__copy"
-          onClick={() => {
-            void navigator.clipboard?.writeText(code)
-            setCopied(true)
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(code)
+              setCopied(true)
+            } catch {
+              onCopyError?.()
+            }
           }}
         >
           <Icon name={copied ? 'check' : 'copy'} />
-          {copied ? '已拷贝' : '拷贝'}
+          {copied ? '已复制' : '复制'}
         </button>
         <span className="pn-code__live" role="status">
-          {copied ? '已拷贝' : ''}
+          {copied ? '已复制' : ''}
         </span>
       </div>
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard */}
@@ -193,10 +200,13 @@ const typingWho = (name: string | string[]) =>
 export function TypingIndicator({
   name,
   bubble = true,
+  action = '正在输入',
   className,
 }: {
   name?: string | string[]
   bubble?: boolean
+  /** The verb after the names, e.g.「正在处理」for a working Bot. */
+  action?: string
   className?: string
 }) {
   return (
@@ -208,7 +218,11 @@ export function TypingIndicator({
           <i />
         </span>
       )}
-      {name && <span className="pn-typing__text">{typingWho(name)} 正在输入…</span>}
+      {name && (
+        <span className="pn-typing__text">
+          {typingWho(name)} {action}…
+        </span>
+      )}
     </div>
   )
 }

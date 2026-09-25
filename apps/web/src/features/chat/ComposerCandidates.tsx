@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Icon, type IconName } from '../../ui'
+import { Avatar, Icon, type IconName } from '../../ui'
 import { PRESENCE } from '../bots/model'
 
 export interface Candidate {
@@ -178,6 +178,20 @@ export function useCandidates(group: GroupDto, before: string | null) {
   return { token, sections: shown, items: shown.flatMap((s) => s.items) }
 }
 
+/** People (members and Bots) show their avatar; files and commands a glyph tile. */
+function Lead({ c }: { c: Candidate }) {
+  return c.icon === 'bot' || c.icon === 'person' ? (
+    <span aria-hidden="true" className="mention-pop__lead">
+      <Avatar name={c.label} size={24} shape={c.icon === 'bot' ? 'square' : 'circle'} />
+    </span>
+  ) : (
+    <span aria-hidden="true" className="mention-pop__lead mention-pop__tile">
+      <Icon name={c.icon} size={14} />
+    </span>
+  )
+}
+
+/** The @ / candidates on the Pane MentionPicker: glass list, section heads, avatar rows, highlight on the active row. */
 export function CandidatePopover({
   id,
   char,
@@ -196,14 +210,14 @@ export function CandidatePopover({
   return (
     <div
       id={id}
-      className="mention-pop"
+      className="pn-mentionpicker mention-pop"
       role="listbox"
       aria-label={char === '/' ? '/ 命令' : '@ 候选'}
       data-testid="composer-popover"
     >
       {sections.map((s) => (
         <fieldset key={s.label} className="mention-pop__group" aria-label={s.label}>
-          <div className="mention-pop__label">
+          <div className="pn-mentionpicker__head mention-pop__head">
             <span>{s.label}</span>
             <span className="mention-pop__src">{s.src}</span>
           </div>
@@ -217,20 +231,19 @@ export function CandidatePopover({
               aria-selected={active === c}
               // Keyboard navigation through long lists (e.g. every Claude skill) keeps the active item in view.
               ref={active === c ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
-              className={cx('mention-pop__item', active === c && 'mention-pop__item--active')}
+              className="pn-mentionpicker__item mention-pop__item"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => onPick(c)}
             >
-              <Icon name={c.icon} size={14} className="mention-pop__icon" />
-              <span className={cx('mention-pop__name', c.mono && 'mention-pop__mono')}>{c.label}</span>
-              <span className="spacer" />
+              <Lead c={c} />
+              <span className={cx('pn-mentionpicker__name', c.mono && 'mention-pop__mono')}>{c.label}</span>
               {c.status ? (
-                <span className="mention-pop__status">
+                <span className="pn-mentionpicker__sub mention-pop__status">
                   <span className="mention-pop__dot" style={{ background: c.status.color }} />
                   {c.status.label}
                 </span>
               ) : null}
-              <span className="mention-pop__hint" title={c.hint}>
+              <span className="pn-mentionpicker__sub mention-pop__hint" title={c.hint}>
                 {c.hint}
               </span>
             </button>

@@ -114,13 +114,25 @@
 .pn-emoji__cell:focus-visible {
   background: var(--selection-fill);
 }
+.pn-emoji__cell[aria-selected="true"] {
+  background: var(--tint-blue);
+}
+/* A fixed set is a single row sized to its emojis. */
+.pn-emoji--fixed {
+  width: auto;
+  padding: var(--space-6);
+}
+.pn-emoji--fixed .pn-emoji__grid {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+}
 .pn-emoji__empty {
   padding: var(--space-16) 0;
   text-align: center;
   font-size: 12px;
   color: var(--label-secondary);
 }
-.pn-popover > .pn-emoji {
+.ui-popover > .pn-emoji {
   box-shadow: none;
   background: transparent;
   -webkit-backdrop-filter: none;

@@ -1,9 +1,12 @@
-/* Group settings drawer + dialog: GroupBox sections on the drawer surface (Pane settings). */
-.gs-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  padding: var(--space-16);
+/* Group settings: the inspector (ChatInfoPanel and its sub-views) and the settings dialog. */
+/* The inspector sets the width (resizable); the panel fills it. */
+.gs-panel {
+  width: auto;
+  flex: 1;
+}
+.gs-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-callout-size);
 }
 .gs-desc {
   font-size: var(--text-subheadline-size);
@@ -11,102 +14,6 @@
   color: var(--label-secondary);
   text-wrap: pretty;
 }
-.gs-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-}
-.gs-card__main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.gs-card__name,
-.gs-card__repo,
-.gs-row__val {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.gs-card__name {
-  font-size: var(--text-title-3-size);
-  line-height: var(--text-title-3-line);
-  font-weight: 600;
-}
-.gs-card__repo {
-  font-family: var(--font-mono);
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-}
-
-/* Clickable GroupBox rows (GroupRow has no button form) */
-.gs-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  min-height: 40px;
-  padding: var(--space-8) var(--space-12);
-  border: 0;
-  background: transparent;
-  color: var(--label);
-  font: inherit;
-  text-align: left;
-  cursor: default;
-}
-.ui-group > .gs-row:first-child {
-  border-top-left-radius: var(--radius-menu);
-  border-top-right-radius: var(--radius-menu);
-}
-.ui-group > .gs-row:last-child {
-  border-bottom-left-radius: var(--radius-menu);
-  border-bottom-right-radius: var(--radius-menu);
-}
-button.gs-row:hover:not(:disabled) {
-  background: var(--selection-fill);
-}
-button.gs-row:disabled {
-  color: var(--label);
-}
-.gs-row--stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-8);
-}
-.gs-row__line {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-.gs-row__icon {
-  flex: none;
-  color: var(--accent-text);
-}
-.gs-row__key {
-  flex: 1;
-}
-.gs-row--stack .gs-row__key {
-  flex: none;
-}
-.gs-row__count {
-  flex: 1;
-  color: var(--label-secondary);
-}
-.gs-row__val {
-  max-width: 160px;
-  color: var(--label-secondary);
-}
-.gs-row__val--mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-subheadline-size);
-}
-.gs-row__chevron {
-  flex: none;
-  color: var(--label-tertiary);
-}
-.gs-avatars,
 .gs-chips {
   display: flex;
   flex-wrap: wrap;
@@ -128,29 +35,6 @@ button.gs-row:disabled {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-}
-.gs-section {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-8);
-  margin-bottom: calc(var(--space-8) * -1);
-  padding: 0 var(--space-12);
-}
-.gs-section__title {
-  font-size: var(--text-subheadline-size);
-  font-weight: 600;
-  color: var(--label-secondary);
-}
-.gs-section .gs-desc {
-  margin-left: auto;
-}
-.gs-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-.gs-danger .gs-section__title {
-  color: var(--tint-red-text);
 }
 .gs-error {
   flex: 1;
@@ -313,7 +197,7 @@ button.gs-row:disabled {
   height: var(--sidebar-row);
   padding: 0 var(--space-8);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -357,8 +241,6 @@ button.gs-row:disabled {
   flex-direction: column;
   gap: var(--space-12);
 }
-.ui-group > * + .gs-row,
-.ui-group > .gs-row + *,
 .ui-group > * + .gs-member,
 .ui-group > * + .gs-bot {
   border-top: 1px solid var(--separator);

@@ -1,4 +1,4 @@
-/* PopUpButton — the menu uses the shared glass float (anchor.css) with Pane menu rows. */
+/* PopUpButton — the menu uses the shared glass float (popover.css) with Pane menu rows. */
 .ui-popup {
   position: relative;
   display: inline-block;

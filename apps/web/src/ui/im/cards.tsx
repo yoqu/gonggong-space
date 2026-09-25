@@ -45,6 +45,12 @@ export interface FileAttachmentProps {
   className?: string
 }
 
+/** Colour and short label of a file's extension tile, shared by FileAttachment and DropZone. */
+export function fileKind(name: string, ext?: string): [Tint, string] {
+  const e = (ext ?? name.split('.').pop() ?? '').toLowerCase()
+  return FILE_KINDS[e] ?? ['gray', e.toUpperCase().slice(0, 4) || 'FILE']
+}
+
 export function FileAttachment({
   name,
   size,
@@ -55,8 +61,7 @@ export function FileAttachment({
   onOpen,
   className,
 }: FileAttachmentProps) {
-  const e = (ext ?? name.split('.').pop() ?? '').toLowerCase()
-  const [tone, label] = FILE_KINDS[e] ?? ['gray', e.toUpperCase().slice(0, 4) || 'FILE']
+  const [tone, label] = fileKind(name, ext)
   const Root = onOpen ? 'button' : 'div'
   return (
     <Root

@@ -119,7 +119,9 @@
   align-items: flex-end;
   gap: var(--space-6);
   padding: var(--space-20) var(--space-8) var(--space-6);
-  background: linear-gradient(to top, rgb(0 0 0 / 0.45), transparent);
+  /* Two scrim layers: the light-theme scrim alone is too faint under white text. */
+  background:
+    linear-gradient(to top, var(--scrim), transparent), linear-gradient(to top, var(--scrim), transparent 70%);
   color: var(--on-accent);
   font-size: var(--text-subheadline-size);
   pointer-events: none;
@@ -156,7 +158,7 @@
   cursor: zoom-in;
 }
 .att-tile__open:hover {
-  background: rgb(0 0 0 / 0.06);
+  background: var(--control-track);
 }
 
 /* Preview rail */

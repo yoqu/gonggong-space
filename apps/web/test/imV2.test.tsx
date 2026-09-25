@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ChatInfoPanel,
@@ -76,7 +76,7 @@ describe('ChatNotice recalled', () => {
 })
 
 describe('Reactions addable', () => {
-  it('opens an EmojiPicker from + and toggles the pick', () => {
+  it('opens an EmojiPicker from + and toggles the pick', async () => {
     const onToggle = vi.fn()
     render(<Reactions items={[{ emoji: '👍', users: ['张三'] }]} addable onToggle={onToggle} />)
     const add = screen.getByRole('button', { name: '添加表情回复' })
@@ -87,16 +87,16 @@ describe('Reactions addable', () => {
       within(screen.getByRole('dialog', { name: '选择表情' })).getByRole('option', { name: '完成' }),
     )
     expect(onToggle).toHaveBeenCalledWith('✅')
-    expect(screen.queryByRole('dialog', { name: '选择表情' })).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择表情' })).toBeNull())
   })
 
-  it('closes on Escape and returns focus to +', () => {
+  it('closes on Escape and returns focus to +', async () => {
     render(<Reactions items={[]} addable />)
     const add = screen.getByRole('button', { name: '添加表情回复' })
     fireEvent.click(add)
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog', { name: '选择表情' })).toBeNull()
     expect(document.activeElement).toBe(add)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择表情' })).toBeNull())
   })
 })
 
@@ -209,15 +209,17 @@ describe('EmojiPicker', () => {
 describe('CodeBlock', () => {
   afterEach(() => vi.useRealTimers())
 
-  it('copies the code and announces 已拷贝', async () => {
+  it('copies the code and announces 已复制', async () => {
     vi.useFakeTimers()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
     render(<CodeBlock code={'pnpm test\n'} language="bash" />)
     expect(screen.getByText('bash')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '拷贝' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    })
     expect(writeText).toHaveBeenCalledWith('pnpm test\n')
-    expect(screen.getByRole('status').textContent).toBe('已拷贝')
+    expect(screen.getByRole('status').textContent).toBe('已复制')
     await act(() => vi.advanceTimersByTimeAsync(1600))
     expect(screen.getByRole('status').textContent).toBe('')
   })
