@@ -1,0 +1,50 @@
+/* Pane Tooltip: small glass tag above (or below) its trigger. */
+.ui-tip-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.ui-tip {
+  position: absolute;
+  z-index: 70;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: max-content;
+  max-width: 240px;
+  padding: 4px var(--space-8);
+  border-radius: 6px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  color: var(--label);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 2px);
+  transition:
+    opacity var(--motion-fast),
+    transform var(--motion-fast);
+}
+.ui-tip--bottom {
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translate(-50%, -2px);
+}
+.ui-tip[data-open] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.ui-tip__kbd {
+  color: var(--label-secondary);
+  letter-spacing: 0.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-tip {
+    transition: none;
+  }
+}

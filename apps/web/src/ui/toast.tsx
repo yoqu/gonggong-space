@@ -1,8 +1,92 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { create } from 'zustand'
+import { cx } from '../lib/cx'
+import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
 import { usePresence } from './presence'
 import './toast.css'
+
+export interface ToastProps {
+  message: ReactNode
+  icon?: Glyph
+  iconColor?: string
+  /** E.g. 「撤销」; give such toasts a duration of at least 5000. */
+  action?: { label: string; onClick?: () => void }
+  /** Renders nothing when false. */
+  open?: boolean
+  /** Calls `onClose` after this many ms. */
+  duration?: number
+  onClose?: () => void
+  className?: string
+  style?: CSSProperties
+}
+
+/** Pane Toast: glass capsule confirming a finished action, announced politely without taking focus. */
+export function Toast({
+  message,
+  icon,
+  iconColor,
+  action,
+  open,
+  duration,
+  onClose,
+  className,
+  style,
+}: ToastProps) {
+  useEffect(() => {
+    if (open === false || !duration || !onClose) return
+    const timer = setTimeout(onClose, duration)
+    return () => clearTimeout(timer)
+  }, [open, duration, onClose])
+  if (open === false) return null
+  return (
+    <div className={cx('ui-toast', className)} style={style} role="status" aria-live="polite">
+      {icon ? (
+        <span className="ui-toast__icon" style={{ color: iconColor }}>
+          {renderGlyph(icon)}
+        </span>
+      ) : null}
+      <span className="ui-toast__message">{message}</span>
+      {action ? (
+        <button type="button" className="ui-toast__action" onClick={action.onClick}>
+          {action.label}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/** Pane HUD: square glass panel mid-screen, like the system volume / 「已存储」 HUD; `level` (0–1) fills 16 steps. */
+export function HUD({
+  icon = 'check',
+  title,
+  level,
+  open,
+  style,
+}: {
+  icon?: Glyph
+  title?: ReactNode
+  level?: number
+  open?: boolean
+  style?: CSSProperties
+}) {
+  if (open === false) return null
+  const on = level == null ? 0 : Math.round(level * 16)
+  return (
+    <div className="ui-hud" style={style} role="status" aria-live="polite">
+      <span className="ui-hud__icon">{typeof icon === 'string' ? <Icon name={icon} size={64} /> : icon}</span>
+      {title ? <span className="ui-hud__title">{title}</span> : null}
+      {level != null ? (
+        <span className="ui-hud__level" aria-hidden="true">
+          {Array.from({ length: 16 }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed meter cells
+            <i key={i} data-on={i < on ? '' : undefined} />
+          ))}
+        </span>
+      ) : null}
+    </div>
+  )
+}
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -41,14 +125,14 @@ export function toast({
 }
 
 const ICON = {
-  info: <Icon name="info" color="var(--system-blue)" />,
-  success: <Icon name="checkmark-circle" color="var(--system-green)" />,
+  info: <Icon name="info" />,
+  success: <Icon name="check" />,
   warning: <Icon name="warning" color="var(--system-orange)" />,
   error: <Icon name="exclamation-circle" color="var(--system-red)" />,
 }
 
 /** Errors stay until dismissed; others auto-dismiss, paused while hovered and restarted by a repeat. */
-function Toast({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: () => void }) {
+function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: () => void }) {
   const [hover, setHover] = useState(false)
   const presence = usePresence(open)
   // biome-ignore lint/correctness/useExhaustiveDependencies: onExited is recreated every render
@@ -66,7 +150,7 @@ function Toast({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: (
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover only pauses the auto-dismiss timer
     <div
-      className="ui-toast"
+      className={cx('ui-toast', t.title != null && 'ui-toast--card')}
       data-state={presence.state}
       role={persistent ? 'alert' : 'status'}
       onAnimationEnd={presence.onAnimationEnd}
@@ -79,13 +163,21 @@ function Toast({ t, open, onExited }: { t: ToastItem; open: boolean; onExited: (
         <div className="ui-toast__message">{t.message}</div>
       </div>
       {t.count > 1 ? <span className="ui-toast__count">×{t.count}</span> : null}
-      <button type="button" className="ui-toast__close" aria-label="关闭" onClick={() => dismissToast(t.id)}>
-        <Icon name="xmark" size={12} weight={1.8} />
-      </button>
+      {persistent ? (
+        <button
+          type="button"
+          className="ui-toast__close"
+          aria-label="关闭"
+          onClick={() => dismissToast(t.id)}
+        >
+          <Icon name="xmark" size={12} weight={1.8} />
+        </button>
+      ) : null}
     </div>
   )
 }
 
+/** Stack for `toast()`: Pane capsules at the bottom center of the window, newest at the bottom. */
 export function Toaster() {
   const items = useToasts((s) => s.items)
   const [prev, setPrev] = useState(items)
@@ -101,7 +193,7 @@ export function Toaster() {
       {[...items, ...leaving]
         .sort((a, b) => a.id - b.id)
         .map((t) => (
-          <Toast
+          <ToastRow
             key={t.id}
             t={t}
             open={!leaving.includes(t)}

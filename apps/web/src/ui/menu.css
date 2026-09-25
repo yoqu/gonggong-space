@@ -12,6 +12,7 @@
   color: var(--label);
   font-size: var(--text-body-size);
   line-height: var(--text-body-line);
+  outline: none;
 }
 .ui-menu__item {
   display: flex;
@@ -27,21 +28,21 @@
   text-align: left;
   cursor: default;
 }
+/* One highlight for hover and keyboard: hovering focuses the row, focus sets data-active. */
 .ui-menu__item:focus-visible {
   outline: none;
 }
-.ui-menu__item:hover:not(:disabled),
-.ui-menu__item:focus-visible,
 .ui-menu__item[data-active] {
   --shortcut-color: var(--on-accent);
   background: var(--menu-highlight);
   color: var(--on-accent);
 }
 .ui-menu__item--destructive {
-  color: var(--system-red);
+  color: var(--tint-red-text);
 }
 .ui-menu__item:disabled {
   color: var(--label-tertiary);
+  background: transparent;
 }
 .ui-menu__check {
   display: grid;
@@ -66,6 +67,24 @@
   color: var(--shortcut-color, var(--label-secondary));
   letter-spacing: 0.5px;
 }
+.ui-menu__sub {
+  display: grid;
+  place-items: center;
+  margin-left: var(--space-8);
+}
+.ui-menu__subwrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.ui-menu--sub {
+  position: absolute;
+  left: calc(100% + 1px);
+  top: -5px;
+  z-index: 41;
+  min-width: 180px;
+  animation: var(--fade-in) ui-fade-in;
+}
 .ui-menu__sep {
   height: 1px;
   border: 0;
@@ -78,6 +97,20 @@
   line-height: 16px;
   font-weight: 600;
   color: var(--label-secondary);
+}
+
+/* ContextMenu: fixed at the pointer, above modal layers; the demo placement stays inside its content. */
+.ui-ctx {
+  position: relative;
+}
+.ui-menu--context {
+  position: fixed;
+  z-index: 60;
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-menu--local {
+  position: absolute;
+  z-index: 40;
 }
 
 /* Anchored dropdown (MenuButton): scales in from the trigger corner, only fades out. */

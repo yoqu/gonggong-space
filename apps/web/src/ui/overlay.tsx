@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { cx } from '../lib/cx'
-import { Button, Checkbox, CloseButton } from './controls'
+import { Button, type ButtonVariant, Checkbox, CloseButton } from './controls'
 import { usePresence } from './presence'
 import './overlay.css'
 
@@ -49,19 +49,46 @@ export function useEscape(onClose: () => void, enabled = true) {
   }, [enabled])
 }
 
+/** Calls `onOutside` for a mouse press outside every given element while `enabled`. */
+export function useOutsidePress(
+  refs: RefObject<HTMLElement | null>[],
+  onOutside: () => void,
+  enabled: boolean,
+) {
+  const cb = useRef(onOutside)
+  cb.current = onOutside
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refs are stable ref objects
+  useEffect(() => {
+    if (!enabled) return
+    const down = (e: MouseEvent) => {
+      if (!refs.some((r) => r.current?.contains(e.target as Node))) cb.current()
+    }
+    document.addEventListener('mousedown', down)
+    return () => document.removeEventListener('mousedown', down)
+  }, [enabled])
+}
+
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
 const FIELD =
   'input:not([type="checkbox"]):not([type="radio"]):not(:disabled), textarea:not(:disabled), select:not(:disabled)'
 
-/** Focuses the first field (or the container), keeps Tab inside, and refocuses the trigger on close. */
-function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean) {
+/**
+ * While `open`: focuses `[data-autofocus]`, else the first field, else the container; keeps Tab inside;
+ * refocuses the element that had focus before opening once it closes.
+ */
+export function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean) {
   const trigger = useRef<Element | null>(null)
   if (open && !trigger.current) trigger.current = document.activeElement
   useEffect(() => {
     const node = ref.current
     if (!open || !node) return
-    if (!node.contains(document.activeElement)) (node.querySelector<HTMLElement>(FIELD) ?? node).focus()
+    if (!node.contains(document.activeElement))
+      (
+        node.querySelector<HTMLElement>('[data-autofocus]') ??
+        node.querySelector<HTMLElement>(FIELD) ??
+        node
+      ).focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' || e.defaultPrevented) return
       const items = [...node.querySelectorAll<HTMLElement>(FOCUSABLE)]
@@ -106,16 +133,22 @@ interface PanelProps {
   onAnimationEnd: (e: AnimationEvent) => void
 }
 
-/** Centered modal shared by Dialog and AlertDialog: scrim, Escape, focus trap, enter/exit motion. */
+/** Modal layer shared by Dialog, AlertDialog and Sheet: scrim, Escape, focus trap, enter/exit motion. */
 function Modal({
   open,
   onClose,
-  closeOnBackdrop,
+  closeOnScrim,
+  trapFocus = true,
+  layer = 'ui-overlay',
+  portal = true,
   panel,
 }: {
   open: boolean
   onClose: () => void
-  closeOnBackdrop: boolean
+  closeOnScrim: boolean
+  trapFocus?: boolean
+  layer?: string
+  portal?: boolean
   panel: (p: PanelProps) => ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -123,69 +156,209 @@ function Modal({
   const visible = open && shown
   const presence = usePresence(visible)
   useEscape(onClose, visible)
-  useFocusTrap(ref, visible)
+  useFocusTrap(ref, visible && trapFocus)
   if (!presence.mounted) return null
-  return createPortal(
-    <div className="ui-overlay" data-state={presence.state}>
+  const node = (
+    <div className={layer} data-state={presence.state}>
       <div
-        className="ui-overlay__backdrop"
+        className="ui-scrim"
         data-testid="dialog-overlay"
-        onClick={closeOnBackdrop ? onClose : undefined}
+        onClick={closeOnScrim ? onClose : undefined}
         aria-hidden="true"
       />
       {panel({ ref, onAnimationEnd: presence.onAnimationEnd })}
-    </div>,
-    document.body,
+    </div>
+  )
+  return portal ? createPortal(node, document.body) : node
+}
+
+export interface ModalAction {
+  label: ReactNode
+  variant?: ButtonVariant
+  onClick?: () => void
+  disabled?: boolean
+  /** Receives focus on open; never set it on a destructive action. */
+  autoFocus?: boolean
+}
+
+export interface SheetProps {
+  open: boolean
+  /** Escape and 「取消」 should both call this. */
+  onClose?: () => void
+  title?: ReactNode
+  /** One sentence under the title. */
+  message?: ReactNode
+  children?: ReactNode
+  /** Left to right, the primary one last: 「取消」「创建」. */
+  actions?: ModalAction[]
+  /** Secondary content at the bottom left, e.g. 「了解更多…」. */
+  footer?: ReactNode
+  width?: number | string
+  closeOnScrim?: boolean
+  /** False only for static demos. */
+  trapFocus?: boolean
+  'aria-label'?: string
+}
+
+const noop = () => {}
+
+/** Title, message, content and action row shared by Sheet and Dialog; `onClose` adds a header close button. */
+function ModalBody({
+  titleId,
+  title,
+  message,
+  children,
+  actions,
+  footer,
+  onClose,
+}: Omit<SheetProps, 'open'> & { titleId: string }) {
+  return (
+    <>
+      {title || message || onClose ? (
+        <div className="ui-dialog__header">
+          <div className="ui-dialog__titles">
+            {title ? (
+              <h2 id={titleId} className="ui-dialog__title">
+                {title}
+              </h2>
+            ) : null}
+            {message ? <p className="ui-dialog__message">{message}</p> : null}
+          </div>
+          {onClose ? <CloseButton onClick={onClose} /> : null}
+        </div>
+      ) : null}
+      {children != null ? <div className="ui-dialog__body">{children}</div> : null}
+      {actions?.length ? (
+        <div className="ui-dialog__actions">
+          {footer ? <div className="ui-dialog__footer">{footer}</div> : null}
+          {actions.map((a, i) => (
+            <Button
+              // biome-ignore lint/suspicious/noArrayIndexKey: actions are a fixed, ordered list
+              key={i}
+              variant={a.variant}
+              disabled={a.disabled}
+              onClick={a.onClick}
+              data-autofocus={a.autoFocus || undefined}
+              className="ui-dialog__action"
+            >
+              {a.label}
+            </Button>
+          ))}
+        </div>
+      ) : footer ? (
+        <div className="ui-dialog__actions">{footer}</div>
+      ) : null}
+    </>
   )
 }
 
-interface OverlayProps {
-  open: boolean
-  title: ReactNode
-  onClose: () => void
-  children: ReactNode
-  /** Set false on form dialogs so a stray backdrop click doesn't discard input. */
-  closeOnBackdrop?: boolean
-}
-
-export function Dialog({
+/**
+ * Pane Sheet: window-modal panel dropping from under the toolbar of the nearest positioned ancestor
+ * (a `Window` or `AppFrame`), for a small set of inputs to confirm. The scrim does not close it by default.
+ */
+export function Sheet({
   open,
-  title,
-  subtitle,
-  footer,
-  width = 460,
-  onClose,
-  closeOnBackdrop = true,
-  children,
-}: OverlayProps & { subtitle?: ReactNode; footer?: ReactNode; width?: number }) {
+  onClose = noop,
+  width = 480,
+  closeOnScrim = false,
+  trapFocus,
+  ...props
+}: SheetProps) {
   const titleId = useId()
   return (
     <Modal
       open={open}
       onClose={onClose}
-      closeOnBackdrop={closeOnBackdrop}
+      closeOnScrim={closeOnScrim}
+      trapFocus={trapFocus}
+      layer="ui-sheet-layer"
+      portal={false}
       panel={({ ref, onAnimationEnd }) => (
         <div
           ref={ref}
           role="dialog"
           aria-modal="true"
-          aria-labelledby={titleId}
+          aria-labelledby={props.title ? titleId : undefined}
+          aria-label={props.title ? undefined : props['aria-label']}
           tabIndex={-1}
-          className="ui-dialog"
-          style={{ maxWidth: width }}
+          className="ui-dialog ui-sheet"
+          style={{ width }}
           onAnimationEnd={onAnimationEnd}
         >
-          <div className="ui-dialog__header">
-            <div className="ui-dialog__titles">
-              <h2 id={titleId} className="ui-dialog__title">
-                {title}
-              </h2>
-              {subtitle ? <span className="ui-dialog__subtitle">{subtitle}</span> : null}
-            </div>
-            <CloseButton onClick={onClose} />
-          </div>
-          <div className="ui-dialog__body">{children}</div>
-          {footer ? <div className="ui-dialog__footer">{footer}</div> : null}
+          <ModalBody titleId={titleId} {...props} />
+        </div>
+      )}
+    />
+  )
+}
+
+export interface DialogProps extends Omit<SheetProps, 'onClose'> {
+  onClose: () => void
+  /** No panel: only scrim, centering and focus management, e.g. around an `AlertPanel`. */
+  bare?: boolean
+  /** Confined to the nearest positioned ancestor instead of the viewport (demos). */
+  contained?: boolean
+  role?: 'dialog' | 'alertdialog'
+  /** Pre-Pane name of `message`. */
+  subtitle?: ReactNode
+  /** Pre-Pane name of `closeOnScrim`; set false on form dialogs so a stray click doesn't discard input. */
+  closeOnBackdrop?: boolean
+}
+
+/**
+ * Page-modal dialog (Pane Dialog), for pages without a window to hold a Sheet. Without `actions` it keeps the
+ * pre-Pane layout: a close button in the header and `footer` as the button row.
+ */
+export function Dialog({
+  open,
+  onClose,
+  bare,
+  contained,
+  role = 'dialog',
+  subtitle,
+  closeOnBackdrop,
+  closeOnScrim = closeOnBackdrop ?? true,
+  trapFocus,
+  width = 460,
+  message = subtitle,
+  children,
+  ...props
+}: DialogProps) {
+  const titleId = useId()
+  const labelled = props.title != null && !bare
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      closeOnScrim={closeOnScrim}
+      trapFocus={trapFocus}
+      layer={cx('ui-overlay', contained && 'ui-overlay--contained')}
+      portal={!contained}
+      panel={({ ref, onAnimationEnd }) => (
+        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is dialog or alertdialog, both modal roles
+        <div
+          ref={ref}
+          role={role}
+          aria-modal="true"
+          aria-labelledby={labelled ? titleId : undefined}
+          aria-label={labelled ? undefined : props['aria-label']}
+          tabIndex={-1}
+          className={cx('ui-dialog', bare && 'ui-dialog--bare')}
+          style={bare ? undefined : { maxWidth: width }}
+          onAnimationEnd={onAnimationEnd}
+        >
+          {bare ? (
+            children
+          ) : (
+            <ModalBody
+              titleId={titleId}
+              message={message}
+              onClose={props.actions?.length ? undefined : onClose}
+              {...props}
+            >
+              {children}
+            </ModalBody>
+          )}
         </div>
       )}
     />
@@ -241,6 +414,7 @@ function AlertContent({
           <Button
             // biome-ignore lint/suspicious/noArrayIndexKey: actions are a fixed, ordered list
             key={i}
+            size="large"
             variant={a.variant ?? 'default'}
             disabled={a.disabled}
             onClick={() => a.onClick?.(suppressed)}
@@ -278,7 +452,7 @@ export function AlertDialog({
     <Modal
       open={open}
       onClose={onClose}
-      closeOnBackdrop={false}
+      closeOnScrim={false}
       panel={({ ref, onAnimationEnd }) => (
         <div
           ref={ref}
@@ -299,6 +473,7 @@ export function AlertDialog({
   )
 }
 
+/** Glass side panel over the page (pre-Pane; new pages dock an `AppFrame` inspector instead). */
 export function Drawer({
   open,
   title,
@@ -307,7 +482,12 @@ export function Drawer({
   onClose,
   closeOnBackdrop = true,
   children,
-}: OverlayProps & {
+}: {
+  open: boolean
+  title: ReactNode
+  onClose: () => void
+  children: ReactNode
+  closeOnBackdrop?: boolean
   leading?: ReactNode
   /** Fixed accessible name for drawers whose visible title changes with the sub-view. */
   label?: string

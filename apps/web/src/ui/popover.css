@@ -1,0 +1,94 @@
+/* Pane Popover: menu-material glass panel, 8px off its trigger. */
+.ui-popover-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.ui-popover__trigger {
+  display: inline-flex;
+}
+.ui-popover {
+  --pn-ring: var(--glass-fill);
+  position: absolute;
+  z-index: 30;
+  min-width: 200px;
+  padding: var(--space-12);
+  border-radius: var(--radius-window);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  color: var(--label);
+  outline: none;
+  --enter-scale: 0.97;
+}
+.ui-popover[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.ui-popover[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}
+.ui-popover--bottom-start {
+  top: calc(100% + 8px);
+  left: 0;
+  transform-origin: top left;
+}
+.ui-popover--bottom-end {
+  top: calc(100% + 8px);
+  right: 0;
+  transform-origin: top right;
+}
+.ui-popover--top-start {
+  bottom: calc(100% + 8px);
+  left: 0;
+  transform-origin: bottom left;
+}
+.ui-popover--top-end {
+  bottom: calc(100% + 8px);
+  right: 0;
+  transform-origin: bottom right;
+}
+.ui-popover--right-start {
+  top: 0;
+  left: calc(100% + 8px);
+  transform-origin: top left;
+}
+
+/* Optional pointer: a rotated square of the same glass, tucked under the panel edge. */
+.ui-popover--arrow::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  -webkit-backdrop-filter: inherit;
+  backdrop-filter: inherit;
+  transform: rotate(45deg);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.ui-popover--arrow.ui-popover--bottom-start::before,
+.ui-popover--arrow.ui-popover--bottom-end::before {
+  top: -6px;
+  left: 16px;
+}
+.ui-popover--arrow.ui-popover--bottom-end::before {
+  left: auto;
+  right: 16px;
+}
+.ui-popover--arrow.ui-popover--top-start::before,
+.ui-popover--arrow.ui-popover--top-end::before {
+  bottom: -6px;
+  left: 16px;
+  transform: rotate(225deg);
+}
+.ui-popover--arrow.ui-popover--top-end::before {
+  left: auto;
+  right: 16px;
+}
+.ui-popover--arrow.ui-popover--right-start::before {
+  top: 12px;
+  left: -6px;
+  transform: rotate(-45deg);
+}
