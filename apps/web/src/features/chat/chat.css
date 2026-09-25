@@ -221,7 +221,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 4px;
+  border-radius: var(--radius-check);
   background: var(--control-fill);
   box-shadow: var(--shadow-control);
   color: var(--on-accent);

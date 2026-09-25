@@ -48,7 +48,7 @@
   min-height: var(--sidebar-row);
   padding: 0 var(--space-8);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label);
   font: inherit;

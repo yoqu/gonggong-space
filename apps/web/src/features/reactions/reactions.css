@@ -41,9 +41,13 @@
   text-decoration: underline;
 }
 
-/* The fixed six-emoji picker is a compact row, lighter than a full popover. */
+/* The fixed six-emoji picker is a compact row. It sits inside the glass hover bar, where a nested backdrop blur
+   cannot sample the page, so it takes the opaque content surface instead of see-through glass. */
 .reaction-picker > .ui-popover {
   min-width: 0;
+  background: var(--content-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   padding: var(--space-6);
   border-radius: var(--radius-menu);
 }

@@ -67,7 +67,7 @@ export function ContextMenu({
     if (pos.y + height > window.innerHeight - EDGE)
       el.style.top = `${Math.max(EDGE, window.innerHeight - EDGE - height)}px`
     // Pointer-opened menus take focus without highlighting a row, as on macOS; ↓ then starts at the top.
-    if (!pos.keyboard) el.focus({ preventScroll: true })
+    if (!pos.keyboard) el.focus({ preventScroll: true, focusVisible: false } as FocusOptions)
   }, [pos])
 
   // A fixed menu would drift from its content when anything scrolls, so scrolling closes it like a blur.

@@ -1,6 +1,7 @@
 import type { GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type DragEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { InspectorPortal, useInspector } from '../../app/inspector'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -10,6 +11,7 @@ import {
   Button,
   ChatHeader,
   ChatNotice,
+  DropZone,
   EmptyChatArt,
   EmptyState,
   FailedArt,
@@ -18,9 +20,10 @@ import {
   PinnedBanner,
   Presence,
   Spinner,
+  TypingIndicator,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
-import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
+import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -39,6 +42,37 @@ const LOAD_OLDER_PX = 40
 const LINK_PAGES = 10
 const FLASH_MS = 2000
 
+/** Files dragged over the chat (not text or links): shows the drop zone until they leave or land. */
+function useFileDrag() {
+  const [over, setOver] = useState(false)
+  // dragenter/dragleave fire for every child crossed; the depth tells when the pointer really left.
+  const depth = useRef(0)
+  const files = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files')
+  const reset = () => {
+    depth.current = 0
+    setOver(false)
+  }
+  return {
+    over,
+    handlers: {
+      onDragEnter: (e: DragEvent) => {
+        if (!files(e)) return
+        depth.current++
+        setOver(true)
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (!files(e)) return
+        depth.current = Math.max(0, depth.current - 1)
+        if (!depth.current) setOver(false)
+      },
+      onDragOver: (e: DragEvent) => {
+        if (files(e)) e.preventDefault()
+      },
+      onDrop: reset,
+    },
+  }
+}
+
 export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => void }) {
   const tl = useTimeline(group.id)
   const bots = useWorkspace((s) => s.bots)
@@ -52,7 +86,10 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   /** What the view had shown at the last render, to count arrivals while scrolled up. */
   const seen = useRef({ first: '', seq: 0, runs: 0 })
   const [unseen, setUnseen] = useState(0)
-  const [drawer, setDrawer] = useState<DrawerView | null>(null)
+  const dropFiles = useRef<((files: File[]) => void) | null>(null)
+  const drag = useFileDrag()
+  const inspector = useInspector()
+  const infoOpen = inspector.view === 'group-info'
   const [settings, setSettings] = useState<SettingsTab | null>(null)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
@@ -179,6 +216,18 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     return out
   }, [runsByTrigger, botsById])
 
+  /** Bots whose run is executing now: the list ends with their typing dots. */
+  const working = useMemo(
+    () => [
+      ...new Set(
+        Object.values(tl.runs)
+          .filter((r) => r.status === 'running')
+          .map((r) => botsById.get(r.botId)?.name ?? 'Bot'),
+      ),
+    ],
+    [tl.runs, botsById],
+  )
+
   const names = useMemo(
     () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
     [bots, group],
@@ -237,7 +286,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
 
   const botCount = group.botIds.length
   return (
-    <div className="chat-view">
+    <div className="chat-view" {...drag.handlers}>
       <ChatHeader
         group
         title={group.name}
@@ -264,31 +313,27 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                 {
                   icon: 'person-2' as const,
                   label: `群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`,
-                  onClick: () => setDrawer('members'),
+                  onClick: () => inspector.open('group-info', 'members'),
                 },
               ]
             : []),
           {
             icon: 'sidebar-right',
             label: '群设置',
-            active: !!drawer,
-            onClick: () => setDrawer(drawer ? null : 'main'),
+            active: infoOpen,
+            onClick: () => (infoOpen ? inspector.close() : inspector.open('group-info', 'main')),
           },
         ]}
       />
-      <Presence>
-        {drawer ? (
-          <GroupDrawer
-            group={group}
-            initialView={drawer}
-            onClose={() => setDrawer(null)}
-            onSettings={(tab) => {
-              setDrawer(null)
-              setSettings(tab)
-            }}
-          />
-        ) : null}
-      </Presence>
+      <InspectorPortal view="group-info">
+        <GroupInfo
+          key={String(inspector.payload)}
+          group={group}
+          initialView={(inspector.payload as InfoView | null) ?? 'main'}
+          onClose={inspector.close}
+          onSettings={setSettings}
+        />
+      </InspectorPortal>
       <Presence>
         {settings ? (
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
@@ -296,6 +341,19 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       </Presence>
       <GitBar group={group} />
       <div className="chat-view__body">
+        {drag.over ? (
+          <div className="chat-view__drop">
+            <DropZone
+              defaultDragging
+              multiple
+              aria-label="添加附件"
+              title="将文件拖到这里"
+              overTitle="松开以添加附件"
+              description="随下一条消息发送给群里的 Bot"
+              onFiles={(files) => dropFiles.current?.(files)}
+            />
+          </div>
+        ) : null}
         <div className="chat-scroll" ref={box} onScroll={onScroll}>
           <div className="chat-view__banners">
             {group.notice ? (
@@ -371,6 +429,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                 description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
               />
             )}
+            {working.length ? <TypingIndicator name={working} action="正在处理" /> : null}
           </MessageList>
           {unseen ? (
             <button type="button" className="chat-scroll__pill" onClick={toBottom}>
@@ -382,6 +441,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       </div>
       <MessageComposer
         group={group}
+        dropFiles={dropFiles}
         onSent={(m) => {
           stick.current = true
           tl.addMessage(m)

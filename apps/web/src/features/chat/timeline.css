@@ -51,6 +51,22 @@
   display: flex;
   flex-direction: column;
 }
+/* Files dragged over the chat: a Pane DropZone over the timeline; the composer stays a drop target too. */
+.chat-view__drop {
+  position: absolute;
+  inset: var(--space-12) var(--space-16);
+  z-index: 6;
+  display: flex;
+  animation: var(--fade-in) ui-fade-in;
+}
+.chat-view__drop > .ui-dropwrap {
+  flex: 1;
+  display: flex;
+}
+.chat-view__drop .ui-drop {
+  flex: 1;
+  background: var(--content-bg);
+}
 .chat-scroll {
   position: relative;
   flex: 1;
@@ -152,12 +168,13 @@
 .chat-scroll:has(.chat-view__banners > *) .pn-msglist > .pn-notice--date {
   top: 52px;
 }
+/* Stuck over the messages it must read as a floating capsule, never as text colliding with an author row:
+   an opaque content-bg fill with the glass shadow, so nothing shows through. */
 .pn-notice--date > span {
   padding: var(--space-2) var(--space-8);
   border-radius: var(--radius-capsule);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-glass);
 }
 .pn-notice--date b {
   margin-right: 0;

@@ -34,6 +34,18 @@
   cursor: default;
   flex: none;
 }
+.pn-info__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+}
+.pn-info__head > .pn-info__close:first-child {
+  margin-right: var(--space-8);
+}
 .pn-info__close svg {
   width: 9px;
   height: 9px;
@@ -204,7 +216,27 @@
   color: var(--tint-red-text);
   font-weight: 500;
 }
+.pn-info__row--button:disabled {
+  color: var(--label-secondary);
+}
+.pn-info__row--button:disabled:hover {
+  background: transparent;
+}
+.pn-info__danger + .pn-info__danger {
+  border-top: 1px solid var(--separator);
+}
+.pn-info__danger .pn-info__row--danger {
+  border-radius: var(--radius-menu);
+}
+.pn-info__danger-note {
+  padding: 0 var(--space-12) var(--space-8);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--label-secondary);
+  text-align: center;
+}
 .pn-info__rowtext {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -221,6 +253,19 @@
   color: var(--label-secondary);
   min-width: 0;
 }
+/* Switches and chevrons never shrink; only a long value ellipsizes. */
+.pn-info__trail {
+  flex: none;
+}
+.pn-info__trail:has(.pn-info__value) {
+  flex: 0 1 auto;
+}
+.pn-info__trail > :not(.pn-info__value) {
+  flex: none;
+}
+.pn-info__rowtext > span:first-child {
+  white-space: nowrap;
+}
 .pn-info__trail svg {
   width: 12px;
   height: 12px;
@@ -230,6 +275,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 2em;
   max-width: 160px;
 }
 

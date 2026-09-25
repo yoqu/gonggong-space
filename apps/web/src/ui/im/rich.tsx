@@ -200,10 +200,13 @@ const typingWho = (name: string | string[]) =>
 export function TypingIndicator({
   name,
   bubble = true,
+  action = '正在输入',
   className,
 }: {
   name?: string | string[]
   bubble?: boolean
+  /** The verb after the names, e.g.「正在处理」for a working Bot. */
+  action?: string
   className?: string
 }) {
   return (
@@ -215,7 +218,11 @@ export function TypingIndicator({
           <i />
         </span>
       )}
-      {name && <span className="pn-typing__text">{typingWho(name)} 正在输入…</span>}
+      {name && (
+        <span className="pn-typing__text">
+          {typingWho(name)} {action}…
+        </span>
+      )}
     </div>
   )
 }
