@@ -1,0 +1,169 @@
+/* Dialog */
+.ui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ui-overlay[data-state="closed"] {
+  pointer-events: none;
+}
+.ui-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--color-overlay);
+}
+.ui-overlay[data-state="open"] .ui-overlay__backdrop {
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-overlay[data-state="closed"] .ui-overlay__backdrop {
+  animation: var(--fade-out) ui-fade-out forwards;
+}
+.ui-dialog {
+  --enter-scale: 0.96;
+  --exit-scale: 0.96;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  border-radius: var(--radius-dialog);
+  border: 1px solid var(--color-border-control);
+  background: var(--glass-fill-thick);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--shadow-glass), var(--shadow-modal);
+}
+.ui-overlay[data-state="open"] .ui-dialog {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.ui-overlay[data-state="closed"] .ui-dialog {
+  animation: var(--fade-out) ui-exit forwards;
+}
+/* Focused programmatically on open; the modal shadow already marks it. */
+.ui-dialog:focus-visible,
+.ui-drawer:focus-visible {
+  outline: none;
+}
+.ui-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-separator);
+}
+.ui-dialog__header .ui-close {
+  margin: -8px -8px -8px auto;
+}
+.ui-dialog__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ui-dialog__subtitle {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+.ui-dialog__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+.ui-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-separator);
+}
+
+/* Drawer */
+.ui-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  background: var(--color-overlay);
+}
+.ui-drawer-overlay[data-state="open"] {
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-drawer-overlay[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}
+.ui-drawer {
+  --enter-x: 24px;
+  --exit-x: 24px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 27;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: 100%;
+  max-height: 100dvh;
+  border-left: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  box-shadow: var(--shadow-modal);
+}
+.ui-drawer[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.ui-drawer[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-exit forwards;
+}
+@media (max-width: 767px) {
+  .ui-drawer {
+    width: 100%;
+  }
+}
+.ui-drawer__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-separator);
+}
+.ui-drawer__title {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ui-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Bullet list of what a destructive action does */
+.ui-consequences {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.ui-consequences li::before {
+  content: "· ";
+}

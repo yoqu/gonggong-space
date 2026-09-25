@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { usePresence } from './presence'
+import './toast.css'
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 

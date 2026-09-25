@@ -1,0 +1,61 @@
+.ui-art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.art-wash {
+  fill: color-mix(in srgb, var(--color-selection-blue) 8%, transparent);
+}
+.art-card {
+  fill: var(--color-panel-elevated);
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+.art-muted {
+  fill: color-mix(in srgb, var(--color-text-quaternary) 22%, transparent);
+}
+.art-cutout {
+  stroke: var(--color-panel-elevated);
+  stroke-width: 2.5;
+  fill: color-mix(in srgb, var(--color-text-quaternary) 35%, var(--color-panel-elevated));
+}
+.art-accent {
+  fill: var(--color-selection-blue);
+}
+.art-accent-soft {
+  fill: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-elevated));
+}
+.art-danger {
+  fill: var(--color-danger);
+}
+.art-ink {
+  fill: var(--color-on-accent);
+}
+.art-glyph {
+  font: 700 14px var(--font-sans);
+}
+.art-stroke-accent,
+.art-stroke-muted {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 3;
+  stroke: var(--color-selection-blue);
+}
+.art-stroke-muted {
+  stroke: var(--color-border-strong);
+}
+.art-shackle {
+  stroke-width: 6;
+}
+.art-ripple {
+  fill: none;
+  stroke: var(--color-selection-blue);
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+.art-pointer {
+  fill: var(--color-text-primary);
+  stroke: var(--color-panel-elevated);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}

@@ -1,0 +1,24 @@
+/* Enter/exit motion (plan §4.3) for elements whose data-state comes from usePresence.
+   Opacity runs on --fade-in so it survives reduced motion (springs collapse to 0s there);
+   exits keep `forwards` so nothing flashes between animationend and unmount. */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ui-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ui-enter {
+  from {
+    transform: translate(var(--enter-x, 0), var(--enter-y, 0)) scale(var(--enter-scale, 1));
+  }
+}
+@keyframes ui-exit {
+  to {
+    opacity: 0;
+    transform: translateX(var(--exit-x, 0)) scale(var(--exit-scale, 1));
+  }
+}

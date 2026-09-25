@@ -1,219 +1,85 @@
-/* macOS palette, two themes: light lives in :root (default), dark overrides under
-   [data-theme="dark"] with the original dark values kept verbatim (zero regression). */
+/* Legacy color names aliased to Pane tokens (tokens.css) so existing feature CSS takes the Pane palette.
+   Plan D2: new code uses Pane names directly; W3 deletes these aliases. */
 :root {
-  color-scheme: light;
-
-  /* Core surfaces */
-  --color-window-bg: #f5f5f7;
-  --color-panel-bg: #ffffff;
-  --color-panel-elevated: #ffffff;
-  --color-titlebar-bg: #ececef;
-  --color-preview-bg: #f0f0f3;
-  --color-timeline-bg: #f2f2f5;
-  --color-control-bg: #e4e4e8;
-
-  /* Surface aliases */
-  --color-bg-canvas: var(--color-window-bg);
-  --color-bg-surface: var(--color-panel-bg);
-  --color-bg-elevated: var(--color-panel-elevated);
-  --color-bg-subtle: rgba(0, 0, 0, 0.035);
-  --color-bg-muted: rgba(0, 0, 0, 0.055);
-  --color-bg-hover: rgba(0, 0, 0, 0.08);
-  --color-panel-solid: var(--color-panel-bg);
-  --color-panel-subtle: rgba(0, 0, 0, 0.05);
-  --color-panel-muted: rgba(0, 0, 0, 0.08);
-  --color-recessed-bg: var(--color-timeline-bg);
-  --color-recessed-border: var(--color-separator);
+  /* Surfaces */
+  --color-window-bg: var(--window-bg);
+  --color-panel-bg: var(--content-bg);
+  --color-panel-elevated: var(--content-bg);
+  --color-bg-elevated: var(--content-bg);
+  --color-titlebar-bg: var(--sidebar-bg);
+  --color-preview-bg: var(--window-bg);
+  --color-timeline-bg: var(--window-bg);
+  --color-control-bg: var(--control-track);
+  --color-bg-subtle: var(--group-bg);
+  --color-bg-muted: var(--quote-fill);
+  --color-bg-hover: var(--selection-fill);
+  --color-panel-subtle: var(--quote-fill);
   --color-overlay: rgba(0, 0, 0, 0.4);
-  --color-overlay-hover: rgba(0, 0, 0, 0.1);
+  --color-overlay-hover: var(--control-track);
 
-  /* Borders / separators — solid, never translucent hairlines */
-  --color-separator: #d9d9de;
-  --color-border-subtle: #d9d9de;
-  --color-border-strong: #c7c7cc;
-  --color-border-control: #c7c7cc;
-  --color-outline-soft: rgba(0, 0, 0, 0.16);
-  --color-border-error: rgba(255, 59, 48, 0.3);
+  /* Borders */
+  --color-separator: var(--separator);
+  --color-border-subtle: var(--separator);
+  --color-border-strong: var(--control-stroke);
+  --color-border-control: var(--control-stroke);
+  --color-outline-soft: var(--control-stroke);
+  --color-border-error: color-mix(in srgb, var(--system-red) 30%, transparent);
 
-  /* Text */
-  --color-text-primary: #1c1c1e;
-  --color-text-secondary: #00000099;
-  --color-text-secondary-strong: #00000080;
-  --color-text-tertiary: #6e6e73;
-  --color-text-quaternary: #8e8e93;
-  --color-text-placeholder: #00000073;
-  --color-text-muted: #6e6e73;
-  --color-text-disabled: #00000033;
+  /* Text: legacy tertiary/muted carried readable metadata, so they map to label-secondary, not label-tertiary */
+  --color-text-primary: var(--label);
+  --color-text-secondary: var(--label-secondary);
+  --color-text-tertiary: var(--label-secondary);
+  --color-text-muted: var(--label-secondary);
+  --color-text-quaternary: var(--label-tertiary);
+  --color-text-placeholder: var(--label-tertiary);
+  --color-text-disabled: var(--label-tertiary);
+  --text-secondary: var(--label-secondary);
 
-  /* The single interactive accent — jade (玉青) from the 共工 mark; token names keep their historical "blue". */
-  --color-selection-blue: #0e7c78;
-  --color-selection-blue-hover: #0b6f6b;
-  --color-selection-blue-active: #0a6a67;
-  --color-system-blue: var(--color-selection-blue);
-  --color-system-blue-hover: var(--color-selection-blue-hover);
-  --color-system-blue-active: var(--color-selection-blue-active);
-  --color-brand-primary: var(--color-selection-blue);
-  --color-brand-accent: #12a39c;
-  --color-brand-info: #12a39c;
-  --color-brand-warm: #ff9500;
-  --color-on-accent: #ffffff;
-  --color-selection: rgba(14, 124, 120, 0.25);
-  /* Filled accent under white text (primary button, active option): ≥4.5:1 with --color-on-accent */
-  --color-accent-fill: #0e7c78;
+  /* Accent */
+  --color-selection-blue: var(--accent);
+  --color-selection-blue-hover: var(--accent-text);
+  --color-selection-blue-active: var(--accent-fill);
+  --color-system-blue: var(--accent);
+  --color-system-blue-hover: var(--accent-text);
+  --color-brand-accent: var(--accent-text);
+  --color-brand-info: var(--accent);
+  --color-brand-warm: var(--system-orange);
+  --color-accent-fill: var(--accent-fill);
+  --color-on-accent: var(--on-accent);
 
-  /* Status — feedback / diagnostics only, never page language */
-  --color-danger: #ff3b30;
-  --color-success: #34c759;
-  --color-warning: #ff9500;
-  --color-status-offline: #8e8e93;
-  /* Status text on tinted surfaces (badges, destructive buttons): ≥4.5:1 on their wash */
-  --color-info-text: #0a6a67;
-  --color-success-text: #1f7a35;
-  --color-warning-text: #b25000;
-  --color-danger-text: #b8000d;
+  /* Status */
+  --color-danger: var(--system-red);
+  --color-success: var(--system-green);
+  --color-warning: var(--system-orange);
+  --color-status-offline: var(--system-gray);
+  --color-info-text: var(--tint-blue-text);
+  --color-success-text: var(--tint-green-text);
+  --color-warning-text: var(--tint-orange-text);
+  --color-danger-text: var(--tint-red-text);
+  --color-bg-info: var(--tint-blue);
+  --color-bg-accent-strong: var(--tint-blue);
+  --color-bg-success: var(--tint-green);
+  --color-bg-warning: var(--tint-orange);
+  --color-bg-error: var(--tint-red);
+  --color-bg-error-strong: color-mix(in srgb, var(--system-red) 20%, transparent);
 
-  /* Tinted functional surfaces (8% wash) */
-  --color-bg-error: rgba(255, 59, 48, 0.08);
-  --color-bg-warning: rgba(255, 149, 0, 0.08);
-  --color-bg-success: rgba(52, 199, 89, 0.08);
-  --color-bg-info: rgba(14, 124, 120, 0.08);
-  --color-bg-error-strong: rgba(255, 59, 48, 0.2);
-  --color-bg-accent-strong: rgba(14, 124, 120, 0.15);
-
-  /* Timeline track tints */
-  --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
-  --color-track-subtitle: color-mix(in srgb, var(--color-brand-warm) 22%, var(--color-panel-bg));
-  --color-track-primary: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-bg));
-  --color-track-secondary: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-panel-bg));
-
-  /* AI-operation cursors ONLY (DESIGN.md §9) — never for regular UI */
-  --color-ai-cursor-generate: #7c3aed;
-  --color-ai-cursor-review: #059669;
-  --color-ai-waiting-glow: #0891b2;
-
-  /* Scrollbar (base.css ::-webkit-scrollbar-thumb) */
+  /* Scrollbar (base.css) */
   --color-scrollbar: rgba(0, 0, 0, 0.2);
   --color-scrollbar-hover: rgba(0, 0, 0, 0.3);
 
-  /* Syntax highlight — Xcode-style light palette, ≥4.5:1 on --color-preview-bg */
+  /* Syntax highlight — Xcode-style light palette */
   --color-syntax-keyword: #ad3da4;
   --color-syntax-string: #c41a15;
   --color-syntax-number: #272ad8;
   --color-syntax-title: #703daa;
-
-  /* Semantic aliases */
-  --text-body: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --surface-card: var(--color-panel-elevated);
-  --surface-page: var(--color-window-bg);
-  --border-hairline: var(--color-separator);
-  --accent: var(--color-system-blue);
 }
 
 [data-theme="dark"] {
-  color-scheme: dark;
-
-  /* Core surfaces */
-  --color-window-bg: #1c1c1e;
-  --color-panel-bg: #1e1e20;
-  --color-panel-elevated: #2c2c2e;
-  --color-titlebar-bg: #252527;
-  --color-preview-bg: #141416;
-  --color-timeline-bg: #1a1a1c;
-  --color-control-bg: #3a3a3c;
-
-  /* Surface aliases */
-  --color-bg-canvas: var(--color-window-bg);
-  --color-bg-surface: var(--color-panel-bg);
-  --color-bg-elevated: var(--color-panel-elevated);
-  --color-bg-subtle: rgba(255, 255, 255, 0.035);
-  --color-bg-muted: rgba(255, 255, 255, 0.055);
-  --color-bg-hover: rgba(255, 255, 255, 0.08);
-  --color-panel-solid: var(--color-panel-bg);
-  --color-panel-subtle: rgba(255, 255, 255, 0.05);
-  --color-panel-muted: rgba(255, 255, 255, 0.08);
-  --color-recessed-bg: var(--color-timeline-bg);
-  --color-recessed-border: var(--color-separator);
   --color-overlay: rgba(0, 0, 0, 0.6);
-  --color-overlay-hover: rgba(255, 255, 255, 0.1);
-
-  /* Borders / separators — solid, never translucent hairlines */
-  --color-separator: #38383a;
-  --color-border-subtle: #38383a;
-  --color-border-strong: #48484a;
-  --color-border-control: #48484a;
-  --color-outline-soft: rgba(255, 255, 255, 0.16);
-  --color-border-error: rgba(255, 69, 58, 0.25);
-
-  /* Text */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #ebebf599;
-  --color-text-secondary-strong: #ebebf580;
-  --color-text-tertiary: #8e8e93;
-  --color-text-quaternary: #636366;
-  --color-text-placeholder: #ebebf573;
-  --color-text-muted: #98989d;
-  --color-text-disabled: #ebebf533;
-
-  /* The single interactive accent — jade (玉青) from the 共工 mark; token names keep their historical "blue". */
-  --color-selection-blue: #2fc2b8;
-  --color-selection-blue-hover: #5ed6cc;
-  --color-selection-blue-active: #26a89f;
-  --color-system-blue: var(--color-selection-blue);
-  --color-system-blue-hover: var(--color-selection-blue-hover);
-  --color-system-blue-active: var(--color-selection-blue-active);
-  --color-brand-primary: var(--color-selection-blue);
-  --color-brand-accent: #5ed6cc;
-  --color-brand-info: #5ed6cc;
-  --color-brand-warm: #ff9f0a;
-  --color-on-accent: #ffffff;
-  --color-selection: rgba(47, 194, 184, 0.28);
-  --color-accent-fill: #0f766f;
-
-  /* Status — feedback / diagnostics only, never page language */
-  --color-danger: #ff453a;
-  --color-success: #32d74b;
-  --color-warning: #ffd60a;
-  --color-status-offline: #636366;
-  --color-info-text: #5ed6cc;
-  --color-success-text: #32d74b;
-  --color-warning-text: #ffd60a;
-  --color-danger-text: #ff8a82;
-
-  /* Tinted functional surfaces (8% wash) */
-  --color-bg-error: rgba(255, 69, 58, 0.08);
-  --color-bg-warning: rgba(255, 159, 10, 0.08);
-  --color-bg-success: rgba(50, 215, 75, 0.08);
-  --color-bg-info: rgba(47, 194, 184, 0.1);
-  --color-bg-error-strong: rgba(255, 69, 58, 0.2);
-  --color-bg-accent-strong: rgba(47, 194, 184, 0.16);
-
-  /* Timeline track tints */
-  --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
-  --color-track-subtitle: color-mix(in srgb, var(--color-brand-warm) 22%, var(--color-panel-bg));
-  --color-track-primary: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-bg));
-  --color-track-secondary: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-panel-bg));
-
-  /* AI-operation cursors ONLY (DESIGN.md §9) — never for regular UI */
-  --color-ai-cursor-generate: #a78bfa;
-  --color-ai-cursor-review: #34d399;
-  --color-ai-waiting-glow: #00d2ff;
-
-  /* Scrollbar (base.css ::-webkit-scrollbar-thumb) */
   --color-scrollbar: rgba(255, 255, 255, 0.15);
   --color-scrollbar-hover: rgba(255, 255, 255, 0.25);
-
-  /* Syntax highlight — original pastel values kept verbatim from chat.css */
   --color-syntax-keyword: oklch(0.76 0.12 250);
   --color-syntax-string: oklch(0.8 0.1 150);
   --color-syntax-number: oklch(0.82 0.1 70);
   --color-syntax-title: oklch(0.82 0.11 300);
-
-  /* Semantic aliases */
-  --text-body: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --surface-card: var(--color-panel-elevated);
-  --surface-page: var(--color-window-bg);
-  --border-hairline: var(--color-separator);
-  --accent: var(--color-system-blue);
 }

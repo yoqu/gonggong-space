@@ -2,6 +2,7 @@ import { createContext, type ReactNode, type RefObject, useContext, useEffect, u
 import { createPortal } from 'react-dom'
 import { CloseButton } from './controls'
 import { usePresence } from './presence'
+import './overlay.css'
 
 /** Open overlays; Escape only reaches the one opened last (highest `seq`, taken at render so parents precede children). */
 const escapeStack: { seq: number; close: () => void }[] = []

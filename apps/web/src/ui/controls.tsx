@@ -15,6 +15,7 @@ import {
 import { cx } from '../lib/cx'
 import { useEscape } from './overlay'
 import { usePresence } from './presence'
+import './controls.css'
 
 export type ButtonVariant = 'default' | 'primary' | 'outline' | 'ghost' | 'destructive'
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg'

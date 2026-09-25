@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import './illustrations.css'
 
 function Art({ children }: { children: ReactNode }) {
   return (

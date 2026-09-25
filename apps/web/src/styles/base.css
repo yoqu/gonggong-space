@@ -1,18 +1,22 @@
-/* Base reset — mirrors src/ui/styles/base.css */
+/* Base reset — Pane body text (13/16) on window-bg. */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 html {
-  background: var(--color-window-bg);
+  background: var(--window-bg);
 }
 body {
   margin: 0;
-  background: var(--color-window-bg);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-lg);
+  background: var(--window-bg);
+  color: var(--label);
+  font-family: var(--text-body-family);
+  font-size: var(--text-body-size);
+  /* Pane body is 13px/16px; kept unitless so larger descendant text scales instead of inheriting a fixed 16px. */
+  line-height: calc(16 / 13);
+  font-weight: var(--text-body-weight);
+  letter-spacing: var(--text-body-tracking);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -37,26 +41,18 @@ select {
   -webkit-appearance: none;
 }
 a {
-  color: var(--color-system-blue);
+  color: var(--accent-text);
   text-decoration: none;
 }
-a:hover {
-  color: var(--color-system-blue-hover);
-}
+/* Pane keyboard focus: 3px solid ring, 1px outside the element. */
 :focus-visible {
-  /* transparent outline stays visible in forced-colors mode, where box-shadow is dropped */
-  outline: 2px solid transparent;
-  box-shadow: var(--shadow-focus);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
 }
-/* macOS focus ring "snaps in" from a wider spread. */
+/* Box-shadow focus rings (--shadow-focus) "snap in" from a wider spread. */
 @keyframes focus-ring-in {
   from {
     box-shadow: 0 0 0 6px transparent;
-  }
-}
-@media (prefers-reduced-motion: no-preference) {
-  :focus-visible {
-    animation: focus-ring-in 120ms ease-out;
   }
 }
 /* Theme switch (app/theme.ts setTheme) cross-fades the whole page. */
@@ -77,7 +73,7 @@ a:hover {
   }
 }
 ::selection {
-  background: var(--color-selection);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -88,7 +84,7 @@ a:hover {
 }
 ::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-capsule);
   background: var(--color-scrollbar);
   background-clip: content-box;
 }

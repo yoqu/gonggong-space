@@ -1,58 +1,44 @@
-/* Liquid Glass (macOS 27): frosted fill + dark edge + top highlight, for functional layers only
-   (toolbar, menus, dialogs, toasts). Levels via [data-glass]: clear | standard (default) | tinted. */
-:root {
-  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 72%, transparent);
+/* Liquid Glass (Pane glass-fill / glass-blur / shadow-glass) for functional layers only (toolbar, menus,
+   dialogs, toasts). Levels via [data-glass]: clear | standard (default) | tinted, overriding the Pane tokens. */
+:root,
+[data-glass] {
+  /* Re-declared on every [data-glass] element so the legacy alias follows a nested level override. */
+  --glass-filter: var(--glass-blur);
   /* Text-heavy panels over a dimming scrim (dialogs): translucency there only greys the fill,
      so they stay near-opaque at every level to keep secondary text ≥ 4.5:1. */
-  --glass-fill-thick: color-mix(in srgb, var(--color-panel-elevated) 96%, transparent);
-  --glass-filter: blur(24px) saturate(180%);
-  --glass-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --scroll-edge-hard: linear-gradient(to bottom, var(--color-window-bg) 55%, transparent);
-}
-
-[data-theme="dark"] {
-  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 66%, transparent);
-  --glass-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.55);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-fill-thick: color-mix(in srgb, var(--content-bg) 96%, transparent);
+  --scroll-edge-hard: linear-gradient(to bottom, var(--window-bg) 55%, transparent);
 }
 
 [data-glass="clear"] {
-  --glass-fill: color-mix(in srgb, var(--color-panel-elevated) 42%, transparent);
-  --glass-filter: blur(12px) saturate(160%);
+  --glass-fill: var(--glass-fill-clear);
+  --glass-blur: blur(12px) saturate(160%);
 }
 
 [data-glass="tinted"] {
-  --glass-fill: var(--color-panel-elevated);
-  --glass-fill-thick: var(--color-panel-elevated);
-  --glass-filter: none;
+  --glass-fill: var(--content-bg);
+  --glass-fill-thick: var(--content-bg);
+  --glass-blur: none;
 }
 
 @media (prefers-reduced-transparency: reduce) {
   :root,
   [data-glass] {
-    --glass-fill: var(--color-panel-elevated);
-    --glass-fill-thick: var(--color-panel-elevated);
-    --glass-filter: none;
-  }
-}
-
-@media (prefers-contrast: more) {
-  :root,
-  [data-glass] {
-    --glass-edge: inset 0 0 0 1px var(--color-border-strong);
+    --glass-fill: var(--content-bg);
+    --glass-fill-thick: var(--content-bg);
+    --glass-blur: none;
   }
 }
 
 .glass {
   background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-edge), var(--glass-highlight);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
-    background: var(--color-panel-elevated);
+    background: var(--content-bg);
   }
 }
