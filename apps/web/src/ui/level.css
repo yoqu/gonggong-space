@@ -1,0 +1,92 @@
+.ui-levelwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+}
+.ui-levelwrap__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ui-level {
+  display: flex;
+  gap: 1px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  box-shadow: var(--shadow-outline);
+}
+.ui-level > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.ui-level--warning > i {
+  background: var(--tint-orange-text);
+}
+.ui-level--critical > i {
+  background: var(--tint-red-text);
+}
+.ui-levelwrap__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: var(--label-secondary);
+}
+.ui-levelwrap__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ui-levelwrap__legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.ui-level--discrete {
+  display: inline-flex;
+  gap: 2px;
+  height: 14px;
+  overflow: visible;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ui-level--discrete > i {
+  width: 6px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--control-track);
+  box-shadow: var(--shadow-outline);
+}
+.ui-level--discrete > i.on {
+  background: var(--accent);
+}
+.ui-level--discrete.ui-level--warning > i.on {
+  background: var(--tint-orange-text);
+}
+.ui-level--discrete.ui-level--critical > i.on {
+  background: var(--tint-red-text);
+}
+.ui-rating {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 4px;
+  color: var(--label-tertiary);
+}
+.ui-rating svg {
+  fill: none;
+  stroke: var(--label-secondary);
+  stroke-width: 1.2;
+}
+.ui-rating svg.on {
+  fill: var(--label);
+  stroke: var(--label);
+}
+.ui-rating--edit:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}

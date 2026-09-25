@@ -23,6 +23,7 @@ import {
   toast,
 } from '../ui'
 import { ControlsGallery } from './gallery/ControlsGallery'
+import { DataGallery } from './gallery/DataGallery'
 import { FoundationGallery } from './gallery/FoundationGallery'
 import { IMGallery } from './gallery/IMGallery'
 import { OverlayGallery } from './gallery/OverlayGallery'
@@ -57,6 +58,7 @@ export default function UiGallery() {
 
       <FoundationGallery />
       <ControlsGallery />
+      <DataGallery />
       <Section title="BUTTON">
         {(['primary', 'default', 'outline', 'ghost', 'destructive'] as const).map((v) => (
           <Button key={v} variant={v}>
