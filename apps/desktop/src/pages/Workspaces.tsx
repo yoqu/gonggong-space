@@ -1,16 +1,16 @@
-import { Alert, Button, Dialog, EmptyState, Spinner, toast } from '@web/ui'
-import { Archive } from 'lucide-react'
+import { Alert, AlertDialog, Button, EmptyState, GroupBox, Icon, Spinner, toast } from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { ipc, type WorkspaceRow, type WorkspaceState, type Workspaces } from '../ipc'
 import { revealLabel, tildify } from '../lib/labels'
+import { Section, StatusText } from '../lib/ui'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
 const STATE_COLOR: Record<WorkspaceState, string> = {
-  running: 'var(--color-selection-blue)',
-  idle: 'var(--color-text-secondary)',
-  removed: 'var(--color-warning)',
-  unused: 'var(--color-warning)',
+  running: 'var(--system-blue)',
+  idle: 'var(--system-gray)',
+  removed: 'var(--system-orange)',
+  unused: 'var(--system-orange)',
 }
 
 const RESET_RELOAD_MS = 2000
@@ -20,7 +20,9 @@ const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 export function WorkspacesPage(_: PageProps) {
   const os = useDaemon((s) => s.info?.machine.os)
   const [data, setData] = useState<Workspaces | null>(null)
+  // Kept after closing so the alert keeps its text while it animates out.
   const [doomed, setDoomed] = useState<WorkspaceRow | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const load = useCallback(() => ipc.workspaces().then(setData, fail), [])
   useEffect(() => {
@@ -39,7 +41,7 @@ export function WorkspacesPage(_: PageProps) {
   }
 
   const remove = async (w: WorkspaceRow) => {
-    setDoomed(null)
+    setConfirming(false)
     try {
       await ipc.deleteWorkspace(w.groupId, w.botId, w.path)
       toast({ type: 'success', message: `已删除 ${tildify(w.path)}` })
@@ -49,7 +51,7 @@ export function WorkspacesPage(_: PageProps) {
     await load()
   }
 
-  if (!data) return <Spinner size={18} />
+  if (!data) return <Spinner size={16} />
 
   return (
     <>
@@ -72,25 +74,31 @@ export function WorkspacesPage(_: PageProps) {
         {data.rows.map((w) => (
           <div key={w.path} className="dk-table__row dk-ws-grid" data-testid="ws-row">
             <div className="dk-row__main">
-              <span className="dk-strong">{w.group}</span>
-              <span className="dk-sub">{w.bot}</span>
+              <span className="dk-strong dk-ellipsis">{w.group}</span>
+              <span className="dk-sub dk-ellipsis">{w.bot}</span>
             </div>
             <span>{w.kindLabel}</span>
-            <span className="dk-ellipsis dk-mono-hint" title={w.path}>
+            <span className="dk-ellipsis dk-mono dk-sub" title={w.path}>
               {tildify(w.path)}
             </span>
-            <span style={{ color: STATE_COLOR[w.state] }}>{w.stateLabel}</span>
+            <StatusText color={STATE_COLOR[w.state]}>{w.stateLabel}</StatusText>
             <div className="dk-table__action">
               {w.kind === 'cd' ? (
-                <Button variant="ghost" size="xs" onClick={() => resetCd(w)}>
+                <Button size="small" onClick={() => resetCd(w)}>
                   改回托管
                 </Button>
               ) : w.deletable ? (
-                <Button variant="ghost" size="xs" onClick={() => setDoomed(w)}>
-                  删除
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDoomed(w)
+                    setConfirming(true)
+                  }}
+                >
+                  删除…
                 </Button>
               ) : (
-                <Button variant="ghost" size="xs" onClick={() => ipc.reveal(w.path).catch(fail)}>
+                <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
                   打开
                 </Button>
               )}
@@ -98,41 +106,39 @@ export function WorkspacesPage(_: PageProps) {
           </div>
         ))}
       </div>
-      <div className="dk-eyebrow">本机备份 · 不上传</div>
-      {data.backups.length === 0 ? <div className="dk-card dk-card--muted">暂无本机备份</div> : null}
-      {data.backups.map((b) => (
-        <div key={b.path} className="dk-backup">
-          <Archive size={13} className="dk-backup__icon" />
-          <span className="dk-flex dk-ellipsis">
-            {b.name} · {b.size}
-          </span>
-          <span className="dk-mono-hint dk-ellipsis dk-backup__path" title={b.path}>
-            {tildify(b.path)}
-          </span>
-          <Button variant="ghost" size="xs" onClick={() => ipc.reveal(b.path).catch(fail)}>
-            {revealLabel(os)}
-          </Button>
-        </div>
-      ))}
-      <Dialog
-        open={!!doomed}
-        onClose={() => setDoomed(null)}
-        title="删除工作区？"
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setDoomed(null)}>
-              取消
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => doomed && remove(doomed)}>
-              删除
-            </Button>
-          </>
+      <Section title="本机备份 · 不上传">
+        <GroupBox>
+          {data.backups.length === 0 ? <div className="dk-row dk-row--empty">暂无本机备份</div> : null}
+          {data.backups.map((b) => (
+            <div key={b.path} className="dk-row">
+              <Icon name="archive" size={16} color="var(--system-brown)" />
+              <div className="dk-row__main">
+                <span className="dk-ellipsis">
+                  {b.name} · {b.size}
+                </span>
+                <span className="dk-mono dk-sub dk-ellipsis" title={b.path}>
+                  {tildify(b.path)}
+                </span>
+              </div>
+              <Button onClick={() => ipc.reveal(b.path).catch(fail)}>{revealLabel(os)}</Button>
+            </div>
+          ))}
+        </GroupBox>
+      </Section>
+      <AlertDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={doomed ? `要从本机删除“${doomed.group} × ${doomed.bot}”的工作区吗？` : ''}
+        message={
+          doomed
+            ? `将删除 ${tildify(doomed.path)}（${doomed.stateLabel}），此操作不可撤销。只影响本机目录，群里的消息与记录不受影响。`
+            : null
         }
-      >
-        {doomed
-          ? `将从本机删除 ${tildify(doomed.path)}（${doomed.group} × ${doomed.bot}，${doomed.stateLabel}）。只影响本机目录，群里的消息与记录不受影响。`
-          : null}
-      </Dialog>
+        actions={[
+          { label: '取消', onClick: () => setConfirming(false) },
+          { label: '删除', variant: 'destructive', onClick: () => doomed && remove(doomed) },
+        ]}
+      />
     </>
   )
 }

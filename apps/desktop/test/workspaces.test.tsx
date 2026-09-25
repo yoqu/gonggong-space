@@ -93,9 +93,9 @@ describe('工作区', () => {
   it('deletes a removed workspace only after confirmation, then reloads', async () => {
     render(<WorkspacesPage go={() => {}} />)
     const old = await screen.findByText('旧版后台')
-    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除' }))
+    fireEvent.click(within(rowOf('旧版后台')).getByRole('button', { name: '删除…' }))
     expect(m.deleteWorkspace).not.toHaveBeenCalled()
-    const dialog = screen.getByRole('dialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(dialog.textContent).toContain('~/.gonggong/workspaces/g3/b1/r3')
     m.workspaces.mockResolvedValue({ ...DATA, rows: DATA.rows.slice(0, 2) })
     fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))

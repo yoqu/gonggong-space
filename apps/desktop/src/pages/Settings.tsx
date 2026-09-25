@@ -1,8 +1,9 @@
 import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
-import { Button, Dialog, Switch, Tabs, toast } from '@web/ui'
-import { type ReactNode, useEffect, useState } from 'react'
+import { AlertDialog, Button, GroupBox, GroupRow, SegmentedControl, Switch, toast } from '@web/ui'
+import { useEffect, useState } from 'react'
 import { ipc, type Settings } from '../ipc'
 import { host, tildify } from '../lib/labels'
+import { Section } from '../lib/ui'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
 import type { PageProps } from '.'
@@ -41,91 +42,84 @@ export function SettingsPage(_: PageProps) {
 
   return (
     <>
-      <div className="dk-list">
-        <Row k="外观" d="浅色、深色或跟随系统">
-          <Tabs
-            size="sm"
-            items={APPEARANCE}
-            value={theme}
-            onChange={(v) => {
-              setTheme(v)
-              setThemeState(v)
-            }}
-          />
-        </Row>
-        <Row k="玻璃效果" d="清透、标准或着色">
-          <Tabs
-            size="sm"
-            items={GLASS}
-            value={glass}
-            onChange={(v) => {
-              setGlass(v)
-              setGlassState(v)
-            }}
-          />
-        </Row>
-        <Row k="自动升级" d="服务器公布协议版本，不兼容时拒绝连接并提示升级">
-          <Switch
-            label={<span className="dk-sr-only">自动升级</span>}
-            checked={settings?.autoUpgrade ?? false}
-            disabled={!settings}
-            onChange={toggle('autoUpgrade', ipc.setAutoUpgrade)}
-          />
-        </Row>
-        <Row k="开机启动" d="登录系统后在后台运行">
-          <Switch
-            label={<span className="dk-sr-only">开机启动</span>}
-            checked={settings?.launchAtLogin ?? false}
-            disabled={!settings}
-            onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
-          />
-        </Row>
-        <Row k="工作区根目录" d="托管工作区与附件目录">
-          <span className="dk-value">{info ? tildify(info.workspacesDir) : ''}</span>
-        </Row>
-        <Row k="备份目录" d="被覆盖的本地修改、中断的半成品">
-          <span className="dk-value">{info ? tildify(info.backupsDir) : ''}</span>
-        </Row>
-        <Row k="服务器" d="只出站连接 · HTTPS / WSS">
-          <span className="dk-value">{host(info?.server)}</span>
-        </Row>
-      </div>
-      <div className="dk-inline">
-        <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
-          解除绑定
-        </Button>
-        <span className="dk-sub">解除后清除团队密钥与托管工作区，本机备份保留。</span>
-      </div>
-      <Dialog
+      <Section title="外观">
+        <GroupBox>
+          <GroupRow label="主题" description="浅色、深色或跟随系统">
+            <SegmentedControl
+              aria-label="主题"
+              items={APPEARANCE}
+              value={theme}
+              onChange={(v) => {
+                setTheme(v)
+                setThemeState(v)
+              }}
+            />
+          </GroupRow>
+          <GroupRow label="玻璃效果" description="清透、标准或着色">
+            <SegmentedControl
+              aria-label="玻璃效果"
+              items={GLASS}
+              value={glass}
+              onChange={(v) => {
+                setGlass(v)
+                setGlassState(v)
+              }}
+            />
+          </GroupRow>
+        </GroupBox>
+      </Section>
+      <Section title="通用">
+        <GroupBox>
+          <GroupRow label="自动升级" description="服务器公布协议版本，不兼容时拒绝连接并提示升级">
+            <Switch
+              aria-label="自动升级"
+              checked={settings?.autoUpgrade ?? false}
+              disabled={!settings}
+              onChange={toggle('autoUpgrade', ipc.setAutoUpgrade)}
+            />
+          </GroupRow>
+          <GroupRow label="开机启动" description="登录系统后在后台运行">
+            <Switch
+              aria-label="开机启动"
+              checked={settings?.launchAtLogin ?? false}
+              disabled={!settings}
+              onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
+            />
+          </GroupRow>
+        </GroupBox>
+      </Section>
+      <Section title="存储与连接">
+        <GroupBox>
+          <GroupRow label="工作区根目录" description="托管工作区与附件目录">
+            <span className="dk-value">{info ? tildify(info.workspacesDir) : ''}</span>
+          </GroupRow>
+          <GroupRow label="备份目录" description="被覆盖的本地修改、中断的半成品">
+            <span className="dk-value">{info ? tildify(info.backupsDir) : ''}</span>
+          </GroupRow>
+          <GroupRow label="服务器" description="只出站连接 · HTTPS / WSS">
+            <span className="dk-value">{host(info?.server)}</span>
+          </GroupRow>
+        </GroupBox>
+      </Section>
+      <Section title="绑定">
+        <GroupBox>
+          <GroupRow label="解除绑定" description="解除后清除团队密钥与托管工作区，本机备份保留。">
+            <Button variant="destructive" onClick={() => setConfirming(true)}>
+              解除绑定…
+            </Button>
+          </GroupRow>
+        </GroupBox>
+      </Section>
+      <AlertDialog
         open={confirming}
         onClose={() => setConfirming(false)}
-        title="解除绑定？"
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-              取消
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => ipc.unbind()}>
-              解除绑定
-            </Button>
-          </>
-        }
-      >
-        本机将断开与服务器的连接，清除团队密钥与托管工作区（/cd
-        绑定的目录与本机备份保留），并回到首次绑定引导。
-      </Dialog>
+        title="要解除本机与团队服务器的绑定吗？"
+        message="本机将断开连接，清除团队密钥与托管工作区（/cd 绑定的目录与本机备份保留），并回到首次绑定引导。此操作不可撤销。"
+        actions={[
+          { label: '取消', onClick: () => setConfirming(false) },
+          { label: '解除绑定', variant: 'destructive', onClick: () => ipc.unbind() },
+        ]}
+      />
     </>
-  )
-}
-
-function Row({ k, d, children }: { k: string; d: string; children: ReactNode }) {
-  return (
-    <div className="dk-list__row">
-      <div className="dk-row__main">
-        <span>{k}</span>
-        <span className="dk-sub">{d}</span>
-      </div>
-      {children}
-    </div>
   )
 }

@@ -15,6 +15,7 @@ import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, PickChatArt, Presence, Spinner, toast } from '../ui'
+import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
@@ -138,6 +139,7 @@ export function ChatPage() {
             bots={myBots}
             machines={myMachines}
             guide={!firstRun || mobile}
+            header={<ShellBar onNewGroup={() => setCreating('group')} />}
             onNewGroup={() => setCreating('group')}
             onNewDm={() => setCreating('dm')}
             loaded={workspaceLoaded && groupsState === 'ready'}
@@ -167,11 +169,7 @@ export function ChatPage() {
               illustration={<FailedArt />}
               title="加载失败"
               description="无法获取群列表，请检查网络后重试。"
-              actions={
-                <Button size="sm" onClick={retryGroups}>
-                  重试
-                </Button>
-              }
+              actions={<Button onClick={retryGroups}>重试</Button>}
             />
           </div>
         ) : firstRun && me ? (

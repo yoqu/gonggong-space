@@ -1,4 +1,4 @@
-import { Activity, Bot, Cpu, FolderGit2, LayoutDashboard, type LucideIcon, Settings } from 'lucide-react'
+import type { IconName } from '@web/ui'
 import type { ComponentType } from 'react'
 import { AgentsPage } from './Agents'
 import { BotsPage } from './Bots'
@@ -13,48 +13,80 @@ export interface PageProps {
   go: (page: PageKey) => void
 }
 
-/** Left nav order. 同步 (P2) and 个人密钥 (P3) are not built. */
-export const PAGES: {
+export interface Page {
   key: PageKey
   label: string
-  icon: LucideIcon
+  icon: IconName
+  /** A `var(--system-*)` sidebar icon color. */
+  color: string
   desc: string
   Component: ComponentType<PageProps>
-}[] = [
+}
+
+/** Sidebar sections in order. 同步 (P2) and 个人密钥 (P3) are not built. */
+export const SECTIONS: { title?: string; pages: Page[] }[] = [
   {
-    key: 'overview',
-    label: '概览',
-    icon: LayoutDashboard,
-    desc: '本机执行端状态与正在运行的轮次',
-    Component: OverviewPage,
+    pages: [
+      {
+        key: 'overview',
+        label: '概览',
+        icon: 'dashboard',
+        color: 'var(--system-blue)',
+        desc: '本机执行端状态与正在运行的轮次',
+        Component: OverviewPage,
+      },
+    ],
   },
   {
-    key: 'agents',
-    label: 'Agent',
-    icon: Cpu,
-    desc: '本机安装的 CLI 运行时：检测、路径、登录状态与默认模型',
-    Component: AgentsPage,
+    title: '执行',
+    pages: [
+      {
+        key: 'agents',
+        label: 'Agent',
+        icon: 'cpu',
+        color: 'var(--system-purple)',
+        desc: '本机安装的 CLI 运行时：检测、路径、登录状态与默认模型',
+        Component: AgentsPage,
+      },
+      {
+        key: 'bots',
+        label: 'Bot',
+        icon: 'bot',
+        color: 'var(--system-indigo)',
+        desc: '认领到本机的团队 Bot：指定 agent、模型、并发与审批',
+        Component: BotsPage,
+      },
+      {
+        key: 'workspaces',
+        label: '工作区',
+        icon: 'folder-git',
+        color: 'var(--system-orange)',
+        desc: '每个「群 × Bot」一个托管目录，或 /cd 绑定的本机目录',
+        Component: WorkspacesPage,
+      },
+    ],
   },
   {
-    key: 'bots',
-    label: 'Bot',
-    icon: Bot,
-    desc: '认领到本机的团队 Bot：指定 agent、模型、并发与审批',
-    Component: BotsPage,
+    title: '本机',
+    pages: [
+      {
+        key: 'logs',
+        label: '日志与诊断',
+        icon: 'activity',
+        color: 'var(--system-green)',
+        desc: '连接、ACP、git 与同步日志；运行过程入库前已脱敏',
+        Component: LogsPage,
+      },
+      {
+        key: 'settings',
+        label: '设置',
+        icon: 'gear',
+        color: 'var(--system-gray)',
+        desc: '升级、启动项与存储位置',
+        Component: SettingsPage,
+      },
+    ],
   },
-  {
-    key: 'workspaces',
-    label: '工作区',
-    icon: FolderGit2,
-    desc: '每个「群 × Bot」一个托管目录，或 /cd 绑定的本机目录',
-    Component: WorkspacesPage,
-  },
-  {
-    key: 'logs',
-    label: '日志与诊断',
-    icon: Activity,
-    desc: '连接、ACP、git 与同步日志；运行过程入库前已脱敏',
-    Component: LogsPage,
-  },
-  { key: 'settings', label: '设置', icon: Settings, desc: '升级、启动项与存储位置', Component: SettingsPage },
 ]
+
+export const PAGES = SECTIONS.flatMap((s) => s.pages)

@@ -1,7 +1,6 @@
-import { Bot, Check, Hash, Laptop } from 'lucide-react'
 import { motion } from 'motion/react'
 import { SPRING } from '../lib/motion'
-import { Button, Logo } from '../ui'
+import { Button, Icon, type IconName, Logo } from '../ui'
 
 /** Main-area first run for someone in no group yet: the three steps from nothing to a working bot, tied to real state. */
 export function Welcome({
@@ -19,9 +18,18 @@ export function Welcome({
   onNewBot: () => void
   onNewGroup: () => void
 }) {
-  const steps = [
+  const steps: {
+    icon: IconName
+    color: string
+    title: string
+    desc: string
+    action: string
+    done: boolean
+    onClick: () => void
+  }[] = [
     {
-      Icon: Laptop,
+      icon: 'laptop',
+      color: 'var(--system-blue)',
       title: '绑定机器',
       desc: '在你的机器上安装 gg 并用绑定码登录，Bot 就在这台机器上运行。',
       action: '绑定机器',
@@ -29,7 +37,8 @@ export function Welcome({
       onClick: onBindMachine,
     },
     {
-      Icon: Bot,
+      icon: 'bot',
+      color: 'var(--system-indigo)',
       title: '新建 Bot',
       desc: '选择机器上的 Claude Code 或 Codex，给它起个好认的名字。',
       action: '新建 Bot',
@@ -37,7 +46,8 @@ export function Welcome({
       onClick: onNewBot,
     },
     {
-      Icon: Hash,
+      icon: 'hashtag',
+      color: 'var(--system-green)',
       title: '建群并 @ Bot',
       desc: '拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。',
       action: '新建群',
@@ -48,7 +58,7 @@ export function Welcome({
   const current = steps.findIndex((s) => !s.done)
   return (
     <section className="welcome" aria-label="开始使用">
-      <Logo size={48} motion="enter" />
+      <Logo size={56} motion="enter" />
       <h1 className="welcome__title">欢迎来到共工，{name}</h1>
       <p className="welcome__lead">三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。</p>
       <ol className="welcome__steps">
@@ -61,14 +71,18 @@ export function Welcome({
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...SPRING.smooth, delay: 0.25 + i * 0.08 }}
           >
-            <span className="welcome__mark">{s.done ? <Check size={14} strokeWidth={3} /> : i + 1}</span>
-            <s.Icon size={22} className="welcome__icon" aria-hidden="true" />
+            <span className="welcome__mark">
+              {s.done ? <Icon name="check" size={12} weight={2.4} /> : i + 1}
+            </span>
+            <span className="welcome__icon" style={{ color: s.done ? undefined : s.color }}>
+              <Icon name={s.icon} size={24} />
+            </span>
             <h2 className="welcome__step-title">{s.title}</h2>
             <p className="welcome__step-desc">{s.desc}</p>
             {s.done ? (
               <span className="welcome__done">已完成</span>
             ) : (
-              <Button variant={i === current ? 'primary' : 'outline'} onClick={s.onClick}>
+              <Button variant={i === current ? 'primary' : 'default'} onClick={s.onClick}>
                 {s.action}
               </Button>
             )}

@@ -31,8 +31,8 @@ it('shows local paths and the server, toggles preferences and unbinds after conf
   fireEvent.click(screen.getByRole('switch', { name: '开机启动' }))
   expect(m.setLaunchAtLogin).toHaveBeenCalledWith(true)
 
-  fireEvent.click(screen.getByRole('button', { name: '解除绑定' }))
+  fireEvent.click(screen.getByRole('button', { name: '解除绑定…' }))
   expect(m.unbind).not.toHaveBeenCalled()
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '解除绑定' }))
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '解除绑定' }))
   expect(m.unbind).toHaveBeenCalled()
 })

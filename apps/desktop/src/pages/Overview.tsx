@@ -1,7 +1,8 @@
-import { Alert, Badge, Button } from '@web/ui'
+import { Alert, Badge, Button, GroupBox, Icon } from '@web/ui'
 import { type ReactNode, useEffect, useState } from 'react'
 import { type DaemonStatus, ipc, type MachineBot, type Overview } from '../ipc'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
+import { Section } from '../lib/ui'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
 
@@ -47,7 +48,7 @@ export function OverviewPage(_: PageProps) {
       <div className="dk-stats" data-testid="stats">
         <Stat k="连接" v={CONN_STAT[kind]} s={secure} />
         <Stat
-          k="bot"
+          k="Bot"
           v={`${bound.length} 已绑定`}
           s={`agent 可用 ${agents.filter((a) => a.available).length} / ${agents.length}`}
         />
@@ -58,36 +59,43 @@ export function OverviewPage(_: PageProps) {
           s={overview?.workspaces.detail ?? ''}
         />
       </div>
-      <div className="dk-eyebrow">正在运行</div>
-      <div className="dk-stack" data-testid="running">
-        {running.length === 0 ? <div className="dk-card dk-card--muted">当前没有运行中的轮次</div> : null}
-        {running.map((r) => {
-          const badge = runBadge(r.status)
-          return (
-            <div key={r.runId} className="dk-card dk-run">
-              <div className="dk-run__head">
-                <span className="dk-strong">{r.botName}</span>
-                <span className="dk-sub">
-                  {r.groupName} · {r.triggeredBy} 触发
-                </span>
-                <span className="dk-flex" />
-                <Badge variant={badge.variant}>{badge.text}</Badge>
-              </div>
-              <div className="dk-run__step">{r.step}</div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="dk-eyebrow">本机队列</div>
-      <div className="dk-card dk-card--muted">
-        {queued.length === 0
-          ? '本机队列为空'
-          : queued.map((r, i) => (
-              <div key={r.runId}>
+      <Section title="正在运行">
+        <GroupBox>
+          <div data-testid="running">
+            {running.length === 0 ? <div className="dk-row dk-row--empty">当前没有运行中的轮次</div> : null}
+            {running.map((r) => {
+              const badge = runBadge(r.status)
+              return (
+                <div key={r.runId} className="dk-row">
+                  <Icon name="bot" size={18} color="var(--system-indigo)" />
+                  <div className="dk-row__main">
+                    <span className="dk-row__title">
+                      <span className="dk-strong">{r.botName}</span>
+                      <span className="dk-sub">
+                        {r.groupName} · {r.triggeredBy} 触发
+                      </span>
+                    </span>
+                    <span className="dk-mono dk-sub dk-ellipsis">{r.step}</span>
+                  </div>
+                  <Badge variant={badge.variant}>{badge.text}</Badge>
+                </div>
+              )
+            })}
+          </div>
+        </GroupBox>
+      </Section>
+      <Section title="本机队列">
+        <GroupBox>
+          {queued.length === 0 ? <div className="dk-row dk-row--empty">本机队列为空</div> : null}
+          {queued.map((r, i) => (
+            <div key={r.runId} className="dk-row">
+              <span className="dk-row__main">
                 {r.botName} · {r.groupName} · {r.triggeredBy} 触发 · 排第 {i + 1}
-              </div>
-            ))}
-      </div>
+              </span>
+            </div>
+          ))}
+        </GroupBox>
+      </Section>
     </>
   )
 }
@@ -104,7 +112,7 @@ function Stat({ k, v, s }: { k: string; v: ReactNode; s: ReactNode }) {
 
 function Rebind() {
   return (
-    <Button variant="outline" size="sm" onClick={() => ipc.unbind()}>
+    <Button size="small" onClick={() => ipc.unbind()}>
       重新绑定
     </Button>
   )
@@ -163,7 +171,7 @@ function ConnAlert({
 function BlockedAlert({ message }: { message: string }) {
   return (
     <Alert variant="error" title="daemon 未运行" description={message}>
-      <Button variant="outline" size="sm" onClick={() => ipc.startDaemon().catch(() => {})}>
+      <Button size="small" onClick={() => ipc.startDaemon().catch(() => {})}>
         重试
       </Button>
     </Alert>

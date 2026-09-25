@@ -31,9 +31,6 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: inset 0 -1px 0 var(--separator);
 }
-:root[data-window-inactive] .ui-toolbar {
-  color: var(--label-secondary);
-}
 .ui-toolbar__titles {
   display: flex;
   flex-direction: column;
@@ -82,6 +79,7 @@
   background: transparent;
   color: var(--label);
   font: inherit;
+  text-decoration: none;
   cursor: default;
   transition:
     background var(--motion-fast),
@@ -98,4 +96,8 @@
 }
 .ui-toolbar__btn:disabled {
   opacity: 0.45;
+}
+:root[data-window-inactive] .ui-toolbar,
+:root[data-window-inactive] .ui-toolbar__btn {
+  color: var(--label-secondary);
 }

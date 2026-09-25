@@ -1,51 +1,51 @@
-import { cx } from '@web/lib/cx'
+import { Avatar, Sidebar } from '@web/ui'
 import { useState } from 'react'
-import { PAGES, type PageKey } from '../pages'
+import { PAGES, type PageKey, SECTIONS } from '../pages'
 import { useDaemon } from '../store'
 import { StatusLine } from './StatusLine'
+import { TitleBar } from './TitleBar'
 
 const OS = { macos: 'macOS', windows: 'Windows', linux: 'Linux' } as Record<string, string>
 
-/** Bound layout: left nav, the current page with its header, bottom status line. */
+/** Bound layout (Pane window): flush sidebar under the native traffic lights, unified toolbar, content, status line. */
 export function Shell() {
   const [page, setPage] = useState<PageKey>('overview')
   const info = useDaemon((s) => s.info)
   const current = PAGES.find((p) => p.key === page) ?? (PAGES[0] as (typeof PAGES)[number])
   return (
-    <>
-      <div className="dk-body">
-        <nav className="dk-nav">
-          {PAGES.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              className={cx('dk-nav__item', p.key === page && 'dk-nav__item--active')}
-              aria-current={p.key === page ? 'page' : undefined}
-              onClick={() => setPage(p.key)}
-            >
-              <p.icon size={14} />
-              <span>{p.label}</span>
-            </button>
-          ))}
-          <span className="dk-flex" />
-          {info ? (
-            <div className="dk-nav__me">
-              <span className="dk-strong">{info.ownerName ?? '未绑定'}</span>
-              <span className="dk-mono dk-sub">
+    <div className="dk-body">
+      <aside className="dk-sidebar">
+        <div className="dk-sidebar__lights" data-tauri-drag-region="deep" />
+        <Sidebar
+          aria-label="导航"
+          selected={page}
+          onSelect={(id) => setPage(id as PageKey)}
+          sections={SECTIONS.map((s) => ({
+            title: s.title,
+            items: s.pages.map((p) => ({ id: p.key, label: p.label, icon: p.icon, color: p.color })),
+          }))}
+        />
+        {info ? (
+          <div className="dk-me">
+            <Avatar name={info.ownerName ?? '未绑定'} size={28} />
+            <div className="dk-me__text">
+              <span className="dk-strong dk-ellipsis">{info.ownerName ?? '未绑定'}</span>
+              <span className="dk-sub dk-ellipsis">
                 {info.machine.name} · {OS[info.machine.os] ?? info.machine.os}
               </span>
             </div>
-          ) : null}
-        </nav>
-        <main className="dk-main">
-          <header className="dk-main__header">
-            <h1>{current.label}</h1>
-            <p>{current.desc}</p>
-          </header>
-          <current.Component go={setPage} />
-        </main>
+          </div>
+        ) : null}
+      </aside>
+      <div className="dk-main">
+        <div className="dk-scroll">
+          <TitleBar title={current.label} subtitle={current.desc} />
+          <main className="dk-content">
+            <current.Component go={setPage} />
+          </main>
+        </div>
+        <StatusLine />
       </div>
-      <StatusLine />
-    </>
+    </div>
   )
 }

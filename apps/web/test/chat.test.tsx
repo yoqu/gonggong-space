@@ -253,7 +253,7 @@ describe('sidebar', () => {
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     const row = await within(nav).findByRole('link', { name: /退款 v2 迁移/ })
     // The second line is the latest message; the mode is shown in the chat header instead.
-    expect(row.textContent).toBe('退款 v2 迁移3李建国：好的')
+    expect(row.querySelector('.pn-conv__preview')?.textContent).toBe('李建国：好的')
     expect(within(row).getByText('3')).toBeTruthy()
     expect(within(nav).getByRole('link', { name: /脚本实验/ })).toBeTruthy()
   })

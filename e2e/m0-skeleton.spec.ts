@@ -39,7 +39,7 @@ test('切换玻璃档位刷新后保持', async ({ page }) => {
   const html = page.locator('html')
   await expect(html).toHaveAttribute('data-glass', 'standard')
   await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByRole('menuitemradio', { name: '着色' }).click()
+  await page.getByRole('menuitemcheckbox', { name: '着色' }).click()
   await expect(html).toHaveAttribute('data-glass', 'tinted')
   await page.reload()
   await expect(page.getByRole('button', { name: '账户菜单' })).toBeVisible()
