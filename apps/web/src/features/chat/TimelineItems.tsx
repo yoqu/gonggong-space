@@ -26,7 +26,7 @@ import { UserCardTrigger } from '../users'
 import { Clamp } from './Clamp'
 import { isRich } from './grouping'
 import { Markdown } from './Markdown'
-import { MessageActions } from './MessageActions'
+import { type ActionTarget, MessageMenu } from './MessageActions'
 import {
   ClockFact,
   FanOut,
@@ -100,7 +100,9 @@ export function dayLabel(iso: string) {
 
 export const fmtDuration = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
+  const h = Math.floor(s / 3600)
+  const mmss = `${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`
+  return h ? `${h}:${mmss}` : mmss
 }
 
 const usageTotal = (u: RunDto['usage']) => u?.totalTokens ?? (u?.inputTokens ?? 0) + (u?.outputTokens ?? 0)
@@ -203,15 +205,10 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
   )
 }
 
-/** A recalled message: a centered system notice in place of the content (Feishu). */
+/** A recalled message: the Pane recalled notice in place of the content (no 重新编辑: the body is gone). */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   return (
-    <ChatNotice>
-      <span className="tl-event">
-        <span className="tl-event__text">{mine ? '你' : `${m.authorName} `}撤回了一条消息</span>
-        <Time iso={m.createdAt} />
-      </span>
-    </ChatNotice>
+    <ChatNotice kind="recalled">{mine ? '你撤回了一条消息' : `${m.authorName} 撤回了一条消息`}</ChatNotice>
   )
 })
 
@@ -232,18 +229,14 @@ const link = (groupId: string, query: string) => `${location.origin}/g/${groupId
 /** Quoting a bot = @ that bot (spec §8.6). */
 const BOT_QUOTE = '引用回复等同 @ 该 Bot'
 
-function MessageBar({ m, own = false }: { m: MessageDto; own?: boolean }) {
-  return (
-    <MessageActions
-      message={m}
-      own={own}
-      link={link(m.groupId, `msg=${m.id}`)}
-      quoteTitle={m.kind === 'bot' ? BOT_QUOTE : undefined}
-      onQuote={() => quoteMessage(m)}
-      copyText={m.body}
-    />
-  )
-}
+const messageTarget = (m: MessageDto, own = false): ActionTarget => ({
+  message: m,
+  own,
+  link: link(m.groupId, `msg=${m.id}`),
+  quoteTitle: m.kind === 'bot' ? BOT_QUOTE : undefined,
+  onQuote: () => quoteMessage(m),
+  copyText: m.body,
+})
 
 /** Another member: avatar and name open their user card. */
 function person(m: MessageDto): MessageAuthor {
@@ -302,30 +295,34 @@ export const UserMessage = memo(function UserMessage({
 }) {
   const text = !!(m.body || m.quote)
   return (
-    <Message
-      author={mine ? { name: m.authorName } : person(m)}
-      self={mine}
-      continued={compact}
-      time={<Time iso={m.createdAt} />}
-      bare={!text}
-      actionBar={<MessageBar m={m} own={mine} />}
-      footer={
-        text || fanOut.length > 1 ? (
-          <>
-            {text ? <MessageAttachments list={m.attachments} from={m.authorName} /> : null}
-            {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
-          </>
-        ) : null
-      }
-    >
-      {text ? (
-        <MessageQuote quote={m.quote} />
-      ) : (
-        <MessageAttachments list={m.attachments} from={m.authorName} />
+    <MessageMenu {...messageTarget(m, mine)}>
+      {(bar) => (
+        <Message
+          author={mine ? { name: m.authorName } : person(m)}
+          self={mine}
+          continued={compact}
+          time={<Time iso={m.createdAt} />}
+          bare={!text}
+          actionBar={bar}
+          footer={
+            text || fanOut.length > 1 ? (
+              <>
+                {text ? <MessageAttachments list={m.attachments} from={m.authorName} /> : null}
+                {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
+              </>
+            ) : null
+          }
+        >
+          {text ? (
+            <MessageQuote quote={m.quote} />
+          ) : (
+            <MessageAttachments list={m.attachments} from={m.authorName} />
+          )}
+          {m.body ? <Text body={m.body} names={names} me={me} /> : null}
+          <ReactionBar message={m} />
+        </Message>
       )}
-      {m.body ? <Text body={m.body} names={names} me={me} /> : null}
-      <ReactionBar message={m} />
-    </Message>
+    </MessageMenu>
   )
 })
 
@@ -384,7 +381,11 @@ function ReplyMessage({
 
 /** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */
 export const BotReply = memo(function BotReply({ m, compact = false }: { m: MessageDto; compact?: boolean }) {
-  return <ReplyMessage m={m} continued={compact} runId={m.runId} bar={<MessageBar m={m} />} />
+  return (
+    <MessageMenu {...messageTarget(m)}>
+      {(bar) => <ReplyMessage m={m} continued={compact} runId={m.runId} bar={bar} />}
+    </MessageMenu>
+  )
 })
 
 const STEP_ICON: Partial<Record<RunStatus, IconName>> = {
@@ -435,122 +436,123 @@ export const RunCard = memo(function RunCard({
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
   const body = usePresence(!folded, { timeout: 700 })
-  const bar = (
-    <MessageActions
-      message={reply ?? null}
-      link={link(run.groupId, reply ? `msg=${reply.id}` : `run=${run.id}`)}
-      quoteTitle={BOT_QUOTE}
-      onQuote={() =>
-        reply
-          ? quoteMessage(reply)
-          : quote({
-              groupId: run.groupId,
-              kind: 'run',
-              id: run.id,
-              who: `${botName} 的运行卡片`,
-              text: run.step || STATUS_LABEL[run.status],
-            })
-      }
-      copyText={reply?.body}
-      onProcess={note ? undefined : () => openRail(run.id)}
-    />
-  )
+  const target: ActionTarget = {
+    message: reply ?? null,
+    link: link(run.groupId, reply ? `msg=${reply.id}` : `run=${run.id}`),
+    quoteTitle: BOT_QUOTE,
+    onQuote: () =>
+      reply
+        ? quoteMessage(reply)
+        : quote({
+            groupId: run.groupId,
+            kind: 'run',
+            id: run.id,
+            who: `${botName} 的运行卡片`,
+            text: run.step || STATUS_LABEL[run.status],
+          }),
+    copyText: reply?.body,
+    onProcess: note ? undefined : () => openRail(run.id),
+  }
   return (
-    <div className="run-card" data-testid="run-card" data-status={run.status}>
-      <Message
-        author={botAuthor(botName)}
-        time={<Time iso={reply?.createdAt ?? run.queuedAt} />}
-        meta={<span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>}
-        bare
-        actions={false}
-        actionBar={reply ? undefined : bar}
-      >
-        <div
-          className={cx(
-            'pn-card pn-mcard run-mcard',
-            `pn-mcard--${TONE[run.status]}`,
-            selected && 'run-mcard--selected',
-          )}
-        >
-          <div className="pn-mcard__head">
-            <RunStatusIcon status={run.status} spelled />
-            <span className="pn-mcard__title" />
-            {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
-            {canFold ? (
-              <button
-                type="button"
-                className="run-card__fold"
-                aria-label={folded ? '展开' : '收起'}
-                aria-expanded={!folded}
-                title={folded ? '展开' : '收起'}
-                onClick={() => setExpanded(folded)}
-              >
-                <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
-              </button>
-            ) : null}
-          </div>
-          {body.mounted ? (
+    <MessageMenu {...target}>
+      {(bar) => (
+        <div className="run-card" data-testid="run-card" data-status={run.status}>
+          <Message
+            author={botAuthor(botName)}
+            time={<Time iso={reply?.createdAt ?? run.queuedAt} />}
+            meta={<span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>}
+            bare
+            actions={false}
+            actionBar={reply ? undefined : bar}
+          >
             <div
-              className="run-card__body"
-              data-state={expanded === null ? undefined : body.state}
-              inert={folded}
-              onAnimationEnd={body.onAnimationEnd}
+              className={cx(
+                'pn-card pn-mcard run-mcard',
+                `pn-mcard--${TONE[run.status]}`,
+                selected && 'run-mcard--selected',
+              )}
             >
-              <div>
-                <div className="pn-mcard__body">
-                  {step ? (
-                    <div className="run-card__step">
-                      {run.status === 'running' ? (
-                        <ProgressIndicator variant="spinner" aria-label="运行中" />
-                      ) : (
-                        <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
-                      )}
-                      <span>{step}</span>
-                    </div>
-                  ) : null}
-                  {started !== null ? (
-                    <div className="run-card__meta">
-                      <FilesFact n={run.filesChanged} />
-                      <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
-                      <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
-                    </div>
-                  ) : null}
-                  {sessionNote ? (
-                    <div className="run-card__session">
-                      <Icon name="arrow-clockwise" size={12} />
-                      {sessionNote}
-                    </div>
-                  ) : null}
-                  <ApprovalBlock run={run} />
-                  <QuestionBlock run={run} />
-                  {note ? (
-                    <div className="run-card__note">
-                      {run.status === 'offline_wait' ? (
-                        <>
-                          <OfflineGlyph />
-                          <OfflineNote run={run} />
-                        </>
-                      ) : (
-                        <>
-                          <Icon name="octagon-xmark" size={13} />
-                          <span>{run.step}</span>
-                        </>
-                      )}
-                    </div>
-                  ) : null}
-                  <InterruptBlock run={run} />
-                  {note || reply ? null : (
-                    <div className="pn-mcard__actions run-card__actions">
-                      <RunActions run={run} />
-                    </div>
-                  )}
-                </div>
+              <div className="pn-mcard__head">
+                <RunStatusIcon status={run.status} spelled />
+                <span className="pn-mcard__title" />
+                {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
+                {canFold ? (
+                  <button
+                    type="button"
+                    className="run-card__fold"
+                    aria-label={folded ? '展开' : '收起'}
+                    aria-expanded={!folded}
+                    title={folded ? '展开' : '收起'}
+                    onClick={() => setExpanded(folded)}
+                  >
+                    <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
+                  </button>
+                ) : null}
               </div>
+              {body.mounted ? (
+                <div
+                  className="run-card__body"
+                  data-state={expanded === null ? undefined : body.state}
+                  inert={folded}
+                  onAnimationEnd={body.onAnimationEnd}
+                >
+                  <div>
+                    <div className="pn-mcard__body">
+                      {step ? (
+                        <div className="run-card__step">
+                          {run.status === 'running' ? (
+                            <ProgressIndicator variant="spinner" aria-label="运行中" />
+                          ) : (
+                            <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
+                          )}
+                          <span>{step}</span>
+                        </div>
+                      ) : null}
+                      {started !== null ? (
+                        <div className="run-card__meta">
+                          <FilesFact n={run.filesChanged} />
+                          <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
+                          <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+                        </div>
+                      ) : null}
+                      {sessionNote ? (
+                        <div className="run-card__session">
+                          <Icon name="arrow-clockwise" size={12} />
+                          {sessionNote}
+                        </div>
+                      ) : null}
+                      <ApprovalBlock run={run} />
+                      <QuestionBlock run={run} />
+                      {note ? (
+                        <div className="run-card__note">
+                          {run.status === 'offline_wait' ? (
+                            <>
+                              <OfflineGlyph />
+                              <OfflineNote run={run} />
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="octagon-xmark" size={13} />
+                              <span>{run.step}</span>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                      <InterruptBlock run={run} />
+                      {note || reply ? null : (
+                        <div className="pn-mcard__actions run-card__actions">
+                          <RunActions run={run} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </Message>
+          {reply ? <ReplyMessage m={reply} continued runId={run.id} bar={bar} /> : null}
         </div>
-      </Message>
-      {reply ? <ReplyMessage m={reply} continued runId={run.id} bar={bar} /> : null}
-    </div>
+      )}
+    </MessageMenu>
   )
 })

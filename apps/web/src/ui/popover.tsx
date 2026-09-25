@@ -1,26 +1,79 @@
 import {
   cloneElement,
+  type HTMLAttributes,
   isValidElement,
   type ReactElement,
   type ReactNode,
+  type Ref,
+  type RefObject,
   useEffect,
   useId,
   useRef,
 } from 'react'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
-import { useEscape, useOutsidePress } from './overlay'
+import { useEscape } from './overlay'
 import { usePresence } from './presence'
 import './popover.css'
+
+export type Placement = 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end' | 'right-start'
+
+/** While `open`: Escape calls `onClose(true)` (refocus the trigger), a press outside `root` calls `onClose(false)`. */
+export function useDismiss(
+  open: boolean,
+  root: RefObject<HTMLElement | null>,
+  onClose: (refocus: boolean) => void,
+) {
+  const close = useRef(onClose)
+  close.current = onClose
+  useEscape(() => close.current(true), open)
+  useEffect(() => {
+    if (!open) return
+    const outside = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) close.current(false)
+    }
+    document.addEventListener('mousedown', outside)
+    return () => document.removeEventListener('mousedown', outside)
+  }, [open, root])
+}
+
+export interface FloatProps extends HTMLAttributes<HTMLDivElement> {
+  open: boolean
+  placement?: Placement
+  /** `menu`: 4px from the trigger, menu padding. `popover`: 8px, 12px padding, window radius. */
+  kind?: 'menu' | 'popover'
+  ref?: Ref<HTMLDivElement>
+}
+
+/** Glass panel positioned against its nearest positioned ancestor; scales in, fades out. */
+export function Float({
+  open,
+  placement = 'bottom-start',
+  kind = 'popover',
+  className,
+  ...rest
+}: FloatProps) {
+  const presence = usePresence(open)
+  if (!presence.mounted) return null
+  return (
+    <div
+      className={cx('ui-float', `ui-float--${kind}`, `ui-float--${placement}`, className)}
+      data-state={presence.state}
+      onAnimationEnd={presence.onAnimationEnd}
+      {...rest}
+    />
+  )
+}
 
 export interface PopoverProps {
   /** Toggles the panel on click; an element gets `aria-haspopup` / `aria-expanded`. */
   trigger: ReactNode
-  children?: ReactNode
+  /** A function receives `close`, for pickers that close on select. */
+  children?: ReactNode | ((close: () => void) => ReactNode)
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
-  placement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end' | 'right-start'
+  placement?: Placement
   width?: number | string
   /** Small pointer toward the trigger. */
   arrow?: boolean
@@ -52,17 +105,15 @@ export function Popover({
   const panel = useRef<HTMLDivElement>(null)
   const opened = useRef(defaultOpen)
   const id = useId()
-  const presence = usePresence(shown)
   const set = (next: boolean) => {
     setShown(next)
     onOpenChange?.(next)
   }
-  const triggerEl = () => root.current?.querySelector<HTMLElement>('.ui-popover__trigger > *')
-  useEscape(() => {
+  const close = (refocus = true) => {
     set(false)
-    triggerEl()?.focus()
-  }, shown)
-  useOutsidePress([root], () => set(false), shown)
+    if (refocus) root.current?.querySelector<HTMLElement>('.ui-popover__trigger > *')?.focus()
+  }
+  useDismiss(shown, root, close)
 
   // Only a user-opened panel takes focus; a demo shown on mount leaves it where it is.
   useEffect(() => {
@@ -84,21 +135,19 @@ export function Popover({
             })
           : trigger}
       </span>
-      {presence.mounted ? (
-        <div
-          ref={panel}
-          id={id}
-          role="dialog"
-          aria-label={label}
-          tabIndex={-1}
-          className={cx('ui-popover', `ui-popover--${placement}`, arrow && 'ui-popover--arrow')}
-          style={{ width }}
-          data-state={presence.state}
-          onAnimationEnd={presence.onAnimationEnd}
-        >
-          {children}
-        </div>
-      ) : null}
+      <Float
+        ref={panel}
+        open={shown}
+        placement={placement}
+        id={id}
+        role="dialog"
+        aria-label={label}
+        tabIndex={-1}
+        className={cx('ui-popover', arrow && 'ui-popover--arrow')}
+        style={{ width }}
+      >
+        {typeof children === 'function' ? children(() => close()) : children}
+      </Float>
     </span>
   )
 }

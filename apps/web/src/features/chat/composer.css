@@ -17,44 +17,28 @@
   }
 }
 
-/* @ / candidates: glass menu anchored above the composer */
+/* @ / candidates: the Pane MentionPicker anchored above the composer, wide enough for paths. */
 .mention-pop {
   position: absolute;
   left: 0;
-  right: 0;
   bottom: calc(100% + var(--space-6));
   z-index: 5;
-  max-width: 420px;
+  width: min(420px, 100%);
   max-height: 360px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 5px;
-  border-radius: var(--radius-menu);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-menu);
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
 .mention-pop__group {
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-  min-width: 0;
 }
-.mention-pop__label {
+.mention-pop__head {
   display: flex;
-  align-items: center;
   justify-content: space-between;
   gap: var(--space-8);
-  padding: var(--space-6) var(--space-8) var(--space-2);
-  font-size: var(--text-subheadline-size);
-  line-height: var(--text-subheadline-line);
-  font-weight: 600;
-  color: var(--label-secondary);
 }
 .mention-pop__src {
   min-width: 0;
@@ -63,55 +47,55 @@
   white-space: nowrap;
   font-weight: 400;
 }
-.mention-pop__icon {
-  flex: none;
-}
-.mention-pop__name {
-  flex: none;
-  max-width: 70%;
-}
-.mention-pop__name,
-.mention-pop__hint {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mention-pop__mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-callout-size);
-}
 .mention-pop__item {
+  appearance: none;
   width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  height: var(--control-large);
-  padding: 0 var(--space-8) 0 var(--space-6);
   border: 0;
-  border-radius: 7px;
   background: transparent;
-  color: var(--label);
+  color: inherit;
   font: inherit;
   text-align: left;
-  cursor: default;
 }
-.mention-pop__item:hover,
-.mention-pop__item--active {
+.mention-pop__item:hover {
   background: var(--menu-highlight);
   color: var(--on-accent);
 }
+.mention-pop__item:hover .pn-mentionpicker__sub {
+  color: var(--on-accent);
+}
+.mention-pop__lead {
+  display: inline-flex;
+  flex: none;
+}
+.mention-pop__tile {
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-check);
+  background: var(--control-track);
+  color: var(--label-secondary);
+}
+.mention-pop__item[aria-selected="true"] .mention-pop__tile,
+.mention-pop__item:hover .mention-pop__tile {
+  background: transparent;
+  color: var(--on-accent);
+}
+.pn-mentionpicker__name.mention-pop__mono {
+  flex: 0 1 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-callout-size);
+}
 .mention-pop__hint {
-  font-size: var(--text-subheadline-size);
-  opacity: 0.65;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mention-pop__status {
-  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  font-size: var(--text-subheadline-size);
-  opacity: 0.8;
 }
 .mention-pop__dot {
   width: 6px;

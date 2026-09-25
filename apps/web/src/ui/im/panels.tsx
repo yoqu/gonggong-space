@@ -278,7 +278,8 @@ export function ThreadPanel({
 export interface ProfileCardProps {
   name: string
   avatar?: string
-  status?: AvatarProps['status']
+  /** `offline` greys the status dot and shows no avatar badge. */
+  status?: AvatarProps['status'] | 'offline'
   /** e.g.「会议中 · 至 11:00」. */
   statusText?: ReactNode
   title?: ReactNode
@@ -306,7 +307,7 @@ export function ProfileCard({
   return (
     <div className={cx('pn-profile', className)} style={style}>
       <div className="pn-profile__top">
-        <Avatar name={name} src={avatar} size={56} status={status} />
+        <Avatar name={name} src={avatar} size={56} status={status === 'offline' ? undefined : status} />
         <div className="pn-profile__id">
           <div className="pn-profile__name">
             {name}

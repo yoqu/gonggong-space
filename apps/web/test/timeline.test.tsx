@@ -14,7 +14,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
-import { RUN_STATUS } from '../src/features/chat/TimelineItems'
+import { fmtDuration, RUN_STATUS } from '../src/features/chat/TimelineItems'
 import { EmptyChatArt, EmptyState } from '../src/ui'
 import { mockApi } from './mockApi'
 
@@ -209,6 +209,13 @@ describe('bot reply layout (C2)', () => {
         }),
       ),
     ).toBe(true)
+  })
+})
+
+describe('run duration', () => {
+  it('reads m:ss under an hour and h:mm:ss beyond', () => {
+    expect(fmtDuration(65_000)).toBe('01:05')
+    expect(fmtDuration((1 * 3600 + 57 * 60 + 39) * 1000)).toBe('1:57:39')
   })
 })
 

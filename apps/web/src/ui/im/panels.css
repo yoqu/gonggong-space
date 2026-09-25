@@ -346,6 +346,9 @@
 .pn-profile__dot--away {
   background: var(--system-orange);
 }
+.pn-profile__dot--offline {
+  background: var(--label-tertiary);
+}
 .pn-profile__title {
   font-size: 12px;
   line-height: 15px;

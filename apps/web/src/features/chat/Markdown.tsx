@@ -1,55 +1,23 @@
-import { type ComponentProps, isValidElement, memo, useLayoutEffect, useRef, useState } from 'react'
+import { isValidElement, memo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
-import { cx } from '../../lib/cx'
-import { Icon, toast } from '../../ui'
+import { CodeBlock, toast } from '../../ui'
 
-/** Blocks longer than this are capped (about 400px) until expanded. */
-const LONG_LINES = 20
+const copyFailed = () => toast({ type: 'error', message: '复制失败' })
 
-function CodeBlock({ children }: ComponentProps<'pre'>) {
-  const ref = useRef<HTMLPreElement>(null)
-  const [copied, setCopied] = useState(false)
-  const [long, setLong] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const className = isValidElement<{ className?: string }>(children) ? (children.props.className ?? '') : ''
-  const lang = /language-([\w+-]+)/.exec(className)?.[1] ?? 'text'
-  useLayoutEffect(() => {
-    setLong((ref.current?.textContent ?? '').trimEnd().split('\n').length > LONG_LINES)
-  })
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(ref.current?.textContent ?? '')
-    } catch {
-      toast({ type: 'error', message: '复制失败' })
-      return
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
-  return (
-    <div className={cx('md-code', long && !expanded && 'md-code--capped')}>
-      <div className="md-code__head">
-        <span className="md-code__lang">{lang}</span>
-        {long ? (
-          <button type="button" className="md-code__copy" onClick={() => setExpanded(!expanded)}>
-            <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={12} />
-            {expanded ? '收起' : '展开'}
-          </button>
-        ) : null}
-        <button type="button" className="md-code__copy" onClick={() => void copy()}>
-          <Icon name={copied ? 'check' : 'copy'} size={12} />
-          {copied ? '已复制' : '复制'}
-        </button>
-      </div>
-      <pre ref={ref}>{children}</pre>
-    </div>
-  )
+/** Fenced code: the single `<code>` child of `<pre>`, its language from `language-*`. */
+function fenced(children: ReactNode) {
+  const code = isValidElement<{ className?: string; children?: ReactNode }>(children) ? children.props : null
+  const text = String(code?.children ?? '').replace(/\n$/, '')
+  const language = /language-([\w+-]+)/.exec(code?.className ?? '')?.[1]
+  return { text, language }
 }
 
 const components: Components = {
-  pre: ({ node: _node, ...props }) => <CodeBlock {...props} />,
+  pre: ({ children }) => {
+    const { text, language } = fenced(children)
+    return <CodeBlock code={text} language={language} onCopyError={copyFailed} />
+  },
   table: ({ node: _node, ...props }) => (
     <div className="md-table">
       <table {...props} />
@@ -58,11 +26,11 @@ const components: Components = {
   a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
 }
 
-/** Bot reply rendering: GFM (tables, task lists) + highlighted code blocks with copy. */
+/** Bot reply rendering: GFM (tables, task lists) + Pane code blocks with copy. */
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>
     </div>

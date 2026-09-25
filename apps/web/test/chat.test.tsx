@@ -472,7 +472,7 @@ describe('chat view', () => {
     expect(within(main).getByTestId('bot-reply').textContent).toContain('字段变化如下')
     expect(within(main).getByRole('cell', { name: '分' })).toBeTruthy()
     expect(
-      within(main.querySelector('.md-code') as HTMLElement).getByRole('button', { name: '复制' }),
+      within(main.querySelector('.pn-code') as HTMLElement).getByRole('button', { name: '复制' }),
     ).toBeTruthy()
 
     const card = within(main).getByTestId('run-card')

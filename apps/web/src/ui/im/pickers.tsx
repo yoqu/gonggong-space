@@ -216,6 +216,10 @@ export interface EmojiPickerProps {
   /** 常用 row; defaults to 👍 ✅ 🎉 😄 🙏 👀 🔥 💪. */
   recent?: string[]
   defaultCategory?: EmojiCategory
+  /** A fixed set (e.g. the reactions a server accepts): just the grid, no search or categories. */
+  only?: readonly string[]
+  /** Emojis already chosen (my reactions): marked selected. */
+  selected?: readonly string[]
   className?: string
   style?: CSSProperties
 }
@@ -225,6 +229,8 @@ export function EmojiPicker({
   onSelect,
   recent = DEFAULT_RECENT,
   defaultCategory = 'recent',
+  only,
+  selected = [],
   className,
   style,
 }: EmojiPickerProps) {
@@ -232,20 +238,30 @@ export function EmojiPicker({
   const [cat, setCat] = useState<EmojiCategory>(defaultCategory)
   const grid = useRef<HTMLDivElement>(null)
   const q = query.trim()
-  const items: EmojiEntry[] = q
-    ? ALL.filter((it) => it[1].includes(q))
-    : cat === 'recent'
-      ? recent.map((e) => ALL.find((it) => it[0] === e) ?? [e, e])
-      : (EMOJI.find((g) => g.id === cat)?.items ?? [])
+  const entry = (e: string): EmojiEntry => ALL.find((it) => it[0] === e) ?? [e, e]
+  const items: EmojiEntry[] = only
+    ? only.map(entry)
+    : q
+      ? ALL.filter((it) => it[1].includes(q))
+      : cat === 'recent'
+        ? recent.map(entry)
+        : (EMOJI.find((g) => g.id === cat)?.items ?? [])
   return (
-    <div className={cx('pn-emoji', className)} style={style} role="dialog" aria-label="选择表情">
-      <SearchField
-        placeholder="搜索表情"
-        value={query}
-        onChange={setQuery}
-        style={{ minWidth: 0, width: '100%' }}
-      />
-      {!q && (
+    <div
+      className={cx('pn-emoji', only && 'pn-emoji--fixed', className)}
+      style={style}
+      role="dialog"
+      aria-label="选择表情"
+    >
+      {!only && (
+        <SearchField
+          placeholder="搜索表情"
+          value={query}
+          onChange={setQuery}
+          style={{ minWidth: 0, width: '100%' }}
+        />
+      )}
+      {!q && !only && (
         <SegmentedControl
           size="small"
           items={CATEGORIES}
@@ -269,7 +285,7 @@ export function EmojiPicker({
                 key={emoji}
                 type="button"
                 role="option"
-                aria-selected={false}
+                aria-selected={selected.includes(emoji)}
                 tabIndex={i === 0 ? 0 : -1}
                 className="pn-emoji__cell"
                 title={name}

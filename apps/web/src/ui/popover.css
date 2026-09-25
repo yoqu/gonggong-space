@@ -1,5 +1,6 @@
-/* Pane Popover: menu-material glass panel, 8px off its trigger. */
-.ui-popover-anchor {
+/* Pane Popover and every anchored glass panel (menus of PopUpButton, ComboBox, Calendar…): one placement system. */
+.ui-popover-anchor,
+.ui-anchor {
   position: relative;
   display: inline-flex;
 }
@@ -8,52 +9,99 @@
 }
 .ui-popover {
   --pn-ring: var(--glass-fill);
+}
+.ui-float {
+  --enter-scale: 0.97;
+  --float-gap: 8px;
   position: absolute;
   z-index: 30;
-  min-width: 200px;
-  padding: var(--space-12);
-  border-radius: var(--radius-window);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
   color: var(--label);
-  outline: none;
-  --enter-scale: 0.97;
+  transform-origin: top left;
 }
-.ui-popover[data-state="open"] {
+.ui-float--popover {
+  min-width: 200px;
+  padding: var(--space-12);
+  border-radius: var(--radius-window);
+}
+.ui-float--menu {
+  --float-gap: 4px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border-radius: var(--radius-menu);
+}
+.ui-float:focus-visible {
+  outline: none;
+}
+.ui-float--bottom-start {
+  top: calc(100% + var(--float-gap));
+  left: 0;
+}
+.ui-float--bottom-end {
+  top: calc(100% + var(--float-gap));
+  right: 0;
+  transform-origin: top right;
+}
+.ui-float--top-start {
+  bottom: calc(100% + var(--float-gap));
+  left: 0;
+  transform-origin: bottom left;
+}
+.ui-float--top-end {
+  bottom: calc(100% + var(--float-gap));
+  right: 0;
+  transform-origin: bottom right;
+}
+.ui-float--right-start {
+  top: 0;
+  left: calc(100% + var(--float-gap));
+}
+.ui-float[data-state="open"] {
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
-.ui-popover[data-state="closed"] {
+.ui-float[data-state="closed"] {
   pointer-events: none;
   animation: var(--fade-out) ui-fade-out forwards;
 }
-.ui-popover--bottom-start {
-  top: calc(100% + 8px);
-  left: 0;
-  transform-origin: top left;
+
+/* Menu rows shared by PopUpButton, ComboBox and TokenField lists (Pane .pn-menu__item). */
+.ui-float__item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-6);
+  height: 24px;
+  padding: 0 var(--space-8) 0 var(--space-6);
+  border-radius: 7px;
+  color: var(--label);
+  white-space: nowrap;
+  cursor: default;
 }
-.ui-popover--bottom-end {
-  top: calc(100% + 8px);
-  right: 0;
-  transform-origin: top right;
+.ui-float__item[data-active] {
+  background: var(--menu-highlight);
+  color: var(--on-accent);
 }
-.ui-popover--top-start {
-  bottom: calc(100% + 8px);
-  left: 0;
-  transform-origin: bottom left;
+.ui-float__item[aria-disabled="true"] {
+  color: var(--label-tertiary);
 }
-.ui-popover--top-end {
-  bottom: calc(100% + 8px);
-  right: 0;
-  transform-origin: bottom right;
+.ui-float__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.ui-popover--right-start {
-  top: 0;
-  left: calc(100% + 8px);
-  transform-origin: top left;
+.ui-float__detail {
+  color: var(--label-secondary);
+  letter-spacing: 0.5px;
+}
+.ui-float__item[data-active] .ui-float__detail {
+  color: var(--on-accent);
 }
 
 /* Optional pointer: a rotated square of the same glass, tucked under the panel edge. */

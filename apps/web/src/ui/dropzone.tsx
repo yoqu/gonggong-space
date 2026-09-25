@@ -3,29 +3,9 @@ import { cx } from '../lib/cx'
 import { Button, type Glyph, renderGlyph } from './controls'
 import { ProgressIndicator } from './display'
 import { Icon } from './icon'
+import { fileKind } from './im/cards'
 import './form.css'
 import './dropzone.css'
-
-// Same table as ui/im FileAttachment; unify when that one is exported.
-const FILE_KINDS: Record<string, [string, string]> = {
-  pdf: ['red', 'PDF'],
-  doc: ['blue', 'DOC'],
-  docx: ['blue', 'DOC'],
-  pages: ['orange', 'PAGES'],
-  xls: ['green', 'XLS'],
-  xlsx: ['green', 'XLS'],
-  csv: ['green', 'CSV'],
-  numbers: ['green', 'NUM'],
-  ppt: ['orange', 'PPT'],
-  pptx: ['orange', 'PPT'],
-  key: ['blue', 'KEY'],
-  zip: ['gray', 'ZIP'],
-  rar: ['gray', 'RAR'],
-  png: ['purple', 'PNG'],
-  jpg: ['purple', 'JPG'],
-  mp4: ['purple', 'MP4'],
-  txt: ['gray', 'TXT'],
-}
 
 export interface DropFile {
   name: string
@@ -144,8 +124,7 @@ export function DropZone({
       {files.length ? (
         <ul className="ui-drop__list">
           {files.map((f, i) => {
-            const ext = (f.name.split('.').pop() ?? '').toLowerCase()
-            const [tone, tag] = FILE_KINDS[ext] ?? ['gray', ext.toUpperCase().slice(0, 4) || 'FILE']
+            const [tone, tag] = fileKind(f.name)
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: names may repeat; position identifies the upload
               <li key={`${f.name}-${i}`} className="ui-drop__file">
