@@ -2,11 +2,22 @@ import type { AuditDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, EmptyState, Input, Select, Spinner } from '../../ui'
+import {
+  Alert,
+  Button,
+  EmptyState,
+  PopUpButton,
+  SearchField,
+  SegmentedControl,
+  Spinner,
+  Tag,
+  type TagTone,
+} from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
 const PAGE = 50
+const ALL = 'all'
 const FILTERS: { label: string; category?: string }[] = [
   { label: '全部' },
   { label: '审批', category: 'approval' },
@@ -15,6 +26,12 @@ const FILTERS: { label: string; category?: string }[] = [
   { label: '管理', category: 'admin' },
   { label: '运行', category: 'run' },
 ]
+const TONE: Record<string, TagTone> = {
+  approval: 'orange',
+  question: 'purple',
+  lock: 'blue',
+  run: 'green',
+}
 const TYPE: Record<string, string> = Object.fromEntries(
   FILTERS.filter((f) => f.category).map((f) => [f.category, f.label]),
 )
@@ -98,38 +115,31 @@ export function AuditPage() {
   )
 
   return (
-    <AdminPage title="审计记录" desc="审批、提问、锁与同步事件、管理员操作，永久保存。">
-      <div className="admin-filters">
-        <div className="admin-chips">
-          {FILTERS.map((f) => (
-            <button
-              key={f.label}
-              type="button"
-              className="admin-chip"
-              aria-pressed={f.category === category}
-              onClick={() => setCategory(f.category)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <span className="spacer" />
-        <div className="admin-filters__actor">
-          <Select
-            label="操作人"
-            value={actor}
-            options={[{ value: '', label: '全部操作人' }, ...actors.map((n) => ({ value: n, label: n }))]}
-            onChange={setActor}
-          />
-        </div>
-        <Input
-          type="search"
-          size="sm"
-          className="admin-filters__search"
+    <AdminPage
+      title="审计记录"
+      desc="审批、提问、锁与同步事件、管理员操作，永久保存。"
+      subtitle={rows ? `已载入 ${rows.length} 条` : undefined}
+      search={
+        <SearchField
           aria-label="搜索审计记录"
           placeholder="搜索摘要、群或操作人"
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
+          onChange={setKeyword}
+        />
+      }
+    >
+      <div className="admin-filters">
+        <SegmentedControl
+          aria-label="类型"
+          items={FILTERS.map((f) => ({ value: f.category ?? ALL, label: f.label }))}
+          value={category ?? ALL}
+          onChange={(v) => setCategory(v === ALL ? undefined : v)}
+        />
+        <PopUpButton
+          aria-label="操作人"
+          value={actor}
+          options={[{ value: '', label: '全部操作人' }, ...actors.map((n) => ({ value: n, label: n }))]}
+          onChange={setActor}
         />
       </div>
       {error ? <Alert variant="error" description={error} /> : null}
@@ -144,7 +154,9 @@ export function AuditPage() {
           shown.map((a) => (
             <div key={a.id} className="admin-audit" data-testid="audit-row">
               <span className="admin-audit__time">{stamp(a.at)}</span>
-              <span>{TYPE[a.category] ?? a.category}</span>
+              <span>
+                <Tag tone={TONE[a.category] ?? 'gray'}>{TYPE[a.category] ?? a.category}</Tag>
+              </span>
               <span>{actorOf(a)}</span>
               <Summary text={a.summary} />
             </div>
@@ -154,7 +166,7 @@ export function AuditPage() {
         )}
       </div>
       {more ? (
-        <Button variant="outline" size="sm" className="admin-more" onClick={() => void loadMore()}>
+        <Button className="admin-more" onClick={() => void loadMore()}>
           加载更多
         </Button>
       ) : null}

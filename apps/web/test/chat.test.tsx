@@ -353,7 +353,7 @@ describe('my machines and bots', () => {
     )
 
     fireEvent.click(within(dialog).getByRole('button', { name: '吊销' }))
-    const confirm = await screen.findByRole('dialog', { name: /吊销机器 old-box/ })
+    const confirm = await screen.findByRole('alertdialog', { name: /吊销机器 old-box/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '吊销' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -374,7 +374,7 @@ describe('my machines and bots', () => {
     expect(within(detail).getByText('系统提示词 · 同时作为群内简介')).toBeTruthy()
 
     fireEvent.click(within(detail).getByRole('button', { name: '删除' }))
-    const confirm = await screen.findByRole('dialog', { name: /删除 小王的 Claude/ })
+    const confirm = await screen.findByRole('alertdialog', { name: /删除 小王的 Claude/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(within(nav).queryByRole('button', { name: /小王的 Claude/ })).toBeNull()

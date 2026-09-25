@@ -250,14 +250,16 @@ export function GroupBox({ children, style }: { children?: ReactNode; style?: CS
 export function GroupRow({
   label,
   description,
+  className,
   children,
 }: {
   label: ReactNode
   description?: ReactNode
+  className?: string
   children?: ReactNode
 }) {
   return (
-    <div className="ui-group__row">
+    <div className={cx('ui-group__row', className)}>
       <div>
         <div>{label}</div>
         {description ? <div className="ui-group__desc">{description}</div> : null}

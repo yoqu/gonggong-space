@@ -1,10 +1,9 @@
 import type { UserDto } from '@gonggong/protocol'
-import { Check, CircleAlert } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Button, Field, Input, Spinner } from '../../ui'
+import { Button, Icon, Spinner, TextField } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { useAuthOptions } from './options'
 import { PasswordField } from './PasswordInput'
@@ -63,7 +62,6 @@ export function RegisterPage() {
   return (
     <AuthCard
       testId="register-page"
-      variant="register"
       title="注册"
       subtitle={
         closed ? '当前未开放注册，请联系系统管理员创建账号。' : '注册后即可加入群、绑定机器、创建你的 Bot。'
@@ -83,25 +81,23 @@ export function RegisterPage() {
       {closed ? null : (
         <>
           <div className="auth__fields">
-            <Field label="账号">
-              <Input
-                className="auth-input"
-                autoComplete="username"
-                placeholder="登录用，如 wanglei"
-                value={form.account}
-                onChange={set('account')}
-                autoFocus
-              />
-            </Field>
-            <Field label="姓名">
-              <Input
-                className="auth-input"
-                autoComplete="name"
-                placeholder="群里显示的名字"
-                value={form.name}
-                onChange={set('name')}
-              />
-            </Field>
+            <TextField
+              label="账号"
+              size="large"
+              autoComplete="username"
+              placeholder="登录用，如 wanglei"
+              value={form.account}
+              onChange={set('account')}
+              autoFocus
+            />
+            <TextField
+              label="姓名"
+              size="large"
+              autoComplete="name"
+              placeholder="群里显示的名字"
+              value={form.name}
+              onChange={set('name')}
+            />
             <PasswordField
               label="密码"
               autoComplete="new-password"
@@ -118,7 +114,7 @@ export function RegisterPage() {
               <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
                 {error ? (
                   <>
-                    <CircleAlert size={13} aria-hidden="true" />
+                    <Icon name="warning" size={13} />
                     {error}
                   </>
                 ) : null}
@@ -128,7 +124,7 @@ export function RegisterPage() {
           <Button
             type="submit"
             variant="primary"
-            size="lg"
+            size="xlarge"
             fullWidth
             className="auth__submit"
             data-phase={phase}
@@ -141,7 +137,7 @@ export function RegisterPage() {
               </>
             ) : phase === 'done' ? (
               <>
-                <Check size={16} strokeWidth={2.6} />
+                <Icon name="check" weight={2.4} />
                 注册成功
               </>
             ) : (

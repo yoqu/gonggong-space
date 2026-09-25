@@ -83,8 +83,8 @@ describe('账号与角色 · 停用 / 启用', () => {
     await screen.findByRole('cell', { name: 'wanglei' })
     expect(within(rowOf('chenchen')).queryByRole('button', { name: '停用' })).toBeNull()
     fireEvent.click(within(rowOf('wanglei')).getByRole('button', { name: '停用' }))
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('停用账号 王磊')).toBeTruthy()
+    const dialog = screen.getByRole('alertdialog')
+    expect(within(dialog).getByText('要停用账号 王磊 吗？')).toBeTruthy()
     for (const line of [
       '立即吊销其所有 daemon token 和 Web 会话',
       'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
@@ -95,7 +95,7 @@ describe('账号与角色 · 停用 / 启用', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '停用' }))
     await waitFor(() => expect(within(rowOf('wanglei')).getByText('已停用')).toBeTruthy())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/users/u1/disable')).toBe(true)
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(within(rowOf('wanglei')).getByRole('button', { name: '启用' })).toBeTruthy()
   })
 
@@ -113,8 +113,8 @@ describe('账号与角色 · 停用 / 启用', () => {
     fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '启用' }))
     await waitFor(() => expect(within(rowOf('liuyang')).getByRole('button', { name: '停用' })).toBeTruthy())
     fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '停用' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '关闭' }).at(-1)!)
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/admin/users/u3/enable'])
   })
 })

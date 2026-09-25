@@ -4,32 +4,32 @@
   height: auto;
 }
 .art-wash {
-  fill: color-mix(in srgb, var(--color-selection-blue) 8%, transparent);
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .art-card {
-  fill: var(--color-panel-elevated);
-  stroke: var(--color-border-strong);
+  fill: var(--content-bg);
+  stroke: var(--control-stroke);
   stroke-width: 1.5;
 }
 .art-muted {
-  fill: color-mix(in srgb, var(--color-text-quaternary) 22%, transparent);
+  fill: color-mix(in srgb, var(--label-tertiary) 22%, transparent);
 }
 .art-cutout {
-  stroke: var(--color-panel-elevated);
+  stroke: var(--content-bg);
   stroke-width: 2.5;
-  fill: color-mix(in srgb, var(--color-text-quaternary) 35%, var(--color-panel-elevated));
+  fill: color-mix(in srgb, var(--label-tertiary) 35%, var(--content-bg));
 }
 .art-accent {
-  fill: var(--color-selection-blue);
+  fill: var(--accent);
 }
 .art-accent-soft {
-  fill: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-elevated));
+  fill: color-mix(in srgb, var(--accent) 24%, var(--content-bg));
 }
 .art-danger {
-  fill: var(--color-danger);
+  fill: var(--system-red);
 }
 .art-ink {
-  fill: var(--color-on-accent);
+  fill: var(--on-accent);
 }
 .art-glyph {
   font: 700 14px var(--font-sans);
@@ -39,23 +39,23 @@
   fill: none;
   stroke-linecap: round;
   stroke-width: 3;
-  stroke: var(--color-selection-blue);
+  stroke: var(--accent);
 }
 .art-stroke-muted {
-  stroke: var(--color-border-strong);
+  stroke: var(--control-stroke);
 }
 .art-shackle {
   stroke-width: 6;
 }
 .art-ripple {
   fill: none;
-  stroke: var(--color-selection-blue);
+  stroke: var(--accent);
   stroke-width: 1.5;
   opacity: 0.45;
 }
 .art-pointer {
-  fill: var(--color-text-primary);
-  stroke: var(--color-panel-elevated);
+  fill: var(--label);
+  stroke: var(--content-bg);
   stroke-width: 1.5;
   stroke-linejoin: round;
 }

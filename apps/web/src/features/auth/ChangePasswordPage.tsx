@@ -1,10 +1,9 @@
 import type { UserDto } from '@gonggong/protocol'
-import { Check, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Alert, Button, Dialog, Spinner, toast } from '../../ui'
+import { Alert, Button, Dialog, Icon, Spinner, toast } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { logout } from './logout'
 import { PasswordField } from './PasswordInput'
@@ -86,7 +85,7 @@ function SubmitContent({ phase, label }: { phase: Phase; label: string }) {
   if (phase === 'done')
     return (
       <>
-        <Check size={16} strokeWidth={2.6} />
+        <Icon name="check" weight={2.4} />
         已更新
       </>
     )
@@ -148,9 +147,9 @@ function PasswordChangeFields({
           <li key={r.label} data-state={r.state}>
             <span className="auth-rules__mark">
               {r.state === 'ok' ? (
-                <Check size={11} strokeWidth={3} />
+                <Icon name="check" size={10} weight={2.6} />
               ) : r.state === 'bad' ? (
-                <X size={10} strokeWidth={3} />
+                <Icon name="xmark" size={10} weight={2.6} />
               ) : null}
             </span>
             {r.label}
@@ -173,7 +172,7 @@ function PasswordChangeFields({
         <Button
           type="submit"
           variant="primary"
-          size="lg"
+          size="xlarge"
           fullWidth
           className="auth__submit"
           data-phase={phase}
@@ -195,7 +194,6 @@ export function ChangePasswordPage() {
   })
   return (
     <AuthCard
-      variant="password"
       title="修改密码"
       subtitle="首次登录需修改管理员设置的初始密码。"
       errorKey={pc.errorKey}
@@ -229,9 +227,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       width={420}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
+          <Button onClick={onClose}>取消</Button>
           <Button
             type="submit"
             form="change-password"

@@ -1,6 +1,6 @@
 import type { BotDto } from '@gonggong/protocol'
 import { useState } from 'react'
-import { Alert, Button, Dialog, toast } from '../../ui'
+import { Alert, AlertDialog, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { botsApi } from './model'
 
@@ -19,27 +19,23 @@ export function DeleteBotDialog({ bot, onClose }: { bot: BotDto; onClose: () => 
     }
   }
   return (
-    <Dialog
+    <AlertDialog
       open
-      title={`删除 ${bot.name}`}
-      onClose={onClose}
-      width={440}
-      footer={
+      title={`要删除 ${bot.name} 吗？`}
+      message="删除后不可恢复，群消息与运行记录保留。"
+      detail={
         <>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button variant="destructive" disabled={busy} onClick={() => void remove()}>
-            删除
-          </Button>
+          <ul className="ui-consequences">
+            <li>{bot.groupCount ? `从所在的 ${bot.groupCount} 个群移除` : '当前不在任何群'}</li>
+          </ul>
+          {error ? <Alert variant="error" description={error} /> : null}
         </>
       }
-    >
-      <ul className="ui-consequences">
-        <li>{bot.groupCount ? `从所在的 ${bot.groupCount} 个群移除` : '当前不在任何群'}</li>
-        <li>删除后不可恢复，群消息与运行记录保留</li>
-      </ul>
-      {error ? <Alert variant="error" description={error} /> : null}
-    </Dialog>
+      onClose={onClose}
+      actions={[
+        { label: '取消', onClick: onClose },
+        { label: '删除', variant: 'destructive', disabled: busy, onClick: () => void remove() },
+      ]}
+    />
   )
 }

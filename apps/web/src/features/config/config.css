@@ -1,13 +1,13 @@
 .cfg__bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-8);
   flex-wrap: wrap;
 }
 .cfg {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--space-16);
   align-items: flex-start;
 }
 .cfg__list {
@@ -15,57 +15,60 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-separator);
-  background: var(--color-panel-bg);
-  overflow-x: auto;
+  border-radius: var(--radius-menu);
+  background: var(--content-bg);
+  box-shadow: 0 0 0 1px var(--separator);
+  overflow: hidden;
 }
 .cfg__item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--color-separator);
+  gap: var(--space-12);
+  padding: var(--space-12);
+}
+.cfg__item + .cfg__item {
+  border-top: 1px solid var(--separator);
 }
 .cfg__icon {
   flex: none;
-  color: var(--color-text-tertiary);
+  color: var(--system-orange);
 }
 .cfg__main {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
 }
 .cfg__name-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-6);
 }
 .cfg__name {
   font-weight: 600;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .cfg__desc {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cfg__tools {
-  font-size: 11px;
-  color: var(--color-text-secondary);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
 }
 .cfg__foot {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-8);
   flex-wrap: wrap;
-  padding: 12px 14px;
-  background: var(--color-titlebar-bg);
+  padding: var(--space-8) var(--space-12);
+  border-top: 1px solid var(--separator);
+  background: var(--group-bg);
 }
 .cfg__preview {
   flex: 1 1 280px;
@@ -73,51 +76,49 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-separator);
-  background: var(--color-panel-bg);
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
 }
 .cfg__eyebrow {
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  font-weight: 600;
+  color: var(--label-secondary);
 }
 .cfg__layer {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-left: 10px;
+  gap: var(--space-4);
+  padding-left: var(--space-8);
   border-left: 2px solid;
 }
 .cfg__layer-head {
   display: flex;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-6);
 }
 .cfg__layer-name {
   font-weight: 600;
 }
 .cfg__layer-pri {
-  color: var(--color-text-tertiary);
+  color: var(--label-secondary);
 }
 .cfg__layer-items {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   font-family: var(--font-mono);
-  color: var(--color-text-secondary);
+  color: var(--label-secondary);
   overflow-wrap: anywhere;
 }
 .cfg__note,
 .cfg__hint {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
   text-wrap: pretty;
 }
 .cfg__mono {
   font-family: var(--font-mono);
 }
 .cfg__retry {
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }

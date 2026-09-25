@@ -1,11 +1,10 @@
 import type { UserDto } from '@gonggong/protocol'
-import { Check, CircleAlert } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Button, Checkbox, Field, Input, Spinner } from '../../ui'
+import { Button, Checkbox, Icon, Spinner, TextField } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { useAuthOptions } from './options'
 import { PasswordField } from './PasswordInput'
@@ -74,7 +73,6 @@ export function LoginPage() {
   return (
     <AuthCard
       testId="login-page"
-      variant="login"
       title="登录"
       subtitle="欢迎回来，继续和团队一起干活。"
       errorKey={errorKey}
@@ -94,19 +92,18 @@ export function LoginPage() {
       }
     >
       <div className="auth__fields">
-        <Field label="账号">
-          <Input
-            ref={accountRef}
-            className="auth-input"
-            autoComplete="username"
-            value={account}
-            onChange={(e) => {
-              setAccount(e.target.value)
-              setError('')
-            }}
-            autoFocus={!account}
-          />
-        </Field>
+        <TextField
+          label="账号"
+          size="large"
+          ref={accountRef}
+          autoComplete="username"
+          value={account}
+          onChange={(e) => {
+            setAccount(e.target.value)
+            setError('')
+          }}
+          autoFocus={!account}
+        />
         <PasswordField
           label="密码"
           autoComplete="current-password"
@@ -122,7 +119,7 @@ export function LoginPage() {
           <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
             {error ? (
               <>
-                <CircleAlert size={13} aria-hidden="true" />
+                <Icon name="warning" size={13} />
                 {error}
               </>
             ) : null}
@@ -156,7 +153,7 @@ export function LoginPage() {
       <Button
         type="submit"
         variant="primary"
-        size="lg"
+        size="xlarge"
         fullWidth
         className="auth__submit"
         data-phase={phase}
@@ -169,7 +166,7 @@ export function LoginPage() {
           </>
         ) : phase === 'done' ? (
           <>
-            <Check size={16} strokeWidth={2.6} />
+            <Icon name="check" weight={2.4} />
             登录成功
           </>
         ) : (

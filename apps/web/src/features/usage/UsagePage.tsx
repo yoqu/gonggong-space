@@ -1,8 +1,7 @@
 import type { UsageRowDto } from '@gonggong/protocol'
-import { BarChart3 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, Dialog, EmptyState, Spinner, Tabs } from '../../ui'
+import { Alert, Dialog, EmptyState, Icon, Spinner, Tabs } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { errorText } from '../auth/AuthCard'
 import './usage.css'
@@ -53,14 +52,37 @@ export function UsageBars({ rows, compact }: { rows: UsageRowDto[]; compact?: bo
   )
 }
 
+const UNIT: Record<By, string> = { bot: '个 Bot', user: '位触发人', group: '个群' }
+
+function Stats({ rows, by }: { rows: UsageRowDto[]; by: By }) {
+  const sum = (k: 'totalTokens' | 'runs' | 'unreported') => rows.reduce((n, r) => n + r[k], 0)
+  const tiles = [
+    { label: 'token 合计', value: fmtTokens(sum('totalTokens')), color: 'var(--system-blue)' },
+    { label: '运行轮次', value: String(sum('runs')), color: 'var(--system-green)' },
+    { label: '未上报轮次', value: String(sum('unreported')), color: 'var(--system-orange)' },
+    { label: '参与统计', value: `${rows.length} ${UNIT[by]}`, color: 'var(--system-purple)' },
+  ]
+  return (
+    <div className="usage-stats">
+      {tiles.map((t) => (
+        <div key={t.label} className="usage-stat" style={{ '--stat-color': t.color } as CSSProperties}>
+          <span className="usage-stat__label">{t.label}</span>
+          <span className="usage-stat__value">{t.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7). */
 function UsagePanel() {
   const [by, setBy] = useState<By>('bot')
   const { rows, error } = useUsage(`by=${by}&days=30`)
   return (
     <>
-      <Tabs size="sm" value={by} onChange={setBy} items={TABS} />
+      <Tabs value={by} onChange={setBy} items={TABS} />
       {error ? <Alert variant="error" description={error} /> : null}
+      {rows?.length ? <Stats rows={rows} by={by} /> : null}
       <div className="usage-panel">
         {rows === null ? (
           error ? null : (
@@ -69,7 +91,7 @@ function UsagePanel() {
         ) : rows.length ? (
           <UsageBars rows={rows} />
         ) : (
-          <EmptyState bare icon={<BarChart3 size={20} />} title="近 30 天没有运行" />
+          <EmptyState bare icon={<Icon name="chart-bar" size={20} />} title="近 30 天没有运行" />
         )}
       </div>
       <p className="usage-note">

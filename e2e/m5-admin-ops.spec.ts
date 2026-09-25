@@ -50,7 +50,7 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
     await admin.goto('/admin/users')
     const row = admin.getByRole('row').filter({ hasText: 'gone1' })
     await row.getByRole('button', { name: '停用' }).click()
-    await admin.getByRole('dialog').getByRole('button', { name: '停用' }).click()
+    await admin.getByRole('alertdialog').getByRole('button', { name: '停用' }).click()
     await expect(row).toContainText('已停用')
 
     // Web session revoked; the daemon is rejected, exits and wipes its managed workspaces.

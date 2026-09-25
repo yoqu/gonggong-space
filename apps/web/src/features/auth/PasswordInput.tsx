@@ -1,7 +1,6 @@
-import { Eye, EyeOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { type KeyboardEvent, type ReactNode, useId, useState } from 'react'
-import { Input, type InputProps } from '../../ui'
+import { Icon, Input, type InputProps } from '../../ui'
 
 /**
  * Password field with a reveal toggle and a Caps Lock hint (the most common cause of "wrong password").
@@ -28,8 +27,8 @@ export function PasswordField({
         <Input
           {...props}
           id={id}
+          size="large"
           type={shown ? 'text' : 'password'}
-          className="auth-input"
           onKeyDown={track}
           onKeyUp={track}
           onBlur={(e) => {
@@ -44,18 +43,18 @@ export function PasswordField({
           aria-pressed={shown}
           onClick={() => setShown((s) => !s)}
         >
-          {shown ? <EyeOff size={15} /> : <Eye size={15} />}
+          <Icon name={shown ? 'eye-slash' : 'eye'} />
         </button>
       </span>
       <AnimatePresence initial={false}>
         {caps ? (
           <motion.span
-            className="auth-hint auth-hint--warn"
+            className="ui-field__hint auth-hint"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
           >
-            大写锁定已开启
+            ⇪ 大写锁定已开启
           </motion.span>
         ) : null}
       </AnimatePresence>
