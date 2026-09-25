@@ -94,11 +94,11 @@
   cursor: default;
 }
 
-/* Toaster: bottom center of the window, newest nearest the edge. */
+/* Toaster: bottom center of the window, newest nearest the edge; a page may lift it above its composer. */
 .ui-toasts {
   position: fixed;
-  left: 50%;
-  bottom: var(--space-20);
+  left: var(--toast-x, 50%);
+  bottom: var(--toast-bottom, var(--space-20));
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;

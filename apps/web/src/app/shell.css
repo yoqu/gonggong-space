@@ -64,20 +64,24 @@ body {
   text-align: center;
 }
 
-/* Three-column chat layout */
+/* Chat window: AppFrame with NavRail, conversation sidebar, chat column and a resizable inspector. */
 .chat {
-  position: relative;
   flex: 1;
-  min-width: 0;
-  display: flex;
+}
+/* No traffic lights on the web: start the rail items on the sidebar toolbar row so their badges have room. */
+.chat .ui-rail:not(.ui-rail--bar) {
+  padding-top: var(--space-12);
 }
 .chat__sidebar {
   width: 280px;
-  flex: none;
+  flex: 1;
+  min-height: 0;
   display: flex;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--separator);
   --pn-ring: var(--sidebar-bg);
+}
+.chat > .ui-frame__main > .ui-frame__content {
+  display: flex;
+  overflow: hidden;
 }
 .chat__center {
   flex: 1;
@@ -89,11 +93,12 @@ body {
 .chat__rail {
   position: relative;
   width: 320px;
-  flex: none;
+}
+.chat__inspector {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--content-bg);
-  border-left: 1px solid var(--separator);
 }
 /* Drag strip straddling the rail's left border; the line brightens on hover, drag and focus. */
 .chat__rail-handle {
@@ -156,11 +161,16 @@ body {
   padding: var(--space-32) var(--space-20);
   overflow-y: auto;
 }
-@media (max-width: 767px) {
-  .chat__sidebar {
-    width: 100%;
-    border-right: 0;
-  }
+/* Phones: one column at a time; the list view ends with the NavRail as a bottom tab bar. */
+.chat--list > .ui-frame__sidebar {
+  flex: 1;
+  border-right: 0;
+}
+.chat--list > .ui-frame__main {
+  display: none;
+}
+.chat--list .chat__sidebar {
+  width: 100%;
 }
 
 /* Sidebar toolbar row + search trigger (Pane SearchField look; opens the ⌘K overlay) */
@@ -180,21 +190,6 @@ body {
   font-size: var(--text-headline-size);
   line-height: var(--text-headline-line);
   letter-spacing: 0.08em;
-}
-.shellbar__bell {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.shellbar__bell .ui-badge {
-  position: absolute;
-  top: -6px;
-  left: 9px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  font-size: var(--text-footnote-size);
-  box-shadow: 0 0 0 1.5px var(--sidebar-bg);
 }
 .shellbar__search {
   display: flex;
@@ -225,7 +220,7 @@ body {
   color: var(--label-secondary);
 }
 :root[data-window-inactive] .shellbar .ui-logo,
-:root[data-window-inactive] .shellbar__bell .ui-badge {
+:root[data-window-inactive] .ui-rail .ui-badge {
   filter: grayscale(1);
 }
 
@@ -323,8 +318,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  height: var(--sidebar-row);
-  padding: 0 var(--space-8);
+  min-height: var(--sidebar-row);
+  padding: var(--space-4) var(--space-8);
   border: 0;
   border-radius: var(--radius-field);
   background: transparent;
@@ -341,22 +336,23 @@ body {
   border-radius: 50%;
   transition: filter var(--fade-in);
 }
-.sidebar__name {
-  flex: 1 1 auto;
-  min-width: 2em;
+.sidebar__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar__name,
+.sidebar__meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The name keeps its width; the meta shrinks first and disappears when the row is too narrow. */
+/* Bot and machine state on its own line so it stays readable in a narrow sidebar. */
 .sidebar__meta {
-  flex: 0 1000 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
   color: var(--label-secondary);
-  white-space: nowrap;
 }
 .sidebar__chevron {
   flex: none;
@@ -451,64 +447,6 @@ body {
   filter: grayscale(1) opacity(0.6);
 }
 
-/* Custom actions the chat view puts in the Pane ChatHeader */
-.chat-header__actions {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-}
-.chat-header__members {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  height: var(--control-regular);
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: transparent;
-  color: var(--label-secondary);
-  font: inherit;
-  font-size: var(--text-callout-size);
-  cursor: default;
-}
-.chat-header__members:hover {
-  background: var(--control-track);
-  color: var(--label);
-}
-.chat-header__note {
-  padding: 0 var(--space-8);
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-  white-space: nowrap;
-}
-.chat-notice {
-  flex: none;
-  padding: 7px var(--space-20);
-  border-bottom: 1px solid var(--separator);
-  background: var(--window-bg);
-  font-size: var(--text-callout-size);
-  color: var(--label-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Timeline */
-.timeline {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: var(--space-16) var(--space-20) var(--space-8);
-}
-.timeline > .ui-empty {
-  margin: auto;
-}
-
 /* Dev gallery (/_ui) */
 .gallery {
   height: 100vh;
@@ -588,12 +526,6 @@ body {
 @media (max-width: 767px) {
   .gallery {
     padding: 16px;
-  }
-  .timeline {
-    padding: var(--space-16) var(--space-12) var(--space-8);
-  }
-  .chat-notice {
-    padding: 7px var(--space-12);
   }
 }
 

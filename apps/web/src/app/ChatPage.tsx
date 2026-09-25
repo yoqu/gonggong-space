@@ -15,8 +15,10 @@ import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, PickChatArt, Presence, Spinner, toast } from '../ui'
+import { AppRail } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
+import { useInspector, useLegacyRailWins } from './inspector'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
@@ -101,11 +103,14 @@ export function ChatPage() {
   const group = groups.find((g) => g.id === groupId)
   const railRun = useRunRail((s) => s.runId)
   const preview = usePreview((s) => s.open)
+  const inspector = useInspector((s) => s.view)
+  useLegacyRailWins(!!railRun || !!preview)
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
   useEffect(
     () => () => {
       useRunRail.getState().close()
       usePreview.getState().close()
+      useInspector.getState().close()
     },
     [groupId],
   )
@@ -124,15 +129,24 @@ export function ChatPage() {
     <>
       <ChatLayout
         mobileView={groupId ? 'chat' : 'list'}
+        nav={(orientation) => <AppRail orientation={orientation} />}
         rail={
-          railRun ? (
+          inspector ? (
+            <div ref={(host) => useInspector.setState({ host })} className="chat__inspector" />
+          ) : railRun ? (
             <RunRail key={railRun} runId={railRun} />
           ) : preview ? (
             <PreviewPanel key={preview.attachment.id} target={preview} />
           ) : undefined
         }
-        railOpen={!!railRun || !!preview}
-        railKind={!railRun && preview ? 'preview' : 'run'}
+        railOpen={!!inspector || !!railRun || !!preview}
+        railKind={
+          inspector === 'group-info'
+            ? 'info'
+            : inspector === 'preview' || (!inspector && !railRun && preview)
+              ? 'preview'
+              : 'run'
+        }
         sidebar={
           <Sidebar
             groups={groups}
@@ -165,11 +179,10 @@ export function ChatPage() {
         ) : groupsState === 'error' ? (
           <div className="chat__placeholder">
             <EmptyState
-              bare
               illustration={<FailedArt />}
               title="加载失败"
               description="无法获取群列表，请检查网络后重试。"
-              actions={<Button onClick={retryGroups}>重试</Button>}
+              action={<Button onClick={retryGroups}>重试</Button>}
             />
           </div>
         ) : firstRun && me ? (
@@ -186,7 +199,6 @@ export function ChatPage() {
         ) : (
           <div className="chat__placeholder">
             <EmptyState
-              bare
               illustration={groupId ? <DeniedArt /> : <PickChatArt />}
               title={groupId ? '群不存在或你已不在群内' : '选择一个群或私聊开始'}
               description="在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。"

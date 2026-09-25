@@ -131,6 +131,14 @@
   right: 0;
   transform-origin: top right;
 }
+.ui-menu--above {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom left;
+}
+.ui-menu--above.ui-menu--end {
+  transform-origin: bottom right;
+}
 .ui-menu--popover[data-state="open"] {
   animation:
     var(--fade-in) ui-fade-in,

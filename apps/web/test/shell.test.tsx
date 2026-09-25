@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
+import { InspectorPortal, useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { apiError, mockApi } from './mockApi'
@@ -92,7 +93,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('top bar', () => {
-  it('shows the unread count on the bell on mobile and names it', async () => {
+  it('shows the unread notification count in the bottom tab bar on mobile', async () => {
     setWidth(700)
     mockApi({
       ...routes([]),
@@ -105,8 +106,8 @@ describe('top bar', () => {
       })),
     })
     renderAt('/')
-    const bell = await screen.findByRole('button', { name: '通知（3 条未读）' })
-    expect(bell.textContent).toContain('3')
+    const bar = screen.getByRole('navigation', { name: '应用导航' })
+    expect(await within(bar).findByRole('button', { name: '通知（3 条未读）' })).toBeTruthy()
   })
 
   it('shows the platform search shortcut', () => {
@@ -214,5 +215,81 @@ describe('home route', () => {
     fail = false
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByRole('heading', { name: '退款' })).toBeTruthy()
+  })
+})
+
+describe('nav rail', () => {
+  it('shows total unread on 消息, toggles the notification popover and sends sysadmins to the admin console', async () => {
+    useSession.setState({ user: { ...me, role: 'sysadmin' }, status: 'ready' })
+    mockApi(
+      routes([
+        group('g1', '退款', { unread: 2 }),
+        group('g2', '支付', { unread: 3 }),
+        group('g3', '静音', { unread: 9, muted: true }),
+      ]),
+    )
+    renderAt('/')
+    const rail = screen.getByRole('navigation', { name: '应用导航' })
+    expect(await within(rail).findByRole('button', { name: '消息（5 条未读）' })).toBeTruthy()
+    const notif = within(rail).getByRole('button', { name: '通知' })
+    fireEvent.click(notif)
+    expect(await screen.findByRole('dialog', { name: '通知' })).toBeTruthy()
+    expect(notif.getAttribute('aria-current')).toBe('page')
+    fireEvent.click(within(rail).getByRole('button', { name: '管理后台' }))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/admin/))
+  })
+
+  it('keeps every entry reachable from a bottom tab bar on phones', async () => {
+    setWidth(390)
+    mockApi(routes([group('g1', '退款')]))
+    renderAt('/')
+    const bar = screen.getByRole('navigation', { name: '应用导航' })
+    expect(bar.className).toContain('ui-rail--bar')
+    for (const name of [/^消息/, /^通知/, '账户菜单'])
+      expect(within(bar).getByRole('button', { name })).toBeTruthy()
+  })
+})
+
+describe('sidebar rows', () => {
+  it('moves between conversations with the arrow keys from a single tab stop', async () => {
+    mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
+    renderAt('/g/g1')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const first = await within(nav).findByRole('link', { name: /退款/ })
+    const second = within(nav).getByRole('link', { name: /支付/ })
+    expect([first.tabIndex, second.tabIndex]).toEqual([0, -1])
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(second)
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g2'))
+  })
+
+  it('leaves out machine details that are missing instead of printing undefined', async () => {
+    const bare = { ...machine('m1', true), os: undefined } as unknown as MachineDto
+    mockApi(routes([], [bare]))
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const row = await within(nav).findByRole('button', { name: /^m1/ })
+    expect(row.textContent).not.toContain('undefined')
+    expect(row.getAttribute('title')).toBe('m1 · 在线')
+  })
+})
+
+describe('inspector', () => {
+  it('renders an opened view into the chat inspector and closes it on group switch', async () => {
+    mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
+    render(
+      <MemoryRouter initialEntries={['/g/g1']}>
+        <App />
+        <InspectorPortal view="group-info">群信息内容</InspectorPortal>
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: '退款' })
+    expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull()
+    act(() => useInspector.getState().open('group-info'))
+    const aside = screen.getByRole('complementary', { name: '侧栏' })
+    expect(within(aside).getByText('群信息内容')).toBeTruthy()
+    fireEvent.click(screen.getByRole('link', { name: /支付/ }))
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull())
   })
 })
