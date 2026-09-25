@@ -62,8 +62,8 @@ it('edits the model, concurrency and command approval of a bot', async () => {
   expect(dialog.getByRole('radio', { name: /跟随 agent 默认 · Sonnet 5/ })).toHaveProperty('checked', true)
 
   fireEvent.click(dialog.getByRole('radio', { name: /Haiku 4.5/ }))
-  fireEvent.click(dialog.getByRole('button', { name: '3' }))
-  fireEvent.click(dialog.getByRole('button', { name: '白名单自动' }))
+  fireEvent.click(dialog.getByRole('radio', { name: '3' }))
+  fireEvent.click(dialog.getByRole('radio', { name: '白名单自动' }))
   const input = dialog.getByPlaceholderText('命令前缀，如 go build')
   fireEvent.change(input, { target: { value: 'npm test' } })
   fireEvent.click(dialog.getByRole('button', { name: '添加' }))

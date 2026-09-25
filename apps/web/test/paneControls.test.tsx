@@ -132,32 +132,40 @@ describe('SegmentedControl', () => {
     { value: 'w', label: '周' },
     { value: 'm', label: '月' },
   ]
+  const checked = (name: string) => screen.getByRole('radio', { name }).getAttribute('aria-checked')
 
-  it('selects on click', () => {
+  it('selects on click and reads as a radio group', () => {
     const onChange = vi.fn()
     render(<SegmentedControl aria-label="时间范围" items={items} defaultValue="w" onChange={onChange} />)
-    expect(screen.getByRole('button', { name: '周' }).getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: '月' }))
+    expect(screen.getByRole('radiogroup', { name: '时间范围' })).toBeTruthy()
+    expect(checked('周')).toBe('true')
+    fireEvent.click(screen.getByRole('radio', { name: '月' }))
     expect(onChange).toHaveBeenCalledWith('m')
-    expect(screen.getByRole('button', { name: '月' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: '周' }).getAttribute('aria-pressed')).toBe('false')
+    expect(checked('月')).toBe('true')
+    expect(checked('周')).toBe('false')
   })
 
-  it('moves selection and focus with arrow keys, wrapping around', () => {
+  it('is one tab stop; arrows, Home and End move selection and focus, stopping at the ends', () => {
     function Harness() {
       const [v, setV] = useState('d')
       return <SegmentedControl aria-label="时间范围" items={items} value={v} onChange={setV} />
     }
     render(<Harness />)
-    const day = screen.getByRole('button', { name: '日' })
+    const day = screen.getByRole('radio', { name: '日' })
     expect(day.tabIndex).toBe(0)
-    expect(screen.getByRole('button', { name: '周' }).tabIndex).toBe(-1)
+    expect(screen.getByRole('radio', { name: '周' }).tabIndex).toBe(-1)
     fireEvent.keyDown(day, { key: 'ArrowLeft' })
-    const month = screen.getByRole('button', { name: '月' })
-    expect(month.getAttribute('aria-pressed')).toBe('true')
+    expect(checked('日')).toBe('true')
+    fireEvent.keyDown(day, { key: 'ArrowRight' })
+    const week = screen.getByRole('radio', { name: '周' })
+    expect(checked('周')).toBe('true')
+    expect(document.activeElement).toBe(week)
+    fireEvent.keyDown(week, { key: 'End' })
+    const month = screen.getByRole('radio', { name: '月' })
+    expect(checked('月')).toBe('true')
     expect(document.activeElement).toBe(month)
-    fireEvent.keyDown(month, { key: 'ArrowRight' })
-    expect(day.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.keyDown(month, { key: 'Home' })
+    expect(checked('日')).toBe('true')
   })
 
   it('names icon-only segments', () => {
@@ -170,8 +178,8 @@ describe('SegmentedControl', () => {
         ]}
       />,
     )
-    expect(screen.getByRole('group', { name: '显示方式' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '图标' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('radiogroup', { name: '显示方式' })).toBeTruthy()
+    expect(checked('图标')).toBe('true')
   })
 })
 
@@ -181,38 +189,50 @@ describe('PopUpButton', () => {
     { value: 'kind', label: '种类' },
     { value: 'date', label: '修改日期' },
   ]
+  const highlighted = (menu: HTMLElement) =>
+    document.getElementById(menu.getAttribute('aria-activedescendant') ?? '')?.textContent
 
-  it('opens, marks the current option and selects another', async () => {
+  it('opens a checked menu highlighting the current value and selects another', async () => {
     const onChange = vi.fn()
     render(<PopUpButton options={options} defaultValue="name" onChange={onChange} />)
     const trigger = screen.getByRole('button', { name: '名称' })
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(trigger)
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByRole('option', { name: '名称' }).getAttribute('aria-selected')).toBe('true')
-    fireEvent.click(screen.getByRole('option', { name: '种类' }))
+    const menu = screen.getByRole('menu')
+    expect(document.activeElement).toBe(menu)
+    expect(highlighted(menu)).toBe('名称')
+    expect(screen.getByRole('menuitemcheckbox', { name: '名称' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '种类' }))
     expect(onChange).toHaveBeenCalledWith('kind')
-    expect(screen.getByRole('button', { name: '种类' })).toBeTruthy()
-    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '种类' }))
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
   })
 
   it('closes on Escape without changing the value', async () => {
     const onChange = vi.fn()
     render(<PopUpButton options={options} defaultValue="name" onChange={onChange} />)
     fireEvent.click(screen.getByRole('button', { name: '名称' }))
-    expect(screen.getByRole('listbox')).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  it('picks with arrow keys and Enter', () => {
+  it('moves with arrows, Home/End and typing, then picks with Enter', () => {
     const onChange = vi.fn()
     render(<PopUpButton options={options} defaultValue="name" onChange={onChange} />)
     fireEvent.keyDown(screen.getByRole('button', { name: '名称' }), { key: 'ArrowDown' })
-    const list = screen.getByRole('listbox')
-    fireEvent.keyDown(list, { key: 'ArrowDown' })
-    fireEvent.keyDown(list, { key: 'Enter' })
+    const menu = screen.getByRole('menu')
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(highlighted(menu)).toBe('种类')
+    fireEvent.keyDown(menu, { key: 'End' })
+    expect(highlighted(menu)).toBe('修改日期')
+    fireEvent.keyDown(menu, { key: 'Home' })
+    expect(highlighted(menu)).toBe('名称')
+    fireEvent.keyDown(menu, { key: '种' })
+    expect(highlighted(menu)).toBe('种类')
+    fireEvent.keyDown(menu, { key: 'Enter' })
     expect(onChange).toHaveBeenCalledWith('kind')
   })
 

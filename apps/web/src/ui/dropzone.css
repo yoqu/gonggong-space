@@ -1,0 +1,108 @@
+/* DropZone */
+.ui-dropwrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.ui-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-20);
+  border: 1.5px dashed var(--control-stroke);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+  text-align: center;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast);
+}
+.ui-drop--over {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--tint-blue);
+}
+.ui-drop__icon {
+  display: grid;
+  place-items: center;
+  color: var(--label-secondary);
+}
+.ui-drop--over .ui-drop__icon {
+  color: var(--tint-blue-text);
+}
+.ui-drop__icon svg {
+  width: 32px;
+  height: 32px;
+}
+.ui-drop__title {
+  font-weight: 600;
+}
+.ui-drop__desc {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--label-secondary);
+}
+.ui-drop--compact {
+  flex-direction: row;
+  padding: var(--space-12) var(--space-16);
+  text-align: left;
+}
+.ui-drop--compact .ui-drop__icon svg {
+  width: 22px;
+  height: 22px;
+}
+.ui-drop--compact .ui-drop__text {
+  flex: 1;
+}
+.ui-drop__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-menu);
+}
+.ui-drop__file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 8px 10px 8px 12px;
+  background: var(--content-bg);
+}
+.ui-drop__file + .ui-drop__file {
+  border-top: 1px solid var(--separator);
+}
+.ui-drop__tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.ui-drop__fbody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ui-drop__fname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-drop__fmeta {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--label-secondary);
+}

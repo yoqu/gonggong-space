@@ -1,0 +1,40 @@
+/* PullDownButton — the glass Menu anchored under the button, scaling in from its corner. */
+.ui-pulldown {
+  position: relative;
+  display: inline-block;
+}
+.ui-pulldown__chev {
+  display: grid;
+  place-items: center;
+  opacity: 0.8;
+}
+.ui-pulldown__btn .ui-pulldown__chev svg {
+  width: 9px;
+  height: 9px;
+}
+.ui-pulldown__btn--icon {
+  min-width: 0;
+  padding: 0 8px 0 10px;
+}
+.ui-pulldown__menu {
+  --enter-scale: 0.97;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  transform-origin: top left;
+}
+.ui-pulldown__menu--end {
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+.ui-pulldown__menu[data-state="open"] {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.ui-pulldown__menu[data-state="closed"] {
+  pointer-events: none;
+  animation: var(--fade-out) ui-fade-out forwards;
+}

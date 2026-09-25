@@ -95,9 +95,9 @@ describe('Select', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Claude Code' }))
-    fireEvent.click(screen.getByRole('option', { name: 'Codex' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Codex' }))
     expect(onChange).toHaveBeenCalledWith('codex')
-    await waitFor(() => expect(screen.queryByRole('option')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
   })
 })
 

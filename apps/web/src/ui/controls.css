@@ -130,6 +130,14 @@
   opacity: 0.45;
   pointer-events: none;
 }
+.ui-btn--loading:disabled {
+  opacity: 1;
+}
+.ui-btn--loading .ui-spinner {
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
 
 /* Icon buttons in app chrome read as labels, not links. */
 .ui-icon-btn.ui-btn--plain {
@@ -169,6 +177,7 @@
   height: 22px;
   border-radius: var(--radius-capsule);
   background: var(--control-track);
+  box-shadow: var(--shadow-outline);
   transition: background var(--fade-in);
 }
 .ui-switch__knob {
@@ -273,4 +282,46 @@
 .ui-radiogroup--row {
   flex-direction: row;
   gap: var(--space-16);
+}
+
+/* Link */
+.ui-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 3px;
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.ui-link:hover {
+  text-decoration: underline;
+}
+.ui-link__ext {
+  width: 11px;
+  height: 11px;
+}
+
+/* HelpButton */
+.ui-helpbtn {
+  appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-fill);
+  box-shadow: var(--shadow-control);
+  color: var(--label);
+  font: 600 13px / 1 var(--font-sans);
+  cursor: default;
+}
+.ui-helpbtn:active {
+  background: var(--control-fill-pressed);
+}
+.ui-helptext {
+  font-size: 12px;
+  line-height: 17px;
 }

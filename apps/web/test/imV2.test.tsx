@@ -338,7 +338,7 @@ describe('EventCard', () => {
       <EventCard title="评审" month="9月" day={26} weekday="周五" time="15:00 – 16:00" onRsvp={onRsvp} />,
     )
     expect(screen.getByText('是否参加？')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '接受' }))
+    fireEvent.click(screen.getByRole('radio', { name: '接受' }))
     expect(onRsvp).toHaveBeenCalledWith('accepted')
     expect(screen.getByText('你已接受')).toBeTruthy()
   })

@@ -1,0 +1,135 @@
+/* Calendar */
+.ui-cal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 252px;
+  user-select: none;
+}
+.ui-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 0 4px;
+}
+.ui-cal__title {
+  font-size: 13px;
+  font-weight: 700;
+}
+.ui-cal__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ui-cal__today {
+  appearance: none;
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+.ui-cal__today:hover {
+  background: var(--control-track);
+}
+.ui-cal__week,
+.ui-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.ui-cal__week span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--label-secondary);
+}
+.ui-cal__grid {
+  row-gap: 2px;
+}
+.ui-cal__day {
+  appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.ui-cal__day:hover {
+  background: var(--selection-fill);
+}
+.ui-cal__day--other {
+  color: var(--label-secondary);
+}
+.ui-cal__day--today {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.ui-cal__day--sel,
+.ui-cal__day--sel:hover {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.ui-cal__day:disabled {
+  background: transparent;
+  color: var(--label-tertiary);
+}
+.ui-cal__day:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.ui-cal__mark {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.ui-cal__day--sel .ui-cal__mark {
+  background: var(--on-accent);
+}
+
+/* DatePicker trigger: a default button laid out like a field. */
+.ui-btn.ui-datepicker {
+  justify-content: flex-start;
+  gap: var(--space-6);
+  min-width: 200px;
+  padding: 0 var(--space-6) 0 10px;
+  font-weight: 400;
+}
+.ui-datepicker__value {
+  flex: 1;
+  text-align: left;
+}
+.ui-datepicker__chev {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--label-secondary);
+}
+.ui-datepicker__chev svg {
+  width: 9px;
+  height: 9px;
+}
+.ui-datepicker__ph {
+  color: var(--label-tertiary);
+}

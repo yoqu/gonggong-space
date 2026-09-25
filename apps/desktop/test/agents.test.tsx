@@ -34,14 +34,14 @@ it('shows an installed agent and saves its default model and effort', async () =
   expect(await claude.findByText('被 小王的 Claude 使用')).toBeTruthy()
 
   fireEvent.click(claude.getByRole('button', { name: '默认模型' }))
-  fireEvent.click(claude.getByRole('option', { name: 'Haiku 4.5' }))
+  fireEvent.click(claude.getByRole('menuitemcheckbox', { name: 'Haiku 4.5' }))
   await waitFor(() => expect(m.setAgentModel).toHaveBeenCalledWith('claude', 'haiku'))
   expect(claude.getByRole('button', { name: '默认模型' }).textContent).toContain('Haiku 4.5')
 
   expect(claude.getByText('扩展思考')).toBeTruthy()
-  fireEvent.click(claude.getByRole('button', { name: '高' }))
+  fireEvent.click(claude.getByRole('radio', { name: '高' }))
   await waitFor(() => expect(m.setAgentEffort).toHaveBeenCalledWith('claude', 'high'))
-  fireEvent.click(claude.getByRole('button', { name: '默认' }))
+  fireEvent.click(claude.getByRole('radio', { name: '默认' }))
   await waitFor(() => expect(m.setAgentEffort).toHaveBeenLastCalledWith('claude', null))
 
   fireEvent.click(claude.getByRole('button', { name: '更换路径…' }))
