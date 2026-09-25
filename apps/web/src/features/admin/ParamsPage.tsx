@@ -2,7 +2,7 @@ import { SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, GroupBox, GroupRow, Input, Spinner, Switch, toast } from '../../ui'
+import { Alert, Button, GroupBox, GroupRow, Spinner, Stepper, Switch, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
@@ -21,9 +21,11 @@ export function useSystemParams(enabled = true) {
   return params
 }
 
-const text = (v: number | null) => (v === null ? '' : String(v))
+type Values = Record<Key, number | null>
 const toForm = (p: SystemParams) =>
-  Object.fromEntries(SYSTEM_PARAM_VIEW.map(({ key }) => [key, text(p[key])]))
+  Object.fromEntries(SYSTEM_PARAM_VIEW.map(({ key }) => [key, p[key]])) as Values
+/** Step (and so displayed precision) per param; everything else is a whole number. */
+const STEP: Partial<Record<Key, number>> = { forceSyncMinBandwidthMbps: 0.1 }
 
 const SECTIONS: { title: string; keys: Key[] }[] = [
   {
@@ -47,7 +49,7 @@ const VIEW = new Map(SYSTEM_PARAM_VIEW.map((v) => [v.key, v]))
 /** 管理后台 · 系统参数 (spec §10): system-wide defaults; group admins override the group-level ones. */
 export function ParamsPage() {
   const [saved, setSaved] = useState<SystemParams | null>(null)
-  const [form, setForm] = useState<Record<string, string>>({})
+  const [form, setForm] = useState<Values | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -65,9 +67,7 @@ export function ParamsPage() {
       .catch((e) => setError(errorText(e)))
   }, [])
 
-  const changed = saved
-    ? SYSTEM_PARAM_VIEW.filter(({ key }) => (form[key]?.trim() ?? '') !== text(saved[key]))
-    : []
+  const changed = saved && form ? SYSTEM_PARAM_VIEW.filter(({ key }) => form[key] !== saved[key]) : []
   const dirty = changed.length > 0
 
   useEffect(() => {
@@ -91,14 +91,8 @@ export function ParamsPage() {
   }
 
   async function save() {
-    if (!saved) return
-    const patch: Partial<Record<Key, number | null>> = {}
-    for (const { key, label } of changed) {
-      const raw = form[key]?.trim() ?? ''
-      const value = raw === '' ? null : Number(raw)
-      if (value !== null && Number.isNaN(value)) return setError(`「${label}」需要填写数字`)
-      patch[key] = value
-    }
+    if (!form) return
+    const patch = Object.fromEntries(changed.map(({ key }) => [key, form[key]]))
     setBusy(true)
     setError('')
     try {
@@ -132,7 +126,7 @@ export function ParamsPage() {
           </GroupBox>
         </section>
       ) : null}
-      {saved ? (
+      {saved && form ? (
         GROUPS.map((g) => (
           <section key={g.title} className="admin-params">
             <h2 className="admin-params__title">{g.title}</h2>
@@ -151,16 +145,15 @@ export function ParamsPage() {
                       </span>
                     }
                   >
-                    <span className="admin-param__value">
-                      <Input
-                        inputMode="decimal"
-                        aria-label={label}
-                        className="admin-param__input"
-                        value={form[key] ?? ''}
-                        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                      />
-                      <span className="admin-param__unit">{unit}</span>
-                    </span>
+                    <Stepper
+                      aria-label={label}
+                      unit={unit}
+                      min={0}
+                      step={STEP[key] ?? 1}
+                      width={80}
+                      value={form?.[key] ?? null}
+                      onChange={(v) => setForm((f) => f && { ...f, [key]: v })}
+                    />
                   </GroupRow>
                 )
               })}

@@ -55,7 +55,7 @@ describe('admin console', () => {
       '审计记录',
     ])
       expect(within(nav).getByText(t)).toBeTruthy()
-    expect(screen.getByRole('link', { name: /返回群聊/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /返回消息/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: '账户菜单' })).toBeTruthy()
   })
 
@@ -73,18 +73,22 @@ describe('admin console', () => {
     expect(await screen.findByRole('heading', { name: '账号与角色' })).toBeTruthy()
     for (const h of ['成员', '账号', '角色', '机器', '状态'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
+    const rowOf = (account: string) =>
+      screen.getByRole('gridcell', { name: account }).closest('[role="row"]') as HTMLElement
     const cells = (account: string) =>
-      within(screen.getByRole('cell', { name: account }).closest('tr') as HTMLElement)
-        .getAllByRole('cell')
+      within(rowOf(account))
+        .getAllByRole('gridcell')
         .map((c) => c.textContent)
-    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑'])
+    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑…'])
     expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台 · 离线', '正常'])
     expect(cells('zhaomin').slice(3, 5)).toEqual(['未绑定', '待修改密码'])
-    expect(cells('liuyang').slice(3, 5)).toEqual(['—', '已停用'])
-    const edit = within(
-      screen.getByRole('cell', { name: 'chenchen' }).closest('tr') as HTMLElement,
-    ).getByRole('button', { name: '编辑' })
+    expect(cells('liuyang').slice(3, 5)).toEqual(['--', '已停用'])
+    const edit = within(rowOf('chenchen')).getByRole('button', { name: '编辑…' })
     expect(edit.className).toContain('ui-btn--small')
+    // Enter (or a double click) on a selected row opens the same dialog.
+    fireEvent.mouseDown(rowOf('wanglei'))
+    fireEvent.keyDown(screen.getByRole('grid', { name: '账号列表' }), { key: 'Enter' })
+    expect(await screen.findByRole('dialog', { name: '编辑成员 王磊' })).toBeTruthy()
     expect(screen.queryByText(/一期|二期|OIDC/)).toBeNull()
   })
 
@@ -106,13 +110,13 @@ describe('admin console', () => {
       },
     })
     renderAt('/admin/users')
-    fireEvent.click(await screen.findByRole('button', { name: '新建账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建账号…' }))
     const dialog = screen.getByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('账号'), { target: { value: 'wanglei' } })
     fireEvent.change(within(dialog).getByLabelText('姓名'), { target: { value: '王磊' } })
     fireEvent.change(within(dialog).getByLabelText('初始密码'), { target: { value: 'wanglei-init' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
-    expect(await screen.findByRole('cell', { name: 'wanglei' })).toBeTruthy()
+    expect(await screen.findByRole('gridcell', { name: 'wanglei' })).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       account: 'wanglei',
       name: '王磊',
@@ -131,9 +135,9 @@ describe('admin console', () => {
     })
     renderAt('/admin/users')
     const rowOf = async (a: string) =>
-      (await screen.findByRole('cell', { name: a })).closest('tr') as HTMLElement
-    expect(within(await rowOf('chenchen')).queryByRole('button', { name: '重置密码' })).toBeNull()
-    fireEvent.click(within(await rowOf('wanglei')).getByRole('button', { name: '重置密码' }))
+      (await screen.findByRole('gridcell', { name: a })).closest('[role="row"]') as HTMLElement
+    expect(within(await rowOf('chenchen')).queryByRole('button', { name: '重置密码…' })).toBeNull()
+    fireEvent.click(within(await rowOf('wanglei')).getByRole('button', { name: '重置密码…' }))
     const dialog = screen.getByRole('dialog', { name: '重置 王磊 的密码' })
     const temp = (within(dialog).getByLabelText('临时密码') as HTMLInputElement).value
     expect(temp).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{2}$/)
@@ -165,10 +169,14 @@ describe('admin console', () => {
     renderAt('/admin/usage')
     expect(await screen.findByRole('heading', { name: '用量' })).toBeTruthy()
     await screen.findByText('小王的 Claude')
-    expect(screen.getAllByTestId('usage-row').map((r) => r.textContent)).toEqual([
-      '小王的 Claude412k tokens58 轮',
-      '老李的 Codex未上报41 轮',
-    ])
+    const table = screen.getByRole('grid', { name: '用量明细' })
+    expect(
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((r) => r.textContent),
+    ).toEqual(['小王的 Claude412k580', '老李的 Codex未上报4141'])
+    expect(screen.getByRole('meter', { name: 'token 分布' })).toBeTruthy()
     expect(screen.getByText(/不做配额限制/)).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: '按触发人' }))
     expect(await screen.findByText('王磊')).toBeTruthy()

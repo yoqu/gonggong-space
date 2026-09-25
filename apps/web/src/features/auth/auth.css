@@ -1,29 +1,11 @@
-/* Auth: a calm window backdrop with one centered content card */
+/* Auth: split screen — the stage (brand, copy, a live group chat) beside the form panel */
 .auth {
   position: relative;
   min-height: 100dvh;
-  display: flex;
-  background:
-    radial-gradient(
-      90% 70% at 12% 0%,
-      color-mix(in srgb, var(--wallpaper-2) 14%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      80% 60% at 100% 100%,
-      color-mix(in srgb, var(--wallpaper-1) 10%, transparent),
-      transparent 70%
-    ),
-    var(--window-bg);
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(400px, 1fr);
+  background: var(--content-bg);
   color: var(--label);
-}
-.auth__stage {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-32) var(--space-16);
 }
 .auth__theme.ui-btn {
   position: absolute;
@@ -31,23 +13,199 @@
   top: var(--space-16);
   right: var(--space-16);
 }
-.auth__card {
-  width: 380px;
-  max-width: 100%;
+
+/* Stage */
+.auth-stage {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding: var(--space-32);
-  border-radius: var(--radius-window);
-  background: var(--content-bg);
-  box-shadow: var(--shadow-window);
-  animation: auth-rise 600ms var(--ease-apple) 100ms both;
+  padding: var(--space-32) calc(var(--space-20) * 2) calc(var(--space-20) * 2);
+  background: var(--window-bg);
+  border-right: 1px solid var(--separator);
+}
+.auth-stage > :not(.auth-waves) {
+  position: relative;
+}
+.auth-waves {
+  position: absolute;
+  inset: auto 0 0;
+  width: 100%;
+  height: 30%;
+  pointer-events: none;
+}
+.auth-waves path {
+  animation: auth-swell linear infinite;
+}
+.auth-waves__far {
+  fill: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.auth-waves__mid {
+  fill: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.auth-waves__near {
+  fill: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+@keyframes auth-swell {
+  to {
+    transform: translateX(-240px);
+  }
+}
+.auth-stage__copy {
+  margin-top: auto;
+  max-width: 440px;
+  animation: auth-rise 700ms var(--ease-apple) 150ms both;
+}
+.auth-stage__title {
+  margin: 0 0 var(--space-12);
+  font-size: var(--text-large-title-size);
+  line-height: var(--text-large-title-line);
+  font-weight: 700;
+  word-break: keep-all;
+}
+.auth-stage__lead {
+  margin: 0;
+  max-width: 380px;
+  color: var(--label-secondary);
+  text-wrap: pretty;
 }
 @keyframes auth-rise {
   from {
     opacity: 0;
     transform: translateY(12px);
   }
+}
+
+/* Relay demo: a small Pane chat window */
+.relay {
+  width: min(420px, 100%);
+  margin-bottom: auto;
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-window);
+  overflow: hidden;
+  animation: auth-rise 700ms var(--ease-apple) 300ms both;
+}
+.relay__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 44px;
+  padding: 0 var(--space-12);
+  border-bottom: 1px solid var(--separator);
+}
+.relay__group {
+  font-weight: 600;
+}
+.relay__members {
+  margin-left: auto;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.relay__body {
+  height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-8);
+  overflow: hidden;
+}
+.relay__run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 220px;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
+  font-size: var(--text-subheadline-size);
+}
+.relay__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.relay__status svg {
+  width: 14px;
+  height: 14px;
+}
+.relay__run[data-done] .relay__status {
+  color: var(--tint-green-text);
+}
+.relay__step {
+  font-family: var(--font-mono);
+  color: var(--label-secondary);
+}
+.relay__step::before {
+  content: "↳ ";
+  color: var(--label-tertiary);
+}
+
+/* First-run steps (password stage) */
+.first-run {
+  width: min(420px, 100%);
+  margin: 0 0 auto;
+  padding: var(--space-16) var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  list-style: none;
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-window);
+  animation: auth-rise 700ms var(--ease-apple) 300ms both;
+}
+.first-run li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--label-secondary);
+}
+.first-run__mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-capsule);
+  box-shadow: inset 0 0 0 1px var(--control-stroke);
+  font-size: var(--text-subheadline-size);
+  font-weight: 600;
+}
+.first-run li[data-state="done"] .first-run__mark {
+  background: var(--system-green);
+  box-shadow: none;
+  color: var(--on-accent);
+}
+.first-run li[data-state="active"] {
+  font-weight: 600;
+  color: var(--label);
+}
+.first-run li[data-state="active"] .first-run__mark {
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--on-accent);
+}
+
+/* Form panel: top-anchored so an appearing error never makes the heading jump */
+.auth__panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(64px, calc(50dvh - 260px)) var(--space-32) calc(var(--space-20) * 2);
+}
+.auth__card {
+  width: 340px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  animation: auth-rise 600ms var(--ease-apple) 100ms both;
 }
 .auth__form {
   display: flex;
@@ -57,14 +215,12 @@
 .auth__head {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-4);
   margin-bottom: var(--space-4);
-  text-align: center;
 }
 .auth__logo {
+  display: none;
   margin-bottom: var(--space-8);
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
 }
 .auth__title {
   margin: 0;
@@ -83,34 +239,6 @@
 }
 .auth__fields .ui-field {
   min-width: 0;
-}
-.auth-pw {
-  position: relative;
-  display: block;
-}
-.auth-pw .ui-input {
-  padding-right: 36px;
-}
-.auth-pw__toggle {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: transparent;
-  color: var(--label-secondary);
-}
-.auth-pw__toggle:hover {
-  background: var(--control-track);
-  color: var(--label);
-}
-.auth-hint {
-  display: block;
-  overflow: hidden;
 }
 .auth__row {
   display: flex;
@@ -259,7 +387,7 @@
   gap: var(--space-16);
 }
 
-/* Leaving: the card lifts away as the app takes over */
+/* Leaving: the form lifts away as the app takes over */
 .auth[data-leaving] .auth__card {
   transition:
     opacity 360ms var(--ease-apple) 120ms,
@@ -268,73 +396,28 @@
   transform: translateY(-12px) scale(0.98);
 }
 
-@media (max-width: 480px) {
-  .auth__stage {
-    align-items: flex-start;
-    padding-top: 64px;
+@media (max-width: 880px) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .auth__card {
-    padding: var(--space-20);
+  .auth-stage {
+    display: none;
+  }
+  .auth__logo {
+    display: block;
+  }
+}
+@media (max-width: 480px) {
+  .auth__panel {
+    padding: 64px var(--space-16) var(--space-32);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .auth__card {
+  .auth__card,
+  .auth-stage__copy,
+  .relay,
+  .first-run,
+  .auth-waves path {
     animation: none;
   }
-}
-
-/* Account menu (owned by the AccountMenu slice; kept here until it moves to account-menu.css) */
-.account {
-  position: relative;
-}
-.account__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-}
-.account__menu {
-  position: absolute;
-  top: calc(100% + var(--space-8));
-  right: 0;
-  z-index: 21;
-  width: 220px;
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-6);
-  border-radius: var(--radius-menu);
-  transform-origin: top right;
-}
-.account__who {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-8) var(--space-8);
-}
-.account__name {
-  font-weight: 600;
-}
-.account__sub {
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-}
-.account__sep {
-  height: 1px;
-  margin: var(--space-2) 0;
-  background: var(--separator);
-}
-.account__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-4) var(--space-8);
-  border: 0;
-  border-radius: var(--radius-field);
-  background: transparent;
-  color: var(--label);
-  font: inherit;
-  text-align: left;
-}
-.account__item:hover {
-  background: var(--accent-fill);
-  color: var(--on-accent);
 }

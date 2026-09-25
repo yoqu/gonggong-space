@@ -4,10 +4,9 @@ import { type FormEvent, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Button, Checkbox, Icon, Spinner, TextField } from '../../ui'
+import { Button, Checkbox, Icon, SecureField, Spinner, TextField } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { useAuthOptions } from './options'
-import { PasswordField } from './PasswordInput'
 
 const ACCOUNT_KEY = 'gonggong.lastAccount'
 const remembered = () => {
@@ -73,6 +72,7 @@ export function LoginPage() {
   return (
     <AuthCard
       testId="login-page"
+      variant="login"
       title="登录"
       subtitle="欢迎回来，继续和团队一起干活。"
       errorKey={errorKey}
@@ -104,8 +104,9 @@ export function LoginPage() {
           }}
           autoFocus={!account}
         />
-        <PasswordField
+        <SecureField
           label="密码"
+          size="large"
           autoComplete="current-password"
           value={password}
           ref={passwordRef}
@@ -115,16 +116,15 @@ export function LoginPage() {
           }}
           aria-invalid={!!error || undefined}
           autoFocus={!!account}
-        >
-          <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
-            {error ? (
-              <>
-                <Icon name="warning" size={13} />
-                {error}
-              </>
-            ) : null}
-          </p>
-        </PasswordField>
+        />
+        <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
+          {error ? (
+            <>
+              <Icon name="exclamation-circle" size={13} />
+              {error}
+            </>
+          ) : null}
+        </p>
       </div>
       <div className="auth__row">
         <Checkbox checked={keep} onChange={setKeep} label="记住我" />

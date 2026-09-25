@@ -3,10 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Alert, Button, Dialog, Icon, Spinner, toast } from '../../ui'
+import { Alert, Button, Dialog, Icon, SecureField, Spinner, toast } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { logout } from './logout'
-import { PasswordField } from './PasswordInput'
 
 const MIN_LENGTH = 8
 const STRENGTH = ['', '较弱', '一般', '较强', '很强'] as const
@@ -102,38 +101,41 @@ function PasswordChangeFields({
   /** Omit when the surrounding dialog puts the submit button in its footer. */
   submitLabel?: string
 }) {
+  const size = submitLabel ? 'large' : 'regular'
   const { form, set, error, phase, rules, mismatch, setConfirmLeft } = pc
   const score = strength(form.next)
   return (
     <>
       <div className="auth__fields">
-        <PasswordField
+        <SecureField
           label={oldLabel}
+          size={size}
           autoComplete="current-password"
           value={form.old}
           onChange={set('old')}
           autoFocus
         />
-        <PasswordField
+        <SecureField
           label="新密码"
+          size={size}
           autoComplete="new-password"
           placeholder={`至少 ${MIN_LENGTH} 位`}
           value={form.next}
           onChange={set('next')}
-        >
-          <div className="auth-meter" data-score={score} aria-live="polite">
-            <span className="auth-meter__bars">
-              {[1, 2, 3, 4].map((i) => (
-                <span key={i} data-on={score >= i || undefined} />
-              ))}
-            </span>
-            <span className="auth-meter__label">
-              {form.next ? `强度：${STRENGTH[score]}` : '建议混合字母、数字和符号'}
-            </span>
-          </div>
-        </PasswordField>
-        <PasswordField
+        />
+        <div className="auth-meter" data-score={score} aria-live="polite">
+          <span className="auth-meter__bars">
+            {[1, 2, 3, 4].map((i) => (
+              <span key={i} data-on={score >= i || undefined} />
+            ))}
+          </span>
+          <span className="auth-meter__label">
+            {form.next ? `强度：${STRENGTH[score]}` : '建议混合字母、数字和符号'}
+          </span>
+        </div>
+        <SecureField
           label="确认新密码"
+          size={size}
           autoComplete="new-password"
           value={form.confirm}
           onChange={set('confirm')}
@@ -194,6 +196,7 @@ export function ChangePasswordPage() {
   })
   return (
     <AuthCard
+      variant="password"
       title="修改密码"
       subtitle="首次登录需修改管理员设置的初始密码。"
       errorKey={pc.errorKey}
@@ -222,22 +225,20 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     <Dialog
       open
       title="修改密码"
-      subtitle="修改后，其他设备上的登录会失效"
+      message="修改后，其他设备上的登录会失效。"
       onClose={onClose}
+      closeOnBackdrop={false}
       width={420}
-      footer={
-        <>
-          <Button onClick={onClose}>取消</Button>
-          <Button
-            type="submit"
-            form="change-password"
-            variant="primary"
-            aria-busy={pc.phase === 'busy' || undefined}
-          >
-            <SubmitContent phase={pc.phase} label="保存新密码" />
-          </Button>
-        </>
-      }
+      actions={[
+        { label: '取消', onClick: onClose },
+        {
+          label: pc.phase === 'busy' ? '保存中…' : '保存新密码',
+          variant: 'primary',
+          type: 'submit',
+          form: 'change-password',
+          disabled: pc.phase !== 'idle',
+        },
+      ]}
     >
       <form id="change-password" className="auth-dialog" onSubmit={pc.submit} noValidate>
         <PasswordChangeFields pc={pc} oldLabel="当前密码" />

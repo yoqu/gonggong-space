@@ -62,7 +62,7 @@ export function SecureField({
             <button
               type="button"
               className="ui-inputwrap__btn"
-              aria-label={shown ? '隐藏密码' : '显示密码'}
+              aria-label={shown ? '隐藏明文' : '显示明文'}
               aria-pressed={shown}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShown(!shown)}
@@ -77,7 +77,8 @@ export function SecureField({
 }
 
 export interface StepperProps {
-  value?: number
+  /** `null` shows an empty field (no value set); typing or an arrow sets one. */
+  value?: number | null
   defaultValue?: number
   onChange?: (value: number) => void
   min?: number
@@ -113,7 +114,11 @@ export function Stepper({
   ...aria
 }: StepperProps) {
   const id = useId()
-  const [current, setCurrent] = useControlled(value, defaultValue ?? (Number.isFinite(min) ? min : 0))
+  const [current, setCurrent] = useControlled<number | null>(
+    value,
+    defaultValue ?? (Number.isFinite(min) ? min : 0),
+  )
+  const base = current ?? (Number.isFinite(min) ? min : 0)
   const [draft, setDraft] = useState<string | null>(null)
   const set = (n: number) => {
     const next = Math.min(max, Math.max(min, Number(n.toFixed(precision))))
@@ -142,17 +147,17 @@ export function Stepper({
           role="spinbutton"
           aria-valuemin={Number.isFinite(min) ? min : undefined}
           aria-valuemax={Number.isFinite(max) ? max : undefined}
-          aria-valuenow={current}
+          aria-valuenow={current ?? undefined}
           aria-label={label ? undefined : aria['aria-label']}
           disabled={disabled}
-          value={draft ?? current.toFixed(precision)}
+          value={draft ?? current?.toFixed(precision) ?? ''}
           style={{ width }}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault()
-              set(current + step * (e.shiftKey ? 10 : 1) * (e.key === 'ArrowUp' ? 1 : -1))
+              set(base + step * (e.shiftKey ? 10 : 1) * (e.key === 'ArrowUp' ? 1 : -1))
             } else if (e.key === 'Enter') commit()
           }}
         />
@@ -162,8 +167,8 @@ export function Stepper({
             type="button"
             tabIndex={-1}
             aria-label="增加"
-            disabled={disabled || current >= max}
-            onClick={() => set(current + step)}
+            disabled={disabled || base >= max}
+            onClick={() => set(base + step)}
           >
             <Icon name="chevron-up" weight={2.4} />
           </button>
@@ -171,8 +176,8 @@ export function Stepper({
             type="button"
             tabIndex={-1}
             aria-label="减少"
-            disabled={disabled || current <= min}
-            onClick={() => set(current - step)}
+            disabled={disabled || base <= min}
+            onClick={() => set(base - step)}
           >
             <Icon name="chevron-down" weight={2.4} />
           </button>
@@ -339,6 +344,8 @@ export interface TokenFieldProps {
   commitOnBlur?: boolean
   className?: string
   style?: CSSProperties
+  /** Names the input when there is no visible `label` (a FormRow label). */
+  'aria-label'?: string
 }
 
 /** Multi-value field (NSTokenField): Enter, Tab, comma or semicolon commits; Backspace on empty removes the last. */
@@ -353,6 +360,7 @@ export function TokenField({
   commitOnBlur = true,
   className,
   style,
+  'aria-label': ariaLabel,
 }: TokenFieldProps) {
   const id = useId()
   const listId = `${id}-list`
@@ -422,6 +430,7 @@ export function TokenField({
           value={text}
           placeholder={tokens.length ? '' : placeholder}
           role="combobox"
+          aria-label={label ? undefined : ariaLabel}
           aria-expanded={matches.length > 0}
           aria-controls={listId}
           aria-autocomplete="list"

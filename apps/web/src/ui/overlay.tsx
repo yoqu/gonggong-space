@@ -179,6 +179,9 @@ export interface ModalAction {
   disabled?: boolean
   /** Receives focus on open; never set it on a destructive action. */
   autoFocus?: boolean
+  /** `submit` with `form` submits a Form in the body, so Enter in a field and the button share one path. */
+  type?: 'button' | 'submit'
+  form?: string
 }
 
 export interface SheetProps {
@@ -237,6 +240,8 @@ function ModalBody({
               key={i}
               variant={a.variant}
               disabled={a.disabled}
+              type={a.type}
+              form={a.form}
               onClick={a.onClick}
               data-autofocus={a.autoFocus || undefined}
               className="ui-dialog__action"

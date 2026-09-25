@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSession } from '../../app/session'
-import { EmptyState, Icon, Toolbar } from '../../ui'
+import { EmptyState, Toolbar } from '../../ui'
 import { AccountMenu, ROLE_LABEL } from '../auth/AccountMenu'
 import type { AdminItem } from './nav'
 
@@ -60,11 +60,7 @@ export function AdminPage({
 export function AdminPlaceholder({ item }: { item: AdminItem }) {
   return (
     <AdminPage title={item.label} desc={item.desc}>
-      <EmptyState
-        icon={<Icon name={item.icon} size={20} />}
-        title="即将上线"
-        description="该页面正在开发中。"
-      />
+      <EmptyState icon={item.icon} title="即将上线" description="该页面正在开发中。" />
     </AdminPage>
   )
 }

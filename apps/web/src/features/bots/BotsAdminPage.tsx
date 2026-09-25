@@ -1,5 +1,5 @@
 import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@gonggong/protocol'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -9,13 +9,16 @@ import {
   Avatar,
   Button,
   EmptyState,
-  Icon,
+  Form,
+  FormRow,
+  PathControl,
   Presence,
   SearchField,
-  Select,
-  Tabs,
+  SegmentedControl,
+  Table,
   Tag,
-  Textarea,
+  TextField,
+  TokenField,
   ToolbarButton,
   ToolbarGroup,
   toast,
@@ -71,6 +74,17 @@ function weekUsage(rows: UsageRowDto[]) {
   return `${tokens || !runs ? `${fmtTokens(tokens)} tokens` : '用量未上报'} · ${runs} 轮`
 }
 
+/** Path as a clickable NSPathControl; a segment reopens the picker at that folder. */
+export function WorkspacePath({ path, onPick }: { path: string; onPick: (start: string) => void }) {
+  const parts = path.split('/').filter(Boolean)
+  const items = parts.map((p, i) => ({
+    id: `/${parts.slice(0, i + 1).join('/')}`,
+    label: p,
+    icon: 'folder' as const,
+  }))
+  return <PathControl items={items} maxItems={4} onSelect={onPick} aria-label="默认工作区路径" />
+}
+
 export function BotDetail({
   bot,
   me,
@@ -80,7 +94,7 @@ export function BotDetail({
   bot: BotDto
   me: UserDto
   users: UserBriefDto[]
-  /** Embedded in a dialog: no card chrome. */
+  /** Embedded in a dialog: no panel chrome. */
   plain?: boolean
 }) {
   const [prompt, setPrompt] = useState(bot.systemPrompt)
@@ -89,10 +103,11 @@ export function BotDetail({
   const [tier, setTier] = useState<Tier>(bot.tier)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [picking, setPicking] = useState(false)
-  const promptId = useId()
+  /** false = closed; otherwise the folder the picker opens at. */
+  const [picking, setPicking] = useState<string | null | false>(false)
   const canEdit = me.id === bot.ownerId || me.role === 'sysadmin'
-  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '—'
+  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '--'
+  const idOf = (name: string) => users.find((u) => u.name === name)?.id
   const warn = warning(bot, userName)
   const usage = useUsage(`by=user&days=7&botId=${bot.id}`).rows
 
@@ -121,137 +136,12 @@ export function BotDetail({
   return (
     <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="Bot 详情">
       <div className="bots-detail__head">
-        <span className="bots-detail__name">{bot.name}</span>
-        <span className="bots-detail__meta">
-          {AGENT_LABEL[bot.agentKind]} · {bot.ownerName}
-        </span>
-      </div>
-
-      <div className="bots-detail__field">
-        <label className="bots-detail__label" htmlFor={promptId}>
-          系统提示词 · 同时作为群内简介
-        </label>
-        <Textarea
-          id={promptId}
-          rows={3}
-          value={prompt}
-          disabled={!canEdit}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        <span className="bots-detail__hint">
-          下一次新开会话时生效 · 优先级：仓库基线 &lt; 本提示词 &lt; 全局层 &lt; 群层
-        </span>
-      </div>
-
-      {me.id === bot.ownerId && bot.machineId ? (
-        <div className="bots-detail__field">
-          <span className="bots-detail__label">默认工作区</span>
-          <div className="bots-detail__workspace">
-            <span className="bots-detail__path" data-testid="default-workspace">
-              {bot.defaultWorkspace ?? '未设置'}
-            </span>
-            <Button size="small" onClick={() => setPicking(true)}>
-              选择
-            </Button>
-            {bot.defaultWorkspace ? (
-              <Button size="small" onClick={() => void setDefault(null)}>
-                清除
-              </Button>
-            ) : null}
-          </div>
-          <span className="bots-detail__hint">进群时自动使用；群绑定了仓库时需与其 remote 一致</span>
-          <Presence>
-            {picking ? (
-              <DirPicker
-                machineId={bot.machineId}
-                title="默认工作区"
-                start={bot.defaultWorkspace}
-                onPick={(path) => void setDefault(path)}
-                onClose={() => setPicking(false)}
-              />
-            ) : null}
-          </Presence>
-        </div>
-      ) : null}
-
-      <div className="bots-detail__field">
-        <span className="bots-detail__label">触发范围</span>
-        <div title={tier === 'full' ? FULL_HINT : undefined}>
-          <Tabs<TriggerScope>
-            size="sm"
-            value={scope}
-            onChange={setScope}
-            items={[
-              { value: 'all', label: '任何群成员', disabled: !canEdit || tier === 'full' },
-              { value: 'list', label: '指定名单', disabled: !canEdit },
-              { value: 'self', label: '仅本人', disabled: !canEdit },
-            ]}
-          />
-        </div>
-        {tier === 'full' ? <span className="bots-detail__hint">{FULL_HINT}</span> : null}
-        {scope === 'list' ? (
-          <div className="bots-detail__chips">
-            {list.map((id) => (
-              <span key={id} className="bots-chip">
-                {userName(id)}
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className="bots-chip__remove"
-                    aria-label={`移除 ${userName(id)}`}
-                    onClick={() => setList(list.filter((x) => x !== id))}
-                  >
-                    <Icon name="xmark" size={10} weight={2} />
-                  </button>
-                ) : null}
-              </span>
-            ))}
-            {canEdit ? (
-              <div className="bots-chip__add">
-                <Select
-                  label="添加触发人"
-                  placeholder="+ 添加成员"
-                  value={null}
-                  options={users
-                    .filter((u) => !list.includes(u.id))
-                    .map((u) => ({ value: u.id, label: u.name }))}
-                  onChange={(id) => setList([...list, id])}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="bots-detail__field">
-        <span className="bots-detail__label">默认权限档位</span>
-        <Tabs<Tier>
-          size="sm"
-          value={tier}
-          onChange={(v) => {
-            setTier(v)
-            if (v === 'full' && scope === 'all') setScope('list')
-          }}
-          items={TIERS.map((t) => ({ value: t, label: TIER_LABEL[t], disabled: !canEdit }))}
-        />
-      </div>
-
-      <div className="bots-detail__grid">
-        <div>
-          <span>并发上限</span>
-          {bot.concurrency} 个群并行
-        </div>
-        <div>
-          <span>所在群</span>
-          {bot.groupCount} 个
-        </div>
-        <div>
-          <span>agent 版本</span>
-          <code>{agentCliVersion(bot)}</code>
-        </div>
-        <div>
-          <span>近 7 天用量</span>
-          {usage ? weekUsage(usage) : '—'}
+        <Avatar name={bot.name} size={32} shape="square" />
+        <div className="bots-detail__titles">
+          <span className="bots-detail__name">{bot.name}</span>
+          <span className="bots-detail__meta">
+            {AGENT_LABEL[bot.agentKind]} · {bot.ownerName}
+          </span>
         </div>
       </div>
 
@@ -267,19 +157,129 @@ export function BotDetail({
         </Alert>
       ) : null}
 
-      <div className="bots-detail__field">
-        <span className="bots-detail__label">谁用了这个 Bot · 近 7 天</span>
-        {usage?.length ? (
-          <UsageBars rows={usage} compact />
-        ) : (
-          <span className="bots-detail__hint">{usage ? '近 7 天无人使用' : '—'}</span>
-        )}
-      </div>
+      <Form>
+        <FormRow
+          label="系统提示词"
+          align="top"
+          hint="同时作为群内简介，下一次新开会话时生效。优先级：仓库基线 < 本提示词 < 全局层 < 群层"
+        >
+          <TextField
+            multiline
+            aria-label="系统提示词"
+            rows={3}
+            value={prompt}
+            disabled={!canEdit}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+        </FormRow>
+
+        {me.id === bot.ownerId && bot.machineId ? (
+          <FormRow label="默认工作区" hint="进群时自动使用；群绑定了仓库时需与其 remote 一致">
+            <div
+              className="bots-detail__workspace"
+              data-testid="default-workspace"
+              title={bot.defaultWorkspace ?? undefined}
+            >
+              {bot.defaultWorkspace ? (
+                <WorkspacePath path={bot.defaultWorkspace} onPick={setPicking} />
+              ) : (
+                <span className="bots-detail__unset">未设置</span>
+              )}
+            </div>
+            <div className="bots-detail__buttons">
+              <Button size="small" onClick={() => setPicking(bot.defaultWorkspace)}>
+                选择…
+              </Button>
+              {bot.defaultWorkspace ? (
+                <Button size="small" onClick={() => void setDefault(null)}>
+                  清除
+                </Button>
+              ) : null}
+            </div>
+            <Presence>
+              {picking !== false ? (
+                <DirPicker
+                  machineId={bot.machineId}
+                  title="默认工作区"
+                  start={picking}
+                  onPick={(path) => void setDefault(path)}
+                  onClose={() => setPicking(false)}
+                />
+              ) : null}
+            </Presence>
+          </FormRow>
+        ) : null}
+
+        <FormRow label="触发范围" hint={tier === 'full' ? FULL_HINT : undefined}>
+          <div title={tier === 'full' ? FULL_HINT : undefined}>
+            <SegmentedControl<TriggerScope>
+              aria-label="触发范围"
+              size="small"
+              value={scope}
+              onChange={setScope}
+              items={[
+                { value: 'all', label: '任何群成员', disabled: !canEdit || tier === 'full' },
+                { value: 'list', label: '指定名单', disabled: !canEdit },
+                { value: 'self', label: '仅本人', disabled: !canEdit },
+              ]}
+            />
+          </div>
+        </FormRow>
+
+        {scope === 'list' ? (
+          <FormRow label="触发名单">
+            {canEdit ? (
+              <TokenField
+                aria-label="触发名单"
+                placeholder="输入成员姓名"
+                value={list.map(userName)}
+                suggestions={users.map((u) => ({ label: u.name, detail: u.account }))}
+                onChange={(tokens) =>
+                  setList(
+                    tokens
+                      .map((t) => idOf(typeof t === 'string' ? t : t.label))
+                      .filter((id): id is string => !!id),
+                  )
+                }
+              />
+            ) : (
+              <span>{list.map(userName).join('、') || '--'}</span>
+            )}
+          </FormRow>
+        ) : null}
+
+        <FormRow label="权限档位">
+          <SegmentedControl<Tier>
+            aria-label="默认权限档位"
+            size="small"
+            value={tier}
+            onChange={(v) => {
+              setTier(v)
+              if (v === 'full' && scope === 'all') setScope('list')
+            }}
+            items={TIERS.map((t) => ({ value: t, label: TIER_LABEL[t], disabled: !canEdit }))}
+          />
+        </FormRow>
+
+        <FormRow label="并发上限">{bot.concurrency} 个群并行</FormRow>
+        <FormRow label="所在群">{bot.groupCount} 个</FormRow>
+        <FormRow label="agent 版本">
+          <span className="bots-detail__mono">{agentCliVersion(bot)}</span>
+        </FormRow>
+        <FormRow label="近 7 天用量">{usage ? weekUsage(usage) : '--'}</FormRow>
+        <FormRow label="谁用了" align="top">
+          {usage?.length ? (
+            <UsageBars rows={usage} />
+          ) : (
+            <span className="bots-detail__unset">{usage ? '近 7 天无人使用' : '--'}</span>
+          )}
+        </FormRow>
+      </Form>
 
       {canEdit ? (
         <div className="bots-detail__actions">
           <Button variant="plain" className="bots-detail__delete" onClick={() => setDeleting(true)}>
-            删除
+            删除 Bot
           </Button>
           <span className="spacer" />
           <Button variant="primary" disabled={saving} onClick={() => void save()}>
@@ -294,7 +294,7 @@ export function BotDetail({
   )
 }
 
-/** 管理后台 · Bot: every bot in the system. */
+/** 管理后台 · Bot: every bot in the system; the selected row shows its detail on the right. */
 export function BotsAdminPage() {
   // AdminLayout guarantees a sysadmin.
   const me = useSession((s) => s.user) as UserDto
@@ -323,62 +323,84 @@ export function BotsAdminPage() {
       subtitle={`${bots.length} 个 Bot`}
       actions={
         <ToolbarGroup>
-          <ToolbarButton icon="plus" label="新建 Bot" text="新建 Bot" onClick={() => setCreating(true)} />
+          <ToolbarButton icon="plus" label="新建 Bot…" text="新建 Bot…" onClick={() => setCreating(true)} />
         </ToolbarGroup>
       }
       search={<SearchField placeholder="搜索 Bot、归属人或机器" value={query} onChange={setQuery} />}
     >
-      <div className="bots-page__body">
-        <div className="bots-table">
-          <div className="bots-table__row bots-table__head">
-            <span>Bot</span>
-            <span>归属人</span>
-            <span>绑定</span>
-            <span>机器</span>
-            <span>状态</span>
-          </div>
-          {shown.length ? (
-            shown.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className="bots-table__row"
-                aria-current={b.id === selected?.id || undefined}
-                onClick={() => setSelectedId(b.id)}
-              >
-                <span className="bots-table__bot">
-                  <Avatar name={b.name} size={24} shape="square" />
-                  <span className="bots-table__text">
-                    <span className="bots-table__name">{b.name}</span>
-                    <span className="bots-table__agent">{agentLine(b)}</span>
-                  </span>
-                </span>
-                <span>{b.ownerName}</span>
-                <span>
-                  {b.binding === 'bound' ? (
+      {bots.length ? (
+        <div className="bots-page__body">
+          <Table<BotDto>
+            aria-label="Bot 列表"
+            className="admin-grid bots-grid"
+            rows={shown}
+            multiple={false}
+            selection={selected ? [selected.id] : []}
+            onSelectionChange={(ids) => {
+              if (ids[0] != null) setSelectedId(String(ids[0]))
+            }}
+            defaultSort={{ key: 'name', dir: 'asc' }}
+            emptyText="没有匹配的 Bot"
+            columns={[
+              {
+                key: 'name',
+                title: 'Bot',
+                sortable: true,
+                render: (b) => (
+                  <>
+                    <Avatar name={b.name} size={18} shape="square" />
+                    {b.name}
+                  </>
+                ),
+              },
+              {
+                key: 'agent',
+                title: 'Agent',
+                secondary: true,
+                sortable: true,
+                sortValue: agentLine,
+                render: agentLine,
+              },
+              { key: 'ownerName', title: '归属人', width: 80, sortable: true },
+              {
+                key: 'binding',
+                title: '绑定',
+                width: 80,
+                sortable: true,
+                sortValue: (b) => BINDING_LABEL[b.binding],
+                render: (b) =>
+                  b.binding === 'bound' ? (
                     BINDING_LABEL[b.binding]
                   ) : (
                     <Tag tone="orange">{BINDING_LABEL[b.binding]}</Tag>
-                  )}
-                </span>
-                <span className="bots-table__machine">{b.machineName ?? '—'}</span>
-                <span className="bots-table__state">
-                  <span className="dot" style={{ background: PRESENCE[b.presence].color }} />
-                  {PRESENCE[b.presence].label}
-                </span>
-              </button>
-            ))
-          ) : (
-            <EmptyState
-              bare
-              icon={<Icon name="bot" size={24} />}
-              title={bots.length ? '没有匹配的 Bot' : '还没有 Bot'}
-              description={bots.length ? undefined : '点击「新建 Bot」开始。'}
-            />
-          )}
+                  ),
+              },
+              { key: 'machineName', title: '机器', mono: true, secondary: true, sortable: true },
+              {
+                key: 'presence',
+                title: '状态',
+                width: 104,
+                sortable: true,
+                sortValue: (b) => PRESENCE[b.presence].label,
+                render: (b) => (
+                  <span className="admin-status">
+                    <span className="admin-dot" style={{ background: PRESENCE[b.presence].color }} />
+                    {PRESENCE[b.presence].label}
+                  </span>
+                ),
+              },
+            ]}
+          />
+          {selected ? <BotDetail key={selected.id} bot={selected} me={me} users={users} /> : null}
         </div>
-        {selected ? <BotDetail key={selected.id} bot={selected} me={me} users={users} /> : null}
-      </div>
+      ) : (
+        <EmptyState
+          icon="bot"
+          title="还没有 Bot"
+          description="Bot 绑定到成员的机器，在群里被 @ 后开工。"
+          action={<Button onClick={() => setCreating(true)}>新建 Bot…</Button>}
+        />
+      )}
       <Presence>
         {creating ? (
           <NewBotDialog me={me} onClose={() => setCreating(false)} onCreated={(b) => setSelectedId(b.id)} />

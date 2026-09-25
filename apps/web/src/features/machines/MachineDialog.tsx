@@ -1,7 +1,7 @@
 import type { MachineDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { api } from '../../lib/api'
-import { Button, Dialog, GroupBox, GroupRow, Input, Presence, toast } from '../../ui'
+import { Button, Dialog, Divider, Form, FormRow, Presence, TextField, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -13,8 +13,8 @@ const memoryText = (bytes: number | null | undefined) => (bytes ? `${Math.round(
 const cpuText = (m: MachineDto) =>
   [m.system?.cpuModel, m.system?.cpuCores && `${m.system.cpuCores} 核`].filter(Boolean).join(' · ') || null
 export const hardwareText = (m: MachineDto) =>
-  [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || '—'
-const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—')
+  [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || null
+const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '--')
 
 /** Details of one machine; its owner or a sysadmin can rename or revoke it. */
 export function MachineDialog({
@@ -32,6 +32,7 @@ export function MachineDialog({
   const [name, setName] = useState(machine.name === machine.hostname ? '' : machine.name)
   const [saving, setSaving] = useState(false)
   const [revoking, setRevoking] = useState(false)
+  const formId = useId()
   const save = async () => {
     setSaving(true)
     try {
@@ -63,59 +64,51 @@ export function MachineDialog({
       <Dialog
         open={!revoking}
         title="机器详情"
-        subtitle={machine.name}
-        width={480}
+        message={machine.name}
+        width={520}
         onClose={onClose}
         footer={
-          <>
-            <Button variant="destructive" onClick={() => setRevoking(true)}>
-              吊销
-            </Button>
-            <span className="spacer" />
-            <Button variant="primary" onClick={onClose}>
-              完成
-            </Button>
-          </>
+          <Button variant="plain" className="machine__revoke" onClick={() => setRevoking(true)}>
+            吊销机器
+          </Button>
         }
+        actions={[{ label: '完成', variant: 'primary', onClick: onClose }]}
       >
-        <div className="machine">
-          <GroupBox>
-            <GroupRow label="名称">
-              <span className="machine__rename">
-                <Input
-                  aria-label="名称"
-                  value={name}
-                  placeholder={machine.hostname}
-                  maxLength={64}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <Button disabled={saving} onClick={() => void save()}>
-                  保存
-                </Button>
-              </span>
-            </GroupRow>
-          </GroupBox>
-          <GroupBox>
-            {rows
-              .filter((r): r is [string, string] => r[1] !== null)
-              .map(([k, v]) => (
-                <GroupRow key={k} label={k}>
-                  <span className="machine__value">{v}</span>
-                </GroupRow>
-              ))}
-            <GroupRow label="Agent">
-              <span className="machine__value">
-                {machine.agents.length
-                  ? machine.agents.map((a) => (
-                      <span key={a.kind} className="machine__agent">
-                        {`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}
-                      </span>
-                    ))
-                  : '—'}
-              </span>
-            </GroupRow>
-          </GroupBox>
-        </div>
+        <Form id={formId} onSubmit={() => void save()}>
+          <FormRow label="名称" hint="留空则使用主机名。">
+            <span className="machine__rename">
+              <TextField
+                aria-label="名称"
+                value={name}
+                placeholder={machine.hostname}
+                maxLength={64}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <Button type="submit" disabled={saving}>
+                保存
+              </Button>
+            </span>
+          </FormRow>
+          <Divider />
+          {rows
+            .filter((r): r is [string, string] => r[1] !== null)
+            .map(([k, v]) => (
+              <FormRow key={k} label={k}>
+                <span className="machine__value">{v}</span>
+              </FormRow>
+            ))}
+          <FormRow label="Agent" align="top">
+            <span className="machine__value">
+              {machine.agents.length
+                ? machine.agents.map((a) => (
+                    <span key={a.kind}>
+                      {`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}
+                    </span>
+                  ))
+                : '--'}
+            </span>
+          </FormRow>
+        </Form>
       </Dialog>
       <Presence>
         {revoking ? (

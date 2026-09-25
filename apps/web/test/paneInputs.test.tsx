@@ -134,10 +134,10 @@ describe('SecureField', () => {
     const input = screen.getByLabelText('密码') as HTMLInputElement
     expect(input.type).toBe('password')
     expect(input.autocomplete).toBe('current-password')
-    const eye = screen.getByRole('button', { name: '显示密码' })
+    const eye = screen.getByRole('button', { name: '显示明文' })
     fireEvent.click(eye)
     expect(input.type).toBe('text')
-    expect(screen.getByRole('button', { name: '隐藏密码' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '隐藏明文' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('warns when caps lock is on', () => {
@@ -151,7 +151,7 @@ describe('SecureField', () => {
 
   it('can forbid revealing', () => {
     render(<SecureField label="旧密码" revealable={false} />)
-    expect(screen.queryByRole('button', { name: '显示密码' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '显示明文' })).toBeNull()
   })
 })
 

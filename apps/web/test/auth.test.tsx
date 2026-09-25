@@ -193,7 +193,7 @@ describe('account menu', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: '我的用量' }))
     const usage = await screen.findByRole('dialog', { name: '我的用量' })
     expect(await within(usage).findByText('小王的 Claude')).toBeTruthy()
-    expect(within(usage).getByTestId('usage-row').textContent).toBe('小王的 Claude98k tokens12 轮')
+    expect(within(usage).getAllByRole('row')[1]?.textContent).toBe('小王的 Claude98k120')
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '我的用量' })).toBeNull())
 

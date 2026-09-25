@@ -1,15 +1,21 @@
 import { GONGGONG_TOOLS, type McpServer, type McpServerDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { api } from '../../lib/api'
 import {
   Alert,
   Button,
   Checkbox,
   Dialog,
+  Disclosure,
   EmptyState,
-  Icon,
+  Form,
+  FormRow,
+  GroupBox,
+  GroupRow,
+  HelpButton,
   IconButton,
   Presence,
+  SegmentedControl,
   Switch,
   Tabs,
   Tag,
@@ -135,53 +141,69 @@ export function ConfigPage() {
         <div className="cfg__list">
           {ctype !== 'mcp' ? (
             <EmptyState
+              icon="plug"
               title={`暂不支持 ${CTYPES.find((c) => c.value === ctype)?.label}`}
               description="目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。"
             />
           ) : (
             <>
-              {items?.map((i) => (
-                <div key={i.key} className="cfg__item" data-testid="cfg-item">
-                  <Icon name="plug" className="cfg__icon" />
-                  <div className="cfg__main">
-                    <div className="cfg__name-line">
-                      <span className="cfg__name">{i.config.name}</span>
-                      <Tag tone="blue">全局层</Tag>
-                      {i.saved ? null : <Tag tone="orange">未保存</Tag>}
-                    </div>
-                    <span className="cfg__desc">{describeMcp(i.config)}</span>
-                  </div>
-                  <IconButton
-                    title={`删除 ${i.config.name}`}
-                    onClick={() => {
-                      if (i.saved) setRemoved((r) => [...r, i.key])
-                      edit(items.filter((x) => x !== i))
-                    }}
+              <GroupBox>
+                {items?.map((i) => (
+                  <GroupRow
+                    key={i.key}
+                    className="cfg__item"
+                    label={
+                      <span className="cfg__name-line">
+                        <span className="cfg__name">{i.config.name}</span>
+                        <Tag tone="blue">全局层</Tag>
+                        {i.saved ? null : <Tag tone="orange">未保存</Tag>}
+                      </span>
+                    }
+                    description={describeMcp(i.config)}
                   >
-                    <Icon name="trash" />
-                  </IconButton>
-                  <Switch
-                    checked={i.enabled}
-                    onChange={(enabled) => edit(items.map((x) => (x === i ? { ...x, enabled } : x)))}
-                  />
-                </div>
-              ))}
-              <div className="cfg__item" data-testid="cfg-item">
-                <Icon name="bubble-question" className="cfg__icon" />
-                <div className="cfg__main">
-                  <div className="cfg__name-line">
-                    <span className="cfg__name">{RESERVED}</span>
-                    <Tag tone="gray">内置</Tag>
-                  </div>
-                  <span className="cfg__desc">系统内置 · 始终注入，不受层级影响</span>
-                  <span className="cfg__tools">{BUILTIN_TOOLS}</span>
-                </div>
-                <Switch checked disabled onChange={() => undefined} />
-              </div>
+                    <span className="cfg__controls">
+                      <IconButton
+                        title={`删除 ${i.config.name}`}
+                        size="regular"
+                        onClick={() => {
+                          if (i.saved) setRemoved((r) => [...r, i.key])
+                          edit(items.filter((x) => x !== i))
+                        }}
+                      >
+                        {'trash' as const}
+                      </IconButton>
+                      <Switch
+                        ariaLabel={`启用 ${i.config.name}`}
+                        checked={i.enabled}
+                        onChange={(enabled) => edit(items.map((x) => (x === i ? { ...x, enabled } : x)))}
+                      />
+                    </span>
+                  </GroupRow>
+                ))}
+                <GroupRow
+                  className="cfg__item"
+                  label={
+                    <span className="cfg__name-line">
+                      <span className="cfg__name">{RESERVED}</span>
+                      <Tag tone="gray">内置</Tag>
+                    </span>
+                  }
+                  description={
+                    <>
+                      系统内置 · 始终注入，不受层级影响
+                      <br />
+                      {BUILTIN_TOOLS}
+                    </>
+                  }
+                >
+                  <Switch ariaLabel={`启用 ${RESERVED}`} checked disabled onChange={() => undefined} />
+                </GroupRow>
+              </GroupBox>
               <div className="cfg__foot">
                 <Checkbox label="强制相关 Bot 下一轮开新会话" checked={force} onChange={setForce} />
+                <HelpButton help="勾选后，受影响的 Bot 下一轮会放弃已有会话、按新配置重开，卡片会提示原因；不勾选则已有会话继续使用旧配置。" />
                 <span className="spacer" />
-                <Button onClick={() => setAdding(true)}>添加 MCP</Button>
+                <Button onClick={() => setAdding(true)}>添加 MCP…</Button>
                 <Button variant="primary" disabled={!dirty || busy} onClick={() => void save()}>
                   保存
                 </Button>
@@ -275,6 +297,7 @@ function AddMcpDialog({
   const [transport, setTransport] = useState<McpServer['transport']>('stdio')
   const [f, setF] = useState({ name: '', command: '', args: '', env: '', url: '', headers: '' })
   const [error, setError] = useState('')
+  const formId = useId()
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
 
   const submit = () => {
@@ -294,80 +317,107 @@ function AddMcpDialog({
     onAdd({ transport, name, url: f.url.trim(), headers: pairs(f.headers, ':') })
   }
 
+  const lines = (text: string) => text.split('\n').filter((l) => l.trim()).length
   return (
     <Dialog
       open
       title="添加 MCP"
+      message="保存配置中心后，全员下一轮新会话生效。"
+      width={520}
       onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>取消</Button>
-          <Button variant="primary" onClick={submit}>
-            添加
-          </Button>
-        </>
-      }
+      closeOnBackdrop={false}
+      actions={[
+        { label: '取消', onClick: onClose },
+        { label: '添加', variant: 'primary', type: 'submit', form: formId },
+      ]}
     >
-      <div className="admin-form">
-        <Tabs
-          size="sm"
-          items={[
-            { value: 'stdio' as const, label: 'Stdio' },
-            { value: 'http' as const, label: 'HTTP' },
-          ]}
-          value={transport}
-          onChange={setTransport}
-        />
-        <TextField
-          label="名称"
-          mono
-          value={f.name}
-          onChange={set('name')}
-          placeholder="wiki-search"
-          autoFocus
-        />
+      <Form id={formId} onSubmit={submit}>
+        <FormRow label="传输方式">
+          <SegmentedControl
+            aria-label="传输方式"
+            size="small"
+            items={[
+              { value: 'stdio' as const, label: 'Stdio' },
+              { value: 'http' as const, label: 'HTTP' },
+            ]}
+            value={transport}
+            onChange={setTransport}
+          />
+        </FormRow>
+        <FormRow label="名称">
+          <TextField
+            aria-label="名称"
+            mono
+            value={f.name}
+            onChange={set('name')}
+            placeholder="wiki-search"
+            autoFocus
+          />
+        </FormRow>
         {transport === 'stdio' ? (
           <>
-            <TextField label="命令" mono value={f.command} onChange={set('command')} placeholder="npx" />
-            <TextField
-              multiline
-              label="参数（每行一个）"
-              className="cfg__mono"
-              rows={3}
-              value={f.args}
-              onChange={set('args')}
-            />
-            <TextField
-              multiline
-              label="环境变量（每行 KEY=VALUE）"
-              className="cfg__mono"
-              rows={3}
-              value={f.env}
-              onChange={set('env')}
-            />
+            <FormRow label="命令">
+              <TextField
+                aria-label="命令"
+                mono
+                value={f.command}
+                onChange={set('command')}
+                placeholder="npx"
+              />
+            </FormRow>
+            <FormRow label="参数" align="top" hint="每行一个。">
+              <TextField
+                multiline
+                aria-label="参数"
+                className="cfg__mono"
+                rows={3}
+                value={f.args}
+                onChange={set('args')}
+              />
+            </FormRow>
           </>
         ) : (
-          <>
+          <FormRow label="URL">
             <TextField
-              label="URL"
+              aria-label="URL"
               mono
               value={f.url}
               onChange={set('url')}
               placeholder="https://mcp.corp/wiki"
             />
-            <TextField
-              multiline
-              label="请求头（每行 Key: Value）"
-              className="cfg__mono"
-              rows={3}
-              value={f.headers}
-              onChange={set('headers')}
-            />
-          </>
+          </FormRow>
         )}
-        <span className="cfg__hint">环境变量与请求头以明文保存，只在新建会话时经 ACP 注入。</span>
-        {error ? <Alert variant="error" title={error} /> : null}
-      </div>
+      </Form>
+      {transport === 'stdio' ? (
+        <Disclosure variant="group" title="环境变量" summary={lines(f.env) ? `${lines(f.env)} 项` : '未设置'}>
+          <TextField
+            multiline
+            aria-label="环境变量"
+            hint="每行一个 KEY=VALUE；以明文保存，只在新建会话时经 ACP 注入。"
+            className="cfg__mono"
+            rows={3}
+            value={f.env}
+            onChange={set('env')}
+          />
+        </Disclosure>
+      ) : (
+        <Disclosure
+          variant="group"
+          title="请求头"
+          summary={lines(f.headers) ? `${lines(f.headers)} 项` : '未设置'}
+        >
+          <TextField
+            multiline
+            aria-label="请求头"
+            hint="每行一个 Key: Value；以明文保存，只在新建会话时经 ACP 注入。"
+            className="cfg__mono"
+            rows={3}
+            value={f.headers}
+            onChange={set('headers')}
+          />
+        </Disclosure>
+      )}
+      {error ? <Alert variant="error" title={error} /> : null}
     </Dialog>
   )
 }

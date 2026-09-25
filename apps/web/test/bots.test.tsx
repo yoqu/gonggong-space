@@ -181,7 +181,7 @@ describe('新建 Bot', () => {
     expect((name as HTMLInputElement).value).toBe('王磊的 Claude Code')
     expect(
       within(dialog)
-        .getByRole('button', { name: /Codex\s*未安装/ })
+        .getByRole('radio', { name: /Codex\s*未安装/ })
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(within(dialog).getByText('创建后立即可用')).toBeTruthy()
@@ -206,11 +206,11 @@ describe('新建 Bot', () => {
     renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
-    fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录…' }))
     const picker = await screen.findByRole('dialog', { name: '默认工作区' })
     await within(picker).findByText('没有子目录')
     fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
-    expect(await within(dialog).findByText('/Users/w')).toBeTruthy()
+    expect(await within(dialog).findByRole('button', { name: 'w' })).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({
@@ -222,13 +222,14 @@ describe('新建 Bot', () => {
   it('previews confirmation and pending_bind when an admin creates for others', async () => {
     routes['GET /api/bots/owners'] = owners
     renderAt('/admin/bots', admin)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '新建 Bot…' })[0]!)
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     await within(dialog).findByText('陈晨 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。')
-    expect(within(dialog).getByRole('button', { name: /陈晨\s*我/ })).toBeTruthy()
+    const owner = within(dialog).getByRole('button', { name: '归属人' })
+    expect(owner.textContent).toContain('陈晨（我）')
     expect(within(dialog).getByRole('button', { name: '创建' })).toBeTruthy()
-
-    fireEvent.click(within(dialog).getByRole('button', { name: /王磊\s*1 台/ }))
+    fireEvent.click(owner)
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '王磊 · 1 台机器' }))
     expect(within(dialog).getByText('等待 王磊 确认')).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建并发送确认' })).toBeTruthy()
     expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('王磊的 Claude Code')
@@ -243,16 +244,16 @@ describe('bot detail', () => {
     const detail = await openMyBot()
     expect(within(detail).getByText('李建国')).toBeTruthy()
     for (const t of ['只读', '工作区写入', '完全访问'])
-      expect(within(detail).getByRole('tab', { name: t })).toBeTruthy()
-    fireEvent.click(within(detail).getByRole('tab', { name: '任何群成员' }))
-    fireEvent.click(within(detail).getByRole('tab', { name: '完全访问' }))
+      expect(within(detail).getByRole('radio', { name: t })).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('radio', { name: '任何群成员' }))
+    fireEvent.click(within(detail).getByRole('radio', { name: '完全访问' }))
     expect(within(detail).queryByRole('alert')).toBeNull()
-    const anyone = within(detail).getByRole('tab', { name: '任何群成员' })
+    const anyone = within(detail).getByRole('radio', { name: '任何群成员' })
     expect(anyone.hasAttribute('disabled')).toBe(true)
     expect(anyone.closest('[title]')?.getAttribute('title')).toBe('完全访问档位只允许指定名单触发')
     expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
-    expect(within(detail).getByRole('button', { name: '添加触发人' })).toBeTruthy()
-    expect(within(detail).getByRole('tab', { name: '指定名单' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
+    expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
@@ -273,7 +274,7 @@ describe('bot detail', () => {
     unmount()
     renderAt('/', wang)
     const detail = await openMyBot()
-    expect(within(detail).getByTestId('default-workspace').textContent).toBe('/src/pay')
+    expect(within(detail).getByTestId('default-workspace').title).toBe('/src/pay')
     fireEvent.click(within(detail).getByRole('button', { name: '清除' }))
     await waitFor(() => expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置'))
     expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({ path: null })

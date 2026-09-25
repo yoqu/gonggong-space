@@ -4,6 +4,7 @@ import './form-layout.css'
 
 /** Classic preferences form for sheets and dialogs: right-aligned label column, controls on the left of the next. */
 export function Form({
+  id,
   children,
   labelWidth,
   onSubmit,
@@ -11,6 +12,7 @@ export function Form({
   style,
   'aria-label': ariaLabel,
 }: {
+  id?: string
   children?: ReactNode
   /** Defaults to the longest label; fix it to align several forms in one window. */
   labelWidth?: number | string
@@ -23,6 +25,8 @@ export function Form({
     labelWidth == null ? 'max-content' : typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth
   return (
     <form
+      id={id}
+      noValidate
       className={cx('ui-form', className)}
       style={{ gridTemplateColumns: `${col} minmax(0, 1fr)`, ...style }}
       aria-label={ariaLabel}
