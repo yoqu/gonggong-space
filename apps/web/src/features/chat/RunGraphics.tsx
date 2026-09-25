@@ -1,8 +1,8 @@
 import type { RunStatus } from '@gonggong/protocol'
-import { FileText } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { SPRING } from '../../lib/motion'
+import { Icon } from '../../ui'
 import './run-graphics.css'
 
 /** SF Symbols style: 16px grid, one stroke weight, hierarchical color (`sf-2` = secondary layer at 40%). */
@@ -109,7 +109,8 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
 /** Statuses that need someone to act keep their text visible (C6); the rest show it on hover. */
 const SPELLED: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
 
-export function RunStatusIcon({ status }: { status: RunStatus }) {
+/** `spelled` always shows the text (card headers). */
+export function RunStatusIcon({ status, spelled }: { status: RunStatus; spelled?: boolean }) {
   const label = STATUS_LABEL[status]
   return (
     <span className="run-status" data-status={status} title={label}>
@@ -129,7 +130,7 @@ export function RunStatusIcon({ status }: { status: RunStatus }) {
           </motion.svg>
         </AnimatePresence>
       </span>
-      <span className={SPELLED.includes(status) ? 'run-status__text' : 'run-vh'}>{label}</span>
+      <span className={spelled || SPELLED.includes(status) ? 'run-status__text' : 'run-vh'}>{label}</span>
     </span>
   )
 }
@@ -161,7 +162,7 @@ export function FilesFact({ n }: { n: number }) {
   if (!n) return null
   return (
     <Fact label={`改动 ${n} 个文件`} value={n}>
-      <FileText size={12} />
+      <Icon name="doc-text" size={12} />
     </Fact>
   )
 }

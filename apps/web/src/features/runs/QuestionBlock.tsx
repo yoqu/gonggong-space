@@ -1,11 +1,10 @@
 import type { Answer, Question, QuestionSetDto, RunDto } from '@gonggong/protocol'
-import { MessageCircleQuestion } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Input, Textarea, toast } from '../../ui'
+import { Button, Icon, Input, Tag, Textarea, toast } from '../../ui'
 import { workspacePath } from '../attachments/api'
 import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { countdown, hm, useNow } from './ApprovalBlock'
@@ -123,7 +122,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   return (
     <div className="question">
       <div className="question__title">
-        <MessageCircleQuestion size={13} />
+        <Icon name="bubble-question" size={14} />
         <span>向群成员提问 · {set.questions.length} 个问题</span>
         <span className="question__who">· {who}</span>
       </div>
@@ -200,12 +199,12 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
               e.target.value = ''
             }}
           />
-          <Button variant="ghost" size="sm" disabled={locked} onClick={() => fileInput.current?.click()}>
-            附图片或附件
+          <Button size="small" icon="paperclip" disabled={locked} onClick={() => fileInput.current?.click()}>
+            附图片或附件…
           </Button>
           <Button
             variant="primary"
-            size="sm"
+            size="small"
             disabled={locked || !ready || uploads.uploading}
             onClick={() => void submit()}
           >
@@ -216,7 +215,12 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
           </span>
         </div>
       ) : (
-        <div className="question__done">{outcome(set, run)}</div>
+        <div className="question__done">
+          <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
+            {set.status === 'answered' ? '已回答' : set.status === 'expired' ? '已超时' : '已作废'}
+          </Tag>
+          <span>{outcome(set, run)}</span>
+        </div>
       )}
     </div>
   )

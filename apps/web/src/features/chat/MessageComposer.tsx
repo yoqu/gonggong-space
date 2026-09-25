@@ -2,13 +2,19 @@ import type { GroupDto, MessageDto } from '@gonggong/protocol'
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport'
 import { ApiError, api } from '../../lib/api'
-import { toast } from '../../ui'
+import { Composer, toast } from '../../ui'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
-import { Composer } from './Composer'
 import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandidates'
+import './composer.css'
+
+/** The input grows with its content up to this height (and 40% of the window), then scrolls. */
+const MAX_INPUT_PX = 240
+
+/** Bare `@` / `/` only open the candidate list; they are not a message. */
+const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
 
 const RETRIES = 2
 
@@ -57,6 +63,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
   const filePicker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
+  const appending = useAppend((s) => s.target?.groupId === group.id)
   /** Caret to restore right after a picked candidate is rendered, before any further keystroke. */
   const pendingCaret = useRef<number | null>(null)
 
@@ -149,45 +156,57 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
     }
   }
 
+  const chips = appending || quote || uploads.items.length > 0
   return (
-    <Composer
-      value={draft}
-      onChange={change}
-      onSend={() => void send()}
-      busy={busy}
-      sent={sent}
-      attachments={uploads.items.length}
-      uploading={uploads.uploading}
-      onImage={() => imagePicker.current?.click()}
-      onAttach={() => filePicker.current?.click()}
-      above={
-        <>
-          <AppendBanner groupId={group.id} />
-          <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
-          {quote ? <QuoteChip quote={quote} /> : null}
-          <AttachmentChips uploads={uploads} />
-        </>
-      }
-      inputRef={input}
-      onKeyDown={onKeyDown}
-      onFiles={uploads.add}
-      combobox={{
-        controls: listId,
-        expanded: open,
-        active: open && current >= 0 ? `${listId}-${current}` : undefined,
-      }}
-      hint={mobile ? null : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
-      popover={
-        token && open ? (
-          <CandidatePopover
-            id={listId}
-            char={token.char}
-            sections={sections}
-            active={candidates[current]}
-            onPick={pick}
-          />
-        ) : null
-      }
-    />
+    <div className="composer">
+      <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
+      <Composer
+        value={draft}
+        onChange={change}
+        onSend={() => void send()}
+        canSend={(hasText(draft) || uploads.items.length > 0) && !uploads.uploading}
+        busy={busy}
+        sent={sent}
+        onFiles={uploads.add}
+        maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
+        placeholder={mobile ? '发消息，@ 触发 Bot' : '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'}
+        tools={[
+          { icon: 'at', label: '@ 提及', onClick: () => change(`${draft}@`) },
+          { icon: 'slash', label: '命令', onClick: () => change(`${draft}/`) },
+          { icon: 'paperclip', label: '附件', onClick: () => filePicker.current?.click() },
+          { icon: 'image', label: '图片', onClick: () => imagePicker.current?.click() },
+        ]}
+        hint={mobile ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
+        above={
+          chips ? (
+            <div className="composer__chips" data-testid="composer-chips">
+              <AppendBanner groupId={group.id} />
+              {quote ? <QuoteChip quote={quote} /> : null}
+              <AttachmentChips uploads={uploads} />
+            </div>
+          ) : null
+        }
+        inputRef={input}
+        onKeyDown={onKeyDown}
+        textareaProps={{
+          role: 'combobox',
+          'aria-autocomplete': 'list',
+          'aria-expanded': open,
+          'aria-controls': listId,
+          'aria-activedescendant': open && current >= 0 ? `${listId}-${current}` : undefined,
+        }}
+        popover={
+          token && open ? (
+            <CandidatePopover
+              id={listId}
+              char={token.char}
+              sections={sections}
+              active={candidates[current]}
+              onPick={pick}
+            />
+          ) : null
+        }
+      />
+    </div>
   )
 }

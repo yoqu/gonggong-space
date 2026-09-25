@@ -1,18 +1,4 @@
 import type { BotDto, GroupDto, GroupParams, UserBriefDto } from '@gonggong/protocol'
-import {
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  GitBranch,
-  Hash,
-  Info,
-  Lock,
-  Plus,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  User,
-} from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
@@ -21,16 +7,18 @@ import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import {
   Avatar,
-  Badge,
   Button,
   Dialog,
   Drawer,
-  Field,
-  IconButton,
-  Input,
+  GroupBox,
+  GroupRow,
+  Icon,
+  type IconName,
   Presence,
+  SearchField,
   Switch,
-  Textarea,
+  Tag,
+  TextField,
   toast,
 } from '../../ui'
 import { BotDialog } from '../bots/BotDialog'
@@ -60,7 +48,7 @@ function LoadError({ text, onRetry }: { text: string; onRetry: () => void }) {
   return (
     <span className="gs-error">
       {text}
-      <Button variant="outline" size="xs" onClick={onRetry}>
+      <Button size="small" onClick={onRetry}>
         重试
       </Button>
     </span>
@@ -93,7 +81,7 @@ function ConfirmRemove({
       onClose={onClose}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button onClick={onClose}>
             取消
           </Button>
           <Button variant="destructive" disabled={busy} onClick={() => void run()}>
@@ -136,8 +124,7 @@ function ListRow({
       <span className="gs-row__line">
         <span className="gs-row__key">{title}</span>
         <span className="gs-row__count">{count}</span>
-        <span className="spacer" />
-        <ChevronRight size={14} className="muted-icon" />
+        <Icon name="chevron-right" size={13} className="gs-row__chevron" />
       </span>
       {children}
     </button>
@@ -158,19 +145,9 @@ function SwitchRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <div className="gs-switch">
-      <Switch
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-        label={
-          <span className="gs-switch__text">
-            <span>{label}</span>
-            {desc ? <span className="gs-desc">{desc}</span> : null}
-          </span>
-        }
-      />
-    </div>
+    <GroupRow label={label} description={desc}>
+      <Switch aria-label={label} checked={checked} disabled={disabled} onChange={onChange} />
+    </GroupRow>
   )
 }
 
@@ -204,12 +181,17 @@ export function GroupDrawer({
       onClose={onClose}
       leading={
         view === 'main' ? null : (
-          <IconButton variant="glass" title="返回" onClick={() => setView('main')}>
-            <ChevronLeft size={16} />
-          </IconButton>
+          <Button
+            variant="glass"
+            icon="chevron-left"
+            aria-label="返回"
+            title="返回"
+            onClick={() => setView('main')}
+          />
         )
       }
     >
+      <div className="gs-body">
       {view === 'main' ? (
         <MainView
           group={group}
@@ -225,6 +207,7 @@ export function GroupDrawer({
       ) : (
         <InfoView group={group} onSaved={onClose} />
       )}
+      </div>
     </Drawer>
   )
 }
@@ -254,7 +237,6 @@ function MainView({
   // The server refuses leaving for the last member: they dissolve instead.
   const canLeave = !dm && group.members.length > 1
   const gBots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
-  const Icon = dm ? User : Hash
 
   const loadParams = useCallback(() => {
     setParamsFailed(false)
@@ -292,24 +274,24 @@ function MainView({
   }
 
   const rows: {
-    icon: typeof Info
+    icon: IconName
     k: string
     v: string
     mono?: boolean
     error?: boolean
     onClick: () => void
   }[] = [
-    { icon: Info, k: dm ? '名称' : '群名称与公告', v: group.name, onClick: () => setView('info') },
+    { icon: 'info', k: dm ? '名称' : '群名称与公告', v: group.name, onClick: () => setView('info') },
     {
-      icon: GitBranch,
+      icon: 'git-branch',
       k: '仓库与基准分支',
       v: group.repo?.url ?? '未绑定',
       mono: !!group.repo,
       onClick: () => onSettings('basic'),
     },
-    { icon: RefreshCw, k: '同步模式', v: GROUP_MODE_LABEL[group.mode], onClick: () => onSettings('mode') },
+    { icon: 'arrow-clockwise', k: '同步模式', v: GROUP_MODE_LABEL[group.mode], onClick: () => onSettings('mode') },
     {
-      icon: SlidersHorizontal,
+      icon: 'slider-horizontal',
       k: '群级参数',
       v: params ? paramsSummary(params) : '',
       error: paramsFailed,
@@ -320,77 +302,73 @@ function MainView({
   return (
     <>
       <div className="gs-card">
-        <div className="gs-card__icon">
-          <Icon size={20} />
-        </div>
+        <Avatar name={group.name} size={44} shape="square" />
         <div className="gs-card__main">
           <span className="gs-card__name">{group.name}</span>
           <span className="gs-card__repo">
             {group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 Bot 使用本机目录'}
           </span>
         </div>
-        <Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>
+        <Tag>{GROUP_MODE_LABEL[group.mode]}</Tag>
       </div>
 
-      {dm ? null : (
-        <ListRow title="群成员" count={`${group.members.length} 人`} onClick={() => setView('members')}>
-          <span className="gs-avatars">
-            {group.members.slice(0, 8).map((m) => (
-              <Avatar key={m.userId} name={m.name} />
+      <GroupBox>
+        {dm ? null : (
+          <ListRow title="群成员" count={`${group.members.length} 人`} onClick={() => setView('members')}>
+            <span className="gs-avatars">
+              {group.members.slice(0, 8).map((m) => (
+                <Avatar key={m.userId} name={m.name} size={24} />
+              ))}
+            </span>
+          </ListRow>
+        )}
+        <ListRow title="Bot" count={`${group.botIds.length} 个`} onClick={() => setView('bots')}>
+          <span className="gs-chips">
+            {gBots.map((b) => (
+              <span key={b.id} className="gs-chip">
+                <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
+                {b.name}
+              </span>
             ))}
           </span>
         </ListRow>
-      )}
-      <ListRow title="Bot" count={`${group.botIds.length} 个`} onClick={() => setView('bots')}>
-        <span className="gs-chips">
-          {gBots.map((b) => (
-            <span key={b.id} className="gs-chip">
-              <span className="dot dot--sm" style={{ background: PRESENCE[b.presence].color }} />
-              {b.name}
-            </span>
-          ))}
-        </span>
-      </ListRow>
+      </GroupBox>
 
-      <div className="gs-gap" />
-      <SwitchRow
-        label="消息免打扰"
-        desc="普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒"
-        {...pref('muted')}
-      />
-      <SwitchRow label="置顶群" {...pref('pinned')} />
-      <SwitchRow label="运行卡片默认折叠" desc="只对我生效，审批与提问卡片始终展开" {...pref('foldRuns')} />
+      <GroupBox>
+        <SwitchRow
+          label="消息免打扰"
+          desc="普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒"
+          {...pref('muted')}
+        />
+        <SwitchRow label="置顶群" {...pref('pinned')} />
+        <SwitchRow label="运行卡片默认折叠" desc="只对我生效，审批与提问卡片始终展开" {...pref('foldRuns')} />
+      </GroupBox>
 
-      <div className="gs-gap" />
       <div className="gs-section">
-        <span className="eyebrow">{dm ? '设置' : '群管理'}</span>
-        <span className="spacer" />
+        <span className="gs-section__title">{dm ? '设置' : '群管理'}</span>
         <span className="gs-desc">
           {dm ? '' : isAdmin ? '你是群管理员' : `仅群管理员 · ${admins.map((m) => m.name).join('、')}`}
         </span>
       </div>
-      {rows.map((r) =>
-        r.error ? (
-          <div key={r.k} className="gs-row">
-            <r.icon size={14} className="muted-icon" />
-            <span className="gs-row__key">{r.k}</span>
-            <LoadError text={`${r.k}加载失败`} onRetry={loadParams} />
-          </div>
-        ) : (
-          <button key={r.k} type="button" className="gs-row" disabled={!isAdmin} onClick={r.onClick}>
-            <r.icon size={14} className="muted-icon" />
-            <span className="gs-row__key">{r.k}</span>
-            <span className={r.mono ? 'gs-row__val gs-row__val--mono' : 'gs-row__val'}>{r.v}</span>
-            {isAdmin ? (
-              <ChevronRight size={14} className="muted-icon" />
-            ) : (
-              <Lock size={14} className="muted-icon" />
-            )}
-          </button>
-        ),
-      )}
+      <GroupBox>
+        {rows.map((r) =>
+          r.error ? (
+            <div key={r.k} className="gs-row">
+              <Icon name={r.icon} size={15} className="gs-row__icon" />
+              <span className="gs-row__key">{r.k}</span>
+              <LoadError text={`${r.k}加载失败`} onRetry={loadParams} />
+            </div>
+          ) : (
+            <button key={r.k} type="button" className="gs-row" disabled={!isAdmin} onClick={r.onClick}>
+              <Icon name={r.icon} size={15} className="gs-row__icon" />
+              <span className="gs-row__key">{r.k}</span>
+              <span className={r.mono ? 'gs-row__val gs-row__val--mono' : 'gs-row__val'}>{r.v}</span>
+              <Icon name={isAdmin ? 'chevron-right' : 'lock'} size={13} className="gs-row__chevron" />
+            </button>
+          ),
+        )}
+      </GroupBox>
 
-      <div className="gs-gap" />
       {canLeave ? (
         <div className="gs-actions">
           {confirm === 'leave' ? (
@@ -400,14 +378,14 @@ function MainView({
                 : '退出后你的 Bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。'}
             </div>
           ) : null}
-          <Button variant="outline" fullWidth onClick={leave}>
+          <Button fullWidth onClick={leave}>
             {confirm === 'leave' && !onlyAdmin ? '确认退出' : '退出群'}
           </Button>
         </div>
       ) : null}
       {isAdmin ? (
         <div className="gs-actions gs-danger">
-          <span className="gs-danger__title">危险操作</span>
+          <span className="gs-section__title">危险操作</span>
           <Button variant="destructive" fullWidth onClick={dissolve}>
             {dm
               ? confirm === 'dissolve'
@@ -451,17 +429,9 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
   return (
     <>
       <div className="gs-toolbar">
-        <div className="gs-search">
-          <Search size={13} className="muted-icon" />
-          <input
-            value={q}
-            placeholder="搜索成员"
-            aria-label="搜索成员"
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <SearchField className="gs-search" placeholder="搜索成员" value={q} onChange={setQ} />
         {isAdmin ? (
-          <Button variant="outline" size="sm" onClick={() => setAdding(!adding)}>
+          <Button size="small" onClick={() => setAdding(!adding)}>
             {adding ? '完成' : '添加成员'}
           </Button>
         ) : null}
@@ -475,7 +445,7 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
               className="gs-candidate"
               onClick={() => void attempt(() => groupsApi.addMember(group.id, u.id))}
             >
-              <Plus size={11} />
+              <Icon name="plus" size={11} weight={2} />
               {u.name}
             </button>
           ))}
@@ -483,42 +453,40 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
           {users.length && !candidates.length ? <span className="gs-desc">所有账号都已在群里</span> : null}
         </div>
       ) : null}
-      {group.members
-        .filter((m) => !q || m.name.includes(q))
-        .map((m) => {
-          const theirs = bots.filter((b) => b.ownerId === m.userId).map((b) => b.name)
-          return (
-            <div key={m.userId} className="gs-member" data-testid={`member-${m.userId}`}>
-              <Avatar name={m.name} size={30} />
-              <div className="gs-member__main">
-                <span className="gs-member__name">
-                  {m.name}
-                  {m.userId === me?.id ? '（我）' : ''}
-                  {m.isAdmin ? (
-                    <Badge variant="info" size="xs">
-                      群管理员
-                    </Badge>
-                  ) : null}
-                </span>
-                <span className="gs-desc">{theirs.length ? `带入 ${theirs.join('、')}` : '未带入 Bot'}</span>
+      <GroupBox>
+        {group.members
+          .filter((m) => !q || m.name.includes(q))
+          .map((m) => {
+            const theirs = bots.filter((b) => b.ownerId === m.userId).map((b) => b.name)
+            return (
+              <div key={m.userId} className="gs-member" data-testid={`member-${m.userId}`}>
+                <Avatar name={m.name} size={28} />
+                <div className="gs-member__main">
+                  <span className="gs-member__name">
+                    {m.name}
+                    {m.userId === me?.id ? '（我）' : ''}
+                    {m.isAdmin ? <Tag tone="blue">群管理员</Tag> : null}
+                  </span>
+                  <span className="gs-desc">{theirs.length ? `带入 ${theirs.join('、')}` : '未带入 Bot'}</span>
+                </div>
+                {isAdmin && m.userId !== me?.id ? (
+                  <span className="gs-member__ops">
+                    <Button
+                      variant="plain"
+                      size="small"
+                      onClick={() => void attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin))}
+                    >
+                      {m.isAdmin ? '取消管理员' : '设为管理员'}
+                    </Button>
+                    <Button variant="plain" size="small" onClick={() => setRemoving(m)}>
+                      移出
+                    </Button>
+                  </span>
+                ) : null}
               </div>
-              {isAdmin && m.userId !== me?.id ? (
-                <span className="gs-member__ops">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => void attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin))}
-                  >
-                    {m.isAdmin ? '取消管理员' : '设为管理员'}
-                  </Button>
-                  <Button variant="ghost" size="xs" onClick={() => setRemoving(m)}>
-                    移出
-                  </Button>
-                </span>
-              ) : null}
-            </div>
-          )
-        })}
+            )
+          })}
+      </GroupBox>
       <div className="gs-foot">移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。</div>
       <Presence>
         {removing ? (
@@ -557,7 +525,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
           {bots.filter((b) => b.presence === 'online' || b.presence === 'running').length}
         </span>
         {isAdmin ? (
-          <Button variant="outline" size="sm" onClick={() => setAdding(!adding)}>
+          <Button size="small" onClick={() => setAdding(!adding)}>
             {adding ? '完成' : '拉入 Bot'}
           </Button>
         ) : null}
@@ -571,7 +539,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
               className="gs-candidate gs-candidate--bot"
               onClick={() => void attempt(() => groupsApi.addBot(group.id, b.id))}
             >
-              <Plus size={12} />
+              <Icon name="plus" size={12} weight={2} />
               <span className="gs-candidate__name">{b.name}</span>
               <span className="gs-desc">
                 {AGENT_LABEL[b.agentKind]} · {b.ownerName}
@@ -582,40 +550,43 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
           {candidates.length ? null : <span className="gs-desc">没有可拉入的 Bot</span>}
         </div>
       ) : null}
-      {bots.map((b) => (
-        <div key={b.id} className="gs-bot">
-          <div className="gs-bot__head">
-            <span className="gs-bot__icon">
-              <Bot size={15} />
-            </span>
-            <span className="gs-member__main">
-              <span className="gs-bot__name">{b.name}</span>
-              <span className="gs-desc">
-                {AGENT_LABEL[b.agentKind]} · 主人 {b.ownerName}
+      <GroupBox>
+        {bots.map((b) => (
+          <div key={b.id} className="gs-bot">
+            <div className="gs-bot__head">
+              <Avatar name={b.name} size={28} shape="square" />
+              <span className="gs-member__main">
+                <span className="gs-bot__name">
+                  {b.name}
+                  <Tag tone="blue">Bot</Tag>
+                </span>
+                <span className="gs-desc">
+                  {AGENT_LABEL[b.agentKind]} · 主人 {b.ownerName}
+                </span>
               </span>
-            </span>
-            <span className="gs-bot__state">
-              <span className="dot dot--sm" style={{ background: PRESENCE[b.presence].color }} />
-              {PRESENCE[b.presence].label}
-            </span>
+              <span className="gs-bot__state">
+                <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
+                {PRESENCE[b.presence].label}
+              </span>
+            </div>
+            <div className="gs-bot__meta">
+              <span>档位 {TIER_LABEL[b.tier]}</span>
+              <span>触发 {SCOPE_LABEL(b)}</span>
+              <span className="spacer" />
+              {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
+                <Button variant="plain" size="small" onClick={() => setEditingId(b.id)}>
+                  修改档位
+                </Button>
+              ) : null}
+              {isAdmin ? (
+                <Button variant="plain" size="small" onClick={() => setRemoving(b)}>
+                  移出
+                </Button>
+              ) : null}
+            </div>
           </div>
-          <div className="gs-bot__meta">
-            <span>档位 {TIER_LABEL[b.tier]}</span>
-            <span>触发 {SCOPE_LABEL(b)}</span>
-            <span className="spacer" />
-            {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
-              <Button variant="ghost" size="xs" onClick={() => setEditingId(b.id)}>
-                修改档位
-              </Button>
-            ) : null}
-            {isAdmin ? (
-              <Button variant="ghost" size="xs" onClick={() => setRemoving(b)}>
-                移出
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      ))}
+        ))}
+      </GroupBox>
       <div className="gs-foot">
         档位与触发范围由 Bot 主人在 Bot 详情中设置，对所有群生效；想少审批，可在桌面端「Bot →
         命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
@@ -650,22 +621,25 @@ function InfoView({ group, onSaved }: { group: GroupDto; onSaved: () => void }) 
   }
   return (
     <div className="gs-form">
-      <Field label={dm ? '名称' : '群名称'}>
-        <Input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-      </Field>
+      <TextField
+        label={dm ? '名称' : '群名称'}
+        value={name}
+        maxLength={60}
+        onChange={(e) => setName(e.target.value)}
+      />
       {dm ? null : (
-        <Field label="群公告 · 置顶展示在对话顶部">
-          <Textarea
-            rows={4}
-            value={notice}
-            maxLength={500}
-            placeholder="如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线"
-            onChange={(e) => setNotice(e.target.value)}
-          />
-        </Field>
+        <TextField
+          multiline
+          label="群公告 · 置顶展示在对话顶部"
+          rows={4}
+          value={notice}
+          maxLength={500}
+          placeholder="如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线"
+          onChange={(e) => setNotice(e.target.value)}
+        />
       )}
       <div className="gs-form__foot">
-        <Button variant="primary" size="sm" disabled={!name.trim() || saving} onClick={() => void save()}>
+        <Button variant="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
           保存
         </Button>
       </div>

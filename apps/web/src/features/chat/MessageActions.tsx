@@ -1,8 +1,7 @@
 import { type MessageDto, RECALL_WINDOW_MS } from '@gonggong/protocol'
-import { Copy, Ellipsis, Link, PanelRightOpen, Quote, Trash2, Undo2 } from 'lucide-react'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
-import { Button, Dialog, Presence, toast, useEscape, usePresence } from '../../ui'
+import { Button, Dialog, Icon, type MenuItem, MenuButton, Presence, toast } from '../../ui'
 import { ReactionPicker } from '../reactions'
 import { applyWithdrawn } from './useTimeline'
 import './recall.css'
@@ -49,7 +48,7 @@ function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () =
       onClose={onClose}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button onClick={onClose}>
             取消
           </Button>
           <Button
@@ -71,10 +70,10 @@ function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () =
   )
 }
 
-/** Keeps the bar of its parent open after a touch long-press, until the next touch elsewhere. */
+/** Keeps the bar of its message row open after a touch long-press, until the next touch elsewhere. */
 function useLongPress(bar: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    const host = bar.current?.parentElement
+    const host = bar.current?.closest<HTMLElement>('.pn-msg')
     if (!host) return
     let timer: ReturnType<typeof setTimeout> | undefined
     const cancel = () => clearTimeout(timer)
@@ -102,10 +101,7 @@ function useLongPress(bar: RefObject<HTMLDivElement | null>) {
   }, [bar])
 }
 
-/**
- * Feishu-style hover bar at the top-right of its parent (which must be `position: relative`); shown on hover,
- * keyboard focus inside the parent, or a touch long-press.
- */
+/** The Pane glass hover bar of a message row; kept visible while its menus are open or after a touch long-press. */
 export function MessageActions({
   message,
   link,
@@ -128,123 +124,48 @@ export function MessageActions({
 }) {
   const bar = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState(false)
+  const [picking, setPicking] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const mine = own && message ? message : null
   const recallable = !!mine && Date.now() - Date.parse(mine.createdAt) < RECALL_WINDOW_MS
-  const [picking, setPicking] = useState(false)
-  const menu = usePresence(more)
   useLongPress(bar)
-  useEscape(() => setMore(false), more)
-  useEffect(() => {
-    if (!more) return
-    const outside = (e: MouseEvent) => {
-      if (!bar.current?.contains(e.target as Node)) setMore(false)
-    }
-    document.addEventListener('mousedown', outside)
-    return () => document.removeEventListener('mousedown', outside)
-  }, [more])
+  const items: MenuItem[] = [
+    { value: 'link', label: '复制链接', icon: 'link' },
+    ...(mine && recallable ? [{ value: 'recall', label: '撤回', icon: 'arrow-uturn-left' as const }] : []),
+    ...(mine ? [{ value: 'delete', label: '删除', icon: 'trash' as const, destructive: true }] : []),
+  ]
+  const select = (value: string) => {
+    if (value === 'link') void copy(link, '链接已复制')
+    else if (value === 'recall' && mine) void recall(mine)
+    else if (value === 'delete') setDeleting(true)
+  }
 
   return (
     <div
       ref={bar}
-      className="msg-actions"
+      className="pn-msgactions msg-actions"
       role="toolbar"
       aria-label="消息操作"
       data-message-id={message?.id}
       data-open={more || picking || undefined}
     >
       {message ? <ReactionPicker message={message} onOpenChange={setPicking} /> : null}
-      <button
-        type="button"
-        className="msg-actions__btn"
-        aria-label="引用回复"
-        title={quoteTitle ?? '引用回复'}
-        onClick={onQuote}
-      >
-        <Quote size={14} />
+      <button type="button" aria-label="引用回复" title={quoteTitle ?? '引用回复'} onClick={onQuote}>
+        <Icon name="quote" />
       </button>
       {copyText !== undefined ? (
-        <button
-          type="button"
-          className="msg-actions__btn"
-          aria-label="复制"
-          title="复制"
-          onClick={() => void copy(copyText, '已复制')}
-        >
-          <Copy size={14} />
+        <button type="button" aria-label="复制" title="复制" onClick={() => void copy(copyText, '已复制')}>
+          <Icon name="copy" />
         </button>
       ) : null}
       {onProcess ? (
-        <button
-          type="button"
-          className="msg-actions__btn"
-          aria-label="查看过程"
-          title="查看过程"
-          onClick={onProcess}
-        >
-          <PanelRightOpen size={14} />
+        <button type="button" aria-label="查看过程" title="查看过程" onClick={onProcess}>
+          <Icon name="sidebar-right" />
         </button>
       ) : null}
-      <button
-        type="button"
-        className="msg-actions__btn"
-        aria-label="更多"
-        title="更多"
-        aria-haspopup="menu"
-        aria-expanded={more}
-        onClick={() => setMore(!more)}
-      >
-        <Ellipsis size={14} />
-      </button>
-      {menu.mounted ? (
-        <div
-          className="msg-actions__menu ui-popover"
-          role="menu"
-          data-state={menu.state}
-          onAnimationEnd={menu.onAnimationEnd}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            className="msg-actions__item"
-            onClick={() => {
-              setMore(false)
-              void copy(link, '链接已复制')
-            }}
-          >
-            <Link size={13} />
-            复制链接
-          </button>
-          {mine && recallable ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="msg-actions__item"
-              onClick={() => {
-                setMore(false)
-                void recall(mine)
-              }}
-            >
-              <Undo2 size={13} />
-              撤回
-            </button>
-          ) : null}
-          {mine ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="msg-actions__item"
-              onClick={() => {
-                setMore(false)
-                setDeleting(true)
-              }}
-            >
-              <Trash2 size={13} />
-              删除
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <MenuButton aria-label="更多" title="更多" align="end" items={items} onSelect={select} onOpenChange={setMore}>
+        <Icon name="more" weight={2.6} />
+      </MenuButton>
       <Presence>
         {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
       </Presence>

@@ -1,4 +1,4 @@
-import { CornerDownRight } from 'lucide-react'
+import { Button, Icon } from '../../ui'
 import { useAppend } from './append'
 import './question.css'
 
@@ -9,11 +9,11 @@ export function AppendBanner({ groupId }: { groupId: string }) {
   if (!target) return null
   return (
     <div className="append-banner">
-      <CornerDownRight size={11} />
+      <Icon name="arrow-turn-down-right" size={14} />
       <span>打断并追加到 {target.botName} · 已改内容保留，仍算同一轮</span>
-      <button type="button" className="append-banner__close" onClick={clear}>
+      <Button variant="plain" size="small" onClick={clear}>
         关闭
-      </button>
+      </Button>
     </div>
   )
 }

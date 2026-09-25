@@ -1,17 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '../../lib/cx'
+import type { Glyph } from '../controls'
+import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag, type TagTone } from '../display'
 import { Icon } from '../icon'
-import {
-  Avatar,
-  AvatarGroup,
-  type AvatarProps,
-  type IconLike,
-  type Presence,
-  Spinner,
-  Tag,
-  type TagSpec,
-  Tags,
-} from './primitives'
 import './message.css'
 
 export function Mention({ name, me }: { name: string; me?: boolean }) {
@@ -117,7 +108,7 @@ export function ThreadSummary({ count, people = [], lastTime, onClick }: ThreadS
 }
 
 export interface MessageAction {
-  icon: IconLike
+  icon: Glyph
   label: string
   onClick?: () => void
 }
@@ -167,8 +158,10 @@ export interface MessageAuthor {
   avatar?: string
   /** Replaces the default avatar (e.g. wrapped in a user-card trigger). */
   avatarNode?: ReactNode
-  status?: Presence
-  tags?: TagSpec[]
+  /** Replaces the bold name in the meta line. */
+  nameNode?: ReactNode
+  status?: AvatarProps['status']
+  tags?: { label: string; tone: TagTone }[]
   /** Bots get a rounded-square avatar and the blue「Bot」tag. */
   bot?: boolean
 }
@@ -199,6 +192,8 @@ export interface MessageProps {
   onAction?: (label: string) => void
   /** Extra controls appended to the hover bar. */
   actionsExtra?: ReactNode
+  /** A ready-made hover bar replacing the default one (`actions` is then ignored). */
+  actionBar?: ReactNode
   showActions?: boolean
   showAvatar?: boolean
   /** Extra inline content in the name/time line. */
@@ -210,7 +205,7 @@ export interface MessageProps {
 }
 
 function sideStatus({ status, receipt, onRetry }: Pick<MessageProps, 'status' | 'receipt' | 'onRetry'>) {
-  if (status === 'sending') return <Spinner label="正在发送" />
+  if (status === 'sending') return <ProgressIndicator variant="spinner" aria-label="正在发送" />
   if (status === 'failed')
     return (
       <button
@@ -246,6 +241,7 @@ export function Message({
   actions,
   onAction,
   actionsExtra,
+  actionBar,
   showActions,
   showAvatar = true,
   meta,
@@ -292,9 +288,13 @@ export function Message({
       <div className="pn-msg__col">
         {head && (
           <div className="pn-msg__meta">
-            {!self && <b>{author.name}</b>}
+            {!self && (author.nameNode ?? <b>{author.name}</b>)}
             {author.bot && <Tag tone="blue">Bot</Tag>}
-            <Tags items={author.tags} />
+            {author.tags?.map((t) => (
+              <Tag key={t.label} tone={t.tone}>
+                {t.label}
+              </Tag>
+            ))}
             {urgent && (
               <Tag tone="solid-red" icon="bolt">
                 加急
@@ -323,12 +323,16 @@ export function Message({
         </div>
         {thread && <ThreadSummary {...thread} />}
         {footer}
-        {actions !== false && (
-          <div className="pn-msg__actions">
-            <MessageActions items={actions} onAction={onAction}>
-              {actionsExtra}
-            </MessageActions>
-          </div>
+        {actionBar ? (
+          <div className="pn-msg__actions">{actionBar}</div>
+        ) : (
+          actions !== false && (
+            <div className="pn-msg__actions">
+              <MessageActions items={actions} onAction={onAction}>
+                {actionsExtra}
+              </MessageActions>
+            </div>
+          )
         )}
       </div>
     </div>

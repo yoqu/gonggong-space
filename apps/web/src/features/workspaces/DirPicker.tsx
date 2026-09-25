@@ -1,8 +1,7 @@
 import type { DirListingDto } from '@gonggong/protocol'
-import { ChevronRight, CornerLeftUp, Folder, GitBranch } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, Button, Dialog, Input, Spinner } from '../../ui'
+import { Alert, Button, Dialog, Icon, Input, Spinner } from '../../ui'
 import './workspaces.css'
 
 const parentOf = (path: string) => {
@@ -78,9 +77,13 @@ export function DirPicker({
             if (typed.trim()) setPath(typed.trim())
           }}
         >
-          <Button size="sm" disabled={!up} title="上一级" onClick={() => up && setPath(up)}>
-            <CornerLeftUp size={13} />
-          </Button>
+          <Button
+            icon="arrow-turn-left-up"
+            aria-label="上一级"
+            title="上一级"
+            disabled={!up}
+            onClick={() => up && setPath(up)}
+          />
           <Input
             size="sm"
             mono
@@ -91,7 +94,7 @@ export function DirPicker({
         </form>
         {dir?.git ? (
           <div className="dirpick__git" data-testid="dirpick-git">
-            <GitBranch size={12} />
+            <Icon name="git-branch" size={13} />
             <span>git 仓库 · {dir.git.branch ?? '游离 HEAD'}</span>
             <span className="dirpick__remote">{dir.git.remotes[0] ?? '无 remote'}</span>
           </div>
@@ -111,10 +114,10 @@ export function DirPicker({
                 className="dirpick__item"
                 onClick={() => setPath(join(dir.path, e.name))}
               >
-                <Folder size={13} className="muted-icon" />
+                <Icon name="folder" size={14} className="dirpick__icon" />
                 <span className="dirpick__name">{e.name}</span>
                 {e.git ? <span className="dirpick__tag">git</span> : null}
-                <ChevronRight size={12} className="muted-icon" />
+                <Icon name="chevron-right" size={12} className="dirpick__icon" />
               </button>
             ))
           ) : dir ? (

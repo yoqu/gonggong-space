@@ -1,7 +1,6 @@
 import { REACTION_EMOJIS } from '@gonggong/protocol'
-import { SmilePlus } from 'lucide-react'
 import { useState } from 'react'
-import { IconButton, useEscape, usePresence } from '../../ui'
+import { Icon, useEscape, usePresence } from '../../ui'
 import { type ReactionTarget, toggleReaction, useReactions } from './store'
 import './reactions.css'
 
@@ -25,14 +24,16 @@ export function ReactionPicker({
 
   return (
     <div className="reaction-picker">
-      <IconButton
+      <button
+        type="button"
         title="添加表情回应"
+        aria-label="添加表情回应"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <SmilePlus size={15} />
-      </IconButton>
+        <Icon name="smile" />
+      </button>
       {menu.mounted ? (
         <>
           {open ? (

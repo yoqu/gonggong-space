@@ -1,8 +1,4 @@
-.tl-event--recall .tl-event__icon {
-  color: var(--color-text-tertiary);
-}
 .msg-delete-note {
   margin: 0;
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--label-secondary);
 }

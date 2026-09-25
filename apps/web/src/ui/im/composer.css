@@ -39,7 +39,6 @@
   line-height: 19px;
   padding: 0;
   min-height: 19px;
-  max-height: 114px;
 }
 .pn-composer textarea::placeholder {
   color: var(--label-tertiary);
@@ -104,4 +103,28 @@
 .pn-composer__send svg {
   width: 15px;
   height: 15px;
+}
+.pn-composer--drop {
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent),
+    0 0 0 3px var(--tint-blue);
+  background: var(--tint-blue);
+}
+.pn-composer__send-icon {
+  display: grid;
+  place-items: center;
+}
+.pn-composer__send-icon--sent {
+  animation: var(--spring-bouncy) pn-send-in;
+}
+@keyframes pn-send-in {
+  from {
+    transform: translate(-10px, 10px);
+    opacity: 0;
+  }
+}
+.pn-composer__send[data-state="busy"] {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  opacity: 0.6;
 }

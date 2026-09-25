@@ -139,7 +139,9 @@
   pointer-events: auto;
 }
 .pn-msg:hover .pn-msg__actions,
-.pn-msg:focus-within .pn-msg__actions {
+.pn-msg:focus-within .pn-msg__actions,
+.pn-msg__actions:has([data-open]),
+.pn-msg[data-actions="open"] .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -276,7 +278,7 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
 }
-.pn-msgactions button {
+.pn-msgactions button:not([role^="menuitem"]) {
   appearance: none;
   border: 0;
   background: transparent;
@@ -288,10 +290,12 @@
   place-items: center;
   cursor: default;
 }
-.pn-msgactions button:hover {
+.pn-msgactions button:not([role^="menuitem"]):hover,
+.pn-msgactions button[aria-expanded="true"] {
   background: var(--control-track);
 }
-.pn-msgactions svg {
+.pn-msgactions > button svg,
+.pn-msgactions > * > button[aria-haspopup] svg {
   width: 15px;
   height: 15px;
 }

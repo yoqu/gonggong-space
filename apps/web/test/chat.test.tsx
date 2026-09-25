@@ -785,7 +785,7 @@ describe('repo validation and binding', () => {
     expect(within(dialog).getByText('每个群绑定一个仓库')).toBeTruthy()
     expect(within(dialog).getByText(/更换仓库会重建所有 Bot 的托管工作区/)).toBeTruthy()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '更换' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '更换…' }))
     const save = within(dialog).getByRole('button', { name: '保存' })
     expect(save.hasAttribute('disabled')).toBe(true)
     fireEvent.change(within(dialog).getByLabelText('仓库地址'), {

@@ -1,43 +1,32 @@
 import type { Attachment, MessageDto } from '@gonggong/protocol'
-import {
-  File,
-  FileCode,
-  FileText,
-  Image,
-  Maximize2,
-  PanelRightOpen,
-  Play,
-  Quote,
-  ScrollText,
-  Video,
-} from 'lucide-react'
 import { cx } from '../../lib/cx'
+import { FileAttachment, Icon, type IconName } from '../../ui'
 import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf } from './api'
 import { usePreview } from './preview'
 import './attachments.css'
 
-export const KIND_ICON: Record<FileKind, typeof File> = {
-  image: Image,
-  video: Video,
-  md: FileText,
-  text: ScrollText,
-  code: FileCode,
-  file: File,
+export const KIND_ICON: Record<FileKind, IconName> = {
+  image: 'image',
+  video: 'video',
+  md: 'doc-text',
+  text: 'doc-text',
+  code: 'doc-code',
+  file: 'doc',
 }
 
 /** The quoted bot reply / run card / message shown inside the sent message. */
 export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
   if (!quote) return null
   return (
-    <div className="tl-quote">
-      <Quote size={11} />
-      <span className="tl-quote__who">引用 {quote.who}</span>
-      <span className="tl-quote__text">{quote.text}</span>
+    <div className="pn-quote">
+      <b>引用 {quote.who}</b>
+      {'：'}
+      <span>{quote.text}</span>
     </div>
   )
 }
 
-/** Images / videos as a thumbnail grid, everything else as file rows; each opens the preview rail. */
+/** Images / videos as a thumbnail grid, everything else as file cards; each opens the preview rail. */
 export function MessageAttachments({ list, from }: { list: Attachment[]; from: string }) {
   const show = usePreview((s) => s.show)
   if (!list.length) return null
@@ -51,21 +40,21 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
           {media.map((a) => {
             const video = kindOf(a) === 'video'
             return (
-              <div key={a.id} className="att-tile">
+              <figure key={a.id} className="pn-image att-tile">
                 {video ? (
                   <video src={attachmentUrl(a.id)} preload="metadata" muted />
                 ) : (
                   <img src={attachmentUrl(a.id)} alt={a.name} loading="lazy" />
                 )}
-                <div className="att-tile__bar">
-                  {video ? <Video size={11} /> : null}
+                <figcaption className="att-tile__bar">
+                  {video ? <Icon name="video" size={12} /> : null}
                   <span className="att-tile__name">{a.name}</span>
-                  <span className="att-tile__meta">{fmtSize(a.size)}</span>
-                </div>
+                  <span>{fmtSize(a.size)}</span>
+                </figcaption>
                 {video ? (
-                  <button type="button" className="att-tile__play" title="播放" onClick={() => open(a)}>
-                    <Play size={18} />
-                  </button>
+                  <span className="att-tile__play" aria-hidden="true">
+                    <Icon name="play" size={18} />
+                  </span>
                 ) : null}
                 <button
                   type="button"
@@ -73,36 +62,23 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
                   title="在右侧查看"
                   aria-label={`在右侧查看 ${a.name}`}
                   onClick={() => open(a)}
-                >
-                  <Maximize2 size={12} />
-                </button>
-              </div>
+                />
+              </figure>
             )
           })}
         </div>
       ) : null}
-      {docs.length ? (
-        <div className="att-docs">
-          {docs.map((a) => {
-            const kind = kindOf(a)
-            const Icon = KIND_ICON[kind]
-            return (
-              <button key={a.id} type="button" className="att-doc" onClick={() => open(a)}>
-                <span className="att-doc__icon">
-                  <Icon size={15} />
-                </span>
-                <span className="att-doc__main">
-                  <span className="att-doc__name">{a.name}</span>
-                  <span className="att-doc__meta">
-                    {`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : ' · 点击预览'}`}
-                  </span>
-                </span>
-                <PanelRightOpen size={13} />
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
+      {docs.map((a) => {
+        const kind = kindOf(a)
+        return (
+          <FileAttachment
+            key={a.id}
+            name={a.name}
+            meta={`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : ' · 点击预览'}`}
+            onOpen={() => open(a)}
+          />
+        )
+      })}
     </>
   )
 }

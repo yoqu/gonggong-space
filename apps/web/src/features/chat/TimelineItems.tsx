@@ -1,30 +1,17 @@
 import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
-import {
-  Ban,
-  Bot,
-  ChevronDown,
-  ChevronRight,
-  CircleDot,
-  FileText,
-  Folder,
-  FolderInput,
-  GitBranch,
-  Hourglass,
-  Info,
-  Layers,
-  Loader,
-  MessageCircleQuestion,
-  RefreshCw,
-  ShieldAlert,
-  Square,
-  Undo2,
-  UserMinus,
-  UserPlus,
-  Users,
-} from 'lucide-react'
 import { memo, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
-import type { BadgeVariant } from '../../ui'
+import {
+  Avatar,
+  ChatNotice,
+  Icon,
+  type IconName,
+  Mention,
+  Message,
+  type MessageAuthor,
+  ProgressIndicator,
+  type TagTone,
+} from '../../ui'
 import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
@@ -52,22 +39,22 @@ import {
 } from './RunGraphics'
 import './recall.css'
 
-const VARIANT: Record<RunStatus, BadgeVariant> = {
-  queued: 'secondary',
-  offline_wait: 'outline',
-  forbidden: 'outline',
-  running: 'info',
-  awaiting_approval: 'warning',
-  awaiting_answer: 'warning',
-  completed: 'success',
-  interrupted: 'destructive',
-  expired: 'outline',
+const TONE: Record<RunStatus, TagTone> = {
+  queued: 'gray',
+  offline_wait: 'gray',
+  forbidden: 'red',
+  running: 'blue',
+  awaiting_approval: 'orange',
+  awaiting_answer: 'orange',
+  completed: 'green',
+  interrupted: 'red',
+  expired: 'gray',
 }
 
-/** Status label + badge variant (the run rail still shows badges). */
+/** Status label + tag tone (the run rail shows it as a Tag; the card header takes the same colour). */
 export const RUN_STATUS = Object.fromEntries(
-  Object.entries(VARIANT).map(([k, variant]) => [k, { label: STATUS_LABEL[k as RunStatus], variant }]),
-) as Record<RunStatus, { label: string; variant: BadgeVariant }>
+  Object.entries(TONE).map(([k, tone]) => [k, { label: STATUS_LABEL[k as RunStatus], tone }]),
+) as Record<RunStatus, { label: string; tone: TagTone }>
 
 /** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
 const NEW_SESSION: Record<string, string | null> = {
@@ -154,27 +141,28 @@ export function splitMentions(text: string, names: string[]) {
   return out
 }
 
-function eventIcon(body: string) {
-  if (body.includes('创建了私聊')) return UserPlus
-  if (body.includes('创建了群')) return Users
-  if (body.startsWith('群绑定仓库') || body.startsWith('群更换仓库')) return GitBranch
-  if (body.startsWith('未绑定仓库')) return Folder
-  if (body.includes('移出')) return UserMinus
-  if (body.includes(' 加入') || /已 clone 到托管工作区|工作区创建失败/.test(body)) return Bot
-  if (body.includes('下一轮将开新会话')) return RefreshCw
-  if (/\/cd|绑定到|绑定工作区|托管工作区|默认工作区/.test(body)) return FolderInput
-  if (body === '没有运行中的轮次' || body.includes(' /stop · ')) return Square
-  return Info
+function eventIcon(body: string): IconName {
+  if (body.includes('创建了私聊')) return 'person-add'
+  if (body.includes('创建了群')) return 'person-2'
+  if (body.startsWith('群绑定仓库') || body.startsWith('群更换仓库')) return 'git-branch'
+  if (body.startsWith('未绑定仓库')) return 'folder'
+  if (body.includes('移出')) return 'person'
+  if (body.includes(' 加入') || /已 clone 到托管工作区|工作区创建失败/.test(body)) return 'bot'
+  if (body.includes('下一轮将开新会话')) return 'arrow-clockwise'
+  if (/\/cd|绑定到|绑定工作区|托管工作区|默认工作区/.test(body)) return 'folder-open'
+  if (body === '没有运行中的轮次' || body.includes(' /stop · ')) return 'stop'
+  return 'info'
 }
 
 export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
-  const Icon = eventIcon(m.body)
   return (
-    <div className="tl-event" title={m.body}>
-      <Icon size={13} className="tl-event__icon" />
-      <span className="tl-event__text">{m.body}</span>
-      <Time iso={m.createdAt} />
-    </div>
+    <ChatNotice>
+      <span className="tl-event" title={m.body}>
+        <Icon name={eventIcon(m.body)} size={13} />
+        <span className="tl-event__text">{m.body}</span>
+        <Time iso={m.createdAt} />
+      </span>
+    </ChatNotice>
   )
 })
 
@@ -189,17 +177,19 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
   const last = events.at(-1) as MessageDto
   return (
     <div className="tl-fold" data-open={open || undefined}>
-      <button
-        type="button"
-        className="tl-event tl-fold__head"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Layers size={13} className="tl-event__icon" />
-        <span className="tl-event__text">{`${events.length} 条系统事件 · ${last.body}`}</span>
-        <Time iso={last.createdAt} />
-        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-      </button>
+      <ChatNotice>
+        <button
+          type="button"
+          className="tl-event tl-fold__head"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name="list" size={13} />
+          <span className="tl-event__text">{`${events.length} 条系统事件 · ${last.body}`}</span>
+          <Time iso={last.createdAt} />
+          <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
+        </button>
+      </ChatNotice>
       {open ? (
         <div className="tl-fold__list">
           {events.map((e) => (
@@ -213,14 +203,15 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
   )
 }
 
-/** A recalled message: a centered notice in place of the content (Feishu). */
+/** A recalled message: a centered system notice in place of the content (Feishu). */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   return (
-    <div className="tl-event tl-event--recall">
-      <Undo2 size={13} className="tl-event__icon" />
-      <span className="tl-event__text">{mine ? '你' : `${m.authorName} `}撤回了一条消息</span>
-      <Time iso={m.createdAt} />
-    </div>
+    <ChatNotice>
+      <span className="tl-event">
+        <span className="tl-event__text">{mine ? '你' : `${m.authorName} `}撤回了一条消息</span>
+        <Time iso={m.createdAt} />
+      </span>
+    </ChatNotice>
   )
 })
 
@@ -254,106 +245,83 @@ function MessageBar({ m, own = false }: { m: MessageDto; own?: boolean }) {
   )
 }
 
-/** One author row: avatar + name on the first message of a group; `compact` rows continue the group (C1). */
-function Row({
-  m,
-  mine = false,
-  compact = false,
-  avatar,
-  children,
-  testId,
-}: {
-  m: MessageDto
-  mine?: boolean
-  compact?: boolean
-  avatar: ReactNode
-  children: ReactNode
-  testId?: string
-}) {
-  const person = m.kind === 'user' && !mine ? m.authorId : null
-  const who = <span className="tl-msg__who">{m.authorName}</span>
+/** Another member: avatar and name open their user card. */
+function person(m: MessageDto): MessageAuthor {
+  const id = m.authorId ?? ''
+  return {
+    name: m.authorName,
+    avatarNode: (
+      <UserCardTrigger userId={id} groupId={m.groupId} tabIndex={-1} className="user-card-trigger--block">
+        <Avatar name={m.authorName} size={32} />
+      </UserCardTrigger>
+    ),
+    nameNode: (
+      <UserCardTrigger userId={id} groupId={m.groupId}>
+        <b>{m.authorName}</b>
+      </UserCardTrigger>
+    ),
+  }
+}
+
+const botAuthor = (name: string): MessageAuthor => ({ name, bot: true })
+
+function Text({ body, names, me }: { body: string; names: string[]; me?: string }) {
   return (
-    <div className={cx('tl-msg', mine && 'tl-msg--mine', compact && 'tl-msg--compact')} data-testid={testId}>
-      {mine ? null : compact ? (
-        <Time iso={m.createdAt} />
-      ) : person ? (
-        <UserCardTrigger
-          userId={person}
-          groupId={m.groupId}
-          tabIndex={-1}
-          className="user-card-trigger--block"
-        >
-          {avatar}
-        </UserCardTrigger>
-      ) : (
-        avatar
+    <p>
+      {splitMentions(body, names).map((s, i) =>
+        s.mention ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
+          <Mention key={i} name={s.text.slice(1)} me={s.text.slice(1) === me} />
+        ) : (
+          s.text
+        ),
       )}
-      <div className="tl-msg__main">
-        {compact ? null : (
-          <div className="tl-msg__head">
-            {mine ? null : person ? (
-              <UserCardTrigger userId={person} groupId={m.groupId}>
-                {who}
-              </UserCardTrigger>
-            ) : (
-              who
-            )}
-            <Time iso={m.createdAt} />
-          </div>
-        )}
-        {children}
-      </div>
-    </div>
+    </p>
   )
 }
 
-/** `fanOut`: names of the bots this message triggered; two or more draw the fan-out (spec §8.6). */
+/**
+ * A member's message: text in a bubble (mine on the right), attachments as bare cards; `compact` rows continue the
+ * author's group (C1). `fanOut`: names of the bots it triggered; two or more draw the fan-out (spec §8.6).
+ */
 export const UserMessage = memo(function UserMessage({
   m,
   names,
+  me,
   fanOut = [],
   mine = false,
   compact = false,
 }: {
   m: MessageDto
   names: string[]
+  /** My name: an @ of me is highlighted. */
+  me?: string
   fanOut?: string[]
   mine?: boolean
   compact?: boolean
 }) {
+  const text = !!(m.body || m.quote)
   return (
-    <Row
-      m={m}
-      mine={mine}
-      compact={compact}
-      avatar={<div className="tl-avatar">{Array.from(m.authorName)[0]}</div>}
+    <Message
+      author={mine ? { name: m.authorName } : person(m)}
+      self={mine}
+      continued={compact}
+      time={<Time iso={m.createdAt} />}
+      bare={!text}
+      actionBar={<MessageBar m={m} own={mine} />}
+      footer={
+        text || fanOut.length > 1 ? (
+          <>
+            {text ? <MessageAttachments list={m.attachments} from={m.authorName} /> : null}
+            {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
+          </>
+        ) : null
+      }
     >
-      <div className="tl-bubble-host">
-        {m.body || m.quote ? (
-          <div className="tl-bubble">
-            <MessageQuote quote={m.quote} />
-            {m.body ? (
-              <div className="tl-msg__text">
-                {splitMentions(m.body, names).map((s, i) =>
-                  s.mention ? (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
-                    <span key={i} className="tl-mention">
-                      {s.text}
-                    </span>
-                  ) : (
-                    s.text
-                  ),
-                )}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        <MessageAttachments list={m.attachments} from={m.authorName} />
-        <ReactionBar message={m} />
-        <MessageBar m={m} own={mine} />
-      </div>
-      {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
-    </Row>
+      {text ? <MessageQuote quote={m.quote} /> : <MessageAttachments list={m.attachments} from={m.authorName} />}
+      {m.body ? <Text body={m.body} names={names} me={me} /> : null}
+      <ReactionBar message={m} />
+    </Message>
   )
 })
 
@@ -365,7 +333,7 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
     <div className="tl-files">
       {files.map((f) => (
         <button key={f} type="button" className="tl-file" onClick={() => open(runId, 'diff', f)}>
-          <FileText size={11} />
+          <Icon name="doc-text" size={12} />
           {f}
         </button>
       ))}
@@ -373,44 +341,61 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
   )
 }
 
+/** A bot's text reply as a bubble (Markdown inside); attachments and changed files follow as bare content. */
+function ReplyMessage({
+  m,
+  continued,
+  runId,
+  bar,
+}: {
+  m: MessageDto
+  /** Continues the author's group, or sits right under its run card: no second avatar and name. */
+  continued?: boolean
+  runId?: string | null
+  bar: ReactNode
+}) {
+  return (
+    <div data-testid="bot-reply">
+      <Message
+        className={cx(isRich(m) && 'tl-msg--wide')}
+        author={botAuthor(m.authorName)}
+        continued={continued}
+        time={<Time iso={m.createdAt} />}
+        actionBar={bar}
+        footer={
+          <>
+            <MessageAttachments list={m.attachments} from={m.authorName} />
+            {runId ? <FileChips runId={runId} text={m.body} /> : null}
+          </>
+        }
+      >
+        <Clamp>
+          <Markdown text={m.body} />
+        </Clamp>
+        <ReactionBar message={m} />
+      </Message>
+    </div>
+  )
+}
+
 /** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */
 export const BotReply = memo(function BotReply({ m, compact = false }: { m: MessageDto; compact?: boolean }) {
-  return (
-    <Row
-      m={m}
-      compact={compact}
-      testId="bot-reply"
-      avatar={<div className="tl-avatar tl-avatar--bot">{Array.from(m.authorName)[0]}</div>}
-    >
-      <div className="tl-bubble-host">
-        <div className={cx('tl-bubble', isRich(m) && 'tl-bubble--wide')}>
-          <Clamp>
-            <Markdown text={m.body} />
-          </Clamp>
-        </div>
-        <MessageAttachments list={m.attachments} from={m.authorName} />
-        {m.runId ? <FileChips runId={m.runId} text={m.body} /> : null}
-        <ReactionBar message={m} />
-        <MessageBar m={m} />
-      </div>
-    </Row>
-  )
+  return <ReplyMessage m={m} continued={compact} runId={m.runId} bar={<MessageBar m={m} />} />
 })
 
-const STEP_ICON: Partial<Record<RunStatus, typeof CircleDot>> = {
-  running: Loader,
-  queued: Hourglass,
-  offline_wait: Hourglass,
-  awaiting_approval: ShieldAlert,
-  awaiting_answer: MessageCircleQuestion,
+const STEP_ICON: Partial<Record<RunStatus, IconName>> = {
+  queued: 'clock',
+  offline_wait: 'clock',
+  awaiting_approval: 'shield-warning',
+  awaiting_answer: 'bubble-question',
 }
 
 /** Runs that never started show their reason as a note instead of a step, without actions (prototype r4 / r5). */
 const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
 
 /**
- * One run; once its final reply exists the card also carries the reply and sits at the reply's place.
- * Plain-text replies read as a bubble; code, tables, files and attachments keep the wide card (C2).
+ * One run as a bare MessageCard whose header colour follows its status; once the final reply exists it follows the
+ * card as a bubble and both sit at the reply's place.
  */
 export const RunCard = memo(function RunCard({
   run,
@@ -440,7 +425,6 @@ export const RunCard = memo(function RunCard({
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const note = NOTE.includes(run.status)
   const step = note || reply ? '' : streamed || run.step
-  const StepIcon = STEP_ICON[run.status] ?? CircleDot
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const elapsed = started === null ? 0 : (run.endedAt ? Date.parse(run.endedAt) : now) - started
   const sessionNote = newSessionNote(run.newSessionReason)
@@ -468,108 +452,101 @@ export const RunCard = memo(function RunCard({
     />
   )
   return (
-    <div
-      className={cx(
-        'run-card',
-        reply && !isRich(reply) && 'run-card--bubble',
-        selected && 'run-card--selected',
-      )}
-      data-testid="run-card"
-      data-status={run.status}
-    >
-      <div className="run-card__head">
-        <div className="run-card__init" data-agent={agent}>
-          {Array.from(botName)[0]}
-        </div>
-        <span className="run-card__bot">{botName}</span>
-        <span className="run-card__sub">
-          {agent} · {trigger} 触发
-        </span>
-        {reply ? <Time iso={reply.createdAt} /> : null}
-        {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
-        <span className="spacer" />
-        <RunStatusIcon status={run.status} />
-        {canFold ? (
-          <button
-            type="button"
-            className="run-card__fold"
-            aria-label={folded ? '展开' : '收起'}
-            aria-expanded={!folded}
-            title={folded ? '展开' : '收起'}
-            onClick={() => setExpanded(folded)}
-          >
-            {folded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-          </button>
-        ) : null}
-      </div>
-      {body.mounted ? (
+    <div className="run-card" data-testid="run-card" data-status={run.status}>
+      <Message
+        author={botAuthor(botName)}
+        time={<Time iso={reply?.createdAt ?? run.queuedAt} />}
+        meta={<span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>}
+        bare
+        actions={false}
+        actionBar={reply ? undefined : bar}
+      >
         <div
-          className="run-card__body"
-          data-state={expanded === null ? undefined : body.state}
-          inert={folded}
-          onAnimationEnd={body.onAnimationEnd}
+          className={cx(
+            'pn-card pn-mcard run-mcard',
+            `pn-mcard--${TONE[run.status]}`,
+            selected && 'run-mcard--selected',
+          )}
         >
-          <div>
-            {step ? (
-              <div className="run-card__step">
-                <StepIcon size={12} className={run.status === 'running' ? 'run-card__spin' : undefined} />
-                <span>{step}</span>
-              </div>
+          <div className="pn-mcard__head">
+            <RunStatusIcon status={run.status} spelled />
+            <span className="pn-mcard__title" />
+            {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
+            {canFold ? (
+              <button
+                type="button"
+                className="run-card__fold"
+                aria-label={folded ? '展开' : '收起'}
+                aria-expanded={!folded}
+                title={folded ? '展开' : '收起'}
+                onClick={() => setExpanded(folded)}
+              >
+                <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
+              </button>
             ) : null}
-            {started !== null ? (
-              <div className="run-card__meta">
-                <FilesFact n={run.filesChanged} />
-                <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
-                <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
-              </div>
-            ) : null}
-            {sessionNote ? (
-              <div className="run-card__session">
-                <RefreshCw size={11} />
-                {sessionNote}
-              </div>
-            ) : null}
-            {/* Slice 2 (approvals) */}
-            <ApprovalBlock run={run} />
-            <QuestionBlock run={run} />
-            {note ? (
-              <div className="run-card__note">
-                {run.status === 'offline_wait' ? (
-                  <>
-                    <OfflineGlyph />
-                    <OfflineNote run={run} />
-                  </>
-                ) : (
-                  <>
-                    <Ban size={12} />
-                    <span>{run.step}</span>
-                  </>
-                )}
-              </div>
-            ) : null}
-            {/* Slice 4 (/stop leftovers) */}
-            <InterruptBlock run={run} />
-            {note || reply ? null : (
-              <div className="run-card__actions">
-                <RunActions run={run} />
-              </div>
-            )}
           </div>
+          {body.mounted ? (
+            <div
+              className="run-card__body"
+              data-state={expanded === null ? undefined : body.state}
+              inert={folded}
+              onAnimationEnd={body.onAnimationEnd}
+            >
+              <div>
+                <div className="pn-mcard__body">
+                  {step ? (
+                    <div className="run-card__step">
+                      {run.status === 'running' ? (
+                        <ProgressIndicator variant="spinner" aria-label="运行中" />
+                      ) : (
+                        <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
+                      )}
+                      <span>{step}</span>
+                    </div>
+                  ) : null}
+                  {started !== null ? (
+                    <div className="run-card__meta">
+                      <FilesFact n={run.filesChanged} />
+                      <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
+                      <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+                    </div>
+                  ) : null}
+                  {sessionNote ? (
+                    <div className="run-card__session">
+                      <Icon name="arrow-clockwise" size={12} />
+                      {sessionNote}
+                    </div>
+                  ) : null}
+                  <ApprovalBlock run={run} />
+                  <QuestionBlock run={run} />
+                  {note ? (
+                    <div className="run-card__note">
+                      {run.status === 'offline_wait' ? (
+                        <>
+                          <OfflineGlyph />
+                          <OfflineNote run={run} />
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="octagon-xmark" size={13} />
+                          <span>{run.step}</span>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
+                  <InterruptBlock run={run} />
+                  {note || reply ? null : (
+                    <div className="pn-mcard__actions run-card__actions">
+                      <RunActions run={run} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {reply ? (
-        <div className="run-card__reply" data-testid="bot-reply">
-          <Clamp>
-            <Markdown text={reply.body} />
-          </Clamp>
-          <MessageAttachments list={reply.attachments} from={reply.authorName} />
-          <FileChips runId={run.id} text={reply.body} />
-          <ReactionBar message={reply} />
-          {bar}
-        </div>
-      ) : (
-        bar
-      )}
+      </Message>
+      {reply ? <ReplyMessage m={reply} continued runId={run.id} bar={bar} /> : null}
     </div>
   )
 })

@@ -41,11 +41,11 @@ export function InterruptBlock({ run }: { run: RunDto }) {
       </div>
       {pending ? (
         <div className="run-interrupt__actions">
-          <Button size="sm" disabled={!allowed || busy} onClick={() => choose('keep')}>
+          <Button size="small" disabled={!allowed || busy} onClick={() => choose('keep')}>
             保留改动
           </Button>
           <Button
-            size="sm"
+            size="small"
             variant="destructive"
             disabled={!allowed || busy}
             onClick={() => choose('discard')}

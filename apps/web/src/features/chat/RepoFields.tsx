@@ -1,9 +1,8 @@
 import type { ValidateRepoRes } from '@gonggong/protocol'
-import { CircleCheck, CircleX } from 'lucide-react'
 import { useRef } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Input } from '../../ui'
+import { Button, Input, Icon } from '../../ui'
 
 // file:// is accepted for local/test repos; the hint keeps the prototype's wording.
 const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/|file:\/\/)\S+$/
@@ -57,8 +56,7 @@ export function RepoFields({ draft: d, set }: { draft: RepoDraft; set: (o: Parti
           onChange={(e) => edit({ branch: e.target.value })}
         />
         <Button
-          variant="outline"
-          size="sm"
+                    size="sm"
           disabled={!urlOk || d.check === 'checking'}
           onClick={() => void validate()}
         >
@@ -67,15 +65,15 @@ export function RepoFields({ draft: d, set }: { draft: RepoDraft; set: (o: Parti
       </div>
       {d.url && !urlOk ? (
         <div className="ng-check ng-check--bad">
-          <CircleX size={12} className="ng-check__icon" />
+          <Icon name="xmark-circle" size={13} className="ng-check__icon" />
           地址格式不正确，支持 git@ / https:// / ssh://
         </div>
       ) : check ? (
         <div className={cx('ng-check', check.ok ? 'ng-check--ok' : 'ng-check--bad')}>
           {check.ok ? (
-            <CircleCheck size={12} className="ng-check__icon" />
+            <Icon name="checkmark-circle" size={13} className="ng-check__icon" />
           ) : (
-            <CircleX size={12} className="ng-check__icon" />
+            <Icon name="xmark-circle" size={13} className="ng-check__icon" />
           )}
           <span>{check.message}</span>
         </div>

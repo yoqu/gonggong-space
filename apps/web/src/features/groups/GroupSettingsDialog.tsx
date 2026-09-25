@@ -1,11 +1,10 @@
 import { type GroupDto, GroupParams } from '@gonggong/protocol'
-import { Bot, Info, RefreshCw, SlidersHorizontal, Users } from 'lucide-react'
 import { type Dispatch, type SetStateAction, useEffect, useState } from 'react'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { ApiError } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, Dialog, Input, Spinner, toast } from '../../ui'
+import { Alert, Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Input, Spinner, toast } from '../../ui'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from '../chat/RepoFields'
 import { groupsApi } from './api'
 import { BotsView, type SettingsTab } from './GroupDrawer'
@@ -37,11 +36,11 @@ export function GroupSettingsDialog({
   const [params, setParams] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const dm = group.kind === 'dm'
-  const tabs: { value: SettingsTab; label: string; icon: typeof Info }[] = [
-    { value: 'basic', label: '基本信息', icon: Info },
-    { value: 'bots', label: dm ? 'Bot' : '成员与 Bot', icon: dm ? Bot : Users },
-    { value: 'mode', label: '同步模式', icon: RefreshCw },
-    { value: 'params', label: dm ? '参数' : '群级参数', icon: SlidersHorizontal },
+  const tabs: { value: SettingsTab; label: string; icon: IconName }[] = [
+    { value: 'basic', label: '基本信息', icon: 'info' },
+    { value: 'bots', label: dm ? 'Bot' : '成员与 Bot', icon: dm ? 'bot' : 'person-2' },
+    { value: 'mode', label: '同步模式', icon: 'arrow-clockwise' },
+    { value: 'params', label: dm ? '参数' : '群级参数', icon: 'slider-horizontal' },
   ]
 
   useEffect(() => {
@@ -94,7 +93,7 @@ export function GroupSettingsDialog({
     >
       <div className="gs-settings">
         <nav className="gs-settings__nav">
-          <span className="eyebrow">群设置</span>
+          <span className="gs-settings__heading">{dm ? '私聊设置' : '群设置'}</span>
           {tabs.map((t) => (
             <button
               key={t.value}
@@ -103,7 +102,7 @@ export function GroupSettingsDialog({
               aria-current={t.value === tab ? 'page' : undefined}
               onClick={() => setTab(t.value)}
             >
-              <t.icon size={13} />
+              <Icon name={t.icon} size={15} />
               {t.label}
             </button>
           ))}
@@ -115,37 +114,33 @@ export function GroupSettingsDialog({
             <BotsView group={group} isAdmin />
           ) : tab === 'mode' ? (
             <div className="gs-mode">
-              <div className="repo-settings__row">
-                <span className="repo-settings__key">当前模式</span>
-                <span>{GROUP_MODE_LABEL[group.mode]}</span>
-              </div>
-              <div className="gs-desc">
-                切换到强制同步后，同一时刻只有一个写入者，每轮结束后所有在线机器的工作树保持一致（不同步
-                .git）。
-              </div>
-              <div>
-                <Button variant="outline" size="sm" disabled>
-                  切换到强制同步
-                </Button>
-              </div>
-              <div className="gs-desc">强制同步暂未开放</div>
+              <GroupBox>
+                <GroupRow
+                  label="当前模式"
+                  description="切换到强制同步后，同一时刻只有一个写入者，每轮结束后所有在线机器的工作树保持一致（不同步 .git）。"
+                >
+                  <span className="gs-value">{GROUP_MODE_LABEL[group.mode]}</span>
+                </GroupRow>
+                <GroupRow label="强制同步" description="强制同步暂未开放">
+                  <Button disabled>切换到强制同步</Button>
+                </GroupRow>
+              </GroupBox>
             </div>
           ) : params ? (
-            <div className="gs-params">
+            <GroupBox>
               {PARAMS.map((p) => (
-                <label key={p.key} className="gs-param" htmlFor={`gp-${p.key}`}>
-                  <span>{p.label}</span>
+                <GroupRow key={p.key} label={<label htmlFor={`gp-${p.key}`}>{p.label}</label>}>
                   <Input
                     id={`gp-${p.key}`}
-                    size="sm"
+                    className="gs-param__input"
                     inputMode="numeric"
                     value={params[p.key]}
                     invalid={!GroupParams.shape[p.key].safeParse(Number(params[p.key])).success}
                     onChange={(e) => setParams({ ...params, [p.key]: e.target.value.trim() })}
                   />
-                </label>
+                </GroupRow>
               ))}
-            </div>
+            </GroupBox>
           ) : (
             <Spinner />
           )}
@@ -183,21 +178,23 @@ function BasicTab({
   ]
   return (
     <div className="repo-settings">
-      {rows.map((r) => (
-        <div key={r.k} className="repo-settings__row">
-          <span className="repo-settings__key">{r.k}</span>
-          <span className={r.mono ? 'repo-settings__mono' : undefined}>{r.v}</span>
-          {r.k === '远端仓库' && !draft ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDraft({ url: '', branch: group.repo?.branch ?? 'main', check: null })}
-            >
-              {group.repo ? '更换' : '绑定仓库'}
-            </Button>
-          ) : null}
-        </div>
-      ))}
+      <GroupBox>
+        {rows.map((r) => (
+          <GroupRow key={r.k} label={r.k}>
+            <span className="gs-value-line">
+              <span className={r.mono ? 'gs-value repo-settings__mono' : 'gs-value'}>{r.v}</span>
+              {r.k === '远端仓库' && !draft ? (
+                <Button
+                  size="small"
+                  onClick={() => setDraft({ url: '', branch: group.repo?.branch ?? 'main', check: null })}
+                >
+                  {group.repo ? '更换…' : '绑定仓库…'}
+                </Button>
+              ) : null}
+            </span>
+          </GroupRow>
+        ))}
+      </GroupBox>
       {draft ? <RepoFields draft={draft} set={(o) => setDraft((d) => d && { ...d, ...o })} /> : null}
       <Alert variant="info" title="每个群绑定一个仓库" description="更换仓库会重建所有 Bot 的托管工作区。" />
     </div>

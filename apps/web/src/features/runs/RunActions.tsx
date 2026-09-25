@@ -1,5 +1,4 @@
 import type { RunDto, RunStatus } from '@gonggong/protocol'
-import { CornerDownRight, OctagonX, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -25,14 +24,13 @@ function AppendAction({ run }: { run: RunDto }) {
   const start = useAppend((s) => s.start)
   if (!APPENDABLE.includes(run.status) || !bot || (me !== run.originUserId && me !== bot.ownerId)) return null
   return (
-    <button
-      type="button"
-      className="run-card__action"
+    <Button
+      size="small"
+      icon="arrow-turn-down-right"
       onClick={() => start({ runId: run.id, groupId: run.groupId, botName: bot.name })}
     >
-      <CornerDownRight size={12} />
       打断并追加
-    </button>
+    </Button>
   )
 }
 
@@ -55,15 +53,9 @@ export function RunActions({ run }: { run: RunDto }) {
   }
   const stopAction = chain ? (
     <>
-      <button
-        type="button"
-        className="run-card__action run-card__action--danger"
-        disabled={busy}
-        onClick={() => setConfirming(true)}
-      >
-        <OctagonX size={12} />
+      <Button size="small" variant="destructive" icon="octagon-xmark" disabled={busy} onClick={() => setConfirming(true)}>
         终止整条链
-      </button>
+      </Button>
       <Dialog
         open={confirming}
         title="终止整条链"
@@ -71,7 +63,7 @@ export function RunActions({ run }: { run: RunDto }) {
         width={420}
         footer={
           <>
-            <Button variant="outline" onClick={() => setConfirming(false)}>
+            <Button onClick={() => setConfirming(false)}>
               取消
             </Button>
             <Button variant="destructive" disabled={busy} onClick={() => void stop()}>
@@ -87,10 +79,9 @@ export function RunActions({ run }: { run: RunDto }) {
       </Dialog>
     </>
   ) : (
-    <button type="button" className="run-card__action" disabled={busy} onClick={stop}>
-      <Square size={11} />
+    <Button size="small" icon="stop" disabled={busy} onClick={stop}>
       停止
-    </button>
+    </Button>
   )
   return (
     <>

@@ -1,4 +1,4 @@
-/* User hover card (Feishu-style profile card); a portaled popover so its glass samples the page. */
+/* User hover card: a portaled glass popover (Pane menu material) so it samples the page. */
 .user-card-trigger {
   padding: 0;
   border: 0;
@@ -6,38 +6,32 @@
   color: inherit;
   font: inherit;
   text-align: inherit;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
+  cursor: default;
+  border-radius: var(--radius-check);
 }
 /* Around a block such as an avatar in a flex row: hug it instead of stretching. */
 .user-card-trigger--block {
   display: block;
   flex: none;
   align-self: flex-start;
-}
-.user-card-trigger:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+  border-radius: 50%;
 }
 .user-card {
+  --pn-ring: var(--glass-fill);
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1000;
   width: 248px;
-  --r-outer: var(--radius-dropdown);
-  --pad: 14px;
-  padding: var(--pad);
-  border-radius: var(--r-outer);
-  border: 1px solid var(--color-border-control);
-  color: var(--color-text-primary);
-  font-size: 13px;
+  padding: var(--space-16);
+  border-radius: var(--radius-menu);
+  color: var(--label);
   cursor: default;
 }
 .user-card__head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-12);
 }
 .user-card__id {
   min-width: 0;
@@ -45,8 +39,9 @@
 .user-card__name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15px;
+  gap: var(--space-6);
+  font-size: var(--text-title-3-size);
+  line-height: var(--text-title-3-line);
   font-weight: 600;
 }
 .user-card__name > span:first-child {
@@ -55,38 +50,38 @@
   white-space: nowrap;
 }
 .user-card__account {
-  color: var(--color-text-secondary);
-  font-size: 12px;
+  color: var(--label-secondary);
+  font-size: var(--text-callout-size);
 }
 .user-card__meta {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 12px;
-  margin: 12px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-separator);
+  gap: var(--space-6) var(--space-12);
+  margin: var(--space-12) 0 0;
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--separator);
 }
 .user-card__meta dt {
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
 }
 .user-card__meta dd {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   margin: 0;
 }
 .user-card__dot {
   width: 7px;
   height: 7px;
-  border-radius: var(--radius-pill);
-  background: var(--color-text-muted);
+  border-radius: 50%;
+  background: var(--system-gray);
 }
 .user-card__dot[data-online] {
-  background: var(--color-success);
+  background: var(--system-green);
 }
 .user-card__status {
   display: flex;
   justify-content: center;
-  padding: 12px 0;
-  color: var(--color-text-secondary);
+  padding: var(--space-12) 0;
+  color: var(--label-secondary);
 }

@@ -1,62 +1,179 @@
-/* Timeline rows (聊天内容区计划 C1/C2): bubbles, grouping, day pill, unread divider, hover action bar. */
-.timeline__inner {
-  --bubble-other: var(--color-panel-elevated);
-  --bubble-mine: color-mix(in srgb, var(--color-system-blue) 18%, var(--color-panel-elevated));
-  --bubble-r: var(--radius-2xl);
-}
-
-/* Day: a centered pill that sticks to the top while its day scrolls by (later pills cover earlier ones). */
-.tl-day {
-  position: sticky;
-  top: 6px;
-  z-index: 2;
-  align-self: center;
-  display: flex;
-}
-.tl-day > span {
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  /* Floats over messages while stuck: a functional overlay, so glass is allowed (plan D3). */
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow: var(--shadow-menu);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.tl-unread {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  color: var(--color-system-blue);
-}
-.tl-unread::before,
-.tl-unread::after {
-  content: "";
+/* Chat content area (Pane IM): ChatHeader, floating PinnedBanners, MessageList, Composer on content-bg. */
+.chat-view {
   flex: 1;
-  border-top: 1px solid color-mix(in srgb, var(--color-system-blue) 45%, transparent);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--content-bg);
 }
-
-/* System event: icon + short sentence in a pill; the full text is the tooltip. */
-.tl-event {
-  width: fit-content;
-  margin-inline: auto;
-  max-width: min(720px, 100%);
+.chat-view .pn-chathead {
+  flex: none;
+}
+.chat-view__title {
+  margin: 0;
+  font: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-view .pn-chathead__title > span:first-child {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-subtle);
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  gap: var(--space-4);
+  min-width: 0;
 }
-.tl-event__icon {
+.chat-view__muted {
   flex: none;
-  color: var(--color-system-blue);
+  color: var(--label-secondary);
+}
+.chat-view__back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--control-large);
+  height: var(--control-large);
+  margin-left: calc(var(--space-8) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent-text);
+  cursor: default;
+}
+.chat-view__back:hover {
+  background: var(--control-track);
+}
+.chat-view__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+/* Group notice and workspace prompts float over the messages as glass capsules while they scroll under. */
+.chat-view__banners {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-20) 0;
+  pointer-events: none;
+}
+.chat-view__banners:empty {
+  display: none;
+}
+.chat-view__banners > * {
+  pointer-events: auto;
+}
+.chat-scroll__list {
+  flex: 1 0 auto;
+}
+.chat-scroll__list > .ui-empty,
+.chat-scroll__loading {
+  margin: auto;
+}
+.chat-scroll__older {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-height: var(--control-regular);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
+}
+.chat-scroll__pill {
+  position: sticky;
+  bottom: var(--space-8);
+  flex: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--control-large);
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--text-callout-size);
+  font-weight: 600;
+  cursor: default;
+}
+
+/* Rows */
+.tl-item {
+  border-radius: var(--radius-menu);
+}
+/* Live arrivals only (useTimeline `arrived`); history and streaming updates never replay it. */
+.tl-item--enter {
+  --enter-y: 6px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.tl-item--flash {
+  animation: tl-flash 2s ease-out;
+}
+@keyframes tl-flash {
+  0%,
+  40% {
+    background: var(--tint-blue);
+    box-shadow: 0 0 0 4px var(--tint-blue);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+.tl-time {
+  white-space: nowrap;
+}
+/* The day separator stays at the top while its day scrolls by. */
+.pn-msglist > .pn-notice--date {
+  position: sticky;
+  top: var(--space-6);
+  z-index: 2;
+}
+.pn-notice--date > span {
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.pn-notice--date b {
+  margin-right: 0;
+}
+
+/* System events: one quiet line; the full text is the tooltip. */
+.tl-event {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: min(720px, 100%);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.tl-event > svg {
+  flex: none;
 }
 .tl-event__text {
   min-width: 0;
@@ -64,285 +181,214 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Rows: others on the left with avatar + name, mine on the right; compact rows continue a group. */
-.tl-msg {
-  display: flex;
-  gap: 10px;
+.tl-event .tl-time {
+  margin-left: var(--space-4);
+  color: var(--label-tertiary);
 }
-.tl-msg--mine {
-  justify-content: flex-end;
+.tl-fold__head {
+  cursor: default;
+  border-radius: var(--radius-capsule);
+  padding: var(--space-2) var(--space-8);
 }
-.tl-msg__main {
-  max-width: min(72%, 720px);
-  align-items: flex-start;
-}
-.tl-msg--mine .tl-msg__main {
-  align-items: flex-end;
-}
-.tl-msg--compact {
-  margin-top: -10px;
-}
-/* Compact rows keep the avatar column; their time shows there on hover. */
-.tl-msg--compact > .tl-time {
-  width: 28px;
-  flex: none;
-  padding-top: 8px;
-  font-size: 10px;
-  text-align: center;
-  opacity: 0;
-  transition: opacity var(--fade-in);
-}
-.tl-msg--compact:hover > .tl-time {
-  opacity: 1;
-}
-
-.tl-bubble-host {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: inherit;
-  gap: 6px;
-  max-width: 100%;
-}
-.tl-bubble {
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: var(--bubble-r);
-  background: var(--bubble-other);
-  box-shadow: 0 0 0 0.5px var(--color-separator);
-}
-.tl-msg--mine .tl-bubble {
-  background: var(--bubble-mine);
-  box-shadow: none;
-}
-.tl-bubble--wide {
-  width: min(100%, var(--card-max));
-}
-.tl-msg:has(.tl-bubble--wide) .tl-msg__main {
-  max-width: 100%;
-}
-.tl-msg--mine .tl-fan {
-  align-items: flex-end;
-}
-
-/* Run cards: rich replies keep the wide card, plain replies read as a bubble under the run header. */
-.run-card__meta {
-  gap: 12px;
-}
-.run-card--bubble {
-  max-width: min(72%, 720px);
-  border: 0;
-  background: transparent;
-  overflow: visible;
-}
-.run-card--bubble .run-card__head {
-  padding: 0 0 6px;
-}
-.run-card--bubble .run-card__step,
-.run-card--bubble .run-card__meta {
-  padding-left: 0;
-}
-.run-card--bubble .run-card__reply {
-  align-self: flex-start;
-  max-width: 100%;
-  border: 0;
-  border-radius: var(--bubble-r);
-  background: var(--bubble-other);
-  box-shadow: 0 0 0 0.5px var(--color-separator);
-}
-
-/* Hover action bar (Feishu): top-right of the bubble or card, above the content; mine opens toward the left. */
-.msg-actions {
-  position: absolute;
-  top: -16px;
-  right: 8px;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  --r-outer: var(--radius-lg);
-  --pad: 3px;
-  padding: var(--pad);
-  border-radius: var(--r-outer);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  box-shadow: var(--shadow-menu);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 100ms ease-out;
-}
-.tl-msg--mine .msg-actions {
-  right: auto;
-  left: 8px;
-}
-:hover > .msg-actions,
-:focus-within > .msg-actions,
-[data-actions="open"] > .msg-actions,
-.msg-actions[data-open],
-.run-card:hover .msg-actions,
-.run-card:focus-within .msg-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-.msg-actions__btn {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-.msg-actions__btn:hover,
-.msg-actions__btn[aria-expanded="true"] {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-.msg-actions__menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 120px;
-  --r-outer: var(--radius-dropdown);
-  --pad: 5px;
-  padding: var(--pad);
-  border-radius: var(--r-outer);
-  transform-origin: top right;
-}
-.msg-actions__item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-.msg-actions__item:hover {
-  background: var(--color-system-blue);
-  color: var(--color-on-accent);
-}
-@media (hover: none) {
-  .tl-bubble-host,
-  .run-card {
-    -webkit-touch-callout: none;
-  }
-}
-@media (max-width: 767px) {
-  .tl-msg__main,
-  .run-card--bubble {
-    max-width: 85%;
-  }
-}
-.msg-actions .reaction-picker .ui-icon-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-}
-.tl-msg--mine .reaction-bar {
-  justify-content: flex-end;
-  transform-origin: right center;
-}
-/* Bubbles are content-sized: float the bar beside the bubble instead of over its text. */
-/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
-.tl-bubble-host > .msg-actions {
-  top: 0;
-  right: auto;
-  left: calc(100% + 6px);
-}
-.tl-msg--mine .tl-bubble-host > .msg-actions {
-  left: auto;
-  right: calc(100% + 6px);
-}
-/* Run cards: float fully above the card so the bar never covers the status pill or the approval block.
-   A full card's reply stops being the containing block, so its bar lands on the card's corner too. */
-.run-card:not(.run-card--bubble) > .run-card__reply {
-  position: static;
-}
-/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
-.run-card > .msg-actions,
-.run-card:not(.run-card--bubble) > .run-card__reply > .msg-actions {
-  top: -30px;
-}
-/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
-.tl-bubble-host:has(> .tl-bubble--wide) > .msg-actions {
-  top: -16px;
-  left: auto;
-  right: 8px;
-}
-/* Bridges the gap to a bar floating beside the bubble, so moving the pointer onto it keeps the host hovered. */
-.tl-bubble-host > .msg-actions::before {
-  content: "";
-  position: absolute;
-  inset: -4px -10px;
-  z-index: -1;
-}
-/* A backdrop-filter nested in the glass bar samples only the bar, so its popovers would show the text behind: go solid. */
-.msg-actions .ui-popover {
-  background: var(--color-panel-elevated);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* Folded long bot output */
-.clamp[data-clamped] > .clamp__body {
-  max-height: 360px;
-  overflow: hidden;
-  mask-image: linear-gradient(#000 72%, transparent);
-}
-.clamp__toggle {
-  margin-top: 4px;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-system-blue);
-  cursor: pointer;
-}
-.clamp__toggle:hover {
-  text-decoration: underline;
-}
-
-/* Folded run of system events */
-.tl-fold {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-button.tl-fold__head {
-  border: 0;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--motion-fast);
-}
-button.tl-fold__head:hover {
-  background: var(--color-bg-hover);
+.tl-fold__head:hover {
+  background: var(--quote-fill);
 }
 .tl-fold__list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  animation: fold-open 220ms var(--ease-apple);
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+  animation: var(--spring-snappy) ui-enter;
 }
-@keyframes fold-open {
+.pn-notice .tl-event {
+  max-width: 100%;
+}
+.pn-notice--system > span {
+  max-width: min(720px, 90%);
+}
+
+/* Messages: names open the user card; rich bot replies widen their bubble. */
+.pn-msg .user-card-trigger {
+  color: inherit;
+}
+.tl-msg--wide .pn-msg__col {
+  max-width: min(88%, 760px);
+}
+.pn-bubble .pn-quote {
+  max-width: none;
+}
+.pn-msg--self .pn-msg__col > .att-media,
+.pn-msg--self .pn-msg__col > .pn-file {
+  align-self: flex-end;
+}
+
+/* Run card: a bare MessageCard; the header tint follows the run status. */
+.run-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.run-card .pn-msg__col {
+  max-width: min(88%, 560px);
+}
+.run-card__sub {
+  color: var(--label-tertiary);
+}
+.run-mcard {
+  width: 460px;
+  transition: box-shadow var(--motion-fast);
+}
+.run-mcard--selected {
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent),
+    0 0 0 3px var(--tint-blue);
+}
+.run-mcard .pn-mcard__head {
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
+  min-height: 36px;
+}
+.run-mcard .pn-mcard__head .run-status {
+  color: inherit;
+  font-size: var(--text-body-size);
+}
+.run-mcard .pn-mcard__title {
+  flex: 1;
+}
+.run-mcard .pn-mcard__body {
+  padding: var(--space-12);
+  gap: var(--space-8);
+}
+.run-card__fold {
+  display: grid;
+  place-items: center;
+  width: var(--control-regular);
+  height: var(--control-regular);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+.run-card__fold:hover {
+  background: var(--control-track);
+}
+.run-card__body {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.run-card__body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.run-card__body[data-state="open"] {
+  animation: run-card-expand var(--spring-smooth);
+}
+.run-card__body[data-state="closed"] {
+  animation: run-card-collapse var(--spring-smooth) forwards;
+}
+@keyframes run-card-expand {
   from {
+    grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateY(-4px);
+  }
+}
+@keyframes run-card-collapse {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+.run-card__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.run-card__step > svg {
+  flex: none;
+  color: var(--label-secondary);
+}
+.run-card__step > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.run-card__session,
+.run-card__note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
+}
+.run-card__note > svg {
+  flex: none;
+}
+.run-card__actions:empty {
+  display: none;
+}
+
+/* Changed files named in a reply open the rail's diff. */
+.tl-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  max-width: 560px;
+}
+.tl-file {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  height: var(--control-small);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--quote-fill);
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+.tl-file:hover {
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+}
+
+@media (max-width: 767px) {
+  .chat-view .pn-chathead__bar {
+    padding: 0 var(--space-8) 0 var(--space-16);
+  }
+  .chat-view .pn-chathead .ui-tag,
+  .chat-view .pn-chathead .ui-toolbar__btn > span {
+    display: none;
+  }
+  .chat-view__banners {
+    padding: var(--space-8) var(--space-12) 0;
+  }
+  .chat-scroll__list.pn-msglist {
+    padding: var(--space-12);
+  }
+  .pn-msg__col,
+  .tl-msg--wide .pn-msg__col,
+  .run-card .pn-msg__col {
+    max-width: calc(100% - 42px);
+  }
+  .run-mcard {
+    width: 100%;
   }
 }

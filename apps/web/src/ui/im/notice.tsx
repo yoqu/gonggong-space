@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '../../lib/cx'
+import { CloseButton, type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
-import { CloseButton, type IconLike, renderIcon } from './primitives'
 import './notice.css'
 
 export function ChatNotice({
@@ -49,9 +49,9 @@ export function ChatNotice({
 
 export interface PinnedBannerProps {
   text: ReactNode
-  /** Defaults to「群公告」. */
+  /** Defaults to「群公告」; `null` shows none. */
   title?: ReactNode
-  icon?: IconLike
+  icon?: Glyph
   color?: string
   action?: ReactNode
   onClose?: () => void
@@ -72,12 +72,12 @@ export function PinnedBanner({
   return (
     <div className={cx('pn-pinned', className)} style={style} role="note">
       <span className="pn-pinned__icon" style={color ? { color } : undefined}>
-        {renderIcon(icon)}
+        {renderGlyph(icon)}
       </span>
-      <span className="pn-pinned__title">{title}</span>
+      {title != null && <span className="pn-pinned__title">{title}</span>}
       <span className="pn-pinned__text">{text}</span>
       {action}
-      {onClose && <CloseButton label="关闭" onClick={onClose} />}
+      {onClose && <CloseButton onClick={onClose} />}
     </div>
   )
 }

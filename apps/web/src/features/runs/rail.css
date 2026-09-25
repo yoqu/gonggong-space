@@ -1,0 +1,12 @@
+/* Right rail header (run process, attachment preview): a flush Pane toolbar on content-bg. */
+.rail-bar {
+  flex: none;
+  padding: 0 var(--space-8) 0 var(--space-16);
+}
+.rail-bar .ui-toolbar__titles {
+  padding-left: 0;
+}
+.rail-bar__icon {
+  flex: none;
+  color: var(--label-secondary);
+}

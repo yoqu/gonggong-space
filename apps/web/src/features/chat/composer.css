@@ -1,36 +1,13 @@
-/* Composer: one rounded block — chips, text, then the tool row with the send button (Feishu desktop). */
 .composer {
   flex: none;
-  position: relative;
-  width: 100%;
-  margin: 0 auto;
-  padding: 8px 20px 14px;
-}
-.composer__box {
-  --r-outer: var(--radius-2xl);
-  --pad: 6px;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--r-outer);
-  border: 1px solid var(--color-border-control);
-  background: var(--color-panel-bg);
-  transition: border-color 100ms ease-out;
-}
-.composer__box:focus-within,
-.composer__box--drop {
-  border-color: var(--color-system-blue);
-  box-shadow: var(--shadow-focus);
+  padding: var(--space-8) var(--space-16) var(--space-16);
 }
 .composer__chips {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 var(--pad);
+  gap: var(--space-6);
 }
-.composer__chips:has(> :not(input)) {
-  padding-top: var(--pad);
-}
-.composer__chips > :not(input) {
+.composer__chips > * {
   animation: composer-chip-in var(--spring-snappy);
 }
 @keyframes composer-chip-in {
@@ -39,100 +16,28 @@
     transform: translateY(4px);
   }
 }
-.composer__chips > .append-banner {
-  border-bottom: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-  background: var(--color-bg-info);
-}
-.composer__input {
-  resize: none;
-  border: 0;
-  background: transparent;
-  padding: 10px 12px 4px;
-  font-size: 13px;
-  line-height: 1.5;
-  outline: none;
-}
-.composer__input::placeholder {
-  color: var(--color-text-placeholder);
-}
-.composer__input:focus-visible {
-  box-shadow: none;
-}
-.composer__bar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px var(--pad) var(--pad);
-}
-.composer__bar > .ui-icon-btn {
-  color: var(--color-text-tertiary);
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-}
-.composer__hint {
-  flex: 1;
-  min-width: 0;
-  margin-left: 6px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.composer__send {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
-  background: var(--color-bg-muted);
-  color: var(--color-text-disabled);
-  cursor: default;
-  transition:
-    background-color 100ms ease-out,
-    color 100ms ease-out;
-}
-.composer__send[data-state="ready"] {
-  background: var(--color-system-blue);
-  color: var(--color-on-accent);
-  cursor: pointer;
-}
-.composer__send[data-state="ready"]:hover {
-  background: var(--color-system-blue-hover);
-}
-.composer__send[data-state="busy"] {
-  background: var(--color-system-blue);
-  color: var(--color-on-accent);
-  opacity: 0.6;
-}
-.composer__send-icon {
-  grid-area: 1 / 1;
-  display: flex;
-}
 
-/* @ / candidates */
+/* @ / candidates: glass menu anchored above the composer */
 .mention-pop {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: calc(100% - 4px);
+  left: 0;
+  right: 0;
+  bottom: calc(100% + var(--space-6));
   z-index: 5;
   max-width: 420px;
   max-height: 360px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  --r-outer: var(--radius-dropdown);
-  --pad: 6px;
-  padding: var(--pad);
-  border-radius: var(--r-outer);
-  border: 1px solid var(--color-separator);
-  background: var(--color-panel-elevated);
-  box-shadow: var(--shadow-dropdown);
+  padding: 5px;
+  border-radius: var(--radius-menu);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .mention-pop__group {
   margin: 0;
@@ -144,19 +49,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 8px 4px;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  color: var(--color-text-tertiary);
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-8) var(--space-2);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  font-weight: 600;
+  color: var(--label-secondary);
 }
 .mention-pop__src {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: 0;
   font-weight: 400;
 }
 .mention-pop__icon {
@@ -175,49 +79,57 @@
 }
 .mention-pop__mono {
   font-family: var(--font-mono);
+  font-size: var(--text-callout-size);
 }
 .mention-pop__item {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--space-6);
+  height: var(--control-large);
+  padding: 0 var(--space-8) 0 var(--space-6);
   border: 0;
-  border-radius: max(var(--radius-min), calc(var(--r-outer) - var(--pad)));
+  border-radius: 7px;
   background: transparent;
-  color: var(--color-text-primary);
-  font-size: 12px;
+  color: var(--label);
+  font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 .mention-pop__item:hover,
 .mention-pop__item--active {
-  background: var(--color-system-blue);
-  color: var(--color-on-accent);
+  background: var(--menu-highlight);
+  color: var(--on-accent);
+}
+.mention-pop__item:hover .mention-pop__hint,
+.mention-pop__item--active .mention-pop__hint,
+.mention-pop__item:hover .mention-pop__status,
+.mention-pop__item--active .mention-pop__status {
+  color: inherit;
 }
 .mention-pop__hint {
-  font-size: 11px;
-  opacity: 0.6;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
 }
 .mention-pop__status {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  opacity: 0.8;
+  gap: var(--space-4);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.mention-pop__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 @media (max-width: 767px) {
-  .mention-pop {
-    left: 12px;
-    right: 12px;
-  }
   .composer {
-    max-width: none;
-    padding: 8px 12px 14px;
+    padding: var(--space-8) var(--space-12) var(--space-12);
   }
   /* Below 16px iOS zooms the page on focus. */
-  .composer__input {
+  .composer .pn-composer textarea {
     font-size: 16px;
   }
 }
