@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Dialog, Input, Tabs, toast, Icon } from '../../ui'
+import { Button, Dialog, Icon, Input, Tabs, toast } from '../../ui'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from './RepoFields'
 import { repoName } from './repo'
@@ -97,9 +97,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
                 : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
-          <Button onClick={onClose}>
-            关闭
-          </Button>
+          <Button onClick={onClose}>关闭</Button>
           <Button variant="primary" disabled={!!blocked || creating} onClick={() => void submit()}>
             创建
           </Button>
@@ -214,7 +212,9 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 className={cx('ng-bot', on && 'ng-bot--on')}
                 onClick={() => set({ bots: toggle(d.bots, b.id) })}
               >
-                <span className="ng-bot__box">{on ? <Icon name="check" size={10} weight={2.2} /> : null}</span>
+                <span className="ng-bot__box">
+                  {on ? <Icon name="check" size={10} weight={2.2} /> : null}
+                </span>
                 <span className="ng-bot__main">
                   <span className="ng-bot__name">{b.name}</span>
                   <span className="ng-bot__sub">

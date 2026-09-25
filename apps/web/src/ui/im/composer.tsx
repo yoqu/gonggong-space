@@ -211,7 +211,10 @@ export function Composer({
             disabled={!sendable}
             onClick={send}
           >
-            <span key={sent} className={cx('pn-composer__send-icon', sent > 0 && 'pn-composer__send-icon--sent')}>
+            <span
+              key={sent}
+              className={cx('pn-composer__send-icon', sent > 0 && 'pn-composer__send-icon--sent')}
+            >
               <Icon name="send" weight={2.2} />
             </span>
           </button>

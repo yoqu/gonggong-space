@@ -111,7 +111,14 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
       <span className="quote-chip__who">引用 {quote.who}</span>
       <span className="quote-chip__text">{quote.text}</span>
       <span className="quote-chip__note">等同 @，引用内容一起发送</span>
-      <Button variant="plain" size="small" icon="xmark" aria-label="关闭引用" title="关闭引用" onClick={clear} />
+      <Button
+        variant="plain"
+        size="small"
+        icon="xmark"
+        aria-label="关闭引用"
+        title="关闭引用"
+        onClick={clear}
+      />
     </div>
   )
 }

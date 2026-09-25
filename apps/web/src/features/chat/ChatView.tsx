@@ -7,7 +7,6 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import {
-  Avatar,
   Button,
   ChatHeader,
   ChatNotice,
@@ -19,8 +18,6 @@ import {
   PinnedBanner,
   Presence,
   Spinner,
-  ToolbarButton,
-  ToolbarGroup,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
@@ -243,46 +240,41 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     <div className="chat-view">
       <ChatHeader
         group
-        title={
-          <>
-            <h1 className="chat-view__title">{group.name}</h1>
-            {group.muted ? <Icon name="bell-slash" size={13} label="消息免打扰" className="chat-view__muted" /> : null}
-          </>
-        }
-        avatar={
-          <>
-            {onBack ? (
-              <button type="button" className="chat-view__back" aria-label="返回" onClick={onBack}>
-                <Icon name="chevron-left" size={20} />
-              </button>
-            ) : null}
-            <Avatar name={group.name} size={32} shape="square" />
-          </>
-        }
+        title={group.name}
+        onBack={onBack}
         tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
         subtitle={
-          <span title={group.repo?.url}>
-            {group.repo ? `${repoName(group.repo.url)} · ${group.repo.branch}` : '未绑定仓库 · 各 Bot 使用本机目录'}
-          </span>
-        }
-        trailing={
-          <ToolbarGroup>
-            {group.kind === 'group' ? (
-              <ToolbarButton
-                icon="person-2"
-                label={`群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`}
-                text={`${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''}`}
-                onClick={() => setDrawer('members')}
-              />
+          <>
+            {group.muted ? (
+              <Icon name="bell-slash" size={11} label="消息免打扰" className="chat-view__muted" />
             ) : null}
-            <ToolbarButton
-              icon="sidebar-right"
-              label={group.kind === 'group' ? '群设置' : '私聊设置'}
-              active={!!drawer}
-              onClick={() => setDrawer(drawer ? null : 'main')}
-            />
-          </ToolbarGroup>
+            {group.kind === 'group'
+              ? `${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''} · `
+              : '仅你和你的 Bot · '}
+            <span title={group.repo?.url}>
+              {group.repo
+                ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                : '未绑定仓库 · 各 Bot 使用本机目录'}
+            </span>
+          </>
         }
+        actions={[
+          ...(group.kind === 'group'
+            ? [
+                {
+                  icon: 'person-2' as const,
+                  label: `群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`,
+                  onClick: () => setDrawer('members'),
+                },
+              ]
+            : []),
+          {
+            icon: 'sidebar-right',
+            label: '群设置',
+            active: !!drawer,
+            onClick: () => setDrawer(drawer ? null : 'main'),
+          },
+        ]}
       />
       <Presence>
         {drawer ? (

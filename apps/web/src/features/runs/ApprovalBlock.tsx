@@ -135,11 +135,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
               始终允许
             </Button>
           )}
-          <Button
-            size="small"
-            disabled={!mine || busy || !reject}
-            onClick={() => reject && decide(reject)}
-          >
+          <Button size="small" disabled={!mine || busy || !reject} onClick={() => reject && decide(reject)}>
             拒绝
           </Button>
           <span className="approval__hint">

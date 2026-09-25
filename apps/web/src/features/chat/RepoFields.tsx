@@ -2,7 +2,7 @@ import type { ValidateRepoRes } from '@gonggong/protocol'
 import { useRef } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Input, Icon } from '../../ui'
+import { Button, Icon, Input } from '../../ui'
 
 // file:// is accepted for local/test repos; the hint keeps the prototype's wording.
 const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/|file:\/\/)\S+$/
@@ -55,11 +55,7 @@ export function RepoFields({ draft: d, set }: { draft: RepoDraft; set: (o: Parti
           placeholder="main"
           onChange={(e) => edit({ branch: e.target.value })}
         />
-        <Button
-                    size="sm"
-          disabled={!urlOk || d.check === 'checking'}
-          onClick={() => void validate()}
-        >
+        <Button size="sm" disabled={!urlOk || d.check === 'checking'} onClick={() => void validate()}>
           {d.check === 'checking' ? '校验中…' : check?.ok ? '已校验' : '校验'}
         </Button>
       </div>

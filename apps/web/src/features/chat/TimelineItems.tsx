@@ -318,7 +318,11 @@ export const UserMessage = memo(function UserMessage({
         ) : null
       }
     >
-      {text ? <MessageQuote quote={m.quote} /> : <MessageAttachments list={m.attachments} from={m.authorName} />}
+      {text ? (
+        <MessageQuote quote={m.quote} />
+      ) : (
+        <MessageAttachments list={m.attachments} from={m.authorName} />
+      )}
       {m.body ? <Text body={m.body} names={names} me={me} /> : null}
       <ReactionBar message={m} />
     </Message>

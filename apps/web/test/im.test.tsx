@@ -54,7 +54,7 @@ describe('Message', () => {
     const row = container.querySelector('.pn-msg') as HTMLElement
     expect(row.classList.contains('pn-msg--self')).toBe(false)
     expect(container.querySelector('.pn-bubble p')?.textContent).toBe('你好')
-    expect(container.querySelector('.im-avatar')).toBeTruthy()
+    expect(container.querySelector('.ui-avatar')).toBeTruthy()
     expect(container.querySelector('.pn-msg__meta b')?.textContent).toBe('Mia Chen')
   })
 
@@ -75,7 +75,7 @@ describe('Message', () => {
       </Message>,
     )
     expect(container.querySelector('.pn-msg--cont')).toBeTruthy()
-    expect(container.querySelector('.im-avatar')).toBeNull()
+    expect(container.querySelector('.ui-avatar')).toBeNull()
     expect(container.querySelector('.pn-msg__gutter')).toBeTruthy()
     expect(container.querySelector('.pn-msg__meta')).toBeNull()
   })
@@ -96,10 +96,10 @@ describe('Message', () => {
         完成
       </Message>,
     )
-    const tag = container.querySelector('.pn-msg__meta .im-tag')
+    const tag = container.querySelector('.pn-msg__meta .ui-tag')
     expect(tag?.textContent).toBe('Bot')
-    expect(tag?.classList.contains('im-tag--blue')).toBe(true)
-    expect(container.querySelector('.im-avatar--square')).toBeTruthy()
+    expect(tag?.classList.contains('ui-tag--blue')).toBe(true)
+    expect(container.querySelector('.ui-avatar--square')).toBeTruthy()
   })
 
   it('offers a retry when sending failed', () => {

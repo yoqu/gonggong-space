@@ -101,15 +101,9 @@
   background: var(--menu-highlight);
   color: var(--on-accent);
 }
-.mention-pop__item:hover .mention-pop__hint,
-.mention-pop__item--active .mention-pop__hint,
-.mention-pop__item:hover .mention-pop__status,
-.mention-pop__item--active .mention-pop__status {
-  color: inherit;
-}
 .mention-pop__hint {
   font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
+  opacity: 0.65;
 }
 .mention-pop__status {
   flex: none;
@@ -117,7 +111,7 @@
   align-items: center;
   gap: var(--space-4);
   font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
+  opacity: 0.8;
 }
 .mention-pop__dot {
   width: 6px;

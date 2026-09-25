@@ -244,3 +244,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);
 }
+.pv .ui-group__row > div:first-child {
+  flex: none;
+  white-space: nowrap;
+}

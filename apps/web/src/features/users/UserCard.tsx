@@ -112,9 +112,7 @@ export function UserCardTrigger({
                     <div className="user-card__id">
                       <div className="user-card__name">
                         <span>{card.name}</span>
-                        {card.groupAdmin ? (
-                          <Tag tone="blue">群管理员</Tag>
-                        ) : null}
+                        {card.groupAdmin ? <Tag tone="blue">群管理员</Tag> : null}
                       </div>
                       <div className="user-card__account">{card.account}</div>
                     </div>

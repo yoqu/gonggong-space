@@ -4,7 +4,18 @@ import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { ApiError } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Input, Spinner, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  GroupBox,
+  GroupRow,
+  Icon,
+  type IconName,
+  Input,
+  Spinner,
+  toast,
+} from '../../ui'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from '../chat/RepoFields'
 import { groupsApi } from './api'
 import { BotsView, type SettingsTab } from './GroupDrawer'

@@ -18,7 +18,8 @@ const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
 
 const RETRIES = 2
 
-const draftKey = (groupId: string) => `gonggong:draft:${groupId}`
+/** sessionStorage key of a group's unsent draft. */
+export const draftKey = (groupId: string) => `gonggong:draft:${groupId}`
 function loadDraft(groupId: string) {
   try {
     return sessionStorage.getItem(draftKey(groupId)) ?? ''

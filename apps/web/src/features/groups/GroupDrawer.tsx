@@ -81,9 +81,7 @@ function ConfirmRemove({
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>
-            取消
-          </Button>
+          <Button onClick={onClose}>取消</Button>
           <Button variant="destructive" disabled={busy} onClick={() => void run()}>
             移出
           </Button>
@@ -192,21 +190,21 @@ export function GroupDrawer({
       }
     >
       <div className="gs-body">
-      {view === 'main' ? (
-        <MainView
-          group={group}
-          isAdmin={isAdmin}
-          setView={setView}
-          onClose={onClose}
-          onSettings={onSettings}
-        />
-      ) : view === 'members' ? (
-        <MembersView group={group} isAdmin={isAdmin} />
-      ) : view === 'bots' ? (
-        <BotsView group={group} isAdmin={isAdmin} />
-      ) : (
-        <InfoView group={group} onSaved={onClose} />
-      )}
+        {view === 'main' ? (
+          <MainView
+            group={group}
+            isAdmin={isAdmin}
+            setView={setView}
+            onClose={onClose}
+            onSettings={onSettings}
+          />
+        ) : view === 'members' ? (
+          <MembersView group={group} isAdmin={isAdmin} />
+        ) : view === 'bots' ? (
+          <BotsView group={group} isAdmin={isAdmin} />
+        ) : (
+          <InfoView group={group} onSaved={onClose} />
+        )}
       </div>
     </Drawer>
   )
@@ -289,7 +287,12 @@ function MainView({
       mono: !!group.repo,
       onClick: () => onSettings('basic'),
     },
-    { icon: 'arrow-clockwise', k: '同步模式', v: GROUP_MODE_LABEL[group.mode], onClick: () => onSettings('mode') },
+    {
+      icon: 'arrow-clockwise',
+      k: '同步模式',
+      v: GROUP_MODE_LABEL[group.mode],
+      onClick: () => onSettings('mode'),
+    },
     {
       icon: 'slider-horizontal',
       k: '群级参数',
@@ -467,7 +470,9 @@ function MembersView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) 
                     {m.userId === me?.id ? '（我）' : ''}
                     {m.isAdmin ? <Tag tone="blue">群管理员</Tag> : null}
                   </span>
-                  <span className="gs-desc">{theirs.length ? `带入 ${theirs.join('、')}` : '未带入 Bot'}</span>
+                  <span className="gs-desc">
+                    {theirs.length ? `带入 ${theirs.join('、')}` : '未带入 Bot'}
+                  </span>
                 </div>
                 {isAdmin && m.userId !== me?.id ? (
                   <span className="gs-member__ops">

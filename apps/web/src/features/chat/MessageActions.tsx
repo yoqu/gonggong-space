@@ -1,7 +1,7 @@
 import { type MessageDto, RECALL_WINDOW_MS } from '@gonggong/protocol'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
-import { Button, Dialog, Icon, type MenuItem, MenuButton, Presence, toast } from '../../ui'
+import { Button, Dialog, Icon, MenuButton, type MenuItem, Presence, toast } from '../../ui'
 import { ReactionPicker } from '../reactions'
 import { applyWithdrawn } from './useTimeline'
 import './recall.css'
@@ -48,9 +48,7 @@ function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () =
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>
-            取消
-          </Button>
+          <Button onClick={onClose}>取消</Button>
           <Button
             variant="destructive"
             disabled={busy}
@@ -163,7 +161,14 @@ export function MessageActions({
           <Icon name="sidebar-right" />
         </button>
       ) : null}
-      <MenuButton aria-label="更多" title="更多" align="end" items={items} onSelect={select} onOpenChange={setMore}>
+      <MenuButton
+        aria-label="更多"
+        title="更多"
+        align="end"
+        items={items}
+        onSelect={select}
+        onOpenChange={setMore}
+      >
         <Icon name="more" weight={2.6} />
       </MenuButton>
       <Presence>

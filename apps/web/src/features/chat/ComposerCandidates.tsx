@@ -83,7 +83,12 @@ export function useCandidates(group: GroupDto, before: string | null) {
       hint: b.ownerName,
       status: PRESENCE[b.presence],
     })),
-    ...group.members.map((m) => ({ key: `member:${m.userId}`, icon: 'person' as const, name: m.name, hint: '成员' })),
+    ...group.members.map((m) => ({
+      key: `member:${m.userId}`,
+      icon: 'person' as const,
+      name: m.name,
+      hint: '成员',
+    })),
   ]
   const token =
     before === null

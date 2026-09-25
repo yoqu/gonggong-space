@@ -56,12 +56,6 @@
   text-align: left;
   cursor: default;
 }
-.ui-group > * + .gs-row,
-.ui-group > .gs-row + *,
-.ui-group > * + .gs-member,
-.ui-group > * + .gs-bot {
-  border-top: 1px solid var(--separator);
-}
 .ui-group > .gs-row:first-child {
   border-top-left-radius: var(--radius-menu);
   border-top-right-radius: var(--radius-menu);
@@ -362,6 +356,12 @@ button.gs-row:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+}
+.ui-group > * + .gs-row,
+.ui-group > .gs-row + *,
+.ui-group > * + .gs-member,
+.ui-group > * + .gs-bot {
+  border-top: 1px solid var(--separator);
 }
 @media (max-width: 767px) {
   .gs-settings {

@@ -53,7 +53,13 @@ export function RunActions({ run }: { run: RunDto }) {
   }
   const stopAction = chain ? (
     <>
-      <Button size="small" variant="destructive" icon="octagon-xmark" disabled={busy} onClick={() => setConfirming(true)}>
+      <Button
+        size="small"
+        variant="destructive"
+        icon="octagon-xmark"
+        disabled={busy}
+        onClick={() => setConfirming(true)}
+      >
         终止整条链
       </Button>
       <Dialog
@@ -63,9 +69,7 @@ export function RunActions({ run }: { run: RunDto }) {
         width={420}
         footer={
           <>
-            <Button onClick={() => setConfirming(false)}>
-              取消
-            </Button>
+            <Button onClick={() => setConfirming(false)}>取消</Button>
             <Button variant="destructive" disabled={busy} onClick={() => void stop()}>
               终止
             </Button>

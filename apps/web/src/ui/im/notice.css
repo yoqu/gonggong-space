@@ -11,7 +11,7 @@
   font-weight: 600;
   margin-right: 4px;
 }
-.pn-notice--system span {
+.pn-notice--system > span {
   max-width: 70%;
 }
 .pn-notice--unread {

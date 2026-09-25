@@ -84,7 +84,7 @@ const renderChat = (messages: MessageDto[], routes: Record<string, unknown> = {}
 }
 
 const openMore = async (text: string) => {
-  const row = (await screen.findByText(text)).closest('.tl-msg') as HTMLElement
+  const row = (await screen.findByText(text)).closest('.pn-msg') as HTMLElement
   fireEvent.click(within(row).getByRole('button', { name: '更多' }))
   return screen.getAllByRole('menuitem').map((b) => b.textContent)
 }
