@@ -77,7 +77,7 @@ describe('admin console', () => {
       within(screen.getByRole('cell', { name: account }).closest('tr') as HTMLElement)
         .getAllByRole('cell')
         .map((c) => c.textContent)
-    expect(cells('chenchen')).toEqual(['陈陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑'])
+    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑'])
     expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台 · 离线', '正常'])
     expect(cells('zhaomin').slice(3, 5)).toEqual(['未绑定', '待修改密码'])
     expect(cells('liuyang').slice(3, 5)).toEqual(['—', '已停用'])

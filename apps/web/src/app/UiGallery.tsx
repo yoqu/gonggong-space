@@ -24,6 +24,7 @@ import {
   Toaster,
   toast,
 } from '../ui'
+import { ControlsGallery } from './gallery/ControlsGallery'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -74,6 +75,7 @@ export default function UiGallery() {
         </div>
       </section>
 
+      <ControlsGallery />
       <Section title="BUTTON">
         {(['primary', 'default', 'outline', 'ghost', 'destructive'] as const).map((v) => (
           <Button key={v} variant={v}>

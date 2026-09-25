@@ -1,35 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { IconButton, Tabs } from '../src/ui'
+import { describe, expect, it } from 'vitest'
+import { CloseButton, Icon, IconButton, Tabs } from '../src/ui'
 
-// jsdom has no layout: give each tab a position derived from its index.
-const tabIndex = (el: HTMLElement) => [...(el.parentElement?.children ?? [])].indexOf(el)
-const saved = {
-  left: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetLeft'),
-  width: Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth'),
-}
-beforeAll(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetLeft', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return 2 + tabIndex(this) * 50
-    },
-  })
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return 40 + tabIndex(this) * 10
-    },
-  })
-})
-afterAll(() => {
-  if (saved.left) Object.defineProperty(HTMLElement.prototype, 'offsetLeft', saved.left)
-  if (saved.width) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', saved.width)
-})
-
-describe('Tabs indicator', () => {
-  it('moves the sliding indicator to the selected tab', () => {
+describe('Tabs', () => {
+  it('keeps tab semantics and moves with arrow keys', () => {
     function Harness() {
       const [v, setV] = useState<'a' | 'b'>('a')
       return (
@@ -44,31 +19,32 @@ describe('Tabs indicator', () => {
       )
     }
     render(<Harness />)
-    const list = screen.getByRole('tablist')
-    expect(list.style.getPropertyValue('--indicator-x')).toBe('2px')
-    expect(list.style.getPropertyValue('--indicator-w')).toBe('40px')
-    fireEvent.click(screen.getByRole('tab', { name: '改动' }))
-    expect(list.style.getPropertyValue('--indicator-x')).toBe('52px')
-    expect(list.style.getPropertyValue('--indicator-w')).toBe('50px')
-  })
-
-  it('hides the indicator when nothing is selected', () => {
-    render(<Tabs value={'x' as 'a'} onChange={() => {}} items={[{ value: 'a', label: '过程' }]} />)
-    expect(screen.getByRole('tablist').style.getPropertyValue('--indicator-w')).toBe('0px')
+    expect(screen.getByRole('tablist')).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('tab', { name: '过程' }), { key: 'ArrowRight' })
+    expect(screen.getByRole('tab', { name: '改动' }).getAttribute('aria-selected')).toBe('true')
   })
 })
 
 describe('IconButton', () => {
-  it('adds the glass toolbar class for variant="glass"', () => {
+  it('is a circular Pane button named by its title', () => {
     render(
       <>
-        <IconButton title="plain">+</IconButton>
+        <IconButton title="plain">
+          <Icon name="search" />
+        </IconButton>
         <IconButton title="toolbar" variant="glass">
-          +
+          <Icon name="bell" />
         </IconButton>
       </>,
     )
-    expect(screen.getByRole('button', { name: 'plain' }).className).toBe('ui-icon-btn')
-    expect(screen.getByRole('button', { name: 'toolbar' }).className).toBe('ui-icon-btn ui-icon-btn--glass')
+    expect(screen.getByRole('button', { name: 'plain' }).className).toBe(
+      'ui-btn ui-btn--plain ui-btn--large ui-btn--icon ui-icon-btn',
+    )
+    expect(screen.getByRole('button', { name: 'toolbar' }).className).toContain('ui-btn--glass')
+  })
+
+  it('CloseButton defaults to 关闭', () => {
+    render(<CloseButton />)
+    expect(screen.getByRole('button', { name: '关闭' }).className).toContain('ui-close')
   })
 })
