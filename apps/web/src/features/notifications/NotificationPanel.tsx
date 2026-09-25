@@ -7,6 +7,7 @@ import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
 import {
   Button,
+  EmptyState,
   Icon,
   type IconName,
   listTime,
@@ -49,7 +50,7 @@ function PushAction() {
   )
 }
 
-/** Glass notification panel dropped from the sidebar bell. */
+/** Glass notification popover opened from the NavRail. */
 export function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const presence = usePresence(open)
   return presence.mounted ? (
@@ -142,7 +143,12 @@ function Panel({
               <Spinner />
             </div>
           ) : items.length === 0 ? (
-            <div className="notif__empty">暂无通知</div>
+            <EmptyState
+              compact
+              icon="bell"
+              title="暂无通知"
+              description="需要你审批或回答的事项会出现在这里。"
+            />
           ) : null}
           {failed
             ? null

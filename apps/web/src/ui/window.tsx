@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { cx } from '../lib/cx'
 import { Toolbar } from './toolbar'
 import './window.css'
@@ -12,6 +12,8 @@ export interface AppFrameProps {
   toolbar?: ReactNode
   /** Right panel docked flush after a separator (`ChatInfoPanel`, `ThreadPanel`). */
   inspector?: ReactNode
+  /** Label, width or class for the inspector `<aside>` (e.g. a resizable panel). */
+  inspectorProps?: HTMLAttributes<HTMLElement>
   children?: ReactNode
   contentStyle?: CSSProperties
   className?: string
@@ -24,6 +26,7 @@ function Frame({
   sidebar,
   toolbar,
   inspector,
+  inspectorProps,
   children,
   contentStyle,
   className,
@@ -57,7 +60,11 @@ function Frame({
           {children}
         </div>
       </div>
-      {inspector ? <aside className="ui-frame__inspector">{inspector}</aside> : null}
+      {inspector ? (
+        <aside {...inspectorProps} className={cx('ui-frame__inspector', inspectorProps?.className)}>
+          {inspector}
+        </aside>
+      ) : null}
     </div>
   )
 }

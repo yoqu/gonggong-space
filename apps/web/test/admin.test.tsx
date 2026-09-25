@@ -149,6 +149,7 @@ describe('admin console', () => {
     expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
     expect(screen.queryByRole('navigation', { name: '管理后台' })).toBeNull()
     expect(screen.queryByRole('link', { name: '管理后台' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '管理后台' })).toBeNull()
   })
 
   it('shows usage by bot, trigger user and group', async () => {

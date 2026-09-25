@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link, Outlet } from 'react-router'
+import { Outlet } from 'react-router'
 import { create } from 'zustand'
-import { AccountMenu } from '../features/auth/AccountMenu'
 import { NotificationPanel } from '../features/notifications/NotificationPanel'
 import { syncPush } from '../features/notifications/push'
 import { SearchOverlay } from '../features/search/SearchOverlay'
 import { useRealtimeStatus } from '../lib/realtime'
-import { Badge, Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
-import { useSession } from './session'
+import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { useIsMobile } from './viewport'
-import { useWorkspace } from './workspace'
 
 type Overlay = 'search' | 'notif' | null
 
-/** Which shell overlay is open; the controls live in the sidebar, the overlays in AppShell. */
+/** Which shell overlay is open; the controls live in the NavRail and sidebar, the overlays in AppShell. */
 export const useShellOverlay = create<{ overlay: Overlay; set: (o: Overlay) => void }>()((set) => ({
   overlay: null,
   set: (overlay) => set({ overlay }),
@@ -21,33 +18,16 @@ export const useShellOverlay = create<{ overlay: Overlay; set: (o: Overlay) => v
 
 /** Compact toolbar row and search field at the top of the conversation sidebar. */
 export function ShellBar({ onNewGroup }: { onNewGroup?: () => void }) {
-  const user = useSession((s) => s.user)
-  const notifCount = useWorkspace((s) => s.notifCount)
-  const { overlay, set } = useShellOverlay()
+  const set = useShellOverlay((s) => s.set)
   const mobile = useIsMobile()
   return (
     <div className="shellbar">
       <Toolbar leading={<Logo size={20} />} title="共工" scrolled={false}>
-        <ToolbarGroup>
-          {onNewGroup ? <ToolbarButton icon="plus" label="新建群" onClick={onNewGroup} /> : null}
-          <ToolbarButton
-            icon={
-              <span className="shellbar__bell">
-                <Icon name="bell" />
-                <Badge count={notifCount} />
-              </span>
-            }
-            label={notifCount > 0 ? `通知（${notifCount} 条未读）` : '通知'}
-            active={overlay === 'notif'}
-            onClick={() => set(overlay === 'notif' ? null : 'notif')}
-          />
-          {user?.role === 'sysadmin' ? (
-            <Link to="/admin" className="ui-toolbar__btn" aria-label="管理后台" title="管理后台">
-              <Icon name="shield-check" />
-            </Link>
-          ) : null}
-        </ToolbarGroup>
-        <AccountMenu />
+        {onNewGroup ? (
+          <ToolbarGroup>
+            <ToolbarButton icon="plus" label="新建群" onClick={onNewGroup} />
+          </ToolbarGroup>
+        ) : null}
       </Toolbar>
       <button
         type="button"
