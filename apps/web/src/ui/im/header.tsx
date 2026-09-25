@@ -1,9 +1,12 @@
-import { type ReactNode, useState } from 'react'
-import { Avatar, GlassButton, GlassGroup, type IconLike, type TagSpec, Tags } from './primitives'
+import { type ReactElement, type ReactNode, useState } from 'react'
+import { Avatar, Tag } from '../display'
+import { Icon, type IconName } from '../icon'
+import { ToolbarButton, ToolbarGroup } from '../toolbar'
+import type { TagSpec } from './primitives'
 import './header.css'
 
 export interface ChatHeaderAction {
-  icon: IconLike
+  icon: IconName | ReactElement
   label: string
   onClick?: () => void
   active?: boolean
@@ -17,12 +20,15 @@ export interface ChatHeaderProps {
   /** Replaces the default avatar; `null` hides it. */
   avatar?: ReactNode
   tags?: TagSpec[]
+  /** At most 4 glass capsule buttons. */
   actions?: ChatHeaderAction[]
   tabs?: { value: string; label: ReactNode }[]
   tab?: string
   defaultTab?: string
   onTabChange?: (value: string) => void
   trailing?: ReactNode
+  /** Shows a「返回」chevron before the avatar (single-column mobile layout). */
+  onBack?: () => void
 }
 
 export function ChatHeader({
@@ -37,12 +43,18 @@ export function ChatHeader({
   defaultTab,
   onTabChange,
   trailing,
+  onBack,
 }: ChatHeaderProps) {
   const [own, setOwn] = useState(defaultTab ?? tabs[0]?.value)
   const current = tab ?? own
   return (
-    <div className="pn-chathead">
+    <header className="pn-chathead">
       <div className="pn-chathead__bar">
+        {onBack ? (
+          <button type="button" className="pn-chathead__back" aria-label="返回" onClick={onBack}>
+            <Icon name="chevron-left" size={20} weight={1.8} />
+          </button>
+        ) : null}
         {avatar !== undefined ? (
           avatar
         ) : (
@@ -54,17 +66,21 @@ export function ChatHeader({
         )}
         <div className="pn-chathead__titles">
           <div className="pn-chathead__title">
-            <span>{title}</span>
-            <Tags items={tags} />
+            <h1>{title}</h1>
+            {tags?.map((t) => (
+              <Tag key={t.label} tone={t.tone}>
+                {t.label}
+              </Tag>
+            ))}
           </div>
           {subtitle && <div className="pn-chathead__sub">{subtitle}</div>}
         </div>
         {actions && actions.length > 0 && (
-          <GlassGroup>
+          <ToolbarGroup>
             {actions.map((a) => (
-              <GlassButton key={a.label} {...a} />
+              <ToolbarButton key={a.label} {...a} />
             ))}
-          </GlassGroup>
+          </ToolbarGroup>
         )}
         {trailing}
       </div>
@@ -87,6 +103,6 @@ export function ChatHeader({
           ))}
         </div>
       )}
-    </div>
+    </header>
   )
 }

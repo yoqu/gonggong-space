@@ -1,9 +1,28 @@
-/* Appearance group in the account menu; kept out of auth.css which is owned by another slice. */
-.account__label {
-  padding: 4px 8px 2px;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+/* Avatar trigger of the account menu; the menu itself is the glass ui Menu. */
+.account__trigger {
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
 }
-.account__check {
-  margin-left: auto;
+.account__trigger:hover .ui-avatar {
+  filter: brightness(0.94);
+}
+.account__trigger + .ui-menu {
+  min-width: 220px;
+}
+.account__who {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0 var(--space-4);
+  font-weight: 400;
+}
+.account__name {
+  font-size: var(--text-headline-size);
+  line-height: var(--text-headline-line);
+  font-weight: var(--text-headline-weight);
+  color: var(--label);
 }

@@ -1,7 +1,6 @@
-import { ChevronLeft } from 'lucide-react'
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from 'react'
 import { cx } from '../lib/cx'
-import { Toolbar } from '../ui'
+import { ChatHeader as PaneChatHeader } from '../ui'
 import { MOBILE_MAX, RAIL_MIN, useViewportWidth } from './viewport'
 
 /** Rail open state: defaults to open on wide screens and resets whenever the 1100px breakpoint is crossed. */
@@ -123,6 +122,7 @@ export function ChatLayout({
   )
 }
 
+/** Chat page header on the Pane ChatHeader: square avatar (groups and Bot DMs), title, subtitle, custom actions. */
 export function ChatHeader({
   title,
   badge,
@@ -130,38 +130,30 @@ export function ChatHeader({
   subtitleTitle,
   actions,
   onBack,
-  scrolled,
 }: {
-  title: ReactNode
+  title: string
   badge?: ReactNode
   subtitle?: ReactNode
   /** Full text behind a shortened subtitle (e.g. the repo URL). */
   subtitleTitle?: string
   actions?: ReactNode
   onBack?: () => void
-  /** The timeline has scrolled under the header. */
-  scrolled: boolean
+  /** Kept for callers; the Pane header always shows its separator. */
+  scrolled?: boolean
 }) {
   return (
-    <Toolbar className="chat-header" scrolled={scrolled}>
-      {onBack ? (
-        <button type="button" className="chat-header__back" aria-label="返回" onClick={onBack}>
-          <ChevronLeft size={20} />
-        </button>
-      ) : null}
-      <div className="chat-header__main">
-        <div className="chat-header__line">
-          <h1 className="chat-header__title">{title}</h1>
+    <PaneChatHeader
+      title={title}
+      group
+      subtitle={subtitle ? <span title={subtitleTitle}>{subtitle}</span> : undefined}
+      onBack={onBack}
+      trailing={
+        <div className="chat-header__actions">
           {badge}
+          {actions}
         </div>
-        {subtitle ? (
-          <div className="chat-header__sub" title={subtitleTitle}>
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-      {actions ? <div className="chat-header__actions">{actions}</div> : null}
-    </Toolbar>
+      }
+    />
   )
 }
 

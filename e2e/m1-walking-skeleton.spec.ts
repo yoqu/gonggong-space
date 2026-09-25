@@ -29,7 +29,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   // Bind this machine with a one-time code.
   await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByTestId('account-menu').getByRole('button', { name: '绑定新机器' }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: '绑定新机器' }).click()
   const code = (await page.getByTestId('bind-code').textContent())?.trim() ?? ''
   expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
   const m = machine()

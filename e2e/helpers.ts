@@ -124,7 +124,7 @@ export async function changePassword(page: Page, oldPassword: string, newPasswor
 
 export async function logout(page: Page) {
   await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByRole('button', { name: '退出登录' }).click()
+  await page.getByRole('menuitem', { name: '退出登录' }).click()
   await expect(page.getByRole('button', { name: '登录' })).toBeVisible()
 }
 

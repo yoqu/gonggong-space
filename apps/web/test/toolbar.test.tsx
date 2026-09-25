@@ -1,5 +1,5 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from '../src/app/Sidebar'
@@ -93,6 +93,31 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   pinned: false,
   muted: false,
   foldRuns: false,
+})
+
+describe('Sidebar rows', () => {
+  it("tags Bot DMs, prefixes another group's unsent draft and keeps it off the open one", () => {
+    sessionStorage.setItem('gonggong:draft:g1', '周报晚点补')
+    sessionStorage.setItem('gonggong:draft:g2', '当前草稿')
+    try {
+      render(
+        <MemoryRouter initialEntries={['/g/g2']}>
+          <Sidebar
+            groups={[group('g1', '前端'), group('g2', '后端'), group('d1', '脚本实验', 'dm')]}
+            bots={[]}
+            machines={[]}
+          />
+        </MemoryRouter>,
+      )
+      expect(within(screen.getByTestId('group-item-d1')).getByText('Bot')).toBeTruthy()
+      expect(within(screen.getByTestId('group-item-g1')).queryByText('Bot')).toBeNull()
+      const preview = (id: string) => screen.getByTestId(id).querySelector('.pn-conv__preview')?.textContent
+      expect(preview('group-item-g1')).toBe('[草稿] 周报晚点补')
+      expect(preview('group-item-g2')).toBe('0 人 · 分区模式')
+    } finally {
+      sessionStorage.clear()
+    }
+  })
 })
 
 describe('Sidebar selection capsule', () => {

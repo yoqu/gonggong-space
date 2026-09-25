@@ -1,7 +1,8 @@
 import { type CSSProperties, type ReactNode, useState } from 'react'
 import { cx } from '../../lib/cx'
+import { Avatar, type AvatarProps, Badge, Tag } from '../display'
 import { Icon } from '../icon'
-import { Avatar, Badge, type Presence, type TagSpec, Tags } from './primitives'
+import type { TagSpec } from './primitives'
 import './conversation.css'
 
 export interface Conversation {
@@ -11,7 +12,7 @@ export interface Conversation {
   avatarNode?: ReactNode
   /** Groups and bots get the rounded-square avatar. */
   group?: boolean
-  status?: Presence
+  status?: AvatarProps['status']
   tags?: TagSpec[]
   time?: string
   preview?: ReactNode
@@ -25,34 +26,48 @@ export interface Conversation {
   draft?: string
 }
 
+const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六']
+const pad = (n: number) => String(n).padStart(2, '0')
+const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+
+/** List time (Pane IM): today「10:42」, yesterday「昨天」, within a week「星期二」, earlier「9月20日」. */
+export function listTime(iso: string, now = new Date()) {
+  const d = new Date(iso)
+  const days = Math.round((dayStart(now) - dayStart(d)) / 86_400_000)
+  if (days <= 0) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (days === 1) return '昨天'
+  if (days < 7) return `星期${WEEKDAY[d.getDay()]}`
+  const md = `${d.getMonth() + 1}月${d.getDate()}日`
+  return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}年${md}`
+}
+
 const flagOf = (it: Conversation) =>
   it.urgent ? '[加急] ' : it.mention ? '[有人@我] ' : it.draft ? '[草稿] ' : null
 
-export function ConversationItem({
-  item: it,
-  selected,
-  onClick,
-}: {
-  item: Conversation
-  selected?: boolean
-  onClick?: () => void
-}) {
+/** Avatar and the two text lines of a row; ConversationItem wraps it in a button, routed lists in a link with class `pn-conv`. */
+export function ConversationContent({ item: it }: { item: Conversation }) {
   const flag = flagOf(it)
   return (
-    <button type="button" className="pn-conv" aria-current={selected ? 'true' : undefined} onClick={onClick}>
-      {it.avatarNode ?? (
-        <Avatar
-          name={it.name}
-          src={it.avatar}
-          size={40}
-          status={it.status}
-          shape={it.group ? 'square' : 'circle'}
-        />
-      )}
+    <>
+      <span className="pn-conv__avatar" aria-hidden="true">
+        {it.avatarNode ?? (
+          <Avatar
+            name={it.name}
+            src={it.avatar}
+            size={40}
+            status={it.status}
+            shape={it.group ? 'square' : 'circle'}
+          />
+        )}
+      </span>
       <span className="pn-conv__body">
         <span className="pn-conv__line">
           <span className="pn-conv__name">{it.name}</span>
-          <Tags items={it.tags} />
+          {it.tags?.map((t) => (
+            <Tag key={t.label} tone={t.tone}>
+              {t.label}
+            </Tag>
+          ))}
           <span className="pn-conv__time">
             {it.pinned && <Icon name="pin" label="已置顶" />}
             {it.time}
@@ -73,6 +88,22 @@ export function ConversationItem({
           ) : null}
         </span>
       </span>
+    </>
+  )
+}
+
+export function ConversationItem({
+  item,
+  selected,
+  onClick,
+}: {
+  item: Conversation
+  selected?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button type="button" className="pn-conv" aria-current={selected ? 'true' : undefined} onClick={onClick}>
+      <ConversationContent item={item} />
     </button>
   )
 }

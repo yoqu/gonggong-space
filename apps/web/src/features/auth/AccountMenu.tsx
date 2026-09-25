@@ -1,179 +1,95 @@
 import type { UserDto } from '@gonggong/protocol'
-import {
-  BarChart3,
-  Check,
-  Droplet,
-  KeyRound,
-  Layers,
-  Link2,
-  LogOut,
-  Monitor,
-  Moon,
-  Palette,
-  Sun,
-} from 'lucide-react'
 import { useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
-import { Presence, useEscape, usePresence } from '../../ui'
+import { Avatar, MenuButton, type MenuItem, Presence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { UsageDialog } from '../usage/UsagePage'
 import { ChangePasswordDialog } from './ChangePasswordPage'
 import { logout } from './logout'
-import './auth.css'
 import './account-menu.css'
 
 export const ROLE_LABEL: Record<UserDto['role'], string> = { sysadmin: '系统管理员', member: '普通成员' }
 
-const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
-  { value: 'light', label: '浅色', Icon: Sun },
-  { value: 'dark', label: '深色', Icon: Moon },
-  { value: 'system', label: '跟随系统', Icon: Monitor },
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+  { value: 'system', label: '跟随系统' },
 ]
 
-const GLASS_OPTIONS: { value: GlassPreference; label: string; Icon: typeof Sun }[] = [
-  { value: 'clear', label: '清透', Icon: Droplet },
-  { value: 'standard', label: '标准', Icon: Layers },
-  { value: 'tinted', label: '着色', Icon: Palette },
+const GLASS_OPTIONS: { value: GlassPreference; label: string }[] = [
+  { value: 'clear', label: '清透' },
+  { value: 'standard', label: '标准' },
+  { value: 'tinted', label: '着色' },
 ]
 
-/** Avatar button + dropdown (Web 对话.dc.html ovMenu). */
+/** Avatar button with the glass account menu (Pane MenuButton + Menu). */
 export function AccountMenu() {
   const user = useSession((s) => s.user)
-  const [open, setOpen] = useState(false)
-  const [binding, setBinding] = useState(false)
-  const [usage, setUsage] = useState(false)
-  const [password, setPassword] = useState(false)
+  const [dialog, setDialog] = useState<'bind' | 'usage' | 'password' | null>(null)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
   const [glass, setGlassState] = useState<GlassPreference>(getGlass)
 
-  useEscape(() => setOpen(false), open)
-  const menu = usePresence(open)
-
-  const toggleOpen = () => {
-    // re-read on open so the marker reflects changes made elsewhere (e.g. desktop settings)
-    if (!open) {
-      setThemeState(getTheme())
-      setGlassState(getGlass())
-    }
-    setOpen(!open)
-  }
-
-  const chooseTheme = (value: ThemePreference) => {
-    setTheme(value)
-    setThemeState(value)
-  }
-
-  const chooseGlass = (value: GlassPreference) => {
-    setGlass(value)
-    setGlassState(value)
-  }
-
   if (!user) return null
+  const items: MenuItem[] = [
+    {
+      header: (
+        <span className="account__who">
+          <span className="account__name">{user.name}</span>
+          <span>{`${ROLE_LABEL[user.role]} · ${user.account}`}</span>
+        </span>
+      ),
+    },
+    { separator: true },
+    { label: '绑定新机器', value: 'bind' },
+    { label: '我的用量', value: 'usage' },
+    { label: '修改密码…', value: 'password' },
+    { separator: true },
+    { header: '外观' },
+    ...THEME_OPTIONS.map((o) => ({ label: o.label, value: `theme:${o.value}`, checked: theme === o.value })),
+    { separator: true },
+    { header: '玻璃效果' },
+    ...GLASS_OPTIONS.map((o) => ({ label: o.label, value: `glass:${o.value}`, checked: glass === o.value })),
+    { separator: true },
+    { label: '退出登录', value: 'logout' },
+  ]
+
+  const select = (value: string) => {
+    const [kind, option] = value.split(':')
+    if (kind === 'theme') {
+      setTheme(option as ThemePreference)
+      setThemeState(option as ThemePreference)
+    } else if (kind === 'glass') {
+      setGlass(option as GlassPreference)
+      setGlassState(option as GlassPreference)
+    } else if (kind === 'logout') void logout()
+    else setDialog(kind as 'bind' | 'usage' | 'password')
+  }
+
   return (
-    <div className="account">
-      <button
-        type="button"
-        className="topbar__avatar"
+    <>
+      <MenuButton
+        className="account__trigger"
         aria-label="账户菜单"
-        aria-expanded={open}
         title={user.name}
-        onClick={toggleOpen}
+        align="end"
+        items={items}
+        onSelect={select}
+        onOpenChange={(open) => {
+          // re-read on open so the marks reflect changes made elsewhere (e.g. desktop settings)
+          if (!open) return
+          setThemeState(getTheme())
+          setGlassState(getGlass())
+        }}
       >
-        {Array.from(user.name)[0]}
-      </button>
-      {menu.mounted ? (
-        <>
-          {open ? (
-            <div className="account__backdrop" aria-hidden="true" onClick={() => setOpen(false)} />
-          ) : null}
-          <div
-            className="account__menu ui-popover"
-            data-testid="account-menu"
-            data-state={menu.state}
-            onAnimationEnd={menu.onAnimationEnd}
-          >
-            <div className="account__who">
-              <span className="account__name">{user.name}</span>
-              <span className="account__sub">{`${ROLE_LABEL[user.role]} · ${user.account}`}</span>
-            </div>
-            <div className="account__sep" />
-            <button
-              type="button"
-              className="account__item"
-              onClick={() => {
-                setOpen(false)
-                setBinding(true)
-              }}
-            >
-              <Link2 size={13} />
-              绑定新机器
-            </button>
-            <button
-              type="button"
-              className="account__item"
-              onClick={() => {
-                setOpen(false)
-                setUsage(true)
-              }}
-            >
-              <BarChart3 size={13} />
-              我的用量
-            </button>
-            <button
-              type="button"
-              className="account__item"
-              onClick={() => {
-                setOpen(false)
-                setPassword(true)
-              }}
-            >
-              <KeyRound size={13} />
-              修改密码
-            </button>
-            <div className="account__sep" />
-            <div className="account__label">外观</div>
-            {THEME_OPTIONS.map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="menuitemradio"
-                aria-checked={theme === value}
-                className="account__item"
-                onClick={() => chooseTheme(value)}
-              >
-                <Icon size={13} />
-                {label}
-                {theme === value ? <Check size={13} className="account__check" aria-hidden="true" /> : null}
-              </button>
-            ))}
-            <div className="account__label">玻璃效果</div>
-            {GLASS_OPTIONS.map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="menuitemradio"
-                aria-checked={glass === value}
-                className="account__item"
-                onClick={() => chooseGlass(value)}
-              >
-                <Icon size={13} />
-                {label}
-                {glass === value ? <Check size={13} className="account__check" aria-hidden="true" /> : null}
-              </button>
-            ))}
-            <div className="account__sep" />
-            <button type="button" className="account__item" onClick={() => void logout()}>
-              <LogOut size={13} />
-              退出登录
-            </button>
-          </div>
-        </>
-      ) : null}
-      <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
-      <Presence>{usage ? <UsageDialog onClose={() => setUsage(false)} /> : null}</Presence>
-      <Presence>{password ? <ChangePasswordDialog onClose={() => setPassword(false)} /> : null}</Presence>
-    </div>
+        <Avatar name={user.name} size={24} />
+      </MenuButton>
+      <BindMachineDialog open={dialog === 'bind'} onClose={() => setDialog(null)} />
+      <Presence>{dialog === 'usage' ? <UsageDialog onClose={() => setDialog(null)} /> : null}</Presence>
+      <Presence>
+        {dialog === 'password' ? <ChangePasswordDialog onClose={() => setDialog(null)} /> : null}
+      </Presence>
+    </>
   )
 }

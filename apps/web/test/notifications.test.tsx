@@ -2,11 +2,11 @@ import type { NotificationDto, SearchResultDto, UserDto, WebEvent } from '@gongg
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AppShell } from '../src/app/AppShell'
+import { AppShell, ShellBar } from '../src/app/AppShell'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { fmtTime } from '../src/features/chat/TimelineItems'
 import { realtime } from '../src/lib/realtime'
+import { listTime } from '../src/ui'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -56,7 +56,15 @@ const renderShell = () =>
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="*" element={<Where />} />
+          <Route
+            path="*"
+            element={
+              <>
+                <ShellBar />
+                <Where />
+              </>
+            }
+          />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -291,7 +299,7 @@ describe('⌘K search', () => {
     expect(row.textContent).not.toMatch(/[*`>[\]]/)
     expect(row.querySelector('mark')?.textContent).toBe('退款')
     expect(row.textContent).toContain('支付服务重构')
-    expect(row.textContent).toContain(fmtTime('2026-09-23T02:21:00.000Z'))
+    expect(row.textContent).toContain(listTime('2026-09-23T02:21:00.000Z'))
     fireEvent.click(row)
     expect(screen.getByTestId('where').textContent).toBe('/g/g1?msg=m1')
   })
@@ -330,7 +338,7 @@ describe('⌘K search', () => {
     expect(screen.queryByPlaceholderText('搜索消息、文件、运行')).toBeNull()
   })
 
-  it('opens from the top bar search button', async () => {
+  it('opens from the sidebar search field', async () => {
     mockApi({})
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /搜索消息、文件、运行/ }))
