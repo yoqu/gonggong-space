@@ -39,12 +39,12 @@ it('shows an installed agent and saves its default model and effort', async () =
   expect(claude.getByRole('button', { name: '默认模型' }).textContent).toContain('Haiku 4.5')
 
   expect(claude.getByText('扩展思考')).toBeTruthy()
-  fireEvent.click(claude.getByRole('tab', { name: '高' }))
+  fireEvent.click(claude.getByRole('button', { name: '高' }))
   await waitFor(() => expect(m.setAgentEffort).toHaveBeenCalledWith('claude', 'high'))
-  fireEvent.click(claude.getByRole('tab', { name: '默认' }))
+  fireEvent.click(claude.getByRole('button', { name: '默认' }))
   await waitFor(() => expect(m.setAgentEffort).toHaveBeenLastCalledWith('claude', null))
 
-  fireEvent.click(claude.getByRole('button', { name: '更换路径' }))
+  fireEvent.click(claude.getByRole('button', { name: '更换路径…' }))
   await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('claude'))
   expect(m.agents).toHaveBeenCalledTimes(2)
 })
@@ -66,7 +66,7 @@ it('helps install a missing agent', async () => {
   m.agents.mockResolvedValue([CLAUDE, CODEX])
   fireEvent.click(screen.getAllByRole('button', { name: '重新检测' })[1] as HTMLElement)
   const again = within(await card('Codex'))
-  fireEvent.click(await again.findByRole('button', { name: '手动指定路径' }))
+  fireEvent.click(await again.findByRole('button', { name: '手动指定路径…' }))
   await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('codex'))
 })
 

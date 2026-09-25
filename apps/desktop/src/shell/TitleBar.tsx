@@ -1,29 +1,41 @@
-import logo from '../assets/logo.svg'
+import { Toolbar, ToolbarGroup } from '@web/ui'
 import { connKind, host, PILL } from '../lib/labels'
+import { StatusText } from '../lib/ui'
 import { useDaemon } from '../store'
 
-/** Window chrome: the native traffic lights overlay the left inset (titleBarStyle Overlay); the bar drags the window. */
-export function TitleBar() {
+/**
+ * Unified toolbar that also drags the window (the native title bar is transparent, titleBarStyle Overlay).
+ * Without a sidebar the native traffic lights sit over its left end, so `lights` keeps that space free.
+ */
+export function TitleBar({
+  title,
+  subtitle,
+  lights,
+  scrolled,
+}: {
+  title?: string
+  subtitle?: string
+  lights?: boolean
+  scrolled?: boolean
+}) {
   const info = useDaemon((s) => s.info)
   const pill = PILL[connKind(useDaemon((s) => s.snapshot))]
   const text = pill.text === '已连接' ? `已连接 ${host(info?.server)}` : pill.text
   return (
-    <div className="dk-titlebar" data-tauri-drag-region>
-      <span className="dk-titlebar__lights" />
-      <img className="dk-titlebar__logo" src={logo} alt="" width={16} height={16} data-tauri-drag-region />
-      <span className="dk-titlebar__name" data-tauri-drag-region>
-        共工
-      </span>
-      {info ? (
-        <span className="dk-titlebar__ver" data-tauri-drag-region>
-          v{info.version} · 协议 v{info.protocol}
+    <Toolbar
+      className="dk-toolbar"
+      title={title}
+      subtitle={subtitle}
+      leading={lights ? <span className="dk-lights" /> : undefined}
+      scrolled={scrolled}
+      data-tauri-drag-region="deep"
+    >
+      {title ? null : <span className="dk-flex" />}
+      <ToolbarGroup>
+        <span className="dk-conn" data-testid="conn-pill">
+          <StatusText color={pill.color}>{text}</StatusText>
         </span>
-      ) : null}
-      <span className="dk-flex" data-tauri-drag-region />
-      <span className="dk-pill" data-testid="conn-pill" style={{ color: pill.color }}>
-        <span className="dk-pill__dot" style={{ background: pill.color }} />
-        {text}
-      </span>
-    </div>
+      </ToolbarGroup>
+    </Toolbar>
   )
 }

@@ -47,7 +47,7 @@ describe('日志与诊断', () => {
     render(<LogsPage go={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: '测量延迟与带宽' }))
     expect(await screen.findByText('延迟 23.4 ms · 带宽 87.5 Mbps · 已上报服务器')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '导出诊断包' }))
+    fireEvent.click(screen.getByRole('button', { name: '导出诊断包…' }))
     await waitFor(() => expect(m.exportDiagnostics).toHaveBeenCalled())
   })
 
@@ -58,12 +58,12 @@ describe('日志与诊断', () => {
       expect(screen.getByTestId('log-pane').textContent).toContain('WARN  sync    local edit'),
     )
     expect(m.recentLogs).toHaveBeenLastCalledWith('info', expect.any(Number))
-    fireEvent.click(screen.getByRole('tab', { name: 'warn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'warn' }))
     await waitFor(() => expect(m.recentLogs).toHaveBeenLastCalledWith('warn', expect.any(Number)))
     const calls = m.recentLogs.mock.calls.length
     await act(async () => vi.advanceTimersByTime(2000))
     expect(m.recentLogs.mock.calls.length).toBeGreaterThan(calls)
-    fireEvent.click(screen.getByRole('tab', { name: 'debug' }))
+    fireEvent.click(screen.getByRole('button', { name: 'debug' }))
     await waitFor(() => expect(m.recentLogs).toHaveBeenLastCalledWith('debug', expect.any(Number)))
   })
 })

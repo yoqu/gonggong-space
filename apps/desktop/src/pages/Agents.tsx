@@ -1,9 +1,9 @@
 import { type AgentKind, compareVersions } from '@gonggong/protocol'
-import { Badge, Button, Select, Tabs, toast } from '@web/ui'
-import { Info, SquareTerminal, Terminal, TriangleAlert } from 'lucide-react'
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { Button, GroupBox, GroupRow, Icon, SegmentedControl, Select, Tag, toast } from '@web/ui'
+import { useCallback, useEffect, useState } from 'react'
 import { type AgentCard, type BotCard, ipc } from '../ipc'
 import { AGENTS, effortLabel, modelName, tildify, VENDOR } from '../lib/labels'
+import { Meta } from '../lib/ui'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
@@ -46,13 +46,13 @@ export function AgentsPage(_: PageProps) {
 
   return (
     <>
-      <div className="dk-note">
-        <Info size={13} />
+      <p className="dk-note">
+        <Icon name="info" size={14} />
         <span>
           Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团队里的身份，认领后调用这里的某个 agent
           执行。
         </span>
-      </div>
+      </p>
       {agents?.map((a) => (
         <Agent
           key={a.kind}
@@ -90,13 +90,12 @@ function Agent({
   const meta = AGENTS[a.kind]
   const adapter = info?.adapters.find((x) => x.kind === a.kind)
   const [copied, setCopied] = useState(false)
-  const Icon = a.kind === 'claude' ? Terminal : SquareTerminal
   const usedBy = users.length ? `被 ${users.join('、')} 使用` : '暂无 Bot 使用'
   const badge = checking
-    ? { v: 'info' as const, t: '检测中' }
+    ? { tone: 'blue' as const, t: '检测中' }
     : a.available
-      ? { v: 'success' as const, t: `已安装 ${a.version ?? ''}`.trim() }
-      : { v: 'warning' as const, t: '未安装' }
+      ? { tone: 'green' as const, t: `已安装 ${a.version ?? ''}`.trim() }
+      : { tone: 'orange' as const, t: '未安装' }
   const meets = !a.version || !a.minVersion || compareVersions(a.version, a.minVersion) >= 0
 
   const setModel = async (value: string) => {
@@ -125,38 +124,41 @@ function Agent({
   }
 
   return (
-    <div className={`dk-agent${a.available ? '' : ' dk-agent--missing'}`}>
-      <div className="dk-agent__head">
-        <div className="dk-agent__icon">
-          <Icon size={15} />
-        </div>
-        <div className="dk-row__main dk-agent__title">
-          <span className="dk-agent__name">{meta.name}</span>
-          <span className="dk-sub">{VENDOR[a.kind]}</span>
-        </div>
-        <Badge variant={badge.v}>{badge.t}</Badge>
-        <span className="dk-flex" />
-        <Button variant="ghost" size="sm" onClick={onRecheck} disabled={checking}>
-          {checking ? '检测中…' : '重新检测'}
-        </Button>
-      </div>
-      {a.available ? (
-        <>
-          <div className="dk-agent__section dk-grid4">
-            <Meta k="路径" mono>
-              {tildify(a.path ?? '')}
-            </Meta>
-            <Meta k="版本">
-              {meets
-                ? `${a.version} · 满足 ≥ ${a.minVersion}`
-                : `${a.version} · 低于要求的 ≥ ${a.minVersion}`}
-            </Meta>
-            <Meta k="登录">{a.login ?? '未知'}</Meta>
-            <Meta k="ACP 适配器">{adapter ? `${adapter.version} · 随 daemon` : '随 daemon'}</Meta>
+    <div className="dk-agent">
+      <GroupBox>
+        <div className="dk-row">
+          <span
+            className="dk-tile"
+            style={{ background: a.available ? 'var(--system-purple)' : 'var(--system-gray)' }}
+          >
+            <Icon name={a.kind === 'claude' ? 'terminal' : 'square-terminal'} size={16} />
+          </span>
+          <div className="dk-row__main">
+            <span className="dk-row__title">
+              <span className="dk-strong">{meta.name}</span>
+              <Tag tone={badge.tone}>{badge.t}</Tag>
+            </span>
+            <span className="dk-sub">{VENDOR[a.kind]}</span>
           </div>
-          <div className="dk-agent__section dk-split">
-            <div className="dk-field">
-              <span className="dk-field__label">默认模型 · Bot 未单独指定时使用</span>
+          <Button onClick={onRecheck} disabled={checking}>
+            {checking ? '检测中…' : '重新检测'}
+          </Button>
+        </div>
+        {a.available ? (
+          <>
+            <div className="dk-row dk-grid4">
+              <Meta k="路径" mono>
+                {tildify(a.path ?? '')}
+              </Meta>
+              <Meta k="版本">
+                {meets
+                  ? `${a.version} · 满足 ≥ ${a.minVersion}`
+                  : `${a.version} · 低于要求的 ≥ ${a.minVersion}`}
+              </Meta>
+              <Meta k="登录">{a.login ?? '未知'}</Meta>
+              <Meta k="ACP 适配器">{adapter ? `${adapter.version} · 随 daemon` : '随 daemon'}</Meta>
+            </div>
+            <GroupRow label="默认模型" description="Bot 未单独指定时使用">
               {a.catalog?.models.length ? (
                 <Select
                   label="默认模型"
@@ -165,80 +167,59 @@ function Agent({
                   onChange={setModel}
                 />
               ) : (
-                <span className="dk-hint">运行一次后显示可用模型</span>
+                <span className="dk-sub">运行一次后显示可用模型</span>
               )}
-            </div>
-            <div className="dk-field">
-              <span className="dk-field__label">{a.kind === 'claude' ? '扩展思考' : '推理强度'}</span>
+            </GroupRow>
+            <GroupRow label={a.kind === 'claude' ? '扩展思考' : '推理强度'}>
               {a.catalog?.efforts.length ? (
-                <Tabs size="sm" items={effortItems(a)} value={a.effort ?? ''} onChange={setEffort} />
+                <SegmentedControl
+                  aria-label={a.kind === 'claude' ? '扩展思考' : '推理强度'}
+                  items={effortItems(a)}
+                  value={a.effort ?? ''}
+                  onChange={setEffort}
+                />
               ) : (
-                <span className="dk-hint">运行一次后显示可用模型</span>
+                <span className="dk-sub">运行一次后显示可用模型</span>
               )}
+            </GroupRow>
+            <div className="dk-row">
+              <span className="dk-row__main dk-sub">{usedBy}</span>
+              {a.customPath ? <Button onClick={onResetPath}>恢复自动检测</Button> : null}
+              <Button onClick={onPickPath}>更换路径…</Button>
             </div>
-          </div>
-          <div className="dk-agent__foot">
-            <span className="dk-flex">{usedBy}</span>
-            {a.customPath ? (
-              <Button variant="ghost" size="xs" onClick={onResetPath}>
-                恢复自动检测
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="xs" onClick={onPickPath}>
-              更换路径
-            </Button>
-          </div>
-        </>
-      ) : (
-        <div className="dk-agent__section dk-stack">
-          <div className="dk-warn">
-            <TriangleAlert size={13} />
-            <span>
-              本机未检测到 {meta.name}
-              {a.path
-                ? `（指定的路径 ${a.path} 不存在）`
-                : '（已检查 PATH、~/.local/bin、/opt/homebrew/bin）'}
-              。
-              {users.length
-                ? `${users.join('、')} 依赖它，安装前收到的消息会被拒绝，并在群里提示发起人「执行机器缺少 ${meta.name}」。`
-                : ''}
-            </span>
-          </div>
-          <div className="dk-field">
-            <span className="dk-field__label">安装命令</span>
-            <div className="dk-install">
-              <span className="dk-install__cmd">{meta.install}</span>
-              <Button variant="ghost" size="xs" onClick={copy}>
-                {copied ? '已复制' : '复制'}
+          </>
+        ) : (
+          <>
+            <div className="dk-row dk-warn">
+              <Icon name="warning" size={16} color="var(--system-orange)" />
+              <span className="dk-row__main">
+                本机未检测到 {meta.name}
+                {a.path
+                  ? `（指定的路径 ${a.path} 不存在）`
+                  : '（已检查 PATH、~/.local/bin、/opt/homebrew/bin）'}
+                。
+                {users.length
+                  ? `${users.join('、')} 依赖它，安装前收到的消息会被拒绝，并在群里提示发起人「执行机器缺少 ${meta.name}」。`
+                  : ''}
+              </span>
+            </div>
+            <GroupRow label="安装命令">
+              <span className="dk-install">
+                <code className="dk-install__cmd">{meta.install}</code>
+                <Button onClick={copy}>{copied ? '已复制' : '复制'}</Button>
+              </span>
+            </GroupRow>
+            <div className="dk-row">
+              <span className="dk-row__main dk-sub">{usedBy}</span>
+              {a.customPath ? <Button onClick={onResetPath}>恢复自动检测</Button> : null}
+              <Button onClick={onPickPath}>手动指定路径…</Button>
+              <Button variant="primary" onClick={onRecheck} disabled={checking}>
+                已安装，重新检测
               </Button>
             </div>
-          </div>
-          <div className="dk-inline">
-            <Button variant="primary" size="sm" onClick={onRecheck} disabled={checking}>
-              已安装，重新检测
-            </Button>
-            <Button variant="outline" size="sm" onClick={onPickPath}>
-              手动指定路径
-            </Button>
-            {a.customPath ? (
-              <Button variant="ghost" size="sm" onClick={onResetPath}>
-                恢复自动检测
-              </Button>
-            ) : null}
-            <span className="dk-flex" />
-            <span className="dk-sub">{usedBy}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Meta({ k, mono, children }: { k: string; mono?: boolean; children: ReactNode }) {
-  return (
-    <div className="dk-meta">
-      <span className="dk-meta__k">{k}</span>
-      <span className={mono ? 'dk-meta__v dk-mono' : 'dk-meta__v'}>{children}</span>
+          </>
+        )}
+      </GroupBox>
     </div>
   )
 }

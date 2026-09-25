@@ -53,19 +53,17 @@ it('lists the bots with their local settings and warnings', async () => {
 
 it('edits the model, concurrency and command approval of a bot', async () => {
   render(<BotsPage go={() => {}} />)
-  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置' }))
+  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
   const dialog = within(screen.getByRole('dialog'))
   expect(dialog.getByText('小王的 Claude · 本机设置')).toBeTruthy()
-  expect(dialog.getByRole('radio', { name: /Claude Code/ }).getAttribute('aria-checked')).toBe('true')
+  expect(dialog.getByRole('radio', { name: /Claude Code/ })).toHaveProperty('checked', true)
   expect(dialog.getByRole('radio', { name: /Codex/ })).toHaveProperty('disabled', true)
   expect(dialog.getByText(/切换 agent 会结束该 Bot 在各群的会话上下文/)).toBeTruthy()
-  expect(dialog.getByRole('radio', { name: /跟随 agent 默认 · Sonnet 5/ }).getAttribute('aria-checked')).toBe(
-    'true',
-  )
+  expect(dialog.getByRole('radio', { name: /跟随 agent 默认 · Sonnet 5/ })).toHaveProperty('checked', true)
 
   fireEvent.click(dialog.getByRole('radio', { name: /Haiku 4.5/ }))
-  fireEvent.click(dialog.getByRole('tab', { name: '3' }))
-  fireEvent.click(dialog.getByRole('tab', { name: '白名单自动' }))
+  fireEvent.click(dialog.getByRole('button', { name: '3' }))
+  fireEvent.click(dialog.getByRole('button', { name: '白名单自动' }))
   const input = dialog.getByPlaceholderText('命令前缀，如 go build')
   fireEvent.change(input, { target: { value: 'npm test' } })
   fireEvent.click(dialog.getByRole('button', { name: '添加' }))
@@ -88,7 +86,7 @@ it('edits the model, concurrency and command approval of a bot', async () => {
 it('saves only local settings when the concurrency is unchanged, and back to following the default', async () => {
   m.bots.mockResolvedValue([bot({ model: 'haiku', approval: 'all' })])
   render(<BotsPage go={() => {}} />)
-  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置' }))
+  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
   const dialog = within(screen.getByRole('dialog'))
   fireEvent.click(dialog.getByRole('radio', { name: /跟随 agent 默认/ }))
   fireEvent.click(dialog.getByRole('button', { name: '保存' }))

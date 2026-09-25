@@ -29,8 +29,13 @@ export function App() {
 
   return (
     <div className="dk-window">
-      <TitleBar />
-      {!info ? null : onboarding ? <Onboarding onDone={() => setOnboarding(false)} /> : <Shell />}
+      {!info ? (
+        <TitleBar lights scrolled={false} />
+      ) : onboarding ? (
+        <Onboarding onDone={() => setOnboarding(false)} />
+      ) : (
+        <Shell />
+      )}
       <Toaster />
     </div>
   )

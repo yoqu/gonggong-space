@@ -16,18 +16,21 @@ export function StatusLine() {
     .map((a) => `${a.package.split('/').pop()} ${a.version}`)
     .join(' · ')
   return (
-    <div className="dk-statusline" data-testid="status-line">
+    <footer className="dk-statusline" data-testid="status-line">
       <span>
         {status?.heartbeatSec && online ? `心跳 ${status.heartbeatSec}s · ${beat}` : '心跳 — · 未连接'}
       </span>
-      <span>|</span>
       <span>{online && status?.latencyMs != null ? `延迟 ${status.latencyMs} ms` : '延迟 —'}</span>
-      <span>|</span>
       <span>
         运行 {runs.filter((r) => !r.queued).length} · 队列 {runs.filter((r) => r.queued).length}
       </span>
       <span className="dk-flex" />
-      <span>ACP 适配器 {adapters || '—'}</span>
-    </div>
+      <span className="dk-ellipsis">ACP 适配器 {adapters || '—'}</span>
+      {info ? (
+        <span>
+          v{info.version} · 协议 v{info.protocol}
+        </span>
+      ) : null}
+    </footer>
   )
 }

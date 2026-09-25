@@ -1,22 +1,22 @@
-import { Button, Tabs, toast } from '@web/ui'
-import { FileWarning, GitBranch, HardDrive, type LucideIcon, Plug, Server } from 'lucide-react'
+import { Button, GroupBox, Icon, type IconName, SegmentedControl, toast } from '@web/ui'
 import { useEffect, useState } from 'react'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
+import { Section, StatusText } from '../lib/ui'
 import type { PageProps } from '.'
 
-const ICONS: Record<Check['kind'], LucideIcon> = {
-  server: Server,
-  agent: Plug,
-  git: GitBranch,
-  disk: HardDrive,
-  eol: FileWarning,
+const ICONS: Record<Check['kind'], IconName> = {
+  server: 'server',
+  agent: 'plug',
+  git: 'git-branch',
+  disk: 'hard-drive',
+  eol: 'doc-warning',
 }
 
-const STATUS_COLOR: Record<CheckStatus, string> = {
-  ok: 'var(--color-success)',
-  warn: 'var(--color-warning)',
-  error: 'var(--color-danger)',
-  skipped: 'var(--color-text-tertiary)',
+const STATUS: Record<CheckStatus, { color: string; text: string }> = {
+  ok: { color: 'var(--system-green)', text: '正常' },
+  warn: { color: 'var(--system-orange)', text: '注意' },
+  error: { color: 'var(--system-red)', text: '异常' },
+  skipped: { color: 'var(--system-gray)', text: '跳过' },
 }
 
 const LEVELS: { value: LogLevel; label: string }[] = [
@@ -71,50 +71,61 @@ export function LogsPage(_: PageProps) {
 
   return (
     <>
-      <div className="dk-checks">
-        {(checks ?? []).map((c) => {
-          const Icon = ICONS[c.kind]
-          return (
-            <div key={c.kind} className="dk-check" data-testid="check" data-status={c.status}>
-              <Icon size={14} color={STATUS_COLOR[c.status]} />
-              <div className="dk-check__text">
-                <span className="dk-check__label">{c.label}</span>
+      <Section title="诊断">
+        <GroupBox>
+          {(checks ?? []).map((c) => (
+            <div key={c.kind} className="dk-row" data-testid="check" data-status={c.status}>
+              <Icon name={ICONS[c.kind]} size={16} color={STATUS[c.status].color} />
+              <div className="dk-row__main">
+                <span>{c.label}</span>
                 <span className="dk-sub dk-ellipsis" title={c.detail}>
                   {c.detail}
                 </span>
               </div>
+              <StatusText color={STATUS[c.status].color}>{STATUS[c.status].text}</StatusText>
             </div>
-          )
-        })}
-        {checks ? null : <div className="dk-card dk-card--muted">检测中…</div>}
-      </div>
-      <div className="dk-inline">
-        <Button variant="outline" size="sm" onClick={measure} disabled={net === 'measuring'}>
-          测量延迟与带宽
-        </Button>
-        <Button variant="outline" size="sm" onClick={exportBundle} disabled={exporting}>
-          导出诊断包
-        </Button>
-        <span className="dk-sub">
-          {net === 'measuring'
-            ? '测量中…'
-            : net
-              ? `延迟 ${net.latencyMs} ms · 带宽 ${net.bandwidthMbps} Mbps · 已上报服务器`
-              : ''}
-        </span>
-        <span className="dk-flex" />
-        <Tabs size="sm" items={LEVELS} value={level} onChange={setLevel} />
-      </div>
-      <div className="dk-logpane" data-testid="log-pane">
-        {lines.length === 0 ? <div className="dk-log">暂无日志</div> : null}
-        {lines.map((l, i) => (
-          // Lines have no identity; the list is replaced wholesale on every refresh.
-          // biome-ignore lint/suspicious/noArrayIndexKey: see above
-          <div key={i} className={`dk-log dk-log--${l.level}`}>
-            {l.text}
-          </div>
-        ))}
-      </div>
+          ))}
+          {checks ? null : <div className="dk-row dk-row--empty">检测中…</div>}
+        </GroupBox>
+        <div className="dk-inline">
+          <Button onClick={measure} disabled={net === 'measuring'}>
+            测量延迟与带宽
+          </Button>
+          <Button onClick={exportBundle} disabled={exporting}>
+            导出诊断包…
+          </Button>
+          <span className="dk-sub">
+            {net === 'measuring'
+              ? '测量中…'
+              : net
+                ? `延迟 ${net.latencyMs} ms · 带宽 ${net.bandwidthMbps} Mbps · 已上报服务器`
+                : ''}
+          </span>
+        </div>
+      </Section>
+      <Section
+        title="最近日志"
+        aside={
+          <SegmentedControl
+            aria-label="日志级别"
+            size="small"
+            items={LEVELS}
+            value={level}
+            onChange={setLevel}
+          />
+        }
+      >
+        <div className="dk-logpane" data-testid="log-pane">
+          {lines.length === 0 ? <div className="dk-log dk-log--empty">暂无日志</div> : null}
+          {lines.map((l, i) => (
+            // Lines have no identity; the list is replaced wholesale on every refresh.
+            // biome-ignore lint/suspicious/noArrayIndexKey: see above
+            <div key={i} className={`dk-log dk-log--${l.level}`}>
+              {l.text}
+            </div>
+          ))}
+        </div>
+      </Section>
     </>
   )
 }
