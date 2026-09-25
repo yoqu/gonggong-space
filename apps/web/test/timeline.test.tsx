@@ -238,12 +238,12 @@ describe('timeline bubbles', () => {
       ],
       runs: [],
     })
-    const mine = (await screen.findByText('我的消息')).closest('.tl-msg') as HTMLElement
-    expect(mine.classList.contains('tl-msg--mine')).toBe(true)
-    expect(within(mine).queryByText('王磊')).toBeNull()
-    const rows = [...document.querySelectorAll<HTMLElement>('.tl-msg')]
-    expect(rows.map((r) => r.classList.contains('tl-msg--compact'))).toEqual([false, true, false, false])
-    expect(rows[1]!.querySelector('.tl-avatar')).toBeNull()
+    const mine = (await screen.findByText('我的消息')).closest('.pn-msg') as HTMLElement
+    expect(mine.classList.contains('pn-msg--self')).toBe(true)
+    expect(mine.querySelector('.pn-msg__meta b')).toBeNull()
+    const rows = [...document.querySelectorAll<HTMLElement>('.pn-msg')]
+    expect(rows.map((r) => r.classList.contains('pn-msg--cont'))).toEqual([false, true, false, false])
+    expect(rows[1]!.querySelector('.ui-avatar')).toBeNull()
     expect(within(rows[1]!).queryByText('李建国')).toBeNull()
   })
 
@@ -256,8 +256,8 @@ describe('timeline bubbles', () => {
       group({ unread: 1 }),
     )
     await screen.findByText('第 3 条')
-    expect(document.querySelectorAll('.tl-day')).toHaveLength(1)
-    const divider = screen.getByText('以下为新消息').closest('.tl-unread') as HTMLElement
+    expect(document.querySelectorAll('.pn-notice--date')).toHaveLength(1)
+    const divider = screen.getByText('以下为新消息').closest('.pn-notice--unread') as HTMLElement
     const next = divider.nextElementSibling as HTMLElement
     expect(next.dataset.msgId).toBe('m3')
   })
@@ -313,7 +313,7 @@ describe('system event folding', () => {
 describe('hover action bar', () => {
   it('is a keyboard-reachable toolbar with quote, copy and more', async () => {
     renderChat({ messages: [msg({ seq: 1, body: '你好' })], runs: [] })
-    const row = (await screen.findByText('你好')).closest('.tl-msg') as HTMLElement
+    const row = (await screen.findByText('你好')).closest('.pn-msg') as HTMLElement
     const bar = within(row).getByRole('toolbar', { name: '消息操作' })
     const names = within(bar)
       .getAllByRole('button')
@@ -331,14 +331,14 @@ describe('hover action bar', () => {
     renderChat({ messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })], runs: [run()] })
     const card = await screen.findByTestId('run-card')
     expect(within(card).getByRole('button', { name: '查看过程' })).toBeTruthy()
-    const row = screen.getByText('第 1 条').closest('.tl-msg') as HTMLElement
+    const row = screen.getByText('第 1 条').closest('.pn-msg') as HTMLElement
     expect(within(row).queryByRole('button', { name: '查看过程' })).toBeNull()
   })
 
   it('opens on a touch long-press', async () => {
     renderChat({ messages: [msg({ seq: 1, body: '长按我' })], runs: [] })
-    const row = (await screen.findByText('长按我')).closest('.tl-msg') as HTMLElement
-    const host = row.querySelector('[data-actions]') as HTMLElement
+    const row = (await screen.findByText('长按我')).closest('.pn-msg') as HTMLElement
+    const host = row.closest('[data-actions]') as HTMLElement
     vi.useFakeTimers()
     fireEvent.pointerDown(host, { pointerType: 'touch' })
     act(() => vi.advanceTimersByTime(600))

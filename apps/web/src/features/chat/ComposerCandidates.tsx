@@ -1,14 +1,14 @@
 import type { CommandCandidatesDto, FileCandidatesDto, GroupDto } from '@gonggong/protocol'
-import { Bot, Cpu, FileText, Folder, type LucideIcon, Terminal, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { Icon, type IconName } from '../../ui'
 import { PRESENCE } from '../bots/model'
 
 export interface Candidate {
   key: string
-  icon: LucideIcon
+  icon: IconName
   label: string
   /** Paths and commands use the mono font. */
   mono: boolean
@@ -78,12 +78,17 @@ export function useCandidates(group: GroupDto, before: string | null) {
   const people = [
     ...bots.map((b) => ({
       key: `bot:${b.id}`,
-      icon: Bot,
+      icon: 'bot' as const,
       name: b.name,
       hint: b.ownerName,
       status: PRESENCE[b.presence],
     })),
-    ...group.members.map((m) => ({ key: `member:${m.userId}`, icon: User, name: m.name, hint: '成员' })),
+    ...group.members.map((m) => ({
+      key: `member:${m.userId}`,
+      icon: 'person' as const,
+      name: m.name,
+      hint: '成员',
+    })),
   ]
   const token =
     before === null
@@ -131,7 +136,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
             src: files && files.source !== 'none' ? `来源：${files.label}` : '',
             items: fileEntries.map((e) => ({
               key: `file:${e.path}`,
-              icon: e.dir ? Folder : FileText,
+              icon: e.dir ? 'folder' : 'doc-text',
               label: e.path,
               mono: true,
               hint: fileHint(e),
@@ -147,7 +152,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
               .filter((c) => has(c.name))
               .map((c) => ({
                 key: `cmd:${c.name}`,
-                icon: Terminal,
+                icon: 'terminal',
                 label: `/${c.name}`,
                 mono: true,
                 hint: c.hint,
@@ -161,7 +166,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
               .filter((c) => has(c.name))
               .map((c) => ({
                 key: `agent:${c.botId}:${c.name}`,
-                icon: Cpu,
+                icon: 'cpu',
                 label: `/${c.name}`,
                 mono: true,
                 hint: c.hint,
@@ -216,12 +221,12 @@ export function CandidatePopover({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => onPick(c)}
             >
-              <c.icon size={13} className="mention-pop__icon" />
+              <Icon name={c.icon} size={14} className="mention-pop__icon" />
               <span className={cx('mention-pop__name', c.mono && 'mention-pop__mono')}>{c.label}</span>
               <span className="spacer" />
               {c.status ? (
                 <span className="mention-pop__status">
-                  <span className="dot" style={{ background: c.status.color }} />
+                  <span className="mention-pop__dot" style={{ background: c.status.color }} />
                   {c.status.label}
                 </span>
               ) : null}

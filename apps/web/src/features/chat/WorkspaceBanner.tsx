@@ -1,10 +1,9 @@
 import type { BotDto, GroupDto } from '@gonggong/protocol'
-import { FolderCheck, FolderOpen, GitBranch } from 'lucide-react'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Button, Presence, toast } from '../../ui'
+import { Button, Icon, PinnedBanner, Presence, toast } from '../../ui'
 import { DirPicker } from '../workspaces/DirPicker'
 
 /** Bots waiting for a workspace (plan W5): their owner binds one here; nobody else can, and they are not run meanwhile. */
@@ -27,13 +26,14 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
     <>
       {mineReady.length > 1 ? (
         // Several of my bots at once: one line with a button each instead of a stack of identical banners.
-        <div className="ws-banner">
-          <FolderOpen size={13} className="muted-icon" />
-          <span className="ws-banner__text">{`${mineReady.length} 个 Bot 还没有工作区，此前 @ 它们不会执行`}</span>
-          {mineReady.map((b) => (
+        <PinnedBanner
+          icon="folder-open"
+          title={null}
+          text={`${mineReady.length} 个 Bot 还没有工作区，此前 @ 它们不会执行`}
+          action={mineReady.map((b) => (
             <Button
               key={b.id}
-              size="xs"
+              size="small"
               variant="primary"
               data-testid={`ws-banner-${b.id}`}
               onClick={() => setPicking(b)}
@@ -41,26 +41,30 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               {`绑定 ${b.name}`}
             </Button>
           ))}
-        </div>
+        />
       ) : null}
       {waiting.map((b) => {
         if (mineReady.length > 1 && mineReady.includes(b)) return null
         const mine = b.ownerId === me?.id
         const error = states?.[b.id]?.error
         return (
-          <div key={b.id} className="ws-banner" data-testid={`ws-banner-${b.id}`}>
-            <FolderOpen size={13} className="muted-icon" />
-            <span className="ws-banner__text">
-              {mine
-                ? `为 ${b.name} 选择工作区后才能开始工作，此前 @ 它不会执行`
-                : `等待 ${b.ownerName} 为 ${b.name} 绑定工作区`}
-              {error ? ` · ${error}` : ''}
-            </span>
-            {mine && b.machineId ? (
-              <Button size="xs" variant="primary" onClick={() => setPicking(b)}>
-                绑定工作区
-              </Button>
-            ) : null}
+          <div key={b.id} data-testid={`ws-banner-${b.id}`}>
+            <PinnedBanner
+              icon="folder-open"
+              title={null}
+              text={`${
+                mine
+                  ? `为 ${b.name} 选择工作区后才能开始工作，此前 @ 它不会执行`
+                  : `等待 ${b.ownerName} 为 ${b.name} 绑定工作区`
+              }${error ? ` · ${error}` : ''}`}
+              action={
+                mine && b.machineId ? (
+                  <Button size="small" variant="primary" onClick={() => setPicking(b)}>
+                    绑定工作区
+                  </Button>
+                ) : null
+              }
+            />
           </div>
         )
       })}
@@ -81,7 +85,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                       className="dirpick__choice"
                       onClick={() => void bind(picking, null)}
                     >
-                      <GitBranch size={16} className="dirpick__choice-icon" />
+                      <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
                       <span className="dirpick__choice-text">
                         <span className="dirpick__choice-title">
                           托管克隆群仓库<span className="dirpick__badge">推荐</span>
@@ -96,7 +100,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                       className="dirpick__choice"
                       onClick={() => void bind(picking, picking.defaultWorkspace)}
                     >
-                      <FolderCheck size={16} className="dirpick__choice-icon" />
+                      <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
                       <span className="dirpick__choice-text">
                         <span className="dirpick__choice-title">使用默认工作区</span>
                         <span className="dirpick__choice-desc">{picking.defaultWorkspace}</span>

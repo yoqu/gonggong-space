@@ -1,15 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '../../lib/cx'
+import { Button, type ButtonVariant, type Glyph, renderGlyph } from '../controls'
+import { ProgressIndicator, Tag, type TagTone } from '../display'
 import { Icon, type IconName } from '../icon'
-import {
-  Button,
-  type ButtonVariant,
-  type IconLike,
-  ProgressBar,
-  renderIcon,
-  Tag,
-  type TagSpec,
-} from './primitives'
 import './cards.css'
 
 type Tint = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray'
@@ -46,6 +39,8 @@ export interface FileAttachmentProps {
   progress?: number
   /** `false` hides the download button. */
   onDownload?: (() => void) | false
+  /** Makes the whole card a button (e.g. open a preview); it then has no download button. */
+  onOpen?: () => void
   className?: string
 }
 
@@ -56,25 +51,31 @@ export function FileAttachment({
   ext,
   progress,
   onDownload,
+  onOpen,
   className,
 }: FileAttachmentProps) {
   const e = (ext ?? name.split('.').pop() ?? '').toLowerCase()
   const [tone, label] = FILE_KINDS[e] ?? ['gray', e.toUpperCase().slice(0, 4) || 'FILE']
+  const Root = onOpen ? 'button' : 'div'
   return (
-    <div className={cx('pn-card', 'pn-file', className)}>
+    <Root
+      type={onOpen ? 'button' : undefined}
+      className={cx('pn-card', 'pn-file', onOpen && 'pn-file--open', className)}
+      onClick={onOpen}
+    >
       <span className="pn-filetile" style={tint(tone)}>
         <Icon name="doc" />
         {label}
       </span>
       <span className="pn-file__body">
         <span className="pn-file__name">{name}</span>
-        {progress != null && <ProgressBar value={progress} label="上传进度" />}
+        {progress != null && <ProgressIndicator value={progress} aria-label="上传进度" />}
         <span className="pn-file__meta">{[size, meta].filter(Boolean).join(' · ')}</span>
       </span>
-      {onDownload !== false && (
+      {onDownload !== false && !onOpen && (
         <Button variant="glass" icon="download" aria-label="下载" title="下载" onClick={onDownload} />
       )}
-    </div>
+    </Root>
   )
 }
 
@@ -168,9 +169,9 @@ export interface MessageCardProps {
   title: ReactNode
   /** blue notice, green success, orange pending, red alert, gray finished. */
   template?: Tint
-  icon?: IconLike
+  icon?: Glyph
   /** Status tag at the right of the header. */
-  status?: TagSpec
+  status?: { label: string; tone: TagTone }
   fields?: { label: ReactNode; value: ReactNode; short?: boolean }[]
   children?: ReactNode
   actions?: MessageCardAction[]
@@ -194,7 +195,7 @@ export function MessageCard({
   return (
     <div className={cx('pn-card', 'pn-mcard', `pn-mcard--${template}`, className)} style={style}>
       <div className="pn-mcard__head">
-        {icon != null && renderIcon(icon)}
+        {icon != null && renderGlyph(icon)}
         <span className="pn-mcard__title">{title}</span>
         {status && <Tag tone={status.tone}>{status.label}</Tag>}
       </div>

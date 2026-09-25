@@ -1,23 +1,23 @@
 import type { GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
-import { BellOff, Megaphone, PanelRight, Users } from 'lucide-react'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { ChatHeader } from '../../app/ChatLayout'
-import { GROUP_MODE_HINT, GROUP_MODE_LABEL } from '../../app/Sidebar'
+import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import {
-  Badge,
   Button,
+  ChatHeader,
+  ChatNotice,
   EmptyChatArt,
   EmptyState,
   FailedArt,
-  IconButton,
+  Icon,
+  MessageList,
+  PinnedBanner,
   Presence,
   Spinner,
-  useScrollEdge,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
@@ -43,9 +43,9 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const tl = useTimeline(group.id)
   const bots = useWorkspace((s) => s.bots)
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
-  const meId = useSession((s) => s.user?.id)
+  const me = useSession((s) => s.user)
+  const meId = me?.id
   const box = useRef<HTMLDivElement>(null)
-  const [edge, scrolled] = useScrollEdge()
   const stick = useRef(true)
   const olderAnchor = useRef<{ id: string; height: number } | null>(null)
   const readSeq = useRef(0)
@@ -227,6 +227,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       <UserMessage
         m={m}
         names={names}
+        me={me?.name}
         mine={m.authorId === meId}
         compact={compact}
         fanOut={fanOuts.get(m.id)}
@@ -236,53 +237,44 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
 
   const botCount = group.botIds.length
   return (
-    <>
+    <div className="chat-view">
       <ChatHeader
+        group
         title={group.name}
-        scrolled={scrolled}
-        badge={
-          <span title={GROUP_MODE_HINT[group.mode]}>
-            <Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>
-          </span>
-        }
-        subtitle={
-          group.repo
-            ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-            : '未绑定仓库 · 各 Bot 使用本机目录'
-        }
-        subtitleTitle={group.repo?.url}
         onBack={onBack}
-        actions={
+        tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
+        subtitle={
           <>
             {group.muted ? (
-              <span className="chat-header__muted" title="消息免打扰">
-                <BellOff size={13} />
-              </span>
+              <Icon name="bell-slash" size={11} label="消息免打扰" className="chat-view__muted" />
             ) : null}
-            {group.kind === 'group' ? (
-              <button
-                type="button"
-                className="chat-header__members"
-                title="群成员"
-                aria-label={`群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`}
-                onClick={() => setDrawer('members')}
-              >
-                <Users size={14} />
-                {group.members.length} 人{botCount ? ` · ${botCount} Bot` : ''}
-              </button>
-            ) : (
-              <span className="chat-header__note">仅你和你的 Bot</span>
-            )}
-            <IconButton
-              variant="glass"
-              title="群设置"
-              className={drawer ? 'is-active' : undefined}
-              onClick={() => setDrawer(drawer ? null : 'main')}
-            >
-              <PanelRight size={15} />
-            </IconButton>
+            {group.kind === 'group'
+              ? `${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''} · `
+              : '仅你和你的 Bot · '}
+            <span title={group.repo?.url}>
+              {group.repo
+                ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                : '未绑定仓库 · 各 Bot 使用本机目录'}
+            </span>
           </>
         }
+        actions={[
+          ...(group.kind === 'group'
+            ? [
+                {
+                  icon: 'person-2' as const,
+                  label: `群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`,
+                  onClick: () => setDrawer('members'),
+                },
+              ]
+            : []),
+          {
+            icon: 'sidebar-right',
+            label: '群设置',
+            active: !!drawer,
+            onClick: () => setDrawer(drawer ? null : 'main'),
+          },
+        ]}
       />
       <Presence>
         {drawer ? (
@@ -302,94 +294,91 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
         ) : null}
       </Presence>
-      {group.notice ? (
-        <div className="chat-notice" data-testid="group-notice">
-          <Megaphone size={13} className="muted-icon" />
-          <span className="chat-notice__text">{group.notice}</span>
-        </div>
-      ) : null}
       <GitBar group={group} />
-      <WorkspaceBanner group={group} />
-      <div className="timeline" ref={box} onScroll={onScroll}>
-        <div ref={edge} className="ui-toolbar-sentinel" aria-hidden="true" />
-        <div className="timeline__inner">
-          {tl.older === 'loading' ? (
-            <div className="timeline__older" data-testid="older-loading">
-              <Spinner />
-            </div>
-          ) : tl.older === 'failed' ? (
-            <div className="timeline__older" data-testid="older-error">
-              加载更早消息失败
-              <button type="button" className="timeline__retry" onClick={loadOlder}>
-                重试
-              </button>
-            </div>
-          ) : null}
-          {tl.failed ? (
-            <EmptyState
-              bare
-              illustration={<FailedArt />}
-              title="消息加载失败"
-              description="请检查网络后重试。"
-              actions={
-                <Button size="sm" onClick={tl.retry}>
+      <div className="chat-view__body">
+        <div className="chat-scroll" ref={box} onScroll={onScroll}>
+          <div className="chat-view__banners">
+            {group.notice ? (
+              <div data-testid="group-notice">
+                <PinnedBanner text={group.notice} />
+              </div>
+            ) : null}
+            <WorkspaceBanner group={group} />
+          </div>
+          <MessageList className="chat-scroll__list">
+            {tl.older === 'loading' ? (
+              <div className="chat-scroll__older" data-testid="older-loading">
+                <Spinner />
+              </div>
+            ) : tl.older === 'failed' ? (
+              <div className="chat-scroll__older" data-testid="older-error">
+                加载更早消息失败
+                <Button size="small" variant="plain" onClick={loadOlder}>
                   重试
                 </Button>
-              }
-            />
-          ) : !tl.loaded ? (
-            <div className="timeline__loading">
-              <Spinner />
-            </div>
-          ) : tl.messages.length ? (
-            tl.messages.map((m, i) => {
-              const prev = tl.messages[i - 1]
-              const foldEnd = folds.get(i)
-              if (foldEnd === undefined && foldedAt(i)) return null
-              return (
-                <Fragment key={m.id}>
-                  {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
-                    <div className="tl-day">
-                      <span>{dayLabel(m.createdAt)}</span>
-                    </div>
-                  )}
-                  {m.id === unreadAt ? (
-                    <div className="tl-unread">
-                      <span>以下为新消息</span>
-                    </div>
-                  ) : null}
-                  {foldEnd === undefined ? (
-                    <div
-                      data-msg-id={m.id}
-                      className={cx(
-                        'tl-item',
-                        tl.arrived.has(m.id) && 'tl-item--enter',
-                        flash === m.id && 'tl-item--flash',
-                      )}
-                    >
-                      {renderMessage(m, isCompact(prev, m))}
-                    </div>
-                  ) : (
-                    <EventFold events={tl.messages.slice(i, foldEnd + 1)} flash={flash} />
-                  )}
-                  {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}
-                </Fragment>
-              )
-            })
-          ) : (
-            <EmptyState
-              bare
-              illustration={<EmptyChatArt />}
-              title="还没有消息"
-              description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
-            />
-          )}
+              </div>
+            ) : null}
+            {tl.failed ? (
+              <EmptyState
+                bare
+                illustration={<FailedArt />}
+                title="消息加载失败"
+                description="请检查网络后重试。"
+                actions={
+                  <Button size="small" onClick={tl.retry}>
+                    重试
+                  </Button>
+                }
+              />
+            ) : !tl.loaded ? (
+              <div className="chat-scroll__loading">
+                <Spinner />
+              </div>
+            ) : tl.messages.length ? (
+              tl.messages.map((m, i) => {
+                const prev = tl.messages[i - 1]
+                const foldEnd = folds.get(i)
+                if (foldEnd === undefined && foldedAt(i)) return null
+                return (
+                  <Fragment key={m.id}>
+                    {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
+                      <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
+                    )}
+                    {m.id === unreadAt ? <ChatNotice kind="unread" /> : null}
+                    {foldEnd === undefined ? (
+                      <div
+                        data-msg-id={m.id}
+                        className={cx(
+                          'tl-item',
+                          tl.arrived.has(m.id) && 'tl-item--enter',
+                          flash === m.id && 'tl-item--flash',
+                        )}
+                      >
+                        {renderMessage(m, isCompact(prev, m))}
+                      </div>
+                    ) : (
+                      <EventFold events={tl.messages.slice(i, foldEnd + 1)} flash={flash} />
+                    )}
+                    {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}
+                  </Fragment>
+                )
+              })
+            ) : (
+              <EmptyState
+                bare
+                illustration={<EmptyChatArt />}
+                title="还没有消息"
+                description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
+              />
+            )}
+          </MessageList>
+          {unseen ? (
+            <button type="button" className="chat-scroll__pill" onClick={toBottom}>
+              <Icon name="chevron-down" size={13} />
+              {unseen} 条新消息
+            </button>
+          ) : null}
         </div>
-        {unseen ? (
-          <button type="button" className="timeline__pill" onClick={toBottom}>
-            ↓ {unseen} 条新消息
-          </button>
-        ) : null}
       </div>
       <MessageComposer
         group={group}
@@ -398,6 +387,6 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           tl.addMessage(m)
         }}
       />
-    </>
+    </div>
   )
 }

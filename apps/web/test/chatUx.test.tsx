@@ -174,7 +174,7 @@ const renderAt = (path = '/g/g1') =>
 const box = () =>
   screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
 const sendButton = () => screen.getByRole('button', { name: '发送' }) as HTMLButtonElement
-const timelineEl = () => document.querySelector('.timeline') as HTMLDivElement
+const timelineEl = () => document.querySelector('.chat-scroll') as HTMLDivElement
 const precedes = (a: Element, b: Element) =>
   !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
@@ -303,9 +303,9 @@ describe('scroll position', () => {
     const el = timelineEl()
     scrollUp(el)
     push({ t: 'message.new', message: msg({ seq: 3, authorId: 'u2', authorName: '李建国', body: '在吗' }) })
-    expect(screen.getByRole('button', { name: '↓ 1 条新消息' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '1 条新消息' })).toBeTruthy()
     push({ t: 'run.updated', run: run({ triggerMessageId: 'm3' }) })
-    fireEvent.click(screen.getByRole('button', { name: '↓ 2 条新消息' }))
+    fireEvent.click(screen.getByRole('button', { name: '2 条新消息' }))
     expect(el.scrollTop).toBe(2000)
     expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
   })
@@ -355,7 +355,7 @@ describe('read marks and timestamps', () => {
     })
     renderAt()
     await screen.findByText('今天的')
-    expect([...document.querySelectorAll('.tl-day')].map((d) => d.textContent)).toEqual([
+    expect([...document.querySelectorAll('.pn-notice--date')].map((d) => d.textContent)).toEqual([
       '3月5日',
       '昨天',
       '今天',
@@ -369,8 +369,8 @@ describe('chat header', () => {
   it('labels member and bot counts', async () => {
     mockApi({ messages: [], runs: [] })
     renderAt()
-    const btn = await screen.findByRole('button', { name: '群成员：2 人，2 个 Bot' })
-    expect(btn.textContent).toBe('2 人 · 2 Bot')
+    expect(await screen.findByRole('button', { name: '群成员：2 人，2 个 Bot' })).toBeTruthy()
+    expect(document.querySelector('.pn-chathead__sub')?.textContent).toContain('2 人 · 2 Bot')
   })
 })
 
@@ -416,7 +416,7 @@ describe('composer', () => {
       useQuote.getState().set({ kind: 'message', id: 'm1', who: '李建国', text: '看下字段', groupId: 'g1' }),
     )
     fireEvent.paste(box(), { clipboardData: { files: [new File(['x'], 'shot.png', { type: 'image/png' })] } })
-    const block = document.querySelector('.composer__box') as HTMLElement
+    const block = document.querySelector('.pn-composer') as HTMLElement
     const chips = within(block).getByTestId('composer-chips')
     expect(within(chips).getByText('引用 李建国')).toBeTruthy()
     expect(await within(chips).findByText('shot.png')).toBeTruthy()
@@ -443,7 +443,7 @@ describe('composer', () => {
     await screen.findByText('还没有消息')
     fireEvent.paste(box(), { clipboardData: { files: [new File(['x'], 'shot.png', { type: 'image/png' })] } })
     expect(await screen.findByText('shot.png')).toBeTruthy()
-    const drop = document.querySelector('.composer__box') as HTMLElement
+    const drop = document.querySelector('.pn-composer') as HTMLElement
     fireEvent.drop(drop, {
       dataTransfer: { files: [new File(['x'], 'ci.log', { type: 'text/plain' })], types: ['Files'] },
     })

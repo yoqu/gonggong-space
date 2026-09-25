@@ -17,7 +17,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
       {reactions.length ? (
         <motion.div
           key="bar"
-          className="reaction-bar"
+          className="pn-reactions reaction-bar"
           role="group"
           aria-label="表情回应"
           initial={POP}
@@ -30,7 +30,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
               <motion.div
                 key={r.emoji}
                 layout
-                className="reaction-pill"
+                className="pn-reaction reaction-pill"
                 data-mine={r.mine || undefined}
                 initial={POP}
                 animate={{ opacity: 1, scale: 1 }}

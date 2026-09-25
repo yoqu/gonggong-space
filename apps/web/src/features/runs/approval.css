@@ -1,49 +1,53 @@
-/* Permission request block inside a run card */
+/* Permission request inside a run card: an inset section of the card body. */
 .approval {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--color-separator);
-  background: var(--color-bg-warning);
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--tint-orange);
 }
 .approval__title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-6);
   font-weight: 600;
-  color: var(--color-brand-warm);
+  color: var(--tint-orange-text);
 }
 .approval__cmd {
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: var(--color-preview-bg);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
+  line-height: var(--text-body-line);
   overflow-wrap: anywhere;
 }
 .approval__why,
 .approval__hint {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
 .approval__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 .approval__done {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
 }
 
 /* Once decided it is history: neutral, so the eye goes to the reply instead. */
 .approval[data-resolved] {
-  background: transparent;
+  background: var(--quote-fill);
 }
 .approval[data-resolved] .approval__title {
-  color: var(--color-text-secondary);
+  color: var(--label-secondary);
 }

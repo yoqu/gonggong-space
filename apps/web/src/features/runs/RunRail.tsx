@@ -1,21 +1,4 @@
 import type { RunDetailDto } from '@gonggong/protocol'
-import {
-  Activity,
-  Brain,
-  Copy,
-  FileCode,
-  FileText,
-  Globe,
-  Inbox,
-  MessageSquare,
-  MoveRight,
-  PenLine,
-  Search,
-  ShieldAlert,
-  Terminal,
-  Trash,
-  Wrench,
-} from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
@@ -23,7 +6,22 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { SPRING } from '../../lib/motion'
 import { realtime } from '../../lib/realtime'
-import { Badge, CloseButton, EmptyState, FailedArt, Spinner, Tabs, toast, useEscape } from '../../ui'
+import {
+  Avatar,
+  CloseButton,
+  EmptyState,
+  FailedArt,
+  GroupBox,
+  GroupRow,
+  Icon,
+  type IconName,
+  Spinner,
+  Tabs,
+  Tag,
+  Toolbar,
+  toast,
+  useEscape,
+} from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { fmtDuration, fmtUsage, RUN_STATUS, useNow } from '../chat/TimelineItems'
 import {
@@ -37,6 +35,7 @@ import {
   type Step,
 } from './process'
 import { type RailTab, useRunRail } from './rail'
+import './rail.css'
 import './runs.css'
 
 const TABS: { value: RailTab; label: string }[] = [
@@ -45,21 +44,21 @@ const TABS: { value: RailTab; label: string }[] = [
   { value: 'audit', label: '审批记录' },
 ]
 /** Timeline node per step kind; unknown ACP tool kinds fall back to `other`. */
-export const STEP_ICON: Record<string, typeof Wrench> = {
-  context: Inbox,
-  thought: Brain,
-  think: Brain,
-  text: MessageSquare,
-  status: Activity,
-  approval: ShieldAlert,
-  read: FileText,
-  edit: PenLine,
-  delete: Trash,
-  move: MoveRight,
-  search: Search,
-  execute: Terminal,
-  fetch: Globe,
-  other: Wrench,
+export const STEP_ICON: Record<string, IconName> = {
+  context: 'tray',
+  thought: 'more',
+  think: 'more',
+  text: 'bubble',
+  status: 'activity',
+  approval: 'shield-warning',
+  read: 'doc-text',
+  edit: 'textformat',
+  delete: 'trash',
+  move: 'arrow-turn-down-right',
+  search: 'search',
+  execute: 'terminal',
+  fetch: 'cloud',
+  other: 'gear',
 }
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const PURGED = '运行过程已过期，仅保留摘要'
@@ -130,28 +129,33 @@ export function RunRail({ runId }: { runId: string }) {
   const ended = run?.endedAt ? Date.parse(run.endedAt) : now
   return (
     <div className="run-rail" data-testid="run-rail">
+      <Toolbar
+        className="rail-bar"
+        scrolled={false}
+        leading={<Avatar name={bot?.name ?? 'bot'} size={24} shape="square" />}
+        title={bot?.name ?? 'bot'}
+        subtitle={run ? `${userName(run.triggerUserId ?? run.originUserId)} 触发` : undefined}
+      >
+        {run ? <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag> : null}
+        <CloseButton onClick={close} />
+      </Toolbar>
       <div className="run-rail__head">
-        <div className="run-rail__title">
-          <span className="run-rail__bot">{bot?.name ?? 'bot'}</span>
-          {run ? (
-            <Badge variant={RUN_STATUS[run.status].variant}>{RUN_STATUS[run.status].label}</Badge>
-          ) : null}
-          <span className="spacer" />
-          <CloseButton onClick={close} />
-        </div>
         {run ? (
-          <dl className="run-rail__facts">
-            <Fact label="触发人">{userName(run.triggerUserId ?? run.originUserId)}</Fact>
-            <Fact label="机器" mono>
-              {bot?.machineName ?? '—'}
-            </Fact>
-            <Fact label="耗时 · 用量">
-              {started === null ? '—' : fmtDuration(ended - started)} · {fmtUsage(run.usage)}
-            </Fact>
-            <Fact label="会话" mono>
-              {detail.sessionId ? <SessionId id={detail.sessionId} /> : '—'}
-            </Fact>
-          </dl>
+          <GroupBox>
+            <GroupRow label="机器">
+              <span className="run-rail__val run-rail__mono">{bot?.machineName ?? '—'}</span>
+            </GroupRow>
+            <GroupRow label="耗时 · 用量">
+              <span className="run-rail__val">
+                {started === null ? '—' : fmtDuration(ended - started)} · {fmtUsage(run.usage)}
+              </span>
+            </GroupRow>
+            <GroupRow label="会话">
+              <span className="run-rail__val run-rail__mono">
+                {detail.sessionId ? <SessionId id={detail.sessionId} /> : '—'}
+              </span>
+            </GroupRow>
+          </GroupBox>
         ) : null}
         <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
       </div>
@@ -185,15 +189,6 @@ export function RunRail({ runId }: { runId: string }) {
   )
 }
 
-function Fact({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="run-rail__fact">
-      <dt>{label}</dt>
-      <dd className={cx(mono && 'run-rail__mono')}>{children}</dd>
-    </div>
-  )
-}
-
 function SessionId({ id }: { id: string }) {
   // navigator.clipboard is missing outside secure contexts, so the call itself may throw.
   const copy = async () => {
@@ -216,14 +211,13 @@ function SessionId({ id }: { id: string }) {
         title="复制会话 ID"
         onClick={() => void copy()}
       >
-        <Copy size={11} />
+        <Icon name="copy" size={12} />
       </button>
     </span>
   )
 }
 
 function StepRow({ step }: { step: Step }) {
-  const Icon = STEP_ICON[step.kind] ?? Wrench
   const state = step.failed ? 'failed' : step.running ? 'running' : 'done'
   const node = `${step.label}${state === 'failed' ? ' · 失败' : state === 'running' ? ' · 进行中' : ''}`
   const head = (
@@ -245,7 +239,7 @@ function StepRow({ step }: { step: Step }) {
       transition={SPRING.snappy}
     >
       <span className="run-step__node" role="img" aria-label={node} title={node}>
-        <Icon size={12} strokeWidth={1.75} aria-hidden />
+        <Icon name={STEP_ICON[step.kind] ?? 'gear'} size={13} />
       </span>
       <div className="run-step__main">
         {step.kind === 'thought' ? (
@@ -310,7 +304,7 @@ function DiffTab({
               className={cx('run-diff__file', f === picked && 'run-diff__file--active')}
               onClick={() => onFile(f.path)}
             >
-              <FileCode size={12} />
+              <Icon name="doc-code" size={13} />
               <span className="run-diff__path">{f.path}</span>
               <span className="run-diff__add">+{f.add}</span>
               <span className="run-diff__del">−{f.del}</span>

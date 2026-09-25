@@ -120,7 +120,7 @@
   height: 16px;
   flex: none;
 }
-.pn-mcard__head .im-tag {
+.pn-mcard__head .ui-tag {
   margin-left: auto;
 }
 .pn-mcard__title {
@@ -189,4 +189,15 @@
   font-size: 11px;
   line-height: 14px;
   color: var(--label-secondary);
+}
+.pn-file--open {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+.pn-file--open:hover {
+  background: var(--group-bg);
 }

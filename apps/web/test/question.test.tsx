@@ -121,7 +121,7 @@ describe('QuestionBlock', () => {
       vi.advanceTimersByTime(1000)
     })
     expect(screen.getByText('27:01 后超时，agent 按推荐项继续并在最终回复列出假设')).toBeTruthy()
-    expect(button('附图片或附件')).toBeTruthy()
+    expect(button('附图片或附件…')).toBeTruthy()
   })
 
   it('lets the trigger user answer every type and submit once all are answered', async () => {
@@ -194,7 +194,7 @@ describe('QuestionBlock', () => {
     render(<QuestionBlock run={run()} />)
     expect(button('Go').disabled).toBe(true)
     expect(button('提交回答').disabled).toBe(true)
-    expect(button('附图片或附件').disabled).toBe(true)
+    expect(button('附图片或附件…').disabled).toBe(true)
     expect((screen.getByPlaceholderText('自由作答') as HTMLTextAreaElement).disabled).toBe(true)
   })
 

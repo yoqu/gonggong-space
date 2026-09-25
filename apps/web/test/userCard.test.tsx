@@ -145,7 +145,7 @@ describe('timeline wiring', () => {
   it('makes other members’ name and avatar card triggers, not mine or bots', () => {
     const { unmount } = render(<UserMessage m={m({})} names={[]} />)
     expect(screen.getByText('李建国').closest('[aria-haspopup="dialog"]')).not.toBeNull()
-    expect(screen.getByText('李').closest('[aria-haspopup="dialog"]')).not.toBeNull()
+    expect(screen.getByRole('img', { name: '李建国' }).closest('[aria-haspopup="dialog"]')).not.toBeNull()
     unmount()
     render(<BotReply m={m({ kind: 'bot', authorId: 'b1', authorName: '小王的 Claude' })} />)
     expect(document.querySelector('[aria-haspopup="dialog"]')).toBeNull()

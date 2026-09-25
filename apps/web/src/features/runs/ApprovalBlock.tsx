@@ -1,10 +1,9 @@
 import type { ApprovalDto, PermissionOption, RunDto } from '@gonggong/protocol'
-import { ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
-import { Button, toast } from '../../ui'
+import { Button, Icon, Tag, type TagTone, toast } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
 import { TIER_LABEL } from './tier'
 import './approval.css'
@@ -34,6 +33,14 @@ export const hm = (iso: string) => {
 export const countdown = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000))
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
+}
+
+const DONE: Record<ApprovalDto['status'], [string, TagTone]> = {
+  pending: ['待审批', 'orange'],
+  approved: ['已批准', 'green'],
+  rejected: ['已拒绝', 'red'],
+  expired: ['已超时', 'gray'],
+  void: ['已作废', 'gray'],
 }
 
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
@@ -102,10 +109,10 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
             total={Date.parse(a.expiresAt) - Date.parse(a.createdAt)}
             text={countdown(left)}
           >
-            <ShieldAlert size={10} />
+            <Icon name="shield-warning" size={10} weight={1.8} />
           </CountdownRing>
         ) : (
-          <ShieldAlert size={13} />
+          <Icon name="shield-warning" size={14} />
         )}
         权限请求 · {KIND[a.toolKind] ?? '其他操作'}
       </div>
@@ -117,23 +124,18 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
         <div className="approval__actions">
           <Button
             variant="primary"
-            size="sm"
+            size="small"
             disabled={!mine || busy || !allow}
             onClick={() => allow && decide(allow)}
           >
             批准
           </Button>
           {always && (
-            <Button variant="outline" size="sm" disabled={!mine || busy} onClick={() => decide(always)}>
+            <Button size="small" disabled={!mine || busy} onClick={() => decide(always)}>
               始终允许
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!mine || busy || !reject}
-            onClick={() => reject && decide(reject)}
-          >
+          <Button size="small" disabled={!mine || busy || !reject} onClick={() => reject && decide(reject)}>
             拒绝
           </Button>
           <span className="approval__hint">
@@ -141,7 +143,10 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
           </span>
         </div>
       ) : (
-        <div className="approval__done">{outcome(a)}</div>
+        <div className="approval__done">
+          <Tag tone={DONE[a.status][1]}>{DONE[a.status][0]}</Tag>
+          <span>{outcome(a)}</span>
+        </div>
       )}
     </div>
   )

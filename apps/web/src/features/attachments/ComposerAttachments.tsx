@@ -1,7 +1,6 @@
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
-import { FileText, Image, Quote, X } from 'lucide-react'
 import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from '../../ui'
+import { Button, Icon, toast } from '../../ui'
 import { fmtSize, type Upload, uploadFile } from './api'
 import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
@@ -108,13 +107,18 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
   const clear = useQuote((s) => s.clear)
   return (
     <div className="quote-chip">
-      <Quote size={11} className="quote-chip__icon" />
+      <Icon name="quote" size={14} className="quote-chip__icon" />
       <span className="quote-chip__who">引用 {quote.who}</span>
       <span className="quote-chip__text">{quote.text}</span>
       <span className="quote-chip__note">等同 @，引用内容一起发送</span>
-      <button type="button" className="quote-chip__close" aria-label="关闭引用" onClick={clear}>
-        关闭
-      </button>
+      <Button
+        variant="plain"
+        size="small"
+        icon="xmark"
+        aria-label="关闭引用"
+        title="关闭引用"
+        onClick={clear}
+      />
     </div>
   )
 }
@@ -126,7 +130,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
     <div className="att-chips">
       {uploads.items.map((i) => (
         <span key={i.key} className="att-chip">
-          {i.image ? <Image size={12} /> : <FileText size={12} />}
+          <Icon name={i.image ? 'image' : 'doc-text'} size={14} />
           <span className="att-chip__name">{i.name}</span>
           <span className="att-chip__size">{fmtSize(i.size)}</span>
           {i.upload ? null : <span className="att-chip__progress">{i.progress}%</span>}
@@ -136,7 +140,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
             aria-label={`移除 ${i.name}`}
             onClick={() => uploads.remove(i.key)}
           >
-            <X size={10} />
+            <Icon name="xmark" size={10} weight={2.2} />
           </button>
         </span>
       ))}

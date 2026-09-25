@@ -8,15 +8,15 @@ import {
   useState,
 } from 'react'
 import { cx } from '../../lib/cx'
+import { CloseButton, type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
-import { CloseButton, type IconLike, renderIcon } from './primitives'
 import './composer.css'
 
 /** Six lines of 19px. */
 const MAX_INPUT_PX = 114
 
 export interface ComposerTool {
-  icon: IconLike
+  icon: Glyph
   label: string
   onClick?: () => void
 }
@@ -53,7 +53,15 @@ export interface ComposerProps {
   /** Runs before Enter-to-send, never during IME composition; preventDefault() suppresses the send. */
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
   inputRef?: RefObject<HTMLTextAreaElement | null>
-  /** Extra textarea attributes (combobox ARIA, onPaste). */
+  /** Pasted or dropped files; the box highlights while files are dragged over it. */
+  onFiles?: (files: File[]) => void
+  /** Growth cap of the input in px (default six lines); it scrolls beyond. */
+  maxInputHeight?: number
+  /** A send is in flight: the send button shows it and stays disabled. */
+  busy?: boolean
+  /** Successful sends so far; each one replays the send icon's fly-out. */
+  sent?: number
+  /** Extra textarea attributes (combobox ARIA). */
   textareaProps?: Omit<
     TextareaHTMLAttributes<HTMLTextAreaElement>,
     'value' | 'onChange' | 'onKeyDown' | 'placeholder' | 'disabled'
@@ -78,6 +86,10 @@ export function Composer({
   popover,
   onKeyDown,
   inputRef,
+  onFiles,
+  maxInputHeight = MAX_INPUT_PX,
+  busy,
+  sent = 0,
   textareaProps,
   className,
 }: ComposerProps) {
@@ -86,15 +98,17 @@ export function Composer({
   const localRef = useRef<HTMLTextAreaElement>(null)
   const ref = inputRef ?? localRef
   const composing = useRef(false)
-  const sendable = !disabled && (canSend ?? text.trim() !== '')
+  const [dropping, setDropping] = useState(false)
+  const sendable = !disabled && !busy && (canSend ?? text.trim() !== '')
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_PX)}px`
-  }, [text, ref])
+    el.style.height = `${Math.min(el.scrollHeight, maxInputHeight)}px`
+    el.style.overflowY = el.scrollHeight > maxInputHeight ? 'auto' : 'hidden'
+  }, [text, ref, maxInputHeight])
 
   const set = (v: string) => {
     if (value === undefined) setOwn(v)
@@ -106,17 +120,38 @@ export function Composer({
     if (value === undefined) setOwn('')
   }
 
+  const takeFiles = (files: FileList, e: { preventDefault: () => void }) => {
+    if (!onFiles || !files.length) return
+    e.preventDefault()
+    onFiles(Array.from(files))
+  }
+
   return (
     <div className={cx('pn-composer-wrap', className)}>
       {popover}
-      <div className="pn-composer">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a file drop target; pickers and paste are the keyboard path */}
+      <div
+        className={cx('pn-composer', dropping && 'pn-composer--drop')}
+        onDragOver={(e) => {
+          if (!onFiles || !e.dataTransfer.types.includes('Files')) return
+          e.preventDefault()
+          setDropping(true)
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+        }}
+        onDrop={(e) => {
+          setDropping(false)
+          takeFiles(e.dataTransfer.files, e)
+        }}
+      >
         {replyTo && (
           <div className="pn-composer__reply">
             <div className="pn-quote">
               <b>回复 {replyTo.author}：</b>
               {replyTo.text}
             </div>
-            {onCancelReply && <CloseButton label="取消回复" onClick={onCancelReply} />}
+            {onCancelReply && <CloseButton title="取消回复" onClick={onCancelReply} />}
           </div>
         )}
         {above}
@@ -129,6 +164,7 @@ export function Composer({
           placeholder={placeholder ?? `发送给 ${recipient ?? '…'}`}
           disabled={disabled}
           onChange={(e) => set(e.target.value)}
+          onPaste={(e) => takeFiles(e.clipboardData.files, e)}
           onCompositionStart={() => {
             composing.current = true
           }}
@@ -157,7 +193,7 @@ export function Composer({
               disabled={disabled}
               onClick={t.onClick ?? (t.icon === 'at' ? () => set(`${text}@`) : undefined)}
             >
-              {renderIcon(t.icon)}
+              {renderGlyph(t.icon)}
             </button>
           ))}
           {hint === false ? (
@@ -169,10 +205,18 @@ export function Composer({
             type="button"
             className="pn-composer__send"
             aria-label="发送"
+            title="发送（Enter），换行（Shift + Enter）"
+            data-state={busy ? 'busy' : sendable ? 'ready' : 'idle'}
+            data-sent={sent}
             disabled={!sendable}
             onClick={send}
           >
-            <Icon name="send" weight={2.2} />
+            <span
+              key={sent}
+              className={cx('pn-composer__send-icon', sent > 0 && 'pn-composer__send-icon--sent')}
+            >
+              <Icon name="send" weight={2.2} />
+            </span>
           </button>
         </div>
       </div>

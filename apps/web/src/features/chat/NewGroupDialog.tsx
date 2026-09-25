@@ -1,11 +1,10 @@
 import type { BotDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
-import { Check, GitFork } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Dialog, Input, Tabs, toast } from '../../ui'
+import { Button, Dialog, Icon, Input, Tabs, toast } from '../../ui'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from './RepoFields'
 import { repoName } from './repo'
@@ -98,9 +97,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
                 : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
-          <Button variant="ghost" onClick={onClose}>
-            关闭
-          </Button>
+          <Button onClick={onClose}>关闭</Button>
           <Button variant="primary" disabled={!!blocked || creating} onClick={() => void submit()}>
             创建
           </Button>
@@ -158,7 +155,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         </div>
 
         <div className="ng-mode">
-          <GitFork size={14} className="muted-icon" />
+          <Icon name="git-fork" size={14} className="muted-icon" />
           <div className="ng-mode__text">
             <span className="ng-mode__title">同步模式 · 分区模式</span>
             <span className="ng-note">
@@ -174,7 +171,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
             <span className="ng-label">成员 · {members.size + 1} 人</span>
             <fieldset className="ng-chips" aria-label="成员">
               <button type="button" className="ng-chip ng-chip--on ng-chip--fixed" aria-pressed="true">
-                <Check size={11} />
+                <Icon name="check" size={11} weight={2} />
                 {me.name}
                 <span className="ng-chip__sub">群管理员</span>
               </button>
@@ -191,7 +188,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                       className={cx('ng-chip', on && 'ng-chip--on', auto && 'ng-chip--fixed')}
                       onClick={() => !auto && set({ people: toggle(d.people, u.id) })}
                     >
-                      {on ? <Check size={11} /> : null}
+                      {on ? <Icon name="check" size={11} weight={2} /> : null}
                       {u.name}
                       {auto ? <span className="ng-chip__sub">Bot 主人</span> : null}
                     </button>
@@ -215,7 +212,9 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 className={cx('ng-bot', on && 'ng-bot--on')}
                 onClick={() => set({ bots: toggle(d.bots, b.id) })}
               >
-                <span className="ng-bot__box">{on ? <Check size={10} /> : null}</span>
+                <span className="ng-bot__box">
+                  {on ? <Icon name="check" size={10} weight={2.2} /> : null}
+                </span>
                 <span className="ng-bot__main">
                   <span className="ng-bot__name">{b.name}</span>
                   <span className="ng-bot__sub">

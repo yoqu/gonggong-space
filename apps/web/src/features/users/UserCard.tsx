@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Avatar, Badge, Spinner, usePresence } from '../../ui'
+import { Avatar, Spinner, Tag, usePresence } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { useHoverCard } from './useHoverCard'
 import './users.css'
@@ -108,15 +108,11 @@ export function UserCardTrigger({
               {card ? (
                 <>
                   <div className="user-card__head">
-                    <Avatar name={card.name} size={40} />
+                    <Avatar name={card.name} size={40} status={card.online ? 'online' : undefined} />
                     <div className="user-card__id">
                       <div className="user-card__name">
                         <span>{card.name}</span>
-                        {card.groupAdmin ? (
-                          <Badge variant="info" size="xs">
-                            群管理员
-                          </Badge>
-                        ) : null}
+                        {card.groupAdmin ? <Tag tone="blue">群管理员</Tag> : null}
                       </div>
                       <div className="user-card__account">{card.account}</div>
                     </div>

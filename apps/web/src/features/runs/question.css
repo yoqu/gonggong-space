@@ -1,125 +1,113 @@
-/* 向群成员提问 block inside a run card (prototype it.q) */
+/* 向群成员提问 inside a run card (prototype it.q) */
 .question {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  border-top: 1px solid var(--color-separator);
-  background: var(--color-bg-info);
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--quote-fill);
 }
 .question__title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-6);
   font-weight: 600;
-  color: var(--color-brand-info);
+}
+.question__title > svg {
+  color: var(--tint-orange-text);
 }
 .question__who {
   font-weight: 400;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
 }
 .question__item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-.question__q {
-  font-size: 12px;
+  gap: var(--space-6);
 }
 .question__type {
-  color: var(--color-text-tertiary);
+  color: var(--label-secondary);
 }
 .question__opts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 .question__opt {
-  height: 26px;
-  display: flex;
+  height: var(--control-regular);
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-strong);
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  cursor: pointer;
-}
-.question__opt--on {
-  border-color: var(--color-selection-blue);
-  background: var(--color-selection-blue);
-  color: var(--color-on-accent);
-}
-.question__opt:disabled {
+  gap: var(--space-4);
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--control-fill);
+  box-shadow: var(--shadow-control);
+  color: var(--label);
+  font: inherit;
   cursor: default;
 }
+.question__opt--on {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
 .question__opt:disabled:not(.question__opt--on) {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 .question__rec {
-  font-size: 10px;
-  color: var(--color-brand-info);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  color: var(--accent-text);
 }
 .question__opt--on .question__rec {
-  color: var(--color-on-accent);
-}
-.question__free {
-  font-size: 12px;
+  color: var(--on-accent);
 }
 .question__actions,
 .question__files {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 .question__file {
-  height: 22px;
+  height: var(--control-small);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 6px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-separator);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-capsule);
+  background: var(--content-bg);
+  box-shadow: inset 0 0 0 1px var(--separator);
   font-family: var(--font-mono);
-  font-size: 11px;
-}
-.question__file button {
-  display: flex;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
+  font-size: var(--text-subheadline-size);
 }
 .question__timeout {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
 .question__done {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
 }
 
-/* 打断并追加 strip above the composer input */
+/* 打断并追加 strip inside the composer, above the text */
 .append-banner {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-separator);
-  font-size: 11px;
-  color: var(--color-brand-info);
+  gap: var(--space-6);
+  min-height: var(--control-regular);
+  padding: 0 var(--space-2) 0 var(--space-8);
+  border-radius: var(--radius-field);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-callout-size);
 }
-.append-banner__close {
+.append-banner > .ui-btn {
   margin-left: auto;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-tertiary);
-  font-size: 11px;
-  cursor: pointer;
 }

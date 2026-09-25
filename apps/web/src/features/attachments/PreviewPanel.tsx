@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Button, CloseButton, Spinner, Tabs, toast } from '../../ui'
+import { Button, CloseButton, GroupBox, GroupRow, Icon, Spinner, Tabs, Toolbar, toast } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf, workspacePath } from './api'
 import { KIND_ICON } from './MessageAttachments'
 import { type PreviewTarget, usePreview } from './preview'
+import '../runs/rail.css'
 import './attachments.css'
 
 /** Text previews fetch the whole file; bigger ones are download-only. */
@@ -63,7 +64,6 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
   const text = useText(a.id, textual)
   const [tab, setTab] = useState<'preview' | 'source'>('preview')
   const [dim, setDim] = useState<string | null>(null)
-  const Icon = KIND_ICON[kind]
   const url = attachmentUrl(a.id)
   const lines = text?.replace(/\n$/, '').split('\n') ?? []
   const shown = lines.slice(0, LINES_MAX)
@@ -82,33 +82,34 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
 
   return (
     <div className="pv">
-      <div className="pv__head">
-        <div className="pv__title">
-          <Icon size={14} />
-          <span className="pv__name">{a.name}</span>
-          <CloseButton onClick={close} />
-        </div>
-        <div className="pv__meta">{`${KIND_LABEL[kind]} · ${fmtSize(a.size)} · ${from}`}</div>
-        <div className="pv__tools">
-          <a className="ui-btn ui-btn--outline ui-btn--xs" href={url} download={a.name}>
-            下载
-          </a>
-          <Button variant="ghost" size="xs" onClick={() => void copyPath()}>
-            复制路径
-          </Button>
-          <span className="spacer" />
-          {kind === 'md' ? (
-            <Tabs
-              size="sm"
-              value={tab}
-              onChange={setTab}
-              items={[
-                { value: 'preview', label: '预览' },
-                { value: 'source', label: '源码' },
-              ]}
-            />
-          ) : null}
-        </div>
+      <Toolbar
+        className="rail-bar"
+        scrolled={false}
+        leading={<Icon name={KIND_ICON[kind]} className="rail-bar__icon" />}
+        title={a.name}
+        subtitle={`${KIND_LABEL[kind]} · ${fmtSize(a.size)} · ${from}`}
+      >
+        <CloseButton onClick={close} />
+      </Toolbar>
+      <div className="pv__tools">
+        <a className="ui-btn ui-btn--small" href={url} download={a.name}>
+          下载
+        </a>
+        <Button size="small" onClick={() => void copyPath()}>
+          复制路径
+        </Button>
+        <span className="spacer" />
+        {kind === 'md' ? (
+          <Tabs
+            size="sm"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: 'preview', label: '预览' },
+              { value: 'source', label: '源码' },
+            ]}
+          />
+        ) : null}
       </div>
       <div className="pv__body">
         {kind === 'image' ? (
@@ -142,14 +143,13 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
         {textual && kind === 'text' && text !== null ? (
           <div className="pv__note">{`预览前 ${shown.length} 行 · 完整文件 ${fmtSize(a.size)}`}</div>
         ) : null}
-        <div className="pv__rows">
+        <GroupBox>
           {rows.map(([k, v]) => (
-            <div key={k} className={k === '位置' ? 'pv__row pv__row--mono' : 'pv__row'}>
-              <span>{k}</span>
-              <span>{v}</span>
-            </div>
+            <GroupRow key={k} label={k}>
+              <span className={k === '位置' ? 'pv__val pv__val--mono' : 'pv__val'}>{v}</span>
+            </GroupRow>
           ))}
-        </div>
+        </GroupBox>
       </div>
     </div>
   )
