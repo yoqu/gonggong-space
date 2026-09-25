@@ -10,7 +10,9 @@
       "!.gonggong-dev",
       "!**/drizzle",
       "!.claude",
-      "!.obsidian"
+      "!.obsidian",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "formatter": {
