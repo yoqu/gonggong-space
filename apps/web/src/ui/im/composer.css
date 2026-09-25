@@ -81,6 +81,31 @@
 .pn-composer__spacer {
   margin-left: auto;
 }
+.pn-composer__tool[aria-pressed="true"] {
+  background: var(--control-track);
+  color: var(--label);
+  box-shadow: var(--shadow-outline, none);
+}
+.pn-composer__accessory {
+  margin-left: auto;
+  margin-right: var(--space-8);
+  font-size: 11px;
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+.pn-composer__accessory + .pn-composer__hint {
+  margin-left: 0;
+}
+.pn-composer__accessory .ui-check__box {
+  width: 14px;
+  height: 14px;
+}
+.pn-composer__popover {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+}
 .pn-composer__send {
   appearance: none;
   border: 0;
