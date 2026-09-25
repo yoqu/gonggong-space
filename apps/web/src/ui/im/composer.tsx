@@ -12,6 +12,7 @@ import {
 import { cx } from '../../lib/cx'
 import { type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
+import { splitMentions } from './message'
 import { SmallClose } from './notice'
 import { EmojiPicker, filterMembers, type MentionMember, MentionPicker } from './pickers'
 import './composer.css'
@@ -58,6 +59,8 @@ export interface ComposerProps {
   /** `false` drops the「所有人」row. */
   mentionAll?: boolean
   onMention?: (member: MentionMember) => void
+  /** Names whose `@name` is highlighted and edited as one unit; defaults to the `mentions` names. */
+  mentionNames?: string[]
   /** Demo: open the @ picker for a `defaultValue` ending in `@query`. */
   defaultMentionOpen?: boolean
   /** 常用 row of the built-in emoji picker. */
@@ -104,6 +107,7 @@ export function Composer({
   mentions,
   mentionAll = true,
   onMention,
+  mentionNames,
   defaultMentionOpen,
   recentEmoji,
   defaultEmojiOpen = false,
@@ -124,7 +128,9 @@ export function Composer({
   const localRef = useRef<HTMLTextAreaElement>(null)
   const ref = inputRef ?? localRef
   const rootRef = useRef<HTMLDivElement>(null)
+  const mirrorRef = useRef<HTMLDivElement>(null)
   const composing = useRef(false)
+  const lastCaret = useRef(0)
   const [dropping, setDropping] = useState(false)
   const [mention, setMention] = useState<{ start: number; query: string } | null>(() => {
     const m = defaultMentionOpen && mentions ? MENTION_AT.exec(defaultValue) : null
@@ -136,6 +142,13 @@ export function Composer({
   const candidates = mention && mentions ? filterMembers(mentions, mention.query, mentionAll) : []
   const picking = candidates.length > 0
   const sendable = !disabled && !busy && (canSend ?? text.trim() !== '')
+  let offset = 0
+  const segments = splitMentions(text, mentionNames ?? mentions?.map((m) => m.name) ?? []).map((seg) => {
+    const start = offset
+    offset += seg.text.length
+    return { ...seg, start, end: offset }
+  })
+  const marks = segments.filter((seg) => seg.mention)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
   useLayoutEffect(() => {
@@ -144,6 +157,7 @@ export function Composer({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, maxInputHeight)}px`
     el.style.overflowY = el.scrollHeight > maxInputHeight ? 'auto' : 'hidden'
+    if (mirrorRef.current) mirrorRef.current.scrollTop = el.scrollTop
   }, [text, ref, maxInputHeight])
 
   useEffect(() => {
@@ -207,7 +221,8 @@ export function Composer({
       setEmojiOpen(!emojiOpen)
     } else if (t.icon === 'at') {
       if (!mentions) return set(`${text}@`)
-      const r = insertAtCaret('@')
+      const c = ref.current?.selectionStart ?? text.length
+      const r = insertAtCaret(c > 0 && !/\s/.test(text[c - 1] ?? '') ? ' @' : '@')
       detect(r.next, r.caret)
     }
   }
@@ -220,6 +235,32 @@ export function Composer({
     else return false
     e.preventDefault()
     return true
+  }
+
+  /** Backspace / Delete next to a mention selects all of it, so the native edit removes it in one go (and stays undoable). */
+  const selectMention = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget
+    const c = el.selectionStart
+    if (c !== el.selectionEnd) return
+    const m =
+      e.key === 'Backspace'
+        ? marks.find((r) => r.end === c)
+        : e.key === 'Delete'
+          ? marks.find((r) => r.start === c)
+          : undefined
+    if (m) el.setSelectionRange(m.start, m.end)
+  }
+  /** The caret never rests inside a mention: arrows step over it, clicks land on the nearer edge. */
+  const snapCaret = (el: HTMLTextAreaElement) => {
+    const c = el.selectionStart
+    const m = c === el.selectionEnd ? marks.find((r) => r.start < c && c < r.end) : undefined
+    if (m) {
+      const last = lastCaret.current
+      const to =
+        last === m.end ? m.start : last === m.start ? m.end : c - m.start < m.end - c ? m.start : m.end
+      el.setSelectionRange(to, to)
+    }
+    lastCaret.current = el.selectionStart
   }
 
   const takeFiles = (files: FileList, e: { preventDefault: () => void }) => {
@@ -278,50 +319,71 @@ export function Composer({
           </div>
         )}
         {above}
-        <textarea
-          aria-label="消息输入"
-          {...(mentions && {
-            role: 'combobox',
-            'aria-autocomplete': 'list' as const,
-            'aria-expanded': picking,
-            'aria-controls': picking ? listId : undefined,
-            'aria-activedescendant': picking ? `${listId}-${active}` : undefined,
-          })}
-          {...textareaProps}
-          ref={ref}
-          rows={1}
-          value={text}
-          placeholder={placeholder ?? `发送给 ${recipient ?? '…'}`}
-          disabled={disabled}
-          onChange={(e) => {
-            set(e.target.value)
-            detect(e.target.value, e.target.selectionStart)
-          }}
-          onBlur={() => {
-            // Mousedown on a picker row keeps focus, so a real blur means the user left the input.
-            setTimeout(() => {
-              if (ref.current && document.activeElement !== ref.current) setMention(null)
-            }, 150)
-          }}
-          onPaste={(e) => takeFiles(e.clipboardData.files, e)}
-          onCompositionStart={() => {
-            composing.current = true
-          }}
-          onCompositionEnd={() => {
-            // Safari fires the committing Enter's keydown right after compositionend, with isComposing false.
-            setTimeout(() => {
-              composing.current = false
-            })
-          }}
-          onKeyDown={(e) => {
-            if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
-            if (picking && pickerKeys(e)) return
-            onKeyDown?.(e)
-            if (e.defaultPrevented || e.key !== 'Enter' || e.shiftKey) return
-            e.preventDefault()
-            send()
-          }}
-        />
+        <div className="pn-composer__field">
+          {marks.length > 0 && (
+            <div ref={mirrorRef} className="pn-composer__mirror" aria-hidden="true">
+              {segments.map((seg) =>
+                seg.mention ? (
+                  <span key={seg.start} className="pn-mention">
+                    {seg.text}
+                  </span>
+                ) : (
+                  seg.text
+                ),
+              )}
+            </div>
+          )}
+          <textarea
+            aria-label="消息输入"
+            {...(mentions && {
+              role: 'combobox',
+              'aria-autocomplete': 'list' as const,
+              'aria-expanded': picking,
+              'aria-controls': picking ? listId : undefined,
+              'aria-activedescendant': picking ? `${listId}-${active}` : undefined,
+            })}
+            {...textareaProps}
+            className={marks.length > 0 ? 'pn-composer__input--marked' : undefined}
+            ref={ref}
+            rows={1}
+            value={text}
+            placeholder={placeholder ?? `发送给 ${recipient ?? '…'}`}
+            disabled={disabled}
+            onChange={(e) => {
+              set(e.target.value)
+              detect(e.target.value, e.target.selectionStart)
+            }}
+            onBlur={() => {
+              // Mousedown on a picker row keeps focus, so a real blur means the user left the input.
+              setTimeout(() => {
+                if (ref.current && document.activeElement !== ref.current) setMention(null)
+              }, 150)
+            }}
+            onSelect={(e) => snapCaret(e.currentTarget)}
+            onScroll={(e) => {
+              if (mirrorRef.current) mirrorRef.current.scrollTop = e.currentTarget.scrollTop
+            }}
+            onPaste={(e) => takeFiles(e.clipboardData.files, e)}
+            onCompositionStart={() => {
+              composing.current = true
+            }}
+            onCompositionEnd={() => {
+              // Safari fires the committing Enter's keydown right after compositionend, with isComposing false.
+              setTimeout(() => {
+                composing.current = false
+              })
+            }}
+            onKeyDown={(e) => {
+              if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
+              if (picking && pickerKeys(e)) return
+              selectMention(e)
+              onKeyDown?.(e)
+              if (e.defaultPrevented || e.key !== 'Enter' || e.shiftKey) return
+              e.preventDefault()
+              send()
+            }}
+          />
+        </div>
         <div className="pn-composer__bar">
           {tools.map((t) => (
             <button

@@ -90,13 +90,8 @@ export function useCandidates(group: GroupDto, before: string | null) {
       hint: '成员',
     })),
   ]
-  const token =
-    before === null
-      ? null
-      : trigger(
-          before,
-          people.map((p) => p.name),
-        )
+  const names = people.map((p) => p.name)
+  const token = before === null ? null : trigger(before, names)
   // Bots already mentioned, in the order they appear.
   const mentioned = (before === null ? [] : bots)
     .map((b) => ({ b, at: before?.indexOf(`@${b.name}`) ?? -1 }))
@@ -114,7 +109,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
       ? `${base}/commands${mentioned.length ? `?botId=${mentioned.map((b) => b.id).join(',')}` : ''}`
       : null,
   )
-  if (!token) return { token, sections: [] as Section[], items: [] as Candidate[] }
+  if (!token) return { token, names, sections: [] as Section[], items: [] as Candidate[] }
 
   const q = token.query.toLowerCase()
   const has = (s: string) => s.toLowerCase().includes(q)
@@ -175,7 +170,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
           },
         ]
   const shown = sections.filter((s) => s.items.length)
-  return { token, sections: shown, items: shown.flatMap((s) => s.items) }
+  return { token, names, sections: shown, items: shown.flatMap((s) => s.items) }
 }
 
 /** People (members and Bots) show their avatar; files and commands a glyph tile. */

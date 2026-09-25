@@ -503,6 +503,27 @@ describe('composer', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     expect(input.getAttribute('aria-activedescendant')).toBe(options[1]!.id)
   })
+
+  it('highlights picked Bots and members in the input', async () => {
+    mockApi({ messages: [], runs: [] })
+    renderAt()
+    await screen.findByText('还没有消息')
+    fireEvent.change(box(), { target: { value: '@小王的 Claude 看下 @nobody', selectionStart: 0 } })
+    const marks = document.querySelectorAll('.pn-composer__mirror .pn-mention')
+    expect([...marks].map((m) => m.textContent)).toEqual(['@小王的 Claude'])
+  })
+
+  it('inserts @ at the caret from the @ tool and opens the candidates', async () => {
+    mockApi({ messages: [], runs: [] })
+    renderAt()
+    await screen.findByText('还没有消息')
+    fireEvent.change(box(), { target: { value: '看下字段' } })
+    box().focus()
+    box().setSelectionRange(2, 2)
+    fireEvent.click(screen.getByRole('button', { name: '@ 提及' }))
+    expect(box().value).toBe('看下 @字段')
+    expect(screen.getByRole('listbox', { name: '@ 候选' })).toBeTruthy()
+  })
 })
 
 describe('markdown code blocks', () => {

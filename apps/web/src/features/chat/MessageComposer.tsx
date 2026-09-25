@@ -36,6 +36,15 @@ function loadDraft(groupId: string) {
   }
 }
 
+/** UUID v4 without crypto.randomUUID, which only exists in secure contexts (plain-http LAN access lacks it). */
+function uuid() {
+  const b = crypto.getRandomValues(new Uint8Array(16))
+  b[6] = ((b[6] ?? 0) & 0x0f) | 0x40
+  b[8] = ((b[8] ?? 0) & 0x3f) | 0x80
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
 interface SendBody {
   body: string
   clientId: string
@@ -108,16 +117,19 @@ export function MessageComposer({
 
   const {
     token,
+    names,
     sections,
     items: candidates,
   } = useCandidates(group, dismissed ? null : draft.slice(0, caret))
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
 
-  const change = (value: string) => {
-    // Toolbar buttons (@ / 命令) append while the input is not focused: continue typing at the end.
-    const typed = input.current !== null && document.activeElement === input.current
-    const pos = typed ? (input.current?.selectionStart ?? value.length) : value.length
+  const focused = () => (document.activeElement === input.current ? input.current : null)
+
+  const change = (value: string, at?: number) => {
+    // Toolbar buttons edit while the input may not be focused: put the caret right after their insert.
+    const typed = at === undefined && focused() !== null
+    const pos = at ?? (typed ? (input.current?.selectionStart ?? value.length) : value.length)
     if (!typed) pendingCaret.current = pos
     setDraft(value)
     setCaret(pos)
@@ -162,7 +174,7 @@ export function MessageComposer({
       const q = quote && { kind: quote.kind, id: quote.id }
       const target = useAppend.getState().target
       const appendTo = target?.groupId === group.id ? target.runId : null
-      const req = { body, clientId: crypto.randomUUID(), attachmentIds, quote: q, appendTo }
+      const req = { body, clientId: uuid(), attachmentIds, quote: q, appendTo }
       onSent(await postMessage(group.id, req))
       setSent((n) => n + 1)
       if (appendTo) useAppend.getState().clear()
@@ -192,7 +204,15 @@ export function MessageComposer({
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
         placeholder={mobile ? '发消息，@ 触发 Bot' : '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'}
         tools={[
-          { icon: 'at', label: '@ 提及', onClick: () => change(`${draft}@`) },
+          {
+            icon: 'at',
+            label: '@ 提及',
+            onClick: () => {
+              const c = focused()?.selectionStart ?? draft.length
+              const at = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' @' : '@'
+              change(draft.slice(0, c) + at + draft.slice(c), c + at.length)
+            },
+          },
           { icon: 'slash', label: '命令', onClick: () => change(`${draft}/`) },
           { icon: 'paperclip', label: '附件', onClick: () => filePicker.current?.click() },
           { icon: 'image', label: '图片', onClick: () => imagePicker.current?.click() },
@@ -207,6 +227,7 @@ export function MessageComposer({
             </div>
           ) : null
         }
+        mentionNames={names}
         inputRef={input}
         onKeyDown={onKeyDown}
         textareaProps={{

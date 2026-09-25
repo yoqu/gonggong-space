@@ -158,6 +158,42 @@ describe('Composer mentions and emoji', () => {
     expect(btn.getAttribute('aria-pressed')).toBe('false')
   })
 
+  it('highlights known mentions in the input', () => {
+    const { type } = setup()
+    type('找 @李思远 和 @路人 看下')
+    const marks = document.querySelectorAll('.pn-composer__mirror .pn-mention')
+    expect([...marks].map((m) => m.textContent)).toEqual(['@李思远'])
+  })
+
+  it('treats a mention as one unit: Backspace/Delete select it whole, the caret skips over it', () => {
+    const { input, type } = setup()
+    type('找 @李思远 看')
+    const [start, end] = [2, 6]
+    input.setSelectionRange(end, end)
+    fireEvent.keyDown(input, { key: 'Backspace' })
+    expect([input.selectionStart, input.selectionEnd]).toEqual([start, end])
+    input.setSelectionRange(start, start)
+    fireEvent.keyDown(input, { key: 'Delete' })
+    expect([input.selectionStart, input.selectionEnd]).toEqual([start, end])
+    input.setSelectionRange(end, end)
+    fireEvent.select(input)
+    input.setSelectionRange(4, 4)
+    fireEvent.select(input)
+    expect(input.selectionStart).toBe(start)
+    input.setSelectionRange(3, 3)
+    fireEvent.select(input)
+    expect(input.selectionStart).toBe(end)
+  })
+
+  it('inserts @ at the caret from the @ tool', () => {
+    const { input, type } = setup()
+    type('你好世界')
+    input.focus()
+    input.setSelectionRange(2, 2)
+    fireEvent.click(screen.getByRole('button', { name: '提及' }))
+    expect(input.value).toBe('你好 @世界')
+  })
+
   it('renders an accessory beside the send button', () => {
     setup({ accessory: <span data-testid="acc">同时发送到群</span> })
     expect(screen.getByTestId('acc').closest('.pn-composer__accessory')).toBeTruthy()

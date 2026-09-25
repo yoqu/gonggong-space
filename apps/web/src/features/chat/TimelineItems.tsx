@@ -10,6 +10,7 @@ import {
   Message,
   type MessageAuthor,
   ProgressIndicator,
+  splitMentions,
   type TagTone,
 } from '../../ui'
 import { usePresence } from '../../ui/presence'
@@ -121,26 +122,6 @@ export function useNow(ticking: boolean) {
     return () => clearInterval(t)
   }, [ticking])
   return now
-}
-
-/** Splits text into plain and `@name` segments; the longest known name wins. */
-export function splitMentions(text: string, names: string[]) {
-  const sorted = [...new Set(names)].filter(Boolean).sort((a, b) => b.length - a.length)
-  const out: { text: string; mention: boolean }[] = []
-  let plain = ''
-  for (let i = 0; i < text.length; i++) {
-    const name = text[i] === '@' ? sorted.find((n) => text.startsWith(n, i + 1)) : undefined
-    if (!name) {
-      plain += text[i]
-      continue
-    }
-    if (plain) out.push({ text: plain, mention: false })
-    out.push({ text: `@${name}`, mention: true })
-    plain = ''
-    i += name.length
-  }
-  if (plain) out.push({ text: plain, mention: false })
-  return out
 }
 
 function eventIcon(body: string): IconName {

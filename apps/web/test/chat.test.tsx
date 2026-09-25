@@ -566,6 +566,22 @@ describe('chat view', () => {
     expect(cards[2]!.textContent).toContain('Codex · 小王的 Claude 触发')
   })
 
+  it('sends over plain http on a LAN address, where crypto.randomUUID is missing', async () => {
+    const calls = mockApi({ ...baseRoutes([group()]), 'POST /groups/g1/messages': () => msg({ id: 'm11' }) })
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) })
+    renderAt('/g/g1')
+    const box = (await screen.findByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    )) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '你好' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await waitFor(() => expect(box.value).toBe(''))
+    const post = calls.find((c) => c.path === '/groups/g1/messages')
+    expect(String(post?.body?.clientId)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    )
+  })
+
   it('sends with Enter once, deduping the realtime echo, and suggests @ candidates', async () => {
     const sent = msg({ id: 'm10', seq: 10, body: '@小王的 Claude 跑一下', mentions: ['b1'] })
     const calls = mockApi({ ...baseRoutes([group()]), 'POST /groups/g1/messages': () => sent })
