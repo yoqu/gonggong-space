@@ -2,7 +2,7 @@ import { SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, Input, Spinner, Switch, toast } from '../../ui'
+import { Alert, Button, GroupBox, GroupRow, Input, Spinner, Switch, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
@@ -117,43 +117,42 @@ export function ParamsPage() {
       {saved ? (
         <section className="admin-params">
           <h2 className="admin-params__title">账号</h2>
-          <div className="admin-list">
-            <div className="admin-param">
-              <span className="admin-param__label admin-param__label--stack">
-                开放自助注册
-                <span className="admin-param__hint">
-                  开启后登录页显示注册入口，注册即成为普通成员；关闭后只能由管理员创建账号。
-                </span>
-              </span>
-              <span className="admin-param__value">
-                <Switch
-                  ariaLabel="开放自助注册"
-                  label={saved.registrationOpen ? '已开放' : '已关闭'}
-                  checked={saved.registrationOpen}
-                  onChange={(v) => void setRegistration(v)}
-                />
-              </span>
-            </div>
-          </div>
+          <GroupBox>
+            <GroupRow
+              label="开放自助注册"
+              description="开启后登录页显示注册入口，注册即成为普通成员；关闭后只能由管理员创建账号。"
+            >
+              <Switch
+                ariaLabel="开放自助注册"
+                label={saved.registrationOpen ? '已开放' : '已关闭'}
+                checked={saved.registrationOpen}
+                onChange={(v) => void setRegistration(v)}
+              />
+            </GroupRow>
+          </GroupBox>
         </section>
       ) : null}
       {saved ? (
         GROUPS.map((g) => (
           <section key={g.title} className="admin-params">
             <h2 className="admin-params__title">{g.title}</h2>
-            <div className="admin-list">
+            <GroupBox>
               {g.keys.map((key) => {
                 const { label, unit } = VIEW.get(key) as (typeof SYSTEM_PARAM_VIEW)[number]
                 const edited = changed.some((c) => c.key === key)
                 return (
-                  <div key={key} className={cx('admin-param', edited && 'is-dirty')}>
-                    <span className="admin-param__label">
-                      {edited ? <span className="admin-param__dot" title="已修改" /> : null}
-                      {label}
-                    </span>
+                  <GroupRow
+                    key={key}
+                    className={cx('admin-param', edited && 'is-dirty')}
+                    label={
+                      <span className="admin-param__label">
+                        {edited ? <span className="admin-param__dot" title="已修改" /> : null}
+                        {label}
+                      </span>
+                    }
+                  >
                     <span className="admin-param__value">
                       <Input
-                        size="sm"
                         inputMode="decimal"
                         aria-label={label}
                         className="admin-param__input"
@@ -162,10 +161,10 @@ export function ParamsPage() {
                       />
                       <span className="admin-param__unit">{unit}</span>
                     </span>
-                  </div>
+                  </GroupRow>
                 )
               })}
-            </div>
+            </GroupBox>
           </section>
         ))
       ) : error ? null : (
@@ -176,10 +175,10 @@ export function ParamsPage() {
           <span className="admin-param__dot" />
           <span>已修改 {changed.length} 项</span>
           <span className="spacer" />
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => reset(saved)}>
+          <Button disabled={busy} onClick={() => reset(saved)}>
             放弃
           </Button>
-          <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
+          <Button variant="primary" disabled={busy} onClick={() => void save()}>
             保存
           </Button>
         </section>

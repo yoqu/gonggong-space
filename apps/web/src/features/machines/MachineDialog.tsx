@@ -1,7 +1,7 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Button, Dialog, Input, Presence, toast } from '../../ui'
+import { Button, Dialog, GroupBox, GroupRow, Input, Presence, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -67,36 +67,44 @@ export function MachineDialog({
         width={480}
         onClose={onClose}
         footer={
-          <Button variant="destructive" onClick={() => setRevoking(true)}>
-            吊销
-          </Button>
+          <>
+            <Button variant="destructive" onClick={() => setRevoking(true)}>
+              吊销
+            </Button>
+            <span className="spacer" />
+            <Button variant="primary" onClick={onClose}>
+              完成
+            </Button>
+          </>
         }
       >
         <div className="machine">
-          <div className="machine__rename">
-            <Input
-              aria-label="名称"
-              value={name}
-              placeholder={machine.hostname}
-              maxLength={64}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Button variant="outline" disabled={saving} onClick={() => void save()}>
-              保存
-            </Button>
-          </div>
-          <dl className="machine__facts">
+          <GroupBox>
+            <GroupRow label="名称">
+              <span className="machine__rename">
+                <Input
+                  aria-label="名称"
+                  value={name}
+                  placeholder={machine.hostname}
+                  maxLength={64}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <Button disabled={saving} onClick={() => void save()}>
+                  保存
+                </Button>
+              </span>
+            </GroupRow>
+          </GroupBox>
+          <GroupBox>
             {rows
               .filter((r): r is [string, string] => r[1] !== null)
               .map(([k, v]) => (
-                <div key={k} className="machine__fact">
-                  <dt>{k}</dt>
-                  <dd>{v}</dd>
-                </div>
+                <GroupRow key={k} label={k}>
+                  <span className="machine__value">{v}</span>
+                </GroupRow>
               ))}
-            <div className="machine__fact">
-              <dt>Agent</dt>
-              <dd>
+            <GroupRow label="Agent">
+              <span className="machine__value">
                 {machine.agents.length
                   ? machine.agents.map((a) => (
                       <span key={a.kind} className="machine__agent">
@@ -104,9 +112,9 @@ export function MachineDialog({
                       </span>
                     ))
                   : '—'}
-              </dd>
-            </div>
-          </dl>
+              </span>
+            </GroupRow>
+          </GroupBox>
         </div>
       </Dialog>
       <Presence>

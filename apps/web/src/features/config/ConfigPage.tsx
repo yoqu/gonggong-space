@@ -1,21 +1,19 @@
 import { GONGGONG_TOOLS, type McpServer, type McpServerDto } from '@gonggong/protocol'
-import { MessageCircleQuestionMark, Plug, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import {
   Alert,
-  Badge,
   Button,
   Checkbox,
   Dialog,
   EmptyState,
-  Field,
+  Icon,
   IconButton,
-  Input,
   Presence,
   Switch,
   Tabs,
-  Textarea,
+  Tag,
+  TextField,
   toast,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
@@ -114,16 +112,20 @@ export function ConfigPage() {
   const enabledNames = items?.filter((i) => i.enabled).map((i) => i.config.name) ?? []
 
   return (
-    <AdminPage title={TITLE} desc={DESC}>
+    <AdminPage
+      title={TITLE}
+      desc={DESC}
+      subtitle={items ? `${items.length} 个 MCP · 已启用 ${enabledNames.length} 个` : undefined}
+    >
       <div className="cfg__bar">
         <Tabs items={LAYERS} value="global" onChange={() => undefined} />
         <span className="spacer" />
-        <Tabs size="sm" items={CTYPES} value={ctype} onChange={setCtype} />
+        <Tabs items={CTYPES} value={ctype} onChange={setCtype} />
       </div>
       {loadError ? (
         <Alert variant="error" title="配置加载失败" description={loadError}>
           <div className="cfg__retry">
-            <Button size="sm" variant="outline" onClick={() => void load()}>
+            <Button size="small" onClick={() => void load()}>
               重试
             </Button>
           </div>
@@ -140,18 +142,12 @@ export function ConfigPage() {
             <>
               {items?.map((i) => (
                 <div key={i.key} className="cfg__item" data-testid="cfg-item">
-                  <Plug size={15} className="cfg__icon" />
+                  <Icon name="plug" className="cfg__icon" />
                   <div className="cfg__main">
                     <div className="cfg__name-line">
                       <span className="cfg__name">{i.config.name}</span>
-                      <Badge variant="info" size="xs">
-                        全局层
-                      </Badge>
-                      {i.saved ? null : (
-                        <Badge variant="warning" size="xs">
-                          未保存
-                        </Badge>
-                      )}
+                      <Tag tone="blue">全局层</Tag>
+                      {i.saved ? null : <Tag tone="orange">未保存</Tag>}
                     </div>
                     <span className="cfg__desc">{describeMcp(i.config)}</span>
                   </div>
@@ -162,7 +158,7 @@ export function ConfigPage() {
                       edit(items.filter((x) => x !== i))
                     }}
                   >
-                    <Trash2 size={13} />
+                    <Icon name="trash" />
                   </IconButton>
                   <Switch
                     checked={i.enabled}
@@ -171,13 +167,11 @@ export function ConfigPage() {
                 </div>
               ))}
               <div className="cfg__item" data-testid="cfg-item">
-                <MessageCircleQuestionMark size={15} className="cfg__icon" />
+                <Icon name="bubble-question" className="cfg__icon" />
                 <div className="cfg__main">
                   <div className="cfg__name-line">
                     <span className="cfg__name">{RESERVED}</span>
-                    <Badge variant="secondary" size="xs">
-                      内置
-                    </Badge>
+                    <Tag tone="gray">内置</Tag>
                   </div>
                   <span className="cfg__desc">系统内置 · 始终注入，不受层级影响</span>
                   <span className="cfg__tools">{BUILTIN_TOOLS}</span>
@@ -187,10 +181,8 @@ export function ConfigPage() {
               <div className="cfg__foot">
                 <Checkbox label="强制相关 Bot 下一轮开新会话" checked={force} onChange={setForce} />
                 <span className="spacer" />
-                <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-                  添加 MCP
-                </Button>
-                <Button variant="primary" size="sm" disabled={!dirty || busy} onClick={() => void save()}>
+                <Button onClick={() => setAdding(true)}>添加 MCP</Button>
+                <Button variant="primary" disabled={!dirty || busy} onClick={() => void save()}>
                   保存
                 </Button>
               </div>
@@ -200,23 +192,23 @@ export function ConfigPage() {
         <div className="cfg__preview">
           <div className="cfg__eyebrow">合并预览 · 全部 Bot</div>
           {[
-            { name: '服务器群层', pri: '优先级高', color: 'var(--color-selection-blue)', text: '暂未开放' },
+            { name: '服务器群层', pri: '优先级高', color: 'var(--system-blue)', text: '暂未开放' },
             {
               name: '服务器全局层',
               pri: '中',
-              color: 'var(--color-brand-info)',
+              color: 'var(--system-teal)',
               text: `mcp: ${enabledNames.join(', ') || '无'}`,
             },
             {
               name: 'Bot 系统提示词',
               pri: '',
-              color: 'var(--color-text-tertiary)',
+              color: 'var(--system-gray)',
               text: '各 Bot 在 Bot 页设置',
             },
             {
               name: '仓库基线',
               pri: '低',
-              color: 'var(--color-border-strong)',
+              color: 'var(--separator)',
               text: '.mcp.json · .claude/ · AGENTS.md',
             },
           ].map((l) => (
@@ -309,9 +301,7 @@ function AddMcpDialog({
       onClose={onClose}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
+          <Button onClick={onClose}>取消</Button>
           <Button variant="primary" onClick={submit}>
             添加
           </Button>
@@ -328,29 +318,51 @@ function AddMcpDialog({
           value={transport}
           onChange={setTransport}
         />
-        <Field label="名称">
-          <Input mono value={f.name} onChange={set('name')} placeholder="wiki-search" autoFocus />
-        </Field>
+        <TextField
+          label="名称"
+          mono
+          value={f.name}
+          onChange={set('name')}
+          placeholder="wiki-search"
+          autoFocus
+        />
         {transport === 'stdio' ? (
           <>
-            <Field label="命令">
-              <Input mono value={f.command} onChange={set('command')} placeholder="npx" />
-            </Field>
-            <Field label="参数（每行一个）">
-              <Textarea className="cfg__mono" rows={3} value={f.args} onChange={set('args')} />
-            </Field>
-            <Field label="环境变量（每行 KEY=VALUE）">
-              <Textarea className="cfg__mono" rows={3} value={f.env} onChange={set('env')} />
-            </Field>
+            <TextField label="命令" mono value={f.command} onChange={set('command')} placeholder="npx" />
+            <TextField
+              multiline
+              label="参数（每行一个）"
+              className="cfg__mono"
+              rows={3}
+              value={f.args}
+              onChange={set('args')}
+            />
+            <TextField
+              multiline
+              label="环境变量（每行 KEY=VALUE）"
+              className="cfg__mono"
+              rows={3}
+              value={f.env}
+              onChange={set('env')}
+            />
           </>
         ) : (
           <>
-            <Field label="URL">
-              <Input mono value={f.url} onChange={set('url')} placeholder="https://mcp.corp/wiki" />
-            </Field>
-            <Field label="请求头（每行 Key: Value）">
-              <Textarea className="cfg__mono" rows={3} value={f.headers} onChange={set('headers')} />
-            </Field>
+            <TextField
+              label="URL"
+              mono
+              value={f.url}
+              onChange={set('url')}
+              placeholder="https://mcp.corp/wiki"
+            />
+            <TextField
+              multiline
+              label="请求头（每行 Key: Value）"
+              className="cfg__mono"
+              rows={3}
+              value={f.headers}
+              onChange={set('headers')}
+            />
           </>
         )}
         <span className="cfg__hint">环境变量与请求头以明文保存，只在新建会话时经 ACP 注入。</span>

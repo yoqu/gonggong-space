@@ -84,7 +84,7 @@ describe('admin console', () => {
     const edit = within(
       screen.getByRole('cell', { name: 'chenchen' }).closest('tr') as HTMLElement,
     ).getByRole('button', { name: '编辑' })
-    expect(edit.className).toContain('ui-btn--outline')
+    expect(edit.className).toContain('ui-btn--small')
     expect(screen.queryByText(/一期|二期|OIDC/)).toBeNull()
   })
 

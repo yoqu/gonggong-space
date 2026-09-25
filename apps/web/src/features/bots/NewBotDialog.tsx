@@ -1,10 +1,9 @@
 import type { AgentKind, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
-import { CircleCheck, Clock, Info, TriangleAlert, UserCheck } from 'lucide-react'
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Dialog, Input, Presence, Spinner, Textarea, toast } from '../../ui'
+import { Button, Dialog, Icon, Input, Presence, Spinner, Textarea, toast } from '../../ui'
 import { DirPicker } from '../workspaces/DirPicker'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
 
@@ -26,11 +25,11 @@ interface Draft {
 }
 
 const TONE = {
-  pending: { icon: Clock, color: 'var(--color-text-tertiary)' },
-  warn: { icon: TriangleAlert, color: 'var(--color-brand-warm)' },
-  ok: { icon: CircleCheck, color: 'var(--color-success)' },
-  confirm: { icon: UserCheck, color: 'var(--color-selection-blue)' },
-}
+  pending: { icon: 'clock', color: 'var(--label-secondary)' },
+  warn: { icon: 'warning', color: 'var(--system-orange)' },
+  ok: { icon: 'checkmark-circle', color: 'var(--system-green)' },
+  confirm: { icon: 'person-check', color: 'var(--system-blue)' },
+} as const
 
 const autoName = (owner: BotOwnerDto, agent: AgentKind) => `${owner.name}的 ${AGENT_LABEL[agent]}`
 
@@ -58,9 +57,7 @@ function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ReactNod
       onClose={onClose}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
-            关闭
-          </Button>
+          <Button onClick={onClose}>关闭</Button>
           {cta ?? (
             <Button variant="primary" disabled>
               创建
@@ -142,7 +139,6 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
             title: `等待 ${owner.name} 确认`,
             desc: `已绑定到 ${m.name}。机器上的操作由主人负责，${owner.name} 在 daemon 或 Web 通知中一键确认后即可触发。`,
           }
-  const Icon = result.tone.icon
   const tinted = result.tone !== TONE.pending
 
   const create = async () => {
@@ -217,7 +213,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
               <span className="newbot__status">
                 <span
                   className="dot dot--sm"
-                  style={{ background: x.online ? 'var(--color-success)' : 'var(--color-status-offline)' }}
+                  style={{ background: x.online ? 'var(--system-green)' : 'var(--system-gray)' }}
                 />
                 {x.online ? '在线' : '离线'}
               </span>
@@ -225,7 +221,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           ))}
           {machines.length ? null : (
             <div className="newbot__note">
-              <Info size={13} className="muted-icon" />
+              <Icon name="info" size={14} />
               <span>{owner.name} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。</span>
             </div>
           )}
@@ -284,7 +280,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
             <span className="newbot__label">默认工作区 · 可选</span>
             <div className="newbot__workspace">
               <span className="newbot__mono newbot__path">{draft.workspace ?? '未设置，进群时再选择'}</span>
-              <Button size="xs" onClick={() => setPicking(true)}>
+              <Button size="small" onClick={() => setPicking(true)}>
                 选择目录
               </Button>
             </div>
@@ -316,7 +312,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
               : undefined
           }
         >
-          <Icon size={13} color={result.tone.color} className="newbot__result-icon" />
+          <Icon name={result.tone.icon} size={14} color={result.tone.color} className="newbot__result-icon" />
           <div>
             <div className="newbot__result-title">{result.title}</div>
             <div className="newbot__result-desc">{result.desc}</div>

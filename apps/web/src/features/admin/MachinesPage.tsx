@@ -2,7 +2,7 @@ import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Presence, Spinner } from '../../ui'
+import { Alert, EmptyState, Presence, SearchField, Spinner } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
@@ -42,6 +42,7 @@ export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
   const params = useSystemParams()
   const load = useCallback(
     () =>
@@ -71,11 +72,21 @@ export function MachinesPage() {
   }, [load])
   const old = machines?.filter(outdated) ?? []
   const open = machines?.find((m) => m.id === openId)
+  const q = query.trim().toLowerCase()
+  const shown = machines?.filter(
+    (m) => !q || `${m.name} ${m.hostname} ${m.ownerName}`.toLowerCase().includes(q),
+  )
+  const online = machines?.filter((m) => m.online).length ?? 0
 
   return (
-    <AdminPage title="机器与网络" desc="所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。">
+    <AdminPage
+      title="机器与网络"
+      desc="所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。"
+      subtitle={machines ? `${machines.length} 台 · ${online} 台在线` : undefined}
+      search={<SearchField placeholder="搜索机器或主人" value={query} onChange={setQuery} />}
+    >
       {error ? <Alert variant="error" description={error} /> : null}
-      {machines ? (
+      {shown ? (
         <div className="admin-table">
           <table>
             <thead>
@@ -92,7 +103,7 @@ export function MachinesPage() {
               </tr>
             </thead>
             <tbody>
-              {machines.map((m) => (
+              {shown.map((m) => (
                 <tr key={m.id}>
                   <td>{m.ownerName}</td>
                   <td className="admin-table__mono" title={m.name === m.hostname ? undefined : m.hostname}>
@@ -120,7 +131,7 @@ export function MachinesPage() {
                     at={m.netMeasuredAt}
                   />
                   <td>
-                    <span className="admin-table__presence">
+                    <span className="admin-status">
                       <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
                       {m.online ? '在线' : '离线'}
                     </span>
@@ -135,6 +146,9 @@ export function MachinesPage() {
               ))}
             </tbody>
           </table>
+          {shown.length ? null : (
+            <EmptyState bare title={machines?.length ? '没有匹配的机器' : '还没有机器'} />
+          )}
         </div>
       ) : error ? null : (
         <Spinner size={18} />

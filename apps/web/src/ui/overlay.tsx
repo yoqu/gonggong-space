@@ -195,6 +195,7 @@ export function Dialog({
 export interface AlertAction {
   label: ReactNode
   variant?: 'default' | 'primary' | 'destructive'
+  disabled?: boolean
   /** Receives the suppression checkbox state (false without one). */
   onClick?: (suppressed: boolean) => void
 }
@@ -203,6 +204,8 @@ export interface AlertPanelProps {
   /** A question naming the consequence (Pane Alert). */
   title: ReactNode
   message?: ReactNode
+  /** Extra content under the message, e.g. a `ui-consequences` list; widens the panel. */
+  detail?: ReactNode
   /** 48px image, usually the app icon. */
   icon?: ReactNode
   /** Label of a 「不再询问」 checkbox. */
@@ -214,6 +217,7 @@ function AlertContent({
   titleId,
   title,
   message,
+  detail,
   icon,
   suppression,
   actions,
@@ -226,6 +230,7 @@ function AlertContent({
         {title}
       </h2>
       {message ? <p className="ui-alert__message">{message}</p> : null}
+      {detail ? <div className="ui-alert__detail">{detail}</div> : null}
       {suppression ? (
         <div className="ui-alert__suppress">
           <Checkbox checked={suppressed} onChange={setSuppressed} label={suppression} />
@@ -233,8 +238,13 @@ function AlertContent({
       ) : null}
       <div className={cx('ui-alert__actions', actions.length > 2 && 'ui-alert__actions--stack')}>
         {actions.map((a, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: actions are a fixed, ordered list
-          <Button key={i} variant={a.variant ?? 'default'} onClick={() => a.onClick?.(suppressed)}>
+          <Button
+            // biome-ignore lint/suspicious/noArrayIndexKey: actions are a fixed, ordered list
+            key={i}
+            variant={a.variant ?? 'default'}
+            disabled={a.disabled}
+            onClick={() => a.onClick?.(suppressed)}
+          >
             {a.label}
           </Button>
         ))}
@@ -247,7 +257,11 @@ function AlertContent({
 export function AlertPanel(props: AlertPanelProps) {
   const titleId = useId()
   return (
-    <div role="alertdialog" aria-labelledby={titleId} className="ui-alert-panel">
+    <div
+      role="alertdialog"
+      aria-labelledby={titleId}
+      className={cx('ui-alert-panel', props.detail != null && 'ui-alert-panel--wide')}
+    >
       <AlertContent titleId={titleId} {...props} />
     </div>
   )
@@ -272,7 +286,10 @@ export function AlertDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className="ui-alert-panel ui-alert-panel--modal"
+          className={cx(
+            'ui-alert-panel ui-alert-panel--modal',
+            props.detail != null && 'ui-alert-panel--wide',
+          )}
           onAnimationEnd={onAnimationEnd}
         >
           <AlertContent titleId={titleId} {...props} />

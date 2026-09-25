@@ -1,53 +1,48 @@
-import { MessageSquare } from 'lucide-react'
+import type { CSSProperties } from 'react'
 import { Link, Navigate, NavLink, Outlet } from 'react-router'
 import { useSession } from '../../app/session'
-import { Logo, Toaster } from '../../ui'
-import { AccountMenu, ROLE_LABEL } from '../auth/AccountMenu'
+import { Icon, Logo, Toaster } from '../../ui'
+import '../../ui/sidebar.css'
 import { ADMIN_NAV } from './nav'
 import './admin.css'
 
-/** 管理后台.dc.html shell: title bar + grouped left nav (a scrolling tab row under 768px). Members manage their own bots and machines in the chat UI. */
+/** 管理后台 shell: a flush Pane sidebar (a scrolling tab row under 768px) beside the page. Members manage their own bots and machines in the chat UI. */
 export function AdminLayout() {
   const user = useSession((s) => s.user)
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
   return (
     <div className="admin">
-      <header className="admin__bar">
-        <Logo size={22} />
-        <span className="admin__product">共工</span>
-        <span className="admin__slash">/</span>
-        <span className="admin__crumb">管理后台</span>
-        <span className="spacer" />
-        <Link to="/" className="admin__back">
-          <MessageSquare size={13} />
-          返回群聊
-        </Link>
-        <span className="admin__role" data-testid="admin-role">
-          {user.name}
-          {user.name === ROLE_LABEL[user.role] ? null : (
-            <span className="admin__role-badge">{ROLE_LABEL[user.role]}</span>
-          )}
-        </span>
-        <AccountMenu />
-      </header>
-      <div className="admin__body">
-        <nav className="admin__nav" aria-label="管理后台">
-          {ADMIN_NAV.map((g) => (
-            <div key={g.head} className="admin__group">
-              <div className="admin__head">{g.head}</div>
-              {g.items.map((i) => (
-                <NavLink key={i.path} to={`/admin/${i.path}`} className="admin__item">
-                  <i.icon size={14} />
-                  <span>{i.label}</span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <main className="admin__main">
-          <Outlet />
-        </main>
-      </div>
+      <nav className="ui-sidebar admin__nav" aria-label="管理后台">
+        <div className="admin__brand">
+          <Logo size={20} />
+          <span className="admin__product">共工</span>
+          <span className="admin__crumb">管理后台</span>
+        </div>
+        {ADMIN_NAV.map((g) => (
+          <div key={g.head} className="ui-sidebar__section">
+            <div className="ui-sidebar__title">{g.head}</div>
+            {g.items.map((i) => (
+              <NavLink key={i.path} to={`/admin/${i.path}`} className="ui-sidebar__item">
+                <span className="ui-sidebar__icon" style={{ '--icon-color': i.color } as CSSProperties}>
+                  <Icon name={i.icon} />
+                </span>
+                <span className="ui-sidebar__label">{i.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
+        <div className="ui-sidebar__section admin__back">
+          <Link to="/" className="ui-sidebar__item">
+            <span className="ui-sidebar__icon">
+              <Icon name="bubble" />
+            </span>
+            <span className="ui-sidebar__label">返回群聊</span>
+          </Link>
+        </div>
+      </nav>
+      <main className="admin__main">
+        <Outlet />
+      </main>
       <Toaster />
     </div>
   )

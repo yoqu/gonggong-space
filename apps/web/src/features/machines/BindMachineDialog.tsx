@@ -1,9 +1,18 @@
 import type { AgentInfo, BindCodeDto, MachineDto } from '@gonggong/protocol'
-import { Copy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Button, Dialog, IconButton, Spinner, StepIndicator, type StepStatus, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  Icon,
+  IconButton,
+  Spinner,
+  StepIndicator,
+  type StepStatus,
+  toast,
+} from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import './machines.css'
 
@@ -133,7 +142,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
                       .then(() => toast({ type: 'success', message: '已复制绑定命令' }))
                   }
                 >
-                  <Copy size={13} />
+                  <Icon name="copy" />
                 </IconButton>
               </div>
             </div>
@@ -182,7 +191,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
               <li key={a.kind} className="bind__agent">
                 <span
                   className="dot"
-                  style={{ background: a.available ? 'var(--color-success)' : 'var(--color-status-offline)' }}
+                  style={{ background: a.available ? 'var(--system-green)' : 'var(--system-gray)' }}
                 />
                 <span>{`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}</span>
               </li>

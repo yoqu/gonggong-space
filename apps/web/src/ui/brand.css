@@ -97,11 +97,11 @@
 .ui-brand__name {
   font: 600 calc(var(--brand-size) * 0.62) / 1.1 var(--font-display);
   letter-spacing: 0.08em;
-  color: var(--color-text-primary);
+  color: var(--label);
   white-space: nowrap;
 }
 .ui-brand__sub {
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--label-secondary);
   white-space: nowrap;
 }

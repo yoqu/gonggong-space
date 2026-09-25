@@ -13,12 +13,12 @@ export const BINDING_LABEL: Record<BotDto['binding'], string> = {
 }
 
 export const PRESENCE: Record<BotDto['presence'], { label: string; color: string }> = {
-  online: { label: '在线空闲', color: 'var(--color-success)' },
-  running: { label: '运行中', color: 'var(--color-selection-blue)' },
-  offline: { label: '离线', color: 'var(--color-status-offline)' },
-  agent_missing: { label: 'agent 缺失', color: 'var(--color-brand-warm)' },
-  pending_bind: { label: '不可触发', color: 'var(--color-status-offline)' },
-  pending_confirm: { label: '不可触发', color: 'var(--color-status-offline)' },
+  online: { label: '在线空闲', color: 'var(--system-green)' },
+  running: { label: '运行中', color: 'var(--system-blue)' },
+  offline: { label: '离线', color: 'var(--system-gray)' },
+  agent_missing: { label: 'agent 缺失', color: 'var(--system-orange)' },
+  pending_bind: { label: '不可触发', color: 'var(--system-gray)' },
+  pending_confirm: { label: '不可触发', color: 'var(--system-gray)' },
 }
 
 const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {

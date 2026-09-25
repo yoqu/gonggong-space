@@ -1,8 +1,8 @@
-/* 绑定新机器 (Web 对话.dc.html ovBind) */
+/* 绑定新机器 */
 .bind {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 .bind__code-box {
   min-height: 84px;
@@ -10,47 +10,47 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 16px;
-  border-radius: var(--radius-xl);
-  background: var(--color-preview-bg);
+  gap: var(--space-6);
+  padding: var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
 }
 .bind__code {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: var(--text-title-1-size);
   font-weight: 600;
   letter-spacing: 0.16em;
 }
 .bind__hint,
 .bind__note {
   margin: 0;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
   text-wrap: pretty;
 }
 .bind__expired {
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--label-secondary);
 }
 .bind__cmd-wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
 }
 .bind__label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
 }
 .bind__cmd {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 4px 4px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-separator);
-  background: var(--color-preview-bg);
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
+  box-shadow: inset 0 0 0 1px var(--control-stroke);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .bind__cmd-text {
   flex: 1;
@@ -60,9 +60,9 @@
 .bind__waiting {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  gap: var(--space-8);
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
 }
 .bind__agents {
   margin: 0;
@@ -70,58 +70,46 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
 }
 .bind__agent {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--space-8);
 }
 .bind__link {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--color-system-blue);
+  color: var(--accent-text);
   font: inherit;
-  cursor: pointer;
 }
 .bind__link:hover {
-  color: var(--color-system-blue-hover);
+  text-decoration: underline;
 }
 
 /* 机器详情 */
 .machine {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-12);
 }
 .machine__rename {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--space-8);
 }
 .machine__rename .ui-input {
-  flex: 1;
-  min-width: 0;
+  width: 200px;
 }
-.machine__facts {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 8px 16px;
-  font-size: 12px;
-}
-.machine__fact {
-  display: contents;
-}
-.machine__fact dt {
-  color: var(--color-text-tertiary);
-}
-.machine__fact dd {
-  margin: 0;
+.machine__value {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  justify-content: flex-end;
+  gap: var(--space-4) var(--space-12);
+  max-width: 64%;
+  color: var(--label-secondary);
+  text-align: right;
   overflow-wrap: anywhere;
 }
 .machine__open {
@@ -129,10 +117,13 @@
   border: 0;
   background: none;
   font: inherit;
-  color: var(--color-system-blue);
-  cursor: pointer;
+  color: var(--accent-text);
   text-align: left;
 }
 .machine__open:hover {
   text-decoration: underline;
+}
+.machine .ui-group__row {
+  min-height: 32px;
+  padding-block: var(--space-4);
 }
