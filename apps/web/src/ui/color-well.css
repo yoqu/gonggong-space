@@ -1,0 +1,74 @@
+/* ColorWell. Swatch rims are fixed dark hairlines so white and pale colors keep an edge on any theme. */
+.ui-colorwell {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  padding: 3px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--control-fill);
+  box-shadow: var(--shadow-control);
+  cursor: default;
+}
+.ui-colorwell > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.ui-colorwell__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ui-colorwell__sw {
+  appearance: none;
+  justify-self: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  cursor: default;
+}
+.ui-colorwell__sw--on {
+  outline: 2px solid var(--label);
+  outline-offset: 2px;
+}
+.ui-colorwell__hex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ui-colorwell__preview {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+.ui-colorrow {
+  display: inline-flex;
+  gap: 8px;
+}
+.ui-colorrow__dot {
+  appearance: none;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-c);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  cursor: default;
+}
+.ui-colorrow__dot[aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}

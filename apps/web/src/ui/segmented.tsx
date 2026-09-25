@@ -15,7 +15,19 @@ export interface SegmentItem<V extends string> {
 
 type SegmentSize = 'small' | 'regular' | 'large'
 
-/** Shared segmented bar: arrow keys move selection and focus (roving tabindex). */
+/** Index reached by ←/→, Home or End from `from`, skipping disabled items; arrows stop at the ends unless `wrap`. */
+function segmentTarget(items: { disabled?: boolean }[], from: number, key: string, wrap: boolean) {
+  const enabled = items.flatMap((it, i) => (it.disabled ? [] : [i]))
+  const at = enabled.indexOf(from)
+  const n = enabled.length
+  const step = key === 'ArrowRight' ? 1 : key === 'ArrowLeft' ? -1 : 0
+  if (key === 'Home') return enabled[0]
+  if (key === 'End') return enabled[n - 1]
+  if (!step) return undefined
+  return enabled[wrap ? (at + step + n) % n : Math.min(n - 1, Math.max(0, at + step))]
+}
+
+/** Shared segmented bar: one tab stop; ←→ Home End move focus and select. Radio semantics, or wrapping tabs for `Tabs`. */
 function Segments<V extends string>({
   items,
   value,
@@ -34,20 +46,19 @@ function Segments<V extends string>({
   const current = items.findIndex((it) => it.value === value)
   const focusable = current >= 0 ? current : nextEnabled(items, -1, 1)
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-    if (!step) return
-    e.preventDefault()
     const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('.ui-seg__item')]
     const from = buttons.indexOf(e.target as HTMLButtonElement)
-    const next = nextEnabled(items, from < 0 ? focusable : from, step)
+    const next = segmentTarget(items, from < 0 ? focusable : from, e.key, tabs)
+    if (next === undefined) return
+    e.preventDefault()
     buttons[next]?.focus()
     const it = items[next]
-    if (it) onChange(it.value)
+    if (it && next !== current) onChange(it.value)
   }
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useAriaPropsSupportedByRole: role is tablist or group, both interactive and nameable
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useAriaPropsSupportedByRole: role is tablist or radiogroup, both interactive and nameable
     <div
-      role={tabs ? 'tablist' : 'group'}
+      role={tabs ? 'tablist' : 'radiogroup'}
       aria-label={label}
       className={cx('ui-seg', size !== 'regular' && `ui-seg--${size}`)}
       onKeyDown={onKeyDown}
@@ -55,13 +66,13 @@ function Segments<V extends string>({
       {items.map((it, i) => {
         const selected = it.value === value
         return (
-          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-selected is only set when role is tab
+          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-selected goes with role tab, aria-checked with role radio
           <button
             key={it.value}
             type="button"
-            role={tabs ? 'tab' : undefined}
+            role={tabs ? 'tab' : 'radio'}
             aria-selected={tabs ? selected : undefined}
-            aria-pressed={tabs ? undefined : selected}
+            aria-checked={tabs ? undefined : selected}
             aria-label={it.label ? undefined : it['aria-label']}
             data-selected={selected || undefined}
             className="ui-seg__item"

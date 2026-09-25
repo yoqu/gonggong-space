@@ -58,12 +58,12 @@ describe('日志与诊断', () => {
       expect(screen.getByTestId('log-pane').textContent).toContain('WARN  sync    local edit'),
     )
     expect(m.recentLogs).toHaveBeenLastCalledWith('info', expect.any(Number))
-    fireEvent.click(screen.getByRole('button', { name: 'warn' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'warn' }))
     await waitFor(() => expect(m.recentLogs).toHaveBeenLastCalledWith('warn', expect.any(Number)))
     const calls = m.recentLogs.mock.calls.length
     await act(async () => vi.advanceTimersByTime(2000))
     expect(m.recentLogs.mock.calls.length).toBeGreaterThan(calls)
-    fireEvent.click(screen.getByRole('button', { name: 'debug' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'debug' }))
     await waitFor(() => expect(m.recentLogs).toHaveBeenLastCalledWith('debug', expect.any(Number)))
   })
 })

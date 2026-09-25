@@ -1,4 +1,5 @@
 import {
+  type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type ReactElement,
   type ReactNode,
@@ -6,9 +7,12 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from 'react'
 import { cx } from '../lib/cx'
+import { Float, type Placement, useDismiss } from './anchor'
 import { useControlled } from './controlled'
+import { ProgressIndicator } from './display'
 import { Icon, type IconName } from './icon'
 import './controls.css'
 
@@ -27,6 +31,8 @@ interface ButtonBaseProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
+  /** Shows a spinner in place of the icon and disables the button; pair with a progressive label (「正在上传」). */
+  loading?: boolean
 }
 
 export type ButtonProps = ButtonBaseProps &
@@ -36,26 +42,35 @@ export function Button({
   variant = 'default',
   size = 'regular',
   fullWidth,
+  loading,
   icon,
   className,
   type = 'button',
+  disabled,
   children,
   ...rest
 }: ButtonProps) {
   return (
     <button
       type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cx(
         'ui-btn',
         variant !== 'default' && `ui-btn--${variant}`,
         size !== 'regular' && size !== 'md' && `ui-btn--${size}`,
         icon && children == null && 'ui-btn--icon',
+        loading && 'ui-btn--loading',
         fullWidth && 'ui-btn--full',
         className,
       )}
       {...rest}
     >
-      {icon ? renderGlyph(icon) : null}
+      {loading ? (
+        <ProgressIndicator variant="spinner" aria-label="正在处理" />
+      ) : icon ? (
+        renderGlyph(icon)
+      ) : null}
       {children}
     </button>
   )
@@ -237,5 +252,118 @@ export function RadioGroup<V extends string>({
         </label>
       ))}
     </div>
+  )
+}
+
+export interface CheckboxGroupProps<V extends string> {
+  options: { value: V; label: ReactNode; disabled?: boolean }[]
+  value?: V[]
+  defaultValue?: V[]
+  onChange?: (value: V[]) => void
+  direction?: 'column' | 'row'
+  disabled?: boolean
+  'aria-label'?: string
+}
+
+export function CheckboxGroup<V extends string>({
+  options,
+  value,
+  defaultValue = [],
+  onChange,
+  direction = 'column',
+  disabled,
+  ...aria
+}: CheckboxGroupProps<V>) {
+  const [current, setCurrent] = useControlled(value, defaultValue)
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a <fieldset> would need a legend; the group is named by aria-label
+    <div
+      role="group"
+      aria-label={aria['aria-label']}
+      className={cx('ui-radiogroup', direction === 'row' && 'ui-radiogroup--row')}
+    >
+      {options.map((o) => (
+        <Checkbox
+          key={o.value}
+          label={o.label}
+          checked={current.includes(o.value)}
+          disabled={disabled || o.disabled}
+          onChange={(on) => {
+            const next = on ? [...current, o.value] : current.filter((v) => v !== o.value)
+            setCurrent(next)
+            onChange?.(next)
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+export interface LinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  /** Opens in a new window and appends an external-link glyph that screen readers announce. */
+  external?: boolean
+}
+
+/** Navigation text link; actions use `Button variant="plain"` instead. */
+export function Link({ external, className, children, target, rel, ...rest }: LinkProps) {
+  return (
+    <a
+      className={cx('ui-link', className)}
+      target={external ? '_blank' : target}
+      rel={external ? 'noopener noreferrer' : rel}
+      {...rest}
+    >
+      {children}
+      {/* TODO(Va): `external` joins IconName with the Pane v2 icons. */}
+      {external ? (
+        <Icon name={'external' as IconName} weight={1.6} label="（在新窗口打开）" className="ui-link__ext" />
+      ) : null}
+    </a>
+  )
+}
+
+export interface HelpButtonProps {
+  /** One or two sentences shown in a popover; without it the button calls `onClick` (open full help). */
+  help?: ReactNode
+  onClick?: () => void
+  placement?: Placement
+  defaultOpen?: boolean
+  'aria-label'?: string
+}
+
+export function HelpButton({
+  help,
+  onClick,
+  placement = 'top-start',
+  defaultOpen = false,
+  ...aria
+}: HelpButtonProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  const root = useRef<HTMLSpanElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  useDismiss(open, root, (refocus) => {
+    setOpen(false)
+    if (refocus) trigger.current?.focus()
+  })
+  const label = aria['aria-label'] ?? '帮助'
+  return (
+    <span ref={root} className="ui-anchor">
+      <button
+        ref={trigger}
+        type="button"
+        className="ui-helpbtn"
+        aria-label={label}
+        aria-haspopup={help ? 'dialog' : undefined}
+        aria-expanded={help ? open : undefined}
+        onClick={help ? () => setOpen(!open) : onClick}
+      >
+        ?
+      </button>
+      {help ? (
+        <Float open={open} placement={placement} role="dialog" aria-label="帮助" style={{ width: 260 }}>
+          <div className="ui-helptext">{help}</div>
+        </Float>
+      ) : null}
+    </span>
   )
 }

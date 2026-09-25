@@ -3,12 +3,15 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
   type Ref,
+  type RefObject,
   type TextareaHTMLAttributes,
   useId,
+  useLayoutEffect,
+  useRef,
 } from 'react'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
-import { Icon } from './icon'
+import { ICON_NAMES, Icon, type IconName } from './icon'
 import './form.css'
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -34,6 +37,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   invalid?: boolean
 }
 
+/** Bare multi-line control, styled like TextArea but without label, hint or count. */
 export function Textarea({ invalid, className, ...rest }: TextareaProps) {
   return (
     <textarea
@@ -55,48 +59,234 @@ export function Field({ label, children }: { label: ReactNode; children: ReactNo
   )
 }
 
-interface TextFieldOwnProps {
+function assignRef<T>(ref: Ref<T> | undefined, el: T | null) {
+  if (typeof ref === 'function') ref(el)
+  else if (ref) (ref as RefObject<T | null>).current = el
+}
+
+/** Hint line under a field; an error replaces the hint and gets a ⚠ so it never relies on color alone. */
+function FieldNote({
+  id,
+  hint,
+  error,
+  extra,
+}: {
+  id: string
+  hint?: ReactNode
+  error?: ReactNode
+  extra?: ReactNode
+}) {
+  const note = error ?? hint
+  if (note == null && extra == null) return null
+  return (
+    <span id={id} className={cx('ui-field__hint', error != null && 'ui-field__hint--error')}>
+      {note}
+      {extra}
+    </span>
+  )
+}
+
+/** An icon name renders as that icon; anything else (「https://」「元 / 月」) as text. */
+const affix = (x: ReactNode) =>
+  typeof x === 'string' && (ICON_NAMES as string[]).includes(x) ? <Icon name={x as IconName} /> : x
+
+interface FieldCommon {
   label?: ReactNode
   hint?: ReactNode
-  /** Replaces the hint, turns the stroke red and adds a warning sign, so it never relies on color alone. */
+  /** Replaces the hint, turns the stroke red and adds a warning sign. */
   error?: ReactNode
-  size?: 'regular' | 'large'
   className?: string
   style?: CSSProperties
 }
 
-export type TextFieldProps = TextFieldOwnProps &
-  (
-    | ({ multiline?: false } & Omit<InputProps, 'size' | 'invalid' | 'className' | 'style'>)
-    | ({ multiline: true } & Omit<TextareaProps, 'invalid' | 'className' | 'style'>)
-  )
+export interface LineFieldProps
+  extends FieldCommon,
+    Omit<InputProps, 'size' | 'invalid' | 'className' | 'style' | 'prefix'> {
+  multiline?: false
+  size?: 'regular' | 'large'
+  /** Text or an icon name inside the field, before the input. */
+  prefix?: ReactNode
+  /** Text (a unit) or an icon name inside the field, after the input. */
+  suffix?: ReactNode
+  /** Shows a clear button while there is text. */
+  clearable?: boolean
+  onClear?: () => void
+  /** Extra controls inside the field, before the suffix (SecureField's eye button). */
+  trailing?: ReactNode
+  inputRef?: RefObject<HTMLInputElement | null>
+}
 
-export function TextField({ label, hint, error, size, className, style, ...control }: TextFieldProps) {
-  const id = useId()
-  const note = error ?? hint
-  const described = note ? `${id}-note` : undefined
-  const common = { id: control.id ?? id, 'aria-describedby': described, invalid: !!error }
-  let field: ReactNode
-  if (control.multiline) {
-    const { multiline: _, ...rest } = control
-    field = <Textarea {...rest} {...common} />
-  } else {
-    const { multiline: _, ...rest } = control
-    field = <Input type="text" {...rest} {...common} size={size} />
+export interface TextAreaProps
+  extends FieldCommon,
+    Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'prefix'> {
+  ref?: Ref<HTMLTextAreaElement>
+  /** Grows with the content up to `maxHeight` (default 240). */
+  autoGrow?: boolean
+  maxHeight?: number
+  /** With `maxLength`, shows 「已输入 / 上限」 unless false. */
+  showCount?: boolean
+}
+
+export type TextFieldProps = LineFieldProps | ({ multiline: true; size?: 'regular' } & TextAreaProps)
+
+export function TextField(props: TextFieldProps) {
+  if (props.multiline) {
+    const { multiline: _, size: __, ...rest } = props
+    return <TextArea {...rest} />
   }
+  return <LineField {...props} />
+}
+
+function LineField({
+  label,
+  hint,
+  error,
+  size,
+  className,
+  style,
+  prefix,
+  suffix,
+  clearable,
+  onClear,
+  trailing,
+  inputRef,
+  ref,
+  id: idProp,
+  value,
+  defaultValue,
+  onChange,
+  multiline: _,
+  ...rest
+}: LineFieldProps) {
+  const autoId = useId()
+  const id = idProp ?? autoId
+  const noteId = `${id}-note`
+  const [text, setText] = useControlled<InputProps['value']>(value, defaultValue ?? '')
+  const own = useRef<HTMLInputElement | null>(null)
+  const affixed = prefix != null || suffix != null || clearable || trailing != null
+  const input = (
+    <Input
+      type="text"
+      {...rest}
+      ref={(el) => {
+        own.current = el
+        if (inputRef) inputRef.current = el
+        assignRef(ref, el)
+      }}
+      id={id}
+      value={text}
+      invalid={error != null}
+      aria-describedby={error != null || hint != null ? noteId : undefined}
+      size={affixed ? undefined : size}
+      className={affixed ? 'ui-input--bare' : undefined}
+      onChange={(e) => {
+        setText(e.target.value)
+        onChange?.(e)
+      }}
+    />
+  )
   return (
     <div className={cx('ui-field', className)} style={style}>
       {label ? (
-        <label className="ui-field__label" htmlFor={common.id}>
+        <label className="ui-field__label" htmlFor={id}>
           {label}
         </label>
       ) : null}
-      {field}
-      {note ? (
-        <span id={described} className={cx('ui-field__hint', error != null && 'ui-field__hint--error')}>
-          {note}
+      {affixed ? (
+        <span
+          className={cx(
+            'ui-inputwrap',
+            size === 'large' && 'ui-inputwrap--large',
+            error != null && 'ui-inputwrap--invalid',
+            rest.disabled && 'ui-disabled',
+          )}
+        >
+          {prefix != null ? <span className="ui-inputwrap__affix">{affix(prefix)}</span> : null}
+          {input}
+          {clearable && String(text) ? (
+            <button
+              type="button"
+              className="ui-search__clear ui-inputwrap__clear"
+              aria-label="清除"
+              onClick={() => {
+                setText('')
+                onClear?.()
+                own.current?.focus()
+              }}
+            >
+              <Icon name="xmark" weight={2.6} />
+            </button>
+          ) : null}
+          {trailing}
+          {suffix != null ? <span className="ui-inputwrap__affix">{affix(suffix)}</span> : null}
         </span>
+      ) : (
+        input
+      )}
+      <FieldNote id={noteId} hint={hint} error={error} />
+    </div>
+  )
+}
+
+export function TextArea({
+  label,
+  hint,
+  error,
+  autoGrow,
+  maxHeight = 240,
+  showCount = true,
+  className,
+  style,
+  id: idProp,
+  rows = 3,
+  value,
+  defaultValue,
+  onChange,
+  ref,
+  ...rest
+}: TextAreaProps) {
+  const autoId = useId()
+  const id = idProp ?? autoId
+  const noteId = `${id}-note`
+  const [text, setText] = useControlled<TextAreaProps['value']>(value, defaultValue ?? '')
+  const own = useRef<HTMLTextAreaElement | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
+  useLayoutEffect(() => {
+    const t = own.current
+    if (!autoGrow || !t) return
+    t.style.height = 'auto'
+    t.style.height = `${Math.min(t.scrollHeight + 2, maxHeight)}px`
+  }, [text, autoGrow, maxHeight])
+  const count =
+    rest.maxLength && showCount ? (
+      <span className="ui-field__count" aria-live="polite">
+        {String(text).length} / {rest.maxLength}
+      </span>
+    ) : null
+  return (
+    <div className={cx('ui-field', 'ui-field--wide', className)} style={style}>
+      {label ? (
+        <label className="ui-field__label" htmlFor={id}>
+          {label}
+        </label>
       ) : null}
+      <Textarea
+        {...rest}
+        ref={(el) => {
+          own.current = el
+          assignRef(ref, el)
+        }}
+        id={id}
+        rows={rows}
+        value={text}
+        invalid={error != null}
+        aria-describedby={error != null || hint != null || count ? noteId : undefined}
+        onChange={(e) => {
+          setText(e.target.value)
+          onChange?.(e)
+        }}
+      />
+      <FieldNote id={noteId} hint={hint} error={error} extra={count} />
     </div>
   )
 }

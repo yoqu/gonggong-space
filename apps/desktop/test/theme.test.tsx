@@ -38,28 +38,28 @@ it('settings page shows the current appearance and switching applies instantly a
   initTheme()
   render(<SettingsPage go={() => {}} />)
 
-  expect(screen.getByRole('button', { name: '深色' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('radio', { name: '深色' }).getAttribute('aria-checked')).toBe('true')
 
-  fireEvent.click(screen.getByRole('button', { name: '浅色' }))
+  fireEvent.click(screen.getByRole('radio', { name: '浅色' }))
   expect(document.documentElement.dataset.theme).toBe('light')
   expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
-  expect(screen.getByRole('button', { name: '浅色' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('radio', { name: '浅色' }).getAttribute('aria-checked')).toBe('true')
 })
 
 it('settings page switches the glass level and persists it', () => {
   render(<SettingsPage go={() => {}} />)
-  expect(screen.getByRole('button', { name: '标准' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('radio', { name: '标准' }).getAttribute('aria-checked')).toBe('true')
 
-  fireEvent.click(screen.getByRole('button', { name: '清透' }))
+  fireEvent.click(screen.getByRole('radio', { name: '清透' }))
   expect(document.documentElement.dataset.glass).toBe('clear')
   expect(window.localStorage.getItem(GLASS_STORAGE_KEY)).toBe('clear')
-  expect(screen.getByRole('button', { name: '清透' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('radio', { name: '清透' }).getAttribute('aria-checked')).toBe('true')
 })
 
 it('跟随系统 resolves through prefers-color-scheme', () => {
   stubSystemTheme(true)
   render(<SettingsPage go={() => {}} />)
-  fireEvent.click(screen.getByRole('button', { name: '跟随系统' }))
+  fireEvent.click(screen.getByRole('radio', { name: '跟随系统' }))
   expect(document.documentElement.dataset.theme).toBe('dark')
   expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system')
 })

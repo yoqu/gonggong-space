@@ -387,11 +387,11 @@ describe('审计记录', () => {
     expect(screen.queryByRole('button', { name: '加载更多' })).toBeNull()
 
     for (const chip of ['全部', '审批', '提问', '锁与同步', '管理', '运行'])
-      expect(screen.getByRole('button', { name: chip })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '管理' }))
+      expect(screen.getByRole('radio', { name: chip })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: '管理' }))
     await waitFor(() => expect(within(list).getAllByTestId('audit-row')).toHaveLength(1))
     expect(within(list).getByText('停用账号 wanglei')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '管理' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('radio', { name: '管理' }).getAttribute('aria-checked')).toBe('true')
     expect(calls.map((c) => c.path)).toContain('/admin/audit?category=admin&limit=50')
   })
 
@@ -419,7 +419,7 @@ describe('审计记录', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索审计记录' }), { target: { value: '' } })
 
     fireEvent.click(screen.getByRole('button', { name: '操作人' }))
-    fireEvent.click(screen.getByRole('option', { name: '系统' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '系统' }))
     expect(within(list).getAllByTestId('audit-row')).toHaveLength(1)
     expect(within(list).getByText('停用账号 wanglei')).toBeTruthy()
   })

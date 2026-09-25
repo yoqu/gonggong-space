@@ -1,4 +1,4 @@
-/* PopUpButton — the list uses Pane menu values (glass, radius-menu, 24px rows, blue highlight). */
+/* PopUpButton — the menu uses the shared glass float (anchor.css) with Pane menu rows. */
 .ui-popup {
   position: relative;
   display: inline-block;
@@ -28,51 +28,8 @@
   height: 9px;
 }
 .ui-popup__menu {
-  --enter-scale: 0.97;
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
   z-index: 1000;
-  display: flex;
-  flex-direction: column;
   min-width: 100%;
-  padding: 5px;
-  border-radius: var(--radius-menu);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-menu);
-  transform-origin: top left;
-}
-.ui-popup__menu:focus-visible {
-  outline: none;
-}
-.ui-popup__menu[data-state="open"] {
-  animation:
-    var(--fade-in) ui-fade-in,
-    var(--spring-snappy) ui-enter;
-}
-.ui-popup__menu[data-state="closed"] {
-  pointer-events: none;
-  animation: var(--fade-out) ui-fade-out forwards;
-}
-.ui-popup__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  height: 24px;
-  padding: 0 var(--space-8) 0 var(--space-6);
-  border-radius: 7px;
-  color: var(--label);
-  white-space: nowrap;
-  cursor: default;
-}
-.ui-popup__item[data-active] {
-  background: var(--menu-highlight);
-  color: var(--on-accent);
-}
-.ui-popup__item[aria-disabled="true"] {
-  color: var(--label-tertiary);
 }
 .ui-popup__check {
   display: grid;
@@ -83,7 +40,4 @@
 .ui-popup__check svg {
   width: 13px;
   height: 13px;
-}
-.ui-popup__label {
-  flex: 1;
 }
