@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   Disclosure,
@@ -135,6 +135,45 @@ describe('Table', () => {
     expect(onOpen).toHaveBeenCalledWith(flat[2])
     fireEvent.keyDown(grid, { key: 'a', metaKey: true })
     expect(onSelectionChange).toHaveBeenLastCalledWith(['b', 'a', 'c'])
+  })
+
+  it('puts row actions in a trailing pull-down and the context menu, apart from row keys', async () => {
+    const onOpen = vi.fn()
+    const onRowAction = vi.fn()
+    render(
+      <Table
+        aria-label="t"
+        columns={columns}
+        rows={flat}
+        onOpen={onOpen}
+        rowActions={(r) => (r.id === 'c' ? [] : [{ label: '重命名…', value: 'rename' }])}
+        onRowAction={onRowAction}
+      />,
+    )
+    expect(screen.getByRole('columnheader', { name: '操作' })).toBeTruthy()
+    expect(within(row('Gamma')).queryByRole('button', { name: '操作' })).toBeNull()
+    const more = within(row('Alpha')).getByRole('button', { name: '操作' })
+    fireEvent.keyDown(more, { key: 'Enter' })
+    fireEvent.doubleClick(more)
+    expect(onOpen).not.toHaveBeenCalled()
+    fireEvent.click(more)
+    // The menu escapes the scrolling table.
+    expect(screen.getByRole('menu').parentElement).toBe(document.body)
+    fireEvent.click(screen.getByRole('menuitem', { name: '重命名…' }))
+    expect(onRowAction).toHaveBeenLastCalledWith('rename', flat[1])
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+
+    fireEvent.contextMenu(row('Beta'))
+    expect(row('Beta').getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(screen.getByRole('menuitem', { name: '重命名…' }))
+    expect(onRowAction).toHaveBeenLastCalledWith('rename', flat[0])
+    fireEvent.contextMenu(row('Gamma'))
+    fireEvent.contextMenu(screen.getByRole('columnheader', { name: '名称' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.mouseDown(row('Alpha'))
+    fireEvent.keyDown(screen.getByRole('grid'), { key: 'F10', shiftKey: true })
+    fireEvent.click(screen.getByRole('menuitem', { name: '重命名…' }))
+    expect(onRowAction).toHaveBeenLastCalledWith('rename', flat[1])
   })
 
   it('opens a row on double click', () => {

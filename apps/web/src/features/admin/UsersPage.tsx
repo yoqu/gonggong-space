@@ -151,6 +151,24 @@ export function UsersPage() {
           multiple={false}
           defaultSort={{ key: 'name', dir: 'asc' }}
           onOpen={setEditing}
+          rowActions={(u) => [
+            { label: '编辑…', value: 'edit' },
+            ...(u.id === me.id
+              ? []
+              : u.disabled
+                ? [{ label: '启用', value: 'enable' }]
+                : [
+                    { label: '重置密码…', value: 'reset' },
+                    { separator: true as const },
+                    { label: '停用…', value: 'disable', destructive: true },
+                  ]),
+          ]}
+          onRowAction={(action, u) => {
+            if (action === 'edit') setEditing(u)
+            else if (action === 'reset') setResetting(u)
+            else if (action === 'disable') setDisabling(u)
+            else void enable(u)
+          }}
           emptyText={q ? '没有匹配的成员' : '还没有账号'}
           columns={[
             {
@@ -189,33 +207,6 @@ export function UsersPage() {
               sortable: true,
               sortValue: STATUS_ORDER,
               render: (u) => <Status user={u} />,
-            },
-            {
-              key: 'actions',
-              title: '',
-              width: 208,
-              align: 'right',
-              render: (u) => (
-                <span className="admin-row-actions">
-                  <Button size="small" onClick={() => setEditing(u)}>
-                    编辑…
-                  </Button>
-                  {u.id === me.id || u.disabled ? null : (
-                    <Button size="small" onClick={() => setResetting(u)}>
-                      重置密码…
-                    </Button>
-                  )}
-                  {u.id === me.id ? null : u.disabled ? (
-                    <Button size="small" onClick={() => void enable(u)}>
-                      启用
-                    </Button>
-                  ) : (
-                    <Button size="small" onClick={() => setDisabling(u)}>
-                      停用
-                    </Button>
-                  )}
-                </span>
-              ),
             },
           ]}
         />

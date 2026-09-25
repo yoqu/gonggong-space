@@ -64,6 +64,13 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Picks an item from a row's trailing「操作」pull-down. */
+const rowAction = (r: HTMLElement, item: string) => {
+  fireEvent.click(within(r).getByRole('button', { name: '操作' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: item }))
+}
+const menuItems = () => screen.getAllByRole('menuitem').map((m) => m.textContent)
+
 const rowOf = (text: string) =>
   screen.getByRole('gridcell', { name: text }).closest('[role="row"]') as HTMLElement
 
@@ -82,8 +89,10 @@ describe('账号与角色 · 停用 / 启用', () => {
     })
     renderAt('/admin/users')
     await screen.findByRole('gridcell', { name: 'wanglei' })
-    expect(within(rowOf('chenchen')).queryByRole('button', { name: '停用' })).toBeNull()
-    fireEvent.click(within(rowOf('wanglei')).getByRole('button', { name: '停用' }))
+    fireEvent.click(within(rowOf('chenchen')).getByRole('button', { name: '操作' }))
+    expect(screen.queryByRole('menuitem', { name: '停用…' })).toBeNull()
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    rowAction(rowOf('wanglei'), '停用…')
     const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText('要停用账号 王磊 吗？')).toBeTruthy()
     for (const line of [
@@ -97,7 +106,8 @@ describe('账号与角色 · 停用 / 启用', () => {
     await waitFor(() => expect(within(rowOf('wanglei')).getByText('已停用')).toBeTruthy())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/users/u1/disable')).toBe(true)
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    expect(within(rowOf('wanglei')).getByRole('button', { name: '启用' })).toBeTruthy()
+    fireEvent.click(within(rowOf('wanglei')).getByRole('button', { name: '操作' }))
+    expect(menuItems()).toEqual(['编辑…', '启用'])
   })
 
   it('closing the dialog changes nothing; 启用 re-enables at once', async () => {
@@ -111,9 +121,9 @@ describe('账号与角色 · 停用 / 启用', () => {
     })
     renderAt('/admin/users')
     await screen.findByRole('gridcell', { name: 'liuyang' })
-    fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '启用' }))
-    await waitFor(() => expect(within(rowOf('liuyang')).getByRole('button', { name: '停用' })).toBeTruthy())
-    fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '停用' }))
+    rowAction(rowOf('liuyang'), '启用')
+    await waitFor(() => expect(within(rowOf('liuyang')).queryByText('已停用')).toBeNull())
+    rowAction(rowOf('liuyang'), '停用…')
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '取消' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/admin/users/u3/enable'])
@@ -251,6 +261,7 @@ describe('机器与网络', () => {
       '87.5 Mbps',
       '在线',
       '刚刚',
+      '',
     ])
     expect(cells('zt-desktop')).toEqual([
       '周婷',
@@ -262,6 +273,7 @@ describe('机器与网络', () => {
       '4.2 Mbps',
       '离线',
       '42 分钟前',
+      '',
     ])
     expect(cells('never-measured')).toEqual([
       '王磊',
@@ -273,6 +285,7 @@ describe('机器与网络', () => {
       '--',
       '离线',
       '从未连接',
+      '',
     ])
     await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
     expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')
@@ -285,6 +298,15 @@ describe('机器与网络', () => {
     expect(details.disabled).toBe(false)
     fireEvent.keyDown(screen.getByRole('grid', { name: '机器列表' }), { key: 'Enter' })
     expect(await screen.findByRole('dialog', { name: '机器详情' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    // The row's「操作」menu opens the details or revokes the machine.
+    rowAction(rowOf('never-measured'), '机器详情…')
+    expect(await screen.findByRole('dialog', { name: '机器详情' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    rowAction(rowOf('never-measured'), '吊销机器…')
+    expect(await screen.findByRole('alertdialog')).toBeTruthy()
     expect(screen.getByText('1 台 daemon 协议版本过旧')).toBeTruthy()
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(

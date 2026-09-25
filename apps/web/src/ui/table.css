@@ -143,3 +143,16 @@
   color: var(--label-secondary);
   text-align: center;
 }
+/* Row actions: one quiet「…」pull-down in a fixed trailing column. */
+.ui-table-ctx {
+  display: contents;
+}
+.ui-table__actions {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
+}
+.ui-table__actions .ui-btn {
+  color: var(--label-secondary);
+}

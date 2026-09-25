@@ -49,8 +49,11 @@
   font-size: var(--text-subheadline-size);
 }
 .bots-detail__workspace {
-  max-width: 100%;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
   min-width: 0;
+  min-height: 22px;
 }
 .bots-detail__buttons {
   display: flex;
@@ -97,4 +100,9 @@
 }
 .newbot__missing {
   color: var(--tint-orange-text);
+}
+/* Sits beside the detail panel: columns share the narrower width instead of scrolling the actions out of view. */
+.admin-grid.bots-grid .ui-table__head,
+.admin-grid.bots-grid .ui-table__row {
+  min-width: 0;
 }

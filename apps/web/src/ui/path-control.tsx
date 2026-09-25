@@ -54,7 +54,7 @@ export function PathControl({
                   {renderGlyph(it.icon)}
                 </span>
               ) : null}
-              <span>{it.label}</span>
+              <span className="ui-path__label">{it.label}</span>
             </button>
           ) : (
             <MenuButton

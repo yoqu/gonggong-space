@@ -451,4 +451,32 @@ describe('PullDownButton', () => {
     expect(document.activeElement).toBe(btn)
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
   })
+
+  it('portals a fixed menu that closes on scroll, without the ▾ when asked', async () => {
+    const onSelect = vi.fn()
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto' }}>
+        <PullDownButton
+          icon="more"
+          aria-label="操作"
+          portal
+          indicator={false}
+          items={items}
+          onSelect={onSelect}
+        />
+      </div>,
+    )
+    const btn = screen.getByRole('button', { name: '操作' })
+    expect(btn.querySelector('.ui-pulldown__chev')).toBeNull()
+    fireEvent.click(btn)
+    const menu = screen.getByRole('menu')
+    expect(screen.getByTestId('clip').contains(menu)).toBe(false)
+    expect(menu.style.top).not.toBe('')
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /会议/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /会议/ }))
+    expect(onSelect).toHaveBeenCalledWith('meet')
+    fireEvent.click(btn)
+    fireEvent.scroll(screen.getByTestId('clip'))
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
 })

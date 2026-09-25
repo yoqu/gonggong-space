@@ -116,17 +116,13 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   }
 }
 
-/* Data tables: Pane Table; row actions stay visible on the right. */
+/* Data tables: Pane Table; row actions live in its trailing「操作」menu. */
 .admin-grid {
   min-width: 0;
 }
 .admin-grid .ui-table__head,
 .admin-grid .ui-table__row {
   min-width: 640px;
-}
-.admin-row-actions {
-  display: inline-flex;
-  gap: var(--space-4);
 }
 .admin-table__warn {
   color: var(--tint-orange-text);
