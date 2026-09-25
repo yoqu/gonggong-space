@@ -9,6 +9,7 @@ export type IconLike = IconName | ReactElement
 export const renderIcon = (icon: IconLike) => (typeof icon === 'string' ? <Icon name={icon} /> : icon)
 
 import type { TagTone } from '../display'
+
 export type { TagTone }
 export interface TagSpec {
   label: string

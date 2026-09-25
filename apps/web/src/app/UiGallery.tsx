@@ -24,9 +24,9 @@ import {
   Toaster,
   toast,
 } from '../ui'
+import { ControlsGallery } from './gallery/ControlsGallery'
 import { IMGallery } from './gallery/IMGallery'
 import { OverlayGallery } from './gallery/OverlayGallery'
-import { ControlsGallery } from './gallery/ControlsGallery'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
