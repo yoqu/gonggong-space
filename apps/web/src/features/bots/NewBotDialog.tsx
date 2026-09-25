@@ -2,9 +2,23 @@ import type { AgentKind, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gongg
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { cx } from '../../lib/cx'
-import { Button, Dialog, Icon, Input, Presence, Spinner, Textarea, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  Form,
+  FormRow,
+  type ModalAction,
+  PopUpButton,
+  Presence,
+  RadioGroup,
+  Spinner,
+  TextField,
+  toast,
+} from '../../ui'
+import { OS_LABEL } from '../machines/BindMachineDialog'
 import { DirPicker } from '../workspaces/DirPicker'
+import { WorkspacePath } from './BotsAdminPage'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
 
 interface Props {
@@ -24,13 +38,6 @@ interface Draft {
   workspace: string | null
 }
 
-const TONE = {
-  pending: { icon: 'clock', color: 'var(--label-secondary)' },
-  warn: { icon: 'warning', color: 'var(--system-orange)' },
-  ok: { icon: 'checkmark-circle', color: 'var(--system-green)' },
-  confirm: { icon: 'person-check', color: 'var(--system-blue)' },
-} as const
-
 const autoName = (owner: BotOwnerDto, agent: AgentKind) => `${owner.name}的 ${AGENT_LABEL[agent]}`
 
 function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draft {
@@ -47,39 +54,35 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
   }
 }
 
-function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ReactNode; children: ReactNode }) {
+function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ModalAction; children: ReactNode }) {
   return (
     <Dialog
       open
-      width={520}
+      width={540}
       title="新建 Bot"
-      subtitle="创建时直接绑定到归属人的机器"
+      message="创建时直接绑定到归属人的机器"
       onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>关闭</Button>
-          {cta ?? (
-            <Button variant="primary" disabled>
-              创建
-            </Button>
-          )}
-        </>
-      }
+      closeOnBackdrop={false}
+      actions={[
+        { label: '取消', onClick: onClose },
+        cta ?? { label: '创建', variant: 'primary', disabled: true },
+      ]}
     >
       {children}
     </Dialog>
   )
 }
 
+const RESULT_VARIANT = { pending: 'info', warn: 'warning', ok: 'success', confirm: 'info' } as const
+
 /** 新建 Bot (管理后台.dc.html): owner → machine → agent → name/prompt, previewing the resulting binding. */
 export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState<string | null | false>(false)
   const live = useWorkspace((s) => s.machines)
-  const nameId = useId()
-  const promptId = useId()
+  const formId = useId()
 
   // Own machines come from the live store, so a daemon that just connected shows its agents right away.
   const machinesOf = (o: BotOwnerDto) => {
@@ -116,32 +119,32 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const self = owner.id === me.id
   const ver = m && reportedAgent(m, draft.agent)
   const agentName = AGENT_LABEL[draft.agent]
-  const result = !m
+  const result: { tone: keyof typeof RESULT_VARIANT; title: string; desc: string } = !m
     ? {
-        tone: TONE.pending,
+        tone: 'pending',
         title: '待绑定',
         desc: `${owner.name} 绑定第一台机器并上报 ${agentName} 后自动绑定，无需再操作；此前不能被触发。`,
       }
     : !ver
       ? {
-          tone: TONE.warn,
+          tone: 'warn',
           title: '绑定后暂不可用',
           desc: `${m.name} 未上报 ${agentName}。在该机器安装并重新检测后自动可用。`,
         }
       : self
         ? {
-            tone: TONE.ok,
+            tone: 'ok',
             title: '创建后立即可用',
             desc: `绑定到 ${m.name} · ${agentName} ${ver.version ?? ''}，可直接拉入群触发。${m.online ? '' : '机器当前离线，上线后开始执行。'}`,
           }
         : {
-            tone: TONE.confirm,
+            tone: 'confirm',
             title: `等待 ${owner.name} 确认`,
             desc: `已绑定到 ${m.name}。机器上的操作由主人负责，${owner.name} 在 daemon 或 Web 通知中一键确认后即可触发。`,
           }
-  const tinted = result.tone !== TONE.pending
 
   const create = async () => {
+    if (!draft.name.trim() || busy) return
     setBusy(true)
     try {
       const bot = await botsApi.create({
@@ -167,129 +170,120 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   return (
     <Shell
       onClose={onClose}
-      cta={
-        <Button variant="primary" disabled={!draft.name.trim() || busy} onClick={() => void create()}>
-          {!m ? '创建' : self ? '创建并绑定' : '创建并发送确认'}
-        </Button>
-      }
+      cta={{
+        label: !m ? '创建' : self ? '创建并绑定' : '创建并发送确认',
+        variant: 'primary',
+        type: 'submit',
+        form: formId,
+        disabled: !draft.name.trim() || busy,
+      }}
     >
-      <div className="newbot">
-        <section className="newbot__field">
-          <span className="newbot__label">归属人</span>
-          <div className="newbot__chips">
-            {owners.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className={cx('newbot__chip', o.id === owner.id && 'is-selected')}
-                onClick={() => setDraft(draftFor(o, machinesOf(o), draft.prompt))}
-              >
-                {o.name}
-                <span className="newbot__sub">{o.id === me.id ? '我' : `${machinesOf(o).length} 台`}</span>
-              </button>
-            ))}
-          </div>
-          <span className="newbot__hint">系统管理员可为任何人创建；成员本人只能为自己创建。</span>
-        </section>
+      <Form id={formId} onSubmit={() => void create()}>
+        <FormRow label="归属人" hint="系统管理员可为任何人创建；成员本人只能为自己创建。">
+          <PopUpButton
+            aria-label="归属人"
+            value={owner.id}
+            options={owners.map((o) => ({
+              value: o.id,
+              label: o.id === me.id ? `${o.name}（我）` : `${o.name} · ${machinesOf(o).length} 台机器`,
+            }))}
+            onChange={(id) => {
+              const o = owners.find((x) => x.id === id)
+              if (o) setDraft(draftFor(o, machinesOf(o), draft.prompt))
+            }}
+          />
+        </FormRow>
 
-        <section className="newbot__field">
-          <span className="newbot__label">执行机器</span>
-          {machines.map((x) => (
-            <button
-              key={x.id}
-              type="button"
-              className={cx('newbot__card', x.id === m?.id && 'is-selected')}
-              onClick={() => {
+        <FormRow label="执行机器" align={machines.length ? 'top' : 'center'}>
+          {machines.length ? (
+            <RadioGroup
+              aria-label="执行机器"
+              value={m?.id}
+              options={machines.map((x) => ({
+                value: x.id,
+                label: (
+                  <span className="newbot__machine">
+                    <span className="newbot__mono">{x.name}</span>
+                    <span className="newbot__muted">
+                      {OS_LABEL[x.os]} · {x.online ? '在线' : '离线'}
+                    </span>
+                  </span>
+                ),
+              }))}
+              onChange={(id) => {
+                const x = machines.find((y) => y.id === id)
+                if (!x) return
                 const agent = reportedAgent(x, draft.agent)
                   ? draft.agent
                   : (AGENTS.find((k) => reportedAgent(x, k)) ?? draft.agent)
                 set({ machineId: x.id, agent, workspace: null, ...named(agent) })
               }}
-            >
-              <span className="newbot__radio" />
-              <span className="newbot__mono">{x.name}</span>
-              <span className="newbot__muted">{x.os}</span>
-              <span className="spacer" />
-              <span className="newbot__status">
-                <span
-                  className="dot dot--sm"
-                  style={{ background: x.online ? 'var(--system-green)' : 'var(--system-gray)' }}
-                />
-                {x.online ? '在线' : '离线'}
-              </span>
-            </button>
-          ))}
-          {machines.length ? null : (
-            <div className="newbot__note">
-              <Icon name="info" size={14} />
-              <span>{owner.name} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。</span>
-            </div>
+            />
+          ) : (
+            <span className="newbot__muted">
+              {owner.name} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。
+            </span>
           )}
-        </section>
+        </FormRow>
 
-        <section className="newbot__field">
-          <span className="newbot__label">Agent · 该机器上报</span>
-          <div className="newbot__agents">
-            {AGENTS.map((k) => {
+        <FormRow label="Agent" align="top">
+          <RadioGroup
+            aria-label="Agent"
+            value={draft.agent}
+            options={AGENTS.map((k) => {
               const v = m && reportedAgent(m, k)
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={!!m && !v}
-                  className={cx('newbot__card', draft.agent === k && 'is-selected')}
-                  onClick={() => set({ agent: k, ...named(k) })}
-                >
-                  <span className="newbot__radio" />
-                  <span className="newbot__agent">{AGENT_LABEL[k]}</span>
-                  <span className={cx('newbot__ver', m && !v && 'is-missing')}>
-                    {!m ? '种类' : v ? (v.version ?? '已安装') : '未安装'}
+              return {
+                value: k,
+                disabled: !!m && !v,
+                label: (
+                  <span className="newbot__machine">
+                    {AGENT_LABEL[k]}
+                    <span className={m && !v ? 'newbot__missing' : 'newbot__muted'}>
+                      {!m ? '' : v ? (v.version ?? '已安装') : '未安装'}
+                    </span>
                   </span>
-                </button>
-              )
+                ),
+              }
             })}
-          </div>
-        </section>
+            onChange={(k) => set({ agent: k, ...named(k) })}
+          />
+        </FormRow>
 
-        <section className="newbot__field">
-          <label className="newbot__label" htmlFor={nameId}>
-            名称
-          </label>
-          <Input
-            id={nameId}
+        <FormRow label="名称">
+          <TextField
+            aria-label="名称"
             value={draft.name}
             onChange={(e) => set({ name: e.target.value, touched: true })}
           />
-        </section>
+        </FormRow>
 
-        <section className="newbot__field">
-          <label className="newbot__label" htmlFor={promptId}>
-            系统提示词 · 同时作为群内简介
-          </label>
-          <Textarea
-            id={promptId}
+        <FormRow label="系统提示词" align="top" hint="同时作为群内简介。">
+          <TextField
+            multiline
+            aria-label="系统提示词"
             rows={3}
             value={draft.prompt}
             placeholder="后端接口开发，只改 server/ 目录"
             onChange={(e) => set({ prompt: e.target.value })}
           />
-        </section>
+        </FormRow>
 
         {self && m?.online ? (
-          <section className="newbot__field">
-            <span className="newbot__label">默认工作区 · 可选</span>
-            <div className="newbot__workspace">
-              <span className="newbot__mono newbot__path">{draft.workspace ?? '未设置，进群时再选择'}</span>
-              <Button size="small" onClick={() => setPicking(true)}>
-                选择目录
-              </Button>
-            </div>
+          <FormRow label="默认工作区" hint="可选；不设置则进群时再选择。">
+            {draft.workspace ? (
+              <WorkspacePath path={draft.workspace} onPick={setPicking} />
+            ) : (
+              <span className="newbot__muted">未设置</span>
+            )}
+            <Button size="small" onClick={() => setPicking(draft.workspace)}>
+              选择目录…
+            </Button>
             <Presence>
-              {picking ? (
+              {picking !== false ? (
                 <DirPicker
                   machineId={m.id}
                   title="默认工作区"
-                  start={draft.workspace}
+                  start={picking}
                   onPick={(workspace) => {
                     set({ workspace })
                     setPicking(false)
@@ -298,27 +292,10 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 />
               ) : null}
             </Presence>
-          </section>
+          </FormRow>
         ) : null}
-
-        <div
-          className="newbot__result"
-          style={
-            tinted
-              ? {
-                  borderColor: `color-mix(in srgb, ${result.tone.color} 25%, transparent)`,
-                  background: `color-mix(in srgb, ${result.tone.color} 8%, transparent)`,
-                }
-              : undefined
-          }
-        >
-          <Icon name={result.tone.icon} size={14} color={result.tone.color} className="newbot__result-icon" />
-          <div>
-            <div className="newbot__result-title">{result.title}</div>
-            <div className="newbot__result-desc">{result.desc}</div>
-          </div>
-        </div>
-      </div>
+      </Form>
+      <Alert variant={RESULT_VARIANT[result.tone]} title={result.title} description={result.desc} />
     </Shell>
   )
 }

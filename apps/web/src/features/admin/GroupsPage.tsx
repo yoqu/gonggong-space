@@ -1,7 +1,7 @@
 import type { AdminGroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, EmptyState, SearchField, Spinner, Tag, type TagTone } from '../../ui'
+import { Alert, SearchField, Spinner, Table, Tag, type TagTone } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
@@ -29,7 +29,7 @@ export function GroupsPage() {
   }, [])
 
   const copy = (g: AdminGroupDto) => {
-    if (!g.archivedAt) return '—'
+    if (!g.archivedAt) return null
     if (!params) return '归档'
     const left = params.archiveRetentionDays - Math.floor((Date.now() - Date.parse(g.archivedAt)) / DAY_MS)
     return `归档 · ${Math.max(0, left)} 天后清除`
@@ -46,40 +46,38 @@ export function GroupsPage() {
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
-        <div className="admin-table">
-          <table>
-            <thead>
-              <tr>
-                <th>群</th>
-                <th>模式</th>
-                <th>仓库</th>
-                <th>成员</th>
-                <th>Bot</th>
-                <th>存档</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((g) => {
+        <Table<AdminGroupDto>
+          aria-label="群列表"
+          className="admin-grid"
+          rows={shown}
+          defaultSort={{ key: 'name', dir: 'asc' }}
+          emptyText={q ? '没有匹配的群' : '还没有群'}
+          columns={[
+            { key: 'name', title: '群', sortable: true, sortValue: title, render: title },
+            {
+              key: 'mode',
+              title: '模式',
+              width: 104,
+              sortable: true,
+              sortValue: (g) => mode(g)[0],
+              render: (g) => {
                 const [label, tone] = mode(g)
-                return (
-                  <tr key={g.id}>
-                    <td>
-                      <strong>{title(g)}</strong>
-                    </td>
-                    <td>
-                      <Tag tone={tone}>{label}</Tag>
-                    </td>
-                    <td className="admin-table__mono admin-table__clip">{g.repo ?? '未绑定'}</td>
-                    <td>{g.members}</td>
-                    <td>{g.bots}</td>
-                    <td className="admin-table__muted">{copy(g)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {shown.length ? null : <EmptyState bare title={groups?.length ? '没有匹配的群' : '还没有群'} />}
-        </div>
+                return <Tag tone={tone}>{label}</Tag>
+              },
+            },
+            {
+              key: 'repo',
+              title: '仓库',
+              mono: true,
+              secondary: true,
+              sortable: true,
+              render: (g) => g.repo ?? '未绑定',
+            },
+            { key: 'members', title: '成员', width: 72, align: 'right', sortable: true },
+            { key: 'bots', title: 'Bot', width: 72, align: 'right', sortable: true },
+            { key: 'archive', title: '存档', width: 176, secondary: true, render: copy },
+          ]}
+        />
       ) : error ? null : (
         <Spinner size={18} />
       )}

@@ -15,7 +15,7 @@ export function BotDialog({ bot, me, onClose }: { bot: BotDto; me: UserDto; onCl
       .catch((e: Error) => toast({ type: 'error', message: e.message }))
   }, [])
   return (
-    <Dialog open title="Bot 详情" width={480} onClose={onClose}>
+    <Dialog open title="Bot 详情" width={540} onClose={onClose}>
       <BotDetail key={bot.id} bot={bot} me={me} users={users} plain />
     </Dialog>
   )

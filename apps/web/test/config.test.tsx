@@ -45,7 +45,7 @@ const renderConfig = () =>
     </MemoryRouter>,
   )
 
-const row = (name: string) => screen.getByText(name).closest('[data-testid="cfg-item"]') as HTMLElement
+const row = (name: string) => screen.getByText(name).closest('.cfg__item') as HTMLElement
 
 beforeEach(() => {
   vi.stubGlobal('WebSocket', NoopSocket)
@@ -107,14 +107,15 @@ describe('配置中心', () => {
     fireEvent.click(within(row('grafana')).getByRole('button', { name: '删除 grafana' }))
     expect(screen.queryByText('grafana')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: '添加 MCP' }))
+    fireEvent.click(screen.getByRole('button', { name: '添加 MCP…' }))
     const dialog = await screen.findByRole('dialog', { name: '添加 MCP' })
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'gonggong-echo' } })
     fireEvent.change(within(dialog).getByLabelText('命令'), { target: { value: 'node' } })
-    fireEvent.change(within(dialog).getByLabelText('参数（每行一个）'), {
+    fireEvent.change(within(dialog).getByLabelText('参数'), {
       target: { value: '/opt/echo/server.js' },
     })
-    fireEvent.change(within(dialog).getByLabelText('环境变量（每行 KEY=VALUE）'), {
+    fireEvent.click(within(dialog).getByRole('button', { name: /环境变量/ }))
+    fireEvent.change(within(dialog).getByLabelText('环境变量'), {
       target: { value: 'A=1\nB=x=y' },
     })
     fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
@@ -164,9 +165,9 @@ describe('配置中心', () => {
     })
     renderConfig()
     await screen.findByText('wiki-search')
-    fireEvent.click(screen.getByRole('button', { name: '添加 MCP' }))
+    fireEvent.click(screen.getByRole('button', { name: '添加 MCP…' }))
     const dialog = await screen.findByRole('dialog', { name: '添加 MCP' })
-    fireEvent.click(within(dialog).getByRole('tab', { name: 'HTTP' }))
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'HTTP' }))
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'gonggong' } })
     fireEvent.change(within(dialog).getByLabelText('URL'), { target: { value: 'https://x' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))

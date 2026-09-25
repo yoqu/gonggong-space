@@ -3,10 +3,9 @@ import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
-import { Button, Icon, Spinner, TextField } from '../../ui'
+import { Button, Icon, SecureField, Spinner, TextField } from '../../ui'
 import { AuthCard, errorText } from './AuthCard'
 import { useAuthOptions } from './options'
-import { PasswordField } from './PasswordInput'
 
 const ACCOUNT_RE = /^[a-z0-9_.-]{2,32}$/
 const MIN_PASSWORD = 8
@@ -62,6 +61,7 @@ export function RegisterPage() {
   return (
     <AuthCard
       testId="register-page"
+      variant="register"
       title="注册"
       subtitle={
         closed ? '当前未开放注册，请联系系统管理员创建账号。' : '注册后即可加入群、绑定机器、创建你的 Bot。'
@@ -98,28 +98,29 @@ export function RegisterPage() {
               value={form.name}
               onChange={set('name')}
             />
-            <PasswordField
+            <SecureField
               label="密码"
+              size="large"
               autoComplete="new-password"
               placeholder={`至少 ${MIN_PASSWORD} 位`}
               value={form.password}
               onChange={set('password')}
             />
-            <PasswordField
+            <SecureField
               label="确认密码"
+              size="large"
               autoComplete="new-password"
               value={form.confirm}
               onChange={set('confirm')}
-            >
-              <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
-                {error ? (
-                  <>
-                    <Icon name="warning" size={13} />
-                    {error}
-                  </>
-                ) : null}
-              </p>
-            </PasswordField>
+            />
+            <p className="auth-error" role="alert" data-shown={error ? true : undefined}>
+              {error ? (
+                <>
+                  <Icon name="exclamation-circle" size={13} />
+                  {error}
+                </>
+              ) : null}
+            </p>
           </div>
           <Button
             type="submit"

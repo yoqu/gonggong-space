@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react'
 import { Link, Navigate, NavLink, Outlet } from 'react-router'
 import { useSession } from '../../app/session'
 import { Icon, Logo, Toaster } from '../../ui'
@@ -6,7 +5,7 @@ import '../../ui/sidebar.css'
 import { ADMIN_NAV } from './nav'
 import './admin.css'
 
-/** 管理后台 shell: a flush Pane sidebar (a scrolling tab row under 768px) beside the page. Members manage their own bots and machines in the chat UI. */
+/** 管理后台 shell: a flush Pane sidebar with settings-style tile icons (a scrolling tab row under 768px) beside the page. Members manage their own bots and machines in the chat UI. */
 export function AdminLayout() {
   const user = useSession((s) => s.user)
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
@@ -23,7 +22,7 @@ export function AdminLayout() {
             <div className="ui-sidebar__title">{g.head}</div>
             {g.items.map((i) => (
               <NavLink key={i.path} to={`/admin/${i.path}`} className="ui-sidebar__item">
-                <span className="ui-sidebar__icon" style={{ '--icon-color': i.color } as CSSProperties}>
+                <span className="ui-sidebar__icon ui-sidebar__icon--tile" style={{ background: i.color }}>
                   <Icon name={i.icon} />
                 </span>
                 <span className="ui-sidebar__label">{i.label}</span>
@@ -33,10 +32,13 @@ export function AdminLayout() {
         ))}
         <div className="ui-sidebar__section admin__back">
           <Link to="/" className="ui-sidebar__item">
-            <span className="ui-sidebar__icon">
+            <span
+              className="ui-sidebar__icon ui-sidebar__icon--tile"
+              style={{ background: 'var(--accent-fill)' }}
+            >
               <Icon name="bubble" />
             </span>
-            <span className="ui-sidebar__label">返回群聊</span>
+            <span className="ui-sidebar__label">返回消息</span>
           </Link>
         </div>
       </nav>

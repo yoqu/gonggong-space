@@ -434,7 +434,7 @@ describe('group settings drawer', () => {
     fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '修改档位' }))
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).getByText('小王的 Codex')).toBeTruthy()
-    expect(within(detail).getByRole('tab', { name: '工作区写入' })).toBeTruthy()
+    expect(within(detail).getByRole('radio', { name: '工作区写入' })).toBeTruthy()
     expect(screen.getByRole('navigation', { name: '会话列表' })).toBeTruthy()
   })
 })

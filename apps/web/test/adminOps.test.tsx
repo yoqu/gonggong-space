@@ -64,7 +64,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const rowOf = (text: string) => screen.getByRole('cell', { name: text }).closest('tr') as HTMLElement
+const rowOf = (text: string) =>
+  screen.getByRole('gridcell', { name: text }).closest('[role="row"]') as HTMLElement
 
 describe('账号与角色 · 停用 / 启用', () => {
   it('disables an account after confirming the consequences', async () => {
@@ -80,7 +81,7 @@ describe('账号与角色 · 停用 / 启用', () => {
       },
     })
     renderAt('/admin/users')
-    await screen.findByRole('cell', { name: 'wanglei' })
+    await screen.findByRole('gridcell', { name: 'wanglei' })
     expect(within(rowOf('chenchen')).queryByRole('button', { name: '停用' })).toBeNull()
     fireEvent.click(within(rowOf('wanglei')).getByRole('button', { name: '停用' }))
     const dialog = screen.getByRole('alertdialog')
@@ -109,7 +110,7 @@ describe('账号与角色 · 停用 / 启用', () => {
       },
     })
     renderAt('/admin/users')
-    await screen.findByRole('cell', { name: 'liuyang' })
+    await screen.findByRole('gridcell', { name: 'liuyang' })
     fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '启用' }))
     await waitFor(() => expect(within(rowOf('liuyang')).getByRole('button', { name: '停用' })).toBeTruthy())
     fireEvent.click(within(rowOf('liuyang')).getByRole('button', { name: '停用' }))
@@ -156,18 +157,18 @@ describe('群', () => {
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
-        .getAllByRole('cell')
+        .getAllByRole('gridcell')
         .map((c) => c.textContent)
-    await screen.findByRole('cell', { name: '支付服务重构' })
+    await screen.findByRole('gridcell', { name: '支付服务重构' })
     expect(cells('支付服务重构')).toEqual([
       '支付服务重构',
       '分区模式',
       'git.corp/pay/pay-server',
       '6',
       '4',
-      '—',
+      '--',
     ])
-    expect(cells('王磊 的私聊')).toEqual(['王磊 的私聊', '分区模式', '未绑定', '1', '1', '—'])
+    expect(cells('王磊 的私聊')).toEqual(['王磊 的私聊', '分区模式', '未绑定', '1', '1', '--'])
     await waitFor(() =>
       expect(cells('旧版后台')).toEqual(['旧版后台', '已归档', '未绑定', '3', '0', '归档 · 21 天后清除']),
     )
@@ -237,9 +238,9 @@ describe('机器与网络', () => {
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
-        .getAllByRole('cell')
+        .getAllByRole('gridcell')
         .map((c) => c.textContent)
-    await screen.findByRole('cell', { name: 'zt-desktop' })
+    await screen.findByRole('gridcell', { name: 'zt-desktop' })
     expect(cells('wanglei-mbp')).toEqual([
       '王磊',
       'wanglei-mbp',
@@ -255,7 +256,7 @@ describe('机器与网络', () => {
       '周婷',
       'zt-desktop',
       'Windows',
-      '—',
+      '--',
       'v0.8.7',
       '180 ms',
       '4.2 Mbps',
@@ -266,19 +267,24 @@ describe('机器与网络', () => {
       '王磊',
       'never-measured',
       'macOS',
-      '—',
+      '--',
       'v0.9.3',
-      '—',
-      '—',
+      '--',
+      '--',
       '离线',
       '从未连接',
     ])
-    await waitFor(() =>
-      expect(screen.getByRole('cell', { name: '180 ms' }).className).toContain('admin-table__bad'),
-    )
-    expect(screen.getByRole('cell', { name: '4.2 Mbps' }).className).toContain('admin-table__bad')
-    expect(screen.getByRole('cell', { name: '38 ms' }).className).not.toContain('admin-table__bad')
-    expect(screen.getByRole('cell', { name: '38 ms' }).title).toMatch(/^测量于 /)
+    await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
+    expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')
+    expect(screen.getByText('38 ms').className).not.toContain('admin-table__bad')
+    expect(screen.getByText('38 ms').title).toMatch(/^测量于 /)
+    // Selecting a row enables 机器详情…; Enter opens it too.
+    const details = screen.getByRole('button', { name: '机器详情…' }) as HTMLButtonElement
+    expect(details.disabled).toBe(true)
+    fireEvent.mouseDown(rowOf('zt-desktop'))
+    expect(details.disabled).toBe(false)
+    fireEvent.keyDown(screen.getByRole('grid', { name: '机器列表' }), { key: 'Enter' })
+    expect(await screen.findByRole('dialog', { name: '机器详情' })).toBeTruthy()
     expect(screen.getByText('1 台 daemon 协议版本过旧')).toBeTruthy()
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
@@ -331,7 +337,7 @@ describe('机器与网络 · 实时', () => {
       'GET /notifications': [],
     })
     renderAt('/admin/machines')
-    await screen.findByRole('cell', { name: 'cc-mbp' })
+    await screen.findByRole('gridcell', { name: 'cc-mbp' })
     expect(within(rowOf('cc-mbp')).getByText('离线')).toBeTruthy()
     online = true
     const {
@@ -377,25 +383,26 @@ describe('审计记录', () => {
     renderAt('/admin/audit')
     const list = await screen.findByTestId('audit-list')
     await within(list).findAllByText('批准 小王的 Claude 执行 go build ./... · 支付服务重构')
-    const first = within(list).getAllByTestId('audit-row')[0]!
+    const auditRows = () => within(list).getAllByRole('row').slice(1)
+    const first = auditRows()[0]!
     expect(first.textContent).toContain('审批')
     expect(first.textContent).toContain('王磊')
     expect(first.textContent).toMatch(/09-23 \d\d:23:08/)
     fireEvent.click(screen.getByRole('button', { name: '加载更多' }))
     expect(await within(list).findByText('停用账号 wanglei')).toBeTruthy()
-    expect(within(list).getAllByTestId('audit-row').at(-1)!.textContent).toContain('系统')
+    expect(auditRows().at(-1)!.textContent).toContain('系统')
     expect(screen.queryByRole('button', { name: '加载更多' })).toBeNull()
 
     for (const chip of ['全部', '审批', '提问', '锁与同步', '管理', '运行'])
       expect(screen.getByRole('radio', { name: chip })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: '管理' }))
-    await waitFor(() => expect(within(list).getAllByTestId('audit-row')).toHaveLength(1))
+    await waitFor(() => expect(auditRows()).toHaveLength(1))
     expect(within(list).getByText('停用账号 wanglei')).toBeTruthy()
     expect(screen.getByRole('radio', { name: '管理' }).getAttribute('aria-checked')).toBe('true')
     expect(calls.map((c) => c.path)).toContain('/admin/audit?category=admin&limit=50')
   })
 
-  it('filters loaded rows by keyword and actor, and clamps long summaries', async () => {
+  it('filters loaded rows by keyword and actor, and opens the full record', async () => {
     const long = `批准 小王的 Claude 执行 ${'npm run build && '.repeat(10)}echo ok · 支付服务重构`
     mockApi({
       'GET /admin/audit?limit=50': [
@@ -407,20 +414,21 @@ describe('审计记录', () => {
     renderAt('/admin/audit')
     const list = await screen.findByTestId('audit-list')
     await within(list).findByText('停用账号 wanglei')
-    const summary = within(list).getByText(long)
-    expect(summary.className).toContain('is-clamped')
-    fireEvent.click(within(list).getByRole('button', { name: '展开' }))
-    expect(summary.className).not.toContain('is-clamped')
-    expect(within(list).getByRole('button', { name: '收起' })).toBeTruthy()
+    const auditRows = () => within(list).getAllByRole('row').slice(1)
+    fireEvent.doubleClick(within(list).getByText(long))
+    const record = await screen.findByRole('dialog', { name: '审计记录' })
+    expect(within(record).getByText(long)).toBeTruthy()
+    fireEvent.click(within(record).getByRole('button', { name: '完成' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '审计记录' })).toBeNull())
 
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索审计记录' }), { target: { value: 'rm -rf' } })
-    expect(within(list).getAllByTestId('audit-row')).toHaveLength(1)
+    expect(auditRows()).toHaveLength(1)
     expect(within(list).getByText('拒绝 老李的 Codex 执行 rm -rf dist')).toBeTruthy()
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索审计记录' }), { target: { value: '' } })
 
     fireEvent.click(screen.getByRole('button', { name: '操作人' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '系统' }))
-    expect(within(list).getAllByTestId('audit-row')).toHaveLength(1)
+    expect(auditRows()).toHaveLength(1)
     expect(within(list).getByText('停用账号 wanglei')).toBeTruthy()
   })
 })
@@ -463,13 +471,17 @@ describe('系统参数', () => {
     expect(screen.queryByPlaceholderText('待定')).toBeNull()
     expect(screen.queryByRole('button', { name: '保存' })).toBeNull()
 
-    fireEvent.change(retention, { target: { value: '14' } })
-    fireEvent.change(screen.getByLabelText('接力链长上限 · 群默认'), { target: { value: '5' } })
+    const type = (el: HTMLElement, value: string) => {
+      fireEvent.change(el, { target: { value } })
+      fireEvent.blur(el)
+    }
+    type(retention, '14')
+    type(screen.getByLabelText('接力链长上限 · 群默认'), '5')
     expect(retention.closest('.admin-param')?.className).toContain('is-dirty')
     const bar = screen.getByRole('region', { name: '未保存的修改' })
     expect(bar.textContent).toContain('已修改 2 项')
 
-    fireEvent.change(screen.getByLabelText('接力链长上限 · 群默认'), { target: { value: '3' } })
+    type(screen.getByLabelText('接力链长上限 · 群默认'), '3')
     expect(bar.textContent).toContain('已修改 1 项')
     fireEvent.click(within(bar).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
@@ -482,6 +494,7 @@ describe('系统参数', () => {
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     fireEvent.change(retention, { target: { value: '14' } })
+    fireEvent.blur(retention)
     const unload = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(unload)
     expect(unload.defaultPrevented).toBe(true)
@@ -499,7 +512,9 @@ describe('系统参数', () => {
       'PUT /admin/params': () => apiError(400, 'invalid', 'Too small: expected number to be >=1'),
     })
     renderAt('/admin/params')
-    fireEvent.change(await screen.findByLabelText('完整运行过程保留'), { target: { value: '0' } })
+    const retention = await screen.findByLabelText('完整运行过程保留')
+    fireEvent.change(retention, { target: { value: '0' } })
+    fireEvent.blur(retention)
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(await screen.findByText('Too small: expected number to be >=1')).toBeTruthy()
   })

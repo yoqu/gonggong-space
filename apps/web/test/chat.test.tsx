@@ -299,7 +299,7 @@ describe('sidebar', () => {
       await screen.findByText('王磊 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。'),
     ).toBeTruthy()
     fireEvent.click(
-      within(screen.getByRole('dialog', { name: /新建 Bot/ })).getAllByRole('button', { name: '关闭' })[0]!,
+      within(screen.getByRole('dialog', { name: /新建 Bot/ })).getByRole('button', { name: '取消' }),
     )
 
     act(() => {
@@ -352,7 +352,7 @@ describe('my machines and bots', () => {
       expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/mc2', body: { name: '旧服务器' } }),
     )
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '吊销' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '吊销机器' }))
     const confirm = await screen.findByRole('alertdialog', { name: /吊销机器 old-box/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '吊销' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
@@ -371,9 +371,9 @@ describe('my machines and bots', () => {
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     fireEvent.click(await within(nav).findByRole('button', { name: /小王的 Claude/ }))
     const detail = await screen.findByRole('dialog', { name: /Bot 详情/ })
-    expect(within(detail).getByText('系统提示词 · 同时作为群内简介')).toBeTruthy()
+    expect(within(detail).getByRole('textbox', { name: '系统提示词' })).toBeTruthy()
 
-    fireEvent.click(within(detail).getByRole('button', { name: '删除' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '删除 Bot' }))
     const confirm = await screen.findByRole('alertdialog', { name: /删除 小王的 Claude/ })
     fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

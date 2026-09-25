@@ -20,7 +20,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   await page.getByLabel('姓名').fill('王磊')
   await page.getByLabel('初始密码').fill('wanglei-init')
   await page.getByRole('button', { name: '创建' }).click()
-  await expect(page.getByRole('cell', { name: 'wanglei' })).toBeVisible()
+  await expect(page.getByRole('gridcell', { name: 'wanglei' })).toBeVisible()
   await logout(page)
 
   // Member first login.
@@ -41,7 +41,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   try {
     // Create a bot for myself from the sidebar: bound directly to the machine.
     await page.getByRole('button', { name: '新建 Bot', exact: true }).click()
-    await page.getByRole('button', { name: /Claude Code/ }).click()
+    await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
     await expect(page.getByText('小王的 Claude').first()).toBeVisible()

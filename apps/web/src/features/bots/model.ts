@@ -34,7 +34,7 @@ export const botStateText = (b: BotDto) =>
 
 export const agentLine = (b: BotDto) => [AGENT_LABEL[b.agentKind], b.agentVersion].filter(Boolean).join(' ')
 export const agentCliVersion = (b: BotDto) =>
-  b.agentVersion ? `${AGENT_CLI[b.agentKind]} ${b.agentVersion}` : '—'
+  b.agentVersion ? `${AGENT_CLI[b.agentKind]} ${b.agentVersion}` : '--'
 
 /** The reported CLI is older than the bundled ACP adapter supports. */
 export const agentOutdated = (b: BotDto) =>

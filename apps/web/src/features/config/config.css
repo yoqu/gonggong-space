@@ -15,30 +15,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-menu);
-  background: var(--content-bg);
-  box-shadow: 0 0 0 1px var(--separator);
-  overflow: hidden;
-}
-.cfg__item {
-  display: flex;
-  align-items: center;
   gap: var(--space-12);
-  padding: var(--space-12);
-}
-.cfg__item + .cfg__item {
-  border-top: 1px solid var(--separator);
-}
-.cfg__icon {
-  flex: none;
-  color: var(--system-orange);
-}
-.cfg__main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 0;
 }
 .cfg__name-line {
   display: flex;
@@ -46,29 +23,22 @@
   gap: var(--space-6);
 }
 .cfg__name {
-  font-weight: 600;
   font-family: var(--font-mono);
-  font-size: var(--text-callout-size);
+  font-weight: 600;
 }
-.cfg__desc {
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cfg__item .ui-group__desc {
+  overflow-wrap: anywhere;
 }
-.cfg__tools {
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
+.cfg__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
 }
 .cfg__foot {
   display: flex;
   align-items: center;
   gap: var(--space-8);
   flex-wrap: wrap;
-  padding: var(--space-8) var(--space-12);
-  border-top: 1px solid var(--separator);
-  background: var(--group-bg);
 }
 .cfg__preview {
   flex: 1 1 280px;
@@ -78,7 +48,7 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: var(--space-16);
-  border-radius: var(--radius-menu);
+  border-radius: var(--radius-field);
   background: var(--group-bg);
 }
 .cfg__eyebrow {
@@ -89,7 +59,7 @@
 .cfg__layer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
   padding-left: var(--space-8);
   border-left: 2px solid;
 }
@@ -109,14 +79,13 @@
   color: var(--label-secondary);
   overflow-wrap: anywhere;
 }
-.cfg__note,
-.cfg__hint {
+.cfg__note {
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
   color: var(--label-secondary);
   text-wrap: pretty;
 }
-.cfg__mono {
+.cfg__mono textarea {
   font-family: var(--font-mono);
 }
 .cfg__retry {

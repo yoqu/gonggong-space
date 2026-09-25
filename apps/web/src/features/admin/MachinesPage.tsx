@@ -2,7 +2,7 @@ import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, EmptyState, Presence, SearchField, Spinner } from '../../ui'
+import { Alert, Presence, SearchField, Spinner, Table, ToolbarButton, ToolbarGroup } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
@@ -24,16 +24,15 @@ function lastHeartbeat(m: AdminMachineDto) {
   return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
 }
 
-/** Latest measurement reported by the daemon; red past the force-sync thresholds. */
-function NetCell({ text, bad, at }: { text: string | null; bad: boolean; at: string | null }) {
-  if (text === null) return <td>—</td>
+/** Latest measurement reported by the daemon; red with a warning sign past the force-sync thresholds. */
+function Net({ text, bad, at }: { text: string; bad: boolean; at: string | null }) {
   return (
-    <td
+    <span
       className={bad ? 'admin-table__bad' : undefined}
       title={at ? `测量于 ${new Date(at).toLocaleString()}` : undefined}
     >
       {text}
-    </td>
+    </span>
   )
 }
 
@@ -41,6 +40,7 @@ function NetCell({ text, bad, at }: { text: string | null; bad: boolean; at: str
 export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const params = useSystemParams()
@@ -83,73 +83,112 @@ export function MachinesPage() {
       title="机器与网络"
       desc="所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。"
       subtitle={machines ? `${machines.length} 台 · ${online} 台在线` : undefined}
+      actions={
+        <ToolbarGroup>
+          <ToolbarButton
+            icon="info"
+            label="机器详情…"
+            disabled={!selected}
+            onClick={() => setOpenId(selected)}
+          />
+        </ToolbarGroup>
+      }
       search={<SearchField placeholder="搜索机器或主人" value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
-        <div className="admin-table">
-          <table>
-            <thead>
-              <tr>
-                <th>主人</th>
-                <th>机器</th>
-                <th>系统</th>
-                <th>硬件</th>
-                <th>daemon</th>
-                <th>延迟</th>
-                <th>带宽</th>
-                <th>状态</th>
-                <th>最后心跳</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.ownerName}</td>
-                  <td className="admin-table__mono" title={m.name === m.hostname ? undefined : m.hostname}>
-                    <button type="button" className="machine__open" onClick={() => setOpenId(m.id)}>
-                      {m.name}
-                    </button>
-                  </td>
-                  <td>{osText(m)}</td>
-                  <td>{hardwareText(m)}</td>
-                  <td className={outdated(m) ? 'admin-table__mono admin-table__warn' : 'admin-table__mono'}>
-                    {m.daemonVersion ? `v${m.daemonVersion}` : '—'}
-                  </td>
-                  <NetCell
-                    text={m.latencyMs == null ? null : `${m.latencyMs} ms`}
-                    bad={!!params && m.latencyMs != null && m.latencyMs > params.forceSyncMaxLatencyMs}
+        <Table<AdminMachineDto>
+          aria-label="机器列表"
+          className="admin-grid"
+          rows={shown}
+          multiple={false}
+          selection={selected ? [selected] : []}
+          onSelectionChange={(ids) => setSelected(ids[0] ? String(ids[0]) : null)}
+          defaultSort={{ key: 'ownerName', dir: 'asc' }}
+          onOpen={(m) => setOpenId(m.id)}
+          emptyText={q ? '没有匹配的机器' : '还没有机器'}
+          columns={[
+            { key: 'ownerName', title: '主人', width: 88, sortable: true },
+            {
+              key: 'name',
+              title: '机器',
+              mono: true,
+              sortable: true,
+              render: (m) => <span title={m.name === m.hostname ? undefined : m.hostname}>{m.name}</span>,
+            },
+            { key: 'os', title: '系统', sortable: true, sortValue: osText, render: osText },
+            { key: 'hardware', title: '硬件', secondary: true, render: (m) => hardwareText(m) },
+            {
+              key: 'daemonVersion',
+              title: 'daemon',
+              width: 84,
+              mono: true,
+              sortable: true,
+              render: (m) =>
+                m.daemonVersion ? (
+                  <span className={outdated(m) ? 'admin-table__warn' : undefined}>v{m.daemonVersion}</span>
+                ) : null,
+            },
+            {
+              key: 'latencyMs',
+              title: '延迟',
+              width: 80,
+              align: 'right',
+              sortable: true,
+              sortValue: (m) => m.latencyMs ?? Number.POSITIVE_INFINITY,
+              render: (m) =>
+                m.latencyMs == null ? null : (
+                  <Net
+                    text={`${m.latencyMs} ms`}
+                    bad={!!params && m.latencyMs > params.forceSyncMaxLatencyMs}
                     at={m.netMeasuredAt}
                   />
-                  <NetCell
-                    text={m.bandwidthMbps == null ? null : `${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
-                    bad={
-                      !!params &&
-                      m.bandwidthMbps != null &&
-                      m.bandwidthMbps < params.forceSyncMinBandwidthMbps
-                    }
+                ),
+            },
+            {
+              key: 'bandwidthMbps',
+              title: '带宽',
+              width: 96,
+              align: 'right',
+              sortable: true,
+              sortValue: (m) => m.bandwidthMbps ?? -1,
+              render: (m) =>
+                m.bandwidthMbps == null ? null : (
+                  <Net
+                    text={`${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
+                    bad={!!params && m.bandwidthMbps < params.forceSyncMinBandwidthMbps}
                     at={m.netMeasuredAt}
                   />
-                  <td>
-                    <span className="admin-status">
-                      <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
-                      {m.online ? '在线' : '离线'}
-                    </span>
-                  </td>
-                  <td
-                    className="admin-table__muted"
-                    title={m.lastSeenAt ? new Date(m.lastSeenAt).toLocaleString() : undefined}
-                  >
-                    {lastHeartbeat(m)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {shown.length ? null : (
-            <EmptyState bare title={machines?.length ? '没有匹配的机器' : '还没有机器'} />
-          )}
-        </div>
+                ),
+            },
+            {
+              key: 'online',
+              title: '状态',
+              width: 72,
+              sortable: true,
+              sortValue: (m) => (m.online ? 0 : 1),
+              render: (m) => (
+                <span className="admin-status">
+                  <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
+                  {m.online ? '在线' : '离线'}
+                </span>
+              ),
+            },
+            {
+              key: 'lastSeenAt',
+              title: '最后心跳',
+              width: 96,
+              secondary: true,
+              sortable: true,
+              sortValue: (m) => (m.online ? Number.POSITIVE_INFINITY : Date.parse(m.lastSeenAt ?? '') || 0),
+              render: (m) => (
+                <span title={m.lastSeenAt ? new Date(m.lastSeenAt).toLocaleString() : undefined}>
+                  {lastHeartbeat(m)}
+                </span>
+              ),
+            },
+          ]}
+        />
       ) : error ? null : (
         <Spinner size={18} />
       )}

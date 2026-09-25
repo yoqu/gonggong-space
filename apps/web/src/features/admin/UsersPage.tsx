@@ -1,5 +1,5 @@
 import type { AdminUserDto, UserDto } from '@gonggong/protocol'
-import { type FormEvent, useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
 import {
@@ -9,11 +9,13 @@ import {
   Button,
   Dialog,
   EmptyState,
-  Input,
+  Form,
+  FormRow,
   PopUpButton,
   Presence,
   SearchField,
   Spinner,
+  Table,
   Tag,
   TextField,
   ToolbarButton,
@@ -32,7 +34,7 @@ function Status({ user }: { user: AdminUserDto }) {
   if (user.disabled) return <Tag tone="gray">已停用</Tag>
   if (user.mustChangePassword) return <Tag tone="orange">待修改密码</Tag>
   return (
-    <span className="admin-status admin-table__muted">
+    <span className="admin-status">
       <span className="admin-dot admin-dot--on" />
       正常
     </span>
@@ -40,10 +42,12 @@ function Status({ user }: { user: AdminUserDto }) {
 }
 
 function machinesCell(u: AdminUserDto) {
-  if (u.disabled) return '—'
+  if (u.disabled) return null
   if (!u.machineCount) return '未绑定'
   return `${u.machineCount} 台 · ${u.online ? '在线' : '离线'}`
 }
+
+const STATUS_ORDER = (u: AdminUserDto) => (u.disabled ? 2 : u.mustChangePassword ? 1 : 0)
 
 const READABLE = 'abcdefghjkmnpqrstuvwxyz23456789'
 /** Readable temporary password (no 0/o/1/l/i), grouped for reading aloud: `k7qm-4x2p-9d`. */
@@ -62,7 +66,7 @@ async function copy(text: string) {
   }
 }
 
-/** Temporary password field: generated on open and regenerable; it is copied only once it is actually in effect. */
+/** Temporary password: generated on open and regenerable; it is copied only once it is actually in effect. */
 function TempPasswordField({
   label,
   value,
@@ -72,23 +76,17 @@ function TempPasswordField({
   value: string
   onChange: (v: string) => void
 }) {
-  const id = useId()
   return (
-    <div className="ui-field">
-      <label className="ui-field__label" htmlFor={id}>
-        {label}
-      </label>
-      <span className="admin-temp-pw">
-        <Input
-          id={id}
-          mono
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={`至少 ${MIN_PASSWORD} 位`}
-        />
-        <Button onClick={() => onChange(tempPassword())}>重新生成</Button>
-      </span>
-    </div>
+    <span className="admin-temp-pw">
+      <TextField
+        aria-label={label}
+        mono
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={`至少 ${MIN_PASSWORD} 位`}
+      />
+      <Button onClick={() => onChange(tempPassword())}>重新生成</Button>
+    </span>
   )
 }
 
@@ -136,8 +134,8 @@ export function UsersPage() {
         <ToolbarGroup>
           <ToolbarButton
             icon="person-add"
-            label="新建账号"
-            text="新建账号"
+            label="新建账号…"
+            text="新建账号…"
             onClick={() => setEditing('new')}
           />
         </ToolbarGroup>
@@ -146,74 +144,97 @@ export function UsersPage() {
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
-        <div className="admin-table">
-          <table>
-            <thead>
-              <tr>
-                <th>成员</th>
-                <th>账号</th>
-                <th>角色</th>
-                <th>机器</th>
-                <th>状态</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <span className="admin-table__member">
-                      <Avatar name={u.name} size={24} />
-                      <strong>{u.name}</strong>
-                    </span>
-                  </td>
-                  <td className="admin-table__mono">{u.account}</td>
-                  <td>{ROLE_LABEL[u.role]}</td>
-                  <td className="admin-table__muted">{machinesCell(u)}</td>
-                  <td>
-                    <Status user={u} />
-                  </td>
-                  <td className="admin-table__actions">
-                    <Button size="small" onClick={() => setEditing(u)}>
-                      编辑
+        <Table<AdminUserDto>
+          aria-label="账号列表"
+          className="admin-grid"
+          rows={shown}
+          multiple={false}
+          defaultSort={{ key: 'name', dir: 'asc' }}
+          onOpen={setEditing}
+          emptyText={q ? '没有匹配的成员' : '还没有账号'}
+          columns={[
+            {
+              key: 'name',
+              title: '成员',
+              sortable: true,
+              render: (u) => (
+                <>
+                  <Avatar name={u.name} size={18} />
+                  {u.name}
+                </>
+              ),
+            },
+            { key: 'account', title: '账号', sortable: true, mono: true, secondary: true },
+            {
+              key: 'role',
+              title: '角色',
+              width: 108,
+              sortable: true,
+              sortValue: (u) => ROLE_LABEL[u.role],
+              render: (u) => ROLE_LABEL[u.role],
+            },
+            {
+              key: 'machines',
+              title: '机器',
+              width: 120,
+              secondary: true,
+              sortable: true,
+              sortValue: (u) => (u.disabled ? -1 : u.machineCount),
+              render: machinesCell,
+            },
+            {
+              key: 'status',
+              title: '状态',
+              width: 104,
+              sortable: true,
+              sortValue: STATUS_ORDER,
+              render: (u) => <Status user={u} />,
+            },
+            {
+              key: 'actions',
+              title: '',
+              width: 208,
+              align: 'right',
+              render: (u) => (
+                <span className="admin-row-actions">
+                  <Button size="small" onClick={() => setEditing(u)}>
+                    编辑…
+                  </Button>
+                  {u.id === me.id || u.disabled ? null : (
+                    <Button size="small" onClick={() => setResetting(u)}>
+                      重置密码…
                     </Button>
-                    {u.id === me.id || u.disabled ? null : (
-                      <Button size="small" onClick={() => setResetting(u)}>
-                        重置密码
-                      </Button>
-                    )}
-                    {u.id === me.id ? null : u.disabled ? (
-                      <Button size="small" onClick={() => void enable(u)}>
-                        启用
-                      </Button>
-                    ) : (
-                      <Button size="small" onClick={() => setDisabling(u)}>
-                        停用
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {users?.length === 1 ? (
-            <EmptyState
-              bare
-              title="还没有其他成员"
-              description="新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。"
-              actions={
-                <Button variant="primary" onClick={() => setEditing('new')}>
-                  新建账号
-                </Button>
-              }
-            />
-          ) : shown.length ? null : (
-            <EmptyState bare title="没有匹配的成员" />
-          )}
-        </div>
+                  )}
+                  {u.id === me.id ? null : u.disabled ? (
+                    <Button size="small" onClick={() => void enable(u)}>
+                      启用
+                    </Button>
+                  ) : (
+                    <Button size="small" onClick={() => setDisabling(u)}>
+                      停用
+                    </Button>
+                  )}
+                </span>
+              ),
+            },
+          ]}
+        />
       ) : error ? null : (
         <Spinner size={18} />
       )}
+      {users?.length === 1 ? (
+        <EmptyState
+          compact
+          icon="person-add"
+          title="还没有其他成员"
+          description="新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。"
+          action={
+            <Button variant="primary" onClick={() => setEditing('new')}>
+              新建账号…
+            </Button>
+          }
+        />
+      ) : null}
       <Presence>
         {disabling ? (
           <DisableDialog
@@ -313,6 +334,7 @@ function ResetPasswordDialog({
   onDone: () => void
 }) {
   const [password, setPassword] = useState(tempPassword)
+  const formId = useId()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function reset() {
@@ -337,27 +359,24 @@ function ResetPasswordDialog({
     <Dialog
       open
       title={`重置 ${user.name} 的密码`}
-      subtitle={user.account}
+      message="对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。"
       onClose={onClose}
-      width={460}
-      footer={
-        <>
-          <Button onClick={onClose}>取消</Button>
-          <Button variant="primary" disabled={busy} onClick={() => void reset()}>
-            重置并复制
-          </Button>
-        </>
-      }
+      closeOnBackdrop={false}
+      width={480}
+      actions={[
+        { label: '取消', onClick: onClose },
+        { label: '重置并复制', variant: 'primary', type: 'submit', form: formId, disabled: busy },
+      ]}
     >
-      <div className="admin-form">
-        <TempPasswordField label="临时密码" value={password} onChange={setPassword} />
-        <Alert
-          variant="warning"
-          title="重置后立即生效"
-          description="对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。"
-        />
-        {error ? <Alert variant="error" description={error} /> : null}
-      </div>
+      <Form id={formId} onSubmit={() => void reset()}>
+        <FormRow label="账号">
+          <span className="admin-form__static">{user.account}</span>
+        </FormRow>
+        <FormRow label="临时密码" hint="重置后自动复制，请私下发给对方。">
+          <TempPasswordField label="临时密码" value={password} onChange={setPassword} />
+        </FormRow>
+      </Form>
+      {error ? <Alert variant="error" description={error} /> : null}
     </Dialog>
   )
 }
@@ -389,8 +408,7 @@ function UserDialog({
   const set = (k: 'account' | 'name') => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  async function submit(e: FormEvent) {
-    e.preventDefault()
+  async function submit() {
     if (!user && !ACCOUNT_RE.test(form.account)) return setError('账号需为 2–32 位小写字母、数字或 . _ -')
     if (!form.name.trim()) return setError('请填写姓名')
     if (!user && form.password.length < MIN_PASSWORD) return setError(`初始密码至少 ${MIN_PASSWORD} 位`)
@@ -417,39 +435,46 @@ function UserDialog({
     <Dialog
       open
       title={user ? `编辑成员 ${user.name}` : '新建成员'}
-      subtitle={user ? user.account : '首次登录需修改初始密码'}
+      subtitle={user ? undefined : '首次登录需修改初始密码'}
       onClose={onClose}
       closeOnBackdrop={false}
-      width={420}
-      footer={
-        <>
-          <Button onClick={onClose}>取消</Button>
-          <Button type="submit" form={formId} variant="primary" disabled={busy}>
-            {user ? '保存' : '创建'}
-          </Button>
-        </>
-      }
+      width={460}
+      actions={[
+        { label: '取消', onClick: onClose },
+        {
+          label: user ? '保存' : '创建',
+          variant: 'primary',
+          type: 'submit',
+          form: formId,
+          disabled: busy,
+        },
+      ]}
     >
-      <form id={formId} className="admin-form" onSubmit={submit} noValidate>
-        {user ? null : (
+      <Form id={formId} onSubmit={submit}>
+        <FormRow label="账号" hint={user ? undefined : '2–32 位小写字母、数字或 . _ -，创建后不能修改'}>
+          {user ? (
+            <span className="admin-form__static">{user.account}</span>
+          ) : (
+            <TextField
+              aria-label="账号"
+              mono
+              value={form.account}
+              onChange={set('account')}
+              placeholder="wanglei"
+              autoFocus
+            />
+          )}
+        </FormRow>
+        <FormRow label="姓名">
           <TextField
-            label="账号"
-            mono
-            value={form.account}
-            onChange={set('account')}
-            placeholder="wanglei"
-            autoFocus
+            aria-label="姓名"
+            value={form.name}
+            onChange={set('name')}
+            placeholder="王磊"
+            autoFocus={!!user}
           />
-        )}
-        <TextField
-          label="姓名"
-          value={form.name}
-          onChange={set('name')}
-          placeholder="王磊"
-          autoFocus={!!user}
-        />
-        <div className="ui-field">
-          <span className="ui-field__label">角色</span>
+        </FormRow>
+        <FormRow label="角色" hint={self ? '不能修改自己的角色' : undefined}>
           <PopUpButton
             aria-label="角色"
             options={ROLE_OPTIONS}
@@ -457,16 +482,18 @@ function UserDialog({
             disabled={self}
             onChange={(role) => setForm((f) => ({ ...f, role }))}
           />
-        </div>
+        </FormRow>
         {user ? null : (
-          <TempPasswordField
-            label="初始密码"
-            value={form.password}
-            onChange={(password) => setForm((f) => ({ ...f, password }))}
-          />
+          <FormRow label="初始密码" hint="创建后账号与初始密码会一起复制。">
+            <TempPasswordField
+              label="初始密码"
+              value={form.password}
+              onChange={(password) => setForm((f) => ({ ...f, password }))}
+            />
+          </FormRow>
         )}
-        {error ? <Alert variant="error" description={error} /> : null}
-      </form>
+      </Form>
+      {error ? <Alert variant="error" description={error} /> : null}
     </Dialog>
   )
 }
