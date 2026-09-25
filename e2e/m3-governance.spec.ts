@@ -87,6 +87,8 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     await expect(viewerCard).toContainText('appr1 已批准')
 
     // The side panel keeps the approval record.
+    // Message actions appear while the message is hovered, as with a pointer.
+    await cardA.hover()
     await cardA.getByRole('button', { name: '查看过程' }).click()
     await page.getByRole('tab', { name: '审批记录' }).click()
     await expect(page.getByTestId('run-rail')).toContainText("console.log('hello-' + 'approval')")

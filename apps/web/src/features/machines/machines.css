@@ -4,24 +4,17 @@
   flex-direction: column;
   gap: var(--space-16);
 }
-.bind__code-box {
-  min-height: 84px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-6);
-  padding: var(--space-16);
-  border-radius: var(--radius-menu);
-  background: var(--group-bg);
-}
 .bind__code {
   font-family: var(--font-mono);
   font-size: var(--text-title-1-size);
   font-weight: 600;
   letter-spacing: 0.16em;
 }
-.bind__hint,
+.bind__code-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
 .bind__note {
   margin: 0;
   font-size: var(--text-subheadline-size);
@@ -30,15 +23,6 @@
   text-wrap: pretty;
 }
 .bind__expired {
-  color: var(--label-secondary);
-}
-.bind__cmd-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-.bind__label {
-  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
 .bind__cmd {
@@ -76,6 +60,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
+}
+.bind__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: var(--radius-capsule);
 }
 .bind__link {
   padding: 0;

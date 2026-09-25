@@ -20,7 +20,7 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
   color: var(--label);
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   font-weight: 400;
   opacity: 0;

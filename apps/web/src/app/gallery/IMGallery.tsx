@@ -17,7 +17,6 @@ import {
   Icon,
   type IconName,
   ImageAttachment,
-  ImPopover,
   LinkPreview,
   MeetingCard,
   Mention,
@@ -30,6 +29,7 @@ import {
   MessageList,
   messageMenuItems,
   PinnedBanner,
+  Popover,
   ProfileCard,
   Reactions,
   ReadReceipt,
@@ -150,7 +150,7 @@ function DemoRail() {
         alignItems: 'center',
         gap: 3,
         width: 64,
-        fontSize: 10,
+        fontSize: 'var(--text-footnote-size)',
       }}
     >
       <span
@@ -628,7 +628,7 @@ export function IMGallery() {
           <ChatNotice kind="date" day="昨天">
             18:20
           </ChatNotice>
-          <ChatNotice>张三 邀请 Mia Chen、王小明 加入了群聊</ChatNotice>
+          <ChatNotice>张三 邀请 Mia Chen、王小明 加入了群</ChatNotice>
           <ChatNotice kind="unread" />
           <ChatNotice kind="urgent">张三 对你发起了应用内加急</ChatNotice>
           <ChatNotice kind="recalled" action={{ label: '重新编辑' }} />
@@ -670,7 +670,7 @@ export function IMGallery() {
       </Card>
 
       <Card title="Popover · ProfileCard" style={{ minHeight: 340 }}>
-        <ImPopover defaultOpen aria-label="张三 的名片" trigger={<Button variant="plain">@张三</Button>}>
+        <Popover defaultOpen aria-label="张三 的名片" trigger={<Button variant="plain">@张三</Button>}>
           <ProfileCard
             name="张三"
             status="busy"
@@ -688,7 +688,7 @@ export function IMGallery() {
               { label: '视频会议', icon: 'video', text: false },
             ]}
           />
-        </ImPopover>
+        </Popover>
       </Card>
 
       <Card title="messageMenuItems" style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
@@ -839,7 +839,7 @@ export function IMGallery() {
               { label: '我在本群的昵称', value: 'Yoqu', onClick: () => {} },
               { label: '群公告', value: '设计评审改到每周四…', onClick: () => {} },
             ]}
-            danger={{ label: '退出群聊' }}
+            danger={{ label: '退出群' }}
           />
         </div>
         <div style={{ height: 620, width: 360, borderLeft: '1px solid var(--separator)' }}>

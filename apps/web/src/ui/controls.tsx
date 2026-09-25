@@ -10,10 +10,10 @@ import {
   useState,
 } from 'react'
 import { cx } from '../lib/cx'
-import { Float, type Placement, useDismiss } from './anchor'
 import { useControlled } from './controlled'
 import { ProgressIndicator } from './display'
 import { Icon, type IconName } from './icon'
+import { Float, type Placement, useDismiss } from './popover'
 import './controls.css'
 
 /** An icon by name, or a ready-made icon element. */

@@ -7,7 +7,7 @@
 .ui-levelwrap__label {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-level {
   display: flex;
@@ -33,7 +33,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
 .ui-levelwrap__legend span {

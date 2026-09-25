@@ -56,7 +56,7 @@ function Card({
 
 const panel = {
   padding: 12,
-  borderRadius: 12,
+  borderRadius: 'var(--radius-menu)',
   background: 'var(--content-bg)',
   boxShadow: 'inset 0 0 0 1px var(--separator)',
 } as const
@@ -68,7 +68,7 @@ export function ControlsGallery() {
       <Card name="Button">
         <div style={col}>
           <div style={row()}>
-            <Button variant="primary">存储</Button>
+            <Button variant="primary">保存</Button>
             <Button>取消</Button>
             <Button variant="destructive">移到废纸篓</Button>
             <Button variant="plain">了解更多…</Button>
@@ -244,7 +244,9 @@ export function ControlsGallery() {
         <div style={row(40, 'flex-start')}>
           <ColorWell label="标签颜色" defaultValue="#0088ff" defaultOpen />
           <div style={{ ...col, gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--label-secondary)' }}>强调色</span>
+            <span style={{ fontSize: 'var(--text-callout-size)', color: 'var(--label-secondary)' }}>
+              强调色
+            </span>
             <ColorWell
               inline
               aria-label="强调色"

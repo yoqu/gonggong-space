@@ -462,7 +462,8 @@ describe('composer', () => {
     expect(box().value).toBe('草稿')
     fireEvent.click(sendButton())
     await waitFor(() => expect(box().value).toBe(''))
-    expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull()
+    // Persisted in a passive effect, which can run after the commit that cleared the box.
+    await waitFor(() => expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull())
   })
 
   it('ignores Enter while an IME composition is active or just ended', async () => {

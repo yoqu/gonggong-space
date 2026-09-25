@@ -116,26 +116,26 @@
   transform: rotate(45deg);
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
-.ui-popover--arrow.ui-popover--bottom-start::before,
-.ui-popover--arrow.ui-popover--bottom-end::before {
+.ui-popover--arrow.ui-float--bottom-start::before,
+.ui-popover--arrow.ui-float--bottom-end::before {
   top: -6px;
   left: 16px;
 }
-.ui-popover--arrow.ui-popover--bottom-end::before {
+.ui-popover--arrow.ui-float--bottom-end::before {
   left: auto;
   right: 16px;
 }
-.ui-popover--arrow.ui-popover--top-start::before,
-.ui-popover--arrow.ui-popover--top-end::before {
+.ui-popover--arrow.ui-float--top-start::before,
+.ui-popover--arrow.ui-float--top-end::before {
   bottom: -6px;
   left: 16px;
   transform: rotate(225deg);
 }
-.ui-popover--arrow.ui-popover--top-end::before {
+.ui-popover--arrow.ui-float--top-end::before {
   left: auto;
   right: 16px;
 }
-.ui-popover--arrow.ui-popover--right-start::before {
+.ui-popover--arrow.ui-float--right-start::before {
   top: 12px;
   left: -6px;
   transform: rotate(-45deg);

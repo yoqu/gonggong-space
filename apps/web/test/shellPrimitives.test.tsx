@@ -113,7 +113,7 @@ describe('AlertDialog', () => {
         open
         title="要删除吗？"
         onClose={() => {}}
-        actions={[{ label: '存储' }, { label: '不存储' }, { label: '取消' }]}
+        actions={[{ label: '保存' }, { label: '不保存' }, { label: '取消' }]}
       />,
     )
     expect(actions().classList.contains('ui-alert__actions--stack')).toBe(true)

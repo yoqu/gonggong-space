@@ -22,7 +22,7 @@ function NotFound() {
         description="链接可能已失效，或你没有访问权限。"
         actions={
           <Link to="/" className="ui-btn ui-btn--primary ui-btn--md">
-            返回群聊
+            返回消息
           </Link>
         }
       />

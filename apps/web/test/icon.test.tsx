@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ICON_NAMES, Icon, LUCIDE_TO_ICON } from '../src/ui'
+import { ICON_NAMES, Icon } from '../src/ui'
 import { DRAWN_PATHS } from '../src/ui/icons/drawn'
 import { PANE_PATHS } from '../src/ui/icons/pane'
 
@@ -39,13 +39,6 @@ describe('Icon', () => {
     expect(svg.getAttribute('aria-hidden')).toBeNull()
   })
 
-  it('maps every lucide icon the app imports to an existing icon', () => {
-    for (const [lucide, name] of Object.entries(LUCIDE_TO_ICON)) {
-      expect(ICON_NAMES, lucide).toContain(name)
-    }
-    expect(Object.keys(LUCIDE_TO_ICON)).toHaveLength(75)
-  })
-
   it('ships all 73 Pane v2 icons and never shadows one with a drawn glyph', () => {
     expect(Object.keys(PANE_PATHS)).toHaveLength(73)
     for (const name of ['undo', 'external', 'copy', 'eye-slash', 'chevron-down', 'hard-drive', 'appearance'])
@@ -56,9 +49,5 @@ describe('Icon', () => {
   it('renders Pane originals for names Pane v2 added', () => {
     const { container } = render(<Icon name="copy" />)
     expect(container.querySelector('path')?.getAttribute('d')).toBe(PANE_PATHS.copy)
-  })
-
-  it('maps lucide Undo2 to the Pane undo glyph', () => {
-    expect(LUCIDE_TO_ICON.Undo2).toBe('undo')
   })
 })

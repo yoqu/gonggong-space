@@ -81,16 +81,20 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
   await expect(page.getByTestId('group-notice')).toContainText('每个 Bot 独立分支，走 PR')
   await expect(page.getByRole('heading', { name: '设置后' })).toBeVisible()
 
-  await page.getByRole('button', { name: '群设置' }).click()
-  await page.getByRole('button', { name: /群级参数/ }).click()
+  // Saving returns the inspector to its root view; it stays open.
+  const settings = page.getByRole('complementary', { name: '群设置' })
+  await settings.getByRole('button', { name: /群级参数/ }).click()
   await page.getByLabel('接力链长上限（跳）').fill('1')
   await page.getByRole('button', { name: '保存' }).click()
-  const params = await api.call<{ chainMaxHops: number }>('get', `/api/groups/${group.id}/params`)
-  expect(params.chainMaxHops).toBe(1)
+  const hops = async () =>
+    (await api.call<{ chainMaxHops: number }>('get', `/api/groups/${group.id}/params`)).chainMaxHops
+  await expect.poll(hops).toBe(1)
 
-  await page.getByRole('button', { name: '群设置' }).click()
-  await page.getByRole('switch', { name: '置顶群' }).click()
-  await page.getByRole('switch', { name: '消息免打扰' }).click()
+  // The switch input is visually hidden; a pointer toggles it through its track (the wrapping label).
+  const toggle = (name: string) => settings.getByRole('switch', { name }).locator('xpath=..').click()
+  await toggle('置顶群')
+  await toggle('消息免打扰')
+  await expect(settings.getByRole('switch', { name: '消息免打扰' })).toBeChecked()
   await expect(page.getByTestId(`group-item-${group.id}`).getByLabel('已置顶')).toBeVisible()
   await page.getByRole('button', { name: '解散群' }).click()
   await page.getByRole('button', { name: '确认解散' }).click()

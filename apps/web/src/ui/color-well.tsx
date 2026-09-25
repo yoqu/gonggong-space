@@ -1,8 +1,8 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
-import { Float, useDismiss } from './anchor'
 import { useControlled } from './controlled'
 import { TextField } from './form'
+import { Float, useDismiss } from './popover'
 import './color-well.css'
 
 /** macOS system colors plus black and white. */

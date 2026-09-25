@@ -103,7 +103,7 @@ export interface ChatInfoPanelProps {
   onShowAllMembers?: () => void
   /** One group of rows, or several titled groups. */
   settings?: ChatInfoRow[] | ChatInfoGroup[]
-  /** Red centred rows in their own group, e.g.「退出群聊」. */
+  /** Red centred rows in their own group, e.g.「退出群」. */
   danger?: ChatInfoDanger | ChatInfoDanger[]
   /** Inserted between members and settings. */
   children?: ReactNode
@@ -295,7 +295,7 @@ export interface ThreadPanelProps {
   /** `false` hides the thread composer. */
   composer?: false
   composerProps?: ComposerProps
-  /** Shows「同时发送到群聊」beside the send button. */
+  /** Shows「同时发送到群」beside the send button. */
   alsoSend?: boolean
   alsoSendDefault?: boolean
   onAlsoSendChange?: (checked: boolean) => void
@@ -344,11 +344,7 @@ export function ThreadPanel({
             tools={DEFAULT_TOOLS.slice(0, 4)}
             accessory={
               alsoSend ? (
-                <Checkbox
-                  label="同时发送到群聊"
-                  defaultChecked={alsoSendDefault}
-                  onChange={onAlsoSendChange}
-                />
+                <Checkbox label="同时发送到群" defaultChecked={alsoSendDefault} onChange={onAlsoSendChange} />
               ) : null
             }
             {...composerProps}

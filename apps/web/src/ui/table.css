@@ -29,7 +29,7 @@
   gap: 4px;
   padding: 0 var(--space-8);
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   font-weight: 500;
   color: var(--label-secondary);
   white-space: nowrap;
@@ -64,7 +64,7 @@
 }
 .ui-table--compact .ui-table__row {
   min-height: 20px;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-table__row--alt {
   background: var(--row-alt);
@@ -106,7 +106,7 @@
 }
 .ui-table__td--mono {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-table__cell {
   display: inline-flex;
@@ -139,7 +139,7 @@
 }
 .ui-table__empty {
   padding: var(--space-20);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
   text-align: center;
 }

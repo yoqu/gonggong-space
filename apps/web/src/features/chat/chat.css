@@ -325,23 +325,7 @@
   flex-direction: column;
   gap: var(--space-12);
 }
-.repo-settings__row {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) auto;
-  gap: var(--space-12);
-  align-items: center;
-  min-height: var(--control-large);
-  font-size: var(--text-callout-size);
-}
-.repo-settings__key {
-  color: var(--label-secondary);
-}
 .repo-settings__mono {
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
-}
-@media (max-width: 767px) {
-  .repo-settings__row {
-    grid-template-columns: 88px minmax(0, 1fr) auto;
-  }
 }

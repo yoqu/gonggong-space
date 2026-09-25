@@ -28,9 +28,11 @@ const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
   agent_missing: 'agent 缺失',
 }
 
-/** Sidebar line, e.g. `wanglei-mbp · 在线`, or the binding state while not bound. */
+/** Sidebar line, e.g. `wanglei-mbp · 在线`, or the binding state while not bound; missing parts are left out. */
 export const botStateText = (b: BotDto) =>
-  b.binding === 'bound' ? `${b.machineName} · ${SHORT_STATE[b.presence]}` : BINDING_LABEL[b.binding]
+  b.binding === 'bound'
+    ? [b.machineName, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
+    : BINDING_LABEL[b.binding]
 
 export const agentLine = (b: BotDto) => [AGENT_LABEL[b.agentKind], b.agentVersion].filter(Boolean).join(' ')
 export const agentCliVersion = (b: BotDto) =>

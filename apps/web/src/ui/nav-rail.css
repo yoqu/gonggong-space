@@ -57,7 +57,7 @@
   box-shadow: var(--shadow-outline, none);
 }
 .ui-rail__label {
-  font-size: 10px;
+  font-size: var(--text-footnote-size);
   line-height: 13px;
   color: var(--label-secondary);
 }

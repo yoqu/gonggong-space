@@ -160,6 +160,7 @@ function Agent({
             <GroupRow label="路径">{a.path ? <PathValue path={a.path} leaf="terminal" /> : null}</GroupRow>
             <GroupRow
               label="版本"
+              wideValue
               value={
                 meets ? (
                   `${a.version} · 满足 ≥ ${a.minVersion}`
@@ -168,8 +169,12 @@ function Agent({
                 )
               }
             />
-            <GroupRow label="登录" value={a.login ?? '未知'} />
-            <GroupRow label="ACP 适配器" value={adapter ? `${adapter.version} · 随 daemon` : '随 daemon'} />
+            <GroupRow label="登录" wideValue value={a.login ?? '未知'} />
+            <GroupRow
+              label="ACP 适配器"
+              wideValue
+              value={adapter ? `${adapter.version} · 随 daemon` : '随 daemon'}
+            />
             <GroupRow label="默认模型" description="Bot 未单独指定时使用">
               {a.catalog?.models.length ? (
                 <PopUpButton

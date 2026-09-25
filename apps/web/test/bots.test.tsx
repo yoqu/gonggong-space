@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { loadWorkspace, useWorkspace } from '../src/app/workspace'
+import { botStateText } from '../src/features/bots/model'
 
 const wang: UserDto = {
   id: 'u1',
@@ -138,6 +139,15 @@ describe('workspace store', () => {
   })
 })
 
+describe('botStateText', () => {
+  it('joins machine and state, leaving out missing parts', () => {
+    expect(botStateText(bot({}))).toBe('wanglei-mbp · 在线')
+    expect(botStateText(bot({ machineName: null }))).toBe('在线')
+    expect(botStateText(bot({ presence: 'pending_bind' }))).toBe('wanglei-mbp')
+    expect(botStateText(bot({ binding: 'pending_confirm', presence: 'pending_confirm' }))).toBe('待确认')
+  })
+})
+
 describe('sidebar 我的 BOT', () => {
   it('shows presence per bot and lets the owner confirm a pending bot', async () => {
     routes['GET /api/bots'] = () => [
@@ -175,7 +185,7 @@ describe('新建 Bot', () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = (b) => bot({ name: (b as { name: string }).name })
     renderAt('/', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     const name = await within(dialog).findByLabelText('名称')
     expect((name as HTMLInputElement).value).toBe('王磊的 Claude Code')
@@ -204,7 +214,7 @@ describe('新建 Bot', () => {
     routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
     routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录…' }))
     const picker = await screen.findByRole('dialog', { name: '默认工作区' })

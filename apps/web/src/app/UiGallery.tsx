@@ -1,4 +1,3 @@
-import { Bell, Inbox, Plus, Search } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import {
   Alert,
@@ -10,6 +9,7 @@ import {
   Dialog,
   Drawer,
   EmptyState,
+  Icon,
   IconButton,
   Input,
   Progress,
@@ -40,6 +40,72 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 const SPRINGS = ['snappy', 'smooth', 'bouncy', 'interactive'] as const
 type Glass = 'clear' | 'standard' | 'tinted'
 
+/** Spring and fade tokens, each moving a knob along a track. */
+export function MotionDemos() {
+  const [moved, setMoved] = useState<Record<string, boolean>>({})
+  const [shown, setShown] = useState(true)
+  return (
+    <Section title="动效">
+      <div className="gallery__col">
+        {SPRINGS.map((s) => (
+          <div key={s} className="gallery__motion">
+            <Button size="sm" onClick={() => setMoved((m) => ({ ...m, [s]: !m[s] }))}>
+              {s}
+            </Button>
+            <div className="gallery__track">
+              <div
+                data-testid={`spring-${s}`}
+                className="gallery__knob"
+                data-on={moved[s] || undefined}
+                style={{ transition: `transform var(--spring-${s})` }}
+              />
+            </div>
+          </div>
+        ))}
+        <div className="gallery__motion">
+          <Button size="sm" onClick={() => setShown(!shown)}>
+            fade
+          </Button>
+          <div className="gallery__track">
+            <div
+              className="gallery__knob"
+              style={{
+                opacity: shown ? 1 : 0,
+                transition: `opacity var(${shown ? '--fade-in' : '--fade-out'})`,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+/** The three glass levels over a striped backdrop. */
+export function GlassDemo() {
+  const [glass, setGlass] = useState<Glass>('standard')
+  return (
+    <Section title="材质">
+      <div className="gallery__col">
+        <Tabs
+          value={glass}
+          onChange={setGlass}
+          items={[
+            { value: 'clear', label: '清透' },
+            { value: 'standard', label: '标准' },
+            { value: 'tinted', label: '着色' },
+          ]}
+        />
+        <div data-testid="glass-backdrop" className="gallery__backdrop" data-glass={glass}>
+          <div className="gallery__glass glass">
+            <div className="gallery__glass-inner concentric">同心圆角 · 工具栏、菜单、弹窗用玻璃</div>
+          </div>
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 /** Dev-only visual review of every design-system component. */
 export default function UiGallery() {
   const [tab, setTab] = useState<'process' | 'diff' | 'audit'>('process')
@@ -48,13 +114,10 @@ export default function UiGallery() {
   const [agent, setAgent] = useState<'claude' | 'codex'>('claude')
   const [dialog, setDialog] = useState(false)
   const [drawer, setDrawer] = useState(false)
-  const [moved, setMoved] = useState<Record<string, boolean>>({})
-  const [shown, setShown] = useState(true)
-  const [glass, setGlass] = useState<Glass>('standard')
 
   return (
     <div className="gallery">
-      <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>组件库</h1>
+      <h1 style={{ margin: 0, fontSize: 'var(--text-large-title-size)', fontWeight: 600 }}>组件库</h1>
 
       <FoundationGallery />
       <ControlsGallery />
@@ -72,7 +135,7 @@ export default function UiGallery() {
       <Section title="BUTTON SIZES">
         {(['xs', 'sm', 'md', 'lg'] as const).map((s) => (
           <Button key={s} variant="primary" size={s}>
-            <Plus size={12} />
+            <Icon name="plus" size={12} />
             {s}
           </Button>
         ))}
@@ -85,13 +148,13 @@ export default function UiGallery() {
 
       <Section title="ICON BUTTON · plain / glass">
         <IconButton title="搜索">
-          <Search size={16} />
+          <Icon name="search" />
         </IconButton>
         <IconButton title="玻璃搜索" variant="glass">
-          <Search size={16} />
+          <Icon name="search" />
         </IconButton>
         <IconButton title="玻璃通知" variant="glass">
-          <Bell size={16} />
+          <Icon name="bell" />
         </IconButton>
       </Section>
 
@@ -194,7 +257,7 @@ export default function UiGallery() {
         <CloseButton />
         <div style={{ width: 320 }}>
           <EmptyState
-            icon={<Inbox size={20} />}
+            icon={<Icon name="tray" size={20} />}
             title="还没有 Bot"
             description="新建一个 Bot，绑定到你的机器上的 Claude Code 或 Codex。"
             actions={
@@ -217,58 +280,8 @@ export default function UiGallery() {
 
       <OverlayGallery />
 
-      <Section title="动效">
-        <div className="gallery__col">
-          {SPRINGS.map((s) => (
-            <div key={s} className="gallery__motion">
-              <Button size="sm" onClick={() => setMoved((m) => ({ ...m, [s]: !m[s] }))}>
-                {s}
-              </Button>
-              <div className="gallery__track">
-                <div
-                  data-testid={`spring-${s}`}
-                  className="gallery__knob"
-                  data-on={moved[s] || undefined}
-                  style={{ transition: `transform var(--spring-${s})` }}
-                />
-              </div>
-            </div>
-          ))}
-          <div className="gallery__motion">
-            <Button size="sm" onClick={() => setShown(!shown)}>
-              fade
-            </Button>
-            <div className="gallery__track">
-              <div
-                className="gallery__knob"
-                style={{
-                  opacity: shown ? 1 : 0,
-                  transition: `opacity var(${shown ? '--fade-in' : '--fade-out'})`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="材质">
-        <div className="gallery__col">
-          <Tabs
-            value={glass}
-            onChange={setGlass}
-            items={[
-              { value: 'clear', label: '清透' },
-              { value: 'standard', label: '标准' },
-              { value: 'tinted', label: '着色' },
-            ]}
-          />
-          <div data-testid="glass-backdrop" className="gallery__backdrop" data-glass={glass}>
-            <div className="gallery__glass glass">
-              <div className="gallery__glass-inner concentric">同心圆角 · 工具栏、菜单、弹窗用玻璃</div>
-            </div>
-          </div>
-        </div>
-      </Section>
+      <MotionDemos />
+      <GlassDemo />
 
       <IMGallery />
 

@@ -151,6 +151,6 @@ describe('unknown routes', () => {
     )
     renderAt('/admin/nope')
     expect(await screen.findByText('页面不存在')).toBeTruthy()
-    expect(screen.getByRole('link', { name: '返回群聊' }).getAttribute('href')).toBe('/')
+    expect(screen.getByRole('link', { name: '返回消息' }).getAttribute('href')).toBe('/')
   })
 })

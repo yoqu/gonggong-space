@@ -6,6 +6,8 @@ import {
   Alert,
   Button,
   Dialog,
+  Form,
+  FormRow,
   Icon,
   IconButton,
   Spinner,
@@ -96,41 +98,49 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
   ]
 
   return (
-    <Dialog open={open} title="绑定新机器" onClose={onClose}>
+    <Dialog
+      open={open}
+      title="绑定新机器"
+      message="在机器上用一次性绑定码登录 gg，Bot 就在这台机器上运行。"
+      width={520}
+      onClose={onClose}
+      actions={[
+        bound ? { label: '完成', variant: 'primary', onClick: onClose } : { label: '取消', onClick: onClose },
+      ]}
+    >
       <div className="bind">
         <StepIndicator steps={steps} />
         {bound ? (
           <BoundMachine machine={bound} />
         ) : (
-          <>
-            <div className="bind__code-box">
+          <Form>
+            <FormRow
+              label="绑定码"
+              hint={code && !expired ? `一次性绑定码 · ${mmss(remaining)} 后失效` : undefined}
+            >
               {expired ? (
-                <>
+                <span className="bind__code-line">
                   <span className="bind__expired">绑定码已失效</span>
-                  <Button size="sm" onClick={() => void generate()}>
+                  <Button size="small" onClick={() => void generate()}>
                     重新生成
                   </Button>
-                </>
+                </span>
               ) : code ? (
-                <>
-                  <span className="bind__code" data-testid="bind-code">
-                    {code.code}
-                  </span>
-                  <span className="bind__hint">{`一次性绑定码 · ${mmss(remaining)} 后失效`}</span>
-                </>
+                <span className="bind__code" data-testid="bind-code">
+                  {code.code}
+                </span>
               ) : error ? (
-                <>
+                <span className="bind__code-line">
                   <Alert variant="error" description={error} />
-                  <Button size="sm" onClick={() => void generate()}>
+                  <Button size="small" onClick={() => void generate()}>
                     重试
                   </Button>
-                </>
+                </span>
               ) : (
                 <Spinner size={18} />
               )}
-            </div>
-            <div className="bind__cmd-wrap">
-              <span className="bind__label">在机器的终端里执行，或粘贴到共工桌面端</span>
+            </FormRow>
+            <FormRow label="登录命令" align="top" hint="在机器的终端里执行，或粘贴到共工桌面端。">
               <div className="bind__cmd">
                 <span className="bind__cmd-text">{command || '—'}</span>
                 <IconButton
@@ -145,25 +155,27 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
                   <Icon name="copy" />
                 </IconButton>
               </div>
-            </div>
-            <p className="bind__note">
-              绑定后该机器归属于你，gg 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
-              Codex；同一台机器重新绑定会恢复原记录。还没安装 gg？
-              <button
-                type="button"
-                className="bind__link"
-                onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建 gg' })}
-              >
-                下载 macOS / Linux / Windows 版
-              </button>
-            </p>
-            {waiting ? (
-              <div className="bind__waiting">
-                <Spinner size={14} />
-                等待机器用绑定码登录…
-              </div>
-            ) : null}
-          </>
+            </FormRow>
+            <FormRow align="top">
+              {waiting ? (
+                <span className="bind__waiting">
+                  <Spinner size={14} />
+                  等待机器用绑定码登录…
+                </span>
+              ) : null}
+              <p className="bind__note">
+                绑定后该机器归属于你，gg 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
+                Codex；同一台机器重新绑定会恢复原记录。还没安装 gg？
+                <button
+                  type="button"
+                  className="bind__link"
+                  onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建 gg' })}
+                >
+                  下载 macOS / Linux / Windows 版
+                </button>
+              </p>
+            </FormRow>
+          </Form>
         )}
       </div>
     </Dialog>
@@ -183,29 +195,30 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
             : `本机已归属你 · ${machine.name}（${OS_LABEL[machine.os]} · ${machine.arch}）`
         }
       />
-      <div className="bind__cmd-wrap">
-        <span className="bind__label">本机 agent</span>
-        {machine.agents.length ? (
-          <ul className="bind__agents">
-            {machine.agents.map((a) => (
-              <li key={a.kind} className="bind__agent">
-                <span
-                  className="dot"
-                  style={{ background: a.available ? 'var(--system-green)' : 'var(--system-gray)' }}
-                />
-                <span>{`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}</span>
-              </li>
-            ))}
-          </ul>
-        ) : machine.online ? (
-          <span className="bind__note">未检测到 Claude Code / Codex，安装后执行 gg run 重启即可上报。</span>
-        ) : (
-          <div className="bind__waiting">
-            <Spinner size={14} />
-            等待上报 agent…在机器上执行 gg run 启动
-          </div>
-        )}
-      </div>
+      <Form>
+        <FormRow label="本机 agent" align="top">
+          {machine.agents.length ? (
+            <ul className="bind__agents">
+              {machine.agents.map((a) => (
+                <li key={a.kind} className="bind__agent">
+                  <span
+                    className="bind__dot"
+                    style={{ background: a.available ? 'var(--system-green)' : 'var(--system-gray)' }}
+                  />
+                  <span>{`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}</span>
+                </li>
+              ))}
+            </ul>
+          ) : machine.online ? (
+            <span className="bind__note">未检测到 Claude Code / Codex，安装后执行 gg run 重启即可上报。</span>
+          ) : (
+            <span className="bind__waiting">
+              <Spinner size={14} />
+              等待上报 agent…在机器上执行 gg run 启动
+            </span>
+          )}
+        </FormRow>
+      </Form>
       <p className="bind__note">
         你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的
         Bot，需在通知中确认后才能被触发。

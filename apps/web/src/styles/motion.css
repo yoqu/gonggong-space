@@ -16,5 +16,4 @@
   --motion-fast: 100ms ease-out; /* hover/color feedback; plan §4.1 caps high-frequency motion at 100ms */
   --motion-base: 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
-  --duration-base: 260ms;
 }

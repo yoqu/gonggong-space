@@ -271,13 +271,13 @@ describe('Dialog v2', () => {
     render(
       <Dialog
         open
-        title="要离开群聊吗？"
+        title="要离开群吗？"
         message="离开后不再接收消息。"
         onClose={() => {}}
         actions={[{ label: '取消' }, { label: '离开', variant: 'primary', onClick: onOk, autoFocus: true }]}
       />,
     )
-    const dialog = screen.getByRole('dialog', { name: '要离开群聊吗？' })
+    const dialog = screen.getByRole('dialog', { name: '要离开群吗？' })
     expect(within(dialog).getByText('离开后不再接收消息。')).toBeTruthy()
     expect(within(dialog).queryByRole('button', { name: '关闭' })).toBeNull()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '离开' }))

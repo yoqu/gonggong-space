@@ -69,12 +69,15 @@ const HAN = /[\u3400-\u9fff]/
 const HAN_ALL = /[^\u3400-\u9fff]/g
 const STATUS_TEXT = { online: '在线', busy: '忙碌', away: '离开' }
 
-/** Chinese person → last two characters, group → first two; otherwise first letters of the first two words. */
+/**
+ * Chinese person name (2–3 characters) → last two characters; groups and longer Chinese names
+ * (roles like 「系统管理员」) → first two; otherwise first letters of the first two words.
+ */
 function initials(name: string, group: boolean) {
   const n = name.trim()
   if (HAN.test(n)) {
     const han = n.replace(HAN_ALL, '')
-    return group ? han.slice(0, 2) : han.slice(-2)
+    return group || han.length > 3 ? han.slice(0, 2) : han.slice(-2)
   }
   const [first = '', second = ''] = n.split(/\s+/)
   return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase()
@@ -100,7 +103,6 @@ export interface AvatarProps {
 
 /**
  * Status dot ring takes `--pn-ring` from the parent (default content-bg); set it to the surface behind.
- * Initials follow Pane exactly (「系统管理员」→「理员」); pass `src` or `color` for role-like names.
  */
 export function Avatar({
   name,
@@ -274,6 +276,8 @@ export interface GroupRowProps {
   description?: ReactNode
   /** Trailing `label-secondary` text, e.g. the current choice of a drill-in row. */
   value?: ReactNode
+  /** Long values (model names, versions) take the row's room instead of the 160px cap. */
+  wideValue?: boolean
   chevron?: boolean
   /** Makes the whole row a button with a trailing chevron. */
   onClick?: () => void
@@ -288,6 +292,7 @@ export function GroupRow({
   label,
   description,
   value,
+  wideValue,
   chevron,
   onClick,
   destructive,
@@ -304,7 +309,9 @@ export function GroupRow({
       {trail ? (
         <div className="ui-group__trail">
           {children}
-          {value != null ? <span className="ui-group__value">{value}</span> : null}
+          {value != null ? (
+            <span className={cx('ui-group__value', wideValue && 'ui-group__value--wide')}>{value}</span>
+          ) : null}
           {(chevron || onClick) && !destructive ? <Icon name="chevron-right" weight={1.8} /> : null}
         </div>
       ) : (
@@ -343,7 +350,7 @@ export function StepIndicator({ steps }: { steps: { label: string; status: StepS
             ) : s.status === 'completed' ? (
               <Icon name="check" size={14} weight={2.2} />
             ) : s.status === 'error' ? (
-              <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>!</span>
+              <span style={{ fontSize: 'var(--text-callout-size)', fontWeight: 700, lineHeight: 1 }}>!</span>
             ) : (
               <span className="ui-step__dot" />
             )}

@@ -1,9 +1,9 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
-import { useDismiss } from './anchor'
 import { Button, type ButtonSize, type ButtonVariant, type Glyph } from './controls'
 import { Icon } from './icon'
 import { Menu, type MenuItem } from './menu'
+import { useDismiss } from './popover'
 import { usePresence } from './presence'
 import './pulldown.css'
 

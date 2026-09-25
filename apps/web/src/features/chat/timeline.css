@@ -9,14 +9,6 @@
 .chat-view .pn-chathead {
   flex: none;
 }
-.chat-view__title {
-  margin: 0;
-  font: inherit;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .chat-view .pn-chathead__title > span:first-child {
   display: flex;
   align-items: center;
@@ -26,23 +18,6 @@
 .chat-view__muted {
   flex: none;
   color: var(--label-secondary);
-}
-.chat-view__back {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--control-large);
-  height: var(--control-large);
-  margin-left: calc(var(--space-8) * -1);
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--accent-text);
-  cursor: default;
-}
-.chat-view__back:hover {
-  background: var(--control-track);
 }
 .chat-view__body {
   position: relative;
@@ -250,6 +225,11 @@
 }
 .run-card .pn-msg__col {
   max-width: min(88%, 560px);
+}
+/* A finished run's actions sit on its reply; hovering the card above it reveals them too. */
+.run-card:hover .pn-msg__actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 .run-card__sub {
   color: var(--label-tertiary);

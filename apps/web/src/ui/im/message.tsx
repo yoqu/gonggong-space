@@ -3,8 +3,8 @@ import { cx } from '../../lib/cx'
 import type { Glyph } from '../controls'
 import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag } from '../display'
 import { Icon } from '../icon'
+import { Popover } from '../popover'
 import { EmojiPicker } from './pickers'
-import { ImPopover } from './popover'
 import type { TagSpec } from './types'
 import './message.css'
 
@@ -63,7 +63,7 @@ export function Reactions({
         </button>
       ))}
       {addable ? (
-        <ImPopover
+        <Popover
           trigger={add}
           placement="top-start"
           defaultOpen={defaultPickerOpen}
@@ -78,7 +78,7 @@ export function Reactions({
               }}
             />
           )}
-        </ImPopover>
+        </Popover>
       ) : (
         onAdd && add
       )}

@@ -4,6 +4,16 @@
 *::after {
   box-sizing: border-box;
 }
+:root {
+  --color-scrollbar: rgba(0, 0, 0, 0.2);
+  --color-scrollbar-hover: rgba(0, 0, 0, 0.3);
+  --z-toast: 180;
+}
+[data-theme="dark"],
+[data-theme="hc-dark"] {
+  --color-scrollbar: rgba(255, 255, 255, 0.15);
+  --color-scrollbar-hover: rgba(255, 255, 255, 0.25);
+}
 html {
   background: var(--window-bg);
 }
@@ -49,12 +59,6 @@ a {
   outline: 3px solid var(--focus-ring);
   outline-offset: 1px;
 }
-/* Box-shadow focus rings (--shadow-focus) "snap in" from a wider spread. */
-@keyframes focus-ring-in {
-  from {
-    box-shadow: 0 0 0 6px transparent;
-  }
-}
 /* Theme switch (app/theme.ts setTheme) cross-fades the whole page. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -69,7 +73,6 @@ a {
     --spring-bouncy: 0s linear;
     --spring-interactive: 0s linear;
     --motion-base: 0s linear;
-    --duration-base: 0s;
   }
 }
 ::selection {

@@ -249,7 +249,7 @@ describe('Form', () => {
           <span />
         </FormRow>
         <FormActions>
-          <button type="submit">存储</button>
+          <button type="submit">保存</button>
         </FormActions>
       </Form>,
     )
@@ -257,7 +257,7 @@ describe('Form', () => {
     expect(within(form).getByText('显示名称：')).toBeTruthy()
     expect(within(form).getByText('语言')).toBeTruthy()
     expect(within(form).getByText('用于登录。')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '存储' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(onSubmit).toHaveBeenCalled()
   })
 })
@@ -348,7 +348,7 @@ describe('GroupRow', () => {
     render(
       <GroupBox>
         <GroupRow label="墙纸" value="金门大桥" onClick={onClick} />
-        <GroupRow label="退出群聊" destructive onClick={onClick} />
+        <GroupRow label="退出群" destructive onClick={onClick} />
       </GroupBox>,
     )
     const btn = screen.getByRole('button', { name: /墙纸/ })
@@ -356,8 +356,19 @@ describe('GroupRow', () => {
     expect(btn.querySelector('svg')).toBeTruthy()
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalled()
-    const danger = screen.getByRole('button', { name: '退出群聊' })
+    const danger = screen.getByRole('button', { name: '退出群' })
     expect(danger.className).toContain('ui-group__row--danger')
     expect(danger.querySelector('svg')).toBeNull()
+  })
+
+  it('lifts the value width cap only for wide values', () => {
+    render(
+      <GroupBox>
+        <GroupRow label="模型" value="claude-opus-4-1-20250805" wideValue />
+        <GroupRow label="并发上限" value={2} />
+      </GroupBox>,
+    )
+    expect(screen.getByText('claude-opus-4-1-20250805').className).toContain('ui-group__value--wide')
+    expect(screen.getByText('2').className).not.toContain('ui-group__value--wide')
   })
 })

@@ -48,17 +48,6 @@ export function Textarea({ invalid, className, ...rest }: TextareaProps) {
   )
 }
 
-/** Stacked caption above a control passed as children; the wrapping <label> names it. */
-export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed in as children
-    <label className="ui-field">
-      <span className="ui-field__label">{label}</span>
-      {children}
-    </label>
-  )
-}
-
 function assignRef<T>(ref: Ref<T> | undefined, el: T | null) {
   if (typeof ref === 'function') ref(el)
   else if (ref) (ref as RefObject<T | null>).current = el

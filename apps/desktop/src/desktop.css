@@ -164,10 +164,6 @@ code,
   top: auto;
   bottom: var(--toolbar-height);
 }
-/* Long values (model names, versions) get the room of the row instead of GroupRow's 160px cap. */
-.dk-content .ui-group__value {
-  max-width: none;
-}
 .dk-statusline {
   flex: none;
   display: flex;

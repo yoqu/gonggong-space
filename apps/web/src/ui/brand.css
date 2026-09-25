@@ -101,7 +101,7 @@
   white-space: nowrap;
 }
 .ui-brand__sub {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
   white-space: nowrap;
 }

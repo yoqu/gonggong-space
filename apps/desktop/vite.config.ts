@@ -7,7 +7,7 @@ export default defineConfig({
   // The design system lives in the web app; import it from there instead of copying it.
   resolve: {
     alias: { '@web': fileURLToPath(new URL('../web/src', import.meta.url)) },
-    dedupe: ['react', 'react-dom', 'lucide-react', 'zustand'],
+    dedupe: ['react', 'react-dom', 'zustand'],
   },
   clearScreen: false,
   server: {

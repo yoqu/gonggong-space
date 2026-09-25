@@ -75,13 +75,13 @@
 }
 .ui-dialog__title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-title-3-size);
   line-height: 20px;
   font-weight: 700;
 }
 .ui-dialog__message {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
 }
@@ -266,7 +266,7 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-title-3-size);
   line-height: 19px;
   font-weight: 700;
   overflow: hidden;

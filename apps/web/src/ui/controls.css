@@ -2,8 +2,8 @@
 .ui-popover {
   --enter-scale: 0.97;
   background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
 }
 .ui-popover[data-state="open"] {
@@ -65,7 +65,7 @@
   --btn-h: var(--control-small);
   min-width: 48px;
   padding: 0 10px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
 }
 .ui-btn--large,
 .ui-btn--lg {
@@ -76,7 +76,7 @@
   --btn-h: var(--control-xlarge);
   min-width: 120px;
   padding: 0 var(--space-20);
-  font-size: 15px;
+  font-size: var(--text-title-3-size);
 }
 .ui-btn--primary,
 .ui-btn--destructive {
@@ -322,6 +322,6 @@
   background: var(--control-fill-pressed);
 }
 .ui-helptext {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 17px;
 }

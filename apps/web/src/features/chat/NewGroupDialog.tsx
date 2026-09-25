@@ -15,7 +15,7 @@ export type GroupKind = GroupDto['kind']
 const botState = (b: BotDto) =>
   b.binding === 'bound'
     ? PRESENCE[b.presence]
-    : { label: BINDING_LABEL[b.binding], color: 'var(--color-brand-warm)' }
+    : { label: BINDING_LABEL[b.binding], color: 'var(--system-orange)' }
 
 interface Draft extends RepoDraft {
   kind: GroupKind
@@ -110,7 +110,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
           value={d.kind}
           onChange={(k) => set({ kind: k, people: [], bots: [] })}
           items={[
-            { value: 'group', label: '群聊' },
+            { value: 'group', label: '群' },
             { value: 'dm', label: '私聊' },
           ]}
         />

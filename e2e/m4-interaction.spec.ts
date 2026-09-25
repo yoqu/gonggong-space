@@ -61,7 +61,10 @@ test('attachments land in the workspace (git-excluded), images are previewed, an
     expect(readFileSync(join(repoRoot, '.git/info/exclude'), 'utf8')).toContain('.gonggong/')
 
     // Quote the bot's reply without @: it still triggers the bot, with the quoted text attached.
-    await page.getByTestId('bot-reply').last().getByRole('button', { name: '引用回复' }).click()
+    // Message actions appear while the message is hovered, as with a pointer.
+    const reply = page.getByTestId('bot-reply').last()
+    await reply.hover()
+    await reply.getByRole('button', { name: '引用回复' }).click()
     await expect(page.getByText(`引用 ${name}`)).toBeVisible()
     await say(page, '再用三个字总结一下')
     await expect(page.getByTestId('run-card')).toHaveCount(2)

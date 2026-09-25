@@ -249,6 +249,11 @@ describe('Avatar', () => {
     expect(text(screen.getByRole('img', { name: '李思远' }))).toBe('思远')
   })
 
+  it('uses the first two characters of a Chinese name longer than a person name', () => {
+    render(<Avatar name="系统管理员" />)
+    expect(text(screen.getByRole('img', { name: '系统管理员' }))).toBe('系统')
+  })
+
   it('uses the first two characters of a group name', () => {
     render(<Avatar name="产品设计组" shape="square" />)
     expect(text(screen.getByRole('img', { name: '产品设计组' }))).toBe('产品')

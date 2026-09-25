@@ -28,13 +28,13 @@
   margin-bottom: var(--space-8);
 }
 .ui-empty__title {
-  font-size: 15px;
+  font-size: var(--text-title-3-size);
   line-height: 20px;
   font-weight: 600;
 }
 .ui-empty__desc {
   max-width: 280px;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
 }
@@ -149,7 +149,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: var(--control-fill);
   box-shadow:
     var(--shadow-control),

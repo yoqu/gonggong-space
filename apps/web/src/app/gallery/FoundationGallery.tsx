@@ -45,7 +45,9 @@ function IconGrid({ title, names }: { title: string; names: string[] }) {
             }}
           >
             <Icon name={name as IconName} size={24} />
-            <span style={{ fontSize: 11, color: 'var(--label-secondary)' }}>{name}</span>
+            <span style={{ fontSize: 'var(--text-subheadline-size)', color: 'var(--label-secondary)' }}>
+              {name}
+            </span>
           </div>
         ))}
       </div>
@@ -71,7 +73,9 @@ export function FoundationGallery() {
               boxShadow: 'var(--shadow-outline)',
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{theme}</div>
+            <div style={{ fontSize: 'var(--text-callout-size)', fontWeight: 600, marginBottom: 8 }}>
+              {theme}
+            </div>
             <div
               style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8 }}
             >
@@ -85,7 +89,9 @@ export function FoundationGallery() {
                       boxShadow: 'var(--shadow-control)',
                     }}
                   />
-                  <span style={{ fontSize: 10, color: 'var(--label-secondary)' }}>{token}</span>
+                  <span style={{ fontSize: 'var(--text-footnote-size)', color: 'var(--label-secondary)' }}>
+                    {token}
+                  </span>
                 </div>
               ))}
             </div>

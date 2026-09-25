@@ -21,7 +21,7 @@
   font-variant-numeric: tabular-nums;
 }
 .ui-stepper__unit {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
 .ui-stepper__arrows {
@@ -30,7 +30,7 @@
   width: 15px;
   height: 22px;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: var(--control-fill);
   box-shadow: var(--shadow-control);
 }
@@ -115,7 +115,7 @@
   background: var(--tint-blue);
   box-shadow: var(--shadow-outline);
   color: var(--tint-blue-text);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-token--gray {
   background: var(--tint-gray);

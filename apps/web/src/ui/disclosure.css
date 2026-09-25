@@ -56,7 +56,7 @@
 }
 .ui-disc__summary {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
 .ui-disc__body {

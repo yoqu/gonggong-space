@@ -159,7 +159,7 @@ describe('Composer mentions and emoji', () => {
   })
 
   it('renders an accessory beside the send button', () => {
-    setup({ accessory: <span data-testid="acc">同时发送到群聊</span> })
+    setup({ accessory: <span data-testid="acc">同时发送到群</span> })
     expect(screen.getByTestId('acc').closest('.pn-composer__accessory')).toBeTruthy()
   })
 
@@ -257,7 +257,7 @@ describe('messageMenuItems', () => {
 })
 
 describe('ThreadPanel', () => {
-  it('shows root, reply count and a thread composer with 同时发送到群聊', () => {
+  it('shows root, reply count and a thread composer with 同时发送到群', () => {
     const onClose = vi.fn()
     render(
       <ThreadPanel subtitle="产品设计组" onClose={onClose} root={<p>原消息</p>}>
@@ -268,7 +268,7 @@ describe('ThreadPanel', () => {
     expect(screen.getByRole('complementary', { name: '话题' })).toBeTruthy()
     expect(screen.getByText('2 条回复')).toBeTruthy()
     expect(screen.getByPlaceholderText('回复话题')).toBeTruthy()
-    expect(screen.getByRole('checkbox', { name: '同时发送到群聊' })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: '同时发送到群' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '关闭话题' }))
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -286,14 +286,14 @@ describe('ChatInfoPanel', () => {
         memberCount={28}
         onAddMember={onAdd}
         settings={[{ label: '群公告', value: '每周四评审', onClick: onRow }]}
-        danger={{ label: '退出群聊', onClick: onDanger }}
+        danger={{ label: '退出群', onClick: onDanger }}
       />,
     )
     expect(screen.getByRole('complementary', { name: '群设置' })).toBeTruthy()
     expect(screen.getByText('28')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
     fireEvent.click(screen.getByRole('button', { name: /群公告/ }))
-    fireEvent.click(screen.getByRole('button', { name: '退出群聊' }))
+    fireEvent.click(screen.getByRole('button', { name: '退出群' }))
     expect([onAdd, onRow, onDanger].map((f) => f.mock.calls.length)).toEqual([1, 1, 1])
   })
 })

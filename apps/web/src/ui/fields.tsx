@@ -1,9 +1,9 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useId, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
-import { useDismiss } from './anchor'
 import { useControlled } from './controlled'
 import { type LineFieldProps, TextField } from './form'
 import { Icon } from './icon'
+import { useDismiss } from './popover'
 import './fields.css'
 
 export interface SecureFieldProps extends Omit<LineFieldProps, 'type' | 'multiline'> {

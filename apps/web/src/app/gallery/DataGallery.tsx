@@ -156,7 +156,7 @@ const members = [
 const emptyCard = {
   flex: 1,
   background: 'var(--content-bg)',
-  borderRadius: 12,
+  borderRadius: 'var(--radius-menu)',
   boxShadow: 'inset 0 0 0 1px var(--separator)',
 }
 
@@ -218,7 +218,7 @@ export function DataGallery() {
           </div>
           <div style={row(28)}>
             <LevelIndicator kind="rating" value={4} aria-label="评分" />
-            <span style={{ ...row(8), fontSize: 12 }}>
+            <span style={{ ...row(8), fontSize: 'var(--text-callout-size)' }}>
               为这次会议打分
               <LevelIndicator kind="rating" editable defaultValue={3} size={18} aria-label="会议评分" />
             </span>
@@ -277,7 +277,7 @@ export function DataGallery() {
           <FormActions>
             <Button>恢复默认</Button>
             <Button variant="primary" type="submit">
-              存储
+              保存
             </Button>
           </FormActions>
         </Form>
@@ -299,7 +299,7 @@ export function DataGallery() {
             />
           </Disclosure>
           <Disclosure title="诊断信息" variant="group" defaultOpen>
-            <div style={{ fontSize: 12, color: 'var(--label-secondary)' }}>
+            <div style={{ fontSize: 'var(--text-callout-size)', color: 'var(--label-secondary)' }}>
               版本 2.8.0（2026.09.25） · macOS 27.0
             </div>
             <Button size="small" icon="copy">
@@ -341,7 +341,14 @@ export function DataGallery() {
       </Card>
       <Card name="Skeleton">
         <div style={row(24, 'flex-start')}>
-          <div style={{ width: 288, background: 'var(--sidebar-bg)', borderRadius: 12, padding: '4px 0' }}>
+          <div
+            style={{
+              width: 288,
+              background: 'var(--sidebar-bg)',
+              borderRadius: 'var(--radius-menu)',
+              padding: '4px 0',
+            }}
+          >
             <Skeleton variant="conversation" count={4} />
           </div>
           <div style={{ flex: 1, minWidth: 300 }}>

@@ -40,7 +40,7 @@
 }
 .ui-toolbar__title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-title-3-size);
   line-height: 19px;
   font-weight: 700;
   white-space: nowrap;

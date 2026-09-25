@@ -292,7 +292,9 @@ describe('sidebar', () => {
     const guide = await within(main).findByRole('region', { name: '开始使用' })
     fireEvent.click(within(guide).getByRole('button', { name: /绑定机器/ }))
     expect(await screen.findByText('K7QM-4X2P')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
+    )
 
     fireEvent.click(within(guide).getByRole('button', { name: /新建 Bot/ }))
     expect(
@@ -312,7 +314,7 @@ describe('sidebar', () => {
     mockApi({ ...baseRoutes([]), 'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }] })
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    fireEvent.click(within(nav).getByRole('button', { name: '新建 Bot' }))
+    fireEvent.click(within(nav).getByRole('button', { name: '新建 Bot…' }))
     expect(await screen.findByRole('dialog', { name: /新建 Bot/ })).toBeTruthy()
   })
 })

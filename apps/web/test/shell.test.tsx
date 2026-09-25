@@ -185,7 +185,8 @@ describe('home route', () => {
     mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
     renderAt('/')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1'))
-    expect(localStorage.getItem('gonggong.lastGroup')).toBe('g1')
+    // Remembered in a passive effect, which can run after the commit that updated the path.
+    await waitFor(() => expect(localStorage.getItem('gonggong.lastGroup')).toBe('g1'))
   })
 
   it('keeps the list on mobile and the empty state without groups', async () => {

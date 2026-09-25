@@ -56,7 +56,7 @@ export function Toast({
   )
 }
 
-/** Pane HUD: square glass panel mid-screen, like the system volume / 「已存储」 HUD; `level` (0–1) fills 16 steps. */
+/** Pane HUD: square glass panel mid-screen, like the system volume / 「已保存」 HUD; `level` (0–1) fills 16 steps. */
 export function HUD({
   icon = 'check',
   title,

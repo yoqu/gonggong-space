@@ -99,6 +99,7 @@ export function BotsPage({ go }: PageProps) {
               </div>
               <GroupRow
                 label="Agent"
+                wideValue
                 value={
                   missing ? (
                     <span className="dk-danger">{`${name} · 未安装`}</span>
@@ -109,6 +110,7 @@ export function BotsPage({ go }: PageProps) {
               />
               <GroupRow
                 label="模型"
+                wideValue
                 value={b.model ? modelName(agent, b.model) : `${agentDefault(agent)} · 跟随默认`}
               />
               <GroupRow label="并发上限" value={b.concurrency} />

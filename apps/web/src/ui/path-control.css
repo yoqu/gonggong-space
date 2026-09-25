@@ -4,7 +4,7 @@
   align-items: center;
   gap: 2px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-path__seg {
   display: inline-flex;

@@ -34,24 +34,10 @@ body {
 .spacer {
   flex: 1;
 }
-.dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: var(--radius-capsule);
-}
-.dot--sm {
-  width: 6px;
-  height: 6px;
-}
 .eyebrow {
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
   font-weight: 600;
-  color: var(--label-secondary);
-}
-.muted-icon {
-  flex: none;
   color: var(--label-secondary);
 }
 .app__offline {
@@ -490,26 +476,26 @@ body {
 .gallery__track {
   flex: 1;
   height: 28px;
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-muted);
+  border-radius: var(--radius-capsule);
+  background: var(--quote-fill);
 }
 .gallery__knob {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--color-system-blue);
+  background: var(--accent);
 }
 .gallery__knob[data-on] {
   transform: translateX(200px);
 }
 .gallery__backdrop {
   padding: 32px;
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-menu);
   background: repeating-linear-gradient(
     135deg,
-    var(--color-system-blue) 0 18px,
-    var(--color-brand-warm) 18px 36px,
-    var(--color-success) 36px 54px
+    var(--accent) 0 18px,
+    var(--system-orange) 18px 36px,
+    var(--system-green) 36px 54px
   );
 }
 .gallery__glass {
@@ -520,7 +506,7 @@ body {
 }
 .gallery__glass-inner {
   padding: 16px;
-  background: var(--color-bg-muted);
+  background: var(--quote-fill);
 }
 
 @media (max-width: 767px) {

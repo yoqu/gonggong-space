@@ -201,8 +201,10 @@ export function OverlayGallery() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <Avatar name="张三" size={48} status="busy" />
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>张三</div>
-                  <div style={{ fontSize: 11, color: 'var(--label-secondary)' }}>会议中 · 至 11:00</div>
+                  <div style={{ fontSize: 'var(--text-title-3-size)', fontWeight: 700 }}>张三</div>
+                  <div style={{ fontSize: 'var(--text-subheadline-size)', color: 'var(--label-secondary)' }}>
+                    会议中 · 至 11:00
+                  </div>
                 </div>
               </div>
               <GroupBox>
@@ -288,7 +290,14 @@ export function OverlayGallery() {
       </Card>
 
       <Card id="dialog" title="DIALOG" bg="var(--content-bg)">
-        <div style={{ position: 'relative', height: 300, borderRadius: 12, overflow: 'hidden' }}>
+        <div
+          style={{
+            position: 'relative',
+            height: 300,
+            borderRadius: 'var(--radius-menu)',
+            overflow: 'hidden',
+          }}
+        >
           <div style={{ position: 'absolute', inset: 0, background: WALLPAPER }} />
           <Dialog
             open
@@ -343,9 +352,9 @@ export function OverlayGallery() {
             actions={[{ label: '取消' }, { label: '删除', variant: 'destructive' }]}
           />
           <AlertPanel
-            title="要存储对文稿的更改吗？"
-            message="如果不存储，你的更改将丢失。"
-            actions={[{ label: '存储', variant: 'primary' }, { label: '不存储' }, { label: '取消' }]}
+            title="要保存对文稿的更改吗？"
+            message="如果不保存，你的更改将丢失。"
+            actions={[{ label: '保存', variant: 'primary' }, { label: '不保存' }, { label: '取消' }]}
           />
         </div>
       </Card>
@@ -358,7 +367,7 @@ export function OverlayGallery() {
           </div>
           <div style={{ ...row, gap: 16 }}>
             <HUD icon="speaker" level={0.6} />
-            <HUD icon="check" title="已存储到「文稿」" />
+            <HUD icon="check" title="已保存到「文稿」" />
           </div>
           <div style={row}>
             <Button onClick={() => toast({ type: 'success', message: '已拷贝链接' })}>toast()</Button>
@@ -457,7 +466,7 @@ export function OverlayGallery() {
       <Card id="toolbar" title="TOOLBAR">
         <div
           style={{
-            borderRadius: 12,
+            borderRadius: 'var(--radius-menu)',
             overflow: 'hidden',
             background: 'var(--content-bg)',
             boxShadow: '0 0 0 1px var(--separator)',

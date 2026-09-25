@@ -5,7 +5,6 @@ const PATHS = { ...PANE_PATHS, ...DRAWN_PATHS }
 
 export type IconName = keyof typeof PATHS
 export const ICON_NAMES = Object.keys(PATHS) as IconName[]
-export { LUCIDE_TO_ICON } from './icons/lucide'
 
 export interface IconProps {
   name: IconName

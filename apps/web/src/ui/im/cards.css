@@ -51,7 +51,7 @@
   line-height: 17px;
 }
 .pn-file__meta {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
 .pn-image {
@@ -81,7 +81,7 @@
   line-height: 18px;
 }
 .pn-doc__meta {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   color: var(--label-secondary);
   margin-top: 2px;
@@ -93,7 +93,7 @@
   gap: var(--space-8);
   padding: var(--space-8) var(--space-12);
   border-top: 1px solid var(--separator);
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
 .pn-doc__foot span {
@@ -173,7 +173,7 @@
   grid-column: span 1;
 }
 .pn-mcard__label {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   color: var(--label-secondary);
 }
@@ -186,7 +186,7 @@
   flex-wrap: wrap;
 }
 .pn-mcard__note {
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   color: var(--label-secondary);
 }
@@ -246,7 +246,7 @@
   white-space: nowrap;
 }
 .pn-meet__time {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 15px;
   color: var(--label-secondary);
 }
@@ -273,7 +273,7 @@
   gap: 4px var(--space-12);
   margin: 0;
   padding: 0 var(--space-12) var(--space-12) 60px;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 15px;
 }
 .pn-meet__meta dt {
@@ -298,7 +298,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
 
@@ -326,7 +326,7 @@
     0 1px 2px rgba(0, 0, 0, 0.06);
 }
 .pn-event__month {
-  font-size: 10px;
+  font-size: var(--text-footnote-size);
   line-height: 12px;
   font-weight: 700;
   color: var(--tint-red-text);
@@ -354,7 +354,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
 }
@@ -370,6 +370,6 @@
   gap: var(--space-8);
   padding: var(--space-8) var(--space-12);
   border-top: 1px solid var(--separator);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }

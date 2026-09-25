@@ -1,7 +1,7 @@
 import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
 import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { BINDING_LABEL, PRESENCE } from '../features/bots/model'
+import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
 import { useRealtimeStatus } from '../lib/realtime'
@@ -10,11 +10,6 @@ import { keyNav } from '../ui/im/keynav'
 import { useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
-export const GROUP_MODE_HINT = {
-  partition: '每个 Bot 在自己的工作区里改代码，彼此靠 git 交换',
-  force: '同一时刻只有一个 Bot 持锁写入，全员文件保持一致',
-} as const
-
 const CONN = {
   open: { label: '已连接', color: 'var(--system-green)' },
   connecting: { label: '连接中…', color: 'var(--system-orange)' },
@@ -62,18 +57,6 @@ const draftOf = (groupId: string) => {
     return undefined
   }
 }
-
-/** Second line of a Bot row: its machine and state, or the binding state; missing parts are left out. */
-const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
-  online: '在线',
-  running: '运行中',
-  offline: '离线',
-  agent_missing: 'agent 缺失',
-}
-const botMeta = (b: BotDto) =>
-  b.binding === 'bound'
-    ? [b.machineName, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
-    : BINDING_LABEL[b.binding]
 
 function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabStop: boolean }) {
   const dm = g.kind === 'dm'
@@ -252,7 +235,7 @@ export function Sidebar({
           </section>
         ))}
         <section>
-          <SectionHead label="我的 Bot" onAdd={onNewBot} addTitle={onNewBot && '新建 Bot'} />
+          <SectionHead label="我的 Bot" onAdd={onNewBot} addTitle={onNewBot && '新建 Bot…'} />
           <div className="sidebar__list">
             {bots.length
               ? bots.map((b) => (
@@ -260,13 +243,13 @@ export function Sidebar({
                     <button
                       type="button"
                       className="sidebar__open"
-                      title={`${b.name} · ${botMeta(b)}`}
+                      title={`${b.name} · ${botStateText(b)}`}
                       onClick={() => onOpenBot?.(b.id)}
                     >
                       <span className="sidebar__dot" style={{ background: PRESENCE[b.presence].color }} />
                       <span className="sidebar__text">
                         <span className="sidebar__name">{b.name}</span>
-                        <span className="sidebar__meta">{botMeta(b)}</span>
+                        <span className="sidebar__meta">{botStateText(b)}</span>
                       </span>
                     </button>
                     {b.binding === 'pending_confirm' && onConfirmBot ? (

@@ -6,7 +6,7 @@
   min-width: 200px;
 }
 .ui-field__label {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 15px;
   color: var(--label-secondary);
 }
@@ -18,7 +18,7 @@
 }
 .ui-field__hint {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   color: var(--label-secondary);
 }
@@ -52,7 +52,7 @@
 }
 .ui-input--mono {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
 }
 .ui-input--multiline {
   display: block;
@@ -122,7 +122,7 @@
   align-items: center;
   padding-right: 4px;
   color: var(--label-secondary);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   white-space: nowrap;
 }
 .ui-inputwrap__affix:last-child {
@@ -146,7 +146,7 @@
   height: 20px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label-secondary);
   cursor: default;
@@ -261,7 +261,7 @@
 .ui-slider__labels {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 16px;
   color: var(--label-secondary);
 }

@@ -86,7 +86,7 @@
 .ui-notif__badge .ui-notif__appicon {
   width: 18px;
   height: 18px;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   box-shadow: 0 0 0 1.5px var(--glass-fill);
 }
 .ui-notif__badge .ui-notif__appicon > svg {
@@ -115,7 +115,7 @@
 }
 .ui-notif__time {
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
 .ui-notif__subtitle {
@@ -124,14 +124,14 @@
 .ui-notif__body {
   display: -webkit-box;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--text-body-size);
   line-height: 17px;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .ui-notif__more {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
 .ui-notif__actions {

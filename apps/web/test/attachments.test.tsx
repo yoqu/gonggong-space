@@ -8,6 +8,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { uploadFile } from '../src/features/attachments/api'
 import { usePreview } from '../src/features/attachments/preview'
 import { useQuote } from '../src/features/attachments/quote'
+import { useToasts } from '../src/ui'
 
 vi.mock('../src/features/attachments/api', async (orig) => ({
   ...(await orig<typeof import('../src/features/attachments/api')>()),
@@ -197,6 +198,8 @@ beforeEach(() => {
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   useQuote.setState({ quote: null })
   usePreview.setState({ open: null })
+  useToasts.setState({ items: [] })
+  sessionStorage.clear()
   let n = 0
   vi.mocked(uploadFile).mockClear()
   vi.mocked(uploadFile).mockImplementation((_g, f, onProgress) => {
@@ -219,7 +222,7 @@ describe('composer attachments', () => {
     const [images, files] = [...document.querySelectorAll('input[type=file]')] as HTMLInputElement[]
     expect(images!.accept).toBe('image/*')
     const click = vi.spyOn(images!, 'click')
-    fireEvent.click(screen.getByRole('button', { name: '图片' }))
+    fireEvent.click(composer().getByRole('button', { name: '图片' }))
     expect(click).toHaveBeenCalled()
 
     pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
@@ -237,10 +240,10 @@ describe('composer attachments', () => {
     expect(screen.getByText(/10 \/ 10/)).toBeTruthy()
     expect(uploadFile).toHaveBeenCalledTimes(10)
 
-    fireEvent.click(screen.getByRole('button', { name: '移除 f8.txt' }))
+    fireEvent.click(composer().getByRole('button', { name: '移除 f8.txt' }))
     expect(screen.queryByText('f8.txt')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+    fireEvent.click(composer().getByRole('button', { name: '发送' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/messages')).toBe(true))
     const post = calls.find((c) => c.path === '/groups/g1/messages')!
     expect(post.body).toMatchObject({

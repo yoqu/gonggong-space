@@ -13,7 +13,7 @@
   padding: 0 2px 0 4px;
 }
 .ui-cal__title {
-  font-size: 13px;
+  font-size: var(--text-body-size);
   font-weight: 700;
 }
 .ui-cal__nav {
@@ -30,7 +30,7 @@
   background: transparent;
   color: var(--label);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   cursor: default;
 }
 .ui-cal__today:hover {
@@ -43,7 +43,7 @@
 }
 .ui-cal__week span {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   font-weight: 600;
   line-height: 20px;
   color: var(--label-secondary);
@@ -65,7 +65,7 @@
   background: transparent;
   color: var(--label);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-body-size);
   font-variant-numeric: tabular-nums;
   cursor: default;
 }

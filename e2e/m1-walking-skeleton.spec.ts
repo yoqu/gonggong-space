@@ -15,11 +15,12 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   await login(page, 'admin', 'admin-init-pass')
   await changePassword(page, 'admin-init-pass', 'admin-pass-2')
   await page.goto('/admin/users')
-  await page.getByRole('button', { name: '新建账号' }).click()
-  await page.getByLabel('账号').fill('wanglei')
-  await page.getByLabel('姓名').fill('王磊')
-  await page.getByLabel('初始密码').fill('wanglei-init')
-  await page.getByRole('button', { name: '创建' }).click()
+  await page.getByRole('button', { name: '新建账号…' }).first().click()
+  const account = page.getByRole('dialog', { name: '新建成员' })
+  await account.getByLabel('账号').fill('wanglei')
+  await account.getByLabel('姓名').fill('王磊')
+  await account.getByLabel('初始密码').fill('wanglei-init')
+  await account.getByRole('button', { name: '创建' }).click()
   await expect(page.getByRole('gridcell', { name: 'wanglei' })).toBeVisible()
   await logout(page)
 
@@ -40,7 +41,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   try {
     // Create a bot for myself from the sidebar: bound directly to the machine.
-    await page.getByRole('button', { name: '新建 Bot', exact: true }).click()
+    await page.getByRole('button', { name: '新建 Bot…', exact: true }).click()
     await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
@@ -48,15 +49,16 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
     // Private chat without a repo, with that bot.
     await page.getByRole('button', { name: '新建私聊' }).click()
-    await page.getByLabel('名称').fill('脚本实验')
-    await page.getByRole('tab', { name: '暂不绑定' }).click()
-    await page.getByRole('button', { name: /小王的 Claude/ }).click()
-    await page.getByRole('button', { name: '创建' }).click()
+    const dm = page.getByRole('dialog', { name: '新建私聊' })
+    await dm.getByLabel('名称').fill('脚本实验')
+    await dm.getByRole('tab', { name: '暂不绑定' }).click()
+    await dm.getByRole('button', { name: /小王的 Claude/ }).click()
+    await dm.getByRole('button', { name: '创建' }).click()
 
     // The bot joins unbound; its owner picks a local directory through the daemon-backed picker.
     const dir = mkdtempSync(join(tmpdir(), 'gonggong-dm-'))
-    await page.getByRole('button', { name: '绑定工作区' }).click()
-    const picker = page.getByRole('dialog', { name: '小王的 Claude 的工作目录' })
+    await page.getByRole('button', { name: '绑定工作区', exact: true }).click()
+    const picker = page.getByRole('dialog', { name: '为 小王的 Claude 选择工作区' })
     // Starts at the machine's home dir once the daemon answers.
     await expect(picker.getByLabel('目录路径')).not.toHaveValue('')
     await picker.getByLabel('目录路径').fill(dir)

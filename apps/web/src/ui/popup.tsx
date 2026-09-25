@@ -1,9 +1,9 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
-import { Float, useDismiss } from './anchor'
 import { nextEnabled, useControlled } from './controlled'
 import { Button, type ButtonSize } from './controls'
 import { Icon } from './icon'
+import { Float, useDismiss } from './popover'
 import './popup.css'
 
 export interface PopUpOption<V extends string> {

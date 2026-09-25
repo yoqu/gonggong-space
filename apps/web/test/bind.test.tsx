@@ -73,6 +73,7 @@ describe('bind machine dialog', () => {
     for (const step of ['生成绑定码', '机器登录', '上报机器与 agent', '确认 Bot'])
       expect(screen.getByText(step)).toBeTruthy()
     expect(screen.getByText('等待机器用绑定码登录…')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
   })
 
   it('shows success with the machine and its agents once a new machine appears', async () => {
@@ -83,6 +84,7 @@ describe('bind machine dialog', () => {
     expect(screen.queryByText('绑定成功')).toBeNull()
     emit(fresh)
     expect(screen.getByText('绑定成功')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '完成' })).toBeTruthy()
     expect(screen.getByText(/wanglei-mbp/)).toBeTruthy()
     expect(screen.getByText(/等待上报 agent/)).toBeTruthy()
     emit({

@@ -15,7 +15,7 @@
   justify-content: space-between;
   height: 28px;
   padding: 0 6px 0 12px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
   border-bottom: 1px solid var(--separator);
   background: var(--quote-fill);
@@ -56,7 +56,7 @@
   max-height: 240px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 18px;
   color: var(--label);
   tab-size: 2;
@@ -112,7 +112,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 14px;
   color: var(--label-secondary);
 }
@@ -129,7 +129,7 @@
   overflow: hidden;
 }
 .pn-link__desc {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
   display: -webkit-box;
@@ -181,7 +181,7 @@
   background: var(--bubble-link);
 }
 .pn-voice__dur {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -192,7 +192,7 @@
   background: var(--badge-fill);
 }
 .pn-voice__text {
-  font-size: 13px;
+  font-size: var(--text-body-size);
   line-height: 19px;
   padding-top: var(--space-6);
   border-top: 1px solid var(--separator);
@@ -247,7 +247,7 @@
   }
 }
 .pn-typing__text {
-  font-size: 12px;
+  font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
 .pn-chathead__sub .pn-typing__text {

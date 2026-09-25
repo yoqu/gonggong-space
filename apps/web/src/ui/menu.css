@@ -93,7 +93,7 @@
 }
 .ui-menu__header {
   padding: 4px var(--space-8) 2px 24px;
-  font-size: 11px;
+  font-size: var(--text-subheadline-size);
   line-height: 16px;
   font-weight: 600;
   color: var(--label-secondary);

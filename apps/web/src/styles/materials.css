@@ -2,8 +2,6 @@
    dialogs, toasts). Levels via [data-glass]: clear | standard (default) | tinted, overriding the Pane tokens. */
 :root,
 [data-glass] {
-  /* Re-declared on every [data-glass] element so the legacy alias follows a nested level override. */
-  --glass-filter: var(--glass-blur);
   /* Text-heavy panels over a dimming scrim (dialogs): translucency there only greys the fill,
      so they stay near-opaque at every level to keep secondary text ≥ 4.5:1. */
   --glass-fill-thick: color-mix(in srgb, var(--content-bg) 96%, transparent);
@@ -41,4 +39,10 @@
   .glass {
     background: var(--content-bg);
   }
+}
+
+/* Concentric corners (macOS 27 containerConcentric): a child near its container's corner takes the
+   container radius minus the inset between them. Set --r-outer and --pad on the child or an ancestor. */
+.concentric {
+  border-radius: max(var(--radius-check), calc(var(--r-outer) - var(--pad)));
 }

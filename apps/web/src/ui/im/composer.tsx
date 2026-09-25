@@ -50,7 +50,7 @@ export interface ComposerProps {
   onCancelReply?: () => void
   tools?: ComposerTool[]
   hint?: ReactNode | false
-  /** Small control left of the hint/send button, e.g. 「同时发送到群聊」. */
+  /** Small control left of the hint/send button, e.g. 「同时发送到群」. */
   accessory?: ReactNode
   disabled?: boolean
   /** Members for the built-in @ picker: typing「@」or the @ tool opens it. */
