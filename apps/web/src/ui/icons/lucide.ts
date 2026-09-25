@@ -72,7 +72,7 @@ export const LUCIDE_TO_ICON = {
   Terminal: 'terminal',
   Trash2: 'trash',
   TriangleAlert: 'warning',
-  Undo2: 'arrow-uturn-left',
+  Undo2: 'undo',
   User: 'person',
   UserCheck: 'person-check',
   Users: 'person-2',
