@@ -185,6 +185,16 @@
   flex: 1;
   min-width: 0;
 }
+/* A long value truncates; the label keeps at least its own width instead of wrapping one glyph per line. */
+.ui-group__row > :not(:first-child) {
+  min-width: 0;
+}
+.ui-group__row > .ui-group__text {
+  min-width: min-content;
+}
+.ui-group__text > :first-child {
+  white-space: nowrap;
+}
 .ui-group__trail {
   display: inline-flex;
   align-items: center;

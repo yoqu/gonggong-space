@@ -313,7 +313,7 @@ function DiffTab({
           ))}
         </div>
       ) : (
-        <div className="run-rail__empty">本轮没有文件改动</div>
+        <EmptyState compact icon="doc-code" title="本轮没有文件改动" />
       )}
       {picked ? (
         <DiffView file={picked} />
