@@ -1,5 +1,6 @@
-/* Modal (Dialog, AlertDialog) */
-.ui-overlay {
+/* Modal layers: Dialog / AlertDialog over the page, Sheet over its window (nearest positioned ancestor). */
+.ui-overlay,
+.ui-sheet-layer {
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -8,73 +9,109 @@
   justify-content: center;
   padding: var(--space-16);
 }
-.ui-overlay[data-state="closed"] {
+.ui-overlay--contained,
+.ui-sheet-layer {
+  position: absolute;
+}
+.ui-sheet-layer {
+  z-index: 50;
+  align-items: flex-start;
+  padding: 0;
+}
+.ui-overlay[data-state="closed"],
+.ui-sheet-layer[data-state="closed"] {
   pointer-events: none;
 }
-.ui-overlay__backdrop {
+.ui-scrim {
   position: absolute;
   inset: 0;
   background: var(--scrim);
 }
-.ui-overlay[data-state="open"] .ui-overlay__backdrop {
+[data-state="open"] > .ui-scrim {
   animation: var(--fade-in) ui-fade-in;
 }
-.ui-overlay[data-state="closed"] .ui-overlay__backdrop {
+[data-state="closed"] > .ui-scrim {
   animation: var(--fade-out) ui-fade-out forwards;
 }
-/* Dialog (D8): text-heavy glass panel, so it takes the near-opaque fill over the scrim. */
+
+/* Pane Dialog / Sheet panel: opaque window-bg, window shadow. */
 .ui-dialog {
+  position: relative;
   display: flex;
   flex-direction: column;
+  gap: var(--space-12);
   width: 100%;
-  max-height: calc(100dvh - 32px);
-  overflow: hidden;
+  max-height: calc(100dvh - 40px);
+  padding: var(--space-20);
   border-radius: var(--radius-window);
-  background: var(--glass-fill-thick);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-glass), var(--shadow-window);
+  background: var(--window-bg);
+  box-shadow: var(--shadow-window);
+}
+.ui-dialog--bare {
+  width: auto;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ui-sheet {
+  max-width: calc(100% - 40px);
+  max-height: calc(100% - var(--toolbar-height) - 24px);
+  margin-top: calc(var(--toolbar-height) + var(--space-8));
 }
 .ui-dialog__header {
   display: flex;
   align-items: flex-start;
   gap: var(--space-8);
   flex: none;
-  padding: var(--space-16) var(--space-16) var(--space-8) var(--space-20);
 }
 .ui-dialog__header .ui-close {
-  margin: -2px -4px 0 auto;
+  margin: -4px -8px 0 auto;
 }
 .ui-dialog__titles {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-4);
   min-width: 0;
 }
 .ui-dialog__title {
   margin: 0;
-  font-size: var(--text-headline-size);
-  line-height: var(--text-headline-line);
-  font-weight: var(--text-headline-weight);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
 }
-.ui-dialog__subtitle {
-  font-size: var(--text-subheadline-size);
-  line-height: var(--text-subheadline-line);
+.ui-dialog__message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--label-secondary);
 }
+/* Scrolls on its own; the 4px inset keeps focus rings of edge controls from being clipped. */
 .ui-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-8) var(--space-20) var(--space-16);
+  margin: -4px;
+  padding: 4px;
 }
-.ui-dialog__footer {
+.ui-dialog__actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);
   flex: none;
-  padding: var(--space-4) var(--space-20) var(--space-16);
+  margin-top: var(--space-4);
+}
+.ui-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-right: auto;
+}
+.ui-dialog__action {
+  min-width: 80px;
 }
 
 /* Pane Alert */
@@ -146,17 +183,22 @@
   --exit-scale: 0.96;
   position: relative;
 }
-.ui-overlay[data-state="open"] .ui-dialog,
-.ui-overlay[data-state="open"] .ui-alert-panel--modal {
+.ui-sheet {
+  --enter-y: -12px;
+  --enter-scale: 0.98;
+  --exit-scale: 0.98;
+}
+[data-state="open"] > .ui-dialog,
+[data-state="open"] > .ui-alert-panel--modal {
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-smooth) ui-enter;
 }
-.ui-overlay[data-state="closed"] .ui-dialog,
-.ui-overlay[data-state="closed"] .ui-alert-panel--modal {
+[data-state="closed"] > .ui-dialog,
+[data-state="closed"] > .ui-alert-panel--modal {
   animation: var(--fade-out) ui-exit forwards;
 }
-/* Focused programmatically on open; the glass edge already marks it. */
+/* Focused programmatically on open; the panel edge already marks it. */
 .ui-dialog:focus-visible,
 .ui-alert-panel:focus-visible,
 .ui-drawer:focus-visible {

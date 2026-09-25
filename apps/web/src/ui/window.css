@@ -1,0 +1,101 @@
+/* AppFrame / Pane Window: flush columns split by separator hairlines; opaque materials only. */
+.ui-frame {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--window-bg);
+}
+.ui-frame__rail,
+.ui-frame__sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  min-height: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--separator);
+}
+.ui-frame__rail > .ui-rail,
+.ui-frame__sidebar > .ui-sidebar {
+  flex: 1;
+  min-height: 0;
+  border-right: 0;
+}
+.ui-frame__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--content-bg);
+}
+.ui-frame__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.ui-frame__inspector {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  min-height: 0;
+  background: var(--content-bg);
+  border-left: 1px solid var(--separator);
+}
+
+/* Window chrome (gallery only) */
+.ui-window {
+  border-radius: var(--radius-window);
+  box-shadow: var(--shadow-window);
+}
+.ui-window--inactive {
+  box-shadow: var(--shadow-window-inactive);
+}
+.ui-window .ui-frame__content {
+  padding: var(--space-20);
+}
+.ui-frame__lights {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--toolbar-height);
+  padding: 0 var(--space-16);
+}
+.ui-frame__lights--rail {
+  justify-content: center;
+  padding: 0;
+}
+.ui-frame__sidebar--rail {
+  padding-top: 14px;
+}
+.ui-frame__chrome {
+  display: flex;
+  align-items: center;
+}
+.ui-frame__grow {
+  flex: 1;
+  min-width: 0;
+}
+.ui-lights {
+  display: inline-flex;
+  gap: var(--space-8);
+}
+.ui-lights > i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+}
+.ui-lights > [data-light="close"] {
+  background: var(--traffic-close);
+}
+.ui-lights > [data-light="minimize"] {
+  background: var(--traffic-minimize);
+}
+.ui-lights > [data-light="zoom"] {
+  background: var(--traffic-zoom);
+}
+.ui-lights--inactive > i {
+  background: var(--traffic-inactive);
+}

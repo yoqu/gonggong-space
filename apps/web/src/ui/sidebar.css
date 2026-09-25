@@ -21,10 +21,49 @@
   font-weight: 600;
   color: var(--label-secondary);
 }
+.ui-sidebar__title--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: default;
+}
+/* The chevron shows on hover or focus, and stays while the section is collapsed. */
+.ui-sidebar__chev {
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+.ui-sidebar__icon--tile > svg {
+  width: 14px;
+  height: 14px;
+}
+.ui-sidebar__chev > svg,
+.ui-sidebar__disc > svg {
+  transition: transform var(--motion-fast);
+}
+.ui-sidebar__disc[data-open] > svg {
+  transform: rotate(90deg);
+}
+.ui-sidebar__title--toggle[aria-expanded="true"] .ui-sidebar__chev > svg {
+  transform: rotate(90deg);
+}
+.ui-sidebar__title--toggle:hover .ui-sidebar__chev,
+.ui-sidebar__title--toggle:focus-visible .ui-sidebar__chev,
+.ui-sidebar__title--toggle[aria-expanded="false"] .ui-sidebar__chev {
+  opacity: 1;
+}
 .ui-sidebar__item {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-6);
+  flex: none;
   height: var(--sidebar-row);
   padding: 0 var(--space-8);
   border: 0;
@@ -37,7 +76,17 @@
 }
 .ui-sidebar__item[aria-current] {
   background: var(--selection-fill);
-  font-weight: 600;
+  font-weight: 500;
+  box-shadow: var(--shadow-outline, none);
+}
+.ui-sidebar__disc {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-right: -2px;
+  color: var(--label-secondary);
 }
 .ui-sidebar__icon {
   display: grid;
@@ -46,8 +95,17 @@
   width: 18px;
   color: var(--icon-color, var(--accent));
 }
+.ui-sidebar__icon--tile {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
+    0 0.5px 1px rgba(0, 0, 0, 0.15);
+}
 /* Inactive window (plan R7): icons lose their color. */
-:root[data-window-inactive] .ui-sidebar__icon {
+:root[data-window-inactive] .ui-sidebar__icon:not(.ui-sidebar__icon--tile) {
   color: var(--label-secondary);
 }
 .ui-sidebar__label {
