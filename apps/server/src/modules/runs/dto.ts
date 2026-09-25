@@ -1,4 +1,4 @@
-import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus, Usage } from '@aiws/protocol'
+import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'

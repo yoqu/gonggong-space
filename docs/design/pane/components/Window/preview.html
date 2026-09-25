@@ -1,0 +1,17 @@
+<!-- @dsCard group="Windows" height=440 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Window</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;min-height:440px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'文稿',width:'100%',height:'380px',
+  sidebar:h(P.Sidebar,{defaultSelected:'docs',sections:[{title:'个人收藏',items:[{id:'recents',label:'最近使用',icon:'clock',color:'var(--system-blue)'},{id:'docs',label:'文稿',icon:'doc',color:'var(--system-orange)'},{id:'dl',label:'下载',icon:'download',color:'var(--system-green)'}]},{title:'位置',items:[{id:'icloud',label:'iCloud 云盘',icon:'cloud',color:'var(--system-cyan)'}]}]}),
+  toolbar:h(P.Toolbar,{title:'文稿',subtitle:'3 项'}, h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'grid',label:'图标',active:true}),h(P.ToolbarButton,{icon:'list',label:'列表'})), h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'share',label:'共享'})), h(P.SearchField,{style:{minWidth:'140px'}}))},
+  h(P.GroupBox,null, h(P.GroupRow,{label:'季度报告.pages',description:'今天 09:41'}, h(P.Icon,{name:'doc',color:'var(--system-orange)'})), h(P.GroupRow,{label:'预算.numbers',description:'昨天'}, h(P.Icon,{name:'doc',color:'var(--system-green)'})), h(P.GroupRow,{label:'发布会.key',description:'9月20日'}, h(P.Icon,{name:'doc',color:'var(--system-blue)'})))))
+</script>
+</body>
+</html>

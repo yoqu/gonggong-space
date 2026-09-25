@@ -1,4 +1,4 @@
-import type { GroupBotStateDto, GroupDto } from '@aiws/protocol'
+import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { realtime } from '../../lib/realtime'

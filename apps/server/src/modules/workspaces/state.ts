@@ -1,4 +1,4 @@
-import type { GitStatus, GroupBotStateDto } from '@aiws/protocol'
+import type { GitStatus, GroupBotStateDto } from '@gonggong/protocol'
 import { and, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'

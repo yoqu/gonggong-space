@@ -1,0 +1,23 @@
+<!-- @dsCard group="IM · 消息" height=560 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Message</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.MessageList,{style:{padding:'28px 20px 20px'}},
+ h(P.ChatNotice,{kind:'date',day:'今天'},'10:20'),
+ h(P.Message,{author:{name:'Mia Chen',status:'online'},time:'10:20',reactions:[{emoji:'👍',users:['张三','李思远','王小明','赵六'],mine:true},{emoji:'🎉',users:['张三']}]},
+   h('p',null,h(P.Mention,{name:'所有人'}),' 新版会话列表的稿子更新了，重点看一下未读徽标和加急态。链接：',h('a',{href:'#'},'Figma · IM 2.0'))),
+ h(P.Message,{author:{name:'Mia Chen'},continued:true,thread:{count:3,people:[{name:'张三'},{name:'李思远'}],lastTime:'10:36'}},'另外 macOS 27 的侧栏改成贴边了，列表也跟着去掉阴影。'),
+ h(P.Message,{self:true,author:{name:'Yoqu'},time:'10:31',reply:{author:'Mia Chen',text:'新版会话列表的稿子更新了，重点看一下未读徽标和加急态。'},receipt:{read:2,total:5},showActions:true},
+   h('p',null,'收到，',h(P.Mention,{name:'张三'}),' 帮忙看下交互细节')),
+ h(P.Message,{author:{name:'张三',tags:[{label:'外部',tone:'orange'}]},time:'10:33',urgent:true},h('p',null,h(P.Mention,{name:'Yoqu',me:true}),' 这版今天下班前需要确认，客户明早要看。')),
+ h(P.Message,{self:true,author:{name:'Yoqu'},time:'10:34',receipt:{read:1,total:1}},'好，我下午 3 点前给结论。'),
+ h(P.Message,{self:true,author:{name:'Yoqu'},continued:true,status:'failed'},'附上上周的评审纪要')))
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import type { BotDto, BotOwnerDto, MachineDto, UserDto } from '@aiws/protocol'
+import type { BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -224,7 +224,7 @@ describe('新建 Bot', () => {
     renderAt('/admin/bots', admin)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
-    await within(dialog).findByText('陈晨 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。')
+    await within(dialog).findByText('陈晨 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。')
     expect(within(dialog).getByRole('button', { name: /陈晨\s*我/ })).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建' })).toBeTruthy()
 

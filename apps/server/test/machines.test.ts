@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type WebEvent } from '@aiws/protocol'
+import { PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, bindCodes, machines } from '../src/db/schema.js'
@@ -238,7 +238,7 @@ describe('machines', () => {
       t.app.inject({ method: 'DELETE', url: `/api/machines/${machine.id}`, headers: { cookie } })
     const blocked = await del()
     expect(blocked.statusCode).toBe(409)
-    expect(blocked.json().message).toContain('1 个 bot')
+    expect(blocked.json().message).toContain('1 个 Bot')
 
     await t.app.inject({ method: 'DELETE', url: `/api/bots/${bot.id}`, headers: { cookie } })
     const got = events(owner.id)

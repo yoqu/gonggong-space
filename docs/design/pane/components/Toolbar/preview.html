@@ -1,0 +1,18 @@
+<!-- @dsCard group="Navigation" height=80 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toolbar</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;min-height:80px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-surface"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{borderRadius:'12px',overflow:'hidden',background:'var(--content-bg)',boxShadow:'0 0 0 1px var(--separator)'}}, h(P.Toolbar,{title:'文稿',subtitle:'24 项'},
+  h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'chevron-left',label:'后退'}),h(P.ToolbarButton,{icon:'chevron-right',label:'前进'})),
+  h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'grid',label:'图标',active:true}),h(P.ToolbarButton,{icon:'list',label:'列表'})),
+  h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'share',label:'共享'}),h(P.ToolbarButton,{icon:'tag',label:'标签'})),
+  h(P.SearchField,{style:{minWidth:'160px'}}))))
+</script>
+</body>
+</html>

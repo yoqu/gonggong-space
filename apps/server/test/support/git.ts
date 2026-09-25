@@ -5,9 +5,9 @@ import { dirname, join } from 'node:path'
 
 /** A local bare repo with one commit on `main`, reachable as a file:// URL. */
 export function bareRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'aiws-srv-repo-'))
+  const root = mkdtempSync(join(tmpdir(), 'gonggong-srv-repo-'))
   const git = (cwd: string, ...args: string[]) =>
-    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@aiws', ...args], {
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@gonggong', ...args], {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],

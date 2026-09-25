@@ -1,4 +1,4 @@
-import type { AgentKind, RunStatus } from '@aiws/protocol'
+import type { AgentKind, RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
 import type { AgentCard, Approval, Snapshot } from '../ipc'
 
@@ -104,7 +104,7 @@ export function agentDefault(agent: AgentCard | undefined) {
   return current ? `适配器默认（${modelName(agent, current)}）` : '适配器默认'
 }
 
-/** `/Users/wl/.aiws/workspaces` → `~/.aiws/workspaces` */
+/** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */
 export function tildify(path: string) {
   return path.replace(/^\/(Users|home)\/[^/]+/, '~')
 }

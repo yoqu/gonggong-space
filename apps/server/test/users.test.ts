@@ -100,6 +100,47 @@ describe('admin accounts', () => {
   })
 })
 
+describe('admin password reset', () => {
+  it('sets a temporary password, forces a change, signs the member out everywhere, and audits it', async () => {
+    const m = await t.seed.user({ account: 'wanglei' })
+    const member = await t.seed.cookie(m.id)
+    const res = await req('POST', `/api/admin/users/${m.id}/password`, admin, { password: 'temp-pass-9' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ account: 'wanglei', mustChangePassword: true })
+    expect((await req('GET', '/api/me', member)).statusCode).toBe(401)
+    const login = await t.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { account: 'wanglei', password: 'temp-pass-9' },
+    })
+    expect(login.json()).toMatchObject({ mustChangePassword: true })
+    const logs = await t.db.select().from(auditLogs)
+    const log = logs.find((l) => l.action === 'user.password.reset')
+    expect(log).toMatchObject({ actorUserId: adminId })
+    expect(JSON.stringify(log?.detail)).not.toContain('temp-pass-9')
+  })
+
+  it('refuses short passwords, own account, unknown accounts and non-admins', async () => {
+    const m = await t.seed.user()
+    const url = `/api/admin/users/${m.id}/password`
+    expect((await req('POST', url, admin, { password: 'short' })).statusCode).toBe(400)
+    expect(
+      (await req('POST', `/api/admin/users/${adminId}/password`, admin, { password: 'long-enough' }))
+        .statusCode,
+    ).toBe(400)
+    expect(
+      (
+        await req('POST', '/api/admin/users/00000000-0000-0000-0000-000000000000/password', admin, {
+          password: 'long-enough',
+        })
+      ).statusCode,
+    ).toBe(404)
+    expect((await req('POST', url, await t.seed.cookie(m.id), { password: 'long-enough' })).statusCode).toBe(
+      403,
+    )
+  })
+})
+
 describe('user picker', () => {
   it('lists active users for any logged-in user', async () => {
     const m = await t.seed.user({ account: 'wanglei', name: '王磊' })

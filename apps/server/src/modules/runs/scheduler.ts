@@ -1,4 +1,4 @@
-import type { AgentKind, ContextMessage, RunStart, Tier } from '@aiws/protocol'
+import type { AgentKind, ContextMessage, RunStart, Tier } from '@gonggong/protocol'
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -17,7 +17,7 @@ type Bot = typeof bots.$inferSelect
 const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
 const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
-const OFFLINE = { status: 'offline_wait', step: 'bot 离线，等待上线', startedAt: null }
+const OFFLINE = { status: 'offline_wait', step: 'Bot 离线，等待上线', startedAt: null }
 const WORKSPACE_WAIT = '工作区准备中'
 
 /**
@@ -87,7 +87,7 @@ export async function schedule(ctx: Ctx, botId: string) {
         } else await setRun(run.id, OFFLINE)
         continue
       }
-      const next = machineId ? { status: 'queued', step: `该 bot 忙，排第 ${++position}` } : OFFLINE
+      const next = machineId ? { status: 'queued', step: `该 Bot 忙，排第 ${++position}` } : OFFLINE
       if (next.status !== run.status || next.step !== run.step) await setRun(run.id, next)
     }
     return out
@@ -129,7 +129,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     lt(messages.seq, trigger.seq),
     or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
   )
-  // Older messages stay out of the prompt; the agent reads them with the aiws tools (plan C1).
+  // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
   const context = (await contextMessages(tx, since, params.contextInlineMax)).reverse()
   const omitted =
     context.length < params.contextInlineMax ? 0 : (await countContext(tx, since)) - context.length

@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, RunDto, UserDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, RunDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -89,7 +89,7 @@ describe('run actions', () => {
     vi.useFakeTimers({ now: new Date('2026-09-23T10:02:20.000Z') })
     render(<OfflineNote run={run({ status: 'offline_wait', startedAt: null })} />)
     expect(
-      screen.getByText('bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
+      screen.getByText('Bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
     ).toBeTruthy()
   })
 })
@@ -103,7 +103,7 @@ describe('interrupt block', () => {
     expect(screen.getByText('已停止 · 本轮改动 4 个文件留在工作区')).toBeTruthy()
     expect(
       screen.getByText(
-        '默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 王磊 或 bot 主人可选，无超时。',
+        '默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 王磊 或 Bot 主人可选，无超时。',
       ),
     ).toBeTruthy()
     expect((screen.getByRole('button', { name: '丢弃本轮改动' }) as HTMLButtonElement).disabled).toBe(true)

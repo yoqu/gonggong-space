@@ -57,12 +57,12 @@ export function WorkspacesPage(_: PageProps) {
         <Alert
           variant="warning"
           title="无法连接服务器"
-          description="群与 bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。"
+          description="群与 Bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。"
         />
       ) : null}
       <div className="dk-table">
         <div className="dk-table__head dk-ws-grid">
-          <span>群 × bot</span>
+          <span>群 × Bot</span>
           <span>类型</span>
           <span>路径</span>
           <span>状态</span>

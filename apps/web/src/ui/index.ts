@@ -1,7 +1,9 @@
 import './ui.css'
 
+export * from './brand'
 export * from './controls'
 export * from './display'
+export * from './illustrations'
 export * from './overlay'
 export * from './presence'
 export * from './toast'

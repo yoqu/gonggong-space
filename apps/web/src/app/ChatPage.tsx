@@ -1,9 +1,6 @@
-import type { GroupDto } from '@aiws/protocol'
+import type { GroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
-import deniedArt from '../assets/illustrations/denied.png'
-import failedArt from '../assets/illustrations/failed.png'
-import pickChatArt from '../assets/illustrations/pick-chat.png'
 import { PreviewPanel } from '../features/attachments/PreviewPanel'
 import { usePreview } from '../features/attachments/preview'
 import { BotDialog } from '../features/bots/BotDialog'
@@ -17,14 +14,15 @@ import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { Button, EmptyState, Presence, Spinner, toast } from '../ui'
+import { Button, DeniedArt, EmptyState, FailedArt, PickChatArt, Presence, Spinner, toast } from '../ui'
 import { ChatLayout } from './ChatLayout'
 import { Sidebar } from './Sidebar'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
+import { Welcome } from './Welcome'
 import { useWorkspace } from './workspace'
 
-const LAST_GROUP_KEY = 'aiws.lastGroup'
+const LAST_GROUP_KEY = 'gonggong.lastGroup'
 
 const lastGroup = () => {
   try {
@@ -94,6 +92,9 @@ export function ChatPage() {
   const [newBot, setNewBot] = useState(false)
   const [openBotId, setOpenBotId] = useState<string | null>(null)
   const [machineId, setMachineId] = useState<string | null>(null)
+  const myBots = bots.filter((b) => b.ownerId === me?.id)
+  const myMachines = machines.filter((m) => m.ownerId === me?.id)
+  const firstRun = !groupId && groupsState === 'ready' && !groups.length
   const openBot = bots.find((b) => b.id === openBotId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
@@ -134,8 +135,9 @@ export function ChatPage() {
         sidebar={
           <Sidebar
             groups={groups}
-            bots={bots.filter((b) => b.ownerId === me?.id)}
-            machines={machines.filter((m) => m.ownerId === me?.id)}
+            bots={myBots}
+            machines={myMachines}
+            guide={!firstRun || mobile}
             onNewGroup={() => setCreating('group')}
             onNewDm={() => setCreating('dm')}
             loaded={workspaceLoaded && groupsState === 'ready'}
@@ -162,7 +164,7 @@ export function ChatPage() {
           <div className="chat__placeholder">
             <EmptyState
               bare
-              illustration={failedArt}
+              illustration={<FailedArt />}
               title="加载失败"
               description="无法获取群列表，请检查网络后重试。"
               actions={
@@ -172,13 +174,24 @@ export function ChatPage() {
               }
             />
           </div>
+        ) : firstRun && me ? (
+          <div className="chat__placeholder">
+            <Welcome
+              name={me.name}
+              bound={myMachines.length > 0}
+              hasBot={myBots.length > 0}
+              onBindMachine={() => setBinding(true)}
+              onNewBot={() => setNewBot(true)}
+              onNewGroup={() => setCreating('group')}
+            />
+          </div>
         ) : (
           <div className="chat__placeholder">
             <EmptyState
               bare
-              illustration={groupId ? deniedArt : pickChatArt}
+              illustration={groupId ? <DeniedArt /> : <PickChatArt />}
               title={groupId ? '群不存在或你已不在群内' : '选择一个群或私聊开始'}
-              description="在左侧选择会话；@ bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。"
+              description="在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。"
             />
           </div>
         )}

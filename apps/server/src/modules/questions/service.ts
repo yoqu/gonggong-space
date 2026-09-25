@@ -1,4 +1,4 @@
-import type { Answer, DaemonToServer, Question } from '@aiws/protocol'
+import type { Answer, DaemonToServer, Question } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
@@ -90,10 +90,10 @@ export async function answerQuestions(
   const [row] = await scoped(ctx).where(and(eq(questionSets.id, id), eq(questionSets.runId, runId)))
   if (!row) return fail('not_found', '提问不存在')
   if (user.id !== row.run.originUserId && user.id !== row.ownerId)
-    return fail('forbidden', '仅触发人或 bot 主人可以回答')
+    return fail('forbidden', '仅触发人或 Bot 主人可以回答')
   if (row.q.status !== 'pending') return fail('conflict', '该提问已处理')
   if (!validAnswers(row.q.questions as Question[], answers)) return fail('invalid', '回答与问题不匹配')
-  // The card id is the attachments' "message": the daemon writes them to .aiws/attachments/<card id>/.
+  // The card id is the attachments' "message": the daemon writes them to .gonggong/attachments/<card id>/.
   const { settled, files } = await ctx.db.transaction(async (tx) => {
     const files = await claimAttachments(tx, attachmentIds, {
       uploaderId: user.id,

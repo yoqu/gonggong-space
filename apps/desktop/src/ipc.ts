@@ -2,7 +2,7 @@
  * Typed bridge to the Rust side (`src-tauri/src/commands/*`). Every command is mirrored here; pages never call
  * `invoke` directly, so tests can mock this module.
  */
-import type { AgentInfo, AgentKind, BotDto, RunStatus } from '@aiws/protocol'
+import type { AgentInfo, AgentKind, BotDto, RunStatus } from '@gonggong/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 

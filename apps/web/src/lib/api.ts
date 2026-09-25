@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@aiws/protocol'
+import type { ErrorCode } from '@gonggong/protocol'
 
 export type ApiErrorCode = ReturnType<(typeof ErrorCode)['parse']> | 'http_error' | 'network_error'
 

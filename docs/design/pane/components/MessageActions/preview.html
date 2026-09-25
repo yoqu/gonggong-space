@@ -1,0 +1,14 @@
+<!-- @dsCard group="IM · 消息" height=70 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MessageActions</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row'}, h(P.MessageActions,null), h(P.MessageActions,{items:[{icon:'smile',label:'表情回复'},{icon:'reply',label:'回复'},{icon:'more',label:'更多'}]})))
+</script>
+</body>
+</html>

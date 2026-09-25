@@ -6,7 +6,7 @@ import { bindManaged, buildDaemon, machine, memberWithMachine, ROOT } from './he
 
 test.beforeAll(buildDaemon)
 
-const composer = '输入消息，@ 触发 bot 或引用文件，/ 查看命令'
+const composer = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
 
 async function say(page: Page, text: string) {
   await page.getByPlaceholder(composer).fill(text)
@@ -76,9 +76,9 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
   await page.getByRole('button', { name: '群设置' }).click()
   await page.getByRole('button', { name: /群名称与公告/ }).click()
   await page.getByLabel('群名称').fill('设置后')
-  await page.getByLabel(/群公告/).fill('每个 bot 独立分支，走 PR')
+  await page.getByLabel(/群公告/).fill('每个 Bot 独立分支，走 PR')
   await page.getByRole('button', { name: '保存' }).click()
-  await expect(page.getByTestId('group-notice')).toContainText('每个 bot 独立分支，走 PR')
+  await expect(page.getByTestId('group-notice')).toContainText('每个 Bot 独立分支，走 PR')
   await expect(page.getByRole('heading', { name: '设置后' })).toBeVisible()
 
   await page.getByRole('button', { name: '群设置' }).click()
@@ -100,18 +100,18 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
 test('ops: a run survives a server outage; a daemon restart reconciles the lost run; old protocols are refused', async () => {
   test.setTimeout(10 * 60_000)
   // A private server instance this test can stop and restart.
-  execFileSync('bash', ['scripts/pg.sh', 'reset', 'aiws_e2e_ops'], { cwd: ROOT })
+  execFileSync('bash', ['scripts/pg.sh', 'reset', 'gonggong_e2e_ops'], { cwd: ROOT })
   const port = 8791
   const base = `http://127.0.0.1:${port}`
   let srv: ChildProcess | undefined
   const startServer = async () => {
-    srv = spawn('pnpm', ['--filter', '@aiws/server', 'start'], {
+    srv = spawn('pnpm', ['--filter', '@gonggong/server', 'start'], {
       cwd: ROOT,
       env: {
         ...process.env,
         PORT: String(port),
-        AIWS_DB: 'aiws_e2e_ops',
-        AIWS_ADMIN_PASSWORD: 'admin-init-pass',
+        GONGGONG_DB: 'gonggong_e2e_ops',
+        GONGGONG_ADMIN_PASSWORD: 'admin-init-pass',
       },
       stdio: 'inherit',
     })

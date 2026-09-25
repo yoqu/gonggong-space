@@ -1,4 +1,4 @@
-import type { AdminUserDto, UserDto } from '@aiws/protocol'
+import type { AdminUserDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -65,7 +65,7 @@ describe('admin console', () => {
       'GET /admin/users': [
         row({ machineCount: 2, online: true }),
         row({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member', machineCount: 1 }),
-        row({ id: 'u2', account: 'zhaomin', name: '赵敏', role: 'member' }),
+        row({ id: 'u2', account: 'zhaomin', name: '赵敏', role: 'member', mustChangePassword: true }),
         row({ id: 'u3', account: 'liuyang', name: '刘洋', role: 'member', disabled: true }),
       ],
     })
@@ -77,9 +77,9 @@ describe('admin console', () => {
       within(screen.getByRole('cell', { name: account }).closest('tr') as HTMLElement)
         .getAllByRole('cell')
         .map((c) => c.textContent)
-    expect(cells('chenchen')).toEqual(['陈陈晨', 'chenchen', '系统管理员', '2 台', '在线', '编辑'])
-    expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台', '离线'])
-    expect(cells('zhaomin').slice(3, 5)).toEqual(['0 台', '未绑定'])
+    expect(cells('chenchen')).toEqual(['陈陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', '编辑'])
+    expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台 · 离线', '正常'])
+    expect(cells('zhaomin').slice(3, 5)).toEqual(['未绑定', '待修改密码'])
     expect(cells('liuyang').slice(3, 5)).toEqual(['—', '已停用'])
     const edit = within(
       screen.getByRole('cell', { name: 'chenchen' }).closest('tr') as HTMLElement,
@@ -120,6 +120,26 @@ describe('admin console', () => {
       password: 'wanglei-init',
     })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('resets a member password to a generated temporary one', async () => {
+    useSession.setState({ user: admin, status: 'ready' })
+    const wanglei = row({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member' })
+    const calls = mockApi({
+      'GET /admin/users': [row({}), wanglei],
+      'POST /admin/users/u1/password': { ...wanglei, mustChangePassword: true },
+    })
+    renderAt('/admin/users')
+    const rowOf = async (a: string) =>
+      (await screen.findByRole('cell', { name: a })).closest('tr') as HTMLElement
+    expect(within(await rowOf('chenchen')).queryByRole('button', { name: '重置密码' })).toBeNull()
+    fireEvent.click(within(await rowOf('wanglei')).getByRole('button', { name: '重置密码' }))
+    const dialog = screen.getByRole('dialog', { name: '重置 王磊 的密码' })
+    const temp = (within(dialog).getByLabelText('临时密码') as HTMLInputElement).value
+    expect(temp).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{2}$/)
+    fireEvent.click(within(dialog).getByRole('button', { name: '重置并复制' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(calls.find((c) => c.path === '/admin/users/u1/password')?.body).toEqual({ password: temp })
   })
 
   it('keeps members out of the admin console', async () => {

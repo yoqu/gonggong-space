@@ -1,4 +1,4 @@
-import type { DaemonWorkspaceDto, ServerToDaemon } from '@aiws/protocol'
+import type { DaemonWorkspaceDto, ServerToDaemon } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, bots, groupBots, groupRepos, groups, messages, runs } from '../src/db/schema.js'

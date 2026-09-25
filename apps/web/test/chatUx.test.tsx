@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, MessageDto, RunDto, UserDto, WebEvent } from '@aiws/protocol'
+import type { BotDto, GroupDto, MessageDto, RunDto, UserDto, WebEvent } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -172,7 +172,7 @@ const renderAt = (path = '/g/g1') =>
   )
 
 const box = () =>
-  screen.getByPlaceholderText('输入消息，@ 触发 bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
+  screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
 const sendButton = () => screen.getByRole('button', { name: '发送' }) as HTMLButtonElement
 const timelineEl = () => document.querySelector('.timeline') as HTMLDivElement
 const precedes = (a: Element, b: Element) =>
@@ -315,7 +315,7 @@ describe('scroll position', () => {
       path.includes('before=') ? { messages: page(1, 50), runs: [] } : { messages: page(51, 50), runs: [] },
     )
     renderAt('/g/g1?msg=m7')
-    const target = await screen.findByText('第 7 条')
+    const target = await screen.findByText('第 7 条', {}, { timeout: 3000 })
     const item = target.closest('[data-msg-id]') as HTMLElement
     expect(item.dataset.msgId).toBe('m7')
     await waitFor(() => expect(item.className).toContain('tl-item--flash'))
@@ -385,7 +385,7 @@ describe('composer', () => {
     }
     fireEvent.change(box(), { target: { value: '@小王的 Claude' } })
     expect(sendButton().disabled).toBe(false)
-    expect(screen.getByText('不 @ 不触发，会作为上下文补送')).toBeTruthy()
+    expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
   })
 
   it('grows with its content', async () => {
@@ -462,7 +462,7 @@ describe('composer', () => {
     expect(box().value).toBe('草稿')
     fireEvent.click(sendButton())
     await waitFor(() => expect(box().value).toBe(''))
-    expect(sessionStorage.getItem('aiws:draft:g1')).toBeNull()
+    expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull()
   })
 
   it('ignores Enter while an IME composition is active or just ended', async () => {

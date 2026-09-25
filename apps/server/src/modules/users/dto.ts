@@ -1,4 +1,4 @@
-import type { UserDto } from '@aiws/protocol'
+import type { UserDto } from '@gonggong/protocol'
 import type { users } from '../../db/schema.js'
 
 export const toUserDto = (u: typeof users.$inferSelect): UserDto => ({

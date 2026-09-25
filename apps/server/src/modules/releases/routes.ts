@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs'
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
-import { compareVersions, DaemonRelease, type MachineInfo, type UpgradeInfo } from '@aiws/protocol'
+import { compareVersions, DaemonRelease, type MachineInfo, type UpgradeInfo } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

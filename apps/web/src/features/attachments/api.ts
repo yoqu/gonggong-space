@@ -1,4 +1,4 @@
-import type { Attachment } from '@aiws/protocol'
+import type { Attachment } from '@gonggong/protocol'
 import { ApiError } from '../../lib/api'
 
 export type Upload = Omit<Attachment, 'messageId'>
@@ -59,4 +59,4 @@ export function fmtSize(bytes: number) {
 }
 
 /** Where the daemon writes it in the bot's workspace. */
-export const workspacePath = (a: Attachment) => `.aiws/attachments/${a.messageId}/${a.name}`
+export const workspacePath = (a: Attachment) => `.gonggong/attachments/${a.messageId}/${a.name}`

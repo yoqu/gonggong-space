@@ -6,9 +6,9 @@
 //   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
-//   "mock:ask <json>" call the injected aiws MCP ask tool with <json> as arguments (after a permission request)
+//   "mock:ask <json>" call the injected gonggong MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
-//   "mock:tool <name> <json>" the same for any aiws tool
+//   "mock:tool <name> <json>" the same for any gonggong tool
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
 import { execSync } from 'node:child_process'
@@ -149,7 +149,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
             .slice(0, 2)
     const toolCall = {
       toolCallId: `${name}-1`,
-      title: `mcp__aiws__${name}`,
+      title: `mcp__gonggong__${name}`,
       kind: 'other',
       status: 'pending',
     }
@@ -166,7 +166,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
       await say('ask denied')
       return { stopReason: 'end_turn' }
     }
-    const server = s.mcpServers.find((m) => m.type === 'http' && m.name === 'aiws')
+    const server = s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
     try {
       const args = JSON.parse(raw)
       await mcp(server.url, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} }, abort.signal)
@@ -235,7 +235,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
 }
 
 acp
-  .agent({ name: 'aiws-mock-agent' })
+  .agent({ name: 'gonggong-mock-agent' })
   .onRequest('initialize', () => ({
     protocolVersion: acp.PROTOCOL_VERSION,
     agentCapabilities: {

@@ -45,31 +45,14 @@ body {
   height: 6px;
 }
 .eyebrow {
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--color-text-tertiary);
 }
 .muted-icon {
   flex: none;
   color: var(--color-text-tertiary);
-}
-.brand-mark {
-  width: 24px;
-  height: 24px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-separator);
-  background: var(--color-panel-elevated);
-  color: var(--color-system-blue);
-}
-.brand-mark--lg {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-lg);
 }
 
 /* Top bar */
@@ -100,6 +83,7 @@ body {
 }
 .topbar__title {
   font-weight: 600;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 .topbar__search {
@@ -778,4 +762,136 @@ section:first-child > .sidebar__head {
   place-items: center;
   min-height: 100dvh;
   background: var(--color-panel-bg);
+}
+
+/* Boot splash: appears only if loading outlasts a blink */
+.app-splash {
+  animation: splash-in 400ms var(--ease-apple) 200ms both;
+}
+.app-splash {
+  gap: 10px;
+}
+.app-splash__name {
+  margin-top: 6px;
+  font: 600 18px / 1.2 var(--font-display);
+  letter-spacing: 0.08em;
+}
+.app-splash__hint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  animation: splash-in 400ms var(--ease-apple) 1.2s both;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* First-run welcome (main area, no groups yet) */
+.welcome {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.welcome__title {
+  margin: 18px 0 8px;
+  font: 600 26px / 1.25 var(--font-display);
+}
+.welcome__lead {
+  margin: 0 0 28px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}
+.welcome__steps {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  counter-reset: none;
+}
+.welcome__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 18px 16px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-separator);
+  background: var(--color-panel-bg);
+  text-align: left;
+  transition:
+    border-color var(--motion-base),
+    box-shadow var(--motion-base),
+    transform var(--spring-smooth);
+}
+.welcome__step[data-state="current"] {
+  box-shadow: var(--shadow-card);
+}
+.welcome__step[data-state="done"] {
+  background: transparent;
+}
+.welcome__step[data-state="todo"]:hover,
+.welcome__step[data-state="current"]:hover {
+  transform: translateY(-2px);
+}
+.welcome__mark {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+.welcome__step[data-state="current"] .welcome__mark {
+  border-color: var(--color-accent-fill);
+  background: var(--color-accent-fill);
+  color: var(--color-on-accent);
+}
+.welcome__step[data-state="done"] .welcome__mark {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #fff;
+}
+.welcome__icon {
+  color: var(--color-system-blue);
+  margin-bottom: 6px;
+}
+.welcome__step[data-state="done"] .welcome__icon {
+  color: var(--color-text-quaternary);
+}
+.welcome__step-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.welcome__step-desc {
+  flex: 1;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+.welcome__done {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-success-text);
+}
+@media (max-width: 900px) {
+  .welcome__steps {
+    grid-template-columns: 1fr;
+  }
 }

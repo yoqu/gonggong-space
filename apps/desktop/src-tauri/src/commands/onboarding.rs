@@ -1,21 +1,21 @@
 use super::{Result, client};
 use crate::host::Host;
-use aiws::bots::Bot;
-use aiws::local::LocalSettings;
-use aiws::protocol::AgentInfo;
+use gonggong::bots::Bot;
+use gonggong::local::LocalSettings;
+use gonggong::protocol::AgentInfo;
 use tauri::State;
 
-/// Step 1: exchanges the bind code for this machine's token, like `aiws login`.
+/// Step 1: exchanges the bind code for this machine's token, like `gg login`.
 #[tauri::command]
 pub async fn login(server: String, code: String) -> Result<()> {
     let (config, _) =
-        aiws::bind::login(&server, &code, aiws::bind::machine_info(), None).await.map_err(|e| format!("{e:#}"))?;
+        gonggong::bind::login(&server, &code, gonggong::bind::machine_info(), None).await.map_err(|e| format!("{e:#}"))?;
     config.save().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn detect_agents(host: State<'_, Host>) -> Result<Vec<AgentInfo>> {
-    Ok(aiws::agents::detect(&LocalSettings::load(&host.home).map_err(|e| e.to_string())?))
+    Ok(gonggong::agents::detect(&LocalSettings::load(&host.home).map_err(|e| e.to_string())?))
 }
 
 /// Step 2: connecting reports the detected agents in hello. Async so it runs inside the runtime the daemon needs.

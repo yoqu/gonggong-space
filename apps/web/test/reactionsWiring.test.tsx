@@ -1,4 +1,4 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { MessageDto } from '@gonggong/protocol'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MessageActions } from '../src/features/chat/MessageActions'

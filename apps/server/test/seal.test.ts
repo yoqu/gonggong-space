@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import { describe, expect, it } from 'vitest'
 import { FILE_OVERHEAD, open, openFile, seal, sealStream } from '../src/lib/seal.js'
 
-const dir = mkdtempSync(join(tmpdir(), 'aiws-seal-'))
+const dir = mkdtempSync(join(tmpdir(), 'gonggong-seal-'))
 const drain = async (s: Readable) => Buffer.concat(await s.toArray())
 
 async function sealFile(name: string, data: Buffer) {

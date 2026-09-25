@@ -1,4 +1,4 @@
-import type { ApprovalDto, BotDto, RunDto } from '@aiws/protocol'
+import type { ApprovalDto, BotDto, RunDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -69,7 +69,7 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText('权限请求 · 执行命令')).toBeTruthy()
     expect(screen.getByText('go build ./...')).toBeTruthy()
     expect(screen.getByText('超出「工作区写入」档位 · 01:30 后自动拒绝，agent 自行绕路')).toBeTruthy()
-    expect(screen.getByText('你是 bot 主人')).toBeTruthy()
+    expect(screen.getByText('你是 Bot 主人')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
@@ -119,7 +119,7 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([approval()])} />)
     expect((screen.getByRole('button', { name: '批准' }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: '拒绝' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText('仅 bot 主人 王磊 可操作，你只能查看')).toBeTruthy()
+    expect(screen.getByText('仅 Bot 主人 王磊 可操作，你只能查看')).toBeTruthy()
   })
 
   it.each([

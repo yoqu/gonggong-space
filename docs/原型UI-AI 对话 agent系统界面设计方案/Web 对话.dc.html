@@ -478,7 +478,7 @@
         <div style="font-size:11px;color:var(--color-text-tertiary)">一次性绑定码 · 09:41 后失效</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--color-text-secondary)">在本机终端执行，或在 daemon 桌面端粘贴</span>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:var(--color-preview-bg);border:1px solid var(--color-separator);font-family:var(--font-mono);font-size:12px"><span style="flex:1">aiws login --code K7QM-4X2P</span><lc-icon name="copy" size="13" style="color:var(--color-text-tertiary)"></lc-icon></div></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:var(--color-preview-bg);border:1px solid var(--color-separator);font-family:var(--font-mono);font-size:12px"><span style="flex:1">gg login --code K7QM-4X2P</span><lc-icon name="copy" size="13" style="color:var(--color-text-tertiary)"></lc-icon></div></div>
       <div style="font-size:11px;color:var(--color-text-tertiary);text-wrap:pretty">绑定后该机器归属于你，daemon 会上报机器名、系统与本机可用的 Claude Code / Codex。未安装 daemon？<a href="Daemon 桌面端.dc.html">下载 macOS / Linux / Windows 版</a></div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-secondary)"><x-import component-from-global-scope="DesignSystem_83d2b2.Spinner" hint-size="14px,14px"></x-import>等待 daemon 使用绑定码登录…</div>
     </div>
@@ -826,7 +826,7 @@ class Component extends DCLogic {
         { kind: 'reply', bot: 'b1', time: '09:58', run: 'rb', md: '价格卡片已拆成独立组件 `PriceCard`，三档共用同一套结构。\n\n- 价格、权益列表、按钮文案走 props\n- 「推荐」档位用 `highlight` 属性，不再复制一份 JSX\n\n改动前后截图：', atts: ['pricing-before.png', 'pricing-after.png'], files: ['src/components/PriceCard.tsx'] },
         { kind: 'event', icon: 'alert-triangle', color: '#FF9F0A', text: '周婷 · zt-desktop 分发 v17 超过 60 秒未确认，标为落后；恢复后自动补齐，补齐前不能拿锁', time: '10:00' },
         { kind: 'event', icon: 'octagon-x', color: '#FF453A', text: '阿杰的 Claude agent 崩溃 · 暂存修改已丢弃，半成品移入 zhangjie-imac 本机备份目录并回滚到 v17 · 群锁已立即释放', time: '10:01' },
-        { kind: 'event', icon: 'archive', text: '你在未持锁时修改了 src/pages/pricing.tsx，已备份到 ~/.aiws/backups/web-site/0923-1002/ 后被 v17 覆盖', time: '10:02' },
+        { kind: 'event', icon: 'archive', text: '你在未持锁时修改了 src/pages/pricing.tsx，已备份到 ~/.gonggong/backups/web-site/0923-1002/ 后被 v17 覆盖', time: '10:02' },
         { kind: 'msg', who: ME, time: '10:05', text: '@小王的 Claude 顺便重写顶部导航' },
         { kind: 'run', key: 'rc', bot: 'b1', trigger: ME, status: '已中断', step: '王磊 执行了 /stop', files: 2, dur: '01:37', tokens: '7.8k tokens', time: '10:05',
           intr: it ? { title: it === 'keep' ? '已保留为版本 v18（标记「中断」）' : '已丢弃，本机回滚到 v17', desc: it === 'keep' ? '暂存修改已提交并分发，锁已释放。' : '暂存区已清空，锁已释放。', pending: false }
@@ -971,7 +971,7 @@ class Component extends DCLogic {
       closePv: () => { clearInterval(this._v); this.setState({ preview: null, vplay: false }); }, togglePlay: this.togglePlay };
     if (!P) return { ...base, pv: null };
     const k = P.kind || 'file'; const d = P.dur || 1;
-    const loc = P.path ? P.path + ' · bot 工作区' : '.aiws/attachments/msg-' + ((P.from || '').replace(/\D/g, '').slice(-4) || '0000') + '/' + P.name;
+    const loc = P.path ? P.path + ' · bot 工作区' : '.gonggong/attachments/msg-' + ((P.from || '').replace(/\D/g, '').slice(-4) || '0000') + '/' + P.name;
     const lines = k === 'text' ? P.text.map((x, n) => ({ n: n + 1, toks: [{ t: x || ' ', c: /ERROR|FAIL/.test(x) ? '#FF453A' : /WARN/.test(x) ? '#FF9F0A' : SEC }] }))
       : k === 'code' ? P.code.split('\n').map((x, n) => ({ n: n + 1, toks: toks(x) }))
       : k === 'md' && s.pvTab === 'source' ? P.md.split('\n').map((x, n) => ({ n: n + 1, toks: [{ t: x || ' ', c: SEC }] })) : [];
@@ -1149,7 +1149,7 @@ class Component extends DCLogic {
       notifCount: 5,
       quote: s.quote, cancelQuote: () => this.setState({ quote: null }),
       atts: s.atts.map((a, i) => ({ ...a, rm: () => this.setState({ atts: s.atts.filter((_, j) => j !== i) }) })), hasAtts: s.atts.length > 0,
-      attNote: s.atts.length + ' / 10 · 写入工作区 .aiws/attachments/，不进 git' + (s.atts.some(a => a.icon === 'image') ? ' · 图片：Claude Code 以 ACP 图片发送，Codex 仅落盘' : ''),
+      attNote: s.atts.length + ' / 10 · 写入工作区 .gonggong/attachments/，不进 git' + (s.atts.some(a => a.icon === 'image') ? ' · 图片：Claude Code 以 ACP 图片发送，Codex 仅落盘' : ''),
       addFile: () => s.atts.length < 10 && this.setState({ atts: s.atts.concat({ name: ['refund-v1-sample.csv', 'error.log', 'spec.pdf'][s.atts.length % 3], size: ['2.4 MB', '84 KB', '1.1 MB'][s.atts.length % 3], icon: 'file-text' }) }),
       addImg: () => s.atts.length < 10 && this.setState({ atts: s.atts.concat({ name: 'screenshot-' + (s.atts.length + 1) + '.png', size: '486 KB', icon: 'image' }) }),
       openSearch: () => this.setState({ ov: 'search' }), toggleNotif: () => this.setState({ ov: s.ov === 'notif' ? null : 'notif' }), toggleMenu: () => this.setState({ ov: s.ov === 'menu' ? null : 'menu' }),

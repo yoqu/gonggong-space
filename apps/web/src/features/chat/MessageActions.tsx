@@ -1,4 +1,4 @@
-import { type MessageDto, RECALL_WINDOW_MS } from '@aiws/protocol'
+import { type MessageDto, RECALL_WINDOW_MS } from '@gonggong/protocol'
 import { Copy, Ellipsis, Link, PanelRightOpen, Quote, Trash2, Undo2 } from 'lucide-react'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../../lib/api'

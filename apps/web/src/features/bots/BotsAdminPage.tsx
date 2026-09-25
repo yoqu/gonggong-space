@@ -1,4 +1,4 @@
-import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@aiws/protocol'
+import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@gonggong/protocol'
 import { Bot, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useSession } from '../../app/session'

@@ -39,3 +39,11 @@
   font-size: 12px;
   color: var(--color-text-secondary);
 }
+
+/* Once decided it is history: neutral, so the eye goes to the reply instead. */
+.approval[data-resolved] {
+  background: transparent;
+}
+.approval[data-resolved] .approval__title {
+  color: var(--color-text-secondary);
+}

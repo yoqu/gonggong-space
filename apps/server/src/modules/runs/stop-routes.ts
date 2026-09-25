@@ -1,4 +1,4 @@
-import { InterruptChoiceReq, type StopRes } from '@aiws/protocol'
+import { InterruptChoiceReq, type StopRes } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'

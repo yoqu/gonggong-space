@@ -1,4 +1,4 @@
-import { type BotDto, PROTOCOL_VERSION, type WebEvent } from '@aiws/protocol'
+import { type BotDto, PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DaemonConn } from '../src/daemon/hub.js'

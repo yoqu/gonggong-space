@@ -1,4 +1,4 @@
-import { UsageQuery, type UsageRowDto } from '@aiws/protocol'
+import { UsageQuery, type UsageRowDto } from '@gonggong/protocol'
 import { and, asc, desc, eq, gte, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -28,7 +28,7 @@ export function usageRoutes(ctx: Ctx) {
         const [bot] = isUuid(q.botId)
           ? await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, q.botId))
           : []
-        if (bot?.ownerId !== me.id) return fail('forbidden', '仅 bot 主人或系统管理员可查看该 bot 的用量')
+        if (bot?.ownerId !== me.id) return fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的用量')
       }
       const [key, name] = DIMENSIONS[q.by]
       const count = sql<number>`count(*)`.mapWith(Number)

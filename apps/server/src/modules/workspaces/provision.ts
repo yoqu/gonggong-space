@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { DaemonToServer, WorkspaceState } from '@aiws/protocol'
+import type { DaemonToServer, WorkspaceState } from '@gonggong/protocol'
 import { and, asc, eq, isNull, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupRepos, groups, users } from '../../db/schema.js'

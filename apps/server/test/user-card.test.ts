@@ -1,4 +1,4 @@
-import type { UserCardDto } from '@aiws/protocol'
+import type { UserCardDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'

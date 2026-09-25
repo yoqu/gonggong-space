@@ -1,4 +1,4 @@
-import type { UserDto } from '@aiws/protocol'
+import type { UserDto } from '@gonggong/protocol'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,7 +36,10 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', NoopSocket)
   useSession.setState({ user: null, status: 'idle' })
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  localStorage.clear()
+})
 
 describe('login page', () => {
   it('logs in and lands on the workspace', async () => {
@@ -46,15 +49,36 @@ describe('login page', () => {
     })
     renderAt('/login')
     expect(screen.getByRole('heading', { name: '登录' })).toBeTruthy()
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['登录'])
+    // Accounts are issued by the sysadmin: no sign-up entry, only the form's own affordances.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      '切换到深色',
+      '显示明文',
+      '忘记密码？',
+      '登录',
+    ])
     fill('账号', 'wanglei')
     fill('密码', 'password123')
     fireEvent.click(screen.getByRole('button', { name: '登录' }))
-    expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
+    expect(await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })).toBeTruthy()
     expect(calls.find((c) => c.path === '/auth/login')?.body).toEqual({
       account: 'wanglei',
       password: 'password123',
     })
+  })
+
+  it('remembers the account, reveals the password and explains a forgotten password', async () => {
+    mockApi({ 'GET /me': () => apiError(401, 'unauthorized'), 'POST /auth/login': me })
+    renderAt('/login')
+    fill('账号', 'wanglei')
+    fill('密码', 'password123')
+    fireEvent.click(screen.getByRole('button', { name: '显示明文' }))
+    expect(screen.getByLabelText('密码', { exact: true }).getAttribute('type')).toBe('text')
+    fireEvent.click(screen.getByRole('button', { name: '忘记密码？' }))
+    expect(screen.getByText(/请联系系统管理员重置密码/)).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('记住我'))
+    fireEvent.click(screen.getByRole('button', { name: '登录' }))
+    await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })
+    expect(localStorage.getItem('gonggong.lastAccount')).toBe('wanglei')
   })
 
   it('shows the server error', async () => {
@@ -68,6 +92,47 @@ describe('login page', () => {
   })
 })
 
+describe('self sign-up', () => {
+  it('shows 立即注册 only while the sysadmin has opened registration, and signs the new member in', async () => {
+    const calls = mockApi({
+      'GET /me': () => apiError(401, 'unauthorized'),
+      'GET /auth/options': { registrationOpen: true },
+      'POST /auth/register': { ...me, mustChangePassword: false },
+    })
+    renderAt('/login')
+    fireEvent.click(await screen.findByRole('link', { name: '立即注册' }))
+    expect(await screen.findByRole('heading', { name: '注册' })).toBeTruthy()
+    fill('账号', 'wanglei')
+    fill('姓名', '王磊')
+    fill('密码', 'password123')
+    fill('确认密码', 'password124')
+    fireEvent.click(screen.getByRole('button', { name: '注册并进入' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('两次输入的密码不一致')
+    fill('确认密码', 'password123')
+    fireEvent.click(screen.getByRole('button', { name: '注册并进入' }))
+    expect(await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })).toBeTruthy()
+    expect(calls.find((c) => c.path === '/auth/register')?.body).toEqual({
+      account: 'wanglei',
+      name: '王磊',
+      password: 'password123',
+    })
+  })
+
+  it('keeps the admin-contact line when registration is closed, and the register page says so', async () => {
+    mockApi({
+      'GET /me': () => apiError(401, 'unauthorized'),
+      'GET /auth/options': { registrationOpen: false },
+    })
+    renderAt('/login')
+    expect(await screen.findByText('还没有账号？请联系系统管理员开通')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '立即注册' })).toBeNull()
+    cleanup()
+    renderAt('/register')
+    expect(await screen.findByText('当前未开放注册，请联系系统管理员创建账号。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '注册并进入' })).toBeNull()
+  })
+})
+
 describe('forced password change', () => {
   it('blocks the app until the password is changed', async () => {
     const calls = mockApi({
@@ -75,10 +140,10 @@ describe('forced password change', () => {
       'POST /auth/password': { ...me, mustChangePassword: false },
     })
     renderAt('/')
-    await screen.findByLabelText('当前密码')
+    await screen.findByLabelText('初始密码')
     expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
 
-    fill('当前密码', 'init-pass')
+    fill('初始密码', 'init-pass')
     fill('新密码', 'new-pass-1')
     fill('确认新密码', 'new-pass-2')
     fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
@@ -87,11 +152,24 @@ describe('forced password change', () => {
 
     fill('确认新密码', 'new-pass-1')
     fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
-    expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
+    expect(await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })).toBeTruthy()
     expect(calls.find((c) => c.path === '/auth/password')?.body).toEqual({
       oldPassword: 'init-pass',
       newPassword: 'new-pass-1',
     })
+  })
+  it('checks the new password live and refuses reusing the current one', async () => {
+    const calls = mockApi({ 'GET /me': { ...me, mustChangePassword: true } })
+    renderAt('/')
+    await screen.findByLabelText('初始密码')
+    const rule = (name: string) => screen.getByText(name).closest('li')?.getAttribute('data-state')
+    fill('初始密码', 'same-pass-1')
+    fill('新密码', 'same-pass-1')
+    fill('确认新密码', 'same-pass-1')
+    expect([rule('至少 8 位'), rule('与原密码不同'), rule('两次输入一致')]).toEqual(['ok', 'bad', 'ok'])
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('新密码不能与原密码相同')
+    expect(calls.some((c) => c.path === '/auth/password')).toBe(false)
   })
 })
 
@@ -123,6 +201,25 @@ describe('account menu', () => {
     fireEvent.click(within(screen.getByTestId('account-menu')).getByRole('button', { name: '退出登录' }))
     expect(await screen.findByTestId('login-page')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
+  })
+
+  it('changes my own password from the menu without leaving the chat', async () => {
+    const calls = mockApi({ 'GET /me': me, 'POST /auth/password': me })
+    renderAt('/')
+    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
+    fireEvent.click(within(screen.getByTestId('account-menu')).getByRole('button', { name: '修改密码' }))
+    const dialog = await screen.findByRole('dialog', { name: '修改密码' })
+    fill('当前密码', 'old-pass-1')
+    fill('新密码', 'new-pass-22')
+    fill('确认新密码', 'new-pass-22')
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存新密码' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '修改密码' })).toBeNull(), {
+      timeout: 3000,
+    })
+    expect(calls.find((c) => c.path === '/auth/password')?.body).toEqual({
+      oldPassword: 'old-pass-1',
+      newPassword: 'new-pass-22',
+    })
   })
 })
 

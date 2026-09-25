@@ -1,4 +1,4 @@
-import type { BotDto, GroupBotStateDto, GroupDto } from '@aiws/protocol'
+import type { BotDto, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadBotStates, useWorkspace } from '../src/app/workspace'

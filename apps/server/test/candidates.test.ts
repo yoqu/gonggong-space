@@ -1,7 +1,7 @@
 import { mkdtempSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type CommandCandidatesDto, type FileCandidatesDto, PROTOCOL_VERSION } from '@aiws/protocol'
+import { type CommandCandidatesDto, type FileCandidatesDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, groupRepos } from '../src/db/schema.js'
@@ -12,7 +12,7 @@ import { client } from './support/http.js'
 let t: TestApp
 let clock: Date
 beforeEach(async () => {
-  process.env.AIWS_DATA_DIR = mkdtempSync(join(tmpdir(), 'aiws-data-'))
+  process.env.GONGGONG_DATA_DIR = mkdtempSync(join(tmpdir(), 'gonggong-data-'))
   clock = new Date('2026-09-23T10:00:00Z')
   t = await createTestApp({ now: () => clock })
 })
@@ -62,7 +62,7 @@ async function world(o: { repo?: boolean } = {}) {
   const a = await t.seed.machine(alice.id)
   const other = await t.seed.machine(outsider.id)
   const bot = await t.seed.bot({ ownerId: alice.id, name: '小王的 Claude', machineId: a.machine.id })
-  const stranger = await t.seed.bot({ ownerId: alice.id, name: '外部 bot', machineId: a.machine.id })
+  const stranger = await t.seed.bot({ ownerId: alice.id, name: '外部 Bot', machineId: a.machine.id })
   const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })
   const remote = bareRepo()
   const repoId =
@@ -227,7 +227,7 @@ describe('command candidates', () => {
 
     const res = (await w.asAlice.get<CommandCandidatesDto>(`${url}?botId=${w.bot.id}`)).body
     expect(res.system).toEqual([
-      { name: 'stop', hint: '停止运行（未 @ bot 时停止本群全部）' },
+      { name: 'stop', hint: '停止运行（未 @ Bot 时停止本群全部）' },
       { name: 'hold', hint: '连续占用群锁' },
       { name: 'release', hint: '释放群锁' },
       { name: 'new', hint: '开新会话' },

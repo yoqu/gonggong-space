@@ -1,4 +1,4 @@
-import type { GroupDto, GroupParams, MessageDto, TimelineDto } from '@aiws/protocol'
+import type { GroupDto, GroupParams, MessageDto, TimelineDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupMembers, groups, messages, runs, systemParams } from '../src/db/schema.js'
@@ -50,7 +50,7 @@ type World = Awaited<ReturnType<typeof world>>
 async function queuedRun(w: World, botId: string, status = 'queued') {
   const [m] = await t.db
     .insert(messages)
-    .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '@bot 干活' })
+    .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '@Bot 干活' })
     .returning()
   const [r] = await t.db
     .insert(runs)
@@ -84,18 +84,18 @@ describe('name and notice', () => {
     const liEvents = events(t, w.li.id)
     const res = await w.as.wang.patch<GroupDto>(`/api/groups/${w.g.id}`, {
       name: '  支付服务重构 ',
-      notice: '每个 bot 独立分支，走 PR',
+      notice: '每个 Bot 独立分支，走 PR',
     })
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({ name: '支付服务重构', notice: '每个 bot 独立分支，走 PR' })
+    expect(res.body).toMatchObject({ name: '支付服务重构', notice: '每个 Bot 独立分支，走 PR' })
     expect(liEvents).toContainEqual({
       t: 'group.updated',
-      group: expect.objectContaining({ name: '支付服务重构', notice: '每个 bot 独立分支，走 PR' }),
+      group: expect.objectContaining({ name: '支付服务重构', notice: '每个 Bot 独立分支，走 PR' }),
     })
     expect(await bodies(w.as.li, w.g.id)).toContain('王磊 修改了群名称与公告')
     const [row] = await adminAudit('group.update')
     expect(row).toMatchObject({ actorUserId: w.wang.id, groupId: w.g.id })
-    expect(row?.detail).toMatchObject({ name: '支付服务重构', notice: '每个 bot 独立分支，走 PR' })
+    expect(row?.detail).toMatchObject({ name: '支付服务重构', notice: '每个 Bot 独立分支，走 PR' })
   })
 
   it('rejects non-admins, non-members and an empty name', async () => {

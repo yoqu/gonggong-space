@@ -7,6 +7,7 @@ import {
   useReducedMotionConfig,
 } from 'motion/react'
 import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
+import { useIsMobile } from '../../app/viewport'
 import { cx } from '../../lib/cx'
 import { SPRING } from '../../lib/motion'
 import { IconButton } from '../../ui'
@@ -62,6 +63,7 @@ export function Composer({
   onAttach?: () => void
   onImage?: () => void
 }) {
+  const mobile = useIsMobile()
   const own = useRef<HTMLTextAreaElement>(null)
   const ref = inputRef ?? own
   const composing = useRef(false)
@@ -121,7 +123,7 @@ export function Composer({
           className="composer__input"
           rows={2}
           value={value}
-          placeholder="输入消息，@ 触发 bot 或引用文件，/ 查看命令"
+          placeholder={mobile ? '发消息，@ 触发 Bot' : '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={combobox?.expanded ?? false}

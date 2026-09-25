@@ -4,7 +4,7 @@ import {
   AuditQuery,
   type SystemParams,
   UpdateSystemParamsReq,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { asc, count, desc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

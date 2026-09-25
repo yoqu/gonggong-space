@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type RunStart, type WebEvent } from '@aiws/protocol'
+import { PROTOCOL_VERSION, type RunStart, type WebEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, messages, runEvents, runs, systemParams } from '../src/db/schema.js'
@@ -178,7 +178,7 @@ describe('run engine', () => {
     expect(start.prompt.omitted).toBe(0)
   })
 
-  it('inlines only the latest contextInlineMax messages and counts the rest for the aiws tools', async () => {
+  it('inlines only the latest contextInlineMax messages and counts the rest for the gonggong tools', async () => {
     const w = await world()
     const d = await daemon(w.token)
     await t.db.insert(systemParams).values({ key: 'contextInlineMax', value: 2 })
@@ -198,7 +198,7 @@ describe('run engine', () => {
     const web = watch(w.alice.id)
     await w.mention('@小王的 Claude hi')
     const waiting = await web.until<Extract<WebEvent, { t: 'run.updated' }>>(runUpdated('offline_wait'))
-    expect(waiting.run.step).toBe('bot 离线，等待上线')
+    expect(waiting.run.step).toBe('Bot 离线，等待上线')
 
     const d = await daemon(w.token)
     const start = await d.next()
@@ -216,13 +216,13 @@ describe('run engine', () => {
     const first = await d.next()
     expect(first.prompt.text).toBe('one')
     const [, r2, r3] = await w.runsOf()
-    expect(r2).toMatchObject({ status: 'queued', step: '该 bot 忙，排第 1' })
-    expect(r3).toMatchObject({ status: 'queued', step: '该 bot 忙，排第 2' })
+    expect(r2).toMatchObject({ status: 'queued', step: '该 Bot 忙，排第 1' })
+    expect(r3).toMatchObject({ status: 'queued', step: '该 Bot 忙，排第 2' })
 
     d.send(done(first.runId))
     const second = await d.next()
     expect(second.prompt.text).toBe('two')
-    await web.until((e) => e.t === 'run.updated' && e.run.id === r3?.id && e.run.step === '该 bot 忙，排第 1')
+    await web.until((e) => e.t === 'run.updated' && e.run.id === r3?.id && e.run.step === '该 Bot 忙，排第 1')
   })
 
   it('runs at most one turn per (group, bot) even with free concurrency slots', async () => {
@@ -368,7 +368,7 @@ describe('run engine', () => {
     expect(all[0]).toMatchObject({
       botId: w.bot.id,
       status: 'forbidden',
-      step: 'bot 未绑定或未确认，不能被触发',
+      step: 'Bot 未绑定或未确认，不能被触发',
     })
     await web.until(runUpdated('forbidden'))
   })

@@ -1,23 +1,32 @@
-import type { GroupDto, MessageDto, RunDto } from '@aiws/protocol'
+import type { GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
 import { BellOff, Megaphone, PanelRight, Users } from 'lucide-react'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ChatHeader } from '../../app/ChatLayout'
-import { GROUP_MODE_LABEL } from '../../app/Sidebar'
+import { GROUP_MODE_HINT, GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import emptyChatArt from '../../assets/illustrations/empty-chat.png'
-import failedArt from '../../assets/illustrations/failed.png'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Badge, Button, EmptyState, IconButton, Presence, Spinner, useScrollEdge } from '../../ui'
+import {
+  Badge,
+  Button,
+  EmptyChatArt,
+  EmptyState,
+  FailedArt,
+  IconButton,
+  Presence,
+  Spinner,
+  useScrollEdge,
+} from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { type DrawerView, GroupDrawer, type SettingsTab } from '../groups/GroupDrawer'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
-import { continues, sameDay, unreadStart } from './grouping'
+import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
-import { BotReply, dayLabel, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
+import { repoName } from './repo'
+import { BotReply, dayLabel, EventFold, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
@@ -194,6 +203,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     )
   }
 
+  const folds = eventFolds(tl.messages, unreadAt)
+  const foldedAt = (i: number) => [...folds].some(([start, end]) => i > start && i <= end)
   const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
   /** Merged under the previous message: nothing (run card, divider) is drawn between them. */
   const isCompact = (prev: MessageDto | undefined, m: MessageDto) =>
@@ -229,10 +240,17 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
       <ChatHeader
         title={group.name}
         scrolled={scrolled}
-        badge={<Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>}
-        subtitle={
-          group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 bot 使用本机目录'
+        badge={
+          <span title={GROUP_MODE_HINT[group.mode]}>
+            <Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>
+          </span>
         }
+        subtitle={
+          group.repo
+            ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+            : '未绑定仓库 · 各 Bot 使用本机目录'
+        }
+        subtitleTitle={group.repo?.url}
         onBack={onBack}
         actions={
           <>
@@ -253,7 +271,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                 {group.members.length} 人{botCount ? ` · ${botCount} Bot` : ''}
               </button>
             ) : (
-              <span className="chat-header__note">仅你和你的 bot</span>
+              <span className="chat-header__note">仅你和你的 Bot</span>
             )}
             <IconButton
               variant="glass"
@@ -310,7 +328,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           {tl.failed ? (
             <EmptyState
               bare
-              illustration={failedArt}
+              illustration={<FailedArt />}
               title="消息加载失败"
               description="请检查网络后重试。"
               actions={
@@ -326,6 +344,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           ) : tl.messages.length ? (
             tl.messages.map((m, i) => {
               const prev = tl.messages[i - 1]
+              const foldEnd = folds.get(i)
+              if (foldEnd === undefined && foldedAt(i)) return null
               return (
                 <Fragment key={m.id}>
                   {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
@@ -338,16 +358,20 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                       <span>以下为新消息</span>
                     </div>
                   ) : null}
-                  <div
-                    data-msg-id={m.id}
-                    className={cx(
-                      'tl-item',
-                      tl.arrived.has(m.id) && 'tl-item--enter',
-                      flash === m.id && 'tl-item--flash',
-                    )}
-                  >
-                    {renderMessage(m, isCompact(prev, m))}
-                  </div>
+                  {foldEnd === undefined ? (
+                    <div
+                      data-msg-id={m.id}
+                      className={cx(
+                        'tl-item',
+                        tl.arrived.has(m.id) && 'tl-item--enter',
+                        flash === m.id && 'tl-item--flash',
+                      )}
+                    >
+                      {renderMessage(m, isCompact(prev, m))}
+                    </div>
+                  ) : (
+                    <EventFold events={tl.messages.slice(i, foldEnd + 1)} flash={flash} />
+                  )}
                   {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}
                 </Fragment>
               )
@@ -355,7 +379,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           ) : (
             <EmptyState
               bare
-              illustration={emptyChatArt}
+              illustration={<EmptyChatArt />}
               title="还没有消息"
               description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
             />

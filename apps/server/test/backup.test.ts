@@ -9,15 +9,15 @@ import { databaseUrl } from '../src/db/client.js'
 
 const scripts = join(import.meta.dirname, '../../../scripts')
 const admin = postgres(databaseUrl('postgres'), { onnotice: () => {} })
-const source = `aiws_bk_${randomBytes(4).toString('hex')}`
+const source = `gonggong_bk_${randomBytes(4).toString('hex')}`
 const target = `${source}_restored`
-const work = mkdtempSync(join(tmpdir(), 'aiws-backup-'))
+const work = mkdtempSync(join(tmpdir(), 'gonggong-backup-'))
 const backups = join(work, 'backups')
 const env = (db: string, dataDir: string) => ({
   ...process.env,
-  AIWS_DATABASE_URL: databaseUrl(db),
-  AIWS_BACKUP_DIR: backups,
-  AIWS_DATA_DIR: dataDir,
+  GONGGONG_DATABASE_URL: databaseUrl(db),
+  GONGGONG_BACKUP_DIR: backups,
+  GONGGONG_DATA_DIR: dataDir,
 })
 
 beforeAll(async () => {
@@ -43,7 +43,7 @@ describe('scripts/backup.sh + restore.sh', () => {
     mkdirSync(backups)
     for (let d = 1; d <= 8; d++) {
       const stamp = `2026010${d}-000000`
-      writeFileSync(join(backups, `aiws-${stamp}.dump`), '')
+      writeFileSync(join(backups, `gonggong-${stamp}.dump`), '')
       writeFileSync(join(backups, `attachments-${stamp}.tar.gz`), '')
     }
 
@@ -51,13 +51,13 @@ describe('scripts/backup.sh + restore.sh', () => {
       env: env(source, data),
       encoding: 'utf8',
     })
-    const stamp = /aiws-(\d{8}-\d{6})\.dump/.exec(out)?.[1]
+    const stamp = /gonggong-(\d{8}-\d{6})\.dump/.exec(out)?.[1]
     expect(stamp).toBeTruthy()
     const files = readdirSync(backups).sort()
     expect(files.filter((f) => f.endsWith('.dump'))).toHaveLength(7)
     expect(files.filter((f) => f.endsWith('.tar.gz'))).toHaveLength(7)
-    expect(files).toContain(`aiws-${stamp}.dump`)
-    expect(files).not.toContain('aiws-20260101-000000.dump')
+    expect(files).toContain(`gonggong-${stamp}.dump`)
+    expect(files).not.toContain('gonggong-20260101-000000.dump')
 
     const restored = join(work, 'restored')
     execFileSync('bash', [join(scripts, 'restore.sh'), stamp!], { env: env(target, restored), stdio: 'pipe' })

@@ -1,0 +1,14 @@
+<!-- @dsCard group="IM · 消息内容" height=170 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>FileAttachment</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start'}}, h(P.FileAttachment,{name:'2026 Q3 经营分析.pdf',size:'4.2 MB',meta:'已下载'}), h(P.FileAttachment,{name:'渠道数据汇总-9月.xlsx',size:'1.1 MB',progress:48,meta:'正在上传'})))
+</script>
+</body>
+</html>

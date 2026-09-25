@@ -1,12 +1,12 @@
-import { SYSTEM_PARAM_VIEW, type SystemParams } from '@aiws/protocol'
+import { SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Alert, Button, Input, Spinner, toast } from '../../ui'
+import { Alert, Button, Input, Spinner, Switch, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
-type Key = keyof SystemParams
+type Key = (typeof SYSTEM_PARAM_VIEW)[number]['key']
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
 export function useSystemParams(enabled = true) {
@@ -80,6 +80,16 @@ export function ParamsPage() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  async function setRegistration(registrationOpen: boolean) {
+    try {
+      const next = await api.put<SystemParams>('/admin/params', { registrationOpen })
+      setSaved((s) => (s ? { ...s, registrationOpen: next.registrationOpen } : next))
+      toast({ type: 'success', message: registrationOpen ? '已开放自助注册' : '已关闭自助注册' })
+    } catch (err) {
+      toast({ type: 'error', message: errorText(err) })
+    }
+  }
+
   async function save() {
     if (!saved) return
     const patch: Partial<Record<Key, number | null>> = {}
@@ -104,6 +114,29 @@ export function ParamsPage() {
   return (
     <AdminPage title="系统参数" desc="全局默认值；群级参数由群管理员在群设置中调整。">
       {error ? <Alert variant="error" description={error} /> : null}
+      {saved ? (
+        <section className="admin-params">
+          <h2 className="admin-params__title">账号</h2>
+          <div className="admin-list">
+            <div className="admin-param">
+              <span className="admin-param__label admin-param__label--stack">
+                开放自助注册
+                <span className="admin-param__hint">
+                  开启后登录页显示注册入口，注册即成为普通成员；关闭后只能由管理员创建账号。
+                </span>
+              </span>
+              <span className="admin-param__value">
+                <Switch
+                  ariaLabel="开放自助注册"
+                  label={saved.registrationOpen ? '已开放' : '已关闭'}
+                  checked={saved.registrationOpen}
+                  onChange={(v) => void setRegistration(v)}
+                />
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
       {saved ? (
         GROUPS.map((g) => (
           <section key={g.title} className="admin-params">

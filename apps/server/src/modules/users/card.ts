@@ -1,4 +1,4 @@
-import type { UserCardDto } from '@aiws/protocol'
+import type { UserCardDto } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'

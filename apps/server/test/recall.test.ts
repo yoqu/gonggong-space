@@ -7,7 +7,7 @@ import {
   type SearchResultDto,
   type TimelineDto,
   type ToolCallRes,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, messages, runs } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
@@ -182,7 +182,7 @@ describe('recall (撤回)', () => {
     expect(await last(w.asWang)).toBe('你撤回了一条消息')
   })
 
-  it('keeps the run it triggered but leaves it out of agent context and the aiws tools', async () => {
+  it('keeps the run it triggered but leaves it out of agent context and the gonggong tools', async () => {
     const w = await world()
     const d = await daemon(w.token)
     const secret = await w.say('机密方案 @小王的 Claude', { meta: { mentions: [w.bot.id] } })

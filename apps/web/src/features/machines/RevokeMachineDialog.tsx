@@ -1,4 +1,4 @@
-import type { MachineDto } from '@aiws/protocol'
+import type { MachineDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'

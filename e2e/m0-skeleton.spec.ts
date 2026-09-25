@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { adminSession, aiws, buildDaemon } from './helpers'
+import { adminSession, buildDaemon, gonggong } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -7,7 +7,7 @@ test('web, server and daemon are wired together', async ({ page, request }) => {
   expect(await (await request.get('/api/health')).json()).toEqual({ ok: true, protocol: 1 })
   await page.goto('/login')
   await expect(page.getByTestId('login-page')).toBeVisible()
-  expect(aiws(['agents'])).toMatch(/Claude|Codex/)
+  expect(gonggong(['agents'])).toMatch(/Claude|Codex/)
 })
 
 // UI-driven switching (AccountMenu) needs a login, and bootstrap auth is currently broken by the
@@ -17,7 +17,7 @@ test('light theme by default; dark persists across reload', async ({ page }) => 
   await page.goto('/login')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 
-  await page.evaluate(() => localStorage.setItem('aiws.theme', 'dark'))
+  await page.evaluate(() => localStorage.setItem('gonggong.theme', 'dark'))
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expect(page.getByTestId('login-page')).toBeVisible()

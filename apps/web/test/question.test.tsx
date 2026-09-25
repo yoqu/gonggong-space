@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, MessageDto, QuestionSetDto, RunDto, UserDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, MessageDto, QuestionSetDto, RunDto, UserDto } from '@gonggong/protocol'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -107,7 +107,7 @@ describe('QuestionBlock', () => {
   it('shows the card like the prototype, with who may answer and a live countdown', () => {
     render(<QuestionBlock run={run()} />)
     expect(screen.getByText('向群成员提问 · 4 个问题')).toBeTruthy()
-    expect(screen.getByText('· 触发人 王磊 或 bot 主人 李建国 可回答')).toBeTruthy()
+    expect(screen.getByText('· 触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
     for (const label of ['单选 ·', '多选 ·', '是/否 ·', '自由文本 ·'])
       expect(screen.getByText(label)).toBeTruthy()
     expect(button('Python推荐')).toBeTruthy()
@@ -200,7 +200,7 @@ describe('QuestionBlock', () => {
 
   it('names the chain initiator as the answerer of a relay hop', () => {
     render(<QuestionBlock run={run({ triggerUserId: null, hop: 2 })} />)
-    expect(screen.getByText('· 触发人 王磊 或 bot 主人 李建国 可回答')).toBeTruthy()
+    expect(screen.getByText('· 触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
   })
 
   it.each([

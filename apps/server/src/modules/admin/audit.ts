@@ -1,4 +1,4 @@
-import { type AuditDto, type AuditQuery, SYSTEM_PARAM_VIEW } from '@aiws/protocol'
+import { type AuditDto, type AuditQuery, SYSTEM_PARAM_VIEW } from '@gonggong/protocol'
 import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
@@ -29,12 +29,12 @@ const paramValue = (v: unknown, unit: string) => (v === null ? '未设置' : `${
 
 function paramChanges(d: Detail) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
-  return SYSTEM_PARAM_VIEW.filter((p) => p.key in changes)
-    .map(({ key, label, unit }) => {
-      const [from, to] = changes[key] as [unknown, unknown]
-      return `${label} ${paramValue(from, '')} → ${paramValue(to, ` ${unit}`)}`
-    })
-    .join('；')
+  const numeric = SYSTEM_PARAM_VIEW.filter((p) => p.key in changes).map(({ key, label, unit }) => {
+    const [from, to] = changes[key] as [unknown, unknown]
+    return `${label} ${paramValue(from, '')} → ${paramValue(to, ` ${unit}`)}`
+  })
+  const reg = changes.registrationOpen ? [changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册'] : []
+  return [...reg, ...numeric].join('；')
 }
 
 /** One-line Chinese description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
@@ -80,11 +80,11 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'bot.create':
           return `为 ${n.user(d.ownerId)} 新建 Bot ${str(d.name)}`
         case 'bot.update':
-          return `修改 ${n.user(d.ownerId)} 的 bot ${str(d.name)}`
+          return `修改 ${n.user(d.ownerId)} 的 Bot ${str(d.name)}`
         case 'bot.delete':
-          return `删除 ${n.user(d.ownerId)} 的 bot ${str(d.name)}`
+          return `删除 ${n.user(d.ownerId)} 的 Bot ${str(d.name)}`
         case 'bot.confirm':
-          return `确认 bot ${str(d.name)}`
+          return `确认 Bot ${str(d.name)}`
         case 'user.create':
           return `新建账号 ${str(d.account)}（${ROLE[str(d.role)] ?? str(d.role)}）`
         case 'user.update': {
@@ -94,6 +94,10 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           ].filter(Boolean)
           return `修改账号 ${n.user(d.userId)}：${parts.join('，')}`
         }
+        case 'user.password.reset':
+          return `重置 ${str(d.account)} 的密码`
+        case 'user.register':
+          return `自助注册账号 ${str(d.account)}`
         case 'user.disable':
           return `停用账号 ${str(d.account)}`
         case 'user.enable':
@@ -119,9 +123,9 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'group.member.remove':
           return `将 ${str(d.name)} 移出群`
         case 'group.bot.add':
-          return `拉入 bot ${str(d.name)}`
+          return `拉入 Bot ${str(d.name)}`
         case 'group.bot.remove':
-          return `移出 bot ${str(d.name)}`
+          return `移出 Bot ${str(d.name)}`
         case 'group.repo.change':
           return `${d.previous ? '更换' : '绑定'}仓库 ${str(d.url)} · 基准分支 ${str(d.branch)}`
       }

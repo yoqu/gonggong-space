@@ -1,4 +1,4 @@
-import { DaemonToServer, PROTOCOL_VERSION, type ServerToDaemon } from '@aiws/protocol'
+import { DaemonToServer, PROTOCOL_VERSION, type ServerToDaemon } from '@gonggong/protocol'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'

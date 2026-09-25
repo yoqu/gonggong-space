@@ -5,7 +5,7 @@ import type {
   AuditDto,
   SystemParams,
   UserDto,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,6 +41,7 @@ const PARAMS: SystemParams = {
   botConcurrencyDefault: 2,
   backupRetentionDays: 7,
   archiveRetentionDays: 30,
+  registrationOpen: false,
 }
 
 class NoopSocket {
@@ -87,7 +88,7 @@ describe('账号与角色 · 停用 / 启用', () => {
     for (const line of [
       '立即吊销其所有 daemon token 和 Web 会话',
       'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
-      '其 bot 从所有群移除；持锁中的 bot 按非主动中断处理',
+      '其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理',
       '群消息与审计记录保留',
     ])
       expect(within(dialog).getByText(new RegExp(line.replace(/[()（）]/g, '.')))).toBeTruthy()
@@ -282,7 +283,7 @@ describe('机器与网络', () => {
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
       await screen.findByText(
-        '网络质量由成员在 daemon 中测量上报（aiws net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
+        '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
       ),
     ).toBeTruthy()
   })
@@ -425,6 +426,24 @@ describe('审计记录', () => {
 })
 
 describe('系统参数', () => {
+  it('opens and closes self sign-up at once from the 账号 section', async () => {
+    let open = false
+    const calls = mockApi({
+      'GET /admin/params': () => ({ ...PARAMS, registrationOpen: open }),
+      'PUT /admin/params': (body: unknown) => {
+        open = (body as { registrationOpen: boolean }).registrationOpen
+        return { ...PARAMS, registrationOpen: open }
+      },
+    })
+    renderAt('/admin/params')
+    const toggle = (await screen.findByRole('switch', { name: '开放自助注册' })) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    fireEvent.click(toggle)
+    await waitFor(() => expect(screen.getByText('已开放')).toBeTruthy())
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ registrationOpen: true })
+    expect(screen.queryByRole('region', { name: '未保存的修改' })).toBeNull()
+  })
+
   it('groups params into sections, marks edits and saves only what changed from the save bar', async () => {
     const calls = mockApi({
       'GET /admin/params': { ...PARAMS, writerDisconnectReleaseSec: 60 },

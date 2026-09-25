@@ -1,4 +1,4 @@
-import { type AgentKind, compareVersions } from '@aiws/protocol'
+import { type AgentKind, compareVersions } from '@gonggong/protocol'
 import { Badge, Button, Select, Tabs, toast } from '@web/ui'
 import { Info, SquareTerminal, Terminal, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
@@ -91,7 +91,7 @@ function Agent({
   const adapter = info?.adapters.find((x) => x.kind === a.kind)
   const [copied, setCopied] = useState(false)
   const Icon = a.kind === 'claude' ? Terminal : SquareTerminal
-  const usedBy = users.length ? `被 ${users.join('、')} 使用` : '暂无 bot 使用'
+  const usedBy = users.length ? `被 ${users.join('、')} 使用` : '暂无 Bot 使用'
   const badge = checking
     ? { v: 'info' as const, t: '检测中' }
     : a.available
@@ -156,7 +156,7 @@ function Agent({
           </div>
           <div className="dk-agent__section dk-split">
             <div className="dk-field">
-              <span className="dk-field__label">默认模型 · bot 未单独指定时使用</span>
+              <span className="dk-field__label">默认模型 · Bot 未单独指定时使用</span>
               {a.catalog?.models.length ? (
                 <Select
                   label="默认模型"

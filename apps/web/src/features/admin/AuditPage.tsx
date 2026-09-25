@@ -1,4 +1,4 @@
-import type { AuditDto } from '@aiws/protocol'
+import type { AuditDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { SendMessageReq, type TimelineDto, TimelineQuery } from '@aiws/protocol'
+import { SendMessageReq, type TimelineDto, TimelineQuery } from '@gonggong/protocol'
 import { and, desc, eq, lt, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

@@ -22,7 +22,7 @@ const RAIL_DEFAULT: Record<RailKind, number> = { run: 320, preview: 440 }
 const RAIL_MIN_WIDTH = 280
 const RAIL_MAX_SHARE = 0.6
 const RAIL_STEP = 16
-const railKey = (kind: RailKind) => `aiws.railWidth.${kind}`
+const railKey = (kind: RailKind) => `gonggong.railWidth.${kind}`
 
 const storedWidth = (kind: RailKind) => {
   try {
@@ -127,6 +127,7 @@ export function ChatHeader({
   title,
   badge,
   subtitle,
+  subtitleTitle,
   actions,
   onBack,
   scrolled,
@@ -134,6 +135,8 @@ export function ChatHeader({
   title: ReactNode
   badge?: ReactNode
   subtitle?: ReactNode
+  /** Full text behind a shortened subtitle (e.g. the repo URL). */
+  subtitleTitle?: string
   actions?: ReactNode
   onBack?: () => void
   /** The timeline has scrolled under the header. */
@@ -151,7 +154,11 @@ export function ChatHeader({
           <h1 className="chat-header__title">{title}</h1>
           {badge}
         </div>
-        {subtitle ? <div className="chat-header__sub">{subtitle}</div> : null}
+        {subtitle ? (
+          <div className="chat-header__sub" title={subtitleTitle}>
+            {subtitle}
+          </div>
+        ) : null}
       </div>
       {actions ? <div className="chat-header__actions">{actions}</div> : null}
     </Toolbar>

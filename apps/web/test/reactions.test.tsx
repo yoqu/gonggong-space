@@ -1,4 +1,4 @@
-import type { MessageDto, ReactionDto, WebEvent } from '@aiws/protocol'
+import type { MessageDto, ReactionDto, WebEvent } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MotionGlobalConfig } from 'motion/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -1,4 +1,4 @@
-import type { ApprovalDto, PermissionOption, RunDto } from '@aiws/protocol'
+import type { ApprovalDto, PermissionOption, RunDto } from '@gonggong/protocol'
 import { ShieldAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
@@ -94,7 +94,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   }
 
   return (
-    <div className="approval">
+    <div className="approval" data-resolved={!pending || undefined}>
       <div className="approval__title">
         {pending ? (
           <CountdownRing
@@ -137,7 +137,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
             拒绝
           </Button>
           <span className="approval__hint">
-            {mine ? '你是 bot 主人' : `仅 bot 主人 ${bot?.ownerName ?? ''} 可操作，你只能查看`}
+            {mine ? '你是 Bot 主人' : `仅 Bot 主人 ${bot?.ownerName ?? ''} 可操作，你只能查看`}
           </span>
         </div>
       ) : (

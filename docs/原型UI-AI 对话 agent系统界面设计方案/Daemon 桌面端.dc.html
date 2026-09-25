@@ -17,7 +17,7 @@
   <div style="width:1100px;max-width:100%;height:720px;position:relative;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--color-border-strong);background:var(--color-window-bg);box-shadow:0 18px 44px rgba(0,0,0,.44);overflow:hidden">
     <div style="height:44px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;background:var(--color-titlebar-bg);border-bottom:1px solid var(--color-separator)">
       <x-import component-from-global-scope="DesignSystem_83d2b2.TrafficLights" hint-size="52px,12px"></x-import>
-      <span style="font-weight:600">AIWS Daemon</span>
+      <span style="font-weight:600">共工 Daemon</span>
       <span style="font-size:11px;color:var(--color-text-tertiary)">v0.9.3 · 协议 v3</span>
       <div style="flex:1"></div>
       <div style="display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:{{ connBg }};font-size:11px;color:{{ connC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ connC }}"></span>{{ connText }}</div>
@@ -30,9 +30,9 @@
           <sc-if value="{{ ob0 }}">
             <div style="font-size:24px;font-weight:600">绑定到团队服务器</div>
             <div style="font-size:13px;color:var(--color-text-secondary);text-wrap:pretty">在 Web 端头像菜单选择「绑定新机器」生成一次性绑定码。绑定后本机归属于你，所有连接均由本机向外发起。</div>
-            <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">服务器<input value="https://aiws.corp.cn" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:12px"></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">服务器<input value="https://gonggong.corp.cn" style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:12px"></label>
             <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary)">绑定码<input value="K7QM-4X2P" style="height:40px;padding:0 12px;border-radius:6px;border:1px solid var(--color-border-control);background:var(--color-control-bg);font-family:var(--font-mono);font-size:18px;letter-spacing:0.16em"></label>
-            <div style="font-size:11px;color:var(--color-text-tertiary);font-family:var(--font-mono)">等价命令：aiws login --code K7QM-4X2P</div>
+            <div style="font-size:11px;color:var(--color-text-tertiary);font-family:var(--font-mono)">等价命令：gg login --code K7QM-4X2P</div>
           </sc-if>
           <sc-if value="{{ ob1 }}">
             <div style="font-size:24px;font-weight:600">检测本机 agent</div>
@@ -66,7 +66,7 @@
           <sc-if value="{{ offline }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="服务器不可用 · 指数退避重连中（下次 16 秒后）" description="运行中的轮次在本地继续并缓存输出，重连后补传；强制同步群该轮结束后的提交等服务器恢复后执行。" hint-size="100%,64px"></x-import></sc-if>
           <sc-if value="{{ protoBad }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="error" title="协议版本不兼容 · 服务器拒绝连接" description="本机 daemon v0.8.7 使用协议 v2，服务器要求协议 v3。自动升级已下载 v0.9.3，重启 daemon 后生效；升级前本机 bot 显示离线。" hint-size="100%,64px"></x-import></sc-if>
           <sc-if value="{{ revoked }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="error" title="token 已被吊销 · 账号已停用" description="已清除本机团队密钥与 5 个托管工作区（尽力而非保证）；/cd 绑定的目录与本机备份目录不动。如有误，请联系系统管理员后重新绑定。" hint-size="100%,64px"></x-import></sc-if>
-          <sc-if value="{{ connOk }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="检测到未持锁的本地修改 · 官网改版" description="src/pages/pricing.tsx 在未持锁时被修改。下次同步会先备份到 ~/.aiws/backups/ 再覆盖；要保留，请先在群里 /hold，改完 /release 发布为新版本。" hint-size="100%,64px"></x-import></sc-if>
+          <sc-if value="{{ connOk }}"><x-import component-from-global-scope="DesignSystem_83d2b2.Alert" variant="warning" title="检测到未持锁的本地修改 · 官网改版" description="src/pages/pricing.tsx 在未持锁时被修改。下次同步会先备份到 ~/.gonggong/backups/ 再覆盖；要保留，请先在群里 /hold，改完 /release 发布为新版本。" hint-size="100%,64px"></x-import></sc-if>
           <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border-radius:10px;border:1px solid var(--color-separator);background:var(--color-separator);overflow:hidden">
             <sc-for list="{{ stats }}" as="st"><div style="display:flex;flex-direction:column;gap:4px;padding:14px;background:var(--color-panel-bg)"><span style="font-size:11px;color:var(--color-text-tertiary)">{{ st.k }}</span><span style="font-size:15px;font-weight:600">{{ st.v }}</span><span style="font-size:11px;color:var(--color-text-tertiary)">{{ st.s }}</span></div></sc-for>
           </div>
@@ -240,7 +240,7 @@ class Component extends DCLogic {
           install: A.install, copy: () => { this.setState({ copied: k }); this.flash('安装命令已复制'); }, copyLabel: s.copied === k ? '已复制' : '复制' }; }),
       acpText: 'ACP 适配器 ' + Object.keys(AG).filter(k => s.inst[k]).map(k => AG[k].acp).join(' · '),
       claimList: [{ name: '小王的 Claude', desc: 'Claude Code · 后端接口开发，只改 server/ 目录' }, { name: '小王的 Codex', desc: 'Codex · 陈晨 为你创建' }],
-      connText: { ok: '已连接 aiws.corp.cn', offline: '重连中', proto: '协议不兼容', revoked: 'token 已吊销' }[s.conn], connC: { ok: '#32D74B', offline: '#FF9F0A', proto: '#FF453A', revoked: '#FF453A' }[s.conn], connBg: { ok: 'rgba(50,215,75,0.1)', offline: 'rgba(255,159,10,0.1)', proto: 'rgba(255,69,58,0.1)', revoked: 'rgba(255,69,58,0.1)' }[s.conn],
+      connText: { ok: '已连接 gonggong.corp.cn', offline: '重连中', proto: '协议不兼容', revoked: 'token 已吊销' }[s.conn], connC: { ok: '#32D74B', offline: '#FF9F0A', proto: '#FF453A', revoked: '#FF453A' }[s.conn], connBg: { ok: 'rgba(50,215,75,0.1)', offline: 'rgba(255,159,10,0.1)', proto: 'rgba(255,69,58,0.1)', revoked: 'rgba(255,69,58,0.1)' }[s.conn],
       nav: NAV.map(([k, l, ic]) => ({ label: l, icon: ic, bg: p(k) ? 'rgba(255,255,255,0.1)' : 'transparent', c: p(k) ? '#fff' : 'var(--color-text-secondary)', badge: k === 'secrets' ? '1' : k === 'sync' ? '1' : '', bc: k === 'secrets' ? '#FF9F0A' : '#0A84FF', onClick: () => this.setState({ page: k }) })),
       title: T[0], desc: T[1],
       pOverview: p('overview'), pBots: p('bots'), pWs: p('ws'), pSync: p('sync'), pSecrets: p('secrets'), pLogs: p('logs'), pSettings: p('settings'),
@@ -267,13 +267,13 @@ class Component extends DCLogic {
           dNote: s.inst[d.agent] ? '切换 agent 会结束该 bot 在各群的会话上下文，下一轮重新开始；工作区与文件不受影响。' : '当前 agent 未安装。模型与并发可先保存，安装并检测通过后生效。' }; })() : {}),
       concItems: ['1', '2', '3', '4'].map(v => ({ value: v, label: v })), apprItems: Object.entries(APPR).map(([value, label]) => ({ value, label })),
       workspaces: [
-        { g: '支付服务重构', b: '小王的 Claude', t: '托管', p: '~/.aiws/workspaces/g_pay/b_wl_claude/r_pay-server/', s: '运行中', c: '#0A84FF', a: '打开' },
-        { g: '官网改版', b: '小王的 Claude', t: '托管 · 强制同步', p: '~/.aiws/workspaces/g_site/b_wl_claude/r_site/', s: 'v17', c: 'var(--color-text-secondary)', a: '打开' },
+        { g: '支付服务重构', b: '小王的 Claude', t: '托管', p: '~/.gonggong/workspaces/g_pay/b_wl_claude/r_pay-server/', s: '运行中', c: '#0A84FF', a: '打开' },
+        { g: '官网改版', b: '小王的 Claude', t: '托管 · 强制同步', p: '~/.gonggong/workspaces/g_site/b_wl_claude/r_site/', s: 'v17', c: 'var(--color-text-secondary)', a: '打开' },
         { g: '数据平台', b: '小王的 Claude', t: '/cd 绑定', p: '~/code/data-etl', s: '空闲', c: 'var(--color-text-secondary)', a: '改回托管' },
-        { g: '私聊', b: '小王的 Claude', t: '托管 · 无仓库', p: '~/.aiws/workspaces/g_dm_wl/b_wl_claude/_empty/', s: '空闲', c: 'var(--color-text-secondary)', a: '打开' },
-        { g: '旧版后台（已移出）', b: '小王的 Claude', t: '托管', p: '~/.aiws/workspaces/g_admin/b_wl_claude/r_admin/', s: '已移出 · 412 MB', c: '#FF9F0A', a: '删除' },
+        { g: '私聊', b: '小王的 Claude', t: '托管 · 无仓库', p: '~/.gonggong/workspaces/g_dm_wl/b_wl_claude/_empty/', s: '空闲', c: 'var(--color-text-secondary)', a: '打开' },
+        { g: '旧版后台（已移出）', b: '小王的 Claude', t: '托管', p: '~/.gonggong/workspaces/g_admin/b_wl_claude/r_admin/', s: '已移出 · 412 MB', c: '#FF9F0A', a: '删除' },
       ],
-      backups: [{ s: '未持锁时的本地修改 · 官网改版 · 被 v17 覆盖前', p: '~/.aiws/backups/web-site/0923-1002/' }, { s: '中断半成品 · 官网改版 · agent 崩溃', p: '~/.aiws/backups/web-site/0921-1540/' }],
+      backups: [{ s: '未持锁时的本地修改 · 官网改版 · 被 v17 覆盖前', p: '~/.gonggong/backups/web-site/0923-1002/' }, { s: '中断半成品 · 官网改版 · agent 崩溃', p: '~/.gonggong/backups/web-site/0921-1540/' }],
       syncEvents: [['10:12:40', '开始补齐 v17 → v18 · 来源：服务器权威副本'], ['10:05:31', 'v18 由 小王的 Claude 提交（标记中断）'], ['10:04:02', '上传增量到暂存区 · 6 个文件'], ['09:52:10', '拿到群锁 · 基于 v16'], ['09:40:55', '应用 v16 · 已确认']].map(([t, x]) => ({ t, s: x })),
       secrets: [
         { n: 'JIRA_TOKEN', u: '被 jira MCP 引用 · 全局层', v: '未设置', c: '#FF9F0A', a: '设置', bv: 'primary' },
@@ -301,9 +301,9 @@ class Component extends DCLogic {
       settings: [
         { k: '自动升级', d: '服务器公布协议版本，不兼容时拒绝连接并提示升级', sw: true, on: s.sw.upd, toggle: v => this.setState({ sw: { ...s.sw, upd: v } }) },
         { k: '开机启动', d: '登录系统后在后台运行', sw: true, on: s.sw.boot, toggle: v => this.setState({ sw: { ...s.sw, boot: v } }) },
-        { k: '工作区根目录', d: '托管工作区与附件目录', v: '~/.aiws/workspaces' },
-        { k: '备份目录', d: '被覆盖的本地修改、中断的半成品', v: '~/.aiws/backups' },
-        { k: '服务器', d: '只出站连接 · HTTPS / WSS', v: 'aiws.corp.cn' },
+        { k: '工作区根目录', d: '托管工作区与附件目录', v: '~/.gonggong/workspaces' },
+        { k: '备份目录', d: '被覆盖的本地修改、中断的半成品', v: '~/.gonggong/backups' },
+        { k: '服务器', d: '只出站连接 · HTTPS / WSS', v: 'gonggong.corp.cn' },
       ],
       unbind: () => this.setState({ bound: false, ob: 0 }),
     };

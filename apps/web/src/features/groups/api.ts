@@ -1,4 +1,4 @@
-import type { GroupDto, GroupParams, GroupPrefsReq } from '@aiws/protocol'
+import type { GroupDto, GroupParams, GroupPrefsReq } from '@gonggong/protocol'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 

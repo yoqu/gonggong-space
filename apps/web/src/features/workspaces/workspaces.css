@@ -7,6 +7,11 @@
   display: flex;
   gap: 6px;
 }
+.dirpick__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-warning-text);
+}
 .dirpick__git {
   display: flex;
   align-items: center;
@@ -34,6 +39,10 @@
   padding: var(--pad);
 }
 .dirpick__item {
+  flex: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -65,8 +74,80 @@
 }
 .dirpick__choices {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+}
+.dirpick__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel-bg);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast),
+    background var(--motion-fast),
+    transform var(--spring-interactive);
+}
+.dirpick__choice:hover {
+  border-color: var(--color-system-blue);
+  background: var(--color-bg-info);
+}
+.dirpick__choice:active {
+  transform: scale(0.99);
+}
+.dirpick__choice-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-system-blue);
+}
+.dirpick__choice-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dirpick__choice-title {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dirpick__choice-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.dirpick__badge {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--color-success-text);
+  background: var(--color-bg-success);
+}
+.dirpick__or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.dirpick__or::before,
+.dirpick__or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-separator);
 }
 .ws-banner {
   display: flex;

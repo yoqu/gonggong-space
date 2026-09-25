@@ -1,4 +1,4 @@
-import type { MessageDto, RunStart, ServerToDaemon } from '@aiws/protocol'
+import type { MessageDto, RunStart, ServerToDaemon } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupRepos, groups, messages, runs } from '../src/db/schema.js'
@@ -69,7 +69,7 @@ describe('system commands', () => {
   it('/new without a bot explains the usage', async () => {
     const w = await world()
     await w.say(w.asWang, '/new')
-    expect(await w.eventsText()).toEqual(['/new 需要同时 @ 一个 bot，如 /new @小王的 Claude'])
+    expect(await w.eventsText()).toEqual(['/new 需要同时 @ 一个 Bot，如 /new @小王的 Claude'])
   })
 
   it('the next dispatch opens a requested new session once, without the command in its context', async () => {
@@ -145,14 +145,14 @@ describe('/cd', () => {
     await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.g.id))
     await w.say(w.asWang, '/cd @小王的 Claude /tmp/x')
     const usage =
-      '/cd 需要 @ 一个 bot，如 /cd @小王的 Claude /本机/绝对路径，或 /cd @小王的 Claude --reset 回到托管'
+      '/cd 需要 @ 一个 Bot，如 /cd @小王的 Claude /本机/绝对路径，或 /cd @小王的 Claude --reset 回到托管'
     expect(await w.eventsText()).toEqual([
-      '只有 bot 主人可以使用 /cd',
+      '只有 Bot 主人可以使用 /cd',
       usage,
       usage,
       '/cd 需要本机绝对路径，如 /Users/me/code/repo',
       usage,
-      '/cd 仅分区模式可用；强制同步群里非托管工作区的 bot 为「不参与」',
+      '/cd 仅分区模式可用；强制同步群里非托管工作区的 Bot 为「不参与」',
     ])
     expect(w.sent).toEqual([])
   })

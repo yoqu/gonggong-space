@@ -1,4 +1,4 @@
-import type { ApprovalDto, RunDetailDto, RunEvent } from '@aiws/protocol'
+import type { ApprovalDto, RunDetailDto, RunEvent } from '@gonggong/protocol'
 import { newSessionNote } from '../chat/TimelineItems'
 import { VOID_TEXT } from './ApprovalBlock'
 
@@ -101,7 +101,7 @@ export const hhmm = (iso: string) => {
 export function approvalText(a: ApprovalDto) {
   switch (a.status) {
     case 'pending':
-      return '等待 bot 主人审批'
+      return '等待 Bot 主人审批'
     case 'approved':
       return `${a.decidedByName ?? ''} 已批准`.trim()
     case 'rejected':

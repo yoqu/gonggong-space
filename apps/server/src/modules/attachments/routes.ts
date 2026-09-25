@@ -103,7 +103,7 @@ export function attachmentRoutes(ctx: Ctx) {
           and(eq(groupBots.groupId, a.groupId), eq(bots.machineId, machine.id), isNull(groupBots.removedAt)),
         )
         .limit(1)
-      if (!hosted) return fail('forbidden', '该机器上没有这个群的 bot')
+      if (!hosted) return fail('forbidden', '该机器上没有这个群的 Bot')
       return sendFile(reply, a)
     })
   }

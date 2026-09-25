@@ -24,7 +24,7 @@ beforeEach(() => {
   m.diagnostics.mockResolvedValue(CHECKS)
   m.recentLogs.mockResolvedValue(LINES)
   m.measureNet.mockResolvedValue({ latencyMs: 23.4, bandwidthMbps: 87.5 })
-  m.exportDiagnostics.mockResolvedValue('/Users/wl/Desktop/aiws-diag.zip')
+  m.exportDiagnostics.mockResolvedValue('/Users/wl/Desktop/gonggong-diag.zip')
 })
 afterEach(() => vi.useRealTimers())
 

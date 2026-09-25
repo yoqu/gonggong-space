@@ -1,4 +1,4 @@
-import type { Answer, Question, QuestionSetDto, RunDto } from '@aiws/protocol'
+import type { Answer, Question, QuestionSetDto, RunDto } from '@gonggong/protocol'
 import { MessageCircleQuestion } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useSession } from '../../app/session'
@@ -116,8 +116,8 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   const owner = bot?.ownerName ?? ''
   const who =
     run.originUserId === bot?.ownerId
-      ? `触发人兼 bot 主人 ${trigger} 可回答`
-      : `触发人 ${trigger} 或 bot 主人 ${owner} 可回答`
+      ? `触发人兼 Bot 主人 ${trigger} 可回答`
+      : `触发人 ${trigger} 或 Bot 主人 ${owner} 可回答`
   const ready = set.questions.every((question) => answered(question, draftOf(question)))
 
   return (

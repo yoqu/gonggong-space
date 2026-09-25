@@ -39,14 +39,14 @@ export const PAGES: {
     key: 'bots',
     label: 'Bot',
     icon: Bot,
-    desc: '认领到本机的团队 bot：指定 agent、模型、并发与审批',
+    desc: '认领到本机的团队 Bot：指定 agent、模型、并发与审批',
     Component: BotsPage,
   },
   {
     key: 'workspaces',
     label: '工作区',
     icon: FolderGit2,
-    desc: '每个「群 × bot」一个托管目录，或 /cd 绑定的本机目录',
+    desc: '每个「群 × Bot」一个托管目录，或 /cd 绑定的本机目录',
     Component: WorkspacesPage,
   },
   {

@@ -1,4 +1,4 @@
-import type { BotDto, UserBriefDto, UserDto } from '@aiws/protocol'
+import type { BotDto, UserBriefDto, UserDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { Dialog, toast } from '../../ui'

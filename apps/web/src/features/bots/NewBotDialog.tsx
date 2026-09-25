@@ -1,4 +1,4 @@
-import type { AgentKind, BotDto, BotOwnerDto, MachineDto, UserDto } from '@aiws/protocol'
+import type { AgentKind, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { CircleCheck, Clock, Info, TriangleAlert, UserCheck } from 'lucide-react'
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
@@ -226,7 +226,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           {machines.length ? null : (
             <div className="newbot__note">
               <Info size={13} className="muted-icon" />
-              <span>{owner.name} 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。</span>
+              <span>{owner.name} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。</span>
             </div>
           )}
         </section>

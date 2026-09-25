@@ -1,4 +1,4 @@
-import type { ToolCallRes } from '@aiws/protocol'
+import type { ToolCallRes } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupRepos, groups, messages, questionSets, runs } from '../src/db/schema.js'
@@ -70,7 +70,7 @@ async function world() {
     status = 'running',
     o: Partial<typeof runs.$inferInsert> = {},
   ) => {
-    const trigger = await say(groupId, '@bot 干活')
+    const trigger = await say(groupId, '@Bot 干活')
     const [r] = await t.db
       .insert(runs)
       .values({ groupId, botId, triggerMessageId: trigger.id, originUserId: wang.id, status, ...o })
@@ -89,7 +89,7 @@ async function world() {
   return { wang, li, token, other, claude, codex, pay, data, old, archived, dm, foreign, say, run, call }
 }
 
-describe('aiws tool calls', () => {
+describe('gonggong tool calls', () => {
   it('only answers the calling machine during a live run', async () => {
     const w = await world()
     const live = await w.run(w.pay.id, w.claude.id)
@@ -130,7 +130,7 @@ describe('aiws tool calls', () => {
         `^\\[#${s(reply)} 2026-09-23 10:07\\] 老李的 Codex: 接口已改好长+…（已截断，共 2105 字）（附件：diff.png）$`,
       ),
     )
-    expect(lines[3]).toMatch(/王磊: @bot 干活$/)
+    expect(lines[3]).toMatch(/王磊: @Bot 干活$/)
     expect(latest.text).not.toContain('/new')
     expect(latest.text).not.toContain('加入了群')
     expect(lines.at(-1)).toBe(`更早：before=${s(said[4]!)}`)

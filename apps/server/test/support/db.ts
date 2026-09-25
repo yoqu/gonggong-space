@@ -4,7 +4,7 @@ import { databaseUrl, migrateDb, openDb } from '../../src/db/client.js'
 
 /** A fresh, fully migrated database per test file; dropped by `close()`. */
 export async function createTestDb() {
-  const name = `aiws_t_${randomBytes(4).toString('hex')}`
+  const name = `gonggong_t_${randomBytes(4).toString('hex')}`
   const admin = postgres(databaseUrl('postgres'), { onnotice: () => {} })
   await admin.unsafe(`CREATE DATABASE ${name}`)
   const { db, sql } = openDb(databaseUrl(name))

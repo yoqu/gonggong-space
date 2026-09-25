@@ -1,4 +1,4 @@
-import type { WebEvent } from '@aiws/protocol'
+import type { WebEvent } from '@gonggong/protocol'
 
 type Sink = (event: WebEvent) => void
 

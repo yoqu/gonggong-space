@@ -1,4 +1,4 @@
-import type { RunEvent } from '@aiws/protocol'
+import type { RunEvent } from '@gonggong/protocol'
 import { open, seal } from '../../lib/seal.js'
 
 /** Free text of the run process (streamed output, tool details) is sealed at rest; kind, status, tool titles and

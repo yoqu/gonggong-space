@@ -1,4 +1,4 @@
-import { type BotOwnerDto, CreateBotReq, DaemonBotPatchReq, UpdateBotReq } from '@aiws/protocol'
+import { type BotOwnerDto, CreateBotReq, DaemonBotPatchReq, UpdateBotReq } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -22,7 +22,7 @@ async function loadBot(ctx: Ctx, rawId: string) {
     .select()
     .from(bots)
     .where(and(eq(bots.id, id), isNull(bots.deletedAt)))
-  return bot ?? fail('not_found', 'bot 不存在')
+  return bot ?? fail('not_found', 'Bot 不存在')
 }
 
 async function assertNameFree(ctx: Ctx, name: string, exceptId?: string) {
@@ -43,7 +43,7 @@ async function assertUsers(ctx: Ctx, ids: string[]) {
 
 function assertCanManage(user: SessionUser, bot: BotRow) {
   if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-    fail('forbidden', '只有归属人或系统管理员可以修改该 bot')
+    fail('forbidden', '只有归属人或系统管理员可以修改该 Bot')
 }
 
 /** Sysadmin actions on someone else's bot are audited (spec 9: all admin operations). */
@@ -115,7 +115,7 @@ export function botRoutes(ctx: Ctx) {
       const body = CreateBotReq.parse(req.body)
       const name = body.name.trim()
       if (!name) fail('invalid', '名称不能为空')
-      if (body.ownerId !== user.id && user.role !== 'sysadmin') fail('forbidden', '成员只能为自己创建 bot')
+      if (body.ownerId !== user.id && user.role !== 'sysadmin') fail('forbidden', '成员只能为自己创建 Bot')
       const [owner] = isUuid(body.ownerId)
         ? await ctx.db
             .select()
@@ -184,7 +184,7 @@ export function botRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
       if (user.id !== bot.ownerId) fail('forbidden', '只有机器主人可以确认')
-      if (bot.binding !== 'pending_confirm') fail('conflict', '该 bot 无需确认')
+      if (bot.binding !== 'pending_confirm') fail('conflict', '该 Bot 无需确认')
       return confirmBot(ctx, bot)
     })
 
@@ -211,12 +211,12 @@ export function botRoutes(ctx: Ctx) {
     const loadMachineBot = async (req: FastifyRequest<IdParams>) => {
       const machine = await requireMachine(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
-      return bot.machineId === machine.id ? bot : fail('not_found', 'bot 不存在')
+      return bot.machineId === machine.id ? bot : fail('not_found', 'Bot 不存在')
     }
 
     app.post<IdParams>('/api/daemon/bots/:id/confirm', async (req) => {
       const bot = await loadMachineBot(req)
-      if (bot.binding !== 'pending_confirm') fail('conflict', '该 bot 无需确认')
+      if (bot.binding !== 'pending_confirm') fail('conflict', '该 Bot 无需确认')
       return confirmBot(ctx, bot)
     })
 

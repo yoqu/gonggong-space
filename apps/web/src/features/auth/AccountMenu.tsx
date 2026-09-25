@@ -1,5 +1,17 @@
-import type { UserDto } from '@aiws/protocol'
-import { BarChart3, Check, Droplet, Layers, Link2, LogOut, Monitor, Moon, Palette, Sun } from 'lucide-react'
+import type { UserDto } from '@gonggong/protocol'
+import {
+  BarChart3,
+  Check,
+  Droplet,
+  KeyRound,
+  Layers,
+  Link2,
+  LogOut,
+  Monitor,
+  Moon,
+  Palette,
+  Sun,
+} from 'lucide-react'
 import { useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
@@ -7,6 +19,7 @@ import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
 import { Presence, useEscape, usePresence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { UsageDialog } from '../usage/UsagePage'
+import { ChangePasswordDialog } from './ChangePasswordPage'
 import { logout } from './logout'
 import './auth.css'
 import './account-menu.css'
@@ -31,6 +44,7 @@ export function AccountMenu() {
   const [open, setOpen] = useState(false)
   const [binding, setBinding] = useState(false)
   const [usage, setUsage] = useState(false)
+  const [password, setPassword] = useState(false)
   const [theme, setThemeState] = useState<ThemePreference>(getTheme)
   const [glass, setGlassState] = useState<GlassPreference>(getGlass)
 
@@ -107,6 +121,17 @@ export function AccountMenu() {
               <BarChart3 size={13} />
               我的用量
             </button>
+            <button
+              type="button"
+              className="account__item"
+              onClick={() => {
+                setOpen(false)
+                setPassword(true)
+              }}
+            >
+              <KeyRound size={13} />
+              修改密码
+            </button>
             <div className="account__sep" />
             <div className="account__label">外观</div>
             {THEME_OPTIONS.map(({ value, label, Icon }) => (
@@ -148,6 +173,7 @@ export function AccountMenu() {
       ) : null}
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
       <Presence>{usage ? <UsageDialog onClose={() => setUsage(false)} /> : null}</Presence>
+      <Presence>{password ? <ChangePasswordDialog onClose={() => setPassword(false)} /> : null}</Presence>
     </div>
   )
 }

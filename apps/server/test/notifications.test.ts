@@ -1,4 +1,4 @@
-import type { NotificationDto, WebEvent } from '@aiws/protocol'
+import type { NotificationDto, WebEvent } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { notifications, pushSubscriptions, systemParams } from '../src/db/schema.js'

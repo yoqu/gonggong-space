@@ -1,4 +1,4 @@
-/** Same ranking as the daemon (crates/aiws/src/files.rs), so workspace and mirror entries interleave consistently. */
+/** Same ranking as the daemon (crates/gonggong/src/files.rs), so workspace and mirror entries interleave consistently. */
 export interface PathEntry {
   path: string
   dir: boolean

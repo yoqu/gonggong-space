@@ -1,4 +1,4 @@
-import { NET_PROBE_MAX_BYTES } from '@aiws/protocol'
+import { NET_PROBE_MAX_BYTES } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { machines } from '../src/db/schema.js'

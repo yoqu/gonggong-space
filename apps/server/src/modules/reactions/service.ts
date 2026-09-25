@@ -1,4 +1,4 @@
-import type { ReactionDto, ReactionEmoji } from '@aiws/protocol'
+import type { ReactionDto, ReactionEmoji } from '@gonggong/protocol'
 import { asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { messageReactions, users } from '../../db/schema.js'

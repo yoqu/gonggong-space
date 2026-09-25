@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIWS Daemon",
+  "productName": "Gonggong",
   "version": "0.1.0",
-  "identifier": "cn.aiws.daemon",
+  "identifier": "cn.gonggong.daemon",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "AIWS Daemon",
+        "title": "共工",
         "width": 1100,
         "height": 720,
         "minWidth": 900,

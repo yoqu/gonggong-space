@@ -1,0 +1,14 @@
+<!-- @dsCard group="Selection" height=110 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>RadioGroup</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;min-height:110px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-surface"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.RadioGroup,{'aria-label':'新窗口打开','defaultValue':'home',options:[{value:'home',label:'个人文件夹'},{value:'desktop',label:'桌面'},{value:'recents',label:'最近使用'}]}))
+</script>
+</body>
+</html>

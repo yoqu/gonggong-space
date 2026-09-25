@@ -1,4 +1,10 @@
-import { type MessageDto, RECALLED_QUOTE, type RunDto, type TimelineDto, type WebEvent } from '@aiws/protocol'
+import {
+  type MessageDto,
+  RECALLED_QUOTE,
+  type RunDto,
+  type TimelineDto,
+  type WebEvent,
+} from '@gonggong/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'

@@ -6,7 +6,7 @@ import type {
   MessageDto,
   NotificationDto,
   WebEvent,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { create } from 'zustand'
 import { api } from '../lib/api'
 import { useSession } from './session'

@@ -1,4 +1,10 @@
-import { AIWS_TOOLS, type AiwsToolName, type Answer, type Attachment, type Question } from '@aiws/protocol'
+import {
+  type Answer,
+  type Attachment,
+  GONGGONG_TOOLS,
+  type GonggongToolName,
+  type Question,
+} from '@gonggong/protocol'
 import { and, asc, desc, eq, gt, gte, ilike, inArray, isNull, lt, lte, or, type SQL, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
@@ -20,7 +26,7 @@ import type { MessageMeta } from '../messages/service.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
-type Args<N extends AiwsToolName> = z.infer<(typeof AIWS_TOOLS)[N]['input']>
+type Args<N extends GonggongToolName> = z.infer<(typeof GONGGONG_TOOLS)[N]['input']>
 type Scope = { run: Run; groups: Map<string, Group>; pick: (id?: string) => Group }
 /** `groups`: whose content the call returned, audited when not the run's own (plan C9). */
 export type ToolOutput = { text: string; attachments?: Attachment[]; groups: string[] }
@@ -246,7 +252,7 @@ async function getRun(ctx: Ctx, s: Scope, a: Args<'get_run'>): Promise<ToolOutpu
       .select({ runId: messages.runId })
       .from(messages)
       .where(and(eq(messages.seq, a.message), inArray(messages.groupId, [...s.groups.keys()])))
-    runId = m?.runId ?? refuse(`#${a.message} 不是 bot 的运行回复`)
+    runId = m?.runId ?? refuse(`#${a.message} 不是 Bot 的运行回复`)
   }
   const [r] = runId && isUuid(runId) ? await ctx.db.select().from(runs).where(eq(runs.id, runId)) : []
   const group = r && s.groups.get(r.groupId)
@@ -305,7 +311,7 @@ async function fetchAttachments(ctx: Ctx, s: Scope, a: Args<'fetch_attachments'>
   return { text: `#${a.message} 的附件：`, attachments, groups: [m.groupId] }
 }
 
-const TOOLS: { [N in AiwsToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Promise<ToolOutput> } = {
+const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Promise<ToolOutput> } = {
   list_messages: listMessages,
   search_messages: searchMessages,
   get_group_info: getGroupInfo,
@@ -314,8 +320,13 @@ const TOOLS: { [N in AiwsToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Promise<
   fetch_attachments: fetchAttachments,
 }
 
-export async function callTool(ctx: Ctx, run: Run, name: AiwsToolName, args: unknown): Promise<ToolOutput> {
-  const parsed = AIWS_TOOLS[name].input.safeParse(args ?? {})
+export async function callTool(
+  ctx: Ctx,
+  run: Run,
+  name: GonggongToolName,
+  args: unknown,
+): Promise<ToolOutput> {
+  const parsed = GONGGONG_TOOLS[name].input.safeParse(args ?? {})
   if (!parsed.success) return refuse(`参数无效：${z.prettifyError(parsed.error)}`)
   const tool = TOOLS[name] as (ctx: Ctx, s: Scope, a: unknown) => Promise<ToolOutput>
   return tool(ctx, await scopeOf(ctx, run), parsed.data)

@@ -73,8 +73,13 @@ input {
   width: 52px;
   flex: none;
 }
+.dk-titlebar__logo {
+  flex: none;
+  border-radius: 4px;
+}
 .dk-titlebar__name {
   font-weight: 600;
+  letter-spacing: 0.08em;
 }
 .dk-titlebar__ver {
   font-size: 11px;

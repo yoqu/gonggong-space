@@ -1,4 +1,4 @@
-import { RECALL_WINDOW_MS, RECALLED_QUOTE } from '@aiws/protocol'
+import { RECALL_WINDOW_MS, RECALLED_QUOTE } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { messageHides, messages, runs } from '../../db/schema.js'

@@ -1,4 +1,4 @@
-import { type NotificationDto, notificationView } from '@aiws/protocol'
+import { type NotificationDto, notificationView } from '@gonggong/protocol'
 import {
   Bot,
   Link2,

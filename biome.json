@@ -7,7 +7,7 @@
       "!**/target",
       "!apps/desktop/src-tauri/gen",
       "!docs",
-      "!.aiws-dev",
+      "!.gonggong-dev",
       "!**/drizzle",
       "!.claude"
     ]

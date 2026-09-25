@@ -30,7 +30,7 @@ fn tray(app: &tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::with_id("main")
         .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
         .icon_as_template(true)
-        .tooltip("AIWS Daemon")
+        .tooltip("共工")
         .menu(&Menu::with_items(app, &[&open, &quit])?)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_window(app),
@@ -43,13 +43,13 @@ fn tray(app: &tauri::App) -> tauri::Result<()> {
 
 fn main() {
     #[cfg(unix)]
-    if let Some(path) = aiws::agents::login_shell_path() {
+    if let Some(path) = gonggong::agents::login_shell_path() {
         // SAFETY: first thing in main, before any other thread exists.
         unsafe { std::env::set_var("PATH", path) };
     }
-    let home = aiws::config::home();
-    // Same log setup as `aiws run`: <home>/logs plus the in-memory recent lines (`Logs`, managed for the Logs page).
-    let (logs, _log_guard) = aiws::logs::init(&home).expect("cannot set up logging");
+    let home = gonggong::config::home();
+    // Same log setup as `gg run`: <home>/logs plus the in-memory recent lines (`Logs`, managed for the Logs page).
+    let (logs, _log_guard) = gonggong::logs::init(&home).expect("cannot set up logging");
     tauri::Builder::default()
         .manage(logs)
         .plugin(tauri_plugin_dialog::init())
@@ -65,7 +65,7 @@ fn main() {
             tray(app)?;
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                if aiws::config::Config::load().ok().flatten().is_some()
+                if gonggong::config::Config::load().ok().flatten().is_some()
                     && let Err(e) = handle.state::<Host>().start()
                 {
                     tracing::error!("daemon failed to start: {e}");
@@ -80,7 +80,7 @@ fn main() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building the AIWS desktop app")
+        .expect("error while building the Gonggong desktop app")
         .run(|_app, _event| {
             // Clicking the Dock icon brings the hidden window back.
             #[cfg(target_os = "macos")]

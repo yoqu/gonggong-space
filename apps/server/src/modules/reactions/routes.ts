@@ -1,4 +1,4 @@
-import { ReactionEmoji, type ReactionsDto } from '@aiws/protocol'
+import { ReactionEmoji, type ReactionsDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

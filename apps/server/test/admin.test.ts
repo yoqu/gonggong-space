@@ -1,4 +1,10 @@
-import type { AdminGroupDto, AdminMachineDto, AuditDto, ServerToDaemon, SystemParams } from '@aiws/protocol'
+import type {
+  AdminGroupDto,
+  AdminMachineDto,
+  AuditDto,
+  ServerToDaemon,
+  SystemParams,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -323,7 +329,7 @@ describe('audit query', () => {
     expect(s('group.admin.grant', { userName: '李建国' })).toBe('设 李建国 为群管理员')
     expect(s('group.dissolve', {})).toBe('解散群')
     expect(s('group.member.remove', { name: '王磊' })).toBe('将 王磊 移出群')
-    expect(s('group.bot.add', { name: '小王的 Claude' })).toBe('拉入 bot 小王的 Claude')
+    expect(s('group.bot.add', { name: '小王的 Claude' })).toBe('拉入 Bot 小王的 Claude')
     expect(s('group.repo.change', { url: 'git.corp/pay', branch: 'main', previous: null })).toBe(
       '绑定仓库 git.corp/pay · 基准分支 main',
     )
@@ -357,6 +363,7 @@ describe('system params', () => {
       botConcurrencyDefault: 2,
       backupRetentionDays: 7,
       archiveRetentionDays: 30,
+      registrationOpen: false,
     })
   })
 

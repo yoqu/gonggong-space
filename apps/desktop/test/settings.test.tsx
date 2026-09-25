@@ -19,9 +19,9 @@ beforeEach(() => {
 
 it('shows local paths and the server, toggles preferences and unbinds after confirmation', async () => {
   render(<SettingsPage go={() => {}} />)
-  expect(screen.getByText('~/.aiws/workspaces')).toBeTruthy()
-  expect(screen.getByText('~/.aiws/backups')).toBeTruthy()
-  expect(screen.getByText('aiws.corp.cn')).toBeTruthy()
+  expect(screen.getByText('~/.gonggong/workspaces')).toBeTruthy()
+  expect(screen.getByText('~/.gonggong/backups')).toBeTruthy()
+  expect(screen.getByText('gonggong.corp.cn')).toBeTruthy()
 
   const upgrade = screen.getByRole('switch', { name: '自动升级' })
   await waitFor(() => expect(upgrade).toHaveProperty('checked', true))

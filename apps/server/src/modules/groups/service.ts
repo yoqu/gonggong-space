@@ -1,4 +1,4 @@
-import type { GroupDto } from '@aiws/protocol'
+import type { GroupDto } from '@gonggong/protocol'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'

@@ -1,5 +1,4 @@
-import { PROTOCOL_VERSION } from '@aiws/protocol'
-import { Bell, Radar, Search, SlidersHorizontal } from 'lucide-react'
+import { Bell, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router'
 import { AccountMenu } from '../features/auth/AccountMenu'
@@ -7,7 +6,7 @@ import { NotificationPanel } from '../features/notifications/NotificationPanel'
 import { syncPush } from '../features/notifications/push'
 import { SearchOverlay } from '../features/search/SearchOverlay'
 import { useRealtimeStatus } from '../lib/realtime'
-import { Toaster } from '../ui'
+import { Logo, Toaster } from '../ui'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
 import { useWorkspace } from './workspace'
@@ -31,10 +30,8 @@ export function TopBar({
   return (
     <header className="topbar">
       <Link to="/" className="topbar__brand">
-        <span className="brand-mark">
-          <Radar size={14} />
-        </span>
-        {mobile ? null : <span className="topbar__title">AI 团队工作区</span>}
+        <Logo size={22} />
+        {mobile ? null : <span className="topbar__title">共工</span>}
       </Link>
       <button type="button" className="topbar__search" onClick={onSearch}>
         <Search size={13} />
@@ -46,7 +43,7 @@ export function TopBar({
       <div className="topbar__actions">
         {user?.role === 'sysadmin' ? (
           <Link to="/admin" className="topbar__link" title="管理后台">
-            <SlidersHorizontal size={13} />
+            <ShieldCheck size={13} />
             {mobile ? null : <span>管理后台</span>}
           </Link>
         ) : null}
@@ -88,9 +85,7 @@ export function StatusBar() {
         {conn.label}
       </span>
       <span>|</span>
-      <span>Bot {online} 个在线</span>
-      <span className="spacer" />
-      <span>协议 v{PROTOCOL_VERSION}</span>
+      <span>{online} 个 Bot 在线</span>
     </footer>
   )
 }

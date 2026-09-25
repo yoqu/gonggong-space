@@ -1,4 +1,4 @@
-import { AIWS_TOOLS, type AiwsToolName, ToolCallReq, type ToolCallRes } from '@aiws/protocol'
+import { GONGGONG_TOOLS, type GonggongToolName, ToolCallReq, type ToolCallRes } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -12,7 +12,7 @@ import { callTool, refuse, ToolError } from './service.js'
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const TEXT_MAX = 32_000
 
-/** aiws MCP tools answered for the daemon during a live run (plan C5): the run decides the bot and its groups. */
+/** gonggong MCP tools answered for the daemon during a live run (plan C5): the run decides the bot and its groups. */
 export function agentToolRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post<{ Params: { runId: string; name: string } }>(
@@ -21,7 +21,7 @@ export function agentToolRoutes(ctx: Ctx) {
         const machine = await requireMachine(ctx, req)
         const runId = idParam(req.params.runId, '运行')
         const name = req.params.name
-        if (!Object.hasOwn(AIWS_TOOLS, name)) return fail('not_found', `工具 ${name} 不存在`)
+        if (!Object.hasOwn(GONGGONG_TOOLS, name)) return fail('not_found', `工具 ${name} 不存在`)
         const [row] = await ctx.db
           .select({ run: runs })
           .from(runs)
@@ -34,7 +34,7 @@ export function agentToolRoutes(ctx: Ctx) {
           const out = await callTool(
             ctx,
             run,
-            name as AiwsToolName,
+            name as GonggongToolName,
             ToolCallReq.parse(req.body ?? {}).arguments,
           )
           const others = out.groups.filter((g) => g !== run.groupId)

@@ -7,7 +7,7 @@ import {
   type MessageDto,
   PROTOCOL_VERSION,
   type RunStart,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { attachments, messages, runs } from '../src/db/schema.js'
@@ -20,7 +20,7 @@ type Upload = Omit<Attachment, 'messageId'>
 
 let t: TestApp
 beforeAll(() => {
-  process.env.AIWS_DATA_DIR = mkdtempSync(join(tmpdir(), 'aiws-data-'))
+  process.env.GONGGONG_DATA_DIR = mkdtempSync(join(tmpdir(), 'gonggong-data-'))
 })
 beforeEach(async () => {
   t = await createTestApp()
@@ -132,7 +132,7 @@ describe('uploads', () => {
     )
     expect(res.body).toMatchObject({ name: `dump-${MASK}.txt`, size: secret.length })
     const [row] = await t.db.select().from(attachments).where(eq(attachments.id, res.body.id))
-    const disk = readFileSync(join(process.env.AIWS_DATA_DIR as string, row!.storageKey))
+    const disk = readFileSync(join(process.env.GONGGONG_DATA_DIR as string, row!.storageKey))
     expect(disk.length).toBe(secret.length + FILE_OVERHEAD)
     expect(disk.includes('CONFIDENTIAL')).toBe(false)
     const got = await fetch(t.url(`/api/attachments/${res.body.id}`), { headers: { cookie: w.cookies.li } })

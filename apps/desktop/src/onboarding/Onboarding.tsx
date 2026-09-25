@@ -1,4 +1,4 @@
-import type { AgentInfo } from '@aiws/protocol'
+import type { AgentInfo } from '@gonggong/protocol'
 import { Alert, Button, Checkbox, Field, Input, StepIndicator, type StepStatus } from '@web/ui'
 import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
@@ -6,7 +6,7 @@ import { ipc, type MachineBot } from '../ipc'
 import { AGENTS } from '../lib/labels'
 import { refreshInfo } from '../store'
 
-const STEPS = ['输入绑定码', '检测 agent', '确认 bot']
+const STEPS = ['输入绑定码', '检测 agent', '确认 Bot']
 const NEXT = ['登录', '上报并继续', '完成']
 
 /** First-run flow: bind code → detect agents (reported on connect) → confirm bots assigned to this machine. */
@@ -87,7 +87,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <Input
                 mono
                 value={server}
-                placeholder="https://aiws.corp.cn"
+                placeholder="https://gonggong.corp.cn"
                 onChange={(e) => setServer(e.target.value)}
               />
             </Field>
@@ -101,7 +101,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               />
             </Field>
             <div className="dk-mono-hint">
-              等价命令：aiws login --server {server.trim() || '<服务器>'} --code {normalized || '<绑定码>'}
+              等价命令：gg login --server {server.trim() || '<服务器>'} --code {normalized || '<绑定码>'}
             </div>
           </>
         ) : null}
@@ -112,19 +112,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <AgentRow key={a.kind} agent={a} checking={checking} onRecheck={detect} />
             ))}
             <div className="dk-hint">
-              未安装的 agent 可以稍后在「Agent」页安装并重新检测；依赖它的 bot
+              未安装的 agent 可以稍后在「Agent」页安装并重新检测；依赖它的 Bot
               在此之前不能被触发。至少需要一个可用 agent 才能继续。
             </div>
           </>
         ) : null}
         {step === 2 ? (
           <>
-            <div className="dk-onboarding__title">确认 bot</div>
+            <div className="dk-onboarding__title">确认 Bot</div>
             <div className="dk-onboarding__desc">
-              你自己创建的 bot
+              你自己创建的 Bot
               已直接绑定到本机，无需操作。以下由管理员为你创建并指定到本机，确认后才能被触发。
             </div>
-            {bots.length === 0 ? <div className="dk-hint">没有待确认的 bot。</div> : null}
+            {bots.length === 0 ? <div className="dk-hint">没有待确认的 Bot。</div> : null}
             {bots.map((b) => (
               <div key={b.id} className="dk-row">
                 <div className="dk-row__main">

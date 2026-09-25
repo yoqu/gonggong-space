@@ -4,6 +4,7 @@ import {
   type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
   type TextareaHTMLAttributes,
   useEffect,
   useId,
@@ -154,16 +155,19 @@ interface ToggleProps {
   checked: boolean
   onChange: (checked: boolean) => void
   label?: ReactNode
+  /** Accessible name when the visible label is not the control's name (e.g. a state text). */
+  ariaLabel?: string
   disabled?: boolean
 }
 
-export function Switch({ checked, onChange, label, disabled }: ToggleProps) {
+export function Switch({ checked, onChange, label, ariaLabel, disabled }: ToggleProps) {
   return (
     <label className={cx('ui-toggle', disabled && 'ui-toggle--disabled')}>
       <span className="ui-toggle__control">
         <input
           type="checkbox"
           role="switch"
+          aria-label={ariaLabel}
           aria-checked={checked}
           checked={checked}
           disabled={disabled}
@@ -198,6 +202,7 @@ export function Checkbox({ checked, onChange, label, disabled }: ToggleProps) {
 }
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  ref?: Ref<HTMLInputElement>
   size?: 'sm' | 'md'
   mono?: boolean
   invalid?: boolean

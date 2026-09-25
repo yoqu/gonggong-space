@@ -23,7 +23,7 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@aiws/protocol':
+      '@gonggong/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       '@tauri-apps/api':
@@ -69,9 +69,6 @@ importers:
 
   apps/server:
     dependencies:
-      '@aiws/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
       '@fastify/cookie':
         specifier: 11.1.2
         version: 11.1.2
@@ -81,6 +78,9 @@ importers:
       '@fastify/websocket':
         specifier: 11.3.1
         version: 11.3.1
+      '@gonggong/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@node-rs/argon2':
         specifier: 2.2.1
         version: 2.2.1
@@ -121,7 +121,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@aiws/protocol':
+      '@gonggong/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       lucide-react:

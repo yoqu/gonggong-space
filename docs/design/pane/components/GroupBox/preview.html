@@ -1,0 +1,17 @@
+<!-- @dsCard group="Layout" height=200 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>GroupBox</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;min-height:200px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-surface"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.GroupBox,{style:{maxWidth:'520px'}},
+ h(P.GroupRow,{label:'外观'},h(P.SegmentedControl,{items:[{value:'l',label:'浅色'},{value:'d',label:'深色'},{value:'a',label:'自动'}],defaultValue:'a'})),
+ h(P.GroupRow,{label:'Liquid Glass',description:'调节窗口与控件的透明程度'},h(P.Slider,{style:{minWidth:'160px'},min:0,max:4,defaultValue:1,'aria-label':'Liquid Glass'})),
+ h(P.GroupRow,{label:'在菜单栏中显示'},h(P.Switch,{defaultChecked:true,'aria-label':'在菜单栏中显示'}))))
+</script>
+</body>
+</html>

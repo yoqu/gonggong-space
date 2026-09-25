@@ -1,9 +1,9 @@
 {
-  "name": "@aiws/mcp-echo",
+  "name": "@gonggong/mcp-echo",
   "private": true,
   "type": "module",
   "bin": {
-    "aiws-mcp-echo": "server.js"
+    "gonggong-mcp-echo": "server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

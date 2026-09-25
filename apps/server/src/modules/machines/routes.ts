@@ -6,7 +6,7 @@ import {
   type DaemonToServer,
   type MachineDto,
   UpdateMachineReq,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
@@ -125,7 +125,7 @@ export function machineRoutes(ctx: Ctx) {
               .select({ name: users.name })
               .from(users)
               .where(eq(users.id, prev.ownerId))
-            fail('conflict', `这台机器已归属 ${holder?.name}，其上还有 ${n} 个 bot，需先删除后才能转给你`)
+            fail('conflict', `这台机器已归属 ${holder?.name}，其上还有 ${n} 个 Bot，需先删除后才能转给你`)
           }
         }
         const values = { ownerId: claimed.userId, ...body.machine, tokenHash: sha256(token), boundAt: now }
@@ -223,7 +223,7 @@ export function machineRoutes(ctx: Ctx) {
         .select({ n: count() })
         .from(bots)
         .where(and(eq(bots.machineId, id), isNull(bots.deletedAt)))
-      if (n) return fail('conflict', `还有 ${n} 个 bot 绑定在这台机器上，请先删除`)
+      if (n) return fail('conflict', `还有 ${n} 个 Bot 绑定在这台机器上，请先删除`)
       await ctx.db.update(machines).set({ revokedAt: ctx.now() }).where(eq(machines.id, id))
       ctx.hub.kick(id, CLOSE.revoked, 'revoked')
       ctx.bus.publish([m.ownerId], { t: 'machine.removed', machineId: id })

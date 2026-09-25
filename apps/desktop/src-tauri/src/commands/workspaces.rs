@@ -1,7 +1,7 @@
 use super::Result;
 use crate::host::Host;
-use aiws::config::Config;
-use aiws::workspace::{self, Entry, EntryKind, EntryState, human_size};
+use gonggong::config::Config;
+use gonggong::workspace::{self, Entry, EntryKind, EntryState, human_size};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;

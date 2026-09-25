@@ -1,13 +1,13 @@
 {
-  "name": "aiws",
+  "name": "gonggong",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "scripts": {
     "db:up": "bash scripts/pg.sh start",
     "db:down": "bash scripts/pg.sh stop",
-    "dev:server": "pnpm --filter @aiws/server dev",
-    "dev:web": "pnpm --filter @aiws/web dev",
+    "dev:server": "pnpm --filter @gonggong/server dev",
+    "dev:web": "pnpm --filter @gonggong/web dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
     "test": "node --test tools/*.test.mjs && pnpm -r test && cargo test --workspace",

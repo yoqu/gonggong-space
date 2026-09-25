@@ -17,14 +17,18 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure' },
   webServer: [
     {
-      command: 'bash ../scripts/pg.sh reset aiws_e2e && pnpm --filter @aiws/server start',
-      env: { PORT: String(SERVER_PORT), AIWS_DB: 'aiws_e2e', AIWS_ADMIN_PASSWORD: 'admin-init-pass' },
+      command: 'bash ../scripts/pg.sh reset gonggong_e2e && pnpm --filter @gonggong/server start',
+      env: {
+        PORT: String(SERVER_PORT),
+        GONGGONG_DB: 'gonggong_e2e',
+        GONGGONG_ADMIN_PASSWORD: 'admin-init-pass',
+      },
       url: `http://127.0.0.1:${SERVER_PORT}/api/health`,
       reuseExistingServer: false,
     },
     {
-      command: 'pnpm --filter @aiws/web dev --strictPort',
-      env: { WEB_PORT: String(WEB_PORT), AIWS_SERVER: `http://127.0.0.1:${SERVER_PORT}` },
+      command: 'pnpm --filter @gonggong/web dev --strictPort',
+      env: { WEB_PORT: String(WEB_PORT), GONGGONG_SERVER: `http://127.0.0.1:${SERVER_PORT}` },
       url: `http://127.0.0.1:${WEB_PORT}`,
       reuseExistingServer: false,
     },

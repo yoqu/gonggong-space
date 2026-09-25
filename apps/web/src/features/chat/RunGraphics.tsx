@@ -1,4 +1,4 @@
-import type { RunStatus } from '@aiws/protocol'
+import type { RunStatus } from '@gonggong/protocol'
 import { FileText } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'

@@ -78,7 +78,7 @@ export const machines = pgTable('machines', {
   latencyMs: integer('latency_ms'),
   bandwidthMbps: doublePrecision('bandwidth_mbps'),
   netMeasuredAt: ts('net_measured_at'),
-  /** Latest successful `aiws login`; differs from createdAt once the host was restored or transferred. */
+  /** Latest successful `gg login`; differs from createdAt once the host was restored or transferred. */
   boundAt: timestamp('bound_at', { withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 })

@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, RunDto, UserDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, RunDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -201,14 +201,14 @@ describe('group settings drawer', () => {
     fireEvent.click(within(d).getByRole('button', { name: /群名称与公告/ }))
     const info = await screen.findByRole('dialog', { name: '群设置' })
     fireEvent.change(within(info).getByLabelText('群名称'), { target: { value: '设置后' } })
-    fireEvent.change(within(info).getByLabelText(/群公告/), { target: { value: '每个 bot 独立分支，走 PR' } })
+    fireEvent.change(within(info).getByLabelText(/群公告/), { target: { value: '每个 Bot 独立分支，走 PR' } })
     fireEvent.click(within(info).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
       name: '设置后',
-      notice: '每个 bot 独立分支，走 PR',
+      notice: '每个 Bot 独立分支，走 PR',
     })
-    expect((await screen.findByTestId('group-notice')).textContent).toContain('每个 bot 独立分支，走 PR')
+    expect((await screen.findByTestId('group-notice')).textContent).toContain('每个 Bot 独立分支，走 PR')
     expect(screen.getByRole('heading', { name: '设置后' })).toBeTruthy()
   })
 

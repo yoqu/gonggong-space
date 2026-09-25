@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, GroupParams, UserBriefDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, GroupParams, UserBriefDto } from '@gonggong/protocol'
 import {
   Bot,
   ChevronLeft,
@@ -326,7 +326,7 @@ function MainView({
         <div className="gs-card__main">
           <span className="gs-card__name">{group.name}</span>
           <span className="gs-card__repo">
-            {group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 bot 使用本机目录'}
+            {group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 Bot 使用本机目录'}
           </span>
         </div>
         <Badge variant="secondary">{GROUP_MODE_LABEL[group.mode]}</Badge>

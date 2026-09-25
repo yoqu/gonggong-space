@@ -1,4 +1,4 @@
-import type { UserCardDto } from '@aiws/protocol'
+import type { UserCardDto } from '@gonggong/protocol'
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'

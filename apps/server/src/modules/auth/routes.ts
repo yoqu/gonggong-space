@@ -1,24 +1,39 @@
-import { ChangePasswordReq, LoginReq } from '@aiws/protocol'
+import { type AuthOptionsDto, ChangePasswordReq, LoginReq, RegisterReq } from '@gonggong/protocol'
 import { hash, verify } from '@node-rs/argon2'
 import { and, eq, isNull, ne } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { users, webSessions } from '../../db/schema.js'
+import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
+import { sysParams } from '../admin/params.js'
 import { toUserDto } from '../users/dto.js'
 import { createSession, requireUser, SESSION_COOKIE } from './session.js'
 
 const LOGIN_MAX_FAILURES = 5
 const LOGIN_WINDOW_MS = 5 * 60_000
 const BAD_CREDENTIALS = '账号或密码错误'
+const REGISTER_MAX_PER_HOUR = 5
 
 export function authRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     const throttle = new Throttle(LOGIN_MAX_FAILURES, LOGIN_WINDOW_MS, ctx.now)
     // Verifying against a throwaway hash keeps response time independent of whether the account exists.
     const decoy = hash('decoy-password')
+    const signups = new Throttle(REGISTER_MAX_PER_HOUR, 60 * 60_000, ctx.now)
+
+    const signIn = async (reply: FastifyReply, userId: string) => {
+      const session = await createSession(ctx, userId)
+      reply.setCookie(SESSION_COOKIE, session.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: ctx.config.secureCookies,
+        path: '/',
+        expires: session.expiresAt,
+      })
+    }
 
     app.post('/api/auth/login', async (req, reply) => {
       const { account, password } = LoginReq.parse(req.body)
@@ -31,15 +46,43 @@ export function authRoutes(ctx: Ctx) {
       }
       if (user.disabledAt) return fail('forbidden', '账号已停用，请联系系统管理员')
       throttle.reset(account)
-      const session = await createSession(ctx, user.id)
-      reply.setCookie(SESSION_COOKIE, session.token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: ctx.config.secureCookies,
-        path: '/',
-        expires: session.expiresAt,
-      })
+      await signIn(reply, user.id)
       return toUserDto(user)
+    })
+
+    app.get(
+      '/api/auth/options',
+      async (): Promise<AuthOptionsDto> => ({
+        registrationOpen: (await sysParams(ctx.db)).registrationOpen,
+      }),
+    )
+
+    app.post('/api/auth/register', async (req, reply) => {
+      if (!(await sysParams(ctx.db)).registrationOpen)
+        return fail('forbidden', '未开放注册，请联系系统管理员创建账号')
+      const body = RegisterReq.parse(req.body)
+      if (signups.blocked(req.ip)) return fail('forbidden', '注册过于频繁，请稍后再试')
+      const [user] = await ctx.db
+        .insert(users)
+        .values({
+          account: body.account,
+          name: body.name,
+          role: 'member',
+          passwordHash: await hash(body.password),
+          mustChangePassword: false,
+        })
+        .onConflictDoNothing({ target: users.account })
+        .returning()
+      if (!user) return fail('conflict', '账号已存在')
+      signups.fail(req.ip)
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: user.id,
+        action: 'user.register',
+        detail: { userId: user.id, account: user.account },
+      })
+      await signIn(reply, user.id)
+      return reply.status(201).send(toUserDto(user))
     })
 
     app.post('/api/auth/logout', async (req, reply) => {

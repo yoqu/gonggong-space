@@ -39,10 +39,10 @@ export const INFO: AppInfo = {
   protocol: 1,
   machine: { name: 'wanglei-mbp', os: 'macos', arch: 'aarch64' },
   ownerName: '王磊',
-  server: 'https://aiws.corp.cn',
+  server: 'https://gonggong.corp.cn',
   certPinned: true,
-  workspacesDir: '/Users/wl/.aiws/workspaces',
-  backupsDir: '/Users/wl/.aiws/backups',
+  workspacesDir: '/Users/wl/.gonggong/workspaces',
+  backupsDir: '/Users/wl/.gonggong/backups',
   adapters: [
     { kind: 'claude', package: '@agentclientprotocol/claude-agent-acp', version: '0.81.0' },
     { kind: 'codex', package: '@agentclientprotocol/codex-acp', version: '1.13.0' },

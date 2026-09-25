@@ -1,9 +1,9 @@
 {
-  "name": "@aiws/mock-agent",
+  "name": "@gonggong/mock-agent",
   "private": true,
   "type": "module",
   "bin": {
-    "aiws-mock-agent": "agent.js"
+    "gonggong-mock-agent": "agent.js"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.5.0"

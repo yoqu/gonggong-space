@@ -7,6 +7,7 @@ import { AdminIndex, AdminLayout } from './features/admin/AdminLayout'
 import { AdminPlaceholder } from './features/admin/AdminPage'
 import { ADMIN_NAV } from './features/admin/nav'
 import { LoginPage } from './features/auth/LoginPage'
+import { RegisterPage } from './features/auth/RegisterPage'
 import { EmptyState } from './ui'
 import './app/shell.css'
 
@@ -33,6 +34,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       {import.meta.env.DEV ? (
         <Route
           path="/_ui"

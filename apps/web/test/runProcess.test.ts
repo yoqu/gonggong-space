@@ -1,4 +1,4 @@
-import type { ApprovalDto, RunDetailDto, RunDto } from '@aiws/protocol'
+import type { ApprovalDto, RunDetailDto, RunDto } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
 import { filePaths } from '../src/features/runs/paths'
 import { buildSteps, diffCells, findFile, parsePatch } from '../src/features/runs/process'
@@ -196,7 +196,7 @@ describe('process steps', () => {
     })
     expect(steps[2]).toMatchObject({ mono: '查找调用方', out: '$ rg RefundV1\nrouter.go:42', meta: '4.0s' })
     expect(steps[3]).toMatchObject({ mono: '/ws/src/a.ts', meta: '+2 −1' })
-    expect(steps[4]).toMatchObject({ mono: 'go build ./...', body: '等待 bot 主人审批' })
+    expect(steps[4]).toMatchObject({ mono: 'go build ./...', body: '等待 Bot 主人审批' })
   })
 
   it('without git or a new session the context step says the session was resumed', () => {

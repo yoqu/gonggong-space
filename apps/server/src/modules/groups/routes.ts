@@ -6,7 +6,7 @@ import {
   MarkReadReq,
   ValidateRepoReq,
   type ValidateRepoRes,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -43,18 +43,18 @@ async function activeUsers(ctx: Ctx, ids: string[]) {
 
 async function liveBots(ctx: Ctx, ids: string[]) {
   if (!ids.length) return []
-  if (!ids.every(isUuid)) return fail('invalid', 'bot 不存在或已删除')
+  if (!ids.every(isUuid)) return fail('invalid', 'Bot 不存在或已删除')
   const rows = await ctx.db
     .select({ id: bots.id, name: bots.name, ownerId: bots.ownerId, machineId: bots.machineId })
     .from(bots)
     .where(and(inArray(bots.id, ids), isNull(bots.deletedAt)))
-  if (rows.length !== ids.length) return fail('invalid', 'bot 不存在或已删除')
+  if (rows.length !== ids.length) return fail('invalid', 'Bot 不存在或已删除')
   return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
 }
 
 const oneUser = async (ctx: Ctx, id: string) =>
   (await activeUsers(ctx, [id]))[0] ?? fail('invalid', '成员不存在')
-const oneBot = async (ctx: Ctx, id: string) => (await liveBots(ctx, [id]))[0] ?? fail('invalid', 'bot 不存在')
+const oneBot = async (ctx: Ctx, id: string) => (await liveBots(ctx, [id]))[0] ?? fail('invalid', 'Bot 不存在')
 
 async function isMember(ctx: Ctx, groupId: string, userId: string) {
   const [row] = await ctx.db
@@ -94,9 +94,9 @@ export function groupRoutes(ctx: Ctx) {
       const problem = repo && repoProblem(repo.url, repo.branch)
       if (problem) return fail('invalid', problem)
       const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)
-      if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 bot')
+      if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 Bot')
       const picked = await liveBots(ctx, uniq(body.botIds))
-      if (dm && picked.some((b) => b.ownerId !== me.id)) return fail('forbidden', '私聊只能拉入你自己的 bot')
+      if (dm && picked.some((b) => b.ownerId !== me.id)) return fail('forbidden', '私聊只能拉入你自己的 Bot')
       const invited = await activeUsers(
         ctx,
         uniq([...invitedIds, ...picked.map((b) => b.ownerId)]).filter((id) => id !== me.id),
@@ -121,7 +121,7 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         dm
-          ? `${me.name} 创建了私聊 · 仅你和你的 bot`
+          ? `${me.name} 创建了私聊 · 仅你和你的 Bot`
           : `${me.name} 创建了群 · 成为群管理员${invited.length ? ` · 邀请 ${invited.map((u) => u.name).join('、')}` : ''}`,
       )
       await postEvent(
@@ -129,7 +129,7 @@ export function groupRoutes(ctx: Ctx) {
         group.id,
         repo
           ? `群绑定仓库 ${repo.url} · 基准分支 ${repo.branch} · 分区模式`
-          : '未绑定仓库 · 各 bot 使用主人绑定的目录，仅分区模式',
+          : '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
       )
       for (const b of picked) await joinWorkspace(ctx, group.id, b, { joined: true })
       await publishGroup(ctx, group.id)
@@ -201,7 +201,7 @@ export function groupRoutes(ctx: Ctx) {
       const { botId } = GroupBotReq.parse(req.body)
       const bot = await oneBot(ctx, botId)
       if (group.kind === 'dm' && bot.ownerId !== group.createdBy)
-        return fail('forbidden', '私聊只能拉入你自己的 bot')
+        return fail('forbidden', '私聊只能拉入你自己的 Bot')
       if ((await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
         return groupDto(ctx, me.id, group.id)
 
@@ -260,7 +260,7 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         old
-          ? `群更换仓库 ${url} · 基准分支 ${branch} · 各 bot 需重新绑定工作区`
+          ? `群更换仓库 ${url} · 基准分支 ${branch} · 各 Bot 需重新绑定工作区`
           : `群绑定仓库 ${url} · 基准分支 ${branch} · 分区模式`,
       )
       await auditAdmin(me.id, group.id, 'group.repo.change', {
@@ -278,7 +278,7 @@ export function groupRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       const bot = (await activeBots(ctx, group.id)).find((b) => b.id === req.params.botId)
-      if (!bot) return fail('not_found', '该 bot 不在群内')
+      if (!bot) return fail('not_found', '该 Bot 不在群内')
       await ctx.db
         .update(groupBots)
         .set({ removedAt: ctx.now() })

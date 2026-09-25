@@ -1,4 +1,4 @@
-import type { MessageDto, RunDto, RunStatus } from '@aiws/protocol'
+import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
 import {
   Ban,
   Bot,
@@ -11,6 +11,7 @@ import {
   GitBranch,
   Hourglass,
   Info,
+  Layers,
   Loader,
   MessageCircleQuestion,
   RefreshCw,
@@ -35,6 +36,7 @@ import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
 import { useRunRail } from '../runs/rail'
 import { UserCardTrigger } from '../users'
+import { Clamp } from './Clamp'
 import { isRich } from './grouping'
 import { Markdown } from './Markdown'
 import { MessageActions } from './MessageActions'
@@ -176,6 +178,41 @@ export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
   )
 })
 
+/**
+ * Consecutive system events (join, repo bound, workspace ready…) folded into one quiet row that expands in place,
+ * so setup noise never pushes the conversation off screen. Opens by itself when a deep link targets an event inside.
+ */
+export function EventFold({ events, flash }: { events: MessageDto[]; flash: string | null }) {
+  const holdsFlash = !!flash && events.some((e) => e.id === flash)
+  const [open, setOpen] = useState(holdsFlash)
+  if (holdsFlash && !open) setOpen(true)
+  const last = events.at(-1) as MessageDto
+  return (
+    <div className="tl-fold" data-open={open || undefined}>
+      <button
+        type="button"
+        className="tl-event tl-fold__head"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <Layers size={13} className="tl-event__icon" />
+        <span className="tl-event__text">{`${events.length} 条系统事件 · ${last.body}`}</span>
+        <Time iso={last.createdAt} />
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+      </button>
+      {open ? (
+        <div className="tl-fold__list">
+          {events.map((e) => (
+            <div key={e.id} data-msg-id={e.id} className={cx('tl-item', flash === e.id && 'tl-item--flash')}>
+              <EventRow m={e} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** A recalled message: a centered notice in place of the content (Feishu). */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   return (
@@ -202,7 +239,7 @@ const quoteMessage = (m: MessageDto) =>
 const link = (groupId: string, query: string) => `${location.origin}/g/${groupId}?${query}`
 
 /** Quoting a bot = @ that bot (spec §8.6). */
-const BOT_QUOTE = '引用回复等同 @ 该 bot'
+const BOT_QUOTE = '引用回复等同 @ 该 Bot'
 
 function MessageBar({ m, own = false }: { m: MessageDto; own?: boolean }) {
   return (
@@ -347,7 +384,9 @@ export const BotReply = memo(function BotReply({ m, compact = false }: { m: Mess
     >
       <div className="tl-bubble-host">
         <div className={cx('tl-bubble', isRich(m) && 'tl-bubble--wide')}>
-          <Markdown text={m.body} />
+          <Clamp>
+            <Markdown text={m.body} />
+          </Clamp>
         </div>
         <MessageAttachments list={m.attachments} from={m.authorName} />
         {m.runId ? <FileChips runId={m.runId} text={m.body} /> : null}
@@ -439,7 +478,9 @@ export const RunCard = memo(function RunCard({
       data-status={run.status}
     >
       <div className="run-card__head">
-        <div className="run-card__init">{Array.from(botName)[0]}</div>
+        <div className="run-card__init" data-agent={agent}>
+          {Array.from(botName)[0]}
+        </div>
         <span className="run-card__bot">{botName}</span>
         <span className="run-card__sub">
           {agent} · {trigger} 触发
@@ -518,7 +559,9 @@ export const RunCard = memo(function RunCard({
       ) : null}
       {reply ? (
         <div className="run-card__reply" data-testid="bot-reply">
-          <Markdown text={reply.body} />
+          <Clamp>
+            <Markdown text={reply.body} />
+          </Clamp>
           <MessageAttachments list={reply.attachments} from={reply.authorName} />
           <FileChips runId={run.id} text={reply.body} />
           <ReactionBar message={reply} />

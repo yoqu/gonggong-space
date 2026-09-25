@@ -42,7 +42,7 @@ it('lists the bots with their local settings and warnings', async () => {
   expect(codex.getByText('待确认')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
   expect(codex.getByText('白名单自动')).toBeTruthy()
-  expect(codex.getByText('本机未安装 Codex，该 bot 暂不能执行')).toBeTruthy()
+  expect(codex.getByText('本机未安装 Codex，该 Bot 暂不能执行')).toBeTruthy()
   fireEvent.click(codex.getByRole('button', { name: '前往 Agent' }))
   expect(go).toHaveBeenCalledWith('agents')
 
@@ -58,7 +58,7 @@ it('edits the model, concurrency and command approval of a bot', async () => {
   expect(dialog.getByText('小王的 Claude · 本机设置')).toBeTruthy()
   expect(dialog.getByRole('radio', { name: /Claude Code/ }).getAttribute('aria-checked')).toBe('true')
   expect(dialog.getByRole('radio', { name: /Codex/ })).toHaveProperty('disabled', true)
-  expect(dialog.getByText(/切换 agent 会结束该 bot 在各群的会话上下文/)).toBeTruthy()
+  expect(dialog.getByText(/切换 agent 会结束该 Bot 在各群的会话上下文/)).toBeTruthy()
   expect(dialog.getByRole('radio', { name: /跟随 agent 默认 · Sonnet 5/ }).getAttribute('aria-checked')).toBe(
     'true',
   )

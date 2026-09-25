@@ -1,4 +1,4 @@
-import type { Attachment, MessageDto } from '@aiws/protocol'
+import type { Attachment, MessageDto } from '@gonggong/protocol'
 import {
   File,
   FileCode,

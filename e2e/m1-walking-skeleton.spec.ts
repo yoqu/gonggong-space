@@ -54,7 +54,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await page.getByRole('button', { name: '创建' }).click()
 
     // The bot joins unbound; its owner picks a local directory through the daemon-backed picker.
-    const dir = mkdtempSync(join(tmpdir(), 'aiws-dm-'))
+    const dir = mkdtempSync(join(tmpdir(), 'gonggong-dm-'))
     await page.getByRole('button', { name: '绑定工作区' }).click()
     const picker = page.getByRole('dialog', { name: '小王的 Claude 的工作目录' })
     // Starts at the machine's home dir once the daemon answers.
@@ -66,7 +66,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await expect(page.getByRole('main').getByText(/已绑定到 .+（本机目录）/)).toBeVisible({ timeout: 30_000 })
 
     // @ the bot → run card goes running → completed, final reply shows up, file lands in the chosen directory.
-    const box = page.getByPlaceholder('输入消息，@ 触发 bot 或引用文件，/ 查看命令')
+    const box = page.getByPlaceholder('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
     await box.fill('@小王的 Claude 请在当前工作目录创建文件 hello.txt，内容只有 hi。完成后只回复 done。')
     await page.getByRole('button', { name: '发送' }).click()
     const card = page.getByTestId('run-card').last()

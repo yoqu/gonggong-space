@@ -1,4 +1,4 @@
-import { type McpServerDto, PROTOCOL_VERSION, type RunStart } from '@aiws/protocol'
+import { type McpServerDto, PROTOCOL_VERSION, type RunStart } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, messages } from '../src/db/schema.js'
@@ -14,7 +14,7 @@ afterEach(() => t.close())
 
 const echo = {
   transport: 'stdio' as const,
-  name: 'aiws-echo',
+  name: 'gonggong-echo',
   command: 'node',
   args: ['server.js'],
   env: { WIKI_TOKEN: 'x' },
@@ -37,10 +37,10 @@ describe('global MCP servers', () => {
     expect(created.status).toBe(201)
     expect(created.body).toMatchObject({ enabled: true, config: echo })
     expect(
-      (await api.post('/api/admin/mcp', { enabled: false, config: { ...wiki, name: 'aiws-echo' } })).body,
+      (await api.post('/api/admin/mcp', { enabled: false, config: { ...wiki, name: 'gonggong-echo' } })).body,
     ).toMatchObject({ error: 'conflict' })
     expect(
-      (await api.post('/api/admin/mcp', { enabled: true, config: { ...wiki, name: 'aiws' } })).body,
+      (await api.post('/api/admin/mcp', { enabled: true, config: { ...wiki, name: 'gonggong' } })).body,
     ).toMatchObject({ error: 'invalid' })
     expect((await api.post('/api/admin/mcp', { enabled: true, config: { ...wiki, name: ' ' } })).status).toBe(
       400,
@@ -50,7 +50,7 @@ describe('global MCP servers', () => {
     const updated = await api.patch<McpServerDto>(`/api/admin/mcp/${id}`, { enabled: false, config: echo })
     expect(updated.body.enabled).toBe(false)
     expect((await api.get<McpServerDto[]>('/api/admin/mcp')).body.map((s) => s.config.name)).toEqual([
-      'aiws-echo',
+      'gonggong-echo',
     ])
     expect((await api.del(`/api/admin/mcp/${id}`)).status).toBe(204)
     expect((await api.get<McpServerDto[]>('/api/admin/mcp')).body).toEqual([])
@@ -62,7 +62,7 @@ describe('global MCP servers', () => {
       ['admin', 'mcp.update'],
       ['admin', 'mcp.delete'],
     ])
-    expect(log[0]!.detail).toMatchObject({ name: 'aiws-echo', enabled: true, forceNewSession: false })
+    expect(log[0]!.detail).toMatchObject({ name: 'gonggong-echo', enabled: true, forceNewSession: false })
   })
 
   it('forcing a new session marks every bot for a config_changed session; running turns keep going', async () => {

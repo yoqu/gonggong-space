@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { aiwsToolList, GetRunArgs, ListMessagesArgs } from '../src/index.js'
+import { GetRunArgs, gonggongToolList, ListMessagesArgs } from '../src/index.js'
 
-describe('aiws tools', () => {
-  it('aiws-tools.json (read by the daemon) matches the zod definitions', () => {
-    const file = JSON.parse(readFileSync(join(import.meta.dirname, '../aiws-tools.json'), 'utf8'))
-    expect(file).toEqual(aiwsToolList())
+describe('gonggong tools', () => {
+  it('gonggong-tools.json (read by the daemon) matches the zod definitions', () => {
+    const file = JSON.parse(readFileSync(join(import.meta.dirname, '../gonggong-tools.json'), 'utf8'))
+    expect(file).toEqual(gonggongToolList())
   })
 
   it('rejects ambiguous cursors and run references', () => {

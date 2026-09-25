@@ -4,7 +4,7 @@
   "botId": "b1",
   "requestId": "q1",
   "state": "ready",
-  "path": "/Users/w/.aiws/workspaces/g1/b1/r_pay",
+  "path": "/Users/w/.gonggong/workspaces/g1/b1/r_pay",
   "git": { "branch": "main", "ahead": 0, "behind": 0, "dirty": false, "workspace": "managed" },
   "error": null
 }

@@ -1,4 +1,4 @@
-import type { AdminGroupDto } from '@aiws/protocol'
+import type { AdminGroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { Alert, Badge, type BadgeVariant, Spinner } from '../../ui'

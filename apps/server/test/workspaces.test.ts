@@ -7,7 +7,7 @@ import {
   type TimelineDto,
   type ValidateRepoRes,
   type WebEvent,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
@@ -121,7 +121,7 @@ describe('validate-repo', () => {
       message: `仓库可访问 · 分支 main 存在 · 最新提交 ${w.repo.head}`,
     })
     expect(await check(w.repo.url, 'dev')).toEqual({ ok: false, message: '仓库可访问，但分支 dev 不存在' })
-    expect(await check('file:///nonexistent/aiws.git', 'main')).toEqual({
+    expect(await check('file:///nonexistent/gonggong.git', 'main')).toEqual({
       ok: false,
       message: '无法访问该仓库，检查地址与权限',
     })
@@ -327,7 +327,7 @@ describe('rebinding the repo', () => {
     d.send(reply(rebuild))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
     expect(await w.bodies(g.id)).toContain(
-      `群更换仓库 ${other.url} · 基准分支 main · 各 bot 需重新绑定工作区`,
+      `群更换仓库 ${other.url} · 基准分支 main · 各 Bot 需重新绑定工作区`,
     )
   })
 
@@ -447,7 +447,9 @@ describe('scheduling', () => {
       .returning()
     await triggerRuns(t.ctx, m!)
     expect(await t.db.select().from(runs).where(eq(runs.groupId, g.id))).toEqual([])
-    expect(await w.bodies(g.id)).toContain('小王的 Claude 还没有工作区，需 王磊 先绑定；绑定后请重新发起')
+    expect(await w.bodies(g.id)).toContain(
+      '小王的 Claude 还没有工作区，本次未执行；王磊 绑定工作区后重新发起即可',
+    )
   })
 })
 

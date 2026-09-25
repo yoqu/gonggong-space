@@ -1,4 +1,4 @@
-import { AnswerQuestionsReq } from '@aiws/protocol'
+import { AnswerQuestionsReq } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { idParam } from '../../lib/ids.js'

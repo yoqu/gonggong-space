@@ -8,7 +8,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
-.aiws-dev/
+.gonggong-dev/
 .claude/worktrees/
 test-results/
 .obsidian/

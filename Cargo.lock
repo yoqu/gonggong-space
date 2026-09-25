@@ -68,59 +68,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aiws"
-version = "0.1.0"
-dependencies = [
- "agent-client-protocol",
- "anyhow",
- "aws-lc-rs",
- "base64 0.23.1",
- "chrono",
- "clap",
- "fs4",
- "futures-util",
- "gethostname",
- "http-body-util",
- "hyper",
- "hyper-util",
- "machine-uid",
- "rcgen",
- "regex",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "sysinfo",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "tokio-rustls",
- "tokio-tungstenite",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "uuid",
- "zip",
-]
-
-[[package]]
-name = "aiws-desktop"
-version = "0.1.0"
-dependencies = [
- "aiws",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tempfile",
- "tracing",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1885,6 +1832,59 @@ dependencies = [
  "glib-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "gonggong"
+version = "0.1.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "chrono",
+ "clap",
+ "fs4",
+ "futures-util",
+ "gethostname",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "machine-uid",
+ "rcgen",
+ "regex",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sysinfo",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "uuid",
+ "zip",
+]
+
+[[package]]
+name = "gonggong-desktop"
+version = "0.1.0"
+dependencies = [
+ "gonggong",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

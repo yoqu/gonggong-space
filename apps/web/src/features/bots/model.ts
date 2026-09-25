@@ -1,4 +1,4 @@
-import { type AgentKind, type BotDto, compareVersions, type MachineDto } from '@aiws/protocol'
+import { type AgentKind, type BotDto, compareVersions, type MachineDto } from '@gonggong/protocol'
 import { refreshNotifCount, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 

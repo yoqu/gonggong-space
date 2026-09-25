@@ -5,7 +5,7 @@ import { bindManaged, buildDaemon, memberWithMachine, remoteRepo } from './helpe
 
 test.beforeAll(buildDaemon)
 
-const composer = '输入消息，@ 触发 bot 或引用文件，/ 查看命令'
+const composer = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
 
 async function say(page: Page, text: string) {
   await page.getByPlaceholder(composer).fill(text)
@@ -64,7 +64,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
       page,
       "@审批 A @审批 B 请用 Bash 工具执行命令 `node -e \"console.log('hello-' + 'approval')\"`，然后只回复命令的输出。",
     )
-    await expect(page.getByText('扇出 · 2 个 bot 并行')).toBeVisible()
+    await expect(page.getByText('扇出 · 2 个 Bot 并行')).toBeVisible()
 
     const cardA = cardOf(page, '审批 A')
     const cardB = cardOf(page, '审批 B')
@@ -75,7 +75,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     // A non-owner sees the request but cannot act on it.
     const viewerCard = cardOf(viewer.page, '审批 A')
     await expect(viewerCard.getByRole('button', { name: '批准' })).toBeDisabled()
-    await expect(viewerCard).toContainText('仅 bot 主人 appr1 可操作，你只能查看')
+    await expect(viewerCard).toContainText('仅 Bot 主人 appr1 可操作，你只能查看')
 
     await cardA.getByRole('button', { name: '批准' }).click()
     await cardB.getByRole('button', { name: '拒绝' }).click()

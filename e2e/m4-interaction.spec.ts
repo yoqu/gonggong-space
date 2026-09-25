@@ -5,7 +5,7 @@ import { bindManaged, buildDaemon, memberWithMachine, ROOT, remoteRepo } from '.
 
 test.beforeAll(buildDaemon)
 
-const composer = '输入消息，@ 触发 bot 或引用文件，/ 查看命令'
+const composer = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
 const PNG = join(ROOT, 'docs/原型UI-AI 对话 agent系统界面设计方案/assets/chat/shot-4.png')
 
 async function say(page: Page, text: string) {
@@ -56,9 +56,9 @@ test('attachments land in the workspace (git-excluded), images are previewed, an
     await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
 
     const file = m.find('shot-4.png')
-    expect(file).toMatch(/\.aiws\/attachments\/[^/]+\/shot-4\.png$/)
-    const repoRoot = file!.split('/.aiws/')[0]!
-    expect(readFileSync(join(repoRoot, '.git/info/exclude'), 'utf8')).toContain('.aiws/')
+    expect(file).toMatch(/\.gonggong\/attachments\/[^/]+\/shot-4\.png$/)
+    const repoRoot = file!.split('/.gonggong/')[0]!
+    expect(readFileSync(join(repoRoot, '.git/info/exclude'), 'utf8')).toContain('.gonggong/')
 
     // Quote the bot's reply without @: it still triggers the bot, with the quoted text attached.
     await page.getByTestId('bot-reply').last().getByRole('button', { name: '引用回复' }).click()
@@ -156,7 +156,7 @@ test('a global MCP server configured by the admin is injected into new sessions'
         forceNewSession: true,
         config: {
           transport: 'stdio',
-          name: 'aiws-echo',
+          name: 'gonggong-echo',
           command: 'node',
           args: [join(ROOT, 'tools/mcp-echo/server.js')],
           env: {},
@@ -165,7 +165,10 @@ test('a global MCP server configured by the admin is injected into new sessions'
     })
     expect(res.ok()).toBe(true)
     await admin.close()
-    await say(page, `@${name} 调用 aiws-echo 的 echo 工具，参数 text 为 "mcp-ok-42"，只回复工具返回的内容。`)
+    await say(
+      page,
+      `@${name} 调用 gonggong-echo 的 echo 工具，参数 text 为 "mcp-ok-42"，只回复工具返回的内容。`,
+    )
     await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
     await expect(page.getByTestId('bot-reply').last()).toContainText('mcp-ok-42')
   } finally {

@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { CommandCandidatesDto, DaemonToServer, FileCandidatesDto, ServerToDaemon } from '@aiws/protocol'
+import type {
+  CommandCandidatesDto,
+  DaemonToServer,
+  FileCandidatesDto,
+  ServerToDaemon,
+} from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots } from '../../db/schema.js'
@@ -59,7 +64,7 @@ export async function fileCandidates(
   query: string,
 ): Promise<FileCandidatesDto> {
   const bot = botId
-    ? ((await activeBots(ctx, groupId)).find((b) => b.id === botId) ?? fail('not_found', 'bot 不在本群'))
+    ? ((await activeBots(ctx, groupId)).find((b) => b.id === botId) ?? fail('not_found', 'Bot 不在本群'))
     : null
   const repo = await currentRepo(ctx, groupId)
   const mirror = repo ? mirrors.get(repo) : null

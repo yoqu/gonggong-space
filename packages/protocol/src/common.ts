@@ -51,7 +51,7 @@ export const Attachment = z.object({
   name: z.string(),
   size: z.number().int(),
   mime: z.string(),
-  /** Message that carries it; the daemon writes it to `<workspace>/.aiws/attachments/<messageId>/<name>`. */
+  /** Message that carries it; the daemon writes it to `<workspace>/.gonggong/attachments/<messageId>/<name>`. */
   messageId: z.string(),
 })
 export type Attachment = z.infer<typeof Attachment>

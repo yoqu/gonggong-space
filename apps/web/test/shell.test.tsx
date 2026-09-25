@@ -1,4 +1,4 @@
-import type { GroupDto, MachineDto, UserDto } from '@aiws/protocol'
+import type { GroupDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -159,7 +159,9 @@ describe('sidebar', () => {
     await waitFor(() => expect(useWorkspace.getState().loaded).toBe(true))
     expect(within(nav).queryByText(/还没有/)).toBeNull()
     await act(async () => answer(new Response('[]')))
-    expect(await within(nav).findByText('还没有加入任何群')).toBeTruthy()
+    // No groups on desktop: the main-area welcome guides; the sidebar doesn't repeat "还没有…".
+    expect(await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })).toBeTruthy()
+    expect(within(nav).queryByText(/还没有/)).toBeNull()
   })
 
   it('labels unread badges and keeps full bot info in a title', async () => {
@@ -172,7 +174,7 @@ describe('sidebar', () => {
 
 describe('home route', () => {
   it('opens the last opened group on desktop', async () => {
-    localStorage.setItem('aiws.lastGroup', 'g2')
+    localStorage.setItem('gonggong.lastGroup', 'g2')
     mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
     renderAt('/')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g2'))
@@ -182,7 +184,7 @@ describe('home route', () => {
     mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
     renderAt('/')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1'))
-    expect(localStorage.getItem('aiws.lastGroup')).toBe('g1')
+    expect(localStorage.getItem('gonggong.lastGroup')).toBe('g1')
   })
 
   it('keeps the list on mobile and the empty state without groups', async () => {

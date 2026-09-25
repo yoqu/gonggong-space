@@ -1,4 +1,4 @@
-import type { RunDto } from '@aiws/protocol'
+import type { RunDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -36,7 +36,7 @@ export function InterruptBlock({ run }: { run: RunDto }) {
       <div className="run-interrupt__title">{TITLE[run.interrupt](run.filesChanged)}</div>
       <div className="run-interrupt__desc">
         {pending
-          ? `默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 ${initiator} 或 bot 主人可选，无超时。`
+          ? `默认保留：不回滚、不自动提交、不 stash。丢弃只还原本轮触及的文件，不影响此前已有的未提交改动。仅发起人 ${initiator} 或 Bot 主人可选，无超时。`
           : '下一轮上下文会告诉 agent：上一轮被 /stop 中断，以及这些文件的当前状态。'}
       </div>
       {pending ? (

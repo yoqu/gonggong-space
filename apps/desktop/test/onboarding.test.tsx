@@ -31,7 +31,7 @@ beforeEach(() => {
 })
 
 async function bind() {
-  fireEvent.change(screen.getByLabelText('服务器'), { target: { value: 'https://aiws.corp.cn' } })
+  fireEvent.change(screen.getByLabelText('服务器'), { target: { value: 'https://gonggong.corp.cn' } })
   fireEvent.change(screen.getByLabelText('绑定码'), { target: { value: 'k7qm-4x2p' } })
   fireEvent.click(screen.getByRole('button', { name: '登录' }))
 }
@@ -44,10 +44,10 @@ describe('onboarding', () => {
     expect(screen.getByRole('button', { name: '登录' })).toHaveProperty('disabled', true)
     await bind()
     expect(
-      screen.getByText('等价命令：aiws login --server https://aiws.corp.cn --code K7QM-4X2P'),
+      screen.getByText('等价命令：gg login --server https://gonggong.corp.cn --code K7QM-4X2P'),
     ).toBeTruthy()
     await screen.findByText('检测本机 agent')
-    expect(m.login).toHaveBeenCalledWith('https://aiws.corp.cn', 'K7QM-4X2P')
+    expect(m.login).toHaveBeenCalledWith('https://gonggong.corp.cn', 'K7QM-4X2P')
   })
 
   it('shows why binding failed and stays on the first step', async () => {
@@ -113,7 +113,7 @@ describe('onboarding', () => {
     render(<Onboarding onDone={onDone} />)
     await bind()
     fireEvent.click(await screen.findByRole('button', { name: '上报并继续' }))
-    await screen.findByText('确认 bot')
+    await screen.findByText('确认 Bot')
     expect(m.startDaemon).toHaveBeenCalled()
     expect(screen.queryByText('我的 Claude')).toBeNull()
     expect(screen.getByText('Claude Code · 后端接口开发')).toBeTruthy()

@@ -1,7 +1,7 @@
-import { MessageSquare, Radar } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { Link, Navigate, NavLink, Outlet } from 'react-router'
 import { useSession } from '../../app/session'
-import { Toaster } from '../../ui'
+import { Logo, Toaster } from '../../ui'
 import { AccountMenu, ROLE_LABEL } from '../auth/AccountMenu'
 import { ADMIN_NAV } from './nav'
 import './admin.css'
@@ -13,10 +13,8 @@ export function AdminLayout() {
   return (
     <div className="admin">
       <header className="admin__bar">
-        <span className="brand-mark">
-          <Radar size={14} />
-        </span>
-        <span className="admin__product">AI 团队工作区</span>
+        <Logo size={22} />
+        <span className="admin__product">共工</span>
         <span className="admin__slash">/</span>
         <span className="admin__crumb">管理后台</span>
         <span className="spacer" />

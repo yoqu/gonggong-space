@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { DaemonToServer, ServerToDaemon } from '@aiws/protocol'
+import type { DaemonToServer, ServerToDaemon } from '@gonggong/protocol'
 
 export interface DaemonConn {
   send(msg: ServerToDaemon): void

@@ -1,4 +1,4 @@
-import { GroupParams, GroupPrefsReq, UpdateGroupReq } from '@aiws/protocol'
+import { GroupParams, GroupPrefsReq, UpdateGroupReq } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'

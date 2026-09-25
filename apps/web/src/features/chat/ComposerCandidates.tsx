@@ -1,4 +1,4 @@
-import type { CommandCandidatesDto, FileCandidatesDto, GroupDto } from '@aiws/protocol'
+import type { CommandCandidatesDto, FileCandidatesDto, GroupDto } from '@gonggong/protocol'
 import { Bot, Cpu, FileText, Folder, type LucideIcon, Terminal, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'

@@ -1,0 +1,33 @@
+<!-- @dsCard group="IM · 示例" height=720 width=1040 page subtitle="飞书式 IM 窗口，macOS 27 风格" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>IMExample</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'消息',height:'660px',
+ sidebar:h(P.ConversationList,{style:{width:'280px',flex:1},defaultSelected:'a',header:h(P.SearchField,{placeholder:'搜索'}),items:[
+ {id:'a',name:'产品设计组',group:true,tags:[{label:'部门',tone:'gray'}],time:'10:42',preview:'Mia：新版会话列表的稿子更新了',unread:5,mention:true,pinned:true},
+ {id:'b',name:'张三',status:'online',time:'10:30',preview:'好的，下午三点会议室见',unread:0},
+ {id:'c',name:'审批',tags:[{label:'机器人',tone:'blue'}],time:'09:58',preview:'李思远 提交的请假申请待你审批',unread:1,urgent:true},
+ {id:'d',name:'星河科技 · 对接群',group:true,tags:[{label:'外部',tone:'orange'}],time:'昨天',preview:'王总：合同已盖章，请查收',unread:12,muted:true},
+ {id:'e',name:'李思远',status:'busy',time:'星期二',draft:'周报我晚点补上',unread:0},
+ {id:'f',name:'全员通知',group:true,tags:[{label:'全员',tone:'purple'}],time:'9月20日',preview:'国庆放假安排',unread:0,muted:true}
+]}),
+ toolbar:h(P.ChatHeader,{title:'产品设计组',group:true,subtitle:'28 位成员',tags:[{label:'部门',tone:'gray'}],actions:[{icon:'video',label:'视频会议'},{icon:'search',label:'搜索聊天记录'},{icon:'more',label:'设置'}],tabs:[{value:'chat',label:'聊天'},{value:'doc',label:'云文档'},{value:'file',label:'文件'},{value:'notice',label:'公告'}]}),
+ contentStyle:{padding:0,display:'flex',flexDirection:'column',position:'relative'}},
+ h('div',{style:{position:'absolute',top:'10px',left:'20px',right:'20px',zIndex:3}},h(P.PinnedBanner,{text:'设计评审改到每周四 15:00，评审前一天 18:00 前把稿子链接发到群里。',onClose:function(){}})),
+ h('div',{style:{flex:1,overflow:'auto'}}, h(P.MessageList,{style:{paddingTop:'60px'}},
+   h(P.ChatNotice,{kind:'date',day:'今天'},'10:20'),
+   h(P.Message,{author:{name:'Mia Chen',status:'online'},time:'10:20',reactions:[{emoji:'👍',users:['张三','李思远','王小明'],mine:true}]},h('p',null,h(P.Mention,{name:'所有人'}),' 新版会话列表的稿子更新了，重点看一下未读徽标和加急态。')),
+   h(P.Message,{author:{name:'Mia Chen'},continued:true,bare:true},h(P.DocLink,{kind:'doc',title:'IM 2.0 设计评审纪要',owner:'Mia Chen',updated:'今天 10:12 更新',permission:'群成员可阅读'})),
+   h(P.ChatNotice,{kind:'unread'}),
+   h(P.Message,{author:{name:'审批',tags:[{label:'机器人',tone:'blue'}]},time:'10:28',bare:true},h(P.MessageCard,{template:'orange',icon:'checklist',title:'请假申请',status:{label:'待审批',tone:'orange'},fields:[{label:'申请人',value:'李思远',short:true},{label:'类型',value:'年假',short:true},{label:'时间',value:'10月8日 – 10月10日，共 3 天'}],actions:[{label:'同意',variant:'primary'},{label:'拒绝'}]})),
+   h(P.Message,{self:true,author:{name:'Yoqu'},time:'10:31',reply:{author:'Mia Chen',text:'新版会话列表的稿子更新了'},receipt:{read:2,total:5},thread:{count:3,people:[{name:'张三'},{name:'李思远'}],lastTime:'10:36'}},h('p',null,'收到，',h(P.Mention,{name:'张三'}),' 帮忙看下交互细节')))),
+ h('div',{style:{padding:'8px 16px 16px'}},h(P.Composer,{recipient:'产品设计组'}))))
+</script>
+</body>
+</html>

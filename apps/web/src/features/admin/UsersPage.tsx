@@ -1,4 +1,4 @@
-import type { AdminUserDto, UserDto } from '@aiws/protocol'
+import type { AdminUserDto, UserDto } from '@gonggong/protocol'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
@@ -22,13 +22,66 @@ import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
 const TITLE = '账号与角色'
-const DESC = '系统管理员创建账号、分配角色；停用会吊销该成员所有 daemon 与会话。'
+const DESC = '创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。'
 const ROLE_OPTIONS = (['member', 'sysadmin'] as const).map((value) => ({ value, label: ROLE_LABEL[value] }))
 
 function status(u: AdminUserDto): [string, BadgeVariant] {
   if (u.disabled) return ['已停用', 'outline']
-  if (!u.machineCount) return ['未绑定', 'secondary']
-  return u.online ? ['在线', 'success'] : ['离线', 'secondary']
+  return u.mustChangePassword ? ['待修改密码', 'warning'] : ['正常', 'success']
+}
+
+function machinesCell(u: AdminUserDto) {
+  if (u.disabled) return '—'
+  if (!u.machineCount) return '未绑定'
+  return `${u.machineCount} 台 · ${u.online ? '在线' : '离线'}`
+}
+
+const READABLE = 'abcdefghjkmnpqrstuvwxyz23456789'
+/** Readable temporary password (no 0/o/1/l/i), grouped for reading aloud: `k7qm-4x2p-9d`. */
+export function tempPassword() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  const chars = Array.from(bytes, (b) => READABLE[b % READABLE.length])
+  return `${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8).join('')}`
+}
+
+async function copy(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Temporary password field: generated on open and regenerable; it is copied only once it is actually in effect. */
+function TempPasswordField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="ui-field">
+      <label className="ui-field__label" htmlFor="temp-password">
+        {label}
+      </label>
+      <span className="admin-temp-pw">
+        <Input
+          id="temp-password"
+          mono
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={`至少 ${MIN_PASSWORD} 位`}
+        />
+        <Button variant="outline" size="sm" onClick={() => onChange(tempPassword())}>
+          重新生成
+        </Button>
+      </span>
+    </div>
+  )
 }
 
 /** 管理后台 · 账号与角色 (sysadmin only). */
@@ -39,6 +92,7 @@ export function UsersPage() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<AdminUserDto | 'new' | null>(null)
   const [disabling, setDisabling] = useState<AdminUserDto | null>(null)
+  const [resetting, setResetting] = useState<AdminUserDto | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -98,14 +152,23 @@ export function UsersPage() {
                     </td>
                     <td className="admin-table__mono">{u.account}</td>
                     <td>{ROLE_LABEL[u.role]}</td>
-                    <td className="admin-table__muted">{u.disabled ? '—' : `${u.machineCount} 台`}</td>
+                    <td className="admin-table__muted">{machinesCell(u)}</td>
                     <td>
-                      <Badge variant={variant}>{label}</Badge>
+                      {u.disabled || u.mustChangePassword ? (
+                        <Badge variant={variant}>{label}</Badge>
+                      ) : (
+                        <span className="admin-table__muted">{label}</span>
+                      )}
                     </td>
                     <td className="admin-table__actions">
                       <Button variant="outline" size="xs" onClick={() => setEditing(u)}>
                         编辑
                       </Button>
+                      {u.id === me.id || u.disabled ? null : (
+                        <Button variant="outline" size="xs" onClick={() => setResetting(u)}>
+                          重置密码
+                        </Button>
+                      )}
                       {u.id === me.id ? null : u.disabled ? (
                         <Button variant="outline" size="xs" onClick={() => void enable(u)}>
                           启用
@@ -121,6 +184,18 @@ export function UsersPage() {
               })}
             </tbody>
           </table>
+          {users.length === 1 ? (
+            <EmptyState
+              bare
+              title="还没有其他成员"
+              description="新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。"
+              actions={
+                <Button size="sm" variant="primary" onClick={() => setEditing('new')}>
+                  新建账号
+                </Button>
+              }
+            />
+          ) : null}
         </div>
       ) : error ? null : (
         <Spinner size={18} />
@@ -132,6 +207,18 @@ export function UsersPage() {
             onClose={() => setDisabling(null)}
             onDone={() => {
               setDisabling(null)
+              void load()
+            }}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {resetting ? (
+          <ResetPasswordDialog
+            user={resetting}
+            onClose={() => setResetting(null)}
+            onDone={() => {
+              setResetting(null)
               void load()
             }}
           />
@@ -197,10 +284,71 @@ function DisableDialog({
       <ul className="ui-consequences">
         <li>立即吊销其所有 daemon token 和 Web 会话</li>
         <li>daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）</li>
-        <li>其 bot 从所有群移除；持锁中的 bot 按非主动中断处理</li>
+        <li>其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理</li>
         <li>群消息与审计记录保留</li>
       </ul>
       {error ? <Alert variant="error" description={error} /> : null}
+    </Dialog>
+  )
+}
+
+function ResetPasswordDialog({
+  user,
+  onClose,
+  onDone,
+}: {
+  user: AdminUserDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [password, setPassword] = useState(tempPassword)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function reset() {
+    if (password.length < MIN_PASSWORD) return setError(`临时密码至少 ${MIN_PASSWORD} 位`)
+    setBusy(true)
+    try {
+      await api.post(`/admin/users/${user.id}/password`, { password })
+      const copied = await copy(password)
+      toast({
+        type: 'success',
+        message: copied
+          ? `已重置，临时密码已复制，请私下发给 ${user.name}`
+          : `已重置 ${user.name} 的密码，请记下临时密码 ${password}`,
+      })
+      onDone()
+    } catch (err) {
+      setError(errorText(err))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={`重置 ${user.name} 的密码`}
+      subtitle={user.account}
+      onClose={onClose}
+      width={460}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button variant="primary" disabled={busy} onClick={() => void reset()}>
+            重置并复制
+          </Button>
+        </>
+      }
+    >
+      <div className="admin-form">
+        <TempPasswordField label="临时密码" value={password} onChange={setPassword} />
+        <Alert
+          variant="warning"
+          title="重置后立即生效"
+          description="对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。"
+        />
+        {error ? <Alert variant="error" description={error} /> : null}
+      </div>
     </Dialog>
   )
 }
@@ -224,11 +372,11 @@ function UserDialog({
     account: '',
     name: user?.name ?? '',
     role: (user?.role ?? 'member') as UserDto['role'],
-    password: '',
+    password: user ? '' : tempPassword(),
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const set = (k: 'account' | 'name' | 'password') => (e: { target: { value: string } }) =>
+  const set = (k: 'account' | 'name') => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
 
   async function submit(e: FormEvent) {
@@ -242,7 +390,11 @@ function UserDialog({
       if (user) await api.patch(`/admin/users/${user.id}`, { name: form.name.trim(), role: form.role })
       else {
         await api.post('/admin/users', { ...form, name: form.name.trim() })
-        toast({ type: 'success', message: `已创建账号 ${form.account}，首次登录需修改密码` })
+        const copied = await copy(`账号 ${form.account}  初始密码 ${form.password}`)
+        toast({
+          type: 'success',
+          message: `已创建账号 ${form.account}${copied ? '，账号和初始密码已复制' : ''}，首次登录需修改密码`,
+        })
       }
       onSaved()
     } catch (err) {
@@ -279,14 +431,11 @@ function UserDialog({
           />
         </div>
         {user ? null : (
-          <Field label="初始密码">
-            <Input
-              type="text"
-              value={form.password}
-              onChange={set('password')}
-              placeholder={`至少 ${MIN_PASSWORD} 位`}
-            />
-          </Field>
+          <TempPasswordField
+            label="初始密码"
+            value={form.password}
+            onChange={(password) => setForm((f) => ({ ...f, password }))}
+          />
         )}
         {error ? <Alert variant="error" description={error} /> : null}
         <div className="admin-form__actions">

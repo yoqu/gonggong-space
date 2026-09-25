@@ -5,17 +5,17 @@ import {
   type RunDto,
   RunStatus,
   type UserDto,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { continues, isRich, unreadStart } from '../src/features/chat/grouping'
+import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
 import { RUN_STATUS } from '../src/features/chat/TimelineItems'
-import { EmptyState } from '../src/ui'
+import { EmptyChatArt, EmptyState } from '../src/ui'
 import { mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -147,6 +147,20 @@ afterEach(() => {
 })
 
 describe('grouping rule', () => {
+  it('folds runs of 3+ same-day events, breaking at other messages, day changes and the unread divider', () => {
+    const ev = (seq: number, at = min(seq)) =>
+      msg({ seq, id: `e${seq}`, kind: 'event', authorId: null, createdAt: at })
+    const list = [ev(1), ev(2), ev(3), msg({ seq: 4, id: 'm4' }), ev(5), ev(6), ev(7), ev(8)]
+    expect([...eventFolds(list)]).toEqual([
+      [0, 2],
+      [4, 7],
+    ])
+    expect([...eventFolds(list, 'e7')]).toEqual([[0, 2]])
+    expect([...eventFolds([ev(1), ev(2), msg({ seq: 3 })])]).toEqual([])
+    const nextDay = '2026-09-25T09:00:00.000Z'
+    expect([...eventFolds([ev(1), ev(2), ev(3, nextDay), ev(4, nextDay)])]).toEqual([])
+  })
+
   it('merges the same author within 5 minutes and nothing else', () => {
     const a = msg({ seq: 1 })
     expect(continues(a, msg({ seq: 2, createdAt: min(6) }))).toBe(true)
@@ -271,6 +285,31 @@ describe('timeline bubbles', () => {
   })
 })
 
+describe('system event folding', () => {
+  it('folds a run of setup events into one row that expands in place', async () => {
+    const ev = (seq: number, body: string) =>
+      msg({ seq, kind: 'event', authorId: null, authorName: '', body, createdAt: min(seq) })
+    renderChat({
+      messages: [
+        ev(1, '王磊 创建了群 · 成为群管理员'),
+        ev(2, '群绑定仓库 git@x:pay.git · main'),
+        ev(3, '小王的 Claude 加入'),
+        ev(4, '✓ 小王的 Claude 已使用托管工作区'),
+        msg({ seq: 5, body: '开工' }),
+      ],
+      runs: [],
+    })
+    const head = await screen.findByRole('button', {
+      name: /4 条系统事件 · ✓ 小王的 Claude 已使用托管工作区/,
+    })
+    expect(screen.queryByText('群绑定仓库 git@x:pay.git · main')).toBeNull()
+    expect(screen.getByText('开工')).toBeTruthy()
+    fireEvent.click(head)
+    expect(head.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('群绑定仓库 git@x:pay.git · main')).toBeTruthy()
+  })
+})
+
 describe('hover action bar', () => {
   it('is a keyboard-reachable toolbar with quote, copy and more', async () => {
     renderChat({ messages: [msg({ seq: 1, body: '你好' })], runs: [] })
@@ -308,10 +347,8 @@ describe('hover action bar', () => {
 })
 
 describe('EmptyState illustration', () => {
-  it('renders a decorative image', () => {
-    render(<EmptyState title="还没有消息" illustration="/art.png" />)
-    const img = document.querySelector('img') as HTMLImageElement
-    expect(img.getAttribute('src')).toBe('/art.png')
-    expect(img.getAttribute('alt')).toBe('')
+  it('renders a decorative svg', () => {
+    render(<EmptyState title="还没有消息" illustration={<EmptyChatArt />} />)
+    expect(document.querySelector('.ui-empty__art svg')?.getAttribute('aria-hidden')).toBe('true')
   })
 })

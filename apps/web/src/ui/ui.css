@@ -744,7 +744,7 @@ input:checked + .ui-checkbox__box svg {
   margin-bottom: 4px;
   animation: ui-float 6s ease-in-out infinite;
 }
-.ui-empty__art svg {
+.ui-art {
   display: block;
   width: 100%;
   height: auto;
@@ -758,7 +758,7 @@ input:checked + .ui-checkbox__box svg {
   stroke-width: 1.5;
 }
 .art-muted {
-  fill: var(--color-bg-muted);
+  fill: color-mix(in srgb, var(--color-text-quaternary) 22%, transparent);
 }
 .art-cutout {
   stroke: var(--color-panel-elevated);
@@ -771,14 +771,14 @@ input:checked + .ui-checkbox__box svg {
 .art-accent-soft {
   fill: color-mix(in srgb, var(--color-selection-blue) 24%, var(--color-panel-elevated));
 }
-.art-warn {
-  fill: var(--color-warning);
+.art-danger {
+  fill: var(--color-danger);
 }
 .art-ink {
   fill: var(--color-on-accent);
 }
 .art-glyph {
-  font: 700 14px var(--font-sans, system-ui);
+  font: 700 14px var(--font-sans);
 }
 .art-stroke-accent,
 .art-stroke-muted {
@@ -1105,4 +1105,112 @@ input:checked + .ui-checkbox__box svg {
 }
 :root[data-window-inactive] .ui-toolbar {
   color: var(--color-text-secondary);
+}
+
+/* Brand — 共工 mark and lockup */
+.ui-logo {
+  flex: none;
+  display: block;
+  overflow: visible;
+}
+.ui-logo__hand,
+.ui-logo__water {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ui-logo__hand {
+  stroke-width: 5;
+}
+.ui-logo__water {
+  stroke-width: 3.2;
+  stroke-opacity: 0.55;
+}
+.ui-logo__jade {
+  fill: #fff;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ui-logo--enter .ui-logo__badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-badge 620ms var(--ease-apple) both;
+}
+.ui-logo--enter .ui-logo__hand,
+.ui-logo--idle .ui-logo__hand {
+  stroke-dasharray: 1;
+  animation: logo-draw 900ms cubic-bezier(0.65, 0, 0.35, 1) 160ms both;
+}
+.ui-logo--enter .ui-logo__jade,
+.ui-logo--idle .ui-logo__jade {
+  animation: logo-lift 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms both;
+}
+.ui-logo--idle .ui-logo__jade {
+  animation:
+    logo-lift 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms both,
+    logo-float 2.4s ease-in-out 1.4s infinite;
+}
+.ui-logo--idle .ui-logo__water {
+  animation: logo-flow 1.6s linear infinite;
+}
+@keyframes logo-badge {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-8deg);
+  }
+}
+@keyframes logo-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes logo-lift {
+  from {
+    opacity: 0;
+    transform: translateY(10px) rotate(-45deg) scale(0.6);
+  }
+}
+@keyframes logo-float {
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+@keyframes logo-flow {
+  to {
+    transform: translateX(18.4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-logo .ui-logo__badge,
+  .ui-logo .ui-logo__hand,
+  .ui-logo .ui-logo__jade,
+  .ui-logo .ui-logo__water {
+    animation: none;
+  }
+}
+.ui-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--brand-size) * 0.4);
+  min-width: 0;
+}
+.ui-brand__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ui-brand__name {
+  font: 600 calc(var(--brand-size) * 0.62) / 1.1 var(--font-display);
+  letter-spacing: 0.08em;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+.ui-brand__sub {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
 }

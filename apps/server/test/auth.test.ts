@@ -16,8 +16,8 @@ afterEach(() => t.close())
 const login = (account: string, password: string) =>
   t.app.inject({ method: 'POST', url: '/api/auth/login', payload: { account, password } })
 const sessionCookie = (res: { cookies: { name: string; value: string }[] }) => {
-  const c = res.cookies.find((x) => x.name === 'aiws_session')
-  return c ? `aiws_session=${c.value}` : ''
+  const c = res.cookies.find((x) => x.name === 'gonggong_session')
+  return c ? `gonggong_session=${c.value}` : ''
 }
 const get = (url: string, cookie: string) => t.app.inject({ method: 'GET', url, headers: { cookie } })
 const changePassword = (cookie: string, oldPassword: string, newPassword: string) =>
@@ -65,7 +65,7 @@ describe('login / logout / me', () => {
       mustChangePassword: false,
       disabled: false,
     })
-    const c = res.cookies.find((x) => x.name === 'aiws_session')
+    const c = res.cookies.find((x) => x.name === 'gonggong_session')
     expect(c).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })
     expect(c?.secure).toBeFalsy()
     const me = await get('/api/me', sessionCookie(res))

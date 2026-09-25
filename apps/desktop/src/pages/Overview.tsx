@@ -137,7 +137,7 @@ function ConnAlert({
       <Alert
         variant="error"
         title="协议版本不兼容 · 服务器拒绝连接"
-        description={`本机 daemon v${version} 使用协议 v${protocol}，服务器：${c.message}。升级 daemon 后重启生效；升级前本机 bot 显示离线。`}
+        description={`本机 daemon v${version} 使用协议 v${protocol}，服务器：${c.message}。升级 daemon 后重启生效；升级前本机 Bot 显示离线。`}
       />
     )
   }

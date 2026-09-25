@@ -1,4 +1,4 @@
-import { type NotificationDto, notificationView } from '@aiws/protocol'
+import { type NotificationDto, notificationView } from '@gonggong/protocol'
 import { eq, inArray } from 'drizzle-orm'
 import webpush from 'web-push'
 import type { Ctx } from '../../context.js'
@@ -10,7 +10,7 @@ interface VapidKeys {
 }
 
 const KEY = 'vapidKeys'
-const SUBJECT = process.env.AIWS_PUSH_SUBJECT ?? 'mailto:aiws@example.com'
+const SUBJECT = process.env.GONGGONG_PUSH_SUBJECT ?? 'mailto:gonggong@example.com'
 /** The push service no longer knows the subscription (browser unsubscribed or expired). */
 const GONE = [404, 410]
 

@@ -1,4 +1,4 @@
-import { DecideApprovalReq } from '@aiws/protocol'
+import { DecideApprovalReq } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { idParam } from '../../lib/ids.js'

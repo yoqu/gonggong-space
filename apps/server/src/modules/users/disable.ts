@@ -1,4 +1,4 @@
-import { TERMINAL_RUN_STATUS } from '@aiws/protocol'
+import { TERMINAL_RUN_STATUS } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { CLOSE } from '../../daemon/gateway.js'

@@ -1,4 +1,4 @@
-import { REACTION_EMOJIS } from '@aiws/protocol'
+import { REACTION_EMOJIS } from '@gonggong/protocol'
 import { SmilePlus } from 'lucide-react'
 import { useState } from 'react'
 import { IconButton, useEscape, usePresence } from '../../ui'

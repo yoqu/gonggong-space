@@ -6,32 +6,37 @@ import { expect, type Page } from '@playwright/test'
 
 export const ROOT = join(import.meta.dirname, '..')
 export const SERVER = 'http://127.0.0.1:8790'
-export const AIWS_BIN = join(ROOT, 'target/debug/aiws')
+export const GONGGONG_BIN = join(ROOT, 'target/debug/gg')
 
 export function buildDaemon() {
-  execFileSync('cargo', ['build', '-q', '-p', 'aiws'], { cwd: ROOT, stdio: 'inherit' })
+  execFileSync('cargo', ['build', '-q', '-p', 'gonggong'], { cwd: ROOT, stdio: 'inherit' })
 }
 
-export function aiws(args: string[], env: Record<string, string> = {}) {
-  return execFileSync(AIWS_BIN, args, { encoding: 'utf8', env: { ...process.env, ...env } })
+export function gonggong(args: string[], env: Record<string, string> = {}) {
+  return execFileSync(GONGGONG_BIN, args, { encoding: 'utf8', env: { ...process.env, ...env } })
 }
 
-/** An isolated "member machine": its own AIWS_HOME, running `aiws run` in the background. */
+/** An isolated "member machine": its own GONGGONG_HOME, running `gg run` in the background. */
 export function machine(server = SERVER) {
-  const home = mkdtempSync(join(tmpdir(), 'aiws-e2e-'))
-  const env = { AIWS_HOME: home, AIWS_MACHINE_ID: home, AIWS_LOG: 'info', CODEX_HOME: codexHome() }
+  const home = mkdtempSync(join(tmpdir(), 'gonggong-e2e-'))
+  const env = {
+    GONGGONG_HOME: home,
+    GONGGONG_MACHINE_ID: home,
+    GONGGONG_LOG: 'info',
+    CODEX_HOME: codexHome(),
+  }
   let proc: ChildProcess | undefined
   let exited: Promise<number | null> = Promise.resolve(null)
   return {
     home,
-    login: (code: string) => aiws(['login', '--server', server, '--code', code], env),
+    login: (code: string) => gonggong(['login', '--server', server, '--code', code], env),
     start() {
-      proc = spawn(AIWS_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
+      proc = spawn(GONGGONG_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
       const p = proc
       exited = new Promise((r) => p.on('exit', (code) => r(code)))
     },
     stop: () => proc?.kill(),
-    /** Resolves with the exit code once `aiws run` terminates (e.g. after being revoked). */
+    /** Resolves with the exit code once `gg run` terminates (e.g. after being revoked). */
     exited: () => exited,
     /** Recursively finds a file by name under this machine's managed workspaces. */
     find(name: string): string | undefined {
@@ -59,19 +64,19 @@ export function machine(server = SERVER) {
  * CODEX_HOME that reuses only the login (auth.json).
  */
 function codexHome() {
-  const dir = mkdtempSync(join(tmpdir(), 'aiws-codex-'))
+  const dir = mkdtempSync(join(tmpdir(), 'gonggong-codex-'))
   const auth = join(homedir(), '.codex', 'auth.json')
   if (existsSync(auth)) copyFileSync(auth, join(dir, 'auth.json'))
-  writeFileSync(join(dir, 'config.toml'), `model = "${process.env.AIWS_E2E_CODEX_MODEL ?? 'gpt-5.5'}"\n`)
+  writeFileSync(join(dir, 'config.toml'), `model = "${process.env.GONGGONG_E2E_CODEX_MODEL ?? 'gpt-5.5'}"\n`)
   return dir
 }
 
 /** A bare git repo in a temp dir with one commit on `main`; `commit()` pushes another commit from a scratch clone. */
 export function remoteRepo() {
-  const root = mkdtempSync(join(tmpdir(), 'aiws-repo-'))
+  const root = mkdtempSync(join(tmpdir(), 'gonggong-repo-'))
   const bare = join(root, 'remote.git')
   const git = (cwd: string, ...args: string[]) =>
-    execFileSync('git', ['-c', 'user.name=e2e', '-c', 'user.email=e2e@aiws', ...args], {
+    execFileSync('git', ['-c', 'user.name=e2e', '-c', 'user.email=e2e@gonggong', ...args], {
       cwd,
       encoding: 'utf8',
     })
@@ -110,11 +115,11 @@ export async function login(page: Page, account: string, password: string) {
 }
 
 export async function changePassword(page: Page, oldPassword: string, newPassword: string) {
-  await page.getByLabel('当前密码').fill(oldPassword)
+  await page.getByLabel('初始密码').fill(oldPassword)
   await page.getByLabel('新密码', { exact: true }).fill(newPassword)
   await page.getByLabel('确认新密码').fill(newPassword)
   await page.getByRole('button', { name: '修改密码' }).click()
-  await expect(page.getByLabel('当前密码')).toBeHidden()
+  await expect(page.getByLabel('初始密码')).toBeHidden()
 }
 
 export async function logout(page: Page) {

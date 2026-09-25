@@ -1,4 +1,4 @@
-import type { SearchResultDto } from '@aiws/protocol'
+import type { SearchResultDto } from '@gonggong/protocol'
 import { Archive, FileCode, type LucideIcon, MessageSquare, Play, Search } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router'

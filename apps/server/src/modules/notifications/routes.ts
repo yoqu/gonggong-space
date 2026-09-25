@@ -1,4 +1,4 @@
-import { PushSubscriptionReq } from '@aiws/protocol'
+import { PushSubscriptionReq } from '@gonggong/protocol'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

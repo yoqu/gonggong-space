@@ -1,4 +1,4 @@
-import type { PushSubscriptionReq } from '@aiws/protocol'
+import type { PushSubscriptionReq } from '@gonggong/protocol'
 import { api } from '../../lib/api'
 
 export type PushState = 'unsupported' | NotificationPermission

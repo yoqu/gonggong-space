@@ -5,7 +5,7 @@ import { users, webSessions } from '../../db/schema.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 
-export const SESSION_COOKIE = 'aiws_session'
+export const SESSION_COOKIE = 'gonggong_session'
 const SESSION_DAYS = 30
 
 export type SessionUser = typeof users.$inferSelect

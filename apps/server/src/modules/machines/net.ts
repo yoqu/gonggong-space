@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { Readable } from 'node:stream'
-import { NET_PROBE_MAX_BYTES, NetReportReq } from '@aiws/protocol'
+import { NET_PROBE_MAX_BYTES, NetReportReq } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'

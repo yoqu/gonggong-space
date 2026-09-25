@@ -187,8 +187,8 @@ export default function UiGallery() {
         <div style={{ width: 320 }}>
           <EmptyState
             icon={<Inbox size={20} />}
-            title="还没有 bot"
-            description="新建一个 bot，绑定到你的机器上的 Claude Code 或 Codex。"
+            title="还没有 Bot"
+            description="新建一个 Bot，绑定到你的机器上的 Claude Code 或 Codex。"
             actions={
               <Button size="sm" variant="primary">
                 新建 Bot
@@ -274,7 +274,7 @@ export default function UiGallery() {
           </>
         }
       >
-        在本机终端执行 aiws login --code K7QM-4X2P
+        在本机终端执行 gg login --code K7QM-4X2P
       </Dialog>
       <Drawer open={drawer} title="群设置" onClose={() => setDrawer(false)}>
         <div style={{ padding: 16 }}>抽屉内容</div>

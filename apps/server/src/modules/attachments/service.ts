@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import type { Attachment } from '@aiws/protocol'
+import type { Attachment } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Db } from '../../db/client.js'
 import { attachments } from '../../db/schema.js'
@@ -12,9 +12,9 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 export type AttachmentRow = typeof attachments.$inferSelect
 export type Upload = Omit<Attachment, 'messageId'>
 
-export const dataDir = () => resolve(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data')
+export const dataDir = () => resolve(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data')
 
-/** Base name only: the daemon writes it under `.aiws/attachments/<messageId>/`. Names are shown to the group, so
+/** Base name only: the daemon writes it under `.gonggong/attachments/<messageId>/`. Names are shown to the group, so
  * secrets in them are masked like run output. */
 export function safeName(raw: string) {
   const base = redact(raw.split(/[/\\]/).pop() ?? '')

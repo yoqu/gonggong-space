@@ -1,4 +1,4 @@
-import type { Attachment, BotDto, GroupDto, MessageDto, RunDto, UserDto } from '@aiws/protocol'
+import type { Attachment, BotDto, GroupDto, MessageDto, RunDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -181,7 +181,7 @@ const renderChat = () =>
   )
 
 const box = () =>
-  screen.getByPlaceholderText('输入消息，@ 触发 bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
+  screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
 const file = (name: string, size: number, type: string) => {
   const f = new File(['x'], name, { type })
   Object.defineProperty(f, 'size', { value: size })
@@ -225,7 +225,7 @@ describe('composer attachments', () => {
     pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
     expect(await screen.findByText('screen.png')).toBeTruthy()
     expect(composer().getByText('486 KB')).toBeTruthy()
-    expect(screen.getByText(/1 \/ 10 · 写入工作区 \.aiws\/attachments\/，不进 git · 图片：/)).toBeTruthy()
+    expect(screen.getByText(/1 \/ 10 · 写入工作区 \.gonggong\/attachments\/，不进 git · 图片：/)).toBeTruthy()
 
     pick(files!, [file('huge.zip', 51 * 1024 * 1024, 'application/zip')])
     expect(await screen.findByText('huge.zip 超过 50 MB，未添加')).toBeTruthy()
@@ -321,8 +321,8 @@ describe('message attachments and preview', () => {
     const panel = () => screen.getByRole('complementary', { name: '侧栏' })
     expect(within(panel()).getByRole('img', { name: 'shot.png' })).toBeTruthy()
     expect(panel().textContent).toContain('来源李建国')
-    expect(panel().textContent).toContain('位置.aiws/attachments/m2/shot.png')
-    expect(panel().textContent).toContain('发送给 bot')
+    expect(panel().textContent).toContain('位置.gonggong/attachments/m2/shot.png')
+    expect(panel().textContent).toContain('发送给 Bot')
 
     fireEvent.click(within(main).getByRole('button', { name: /ci\.log/ }))
     expect(await within(panel()).findByText('ERROR boom')).toBeTruthy()

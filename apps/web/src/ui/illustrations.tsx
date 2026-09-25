@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 
-
 function Art({ children }: { children: ReactNode }) {
   return (
-    <svg viewBox="0 0 160 120" aria-hidden="true">
+    <svg className="ui-art" viewBox="0 0 160 120" aria-hidden="true">
       <ellipse className="art-wash" cx="80" cy="62" rx="66" ry="52" />
       {children}
     </svg>
@@ -48,18 +47,20 @@ export function PickChatArt() {
       <rect className="art-card" x="24" y="18" width="80" height="86" rx="14" />
       {[38, 61, 84].map((y, i) => (
         <g key={y}>
-          {i === 1 ? <rect className="art-accent-soft" x="30" y={y - 10} width="68" height="20" rx="8" /> : null}
+          {i === 1 ? (
+            <rect className="art-accent-soft" x="30" y={y - 10} width="68" height="20" rx="8" />
+          ) : null}
           <circle className={i === 1 ? 'art-accent' : 'art-muted'} cx="42" cy={y} r="7" />
           <rect className="art-muted" x="54" y={y - 5} width={i === 1 ? 36 : 30} height="4" rx="2" />
           <rect className="art-muted" x="54" y={y + 2} width={i === 1 ? 24 : 20} height="4" rx="2" />
         </g>
       ))}
       <circle className="art-ripple" cx="90" cy="62" r="9" />
+      <path className="art-pointer" d="M90 62v19l5-4.6 3.6 7.6 3.4-1.6-3.5-7.4h7z" />
       <path
-        className="art-pointer"
-        d="M90 62v19l5-4.6 3.6 7.6 3.4-1.6-3.5-7.4h7z"
+        className="art-accent"
+        d="M114 30h26a8 8 0 0 1 8 8v8a8 8 0 0 1-8 8h-18l-8 6v-6a8 8 0 0 1-8-8v-8a8 8 0 0 1 8-8Z"
       />
-      <path className="art-accent" d="M114 30h26a8 8 0 0 1 8 8v8a8 8 0 0 1-8 8h-18l-8 6v-6a8 8 0 0 1-8-8v-8a8 8 0 0 1 8-8Z" />
       {[122, 130, 138].map((x) => (
         <circle key={x} className="art-ink" cx={x - 3} cy="42" r="2" />
       ))}
@@ -89,15 +90,12 @@ export function DeniedArt() {
 export function FailedArt() {
   return (
     <Art>
-      <path
-        className="art-card"
-        d="M50 86h62a19 19 0 0 0 1.6-37.9A27 27 0 0 0 62.5 42 22 22 0 0 0 50 86Z"
-      />
+      <path className="art-card" d="M50 86h62a19 19 0 0 0 1.6-37.9A27 27 0 0 0 62.5 42 22 22 0 0 0 50 86Z" />
       <path className="art-stroke-muted" d="M80 86v8m0 8v6" />
       <path className="art-stroke-muted" d="M70 100l-6 4m26-4 6 4" />
       <rect className="art-muted" x="62" y="60" width="36" height="5" rx="2.5" />
       <rect className="art-muted" x="68" y="70" width="24" height="5" rx="2.5" />
-      <circle className="art-warn" cx="118" cy="40" r="13" />
+      <circle className="art-danger" cx="118" cy="40" r="13" />
       <rect className="art-ink" x="116" y="32" width="4" height="10" rx="2" />
       <circle className="art-ink" cx="118" cy="47" r="2.2" />
       <Sparkle x={28} y={44} s={0.7} />

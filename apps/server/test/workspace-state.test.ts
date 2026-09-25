@@ -1,4 +1,4 @@
-import type { WebEvent } from '@aiws/protocol'
+import type { WebEvent } from '@gonggong/protocol'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { listBotStates, updateBotState } from '../src/modules/workspaces/state.js'
 import { createTestApp, type TestApp } from './support/app.js'

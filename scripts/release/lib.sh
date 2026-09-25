@@ -1,12 +1,12 @@
 # Helpers shared by the release scripts (sourced). Sources go into containers with `docker cp`, never bind mounts,
 # so they also work where Docker cannot share the checkout's folder.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILDER=aiws-build:1.98-bullseye
+BUILDER=gonggong-build:1.98-bullseye
 # Docker Desktop's `credsStore: desktop` needs its credential helper, which a Homebrew docker CLI does not put on PATH.
 DOCKER_DESKTOP_BIN=/Applications/Docker.app/Contents/Resources/bin
 [ -d "$DOCKER_DESKTOP_BIN" ] && PATH="$PATH:$DOCKER_DESKTOP_BIN"
 
-aiws_version() { sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/crates/aiws/Cargo.toml" | head -1; }
+gonggong_version() { sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/crates/gonggong/Cargo.toml" | head -1; }
 
 # Linux arch of this Docker host, as Rust names it.
 docker_arch() {
@@ -26,7 +26,7 @@ source_tar() { (cd "$ROOT" && git ls-files -z --cached --others --exclude-standa
 builder() {
   local out="$1" script="$2" id rc=0
   docker build -q -t "$BUILDER" "$ROOT/scripts/release" >/dev/null
-  id=$(docker create -v aiws-cargo-registry:/usr/local/cargo/registry -v aiws-target:/target "$BUILDER" \
+  id=$(docker create -v gonggong-cargo-registry:/usr/local/cargo/registry -v gonggong-target:/target "$BUILDER" \
     bash -eo pipefail -c "mkdir -p /out; $script")
   source_tar | docker cp - "$id:/src" >/dev/null && docker start -a "$id" || rc=$?
   if [ "$rc" = 0 ]; then

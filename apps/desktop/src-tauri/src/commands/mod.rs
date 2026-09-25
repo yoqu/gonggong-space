@@ -44,14 +44,14 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
     ]
 }
 
-fn client() -> Result<aiws::bots::Client> {
-    let config = aiws::config::Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
-    aiws::bots::Client::new(&config).map_err(|e| e.to_string())
+fn client() -> Result<gonggong::bots::Client> {
+    let config = gonggong::config::Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
+    gonggong::bots::Client::new(&config).map_err(|e| e.to_string())
 }
 
 /// Applies a change to the owner's local settings (`local.json`); runs pick it up from their next turn.
-fn local(home: &std::path::Path, change: impl FnOnce(&mut aiws::local::LocalSettings)) -> Result<()> {
-    aiws::local::LocalStore::open(home.to_path_buf())
+fn local(home: &std::path::Path, change: impl FnOnce(&mut gonggong::local::LocalSettings)) -> Result<()> {
+    gonggong::local::LocalStore::open(home.to_path_buf())
         .and_then(|store| store.update(change))
         .map(drop)
         .map_err(|e| format!("{e:#}"))

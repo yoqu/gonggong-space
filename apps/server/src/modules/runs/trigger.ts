@@ -1,4 +1,4 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { MessageDto } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, type messages, runs, users } from '../../db/schema.js'
@@ -17,11 +17,11 @@ type Target = Pick<
 
 /** Why `origin` may not trigger `bot` (spec §3.6), or null when allowed. The owner is always allowed. */
 export function refusal(bot: Target, origin: string): string | null {
-  if (bot.binding !== 'bound') return 'bot 未绑定或未确认，不能被触发'
+  if (bot.binding !== 'bound') return 'Bot 未绑定或未确认，不能被触发'
   if (origin === bot.ownerId) return null
   const scope = bot.tier === 'full' && bot.triggerScope === 'all' ? 'list' : bot.triggerScope
   if (scope === 'all' || (scope === 'list' && bot.triggerList.includes(origin))) return null
-  return scope === 'self' ? '该 bot 仅允许主人触发，未启动运行' : '该 bot 仅允许指定名单触发，未启动运行'
+  return scope === 'self' ? '该 Bot 仅允许主人触发，未启动运行' : '该 Bot 仅允许指定名单触发，未启动运行'
 }
 
 interface Trigger {
@@ -70,7 +70,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         return void (await postEvent(
           ctx,
           t.groupId,
-          `${bot.name} 还没有工作区，需 ${bot.ownerName} 先绑定；绑定后请重新发起`,
+          `${bot.name} 还没有工作区，本次未执行；${bot.ownerName} 绑定工作区后重新发起即可`,
         ))
       const [run] = await ctx.db
         .insert(runs)

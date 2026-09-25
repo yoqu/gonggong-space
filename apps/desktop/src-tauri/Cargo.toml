@@ -1,14 +1,14 @@
 [package]
-name = "aiws-desktop"
+name = "gonggong-desktop"
 version = "0.1.0"
 edition = "2024"
-description = "AIWS Daemon desktop app"
+description = "Gonggong desktop app"
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-aiws = { path = "../../../crates/aiws" }
+gonggong = { path = "../../../crates/gonggong" }
 serde = { version = "1.0.229", features = ["derive"] }
 tauri = { version = "2.11.6", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2.5.1"

@@ -1,4 +1,4 @@
-import type { RunDetailDto, RunEvent } from '@aiws/protocol'
+import type { RunDetailDto, RunEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'

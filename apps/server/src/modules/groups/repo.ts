@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { ValidateRepoRes } from '@aiws/protocol'
+import type { ValidateRepoRes } from '@gonggong/protocol'
 
 export const REPO_URL = /^(git@|https?:\/\/|ssh:\/\/|file:\/\/)\S+$/
 export const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
@@ -16,7 +16,7 @@ export function repoProblem(url: string, branch: string) {
 
 /**
  * Env for the server process's own git credentials — the read-only deploy credential of spec §3.5 (e.g.
- * `GIT_SSH_COMMAND="ssh -i /etc/aiws/deploy_key -o IdentitiesOnly=yes"` or a credential helper). Prompts are disabled
+ * `GIT_SSH_COMMAND="ssh -i /etc/gonggong/deploy_key -o IdentitiesOnly=yes"` or a credential helper). Prompts are disabled
  * so a missing credential fails fast instead of hanging.
  */
 export const gitEnv = () => ({

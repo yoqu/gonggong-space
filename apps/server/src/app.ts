@@ -1,7 +1,7 @@
 import { join } from 'node:path'
-import { PROTOCOL_VERSION } from '@aiws/protocol'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
+import { PROTOCOL_VERSION } from '@gonggong/protocol'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
@@ -41,7 +41,7 @@ import { webGateway } from './realtime/gateway.js'
 import type { TlsOptions } from './tls.js'
 
 export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {}) {
-  const logger = process.env.AIWS_LOG === '1'
+  const logger = process.env.GONGGONG_LOG === '1'
   // Route plugins are typed for the default http server; the https instance exposes the same API.
   const app = (opts.https ? Fastify({ logger, https: opts.https }) : Fastify({ logger })) as FastifyInstance
   await app.register(cookie)
@@ -87,7 +87,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(releaseRoutes(ctx))
   await app.register(adminRoutes(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
-  const mirrors = new Mirrors(join(process.env.AIWS_DATA_DIR ?? '.aiws-dev/data', 'mirrors'), ctx.now)
+  const mirrors = new Mirrors(join(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))
   await app.register(agentToolRoutes(ctx))
   await app.register(searchRoutes(ctx, mirrors))

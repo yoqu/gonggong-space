@@ -1,4 +1,4 @@
-import type { WebEvent } from '@aiws/protocol'
+import type { WebEvent } from '@gonggong/protocol'
 import type { TestApp } from './app.js'
 
 /** JSON client acting as one logged-in browser. */

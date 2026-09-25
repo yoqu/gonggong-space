@@ -1,4 +1,4 @@
-import type { MessageDto, ReactionDto, ReactionEmoji } from '@aiws/protocol'
+import type { MessageDto, ReactionDto, ReactionEmoji } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'

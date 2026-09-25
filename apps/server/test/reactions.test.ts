@@ -1,4 +1,4 @@
-import type { MessageDto, ReactionsDto, TimelineDto } from '@aiws/protocol'
+import type { MessageDto, ReactionsDto, TimelineDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { messages } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'

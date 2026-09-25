@@ -1,5 +1,5 @@
 {
-  "name": "@aiws/desktop",
+  "name": "@gonggong/desktop",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aiws/protocol": "workspace:*",
+    "@gonggong/protocol": "workspace:*",
     "@tauri-apps/api": "2.11.1",
     "lucide-react": "1.47.0",
     "react": "19.3.0",

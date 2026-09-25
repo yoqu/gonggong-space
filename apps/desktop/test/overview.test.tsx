@@ -98,9 +98,9 @@ describe('overview', () => {
           reason: 'revoked',
           message: 'machine token revoked',
           wiped: [
-            '/Users/wl/.aiws/workspaces/g1',
-            '/Users/wl/.aiws/workspaces/g2',
-            '/Users/wl/.aiws/config.json',
+            '/Users/wl/.gonggong/workspaces/g1',
+            '/Users/wl/.gonggong/workspaces/g2',
+            '/Users/wl/.gonggong/config.json',
           ],
         },
       }),

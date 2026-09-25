@@ -1,4 +1,4 @@
-import type { GroupDto, MessageDto } from '@aiws/protocol'
+import type { GroupDto, MessageDto } from '@gonggong/protocol'
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport'
 import { ApiError, api } from '../../lib/api'
@@ -12,7 +12,7 @@ import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandi
 
 const RETRIES = 2
 
-const draftKey = (groupId: string) => `aiws:draft:${groupId}`
+const draftKey = (groupId: string) => `gonggong:draft:${groupId}`
 function loadDraft(groupId: string) {
   try {
     return sessionStorage.getItem(draftKey(groupId)) ?? ''
@@ -176,7 +176,7 @@ export function MessageComposer({ group, onSent }: { group: GroupDto; onSent: (m
         expanded: open,
         active: open && current >= 0 ? `${listId}-${current}` : undefined,
       }}
-      hint={mobile ? null : '不 @ 不触发，会作为上下文补送'}
+      hint={mobile ? null : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
       popover={
         token && open ? (
           <CandidatePopover

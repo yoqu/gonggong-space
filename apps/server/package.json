@@ -1,5 +1,5 @@
 {
-  "name": "@aiws/server",
+  "name": "@gonggong/server",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@aiws/protocol": "workspace:*",
+    "@gonggong/protocol": "workspace:*",
     "@fastify/cookie": "11.1.2",
     "@fastify/multipart": "10.1.1",
     "@fastify/websocket": "11.3.1",

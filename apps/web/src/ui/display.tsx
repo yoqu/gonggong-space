@@ -132,8 +132,8 @@ export function EmptyState({
   bare,
 }: {
   icon?: ReactNode
-  /** Image src of a decorative illustration, shown at up to 160px. */
-  illustration?: string
+  /** Decorative SVG illustration from ./illustrations, shown at up to 160px. */
+  illustration?: ReactNode
   title?: ReactNode
   description?: ReactNode
   actions?: ReactNode
@@ -141,9 +141,7 @@ export function EmptyState({
 }) {
   return (
     <div className={cx('ui-empty', bare && 'ui-empty--bare')}>
-      {illustration ? (
-        <img className="ui-empty__art" src={illustration} alt="" width={160} height={160} />
-      ) : null}
+      {illustration ? <div className="ui-empty__art">{illustration}</div> : null}
       {icon ? <div className="ui-empty__icon">{icon}</div> : null}
       {title ? <div className="ui-empty__title">{title}</div> : null}
       {description ? <div className="ui-empty__desc">{description}</div> : null}

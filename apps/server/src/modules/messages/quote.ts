@@ -1,4 +1,4 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { MessageDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, messages, runs, users } from '../../db/schema.js'

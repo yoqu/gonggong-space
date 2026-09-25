@@ -1,4 +1,4 @@
-import { DEFAULT_OFFLINE_WAIT_MIN, MAX_ATTACHMENTS, MAX_QUESTIONS, SystemParams } from '@aiws/protocol'
+import { DEFAULT_OFFLINE_WAIT_MIN, MAX_ATTACHMENTS, MAX_QUESTIONS, SystemParams } from '@gonggong/protocol'
 import { inArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -24,6 +24,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   botConcurrencyDefault: 2,
   backupRetentionDays: 7,
   archiveRetentionDays: 30,
+  registrationOpen: false,
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]

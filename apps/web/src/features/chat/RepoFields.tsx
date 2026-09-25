@@ -1,4 +1,4 @@
-import type { ValidateRepoRes } from '@aiws/protocol'
+import type { ValidateRepoRes } from '@gonggong/protocol'
 import { CircleCheck, CircleX } from 'lucide-react'
 import { useRef } from 'react'
 import { api } from '../../lib/api'

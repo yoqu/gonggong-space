@@ -1,4 +1,4 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { MessageDto } from '@gonggong/protocol'
 import { create } from 'zustand'
 
 export type QuoteDraft = NonNullable<MessageDto['quote']> & { groupId: string }

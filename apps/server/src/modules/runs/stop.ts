@@ -1,4 +1,4 @@
-import { type ContextMessage, type RunDiscarded, type RunDone, TERMINAL_RUN_STATUS } from '@aiws/protocol'
+import { type ContextMessage, type RunDiscarded, type RunDone, TERMINAL_RUN_STATUS } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -169,7 +169,7 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
         : ''
   const note: ContextMessage = {
     seq: 0,
-    author: 'AIWS',
+    author: '共工',
     kind: 'user',
     body: `上一轮被 /stop 中断${detail}。`,
     at,
@@ -189,7 +189,7 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     return fail('not_found', '运行不存在')
   const { run, ownerId, machineId } = row
   if (![run.triggerUserId, run.originUserId, ownerId].includes(user.id))
-    return fail('forbidden', '仅发起人或 bot 主人可选择')
+    return fail('forbidden', '仅发起人或 Bot 主人可选择')
   if (run.interrupt !== 'pending') return fail('conflict', '已处理过本轮改动')
   const record = (detail: Record<string, unknown>) =>
     audit(ctx, {
@@ -201,7 +201,7 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     })
   if (choice === 'discard') {
     const res = machineId ? await discard(ctx, machineId, runId) : null
-    const error = res ? (res.ok ? null : (res.error ?? '未知错误')) : 'bot 离线'
+    const error = res ? (res.ok ? null : (res.error ?? '未知错误')) : 'Bot 离线'
     await record({ ok: !error, files: res?.files ?? 0, error })
     if (error) {
       await postEvent(ctx, run.groupId, `丢弃本轮改动失败：${error}`)
@@ -256,7 +256,7 @@ export async function expireOfflineRuns(ctx: Ctx) {
       .update(runs)
       .set({
         status: 'expired',
-        step: `bot 离线超过 ${min} 分钟，已作废并通知 ${trigger ?? ''}`,
+        step: `Bot 离线超过 ${min} 分钟，已作废并通知 ${trigger ?? ''}`,
         endedAt: ctx.now(),
       })
       .where(and(eq(runs.id, run.id), eq(runs.status, 'offline_wait')))

@@ -15,7 +15,7 @@ import {
 } from './common.js'
 import { AgentInfo, MachineInfo, McpServer, PermissionOption, RunEvent } from './daemon.js'
 
-/** REST base: /api. Auth: httpOnly cookie `aiws_session`. Errors: { error: ErrorCode, message }. */
+/** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
   'unauthorized',
   'forbidden',
@@ -51,13 +51,25 @@ export type UserBriefDto = z.infer<typeof UserBriefDto>
 export const UserCardDto = UserBriefDto.extend({ role: Role, groupAdmin: z.boolean(), online: z.boolean() })
 export type UserCardDto = z.infer<typeof UserCardDto>
 
+const Account = z.string().regex(/^[a-z0-9_.-]{2,32}$/)
 export const CreateUserReq = z.object({
-  account: z.string().regex(/^[a-z0-9_.-]{2,32}$/),
+  account: Account,
   name: z.string().min(1),
   role: Role,
   password: z.string().min(8),
 })
+/** POST /api/auth/register — self sign-up, only while the sysadmin has opened it (系统参数 · 开放注册). */
+export const RegisterReq = z.object({
+  account: Account,
+  name: z.string().trim().min(1).max(40),
+  password: z.string().min(8),
+})
+/** GET /api/auth/options — public: what the login page may offer. */
+export const AuthOptionsDto = z.object({ registrationOpen: z.boolean() })
+export type AuthOptionsDto = z.infer<typeof AuthOptionsDto>
 export const UpdateUserReq = z.object({ name: z.string().min(1).optional(), role: Role.optional() })
+/** POST /api/admin/users/:id/password — temporary password; the member must change it at next login. */
+export const ResetPasswordReq = z.object({ password: z.string().min(8) })
 /** Row of the admin 账号与角色 table. */
 export const AdminUserDto = UserDto.extend({ machineCount: z.number().int(), online: z.boolean() })
 export type AdminUserDto = z.infer<typeof AdminUserDto>
@@ -473,7 +485,7 @@ export type GroupPrefsReq = z.infer<typeof GroupPrefsReq>
 
 // ── Daemon release (plan D17): PUT /api/admin/daemon-release ─────────────────
 export const DaemonBuild = z.object({
-  /** Absolute, or server-relative like `/downloads/<file>` (served from AIWS_DATA_DIR/downloads). */
+  /** Absolute, or server-relative like `/downloads/<file>` (served from GONGGONG_DATA_DIR/downloads). */
   url: z.string().min(1),
   sha256: z.string().regex(/^[0-9a-f]{64}$/, 'sha256 需为 64 位十六进制'),
 })
@@ -523,7 +535,7 @@ export type AdminGroupDto = z.infer<typeof AdminGroupDto>
 export const AdminMachineDto = MachineDto.extend({
   ownerName: z.string(),
   protocol: z.number().int().nullable(),
-  /** Last `aiws net` / desktop 测量延迟与带宽 report (spec §8.5: network quality records, admin-only). */
+  /** Last `gg net` / desktop 测量延迟与带宽 report (spec §8.5: network quality records, admin-only). */
   latencyMs: z.number().nullable(),
   bandwidthMbps: z.number().nullable(),
   netMeasuredAt: z.string().nullable(),
@@ -552,11 +564,18 @@ export const SystemParams = GroupParams.extend({
   botConcurrencyDefault: z.number().int().min(1).max(10),
   backupRetentionDays: z.number().int().min(1).max(365),
   archiveRetentionDays: z.number().int().min(1).max(365),
+  /** Anyone may create a member account from the login page. */
+  registrationOpen: z.boolean(),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 export const UpdateSystemParamsReq = SystemParams.partial()
 /** Display order, labels and units of 系统参数 (also used by audit summaries); `measure` = 需实测 (spec §10 待定). */
-export const SYSTEM_PARAM_VIEW: { key: keyof SystemParams; label: string; unit: string; measure?: true }[] = [
+export const SYSTEM_PARAM_VIEW: {
+  key: Exclude<keyof SystemParams, 'registrationOpen'>
+  label: string
+  unit: string
+  measure?: true
+}[] = [
   { key: 'writerDisconnectReleaseSec', label: '写入方断线后释放锁', unit: '秒', measure: true },
   { key: 'forceSyncMaxLatencyMs', label: '开启强制同步 · 延迟阈值', unit: 'ms', measure: true },
   { key: 'forceSyncMinBandwidthMbps', label: '开启强制同步 · 带宽阈值', unit: 'Mbps', measure: true },

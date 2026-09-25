@@ -1,8 +1,8 @@
 //! The in-process daemon of the desktop app and what the UI sees of it.
-use aiws::config::Config;
-use aiws::daemon::{Daemon, Options};
-use aiws::lock::LockError;
-use aiws::status::Status;
+use gonggong::config::Config;
+use gonggong::daemon::{Daemon, Options};
+use gonggong::lock::LockError;
+use gonggong::status::Status;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 pub enum Snapshot {
     /// Not running: no binding yet (or unbound).
     Unbound,
-    /// Another daemon (`aiws run`) holds this machine's lock.
+    /// Another daemon (`gg run`) holds this machine's lock.
     Blocked {
         message: String,
     },
@@ -79,7 +79,7 @@ impl Host {
     }
 
     /// Hands a fresh local detection to the running daemon, which reports it to the server if it changed.
-    pub fn report_agents(&self, agents: Vec<aiws::protocol::AgentInfo>) {
+    pub fn report_agents(&self, agents: Vec<gonggong::protocol::AgentInfo>) {
         if let State::Running(daemon) = &*self.state.lock().unwrap() {
             daemon.set_agents(agents);
         }
@@ -91,7 +91,7 @@ impl Host {
         if let State::Running(daemon) = std::mem::replace(&mut *self.state.lock().unwrap(), State::Idle) {
             daemon.stop();
         }
-        aiws::revoke::wipe(&self.home);
+        gonggong::revoke::wipe(&self.home);
         (self.notify)(Snapshot::Unbound);
     }
 }

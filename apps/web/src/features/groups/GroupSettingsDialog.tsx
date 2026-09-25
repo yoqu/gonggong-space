@@ -1,4 +1,4 @@
-import { type GroupDto, GroupParams } from '@aiws/protocol'
+import { type GroupDto, GroupParams } from '@gonggong/protocol'
 import { Bot, Info, RefreshCw, SlidersHorizontal, Users } from 'lucide-react'
 import { type Dispatch, type SetStateAction, useEffect, useState } from 'react'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
@@ -199,7 +199,7 @@ function BasicTab({
         </div>
       ))}
       {draft ? <RepoFields draft={draft} set={(o) => setDraft((d) => d && { ...d, ...o })} /> : null}
-      <Alert variant="info" title="每个群绑定一个仓库" description="更换仓库会重建所有 bot 的托管工作区。" />
+      <Alert variant="info" title="每个群绑定一个仓库" description="更换仓库会重建所有 Bot 的托管工作区。" />
     </div>
   )
 }

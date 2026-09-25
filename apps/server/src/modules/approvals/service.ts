@@ -1,4 +1,4 @@
-import type { ApprovalRequest, PermissionOption } from '@aiws/protocol'
+import type { ApprovalRequest, PermissionOption } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
@@ -84,7 +84,7 @@ export async function decideApproval(
 ) {
   const [row] = await scoped(ctx).where(and(eq(approvals.id, id), eq(approvals.runId, runId)))
   if (!row) return fail('not_found', '审批请求不存在')
-  if (row.ownerId !== user.id) return fail('forbidden', '仅 bot 主人可以审批')
+  if (row.ownerId !== user.id) return fail('forbidden', '仅 Bot 主人可以审批')
   if (row.a.status !== 'pending') return fail('conflict', '该请求已处理')
   const option = (row.a.options as PermissionOption[]).find((o) => o.optionId === optionId)
   if (!option) return fail('invalid', '无效的审批选项')

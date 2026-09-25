@@ -1,4 +1,12 @@
-import type { BotDto, GroupDto, MessageDto, RunDetailDto, RunDto, UserDto, WebEvent } from '@aiws/protocol'
+import type {
+  BotDto,
+  GroupDto,
+  MessageDto,
+  RunDetailDto,
+  RunDto,
+  UserDto,
+  WebEvent,
+} from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -166,10 +174,10 @@ const timeline = {
       id: 'r2',
       hop: 1,
       status: 'forbidden',
-      step: '该 bot 仅允许指定名单触发，未启动运行',
+      step: '该 Bot 仅允许指定名单触发，未启动运行',
       startedAt: null,
     }),
-    run({ id: 'r3', hop: 1, status: 'offline_wait', step: 'bot 离线，等待上线', startedAt: null }),
+    run({ id: 'r3', hop: 1, status: 'offline_wait', step: 'Bot 离线，等待上线', startedAt: null }),
   ],
 }
 
@@ -239,9 +247,9 @@ describe('run card', () => {
     expect(live.textContent).toContain('1.5k tokens')
     expect(within(live).getByRole('button', { name: '查看过程' })).toBeTruthy()
     expect(forbidden.textContent).toContain('无权触发')
-    expect(forbidden.textContent).toContain('该 bot 仅允许指定名单触发，未启动运行')
+    expect(forbidden.textContent).toContain('该 Bot 仅允许指定名单触发，未启动运行')
     expect(within(forbidden).queryByRole('button', { name: '查看过程' })).toBeNull()
-    expect(offline.textContent).toContain('bot 离线，已进入本机队列 · 上线后自动执行')
+    expect(offline.textContent).toContain('Bot 离线，已进入本机队列 · 上线后自动执行')
     expect(forbidden.textContent).not.toContain('接力')
   })
 })

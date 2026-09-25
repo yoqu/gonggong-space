@@ -1,4 +1,4 @@
-import type { UsageRowDto } from '@aiws/protocol'
+import type { UsageRowDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'

@@ -1,9 +1,9 @@
 use super::Result;
 use crate::host::Host;
-use aiws::config::Config;
-use aiws::diag::{self, Check};
-use aiws::logs::{LogLevel, LogLine, Logs};
-use aiws::net::NetResult;
+use gonggong::config::Config;
+use gonggong::diag::{self, Check};
+use gonggong::logs::{LogLevel, LogLine, Logs};
+use gonggong::net::NetResult;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -20,7 +20,7 @@ pub async fn diagnostics(host: State<'_, Host>) -> Result<Vec<Check>> {
 #[tauri::command]
 pub async fn measure_net() -> Result<NetResult> {
     let config = config().ok_or("尚未绑定")?;
-    aiws::net::run(&config).await.map_err(|e| format!("{e:#}"))
+    gonggong::net::run(&config).await.map_err(|e| format!("{e:#}"))
 }
 
 /// 导出诊断包: asks where to save; `None` when cancelled.
@@ -42,7 +42,7 @@ pub async fn export_diagnostics(app: AppHandle, host: State<'_, Host>) -> Result
     Ok(Some(dest.to_string_lossy().into_owned()))
 }
 
-/// Recent lines of this app's own log (the ring `aiws::logs::init` set up in `main`).
+/// Recent lines of this app's own log (the ring `gonggong::logs::init` set up in `main`).
 #[tauri::command]
 pub fn recent_logs(level: LogLevel, limit: usize, logs: State<'_, Logs>) -> Vec<LogLine> {
     logs.recent(level, limit)

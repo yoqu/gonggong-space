@@ -1,4 +1,4 @@
-import type { AgentInfo, BotDto, MachineDto, SystemInfo } from '@aiws/protocol'
+import type { AgentInfo, BotDto, MachineDto, SystemInfo } from '@gonggong/protocol'
 import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
@@ -87,7 +87,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
 
 export async function botDto(ctx: Ctx, row: Pick<BotRow, 'id'>) {
   const [dto] = await listBotDtos(ctx, eq(bots.id, row.id))
-  return dto ?? fail('not_found', 'bot 不存在')
+  return dto ?? fail('not_found', 'Bot 不存在')
 }
 
 async function everyone(ctx: Ctx) {
@@ -104,7 +104,7 @@ export async function publishBots(ctx: Ctx, where: SQL) {
 
 export async function publishBot(ctx: Ctx, id: string) {
   const [bot] = await publishBots(ctx, eq(bots.id, id))
-  return bot ?? fail('not_found', 'bot 不存在')
+  return bot ?? fail('not_found', 'Bot 不存在')
 }
 
 export async function publishBotRemoved(ctx: Ctx, botId: string) {

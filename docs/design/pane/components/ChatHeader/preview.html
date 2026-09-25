@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 会话" height=110 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ChatHeader</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:0;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.ChatHeader,{title:'产品设计组',group:true,subtitle:'28 位成员 · 设计评审每周四 15:00',tags:[{label:'部门',tone:'gray'}],
+ actions:[{icon:'video',label:'视频会议'},{icon:'search',label:'搜索聊天记录'},{icon:'person-add',label:'添加成员'},{icon:'more',label:'设置'}],
+ tabs:[{value:'chat',label:'聊天'},{value:'doc',label:'云文档'},{value:'pin',label:'Pin'},{value:'file',label:'文件'},{value:'notice',label:'公告'}]}))
+</script>
+</body>
+</html>

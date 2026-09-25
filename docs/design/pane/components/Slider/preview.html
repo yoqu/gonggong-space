@@ -1,0 +1,14 @@
+<!-- @dsCard group="Selection" height=110 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Slider</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;min-height:110px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-surface"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{gap:'32px',alignItems:'flex-start'}}, h(P.Slider,{'aria-label':'音量',defaultValue:62}), h(P.Slider,{'aria-label':'透明度',min:0,max:4,step:1,defaultValue:2,ticks:5,minLabel:'清透',maxLabel:'着色'})))
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import type { GroupDto, UserDto } from '@aiws/protocol'
+import type { GroupDto, UserDto } from '@gonggong/protocol'
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -76,7 +76,7 @@ describe('session guard', () => {
     )
     renderAt('/')
     const top = await screen.findByRole('banner')
-    expect(within(top).getByText('AI 团队工作区')).toBeTruthy()
+    expect(within(top).getByText('共工')).toBeTruthy()
     expect(within(top).getByText('管理后台')).toBeTruthy()
     expect(within(top).getByRole('button', { name: '账户菜单' }).textContent).toBe('王')
     const nav = screen.getByRole('navigation', { name: '会话列表' })

@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, MachineDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
 import { BellOff, Check, ChevronRight, Hash, Pin, Plus, User } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -8,6 +8,10 @@ import { cx } from '../lib/cx'
 import { Button } from '../ui'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
+export const GROUP_MODE_HINT = {
+  partition: '每个 Bot 在自己的工作区里改代码，彼此靠 git 交换',
+  force: '同一时刻只有一个 Bot 持锁写入，全员文件保持一致',
+} as const
 
 export interface SidebarProps {
   groups: GroupDto[]
@@ -17,6 +21,8 @@ export interface SidebarProps {
   onNewDm?: () => void
   /** All lists have arrived: empty states and the 开始使用 guide wait for it so "not yet" never reads as "none". */
   loaded?: boolean
+  /** Show the 开始使用 card; off while the main area shows the full first-run welcome. */
+  guide?: boolean
   onBindMachine?: () => void
   onNewBot?: () => void
   onOpenBot?: (botId: string) => void
@@ -40,7 +46,9 @@ function SectionHead({ label, onAdd, addTitle }: { label: string; onAdd?: () => 
 
 function GroupRow({ g }: { g: GroupDto }) {
   const Icon = g.kind === 'dm' ? User : Hash
-  const sub = `${GROUP_MODE_LABEL[g.mode]} · ${g.last || (g.kind === 'dm' ? '仅你和你的 bot' : `${g.members.length} 人`)}`
+  // The mode lives in the chat header; the row's second line is for the latest message.
+  const sub =
+    g.last || (g.kind === 'dm' ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
   return (
     <NavLink to={`/g/${g.id}`} className="sidebar__item" data-testid={`group-item-${g.id}`}>
       <span className="sidebar__row">
@@ -66,17 +74,22 @@ function GroupRow({ g }: { g: GroupDto }) {
 function SetupGuide({
   bound,
   hasBot,
+  inGroup,
   onBindMachine,
   onNewBot,
+  onNewGroup,
 }: {
   bound: boolean
   hasBot: boolean
+  inGroup: boolean
   onBindMachine?: () => void
   onNewBot?: () => void
+  onNewGroup?: () => void
 }) {
   const steps = [
-    { label: '绑定机器', hint: '在机器上运行 daemon，用绑定码关联账号', done: bound, onClick: onBindMachine },
+    { label: '绑定机器', hint: '在机器上安装 gg，用绑定码关联账号', done: bound, onClick: onBindMachine },
     { label: '新建 Bot', hint: '选择机器上的 Claude Code 或 Codex', done: hasBot, onClick: onNewBot },
+    { label: '建群并 @ Bot', hint: '拉上同事、绑定仓库，分配任务', done: inGroup, onClick: onNewGroup },
   ]
   return (
     <section className="sidebar-guide" aria-label="开始使用">
@@ -135,6 +148,7 @@ export function Sidebar({
   onNewGroup,
   onNewDm,
   loaded,
+  guide = true,
   onBindMachine,
   onNewBot,
   onOpenBot,
@@ -143,7 +157,9 @@ export function Sidebar({
 }: SidebarProps) {
   const scroll = useSelectionCapsule(groups)
   const online = machines.filter((m) => m.online).length
-  const empty = (text: string) => (loaded ? <div className="sidebar__empty">{text}</div> : null)
+  // While the main area shows the first-run welcome, "还没有…" in every section would only repeat it.
+  const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
+  const inGroup = groups.some((g) => g.kind === 'group')
   const lists = [
     {
       label: '群',
@@ -163,12 +179,14 @@ export function Sidebar({
   return (
     <div className="sidebar">
       <div ref={scroll} className="sidebar__scroll">
-        {loaded && !(machines.length && bots.length) ? (
+        {guide && loaded && !(machines.length && bots.length && inGroup) ? (
           <SetupGuide
             bound={machines.length > 0}
             hasBot={bots.length > 0}
+            inGroup={inGroup}
             onBindMachine={onBindMachine}
             onNewBot={onNewBot}
+            onNewGroup={onNewGroup}
           />
         ) : null}
         {lists.map((l) => (
@@ -202,7 +220,7 @@ export function Sidebar({
                     ) : null}
                   </div>
                 ))
-              : empty('还没有 bot')}
+              : empty('还没有 Bot')}
           </div>
         </section>
         <section aria-label="我的机器">
@@ -211,7 +229,7 @@ export function Sidebar({
             {machines.length
               ? machines.map((m) => {
                   const bound = bots.filter((b) => b.machineId === m.id).length
-                  const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 bot` : ''}`
+                  const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 Bot` : ''}`
                   return (
                     <div key={m.id} className="sidebar__bot">
                       <button

@@ -3,7 +3,7 @@ import { bindManaged, buildDaemon, memberWithMachine, remoteRepo } from './helpe
 
 test.beforeAll(buildDaemon)
 
-const composer = '输入消息，@ 触发 bot 或引用文件，/ 查看命令'
+const composer = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
 
 async function say(page: Page, text: string) {
   const before = await page.getByTestId('run-card').count()

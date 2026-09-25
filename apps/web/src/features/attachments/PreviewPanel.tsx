@@ -73,7 +73,7 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
     ...(dim ? [[kind === 'video' ? '分辨率' : '尺寸', dim] as [string, string]] : []),
     ['大小', fmtSize(a.size)],
     ['位置', workspacePath(a)],
-    SEND_NOTE[kind] ? ['发送给 bot', SEND_NOTE[kind]] : ['工作树', '已加入 .git/info/exclude，不进 git'],
+    SEND_NOTE[kind] ? ['发送给 Bot', SEND_NOTE[kind]] : ['工作树', '已加入 .git/info/exclude，不进 git'],
   ]
   const copyPath = () =>
     navigator.clipboard

@@ -1,4 +1,4 @@
-import type { RunDone, RunEvent } from '@aiws/protocol'
+import type { RunDone, RunEvent } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'

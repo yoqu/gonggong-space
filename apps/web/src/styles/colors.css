@@ -45,21 +45,21 @@
   --color-text-muted: #6e6e73;
   --color-text-disabled: #00000033;
 
-  /* The single interactive accent — macOS system blue */
-  --color-selection-blue: #007aff;
-  --color-selection-blue-hover: #0066d6;
-  --color-selection-blue-active: #005bb5;
+  /* The single interactive accent — jade (玉青) from the 共工 mark; token names keep their historical "blue". */
+  --color-selection-blue: #0e7c78;
+  --color-selection-blue-hover: #0b6f6b;
+  --color-selection-blue-active: #0a6a67;
   --color-system-blue: var(--color-selection-blue);
   --color-system-blue-hover: var(--color-selection-blue-hover);
   --color-system-blue-active: var(--color-selection-blue-active);
   --color-brand-primary: var(--color-selection-blue);
-  --color-brand-accent: #0a84ff;
-  --color-brand-info: #0a84ff;
+  --color-brand-accent: #12a39c;
+  --color-brand-info: #12a39c;
   --color-brand-warm: #ff9500;
   --color-on-accent: #ffffff;
-  --color-selection: rgba(0, 122, 255, 0.3);
+  --color-selection: rgba(14, 124, 120, 0.25);
   /* Filled accent under white text (primary button, active option): ≥4.5:1 with --color-on-accent */
-  --color-accent-fill: #0066d6;
+  --color-accent-fill: #0e7c78;
 
   /* Status — feedback / diagnostics only, never page language */
   --color-danger: #ff3b30;
@@ -67,7 +67,7 @@
   --color-warning: #ff9500;
   --color-status-offline: #8e8e93;
   /* Status text on tinted surfaces (badges, destructive buttons): ≥4.5:1 on their wash */
-  --color-info-text: #0059b3;
+  --color-info-text: #0a6a67;
   --color-success-text: #1f7a35;
   --color-warning-text: #b25000;
   --color-danger-text: #b8000d;
@@ -76,9 +76,9 @@
   --color-bg-error: rgba(255, 59, 48, 0.08);
   --color-bg-warning: rgba(255, 149, 0, 0.08);
   --color-bg-success: rgba(52, 199, 89, 0.08);
-  --color-bg-info: rgba(0, 122, 255, 0.08);
+  --color-bg-info: rgba(14, 124, 120, 0.08);
   --color-bg-error-strong: rgba(255, 59, 48, 0.2);
-  --color-bg-accent-strong: rgba(0, 122, 255, 0.15);
+  --color-bg-accent-strong: rgba(14, 124, 120, 0.15);
 
   /* Timeline track tints */
   --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));
@@ -155,27 +155,27 @@
   --color-text-muted: #98989d;
   --color-text-disabled: #ebebf533;
 
-  /* The single interactive accent — macOS system blue */
-  --color-selection-blue: #0a84ff;
-  --color-selection-blue-hover: #409cff;
-  --color-selection-blue-active: #0071e3;
+  /* The single interactive accent — jade (玉青) from the 共工 mark; token names keep their historical "blue". */
+  --color-selection-blue: #2fc2b8;
+  --color-selection-blue-hover: #5ed6cc;
+  --color-selection-blue-active: #26a89f;
   --color-system-blue: var(--color-selection-blue);
   --color-system-blue-hover: var(--color-selection-blue-hover);
   --color-system-blue-active: var(--color-selection-blue-active);
   --color-brand-primary: var(--color-selection-blue);
-  --color-brand-accent: #409cff;
-  --color-brand-info: #409cff;
+  --color-brand-accent: #5ed6cc;
+  --color-brand-info: #5ed6cc;
   --color-brand-warm: #ff9f0a;
   --color-on-accent: #ffffff;
-  --color-selection: rgba(10, 132, 255, 0.3);
-  --color-accent-fill: #0071e3;
+  --color-selection: rgba(47, 194, 184, 0.28);
+  --color-accent-fill: #0f766f;
 
   /* Status — feedback / diagnostics only, never page language */
   --color-danger: #ff453a;
   --color-success: #32d74b;
   --color-warning: #ffd60a;
   --color-status-offline: #636366;
-  --color-info-text: #70b5ff;
+  --color-info-text: #5ed6cc;
   --color-success-text: #32d74b;
   --color-warning-text: #ffd60a;
   --color-danger-text: #ff8a82;
@@ -184,9 +184,9 @@
   --color-bg-error: rgba(255, 69, 58, 0.08);
   --color-bg-warning: rgba(255, 159, 10, 0.08);
   --color-bg-success: rgba(50, 215, 75, 0.08);
-  --color-bg-info: rgba(10, 132, 255, 0.08);
+  --color-bg-info: rgba(47, 194, 184, 0.1);
   --color-bg-error-strong: rgba(255, 69, 58, 0.2);
-  --color-bg-accent-strong: rgba(10, 132, 255, 0.15);
+  --color-bg-accent-strong: rgba(47, 194, 184, 0.16);
 
   /* Timeline track tints */
   --color-track-audio: color-mix(in srgb, var(--color-brand-info) 24%, var(--color-panel-bg));

@@ -1,4 +1,4 @@
-import type { DaemonWorkspaceDto } from '@aiws/protocol'
+import type { DaemonWorkspaceDto } from '@gonggong/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'

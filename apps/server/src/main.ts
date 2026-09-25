@@ -17,10 +17,10 @@ const ctx: Ctx = {
   hub: new DaemonHub(),
   now: () => new Date(),
   config: {
-    heartbeatSec: Number(process.env.AIWS_HEARTBEAT_SEC ?? heartbeatSec),
-    secureCookies: !!https || process.env.AIWS_SECURE_COOKIES === '1',
+    heartbeatSec: Number(process.env.GONGGONG_HEARTBEAT_SEC ?? heartbeatSec),
+    secureCookies: !!https || process.env.GONGGONG_SECURE_COOKIES === '1',
   },
 }
-await ensureBootstrapAdmin(ctx, process.env.AIWS_ADMIN_PASSWORD)
+await ensureBootstrapAdmin(ctx, process.env.GONGGONG_ADMIN_PASSWORD)
 const app = await buildApp(ctx, { https })
 await app.listen({ port: Number(process.env.PORT ?? 8787), host: process.env.HOST ?? '127.0.0.1' })

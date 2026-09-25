@@ -1,4 +1,4 @@
-import type { GroupDto, TimelineDto } from '@aiws/protocol'
+import type { GroupDto, TimelineDto } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupRepos } from '../src/db/schema.js'
@@ -85,8 +85,8 @@ describe('create group', () => {
     expect(res.body.members).toEqual([{ userId: p.wang.id, name: '王磊', isAdmin: true }])
     expect(res.body.repo).toBeNull()
     expect(await bodies(p.asWang, res.body.id)).toEqual([
-      '王磊 创建了私聊 · 仅你和你的 bot',
-      '未绑定仓库 · 各 bot 使用主人绑定的目录，仅分区模式',
+      '王磊 创建了私聊 · 仅你和你的 Bot',
+      '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
       '小王的 Claude 加入 · 等待 王磊 绑定工作区',
     ])
   })
@@ -114,7 +114,7 @@ describe('create group', () => {
 
   it('accepts a pending bot', async () => {
     const p = await people()
-    const pending = await t.seed.bot({ ownerId: p.zhao.id, name: '待绑定 bot' })
+    const pending = await t.seed.bot({ ownerId: p.zhao.id, name: '待绑定 Bot' })
     const res = await p.asWang.post<GroupDto>('/api/groups', {
       name: 'x',
       kind: 'group',

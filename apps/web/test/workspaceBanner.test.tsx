@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, UserDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -45,7 +45,7 @@ describe('workspace banner', () => {
     })
     render(<WorkspaceBanner group={group()} />)
     expect(screen.getByTestId('ws-banner-b1').textContent).toContain(
-      '为 小王的 Claude 选择工作目录后才能开始工作',
+      '为 小王的 Claude 选择工作区后才能开始工作，此前 @ 它不会执行',
     )
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('pay'))
@@ -74,6 +74,19 @@ describe('workspace banner', () => {
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('使用默认工作区'))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: '/src/pay' }))
+  })
+
+  it('folds several of my unbound bots into one line with a button each', () => {
+    const state = (id: string) =>
+      ({ botId: id, workspace: 'managed', state: 'unbound', path: null, git: null, error: null }) as const
+    useWorkspace.setState({
+      bots: [bot(), bot({ id: 'b2', name: '小王的 Codex' })],
+      botStates: { g1: { b1: state('b1'), b2: state('b2') } },
+    })
+    render(<WorkspaceBanner group={group({ botIds: ['b1', 'b2'] })} />)
+    expect(screen.getByText('2 个 Bot 还没有工作区，此前 @ 它们不会执行')).toBeTruthy()
+    expect(screen.getByTestId('ws-banner-b1').textContent).toBe('绑定 小王的 Claude')
+    expect(screen.getByTestId('ws-banner-b2').textContent).toBe('绑定 小王的 Codex')
   })
 
   it('tells other members who has to bind, and shows nothing once bound', () => {

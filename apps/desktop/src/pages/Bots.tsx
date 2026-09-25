@@ -1,4 +1,4 @@
-import type { AgentKind } from '@aiws/protocol'
+import type { AgentKind } from '@gonggong/protocol'
 import { Badge, type BadgeVariant, Button, Dialog, EmptyState, Input, Tabs, toast } from '@web/ui'
 import { Bot, TriangleAlert, X } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
@@ -44,7 +44,7 @@ export function BotsPage({ go }: PageProps) {
 
   return (
     <>
-      {bots?.length === 0 ? <EmptyState title="本机还没有 bot" /> : null}
+      {bots?.length === 0 ? <EmptyState title="本机还没有 Bot" /> : null}
       {bots?.map((b) => {
         const agent = agentOf(b)
         const badge = status(b, agent)
@@ -81,7 +81,7 @@ export function BotsPage({ go }: PageProps) {
             {missing ? (
               <div className="dk-warn">
                 <TriangleAlert size={12} />
-                <span className="dk-flex">本机未安装 {name}，该 bot 暂不能执行</span>
+                <span className="dk-flex">本机未安装 {name}，该 Bot 暂不能执行</span>
                 <Button variant="ghost" size="xs" onClick={() => go('agents')}>
                   前往 Agent
                 </Button>
@@ -96,7 +96,7 @@ export function BotsPage({ go }: PageProps) {
         )
       })}
       <div className="dk-hint">
-        bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个
+        Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个
         agent、哪个模型、并发与审批。
       </div>
       {editing ? (
@@ -234,7 +234,7 @@ function BotDialog({
             )
           })}
           <span className="dk-hint">
-            bot 使用哪个 agent 由 Web 端设定。切换 agent 会结束该 bot
+            Bot 使用哪个 agent 由 Web 端设定。切换 agent 会结束该 Bot
             在各群的会话上下文，下一轮重新开始；工作区与文件不受影响。
           </span>
         </div>
@@ -317,7 +317,7 @@ function BotDialog({
         ) : null}
         <span className="dk-hint">
           {agent?.available
-            ? '模型与审批在该 bot 下一轮运行时生效；并发上限保存到服务器。'
+            ? '模型与审批在该 Bot 下一轮运行时生效；并发上限保存到服务器。'
             : '当前 agent 未安装。模型与审批可先保存，安装并检测通过后生效。'}
         </span>
       </div>

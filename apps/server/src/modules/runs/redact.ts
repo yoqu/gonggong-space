@@ -45,8 +45,8 @@ export function redactor(values: string[]) {
   }
 }
 
-/** Known secret values come from AIWS_REDACT_VALUES (comma list) until team secrets exist (P3). */
-export const redact = redactor((process.env.AIWS_REDACT_VALUES ?? '').split(','))
+/** Known secret values come from GONGGONG_REDACT_VALUES (comma list) until team secrets exist (P3). */
+export const redact = redactor((process.env.GONGGONG_REDACT_VALUES ?? '').split(','))
 
 /** Redacts every string inside a JSON value. */
 export function redactDeep<T>(value: T): T {

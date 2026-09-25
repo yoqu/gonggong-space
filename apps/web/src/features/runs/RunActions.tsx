@@ -1,4 +1,4 @@
-import type { RunDto, RunStatus } from '@aiws/protocol'
+import type { RunDto, RunStatus } from '@gonggong/protocol'
 import { CornerDownRight, OctagonX, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
@@ -110,6 +110,6 @@ export function OfflineNote({ run }: { run: RunDto }) {
   }, [])
   const s = Math.floor(Math.max(0, Date.parse(run.queuedAt) + run.offlineWaitMin * 60_000 - now) / 1000)
   return (
-    <span>{`bot 离线，已进入本机队列 · 上线后自动执行，${pad(Math.floor(s / 60))}:${pad(s % 60)} 后作废并通知 ${trigger}`}</span>
+    <span>{`Bot 离线，已进入本机队列 · 上线后自动执行，${pad(Math.floor(s / 60))}:${pad(s % 60)} 后作废并通知 ${trigger}`}</span>
   )
 }

@@ -6,7 +6,7 @@ import { buildDaemon, memberWithMachine, setDefaultWorkspace } from './helpers'
 
 test.beforeAll(buildDaemon)
 
-const composer = '输入消息，@ 触发 bot 或引用文件，/ 查看命令'
+const composer = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
 
 test('offline bot waits, runs when its machine comes online, and resumes the session after a daemon restart', async ({
   page,
@@ -23,7 +23,7 @@ test('offline bot waits, runs when its machine comes online, and resumes the ses
   })
   // The default workspace is checked while the machine is online; the group then joins while it is offline.
   m.start()
-  await setDefaultWorkspace(page.request, bot.id, mkdtempSync(join(tmpdir(), 'aiws-offline-')))
+  await setDefaultWorkspace(page.request, bot.id, mkdtempSync(join(tmpdir(), 'gonggong-offline-')))
   m.stop()
   const online = async () => (await api.call<{ online: boolean }[]>('get', '/api/machines'))[0]?.online
   await expect.poll(online, { timeout: 30_000 }).toBe(false)

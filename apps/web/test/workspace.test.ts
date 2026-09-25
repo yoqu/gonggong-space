@@ -1,4 +1,4 @@
-import type { GroupDto, MessageDto } from '@aiws/protocol'
+import type { GroupDto, MessageDto } from '@gonggong/protocol'
 import { beforeEach, expect, it } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -66,11 +66,11 @@ it('tracks unread and the last line from new messages', () => {
   applyEvent({ t: 'message.new', message: msg({ seq: 6, authorId: 'u1', authorName: '王磊', body: '我的' }) })
   applyEvent({
     t: 'message.new',
-    message: msg({ seq: 7, kind: 'event', authorId: null, body: '某 bot 加入' }),
+    message: msg({ seq: 7, kind: 'event', authorId: null, body: '某 Bot 加入' }),
   })
   applyEvent({ t: 'message.new', message: msg({ seq: 8, groupId: 'g2' }) })
   const [g1, g2] = useWorkspace.getState().groups
-  expect(g1).toMatchObject({ unread: 1, lastSeq: 7, last: '某 bot 加入' })
+  expect(g1).toMatchObject({ unread: 1, lastSeq: 7, last: '某 Bot 加入' })
   expect(g2).toMatchObject({ unread: 1, last: '李建国：hi' })
 
   useWorkspace.getState().setActiveGroup('g2')

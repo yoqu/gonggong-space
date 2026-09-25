@@ -1,4 +1,4 @@
-import type { Tier } from '@aiws/protocol'
+import type { Tier } from '@gonggong/protocol'
 
 export const TIER_LABEL: Record<Tier, string> = {
   'read-only': '只读',

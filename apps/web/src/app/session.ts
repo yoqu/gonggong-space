@@ -1,4 +1,4 @@
-import type { UserDto } from '@aiws/protocol'
+import type { UserDto } from '@gonggong/protocol'
 import { create } from 'zustand'
 import { ApiError, api, setUnauthorizedHandler } from '../lib/api'
 

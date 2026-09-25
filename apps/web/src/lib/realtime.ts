@@ -1,4 +1,4 @@
-import { WebEvent } from '@aiws/protocol'
+import { WebEvent } from '@gonggong/protocol'
 import { useSyncExternalStore } from 'react'
 
 export type RealtimeStatus = 'connecting' | 'open' | 'closed'

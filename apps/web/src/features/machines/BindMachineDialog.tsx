@@ -1,4 +1,4 @@
-import type { AgentInfo, BindCodeDto, MachineDto } from '@aiws/protocol'
+import type { AgentInfo, BindCodeDto, MachineDto } from '@gonggong/protocol'
 import { Copy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
@@ -75,15 +75,15 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
   const remaining = code ? Date.parse(code.expiresAt) - now : 0
   const expired = !!code && !bound && remaining <= 0
   const waiting = !!code && !bound && !expired
-  const command = code ? `aiws login --server ${location.origin} --code ${code.code}` : ''
+  const command = code ? `gg login --server ${location.origin} --code ${code.code}` : ''
   const steps: { label: string; status: StepStatus }[] = [
     { label: '生成绑定码', status: code || bound ? 'completed' : error ? 'error' : 'active' },
     {
-      label: 'daemon 登录',
+      label: '机器登录',
       status: bound ? 'completed' : expired ? 'error' : waiting ? 'active' : 'pending',
     },
     { label: '上报机器与 agent', status: bound ? (bound.online ? 'completed' : 'active') : 'pending' },
-    { label: '确认 bot', status: bound?.online ? 'completed' : 'pending' },
+    { label: '确认 Bot', status: bound?.online ? 'completed' : 'pending' },
   ]
 
   return (
@@ -121,7 +121,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
               )}
             </div>
             <div className="bind__cmd-wrap">
-              <span className="bind__label">在本机终端执行，或在 daemon 桌面端粘贴</span>
+              <span className="bind__label">在机器的终端里执行，或粘贴到共工桌面端</span>
               <div className="bind__cmd">
                 <span className="bind__cmd-text">{command || '—'}</span>
                 <IconButton
@@ -138,12 +138,12 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
               </div>
             </div>
             <p className="bind__note">
-              绑定后该机器归属于你，daemon 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
-              Codex；同一台机器重新绑定会恢复原记录。未安装 daemon？
+              绑定后该机器归属于你，gg 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
+              Codex；同一台机器重新绑定会恢复原记录。还没安装 gg？
               <button
                 type="button"
                 className="bind__link"
-                onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建 aiws' })}
+                onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建 gg' })}
               >
                 下载 macOS / Linux / Windows 版
               </button>
@@ -151,7 +151,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
             {waiting ? (
               <div className="bind__waiting">
                 <Spinner size={14} />
-                等待 daemon 使用绑定码登录…
+                等待机器用绑定码登录…
               </div>
             ) : null}
           </>
@@ -170,7 +170,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
         title={restored ? '已恢复原有机器' : '绑定成功'}
         description={
           restored
-            ? `${machine.name} 之前绑定过，已沿用原机器记录与其上的 bot（${OS_LABEL[machine.os]} · ${machine.arch}）`
+            ? `${machine.name} 之前绑定过，已沿用原机器记录与其上的 Bot（${OS_LABEL[machine.os]} · ${machine.arch}）`
             : `本机已归属你 · ${machine.name}（${OS_LABEL[machine.os]} · ${machine.arch}）`
         }
       />
@@ -189,17 +189,17 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
             ))}
           </ul>
         ) : machine.online ? (
-          <span className="bind__note">未检测到 Claude Code / Codex，安装后重启 daemon 即可上报。</span>
+          <span className="bind__note">未检测到 Claude Code / Codex，安装后执行 gg run 重启即可上报。</span>
         ) : (
           <div className="bind__waiting">
             <Spinner size={14} />
-            等待 daemon 上报 agent…在本机执行 aiws run 启动 daemon
+            等待上报 agent…在机器上执行 gg run 启动
           </div>
         )}
       </div>
       <p className="bind__note">
-        你自己创建的 bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的
-        bot，需在通知中确认后才能被触发。
+        你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的
+        Bot，需在通知中确认后才能被触发。
       </p>
     </>
   )

@@ -1,4 +1,4 @@
-import type { MessageDto, TimelineDto } from '@aiws/protocol'
+import type { MessageDto, TimelineDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { messages, runs } from '../src/db/schema.js'
@@ -22,7 +22,7 @@ async function setup() {
   const claude = await t.seed.bot({ ownerId: wang.id, name: '小王的 Claude' })
   const small = await t.seed.bot({ ownerId: wang.id, name: '小王' })
   const codex = await t.seed.bot({ ownerId: li.id, name: 'Codex' })
-  const notInGroup = await t.seed.bot({ ownerId: li.id, name: '外面的 bot' })
+  const notInGroup = await t.seed.bot({ ownerId: li.id, name: '外面的 Bot' })
   const g = await t.seed.group({
     createdBy: wang.id,
     memberIds: [li.id],
@@ -50,7 +50,7 @@ describe('send message', () => {
   it('stores the message, parses mentions, publishes and triggers runs', async () => {
     const s = await setup()
     const liEvents = events(t, s.li.id)
-    const res = await send(s.asWang, s.g.id, '@小王的 Claude 和 @Codex 看下，@外面的 bot 不算，@小王 也来')
+    const res = await send(s.asWang, s.g.id, '@小王的 Claude 和 @Codex 看下，@外面的 Bot 不算，@小王 也来')
     expect(res.status).toBe(200)
     expect(res.body).toMatchObject({
       kind: 'user',
@@ -67,7 +67,7 @@ describe('send message', () => {
 
   it('does not trigger anything without mentions', async () => {
     const s = await setup()
-    const res = await send(s.asLi, s.g.id, '大家好，没有 @ 任何 bot')
+    const res = await send(s.asLi, s.g.id, '大家好，没有 @ 任何 Bot')
     expect(res.body.mentions).toEqual([])
     expect(triggerRuns).not.toHaveBeenCalled()
   })

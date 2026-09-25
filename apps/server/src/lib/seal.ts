@@ -4,7 +4,7 @@ import { open as openFd } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { pipeline, Readable, Transform } from 'node:stream'
 
-/** Encryption at rest (spec §13): AES-256-GCM under AIWS_DATA_KEY (32 bytes, base64). */
+/** Encryption at rest (spec §13): AES-256-GCM under GONGGONG_DATA_KEY (32 bytes, base64). */
 const ALG = 'aes-256-gcm'
 const IV = 12
 const TAG = 16
@@ -14,14 +14,14 @@ const MAGIC = Buffer.from('AIWSv1\n')
 const HEAD = MAGIC.length + IV
 export const FILE_OVERHEAD = HEAD + TAG
 
-const DEV_KEY_FILE = resolve('.aiws-dev/data.key')
+const DEV_KEY_FILE = resolve('.gonggong-dev/data.key')
 
 let key: Buffer | undefined
 
 function dataKey() {
   if (key) return key
-  const k = Buffer.from((process.env.AIWS_DATA_KEY ?? devKey()).trim(), 'base64')
-  if (k.length !== 32) throw new Error('AIWS_DATA_KEY must be 32 random bytes, base64-encoded')
+  const k = Buffer.from((process.env.GONGGONG_DATA_KEY ?? devKey()).trim(), 'base64')
+  if (k.length !== 32) throw new Error('GONGGONG_DATA_KEY must be 32 random bytes, base64-encoded')
   key = k
   return k
 }
@@ -39,7 +39,7 @@ function devKey() {
   try {
     linkSync(tmp, DEV_KEY_FILE)
     console.warn(
-      `[aiws] AIWS_DATA_KEY is not set; generated a dev data key at ${DEV_KEY_FILE}. Set it in production.`,
+      `[gonggong] GONGGONG_DATA_KEY is not set; generated a dev data key at ${DEV_KEY_FILE}. Set it in production.`,
     )
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e

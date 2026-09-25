@@ -1,4 +1,4 @@
-import { AIWS_TOOLS, type McpServer, type McpServerDto } from '@aiws/protocol'
+import { GONGGONG_TOOLS, type McpServer, type McpServerDto } from '@gonggong/protocol'
 import { MessageCircleQuestionMark, Plug, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
@@ -25,8 +25,8 @@ import './config.css'
 const TITLE = '配置中心'
 const DESC = '仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。'
 /** Name of the daemon's built-in MCP server; the server rejects it too. */
-const RESERVED = 'aiws'
-const BUILTIN_TOOLS = ['向群成员提问', ...Object.values(AIWS_TOOLS).map((t) => t.title)].join('、')
+const RESERVED = 'gonggong'
+const BUILTIN_TOOLS = ['向群成员提问', ...Object.values(GONGGONG_TOOLS).map((t) => t.title)].join('、')
 
 type CType = 'mcp' | 'skill' | 'prompt' | 'secret'
 const LAYERS = [
@@ -185,7 +185,7 @@ export function ConfigPage() {
                 <Switch checked disabled onChange={() => undefined} />
               </div>
               <div className="cfg__foot">
-                <Checkbox label="强制相关 bot 下一轮开新会话" checked={force} onChange={setForce} />
+                <Checkbox label="强制相关 Bot 下一轮开新会话" checked={force} onChange={setForce} />
                 <span className="spacer" />
                 <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
                   添加 MCP
@@ -198,7 +198,7 @@ export function ConfigPage() {
           )}
         </div>
         <div className="cfg__preview">
-          <div className="cfg__eyebrow">合并预览 · 全部 bot</div>
+          <div className="cfg__eyebrow">合并预览 · 全部 Bot</div>
           {[
             { name: '服务器群层', pri: '优先级高', color: 'var(--color-selection-blue)', text: '暂未开放' },
             {
@@ -208,10 +208,10 @@ export function ConfigPage() {
               text: `mcp: ${enabledNames.join(', ') || '无'}`,
             },
             {
-              name: 'bot 系统提示词',
+              name: 'Bot 系统提示词',
               pri: '',
               color: 'var(--color-text-tertiary)',
-              text: '各 bot 在 Bot 页设置',
+              text: '各 Bot 在 Bot 页设置',
             },
             {
               name: '仓库基线',
@@ -230,7 +230,7 @@ export function ConfigPage() {
           ))}
           <div className="cfg__note">
             合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent
-            本地专用文件并加入 .git/info/exclude。内置 aiws（提问、聊天记录、群信息等）始终注入。
+            本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。
           </div>
           {savedForce === null ? null : (
             <Alert
@@ -238,7 +238,7 @@ export function ConfigPage() {
               title="已保存，全员下一轮新会话生效"
               description={
                 savedForce
-                  ? '已要求相关 bot 下一轮开新会话，卡片会提示原因。'
+                  ? '已要求相关 Bot 下一轮开新会话，卡片会提示原因。'
                   : '运行中的轮次不受影响；已有会话继续使用旧配置。'
               }
             />

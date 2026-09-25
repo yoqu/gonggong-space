@@ -1,4 +1,4 @@
-import type { RunDetailDto } from '@aiws/protocol'
+import type { RunDetailDto } from '@gonggong/protocol'
 import {
   Activity,
   Brain,
@@ -19,12 +19,11 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
-import failedArt from '../../assets/illustrations/failed.png'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { SPRING } from '../../lib/motion'
 import { realtime } from '../../lib/realtime'
-import { Badge, CloseButton, EmptyState, Spinner, Tabs, toast, useEscape } from '../../ui'
+import { Badge, CloseButton, EmptyState, FailedArt, Spinner, Tabs, toast, useEscape } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { fmtDuration, fmtUsage, RUN_STATUS, useNow } from '../chat/TimelineItems'
 import {
@@ -158,7 +157,7 @@ export function RunRail({ runId }: { runId: string }) {
       </div>
       <div className="run-rail__body">
         {error ? (
-          <EmptyState bare illustration={failedArt} title="无法加载运行过程" description={error} />
+          <EmptyState bare illustration={<FailedArt />} title="无法加载运行过程" description={error} />
         ) : !detail ? (
           <div className="run-rail__loading">
             <Spinner />

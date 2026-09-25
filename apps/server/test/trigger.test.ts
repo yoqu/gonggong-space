@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type RunStart } from '@aiws/protocol'
+import { PROTOCOL_VERSION, type RunStart } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groups, messages, runs } from '../src/db/schema.js'
@@ -128,16 +128,16 @@ describe('trigger scope', () => {
     expect(allowed).toContain(bob.list)
     expect(allowed).toContain(bob.full)
     expect(bob.self).toBe('forbidden')
-    expect(bob.steps).toEqual(['该 bot 仅允许主人触发，未启动运行'])
+    expect(bob.steps).toEqual(['该 Bot 仅允许主人触发，未启动运行'])
 
     const carol = await statusOf(w.carol.id)
     expect(allowed).toContain(carol.all)
     expect([carol.list, carol.self, carol.full]).toEqual(['forbidden', 'forbidden', 'forbidden'])
     expect(carol.steps.sort()).toEqual(
       [
-        '该 bot 仅允许主人触发，未启动运行',
-        '该 bot 仅允许指定名单触发，未启动运行',
-        '该 bot 仅允许指定名单触发，未启动运行',
+        '该 Bot 仅允许主人触发，未启动运行',
+        '该 Bot 仅允许指定名单触发，未启动运行',
+        '该 Bot 仅允许指定名单触发，未启动运行',
       ].sort(),
     )
   })
@@ -229,7 +229,7 @@ describe('relay chain', () => {
       botId: b.id,
       hop: 2,
       status: 'forbidden',
-      step: '该 bot 仅允许主人触发，未启动运行',
+      step: '该 Bot 仅允许主人触发，未启动运行',
       originUserId: w.bob.id,
     })
   })

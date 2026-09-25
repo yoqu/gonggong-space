@@ -1,4 +1,4 @@
-import { type NotificationDto, PUSHED_NOTIFICATION_TYPES } from '@aiws/protocol'
+import { type NotificationDto, PUSHED_NOTIFICATION_TYPES } from '@gonggong/protocol'
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { notifications } from '../../db/schema.js'

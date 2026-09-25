@@ -1,7 +1,7 @@
 # ACP 适配器能力矩阵（M1 实测，2026-09-23）
 
-环境：macOS arm64，Node v24.15.0，Claude Code 2.1.280，codex-cli 0.156.1。daemon 通过 `npm install --prefix ~/.aiws/adapters` 安装锁定版本，并用 `CLAUDE_CODE_EXECUTABLE` / `CODEX_PATH` 指向本机 CLI。
-测试方式：进程内 server + 真实 `aiws run` + 真实 agent，私聊群无仓库（托管空工作区 `_empty/`），bot 档位 `workspace`。每个 agent 跑 5 轮：建文件 → 追问（同进程复用会话）→ 重启 daemon 后改文件（新进程恢复会话）→ 长回复中途 `run.cancel` → 再发一轮。
+环境：macOS arm64，Node v24.15.0，Claude Code 2.1.280，codex-cli 0.156.1。daemon 通过 `npm install --prefix ~/.gonggong/adapters` 安装锁定版本，并用 `CLAUDE_CODE_EXECUTABLE` / `CODEX_PATH` 指向本机 CLI。
+测试方式：进程内 server + 真实 `gg run` + 真实 agent，私聊群无仓库（托管空工作区 `_empty/`），bot 档位 `workspace`。每个 agent 跑 5 轮：建文件 → 追问（同进程复用会话）→ 重启 daemon 后改文件（新进程恢复会话）→ 长回复中途 `run.cancel` → 再发一轮。
 
 | 能力                          | Claude（claude-agent-acp 0.81.0）                                                                         | Codex（codex-acp 1.13.0）                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |

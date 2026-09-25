@@ -20,7 +20,7 @@ describe('contracts', () => {
   it('DaemonRelease requires a semver and a sha256 per build', () => {
     const ok = {
       version: '0.2.0',
-      builds: { 'macos-aarch64': { url: '/downloads/aiws', sha256: 'a'.repeat(64) } },
+      builds: { 'macos-aarch64': { url: '/downloads/gg', sha256: 'a'.repeat(64) } },
     }
     expect(DaemonRelease.parse(ok)).toEqual(ok)
     expect(DaemonRelease.safeParse({ ...ok, version: 'latest' }).success).toBe(false)

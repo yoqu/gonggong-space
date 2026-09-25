@@ -1,4 +1,4 @@
-import type { Attachment, MessageDto, ReactionDto } from '@aiws/protocol'
+import type { Attachment, MessageDto, ReactionDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'

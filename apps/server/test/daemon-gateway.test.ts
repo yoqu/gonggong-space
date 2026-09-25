@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from '@aiws/protocol'
+import { PROTOCOL_VERSION } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { machines } from '../src/db/schema.js'

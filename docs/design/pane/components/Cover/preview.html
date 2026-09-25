@@ -1,0 +1,55 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Pane</title>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--window-bg); color:var(--label); font-family:var(--font-display); overflow:hidden; }
+  .cover { position:relative; width:960px; height:288px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:288px; overflow:hidden; }
+  .art svg { display:block; }
+  .orange { fill:var(--wallpaper-1); }
+  .bay { fill:var(--wallpaper-2); }
+  .blue { fill:var(--accent); }
+  .fog { fill:var(--wallpaper-3); }
+  .glass { fill:var(--glass-fill); stroke:var(--glass-specular); stroke-width:1; }
+  .win { rx:var(--radius-window); }
+  .knob { fill:var(--knob); }
+  .tc { fill:var(--traffic-close); } .tm { fill:var(--traffic-minimize); } .tz { fill:var(--traffic-zoom); }
+  .words { position:absolute; left:32px; bottom:32px; max-width:440px; }
+  .name { margin:0; font-size:120px; line-height:.9; font-weight:600; letter-spacing:-.03em; color:var(--label); }
+  .tag { margin:8px 0 0 4px; font-size:14px; line-height:20px; color:var(--label-secondary); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      wallpaper-1 (Golden Gate orange) 208×288 slab bleeding off top and bottom · wallpaper-2 (bay) 224×200 bleeding right · accent 96×36 capsule · wallpaper-3 fog 120×72 — ≈38% of 960×288
+  arrangement one tall orange slab with a bay block stepping off the right edge; corners radius-window, as windows overlap on a desktop
+  pattern     capsules, from "可点击控件一律胶囊形": glass capsules (glass-fill + glass-specular) at a space-8 gap laid across the seam of orange and bay, one switch (accent track + knob), and the traffic-light discs once
+  scales      sides in space-8 multiples; gaps space-8 / space-16; corners radius-window; capsule rx = half the height (radius-capsule)
+-->
+<rect class="orange win" x="24" y="-24" width="208" height="336" rx="14"/>
+<rect class="bay win" x="176" y="112" width="328" height="200" rx="14"/>
+<rect class="fog win" x="264" y="24" width="120" height="72" rx="14"/>
+<circle class="tc" cx="280" cy="40" r="6"/><circle class="tm" cx="300" cy="40" r="6"/><circle class="tz" cx="320" cy="40" r="6"/>
+<rect class="glass" x="56" y="152" width="208" height="40" rx="20"/>
+<rect class="glass" x="112" y="200" width="144" height="40" rx="20"/>
+<rect class="glass" x="272" y="200" width="88" height="40" rx="20"/>
+<rect class="glass" x="56" y="104" width="96" height="40" rx="20"/>
+<rect class="blue" x="304" y="144" width="96" height="40" rx="20"/>
+<rect class="knob" x="348" y="148" width="48" height="32" rx="16"/>
+<rect class="glass" x="400" y="200" width="104" height="40" rx="20"/>
+</svg>
+</div>
+<div class="words">
+  <h1 class="name">Pane</h1>
+  <p class="tag">macOS 27 风格的 React 组件库 · Liquid Glass</p>
+</div>
+</div>
+</body>
+</html>

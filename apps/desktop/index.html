@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AIWS Daemon</title>
+    <title>共工</title>
     <script>
-      // Same pre-paint theme bootstrap as the web app (keys aiws.theme / aiws.glass).
+      // Same pre-paint theme bootstrap as the web app (keys gonggong.theme / gonggong.glass).
       ;(() => {
         let theme = 'light'
         try {
-          const pref = localStorage.getItem('aiws.theme')
+          const pref = localStorage.getItem('gonggong.theme')
           if (pref === 'dark' || pref === 'system') {
             theme =
               pref === 'dark' || window.matchMedia?.('(prefers-color-scheme: dark)').matches
@@ -22,7 +22,7 @@
         document.documentElement.dataset.theme = theme
         let glass = 'standard'
         try {
-          const level = localStorage.getItem('aiws.glass')
+          const level = localStorage.getItem('gonggong.glass')
           if (level === 'clear' || level === 'tinted') glass = level
         } catch {}
         document.documentElement.dataset.glass = glass

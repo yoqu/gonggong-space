@@ -1,4 +1,4 @@
-import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@aiws/protocol'
+import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
 import { FileText, Image, Quote, X } from 'lucide-react'
 import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '../../ui'
@@ -141,7 +141,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
         </span>
       ))}
       <span className="att-chips__note">
-        {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .aiws/attachments/，不进 git${image ? ' · 图片：agent 支持时同时以 ACP 图片发送' : ''}`}
+        {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .gonggong/attachments/，不进 git${image ? ' · 图片：agent 支持时同时以 ACP 图片发送' : ''}`}
       </span>
     </div>
   )

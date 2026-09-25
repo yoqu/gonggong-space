@@ -8,7 +8,7 @@ import type {
   RunDto,
   UserDto,
   WebEvent,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -154,7 +154,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
 
 const commandCandidates = (agent: CommandCandidatesDto['agent'] = []): CommandCandidatesDto => ({
   system: [
-    { name: 'stop', hint: '停止运行（未 @ bot 时停止本群全部）' },
+    { name: 'stop', hint: '停止运行（未 @ Bot 时停止本群全部）' },
     { name: 'hold', hint: '连续占用群锁' },
     { name: 'release', hint: '释放群锁' },
     { name: 'new', hint: '开新会话' },
@@ -252,10 +252,29 @@ describe('sidebar', () => {
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     const row = await within(nav).findByRole('link', { name: /退款 v2 迁移/ })
-    expect(row.textContent).toContain('分区模式')
-    expect(row.textContent).toContain('李建国：好的')
+    // The second line is the latest message; the mode is shown in the chat header instead.
+    expect(row.textContent).toBe('退款 v2 迁移3李建国：好的')
     expect(within(row).getByText('3')).toBeTruthy()
     expect(within(nav).getByRole('link', { name: /脚本实验/ })).toBeTruthy()
+  })
+
+  it('welcomes a new user in the main area with the three first-run steps', async () => {
+    mockApi({ ...baseRoutes([]), 'GET /bots': () => [] })
+    renderAt('/')
+    const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
+    expect(within(welcome).getByRole('heading', { name: /欢迎来到共工/ })).toBeTruthy()
+    for (const b of ['绑定机器', '新建 Bot', '新建群'])
+      expect(within(welcome).getByRole('button', { name: b })).toBeTruthy()
+    // The main area carries the guide, so the sidebar doesn't repeat it.
+    expect(
+      within(screen.getByRole('navigation', { name: '会话列表' })).queryByRole('region', {
+        name: '开始使用',
+      }),
+    ).toBeNull()
+    act(() => {
+      useWorkspace.setState({ machines: [machine] })
+    })
+    expect(within(welcome).getByText('已完成')).toBeTruthy()
   })
 
   it('guides a new user to bind a machine and create a bot, then hides once both exist', async () => {
@@ -269,15 +288,15 @@ describe('sidebar', () => {
       'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }],
     })
     renderAt('/')
-    const nav = screen.getByRole('navigation', { name: '会话列表' })
-    const guide = await within(nav).findByRole('region', { name: '开始使用' })
+    const main = screen.getByRole('main')
+    const guide = await within(main).findByRole('region', { name: '开始使用' })
     fireEvent.click(within(guide).getByRole('button', { name: /绑定机器/ }))
     expect(await screen.findByText('K7QM-4X2P')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '关闭' }))
 
     fireEvent.click(within(guide).getByRole('button', { name: /新建 Bot/ }))
     expect(
-      await screen.findByText('王磊 还没有绑定机器。bot 会以「待绑定」创建，可先选 agent 种类。'),
+      await screen.findByText('王磊 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。'),
     ).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: /新建 Bot/ })).getAllByRole('button', { name: '关闭' })[0]!,
@@ -286,7 +305,7 @@ describe('sidebar', () => {
     act(() => {
       useWorkspace.setState({ machines: [machine], bots: [bot({})] })
     })
-    expect(within(nav).queryByRole('region', { name: '开始使用' })).toBeNull()
+    expect(within(guide).getAllByText('已完成')).toHaveLength(2)
   })
 
   it('opens the new bot dialog from the 我的 BOT section', async () => {
@@ -426,7 +445,7 @@ describe('new group dialog', () => {
 
     fireEvent.click(await within(dialog).findByRole('button', { name: /老李的 Codex/ }))
     const people = within(dialog).getByRole('group', { name: '成员' })
-    expect(within(people).getByRole('button', { name: /李建国/ }).textContent).toContain('bot 主人')
+    expect(within(people).getByRole('button', { name: /李建国/ }).textContent).toContain('Bot 主人')
     fireEvent.click(within(people).getByRole('button', { name: /赵敏/ }))
     fireEvent.click(create)
     await waitFor(() => expect(calls.some((c) => c.path === '/groups' && c.method === 'POST')).toBe(true))
@@ -445,7 +464,7 @@ describe('chat view', () => {
     renderAt('/g/g1')
     const main = screen.getByRole('main')
     expect(await within(main).findByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
-    expect(within(main).getByText('git@git.corp:pay/refund.git · main')).toBeTruthy()
+    expect(within(main).getByText('refund · main').getAttribute('title')).toBe('git@git.corp:pay/refund.git')
     expect(within(main).getByText('周五前合入 v2')).toBeTruthy()
 
     expect(await within(main).findByText('王磊 创建了群 · 成为群管理员')).toBeTruthy()
@@ -551,7 +570,7 @@ describe('chat view', () => {
     renderAt('/g/g1')
     await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
-      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
 
     fireEvent.change(box, { target: { value: '@', selectionStart: 1 } })
@@ -583,14 +602,14 @@ describe('chat view', () => {
     renderAt('/g/g1')
     await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
-      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
 
     fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
     const list = await screen.findByRole('listbox', { name: '/ 命令' })
     const options = within(within(list).getByRole('group', { name: '系统命令' })).getAllByRole('option')
     expect(options.map((o) => o.textContent)).toEqual([
-      '/stop停止运行（未 @ bot 时停止本群全部）',
+      '/stop停止运行（未 @ Bot 时停止本群全部）',
       '/hold连续占用群锁',
       '/release释放群锁',
       '/new开新会话',
@@ -636,7 +655,7 @@ describe('chat view', () => {
     renderAt('/g/g1')
     await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
-      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
 
     fireEvent.change(box, { target: { value: '@小王的 Claude @ser', selectionStart: 17 } })
@@ -684,7 +703,7 @@ describe('chat view', () => {
     renderAt('/g/g1')
     await screen.findByTestId('bot-reply')
     const box = screen.getByPlaceholderText(
-      '输入消息，@ 触发 bot 或引用文件，/ 查看命令',
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
     ) as HTMLTextAreaElement
 
     fireEvent.change(box, { target: { value: '@小王的 Claude /', selectionStart: 14 } })
@@ -764,7 +783,7 @@ describe('repo validation and binding', () => {
     const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
     expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
     expect(within(dialog).getByText('每个群绑定一个仓库')).toBeTruthy()
-    expect(within(dialog).getByText(/更换仓库会重建所有 bot 的托管工作区/)).toBeTruthy()
+    expect(within(dialog).getByText(/更换仓库会重建所有 Bot 的托管工作区/)).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '更换' }))
     const save = within(dialog).getByRole('button', { name: '保存' })
@@ -781,7 +800,7 @@ describe('repo validation and binding', () => {
       url: 'git@git.corp:pay/new.git',
       branch: 'dev',
     })
-    expect(await within(main).findByText('git@git.corp:pay/new.git · dev')).toBeTruthy()
+    expect(await within(main).findByText('new · dev')).toBeTruthy()
   })
 
   it('locks repo binding for non-admins', async () => {

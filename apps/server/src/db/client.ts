@@ -6,10 +6,10 @@ import * as schema from './schema.js'
 
 export type Db = ReturnType<typeof openDb>['db']
 
-export function databaseUrl(dbName = process.env.AIWS_DB ?? 'aiws') {
+export function databaseUrl(dbName = process.env.GONGGONG_DB ?? 'gonggong') {
   return (
-    process.env.AIWS_DATABASE_URL ??
-    `postgres://aiws@127.0.0.1:${process.env.AIWS_PG_PORT ?? 54329}/${dbName}`
+    process.env.GONGGONG_DATABASE_URL ??
+    `postgres://gonggong@127.0.0.1:${process.env.GONGGONG_PG_PORT ?? 54329}/${dbName}`
   )
 }
 

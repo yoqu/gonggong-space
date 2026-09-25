@@ -1,4 +1,4 @@
-import type { MessageDto } from '@aiws/protocol'
+import type { MessageDto } from '@gonggong/protocol'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, messages, runs } from '../../db/schema.js'
@@ -26,7 +26,7 @@ export async function appendTarget(
     .where(and(eq(runs.id, idParam(runId, '运行')), eq(runs.groupId, groupId)))
   if (!row) return fail('not_found', '运行不存在')
   if (userId !== row.run.originUserId && userId !== row.ownerId)
-    return fail('forbidden', '仅触发人或 bot 主人可以打断并追加')
+    return fail('forbidden', '仅触发人或 Bot 主人可以打断并追加')
   if (!LIVE.includes(row.run.status) || !row.machineId || !ctx.hub.isOnline(row.machineId))
     return fail('conflict', '该运行已结束，请直接发送')
   return { runId: row.run.id, machineId: row.machineId }

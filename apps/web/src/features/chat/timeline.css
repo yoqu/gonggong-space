@@ -267,11 +267,17 @@
   left: auto;
   right: calc(100% + 6px);
 }
-/* Run card replies: sit in the empty right end of the facts row, above the reply text. */
-/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
-.run-card__reply > .msg-actions {
-  top: -34px;
+/* Run cards: float fully above the card so the bar never covers the status pill or the approval block.
+   A full card's reply stops being the containing block, so its bar lands on the card's corner too. */
+.run-card:not(.run-card--bubble) > .run-card__reply {
+  position: static;
 }
+/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
+.run-card > .msg-actions,
+.run-card:not(.run-card--bubble) > .run-card__reply > .msg-actions {
+  top: -30px;
+}
+/* biome-ignore lint/style/noDescendingSpecificity: placement overrides only; visibility rules above set no position */
 .tl-bubble-host:has(> .tl-bubble--wide) > .msg-actions {
   top: -16px;
   left: auto;
@@ -289,4 +295,54 @@
   background: var(--color-panel-elevated);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* Folded long bot output */
+.clamp[data-clamped] > .clamp__body {
+  max-height: 360px;
+  overflow: hidden;
+  mask-image: linear-gradient(#000 72%, transparent);
+}
+.clamp__toggle {
+  margin-top: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-system-blue);
+  cursor: pointer;
+}
+.clamp__toggle:hover {
+  text-decoration: underline;
+}
+
+/* Folded run of system events */
+.tl-fold {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+button.tl-fold__head {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+button.tl-fold__head:hover {
+  background: var(--color-bg-hover);
+}
+.tl-fold__list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: fold-open 220ms var(--ease-apple);
+}
+@keyframes fold-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }

@@ -1,4 +1,4 @@
-import type { ReactionEmoji, ReactionsDto } from '@aiws/protocol'
+import type { ReactionEmoji, ReactionsDto } from '@gonggong/protocol'
 import { api } from '../../lib/api'
 
 const path = (messageId: string, emoji: ReactionEmoji) =>

@@ -1,5 +1,5 @@
 {
-  "name": "@aiws/web",
+  "name": "@gonggong/web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aiws/protocol": "workspace:*",
+    "@gonggong/protocol": "workspace:*",
     "lucide-react": "1.47.0",
     "motion": "13.4.2",
     "react": "19.3.0",

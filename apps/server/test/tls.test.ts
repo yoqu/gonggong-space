@@ -11,28 +11,28 @@ import { Bus } from '../src/realtime/bus.js'
 import { tlsOptions } from '../src/tls.js'
 import { createTestDb } from './support/db.js'
 
-const dir = mkdtempSync(join(tmpdir(), 'aiws-tls-'))
+const dir = mkdtempSync(join(tmpdir(), 'gonggong-tls-'))
 const script = join(import.meta.dirname, '../../../scripts/dev-cert.sh')
 const out = execFileSync('bash', [script, dir], { encoding: 'utf8' })
-const env = { AIWS_TLS_CERT: join(dir, 'cert.pem'), AIWS_TLS_KEY: join(dir, 'key.pem') }
-const ca = readFileSync(env.AIWS_TLS_CERT)
+const env = { GONGGONG_TLS_CERT: join(dir, 'cert.pem'), GONGGONG_TLS_KEY: join(dir, 'key.pem') }
+const ca = readFileSync(env.GONGGONG_TLS_CERT)
 
 describe('tlsOptions', () => {
   it('is off without a certificate and requires cert and key together', () => {
     expect(tlsOptions({})).toBeNull()
-    expect(() => tlsOptions({ AIWS_TLS_CERT: env.AIWS_TLS_CERT })).toThrow(/together/)
-    expect(tlsOptions(env)).toEqual({ cert: ca, key: readFileSync(env.AIWS_TLS_KEY) })
+    expect(() => tlsOptions({ GONGGONG_TLS_CERT: env.GONGGONG_TLS_CERT })).toThrow(/together/)
+    expect(tlsOptions(env)).toEqual({ cert: ca, key: readFileSync(env.GONGGONG_TLS_KEY) })
   })
 
   it('dev-cert.sh prints the env to use and the SHA-256 fingerprint', () => {
     const fp = execFileSync(
       'openssl',
-      ['x509', '-in', env.AIWS_TLS_CERT, '-noout', '-fingerprint', '-sha256'],
+      ['x509', '-in', env.GONGGONG_TLS_CERT, '-noout', '-fingerprint', '-sha256'],
       {
         encoding: 'utf8',
       },
     )
-    expect(out).toContain(`AIWS_TLS_CERT=${env.AIWS_TLS_CERT}`)
+    expect(out).toContain(`GONGGONG_TLS_CERT=${env.GONGGONG_TLS_CERT}`)
     expect(out).toContain(`sha256:${fp.split('=')[1]!.trim()}`)
   })
 })

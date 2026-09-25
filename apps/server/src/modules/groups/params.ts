@@ -1,4 +1,4 @@
-import type { GroupParams } from '@aiws/protocol'
+import type { GroupParams } from '@gonggong/protocol'
 import type { Ctx } from '../../context.js'
 import type { groups } from '../../db/schema.js'
 import { sysParams } from '../admin/params.js'

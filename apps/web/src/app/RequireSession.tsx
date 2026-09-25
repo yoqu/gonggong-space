@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { realtime } from '../lib/realtime'
-import { Alert, Button, Spinner, toast } from '../ui'
+import { Alert, Button, Logo, toast } from '../ui'
 import { useSession } from './session'
 import { loadWorkspace, useWorkspace } from './workspace'
 
@@ -39,8 +39,10 @@ export function RequireSession() {
     )
   if (status !== 'ready')
     return (
-      <div className="app-center">
-        <Spinner size={18} />
+      <div className="app-center app-splash" role="status">
+        <Logo size={56} motion="idle" />
+        <span className="app-splash__name">共工</span>
+        <span className="app-splash__hint">正在连接…</span>
       </div>
     )
   if (!user) return <Navigate to="/login" replace />

@@ -5,7 +5,7 @@ import {
   type RunStart,
   type TimelineDto,
   type WebEvent,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { approvals, groupBots, groups, messages, runEvents, runs } from '../src/db/schema.js'

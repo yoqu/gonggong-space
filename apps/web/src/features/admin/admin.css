@@ -123,7 +123,7 @@
 .admin__page-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 12px;
   /* Bleeds to the page edges so the scroll-edge backing spans the width; net layout is unchanged. */
   margin: -16px -32px -12px;
@@ -380,6 +380,15 @@
   align-items: center;
   gap: 6px;
 }
+.admin-param__label--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.admin-param__hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
 .admin-param__dot {
   width: 6px;
   height: 6px;
@@ -431,4 +440,12 @@
     flex: 1;
     width: auto;
   }
+}
+.admin-temp-pw {
+  display: flex;
+  gap: 6px;
+}
+.admin-temp-pw .ui-input {
+  flex: 1;
+  min-width: 0;
 }

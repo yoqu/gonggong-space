@@ -1,4 +1,4 @@
-import { SearchQuery, type SearchResultDto } from '@aiws/protocol'
+import { SearchQuery, type SearchResultDto } from '@gonggong/protocol'
 import { and, desc, eq, exists, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { FastifyInstance } from 'fastify'

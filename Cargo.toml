@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["crates/aiws", "apps/desktop/src-tauri"]
+members = ["crates/gonggong", "apps/desktop/src-tauri"]

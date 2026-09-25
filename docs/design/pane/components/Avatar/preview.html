@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 基础" height=120 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Avatar</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col'},
+ h('div',{className:'row',style:{gap:'16px'}}, h(P.Avatar,{name:'张三',size:40,status:'online'}), h(P.Avatar,{name:'李思远',size:40,status:'busy'}), h(P.Avatar,{name:'Mia Chen',size:40,status:'away'}), h(P.Avatar,{name:'王小明',size:32}), h(P.Avatar,{name:'赵六',size:20}), h(P.Avatar,{name:'产品设计组',size:40,shape:'square'})),
+ h('div',{className:'row'}, h(P.AvatarGroup,{size:20,people:[{name:'张三'},{name:'李思远'},{name:'Mia Chen'},{name:'王小明'},{name:'赵六'}]}))))
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { type McpServer, type McpServerDto, SaveMcpReq } from '@aiws/protocol'
+import { type McpServer, type McpServerDto, SaveMcpReq } from '@gonggong/protocol'
 import { and, asc, eq, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -13,7 +13,7 @@ type Row = typeof mcpServers.$inferSelect
 type IdParams = { Params: { id: string } }
 
 /** The daemon injects the built-in ask server under this name (spec §8.8). */
-const RESERVED = 'aiws'
+const RESERVED = 'gonggong'
 
 const dto = (r: Row): McpServerDto => ({
   id: r.id,

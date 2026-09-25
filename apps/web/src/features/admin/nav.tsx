@@ -38,7 +38,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         path: 'users',
         label: '账号与角色',
         icon: Users,
-        desc: '系统管理员创建账号、分配角色；停用会吊销该成员所有 daemon 与会话。',
+        desc: '创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。',
         element: <UsersPage />,
       },
       {
@@ -90,7 +90,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         path: 'usage',
         label: '用量',
         icon: BarChart3,
-        desc: '按 bot、触发人、群汇总 token 用量。',
+        desc: '按 Bot、触发人、群汇总 token 用量。',
         element: <UsagePage />,
       },
       {

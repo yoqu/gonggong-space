@@ -5,7 +5,7 @@ import {
   DefaultWorkspaceReq,
   type DirListingDto,
   type DirResult,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -28,8 +28,8 @@ async function ownBot(ctx: Ctx, userId: string, rawId: string) {
     .select()
     .from(bots)
     .where(and(eq(bots.id, idParam(rawId, 'bot ')), isNull(bots.deletedAt)))
-  if (!bot) return fail('not_found', 'bot 不存在')
-  return bot.ownerId === userId ? bot : fail('forbidden', '只有 bot 主人可以操作其工作区')
+  if (!bot) return fail('not_found', 'Bot 不存在')
+  return bot.ownerId === userId ? bot : fail('forbidden', '只有 Bot 主人可以操作其工作区')
 }
 
 export function workspaceRoutes(ctx: Ctx) {
@@ -106,7 +106,7 @@ export function workspaceRoutes(ctx: Ctx) {
         const { group } = await requireMember(ctx, req.params.id, me.id)
         const bot = await ownBot(ctx, me.id, req.params.botId)
         if (!(await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
-          fail('not_found', '该 bot 不在群内')
+          fail('not_found', '该 Bot 不在群内')
         const { path } = BindWorkspaceReq.parse(req.body)
         if (path !== null && group.mode !== 'partition') fail('conflict', '强制同步群只能使用托管工作区')
         if (path !== null && !ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')

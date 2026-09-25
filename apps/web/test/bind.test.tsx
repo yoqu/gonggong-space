@@ -1,4 +1,4 @@
-import type { MachineDto } from '@aiws/protocol'
+import type { MachineDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BindMachineDialog } from '../src/features/machines/BindMachineDialog'
@@ -69,10 +69,10 @@ describe('bind machine dialog', () => {
     render(<BindMachineDialog open onClose={() => {}} />)
     expect((await screen.findByTestId('bind-code')).textContent).toBe('K7QM-4X2P')
     expect(screen.getByText(/^一次性绑定码 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
-    expect(screen.getByText(`aiws login --server ${location.origin} --code K7QM-4X2P`)).toBeTruthy()
-    for (const step of ['生成绑定码', 'daemon 登录', '上报机器与 agent', '确认 bot'])
+    expect(screen.getByText(`gg login --server ${location.origin} --code K7QM-4X2P`)).toBeTruthy()
+    for (const step of ['生成绑定码', '机器登录', '上报机器与 agent', '确认 Bot'])
       expect(screen.getByText(step)).toBeTruthy()
-    expect(screen.getByText('等待 daemon 使用绑定码登录…')).toBeTruthy()
+    expect(screen.getByText('等待机器用绑定码登录…')).toBeTruthy()
   })
 
   it('shows success with the machine and its agents once a new machine appears', async () => {
@@ -84,7 +84,7 @@ describe('bind machine dialog', () => {
     emit(fresh)
     expect(screen.getByText('绑定成功')).toBeTruthy()
     expect(screen.getByText(/wanglei-mbp/)).toBeTruthy()
-    expect(screen.getByText(/等待 daemon 上报/)).toBeTruthy()
+    expect(screen.getByText(/等待上报 agent/)).toBeTruthy()
     emit({
       ...fresh,
       online: true,

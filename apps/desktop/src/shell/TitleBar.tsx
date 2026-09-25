@@ -1,3 +1,4 @@
+import logo from '../assets/logo.svg'
 import { connKind, host, PILL } from '../lib/labels'
 import { useDaemon } from '../store'
 
@@ -9,8 +10,9 @@ export function TitleBar() {
   return (
     <div className="dk-titlebar" data-tauri-drag-region>
       <span className="dk-titlebar__lights" />
+      <img className="dk-titlebar__logo" src={logo} alt="" width={16} height={16} data-tauri-drag-region />
       <span className="dk-titlebar__name" data-tauri-drag-region>
-        AIWS Daemon
+        共工
       </span>
       {info ? (
         <span className="dk-titlebar__ver" data-tauri-drag-region>

@@ -4,7 +4,7 @@ import {
   type RunDto,
   type ServerToDaemon,
   type WebEvent,
-} from '@aiws/protocol'
+} from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, groups, messages, notifications, runs } from '../src/db/schema.js'

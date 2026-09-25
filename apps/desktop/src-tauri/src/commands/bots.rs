@@ -1,8 +1,8 @@
 //! Bot page: the machine's bots with their 本机设置 (model, command approval) and the server-side 并发上限.
 use super::{Result, client, local};
 use crate::host::Host;
-use aiws::bots::Bot;
-use aiws::local::{Approval, BotSettings, LocalSettings};
+use gonggong::bots::Bot;
+use gonggong::local::{Approval, BotSettings, LocalSettings};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 

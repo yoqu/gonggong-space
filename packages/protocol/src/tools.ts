@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 /**
- * Tools of the built-in `aiws` MCP server answered by the server (the daemon forwards them; `ask_group_members`
- * stays in the daemon). `aiws-tools.json` is generated from these for the daemon's `tools/list`.
+ * Tools of the built-in `gonggong` MCP server answered by the server (the daemon forwards them; `ask_group_members`
+ * stays in the daemon). `gonggong-tools.json` is generated from these for the daemon's `tools/list`.
  */
 const seq = z.number().int().min(1)
 const group = z.string().describe('群 id（get_group_info 列出）；省略 = 当前会话').optional()
@@ -53,7 +53,7 @@ export const ListQuestionsArgs = z.object({
 
 export const FetchAttachmentsArgs = z.object({ message: seq.describe('消息 #seq') })
 
-export const AIWS_TOOLS = {
+export const GONGGONG_TOOLS = {
   list_messages: {
     title: '读取聊天记录',
     description:
@@ -82,16 +82,16 @@ export const AIWS_TOOLS = {
   },
   fetch_attachments: {
     title: '下载历史附件',
-    description: '把某条消息的附件下载到工作区 .aiws/attachments/ 下，返回相对路径。',
+    description: '把某条消息的附件下载到工作区 .gonggong/attachments/ 下，返回相对路径。',
     input: FetchAttachmentsArgs,
   },
 } as const
 
-export type AiwsToolName = keyof typeof AIWS_TOOLS
+export type GonggongToolName = keyof typeof GONGGONG_TOOLS
 
-/** MCP `tools/list` entries (what `aiws-tools.json` holds). */
-export const aiwsToolList = () =>
-  Object.entries(AIWS_TOOLS).map(([name, t]) => {
+/** MCP `tools/list` entries (what `gonggong-tools.json` holds). */
+export const gonggongToolList = () =>
+  Object.entries(GONGGONG_TOOLS).map(([name, t]) => {
     const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' })
     return { name, title: t.title, description: t.description, inputSchema }
   })

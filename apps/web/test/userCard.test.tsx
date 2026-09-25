@@ -1,4 +1,4 @@
-import type { MessageDto, UserCardDto } from '@aiws/protocol'
+import type { MessageDto, UserCardDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BotReply, UserMessage } from '../src/features/chat/TimelineItems'

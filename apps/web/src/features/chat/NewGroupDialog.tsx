@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, UserBriefDto, UserDto } from '@aiws/protocol'
+import type { BotDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
 import { Check, GitFork } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -8,6 +8,7 @@ import { cx } from '../../lib/cx'
 import { Button, Dialog, Input, Tabs, toast } from '../../ui'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
 import { type RepoDraft, RepoFields, repoBody, repoValidated } from './RepoFields'
+import { repoName } from './repo'
 import './chat.css'
 
 export type GroupKind = GroupDto['kind']
@@ -56,7 +57,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
   )
   const members = new Set([...d.people, ...owners])
   const blocked = !d.name.trim() ? '填写群名' : repo && !repoValidated(d) ? '先校验仓库地址' : ''
-  const repoName = d.url.trim().split(/[:/]/).at(-1)
+  const name = repoName(d.url.trim())
 
   const submit = async () => {
     setCreating(true)
@@ -87,15 +88,15 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
       width={540}
       closeOnBackdrop={false}
       title={dm ? '新建私聊' : '新建群'}
-      subtitle={dm ? '只有你和你的 bot' : '创建者即群管理员'}
+      subtitle={dm ? '只有你和你的 Bot' : '创建者即群管理员'}
       onClose={onClose}
       footer={
         <>
           <span className={cx('ng-foot', blocked && 'ng-foot--muted')}>
             {blocked ||
               (repo
-                ? `${d.bots.length} 个 bot 进群后绑定工作区，可托管克隆 ${repoName}`
-                : `${d.bots.length} 个 bot 进群后使用默认工作区或主人选择的目录`)}
+                ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
+                : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
           <Button variant="ghost" onClick={onClose}>
             关闭
@@ -151,7 +152,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
             </>
           ) : (
             <span className="ng-note">
-              每个 bot 得到一个托管的空工作区，只能用分区模式；之后绑定仓库时工作区重建。
+              每个 Bot 得到一个托管的空工作区，只能用分区模式；之后绑定仓库时工作区重建。
             </span>
           )}
         </div>
@@ -192,7 +193,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                     >
                       {on ? <Check size={11} /> : null}
                       {u.name}
-                      {auto ? <span className="ng-chip__sub">bot 主人</span> : null}
+                      {auto ? <span className="ng-chip__sub">Bot 主人</span> : null}
                     </button>
                   )
                 })}
@@ -201,7 +202,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         )}
 
         <div className="ng-field">
-          <span className="ng-label">拉入 bot · {d.bots.length} 个</span>
+          <span className="ng-label">拉入 Bot · {d.bots.length} 个</span>
           {choices.map((b) => {
             const on = d.bots.includes(b.id)
             const st = botState(b)
@@ -228,11 +229,11 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
               </button>
             )
           })}
-          {choices.length ? null : <span className="ng-note">还没有可拉入的 bot</span>}
+          {choices.length ? null : <span className="ng-note">还没有可拉入的 Bot</span>}
           <span className="ng-note">
             {dm
-              ? '私聊只能拉入你自己的 bot；其他人不能加入，也不能触发。可绑仓库、可选同步模式，规则与群相同。'
-              : 'bot 的主人会自动成为群成员；谁能触发由 bot 自己的触发范围决定。'}
+              ? '私聊只能拉入你自己的 Bot；其他人不能加入，也不能触发。可绑仓库、可选同步模式，规则与群相同。'
+              : 'Bot 的主人会自动成为群成员；谁能触发由 Bot 自己的触发范围决定。'}
           </span>
         </div>
       </div>

@@ -13,7 +13,7 @@ export const newSession: CommandHandler = async (ctx, input) => {
   const { group, user, bots } = input
   const picked = targets(input)
   if (!picked.length) {
-    await postEvent(ctx, group.id, `/new 需要同时 @ 一个 bot，如 /new @${bots[0]?.name ?? 'bot'}`)
+    await postEvent(ctx, group.id, `/new 需要同时 @ 一个 Bot，如 /new @${bots[0]?.name ?? 'bot'}`)
     return
   }
   for (const bot of picked) {

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type DaemonRelease, PROTOCOL_VERSION } from '@aiws/protocol'
+import { type DaemonRelease, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs } from '../src/db/schema.js'
@@ -18,8 +18,8 @@ const sha = (c: string) => c.repeat(64)
 const release: DaemonRelease = {
   version: '0.2.0',
   builds: {
-    'macos-aarch64': { url: '/downloads/aiws-0.2.0-macos-aarch64', sha256: sha('a') },
-    'linux-x86_64': { url: 'https://cdn.example.com/aiws-0.2.0-linux', sha256: sha('b') },
+    'macos-aarch64': { url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: sha('a') },
+    'linux-x86_64': { url: 'https://cdn.example.com/gonggong-0.2.0-linux', sha256: sha('b') },
   },
 }
 
@@ -28,7 +28,7 @@ describe('upgradeFor', () => {
     const mac = { os: 'macos', arch: 'aarch64' } as const
     expect(upgradeFor(release, mac, '0.1.0')).toEqual({
       version: '0.2.0',
-      url: '/downloads/aiws-0.2.0-macos-aarch64',
+      url: '/downloads/gonggong-0.2.0-macos-aarch64',
       sha256: sha('a'),
     })
     expect(upgradeFor(release, { os: 'linux', arch: 'x86_64' }, '0.1.9')?.sha256).toBe(sha('b'))
@@ -89,7 +89,7 @@ describe('daemon release publishing', () => {
       ws.close()
       return reply
     }
-    const upgrade = { version: '0.2.0', url: '/downloads/aiws-0.2.0-macos-aarch64', sha256: sha('a') }
+    const upgrade = { version: '0.2.0', url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: sha('a') }
     expect(await connect(hello(PROTOCOL_VERSION, '0.1.0'))).toMatchObject({ t: 'welcome', upgrade })
     expect(await connect(hello(PROTOCOL_VERSION, '0.2.0'))).toMatchObject({ t: 'welcome', upgrade: null })
     expect(await connect(hello(PROTOCOL_VERSION - 1, '0.0.1'))).toMatchObject({
@@ -99,20 +99,20 @@ describe('daemon release publishing', () => {
     })
   })
 
-  it('serves published builds from AIWS_DATA_DIR/downloads', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'aiws-data-'))
+  it('serves published builds from GONGGONG_DATA_DIR/downloads', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gonggong-data-'))
     mkdirSync(join(dir, 'downloads'))
-    writeFileSync(join(dir, 'downloads', 'aiws-0.2.0-macos-aarch64'), 'binary')
-    const prev = process.env.AIWS_DATA_DIR
-    process.env.AIWS_DATA_DIR = dir
+    writeFileSync(join(dir, 'downloads', 'gonggong-0.2.0-macos-aarch64'), 'binary')
+    const prev = process.env.GONGGONG_DATA_DIR
+    process.env.GONGGONG_DATA_DIR = dir
     try {
-      const ok = await t.app.inject('/downloads/aiws-0.2.0-macos-aarch64')
+      const ok = await t.app.inject('/downloads/gonggong-0.2.0-macos-aarch64')
       expect(ok.statusCode).toBe(200)
       expect(ok.body).toBe('binary')
       expect((await t.app.inject('/downloads/missing')).statusCode).toBe(404)
       expect((await t.app.inject('/downloads/..%2Fsecret')).statusCode).toBe(404)
     } finally {
-      process.env.AIWS_DATA_DIR = prev
+      process.env.GONGGONG_DATA_DIR = prev
     }
   })
 })

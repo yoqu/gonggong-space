@@ -1,4 +1,4 @@
-import type { UsageRowDto } from '@aiws/protocol'
+import type { UsageRowDto } from '@gonggong/protocol'
 import { BarChart3 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
@@ -10,7 +10,7 @@ import './usage.css'
 type By = 'bot' | 'user' | 'group'
 
 const TABS: { value: By; label: string }[] = [
-  { value: 'bot', label: '按 bot' },
+  { value: 'bot', label: '按 Bot' },
   { value: 'user', label: '按触发人' },
   { value: 'group', label: '按群' },
 ]
@@ -82,7 +82,7 @@ function UsagePanel() {
 /** 管理后台 · 用量: every bot in the system. */
 export function UsagePage() {
   return (
-    <AdminPage title="用量" desc="按 bot、触发人、群汇总 token 用量。">
+    <AdminPage title="用量" desc="按 Bot、触发人、群汇总 token 用量。">
       <UsagePanel />
     </AdminPage>
   )
@@ -91,7 +91,7 @@ export function UsagePage() {
 /** 我的用量 from the account menu: my bots only. */
 export function UsageDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog open title="我的用量" subtitle="我的 bot 近 30 天用量" width={560} onClose={onClose}>
+    <Dialog open title="我的用量" subtitle="我的 Bot 近 30 天用量" width={560} onClose={onClose}>
       <UsagePanel />
     </Dialog>
   )

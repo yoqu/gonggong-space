@@ -1,4 +1,4 @@
-import type { DirListingDto } from '@aiws/protocol'
+import type { DirListingDto } from '@gonggong/protocol'
 import { ChevronRight, CornerLeftUp, Folder, GitBranch } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
@@ -96,7 +96,7 @@ export function DirPicker({
             <span className="dirpick__remote">{dir.git.remotes[0] ?? '无 remote'}</span>
           </div>
         ) : null}
-        {dir?.unusable ? <Alert variant="warning" title={dir.unusable} /> : null}
+        {dir?.unusable ? <p className="dirpick__hint">{dir.unusable}</p> : null}
         {error ? <Alert variant="error" title={error} /> : null}
         <div className="dirpick__list">
           {!dir && !error ? (

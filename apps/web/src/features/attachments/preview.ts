@@ -1,4 +1,4 @@
-import type { Attachment } from '@aiws/protocol'
+import type { Attachment } from '@gonggong/protocol'
 import { create } from 'zustand'
 import { useRunRail } from '../runs/rail'
 

@@ -1,9 +1,15 @@
-import { type AdminUserDto, CreateUserReq, UpdateUserReq, type UserBriefDto } from '@aiws/protocol'
+import {
+  type AdminUserDto,
+  CreateUserReq,
+  ResetPasswordReq,
+  UpdateUserReq,
+  type UserBriefDto,
+} from '@gonggong/protocol'
 import { hash } from '@node-rs/argon2'
-import { asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { machines, users } from '../../db/schema.js'
+import { machines, users, webSessions } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
@@ -71,6 +77,36 @@ export function userRoutes(ctx: Ctx) {
         actorUserId: actor.id,
         action: 'user.update',
         detail: { userId: id, ...patch },
+      })
+      return toUserDto(user)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/admin/users/:id/password', async (req) => {
+      const actor = await requireSysadmin(ctx, req)
+      const id = idParam(req.params.id, '账号')
+      const { password } = ResetPasswordReq.parse(req.body)
+      if (id === actor.id) return fail('invalid', '修改自己的密码请在账户菜单中操作')
+      const passwordHash = await hash(password)
+      const user = await ctx.db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(users)
+          .set({ passwordHash, mustChangePassword: true })
+          .where(eq(users.id, id))
+          .returning()
+        if (row)
+          await tx
+            .update(webSessions)
+            .set({ revokedAt: ctx.now() })
+            .where(and(eq(webSessions.userId, id), isNull(webSessions.revokedAt)))
+        return row
+      })
+      if (!user) return fail('not_found', '账号不存在')
+      ctx.bus.disconnect(id)
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: actor.id,
+        action: 'user.password.reset',
+        detail: { userId: id, account: user.account },
       })
       return toUserDto(user)
     })

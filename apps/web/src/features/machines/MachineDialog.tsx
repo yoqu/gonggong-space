@@ -1,4 +1,4 @@
-import type { MachineDto } from '@aiws/protocol'
+import type { MachineDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { Button, Dialog, Input, Presence, toast } from '../../ui'

@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@aiws/protocol'
+import type { ErrorCode } from '@gonggong/protocol'
 import type { z } from 'zod'
 
 const STATUS: Record<z.infer<typeof ErrorCode>, number> = {

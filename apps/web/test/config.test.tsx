@@ -1,4 +1,4 @@
-import type { McpServerDto, UserDto } from '@aiws/protocol'
+import type { McpServerDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -70,7 +70,7 @@ describe('配置中心', () => {
     expect(row('grafana').textContent).toContain('https://mcp.corp/grafana')
     expect(within(row('wiki-search')).getByRole('switch').getAttribute('aria-checked')).toBe('true')
     expect(within(row('grafana')).getByRole('switch').getAttribute('aria-checked')).toBe('false')
-    const builtin = row('aiws')
+    const builtin = row('gonggong')
     expect(builtin.textContent).toContain('系统内置 · 始终注入，不受层级影响')
     expect(builtin.textContent).toContain(
       '向群成员提问、读取聊天记录、检索聊天记录、群信息与成员、查看运行记录、提问卡片历史、下载历史附件',
@@ -79,7 +79,7 @@ describe('配置中心', () => {
     expect(screen.getByText(/合并预览/)).toBeTruthy()
     expect(screen.getByText(/MCP 在新建会话时经 ACP 注入不落盘/)).toBeTruthy()
     expect(
-      (screen.getByRole('checkbox', { name: '强制相关 bot 下一轮开新会话' }) as HTMLInputElement).checked,
+      (screen.getByRole('checkbox', { name: '强制相关 Bot 下一轮开新会话' }) as HTMLInputElement).checked,
     ).toBe(false)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Skill' }))
@@ -109,7 +109,7 @@ describe('配置中心', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '添加 MCP' }))
     const dialog = await screen.findByRole('dialog', { name: '添加 MCP' })
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'aiws-echo' } })
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'gonggong-echo' } })
     fireEvent.change(within(dialog).getByLabelText('命令'), { target: { value: 'node' } })
     fireEvent.change(within(dialog).getByLabelText('参数（每行一个）'), {
       target: { value: '/opt/echo/server.js' },
@@ -118,12 +118,12 @@ describe('配置中心', () => {
       target: { value: 'A=1\nB=x=y' },
     })
     fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
-    expect(row('aiws-echo').textContent).toContain('node /opt/echo/server.js · env A, B')
+    expect(row('gonggong-echo').textContent).toContain('node /opt/echo/server.js · env A, B')
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '强制相关 bot 下一轮开新会话' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '强制相关 Bot 下一轮开新会话' }))
     fireEvent.click(save)
     expect(await screen.findByText('已保存，全员下一轮新会话生效')).toBeTruthy()
-    expect(screen.getByText('已要求相关 bot 下一轮开新会话，卡片会提示原因。')).toBeTruthy()
+    expect(screen.getByText('已要求相关 Bot 下一轮开新会话，卡片会提示原因。')).toBeTruthy()
     const writes = calls.filter((c) => c.method !== 'GET')
     expect(writes).toEqual(
       expect.arrayContaining([
@@ -141,7 +141,7 @@ describe('配置中心', () => {
             forceNewSession: true,
             config: {
               transport: 'stdio',
-              name: 'aiws-echo',
+              name: 'gonggong-echo',
               command: 'node',
               args: ['/opt/echo/server.js'],
               env: { A: '1', B: 'x=y' },
@@ -167,10 +167,10 @@ describe('配置中心', () => {
     fireEvent.click(screen.getByRole('button', { name: '添加 MCP' }))
     const dialog = await screen.findByRole('dialog', { name: '添加 MCP' })
     fireEvent.click(within(dialog).getByRole('tab', { name: 'HTTP' }))
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'aiws' } })
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'gonggong' } })
     fireEvent.change(within(dialog).getByLabelText('URL'), { target: { value: 'https://x' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '添加' }))
-    expect(within(dialog).getByText('aiws 是系统内置 MCP 的名称')).toBeTruthy()
+    expect(within(dialog).getByText('gonggong 是系统内置 MCP 的名称')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
 
     fireEvent.click(within(row('wiki-search')).getByRole('switch'))

@@ -2,8 +2,8 @@
 //! offered. Settings apply from the next turn.
 use super::{Result, local};
 use crate::host::Host;
-use aiws::local::{AgentModels, LocalSettings, load_models};
-use aiws::protocol::{AgentInfo, AgentKind};
+use gonggong::local::{AgentModels, LocalSettings, load_models};
+use gonggong::protocol::{AgentInfo, AgentKind};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -30,7 +30,7 @@ fn cards(
     mut catalog: BTreeMap<AgentKind, AgentModels>,
     login: impl Fn(AgentKind, &Path) -> Option<String>,
 ) -> Vec<AgentCard> {
-    aiws::agents::detect(local)
+    gonggong::agents::detect(local)
         .into_iter()
         .map(|info| {
             let s = local.agent(info.kind);
@@ -54,7 +54,7 @@ pub async fn agents(host: State<'_, Host>) -> Result<Vec<AgentCard>> {
     let home = host.home.clone();
     let list = tauri::async_runtime::spawn_blocking(move || {
         let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
-        Ok::<_, String>(cards(&local, load_models(&home), aiws::agents::login_status))
+        Ok::<_, String>(cards(&local, load_models(&home), gonggong::agents::login_status))
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -86,7 +86,7 @@ fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
 /// 更换路径 / 手动指定路径: picks the CLI with the system file dialog. Returns false when cancelled.
 #[tauri::command]
 pub async fn pick_agent_path(kind: AgentKind, app: AppHandle, host: State<'_, Host>) -> Result<bool> {
-    let title = format!("选择 {} 可执行文件", aiws::bots::agent_label(kind));
+    let title = format!("选择 {} 可执行文件", gonggong::bots::agent_label(kind));
     let Some(picked) = app.dialog().file().set_title(title).blocking_pick_file() else { return Ok(false) };
     set_path(&host.home, kind, Some(picked.into_path().map_err(|e| e.to_string())?))?;
     Ok(true)
@@ -101,7 +101,7 @@ pub fn reset_agent_path(kind: AgentKind, host: State<'_, Host>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aiws::local::{AgentSettings, Choice};
+    use gonggong::local::{AgentSettings, Choice};
 
     #[test]
     fn cards_merge_detection_settings_catalog_and_login() {

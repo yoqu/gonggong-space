@@ -1,4 +1,4 @@
-import type { SearchResultDto } from '@aiws/protocol'
+import type { SearchResultDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupRepos, messages, runEvents, runs } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'

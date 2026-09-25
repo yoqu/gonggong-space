@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Linux daemon integration (plan D16). The server runs on this host (fresh DB, dev TLS certificate); the Linux
-# `aiws` build runs in a Debian bookworm container with Node 22, git and the mock ACP agent. The container binds
+# `gonggong` build runs in a Debian bookworm container with Node 22, git and the mock ACP agent. The container binds
 # with a one-time code over https with the pinned fingerprint, then the API drives two bot turns: in a group without
 # a repo, and in a repo group cloned from a file:// bare repo copied into the container at the same path.
-# Usage: bash scripts/linux-e2e.sh   (Docker, jq, Postgres from `pnpm db:up`; AIWS_LINUX_BIN reuses a build)
+# Usage: bash scripts/linux-e2e.sh   (Docker, jq, Postgres from `pnpm db:up`; GONGGONG_LINUX_BIN reuses a build)
 set -Eeuo pipefail
 source "$(dirname "$0")/release/lib.sh"
-PORT="${PORT:-8866}" DB=aiws_linux_e2e PASS=linux-e2e-pass BOT=linuxbot
+PORT="${PORT:-8866}" DB=gonggong_linux_e2e PASS=linux-e2e-pass BOT=linuxbot
 WORK="$(cd "$(mktemp -d)" && pwd -P)"
 URL="https://127.0.0.1:$PORT" JAR="$WORK/cookies"
 box=""
@@ -38,21 +38,21 @@ wait_for() {
 }
 
 arch="$(docker_arch)"
-if [ -z "${AIWS_LINUX_BIN:-}" ]; then
-  echo "== building aiws for $arch-unknown-linux-gnu"
+if [ -z "${GONGGONG_LINUX_BIN:-}" ]; then
+  echo "== building gonggong for $arch-unknown-linux-gnu"
   target="$arch-unknown-linux-gnu"
-  builder "$WORK/bin" "cargo build -q --release --locked -p aiws --target $target; cp /target/$target/release/aiws /out/"
-  AIWS_LINUX_BIN="$WORK/bin/aiws"
+  builder "$WORK/bin" "cargo build -q --release --locked -p gonggong --target $target; cp /target/$target/release/gg /out/"
+  GONGGONG_LINUX_BIN="$WORK/bin/gg"
 fi
-docker build -q -t aiws-linux-e2e -f "$ROOT/scripts/release/e2e.Dockerfile" "$ROOT/tools/mock-agent" >/dev/null
+docker build -q -t gonggong-linux-e2e -f "$ROOT/scripts/release/e2e.Dockerfile" "$ROOT/tools/mock-agent" >/dev/null
 
 echo "== server on $URL (db $DB)"
 bash "$ROOT/scripts/pg.sh" reset "$DB"
 bash "$ROOT/scripts/dev-cert.sh" "$WORK/tls" > "$WORK/cert.txt"
 fingerprint="$(tail -1 "$WORK/cert.txt")"
-(cd "$ROOT" && AIWS_DB=$DB AIWS_ADMIN_PASSWORD=admin-init AIWS_DATA_DIR="$WORK/data" PORT=$PORT \
-  AIWS_TLS_CERT="$WORK/tls/cert.pem" AIWS_TLS_KEY="$WORK/tls/key.pem" \
-  pnpm --filter @aiws/server start > "$WORK/server.log" 2>&1 &)
+(cd "$ROOT" && GONGGONG_DB=$DB GONGGONG_ADMIN_PASSWORD=admin-init GONGGONG_DATA_DIR="$WORK/data" PORT=$PORT \
+  GONGGONG_TLS_CERT="$WORK/tls/cert.pem" GONGGONG_TLS_KEY="$WORK/tls/key.pem" \
+  pnpm --filter @gonggong/server start > "$WORK/server.log" 2>&1 &)
 wait_for server 60 api GET /api/health
 api POST /api/auth/login -d '{"account":"admin","password":"admin-init"}' >/dev/null
 api POST /api/auth/password -d "{\"oldPassword\":\"admin-init\",\"newPassword\":\"$PASS\"}" >/dev/null
@@ -62,14 +62,14 @@ code="$(api POST /api/bind-codes -d '{}' | jq -r .code)"
 git init -q --bare -b main "$WORK/repo.git"
 git clone -q "$WORK/repo.git" "$WORK/seed" 2>/dev/null
 echo '# linux e2e' > "$WORK/seed/README.md"
-git -C "$WORK/seed" add . && git -C "$WORK/seed" -c user.name=e2e -c user.email=e2e@aiws commit -qm init
+git -C "$WORK/seed" add . && git -C "$WORK/seed" -c user.name=e2e -c user.email=e2e@gonggong commit -qm init
 git -C "$WORK/seed" push -q origin main
 
-echo "== member machine: $(basename "$AIWS_LINUX_BIN") in a container"
+echo "== member machine: $(basename "$GONGGONG_LINUX_BIN") in a container"
 box="$(docker create --add-host host.docker.internal:host-gateway \
-  -e AIWS_LOG=info -e AIWS_NO_AUTO_UPGRADE=1 -e AIWS_ADAPTER_CMD='node /opt/mock-agent/agent.js' aiws-linux-e2e \
-  sh -ec "aiws login --server https://host.docker.internal:$PORT --code $code --fingerprint $fingerprint; exec aiws run")"
-docker cp "$AIWS_LINUX_BIN" "$box:/usr/local/bin/aiws" >/dev/null
+  -e GONGGONG_LOG=info -e GONGGONG_NO_AUTO_UPGRADE=1 -e GONGGONG_ADAPTER_CMD='node /opt/mock-agent/agent.js' gonggong-linux-e2e \
+  sh -ec "gg login --server https://host.docker.internal:$PORT --code $code --fingerprint $fingerprint; exec gg run")"
+docker cp "$GONGGONG_LINUX_BIN" "$box:/usr/local/bin/gg" >/dev/null
 COPYFILE_DISABLE=1 tar --no-xattrs -C / -cf - "${WORK#/}/repo.git" | docker cp - "$box:/" >/dev/null
 docker start "$box" >/dev/null
 docker logs -f "$box" > "$WORK/daemon.log" 2>&1 &

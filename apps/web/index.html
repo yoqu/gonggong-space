@@ -3,14 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI 团队工作区</title>
+    <title>共工</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0e7c78" />
     <script>
       // Apply the stored theme before first paint so the page never flashes the wrong theme.
-      // Must stay in sync with src/app/theme.ts (key aiws.theme, fallback light) and src/app/glass.ts (key aiws.glass, fallback standard).
+      // Must stay in sync with src/app/theme.ts (key gonggong.theme, fallback light) and src/app/glass.ts (key gonggong.glass, fallback standard).
       ;(() => {
         let theme = 'light'
         try {
-          const pref = localStorage.getItem('aiws.theme')
+          const pref = localStorage.getItem('gonggong.theme')
           if (pref === 'dark' || pref === 'system') {
             theme =
               pref === 'dark' || window.matchMedia?.('(prefers-color-scheme: dark)').matches
@@ -23,7 +25,7 @@
         document.documentElement.dataset.theme = theme
         let glass = 'standard'
         try {
-          const level = localStorage.getItem('aiws.glass')
+          const level = localStorage.getItem('gonggong.glass')
           if (level === 'clear' || level === 'tinted') glass = level
         } catch {}
         document.documentElement.dataset.glass = glass

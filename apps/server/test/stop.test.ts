@@ -1,4 +1,4 @@
-import type { MessageDto, RunStart, ServerToDaemon } from '@aiws/protocol'
+import type { MessageDto, RunStart, ServerToDaemon } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -219,7 +219,7 @@ describe('/stop command', () => {
     expect(await isChainStopped(t.ctx, hop2)).toBe(false)
 
     await w.say(w.as.wang, '/stop')
-    expect(await w.events()).toEqual(['王磊 /stop · 未 @ bot，停止本群全部 2 个轮次（含接力链，整条链终止）'])
+    expect(await w.events()).toEqual(['王磊 /stop · 未 @ Bot，停止本群全部 2 个轮次（含接力链，整条链终止）'])
     expect(
       w.sent
         .filter((m) => m.t === 'run.cancel')
@@ -343,7 +343,7 @@ describe('interrupt choice (keep / discard)', () => {
     await w.say(w.as.li, '@小王的 Claude 继续')
     const start = w.starts().at(-1)!
     expect(start.prompt.context.at(-1)).toMatchObject({
-      author: 'AIWS',
+      author: '共工',
       body: '上一轮被 /stop 中断；本轮改动已保留，上一轮改动的 2 个文件仍在工作区，未提交。',
     })
     expect((await w.run(r.id)).interrupt).toBe('kept')
@@ -360,7 +360,7 @@ describe('interrupt choice (keep / discard)', () => {
       w
         .starts()
         .at(-1)!
-        .prompt.context.some((c) => c.author === 'AIWS'),
+        .prompt.context.some((c) => c.author === '共工'),
     ).toBe(false)
   })
 
@@ -394,7 +394,7 @@ describe('offline expiry and chain notifications', () => {
     await expireOfflineRuns(t.ctx)
     expect(await w.run(r!.id)).toMatchObject({
       status: 'expired',
-      step: 'bot 离线超过 10 分钟，已作废并通知 李建国',
+      step: 'Bot 离线超过 10 分钟，已作废并通知 李建国',
       endedAt: clock,
     })
     const notes = await t.db.select().from(notifications)

@@ -1,5 +1,5 @@
 {
-  "name": "@aiws/protocol",
+  "name": "@gonggong/protocol",
   "private": true,
   "type": "module",
   "exports": {

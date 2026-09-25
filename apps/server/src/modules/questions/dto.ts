@@ -1,4 +1,4 @@
-import type { Answer, Attachment, Question, QuestionSetDto } from '@aiws/protocol'
+import type { Answer, Attachment, Question, QuestionSetDto } from '@gonggong/protocol'
 import type { attachments, questionSets } from '../../db/schema.js'
 
 type QuestionSet = typeof questionSets.$inferSelect

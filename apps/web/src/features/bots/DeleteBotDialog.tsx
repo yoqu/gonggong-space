@@ -1,4 +1,4 @@
-import type { BotDto } from '@aiws/protocol'
+import type { BotDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { Alert, Button, Dialog, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'

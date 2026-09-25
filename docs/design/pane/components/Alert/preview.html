@@ -1,0 +1,16 @@
+<!-- @dsCard group="Windows" height=330 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Alert</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:24px;min-height:330px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{justifyContent:'center',gap:'24px',alignItems:'flex-start'}},
+ h(P.Alert,{icon:h(P.Icon,{name:'warning',size:48,color:'var(--system-orange)'}),title:'要将「季度报告」移到废纸篓吗？',message:'此项目将被立即删除，此操作无法撤销。',suppression:'不再询问',actions:[{label:'取消'},{label:'删除',variant:'destructive'}]}),
+ h(P.Alert,{title:'要存储对文稿的更改吗？',message:'如果不存储，你的更改将丢失。',actions:[{label:'存储',variant:'primary'},{label:'不存储'},{label:'取消'}]})))
+</script>
+</body>
+</html>

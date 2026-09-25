@@ -1,7 +1,7 @@
 use super::Result;
 use crate::host::{Host, Snapshot};
-use aiws::config::Config;
-use aiws::protocol::{AgentKind, MachineInfo, PROTOCOL_VERSION};
+use gonggong::config::Config;
+use gonggong::protocol::{AgentKind, MachineInfo, PROTOCOL_VERSION};
 use serde::Serialize;
 use tauri::State;
 
@@ -32,15 +32,15 @@ pub struct Adapter {
 pub fn app_info(host: State<'_, Host>) -> Result<AppInfo> {
     let config = Config::load().map_err(|e| e.to_string())?;
     Ok(AppInfo {
-        version: aiws::upgrade::CURRENT,
+        version: gonggong::upgrade::CURRENT,
         protocol: PROTOCOL_VERSION,
-        machine: aiws::bind::machine_info(),
+        machine: gonggong::bind::machine_info(),
         owner_name: config.as_ref().map(|c| c.owner_name.clone()),
         server: config.as_ref().map(|c| c.server.clone()),
         cert_pinned: config.as_ref().is_some_and(|c| c.cert_sha256.is_some()),
         workspaces_dir: host.home.join("workspaces").display().to_string(),
         backups_dir: host.home.join("backups").display().to_string(),
-        adapters: aiws::engine::ADAPTERS
+        adapters: gonggong::engine::ADAPTERS
             .iter()
             .map(|&(kind, package, version)| Adapter { kind, package, version })
             .collect(),
