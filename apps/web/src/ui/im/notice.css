@@ -1,0 +1,81 @@
+.pn-notice {
+  display: flex;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--label-secondary);
+  text-align: center;
+}
+.pn-notice--date b {
+  color: var(--label);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.pn-notice--system span {
+  max-width: 70%;
+}
+.pn-notice--unread {
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.pn-notice--unread::before,
+.pn-notice--unread::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.pn-notice--urgent span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 3px 10px;
+  border-radius: var(--radius-capsule);
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+  font-weight: 500;
+}
+.pn-notice--urgent svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Group announcement: floating glass capsule */
+.pn-pinned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  min-width: 0;
+}
+.pn-pinned__icon {
+  color: var(--system-orange);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.pn-pinned__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.pn-pinned__title {
+  font-weight: 600;
+  flex: none;
+}
+.pn-pinned__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label-secondary);
+}

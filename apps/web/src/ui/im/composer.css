@@ -1,0 +1,107 @@
+.pn-composer-wrap {
+  position: relative;
+}
+.pn-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) 10px 6px var(--space-12);
+  border-radius: var(--radius-bubble);
+  background: var(--content-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--control-stroke),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.pn-composer:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px var(--tint-blue);
+}
+.pn-composer__reply {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.pn-composer__reply .pn-quote {
+  flex: 1;
+  -webkit-line-clamp: 1;
+  max-width: none;
+}
+.pn-composer textarea {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: 13px;
+  line-height: 19px;
+  padding: 0;
+  min-height: 19px;
+  max-height: 114px;
+}
+.pn-composer textarea::placeholder {
+  color: var(--label-tertiary);
+}
+.pn-composer textarea:focus-visible {
+  outline: 0;
+}
+.pn-composer__bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.pn-composer__tool {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--label-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: default;
+}
+.pn-composer__tool:hover {
+  background: var(--control-track);
+  color: var(--label);
+}
+.pn-composer__tool svg {
+  width: 17px;
+  height: 17px;
+}
+.pn-composer__hint {
+  margin-left: auto;
+  margin-right: var(--space-8);
+  font-size: 11px;
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+.pn-composer__spacer {
+  margin-left: auto;
+}
+.pn-composer__send {
+  appearance: none;
+  border: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25);
+  cursor: default;
+  flex: none;
+}
+.pn-composer__send:disabled {
+  background: var(--control-track);
+  color: var(--label-tertiary);
+  box-shadow: none;
+}
+.pn-composer__send svg {
+  width: 15px;
+  height: 15px;
+}

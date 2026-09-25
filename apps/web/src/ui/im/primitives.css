@@ -1,0 +1,293 @@
+/* Private copies of Pane Avatar/Tag/Badge/Button/Toolbar primitives (bundle.css); see primitives.tsx. */
+.im-avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  color: var(--on-accent);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  background: var(--avatar-1);
+  user-select: none;
+}
+.im-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
+}
+.im-avatar--square {
+  border-radius: 28%;
+}
+.im-avatar__status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 30%;
+  height: 30%;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--pn-ring, var(--content-bg));
+}
+.im-avatar__status--online {
+  background: var(--system-green);
+}
+.im-avatar__status--busy {
+  background: var(--system-red);
+}
+.im-avatar__status--away {
+  background: var(--system-orange);
+}
+.im-avatars {
+  display: inline-flex;
+  align-items: center;
+}
+.im-avatars > .im-avatar {
+  box-shadow: 0 0 0 1.5px var(--pn-ring, var(--content-bg));
+}
+.im-avatars > .im-avatar + .im-avatar {
+  margin-left: -6px;
+}
+.im-avatars__more {
+  margin-left: var(--space-4);
+  font-size: 11px;
+  color: var(--label-secondary);
+}
+
+.im-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: var(--radius-capsule);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+.im-tag svg {
+  width: 10px;
+  height: 10px;
+}
+.im-tag--blue {
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+}
+.im-tag--green {
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+}
+.im-tag--orange {
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+}
+.im-tag--red {
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+}
+.im-tag--purple {
+  background: var(--tint-purple);
+  color: var(--tint-purple-text);
+}
+.im-tag--gray {
+  background: var(--tint-gray);
+  color: var(--tint-gray-text);
+}
+.im-tag--solid-red {
+  background: var(--badge-fill);
+  color: var(--on-accent);
+}
+
+.im-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-capsule);
+  background: var(--badge-fill);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.im-badge--muted {
+  background: var(--badge-muted);
+}
+
+.im-btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  font: inherit;
+  font-weight: 500;
+  color: var(--label);
+  background: var(--control-fill);
+  box-shadow: var(--shadow-control);
+  border-radius: var(--radius-capsule);
+  height: var(--control-regular);
+  padding: 0 var(--space-12);
+  min-width: 64px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.im-btn:active {
+  background: var(--control-fill-pressed);
+}
+.im-btn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.im-btn--small {
+  height: var(--control-small);
+  padding: 0 10px;
+  font-size: 11px;
+  min-width: 48px;
+}
+.im-btn--primary {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+    0 0.5px 1.5px rgba(0, 0, 0, 0.2);
+}
+.im-btn--destructive {
+  background: var(--destructive-fill);
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+    0 0.5px 1.5px rgba(0, 0, 0, 0.2);
+}
+.im-btn--primary:active,
+.im-btn--destructive:active {
+  filter: brightness(0.9);
+}
+.im-btn--primary:active {
+  background: var(--accent-fill);
+}
+.im-btn--destructive:active {
+  background: var(--destructive-fill);
+}
+.im-btn--glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+.im-btn--plain {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent-text);
+  min-width: 0;
+  padding: 0 var(--space-6);
+}
+.im-btn--plain:active {
+  background: var(--control-track);
+}
+.im-btn--icon {
+  min-width: 0;
+  width: var(--control-regular);
+  padding: 0;
+}
+.im-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.im-spinner {
+  width: 16px;
+  height: 16px;
+  color: var(--label-secondary);
+  animation: im-spin 1s steps(8) infinite;
+}
+@keyframes im-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .im-spinner {
+    animation-duration: 3s;
+  }
+}
+.im-progress {
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  overflow: hidden;
+}
+.im-progress__bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.im-glassgroup {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 2px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+.im-glassgroup__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--label);
+  height: 28px;
+  min-width: 32px;
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-capsule);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.im-glassgroup__btn svg {
+  width: 16px;
+  height: 16px;
+}
+.im-glassgroup__btn:hover {
+  background: var(--control-track);
+}
+.im-glassgroup__btn[aria-pressed="true"] {
+  color: var(--accent-text);
+}
+
+.im-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--label-secondary);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.im-close:hover {
+  background: var(--control-track);
+}
+.im-close svg {
+  width: 10px;
+  height: 10px;
+}

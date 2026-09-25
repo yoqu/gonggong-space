@@ -1,0 +1,106 @@
+.pn-convlist {
+  width: 288px;
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar-bg);
+  --pn-ring: var(--sidebar-bg);
+  min-height: 0;
+}
+.pn-convlist__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0 var(--space-12) var(--space-8);
+}
+.pn-convlist__items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 var(--space-8) var(--space-8);
+  overflow: auto;
+}
+.pn-conv {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--label);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: var(--conversation-row);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-menu);
+  cursor: default;
+}
+.pn-conv:hover,
+.pn-conv[aria-current="true"] {
+  background: var(--selection-fill);
+}
+.pn-conv[aria-current="true"] {
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+.pn-conv__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pn-conv__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  line-height: 16px;
+}
+.pn-conv__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.pn-conv__time {
+  margin-left: auto;
+  padding-left: var(--space-6);
+  font-size: 11px;
+  color: var(--label-secondary);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.pn-conv__time svg {
+  width: 11px;
+  height: 11px;
+}
+.pn-conv__preview {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--label-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pn-conv__flag {
+  color: var(--tint-red-text);
+  font-weight: 600;
+}
+.pn-conv__muted {
+  width: 12px;
+  height: 12px;
+  color: var(--label-secondary);
+  flex: none;
+}
+.pn-conv__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--badge-muted);
+  flex: none;
+}

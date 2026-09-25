@@ -24,6 +24,7 @@ import {
   Toaster,
   toast,
 } from '../ui'
+import { IMGallery } from './gallery/IMGallery'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -282,6 +283,8 @@ export default function UiGallery() {
           </div>
         </div>
       </Section>
+
+      <IMGallery />
 
       <Dialog
         open={dialog}
