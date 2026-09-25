@@ -10,14 +10,16 @@ export type TagTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | 
 export function Tag({
   tone = 'gray',
   icon,
+  className,
   children,
 }: {
   tone?: TagTone
   icon?: Glyph
+  className?: string
   children?: ReactNode
 }) {
   return (
-    <span className={cx('ui-tag', `ui-tag--${tone}`)}>
+    <span className={cx('ui-tag', `ui-tag--${tone}`, className)}>
       {icon ? renderGlyph(icon) : null}
       {children}
     </span>
@@ -92,16 +94,29 @@ export interface AvatarProps {
   /** `square` for groups, bots and apps. */
   shape?: 'circle' | 'square'
   color?: string
+  className?: string
   style?: CSSProperties
 }
 
-/** Status dot ring takes `--pn-ring` from the parent (default content-bg); set it to the surface behind. */
-export function Avatar({ name, src, size = 32, status, shape = 'circle', color, style }: AvatarProps) {
+/**
+ * Status dot ring takes `--pn-ring` from the parent (default content-bg); set it to the surface behind.
+ * Initials follow Pane exactly (「系统管理员」→「理员」); pass `src` or `color` for role-like names.
+ */
+export function Avatar({
+  name,
+  src,
+  size = 32,
+  status,
+  shape = 'circle',
+  color,
+  className,
+  style,
+}: AvatarProps) {
   const text = initials(name, shape === 'square')
   const bg = color ?? `var(--avatar-${hashIndex(name, 6) + 1})`
   return (
     <span
-      className={cx('ui-avatar', shape === 'square' && 'ui-avatar--square')}
+      className={cx('ui-avatar', shape === 'square' && 'ui-avatar--square', className)}
       title={name}
       role="img"
       aria-label={status ? `${name}（${STATUS_TEXT[status]}）` : name}
@@ -238,34 +253,80 @@ export function Spinner({ size = 16, color }: { size?: number; color?: string })
   return <SpinnerGlyph role="status" label="正在载入" style={{ width: size, height: size, color }} />
 }
 
-export function GroupBox({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
+export function GroupBox({
+  children,
+  className,
+  style,
+}: {
+  children?: ReactNode
+  className?: string
+  style?: CSSProperties
+}) {
   return (
-    <div className="ui-group" style={style}>
+    <div className={cx('ui-group', className)} style={style}>
       {children}
     </div>
   )
 }
 
-/** Settings row: label (and optional description) on the left, the control on the right. */
+export interface GroupRowProps {
+  label: ReactNode
+  description?: ReactNode
+  /** Trailing `label-secondary` text, e.g. the current choice of a drill-in row. */
+  value?: ReactNode
+  chevron?: boolean
+  /** Makes the whole row a button with a trailing chevron. */
+  onClick?: () => void
+  /** Centered red label; put it in a GroupBox of its own. */
+  destructive?: boolean
+  className?: string
+  children?: ReactNode
+}
+
+/** Settings row: label (and optional description) on the left, the control or value on the right. */
 export function GroupRow({
   label,
   description,
+  value,
+  chevron,
+  onClick,
+  destructive,
   className,
   children,
-}: {
-  label: ReactNode
-  description?: ReactNode
-  className?: string
-  children?: ReactNode
-}) {
-  return (
-    <div className={cx('ui-group__row', className)}>
-      <div>
-        <div>{label}</div>
+}: GroupRowProps) {
+  const trail = value != null || chevron || onClick
+  const inner = (
+    <>
+      <div className="ui-group__text">
+        <div className={destructive ? 'ui-group__danger' : undefined}>{label}</div>
         {description ? <div className="ui-group__desc">{description}</div> : null}
       </div>
-      {children}
-    </div>
+      {trail ? (
+        <div className="ui-group__trail">
+          {children}
+          {value != null ? <span className="ui-group__value">{value}</span> : null}
+          {(chevron || onClick) && !destructive ? <Icon name="chevron-right" weight={1.8} /> : null}
+        </div>
+      ) : (
+        children
+      )}
+    </>
+  )
+  return onClick ? (
+    <button
+      type="button"
+      className={cx(
+        'ui-group__row',
+        'ui-group__row--button',
+        destructive && 'ui-group__row--danger',
+        className,
+      )}
+      onClick={onClick}
+    >
+      {inner}
+    </button>
+  ) : (
+    <div className={cx('ui-group__row', className)}>{inner}</div>
   )
 }
 
@@ -294,6 +355,7 @@ export function StepIndicator({ steps }: { steps: { label: string; status: StepS
   )
 }
 
+/** Inline notice on tinted fill (forms, pages). Pane's modal Alert is `AlertPanel` / `AlertDialog` in ./overlay. */
 export function Alert({
   variant = 'info',
   title,
@@ -315,33 +377,6 @@ export function Alert({
         {description ? <p className="ui-alert__desc">{description}</p> : null}
         {children}
       </div>
-    </div>
-  )
-}
-
-export function EmptyState({
-  icon,
-  illustration,
-  title,
-  description,
-  actions,
-  bare,
-}: {
-  icon?: ReactNode
-  /** Decorative SVG illustration from ./illustrations, shown at up to 160px. */
-  illustration?: ReactNode
-  title?: ReactNode
-  description?: ReactNode
-  actions?: ReactNode
-  bare?: boolean
-}) {
-  return (
-    <div className={cx('ui-empty', bare && 'ui-empty--bare')}>
-      {illustration ? <div className="ui-empty__art">{illustration}</div> : null}
-      {icon ? <div className="ui-empty__icon">{icon}</div> : null}
-      {title ? <div className="ui-empty__title">{title}</div> : null}
-      {description ? <div className="ui-empty__desc">{description}</div> : null}
-      {actions ? <div className="ui-empty__actions">{actions}</div> : null}
     </div>
   )
 }
