@@ -39,8 +39,8 @@ export interface MenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelec
   onClose?: () => void
   /** Pre-highlighted item (demo only). */
   activeValue?: string
-  /** Focus the active (or first) item on mount — pass for popup menus. */
-  autoFocus?: boolean
+  /** Focus the active (or first) item on mount — pass for popup menus; `'menu'` focuses the menu itself, highlighting nothing (pointer-opened). */
+  autoFocus?: boolean | 'menu'
   /** Index in `items` of a submenu shown open on mount (demo only). */
   defaultOpenSubmenu?: number
   isSubmenu?: boolean
@@ -85,6 +85,7 @@ export function Menu({
   useEffect(() => {
     const menu = own.current
     if (!autoFocus || !menu) return
+    if (autoFocus === 'menu') return menu.focus()
     const list = ownItems(menu)
     ;(list.find((el) => el.dataset.value === activeValue) ?? list[0] ?? menu).focus()
   }, [])
@@ -256,6 +257,8 @@ export function MenuButton({
   ...rest
 }: MenuButtonProps) {
   const [open, setOpenState] = useState(false)
+  // macOS highlights the first item only when the menu was opened from the keyboard.
+  const [byPointer, setByPointer] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const presence = usePresence(open)
@@ -278,12 +281,14 @@ export function MenuButton({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
+          setByPointer(e.detail > 0)
           setOpen(!open)
           onClick?.(e)
         }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown' && !open) {
             e.preventDefault()
+            setByPointer(false)
             setOpen(true)
           }
           onKeyDown?.(e)
@@ -293,7 +298,7 @@ export function MenuButton({
       {presence.mounted ? (
         <Menu
           items={items}
-          autoFocus
+          autoFocus={byPointer ? 'menu' : true}
           className={cx(
             'ui-menu--popover',
             align === 'end' && 'ui-menu--end',

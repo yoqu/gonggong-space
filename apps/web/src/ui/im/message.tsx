@@ -344,20 +344,20 @@ export function Message({
             </div>
           )}
           {side && <span className="pn-msg__side">{side}</span>}
+          {actionBar ? (
+            <div className="pn-msg__actions">{actionBar}</div>
+          ) : (
+            actions !== false && (
+              <div className="pn-msg__actions">
+                <MessageActions items={actions} onAction={onAction}>
+                  {actionsExtra}
+                </MessageActions>
+              </div>
+            )
+          )}
         </div>
         {thread && <ThreadSummary {...thread} />}
         {footer}
-        {actionBar ? (
-          <div className="pn-msg__actions">{actionBar}</div>
-        ) : (
-          actions !== false && (
-            <div className="pn-msg__actions">
-              <MessageActions items={actions} onAction={onAction}>
-                {actionsExtra}
-              </MessageActions>
-            </div>
-          )
-        )}
       </div>
     </div>
   )

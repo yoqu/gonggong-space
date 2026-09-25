@@ -112,6 +112,10 @@
   padding: var(--space-12) var(--space-8);
   overflow: hidden;
 }
+/* Rows keep their height; the oldest scroll off the top instead of being squashed under the next one. */
+.relay__body > * {
+  flex: none;
+}
 .relay__run {
   display: flex;
   flex-direction: column;

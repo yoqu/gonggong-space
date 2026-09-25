@@ -129,18 +129,18 @@
   font: 700 11px / 16px var(--font-sans);
   cursor: default;
 }
+.pn-msg__row {
+  position: relative;
+}
+/* Beside the bubble, not above it: above would cover the previous message or the author line. */
 .pn-msg__actions {
   position: absolute;
-  top: -18px;
-  right: 0;
+  top: 0;
+  left: calc(100% + var(--space-8));
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s;
   z-index: 2;
-}
-.pn-msg--self .pn-msg__actions {
-  right: auto;
-  left: 0;
 }
 .pn-msg--show-actions .pn-msg__actions {
   opacity: 1;
@@ -152,6 +152,23 @@
 .pn-msg[data-actions="open"] .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;
+}
+/* A context menu supersedes the hover bar; showing both stacks two menus on the same message. */
+body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
+  opacity: 0;
+  pointer-events: none;
+}
+.pn-msg--self .pn-msg__actions {
+  left: auto;
+  right: calc(100% + var(--space-8));
+}
+@media (max-width: 640px) {
+  .pn-msg__actions,
+  .pn-msg--self .pn-msg__actions {
+    top: -40px;
+    left: auto;
+    right: 0;
+  }
 }
 
 .pn-mention {

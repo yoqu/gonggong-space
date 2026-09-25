@@ -4,6 +4,10 @@
   inset: 0;
   z-index: 20;
 }
+/* Text-heavy list: the thick glass keeps blurred content behind from bleeding through (HIG). */
+.notif.ui-popover {
+  background: var(--glass-fill-thick);
+}
 .notif {
   position: fixed;
   top: var(--space-8);

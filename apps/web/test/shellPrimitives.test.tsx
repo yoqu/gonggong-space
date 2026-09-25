@@ -80,6 +80,19 @@ describe('Menu', () => {
     expect(onSelect).toHaveBeenCalledOnce()
   })
 
+  it('highlights nothing when opened with the pointer, the first item when opened from the keyboard', () => {
+    render(
+      <MenuButton aria-label="更多" items={ITEMS} onSelect={() => {}}>
+        …
+      </MenuButton>,
+    )
+    const trigger = screen.getByRole('button', { name: '更多' })
+    fireEvent.click(trigger, { detail: 1 })
+    expect(document.activeElement).toBe(screen.getByRole('menu'))
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: /打开/ }))
+  })
+
   it('closes on an outside press', async () => {
     render(
       <>
