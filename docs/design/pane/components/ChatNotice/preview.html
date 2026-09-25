@@ -1,4 +1,4 @@
-<!-- @dsCard group="IM · 消息" height=150 -->
+<!-- @dsCard group="IM · 消息" height=180 -->
 <!doctype html>
 <html>
 <head><meta charset="utf-8"><title>ChatNotice</title>
@@ -8,7 +8,7 @@
 <div id="root" class="pn "></div>
 <script>
 var P = window.Pane, h = React.createElement;
-ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{gap:'16px'}}, h(P.ChatNotice,{kind:'date',day:'昨天'},'18:20'), h(P.ChatNotice,null,'张三 邀请 Mia Chen、王小明 加入了群聊'), h(P.ChatNotice,{kind:'unread'}), h(P.ChatNotice,{kind:'urgent'},'张三 对你发起了应用内加急')))
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{gap:'16px'}}, h(P.ChatNotice,{kind:'date',day:'昨天'},'18:20'), h(P.ChatNotice,null,'张三 邀请 Mia Chen、王小明 加入了群聊'), h(P.ChatNotice,{kind:'unread'}), h(P.ChatNotice,{kind:'urgent'},'张三 对你发起了应用内加急'), h(P.ChatNotice,{kind:'recalled',action:{label:'重新编辑'}})))
 </script>
 </body>
 </html>

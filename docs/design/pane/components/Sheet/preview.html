@@ -1,0 +1,21 @@
+<!-- @dsCard group="Windows" height=520 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Sheet</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'消息',height:'460px',contentStyle:{position:'static'},toolbar:h(P.Toolbar,{title:'通讯录',subtitle:'128 位联系人'},h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'person-add',label:'新建群组'})))},
+  h(P.EmptyState,{title:'选择一位联系人',description:'或点工具栏的按钮新建群组。'}),
+  h(P.Sheet,{open:true,title:'新建群组',message:'群组创建后，你可以在群设置里修改这些信息。',trapFocus:false,
+    footer:h(P.Button,{variant:'plain'},'了解群组类型…'),
+    actions:[{label:'取消'},{label:'创建',variant:'primary'}]},
+    h(P.TextField,{label:'群名称',defaultValue:'IM 2.0 设计评审'}),
+    h(P.RadioGroup,{'aria-label':'群类型',direction:'row',defaultValue:'dept',options:[{value:'dept',label:'部门群'},{value:'project',label:'项目群'},{value:'ext',label:'外部群'}]}),
+    h(P.Checkbox,{label:'允许新成员查看历史消息',defaultChecked:true}))))
+</script>
+</body>
+</html>

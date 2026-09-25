@@ -1,0 +1,17 @@
+<!-- @dsCard group="Menus" height=360 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Popover</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{gap:'32px',alignItems:'flex-start',minHeight:'310px'}},
+ h(P.Popover,{defaultOpen:true,'aria-label':'张三 的名片',trigger:h(P.Button,{variant:'plain'},'@张三')},
+   h(P.ProfileCard,{name:'张三',status:'busy',statusText:'会议中 · 至 11:00',title:'前端工程师 · 数字化转型部',tags:[{label:'外部',tone:'orange'}],fields:[{label:'邮箱',value:'zhangsan@example.com'},{label:'城市',value:'深圳'},{label:'本地时间',value:'10:42（GMT+8）'}],
+     actions:[{label:'发消息',icon:'message'},{label:'语音通话',icon:'phone',text:false},{label:'视频会议',icon:'video',text:false}]}))))
+</script>
+</body>
+</html>

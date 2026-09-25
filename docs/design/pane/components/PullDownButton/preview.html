@@ -1,0 +1,18 @@
+<!-- @dsCard group="Actions" height=300 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>PullDownButton</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'20px'}},
+ h(P.PullDownButton,{label:'新建',icon:'plus',defaultOpen:true,items:[{label:'群组',value:'group',shortcut:'⌘N'},{label:'会议',value:'meet'},{label:'日程',value:'event'},{separator:true},{label:'从模板新建',value:'tpl',submenu:[{label:'周报',value:'weekly'},{label:'评审纪要',value:'review'}]}]}),
+ h(P.PullDownButton,{icon:'more','aria-label':'更多操作',items:[{label:'导出…',value:'export'},{label:'打印…',value:'print',shortcut:'⌘P'}]}),
+ h(P.Button,{variant:'primary',loading:true},'正在上传'),
+ h(P.Button,{loading:true},'处理中')))
+</script>
+</body>
+</html>

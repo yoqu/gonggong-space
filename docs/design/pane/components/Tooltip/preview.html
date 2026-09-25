@@ -1,0 +1,17 @@
+<!-- @dsCard group="Feedback" height=110 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Tooltip</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{gap:'28px',padding:'40px 0 0 60px'}},
+ h(P.Tooltip,{content:'新建群组',shortcut:'⌘N',defaultOpen:true},h(P.Button,{icon:'person-add','aria-label':'新建群组'})),
+ h(P.Tooltip,{content:'在新窗口中打开这个会话，方便对照查看'},h(P.Button,null,'悬停查看')),
+ h(P.Tooltip,{content:'拷贝链接',placement:'bottom'},h(P.Button,{variant:'glass',icon:'link','aria-label':'拷贝链接'}))))
+</script>
+</body>
+</html>

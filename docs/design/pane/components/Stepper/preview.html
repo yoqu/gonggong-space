@@ -1,0 +1,14 @@
+<!-- @dsCard group="Input" height=90 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Stepper</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-end',gap:'28px'}}, h(P.Stepper,{label:'字号',defaultValue:13,min:9,max:32,unit:'pt'}), h(P.Stepper,{label:'行距',defaultValue:1.2,step:0.1,min:1,max:3,width:60}), h(P.Stepper,{label:'份数',defaultValue:1,min:1,max:99,width:56})))
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!-- @dsCard group="Input" height=420 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DropZone</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'24px'}},
+ h(P.DropZone,{style:{width:'330px'},multiple:true,description:'支持 PDF、Keynote、图片，单个文件不超过 200 MB',onRemove:function(){},
+   files:[{name:'2026 Q3 经营分析.key',size:'42.7 MB',progress:100},{name:'会话列表-v3.fig',size:'18.4 MB',progress:46},{name:'录屏-评审.mov',size:'1.2 GB',error:'文件超过 200 MB，无法上传'}]}),
+ h('div',{className:'col',style:{width:'330px'}}, h(P.DropZone,{defaultDragging:true,title:'将图片拖到这里'}), h(P.DropZone,{compact:true,title:'添加附件',description:'或拖到此处'}))))
+</script>
+</body>
+</html>

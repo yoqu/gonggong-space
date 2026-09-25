@@ -11,3 +11,5 @@
 - `urgent` 加「加急」标签和红色气泡描边；`edited` 显示「（已编辑）」。
 - 悬停时右上角浮出 `MessageActions`；`actions` 可换成自定义项，传 `false` 则关闭。
 - 气泡圆角 `radius-bubble`，靠近头像的上角收为 5px 指示方向，不画尾巴。
+
+`MessageList` 包住一组消息；设 `stickToBottom` 时，挂载和消息数变化后把最近的滚动容器滚到底部，新消息始终可见。

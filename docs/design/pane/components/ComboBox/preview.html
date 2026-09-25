@@ -1,0 +1,14 @@
+<!-- @dsCard group="Input" height=260 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ComboBox</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'24px'}}, h(P.ComboBox,{label:'所在城市',defaultValue:'深圳',defaultOpen:true,options:['北京','上海','广州','深圳','杭州','成都','武汉','南京'],style:{width:'220px'}}), h(P.ComboBox,{label:'字体',placeholder:'输入或选择字体',options:[{value:'pingfang',label:'苹方-简',detail:'系统'},{value:'songti',label:'宋体-简'},{value:'kaiti',label:'楷体-简'}],style:{width:'220px'}})))
+</script>
+</body>
+</html>

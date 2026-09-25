@@ -1,4 +1,4 @@
-<!-- @dsCard group="Menus" height=270 -->
+<!-- @dsCard group="Menus" height=320 -->
 <!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Menu</title>
@@ -8,7 +8,7 @@
 <div id="root" class="pn pn-desktop"></div>
 <script>
 var P = window.Pane, h = React.createElement;
-ReactDOM.createRoot(document.getElementById('root')).render(h(P.Menu,{style:{width:'240px'},activeValue:'dup',items:[{label:'打开',value:'open',shortcut:'⌘O'},{label:'在新标签页中打开',value:'tab'},{separator:true},{label:'显示简介',value:'info',shortcut:'⌘I'},{label:'重新命名',value:'rename'},{label:'复制',value:'dup',shortcut:'⌘D'},{separator:true},{header:'显示方式'},{label:'图标',value:'icons',checked:true},{label:'列表',value:'list',checked:false},{separator:true},{label:'移到废纸篓',value:'trash',shortcut:'⌘⌫',destructive:true}]}))
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Menu,{style:{width:'240px'},activeValue:'share',defaultOpenSubmenu:6,items:[{label:'打开',value:'open',shortcut:'⌘O'},{label:'在新标签页中打开',value:'tab'},{separator:true},{label:'显示简介',value:'info',shortcut:'⌘I'},{label:'重新命名',value:'rename'},{label:'复制',value:'dup',shortcut:'⌘D'},{label:'共享',value:'share',submenu:[{label:'隔空投送',value:'airdrop'},{label:'信息',value:'msg'},{label:'邮件',value:'mail'},{separator:true},{label:'拷贝链接',value:'link'}]},{separator:true},{header:'显示方式'},{label:'图标',value:'icons',checked:true},{label:'列表',value:'list',checked:false},{separator:true},{label:'移到废纸篓',value:'trash',shortcut:'⌘⌫',destructive:true}]}))
 </script>
 </body>
 </html>

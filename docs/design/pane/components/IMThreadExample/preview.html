@@ -1,0 +1,26 @@
+<!-- @dsCard group="IM · 示例" height=720 width=1200 page subtitle="话题侧栏停靠在右侧 inspector" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>IMThreadExample</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'消息',height:'660px',
+ sidebar:h(P.ConversationList,{style:{width:'260px',flex:1},defaultSelected:'a',header:h(P.SearchField,{placeholder:'搜索'}),items:[{id:'a',name:'产品设计组',group:true,tags:[{label:'部门',tone:'gray'}],time:'10:42',preview:'张三：同意，阴影在贴边以后就没意义了。',unread:0,pinned:true},{id:'b',name:'张三',status:'online',time:'10:30',preview:'好的，下午三点会议室见'},{id:'c',name:'审批',tags:[{label:'机器人',tone:'blue'}],time:'09:58',preview:'李思远 提交的请假申请待你审批',unread:1,urgent:true},{id:'d',name:'星河科技 · 对接群',group:true,tags:[{label:'外部',tone:'orange'}],time:'昨天',preview:'王总：合同已盖章，请查收',unread:12,muted:true}]}),
+ toolbar:h(P.ChatHeader,{title:'产品设计组',group:true,subtitle:h(P.TypingIndicator,{name:'李思远',bubble:false}),actions:[{icon:'video',label:'视频会议'},{icon:'search',label:'搜索聊天记录'},{icon:'more',label:'设置'}]}),
+ inspector:h(P.ThreadPanel,{subtitle:'产品设计组',onClose:function(){},root:h(P.Message,{author:{name:'Mia Chen',status:'online'},time:'今天 10:21',actions:false},'另外 macOS 27 的侧栏改成贴边了，会话列表要不要也去掉阴影？'),composerProps:{recipient:'话题',mentions:[{name:'张三',pinyin:'zhangsan',subtitle:'前端',status:'online'},{name:'李思远',pinyin:'lisiyuan',subtitle:'产品',status:'busy'},{name:'Mia Chen',subtitle:'设计'},{name:'王小明',pinyin:'wangxiaoming',subtitle:'后端'}]}},
+   h(P.Message,{author:{name:'张三'},time:'10:24'},'同意，阴影在贴边以后就没意义了。'),
+   h(P.Message,{author:{name:'李思远',status:'busy'},time:'10:30'},'选中态用 selection-fill 的胶囊，和 Finder 侧栏一致。')),
+ contentStyle:{padding:0,display:'flex',flexDirection:'column'}},
+ h('div',{style:{flex:1,overflow:'auto'}},h(P.MessageList,null,
+   h(P.ChatNotice,{kind:'date',day:'今天'},'10:20'),
+   h(P.Message,{author:{name:'Mia Chen',status:'online'},time:'10:21',thread:{count:2,people:[{name:'张三'},{name:'李思远'}],lastTime:'10:30'}},'另外 macOS 27 的侧栏改成贴边了，会话列表要不要也去掉阴影？'),
+   h(P.Message,{author:{name:'张三'},time:'10:33',bare:true},h(P.FileAttachment,{name:'会话列表-v3.fig',size:'18.4 MB'})),
+   h(P.Message,{self:true,author:{name:'Yoqu'},time:'10:35',receipt:{read:3,total:28}},h(P.VoiceMessage,{duration:9,played:true,seed:'x'})))),
+ h('div',{style:{padding:'8px 16px 16px'}},h(P.Composer,{recipient:'产品设计组',mentions:[{name:'张三',pinyin:'zhangsan',subtitle:'前端',status:'online'},{name:'李思远',pinyin:'lisiyuan',subtitle:'产品',status:'busy'},{name:'Mia Chen',subtitle:'设计'},{name:'王小明',pinyin:'wangxiaoming',subtitle:'后端'}]}))))
+</script>
+</body>
+</html>

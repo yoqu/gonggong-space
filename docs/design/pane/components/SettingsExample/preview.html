@@ -1,0 +1,31 @@
+<!-- @dsCard group="示例 · 通用" height=680 width=1000 page subtitle="系统设置式窗口：色块图标侧栏 + 分组设置" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>SettingsExample</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'外观',height:'620px',sidebar:h('div',{style:{display:'flex',flexDirection:'column',flex:1,minHeight:0}},
+   h('div',{style:{padding:'0 10px 8px'}},h(P.SearchField,{placeholder:'搜索',style:{minWidth:0,width:'100%'}})),
+   h('div',{className:'pn-profile-row'},h(P.Avatar,{name:'Yoqu',size:36}),h('div',null,h('div',{style:{fontWeight:600}},'Yoqu'),h('div',{style:{fontSize:'11px',color:'var(--label-secondary)'}},'账户'))),
+   h(P.Sidebar,{iconStyle:'tile',defaultSelected:'appearance',style:{flex:1,width:'240px'},sections:[
+     {items:[{id:'wifi',label:'无线局域网',icon:'wifi',color:'var(--system-blue)'},{id:'battery',label:'电池',icon:'battery',color:'var(--system-green)'}]},
+     {items:[{id:'general',label:'通用',icon:'gear',color:'var(--system-gray)'},{id:'appearance',label:'外观',icon:'appearance',color:'var(--system-indigo)'},{id:'access',label:'辅助功能',icon:'hand',color:'var(--system-blue)'},{id:'desktop',label:'桌面与程序坞',icon:'desktop',color:'var(--system-indigo)'}]},
+     {items:[{id:'notif',label:'通知',icon:'bell',color:'var(--system-red)'},{id:'focus',label:'专注模式',icon:'clock',color:'var(--system-indigo)'},{id:'privacy',label:'隐私与安全性',icon:'lock2',color:'var(--system-blue)'}]}]})),
+  toolbar:h(P.Toolbar,{title:'外观',leading:h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'chevron-left',label:'后退'}),h(P.ToolbarButton,{icon:'chevron-right',label:'前进'}))}),
+  contentStyle:{display:'flex',flexDirection:'column',gap:'20px',padding:'20px 28px'}},
+  h(P.GroupBox,null,
+    h(P.GroupRow,{label:'外观'},h(P.SegmentedControl,{'aria-label':'外观',items:[{value:'l',label:'浅色'},{value:'d',label:'深色'},{value:'a',label:'自动'}],defaultValue:'a'})),
+    h(P.GroupRow,{label:'强调色'},h(P.ColorWell,{inline:true,'aria-label':'强调色',defaultValue:'#0088ff',colors:['#0088ff','#cb30e0','#ff2d55','#ff383c','#ff8d28','#ffcc00','#34c759','#8e8e93'],names:['蓝色','紫色','粉色','红色','橙色','黄色','绿色','石墨色']})),
+    h(P.GroupRow,{label:'Liquid Glass',description:'调节窗口、菜单和控件的透明程度'},h(P.Slider,{'aria-label':'Liquid Glass',min:0,max:4,defaultValue:1,ticks:5,minLabel:'清透',maxLabel:'着色',style:{minWidth:'200px'}})),
+    h(P.GroupRow,{label:'侧栏图标大小'},h(P.PopUpButton,{'aria-label':'侧栏图标大小',defaultValue:'m',options:[{value:'s',label:'小'},{value:'m',label:'中'},{value:'l',label:'大'}]}))),
+  h(P.GroupBox,null,
+    h(P.GroupRow,{label:'允许墙纸着色窗口'},h(P.Switch,{defaultChecked:true,'aria-label':'允许墙纸着色窗口'})),
+    h(P.GroupRow,{label:'显示滚动条',value:'根据鼠标或触控板自动显示',onClick:function(){}}),
+    h(P.GroupRow,{label:'点按滚动条时',description:'跳到下一页'},h(P.HelpButton,{help:'也可以按住 ⌥ 点按滚动条，跳到点按的位置。'})))))
+</script>
+</body>
+</html>

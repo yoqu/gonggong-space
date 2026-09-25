@@ -1,0 +1,18 @@
+<!-- @dsCard group="Status" height=230 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>LevelIndicator</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{gap:'22px',maxWidth:'420px'}},
+ h(P.LevelIndicator,{'aria-label':'储存空间',max:256,value:186,warning:200,critical:240,label:[h('b',{key:'a'},'Macintosh HD'),h('span',{key:'b',style:{color:'var(--label-secondary)'}},'已用 186 GB，共 256 GB')],
+   parts:[{value:72,color:'var(--system-blue)',label:'应用程序'},{value:58,color:'var(--system-purple)',label:'文稿'},{value:38,color:'var(--system-orange)',label:'照片'},{value:18,color:'var(--system-gray)',label:'系统数据'}]}),
+ h('div',{className:'row',style:{gap:'28px'}}, h(P.LevelIndicator,{kind:'discrete','aria-label':'信号',value:70,segments:10}), h(P.LevelIndicator,{kind:'discrete','aria-label':'电量',value:92,warning:80,segments:10}), h(P.LevelIndicator,{kind:'discrete','aria-label':'磁盘',value:96,critical:90,segments:10})),
+ h('div',{className:'row',style:{gap:'28px'}}, h(P.LevelIndicator,{kind:'rating',value:4,'aria-label':'评分'}), h('span',{className:'row',style:{gap:'8px',fontSize:'12px'}},'为这次会议打分',h(P.LevelIndicator,{kind:'rating',editable:true,defaultValue:3,size:18,'aria-label':'会议评分'})))))
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 通知" height=330 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>NotificationBanner</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:24px 24px 24px 24px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{alignItems:'flex-end',gap:'14px'}},
+ h(P.NotificationBanner,{onClose:function(){},avatar:{name:'Mia Chen'},title:'Mia Chen',subtitle:'产品设计组',body:'@Yoqu 新版会话列表的稿子更新了，重点看一下未读徽标和加急态。',time:'现在',actions:[{label:'回复'},{label:'标为已读'}]}),
+ h(P.NotificationBanner,{avatar:{name:'审批',shape:'square'},title:'审批',body:'李思远 提交的请假申请待你审批（10月8日 – 10月10日）',time:'2 分钟前',stacked:3})))
+</script>
+</body>
+</html>

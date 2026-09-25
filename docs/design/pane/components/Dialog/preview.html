@@ -1,0 +1,17 @@
+<!-- @dsCard group="Windows" height=340 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Dialog</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{position:'relative',height:'300px',borderRadius:'12px',overflow:'hidden'}},
+  h('div',{className:'pn-desktop',style:{position:'absolute',inset:0}}),
+  h(P.Dialog,{open:true,contained:true,bare:true,role:'alertdialog','aria-label':'删除确认'},
+    h(P.Alert,{icon:h(P.Icon,{name:'warning',size:48,color:'var(--system-orange)'}),title:'要删除「IM 2.0 设计评审」群组吗？',message:'所有成员都会被移出，聊天记录无法恢复。',actions:[{label:'取消'},{label:'删除',variant:'destructive'}]}))))
+</script>
+</body>
+</html>

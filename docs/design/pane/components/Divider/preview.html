@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=120 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Divider</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{gap:'18px',maxWidth:'480px'}}, h(P.Divider,null), h(P.Divider,{label:'或者'}), h('div',{className:'row'},'拷贝',h(P.Divider,{vertical:true}),'粘贴',h(P.Divider,{vertical:true}),'全选')))
+</script>
+</body>
+</html>

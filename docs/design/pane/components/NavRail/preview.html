@@ -1,0 +1,14 @@
+<!-- @dsCard group="IM · 应用框架" height=470 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>NavRail</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--sidebar-bg)} #root{padding:12px 0 0;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'flex',height:'440px',width:'76px',borderRight:'1px solid var(--separator)'}},h(P.NavRail,{avatar:{name:'Yoqu',status:'online'},defaultSelected:'msg',items:[{id:'msg',label:'消息',icon:'message',badge:18},{id:'cal',label:'日历',icon:'calendar',dot:true},{id:'docs',label:'云文档',icon:'doc'},{id:'meet',label:'会议',icon:'video'},{id:'contacts',label:'通讯录',icon:'contacts'},{id:'apps',label:'工作台',icon:'apps'}],footer:[{id:'set',label:'设置',icon:'gear'}]})))
+</script>
+</body>
+</html>

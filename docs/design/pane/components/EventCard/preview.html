@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 消息内容" height=190 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>EventCard</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start'}},
+ h(P.EventCard,{title:'IM 2.0 设计评审',month:'10月',day:8,weekday:'星期四',time:'10月8日 15:00 – 16:00',location:'深圳 · 7F 金门会议室',organizer:'Mia Chen',attendees:12}),
+ h(P.EventCard,{title:'国庆后产品规划会',month:'10月',day:9,weekday:'星期五',time:'10月9日 10:00 – 11:30',location:'线上 · 视频会议',organizer:'张三',defaultRsvp:'accepted'})))
+</script>
+</body>
+</html>

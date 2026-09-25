@@ -1,0 +1,16 @@
+<!-- @dsCard group="Feedback" height=230 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toast</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{alignItems:'center',gap:'16px'}},
+ h('div',{className:'row',style:{gap:'16px',justifyContent:'center'}}, h(P.Toast,{icon:'check',message:'已拷贝链接'}), h(P.Toast,{icon:'trash',message:'已删除 3 条消息',action:{label:'撤销'}})),
+ h('div',{className:'row',style:{gap:'16px'}}, h(P.HUD,{icon:'speaker',level:0.6}), h(P.HUD,{icon:'check',title:'已存储到「文稿」'}))))
+</script>
+</body>
+</html>

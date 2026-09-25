@@ -1,0 +1,19 @@
+<!-- @dsCard group="IM · 应用框架" height=640 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ThreadPanel</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:0;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{height:'620px',width:'360px',borderLeft:'1px solid var(--separator)'}},h(P.ThreadPanel,{subtitle:'产品设计组',onClose:function(){},
+ root:h(P.Message,{author:{name:'Mia Chen',status:'online'},time:'今天 10:21',actions:false},'另外 macOS 27 的侧栏改成贴边了，会话列表要不要也去掉阴影？'),
+ composerProps:{recipient:'话题'}},
+ h(P.Message,{author:{name:'张三'},time:'10:24'},'同意，阴影在贴边以后就没意义了。'),
+ h(P.Message,{author:{name:'李思远',status:'busy'},time:'10:30',reactions:[{emoji:'👍',users:['Mia Chen']}]},'选中态可以用 selection-fill 的胶囊，和 Finder 侧栏一致。'),
+ h(P.Message,{self:true,author:{name:'Yoqu'},time:'10:36',receipt:{read:3,total:3}},'好，那就按这个改，我今天更新到组件库。'))))
+</script>
+</body>
+</html>

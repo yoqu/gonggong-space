@@ -1,0 +1,22 @@
+<!-- @dsCard group="Layout" height=470 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Form</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:24px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-surface"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Form,{'aria-label':'账户设置',style:{maxWidth:'560px'}},
+ h(P.FormRow,{label:'显示名称'},h(P.TextField,{defaultValue:'Yoqu','aria-label':'显示名称'})),
+ h(P.FormRow,{label:'电子邮件',hint:'用于登录和接收安全提醒。'},h(P.TextField,{defaultValue:'yoqu@example.com','aria-label':'电子邮件',clearable:true})),
+ h(P.FormRow,{label:'语言'},h(P.PopUpButton,{'aria-label':'语言',options:[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]})),
+ h(P.FormRow,{label:'通知',align:'top'},h(P.CheckboxGroup,{'aria-label':'通知',defaultValue:['msg','mention'],options:[{value:'msg',label:'新消息'},{value:'mention',label:'有人 @我'},{value:'cal',label:'日程提醒'}]})),
+ h(P.Divider,null),
+ h(P.FormRow,{label:'保留聊天记录'},h('div',{className:'row',style:{gap:'8px'}},h(P.Stepper,{defaultValue:180,min:7,max:3650,step:30,unit:'天','aria-label':'保留天数'}),h(P.HelpButton,{help:'超过保留期限的消息会从这台电脑上移除，云端副本不受影响。'}))),
+ h(P.FormRow,{label:'开机时启动'},h(P.Switch,{defaultChecked:true,'aria-label':'开机时启动'})),
+ h(P.FormActions,null,h(P.Link,{href:'#',style:{marginRight:'auto'},external:true},'隐私政策'),h(P.Button,null,'恢复默认'),h(P.Button,{variant:'primary'},'存储'))))
+</script>
+</body>
+</html>

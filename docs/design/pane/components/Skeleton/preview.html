@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 状态" height=300 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Skeleton</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'24px'}},
+ h('div',{style:{width:'288px',background:'var(--sidebar-bg)',borderRadius:'12px',padding:'4px 0'}},h(P.Skeleton,{variant:'conversation',count:4})),
+ h('div',{style:{flex:1,minWidth:'300px'}},h(P.Skeleton,{variant:'message',count:3}),h('div',{style:{height:'20px'}}),h(P.Skeleton,{variant:'text',count:3}))))
+</script>
+</body>
+</html>

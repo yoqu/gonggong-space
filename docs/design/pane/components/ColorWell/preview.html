@@ -1,0 +1,16 @@
+<!-- @dsCard group="Input" height=330 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ColorWell</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'40px'}},
+ h(P.ColorWell,{label:'标签颜色',defaultValue:'#0088ff',defaultOpen:true}),
+ h('div',{className:'col',style:{gap:'8px'}}, h('span',{style:{fontSize:'12px',color:'var(--label-secondary)'}},'强调色'), h(P.ColorWell,{inline:true,'aria-label':'强调色',defaultValue:'#0088ff',colors:['#0088ff','#cb30e0','#ff2d55','#ff383c','#ff8d28','#ffcc00','#34c759','#8e8e93'],names:['蓝色','紫色','粉色','红色','橙色','黄色','绿色','石墨色']}))))
+</script>
+</body>
+</html>

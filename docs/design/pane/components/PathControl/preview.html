@@ -1,0 +1,15 @@
+<!-- @dsCard group="Navigation" height=90 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>PathControl</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col'}, h(P.PathControl,{items:[{id:'mac',label:'Macintosh HD',icon:'hard-drive'},{id:'users',label:'用户',icon:'folder',color:'var(--system-blue)'},{id:'yoqu',label:'yoqu',icon:'person'},{id:'docs',label:'文稿',icon:'folder',color:'var(--system-blue)'},{id:'rep',label:'报告',icon:'folder',color:'var(--system-blue)'},{id:'q3',label:'2026 Q3 经营分析.key',icon:'doc'}]}),
+ h(P.PathControl,{items:[{id:'docs',label:'文稿',icon:'folder',color:'var(--system-blue)'},{id:'q3',label:'季度报告.pages',icon:'doc'}]})))
+</script>
+</body>
+</html>

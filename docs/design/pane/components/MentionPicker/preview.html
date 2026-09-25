@@ -1,0 +1,14 @@
+<!-- @dsCard group="IM · 输入" height=230 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MentionPicker</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'24px'}}, h(P.MentionPicker,{members:[{name:'张三',pinyin:'zhangsan',subtitle:'前端',status:'online'},{name:'张晓雯',pinyin:'zhangxiaowen',subtitle:'设计'},{name:'李思远',pinyin:'lisiyuan',subtitle:'产品',status:'busy'},{name:'Mia Chen',subtitle:'设计'},{name:'王小明',pinyin:'wangxiaoming',subtitle:'后端'}],activeIndex:1}), h(P.MentionPicker,{members:[{name:'张三',pinyin:'zhangsan',subtitle:'前端',status:'online'},{name:'张晓雯',pinyin:'zhangxiaowen',subtitle:'设计'},{name:'李思远',pinyin:'lisiyuan',subtitle:'产品',status:'busy'},{name:'Mia Chen',subtitle:'设计'},{name:'王小明',pinyin:'wangxiaoming',subtitle:'后端'}],query:'张',activeIndex:0})))
+</script>
+</body>
+</html>

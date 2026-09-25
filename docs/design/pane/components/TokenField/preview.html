@@ -1,0 +1,16 @@
+<!-- @dsCard group="Input" height=170 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>TokenField</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start',gap:'24px'}},
+ h(P.TokenField,{label:'收件人',defaultValue:['张三','Mia Chen',{label:'王总（星河科技）',tone:'orange'}],suggestions:['李思远','李娜','王小明',{label:'产品设计组',detail:'28 人'}],placeholder:'输入姓名或邮箱',style:{width:'340px'},hint:'输入后按 Enter、逗号或分号确认。'}),
+ h(P.TokenField,{label:'标签',defaultValue:[{label:'设计',tone:'gray'},{label:'评审',tone:'gray'}],placeholder:'添加标签',style:{width:'240px'}})))
+</script>
+</body>
+</html>

@@ -1,14 +1,19 @@
-<!-- @dsCard group="Navigation" height=330 -->
+<!-- @dsCard group="Navigation" height=400 -->
 <!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Sidebar</title>
-<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:0;min-height:330px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:0;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
 </head>
 <body>
-<div id="root" class="pn pn-surface"></div>
+<div id="root" class="pn "></div>
 <script>
 var P = window.Pane, h = React.createElement;
-ReactDOM.createRoot(document.getElementById('root')).render(h(P.Sidebar,{style:{height:'290px'},defaultSelected:'recents',sections:[{title:'个人收藏',items:[{id:'recents',label:'最近使用',icon:'clock',color:'var(--system-blue)'},{id:'desktop',label:'桌面',icon:'desktop',color:'var(--system-indigo)'},{id:'docs',label:'文稿',icon:'doc',color:'var(--system-orange)'},{id:'dl',label:'下载',icon:'download',color:'var(--system-green)',badge:3}]},{title:'位置',items:[{id:'icloud',label:'iCloud 云盘',icon:'cloud',color:'var(--system-cyan)'}]},{title:'标签',items:[{id:'fav',label:'重要',icon:'star',color:'var(--system-yellow)'},{id:'tag',label:'工作',icon:'tag',color:'var(--system-purple)'}]}]}))
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Sidebar,{style:{height:'370px'},defaultSelected:'q3',defaultExpanded:['docs','reports'],defaultCollapsed:['标签'],sections:[
+ {title:'个人收藏',collapsible:true,items:[{id:'recents',label:'最近使用',icon:'clock',color:'var(--system-blue)'},{id:'desktop',label:'桌面',icon:'desktop',color:'var(--system-indigo)'},
+   {id:'docs',label:'文稿',icon:'folder',color:'var(--system-orange)',children:[{id:'reports',label:'报告',icon:'folder',color:'var(--system-orange)',children:[{id:'q3',label:'2026 Q3',icon:'doc',color:'var(--label-secondary)'},{id:'q2',label:'2026 Q2',icon:'doc',color:'var(--label-secondary)'}]},{id:'drafts',label:'草稿',icon:'folder',color:'var(--system-orange)'}]},
+   {id:'dl',label:'下载',icon:'download',color:'var(--system-green)',badge:3}]},
+ {title:'位置',collapsible:true,items:[{id:'icloud',label:'iCloud 云盘',icon:'cloud',color:'var(--system-cyan)'}]},
+ {title:'标签',collapsible:true,items:[{id:'fav',label:'重要',icon:'star',color:'var(--system-yellow)'}]}]}))
 </script>
 </body>
 </html>

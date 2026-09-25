@@ -1,0 +1,15 @@
+<!-- @dsCard group="IM · 消息内容" height=340 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>LinkPreview</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.MessageList,{style:{padding:'8px 0'}},
+ h(P.Message,{author:{name:'Mia Chen'},time:'10:12',actions:false},h('p',null,'参考一下这篇：',h('a',{href:'#'},'https://design.example.com/liquid-glass')),h(P.LinkPreview,{url:'https://design.example.com/liquid-glass',site:'design.example.com',title:'Liquid Glass 的可读性修正：从 Tahoe 到 Golden Gate',description:'macOS 27 调整了玻璃的不透明度、边缘加深和高光，本文逐项对比两代系统的截图。',image:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjAwIDMwMCI+PHJlY3Qgd2lkdGg9IjYwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMxZjRlNmIiLz48cmVjdCB4PSI0MCIgeT0iNDAiIHdpZHRoPSIyNDAiIGhlaWdodD0iMjIwIiByeD0iMTQiIGZpbGw9IiNmM2Q5YjEiLz48cmVjdCB4PSIzMDAiIHk9IjQwIiB3aWR0aD0iMjYwIiBoZWlnaHQ9IjEwMCIgcng9IjE0IiBmaWxsPSIjZTg3NDNiIi8+PHJlY3QgeD0iMzAwIiB5PSIxNjAiIHdpZHRoPSIxMjAiIGhlaWdodD0iMTAwIiByeD0iMTQiIGZpbGw9IiMwMDg4ZmYiLz48cmVjdCB4PSI0NDAiIHk9IjE2MCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSIxMDAiIHJ4PSI1MCIgZmlsbD0iI2YzZDliMSIvPjwvc3ZnPg=='}))))
+</script>
+</body>
+</html>

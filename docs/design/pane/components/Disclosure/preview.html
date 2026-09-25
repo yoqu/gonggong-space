@@ -1,0 +1,17 @@
+<!-- @dsCard group="Layout" height=330 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Disclosure</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{maxWidth:'520px'}},
+ h(P.Disclosure,{title:'高级',summary:'3 项设置',defaultOpen:false},h(P.Checkbox,{label:'使用硬件加速'})),
+ h(P.Disclosure,{title:'网络代理',defaultOpen:true},h(P.RadioGroup,{'aria-label':'代理',defaultValue:'sys',options:[{value:'sys',label:'使用系统代理'},{value:'none',label:'不使用代理'},{value:'custom',label:'手动配置…'}]})),
+ h(P.Disclosure,{title:'诊断信息',variant:'group',defaultOpen:true},h('div',{style:{fontSize:'12px',color:'var(--label-secondary)'}},'版本 2.8.0（2026.09.25） · macOS 27.0'),h(P.Button,{size:'small',icon:'copy'},'拷贝诊断信息'))))
+</script>
+</body>
+</html>

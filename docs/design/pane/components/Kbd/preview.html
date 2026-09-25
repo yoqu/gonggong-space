@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=80 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Kbd</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{gap:'24px'}}, h('span',null,'搜索 ',h(P.Kbd,{keys:['⌘','K']})), h('span',null,'新建群组 ',h(P.Kbd,{keys:['⌘','⇧','N']})), h('span',null,'发送 ',h(P.Kbd,null,'Enter')), h('span',null,'换行 ',h(P.Kbd,{keys:['⇧','Enter']}))))
+</script>
+</body>
+</html>

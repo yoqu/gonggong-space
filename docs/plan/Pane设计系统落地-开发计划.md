@@ -136,3 +136,28 @@
 - 不做玻璃折射（沿用旧计划 D4）
 - 不改路由、接口、数据结构
 - 不引入新的 UI 或动画依赖
+
+## 5. Pane v2 对齐（2026-09-25 设计系统更新）
+
+参考源 `docs/design/pane/` 已更新为 v2（约 80 个组件）。变化：新增 `hc-light` / `hc-dark` 两套增强对比度主题；新增 token `row-alt`、`selection-inactive`、`scrim`、`control-outline`、`shadow-outline`；`accent-text`、`focus-ring`、`menu-highlight`（light）数值微调；图标 49 → 74；已有组件扩展（Button `loading`、TextField 前后缀/清除、Menu 子菜单、Sidebar 折叠/嵌套/色块图标、Window `rail`/`inspector`、ChatNotice `recalled`、Composer 内置 @/表情/accessory、Reactions、GroupRow、MessageList）；新增 43 个组件。
+
+| # | 项 | 结论 |
+|---|---|---|
+| D11 | 组件范围 | Pane v2 **全部组件**都实现进 `ui/` 并进 UiGallery，含本项目暂不使用的（Calendar、DatePicker、ColorWell、MeetingCard、EventCard、VoiceMessage、LinkPreview、LevelIndicator、ComboBox、ThreadPanel、FinderExample/SettingsExample/IMThreadExample 模板） |
+| D12 | NavRail | 聊天窗口最左加 NavRail：消息 / 通知 / 管理后台（仅 sysadmin）/ 账户；ShellBar 中对应入口移除，避免重复 |
+| D13 | 增强对比度 | 跟随系统 `prefers-contrast: more` 自动切到 `hc-light` / `hc-dark`，外观菜单不加选项 |
+| D14 | 登录页 | 恢复 W2c 删除的内容（登录页左侧演示面板、改密码页首次使用步骤），按 Pane 克制风格重做 |
+| D15 | 图标 | Pane v2 新增图标覆盖同名自绘图标（copy、eye、eye-slash、chevron-up/down、link、hard-drive…），以 Pane 原版为准 |
+
+### V1 组件库补齐（5 个 agent 并行）
+- **Va** Token 与图标：`styles/**`、`ui/icon*`、`ui/icons/**`
+- **Vb1** 操作与输入：`ui/controls*`、`ui/form*`、`ui/popup*`、`ui/segmented*`、`ui/controlled.ts` + 新模块（Button loading、PullDownButton、HelpButton、Link、TextField 扩展、SecureField、TextArea、Stepper、ComboBox、TokenField、DatePicker、Calendar、ColorWell、DropZone、CheckboxGroup）
+- **Vb2** 数据展示与布局反馈：`ui/display*` + 新模块（Table、LevelIndicator、PathControl、Tag/Badge/Avatar 对齐、Form/FormRow、GroupBox/GroupRow、Disclosure、Divider、EmptyState、Skeleton、Kbd）
+- **Vc** 菜单浮层与窗口结构：`ui/menu*`、`ui/overlay*`、`ui/toast*`、`ui/toolbar*`、`ui/sidebar*`、`ui/tab-view*`、`ui/presence.ts`、`ui/motion.css` + 新模块（Menu 子菜单、ContextMenu、Popover、Tooltip、Sheet、Dialog、Alert、Toast/HUD、NotificationBanner、Sidebar 扩展、NavRail、Window 结构 rail/inspector）
+- **Vd** IM：`ui/im/**`（Composer 扩展、MentionPicker、EmojiPicker、CodeBlock、TypingIndicator、ChatInfoPanel、ThreadPanel、ProfileCard、ChatNotice recalled、Reactions、Message、messageMenuItems、LinkPreview、VoiceMessage、MeetingCard、EventCard；删除 `ui/im/primitives`）
+
+### V2 页面应用（V1 合并后，含原 W3 收尾）
+NavRail 接入聊天外壳；群设置改为 ChatInfoPanel inspector；消息右键 ContextMenu；Composer 用 MentionPicker/EmojiPicker；Markdown 代码块用 CodeBlock；后台表格用 Table；对话框表单用 Form/Sheet；密码用 SecureField；登录页内容恢复（D14）；桌面端 TokenField/Stepper/SettingsExample；删除旧别名与 lucide；清理硬编码。
+
+### V3 真实 Chrome 走查
+至少 5 轮：每轮用真实 Chrome 打开运行中的应用，覆盖聊天、后台、登录、桌面端（浏览器 mock）、浅/深/增强对比度，记录问题 → 修复 → 下一轮。

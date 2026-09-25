@@ -1,0 +1,30 @@
+<!-- @dsCard group="Data" height=520 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Table</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'col',style:{gap:'20px'}},
+ h(P.Table,{'aria-label':'文稿',columns:[
+ {key:'name',title:'名称',sortable:true,render:function(r){return [h(P.Icon,{key:'i',name:r.children?'folder':'doc',color:r.children?'var(--system-blue)':'var(--label-secondary)'}),h('span',{key:'t'},r.name)];}},
+ {key:'date',title:'修改日期',width:130,sortable:true,secondary:true,sortValue:function(r){return r.sortDate;}},
+ {key:'size',title:'大小',width:80,align:'right',sortable:true,secondary:true,sortValue:function(r){return r.size==null?-1:r.size;},render:function(r){return r.size==null?'--':r.size<1?Math.round(r.size*1000)+' KB':r.size+' MB';}},
+ {key:'kind',title:'种类',width:140,sortable:true,secondary:true}
+],rows:[
+ {id:'d1',name:'设计稿',kind:'文件夹',date:'今天 10:12',sortDate:20260925,size:null,children:[
+   {id:'f1',name:'会话列表-v3.fig',kind:'Figma 文件',date:'今天 10:12',sortDate:20260925,size:18.4},
+   {id:'f2',name:'图标规范.pdf',kind:'PDF 文稿',date:'昨天 18:20',sortDate:20260924,size:2.1}]},
+ {id:'d2',name:'周报',kind:'文件夹',date:'9月22日',sortDate:20260922,size:null,children:[{id:'f5',name:'第 38 周.pages',kind:'Pages 文稿',date:'9月22日',sortDate:20260922,size:0.4}]},
+ {id:'f3',name:'2026 Q3 经营分析.key',kind:'Keynote 演示文稿',date:'9月20日',sortDate:20260920,size:42.7},
+ {id:'f4',name:'渠道数据汇总-9月.numbers',kind:'Numbers 表格',date:'9月18日',sortDate:20260918,size:1.1},
+ {id:'f6',name:'README.md',kind:'Markdown 文本',date:'9月2日',sortDate:20260902,size:0.01}
+],defaultSort:{key:'name',dir:'asc'},defaultExpanded:['d1'],defaultSelection:['f1','f2'],active:true,maxHeight:230}),
+ h(P.Table,{'aria-label':'成员',density:'compact',columns:[{key:'name',title:'成员',sortable:true},{key:'dept',title:'部门',width:120,secondary:true,sortable:true},{key:'role',title:'角色',width:100,secondary:true},{key:'id',title:'工号',width:90,align:'right',mono:true,secondary:true}],
+   rows:[{id:'A1024',name:'张三',dept:'前端',role:'成员'},{id:'A1031',name:'李思远',dept:'产品',role:'管理员'},{id:'A1045',name:'Mia Chen',dept:'设计',role:'成员'},{id:'A1052',name:'王小明',dept:'后端',role:'成员'}],defaultSelection:['A1031']})))
+</script>
+</body>
+</html>

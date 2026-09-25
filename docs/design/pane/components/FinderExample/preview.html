@@ -1,0 +1,34 @@
+<!-- @dsCard group="示例 · 通用" height=640 width=1000 page subtitle="Finder 式文件窗口：侧栏 + 工具栏 + 表格 + 路径栏" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>FinderExample</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--window-bg)} #root{padding:28px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn pn-desktop"></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(P.Window,{title:'文稿',height:'580px',
+  sidebar:h(P.Sidebar,{defaultSelected:'docs',sections:[{title:'个人收藏',collapsible:true,items:[{id:'recents',label:'最近使用',icon:'clock',color:'var(--system-blue)'},{id:'desktop',label:'桌面',icon:'desktop',color:'var(--system-indigo)'},{id:'docs',label:'文稿',icon:'folder',color:'var(--system-blue)'},{id:'dl',label:'下载',icon:'download',color:'var(--system-green)'}]},{title:'位置',collapsible:true,items:[{id:'icloud',label:'iCloud 云盘',icon:'cloud',color:'var(--system-cyan)'},{id:'hd',label:'Macintosh HD',icon:'hard-drive',color:'var(--label-secondary)'}]},{title:'标签',collapsible:true,items:[{id:'t1',label:'重要',icon:'tag',color:'var(--system-red)'},{id:'t2',label:'工作',icon:'tag',color:'var(--system-blue)'}]}]}),
+  toolbar:h(P.Toolbar,{title:'文稿',subtitle:'7 项',leading:h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'chevron-left',label:'后退'}),h(P.ToolbarButton,{icon:'chevron-right',label:'前进'}))},
+    h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'grid',label:'图标'}),h(P.ToolbarButton,{icon:'list',label:'列表',active:true})),
+    h(P.ToolbarGroup,null,h(P.ToolbarButton,{icon:'share',label:'共享'}),h(P.ToolbarButton,{icon:'tag',label:'标签'})),
+    h(P.SearchField,{style:{minWidth:'150px'}})),
+  contentStyle:{padding:0,display:'flex',flexDirection:'column'}},
+  h(P.Table,{'aria-label':'文稿',columns:[
+ {key:'name',title:'名称',sortable:true,render:function(r){return [h(P.Icon,{key:'i',name:r.children?'folder':'doc',color:r.children?'var(--system-blue)':'var(--label-secondary)'}),h('span',{key:'t'},r.name)];}},
+ {key:'date',title:'修改日期',width:120,sortable:true,secondary:true,sortValue:function(r){return r.sortDate;}},
+ {key:'size',title:'大小',width:80,align:'right',sortable:true,secondary:true,sortValue:function(r){return r.size==null?-1:r.size;},render:function(r){return r.size==null?'--':r.size<1?Math.round(r.size*1000)+' KB':r.size+' MB';}},
+ {key:'kind',title:'种类',width:130,sortable:true,secondary:true}],rows:[
+ {id:'d1',name:'设计稿',kind:'文件夹',date:'今天 10:12',sortDate:20260925,size:null,children:[{id:'f1',name:'会话列表-v3.fig',kind:'Figma 文件',date:'今天 10:12',sortDate:20260925,size:18.4},{id:'f2',name:'图标规范.pdf',kind:'PDF 文稿',date:'昨天 18:20',sortDate:20260924,size:2.1}]},
+ {id:'d2',name:'周报',kind:'文件夹',date:'9月22日',sortDate:20260922,size:null,children:[{id:'f5',name:'第 38 周.pages',kind:'Pages 文稿',date:'9月22日',sortDate:20260922,size:0.4}]},
+ {id:'f3',name:'2026 Q3 经营分析.key',kind:'Keynote 演示文稿',date:'9月20日',sortDate:20260920,size:42.7},
+ {id:'f4',name:'渠道数据汇总-9月.numbers',kind:'Numbers 表格',date:'9月18日',sortDate:20260918,size:1.1},
+ {id:'f6',name:'README.md',kind:'Markdown 文本',date:'9月2日',sortDate:20260902,size:0.01},
+ {id:'f7',name:'合同-星河科技.pdf',kind:'PDF 文稿',date:'8月30日',sortDate:20260830,size:3.4},
+ {id:'f8',name:'团建照片.zip',kind:'ZIP 归档',date:'8月12日',sortDate:20260812,size:356}
+],defaultSort:{key:'date',dir:'desc'},defaultExpanded:['d1'],defaultSelection:['f1'],style:{flex:1,border:0,borderRadius:0}}),
+  h('div',{className:'pn-statusbar'},h(P.PathControl,{items:[{id:'hd',label:'Macintosh HD',icon:'hard-drive'},{id:'u',label:'用户',icon:'folder',color:'var(--system-blue)'},{id:'y',label:'yoqu',icon:'person'},{id:'docs',label:'文稿',icon:'folder',color:'var(--system-blue)'},{id:'d1',label:'设计稿',icon:'folder',color:'var(--system-blue)'},{id:'f1',label:'会话列表-v3.fig',icon:'doc'}]}),h('span',null,'7 项，可用 70.2 GB'))))
+</script>
+</body>
+</html>

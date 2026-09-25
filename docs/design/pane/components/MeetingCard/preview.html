@@ -1,0 +1,16 @@
+<!-- @dsCard group="IM · 消息内容" height=200 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MeetingCard</title>
+<style>html,body{margin:0;min-height:100%} body{background:var(--content-bg)} #root{padding:20px;box-sizing:border-box} .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px} .col{display:flex;flex-direction:column;gap:12px}</style>
+</head>
+<body>
+<div id="root" class="pn "></div>
+<script>
+var P = window.Pane, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'row',style:{alignItems:'flex-start'}},
+ h(P.MeetingCard,{status:'live',title:'IM 2.0 设计评审',time:'10:30 开始',meetingId:'628 331 907',host:'Mia Chen',participants:[{name:'Mia Chen'},{name:'张三'},{name:'李思远'},{name:'王小明'},{name:'赵六'},{name:'Kevin Liu'}],joined:5}),
+ h(P.MeetingCard,{status:'ended',title:'周例会',time:'昨天 15:00 – 15:45',duration:'45 分钟',host:'张三',participants:[{name:'Mia Chen'},{name:'张三'},{name:'李思远'},{name:'王小明'},{name:'赵六'},{name:'Kevin Liu'}],onReplay:function(){}})))
+</script>
+</body>
+</html>
