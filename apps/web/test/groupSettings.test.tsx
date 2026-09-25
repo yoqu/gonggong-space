@@ -225,7 +225,7 @@ describe('group settings drawer', () => {
     fireEvent.click(within(d).getByRole('switch', { name: '置顶群' }))
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     await waitFor(() =>
-      expect(within(screen.getByTestId('group-item-g1')).getByTestId('pinned')).toBeTruthy(),
+      expect(within(screen.getByTestId('group-item-g1')).getByLabelText('已置顶')).toBeTruthy(),
     )
     const items = within(nav).getAllByTestId(/^group-item-/)
     expect(items.map((i) => i.dataset.testid)).toEqual(['group-item-g1', 'group-item-g0'])
@@ -233,7 +233,7 @@ describe('group settings drawer', () => {
 
     useWorkspace.getState().applyEvent({ t: 'group.updated', group: { ...other, muted: true } })
     const badge = await within(screen.getByTestId('group-item-g0')).findByText('2')
-    expect(badge.className).toContain('sidebar__unread--muted')
+    expect(badge.className).toContain('ui-badge--muted')
   })
 
   it('asks before dissolving, then drops the group', async () => {

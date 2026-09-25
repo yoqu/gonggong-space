@@ -184,13 +184,13 @@ describe('account menu', () => {
     })
     renderAt('/')
     fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    const menu = screen.getByTestId('account-menu')
+    const menu = screen.getByRole('menu')
     expect(within(menu).getByText('王磊')).toBeTruthy()
     expect(within(menu).getByText('普通成员 · wanglei')).toBeTruthy()
-    expect(within(menu).getByRole('button', { name: '绑定新机器' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '绑定新机器' })).toBeTruthy()
     expect(within(menu).queryAllByRole('link')).toEqual([])
 
-    fireEvent.click(within(menu).getByRole('button', { name: '我的用量' }))
+    fireEvent.click(within(menu).getByRole('menuitem', { name: '我的用量' }))
     const usage = await screen.findByRole('dialog', { name: '我的用量' })
     expect(await within(usage).findByText('小王的 Claude')).toBeTruthy()
     expect(within(usage).getByTestId('usage-row').textContent).toBe('小王的 Claude98k tokens12 轮')
@@ -198,7 +198,7 @@ describe('account menu', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '我的用量' })).toBeNull())
 
     fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
-    fireEvent.click(within(screen.getByTestId('account-menu')).getByRole('button', { name: '退出登录' }))
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '退出登录' }))
     expect(await screen.findByTestId('login-page')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
   })
@@ -207,7 +207,7 @@ describe('account menu', () => {
     const calls = mockApi({ 'GET /me': me, 'POST /auth/password': me })
     renderAt('/')
     fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    fireEvent.click(within(screen.getByTestId('account-menu')).getByRole('button', { name: '修改密码' }))
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '修改密码…' }))
     const dialog = await screen.findByRole('dialog', { name: '修改密码' })
     fill('当前密码', 'old-pass-1')
     fill('新密码', 'new-pass-22')
@@ -254,7 +254,7 @@ describe('account menu appearance', () => {
     mockApi({ 'GET /me': me })
     renderAt('/')
     fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    return screen.getByTestId('account-menu')
+    return screen.getByRole('menu')
   }
 
   beforeEach(() => {
@@ -276,20 +276,20 @@ describe('account menu appearance', () => {
     setTheme('dark')
     const menu = await openMenu()
     expect(within(menu).getByText('外观')).toBeTruthy()
-    expect(within(menu).getByRole('menuitemradio', { name: '浅色' }).getAttribute('aria-checked')).toBe(
+    expect(within(menu).getByRole('menuitemcheckbox', { name: '浅色' }).getAttribute('aria-checked')).toBe(
       'false',
     )
-    expect(within(menu).getByRole('menuitemradio', { name: '深色' }).getAttribute('aria-checked')).toBe(
+    expect(within(menu).getByRole('menuitemcheckbox', { name: '深色' }).getAttribute('aria-checked')).toBe(
       'true',
     )
-    expect(within(menu).getByRole('menuitemradio', { name: '跟随系统' }).getAttribute('aria-checked')).toBe(
-      'false',
-    )
+    expect(
+      within(menu).getByRole('menuitemcheckbox', { name: '跟随系统' }).getAttribute('aria-checked'),
+    ).toBe('false')
   })
 
   it('applies the choice immediately and persists across reload and remount', async () => {
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '深色' }))
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '深色' }))
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
 
@@ -300,11 +300,11 @@ describe('account menu appearance', () => {
 
     cleanup()
     const remounted = await openMenu()
-    expect(within(remounted).getByRole('menuitemradio', { name: '深色' }).getAttribute('aria-checked')).toBe(
-      'true',
-    )
+    expect(
+      within(remounted).getByRole('menuitemcheckbox', { name: '深色' }).getAttribute('aria-checked'),
+    ).toBe('true')
 
-    fireEvent.click(within(remounted).getByRole('menuitemradio', { name: '浅色' }))
+    fireEvent.click(within(remounted).getByRole('menuitemcheckbox', { name: '浅色' }))
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
   })
@@ -312,7 +312,7 @@ describe('account menu appearance', () => {
   it('follows the OS appearance in system mode', async () => {
     setSystemDark(true)
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '跟随系统' }))
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '跟随系统' }))
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system')
     expect(document.documentElement.dataset.theme).toBe('dark')
 
@@ -324,7 +324,7 @@ describe('account menu appearance', () => {
     const menu = await openMenu()
     expect(within(menu).getByText('玻璃效果')).toBeTruthy()
     const checked = (name: string) =>
-      within(menu).getByRole('menuitemradio', { name }).getAttribute('aria-checked')
+      within(menu).getByRole('menuitemcheckbox', { name }).getAttribute('aria-checked')
     expect(checked('清透')).toBe('false')
     expect(checked('标准')).toBe('true')
     expect(checked('着色')).toBe('false')
@@ -332,16 +332,16 @@ describe('account menu appearance', () => {
 
   it('applies the glass choice immediately and persists across remount', async () => {
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemradio', { name: '着色' }))
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '着色' }))
     expect(document.documentElement.dataset.glass).toBe('tinted')
     expect(window.localStorage.getItem(GLASS_STORAGE_KEY)).toBe('tinted')
 
     cleanup()
     const remounted = await openMenu()
-    expect(within(remounted).getByRole('menuitemradio', { name: '着色' }).getAttribute('aria-checked')).toBe(
-      'true',
-    )
-    fireEvent.click(within(remounted).getByRole('menuitemradio', { name: '清透' }))
+    expect(
+      within(remounted).getByRole('menuitemcheckbox', { name: '着色' }).getAttribute('aria-checked'),
+    ).toBe('true')
+    fireEvent.click(within(remounted).getByRole('menuitemcheckbox', { name: '清透' }))
     expect(document.documentElement.dataset.glass).toBe('clear')
   })
 })

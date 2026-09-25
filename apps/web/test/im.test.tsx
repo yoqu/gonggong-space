@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Composer, ConversationItem, Mention, Message, ReadReceipt } from '../src/ui'
+import { Composer, ConversationItem, listTime, Mention, Message, ReadReceipt } from '../src/ui'
 
 const flagOf = (container: HTMLElement) => container.querySelector('.pn-conv__flag')?.textContent ?? null
 
@@ -25,10 +25,22 @@ describe('ConversationItem', () => {
   it('shows a muted badge and marks the selected row', () => {
     const { container } = render(<ConversationItem item={{ ...base, unread: 120, muted: true }} selected />)
     expect(container.querySelector('.pn-conv')?.getAttribute('aria-current')).toBe('true')
-    const badge = container.querySelector('.im-badge')
+    const badge = container.querySelector('.ui-badge')
     expect(badge?.textContent).toBe('99+')
-    expect(badge?.classList.contains('im-badge--muted')).toBe(true)
+    expect(badge?.classList.contains('ui-badge--muted')).toBe(true)
     expect(screen.getByLabelText('免打扰')).toBeTruthy()
+  })
+})
+
+describe('listTime', () => {
+  it('writes 10:42 today, 昨天, 星期二 within a week and 9月20日 earlier', () => {
+    const now = new Date(2026, 8, 25, 15, 0)
+    const at = (d: number, h = 10, m = 42) => new Date(2026, 8, d, h, m).toISOString()
+    expect(listTime(at(25), now)).toBe('10:42')
+    expect(listTime(at(24, 23, 59), now)).toBe('昨天')
+    expect(listTime(at(22), now)).toBe('星期二')
+    expect(listTime(at(18), now)).toBe('9月18日')
+    expect(listTime(new Date(2025, 8, 20).toISOString(), now)).toBe('2025年9月20日')
   })
 })
 

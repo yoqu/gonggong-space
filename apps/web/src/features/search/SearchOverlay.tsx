@@ -1,11 +1,9 @@
 import type { SearchResultDto } from '@gonggong/protocol'
-import { Archive, FileCode, type LucideIcon, MessageSquare, Play, Search } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Spinner, Tabs, useEscape } from '../../ui'
-import { fmtTime } from '../chat/TimelineItems'
+import { Icon, type IconName, listTime, Spinner, Tabs, useEscape } from '../../ui'
 import './search.css'
 
 type Tab = SearchResultDto['kind']
@@ -15,7 +13,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'file', label: '文件' },
   { value: 'run', label: '运行' },
 ]
-const ICON: Record<Tab, LucideIcon> = { msg: MessageSquare, file: FileCode, run: Play }
+const ICON: Record<Tab, IconName> = { msg: 'bubble', file: 'doc-code', run: 'play' }
 const DEBOUNCE_MS = 200
 
 const hrefOf = (r: SearchResultDto) => {
@@ -110,7 +108,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
       <div className="search__backdrop" onClick={onClose} aria-hidden="true" />
       <div className="search" role="dialog" aria-label="搜索">
         <div className="search__bar">
-          <Search size={15} color="var(--color-text-tertiary)" />
+          <Icon name="search" size={15} weight={1.7} className="search__glass" />
           <input
             // biome-ignore lint/a11y/noAutofocus: the overlay exists to type a query
             autoFocus
@@ -147,7 +145,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           {results.length ? (
             <div id={listId} role="listbox" aria-label="搜索结果" className="search__list">
               {results.map((r, i) => {
-                const Icon = r.kind === 'run' && r.sub.includes('运行过程已过期') ? Archive : ICON[r.kind]
+                const icon = r.kind === 'run' && r.sub.includes('运行过程已过期') ? 'archive' : ICON[r.kind]
                 const title = r.kind === 'file' ? r.title : plainText(r.title)
                 return (
                   <button
@@ -162,14 +160,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
                     onMouseMove={() => setActive(i)}
                     onClick={() => go(r)}
                   >
-                    <Icon size={14} className="search__icon" />
+                    <Icon name={icon} size={15} className="search__icon" />
                     <div className="search__text">
                       <div className={cx('search__title', r.kind === 'file' && 'search__title--mono')}>
                         <Highlight text={title} query={q.trim()} />
                       </div>
                       <div className="search__sub">{r.sub}</div>
                     </div>
-                    {r.at ? <span className="search__time">{fmtTime(r.at)}</span> : null}
+                    {r.at ? <span className="search__time">{listTime(r.at)}</span> : null}
                   </button>
                 )
               })}

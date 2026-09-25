@@ -1,11 +1,11 @@
 import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
-import { BellOff, Check, ChevronRight, Hash, Pin, Plus, User } from 'lucide-react'
-import { useLayoutEffect, useRef } from 'react'
+import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { botStateText, PRESENCE } from '../features/bots/model'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
-import { cx } from '../lib/cx'
-import { Button } from '../ui'
+import { useRealtimeStatus } from '../lib/realtime'
+import { Button, ConversationContent, Icon } from '../ui'
+import { useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
 export const GROUP_MODE_HINT = {
@@ -13,11 +13,18 @@ export const GROUP_MODE_HINT = {
   force: '同一时刻只有一个 Bot 持锁写入，全员文件保持一致',
 } as const
 
+const CONN = {
+  open: { label: '已连接', color: 'var(--system-green)' },
+  connecting: { label: '连接中…', color: 'var(--system-orange)' },
+  closed: { label: '已断开 · 重连中', color: 'var(--system-red)' },
+}
+
 export interface SidebarProps {
   groups: GroupDto[]
   bots: BotDto[]
   machines: MachineDto[]
-  onNewGroup?: () => void
+  /** Toolbar row and search above the list. */
+  header?: ReactNode
   onNewDm?: () => void
   /** All lists have arrived: empty states and the 开始使用 guide wait for it so "not yet" never reads as "none". */
   loaded?: boolean
@@ -25,6 +32,7 @@ export interface SidebarProps {
   guide?: boolean
   onBindMachine?: () => void
   onNewBot?: () => void
+  onNewGroup?: () => void
   onOpenBot?: (botId: string) => void
   onOpenMachine?: (machineId: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
@@ -34,39 +42,44 @@ export interface SidebarProps {
 function SectionHead({ label, onAdd, addTitle }: { label: string; onAdd?: () => void; addTitle?: string }) {
   return (
     <div className="sidebar__head">
-      <span className="eyebrow">{label}</span>
+      <span>{label}</span>
       {addTitle ? (
         <button type="button" className="sidebar__add" title={addTitle} aria-label={addTitle} onClick={onAdd}>
-          <Plus size={13} />
+          <Icon name="plus" size={14} />
         </button>
       ) : null}
     </div>
   )
 }
 
-function GroupRow({ g }: { g: GroupDto }) {
-  const Icon = g.kind === 'dm' ? User : Hash
+/** Unsent text MessageComposer keeps per group (its `gonggong:draft:<id>` sessionStorage key). */
+const draftOf = (groupId: string) => {
+  try {
+    return sessionStorage.getItem(`gonggong:draft:${groupId}`) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+function GroupRow({ g, current }: { g: GroupDto; current: boolean }) {
+  const dm = g.kind === 'dm'
   // The mode lives in the chat header; the row's second line is for the latest message.
-  const sub =
-    g.last || (g.kind === 'dm' ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
+  const preview = g.last || (dm ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
   return (
-    <NavLink to={`/g/${g.id}`} className="sidebar__item" data-testid={`group-item-${g.id}`}>
-      <span className="sidebar__row">
-        <Icon size={13} className={cx('sidebar__icon', `sidebar__icon--${g.kind}`)} />
-        <span className="sidebar__name">{g.name}</span>
-        {g.pinned ? <Pin size={11} className="muted-icon" data-testid="pinned" aria-label="已置顶" /> : null}
-        {g.muted ? <BellOff size={11} className="muted-icon" aria-label="消息免打扰" /> : null}
-        {g.unread > 0 ? (
-          <span
-            className={cx('sidebar__unread', g.muted && 'sidebar__unread--muted')}
-            role="img"
-            aria-label={`${g.unread} 条未读`}
-          >
-            {g.unread}
-          </span>
-        ) : null}
-      </span>
-      <span className="sidebar__sub">{sub}</span>
+    <NavLink to={`/g/${g.id}`} className="pn-conv" data-testid={`group-item-${g.id}`}>
+      <ConversationContent
+        item={{
+          id: g.id,
+          name: g.name,
+          group: true,
+          tags: dm ? [{ label: 'Bot', tone: 'blue' }] : undefined,
+          preview,
+          draft: current ? undefined : draftOf(g.id),
+          unread: g.unread,
+          muted: g.muted,
+          pinned: g.pinned,
+        }}
+      />
     </NavLink>
   )
 }
@@ -104,13 +117,13 @@ function SetupGuide({
           onClick={s.onClick}
         >
           <span className="sidebar-guide__mark">
-            {s.done ? <Check size={11} strokeWidth={2.5} /> : i + 1}
+            {s.done ? <Icon name="check" size={11} weight={2.4} /> : i + 1}
           </span>
           <span className="sidebar-guide__text">
             <span className="sidebar-guide__label">{s.label}</span>
             <span className="sidebar-guide__hint">{s.hint}</span>
           </span>
-          {s.done ? null : <ChevronRight size={13} className="muted-icon" />}
+          {s.done ? null : <Icon name="chevron-right" size={13} className="sidebar__chevron" />}
         </button>
       ))}
     </section>
@@ -129,7 +142,7 @@ function useSelectionCapsule(groups: GroupDto[]) {
     const el = scroll.current
     if (!el) return
     const measure = () => {
-      const item = el.querySelector<HTMLElement>('.sidebar__item[aria-current="page"]')
+      const item = el.querySelector<HTMLElement>('.pn-conv[aria-current="page"]')
       el.style.setProperty('--capsule-y', `${item?.offsetTop ?? 0}px`)
       el.style.setProperty('--capsule-h', `${item?.offsetHeight ?? 0}px`)
     }
@@ -138,13 +151,31 @@ function useSelectionCapsule(groups: GroupDto[]) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [pathname, groups])
-  return scroll
+  return { scroll, pathname }
+}
+
+/** Connection, bots online and machines online, in place of a window status bar. */
+function Footer({ machines }: { machines: MachineDto[] }) {
+  const conn = CONN[useRealtimeStatus()]
+  const bots = useWorkspace(
+    (s) => s.bots.filter((b) => b.presence === 'online' || b.presence === 'running').length,
+  )
+  const online = machines.filter((m) => m.online).length
+  return (
+    <footer className="sidebar__foot">
+      <span className="sidebar__dot" style={{ background: conn.color }} />
+      <span>{conn.label}</span>
+      <span>{`${bots} 个 Bot 在线`}</span>
+      {machines.length ? <span>{`${online} 台机器在线`}</span> : null}
+    </footer>
+  )
 }
 
 export function Sidebar({
   groups,
   bots,
   machines,
+  header,
   onNewGroup,
   onNewDm,
   loaded,
@@ -155,19 +186,12 @@ export function Sidebar({
   onOpenMachine,
   onConfirmBot,
 }: SidebarProps) {
-  const scroll = useSelectionCapsule(groups)
-  const online = machines.filter((m) => m.online).length
+  const { scroll, pathname } = useSelectionCapsule(groups)
   // While the main area shows the first-run welcome, "还没有…" in every section would only repeat it.
   const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
   const inGroup = groups.some((g) => g.kind === 'group')
   const lists = [
-    {
-      label: '群',
-      add: onNewGroup,
-      addTitle: '新建群',
-      items: byPin(groups.filter((g) => g.kind === 'group')),
-      empty: '还没有加入任何群',
-    },
+    { label: '群', items: byPin(groups.filter((g) => g.kind === 'group')), empty: '还没有加入任何群' },
     {
       label: '私聊',
       add: onNewDm,
@@ -178,6 +202,7 @@ export function Sidebar({
   ]
   return (
     <div className="sidebar">
+      {header}
       <div ref={scroll} className="sidebar__scroll">
         {guide && loaded && !(machines.length && bots.length && inGroup) ? (
           <SetupGuide
@@ -193,7 +218,9 @@ export function Sidebar({
           <section key={l.label}>
             <SectionHead label={l.label} onAdd={l.add} addTitle={l.addTitle} />
             <div className="sidebar__list">
-              {l.items.length ? l.items.map((g) => <GroupRow key={g.id} g={g} />) : empty(l.empty)}
+              {l.items.length
+                ? l.items.map((g) => <GroupRow key={g.id} g={g} current={pathname === `/g/${g.id}`} />)
+                : empty(l.empty)}
             </div>
           </section>
         ))}
@@ -202,19 +229,19 @@ export function Sidebar({
           <div className="sidebar__list">
             {bots.length
               ? bots.map((b) => (
-                  <div key={b.id} className="sidebar__bot">
+                  <div key={b.id} className="sidebar__row">
                     <button
                       type="button"
-                      className="sidebar__bot-open"
+                      className="sidebar__open"
                       title={`${b.name} · ${botStateText(b)}`}
                       onClick={() => onOpenBot?.(b.id)}
                     >
-                      <span className="dot" style={{ background: PRESENCE[b.presence].color }} />
-                      <span className="sidebar__bot-name">{b.name}</span>
-                      <span className="sidebar__bot-state">{botStateText(b)}</span>
+                      <span className="sidebar__dot" style={{ background: PRESENCE[b.presence].color }} />
+                      <span className="sidebar__name">{b.name}</span>
+                      <span className="sidebar__meta">{botStateText(b)}</span>
                     </button>
                     {b.binding === 'pending_confirm' && onConfirmBot ? (
-                      <Button size="xs" variant="primary" onClick={() => onConfirmBot(b.id)}>
+                      <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
                         确认
                       </Button>
                     ) : null}
@@ -231,21 +258,19 @@ export function Sidebar({
                   const bound = bots.filter((b) => b.machineId === m.id).length
                   const meta = `${OS_LABEL[m.os]}${bound ? ` · ${bound} 个 Bot` : ''}`
                   return (
-                    <div key={m.id} className="sidebar__bot">
+                    <div key={m.id} className="sidebar__row">
                       <button
                         type="button"
-                        className="sidebar__bot-open"
+                        className="sidebar__open"
                         title={`${m.name} · ${m.online ? '在线' : '离线'} · ${meta}`}
                         onClick={() => onOpenMachine?.(m.id)}
                       >
                         <span
-                          className="dot"
-                          style={{
-                            background: m.online ? 'var(--color-success)' : 'var(--color-status-offline)',
-                          }}
+                          className="sidebar__dot"
+                          style={{ background: m.online ? 'var(--system-green)' : 'var(--system-gray)' }}
                         />
-                        <span className="sidebar__bot-name">{m.name}</span>
-                        <span className="sidebar__bot-state">{meta}</span>
+                        <span className="sidebar__name">{m.name}</span>
+                        <span className="sidebar__meta">{meta}</span>
                       </button>
                     </div>
                   )
@@ -254,15 +279,7 @@ export function Sidebar({
           </div>
         </section>
       </div>
-      {machines.length ? (
-        <div className="sidebar__foot">
-          <span
-            className="dot"
-            style={{ background: online ? 'var(--color-success)' : 'var(--color-status-offline)' }}
-          />
-          {`${online} 台机器在线`}
-        </div>
-      ) : null}
+      <Footer machines={machines} />
     </div>
   )
 }

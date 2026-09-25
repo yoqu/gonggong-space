@@ -1,43 +1,43 @@
 import { type NotificationDto, notificationView } from '@gonggong/protocol'
-import {
-  Bot,
-  Link2,
-  Lock,
-  type LucideIcon,
-  MessageCircleQuestionMark,
-  ShieldAlert,
-  WifiOff,
-} from 'lucide-react'
 import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
-import { Badge, type PresenceState, Spinner, toast, useEscape, usePresence } from '../../ui'
-import { fmtTime } from '../chat/TimelineItems'
+import {
+  Button,
+  Icon,
+  type IconName,
+  listTime,
+  type PresenceState,
+  Spinner,
+  Tag,
+  toast,
+  useEscape,
+  usePresence,
+} from '../../ui'
 import { enablePush, type PushState, pushState } from './push'
 import './notifications.css'
 
-const ICON: Record<NotificationDto['type'], { icon: LucideIcon; color: string }> = {
-  approval: { icon: ShieldAlert, color: 'var(--color-brand-warm)' },
-  question: { icon: MessageCircleQuestionMark, color: 'var(--color-brand-info)' },
-  lock: { icon: Lock, color: 'var(--color-selection-blue)' },
-  offline_expired: { icon: WifiOff, color: 'var(--color-brand-warm)' },
-  chain_done: { icon: Link2, color: 'var(--color-text-tertiary)' },
-  bot_confirm: { icon: Bot, color: 'var(--color-brand-warm)' },
+const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> = {
+  approval: { icon: 'shield-warning', color: 'var(--system-orange)' },
+  question: { icon: 'bubble-question', color: 'var(--system-indigo)' },
+  lock: { icon: 'lock', color: 'var(--system-blue)' },
+  offline_expired: { icon: 'wifi', color: 'var(--system-orange)' },
+  chain_done: { icon: 'link', color: 'var(--system-gray)' },
+  bot_confirm: { icon: 'bot', color: 'var(--system-orange)' },
 }
 
 function PushAction() {
   const [state, setState] = useState<PushState>(pushState)
   if (state === 'unsupported') return null
-  if (state === 'granted') return <span className="notif__push-on">浏览器通知已开启</span>
-  if (state === 'denied')
-    return <span className="notif__push-on">浏览器通知已被禁止，请在浏览器设置中允许</span>
+  if (state === 'granted') return <span>浏览器通知已开启</span>
+  if (state === 'denied') return <span>浏览器通知已被禁止，请在浏览器设置中允许</span>
   return (
-    <button
-      type="button"
-      className="notif__link"
+    <Button
+      size="small"
+      variant="plain"
       onClick={() =>
         enablePush().then(setState, (e: Error) =>
           toast({ type: 'error', title: '开启浏览器通知失败', message: e.message }),
@@ -45,11 +45,11 @@ function PushAction() {
       }
     >
       开启浏览器通知
-    </button>
+    </Button>
   )
 }
 
-/** Top-bar notification popover (Web 对话.dc.html `notifs`). */
+/** Glass notification panel dropped from the sidebar bell. */
 export function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const presence = usePresence(open)
   return presence.mounted ? (
@@ -125,18 +125,17 @@ function Panel({
         <div className="notif__head">
           <span className="notif__title">通知</span>
           <span className="spacer" />
-          <PushAction />
-          <button type="button" className="notif__link" onClick={() => void readAll()}>
+          <Button size="small" variant="plain" onClick={() => void readAll()}>
             全部标为已读
-          </button>
+          </Button>
         </div>
         <div className="notif__list" data-testid="notification-list">
           {failed ? (
             <div className="notif__empty">
               加载失败
-              <button type="button" className="notif__link" onClick={load}>
+              <Button size="small" variant="plain" onClick={load}>
                 重试
-              </button>
+              </Button>
             </div>
           ) : !items ? (
             <div className="notif__empty">
@@ -149,7 +148,7 @@ function Panel({
             ? null
             : items?.map((n) => {
                 const v = notificationView(n)
-                const { icon: Icon, color } = ICON[n.type]
+                const { icon, color } = ICON[n.type]
                 return (
                   <button
                     key={n.id}
@@ -161,13 +160,15 @@ function Panel({
                     )}
                     onClick={() => open(n)}
                   >
-                    <Icon size={14} color={color} className="notif__icon" />
+                    <span className="notif__icon" style={{ color }}>
+                      <Icon name={icon} />
+                    </span>
                     <div className="notif__body">
                       <div className="notif__line">
                         <span className="notif__type">{v.label}</span>
-                        {n.resolvedAt ? <Badge size="xs">已处理</Badge> : null}
+                        {n.resolvedAt ? <Tag>已处理</Tag> : null}
                         <span className="spacer" />
-                        <span className="notif__time">{fmtTime(n.createdAt)}</span>
+                        <span className="notif__time">{listTime(n.createdAt)}</span>
                       </div>
                       <div className="notif__text" title={v.text}>
                         {v.text}
@@ -178,7 +179,10 @@ function Panel({
                 )
               })}
         </div>
-        <div className="notif__foot">只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。</div>
+        <div className="notif__foot">
+          只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。
+          <PushAction />
+        </div>
       </div>
     </>
   )

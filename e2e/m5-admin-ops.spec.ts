@@ -91,7 +91,7 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
   await page.getByRole('button', { name: '群设置' }).click()
   await page.getByRole('switch', { name: '置顶群' }).click()
   await page.getByRole('switch', { name: '消息免打扰' }).click()
-  await expect(page.getByTestId(`group-item-${group.id}`).getByTestId('pinned')).toBeVisible()
+  await expect(page.getByTestId(`group-item-${group.id}`).getByLabel('已置顶')).toBeVisible()
   await page.getByRole('button', { name: '解散群' }).click()
   await page.getByRole('button', { name: '确认解散' }).click()
   await expect(page.getByTestId(`group-item-${group.id}`)).toHaveCount(0)
