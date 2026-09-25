@@ -1,0 +1,129 @@
+.pn-mentionpicker {
+  width: 260px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 5px;
+  border-radius: var(--radius-menu);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  display: flex;
+  flex-direction: column;
+  color: var(--label);
+  line-height: 16px;
+}
+.pn-mentionpicker__head {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--label-secondary);
+  padding: 4px var(--space-8);
+}
+.pn-mentionpicker__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: none;
+  height: 32px;
+  padding: 0 var(--space-8) 0 6px;
+  border-radius: 7px;
+  cursor: default;
+  --pn-ring: var(--glass-fill);
+}
+.pn-mentionpicker__item[aria-selected="true"] {
+  background: var(--menu-highlight);
+  color: var(--on-accent);
+}
+.pn-mentionpicker__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pn-mentionpicker__name b {
+  font-weight: 700;
+}
+.pn-mentionpicker__sub {
+  font-size: 11px;
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+.pn-mentionpicker__item[aria-selected="true"] .pn-mentionpicker__sub {
+  color: var(--on-accent);
+}
+.pn-mentionpicker__all {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  flex: none;
+}
+.pn-mentionpicker__all svg {
+  width: 14px;
+  height: 14px;
+}
+.pn-mentionpicker__empty {
+  padding: var(--space-8);
+  font-size: 12px;
+  color: var(--label-secondary);
+}
+
+.pn-emoji {
+  width: 312px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-window);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  color: var(--label);
+}
+.pn-emoji .ui-seg {
+  align-self: flex-start;
+}
+.pn-emoji__grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  max-height: 176px;
+  overflow: auto;
+}
+.pn-emoji__cell {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius-field);
+  font-size: 20px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: default;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.pn-emoji__cell:hover,
+.pn-emoji__cell:focus-visible {
+  background: var(--selection-fill);
+}
+.pn-emoji__empty {
+  padding: var(--space-16) 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--label-secondary);
+}
+.pn-popover > .pn-emoji {
+  box-shadow: none;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0;
+}

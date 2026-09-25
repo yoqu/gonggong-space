@@ -2,7 +2,7 @@ import { type ReactElement, type ReactNode, useState } from 'react'
 import { Avatar, Tag } from '../display'
 import { Icon, type IconName } from '../icon'
 import { ToolbarButton, ToolbarGroup } from '../toolbar'
-import type { TagSpec } from './primitives'
+import type { TagSpec } from './types'
 import './header.css'
 
 export interface ChatHeaderAction {

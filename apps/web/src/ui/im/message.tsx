@@ -1,8 +1,11 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { Children, type CSSProperties, type ReactNode, useEffect, useRef } from 'react'
 import { cx } from '../../lib/cx'
 import type { Glyph } from '../controls'
-import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag, type TagTone } from '../display'
+import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag } from '../display'
 import { Icon } from '../icon'
+import { EmojiPicker } from './pickers'
+import { ImPopover } from './popover'
+import type { TagSpec } from './types'
 import './message.css'
 
 export function Mention({ name, me }: { name: string; me?: boolean }) {
@@ -23,14 +26,25 @@ export function Reactions({
   items,
   onToggle,
   onAdd,
+  addable,
+  defaultPickerOpen,
   compact,
 }: {
   items: Reaction[]
   onToggle?: (emoji: string) => void
+  /** A bare「+」button; the caller shows its own picker. */
   onAdd?: () => void
+  /** 「+」opens the built-in EmojiPicker; a pick calls `onToggle`. */
+  addable?: boolean
+  defaultPickerOpen?: boolean
   /** Show counts instead of names. */
   compact?: boolean
 }) {
+  const add = (
+    <button type="button" className="pn-reaction pn-reaction--add" aria-label="添加表情回复" onClick={onAdd}>
+      <Icon name="smile" />
+    </button>
+  )
   return (
     <div className="pn-reactions">
       {items.map((r) => (
@@ -48,15 +62,25 @@ export function Reactions({
           <span>{compact ? r.users.length : who(r.users)}</span>
         </button>
       ))}
-      {onAdd && (
-        <button
-          type="button"
-          className="pn-reaction pn-reaction--add"
+      {addable ? (
+        <ImPopover
+          trigger={add}
+          placement="top-start"
+          defaultOpen={defaultPickerOpen}
+          className="pn-reaction__picker"
           aria-label="添加表情回复"
-          onClick={onAdd}
         >
-          <Icon name="smile" />
-        </button>
+          {(close) => (
+            <EmojiPicker
+              onSelect={(e) => {
+                onToggle?.(e)
+                close()
+              }}
+            />
+          )}
+        </ImPopover>
+      ) : (
+        onAdd && add
       )}
     </div>
   )
@@ -161,7 +185,7 @@ export interface MessageAuthor {
   /** Replaces the bold name in the meta line. */
   nameNode?: ReactNode
   status?: AvatarProps['status']
-  tags?: { label: string; tone: TagTone }[]
+  tags?: TagSpec[]
   /** Bots get a rounded-square avatar and the blue「Bot」tag. */
   bot?: boolean
 }
@@ -339,19 +363,36 @@ export function Message({
   )
 }
 
+function scrollerOf(el: HTMLElement | null) {
+  for (let sc = el?.parentElement; sc && sc !== document.body; sc = sc.parentElement)
+    if (sc.scrollHeight > sc.clientHeight && /(auto|scroll)/.test(getComputedStyle(sc).overflowY)) return sc
+  return null
+}
+
 export function MessageList({
   children,
+  stickToBottom,
   className,
   style,
   'aria-label': label = '消息',
 }: {
   children?: ReactNode
+  /** On mount and whenever the message count changes, scroll the nearest scroller to the bottom. */
+  stickToBottom?: boolean
   className?: string
   style?: CSSProperties
   'aria-label'?: string
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const count = Children.count(children)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: follow the message count, not identity
+  useEffect(() => {
+    if (!stickToBottom) return
+    const sc = scrollerOf(ref.current)
+    if (sc) sc.scrollTop = sc.scrollHeight
+  }, [count, stickToBottom])
   return (
-    <div className={cx('pn-msglist', className)} style={style} role="log" aria-label={label}>
+    <div ref={ref} className={cx('pn-msglist', className)} style={style} role="log" aria-label={label}>
       {children}
     </div>
   )

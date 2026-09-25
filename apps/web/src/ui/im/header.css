@@ -85,4 +85,5 @@
 .pn-chathead__tab[aria-selected="true"] {
   color: var(--label);
   font-weight: 600;
+  box-shadow: var(--shadow-outline, none);
 }
