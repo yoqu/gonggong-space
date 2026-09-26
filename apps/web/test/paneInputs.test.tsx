@@ -18,6 +18,7 @@ import {
   TextField,
   TokenField,
 } from '../src/ui'
+import { PANE_PATHS } from '../src/ui/icons/pane'
 
 describe('Button loading', () => {
   it('swaps the icon for a spinner, disables and marks busy', () => {
@@ -88,6 +89,18 @@ describe('HelpButton', () => {
     fireEvent.click(screen.getByRole('button', { name: '帮助' }))
     expect(onClick).toHaveBeenCalledOnce()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('TextField error note', () => {
+  it('marks the error with a decorative warning icon, not only color', () => {
+    render(<TextField label="账号" error="账号已存在" hint="字母或数字" />)
+    const note = screen.getByText('账号已存在')
+    const svg = note.querySelector('svg') as SVGSVGElement
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.querySelector('path')?.getAttribute('d')).toBe(PANE_PATHS.warning)
+    expect(note.textContent).toBe('账号已存在')
+    expect(screen.getByRole('textbox', { name: '账号' }).getAttribute('aria-describedby')).toBe(note.id)
   })
 })
 
@@ -417,7 +430,9 @@ describe('DropZone', () => {
     expect(screen.getByRole('progressbar', { name: '设计.fig 上传进度' }).getAttribute('aria-valuenow')).toBe(
       '46',
     )
-    expect(screen.getByText('文件超过 200 MB，无法上传')).toBeTruthy()
+    expect(screen.getByText('文件超过 200 MB，无法上传').querySelector('svg path')?.getAttribute('d')).toBe(
+      PANE_PATHS.warning,
+    )
     fireEvent.click(screen.getByRole('button', { name: '移除 录屏.mov' }))
     expect(onRemove).toHaveBeenCalledWith(2, { name: '录屏.mov', error: '文件超过 200 MB，无法上传' })
   })

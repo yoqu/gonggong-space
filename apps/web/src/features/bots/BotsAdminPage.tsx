@@ -6,11 +6,12 @@ import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import {
   Alert,
-  Avatar,
   Button,
   EmptyState,
   Form,
   FormRow,
+  NoBotsArt,
+  NoResultsArt,
   PathControl,
   Presence,
   SearchField,
@@ -27,6 +28,7 @@ import { AdminPage } from '../admin/AdminPage'
 import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
+import { AvatarPicker, BotAvatar, botAvatar } from './avatars'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
   AGENT_LABEL,
@@ -97,6 +99,7 @@ export function BotDetail({
   /** Embedded in a dialog: no panel chrome. */
   plain?: boolean
 }) {
+  const [avatar, setAvatar] = useState(botAvatar(bot))
   const [prompt, setPrompt] = useState(bot.systemPrompt)
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
   const [list, setList] = useState(bot.triggerList)
@@ -114,7 +117,13 @@ export function BotDetail({
   const save = async () => {
     setSaving(true)
     try {
-      await botsApi.update(bot.id, { systemPrompt: prompt, triggerScope: scope, triggerList: list, tier })
+      await botsApi.update(bot.id, {
+        avatar: avatar === botAvatar(bot) ? bot.avatar : avatar,
+        systemPrompt: prompt,
+        triggerScope: scope,
+        triggerList: list,
+        tier,
+      })
       toast({ type: 'success', message: `${bot.name} 已保存 · 下一次新开会话时生效` })
     } catch (e) {
       toast({ type: 'error', message: (e as Error).message })
@@ -136,7 +145,7 @@ export function BotDetail({
   return (
     <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="Bot 详情">
       <div className="bots-detail__head">
-        <Avatar name={bot.name} size={32} shape="square" />
+        <BotAvatar id={bot.id} name={bot.name} size={32} />
         <div className="bots-detail__titles">
           <span className="bots-detail__name">{bot.name}</span>
           <span className="bots-detail__meta">
@@ -158,6 +167,11 @@ export function BotDetail({
       ) : null}
 
       <Form>
+        {canEdit ? (
+          <FormRow label="头像" align="top">
+            <AvatarPicker value={avatar} onChange={setAvatar} />
+          </FormRow>
+        ) : null}
         <FormRow
           label="系统提示词"
           align="top"
@@ -343,7 +357,7 @@ export function BotsAdminPage() {
             defaultSort={{ key: 'name', dir: 'asc' }}
             rowActions={() => [{ label: '删除 Bot…', value: 'delete', destructive: true }]}
             onRowAction={(_, b) => setDeleting(b)}
-            emptyText="没有匹配的 Bot"
+            emptyText={<EmptyState compact title="没有匹配的 Bot" illustration={<NoResultsArt />} />}
             columns={[
               {
                 key: 'name',
@@ -351,7 +365,7 @@ export function BotsAdminPage() {
                 sortable: true,
                 render: (b) => (
                   <>
-                    <Avatar name={b.name} size={18} shape="square" />
+                    <BotAvatar id={b.id} name={b.name} size={18} />
                     {b.name}
                   </>
                 ),
@@ -399,7 +413,7 @@ export function BotsAdminPage() {
         </div>
       ) : (
         <EmptyState
-          icon="bot"
+          illustration={<NoBotsArt />}
           title="还没有 Bot"
           description="Bot 绑定到成员的机器，在群里被 @ 后开工。"
           action={<Button onClick={() => setCreating(true)}>新建 Bot…</Button>}

@@ -1,4 +1,11 @@
-import { type BotOwnerDto, CreateBotReq, DaemonBotPatchReq, UpdateBotReq } from '@gonggong/protocol'
+import {
+  type BotOwnerDto,
+  CreateBotReq,
+  DaemonBotPatchReq,
+  GroupBotTierReq,
+  type Tier,
+  UpdateBotReq,
+} from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -9,9 +16,12 @@ import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
+import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
+import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
+import { applyTier, TIER_LABEL } from './tier.js'
 
 type BotRow = typeof bots.$inferSelect
 type IdParams = { Params: { id: string } }
@@ -144,6 +154,7 @@ export function botRoutes(ctx: Ctx) {
           machineId: body.machineId,
           binding,
           systemPrompt: body.systemPrompt,
+          avatar: body.avatar,
           concurrency: (await sysParams(ctx.db)).botConcurrencyDefault,
           createdBy: user.id,
         })
@@ -177,8 +188,39 @@ export function botRoutes(ctx: Ctx) {
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
+      if (tier !== bot.tier) await applyTier(ctx, user.id, bot.id)
       return publishBot(ctx, bot.id)
     })
+
+    app.put<{ Params: { id: string; botId: string } }>(
+      '/api/groups/:id/bots/:botId/tier',
+      async (req, reply) => {
+        const user = await requireUser(ctx, req)
+        const { tier } = GroupBotTierReq.parse(req.body)
+        const bot = await loadBot(ctx, req.params.botId)
+        const groupId = idParam(req.params.id, '群')
+        const [gb] = await ctx.db
+          .select({ tier: groupBots.tier })
+          .from(groupBots)
+          .where(
+            and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)),
+          )
+        if (!gb) return fail('not_found', '该 Bot 不在群内')
+        assertCanManage(user, bot)
+        if (gb.tier === tier) return reply.status(204).send()
+        await updateBotState(ctx, groupId, bot.id, { tier })
+        await auditForeign(ctx, user, bot, 'bot.groupTier', { groupId, tier })
+        await postEvent(
+          ctx,
+          groupId,
+          tier
+            ? `${user.name} 将 ${bot.name} 在本群的档位设为「${TIER_LABEL[tier]}」`
+            : `${user.name} 将 ${bot.name} 在本群的档位恢复为跟随全局（${TIER_LABEL[bot.tier as Tier]}）`,
+        )
+        await applyTier(ctx, user.id, bot.id, groupId)
+        return reply.status(204).send()
+      },
+    )
 
     app.post<IdParams>('/api/bots/:id/confirm', async (req) => {
       const user = await requireUser(ctx, req)

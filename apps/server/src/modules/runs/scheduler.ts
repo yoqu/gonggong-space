@@ -156,7 +156,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       name: bot.name,
       agentKind: bot.agentKind as AgentKind,
       systemPrompt: bot.systemPrompt,
-      tier: bot.tier as Tier,
+      tier: (gb.tier ?? bot.tier) as Tier,
     },
     workspace: {
       repo: repo ? { id: repo.id, url: repo.url, branch: repo.baseBranch } : null,

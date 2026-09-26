@@ -1,6 +1,7 @@
 export * from './cards'
 export * from './composer'
 export * from './conversation'
+export * from './emoji'
 export * from './header'
 export * from './menu-items'
 export * from './message'

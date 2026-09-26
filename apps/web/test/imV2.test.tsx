@@ -79,6 +79,7 @@ describe('Reactions addable', () => {
   it('opens an EmojiPicker from + and toggles the pick', async () => {
     const onToggle = vi.fn()
     render(<Reactions items={[{ emoji: '👍', users: ['张三'] }]} addable onToggle={onToggle} />)
+    expect(document.querySelector('.pn-reaction__emoji img')?.getAttribute('alt')).toBe('👍')
     const add = screen.getByRole('button', { name: '添加表情回复' })
     expect(add.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(add)
@@ -221,6 +222,25 @@ describe('MentionPicker', () => {
 })
 
 describe('EmojiPicker', () => {
+  it('draws every emoji from the bundled Twemoji set, keeping the char as alt text', () => {
+    render(<EmojiPicker />)
+    for (const cat of ['常用', '笑脸', '手势', '符号']) {
+      fireEvent.click(screen.getByRole('radio', { name: cat }))
+      for (const cell of screen.getAllByRole('option')) {
+        const img = cell.querySelector('img') as HTMLImageElement
+        expect(img.getAttribute('src'), img.alt).toMatch(/\/twemoji\/[0-9a-f-]+\.svg\b/)
+        expect(img.alt).not.toBe('')
+      }
+    }
+  })
+
+  it('falls back to the plain char for an emoji outside the set', () => {
+    render(<EmojiPicker only={['🦄']} />)
+    const cell = screen.getByRole('option')
+    expect(cell.querySelector('img')).toBeNull()
+    expect(cell.textContent).toBe('🦄')
+  })
+
   it('searches by Chinese keyword', () => {
     const onSelect = vi.fn()
     render(<EmojiPicker onSelect={onSelect} />)

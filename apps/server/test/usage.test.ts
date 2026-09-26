@@ -1,4 +1,4 @@
-import type { UsageRowDto } from '@gonggong/protocol'
+import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -89,5 +89,46 @@ describe('usage', () => {
     const mine = await get(t, w.bob.id, 'by=bot')
     expect(mine.body.map((r) => r.name)).toEqual(['陈晨的 Codex'])
     expect((await get(t, w.admin.id, `by=bot&botId=${w.codex.id}`)).body).toHaveLength(1)
+  })
+})
+
+const localDay = (at: Date, timeZone: string) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)
+
+describe('daily usage', () => {
+  const daily = async (userId: string, query: string) =>
+    client(t, await t.seed.cookie(userId)).get<UsageDayDto[]>(`/api/usage/daily?${query}`)
+
+  it('returns one bucket per local day, oldest first, zero-filled', async () => {
+    const w = await world()
+    const res = await daily(w.admin.id, 'days=30&tz=Asia/Shanghai')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(30)
+    const now = new Date()
+    const tenDaysAgo = localDay(new Date(now.getTime() - 10 * DAY), 'Asia/Shanghai')
+    expect(res.body.at(-1)).toEqual({
+      day: localDay(now, 'Asia/Shanghai'),
+      runs: 4,
+      totalTokens: 1500,
+      unreported: 2,
+    })
+    expect(res.body.find((d) => d.day === tenDaysAgo)).toEqual({
+      day: tenDaysAgo,
+      runs: 1,
+      totalTokens: 200,
+      unreported: 0,
+    })
+    expect(res.body.reduce((n, d) => n + d.totalTokens, 0)).toBe(1700)
+    expect(res.body.map((d) => d.day)).toEqual(res.body.map((d) => d.day).sort())
+  })
+
+  it('scopes members to their own bots and rejects unknown time zones', async () => {
+    const w = await world()
+    const mine = await daily(w.bob.id, 'days=60')
+    expect(mine.body).toHaveLength(60)
+    expect(mine.body.reduce((n, d) => n + d.runs, 0)).toBe(2)
+    expect((await daily(w.admin.id, 'days=60')).body.reduce((n, d) => n + d.totalTokens, 0)).toBe(11_699)
+    expect((await daily(w.bob.id, `botId=${w.claude.id}`)).status).toBe(403)
+    expect((await daily(w.admin.id, 'tz=Mars/Base')).status).toBe(400)
   })
 })

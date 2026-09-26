@@ -1,6 +1,7 @@
 import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
-import { memo, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { memo, type ReactNode, useMemo, useState } from 'react'
 import { cx } from '../../lib/cx'
+import { useNow } from '../../lib/now'
 import {
   Avatar,
   ChatNotice,
@@ -16,6 +17,7 @@ import {
 import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
+import { BotAvatar } from '../bots/avatars'
 import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
@@ -112,16 +114,6 @@ export function fmtUsage(u: RunDto['usage']) {
   const total = usageTotal(u)
   if (!total) return '用量未上报'
   return total >= 1000 ? `${(total / 1000).toFixed(1)}k tokens` : `${total} tokens`
-}
-
-export function useNow(ticking: boolean) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!ticking) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [ticking])
-  return now
 }
 
 function eventIcon(body: string): IconName {
@@ -237,7 +229,11 @@ function person(m: MessageDto): MessageAuthor {
   }
 }
 
-const botAuthor = (name: string): MessageAuthor => ({ name, bot: true })
+const botAuthor = (name: string): MessageAuthor => ({
+  name,
+  bot: true,
+  avatarNode: <BotAvatar name={name} size={32} />,
+})
 
 function Text({ body, names, me }: { body: string; names: string[]; me?: string }) {
   return (

@@ -4,6 +4,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Avatar, Icon, type IconName } from '../../ui'
+import { BotAvatar } from '../bots/avatars'
 import { PRESENCE } from '../bots/model'
 
 export interface Candidate {
@@ -177,7 +178,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
 function Lead({ c }: { c: Candidate }) {
   return c.icon === 'bot' || c.icon === 'person' ? (
     <span aria-hidden="true" className="mention-pop__lead">
-      <Avatar name={c.label} size={24} shape={c.icon === 'bot' ? 'square' : 'circle'} />
+      {c.icon === 'bot' ? <BotAvatar name={c.label} size={24} /> : <Avatar name={c.label} size={24} />}
     </span>
   ) : (
     <span aria-hidden="true" className="mention-pop__lead mention-pop__tile">

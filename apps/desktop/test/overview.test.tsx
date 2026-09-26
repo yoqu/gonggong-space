@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { type DaemonStatus, ipc } from '../src/ipc'
@@ -73,6 +73,32 @@ describe('overview', () => {
     expect(within(running).getByText('官网改版 · 王磊 触发')).toBeTruthy()
     expect(screen.getByText('小王的 Claude · 支付服务重构 · 陈晨 触发 · 排第 1')).toBeTruthy()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('drills into a running run and shows its process, subagents included', async () => {
+    m.runProcess.mockResolvedValue({
+      run: run({ runId: 'r1', status: 'running', step: 'Read' }),
+      endedMs: null,
+      outcome: null,
+      events: [
+        {
+          id: 1,
+          atMs: 1000,
+          event: { kind: 'subagent', agentId: 'a1', name: 'Explore', task: '找调用方', state: 'running' },
+        },
+        { id: 2, atMs: 2000, event: { kind: 'text', delta: '子报告', agentId: 'a1' } },
+        { id: 3, atMs: 3000, event: { kind: 'text', delta: '主进度' } },
+      ],
+    })
+    show(status({ runs: [run({ runId: 'r1', status: 'running', step: 'Read' })] }))
+    fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
+    expect(await screen.findByText('Explore')).toBeTruthy()
+    expect(m.runProcess).toHaveBeenCalledWith('r1')
+    expect(screen.getByText('找调用方')).toBeTruthy()
+    expect(screen.getByText('子报告')).toBeTruthy()
+    expect(screen.getByText('主进度')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+    expect(screen.getByTestId('stats')).toBeTruthy()
   })
 
   it('warns while offline with the next retry', () => {

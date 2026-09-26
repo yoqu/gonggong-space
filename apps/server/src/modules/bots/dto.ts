@@ -67,6 +67,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       ownerId: bot.ownerId,
       ownerName,
       agentKind: bot.agentKind as BotDto['agentKind'],
+      avatar: bot.avatar as BotDto['avatar'],
       machineId: bot.machineId,
       machineName: machine?.name ?? null,
       binding: bot.binding as BotDto['binding'],

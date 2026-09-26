@@ -1,0 +1,5 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": { "kind": "thought", "delta": "先看调用方", "agentId": "task-7" }
+}

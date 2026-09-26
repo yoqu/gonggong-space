@@ -1,34 +1,52 @@
-import type { UsageRowDto } from '@gonggong/protocol'
+import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, Dialog, EmptyState, LevelIndicator, Spinner, Table, Tabs } from '../../ui'
+import { Alert, Dialog, EmptyState, NoDataArt, SegmentedControl, Spinner, Table, Tabs } from '../../ui'
+import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
 import { errorText } from '../auth/AuthCard'
 import './usage.css'
 
 type By = 'bot' | 'user' | 'group'
+type Metric = 'totalTokens' | 'runs' | 'unreported'
 
 const TABS: { value: By; label: string }[] = [
   { value: 'bot', label: '按 Bot' },
   { value: 'user', label: '按触发人' },
   { value: 'group', label: '按群' },
 ]
+const WINDOW = 30
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 export const fmtTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n))
 
-/** GET /api/usage; `rows` stays null while loading. */
-export function useUsage(query: string) {
-  const [rows, setRows] = useState<UsageRowDto[] | null>(null)
+/** GET `path`; `data` stays null while loading. */
+function useGet<T>(path: string) {
+  const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
-    setRows(null)
+    setData(null)
     setError('')
     api
-      .get<UsageRowDto[]>(`/usage?${query}`)
-      .then(setRows)
+      .get<T>(path)
+      .then(setData)
       .catch((e) => setError(errorText(e)))
-  }, [query])
+  }, [path])
+  return { data, error }
+}
+
+/** GET /api/usage; `rows` stays null while loading. */
+export function useUsage(query: string) {
+  const { data: rows, error } = useGet<UsageRowDto[]>(`/usage?${query}`)
   return { rows, error }
+}
+
+function Bar({ value, max, color = 'var(--system-blue)' }: { value: number; max: number; color?: string }) {
+  return (
+    <span className="usage-bar" aria-hidden="true">
+      <span style={{ width: `${(value / max) * 100}%`, background: color }} />
+    </span>
+  )
 }
 
 /** Compact bars scaled to the largest token total (Bot detail); unreported-only rows show 未上报. */
@@ -39,7 +57,7 @@ export function UsageBars({ rows }: { rows: UsageRowDto[] }) {
       {rows.map((r) => (
         <div key={r.key} className="usage-bars__row" data-testid="usage-row">
           <span className="usage-bars__name">{r.name}</span>
-          <LevelIndicator value={r.totalTokens} max={max} aria-label={`${r.name} 的用量`} />
+          <Bar value={r.totalTokens} max={max} />
           <span className="usage-bars__value">{r.totalTokens ? fmtTokens(r.totalTokens) : '未上报'}</span>
         </div>
       ))}
@@ -49,20 +67,41 @@ export function UsageBars({ rows }: { rows: UsageRowDto[] }) {
 
 const UNIT: Record<By, string> = { bot: '个 Bot', user: '位触发人', group: '个群' }
 const NAME_COLUMN: Record<By, string> = { bot: 'Bot', user: '触发人', group: '群' }
-const PART_COLORS = [
+/** Categorical order keeps neighbours apart in hue; a sixth entity folds into 其他. */
+const PALETTE = [
   'var(--system-blue)',
-  'var(--system-teal)',
-  'var(--system-purple)',
   'var(--system-orange)',
+  'var(--system-indigo)',
+  'var(--system-teal)',
   'var(--system-pink)',
 ]
+const OTHER = 'var(--system-gray)'
 
-function Stats({ rows, by }: { rows: UsageRowDto[]; by: By }) {
-  const sum = (k: 'totalTokens' | 'runs' | 'unreported') => rows.reduce((n, r) => n + r[k], 0)
-  const tiles = [
-    { label: 'token 合计', value: fmtTokens(sum('totalTokens')) },
-    { label: '运行轮次', value: String(sum('runs')) },
-    { label: '未上报轮次', value: String(sum('unreported')) },
+/** Top token users get the palette in order; the table bars and the share bar use the same map. */
+function colorsFor(rows: UsageRowDto[]) {
+  const top = [...rows].filter((r) => r.totalTokens).sort((a, b) => b.totalTokens - a.totalTokens)
+  return new Map(top.slice(0, PALETTE.length).map((r, i) => [r.key, PALETTE[i] as string]))
+}
+
+const sumOf = (xs: { [k in Metric]: number }[], k: Metric) => xs.reduce((n, x) => n + x[k], 0)
+
+function Delta({ daily, metric }: { daily: UsageDayDto[]; metric: Metric }) {
+  const prev = sumOf(daily.slice(0, -WINDOW), metric)
+  if (!prev) return null
+  const pct = Math.round(((sumOf(daily.slice(-WINDOW), metric) - prev) / prev) * 100)
+  return (
+    <span className="usage-stat__delta">
+      <span>{pct ? `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%` : '持平'}</span>
+      <span>较前 {WINDOW} 天</span>
+    </span>
+  )
+}
+
+function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageDayDto[] | null }) {
+  const tiles: { label: string; value: string; metric?: Metric }[] = [
+    { label: 'token 合计', value: fmtTokens(sumOf(rows, 'totalTokens')), metric: 'totalTokens' },
+    { label: '运行轮次', value: String(sumOf(rows, 'runs')), metric: 'runs' },
+    { label: '未上报轮次', value: String(sumOf(rows, 'unreported')), metric: 'unreported' },
     { label: '参与统计', value: `${rows.length} ${UNIT[by]}` },
   ]
   return (
@@ -70,58 +109,122 @@ function Stats({ rows, by }: { rows: UsageRowDto[]; by: By }) {
       {tiles.map((t) => (
         <div key={t.label} className="usage-stat">
           <span className="usage-stat__label">{t.label}</span>
-          <span className="usage-stat__value">{t.value}</span>
+          <div className="usage-stat__body">
+            <span className="usage-stat__value">{t.value}</span>
+            {daily && t.metric ? (
+              <Sparkline values={daily.slice(-WINDOW).map((d) => d[t.metric as Metric])} />
+            ) : null}
+          </div>
+          {daily && t.metric ? <Delta daily={daily} metric={t.metric} /> : null}
         </div>
       ))}
     </div>
   )
 }
 
+const dayParts = (day: string) => day.split('-').slice(1).map(Number) as [number, number]
+
+/** Daily columns for the last 30 days; token or run count. */
+function Trend({ daily }: { daily: UsageDayDto[] }) {
+  const [metric, setMetric] = useState<'totalTokens' | 'runs'>('totalTokens')
+  const days = daily.slice(-WINDOW)
+  const tokens = metric === 'totalTokens'
+  const fmt = (n: number) => (tokens ? `${fmtTokens(n)} tokens` : `${n} 轮`)
+  const points = days.map((d) => {
+    const [m, dd] = dayParts(d.day)
+    const lines = [`${fmtTokens(d.totalTokens)} tokens`, `${d.runs} 轮`]
+    return {
+      label: `${m}月${dd}日`,
+      tick: `${m}/${dd}`,
+      value: d[metric],
+      lines: [...(tokens ? lines : lines.reverse()), ...(d.unreported ? [`${d.unreported} 轮未上报`] : [])],
+    }
+  })
+  const peak = points.reduce((a, b) => (b.value > a.value ? b : a), points[0] ?? { label: '', value: 0 })
+  const summary = `近 ${WINDOW} 天每日${tokens ? ' token' : '运行轮次'}：合计 ${fmt(sumOf(days, metric))}${
+    peak.value ? `，峰值 ${peak.label} ${fmt(peak.value)}` : ''
+  }`
+  return (
+    <section className="usage-card">
+      <div className="usage-card__head">
+        <span className="usage-card__title">每日趋势</span>
+        <SegmentedControl
+          size="small"
+          aria-label="趋势指标"
+          value={metric}
+          onChange={setMetric}
+          items={[
+            { value: 'totalTokens', label: 'token' },
+            { value: 'runs', label: '轮次' },
+          ]}
+        />
+      </div>
+      <TrendChart points={points} format={tokens ? fmtTokens : String} aria-label={summary} />
+    </section>
+  )
+}
+
+const pctOf = (v: number, total: number) => {
+  const p = (v / total) * 100
+  return p < 1 ? '<1%' : `${Math.round(p)}%`
+}
+
 /** Token share of the top five, the rest folded into 其他. */
-function Share({ rows }: { rows: UsageRowDto[] }) {
-  const total = rows.reduce((n, r) => n + r.totalTokens, 0)
+function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, string> }) {
+  const total = sumOf(rows, 'totalTokens')
   if (!total) return null
-  const top = [...rows].sort((a, b) => b.totalTokens - a.totalTokens).filter((r) => r.totalTokens)
-  const shown = top.slice(0, PART_COLORS.length)
-  const rest = total - shown.reduce((n, r) => n + r.totalTokens, 0)
+  const shown = rows.filter((r) => colors.has(r.key)).sort((a, b) => b.totalTokens - a.totalTokens)
+  const rest = total - sumOf(shown, 'totalTokens')
   const parts = [
-    ...shown.map((r, i) => ({
-      value: r.totalTokens,
-      color: PART_COLORS[i],
-      label: `${r.name} ${fmtTokens(r.totalTokens)}`,
-    })),
-    ...(rest ? [{ value: rest, color: 'var(--system-gray)', label: `其他 ${fmtTokens(rest)}` }] : []),
+    ...shown.map((r) => ({ key: r.key, name: r.name, value: r.totalTokens, color: colors.get(r.key) })),
+    ...(rest ? [{ key: '', name: '其他', value: rest, color: OTHER }] : []),
   ]
   return (
-    <LevelIndicator
-      className="usage-share"
-      max={total}
-      value={total}
-      parts={parts}
-      aria-label="token 分布"
-      label={
-        <>
-          <span>token 分布</span>
-          <span className="usage-share__total">合计 {fmtTokens(total)} tokens</span>
-        </>
-      }
-    />
+    <section className="usage-card">
+      <div className="usage-card__head">
+        <span className="usage-card__title">token 分布</span>
+        <span className="usage-card__meta">合计 {fmtTokens(total)} tokens</span>
+      </div>
+      <div
+        className="usage-share"
+        role="img"
+        aria-label={`token 分布：${parts.map((p) => `${p.name} ${pctOf(p.value, total)}`).join('，')}`}
+      >
+        {parts.map((p) => (
+          <span key={p.key} style={{ flexGrow: p.value, background: p.color }} />
+        ))}
+      </div>
+      <ul className="usage-legend" aria-label="token 分布图例">
+        {parts.map((p) => (
+          <li key={p.key}>
+            <span className="usage-legend__swatch" style={{ background: p.color }} aria-hidden="true" />
+            <span className="usage-legend__name">{p.name}</span>
+            <span className="usage-legend__value">{fmtTokens(p.value)}</span>
+            <span className="usage-legend__pct">{pctOf(p.value, total)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
 /** Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7). */
 function UsagePanel() {
   const [by, setBy] = useState<By>('bot')
-  const { rows, error } = useUsage(`by=${by}&days=30`)
+  const { rows, error } = useUsage(`by=${by}&days=${WINDOW}`)
+  // Twice the window so the tiles can compare against the prior period.
+  const daily = useGet<UsageDayDto[]>(`/usage/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(TZ)}`)
   const max = Math.max(1, ...(rows ?? []).map((r) => r.totalTokens))
+  const colors = colorsFor(rows ?? [])
   return (
     <>
       <Tabs value={by} onChange={setBy} items={TABS} />
-      {error ? <Alert variant="error" description={error} /> : null}
+      {error || daily.error ? <Alert variant="error" description={error || daily.error} /> : null}
       {rows?.length ? (
         <>
-          <Stats rows={rows} by={by} />
-          <Share rows={rows} />
+          <Stats rows={rows} by={by} daily={daily.data} />
+          {daily.data ? <Trend daily={daily.data} /> : null}
+          <Share rows={rows} colors={colors} />
         </>
       ) : null}
       {rows === null ? (
@@ -140,14 +243,7 @@ function UsagePanel() {
               key: 'share',
               title: '占比',
               width: 140,
-              render: (r) => (
-                <LevelIndicator
-                  className="usage-meter"
-                  value={r.totalTokens}
-                  max={max}
-                  aria-label={`${r.name} 的用量`}
-                />
-              ),
+              render: (r) => <Bar value={r.totalTokens} max={max} color={colors.get(r.key) ?? OTHER} />,
             },
             {
               key: 'totalTokens',
@@ -169,7 +265,7 @@ function UsagePanel() {
           ]}
         />
       ) : (
-        <EmptyState compact icon="chart-bar" title="近 30 天没有运行" />
+        <EmptyState compact illustration={<NoDataArt />} title="近 30 天没有运行" />
       )}
       <p className="usage-note">
         近 30 天 · 不做配额限制 · Codex 适配器未上报的轮次计为「未上报」，不计入 token 合计。

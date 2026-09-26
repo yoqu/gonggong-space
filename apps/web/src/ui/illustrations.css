@@ -59,3 +59,30 @@
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
+.art-accent-text {
+  fill: var(--accent);
+}
+.art-glyph--sm {
+  font-size: 10px;
+}
+.art-stroke-ink {
+  fill: none;
+  stroke: var(--on-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-thin {
+  stroke-width: 2.5;
+}
+.art-handle {
+  stroke-width: 7;
+}
+.art-lens {
+  fill: var(--content-bg);
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+.art-dash {
+  stroke-dasharray: 4 5;
+}

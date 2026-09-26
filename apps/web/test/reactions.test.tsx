@@ -77,6 +77,9 @@ describe('ReactionBar', () => {
     expect(pill('👍').getAttribute('aria-pressed')).toBe('false')
     expect(names('👍')).toBe('李建国、赵敏')
     expect(names('🎉')).toBe('王磊')
+    const img = pill('👍').querySelector('img') as HTMLImageElement
+    expect(img.alt).toBe('👍')
+    expect(img.getAttribute('src')).toMatch(/\/1f44d\.svg\b/)
     expect(pill('🎉').getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -164,7 +167,7 @@ describe('ReactionPicker', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(onOpenChange).toHaveBeenLastCalledWith(true)
     const options = screen.getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['👍', '✅', '👀', '🎉', '❤️', '😂'])
+    expect(options.map((o) => o.querySelector('img')?.alt)).toEqual(['👍', '✅', '👀', '🎉', '❤️', '😂'])
     fireEvent.click(screen.getByRole('option', { name: '完成' }))
     expect(onOpenChange).toHaveBeenLastCalledWith(false)
     expect(trigger.getAttribute('aria-expanded')).toBe('false')

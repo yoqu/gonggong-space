@@ -30,6 +30,16 @@ describe('parseCommand', () => {
     })
   })
 
+  it('accepts mentions typed before the slash', () => {
+    expect(parseCommand('@codex /new', bots)).toEqual({ name: 'new', mentions: ['b3'], args: '' })
+    expect(parseCommand(' @小王的 Claude @codex /stop 理由', bots)).toEqual({
+      name: 'stop',
+      mentions: ['b1', 'b3'],
+      args: '理由',
+    })
+    expect(parseCommand('@codex 你好 /new', bots)).toBeNull()
+  })
+
   it('keeps names case-sensitive and ignores non-commands', () => {
     expect(parseCommand('/New @codex', bots)?.name).toBe('New')
     expect(parseCommand('hi /new @codex', bots)).toBeNull()

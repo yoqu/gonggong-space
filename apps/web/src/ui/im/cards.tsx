@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Button, type ButtonVariant, type Glyph, renderGlyph } from '../controls'
 import { AvatarGroup, type AvatarProps, ProgressIndicator, Tag, type TagTone } from '../display'
+import { FileIcon } from '../file-icon'
 import { Icon, type IconName } from '../icon'
 import { SegmentedControl } from '../segmented'
 import './cards.css'
@@ -10,32 +11,13 @@ type Tint = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray'
 
 const tint = (t: Tint): CSSProperties => ({ background: `var(--tint-${t})`, color: `var(--tint-${t}-text)` })
 
-const FILE_KINDS: Record<string, [Tint, string]> = {
-  pdf: ['red', 'PDF'],
-  doc: ['blue', 'DOC'],
-  docx: ['blue', 'DOC'],
-  pages: ['orange', 'PAGES'],
-  xls: ['green', 'XLS'],
-  xlsx: ['green', 'XLS'],
-  csv: ['green', 'CSV'],
-  numbers: ['green', 'NUM'],
-  ppt: ['orange', 'PPT'],
-  pptx: ['orange', 'PPT'],
-  key: ['blue', 'KEY'],
-  zip: ['gray', 'ZIP'],
-  rar: ['gray', 'RAR'],
-  png: ['purple', 'PNG'],
-  jpg: ['purple', 'JPG'],
-  mp4: ['purple', 'MP4'],
-  txt: ['gray', 'TXT'],
-}
-
 export interface FileAttachmentProps {
-  /** With extension; the extension picks the colour block. */
+  /** With extension; the extension (or `ext`, then `mime`) picks the file icon. */
   name: string
   size?: string
   meta?: string
   ext?: string
+  mime?: string
   /** 0–100 shows an upload bar. */
   progress?: number
   /** `false` hides the download button. */
@@ -45,23 +27,17 @@ export interface FileAttachmentProps {
   className?: string
 }
 
-/** Colour and short label of a file's extension tile, shared by FileAttachment and DropZone. */
-export function fileKind(name: string, ext?: string): [Tint, string] {
-  const e = (ext ?? name.split('.').pop() ?? '').toLowerCase()
-  return FILE_KINDS[e] ?? ['gray', e.toUpperCase().slice(0, 4) || 'FILE']
-}
-
 export function FileAttachment({
   name,
   size,
   meta,
   ext,
+  mime,
   progress,
   onDownload,
   onOpen,
   className,
 }: FileAttachmentProps) {
-  const [tone, label] = fileKind(name, ext)
   const Root = onOpen ? 'button' : 'div'
   return (
     <Root
@@ -69,10 +45,7 @@ export function FileAttachment({
       className={cx('pn-card', 'pn-file', onOpen && 'pn-file--open', className)}
       onClick={onOpen}
     >
-      <span className="pn-filetile" style={tint(tone)}>
-        <Icon name="doc" />
-        {label}
-      </span>
+      <FileIcon name={ext ? `.${ext}` : name} mime={mime} size={40} />
       <span className="pn-file__body">
         <span className="pn-file__name">{name}</span>
         {progress != null && <ProgressIndicator value={progress} aria-label="上传进度" />}

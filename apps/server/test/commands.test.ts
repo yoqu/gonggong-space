@@ -66,6 +66,15 @@ describe('system commands', () => {
     expect(log).toMatchObject({ actorUserId: w.li.id, action: 'command.new', groupId: w.g.id })
   })
 
+  it('/new after a leading mention is still a command, not a run', async () => {
+    const w = await world()
+    await t.db.update(groupBots).set({ sessionId: 'sess-0' }).where(eq(groupBots.botId, w.claude.id))
+    await w.say(w.asWang, '@小王的 Claude /new')
+    expect(await w.eventsText()).toEqual(['小王的 Claude 下一轮将开新会话'])
+    expect(await w.allRuns()).toEqual([])
+    expect(await w.gb(w.claude.id)).toMatchObject({ sessionId: null, newSessionReason: 'requested' })
+  })
+
   it('/new without a bot explains the usage', async () => {
     const w = await world()
     await w.say(w.asWang, '/new')

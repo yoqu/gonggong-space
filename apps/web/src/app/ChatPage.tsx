@@ -8,6 +8,7 @@ import { botsApi } from '../features/bots/model'
 import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
+import { DiffWindow } from '../features/diff/DiffWindow'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
 import { MachineDialog } from '../features/machines/MachineDialog'
 import { RunRail } from '../features/runs/RunRail'
@@ -127,6 +128,7 @@ export function ChatPage() {
 
   return (
     <>
+      <DiffWindow />
       <ChatLayout
         mobileView={groupId ? 'chat' : 'list'}
         nav={(orientation) => <AppRail orientation={orientation} />}

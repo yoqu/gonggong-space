@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { type CSSProperties, type ReactNode, useId } from 'react'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
@@ -84,10 +84,133 @@ function initials(name: string, group: boolean) {
   return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase()
 }
 
-function hashIndex(s: string, n: number) {
+function hash(s: string) {
   let x = 0
   for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) >>> 0
-  return x % n
+  return x
+}
+
+const paletteColor = (name: string) => `var(--avatar-${(hash(name) % 6) + 1})`
+
+/** One character per mosaic tile: a Chinese given name's last character, else the first letter. */
+function tileChar(name: string) {
+  const t = initials(name, false)
+  return HAN.test(t) ? t.slice(-1) : t.charAt(0)
+}
+
+const INK = { fill: '#fff' }
+const RING = { fill: 'none', stroke: '#fff', strokeWidth: 3 }
+/** Soft white shapes on a 40×40 canvas, rotated per name; hidden in high-contrast themes. */
+const PATTERNS = [
+  <>
+    <circle cx={34} cy={6} r={16} {...INK} opacity={0.16} />
+    <circle cx={5} cy={37} r={8} {...INK} opacity={0.12} />
+  </>,
+  <g key="rings" opacity={0.14}>
+    <circle cx={40} cy={40} r={12} {...RING} />
+    <circle cx={40} cy={40} r={21} {...RING} />
+    <circle cx={40} cy={40} r={30} {...RING} />
+  </g>,
+  <>
+    <path d="M-4 26 26-4h9L-4 35z" {...INK} opacity={0.14} />
+    <path d="M10 44 44 10v10L20 44z" {...INK} opacity={0.1} />
+  </>,
+  <>
+    <path d="M0 40 40 14v26z" {...INK} opacity={0.14} />
+    <path d="M0 0h22L0 24z" {...INK} opacity={0.1} />
+  </>,
+  <>
+    <circle cx={20} cy={48} r={22} {...INK} opacity={0.14} />
+    <circle cx={31} cy={10} r={4} {...INK} opacity={0.18} />
+  </>,
+]
+
+type Box = [x: number, y: number, w: number, h: number]
+const HALF = 19.25
+const FAR = 40 - HALF
+const MOSAIC: Record<number, Box[]> = {
+  2: [
+    [0, 0, HALF, 40],
+    [FAR, 0, HALF, 40],
+  ],
+  3: [
+    [0, 0, HALF, 40],
+    [FAR, 0, HALF, HALF],
+    [FAR, FAR, HALF, HALF],
+  ],
+  4: [
+    [0, 0, HALF, HALF],
+    [FAR, 0, HALF, HALF],
+    [0, FAR, HALF, HALF],
+    [FAR, FAR, HALF, HALF],
+  ],
+}
+
+export interface AvatarTile {
+  name: string
+  /** Image (e.g. a bot's SVG data URI) shown instead of the generated tile. */
+  src?: string
+}
+
+/** Palette fill, a name-seeded pattern and a light-to-shade sheen; or one tile per member (Feishu group style). */
+function AvatarArt({ name, color, members }: { name: string; color?: string; members?: AvatarTile[] }) {
+  const sheen = useId()
+  const h = hash(name)
+  const pattern = (h >>> 3) % PATTERNS.length
+  const gloss = (x = 0, y = 0, w = 40, ht = 40) => (
+    <rect x={x} y={y} width={w} height={ht} fill={`url(#${sheen})`} className="ui-avatar__deco" />
+  )
+  return (
+    <svg
+      className="ui-avatar__art"
+      viewBox="0 0 40 40"
+      aria-hidden="true"
+      data-pattern={members ? undefined : pattern}
+    >
+      <defs>
+        <linearGradient id={sheen} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity={0.24} />
+          <stop offset="0.55" stopColor="#fff" stopOpacity={0} />
+          <stop offset="1" stopColor="#000" stopOpacity={0.14} />
+        </linearGradient>
+      </defs>
+      {members ? (
+        (MOSAIC[members.length] ?? []).map(([x, y, w, ht], i) => {
+          const m = members[i] as AvatarTile
+          return (
+            <g key={`${x},${y}`} className="ui-avatar__tile">
+              {m.src ? (
+                <image href={m.src} x={x} y={y} width={w} height={ht} preserveAspectRatio="xMidYMid slice" />
+              ) : (
+                <>
+                  <rect x={x} y={y} width={w} height={ht} style={{ fill: paletteColor(m.name) }} />
+                  {gloss(x, y, w, ht)}
+                  <text
+                    x={x + w / 2}
+                    y={y + ht / 2}
+                    fontSize={Math.min(w, ht) * 0.5}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="currentColor"
+                  >
+                    {tileChar(m.name)}
+                  </text>
+                </>
+              )}
+            </g>
+          )
+        })
+      ) : (
+        <>
+          <rect width={40} height={40} style={{ fill: color ?? paletteColor(name) }} />
+          <g className="ui-avatar__deco" transform={`rotate(${((h >>> 7) % 4) * 90} 20 20)`}>
+            {PATTERNS[pattern]}
+          </g>
+          {gloss()}
+        </>
+      )}
+    </svg>
+  )
 }
 
 export interface AvatarProps {
@@ -98,6 +221,8 @@ export interface AvatarProps {
   /** `square` for groups, bots and apps. */
   shape?: 'circle' | 'square'
   color?: string
+  /** Group members; two or more (first four used) tile a mosaic instead of initials. */
+  members?: AvatarTile[]
   className?: string
   style?: CSSProperties
 }
@@ -112,11 +237,12 @@ export function Avatar({
   status,
   shape = 'circle',
   color,
+  members,
   className,
   style,
 }: AvatarProps) {
   const text = initials(name, shape === 'square')
-  const bg = color ?? `var(--avatar-${hashIndex(name, 6) + 1})`
+  const tiles = !src && members && members.length > 1 ? members.slice(0, 4) : undefined
   return (
     <span
       className={cx('ui-avatar', shape === 'square' && 'ui-avatar--square', className)}
@@ -126,12 +252,18 @@ export function Avatar({
       style={{
         width: size,
         height: size,
-        background: src ? 'var(--control-track)' : bg,
         fontSize: Math.round(size * (text.length > 1 && HAN.test(text) ? 0.34 : 0.4)),
         ...style,
       }}
     >
-      {src ? <img src={src} alt="" /> : text}
+      {src ? (
+        <img src={src} alt="" />
+      ) : (
+        <>
+          <AvatarArt name={name} color={color} members={tiles} />
+          {tiles ? null : <span className="ui-avatar__text">{text}</span>}
+        </>
+      )}
       {status ? <span className={`ui-avatar__status ui-avatar__status--${status}`} /> : null}
     </span>
   )
@@ -382,7 +514,14 @@ export function Alert({
       {icon ? <span className="ui-alert__icon">{icon}</span> : null}
       <div className="ui-alert__body">
         {title ? <h5 className="ui-alert__title">{title}</h5> : null}
-        {description ? <p className="ui-alert__desc">{description}</p> : null}
+        {description ? (
+          <p className="ui-alert__desc">
+            {variant === 'error' && !title && !children ? (
+              <Icon name="warning" size={12} className="ui-alert__desc-icon" />
+            ) : null}
+            {description}
+          </p>
+        ) : null}
         {children}
       </div>
     </div>

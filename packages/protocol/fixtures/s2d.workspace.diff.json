@@ -1,0 +1,9 @@
+{
+  "t": "workspace.diff",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "workspace": { "repo": null, "cdPath": "/Users/wl/pay" },
+  "scope": "turn",
+  "runId": "r1"
+}

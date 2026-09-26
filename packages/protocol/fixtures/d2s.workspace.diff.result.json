@@ -1,0 +1,8 @@
+{
+  "t": "workspace.diff.result",
+  "requestId": "q1",
+  "patch": "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-a\n+b\n",
+  "base": "main",
+  "branch": "feat/x",
+  "error": null
+}

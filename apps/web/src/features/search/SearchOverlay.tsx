@@ -3,7 +3,17 @@ import { type KeyboardEvent, useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Icon, type IconName, listTime, Spinner, Tabs, useEscape } from '../../ui'
+import {
+  EmptyState,
+  FileIcon,
+  Icon,
+  type IconName,
+  listTime,
+  NoResultsArt,
+  Spinner,
+  Tabs,
+  useEscape,
+} from '../../ui'
 import './search.css'
 
 type Tab = SearchResultDto['kind']
@@ -140,7 +150,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           ) : settled && !results.length ? (
-            <div className="search__empty">没有匹配的结果</div>
+            <EmptyState compact title="没有匹配的结果" illustration={<NoResultsArt />} />
           ) : null}
           {results.length ? (
             <div id={listId} role="listbox" aria-label="搜索结果" className="search__list">
@@ -160,7 +170,11 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
                     onMouseMove={() => setActive(i)}
                     onClick={() => go(r)}
                   >
-                    <Icon name={icon} size={15} className="search__icon" />
+                    {r.kind === 'file' ? (
+                      <FileIcon name={r.title} size={18} />
+                    ) : (
+                      <Icon name={icon} size={15} className="search__icon" />
+                    )}
                     <div className="search__text">
                       <div className={cx('search__title', r.kind === 'file' && 'search__title--mono')}>
                         <Highlight text={title} query={q.trim()} />

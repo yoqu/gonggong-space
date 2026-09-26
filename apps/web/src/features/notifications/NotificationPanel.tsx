@@ -9,8 +9,10 @@ import {
   Button,
   EmptyState,
   Icon,
+  IconButton,
   type IconName,
   listTime,
+  NoNotificationsArt,
   type PresenceState,
   Spinner,
   Tag,
@@ -104,6 +106,27 @@ function Panel({
     useWorkspace.setState({ notifCount: 0 })
   }
 
+  const clearRead = async () => {
+    try {
+      await api.del('/notifications/read')
+    } catch (e) {
+      toast({ type: 'error', title: '清除已读失败', message: (e as Error).message })
+      return
+    }
+    setItems((list) => list?.filter((n) => !n.readAt) ?? null)
+  }
+
+  const remove = async (n: NotificationDto) => {
+    try {
+      await api.del(`/notifications/${n.id}`)
+    } catch (e) {
+      toast({ type: 'error', title: '删除通知失败', message: (e as Error).message })
+      return
+    }
+    setItems((list) => list?.filter((x) => x.id !== n.id) ?? null)
+    if (!n.readAt) useWorkspace.setState((s) => ({ notifCount: Math.max(0, s.notifCount - 1) }))
+  }
+
   const open = (n: NotificationDto) => {
     if (!n.readAt) {
       useWorkspace.setState((s) => ({ notifCount: Math.max(0, s.notifCount - 1) }))
@@ -129,6 +152,9 @@ function Panel({
           <Button size="small" variant="plain" onClick={() => void readAll()}>
             全部标为已读
           </Button>
+          <Button size="small" variant="plain" onClick={() => void clearRead()}>
+            清除已读
+          </Button>
         </div>
         <div className="notif__list" data-testid="notification-list">
           {failed ? (
@@ -145,7 +171,7 @@ function Panel({
           ) : items.length === 0 ? (
             <EmptyState
               compact
-              icon="bell"
+              illustration={<NoNotificationsArt />}
               title="暂无通知"
               description="需要你审批或回答的事项会出现在这里。"
             />
@@ -156,32 +182,42 @@ function Panel({
                 const v = notificationView(n)
                 const { icon, color } = ICON[n.type]
                 return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    className={cx(
-                      'notif__item',
-                      !n.readAt && 'notif__item--unread',
-                      n.resolvedAt && 'notif__item--resolved',
-                    )}
-                    onClick={() => open(n)}
-                  >
-                    <span className="notif__icon" style={{ color }}>
-                      <Icon name={icon} />
-                    </span>
-                    <div className="notif__body">
-                      <div className="notif__line">
-                        <span className="notif__type">{v.label}</span>
-                        {n.resolvedAt ? <Tag>已处理</Tag> : null}
-                        <span className="spacer" />
-                        <span className="notif__time">{listTime(n.createdAt)}</span>
+                  <div key={n.id} className="notif__row">
+                    <button
+                      type="button"
+                      className={cx(
+                        'notif__item',
+                        !n.readAt && 'notif__item--unread',
+                        n.resolvedAt && 'notif__item--resolved',
+                      )}
+                      onClick={() => open(n)}
+                    >
+                      <span className="notif__icon" style={{ color }}>
+                        <Icon name={icon} />
+                      </span>
+                      <div className="notif__body">
+                        <div className="notif__line">
+                          <span className="notif__type">{v.label}</span>
+                          {n.resolvedAt ? <Tag>已处理</Tag> : null}
+                          <span className="spacer" />
+                          <span className="notif__time">{listTime(n.createdAt)}</span>
+                        </div>
+                        <div className="notif__text" title={v.text}>
+                          {v.text}
+                        </div>
+                        {v.group ? <div className="notif__group">{v.group}</div> : null}
                       </div>
-                      <div className="notif__text" title={v.text}>
-                        {v.text}
-                      </div>
-                      {v.group ? <div className="notif__group">{v.group}</div> : null}
-                    </div>
-                  </button>
+                    </button>
+                    <IconButton
+                      size="small"
+                      variant="plain"
+                      title="删除通知"
+                      className="notif__delete"
+                      onClick={() => void remove(n)}
+                    >
+                      <Icon name="xmark" />
+                    </IconButton>
+                  </div>
                 )
               })}
         </div>

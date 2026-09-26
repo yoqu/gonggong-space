@@ -6,7 +6,7 @@
 .usage-stat {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
   padding: var(--space-12) var(--space-16);
   border-radius: var(--radius-field);
   background: var(--group-bg);
@@ -15,33 +15,122 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.usage-stat__body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 28px;
+}
 .usage-stat__value {
   font-size: var(--text-title-2-size);
   line-height: var(--text-title-2-line);
   font-weight: 600;
+  white-space: nowrap;
+}
+.usage-stat__delta {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
-.usage-share .ui-levelwrap__label {
+.usage-stat__delta > :first-child {
+  color: var(--label);
+  font-weight: 600;
+}
+
+.usage-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16) var(--space-16);
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
+}
+.usage-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 20px;
+}
+.usage-card__title {
   font-size: var(--text-subheadline-size);
   font-weight: 600;
   color: var(--label-secondary);
 }
-.usage-share__total {
-  font-weight: 400;
+.usage-card__meta {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
-.usage-meter.ui-levelwrap {
+
+.usage-share {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.usage-share > span {
+  flex-basis: 0;
+  min-width: 3px;
+}
+.usage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6) var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-subheadline-size);
+  font-variant-numeric: tabular-nums;
+}
+.usage-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
   min-width: 0;
+}
+.usage-legend__swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.usage-legend__name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usage-legend__value {
+  color: var(--label-secondary);
+}
+.usage-legend__pct {
+  color: var(--label-tertiary);
+}
+
+/* Horizontal bar: table 占比 column and Bot detail */
+.usage-bar {
+  display: block;
   width: 112px;
-}
-.usage-meter .ui-level {
   height: 6px;
+  border-radius: 3px;
+  background: var(--group-bg);
+  overflow: hidden;
 }
-/* Bot detail: who used this Bot */
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 3px;
+}
 .usage-bars {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-8);
   width: 100%;
 }
 .usage-bars__row {
@@ -52,11 +141,8 @@
   font-size: var(--text-subheadline-size);
   font-variant-numeric: tabular-nums;
 }
-.usage-bars__row .ui-levelwrap {
-  min-width: 0;
-}
-.usage-bars__row .ui-level {
-  height: 6px;
+.usage-bars__row .usage-bar {
+  width: auto;
 }
 .usage-bars__name {
   overflow: hidden;

@@ -11,6 +11,8 @@ import {
   EmptyState,
   Form,
   FormRow,
+  NoMembersArt,
+  NoResultsArt,
   PopUpButton,
   Presence,
   SearchField,
@@ -169,7 +171,13 @@ export function UsersPage() {
             else if (action === 'disable') setDisabling(u)
             else void enable(u)
           }}
-          emptyText={q ? '没有匹配的成员' : '还没有账号'}
+          emptyText={
+            <EmptyState
+              compact
+              title={q ? '没有匹配的成员' : '还没有账号'}
+              illustration={q ? <NoResultsArt /> : <NoMembersArt />}
+            />
+          }
           columns={[
             {
               key: 'name',
@@ -216,7 +224,7 @@ export function UsersPage() {
       {users?.length === 1 ? (
         <EmptyState
           compact
-          icon="person-add"
+          illustration={<NoMembersArt />}
           title="还没有其他成员"
           description="新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。"
           action={

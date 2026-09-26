@@ -83,6 +83,10 @@ impl Daemon {
         self.monitor.snapshot()
     }
 
+    pub fn process(&self, run_id: &str) -> Option<crate::status::Process> {
+        self.monitor.process(run_id)
+    }
+
     pub fn subscribe(&self) -> watch::Receiver<Status> {
         self.monitor.subscribe()
     }

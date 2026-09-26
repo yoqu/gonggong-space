@@ -1,0 +1,12 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "subagent",
+    "agentId": "task-7",
+    "parentId": "task-3",
+    "name": "Explore",
+    "task": "找出退款 v1 的全部调用方",
+    "state": "running"
+  }
+}

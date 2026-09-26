@@ -190,21 +190,25 @@ describe('admin console', () => {
       'GET /usage?by=user&days=30': [
         { key: 'u1', name: '王磊', runs: 61, totalTokens: 356_000, unreported: 0 },
       ],
+      [`GET /usage/daily?days=60&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`]:
+        [{ day: '2026-09-25', runs: 99, totalTokens: 412_000, unreported: 41 }],
     })
     renderAt('/admin/usage')
     expect(await screen.findByRole('heading', { name: '用量' })).toBeTruthy()
-    await screen.findByText('小王的 Claude')
-    const table = screen.getByRole('grid', { name: '用量明细' })
+    const table = await screen.findByRole('grid', { name: '用量明细' })
     expect(
       within(table)
         .getAllByRole('row')
         .slice(1)
         .map((r) => r.textContent),
     ).toEqual(['小王的 Claude412k580', '老李的 Codex未上报4141'])
-    expect(screen.getByRole('meter', { name: 'token 分布' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'token 分布：小王的 Claude 100%' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^近 30 天每日 token：合计 412k tokens/ })).toBeTruthy()
     expect(screen.getByText(/不做配额限制/)).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: '按触发人' }))
-    expect(await screen.findByText('王磊')).toBeTruthy()
+    await waitFor(() =>
+      expect(within(screen.getByRole('grid', { name: '用量明细' })).getByText('王磊')).toBeTruthy(),
+    )
     expect(screen.getByRole('tab', { name: '按群' })).toBeTruthy()
   })
 })

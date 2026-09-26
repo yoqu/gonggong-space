@@ -67,6 +67,8 @@ function open(sessionId, params) {
   }
 }
 
+let clientCaps
+
 async function prompt({ sessionId, prompt: blocks }, client) {
   const s = sessions.get(sessionId)
   if (!s) throw new Error(`unknown session ${sessionId}`)
@@ -178,6 +180,51 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     }
     return { stopReason: 'end_turn' }
   }
+  if (text.includes('mock:subagent')) {
+    const air = clientCaps?._meta?.jetbrains?.air?.capabilities ?? []
+    if (!air.includes('nativeSubagentSessions') || !air.includes('asyncTasks')) {
+      await say('client did not opt in')
+      return { stopReason: 'end_turn' }
+    }
+    const child = `${sessionId}:sub`
+    const inChild = (u) => client.notify(acp.methods.client.session.update, { sessionId: child, update: u })
+    await update({
+      sessionUpdate: 'subagent_spawned',
+      subagentSessionId: child,
+      name: 'Explore',
+      task: '找调用方',
+      capabilities: {},
+    })
+    await inChild({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: '子 agent 报告' } })
+    await inChild({
+      sessionUpdate: 'tool_call',
+      toolCallId: 't1',
+      title: 'Read a.rs',
+      kind: 'read',
+      status: 'completed',
+    })
+    await inChild({
+      sessionUpdate: 'async_task_spawned',
+      asyncTaskId: 'bg1',
+      name: 'pnpm dev',
+      taskType: 'shell',
+      showInTranscript: false,
+      canStop: true,
+    })
+    await update({ sessionUpdate: 'subagent_state_update', subagentSessionId: child, state: 'completed' })
+    await say('完成')
+    setTimeout(
+      () =>
+        update({
+          sessionUpdate: 'async_task_state_update',
+          asyncTaskId: 'bg1',
+          state: 'completed',
+          summary: 'exit 0',
+        }),
+      200,
+    )
+    return { stopReason: 'end_turn' }
+  }
   if (text.includes('mock:crash')) {
     await say('about to crash')
     await sleep(50)
@@ -236,14 +283,17 @@ async function prompt({ sessionId, prompt: blocks }, client) {
 
 acp
   .agent({ name: 'gonggong-mock-agent' })
-  .onRequest('initialize', () => ({
-    protocolVersion: acp.PROTOCOL_VERSION,
-    agentCapabilities: {
-      loadSession: false,
-      sessionCapabilities: { resume: {} },
-      promptCapabilities: { image: true },
-    },
-  }))
+  .onRequest('initialize', (ctx) => {
+    clientCaps = ctx.params.clientCapabilities
+    return {
+      protocolVersion: acp.PROTOCOL_VERSION,
+      agentCapabilities: {
+        loadSession: false,
+        sessionCapabilities: { resume: {} },
+        promptCapabilities: { image: true },
+      },
+    }
+  })
   .onRequest('session/new', (ctx) => open(`mock-${crypto.randomUUID()}`, ctx.params))
   .onRequest('session/resume', (ctx) => {
     if (!ctx.params.sessionId.startsWith('mock-'))

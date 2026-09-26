@@ -4,6 +4,7 @@ import { Avatar, type AvatarProps } from '../display'
 import { SearchField } from '../form'
 import { Icon } from '../icon'
 import { SegmentedControl } from '../segmented'
+import { Emoji } from './emoji'
 import { keyNav } from './keynav'
 import './pickers.css'
 
@@ -293,7 +294,7 @@ export function EmojiPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onSelect?.(emoji)}
               >
-                {emoji}
+                <Emoji char={emoji} />
               </button>
             )
           })}

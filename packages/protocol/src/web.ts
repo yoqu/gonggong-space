@@ -13,7 +13,7 @@ import {
   TriggerScope,
   Usage,
 } from './common.js'
-import { AgentInfo, MachineInfo, McpServer, PermissionOption, RunEvent } from './daemon.js'
+import { AgentInfo, DiffScope, MachineInfo, McpServer, PermissionOption, RunEvent } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -104,12 +104,36 @@ export const BotPresence = z.enum([
   'offline',
   'agent_missing',
 ])
+/** Built-in avatar presets; the artwork lives in the web app. */
+export const BOT_AVATARS = [
+  'bot-dot',
+  'bot-visor',
+  'bot-cyclops',
+  'bot-bunny',
+  'bot-cat',
+  'bot-screen',
+  'bot-dome',
+  'bot-pixel',
+  'agent-spark',
+  'agent-orbit',
+  'agent-prism',
+  'agent-nodes',
+  'agent-prompt',
+  'agent-compass',
+  'agent-wave',
+  'agent-hex',
+] as const
+export const BotAvatar = z.enum(BOT_AVATARS)
+export type BotAvatar = z.infer<typeof BotAvatar>
+
 export const BotDto = z.object({
   id: z.string(),
   name: z.string(),
   ownerId: z.string(),
   ownerName: z.string(),
   agentKind: AgentKind,
+  /** null = a preset picked from the bot id. */
+  avatar: BotAvatar.nullable(),
   machineId: z.string().nullable(),
   machineName: z.string().nullable(),
   binding: BotBinding,
@@ -143,6 +167,18 @@ export type DirListingDto = z.infer<typeof DirListingDto>
 export const DefaultWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
 /** PUT /api/groups/:id/bots/:botId/workspace (bot owner): a local directory, or null = managed workspace. */
 export const BindWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
+/** GET /api/groups/:id/bots/:botId/diff?scope=&runId= — a bot workspace's changes (group members). */
+export const WorkspaceDiffDto = z.object({
+  scope: DiffScope,
+  /** Unified patch, null when nothing changed. */
+  patch: z.string().nullable(),
+  /** Main branch compared against (scope base); null when HEAD is on it. */
+  base: z.string().nullable(),
+  branch: z.string().nullable(),
+})
+export type WorkspaceDiffDto = z.infer<typeof WorkspaceDiffDto>
+/** PUT /api/groups/:id/bots/:botId/tier (bot owner or sysadmin); null follows the bot's own tier. */
+export const GroupBotTierReq = z.object({ tier: Tier.nullable() })
 
 /** GET /api/bots/owners: who the caller may create bots for, with their machines (self only for members). */
 export const BotOwnerDto = z.object({ id: z.string(), name: z.string(), machines: z.array(MachineDto) })
@@ -155,9 +191,11 @@ export const CreateBotReq = z.object({
   /** Omit when the owner has no machine yet (bot becomes pending_bind). */
   machineId: z.string().nullable(),
   systemPrompt: z.string().max(4000).default(''),
+  avatar: BotAvatar.nullable().default(null),
 })
 export const UpdateBotReq = z.object({
   name: z.string().min(1).max(40).optional(),
+  avatar: BotAvatar.nullable().optional(),
   systemPrompt: z.string().max(4000).optional(),
   tier: Tier.optional(),
   triggerScope: TriggerScope.optional(),
@@ -612,6 +650,21 @@ export const UsageRowDto = z.object({
   unreported: z.number().int(),
 })
 export type UsageRowDto = z.infer<typeof UsageRowDto>
+const isTimeZone = (tz: string) => {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz })
+    return true
+  } catch {
+    return false
+  }
+}
+/** GET /api/usage/daily: same scope as /api/usage, bucketed by calendar day in `tz` (IANA). */
+export const UsageDailyQuery = UsageQuery.omit({ by: true }).extend({
+  tz: z.string().refine(isTimeZone).default('UTC'),
+})
+/** One per day, oldest first, zero-filled; `day` is YYYY-MM-DD in the requested time zone. */
+export const UsageDayDto = UsageRowDto.omit({ key: true, name: true }).extend({ day: z.string() })
+export type UsageDayDto = z.infer<typeof UsageDayDto>
 
 // ── Realtime: WS /ws/web (server → browser only) ────────────────────────────
 /** Per-bot workspace state in a group: drives the partition-mode git status bar (spec §5.3, §8.4). */
@@ -623,6 +676,8 @@ export const GroupBotStateDto = z.object({
   path: z.string().nullable(),
   git: GitStatus.nullable(),
   error: z.string().nullable(),
+  /** This group's tier override; null follows the bot's own tier. */
+  tier: Tier.nullable(),
 })
 export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 

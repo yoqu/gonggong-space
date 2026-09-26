@@ -1,0 +1,102 @@
+.ui-chart__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ui-spark {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.ui-spark__area {
+  fill: var(--system-blue);
+  opacity: 0.1;
+}
+.ui-spark__line {
+  fill: none;
+  stroke: var(--system-blue);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ui-spark__dot {
+  fill: var(--system-blue);
+  stroke: var(--content-bg);
+  stroke-width: 1.5;
+}
+
+.ui-trend {
+  position: relative;
+  min-width: 0;
+}
+.ui-trend__plot {
+  position: relative;
+  border-radius: var(--radius-field);
+}
+.ui-trend__plot:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.ui-trend svg {
+  display: block;
+  overflow: visible;
+}
+.ui-trend__grid line {
+  stroke: var(--separator);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.ui-trend text {
+  fill: var(--label-secondary);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.ui-trend__band {
+  fill: var(--group-bg);
+}
+.ui-trend__bar {
+  fill: var(--system-blue);
+  transition: opacity var(--motion-fast);
+}
+.ui-trend__plot[data-active] .ui-trend__bar:not([data-active]) {
+  opacity: 0.45;
+}
+.ui-trend__tip {
+  position: absolute;
+  top: -4px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  padding: var(--space-6) var(--space-8);
+  border-radius: 8px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--text-subheadline-size);
+  line-height: 14px;
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.ui-trend__tip strong {
+  color: var(--label);
+  font-size: var(--text-body-size);
+  line-height: 16px;
+  font-weight: 600;
+}
+.ui-trend__tip-label {
+  color: var(--label-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-trend__bar {
+    transition: none;
+  }
+}

@@ -10,7 +10,8 @@ use crate::protocol::{
 };
 use crate::service::Outbox;
 use crate::turn::{
-    Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt, wire_options,
+    ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt,
+    wire_options,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
@@ -22,13 +23,15 @@ use agent_client_protocol::schema::v1::{
     SessionConfigValueId, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
-use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
+use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo, Handled, UntypedMessage};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 
 const ERROR_MAX: usize = 800;
+pub(crate) const NOT_GIT: &str = "工作区不是 git 仓库";
 const REJECTED: &str = "请求被拒绝，agent 自行绕路";
 
 pub(crate) struct TurnReq {
@@ -84,6 +87,8 @@ struct State {
     questions: HashMap<String, Asked>,
     /// 打断并追加 prompts (text, attachments) waiting for the cancelled prompt to end.
     appends: Vec<(String, Vec<Attachment>)>,
+    /// Live background tasks with the run that started them; they report there even after it ended.
+    tasks: HashMap<String, (String, Outbox, TaskSnap)>,
 }
 
 struct Asked {
@@ -220,6 +225,26 @@ impl Shared {
         true
     }
 
+    /// The owner changed the bot's effective tier mid-run; raised to `full`, pending requests are allowed at once.
+    pub(crate) fn set_tier(&self, run_id: &str, tier: Tier) -> bool {
+        let mut guard = self.0.lock().unwrap();
+        let s = &mut *guard;
+        let Some(a) = s.active.as_mut().filter(|a| a.run_id == run_id) else { return false };
+        a.tier = tier;
+        if tier == Tier::Full {
+            let prefix = format!("{run_id}/");
+            let ids: Vec<_> = s.approvals.keys().filter(|k| k.starts_with(&prefix)).cloned().collect();
+            for id in ids {
+                let p = s.approvals.remove(&id).unwrap();
+                let step = format!("档位已切换为「完全访问」，自动批准：{}", p.title);
+                let event = RunEvent::Status { status: RunStatus::Running, step };
+                a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
+                let _ = p.tx.send(auto_allow(&p.options));
+            }
+        }
+        true
+    }
+
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued.
     fn begin(&self, req: &TurnReq) -> bool {
         let mut s = self.0.lock().unwrap();
@@ -287,6 +312,17 @@ impl Shared {
         s.last = Some((run_id, g));
     }
 
+    /// What the live turn `run_id` changed so far; None when it is not this conversation's active turn.
+    pub(crate) async fn live_patch(&self, run_id: &str) -> Option<Result<Option<String>, String>> {
+        let git = {
+            let s = self.0.lock().unwrap();
+            let a = s.active.as_ref().filter(|a| a.run_id == run_id)?;
+            a.git.as_ref().map(|g| (g.cwd.clone(), g.snap.clone()))
+        };
+        let Some((cwd, snap)) = git else { return Some(Err(NOT_GIT.into())) };
+        Some(git::patch_since(&cwd, &snap).await)
+    }
+
     /// Restores the files `run_id` touched, if it is this conversation's last finished turn. None → not ours.
     pub(crate) async fn discard(&self, run_id: &str) -> Option<Result<usize, String>> {
         let g = {
@@ -310,6 +346,46 @@ impl Shared {
         }
     }
 
+    /// `session/update` parsed by hand: the draft subagent / async-task updates are unknown to the schema crate.
+    fn on_raw(&self, params: serde_json::Value) {
+        let session = params.get("sessionId").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+        if let Some(Ok(ext)) = params.get("update").map(ExtUpdate::deserialize) {
+            return self.on_ext(&session, ext);
+        }
+        match serde_json::from_value::<SessionNotification>(params) {
+            Ok(n) => self.on_update(n),
+            Err(e) => tracing::debug!("ignored session/update: {e}"),
+        }
+    }
+
+    fn on_ext(&self, session: &str, ext: ExtUpdate) {
+        let mut guard = self.0.lock().unwrap();
+        let s = &mut *guard;
+        let active = s.active.as_mut().filter(|a| a.streaming);
+        let patch = match ext {
+            ExtUpdate::AsyncTaskSpawned(p) | ExtUpdate::AsyncTaskProgress(p) | ExtUpdate::AsyncTaskStateUpdate(p) => p,
+            sub => {
+                if let Some(a) = active
+                    && let Some(event) = a.turn.subagent(session, sub)
+                {
+                    a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+                }
+                return;
+            }
+        };
+        let id = patch.async_task_id.clone();
+        if !s.tasks.contains_key(&id) {
+            let Some(a) = active else { return };
+            s.tasks.insert(id.clone(), (a.run_id.clone(), a.out.clone(), TaskSnap::new(a.turn.agent_of(session))));
+        }
+        let (run_id, out, snap) = s.tasks.get_mut(&id).unwrap();
+        let event = snap.patch(patch);
+        out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
+        if snap.ended() {
+            s.tasks.remove(&id);
+        }
+    }
+
     fn on_update(&self, n: SessionNotification) {
         let mut s = self.0.lock().unwrap();
         // Sent right after session creation (before streaming); feeds the / candidates.
@@ -323,7 +399,7 @@ impl Shared {
             return a.out.send(DaemonToServer::CommandsUpdate { group_id, bot_id, commands });
         }
         if let Some(a) = s.active.as_mut().filter(|a| a.streaming)
-            && let Some(event) = a.turn.apply(n.update)
+            && let Some(event) = a.turn.apply(&n.session_id.0, n.update)
         {
             a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
         }
@@ -342,7 +418,7 @@ impl Shared {
         }
         let command = command_of(req.tool_call.fields.raw_input.as_ref());
         let Some(RunEvent::Tool { title, tool_kind, detail, .. }) =
-            a.turn.apply(SessionUpdate::ToolCallUpdate(req.tool_call))
+            a.turn.apply(&req.session_id.0, SessionUpdate::ToolCallUpdate(req.tool_call))
         else {
             unreachable!("tool call updates always map to tool events")
         };
@@ -588,9 +664,12 @@ async fn connect(
     Client
         .builder()
         .on_receive_notification(
-            async move |n: SessionNotification, _cx| {
-                on_update.on_update(n);
-                Ok(())
+            async move |n: UntypedMessage, cx| {
+                if n.method != "session/update" {
+                    return Ok(Handled::No { message: (n, cx), retry: false });
+                }
+                on_update.on_raw(n.params);
+                Ok(Handled::Yes)
             },
             agent_client_protocol::on_receive_notification!(),
         )

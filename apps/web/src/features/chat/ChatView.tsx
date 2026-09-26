@@ -23,6 +23,7 @@ import {
   TypingIndicator,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
@@ -289,6 +290,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     <div className="chat-view" {...drag.handlers}>
       <ChatHeader
         group
+        avatar={<GroupAvatar group={group} size={32} />}
         title={group.name}
         onBack={onBack}
         tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}

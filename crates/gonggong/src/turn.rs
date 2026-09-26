@@ -1,12 +1,14 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
 use crate::attachments::rel_path;
 use crate::protocol::{
-    self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, Tier, ToolStatus, Usage,
+    self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, SubagentState, TaskState, Tier,
+    ToolStatus, Usage,
 };
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
     ToolCallUpdate, ToolKind,
 };
+use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap};
 
 const DETAIL_MAX: usize = 200;
@@ -96,8 +98,11 @@ pub fn wire_options(options: &[PermissionOption]) -> Vec<protocol::PermissionOpt
 
 /// Client `_meta` opting into codex-acp's typed session failures (JetBrains AIR extension v1); without it the
 /// adapter reports errors as ordinary reply text.
+/// Also opts into native subagent sessions and async tasks, so both adapters report delegation and background work
+/// as `ExtUpdate`s instead of flattening them into the main transcript.
 pub fn client_meta() -> serde_json::Map<String, serde_json::Value> {
-    let v = serde_json::json!({ "jetbrains": { "air": { "version": 1, "capabilities": ["sessionFailure"] } } });
+    let capabilities = ["sessionFailure", "nativeSubagentSessions", "asyncTasks"];
+    let v = serde_json::json!({ "jetbrains": { "air": { "version": 1, "capabilities": capabilities } } });
     v.as_object().cloned().unwrap_or_default()
 }
 
@@ -138,6 +143,96 @@ impl ToolState {
     }
 }
 
+/// Draft ACP session updates (agent-client-protocol#1992 / AIR async tasks) the schema crate cannot parse yet.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "sessionUpdate", rename_all = "snake_case")]
+pub enum ExtUpdate {
+    #[serde(rename_all = "camelCase")]
+    SubagentSpawned {
+        subagent_session_id: String,
+        name: String,
+        task: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    SubagentStateUpdate {
+        subagent_session_id: String,
+        state: SubagentState,
+    },
+    AsyncTaskSpawned(TaskPatch),
+    AsyncTaskProgress(TaskPatch),
+    AsyncTaskStateUpdate(TaskPatch),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskPatch {
+    pub async_task_id: String,
+    name: Option<String>,
+    task_type: Option<String>,
+    description: Option<String>,
+    state: Option<TaskState>,
+    summary: Option<String>,
+    output_file_path: Option<String>,
+    tool_call_id: Option<String>,
+}
+
+/// A background task merged across its spawn / progress / state updates.
+#[derive(Debug)]
+pub struct TaskSnap {
+    agent_id: Option<String>,
+    tool_call_id: Option<String>,
+    name: String,
+    task_type: String,
+    state: TaskState,
+    summary: Option<String>,
+    output_path: Option<String>,
+}
+
+impl TaskSnap {
+    pub fn new(agent_id: Option<String>) -> Self {
+        Self {
+            agent_id,
+            tool_call_id: None,
+            name: String::new(),
+            task_type: "task".into(),
+            state: TaskState::Running,
+            summary: None,
+            output_path: None,
+        }
+    }
+
+    pub fn patch(&mut self, p: TaskPatch) -> RunEvent {
+        if let Some(n) = p.name.or(p.description).filter(|n| !n.trim().is_empty()) {
+            self.name = n;
+        }
+        self.task_type = p.task_type.unwrap_or(std::mem::take(&mut self.task_type));
+        self.state = p.state.unwrap_or(self.state);
+        self.summary = p.summary.map(|s| clip(&s)).or(self.summary.take());
+        self.output_path = p.output_file_path.or(self.output_path.take());
+        self.tool_call_id = p.tool_call_id.or(self.tool_call_id.take());
+        RunEvent::Task {
+            task_id: p.async_task_id,
+            agent_id: self.agent_id.clone(),
+            tool_call_id: self.tool_call_id.clone(),
+            name: self.name.clone(),
+            task_type: self.task_type.clone(),
+            state: self.state,
+            summary: self.summary.clone(),
+            output_path: self.output_path.clone(),
+        }
+    }
+
+    pub fn ended(&self) -> bool {
+        matches!(self.state, TaskState::Completed | TaskState::Failed | TaskState::Stopped)
+    }
+}
+
+struct Subagent {
+    parent_id: Option<String>,
+    name: String,
+    task: String,
+}
+
 /// Accumulates one prompt turn: final reply, changed files, usage, and tool call state across patches.
 #[derive(Default)]
 pub struct Turn {
@@ -152,20 +247,31 @@ pub struct Turn {
     pub git: Option<(GitStatus, usize)>,
     /// Repo workspaces only: unified diff of the turn's changes.
     pub patch: Option<String>,
-    tools: HashMap<String, ToolState>,
+    tools: HashMap<(Option<String>, String), ToolState>,
+    /// Subagents spawned this turn, by their ACP session id.
+    subagents: HashMap<String, Subagent>,
 }
 
 impl Turn {
-    pub fn apply(&mut self, update: SessionUpdate) -> Option<RunEvent> {
+    /// The subagent `session` belongs to; None for the main agent.
+    pub fn agent_of(&self, session: &str) -> Option<String> {
+        self.subagents.contains_key(session).then(|| session.to_string())
+    }
+
+    /// Maps an update of ACP session `session` (the main one or a subagent's).
+    pub fn apply(&mut self, session: &str, update: SessionUpdate) -> Option<RunEvent> {
+        let agent_id = self.agent_of(session);
         match update {
             SessionUpdate::AgentMessageChunk(c) => text(c.content).map(|delta| {
-                self.reply.push_str(&delta);
-                RunEvent::Text { delta }
+                if agent_id.is_none() {
+                    self.reply.push_str(&delta);
+                }
+                RunEvent::Text { delta, agent_id }
             }),
-            SessionUpdate::AgentThoughtChunk(c) => text(c.content).map(|delta| RunEvent::Thought { delta }),
-            SessionUpdate::ToolCall(c) => Some(self.tool(c.into())),
-            SessionUpdate::ToolCallUpdate(u) => Some(self.tool(u)),
-            SessionUpdate::UsageUpdate(u) => {
+            SessionUpdate::AgentThoughtChunk(c) => text(c.content).map(|delta| RunEvent::Thought { delta, agent_id }),
+            SessionUpdate::ToolCall(c) => Some(self.tool(agent_id, c.into())),
+            SessionUpdate::ToolCallUpdate(u) => Some(self.tool(agent_id, u)),
+            SessionUpdate::UsageUpdate(u) if agent_id.is_none() => {
                 let usage = Usage {
                     total_tokens: Some(u.used),
                     cost_usd: u.cost.filter(|c| c.currency == "USD").map(|c| c.amount),
@@ -184,10 +290,31 @@ impl Turn {
         }
     }
 
-    fn tool(&mut self, update: ToolCallUpdate) -> RunEvent {
+    /// Subagent lifecycle announced in `session` (its parent's); async tasks are session-level, see `TaskSnap`.
+    pub fn subagent(&mut self, session: &str, update: ExtUpdate) -> Option<RunEvent> {
+        let (id, state) = match update {
+            ExtUpdate::SubagentSpawned { subagent_session_id, name, task } => {
+                let parent_id = self.agent_of(session);
+                self.subagents.insert(subagent_session_id.clone(), Subagent { parent_id, name, task: clip(&task) });
+                (subagent_session_id, SubagentState::Running)
+            }
+            ExtUpdate::SubagentStateUpdate { subagent_session_id, state } => (subagent_session_id, state),
+            _ => return None,
+        };
+        let s = self.subagents.get(&id)?;
+        Some(RunEvent::Subagent {
+            agent_id: id,
+            parent_id: s.parent_id.clone(),
+            name: s.name.clone(),
+            task: s.task.clone(),
+            state,
+        })
+    }
+
+    fn tool(&mut self, agent_id: Option<String>, update: ToolCallUpdate) -> RunEvent {
         let (id, f) = (update.tool_call_id.0.to_string(), update.fields);
         let locations = f.locations.as_deref().unwrap_or_default();
-        let state = self.tools.entry(id.clone()).or_default();
+        let state = self.tools.entry((agent_id.clone(), id.clone())).or_default();
         if let Some(t) = f.title {
             state.title = t;
         }
@@ -209,6 +336,7 @@ impl Turn {
             state.output = Some(out);
         }
         RunEvent::Tool {
+            agent_id,
             tool_call_id: id,
             title: state.title.clone(),
             tool_kind: state
@@ -354,25 +482,26 @@ mod tests {
         let mut t = Turn::default();
         let chunk = |s: &str| ContentChunk::new(ContentBlock::Text(TextContent::new(s)));
         assert_eq!(
-            t.apply(SessionUpdate::AgentMessageChunk(chunk("好的，"))),
-            Some(RunEvent::Text { delta: "好的，".into() })
+            t.apply("s", SessionUpdate::AgentMessageChunk(chunk("好的，"))),
+            Some(RunEvent::Text { delta: "好的，".into(), agent_id: None })
         );
         assert_eq!(
-            t.apply(SessionUpdate::AgentThoughtChunk(chunk("想"))),
-            Some(RunEvent::Thought { delta: "想".into() })
+            t.apply("s", SessionUpdate::AgentThoughtChunk(chunk("想"))),
+            Some(RunEvent::Thought { delta: "想".into(), agent_id: None })
         );
-        t.apply(SessionUpdate::AgentMessageChunk(chunk("完成")));
+        t.apply("s", SessionUpdate::AgentMessageChunk(chunk("完成")));
         assert_eq!(t.reply, "好的，完成");
 
         let read = ToolCall::new("r1", "Read a").kind(ToolKind::Read).locations(vec![ToolCallLocation::new("/w/a.rs")]);
-        t.apply(SessionUpdate::ToolCall(read));
+        t.apply("s", SessionUpdate::ToolCall(read));
         let edit = ToolCall::new("e1", "Edit b")
             .kind(ToolKind::Edit)
             .status(ToolCallStatus::InProgress)
             .locations(vec![ToolCallLocation::new("/w/b.rs").line(3)]);
         assert_eq!(
-            t.apply(SessionUpdate::ToolCall(edit)),
+            t.apply("s", SessionUpdate::ToolCall(edit)),
             Some(RunEvent::Tool {
+                agent_id: None,
                 tool_call_id: "e1".into(),
                 title: "Edit b".into(),
                 tool_kind: "edit".into(),
@@ -387,8 +516,9 @@ mod tests {
                 .locations(vec![ToolCallLocation::new("/w/c.rs")]),
         );
         assert_eq!(
-            t.apply(SessionUpdate::ToolCallUpdate(done)),
+            t.apply("s", SessionUpdate::ToolCallUpdate(done)),
             Some(RunEvent::Tool {
+                agent_id: None,
                 tool_call_id: "e1".into(),
                 title: "Edit b".into(),
                 tool_kind: "edit".into(),
@@ -398,7 +528,7 @@ mod tests {
         );
         assert_eq!(t.files.iter().cloned().collect::<Vec<_>>(), vec!["/w/b.rs", "/w/c.rs"]);
 
-        t.apply(SessionUpdate::UsageUpdate(UsageUpdate::new(1200, 200000).cost(Cost::new(0.5, "USD"))));
+        t.apply("s", SessionUpdate::UsageUpdate(UsageUpdate::new(1200, 200000).cost(Cost::new(0.5, "USD"))));
         assert_eq!(t.usage, Some(Usage { total_tokens: Some(1200), cost_usd: Some(0.5), ..Default::default() }));
     }
 
@@ -409,9 +539,9 @@ mod tests {
             let meta = serde_json::json!({ "jetbrains": { "air": { "version": 1, "sessionFailure": { "severity": severity, "title": "model not supported" } } } });
             SessionUpdate::SessionInfoUpdate(SessionInfoUpdate::new().meta(meta.as_object().cloned().unwrap()))
         };
-        t.apply(info("warning"));
+        t.apply("s", info("warning"));
         assert_eq!(t.failure, None);
-        t.apply(info("error"));
+        t.apply("s", info("error"));
         assert_eq!(t.failure.as_deref(), Some("model not supported"));
     }
 
@@ -428,7 +558,7 @@ mod tests {
         let mut t = Turn::default();
         let exec =
             ToolCall::new("x", "Run").kind(ToolKind::Execute).raw_input(serde_json::json!({ "command": "ls -la" }));
-        let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCall(exec)) else { panic!() };
+        let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCall(exec)) else { panic!() };
         assert_eq!(detail.as_deref(), Some("$ ls -la"));
 
         let lines: Vec<String> = (1..=30).map(|i| format!("line {i}")).collect();
@@ -439,7 +569,7 @@ mod tests {
                 .status(ToolCallStatus::Completed)
                 .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new(output)))]),
         );
-        let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCallUpdate(done)) else { panic!() };
+        let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCallUpdate(done)) else { panic!() };
         let expected = format!("$ ls -la\n{}", lines[30 - OUTPUT_LINES..].join("\n"));
         assert_eq!(detail.as_deref(), Some(expected.as_str()));
     }
@@ -451,7 +581,95 @@ mod tests {
             .kind(ToolKind::Read)
             .locations(vec![ToolCallLocation::new("/w/a.rs")])
             .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("fn main() {}")))]);
-        let Some(RunEvent::Tool { detail, .. }) = t.apply(SessionUpdate::ToolCall(read)) else { panic!() };
+        let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCall(read)) else { panic!() };
         assert_eq!(detail.as_deref(), Some("/w/a.rs"));
+    }
+
+    fn ext(v: serde_json::Value) -> ExtUpdate {
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn subagent_updates_carry_their_agent_and_stay_out_of_the_reply() {
+        let mut t = Turn::default();
+        let chunk =
+            |s: &str| SessionUpdate::AgentMessageChunk(ContentChunk::new(ContentBlock::Text(TextContent::new(s))));
+        let spawned = ext(serde_json::json!({
+            "sessionUpdate": "subagent_spawned", "subagentSessionId": "task-1", "name": "Explore",
+            "task": "找调用方", "capabilities": {}
+        }));
+        assert_eq!(
+            t.subagent("root", spawned),
+            Some(RunEvent::Subagent {
+                agent_id: "task-1".into(),
+                parent_id: None,
+                name: "Explore".into(),
+                task: "找调用方".into(),
+                state: SubagentState::Running
+            })
+        );
+        assert_eq!(
+            t.apply("task-1", chunk("子报告")),
+            Some(RunEvent::Text { delta: "子报告".into(), agent_id: Some("task-1".into()) })
+        );
+        t.apply("root", chunk("主回复"));
+        assert_eq!(t.reply, "主回复");
+
+        let same_id = |s| ToolCall::new("x", "Read").kind(ToolKind::Read).locations(vec![ToolCallLocation::new(s)]);
+        t.apply("root", SessionUpdate::ToolCall(same_id("/w/a")));
+        let Some(RunEvent::Tool { agent_id, detail, .. }) = t.apply("task-1", SessionUpdate::ToolCall(same_id("/w/b")))
+        else {
+            panic!()
+        };
+        assert_eq!((agent_id.as_deref(), detail.as_deref()), (Some("task-1"), Some("/w/b")));
+
+        let nested = ext(serde_json::json!({
+            "sessionUpdate": "subagent_spawned", "subagentSessionId": "task-2", "name": "Plan", "task": "t", "capabilities": {}
+        }));
+        let Some(RunEvent::Subagent { parent_id, .. }) = t.subagent("task-1", nested) else { panic!() };
+        assert_eq!(parent_id.as_deref(), Some("task-1"));
+        let done = ext(
+            serde_json::json!({ "sessionUpdate": "subagent_state_update", "subagentSessionId": "task-1", "state": "completed" }),
+        );
+        let Some(RunEvent::Subagent { state, name, .. }) = t.subagent("root", done) else { panic!() };
+        assert_eq!((state, name.as_str()), (SubagentState::Completed, "Explore"));
+    }
+
+    #[test]
+    fn task_snapshots_merge_spawn_progress_and_state() {
+        let ExtUpdate::AsyncTaskSpawned(p) = ext(serde_json::json!({
+            "sessionUpdate": "async_task_spawned", "asyncTaskId": "b1", "name": "pnpm dev", "taskType": "shell",
+            "showInTranscript": false, "canStop": true, "toolCallId": "tc9"
+        })) else {
+            panic!()
+        };
+        let mut snap = TaskSnap::new(Some("task-1".into()));
+        snap.patch(p);
+        let ExtUpdate::AsyncTaskProgress(p) = ext(serde_json::json!({
+            "sessionUpdate": "async_task_progress", "asyncTaskId": "b1", "outputFilePath": "/tmp/b1.log"
+        })) else {
+            panic!()
+        };
+        snap.patch(p);
+        assert!(!snap.ended());
+        let ExtUpdate::AsyncTaskStateUpdate(p) = ext(serde_json::json!({
+            "sessionUpdate": "async_task_state_update", "asyncTaskId": "b1", "state": "completed", "summary": "exit 0"
+        })) else {
+            panic!()
+        };
+        assert_eq!(
+            snap.patch(p),
+            RunEvent::Task {
+                task_id: "b1".into(),
+                agent_id: Some("task-1".into()),
+                tool_call_id: Some("tc9".into()),
+                name: "pnpm dev".into(),
+                task_type: "shell".into(),
+                state: TaskState::Completed,
+                summary: Some("exit 0".into()),
+                output_path: Some("/tmp/b1.log".into()),
+            }
+        );
+        assert!(snap.ended());
     }
 }

@@ -290,6 +290,8 @@ describe('机器与网络', () => {
     await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
     expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')
     expect(screen.getByText('38 ms').className).not.toContain('admin-table__bad')
+    expect(screen.getByText('180 ms').querySelector('svg.admin-table__bad-icon')).toBeTruthy()
+    expect(screen.getByText('38 ms').querySelector('svg')).toBeNull()
     expect(screen.getByText('38 ms').title).toMatch(/^测量于 /)
     // Selecting a row enables 机器详情…; Enter opens it too.
     const details = screen.getByRole('button', { name: '机器详情…' }) as HTMLButtonElement

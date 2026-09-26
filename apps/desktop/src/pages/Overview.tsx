@@ -5,6 +5,7 @@ import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { Section } from '../lib/ui'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
+import { RunDetail } from './RunDetail'
 
 const REFRESH_MS = 15_000
 
@@ -15,6 +16,7 @@ export function OverviewPage(_: PageProps) {
   const runs = status?.runs ?? []
   const [bots, setBots] = useState<MachineBot[]>([])
   const [overview, setOverview] = useState<Overview | null>(null)
+  const [detail, setDetail] = useState<string | null>(null)
   const kind = connKind(snapshot)
 
   // Bot bindings and workspaces change elsewhere: refetch now and then, and as soon as runs start / finish.
@@ -41,6 +43,7 @@ export function OverviewPage(_: PageProps) {
       : 'WSS'
     : 'WS · 未加密'
 
+  if (detail) return <RunDetail runId={detail} onBack={() => setDetail(null)} />
   return (
     <>
       {status ? <ConnAlert status={status} version={info?.version} protocol={info?.protocol} /> : null}
@@ -66,7 +69,12 @@ export function OverviewPage(_: PageProps) {
             {running.map((r) => {
               const badge = runBadge(r.status)
               return (
-                <div key={r.runId} className="dk-row">
+                <button
+                  key={r.runId}
+                  type="button"
+                  className="dk-row dk-row--button"
+                  onClick={() => setDetail(r.runId)}
+                >
                   <Icon name="bot" size={18} color="var(--system-indigo)" />
                   <div className="dk-row__main">
                     <span className="dk-row__title">
@@ -78,7 +86,8 @@ export function OverviewPage(_: PageProps) {
                     <span className="dk-mono dk-sub dk-ellipsis">{r.step}</span>
                   </div>
                   <Badge variant={badge.variant}>{badge.text}</Badge>
-                </div>
+                  <Icon name="chevron-right" size={12} color="var(--label-tertiary)" />
+                </button>
               )
             })}
           </div>

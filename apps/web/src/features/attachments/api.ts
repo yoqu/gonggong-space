@@ -1,5 +1,6 @@
 import type { Attachment } from '@gonggong/protocol'
 import { ApiError } from '../../lib/api'
+import { fileType } from '../../ui/file-icon'
 
 export type Upload = Omit<Attachment, 'messageId'>
 
@@ -30,17 +31,13 @@ export function uploadFile(groupId: string, file: File, onProgress: (pct: number
 
 export type FileKind = 'image' | 'video' | 'md' | 'text' | 'code' | 'file'
 
-const CODE =
-  /\.(ts|tsx|js|jsx|mjs|cjs|go|rs|py|java|kt|swift|rb|php|c|h|cc|cpp|cs|sh|sql|json|ya?ml|toml|css|scss|html|xml|vue)$/i
-
 /** Preview kind (prototype KIND_*): svg is served as a download, so it is a plain file here. */
 export function kindOf(a: Pick<Attachment, 'name' | 'mime'>): FileKind {
   if (a.mime.startsWith('image/') && a.mime !== 'image/svg+xml') return 'image'
   if (a.mime.startsWith('video/')) return 'video'
-  if (/\.(md|markdown)$/i.test(a.name) || a.mime === 'text/markdown') return 'md'
-  if (CODE.test(a.name)) return 'code'
-  if (a.mime.startsWith('text/') || /\.(log|txt|csv)$/i.test(a.name)) return 'text'
-  return 'file'
+  const t = fileType(a.name, a.mime)
+  if (t === 'md' || t === 'code' || t === 'text') return t
+  return a.mime.startsWith('text/') || /\.csv$/i.test(a.name) ? 'text' : 'file'
 }
 
 export const KIND_LABEL: Record<FileKind, string> = {

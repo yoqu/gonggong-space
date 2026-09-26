@@ -11,6 +11,7 @@ vi.mock('../src/ipc', () => ({
     machineBots: vi.fn(),
     confirmBots: vi.fn(),
     overview: vi.fn(),
+    runProcess: vi.fn(),
     settings: vi.fn(),
     setAutoUpgrade: vi.fn(),
     setLaunchAtLogin: vi.fn(),

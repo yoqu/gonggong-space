@@ -46,6 +46,10 @@ describe('Icon', () => {
     expect(Object.keys(DRAWN_PATHS).filter((name) => name in PANE_PATHS)).toEqual([])
   })
 
+  it('draws up/down arrows for git ahead/behind', () => {
+    expect(ICON_NAMES).toEqual(expect.arrayContaining(['arrow-up', 'arrow-down']))
+  })
+
   it('renders Pane originals for names Pane v2 added', () => {
     const { container } = render(<Icon name="copy" />)
     expect(container.querySelector('path')?.getAttribute('d')).toBe(PANE_PATHS.copy)

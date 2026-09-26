@@ -2,7 +2,7 @@
  * Typed bridge to the Rust side (`src-tauri/src/commands/*`). Every command is mirrored here; pages never call
  * `invoke` directly, so tests can mock this module.
  */
-import type { AgentInfo, AgentKind, BotDto, RunStatus } from '@gonggong/protocol'
+import type { AgentInfo, AgentKind, BotDto, RunEvent, RunStatus } from '@gonggong/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
@@ -26,6 +26,14 @@ export interface RunInfo {
   step: string
   queued: boolean
   startedMs: number
+}
+
+/** A run's process as executed on this machine (kept for the last finished runs too). */
+export interface RunProcess {
+  run: RunInfo
+  events: { id: number; atMs: number; event: RunEvent }[]
+  endedMs: number | null
+  outcome: 'completed' | 'interrupted' | 'failed' | null
 }
 
 export interface DaemonStatus {
@@ -174,6 +182,7 @@ export const ipc = {
   machineBots: () => invoke<MachineBot[]>('machine_bots'),
   confirmBots: (ids: string[]) => invoke<void>('confirm_bots', { ids }),
   overview: () => invoke<Overview>('overview'),
+  runProcess: (runId: string) => invoke<RunProcess | null>('run_process', { runId }),
   settings: () => invoke<Settings>('get_settings'),
   setAutoUpgrade: (on: boolean) => invoke<void>('set_auto_upgrade', { on }),
   setLaunchAtLogin: (on: boolean) => invoke<void>('set_launch_at_login', { on }),

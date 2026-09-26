@@ -270,11 +270,12 @@ describe('Avatar', () => {
   })
 
   it('hashes the name to a stable avatar color', () => {
-    const { rerender } = render(<Avatar name="张三" />)
-    const first = screen.getByRole('img', { name: '张三' }).style.background
+    const fill = () => (container.querySelector('.ui-avatar__art > rect') as SVGRectElement).style.fill
+    const { container, rerender } = render(<Avatar name="张三" />)
+    const first = fill()
     expect(first).toMatch(/^var\(--avatar-[1-6]\)$/)
     rerender(<Avatar name="张三" size={40} />)
-    expect(screen.getByRole('img', { name: '张三' }).style.background).toBe(first)
+    expect(fill()).toBe(first)
   })
 
   it('announces presence status', () => {

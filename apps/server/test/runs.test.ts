@@ -312,7 +312,15 @@ describe('run engine', () => {
     expect(pushed).toEqual({
       t: 'group.botState',
       groupId: w.group.id,
-      state: { botId: w.bot.id, workspace: 'managed', state: 'ready', path: null, git, error: null },
+      state: {
+        botId: w.bot.id,
+        workspace: 'managed',
+        state: 'ready',
+        path: null,
+        git,
+        error: null,
+        tier: null,
+      },
     })
     const [gb] = await t.db
       .select()

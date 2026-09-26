@@ -1,20 +1,17 @@
-import type { RunDetailDto } from '@gonggong/protocol'
-import { AnimatePresence, motion } from 'motion/react'
-import { type CSSProperties, useEffect, useState } from 'react'
+import type { DiffScope, RunDetailDto } from '@gonggong/protocol'
+import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { cx } from '../../lib/cx'
-import { SPRING } from '../../lib/motion'
+import { useNow } from '../../lib/now'
 import { realtime } from '../../lib/realtime'
 import {
-  Avatar,
   CloseButton,
   EmptyState,
   FailedArt,
   GroupBox,
   GroupRow,
   Icon,
-  type IconName,
+  NoChangesArt,
   Spinner,
   Tabs,
   Tag,
@@ -22,44 +19,22 @@ import {
   toast,
   useEscape,
 } from '../../ui'
-import { Markdown } from '../chat/Markdown'
-import { fmtDuration, fmtUsage, RUN_STATUS, useNow } from '../chat/TimelineItems'
-import {
-  approvalText,
-  buildSteps,
-  type DiffFile,
-  diffCells,
-  findFile,
-  hhmm,
-  parsePatch,
-  type Step,
-} from './process'
+import { BotAvatar } from '../bots/avatars'
+import { fmtDuration, fmtUsage, RUN_STATUS } from '../chat/TimelineItems'
+import { DiffFileList, DiffScopeBar, emptyText, scopeNote } from '../diff/DiffParts'
+import { type DiffSource, useDiffWindow } from '../diff/store'
+import { useWorkspaceDiff, type WorkspaceDiff } from '../diff/useWorkspaceDiff'
+import { ProcessView } from './ProcessView'
+import { approvalText, buildSteps, hhmm } from './process'
 import { type RailTab, useRunRail } from './rail'
 import './rail.css'
 import './runs.css'
 
 const TABS: { value: RailTab; label: string }[] = [
   { value: 'process', label: '过程' },
-  { value: 'diff', label: '文件 diff' },
+  { value: 'diff', label: '改动' },
   { value: 'audit', label: '审批记录' },
 ]
-/** Timeline node per step kind; unknown ACP tool kinds fall back to `other`. */
-export const STEP_ICON: Record<string, IconName> = {
-  context: 'tray',
-  thought: 'more',
-  think: 'more',
-  text: 'bubble',
-  status: 'activity',
-  approval: 'shield-warning',
-  read: 'doc-text',
-  edit: 'textformat',
-  delete: 'trash',
-  move: 'arrow-turn-down-right',
-  search: 'search',
-  execute: 'terminal',
-  fetch: 'cloud',
-  other: 'gear',
-}
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const PURGED = '运行过程已过期，仅保留摘要'
 /** Coalesces bursts of run.updated into one refetch. */
@@ -88,7 +63,7 @@ function useRunDetail(runId: string) {
           if (!d) return d
           const last = d.events.at(-1)
           const events =
-            last?.event.kind === 'text'
+            last?.event.kind === 'text' && !last.event.agentId
               ? [
                   ...d.events.slice(0, -1),
                   { ...last, event: { kind: 'text' as const, delta: last.event.delta + e.text } },
@@ -115,7 +90,7 @@ function useRunDetail(runId: string) {
 
 /** Right rail for one run (spec §8.2): header facts, then 过程 / 文件 diff / 审批记录. */
 export function RunRail({ runId }: { runId: string }) {
-  const { tab, file, setTab, setFile, close } = useRunRail()
+  const { tab, setTab, close } = useRunRail()
   const { detail, error } = useRunDetail(runId)
   useEscape(close)
   const bots = useWorkspace((s) => s.bots)
@@ -124,7 +99,17 @@ export function RunRail({ runId }: { runId: string }) {
   const now = useNow(!!run && LIVE.includes(run.status) && !!run.startedAt)
   const bot = bots.find((b) => b.id === run?.botId)
   const members = groups.find((g) => g.id === run?.groupId)?.members ?? []
+  const root = useWorkspace((s) => (run ? s.botStates[run.groupId]?.[run.botId]?.path : null)) ?? null
   const userName = (id: string | null) => members.find((m) => m.userId === id)?.name ?? '—'
+  const live = !!run && LIVE.includes(run.status)
+  const [groupId, botId, id] = [run?.groupId, run?.botId, run?.id]
+  const source = useMemo(
+    () => (groupId && botId && id ? { groupId, botId, runId: id } : null),
+    [groupId, botId, id],
+  )
+  // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
+  const turn = useWorkspaceDiff(source, 'turn', live ? undefined : (detail?.patch ?? null))
+  const openDiff = useDiffWindow((s) => s.open)
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
   const ended = run?.endedAt ? Date.parse(run.endedAt) : now
   return (
@@ -132,7 +117,7 @@ export function RunRail({ runId }: { runId: string }) {
       <Toolbar
         className="rail-bar"
         scrolled={false}
-        leading={<Avatar name={bot?.name ?? 'bot'} size={24} shape="square" />}
+        leading={<BotAvatar id={bot?.id} name={bot?.name ?? 'bot'} size={24} />}
         title={bot?.name ?? 'bot'}
         subtitle={run ? `${userName(run.triggerUserId ?? run.originUserId)} 触发` : undefined}
       >
@@ -166,21 +151,24 @@ export function RunRail({ runId }: { runId: string }) {
           <div className="run-rail__loading">
             <Spinner />
           </div>
-        ) : tab === 'process' ? (
+        ) : !source ? null : tab === 'process' ? (
           detail.purged ? (
             <div className="run-rail__empty">{PURGED}</div>
           ) : (
-            <ol className="run-steps" aria-label="运行过程">
-              {/* Steps already there when the rail opens stay put; only new ones slide in. */}
-              <AnimatePresence initial={false}>
-                {buildSteps(detail).map((s) => (
-                  <StepRow key={s.key} step={s} />
-                ))}
-              </AnimatePresence>
-            </ol>
+            <ProcessView
+              key={runId}
+              steps={buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail)}
+              root={root}
+              live={live}
+              startedAt={run?.startedAt ?? null}
+              workedMs={
+                run?.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null
+              }
+              onOpenDiff={(path) => openDiff(source, 'turn', path)}
+            />
           )
         ) : tab === 'diff' ? (
-          <DiffTab detail={detail} file={file} onFile={setFile} />
+          <ChangesTab detail={detail} source={source} turn={turn} />
         ) : (
           <AuditTab detail={detail} userName={userName} />
         )}
@@ -217,141 +205,51 @@ function SessionId({ id }: { id: string }) {
   )
 }
 
-function StepRow({ step }: { step: Step }) {
-  const state = step.failed ? 'failed' : step.running ? 'running' : 'done'
-  const node = `${step.label}${state === 'failed' ? ' · 失败' : state === 'running' ? ' · 进行中' : ''}`
-  const head = (
-    <>
-      <span className="run-step__label">{step.label}</span>
-      <span className="spacer" />
-      {step.diff ? <DiffBar {...step.diff} /> : null}
-      {step.meta ? (
-        <span className={cx('run-step__meta', step.failed && 'run-step__meta--failed')}>{step.meta}</span>
-      ) : null}
-    </>
-  )
-  return (
-    <motion.li
-      className="run-step"
-      data-state={state}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={SPRING.snappy}
-    >
-      <span className="run-step__node" role="img" aria-label={node} title={node}>
-        <Icon name={STEP_ICON[step.kind] ?? 'gear'} size={13} />
-      </span>
-      <div className="run-step__main">
-        {step.kind === 'thought' ? (
-          <details>
-            <summary className="run-step__head">{head}</summary>
-            <div className="run-step__body">{step.body}</div>
-          </details>
-        ) : (
-          <>
-            <div className="run-step__head">{head}</div>
-            {step.body ? (
-              step.kind === 'text' ? (
-                <div className="run-step__md">
-                  <Markdown text={step.body} />
-                </div>
-              ) : (
-                <div className="run-step__body">{step.body}</div>
-              )
-            ) : null}
-            {step.mono ? <div className="run-step__mono">{step.mono}</div> : null}
-            {step.out ? <pre className="run-step__out">{step.out}</pre> : null}
-          </>
-        )}
-      </div>
-    </motion.li>
-  )
-}
-
-/** Five cells split between added and deleted lines (GitHub style); the numbers stay as text beside it. */
-function DiffBar({ add, del }: { add: number; del: number }) {
-  const label = `新增 ${add} 行，删除 ${del} 行`
-  return (
-    <span className="diff-bar" role="img" aria-label={label} title={label}>
-      {diffCells(add, del).map((c, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: the five cells are positional
-        <span key={i} className="diff-bar__cell" data-cell={c} style={{ '--i': i } as CSSProperties} />
-      ))}
-    </span>
-  )
-}
-
-function DiffTab({
+/** 改动: this turn (live while it runs), the workspace's uncommitted work, or the branch against main. */
+function ChangesTab({
   detail,
-  file,
-  onFile,
+  source,
+  turn,
 }: {
   detail: RunDetailDto
-  file: string | null
-  onFile: (path: string) => void
+  source: DiffSource
+  turn: WorkspaceDiff
 }) {
-  if (detail.purged) return <div className="run-rail__empty">{PURGED}</div>
-  const files = parsePatch(detail.patch ?? '')
-  const picked = file === null ? files[0] : findFile(files, file)
+  const [scope, setScope] = useState<DiffScope>('turn')
+  const openDiff = useDiffWindow((s) => s.open)
+  const other = useWorkspaceDiff(scope === 'turn' ? null : source, scope)
+  const diff = scope === 'turn' ? turn : other
+  const { file } = useRunRail()
+  // A file asked for from a reply or a notification opens straight in the diff window.
+  useEffect(() => {
+    if (!file) return
+    openDiff(source, 'turn', file)
+    useRunRail.setState({ file: null })
+  }, [file, source, openDiff])
   return (
     <>
-      {files.length ? (
-        <div className="run-diff__files">
-          {files.map((f) => (
-            <button
-              key={f.path}
-              type="button"
-              className={cx('run-diff__file', f === picked && 'run-diff__file--active')}
-              onClick={() => onFile(f.path)}
-            >
-              <Icon name="doc-code" size={13} />
-              <span className="run-diff__path">{f.path}</span>
-              <span className="run-diff__add">+{f.add}</span>
-              <span className="run-diff__del">−{f.del}</span>
-              {f.binary ? null : <DiffBar add={f.add} del={f.del} />}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <EmptyState compact icon="doc-code" title="本轮没有文件改动" />
-      )}
-      {picked ? (
-        <DiffView file={picked} />
-      ) : file !== null ? (
-        <div className="run-rail__empty">
-          <span className="run-rail__mono">{file}</span>
-          <br />
-          该文件本轮未改动
-        </div>
-      ) : null}
-    </>
-  )
-}
-
-const lineClass = (l: string) =>
-  l.startsWith('+')
-    ? 'add'
-    : l.startsWith('-')
-      ? 'del'
-      : l.startsWith('@@')
-        ? 'hunk'
-        : l.startsWith(' ')
-          ? ''
-          : 'note'
-
-function DiffView({ file }: { file: DiffFile }) {
-  return (
-    <div className="run-diff">
-      <div className="run-diff__name">{file.path}</div>
-      <div className="run-diff__lines">
-        {file.lines.map((l, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional and never reorder
-          <div key={i} className={cx('run-diff__line', lineClass(l) && `run-diff__line--${lineClass(l)}`)}>
-            {l || ' '}
-          </div>
-        ))}
+      <div className="run-changes__bar">
+        <DiffScopeBar scope={scope} turn onChange={setScope} />
+        <span className="run-changes__branch">{scopeNote(scope, diff.branch, diff.base)}</span>
       </div>
-    </div>
+      {scope === 'turn' && detail.purged ? (
+        <div className="run-rail__empty">{PURGED}</div>
+      ) : diff.loading && !diff.files.length ? (
+        <div className="run-rail__loading">
+          <Spinner />
+        </div>
+      ) : diff.error ? (
+        <EmptyState compact icon="warning" title="无法读取改动" description={diff.error} />
+      ) : diff.files.length ? (
+        <DiffFileList files={diff.files} onPick={(path) => openDiff(source, scope, path)} />
+      ) : (
+        <EmptyState
+          compact
+          illustration={<NoChangesArt />}
+          title={emptyText(scope, diff.branch, diff.base)}
+        />
+      )}
+    </>
   )
 }
 

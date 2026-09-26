@@ -78,6 +78,13 @@ impl Host {
         Ok(())
     }
 
+    pub fn process(&self, run_id: &str) -> Option<gonggong::status::Process> {
+        match &*self.state.lock().unwrap() {
+            State::Running(daemon) => daemon.process(run_id),
+            _ => None,
+        }
+    }
+
     /// Hands a fresh local detection to the running daemon, which reports it to the server if it changed.
     pub fn report_agents(&self, agents: Vec<gonggong::protocol::AgentInfo>) {
         if let State::Running(daemon) = &*self.state.lock().unwrap() {

@@ -1,0 +1,15 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "task",
+    "taskId": "bash-2",
+    "agentId": "task-7",
+    "toolCallId": "tc9",
+    "name": "pnpm dev",
+    "taskType": "local_bash",
+    "state": "completed",
+    "summary": "exit 0",
+    "outputPath": "/tmp/tasks/bash-2.log"
+  }
+}

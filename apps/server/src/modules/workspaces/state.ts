@@ -1,4 +1,4 @@
-import type { GitStatus, GroupBotStateDto } from '@gonggong/protocol'
+import type { GitStatus, GroupBotStateDto, Tier } from '@gonggong/protocol'
 import { and, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
@@ -13,6 +13,7 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   path: r.workspacePath,
   git: (r.gitStatus as GitStatus | null) ?? null,
   error: r.workspaceError,
+  tier: r.tier as Tier | null,
 })
 
 export async function listBotStates(ctx: Ctx, groupId: string) {
@@ -31,7 +32,13 @@ export async function updateBotState(
   patch: Partial<
     Pick<
       Row,
-      'workspaceKind' | 'cdPath' | 'workspaceState' | 'workspacePath' | 'workspaceError' | 'gitStatus'
+      | 'workspaceKind'
+      | 'cdPath'
+      | 'workspaceState'
+      | 'workspacePath'
+      | 'workspaceError'
+      | 'gitStatus'
+      | 'tier'
     >
   >,
 ) {

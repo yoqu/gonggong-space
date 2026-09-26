@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Fragment } from 'react'
 import { SPRING } from '../../lib/motion'
+import { Emoji } from '../../ui'
 import { UserCardTrigger } from '../users'
 import { type ReactionTarget, toggleReaction, useReactions } from './store'
 import './reactions.css'
@@ -44,7 +45,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
                   aria-label={`${r.emoji} ${r.count}`}
                   onClick={() => void toggleReaction(message.id, reactions, r.emoji)}
                 >
-                  {r.emoji}
+                  <Emoji char={r.emoji} />
                 </button>
                 <span className="reaction-pill__users">
                   {r.users.slice(0, SHOWN).map((u, i) => (

@@ -53,7 +53,7 @@ function assignRef<T>(ref: Ref<T> | undefined, el: T | null) {
   else if (ref) (ref as RefObject<T | null>).current = el
 }
 
-/** Hint line under a field; an error replaces the hint and gets a ⚠ so it never relies on color alone. */
+/** Hint line under a field; an error replaces the hint and gets a warning icon so it never relies on color alone. */
 function FieldNote({
   id,
   hint,
@@ -69,6 +69,7 @@ function FieldNote({
   if (note == null && extra == null) return null
   return (
     <span id={id} className={cx('ui-field__hint', error != null && 'ui-field__hint--error')}>
+      {error != null ? <Icon name="warning" size={12} className="ui-field__hint-icon" /> : null}
       {note}
       {extra}
     </span>

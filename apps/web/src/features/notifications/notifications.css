@@ -58,9 +58,13 @@
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
 }
+.notif__row {
+  position: relative;
+}
 .notif__item {
   position: relative;
   display: flex;
+  width: 100%;
   gap: 10px;
   padding: var(--space-8) var(--space-8) var(--space-8) var(--space-16);
   border: 0;
@@ -85,7 +89,7 @@
 .notif__item--resolved {
   opacity: 0.55;
 }
-.notif__item:hover {
+.notif__row:hover .notif__item {
   background: var(--selection-fill);
 }
 .notif__icon {
@@ -115,6 +119,31 @@
 .notif__time {
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
+}
+/* Takes the time stamp's place on hover so the text keeps its full width. */
+.notif__delete {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  opacity: 0;
+}
+.notif__row:hover .notif__delete,
+.notif__delete:focus-visible {
+  opacity: 1;
+}
+.notif__row:hover .notif__time {
+  visibility: hidden;
+}
+@media (hover: none) {
+  .notif__delete {
+    opacity: 1;
+  }
+  .notif__row .notif__line {
+    padding-right: var(--space-20);
+  }
+  .notif__row:hover .notif__time {
+    visibility: visible;
+  }
 }
 .notif__text {
   font-size: var(--text-callout-size);

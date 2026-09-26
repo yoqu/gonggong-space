@@ -1,7 +1,17 @@
 import type { AdminGroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, SearchField, Spinner, Table, Tag, type TagTone } from '../../ui'
+import {
+  Alert,
+  EmptyState,
+  NoGroupsArt,
+  NoResultsArt,
+  SearchField,
+  Spinner,
+  Table,
+  Tag,
+  type TagTone,
+} from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
@@ -51,7 +61,13 @@ export function GroupsPage() {
           className="admin-grid"
           rows={shown}
           defaultSort={{ key: 'name', dir: 'asc' }}
-          emptyText={q ? '没有匹配的群' : '还没有群'}
+          emptyText={
+            <EmptyState
+              compact
+              title={q ? '没有匹配的群' : '还没有群'}
+              illustration={q ? <NoResultsArt /> : <NoGroupsArt />}
+            />
+          }
           columns={[
             { key: 'name', title: '群', sortable: true, sortValue: title, render: title },
             {

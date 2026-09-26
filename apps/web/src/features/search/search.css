@@ -162,3 +162,6 @@
   background: var(--glass-fill-clear);
   color: inherit;
 }
+.search__row--active svg[data-type] {
+  filter: drop-shadow(0 0 1px var(--on-accent));
+}

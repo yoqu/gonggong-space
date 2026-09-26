@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button, CloseButton, GroupBox, GroupRow, Icon, Spinner, Tabs, Toolbar, toast } from '../../ui'
+import { Button, CloseButton, FileIcon, GroupBox, GroupRow, Spinner, Tabs, Toolbar, toast } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf, workspacePath } from './api'
-import { KIND_ICON } from './MessageAttachments'
 import { type PreviewTarget, usePreview } from './preview'
 import '../runs/rail.css'
 import './attachments.css'
@@ -85,7 +84,7 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
       <Toolbar
         className="rail-bar"
         scrolled={false}
-        leading={<Icon name={KIND_ICON[kind]} className="rail-bar__icon" />}
+        leading={<FileIcon name={a.name} mime={a.mime} size={28} />}
         title={a.name}
         subtitle={`${KIND_LABEL[kind]} · ${fmtSize(a.size)} · ${from}`}
       >

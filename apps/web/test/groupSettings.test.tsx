@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, RunDto, UserDto } from '@gonggong/protocol'
+import type { BotDto, GroupDto, RunDto, Tier, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -43,6 +43,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
+  avatar: null,
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -169,6 +170,21 @@ describe('group settings inspector', () => {
     expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()
     expect(within(d).getByRole('button', { name: '退出群' })).toBeTruthy()
     expect(within(d).getByRole('button', { name: '解散群' })).toBeTruthy()
+  })
+
+  it('shows the group avatar as a member mosaic in the list, header and inspector', async () => {
+    mockApi(routes([group()]))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    // People show a character; bots (b1, b2) show their SVG art.
+    const tiles = (el: Element) =>
+      [...el.querySelectorAll('.ui-avatar__tile')].map(
+        (t) => t.textContent || t.querySelector('image')?.tagName,
+      )
+    const want = ['磊', '国', 'image', 'image']
+    expect(tiles(screen.getByTestId('group-item-g1'))).toEqual(want)
+    expect(tiles(screen.getByRole('main').querySelector('.pn-chathead') as Element)).toEqual(want)
+    expect(tiles(d.querySelector('.pn-info__id') as Element)).toEqual(want)
   })
 
   it('locks management rows for plain members and hides dissolving', async () => {
@@ -430,23 +446,42 @@ describe('group settings inspector', () => {
     expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
   })
 
-  it('lets a bot owner change the tier in place; others only read it', async () => {
+  it("lets a bot owner set this group's tier; others only read the effective one", async () => {
     const mine = bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex' })
-    mockApi(
-      routes([group({ botIds: ['b1', 'b2', 'b3'] })], { 'GET /bots': [...bots.slice(0, 1), mine, bots[2]] }),
+    const state = (botId: string, tier: Tier | null) => ({
+      botId,
+      workspace: 'managed',
+      state: 'ready',
+      path: null,
+      git: null,
+      error: null,
+      tier,
+    })
+    const calls = mockApi(
+      routes([group({ botIds: ['b1', 'b2', 'b3'] })], {
+        'GET /bots': [...bots.slice(0, 1), mine, bots[2]],
+        'GET /groups/g1/bot-states': [state('b3', 'read-only')],
+        'PUT /groups/g1/bots/b2/tier': () => undefined,
+      }),
     )
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
     const row = (name: string) => within(d).getByText(name).closest('.gs-bot') as HTMLElement
-    expect(within(row('小周的 Codex')).queryByRole('button', { name: '修改档位' })).toBeNull()
-    expect(d.textContent).toContain('桌面端')
+    expect(within(row('小周的 Codex')).queryByRole('button', { name: '本群档位' })).toBeNull()
+    await waitFor(() => expect(row('小周的 Codex').textContent).toContain('档位 只读 · 本群'))
 
-    fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '修改档位' }))
+    fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '本群档位' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '完全访问' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path.endsWith('/bots/b2/tier'))?.body).toEqual({
+        tier: 'full',
+      }),
+    )
+
+    fireEvent.click(within(row('小王的 Codex')).getByRole('button', { name: '全局设置' }))
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
-    expect(within(detail).getByText('小王的 Codex')).toBeTruthy()
     expect(within(detail).getByRole('radio', { name: '工作区写入' })).toBeTruthy()
-    expect(screen.getByRole('navigation', { name: '会话列表' })).toBeTruthy()
   })
 })
 

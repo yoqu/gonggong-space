@@ -25,8 +25,9 @@
 .ui-field__hint--error {
   color: var(--label);
 }
-.ui-field__hint--error::before {
-  content: "⚠ ";
+.ui-field__hint-icon {
+  margin-right: 3px;
+  vertical-align: -2px;
   color: var(--system-red);
 }
 

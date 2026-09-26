@@ -1,4 +1,4 @@
-import type { GroupDto, GroupParams, GroupPrefsReq } from '@gonggong/protocol'
+import type { GroupDto, GroupParams, GroupPrefsReq, Tier } from '@gonggong/protocol'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 
@@ -23,6 +23,9 @@ export const groupsApi = {
   setAdmin: (id: string, userId: string, on: boolean) =>
     (on ? api.post<GroupDto> : api.del<GroupDto>)(`/groups/${id}/admins/${userId}`).then(apply),
   addBot: (id: string, botId: string) => api.post<GroupDto>(`/groups/${id}/bots`, { botId }).then(apply),
+  /** null follows the bot's own tier; the new state arrives as `group.botState`. */
+  setBotTier: (id: string, botId: string, tier: Tier | null) =>
+    api.put(`/groups/${id}/bots/${botId}/tier`, { tier }),
   removeBot: (id: string, botId: string) => api.del<GroupDto>(`/groups/${id}/bots/${botId}`).then(apply),
   leave: (id: string) => api.post(`/groups/${id}/leave`).then(() => drop(id)),
   dissolve: (id: string) => api.post(`/groups/${id}/dissolve`).then(() => drop(id)),

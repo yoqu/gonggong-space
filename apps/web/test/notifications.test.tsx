@@ -138,7 +138,11 @@ describe('notification center', () => {
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
     const list = await screen.findByTestId('notification-list')
-    const [first, second] = (await within(list).findAllByRole('button')) as [HTMLElement, HTMLElement]
+    await within(list).findByText('已处理')
+    const [first, second] = [...list.querySelectorAll<HTMLElement>('.notif__item')] as [
+      HTMLElement,
+      HTMLElement,
+    ]
     expect(first.className).toContain('notif__item--resolved')
     expect(within(first).getByText('已处理')).toBeTruthy()
     expect(within(second).queryByText('已处理')).toBeNull()
@@ -150,11 +154,49 @@ describe('notification center', () => {
     realtime.stop()
   })
 
+  it('deletes one notification and clears the read ones', async () => {
+    const done = new Date().toISOString()
+    useWorkspace.setState({ notifCount: 1 })
+    let items = [
+      note({ id: 'n1', readAt: done }),
+      note({ id: 'n2', type: 'offline_expired', payload: { groupId: 'g1', botName: '小周的 Codex' } }),
+      note({ id: 'n3', readAt: done, type: 'chain_done', payload: { groupId: 'g1', hops: 2 } }),
+    ]
+    const calls = mockApi({
+      'GET /notifications': () => items,
+      'DELETE /notifications/n2': () => {
+        items = items.filter((n) => n.id !== 'n2')
+      },
+      'DELETE /notifications/read': () => {
+        items = items.filter((n) => !n.readAt)
+      },
+    })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    await within(list).findByText('Bot 离线作废')
+    const deletes = within(list).getAllByRole('button', { name: '删除通知' })
+    expect(deletes).toHaveLength(3)
+
+    fireEvent.click(deletes[1]!)
+    await waitFor(() => expect(within(list).queryByText('Bot 离线作废')).toBeNull())
+    expect(useWorkspace.getState().notifCount).toBe(0)
+    expect(screen.getByTestId('where').textContent).toBe('/')
+
+    fireEvent.click(screen.getByRole('button', { name: '清除已读' }))
+    expect(await screen.findByText('暂无通知')).toBeTruthy()
+    expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual([
+      '/notifications/n2',
+      '/notifications/read',
+    ])
+  })
+
   it('closes on Escape unless an IME is composing', async () => {
     mockApi({ 'GET /notifications': [] })
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
-    await screen.findByText('暂无通知')
+    const empty = (await screen.findByText('暂无通知')).closest('.ui-empty--compact')
+    expect(empty?.querySelector('.ui-empty__art svg[aria-hidden="true"]')).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape', isComposing: true })
     expect(screen.getByRole('dialog', { name: '通知' })).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -332,7 +374,8 @@ describe('⌘K search', () => {
     expect(within(results).queryByText('没有匹配的结果')).toBeNull()
     fail = false
     fireEvent.click(within(results).getByRole('button', { name: '重试' }))
-    expect(await within(results).findByText('没有匹配的结果')).toBeTruthy()
+    const none = await within(results).findByText('没有匹配的结果')
+    expect(none.closest('.ui-empty')?.querySelector('.ui-empty__art svg[aria-hidden="true"]')).toBeTruthy()
 
     fireEvent.keyDown(input, { key: 'Escape', isComposing: true })
     expect(screen.getByPlaceholderText('搜索消息、文件、运行')).toBeTruthy()

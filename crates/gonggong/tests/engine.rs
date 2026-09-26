@@ -127,8 +127,8 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
     r.run(start("r1", "写个文件"));
     let (events, approval) = until_approval(&mut r).await;
     assert!(r.workspace().is_dir());
-    assert_eq!(events.first(), Some(&RunEvent::Text { delta: "好的，".into() }));
-    assert!(events.contains(&RunEvent::Thought { delta: "需要写一个文件".into() }));
+    assert_eq!(events.first(), Some(&RunEvent::Text { delta: "好的，".into(), agent_id: None }));
+    assert!(events.contains(&RunEvent::Thought { delta: "需要写一个文件".into(), agent_id: None }));
     assert!(events.iter().any(
         |e| matches!(e, RunEvent::Tool { tool_kind, title, .. } if tool_kind == "edit" && title == "Write hello.txt")
     ));
@@ -219,6 +219,20 @@ async fn full_tier_approves_permissions() {
     s.bot.tier = Tier::Full;
     r.run(s);
     let (_, done) = r.finish("r1").await;
+    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+}
+
+#[tokio::test]
+async fn raising_the_tier_to_full_mid_run_approves_pending_requests() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "写个文件"));
+    until_approval(&mut r).await;
+    r.send(ServerToDaemon::RunTier { run_id: "r1".into(), tier: Tier::Full });
+    let (events, done) = r.finish("r1").await;
+    assert!(events.contains(&RunEvent::Status {
+        status: RunStatus::Running,
+        step: "档位已切换为「完全访问」，自动批准：Write hello.txt".into()
+    }));
     assert_eq!(done.reply, "好的，已写入 hello.txt。");
 }
 
@@ -395,6 +409,43 @@ async fn repo_workspace_fetches_fast_forwards_and_reports_git_changes() {
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
     assert_eq!(done.files_changed, 3);
     assert_eq!(done.git, Some(GitStatus { ahead: Some(1), dirty: true, ..clean }));
+}
+
+#[tokio::test]
+async fn reports_the_live_turns_diff_and_the_workspaces_uncommitted_changes() {
+    let mut r = rig(Duration::from_secs(60));
+    let _remote = repo_workspace(&r);
+    let diff = |scope: DiffScope, run_id: Option<&str>| {
+        ServerToDaemon::WorkspaceDiff(WorkspaceDiff {
+            request_id: format!("{scope:?}"),
+            group_id: "g1".into(),
+            bot_id: "b1".into(),
+            workspace: WorkspaceSpec { repo: None, cd_path: None },
+            scope,
+            run_id: run_id.map(String::from),
+        })
+    };
+    let answer = async |r: &mut Rig| loop {
+        if let DaemonToServer::WorkspaceDiffResult { patch, base, branch, error, .. } = r.next().await {
+            return (patch, base, branch, error);
+        }
+    };
+    r.run(start("r1", "mock:slow"));
+    // Streaming has begun, so the turn's snapshot is taken; then the "agent" edits a file.
+    while !matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }) {}
+    std::fs::write(r.workspace().join("edited.txt"), "mid-turn\n").unwrap();
+    r.send(diff(DiffScope::Turn, Some("r1")));
+    let (patch, _, branch, error) = answer(&mut r).await;
+    assert_eq!((error, branch.as_deref()), (None, Some("main")));
+    assert!(patch.unwrap().contains("+mid-turn"));
+
+    r.send(diff(DiffScope::Turn, Some("gone")));
+    assert_eq!(answer(&mut r).await.3.as_deref(), Some("该轮已结束或不在本机运行"));
+    r.send(diff(DiffScope::Uncommitted, None));
+    assert!(answer(&mut r).await.0.unwrap().contains("b/edited.txt"));
+    r.send(diff(DiffScope::Base, None));
+    assert_eq!(answer(&mut r).await.1, None);
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
 }
 
 #[tokio::test]
@@ -791,4 +842,37 @@ async fn a_corrupt_local_settings_file_fails_the_run() {
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.outcome, RunOutcome::Failed);
     assert!(done.error.unwrap().contains("local.json"), "error names the file");
+}
+
+#[tokio::test]
+async fn attributes_subagent_work_and_reports_background_tasks_after_the_run() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:subagent"));
+    let (events, done) = r.finish("r1").await;
+    assert_eq!(done.reply, "完成");
+    let child = events
+        .iter()
+        .find_map(|e| match e {
+            RunEvent::Subagent { agent_id, name, state: SubagentState::Running, .. } if name == "Explore" => {
+                Some(agent_id.clone())
+            }
+            _ => None,
+        })
+        .expect("subagent spawned");
+    let sub = Some(child.clone());
+    assert!(events.contains(&RunEvent::Text { delta: "子 agent 报告".into(), agent_id: sub.clone() }));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, RunEvent::Tool { agent_id, title, .. } if *agent_id == sub && title == "Read a.rs"))
+    );
+    assert!(events.iter().any(|e| matches!(e, RunEvent::Subagent { state: SubagentState::Completed, .. })));
+    assert!(events.iter().any(|e| matches!(e,
+        RunEvent::Task { task_id, agent_id, state: TaskState::Running, .. } if task_id == "bg1" && *agent_id == sub)));
+
+    let DaemonToServer::RunEvent { run_id, event } = r.next().await else { panic!("expected the task's end") };
+    assert_eq!(run_id, "r1");
+    assert!(
+        matches!(event, RunEvent::Task { state: TaskState::Completed, summary: Some(s), name, .. } if s == "exit 0" && name == "pnpm dev")
+    );
 }

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  Alert,
   Avatar,
   Button,
   Checkbox,
@@ -142,6 +143,68 @@ describe('display components', () => {
   it('Avatar shows a Chinese name in full when it is two characters', () => {
     render(<Avatar name="王磊" />)
     expect(screen.getByText('王磊')).toBeTruthy()
+  })
+
+  it('Avatar fallback paints a gradient with a pattern that is stable per name', () => {
+    const art = (name: string) => {
+      const { container, unmount } = render(<Avatar name={name} />)
+      const svg = container.querySelector('svg.ui-avatar__art')
+      const out = {
+        gradient: !!svg?.querySelector('linearGradient'),
+        pattern: svg?.getAttribute('data-pattern'),
+      }
+      unmount()
+      return out
+    }
+    const a = art('王磊')
+    expect(a.gradient).toBe(true)
+    expect(a.pattern).toMatch(/^\d+$/)
+    expect(art('王磊')).toEqual(a)
+    const patterns = new Set(
+      ['王磊', '李娜', 'Mia Chen', '赵六', '产品设计组', 'yoqu'].map((n) => art(n).pattern),
+    )
+    expect(patterns.size).toBeGreaterThan(1)
+  })
+
+  it('Avatar with src shows the image without generated art', () => {
+    const { container } = render(<Avatar name="王磊" src="/a.png" />)
+    expect(container.querySelector('img')).toBeTruthy()
+    expect(container.querySelector('.ui-avatar__art')).toBeNull()
+  })
+
+  it('group Avatar tiles up to four members, else falls back to initials', () => {
+    const names = ['张三', '李思远', 'Mia Chen', '赵六', '钱七'].map((name) => ({ name }))
+    const { container, rerender } = render(
+      <Avatar name="产品设计组" shape="square" size={40} members={names} />,
+    )
+    const tiles = container.querySelectorAll('.ui-avatar__tile')
+    expect(tiles).toHaveLength(4)
+    expect([...tiles].map((t) => t.textContent)).toEqual(['三', '远', 'M', '六'])
+    expect(screen.getByRole('img', { name: '产品设计组' })).toBeTruthy()
+    expect(screen.queryByText('产品')).toBeNull()
+
+    rerender(
+      <Avatar
+        name="产品设计组"
+        shape="square"
+        size={40}
+        members={[{ name: '张三' }, { name: 'Codex', src: 'data:x' }]}
+      />,
+    )
+    expect(container.querySelectorAll('.ui-avatar__tile')).toHaveLength(2)
+    expect(container.querySelector('.ui-avatar__tile image')?.getAttribute('href')).toBe('data:x')
+
+    rerender(<Avatar name="产品设计组" shape="square" size={40} members={[{ name: '张三' }]} />)
+    expect(container.querySelector('.ui-avatar__tile')).toBeNull()
+    expect(screen.getByText('产品')).toBeTruthy()
+  })
+
+  it('error Alert marks a lone description with a warning icon, not a text glyph', () => {
+    const { container, rerender } = render(<Alert variant="error" description="保存失败" />)
+    expect(container.querySelector('.ui-alert__desc svg')).toBeTruthy()
+    expect(container.textContent).not.toContain('⚠')
+    rerender(<Alert variant="error" title="出错了" description="保存失败" />)
+    expect(container.querySelector('.ui-alert__desc svg')).toBeNull()
   })
 
   it('StepIndicator exposes each step status', () => {

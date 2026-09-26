@@ -2,8 +2,8 @@ import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../lib/cx'
 import { Button, type Glyph, renderGlyph } from './controls'
 import { ProgressIndicator } from './display'
+import { FileIcon } from './file-icon'
 import { Icon } from './icon'
-import { fileKind } from './im/cards'
 import './form.css'
 import './dropzone.css'
 
@@ -123,46 +123,41 @@ export function DropZone({
       </div>
       {files.length ? (
         <ul className="ui-drop__list">
-          {files.map((f, i) => {
-            const [tone, tag] = fileKind(f.name)
-            return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: names may repeat; position identifies the upload
-              <li key={`${f.name}-${i}`} className="ui-drop__file">
-                <span
-                  className="ui-drop__tile"
-                  style={{ background: `var(--tint-${tone})`, color: `var(--tint-${tone}-text)` }}
+          {files.map((f, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: names may repeat; position identifies the upload
+            <li key={`${f.name}-${i}`} className="ui-drop__file">
+              <FileIcon name={f.name} />
+              <div className="ui-drop__fbody">
+                <div className="ui-drop__fname">{f.name}</div>
+                {f.error ? (
+                  <div className="ui-field__hint ui-field__hint--error">
+                    <Icon name="warning" size={12} className="ui-field__hint-icon" />
+                    {f.error}
+                  </div>
+                ) : f.progress != null && f.progress < 100 ? (
+                  <ProgressIndicator
+                    value={f.progress}
+                    aria-label={`${f.name} 上传进度`}
+                    style={{ width: '100%', height: 4 }}
+                  />
+                ) : (
+                  <div className="ui-drop__fmeta">
+                    {[f.size, f.progress === 100 ? '已上传' : null].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </div>
+              {onRemove ? (
+                <button
+                  type="button"
+                  className="ui-inputwrap__btn"
+                  aria-label={`移除 ${f.name}`}
+                  onClick={() => onRemove(i, f)}
                 >
-                  {tag}
-                </span>
-                <div className="ui-drop__fbody">
-                  <div className="ui-drop__fname">{f.name}</div>
-                  {f.error ? (
-                    <div className="ui-field__hint ui-field__hint--error">{f.error}</div>
-                  ) : f.progress != null && f.progress < 100 ? (
-                    <ProgressIndicator
-                      value={f.progress}
-                      aria-label={`${f.name} 上传进度`}
-                      style={{ width: '100%', height: 4 }}
-                    />
-                  ) : (
-                    <div className="ui-drop__fmeta">
-                      {[f.size, f.progress === 100 ? '已上传' : null].filter(Boolean).join(' · ')}
-                    </div>
-                  )}
-                </div>
-                {onRemove ? (
-                  <button
-                    type="button"
-                    className="ui-inputwrap__btn"
-                    aria-label={`移除 ${f.name}`}
-                    onClick={() => onRemove(i, f)}
-                  >
-                    <Icon name="xmark" weight={2} />
-                  </button>
-                ) : null}
-              </li>
-            )
-          })}
+                  <Icon name="xmark" weight={2} />
+                </button>
+              ) : null}
+            </li>
+          ))}
         </ul>
       ) : null}
     </div>

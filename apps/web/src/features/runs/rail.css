@@ -10,3 +10,19 @@
   flex: none;
   color: var(--label-secondary);
 }
+
+.run-changes__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-bottom: var(--space-12);
+}
+.run-changes__branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}

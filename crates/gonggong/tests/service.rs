@@ -1,9 +1,9 @@
+use futures_util::{SinkExt, StreamExt};
 use gonggong::config::Config;
 use gonggong::protocol::{
     AgentInfo, AgentKind, DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon,
 };
 use gonggong::service::{Fatal, Handler, Outbox, Service};
-use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -121,7 +121,10 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
     ws.close(None).await.unwrap();
     drop(ws);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    let delta = |d: &str| DaemonToServer::RunEvent { run_id: "r1".into(), event: RunEvent::Text { delta: d.into() } };
+    let delta = |d: &str| DaemonToServer::RunEvent {
+        run_id: "r1".into(),
+        event: RunEvent::Text { delta: d.into(), agent_id: None },
+    };
     out.send(delta("sur"));
     out.send(delta("vived"));
     out.send(DaemonToServer::RunDone(RunDone {

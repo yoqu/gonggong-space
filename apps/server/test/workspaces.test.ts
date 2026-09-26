@@ -173,6 +173,7 @@ describe('joining without a workspace choice', () => {
       path: `/h/workspaces/${g.id}/${w.bot.id}/${repo.id}`,
       git,
       error: null,
+      tier: null,
     })
     await until(async () => (await w.bodies(g.id)).includes('✓ 小王的 Claude 已使用托管工作区'))
   })

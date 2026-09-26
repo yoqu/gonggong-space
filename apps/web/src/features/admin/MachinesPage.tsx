@@ -2,7 +2,19 @@ import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Presence, SearchField, Spinner, Table, ToolbarButton, ToolbarGroup } from '../../ui'
+import {
+  Alert,
+  EmptyState,
+  Icon,
+  NoMachinesArt,
+  NoResultsArt,
+  Presence,
+  SearchField,
+  Spinner,
+  Table,
+  ToolbarButton,
+  ToolbarGroup,
+} from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
@@ -32,6 +44,7 @@ function Net({ text, bad, at }: { text: string; bad: boolean; at: string | null 
       className={bad ? 'admin-table__bad' : undefined}
       title={at ? `测量于 ${new Date(at).toLocaleString()}` : undefined}
     >
+      {bad ? <Icon name="warning" size={12} className="admin-table__bad-icon" /> : null}
       {text}
     </span>
   )
@@ -114,7 +127,13 @@ export function MachinesPage() {
             { label: '吊销机器…', value: 'revoke', destructive: true },
           ]}
           onRowAction={(action, m) => (action === 'open' ? setOpenId(m.id) : setRevoking(m))}
-          emptyText={q ? '没有匹配的机器' : '还没有机器'}
+          emptyText={
+            <EmptyState
+              compact
+              title={q ? '没有匹配的机器' : '还没有机器'}
+              illustration={q ? <NoResultsArt /> : <NoMachinesArt />}
+            />
+          }
           columns={[
             { key: 'ownerName', title: '主人', width: 88, sortable: true },
             {

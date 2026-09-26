@@ -77,18 +77,6 @@
 .ui-drop__file + .ui-drop__file {
   border-top: 1px solid var(--separator);
 }
-.ui-drop__tile {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 32px;
-  border-radius: 6px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-}
 .ui-drop__fbody {
   display: flex;
   flex: 1;

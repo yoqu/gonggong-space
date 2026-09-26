@@ -5,8 +5,11 @@ import {
   Alert,
   Button,
   Dialog,
+  EmptyState,
   Form,
   FormRow,
+  NoDataArt,
+  NoResultsArt,
   PopUpButton,
   Presence,
   SearchField,
@@ -177,7 +180,13 @@ export function AuditPage() {
             multiple={false}
             sortRows={false}
             onOpen={setOpen}
-            emptyText={rows?.length ? '没有匹配的记录' : '暂无记录'}
+            emptyText={
+              <EmptyState
+                compact
+                title={rows?.length ? '没有匹配的记录' : '暂无记录'}
+                illustration={rows?.length ? <NoResultsArt /> : <NoDataArt />}
+              />
+            }
             columns={[
               {
                 key: 'at',

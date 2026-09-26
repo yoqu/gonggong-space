@@ -44,6 +44,33 @@ describe('notification center', () => {
     expect(theirs[0]!.readAt).toBeNull()
   })
 
+  it('deletes one of my notifications, but not someone else’s', async () => {
+    const a = await login()
+    const b = await login()
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    await notify(t.ctx, b.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    const [mine] = (await a.api.get<NotificationDto[]>('/api/notifications')).body
+    const [theirs] = (await b.api.get<NotificationDto[]>('/api/notifications')).body
+    expect((await a.api.del(`/api/notifications/${theirs!.id}`)).status).toBe(404)
+    expect((await a.api.del(`/api/notifications/${mine!.id}`)).status).toBe(204)
+    expect((await a.api.get<NotificationDto[]>('/api/notifications')).body).toEqual([])
+    expect((await b.api.get<NotificationDto[]>('/api/notifications')).body).toHaveLength(1)
+  })
+
+  it('clears my read notifications, keeping unread ones', async () => {
+    const a = await login()
+    const b = await login()
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    await notify(t.ctx, b.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    await a.api.post('/api/notifications/read-all')
+    await b.api.post('/api/notifications/read-all')
+    await notify(t.ctx, a.user.id, 'offline_expired', { groupId: 'g' })
+    expect((await a.api.del('/api/notifications/read')).status).toBe(204)
+    const left = (await a.api.get<NotificationDto[]>('/api/notifications')).body
+    expect(left.map((n) => n.type)).toEqual(['offline_expired'])
+    expect((await b.api.get<NotificationDto[]>('/api/notifications')).body).toHaveLength(1)
+  })
+
   it('resolves the notifications of a settled request for every recipient and tells them live', async () => {
     const a = await login()
     const b = await login()

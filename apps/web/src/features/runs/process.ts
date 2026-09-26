@@ -1,96 +1,10 @@
-import type { ApprovalDto, RunDetailDto, RunEvent } from '@gonggong/protocol'
+import type { ApprovalDto, RunDetailDto } from '@gonggong/protocol'
 import { newSessionNote } from '../chat/TimelineItems'
+import { parsePatch } from '../diff/patch'
 import { VOID_TEXT } from './ApprovalBlock'
+import { processSteps, type Step, type Timed } from './steps'
 
-export interface DiffFile {
-  path: string
-  status: 'added' | 'deleted' | 'modified'
-  add: number
-  del: number
-  binary: boolean
-  /** Hunk headers and lines (or the binary notice), without the file header. */
-  lines: string[]
-}
-
-const HEADER = /^diff --git (?:"?a\/(.+?)"? )"?b\/(.+?)"?$/
-
-/** Splits a unified git patch into files with +/− counts. */
-export function parsePatch(patch: string): DiffFile[] {
-  const files: DiffFile[] = []
-  let file: DiffFile | undefined
-  let inHunks = false
-  for (const line of patch.split('\n')) {
-    const path = HEADER.exec(line)?.[2]
-    if (path !== undefined) {
-      file = { path, status: 'modified', add: 0, del: 0, binary: false, lines: [] }
-      files.push(file)
-      inHunks = false
-      continue
-    }
-    if (!file) continue
-    if (!inHunks) {
-      if (line.startsWith('new file mode')) file.status = 'added'
-      else if (line.startsWith('deleted file mode')) file.status = 'deleted'
-      else if (line.startsWith('Binary files ')) {
-        file.binary = true
-        inHunks = true
-        file.lines.push(line)
-      } else if (line.startsWith('@@')) inHunks = true
-      if (!inHunks || file.binary) continue
-    }
-    if (line.startsWith('+')) file.add += 1
-    else if (line.startsWith('-')) file.del += 1
-    file.lines.push(line)
-  }
-  for (const f of files) while (f.lines.at(-1) === '') f.lines.pop()
-  return files
-}
-
-/** A path from a reply (relative, `./`-prefixed or absolute inside the workspace) against the patch's paths. */
-export function findFile(files: DiffFile[], path: string) {
-  const p = path.replace(/^\.\//, '')
-  return files.find((f) => p === f.path || p.endsWith(`/${f.path}`))
-}
-
-export interface Step {
-  key: string
-  /** context | thought | text | status | approval | an ACP tool kind */
-  kind: string
-  label: string
-  meta?: string
-  body?: string
-  mono?: string
-  /** Command output etc., shown in a <pre>. */
-  out?: string
-  failed?: boolean
-  /** The step still in progress: a running tool, a pending approval, or the reply being streamed. */
-  running?: boolean
-  /** Lines this step's file changed in the run's patch. */
-  diff?: { add: number; del: number }
-}
-
-export type DiffCell = 'add' | 'del' | 'none'
-
-/** GitHub-style five-cell bar: one cell per changed line up to five, split by ratio, each present side kept visible. */
-export function diffCells(add: number, del: number): DiffCell[] {
-  const total = add + del
-  const colored = Math.min(5, total)
-  let adds = total ? Math.round((add / total) * colored) : 0
-  if (add && !adds) adds = 1
-  if (del && adds === colored) adds = colored - 1
-  return Array.from({ length: 5 }, (_, i) => (i < adds ? 'add' : i < colored ? 'del' : 'none'))
-}
-
-export const TOOL_LABEL: Record<string, string> = {
-  read: '读取文件',
-  edit: '编辑文件',
-  delete: '删除文件',
-  move: '移动文件',
-  search: '搜索',
-  execute: '执行命令',
-  think: '思考',
-  fetch: '访问网络',
-}
+export type { Step }
 
 const pad = (n: number) => String(n).padStart(2, '0')
 export const hhmm = (iso: string) => {
@@ -131,28 +45,10 @@ function contextStep(d: RunDetailDto, gitStep: string | undefined): Step {
 
 /** Side-panel 过程 steps: this turn's context, then thoughts / replies / tool calls / statuses / approvals in time order. */
 export function buildSteps(d: RunDetailDto): Step[] {
-  const files = parsePatch(d.patch ?? '')
   const firstReal = d.events.findIndex((e) => e.event.kind !== 'status')
   const opening = d.events.slice(0, firstReal < 0 ? d.events.length : firstReal)
   const gitEvent = opening.find((e) => e.event.kind === 'status' && e.event.step.startsWith('git '))
-  const timed: { at: string; step: Step }[] = []
-  const tools = new Map<string, { step: Step; first: string }>()
-  for (const { id, at, event } of d.events) {
-    if (event === gitEvent?.event) continue
-    const step = eventStep(id, event)
-    if (!step) continue
-    if (event.kind === 'tool') {
-      const seen = tools.get(event.toolCallId)
-      const ms = seen ? Date.parse(at) - Date.parse(seen.first) : 0
-      Object.assign(step, toolStep(event, ms, files))
-      if (seen) {
-        Object.assign(seen.step, step, { key: seen.step.key })
-        continue
-      }
-      tools.set(event.toolCallId, { step, first: at })
-    }
-    timed.push({ at, step })
-  }
+  const timed: Timed[] = []
   for (const a of d.run.approvals)
     timed.push({
       at: a.createdAt,
@@ -166,48 +62,8 @@ export function buildSteps(d: RunDetailDto): Step[] {
         running: a.status === 'pending',
       },
     })
-  timed.sort((x, y) => Date.parse(x.at) - Date.parse(y.at))
-  const last = timed.at(-1)?.step
-  if (d.run.status === 'running' && (last?.kind === 'text' || last?.kind === 'thought')) last.running = true
+  const events = d.events.filter((e) => e !== gitEvent)
+  const steps = processSteps(events, parsePatch(d.patch ?? ''), d.run.status === 'running', timed)
   const gitStep = gitEvent?.event.kind === 'status' ? gitEvent.event.step : undefined
-  return [contextStep(d, gitStep), ...timed.map((t) => t.step)]
-}
-
-function eventStep(id: number, e: RunEvent): Step | null {
-  const key = `e${id}`
-  switch (e.kind) {
-    case 'thought':
-      return { key, kind: 'thought', label: '思考', body: e.delta }
-    case 'text':
-      return { key, kind: 'text', label: '回复', body: e.delta }
-    case 'status':
-      return { key, kind: 'status', label: '状态', body: e.step }
-    case 'tool':
-      return { key, kind: e.toolKind, label: TOOL_LABEL[e.toolKind] ?? '工具调用' }
-    case 'usage':
-      return null
-  }
-}
-
-function toolStep(e: Extract<RunEvent, { kind: 'tool' }>, ms: number, files: DiffFile[]): Partial<Step> {
-  const failed = e.status === 'failed'
-  const running = e.status === 'pending' || e.status === 'in_progress'
-  if (e.toolKind === 'execute')
-    return {
-      // Claude titles a shell call with the command itself, which the output block already starts with.
-      mono: e.detail?.startsWith(`$ ${e.title}`) ? undefined : e.title,
-      out: e.detail,
-      failed,
-      running,
-      meta: failed ? '失败' : running ? '进行中' : ms ? `${(ms / 1000).toFixed(1)}s` : undefined,
-    }
-  const file = e.detail ? findFile(files, e.detail.replace(/:\d+$/, '')) : undefined
-  const diff = file && !file.binary ? { add: file.add, del: file.del } : undefined
-  return {
-    mono: e.detail ?? e.title,
-    failed,
-    running,
-    diff,
-    meta: failed ? '失败' : running ? '进行中' : diff ? `+${diff.add} −${diff.del}` : undefined,
-  }
+  return [contextStep(d, gitStep), ...steps]
 }

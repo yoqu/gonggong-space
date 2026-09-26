@@ -93,6 +93,17 @@ export async function decideApproval(
   return settled ? approvalDto(settled, user.name) : fail('conflict', '该请求已处理')
 }
 
+/** The run's tier was raised to full: its pending requests are approved on the actor's behalf. */
+export async function approvePending(ctx: Ctx, runId: string, actorUserId: string) {
+  const pending = await scoped(ctx).where(and(eq(approvals.runId, runId), eq(approvals.status, 'pending')))
+  for (const row of pending) {
+    const options = row.a.options as PermissionOption[]
+    const allow =
+      options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always')
+    if (allow) await settle(ctx, row, 'approved', allow.optionId, actorUserId)
+  }
+}
+
 /** Auto-rejects overdue requests; the agent is told no and carries on (spec §6.7). */
 export async function expireApprovals(ctx: Ctx) {
   const due = await scoped(ctx).where(

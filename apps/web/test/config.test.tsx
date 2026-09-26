@@ -83,7 +83,12 @@ describe('配置中心', () => {
     ).toBe(false)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Skill' }))
-    expect(screen.getByText('暂不支持 Skill')).toBeTruthy()
+    expect(
+      screen
+        .getByText('暂不支持 Skill')
+        .closest('.ui-empty')
+        ?.querySelector('.ui-empty__art svg[aria-hidden="true"]'),
+    ).toBeTruthy()
     expect(screen.queryByText(/一期|二期|三期/)).toBeNull()
     expect(screen.queryByText('wiki-search')).toBeNull()
   })

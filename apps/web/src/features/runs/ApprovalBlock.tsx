@@ -5,7 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { Button, Icon, Tag, type TagTone, toast } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
-import { TIER_LABEL } from './tier'
+import { effectiveTier, TIER_LABEL } from './tier'
 import './approval.css'
 
 /** ACP tool kinds as the prototype names them. */
@@ -77,6 +77,7 @@ export function useNow(ticking: boolean) {
 export function ApprovalBlock({ run }: { run: RunDto }) {
   const a = run.approvals.at(-1)
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
+  const state = useWorkspace((s) => s.botStates[run.groupId]?.[run.botId])
   const me = useSession((s) => s.user)
   const pending = a?.status === 'pending'
   const now = useNow(pending)
@@ -86,7 +87,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   const allow = pick(a.options, ['allow_once', 'allow_always'])
   const always = a.options.find((o) => o.kind === 'allow_always' && o !== allow)
   const reject = pick(a.options, ['reject_once', 'reject_always'])
-  const tier = `超出「${TIER_LABEL[bot?.tier ?? 'workspace']}」档位`
+  const tier = `超出「${TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace']}」档位`
   const left = Date.parse(a.expiresAt) - now
 
   const decide = async (option: PermissionOption) => {

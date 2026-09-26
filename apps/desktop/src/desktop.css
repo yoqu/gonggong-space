@@ -227,6 +227,25 @@ code,
   min-height: 40px;
   padding: var(--space-8) var(--space-12);
 }
+.dk-row--button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.dk-row--button:hover {
+  background: var(--quote-fill);
+}
+.dk-detail__head {
+  padding: 0 0 var(--space-12);
+}
+.dk-process {
+  padding: var(--space-12) var(--space-16);
+  user-select: text;
+  -webkit-user-select: text;
+}
 .ui-group > * + *,
 .ui-group > * > .dk-row + .dk-row {
   border-top: 1px solid var(--separator);

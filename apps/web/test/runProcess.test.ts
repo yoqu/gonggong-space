@@ -1,7 +1,8 @@
 import type { ApprovalDto, RunDetailDto, RunDto } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
+import { diffCells, findFile, parsePatch } from '../src/features/diff/patch'
 import { filePaths } from '../src/features/runs/paths'
-import { buildSteps, diffCells, findFile, parsePatch } from '../src/features/runs/process'
+import { buildSteps } from '../src/features/runs/process'
 
 const patch = [
   'diff --git a/src/a.ts b/src/a.ts',
@@ -194,7 +195,7 @@ describe('process steps', () => {
       meta: '新会话',
       body: '会话恢复失败，已开新会话并补送最近 50 条群消息。git 默认动作：fetch 完成，当前分支 main',
     })
-    expect(steps[2]).toMatchObject({ mono: '查找调用方', out: '$ rg RefundV1\nrouter.go:42', meta: '4.0s' })
+    expect(steps[2]).toMatchObject({ mono: 'rg RefundV1', out: '$ rg RefundV1\nrouter.go:42', meta: '4.0s' })
     expect(steps[3]).toMatchObject({ mono: '/ws/src/a.ts', meta: '+2 −1' })
     expect(steps[4]).toMatchObject({ mono: 'go build ./...', body: '等待 Bot 主人审批' })
   })
@@ -250,6 +251,85 @@ describe('process steps', () => {
     expect(by('read')).toMatchObject({ running: true })
     // The reply being streamed is the current step of a running run.
     expect(by('text')).toMatchObject({ running: true })
+  })
+
+  it('nests subagent work under its spawn row and shows background tasks at their latest state', () => {
+    const sub = (id: number, agentId: string, state: 'running' | 'completed', parentId?: string) => ({
+      id,
+      at: at(id),
+      event: {
+        kind: 'subagent' as const,
+        agentId,
+        parentId,
+        name: agentId === 'a1' ? 'Explore' : 'Plan',
+        task: '找调用方',
+        state,
+      },
+    })
+    const read = (id: number, status: 'in_progress' | 'completed') => ({
+      id,
+      at: at(id),
+      event: {
+        kind: 'tool' as const,
+        agentId: 'a1',
+        toolCallId: 't1',
+        title: 'Read',
+        toolKind: 'read',
+        status,
+        detail: '/ws/src/a.ts',
+      },
+    })
+    const task = (id: number, state: 'running' | 'completed', summary?: string) => ({
+      id,
+      at: at(id),
+      event: {
+        kind: 'task' as const,
+        taskId: 'bg1',
+        agentId: 'a1',
+        name: 'pnpm dev',
+        taskType: 'shell',
+        state,
+        summary,
+      },
+    })
+    const steps = buildSteps({
+      run: run({ status: 'running' }),
+      patch: null,
+      purged: false,
+      sessionId: null,
+      retentionDays: 30,
+      events: [
+        sub(1, 'a1', 'running'),
+        { id: 2, at: at(2), event: { kind: 'thought', delta: '子想', agentId: 'a1' } },
+        read(3, 'in_progress'),
+        { id: 4, at: at(4), event: { kind: 'text', delta: '主进度' } },
+        read(5, 'completed'),
+        sub(6, 'a2', 'running', 'a1'),
+        { id: 7, at: at(7), event: { kind: 'text', delta: '嵌套', agentId: 'a2' } },
+        task(8, 'running'),
+        sub(9, 'a1', 'completed'),
+        task(10, 'completed', 'exit 0'),
+      ],
+    })
+    expect(steps.map((s) => s.kind)).toEqual(['context', 'subagent', 'text'])
+    const [, explore, text] = steps
+    expect(explore).toMatchObject({ label: '子 agent', title: 'Explore', body: '找调用方', running: false })
+    expect(explore!.children!.map((s) => [s.kind, s.running ?? false])).toEqual([
+      ['thought', false],
+      ['read', false],
+      ['subagent', true],
+      ['task', false],
+    ])
+    expect(explore!.children![2]!.children).toEqual([
+      expect.objectContaining({ kind: 'text', body: '嵌套', running: true }),
+    ])
+    expect(explore!.children![3]).toMatchObject({
+      label: '后台任务',
+      title: 'pnpm dev',
+      body: 'exit 0',
+      meta: '已完成',
+    })
+    expect(text).toMatchObject({ body: '主进度', running: true })
   })
 
   it('stops marking the streamed reply once the run has ended', () => {

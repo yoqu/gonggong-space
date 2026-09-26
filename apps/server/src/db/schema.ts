@@ -91,6 +91,7 @@ export const bots = pgTable('bots', {
     .notNull()
     .references(() => users.id),
   agentKind: text('agent_kind').notNull(),
+  avatar: text('avatar'),
   /** null while 'pending_bind' (owner has no machine yet). */
   machineId: uuid('machine_id').references(() => machines.id),
   /** 'pending_bind' | 'pending_confirm' | 'bound' */
@@ -171,6 +172,8 @@ export const groupBots = pgTable(
     /** 'managed' | 'cd' */
     workspaceKind: text('workspace_kind').notNull().default('managed'),
     cdPath: text('cd_path'),
+    /** This group's tier override ('full' | 'workspace' | 'read-only'); null follows bots.tier. */
+    tier: text('tier'),
     /** Highest message seq already delivered to this bot as context. */
     contextSeq: bigint('context_seq', { mode: 'number' }).notNull().default(0),
     /** Current ACP session id on the owner's machine, if any. */

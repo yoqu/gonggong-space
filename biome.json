@@ -12,7 +12,8 @@
       "!.claude",
       "!.obsidian",
       "!**/test-results",
-      "!**/playwright-report"
+      "!**/playwright-report",
+      "!apps/web/src/ui/im/twemoji"
     ]
   },
   "formatter": {

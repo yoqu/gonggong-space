@@ -3,6 +3,7 @@ import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
+import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Button, ConversationContent, Icon } from '../ui'
@@ -77,6 +78,7 @@ function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabS
           id: g.id,
           name: g.name,
           group: true,
+          avatarNode: <GroupAvatar group={g} size={40} />,
           tags: dm ? [{ label: 'Bot', tone: 'blue' }] : undefined,
           preview,
           draft: current ? undefined : draftOf(g.id),

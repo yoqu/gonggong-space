@@ -3,6 +3,7 @@
   "runId": "r1",
   "event": {
     "kind": "tool",
+    "agentId": "task-7",
     "toolCallId": "tc1",
     "title": "rg RefundV1",
     "toolKind": "execute",

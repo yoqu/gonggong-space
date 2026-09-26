@@ -4,6 +4,7 @@ import type { Glyph } from '../controls'
 import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag } from '../display'
 import { Icon } from '../icon'
 import { Popover } from '../popover'
+import { Emoji } from './emoji'
 import { EmojiPicker } from './pickers'
 import type { TagSpec } from './types'
 import './message.css'
@@ -77,7 +78,7 @@ export function Reactions({
           onClick={() => onToggle?.(r.emoji)}
         >
           <span className="pn-reaction__emoji" aria-hidden>
-            {r.emoji}
+            <Emoji char={r.emoji} />
           </span>
           <span>{compact ? r.users.length : who(r.users)}</span>
         </button>

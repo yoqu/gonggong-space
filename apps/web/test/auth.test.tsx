@@ -181,6 +181,8 @@ describe('account menu', () => {
       'GET /usage?by=bot&days=30': [
         { key: 'b1', name: '小王的 Claude', runs: 12, totalTokens: 98_000, unreported: 0 },
       ],
+      [`GET /usage/daily?days=60&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`]:
+        [{ day: '2026-09-25', runs: 12, totalTokens: 98_000, unreported: 0 }],
     })
     renderAt('/')
     fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
@@ -192,8 +194,8 @@ describe('account menu', () => {
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: '我的用量' }))
     const usage = await screen.findByRole('dialog', { name: '我的用量' })
-    expect(await within(usage).findByText('小王的 Claude')).toBeTruthy()
-    expect(within(usage).getAllByRole('row')[1]?.textContent).toBe('小王的 Claude98k120')
+    const table = await within(usage).findByRole('grid', { name: '用量明细' })
+    expect(within(table).getAllByRole('row')[1]?.textContent).toBe('小王的 Claude98k120')
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '我的用量' })).toBeNull())
 

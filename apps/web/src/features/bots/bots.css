@@ -106,3 +106,69 @@
 .admin-grid.bots-grid .ui-table__row {
   min-width: 0;
 }
+
+/* Avatar picker: two rows of presets, the checked one ringed in the accent color */
+.avatar-picker {
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.avatar-picker__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.avatar-picker__title {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.avatar-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 28px);
+  gap: 6px;
+}
+.avatar-picker__item {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 28%;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.avatar-picker__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+.avatar-picker__item input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.avatar-picker__item:hover {
+  transform: scale(1.06);
+}
+.avatar-picker__item:has(input:checked) {
+  box-shadow:
+    0 0 0 2px var(--content-bg),
+    0 0 0 4px var(--accent);
+}
+.avatar-picker__item:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.avatar-picker__item:has(input:disabled) {
+  cursor: default;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-picker__item {
+    transition: none;
+  }
+}

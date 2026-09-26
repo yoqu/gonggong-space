@@ -51,6 +51,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
       name: bots.name,
       ownerName: users.name,
       workspaceState: groupBots.workspaceState,
+      groupTier: groupBots.tier,
     })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
@@ -65,7 +66,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
     )
   await Promise.all(
     targets.map(async (bot) => {
-      const refused = refusal(bot, t.originUserId)
+      const refused = refusal({ ...bot, tier: bot.groupTier ?? bot.tier }, t.originUserId)
       if (!refused && bot.workspaceState === 'unbound')
         return void (await postEvent(
           ctx,

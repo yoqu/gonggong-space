@@ -181,6 +181,7 @@ impl PreTurn {
 }
 
 /// Work-tree state at the start of a turn, to attribute changes to it afterwards.
+#[derive(Clone)]
 pub struct Snapshot {
     head: Option<String>,
     tree: BTreeMap<String, (String, Option<u64>)>,
@@ -237,11 +238,59 @@ async fn work_tree(dir: &Path) -> Result<String, String> {
 /// Unified diff of what changed since the snapshot (None when nothing did), capped at PATCH_MAX_BYTES.
 pub async fn patch_since(dir: &Path, snap: &Snapshot) -> Result<Option<String>, String> {
     let Some(base) = &snap.base else { return Ok(None) };
-    let now = work_tree(dir).await?;
-    let args =
-        ["diff", "--no-color", "--no-ext-diff", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", base, &now];
+    diff(dir, base, &work_tree(dir).await?).await
+}
+
+/// `git diff <from> <to>` with the flags every patch here uses; None when nothing differs.
+async fn diff(dir: &Path, from: &str, to: &str) -> Result<Option<String>, String> {
+    let args = ["diff", "--no-color", "--no-ext-diff", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", from, to];
     let patch = git(dir, &args).await?;
     Ok((!patch.is_empty()).then(|| cap_patch(patch)))
+}
+
+/// Everything not committed yet: HEAD (or the empty tree before the first commit) against the work tree.
+pub async fn uncommitted_patch(dir: &Path) -> Result<Option<String>, String> {
+    let from = head(dir).await.unwrap_or_else(|| EMPTY_TREE.into());
+    diff(dir, &from, &work_tree(dir).await?).await
+}
+
+/// The branch's changes against the main branch, uncommitted ones included.
+pub struct BaseDiff {
+    pub patch: Option<String>,
+    /// The main branch compared against; None when HEAD is on it.
+    pub base: Option<String>,
+    pub branch: Option<String>,
+}
+
+/// origin/HEAD, else main, else master (local first, then origin/).
+async fn main_branch(dir: &Path) -> Option<String> {
+    if let Ok(r) = git(dir, &["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]).await {
+        return Some(r.trim().to_string());
+    }
+    for name in ["main", "master", "origin/main", "origin/master"] {
+        if git(dir, &["rev-parse", "-q", "--verify", &format!("{name}^{{commit}}")]).await.is_ok() {
+            return Some(name.into());
+        }
+    }
+    None
+}
+
+pub async fn base_patch(dir: &Path) -> Result<BaseDiff, String> {
+    let branch = branch(dir).await;
+    let main = main_branch(dir).await;
+    let on_main = match (&branch, &main) {
+        (Some(b), Some(m)) => m.rsplit_once('/').map_or(m.as_str(), |(_, n)| n) == b,
+        _ => true,
+    };
+    let Some(main) = main.filter(|_| !on_main) else { return Ok(BaseDiff { patch: None, base: None, branch }) };
+    let from = git(dir, &["merge-base", "HEAD", &main]).await?.trim().to_string();
+    let patch = diff(dir, &from, &work_tree(dir).await?).await?;
+    Ok(BaseDiff { patch, base: Some(main), branch })
+}
+
+/// Current branch name, None when detached.
+pub async fn branch(dir: &Path) -> Option<String> {
+    git(dir, &["symbolic-ref", "--short", "-q", "HEAD"]).await.ok().map(|b| b.trim().to_string())
 }
 
 fn cap_patch(mut patch: String) -> String {
@@ -548,6 +597,40 @@ mod tests {
         fs::write(w.join("new.txt"), "untracked").unwrap();
         assert_eq!(changed_since(&w, &snap).await.unwrap(), 1);
         assert!(patch_since(&w, &snap).await.unwrap().is_some_and(|p| p.contains("new.txt")));
+    }
+
+    #[tokio::test]
+    async fn uncommitted_patch_covers_edits_and_untracked_files() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        assert_eq!(uncommitted_patch(&w).await.unwrap(), None);
+        fs::write(w.join("README.md"), "changed\n").unwrap();
+        fs::write(w.join("new.txt"), "untracked\n").unwrap();
+        let p = uncommitted_patch(&w).await.unwrap().unwrap();
+        assert!(p.contains("diff --git a/README.md b/README.md") && p.contains("+changed"));
+        assert!(p.contains("b/new.txt") && p.contains("+untracked"));
+    }
+
+    #[tokio::test]
+    async fn base_patch_compares_a_branch_with_main_and_is_none_on_main() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        let on_main = base_patch(&w).await.unwrap();
+        assert_eq!((on_main.patch, on_main.base, on_main.branch.as_deref()), (None, None, Some("main")));
+
+        run(&w, &["checkout", "-q", "-b", "feat/x"]);
+        fs::write(w.join("feature.txt"), "f\n").unwrap();
+        run(&w, &["add", "-A"]);
+        run(&w, &["commit", "-q", "-m", "feature"]);
+        fs::write(w.join("wip.txt"), "wip\n").unwrap();
+        // Main moving on upstream must not show up as a removal on the branch (merge base).
+        r.commit("later.txt", "later");
+        run(&w, &["fetch", "-q"]);
+        let b = base_patch(&w).await.unwrap();
+        assert_eq!((b.base.as_deref(), b.branch.as_deref()), (Some("origin/main"), Some("feat/x")));
+        let p = b.patch.unwrap();
+        assert!(p.contains("b/feature.txt") && p.contains("b/wip.txt"));
+        assert!(!p.contains("later.txt"));
     }
 
     #[tokio::test]

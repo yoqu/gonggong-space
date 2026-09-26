@@ -1,0 +1,170 @@
+/* Shared diff pieces: file list, five-cell bar, unified view (rail 改动 tab and the diff window). */
+.diff__files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.diff__file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--control-regular);
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-check);
+  background: transparent;
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: var(--text-callout-size);
+  text-align: left;
+  cursor: default;
+}
+.diff__file > svg {
+  flex: none;
+  color: var(--label-secondary);
+}
+.diff__file:hover,
+.diff__file--active {
+  background: var(--selection-fill);
+}
+.diff__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diff__add {
+  color: var(--tint-green-text);
+}
+.diff__del {
+  color: var(--tint-red-text);
+}
+.diff-bar {
+  flex: none;
+  display: inline-flex;
+  gap: 1px;
+}
+.diff-bar__cell {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: var(--separator);
+  transform-origin: left;
+  animation: diff-bar-grow var(--spring-smooth) backwards;
+  animation-delay: calc(var(--i) * 30ms);
+}
+.diff-bar__cell[data-cell="add"] {
+  background: var(--system-green);
+}
+.diff-bar__cell[data-cell="del"] {
+  background: var(--system-red);
+}
+@keyframes diff-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.diff {
+  border-radius: var(--radius-field);
+  background: var(--quote-fill);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-body-line);
+}
+.diff__name {
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+  color: var(--label-secondary);
+  overflow-wrap: anywhere;
+}
+.diff__lines {
+  overflow-x: auto;
+}
+.diff__line {
+  width: max-content;
+  min-width: 100%;
+  padding: 0 var(--space-12);
+  color: var(--label-secondary);
+  white-space: pre;
+}
+.diff__line--add {
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+}
+.diff__line--del {
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+}
+.diff__line--hunk {
+  color: var(--accent-text);
+}
+.diff__line--note {
+  color: var(--label-tertiary);
+}
+.diff__path {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+.diff__base {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.diff__dir {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-tertiary);
+}
+
+.diff-window {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  height: min(72vh, 760px);
+  min-height: 0;
+}
+.diff-window__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.diff-window__branch {
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.diff-window__main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  gap: var(--space-12);
+}
+.diff-window__main > .diff__files {
+  overflow: auto;
+}
+.diff-window__main > .diff {
+  overflow: auto;
+}
+.diff-window__state {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--label-secondary);
+}
+@media (max-width: 720px) {
+  .diff-window__main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .diff-window__main > .diff__files {
+    max-height: 30vh;
+  }
+}

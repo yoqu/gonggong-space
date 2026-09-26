@@ -4,8 +4,11 @@ use crate::ask::{AskServer, Asker};
 use crate::attachments;
 use crate::config::Config;
 use crate::files;
+use crate::git;
 use crate::local::LocalSettings;
-use crate::protocol::{AgentKind, Attachment, DaemonToServer, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon};
+use crate::protocol::{
+    AgentKind, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon,
+};
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
 use crate::turn::system_prompt;
@@ -76,6 +79,28 @@ impl Engine {
     }
 }
 
+/// (patch, main branch compared against) of one workspace diff request.
+async fn workspace_diff(
+    dir: &Path,
+    scope: DiffScope,
+    run_id: Option<&str>,
+    shared: Option<Arc<Shared>>,
+) -> Result<(Option<String>, Option<String>), String> {
+    const ENDED: &str = "该轮已结束或不在本机运行";
+    if scope == DiffScope::Turn {
+        let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ENDED.into()) };
+        return Ok((shared.live_patch(run_id).await.ok_or(ENDED)??, None));
+    }
+    if !git::is_repo(dir) {
+        return Err(session::NOT_GIT.into());
+    }
+    if scope == DiffScope::Uncommitted {
+        return Ok((git::uncommitted_patch(dir).await?, None));
+    }
+    let b = git::base_patch(dir).await?;
+    Ok((b.patch, b.base))
+}
+
 impl Handler for Engine {
     fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
         match msg {
@@ -87,6 +112,9 @@ impl Handler for Engine {
                 for actor in self.0.actors.lock().unwrap().values() {
                     actor.shared.cancel(&run_id);
                 }
+            }
+            ServerToDaemon::RunTier { run_id, tier } => {
+                self.0.actors.lock().unwrap().values().any(|a| a.shared.set_tier(&run_id, tier));
             }
             // Never block the handler; per-(group, bot) ordering is kept by Workspaces' locks.
             ServerToDaemon::WorkspaceEnsure(req) => {
@@ -145,6 +173,27 @@ impl Handler for Engine {
                         Err(e) => (vec![], Some(e)),
                     };
                     out.send(DaemonToServer::FilesResult { request_id: req.request_id, entries, error });
+                });
+            }
+            ServerToDaemon::WorkspaceDiff(req) => {
+                let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
+                let key = (req.group_id.clone(), req.bot_id.clone());
+                let shared = self.0.actors.lock().unwrap().get(&key).map(|a| a.shared.clone());
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let result = workspace_diff(&dir, req.scope, req.run_id.as_deref(), shared).await;
+                    let (patch, base, error) = match result {
+                        Ok((patch, base)) => (patch, base, None),
+                        Err(e) => (None, None, Some(e)),
+                    };
+                    let branch = if git::is_repo(&dir) { git::branch(&dir).await } else { None };
+                    out.send(DaemonToServer::WorkspaceDiffResult {
+                        request_id: req.request_id,
+                        patch,
+                        base,
+                        branch,
+                        error,
+                    });
                 });
             }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}

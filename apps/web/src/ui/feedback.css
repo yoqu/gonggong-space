@@ -51,6 +51,10 @@
   height: 40px;
   margin-bottom: var(--space-4);
 }
+.ui-empty--compact .ui-empty__art {
+  width: 112px;
+  margin-bottom: var(--space-4);
+}
 .ui-empty--compact .ui-empty__icon svg {
   width: 18px;
   height: 18px;

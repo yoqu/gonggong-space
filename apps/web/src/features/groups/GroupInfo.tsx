@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, GroupParams, UserBriefDto } from '@gonggong/protocol'
+import type { BotDto, GroupDto, GroupParams, Tier, UserBriefDto } from '@gonggong/protocol'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
@@ -12,9 +12,12 @@ import {
   type ChatInfoDanger,
   type ChatInfoRow,
   Dialog,
+  EmptyState,
   GroupBox,
   Icon,
   InspectorPanel,
+  NoBotsArt,
+  PopUpButton,
   Presence,
   SearchField,
   Switch,
@@ -23,10 +26,12 @@ import {
   toast,
   useEscape,
 } from '../../ui'
+import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/BotDialog'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
-import { TIER_LABEL } from '../runs/tier'
+import { effectiveTier, TIER_LABEL } from '../runs/tier'
 import { groupsApi, paramsSummary } from './api'
+import { GroupAvatar } from './GroupAvatar'
 import './groups.css'
 
 export type SettingsTab = 'basic' | 'bots' | 'mode' | 'params'
@@ -279,6 +284,7 @@ function MainView({
 
   return (
     <ChatInfoBody
+      avatar={<GroupAvatar group={group} size={56} />}
       name={group.name}
       tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
       description={
@@ -463,6 +469,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<BotDto | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const states = useWorkspace((s) => s.botStates[group.id])
   const editing = allBots.find((b) => b.id === editingId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
   const candidates = allBots.filter(
@@ -500,14 +507,16 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
               </span>
             </button>
           ))}
-          {candidates.length ? null : <span className="gs-desc">没有可拉入的 Bot</span>}
+          {candidates.length ? null : (
+            <EmptyState compact title="没有可拉入的 Bot" illustration={<NoBotsArt />} />
+          )}
         </div>
       ) : null}
       <GroupBox>
         {bots.map((b) => (
           <div key={b.id} className="gs-bot">
             <div className="gs-bot__head">
-              <Avatar name={b.name} size={28} shape="square" />
+              <BotAvatar id={b.id} name={b.name} size={28} />
               <span className="gs-member__main">
                 <span className="gs-bot__name">
                   {b.name}
@@ -523,13 +532,19 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
               </span>
             </div>
             <div className="gs-bot__meta">
-              <span>档位 {TIER_LABEL[b.tier]}</span>
+              <span>
+                档位 {TIER_LABEL[effectiveTier(b, states?.[b.id])]}
+                {states?.[b.id]?.tier ? ' · 本群' : ''}
+              </span>
               <span>触发 {SCOPE_LABEL(b)}</span>
               <span className="spacer" />
               {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
-                <Button variant="plain" size="small" onClick={() => setEditingId(b.id)}>
-                  修改档位
-                </Button>
+                <>
+                  <GroupTierPicker groupId={group.id} bot={b} tier={states?.[b.id]?.tier ?? null} />
+                  <Button variant="plain" size="small" onClick={() => setEditingId(b.id)}>
+                    全局设置
+                  </Button>
+                </>
               ) : null}
               {isAdmin ? (
                 <Button variant="plain" size="small" onClick={() => setRemoving(b)}>
@@ -541,8 +556,9 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         ))}
       </GroupBox>
       <div className="gs-foot">
-        档位与触发范围由 Bot 主人在 Bot 详情中设置，对所有群生效；想少审批，可在桌面端「Bot →
-        命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
+        档位默认跟随 Bot 全局设置，Bot
+        主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。
+        想少审批，也可在桌面端「Bot → 命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
       </div>
       <Presence>
         {removing ? (
@@ -558,6 +574,28 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         {editing && me ? <BotDialog bot={editing} me={me} onClose={() => setEditingId(null)} /> : null}
       </Presence>
     </>
+  )
+}
+
+const FOLLOW = 'follow'
+const TIERS: Tier[] = ['read-only', 'workspace', 'full']
+
+/** This group's tier override; 跟随全局 clears it. */
+function GroupTierPicker({ groupId, bot, tier }: { groupId: string; bot: BotDto; tier: Tier | null }) {
+  const options = [
+    { value: FOLLOW, label: `跟随全局（${TIER_LABEL[bot.tier]}）` },
+    ...TIERS.map((t) => ({ value: t, label: TIER_LABEL[t] })),
+  ]
+  return (
+    <PopUpButton
+      aria-label="本群档位"
+      size="small"
+      value={tier ?? FOLLOW}
+      options={options}
+      onChange={(v) =>
+        void attempt(() => groupsApi.setBotTier(groupId, bot.id, v === FOLLOW ? null : (v as Tier)))
+      }
+    />
   )
 }
 

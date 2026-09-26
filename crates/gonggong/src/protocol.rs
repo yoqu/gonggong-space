@@ -245,6 +245,25 @@ pub struct FilesList {
     pub limit: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DiffScope {
+    Turn,
+    Uncommitted,
+    Base,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceDiff {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub workspace: WorkspaceSpec,
+    pub scope: DiffScope,
+    pub run_id: Option<String>,
+}
+
 /// Response of `POST /api/daemon/runs/:runId/tools/:name` (an gonggong MCP tool answered by the server).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -299,14 +318,22 @@ pub enum RunEvent {
         status: RunStatus,
         step: String,
     },
+    #[serde(rename_all = "camelCase")]
     Text {
         delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
+    #[serde(rename_all = "camelCase")]
     Thought {
         delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     Tool {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
         tool_call_id: String,
         title: String,
         tool_kind: String,
@@ -317,6 +344,50 @@ pub enum RunEvent {
     Usage {
         usage: Usage,
     },
+    #[serde(rename_all = "camelCase")]
+    Subagent {
+        agent_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_id: Option<String>,
+        name: String,
+        task: String,
+        state: SubagentState,
+    },
+    #[serde(rename_all = "camelCase")]
+    Task {
+        task_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        name: String,
+        task_type: String,
+        state: TaskState,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        summary: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        output_path: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SubagentState {
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+    Disconnected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskState {
+    Running,
+    Paused,
+    Completed,
+    Failed,
+    Stopped,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -443,6 +514,14 @@ pub enum DaemonToServer {
     DirResult(DirResult),
     #[serde(rename = "files.result", rename_all = "camelCase")]
     FilesResult { request_id: String, entries: Vec<FileEntry>, error: Option<String> },
+    #[serde(rename = "workspace.diff.result", rename_all = "camelCase")]
+    WorkspaceDiffResult {
+        request_id: String,
+        patch: Option<String>,
+        base: Option<String>,
+        branch: Option<String>,
+        error: Option<String>,
+    },
     #[serde(rename = "question.ask", rename_all = "camelCase")]
     QuestionAsk { run_id: String, request_id: String, questions: Vec<Question> },
     #[serde(rename = "run.discarded", rename_all = "camelCase")]
@@ -482,6 +561,8 @@ pub enum ServerToDaemon {
     RunStart(Box<RunStart>),
     #[serde(rename = "run.cancel", rename_all = "camelCase")]
     RunCancel { run_id: String },
+    #[serde(rename = "run.tier", rename_all = "camelCase")]
+    RunTier { run_id: String, tier: Tier },
     #[serde(rename = "workspace.ensure")]
     WorkspaceEnsure(WorkspaceEnsure),
     #[serde(rename = "workspace.cd")]
@@ -492,6 +573,8 @@ pub enum ServerToDaemon {
     RunDiscard { run_id: String },
     #[serde(rename = "files.list")]
     FilesList(FilesList),
+    #[serde(rename = "workspace.diff")]
+    WorkspaceDiff(WorkspaceDiff),
     #[serde(rename = "dir.list", rename_all = "camelCase")]
     DirList { request_id: String, path: Option<String> },
     #[serde(rename = "question.answer", rename_all = "camelCase")]

@@ -56,23 +56,26 @@ export function startRunEngine(ctx: Ctx) {
 /**
  * A live run owned by a bot on this machine; reports from anyone else are dropped. The share lock waits for an
  * in-flight dispatch transaction, so a report racing the scheduler's commit sees the run as running.
+ * `ended` also accepts finished runs: background tasks outlive the turn that started them.
  */
-async function liveRun(ctx: Ctx, machineId: string, runId: string) {
+async function liveRun(ctx: Ctx, machineId: string, runId: string, ended = false) {
   const [row] = await ctx.db
     .select({ run: runs })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(and(eq(runs.id, runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
+    .where(
+      and(eq(runs.id, runId), eq(bots.machineId, machineId), ended ? undefined : inArray(runs.status, LIVE)),
+    )
     .for('share', { of: runs })
   return row?.run
 }
 
 async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent) {
-  const run = await liveRun(ctx, machineId, runId)
+  const run = await liveRun(ctx, machineId, runId, raw.kind === 'task')
   if (!run) return
   if (raw.kind === 'text' || raw.kind === 'thought') {
-    await appendStream(ctx, runId, raw.kind, raw.delta)
-    if (raw.kind === 'text')
+    await appendStream(ctx, runId, raw)
+    if (raw.kind === 'text' && !raw.agentId)
       ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId, text: redact(raw.delta) })
     return
   }
@@ -84,26 +87,33 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
       : event.kind === 'usage'
         ? { usage: event.usage }
         : null
-  if (!patch) return
-  for (const row of await ctx.db.update(runs).set(patch).where(eq(runs.id, runId)).returning())
-    await publishRun(ctx, row)
+  if (patch)
+    for (const row of await ctx.db.update(runs).set(patch).where(eq(runs.id, runId)).returning())
+      await publishRun(ctx, row)
+  else if (event.kind === 'subagent' || event.kind === 'task') await publishRun(ctx, run)
 }
 
+type Stream = Extract<RunEvent, { kind: 'text' | 'thought' }>
+
 /**
- * Streamed chunks extend the run's latest event of the same kind, so redaction sees whole segments even when a
- * secret is split across chunks.
+ * Streamed chunks extend the run's latest event of the same kind and agent, so redaction sees whole segments even
+ * when a secret is split across chunks.
  */
-async function appendStream(ctx: Ctx, runId: string, kind: 'text' | 'thought', delta: string) {
+async function appendStream(ctx: Ctx, runId: string, { kind, delta, agentId }: Stream) {
   const [last] = await ctx.db
     .select()
     .from(runEvents)
     .where(eq(runEvents.runId, runId))
     .orderBy(desc(runEvents.id))
     .limit(1)
-  if (last?.kind === kind) {
-    const payload = { kind, delta: seal(redact(open((last.payload as { delta: string }).delta) + delta)) }
+  const prev = last?.payload as Stream | undefined
+  if (last && prev && last.kind === kind && prev.agentId === agentId) {
+    const payload = { kind, delta: seal(redact(open(prev.delta) + delta)), agentId }
     await ctx.db.update(runEvents).set({ payload }).where(eq(runEvents.id, last.id))
-  } else await ctx.db.insert(runEvents).values({ runId, kind, payload: { kind, delta: seal(redact(delta)) } })
+  } else
+    await ctx.db
+      .insert(runEvents)
+      .values({ runId, kind, payload: { kind, delta: seal(redact(delta)), agentId } })
 }
 
 async function onDone(ctx: Ctx, machineId: string, done: RunDone) {

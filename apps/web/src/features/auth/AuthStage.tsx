@@ -146,6 +146,7 @@ function RelayDemo() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={SPRING.snappy}
                       >
+                        <Icon name="arrow-turn-down-right" size={12} />
                         {s}
                       </motion.span>
                     ))}

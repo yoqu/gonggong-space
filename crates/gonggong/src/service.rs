@@ -56,8 +56,12 @@ impl Backlog {
                 && last_run == run_id
             {
                 match (last, event) {
-                    (RunEvent::Text { delta: a }, RunEvent::Text { delta: b })
-                    | (RunEvent::Thought { delta: a }, RunEvent::Thought { delta: b }) => return a.push_str(b),
+                    (RunEvent::Text { delta: a, agent_id: x }, RunEvent::Text { delta: b, agent_id: y })
+                    | (RunEvent::Thought { delta: a, agent_id: x }, RunEvent::Thought { delta: b, agent_id: y })
+                        if x == y =>
+                    {
+                        return a.push_str(b);
+                    }
                     _ => {}
                 }
             }
@@ -251,11 +255,13 @@ mod tests {
     #[test]
     fn merges_deltas_and_drops_only_run_events_when_full() {
         let mut b = Backlog::default();
-        b.push(event("r1", RunEvent::Text { delta: "a".into() }));
-        b.push(event("r1", RunEvent::Text { delta: "b".into() }));
-        b.push(event("r2", RunEvent::Text { delta: "c".into() }));
+        b.push(event("r1", RunEvent::Text { delta: "a".into(), agent_id: None }));
+        b.push(event("r1", RunEvent::Text { delta: "b".into(), agent_id: None }));
+        b.push(event("r2", RunEvent::Text { delta: "c".into(), agent_id: None }));
         assert_eq!(b.0.len(), 2);
-        assert_eq!(b.0[0], event("r1", RunEvent::Text { delta: "ab".into() }));
+        assert_eq!(b.0[0], event("r1", RunEvent::Text { delta: "ab".into(), agent_id: None }));
+        b.push(event("r2", RunEvent::Text { delta: "d".into(), agent_id: Some("sub".into()) }));
+        assert_eq!(b.0.len(), 3, "a subagent's text never merges into the main agent's");
 
         let tool = |i: usize| RunEvent::Status { status: crate::protocol::RunStatus::Running, step: i.to_string() };
         for i in 0..MAX_BACKLOG {

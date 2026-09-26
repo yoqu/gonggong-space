@@ -1,4 +1,4 @@
-import type { AgentKind, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
+import type { AgentKind, BotAvatar, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -18,6 +18,7 @@ import {
 } from '../../ui'
 import { OS_LABEL } from '../machines/BindMachineDialog'
 import { DirPicker } from '../workspaces/DirPicker'
+import { AGENT_AVATAR, AvatarPicker } from './avatars'
 import { WorkspacePath } from './BotsAdminPage'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
 
@@ -33,6 +34,8 @@ interface Draft {
   agent: AgentKind
   name: string
   touched: boolean
+  /** null = follows the agent kind until picked. */
+  avatar: BotAvatar | null
   prompt: string
   /** Default workspace; only the owner may browse their own online machine (plan W1). */
   workspace: string | null
@@ -49,6 +52,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     agent,
     name: autoName(owner, agent),
     touched: false,
+    avatar: null,
     prompt,
     workspace: null,
   }
@@ -153,6 +157,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         agentKind: draft.agent,
         machineId: m?.id ?? null,
         systemPrompt: draft.prompt,
+        avatar: draft.avatar,
       })
       if (draft.workspace)
         await botsApi
@@ -254,6 +259,13 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
             aria-label="名称"
             value={draft.name}
             onChange={(e) => set({ name: e.target.value, touched: true })}
+          />
+        </FormRow>
+
+        <FormRow label="头像" align="top">
+          <AvatarPicker
+            value={draft.avatar ?? AGENT_AVATAR[draft.agent]}
+            onChange={(avatar) => set({ avatar })}
           />
         </FormRow>
 

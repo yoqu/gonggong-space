@@ -22,6 +22,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         onboarding::machine_bots,
         onboarding::confirm_bots,
         overview::overview,
+        overview::run_process,
         settings::get_settings,
         settings::set_auto_upgrade,
         settings::set_launch_at_login,

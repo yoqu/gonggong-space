@@ -285,10 +285,16 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+.git-bar__item:not(:disabled):hover {
+  background: var(--selection-fill);
+}
 .git-bar::-webkit-scrollbar {
   display: none;
 }
 .git-bar__item {
+  border: 0;
+  color: inherit;
+  font: inherit;
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -307,6 +313,10 @@
 .git-bar__ab {
   font-family: var(--font-mono);
   color: var(--label-secondary);
+}
+.git-bar__ab {
+  display: inline-flex;
+  align-items: center;
 }
 .git-bar__dirty {
   color: var(--tint-orange-text);

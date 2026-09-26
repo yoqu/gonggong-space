@@ -1,5 +1,5 @@
 import { PushSubscriptionReq } from '@gonggong/protocol'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { notifications, pushSubscriptions } from '../../db/schema.js'
@@ -42,6 +42,25 @@ export function notificationRoutes(ctx: Ctx) {
         .update(notifications)
         .set({ readAt: ctx.now() })
         .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)))
+      return reply.status(204).send()
+    })
+
+    app.delete('/api/notifications/read', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      await ctx.db
+        .delete(notifications)
+        .where(and(eq(notifications.userId, user.id), isNotNull(notifications.readAt)))
+      return reply.status(204).send()
+    })
+
+    app.delete<{ Params: { id: string } }>('/api/notifications/:id', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      const id = idParam(req.params.id, '通知')
+      const [row] = await ctx.db
+        .delete(notifications)
+        .where(and(eq(notifications.id, id), eq(notifications.userId, user.id)))
+        .returning({ id: notifications.id })
+      if (!row) fail('not_found', '通知不存在')
       return reply.status(204).send()
     })
 

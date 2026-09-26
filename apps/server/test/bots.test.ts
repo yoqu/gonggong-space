@@ -46,6 +46,7 @@ describe('POST /api/bots', () => {
       agentKind: 'claude',
       machineId: machine.id,
       systemPrompt: '后端接口开发',
+      avatar: 'bot-visor',
     })
     expect(res.statusCode).toBe(200)
     const bot = res.json<BotDto>()
@@ -56,6 +57,7 @@ describe('POST /api/bots', () => {
       binding: 'bound',
       presence: 'offline',
       systemPrompt: '后端接口开发',
+      avatar: 'bot-visor',
       agentVersion: '2.1.4',
       agentMinVersion: '2.0.0',
       groupCount: 0,
@@ -220,6 +222,18 @@ describe('PATCH /api/bots/:id', () => {
 
     const byAdmin = await admin.req('PATCH', url, { systemPrompt: '只读分析', tier: 'read-only' })
     expect(byAdmin.json()).toMatchObject({ systemPrompt: '只读分析', tier: 'read-only' })
+  })
+
+  it('sets, validates and clears the avatar', async () => {
+    const wang = await actor()
+    const bot = await t.seed.bot({ ownerId: wang.user.id })
+    const url = `/api/bots/${bot.id}`
+    expect((await wang.req('GET', url)).json()).toMatchObject({ avatar: null })
+    expect((await wang.req('PATCH', url, { avatar: 'agent-orbit' })).json()).toMatchObject({
+      avatar: 'agent-orbit',
+    })
+    expect((await wang.req('PATCH', url, { avatar: 'nope' })).statusCode).toBe(400)
+    expect((await wang.req('PATCH', url, { avatar: null })).json()).toMatchObject({ avatar: null })
   })
 })
 

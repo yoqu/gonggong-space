@@ -1,0 +1,222 @@
+/* 过程 (ZCode / Codex style): one quiet line per action; groups and the finished turn fold. */
+.act {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.act--nested {
+  margin: var(--space-2) 0 var(--space-4) 7px;
+  padding-left: var(--space-12);
+  border-left: 1px solid var(--separator);
+}
+.act-item {
+  min-width: 0;
+}
+.act-row {
+  width: 100%;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4);
+  margin: 0 calc(-1 * var(--space-4));
+  box-sizing: content-box;
+  border: 0;
+  border-radius: var(--radius-check);
+  background: transparent;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-callout-size);
+  text-align: left;
+}
+button.act-row:hover {
+  background: var(--quote-fill);
+}
+.act-row__icon {
+  flex: none;
+  color: var(--label-tertiary);
+}
+.act-row__verb {
+  flex: none;
+  color: var(--label);
+  font-weight: 500;
+}
+.act-row__target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label-secondary);
+}
+.act-row__target--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+}
+.act-row__meta {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-tertiary);
+}
+.act-row__meta--failed,
+.act-row__fail {
+  color: var(--tint-red-text);
+}
+.act-row__fail {
+  flex: none;
+  font-size: var(--text-subheadline-size);
+}
+.act-row__chevron {
+  flex: none;
+  margin-left: auto;
+  color: var(--label-tertiary);
+  transition: transform 0.15s ease;
+}
+.act-row[aria-expanded="true"] .act-row__chevron {
+  transform: rotate(90deg);
+}
+.act-item--work > .act-row .act-row__verb {
+  color: var(--label-secondary);
+}
+.act-item[data-state="failed"] > .act-row .act-row__icon,
+.act-item[data-state="failed"] > .act-row .act-row__verb {
+  color: var(--tint-red-text);
+}
+.act-item[data-state="running"] > .act-row .act-row__icon {
+  color: var(--accent);
+}
+.act-shimmer {
+  background:
+    linear-gradient(90deg, var(--label) 30%, var(--label-tertiary) 50%, var(--label) 70%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: act-shimmer 1.6s linear infinite;
+}
+@keyframes act-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act-shimmer {
+    animation: none;
+    color: var(--label);
+  }
+}
+.act-detail {
+  margin: var(--space-2) 0 var(--space-6) 20px;
+}
+.act-detail--text {
+  font-size: var(--text-callout-size);
+  line-height: var(--text-body-line);
+  color: var(--label-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.act-detail--mono {
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-field);
+  background: var(--quote-fill);
+}
+.act-detail pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.act-detail__more {
+  padding: 0;
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--label-tertiary);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+}
+.act-text {
+  padding: var(--space-4) 0 var(--space-6);
+  font-size: var(--text-callout-size);
+  line-height: var(--text-body-line);
+  color: var(--label);
+  overflow-wrap: anywhere;
+}
+.act-approval {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-field);
+  background: var(--tint-orange);
+}
+.act-approval__state {
+  margin-left: 20px;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+
+.act-add {
+  color: var(--tint-green-text);
+}
+.act-del {
+  color: var(--tint-red-text);
+}
+.act-clamp--short {
+  max-height: 7.5em;
+  overflow: hidden;
+}
+.act-clamp--fade {
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+.act-working {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 26px;
+  font-size: var(--text-callout-size);
+}
+/* Segment (Codex app): a quiet title with the chevron right after it; its calls sit flush below. */
+.act--flat {
+  margin: var(--space-2) 0 var(--space-4);
+}
+.act-item.act-item--group > .act-row .act-row__verb {
+  color: var(--label-secondary);
+  font-weight: 400;
+}
+.act-item--group > .act-row .act-row__chevron {
+  margin-left: 0;
+}
+.act-item--group > .act-row {
+  width: auto;
+  max-width: 100%;
+}
+.act-row__target--file {
+  flex: 0 1 auto;
+  color: var(--label-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--separator);
+  text-underline-offset: 3px;
+}
+button.act-row:hover .act-row__target--file {
+  color: var(--label);
+  text-decoration-color: currentColor;
+}
+.act-row__target--file + .act-row__meta--diff {
+  margin-right: auto;
+  font-family: var(--font-mono);
+}
+/* Subagent: its own process nests under the row; background task: one line with its state. */
+.act-row__state {
+  flex: none;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-tertiary);
+}
+.act-item[data-state="failed"] > .act-row .act-row__state {
+  color: var(--tint-red-text);
+}

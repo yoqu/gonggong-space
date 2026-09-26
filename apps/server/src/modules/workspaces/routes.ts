@@ -17,6 +17,7 @@ import { publishBot } from '../bots/dto.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { ABSOLUTE, announceCd, requestCd } from './cd.js'
 import { daemonWorkspaceRoutes } from './daemon.js'
+import { workspaceDiffRoutes } from './diff.js'
 import { onlineMachine } from './provision.js'
 import { listBotStates } from './state.js'
 
@@ -118,5 +119,6 @@ export function workspaceRoutes(ctx: Ctx) {
     )
 
     await app.register(daemonWorkspaceRoutes(ctx))
+    await app.register(workspaceDiffRoutes(ctx))
   }
 }

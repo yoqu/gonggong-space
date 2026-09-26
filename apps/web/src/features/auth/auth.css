@@ -144,9 +144,11 @@
 .relay__step {
   font-family: var(--font-mono);
   color: var(--label-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.relay__step::before {
-  content: "↳ ";
+.relay__step svg {
   color: var(--label-tertiary);
 }
 

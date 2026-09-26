@@ -1,6 +1,6 @@
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
 import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
-import { Button, Icon, toast } from '../../ui'
+import { Button, FileIcon, Icon, toast } from '../../ui'
 import { fmtSize, type Upload, uploadFile } from './api'
 import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
@@ -130,7 +130,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
     <div className="att-chips">
       {uploads.items.map((i) => (
         <span key={i.key} className="att-chip">
-          <Icon name={i.image ? 'image' : 'doc-text'} size={14} />
+          <FileIcon name={i.name} size={18} />
           <span className="att-chip__name">{i.name}</span>
           <span className="att-chip__size">{fmtSize(i.size)}</span>
           {i.upload ? null : <span className="att-chip__progress">{i.progress}%</span>}

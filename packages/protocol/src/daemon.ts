@@ -163,13 +163,17 @@ export const RunStart = z.object({
 })
 export type RunStart = z.infer<typeof RunStart>
 
+/** A subagent's ACP session id; absent on the main agent's events. */
+const AgentId = z.string().optional()
+
 /** Incremental process events streamed while a run is in progress. */
 export const RunEvent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('status'), status: RunStatus, step: z.string() }),
-  z.object({ kind: z.literal('text'), delta: z.string() }),
-  z.object({ kind: z.literal('thought'), delta: z.string() }),
+  z.object({ kind: z.literal('text'), delta: z.string(), agentId: AgentId }),
+  z.object({ kind: z.literal('thought'), delta: z.string(), agentId: AgentId }),
   z.object({
     kind: z.literal('tool'),
+    agentId: AgentId,
     toolCallId: z.string(),
     title: z.string(),
     /** ACP ToolKind: read | edit | delete | move | search | execute | think | fetch | other */
@@ -179,6 +183,28 @@ export const RunEvent = z.discriminatedUnion('kind', [
     detail: z.string().optional(),
   }),
   z.object({ kind: z.literal('usage'), usage: Usage }),
+  /** Full snapshot of a delegated subagent (Claude Agent/Task tool, Codex spawn_agent), sent on every change. */
+  z.object({
+    kind: z.literal('subagent'),
+    agentId: z.string(),
+    /** The spawning subagent; absent when spawned by the main agent. */
+    parentId: AgentId,
+    name: z.string(),
+    task: z.string(),
+    state: z.enum(['running', 'completed', 'failed', 'cancelled', 'disconnected']),
+  }),
+  /** Full snapshot of a background task (backgrounded shell, monitor…); may keep arriving after run.done. */
+  z.object({
+    kind: z.literal('task'),
+    taskId: z.string(),
+    agentId: AgentId,
+    toolCallId: z.string().optional(),
+    name: z.string(),
+    taskType: z.string(),
+    state: z.enum(['running', 'paused', 'completed', 'failed', 'stopped']),
+    summary: z.string().optional(),
+    outputPath: z.string().optional(),
+  }),
 ])
 export type RunEvent = z.infer<typeof RunEvent>
 
@@ -279,6 +305,16 @@ export const CommandsUpdate = z.object({
 export const AgentsUpdate = z.object({ t: z.literal('agents.update'), agents: z.array(AgentInfo) })
 
 /** Answer to files.list. */
+/** Answer to workspace.diff; patch null = no changes, base = the main branch compared against (scope `base`). */
+export const WorkspaceDiffResult = z.object({
+  t: z.literal('workspace.diff.result'),
+  requestId: z.string(),
+  patch: z.string().nullable(),
+  base: z.string().nullable(),
+  branch: z.string().nullable(),
+  error: z.string().nullable(),
+})
+
 export const FilesResult = z.object({
   t: z.literal('files.result'),
   requestId: z.string(),
@@ -315,6 +351,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   CommandsUpdate,
   DirResult,
   FilesResult,
+  WorkspaceDiffResult,
   QuestionAsk,
   ApprovalRequest,
   RunDiscarded,
@@ -348,6 +385,8 @@ export const Reject = z.object({
   upgrade: UpgradeInfo.optional(),
 })
 export const RunCancel = z.object({ t: z.literal('run.cancel'), runId: z.string() })
+/** The bot's effective tier changed mid-run: permission requests from now on follow it. */
+export const RunTier = z.object({ t: z.literal('run.tier'), runId: z.string(), tier: Tier })
 
 /** Create (clone) the managed workspace when a bot joins a group, or re-create it after the group binds a repo. */
 export const WorkspaceEnsure = z.object({
@@ -383,6 +422,22 @@ export const ApprovalDecision = z.object({
 export const RunDiscard = z.object({ t: z.literal('run.discard'), runId: z.string() })
 
 /** @ file candidates from a bot's workspace, incl. uncommitted files (spec §8.7). */
+/**
+ * A workspace's changes: `turn` = the live turn `runId` since it started, `uncommitted` = work tree (untracked
+ * included) against HEAD, `base` = against the merge base with the main branch (origin/HEAD, main or master).
+ */
+export const DiffScope = z.enum(['turn', 'uncommitted', 'base'])
+export type DiffScope = z.infer<typeof DiffScope>
+export const WorkspaceDiff = z.object({
+  t: z.literal('workspace.diff'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  workspace: WorkspaceSpec,
+  scope: DiffScope,
+  runId: z.string().nullable(),
+})
+
 export const FilesList = z.object({
   t: z.literal('files.list'),
   requestId: z.string(),
@@ -423,6 +478,7 @@ export const RunAppend = z.object({
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   FilesList,
+  WorkspaceDiff,
   QuestionAnswer,
   RunAppend,
   ApprovalDecision,
@@ -431,6 +487,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   Reject,
   RunStart,
   RunCancel,
+  RunTier,
   WorkspaceEnsure,
   WorkspaceCd,
 ])

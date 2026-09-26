@@ -58,6 +58,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
+  avatar: null,
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -504,9 +505,9 @@ describe('chat view', () => {
     push({
       t: 'group.botState',
       groupId: 'g1',
-      state: { botId: 'b1', workspace: 'managed', state: 'ready', path: null, git, error: null },
+      state: { botId: 'b1', workspace: 'managed', state: 'ready', path: null, git, error: null, tier: null },
     })
-    expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain↓1未提交托管')
+    expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain1未提交托管')
   })
 
   it('plays the enter animation only for messages that arrive after the first load', async () => {

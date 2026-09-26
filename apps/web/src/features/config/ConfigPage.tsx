@@ -21,6 +21,7 @@ import {
   Tag,
   TextField,
   toast,
+  UnsupportedArt,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { errorText } from '../auth/AuthCard'
@@ -141,7 +142,7 @@ export function ConfigPage() {
         <div className="cfg__list">
           {ctype !== 'mcp' ? (
             <EmptyState
-              icon="plug"
+              illustration={<UnsupportedArt />}
               title={`暂不支持 ${CTYPES.find((c) => c.value === ctype)?.label}`}
               description="目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。"
             />

@@ -147,6 +147,44 @@ describe('run process', () => {
     expect(d.events.map((e) => e.event)).toEqual(rows.map((r) => openEvent(r.payload as RunEvent)))
   })
 
+  it('keeps subagent streams apart, seals their free text and records background tasks after run.done', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const sub = { kind: 'subagent', agentId: 'a1', name: 'Explore', task: '找调用方' }
+    w.send(runId, { ...sub, state: 'running' })
+    w.send(runId, { kind: 'text', delta: '子', agentId: 'a1' })
+    w.send(runId, { kind: 'text', delta: '报告', agentId: 'a1' })
+    w.send(runId, { kind: 'text', delta: '主回复' })
+    const task = { kind: 'task', taskId: 'bg1', agentId: 'a1', name: 'pnpm dev', taskType: 'shell' }
+    w.send(runId, { ...task, state: 'running' })
+    w.send(runId, { ...sub, state: 'completed' })
+    w.done(runId)
+    await w.ended(runId)
+    const updates = w.seen.filter((e) => e.t === 'run.updated').length
+    w.send(runId, { ...task, state: 'completed', summary: 'exit 0' })
+    await expect.poll(() => w.seen.filter((e) => e.t === 'run.updated').length).toBe(updates + 1)
+
+    expect(w.seen.filter((e) => e.t === 'run.delta').map((e) => e.t === 'run.delta' && e.text)).toEqual([
+      '主回复',
+    ])
+    const rows = await t.db
+      .select()
+      .from(runEvents)
+      .where(eq(runEvents.runId, runId))
+      .orderBy(asc(runEvents.id))
+    const raw = JSON.stringify(rows)
+    expect(raw).not.toContain('找调用方')
+    expect(raw).not.toContain('exit 0')
+    expect((await w.detail(runId)).events.map((e) => e.event)).toEqual([
+      { ...sub, state: 'running' },
+      { kind: 'text', delta: '子报告', agentId: 'a1' },
+      { kind: 'text', delta: '主回复' },
+      { ...task, state: 'running' },
+      { ...sub, state: 'completed' },
+      { ...task, state: 'completed', summary: 'exit 0' },
+    ])
+  })
+
   it('serves approvals and the group hop limit on detail, timeline and realtime cards', async () => {
     const w = await world()
     await t.db

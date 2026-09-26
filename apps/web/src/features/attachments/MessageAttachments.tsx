@@ -1,18 +1,9 @@
 import type { Attachment, MessageDto } from '@gonggong/protocol'
 import { cx } from '../../lib/cx'
-import { FileAttachment, Icon, type IconName } from '../../ui'
-import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf } from './api'
+import { FileAttachment, Icon } from '../../ui'
+import { attachmentUrl, fmtSize, KIND_LABEL, kindOf } from './api'
 import { usePreview } from './preview'
 import './attachments.css'
-
-export const KIND_ICON: Record<FileKind, IconName> = {
-  image: 'image',
-  video: 'video',
-  md: 'doc-text',
-  text: 'doc-text',
-  code: 'doc-code',
-  file: 'doc',
-}
 
 /** The quoted bot reply / run card / message shown inside the sent message. */
 export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
@@ -74,6 +65,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
           <FileAttachment
             key={a.id}
             name={a.name}
+            mime={a.mime}
             meta={`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : ' · 点击预览'}`}
             onOpen={() => open(a)}
           />

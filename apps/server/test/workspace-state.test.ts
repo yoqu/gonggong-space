@@ -19,7 +19,7 @@ it('updates a workspace state and pushes it to group members only', async () => 
   t.ctx.bus.attach(outsider.id, (e) => seen.o!.push(e))
 
   expect(await listBotStates(t.ctx, group.id)).toEqual([
-    { botId: bot.id, workspace: 'managed', state: 'pending', path: null, git: null, error: null },
+    { botId: bot.id, workspace: 'managed', state: 'pending', path: null, git: null, error: null, tier: null },
   ])
   const git = { branch: 'main', ahead: 0, behind: 0, dirty: false, workspace: 'managed' as const }
   await updateBotState(t.ctx, group.id, bot.id, { workspaceState: 'ready', gitStatus: git })
@@ -27,7 +27,15 @@ it('updates a workspace state and pushes it to group members only', async () => 
     {
       t: 'group.botState',
       groupId: group.id,
-      state: { botId: bot.id, workspace: 'managed', state: 'ready', path: null, git, error: null },
+      state: {
+        botId: bot.id,
+        workspace: 'managed',
+        state: 'ready',
+        path: null,
+        git,
+        error: null,
+        tier: null,
+      },
     },
   ])
   expect(seen.o).toEqual([])

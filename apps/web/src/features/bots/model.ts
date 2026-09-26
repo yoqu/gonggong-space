@@ -1,4 +1,10 @@
-import { type AgentKind, type BotDto, compareVersions, type MachineDto } from '@gonggong/protocol'
+import {
+  type AgentKind,
+  type BotAvatar,
+  type BotDto,
+  compareVersions,
+  type MachineDto,
+} from '@gonggong/protocol'
 import { refreshNotifCount, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 
@@ -57,10 +63,11 @@ export const botsApi = {
     agentKind: AgentKind
     machineId: string | null
     systemPrompt: string
+    avatar: BotAvatar | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),
   update: (
     id: string,
-    body: Partial<Pick<BotDto, 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList'>>,
+    body: Partial<Pick<BotDto, 'avatar' | 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList'>>,
   ) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
   setDefaultWorkspace: (id: string, path: string | null) =>
     api.put<BotDto>(`/bots/${id}/default-workspace`, { path }).then(saveBot),

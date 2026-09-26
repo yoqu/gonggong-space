@@ -19,7 +19,17 @@ const bot = (o: Partial<BotDto> = {}) =>
     ...o,
   }) as BotDto
 const unbound = (error: string | null = null) => ({
-  g1: { b1: { botId: 'b1', workspace: 'managed', state: 'unbound', path: null, git: null, error } as const },
+  g1: {
+    b1: {
+      botId: 'b1',
+      workspace: 'managed',
+      state: 'unbound',
+      path: null,
+      git: null,
+      error,
+      tier: null,
+    } as const,
+  },
 })
 const listing = (path: string) => ({
   path,
@@ -78,7 +88,15 @@ describe('workspace banner', () => {
 
   it('folds several of my unbound bots into one line with a button each', () => {
     const state = (id: string) =>
-      ({ botId: id, workspace: 'managed', state: 'unbound', path: null, git: null, error: null }) as const
+      ({
+        botId: id,
+        workspace: 'managed',
+        state: 'unbound',
+        path: null,
+        git: null,
+        error: null,
+        tier: null,
+      }) as const
     useWorkspace.setState({
       bots: [bot(), bot({ id: 'b2', name: '小王的 Codex' })],
       botStates: { g1: { b1: state('b1'), b2: state('b2') } },

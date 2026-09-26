@@ -2,10 +2,23 @@ import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { realtime } from '../../lib/realtime'
+import { Icon, type IconName } from '../../ui'
+import { useDiffWindow } from '../diff/store'
 
 const WORKSPACE_LABEL = { managed: '托管', cd: '本机目录' } as const
 
-function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
+function Commits({ icon, label, n }: { icon: IconName; label: string; n: number }) {
+  const name = `${label} ${n} 个提交`
+  return (
+    <span className="git-bar__ab" role="img" aria-label={name} title={name}>
+      <Icon name={icon} size={12} />
+      {n}
+    </span>
+  )
+}
+
+function Item({ name, groupId, s }: { name: string; groupId: string; s: GroupBotStateDto }) {
+  const openDiff = useDiffWindow((st) => st.open)
   const git = s.git
   const hint =
     s.state === 'unbound' ? (
@@ -19,24 +32,31 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
         工作区创建失败
       </span>
     ) : null
+  // Uncommitted work first; a clean feature branch shows what it holds against main.
+  const inspect = git
+    ? () => openDiff({ groupId, botId: s.botId, runId: null }, git.dirty ? 'uncommitted' : 'base')
+    : undefined
   return (
-    <div className="git-bar__item" data-testid={`git-${s.botId}`}>
+    <button
+      type="button"
+      className="git-bar__item"
+      data-testid={`git-${s.botId}`}
+      aria-label={`查看 ${name} 的改动`}
+      title="查看改动"
+      disabled={!inspect}
+      onClick={inspect}
+    >
       <span className="git-bar__name">{name}</span>
       {hint ?? (
         <>
           <span className="git-bar__branch">{git?.branch ?? '—'}</span>
-          {git?.behind || git?.ahead ? (
-            <span className="git-bar__ab">
-              {[git.behind ? `↓${git.behind}` : '', git.ahead ? `↑${git.ahead}` : '']
-                .filter(Boolean)
-                .join(' ')}
-            </span>
-          ) : null}
+          {git?.behind ? <Commits icon="arrow-down" label="落后" n={git.behind} /> : null}
+          {git?.ahead ? <Commits icon="arrow-up" label="领先" n={git.ahead} /> : null}
           {git?.dirty ? <span className="git-bar__dirty">未提交</span> : null}
         </>
       )}
       <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>
-    </div>
+    </button>
   )
 }
 
@@ -67,6 +87,7 @@ export function GitBar({ group }: { group: GroupDto }) {
         <Item
           key={id}
           name={bots.find((b) => b.id === id)?.name ?? 'bot'}
+          groupId={group.id}
           s={
             states?.[id] ?? {
               botId: id,
@@ -75,6 +96,7 @@ export function GitBar({ group }: { group: GroupDto }) {
               path: null,
               git: null,
               error: null,
+              tier: null,
             }
           }
         />
