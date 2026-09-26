@@ -2,6 +2,7 @@ import {
   PROTOCOL_VERSION,
   type RunDetailDto,
   type RunEvent,
+  type RunSessionDto,
   type RunStart,
   type TimelineDto,
   type WebEvent,
@@ -52,14 +53,14 @@ async function world() {
 
   const seen: WebEvent[] = []
   t.ctx.bus.attach(bob.id, (e) => seen.push(e))
-  const mention = async () => {
+  const mention = async (body = '@bot go') => {
     const [m] = await t.db
       .insert(messages)
       .values({
         groupId: group.id,
         kind: 'user',
         authorUserId: alice.id,
-        body: '@bot go',
+        body,
         meta: { mentions: [bot.id] },
       })
       .returning()
@@ -93,7 +94,9 @@ async function world() {
     (
       await t.app.inject({ url: `/api/runs/${runId}`, headers: { cookie: await t.seed.cookie(userId) } })
     ).json<RunDetailDto>()
-  return { alice, bob, bot, group, mention, send, done, ended, detail, seen, box }
+  const session = async (runId: string, userId = bob.id) =>
+    t.app.inject({ url: `/api/runs/${runId}/session`, headers: { cookie: await t.seed.cookie(userId) } })
+  return { alice, bob, bot, group, mention, send, done, ended, detail, session, seen, box }
 }
 
 describe('run process', () => {
@@ -287,5 +290,41 @@ describe('run process', () => {
     })
     await t.db.update(groupBots).set({ sessionId: 's-9' }).where(eq(groupBots.groupId, w.group.id))
     expect((await w.detail(runId)).sessionId).toBe('s-9')
+  })
+
+  it("lists the earlier rounds of the run's agent session, oldest first, cut at the last new session", async () => {
+    const w = await world()
+    const rounds = async (runId: string) =>
+      (await w.session(runId)).json<RunSessionDto>().rounds.map((r) => [r.run.id, r.prompt])
+    const turn = async (body: string, o: Record<string, unknown> = { newSessionReason: null }) => {
+      const runId = await w.mention(body)
+      w.done(runId, o)
+      await w.ended(runId)
+      return runId
+    }
+    const r1 = await turn('@bot 第一轮', { newSessionReason: 'first' })
+    const r2 = await turn('@bot 第二轮')
+    const r3 = await w.mention('@bot 第三轮')
+    expect(await rounds(r3)).toEqual([
+      [r1, '@bot 第一轮'],
+      [r2, '@bot 第二轮'],
+    ])
+    expect(await rounds(r2)).toEqual([[r1, '@bot 第一轮']])
+    expect(await rounds(r1)).toEqual([])
+    w.done(r3, { newSessionReason: null })
+    await w.ended(r3)
+
+    // /new: the fresh session is known at dispatch, so its live round already stands alone.
+    await t.db.update(groupBots).set({ sessionId: null, newSessionReason: 'requested' })
+    const r4 = await w.mention('@bot 新会话')
+    expect(await rounds(r4)).toEqual([])
+    w.done(r4, { newSessionReason: null })
+    await w.ended(r4)
+    expect((await w.detail(r4)).run.newSessionReason).toBe('requested')
+    const r5 = await turn('@bot 接着')
+    expect(await rounds(r5)).toEqual([[r4, '@bot 新会话']])
+
+    const outsider = await t.seed.user({ name: '外人' })
+    expect((await w.session(r5, outsider.id)).statusCode).toBe(404)
   })
 })

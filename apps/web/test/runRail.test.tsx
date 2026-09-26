@@ -206,7 +206,7 @@ class FakeSocket {
 }
 const push = (e: WebEvent) => act(() => FakeSocket.last!.onmessage!({ data: JSON.stringify(e) }))
 
-function mockApi(runDetail: () => RunDetailDto) {
+function mockApi(runDetail: () => RunDetailDto, extra: Record<string, () => unknown> = {}) {
   const calls: string[] = []
   const routes: Record<string, () => unknown> = {
     'GET /groups': () => [group],
@@ -219,6 +219,8 @@ function mockApi(runDetail: () => RunDetailDto) {
     'GET /groups/g1/bot-states': () => [],
     'GET /runs/r1': runDetail,
     'POST /runs/r1/tasks/bg1/stop': () => ({ sent: true }),
+    'GET /runs/r1/session': () => ({ rounds: [] }),
+    ...extra,
   }
   // A bot workspace's changes: this turn's patch, other scopes from the fixtures below.
   const diff = (url: string) => {
@@ -408,6 +410,43 @@ describe('run rail', () => {
     expect(await within(rail).findByText('运行过程已过期，仅保留摘要')).toBeTruthy()
     fireEvent.click(within(rail).getByRole('tab', { name: '审批记录' }))
     expect(rail.textContent).toContain('echo hello-approval')
+  })
+
+  it('reveals the earlier rounds of the session above this one, one per click', async () => {
+    const past = (id: string, reply: string) =>
+      detail({
+        run: run({ id, status: 'completed', endedAt: at, approvals: [] }),
+        events: [{ id: 1, at, event: { kind: 'text', delta: reply } }],
+      })
+    const calls = mockApi(detail, {
+      'GET /runs/r1/session': () => ({
+        rounds: [
+          { run: run({ id: 'p1', status: 'completed', endedAt: at }), prompt: '@小王的 Claude 先看看' },
+          { run: run({ id: 'p2', status: 'completed', endedAt: at }), prompt: '@小王的 Claude 再改改' },
+        ],
+      }),
+      'GET /runs/p1': () => past('p1', '第一轮回复'),
+      'GET /runs/p2': () => past('p2', '第二轮回复'),
+    })
+    renderChat()
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
+    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
+    const rail = await screen.findByTestId('run-rail')
+    fireEvent.click(await within(rail).findByRole('button', { name: '查看上一轮（还有 2 轮）' }))
+    expect(await within(rail).findByText('第二轮回复')).toBeTruthy()
+    expect(rail.textContent).toContain('@小王的 Claude 再改改')
+    expect(within(rail).getByText('本轮')).toBeTruthy()
+    expect(calls).not.toContain('GET /runs/p1')
+
+    fireEvent.click(within(rail).getByRole('button', { name: '查看上一轮（还有 1 轮）' }))
+    expect(await within(rail).findByText('第一轮回复')).toBeTruthy()
+    const text = rail.textContent!
+    expect(text.indexOf('第一轮回复')).toBeLessThan(text.indexOf('第二轮回复'))
+    expect(within(rail).queryByRole('button', { name: /查看上一轮/ })).toBeNull()
+
+    // A round folds to its header.
+    fireEvent.click(within(rail).getByRole('button', { name: /再改改/ }))
+    expect(within(rail).queryByText('第二轮回复')).toBeNull()
   })
 
   it('covers the whole screen on mobile', async () => {

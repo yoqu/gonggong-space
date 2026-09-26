@@ -1,4 +1,11 @@
-import { agentConfigLabel, type DiffScope, type RunDetailDto, type TaskStopRes } from '@gonggong/protocol'
+import {
+  agentConfigLabel,
+  type DiffScope,
+  type RunDetailDto,
+  type RunDto,
+  type RunSessionDto,
+  type TaskStopRes,
+} from '@gonggong/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -177,22 +184,23 @@ export function RunRail({ runId }: { runId: string }) {
             <Spinner />
           </div>
         ) : !source ? null : tab === 'process' ? (
-          detail.purged ? (
-            <div className="run-rail__empty">{PURGED}</div>
-          ) : (
-            <ProcessView
-              key={runId}
-              steps={buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail)}
-              root={root}
-              live={live}
-              startedAt={run?.startedAt ?? null}
-              workedMs={
-                run?.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null
-              }
-              onOpenDiff={(path) => openDiff(source, 'turn', path)}
-              onStopTask={(taskId) => stopTask(runId, taskId)}
-            />
-          )
+          <>
+            <EarlierRounds key={runId} runId={runId} root={root} />
+            {detail.purged ? (
+              <div className="run-rail__empty">{PURGED}</div>
+            ) : (
+              <ProcessView
+                key={runId}
+                steps={buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail)}
+                root={root}
+                live={live}
+                startedAt={run?.startedAt ?? null}
+                workedMs={workedMs(run)}
+                onOpenDiff={(path) => openDiff(source, 'turn', path)}
+                onStopTask={(taskId) => stopTask(runId, taskId)}
+              />
+            )}
+          </>
         ) : tab === 'diff' ? (
           <ChangesTab detail={detail} source={source} turn={turn} />
         ) : (
@@ -200,6 +208,75 @@ export function RunRail({ runId }: { runId: string }) {
         )}
       </div>
     </div>
+  )
+}
+
+const workedMs = (run?: RunDto) =>
+  run?.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null
+
+/** Earlier rounds of this run's agent session, revealed one per click above it so the conversation reads on. */
+function EarlierRounds({ runId, root }: { runId: string; root: string | null }) {
+  const [rounds, setRounds] = useState<RunSessionDto['rounds']>([])
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    api.get<RunSessionDto>(`/runs/${runId}/session`).then(
+      (d) => setRounds(d.rounds),
+      (e: Error) => toast({ type: 'error', message: `无法加载上一轮：${e.message}` }),
+    )
+  }, [runId])
+  const left = rounds.length - shown
+  return (
+    <>
+      {left > 0 ? (
+        <button type="button" className="run-rounds__more" onClick={() => setShown(shown + 1)}>
+          <Icon name="chevron-up" size={14} />
+          查看上一轮（还有 {left} 轮）
+        </button>
+      ) : null}
+      {rounds.slice(left).map((r) => (
+        <PastRound key={r.run.id} run={r.run} prompt={r.prompt} root={root} />
+      ))}
+      {shown > 0 ? <div className="run-rounds__divider">本轮</div> : null}
+    </>
+  )
+}
+
+function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: string | null }) {
+  const [open, setOpen] = useState(true)
+  const { detail, error } = useRunDetail(run.id)
+  const openDiff = useDiffWindow((s) => s.open)
+  const worked = workedMs(run)
+  return (
+    <section className="run-round">
+      <button type="button" className="run-round__head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="chevron-right" size={12} className="run-round__chevron" />
+        <span className="run-round__prompt">{prompt || '—'}</span>
+        <span className="run-round__meta">
+          {run.startedAt ? hhmm(run.startedAt) : ''}
+          {worked === null ? '' : ` · ${fmtDuration(worked)}`}
+        </span>
+        <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag>
+      </button>
+      {!open ? null : error ? (
+        <div className="run-rail__empty">{error}</div>
+      ) : !detail ? (
+        <Spinner />
+      ) : detail.purged ? (
+        <div className="run-rail__empty">{PURGED}</div>
+      ) : (
+        <ProcessView
+          steps={buildSteps(detail)}
+          root={root}
+          live={LIVE.includes(run.status)}
+          startedAt={run.startedAt}
+          workedMs={worked}
+          onOpenDiff={(path) =>
+            openDiff({ groupId: run.groupId, botId: run.botId, runId: run.id }, 'turn', path)
+          }
+          onStopTask={(taskId) => stopTask(run.id, taskId)}
+        />
+      )}
+    </section>
   )
 }
 

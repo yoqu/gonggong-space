@@ -148,7 +148,7 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       filesChanged: done.filesChanged,
       patch: done.patch && seal(redact(done.patch)),
       ...(done.usage && { usage: done.usage }),
-      newSessionReason: done.newSessionReason,
+      ...(done.newSessionReason && { newSessionReason: done.newSessionReason }),
       endedAt: ctx.now(),
       ...(await stoppedDone(ctx, owned, done)),
     })

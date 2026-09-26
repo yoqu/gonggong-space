@@ -71,7 +71,14 @@ export async function schedule(ctx: Ctx, botId: string) {
         // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
         const [running] = await tx
           .update(runs)
-          .set({ status: 'running', step: '', startedAt: ctx.now(), ...start.config })
+          .set({
+            status: 'running',
+            step: '',
+            startedAt: ctx.now(),
+            ...start.config,
+            // Known up front so the live round already starts its own session; run.done may refine it.
+            newSessionReason: start.msg.resumeSessionId ? null : (start.msg.newSessionReason ?? 'first'),
+          })
           .where(eq(runs.id, run.id))
           .returning()
         if (running && ctx.hub.send(machineId, start.msg)) {

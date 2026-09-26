@@ -459,6 +459,10 @@ export const RunDetailDto = z.object({
 })
 export type RunDetailDto = z.infer<typeof RunDetailDto>
 
+/** GET /api/runs/:id/session — earlier rounds of the run's agent session (oldest first), with their trigger text. */
+export const RunSessionDto = z.object({ rounds: z.array(z.object({ run: RunDto, prompt: z.string() })) })
+export type RunSessionDto = z.infer<typeof RunSessionDto>
+
 export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
 export type TimelineDto = z.infer<typeof TimelineDto>
 
