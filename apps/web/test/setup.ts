@@ -19,3 +19,7 @@ globalThis.IntersectionObserver ??= class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof IntersectionObserver
+
+// Tests pass plain objects as files, which jsdom's object URLs reject.
+URL.createObjectURL = () => 'blob:test'
+URL.revokeObjectURL = () => {}

@@ -1,0 +1,78 @@
+.ui-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-lightbox:focus {
+  outline: none;
+}
+.ui-lightbox__scrim {
+  position: absolute;
+  inset: 0;
+  /* Dimmer than the dialog scrim: the photo, not the page, should hold the eye. */
+  background: #000000d9;
+}
+.ui-lightbox__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  color: #fff;
+  font-size: var(--text-callout-size);
+}
+.ui-lightbox__bar .ui-btn,
+.ui-lightbox__bar .ui-close {
+  color: #fff;
+}
+.ui-lightbox__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-lightbox__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 var(--space-16) var(--space-16);
+  /* Clicks beside the fitted image fall through to the scrim and close. */
+  pointer-events: none;
+}
+.ui-lightbox__stage--zoomed {
+  display: block;
+  overflow: auto;
+  pointer-events: auto;
+}
+.ui-lightbox__img {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  max-width: 100%;
+  max-height: 100%;
+  pointer-events: auto;
+  cursor: zoom-in;
+}
+.ui-lightbox__img > img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 80px);
+  object-fit: contain;
+}
+.ui-lightbox__stage--zoomed .ui-lightbox__img {
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  cursor: zoom-out;
+}
+.ui-lightbox__stage--zoomed .ui-lightbox__img > img {
+  max-width: none;
+  max-height: none;
+}

@@ -208,6 +208,8 @@ beforeEach(() => {
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   useQuote.setState({ quote: null })
   usePreview.setState({ open: null })
+  URL.createObjectURL = vi.fn((f: Blob) => `blob:${(f as File).name}`)
+  URL.revokeObjectURL = vi.fn()
   useToasts.setState({ items: [] })
   sessionStorage.clear()
   let n = 0
@@ -261,6 +263,27 @@ describe('composer attachments', () => {
       attachmentIds: ['up1', 'up2', 'up3', 'up4', 'up5', 'up6', 'up7', 'up8', 'up9'],
     })
     await waitFor(() => expect(screen.queryByText('screen.png')).toBeNull())
+  })
+
+  it('shows pasted images as thumbnails that open a lightbox', async () => {
+    mockApi()
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    fireEvent.paste(box(), { clipboardData: { files: [file('image.png', 2048, 'image/png')] } })
+    const thumb = (await composer().findByRole('img', { name: 'image.png' })) as HTMLImageElement
+    expect(thumb.src).toBe('blob:image.png')
+    fireEvent.click(composer().getByRole('button', { name: '预览 image.png' }))
+    const box2 = screen.getByRole('dialog', { name: 'image.png' })
+    expect((within(box2).getByRole('img', { name: 'image.png' }) as HTMLImageElement).src).toBe(
+      'blob:image.png',
+    )
+    fireEvent.click(within(box2).getByRole('button', { name: '放大' }))
+    expect(within(box2).getByRole('button', { name: '缩小' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'image.png' })).toBeNull()
+
+    fireEvent.click(composer().getByRole('button', { name: '移除 image.png' }))
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image.png')
   })
 
   it('waits for uploads before sending', async () => {
@@ -330,7 +353,13 @@ describe('message attachments and preview', () => {
     })
     renderChat()
     const main = screen.getByRole('main')
-    fireEvent.click(await within(main).findByRole('button', { name: '在右侧查看 shot.png' }))
+    fireEvent.click(await within(main).findByRole('button', { name: '查看大图 shot.png' }))
+    const lightbox = screen.getByRole('dialog', { name: 'shot.png' })
+    expect((within(lightbox).getByRole('img', { name: 'shot.png' }) as HTMLImageElement).src).toContain(
+      '/api/attachments/a1',
+    )
+    fireEvent.click(within(lightbox).getByRole('button', { name: '在右侧查看' }))
+    expect(screen.queryByRole('dialog', { name: 'shot.png' })).toBeNull()
     const panel = () => screen.getByRole('complementary', { name: '侧栏' })
     expect(within(panel()).getByRole('img', { name: 'shot.png' })).toBeTruthy()
     expect(panel().textContent).toContain('来源李建国')

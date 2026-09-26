@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Button, CloseButton, FileIcon, GroupBox, GroupRow, Spinner, Tabs, Toolbar, toast } from '../../ui'
+import {
+  Button,
+  CloseButton,
+  FileIcon,
+  GroupBox,
+  GroupRow,
+  Lightbox,
+  Spinner,
+  Tabs,
+  Toolbar,
+  toast,
+} from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { attachmentUrl, type FileKind, fmtSize, KIND_LABEL, kindOf, workspacePath } from './api'
 import { type PreviewTarget, usePreview } from './preview'
@@ -63,6 +74,7 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
   const text = useText(a.id, textual)
   const [tab, setTab] = useState<'preview' | 'source'>('preview')
   const [dim, setDim] = useState<string | null>(null)
+  const [zoomed, setZoomed] = useState(false)
   const url = attachmentUrl(a.id)
   const lines = text?.replace(/\n$/, '').split('\n') ?? []
   const shown = lines.slice(0, LINES_MAX)
@@ -113,11 +125,14 @@ export function PreviewPanel({ target }: { target: PreviewTarget }) {
       <div className="pv__body">
         {kind === 'image' ? (
           <div className="pv__media">
-            <img
-              src={url}
-              alt={a.name}
-              onLoad={(e) => setDim(`${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}`)}
-            />
+            <button type="button" className="pv__zoom" title="查看大图" onClick={() => setZoomed(true)}>
+              <img
+                src={url}
+                alt={a.name}
+                onLoad={(e) => setDim(`${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}`)}
+              />
+            </button>
+            {zoomed ? <Lightbox src={url} alt={a.name} onClose={() => setZoomed(false)} /> : null}
           </div>
         ) : kind === 'video' ? (
           <div className="pv__media">

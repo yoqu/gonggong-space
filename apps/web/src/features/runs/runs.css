@@ -14,6 +14,10 @@
   padding: 0 var(--space-16) var(--space-12);
   border-bottom: 1px solid var(--separator);
 }
+/* Pane segmented controls size to content; keep the column flex from stretching the track. */
+.run-rail__head > .ui-seg {
+  align-self: center;
+}
 .run-rail__head .ui-group__row {
   min-height: 32px;
   padding: var(--space-6) var(--space-12);

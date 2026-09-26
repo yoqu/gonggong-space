@@ -63,6 +63,28 @@
 .att-chip__progress {
   font-variant-numeric: tabular-nums;
 }
+.att-chip--image {
+  height: auto;
+  padding-block: var(--space-4);
+  padding-left: var(--space-4);
+}
+.att-chip__thumb {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius-field) - 2px);
+  overflow: hidden;
+  background: var(--group-bg);
+  cursor: zoom-in;
+}
+.att-chip__thumb > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .att-chip__rm {
   flex: none;
   display: grid;
@@ -191,7 +213,15 @@
   overflow: hidden;
   background: var(--group-bg);
 }
+.pv__zoom {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
 .pv__media > img,
+.pv__zoom > img,
 .pv__media > video {
   display: block;
   max-width: 100%;

@@ -1,6 +1,7 @@
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
 import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
-import { Button, FileIcon, Icon, toast } from '../../ui'
+import { cx } from '../../lib/cx'
+import { Button, FileIcon, Icon, Lightbox, toast } from '../../ui'
 import { fmtSize, type Upload, uploadFile } from './api'
 import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
@@ -10,12 +11,16 @@ interface Pending {
   name: string
   size: number
   image: boolean
+  /** Object URL of a local image, so it previews before (and without waiting for) the upload. */
+  thumb?: string
   progress: number
   upload?: Upload
   abort: () => void
 }
 
 let seq = 0
+
+const release = (i: Pending) => i.thumb && URL.revokeObjectURL(i.thumb)
 
 /** Files picked in the composer, uploaded right away (spec §8.7: ≤ 50 MB each, ≤ 10 per message). */
 export function useUploads(groupId: string) {
@@ -24,7 +29,12 @@ export function useUploads(groupId: string) {
   live.current = items
   const patch = (key: number, p: Partial<Pending>) =>
     setItems((list) => list.map((i) => (i.key === key ? { ...i, ...p } : i)))
-  const drop = (key: number) => setItems((list) => list.filter((i) => i.key !== key))
+  const drop = (key: number) => {
+    const gone = live.current.find((i) => i.key === key)
+    if (gone) release(gone)
+    live.current = live.current.filter((i) => i.key !== key)
+    setItems((list) => list.filter((i) => i.key !== key))
+  }
 
   const add = (files: File[]) => {
     let room = MAX_ATTACHMENTS - live.current.length
@@ -47,11 +57,13 @@ export function useUploads(groupId: string) {
           if (e.name !== 'AbortError') toast({ type: 'error', message: `${file.name}：${e.message}` })
         },
       )
+      const image = file.type.startsWith('image/')
       added.push({
         key,
         name: file.name,
         size: file.size,
-        image: file.type.startsWith('image/'),
+        image,
+        thumb: image && file.type !== 'image/svg+xml' ? URL.createObjectURL(file) : undefined,
         progress: 0,
         abort,
       })
@@ -65,9 +77,20 @@ export function useUploads(groupId: string) {
     drop(key)
   }
 
-  const clear = useCallback(() => setItems([]), [])
+  const clear = useCallback(() => {
+    live.current.forEach(release)
+    live.current = []
+    setItems([])
+  }, [])
   // Abandoned uploads stay unbound on the server; stop the transfers when leaving the group.
-  useEffect(() => () => live.current.forEach((i) => void (i.upload || i.abort())), [])
+  useEffect(
+    () => () =>
+      live.current.forEach((i) => {
+        release(i)
+        if (!i.upload) i.abort()
+      }),
+    [],
+  )
 
   return {
     items,
@@ -124,13 +147,27 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
 }
 
 export function AttachmentChips({ uploads }: { uploads: Uploads }) {
+  const [viewKey, setViewKey] = useState<number | null>(null)
   if (!uploads.items.length) return null
+  const viewing = uploads.items.find((i) => i.key === viewKey)
   const image = uploads.items.some((i) => i.image)
   return (
     <div className="att-chips">
       {uploads.items.map((i) => (
-        <span key={i.key} className="att-chip">
-          <FileIcon name={i.name} size={18} />
+        <span key={i.key} className={cx('att-chip', i.thumb && 'att-chip--image')}>
+          {i.thumb ? (
+            <button
+              type="button"
+              className="att-chip__thumb"
+              aria-label={`预览 ${i.name}`}
+              title="点击放大"
+              onClick={() => setViewKey(i.key)}
+            >
+              <img src={i.thumb} alt={i.name} />
+            </button>
+          ) : (
+            <FileIcon name={i.name} size={18} />
+          )}
           <span className="att-chip__name">{i.name}</span>
           <span className="att-chip__size">{fmtSize(i.size)}</span>
           {i.upload ? null : <span className="att-chip__progress">{i.progress}%</span>}
@@ -144,6 +181,9 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           </button>
         </span>
       ))}
+      {viewing?.thumb ? (
+        <Lightbox src={viewing.thumb} alt={viewing.name} onClose={() => setViewKey(null)} />
+      ) : null}
       <span className="att-chips__note">
         {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .gonggong/attachments/，不进 git${image ? ' · 图片：agent 支持时同时以 ACP 图片发送' : ''}`}
       </span>
