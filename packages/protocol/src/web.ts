@@ -1,7 +1,9 @@
 import { z } from 'zod'
 import {
   AgentKind,
+  Allowlist,
   Answer,
+  Approval,
   Attachment,
   GitStatus,
   MAX_ATTACHMENT_BYTES,
@@ -83,7 +85,16 @@ export const AdminUserDto = UserDto.extend({ machineCount: z.number().int(), onl
 export type AdminUserDto = z.infer<typeof AdminUserDto>
 
 // ── Machines ────────────────────────────────────────────────────────────────
-export const BindCodeDto = z.object({ code: z.string(), expiresAt: z.string() })
+/**
+ * `link` is the 接入链接 `gonggong://bind?server=…&code=…[&fp=sha256:…]` the desktop app opens or parses;
+ * `fingerprint` is the server's TLS certificate (null without TLS).
+ */
+export const BindCodeDto = z.object({
+  code: z.string(),
+  expiresAt: z.string(),
+  fingerprint: z.string().nullable(),
+  link: z.string(),
+})
 export type BindCodeDto = z.infer<typeof BindCodeDto>
 /** `name` is the owner's label when set, else `hostname`. */
 export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
@@ -164,6 +175,8 @@ export const BotDto = z.object({
   effort: z.string().nullable(),
   /** What the bound machine's adapter offers; null until probed (or without a machine). */
   catalog: AgentCatalog.nullable(),
+  approval: Approval,
+  allowlist: z.array(z.string()),
 })
 export type BotDto = z.infer<typeof BotDto>
 
@@ -226,6 +239,9 @@ export const UpdateBotReq = z.object({
   concurrency: z.number().int().min(1).max(8).optional(),
   model: z.string().nullable().optional(),
   effort: z.string().nullable().optional(),
+  /** Bot owner only. */
+  approval: Approval.optional(),
+  allowlist: Allowlist.optional(),
 })
 
 // ── Notifications ───────────────────────────────────────────────────────────

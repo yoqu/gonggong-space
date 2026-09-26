@@ -6,6 +6,12 @@ export type AgentKind = z.infer<typeof AgentKind>
 export const Tier = z.enum(['full', 'workspace', 'read-only'])
 export type Tier = z.infer<typeof Tier>
 
+/** 命令审批: what happens to permission requests beyond the bot's tier; set by the bot owner only. */
+export const Approval = z.enum(['ask', 'allowlist', 'all'])
+export type Approval = z.infer<typeof Approval>
+/** Command prefixes auto-approved in `allowlist` mode, e.g. `go build`. */
+export const Allowlist = z.array(z.string().trim().min(1).max(200)).max(100)
+
 export const TriggerScope = z.enum(['all', 'list', 'self'])
 export type TriggerScope = z.infer<typeof TriggerScope>
 

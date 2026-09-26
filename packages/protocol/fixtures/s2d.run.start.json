@@ -10,7 +10,9 @@
     "systemPrompt": "后端接口开发，只改 server/ 目录",
     "tier": "workspace",
     "model": "opus",
-    "effort": "high"
+    "effort": "high",
+    "approval": "allowlist",
+    "allowlist": ["go build", "npm test"]
   },
   "workspace": {
     "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" },

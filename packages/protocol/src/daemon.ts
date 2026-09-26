@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AgentKind, Answer, Attachment, GitStatus, Question, RunStatus, Tier, Usage } from './common.js'
+import { AgentKind, Answer, Approval, Attachment, GitStatus, Question, RunStatus, Tier, Usage } from './common.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
@@ -110,8 +110,6 @@ export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 export const NetReportReq = z.object({ latencyMs: z.number().min(0), bandwidthMbps: z.number().min(0) })
 /** GET /api/daemon/net/probe?bytes=N streams N random bytes for the bandwidth measurement (max 16 MiB). */
 export const NET_PROBE_MAX_BYTES = 16 * 1024 * 1024
-/** PATCH /api/daemon/bots/:id: the bot owner changes the concurrency from the desktop app (spec §4.7). */
-export const DaemonBotPatchReq = z.object({ concurrency: z.number().int().min(1).max(8) })
 /**
  * POST /api/daemon/runs/:runId/tools/:name: an gonggong MCP tool call made during that run (see tools.ts). Tool-level
  * failures come back as `isError` text for the agent; `attachments` are written into the workspace by the daemon.
@@ -197,6 +195,8 @@ export const RunStart = z.object({
     /** Resolved by the server (message pick → group default → bot default); null = the adapter's default. */
     model: z.string().nullable().default(null),
     effort: z.string().nullable().default(null),
+    approval: Approval.default('ask'),
+    allowlist: z.array(z.string()).default([]),
   }),
   workspace: WorkspaceSpec,
   /** Resume this ACP session if possible; null → start a new one. */
