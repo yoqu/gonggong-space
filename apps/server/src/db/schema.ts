@@ -286,6 +286,8 @@ export const runs = pgTable(
     stoppedBy: uuid('stopped_by').references(() => users.id),
     /** Unified diff of the turn (redacted); purged with run_events after retention. */
     patch: text('patch'),
+    /** Latest state of each subagent / background task by id: { subagents: {id: state}, tasks: {id: state} }. */
+    delegation: jsonb('delegation').notNull().default({}),
     purgedAt: ts('purged_at'),
   },
   (t) => [index('runs_bot_status').on(t.botId, t.status), index('runs_group').on(t.groupId)],

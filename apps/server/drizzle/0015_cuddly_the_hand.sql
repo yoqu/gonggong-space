@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "delegation" jsonb DEFAULT '{}'::jsonb NOT NULL;

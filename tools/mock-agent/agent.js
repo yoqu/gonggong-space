@@ -68,6 +68,8 @@ function open(sessionId, params) {
 }
 
 let clientCaps
+/** Background tasks still running, by id: how to report on their session. */
+const tasks = new Map()
 
 async function prompt({ sessionId, prompt: blocks }, client) {
   const s = sessions.get(sessionId)
@@ -225,6 +227,19 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     )
     return { stopReason: 'end_turn' }
   }
+  if (text.includes('mock:bgtask')) {
+    await update({
+      sessionUpdate: 'async_task_spawned',
+      asyncTaskId: 'bg2',
+      name: 'pnpm dev',
+      taskType: 'shell',
+      showInTranscript: false,
+      canStop: true,
+    })
+    tasks.set('bg2', update)
+    await say('已在后台启动')
+    return { stopReason: 'end_turn' }
+  }
   if (text.includes('mock:crash')) {
     await say('about to crash')
     await sleep(50)
@@ -315,5 +330,16 @@ acp
     return { configOptions: configOptions(s) }
   })
   .onRequest('session/prompt', (ctx) => prompt(ctx.params, ctx.client))
+  .onRequest('_session/async_task/stop', { parse: (v) => v }, async (ctx) => {
+    const report = tasks.get(ctx.params.asyncTaskId)
+    if (!report) return { stopped: false }
+    tasks.delete(ctx.params.asyncTaskId)
+    await report({
+      sessionUpdate: 'async_task_state_update',
+      asyncTaskId: ctx.params.asyncTaskId,
+      state: 'stopped',
+    })
+    return { stopped: true }
+  })
   .onNotification('session/cancel', (ctx) => sessions.get(ctx.params.sessionId)?.abort?.abort())
   .connect(acp.ndJsonStream(Writable.toWeb(process.stdout), Readable.toWeb(process.stdin)))

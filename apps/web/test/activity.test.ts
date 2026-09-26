@@ -161,6 +161,13 @@ describe('buildItems', () => {
     expect(buildItems(steps, ROOT, true, 65_000).map((i) => i.kind)).toEqual(['action', 'group', 'action'])
   })
 
+  it('keeps background tasks still running outside 已工作, where they can be stopped', () => {
+    const task = step('task', { label: '后台任务', title: 'pnpm dev', running: true, stop: 'bg1' })
+    const steps = [step('context'), exec('ls'), task, step('text', { body: 'started' })]
+    const items = buildItems(steps, ROOT, false, 5000)
+    expect(items.map((i) => (i.kind === 'action' ? i.family : i.kind))).toEqual(['work', 'task', 'text'])
+  })
+
   it('does not fold a run that ended without a reply', () => {
     const steps = [step('context'), exec('make', { failed: true })]
     expect(buildItems(steps, ROOT, false, 3000).map((i) => i.kind)).toEqual(['action', 'action'])

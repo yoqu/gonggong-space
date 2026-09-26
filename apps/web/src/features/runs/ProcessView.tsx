@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
-import { Icon, type IconName, Spinner } from '../../ui'
+import { Button, Icon, type IconName, Spinner } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { type Action, buildItems, fmtWorked, type Item } from './activity'
 import type { Step } from './steps'
@@ -9,7 +9,7 @@ import './process.css'
 
 /**
  * 过程 list of one run, shared by the web run rail and the desktop app. Pure view: steps in, folding state kept
- * here; `onOpenDiff` makes edited files open their change (web only).
+ * here; `onOpenDiff` makes edited files open their change, `onStopTask` stops a background task (web only).
  */
 export function ProcessView({
   steps,
@@ -18,6 +18,7 @@ export function ProcessView({
   startedAt,
   workedMs,
   onOpenDiff,
+  onStopTask,
 }: {
   steps: Step[]
   root: string | null
@@ -25,6 +26,7 @@ export function ProcessView({
   startedAt: string | null
   workedMs: number | null
   onOpenDiff?: (path: string) => void
+  onStopTask?: (taskId: string) => Promise<unknown>
 }) {
   // Only the user's own folding is remembered; everything starts folded (ZCode / Codex).
   const [open, setOpen] = useState<Record<string, boolean>>({})
@@ -38,6 +40,7 @@ export function ProcessView({
     root,
     live,
     onOpenDiff,
+    onStopTask,
   }
   return (
     <ol className="act" aria-label="运行过程">
@@ -68,6 +71,9 @@ type Ctx = {
   root: string | null
   live: boolean
   onOpenDiff?: (path: string) => void
+  onStopTask?: (taskId: string) => Promise<unknown>
+  /** Inside a subagent: its report is a detail here, so long text folds. */
+  nested?: boolean
 }
 
 const GROUP_ICON: Record<string, IconName> = {
@@ -147,7 +153,7 @@ function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
       {expanded ? (
         <ol className="act act--nested">
           {buildItems(children, ctx.root, ctx.live && !!s.running, null).map((i) => (
-            <ItemRow key={i.key} item={i} {...ctx} />
+            <ItemRow key={i.key} item={i} {...ctx} nested />
           ))}
         </ol>
       ) : null}
@@ -167,6 +173,7 @@ const ACTION_ICON: Record<string, IconName> = {
   status: 'activity',
   approval: 'shield-warning',
   task: 'bolt',
+  delegate: 'bot',
   other: 'gear',
 }
 
@@ -174,14 +181,21 @@ const OUT_LINES = 6
 /** Paths show as their file name (Codex app); the full path stays in the tooltip. */
 const FILE_TARGET = (a: Action) => a.family === 'edit' || (a.family === 'explore' && a.bucket === 'file')
 
-function ActionRow({ action: a, open: opened, toggle, onOpenDiff }: { action: Action } & Ctx) {
+function ActionRow({
+  action: a,
+  open: opened,
+  toggle,
+  onOpenDiff,
+  onStopTask,
+  nested,
+}: { action: Action } & Ctx) {
   const s = a.step
   const open = !!opened[a.key]
   const onToggle = () => toggle(a.key)
   if (a.family === 'text')
     return (
       <li className="act-item act-text">
-        <Markdown text={s.body ?? ''} />
+        {nested ? <Clamp text={s.body ?? ''} /> : <Markdown text={s.body ?? ''} />}
       </li>
     )
   if (a.family === 'context')
@@ -249,26 +263,61 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff }: { action: Ac
       {expandable ? <Icon name="chevron-right" size={12} className="act-row__chevron" /> : null}
     </>
   )
+  const row = expandable ? (
+    <button type="button" className="act-row act-row--head" aria-expanded={open} onClick={onToggle}>
+      {head}
+    </button>
+  ) : edit ? (
+    <button
+      type="button"
+      className="act-row act-row--head"
+      title={`查看 ${a.target} 的改动`}
+      onClick={() => onOpenDiff?.(a.target ?? '')}
+    >
+      {head}
+    </button>
+  ) : (
+    <div className="act-row">{head}</div>
+  )
   return (
     <li className="act-item" data-state={state} data-family={a.family}>
-      {expandable ? (
-        <button type="button" className="act-row act-row--head" aria-expanded={open} onClick={onToggle}>
-          {head}
-        </button>
-      ) : edit ? (
-        <button
-          type="button"
-          className="act-row act-row--head"
-          title={`查看 ${a.target} 的改动`}
-          onClick={() => onOpenDiff?.(a.target ?? '')}
-        >
-          {head}
-        </button>
+      {s.stop && onStopTask ? (
+        <div className="act-line">
+          {row}
+          <StopTask id={s.stop} name={s.title ?? ''} onStop={onStopTask} />
+        </div>
       ) : (
-        <div className="act-row">{head}</div>
+        row
       )}
       {open && out ? <Output text={out} mono={a.family !== 'thought' && !task} /> : null}
     </li>
+  )
+}
+
+/** Stays disabled once asked: the task's own update ends the row's running state. */
+function StopTask({
+  id,
+  name,
+  onStop,
+}: {
+  id: string
+  name: string
+  onStop: (id: string) => Promise<unknown>
+}) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <Button
+      size="small"
+      variant="plain"
+      disabled={busy}
+      aria-label={`停止后台任务 ${name}`}
+      onClick={() => {
+        setBusy(true)
+        onStop(id).catch(() => setBusy(false))
+      }}
+    >
+      停止
+    </Button>
   )
 }
 

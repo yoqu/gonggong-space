@@ -341,6 +341,7 @@ mod tests {
             state: crate::protocol::TaskState::Completed,
             summary: None,
             output_path: None,
+            can_stop: false,
         };
         m.outbound(&event("r1", task.clone()));
 

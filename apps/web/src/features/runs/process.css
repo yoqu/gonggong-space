@@ -220,3 +220,12 @@ button.act-row:hover .act-row__target--file {
 .act-item[data-state="failed"] > .act-row .act-row__state {
   color: var(--tint-red-text);
 }
+.act-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.act-line > .act-row {
+  flex: 1;
+  min-width: 0;
+}

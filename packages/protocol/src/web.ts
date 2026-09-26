@@ -351,6 +351,9 @@ export const InterruptChoiceReq = z.object({ choice: z.enum(['keep', 'discard'])
 /** POST /api/runs/:id/stop | stop-chain — how many unfinished runs were stopped. */
 export const StopRes = z.object({ stopped: z.number().int() })
 export type StopRes = z.infer<typeof StopRes>
+/** Whether the stop reached the bot's machine; the task's end then shows in the run process. */
+export const TaskStopRes = z.object({ sent: z.boolean() })
+export type TaskStopRes = z.infer<typeof TaskStopRes>
 
 export const QuestionSetDto = z.object({
   id: z.string(),
@@ -400,6 +403,12 @@ export const RunDto = z.object({
   interrupt: z.enum(['pending', 'kept', 'discarded']).nullable(),
   /** Who issued /stop. */
   stoppedBy: z.string().nullable(),
+  /** Delegated work of the run for the card: subagents and background tasks still running (may outlive it). */
+  delegation: z.object({
+    subagents: z.number().int(),
+    subagentsRunning: z.number().int(),
+    tasksRunning: z.number().int(),
+  }),
 })
 export type RunDto = z.infer<typeof RunDto>
 

@@ -110,6 +110,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
   queuedAt: min(1),
   startedAt: min(1),
   endedAt: null,

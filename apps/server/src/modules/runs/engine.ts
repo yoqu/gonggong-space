@@ -1,5 +1,5 @@
 import type { RunDone, RunEvent } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
 import { bots, groupBots, runEvents, runs } from '../../db/schema.js'
@@ -90,7 +90,12 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   if (patch)
     for (const row of await ctx.db.update(runs).set(patch).where(eq(runs.id, runId)).returning())
       await publishRun(ctx, row)
-  else if (event.kind === 'subagent' || event.kind === 'task') await publishRun(ctx, run)
+  if (event.kind === 'subagent' || event.kind === 'task') {
+    const [field, id] = event.kind === 'subagent' ? ['subagents', event.agentId] : ['tasks', event.taskId]
+    const delegation = sql`jsonb_set(${runs.delegation}, ${`{${field}}`}::text[], coalesce(${runs.delegation} -> ${field}, '{}') || jsonb_build_object(${id}::text, ${event.state}::text))`
+    for (const row of await ctx.db.update(runs).set({ delegation }).where(eq(runs.id, runId)).returning())
+      await publishRun(ctx, row)
+  }
 }
 
 type Stream = Extract<RunEvent, { kind: 'text' | 'thought' }>

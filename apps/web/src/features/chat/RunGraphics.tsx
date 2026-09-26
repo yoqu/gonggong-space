@@ -1,4 +1,4 @@
-import type { RunStatus } from '@gonggong/protocol'
+import type { RunDto, RunStatus } from '@gonggong/protocol'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { SPRING } from '../../lib/motion'
@@ -164,6 +164,31 @@ export function FilesFact({ n }: { n: number }) {
     <Fact label={`改动 ${n} 个文件`} value={n}>
       <Icon name="doc-text" size={12} />
     </Fact>
+  )
+}
+
+/** Subagents the run delegated to, and background tasks still running (they may outlive the run). */
+export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
+  return (
+    <>
+      {d.subagents ? (
+        <Fact
+          label={
+            d.subagentsRunning
+              ? `子 agent ${d.subagents} 个，${d.subagentsRunning} 个运行中`
+              : `子 agent ${d.subagents} 个`
+          }
+          value={d.subagents}
+        >
+          <Icon name="bot" size={12} />
+        </Fact>
+      ) : null}
+      {d.tasksRunning ? (
+        <Fact label={`后台任务 ${d.tasksRunning} 个运行中`} value={d.tasksRunning}>
+          <Icon name="bolt" size={12} />
+        </Fact>
+      ) : null}
+    </>
   )
 }
 

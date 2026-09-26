@@ -174,6 +174,7 @@ pub struct TaskPatch {
     summary: Option<String>,
     output_file_path: Option<String>,
     tool_call_id: Option<String>,
+    can_stop: Option<bool>,
 }
 
 /// A background task merged across its spawn / progress / state updates.
@@ -186,6 +187,7 @@ pub struct TaskSnap {
     state: TaskState,
     summary: Option<String>,
     output_path: Option<String>,
+    can_stop: bool,
 }
 
 impl TaskSnap {
@@ -198,6 +200,7 @@ impl TaskSnap {
             state: TaskState::Running,
             summary: None,
             output_path: None,
+            can_stop: false,
         }
     }
 
@@ -205,11 +208,17 @@ impl TaskSnap {
         if let Some(n) = p.name.or(p.description).filter(|n| !n.trim().is_empty()) {
             self.name = n;
         }
-        self.task_type = p.task_type.unwrap_or(std::mem::take(&mut self.task_type));
+        // The first report names the kind (shell…); later lifecycle edges may only say "task".
+        if self.task_type == "task"
+            && let Some(t) = p.task_type
+        {
+            self.task_type = t;
+        }
         self.state = p.state.unwrap_or(self.state);
         self.summary = p.summary.map(|s| clip(&s)).or(self.summary.take());
         self.output_path = p.output_file_path.or(self.output_path.take());
         self.tool_call_id = p.tool_call_id.or(self.tool_call_id.take());
+        self.can_stop = p.can_stop.unwrap_or(self.can_stop);
         RunEvent::Task {
             task_id: p.async_task_id,
             agent_id: self.agent_id.clone(),
@@ -219,6 +228,7 @@ impl TaskSnap {
             state: self.state,
             summary: self.summary.clone(),
             output_path: self.output_path.clone(),
+            can_stop: self.can_stop && !self.ended(),
         }
     }
 
@@ -327,7 +337,7 @@ impl Turn {
         }
         if let Some(l) = locations.first() {
             let path = l.path.display();
-            state.location = Some(clip(&l.line.map_or_else(|| path.to_string(), |n| format!("{path}:{n}"))));
+            state.location = Some(clip_head(&l.line.map_or_else(|| path.to_string(), |n| format!("{path}:{n}"))));
         }
         if let Some(cmd) = f.raw_input.as_ref().and_then(|v| v.get("command")?.as_str()) {
             state.command = Some(clip(cmd));
@@ -359,6 +369,12 @@ fn text(block: ContentBlock) -> Option<String> {
 
 fn clip(s: &str) -> String {
     s.chars().take(DETAIL_MAX).collect()
+}
+
+/// Paths keep their end: the file name matters, deep workspace roots easily pass the limit.
+fn clip_head(s: &str) -> String {
+    let skip = s.chars().count().saturating_sub(DETAIL_MAX);
+    if skip == 0 { s.to_string() } else { format!("…{}", s.chars().skip(skip + 1).collect::<String>()) }
 }
 
 /// Last lines of a tool's text result, without the adapter's ```console fence.
@@ -575,6 +591,16 @@ mod tests {
     }
 
     #[test]
+    fn long_locations_keep_the_file_name() {
+        let mut t = Turn::default();
+        let deep = format!("/{}/README.md", "d".repeat(300));
+        let read = ToolCall::new("r", "Read").kind(ToolKind::Read).locations(vec![ToolCallLocation::new(&deep)]);
+        let Some(RunEvent::Tool { detail: Some(d), .. }) = t.apply("s", SessionUpdate::ToolCall(read)) else { panic!() };
+        assert!(d.starts_with('…') && d.ends_with("/README.md"), "{d}");
+        assert_eq!(d.chars().count(), DETAIL_MAX);
+    }
+
+    #[test]
     fn read_results_are_not_output() {
         let mut t = Turn::default();
         let read = ToolCall::new("r", "Read a")
@@ -668,8 +694,17 @@ mod tests {
                 state: TaskState::Completed,
                 summary: Some("exit 0".into()),
                 output_path: Some("/tmp/b1.log".into()),
+                can_stop: false,
             }
         );
         assert!(snap.ended());
+        let ExtUpdate::AsyncTaskSpawned(p) = ext(serde_json::json!({
+            "sessionUpdate": "async_task_spawned", "asyncTaskId": "b1", "name": "", "taskType": "task",
+            "showInTranscript": false, "canStop": false
+        })) else {
+            panic!()
+        };
+        let RunEvent::Task { name, task_type, .. } = snap.patch(p) else { panic!() };
+        assert_eq!((name.as_str(), task_type.as_str()), ("pnpm dev", "shell"));
     }
 }

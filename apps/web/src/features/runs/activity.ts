@@ -17,6 +17,7 @@ export type Family =
   | 'context'
   | 'subagent'
   | 'task'
+  | 'delegate'
   | 'other'
 export type Bucket = 'file' | 'search' | 'list' | 'probe'
 
@@ -187,14 +188,26 @@ export function classify(s: Step, root: string | null): Action {
       return { ...base, family: 'subagent', verb: s.title ?? s.label, target: s.body }
     case 'task':
       return { ...base, family: 'task', verb: s.label, target: s.title }
-    default:
+    default: {
+      const collab = COLLAB[s.title ?? '']
+      if (collab) return { ...base, family: 'delegate', verb: collab[0], target: collab[1] }
       return {
         ...base,
         family: 'other',
         verb: s.title ?? s.label,
         target: s.mono === s.title ? undefined : s.mono,
       }
+    }
   }
+}
+
+/** Codex multi-agent tools: without native subagent sessions (multi_agent v1) the child's work is not reported. */
+const COLLAB: Record<string, [verb: string, target?: string]> = {
+  spawnAgent: ['派出子 agent', '详情不可见'],
+  wait: ['等待子 agent'],
+  sendInput: ['向子 agent 发送消息'],
+  resumeAgent: ['恢复子 agent'],
+  closeAgent: ['关闭子 agent'],
 }
 
 /** Titles adapters send before a call's input arrives. */
@@ -222,7 +235,9 @@ const WHAT = (a: Action) =>
         ? '编辑了文件'
         : a.family === 'fetch'
           ? '访问了网络'
-          : '调用了工具'
+          : a.family === 'delegate'
+            ? '调度了子 agent'
+            : '调用了工具'
 
 function segment(actions: Action[], running: boolean): Item[] {
   const calls = actions.filter((a) => !PASSIVE.has(a.family))
@@ -295,15 +310,19 @@ export function buildItems(
   const last = actions.at(-1)
   if (live || last?.family !== 'text' || actions.length < 2 || workedMs === null)
     return groupActions(actions, live)
+  // Background tasks still running outlive the turn: they stay in sight, stop button included.
+  const running = (a: Action) => a.family === 'task' && !!a.step.running
   const before = actions.slice(0, -1)
+  const done = before.filter((a) => !running(a))
   return [
     {
       key: 'work',
       kind: 'work',
-      items: groupActions(before, false),
+      items: groupActions(done, false),
       title: `已工作 ${fmtWorked(workedMs)}`,
-      summary: workSummary(before),
+      summary: workSummary(done),
     },
+    ...before.filter(running).map((a) => ({ kind: 'action' as const, ...a })),
     { kind: 'action', ...last },
   ]
 }

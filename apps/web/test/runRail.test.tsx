@@ -116,6 +116,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   ],
   interrupt: null,
   stoppedBy: null,
+  delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
   ...o,
 })
 const patch = [
@@ -212,6 +213,7 @@ function mockApi(runDetail: () => RunDetailDto) {
     'POST /groups/g1/read': () => group,
     'GET /groups/g1/bot-states': () => [],
     'GET /runs/r1': runDetail,
+    'POST /runs/r1/tasks/bg1/stop': () => ({ sent: true }),
   }
   // A bot workspace's changes: this turn's patch, other scopes from the fixtures below.
   const diff = (url: string) => {
@@ -476,6 +478,64 @@ describe('process timeline', () => {
     expect(await within(win).findByText('+second line')).toBeTruthy()
     fireEvent.click(seg)
     expect(seg.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('shows delegated work on the card and in the process, and stops a background task', async () => {
+    const base = detail({
+      run: run({ approvals: [], delegation: { subagents: 1, subagentsRunning: 1, tasksRunning: 1 } }),
+    })
+    const events: RunDetailDto['events'] = [
+      ...base.events,
+      {
+        id: 4,
+        at,
+        event: { kind: 'subagent', agentId: 'a1', name: 'Explore', task: '找调用方', state: 'running' },
+      },
+      { id: 5, at, event: { kind: 'text', delta: '子报告', agentId: 'a1' } },
+      {
+        id: 6,
+        at,
+        event: {
+          kind: 'task',
+          taskId: 'bg1',
+          name: 'pnpm dev',
+          taskType: 'shell',
+          state: 'running',
+          canStop: true,
+        },
+      },
+      {
+        id: 7,
+        at,
+        event: {
+          kind: 'tool',
+          toolCallId: 'c1',
+          title: 'spawnAgent',
+          toolKind: 'other',
+          status: 'in_progress',
+        },
+      },
+    ]
+    const calls = mockApi(() => ({ ...base, events }))
+    renderChat()
+    const card = (await screen.findAllByTestId('run-card')).at(-1)!
+    push({ t: 'run.updated', run: base.run })
+    await waitFor(() => expect(card.textContent).toContain('子 agent 1 个，1 个运行中'))
+    expect(card.textContent).toContain('后台任务 1 个运行中')
+    const rail = await openRail()
+    const list = await within(rail).findByRole('list', { name: '运行过程' })
+    // A running subagent shows its own process.
+    expect(
+      within(list)
+        .getByRole('button', { name: /Explore\s*找调用方/ })
+        .getAttribute('aria-expanded'),
+    ).toBe('true')
+    expect(within(list).getByText('子报告')).toBeTruthy()
+    // Codex v1 spawns report no child session: the call says so instead of spinning.
+    expect(within(list).getByText('派出子 agent')).toBeTruthy()
+    expect(within(list).getByText('详情不可见')).toBeTruthy()
+    fireEvent.click(within(list).getByRole('button', { name: '停止后台任务 pnpm dev' }))
+    await waitFor(() => expect(calls).toContain('POST /runs/r1/tasks/bg1/stop'))
   })
 
   it('tucks a finished turn under 已工作 and clamps the final reply', async () => {

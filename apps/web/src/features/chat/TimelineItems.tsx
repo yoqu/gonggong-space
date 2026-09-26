@@ -32,6 +32,7 @@ import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import {
   ClockFact,
+  DelegationFacts,
   FanOut,
   FilesFact,
   HopChain,
@@ -490,6 +491,7 @@ export const RunCard = memo(function RunCard({
                           <FilesFact n={run.filesChanged} />
                           <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+                          <DelegationFacts d={run.delegation} />
                         </div>
                       ) : null}
                       {sessionNote ? (

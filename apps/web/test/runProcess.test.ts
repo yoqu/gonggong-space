@@ -109,6 +109,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
   ...o,
 })
 const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
@@ -309,6 +310,11 @@ describe('process steps', () => {
         task(8, 'running'),
         sub(9, 'a1', 'completed'),
         task(10, 'completed', 'exit 0'),
+        {
+          id: 11,
+          at: at(11),
+          event: { kind: 'tool', toolCallId: 'x', title: '', toolKind: 'other', status: 'pending' },
+        },
       ],
     })
     expect(steps.map((s) => s.kind)).toEqual(['context', 'subagent', 'text'])
@@ -330,6 +336,30 @@ describe('process steps', () => {
       meta: '已完成',
     })
     expect(text).toMatchObject({ body: '主进度', running: true })
+  })
+
+  it('no call is still running once the run has ended', () => {
+    const steps = buildSteps({
+      run: run({ status: 'completed' }),
+      patch: null,
+      purged: false,
+      sessionId: null,
+      retentionDays: 30,
+      events: [
+        {
+          id: 1,
+          at: at(1),
+          event: {
+            kind: 'tool',
+            toolCallId: 'c1',
+            title: 'spawnAgent',
+            toolKind: 'other',
+            status: 'in_progress',
+          },
+        },
+      ],
+    })
+    expect(steps.at(-1)).toMatchObject({ title: 'spawnAgent', running: false })
   })
 
   it('stops marking the streamed reply once the run has ended', () => {

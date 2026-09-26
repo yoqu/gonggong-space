@@ -42,7 +42,19 @@ export const runDto = (
   questions: extra.questions ?? [],
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
   stoppedBy: r.stoppedBy,
+  delegation: delegationDto(r.delegation as Delegation),
 })
+
+export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }
+
+function delegationDto({ subagents = {}, tasks = {} }: Delegation): RunDto['delegation'] {
+  const states = Object.values(subagents)
+  return {
+    subagents: states.length,
+    subagentsRunning: states.filter((s) => s === 'running').length,
+    tasksRunning: Object.values(tasks).filter((s) => s === 'running' || s === 'paused').length,
+  }
+}
 
 export const approvalDto = (a: ApprovalRow, decidedByName: string | null): ApprovalDto => ({
   id: a.id,

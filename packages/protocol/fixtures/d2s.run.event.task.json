@@ -10,6 +10,7 @@
     "taskType": "local_bash",
     "state": "completed",
     "summary": "exit 0",
-    "outputPath": "/tmp/tasks/bash-2.log"
+    "outputPath": "/tmp/tasks/bash-2.log",
+    "canStop": true
   }
 }

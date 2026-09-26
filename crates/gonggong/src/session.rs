@@ -76,6 +76,8 @@ struct State {
     cancelled: HashSet<String>,
     active: Option<Active>,
     conn: Option<(ConnectionTo<Agent>, SessionId)>,
+    /// The adapter connection while its process lives; background tasks outlive the turn's `conn`.
+    agent: Option<ConnectionTo<Agent>>,
     /// Permission requests of the active turn awaiting the bot owner, by request id.
     approvals: HashMap<String, Approval>,
     /// Commands the owner allowed always, trusted for the rest of the conversation.
@@ -87,9 +89,20 @@ struct State {
     questions: HashMap<String, Asked>,
     /// 打断并追加 prompts (text, attachments) waiting for the cancelled prompt to end.
     appends: Vec<(String, Vec<Attachment>)>,
-    /// Live background tasks with the run that started them; they report there even after it ended.
-    tasks: HashMap<String, (String, Outbox, TaskSnap)>,
+    /// Background tasks by id, reporting to the run that started them even after it ended.
+    tasks: HashMap<String, Task>,
 }
+
+struct Task {
+    run_id: String,
+    out: Outbox,
+    /// ACP session that owns it, for `_session/async_task/stop`.
+    session: String,
+    snap: TaskSnap,
+}
+
+/// Draft ACP extension method both adapters serve.
+const ASYNC_TASK_STOP: &str = "_session/async_task/stop";
 
 struct Asked {
     questions: Vec<Question>,
@@ -177,6 +190,24 @@ impl Shared {
         Some((texts.join("\n\n"), files.concat()))
     }
 
+    /// Asks the adapter to stop a live background task of `run_id`; its end arrives as a task update.
+    pub(crate) fn stop_task(&self, run_id: &str, task_id: &str) -> bool {
+        let s = self.0.lock().unwrap();
+        let (Some(t), Some(cx)) = (s.tasks.get(task_id), s.agent.as_ref()) else { return false };
+        if t.run_id != run_id || t.snap.ended() {
+            return false;
+        }
+        let params = serde_json::json!({ "sessionId": t.session, "asyncTaskId": task_id });
+        let Ok(req) = UntypedMessage::new(ASYNC_TASK_STOP, params) else { return false };
+        let cx = cx.clone();
+        tokio::spawn(async move {
+            if let Err(e) = cx.send_request(req).block_task().await {
+                tracing::warn!("stopping a background task failed: {e}");
+            }
+        });
+        true
+    }
+
     /// Workspace of the active turn if it is `run_id`.
     pub(crate) fn cwd(&self, run_id: &str) -> Option<PathBuf> {
         self.0.lock().unwrap().active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.cwd.clone())
@@ -255,6 +286,8 @@ impl Shared {
             return false;
         }
         s.last = None;
+        // Ended tasks linger one turn: adapters may report a terminal edge twice (stopped, then completed).
+        s.tasks.retain(|_, t| !t.snap.ended());
         s.active = Some(Active {
             run_id: run_id.clone(),
             cwd: req.cwd.clone(),
@@ -338,6 +371,7 @@ impl Shared {
     fn stream(&self, cx: &ConnectionTo<Agent>, session: &SessionId) {
         let mut s = self.0.lock().unwrap();
         s.conn = Some((cx.clone(), session.clone()));
+        s.agent = Some(cx.clone());
         let Some(a) = s.active.as_mut() else { return };
         a.streaming = true;
         let run_id = a.run_id.clone();
@@ -376,14 +410,17 @@ impl Shared {
         let id = patch.async_task_id.clone();
         if !s.tasks.contains_key(&id) {
             let Some(a) = active else { return };
-            s.tasks.insert(id.clone(), (a.run_id.clone(), a.out.clone(), TaskSnap::new(a.turn.agent_of(session))));
+            let task = Task {
+                run_id: a.run_id.clone(),
+                out: a.out.clone(),
+                session: session.to_string(),
+                snap: TaskSnap::new(a.turn.agent_of(session)),
+            };
+            s.tasks.insert(id.clone(), task);
         }
-        let (run_id, out, snap) = s.tasks.get_mut(&id).unwrap();
-        let event = snap.patch(patch);
-        out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
-        if snap.ended() {
-            s.tasks.remove(&id);
-        }
+        let t = s.tasks.get_mut(&id).unwrap();
+        let event = t.snap.patch(patch);
+        t.out.send(DaemonToServer::RunEvent { run_id: t.run_id.clone(), event });
     }
 
     fn on_update(&self, n: SessionNotification) {
@@ -641,6 +678,12 @@ pub(crate) async fn run(
             Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), req, &mut rx, &mut resume).await,
             Err(e) => Err(format!("{e:#}")),
         };
+        // Its background tasks went with the adapter process.
+        {
+            let mut s = shared.0.lock().unwrap();
+            s.agent = None;
+            s.tasks.clear();
+        }
         // A turn still active here was cut short by the adapter exiting or failing to start.
         let error = result.err().unwrap_or_else(|| "agent 进程意外退出".into());
         if shared.0.lock().unwrap().active.is_some() {

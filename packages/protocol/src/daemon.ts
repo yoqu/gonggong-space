@@ -204,6 +204,8 @@ export const RunEvent = z.discriminatedUnion('kind', [
     state: z.enum(['running', 'paused', 'completed', 'failed', 'stopped']),
     summary: z.string().optional(),
     outputPath: z.string().optional(),
+    /** The adapter can stop it (`task.stop`). */
+    canStop: z.boolean().optional(),
   }),
 ])
 export type RunEvent = z.infer<typeof RunEvent>
@@ -385,6 +387,8 @@ export const Reject = z.object({
   upgrade: UpgradeInfo.optional(),
 })
 export const RunCancel = z.object({ t: z.literal('run.cancel'), runId: z.string() })
+/** Stops a background task a run started; its end arrives as a `task` run event. */
+export const TaskStop = z.object({ t: z.literal('task.stop'), runId: z.string(), taskId: z.string() })
 /** The bot's effective tier changed mid-run: permission requests from now on follow it. */
 export const RunTier = z.object({ t: z.literal('run.tier'), runId: z.string(), tier: Tier })
 
@@ -487,6 +491,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   Reject,
   RunStart,
   RunCancel,
+  TaskStop,
   RunTier,
   WorkspaceEnsure,
   WorkspaceCd,

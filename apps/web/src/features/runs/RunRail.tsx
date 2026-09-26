@@ -1,4 +1,4 @@
-import type { DiffScope, RunDetailDto } from '@gonggong/protocol'
+import type { DiffScope, RunDetailDto, TaskStopRes } from '@gonggong/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -165,6 +165,7 @@ export function RunRail({ runId }: { runId: string }) {
                 run?.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null
               }
               onOpenDiff={(path) => openDiff(source, 'turn', path)}
+              onStopTask={(taskId) => stopTask(runId, taskId)}
             />
           )
         ) : tab === 'diff' ? (
@@ -175,6 +176,16 @@ export function RunRail({ runId }: { runId: string }) {
       </div>
     </div>
   )
+}
+
+async function stopTask(runId: string, taskId: string) {
+  try {
+    const { sent } = await api.post<TaskStopRes>(`/runs/${runId}/tasks/${encodeURIComponent(taskId)}/stop`)
+    if (!sent) throw new Error('Bot 所在机器离线')
+  } catch (e) {
+    toast({ type: 'error', message: `停止失败：${(e as Error).message}` })
+    throw e
+  }
 }
 
 function SessionId({ id }: { id: string }) {

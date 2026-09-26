@@ -93,7 +93,7 @@ async function world() {
     (
       await t.app.inject({ url: `/api/runs/${runId}`, headers: { cookie: await t.seed.cookie(userId) } })
     ).json<RunDetailDto>()
-  return { alice, bob, bot, group, mention, send, done, ended, detail, seen }
+  return { alice, bob, bot, group, mention, send, done, ended, detail, seen, box }
 }
 
 describe('run process', () => {
@@ -157,6 +157,10 @@ describe('run process', () => {
     w.send(runId, { kind: 'text', delta: '主回复' })
     const task = { kind: 'task', taskId: 'bg1', agentId: 'a1', name: 'pnpm dev', taskType: 'shell' }
     w.send(runId, { ...task, state: 'running' })
+    const card = () => w.seen.filter((e) => e.t === 'run.updated').at(-1)
+    await expect
+      .poll(() => card()?.t === 'run.updated' && card()!.run.delegation)
+      .toEqual({ subagents: 1, subagentsRunning: 1, tasksRunning: 1 })
     w.send(runId, { ...sub, state: 'completed' })
     w.done(runId)
     await w.ended(runId)
@@ -167,6 +171,11 @@ describe('run process', () => {
     expect(w.seen.filter((e) => e.t === 'run.delta').map((e) => e.t === 'run.delta' && e.text)).toEqual([
       '主回复',
     ])
+    expect((await w.detail(runId)).run.delegation).toEqual({
+      subagents: 1,
+      subagentsRunning: 0,
+      tasksRunning: 0,
+    })
     const rows = await t.db
       .select()
       .from(runEvents)
@@ -183,6 +192,21 @@ describe('run process', () => {
       { ...sub, state: 'completed' },
       { ...task, state: 'completed', summary: 'exit 0' },
     ])
+  })
+
+  it('lets group members stop a background task through its machine', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const stop = async (userId: string) =>
+      t.app.inject({
+        method: 'POST',
+        url: `/api/runs/${runId}/tasks/bg1/stop`,
+        headers: { cookie: await t.seed.cookie(userId) },
+      })
+    expect((await stop(w.bob.id)).json()).toEqual({ sent: true })
+    expect(await w.box.next()).toEqual({ t: 'task.stop', runId, taskId: 'bg1' })
+    const outsider = await t.seed.user({ name: '外人' })
+    expect((await stop(outsider.id)).statusCode).toBe(404)
   })
 
   it('serves approvals and the group hop limit on detail, timeline and realtime cards', async () => {

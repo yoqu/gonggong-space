@@ -367,6 +367,8 @@ pub enum RunEvent {
         summary: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         output_path: Option<String>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        can_stop: bool,
     },
 }
 
@@ -561,6 +563,8 @@ pub enum ServerToDaemon {
     RunStart(Box<RunStart>),
     #[serde(rename = "run.cancel", rename_all = "camelCase")]
     RunCancel { run_id: String },
+    #[serde(rename = "task.stop", rename_all = "camelCase")]
+    TaskStop { run_id: String, task_id: String },
     #[serde(rename = "run.tier", rename_all = "camelCase")]
     RunTier { run_id: String, tier: Tier },
     #[serde(rename = "workspace.ensure")]

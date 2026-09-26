@@ -876,3 +876,16 @@ async fn attributes_subagent_work_and_reports_background_tasks_after_the_run() {
         matches!(event, RunEvent::Task { state: TaskState::Completed, summary: Some(s), name, .. } if s == "exit 0" && name == "pnpm dev")
     );
 }
+
+#[tokio::test]
+async fn stops_a_background_task_that_outlived_its_run() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:bgtask"));
+    let (events, _) = r.finish("r1").await;
+    assert!(events.iter().any(|e| matches!(e, RunEvent::Task { task_id, can_stop: true, .. } if task_id == "bg2")));
+
+    r.send(ServerToDaemon::TaskStop { run_id: "r1".into(), task_id: "bg2".into() });
+    let DaemonToServer::RunEvent { run_id, event } = r.next().await else { panic!("expected the task's end") };
+    assert_eq!(run_id, "r1");
+    assert!(matches!(event, RunEvent::Task { state: TaskState::Stopped, can_stop: false, .. }));
+}

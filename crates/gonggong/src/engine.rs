@@ -113,6 +113,9 @@ impl Handler for Engine {
                     actor.shared.cancel(&run_id);
                 }
             }
+            ServerToDaemon::TaskStop { run_id, task_id } => {
+                self.0.actors.lock().unwrap().values().any(|a| a.shared.stop_task(&run_id, &task_id));
+            }
             ServerToDaemon::RunTier { run_id, tier } => {
                 self.0.actors.lock().unwrap().values().any(|a| a.shared.set_tier(&run_id, tier));
             }

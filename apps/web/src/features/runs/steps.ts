@@ -23,6 +23,8 @@ export interface Step {
   title?: string
   /** A subagent's own process. */
   children?: Step[]
+  /** A background task that can be stopped: its id. */
+  stop?: string
 }
 
 const SLOW_MS = 2000
@@ -41,12 +43,14 @@ export const TOOL_LABEL: Record<string, string> = {
 export type Timed = { at: string; step: Step }
 export type TimedEvent = RunDetailDto['events'][number]
 
-/** Time-ordered; the last step of a live list is the current one when it is streamed text. */
+/** Time-ordered; the last step of a live list is the current one when it is streamed text. Calls the agent never
+ * named nor described (bookkeeping of adapters) are left out. */
 function finish(timed: Timed[], live: boolean): Step[] {
   timed.sort((x, y) => Date.parse(x.at) - Date.parse(y.at))
-  const last = timed.at(-1)?.step
+  const steps = timed.map((t) => t.step).filter((s) => s.title !== '' || s.mono)
+  const last = steps.at(-1)
   if (live && (last?.kind === 'text' || last?.kind === 'thought')) last.running = true
-  return timed.map((t) => t.step)
+  return steps
 }
 
 /**
@@ -79,7 +83,7 @@ export function processSteps(
     if (key) {
       const seen = merged.get(key)
       if (event.kind === 'tool')
-        Object.assign(step, toolStep(event, seen ? Date.parse(at) - Date.parse(seen.first) : 0, files))
+        Object.assign(step, toolStep(event, seen ? Date.parse(at) - Date.parse(seen.first) : 0, files, live))
       if (seen) {
         Object.assign(seen.step, step, { key: seen.step.key, at: seen.first, end: at })
         continue
@@ -144,15 +148,22 @@ function eventStep(id: number, e: RunEvent): Step | null {
         meta: TASK_STATE[e.state],
         running: e.state === 'running' || e.state === 'paused',
         failed: e.state === 'failed',
+        stop: e.canStop && (e.state === 'running' || e.state === 'paused') ? e.taskId : undefined,
       }
     case 'usage':
       return null
   }
 }
 
-function toolStep(e: Extract<RunEvent, { kind: 'tool' }>, ms: number, files: DiffFile[]): Partial<Step> {
+/** A call the adapter never closed is not running once the run has ended. */
+function toolStep(
+  e: Extract<RunEvent, { kind: 'tool' }>,
+  ms: number,
+  files: DiffFile[],
+  live: boolean,
+): Partial<Step> {
   const failed = e.status === 'failed'
-  const running = e.status === 'pending' || e.status === 'in_progress'
+  const running = live && (e.status === 'pending' || e.status === 'in_progress')
   if (e.toolKind === 'execute')
     return {
       // The output block opens with `$ <command>`: the one-line row shows that command, not the agent's title.
