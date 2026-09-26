@@ -20,6 +20,8 @@
 
 ## 本地开发
 
+前置：Node.js 22+、pnpm、PostgreSQL（macOS 用 Postgres.app 或 `brew install postgresql@17`）、Rust 1.95+。详见 [快速开始](docs/快速开始.md)。
+
 ```bash
 pnpm install
 pnpm db:up                          # 项目内 PostgreSQL（端口 54329）
