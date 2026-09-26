@@ -8,7 +8,7 @@ import {
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { MenuButton, type MenuItem, toast } from '../../ui'
+import { Icon, MenuButton, type MenuItem, toast } from '../../ui'
 import { effortOptions, modelOptions, withModel } from '../bots/AgentConfig'
 
 export type Picks = Record<string, RunConfigPick>
@@ -127,6 +127,7 @@ export function RunConfigChips({
           >
             {text}
             {pick ? <span className="run-config__once">仅本条</span> : null}
+            <Icon name="chevron-updown" size={10} weight={2.2} />
           </MenuButton>
         )
       })}
