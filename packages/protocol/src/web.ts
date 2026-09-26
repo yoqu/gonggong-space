@@ -13,7 +13,15 @@ import {
   TriggerScope,
   Usage,
 } from './common.js'
-import { AgentInfo, DiffScope, MachineInfo, McpServer, PermissionOption, RunEvent } from './daemon.js'
+import {
+  AgentCatalog,
+  AgentInfo,
+  DiffScope,
+  MachineInfo,
+  McpServer,
+  PermissionOption,
+  RunEvent,
+} from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -151,6 +159,11 @@ export const BotDto = z.object({
   groupCount: z.number().int(),
   /** Owner's directory the bot works in when a group has no binding of its own (plan W1). */
   defaultWorkspace: z.string().nullable(),
+  /** Default model and thought level; null = the adapter's default. */
+  model: z.string().nullable(),
+  effort: z.string().nullable(),
+  /** What the bound machine's adapter offers; null until probed (or without a machine). */
+  catalog: AgentCatalog.nullable(),
 })
 export type BotDto = z.infer<typeof BotDto>
 
@@ -179,6 +192,14 @@ export const WorkspaceDiffDto = z.object({
 export type WorkspaceDiffDto = z.infer<typeof WorkspaceDiffDto>
 /** PUT /api/groups/:id/bots/:botId/tier (bot owner or sysadmin); null follows the bot's own tier. */
 export const GroupBotTierReq = z.object({ tier: Tier.nullable() })
+/** PUT /api/groups/:id/bots/:botId/config (bot owner or group admin; anyone in a DM): nulls follow the bot. */
+export const GroupBotConfigReq = z.object({ model: z.string().nullable(), effort: z.string().nullable() })
+/** A one-shot pick for one message; an absent field follows the defaults, null = the adapter's default. */
+export const RunConfigPick = z.object({
+  model: z.string().nullable().optional(),
+  effort: z.string().nullable().optional(),
+})
+export type RunConfigPick = z.infer<typeof RunConfigPick>
 
 /** GET /api/bots/owners: who the caller may create bots for, with their machines (self only for members). */
 export const BotOwnerDto = z.object({ id: z.string(), name: z.string(), machines: z.array(MachineDto) })
@@ -192,6 +213,8 @@ export const CreateBotReq = z.object({
   machineId: z.string().nullable(),
   systemPrompt: z.string().max(4000).default(''),
   avatar: BotAvatar.nullable().default(null),
+  model: z.string().nullable().default(null),
+  effort: z.string().nullable().default(null),
 })
 export const UpdateBotReq = z.object({
   name: z.string().min(1).max(40).optional(),
@@ -201,6 +224,8 @@ export const UpdateBotReq = z.object({
   triggerScope: TriggerScope.optional(),
   triggerList: z.array(z.string()).optional(),
   concurrency: z.number().int().min(1).max(8).optional(),
+  model: z.string().nullable().optional(),
+  effort: z.string().nullable().optional(),
 })
 
 // ── Notifications ───────────────────────────────────────────────────────────
@@ -409,6 +434,9 @@ export const RunDto = z.object({
     subagentsRunning: z.number().int(),
     tasksRunning: z.number().int(),
   }),
+  /** Model and thought level of the turn: as requested, then as the daemon reported them in effect. */
+  model: z.string().nullable(),
+  effort: z.string().nullable(),
 })
 export type RunDto = z.infer<typeof RunDto>
 
@@ -448,6 +476,8 @@ export const SendMessageReq = z.object({
     .default(null),
   /** 打断并追加 into this running run (trigger user or bot owner only). */
   appendTo: z.string().nullable().default(null),
+  /** One-shot model / thought level per mentioned bot id (bot owner or group admin; anyone in a DM). */
+  runOptions: z.record(z.string(), RunConfigPick).default({}),
 })
 
 // ── Composer candidates (spec §8.7) ────────────────────────────────────────
@@ -687,6 +717,9 @@ export const GroupBotStateDto = z.object({
   error: z.string().nullable(),
   /** This group's tier override; null follows the bot's own tier. */
   tier: Tier.nullable(),
+  /** This group's model / thought level; null follows the bot's defaults. */
+  model: z.string().nullable(),
+  effort: z.string().nullable(),
 })
 export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 

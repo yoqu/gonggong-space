@@ -18,6 +18,7 @@ import {
 } from '../../ui'
 import { OS_LABEL } from '../machines/BindMachineDialog'
 import { DirPicker } from '../workspaces/DirPicker'
+import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { AGENT_AVATAR, AvatarPicker } from './avatars'
 import { WorkspacePath } from './BotsAdminPage'
 import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
@@ -39,7 +40,10 @@ interface Draft {
   prompt: string
   /** Default workspace; only the owner may browse their own online machine (plan W1). */
   workspace: string | null
+  config: AgentConfig
 }
+
+const NO_CONFIG: AgentConfig = { model: null, effort: null }
 
 const autoName = (owner: BotOwnerDto, agent: AgentKind) => `${owner.name}的 ${AGENT_LABEL[agent]}`
 
@@ -55,6 +59,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     avatar: null,
     prompt,
     workspace: null,
+    config: NO_CONFIG,
   }
 }
 
@@ -122,6 +127,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const m = machines.find((x) => x.id === draft.machineId)
   const self = owner.id === me.id
   const ver = m && reportedAgent(m, draft.agent)
+  const catalog = ver?.catalog ?? null
   const agentName = AGENT_LABEL[draft.agent]
   const result: { tone: keyof typeof RESULT_VARIANT; title: string; desc: string } = !m
     ? {
@@ -158,6 +164,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         machineId: m?.id ?? null,
         systemPrompt: draft.prompt,
         avatar: draft.avatar,
+        ...draft.config,
       })
       if (draft.workspace)
         await botsApi
@@ -221,7 +228,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 const agent = reportedAgent(x, draft.agent)
                   ? draft.agent
                   : (AGENTS.find((k) => reportedAgent(x, k)) ?? draft.agent)
-                set({ machineId: x.id, agent, workspace: null, ...named(agent) })
+                set({ machineId: x.id, agent, workspace: null, config: NO_CONFIG, ...named(agent) })
               }}
             />
           ) : (
@@ -250,9 +257,13 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 ),
               }
             })}
-            onChange={(k) => set({ agent: k, ...named(k) })}
+            onChange={(k) => set({ agent: k, config: NO_CONFIG, ...named(k) })}
           />
         </FormRow>
+
+        {m ? (
+          <AgentConfigFields catalog={catalog} value={draft.config} onChange={(config) => set({ config })} />
+        ) : null}
 
         <FormRow label="名称">
           <TextField

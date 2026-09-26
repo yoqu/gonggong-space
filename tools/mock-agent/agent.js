@@ -23,18 +23,25 @@ const MODELS = [
   { value: 'haiku', name: 'Haiku', description: 'Fastest' },
   { value: 'opus', name: 'Opus' },
 ]
-const EFFORTS = ['low', 'medium', 'high'].map((value) => ({ value, name: value }))
+// Like both real adapters, thought levels depend on the model; one model has none.
+const EFFORTS = { default: ['low', 'medium', 'high'], haiku: [], opus: ['low', 'medium', 'high', 'max'] }
+const efforts = (model) =>
+  EFFORTS[model].map((value) => ({ value, name: value[0].toUpperCase() + value.slice(1) }))
 
 const configOptions = (s) => [
   { id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: s.model, options: MODELS },
-  {
-    id: 'effort',
-    name: 'Effort',
-    category: 'thought_level',
-    type: 'select',
-    currentValue: s.effort,
-    options: EFFORTS,
-  },
+  ...(EFFORTS[s.model].length
+    ? [
+        {
+          id: 'effort',
+          name: 'Effort',
+          category: 'thought_level',
+          type: 'select',
+          currentValue: s.effort,
+          options: efforts(s.model),
+        },
+      ]
+    : []),
 ]
 
 async function mcp(url, method, params, signal) {
@@ -327,6 +334,8 @@ acp
       throw acp.RequestError.invalidParams(undefined, `Invalid value for config option ${configId}: ${value}`)
     s[configId] = value
     s.configSets.push(`${configId}=${value}`)
+    if (configId === 'model' && !EFFORTS[value].includes(s.effort))
+      s.effort = EFFORTS[value].includes('medium') ? 'medium' : null
     return { configOptions: configOptions(s) }
   })
   .onRequest('session/prompt', (ctx) => prompt(ctx.params, ctx.client))

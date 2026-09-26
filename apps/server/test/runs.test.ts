@@ -320,6 +320,8 @@ describe('run engine', () => {
         git,
         error: null,
         tier: null,
+        model: null,
+        effort: null,
       },
     })
     const [gb] = await t.db

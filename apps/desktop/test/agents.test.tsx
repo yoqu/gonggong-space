@@ -15,8 +15,6 @@ beforeEach(() => {
   useDaemon.setState({ info: INFO })
   m.agents.mockResolvedValue([CLAUDE, CODEX])
   m.bots.mockResolvedValue([bot({}), bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex' })])
-  m.setAgentModel.mockResolvedValue()
-  m.setAgentEffort.mockResolvedValue()
   m.pickAgentPath.mockResolvedValue(true)
   m.resetAgentPath.mockResolvedValue()
   m.reveal.mockResolvedValue()
@@ -24,7 +22,7 @@ beforeEach(() => {
 
 const card = async (name: string) => (await screen.findByText(name)).closest('.dk-agent') as HTMLElement
 
-it('shows an installed agent and saves its default model and effort', async () => {
+it('shows an installed agent with the models its adapter offers', async () => {
   render(<AgentsPage go={() => {}} />)
   const claude = within(await card('Claude Code'))
   expect(claude.getByText('已安装 2.1.4')).toBeTruthy()
@@ -36,16 +34,8 @@ it('shows an installed agent and saves its default model and effort', async () =
   expect(claude.getByText('0.81.0 · 随 daemon')).toBeTruthy()
   expect(await claude.findByText('被 小王的 Claude 使用')).toBeTruthy()
 
-  fireEvent.click(claude.getByRole('button', { name: '默认模型' }))
-  fireEvent.click(claude.getByRole('menuitemcheckbox', { name: 'Haiku 4.5' }))
-  await waitFor(() => expect(m.setAgentModel).toHaveBeenCalledWith('claude', 'haiku'))
-  expect(claude.getByRole('button', { name: '默认模型' }).textContent).toContain('Haiku 4.5')
-
-  expect(claude.getByText('扩展思考')).toBeTruthy()
-  fireEvent.click(claude.getByRole('radio', { name: '高' }))
-  await waitFor(() => expect(m.setAgentEffort).toHaveBeenCalledWith('claude', 'high'))
-  fireEvent.click(claude.getByRole('radio', { name: '默认' }))
-  await waitFor(() => expect(m.setAgentEffort).toHaveBeenLastCalledWith('claude', null))
+  expect(claude.getByText('Sonnet 5、Haiku 4.5')).toBeTruthy()
+  expect(claude.getByText('模型与推理强度在 Web 端为 Bot 设置')).toBeTruthy()
 
   fireEvent.click(claude.getByRole('button', { name: '更换路径…' }))
   await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('claude'))
@@ -73,17 +63,16 @@ it('helps install a missing agent', async () => {
   await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('codex'))
 })
 
-it('explains model pickers before the agent ran once, and restores detection for a custom path', async () => {
+it('shows models as pending until probed, and restores detection for a custom path', async () => {
   m.agents.mockResolvedValue([
     { ...CLAUDE, catalog: null, customPath: true, path: '/opt/claude' },
     { ...CODEX, available: true, version: '0.48.0', path: '/x/codex' },
   ])
   render(<AgentsPage go={() => {}} />)
   const claude = within(await card('Claude Code'))
-  expect(claude.getAllByText('运行一次后显示可用模型').length).toBeGreaterThan(0)
+  expect(claude.getByText('检测中…')).toBeTruthy()
   fireEvent.click(claude.getByRole('button', { name: '恢复自动检测' }))
   await waitFor(() => expect(m.resetAgentPath).toHaveBeenCalledWith('claude'))
   const codex = within(await card('Codex'))
-  expect(codex.getByText('推理强度')).toBeTruthy()
   expect(codex.getByText('被 小王的 Codex 使用')).toBeTruthy()
 })

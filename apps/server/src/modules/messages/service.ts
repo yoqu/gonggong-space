@@ -1,4 +1,4 @@
-import type { Attachment, MessageDto, ReactionDto } from '@gonggong/protocol'
+import type { Attachment, MessageDto, ReactionDto, RunConfigPick } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
@@ -15,6 +15,8 @@ export type MessageMeta = {
   appendTo?: string
   attachments?: Attachment[]
   quote?: MessageDto['quote']
+  /** One-shot model / thought level by triggered bot id. */
+  runOptions?: Record<string, RunConfigPick>
 }
 
 /** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */

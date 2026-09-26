@@ -4,6 +4,60 @@ import { AgentKind, Answer, Attachment, GitStatus, Question, RunStatus, Tier, Us
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
 
+export const ConfigChoice = z.object({
+  value: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+})
+export type ConfigChoice = z.infer<typeof ConfigChoice>
+/** Thought levels depend on the model (both adapters), so each model carries its own and the one it starts with. */
+export const ModelChoice = ConfigChoice.extend({
+  efforts: z.array(ConfigChoice),
+  effort: z.string().nullable(),
+})
+export type ModelChoice = z.infer<typeof ModelChoice>
+/**
+ * Adapter "default" rows are left out: a null model / effort already means the adapter's default. `current`,
+ * `efforts` and `effort` describe the model a fresh session starts with (current null = the adapter's unnamed default).
+ */
+export const AgentCatalog = z.object({
+  models: z.array(ModelChoice),
+  current: z.string().nullable(),
+  efforts: z.array(ConfigChoice),
+  effort: z.string().nullable(),
+})
+export type AgentCatalog = z.infer<typeof AgentCatalog>
+
+/** Levels and starting level of `model`; null = the model a fresh session starts with. Undefined if not offered. */
+export function modelEfforts(catalog: AgentCatalog, model: string | null) {
+  return model === null ? catalog : catalog.models.find((m) => m.value === model)
+}
+
+/** `effort` if `model` offers it, else the model's starting level; unchanged without a catalog to check. */
+export function fitEffort(catalog: AgentCatalog | null, model: string | null, effort: string | null) {
+  const m = catalog && modelEfforts(catalog, model)
+  if (!m) return effort
+  return effort && m.efforts.some((e) => e.value === effort) ? effort : m.effort
+}
+
+const EFFORT_NAMES: Record<string, string> = {
+  none: '关闭',
+  minimal: '极低',
+  low: '低',
+  medium: '中',
+  high: '高',
+  xhigh: '超高',
+  max: '最高',
+}
+export const effortName = (value: string) => EFFORT_NAMES[value] ?? value
+export const modelName = (catalog: AgentCatalog | null, value: string) =>
+  catalog?.models.find((m) => m.value === value)?.name ?? value
+/** e.g. `Opus · 高`; a null model reads as 默认模型. */
+export const agentConfigLabel = (catalog: AgentCatalog | null, model: string | null, effort: string | null) =>
+  [model === null ? '默认模型' : modelName(catalog, model), ...(effort ? [effortName(effort)] : [])].join(
+    ' · ',
+  )
+
 export const AgentInfo = z.object({
   kind: AgentKind,
   available: z.boolean(),
@@ -11,6 +65,8 @@ export const AgentInfo = z.object({
   path: z.string().nullable(),
   /** Oldest CLI version the bundled ACP adapter supports; older ones still run but the bot shows a warning. */
   minVersion: z.string().nullable().default(null),
+  /** What the adapter offers, probed by the daemon; null until probed or when unavailable. */
+  catalog: AgentCatalog.nullable().default(null),
 })
 export type AgentInfo = z.infer<typeof AgentInfo>
 
@@ -138,6 +194,9 @@ export const RunStart = z.object({
     agentKind: AgentKind,
     systemPrompt: z.string(),
     tier: Tier,
+    /** Resolved by the server (message pick → group default → bot default); null = the adapter's default. */
+    model: z.string().nullable().default(null),
+    effort: z.string().nullable().default(null),
   }),
   workspace: WorkspaceSpec,
   /** Resume this ACP session if possible; null → start a new one. */
@@ -303,6 +362,14 @@ export const CommandsUpdate = z.object({
   commands: z.array(z.object({ name: z.string(), description: z.string() })),
 })
 
+/** Model and thought level in effect for a run once the daemon applied the requested ones. */
+export const SessionConfig = z.object({
+  t: z.literal('session.config'),
+  runId: z.string(),
+  model: z.string().nullable(),
+  effort: z.string().nullable(),
+})
+
 /** Local agent detection changed after hello (path set / reset, re-check); replaces the machine's agents. */
 export const AgentsUpdate = z.object({ t: z.literal('agents.update'), agents: z.array(AgentInfo) })
 
@@ -357,6 +424,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   QuestionAsk,
   ApprovalRequest,
   RunDiscarded,
+  SessionConfig,
   Hello,
   Heartbeat,
   RunEventMsg,

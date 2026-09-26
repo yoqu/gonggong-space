@@ -14,6 +14,8 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   git: (r.gitStatus as GitStatus | null) ?? null,
   error: r.workspaceError,
   tier: r.tier as Tier | null,
+  model: r.model,
+  effort: r.effort,
 })
 
 export async function listBotStates(ctx: Ctx, groupId: string) {
@@ -39,6 +41,8 @@ export async function updateBotState(
       | 'workspaceError'
       | 'gitStatus'
       | 'tier'
+      | 'model'
+      | 'effort'
     >
   >,
 ) {

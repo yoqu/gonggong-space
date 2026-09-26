@@ -16,6 +16,9 @@ const bot = (o: Partial<BotDto> = {}) =>
     ownerName: '王磊',
     machineId: 'm1',
     defaultWorkspace: null,
+    model: null,
+    effort: null,
+    catalog: null,
     ...o,
   }) as BotDto
 const unbound = (error: string | null = null) => ({
@@ -28,6 +31,8 @@ const unbound = (error: string | null = null) => ({
       git: null,
       error,
       tier: null,
+      model: null,
+      effort: null,
     } as const,
   },
 })
@@ -96,6 +101,8 @@ describe('workspace banner', () => {
         git: null,
         error: null,
         tier: null,
+        model: null,
+        effort: null,
       }) as const
     useWorkspace.setState({
       bots: [bot(), bot({ id: 'b2', name: '小王的 Codex' })],

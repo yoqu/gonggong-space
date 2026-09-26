@@ -1,7 +1,10 @@
 import {
+  agentConfigLabel,
   type BotOwnerDto,
   CreateBotReq,
   DaemonBotPatchReq,
+  fitEffort,
+  GroupBotConfigReq,
   GroupBotTierReq,
   type Tier,
   UpdateBotReq,
@@ -20,6 +23,7 @@ import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
+import { assertCanConfigure, assertPick, botCatalog } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
 import { applyTier, TIER_LABEL } from './tier.js'
 
@@ -143,6 +147,8 @@ export function botRoutes(ctx: Ctx) {
         fail('invalid', '执行机器不属于归属人或已吊销')
       }
       await assertNameFree(ctx, name)
+      const catalog = await botCatalog(ctx.db, { machineId: body.machineId, agentKind: body.agentKind })
+      assertPick(catalog, { model: body.model, effort: body.effort }, null)
 
       const binding = !body.machineId ? 'pending_bind' : owner.id === user.id ? 'bound' : 'pending_confirm'
       const [bot] = (await ctx.db
@@ -155,6 +161,8 @@ export function botRoutes(ctx: Ctx) {
           binding,
           systemPrompt: body.systemPrompt,
           avatar: body.avatar,
+          model: body.model,
+          effort: body.effort,
           concurrency: (await sysParams(ctx.db)).botConcurrencyDefault,
           createdBy: user.id,
         })
@@ -183,6 +191,13 @@ export function botRoutes(ctx: Ctx) {
         triggerScope = 'list'
       }
       if (body.triggerList) await assertUsers(ctx, body.triggerList)
+      if (body.model !== undefined || body.effort !== undefined) {
+        const catalog = await botCatalog(ctx.db, bot)
+        assertPick(catalog, { model: body.model, effort: body.effort }, bot.model)
+        // A new model keeps the old level only if it offers it.
+        if (body.model !== undefined && body.effort === undefined)
+          body.effort = fitEffort(catalog, body.model, bot.effort) === bot.effort ? bot.effort : null
+      }
       await ctx.db
         .update(bots)
         .set({ ...body, name, tier, triggerScope })
@@ -218,6 +233,38 @@ export function botRoutes(ctx: Ctx) {
             : `${user.name} 将 ${bot.name} 在本群的档位恢复为跟随全局（${TIER_LABEL[bot.tier as Tier]}）`,
         )
         await applyTier(ctx, user.id, bot.id, groupId)
+        return reply.status(204).send()
+      },
+    )
+
+    app.put<{ Params: { id: string; botId: string } }>(
+      '/api/groups/:id/bots/:botId/config',
+      async (req, reply) => {
+        const user = await requireUser(ctx, req)
+        const { model, effort } = GroupBotConfigReq.parse(req.body)
+        const bot = await loadBot(ctx, req.params.botId)
+        const groupId = idParam(req.params.id, '群')
+        const [gb] = await ctx.db
+          .select({ model: groupBots.model, effort: groupBots.effort })
+          .from(groupBots)
+          .where(
+            and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)),
+          )
+        if (!gb) return fail('not_found', '该 Bot 不在群内')
+        await assertCanConfigure(ctx, user, bot, groupId)
+        const catalog = await botCatalog(ctx.db, bot)
+        assertPick(catalog, { model, effort }, bot.model)
+        if (gb.model === model && gb.effort === effort) return reply.status(204).send()
+        await updateBotState(ctx, groupId, bot.id, { model, effort })
+        const now = model ?? bot.model
+        const label = agentConfigLabel(catalog, now, fitEffort(catalog, now, effort ?? bot.effort))
+        await postEvent(
+          ctx,
+          groupId,
+          model || effort
+            ? `${user.name} 将 ${bot.name} 在本群的模型设为 ${label}`
+            : `${user.name} 将 ${bot.name} 在本群的模型恢复为跟随 Bot 默认`,
+        )
         return reply.status(204).send()
       },
     )

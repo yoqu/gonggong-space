@@ -71,6 +71,37 @@ pub struct AgentInfo {
     pub path: Option<String>,
     #[serde(default)]
     pub min_version: Option<String>,
+    #[serde(default)]
+    pub catalog: Option<AgentCatalog>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Choice {
+    pub value: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// A model and the thought levels it offers (they depend on the model in both adapters).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelChoice {
+    #[serde(flatten)]
+    pub choice: Choice,
+    pub efforts: Vec<Choice>,
+    /// The thought level the model starts with.
+    pub effort: Option<String>,
+}
+
+/// What an adapter offers, without its "default" rows: `None` model/effort already means the adapter's default.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentCatalog {
+    pub models: Vec<ModelChoice>,
+    /// The model a fresh session starts with; `None` = the adapter's unnamed default.
+    pub current: Option<String>,
+    /// Thought levels of that model and the one it starts with.
+    pub efforts: Vec<Choice>,
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -218,6 +249,11 @@ pub struct RunBot {
     pub agent_kind: AgentKind,
     pub system_prompt: String,
     pub tier: Tier,
+    /// Resolved by the server; `None` = the adapter's default.
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -528,6 +564,8 @@ pub enum DaemonToServer {
     QuestionAsk { run_id: String, request_id: String, questions: Vec<Question> },
     #[serde(rename = "run.discarded", rename_all = "camelCase")]
     RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
+    #[serde(rename = "session.config", rename_all = "camelCase")]
+    SessionConfig { run_id: String, model: Option<String>, effort: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

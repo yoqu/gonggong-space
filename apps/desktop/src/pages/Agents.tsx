@@ -1,18 +1,8 @@
 import { type AgentKind, compareVersions } from '@gonggong/protocol'
-import {
-  Button,
-  GroupBox,
-  GroupRow,
-  Icon,
-  PopUpButton,
-  SegmentedControl,
-  Skeleton,
-  Tag,
-  toast,
-} from '@web/ui'
+import { Button, GroupBox, GroupRow, Icon, Skeleton, Tag, toast } from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { type AgentCard, type BotCard, ipc } from '../ipc'
-import { AGENTS, effortLabel, modelName, VENDOR } from '../lib/labels'
+import { AGENTS, VENDOR } from '../lib/labels'
 import { PathValue } from '../lib/ui'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
@@ -43,9 +33,6 @@ export function AgentsPage(_: PageProps) {
     if (a?.available) toast({ type: 'success', message: `${AGENTS[kind].name} ${a.version ?? ''} 已检测到` })
   }
 
-  const update = (kind: AgentKind, patch: Partial<AgentCard>) =>
-    setAgents((list) => list?.map((a) => (a.kind === kind ? { ...a, ...patch } : a)) ?? null)
-
   const pickPath = async (kind: AgentKind) => {
     try {
       if (await ipc.pickAgentPath(kind)) await load()
@@ -73,7 +60,6 @@ export function AgentsPage(_: PageProps) {
           onRecheck={() => recheck(a.kind)}
           onPickPath={() => pickPath(a.kind)}
           onResetPath={() => ipc.resetAgentPath(a.kind).then(load, fail)}
-          onChange={(patch) => update(a.kind, patch)}
         />
       ))}
     </>
@@ -87,7 +73,6 @@ function Agent({
   onRecheck,
   onPickPath,
   onResetPath,
-  onChange,
 }: {
   agent: AgentCard
   users: string[]
@@ -95,7 +80,6 @@ function Agent({
   onRecheck: () => void
   onPickPath: () => void
   onResetPath: () => void
-  onChange: (patch: Partial<AgentCard>) => void
 }) {
   const info = useDaemon((s) => s.info)
   const meta = AGENTS[a.kind]
@@ -109,25 +93,6 @@ function Agent({
       : { tone: 'orange' as const, t: '未安装' }
   const meets = !a.version || !a.minVersion || compareVersions(a.version, a.minVersion) >= 0
 
-  const setModel = async (value: string) => {
-    const model = value || null
-    try {
-      await ipc.setAgentModel(a.kind, model)
-      onChange({ defaultModel: model })
-      toast({ type: 'success', message: `${meta.name} 默认模型已设为 ${modelLabel(a, model)}` })
-    } catch (e) {
-      fail(e)
-    }
-  }
-  const setEffort = async (value: string) => {
-    const effort = value || null
-    try {
-      await ipc.setAgentEffort(a.kind, effort)
-      onChange({ effort })
-    } catch (e) {
-      fail(e)
-    }
-  }
   const copy = async () => {
     await navigator.clipboard.writeText(meta.install)
     setCopied(true)
@@ -175,30 +140,12 @@ function Agent({
               wideValue
               value={adapter ? `${adapter.version} · 随 daemon` : '随 daemon'}
             />
-            <GroupRow label="默认模型" description="Bot 未单独指定时使用">
-              {a.catalog?.models.length ? (
-                <PopUpButton
-                  aria-label="默认模型"
-                  options={modelOptions(a)}
-                  value={a.defaultModel ?? ''}
-                  onChange={setModel}
-                />
-              ) : (
-                <span className="dk-sub">运行一次后显示可用模型</span>
-              )}
-            </GroupRow>
-            <GroupRow label={a.kind === 'claude' ? '扩展思考' : '推理强度'}>
-              {a.catalog?.efforts.length ? (
-                <SegmentedControl
-                  aria-label={a.kind === 'claude' ? '扩展思考' : '推理强度'}
-                  items={effortItems(a)}
-                  value={a.effort ?? ''}
-                  onChange={setEffort}
-                />
-              ) : (
-                <span className="dk-sub">运行一次后显示可用模型</span>
-              )}
-            </GroupRow>
+            <GroupRow
+              label="可用模型"
+              description="模型与推理强度在 Web 端为 Bot 设置"
+              wideValue
+              value={a.catalog ? a.catalog.models.map((m) => m.name).join('、') || '适配器未提供' : '检测中…'}
+            />
             <div className="dk-row">
               <span className="dk-row__main dk-sub">{usedBy}</span>
               {a.customPath ? <Button onClick={onResetPath}>恢复自动检测</Button> : null}
@@ -239,29 +186,4 @@ function Agent({
       </GroupBox>
     </div>
   )
-}
-
-function modelLabel(a: AgentCard, model: string | null) {
-  return model ? modelName(a, model) : adapterDefault(a)
-}
-
-function adapterDefault(a: AgentCard) {
-  const current = a.catalog?.current
-  return current ? `适配器默认（${modelName(a, current)}）` : '适配器默认'
-}
-
-/** '' = no default of our own. The adapter's `default` entry is that same choice. */
-function modelOptions(a: AgentCard) {
-  const models = (a.catalog?.models ?? []).filter((m) => m.value !== 'default')
-  const custom = a.defaultModel && !models.some((m) => m.value === a.defaultModel) ? [a.defaultModel] : []
-  return [
-    { value: '', label: adapterDefault(a) },
-    ...models.map((m) => ({ value: m.value, label: m.name })),
-    ...custom.map((value) => ({ value, label: value })),
-  ]
-}
-
-function effortItems(a: AgentCard) {
-  const levels = (a.catalog?.efforts ?? []).map((e) => e.value).filter((v) => v !== 'default')
-  return [{ value: '', label: '默认' }, ...levels.map((value) => ({ value, label: effortLabel(value) }))]
 }

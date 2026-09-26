@@ -28,6 +28,7 @@ import { AdminPage } from '../admin/AdminPage'
 import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
+import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { AvatarPicker, BotAvatar, botAvatar } from './avatars'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
@@ -104,6 +105,7 @@ export function BotDetail({
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
   const [list, setList] = useState(bot.triggerList)
   const [tier, setTier] = useState<Tier>(bot.tier)
+  const [config, setConfig] = useState<AgentConfig>({ model: bot.model, effort: bot.effort })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   /** false = closed; otherwise the folder the picker opens at. */
@@ -123,6 +125,9 @@ export function BotDetail({
         triggerScope: scope,
         triggerList: list,
         tier,
+        // Unchanged values are left out: one the catalog no longer lists would be refused.
+        ...(config.model !== bot.model && { model: config.model }),
+        ...(config.effort !== bot.effort && { effort: config.effort }),
       })
       toast({ type: 'success', message: `${bot.name} 已保存 · 下一次新开会话时生效` })
     } catch (e) {
@@ -223,6 +228,8 @@ export function BotDetail({
             </Presence>
           </FormRow>
         ) : null}
+
+        <AgentConfigFields catalog={bot.catalog} value={config} disabled={!canEdit} onChange={setConfig} />
 
         <FormRow label="触发范围" hint={tier === 'full' ? FULL_HINT : undefined}>
           <div title={tier === 'full' ? FULL_HINT : undefined}>

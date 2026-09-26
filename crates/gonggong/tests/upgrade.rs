@@ -45,10 +45,9 @@ fn only_strictly_newer_versions_count() {
 async fn stages_a_verified_build_from_a_server_relative_url() {
     let home = tempfile::tempdir().unwrap();
     let server = serve(b"new-build").await;
-    let path =
-        stage(home.path(), &server, &reqwest::Client::new(), &info("9.0.0", "/downloads/gg", sha(b"new-build")))
-            .await
-            .unwrap();
+    let path = stage(home.path(), &server, &reqwest::Client::new(), &info("9.0.0", "/downloads/gg", sha(b"new-build")))
+        .await
+        .unwrap();
     assert!(path.starts_with(home.path().join("updates")));
     assert_eq!(std::fs::read(&path).unwrap(), b"new-build");
 }

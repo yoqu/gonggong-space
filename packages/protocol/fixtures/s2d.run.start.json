@@ -8,7 +8,9 @@
     "name": "小王的 Claude",
     "agentKind": "claude",
     "systemPrompt": "后端接口开发，只改 server/ 目录",
-    "tier": "workspace"
+    "tier": "workspace",
+    "model": "opus",
+    "effort": "high"
   },
   "workspace": {
     "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" },

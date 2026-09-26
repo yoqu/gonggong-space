@@ -6,8 +6,30 @@
       "available": true,
       "version": "2.1.4",
       "path": "/opt/homebrew/bin/claude",
-      "minVersion": "2.0.0"
+      "minVersion": "2.0.0",
+      "catalog": {
+        "current": "sonnet",
+        "efforts": [{ "value": "medium", "name": "Medium" }],
+        "effort": "medium",
+        "models": [
+          {
+            "value": "opus",
+            "name": "Opus",
+            "description": "Most capable",
+            "efforts": [{ "value": "low", "name": "Low" }, { "value": "high", "name": "High" }],
+            "effort": "high"
+          },
+          { "value": "haiku", "name": "Haiku", "efforts": [], "effort": null }
+        ]
+      }
     },
-    { "kind": "codex", "available": false, "version": null, "path": null, "minVersion": "0.40.0" }
+    {
+      "kind": "codex",
+      "available": false,
+      "version": null,
+      "path": null,
+      "minVersion": "0.40.0",
+      "catalog": null
+    }
   ]
 }

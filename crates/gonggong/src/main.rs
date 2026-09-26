@@ -1,3 +1,5 @@
+use anyhow::{Context, bail};
+use clap::{Parser, Subcommand};
 use gonggong::bind::machine_info;
 use gonggong::config::{self, Config};
 use gonggong::configure::{self, BotChange};
@@ -9,8 +11,6 @@ use gonggong::protocol::AgentKind;
 use gonggong::protocol::RejectReason;
 use gonggong::service::Fatal;
 use gonggong::workspace::{Entry, EntryKind, human_size};
-use anyhow::{Context, bail};
-use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -82,26 +82,17 @@ enum Cmd {
 
 #[derive(Subcommand)]
 enum ConfigCmd {
-    /// Agent CLI path, default model and reasoning effort.
+    /// The agent CLI to use instead of the one found on PATH (models are chosen on the server).
     Agent {
         #[arg(value_parser = configure::parse_kind)]
         kind: AgentKind,
-        /// Model for bots without their own, as the adapter names it (see `gg agents`).
         #[arg(long)]
-        model: Option<String>,
-        /// Reasoning effort (Claude effort / Codex reasoning_effort), e.g. low, medium, high.
-        #[arg(long)]
-        effort: Option<String>,
-        /// The agent CLI to use instead of the one found on PATH.
-        #[arg(long)]
-        path: Option<String>,
+        path: String,
     },
-    /// A bot's model, command approval and concurrency.
+    /// A bot's command approval and concurrency.
     Bot {
         /// Bot name or id.
         target: String,
-        #[arg(long)]
-        model: Option<String>,
         /// ask = 每次询问, allowlist = 白名单自动, all = 全部自动.
         #[arg(long, value_enum)]
         approval: Option<Approval>,
@@ -169,7 +160,8 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Agents => configure::print_agents(&config::home())?,
         Cmd::Login { server, code, fingerprint } => {
             let machine = machine_info();
-            let (config, restored) = gonggong::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
+            let (config, restored) =
+                gonggong::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
             config.save()?;
             if restored {
                 println!("绑定成功：已恢复本机原有机器记录（{}），原有 Bot 绑定保持不变", machine.name);
@@ -267,11 +259,9 @@ async fn main() -> anyhow::Result<()> {
             let names = gonggong::diag::bundle(&config::home(), config.as_ref(), &checks, &dest)?;
             println!("已导出诊断包 {}（{}）", dest.display(), names.join("、"));
         }
-        Cmd::Config { cmd: ConfigCmd::Agent { kind, model, effort, path } } => {
-            configure::agent(&config::home(), kind, model, effort, path)?
-        }
-        Cmd::Config { cmd: ConfigCmd::Bot { target, model, approval, allow, disallow, concurrency } } => {
-            let change = BotChange { model, approval, allow, disallow, concurrency };
+        Cmd::Config { cmd: ConfigCmd::Agent { kind, path } } => configure::agent(&config::home(), kind, path)?,
+        Cmd::Config { cmd: ConfigCmd::Bot { target, approval, allow, disallow, concurrency } } => {
+            let change = BotChange { approval, allow, disallow, concurrency };
             configure::bot(&config()?, &config::home(), &target, change).await?
         }
     }

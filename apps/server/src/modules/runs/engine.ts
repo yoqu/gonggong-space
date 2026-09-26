@@ -35,6 +35,7 @@ export function startRunEngine(ctx: Ctx) {
     else if (msg.t === 'run.done') enqueue(() => onDone(ctx, machineId, msg))
     else if (msg.t === 'approval.request') enqueue(() => onApprovalRequest(ctx, machineId, msg))
     else if (msg.t === 'question.ask') enqueue(() => onQuestionAsk(ctx, machineId, msg))
+    else if (msg.t === 'session.config') enqueue(() => onSessionConfig(ctx, machineId, msg))
   }
   const onOnline = (machineId: string) =>
     enqueue(async () => {
@@ -96,6 +97,21 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
     for (const row of await ctx.db.update(runs).set({ delegation }).where(eq(runs.id, runId)).returning())
       await publishRun(ctx, row)
   }
+}
+
+async function onSessionConfig(
+  ctx: Ctx,
+  machineId: string,
+  msg: Extract<DaemonMsg, { t: 'session.config' }>,
+) {
+  if (!(await liveRun(ctx, machineId, msg.runId))) return
+  const { model, effort } = msg
+  for (const row of await ctx.db
+    .update(runs)
+    .set({ model, effort })
+    .where(eq(runs.id, msg.runId))
+    .returning())
+    await publishRun(ctx, row)
 }
 
 type Stream = Extract<RunEvent, { kind: 'text' | 'thought' }>

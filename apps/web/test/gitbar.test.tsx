@@ -33,6 +33,8 @@ const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateD
   git: null,
   error: null,
   tier: null,
+  model: null,
+  effort: null,
   ...o,
 })
 

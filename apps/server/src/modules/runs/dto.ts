@@ -43,6 +43,8 @@ export const runDto = (
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
   stoppedBy: r.stoppedBy,
   delegation: delegationDto(r.delegation as Delegation),
+  model: r.model,
+  effort: r.effort,
 })
 
 export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }

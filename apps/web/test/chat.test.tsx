@@ -73,6 +73,9 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
   ...o,
 })
 const bots = [
@@ -148,6 +151,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   interrupt: null,
   stoppedBy: null,
   delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
+  model: null,
+  effort: null,
   queuedAt: at,
   startedAt: at,
   endedAt: null,
@@ -327,7 +332,16 @@ describe('my machines and bots', () => {
   it('opens a machine from the sidebar to see, rename and revoke it', async () => {
     const detailed: MachineDto = {
       ...oldBox,
-      agents: [{ kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: null }],
+      agents: [
+        {
+          kind: 'claude',
+          available: true,
+          version: '2.1.4',
+          path: '/bin/claude',
+          minVersion: null,
+          catalog: null,
+        },
+      ],
       system: {
         osVersion: 'Ubuntu 24.04',
         kernel: '6.8.0',
@@ -506,7 +520,17 @@ describe('chat view', () => {
     push({
       t: 'group.botState',
       groupId: 'g1',
-      state: { botId: 'b1', workspace: 'managed', state: 'ready', path: null, git, error: null, tier: null },
+      state: {
+        botId: 'b1',
+        workspace: 'managed',
+        state: 'ready',
+        path: null,
+        git,
+        error: null,
+        tier: null,
+        model: null,
+        effort: null,
+      },
     })
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain1未提交托管')
   })

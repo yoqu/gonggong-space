@@ -58,6 +58,9 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: null,
   groupCount: 1,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
   ...o,
 })
 const bots = [
@@ -97,6 +100,8 @@ const run = (o: Partial<RunDto>): RunDto => ({
   interrupt: null,
   stoppedBy: null,
   delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
+  model: null,
+  effort: null,
   ...o,
 })
 const message = {

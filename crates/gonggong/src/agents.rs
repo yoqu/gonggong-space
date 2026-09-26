@@ -1,4 +1,5 @@
-use crate::local::LocalSettings;
+use crate::engine::ADAPTERS;
+use crate::local::{LocalSettings, load_catalogs};
 use crate::protocol::{AgentInfo, AgentKind};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -18,9 +19,25 @@ pub fn min_version(kind: AgentKind) -> &'static str {
     }
 }
 
-/// Detects installed agent CLIs: the owner's configured paths, else PATH and common install dirs.
-pub fn detect(local: &LocalSettings) -> Vec<AgentInfo> {
-    [AgentKind::Claude, AgentKind::Codex].into_iter().map(|kind| detect_one(kind, local)).collect()
+/// Detects installed agent CLIs (the owner's configured paths, else PATH and common install dirs), with the catalog
+/// probed for the same builds.
+pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
+    let cached = load_catalogs(home);
+    [AgentKind::Claude, AgentKind::Codex]
+        .into_iter()
+        .map(|kind| {
+            let mut info = detect_one(kind, local);
+            let key = catalog_key(kind, info.version.as_deref());
+            info.catalog = cached.get(&kind).filter(|c| info.available && c.key == key).map(|c| c.catalog.clone());
+            info
+        })
+        .collect()
+}
+
+/// The CLI and adapter builds a catalog is probed from: upgrading either may change what is offered.
+pub fn catalog_key(kind: AgentKind, version: Option<&str>) -> String {
+    let adapter = ADAPTERS.iter().find(|(k, ..)| *k == kind).map_or("", |(.., v)| v);
+    format!("{}+{adapter}", version.unwrap_or("?"))
 }
 
 fn detect_one(kind: AgentKind, local: &LocalSettings) -> AgentInfo {
@@ -32,6 +49,7 @@ fn detect_one(kind: AgentKind, local: &LocalSettings) -> AgentInfo {
         version: path.as_deref().filter(|_| available).and_then(version),
         path: path.map(|p| p.to_string_lossy().into_owned()),
         min_version: Some(min_version(kind).into()),
+        catalog: None,
     }
 }
 
@@ -189,6 +207,31 @@ mod tests {
         assert_eq!(parse_version("2.1.280 (Claude Code)"), Some("2.1.280".into()));
         assert_eq!(parse_version("codex-cli 0.156.1"), Some("0.156.1".into()));
         assert_eq!(parse_version("no version here"), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn detection_carries_the_catalog_probed_for_the_same_builds() {
+        use super::{catalog_key, detect};
+        use crate::local::{AgentSettings, CachedCatalog, LocalSettings, save_catalog};
+        use crate::protocol::{AgentCatalog, AgentKind};
+        use std::os::unix::fs::PermissionsExt;
+        let home = tempfile::tempdir().unwrap();
+        let cli = home.path().join("claude");
+        std::fs::write(&cli, "#!/bin/sh\necho '2.1.4 (Claude Code)'\n").unwrap();
+        std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut local = LocalSettings::default();
+        local.agents.insert(AgentKind::Claude, AgentSettings { path: Some(cli.to_string_lossy().into()) });
+        let catalog = AgentCatalog { current: Some("opus".into()), ..Default::default() };
+        let claude = |home| detect(home, &local).into_iter().find(|a| a.kind == AgentKind::Claude).unwrap();
+
+        assert_eq!(claude(home.path()).catalog, None);
+        let stale = CachedCatalog { key: catalog_key(AgentKind::Claude, Some("2.0.0")), catalog: catalog.clone() };
+        save_catalog(home.path(), AgentKind::Claude, stale).unwrap();
+        assert_eq!(claude(home.path()).catalog, None);
+        let fresh = CachedCatalog { key: catalog_key(AgentKind::Claude, Some("2.1.4")), catalog: catalog.clone() };
+        save_catalog(home.path(), AgentKind::Claude, fresh).unwrap();
+        assert_eq!(claude(home.path()).catalog, Some(catalog));
     }
 
     #[test]

@@ -7,7 +7,8 @@ use crate::files;
 use crate::git;
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentKind, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart, ServerToDaemon,
+    AgentCatalog, AgentKind, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
+    ServerToDaemon, Tier,
 };
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -28,6 +29,7 @@ pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "1.13.0"),
 ];
 const MIN_NODE_MAJOR: u32 = 22;
+const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
 
 pub struct EngineConfig {
     pub home: PathBuf,
@@ -39,6 +41,7 @@ pub struct EngineConfig {
     pub api: Option<Config>,
 }
 
+#[derive(Clone)]
 pub struct Engine(Arc<Inner>);
 
 pub(crate) struct Inner {
@@ -76,6 +79,28 @@ impl Engine {
             ask: tokio::sync::OnceCell::new(),
             preparing: Mutex::default(),
         }))
+    }
+
+    /// What the agent's adapter offers (models and their thought levels), from a throwaway session.
+    pub async fn probe(&self, kind: AgentKind) -> anyhow::Result<AgentCatalog> {
+        let local = LocalSettings::load(&self.0.config.home)?;
+        let bot = RunBot {
+            id: String::new(),
+            name: String::new(),
+            agent_kind: kind,
+            system_prompt: String::new(),
+            tier: Tier::ReadOnly,
+            model: None,
+            effort: None,
+        };
+        let agent = AcpAgent::new(self.0.adapter(&bot, &local).await?);
+        let dir = self.0.config.home.join("probe");
+        tokio::fs::create_dir_all(&dir).await?;
+        let probe = session::probe(agent, &dir);
+        match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
+            Ok(result) => result.map_err(anyhow::Error::msg),
+            Err(_) => bail!("探测 {kind:?} 可选模型超时"),
+        }
     }
 }
 

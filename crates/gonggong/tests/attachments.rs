@@ -101,6 +101,8 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
             agent_kind: AgentKind::Claude,
             system_prompt: String::new(),
             tier: Tier::Workspace,
+            model: None,
+            effort: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cwd.to_string_lossy().into_owned()) },
         resume_session_id: None,
@@ -161,9 +163,13 @@ async fn writes_attachments_into_the_workspace_excluded_from_git_and_sends_image
 
     let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
     let prompt = echo["prompt"].as_str().unwrap();
-    assert!(prompt.contains("[#1 2026-09-23 10:12] 陈晨: CI 挂了（附件：.gonggong/attachments/m1/ci.log）\n"), "{prompt}");
     assert!(
-        prompt.contains("引用 老李的 Codex：已定位\n\n王磊 说：mock:echo 看图\n附件：.gonggong/attachments/m2/shot.png")
+        prompt.contains("[#1 2026-09-23 10:12] 陈晨: CI 挂了（附件：.gonggong/attachments/m1/ci.log）\n"),
+        "{prompt}"
+    );
+    assert!(
+        prompt
+            .contains("引用 老李的 Codex：已定位\n\n王磊 说：mock:echo 看图\n附件：.gonggong/attachments/m2/shot.png")
     );
     assert_eq!(
         echo["blocks"],
@@ -202,7 +208,11 @@ async fn gonggong_tools_reach_the_server_for_the_live_run_without_asking_the_own
     s.prompt.text = r#"mock:tool fetch_attachments {"message":1}"#.into();
     r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
     let done = r.done("r1").await;
-    assert_eq!(done.reply, "#1 的附件：\n附件（已放入工作区）：\n- .gonggong/attachments/m1/ci.log", "{:?}", done.error);
+    assert_eq!(
+        done.reply, "#1 的附件：\n附件（已放入工作区）：\n- .gonggong/attachments/m1/ci.log",
+        "{:?}",
+        done.error
+    );
     assert_eq!(std::fs::read(ws.path().join(".gonggong/attachments/m1/ci.log")).unwrap(), b"boom");
     assert_eq!(*hits.lock().unwrap(), [tool, "/api/daemon/attachments/a2"]);
 }

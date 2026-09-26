@@ -60,6 +60,9 @@ const bot: BotDto = {
   agentMinVersion: null,
   groupCount: 1,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
 }
 const at = '2026-09-23T02:21:00.000Z'
 const msg = (o: Partial<MessageDto>): MessageDto => ({
@@ -117,6 +120,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   interrupt: null,
   stoppedBy: null,
   delegation: { subagents: 0, subagentsRunning: 0, tasksRunning: 0 },
+  model: null,
+  effort: null,
   ...o,
 })
 const patch = [
@@ -141,7 +146,7 @@ const UNCOMMITTED = [
   '',
 ].join('\n')
 const detail = (o: Partial<RunDetailDto> = {}): RunDetailDto => ({
-  run: run(),
+  run: run({ model: 'opus', effort: 'high' }),
   patch,
   purged: false,
   sessionId: 'sess-7f3a',
@@ -282,6 +287,7 @@ describe('run rail', () => {
     expect(await within(rail).findByText('本轮上下文')).toBeTruthy()
     expect(rail.textContent).toContain('wanglei-mbp')
     expect(rail.textContent).toContain('sess-7f3a')
+    expect(rail.textContent).toContain('opus · 高')
     // Context, outputs and thoughts stay one quiet line each until clicked (Codex / ZCode).
     expect(rail.textContent).not.toContain('git 默认动作')
     const ctx = within(rail).getByRole('button', { name: /本轮上下文/ })
@@ -453,6 +459,8 @@ describe('process timeline', () => {
             git: null,
             error: null,
             tier: null,
+            model: null,
+            effort: null,
           },
         },
       },

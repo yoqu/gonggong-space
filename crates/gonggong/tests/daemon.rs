@@ -1,10 +1,10 @@
+use futures_util::{SinkExt, StreamExt};
 use gonggong::config::Config;
 use gonggong::daemon::{Daemon, Options};
 use gonggong::lock::{Lock, LockError};
 use gonggong::protocol::RejectReason;
 use gonggong::service::Fatal;
 use gonggong::status::{Conn, Status};
-use futures_util::{SinkExt, StreamExt};
 use std::path::Path;
 use std::time::Duration;
 use tokio::net::TcpListener;

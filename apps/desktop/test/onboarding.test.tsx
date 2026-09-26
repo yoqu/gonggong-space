@@ -13,6 +13,7 @@ const CLAUDE = {
   version: '2.1.4',
   path: '/opt/homebrew/bin/claude',
   minVersion: '2.0.0',
+  catalog: null,
 } as const
 const CODEX_MISSING = {
   kind: 'codex',
@@ -20,6 +21,7 @@ const CODEX_MISSING = {
   version: null,
   path: null,
   minVersion: '0.40.0',
+  catalog: null,
 } as const
 
 beforeEach(() => {

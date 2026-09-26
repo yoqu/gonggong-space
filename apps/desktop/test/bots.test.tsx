@@ -9,7 +9,7 @@ const m = vi.mocked(ipc)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.agents.mockResolvedValue([{ ...CLAUDE, defaultModel: 'sonnet' }, CODEX])
+  m.agents.mockResolvedValue([CLAUDE, CODEX])
   m.bots.mockResolvedValue([
     bot({}),
     bot({
@@ -35,7 +35,6 @@ it('lists the bots with their local settings and warnings', async () => {
   const claude = await card('小王的 Claude')
   expect(claude.getByText('在线')).toBeTruthy()
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
-  expect(claude.getByText('Sonnet 5 · 跟随默认')).toBeTruthy()
   expect(claude.getByText('每次询问')).toBeTruthy()
 
   const codex = await card('小王的 Codex')
@@ -51,7 +50,7 @@ it('lists the bots with their local settings and warnings', async () => {
   expect(m.bots).toHaveBeenCalledTimes(2)
 })
 
-it('edits the model, concurrency and command approval of a bot', async () => {
+it('edits the concurrency and command approval of a bot', async () => {
   render(<BotsPage go={() => {}} />)
   fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
   const dialog = within(screen.getByRole('dialog'))
@@ -60,11 +59,7 @@ it('edits the model, concurrency and command approval of a bot', async () => {
   expect(agent.textContent).toContain('Claude Code · 2.1.4')
   expect(agent).toHaveProperty('disabled', true)
   expect(dialog.getByText(/切换 agent 会结束该 Bot 在各群的会话上下文/)).toBeTruthy()
-  const model = dialog.getByRole('button', { name: '模型' })
-  expect(model.textContent).toContain('跟随 agent 默认 · Sonnet 5')
-
-  fireEvent.click(model)
-  fireEvent.click(dialog.getByRole('menuitemcheckbox', { name: 'Haiku 4.5' }))
+  expect(dialog.queryByRole('button', { name: '模型' })).toBeNull()
   fireEvent.click(dialog.getByRole('button', { name: '增加' }))
   expect(dialog.getByRole('spinbutton', { name: '并发上限' }).getAttribute('aria-valuenow')).toBe('3')
   fireEvent.click(dialog.getByRole('radio', { name: '白名单自动' }))
@@ -78,7 +73,6 @@ it('edits the model, concurrency and command approval of a bot', async () => {
 
   await waitFor(() =>
     expect(m.saveBot).toHaveBeenCalledWith('b1', {
-      model: 'haiku',
       approval: 'allowlist',
       allowlist: ['node -e'],
       concurrency: 3,
@@ -87,17 +81,14 @@ it('edits the model, concurrency and command approval of a bot', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 })
 
-it('saves only local settings when the concurrency is unchanged, and back to following the default', async () => {
-  m.bots.mockResolvedValue([bot({ model: 'haiku', approval: 'all' })])
+it('saves only local settings when the concurrency is unchanged', async () => {
+  m.bots.mockResolvedValue([bot({ approval: 'all' })])
   render(<BotsPage go={() => {}} />)
   fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
   const dialog = within(screen.getByRole('dialog'))
-  fireEvent.click(dialog.getByRole('button', { name: '模型' }))
-  fireEvent.click(dialog.getByRole('menuitemcheckbox', { name: /跟随 agent 默认/ }))
   fireEvent.click(dialog.getByRole('button', { name: '保存' }))
   await waitFor(() =>
     expect(m.saveBot).toHaveBeenCalledWith('b1', {
-      model: null,
       approval: 'all',
       allowlist: [],
       concurrency: null,

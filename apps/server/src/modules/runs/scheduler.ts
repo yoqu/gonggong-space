@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
 import { sysParams } from '../admin/params.js'
+import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
@@ -70,7 +71,7 @@ export async function schedule(ctx: Ctx, botId: string) {
         // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
         const [running] = await tx
           .update(runs)
-          .set({ status: 'running', step: '', startedAt: ctx.now() })
+          .set({ status: 'running', step: '', startedAt: ctx.now(), ...start.config })
           .where(eq(runs.id, run.id))
           .returning()
         if (running && ctx.hub.send(machineId, start.msg)) {
@@ -145,6 +146,8 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       ).reverse()
     : []
   const interrupted = await interruptNote(tx, run, trigger.at.toISOString())
+  const meta = trigger.meta as MessageMeta
+  const config = resolveConfig(await botCatalog(tx, bot), meta.runOptions?.[bot.id], gb, bot)
   const note = interrupted ? [interrupted.note] : []
   const msg: RunStart = {
     t: 'run.start',
@@ -157,6 +160,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       agentKind: bot.agentKind as AgentKind,
       systemPrompt: bot.systemPrompt,
       tier: (gb.tier ?? bot.tier) as Tier,
+      ...config,
     },
     workspace: {
       repo: repo ? { id: repo.id, url: repo.url, branch: repo.baseBranch } : null,
@@ -170,12 +174,12 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       context: [...context, ...note],
       omitted,
       fallbackContext: resumeSessionId ? [...fallbackContext, ...note] : [],
-      attachments: (trigger.meta as MessageMeta).attachments ?? [],
-      quote: quoteOf(trigger.meta as MessageMeta),
+      attachments: meta.attachments ?? [],
+      quote: quoteOf(meta),
     },
     mcpServers: await enabledMcpServers(tx),
   }
-  return { msg, triggerSeq: trigger.seq, settled: interrupted?.settled }
+  return { msg, config, triggerSeq: trigger.seq, settled: interrupted?.settled }
 }
 
 const contextFilter = (where: SQL | undefined) =>
