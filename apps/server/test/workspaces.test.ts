@@ -174,6 +174,8 @@ describe('joining without a workspace choice', () => {
       git,
       error: null,
       tier: null,
+      model: null,
+      effort: null,
     })
     await until(async () => (await w.bodies(g.id)).includes('✓ 小王的 Claude 已使用托管工作区'))
   })

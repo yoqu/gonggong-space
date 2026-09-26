@@ -1,7 +1,7 @@
 //! The owner's local settings (`<home>/local.json`), shared by `gg run`, the CLI and the desktop app: agent CLI
-//! path, default model and effort per agent; model override and command approval per bot (plan D15). Also the
-//! model catalog each adapter reported (`<home>/models.json`) for pickers.
-use crate::protocol::{AgentKind, Tier};
+//! path per agent, command approval per bot (plan D15). Model and effort are set on the server. Also the catalog
+//! probed from each adapter (`<home>/models.json`), reported to the server for its pickers.
+use crate::protocol::{AgentCatalog, AgentKind, Tier};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -24,20 +24,11 @@ pub struct AgentSettings {
     /// Absolute path of the agent CLI, replacing detection on PATH.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
-    /// Model for bots without their own; `None` = the adapter's default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_model: Option<String>,
-    /// The adapter's thought-level value (Claude `effort`, Codex `reasoning_effort`); `None` = the adapter's default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BotSettings {
-    /// `None` = follow the agent's default model.
-    #[serde(default)]
-    pub model: Option<String>,
     #[serde(default)]
     pub approval: Approval,
     /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
@@ -115,11 +106,8 @@ impl LocalSettings {
             {
                 bail!("{kind:?} 的路径必须是绝对路径：{p}");
             }
-            non_blank(&a.default_model, "默认模型")?;
-            non_blank(&a.effort, "推理强度")?;
         }
         for b in self.bots.values() {
-            non_blank(&b.model, "模型")?;
             if b.allowlist.iter().any(|c| normalize(c).is_empty()) {
                 bail!("白名单命令不能为空");
             }
@@ -134,18 +122,6 @@ impl LocalSettings {
     pub fn bot(&self, id: &str) -> BotSettings {
         self.bots.get(id).cloned().unwrap_or_default()
     }
-
-    /// Bot override → agent default → `None` (the adapter's default).
-    pub fn model_for(&self, kind: AgentKind, bot_id: &str) -> Option<String> {
-        self.bot(bot_id).model.or(self.agent(kind).default_model)
-    }
-}
-
-fn non_blank(v: &Option<String>, what: &str) -> Result<()> {
-    if v.as_deref().is_some_and(|s| s.trim().is_empty()) {
-        bail!("{what}不能为空");
-    }
-    Ok(())
 }
 
 impl BotSettings {
@@ -348,49 +324,33 @@ impl LocalStore {
     }
 }
 
-/// One entry of an adapter's select option.
+/// A probed catalog and the adapter + CLI build it came from (`agents::catalog_key`); another build is probed again.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Choice {
-    pub value: String,
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+pub struct CachedCatalog {
+    pub key: String,
+    pub catalog: AgentCatalog,
 }
 
-/// What an adapter offered in its latest new session: models, and thought levels of the model it started with.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentModels {
-    pub models: Vec<Choice>,
-    /// The adapter's default model.
-    pub current: Option<String>,
-    pub efforts: Vec<Choice>,
-    pub current_effort: Option<String>,
-}
-
-fn models_path(home: &Path) -> PathBuf {
+fn catalogs_path(home: &Path) -> PathBuf {
     home.join("models.json")
 }
 
-/// Empty until the agent has run once on this machine.
-pub fn load_models(home: &Path) -> BTreeMap<AgentKind, AgentModels> {
-    std::fs::read_to_string(models_path(home)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+/// Empty until an adapter was probed here; a file in an older format reads as empty too.
+pub fn load_catalogs(home: &Path) -> BTreeMap<AgentKind, CachedCatalog> {
+    std::fs::read_to_string(catalogs_path(home)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
-/// Sessions of several bots start concurrently; their read-modify-write of the shared catalog must not interleave.
-static MODELS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// The daemon and the desktop app may probe concurrently; their read-modify-write must not interleave.
+static CATALOGS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-pub fn save_models(home: &Path, kind: AgentKind, models: AgentModels) -> Result<()> {
-    let _guard = MODELS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut all = load_models(home);
-    if all.get(&kind) == Some(&models) {
-        return Ok(());
-    }
-    all.insert(kind, models);
+pub fn save_catalog(home: &Path, kind: AgentKind, cached: CachedCatalog) -> Result<()> {
+    let _guard = CATALOGS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut all = load_catalogs(home);
+    all.insert(kind, cached);
     std::fs::create_dir_all(home)?;
-    let tmp = models_path(home).with_extension("json.tmp");
+    let tmp = catalogs_path(home).with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_vec_pretty(&all)?)?;
-    std::fs::rename(&tmp, models_path(home))?;
+    std::fs::rename(&tmp, catalogs_path(home))?;
     Ok(())
 }
 
@@ -399,24 +359,31 @@ mod tests {
     use super::*;
 
     fn bot(approval: Approval, allowlist: &[&str]) -> BotSettings {
-        BotSettings { model: None, approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
+        BotSettings { approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
     }
 
     #[test]
     fn concurrent_catalog_saves_neither_fail_nor_lose_updates() {
         let home = tempfile::tempdir().unwrap();
-        let catalog = |current: &str| AgentModels { current: Some(current.into()), ..AgentModels::default() };
+        let cached = |key: String| CachedCatalog { key, catalog: AgentCatalog::default() };
         std::thread::scope(|s| {
             for i in 0..16 {
                 let home = home.path();
                 s.spawn(move || {
                     let kind = if i % 2 == 0 { AgentKind::Claude } else { AgentKind::Codex };
-                    save_models(home, kind, catalog(&format!("m{i}"))).unwrap();
+                    save_catalog(home, kind, cached(format!("k{i}"))).unwrap();
                 });
             }
         });
-        let all = load_models(home.path());
+        let all = load_catalogs(home.path());
         assert!(all.contains_key(&AgentKind::Claude) && all.contains_key(&AgentKind::Codex));
+    }
+
+    #[test]
+    fn a_catalog_file_in_the_old_format_reads_as_empty() {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::write(home.path().join("models.json"), r#"{"claude":{"models":[],"efforts":[]}}"#).unwrap();
+        assert!(load_catalogs(home.path()).is_empty());
     }
 
     #[test]
@@ -424,21 +391,20 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         assert_eq!(LocalSettings::load(home.path()).unwrap(), LocalSettings::default());
         let mut s = LocalSettings::default();
-        s.agents.insert(
-            AgentKind::Claude,
-            AgentSettings { path: Some("/opt/claude".into()), default_model: Some("opus".into()), effort: None },
-        );
+        s.agents.insert(AgentKind::Claude, AgentSettings { path: Some("/opt/claude".into()) });
         s.bots.insert("b1".into(), bot(Approval::Allowlist, &["go build"]));
         s.save(home.path()).unwrap();
         assert_eq!(LocalSettings::load(home.path()).unwrap(), s);
         let raw: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(LocalSettings::path(home.path())).unwrap()).unwrap();
-        assert_eq!(raw["agents"]["claude"]["defaultModel"], "opus");
+        assert_eq!(raw["agents"]["claude"]["path"], "/opt/claude");
         assert_eq!(raw["bots"]["b1"]["approval"], "allowlist");
 
-        std::fs::write(LocalSettings::path(home.path()), r#"{"bots":{"b2":{"model":"haiku"}}}"#).unwrap();
+        // Model settings of older versions are ignored: the server owns them now.
+        let old = r#"{"agents":{"claude":{"defaultModel":"opus","effort":"high"}},"bots":{"b2":{"model":"haiku"}}}"#;
+        std::fs::write(LocalSettings::path(home.path()), old).unwrap();
         let s = LocalSettings::load(home.path()).unwrap();
-        assert_eq!(s.bot("b2"), BotSettings { model: Some("haiku".into()), ..Default::default() });
+        assert_eq!((s.agent(AgentKind::Claude), s.bot("b2")), (AgentSettings::default(), BotSettings::default()));
         assert_eq!(s.bot("nope").approval, Approval::Ask);
     }
 
@@ -446,27 +412,13 @@ mod tests {
     fn rejects_invalid_settings() {
         let home = tempfile::tempdir().unwrap();
         let mut s = LocalSettings::default();
-        s.agents.insert(AgentKind::Codex, AgentSettings { path: Some("codex".into()), ..Default::default() });
+        s.agents.insert(AgentKind::Codex, AgentSettings { path: Some("codex".into()) });
         assert!(s.save(home.path()).is_err());
         let mut s = LocalSettings::default();
         s.bots.insert("b1".into(), bot(Approval::Allowlist, &["  "]));
         assert!(s.save(home.path()).is_err());
-        let mut s = LocalSettings::default();
-        s.bots.insert("b1".into(), BotSettings { model: Some(" ".into()), ..Default::default() });
-        assert!(s.save(home.path()).is_err());
         std::fs::write(LocalSettings::path(home.path()), r#"{"bots":{"b1":{"approval":"sometimes"}}}"#).unwrap();
         assert!(LocalSettings::load(home.path()).is_err());
-    }
-
-    #[test]
-    fn effective_model_prefers_the_bot_then_the_agent() {
-        let mut s = LocalSettings::default();
-        assert_eq!(s.model_for(AgentKind::Claude, "b1"), None);
-        s.agents.insert(AgentKind::Claude, AgentSettings { default_model: Some("opus".into()), ..Default::default() });
-        assert_eq!(s.model_for(AgentKind::Claude, "b1").as_deref(), Some("opus"));
-        assert_eq!(s.model_for(AgentKind::Codex, "b1"), None);
-        s.bots.insert("b1".into(), BotSettings { model: Some("haiku".into()), ..Default::default() });
-        assert_eq!(s.model_for(AgentKind::Claude, "b1").as_deref(), Some("haiku"));
     }
 
     #[test]
@@ -552,27 +504,26 @@ mod tests {
         store.update(|s| s.bots.entry("b1".into()).or_default().approval = Approval::All).unwrap();
         assert!(rx.has_changed().unwrap());
         assert_eq!(rx.borrow_and_update().bot("b1").approval, Approval::All);
-        assert!(store.update(|s| s.bots.entry("b1".into()).or_default().model = Some("".into())).is_err());
+        assert!(store.update(|s| s.bots.entry("b1".into()).or_default().allowlist = vec![" ".into()]).is_err());
 
         let mut edited = LocalSettings::load(home.path()).unwrap();
-        edited.bots.entry("b1".into()).or_default().model = Some("haiku".into());
+        edited.bots.entry("b1".into()).or_default().approval = Approval::Allowlist;
         edited.save(home.path()).unwrap();
         store.refresh().unwrap();
-        assert_eq!(rx.borrow_and_update().bot("b1").model.as_deref(), Some("haiku"));
+        assert_eq!(rx.borrow_and_update().bot("b1").approval, Approval::Allowlist);
         store.refresh().unwrap();
         assert!(!rx.has_changed().unwrap());
     }
 
     #[test]
-    fn caches_models_per_agent() {
+    fn caches_catalogs_per_agent() {
         let home = tempfile::tempdir().unwrap();
-        assert!(load_models(home.path()).is_empty());
-        let m = AgentModels {
-            models: vec![Choice { value: "haiku".into(), name: "Haiku".into(), description: None }],
-            current: Some("default".into()),
-            ..Default::default()
+        assert!(load_catalogs(home.path()).is_empty());
+        let c = CachedCatalog {
+            key: "2.1.4+0.81.0".into(),
+            catalog: AgentCatalog { current: Some("opus".into()), ..Default::default() },
         };
-        save_models(home.path(), AgentKind::Claude, m.clone()).unwrap();
-        assert_eq!(load_models(home.path()).get(&AgentKind::Claude), Some(&m));
+        save_catalog(home.path(), AgentKind::Claude, c.clone()).unwrap();
+        assert_eq!(load_catalogs(home.path()).get(&AgentKind::Claude), Some(&c));
     }
 }

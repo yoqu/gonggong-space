@@ -30,6 +30,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   ...o,
 })
 

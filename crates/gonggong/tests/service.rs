@@ -168,6 +168,7 @@ async fn reports_agent_detection_changes_after_hello() {
         version: None,
         path: Some("/bin/claude".into()),
         min_version: None,
+        catalog: None,
     };
     let (tx, rx) = watch::channel(vec![claude(false)]);
     let task = tokio::spawn(with_agents(port, Recorder::default(), rx).run());

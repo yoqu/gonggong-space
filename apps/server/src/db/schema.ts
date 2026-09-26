@@ -105,6 +105,9 @@ export const bots = pgTable('bots', {
   concurrency: integer('concurrency').notNull().default(2),
   /** Owner's local directory used when a group has no binding of its own. */
   defaultWorkspace: text('default_workspace'),
+  /** Default model / thought level as the adapter names them; null = the adapter's default. */
+  model: text('model'),
+  effort: text('effort'),
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),
@@ -174,6 +177,9 @@ export const groupBots = pgTable(
     cdPath: text('cd_path'),
     /** This group's tier override ('full' | 'workspace' | 'read-only'); null follows bots.tier. */
     tier: text('tier'),
+    /** This group's model / thought level; null follows the bot's. */
+    model: text('model'),
+    effort: text('effort'),
     /** Highest message seq already delivered to this bot as context. */
     contextSeq: bigint('context_seq', { mode: 'number' }).notNull().default(0),
     /** Current ACP session id on the owner's machine, if any. */
@@ -287,6 +293,9 @@ export const runs = pgTable(
     /** Unified diff of the turn (redacted); purged with run_events after retention. */
     patch: text('patch'),
     purgedAt: ts('purged_at'),
+    /** Requested at dispatch, then as the daemon reported them in effect (session.config). */
+    model: text('model'),
+    effort: text('effort'),
   },
   (t) => [index('runs_bot_status').on(t.botId, t.status), index('runs_group').on(t.groupId)],
 )

@@ -63,6 +63,9 @@ const bot: BotDto = {
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
 }
 
 const at = '2026-09-23T02:21:00.000Z'
@@ -109,6 +112,8 @@ const run: RunDto = {
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   queuedAt: at,
   startedAt: at,
   endedAt: at,

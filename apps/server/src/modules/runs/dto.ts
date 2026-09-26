@@ -42,6 +42,8 @@ export const runDto = (
   questions: extra.questions ?? [],
   interrupt: (r.interrupt as RunDto['interrupt']) ?? null,
   stoppedBy: r.stoppedBy,
+  model: r.model,
+  effort: r.effort,
 })
 
 export const approvalDto = (a: ApprovalRow, decidedByName: string | null): ApprovalDto => ({

@@ -1,6 +1,6 @@
 //! Drives the Engine against the scriptable mock ACP agent (tools/mock-agent) without a server.
 use gonggong::engine::{Engine, EngineConfig};
-use gonggong::local::{AgentSettings, Approval, BotSettings, LocalSettings, load_models};
+use gonggong::local::{Approval, BotSettings, LocalSettings};
 use gonggong::protocol::*;
 use gonggong::service::{Handler, Outbox};
 use std::path::{Path, PathBuf};
@@ -12,6 +12,8 @@ struct Rig {
     out: Outbox,
     rx: UnboundedReceiver<DaemonToServer>,
     home: tempfile::TempDir,
+    /// session.config reports (run id, model, effort), set aside by `next`.
+    configs: Vec<(String, Option<String>, Option<String>)>,
 }
 
 fn rig(idle: Duration) -> Rig {
@@ -24,7 +26,7 @@ fn rig(idle: Duration) -> Rig {
         api: None,
     });
     let (out, rx) = Outbox::channel();
-    Rig { engine, out, rx, home }
+    Rig { engine, out, rx, home, configs: vec![] }
 }
 
 /// The follow-up turn as the server sends it: carrying the session id stored from the previous run.done.
@@ -43,6 +45,8 @@ fn start(run_id: &str, text: &str) -> RunStart {
             agent_kind: AgentKind::Claude,
             system_prompt: "只改 server/".into(),
             tier: Tier::Workspace,
+            model: None,
+            effort: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,
@@ -77,7 +81,16 @@ impl Rig {
     }
 
     async fn next(&mut self) -> DaemonToServer {
-        tokio::time::timeout(Duration::from_secs(20), self.rx.recv()).await.expect("engine went quiet").unwrap()
+        loop {
+            let msg = tokio::time::timeout(Duration::from_secs(20), self.rx.recv())
+                .await
+                .expect("engine went quiet")
+                .unwrap();
+            match msg {
+                DaemonToServer::SessionConfig { run_id, model, effort } => self.configs.push((run_id, model, effort)),
+                msg => return msg,
+            }
+        }
     }
 
     /// Events of `run_id` up to its run.done.
@@ -729,58 +742,82 @@ fn running(step: &str) -> RunEvent {
     RunEvent::Status { status: RunStatus::Running, step: step.into() }
 }
 
+fn configured(r: &mut Rig, run_id: &str) -> (Option<String>, Option<String>) {
+    let i = r.configs.iter().position(|(id, ..)| id == run_id).expect("session.config reported");
+    let (_, model, effort) = r.configs.remove(i);
+    (model, effort)
+}
+
+fn with_config(s: RunStart, model: Option<&str>, effort: Option<&str>) -> RunStart {
+    let bot = RunBot { model: model.map(Into::into), effort: effort.map(Into::into), ..s.bot.clone() };
+    RunStart { bot, ..s }
+}
+
 #[tokio::test]
-async fn applies_the_local_model_and_effort_once_per_session() {
+async fn applies_the_requested_model_and_effort_once_per_session() {
     let mut r = rig(Duration::from_secs(60));
-    save_local(&r, |l| {
-        l.bots.insert("b1".into(), BotSettings { model: Some("haiku".into()), ..Default::default() });
-        l.agents.insert(AgentKind::Claude, AgentSettings { effort: Some("high".into()), ..Default::default() });
-    });
-    r.run(start("r1", "mock:echo"));
+    r.run(with_config(start("r1", "mock:echo"), Some("opus"), Some("max")));
     let (events, done) = r.finish("r1").await;
     let e = echo(&done);
-    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("haiku"), Some("high")));
-    assert_eq!(e["configSets"], serde_json::json!(["model=haiku", "effort=high"]));
-    assert!(events.contains(&running("已切换模型：Haiku")));
-    assert!(events.contains(&running("已切换推理强度：high")));
-    let catalog = load_models(r.home.path()).remove(&AgentKind::Claude).unwrap();
-    assert_eq!(catalog.models.iter().map(|m| m.value.as_str()).collect::<Vec<_>>(), ["default", "haiku", "opus"]);
-    assert_eq!(catalog.models[1].description.as_deref(), Some("Fastest"));
-    assert_eq!((catalog.current.as_deref(), catalog.current_effort.as_deref()), (Some("default"), Some("medium")));
-    assert_eq!(catalog.efforts.len(), 3);
+    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("opus"), Some("max")));
+    assert_eq!(e["configSets"], serde_json::json!(["model=opus", "effort=max"]));
+    assert!(events.contains(&running("已切换模型：Opus")));
+    assert!(events.contains(&running("已切换推理强度：Max")));
+    assert_eq!(configured(&mut r, "r1"), (Some("opus".into()), Some("max".into())));
 
-    // Same settings, same session: nothing to switch.
-    r.run(follow_up("r2", "mock:echo", &done));
+    // Same request, same session: nothing to switch.
+    r.run(with_config(follow_up("r2", "mock:echo", &done), Some("opus"), Some("max")));
     let (events, done) = r.finish("r2").await;
     assert_eq!(echo(&done)["configSets"].as_array().unwrap().len(), 2);
     assert!(!events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("已切换"))));
 
-    // Following the agent default.
-    save_local(&r, |l| {
-        l.agents.insert(AgentKind::Claude, AgentSettings { default_model: Some("opus".into()), ..Default::default() });
-    });
-    r.run(follow_up("r3", "mock:echo", &done));
+    // A model without thought levels.
+    r.run(with_config(follow_up("r3", "mock:echo", &done), Some("haiku"), None));
     let (_, done) = r.finish("r3").await;
-    let e = echo(&done);
-    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("opus"), Some("medium")));
+    assert_eq!(configured(&mut r, "r3"), (Some("haiku".into()), None));
 
-    // Nothing set: back to the adapter's own choice.
-    save_local(&r, |_| {});
+    // Nothing requested: back to the session's initial values; the adapter's "default" reads as none.
     r.run(follow_up("r4", "mock:echo", &done));
     let (_, done) = r.finish("r4").await;
-    assert_eq!(echo(&done)["model"], "default");
+    let e = echo(&done);
+    assert_eq!((e["model"].as_str(), e["effort"].as_str()), (Some("default"), Some("medium")));
+    assert_eq!(configured(&mut r, "r4"), (None, Some("medium".into())));
 
     // A model the adapter does not offer is reported, and the run goes on with the current one.
-    save_local(&r, |l| {
-        l.bots.insert("b1".into(), BotSettings { model: Some("gpt-x".into()), ..Default::default() });
-    });
-    r.run(follow_up("r5", "mock:echo", &done));
+    r.run(with_config(follow_up("r5", "mock:echo", &done), Some("gpt-x"), None));
     let (events, done) = r.finish("r5").await;
     assert_eq!((done.outcome, echo(&done)["model"].as_str()), (RunOutcome::Completed, Some("default")));
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("本机设置的模型 gpt-x 不可用")))
+    assert!(events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("模型 gpt-x 不可用"))));
+
+    // Switching models reset the effort in between: an effort set before is applied again.
+    r.run(with_config(follow_up("r6", "mock:echo", &done), Some("opus"), Some("max")));
+    let (_, done) = r.finish("r6").await;
+    assert_eq!(echo(&done)["effort"], "max");
+    assert_eq!(configured(&mut r, "r6"), (Some("opus".into()), Some("max".into())));
+}
+
+#[tokio::test]
+async fn probes_models_and_their_thought_levels() {
+    let r = rig(Duration::from_secs(60));
+    let catalog = r.engine.probe(AgentKind::Claude).await.unwrap();
+    let choice = |value: &str, name: &str| Choice { value: value.into(), name: name.into(), description: None };
+    let levels = |names: &[&str]| names.iter().map(|n| choice(&n.to_lowercase(), n)).collect::<Vec<_>>();
+    assert_eq!(catalog.current, None);
+    assert_eq!((catalog.efforts, catalog.effort.as_deref()), (levels(&["Low", "Medium", "High"]), Some("medium")));
+    assert_eq!(
+        catalog.models,
+        [
+            ModelChoice {
+                choice: Choice { description: Some("Fastest".into()), ..choice("haiku", "Haiku") },
+                efforts: vec![],
+                effort: None,
+            },
+            ModelChoice {
+                choice: choice("opus", "Opus"),
+                efforts: levels(&["Low", "Medium", "High", "Max"]),
+                effort: Some("medium".into()),
+            },
+        ]
     );
 }
 
@@ -788,8 +825,7 @@ async fn applies_the_local_model_and_effort_once_per_session() {
 async fn local_approval_rules_answer_permissions_without_the_owner() {
     let mut r = rig(Duration::from_secs(60));
     save_local(&r, |l| {
-        let bot =
-            BotSettings { approval: Approval::Allowlist, allowlist: vec!["node -e".into()], ..Default::default() };
+        let bot = BotSettings { approval: Approval::Allowlist, allowlist: vec!["node -e".into()] };
         l.bots.insert("b1".into(), bot);
     });
     // `finish` panics on an approval.request: none may be sent.

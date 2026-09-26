@@ -13,7 +13,14 @@ beforeEach(async () => {
 afterEach(() => t.close())
 
 const CLAUDE = [
-  { kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: '2.0.0' },
+  {
+    kind: 'claude',
+    available: true,
+    version: '2.1.4',
+    path: '/bin/claude',
+    minVersion: '2.0.0',
+    catalog: null,
+  },
 ]
 
 async function actor(o: Parameters<TestApp['seed']['user']>[0] = {}) {
@@ -320,6 +327,7 @@ describe('agents.update', () => {
       version: '0.48.0',
       path: '/x/codex',
       minVersion: '0.40.0',
+      catalog: null,
     }
     ws.send(JSON.stringify({ t: 'agents.update', agents: [...CLAUDE, codex] }))
     await vi.waitFor(() => expect(botEvents(seen).at(-1)).toMatchObject({ id: bot.id, presence: 'online' }))

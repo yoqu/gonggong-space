@@ -445,6 +445,8 @@ mod tests {
             agent_kind: AgentKind::Claude,
             system_prompt: "只改 server/".into(),
             tier: Tier::Workspace,
+            model: None,
+            effort: None,
         };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));

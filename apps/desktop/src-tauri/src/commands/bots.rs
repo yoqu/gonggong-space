@@ -1,4 +1,4 @@
-//! Bot page: the machine's bots with their 本机设置 (model, command approval) and the server-side 并发上限.
+//! Bot page: the machine's bots with their 本机设置 (command approval) and the server-side 并发上限.
 use super::{Result, client, local};
 use crate::host::Host;
 use gonggong::bots::Bot;
@@ -27,8 +27,6 @@ pub async fn bots(host: State<'_, Host>) -> Result<Vec<BotCard>> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BotChange {
-    /// `None` = follow the agent's default.
-    model: Option<String>,
     approval: Approval,
     allowlist: Vec<String>,
     /// Only when changed.
@@ -42,8 +40,7 @@ fn apply(settings: &mut LocalSettings, id: &str, change: &BotChange) {
             allowlist.push(c.to_string());
         }
     }
-    let model = change.model.clone().filter(|m| !m.trim().is_empty());
-    settings.bots.insert(id.to_string(), BotSettings { model, approval: change.approval, allowlist });
+    settings.bots.insert(id.to_string(), BotSettings { approval: change.approval, allowlist });
 }
 
 /// Local settings apply from the bot's next turn; the concurrency goes to the server.
@@ -64,10 +61,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn saving_trims_and_dedups_the_allowlist_and_clears_blank_models() {
+    fn saving_trims_and_dedups_the_allowlist() {
         let mut s = LocalSettings::default();
         let change = BotChange {
-            model: Some(" ".into()),
             approval: Approval::Allowlist,
             allowlist: vec!["go build".into(), " go build ".into(), "".into(), "npm test".into()],
             concurrency: None,
@@ -75,11 +71,7 @@ mod tests {
         apply(&mut s, "b1", &change);
         assert_eq!(
             s.bot("b1"),
-            BotSettings {
-                model: None,
-                approval: Approval::Allowlist,
-                allowlist: vec!["go build".into(), "npm test".into()]
-            }
+            BotSettings { approval: Approval::Allowlist, allowlist: vec!["go build".into(), "npm test".into()] }
         );
         s.validate().unwrap();
     }
@@ -90,9 +82,8 @@ mod tests {
             r#"{"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","concurrency":2}"#,
         )
         .unwrap();
-        let local = BotSettings { model: Some("haiku".into()), approval: Approval::All, allowlist: vec![] };
+        let local = BotSettings { approval: Approval::All, allowlist: vec![] };
         let json = serde_json::to_value(BotCard { bot, local }).unwrap();
-        assert_eq!(json["concurrency"], 2);
-        assert_eq!((json["model"].as_str(), json["approval"].as_str()), (Some("haiku"), Some("all")));
+        assert_eq!((json["concurrency"].as_u64(), json["approval"].as_str()), (Some(2), Some("all")));
     }
 }

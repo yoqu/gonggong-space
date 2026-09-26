@@ -7,6 +7,7 @@ import { bots, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
+import { checkPicks } from '../bots/config.js'
 import { commands, parseCommand, runCommand } from '../commands/index.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { reactionsFor } from '../reactions/service.js'
@@ -59,7 +60,7 @@ export function messageRoutes(ctx: Ctx) {
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const { body, clientId, attachmentIds, quote, appendTo } = SendMessageReq.parse(req.body)
+      const { body, clientId, attachmentIds, quote, appendTo, runOptions } = SendMessageReq.parse(req.body)
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const target = appendTo ? await appendTarget(ctx, group.id, me.id, appendTo) : null
       const inGroup = await activeBots(ctx, group.id)
@@ -69,6 +70,7 @@ export function messageRoutes(ctx: Ctx) {
       const mentions = [...new Set([...parseMentions(body, inGroup), ...byQuote])]
       const parsed = parseCommand(body, inGroup)
       const command = parsed && commands.get(parsed.name) ? parsed : null
+      const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.
       const { row, created } = await ctx.db.transaction(async (tx) => {
@@ -95,6 +97,7 @@ export function messageRoutes(ctx: Ctx) {
           clientId,
           ...(command && !target && { command: command.name }),
           ...(target && { appendTo: target.runId }),
+          ...(Object.keys(picks).length > 0 && { runOptions: picks }),
         }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted.quote

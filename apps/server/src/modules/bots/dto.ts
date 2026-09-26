@@ -82,6 +82,9 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       agentVersion: agent?.version ?? null,
       agentMinVersion: agent?.minVersion ?? null,
       groupCount: groupCount.get(bot.id) ?? 0,
+      model: bot.model,
+      effort: bot.effort,
+      catalog: agent?.catalog ?? null,
     }
   })
 }

@@ -3,10 +3,10 @@ use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
-use crate::local::{self, AgentModels, BotSettings, Choice, Decision, LocalSettings};
+use crate::local::{self, BotSettings, Decision, LocalSettings};
 use crate::protocol::{
-    AgentCommand, Answer, ApprovalRequest, Attachment, DaemonToServer, McpServer, Question, RunDone, RunEvent,
-    RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
+    AgentCatalog, AgentCommand, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer, ModelChoice,
+    Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
 use crate::service::Outbox;
 use crate::turn::{
@@ -577,6 +577,53 @@ fn command_of(raw: Option<&serde_json::Value>) -> Option<String> {
     }
 }
 
+/// The adapters' "use your own default" row, left out of catalogs: `None` means the same.
+const ADAPTER_DEFAULT: &str = "default";
+
+fn named(choices: Vec<Choice>) -> Vec<Choice> {
+    choices.into_iter().filter(|c| c.value != ADAPTER_DEFAULT).collect()
+}
+
+/// Thought levels on offer and the current one.
+fn efforts(options: &[SessionConfigOption]) -> (Vec<Choice>, Option<String>) {
+    select(options, &SessionConfigOptionCategory::ThoughtLevel).map_or((vec![], None), |(_, current, choices)| {
+        (named(choices), Some(current).filter(|v| v != ADAPTER_DEFAULT))
+    })
+}
+
+/// What an adapter offers: a throwaway session in `cwd`, switched through every model to read its thought levels.
+/// Nothing is prompted.
+pub(crate) async fn probe(agent: AcpAgent, cwd: &std::path::Path) -> Result<AgentCatalog, String> {
+    Client
+        .builder()
+        .connect_with(agent, async |cx: ConnectionTo<Agent>| {
+            let init = InitializeRequest::new(ProtocolVersion::V1)
+                .client_capabilities(ClientCapabilities::new().meta(client_meta()));
+            cx.send_request(init).block_task().await?;
+            let res = cx.send_request(NewSessionRequest::new(cwd)).block_task().await?;
+            let options = res.config_options.unwrap_or_default();
+            let (start_efforts, start_effort) = efforts(&options);
+            let Some((id, current, models)) = select(&options, &SessionConfigOptionCategory::Model) else {
+                return Ok(AgentCatalog { efforts: start_efforts, effort: start_effort, ..Default::default() });
+            };
+            let mut list = vec![];
+            for choice in named(models) {
+                let value = SessionConfigValueId::new(choice.value.clone());
+                let set = SetSessionConfigOptionRequest::new(res.session_id.clone(), id.clone(), value);
+                let (efforts, effort) = efforts(&cx.send_request(set).block_task().await?.config_options);
+                list.push(ModelChoice { choice, efforts, effort });
+            }
+            Ok(AgentCatalog {
+                models: list,
+                current: Some(current).filter(|v| v != ADAPTER_DEFAULT),
+                efforts: start_efforts,
+                effort: start_effort,
+            })
+        })
+        .await
+        .map_err(|e| describe(&e))
+}
+
 /// A select option of the given category: (config id, current value, choices).
 fn select(
     options: &[SessionConfigOption],
@@ -706,7 +753,6 @@ async fn connect(
                 init: &init,
                 shared,
                 ask,
-                home: &engine.config.home,
                 session: None,
                 mode: None,
                 options: vec![],
@@ -738,7 +784,6 @@ struct Conversation<'a> {
     init: &'a InitializeResponse,
     shared: &'a Shared,
     ask: &'a acp::McpServer,
-    home: &'a std::path::Path,
     session: Option<SessionId>,
     mode: Option<String>,
     /// The session's config options as last reported, their values when it was opened, and the values we set
@@ -841,7 +886,6 @@ impl Conversation<'_> {
         let res = self.cx.send_request(new).block_task().await?;
         self.set_modes(res.modes);
         self.set_options(res.config_options.unwrap_or_default());
-        self.save_catalog(req.start.bot.agent_kind);
         let reason =
             if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
         Ok((res.session_id, Some(reason)))
@@ -883,28 +927,14 @@ impl Conversation<'_> {
         self.options = options;
     }
 
-    /// Records what a fresh session offers, for the model pickers of the CLI and the desktop app.
-    fn save_catalog(&self, kind: crate::protocol::AgentKind) {
-        let Some((_, current, models)) = select(&self.options, &SessionConfigOptionCategory::Model) else { return };
-        let effort = select(&self.options, &SessionConfigOptionCategory::ThoughtLevel);
-        let catalog = AgentModels {
-            models,
-            current: Some(current),
-            current_effort: effort.as_ref().map(|(_, v, _)| v.clone()),
-            efforts: effort.map(|(.., c)| c).unwrap_or_default(),
-        };
-        if let Err(e) = local::save_models(self.home, kind, catalog) {
-            tracing::warn!("saving the model catalog failed: {e:#}");
-        }
-    }
-
-    /// Switches the session to the owner's model and effort (bot → agent → the session's initial value) when they
-    /// differ from the current ones. Model first: switching it may change the effort levels on offer.
+    /// Switches the session to the requested model and effort (else the session's initial values) when they differ
+    /// from the current ones, then reports what is in effect. Model first: switching it may change the effort levels
+    /// on offer and reset the effort set before.
     async fn configure(&mut self, req: &TurnReq, session: &SessionId) {
-        let (kind, bot) = (req.start.bot.agent_kind, &req.start.bot.id);
+        let bot = &req.start.bot;
         let wanted = [
-            (SessionConfigOptionCategory::Model, "模型", req.local.model_for(kind, bot)),
-            (SessionConfigOptionCategory::ThoughtLevel, "推理强度", req.local.agent(kind).effort),
+            (SessionConfigOptionCategory::Model, "模型", &bot.model),
+            (SessionConfigOptionCategory::ThoughtLevel, "推理强度", &bot.effort),
         ];
         for (category, label, want) in wanted {
             let Some((id, current, choices)) = select(&self.options, &category) else {
@@ -913,7 +943,7 @@ impl Conversation<'_> {
                 }
                 continue;
             };
-            let Some(target) = want.or_else(|| self.initial.get(&id).cloned()) else { continue };
+            let Some(target) = want.clone().or_else(|| self.initial.get(&id).cloned()) else { continue };
             if current == target || self.applied.get(&id) == Some(&target) {
                 continue;
             }
@@ -927,14 +957,26 @@ impl Conversation<'_> {
                     self.options = res.config_options;
                     let name = choices.iter().find(|c| c.value == target).map_or(target.as_str(), |c| &c.name);
                     let step = format!("已切换{label}：{name}");
+                    if category == SessionConfigOptionCategory::Model {
+                        self.applied.clear();
+                    }
                     self.applied.insert(id, target);
                     step
                 }
-                Err(e) => format!("本机设置的{label} {target} 不可用：{}", describe(&e)),
+                Err(e) => format!("{label} {target} 不可用：{}", describe(&e)),
             };
             let event = RunEvent::Status { status: RunStatus::Running, step };
             req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
         }
+        let in_effect = |category| {
+            let (id, current, _) = select(&self.options, &category)?;
+            Some(self.applied.get(&id).cloned().unwrap_or(current)).filter(|v| v != ADAPTER_DEFAULT)
+        };
+        req.out.send(DaemonToServer::SessionConfig {
+            run_id: req.start.run_id.clone(),
+            model: in_effect(SessionConfigOptionCategory::Model),
+            effort: in_effect(SessionConfigOptionCategory::ThoughtLevel),
+        });
     }
 
     /// Claude reads the per-session system prompt from `_meta`; Codex gets it per process (CODEX_CONFIG).

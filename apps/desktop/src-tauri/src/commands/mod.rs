@@ -36,8 +36,6 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         logs::export_diagnostics,
         logs::recent_logs,
         agents::agents,
-        agents::set_agent_model,
-        agents::set_agent_effort,
         agents::pick_agent_path,
         agents::reset_agent_path,
         bots::bots,

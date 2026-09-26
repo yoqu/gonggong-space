@@ -1,11 +1,9 @@
-//! Agent page: detected CLIs with their local settings (path, default model, effort) and the models each adapter
-//! offered. Settings apply from the next turn.
+//! Agent page: detected CLIs with their local path and the models each adapter offers (chosen on the server).
 use super::{Result, local};
 use crate::host::Host;
-use gonggong::local::{AgentModels, LocalSettings, load_models};
+use gonggong::local::LocalSettings;
 use gonggong::protocol::{AgentInfo, AgentKind};
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
@@ -17,32 +15,16 @@ pub struct AgentCard {
     info: AgentInfo,
     /// The path comes from 更换路径 rather than detection.
     custom_path: bool,
-    default_model: Option<String>,
-    effort: Option<String>,
-    /// What the adapter offered in its latest new session; `None` until the agent ran once here.
-    catalog: Option<AgentModels>,
     /// e.g. 已登录 · Claude Max; `None` when unknown or not installed.
     login: Option<String>,
 }
 
-fn cards(
-    local: &LocalSettings,
-    mut catalog: BTreeMap<AgentKind, AgentModels>,
-    login: impl Fn(AgentKind, &Path) -> Option<String>,
-) -> Vec<AgentCard> {
-    gonggong::agents::detect(local)
+fn cards(home: &Path, local: &LocalSettings, login: impl Fn(AgentKind, &Path) -> Option<String>) -> Vec<AgentCard> {
+    gonggong::agents::detect(home, local)
         .into_iter()
         .map(|info| {
-            let s = local.agent(info.kind);
             let login = info.path.as_deref().filter(|_| info.available).and_then(|p| login(info.kind, Path::new(p)));
-            AgentCard {
-                custom_path: s.path.is_some(),
-                default_model: s.default_model,
-                effort: s.effort,
-                catalog: catalog.remove(&info.kind),
-                login,
-                info,
-            }
+            AgentCard { custom_path: local.agent(info.kind).path.is_some(), login, info }
         })
         .collect()
 }
@@ -54,24 +36,12 @@ pub async fn agents(host: State<'_, Host>) -> Result<Vec<AgentCard>> {
     let home = host.home.clone();
     let list = tauri::async_runtime::spawn_blocking(move || {
         let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
-        Ok::<_, String>(cards(&local, load_models(&home), gonggong::agents::login_status))
+        Ok::<_, String>(cards(&home, &local, gonggong::agents::login_status))
     })
     .await
     .map_err(|e| e.to_string())??;
     host.report_agents(list.iter().map(|c| c.info.clone()).collect());
     Ok(list)
-}
-
-/// `None` = the adapter's default.
-#[tauri::command]
-pub fn set_agent_model(kind: AgentKind, model: Option<String>, host: State<'_, Host>) -> Result<()> {
-    local(&host.home, |s| s.agents.entry(kind).or_default().default_model = model)
-}
-
-/// `None` = the adapter's default.
-#[tauri::command]
-pub fn set_agent_effort(kind: AgentKind, effort: Option<String>, host: State<'_, Host>) -> Result<()> {
-    local(&host.home, |s| s.agents.entry(kind).or_default().effort = effort)
 }
 
 fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
@@ -101,33 +71,22 @@ pub fn reset_agent_path(kind: AgentKind, host: State<'_, Host>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gonggong::local::{AgentSettings, Choice};
+    use gonggong::local::AgentSettings;
 
     #[test]
-    fn cards_merge_detection_settings_catalog_and_login() {
+    fn cards_merge_detection_settings_and_login() {
+        let home = tempfile::tempdir().unwrap();
         let exe = std::env::current_exe().unwrap();
         let mut local = LocalSettings::default();
-        let settings = AgentSettings {
-            path: Some(exe.to_string_lossy().into()),
-            default_model: Some("haiku".into()),
-            effort: Some("high".into()),
-        };
-        local.agents.insert(AgentKind::Claude, settings);
-        local.agents.insert(AgentKind::Codex, AgentSettings { path: Some("/nope/codex".into()), ..Default::default() });
-        let models = AgentModels {
-            models: vec![Choice { value: "haiku".into(), name: "Haiku".into(), description: None }],
-            ..Default::default()
-        };
-        let catalog = BTreeMap::from([(AgentKind::Claude, models.clone())]);
-        let list = cards(&local, catalog, |kind, _| Some(format!("{kind:?} ok")));
+        local.agents.insert(AgentKind::Claude, AgentSettings { path: Some(exe.to_string_lossy().into()) });
+        local.agents.insert(AgentKind::Codex, AgentSettings { path: Some("/nope/codex".into()) });
+        let list = cards(home.path(), &local, |kind, _| Some(format!("{kind:?} ok")));
         let claude = &list[0];
         assert!(claude.info.available && claude.custom_path);
-        assert_eq!((claude.default_model.as_deref(), claude.effort.as_deref()), (Some("haiku"), Some("high")));
-        assert_eq!(claude.catalog.as_ref(), Some(&models));
         assert_eq!(claude.login.as_deref(), Some("Claude ok"));
         let codex = &list[1];
         assert!(!codex.info.available);
-        assert_eq!((codex.login.as_ref(), codex.catalog.as_ref()), (None, None));
+        assert_eq!(codex.login, None);
     }
 
     #[test]

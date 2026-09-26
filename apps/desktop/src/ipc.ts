@@ -128,30 +128,9 @@ export interface Settings {
   launchAtLogin: boolean
 }
 
-/** An entry of an adapter's model / effort select. */
-export interface Choice {
-  value: string
-  name: string
-  description?: string
-}
-
-/** What the adapter offered in its latest new session (`<home>/models.json`). */
-export interface AgentModels {
-  models: Choice[]
-  /** The adapter's own default. */
-  current: string | null
-  efforts: Choice[]
-  currentEffort: string | null
-}
-
 export interface AgentCard extends AgentInfo {
   /** Set with 更换路径 instead of detected on PATH. */
   customPath: boolean
-  /** null = the adapter's default. */
-  defaultModel: string | null
-  effort: string | null
-  /** null until the agent ran once on this machine. */
-  catalog: AgentModels | null
   login: string | null
 }
 
@@ -159,14 +138,11 @@ export type Approval = 'ask' | 'allowlist' | 'all'
 
 /** A machine bot with its 本机设置. */
 export interface BotCard extends MachineBot {
-  /** null = follow the agent's default. */
-  model: string | null
   approval: Approval
   allowlist: string[]
 }
 
 export interface BotChange {
-  model: string | null
   approval: Approval
   allowlist: string[]
   /** Only when changed. */
@@ -198,9 +174,6 @@ export const ipc = {
   exportDiagnostics: () => invoke<string | null>('export_diagnostics'),
   recentLogs: (level: LogLevel, limit: number) => invoke<LogLine[]>('recent_logs', { level, limit }),
   agents: () => invoke<AgentCard[]>('agents'),
-  setAgentModel: (kind: AgentKind, model: string | null) => invoke<void>('set_agent_model', { kind, model }),
-  setAgentEffort: (kind: AgentKind, effort: string | null) =>
-    invoke<void>('set_agent_effort', { kind, effort }),
   /** Resolves false when the file dialog was cancelled. */
   pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
   resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),

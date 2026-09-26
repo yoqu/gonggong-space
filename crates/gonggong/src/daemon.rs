@@ -3,13 +3,14 @@
 use crate::bind::machine_info;
 use crate::config::Config;
 use crate::engine::{Engine, EngineConfig};
-use crate::local::LocalSettings;
+use crate::local::{CachedCatalog, LocalSettings, save_catalog};
 use crate::lock::Lock;
 use crate::protocol::{AgentInfo, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, Status};
 use crate::upgrade::Upgrader;
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -38,7 +39,8 @@ pub struct Stopped {
 pub struct Daemon {
     monitor: Monitor,
     agents: watch::Sender<Vec<AgentInfo>>,
-    redetect: JoinHandle<()>,
+    /// Re-detection and catalog probing.
+    background: [JoinHandle<()>; 2],
     task: JoinHandle<Stopped>,
     _lock: Lock,
 }
@@ -52,18 +54,22 @@ impl Daemon {
             false => None,
         };
         let monitor = Monitor::default();
-        let (agents, rx) = watch::channel(crate::agents::detect(&LocalSettings::load(&opts.home)?));
-        let redetect = tokio::spawn(redetect(opts.home.clone(), agents.clone()));
+        let (agents, rx) = watch::channel(detect(&opts.home)?);
+        let engine = Engine::new(EngineConfig {
+            home: opts.home.clone(),
+            adapter_cmd: opts.adapter_cmd,
+            idle: IDLE_REAP,
+            api: Some(opts.config.clone()),
+        });
+        let background = [
+            tokio::spawn(redetect(opts.home.clone(), agents.clone())),
+            tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
+        ];
         let service = Service {
-            config: opts.config.clone(),
+            config: opts.config,
             machine: machine_info(),
             agents: rx,
-            handler: Engine::new(EngineConfig {
-                home: opts.home.clone(),
-                adapter_cmd: opts.adapter_cmd,
-                idle: IDLE_REAP,
-                api: Some(opts.config),
-            }),
+            handler: engine,
             max_backoff: MAX_BACKOFF,
             upgrader,
             monitor: monitor.clone(),
@@ -76,7 +82,7 @@ impl Daemon {
             m.rejected(*reason, message.clone(), &wiped);
             Stopped { fatal, wiped }
         });
-        Ok(Daemon { monitor, agents, redetect, task, _lock: lock })
+        Ok(Daemon { monitor, agents, background, task, _lock: lock })
     }
 
     pub fn status(&self) -> Status {
@@ -99,7 +105,7 @@ impl Daemon {
     /// Runs until the server rejects this machine for good.
     pub async fn wait(mut self) -> Stopped {
         let stopped = (&mut self.task).await;
-        self.redetect.abort();
+        self.background.iter().for_each(JoinHandle::abort);
         match stopped {
             Ok(stopped) => stopped,
             Err(e) => std::panic::resume_unwind(e.into_panic()),
@@ -108,7 +114,7 @@ impl Daemon {
 
     /// Disconnects and releases the machine lock.
     pub fn stop(self) {
-        self.redetect.abort();
+        self.background.iter().for_each(JoinHandle::abort);
         self.task.abort();
     }
 }
@@ -129,15 +135,52 @@ async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentInfo>>) {
     tick.tick().await;
     loop {
         tick.tick().await;
-        let home = home.clone();
-        let detected =
-            tokio::task::spawn_blocking(move || LocalSettings::load(&home).map(|l| crate::agents::detect(&l))).await;
-        match detected {
-            Ok(Ok(agents)) => {
-                publish_agents(&tx, agents);
+        republish(&home, &tx).await;
+    }
+}
+
+fn detect(home: &Path) -> anyhow::Result<Vec<AgentInfo>> {
+    Ok(crate::agents::detect(home, &LocalSettings::load(home)?))
+}
+
+async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentInfo>>) {
+    let home = home.to_path_buf();
+    match tokio::task::spawn_blocking(move || detect(&home)).await {
+        Ok(Ok(agents)) => {
+            publish_agents(tx, agents);
+        }
+        Ok(Err(e)) => tracing::warn!("agent detection skipped: {e:#}"),
+        Err(e) => tracing::warn!("agent detection failed: {e}"),
+    }
+}
+
+/// Probes each detected agent without a catalog for its builds (once per build and daemon process), then publishes
+/// the detection again so the server gets the catalog.
+async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentInfo>>) {
+    let mut rx = tx.subscribe();
+    let mut tried = HashSet::new();
+    loop {
+        let missing: Vec<_> = rx
+            .borrow_and_update()
+            .iter()
+            .filter(|a| a.available && a.catalog.is_none())
+            .map(|a| (a.kind, crate::agents::catalog_key(a.kind, a.version.as_deref())))
+            .filter(|k| !tried.contains(k))
+            .collect();
+        for (kind, key) in missing {
+            tried.insert((kind, key.clone()));
+            match engine.probe(kind).await {
+                Ok(catalog) => {
+                    if let Err(e) = save_catalog(&home, kind, CachedCatalog { key, catalog }) {
+                        tracing::warn!("saving the {kind:?} catalog failed: {e:#}");
+                    }
+                    republish(&home, &tx).await;
+                }
+                Err(e) => tracing::warn!("probing {kind:?} failed: {e:#}"),
             }
-            Ok(Err(e)) => tracing::warn!("agent detection skipped: {e:#}"),
-            Err(e) => tracing::warn!("agent detection failed: {e}"),
+        }
+        if rx.changed().await.is_err() {
+            return;
         }
     }
 }

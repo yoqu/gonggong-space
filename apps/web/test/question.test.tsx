@@ -66,6 +66,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [set()],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   ...o,
 })
 

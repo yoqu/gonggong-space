@@ -25,8 +25,15 @@ const mbp: MachineDto = {
   arch: 'aarch64',
   online: true,
   agents: [
-    { kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude', minVersion: '2.0.0' },
-    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0' },
+    {
+      kind: 'claude',
+      available: true,
+      version: '2.1.4',
+      path: '/bin/claude',
+      minVersion: '2.0.0',
+      catalog: null,
+    },
+    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0', catalog: null },
   ],
   daemonVersion: '0.1.0',
   lastSeenAt: null,
@@ -57,6 +64,9 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: '2.0.0',
   groupCount: 0,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
   ...o,
 })
 

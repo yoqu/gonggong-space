@@ -67,7 +67,7 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
     let entries = tokio::task::spawn_blocking(move || workspace::list(&home_owned, &pairs)).await.unwrap_or_default();
     vec![
         server,
-        agents(&crate::agents::detect(&crate::local::LocalSettings::load(home).unwrap_or_default())),
+        agents(&crate::agents::detect(home, &crate::local::LocalSettings::load(home).unwrap_or_default())),
         git_credentials(&entries).await,
         disk(home, &entries),
         eol(&entries).await,
@@ -222,7 +222,7 @@ pub fn bundle(home: &Path, config: Option<&Config>, checks: &[Check], dest: &Pat
         "protocol": PROTOCOL_VERSION,
         "os": machine.os,
         "arch": machine.arch,
-        "agents": crate::agents::detect(&crate::local::LocalSettings::load(home).unwrap_or_default()),
+        "agents": crate::agents::detect(home, &crate::local::LocalSettings::load(home).unwrap_or_default()),
     });
     files.push(("versions.json".into(), serde_json::to_vec_pretty(&versions)?));
     if let Some(c) = config {
@@ -346,6 +346,7 @@ mod tests {
             version: version.map(Into::into),
             path: None,
             min_version: Some(crate::agents::min_version(kind).into()),
+            catalog: None,
         };
         let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.46.0"))]);
         assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.46.0 可用"));

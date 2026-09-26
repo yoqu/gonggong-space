@@ -69,6 +69,9 @@ const bot: BotDto = {
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
 }
 
 const t0 = Date.parse('2026-09-23T02:00:00.000Z')
@@ -110,6 +113,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   queuedAt: min(1),
   startedAt: min(1),
   endedAt: null,

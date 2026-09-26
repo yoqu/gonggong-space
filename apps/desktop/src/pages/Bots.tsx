@@ -22,7 +22,7 @@ import {
 } from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { type AgentCard, type Approval, type BotCard, ipc } from '../ipc'
-import { AGENTS, APPROVAL, agentDefault, modelName } from '../lib/labels'
+import { AGENTS, APPROVAL } from '../lib/labels'
 import type { PageProps } from '.'
 
 const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
@@ -108,11 +108,6 @@ export function BotsPage({ go }: PageProps) {
                   )
                 }
               />
-              <GroupRow
-                label="模型"
-                wideValue
-                value={b.model ? modelName(agent, b.model) : `${agentDefault(agent)} · 跟随默认`}
-              />
               <GroupRow label="并发上限" value={b.concurrency} />
               <GroupRow label="命令审批" value={APPROVAL[b.approval]} />
               {missing ? (
@@ -134,7 +129,7 @@ export function BotsPage({ go }: PageProps) {
       {bots?.length ? (
         <p className="dk-footnote">
           Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式：用哪个
-          agent、哪个模型、并发与审批。
+          agent、并发与审批。模型与推理强度在 Web 端设置。
         </p>
       ) : null}
       {editing ? (
@@ -170,20 +165,16 @@ function BotDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [model, setModel] = useState(bot.model ?? '')
   const [concurrency, setConcurrency] = useState(bot.concurrency)
   const [approval, setApproval] = useState<Approval>(bot.approval)
   const [allowlist, setAllowlist] = useState(bot.allowlist)
   const [saving, setSaving] = useState(false)
   const agent = agents.find((a) => a.kind === bot.agentKind)
-  const models = (agent?.catalog?.models ?? []).filter((m) => m.value !== 'default')
-  const custom = model && !models.some((m) => m.value === model) ? [{ value: model, name: model }] : []
 
   const save = async () => {
     setSaving(true)
     try {
       await ipc.saveBot(bot.id, {
-        model: model || null,
         approval,
         allowlist,
         concurrency: concurrency === bot.concurrency ? null : concurrency,
@@ -205,8 +196,8 @@ function BotDialog({
       title={`${bot.name} · 本机设置`}
       message={
         agent?.available
-          ? '模型与审批在该 Bot 下一轮运行时生效；并发上限保存到服务器。'
-          : '当前 agent 未安装。模型与审批可先保存，安装并检测通过后生效。'
+          ? '审批在该 Bot 下一轮运行时生效；并发上限保存到服务器。'
+          : '当前 agent 未安装。审批可先保存，安装并检测通过后生效。'
       }
       footer={
         <HelpButton help="Bot 的名称、角色说明、MCP 与所属群在 Web 端管理；这里只配置它在本机的执行方式。" />
@@ -232,17 +223,6 @@ function BotDialog({
                 label: `${AGENTS[kind].name} · ${a?.available ? a.version : '未安装'}`,
               }
             })}
-          />
-        </FormRow>
-        <FormRow label="模型" hint={models.length ? null : '运行一次后显示可用模型'}>
-          <PopUpButton
-            aria-label="模型"
-            value={model}
-            onChange={setModel}
-            options={[
-              { value: '', label: `跟随 agent 默认 · ${agentDefault(agent)}` },
-              ...[...models, ...custom].map((m) => ({ value: m.value, label: m.name })),
-            ]}
           />
         </FormRow>
         <FormRow label="并发上限" hint="同时运行的轮次，超出的在本机排队">

@@ -323,6 +323,8 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             agent_kind: AgentKind::Claude,
             system_prompt: String::new(),
             tier: Tier::Workspace,
+            model: None,
+            effort: None,
         },
         workspace: WorkspaceSpec {
             repo: Some(remote.spec("rp")),
@@ -390,6 +392,8 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
             agent_kind: AgentKind::Claude,
             system_prompt: String::new(),
             tier: Tier::Full,
+            model: None,
+            effort: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cd.to_string_lossy().into_owned()) },
         resume_session_id: None,

@@ -60,6 +60,9 @@ const bot: BotDto = {
   agentMinVersion: null,
   groupCount: 1,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
 }
 const at = '2026-09-23T02:21:00.000Z'
 const msg = (o: Partial<MessageDto>): MessageDto => ({
@@ -116,6 +119,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   ],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   ...o,
 })
 const patch = [
@@ -451,6 +456,8 @@ describe('process timeline', () => {
             git: null,
             error: null,
             tier: null,
+            model: null,
+            effort: null,
           },
         },
       },

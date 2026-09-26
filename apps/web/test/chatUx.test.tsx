@@ -66,6 +66,9 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  model: null,
+  effort: null,
+  catalog: null,
   ...o,
 })
 const bots = [bot({}), bot({ id: 'b2', name: '老李的 Codex', agentKind: 'codex', presence: 'offline' })]
@@ -109,6 +112,8 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   questions: [],
   interrupt: null,
   stoppedBy: null,
+  model: null,
+  effort: null,
   queuedAt: at,
   startedAt: at,
   endedAt: null,
