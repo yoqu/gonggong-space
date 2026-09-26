@@ -1,4 +1,4 @@
-import type { BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
+import type { AgentCatalog, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,6 +41,18 @@ const mbp: MachineDto = {
   system: null,
   boundAt: '2026-09-01T00:00:00Z',
   createdAt: '2026-09-01T00:00:00Z',
+}
+
+const level = (value: string) => ({ value, name: value })
+const CATALOG: AgentCatalog = {
+  current: 'sonnet',
+  efforts: ['low', 'medium', 'high'].map(level),
+  effort: 'medium',
+  models: [
+    { value: 'sonnet', name: 'Sonnet', efforts: ['low', 'medium', 'high'].map(level), effort: 'medium' },
+    { value: 'opus', name: 'Opus', efforts: ['low', 'high', 'max'].map(level), effort: 'high' },
+    { value: 'haiku', name: 'Haiku', efforts: [], effort: null },
+  ],
 }
 
 const bot = (o: Partial<BotDto>): BotDto => ({
@@ -219,8 +231,40 @@ describe('新建 Bot', () => {
       machineId: 'm1',
       systemPrompt: '',
       avatar: 'bot-cat',
+      model: null,
+      effort: null,
     })
     expect(screen.getAllByText('小王的 Claude').length).toBeGreaterThan(0)
+  })
+
+  it('picks the model and thought level the machine reports', async () => {
+    const withCatalog = { ...mbp, agents: [{ ...mbp.agents[0]!, catalog: CATALOG }, mbp.agents[1]!] }
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [withCatalog] }]
+    routes['POST /api/bots'] = () => bot({})
+    renderAt('/', wang)
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    const model = await within(dialog).findByRole('button', { name: '模型' })
+    expect(model.textContent).toContain('默认（Sonnet）')
+    expect(within(dialog).getByRole('button', { name: '推理强度' }).textContent).toContain('默认（中）')
+    fireEvent.click(model)
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: 'Opus' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '推理强度' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '最高' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '模型' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: 'Haiku' }))
+    expect(within(dialog).queryByRole('button', { name: '推理强度' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '模型' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: 'Opus' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '推理强度' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '最高' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /api/bots')?.body).toMatchObject({
+        model: 'opus',
+        effort: 'max',
+      }),
+    )
   })
 
   it('lets the owner pick a default workspace on their online machine and saves it after creating', async () => {
@@ -290,6 +334,27 @@ describe('bot detail', () => {
         tier: 'full',
       }),
     )
+  })
+
+  it('changes the default model, keeping a thought level the new model offers', async () => {
+    routes['GET /api/bots'] = () => [bot({ catalog: CATALOG, model: 'sonnet', effort: 'low' })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    fireEvent.click(within(detail).getByRole('button', { name: '模型' }))
+    fireEvent.click(within(detail).getByRole('menuitemcheckbox', { name: 'Opus' }))
+    expect(within(detail).getByRole('button', { name: '推理强度' }).textContent).toContain('低')
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({ model: 'opus' }),
+    )
+  })
+
+  it('says models become selectable once the machine reports them', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    expect(within(detail).getByText('跟随默认 · 机器上报可选模型后可设置')).toBeTruthy()
   })
 
   it('shows the default workspace to its owner only, who can clear it', async () => {

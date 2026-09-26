@@ -111,3 +111,37 @@
     font-size: 16px;
   }
 }
+
+/* Model / thought level of each mentioned bot, left of the send button. */
+.run-config {
+  display: inline-flex;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.run-config__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 240px;
+  height: 24px;
+  padding: 0 var(--space-8);
+  border: none;
+  border-radius: var(--radius-capsule);
+  background: var(--group-bg);
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.run-config__chip:hover:not(:disabled) {
+  background: var(--selection-fill);
+}
+.run-config__chip:disabled {
+  cursor: default;
+}
+.run-config__once {
+  color: var(--accent-text);
+}

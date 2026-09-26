@@ -1,4 +1,4 @@
-import type { DiffScope, RunDetailDto } from '@gonggong/protocol'
+import { agentConfigLabel, type DiffScope, type RunDetailDto } from '@gonggong/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -129,6 +129,17 @@ export function RunRail({ runId }: { runId: string }) {
           <GroupBox>
             <GroupRow label="机器">
               <span className="run-rail__val run-rail__mono">{bot?.machineName ?? '—'}</span>
+            </GroupRow>
+            <GroupRow label="模型">
+              <span className="run-rail__val">
+                {run.model || run.effort
+                  ? agentConfigLabel(
+                      bot?.catalog ?? null,
+                      run.model ?? bot?.catalog?.current ?? null,
+                      run.effort,
+                    )
+                  : '默认'}
+              </span>
             </GroupRow>
             <GroupRow label="耗时 · 用量">
               <span className="run-rail__val">

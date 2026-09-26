@@ -64,10 +64,14 @@ export const botsApi = {
     machineId: string | null
     systemPrompt: string
     avatar: BotAvatar | null
+    model: string | null
+    effort: string | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),
   update: (
     id: string,
-    body: Partial<Pick<BotDto, 'avatar' | 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList'>>,
+    body: Partial<
+      Pick<BotDto, 'avatar' | 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList' | 'model' | 'effort'>
+    >,
   ) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
   setDefaultWorkspace: (id: string, path: string | null) =>
     api.put<BotDto>(`/bots/${id}/default-workspace`, { path }).then(saveBot),

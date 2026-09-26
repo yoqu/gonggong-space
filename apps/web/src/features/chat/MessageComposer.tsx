@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { useIsMobile } from '../../app/viewport'
+import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { Composer, toast } from '../../ui'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
@@ -16,6 +17,7 @@ import { useQuote } from '../attachments/quote'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
 import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandidates'
+import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import './composer.css'
 
 /** The input grows with its content up to this height (and 40% of the window), then scrolls. */
@@ -51,6 +53,7 @@ interface SendBody {
   attachmentIds: string[]
   quote: { kind: 'message' | 'run'; id: string } | null
   appendTo: string | null
+  runOptions?: Picks
 }
 
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
@@ -83,6 +86,9 @@ export function MessageComposer({
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(0)
+  const [picks, setPicks] = useState<Picks>({})
+  const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
+  const targets = mentionedBots(draft, groupBots)
   const sending = useRef(false)
   const uploads = useUploads(group.id)
   useEffect(() => {
@@ -174,11 +180,18 @@ export function MessageComposer({
       const q = quote && { kind: quote.kind, id: quote.id }
       const target = useAppend.getState().target
       const appendTo = target?.groupId === group.id ? target.runId : null
-      const req = { body, clientId: uuid(), attachmentIds, quote: q, appendTo }
+      const runOptions: Picks = {}
+      for (const b of targets) {
+        const pick = picks[b.id]
+        if (pick) runOptions[b.id] = pick
+      }
+      const req: SendBody = { body, clientId: uuid(), attachmentIds, quote: q, appendTo }
+      if (Object.keys(runOptions).length) req.runOptions = runOptions
       onSent(await postMessage(group.id, req))
       setSent((n) => n + 1)
       if (appendTo) useAppend.getState().clear()
       setDraft((d) => (d === body ? '' : d))
+      setPicks({})
       uploads.clear()
       if (q) useQuote.getState().clear()
     } catch (e) {
@@ -217,7 +230,12 @@ export function MessageComposer({
           { icon: 'paperclip', label: '附件', onClick: () => filePicker.current?.click() },
           { icon: 'image', label: '图片', onClick: () => imagePicker.current?.click() },
         ]}
-        hint={mobile ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
+        hint={mobile || targets.length ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
+        accessory={
+          targets.length ? (
+            <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
+          ) : undefined
+        }
         above={
           chips ? (
             <div className="composer__chips" data-testid="composer-chips">

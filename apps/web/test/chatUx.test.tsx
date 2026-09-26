@@ -389,9 +389,12 @@ describe('composer', () => {
       fireEvent.change(box(), { target: { value: v } })
       expect(sendButton().disabled).toBe(true)
     }
+    fireEvent.change(box(), { target: { value: '背景' } })
+    expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
+    // A mention replaces the hint with the bot's model picker.
     fireEvent.change(box(), { target: { value: '@小王的 Claude' } })
     expect(sendButton().disabled).toBe(false)
-    expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '小王的 Claude 的模型与推理强度' })).toBeTruthy()
   })
 
   it('grows with its content', async () => {
