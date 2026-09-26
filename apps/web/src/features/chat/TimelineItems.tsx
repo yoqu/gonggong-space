@@ -4,14 +4,16 @@ import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import {
   Avatar,
+  Button,
   ChatNotice,
   Icon,
   type IconName,
+  Mascot,
   Mention,
   Message,
   type MessageAuthor,
-  ProgressIndicator,
   splitMentions,
+  Tag,
   type TagTone,
 } from '../../ui'
 import { usePresence } from '../../ui/presence'
@@ -21,6 +23,7 @@ import { BotAvatar } from '../bots/avatars'
 import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
+import { runMascot } from '../runs/mascot'
 import { filePaths } from '../runs/paths'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
@@ -304,18 +307,33 @@ export const UserMessage = memo(function UserMessage({
   )
 })
 
+const FILE_CHIPS = 2
+
+/** The first files a reply names, by base name; the rest are left to the run's full diff. */
 function FileChips({ runId, text }: { runId: string; text: string }) {
   const open = useRunRail((s) => s.open)
   const files = useMemo(() => filePaths(text), [text])
   if (!files.length) return null
+  const rest = files.length - FILE_CHIPS
   return (
     <div className="tl-files">
-      {files.map((f) => (
-        <button key={f} type="button" className="tl-file" onClick={() => open(runId, 'diff', f)}>
+      {files.slice(0, FILE_CHIPS).map((f) => (
+        <button key={f} type="button" className="tl-file" title={f} onClick={() => open(runId, 'diff', f)}>
           <Icon name="doc-text" size={12} />
-          {f}
+          {f.split('/').at(-1)}
         </button>
       ))}
+      {rest > 0 ? (
+        <button
+          type="button"
+          className="tl-file"
+          aria-label={`还有 ${rest} 个文件，查看完整改动`}
+          title={`还有 ${rest} 个文件，查看完整改动`}
+          onClick={() => open(runId, 'diff')}
+        >
+          +{rest}
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -326,12 +344,17 @@ function ReplyMessage({
   continued,
   runId,
   bar,
+  meta,
+  tags,
 }: {
   m: MessageDto
-  /** Continues the author's group, or sits right under its run card: no second avatar and name. */
+  /** Continues the author's group: no second avatar and name. */
   continued?: boolean
   runId?: string | null
   bar: ReactNode
+  meta?: ReactNode
+  /** Facts of the run the reply finished, under the body. */
+  tags?: ReactNode
 }) {
   return (
     <div data-testid="bot-reply">
@@ -340,11 +363,13 @@ function ReplyMessage({
         author={botAuthor(m.authorName)}
         continued={continued}
         time={<Time iso={m.createdAt} />}
+        meta={meta}
         actionBar={bar}
         footer={
           <>
             <MessageAttachments list={m.attachments} from={m.authorName} />
             {runId ? <FileChips runId={runId} text={m.body} /> : null}
+            {tags}
           </>
         }
       >
@@ -377,8 +402,8 @@ const STEP_ICON: Partial<Record<RunStatus, IconName>> = {
 const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
 
 /**
- * One run as a bare MessageCard whose header colour follows its status; once the final reply exists it follows the
- * card as a bubble and both sit at the reply's place.
+ * One run as a bare MessageCard whose header colour follows its status; once it has settled with a final reply, the
+ * card gives way to the reply bubble at the reply's place, with the run's facts as tags under it.
  */
 export const RunCard = memo(function RunCard({
   run,
@@ -408,6 +433,8 @@ export const RunCard = memo(function RunCard({
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const note = NOTE.includes(run.status)
   const step = note || reply ? '' : streamed || run.step
+  const working = !note && !reply && run.status === 'running'
+  const mascot = runMascot(run.status, !!streamed, step)
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const elapsed = started === null ? 0 : (run.endedAt ? Date.parse(run.endedAt) : now) - started
   const sessionNote = newSessionNote(run.newSessionReason)
@@ -429,7 +456,40 @@ export const RunCard = memo(function RunCard({
             text: run.step || STATUS_LABEL[run.status],
           }),
     copyText: reply?.body,
-    onProcess: note ? undefined : () => openRail(run.id),
+  }
+  const process = (
+    <Button size="small" variant="plain" icon="sidebar-right" onClick={() => openRail(run.id)}>
+      查看过程
+    </Button>
+  )
+  const meta = <span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>
+  if (reply && !live && run.interrupt !== 'pending') {
+    const tags = (
+      <div className="run-card__meta run-card__tags">
+        {run.status === 'completed' ? null : <Tag tone={TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>}
+        {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
+        <FilesFact n={run.filesChanged} />
+        {started !== null ? <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={false} /> : null}
+        <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+        <DelegationFacts d={run.delegation} />
+        {sessionNote ? (
+          <span className="run-card__session">
+            <Icon name="arrow-clockwise" size={12} />
+            {sessionNote}
+          </span>
+        ) : null}
+        {process}
+      </div>
+    )
+    return (
+      <MessageMenu {...target}>
+        {(bar) => (
+          <div className="run-card" data-testid="run-card" data-status={run.status}>
+            <ReplyMessage m={reply} runId={run.id} bar={bar} meta={meta} tags={tags} />
+          </div>
+        )}
+      </MessageMenu>
+    )
   }
   return (
     <MessageMenu {...target}>
@@ -438,7 +498,7 @@ export const RunCard = memo(function RunCard({
           <Message
             author={botAuthor(botName)}
             time={<Time iso={reply?.createdAt ?? run.queuedAt} />}
-            meta={<span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>}
+            meta={meta}
             bare
             actions={false}
             actionBar={reply ? undefined : bar}
@@ -476,14 +536,19 @@ export const RunCard = memo(function RunCard({
                 >
                   <div>
                     <div className="pn-mcard__body">
-                      {step ? (
+                      {step || working ? (
                         <div className="run-card__step">
-                          {run.status === 'running' ? (
-                            <ProgressIndicator variant="spinner" aria-label="运行中" />
+                          {mascot ? (
+                            <Mascot
+                              className="run-card__mascot"
+                              action={mascot.action}
+                              label={mascot.label}
+                              size={32}
+                            />
                           ) : (
                             <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
                           )}
-                          <span>{step}</span>
+                          <span>{step || `${mascot?.label}…`}</span>
                         </div>
                       ) : null}
                       {started !== null ? (
@@ -518,9 +583,10 @@ export const RunCard = memo(function RunCard({
                         </div>
                       ) : null}
                       <InterruptBlock run={run} />
-                      {note || reply ? null : (
+                      {note ? null : (
                         <div className="pn-mcard__actions run-card__actions">
-                          <RunActions run={run} />
+                          {reply ? null : <RunActions run={run} />}
+                          {process}
                         </div>
                       )}
                     </div>

@@ -15,7 +15,7 @@ import { RunRail } from '../features/runs/RunRail'
 import { useRunRail } from '../features/runs/rail'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { Button, DeniedArt, EmptyState, FailedArt, PickChatArt, Presence, Spinner, toast } from '../ui'
+import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence, toast } from '../ui'
 import { AppRail } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
@@ -176,7 +176,7 @@ export function ChatPage() {
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
-            <Spinner />
+            <Mascot action="run" size={72} label="加载中" />
           </div>
         ) : groupsState === 'error' ? (
           <div className="chat__placeholder">

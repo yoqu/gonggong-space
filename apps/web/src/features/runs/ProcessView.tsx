@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
-import { Button, Icon, type IconName, Spinner } from '../../ui'
+import { Button, Icon, type IconName, Mascot } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { type Action, buildItems, fmtWorked, type Item } from './activity'
 import type { Step } from './steps'
@@ -49,7 +49,7 @@ export function ProcessView({
       ))}
       {idle ? (
         <li className="act-item act-working" aria-live="polite">
-          <Spinner size={12} />
+          <Mascot className="act-working__mascot" action="think" size={32} />
           <span className="act-shimmer">正在处理</span>
           {startedAt ? <span className="act-row__meta">{fmtWorked(now - Date.parse(startedAt))}</span> : null}
         </li>

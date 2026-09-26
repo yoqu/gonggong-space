@@ -29,6 +29,7 @@ const group: GroupDto = {
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
   members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
   botIds: ['b1'],
@@ -306,7 +307,13 @@ describe('run rail', () => {
     const thought = within(rail).getByRole('button', { name: /思考\s*先看调用方/ })
     expect(thought.getAttribute('aria-expanded')).toBe('false')
     // Nothing is running between calls: the model is working.
-    expect(within(rail).getByText('正在处理')).toBeTruthy()
+    expect(
+      within(rail)
+        .getByText('正在处理')
+        .closest('li')
+        ?.querySelector('.ui-mascot')
+        ?.getAttribute('data-action'),
+    ).toBe('think')
 
     push({ t: 'run.delta', runId: 'r1', text: '正在收尾' })
     expect(await within(rail).findByText('正在收尾')).toBeTruthy()
@@ -379,12 +386,12 @@ describe('run rail', () => {
   it('opens the diff of a file path clicked in a bot reply', async () => {
     mockApi(detail)
     renderChat()
-    fireEvent.click(await screen.findByRole('button', { name: 'src/a.ts' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'a.ts' }))
     const win = await screen.findByRole('dialog', { name: /改动/ })
     expect(await within(win).findByText('+second line')).toBeTruthy()
     fireEvent.click(within(win).getByRole('button', { name: '关闭' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'server/untouched.go' }))
+    fireEvent.click(screen.getByRole('button', { name: 'untouched.go' }))
     const again = await screen.findByRole('dialog', { name: /改动/ })
     expect(await within(again).findByText('server/untouched.go 在这个范围内没有改动')).toBeTruthy()
   })

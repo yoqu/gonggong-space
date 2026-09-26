@@ -204,20 +204,25 @@ export function TypingIndicator({
   className,
 }: {
   name?: string | string[]
-  bubble?: boolean
+  /** false hides the bubble; a node replaces the three dots (e.g. the mascot at work). */
+  bubble?: boolean | ReactNode
   /** The verb after the names, e.g.「正在处理」for a working Bot. */
   action?: string
   className?: string
 }) {
   return (
     <div className={cx('pn-typing', className)} role="status" aria-live="polite">
-      {bubble && (
+      {bubble === true ? (
         <span className="pn-typing__bubble" aria-hidden="true">
           <i />
           <i />
           <i />
         </span>
-      )}
+      ) : bubble ? (
+        <span className="pn-typing__bubble pn-typing__bubble--art" aria-hidden="true">
+          {bubble}
+        </span>
+      ) : null}
       {name && (
         <span className="pn-typing__text">
           {typingWho(name)} {action}…

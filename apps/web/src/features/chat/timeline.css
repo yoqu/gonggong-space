@@ -309,6 +309,9 @@
   gap: var(--space-6);
   min-width: 0;
 }
+.run-card__mascot {
+  margin: -6px -2px -6px -6px;
+}
 .run-card__step > svg {
   flex: none;
   color: var(--label-secondary);
@@ -338,6 +341,13 @@
 }
 .run-card__note > svg {
   flex: none;
+}
+.run-card__tags {
+  gap: var(--space-8) var(--space-12);
+  max-width: 560px;
+}
+.run-card__tags .run-card__session {
+  font-size: inherit;
 }
 .run-card__actions:empty {
   display: none;

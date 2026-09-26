@@ -22,6 +22,7 @@ const group: GroupDto = {
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: null,
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },

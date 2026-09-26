@@ -1,8 +1,43 @@
-import { Icon, type IconName } from '../../ui'
+import {
+  ComingSoonArt,
+  DeniedArt,
+  EmptyChatArt,
+  FailedArt,
+  Icon,
+  type IconName,
+  MASCOT_ACTIONS,
+  Mascot,
+  NoBotsArt,
+  NoChangesArt,
+  NoDataArt,
+  NoGroupsArt,
+  NoMachinesArt,
+  NoMembersArt,
+  NoNotificationsArt,
+  NoResultsArt,
+  PickChatArt,
+  UnsupportedArt,
+} from '../../ui'
 import { DRAWN_PATHS } from '../../ui/icons/drawn'
 import { PANE_PATHS } from '../../ui/icons/pane'
 
 const THEMES = ['light', 'dark', 'hc-light', 'hc-dark'] as const
+const ARTS = {
+  EmptyChatArt,
+  PickChatArt,
+  DeniedArt,
+  FailedArt,
+  NoBotsArt,
+  NoMembersArt,
+  NoNotificationsArt,
+  NoResultsArt,
+  NoDataArt,
+  NoMachinesArt,
+  NoGroupsArt,
+  NoChangesArt,
+  ComingSoonArt,
+  UnsupportedArt,
+}
 const SWATCHES = [
   'window-bg',
   'content-bg',
@@ -95,6 +130,68 @@ export function FoundationGallery() {
                 </div>
               ))}
             </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="gallery__section" data-testid="mascot-overview">
+        <h2 className="eyebrow">MASCOT · 共字君</h2>
+        {(['light', 'dark'] as const).map((theme) => (
+          <div
+            key={theme}
+            data-theme={theme}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
+              gap: 8,
+              padding: 12,
+              background: 'var(--window-bg)',
+              borderRadius: 'var(--radius-menu)',
+            }}
+          >
+            {MASCOT_ACTIONS.map((a) => (
+              <div
+                key={a}
+                style={{ display: 'grid', justifyItems: 'center', gap: 4, color: 'var(--label-secondary)' }}
+              >
+                <Mascot action={a} size={104} />
+                {a}
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Mascot crop="head" size={32} />
+              <Mascot crop="head" size={24} action="sleep" />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="gallery__section" data-testid="art-overview">
+        <h2 className="eyebrow">EMPTY STATE ART</h2>
+        {(['light', 'dark'] as const).map((theme) => (
+          <div
+            key={theme}
+            data-theme={theme}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
+              gap: 8,
+              padding: 12,
+              background: 'var(--content-bg)',
+              borderRadius: 'var(--radius-menu)',
+            }}
+          >
+            {Object.entries(ARTS).map(([name, Art]) => (
+              <div
+                key={name}
+                style={{ display: 'grid', justifyItems: 'center', color: 'var(--label-secondary)' }}
+              >
+                <div style={{ width: 160 }}>
+                  <Art />
+                </div>
+                {name}
+              </div>
+            ))}
           </div>
         ))}
       </section>

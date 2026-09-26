@@ -106,8 +106,6 @@ export interface ActionTarget {
   quoteTitle?: string
   onQuote: () => void
   copyText?: string
-  /** Run cards only. */
-  onProcess?: () => void
   /** My own user message: 撤回 (within the window) and 删除. */
   own?: boolean
 }
@@ -130,7 +128,6 @@ function useMessageMenu(t: ActionTarget) {
     ...(t.message ? [{ value: 'react', label: '表情回应', icon: 'smile' as const }] : []),
     { value: 'quote', label: '引用回复', icon: 'quote' },
     ...(t.copyText !== undefined ? [{ value: 'copy', label: '复制', icon: 'copy' as const }] : []),
-    ...(t.onProcess ? [{ value: 'process', label: '查看过程', icon: 'sidebar-right' as const }] : []),
     { separator: true },
     ...more,
   ]
@@ -138,7 +135,6 @@ function useMessageMenu(t: ActionTarget) {
     if (value === 'react') setPicking(true)
     else if (value === 'quote') t.onQuote()
     else if (value === 'copy' && t.copyText !== undefined) void copy(t.copyText, '已复制')
-    else if (value === 'process') t.onProcess?.()
     else if (value === 'link') void copy(t.link, '链接已复制')
     else if (value === 'recall' && mine) void recall(mine)
     else if (value === 'delete') setDeleting(true)
@@ -177,11 +173,6 @@ function Bar({ menu }: { menu: MessageMenuState }) {
       {t.copyText !== undefined ? (
         <button type="button" aria-label="复制" title="复制" onClick={() => menu.select('copy')}>
           <Icon name="copy" />
-        </button>
-      ) : null}
-      {t.onProcess ? (
-        <button type="button" aria-label="查看过程" title="查看过程" onClick={t.onProcess}>
-          <Icon name="sidebar-right" />
         </button>
       ) : null}
       <MenuButton

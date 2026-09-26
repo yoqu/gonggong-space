@@ -386,25 +386,14 @@ fn repo_workspace(r: &Rig) -> tempfile::TempDir {
 }
 
 #[tokio::test]
-async fn repo_workspace_fetches_fast_forwards_and_reports_git_changes() {
+async fn repo_workspace_is_left_alone_before_the_turn_and_reports_git_changes() {
     let mut r = rig(Duration::from_secs(60));
     let _remote = repo_workspace(&r);
     r.run(start("r1", "mock:echo"));
     let (events, done) = r.finish("r1").await;
-    assert_eq!(
-        events.first(),
-        Some(&RunEvent::Status {
-            status: RunStatus::Running,
-            step: "git fetch 完成，当前分支 main，已自动快进 1 个 commit 到 origin/main，落后 origin/main 0 个 commit，领先 0 个"
-                .into()
-        })
-    );
-    assert!(r.workspace().join("later.txt").exists());
-    assert!(
-        echo(&done)["prompt"].as_str().unwrap().starts_with(
-            "git 默认动作：fetch 完成；当前分支 main；已自动快进 1 个 commit 到 origin/main；落后 origin/main 0 个 commit，领先 0 个。\n\n群聊上下文："
-        )
-    );
+    assert!(!events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("git "))));
+    assert!(!r.workspace().join("later.txt").exists());
+    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文："));
     let clean = GitStatus {
         branch: Some("main".into()),
         ahead: Some(0),
@@ -468,6 +457,7 @@ async fn discard_restores_the_interrupted_turn_until_the_next_turn_starts() {
     let ws = r.workspace();
     r.run(start("r0", "mock:echo"));
     let (_, first) = r.finish("r0").await;
+    git(&ws, &["pull", "-q", "--ff-only"]);
     std::fs::write(ws.join("README.md"), "local wip\n").unwrap();
 
     r.run(follow_up("r1", "mock:sh echo x > turn.txt && echo y > later.txt", &first));

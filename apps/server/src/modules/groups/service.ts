@@ -115,6 +115,7 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       kind: g.kind as GroupDto['kind'],
       mode: g.mode as GroupDto['mode'],
       notice: g.notice,
+      noticeHidden: !!g.noticeId && me.hiddenNoticeId === g.noticeId,
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,
       members: members
         .filter((m) => m.groupId === g.id)

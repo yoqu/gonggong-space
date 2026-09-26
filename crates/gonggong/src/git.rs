@@ -3,13 +3,12 @@ use crate::protocol::{GitStatus, PATCH_MAX_BYTES, WorkspaceKind};
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
 /// Daemon-private files inside a workspace; never reported as the agent's changes.
 pub(crate) const PRIVATE_DIR: &str = ".gonggong/";
 const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 /// Appended to a patch cut at PATCH_MAX_BYTES.
 pub const PATCH_TRUNCATED: &str = "… 补丁超过 512 KB，已截断\n";
 
@@ -42,10 +41,9 @@ async fn run_git_raw(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<
     }
 }
 
-/// Branch/upstream position of the work tree; `upstream`, `ahead`, `behind` are None without an upstream.
+/// Branch/upstream position of the work tree; `ahead`, `behind` are None without an upstream.
 struct Probe {
     branch: Option<String>,
-    upstream: Option<String>,
     ahead: Option<u32>,
     behind: Option<u32>,
     dirty: bool,
@@ -66,7 +64,7 @@ async fn probe(dir: &Path) -> Result<Probe, String> {
         None => (None, None),
     };
     let dirty = !porcelain(dir).await?.is_empty();
-    Ok(Probe { branch, upstream, ahead, behind, dirty })
+    Ok(Probe { branch, ahead, behind, dirty })
 }
 
 pub async fn status(dir: &Path, workspace: WorkspaceKind) -> Result<GitStatus, String> {
@@ -91,93 +89,6 @@ pub(crate) async fn porcelain(dir: &Path) -> Result<BTreeMap<String, String>, St
         }
     }
     Ok(entries)
-}
-
-/// Result of the default pre-turn action (spec §5.2).
-pub struct PreTurn {
-    pub fetch_error: Option<String>,
-    /// Commits fast-forwarded; 0 when the tree was left alone.
-    pub forwarded: u32,
-    pub ff_error: Option<String>,
-    branch: Option<String>,
-    upstream: Option<String>,
-    ahead: Option<u32>,
-    behind: Option<u32>,
-    dirty: bool,
-}
-
-/// `git fetch --prune`, then (when `fast_forward`) fast-forward only when the tree is clean and the branch is strictly
-/// behind its upstream. The owner's own directories are never moved (plan W9).
-pub async fn pre_turn(dir: &Path, fast_forward: bool) -> Result<PreTurn, String> {
-    let fetch_error = match tokio::time::timeout(FETCH_TIMEOUT, git(dir, &["fetch", "--prune", "--quiet"])).await {
-        Ok(r) => r.err(),
-        Err(_) => Some("超时".into()),
-    };
-    let mut p = probe(dir).await?;
-    let (mut forwarded, mut ff_error) = (0, None);
-    if let (true, false, Some(behind @ 1..), Some(0)) = (fast_forward, p.dirty, p.behind, p.ahead) {
-        match git(dir, &["merge", "--ff-only", "--quiet", "@{upstream}"]).await {
-            Ok(_) => {
-                forwarded = behind;
-                p = probe(dir).await?;
-            }
-            Err(e) => ff_error = Some(e),
-        }
-    }
-    Ok(PreTurn {
-        fetch_error,
-        forwarded,
-        ff_error,
-        branch: p.branch,
-        upstream: p.upstream,
-        ahead: p.ahead,
-        behind: p.behind,
-        dirty: p.dirty,
-    })
-}
-
-impl PreTurn {
-    fn parts(&self) -> Vec<String> {
-        let mut parts = vec![match &self.fetch_error {
-            None => "fetch 完成".to_string(),
-            Some(e) => format!("fetch 失败（{e}），以下基于本地已知的远端状态"),
-        }];
-        parts.push(match &self.branch {
-            Some(b) => format!("当前分支 {b}"),
-            None => "HEAD 处于游离状态（detached），未自动快进".into(),
-        });
-        let dirty = "工作树有未提交改动";
-        match (&self.branch, &self.upstream, self.ahead.unwrap_or(0), self.behind.unwrap_or(0)) {
-            (None, ..) => {}
-            (Some(_), None, ..) => parts.push("当前分支没有上游，未自动快进".into()),
-            (Some(_), Some(up), ahead, behind) => {
-                if self.forwarded > 0 {
-                    parts.push(format!("已自动快进 {} 个 commit 到 {up}", self.forwarded));
-                } else if let Some(e) = &self.ff_error {
-                    parts.push(format!("自动快进失败（{e}）"));
-                } else if behind > 0 && self.dirty {
-                    parts.push(format!("{dirty}，未自动快进"));
-                } else if behind > 0 && ahead > 0 {
-                    parts.push("本地与上游已分叉，未自动快进".into());
-                }
-                parts.push(format!("落后 {up} {behind} 个 commit，领先 {ahead} 个"));
-            }
-        }
-        if self.dirty && !parts.iter().any(|p| p.starts_with(dirty)) {
-            parts.push(dirty.into());
-        }
-        parts
-    }
-
-    /// Context block for the agent (spec §4.5).
-    pub fn note(&self) -> String {
-        format!("git 默认动作：{}。", self.parts().join("；"))
-    }
-
-    /// One-line run step for the side panel.
-    pub fn step(&self) -> String {
-        format!("git {}", self.parts().join("，"))
-    }
 }
 
 /// Work-tree state at the start of a turn, to attribute changes to it afterwards.
@@ -419,10 +330,6 @@ pub(crate) mod testing {
             r
         }
 
-        pub fn url(&self) -> PathBuf {
-            self.root.path().join("remote.git")
-        }
-
         pub fn seed(&self) -> PathBuf {
             self.root.path().join("seed")
         }
@@ -449,63 +356,18 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn status_of(pre: &PreTurn) -> (Option<&str>, Option<u32>, Option<u32>, bool) {
-        (pre.branch.as_deref(), pre.ahead, pre.behind, pre.dirty)
-    }
-
     #[tokio::test]
-    async fn owner_directories_only_fetch() {
+    async fn status_reports_position_against_the_known_upstream_without_fetching() {
         let r = Remote::new();
         let w = r.clone_to("w");
         r.commit("a.txt", "a");
-        let pre = pre_turn(&w, false).await.unwrap();
-        assert_eq!(pre.forwarded, 0);
-        assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(1), false));
-        assert!(!w.join("a.txt").exists());
-    }
-
-    #[tokio::test]
-    async fn clean_and_behind_fast_forwards() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        r.commit("a.txt", "a");
-        r.commit("b.txt", "b");
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert_eq!(pre.forwarded, 2);
-        assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(0), false));
-        assert!(w.join("b.txt").exists());
-        assert_eq!(
-            pre.step(),
-            "git fetch 完成，当前分支 main，已自动快进 2 个 commit 到 origin/main，落后 origin/main 0 个 commit，领先 0 个"
-        );
-        assert!(pre.note().starts_with("git 默认动作：fetch 完成；当前分支 main；已自动快进 2 个 commit"));
+        assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().behind, Some(0));
+        run(&w, &["fetch", "-q"]);
         let s = status(&w, WorkspaceKind::Managed).await.unwrap();
-        assert_eq!(
-            s,
-            GitStatus {
-                branch: Some("main".into()),
-                ahead: Some(0),
-                behind: Some(0),
-                dirty: false,
-                workspace: WorkspaceKind::Managed
-            }
-        );
-    }
-
-    #[tokio::test]
-    async fn dirty_tree_is_left_alone_and_reported() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        r.commit("a.txt", "a");
-        fs::write(w.join("README.md"), "local edit\n").unwrap();
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert_eq!(pre.forwarded, 0);
-        assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(1), true));
-        assert!(!w.join("a.txt").exists());
-        assert_eq!(
-            pre.note(),
-            "git 默认动作：fetch 完成；当前分支 main；工作树有未提交改动，未自动快进；落后 origin/main 1 个 commit，领先 0 个。"
-        );
+        assert_eq!((s.branch.as_deref(), s.ahead, s.behind), (Some("main"), Some(0), Some(1)));
+        run(&w, &["checkout", "-q", "--detach"]);
+        let s = status(&w, WorkspaceKind::Managed).await.unwrap();
+        assert_eq!((s.branch, s.ahead, s.behind), (None, None, None));
     }
 
     #[tokio::test]
@@ -517,52 +379,6 @@ mod tests {
         assert!(!status(&w, WorkspaceKind::Cd).await.unwrap().dirty);
         fs::write(w.join("new.txt"), "x").unwrap();
         assert!(status(&w, WorkspaceKind::Cd).await.unwrap().dirty);
-    }
-
-    #[tokio::test]
-    async fn diverged_branch_is_not_fast_forwarded() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        r.commit("a.txt", "a");
-        fs::write(w.join("mine.txt"), "m").unwrap();
-        run(&w, &["add", "-A"]);
-        run(&w, &["commit", "-q", "-m", "mine"]);
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert_eq!(pre.forwarded, 0);
-        assert_eq!(status_of(&pre), (Some("main"), Some(1), Some(1), false));
-        assert!(pre.note().contains("本地与上游已分叉，未自动快进；落后 origin/main 1 个 commit，领先 1 个"));
-    }
-
-    #[tokio::test]
-    async fn branch_without_upstream() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        run(&w, &["checkout", "-q", "-b", "feat/x"]);
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert_eq!(status_of(&pre), (Some("feat/x"), None, None, false));
-        assert_eq!(pre.note(), "git 默认动作：fetch 完成；当前分支 feat/x；当前分支没有上游，未自动快进。");
-    }
-
-    #[tokio::test]
-    async fn detached_head() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        run(&w, &["checkout", "-q", "--detach"]);
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert_eq!(status_of(&pre), (None, None, None, false));
-        assert!(pre.note().contains("HEAD 处于游离状态（detached），未自动快进"));
-        assert_eq!(status(&w, WorkspaceKind::Managed).await.unwrap().branch, None);
-    }
-
-    #[tokio::test]
-    async fn fetch_failure_is_reported_not_fatal() {
-        let r = Remote::new();
-        let w = r.clone_to("w");
-        fs::remove_dir_all(r.url()).unwrap();
-        let pre = pre_turn(&w, true).await.unwrap();
-        assert!(pre.fetch_error.is_some());
-        assert!(pre.note().starts_with("git 默认动作：fetch 失败（"), "{}", pre.note());
-        assert_eq!(status_of(&pre), (Some("main"), Some(0), Some(0), false));
     }
 
     #[tokio::test]

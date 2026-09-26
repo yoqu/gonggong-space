@@ -134,9 +134,8 @@
   font-weight: 600;
   color: var(--accent-text);
 }
-.relay__status svg {
-  width: 14px;
-  height: 14px;
+.relay__mascot {
+  margin: -4px -2px -4px -6px;
 }
 .relay__run[data-done] .relay__status {
   color: var(--tint-green-text);

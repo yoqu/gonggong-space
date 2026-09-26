@@ -22,6 +22,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: { url: 'git@git.corp:pay/pay-server.git', branch: 'main' },
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },
@@ -232,6 +233,50 @@ describe('group settings inspector', () => {
     })
     expect((await screen.findByTestId('group-notice')).textContent).toContain('每个 Bot 独立分支，走 PR')
     expect(screen.getByRole('heading', { name: '设置后' })).toBeTruthy()
+  })
+
+  it('lets an admin remove the notice for everyone after confirming', async () => {
+    const calls = mockApi(
+      routes([group({ notice: '走 PR' })], { 'DELETE /groups/g1/notice': group({ notice: '' }) }),
+    )
+    renderAt('/g/g1')
+    const bar = await screen.findByTestId('group-notice')
+    fireEvent.click(within(bar).getByRole('button', { name: '移除' }))
+    const dialog = await screen.findByRole('dialog', { name: '移除群公告' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '移除' }))
+    await waitFor(() => expect(screen.queryByTestId('group-notice')).toBeNull())
+    expect(calls.some((c) => c.method === 'DELETE' && c.path === '/groups/g1/notice')).toBe(true)
+  })
+
+  it('lets a member hide the notice for themselves and bring it back from the history', async () => {
+    const member = {
+      members: [
+        { userId: 'u2', name: '李建国', isAdmin: true },
+        { userId: 'u1', name: '王磊', isAdmin: false },
+      ],
+    }
+    const calls = mockApi(
+      routes([group({ ...member, notice: '走 PR' })], {
+        'PUT /groups/g1/prefs': (b: unknown) => group({ ...member, notice: '走 PR', ...(b as object) }),
+        'GET /groups/g1/notices': [
+          { id: 'n2', body: '走 PR', authorName: '李建国', createdAt: at, removedAt: null },
+          { id: 'n1', body: '旧公告', authorName: '李建国', createdAt: at, removedAt: at },
+        ],
+      }),
+    )
+    renderAt('/g/g1')
+    const bar = await screen.findByTestId('group-notice')
+    fireEvent.click(within(bar).getByRole('button', { name: '不再显示' }))
+    await waitFor(() => expect(screen.queryByTestId('group-notice')).toBeNull())
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ noticeHidden: true })
+
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^群公告/ }))
+    const view = await screen.findByRole('complementary', { name: '群设置' })
+    expect(await within(view).findByText('旧公告')).toBeTruthy()
+    fireEvent.click(within(view).getByRole('button', { name: '在对话顶部显示' }))
+    expect(await screen.findByTestId('group-notice')).toBeTruthy()
+    expect(calls.filter((c) => c.method === 'PUT').at(-1)?.body).toEqual({ noticeHidden: false })
   })
 
   it('toggles personal prefs; pinned groups sort first and muted badges turn grey', async () => {

@@ -215,6 +215,10 @@
   background: var(--bubble-in);
   box-shadow: var(--shadow-outline, none);
 }
+.pn-typing__bubble--art {
+  padding: 0 8px;
+  overflow: hidden;
+}
 .pn-typing__bubble i {
   width: 7px;
   height: 7px;

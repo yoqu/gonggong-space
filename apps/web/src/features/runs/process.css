@@ -173,6 +173,9 @@ button.act-row:hover {
   min-height: 26px;
   font-size: var(--text-callout-size);
 }
+.act-working__mascot {
+  margin: -4px -2px -4px -8px;
+}
 /* Segment (Codex app): a quiet title with the chevron right after it; its calls sit flush below. */
 .act--flat {
   margin: var(--space-2) 0 var(--space-4);

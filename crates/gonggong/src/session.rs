@@ -303,27 +303,21 @@ impl Shared {
         true
     }
 
-    /// Spec §5.2 before the prompt in a repo workspace: fetch / fast-forward, report it, and arm change tracking.
-    /// Returns the note for the agent's context (§4.5).
-    async fn pre_turn(&self, req: &TurnReq) -> Option<String> {
+    /// Arms change tracking for a repo workspace; the tree is never fetched or moved before a turn.
+    async fn pre_turn(&self, req: &TurnReq) {
         if !git::is_repo(&req.cwd) {
-            return None;
+            return;
         }
-        let managed = req.start.workspace.cd_path.is_none();
-        let pre =
-            git::pre_turn(&req.cwd, managed).await.inspect_err(|e| tracing::warn!("git pre-turn failed: {e}")).ok()?;
-        let event = RunEvent::Status { status: RunStatus::Running, step: pre.step() };
-        req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
         match git::snapshot(&req.cwd).await {
             Ok(snap) => {
-                let kind = if managed { WorkspaceKind::Managed } else { WorkspaceKind::Cd };
+                let kind =
+                    if req.start.workspace.cd_path.is_none() { WorkspaceKind::Managed } else { WorkspaceKind::Cd };
                 if let Some(a) = self.0.lock().unwrap().active.as_mut() {
                     a.git = Some(GitTurn { cwd: req.cwd.clone(), kind, snap });
                 }
             }
             Err(e) => tracing::warn!("git snapshot failed: {e}"),
         }
-        Some(pre.note())
     }
 
     /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn.
@@ -872,9 +866,9 @@ impl Conversation<'_> {
         }
         self.configure(&req, &session).await;
         // Before streaming, so a /stop during the fetch still cancels the prompt.
-        let git_note = self.shared.pre_turn(&req).await;
+        self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = compose_prompt(&s.prompt, history, omitted, git_note.as_deref());
+        let text = compose_prompt(&s.prompt, history, omitted);
         let image = self.init.agent_capabilities.prompt_capabilities.image;
         let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
         let mut spent: Option<AcpUsage> = None;

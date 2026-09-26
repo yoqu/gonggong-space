@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>共工品牌形象</title>
+<style>
+:root {
+  --bg: #f5f5f7; --panel: #ffffff; --label: #1d1d1f; --label2: #6e6e73; --sep: rgba(0,0,0,.09);
+  --accent: #007aff; --accent-soft: rgba(0,122,255,.1);
+  --stage: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #eef2f8 70%);
+  --ink: #16213E; --shadow: rgba(22,33,62,.1); --dash: #d3d9e4; --bubble: #ffffff; --bubble-edge: #d8dfea;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
+    --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16);
+    --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
+    --ink: #e6ebf5; --shadow: rgba(0,0,0,.35); --dash: #3a4050; --bubble: #3a3f4d; --bubble-edge: #4a5060;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
+  --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16);
+  --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
+  --ink: #e6ebf5; --shadow: rgba(0,0,0,.35); --dash: #3a4050; --bubble: #3a3f4d; --bubble-edge: #4a5060;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--label); font: 13px/1.5 var(--font); }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+h1 { font-size: 26px; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 17px; margin: 44px 0 4px; }
+.sub { color: var(--label2); margin: 0 0 16px; max-width: 780px; }
+.stage { background: var(--stage); border-radius: 12px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.card .stage { display: grid; place-items: center; padding: 14px 0 6px; }
+.card h3 { margin: 0; font-size: 15px; }
+.card .idea { margin: 0; font-size: 12px; font-weight: 600; color: var(--accent); }
+.card p { margin: 0; color: var(--label2); font-size: 12px; }
+.acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; }
+.chip { font: 12px var(--font); border: 1px solid var(--sep); background: transparent; color: var(--label); padding: 2px 9px; border-radius: 999px; cursor: pointer; }
+.chip:hover { background: var(--accent-soft); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.matrix-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; }
+.matrix { border-collapse: collapse; min-width: 940px; width: 100%; }
+.matrix th, .matrix td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--sep); }
+.matrix tr:last-child td, .matrix tr:last-child th { border-bottom: 0; }
+.matrix thead th { font-weight: 600; font-size: 12px; }
+.matrix thead th span { display: block; font-weight: 400; color: var(--label2); font-size: 11px; }
+.matrix tbody th { text-align: left; font-weight: 600; white-space: nowrap; padding-left: 14px; }
+.matrix td .stage { width: 96px; height: 96px; margin: 0 auto; display: grid; place-items: center; }
+
+.demo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+@media (max-width: 820px) { .demo { grid-template-columns: 1fr; } }
+.pane { background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 14px; }
+.pane h4 { margin: 0 0 10px; font-size: 13px; color: var(--label2); font-weight: 600; }
+.msg { display: flex; gap: 10px; }
+.avatar { width: 36px; height: 36px; border-radius: 10px; overflow: hidden; flex: none; background: var(--stage); display: grid; place-items: center; }
+.bubble { flex: 1; min-width: 0; }
+.bubble .who { font-weight: 600; }
+.bubble .who em { font-style: normal; color: var(--label2); font-weight: 400; margin-left: 6px; }
+.runcard { margin-top: 6px; border: 1px solid var(--sep); border-radius: 12px; overflow: hidden; }
+.track { position: relative; height: 120px; overflow: hidden; border-radius: 0; }
+.track .walker { position: absolute; bottom: 0; left: 8px; transition: transform 1.2s ease-in-out; }
+.bar { height: 3px; background: var(--sep); }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2f6bff, #0fa3a0); transition: width .6s linear; }
+.steps { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 4px; }
+.steps li { display: flex; align-items: center; gap: 8px; color: var(--label2); }
+.steps li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--sep); }
+.steps li.on { color: var(--label); font-weight: 600; }
+.steps li.on::before { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.steps li.ok { color: var(--label); }
+.steps li.ok::before { background: #34c759; }
+.side { display: grid; gap: 14px; }
+.empty { display: grid; justify-items: center; gap: 2px; padding: 4px 0 12px; color: var(--label2); }
+.empty b { color: var(--label); font-weight: 600; }
+.toast { display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 4px 12px 4px 4px; background: rgba(255,59,48,.08); border: 1px solid rgba(255,59,48,.25); }
+.toast b { display: block; }
+.toast a { color: var(--accent); cursor: pointer; }
+.list { display: grid; gap: 2px; }
+.list div.r { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 8px; }
+.list div.r:hover { background: var(--accent-soft); }
+.list span { flex: 1; }
+.list em { font-style: normal; color: var(--label2); font-size: 12px; display: flex; align-items: center; gap: 5px; }
+.list em i { width: 7px; height: 7px; border-radius: 50%; }
+.notes { color: var(--label2); padding-left: 18px; }
+.notes li { margin: 4px 0; }
+code { font: 12px ui-monospace, monospace; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+
+/* ===== Mascot rig ===== */
+.m { overflow: visible; display: block; }
+.m .fig { transform-origin: 60px 108px; transition: transform .3s ease; }
+.m .la, .m .ra, .m .lf, .m .rf { transition: transform .25s ease; }
+.m .eye { transform-box: fill-box; transform-origin: center; }
+.m .eyes-open { transition: transform .3s ease; }
+.m .p, .m .eyes-happy, .m .eyes-closed, .m .eyes-x { display: none; }
+.m .ink { stroke: var(--ink); }
+.m .shadow { fill: var(--shadow); transform-box: fill-box; transform-origin: center; }
+.m .fx { transform-box: fill-box; transform-origin: center; }
+
+.m:not([data-a="sleep"]):not([data-a="done"]):not([data-a="error"]) .eye { animation: blink 4s infinite; }
+.m[data-a="done"] .eyes-open, .m[data-a="sleep"] .eyes-open, .m[data-a="error"] .eyes-open { display: none; }
+.m[data-a="done"] .eyes-happy, .m[data-a="sleep"] .eyes-closed, .m[data-a="error"] .eyes-x { display: inline; }
+.m[data-a="think"] .p-think, .m[data-a="run"] .p-run, .m[data-a="carry"] .p-carry, .m[data-a="type"] .p-type,
+.m[data-a="done"] .p-done, .m[data-a="error"] .p-error, .m[data-a="sleep"] .p-sleep,
+.m[data-a="run"] .p-ground, .m[data-a="carry"] .p-ground { display: inline; }
+.m[data-a="carry"] .crest { display: none; }
+
+.m[data-a="idle"] .bob { animation: breathe 2.4s ease-in-out var(--d, 0s) infinite; }
+
+.m[data-a="think"] .fig { transform: rotate(-3deg); }
+.m[data-a="think"] .bob { animation: breathe 3s ease-in-out var(--d, 0s) infinite; }
+.m[data-a="think"] .ra { transform: rotate(calc(150deg - var(--rest))); }
+.m[data-a="think"] .eyes-open { transform: translate(1.5px, -1.5px); }
+.m[data-a="think"] .tdot, .m[data-a="type"] .tdot, .m .p-think .fx { animation: dot 1s ease-in-out var(--dd, 0s) infinite; }
+
+.m[data-a="run"] .fig { transform: rotate(8deg); }
+.m[data-a="run"] .bob { animation: hop .2s ease-in-out var(--d, 0s) infinite; }
+.m[data-a="run"] .la { animation: swing .4s ease-in-out -.2s infinite; }
+.m[data-a="run"] .ra { animation: swing .4s ease-in-out infinite; }
+.m[data-a="run"] .lf { animation: stride .4s ease-in-out infinite; }
+.m[data-a="run"] .rf { animation: stride .4s ease-in-out -.2s infinite; }
+.m .p-run .fx { animation: speed .4s linear var(--dd, 0s) infinite; }
+.m .p-ground line { animation: ground .4s linear infinite; }
+.m[data-a="carry"] .p-ground line { animation-duration: 1.2s; }
+
+.m[data-a="carry"] .la { transform: rotate(calc(165deg - var(--rest))); }
+.m[data-a="carry"] .ra { transform: rotate(calc(-165deg - var(--rest))); }
+.m[data-a="carry"] .bob { animation: heavy .9s ease-in-out var(--d, 0s) infinite; }
+.m[data-a="carry"] .lf { animation: plod .9s ease-in-out infinite; }
+.m[data-a="carry"] .rf { animation: plod .9s ease-in-out -.45s infinite; }
+.m .p-carry .brick { animation: wobble .9s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.m .p-carry .sweat, .m .p-error .sweat { animation: sweat 1.2s ease-in var(--dd, 0s) infinite; }
+
+.m[data-a="type"] .la { animation: tapL .26s ease-in-out infinite; }
+.m[data-a="type"] .ra { animation: tapR .26s ease-in-out -.13s infinite; }
+.m[data-a="type"] .bob { animation: breathe 1.4s ease-in-out var(--d, 0s) infinite; }
+.m[data-a="type"] .eyes-open { transform: translate(0, 2px); }
+.m .p-type .fx { animation: rise 1.8s ease-out var(--dd, 0s) infinite; }
+.m .p-type .glow { animation: glow 1.2s ease-in-out infinite; }
+
+.m[data-a="done"] .bob { animation: jump 1s cubic-bezier(.3,.6,.4,1) var(--d, 0s) infinite; }
+.m[data-a="done"] .la { animation: waveL .5s ease-in-out infinite alternate; }
+.m[data-a="done"] .ra { animation: waveR .5s ease-in-out infinite alternate; }
+.m[data-a="done"] .shadow { animation: shrink 1s cubic-bezier(.3,.6,.4,1) infinite; }
+.m .p-done .fx { animation: burst 1s ease-out var(--dd, 0s) infinite; }
+
+.m[data-a="error"] .fig { animation: shake 1.6s ease-in-out infinite; }
+.m[data-a="error"] .la { transform: rotate(calc(172deg - var(--rest))); }
+.m[data-a="error"] .ra { transform: rotate(calc(-172deg - var(--rest))); }
+.m .p-error .bang { animation: pop 1.6s ease-out infinite; }
+
+.m[data-a="sleep"] .fig { transform: rotate(-6deg); }
+.m[data-a="sleep"] .bob { animation: breathe 3.2s ease-in-out var(--d, 0s) infinite; }
+.m .p-sleep .fx { animation: zzz 3s ease-out var(--dd, 0s) infinite; }
+
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.6px); } }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5px); } }
+@keyframes swing { 0%, 100% { transform: rotate(calc(50deg - var(--rest))); } 50% { transform: rotate(calc(-50deg - var(--rest))); } }
+@keyframes stride { 0%, 100% { transform: rotate(calc(30deg - var(--rest))); } 50% { transform: rotate(calc(-30deg - var(--rest))); } }
+@keyframes plod { 0%, 100% { transform: rotate(calc(14deg - var(--rest))); } 50% { transform: rotate(calc(-14deg - var(--rest))); } }
+@keyframes heavy { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2.5px); } }
+@keyframes wobble { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes tapL { 0%, 100% { transform: rotate(calc(-40deg - var(--rest))); } 50% { transform: rotate(calc(-26deg - var(--rest))); } }
+@keyframes tapR { 0%, 100% { transform: rotate(calc(40deg - var(--rest))); } 50% { transform: rotate(calc(26deg - var(--rest))); } }
+@keyframes jump { 0%, 100% { transform: translateY(0); } 12% { transform: translateY(2px); } 42% { transform: translateY(-18px); } 72% { transform: translateY(0); } }
+@keyframes shrink { 0%, 100%, 72% { transform: scale(1); } 42% { transform: scale(.6); opacity: .5; } }
+@keyframes waveL { from { transform: rotate(calc(145deg - var(--rest))); } to { transform: rotate(calc(175deg - var(--rest))); } }
+@keyframes waveR { from { transform: rotate(calc(-145deg - var(--rest))); } to { transform: rotate(calc(-175deg - var(--rest))); } }
+@keyframes shake { 0%, 40%, 100% { transform: translateX(0); } 5%, 15%, 25% { transform: translateX(-3px); } 10%, 20%, 30% { transform: translateX(3px); } }
+@keyframes pop { 0% { transform: scale(0); } 12% { transform: scale(1.2); } 20%, 85% { transform: scale(1); } 100% { transform: scale(0); } }
+@keyframes dot { 0%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-3px); opacity: 1; } }
+@keyframes speed { from { transform: translateX(6px); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(-14px); opacity: 0; } }
+@keyframes ground { to { stroke-dashoffset: 14; } }
+@keyframes sweat { 0% { transform: translateY(-2px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+@keyframes rise { 0% { transform: translateY(6px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+@keyframes glow { 50% { opacity: .35; } }
+@keyframes burst { 0% { transform: translate(0, 0) scale(.2) rotate(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1) rotate(200deg); opacity: 0; } }
+@keyframes zzz { 0% { transform: translate(0, 0) scale(.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(14px, -26px) scale(1.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .m *, .m { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lg" x1="8" y1="4" x2="56" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#2F6BFF"/><stop offset="1" stop-color="#0FA3A0"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#lg)"/><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><path d="M9 53c4.6 0 4.6-3 9.2-3s4.6 3 9.2 3 4.6-3 9.2-3 4.6 3 9.2 3 4.6-3 9.2-3" stroke-opacity=".55" stroke-width="3.2"/><path d="M9 44c5 0 7-4 9-9 3-7 7-8 10-5 2 2 1 6-2 6M55 44c-5 0-7-4-9-9-3-7-7-8-10-5-2 2-1 6 2 6" stroke-width="5"/></g><path d="M32 11 40 19 32 27 24 19Z" fill="#fff"/></svg>
+    <h1>共工 · 品牌形象提案</h1>
+  </header>
+  <p class="sub">不做常见的「圆脸吉祥物」，五款形象都从产品自身长出来：Logo 的玉珏与双手、聊天气泡、甲骨文「共」字、汉字字形本身，以及「AI 团队」这个概念。扁平矢量、两种主色（蓝 #2F6BFF → 玉青 #0FA3A0），与 Pane 界面同一套色板。</p>
+
+  <h2>五款形象</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2>动作库 × Agent 状态</h2>
+  <p class="sub">八个动作由同一套骨架驱动（四肢 <code>la ra lf rf</code> + 身体 <code>bob</code> + 表情 + 道具层），五个角色通用，纯 SVG + CSS，无逐帧素材。</p>
+  <div class="matrix-wrap"><table class="matrix" id="matrix"></table></div>
+
+  <h2>界面应用示例</h2>
+  <div class="row" style="margin-bottom:12px" id="picker"></div>
+  <div class="demo">
+    <div class="pane">
+      <h4>聊天 · Bot 运行卡片</h4>
+      <div class="msg">
+        <div class="avatar" id="avatarMain"></div>
+        <div class="bubble">
+          <div class="who"><span id="botName"></span><em id="botState"></em></div>
+          <div>收到，我来修复登录页的表单校验，并补上单元测试。</div>
+          <div class="runcard">
+            <div class="track stage"><div class="walker" id="walker"></div></div>
+            <div class="bar"><i id="bar"></i></div>
+            <ol class="steps" id="steps"></ol>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="pane">
+        <h4>空状态</h4>
+        <div class="empty"><div id="emptyMascot"></div><b>还没有运行中的任务</b><span>在群里 @ 一个 Bot 开始工作</span></div>
+      </div>
+      <div class="pane">
+        <h4>失败提示</h4>
+        <div class="toast"><div id="errMascot"></div><div><b>运行失败</b><span>命令退出码 1 · <a>查看日志</a></span></div></div>
+      </div>
+      <div class="pane">
+        <h4>Bot 列表 · 头像随状态动</h4>
+        <div class="list" id="botList"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>落地说明</h2>
+  <ul class="notes">
+    <li>骨架：画布 120×120，地面 y=108。四肢是带 <code>transform-origin</code> 与 <code>--rest</code>（静止角度）的分组，动作只写「相对下垂方向的角度」，所以同一套关键帧能驱动手、腿、字形笔画、气泡尾巴。</li>
+    <li>状态切换：改根节点 <code>data-a</code> 即可，四肢有 0.25s 过渡，动作之间自然衔接；尊重系统「减弱动态效果」。</li>
+    <li>接入：移植为 <code>&lt;Mascot kind action size /&gt;</code> React 组件，状态直接接 run 事件（thinking / tool_call / message / done / error）。</li>
+    <li>头像：同一 SVG 换 <code>viewBox</code> 裁切头部，不需要另画。深色模式下线条色走 <code>--ink</code> token。</li>
+  </ul>
+</main>
+
+<script>
+const INK = '#16213E', BLUE = '#2F6BFF', DEEP = '#1E4FD8', TEAL = '#0FA3A0', MINT = '#7FE3D6', SKY = '#8EC0FF'
+
+const face = (pts, r, color) => {
+  const g = (cls, f) => `<g class="${cls}">${pts.map(f).join('')}</g>`
+  return g('eyes-open', ([x, y]) => `<ellipse class="eye" cx="${x}" cy="${y}" rx="${r}" ry="${r * 1.25}" fill="${color}"/>`)
+    + `<g fill="none" stroke="${color}" stroke-width="${Math.max(1.6, r * .8)}" stroke-linecap="round">`
+    + g('eyes-happy', ([x, y]) => `<path d="M${x - r * 1.1} ${y + r * .5}q${r * 1.1} ${-r * 2.2} ${r * 2.2} 0"/>`)
+    + g('eyes-closed', ([x, y]) => `<path d="M${x - r * 1.1} ${y}q${r * 1.1} ${r * 1.4} ${r * 2.2} 0"/>`)
+    + g('eyes-x', ([x, y]) => `<path d="M${x - r} ${y - r}l${2 * r} ${2 * r}M${x + r} ${y - r}l${-2 * r} ${2 * r}"/>`)
+    + '</g>'
+}
+const limb = (cls, ox, oy, rest, inner) => `<g class="${cls}" style="transform-origin:${ox}px ${oy}px;--rest:${rest}deg">${inner}</g>`
+const grad = (id, a, b, x1 = 30, y1 = 20, x2 = 90, y2 = 100) =>
+  `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`
+const drop = (cx, top, w, h) => {
+  const r = w / 2, y = top + h - r
+  return `M${cx} ${top}C${cx + w * .12} ${top + h * .22} ${cx + r} ${y - r * .9} ${cx + r} ${y}A${r} ${r} 0 0 1 ${cx - r} ${y}C${cx - r} ${y - r * .9} ${cx - w * .12} ${top + h * .22} ${cx} ${top}Z`
+}
+
+const CHARS = [
+  {
+    id: 'hands', name: '共手', idea: '把 Logo 拆开，让它自己活过来',
+    concept: '「共」的甲骨文是双手托举一物。玉珏是脸，两只白手套悬浮在两侧，没有身体、没有腿，像默剧演员一样用手说话。',
+    top: 22, crop: '30 20 60 60',
+    draw: u => `<defs>${grad(u + 'g', BLUE, TEAL, 40, 22, 80, 88)}</defs>
+      <ellipse class="shadow" cx="60" cy="109" rx="20" ry="3"/>
+      <g class="fig"><g class="bob">
+        ${limb('la', 44, 58, 42, `<ellipse cx="36.5" cy="73" rx="3.6" ry="4.6" fill="#fff" stroke="${INK}" stroke-width="2.4"/><rect x="20" y="66" width="16" height="18" rx="8" fill="#fff" stroke="${INK}" stroke-width="2.4"/><rect x="21" y="62" width="14" height="6" rx="3" fill="${BLUE}" stroke="${INK}" stroke-width="2.4"/>`)}
+        ${limb('ra', 76, 58, -42, `<ellipse cx="83.5" cy="73" rx="3.6" ry="4.6" fill="#fff" stroke="${INK}" stroke-width="2.4"/><rect x="84" y="66" width="16" height="18" rx="8" fill="#fff" stroke="${INK}" stroke-width="2.4"/><rect x="85" y="62" width="14" height="6" rx="3" fill="${BLUE}" stroke="${INK}" stroke-width="2.4"/>`)}
+        <path d="M60 22 88 55 60 88 32 55Z" fill="url(#${u}g)" stroke-linejoin="round"/>
+        <path d="M60 22 88 55H60Z" fill="#fff" opacity=".16"/><path d="M32 55H60V88Z" fill="#000" opacity=".07"/>
+        ${face([[51, 53], [69, 53]], 3.4, '#fff')}
+        <path d="M56 63q4 3.5 8 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+      </g></g>`,
+  },
+  {
+    id: 'bubble', name: '泡泡', idea: '一个会单脚跳的聊天气泡',
+    concept: '产品的本体就是对话，于是形象就是一个气泡。它的尾巴是唯一的腿，只能单脚蹦；嘴是「正在输入」的三个点，思考时会一起跳动。',
+    top: 24, crop: '24 16 72 72',
+    draw: u => `<defs>${grad(u + 'g', '#3D86FF', BLUE, 40, 24, 80, 72)}</defs>
+      <ellipse class="shadow" cx="56" cy="109" rx="16" ry="3"/>
+      <g class="fig"><g class="bob">
+        ${limb('lf', 50, 66, 8, `<path d="M50 64Q44 86 52 103" fill="none" stroke="${DEEP}" stroke-width="8" stroke-linecap="round"/><ellipse cx="56" cy="105" rx="8.5" ry="3.8" fill="${INK}"/>`)}
+        ${limb('la', 32, 50, 30, `<path d="M32 50 24 63" stroke="${DEEP}" stroke-width="6" stroke-linecap="round"/>`)}
+        ${limb('ra', 88, 50, -30, `<path d="M88 50 96 63" stroke="${DEEP}" stroke-width="6" stroke-linecap="round"/>`)}
+        <rect x="30" y="24" width="60" height="46" rx="23" fill="url(#${u}g)"/>
+        <rect x="38" y="29" width="22" height="6" rx="3" fill="#fff" opacity=".25"/>
+        ${face([[49, 43], [71, 43]], 3.6, '#fff')}
+        <g fill="#fff">${[52, 60, 68].map((x, i) => `<circle class="tdot fx" cx="${x}" cy="57" r="2.6" style="--dd:${i * .15}s"/>`).join('')}</g>
+      </g></g>`,
+  },
+  {
+    id: 'oracle', name: '甲骨', idea: '三千年前的象形小人',
+    concept: '取甲骨文里「人」的写法：一笔画成的火柴人，头顶一枚玉珏。线条会跟随深浅色切换，是五款里最轻、最适合小尺寸和线性图标体系的一款。',
+    top: 24, crop: '38 12 44 44',
+    draw: u => `<defs>${grad(u + 'g', BLUE, TEAL, 52, 8, 68, 24)}</defs>
+      <ellipse class="shadow" cx="60" cy="109" rx="16" ry="3"/>
+      <g class="fig"><g class="bob" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        ${limb('lf', 60, 78, 20, `<path class="ink" d="M60 78 50 105" stroke-width="5"/>`)}
+        ${limb('rf', 60, 78, -20, `<path class="ink" d="M60 78 70 105" stroke-width="5"/>`)}
+        ${limb('la', 60, 57, 38, `<path class="ink" d="M60 57 46 75" stroke-width="5"/>`)}
+        ${limb('ra', 60, 57, -38, `<path class="ink" d="M60 57 74 75" stroke-width="5"/>`)}
+        <path class="ink" d="M60 51V78" stroke-width="5"/>
+        <path d="M52 54q8 5 16 0" stroke="${BLUE}" stroke-width="5"/>
+        <circle class="ink" cx="60" cy="38" r="13" fill="#fff" stroke-width="5"/>
+        <path class="crest" d="M60 9 67 16 60 23 53 16Z" fill="url(#${u}g)" stroke="none"/>
+        ${face([[55, 38], [65, 38]], 2.3, INK)}
+        <path d="M57.5 44q2.5 2 5 0" stroke="${INK}" stroke-width="1.8"/>
+      </g></g>`,
+  },
+  {
+    id: 'glyph', name: '共字君', idea: '字本身就是角色',
+    concept: '「共」字的两点是它的腿（八字腿），最长的一横在两端断开成了手臂，两竖之间开一扇窗放上眼睛。静止时就是一个标准的「共」，动起来才露出是个小人。',
+    top: 22, crop: '26 16 68 68',
+    draw: u => `<defs>${grad(u + 'g', BLUE, TEAL, 40, 22, 80, 106)}</defs>
+      <ellipse class="shadow" cx="60" cy="109" rx="24" ry="3"/>
+      <g class="fig"><g class="bob" fill="url(#${u}g)">
+        ${limb('lf', 50, 78, 19, `<path d="M50 78 41 103" stroke="url(#${u}g)" stroke-width="9" stroke-linecap="round"/>`)}
+        ${limb('rf', 70, 78, -19, `<path d="M70 78 79 103" stroke="url(#${u}g)" stroke-width="9" stroke-linecap="round"/>`)}
+        ${limb('la', 40, 66.5, 90, `<rect x="22" y="62" width="22" height="9" rx="4.5"/>`)}
+        ${limb('ra', 80, 66.5, -90, `<rect x="76" y="62" width="22" height="9" rx="4.5"/>`)}
+        <rect x="41" y="22" width="9" height="44" rx="4.5"/><rect x="70" y="22" width="9" height="44" rx="4.5"/>
+        <rect x="31" y="34" width="58" height="9" rx="4.5"/><rect x="38" y="62" width="44" height="9" rx="4.5"/>
+        ${face([[55.5, 51], [64.5, 51]], 2.4, 'var(--ink)')}
+        <circle cx="52.5" cy="57" r="1.8" fill="#FF8FB1"/><circle cx="67.5" cy="57" r="1.8" fill="#FF8FB1"/>
+      </g></g>`,
+  },
+  {
+    id: 'squad', name: '三滴', idea: '形象不是一个人，是一支团队',
+    concept: '产品是「AI 团队工作区」，所以 IP 是一支三人小队：大滴是队长，玉青小滴和浅蓝中滴是队员。所有动作自带错峰，跑步像接力、庆祝像人浪。',
+    top: 44, crop: '30 42 60 60',
+    draw: u => {
+      const unit = (cx, w, h, fill, eye, d, arms) => {
+        const top = 104 - h
+        return `<g class="bob" style="--d:${d}s">
+          ${limb('lf', cx - 4, 103, 0, `<path class="ink" d="M${cx - 4} 102v5" stroke-width="3.2" stroke-linecap="round"/>`)}
+          ${limb('rf', cx + 4, 103, 0, `<path class="ink" d="M${cx + 4} 102v5" stroke-width="3.2" stroke-linecap="round"/>`)}
+          ${arms ? limb('la', cx - w / 2 + 2, top + h * .62, 35, `<path class="ink" d="M${cx - w / 2 + 2} ${top + h * .62}l-7 9" stroke-width="3.2" stroke-linecap="round"/>`)
+                 + limb('ra', cx + w / 2 - 2, top + h * .62, -35, `<path class="ink" d="M${cx + w / 2 - 2} ${top + h * .62}l7 9" stroke-width="3.2" stroke-linecap="round"/>`) : ''}
+          <path d="${drop(cx, top, w, h)}" fill="${fill}"/>
+          <ellipse cx="${cx - w * .2}" cy="${top + h * .5}" rx="${w * .08}" ry="${w * .14}" fill="#fff" opacity=".35"/>
+          ${face([[cx - w * .16, top + h * .66], [cx + w * .16, top + h * .66]], w * .075, eye)}
+        </g>`
+      }
+      return `<defs>${grad(u + 'g', '#4A86FF', BLUE, 50, 44, 70, 104)}</defs>
+        <ellipse class="shadow" cx="60" cy="109" rx="42" ry="3"/>
+        <g class="fig">
+          ${unit(30, 22, 32, TEAL, '#fff', -.12, false)}
+          ${unit(89, 25, 38, SKY, INK, -.24, false)}
+          ${unit(60, 34, 58, `url(#${u}g)`, '#fff', 0, true)}
+        </g>`
+    },
+  },
+]
+
+const ACTIONS = {
+  idle: ['待命', '空闲'], think: ['思考', '思考中'], run: ['奔跑', '运行中'], carry: ['搬砖', '执行工具'],
+  type: ['敲代码', '编写代码'], done: ['庆祝', '完成'], error: ['出错', '失败'], sleep: ['打盹', '离线'],
+}
+
+const props = top => {
+  const confetti = [[-34, -30, BLUE], [30, -36, TEAL], [-40, 4, '#FF9F0A'], [40, -6, MINT], [-16, -44, '#FF8FB1'], [18, -48, BLUE], [44, 22, '#FF9F0A'], [-44, 26, TEAL]]
+  return `
+  <g class="p p-ground"><line x1="-10" x2="130" y1="111" y2="111" stroke="var(--dash)" stroke-width="2" stroke-dasharray="6 8" stroke-linecap="round"/></g>
+  <g class="p p-think">
+    <circle cx="84" cy="${top + 4}" r="2.4" fill="var(--bubble)" stroke="var(--bubble-edge)"/>
+    <circle cx="90" cy="${top - 3}" r="3.6" fill="var(--bubble)" stroke="var(--bubble-edge)"/>
+    <rect x="88" y="${top - 26}" width="32" height="18" rx="9" fill="var(--bubble)" stroke="var(--bubble-edge)"/>
+    ${[97, 104, 111].map((x, i) => `<circle class="fx" cx="${x}" cy="${top - 17}" r="2.2" fill="#007AFF" style="--dd:${i * .15}s"/>`).join('')}
+  </g>
+  <g class="p p-run" stroke="var(--dash)" stroke-width="2.5" stroke-linecap="round">
+    <line class="fx" x1="6" x2="20" y1="46" y2="46" style="--dd:0s"/><line class="fx" x1="2" x2="14" y1="62" y2="62" style="--dd:-.15s"/><line class="fx" x1="8" x2="18" y1="78" y2="78" style="--dd:-.28s"/>
+  </g>
+  <g class="p p-carry">
+    <g style="transform:translateY(${top}px)"><g class="brick">
+      <rect x="40" y="-15" width="40" height="15" rx="3.5" fill="#FF9F0A"/><rect x="40" y="-15" width="40" height="4" rx="2" fill="#fff" opacity=".25"/>
+      <text x="60" y="-4" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="ui-monospace,monospace">&lt;/&gt;</text>
+    </g></g>
+    <path class="sweat" d="M88 ${top + 10}q3 4 0 6q-3-2 0-6Z" fill="#6FC3FF"/>
+  </g>
+  <g class="p p-type">
+    <rect x="34" y="78" width="52" height="28" rx="5" fill="#D6DCE6"/>
+    <path class="glow" d="M60 85 66 92 60 99 54 92Z" fill="${BLUE}"/>
+    <rect x="28" y="104" width="64" height="5" rx="2.5" fill="#B8C2D3"/>
+    ${[['{ }', 40, 0, BLUE], ['</>', 60, -.6, TEAL], ['01', 80, -1.2, '#FF9F0A']].map(([t, x, d, c]) => `<text class="fx" x="${x}" y="76" text-anchor="middle" font-size="8" font-weight="700" fill="${c}" font-family="ui-monospace,monospace" style="--dd:${d}s">${t.replace('<', '&lt;').replace('>', '&gt;')}</text>`).join('')}
+  </g>
+  <g class="p p-done">${confetti.map(([x, y, c], i) => i % 2
+    ? `<path class="fx" d="M60 50 63 53 60 56 57 53Z" fill="${c}" style="--x:${x}px;--y:${y}px;--dd:${-i * .06}s"/>`
+    : `<rect class="fx" x="58.5" y="50" width="3" height="6" rx="1" fill="${c}" style="--x:${x}px;--y:${y}px;--dd:${-i * .06}s"/>`).join('')}</g>
+  <g class="p p-error">
+    <g class="bang fx"><circle cx="92" cy="${top}" r="8" fill="#FF3B30"/><rect x="90.8" y="${top - 5}" width="2.4" height="6.5" rx="1.2" fill="#fff"/><circle cx="92" cy="${top + 4}" r="1.3" fill="#fff"/></g>
+    <path class="sweat" d="M28 ${top + 12}q3 4 0 6q-3-2 0-6Z" fill="#6FC3FF" style="--dd:-.4s"/>
+  </g>
+  <g class="p p-sleep" fill="#8E9BB8" font-weight="700" font-family="var(--font)">
+    ${[0, 1, 2].map(i => `<text class="fx" x="80" y="${top + 6}" font-size="${9 + i * 2}" style="--dd:${-i}s">z</text>`).join('')}
+  </g>`
+}
+
+let uid = 0
+function mascot(char, action, size, crop) {
+  const u = `m${uid++}`
+  const wrap = document.createElement('div')
+  wrap.innerHTML = `<svg class="m" data-a="${action}" width="${size}" height="${size}" viewBox="${crop ? char.crop : '0 0 120 120'}" aria-label="${char.name}">${char.draw(u)}${crop ? '' : props(char.top)}</svg>`
+  return wrap.firstChild
+}
+const setAction = (el, a) => el.setAttribute('data-a', a)
+
+// Cards
+const cards = document.getElementById('cards')
+for (const char of CHARS) {
+  const el = mascot(char, 'idle', 180)
+  const card = document.createElement('div')
+  card.className = 'card'
+  card.innerHTML = `<div class="stage"></div><h3>${char.name}</h3><p class="idea">${char.idea}</p><p>${char.concept}</p><div class="acts"></div>`
+  card.querySelector('.stage').append(el)
+  const acts = card.querySelector('.acts')
+  for (const [key, [label]] of Object.entries(ACTIONS)) {
+    const b = document.createElement('button')
+    b.className = 'chip'; b.textContent = label; b.setAttribute('aria-pressed', key === 'idle')
+    b.onclick = () => { setAction(el, key); acts.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b)) }
+    acts.append(b)
+  }
+  cards.append(card)
+}
+
+// Matrix
+const matrix = document.getElementById('matrix')
+matrix.innerHTML = `<thead><tr><th></th>${Object.values(ACTIONS).map(([l, s]) => `<th>${l}<span>${s}</span></th>`).join('')}</tr></thead><tbody></tbody>`
+for (const char of CHARS) {
+  const tr = document.createElement('tr')
+  tr.innerHTML = `<th>${char.name}</th>`
+  for (const key of Object.keys(ACTIONS)) {
+    const td = document.createElement('td'), st = document.createElement('div')
+    st.className = 'stage'; st.append(mascot(char, key, 84)); td.append(st); tr.append(td)
+  }
+  matrix.tBodies[0].append(tr)
+}
+
+// Demo
+const STEPS = [['think', '分析需求', 3], ['type', '编写代码', 3.5], ['carry', '执行工具 · 安装依赖', 3.5], ['run', '运行测试', 3], ['done', '完成', 3]]
+const slots = { avatarMain: ['idle', 32, true], walker: ['think', 110], emptyMascot: ['sleep', 130], errMascot: ['error', 52] }
+const live = {}
+function mount(char) {
+  for (const [id, [action, size, crop]] of Object.entries(slots)) {
+    const host = document.getElementById(id), prev = live[id]
+    const el = mascot(char, prev ? prev.getAttribute('data-a') : action, size, crop)
+    host.replaceChildren(el); live[id] = el
+  }
+  document.getElementById('botName').textContent = char.name
+}
+mount(CHARS[0])
+
+const picker = document.getElementById('picker')
+CHARS.forEach((char, i) => {
+  const b = document.createElement('button')
+  b.className = 'chip'; b.textContent = char.name; b.setAttribute('aria-pressed', i === 0)
+  b.onclick = () => { mount(char); picker.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b)) }
+  picker.append(b)
+})
+
+const listStates = [['run', '运行中', '#007aff'], ['think', '思考中', '#af52de'], ['idle', '空闲', '#34c759'], ['sleep', '离线', '#8e8e93'], ['error', '失败', '#ff3b30']]
+const list = document.getElementById('botList')
+CHARS.forEach((char, i) => {
+  const [a, label, color] = listStates[i]
+  const row = document.createElement('div'), av = document.createElement('div')
+  row.className = 'r'; av.className = 'avatar'; av.append(mascot(char, a, 32, true))
+  row.append(av)
+  row.insertAdjacentHTML('beforeend', `<span>${char.name}</span><em><i style="background:${color}"></i>${label}</em>`)
+  list.append(row)
+})
+
+const stepsEl = document.getElementById('steps'), walker = document.getElementById('walker'), bar = document.getElementById('bar')
+stepsEl.innerHTML = STEPS.map(([, l]) => `<li>${l}</li>`).join('')
+const total = STEPS.reduce((s, x) => s + x[2], 0)
+function runDemo() {
+  let at = 0
+  STEPS.forEach(([action, , dur], i) => {
+    setTimeout(() => {
+      setAction(live.walker, action)
+      document.getElementById('botState').textContent = ACTIONS[action][1]
+      ;[...stepsEl.children].forEach((li, j) => li.className = j < i || action === 'done' ? 'ok' : j === i ? 'on' : '')
+      const span = walker.parentElement.clientWidth - 126
+      walker.style.transform = `translateX(${Math.round(span * i / (STEPS.length - 1))}px)`
+      bar.style.width = `${Math.round(100 * (at + dur) / total)}%`
+    }, at * 1000)
+    at += dur
+  })
+  setTimeout(() => {
+    walker.style.transition = 'none'; walker.style.transform = 'translateX(0)'; bar.style.width = '0'
+    requestAnimationFrame(() => { walker.style.transition = ''; runDemo() })
+  }, at * 1000)
+}
+runDemo()
+</script>
+</body>
+</html>

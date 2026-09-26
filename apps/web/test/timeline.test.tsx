@@ -33,6 +33,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: null,
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },
@@ -286,6 +287,26 @@ describe('timeline bubbles', () => {
     expect(within(fan).getByText('扇出 · 2 个 Bot 并行')).toBeTruthy()
   })
 
+  it('animates 共字君 in the step line while the bot works', async () => {
+    renderChat({
+      messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })],
+      runs: [run(), run({ id: 'r2', step: '', queuedAt: min(2) })],
+    })
+    const [tool, idle] = await screen.findAllByTestId('run-card')
+    expect(
+      within(tool as HTMLElement)
+        .getByRole('img', { name: '执行工具' })
+        .getAttribute('data-action'),
+    ).toBe('carry')
+    expect(
+      within(idle as HTMLElement)
+        .getByRole('img', { name: '正在工作' })
+        .getAttribute('data-action'),
+    ).toBe('run')
+    expect(within(idle as HTMLElement).getByText('正在工作…')).toBeTruthy()
+    expect(document.querySelector('.pn-typing .ui-mascot')?.getAttribute('data-action')).toBe('run')
+  })
+
   it('shows run facts as labelled graphics', async () => {
     renderChat({
       messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })],
@@ -345,6 +366,8 @@ describe('hover action bar', () => {
     renderChat({ messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })], runs: [run()] })
     const card = await screen.findByTestId('run-card')
     expect(within(card).getByRole('button', { name: '查看过程' })).toBeTruthy()
+    const bar = within(card).getByRole('toolbar', { name: '消息操作' })
+    expect(within(bar).queryByRole('button', { name: '查看过程' })).toBeNull()
     const row = screen.getByText('第 1 条').closest('.pn-msg') as HTMLElement
     expect(within(row).queryByRole('button', { name: '查看过程' })).toBeNull()
   })
@@ -367,10 +390,11 @@ describe('hover action bar', () => {
     expect(within(row).getByRole('toolbar', { name: '消息操作' }).dataset.open).toBe('true')
   })
 
-  it('run cards add 查看过程 to their menu', async () => {
+  it('keeps 查看过程 out of the run card menu', async () => {
     renderChat({ messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })], runs: [run()] })
     fireEvent.contextMenu(await screen.findByTestId('run-card'))
-    expect(screen.getByRole('menuitem', { name: '查看过程' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: '引用回复' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '查看过程' })).toBeNull()
   })
 
   it('ends the list with the working Bots while a run executes', async () => {

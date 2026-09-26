@@ -1,8 +1,8 @@
 import { GroupParams, GroupPrefsReq, UpdateGroupReq } from '@gonggong/protocol'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { groupMembers, groups, users } from '../../db/schema.js'
+import { groupMembers, groupNotices, groups, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
@@ -24,24 +24,82 @@ async function members(ctx: Ctx, groupId: string) {
     .where(eq(groupMembers.groupId, groupId))
 }
 
+/** Replaces the current notice: the old one is marked removed, a non-empty one starts a new history entry. */
+async function setNotice(ctx: Ctx, groupId: string, notice: string, by: string) {
+  await ctx.db.transaction(async (tx) => {
+    await tx
+      .update(groupNotices)
+      .set({ removedAt: ctx.now() })
+      .where(and(eq(groupNotices.groupId, groupId), isNull(groupNotices.removedAt)))
+    const [row] = notice
+      ? await tx.insert(groupNotices).values({ groupId, body: notice, createdBy: by }).returning()
+      : []
+    await tx
+      .update(groups)
+      .set({ notice, noticeId: row?.id ?? null })
+      .where(eq(groups.id, groupId))
+  })
+}
+
 /** Group settings drawer (spec §4.1, §10; plan D5). */
 export function groupSettingsRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.patch<P>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const body = UpdateGroupReq.parse(req.body)
-      await ctx.db.update(groups).set(body).where(eq(groups.id, group.id))
+      const { notice, ...body } = UpdateGroupReq.parse(req.body)
+      if (body.name) await ctx.db.update(groups).set(body).where(eq(groups.id, group.id))
+      if (notice !== undefined && notice !== group.notice) await setNotice(ctx, group.id, notice, me.id)
       await audit(ctx, {
         category: 'admin',
         actorUserId: me.id,
         action: 'group.update',
         groupId: group.id,
-        detail: { before: { name: group.name, notice: group.notice }, ...body },
+        detail: { before: { name: group.name, notice: group.notice }, ...body, notice },
       })
       await postEvent(ctx, group.id, `${me.name} 修改了${group.kind === 'dm' ? '名称' : '群名称与公告'}`)
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
+    })
+
+    app.delete<P>('/api/groups/:id/notice', async (req) => {
+      const me = await requireUser(ctx, req)
+      const { group } = await requireAdmin(ctx, req.params.id, me.id)
+      if (group.notice) {
+        await setNotice(ctx, group.id, '', me.id)
+        await audit(ctx, {
+          category: 'admin',
+          actorUserId: me.id,
+          action: 'group.notice.remove',
+          groupId: group.id,
+          detail: { name: group.name, notice: group.notice },
+        })
+        await postEvent(ctx, group.id, `${me.name} 移除了群公告`)
+        await publishGroup(ctx, group.id)
+      }
+      return groupDto(ctx, me.id, group.id)
+    })
+
+    app.get<P>('/api/groups/:id/notices', async (req) => {
+      const me = await requireUser(ctx, req)
+      const { group } = await requireMember(ctx, req.params.id, me.id)
+      const rows = await ctx.db
+        .select({
+          id: groupNotices.id,
+          body: groupNotices.body,
+          authorName: users.name,
+          createdAt: groupNotices.createdAt,
+          removedAt: groupNotices.removedAt,
+        })
+        .from(groupNotices)
+        .innerJoin(users, eq(users.id, groupNotices.createdBy))
+        .where(eq(groupNotices.groupId, group.id))
+        .orderBy(desc(groupNotices.createdAt))
+      return rows.map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        removedAt: r.removedAt?.toISOString() ?? null,
+      }))
     })
 
     app.get<P>('/api/groups/:id/params', async (req) => {
@@ -71,7 +129,11 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.put<P>('/api/groups/:id/prefs', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const body = GroupPrefsReq.parse(req.body)
+      const { noticeHidden, ...prefs } = GroupPrefsReq.parse(req.body)
+      const body =
+        noticeHidden === undefined
+          ? prefs
+          : { ...prefs, hiddenNoticeId: noticeHidden ? group.noticeId : null }
       if (Object.keys(body).length)
         await ctx.db
           .update(groupMembers)

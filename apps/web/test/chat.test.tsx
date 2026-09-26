@@ -31,6 +31,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   kind: 'group',
   mode: 'partition',
   notice: '周五前合入 v2',
+  noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },

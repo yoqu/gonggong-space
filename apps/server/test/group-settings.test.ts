@@ -1,4 +1,4 @@
-import type { GroupDto, GroupParams, MessageDto, TimelineDto } from '@gonggong/protocol'
+import type { GroupDto, GroupNoticeDto, GroupParams, MessageDto, TimelineDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupMembers, groups, messages, runs, systemParams } from '../src/db/schema.js'
@@ -103,6 +103,58 @@ describe('name and notice', () => {
     expect((await w.as.li.patch(`/api/groups/${w.g.id}`, { name: 'x' })).status).toBe(403)
     expect((await w.as.outsider.patch(`/api/groups/${w.g.id}`, { name: 'x' })).status).toBe(404)
     expect((await w.as.wang.patch(`/api/groups/${w.g.id}`, { name: '   ' })).status).toBe(400)
+  })
+})
+
+describe('notice removal, hiding and history', () => {
+  const notice = (w: World, text: string) =>
+    w.as.wang.patch<GroupDto>(`/api/groups/${w.g.id}`, { notice: text })
+  const history = async (c: World['as']['wang'], id: string) =>
+    (await c.get<GroupNoticeDto[]>(`/api/groups/${id}/notices`)).body
+
+  it('keeps every published notice; members read the history newest first', async () => {
+    const w = await world()
+    await notice(w, '第一版')
+    await notice(w, '第二版')
+    const list = await history(w.as.zhao, w.g.id)
+    expect(list.map((n) => [n.body, n.authorName, n.removedAt])).toEqual([
+      ['第二版', '王磊', null],
+      ['第一版', '王磊', expect.any(String)],
+    ])
+    expect((await w.as.outsider.get(`/api/groups/${w.g.id}/notices`)).status).toBe(404)
+  })
+
+  it('admin removes the notice for everyone; history keeps it; audited', async () => {
+    const w = await world()
+    await notice(w, '走 PR')
+    const liEvents = events(t, w.li.id)
+    expect((await w.as.li.del(`/api/groups/${w.g.id}/notice`)).status).toBe(403)
+    const res = await w.as.wang.del<GroupDto>(`/api/groups/${w.g.id}/notice`)
+    expect(res.status).toBe(200)
+    expect(res.body.notice).toBe('')
+    expect(liEvents).toContainEqual({ t: 'group.updated', group: expect.objectContaining({ notice: '' }) })
+    expect(await bodies(w.as.li, w.g.id)).toContain('王磊 移除了群公告')
+    expect((await history(w.as.li, w.g.id))[0]).toMatchObject({
+      body: '走 PR',
+      removedAt: expect.any(String),
+    })
+    expect(await adminAudit('group.notice.remove')).toHaveLength(1)
+  })
+
+  it('a member hides the notice only for themselves until a new one is published', async () => {
+    const w = await world()
+    await notice(w, '走 PR')
+    const hidden = await w.as.li.put<GroupDto>(`/api/groups/${w.g.id}/prefs`, { noticeHidden: true })
+    expect(hidden.body).toMatchObject({ notice: '走 PR', noticeHidden: true })
+    expect((await w.as.zhao.get<GroupDto[]>('/api/groups')).body[0]?.noticeHidden).toBe(false)
+    expect((await notice(w, '新公告')).body.noticeHidden).toBe(false)
+    expect((await w.as.li.get<GroupDto[]>('/api/groups')).body[0]).toMatchObject({
+      notice: '新公告',
+      noticeHidden: false,
+    })
+    await w.as.li.put(`/api/groups/${w.g.id}/prefs`, { noticeHidden: true })
+    const shown = await w.as.li.put<GroupDto>(`/api/groups/${w.g.id}/prefs`, { noticeHidden: false })
+    expect(shown.body.noticeHidden).toBe(false)
   })
 })
 

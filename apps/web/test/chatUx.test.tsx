@@ -8,6 +8,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { uploadFile } from '../src/features/attachments/api'
 import { useQuote } from '../src/features/attachments/quote'
 import { Markdown } from '../src/features/chat/Markdown'
+import { useRunRail } from '../src/features/runs/rail'
 import { useToasts } from '../src/ui'
 
 vi.mock('../src/features/attachments/api', async (orig) => ({
@@ -30,6 +31,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   kind: 'group',
   mode: 'force',
   notice: '',
+  noticeHidden: false,
   repo: null,
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },
@@ -240,15 +242,32 @@ describe('run card merged with the final reply', () => {
     const merged = cards[0]!
     expect(precedes(screen.getByText('插一句'), merged)).toBe(true)
     expect(merged.textContent).toContain('Claude Code · 王磊 触发')
-    expect(merged.textContent).toContain('已完成')
-    expect(merged.textContent).toContain('改动 2 个文件')
+    expect(merged.querySelector('.run-mcard')).toBeNull()
+    expect(merged.textContent).not.toContain('已完成')
     const body = within(merged).getByTestId('bot-reply')
-    expect(within(body).getByRole('button', { name: /src\/a\.ts/ })).toBeTruthy()
+    const tags = body.querySelector('.run-card__tags') as HTMLElement
+    expect(tags.textContent).toContain('改动 2 个文件')
+    expect(precedes(body.querySelector('code')!, tags)).toBe(true)
+    expect(within(body).getByRole('button', { name: 'a.ts' }).title).toBe('src/a.ts')
     expect(screen.queryByText('最终回复')).toBeNull()
     expect(within(merged).queryByRole('button', { name: '引用' })).toBeNull()
     fireEvent.click(within(body).getByRole('button', { name: '引用回复' }))
     expect(useQuote.getState().quote).toMatchObject({ kind: 'message', id: 'm4' })
-    expect(within(merged).getByRole('button', { name: '查看过程' })).toBeTruthy()
+    expect(within(tags).getByRole('button', { name: '查看过程' })).toBeTruthy()
+    expect(within(merged).getAllByRole('button', { name: '查看过程' })).toHaveLength(1)
+  })
+
+  it('names at most two changed files by their base name and sends the rest to the full diff', async () => {
+    mockApi({
+      messages: [reply({ seq: 2, body: '改了 `src/a.ts`、`src/b.ts` 和 `lib/c.ts`' })],
+      runs: [run({ status: 'completed', endedAt: at })],
+    })
+    renderAt()
+    const body = await screen.findByTestId('bot-reply')
+    const files = [...body.querySelectorAll('.tl-file')].map((b) => b.textContent)
+    expect(files).toEqual(['a.ts', 'b.ts', '+1'])
+    fireEvent.click(within(body).getByRole('button', { name: '还有 1 个文件，查看完整改动' }))
+    expect(useRunRail.getState()).toMatchObject({ runId: 'r1', tab: 'diff', file: null })
   })
 
   it('renders bot messages without a run as plain replies', async () => {

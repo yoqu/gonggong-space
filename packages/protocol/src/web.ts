@@ -271,6 +271,8 @@ export const GroupDto = z.object({
   kind: GroupKind,
   mode: z.enum(['partition', 'force']),
   notice: z.string(),
+  /** The caller closed the current notice for themselves; a newer notice shows again. */
+  noticeHidden: z.boolean(),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable(),
   members: z.array(z.object({ userId: z.string(), name: z.string(), isAdmin: z.boolean() })),
   botIds: z.array(z.string()),
@@ -284,6 +286,16 @@ export const GroupDto = z.object({
   foldRuns: z.boolean(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
+/** GET /api/groups/:id/notices — every published notice, newest first. */
+export const GroupNoticeDto = z.object({
+  id: z.string(),
+  body: z.string(),
+  authorName: z.string(),
+  createdAt: z.string(),
+  /** Set when an admin removed or replaced it. */
+  removedAt: z.string().nullable(),
+})
+export type GroupNoticeDto = z.infer<typeof GroupNoticeDto>
 
 export const CreateGroupReq = z.object({
   name: z.string().min(1).max(60),
@@ -560,7 +572,7 @@ export const UpdateGroupReq = z.object({
 })
 /** PUT /api/groups/:id/prefs — only for the caller. */
 export const GroupPrefsReq = z
-  .object({ muted: z.boolean(), pinned: z.boolean(), foldRuns: z.boolean() })
+  .object({ muted: z.boolean(), pinned: z.boolean(), foldRuns: z.boolean(), noticeHidden: z.boolean() })
   .partial()
 export type GroupPrefsReq = z.infer<typeof GroupPrefsReq>
 

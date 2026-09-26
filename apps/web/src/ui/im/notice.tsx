@@ -80,6 +80,8 @@ export interface PinnedBannerProps {
   color?: string
   action?: ReactNode
   onClose?: () => void
+  /** Accessible name of the close button; defaults to「关闭」. */
+  closeLabel?: string
   className?: string
   style?: CSSProperties
 }
@@ -91,6 +93,7 @@ export function PinnedBanner({
   color,
   action,
   onClose,
+  closeLabel = '关闭',
   className,
   style,
 }: PinnedBannerProps) {
@@ -102,7 +105,7 @@ export function PinnedBanner({
       {title != null && <span className="pn-pinned__title">{title}</span>}
       <span className="pn-pinned__text">{text}</span>
       {action}
-      {onClose && <SmallClose label="关闭" onClick={onClose} />}
+      {onClose && <SmallClose label={closeLabel} onClick={onClose} />}
     </div>
   )
 }

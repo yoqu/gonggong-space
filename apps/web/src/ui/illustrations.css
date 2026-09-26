@@ -86,3 +86,6 @@
 .art-dash {
   stroke-dasharray: 4 5;
 }
+.ui-art .ui-mascot[data-action] .ui-mascot__prop--ground {
+  display: none;
+}

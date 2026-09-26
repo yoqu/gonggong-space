@@ -122,6 +122,8 @@ export const groups = pgTable('groups', {
   /** 'group' | 'dm' */
   kind: text('kind').notNull(),
   notice: text('notice').notNull().default(''),
+  /** The `group_notices` row behind `notice`; null when there is none. */
+  noticeId: uuid('notice_id'),
   /** 'partition' | 'force' (P2) */
   mode: text('mode').notNull().default('partition'),
   /** Per-group overrides of system params, e.g. { approvalTimeoutMin: 30, chainMaxHops: 3 }. */
@@ -130,6 +132,20 @@ export const groups = pgTable('groups', {
     .notNull()
     .references(() => users.id),
   archivedAt: ts('archived_at'),
+  createdAt: createdAt(),
+})
+
+/** Every published notice; `groups.notice` holds the current one. */
+export const groupNotices = pgTable('group_notices', {
+  id: id(),
+  groupId: uuid('group_id')
+    .notNull()
+    .references(() => groups.id),
+  body: text('body').notNull(),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => users.id),
+  removedAt: ts('removed_at'),
   createdAt: createdAt(),
 })
 
@@ -157,6 +173,8 @@ export const groupMembers = pgTable(
     muted: boolean('muted').notNull().default(false),
     pinned: boolean('pinned').notNull().default(false),
     foldRuns: boolean('fold_runs').notNull().default(false),
+    /** The notice this member closed for themselves; a newer notice shows again. */
+    hiddenNoticeId: uuid('hidden_notice_id'),
     lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),
     joinedAt: createdAt(),
   },

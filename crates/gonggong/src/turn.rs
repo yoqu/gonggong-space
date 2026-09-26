@@ -16,11 +16,10 @@ const DETAIL_MAX: usize = 200;
 const OUTPUT_LINES: usize = 20;
 const OUTPUT_MAX: usize = 1500;
 
-/// Git default-action note, context lines (`[#seq time] author: body（附件：…）`) led by a pointer to the gonggong tools
-/// when `omitted` older ones were left out, the quote, then `<trigger> 说：<text>` with one `附件：<path>` line per
-/// attachment.
-pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], omitted: u32, git: Option<&str>) -> String {
-    let mut out = git.map(|g| format!("{g}\n\n")).unwrap_or_default();
+/// Context lines (`[#seq time] author: body（附件：…）`) led by a pointer to the gonggong tools when `omitted` older
+/// ones were left out, the quote, then `<trigger> 说：<text>` with one `附件：<path>` line per attachment.
+pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], omitted: u32) -> String {
+    let mut out = String::new();
     if let Some(first) = history.first() {
         let more = if omitted == 0 {
             String::new()
@@ -435,20 +434,16 @@ mod tests {
     #[test]
     fn composes_context_then_trigger() {
         assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], 0, None),
+            compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], 0),
             "群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: 退款 v1 下线\n[#1 2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
         );
-        assert_eq!(compose_prompt(&prompt(), &[], 0, None), "王磊 说：@小王 写个脚本");
-        assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 0, Some("git 默认动作：fetch 完成。")),
-            "git 默认动作：fetch 完成。\n\n群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
-        );
+        assert_eq!(compose_prompt(&prompt(), &[], 0), "王磊 说：@小王 写个脚本");
     }
 
     #[test]
     fn points_the_agent_at_the_gonggong_tools_for_omitted_context() {
         assert_eq!(
-            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 12, None),
+            compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 12),
             "群聊上下文（此前还有 12 条未展示，需要时用 gonggong 的 list_messages(before=1) 或 search_messages 查看）：\n[#1 2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
         );
     }
@@ -597,7 +592,9 @@ mod tests {
         let mut t = Turn::default();
         let deep = format!("/{}/README.md", "d".repeat(300));
         let read = ToolCall::new("r", "Read").kind(ToolKind::Read).locations(vec![ToolCallLocation::new(&deep)]);
-        let Some(RunEvent::Tool { detail: Some(d), .. }) = t.apply("s", SessionUpdate::ToolCall(read)) else { panic!() };
+        let Some(RunEvent::Tool { detail: Some(d), .. }) = t.apply("s", SessionUpdate::ToolCall(read)) else {
+            panic!()
+        };
         assert!(d.starts_with('…') && d.ends_with("/README.md"), "{d}");
         assert_eq!(d.chars().count(), DETAIL_MAX);
     }

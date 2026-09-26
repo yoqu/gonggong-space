@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { resolveTheme, setTheme } from '../../app/theme'
 import { SPRING } from '../../lib/motion'
-import { Avatar, Brand, Icon, IconButton, Message } from '../../ui'
+import { Avatar, Brand, Icon, IconButton, Mascot, Message } from '../../ui'
 
 export type AuthVariant = 'login' | 'register' | 'password'
 
@@ -135,7 +135,11 @@ function RelayDemo() {
                 {l.run ? (
                   <div className="relay__run" data-done={done || undefined}>
                     <span className="relay__status">
-                      <Icon name={done ? 'checkmark-circle' : 'activity'} />
+                      <Mascot
+                        className="relay__mascot"
+                        action={done ? 'done' : steps ? 'carry' : 'run'}
+                        size={36}
+                      />
                       {done ? '已完成' : '运行中'}
                     </span>
                     {STEPS.slice(0, steps).map((s) => (

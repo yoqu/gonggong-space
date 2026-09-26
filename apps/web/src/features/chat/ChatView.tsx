@@ -16,8 +16,8 @@ import {
   EmptyState,
   FailedArt,
   Icon,
+  Mascot,
   MessageList,
-  PinnedBanner,
   Presence,
   Spinner,
   TypingIndicator,
@@ -25,6 +25,7 @@ import {
 import { AGENT_LABEL } from '../bots/model'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
+import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -358,11 +359,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         ) : null}
         <div className="chat-scroll" ref={box} onScroll={onScroll}>
           <div className="chat-view__banners">
-            {group.notice ? (
-              <div data-testid="group-notice">
-                <PinnedBanner text={group.notice} />
-              </div>
-            ) : null}
+            <GroupNotice group={group} />
             <WorkspaceBanner group={group} />
           </div>
           <MessageList className="chat-scroll__list">
@@ -392,7 +389,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               />
             ) : !tl.loaded ? (
               <div className="chat-scroll__loading">
-                <Spinner />
+                <Mascot action="run" size={72} label="加载中" />
               </div>
             ) : tl.messages.length ? (
               tl.messages.map((m, i) => {
@@ -431,7 +428,9 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                 description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
               />
             )}
-            {working.length ? <TypingIndicator name={working} action="正在处理" /> : null}
+            {working.length ? (
+              <TypingIndicator name={working} action="正在处理" bubble={<Mascot action="run" size={36} />} />
+            ) : null}
           </MessageList>
           {unseen ? (
             <button type="button" className="chat-scroll__pill" onClick={toBottom}>

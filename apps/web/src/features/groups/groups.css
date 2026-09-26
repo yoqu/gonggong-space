@@ -158,6 +158,20 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.gs-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12);
+}
+.gs-notice__body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gs-notice__meta {
+  padding-left: 0;
+}
 .gs-form {
   display: flex;
   flex-direction: column;

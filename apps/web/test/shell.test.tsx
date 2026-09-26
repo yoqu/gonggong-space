@@ -23,6 +23,7 @@ const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto =>
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: null,
   members: [],
   botIds: [],

@@ -288,6 +288,13 @@ describe('TypingIndicator', () => {
     rerender(<TypingIndicator name={['张三', '李四', '王五']} bubble={false} />)
     expect(screen.getByRole('status').textContent).toBe('张三、李四 等 3 人 正在输入…')
   })
+
+  it('puts custom art in the bubble in place of the dots', () => {
+    render(<TypingIndicator name="小王的 Claude" action="正在处理" bubble={<svg data-testid="art" />} />)
+    const bubble = screen.getByTestId('art').closest('.pn-typing__bubble') as HTMLElement
+    expect(bubble.classList.contains('pn-typing__bubble--art')).toBe(true)
+    expect(bubble.querySelector('i')).toBeNull()
+  })
 })
 
 describe('messageMenuItems', () => {

@@ -1,10 +1,10 @@
-import type { BotDto, GroupDto, GroupParams, Tier, UserBriefDto } from '@gonggong/protocol'
+import type { BotDto, GroupDto, GroupNoticeDto, GroupParams, Tier, UserBriefDto } from '@gonggong/protocol'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
+import { api } from '../../lib/api'
 import {
   Avatar,
   Button,
@@ -31,24 +31,15 @@ import { BotDialog } from '../bots/BotDialog'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
 import { effectiveTier, TIER_LABEL } from '../runs/tier'
 import { groupsApi, paramsSummary } from './api'
+import { attempt } from './attempt'
 import { GroupAvatar } from './GroupAvatar'
+import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
 import './groups.css'
 
 export type SettingsTab = 'basic' | 'bots' | 'mode' | 'params'
-export type InfoView = 'main' | 'members' | 'bots' | 'info'
+export type InfoView = 'main' | 'members' | 'bots' | 'info' | 'notices'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
-
-/** Runs a settings action, surfacing the server's message on failure. */
-async function attempt(fn: () => Promise<unknown>) {
-  try {
-    await fn()
-    return true
-  } catch (e) {
-    toast({ type: 'error', message: e instanceof ApiError ? e.message : '操作失败，请重试' })
-    return false
-  }
-}
 
 /** Inline replacement for a failed load: one line plus 重试. */
 function LoadError({ text, onRetry }: { text: string; onRetry: () => void }) {
@@ -140,6 +131,7 @@ export function GroupInfo({
     members: `群成员 · ${group.members.length}`,
     bots: `Bot · ${group.botIds.length}`,
     info: dm ? '名称' : '群名称与公告',
+    notices: '群公告',
   }[view]
   return (
     <InspectorPanel
@@ -164,6 +156,8 @@ export function GroupInfo({
         <MembersView group={group} isAdmin={isAdmin} initialAdding={adding} />
       ) : view === 'bots' ? (
         <BotsView group={group} isAdmin={isAdmin} />
+      ) : view === 'notices' ? (
+        <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
       ) : (
         <InfoForm group={group} onSaved={() => setView('main')} />
       )}
@@ -321,6 +315,16 @@ function MainView({
               value: `${group.botIds.length} 个`,
               onClick: () => setView('bots'),
             },
+            ...(dm
+              ? []
+              : [
+                  {
+                    label: '群公告',
+                    description: group.notice || undefined,
+                    value: group.noticeHidden ? '已隐藏' : group.notice ? undefined : '暂无',
+                    onClick: () => setView('notices'),
+                  },
+                ]),
           ],
         },
         {
@@ -572,6 +576,71 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
       </Presence>
       <Presence>
         {editing && me ? <BotDialog bot={editing} me={me} onClose={() => setEditingId(null)} /> : null}
+      </Presence>
+    </>
+  )
+}
+
+/** Every published notice, newest first; the current one can be hidden (members) or removed (admins). */
+function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boolean; onEdit: () => void }) {
+  const [list, setList] = useState<GroupNoticeDto[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const load = useCallback(() => {
+    setFailed(false)
+    groupsApi.notices(group.id).then(setList, () => setFailed(true))
+  }, [group.id])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the current notice changes
+  useEffect(load, [load, group.notice])
+  return (
+    <>
+      {isAdmin ? (
+        <div className="gs-toolbar">
+          <span className="spacer" />
+          <Button size="small" onClick={onEdit}>
+            {group.notice ? '编辑公告' : '发布公告'}
+          </Button>
+        </div>
+      ) : null}
+      {failed ? <LoadError text="群公告加载失败" onRetry={load} /> : null}
+      {list && !list.length ? <EmptyState compact title="暂无群公告" /> : null}
+      {list?.length ? (
+        <GroupBox>
+          {list.map((n) => {
+            const current = !n.removedAt
+            return (
+              <div key={n.id} className="gs-notice">
+                <p className="gs-notice__body">{n.body}</p>
+                <div className="gs-bot__meta gs-notice__meta">
+                  <span>
+                    {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                  </span>
+                  {current ? <Tag tone="blue">{group.noticeHidden ? '当前 · 已隐藏' : '当前'}</Tag> : null}
+                  <span className="spacer" />
+                  {current && isAdmin ? (
+                    <Button variant="plain" size="small" onClick={() => setRemoving(true)}>
+                      移除
+                    </Button>
+                  ) : current ? (
+                    <Button
+                      variant="plain"
+                      size="small"
+                      onClick={() => void hideNotice(group.id, !group.noticeHidden)}
+                    >
+                      {group.noticeHidden ? '在对话顶部显示' : '不再显示'}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+        </GroupBox>
+      ) : null}
+      <div className="gs-foot">
+        群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。
+      </div>
+      <Presence>
+        {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}
       </Presence>
     </>
   )

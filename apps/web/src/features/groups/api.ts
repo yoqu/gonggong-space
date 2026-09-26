@@ -1,4 +1,4 @@
-import type { GroupDto, GroupParams, GroupPrefsReq, Tier } from '@gonggong/protocol'
+import type { GroupDto, GroupNoticeDto, GroupParams, GroupPrefsReq, Tier } from '@gonggong/protocol'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 
@@ -11,6 +11,8 @@ const drop = (groupId: string) => useWorkspace.getState().applyEvent({ t: 'group
 export const groupsApi = {
   update: (id: string, body: { name?: string; notice?: string }) =>
     api.patch<GroupDto>(`/groups/${id}`, body).then(apply),
+  removeNotice: (id: string) => api.del<GroupDto>(`/groups/${id}/notice`).then(apply),
+  notices: (id: string) => api.get<GroupNoticeDto[]>(`/groups/${id}/notices`),
   setRepo: (id: string, body: { url: string; branch: string }) =>
     api.patch<GroupDto>(`/groups/${id}/repo`, body).then(apply),
   prefs: (id: string, body: GroupPrefsReq) => api.put<GroupDto>(`/groups/${id}/prefs`, body).then(apply),

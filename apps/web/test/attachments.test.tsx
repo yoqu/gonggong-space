@@ -29,6 +29,7 @@ const group: GroupDto = {
   kind: 'group',
   mode: 'partition',
   notice: '',
+  noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
   members: [
     { userId: 'u1', name: '王磊', isAdmin: true },
