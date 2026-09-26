@@ -18,6 +18,21 @@ interface DiffWindowState {
   close: () => void
 }
 
+export type DiffLayout = 'list' | 'tree'
+
+const LAYOUT_KEY = 'gonggong.diffLayout'
+
+/** How changed files are listed (flat or as a folder tree), shared by the rail and the window and kept across visits. */
+export const useDiffLayout = create<{ layout: DiffLayout; toggle: () => void }>((set) => ({
+  layout: localStorage.getItem(LAYOUT_KEY) === 'tree' ? 'tree' : 'list',
+  toggle: () =>
+    set((s) => {
+      const layout = s.layout === 'tree' ? 'list' : 'tree'
+      localStorage.setItem(LAYOUT_KEY, layout)
+      return { layout }
+    }),
+}))
+
 /** The diff window (one per page): every entry point — process rows, the 改动 tab, reply file chips — opens it. */
 export const useDiffWindow = create<DiffWindowState>((set) => ({
   source: null,

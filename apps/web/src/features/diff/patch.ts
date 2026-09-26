@@ -48,6 +48,47 @@ export function findFile(files: DiffFile[], path: string) {
   return files.find((f) => p === f.path || p.endsWith(`/${f.path}`))
 }
 
+export interface DiffDir {
+  kind: 'dir'
+  path: string
+  name: string
+  children: DiffNode[]
+}
+export type DiffNode = DiffDir | { kind: 'file'; name: string; file: DiffFile }
+
+/** Files grouped by folder, folders first; a folder holding only one folder folds into `a/b` like IDE trees. */
+export function diffTree(files: DiffFile[]): DiffNode[] {
+  const root: DiffDir = { kind: 'dir', path: '', name: '', children: [] }
+  for (const file of files) {
+    const parts = file.path.split('/')
+    const name = parts.pop() ?? file.path
+    let dir = root
+    for (const part of parts) {
+      const path = dir.path ? `${dir.path}/${part}` : part
+      let next = dir.children.find((c): c is DiffDir => c.kind === 'dir' && c.path === path)
+      if (!next) {
+        next = { kind: 'dir', path, name: part, children: [] }
+        dir.children.push(next)
+      }
+      dir = next
+    }
+    dir.children.push({ kind: 'file', name, file })
+  }
+  return tidy(root).children
+}
+
+function tidy(dir: DiffDir): DiffDir {
+  const children = dir.children
+    .map((c) => (c.kind === 'dir' ? fold(tidy(c)) : c))
+    .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'dir' ? -1 : 1))
+  return { ...dir, children }
+}
+
+function fold(dir: DiffDir): DiffDir {
+  const [only, ...rest] = dir.children
+  return only?.kind === 'dir' && !rest.length ? { ...only, name: `${dir.name}/${only.name}` } : dir
+}
+
 export type DiffCell = 'add' | 'del' | 'none'
 
 /** GitHub-style five-cell bar: one cell per changed line up to five, split by ratio, each present side kept visible. */

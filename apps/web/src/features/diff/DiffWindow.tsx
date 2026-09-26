@@ -1,6 +1,6 @@
 import { useWorkspace } from '../../app/workspace'
 import { Dialog, EmptyState, Spinner } from '../../ui'
-import { DiffFileList, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
+import { DiffFileList, DiffLayoutToggle, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
 import { findFile } from './patch'
 import { type DiffSource, useDiffWindow } from './store'
 import { useWorkspaceDiff } from './useWorkspaceDiff'
@@ -26,6 +26,7 @@ function DiffBody({ source }: { source: DiffSource }) {
       <div className="diff-window__bar">
         <DiffScopeBar scope={scope} turn={!!source.runId} onChange={setScope} />
         <span className="diff-window__branch">{scopeNote(scope, diff.branch, diff.base)}</span>
+        <DiffLayoutToggle />
       </div>
       {diff.loading && !diff.files.length ? (
         <div className="diff-window__state">

@@ -27,6 +27,21 @@
 .diff__file--active {
   background: var(--selection-fill);
 }
+.diff__folder {
+  padding-left: calc(var(--space-6) + var(--depth) * var(--space-16));
+  font-family: var(--font-sans);
+}
+/* Files sit where a folder's disclosure triangle would, so their icons line up with sibling folders'. */
+.diff__file--nested {
+  padding-left: calc(var(--space-6) + var(--depth) * var(--space-16) + var(--space-16) + var(--space-8));
+}
+.diff__folder > .ui-disclosure {
+  margin-right: calc(-1 * var(--space-2));
+}
+.diff-layout-toggle {
+  flex: none;
+  margin-left: auto;
+}
 .diff__path {
   flex: 1;
   min-width: 0;

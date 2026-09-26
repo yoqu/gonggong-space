@@ -29,7 +29,7 @@ import {
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { fmtDuration, fmtUsage, RUN_STATUS } from '../chat/TimelineItems'
-import { DiffFileList, DiffScopeBar, emptyText, scopeNote } from '../diff/DiffParts'
+import { DiffFileList, DiffLayoutToggle, DiffScopeBar, emptyText, scopeNote } from '../diff/DiffParts'
 import { type DiffSource, useDiffWindow } from '../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../diff/useWorkspaceDiff'
 import { ProcessView } from './ProcessView'
@@ -344,6 +344,7 @@ function ChangesTab({
       <div className="run-changes__bar">
         <DiffScopeBar scope={scope} turn onChange={setScope} />
         <span className="run-changes__branch">{scopeNote(scope, diff.branch, diff.base)}</span>
+        <DiffLayoutToggle />
       </div>
       {scope === 'turn' && detail.purged ? (
         <div className="run-rail__empty">{PURGED}</div>
