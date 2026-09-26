@@ -112,6 +112,31 @@ describe('Message', () => {
     fireEvent.click(screen.getByRole('button', { name: '发送失败，重新发送' }))
     expect(onRetry).toHaveBeenCalledOnce()
   })
+
+  it('moves the hover bar above the bubble when its side is clipped', () => {
+    const rect = (top: number, left: number, width: number, height: number) =>
+      ({ top, left, width, height, right: left + width, bottom: top + height }) as DOMRect
+    const { container } = render(
+      <div style={{ overflowX: 'hidden' }} data-testid="clip">
+        <Message author={{ name: 'Mia Chen' }} actionBar={<span>bar</span>}>
+          你好
+        </Message>
+      </div>,
+    )
+    const bar = container.querySelector('.pn-msg__actions') as HTMLElement
+    const row = container.querySelector('.pn-msg__row') as HTMLElement
+    vi.spyOn(screen.getByTestId('clip'), 'getBoundingClientRect').mockReturnValue(rect(0, 0, 400, 600))
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(rect(100, 40, 300, 60))
+    const spy = vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue(rect(100, 348, 120, 30))
+
+    fireEvent.pointerEnter(container.querySelector('.pn-msg') as HTMLElement)
+    expect(bar.dataset.place).toBe('flip')
+    expect(bar.style.getPropertyValue('--actions-top')).toBe('-34px')
+
+    spy.mockReturnValue(rect(100, 200, 120, 30))
+    fireEvent.pointerEnter(container.querySelector('.pn-msg') as HTMLElement)
+    expect(bar.dataset.place).toBeUndefined()
+  })
 })
 
 describe('Composer', () => {

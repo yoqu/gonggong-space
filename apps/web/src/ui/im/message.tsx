@@ -306,8 +306,24 @@ export function Message({
     <Reactions items={reactions} onToggle={onReact} onAdd={onAddReaction} />
   )
   const side = self && sideStatus({ status, receipt, onRetry })
+  const root = useRef<HTMLDivElement>(null)
+  const bar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const host = root.current
+    if (!host) return
+    const place = () => {
+      if (bar.current) placeActions(bar.current)
+    }
+    host.addEventListener('pointerenter', place)
+    host.addEventListener('focusin', place)
+    return () => {
+      host.removeEventListener('pointerenter', place)
+      host.removeEventListener('focusin', place)
+    }
+  }, [])
   return (
     <div
+      ref={root}
       className={cx(
         'pn-msg',
         self && 'pn-msg--self',
@@ -366,10 +382,12 @@ export function Message({
           )}
           {side && <span className="pn-msg__side">{side}</span>}
           {actionBar ? (
-            <div className="pn-msg__actions">{actionBar}</div>
+            <div ref={bar} className="pn-msg__actions">
+              {actionBar}
+            </div>
           ) : (
             actions !== false && (
-              <div className="pn-msg__actions">
+              <div ref={bar} className="pn-msg__actions">
                 <MessageActions items={actions} onAction={onAction}>
                   {actionsExtra}
                 </MessageActions>
@@ -382,6 +400,32 @@ export function Message({
       </div>
     </div>
   )
+}
+
+const ACTIONS_GAP = 4
+
+/**
+ * The bar sits beside the bubble; when that side is clipped (e.g. a side rail narrows the timeline) it moves
+ * above the bubble, else below, else to the top of the bubble's visible part.
+ */
+function placeActions(bar: HTMLElement) {
+  let clip = bar.parentElement
+  while (clip && clip !== document.body && getComputedStyle(clip).overflowX === 'visible')
+    clip = clip.parentElement
+  if (!clip || !bar.parentElement) return
+  delete bar.dataset.place
+  const box = clip.getBoundingClientRect()
+  const b = bar.getBoundingClientRect()
+  if (b.right <= box.right && b.left >= box.left) return
+  const row = bar.parentElement.getBoundingClientRect()
+  const top =
+    row.top - b.height - ACTIONS_GAP >= box.top
+      ? -b.height - ACTIONS_GAP
+      : row.bottom + ACTIONS_GAP + b.height <= box.bottom
+        ? row.height + ACTIONS_GAP
+        : box.top - row.top + ACTIONS_GAP
+  bar.dataset.place = 'flip'
+  bar.style.setProperty('--actions-top', `${top}px`)
 }
 
 function scrollerOf(el: HTMLElement | null) {

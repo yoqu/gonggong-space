@@ -11,6 +11,7 @@ import {
   GroupBox,
   GroupRow,
   Icon,
+  IconButton,
   NoChangesArt,
   Spinner,
   Tabs,
@@ -110,6 +111,8 @@ export function RunRail({ runId }: { runId: string }) {
   // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
   const turn = useWorkspaceDiff(source, 'turn', live ? undefined : (detail?.patch ?? null))
   const openDiff = useDiffWindow((s) => s.open)
+  // Machine and session id are rarely needed; hidden behind ⓘ so the process gets the height.
+  const [more, setMore] = useState(false)
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
   const ended = run?.endedAt ? Date.parse(run.endedAt) : now
   return (
@@ -122,15 +125,16 @@ export function RunRail({ runId }: { runId: string }) {
         subtitle={run ? `${userName(run.triggerUserId ?? run.originUserId)} 触发` : undefined}
       >
         {run ? <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag> : null}
+        <IconButton title="机器与会话" aria-pressed={more} onClick={() => setMore(!more)}>
+          <Icon name="info" />
+        </IconButton>
         <CloseButton onClick={close} />
       </Toolbar>
       <div className="run-rail__head">
         {run ? (
-          <GroupBox>
-            <GroupRow label="机器">
-              <span className="run-rail__val run-rail__mono">{bot?.machineName ?? '—'}</span>
-            </GroupRow>
-            <GroupRow label="模型">
+          <div className="run-rail__facts">
+            <span className="run-rail__fact" title="模型">
+              <Icon name="cpu" size={14} />
               <span className="run-rail__val">
                 {run.model || run.effort
                   ? agentConfigLabel(
@@ -140,11 +144,21 @@ export function RunRail({ runId }: { runId: string }) {
                     )
                   : '默认'}
               </span>
-            </GroupRow>
-            <GroupRow label="耗时 · 用量">
-              <span className="run-rail__val">
-                {started === null ? '—' : fmtDuration(ended - started)} · {fmtUsage(run.usage)}
-              </span>
+            </span>
+            <span className="run-rail__fact" title="耗时">
+              <Icon name="clock" size={14} />
+              {started === null ? '—' : fmtDuration(ended - started)}
+            </span>
+            <span className="run-rail__fact" title="用量">
+              <Icon name="chart-bar" size={14} />
+              <span className="run-rail__val">{fmtUsage(run.usage)}</span>
+            </span>
+          </div>
+        ) : null}
+        {run && more ? (
+          <GroupBox>
+            <GroupRow label="机器">
+              <span className="run-rail__val run-rail__mono">{bot?.machineName ?? '—'}</span>
             </GroupRow>
             <GroupRow label="会话">
               <span className="run-rail__val run-rail__mono">

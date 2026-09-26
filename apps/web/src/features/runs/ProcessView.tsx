@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import { Button, Icon, type IconName, Spinner } from '../../ui'
@@ -44,16 +44,9 @@ export function ProcessView({
   }
   return (
     <ol className="act" aria-label="运行过程">
-      {items.map((item, i) =>
-        // The final reply is already in the chat: here it only closes the list, clamped.
-        !live && i === items.length - 1 && item.kind === 'action' && item.family === 'text' ? (
-          <li key={item.key} className="act-item act-text">
-            <Clamp text={item.step.body ?? ''} />
-          </li>
-        ) : (
-          <ItemRow key={item.key} item={item} {...ctx} />
-        ),
-      )}
+      {items.map((item) => (
+        <ItemRow key={item.key} item={item} {...ctx} />
+      ))}
       {idle ? (
         <li className="act-item act-working" aria-live="polite">
           <Spinner size={12} />
@@ -72,8 +65,6 @@ type Ctx = {
   live: boolean
   onOpenDiff?: (path: string) => void
   onStopTask?: (taskId: string) => Promise<unknown>
-  /** Inside a subagent: its report is a detail here, so long text folds. */
-  nested?: boolean
 }
 
 const GROUP_ICON: Record<string, IconName> = {
@@ -153,7 +144,7 @@ function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
       {expanded ? (
         <ol className="act act--nested">
           {buildItems(children, ctx.root, ctx.live && !!s.running, null).map((i) => (
-            <ItemRow key={i.key} item={i} {...ctx} nested />
+            <ItemRow key={i.key} item={i} {...ctx} />
           ))}
         </ol>
       ) : null}
@@ -181,21 +172,14 @@ const OUT_LINES = 6
 /** Paths show as their file name (Codex app); the full path stays in the tooltip. */
 const FILE_TARGET = (a: Action) => a.family === 'edit' || (a.family === 'explore' && a.bucket === 'file')
 
-function ActionRow({
-  action: a,
-  open: opened,
-  toggle,
-  onOpenDiff,
-  onStopTask,
-  nested,
-}: { action: Action } & Ctx) {
+function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: { action: Action } & Ctx) {
   const s = a.step
   const open = !!opened[a.key]
   const onToggle = () => toggle(a.key)
   if (a.family === 'text')
     return (
       <li className="act-item act-text">
-        {nested ? <Clamp text={s.body ?? ''} /> : <Markdown text={s.body ?? ''} />}
+        <Markdown text={s.body ?? ''} />
       </li>
     )
   if (a.family === 'context')
@@ -318,32 +302,6 @@ function StopTask({
     >
       停止
     </Button>
-  )
-}
-
-function Clamp({ text }: { text: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [more, setMore] = useState(false)
-  const [all, setAll] = useState(false)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the text changes
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (el) setMore(el.scrollHeight > el.clientHeight + 1)
-  }, [text])
-  return (
-    <>
-      <div
-        ref={ref}
-        className={cx('act-clamp', !all && 'act-clamp--short', more && !all && 'act-clamp--fade')}
-      >
-        <Markdown text={text} />
-      </div>
-      {more || all ? (
-        <button type="button" className="act-detail__more" onClick={() => setAll(!all)}>
-          {all ? '收起' : '展开全文'}
-        </button>
-      ) : null}
-    </>
   )
 }
 

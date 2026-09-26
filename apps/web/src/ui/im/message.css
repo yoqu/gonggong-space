@@ -144,6 +144,11 @@
   left: auto;
   right: calc(100% + var(--space-8));
 }
+.pn-msg .pn-msg__actions[data-place="flip"] {
+  top: var(--actions-top);
+  left: auto;
+  right: 0;
+}
 .pn-msg--show-actions .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;

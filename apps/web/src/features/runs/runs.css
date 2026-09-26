@@ -18,6 +18,24 @@
   min-height: 32px;
   padding: var(--space-6) var(--space-12);
 }
+.run-rail__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.run-rail__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  white-space: nowrap;
+}
+.run-rail__fact svg {
+  flex: none;
+}
 .run-rail__val {
   min-width: 0;
   overflow: hidden;

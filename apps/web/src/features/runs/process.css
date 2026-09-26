@@ -166,14 +166,6 @@ button.act-row:hover {
 .act-del {
   color: var(--tint-red-text);
 }
-.act-clamp--short {
-  max-height: 7.5em;
-  overflow: hidden;
-}
-.act-clamp--fade {
-  mask-image: linear-gradient(to bottom, #000 60%, transparent);
-}
-
 .act-working {
   display: flex;
   align-items: center;

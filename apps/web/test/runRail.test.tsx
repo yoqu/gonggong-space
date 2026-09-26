@@ -285,9 +285,12 @@ describe('run rail', () => {
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
     const rail = await screen.findByTestId('run-rail')
     expect(await within(rail).findByText('本轮上下文')).toBeTruthy()
+    expect(rail.textContent).toContain('opus · 高')
+    // Machine and session id stay behind ⓘ.
+    expect(rail.textContent).not.toContain('wanglei-mbp')
+    fireEvent.click(within(rail).getByRole('button', { name: '机器与会话' }))
     expect(rail.textContent).toContain('wanglei-mbp')
     expect(rail.textContent).toContain('sess-7f3a')
-    expect(rail.textContent).toContain('opus · 高')
     // Context, outputs and thoughts stay one quiet line each until clicked (Codex / ZCode).
     expect(rail.textContent).not.toContain('git 默认动作')
     const ctx = within(rail).getByRole('button', { name: /本轮上下文/ })
@@ -358,6 +361,7 @@ describe('run rail', () => {
     expect(within(rail).getByText('code').tagName).toBe('CODE')
     expect(rail.textContent).not.toContain('**')
 
+    fireEvent.click(within(rail).getByRole('button', { name: '机器与会话' }))
     fireEvent.click(within(rail).getByRole('button', { name: '复制会话 ID' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('sess-7f3a'))
     writeText.mockRejectedValueOnce(new Error('denied'))
