@@ -85,6 +85,8 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       model: bot.model,
       effort: bot.effort,
       catalog: agent?.catalog ?? null,
+      approval: bot.approval as BotDto['approval'],
+      allowlist: bot.allowlist,
     }
   })
 }

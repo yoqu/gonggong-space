@@ -10,7 +10,7 @@
 | # | 决策 |
 |---|---|
 | J1 | 接入链接 `gonggong://bind?server=<url>&code=<XXXX-XXXX>[&fp=sha256:<hex>]`：既用来唤起客户端，也是粘贴用的文本 |
-| J2 | 唤起客户端引入 `tauri-plugin-deep-link` 2.4.10 和 `tauri-plugin-single-instance` 2.4.5（带 `deep-link` feature，Windows/Linux 靠它把链接转给已运行的实例），前端 `@tauri-apps/plugin-deep-link` 2.4.10（已用 `npm view` / crates.io 核实版本） |
+| J2 | 唤起客户端引入 `tauri-plugin-deep-link` 2.4.10 和 `tauri-plugin-single-instance` 2.4.5（带 `deep-link` feature，Windows/Linux 靠它把链接转给已运行的实例），前端 `@tauri-apps/plugin-deep-link` 2.4.10（已用 `npm view` / crates.io 核实版本）；读剪贴板另需 `tauri-plugin-clipboard-manager` / `@tauri-apps/plugin-clipboard-manager` 2.3.3（WebKit 的 `navigator.clipboard.readText()` 需要用户手势），只开 `allow-read-text`，只在输入框为空时预填 |
 | J3 | **链接不自动绑定**：客户端先显示服务器地址，用户点「绑定」后才登录，防止恶意链接把本机绑到陌生服务器。本机已经绑定时，提示先解绑 |
 | J4 | 服务端配置了 TLS 时，由服务端计算自身证书的 sha256 并放进 `BindCodeDto.fingerprint`，写入链接的 `fp`；没有 TLS 时为 null |
 | J5 | 客户端引导页只留一个输入框：接受接入链接，也接受完整的 `gg login --server … --code … [--fingerprint …]`。窗口获得焦点时读剪贴板，识别成功就预填 |

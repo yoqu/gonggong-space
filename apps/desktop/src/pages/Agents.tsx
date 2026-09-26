@@ -1,7 +1,7 @@
 import { type AgentKind, compareVersions } from '@gonggong/protocol'
 import { Button, GroupBox, GroupRow, Icon, Skeleton, Tag, toast } from '@web/ui'
 import { useCallback, useEffect, useState } from 'react'
-import { type AgentCard, type BotCard, ipc } from '../ipc'
+import { type AgentCard, ipc, type MachineBot } from '../ipc'
 import { AGENTS, VENDOR } from '../lib/labels'
 import { PathValue } from '../lib/ui'
 import { useDaemon } from '../store'
@@ -11,7 +11,7 @@ const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 
 export function AgentsPage(_: PageProps) {
   const [agents, setAgents] = useState<AgentCard[] | null>(null)
-  const [bots, setBots] = useState<BotCard[]>([])
+  const [bots, setBots] = useState<MachineBot[]>([])
   const [checking, setChecking] = useState<AgentKind | null>(null)
 
   const load = useCallback(() => ipc.agents().then(setAgents, fail), [])

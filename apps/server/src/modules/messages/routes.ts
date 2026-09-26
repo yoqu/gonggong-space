@@ -67,9 +67,15 @@ export function messageRoutes(ctx: Ctx) {
       const quoted = quote ? await resolveQuote(ctx, group.id, quote) : null
       const quotedBot = quoted?.botId
       const byQuote = quotedBot && inGroup.some((b) => b.id === quotedBot) ? [quotedBot] : []
-      const mentions = [...new Set([...parseMentions(body, inGroup), ...byQuote])]
+      const explicit = [...new Set([...parseMentions(body, inGroup), ...byQuote])]
+      // A dm with a single bot needs no @: plain messages and commands are addressed to it.
+      const soleDmBot = group.kind === 'dm' && inGroup.length === 1 && !target ? inGroup[0] : undefined
+      const mentions = !explicit.length && soleDmBot ? [soleDmBot.id] : explicit
       const parsed = parseCommand(body, inGroup)
-      const command = parsed && commands.get(parsed.name) ? parsed : null
+      const command =
+        parsed && commands.get(parsed.name)
+          ? { ...parsed, mentions: !parsed.mentions.length && soleDmBot ? [soleDmBot.id] : parsed.mentions }
+          : null
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.

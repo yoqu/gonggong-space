@@ -99,6 +99,8 @@ export function useCandidates(group: GroupDto, before: string | null) {
     .filter((x) => x.at >= 0)
     .sort((x, y) => x.at - y.at)
     .map((x) => x.b)
+  // A dm with a single bot needs no @: its commands and workspace files are offered right away.
+  if (!mentioned.length && group.kind === 'dm' && bots.length === 1) mentioned.push(...bots)
   const base = `/groups/${group.id}/candidates`
   const remoteFiles = useRemote<FileCandidatesDto>(
     token?.char === '@'

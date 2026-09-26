@@ -81,6 +81,20 @@ describe('system commands', () => {
     expect(await w.eventsText()).toEqual(['/new 需要同时 @ 一个 Bot，如 /new @小王的 Claude'])
   })
 
+  it('/new in a dm with a single bot targets it without an @', async () => {
+    const w = await world()
+    const dm = await t.seed.group({ createdBy: w.wang.id, kind: 'dm', botIds: [w.claude.id] })
+    await t.db.update(groupBots).set({ sessionId: 'sess-0' }).where(eq(groupBots.groupId, dm.id))
+    const res = await w.asWang.post<MessageDto>(`/api/groups/${dm.id}/messages`, {
+      body: '/new',
+      clientId: 'dm-new-client',
+    })
+    expect(res.body).toMatchObject({ body: '/new', mentions: [w.claude.id], runId: null })
+    const [row] = await t.db.select().from(groupBots).where(eq(groupBots.groupId, dm.id))
+    expect(row).toMatchObject({ sessionId: null, newSessionReason: 'requested' })
+    expect(await t.db.select().from(runs).where(eq(runs.groupId, dm.id))).toEqual([])
+  })
+
   it('the next dispatch opens a requested new session once, without the command in its context', async () => {
     const w = await world()
     await t.db.update(groupBots).set({ sessionId: 'sess-0' }).where(eq(groupBots.botId, w.claude.id))

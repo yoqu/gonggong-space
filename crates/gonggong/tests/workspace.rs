@@ -325,6 +325,8 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             tier: Tier::Workspace,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         },
         workspace: WorkspaceSpec {
             repo: Some(remote.spec("rp")),
@@ -394,6 +396,8 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
             tier: Tier::Full,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cd.to_string_lossy().into_owned()) },
         resume_session_id: None,

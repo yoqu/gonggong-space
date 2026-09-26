@@ -142,6 +142,8 @@ describe('forced password change', () => {
     renderAt('/')
     await screen.findByLabelText('初始密码')
     expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
+    // The workspace endpoints refuse until then; loading early only raised an error toast.
+    expect(calls.some((c) => c.path === '/bots')).toBe(false)
 
     fill('初始密码', 'init-pass')
     fill('新密码', 'new-pass-1')
@@ -153,6 +155,7 @@ describe('forced password change', () => {
     fill('确认新密码', 'new-pass-1')
     fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
     expect(await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })).toBeTruthy()
+    await waitFor(() => expect(calls.some((c) => c.path === '/bots')).toBe(true))
     expect(calls.find((c) => c.path === '/auth/password')?.body).toEqual({
       oldPassword: 'init-pass',
       newPassword: 'new-pass-1',

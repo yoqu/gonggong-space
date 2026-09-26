@@ -8,7 +8,8 @@ import { loadWorkspace, useWorkspace } from './workspace'
 
 export function RequireSession() {
   const { user, status, load } = useSession()
-  const userId = user?.id
+  // The workspace endpoints refuse a user who still has to change the initial password.
+  const userId = user && !user.mustChangePassword ? user.id : undefined
 
   useEffect(() => {
     if (status === 'idle') void load()

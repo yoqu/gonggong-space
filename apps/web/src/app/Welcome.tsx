@@ -31,7 +31,7 @@ export function Welcome({
       icon: 'laptop',
       color: 'var(--system-blue)',
       title: '绑定机器',
-      desc: '在你的机器上安装 gg 并用绑定码登录，Bot 就在这台机器上运行。',
+      desc: '在你的机器上安装共工客户端并打开接入链接，Bot 就在这台机器上运行。',
       action: '绑定机器',
       done: bound,
       onClick: onBindMachine,

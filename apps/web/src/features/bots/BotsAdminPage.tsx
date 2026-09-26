@@ -16,6 +16,7 @@ import {
   Presence,
   SearchField,
   SegmentedControl,
+  Stepper,
   Table,
   Tag,
   TextField,
@@ -29,6 +30,7 @@ import { TIER_LABEL } from '../runs/tier'
 import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
+import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
 import { AvatarPicker, BotAvatar, botAvatar } from './avatars'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
@@ -45,13 +47,14 @@ import './bots.css'
 
 const TIERS: Tier[] = ['read-only', 'workspace', 'full']
 const FULL_HINT = '完全访问档位只允许指定名单触发'
+const MAX_CONCURRENCY = 8
 
 function warning(bot: BotDto, userName: (id: string) => string) {
   const agent = AGENT_LABEL[bot.agentKind]
   if (bot.presence === 'pending_confirm')
     return {
       title: `等待 ${bot.ownerName} 确认`,
-      desc: `${userName(bot.createdBy)} 为${bot.ownerName}创建并绑定到 ${bot.machineName}。机器主人在 daemon 或 Web 通知中确认后才能被触发。`,
+      desc: `${userName(bot.createdBy)} 为${bot.ownerName}创建并绑定到 ${bot.machineName}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。`,
     }
   if (bot.presence === 'pending_bind')
     return {
@@ -106,11 +109,17 @@ export function BotDetail({
   const [list, setList] = useState(bot.triggerList)
   const [tier, setTier] = useState<Tier>(bot.tier)
   const [config, setConfig] = useState<AgentConfig>({ model: bot.model, effort: bot.effort })
+  const [concurrency, setConcurrency] = useState(bot.concurrency)
+  const [approval, setApproval] = useState<ApprovalValue>({
+    approval: bot.approval,
+    allowlist: bot.allowlist,
+  })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   /** false = closed; otherwise the folder the picker opens at. */
   const [picking, setPicking] = useState<string | null | false>(false)
-  const canEdit = me.id === bot.ownerId || me.role === 'sysadmin'
+  const owner = me.id === bot.ownerId
+  const canEdit = owner || me.role === 'sysadmin'
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '--'
   const idOf = (name: string) => users.find((u) => u.name === name)?.id
   const warn = warning(bot, userName)
@@ -128,6 +137,11 @@ export function BotDetail({
         // Unchanged values are left out: one the catalog no longer lists would be refused.
         ...(config.model !== bot.model && { model: config.model }),
         ...(config.effort !== bot.effort && { effort: config.effort }),
+        ...(concurrency !== bot.concurrency && { concurrency }),
+        // Only the owner may send these (plan J9).
+        ...(owner && approval.approval !== bot.approval && { approval: approval.approval }),
+        ...(owner &&
+          approval.allowlist.join('\n') !== bot.allowlist.join('\n') && { allowlist: approval.allowlist }),
       })
       toast({ type: 'success', message: `${bot.name} 已保存 · 下一次新开会话时生效` })
     } catch (e) {
@@ -282,7 +296,21 @@ export function BotDetail({
           />
         </FormRow>
 
-        <FormRow label="并发上限">{bot.concurrency} 个群并行</FormRow>
+        <FormRow label="并发上限" hint={canEdit ? '同时运行的轮次，超出的在本机排队' : undefined}>
+          {canEdit ? (
+            <Stepper
+              aria-label="并发上限"
+              min={1}
+              max={Math.max(MAX_CONCURRENCY, bot.concurrency)}
+              value={concurrency}
+              onChange={setConcurrency}
+              width={48}
+            />
+          ) : (
+            `${bot.concurrency} 个群并行`
+          )}
+        </FormRow>
+        <ApprovalFields owner={owner} value={approval} onChange={setApproval} />
         <FormRow label="所在群">{bot.groupCount} 个</FormRow>
         <FormRow label="agent 版本">
           <span className="bots-detail__mono">{agentCliVersion(bot)}</span>

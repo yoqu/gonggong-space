@@ -8,7 +8,7 @@ import WebSocket from 'ws'
 import { buildApp } from '../src/app.js'
 import { DaemonHub } from '../src/daemon/hub.js'
 import { Bus } from '../src/realtime/bus.js'
-import { tlsOptions } from '../src/tls.js'
+import { certFingerprint, tlsOptions } from '../src/tls.js'
 import { createTestDb } from './support/db.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'gonggong-tls-'))
@@ -35,6 +35,18 @@ describe('tlsOptions', () => {
     expect(out).toContain(`GONGGONG_TLS_CERT=${env.GONGGONG_TLS_CERT}`)
     expect(out).toContain(`sha256:${fp.split('=')[1]!.trim()}`)
   })
+
+  it('fingerprints the certificate as sha256:<lowercase hex> of its DER bytes', () => {
+    const fp = execFileSync(
+      'openssl',
+      ['x509', '-in', env.GONGGONG_TLS_CERT, '-noout', '-fingerprint', '-sha256'],
+      {
+        encoding: 'utf8',
+      },
+    )
+    const hex = fp.split('=')[1]!.trim().replaceAll(':', '').toLowerCase()
+    expect(certFingerprint(ca)).toBe(`sha256:${hex}`)
+  })
 })
 
 describe('server over TLS', () => {
@@ -47,7 +59,7 @@ describe('server over TLS', () => {
       bus: new Bus(),
       hub: new DaemonHub(),
       now: () => new Date(),
-      config: { heartbeatSec: 15, secureCookies: true },
+      config: { heartbeatSec: 15, secureCookies: true, fingerprint: null },
     }
     const app = await buildApp(ctx, { https: tlsOptions(env) })
     await app.listen({ port: 0, host: '127.0.0.1' })

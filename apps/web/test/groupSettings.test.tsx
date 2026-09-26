@@ -59,6 +59,8 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: null,
   groupCount: 1,
   defaultWorkspace: null,
+  approval: 'ask',
+  allowlist: [],
   model: null,
   effort: null,
   catalog: null,

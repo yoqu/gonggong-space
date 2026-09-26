@@ -272,28 +272,31 @@ describe('confirm', () => {
     expect(audits).toHaveLength(1)
   })
 
-  it('the daemon lists and confirms its bots with the machine token', async () => {
-    const { bot, token, wang, machine } = await pending()
+  it('the daemon only lists its bots; the machine token cannot confirm or change them', async () => {
+    const { bot, token, wang } = await pending()
     const auth = { authorization: `Bearer ${token}` }
     expect((await t.app.inject({ url: '/api/daemon/bots' })).statusCode).toBe(401)
     const list = await t.app.inject({ url: '/api/daemon/bots', headers: auth })
     expect(list.json<BotDto[]>().map((b) => [b.name, b.binding])).toEqual([
       ['小王的 Codex', 'pending_confirm'],
     ])
-    const ok = await t.app.inject({
+    const confirm = await t.app.inject({
       method: 'POST',
       url: `/api/daemon/bots/${bot.id}/confirm`,
       headers: auth,
     })
-    expect(ok.json()).toMatchObject({ binding: 'bound' })
-
-    const other = await t.seed.machine(wang.user.id)
-    const foreign = await t.app.inject({
-      method: 'POST',
-      url: `/api/daemon/bots/${bot.id}/confirm`,
-      headers: { authorization: `Bearer ${other.token}` },
+    expect(confirm.statusCode).toBe(404)
+    const patch = await t.app.inject({
+      method: 'PATCH',
+      url: `/api/daemon/bots/${bot.id}`,
+      payload: { concurrency: 4 },
+      headers: auth,
     })
-    expect(foreign.statusCode).toBe(404)
+    expect(patch.statusCode).toBe(404)
+    expect((await wang.req('GET', `/api/bots/${bot.id}`)).json<BotDto>()).toMatchObject({
+      binding: 'pending_confirm',
+      concurrency: bot.concurrency,
+    })
 
     const revoked = await t.seed.machine(wang.user.id, { revokedAt: new Date() })
     const denied = await t.app.inject({
@@ -301,7 +304,6 @@ describe('confirm', () => {
       headers: { authorization: `Bearer ${revoked.token}` },
     })
     expect(denied.statusCode).toBe(401)
-    expect(machine.id).toBeTruthy()
   })
 })
 
@@ -339,38 +341,6 @@ describe('agents.update', () => {
     expect(row?.agents).toEqual([...CLAUDE, codex])
     expect(await presence()).toBe('online')
     ws.close()
-  })
-})
-
-describe('PATCH /api/daemon/bots/:id', () => {
-  it('the machine changes the concurrency of its own bots, audited as the owner', async () => {
-    const wang = await actor({ name: '王磊' })
-    const { machine, token } = await t.seed.machine(wang.user.id)
-    const bot = await t.seed.bot({ ownerId: wang.user.id, machineId: machine.id, concurrency: 2 })
-    const seen = events(wang.user.id)
-    const patch = (id: string, payload: object, tok = token) =>
-      t.app.inject({
-        method: 'PATCH',
-        url: `/api/daemon/bots/${id}`,
-        payload,
-        headers: { authorization: `Bearer ${tok}` },
-      })
-
-    const res = await patch(bot.id, { concurrency: 4 })
-    expect(res.statusCode).toBe(200)
-    expect(res.json<BotDto>().concurrency).toBe(4)
-    expect(botEvents(seen).at(-1)?.concurrency).toBe(4)
-    const audits = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.concurrency'))
-    expect(audits).toMatchObject([
-      { category: 'admin', actorUserId: wang.user.id, detail: { botId: bot.id, from: 2, to: 4 } },
-    ])
-
-    expect((await patch(bot.id, { concurrency: 0 })).statusCode).toBe(400)
-    expect((await patch(bot.id, { tier: 'full' })).statusCode).toBe(400)
-    expect((await t.app.inject({ method: 'PATCH', url: `/api/daemon/bots/${bot.id}` })).statusCode).toBe(401)
-    const other = await t.seed.machine(wang.user.id)
-    expect((await patch(bot.id, { concurrency: 1 }, other.token)).statusCode).toBe(404)
-    expect((await patch('nope', { concurrency: 1 })).statusCode).toBe(404)
   })
 })
 

@@ -12,6 +12,8 @@
   "dependencies": {
     "@gonggong/protocol": "workspace:*",
     "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-clipboard-manager": "2.3.3",
+    "@tauri-apps/plugin-deep-link": "2.4.10",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zustand": "5.0.15"

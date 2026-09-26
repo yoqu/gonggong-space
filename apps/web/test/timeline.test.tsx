@@ -70,6 +70,8 @@ const bot: BotDto = {
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  approval: 'ask',
+  allowlist: [],
   model: null,
   effort: null,
   catalog: null,

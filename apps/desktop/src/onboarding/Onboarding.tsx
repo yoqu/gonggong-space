@@ -1,72 +1,80 @@
-import type { AgentInfo } from '@gonggong/protocol'
-import { Alert, Button, Checkbox, EmptyState, Form, FormRow, GroupBox, Icon, Input, Tag } from '@web/ui'
-import { useState } from 'react'
+import { Alert, Button, Form, FormRow, GroupBox, GroupRow, Input } from '@web/ui'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import logo from '../assets/logo.svg'
-import { ipc, type MachineBot } from '../ipc'
-import { AGENTS } from '../lib/labels'
+import { type BindLink, ipc } from '../ipc'
+import { host } from '../lib/labels'
 import { TitleBar } from '../shell/TitleBar'
 import { refreshInfo } from '../store'
 
-const STEPS = 3
-const NEXT = ['登录', '上报并继续', '完成']
-
-/** First-run flow: bind code → detect agents (reported on connect) → confirm bots assigned to this machine. */
-export function Onboarding({ onDone }: { onDone: () => void }) {
-  const [step, setStep] = useState(0)
-  const [server, setServer] = useState('')
-  const [code, setCode] = useState('')
-  const [agents, setAgents] = useState<AgentInfo[] | null>(null)
-  const [checking, setChecking] = useState(false)
-  const [bots, setBots] = useState<MachineBot[]>([])
-  const [picked, setPicked] = useState<Set<string>>(new Set())
+/**
+ * First run, one screen (plan J5, J6): paste the 接入链接 or `gg login` command from the Web — or have it prefilled
+ * from the clipboard or an opened link — check the server, then 绑定. Nothing binds without the click (plan J3).
+ */
+export function Onboarding({ link, onDone }: { link: { url: string } | null; onDone: () => void }) {
+  const [text, setText] = useState('')
+  const [parsed, setParsed] = useState<BindLink | null>(null)
+  const [invalid, setInvalid] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const normalized = code.trim().toUpperCase()
+  // Parses resolve out of order; only the latest input counts.
+  const latest = useRef('')
 
-  const detect = async () => {
-    setChecking(true)
-    try {
-      setAgents(await ipc.detectAgents())
-    } finally {
-      setChecking(false)
+  const update = useCallback(async (value: string) => {
+    latest.current = value
+    setText(value)
+    setError('')
+    if (!value.trim()) {
+      setParsed(null)
+      setInvalid('')
+      return
     }
-  }
+    try {
+      const result = await ipc.parseLink(value)
+      if (latest.current !== value) return
+      setParsed(result)
+      setInvalid('')
+    } catch (e) {
+      if (latest.current !== value) return
+      setParsed(null)
+      setInvalid(String(e))
+    }
+  }, [])
 
-  const steps = [
-    async () => {
-      await ipc.login(server.trim(), normalized)
-      await refreshInfo()
-      await detect()
-    },
-    async () => {
-      await ipc.startDaemon()
-      const pending = (await ipc.machineBots()).filter((b) => b.binding === 'pending_confirm')
-      setBots(pending)
-      setPicked(new Set(pending.map((b) => b.id)))
-    },
-    async () => {
-      if (picked.size) await ipc.confirmBots([...picked])
-      onDone()
-    },
-  ]
+  useEffect(() => {
+    if (link) update(link.url)
+  }, [link, update])
 
-  const next = async () => {
+  // Coming back from the browser with a freshly copied link fills an empty input; a link being reviewed stays put.
+  useEffect(() => {
+    const fromClipboard = async () => {
+      if (latest.current.trim()) return
+      const clip = (await ipc.readClipboard().catch(() => '')).trim()
+      if (!clip) return
+      const ok = await ipc.parseLink(clip).then(
+        () => true,
+        () => false,
+      )
+      if (ok) update(clip)
+    }
+    fromClipboard()
+    window.addEventListener('focus', fromClipboard)
+    return () => window.removeEventListener('focus', fromClipboard)
+  }, [update])
+
+  const bind = async () => {
+    if (!parsed) return
     setBusy(true)
     setError('')
     try {
-      await steps[step]?.()
-      if (step < 2) setStep(step + 1)
+      await ipc.login(parsed)
+      await ipc.startDaemon()
+      await refreshInfo()
+      onDone()
     } catch (e) {
       setError(String(e))
-    } finally {
       setBusy(false)
     }
   }
-
-  const disabled =
-    busy ||
-    (step === 0 && (!server.trim() || !normalized)) ||
-    (step === 1 && !agents?.some((a) => a.available))
 
   return (
     <>
@@ -74,141 +82,39 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       <div className="dk-onboarding">
         <div className="dk-onboarding__panel">
           <img className="dk-onboarding__logo" src={logo} alt="" width={64} height={64} />
-          <div className="dk-steps">
-            {Array.from({ length: STEPS }, (_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: fixed step count
-              <span key={i} className="dk-steps__dot" data-done={i <= step || undefined} />
-            ))}
-            <span>
-              第 {step + 1} 步，共 {STEPS} 步
-            </span>
-          </div>
-          {step === 0 ? (
-            <>
-              <h1 className="dk-onboarding__title">绑定到团队服务器</h1>
-              <p className="dk-onboarding__desc">
-                在 Web
-                端头像菜单选择「绑定新机器」生成一次性绑定码。绑定后本机归属于你，所有连接均由本机向外发起。
-              </p>
-              <Form aria-label="绑定到团队服务器">
-                <FormRow label="服务器">
-                  <Input
-                    aria-label="服务器"
-                    mono
-                    value={server}
-                    placeholder="https://gonggong.corp.cn"
-                    onChange={(e) => setServer(e.target.value)}
-                  />
-                </FormRow>
-                <FormRow
-                  label="绑定码"
-                  hint={`等价命令：gg login --server ${server.trim() || '<服务器>'} --code ${normalized || '<绑定码>'}`}
-                >
-                  <Input
-                    aria-label="绑定码"
-                    mono
-                    className="dk-code-input"
-                    value={code}
-                    placeholder="K7QM-4X2P"
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                </FormRow>
-              </Form>
-            </>
+          <h1 className="dk-onboarding__title">绑定到团队服务器</h1>
+          <p className="dk-onboarding__desc">
+            在 Web
+            端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。
+          </p>
+          <Form aria-label="绑定到团队服务器">
+            <FormRow label="接入链接" hint={invalid || undefined}>
+              <Input
+                aria-label="接入链接"
+                mono
+                invalid={!!invalid}
+                value={text}
+                placeholder="粘贴网页上复制的接入链接或 gg login 命令"
+                onChange={(e) => update(e.target.value)}
+              />
+            </FormRow>
+          </Form>
+          {parsed ? (
+            <GroupBox>
+              <GroupRow label="服务器" wideValue value={host(parsed.server)} />
+              <GroupRow label="绑定码" value={parsed.code} />
+              {parsed.fingerprint ? (
+                <GroupRow label="证书" description={parsed.fingerprint} value="已固定证书指纹" />
+              ) : null}
+            </GroupBox>
           ) : null}
-          {step === 1 ? (
-            <>
-              <h1 className="dk-onboarding__title">检测本机 agent</h1>
-              <p className="dk-onboarding__desc">
-                未安装的 agent 可以稍后在「Agent」页安装并重新检测；依赖它的 Bot
-                在此之前不能被触发。至少需要一个可用 agent 才能继续。
-              </p>
-              <GroupBox>
-                {agents?.map((a) => (
-                  <AgentRow key={a.kind} agent={a} checking={checking} onRecheck={detect} />
-                ))}
-              </GroupBox>
-            </>
-          ) : null}
-          {step === 2 ? (
-            <>
-              <h1 className="dk-onboarding__title">确认 Bot</h1>
-              <p className="dk-onboarding__desc">
-                你自己创建的 Bot
-                已直接绑定到本机，无需操作。以下由管理员为你创建并指定到本机，确认后才能被触发。
-              </p>
-              <GroupBox>
-                {bots.length === 0 ? <EmptyState compact icon="bot" title="没有待确认的 Bot" /> : null}
-                {bots.map((b) => (
-                  <div key={b.id} className="dk-row">
-                    <span className="dk-tile" style={{ background: 'var(--system-indigo)' }}>
-                      <Icon name="bot" size={16} />
-                    </span>
-                    <div className="dk-row__main">
-                      <span className="dk-strong">{b.name}</span>
-                      <span className="dk-sub">
-                        {[AGENTS[b.agentKind].name, b.systemPrompt].filter(Boolean).join(' · ')}
-                      </span>
-                    </div>
-                    <Checkbox
-                      label={<span className="dk-sr-only">{b.name}</span>}
-                      checked={picked.has(b.id)}
-                      onChange={(on) => {
-                        const s = new Set(picked)
-                        if (on) s.add(b.id)
-                        else s.delete(b.id)
-                        setPicked(s)
-                      }}
-                    />
-                  </div>
-                ))}
-              </GroupBox>
-            </>
-          ) : null}
+          {parsed ? <p className="dk-footnote">请确认这是你们团队的服务器，再点「绑定」。</p> : null}
           {error ? <Alert variant="error" description={error} /> : null}
-          <Button variant="primary" size="xlarge" fullWidth disabled={disabled} onClick={next}>
-            {NEXT[step]}
+          <Button variant="primary" size="xlarge" fullWidth disabled={!parsed || busy} onClick={bind}>
+            {busy ? '绑定中…' : '绑定'}
           </Button>
         </div>
       </div>
-    </>
-  )
-}
-
-function AgentRow({
-  agent,
-  checking,
-  onRecheck,
-}: {
-  agent: AgentInfo
-  checking: boolean
-  onRecheck: () => void
-}) {
-  const meta = AGENTS[agent.kind]
-  const color = agent.available ? 'var(--system-green)' : 'var(--system-orange)'
-  const tone = checking ? 'blue' : agent.available ? 'green' : 'orange'
-  return (
-    <>
-      <div className="dk-row">
-        <Icon name={agent.available ? 'checkmark-circle' : 'warning'} size={18} color={color} />
-        <div className="dk-row__main">
-          <span className="dk-strong">
-            {agent.available ? `${meta.name} ${agent.version ?? ''}`.trim() : meta.name}
-          </span>
-          <span className="dk-sub dk-mono dk-ellipsis">
-            {agent.path ?? '未在 PATH、~/.local/bin、/opt/homebrew/bin 中找到'}
-          </span>
-        </div>
-        <Tag tone={tone}>{checking ? '检测中…' : agent.available ? '可用' : '未安装'}</Tag>
-      </div>
-      {agent.available ? null : (
-        <div className="dk-row dk-row--sub">
-          <code className="dk-install__cmd dk-row__main">{meta.install}</code>
-          <Button disabled={checking} onClick={onRecheck}>
-            {checking ? '检测中…' : '重新检测'}
-          </Button>
-        </div>
-      )}
     </>
   )
 }

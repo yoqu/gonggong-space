@@ -24,7 +24,7 @@ export function OverviewPage(_: PageProps) {
   useEffect(() => {
     if (kind !== 'ok') return
     const load = () => {
-      ipc.machineBots().then(setBots, () => {})
+      ipc.bots().then(setBots, () => {})
       ipc.overview().then(setOverview, () => {})
     }
     load()

@@ -33,5 +33,5 @@
 
 - daemon 按 category 找选项（不写死 id），每轮开始时：bot 模型 → agent 默认模型 → 会话建立时的值；与当前值不同才调用一次，先模型后强度。无效值不失败，侧栏状态写「本机设置的模型 X 不可用：…」。两个适配器都支持，未实现 env 兜底（`ANTHROPIC_MODEL` / `CODEX_CONFIG.model`）。
 - 每次 `session/new` 把适配器报告的模型与强度写入 `<home>/models.json`，供 CLI / 桌面端下拉。
-- 本机设置在 `<home>/local.json`（agent 路径、默认模型、强度；bot 模型、命令审批、白名单），每轮读取，改动下一轮生效；并发上限在服务器（`PATCH /api/daemon/bots/:id`）。
-- 命令审批（D15）：`full` 档自动放行；`all` 全部放行；`allowlist` 只放行 execute 类工具、`rawInput.command` 以白名单前缀开头（按词边界、空白归一），且不含未加引号的 `; & | < > ( )`、换行、反引号、`$(`。实测 `node -e "console.log(6*7)"` 无审批卡直接执行，侧栏「已按本机规则自动批准：…」；`node -e … && echo hi` 仍走主人审批。两个适配器的 execute 权限请求都带 `rawInput.command`（字符串）。
+- 本机设置 `<home>/local.json` 只剩 agent 路径；命令审批、白名单、并发上限都在服务器（Bot 主人在 Web 修改），命令审批与白名单随 `run.start` 下发，下一轮生效。
+- 命令审批（D15）：`full` 档自动放行；`all` 全部放行；`allowlist` 只放行 execute 类工具、`rawInput.command` 以白名单前缀开头（按词边界、空白归一），且不含未加引号的 `; & | < > ( )`、换行、反引号、`$(`。实测 `node -e "console.log(6*7)"` 无审批卡直接执行，侧栏「已按命令审批规则自动批准：…」；`node -e … && echo hi` 仍走主人审批。两个适配器的 execute 权限请求都带 `rawInput.command`（字符串）。

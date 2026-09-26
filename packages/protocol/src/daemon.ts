@@ -1,5 +1,15 @@
 import { z } from 'zod'
-import { AgentKind, Answer, Approval, Attachment, GitStatus, Question, RunStatus, Tier, Usage } from './common.js'
+import {
+  AgentKind,
+  Answer,
+  Approval,
+  Attachment,
+  GitStatus,
+  Question,
+  RunStatus,
+  Tier,
+  Usage,
+} from './common.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1

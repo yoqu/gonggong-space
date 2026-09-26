@@ -403,6 +403,7 @@ fn output_tail(content: &[ToolCallContent]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::Approval;
     use agent_client_protocol::schema::v1::{
         ContentChunk, Cost, SessionInfoUpdate, TextContent, ToolCall, ToolCallLocation, ToolCallStatus,
         ToolCallUpdateFields, UsageUpdate,
@@ -458,6 +459,8 @@ mod tests {
             tier: Tier::Workspace,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));

@@ -19,6 +19,29 @@ pub enum Tier {
     ReadOnly,
 }
 
+/// 命令审批: what happens to permission requests beyond the bot's tier; set by the bot owner on the Web (plan J8).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Approval {
+    /// 每次询问: every request goes to the bot owner.
+    #[default]
+    Ask,
+    /// 白名单自动: commands starting with an allowlisted prefix are approved here.
+    Allowlist,
+    /// 全部自动: every request is approved here.
+    All,
+}
+
+impl Approval {
+    pub fn label(self) -> &'static str {
+        match self {
+            Approval::Ask => "每次询问",
+            Approval::Allowlist => "白名单自动",
+            Approval::All => "全部自动",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
@@ -254,6 +277,11 @@ pub struct RunBot {
     pub model: Option<String>,
     #[serde(default)]
     pub effort: Option<String>,
+    #[serde(default)]
+    pub approval: Approval,
+    /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
+    #[serde(default)]
+    pub allowlist: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

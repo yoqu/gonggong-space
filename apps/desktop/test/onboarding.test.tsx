@@ -1,127 +1,118 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
-import { ipc } from '../src/ipc'
+import { type BindLink, ipc } from '../src/ipc'
 import { Onboarding } from '../src/onboarding/Onboarding'
 import { INFO } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
-const CLAUDE = {
-  kind: 'claude',
-  available: true,
-  version: '2.1.4',
-  path: '/opt/homebrew/bin/claude',
-  minVersion: '2.0.0',
-  catalog: null,
-} as const
-const CODEX_MISSING = {
-  kind: 'codex',
-  available: false,
-  version: null,
-  path: null,
-  minVersion: '0.40.0',
-  catalog: null,
-} as const
+const LINK = 'gonggong://bind?server=https%3A%2F%2Fgonggong.corp.cn&code=K7QM-4X2P'
+const COMMAND = 'gg login --server https://gonggong.corp.cn --code k7qm-4x2p'
+const PARSED: BindLink = { server: 'https://gonggong.corp.cn', code: 'K7QM-4X2P', fingerprint: null }
+const PINNED: BindLink = { ...PARSED, fingerprint: 'sha256:AB:CD' }
 
 beforeEach(() => {
   vi.clearAllMocks()
   m.appInfo.mockResolvedValue(INFO)
   m.login.mockResolvedValue()
   m.startDaemon.mockResolvedValue()
-  m.confirmBots.mockResolvedValue()
+  m.readClipboard.mockResolvedValue('')
+  m.parseLink.mockImplementation(async (input) => {
+    if (input.trim() === LINK || input.trim() === COMMAND) return PARSED
+    if (input.includes('fp=')) return PINNED
+    throw '无法识别：请粘贴接入链接或 gg login 命令'
+  })
 })
 
-async function bind() {
-  fireEvent.change(screen.getByLabelText('服务器'), { target: { value: 'https://gonggong.corp.cn' } })
-  fireEvent.change(screen.getByLabelText('绑定码'), { target: { value: 'k7qm-4x2p' } })
-  fireEvent.click(screen.getByRole('button', { name: '登录' }))
+const input = () => screen.getByLabelText('接入链接') as HTMLInputElement
+const bindButton = () => screen.getByRole('button', { name: '绑定' })
+
+function paste(text: string) {
+  fireEvent.change(input(), { target: { value: text } })
 }
 
 describe('onboarding', () => {
-  it('binds with the code and shows the equivalent CLI command', async () => {
-    m.detectAgents.mockResolvedValue([CLAUDE])
-    render(<Onboarding onDone={() => {}} />)
-    expect(screen.getByText('绑定到团队服务器')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '登录' })).toHaveProperty('disabled', true)
-    await bind()
-    expect(
-      screen.getByText('等价命令：gg login --server https://gonggong.corp.cn --code K7QM-4X2P'),
-    ).toBeTruthy()
-    await screen.findByText('检测本机 agent')
-    expect(m.login).toHaveBeenCalledWith('https://gonggong.corp.cn', 'K7QM-4X2P')
-  })
-
-  it('shows why binding failed and stays on the first step', async () => {
-    m.login.mockRejectedValue('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
-    render(<Onboarding onDone={() => {}} />)
-    await bind()
-    await screen.findByText('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
-    expect(screen.getByText('绑定到团队服务器')).toBeTruthy()
-  })
-
-  it('lists agents with install hints, rechecks and needs one available agent', async () => {
-    m.detectAgents.mockResolvedValueOnce([
-      { ...CLAUDE, available: false, version: null, path: null },
-      CODEX_MISSING,
-    ])
-    render(<Onboarding onDone={() => {}} />)
-    await bind()
-    await screen.findByText('检测本机 agent')
-    expect(screen.getAllByText('未安装')).toHaveLength(2)
-    expect(screen.getByText('npm install -g @openai/codex')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '上报并继续' })).toHaveProperty('disabled', true)
-
-    m.detectAgents.mockResolvedValueOnce([CLAUDE, CODEX_MISSING])
-    fireEvent.click(screen.getAllByRole('button', { name: '重新检测' })[0] as HTMLElement)
-    await screen.findByText('Claude Code 2.1.4')
-    expect(screen.getByText('可用')).toBeTruthy()
-    expect(screen.getByText('/opt/homebrew/bin/claude')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '上报并继续' })).toHaveProperty('disabled', false)
-  })
-
-  it('reports agents, then confirms the checked bots and finishes', async () => {
-    m.detectAgents.mockResolvedValue([CLAUDE])
-    m.machineBots.mockResolvedValue([
-      {
-        id: 'b0',
-        name: '我的 Claude',
-        agentKind: 'claude',
-        binding: 'bound',
-        presence: 'online',
-        systemPrompt: '',
-        concurrency: 1,
-      },
-      {
-        id: 'b1',
-        name: '小王的 Claude',
-        agentKind: 'claude',
-        binding: 'pending_confirm',
-        presence: 'pending_confirm',
-        systemPrompt: '后端接口开发',
-        concurrency: 2,
-      },
-      {
-        id: 'b2',
-        name: '小王的 Codex',
-        agentKind: 'codex',
-        binding: 'pending_confirm',
-        presence: 'pending_confirm',
-        systemPrompt: '',
-        concurrency: 1,
-      },
-    ])
+  it('parses a pasted command, shows the server and binds on 绑定', async () => {
     const onDone = vi.fn()
-    render(<Onboarding onDone={onDone} />)
-    await bind()
-    fireEvent.click(await screen.findByRole('button', { name: '上报并继续' }))
-    await screen.findByText('确认 Bot')
-    expect(m.startDaemon).toHaveBeenCalled()
-    expect(screen.queryByText('我的 Claude')).toBeNull()
-    expect(screen.getByText('Claude Code · 后端接口开发')).toBeTruthy()
-    fireEvent.click(screen.getByLabelText('小王的 Codex'))
-    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    render(<Onboarding link={null} onDone={onDone} />)
+    expect(screen.getByText('绑定到团队服务器')).toBeTruthy()
+    expect(input().placeholder).toBe('粘贴网页上复制的接入链接或 gg login 命令')
+    expect(bindButton()).toHaveProperty('disabled', true)
+
+    paste(COMMAND)
+    await screen.findByText('gonggong.corp.cn')
+    expect(screen.getByText('K7QM-4X2P')).toBeTruthy()
+    expect(screen.queryByText('已固定证书指纹')).toBeNull()
+    expect(m.login).not.toHaveBeenCalled()
+
+    fireEvent.click(bindButton())
     await waitFor(() => expect(onDone).toHaveBeenCalled())
-    expect(m.confirmBots).toHaveBeenCalledWith(['b1'])
+    expect(m.login).toHaveBeenCalledWith(PARSED)
+    expect(m.startDaemon).toHaveBeenCalled()
+    expect(m.appInfo).toHaveBeenCalled()
+  })
+
+  it('says why the input is not a link and keeps 绑定 disabled', async () => {
+    render(<Onboarding link={null} onDone={() => {}} />)
+    paste('K7QM-4X2P')
+    await screen.findByText('无法识别：请粘贴接入链接或 gg login 命令')
+    expect(bindButton()).toHaveProperty('disabled', true)
+  })
+
+  it('shows a pinned certificate and why binding failed', async () => {
+    m.login.mockRejectedValue('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
+    const onDone = vi.fn()
+    render(<Onboarding link={null} onDone={onDone} />)
+    paste(`${LINK}&fp=sha256:ab:cd`)
+    await screen.findByText('已固定证书指纹')
+    fireEvent.click(bindButton())
+    await screen.findByText('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
+    expect(m.login).toHaveBeenCalledWith(PINNED)
+    expect(onDone).not.toHaveBeenCalled()
+  })
+
+  it('prefills from the clipboard when the window gets focus', async () => {
+    render(<Onboarding link={null} onDone={() => {}} />)
+    m.readClipboard.mockResolvedValue(`  ${LINK}\n`)
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await screen.findByText('gonggong.corp.cn')
+    expect(input().value).toBe(LINK)
+    expect(m.login).not.toHaveBeenCalled()
+  })
+
+  it('leaves the input alone when the clipboard holds something else', async () => {
+    m.readClipboard.mockResolvedValue('hello')
+    render(<Onboarding link={null} onDone={() => {}} />)
+    paste(COMMAND)
+    await screen.findByText('gonggong.corp.cn')
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(input().value).toBe(COMMAND)
+  })
+
+  it('never replaces a link already in the input with another one from the clipboard', async () => {
+    const other = 'gonggong://bind?server=https%3A%2F%2Fother.corp&code=AAAA-BBBB&fp=sha256:ab'
+    render(<Onboarding link={{ url: LINK }} onDone={() => {}} />)
+    await screen.findByText('gonggong.corp.cn')
+    m.readClipboard.mockResolvedValue(other)
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(input().value).toBe(LINK)
+  })
+
+  it('prefills an opened link but binds only on 绑定', async () => {
+    const onDone = vi.fn()
+    render(<Onboarding link={{ url: LINK }} onDone={onDone} />)
+    await screen.findByText('gonggong.corp.cn')
+    expect(input().value).toBe(LINK)
+    expect(m.login).not.toHaveBeenCalled()
+    fireEvent.click(bindButton())
+    await waitFor(() => expect(onDone).toHaveBeenCalled())
+    expect(m.login).toHaveBeenCalledWith(PARSED)
   })
 })

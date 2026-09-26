@@ -16,12 +16,13 @@ import {
   TextField,
   toast,
 } from '../../ui'
+import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/BindMachineDialog'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { AGENT_AVATAR, AvatarPicker } from './avatars'
 import { WorkspacePath } from './BotsAdminPage'
-import { AGENT_LABEL, AGENTS, BINDING_LABEL, botsApi, reportedAgent } from './model'
+import { AGENT_LABEL, AGENTS, botsApi, reportedAgent } from './model'
 
 interface Props {
   me: UserDto
@@ -63,7 +64,17 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
   }
 }
 
-function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ModalAction; children: ReactNode }) {
+function Shell({
+  onClose,
+  cta,
+  actions,
+  children,
+}: {
+  onClose: () => void
+  cta?: ModalAction
+  actions?: ModalAction[]
+  children: ReactNode
+}) {
   return (
     <Dialog
       open
@@ -72,10 +83,12 @@ function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ModalAct
       message="创建时直接绑定到归属人的机器"
       onClose={onClose}
       closeOnBackdrop={false}
-      actions={[
-        { label: '取消', onClick: onClose },
-        cta ?? { label: '创建', variant: 'primary', disabled: true },
-      ]}
+      actions={
+        actions ?? [
+          { label: '取消', onClick: onClose },
+          cta ?? { label: '创建', variant: 'primary', disabled: true },
+        ]
+      }
     >
       {children}
     </Dialog>
@@ -84,11 +97,41 @@ function Shell({ onClose, cta, children }: { onClose: () => void; cta?: ModalAct
 
 const RESULT_VARIANT = { pending: 'info', warn: 'warning', ok: 'success', confirm: 'info' } as const
 
+/** What to do after creating: follows the live bot, so binding a machine or bringing it online updates it. */
+function NextStep({ created, self }: { created: BotDto; self: boolean }) {
+  const bot = useWorkspace((s) => s.bots.find((b) => b.id === created.id)) ?? created
+  const bindHere = self && bot.binding === 'pending_bind'
+  const bind = useBindCode(bindHere)
+  const agent = AGENT_LABEL[bot.agentKind]
+  const next: { tone: keyof typeof RESULT_VARIANT; desc: string } =
+    bot.binding === 'pending_confirm'
+      ? { tone: 'confirm', desc: `已发送确认通知给 ${bot.ownerName}` }
+      : bot.binding === 'pending_bind'
+        ? {
+            tone: 'pending',
+            desc: self
+              ? `在要运行 Bot 的机器上用共工客户端打开接入链接，绑定并上报 ${agent} 后自动可用。`
+              : `${bot.ownerName} 绑定第一台机器并上报 ${agent} 后自动可用。`,
+          }
+        : bot.presence === 'offline'
+          ? { tone: 'warn', desc: `机器 ${bot.machineName} 当前离线，打开该机器上的共工客户端后即可使用` }
+          : bot.presence === 'agent_missing'
+            ? { tone: 'warn', desc: `${bot.machineName} 未上报 ${agent}。在该机器安装并重新检测后自动可用。` }
+            : { tone: 'ok', desc: '已就绪，可以在群里 @ 它了' }
+  return (
+    <>
+      <Alert variant={RESULT_VARIANT[next.tone]} title={`${bot.name} 已创建`} description={next.desc} />
+      {bindHere ? <BindCodePanel bind={bind} /> : null}
+    </>
+  )
+}
+
 /** 新建 Bot (管理后台.dc.html): owner → machine → agent → name/prompt, previewing the resulting binding. */
 export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
+  const [created, setCreated] = useState<BotDto | null>(null)
   const [picking, setPicking] = useState<string | null | false>(false)
   const live = useWorkspace((s) => s.machines)
   const formId = useId()
@@ -112,6 +155,12 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   }, [me.id])
 
   const owner = owners?.find((o) => o.id === draft?.ownerId)
+  if (created)
+    return (
+      <Shell onClose={onClose} actions={[{ label: '完成', variant: 'primary', onClick: onClose }]}>
+        <NextStep created={created} self={created.ownerId === me.id} />
+      </Shell>
+    )
   if (!owners || !draft || !owner)
     return (
       <Shell onClose={onClose}>
@@ -150,7 +199,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         : {
             tone: 'confirm',
             title: `等待 ${owner.name} 确认`,
-            desc: `已绑定到 ${m.name}。机器上的操作由主人负责，${owner.name} 在 daemon 或 Web 通知中一键确认后即可触发。`,
+            desc: `已绑定到 ${m.name}。机器上的操作由主人负责，${owner.name} 在 Web 通知中一键确认后即可触发。`,
           }
 
   const create = async () => {
@@ -170,9 +219,8 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         await botsApi
           .setDefaultWorkspace(bot.id, draft.workspace)
           .catch((e: Error) => toast({ type: 'error', message: `默认工作区未设置：${e.message}` }))
-      toast({ type: 'success', message: `${bot.name} 已创建 · ${BINDING_LABEL[bot.binding]}` })
       onCreated?.(bot)
-      onClose()
+      setCreated(bot)
     } catch (e) {
       toast({ type: 'error', message: (e as Error).message })
       setBusy(false)

@@ -1,6 +1,6 @@
 import type { AgentCatalog, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
@@ -76,6 +76,8 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: '2.0.0',
   groupCount: 0,
   defaultWorkspace: null,
+  approval: 'ask',
+  allowlist: [],
   model: null,
   effort: null,
   catalog: null,
@@ -223,6 +225,8 @@ describe('新建 Bot', () => {
     expect((within(avatars).getByRole('radio', { name: '星芒' }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(within(avatars).getByRole('radio', { name: '猫耳' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
+    expect(await within(dialog).findByText('已就绪，可以在群里 @ 它了')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls.find((c) => c.key === 'POST /api/bots')?.body).toEqual({
       name: '小王的 Claude',
@@ -235,6 +239,54 @@ describe('新建 Bot', () => {
       effort: null,
     })
     expect(screen.getAllByText('小王的 Claude').length).toBeGreaterThan(0)
+  })
+
+  it('says to open the desktop app when the machine is offline', async () => {
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [{ ...mbp, online: false }] }]
+    routes['POST /api/bots'] = () => bot({ presence: 'offline' })
+    renderAt('/', wang)
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
+    expect(
+      await within(dialog).findByText('机器 wanglei-mbp 当前离线，打开该机器上的共工客户端后即可使用'),
+    ).toBeTruthy()
+  })
+
+  it('hands out the 接入链接 right away when I have no machine yet', async () => {
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [] }]
+    routes['POST /api/bots'] = () =>
+      bot({ machineId: null, machineName: null, binding: 'pending_bind', presence: 'pending_bind' })
+    routes['POST /api/bind-codes'] = () => ({
+      code: 'K7QM-4X2P',
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      fingerprint: null,
+      link: 'gonggong://bind?server=x&code=K7QM-4X2P',
+    })
+    renderAt('/', wang)
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
+    const open = await within(dialog).findByRole('link', { name: '在客户端中打开' })
+    expect(open.getAttribute('href')).toBe('gonggong://bind?server=x&code=K7QM-4X2P')
+    expect(within(dialog).getByRole('button', { name: '复制接入链接' })).toBeTruthy()
+  })
+
+  it('tells an admin the owner was asked to confirm', async () => {
+    routes['GET /api/bots/owners'] = () => [
+      { id: 'u9', name: '陈晨', machines: [] },
+      { id: 'u1', name: '王磊', machines: [mbp] },
+    ]
+    routes['POST /api/bots'] = () =>
+      bot({ createdBy: 'u9', binding: 'pending_confirm', presence: 'pending_confirm' })
+    renderAt('/admin/bots', admin)
+    fireEvent.click(screen.getAllByRole('button', { name: '新建 Bot…' })[0]!)
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '归属人' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '王磊 · 1 台机器' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建并发送确认' }))
+    expect(await within(dialog).findByText('已发送确认通知给 王磊')).toBeTruthy()
+    expect(within(dialog).queryByRole('link', { name: '在客户端中打开' })).toBeNull()
   })
 
   it('picks the model and thought level the machine reports', async () => {
@@ -334,6 +386,73 @@ describe('bot detail', () => {
         tier: 'full',
       }),
     )
+  })
+
+  it('lets the owner set concurrency and command approval with an allowlist', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    expect((within(detail).getByRole('spinbutton', { name: '并发上限' }) as HTMLInputElement).value).toBe('2')
+    fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
+    expect(within(detail).getByRole('radio', { name: '每次询问' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).queryByRole('combobox', { name: '命令白名单' })).toBeNull()
+    fireEvent.click(within(detail).getByRole('radio', { name: '白名单自动' }))
+    const field = within(detail).getByRole('combobox', { name: '命令白名单' })
+    for (const t of ['  go   build ', 'pnpm test', 'go build']) {
+      fireEvent.change(field, { target: { value: t } })
+      fireEvent.keyDown(field, { key: 'Enter' })
+    }
+    expect(within(detail).getByText(/以这些前缀开头的命令自动批准/)).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({
+        concurrency: 3,
+        approval: 'allowlist',
+        allowlist: ['go build', 'pnpm test'],
+      }),
+    )
+  })
+
+  it('shows command approval read-only to a sysadmin who is not the owner', async () => {
+    routes['GET /api/bots'] = () => [bot({ approval: 'allowlist', allowlist: ['go build'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/admin/bots', admin)
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    expect(within(detail).queryByRole('radio', { name: '每次询问' })).toBeNull()
+    expect(within(detail).getByText('白名单自动 · go build')).toBeTruthy()
+    expect(within(detail).getByText('只有 Bot 主人能修改命令审批')).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
+    const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
+    expect(body.concurrency).toBe(3)
+    expect('approval' in body || 'allowlist' in body).toBe(false)
+  })
+
+  it('opens a bot from the ?bot= deep link and leaves the URL', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    // Home redirects to the last group; the dialog must survive that.
+    routes['GET /api/groups'] = () => [
+      { id: 'g1', name: '退款 v2 迁移', kind: 'group', members: [], botIds: [], unread: 0, lastSeq: 0 },
+    ]
+    useSession.setState({ user: wang, status: 'ready' })
+    let search = ''
+    let pathname = ''
+    function Probe() {
+      ;({ search, pathname } = useLocation())
+      return null
+    }
+    render(
+      <MemoryRouter initialEntries={['/?bot=b1']}>
+        <App />
+        <Probe />
+      </MemoryRouter>,
+    )
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    expect(within(detail).getByText('小王的 Claude')).toBeTruthy()
+    await waitFor(() => expect([pathname, search]).toEqual(['/g/g1', '']))
+    expect(screen.getByRole('complementary', { name: 'Bot 详情' })).toBeTruthy()
   })
 
   it('changes the default model, keeping a thought level the new model offers', async () => {

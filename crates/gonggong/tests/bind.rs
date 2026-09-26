@@ -120,3 +120,61 @@ fn machine_info_describes_this_host() {
     assert!(sys.cpu_cores.unwrap() > 0);
     assert!(sys.os_version.is_some());
 }
+
+const FP: &str =
+    "sha256:ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89";
+const FP_CANONICAL: &str =
+    "sha256:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89";
+
+fn link(server: &str, code: &str, fingerprint: Option<&str>) -> bind::Link {
+    bind::Link { server: server.into(), code: code.into(), fingerprint: fingerprint.map(Into::into) }
+}
+
+#[test]
+fn parses_the_bind_link() {
+    let parsed = bind::parse_link("gonggong://bind?server=https%3A%2F%2Fgonggong.corp.cn%2F&code=k7qm-4x2p").unwrap();
+    assert_eq!(parsed, link("https://gonggong.corp.cn", "K7QM-4X2P", None));
+    let with_fp = format!("  gonggong://bind?code=K7QM-4X2P&server=http%3A%2F%2F127.0.0.1%3A8080&fp={FP}\n");
+    assert_eq!(bind::parse_link(&with_fp).unwrap(), link("http://127.0.0.1:8080", "K7QM-4X2P", Some(FP_CANONICAL)));
+    let sub_path = "gonggong://bind?server=https%3A%2F%2Fg.corp%2Fgonggong%2F&code=K7QM-4X2P";
+    assert_eq!(bind::parse_link(sub_path).unwrap(), link("https://g.corp/gonggong", "K7QM-4X2P", None));
+}
+
+#[test]
+fn parses_the_login_command() {
+    let plain = "gg login --server https://gonggong.corp.cn/ --code k7qm-4x2p";
+    assert_eq!(bind::parse_link(plain).unwrap(), link("https://gonggong.corp.cn", "K7QM-4X2P", None));
+    let mixed = format!("\n gg login --code=K7QM-4X2P \\\n  --fingerprint '{FP}' --server=\"https://g.corp:8443\"  \n");
+    assert_eq!(bind::parse_link(&mixed).unwrap(), link("https://g.corp:8443", "K7QM-4X2P", Some(FP_CANONICAL)));
+    let quoted = "gg login 'gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P'";
+    assert_eq!(bind::parse_link(quoted).unwrap(), link("https://g.corp", "K7QM-4X2P", None));
+}
+
+#[test]
+fn rejects_anything_else() {
+    for input in [
+        "",
+        "K7QM-4X2P",
+        "https://gonggong.corp.cn/?code=K7QM-4X2P",
+        "gonggong://unbind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P",
+        "gonggong://bind?code=K7QM-4X2P",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM",
+        "gonggong://bind?server=file%3A%2F%2F%2Fetc&code=K7QM-4X2P",
+        // Same rule as login: plain http only to this machine.
+        "gonggong://bind?server=http%3A%2F%2F10.0.0.5%3A8080&code=K7QM-4X2P",
+        // Userinfo, query or fragment would be glued into every request URL.
+        "gonggong://bind?server=https%3A%2F%2Fgood%40evil.example&code=K7QM-4X2P",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp%2F%3Fx%3D1&code=K7QM-4X2P",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp%2F%23x&code=K7QM-4X2P",
+        "gonggong://bind?server=null&code=K7QM-4X2P",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P&fp=sha256:zz",
+        "gg logout --server https://g.corp --code K7QM-4X2P",
+        "gg login --server https://g.corp",
+        "gg login --server https://g.corp --code K7QM-4X2P --token x",
+        "gg login --server --code K7QM-4X2P",
+        "rm -rf / ; gg login --server https://g.corp --code K7QM-4X2P",
+    ] {
+        assert!(bind::parse_link(input).is_err(), "{input:?}");
+    }
+}

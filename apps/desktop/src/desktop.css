@@ -411,27 +411,3 @@ code,
 .dk-onboarding .ui-field {
   min-width: 0;
 }
-.dk-steps {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-6);
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-}
-.dk-steps__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-capsule);
-  background: var(--control-track);
-}
-.dk-steps__dot[data-done] {
-  background: var(--accent);
-}
-.dk-steps__dot:last-of-type {
-  margin-right: var(--space-4);
-}
-.dk-code-input {
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}

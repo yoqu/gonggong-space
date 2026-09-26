@@ -4,7 +4,7 @@ import './ipc-mock'
 import { type DaemonStatus, ipc } from '../src/ipc'
 import { OverviewPage } from '../src/pages/Overview'
 import { useDaemon } from '../src/store'
-import { INFO, run, status } from './ipc-mock'
+import { bot, INFO, run, status } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
@@ -16,25 +16,16 @@ function show(s: DaemonStatus) {
 beforeEach(() => {
   vi.clearAllMocks()
   m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · /cd 1 · 1.8 GB' } })
-  m.machineBots.mockResolvedValue([
-    {
-      id: 'b1',
-      name: '小王的 Claude',
-      agentKind: 'claude',
-      binding: 'bound',
-      presence: 'running',
-      systemPrompt: '',
-      concurrency: 2,
-    },
-    {
+  m.bots.mockResolvedValue([
+    bot({ presence: 'running' }),
+    bot({
       id: 'b2',
       name: '小王的 Codex',
       agentKind: 'codex',
       binding: 'pending_confirm',
       presence: 'pending_confirm',
-      systemPrompt: '',
       concurrency: 1,
-    },
+    }),
   ])
 })
 

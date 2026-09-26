@@ -72,6 +72,22 @@ describe('send message', () => {
     expect(triggerRuns).not.toHaveBeenCalled()
   })
 
+  it('targets the only bot of a dm without an explicit @', async () => {
+    const s = await setup()
+    const dm = await t.seed.group({ createdBy: s.wang.id, kind: 'dm', botIds: [s.claude.id] })
+    const res = await send(s.asWang, dm.id, '帮我看下这个报错')
+    expect(res.body.mentions).toEqual([s.claude.id])
+    expect(triggerRuns).toHaveBeenCalledTimes(1)
+  })
+
+  it('still requires an @ in a dm with several bots', async () => {
+    const s = await setup()
+    const dm = await t.seed.group({ createdBy: s.wang.id, kind: 'dm', botIds: [s.claude.id, s.small.id] })
+    expect((await send(s.asWang, dm.id, '帮我看下')).body.mentions).toEqual([])
+    expect((await send(s.asWang, dm.id, '@小王 帮我看下')).body.mentions).toEqual([s.small.id])
+    expect(triggerRuns).toHaveBeenCalledTimes(1)
+  })
+
   it('ignores bots removed from the group', async () => {
     const s = await setup()
     await s.asWang.del(`/api/groups/${s.g.id}/bots/${s.codex.id}`)

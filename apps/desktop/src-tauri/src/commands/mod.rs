@@ -16,11 +16,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
     tauri::generate_handler![
         shell::app_info,
         shell::snapshot,
+        onboarding::parse_link,
         onboarding::login,
-        onboarding::detect_agents,
         onboarding::start_daemon,
-        onboarding::machine_bots,
-        onboarding::confirm_bots,
         overview::overview,
         overview::run_process,
         settings::get_settings,
@@ -39,7 +37,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         agents::pick_agent_path,
         agents::reset_agent_path,
         bots::bots,
-        bots::save_bot,
+        bots::open_bot_in_web,
     ]
 }
 

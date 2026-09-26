@@ -1,21 +1,9 @@
-import type { AgentInfo, BindCodeDto, MachineDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import type { AgentInfo, MachineDto } from '@gonggong/protocol'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import {
-  Alert,
-  Button,
-  Dialog,
-  Form,
-  FormRow,
-  Icon,
-  IconButton,
-  Spinner,
-  StepIndicator,
-  type StepStatus,
-  toast,
-} from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus, toast } from '../../ui'
+import { BindCodePanel, useBindCode } from './BindCodePanel'
 import './machines.css'
 
 export const OS_LABEL: Record<MachineDto['os'], string> = {
@@ -25,40 +13,13 @@ export const OS_LABEL: Record<MachineDto['os'], string> = {
 }
 export const AGENT_LABEL: Record<AgentInfo['kind'], string> = { claude: 'Claude Code', codex: 'Codex' }
 
-const mmss = (ms: number) => {
-  const s = Math.floor(ms / 1000)
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-}
-
-function useNow(active: boolean) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!active) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [active])
-  return now
-}
-
-/** 绑定新机器 (Web 对话.dc.html ovBind): one-time code → daemon login → machine/agents reported. */
+/** 绑定新机器 (Web 对话.dc.html ovBind): 接入链接 → desktop app binds → machine/agents reported. */
 export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [code, setCode] = useState<BindCodeDto | null>(null)
-  const [error, setError] = useState('')
   const [bound, setBound] = useState<MachineDto | null>(null)
   /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
   const known = useRef<Map<string, string> | null>(null)
-  const now = useNow(open && !!code && !bound)
-
-  const generate = useCallback(async () => {
-    setCode(null)
-    setError('')
-    try {
-      setCode(await api.post<BindCodeDto>('/bind-codes'))
-    } catch (err) {
-      setError(errorText(err))
-    }
-  }, [])
+  const bind = useBindCode(open, !!bound)
+  const { code, error, expired } = bind
 
   useEffect(() => {
     if (!open) return
@@ -67,7 +28,6 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
     void api.get<MachineDto[]>('/machines').then((list) => {
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
     })
-    void generate()
     return realtime.subscribe((e) => {
       if (e.t !== 'machine.updated') return
       const m = e.machine
@@ -81,27 +41,23 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
             : null,
       )
     })
-  }, [open, generate])
+  }, [open])
 
-  const remaining = code ? Date.parse(code.expiresAt) - now : 0
-  const expired = !!code && !bound && remaining <= 0
   const waiting = !!code && !bound && !expired
-  const command = code ? `gg login --server ${location.origin} --code ${code.code}` : ''
   const steps: { label: string; status: StepStatus }[] = [
-    { label: '生成绑定码', status: code || bound ? 'completed' : error ? 'error' : 'active' },
+    { label: '生成接入链接', status: code || bound ? 'completed' : error ? 'error' : 'active' },
     {
-      label: '机器登录',
+      label: '客户端绑定',
       status: bound ? 'completed' : expired ? 'error' : waiting ? 'active' : 'pending',
     },
     { label: '上报机器与 agent', status: bound ? (bound.online ? 'completed' : 'active') : 'pending' },
-    { label: '确认 Bot', status: bound?.online ? 'completed' : 'pending' },
   ]
 
   return (
     <Dialog
       open={open}
       title="绑定新机器"
-      message="在机器上用一次性绑定码登录 gg，Bot 就在这台机器上运行。"
+      message="在共工客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。"
       width={520}
       onClose={onClose}
       actions={[
@@ -113,69 +69,26 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
         {bound ? (
           <BoundMachine machine={bound} />
         ) : (
-          <Form>
-            <FormRow
-              label="绑定码"
-              hint={code && !expired ? `一次性绑定码 · ${mmss(remaining)} 后失效` : undefined}
-            >
-              {expired ? (
-                <span className="bind__code-line">
-                  <span className="bind__expired">绑定码已失效</span>
-                  <Button size="small" onClick={() => void generate()}>
-                    重新生成
-                  </Button>
-                </span>
-              ) : code ? (
-                <span className="bind__code" data-testid="bind-code">
-                  {code.code}
-                </span>
-              ) : error ? (
-                <span className="bind__code-line">
-                  <Alert variant="error" description={error} />
-                  <Button size="small" onClick={() => void generate()}>
-                    重试
-                  </Button>
-                </span>
-              ) : (
-                <Spinner size={18} />
-              )}
-            </FormRow>
-            <FormRow label="登录命令" align="top" hint="在机器的终端里执行，或粘贴到共工桌面端。">
-              <div className="bind__cmd">
-                <span className="bind__cmd-text">{command || '—'}</span>
-                <IconButton
-                  title="复制命令"
-                  disabled={!waiting}
-                  onClick={() =>
-                    void navigator.clipboard
-                      ?.writeText(command)
-                      .then(() => toast({ type: 'success', message: '已复制绑定命令' }))
-                  }
-                >
-                  <Icon name="copy" />
-                </IconButton>
-              </div>
-            </FormRow>
-            <FormRow align="top">
-              {waiting ? (
-                <span className="bind__waiting">
-                  <Spinner size={14} />
-                  等待机器用绑定码登录…
-                </span>
-              ) : null}
-              <p className="bind__note">
-                绑定后该机器归属于你，gg 会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
-                Codex；同一台机器重新绑定会恢复原记录。还没安装 gg？
-                <button
-                  type="button"
-                  className="bind__link"
-                  onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建 gg' })}
-                >
-                  下载 macOS / Linux / Windows 版
-                </button>
-              </p>
-            </FormRow>
-          </Form>
+          <>
+            <BindCodePanel bind={bind} />
+            {waiting ? (
+              <span className="bind__waiting">
+                <Spinner size={14} />
+                等待客户端确认绑定…
+              </span>
+            ) : null}
+            <p className="bind__note">
+              绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
+              Codex；同一台机器重新绑定会恢复原记录。还没安装共工客户端？
+              <button
+                type="button"
+                className="bind__link"
+                onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建' })}
+              >
+                下载 macOS / Linux / Windows 版
+              </button>
+            </p>
+          </>
         )}
       </div>
     </Dialog>
@@ -210,11 +123,13 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
               ))}
             </ul>
           ) : machine.online ? (
-            <span className="bind__note">未检测到 Claude Code / Codex，安装后执行 gg run 重启即可上报。</span>
+            <span className="bind__note">
+              未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。
+            </span>
           ) : (
             <span className="bind__waiting">
               <Spinner size={14} />
-              等待上报 agent…在机器上执行 gg run 启动
+              等待上报 agent…在机器上打开共工客户端
             </span>
           )}
         </FormRow>

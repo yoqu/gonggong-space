@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
+import { type BindCodeDto, PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, bindCodes, machines } from '../src/db/schema.js'
@@ -73,6 +73,52 @@ describe('bind codes', () => {
     expect(Date.parse(expiresAt)).toBe(clock + 10 * 60_000)
     const res = await t.app.inject({ method: 'POST', url: '/api/bind-codes' })
     expect(res.statusCode).toBe(401)
+  })
+
+  it('returns the 接入链接 for the origin the browser uses, without a fingerprint over plain HTTP', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/bind-codes',
+      headers: { cookie, origin: 'http://192.168.1.5:5173' },
+    })
+    const { code, fingerprint, link } = res.json<BindCodeDto>()
+    expect(fingerprint).toBeNull()
+    expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://192.168.1.5:5173')}&code=${code}`)
+  })
+
+  it('falls back to the request host when there is no Origin header', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/bind-codes',
+      headers: { cookie, host: 'gonggong.lan:8787' },
+    })
+    const { code, link } = res.json<BindCodeDto>()
+    expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://gonggong.lan:8787')}&code=${code}`)
+  })
+
+  it('ignores an opaque Origin: null (sandboxed pages)', async () => {
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/bind-codes',
+      headers: { cookie, origin: 'null', host: 'gonggong.lan:8787' },
+    })
+    const { code, link } = res.json<BindCodeDto>()
+    expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://gonggong.lan:8787')}&code=${code}`)
+  })
+
+  it('adds the TLS certificate fingerprint to the link', async () => {
+    const fp = `sha256:${'ab'.repeat(32)}`
+    t.ctx.config.fingerprint = fp
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/bind-codes',
+      headers: { cookie, origin: 'https://gonggong.lan' },
+    })
+    const { code, fingerprint, link } = res.json<BindCodeDto>()
+    expect(fingerprint).toBe(fp)
+    expect(link).toBe(
+      `gonggong://bind?server=${encodeURIComponent('https://gonggong.lan')}&code=${code}&fp=${encodeURIComponent(fp)}`,
+    )
   })
 })
 

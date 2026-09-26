@@ -84,6 +84,24 @@ function useLinkedRun() {
   }, [run, file, setParams])
 }
 
+/** `?bot=<id>` (the desktop app's 在 Web 中管理) opens that bot's dialog, then leaves the URL. */
+function useLinkedBot(open: (id: string) => void) {
+  const [params, setParams] = useSearchParams()
+  const bot = params.get('bot')
+  useEffect(() => {
+    if (!bot) return
+    open(bot)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('bot')
+        return next
+      },
+      { replace: true },
+    )
+  }, [bot, open, setParams])
+}
+
 export function ChatPage() {
   const { groupId } = useParams()
   const navigate = useNavigate()
@@ -116,6 +134,7 @@ export function ChatPage() {
     [groupId],
   )
   useLinkedRun()
+  useLinkedBot(setOpenBotId)
   useEffect(() => {
     if (group) rememberGroup(group.id)
   }, [group])

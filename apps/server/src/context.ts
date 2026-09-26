@@ -7,5 +7,5 @@ export interface Ctx {
   bus: Bus
   hub: DaemonHub
   now: () => Date
-  config: { heartbeatSec: number; secureCookies: boolean }
+  config: { heartbeatSec: number; secureCookies: boolean; fingerprint: string | null }
 }

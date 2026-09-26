@@ -10,6 +10,7 @@ const m = vi.mocked(ipc)
 beforeEach(() => {
   vi.clearAllMocks()
   m.agents.mockResolvedValue([CLAUDE, CODEX])
+  m.openBotInWeb.mockResolvedValue()
   m.bots.mockResolvedValue([
     bot({}),
     bot({
@@ -20,78 +21,43 @@ beforeEach(() => {
       presence: 'pending_confirm',
       concurrency: 1,
       approval: 'allowlist',
-      allowlist: ['go build'],
+      allowlist: ['go build', 'npm test'],
     }),
   ])
-  m.confirmBots.mockResolvedValue()
-  m.saveBot.mockResolvedValue()
 })
 
 const card = async (name: string) => within((await screen.findByText(name)).closest('.dk-bot') as HTMLElement)
 
-it('lists the bots with their local settings and warnings', async () => {
+it('shows the server settings of each bot read-only', async () => {
   const go = vi.fn()
   render(<BotsPage go={go} />)
   const claude = await card('小王的 Claude')
   expect(claude.getByText('在线')).toBeTruthy()
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
   expect(claude.getByText('每次询问')).toBeTruthy()
+  expect(claude.queryByText('命令白名单')).toBeNull()
 
   const codex = await card('小王的 Codex')
   expect(codex.getByText('待确认')).toBeTruthy()
+  expect(codex.getByText('他人为你创建，请在 Web 中确认')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
   expect(codex.getByText('白名单自动')).toBeTruthy()
+  expect(codex.getByText('go build、npm test')).toBeTruthy()
   expect(codex.getByText('本机未安装 Codex，该 Bot 暂不能执行')).toBeTruthy()
   fireEvent.click(codex.getByRole('button', { name: '前往 Agent' }))
   expect(go).toHaveBeenCalledWith('agents')
 
-  fireEvent.click(codex.getByRole('button', { name: '确认' }))
-  await waitFor(() => expect(m.confirmBots).toHaveBeenCalledWith(['b2']))
-  expect(m.bots).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('button', { name: '设置…' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '确认' })).toBeNull()
+  expect(screen.getByText(/Bot 的全部设置都在 Web 端管理/)).toBeTruthy()
 })
 
-it('edits the concurrency and command approval of a bot', async () => {
+it('opens each bot on the Web to manage or confirm it', async () => {
   render(<BotsPage go={() => {}} />)
-  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
-  const dialog = within(screen.getByRole('dialog'))
-  expect(dialog.getByText('小王的 Claude · 本机设置')).toBeTruthy()
-  const agent = dialog.getByRole('button', { name: '使用 agent' })
-  expect(agent.textContent).toContain('Claude Code · 2.1.4')
-  expect(agent).toHaveProperty('disabled', true)
-  expect(dialog.getByText(/切换 agent 会结束该 Bot 在各群的会话上下文/)).toBeTruthy()
-  expect(dialog.queryByRole('button', { name: '模型' })).toBeNull()
-  fireEvent.click(dialog.getByRole('button', { name: '增加' }))
-  expect(dialog.getByRole('spinbutton', { name: '并发上限' }).getAttribute('aria-valuenow')).toBe('3')
-  fireEvent.click(dialog.getByRole('radio', { name: '白名单自动' }))
-  const input = dialog.getByPlaceholderText('命令前缀，如 go build')
-  fireEvent.change(input, { target: { value: 'npm  test' } })
-  fireEvent.keyDown(input, { key: 'Enter' })
-  fireEvent.change(input, { target: { value: 'node -e' } })
-  fireEvent.keyDown(input, { key: 'Enter' })
-  fireEvent.click(dialog.getByRole('button', { name: '移除 npm test' }))
-  fireEvent.click(dialog.getByRole('button', { name: '保存' }))
-
-  await waitFor(() =>
-    expect(m.saveBot).toHaveBeenCalledWith('b1', {
-      approval: 'allowlist',
-      allowlist: ['node -e'],
-      concurrency: 3,
-    }),
-  )
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-})
-
-it('saves only local settings when the concurrency is unchanged', async () => {
-  m.bots.mockResolvedValue([bot({ approval: 'all' })])
-  render(<BotsPage go={() => {}} />)
-  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '设置…' }))
-  const dialog = within(screen.getByRole('dialog'))
-  fireEvent.click(dialog.getByRole('button', { name: '保存' }))
-  await waitFor(() =>
-    expect(m.saveBot).toHaveBeenCalledWith('b1', {
-      approval: 'all',
-      allowlist: [],
-      concurrency: null,
-    }),
-  )
+  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '在 Web 中管理' }))
+  await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b1'))
+  const codex = await card('小王的 Codex')
+  expect(codex.queryByRole('button', { name: '在 Web 中管理' })).toBeNull()
+  fireEvent.click(codex.getByRole('button', { name: '在 Web 中确认' }))
+  await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
 })

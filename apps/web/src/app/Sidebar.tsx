@@ -107,7 +107,12 @@ function SetupGuide({
   onNewGroup?: () => void
 }) {
   const steps = [
-    { label: '绑定机器', hint: '在机器上安装 gg，用绑定码关联账号', done: bound, onClick: onBindMachine },
+    {
+      label: '绑定机器',
+      hint: '在机器上安装共工客户端，打开接入链接关联账号',
+      done: bound,
+      onClick: onBindMachine,
+    },
     { label: '新建 Bot', hint: '选择机器上的 Claude Code 或 Codex', done: hasBot, onClick: onNewBot },
     { label: '建群并 @ Bot', hint: '拉上同事、绑定仓库，分配任务', done: inGroup, onClick: onNewGroup },
   ]

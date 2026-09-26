@@ -8,7 +8,7 @@ import {
   UpdateMachineReq,
 } from '@gonggong/protocol'
 import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -35,6 +35,18 @@ const IP_WINDOW_MS = 10 * 60_000
 const randomCode = () => {
   const c = Array.from({ length: 8 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('')
   return `${c.slice(0, 4)}-${c.slice(4)}`
+}
+
+/** The server as the browser reaches it (the web already tells daemons to use `location.origin`). */
+const publicOrigin = (req: FastifyRequest) => {
+  const { origin } = req.headers
+  return origin && origin !== 'null' ? origin : `${req.protocol}://${req.host}`
+}
+
+/** Plan J1: `gonggong://bind?server=…&code=…[&fp=sha256:…]`. */
+function bindLink(server: string, code: string, fingerprint: string | null) {
+  const fp = fingerprint ? `&fp=${encodeURIComponent(fingerprint)}` : ''
+  return `gonggong://bind?server=${encodeURIComponent(server)}&code=${code}${fp}`
 }
 
 export function machineRoutes(ctx: Ctx) {
@@ -89,7 +101,11 @@ export function machineRoutes(ctx: Ctx) {
           .values({ code: randomCode(), userId: user.id, expiresAt, createdAt: ctx.now() })
           .onConflictDoNothing()
           .returning()
-        if (row) return { code: row.code, expiresAt: row.expiresAt.toISOString() }
+        if (row) {
+          const { fingerprint } = ctx.config
+          const link = bindLink(publicOrigin(req), row.code, fingerprint)
+          return { code: row.code, expiresAt: row.expiresAt.toISOString(), fingerprint, link }
+        }
       }
     })
 
