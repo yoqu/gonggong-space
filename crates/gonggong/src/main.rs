@@ -2,10 +2,9 @@ use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
 use gonggong::bind::machine_info;
 use gonggong::config::{self, Config};
-use gonggong::configure::{self, BotChange};
+use gonggong::configure;
 use gonggong::daemon::{Daemon, Options};
 use gonggong::diag::Status;
-use gonggong::local::Approval;
 use gonggong::logs::LogLevel;
 use gonggong::protocol::AgentKind;
 use gonggong::protocol::RejectReason;
@@ -24,12 +23,16 @@ struct Cli {
 enum Cmd {
     /// List agent CLIs detected on this machine.
     Agents,
-    /// Bind this machine to your account with a one-time code from the Web (头像菜单 → 绑定新机器).
+    /// Bind this machine to your account with a one-time code from the Web (头像菜单 → 绑定新机器): pass the 接入链接
+    /// (gg login 'gonggong://bind?…') or --server and --code.
     Login {
-        #[arg(long)]
-        server: String,
-        #[arg(long)]
-        code: String,
+        /// The 接入链接 copied from the Web.
+        #[arg(conflicts_with_all = ["server", "code", "fingerprint"], required_unless_present_all = ["server", "code"])]
+        link: Option<String>,
+        #[arg(long, requires = "code")]
+        server: Option<String>,
+        #[arg(long, requires = "server")]
+        code: Option<String>,
         /// Expected server certificate SHA-256 (sha256:AB:CD:…) as published by the admin; without it the certificate
         /// presented now is trusted and printed for you to compare.
         #[arg(long)]
@@ -45,11 +48,8 @@ enum Cmd {
         #[arg(long, env = "GONGGONG_ADAPTER_CMD", hide = true)]
         adapter_cmd: Option<String>,
     },
-    /// List the bots bound to this machine.
-    Bots {
-        #[command(subcommand)]
-        cmd: Option<BotsCmd>,
-    },
+    /// List the bots bound to this machine (they are managed on the Web).
+    Bots,
     /// Measure latency and bandwidth to the server and report them (shown to admins only).
     Net,
     /// Check the server connection, agents, git credentials, disk and line endings.
@@ -88,31 +88,6 @@ enum ConfigCmd {
         kind: AgentKind,
         #[arg(long)]
         path: String,
-    },
-    /// A bot's command approval and concurrency.
-    Bot {
-        /// Bot name or id.
-        target: String,
-        /// ask = 每次询问, allowlist = 白名单自动, all = 全部自动.
-        #[arg(long, value_enum)]
-        approval: Option<Approval>,
-        /// Add a command prefix to the allowlist, e.g. "go build" (repeatable).
-        #[arg(long)]
-        allow: Vec<String>,
-        /// Remove a command prefix from the allowlist (repeatable).
-        #[arg(long)]
-        disallow: Vec<String>,
-        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=8))]
-        concurrency: Option<u32>,
-    },
-}
-
-#[derive(Subcommand)]
-enum BotsCmd {
-    /// Confirm a bot someone else created for you on this machine.
-    Confirm {
-        /// Bot name or id.
-        target: String,
     },
 }
 
@@ -158,7 +133,15 @@ async fn main() -> anyhow::Result<()> {
     };
     match cli.cmd {
         Cmd::Agents => configure::print_agents(&config::home())?,
-        Cmd::Login { server, code, fingerprint } => {
+        Cmd::Login { link, server, code, fingerprint } => {
+            let (server, code, fingerprint) = match (link, server, code) {
+                (Some(link), _, _) => {
+                    let link = gonggong::bind::parse_link(&link)?;
+                    (link.server, link.code, link.fingerprint)
+                }
+                (None, Some(server), Some(code)) => (server, code, fingerprint),
+                _ => unreachable!("clap requires a link or --server and --code"),
+            };
             let machine = machine_info();
             let (config, restored) =
                 gonggong::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
@@ -201,8 +184,7 @@ async fn main() -> anyhow::Result<()> {
             }
             std::process::exit(1);
         }
-        Cmd::Bots { cmd: None } => gonggong::bots::list(&config()?).await?,
-        Cmd::Bots { cmd: Some(BotsCmd::Confirm { target }) } => gonggong::bots::confirm(&config()?, &target).await?,
+        Cmd::Bots => gonggong::bots::list(&config()?).await?,
         Cmd::Net => {
             let r = gonggong::net::run(&config()?).await?;
             println!("延迟 {} ms · 带宽 {} Mbps（已上报服务器，仅管理员可见）", r.latency_ms, r.bandwidth_mbps);
@@ -260,10 +242,6 @@ async fn main() -> anyhow::Result<()> {
             println!("已导出诊断包 {}（{}）", dest.display(), names.join("、"));
         }
         Cmd::Config { cmd: ConfigCmd::Agent { kind, path } } => configure::agent(&config::home(), kind, path)?,
-        Cmd::Config { cmd: ConfigCmd::Bot { target, approval, allow, disallow, concurrency } } => {
-            let change = BotChange { approval, allow, disallow, concurrency };
-            configure::bot(&config()?, &config::home(), &target, change).await?
-        }
     }
     Ok(())
 }

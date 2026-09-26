@@ -74,6 +74,8 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   agentMinVersion: null,
   groupCount: 0,
   defaultWorkspace: null,
+  approval: 'ask',
+  allowlist: [],
   model: null,
   effort: null,
   catalog: null,
@@ -292,6 +294,8 @@ describe('sidebar', () => {
       'POST /bind-codes': () => ({
         code: 'K7QM-4X2P',
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        fingerprint: null,
+        link: 'gonggong://bind?server=x&code=K7QM-4X2P',
       }),
       'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }],
     })
@@ -299,7 +303,7 @@ describe('sidebar', () => {
     const main = screen.getByRole('main')
     const guide = await within(main).findByRole('region', { name: '开始使用' })
     fireEvent.click(within(guide).getByRole('button', { name: /绑定机器/ }))
-    expect(await screen.findByText('K7QM-4X2P')).toBeTruthy()
+    expect(await screen.findByRole('link', { name: '在客户端中打开' })).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
     )

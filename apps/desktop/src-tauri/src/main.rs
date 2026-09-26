@@ -11,6 +11,7 @@ use tauri::RunEvent;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Event carrying every `host::Snapshot` change to the UI (`onSnapshot` in `src/ipc.ts`).
 const SNAPSHOT_EVENT: &str = "daemon://snapshot";
@@ -51,6 +52,10 @@ fn main() {
     // Same log setup as `gg run`: <home>/logs plus the in-memory recent lines (`Logs`, managed for the Logs page).
     let (logs, _log_guard) = gonggong::logs::init(&home).expect("cannot set up logging");
     tauri::Builder::default()
+        // First, so a second launch (a 接入链接 on Windows / Linux) is handed to this instance's deep-link plugin.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| show_window(app)))
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(logs)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -63,6 +68,14 @@ fn main() {
             });
             app.manage(Host::new(home, notify));
             tray(app)?;
+            // The frontend reads the 接入链接 itself (`onBindLinks` in `src/ipc.ts`); here it only comes to the front.
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |_| show_window(&handle));
+            // Installers register the scheme; unbundled Linux / Windows dev builds register it here.
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            if let Err(e) = app.deep_link().register_all() {
+                tracing::warn!("cannot register the gonggong:// scheme: {e}");
+            }
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if gonggong::config::Config::load().ok().flatten().is_some()

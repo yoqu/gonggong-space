@@ -70,7 +70,19 @@ export const botsApi = {
   update: (
     id: string,
     body: Partial<
-      Pick<BotDto, 'avatar' | 'systemPrompt' | 'tier' | 'triggerScope' | 'triggerList' | 'model' | 'effort'>
+      Pick<
+        BotDto,
+        | 'avatar'
+        | 'systemPrompt'
+        | 'tier'
+        | 'triggerScope'
+        | 'triggerList'
+        | 'model'
+        | 'effort'
+        | 'concurrency'
+        | 'approval'
+        | 'allowlist'
+      >
     >,
   ) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
   setDefaultWorkspace: (id: string, path: string | null) =>

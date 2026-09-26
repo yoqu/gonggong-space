@@ -3,7 +3,7 @@ use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
-use crate::local::{self, BotSettings, Decision, LocalSettings};
+use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::protocol::{
     AgentCatalog, AgentCommand, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer, ModelChoice,
     Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
@@ -48,8 +48,8 @@ struct Active {
     /// (group, bot) of the conversation, for commands.update.
     key: (String, String),
     tier: Tier,
-    /// The bot's local approval rules (plan D15).
-    rules: BotSettings,
+    /// The bot's 命令审批 as sent with the run (plans D15, J8).
+    rules: Rules,
     out: Outbox,
     turn: Turn,
     /// False while the session is being set up (session/load replays history we must not forward).
@@ -293,7 +293,7 @@ impl Shared {
             cwd: req.cwd.clone(),
             key: (req.start.group_id.clone(), req.start.bot.id.clone()),
             tier: req.start.bot.tier,
-            rules: req.local.bot(&req.start.bot.id),
+            rules: Rules::from(&req.start.bot),
             out: req.out.clone(),
             turn: Turn::default(),
             streaming: false,
@@ -436,7 +436,7 @@ impl Shared {
         }
     }
 
-    /// Plan D15: `full` allows by itself, then the owner's local rules; anything else goes to the bot owner.
+    /// Plan D15: `full` allows by itself, then the bot's rules (applied here); anything else goes to the bot owner.
     fn on_permission(&self, req: RequestPermissionRequest) -> Permission {
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
@@ -457,7 +457,7 @@ impl Shared {
         match a.rules.decide(a.tier, command.as_deref(), &a.cwd, &s.always) {
             Decision::Full => return Permission::Now(permission_response(auto_allow(&req.options))),
             Decision::Local if let Some(allow) = auto_allow(&req.options) => {
-                let step = format!("已按本机规则自动批准：{}", command.unwrap_or(title));
+                let step = format!("已按命令审批规则自动批准：{}", command.unwrap_or(title));
                 let event = RunEvent::Status { status: RunStatus::Running, step };
                 a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
                 return Permission::Now(permission_response(Some(allow)));

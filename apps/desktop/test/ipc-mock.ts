@@ -1,15 +1,14 @@
 import { vi } from 'vitest'
-import type { AgentCard, AppInfo, BotCard, DaemonStatus, RunInfo } from '../src/ipc'
+import type { AgentCard, AppInfo, DaemonStatus, MachineBot, RunInfo } from '../src/ipc'
 
 vi.mock('../src/ipc', () => ({
   ipc: {
     appInfo: vi.fn(),
     snapshot: vi.fn(),
+    parseLink: vi.fn(),
     login: vi.fn(),
-    detectAgents: vi.fn(),
     startDaemon: vi.fn(),
-    machineBots: vi.fn(),
-    confirmBots: vi.fn(),
+    readClipboard: vi.fn(),
     overview: vi.fn(),
     runProcess: vi.fn(),
     settings: vi.fn(),
@@ -25,14 +24,13 @@ vi.mock('../src/ipc', () => ({
     exportDiagnostics: vi.fn(),
     recentLogs: vi.fn(),
     agents: vi.fn(),
-    setAgentModel: vi.fn(),
-    setAgentEffort: vi.fn(),
     pickAgentPath: vi.fn(),
     resetAgentPath: vi.fn(),
     bots: vi.fn(),
-    saveBot: vi.fn(),
+    openBotInWeb: vi.fn(),
   },
   onSnapshot: vi.fn(async () => () => {}),
+  onOpenLinks: vi.fn(async () => () => {}),
 }))
 
 export const INFO: AppInfo = {
@@ -118,7 +116,7 @@ export const CODEX: AgentCard = {
   login: null,
 }
 
-export function bot(over: Partial<BotCard>): BotCard {
+export function bot(over: Partial<MachineBot>): MachineBot {
   return {
     id: 'b1',
     name: '小王的 Claude',

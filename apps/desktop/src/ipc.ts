@@ -5,6 +5,8 @@
 import type { AgentInfo, AgentKind, BotDto, RunEvent, RunStatus } from '@gonggong/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { readText } from '@tauri-apps/plugin-clipboard-manager'
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link'
 
 export type RejectReason = 'protocol' | 'revoked' | 'unauthorized' | 'workspace' | 'readonly'
 
@@ -62,10 +64,26 @@ export interface AppInfo {
   adapters: { kind: AgentKind; package: string; version: string }[]
 }
 
+/** A bot bound to this machine, as the server reports it; managed on the Web only (plan J11). */
 export type MachineBot = Pick<
   BotDto,
-  'id' | 'name' | 'agentKind' | 'binding' | 'presence' | 'systemPrompt' | 'concurrency'
+  | 'id'
+  | 'name'
+  | 'agentKind'
+  | 'binding'
+  | 'presence'
+  | 'systemPrompt'
+  | 'concurrency'
+  | 'approval'
+  | 'allowlist'
 >
+
+/** A parsed 接入链接 (or `gg login` command); `fingerprint` like `sha256:AB:CD:…`. */
+export interface BindLink {
+  server: string
+  code: string
+  fingerprint: string | null
+}
 
 /** 概览 · 工作区 card: `count` workspaces, `detail` like `托管 4 · /cd 1 · 1.8 GB`. */
 export interface Overview {
@@ -134,29 +152,14 @@ export interface AgentCard extends AgentInfo {
   login: string | null
 }
 
-export type Approval = 'ask' | 'allowlist' | 'all'
-
-/** A machine bot with its 本机设置. */
-export interface BotCard extends MachineBot {
-  approval: Approval
-  allowlist: string[]
-}
-
-export interface BotChange {
-  approval: Approval
-  allowlist: string[]
-  /** Only when changed. */
-  concurrency: number | null
-}
-
 export const ipc = {
   appInfo: () => invoke<AppInfo>('app_info'),
   snapshot: () => invoke<Snapshot>('snapshot'),
-  login: (server: string, code: string) => invoke<void>('login', { server, code }),
-  detectAgents: () => invoke<AgentInfo[]>('detect_agents'),
+  /** Rejects with the reason when `input` is neither a 接入链接 nor a `gg login` command. */
+  parseLink: (input: string) => invoke<BindLink>('parse_link', { input }),
+  login: (link: BindLink) => invoke<void>('login', { ...link }),
   startDaemon: () => invoke<void>('start_daemon'),
-  machineBots: () => invoke<MachineBot[]>('machine_bots'),
-  confirmBots: (ids: string[]) => invoke<void>('confirm_bots', { ids }),
+  readClipboard: () => readText(),
   overview: () => invoke<Overview>('overview'),
   runProcess: (runId: string) => invoke<RunProcess | null>('run_process', { runId }),
   settings: () => invoke<Settings>('get_settings'),
@@ -177,10 +180,19 @@ export const ipc = {
   /** Resolves false when the file dialog was cancelled. */
   pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
   resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),
-  bots: () => invoke<BotCard[]>('bots'),
-  saveBot: (id: string, change: BotChange) => invoke<void>('save_bot', { id, change }),
+  bots: () => invoke<MachineBot[]>('bots'),
+  /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
+  openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),
 }
 
 export function onSnapshot(cb: (s: Snapshot) => void): Promise<UnlistenFn> {
   return listen<Snapshot>('daemon://snapshot', (e) => cb(e.payload))
+}
+
+/** URLs this app is opened with (`gonggong://bind?…`): the one it was launched with, then every later one. */
+export async function onOpenLinks(cb: (urls: string[]) => void): Promise<UnlistenFn> {
+  const unlisten = await onOpenUrl(cb)
+  const current = await getCurrent()
+  if (current?.length) cb(current)
+  return unlisten
 }

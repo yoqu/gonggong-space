@@ -28,13 +28,13 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   await login(page, 'wanglei', 'wanglei-init')
   await changePassword(page, 'wanglei-init', 'wanglei-pass')
 
-  // Bind this machine with a one-time code.
+  // Bind this machine with the one-time 接入链接, as the desktop app would receive it.
   await page.getByRole('button', { name: '账户菜单' }).click()
   await page.getByRole('menu').getByRole('menuitem', { name: '绑定新机器' }).click()
-  const code = (await page.getByTestId('bind-code').textContent())?.trim() ?? ''
-  expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
+  const link = (await page.getByRole('link', { name: '在客户端中打开' }).getAttribute('href')) ?? ''
+  expect(link).toMatch(/^gonggong:\/\/bind\?server=.+&code=[A-Z0-9]{4}-[A-Z0-9]{4}/)
   const m = machine()
-  expect(m.login(code)).toContain('绑定成功')
+  expect(m.loginLink(link)).toContain('绑定成功')
   await expect(page.getByText('绑定成功')).toBeVisible()
   await page.keyboard.press('Escape')
   m.start()
@@ -45,6 +45,8 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
+    await expect(page.getByText('已就绪，可以在群里 @ 它了')).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: '完成' }).click()
     await expect(page.getByText('小王的 Claude').first()).toBeVisible()
 
     // Private chat without a repo, with that bot.
@@ -72,8 +74,9 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await box.fill('@小王的 Claude 请在当前工作目录创建文件 hello.txt，内容只有 hi。完成后只回复 done。')
     await page.getByRole('button', { name: '发送' }).click()
     const card = page.getByTestId('run-card').last()
-    await expect(card).toContainText(/运行中|已完成/, { timeout: 60_000 })
-    await expect(card).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(card).toHaveAttribute('data-status', /running|completed/, { timeout: 60_000 })
+    // A completed card no longer spells its status out; the attribute carries it.
+    await expect(card).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
     await expect(page.getByTestId('bot-reply').last()).toBeVisible()
     expect(existsSync(join(dir, 'hello.txt'))).toBe(true)
   } finally {

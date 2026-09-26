@@ -1,7 +1,8 @@
-//! The owner's local settings (`<home>/local.json`), shared by `gg run`, the CLI and the desktop app: agent CLI
-//! path per agent, command approval per bot (plan D15). Model and effort are set on the server. Also the catalog
-//! probed from each adapter (`<home>/models.json`), reported to the server for its pickers.
-use crate::protocol::{AgentCatalog, AgentKind, Tier};
+//! The owner's local settings (`<home>/local.json`), shared by `gg run`, the CLI and the desktop app: the agent CLI
+//! path per agent. Model, effort and the bot's 命令审批 are set on the server (plan J8): `Rules` applies the latter to
+//! permission requests here. Also the catalog probed from each adapter (`<home>/models.json`), reported to the server
+//! for its pickers.
+use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, Tier};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -13,9 +14,6 @@ use tokio::sync::watch;
 pub struct LocalSettings {
     #[serde(default)]
     pub agents: BTreeMap<AgentKind, AgentSettings>,
-    /// By bot id.
-    #[serde(default)]
-    pub bots: BTreeMap<String, BotSettings>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -26,36 +24,17 @@ pub struct AgentSettings {
     pub path: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BotSettings {
-    #[serde(default)]
+/// A bot's 命令审批 as sent by the server with each run (plan J8).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Rules {
     pub approval: Approval,
     /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
-    #[serde(default)]
     pub allowlist: Vec<String>,
 }
 
-/// 命令审批: what happens to permission requests beyond the bot's tier.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum Approval {
-    /// 每次询问: every request goes to the bot owner.
-    #[default]
-    Ask,
-    /// 白名单自动: commands starting with an allowlisted prefix are approved here.
-    Allowlist,
-    /// 全部自动: every request is approved here.
-    All,
-}
-
-impl Approval {
-    pub fn label(self) -> &'static str {
-        match self {
-            Approval::Ask => "每次询问",
-            Approval::Allowlist => "白名单自动",
-            Approval::All => "全部自动",
-        }
+impl From<&RunBot> for Rules {
+    fn from(bot: &RunBot) -> Self {
+        Self { approval: bot.approval, allowlist: bot.allowlist.clone() }
     }
 }
 
@@ -64,7 +43,7 @@ impl Approval {
 pub enum Decision {
     /// The `full` tier allows by itself.
     Full,
-    /// The owner's local rule allows it without asking.
+    /// The bot's rules allow it here without asking.
     Local,
     /// Forward to the bot owner.
     Ask,
@@ -107,24 +86,15 @@ impl LocalSettings {
                 bail!("{kind:?} 的路径必须是绝对路径：{p}");
             }
         }
-        for b in self.bots.values() {
-            if b.allowlist.iter().any(|c| normalize(c).is_empty()) {
-                bail!("白名单命令不能为空");
-            }
-        }
         Ok(())
     }
 
     pub fn agent(&self, kind: AgentKind) -> AgentSettings {
         self.agents.get(&kind).cloned().unwrap_or_default()
     }
-
-    pub fn bot(&self, id: &str) -> BotSettings {
-        self.bots.get(id).cloned().unwrap_or_default()
-    }
 }
 
-impl BotSettings {
+impl Rules {
     /// Plan D15. `command` is the shell command of an execute-kind tool call, `None` for any other request; `cwd` is
     /// the run's workspace and `always` the commands the owner allowed always in this conversation.
     pub fn decide(&self, tier: Tier, command: Option<&str>, cwd: &Path, always: &[String]) -> Decision {
@@ -358,8 +328,8 @@ pub fn save_catalog(home: &Path, kind: AgentKind, cached: CachedCatalog) -> Resu
 mod tests {
     use super::*;
 
-    fn bot(approval: Approval, allowlist: &[&str]) -> BotSettings {
-        BotSettings { approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
+    fn bot(approval: Approval, allowlist: &[&str]) -> Rules {
+        Rules { approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
     }
 
     #[test]
@@ -392,20 +362,20 @@ mod tests {
         assert_eq!(LocalSettings::load(home.path()).unwrap(), LocalSettings::default());
         let mut s = LocalSettings::default();
         s.agents.insert(AgentKind::Claude, AgentSettings { path: Some("/opt/claude".into()) });
-        s.bots.insert("b1".into(), bot(Approval::Allowlist, &["go build"]));
         s.save(home.path()).unwrap();
         assert_eq!(LocalSettings::load(home.path()).unwrap(), s);
         let raw: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(LocalSettings::path(home.path())).unwrap()).unwrap();
         assert_eq!(raw["agents"]["claude"]["path"], "/opt/claude");
-        assert_eq!(raw["bots"]["b1"]["approval"], "allowlist");
 
-        // Model settings of older versions are ignored: the server owns them now.
-        let old = r#"{"agents":{"claude":{"defaultModel":"opus","effort":"high"}},"bots":{"b2":{"model":"haiku"}}}"#;
+        // Model settings and bot rules of older versions are ignored: the server owns them now (plan J10).
+        let old = r#"{"agents":{"claude":{"defaultModel":"opus","effort":"high"}},
+            "bots":{"b1":{"approval":"all","allowlist":["go build"]},"b2":{"model":"haiku","approval":"sometimes"}}}"#;
         std::fs::write(LocalSettings::path(home.path()), old).unwrap();
         let s = LocalSettings::load(home.path()).unwrap();
-        assert_eq!((s.agent(AgentKind::Claude), s.bot("b2")), (AgentSettings::default(), BotSettings::default()));
-        assert_eq!(s.bot("nope").approval, Approval::Ask);
+        assert_eq!(s.agent(AgentKind::Claude), AgentSettings::default());
+        s.save(home.path()).unwrap();
+        assert!(!std::fs::read_to_string(LocalSettings::path(home.path())).unwrap().contains("bots"));
     }
 
     #[test]
@@ -414,10 +384,7 @@ mod tests {
         let mut s = LocalSettings::default();
         s.agents.insert(AgentKind::Codex, AgentSettings { path: Some("codex".into()) });
         assert!(s.save(home.path()).is_err());
-        let mut s = LocalSettings::default();
-        s.bots.insert("b1".into(), bot(Approval::Allowlist, &["  "]));
-        assert!(s.save(home.path()).is_err());
-        std::fs::write(LocalSettings::path(home.path()), r#"{"bots":{"b1":{"approval":"sometimes"}}}"#).unwrap();
+        std::fs::write(LocalSettings::path(home.path()), r#"{"agents":{"claude":{"path":"claude"}}}"#).unwrap();
         assert!(LocalSettings::load(home.path()).is_err());
     }
 
@@ -501,16 +468,17 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let store = LocalStore::open(home.path().into()).unwrap();
         let mut rx = store.subscribe();
-        store.update(|s| s.bots.entry("b1".into()).or_default().approval = Approval::All).unwrap();
+        let path = |p: &str| AgentSettings { path: Some(p.into()) };
+        store.update(|s| s.agents.entry(AgentKind::Claude).or_default().path = Some("/opt/claude".into())).unwrap();
         assert!(rx.has_changed().unwrap());
-        assert_eq!(rx.borrow_and_update().bot("b1").approval, Approval::All);
-        assert!(store.update(|s| s.bots.entry("b1".into()).or_default().allowlist = vec![" ".into()]).is_err());
+        assert_eq!(rx.borrow_and_update().agent(AgentKind::Claude), path("/opt/claude"));
+        assert!(store.update(|s| s.agents.entry(AgentKind::Codex).or_default().path = Some("codex".into())).is_err());
 
         let mut edited = LocalSettings::load(home.path()).unwrap();
-        edited.bots.entry("b1".into()).or_default().approval = Approval::Allowlist;
+        edited.agents.insert(AgentKind::Claude, path("/usr/bin/claude"));
         edited.save(home.path()).unwrap();
         store.refresh().unwrap();
-        assert_eq!(rx.borrow_and_update().bot("b1").approval, Approval::Allowlist);
+        assert_eq!(rx.borrow_and_update().agent(AgentKind::Claude), path("/usr/bin/claude"));
         store.refresh().unwrap();
         assert!(!rx.has_changed().unwrap());
     }

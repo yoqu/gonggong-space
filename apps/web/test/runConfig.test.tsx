@@ -77,6 +77,8 @@ const bot: BotDto = {
   agentMinVersion: '2.0.0',
   groupCount: 1,
   defaultWorkspace: null,
+  approval: 'ask',
+  allowlist: [],
   model: 'sonnet',
   effort: null,
   catalog: CATALOG,
@@ -147,5 +149,24 @@ describe('run config chips', () => {
     type('@cc 构建')
     expect(chip().hasAttribute('disabled')).toBe(true)
     expect(chip().getAttribute('title')).toBe('只有 Bot 主人或群管理员可以切换')
+  })
+
+  it('target the only bot of a dm without an @', () => {
+    mockApi({})
+    render(<MessageComposer group={{ ...group, kind: 'dm' }} onSent={() => {}} />)
+    expect(chip().textContent).toContain('Sonnet · 中')
+    type('帮我看下')
+    expect(chip()).toBeTruthy()
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
+    type('/stop')
+    expect(screen.queryByRole('button', { name: 'cc 的模型与推理强度' })).toBeNull()
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
+  })
+
+  it('list the agent commands of the only bot of a dm without an @', async () => {
+    const calls = mockApi({ 'GET /groups/g1/candidates/commands': { system: [], agent: [] } })
+    render(<MessageComposer group={{ ...group, kind: 'dm' }} onSent={() => {}} />)
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '/', selectionStart: 1 } })
+    await waitFor(() => expect(calls.map((c) => c.path)).toContain('/groups/g1/candidates/commands?botId=b1'))
   })
 })

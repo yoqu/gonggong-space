@@ -54,32 +54,57 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const api = (ttlMs = 10 * 60_000) =>
+const linkOf = (code: string, fp: string | null) =>
+  `gonggong://bind?server=${encodeURIComponent(location.origin)}&code=${code}${fp ? `&fp=${fp}` : ''}`
+
+const api = (ttlMs = 10 * 60_000, fingerprint: string | null = null) =>
   mockApi({
-    'POST /bind-codes': () => ({
-      code: codes.shift(),
-      expiresAt: new Date(Date.now() + ttlMs).toISOString(),
-    }),
+    'POST /bind-codes': () => {
+      const code = codes.shift() as string
+      return {
+        code,
+        expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+        fingerprint,
+        link: linkOf(code, fingerprint),
+      }
+    },
     'GET /machines': [old],
   })
 
+const openLink = () => screen.findByRole('link', { name: '在客户端中打开' })
+
 describe('bind machine dialog', () => {
-  it('shows a one-time code, its countdown and the login command', async () => {
+  it('opens the 接入链接 in the desktop app and copies it', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     api()
     render(<BindMachineDialog open onClose={() => {}} />)
-    expect((await screen.findByTestId('bind-code')).textContent).toBe('K7QM-4X2P')
-    expect(screen.getByText(/^一次性绑定码 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
-    expect(screen.getByText(`gg login --server ${location.origin} --code K7QM-4X2P`)).toBeTruthy()
-    for (const step of ['生成绑定码', '机器登录', '上报机器与 agent', '确认 Bot'])
+    expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P', null))
+    expect(screen.getByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
+    expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
+    for (const step of ['生成接入链接', '客户端绑定', '上报机器与 agent'])
       expect(screen.getByText(step)).toBeTruthy()
-    expect(screen.getByText('等待机器用绑定码登录…')).toBeTruthy()
+    expect(screen.queryByText('确认 Bot')).toBeNull()
+    expect(screen.getByText('等待客户端确认绑定…')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '复制接入链接' }))
+    expect(writeText).toHaveBeenCalledWith(linkOf('K7QM-4X2P', null))
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
+  })
+
+  it('keeps the gg login command, with the fingerprint, under 使用命令行', async () => {
+    api(undefined, 'sha256:ab12')
+    render(<BindMachineDialog open onClose={() => {}} />)
+    await openLink()
+    const command = `gg login --server ${location.origin} --code K7QM-4X2P --fingerprint sha256:ab12`
+    expect(screen.queryByText(command)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '使用命令行' }))
+    expect(screen.getByText(command)).toBeTruthy()
   })
 
   it('shows success with the machine and its agents once a new machine appears', async () => {
     api()
     render(<BindMachineDialog open onClose={() => {}} />)
-    await screen.findByTestId('bind-code')
+    await openLink()
     emit(old)
     expect(screen.queryByText('绑定成功')).toBeNull()
     emit(fresh)
@@ -109,7 +134,7 @@ describe('bind machine dialog', () => {
   it('recognizes a known host logging in again as a restored machine', async () => {
     api()
     render(<BindMachineDialog open onClose={() => {}} />)
-    await screen.findByTestId('bind-code')
+    await openLink()
     await act(async () => {})
     emit({ ...old, online: false })
     expect(screen.queryByText('绑定成功')).toBeNull()
@@ -122,11 +147,12 @@ describe('bind machine dialog', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const calls = api(2_000)
     render(<BindMachineDialog open onClose={() => {}} />)
-    await screen.findByTestId('bind-code')
+    await openLink()
     await act(async () => vi.advanceTimersByTime(3_000))
-    expect(screen.getByText('绑定码已失效')).toBeTruthy()
+    expect(screen.getByText('接入链接已失效')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '重新生成' }))
-    expect((await screen.findByTestId('bind-code')).textContent).toBe('ABCD-EFGH')
+    expect((await openLink()).getAttribute('href')).toBe(linkOf('ABCD-EFGH', null))
     expect(calls.filter((c) => c.path === '/bind-codes')).toHaveLength(2)
   })
 })

@@ -103,6 +103,8 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
             tier: Tier::Workspace,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cwd.to_string_lossy().into_owned()) },
         resume_session_id: None,

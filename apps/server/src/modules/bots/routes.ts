@@ -2,7 +2,6 @@ import {
   agentConfigLabel,
   type BotOwnerDto,
   CreateBotReq,
-  DaemonBotPatchReq,
   fitEffort,
   GroupBotConfigReq,
   GroupBotTierReq,
@@ -10,7 +9,7 @@ import {
   UpdateBotReq,
 } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { bots, groupBots, machines, users } from '../../db/schema.js'
@@ -59,6 +58,9 @@ function assertCanManage(user: SessionUser, bot: BotRow) {
   if (user.id !== bot.ownerId && user.role !== 'sysadmin')
     fail('forbidden', '只有归属人或系统管理员可以修改该 Bot')
 }
+
+/** Same command, same entry: `go  build` and `go build` are one prefix. */
+const normalizeAllowlist = (list: string[]) => [...new Set(list.map((s) => s.trim().split(/\s+/).join(' ')))]
 
 /** Sysadmin actions on someone else's bot are audited (spec 9: all admin operations). */
 async function auditForeign(ctx: Ctx, user: SessionUser, bot: BotRow, action: string, detail: object = {}) {
@@ -178,6 +180,10 @@ export function botRoutes(ctx: Ctx) {
       const body = UpdateBotReq.parse(req.body)
       const bot = await loadBot(ctx, req.params.id)
       assertCanManage(user, bot)
+      // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
+      if ((body.approval !== undefined || body.allowlist !== undefined) && user.id !== bot.ownerId)
+        fail('forbidden', '命令审批只有 Bot 主人能修改')
+      if (body.allowlist) body.allowlist = normalizeAllowlist(body.allowlist)
       const name = body.name?.trim()
       if (name !== undefined) {
         if (!name) fail('invalid', '名称不能为空')
@@ -203,6 +209,19 @@ export function botRoutes(ctx: Ctx) {
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
+      const approval = { approval: body.approval ?? bot.approval, allowlist: body.allowlist ?? bot.allowlist }
+      if (approval.approval !== bot.approval || approval.allowlist.join('\n') !== bot.allowlist.join('\n'))
+        await audit(ctx, {
+          category: 'admin',
+          actorUserId: user.id,
+          action: 'bot.approval',
+          detail: {
+            botId: bot.id,
+            name: bot.name,
+            from: { approval: bot.approval, allowlist: bot.allowlist },
+            to: approval,
+          },
+        })
       if (tier !== bot.tier) await applyTier(ctx, user.id, bot.id)
       return publishBot(ctx, bot.id)
     })
@@ -295,32 +314,6 @@ export function botRoutes(ctx: Ctx) {
     app.get('/api/daemon/bots', async (req) => {
       const machine = await requireMachine(ctx, req)
       return listBotDtos(ctx, eq(bots.machineId, machine.id))
-    })
-
-    const loadMachineBot = async (req: FastifyRequest<IdParams>) => {
-      const machine = await requireMachine(ctx, req)
-      const bot = await loadBot(ctx, req.params.id)
-      return bot.machineId === machine.id ? bot : fail('not_found', 'Bot 不存在')
-    }
-
-    app.post<IdParams>('/api/daemon/bots/:id/confirm', async (req) => {
-      const bot = await loadMachineBot(req)
-      if (bot.binding !== 'pending_confirm') fail('conflict', '该 Bot 无需确认')
-      return confirmBot(ctx, bot)
-    })
-
-    // The desktop app's Bot page (spec §4.7): the machine acts for its owner.
-    app.patch<IdParams>('/api/daemon/bots/:id', async (req) => {
-      const bot = await loadMachineBot(req)
-      const { concurrency } = DaemonBotPatchReq.parse(req.body)
-      await ctx.db.update(bots).set({ concurrency }).where(eq(bots.id, bot.id))
-      await audit(ctx, {
-        category: 'admin',
-        actorUserId: bot.ownerId,
-        action: 'bot.concurrency',
-        detail: { botId: bot.id, name: bot.name, from: bot.concurrency, to: concurrency },
-      })
-      return publishBot(ctx, bot.id)
     })
   }
 }

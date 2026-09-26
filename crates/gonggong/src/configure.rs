@@ -1,8 +1,7 @@
-//! `gg agents` and `gg config`: the owner's local agent and bot settings from the terminal. Models and thought levels
-//! are chosen on the server; this only lists what the adapters offer.
-use crate::bots::{self, Client};
-use crate::config::Config;
-use crate::local::{Approval, LocalSettings};
+//! `gg agents` and `gg config`: the owner's local agent settings from the terminal. Models, thought levels and the
+//! bots' settings are chosen on the Web (plan J12); this only lists what the adapters offer.
+use crate::bots;
+use crate::local::LocalSettings;
 use crate::protocol::{AgentCatalog, AgentKind};
 use anyhow::{Result, bail};
 use std::path::Path;
@@ -58,39 +57,6 @@ pub fn agent(home: &Path, kind: AgentKind, path: String) -> Result<()> {
     local.agents.entry(kind).or_default().path = path.clone();
     local.save(home)?;
     println!("{} · 路径 {}", bots::agent_label(kind), path.as_deref().unwrap_or("自动检测"));
-    Ok(())
-}
-
-pub struct BotChange {
-    pub approval: Option<Approval>,
-    pub allow: Vec<String>,
-    pub disallow: Vec<String>,
-    pub concurrency: Option<u32>,
-}
-
-pub async fn bot(config: &Config, home: &Path, target: &str, change: BotChange) -> Result<()> {
-    let client = Client::new(config)?;
-    let bots = client.list().await?;
-    let bot = bots::find(&bots, target)?;
-    let mut local = LocalSettings::load(home)?;
-    let s = local.bots.entry(bot.id.clone()).or_default();
-    if let Some(a) = change.approval {
-        s.approval = a;
-    }
-    s.allowlist.retain(|c| !change.disallow.contains(c));
-    for c in change.allow {
-        if !s.allowlist.contains(&c) {
-            s.allowlist.push(c);
-        }
-    }
-    local.save(home)?;
-    let concurrency = match change.concurrency {
-        Some(n) => client.set_concurrency(&bot.id, n).await?.concurrency,
-        None => bot.concurrency,
-    };
-    let s = local.bot(&bot.id);
-    let list = if s.allowlist.is_empty() { "无".into() } else { s.allowlist.join("、") };
-    println!("{} · 命令审批 {} · 白名单 {list} · 并发上限 {concurrency}", bot.name, s.approval.label());
     Ok(())
 }
 

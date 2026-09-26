@@ -99,3 +99,13 @@
 .ui-btn.machine__revoke {
   color: var(--tint-red-text);
 }
+
+/* 接入链接 */
+.bind__open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.bind__open-link {
+  text-decoration: none;
+}

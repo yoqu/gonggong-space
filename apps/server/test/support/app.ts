@@ -20,7 +20,7 @@ export async function createTestApp(opts: { heartbeatSec?: number; now?: () => D
     bus: new Bus(),
     hub: new DaemonHub(),
     now: opts.now ?? (() => new Date()),
-    config: { heartbeatSec: opts.heartbeatSec ?? 15, secureCookies: false },
+    config: { heartbeatSec: opts.heartbeatSec ?? 15, secureCookies: false, fingerprint: null },
   }
   const app: FastifyInstance = await buildApp(ctx)
   await app.listen({ port: 0, host: '127.0.0.1' })

@@ -1,41 +1,38 @@
-use super::{Result, client};
+use super::Result;
 use crate::host::Host;
-use gonggong::bots::Bot;
-use gonggong::local::LocalSettings;
-use gonggong::protocol::AgentInfo;
+use gonggong::bind::Link;
 use tauri::State;
 
-/// Step 1: exchanges the bind code for this machine's token, like `gg login`.
+/// The 接入链接 or `gg login` command pasted, opened or found on the clipboard; binding waits for 绑定 (plan J3).
 #[tauri::command]
-pub async fn login(server: String, code: String) -> Result<()> {
-    let (config, _) = gonggong::bind::login(&server, &code, gonggong::bind::machine_info(), None)
-        .await
-        .map_err(|e| format!("{e:#}"))?;
+pub fn parse_link(input: String) -> Result<Link> {
+    gonggong::bind::parse_link(&input).map_err(|e| format!("{e:#}"))
+}
+
+/// Exchanges the bind code for this machine's token, like `gg login`.
+#[tauri::command]
+pub async fn login(server: String, code: String, fingerprint: Option<String>) -> Result<()> {
+    let machine = gonggong::bind::machine_info();
+    let (config, _) =
+        gonggong::bind::login(&server, &code, machine, fingerprint.as_deref()).await.map_err(|e| format!("{e:#}"))?;
     config.save().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn detect_agents(host: State<'_, Host>) -> Result<Vec<AgentInfo>> {
-    Ok(gonggong::agents::detect(&host.home, &LocalSettings::load(&host.home).map_err(|e| e.to_string())?))
-}
-
-/// Step 2: connecting reports the detected agents in hello. Async so it runs inside the runtime the daemon needs.
+/// Connecting reports the detected agents in hello. Async so it runs inside the runtime the daemon needs.
 #[tauri::command]
 pub async fn start_daemon(host: State<'_, Host>) -> Result<()> {
     host.start()
 }
 
-#[tauri::command]
-pub async fn machine_bots() -> Result<Vec<Bot>> {
-    client()?.list().await.map_err(|e| e.to_string())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Step 3: confirms the bots someone else created for this machine.
-#[tauri::command]
-pub async fn confirm_bots(ids: Vec<String>) -> Result<()> {
-    let client = client()?;
-    for id in ids {
-        client.confirm(&id).await.map_err(|e| e.to_string())?;
+    #[test]
+    fn parses_links_for_the_page() {
+        let link = parse_link("gonggong://bind?server=https%3A%2F%2Fg.corp&code=k7qm-4x2p".into()).unwrap();
+        let json = serde_json::to_value(link).unwrap();
+        assert_eq!(json, serde_json::json!({ "server": "https://g.corp", "code": "K7QM-4X2P", "fingerprint": null }));
+        assert!(parse_link("K7QM-4X2P".into()).is_err());
     }
-    Ok(())
 }

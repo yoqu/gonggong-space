@@ -32,7 +32,7 @@ export function RevokeMachineDialog({
     <AlertDialog
       open
       title={`要吊销机器 ${machine.name} 吗？`}
-      message="吊销后需要重新生成绑定码才能再次使用。"
+      message="吊销后需要重新生成接入链接才能再次使用。"
       detail={
         <>
           <ul className="ui-consequences">

@@ -1,7 +1,8 @@
-//! `gg bots`: list and confirm the bots bound to this machine via the server's machine-token REST API.
+//! `gg bots`: the bots bound to this machine via the server's machine-token REST API, read-only: they are managed on
+//! the Web (plan J11).
 use crate::config::Config;
-use crate::protocol::AgentKind;
-use anyhow::{Result, anyhow, bail};
+use crate::protocol::{AgentKind, Approval};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// Subset of the server's `BotDto` that the CLI and the desktop app need.
@@ -17,6 +18,11 @@ pub struct Bot {
     pub system_prompt: String,
     #[serde(default)]
     pub concurrency: u32,
+    /// Older servers send neither.
+    #[serde(default)]
+    pub approval: Approval,
+    #[serde(default)]
+    pub allowlist: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,28 +52,6 @@ impl Client {
         let res = self.http.get(format!("{}/api/daemon/bots", self.base)).bearer_auth(&self.token).send().await?;
         Ok(ok(res).await?.json().await?)
     }
-
-    pub async fn confirm(&self, id: &str) -> Result<Bot> {
-        let res = self
-            .http
-            .post(format!("{}/api/daemon/bots/{id}/confirm", self.base))
-            .bearer_auth(&self.token)
-            .send()
-            .await?;
-        Ok(ok(res).await?.json().await?)
-    }
-
-    /// The owner's 并发上限 for a bot on this machine (1–8).
-    pub async fn set_concurrency(&self, id: &str, concurrency: u32) -> Result<Bot> {
-        let res = self
-            .http
-            .patch(format!("{}/api/daemon/bots/{id}", self.base))
-            .bearer_auth(&self.token)
-            .json(&serde_json::json!({ "concurrency": concurrency }))
-            .send()
-            .await?;
-        Ok(ok(res).await?.json().await?)
-    }
 }
 
 /// Turns a non-2xx response into an error carrying the server's `{ message }`.
@@ -80,9 +64,9 @@ pub(crate) async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
     bail!("服务器返回 {status}: {}", body["message"].as_str().unwrap_or("未知错误"))
 }
 
-/// Finds a bot by exact id or name.
-pub fn find<'a>(bots: &'a [Bot], target: &str) -> Result<&'a Bot> {
-    bots.iter().find(|b| b.id == target || b.name == target).ok_or_else(|| anyhow!("本机没有名为「{target}」的 Bot"))
+/// Where the bot is managed: the Web opens its settings from `?bot=<id>`.
+pub fn web_url(server: &str, id: &str) -> String {
+    format!("{}/?bot={id}", server.trim_end_matches('/'))
 }
 
 pub fn agent_label(kind: AgentKind) -> &'static str {
@@ -95,7 +79,7 @@ pub fn agent_label(kind: AgentKind) -> &'static str {
 pub fn state_label(bot: &Bot) -> String {
     match bot.binding {
         Binding::PendingBind => "待绑定".into(),
-        Binding::PendingConfirm => format!("待确认 · 运行 gg bots confirm {}", bot.name),
+        Binding::PendingConfirm => "待确认 · 请在 Web 中确认".into(),
         Binding::Bound => match bot.presence.as_str() {
             "online" => "在线",
             "running" => "运行中",
@@ -112,19 +96,8 @@ pub async fn list(config: &Config) -> Result<()> {
         println!("本机还没有 Bot");
     }
     for b in &bots {
-        println!("{}\t{}\t{}", b.name, agent_label(b.agent_kind), state_label(b));
+        println!("{}\t{}\t{}\t命令审批 {}", b.name, agent_label(b.agent_kind), state_label(b), b.approval.label());
+        println!("\t在 Web 中管理：{}", web_url(&config.server, &b.id));
     }
-    Ok(())
-}
-
-pub async fn confirm(config: &Config, target: &str) -> Result<()> {
-    let client = Client::new(config)?;
-    let bots = client.list().await?;
-    let bot = find(&bots, target)?;
-    if bot.binding != Binding::PendingConfirm {
-        bail!("「{}」无需确认", bot.name);
-    }
-    let bot = client.confirm(&bot.id).await?;
-    println!("已确认 {}，现在可以被触发", bot.name);
     Ok(())
 }

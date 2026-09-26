@@ -1,6 +1,6 @@
 //! Drives the Engine against the scriptable mock ACP agent (tools/mock-agent) without a server.
 use gonggong::engine::{Engine, EngineConfig};
-use gonggong::local::{Approval, BotSettings, LocalSettings};
+use gonggong::local::LocalSettings;
 use gonggong::protocol::*;
 use gonggong::service::{Handler, Outbox};
 use std::path::{Path, PathBuf};
@@ -47,6 +47,8 @@ fn start(run_id: &str, text: &str) -> RunStart {
             tier: Tier::Workspace,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,
@@ -722,12 +724,6 @@ async fn lists_files_of_the_bot_workspace() {
     }
 }
 
-fn save_local(r: &Rig, edit: impl FnOnce(&mut LocalSettings)) {
-    let mut local = LocalSettings::default();
-    edit(&mut local);
-    local.save(r.home.path()).unwrap();
-}
-
 fn running(step: &str) -> RunEvent {
     RunEvent::Status { status: RunStatus::Running, step: step.into() }
 }
@@ -811,33 +807,46 @@ async fn probes_models_and_their_thought_levels() {
     );
 }
 
+/// `start` with the bot's 命令审批 as the server sends it (plan J8).
+fn with_rules(s: RunStart, approval: Approval, allowlist: &[&str]) -> RunStart {
+    let allowlist = allowlist.iter().map(|c| c.to_string()).collect();
+    RunStart { bot: RunBot { approval, allowlist, ..s.bot.clone() }, ..s }
+}
+
 #[tokio::test]
-async fn local_approval_rules_answer_permissions_without_the_owner() {
+async fn server_sent_approval_rules_answer_permissions_without_the_owner() {
     let mut r = rig(Duration::from_secs(60));
-    save_local(&r, |l| {
-        let bot = BotSettings { approval: Approval::Allowlist, allowlist: vec!["node -e".into()] };
-        l.bots.insert("b1".into(), bot);
-    });
     // `finish` panics on an approval.request: none may be sent.
-    r.run(start("r1", "mock:exec node   -e 1"));
+    r.run(with_rules(start("r1", "mock:exec node   -e 1"), Approval::Allowlist, &["node -e"]));
     let (events, done) = r.finish("r1").await;
-    assert!(events.contains(&running("已按本机规则自动批准：node   -e 1")));
+    assert!(events.contains(&running("已按命令审批规则自动批准：node   -e 1")));
     assert_eq!(done.reply, "ran");
 
-    r.run(follow_up("r2", "mock:exec node -e 1; rm -rf x", &done));
+    let s = with_rules(follow_up("r2", "mock:exec node -e 1; rm -rf x", &done), Approval::Allowlist, &["node -e"]);
+    r.run(s);
     let (_, approval) = until_approval(&mut r).await;
     assert_eq!(approval.tool_kind, "execute");
     decide(&r, &approval, Some("reject"));
     let (_, done) = r.finish("r2").await;
     assert_eq!(done.reply, "denied");
 
-    save_local(&r, |l| {
-        l.bots.insert("b1".into(), BotSettings { approval: Approval::All, ..Default::default() });
-    });
-    r.run(follow_up("r3", "写个文件", &done));
+    r.run(with_rules(follow_up("r3", "写个文件", &done), Approval::All, &[]));
     let (events, done) = r.finish("r3").await;
-    assert!(events.contains(&running("已按本机规则自动批准：Write hello.txt")));
+    assert!(events.contains(&running("已按命令审批规则自动批准：Write hello.txt")));
     assert_eq!(done.reply, "好的，已写入 hello.txt。");
+}
+
+#[tokio::test]
+async fn server_sent_ask_goes_to_the_owner_whatever_the_old_local_file_says() {
+    let mut r = rig(Duration::from_secs(60));
+    // Plan J10: rules of older versions in local.json are ignored.
+    let old = r#"{"bots":{"b1":{"approval":"all","allowlist":["node -e"]}}}"#;
+    std::fs::write(LocalSettings::path(r.home.path()), old).unwrap();
+    r.run(with_rules(start("r1", "mock:exec node -e 1"), Approval::Ask, &["node -e"]));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.tool_kind, "execute");
+    decide(&r, &approval, Some("allow"));
+    assert_eq!(r.finish("r1").await.1.reply, "ran");
 }
 
 #[tokio::test]
@@ -851,7 +860,7 @@ async fn always_allowing_a_command_trusts_it_for_the_conversation() {
 
     r.run(follow_up("r2", "mock:exec pnpm lint 2>&1 | tail -3", &done));
     let (events, done) = r.finish("r2").await;
-    assert!(events.contains(&running("已按本机规则自动批准：pnpm lint 2>&1 | tail -3")));
+    assert!(events.contains(&running("已按命令审批规则自动批准：pnpm lint 2>&1 | tail -3")));
     assert_eq!(done.reply, "ran");
 
     r.run(follow_up("r3", "mock:exec pnpm lint && rm -rf x", &done));

@@ -7,7 +7,7 @@ use crate::files;
 use crate::git;
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentCatalog, AgentKind, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
+    AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
     ServerToDaemon, Tier,
 };
 use crate::service::{Handler, Outbox};
@@ -92,6 +92,8 @@ impl Engine {
             tier: Tier::ReadOnly,
             model: None,
             effort: None,
+            approval: Approval::Ask,
+            allowlist: vec![],
         };
         let agent = AcpAgent::new(self.0.adapter(&bot, &local).await?);
         let dir = self.0.config.home.join("probe");

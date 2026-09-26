@@ -1,6 +1,6 @@
-import type { AgentKind, RunStatus } from '@gonggong/protocol'
+import type { AgentKind, Approval, RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
-import type { Approval, Snapshot } from '../ipc'
+import type { Snapshot } from '../ipc'
 
 export const AGENTS: Record<AgentKind, { name: string; install: string }> = {
   claude: { name: 'Claude Code', install: 'npm install -g @anthropic-ai/claude-code' },

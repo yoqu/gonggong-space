@@ -5,7 +5,7 @@ import { migrateDb, openDb } from './db/client.js'
 import { sysParams } from './modules/admin/params.js'
 import { ensureBootstrapAdmin } from './modules/auth/bootstrap.js'
 import { Bus } from './realtime/bus.js'
-import { tlsOptions } from './tls.js'
+import { certFingerprint, tlsOptions } from './tls.js'
 
 const https = tlsOptions()
 const { db } = openDb()
@@ -19,6 +19,7 @@ const ctx: Ctx = {
   config: {
     heartbeatSec: Number(process.env.GONGGONG_HEARTBEAT_SEC ?? heartbeatSec),
     secureCookies: !!https || process.env.GONGGONG_SECURE_COOKIES === '1',
+    fingerprint: https ? certFingerprint(https.cert) : null,
   },
 }
 await ensureBootstrapAdmin(ctx, process.env.GONGGONG_ADMIN_PASSWORD)

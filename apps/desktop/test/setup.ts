@@ -9,3 +9,16 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
+
+// Nor IntersectionObserver, used by the shell's scroll edge.
+globalThis.IntersectionObserver ??= class {
+  root = null
+  rootMargin = ''
+  thresholds = []
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return []
+  }
+} as unknown as typeof IntersectionObserver

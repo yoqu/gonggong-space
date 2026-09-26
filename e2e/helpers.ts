@@ -30,6 +30,8 @@ export function machine(server = SERVER) {
   return {
     home,
     login: (code: string) => gonggong(['login', '--server', server, '--code', code], env),
+    /** `gg login <接入链接>`, as copied from the web's bind dialog. */
+    loginLink: (link: string) => gonggong(['login', link], env),
     start() {
       proc = spawn(GONGGONG_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
       const p = proc
@@ -130,7 +132,12 @@ export async function logout(page: Page) {
 
 type Api = import('@playwright/test').APIRequestContext
 
-async function call<T>(api: Api, method: 'get' | 'post', path: string, data?: unknown): Promise<T> {
+export async function call<T>(
+  api: Api,
+  method: 'get' | 'post' | 'patch',
+  path: string,
+  data?: unknown,
+): Promise<T> {
   const res = await api[method](path, data === undefined ? undefined : { data })
   if (!res.ok()) throw new Error(`${method.toUpperCase()} ${path} → ${res.status()} ${await res.text()}`)
   const text = await res.text()
@@ -170,7 +177,7 @@ export async function adminSession(api: Api) {
 }
 
 /** Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine. */
-export async function memberWithMachine(page: Page, account: string) {
+export async function memberWithMachine(page: Page, account: string, bind: 'code' | 'link' = 'code') {
   const admin = page.request
   await adminSession(admin)
   await call(admin, 'post', '/api/admin/users', {
@@ -185,11 +192,12 @@ export async function memberWithMachine(page: Page, account: string) {
     oldPassword: 'init-pass-1',
     newPassword: 'member-pass',
   })
-  const { code } = await call<{ code: string }>(page.request, 'post', '/api/bind-codes')
+  const { code, link } = await call<{ code: string; link: string }>(page.request, 'post', '/api/bind-codes')
   const m = machine()
-  m.login(code)
+  if (bind === 'link') m.loginLink(link)
+  else m.login(code)
   const api = {
-    call: <T>(method: 'get' | 'post', path: string, data?: unknown) =>
+    call: <T>(method: 'get' | 'post' | 'patch', path: string, data?: unknown) =>
       call<T>(page.request, method, path, data),
     async me() {
       return call<{ id: string }>(page.request, 'get', '/api/me')

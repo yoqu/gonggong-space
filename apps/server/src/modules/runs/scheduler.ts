@@ -1,4 +1,4 @@
-import type { AgentKind, ContextMessage, RunStart, Tier } from '@gonggong/protocol'
+import type { AgentKind, Approval, ContextMessage, RunStart, Tier } from '@gonggong/protocol'
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -167,6 +167,8 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       agentKind: bot.agentKind as AgentKind,
       systemPrompt: bot.systemPrompt,
       tier: (gb.tier ?? bot.tier) as Tier,
+      approval: bot.approval as Approval,
+      allowlist: bot.allowlist,
       ...config,
     },
     workspace: {

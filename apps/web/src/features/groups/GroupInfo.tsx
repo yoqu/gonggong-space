@@ -561,8 +561,8 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
       </GroupBox>
       <div className="gs-foot">
         档位默认跟随 Bot 全局设置，Bot
-        主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。
-        想少审批，也可在桌面端「Bot → 命令审批」开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
+        主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。 想少审批，Bot
+        主人可在 Bot 详情的「命令审批」中开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
       </div>
       <Presence>
         {removing ? (

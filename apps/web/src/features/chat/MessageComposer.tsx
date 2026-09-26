@@ -88,7 +88,11 @@ export function MessageComposer({
   const [sent, setSent] = useState(0)
   const [picks, setPicks] = useState<Picks>({})
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
-  const targets = mentionedBots(draft, groupBots)
+  const appending = useAppend((s) => s.target?.groupId === group.id)
+  const mentioned = mentionedBots(draft, groupBots)
+  // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
+  const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
+  const targets = !mentioned.length && soleDm && !draft.trimStart().startsWith('/') ? groupBots : mentioned
   const sending = useRef(false)
   const uploads = useUploads(group.id)
   useEffect(() => {
@@ -99,7 +103,6 @@ export function MessageComposer({
   const filePicker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
   const listId = useId()
-  const appending = useAppend((s) => s.target?.groupId === group.id)
   /** Caret to restore right after a picked candidate is rendered, before any further keystroke. */
   const pendingCaret = useRef<number | null>(null)
 
@@ -230,7 +233,9 @@ export function MessageComposer({
           { icon: 'paperclip', label: '附件', onClick: () => filePicker.current?.click() },
           { icon: 'image', label: '图片', onClick: () => imagePicker.current?.click() },
         ]}
-        hint={mobile || targets.length ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'}
+        hint={
+          mobile || targets.length || soleDm ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'
+        }
         accessory={
           targets.length ? (
             <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
