@@ -1,0 +1,17 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "tool",
+    "toolCallId": "tc2",
+    "title": "mcp__gonggong__list_messages",
+    "toolKind": "other",
+    "status": "completed",
+    "mcp": {
+      "server": "gonggong",
+      "tool": "list_messages",
+      "input": "{\"limit\":20}",
+      "output": "#1 王磊: 退款接口要兼容 v1"
+    }
+  }
+}

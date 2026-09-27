@@ -150,6 +150,45 @@ describe('run process', () => {
     expect(d.events.map((e) => e.event)).toEqual(rows.map((r) => openEvent(r.payload as RunEvent)))
   })
 
+  it('redacts and seals MCP call arguments and results; server and tool stay plain', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const call = {
+      kind: 'tool',
+      toolCallId: 'm1',
+      title: 'mcp__gonggong__search_messages',
+      toolKind: 'other',
+    }
+    const mcp = { server: 'gonggong', tool: 'search_messages' }
+    w.send(runId, { ...call, status: 'pending', mcp: { ...mcp, input: `{"query":"${GH}"}` } })
+    w.send(runId, {
+      ...call,
+      status: 'completed',
+      mcp: { ...mcp, input: '{"query":"退款"}', output: '#3 王磊: 私密群聊' },
+    })
+    w.done(runId, { reply: '好' })
+    await w.ended(runId)
+
+    const rows = await t.db
+      .select()
+      .from(runEvents)
+      .where(eq(runEvents.runId, runId))
+      .orderBy(asc(runEvents.id))
+    const raw = JSON.stringify(rows)
+    expect(raw).not.toContain('ghp_')
+    expect(raw).not.toContain('私密群聊')
+    expect(raw).not.toContain('退款')
+    expect(raw).toContain('search_messages')
+    expect(rows.map((r) => openEvent(r.payload as RunEvent))).toEqual([
+      { ...call, status: 'pending', mcp: { ...mcp, input: `{"query":"${MASK}"}` } },
+      {
+        ...call,
+        status: 'completed',
+        mcp: { ...mcp, input: '{"query":"退款"}', output: '#3 王磊: 私密群聊' },
+      },
+    ])
+  })
+
   it('keeps subagent streams apart, seals their free text and records background tasks after run.done', async () => {
     const w = await world()
     const runId = await w.mention()

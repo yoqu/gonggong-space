@@ -1,7 +1,8 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
 use crate::attachments::rel_path;
+use crate::mcp_call;
 use crate::protocol::{
-    self, AgentKind, ContextMessage, GitStatus, RunBot, RunEvent, RunPrompt, SubagentState, TaskState, Tier,
+    self, AgentKind, ContextMessage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, SubagentState, TaskState, Tier,
     ToolStatus, Usage,
 };
 use agent_client_protocol::schema::v1::{
@@ -55,7 +56,9 @@ fn short_time(iso: &str) -> String {
 pub fn system_prompt(bot: &RunBot) -> String {
     let base = format!(
         "你是团队群聊里的 Bot「{}」。群成员 @ 你时，消息以「<名字> 说：」开头，之前可能附有最近的群聊上下文。最终回复会作为你的群消息发出。\
-        需要更早的群聊记录、群成员、其他 Bot 的运行结果时，用 gonggong 工具查询，不要猜。",
+        需要更早的群聊记录、群成员、其他 Bot 的运行结果时，用 gonggong 工具查询，不要猜。\
+        需要触发人拍板（方案取舍、范围、缺失信息）时，调用 gonggong 的 ask_group_members（Claude 中为 \
+        mcp__gonggong__ask_group_members）提问并等待回答，不要只在回复里用文字列出问题就结束本轮。",
         bot.name
     );
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
@@ -126,6 +129,7 @@ struct ToolState {
     location: Option<String>,
     command: Option<String>,
     output: Option<String>,
+    mcp: Option<McpCall>,
 }
 
 impl ToolState {
@@ -344,6 +348,19 @@ impl Turn {
         if let Some(out) = output_tail(f.content.as_deref().unwrap_or_default()) {
             state.output = Some(out);
         }
+        if state.mcp.is_none()
+            && let Some((server, tool)) = mcp_call::name(&state.title)
+        {
+            state.mcp = Some(McpCall { server, tool, input: None, output: None });
+        }
+        if let Some(m) = state.mcp.as_mut() {
+            if let Some(input) = f.raw_input.as_ref().and_then(mcp_call::input) {
+                m.input = Some(input);
+            }
+            if let Some(out) = mcp_call::output(f.content.as_deref().unwrap_or_default(), f.raw_output.as_ref()) {
+                m.output = Some(out);
+            }
+        }
         RunEvent::Tool {
             agent_id,
             tool_call_id: id,
@@ -355,6 +372,7 @@ impl Turn {
                 .unwrap_or_else(|| "other".into()),
             status: state.status.unwrap_or(ToolStatus::Pending),
             detail: state.detail(),
+            mcp: state.mcp.clone(),
         }
     }
 }
@@ -403,7 +421,7 @@ fn output_tail(content: &[ToolCallContent]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::Approval;
+    use crate::protocol::{Approval, McpCall};
     use agent_client_protocol::schema::v1::{
         ContentChunk, Cost, SessionInfoUpdate, TextContent, ToolCall, ToolCallLocation, ToolCallStatus,
         ToolCallUpdateFields, UsageUpdate,
@@ -465,6 +483,7 @@ mod tests {
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));
         assert!(s.contains("用 gonggong 工具查询"));
+        assert!(s.contains("mcp__gonggong__ask_group_members"));
         assert!(s.ends_with("\n\n只改 server/"));
     }
 
@@ -522,7 +541,8 @@ mod tests {
                 title: "Edit b".into(),
                 tool_kind: "edit".into(),
                 status: ToolStatus::InProgress,
-                detail: Some("/w/b.rs:3".into())
+                detail: Some("/w/b.rs:3".into()),
+                mcp: None
             })
         );
         let done = ToolCallUpdate::new(
@@ -539,7 +559,8 @@ mod tests {
                 title: "Edit b".into(),
                 tool_kind: "edit".into(),
                 status: ToolStatus::Completed,
-                detail: Some("/w/c.rs".into())
+                detail: Some("/w/c.rs".into()),
+                mcp: None
             })
         );
         assert_eq!(t.files.iter().cloned().collect::<Vec<_>>(), vec!["/w/b.rs", "/w/c.rs"]);
@@ -611,6 +632,41 @@ mod tests {
             .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("fn main() {}")))]);
         let Some(RunEvent::Tool { detail, .. }) = t.apply("s", SessionUpdate::ToolCall(read)) else { panic!() };
         assert_eq!(detail.as_deref(), Some("/w/a.rs"));
+    }
+
+    #[test]
+    fn mcp_calls_carry_their_arguments_and_result() {
+        let mut t = Turn::default();
+        let call = ToolCall::new("m", "mcp__gonggong__list_messages")
+            .kind(ToolKind::Other)
+            .raw_input(serde_json::json!({ "limit": 20 }));
+        let Some(RunEvent::Tool { detail, mcp, .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+        let call = |output: Option<&str>| McpCall {
+            server: "gonggong".into(),
+            tool: "list_messages".into(),
+            input: Some(r#"{"limit":20}"#.into()),
+            output: output.map(String::from),
+        };
+        assert_eq!((detail, mcp), (None, Some(call(None))));
+        let done = ToolCallUpdate::new(
+            "m",
+            ToolCallUpdateFields::new()
+                .status(ToolCallStatus::Completed)
+                .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("#1 王磊: hi")))]),
+        );
+        let Some(RunEvent::Tool { mcp, .. }) = t.apply("s", SessionUpdate::ToolCallUpdate(done)) else { panic!() };
+        assert_eq!(mcp, Some(call(Some("#1 王磊: hi"))));
+    }
+
+    #[test]
+    fn codex_mcp_calls_unwrap_their_raw_input_and_output() {
+        let mut t = Turn::default();
+        let call = ToolCall::new("c", "mcp.gonggong.search_messages")
+            .kind(ToolKind::Execute)
+            .raw_input(serde_json::json!({ "server": "gonggong", "tool": "search_messages", "arguments": { "query": "登录" } }))
+            .raw_output(serde_json::json!({ "result": { "content": [{ "type": "text", "text": "无结果" }] }, "error": null }));
+        let Some(RunEvent::Tool { mcp: Some(m), .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
+        assert_eq!((m.input.as_deref(), m.output.as_deref()), (Some(r#"{"query":"登录"}"#), Some("无结果")));
     }
 
     fn ext(v: serde_json::Value) -> ExtUpdate {

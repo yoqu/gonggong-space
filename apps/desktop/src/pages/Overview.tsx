@@ -1,3 +1,4 @@
+import { toolTitle } from '@web/features/runs/mcp'
 import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
 import { type ReactNode, useEffect, useState } from 'react'
 import { type DaemonStatus, ipc, type MachineBot, type Overview } from '../ipc'
@@ -83,7 +84,7 @@ export function OverviewPage(_: PageProps) {
                         {r.groupName} · {r.triggeredBy} 触发
                       </span>
                     </span>
-                    <span className="dk-mono dk-sub dk-ellipsis">{r.step}</span>
+                    <span className="dk-mono dk-sub dk-ellipsis">{toolTitle(r.step)}</span>
                   </div>
                   <Badge variant={badge.variant}>{badge.text}</Badge>
                   <Icon name="chevron-right" size={12} color="var(--label-tertiary)" />

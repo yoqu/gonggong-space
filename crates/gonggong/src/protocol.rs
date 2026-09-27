@@ -375,6 +375,17 @@ pub enum ToolStatus {
     Failed,
 }
 
+/// An MCP tool call: its server and tool, arguments as compact JSON and the head of its result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct McpCall {
+    pub server: String,
+    pub tool: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RunEvent {
@@ -404,6 +415,8 @@ pub enum RunEvent {
         status: ToolStatus,
         #[serde(skip_serializing_if = "Option::is_none")]
         detail: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mcp: Option<McpCall>,
     },
     Usage {
         usage: Usage,

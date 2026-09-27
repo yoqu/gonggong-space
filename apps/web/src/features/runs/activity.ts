@@ -18,6 +18,7 @@ export type Family =
   | 'subagent'
   | 'task'
   | 'delegate'
+  | 'mcp'
   | 'other'
 export type Bucket = 'file' | 'search' | 'list' | 'probe'
 
@@ -188,6 +189,8 @@ export function classify(s: Step, root: string | null): Action {
       return { ...base, family: 'subagent', verb: s.title ?? s.label, target: s.body }
     case 'task':
       return { ...base, family: 'task', verb: s.label, target: s.title }
+    case 'mcp':
+      return { ...base, family: 'mcp', verb: `${s.title}${s.failed ? '失败' : ''}`, target: s.mono }
     default: {
       const collab = COLLAB[s.title ?? '']
       if (collab) return { ...base, family: 'delegate', verb: collab[0], target: collab[1] }

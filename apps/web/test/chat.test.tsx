@@ -506,6 +506,10 @@ describe('chat view', () => {
     expect(card.textContent).toContain('改动 2 个文件')
     expect(card.textContent).toContain('1.5k tokens')
     await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/read')).toBe(true))
+    // An MCP call's step reads as the tool's name, not its raw `mcp__server__tool` id.
+    push({ t: 'run.updated', run: run({ step: 'mcp__gonggong__list_messages' }) })
+    expect(card.textContent).toContain('读取聊天记录')
+    expect(card.textContent).not.toContain('mcp__')
 
     push({ t: 'run.delta', runId: 'r1', text: '正在对比 v1 与 v2 ' })
     push({ t: 'run.delta', runId: 'r1', text: '的字段' })

@@ -24,6 +24,7 @@ import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { runMascot } from '../runs/mascot'
+import { toolTitle } from '../runs/mcp'
 import { filePaths } from '../runs/paths'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
@@ -432,7 +433,7 @@ export const RunCard = memo(function RunCard({
   const quote = useQuote((s) => s.set)
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const note = NOTE.includes(run.status)
-  const step = note || reply ? '' : streamed || run.step
+  const step = note || reply ? '' : streamed || toolTitle(run.step)
   const working = !note && !reply && run.status === 'running'
   const mascot = runMascot(run.status, !!streamed, step)
   const started = run.startedAt ? Date.parse(run.startedAt) : null
@@ -453,7 +454,7 @@ export const RunCard = memo(function RunCard({
             kind: 'run',
             id: run.id,
             who: `${botName} 的运行卡片`,
-            text: run.step || STATUS_LABEL[run.status],
+            text: toolTitle(run.step) || STATUS_LABEL[run.status],
           }),
     copyText: reply?.body,
   }

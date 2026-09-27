@@ -1,5 +1,6 @@
 import type { RunDetailDto, RunEvent } from '@gonggong/protocol'
 import { type DiffFile, findFile } from '../diff/patch'
+import { argSummary, type McpCall, mcpLabel } from './mcp'
 
 export interface Step {
   key: string
@@ -25,6 +26,8 @@ export interface Step {
   children?: Step[]
   /** A background task that can be stopped: its id. */
   stop?: string
+  /** An MCP tool call's arguments and result. */
+  mcp?: McpCall
 }
 
 const SLOW_MS = 2000
@@ -125,7 +128,9 @@ function eventStep(id: number, e: RunEvent): Step | null {
     case 'status':
       return { key, kind: 'status', label: '状态', body: e.step }
     case 'tool':
-      return { key, kind: e.toolKind, label: TOOL_LABEL[e.toolKind] ?? '工具调用', title: e.title }
+      return e.mcp
+        ? { key, kind: 'mcp', label: '工具调用', title: mcpLabel(e.mcp.server, e.mcp.tool) }
+        : { key, kind: e.toolKind, label: TOOL_LABEL[e.toolKind] ?? '工具调用', title: e.title }
     case 'subagent':
       return {
         key,
@@ -164,6 +169,7 @@ function toolStep(
 ): Partial<Step> {
   const failed = e.status === 'failed'
   const running = live && (e.status === 'pending' || e.status === 'in_progress')
+  if (e.mcp) return { mcp: e.mcp, mono: argSummary(e.mcp), failed, running }
   if (e.toolKind === 'execute')
     return {
       // The output block opens with `$ <command>`: the one-line row shows that command, not the agent's title.

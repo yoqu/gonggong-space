@@ -188,6 +188,8 @@ fn tool() -> Value {
     json!({
         "name": TOOL,
         "title": "向群成员提问",
+        // Claude Code otherwise defers MCP tools behind ToolSearch and the agent never sees this description.
+        "_meta": { "anthropic/alwaysLoad": true },
         "description": "向群成员提问：需要触发人拍板的问题（方案取舍、范围、缺失信息）用它问，不要猜。\
             一次最多 4 个问题；题型 single（单选）、multi（多选）、yesno（是/否）、text（自由文本）。\
             选择题可用 recommended（选项下标，从 0 开始）标出一个推荐项；群成员总能选「其他，我来补充」。\
@@ -444,10 +446,11 @@ mod tests {
         let (status, _) = rpc(&http, url, json!({ "jsonrpc": "2.0", "method": "notifications/initialized" })).await;
         assert_eq!(status, 202);
         let (_, body) = rpc(&http, url, json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" })).await;
-        let names: Vec<String> = serde_json::from_value(
-            body.unwrap()["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].clone()).collect(),
-        )
-        .unwrap();
+        let tools = body.unwrap()["result"]["tools"].clone();
+        // Claude Code defers MCP tools behind ToolSearch; the agent must see this one to ask instead of guessing.
+        assert_eq!(tools[0]["_meta"]["anthropic/alwaysLoad"], true);
+        let names: Vec<String> =
+            serde_json::from_value(tools.as_array().unwrap().iter().map(|t| t["name"].clone()).collect()).unwrap();
         assert_eq!(
             names,
             [

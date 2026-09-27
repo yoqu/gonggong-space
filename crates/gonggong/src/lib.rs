@@ -13,6 +13,7 @@ pub mod git;
 pub mod local;
 pub mod lock;
 pub mod logs;
+pub mod mcp_call;
 pub mod net;
 pub mod protocol;
 pub mod revoke;

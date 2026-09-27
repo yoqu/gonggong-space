@@ -4,6 +4,7 @@ import { useNow } from '../../lib/now'
 import { Button, Icon, type IconName, Mascot } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { type Action, buildItems, fmtWorked, type Item } from './activity'
+import { McpDetail } from './McpDetail'
 import type { Step } from './steps'
 import './process.css'
 
@@ -165,6 +166,7 @@ const ACTION_ICON: Record<string, IconName> = {
   approval: 'shield-warning',
   task: 'bolt',
   delegate: 'bot',
+  mcp: 'plug',
   other: 'gear',
 }
 
@@ -214,7 +216,8 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
         ? [s.body, s.mono && `日志：${s.mono}`].filter(Boolean).join('\n')
         : s.out
   const edit = a.family === 'edit' && !!a.target && !!onOpenDiff
-  const expandable = !!out
+  const mcp = s.mcp?.input || s.mcp?.output ? s.mcp : undefined
+  const expandable = !!out || !!mcp
   const thought = a.family === 'thought' ? (s.body ?? '').trim().split('\n').at(-1) : undefined
   const target = thought ?? (a.target && FILE_TARGET(a) ? a.target.split('/').at(-1) : a.target)
   const head = (
@@ -273,6 +276,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
       ) : (
         row
       )}
+      {open && mcp ? <McpDetail call={mcp} /> : null}
       {open && out ? <Output text={out} mono={a.family !== 'thought' && !task} /> : null}
     </li>
   )

@@ -224,3 +224,34 @@ button.act-row:hover .act-row__target--file {
   flex: 1;
   min-width: 0;
 }
+.act-mcp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.act-mcp__label {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  color: var(--label-tertiary);
+}
+.act-mcp__args {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-8);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+}
+.act-mcp__args > div {
+  display: contents;
+}
+.act-mcp__args dt {
+  color: var(--label-tertiary);
+}
+.act-mcp__args dd {
+  margin: 0;
+  color: var(--label-secondary);
+  overflow-wrap: anywhere;
+}

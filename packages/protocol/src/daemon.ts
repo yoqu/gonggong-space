@@ -250,6 +250,15 @@ export const RunEvent = z.discriminatedUnion('kind', [
     status: z.enum(['pending', 'in_progress', 'completed', 'failed']),
     /** Redaction happens server-side before persistence. */
     detail: z.string().optional(),
+    /** An MCP tool call: arguments as compact JSON and the head of its result (redacted like `detail`). */
+    mcp: z
+      .object({
+        server: z.string(),
+        tool: z.string(),
+        input: z.string().optional(),
+        output: z.string().optional(),
+      })
+      .optional(),
   }),
   z.object({ kind: z.literal('usage'), usage: Usage }),
   /** Full snapshot of a delegated subagent (Claude Agent/Task tool, Codex spawn_agent), sent on every change. */
