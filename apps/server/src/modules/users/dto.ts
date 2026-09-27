@@ -8,4 +8,5 @@ export const toUserDto = (u: typeof users.$inferSelect): UserDto => ({
   role: u.role as UserDto['role'],
   mustChangePassword: u.mustChangePassword,
   disabled: u.disabledAt !== null,
+  gitProtocol: u.gitProtocol as UserDto['gitProtocol'],
 })

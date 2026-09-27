@@ -344,6 +344,25 @@ describe('questions', () => {
     ])
   })
 
+  it('voids only the card the daemon withdraws, and only for its own live runs', async () => {
+    const w = await world()
+    const runId = await w.start()
+    await w.ask(runId, 'r/q1')
+    await w.ask(runId, 'r/dir1')
+    const byRequest = async (requestId: string) =>
+      (await t.db.select().from(questionSets).where(eq(questionSets.requestId, requestId)))[0]!
+    const [kept, gone] = [await byRequest('r/q1'), await byRequest('r/dir1')]
+    w.d.send({ t: 'question.withdraw', runId, requestId: 'r/dir1' })
+    const statusOf = (r: RunDto, id: string) => r.questions.find((q) => q.id === id)?.status
+    const back = await w.viewerWeb.run((r) => r.id === runId && statusOf(r, gone.id) === 'void')
+    expect(statusOf(back, kept.id)).toBe('pending')
+    expect(back.status).toBe('awaiting_answer')
+    expect((await w.answer(w.triggers, { ...back.questions[0]!, id: gone.id })).status).toBe(409)
+
+    w.d.send({ t: 'question.withdraw', runId, requestId: 'r/q1' })
+    await w.viewerWeb.run((r) => r.id === runId && statusOf(r, kept.id) === 'void' && r.status === 'running')
+  })
+
   it('marks the question notifications of both recipients handled once answered or voided', async () => {
     const w = await world()
     const notesOf = (id: string) =>

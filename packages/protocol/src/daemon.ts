@@ -168,7 +168,20 @@ export const McpServer = z.discriminatedUnion('transport', [
 ])
 export type McpServer = z.infer<typeof McpServer>
 
-export const RepoSpec = z.object({ id: z.string(), url: z.string(), branch: z.string() })
+/** The bot owner's preferred protocol; the daemon tries it first, then falls back to the other (ssh ↔ https). */
+export const GitProtocol = z.enum(['auto', 'ssh', 'https'])
+export type GitProtocol = z.infer<typeof GitProtocol>
+
+export const RepoSpec = z.object({
+  id: z.string(),
+  url: z.string(),
+  branch: z.string(),
+  protocol: GitProtocol.default('auto'),
+})
+
+/** Why the machine cannot use the repo; git cannot tell "no access" from "no such repo", both are `denied`. */
+export const RepoAccessReason = z.enum(['denied', 'branch_missing', 'network', 'timeout'])
+export type RepoAccessReason = z.infer<typeof RepoAccessReason>
 
 /** A group message replayed to a bot as context ("since you were last @-ed"). */
 export const ContextMessage = z.object({
@@ -335,8 +348,27 @@ export const WorkspaceState = z.object({
   path: z.string().nullable(),
   git: GitStatus.nullable(),
   error: z.string().nullable(),
+  /** Set with `failed` when the clone failed on repo access. */
+  reason: RepoAccessReason.nullable().default(null),
+  /** Remote URLs of a ready /cd directory, so the server can remember which repos live where on the machine. */
+  remotes: z.array(z.string()).default([]),
 })
 export type WorkspaceState = z.infer<typeof WorkspaceState>
+
+/** Answer to repo.probe: the first candidate URL that worked, with the branch list (at most REPO_BRANCHES_MAX). */
+export const RepoProbeResult = z.object({
+  t: z.literal('repo.probe.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  reason: RepoAccessReason.nullable(),
+  usedUrl: z.string().nullable(),
+  defaultBranch: z.string().nullable(),
+  branches: z.array(z.string()),
+  /** Last git error line, credentials removed. */
+  detail: z.string().nullable(),
+})
+export type RepoProbeResult = z.infer<typeof RepoProbeResult>
+export const REPO_BRANCHES_MAX = 200
 
 export const PATCH_MAX_BYTES = 512 * 1024
 
@@ -434,6 +466,13 @@ export const QuestionAsk = z.object({
   questions: z.array(Question).min(1).max(4),
 })
 
+/** The daemon no longer needs an answer to a pending card (the shared-directory confirmation resolved on its own). */
+export const QuestionWithdraw = z.object({
+  t: z.literal('question.withdraw'),
+  runId: z.string(),
+  requestId: z.string(),
+})
+
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
@@ -441,6 +480,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   FilesResult,
   WorkspaceDiffResult,
   QuestionAsk,
+  QuestionWithdraw,
   ApprovalRequest,
   RunDiscarded,
   SessionConfig,
@@ -449,6 +489,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   RunEventMsg,
   RunDone,
   WorkspaceState,
+  RepoProbeResult,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -499,6 +540,15 @@ export const WorkspaceCd = z.object({
   botId: z.string(),
   repo: RepoSpec.nullable(),
   path: z.string().nullable(),
+})
+
+/** Can this machine read `url` with its own credentials (`git ls-remote`), and does `branch` exist there? */
+export const RepoProbe = z.object({
+  t: z.literal('repo.probe'),
+  requestId: z.string(),
+  url: z.string(),
+  branch: z.string(),
+  protocol: GitProtocol,
 })
 
 /** optionId null → the request is cancelled (run stopped / timed out without a reject option). */
@@ -582,5 +632,6 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   RunTier,
   WorkspaceEnsure,
   WorkspaceCd,
+  RepoProbe,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

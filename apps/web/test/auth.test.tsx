@@ -15,6 +15,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 class NoopSocket {
@@ -206,6 +207,29 @@ describe('account menu', () => {
     fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '退出登录' }))
     expect(await screen.findByTestId('login-page')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
+  })
+
+  it('sets which git protocol my bots try first', async () => {
+    const calls = mockApi({ 'GET /me': me, 'PATCH /me': { ...me, gitProtocol: 'https' } })
+    renderAt('/')
+    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByText('Git 协议')).toBeTruthy()
+    expect(
+      within(menu).getByRole('menuitemcheckbox', { name: '按仓库地址' }).getAttribute('aria-checked'),
+    ).toBe('true')
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '优先 HTTPS' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ gitProtocol: 'https' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('menu'))
+          .getByRole('menuitemcheckbox', { name: '优先 HTTPS' })
+          .getAttribute('aria-checked'),
+      ).toBe('true'),
+    )
   })
 
   it('changes my own password from the menu without leaving the chat', async () => {

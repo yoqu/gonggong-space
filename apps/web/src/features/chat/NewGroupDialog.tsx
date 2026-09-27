@@ -6,7 +6,7 @@ import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, Icon, Input, Tabs, toast } from '../../ui'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
-import { type RepoDraft, RepoFields, repoBody, repoValidated } from './RepoFields'
+import { type RepoDraft, RepoFields, repoBody, repoUnavailable, repoValidated } from './RepoFields'
 import { repoName } from './repo'
 import './chat.css'
 
@@ -55,8 +55,9 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
     bots.filter((b) => d.bots.includes(b.id) && b.ownerId !== me.id).map((b) => b.ownerId),
   )
   const members = new Set([...d.people, ...owners])
-  const blocked = !d.name.trim() ? '填写群名' : repo && !repoValidated(d) ? '先校验仓库地址' : ''
+  const blocked = !d.name.trim() ? '填写群名' : repo && !repoValidated(d) ? '先检查仓库访问' : ''
   const name = repoName(d.url.trim())
+  const unavailable = repo ? repoUnavailable(d) : 0
 
   const submit = async () => {
     setCreating(true)
@@ -93,9 +94,11 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         <>
           <span className={cx('ng-foot', blocked && 'ng-foot--muted')}>
             {blocked ||
-              (repo
-                ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
-                : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
+              (unavailable
+                ? `${unavailable} 个 Bot 无法访问仓库，进群后暂停，主人配置后可重新检查`
+                : repo
+                  ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
+                  : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
           </span>
           <Button onClick={onClose}>取消</Button>
           <Button variant="primary" disabled={!!blocked || creating} onClick={() => void submit()}>
@@ -141,7 +144,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
           </div>
           {repo ? (
             <>
-              <RepoFields draft={d} set={set} />
+              <RepoFields draft={d} set={set} botIds={d.bots} />
               <span className="ng-note">
                 每个群绑定一个仓库。Bot 加入后由各自 daemon 用本机 git 凭据 clone
                 到托管工作区；服务器不持有写权限。

@@ -148,6 +148,13 @@
       "when": 1790422546836,
       "tag": "0020_quiet_luckman",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790469597116,
+      "tag": "0021_fixed_pyro",
+      "breakpoints": true
     }
   ]
 }

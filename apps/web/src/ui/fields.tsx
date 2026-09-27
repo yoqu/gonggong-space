@@ -208,6 +208,8 @@ export interface ComboBoxProps {
   disabled?: boolean
   className?: string
   style?: CSSProperties
+  /** Names the input when there is no visible `label`. */
+  'aria-label'?: string
 }
 
 /** Text field with a suggestion list (NSComboBox): pick from the list or type any value. */
@@ -223,6 +225,7 @@ export function ComboBox({
   disabled,
   className,
   style,
+  'aria-label': ariaLabel,
 }: ComboBoxProps) {
   const id = useId()
   const listId = `${id}-list`
@@ -255,6 +258,7 @@ export function ComboBox({
           id={id}
           className="ui-input ui-input--bare"
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={shown}
           aria-controls={listId}
           aria-autocomplete="list"

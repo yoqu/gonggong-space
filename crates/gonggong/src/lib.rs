@@ -16,6 +16,7 @@ pub mod logs;
 pub mod mcp_call;
 pub mod net;
 pub mod protocol;
+pub mod repo;
 pub mod revoke;
 pub mod service;
 mod session;

@@ -13,6 +13,7 @@ use crate::turn::{
     ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt,
     wire_options,
 };
+use crate::workspace;
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     self as acp, CancelNotification, ClientCapabilities, EnvVariable, HttpHeader, InitializeRequest,
@@ -106,7 +107,14 @@ const ASYNC_TASK_STOP: &str = "_session/async_task/stop";
 
 struct Asked {
     questions: Vec<Question>,
-    tx: oneshot::Sender<String>,
+    reply: Reply,
+}
+
+enum Reply {
+    /// The ask tool's text result for the agent.
+    Agent(oneshot::Sender<String>),
+    /// The shared-directory confirmation (workspace::occupy): true = run in parallel now.
+    Dir(oneshot::Sender<bool>),
 }
 
 struct Approval {
@@ -225,14 +233,57 @@ impl Shared {
         let mut s = self.0.lock().unwrap();
         let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
         let Some(q) = s.questions.remove(request_id) else { return false };
-        let step = match answers {
-            Some(_) => format!("{} 已回答", answered_by.unwrap_or("群成员")),
-            None => "无人回答，agent 按推荐项继续".into(),
+        let who = answered_by.unwrap_or("群成员");
+        let step = match (&q.reply, answers) {
+            (Reply::Agent(_), Some(_)) => format!("{who} 已回答"),
+            (Reply::Agent(_), None) => "无人回答，agent 按推荐项继续".into(),
+            (Reply::Dir(_), Some(a)) if workspace::parallel(a) => format!("{who} 确认并行运行"),
+            (Reply::Dir(_), Some(_)) => format!("{who} 选择排队，等待工作区空闲"),
+            (Reply::Dir(_), None) => "无人确认，等待工作区空闲".into(),
         };
         let event = RunEvent::Status { status: RunStatus::Running, step };
         out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
-        let _ = q.tx.send(ask::format_answers(&q.questions, answers, attachments, answered_by));
+        match q.reply {
+            Reply::Agent(tx) => {
+                let _ = tx.send(ask::format_answers(&q.questions, answers, attachments, answered_by));
+            }
+            Reply::Dir(tx) => {
+                let _ = tx.send(answers.is_some_and(workspace::parallel));
+            }
+        }
         true
+    }
+
+    /// Asks the group whether the active turn may start beside the other turns in its directory (spec §4.3).
+    pub(crate) fn confirm_dir(&self, question: Question) -> Option<(String, oneshot::Receiver<bool>)> {
+        let mut s = self.0.lock().unwrap();
+        s.requests += 1;
+        let n = s.requests;
+        let (run_id, out) = s.active.as_ref().map(|a| (a.run_id.clone(), a.out.clone()))?;
+        let step = "等待确认：同一工作区有其他会话在运行".to_string();
+        out.send(DaemonToServer::RunEvent {
+            run_id: run_id.clone(),
+            event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
+        });
+        let request_id = format!("{run_id}/dir{n}");
+        let questions = vec![question];
+        out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
+        let (tx, rx) = oneshot::channel();
+        s.questions.insert(request_id.clone(), Asked { questions, reply: Reply::Dir(tx) });
+        Some((request_id, rx))
+    }
+
+    /// Takes back a confirmation nobody answered: the directory freed up first.
+    pub(crate) fn withdraw(&self, request_id: &str) {
+        let mut s = self.0.lock().unwrap();
+        let Some(a) = s.active.as_ref() else { return };
+        let (run_id, out) = (a.run_id.clone(), a.out.clone());
+        if s.questions.remove(request_id).is_none() {
+            return;
+        }
+        out.send(DaemonToServer::QuestionWithdraw { run_id: run_id.clone(), request_id: request_id.into() });
+        let event = RunEvent::Status { status: RunStatus::Running, step: "工作区已空闲，开始运行".into() };
+        out.send(DaemonToServer::RunEvent { run_id, event });
     }
 
     /// Applies the owner's decision to a pending request of `run_id`; false if there is none (e.g. already void).
@@ -692,7 +743,7 @@ impl Asker for Shared {
         let request_id = format!("{run_id}/q{n}");
         out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
         let (tx, rx) = oneshot::channel();
-        s.questions.insert(request_id, Asked { questions, tx });
+        s.questions.insert(request_id, Asked { questions, reply: Reply::Agent(tx) });
         Ok(rx)
     }
 
@@ -799,7 +850,7 @@ async fn connect(
             let mut req = first;
             loop {
                 {
-                    let _dir = engine.workspaces.occupy(&req).await;
+                    let _dir = engine.workspaces.occupy(&req, shared).await;
                     conv.turn(req, resume).await?;
                 }
                 req = loop {

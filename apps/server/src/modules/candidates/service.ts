@@ -103,7 +103,9 @@ export async function fileCandidates(
   const m = await mirror
   return {
     source: 'mirror',
-    label: `${repo.branch} 镜像 · ${m.updatedAt ? `${ago(m.updatedAt, ctx.now())}更新` : '同步失败'}`,
+    label: m.updatedAt
+      ? `${repo.branch} 镜像 · ${ago(m.updatedAt, ctx.now())}更新`
+      : `${repo.branch} 镜像不可用 · 服务端无法访问该仓库`,
     entries: pick(
       m.entries.map((e) => ({ ...e, uncommitted: false, notInWorkspace: false })),
       query,

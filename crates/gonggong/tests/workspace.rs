@@ -41,7 +41,7 @@ impl Remote {
         format!("file://{}", self.bare().display())
     }
     fn spec(&self, id: &str) -> RepoSpec {
-        RepoSpec { id: id.into(), url: self.url(), branch: "main".into() }
+        RepoSpec { id: id.into(), url: self.url(), branch: "main".into(), protocol: GitProtocol::Auto }
     }
     fn commit(&self, file: &str, content: &str) {
         let seed = self.root.path().join("seed");
@@ -167,18 +167,25 @@ async fn ensure_replaces_a_broken_leftover_and_reports_clone_failures() {
     assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
     assert!(dir.join("README.md").is_file() && !dir.join("junk").exists());
 
-    let missing = RepoSpec { id: "bad".into(), url: "file:///nonexistent/gonggong.git".into(), branch: "main".into() };
+    let missing = RepoSpec {
+        id: "bad".into(),
+        url: "file:///nonexistent/gonggong.git".into(),
+        branch: "main".into(),
+        protocol: GitProtocol::Auto,
+    };
     r.ensure("e2", Some(missing));
     let (s, cloned) = r.settled("e2").await;
     assert!(cloned);
     assert_eq!(s.state, WorkspaceStateKind::Failed);
     assert!(s.error.unwrap().starts_with("clone 失败："));
+    assert_eq!(s.reason, Some(RepoAccessReason::Denied));
     assert!(!r.managed(Some("bad")).exists());
 
     let mut wrong = remote.spec("rp2");
     wrong.branch = "nope".into();
     r.ensure("e3", Some(wrong));
-    assert_eq!(r.settled("e3").await.0.state, WorkspaceStateKind::Failed);
+    let (s, _) = r.settled("e3").await;
+    assert_eq!((s.state, s.reason), (WorkspaceStateKind::Failed, Some(RepoAccessReason::BranchMissing)));
 }
 
 #[tokio::test]
@@ -217,12 +224,14 @@ async fn cd_validates_directory_repo_and_remote() {
     assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
     assert_eq!(s.path.as_deref(), Some(&*local.to_string_lossy()));
     assert_eq!(s.git, Some(clean("main", WorkspaceKind::Cd)));
+    assert_eq!(s.remotes, [remote.bare().to_string_lossy()]);
 
     r.cd("back", Some(remote.spec("rp")), None);
     let (s, _) = r.settled("back").await;
     assert_eq!(s.state, WorkspaceStateKind::Ready);
     assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
     assert_eq!(s.git.unwrap().workspace, WorkspaceKind::Managed);
+    assert!(s.remotes.is_empty());
 }
 
 #[tokio::test]

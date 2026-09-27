@@ -30,6 +30,7 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   offline_expired: { icon: 'wifi', color: 'var(--system-orange)' },
   chain_done: { icon: 'link', color: 'var(--system-gray)' },
   bot_confirm: { icon: 'bot', color: 'var(--system-orange)' },
+  repo_access: { icon: 'git-branch', color: 'var(--system-red)' },
 }
 
 function PushAction() {

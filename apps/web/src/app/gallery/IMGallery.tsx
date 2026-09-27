@@ -63,6 +63,7 @@ const CONVERSATIONS: Conversation[] = [
     preview: '运行完成：修复登录页跳转',
     unread: 1,
     urgent: true,
+    live: true,
   },
   {
     id: 'd',

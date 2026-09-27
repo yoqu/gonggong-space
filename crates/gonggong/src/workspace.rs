@@ -3,16 +3,18 @@
 use crate::config::{Config, user_home};
 use crate::git::{self, git};
 use crate::protocol::{
-    DaemonToServer, DirEntry, DirGit, DirResult, GitStatus, RepoSpec, RunEvent, RunStart, RunStatus, WorkspaceCd,
-    WorkspaceEnsure, WorkspaceKind, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
+    Answer, DaemonToServer, DirEntry, DirGit, DirResult, GitStatus, Question, QuestionType, RepoAccessReason, RepoSpec,
+    RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
 };
+use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
-use crate::session::TurnReq;
+use crate::session::{Shared, TurnReq};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
+use tokio::sync::{oneshot, watch};
 
 /// `<home>/workspaces/<groupId>/<botId>/<repoId | _empty>/` — isolated per group, bot and repo (a new repo = new dir).
 pub fn managed_path(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) -> PathBuf {
@@ -25,30 +27,127 @@ type Locks = Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>;
 pub struct Workspaces {
     home: PathBuf,
     locks: Locks,
-    /// One turn at a time per real directory, across groups and bots sharing it (plan W10).
-    dirs: Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>,
+    /// Turns in each real directory, across groups and bots sharing it (plan W10): one at a time unless the group
+    /// confirmed running beside the others.
+    dirs: Mutex<HashMap<PathBuf, watch::Sender<Vec<Holder>>>>,
 }
 
-type Outcome = Result<(PathBuf, Option<GitStatus>), String>;
+#[derive(Clone)]
+struct Holder {
+    run_id: String,
+    label: String,
+}
+
+const PARALLEL: &str = "并行开始";
+const QUEUE: &str = "排队等待";
+
+/// Whether the answer to the shared-directory confirmation chose to run in parallel.
+pub(crate) fn parallel(answers: &[Answer]) -> bool {
+    answers.first().is_some_and(|a| a.choices == [0])
+}
+
+fn dir_question(dir: &Path, others: &[Holder]) -> Question {
+    let names: Vec<_> = others.iter().map(|h| h.label.as_str()).collect();
+    Question {
+        id: "q1".into(),
+        kind: QuestionType::Single,
+        title: format!(
+            "工作区 {} 正在被 {} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
+            dir.display(),
+            names.join("、")
+        ),
+        options: vec![PARALLEL.into(), QUEUE.into()],
+        recommended: Some(1),
+    }
+}
+
+/// The shared-directory confirmation of a waiting turn.
+enum Ask {
+    Unasked,
+    Pending(String, oneshot::Receiver<bool>),
+    /// Answered, or nobody to ask: wait without asking again.
+    Answered,
+}
+
+/// A turn's place in its directory, given up when dropped.
+pub(crate) struct DirGuard {
+    dir: watch::Sender<Vec<Holder>>,
+    run_id: String,
+}
+
+impl Drop for DirGuard {
+    fn drop(&mut self) {
+        self.dir.send_modify(|h| h.retain(|x| x.run_id != self.run_id));
+    }
+}
+
+/// A workspace that could not be set up; `reason` is set when the clone failed on repo access.
+#[derive(Debug)]
+struct Failed {
+    reason: Option<RepoAccessReason>,
+    message: String,
+}
+
+impl From<String> for Failed {
+    fn from(message: String) -> Self {
+        Failed { reason: None, message }
+    }
+}
+
+/// Ready: the directory, its git status and (for /cd directories) its remote URLs.
+type Outcome = Result<(PathBuf, Option<GitStatus>, Vec<String>), Failed>;
 
 impl Workspaces {
     pub fn new(home: PathBuf) -> Self {
         Workspaces { home, locks: Mutex::default(), dirs: Mutex::default() }
     }
 
-    /// Holds the turn's directory for its duration, telling the run when it has to wait for another one.
-    pub(crate) async fn occupy(&self, req: &TurnReq) -> tokio::sync::OwnedMutexGuard<()> {
+    /// Holds the turn's directory for its duration. A busy directory asks the group first: start beside the other
+    /// turns now, or wait until it is free (also when nobody answers).
+    pub(crate) async fn occupy(&self, req: &TurnReq, shared: &Shared) -> DirGuard {
         let key = req.cwd.canonicalize().unwrap_or_else(|_| req.cwd.clone());
-        let lock = self.dirs.lock().unwrap().entry(key).or_default().clone();
-        if let Ok(guard) = lock.clone().try_lock_owned() {
-            return guard;
-        }
-        let event = RunEvent::Status {
-            status: RunStatus::Running,
-            step: "等待工作区空闲（同目录有其他会话在运行）".into(),
+        let dir = self.dirs.lock().unwrap().entry(key.clone()).or_insert_with(|| watch::Sender::new(vec![])).clone();
+        let me = Holder {
+            run_id: req.start.run_id.clone(),
+            label: format!("{}（群「{}」）", req.start.bot.name, req.start.group_name),
         };
-        req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
-        lock.lock_owned().await
+        let mut changed = dir.subscribe();
+        let (mut ask, mut go) = (Ask::Unasked, false);
+        loop {
+            let mut others = vec![];
+            let taken = dir.send_if_modified(|h| {
+                if !go && !h.is_empty() {
+                    others = h.clone();
+                    return false;
+                }
+                h.push(me.clone());
+                true
+            });
+            if taken {
+                if let Ask::Pending(request_id, _) = &ask {
+                    shared.withdraw(request_id);
+                }
+                return DirGuard { dir, run_id: me.run_id };
+            }
+            if let Ask::Unasked = ask {
+                ask = shared
+                    .confirm_dir(dir_question(&key, &others))
+                    .map_or(Ask::Answered, |(id, rx)| Ask::Pending(id, rx));
+            }
+            let decided = match &mut ask {
+                Ask::Pending(_, rx) => tokio::select! {
+                    _ = changed.changed() => None,
+                    choice = rx => Some(choice.unwrap_or(false)),
+                },
+                _ => {
+                    let _ = changed.changed().await;
+                    None
+                }
+            };
+            if let Some(choice) = decided {
+                (ask, go) = (Ask::Answered, choice);
+            }
+        }
     }
 
     fn lock(&self, group: &str, bot: &str) -> Arc<tokio::sync::Mutex<()>> {
@@ -74,14 +173,11 @@ impl Workspaces {
             Some(path) => {
                 let dir = PathBuf::from(path);
                 match check_cd(&dir, req.repo.as_ref()).await {
-                    Ok(()) => {
-                        let git = match git::is_repo(&dir) {
-                            true => git::status(&dir, WorkspaceKind::Cd).await.ok(),
-                            false => None,
-                        };
-                        Ok((dir, git))
-                    }
-                    Err(e) => Err(e),
+                    Ok(()) => match git::is_repo(&dir) {
+                        true => Ok((dir.clone(), git::status(&dir, WorkspaceKind::Cd).await.ok(), remotes(&dir).await)),
+                        false => Ok((dir, None, vec![])),
+                    },
+                    Err(e) => Err(e.into()),
                 }
             }
         };
@@ -106,7 +202,7 @@ impl Workspaces {
         let _guard = lock.lock().await;
         let dir =
             managed_path(&self.home, &start.group_id, &start.bot.id, start.workspace.repo.as_ref().map(|r| &*r.id));
-        prepare(&dir, start.workspace.repo.as_ref(), || {}).await?;
+        prepare(&dir, start.workspace.repo.as_ref(), || {}).await.map_err(|f| f.message)?;
         Ok(dir)
     }
 
@@ -117,16 +213,18 @@ impl Workspaces {
             Some(_) => git::status(&dir, WorkspaceKind::Managed).await.ok(),
             None => None,
         };
-        Ok((dir, git))
+        Ok((dir, git, vec![]))
     }
 }
 
 /// `None` = still cloning.
 fn report(out: &Outbox, group: &str, bot: &str, request_id: &str, outcome: Option<Outcome>) {
-    let (state, path, git, error) = match outcome {
-        Some(Ok((dir, git))) => (WorkspaceStateKind::Ready, Some(dir.to_string_lossy().into_owned()), git, None),
-        Some(Err(e)) => (WorkspaceStateKind::Failed, None, None, Some(e)),
-        None => (WorkspaceStateKind::Cloning, None, None, None),
+    let (state, path, git, error, reason, remotes) = match outcome {
+        Some(Ok((dir, git, remotes))) => {
+            (WorkspaceStateKind::Ready, Some(dir.to_string_lossy().into_owned()), git, None, None, remotes)
+        }
+        Some(Err(f)) => (WorkspaceStateKind::Failed, None, None, Some(f.message), f.reason, vec![]),
+        None => (WorkspaceStateKind::Cloning, None, None, None, None, vec![]),
     };
     out.send(DaemonToServer::WorkspaceState(WorkspaceState {
         group_id: group.into(),
@@ -136,17 +234,20 @@ fn report(out: &Outbox, group: &str, bot: &str, request_id: &str, outcome: Optio
         path,
         git,
         error,
+        reason,
+        remotes,
     }));
 }
 
 /// Makes `dir` a usable workspace: an existing clone is kept as is; anything else there is replaced by a fresh clone.
-async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -> Result<(), String> {
+async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -> Result<(), Failed> {
     let Some(repo) = repo else {
-        return tokio::fs::create_dir_all(dir).await.map_err(|e| format!("无法创建工作区 {}: {e}", dir.display()));
+        let io = |e| format!("无法创建工作区 {}: {e}", dir.display());
+        return Ok(tokio::fs::create_dir_all(dir).await.map_err(io)?);
     };
     if is_clone_root(dir).await {
         // Clones made before autocrlf was enforced get it too (spec §12 risk 1).
-        return git(dir, &["config", "core.autocrlf", "false"]).await.map(drop);
+        return Ok(git(dir, &["config", "core.autocrlf", "false"]).await.map(drop)?);
     }
     on_clone();
     clone(dir, repo).await
@@ -157,24 +258,38 @@ async fn is_clone_root(dir: &Path) -> bool {
     matches!((Path::new(top.trim()).canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
 }
 
-/// Clones next to the target and renames, so an interrupted clone never looks like a valid workspace.
-async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), String> {
+/// Clones next to the target and renames, so an interrupted clone never looks like a valid workspace. Tries the
+/// owner's preferred protocol first, then the other one; the URL that worked becomes `origin`.
+async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
     let parent = dir.parent().expect("managed paths have a parent");
     let partial = dir.with_extension("partial");
     let io = |e: std::io::Error| format!("无法创建工作区 {}: {e}", dir.display());
     tokio::fs::create_dir_all(parent).await.map_err(io)?;
-    for stale in [&partial, &dir.to_path_buf()] {
-        if stale.exists() {
-            tokio::fs::remove_dir_all(stale).await.map_err(io)?;
-        }
+    if dir.exists() {
+        tokio::fs::remove_dir_all(dir).await.map_err(io)?;
     }
     let target = partial.to_string_lossy();
-    let args = ["clone", "-q", "-c", "core.autocrlf=false", "--branch", &repo.branch, "--", &repo.url, &target];
-    if let Err(e) = git(parent, &args).await {
-        let _ = tokio::fs::remove_dir_all(&partial).await;
-        return Err(format!("clone 失败：{e}"));
+    let mut first = None;
+    for url in repo::candidates(&repo.url, repo.protocol) {
+        if partial.exists() {
+            tokio::fs::remove_dir_all(&partial).await.map_err(io)?;
+        }
+        let args = ["clone", "-q", "-c", "core.autocrlf=false", "--branch", &repo.branch, "--", &url, &target];
+        match repo::remote_git(parent, &args, None).await {
+            Ok(_) => return Ok(tokio::fs::rename(&partial, dir).await.map_err(io)?),
+            // The repo answered, so the other protocol would not find the branch either.
+            Err(f) if f.reason == RepoAccessReason::BranchMissing => {
+                first = Some(f);
+                break;
+            }
+            Err(f) => {
+                first.get_or_insert(f);
+            }
+        }
     }
-    tokio::fs::rename(&partial, dir).await.map_err(io)
+    let _ = tokio::fs::remove_dir_all(&partial).await;
+    let f = first.expect("candidates is never empty");
+    Err(Failed { reason: Some(f.reason), message: format!("clone 失败：{}", f.detail) })
 }
 
 /// /cd target must be an absolute, existing, usable directory; with a group repo also a work tree of that repo.
@@ -261,28 +376,6 @@ pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
     }
     result.unusable = unusable(&dir);
     result
-}
-
-/// Canonical identity of a remote: `git@host:a/b.git` ≡ `ssh://git@host/a/b` ≡ `https://host/a/b/` → `host/a/b`;
-/// local paths and `file://` URLs resolve symlinks (e.g. macOS `/var` → `/private/var`).
-pub fn normalize_remote(url: &str) -> String {
-    let url = url.trim();
-    let trim = |s: &str| {
-        let s = s.trim_end_matches('/');
-        s.strip_suffix(".git").unwrap_or(s).trim_end_matches('/').to_string()
-    };
-    let local = url.strip_prefix("file://").or_else(|| Path::new(url).is_absolute().then_some(url));
-    if let Some(path) = local {
-        let real = std::fs::canonicalize(path).map(|p| p.to_string_lossy().into_owned());
-        return format!("file://{}", trim(&real.unwrap_or_else(|_| path.into())));
-    }
-    let (authority, path) = match url.split_once("://") {
-        Some((_, rest)) => rest.split_once('/').unwrap_or((rest, "")),
-        None => url.split_once(':').unwrap_or((url, "")),
-    };
-    let host = authority.rsplit('@').next().unwrap_or(authority);
-    let host = host.split(':').next().unwrap_or(host).to_lowercase();
-    format!("{host}/{}", trim(path.trim_start_matches('/')))
 }
 
 /// A (group, bot) pair of this machine as the server knows it (`GET /api/daemon/workspaces`, DaemonWorkspaceDto).
@@ -571,33 +664,6 @@ pub fn human_size(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn remote_forms_of_one_repo_normalize_equal() {
-        let want = normalize_remote("git@github.com:team/repo.git");
-        for url in [
-            "ssh://git@github.com/team/repo",
-            "ssh://git@github.com:22/team/repo.git",
-            "https://github.com/team/repo/",
-            "https://user@GitHub.com/team/repo.git",
-            " git@github.com:team/repo ",
-        ] {
-            assert_eq!(normalize_remote(url), want, "{url}");
-        }
-        assert_ne!(normalize_remote("git@github.com:team/other.git"), want);
-        assert_ne!(normalize_remote("git@gitlab.com:team/repo.git"), want);
-    }
-
-    #[test]
-    fn local_remotes_compare_by_real_path() {
-        let dir = tempfile::tempdir().unwrap();
-        let bare = dir.path().join("remote.git");
-        std::fs::create_dir(&bare).unwrap();
-        let plain = bare.to_string_lossy().into_owned();
-        assert_eq!(normalize_remote(&format!("file://{plain}")), normalize_remote(&plain));
-        assert_eq!(normalize_remote(&format!("file://{plain}/")), normalize_remote(&plain));
-        assert_ne!(normalize_remote(&plain), normalize_remote(&dir.path().to_string_lossy()));
-    }
 
     fn pair(group: &str, kind: WorkspaceKind, repo: Option<&str>) -> Pair {
         Pair {

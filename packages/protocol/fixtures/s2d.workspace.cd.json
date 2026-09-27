@@ -3,6 +3,11 @@
   "requestId": "q2",
   "groupId": "g1",
   "botId": "b1",
-  "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" },
+  "repo": {
+    "id": "r_pay",
+    "url": "git@git.corp:pay/pay-server.git",
+    "branch": "main",
+    "protocol": "auto"
+  },
   "path": "/Users/w/code/pay-server"
 }

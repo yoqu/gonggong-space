@@ -15,6 +15,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto => ({
@@ -33,6 +34,7 @@ const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto =>
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
   ...o,
 })
 
@@ -171,6 +173,17 @@ describe('sidebar', () => {
     renderAt('/g/g1')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     expect(await within(nav).findByLabelText('3 条未读')).toBeTruthy()
+  })
+})
+
+describe('sidebar live runs', () => {
+  it('tags conversations where an agent is running with the animated mascot', async () => {
+    mockApi(routes([group('g1', '退款 v2 迁移', { liveRunIds: ['r1'] }), group('g2', '闲聊')]))
+    renderAt('/g/g1')
+    const live = await screen.findByTestId('group-item-g1')
+    const tag = within(live).getByText('运行中')
+    expect(tag.closest('.pn-conv__live')?.querySelector('.ui-mascot[data-action="run"]')).toBeTruthy()
+    expect(within(screen.getByTestId('group-item-g2')).queryByText('运行中')).toBeNull()
   })
 })
 

@@ -57,6 +57,7 @@ beforeEach(() => {
       role: 'member',
       mustChangePassword: false,
       disabled: false,
+      gitProtocol: 'auto',
     },
   } as never)
 })

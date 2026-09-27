@@ -1,9 +1,8 @@
 import type { GroupDto, TimelineDto } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, groupBots, groupRepos } from '../src/db/schema.js'
+import { auditLogs, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
-import { bareRepo } from './support/git.js'
 import { client, events } from './support/http.js'
 
 let t: TestApp
@@ -158,6 +157,45 @@ describe('reading groups', () => {
     expect(wangEvents).toEqual([{ t: 'group.updated', group: expect.objectContaining({ unread: 0 }) }])
   })
 
+  it('flags groups where a bot is running, waiting for approval or for an answer', async () => {
+    const p = await people()
+    const seedRun = async (name: string, status: string) => {
+      const g = await t.seed.group({ createdBy: p.wang.id, name, botIds: [p.wangBot.id] })
+      const [m] = await t.db
+        .insert(messages)
+        .values({ groupId: g.id, kind: 'user', authorUserId: p.wang.id, body: '@Bot 干活' })
+        .returning()
+      const [r] = await t.db
+        .insert(runs)
+        .values({
+          groupId: g.id,
+          botId: p.wangBot.id,
+          triggerMessageId: m!.id,
+          triggerUserId: p.wang.id,
+          originUserId: p.wang.id,
+          status,
+        })
+        .returning()
+      return r!.id
+    }
+    const running = await seedRun('跑', 'running')
+    const approval = await seedRun('批', 'awaiting_approval')
+    const answer = await seedRun('问', 'awaiting_answer')
+    await seedRun('排', 'queued')
+    await seedRun('完', 'completed')
+    await t.seed.group({ createdBy: p.wang.id, name: '空' })
+
+    const list = (await p.asWang.get<GroupDto[]>('/api/groups')).body
+    expect(Object.fromEntries(list.map((g) => [g.name, g.liveRunIds]))).toEqual({
+      跑: [running],
+      批: [approval],
+      问: [answer],
+      排: [],
+      完: [],
+      空: [],
+    })
+  })
+
   it('never moves the read cursor backwards', async () => {
     const p = await people()
     const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
@@ -174,16 +212,6 @@ describe('reading groups', () => {
     expect((await p.asZhao.get(`/api/groups/${g.id}/timeline`)).status).toBe(404)
     expect((await p.asZhao.post(`/api/groups/${g.id}/read`, {})).status).toBe(404)
     expect((await p.asZhao.get('/api/groups/not-a-uuid')).status).toBe(404)
-  })
-
-  it('validates repo address format', async () => {
-    const p = await people()
-    const ok = await p.asWang.post('/api/groups/validate-repo', { url: bareRepo().url, branch: 'main' })
-    expect(ok.body).toMatchObject({ ok: true })
-    const bad = await p.asWang.post('/api/groups/validate-repo', { url: 'ftp://x', branch: 'main' })
-    expect(bad.body).toMatchObject({ ok: false })
-    const noBranch = await p.asWang.post('/api/groups/validate-repo', { url: 'git@a:b.git', branch: 'a b' })
-    expect(noBranch.body).toMatchObject({ ok: false })
   })
 })
 

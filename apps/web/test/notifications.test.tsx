@@ -17,6 +17,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 const note = (o: Partial<NotificationDto>): NotificationDto => ({

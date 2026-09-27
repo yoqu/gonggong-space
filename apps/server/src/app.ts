@@ -27,6 +27,8 @@ import { questionRoutes } from './modules/questions/routes.js'
 import { startQuestionTimer } from './modules/questions/service.js'
 import { reactionRoutes } from './modules/reactions/routes.js'
 import { releaseRoutes } from './modules/releases/routes.js'
+import { repoRoutes } from './modules/repos/routes.js'
+import { backfillRepos } from './modules/repos/service.js'
 import { startRunEngine } from './modules/runs/engine.js'
 import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
@@ -83,6 +85,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(botRoutes(ctx))
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
+  await app.register(repoRoutes(ctx))
+  await backfillRepos(ctx)
   await app.register(usageRoutes(ctx))
   await app.register(releaseRoutes(ctx))
   await app.register(adminRoutes(ctx))

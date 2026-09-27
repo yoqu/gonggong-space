@@ -1,4 +1,4 @@
-import type { MessageDto } from '@gonggong/protocol'
+import type { MessageDto, RepoAccessReason } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, type messages, runs, users } from '../../db/schema.js'
@@ -6,6 +6,7 @@ import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { parseMentions } from '../messages/mentions.js'
 import { postEvent } from '../messages/service.js'
+import { PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 import { isChainStopped } from './stop.js'
@@ -51,6 +52,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
       name: bots.name,
       ownerName: users.name,
       workspaceState: groupBots.workspaceState,
+      workspaceReason: groupBots.workspaceReason,
       groupTier: groupBots.tier,
     })
     .from(groupBots)
@@ -72,6 +74,13 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           ctx,
           t.groupId,
           `${bot.name} 还没有工作区，本次未执行；${bot.ownerName} 绑定工作区后重新发起即可`,
+        ))
+      const reason = bot.workspaceReason as RepoAccessReason | null
+      if (!refused && bot.workspaceState === 'failed' && reason && PAUSING.includes(reason))
+        return void (await postEvent(
+          ctx,
+          t.groupId,
+          `${bot.name} 所在机器无法访问仓库（${reasonText(reason)}），本次未执行；${bot.ownerName} 配置后点「重新检查」`,
         ))
       const [run] = await ctx.db
         .insert(runs)

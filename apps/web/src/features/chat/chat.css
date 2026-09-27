@@ -84,6 +84,8 @@
 }
 /* Long bot output folds to a readable height */
 .clamp[data-clamped] .clamp__body {
+  /* Contains absolute descendants (e.g. code-block live regions) so overflow clips them too */
+  position: relative;
   max-height: 360px;
   overflow: hidden;
   mask-image: linear-gradient(to bottom, black 80%, transparent);

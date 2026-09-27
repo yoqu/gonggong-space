@@ -21,6 +21,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
   ...o,
 })
 
@@ -33,6 +34,7 @@ const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateD
   state: 'ready',
   git: null,
   error: null,
+  reason: null,
   tier: null,
   model: null,
   effort: null,

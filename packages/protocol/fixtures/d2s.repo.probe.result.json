@@ -1,0 +1,10 @@
+{
+  "t": "repo.probe.result",
+  "requestId": "q7",
+  "ok": true,
+  "reason": null,
+  "usedUrl": "https://git.corp/pay/pay-server.git",
+  "defaultBranch": "main",
+  "branches": ["feat/refund", "main"],
+  "detail": null
+}

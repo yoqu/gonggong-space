@@ -15,7 +15,7 @@
     "allowlist": ["go build", "npm test"]
   },
   "workspace": {
-    "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main" },
+    "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main", "protocol": "auto" },
     "cdPath": null
   },
   "resumeSessionId": "sess-0",

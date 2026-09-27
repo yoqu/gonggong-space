@@ -20,6 +20,7 @@ const admin: UserDto = {
   role: 'sysadmin',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 const user = (o: Partial<AdminUserDto>): AdminUserDto => ({ ...admin, machineCount: 0, online: false, ...o })
 

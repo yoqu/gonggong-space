@@ -8,7 +8,7 @@ import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { requeueAppends } from '../messages/append.js'
 import { memberIds, postMessage } from '../messages/service.js'
-import { onQuestionAsk, voidQuestions } from '../questions/service.js'
+import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { publishRun } from './dto.js'
 import { redact, redactDeep } from './redact.js'
@@ -35,6 +35,7 @@ export function startRunEngine(ctx: Ctx) {
     else if (msg.t === 'run.done') enqueue(() => onDone(ctx, machineId, msg))
     else if (msg.t === 'approval.request') enqueue(() => onApprovalRequest(ctx, machineId, msg))
     else if (msg.t === 'question.ask') enqueue(() => onQuestionAsk(ctx, machineId, msg))
+    else if (msg.t === 'question.withdraw') enqueue(() => onQuestionWithdraw(ctx, machineId, msg))
     else if (msg.t === 'session.config') enqueue(() => onSessionConfig(ctx, machineId, msg))
   }
   const onOnline = (machineId: string) =>

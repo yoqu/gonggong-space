@@ -27,6 +27,7 @@ const admin: UserDto = {
   role: 'sysadmin',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 /** The decorative art drawn above an empty state's title. */

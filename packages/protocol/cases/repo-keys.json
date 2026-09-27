@@ -1,0 +1,38 @@
+[
+  {
+    "url": "git@git.corp:team/sub/app.git",
+    "key": "git.corp/team/sub/app"
+  },
+  {
+    "url": "ssh://git@git.corp:2222/team/sub/app",
+    "key": "git.corp/team/sub/app"
+  },
+  {
+    "url": "https://git.corp/team/sub/app.git",
+    "key": "git.corp/team/sub/app"
+  },
+  {
+    "url": "https://oauth2:tok3n@git.corp:8443/Team/Sub/App/",
+    "key": "git.corp/team/sub/app"
+  },
+  {
+    "url": "http://10.0.0.5:8080/team/app.git",
+    "key": "10.0.0.5/team/app"
+  },
+  {
+    "url": "https://GitHub.com/Org/App/",
+    "key": "github.com/org/app"
+  },
+  {
+    "url": "git@github.com:Org/App.git",
+    "key": "github.com/org/app"
+  },
+  {
+    "url": "  ssh://github.com/org/app.git/  ",
+    "key": "github.com/org/app"
+  },
+  {
+    "url": "gitlab-corp:team/App.git",
+    "key": "gitlab-corp/team/app"
+  }
+]

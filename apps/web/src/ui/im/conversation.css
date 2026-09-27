@@ -87,6 +87,19 @@
   width: 11px;
   height: 11px;
 }
+.pn-conv__live {
+  gap: 1px;
+  padding-left: 2px;
+}
+/* The figure fills only the middle of its 120-unit box, so it overhangs the 16px capsule to stay legible. */
+.pn-conv__live .ui-mascot {
+  width: 22px;
+  height: 22px;
+  margin: -3px -2px -3px -3px;
+}
+.pn-conv__live .ui-mascot[data-action] .ui-mascot__prop {
+  display: none;
+}
 .pn-conv__preview {
   flex: 1;
   min-width: 0;

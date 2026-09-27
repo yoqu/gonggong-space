@@ -1,11 +1,13 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
+import { bots, groupBots, groupMembers, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
+
+const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 /** Non-members get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
@@ -52,7 +54,7 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
   const gids = rows.map((r) => r.group.id)
   if (!gids.length) return []
 
-  const [members, groupBotRows, repos, stats, lasts] = await Promise.all([
+  const [members, groupBotRows, repos, stats, lasts, live] = await Promise.all([
     ctx.db
       .select({
         groupId: groupMembers.groupId,
@@ -103,6 +105,11 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       .leftJoin(bots, eq(bots.id, messages.authorBotId))
       .where(inArray(messages.groupId, gids))
       .orderBy(messages.groupId, desc(messages.seq)),
+    ctx.db
+      .select({ groupId: runs.groupId, id: runs.id })
+      .from(runs)
+      .where(and(inArray(runs.groupId, gids), inArray(runs.status, LIVE)))
+      .orderBy(asc(runs.queuedAt)),
   ])
 
   return rows.map(({ group: g, me }) => {
@@ -131,6 +138,7 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       pinned: me.pinned,
       muted: me.muted,
       foldRuns: me.foldRuns,
+      liveRunIds: live.filter((r) => r.groupId === g.id).map((r) => r.id),
     }
   })
 }

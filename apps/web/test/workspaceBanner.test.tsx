@@ -30,6 +30,7 @@ const unbound = (error: string | null = null) => ({
       path: null,
       git: null,
       error,
+      reason: null,
       tier: null,
       model: null,
       effort: null,
@@ -100,6 +101,7 @@ describe('workspace banner', () => {
         path: null,
         git: null,
         error: null,
+        reason: null,
         tier: null,
         model: null,
         effort: null,
@@ -125,5 +127,63 @@ describe('workspace banner', () => {
     useWorkspace.setState({ botStates: {} })
     rerender(<WorkspaceBanner group={group()} />)
     expect(screen.queryByTestId('ws-banner-b1')).toBeNull()
+  })
+
+  it('offers directories on my machine that already hold the group repo', async () => {
+    useWorkspace.setState({ bots: [bot()], botStates: unbound() })
+    const calls = mockApi({
+      'GET /machines/m1/dirs': listing('/Users/w'),
+      'GET /groups/g1/local-paths': [
+        { machineId: 'm1', path: '/Users/w/code/pay' },
+        { machineId: 'm9', path: '/elsewhere/pay' },
+      ],
+      'PUT /groups/g1/bots/b1/workspace': undefined,
+    })
+    render(<WorkspaceBanner group={group({ repo: { url: 'git@x:pay.git', branch: 'main' } })} />)
+    fireEvent.click(screen.getByText('绑定工作区'))
+    fireEvent.click(await screen.findByText('/Users/w/code/pay'))
+    expect(screen.queryByText('/elsewhere/pay')).toBeNull()
+    await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: '/Users/w/code/pay' }))
+  })
+
+  const paused = {
+    g1: {
+      b1: {
+        botId: 'b1',
+        workspace: 'managed',
+        state: 'failed',
+        path: null,
+        git: null,
+        error: 'clone 失败：Repository not found.',
+        reason: 'denied',
+        tier: null,
+        model: null,
+        effort: null,
+      } as const,
+    },
+  }
+  const members = (admin: boolean) => [{ userId: 'u2', name: '陈晨', isAdmin: admin }]
+
+  it('shows paused bots; their owner rechecks', async () => {
+    useWorkspace.setState({ bots: [bot()], botStates: paused })
+    const calls = mockApi({ 'POST /groups/g1/bots/b1/recheck': undefined })
+    render(<WorkspaceBanner group={group({ members: members(false) })} />)
+    expect(screen.getByTestId('ws-paused-b1').textContent).toContain(
+      '小王的 Claude 已暂停：所在机器无法访问仓库（无权限或仓库不存在），在这台机器上配置 git 凭据后重新检查',
+    )
+    fireEvent.click(screen.getByText('重新检查'))
+    await waitFor(() =>
+      expect(calls.at(-1)).toMatchObject({ method: 'POST', path: '/groups/g1/bots/b1/recheck' }),
+    )
+  })
+
+  it('lets group admins recheck other people’s paused bots, not plain members', () => {
+    useSession.setState({ user: { id: 'u2' } as UserDto, status: 'ready' })
+    useWorkspace.setState({ bots: [bot()], botStates: paused })
+    const { rerender } = render(<WorkspaceBanner group={group({ members: members(false) })} />)
+    expect(screen.getByTestId('ws-paused-b1').textContent).toContain('等待 王磊 处理')
+    expect(screen.queryByText('重新检查')).toBeNull()
+    rerender(<WorkspaceBanner group={group({ members: members(true) })} />)
+    expect(screen.getByText('重新检查')).toBeTruthy()
   })
 })

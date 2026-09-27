@@ -14,7 +14,7 @@ export const ABSOLUTE = /^(\/|[A-Za-z]:[\\/])/
  */
 export async function requestCd(ctx: Ctx, o: { groupId: string; botId: string; path: string | null }) {
   const [bot] = await ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, o.botId))
-  const repo = await currentRepo(ctx, o.groupId)
+  const repo = await currentRepo(ctx, o.groupId, o.botId)
   const machineId = onlineMachine(ctx, bot?.machineId ?? null)
   if (!machineId) return false
   const requestId = track({

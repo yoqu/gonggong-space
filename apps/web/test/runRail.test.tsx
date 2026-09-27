@@ -22,6 +22,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 const group: GroupDto = {
   id: 'g1',
@@ -39,6 +40,7 @@ const group: GroupDto = {
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 }
 const bot: BotDto = {
   id: 'b1',
@@ -510,6 +512,7 @@ describe('process timeline', () => {
             path: '/h/ws',
             git: null,
             error: null,
+            reason: null,
             tier: null,
             model: null,
             effort: null,

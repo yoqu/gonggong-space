@@ -140,7 +140,12 @@ describe('/cd', () => {
     const w = await world()
     await w.say(w.asWang, '/cd @小王的 Claude /Users/wang/code/pay api')
     await w.say(w.asWang, '/cd @小王的 Claude --reset')
-    const repo = { id: expect.any(String), url: 'git@example.com:team/pay.git', branch: 'main' }
+    const repo = {
+      id: expect.any(String),
+      url: 'git@example.com:team/pay.git',
+      branch: 'main',
+      protocol: 'auto',
+    }
     expect(w.sent).toEqual([
       expect.objectContaining({
         t: 'workspace.cd',
@@ -194,6 +199,8 @@ describe('/cd', () => {
       botId: w.claude.id,
       requestId: 'r',
       git: null,
+      reason: null,
+      remotes: [] as string[],
     } as const
     await onCdResult(t.ctx, { ...base, state: 'ready', path: '/tmp/x', error: null }, false)
     await onCdResult(t.ctx, { ...base, state: 'ready', path: '/managed/p', error: null }, true)

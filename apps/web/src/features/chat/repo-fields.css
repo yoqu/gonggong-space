@@ -1,0 +1,51 @@
+/* RepoFields: history combobox, branch list and the per-bot access check */
+.repo-fields__url,
+.repo-fields__branch {
+  min-width: 0;
+}
+.repo-fields__url .ui-input,
+.repo-fields__branch .ui-input {
+  font-family: var(--font-mono);
+}
+.repo-fields__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-subheadline-size);
+}
+.repo-fields__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+.repo-fields__result--ok {
+  color: var(--tint-green-text);
+}
+.repo-fields__result--bad {
+  color: var(--tint-red-text);
+}
+.repo-fields__result--muted {
+  color: var(--label-secondary);
+}
+.repo-fields__bot {
+  font-weight: 600;
+}
+.repo-fields__proto {
+  padding: 0 var(--space-4);
+  border-radius: 4px;
+  background: var(--control-track);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.repo-fields__detail {
+  flex-basis: 100%;
+  padding-left: 19px;
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  overflow-wrap: anywhere;
+}

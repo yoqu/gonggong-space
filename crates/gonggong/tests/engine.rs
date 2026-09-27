@@ -924,3 +924,115 @@ async fn stops_a_background_task_that_outlived_its_run() {
     assert_eq!(run_id, "r1");
     assert!(matches!(event, RunEvent::Task { state: TaskState::Stopped, can_stop: false, .. }));
 }
+
+/// A run of another group bound (/cd) to the shared directory `dir`.
+fn in_dir(run_id: &str, group: &str, text: &str, dir: &Path) -> RunStart {
+    let mut s = start(run_id, text);
+    s.group_id = group.into();
+    s.group_name = group.into();
+    s.workspace.cd_path = Some(dir.to_string_lossy().into());
+    s
+}
+
+fn run_of(msg: &DaemonToServer) -> Option<&str> {
+    match msg {
+        DaemonToServer::RunEvent { run_id, .. }
+        | DaemonToServer::QuestionAsk { run_id, .. }
+        | DaemonToServer::QuestionWithdraw { run_id, .. } => Some(run_id),
+        DaemonToServer::RunDone(d) => Some(&d.run_id),
+        _ => None,
+    }
+}
+
+/// Messages of `run_id` up to (and including) the first one `stop` accepts; other runs' messages are skipped.
+async fn until_of(r: &mut Rig, run_id: &str, stop: impl Fn(&DaemonToServer) -> bool) -> Vec<DaemonToServer> {
+    let mut seen = vec![];
+    loop {
+        let msg = r.next().await;
+        if run_of(&msg) != Some(run_id) {
+            continue;
+        }
+        let last = stop(&msg);
+        seen.push(msg);
+        if last {
+            return seen;
+        }
+    }
+}
+
+async fn dir_question(r: &mut Rig, run_id: &str) -> (String, Question) {
+    let seen = until_of(r, run_id, |m| matches!(m, DaemonToServer::QuestionAsk { .. })).await;
+    let Some(DaemonToServer::QuestionAsk { request_id, mut questions, .. }) = seen.into_iter().last() else {
+        unreachable!()
+    };
+    (request_id, questions.remove(0))
+}
+
+async fn done_of(r: &mut Rig, run_id: &str) -> (Vec<DaemonToServer>, RunDone) {
+    let mut seen = until_of(r, run_id, |m| matches!(m, DaemonToServer::RunDone(_))).await;
+    let Some(DaemonToServer::RunDone(done)) = seen.pop() else { unreachable!() };
+    (seen, done)
+}
+
+fn choose(r: &Rig, run_id: &str, request_id: &str, choice: u32) {
+    answer(r, run_id, request_id, Some(vec![Answer { question_id: "q1".into(), choices: vec![choice], text: None }]));
+}
+
+#[tokio::test]
+async fn a_busy_directory_runs_in_parallel_only_after_confirmation() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+
+    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    let (request_id, q) = dir_question(&mut r, "r2").await;
+    assert!(request_id.starts_with("r2/"), "{request_id}");
+    assert_eq!(
+        (q.kind, q.options.as_slice(), q.recommended),
+        (QuestionType::Single, &["并行开始".to_string(), "排队等待".to_string()][..], Some(1))
+    );
+    assert!(q.title.contains("小王的 Claude（群「g1」）"), "{}", q.title);
+    choose(&r, "r2", &request_id, 0);
+    let (seen, done) = done_of(&mut r, "r2").await;
+    assert_eq!(done.outcome, RunOutcome::Completed);
+    assert!(
+        seen.iter()
+            .any(|m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == running("王磊 确认并行运行")))
+    );
+
+    // Choosing to queue waits for the directory to be free.
+    r.run(in_dir("r3", "g3", "mock:echo", dir.path()));
+    let (request_id, _) = dir_question(&mut r, "r3").await;
+    choose(&r, "r3", &request_id, 1);
+    until_of(
+        &mut r,
+        "r3",
+        |m| matches!(m, DaemonToServer::RunEvent { event, .. } if *event == running("王磊 选择排队，等待工作区空闲")),
+    )
+    .await;
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let mut order = vec![];
+    while order.len() < 2 {
+        if let DaemonToServer::RunDone(d) = r.next().await {
+            order.push((d.run_id, d.outcome));
+        }
+    }
+    assert_eq!(order, [("r1".into(), RunOutcome::Interrupted), ("r3".into(), RunOutcome::Completed)]);
+}
+
+#[tokio::test]
+async fn the_confirmation_is_withdrawn_once_the_directory_frees_up() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = tempfile::tempdir().unwrap();
+    r.run(in_dir("r1", "g1", "mock:slow", dir.path()));
+    until_of(&mut r, "r1", |m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).await;
+    r.run(in_dir("r2", "g2", "mock:echo", dir.path()));
+    let (request_id, _) = dir_question(&mut r, "r2").await;
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    let seen = until_of(&mut r, "r2", |m| matches!(m, DaemonToServer::QuestionWithdraw { .. })).await;
+    assert!(matches!(seen.last(), Some(DaemonToServer::QuestionWithdraw { request_id: id, .. }) if *id == request_id));
+    // A late answer to the withdrawn card changes nothing.
+    choose(&r, "r2", &request_id, 0);
+    assert_eq!(done_of(&mut r, "r2").await.1.outcome, RunOutcome::Completed);
+}

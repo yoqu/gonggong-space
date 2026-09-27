@@ -19,9 +19,11 @@ import {
   AgentCatalog,
   AgentInfo,
   DiffScope,
+  GitProtocol,
   MachineInfo,
   McpServer,
   PermissionOption,
+  RepoAccessReason,
   RunEvent,
 } from './daemon.js'
 
@@ -49,8 +51,11 @@ export const UserDto = z.object({
   role: Role,
   mustChangePassword: z.boolean(),
   disabled: z.boolean(),
+  gitProtocol: GitProtocol,
 })
 export type UserDto = z.infer<typeof UserDto>
+/** PATCH /api/me: the caller's own preferences. */
+export const UpdateMeReq = z.object({ gitProtocol: GitProtocol })
 
 export const LoginReq = z.object({ account: z.string(), password: z.string() })
 export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword: z.string().min(8) })
@@ -252,6 +257,7 @@ export const NotificationType = z.enum([
   'offline_expired',
   'chain_done',
   'bot_confirm',
+  'repo_access',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -300,6 +306,8 @@ export const GroupDto = z.object({
   pinned: z.boolean(),
   muted: z.boolean(),
   foldRuns: z.boolean(),
+  /** Bot turns live here (running, or waiting on an approval or answer); non-empty tags the conversation. */
+  liveRunIds: z.array(z.string()),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 /** GET /api/groups/:id/notices — every published notice, newest first. */
@@ -324,9 +332,50 @@ export const GroupMemberReq = z.object({ userId: z.string() })
 export const GroupBotReq = z.object({ botId: z.string() })
 /** Moves the read cursor forward; omit `seq` to mark everything read. */
 export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
-export const ValidateRepoReq = z.object({ url: z.string(), branch: z.string() })
-export const ValidateRepoRes = z.object({ ok: z.boolean(), message: z.string() })
-export type ValidateRepoRes = z.infer<typeof ValidateRepoRes>
+export const RepoReq = z.object({ url: z.string(), branch: z.string() })
+
+// ── Repos (team-wide history, access probes) ────────────────────────────────
+export const RepoDto = z.object({
+  id: z.string(),
+  /** repoKey: `host/path`, lowercase. */
+  key: z.string(),
+  /** Latest URL used, credentials removed. */
+  url: z.string(),
+  name: z.string(),
+  lastBranch: z.string().nullable(),
+  lastUsedAt: z.string(),
+  /** Groups currently bound to it. */
+  groups: z.number().int(),
+  /** The caller has used it (sorted first). */
+  mine: z.boolean(),
+  /** Directories holding it on the caller's machines. */
+  localPaths: z.array(z.object({ machineId: z.string(), path: z.string() })),
+})
+export type RepoDto = z.infer<typeof RepoDto>
+
+/** POST /api/repos/probe: each bot's machine tries the repo with its own credentials. */
+export const RepoProbeReq = z.object({
+  url: z.string(),
+  branch: z.string(),
+  /** Empty → the caller's own online bots (only to learn the branches). */
+  botIds: z.array(z.string()).default([]),
+})
+export const BotProbeDto = z.object({
+  botId: z.string(),
+  ok: z.boolean(),
+  /** offline = not checked; the bot is verified when its machine comes back. */
+  reason: z.union([RepoAccessReason, z.literal('offline')]).nullable(),
+  usedUrl: z.string().nullable(),
+  detail: z.string().nullable(),
+})
+export type BotProbeDto = z.infer<typeof BotProbeDto>
+export const RepoProbeRes = z.object({
+  results: z.array(BotProbeDto),
+  /** From the first machine that could read the repo; null when none could. */
+  defaultBranch: z.string().nullable(),
+  branches: z.array(z.string()),
+})
+export type RepoProbeRes = z.infer<typeof RepoProbeRes>
 
 // ── Timeline ────────────────────────────────────────────────────────────────
 /** Fixed set of emoji reactions, in display order. */
@@ -747,6 +796,8 @@ export const GroupBotStateDto = z.object({
   path: z.string().nullable(),
   git: GitStatus.nullable(),
   error: z.string().nullable(),
+  /** With `failed`: denied / network / timeout pause the bot until a recheck succeeds. */
+  reason: RepoAccessReason.nullable(),
   /** This group's tier override; null follows the bot's own tier. */
   tier: Tier.nullable(),
   /** This group's model / thought level; null follows the bot's defaults. */

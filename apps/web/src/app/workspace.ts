@@ -5,6 +5,7 @@ import type {
   MachineDto,
   MessageDto,
   NotificationDto,
+  RunDto,
   WebEvent,
 } from '@gonggong/protocol'
 import { create } from 'zustand'
@@ -42,6 +43,15 @@ function withMessage(g: GroupDto, m: MessageDto, activeGroupId: string | null): 
   return { ...g, lastSeq: m.seq, last: previewOf(m), unread: g.unread + (counts ? 1 : 0) }
 }
 
+const LIVE: RunDto['status'][] = ['running', 'awaiting_approval', 'awaiting_answer']
+
+function withRun(g: GroupDto, run: RunDto): GroupDto {
+  if (g.id !== run.groupId) return g
+  const had = g.liveRunIds.includes(run.id)
+  if (LIVE.includes(run.status) === had) return g
+  return { ...g, liveRunIds: had ? g.liveRunIds.filter((id) => id !== run.id) : [...g.liveRunIds, run.id] }
+}
+
 export const useWorkspace = create<WorkspaceState>()((set) => ({
   groups: [],
   bots: [],
@@ -60,6 +70,7 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
           g.id === e.message.groupId ? withMessage(g, e.message, s.activeGroupId) : g,
         ),
       }))
+    else if (e.t === 'run.updated') set((s) => ({ groups: s.groups.map((g) => withRun(g, e.run)) }))
     else if (e.t === 'bot.updated') set((s) => ({ bots: upsert(s.bots, e.bot) }))
     else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
     else if (e.t === 'notification.new') set((s) => ({ notifCount: s.notifCount + 1 }))

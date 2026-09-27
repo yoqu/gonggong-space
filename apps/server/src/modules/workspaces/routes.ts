@@ -5,20 +5,22 @@ import {
   DefaultWorkspaceReq,
   type DirListingDto,
   type DirResult,
+  type RepoAccessReason,
 } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, machines } from '../../db/schema.js'
+import { bots, groupBots, machines } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { publishBot } from '../bots/dto.js'
 import { activeBots, requireMember } from '../groups/service.js'
+import { groupLocalPaths } from '../repos/service.js'
 import { ABSOLUTE, announceCd, requestCd } from './cd.js'
 import { daemonWorkspaceRoutes } from './daemon.js'
 import { workspaceDiffRoutes } from './diff.js'
-import { onlineMachine } from './provision.js'
+import { ensureWorkspace, onlineMachine, PAUSING } from './provision.js'
 import { listBotStates } from './state.js'
 
 const DIR_TIMEOUT_MS = 10_000
@@ -117,6 +119,37 @@ export function workspaceRoutes(ctx: Ctx) {
         return reply.status(204).send()
       },
     )
+
+    // A paused bot's owner fixed its machine's git access: clone again (group admins may ask too).
+    app.post<{ Params: { id: string; botId: string } }>(
+      '/api/groups/:id/bots/:botId/recheck',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const { group, member } = await requireMember(ctx, req.params.id, me.id)
+        const bot = (await activeBots(ctx, group.id)).find((b) => b.id === req.params.botId)
+        if (!bot) return fail('not_found', '该 Bot 不在群内')
+        if (bot.ownerId !== me.id && !member.isAdmin)
+          return fail('forbidden', '只有 Bot 主人或群管理员可以重新检查')
+        const [gb] = await ctx.db
+          .select({ state: groupBots.workspaceState, reason: groupBots.workspaceReason })
+          .from(groupBots)
+          .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+        const reason = gb?.reason as RepoAccessReason | null | undefined
+        if (gb?.state !== 'failed' || !reason || !PAUSING.includes(reason))
+          return fail('conflict', `${bot.name} 未处于暂停状态`)
+        if (!onlineMachine(ctx, bot.machineId))
+          return fail('conflict', `${bot.name} 离线，上线后会自动重新检查`)
+        await ensureWorkspace(ctx, group.id, bot)
+        return reply.status(204).send()
+      },
+    )
+
+    /** Where the caller's machines already hold the group's repo (suggested instead of a fresh clone). */
+    app.get<{ Params: { id: string } }>('/api/groups/:id/local-paths', async (req) => {
+      const me = await requireUser(ctx, req)
+      const { group } = await requireMember(ctx, req.params.id, me.id)
+      return groupLocalPaths(ctx, me.id, group.id)
+    })
 
     await app.register(daemonWorkspaceRoutes(ctx))
     await app.register(workspaceDiffRoutes(ctx))

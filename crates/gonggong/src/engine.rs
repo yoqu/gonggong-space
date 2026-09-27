@@ -10,6 +10,7 @@ use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
     ServerToDaemon, Tier,
 };
+use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
 use crate::turn::system_prompt;
@@ -225,6 +226,10 @@ impl Handler for Engine {
                         error,
                     });
                 });
+            }
+            ServerToDaemon::RepoProbe(req) => {
+                let out = out.clone();
+                tokio::spawn(async move { out.send(DaemonToServer::RepoProbeResult(repo::probe(req).await)) });
             }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
         }

@@ -14,6 +14,7 @@ const wang: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 const admin: UserDto = { ...wang, id: 'u9', account: 'chenchen', name: '陈晨', role: 'sysadmin' }
 
@@ -434,7 +435,16 @@ describe('bot detail', () => {
     routes['GET /api/bots'] = () => [bot({})]
     // Home redirects to the last group; the dialog must survive that.
     routes['GET /api/groups'] = () => [
-      { id: 'g1', name: '退款 v2 迁移', kind: 'group', members: [], botIds: [], unread: 0, lastSeq: 0 },
+      {
+        id: 'g1',
+        name: '退款 v2 迁移',
+        kind: 'group',
+        members: [],
+        botIds: [],
+        unread: 0,
+        lastSeq: 0,
+        liveRunIds: [],
+      },
     ]
     useSession.setState({ user: wang, status: 'ready' })
     let search = ''

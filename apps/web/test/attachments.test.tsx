@@ -22,6 +22,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 const group: GroupDto = {
   id: 'g1',
@@ -42,6 +43,7 @@ const group: GroupDto = {
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 }
 const bot: BotDto = {
   id: 'b1',

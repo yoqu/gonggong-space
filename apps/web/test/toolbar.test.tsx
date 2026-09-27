@@ -94,6 +94,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 })
 
 describe('Sidebar rows', () => {

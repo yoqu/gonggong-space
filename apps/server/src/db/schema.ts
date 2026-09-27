@@ -27,6 +27,8 @@ export const users = pgTable('users', {
   /** 'sysadmin' | 'member'; group admin is per group (groupMembers.isAdmin). */
   role: text('role').notNull().default('member'),
   mustChangePassword: boolean('must_change_password').notNull().default(true),
+  /** 'auto' | 'ssh' | 'https': tried first when this user's bots clone or probe a repo (RepoSpec.protocol). */
+  gitProtocol: text('git_protocol').notNull().default('auto'),
   disabledAt: ts('disabled_at'),
   createdAt: createdAt(),
 })
@@ -163,6 +165,51 @@ export const groupRepos = pgTable('group_repos', {
   createdAt: createdAt(),
 })
 
+/** Team-wide history of remote repos bound to groups or found in /cd directories, one row per `repoKey`. */
+export const repos = pgTable('repos', {
+  id: id(),
+  key: text('key').notNull().unique(),
+  /** The latest URL it was used with, credentials removed. */
+  url: text('url').notNull(),
+  name: text('name').notNull(),
+  lastBranch: text('last_branch'),
+  lastUsedAt: ts('last_used_at').notNull().defaultNow(),
+  /** Hidden from the picker until it is used again. */
+  hiddenAt: ts('hidden_at'),
+  createdAt: createdAt(),
+})
+
+/** Who used which repo last, for "recently used by me" ordering. */
+export const repoUsers = pgTable(
+  'repo_users',
+  {
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    usedAt: ts('used_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.repoId, t.userId] })],
+)
+
+/** Local directories holding a repo, per machine (from ready /cd bindings); suggested before cloning. */
+export const machineRepos = pgTable(
+  'machine_repos',
+  {
+    machineId: uuid('machine_id')
+      .notNull()
+      .references(() => machines.id),
+    path: text('path').notNull(),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id),
+    seenAt: ts('seen_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.machineId, t.path] }), index('machine_repos_repo').on(t.repoId)],
+)
+
 export const groupMembers = pgTable(
   'group_members',
   {
@@ -213,6 +260,8 @@ export const groupBots = pgTable(
     workspaceState: text('workspace_state').notNull().default('pending'),
     workspacePath: text('workspace_path'),
     workspaceError: text('workspace_error'),
+    /** RepoAccessReason of a 'failed' workspace; 'denied' | 'network' | 'timeout' pause the bot (not dispatched). */
+    workspaceReason: text('workspace_reason'),
     /** Agent commands last reported over ACP (available_commands_update) for / candidates. */
     agentCommands: jsonb('agent_commands').notNull().default([]),
     removedAt: ts('removed_at'),

@@ -4,8 +4,8 @@ import {
   GroupBotReq,
   GroupMemberReq,
   MarkReadReq,
-  ValidateRepoReq,
-  type ValidateRepoRes,
+  publicRepoUrl,
+  RepoReq,
 } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
@@ -16,8 +16,10 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
+import { branchKnownMissing } from '../repos/probe.js'
+import { recordRepo } from '../repos/service.js'
 import { joinWorkspace } from '../workspaces/provision.js'
-import { checkRepo, repoProblem } from './repo.js'
+import { repoProblem } from './repo.js'
 import {
   activeBots,
   groupDto,
@@ -65,6 +67,11 @@ async function isMember(ctx: Ctx, groupId: string, userId: string) {
 }
 
 export function groupRoutes(ctx: Ctx) {
+  /** Bots that cannot reach the repo don't block binding (they pause); a branch the repo lacks does. */
+  const bindProblem = (url: string, branch: string) =>
+    repoProblem(url, branch) ??
+    (branchKnownMissing(url, branch, ctx.now()) ? `分支 ${branch} 不存在，换一个基准分支` : null)
+
   const auditAdmin = (
     actorUserId: string,
     groupId: string,
@@ -78,12 +85,6 @@ export function groupRoutes(ctx: Ctx) {
       return groupDtos(ctx, me.id)
     })
 
-    app.post('/api/groups/validate-repo', async (req): Promise<ValidateRepoRes> => {
-      await requireUser(ctx, req)
-      const { url, branch } = ValidateRepoReq.parse(req.body)
-      return checkRepo(url.trim(), branch.trim())
-    })
-
     app.post('/api/groups', async (req) => {
       const me = await requireUser(ctx, req)
       const body = CreateGroupReq.parse(req.body)
@@ -91,7 +92,7 @@ export function groupRoutes(ctx: Ctx) {
       const name = body.name.trim()
       if (!name) return fail('invalid', '填写群名')
       const repo = body.repo && { url: body.repo.url.trim(), branch: body.repo.branch.trim() }
-      const problem = repo && repoProblem(repo.url, repo.branch)
+      const problem = repo && bindProblem(repo.url, repo.branch)
       if (problem) return fail('invalid', problem)
       const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)
       if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 Bot')
@@ -128,9 +129,10 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         repo
-          ? `群绑定仓库 ${repo.url} · 基准分支 ${repo.branch} · 分区模式`
+          ? `群绑定仓库 ${publicRepoUrl(repo.url)} · 基准分支 ${repo.branch} · 分区模式`
           : '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
       )
+      if (repo) await recordRepo(ctx, { ...repo, userId: me.id })
       for (const b of picked) await joinWorkspace(ctx, group.id, b, { joined: true })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
@@ -230,11 +232,11 @@ export function groupRoutes(ctx: Ctx) {
     app.patch<{ Params: { id: string } }>('/api/groups/:id/repo', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const body = ValidateRepoReq.parse(req.body)
+      const body = RepoReq.parse(req.body)
       const url = body.url.trim()
       const branch = body.branch.trim()
       if (!url) return fail('invalid', '一期不支持解绑仓库')
-      const problem = repoProblem(url, branch)
+      const problem = bindProblem(url, branch)
       if (problem) return fail('invalid', problem)
       const [old] = await ctx.db.select().from(groupRepos).where(eq(groupRepos.groupId, group.id))
       if (old?.url === url && old.baseBranch === branch) return groupDto(ctx, me.id, group.id)
@@ -251,6 +253,7 @@ export function groupRoutes(ctx: Ctx) {
             workspaceState: 'pending',
             workspacePath: null,
             workspaceError: null,
+            workspaceReason: null,
             gitStatus: null,
             sessionId: null,
           })
@@ -260,14 +263,15 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         old
-          ? `群更换仓库 ${url} · 基准分支 ${branch} · 各 Bot 需重新绑定工作区`
-          : `群绑定仓库 ${url} · 基准分支 ${branch} · 分区模式`,
+          ? `群更换仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 各 Bot 需重新绑定工作区`
+          : `群绑定仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 分区模式`,
       )
       await auditAdmin(me.id, group.id, 'group.repo.change', {
-        url,
+        url: publicRepoUrl(url),
         branch,
-        previous: old ? { url: old.url, branch: old.baseBranch } : null,
+        previous: old ? { url: publicRepoUrl(old.url), branch: old.baseBranch } : null,
       })
+      await recordRepo(ctx, { url, branch, userId: me.id })
       for (const bot of await activeBots(ctx, group.id))
         await joinWorkspace(ctx, group.id, bot, { joined: false })
       await publishGroup(ctx, group.id)

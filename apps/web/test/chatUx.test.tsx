@@ -23,6 +23,7 @@ const me: UserDto = {
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
@@ -44,6 +45,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
   ...o,
 })
 

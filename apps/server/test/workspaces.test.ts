@@ -5,7 +5,6 @@ import {
   type GroupDto,
   PROTOCOL_VERSION,
   type TimelineDto,
-  type ValidateRepoRes,
   type WebEvent,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
@@ -111,25 +110,6 @@ async function world() {
   return { alice, bob, a, b, bot, bobBot, asAlice, asBob, repo, createGroup, states, stateOf, bodies, repoOf }
 }
 
-describe('validate-repo', () => {
-  it('checks reachability and branch with git ls-remote', async () => {
-    const w = await world()
-    const check = async (url: string, branch: string) =>
-      (await w.asAlice.post<ValidateRepoRes>('/api/groups/validate-repo', { url, branch })).body
-    expect(await check(w.repo.url, 'main')).toEqual({
-      ok: true,
-      message: `仓库可访问 · 分支 main 存在 · 最新提交 ${w.repo.head}`,
-    })
-    expect(await check(w.repo.url, 'dev')).toEqual({ ok: false, message: '仓库可访问，但分支 dev 不存在' })
-    expect(await check('file:///nonexistent/gonggong.git', 'main')).toEqual({
-      ok: false,
-      message: '无法访问该仓库，检查地址与权限',
-    })
-    expect((await check('ftp://x', 'main')).ok).toBe(false)
-    expect((await check(w.repo.url, '-x')).ok).toBe(false)
-  })
-})
-
 /** The owner picks the managed workspace for a bot waiting in `groupId` (repo groups clone). */
 async function useManaged(w: Awaited<ReturnType<typeof world>>, groupId: string) {
   const res = await w.asAlice.put(`/api/groups/${groupId}/bots/${w.bot.id}/workspace`, { path: null })
@@ -173,6 +153,7 @@ describe('joining without a workspace choice', () => {
       path: `/h/workspaces/${g.id}/${w.bot.id}/${repo.id}`,
       git,
       error: null,
+      reason: null,
       tier: null,
       model: null,
       effort: null,

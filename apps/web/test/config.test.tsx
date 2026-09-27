@@ -13,6 +13,7 @@ const admin: UserDto = {
   role: 'sysadmin',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 const wiki: McpServerDto = {

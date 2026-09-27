@@ -1,0 +1,7 @@
+{
+  "t": "repo.probe",
+  "requestId": "q7",
+  "url": "ssh://git@git.corp:2222/pay/pay-server.git",
+  "branch": "main",
+  "protocol": "https"
+}

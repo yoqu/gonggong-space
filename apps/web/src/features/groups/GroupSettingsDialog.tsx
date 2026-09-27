@@ -203,7 +203,9 @@ function BasicTab({
           </GroupRow>
         ))}
       </GroupBox>
-      {draft ? <RepoFields draft={draft} set={(o) => setDraft((d) => d && { ...d, ...o })} /> : null}
+      {draft ? (
+        <RepoFields draft={draft} set={(o) => setDraft((d) => d && { ...d, ...o })} botIds={group.botIds} />
+      ) : null}
       <Alert variant="info" title="每个群绑定一个仓库" description="更换仓库会重建所有 Bot 的托管工作区。" />
     </div>
   )

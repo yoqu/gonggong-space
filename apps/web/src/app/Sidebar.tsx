@@ -85,6 +85,7 @@ function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabS
           unread: g.unread,
           muted: g.muted,
           pinned: g.pinned,
+          live: g.liveRunIds.length > 0,
         }}
       />
     </NavLink>

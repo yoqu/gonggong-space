@@ -1,0 +1,11 @@
+{
+  "t": "workspace.state",
+  "groupId": "g1",
+  "botId": "b1",
+  "requestId": "q1",
+  "state": "failed",
+  "path": null,
+  "git": null,
+  "error": "clone 失败：Repository not found.",
+  "reason": "denied"
+}

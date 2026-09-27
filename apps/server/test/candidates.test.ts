@@ -91,6 +91,19 @@ describe('file candidates', () => {
     expect((await w.files()).body).toEqual({ source: 'none', label: '', entries: [] })
   })
 
+  it('says the mirror is unavailable when the server cannot read the repo', async () => {
+    const w = await world()
+    await t.db
+      .update(groupRepos)
+      .set({ url: 'file:///nonexistent/gonggong.git' })
+      .where(eq(groupRepos.groupId, w.group.id))
+    expect((await w.files()).body).toEqual({
+      source: 'mirror',
+      label: 'main 镜像不可用 · 服务端无法访问该仓库',
+      entries: [],
+    })
+  })
+
   it('falls back to the base-branch mirror, filtered and labelled with its update time', async () => {
     const w = await world()
     w.remote.commit('server/refund/handler.go', 'package refund\n')

@@ -17,13 +17,14 @@ export function gonggong(args: string[], env: Record<string, string> = {}) {
 }
 
 /** An isolated "member machine": its own GONGGONG_HOME, running `gg run` in the background. */
-export function machine(server = SERVER) {
+export function machine(server = SERVER, extraEnv: Record<string, string> = {}) {
   const home = mkdtempSync(join(tmpdir(), 'gonggong-e2e-'))
   const env = {
     GONGGONG_HOME: home,
     GONGGONG_MACHINE_ID: home,
     GONGGONG_LOG: 'info',
     CODEX_HOME: codexHome(),
+    ...extraEnv,
   }
   let proc: ChildProcess | undefined
   let exited: Promise<number | null> = Promise.resolve(null)
@@ -176,8 +177,15 @@ export async function adminSession(api: Api) {
   })
 }
 
-/** Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine. */
-export async function memberWithMachine(page: Page, account: string, bind: 'code' | 'link' = 'code') {
+/**
+ * Fast API-level setup: a fresh member (created by the bootstrap admin) logged into `page`, with a bound machine.
+ * `env` is added to the machine's daemon environment (e.g. git config).
+ */
+export async function memberWithMachine(
+  page: Pick<Page, 'request'>,
+  account: string,
+  o: { bind?: 'code' | 'link'; env?: Record<string, string> } = {},
+) {
   const admin = page.request
   await adminSession(admin)
   await call(admin, 'post', '/api/admin/users', {
@@ -193,8 +201,8 @@ export async function memberWithMachine(page: Page, account: string, bind: 'code
     newPassword: 'member-pass',
   })
   const { code, link } = await call<{ code: string; link: string }>(page.request, 'post', '/api/bind-codes')
-  const m = machine()
-  if (bind === 'link') m.loginLink(link)
+  const m = machine(SERVER, o.env)
+  if (o.bind === 'link') m.loginLink(link)
   else m.login(code)
   const api = {
     call: <T>(method: 'get' | 'post' | 'patch', path: string, data?: unknown) =>

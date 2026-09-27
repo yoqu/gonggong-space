@@ -44,6 +44,13 @@ export function notificationView(n: NotificationDto): NotificationView {
         group,
         href: at('rootRunId'),
       }
+    case 'repo_access':
+      return {
+        label: 'Bot 无法访问仓库',
+        text: `${p('botName')} 所在机器无法访问 ${p('repo')}（${p('reason')}），配置后在群里点「重新检查」`,
+        group,
+        href: at(''),
+      }
     case 'bot_confirm':
       return {
         label: '待确认 Bot',

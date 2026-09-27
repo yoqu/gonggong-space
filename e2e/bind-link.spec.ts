@@ -14,7 +14,7 @@ test('bind via 接入链接; the owner sets the allowlist on the web and the dae
   page,
 }) => {
   test.setTimeout(10 * 60_000)
-  const { m, api } = await memberWithMachine(page, 'link1', 'link')
+  const { m, api } = await memberWithMachine(page, 'link1', { bind: 'link' })
   const me = await api.me()
   const bot = await api.call<{ id: string }>('post', '/api/bots', {
     name: '白名单',

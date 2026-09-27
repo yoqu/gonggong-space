@@ -1,5 +1,6 @@
 export * from './common.js'
 export * from './daemon.js'
 export * from './notification-view.js'
+export * from './repo.js'
 export * from './tools.js'
 export * from './web.js'

@@ -319,6 +319,7 @@ describe('run engine', () => {
         path: null,
         git,
         error: null,
+        reason: null,
         tier: null,
         model: null,
         effort: null,

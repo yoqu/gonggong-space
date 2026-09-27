@@ -41,7 +41,15 @@ const run = (approvals: ApprovalDto[], o: Partial<RunDto> = {}) =>
 
 const login = (id: string, name: string) =>
   useSession.setState({
-    user: { id, account: id, name, role: 'member', mustChangePassword: false, disabled: false },
+    user: {
+      id,
+      account: id,
+      name,
+      role: 'member',
+      mustChangePassword: false,
+      disabled: false,
+      gitProtocol: 'auto',
+    },
     status: 'ready',
   })
 

@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Avatar, type AvatarProps, Badge, Tag } from '../display'
 import { Icon } from '../icon'
+import { Mascot } from '../mascot'
 import { keyNav } from './keynav'
 import type { TagSpec } from './types'
 import './conversation.css'
@@ -25,6 +26,8 @@ export interface Conversation {
   mention?: boolean
   urgent?: boolean
   draft?: string
+  /** An agent is at work here: 共字君 runs in a tag beside the name. */
+  live?: boolean
 }
 
 const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六']
@@ -69,6 +72,12 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
               {t.label}
             </Tag>
           ))}
+          {it.live && (
+            <Tag tone="blue" className="pn-conv__live">
+              <Mascot action="run" size={22} />
+              运行中
+            </Tag>
+          )}
           <span className="pn-conv__time">
             {it.pinned && <Icon name="pin" label="已置顶" />}
             {it.time}

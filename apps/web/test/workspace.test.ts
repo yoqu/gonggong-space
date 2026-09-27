@@ -1,4 +1,4 @@
-import type { GroupDto, MessageDto } from '@gonggong/protocol'
+import type { GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
 import { beforeEach, expect, it } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -19,6 +19,7 @@ const g: GroupDto = {
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 }
 
 const msg = (o: Partial<MessageDto>): MessageDto => ({
@@ -47,6 +48,7 @@ beforeEach(() => {
       role: 'member',
       mustChangePassword: false,
       disabled: false,
+      gitProtocol: 'auto',
     },
     status: 'ready',
   })
@@ -86,4 +88,25 @@ it('ignores a replayed message and drops removed groups', () => {
   expect(useWorkspace.getState().groups[0]!.unread).toBe(0)
   applyEvent({ t: 'group.removed', groupId: 'g1' })
   expect(useWorkspace.getState().groups).toEqual([])
+})
+
+it('keeps each group live runs in step with run updates', () => {
+  useWorkspace.setState({
+    groups: [
+      { ...g, liveRunIds: ['r0'] },
+      { ...g, id: 'g2' },
+    ],
+  })
+  const { applyEvent } = useWorkspace.getState()
+  const run = (id: string, status: RunDto['status']) => ({ id, groupId: 'g1', status }) as RunDto
+  const live = () => useWorkspace.getState().groups.map((x) => x.liveRunIds)
+
+  applyEvent({ t: 'run.updated', run: run('r1', 'queued') })
+  expect(live()).toEqual([['r0'], []])
+  applyEvent({ t: 'run.updated', run: run('r1', 'running') })
+  applyEvent({ t: 'run.updated', run: run('r1', 'awaiting_approval') })
+  expect(live()).toEqual([['r0', 'r1'], []])
+  applyEvent({ t: 'run.updated', run: run('r0', 'completed') })
+  applyEvent({ t: 'run.updated', run: run('r1', 'interrupted') })
+  expect(live()).toEqual([[], []])
 })

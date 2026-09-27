@@ -1,4 +1,4 @@
-import type { AgentKind, Approval, ContextMessage, RunStart, Tier } from '@gonggong/protocol'
+import type { AgentKind, Approval, ContextMessage, GitProtocol, RunStart, Tier } from '@gonggong/protocol'
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -130,6 +130,10 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .orderBy(asc(groupRepos.createdAt))
     .limit(1)
   if (!trigger || !gb || !group) throw new Error(`run ${run.id} lost its trigger message or group membership`)
+  const [owner] = await tx
+    .select({ protocol: users.gitProtocol })
+    .from(users)
+    .where(eq(users.id, bot.ownerId))
   const params = await sysParams(tx)
   const since = and(
     eq(messages.groupId, run.groupId),
@@ -172,7 +176,14 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       ...config,
     },
     workspace: {
-      repo: repo ? { id: repo.id, url: repo.url, branch: repo.baseBranch } : null,
+      repo: repo
+        ? {
+            id: repo.id,
+            url: repo.url,
+            branch: repo.baseBranch,
+            protocol: (owner?.protocol ?? 'auto') as GitProtocol,
+          }
+        : null,
       cdPath: gb.cdPath,
     },
     resumeSessionId,

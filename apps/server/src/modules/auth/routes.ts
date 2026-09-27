@@ -1,4 +1,10 @@
-import { type AuthOptionsDto, ChangePasswordReq, LoginReq, RegisterReq } from '@gonggong/protocol'
+import {
+  type AuthOptionsDto,
+  ChangePasswordReq,
+  LoginReq,
+  RegisterReq,
+  UpdateMeReq,
+} from '@gonggong/protocol'
 import { hash, verify } from '@node-rs/argon2'
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply } from 'fastify'
@@ -97,6 +103,13 @@ export function authRoutes(ctx: Ctx) {
     })
 
     app.get('/api/me', async (req) => toUserDto(await requireUser(ctx, req, { allowPending: true })))
+
+    app.patch('/api/me', async (req) => {
+      const user = await requireUser(ctx, req)
+      const { gitProtocol } = UpdateMeReq.parse(req.body)
+      const [row] = await ctx.db.update(users).set({ gitProtocol }).where(eq(users.id, user.id)).returning()
+      return toUserDto(row ?? user)
+    })
 
     app.post('/api/auth/password', async (req) => {
       const user = await requireUser(ctx, req, { allowPending: true })

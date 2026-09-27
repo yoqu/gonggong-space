@@ -14,6 +14,7 @@ const me: UserDto = {
   role: 'sysadmin',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 }
 
 const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): GroupDto => ({
@@ -32,6 +33,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 })
 
 class NoopSocket {

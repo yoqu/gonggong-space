@@ -31,6 +31,7 @@ const user = (id: string, name: string): UserDto => ({
   role: 'member',
   mustChangePassword: false,
   disabled: false,
+  gitProtocol: 'auto',
 })
 const wang = user('u1', '王磊')
 const li = user('u2', '李建国')
@@ -54,6 +55,7 @@ const group: GroupDto = {
   pinned: false,
   muted: false,
   foldRuns: false,
+  liveRunIds: [],
 }
 
 const bot: BotDto = {
@@ -91,6 +93,7 @@ const state = (o: Partial<GroupBotStateDto> = {}): GroupBotStateDto => ({
   path: null,
   git: null,
   error: null,
+  reason: null,
   tier: null,
   model: null,
   effort: null,

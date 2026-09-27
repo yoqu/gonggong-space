@@ -284,11 +284,56 @@ pub struct RunBot {
     pub allowlist: Vec<String>,
 }
 
+/// The bot owner's preferred protocol: tried first, then the other one (ssh ↔ https).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GitProtocol {
+    #[default]
+    Auto,
+    Ssh,
+    Https,
+}
+
+/// Why the machine cannot use a repo; git cannot tell "no access" from "no such repo", both are `Denied`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoAccessReason {
+    Denied,
+    BranchMissing,
+    Network,
+    Timeout,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RepoSpec {
     pub id: String,
     pub url: String,
     pub branch: String,
+    #[serde(default)]
+    pub protocol: GitProtocol,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoProbe {
+    pub request_id: String,
+    pub url: String,
+    pub branch: String,
+    pub protocol: GitProtocol,
+}
+
+pub const REPO_BRANCHES_MAX: usize = 200;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoProbeResult {
+    pub request_id: String,
+    pub ok: bool,
+    pub reason: Option<RepoAccessReason>,
+    pub used_url: Option<String>,
+    pub default_branch: Option<String>,
+    pub branches: Vec<String>,
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -541,6 +586,10 @@ pub struct WorkspaceState {
     pub path: Option<String>,
     pub git: Option<GitStatus>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub reason: Option<RepoAccessReason>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remotes: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -603,10 +652,14 @@ pub enum DaemonToServer {
     },
     #[serde(rename = "question.ask", rename_all = "camelCase")]
     QuestionAsk { run_id: String, request_id: String, questions: Vec<Question> },
+    #[serde(rename = "question.withdraw", rename_all = "camelCase")]
+    QuestionWithdraw { run_id: String, request_id: String },
     #[serde(rename = "run.discarded", rename_all = "camelCase")]
     RunDiscarded { run_id: String, ok: bool, files: u32, error: Option<String> },
     #[serde(rename = "session.config", rename_all = "camelCase")]
     SessionConfig { run_id: String, model: Option<String>, effort: Option<String> },
+    #[serde(rename = "repo.probe.result")]
+    RepoProbeResult(RepoProbeResult),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -670,4 +723,6 @@ pub enum ServerToDaemon {
     },
     #[serde(rename = "run.append", rename_all = "camelCase")]
     RunAppend { run_id: String, text: String, from: String, attachments: Vec<Attachment> },
+    #[serde(rename = "repo.probe")]
+    RepoProbe(RepoProbe),
 }

@@ -11,6 +11,7 @@ import { questionSetDto } from './dto.js'
 
 type QuestionSet = typeof questionSets.$inferSelect
 type QuestionAsk = Extract<DaemonToServer, { t: 'question.ask' }>
+type QuestionWithdraw = Extract<DaemonToServer, { t: 'question.withdraw' }>
 
 const TICK_MS = 15_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -140,12 +141,28 @@ export async function expireQuestions(ctx: Ctx) {
   }
 }
 
+/** The daemon withdrew a pending card of its own live run (e.g. the shared directory freed before an answer). */
+export async function onQuestionWithdraw(ctx: Ctx, machineId: string, msg: QuestionWithdraw) {
+  const [row] = await ctx.db
+    .select({ id: runs.id })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(and(eq(runs.id, msg.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
+  if (row) await voidQuestions(ctx, msg.runId, msg.requestId)
+}
+
 /** Pending cards of a run that ended, was stopped or was interrupted by an append: nobody can answer them. */
-export async function voidQuestions(ctx: Ctx, runId: string) {
+export async function voidQuestions(ctx: Ctx, runId: string, requestId?: string) {
   const voided = await ctx.db
     .update(questionSets)
     .set({ status: 'void' })
-    .where(and(eq(questionSets.runId, runId), eq(questionSets.status, 'pending')))
+    .where(
+      and(
+        eq(questionSets.runId, runId),
+        eq(questionSets.status, 'pending'),
+        requestId === undefined ? undefined : eq(questionSets.requestId, requestId),
+      ),
+    )
     .returning()
   if (!voided.length) return
   const [run] = await ctx.db.select({ groupId: runs.groupId }).from(runs).where(eq(runs.id, runId))

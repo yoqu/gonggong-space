@@ -96,6 +96,7 @@ export function GitBar({ group }: { group: GroupDto }) {
               path: null,
               git: null,
               error: null,
+              reason: null,
               tier: null,
               model: null,
               effort: null,
