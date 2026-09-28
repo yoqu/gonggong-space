@@ -31,7 +31,7 @@ import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
-import { AvatarPicker, BotAvatar, botAvatar } from './avatars'
+import { BotAvatar, RolePicker, roleHint } from './avatars'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
   AGENT_LABEL,
@@ -103,7 +103,7 @@ export function BotDetail({
   /** Embedded in a dialog: no panel chrome. */
   plain?: boolean
 }) {
-  const [avatar, setAvatar] = useState(botAvatar(bot))
+  const [avatar, setAvatar] = useState(bot.avatar)
   const [prompt, setPrompt] = useState(bot.systemPrompt)
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
   const [list, setList] = useState(bot.triggerList)
@@ -129,7 +129,7 @@ export function BotDetail({
     setSaving(true)
     try {
       await botsApi.update(bot.id, {
-        avatar: avatar === botAvatar(bot) ? bot.avatar : avatar,
+        avatar,
         systemPrompt: prompt,
         triggerScope: scope,
         triggerList: list,
@@ -187,8 +187,8 @@ export function BotDetail({
 
       <Form>
         {canEdit ? (
-          <FormRow label="头像" align="top">
-            <AvatarPicker value={avatar} onChange={setAvatar} />
+          <FormRow label="角色" align="top" hint={roleHint(avatar)}>
+            <RolePicker value={avatar} onChange={setAvatar} />
           </FormRow>
         ) : null}
         <FormRow

@@ -64,7 +64,7 @@ const bot: BotDto = {
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: null,
+  avatar: 'role-pm',
   machineId: 'm1',
   machineName: 'mbp',
   binding: 'bound',

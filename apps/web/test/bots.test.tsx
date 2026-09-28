@@ -62,7 +62,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: null,
+  avatar: 'role-pm',
   machineId: 'm1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -222,9 +222,10 @@ describe('新建 Bot', () => {
     ).toBe(true)
     expect(within(dialog).getByText('创建后立即可用')).toBeTruthy()
     fireEvent.change(name, { target: { value: '小王的 Claude' } })
-    const avatars = within(dialog).getByRole('radiogroup', { name: '头像' })
-    expect((within(avatars).getByRole('radio', { name: '星芒' }) as HTMLInputElement).checked).toBe(true)
-    fireEvent.click(within(avatars).getByRole('radio', { name: '猫耳' }))
+    const roles = within(dialog).getByRole('radiogroup', { name: '角色' })
+    expect(within(roles).getAllByRole('radio')).toHaveLength(11)
+    expect((within(roles).getByRole('radio', { name: /共字君/ }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(within(roles).getByRole('radio', { name: /测试工程师/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     expect(await within(dialog).findByText('已就绪，可以在群里 @ 它了')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
@@ -235,7 +236,7 @@ describe('新建 Bot', () => {
       agentKind: 'claude',
       machineId: 'm1',
       systemPrompt: '',
-      avatar: 'bot-cat',
+      avatar: 'role-qa',
       model: null,
       effort: null,
     })
@@ -376,11 +377,11 @@ describe('bot detail', () => {
     expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
     expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
     expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(within(detail).getByRole('radio', { name: '轨道' }))
+    fireEvent.click(within(detail).getByRole('radio', { name: /数据工程师/ }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
-        avatar: 'agent-orbit',
+        avatar: 'role-data',
         systemPrompt: '',
         triggerScope: 'list',
         triggerList: ['u2'],

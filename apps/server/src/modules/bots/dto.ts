@@ -1,4 +1,11 @@
-import type { AgentInfo, BotDto, MachineDto, SystemInfo } from '@gonggong/protocol'
+import {
+  type AgentInfo,
+  BOT_AVATARS,
+  type BotAvatar,
+  type BotDto,
+  type MachineDto,
+  type SystemInfo,
+} from '@gonggong/protocol'
 import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
@@ -6,6 +13,31 @@ import { fail } from '../../lib/errors.js'
 
 type BotRow = typeof bots.$inferSelect
 type MachineRow = typeof machines.$inferSelect
+
+// Presets from before the role characters, each onto the role of the nearest look; unset ones become 共字君.
+const LEGACY_ROLE: Record<string, BotAvatar> = {
+  'bot-dot': 'role-frontend',
+  'bot-visor': 'role-backend',
+  'bot-cyclops': 'role-qa',
+  'bot-bunny': 'role-designer',
+  'bot-cat': 'role-devops',
+  'bot-screen': 'role-architect',
+  'bot-dome': 'role-pjm',
+  'bot-pixel': 'role-qa',
+  'agent-spark': 'role-pm',
+  'agent-orbit': 'role-data',
+  'agent-prism': 'role-architect',
+  'agent-nodes': 'role-backend',
+  'agent-prompt': 'role-security',
+  'agent-compass': 'role-pjm',
+  'agent-wave': 'role-designer',
+  'agent-hex': 'role-architect',
+}
+
+export const botRole = (avatar: string | null): BotAvatar =>
+  (BOT_AVATARS as readonly string[]).includes(avatar ?? '')
+    ? (avatar as BotAvatar)
+    : (LEGACY_ROLE[avatar ?? ''] ?? 'role-gong')
 
 export const machineAgents = (m: MachineRow) => m.agents as AgentInfo[]
 
@@ -67,7 +99,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       ownerId: bot.ownerId,
       ownerName,
       agentKind: bot.agentKind as BotDto['agentKind'],
-      avatar: bot.avatar as BotDto['avatar'],
+      avatar: botRole(bot.avatar),
       machineId: bot.machineId,
       machineName: machine?.name ?? null,
       binding: bot.binding as BotDto['binding'],

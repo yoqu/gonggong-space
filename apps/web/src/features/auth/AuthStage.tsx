@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { resolveTheme, setTheme } from '../../app/theme'
 import { SPRING } from '../../lib/motion'
 import { Avatar, Brand, Icon, IconButton, Mascot, Message } from '../../ui'
+import { roleCostume } from '../bots/avatars'
 
 export type AuthVariant = 'login' | 'register' | 'password'
 
@@ -75,6 +76,8 @@ const SCRIPT: Line[] = [
   },
   { id: 'l3', who: '李娜的 Codex', bot: true, text: <p>看过了，逻辑没问题，可以合并。</p> },
 ]
+// The demo bot fixes a login form: it plays the front-end role.
+const FRONTEND = roleCostume('role-frontend')
 const STEPS = ['读取 LoginPage.tsx', '编辑 2 处校验逻辑', '运行测试 · 12 项通过']
 // Cumulative ms at which each beat appears; the loop restarts after the last.
 const BEATS = [400, 1500, 2300, 3100, 3900, 5000, 6600, 9400]
@@ -138,7 +141,8 @@ function RelayDemo() {
                       <Mascot
                         className="relay__mascot"
                         action={done ? 'done' : steps ? 'carry' : 'run'}
-                        size={36}
+                        costume={FRONTEND}
+                        size={32}
                       />
                       {done ? '已完成' : '运行中'}
                     </span>

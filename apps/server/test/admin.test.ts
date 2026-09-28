@@ -456,6 +456,7 @@ describe('system params', () => {
       name: 'x',
       ownerId: adminId,
       agentKind: 'claude',
+      avatar: 'role-pm',
       machineId: null,
       systemPrompt: '',
     })

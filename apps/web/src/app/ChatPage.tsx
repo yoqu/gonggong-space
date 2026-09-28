@@ -195,7 +195,7 @@ export function ChatPage() {
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
-            <Mascot action="run" size={72} label="加载中" />
+            <Mascot action="wait" size={72} label="加载中" />
           </div>
         ) : groupsState === 'error' ? (
           <div className="chat__placeholder">

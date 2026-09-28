@@ -41,7 +41,7 @@ export function RequireSession() {
   if (status !== 'ready')
     return (
       <div className="app-center app-splash" role="status">
-        <Mascot action="run" size={96} />
+        <Mascot action="wait" size={96} />
         <span className="app-splash__name">共工</span>
         <span className="app-splash__hint">正在连接…</span>
       </div>

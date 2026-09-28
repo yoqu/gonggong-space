@@ -20,7 +20,7 @@ import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/BindMachineDialog'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
-import { AGENT_AVATAR, AvatarPicker } from './avatars'
+import { RolePicker, roleHint } from './avatars'
 import { WorkspacePath } from './BotsAdminPage'
 import { AGENT_LABEL, AGENTS, botsApi, reportedAgent } from './model'
 
@@ -36,8 +36,7 @@ interface Draft {
   agent: AgentKind
   name: string
   touched: boolean
-  /** null = follows the agent kind until picked. */
-  avatar: BotAvatar | null
+  avatar: BotAvatar
   prompt: string
   /** Default workspace; only the owner may browse their own online machine (plan W1). */
   workspace: string | null
@@ -57,7 +56,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     agent,
     name: autoName(owner, agent),
     touched: false,
-    avatar: null,
+    avatar: 'role-gong',
     prompt,
     workspace: null,
     config: NO_CONFIG,
@@ -321,11 +320,8 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           />
         </FormRow>
 
-        <FormRow label="头像" align="top">
-          <AvatarPicker
-            value={draft.avatar ?? AGENT_AVATAR[draft.agent]}
-            onChange={(avatar) => set({ avatar })}
-          />
+        <FormRow label="角色" align="top" hint={roleHint(draft.avatar)}>
+          <RolePicker value={draft.avatar} onChange={(avatar) => set({ avatar })} />
         </FormRow>
 
         <FormRow label="系统提示词" align="top" hint="同时作为群内简介。">

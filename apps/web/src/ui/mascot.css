@@ -63,13 +63,15 @@
   animation: ui-mascot-blink 4s infinite;
 }
 .ui-mascot__prop--ground {
-  animation: ui-mascot-ground 0.4s linear infinite;
+  animation: ui-mascot-ground 1.2s linear infinite;
   stroke: var(--separator);
   stroke-width: 2;
   stroke-linecap: round;
 }
 
 /* Which face, mouth and props each action shows. */
+.ui-mascot__role-face,
+.ui-mascot__light,
 .ui-mascot__prop,
 .ui-mascot__eyes--happy,
 .ui-mascot__eyes--closed,
@@ -84,6 +86,8 @@
 .ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="error"]) .ui-mascot__mouth--smile {
   display: none;
 }
+.ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="sleep"], [data-action="error"])
+  .ui-mascot__role-face,
 .ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--happy,
 .ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__mouth--open,
 .ui-mascot[data-action="sleep"] .ui-mascot__eyes--closed,
@@ -158,10 +162,10 @@
 }
 
 .ui-mascot[data-action="type"] .ui-mascot__la {
-  animation: ui-mascot-tap-l 0.26s ease-in-out infinite;
+  animation: ui-mascot-tap-l 0.6s ease-in-out infinite;
 }
 .ui-mascot[data-action="type"] .ui-mascot__ra {
-  animation: ui-mascot-tap-r 0.26s ease-in-out -0.13s infinite;
+  animation: ui-mascot-tap-r 0.6s ease-in-out -0.3s infinite;
 }
 .ui-mascot[data-action="type"] .ui-mascot__bob {
   animation: ui-mascot-breathe 1.4s ease-in-out infinite;
@@ -204,45 +208,42 @@
   transform: rotate(8deg);
 }
 .ui-mascot[data-action="run"] .ui-mascot__bob {
-  animation: ui-mascot-hop 0.2s ease-in-out infinite;
+  animation: ui-mascot-hop 0.6s ease-in-out infinite;
 }
 .ui-mascot[data-action="run"] .ui-mascot__la {
-  animation: ui-mascot-swing 0.4s ease-in-out -0.2s infinite;
+  animation: ui-mascot-swing 1.2s ease-in-out -0.6s infinite;
 }
 .ui-mascot[data-action="run"] .ui-mascot__ra {
-  animation: ui-mascot-swing 0.4s ease-in-out infinite;
+  animation: ui-mascot-swing 1.2s ease-in-out infinite;
 }
 .ui-mascot[data-action="run"] .ui-mascot__lf {
-  animation: ui-mascot-stride 0.4s ease-in-out infinite;
+  animation: ui-mascot-stride 1.2s ease-in-out infinite;
 }
 .ui-mascot[data-action="run"] .ui-mascot__rf {
-  animation: ui-mascot-stride 0.4s ease-in-out -0.2s infinite;
+  animation: ui-mascot-stride 1.2s ease-in-out -0.6s infinite;
 }
 .ui-mascot__prop--run .ui-mascot__fx {
-  animation: ui-mascot-speed 0.4s linear var(--dd, 0s) infinite;
-}
-.ui-mascot[data-action="carry"] .ui-mascot__prop--ground {
-  animation-duration: 1.2s;
+  animation: ui-mascot-speed 1.2s linear var(--dd, 0s) infinite;
 }
 
 .ui-mascot[data-action="done"] .ui-mascot__bob {
-  animation: ui-mascot-jump 1s cubic-bezier(0.3, 0.6, 0.4, 1) infinite;
+  animation: ui-mascot-jump 1s cubic-bezier(0.3, 0.6, 0.4, 1) 2;
 }
 .ui-mascot[data-action="done"] .ui-mascot__la {
-  animation: ui-mascot-cheer-l 0.5s ease-in-out infinite alternate;
+  animation: ui-mascot-cheer-l 0.5s ease-in-out 4 alternate both;
 }
 .ui-mascot[data-action="done"] .ui-mascot__ra {
-  animation: ui-mascot-cheer-r 0.5s ease-in-out infinite alternate;
+  animation: ui-mascot-cheer-r 0.5s ease-in-out 4 alternate both;
 }
 .ui-mascot[data-action="done"] .ui-mascot__shadow {
-  animation: ui-mascot-shrink 1s cubic-bezier(0.3, 0.6, 0.4, 1) infinite;
+  animation: ui-mascot-shrink 1s cubic-bezier(0.3, 0.6, 0.4, 1) 2;
 }
 .ui-mascot__prop--done .ui-mascot__fx {
-  animation: ui-mascot-burst 1s ease-out var(--dd, 0s) infinite;
+  animation: ui-mascot-burst 1s ease-out var(--dd, 0s) 2 both;
 }
 
 .ui-mascot[data-action="error"] .ui-mascot__fig {
-  animation: ui-mascot-shake 1.6s ease-in-out infinite;
+  animation: ui-mascot-shake 1.6s ease-in-out 2;
 }
 .ui-mascot[data-action="error"] .ui-mascot__la {
   transform: rotate(calc(172deg - var(--rest)));
@@ -251,7 +252,7 @@
   transform: rotate(calc(-172deg - var(--rest)));
 }
 .ui-mascot__bang {
-  animation: ui-mascot-pop 1.6s ease-out infinite;
+  animation: ui-mascot-pop 1.6s ease-out 2;
 }
 
 .ui-mascot[data-action="sleep"] .ui-mascot__fig {
@@ -268,6 +269,128 @@
   animation: ui-mascot-zzz 3s ease-out var(--dd, 0s) infinite;
 }
 
+/*
+ * Under 48px a unit is ~0.27px: props blur into specks and eye moves vanish, so only the silhouette and the jade,
+ * recoloured as a status light, tell the actions apart. Role costumes have no jade and get a round light instead.
+ */
+.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__prop {
+  display: none;
+}
+.ui-mascot.ui-mascot--compact[data-action] :is(.ui-mascot__eye, .ui-mascot__eyes--open) {
+  animation: none;
+  transform: none;
+}
+.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__jade {
+  animation: none;
+  transform: scale(1.3);
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__jade {
+  display: inline;
+}
+.ui-mascot.ui-mascot--compact:is(
+    [data-action="type"],
+    [data-action="carry"],
+    [data-action="wait"],
+    [data-action="raise"],
+    [data-action="ask"]
+  )
+  :is(.ui-mascot__gem, .ui-mascot__light) {
+  display: inline;
+  fill: var(--mascot-light);
+}
+.ui-mascot.ui-mascot--compact:is(
+    [data-action="think"],
+    [data-action="ask"],
+    [data-action="raise"],
+    [data-action="wait"]
+  )
+  .ui-mascot__bob {
+  animation: none;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="think"] .ui-mascot__fig {
+  --sway-from: -6deg;
+  --sway-to: -2deg;
+  animation: ui-mascot-sway 1.2s ease-in-out infinite alternate;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="type"] {
+  --mascot-light: var(--system-blue);
+}
+.ui-mascot.ui-mascot--compact[data-action="type"] .ui-mascot__bob {
+  --dy: -4px;
+  animation: ui-mascot-bounce 1.2s ease-in-out infinite;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="carry"] {
+  --mascot-light: var(--system-teal);
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__bob {
+  --dy: 4px;
+  animation: ui-mascot-bounce 1.2s ease-in-out infinite;
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] :is(.ui-mascot__lf, .ui-mascot__rf) {
+  animation: none;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="wait"] {
+  --mascot-light: var(--label-tertiary);
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] :is(g, path, rect, ellipse, circle, line, text) {
+  animation: none;
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__la {
+  transform: rotate(calc(20deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__ra {
+  transform: rotate(calc(-20deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] :is(.ui-mascot__jade, .ui-mascot__light) {
+  opacity: 0.6;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="raise"] {
+  --mascot-light: var(--system-orange);
+}
+.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__ra {
+  /* Straighten to hanging, stretch so the hand clears the head, then raise. */
+  animation: none;
+  transform: rotate(-155deg) scaleY(2.4) rotate(calc(0deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="raise"] :is(.ui-mascot__jade, .ui-mascot__light) {
+  animation: ui-mascot-lamp 1.6s ease-in-out infinite;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="ask"] {
+  --mascot-light: var(--system-blue);
+}
+.ui-mascot.ui-mascot--compact[data-action="ask"] .ui-mascot__fig {
+  --sway-from: 8deg;
+  --sway-to: 4deg;
+  animation: ui-mascot-sway 1.2s ease-in-out infinite alternate;
+}
+.ui-mascot.ui-mascot--compact[data-action="ask"] .ui-mascot__ra {
+  transform: rotate(calc(-120deg - var(--rest)));
+}
+
+@keyframes ui-mascot-sway {
+  from {
+    transform: rotate(var(--sway-from));
+  }
+  to {
+    transform: rotate(var(--sway-to));
+  }
+}
+@keyframes ui-mascot-bounce {
+  50% {
+    transform: translateY(var(--dy));
+  }
+}
+@keyframes ui-mascot-lamp {
+  50% {
+    opacity: 0.4;
+  }
+}
 @keyframes ui-mascot-blink {
   0%,
   93%,
@@ -290,7 +413,7 @@
 }
 @keyframes ui-mascot-hop {
   50% {
-    transform: translateY(-3.5px);
+    transform: translateY(-1.75px);
   }
 }
 @keyframes ui-mascot-heavy {
@@ -556,8 +679,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Outranks every action rule (0,3,0) so the static poses stay but nothing moves. */
-  .ui-mascot[data-action][data-action] :is(g, path, rect, ellipse, circle, line, text) {
+  /* Outranks every action rule, compact ones (0,4,0) included, so the static poses stay but nothing moves. */
+  .ui-mascot.ui-mascot[data-action][data-action] :is(g, path, rect, ellipse, circle, line, text) {
     animation: none;
     transition: none;
   }

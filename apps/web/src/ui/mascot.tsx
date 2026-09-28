@@ -278,20 +278,134 @@ function Props({ jade }: { jade: string }) {
   )
 }
 
+/** A bot's role worn by the mascot: its avatar tile becomes the head, drawn still or moving. */
+export interface MascotCostume {
+  head: string
+  headLive: string
+  /** The tile gradient, reused for the body. */
+  from: string
+  to: string
+  /** Eye centres on the 40×40 tile, where the done / sleep / error faces are drawn over it. */
+  eyes: [number, number][]
+  /** Colour of those faces, and of the tile behind the eyes (white unless set). */
+  ink: string
+  skin?: string
+}
+
+/** Actions that show the bot at work; the rest keep the head still so the drawn faces sit on it. */
+const WORKING: MascotAction[] = ['think', 'ask', 'raise', 'wait', 'type', 'carry', 'run']
+const ROLE_HEAD = 'translate(37 22) scale(1.15)'
+const ROLE_HEAD_BOX = '33 18 54 54'
+
+function RoleFace({ eyes, ink, skin = '#fff' }: Pick<MascotCostume, 'eyes' | 'ink' | 'skin'>) {
+  return (
+    <g className="ui-mascot__role-face">
+      {eyes.map(([x, y]) => (
+        <circle key={x} cx={x} cy={y} r="2.6" fill={skin} />
+      ))}
+      <g fill="none" stroke={ink} strokeWidth="1" strokeLinecap="round">
+        <g className="ui-mascot__eyes ui-mascot__eyes--happy">
+          {eyes.map(([x, y]) => (
+            <path key={x} d={`M${x - 1.5} ${y + 0.6}q1.5-2.6 3 0`} />
+          ))}
+        </g>
+        <g className="ui-mascot__eyes ui-mascot__eyes--closed">
+          {eyes.map(([x, y]) => (
+            <path key={x} d={`M${x - 1.5} ${y}q1.5 1.8 3 0`} />
+          ))}
+        </g>
+        <g className="ui-mascot__eyes ui-mascot__eyes--x">
+          {eyes.map(([x, y]) => (
+            <path key={x} d={`M${x - 1.2} ${y - 1.2}l2.4 2.4m0-2.4-2.4 2.4`} />
+          ))}
+        </g>
+      </g>
+    </g>
+  )
+}
+
+function RoleFigure({
+  c,
+  id,
+  action,
+  compact,
+}: {
+  c: MascotCostume
+  id: string
+  action: MascotAction
+  compact: boolean
+}) {
+  const limb = { fill: 'none', stroke: c.to, strokeLinecap: 'round' } as const
+  const arms = (
+    <>
+      <Limb part="la" ox={48} oy={72} rest={23}>
+        <path d="M48 72 42 86" {...limb} strokeWidth="6" />
+        <circle cx="41.5" cy="87.5" r="3.4" fill="#fff" stroke={c.to} strokeWidth="2" />
+      </Limb>
+      <Limb part="ra" ox={72} oy={72} rest={-23}>
+        <path d="M72 72 78 86" {...limb} strokeWidth="6" />
+        <circle cx="78.5" cy="87.5" r="3.4" fill="#fff" stroke={c.to} strokeWidth="2" />
+      </Limb>
+    </>
+  )
+  return (
+    <>
+      <defs>
+        <linearGradient id={`${id}r`} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor={c.from} />
+          <stop offset="1" stopColor={c.to} />
+        </linearGradient>
+        <clipPath id={`${id}t`}>
+          <rect width="40" height="40" rx="11" />
+        </clipPath>
+      </defs>
+      <g className="ui-mascot__fig">
+        <g className="ui-mascot__bob">
+          <Limb part="lf" ox={54} oy={86} rest={10}>
+            <path d="M54 86 51 102" {...limb} strokeWidth="7" />
+            <ellipse cx="50" cy="104.5" rx="5" ry="2.6" fill={INK} />
+          </Limb>
+          <Limb part="rf" ox={66} oy={86} rest={-10}>
+            <path d="M66 86 69 102" {...limb} strokeWidth="7" />
+            <ellipse cx="70" cy="104.5" rx="5" ry="2.6" fill={INK} />
+          </Limb>
+          {compact ? null : arms}
+          <rect x="47" y="64" width="26" height="26" rx="8" fill={`url(#${id}r)`} />
+          <g transform={ROLE_HEAD}>
+            <image
+              href={WORKING.includes(action) ? c.headLive : c.head}
+              width="40"
+              height="40"
+              clipPath={`url(#${id}t)`}
+            />
+            <RoleFace eyes={c.eyes} ink={c.ink} skin={c.skin} />
+          </g>
+          {/* Small, raised arms would vanish behind the head; hanging ones never overlap it. */}
+          {compact ? arms : null}
+          <circle className="ui-mascot__light" cx="88" cy="22" r="9" />
+        </g>
+      </g>
+    </>
+  )
+}
+
 /**
  * 共字君, the brand mascot: the glyph 共 whose two bottom dots are its legs, whose long stroke breaks into arms and
- * whose two raised verticals hold the jade of the logo. `crop="head"` frames it for avatars and drops the props.
+ * whose two raised verticals hold the jade of the logo. `crop="head"` frames it for avatars and drops the props;
+ * a `costume` puts a bot's role in its place, acting out the same moves.
  */
 export function Mascot({
   action = 'idle',
   size = 120,
   crop,
+  costume,
   label,
   className,
 }: {
   action?: MascotAction
   size?: number
   crop?: 'head'
+  costume?: MascotCostume
   label?: string
   className?: string
 }) {
@@ -299,13 +413,20 @@ export function Mascot({
   const body = `${id}b`
   const jade = `${id}j`
   const full = crop !== 'head'
+  const compact = size < 48
   return (
     <svg
-      className={cx('ui-mascot', !full && 'ui-mascot--head', className)}
+      className={cx(
+        'ui-mascot',
+        !full && 'ui-mascot--head',
+        compact && 'ui-mascot--compact',
+        costume && 'ui-mascot--role',
+        className,
+      )}
       data-action={action}
       width={size}
       height={size}
-      viewBox={full ? '0 0 120 120' : HEAD_BOX}
+      viewBox={full ? '0 0 120 120' : costume ? ROLE_HEAD_BOX : HEAD_BOX}
       role={label ? 'img' : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
@@ -321,45 +442,49 @@ export function Mascot({
         </linearGradient>
       </defs>
       {full ? <ellipse className="ui-mascot__shadow" cx="60" cy="109" rx="24" ry="3" /> : null}
-      <g className="ui-mascot__fig">
-        <g className="ui-mascot__bob" fill={`url(#${body})`}>
-          <Limb part="lf" ox={50} oy={78} rest={19}>
-            <path
-              d="M50 78 41 103"
-              fill="none"
-              stroke={`url(#${body})`}
-              strokeWidth="9"
-              strokeLinecap="round"
-            />
-          </Limb>
-          <Limb part="rf" ox={70} oy={78} rest={-19}>
-            <path
-              d="M70 78 79 103"
-              fill="none"
-              stroke={`url(#${body})`}
-              strokeWidth="9"
-              strokeLinecap="round"
-            />
-          </Limb>
-          <Limb part="la" ox={40} oy={66.5} rest={90}>
-            <rect x="22" y="62" width="22" height="9" rx="4.5" />
-          </Limb>
-          <Limb part="ra" ox={80} oy={66.5} rest={-90}>
-            <rect x="76" y="62" width="22" height="9" rx="4.5" />
-          </Limb>
-          <rect className="ui-mascot__window" x="48" y="41" width="24" height="23" rx="4" />
-          <rect x="41" y="22" width="9" height="44" rx="4.5" />
-          <rect x="70" y="22" width="9" height="44" rx="4.5" />
-          <rect x="31" y="34" width="58" height="9" rx="4.5" />
-          <rect x="38" y="62" width="44" height="9" rx="4.5" />
-          <Face />
-          <g className="ui-mascot__jade">
-            <path d="M60 4.5 67 11.5 60 18.5 53 11.5Z" fill={`url(#${jade})`} />
-            <path d="M60 4.5 67 11.5H60Z" fill="#fff" opacity=".45" />
+      {costume ? (
+        <RoleFigure c={costume} id={id} action={action} compact={compact} />
+      ) : (
+        <g className="ui-mascot__fig">
+          <g className="ui-mascot__bob" fill={`url(#${body})`}>
+            <Limb part="lf" ox={50} oy={78} rest={19}>
+              <path
+                d="M50 78 41 103"
+                fill="none"
+                stroke={`url(#${body})`}
+                strokeWidth="9"
+                strokeLinecap="round"
+              />
+            </Limb>
+            <Limb part="rf" ox={70} oy={78} rest={-19}>
+              <path
+                d="M70 78 79 103"
+                fill="none"
+                stroke={`url(#${body})`}
+                strokeWidth="9"
+                strokeLinecap="round"
+              />
+            </Limb>
+            <Limb part="la" ox={40} oy={66.5} rest={90}>
+              <rect x="22" y="62" width="22" height="9" rx="4.5" />
+            </Limb>
+            <Limb part="ra" ox={80} oy={66.5} rest={-90}>
+              <rect x="76" y="62" width="22" height="9" rx="4.5" />
+            </Limb>
+            <rect className="ui-mascot__window" x="48" y="41" width="24" height="23" rx="4" />
+            <rect x="41" y="22" width="9" height="44" rx="4.5" />
+            <rect x="70" y="22" width="9" height="44" rx="4.5" />
+            <rect x="31" y="34" width="58" height="9" rx="4.5" />
+            <rect x="38" y="62" width="44" height="9" rx="4.5" />
+            <Face />
+            <g className="ui-mascot__jade">
+              <path className="ui-mascot__gem" d="M60 4.5 67 11.5 60 18.5 53 11.5Z" fill={`url(#${jade})`} />
+              <path d="M60 4.5 67 11.5H60Z" fill="#fff" opacity=".45" />
+            </g>
           </g>
         </g>
-      </g>
-      {full ? <Props jade={`url(#${jade})`} /> : null}
+      )}
+      {full ? <Props jade={costume ? costume.to : `url(#${jade})`} /> : null}
     </svg>
   )
 }

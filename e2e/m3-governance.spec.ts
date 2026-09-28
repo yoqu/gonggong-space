@@ -43,6 +43,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
       name,
       ownerId: me.id,
       agentKind: 'claude',
+      avatar: 'role-pm',
       machineId,
       systemPrompt: '',
     })
@@ -119,6 +120,7 @@ test('relay chain stops at 3 hops and every hop is authorized against the chain 
       name,
       ownerId: me.id,
       agentKind: 'claude',
+      avatar: 'role-pm',
       machineId,
       systemPrompt,
     })
@@ -173,6 +175,7 @@ test('partition /stop keeps edits by default and "丢弃本轮改动" restores o
     name: '停止 Claude',
     ownerId: me.id,
     agentKind: 'claude',
+    avatar: 'role-pm',
     machineId: await api.machineId(),
     systemPrompt: '',
   })

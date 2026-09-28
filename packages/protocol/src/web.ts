@@ -128,24 +128,19 @@ export const BotPresence = z.enum([
   'offline',
   'agent_missing',
 ])
-/** Built-in avatar presets; the artwork lives in the web app. */
+/** Built-in bot characters: 共字君 (the default) and the ten functions of a software team; art lives in the web app. */
 export const BOT_AVATARS = [
-  'bot-dot',
-  'bot-visor',
-  'bot-cyclops',
-  'bot-bunny',
-  'bot-cat',
-  'bot-screen',
-  'bot-dome',
-  'bot-pixel',
-  'agent-spark',
-  'agent-orbit',
-  'agent-prism',
-  'agent-nodes',
-  'agent-prompt',
-  'agent-compass',
-  'agent-wave',
-  'agent-hex',
+  'role-gong',
+  'role-pm',
+  'role-pjm',
+  'role-designer',
+  'role-architect',
+  'role-frontend',
+  'role-backend',
+  'role-qa',
+  'role-security',
+  'role-devops',
+  'role-data',
 ] as const
 export const BotAvatar = z.enum(BOT_AVATARS)
 export type BotAvatar = z.infer<typeof BotAvatar>
@@ -156,8 +151,7 @@ export const BotDto = z.object({
   ownerId: z.string(),
   ownerName: z.string(),
   agentKind: AgentKind,
-  /** null = a preset picked from the bot id. */
-  avatar: BotAvatar.nullable(),
+  avatar: BotAvatar,
   machineId: z.string().nullable(),
   machineName: z.string().nullable(),
   binding: BotBinding,
@@ -230,13 +224,13 @@ export const CreateBotReq = z.object({
   /** Omit when the owner has no machine yet (bot becomes pending_bind). */
   machineId: z.string().nullable(),
   systemPrompt: z.string().max(4000).default(''),
-  avatar: BotAvatar.nullable().default(null),
+  avatar: BotAvatar.default('role-gong'),
   model: z.string().nullable().default(null),
   effort: z.string().nullable().default(null),
 })
 export const UpdateBotReq = z.object({
   name: z.string().min(1).max(40).optional(),
-  avatar: BotAvatar.nullable().optional(),
+  avatar: BotAvatar.optional(),
   systemPrompt: z.string().max(4000).optional(),
   tier: Tier.optional(),
   triggerScope: TriggerScope.optional(),

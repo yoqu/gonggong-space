@@ -63,7 +63,7 @@ export const botsApi = {
     agentKind: AgentKind
     machineId: string | null
     systemPrompt: string
-    avatar: BotAvatar | null
+    avatar: BotAvatar
     model: string | null
     effort: string | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),

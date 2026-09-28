@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
-import { Button, Icon, type IconName, Mascot } from '../../ui'
+import { Button, Icon, type IconName, Mascot, type MascotCostume } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { type Action, buildItems, fmtWorked, type Item } from './activity'
 import { McpDetail } from './McpDetail'
@@ -20,6 +20,7 @@ export function ProcessView({
   workedMs,
   onOpenDiff,
   onStopTask,
+  costume,
 }: {
   steps: Step[]
   root: string | null
@@ -28,6 +29,8 @@ export function ProcessView({
   workedMs: number | null
   onOpenDiff?: (path: string) => void
   onStopTask?: (taskId: string) => Promise<unknown>
+  /** The bot's role, acting out the thinking between calls. */
+  costume?: MascotCostume
 }) {
   // Only the user's own folding is remembered; everything starts folded (ZCode / Codex).
   const [open, setOpen] = useState<Record<string, boolean>>({})
@@ -50,7 +53,7 @@ export function ProcessView({
       ))}
       {idle ? (
         <li className="act-item act-working" aria-live="polite">
-          <Mascot className="act-working__mascot" action="think" size={32} />
+          <Mascot className="act-working__mascot" action="think" costume={costume} size={32} />
           <span className="act-shimmer">正在处理</span>
           {startedAt ? <span className="act-row__meta">{fmtWorked(now - Date.parse(startedAt))}</span> : null}
         </li>

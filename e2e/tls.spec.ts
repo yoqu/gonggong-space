@@ -58,7 +58,14 @@ test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a chang
     const machineId = (await (await api.get('/api/machines')).json())[0].id
     const bot = await (
       await api.post('/api/bots', {
-        data: { name: 'TLS Claude', ownerId: me.id, agentKind: 'claude', machineId, systemPrompt: '' },
+        data: {
+          name: 'TLS Claude',
+          ownerId: me.id,
+          agentKind: 'claude',
+          avatar: 'role-pm',
+          machineId,
+          systemPrompt: '',
+        },
       })
     ).json()
     const group = await (

@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { avatarSrc } from '../src/features/bots/avatars'
 import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
 import { fmtDuration, RUN_STATUS } from '../src/features/chat/TimelineItems'
@@ -57,7 +58,7 @@ const bot: BotDto = {
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: null,
+  avatar: 'role-pm',
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -297,18 +298,16 @@ describe('timeline bubbles', () => {
       runs: [run(), run({ id: 'r2', step: '', queuedAt: min(2) })],
     })
     const [tool, idle] = await screen.findAllByTestId('run-card')
-    expect(
-      within(tool as HTMLElement)
-        .getByRole('img', { name: '执行工具' })
-        .getAttribute('data-action'),
-    ).toBe('carry')
-    expect(
-      within(idle as HTMLElement)
-        .getByRole('img', { name: '正在工作' })
-        .getAttribute('data-action'),
-    ).toBe('run')
+    const art = (card: Element) => card.querySelector('.run-card__mascot') as SVGElement
+    // Decorative next to the step text, so screen readers skip it.
+    expect(art(tool as HTMLElement).getAttribute('aria-hidden')).toBe('true')
+    expect(art(tool as HTMLElement).getAttribute('data-action')).toBe('carry')
+    expect(art(idle as HTMLElement).getAttribute('data-action')).toBe('carry')
     expect(within(idle as HTMLElement).getByText('正在工作…')).toBeTruthy()
-    expect(document.querySelector('.pn-typing .ui-mascot')?.getAttribute('data-action')).toBe('run')
+    expect(document.querySelector('.pn-typing .ui-mascot')?.getAttribute('data-action')).toBe('think')
+    // The bot's own role plays the part: its avatar tile becomes the head.
+    for (const svg of [art(tool as HTMLElement), document.querySelector('.pn-typing .ui-mascot')])
+      expect(svg?.querySelector('image')?.getAttribute('href')).toBe(avatarSrc('role-pm', true))
   })
 
   it('shows run facts as labelled graphics', async () => {

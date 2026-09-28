@@ -22,6 +22,7 @@ import {
   Spinner,
   TypingIndicator,
 } from '../../ui'
+import { useBotCostume } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
@@ -218,6 +219,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     return out
   }, [runsByTrigger, botsById])
 
+  /** The first of them lends its role to the mascot in the typing bubble. */
+  const workingCostume = useBotCostume(Object.values(tl.runs).find((r) => r.status === 'running')?.botId)
   /** Bots whose run is executing now: the list ends with their typing dots. */
   const working = useMemo(
     () => [
@@ -389,7 +392,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               />
             ) : !tl.loaded ? (
               <div className="chat-scroll__loading">
-                <Mascot action="run" size={72} label="加载中" />
+                <Mascot action="wait" size={72} label="加载中" />
               </div>
             ) : tl.messages.length ? (
               tl.messages.map((m, i) => {
@@ -429,7 +432,11 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               />
             )}
             {working.length ? (
-              <TypingIndicator name={working} action="正在处理" bubble={<Mascot action="run" size={36} />} />
+              <TypingIndicator
+                name={working}
+                action="正在处理"
+                bubble={<Mascot action="think" costume={workingCostume} size={36} />}
+              />
             ) : null}
           </MessageList>
           {unseen ? (

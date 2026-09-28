@@ -27,7 +27,7 @@ import {
   toast,
   useEscape,
 } from '../../ui'
-import { BotAvatar } from '../bots/avatars'
+import { BotAvatar, useBotCostume } from '../bots/avatars'
 import { fmtDuration, fmtUsage, RUN_STATUS } from '../chat/TimelineItems'
 import { DiffFileList, DiffLayoutToggle, DiffScopeBar, emptyText, scopeNote } from '../diff/DiffParts'
 import { type DiffSource, useDiffWindow } from '../diff/store'
@@ -106,6 +106,7 @@ export function RunRail({ runId }: { runId: string }) {
   const run = detail?.run
   const now = useNow(!!run && LIVE.includes(run.status) && !!run.startedAt)
   const bot = bots.find((b) => b.id === run?.botId)
+  const costume = useBotCostume(bot?.id)
   const members = groups.find((g) => g.id === run?.groupId)?.members ?? []
   const root = useWorkspace((s) => (run ? s.botStates[run.groupId]?.[run.botId]?.path : null)) ?? null
   const userName = (id: string | null) => members.find((m) => m.userId === id)?.name ?? '—'
@@ -198,6 +199,7 @@ export function RunRail({ runId }: { runId: string }) {
                 workedMs={workedMs(run)}
                 onOpenDiff={(path) => openDiff(source, 'turn', path)}
                 onStopTask={(taskId) => stopTask(runId, taskId)}
+                costume={costume}
               />
             )}
           </>

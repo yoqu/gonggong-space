@@ -19,7 +19,7 @@ import {
 import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
-import { BotAvatar } from '../bots/avatars'
+import { BotAvatar, useBotCostume } from '../bots/avatars'
 import { PreviewCard } from '../previews/PreviewCard'
 import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
@@ -440,7 +440,8 @@ export const RunCard = memo(function RunCard({
   const note = NOTE.includes(run.status)
   const step = note || reply ? '' : streamed || toolTitle(run.step)
   const working = !note && !reply && run.status === 'running'
-  const mascot = runMascot(run.status, !!streamed, step)
+  const mascot = runMascot(run.status, !!streamed)
+  const costume = useBotCostume(run.botId)
   const started = run.startedAt ? Date.parse(run.startedAt) : null
   const elapsed = started === null ? 0 : (run.endedAt ? Date.parse(run.endedAt) : now) - started
   const sessionNote = newSessionNote(run.newSessionReason)
@@ -548,7 +549,7 @@ export const RunCard = memo(function RunCard({
                             <Mascot
                               className="run-card__mascot"
                               action={mascot.action}
-                              label={mascot.label}
+                              costume={costume}
                               size={32}
                             />
                           ) : (

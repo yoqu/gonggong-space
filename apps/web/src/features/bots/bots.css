@@ -108,67 +108,86 @@
 }
 
 /* Avatar picker: two rows of presets, the checked one ringed in the accent color */
-.avatar-picker {
+.role-picker {
   align-self: stretch;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-.avatar-picker__group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.avatar-picker__title {
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-}
-.avatar-picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 28px);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
 }
-.avatar-picker__item {
+.role-card {
   position: relative;
-  display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: 28%;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  border-radius: var(--radius-field);
   cursor: pointer;
-  transition: transform 0.12s ease;
+  text-align: center;
+  transition: background-color 0.12s ease;
 }
-.avatar-picker__item img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-}
-.avatar-picker__item input {
+.role-card input {
   position: absolute;
+  z-index: 1;
   inset: 0;
   margin: 0;
   opacity: 0;
   cursor: inherit;
 }
-.avatar-picker__item:hover {
+.role-card__art {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  border-radius: 28%;
+  overflow: hidden;
+  transition: transform 0.12s ease;
+}
+.role-card__art img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+.role-card__live,
+.role-card:is(:hover, :has(input:checked)) .role-card__still {
+  visibility: hidden;
+}
+.role-card:is(:hover, :has(input:checked)) .role-card__live {
+  visibility: visible;
+}
+.role-card__name {
+  font-size: var(--text-callout-size);
+  font-weight: 600;
+}
+.role-card__title {
+  font-size: var(--text-caption-size);
+  white-space: nowrap;
+  color: var(--label-secondary);
+}
+.role-card:hover {
+  background: var(--row-alt);
+}
+.role-card:hover .role-card__art {
   transform: scale(1.06);
 }
-.avatar-picker__item:has(input:checked) {
+.role-card:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.role-card:has(input:checked) .role-card__art {
   box-shadow:
     0 0 0 2px var(--content-bg),
     0 0 0 4px var(--accent);
 }
-.avatar-picker__item:has(input:focus-visible) {
+.role-card:has(input:focus-visible) {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
+  outline-offset: 1px;
 }
-.avatar-picker__item:has(input:disabled) {
+.role-card:has(input:disabled) {
   cursor: default;
-  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .avatar-picker__item {
+  .role-card,
+  .role-card__art {
     transition: none;
   }
 }

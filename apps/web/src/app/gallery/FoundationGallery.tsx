@@ -1,3 +1,4 @@
+import { avatarSrc, ROLES, roleCostume } from '../../features/bots/avatars'
 import {
   ComingSoonArt,
   DeniedArt,
@@ -164,6 +165,49 @@ export function FoundationGallery() {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="gallery__section" data-testid="role-overview">
+        <h2 className="eyebrow">BOT ROLES · 静态 / 运行中</h2>
+        <div
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}
+        >
+          {Object.entries(ROLES).map(([k, r]) => (
+            <div key={k} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <img
+                src={avatarSrc(k as keyof typeof ROLES)}
+                alt=""
+                width={48}
+                style={{ borderRadius: '28%' }}
+              />
+              <img
+                src={avatarSrc(k as keyof typeof ROLES, true)}
+                alt=""
+                width={48}
+                style={{ borderRadius: '28%' }}
+              />
+              <div>
+                <b>{r.name}</b> · {r.title}
+                <div style={{ fontSize: 'var(--text-footnote-size)', color: 'var(--label-secondary)' }}>
+                  {r.trait}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="gallery__section" data-testid="role-mascots">
+        <h2 className="eyebrow">ROLE MASCOTS · 对话界面动作</h2>
+        {Object.keys(ROLES)
+          .filter((k) => k !== 'role-gong')
+          .map((k) => (
+            <div key={k} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {MASCOT_ACTIONS.map((a) => (
+                <Mascot key={a} action={a} size={84} costume={roleCostume(k as keyof typeof ROLES)} />
+              ))}
+            </div>
+          ))}
       </section>
 
       <section className="gallery__section" data-testid="art-overview">

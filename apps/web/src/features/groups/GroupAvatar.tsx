@@ -1,7 +1,7 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useWorkspace } from '../../app/workspace'
 import { Avatar, type AvatarTile } from '../../ui'
-import { avatarSrc, botAvatar } from '../bots/avatars'
+import { avatarSrc } from '../bots/avatars'
 
 /** A DM shows its bot; a group tiles its first members (people, then bots) like Feishu. */
 export function GroupAvatar({
@@ -15,7 +15,7 @@ export function GroupAvatar({
   const tiles: AvatarTile[] = []
   for (const id of group.botIds) {
     const b = bots.find((x) => x.id === id)
-    if (b) tiles.push({ name: b.name, src: avatarSrc(botAvatar(b)) })
+    if (b) tiles.push({ name: b.name, src: avatarSrc(b.avatar) })
   }
   if (group.kind === 'dm' && tiles[0])
     return <Avatar name={group.name} shape="square" size={size} src={tiles[0].src} />

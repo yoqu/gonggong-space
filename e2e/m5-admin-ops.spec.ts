@@ -30,6 +30,7 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
     name: '将停用 Claude',
     ownerId: me.id,
     agentKind: 'claude',
+    avatar: 'role-pm',
     machineId: await api.machineId(),
     systemPrompt: '',
   })
@@ -144,7 +145,14 @@ test('ops: a run survives a server outage; a daemon restart reconciles the lost 
     const machineId = (await (await api.get('/api/machines')).json())[0].id
     const bot = await (
       await api.post('/api/bots', {
-        data: { name: '运维 Claude', ownerId: me.id, agentKind: 'claude', machineId, systemPrompt: '' },
+        data: {
+          name: '运维 Claude',
+          ownerId: me.id,
+          agentKind: 'claude',
+          avatar: 'role-pm',
+          machineId,
+          systemPrompt: '',
+        },
       })
     ).json()
     await api.patch(`/api/bots/${bot.id}`, {

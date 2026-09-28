@@ -5,12 +5,10 @@ import type { MascotAction } from '../../ui'
 export function runMascot(
   status: RunStatus,
   streaming: boolean,
-  step: string,
 ): { action: MascotAction; label: string } | null {
   switch (status) {
     case 'running':
-      if (streaming) return { action: 'type', label: '正在回复' }
-      return step ? { action: 'carry', label: '执行工具' } : { action: 'run', label: '正在工作' }
+      return streaming ? { action: 'type', label: '正在回复' } : { action: 'carry', label: '正在工作' }
     case 'queued':
       return { action: 'wait', label: '排队中' }
     case 'awaiting_approval':

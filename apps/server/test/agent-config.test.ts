@@ -114,6 +114,7 @@ describe('bot defaults', () => {
       name: 'cc2',
       ownerId: w.owner.id,
       agentKind: 'claude',
+      avatar: 'role-pm',
       machineId: w.machine.id,
       model: 'opus',
       effort: 'max',
@@ -135,7 +136,7 @@ describe('bot defaults', () => {
     const w = await world()
     const nomachine = await t.seed.user({ name: '韩梅梅' })
     const c = client(t, await t.seed.cookie(nomachine.id))
-    const req = { name: 'mm', ownerId: nomachine.id, agentKind: 'claude', machineId: null }
+    const req = { name: 'mm', ownerId: nomachine.id, agentKind: 'claude', avatar: 'role-pm', machineId: null }
     expect((await c.post('/api/bots', { ...req, model: 'opus' })).status).toBe(400)
     const ok = await c.post<BotDto>('/api/bots', req)
     expect(ok.body).toMatchObject({ model: null, effort: null, catalog: null })

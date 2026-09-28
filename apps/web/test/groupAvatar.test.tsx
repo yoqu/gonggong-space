@@ -5,7 +5,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { avatarSrc } from '../src/features/bots/avatars'
 import { GroupAvatar } from '../src/features/groups/GroupAvatar'
 
-const bot = { id: 'b1', name: '小王的 Claude', agentKind: 'claude', avatar: 'bot-cat' } as BotDto
+const bot = { id: 'b1', name: '小王的 Claude', agentKind: 'claude', avatar: 'role-devops' } as BotDto
 const members = [
   { userId: 'u1', name: '王磊', isAdmin: true },
   { userId: 'u2', name: '李建国', isAdmin: false },
@@ -24,7 +24,7 @@ describe('GroupAvatar', () => {
     )
     const tiles = [...container.querySelectorAll('.ui-avatar__tile')]
     expect(tiles.map((t) => t.textContent)).toEqual(['磊', '国', ''])
-    expect(tiles[2]?.querySelector('image')?.getAttribute('href')).toBe(avatarSrc('bot-cat'))
+    expect(tiles[2]?.querySelector('image')?.getAttribute('href')).toBe(avatarSrc('role-devops'))
   })
 
   it('a DM shows its bot avatar', () => {
@@ -35,7 +35,7 @@ describe('GroupAvatar', () => {
         size={40}
       />,
     )
-    expect(container.querySelector('img')?.getAttribute('src')).toBe(avatarSrc('bot-cat'))
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(avatarSrc('role-devops'))
   })
 
   it('a lone member falls back to the generated avatar', () => {

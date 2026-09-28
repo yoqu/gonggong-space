@@ -35,6 +35,7 @@ test('the probed catalog reaches the server; bot default, group default and a on
       name: 'mdl1 Claude',
       ownerId: me.id,
       agentKind: 'claude',
+      avatar: 'role-pm',
       machineId: await api.machineId(),
       systemPrompt: '',
       model: cheap.value,
