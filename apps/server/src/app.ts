@@ -7,6 +7,7 @@ import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
 import { HttpError } from './lib/errors.js'
+import { originCheck } from './lib/origin.js'
 import { adminRoutes } from './modules/admin/routes.js'
 import { agentToolRoutes } from './modules/agent-tools/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
@@ -49,6 +50,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   const app = (opts.https ? Fastify({ logger, https: opts.https }) : Fastify({ logger })) as FastifyInstance
   await app.register(cookie)
   await app.register(websocket)
+  // After the websocket plugin: its onResponse hook then closes the socket of a refused upgrade.
+  originCheck(app)
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HttpError)
       return reply.status(err.status).send({ error: err.code, message: err.message })

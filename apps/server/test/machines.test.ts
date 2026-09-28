@@ -79,7 +79,7 @@ describe('bind codes', () => {
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/bind-codes',
-      headers: { cookie, origin: 'http://192.168.1.5:5173' },
+      headers: { cookie, origin: 'http://192.168.1.5:5173', host: '192.168.1.5:5173' },
     })
     const { code, fingerprint, link } = res.json<BindCodeDto>()
     expect(fingerprint).toBeNull()
@@ -96,14 +96,13 @@ describe('bind codes', () => {
     expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://gonggong.lan:8787')}&code=${code}`)
   })
 
-  it('ignores an opaque Origin: null (sandboxed pages)', async () => {
+  it('refuses an opaque Origin: null (sandboxed pages, plan P6)', async () => {
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/bind-codes',
       headers: { cookie, origin: 'null', host: 'gonggong.lan:8787' },
     })
-    const { code, link } = res.json<BindCodeDto>()
-    expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://gonggong.lan:8787')}&code=${code}`)
+    expect(res.statusCode).toBe(403)
   })
 
   it('adds the TLS certificate fingerprint to the link', async () => {
@@ -112,7 +111,7 @@ describe('bind codes', () => {
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/bind-codes',
-      headers: { cookie, origin: 'https://gonggong.lan' },
+      headers: { cookie, origin: 'https://gonggong.lan', host: 'gonggong.lan' },
     })
     const { code, fingerprint, link } = res.json<BindCodeDto>()
     expect(fingerprint).toBe(fp)

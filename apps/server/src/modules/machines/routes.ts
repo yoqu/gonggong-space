@@ -40,7 +40,7 @@ const randomCode = () => {
 /** The server as the browser reaches it (the web already tells daemons to use `location.origin`). */
 const publicOrigin = (req: FastifyRequest) => {
   const { origin } = req.headers
-  return origin && origin !== 'null' ? origin : `${req.protocol}://${req.host}`
+  return origin ?? `${req.protocol}://${req.host}`
 }
 
 /** Plan J1: `gonggong://bind?server=…&code=…[&fp=sha256:…]`. */
