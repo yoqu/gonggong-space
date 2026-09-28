@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ChatLayout } from '../src/app/ChatLayout'
 
-const layout = (railKind?: 'run' | 'preview') => (
+const layout = (railKind?: 'run' | 'info') => (
   <ChatLayout sidebar={<div />} rail={<div />} railOpen railKind={railKind} mobileView="chat">
     <div />
   </ChatLayout>
@@ -33,17 +33,39 @@ describe('resizable rail', () => {
     const again = render(layout())
     expect(rail().style.width).toBe('500px')
     again.unmount()
-    render(layout('preview'))
-    expect(rail().style.width).toBe('440px')
+    render(layout('info'))
+    expect(rail().style.width).toBe('320px')
   })
 
-  it('clamps between the minimum and 60% of the window', () => {
+  it('clamps between the minimum and 60% of the window', async () => {
     render(layout())
     fireEvent.pointerDown(handle(), { clientX: 1000, pointerId: 1 })
     fireEvent.pointerMove(window, { clientX: 1200, pointerId: 1 })
-    expect(rail().style.width).toBe('280px')
+    await waitFor(() => expect(rail().style.width).toBe('280px'))
     fireEvent.pointerMove(window, { clientX: 0, pointerId: 1 })
-    expect(rail().style.width).toBe(`${Math.round(1440 * 0.6)}px`)
+    await waitFor(() => expect(rail().style.width).toBe(`${Math.round(1440 * 0.6)}px`))
+  })
+
+  it('follows the latest pointer once per frame and stores the width only on release', async () => {
+    render(layout())
+    fireEvent.pointerDown(handle(), { clientX: 1000, pointerId: 1 })
+    expect(document.documentElement.dataset.resizing).toBe('')
+    fireEvent.pointerMove(window, { clientX: 950, pointerId: 1 })
+    fireEvent.pointerMove(window, { clientX: 900, pointerId: 1 })
+    await waitFor(() => expect(rail().style.width).toBe('420px'))
+    expect(localStorage.getItem('gonggong.railWidth.run')).toBeNull()
+    fireEvent.pointerUp(window, { pointerId: 1 })
+    expect(localStorage.getItem('gonggong.railWidth.run')).toBe('420')
+    expect(document.documentElement.dataset.resizing).toBeUndefined()
+  })
+
+  it('ends the drag when the pointer is cancelled', () => {
+    render(layout())
+    fireEvent.pointerDown(handle(), { clientX: 1000, pointerId: 1 })
+    fireEvent.pointerCancel(window, { pointerId: 1 })
+    expect(document.documentElement.dataset.resizing).toBeUndefined()
+    fireEvent.pointerMove(window, { clientX: 800, pointerId: 1 })
+    expect(rail().style.width).toBe('320px')
   })
 
   it('resizes from the keyboard', () => {

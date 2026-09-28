@@ -2,8 +2,8 @@ import type { Attachment, MessageDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Button, FileAttachment, Icon, Lightbox } from '../../ui'
+import { openTab } from '../workbench/open'
 import { attachmentUrl, fmtSize, KIND_LABEL, kindOf } from './api'
-import { usePreview } from './preview'
 import './attachments.css'
 
 /** The quoted bot reply / run card / message shown inside the sent message. */
@@ -18,14 +18,13 @@ export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
   )
 }
 
-/** Images / videos as a thumbnail grid, everything else as file cards; images zoom in place, the rest open the preview rail. */
+/** Images / videos as a thumbnail grid, everything else as file cards; images zoom in place, the rest open a workbench file tab. */
 export function MessageAttachments({ list, from }: { list: Attachment[]; from: string }) {
-  const show = usePreview((s) => s.show)
   const [zoomed, setZoomed] = useState<Attachment | null>(null)
   if (!list.length) return null
   const media = list.filter((a) => ['image', 'video'].includes(kindOf(a)))
   const docs = list.filter((a) => !media.includes(a))
-  const open = (attachment: Attachment) => show({ attachment, from })
+  const open = (attachment: Attachment) => openTab({ kind: 'file', source: { attachment, from } })
   return (
     <>
       {media.length ? (
@@ -52,8 +51,8 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
                 <button
                   type="button"
                   className="att-tile__open"
-                  title={video ? '在右侧查看' : '查看大图'}
-                  aria-label={`${video ? '在右侧查看' : '查看大图'} ${a.name}`}
+                  title={video ? '在工作台查看' : '查看大图'}
+                  aria-label={`${video ? '在工作台查看' : '查看大图'} ${a.name}`}
                   onClick={() => (video ? open(a) : setZoomed(a))}
                 />
               </figure>
@@ -78,7 +77,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
                   open(zoomed)
                 }}
               >
-                在右侧查看
+                在工作台查看
               </Button>
             </>
           }

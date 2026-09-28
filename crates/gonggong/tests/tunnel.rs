@@ -1,5 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
-use gonggong::protocol::{TunnelHead, TunnelOpen, TunnelReset};
+use gonggong::protocol::{TunnelHead, TunnelOpen, TunnelReset, TunnelTarget, WorkspaceFiles, WorkspaceSpec};
 use gonggong::tunnel::{self, Allow, Frame, FrameType};
 use http_body_util::{BodyExt, Full, StreamBody};
 use hyper::body::{Bytes, Frame as BodyFrame, Incoming};
@@ -80,12 +80,16 @@ async fn echo_upgrade_server() -> u16 {
 
 /// The server's end of a tunnel connection served by `tunnel::serve`.
 async fn connect(allow: Allow) -> ServerWs {
+    connect_home(allow, std::env::temp_dir()).await
+}
+
+async fn connect_home(allow: Allow, home: std::path::PathBuf) -> ServerWs {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
         let tcp = TcpStream::connect(addr).await.unwrap();
         let (ws, _) = tokio_tungstenite::client_async(format!("ws://{addr}/ws/daemon/tunnel"), tcp).await.unwrap();
-        tunnel::serve(ws, allow).await
+        tunnel::serve(ws, allow, home).await
     });
     let (s, _) = listener.accept().await.unwrap();
     tokio_tungstenite::accept_async(s).await.unwrap()
@@ -128,8 +132,7 @@ async fn response(ws: &mut ServerWs, stream_id: u32) -> (TunnelHead, String) {
 
 fn req(preview: &str, port: u16, method: &str, path: &str) -> TunnelOpen {
     TunnelOpen {
-        preview_id: preview.into(),
-        port,
+        target: TunnelTarget::Preview { preview_id: preview.into(), port },
         method: method.into(),
         path: path.into(),
         headers: vec![("host".into(), format!("127.0.0.1:{port}"))],
@@ -204,4 +207,84 @@ async fn pipes_upgraded_connections_as_raw_bytes() {
     assert_eq!((echoed.kind, &echoed.payload[..]), (FrameType::Data, &b"ping"[..]));
     send(&mut ws, 1, FrameType::End, Bytes::new()).await;
     assert_eq!(next(&mut ws).await.kind, FrameType::End);
+}
+
+/// Raw bytes of a response, for binary bodies.
+async fn raw_response(ws: &mut ServerWs, stream_id: u32) -> (TunnelHead, Vec<u8>) {
+    let head = next(ws).await;
+    assert_eq!((head.stream_id, head.kind), (stream_id, FrameType::Head), "{head:?}");
+    let head: TunnelHead = serde_json::from_slice(&head.payload).unwrap();
+    let mut body = Vec::new();
+    loop {
+        let f = next(ws).await;
+        match f.kind {
+            FrameType::Data => body.extend_from_slice(&f.payload),
+            FrameType::End => return (head, body),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+}
+
+/// A files-browser stream into the managed empty workspace of (g1, b1).
+fn files(path: &str, headers: Vec<(String, String)>) -> TunnelOpen {
+    TunnelOpen {
+        target: TunnelTarget::Files {
+            files: WorkspaceFiles {
+                group_id: "g1".into(),
+                bot_id: "b1".into(),
+                workspace: WorkspaceSpec { repo: None, cd_path: None },
+            },
+        },
+        method: "GET".into(),
+        path: path.into(),
+        headers,
+        upgrade: false,
+    }
+}
+
+#[tokio::test]
+async fn serves_workspace_files_with_ranges_without_any_open_preview() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join("workspaces/g1/b1/_empty");
+    std::fs::create_dir_all(root.join("media")).unwrap();
+    std::fs::write(root.join("media/demo clip.mp4"), b"0123456789").unwrap();
+    std::fs::write(home.path().join("secret.txt"), b"s").unwrap();
+    let mut ws = connect_home(Allow::default(), home.path().to_path_buf()).await;
+    open(&mut ws, 1, files("/media/demo%20clip.mp4", vec![("range".into(), "bytes=4-".into())])).await;
+    send(&mut ws, 1, FrameType::End, Bytes::new()).await;
+    let (head, body) = raw_response(&mut ws, 1).await;
+    assert_eq!((head.status, body.as_slice()), (206, &b"456789"[..]));
+    assert!(head.headers.contains(&("content-range".into(), "bytes 4-9/10".into())));
+    assert!(head.headers.contains(&("content-type".into(), "video/mp4".into())));
+
+    open(&mut ws, 3, files("/media/demo%20clip.mp4", vec![("range".into(), "bytes=20-".into())])).await;
+    assert_eq!(raw_response(&mut ws, 3).await.0.status, 416);
+    open(&mut ws, 5, files("/../../../secret.txt", vec![])).await;
+    assert_eq!(raw_response(&mut ws, 5).await.0.status, 404);
+
+    let mut up = files("/media/demo%20clip.mp4", vec![]);
+    up.upgrade = true;
+    open(&mut ws, 7, up).await;
+    assert_eq!(next(&mut ws).await.kind, FrameType::Reset);
+}
+
+#[tokio::test]
+async fn a_reset_stops_reading_the_workspace_file() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join("workspaces/g1/b1/_empty");
+    std::fs::create_dir_all(&root).unwrap();
+    let size = 48 * 1024 * 1024;
+    std::fs::write(root.join("big.webm"), vec![7u8; size]).unwrap();
+    let mut ws = connect_home(Allow::default(), home.path().to_path_buf()).await;
+    open(&mut ws, 1, files("/big.webm", vec![])).await;
+    send(&mut ws, 1, FrameType::End, Bytes::new()).await;
+    assert_eq!(next(&mut ws).await.kind, FrameType::Head);
+    send(&mut ws, 1, FrameType::Reset, serde_json::to_vec(&TunnelReset { reason: "gone".into() }).unwrap()).await;
+    let mut got = 0;
+    while let Ok(Some(Ok(Message::Binary(b)))) = tokio::time::timeout(Duration::from_millis(500), ws.next()).await {
+        let f = Frame::decode(b).unwrap();
+        assert_ne!(f.kind, FrameType::End, "the whole file was sent");
+        got += f.payload.len();
+    }
+    assert!(got < size, "{got}");
 }

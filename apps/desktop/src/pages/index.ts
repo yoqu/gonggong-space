@@ -5,9 +5,10 @@ import { BotsPage } from './Bots'
 import { LogsPage } from './Logs'
 import { OverviewPage } from './Overview'
 import { SettingsPage } from './Settings'
+import { TunnelsPage } from './Tunnels'
 import { WorkspacesPage } from './Workspaces'
 
-export type PageKey = 'overview' | 'agents' | 'bots' | 'workspaces' | 'logs' | 'settings'
+export type PageKey = 'overview' | 'agents' | 'bots' | 'workspaces' | 'tunnels' | 'logs' | 'settings'
 
 export interface PageProps {
   go: (page: PageKey) => void
@@ -65,6 +66,14 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         color: 'var(--system-orange)',
         desc: '每个「群 × Bot」一个托管目录，或 /cd 绑定的本机目录',
         Component: WorkspacesPage,
+      },
+      {
+        key: 'tunnels',
+        label: '穿透与服务',
+        icon: 'globe',
+        color: 'var(--system-teal)',
+        desc: 'Bot 开放的预览穿透与后台托管的服务，可在本机停止',
+        Component: TunnelsPage,
       },
     ],
   },

@@ -1,9 +1,9 @@
 import type { BotDto, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useWorkbench } from '../src/app/workbench'
 import { loadBotStates, useWorkspace } from '../src/app/workspace'
 import { GitBar } from '../src/features/chat/GitBar'
-import { useDiffWindow } from '../src/features/diff/store'
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   id: 'g1',
@@ -107,14 +107,13 @@ describe('git status bar', () => {
           ),
       ),
     )
+    useWorkbench.setState({ groupId: 'g1', benches: {} })
     render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
     fireEvent.click(await screen.findByRole('button', { name: '查看 小王的 Claude 的改动' }))
-    expect(useDiffWindow.getState()).toMatchObject({
-      source: { groupId: 'g1', botId: 'b1', runId: null },
-      scope: 'uncommitted',
-    })
+    const tabs = () => useWorkbench.getState().benches.g1?.tabs
+    expect(tabs()).toEqual([{ kind: 'diff', botId: 'b1', scope: 'uncommitted', file: null }])
     fireEvent.click(screen.getByRole('button', { name: '查看 老李的 Codex 的改动' }))
-    expect(useDiffWindow.getState().scope).toBe('base')
+    expect(tabs()?.at(-1)).toEqual({ kind: 'diff', botId: 'b2', scope: 'base', file: null })
     expect(
       (screen.getByRole('button', { name: '查看 阿杰的 Claude 的改动' }) as HTMLButtonElement).disabled,
     ).toBe(true)

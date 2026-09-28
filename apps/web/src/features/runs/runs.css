@@ -1,12 +1,20 @@
-/* Run rail (spec §8.2) */
-.run-rail {
+/* Run tab of the workbench (design §4.3) */
+.run-tab {
   flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--content-bg);
 }
-.run-rail__head {
+.run-tab__bar {
+  flex: none;
+  padding: 0 var(--space-8) 0 var(--space-16);
+}
+.run-tab__bar .ui-toolbar__titles {
+  padding-left: 0;
+}
+.run-tab__head {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -15,14 +23,14 @@
   border-bottom: 1px solid var(--separator);
 }
 /* Pane segmented controls size to content; keep the column flex from stretching the track. */
-.run-rail__head > .ui-seg {
+.run-tab__head > .ui-seg {
   align-self: center;
 }
-.run-rail__head .ui-group__row {
+.run-tab__head .ui-group__row {
   min-height: 32px;
   padding: var(--space-6) var(--space-12);
 }
-.run-rail__facts {
+.run-tab__facts {
   display: flex;
   align-items: center;
   gap: var(--space-12);
@@ -30,28 +38,28 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
-.run-rail__fact {
+.run-tab__fact {
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
   white-space: nowrap;
 }
-.run-rail__fact svg {
+.run-tab__fact svg {
   flex: none;
 }
-.run-rail__val {
+.run-tab__val {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--label-secondary);
 }
-.run-rail__mono {
+.run-tab__mono {
   font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);
 }
-.run-rail__body {
+.run-tab__body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -60,27 +68,40 @@
   gap: var(--space-12);
   padding: var(--space-16);
 }
-.run-rail__loading {
+/* The diff view scrolls its own list and diff. */
+.run-tab__body--fill {
+  overflow: hidden;
+}
+/* Process and audit read as a column even when the workbench is wide. */
+.run-tab__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+}
+.run-tab__loading {
   display: flex;
   justify-content: center;
   padding: var(--space-20);
 }
-.run-rail__empty {
+.run-tab__empty {
   font-size: var(--text-callout-size);
   line-height: var(--text-body-line);
   color: var(--label-secondary);
 }
-.run-rail__session {
+.run-tab__session {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
 }
-.run-rail__session-id {
+.run-tab__session-id {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.run-rail__copy {
+.run-tab__copy {
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -93,7 +114,7 @@
   color: var(--label-secondary);
   cursor: default;
 }
-.run-rail__copy:hover {
+.run-tab__copy:hover {
   background: var(--control-track);
   color: var(--label);
 }

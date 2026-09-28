@@ -237,7 +237,7 @@ describe('preview access (port mode)', () => {
     const auth = await get(publicPort, `${target.pathname}${target.search}`)
     const cookie = cookieOf(auth).split(';')[0]!
     const res = await get(publicPort, '/', { cookie })
-    expect((JSON.parse(res.text) as TunnelOpen).previewId).toBe(s.preview.id)
+    expect((JSON.parse(res.text) as Extract<TunnelOpen, { previewId: string }>).previewId).toBe(s.preview.id)
     await closePortListener(t.ctx, s.preview.id)
     await expect(get(publicPort, '/')).rejects.toThrow()
   })

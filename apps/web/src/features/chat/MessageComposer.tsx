@@ -17,6 +17,7 @@ import { useQuote } from '../attachments/quote'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
 import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandidates'
+import { useCite } from './cite'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import './composer.css'
 
@@ -145,6 +146,14 @@ export function MessageComposer({
     setDismissed(false)
     setActive(0)
   }
+
+  const cited = useCite((s) => (s.pending?.groupId === group.id ? s.pending : null))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over text, onto the draft it was rendered with
+  useEffect(() => {
+    if (!cited) return
+    useCite.setState({ pending: null })
+    change(`${draft}${draft && !/\s$/.test(draft) ? ' ' : ''}${cited.text} `)
+  }, [cited])
 
   const pick = (c: Candidate) => {
     if (!token) return

@@ -544,6 +544,8 @@ export const previews = pgTable(
     /** The card message posted for it. */
     messageId: uuid('message_id'),
     lastAccessAt: ts('last_access_at'),
+    /** Its first-screen PNG (data dir `previews/<id>.png`) was last taken then. */
+    snapshotAt: ts('snapshot_at'),
     closedAt: ts('closed_at'),
     createdAt: createdAt(),
   },

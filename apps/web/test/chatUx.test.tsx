@@ -4,11 +4,11 @@ import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { uploadFile } from '../src/features/attachments/api'
 import { useQuote } from '../src/features/attachments/quote'
 import { Markdown } from '../src/features/chat/Markdown'
-import { useRunRail } from '../src/features/runs/rail'
 import { useToasts } from '../src/ui'
 
 vi.mock('../src/features/attachments/api', async (orig) => ({
@@ -212,6 +212,7 @@ beforeEach(() => {
   sessionStorage.clear()
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
+  useWorkbench.setState({ groupId: 'g1', benches: {} })
   useQuote.setState({ quote: null })
   useToasts.setState({ items: [] })
   vi.mocked(uploadFile).mockReset()
@@ -271,7 +272,9 @@ describe('run card merged with the final reply', () => {
     const files = [...body.querySelectorAll('.tl-file')].map((b) => b.textContent)
     expect(files).toEqual(['a.ts', 'b.ts', '+1'])
     fireEvent.click(within(body).getByRole('button', { name: '还有 1 个文件，查看完整改动' }))
-    expect(useRunRail.getState()).toMatchObject({ runId: 'r1', tab: 'diff', file: null })
+    expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
+      { kind: 'run', runId: 'r1', view: 'diff', file: null },
+    ])
   })
 
   it('renders bot messages without a run as plain replies', async () => {

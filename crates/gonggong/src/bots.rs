@@ -33,10 +33,11 @@ pub enum Binding {
     Bound,
 }
 
+/// The server's machine-token REST API.
 pub struct Client {
-    http: reqwest::Client,
-    base: String,
-    token: String,
+    pub(crate) http: reqwest::Client,
+    pub(crate) base: String,
+    pub(crate) token: String,
 }
 
 impl Client {

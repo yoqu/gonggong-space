@@ -19,6 +19,7 @@ import {
   AgentCatalog,
   AgentInfo,
   DiffScope,
+  FileTreeEntry,
   GitProtocol,
   MachineInfo,
   McpServer,
@@ -191,7 +192,11 @@ export type DirListingDto = z.infer<typeof DirListingDto>
 /** PUT /api/bots/:id/default-workspace; null clears it. */
 export const DefaultWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
 /** PUT /api/groups/:id/bots/:botId/workspace (bot owner): a local directory, or null = managed workspace. */
-export const BindWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
+export const BindWorkspaceReq = z.object({
+  path: z.string().min(1).nullable(),
+  /** Bind even if `path` is not a work tree of the group repo (the owner confirmed the warning). */
+  force: z.boolean().optional(),
+})
 /** GET /api/groups/:id/bots/:botId/diff?scope=&runId= — a bot workspace's changes (group members). */
 export const WorkspaceDiffDto = z.object({
   scope: DiffScope,
@@ -202,6 +207,45 @@ export const WorkspaceDiffDto = z.object({
   branch: z.string().nullable(),
 })
 export type WorkspaceDiffDto = z.infer<typeof WorkspaceDiffDto>
+/**
+ * Files browser (group members, read-only; `path` relative to the workspace root, '' = the root):
+ * GET /api/groups/:id/bots/:botId/files/tree?path=&ignored=1 — one directory level.
+ */
+export const FilesTreeDto = z.object({
+  path: z.string(),
+  entries: z.array(FileTreeEntry),
+  truncated: z.boolean(),
+})
+export type FilesTreeDto = z.infer<typeof FilesTreeDto>
+/** GET …/files/text?path= — `text` null when binary or over FILE_TEXT_MAX_BYTES. */
+export const FileTextDto = z.object({
+  path: z.string(),
+  size: z.number().int(),
+  binary: z.boolean(),
+  mime: z.string(),
+  text: z.string().nullable(),
+})
+export type FileTextDto = z.infer<typeof FileTextDto>
+/** MIME types `GET …/files/raw?path=` serves inline (Range supported); anything else is a download. */
+export const INLINE_FILE_MIMES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/bmp',
+  'image/x-icon',
+  'image/svg+xml',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/flac',
+  'application/pdf',
+] as const
 /** PUT /api/groups/:id/bots/:botId/tier (bot owner or sysadmin); null follows the bot's own tier. */
 export const GroupBotTierReq = z.object({ tier: Tier.nullable() })
 /** PUT /api/groups/:id/bots/:botId/config (bot owner or group admin; anyone in a DM): nulls follow the bot. */
@@ -450,6 +494,7 @@ export const PreviewKind = z.enum(['http', 'static', 'gui'])
 export const PreviewDto = z.object({
   id: z.string(),
   groupId: z.string(),
+  groupName: z.string(),
   botId: z.string(),
   botName: z.string(),
   kind: PreviewKind,
@@ -457,8 +502,12 @@ export const PreviewDto = z.object({
   path: z.string(),
   serviceId: z.string().nullable(),
   serviceName: z.string().nullable(),
-  /** online = its machine's tunnel is up. */
-  status: z.enum(['online', 'offline']),
+  /** The loopback port it tunnels to; null for a static site. */
+  port: z.number().int().nullable(),
+  /** Its first-screen PNG (GET /api/previews/:id/snapshot) was taken then; null until the machine managed one. */
+  snapshotAt: z.string().nullable(),
+  /** online = its machine's tunnel is up; stopped = the service behind it is not running (启动 brings it back). */
+  status: z.enum(['online', 'offline', 'stopped']),
   /** The bot owner and group admins may close it and share it publicly. */
   canManage: z.boolean(),
   createdAt: z.string(),
@@ -467,6 +516,7 @@ export type PreviewDto = z.infer<typeof PreviewDto>
 export const ServiceDto = z.object({
   id: z.string(),
   groupId: z.string(),
+  groupName: z.string(),
   botId: z.string(),
   botName: z.string(),
   name: z.string(),
@@ -480,10 +530,22 @@ export const ServiceDto = z.object({
 export type ServiceDto = z.infer<typeof ServiceDto>
 /**
  * GET /api/groups/:id/previews: open previews and live services. 打开 = GET /api/previews/:id/open?path= (also the
- * iframe src); POST /api/previews/:id/close and /api/services/:id/stop → 204 (bot owner or group admin).
+ * iframe src); POST /api/previews/:id/close and /api/services/:id/stop → 204 (bot owner or group admin);
+ * POST /api/previews/:id/snapshot → 204 retakes the first screen (same people; 409 with the machine's reason).
+ * POST /api/previews/:id/start → 204 reopens a closed preview and restarts its stopped service as it was started
+ * (same people; 409 with the machine's reason).
+ * Machine token (desktop app): GET /api/daemon/previews → the machine's own; POST /api/daemon/previews/:id/close
+ * (ClosePreviewReq) and /api/daemon/services/:id/stop → 204.
  */
-export const GroupPreviewsDto = z.object({ previews: z.array(PreviewDto), services: z.array(ServiceDto) })
+export const GroupPreviewsDto = z.object({
+  previews: z.array(PreviewDto),
+  services: z.array(ServiceDto),
+  /** Bots whose previews this user may manage, closed ones included (their cards offer 启动). */
+  manageableBotIds: z.array(z.string()),
+})
 export type GroupPreviewsDto = z.infer<typeof GroupPreviewsDto>
+/** Close body: `stopService` also stops the service behind the preview (409 when its machine is offline). */
+export const ClosePreviewReq = z.object({ stopService: z.boolean().optional() })
 
 /**
  * Public preview links (plan P8), created by the bot owner or a group admin, always expiring:
@@ -855,6 +917,20 @@ export const SYSTEM_PARAM_VIEW: {
 ]
 
 // ── Usage (spec §3.7) ───────────────────────────────────────────────────────
+/** GET /api/bots/:id/activity — each group the bot is in, where it works there and its turn in flight (owner or sysadmin). */
+export const BotPlaceDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  groupKind: GroupKind,
+  workspacePath: z.string().nullable(),
+  /** Not yet finished: queued, running or waiting on approval / an answer; the newest if several. */
+  run: z
+    .object({ id: z.string(), status: RunStatus, step: z.string(), startedAt: z.string().nullable() })
+    .nullable(),
+  lastRunAt: z.string().nullable(),
+})
+export type BotPlaceDto = z.infer<typeof BotPlaceDto>
+
 export const UsageQuery = z.object({
   by: z.enum(['bot', 'user', 'group']),
   days: z.coerce.number().int().min(1).max(365).default(30),

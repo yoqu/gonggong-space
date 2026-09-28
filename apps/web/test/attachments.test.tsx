@@ -4,9 +4,9 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { uploadFile } from '../src/features/attachments/api'
-import { usePreview } from '../src/features/attachments/preview'
 import { useQuote } from '../src/features/attachments/quote'
 import { useToasts } from '../src/ui'
 
@@ -209,7 +209,7 @@ beforeEach(() => {
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   useQuote.setState({ quote: null })
-  usePreview.setState({ open: null })
+  useWorkbench.setState({ groupId: null, open: false, benches: {} })
   URL.createObjectURL = vi.fn((f: Blob) => `blob:${(f as File).name}`)
   URL.revokeObjectURL = vi.fn()
   useToasts.setState({ items: [] })
@@ -348,7 +348,7 @@ describe('message attachments and preview', () => {
     expect(within(main).getByRole('button', { name: /ci\.log/ }).textContent).toContain('文本日志 · 84 KB')
   })
 
-  it('previews images, logs, markdown and unsupported files in the right panel', async () => {
+  it('opens images, logs, markdown and unsupported files as workbench file tabs', async () => {
     mockApi({
       'GET /attachments/a2': () => new Response('start\nWARN slow\nERROR boom\n'),
       'GET /attachments/a3': () => new Response('# 标题\n\n正文'),
@@ -360,32 +360,36 @@ describe('message attachments and preview', () => {
     expect((within(lightbox).getByRole('img', { name: 'shot.png' }) as HTMLImageElement).src).toContain(
       '/api/attachments/a1',
     )
-    fireEvent.click(within(lightbox).getByRole('button', { name: '在右侧查看' }))
+    fireEvent.click(within(lightbox).getByRole('button', { name: '在工作台查看' }))
     expect(screen.queryByRole('dialog', { name: 'shot.png' })).toBeNull()
-    const panel = () => screen.getByRole('complementary', { name: '侧栏' })
-    expect(within(panel()).getByRole('img', { name: 'shot.png' })).toBeTruthy()
-    expect(panel().textContent).toContain('来源李建国')
-    expect(panel().textContent).toContain('位置.gonggong/attachments/m2/shot.png')
-    expect(panel().textContent).toContain('发送给 Bot')
+    const pane = () => within(screen.getByRole('region', { name: '工作台' })).getByRole('tabpanel')
+    expect(await within(pane()).findByRole('img', { name: 'shot.png' })).toBeTruthy()
+    expect(pane().textContent).toContain('来源李建国')
+    expect(pane().textContent).toContain('位置.gonggong/attachments/m2/shot.png')
+    expect(pane().textContent).toContain('发送给 Bot')
 
     fireEvent.click(within(main).getByRole('button', { name: /ci\.log/ }))
-    expect(await within(panel()).findByText('ERROR boom')).toBeTruthy()
-    expect(within(panel()).getByText('ERROR boom').className).toContain('pv-line--error')
-    expect(within(panel()).getByText('WARN slow').className).toContain('pv-line--warn')
-    expect(panel().textContent).toContain('工作树已加入 .git/info/exclude，不进 git')
+    expect(await within(pane()).findByText('ERROR boom')).toBeTruthy()
+    expect(within(pane()).getByText('ERROR boom').className).toContain('pv-line--error')
+    expect(within(pane()).getByText('WARN slow').className).toContain('pv-line--warn')
+    expect(pane().textContent).toContain('工作树已加入 .git/info/exclude，不进 git')
 
     fireEvent.click(within(main).getByRole('button', { name: /spec\.md/ }))
-    expect(await within(panel()).findByRole('heading', { name: '标题' })).toBeTruthy()
-    fireEvent.click(within(panel()).getByRole('tab', { name: '源码' }))
-    expect(within(panel()).getByText('# 标题')).toBeTruthy()
+    expect(await within(pane()).findByRole('heading', { name: '标题' })).toBeTruthy()
+    fireEvent.click(within(pane()).getByRole('tab', { name: '源码' }))
+    expect(within(pane()).getByText('# 标题')).toBeTruthy()
 
     fireEvent.click(within(main).getByRole('button', { name: /dump\.bin/ }))
-    expect(within(panel()).getByText('该类型暂不支持预览，可下载查看')).toBeTruthy()
-    expect(within(panel()).getByRole('link', { name: '下载' }).getAttribute('href')).toBe(
+    expect(within(pane()).getByText('该类型暂不支持预览，可下载查看')).toBeTruthy()
+    expect(within(pane()).getAllByRole('link', { name: '下载' })[0]?.getAttribute('href')).toBe(
       '/api/attachments/a4',
     )
-
-    fireEvent.click(within(panel()).getByRole('button', { name: '关闭' }))
+    expect(useWorkbench.getState().benches.g1?.tabs.map((t) => t.kind)).toEqual([
+      'file',
+      'file',
+      'file',
+      'file',
+    ])
     expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull()
   })
 })

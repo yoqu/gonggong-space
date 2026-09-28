@@ -53,7 +53,7 @@ impl Frame {
 
 // ── Daemon runtime ───────────────────────────────────────────────────────────
 use crate::config::Config;
-use crate::protocol::{TunnelHead, TunnelOpen, TunnelReset};
+use crate::protocol::{TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
 use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
@@ -62,11 +62,12 @@ use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -82,7 +83,8 @@ const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const OUTBOX: usize = 256;
 
 /// Keeps the tunnel connected for the daemon's lifetime, once a server that serves previews has welcomed it.
-pub async fn run(config: Config, allow: Allow, mut offered: tokio::sync::watch::Receiver<bool>) {
+/// `home` locates managed workspaces for the files browser's streams.
+pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio::sync::watch::Receiver<bool>) {
     let mut backoff = Duration::from_secs(1);
     loop {
         if offered.wait_for(|on| *on).await.is_err() {
@@ -91,7 +93,7 @@ pub async fn run(config: Config, allow: Allow, mut offered: tokio::sync::watch::
         match crate::tls::connect_tunnel(&config).await {
             Ok(ws) => {
                 backoff = Duration::from_secs(1);
-                if let Err(e) = serve(ws, allow.clone()).await {
+                if let Err(e) = serve(ws, allow.clone(), home.clone()).await {
                     tracing::debug!("tunnel closed: {e:#}");
                 }
             }
@@ -128,8 +130,9 @@ impl Out {
     }
 }
 
-/// One tunnel connection: streams opened by the server are forwarded to loopback ports until the socket closes.
-pub async fn serve<S>(ws: WebSocketStream<S>, allow: Allow) -> anyhow::Result<()>
+/// One tunnel connection: streams opened by the server are forwarded to loopback ports, or answered from workspace
+/// files, until the socket closes.
+pub async fn serve<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf) -> anyhow::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -143,6 +146,9 @@ where
         }
     });
     let mut streams: HashMap<u32, mpsc::UnboundedSender<Inbound>> = HashMap::new();
+    // File streams take no request body; the server resets one when the browser drops it (media seeking does
+    // that a lot), which must stop reading the file.
+    let mut cancels: HashMap<u32, oneshot::Sender<()>> = HashMap::new();
     let result = async {
         while let Some(msg) = source.next().await {
             let bytes = match msg? {
@@ -168,14 +174,57 @@ where
                             continue;
                         }
                     };
-                    if allow.read().unwrap().get(&open.preview_id) != Some(&open.port) {
-                        out.reset(format!("端口 {} 未开放预览", open.port)).await;
-                        continue;
-                    }
+                    let port = match &open.target {
+                        TunnelTarget::Preview { preview_id, port } => {
+                            if allow.read().unwrap().get(preview_id) != Some(port) {
+                                out.reset(format!("端口 {port} 未开放预览")).await;
+                                continue;
+                            }
+                            *port
+                        }
+                        TunnelTarget::Files { files: target } => {
+                            let root = crate::workspace::workspace_dir(
+                                &home,
+                                &target.group_id,
+                                &target.bot_id,
+                                &target.workspace,
+                            );
+                            let (ctx, crx) = oneshot::channel();
+                            cancels.retain(|_, c| !c.is_closed());
+                            cancels.insert(id, ctx);
+                            tokio::spawn(async move {
+                                tokio::select! {
+                                    result = files(&root, &open, &out) => if let Err(e) = result {
+                                        out.reset(format!("{e:#}")).await;
+                                    },
+                                    _ = crx => {}
+                                }
+                            });
+                            continue;
+                        }
+                        TunnelTarget::Snapshot { snapshot } => {
+                            if allow.read().unwrap().get(&snapshot.preview_id) != Some(&snapshot.port) {
+                                out.reset(format!("端口 {} 未开放预览", snapshot.port)).await;
+                                continue;
+                            }
+                            let (port, path) = (snapshot.port, open.path.clone());
+                            tokio::spawn(async move {
+                                match crate::snapshot::capture(port, &path).await {
+                                    Ok(Some(png)) => answer(&out, 200, "image/png", png).await,
+                                    Ok(None) => {
+                                        let msg = "本机没有可用于截图的 Chrome / Edge";
+                                        answer(&out, 404, "text/plain; charset=utf-8", msg.into()).await
+                                    }
+                                    Err(e) => out.reset(format!("{e:#}")).await,
+                                }
+                            });
+                            continue;
+                        }
+                    };
                     let (itx, irx) = mpsc::unbounded_channel();
                     streams.insert(id, itx);
                     tokio::spawn(async move {
-                        if let Err(e) = forward(open, irx, &out).await {
+                        if let Err(e) = forward(port, open, irx, &out).await {
                             out.reset(format!("{e:#}")).await;
                         }
                     });
@@ -193,6 +242,9 @@ where
                 FrameType::Reset => {
                     if let Some(s) = streams.remove(&id) {
                         let _ = s.send(Inbound::Reset);
+                    }
+                    if let Some(c) = cancels.remove(&id) {
+                        let _ = c.send(());
                     }
                 }
                 FrameType::Head => {}
@@ -227,8 +279,13 @@ fn request_body(inbound: mpsc::UnboundedReceiver<Inbound>) -> Body {
     BodyExt::boxed(StreamBody::new(frames))
 }
 
-async fn forward(open: TunnelOpen, inbound: mpsc::UnboundedReceiver<Inbound>, out: &Out) -> anyhow::Result<()> {
-    let tcp = connect_local(open.port).await.with_context(|| format!("无法连接本机端口 {}", open.port))?;
+async fn forward(
+    port: u16,
+    open: TunnelOpen,
+    inbound: mpsc::UnboundedReceiver<Inbound>,
+    out: &Out,
+) -> anyhow::Result<()> {
+    let tcp = connect_local(port).await.with_context(|| format!("无法连接本机端口 {port}"))?;
     let (mut sender, conn) = hyper::client::conn::http1::handshake::<_, Body>(TokioIo::new(tcp)).await?;
     tokio::spawn(async move {
         let _ = conn.with_upgrades().await;
@@ -248,8 +305,10 @@ async fn forward(open: TunnelOpen, inbound: mpsc::UnboundedReceiver<Inbound>, ou
         (Empty::new().map_err(|never| match never {}).boxed(), Some(inbound))
     };
     let mut res = sender.send_request(req.body(body)?).await?;
-    let headers = res.headers().iter().map(|(k, v)| (k.to_string(), String::from_utf8_lossy(v.as_bytes()).into()));
-    out.json(FrameType::Head, &TunnelHead { status: res.status().as_u16(), headers: headers.collect() }).await;
+    if !(open.upgrade && res.status() == StatusCode::SWITCHING_PROTOCOLS) {
+        return relay(res, out).await;
+    }
+    head(&res, out).await;
     if open.upgrade
         && res.status() == StatusCode::SWITCHING_PROTOCOLS
         && let Some(inbound) = inbound
@@ -257,6 +316,45 @@ async fn forward(open: TunnelOpen, inbound: mpsc::UnboundedReceiver<Inbound>, ou
         let upgraded = hyper::upgrade::on(&mut res).await?;
         return pipe(TokioIo::new(upgraded), inbound, out).await;
     }
+    Ok(())
+}
+
+/// The files browser's raw bytes: GET / HEAD (with Range) on the workspace's read-only file server; any request
+/// body the server sends is ignored.
+async fn files(root: &Path, open: &TunnelOpen, out: &Out) -> anyhow::Result<()> {
+    anyhow::ensure!(!open.upgrade, "工作区文件不支持升级连接");
+    let mut req = Request::builder().method(open.method.as_str()).uri(&open.path);
+    for (k, v) in &open.headers {
+        req = req.header(k, v);
+    }
+    relay(crate::static_site::answer(root, &req.body(())?, false).await, out).await
+}
+
+async fn answer(out: &Out, status: u16, content_type: &str, body: Vec<u8>) {
+    let head = TunnelHead { status, headers: vec![("content-type".into(), content_type.into())] };
+    if !out.json(FrameType::Head, &head).await {
+        return;
+    }
+    for chunk in body.chunks(64 * 1024) {
+        if !out.send(FrameType::Data, Bytes::copy_from_slice(chunk)).await {
+            return;
+        }
+    }
+    out.send(FrameType::End, Bytes::new()).await;
+}
+
+async fn head<B>(res: &hyper::Response<B>, out: &Out) {
+    let headers = res.headers().iter().map(|(k, v)| (k.to_string(), String::from_utf8_lossy(v.as_bytes()).into()));
+    out.json(FrameType::Head, &TunnelHead { status: res.status().as_u16(), headers: headers.collect() }).await;
+}
+
+/// Head, then the body as data frames, then End.
+async fn relay<B>(res: hyper::Response<B>, out: &Out) -> anyhow::Result<()>
+where
+    B: hyper::body::Body<Data = Bytes> + Unpin,
+    B::Error: std::error::Error + Send + Sync + 'static,
+{
+    head(&res, out).await;
     let mut body = res.into_body();
     while let Some(frame) = body.frame().await {
         if let Ok(data) = frame?.into_data()

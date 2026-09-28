@@ -36,9 +36,11 @@ const state = (machineId: string, service: ServiceInfo) =>
 const row = async (id: string) => (await t.db.select().from(services).where(eq(services.id, id)))[0]
 
 describe('hosted service registry', () => {
-  it('records what the daemon reports and closes the previews of a service that ended', async () => {
+  it('records what the daemon reports; a preview outlives its service and follows it when restarted', async () => {
     const s = await setup()
-    const svc = s.info({ status: 'starting' })
+    const sent: ServerToDaemon[] = []
+    t.ctx.hub.register(s.machine.id, { send: (m) => sent.push(m), close: () => {} })
+    const svc = s.info({ status: 'starting', port: 6001 })
     state(s.machine.id, svc)
     await vi.waitFor(async () => expect((await row(svc.id))?.status).toBe('starting'))
     const [preview] = await t.db
@@ -50,18 +52,21 @@ describe('hosted service registry', () => {
         groupId: s.group.id,
         botId: s.bot.id,
         serviceId: svc.id,
-        port: 5173,
+        port: 6001,
         title: '首页',
       })
       .returning()
-    state(s.machine.id, { ...svc, status: 'running' })
-    await vi.waitFor(async () => expect((await row(svc.id))?.status).toBe('running'))
-
     state(s.machine.id, { ...svc, status: 'exited', exitCode: 0 })
     await vi.waitFor(async () => expect((await row(svc.id))?.exitedAt).not.toBeNull())
     expect((await row(svc.id))?.exitCode).toBe(0)
-    const [closed] = await t.db.select().from(previews).where(eq(previews.id, preview!.id))
-    expect(closed?.closedAt).not.toBeNull()
+    const open = async () => (await t.db.select().from(previews).where(eq(previews.id, preview!.id)))[0]
+    expect((await open())?.closedAt).toBeNull()
+
+    // Restarted under the same name (a static site comes back on another port).
+    const again = s.info({ port: 6002 })
+    state(s.machine.id, again)
+    await vi.waitFor(async () => expect(await open()).toMatchObject({ serviceId: again.id, port: 6002 }))
+    expect(sent).toContainEqual({ t: 'previews.sync', previews: [{ id: preview!.id, port: 6002 }] })
   })
 
   it('links a preview published by port to the service that turns out to own it', async () => {

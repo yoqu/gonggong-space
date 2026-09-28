@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { realtime } from '../../lib/realtime'
 import { Icon, type IconName } from '../../ui'
-import { useDiffWindow } from '../diff/store'
+import { openTab } from '../workbench/open'
 
 const WORKSPACE_LABEL = { managed: '托管', cd: '本机目录' } as const
 
@@ -17,8 +17,7 @@ function Commits({ icon, label, n }: { icon: IconName; label: string; n: number 
   )
 }
 
-function Item({ name, groupId, s }: { name: string; groupId: string; s: GroupBotStateDto }) {
-  const openDiff = useDiffWindow((st) => st.open)
+function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
   const git = s.git
   const hint =
     s.state === 'unbound' ? (
@@ -34,7 +33,7 @@ function Item({ name, groupId, s }: { name: string; groupId: string; s: GroupBot
     ) : null
   // Uncommitted work first; a clean feature branch shows what it holds against main.
   const inspect = git
-    ? () => openDiff({ groupId, botId: s.botId, runId: null }, git.dirty ? 'uncommitted' : 'base')
+    ? () => openTab({ kind: 'diff', botId: s.botId, scope: git.dirty ? 'uncommitted' : 'base', file: null })
     : undefined
   return (
     <button
@@ -87,7 +86,6 @@ export function GitBar({ group }: { group: GroupDto }) {
         <Item
           key={id}
           name={bots.find((b) => b.id === id)?.name ?? 'bot'}
-          groupId={group.id}
           s={
             states?.[id] ?? {
               botId: id,

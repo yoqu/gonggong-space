@@ -1,13 +1,15 @@
 import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
-import { type ReactNode, useLayoutEffect, useRef } from 'react'
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
+import { BotAvatar } from '../features/bots/avatars'
 import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
 import { useRealtimeStatus } from '../lib/realtime'
-import { Button, ConversationContent, Icon } from '../ui'
+import { Badge, Button, ConversationContent, Icon } from '../ui'
 import { keyNav } from '../ui/im/keynav'
+import { useWorkbench } from './workbench'
 import { useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
@@ -31,7 +33,6 @@ export interface SidebarProps {
   onBindMachine?: () => void
   onNewBot?: () => void
   onNewGroup?: () => void
-  onOpenBot?: (botId: string) => void
   onOpenMachine?: (machineId: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
   onConfirmBot?: (botId: string) => void
@@ -167,6 +168,51 @@ function useSelectionCapsule(groups: GroupDto[]) {
   return { scroll, pathname }
 }
 
+/** The conversation list folded to avatars and unread badges (workbench 专注 mode). */
+export function ConversationStrip({ groups }: { groups: GroupDto[] }) {
+  const rows = [
+    ...byPin(groups.filter((g) => g.kind === 'group')),
+    ...byPin(groups.filter((g) => g.kind === 'dm')),
+  ]
+  return (
+    <nav aria-label="会话列表" className="conv-strip">
+      <button
+        type="button"
+        className="conv-strip__item"
+        title="展开会话列表"
+        aria-label="展开会话列表"
+        onClick={() => useWorkbench.getState().setMode('split')}
+      >
+        <Icon name="sidebar" size={18} />
+      </button>
+      {rows.map((g) => (
+        <NavLink key={g.id} to={`/g/${g.id}`} className="conv-strip__item" title={g.name} aria-label={g.name}>
+          <GroupAvatar group={g} size={32} />
+          <Badge count={g.unread} muted={g.muted} />
+        </NavLink>
+      ))}
+    </nav>
+  )
+}
+
+/** The collapsed chat (workbench 全屏 mode): messages that arrived since it collapsed, and other chats' unread. */
+export function ChatStrip({ group }: { group: GroupDto }) {
+  const [seen] = useState(group.lastSeq)
+  const others = useWorkspace((s) =>
+    s.groups.reduce((n, g) => (g.id === group.id || g.muted ? n : n + g.unread), 0),
+  )
+  const fresh = group.lastSeq - seen
+  return (
+    <>
+      <span key={group.lastSeq} className={fresh > 0 ? 'chat__strip-flash' : undefined}>
+        <GroupAvatar group={group} size={28} />
+      </span>
+      <Badge count={fresh} />
+      <Badge count={others} muted />
+    </>
+  )
+}
+
 /** Connection, bots online and machines online, in place of a window status bar. */
 function Footer({ machines }: { machines: MachineDto[] }) {
   const conn = CONN[useRealtimeStatus()]
@@ -195,7 +241,6 @@ export function Sidebar({
   guide = true,
   onBindMachine,
   onNewBot,
-  onOpenBot,
   onOpenMachine,
   onConfirmBot,
 }: SidebarProps) {
@@ -248,18 +293,23 @@ export function Sidebar({
             {bots.length
               ? bots.map((b) => (
                   <div key={b.id} className="sidebar__row">
-                    <button
-                      type="button"
+                    <NavLink
+                      to={`/bot/${b.id}`}
                       className="sidebar__open"
                       title={`${b.name} · ${botStateText(b)}`}
-                      onClick={() => onOpenBot?.(b.id)}
                     >
-                      <span className="sidebar__dot" style={{ background: PRESENCE[b.presence].color }} />
+                      <span className="sidebar__avatar">
+                        <BotAvatar id={b.id} name={b.name} size={28} />
+                        <span
+                          className="sidebar__presence"
+                          style={{ background: PRESENCE[b.presence].color }}
+                        />
+                      </span>
                       <span className="sidebar__text">
                         <span className="sidebar__name">{b.name}</span>
                         <span className="sidebar__meta">{botStateText(b)}</span>
                       </span>
-                    </button>
+                    </NavLink>
                     {b.binding === 'pending_confirm' && onConfirmBot ? (
                       <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
                         确认

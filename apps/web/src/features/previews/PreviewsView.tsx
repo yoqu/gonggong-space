@@ -2,7 +2,7 @@ import { api } from '../../lib/api'
 import { Button, EmptyState, GroupBox, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import './previews.css'
-import { openUrl, usePreviews } from './store'
+import { openInWorkbench, openUrl, usePreviews } from './store'
 
 const SERVICE_STATE = { starting: '启动中', running: '运行中', exited: '已退出', failed: '启动失败' }
 
@@ -14,8 +14,11 @@ async function act(path: string) {
   }
 }
 
-/** 群设置 · 预览与服务: what the group's bots published and host; the bot owner or a group admin may end them. */
-export function PreviewsView({ groupId }: { groupId: string }) {
+/**
+ * 群设置 · 预览与服务: what the group's bots published and host; the bot owner or a group admin may end them.
+ * `onOpen` runs after a preview opened in the workbench, so the settings get out of its way.
+ */
+export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: () => void }) {
   const list = usePreviews(groupId)
   if (!list) return null
   return (
@@ -36,6 +39,17 @@ export function PreviewsView({ groupId }: { groupId: string }) {
                   {p.serviceName ? ` · 服务 ${p.serviceName}` : ''}
                 </span>
               </span>
+              {p.status === 'online' ? (
+                <Button
+                  variant="plain"
+                  size="small"
+                  onClick={() => {
+                    if (openInWorkbench(p)) onOpen?.()
+                  }}
+                >
+                  在工作台打开
+                </Button>
+              ) : null}
               {p.canManage ? (
                 <Button variant="plain" size="small" onClick={() => void act(`/previews/${p.id}/close`)}>
                   关闭
@@ -75,7 +89,7 @@ export function PreviewsView({ groupId }: { groupId: string }) {
       )}
       <div className="gs-foot">
         Bot 用 service_start 启动的服务由它所在的机器托管，本轮结束后仍在运行；预览 24
-        小时无人访问会自动关闭。停止服务会一并关闭它的预览。
+        小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。
       </div>
     </>
   )

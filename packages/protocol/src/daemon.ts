@@ -456,6 +456,42 @@ export const WorkspaceDiffResult = z.object({
   error: z.string().nullable(),
 })
 
+/** One directory level of the files browser (files.tree), dirs first then files, each by name. */
+export const FILE_TREE_MAX_ENTRIES = 1000
+/** files.read returns text up to this size; bigger files only carry their metadata. */
+export const FILE_TEXT_MAX_BYTES = 2 * 1024 * 1024
+export const FileTreeEntry = z.object({
+  name: z.string(),
+  dir: z.boolean(),
+  /** Bytes; 0 for directories. */
+  size: z.number().int(),
+  /** Last modification, ms since epoch. */
+  mtime: z.number().int(),
+  /** Changed or untracked against HEAD (for a directory: anything below it). */
+  uncommitted: z.boolean(),
+  /** Matched by .gitignore; only listed when asked with showIgnored. */
+  ignored: z.boolean(),
+})
+export type FileTreeEntry = z.infer<typeof FileTreeEntry>
+/** Answer to files.tree; `truncated` = the directory had more than FILE_TREE_MAX_ENTRIES entries. */
+export const FilesTreeResult = z.object({
+  t: z.literal('files.tree.result'),
+  requestId: z.string(),
+  entries: z.array(FileTreeEntry),
+  truncated: z.boolean(),
+  error: z.string().nullable(),
+})
+/** Answer to files.read; `text` only for valid UTF-8 within maxBytes. */
+export const FilesReadResult = z.object({
+  t: z.literal('files.read.result'),
+  requestId: z.string(),
+  size: z.number().int(),
+  binary: z.boolean(),
+  mime: z.string(),
+  text: z.string().nullable(),
+  error: z.string().nullable(),
+})
+
 export const FilesResult = z.object({
   t: z.literal('files.result'),
   requestId: z.string(),
@@ -496,12 +532,20 @@ export const QuestionWithdraw = z.object({
 
 /** Every status change of a hosted service. */
 export const ServiceState = z.object({ t: z.literal('service.state'), service: ServiceInfo })
+/** Answer to service.restart once the service is ready or failed to; `error` in the daemon's words. */
+export const ServiceRestartResult = z.object({
+  t: z.literal('service.restart.result'),
+  requestId: z.string(),
+  error: z.string().nullable(),
+})
 
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
   DirResult,
   FilesResult,
+  FilesTreeResult,
+  FilesReadResult,
   WorkspaceDiffResult,
   QuestionAsk,
   QuestionWithdraw,
@@ -515,6 +559,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   WorkspaceState,
   RepoProbeResult,
   ServiceState,
+  ServiceRestartResult,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -567,6 +612,8 @@ export const WorkspaceCd = z.object({
   botId: z.string(),
   repo: RepoSpec.nullable(),
   path: z.string().nullable(),
+  /** The owner confirmed `path` although it is not a work tree of `repo`. */
+  force: z.boolean(),
 })
 
 /** Can this machine read `url` with its own credentials (`git ls-remote`), and does `branch` exist there? */
@@ -617,6 +664,28 @@ export const FilesList = z.object({
   limit: z.number().int(),
 })
 
+/** One directory level of a workspace; `path` relative to its root ('' = the root). Read-only. */
+export const FilesTree = z.object({
+  t: z.literal('files.tree'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  workspace: WorkspaceSpec,
+  path: z.string(),
+  showIgnored: z.boolean(),
+})
+
+/** A workspace file's metadata and, when it is UTF-8 text within `maxBytes`, its content. */
+export const FilesRead = z.object({
+  t: z.literal('files.read'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  workspace: WorkspaceSpec,
+  path: z.string(),
+  maxBytes: z.number().int(),
+})
+
 /** Browse the machine's directories for the workspace picker; `path` null → the home dir. */
 export const DirList = z.object({
   t: z.literal('dir.list'),
@@ -645,6 +714,12 @@ export const RunAppend = z.object({
 
 /** Stop a hosted service (sidebar 停止, preview idle timeout); the daemon answers with service.state. */
 export const ServiceStop = z.object({ t: z.literal('service.stop'), serviceId: z.string() })
+/** Start a hosted service again as it was started (the card's 启动); answered by service.restart.result. */
+export const ServiceRestart = z.object({
+  t: z.literal('service.restart'),
+  requestId: z.string(),
+  serviceId: z.string(),
+})
 /**
  * The machine's open previews, replaced wholesale after welcome and on every change: the tunnel only forwards to
  * ports listed here (plan P9).
@@ -657,6 +732,8 @@ export const PreviewsSync = z.object({
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   FilesList,
+  FilesTree,
+  FilesRead,
   WorkspaceDiff,
   QuestionAnswer,
   RunAppend,
@@ -672,6 +749,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   WorkspaceCd,
   RepoProbe,
   ServiceStop,
+  ServiceRestart,
   PreviewsSync,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

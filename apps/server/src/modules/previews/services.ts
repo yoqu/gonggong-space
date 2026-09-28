@@ -1,10 +1,16 @@
-import type { ServiceInfo } from '@gonggong/protocol'
-import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm'
+import { randomUUID } from 'node:crypto'
+import type { DaemonToServer, ServiceInfo } from '@gonggong/protocol'
+import { and, eq, inArray, isNull, ne, notInArray, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, previews, services } from '../../db/schema.js'
-import { closePortListener } from './gateway.js'
+import { fail } from '../../lib/errors.js'
 
 const LIVE = ['starting', 'running']
+/** The daemon waits up to 60 s for the port before it answers. */
+const RESTART_TIMEOUT_MS = 75_000
+
+type RestartResult = Extract<DaemonToServer, { t: 'service.restart.result' }>
+const restarts = new Map<string, { machineId: string; resolve: (r: RestartResult | null) => void }>()
 
 /**
  * The machine's open previews on loopback ports: the only ones its tunnel will forward to (plan P9). `onConnect`
@@ -49,27 +55,43 @@ export async function recordService(ctx: Ctx, machineId: string, s: ServiceInfo)
       cwd: s.cwd,
     })
     .onConflictDoUpdate({ target: services.id, set: values })
-  if (ended) return closeServicePreviews(ctx, machineId, [s.id])
-  // preview_static publishes by port before this report arrives.
-  if (s.port !== null)
-    await ctx.db
-      .update(previews)
-      .set({ serviceId: s.id })
-      .where(
-        and(
-          eq(previews.groupId, s.groupId),
-          eq(previews.botId, s.botId),
-          eq(previews.port, s.port),
+  if (!ended) await follow(ctx, machineId, s)
+}
+
+/**
+ * A service keeps its previews through restarts (plan: a card must not die with the process): open previews of the
+ * (group, bot) on its port, or of an earlier service under its name, now point to it; a static site may come back
+ * on another port, which the tunnel then allows instead.
+ */
+async function follow(ctx: Ctx, machineId: string, s: ServiceInfo) {
+  const sameName = ctx.db
+    .select({ id: services.id })
+    .from(services)
+    .where(and(eq(services.groupId, s.groupId), eq(services.botId, s.botId), eq(services.name, s.name)))
+  const moved = await ctx.db
+    .update(previews)
+    .set({ serviceId: s.id, ...(s.port === null ? {} : { port: s.port }) })
+    .where(
+      and(
+        eq(previews.groupId, s.groupId),
+        eq(previews.botId, s.botId),
+        isNull(previews.closedAt),
+        or(s.port === null ? undefined : eq(previews.port, s.port), inArray(previews.serviceId, sameName)),
+        or(
           isNull(previews.serviceId),
-          isNull(previews.closedAt),
+          ne(previews.serviceId, s.id),
+          s.port === null ? undefined : ne(previews.port, s.port),
         ),
-      )
+      ),
+    )
+    .returning({ id: previews.id })
+  if (moved.length) await syncPreviews(ctx, machineId)
 }
 
 /** Hello: live services the daemon no longer reports died with its previous process. */
 export async function reconcileServices(ctx: Ctx, machineId: string, snapshot: ServiceInfo[]) {
   const ids = snapshot.map((s) => s.id)
-  const lost = await ctx.db
+  await ctx.db
     .update(services)
     .set({ status: 'exited', exitedAt: ctx.now() })
     .where(
@@ -79,22 +101,30 @@ export async function reconcileServices(ctx: Ctx, machineId: string, snapshot: S
         ids.length ? notInArray(services.id, ids) : undefined,
       ),
     )
-    .returning({ id: services.id })
   for (const s of snapshot) await recordService(ctx, machineId, s)
-  if (lost.length)
-    await closeServicePreviews(
-      ctx,
-      machineId,
-      lost.map((s) => s.id),
-    )
 }
 
-async function closeServicePreviews(ctx: Ctx, machineId: string, serviceIds: string[]) {
-  const closed = await ctx.db
-    .update(previews)
-    .set({ closedAt: ctx.now() })
-    .where(and(inArray(previews.serviceId, serviceIds), isNull(previews.closedAt)))
-    .returning({ id: previews.id })
-  for (const p of closed) await closePortListener(ctx, p.id)
-  if (closed.length) await syncPreviews(ctx, machineId)
+/** Starts a hosted service again as it was started; fails with the machine's reason. */
+export async function restartService(ctx: Ctx, svc: { id: string; machineId: string }) {
+  const requestId = randomUUID()
+  const answer = new Promise<RestartResult | null>((resolve) => {
+    restarts.set(requestId, { machineId: svc.machineId, resolve })
+    setTimeout(() => settle(requestId, null), RESTART_TIMEOUT_MS).unref()
+  })
+  if (!ctx.hub.send(svc.machineId, { t: 'service.restart', requestId, serviceId: svc.id }))
+    settle(requestId, null)
+  const res = await answer
+  if (!res) return fail('conflict', '服务所在的机器离线或没有响应')
+  if (res.error) return fail('conflict', res.error)
+}
+
+/** service.restart.result, in order after the service.state reports that came before it. */
+export function settleRestart(machineId: string, msg: RestartResult) {
+  if (restarts.get(msg.requestId)?.machineId === machineId) settle(msg.requestId, msg)
+}
+
+function settle(requestId: string, res: RestartResult | null) {
+  const w = restarts.get(requestId)
+  restarts.delete(requestId)
+  w?.resolve(res)
 }

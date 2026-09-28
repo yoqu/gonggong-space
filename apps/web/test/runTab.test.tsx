@@ -12,8 +12,9 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { tabKey, useBench, useWorkbench, WORKBENCH_MAX_TABS } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
-import { useRunRail } from '../src/features/runs/rail'
+import { TabLabel } from '../src/features/workbench/TabContent'
 
 const me: UserDto = {
   id: 'u1',
@@ -248,19 +249,43 @@ function mockApi(runDetail: () => RunDetailDto, extra: Record<string, () => unkn
   return calls
 }
 
-const renderChat = () =>
+/** Stands in for the workbench column (layout slice): every tab body of the group, mounted, with its label. */
+/** Tab titles as data attributes; the bodies render in the real workbench. */
+function Bench() {
+  const { tabs } = useBench()
+  return (
+    <>
+      {tabs.map((t) => (
+        <section key={tabKey(t)} data-testid={`bench-${tabKey(t)}`}>
+          <TabLabel tab={t}>
+            {(m) => (
+              <h2 data-status={m.status} data-icon={m.icon}>
+                {m.title}
+              </h2>
+            )}
+          </TabLabel>
+        </section>
+      ))}
+    </>
+  )
+}
+
+const renderChat = (at = '/g/g1') =>
   render(
-    <MemoryRouter initialEntries={['/g/g1']}>
+    <MemoryRouter initialEntries={[at]}>
       <App />
+      <Bench />
     </MemoryRouter>,
   )
+
+const tabs = () => useWorkbench.getState().benches.g1?.tabs ?? []
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 })
   vi.stubGlobal('WebSocket', FakeSocket)
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
-  useRunRail.getState().close()
+  useWorkbench.setState({ groupId: 'g1', open: false, benches: {} })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -283,16 +308,24 @@ describe('run card', () => {
   })
 })
 
-describe('run rail', () => {
-  it('opens from the card with process, diff and approval tabs, and live-updates', async () => {
+describe('run tab', () => {
+  const openProcess = async () => {
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
+    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
+    return screen.findByTestId('run-tab')
+  }
+
+  it('opens from the card with process, diff and approval views, and live-updates', async () => {
     let current = detail()
     const calls = mockApi(() => current)
     renderChat()
-    const card = (await screen.findAllByTestId('run-card')).at(-1)
-    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    const rail = await screen.findByTestId('run-rail')
+    const rail = await openProcess()
+    expect(tabs()).toEqual([{ kind: 'run', runId: 'r1', view: 'process', file: null }])
+    expect(useWorkbench.getState().open).toBe(true)
     expect(await within(rail).findByText('本轮上下文')).toBeTruthy()
     expect(rail.textContent).toContain('opus · 高')
+    // The tab bar closes tabs: no rail close button.
+    expect(within(rail).queryByRole('button', { name: '关闭' })).toBeNull()
     // Machine and session id stay behind ⓘ.
     expect(rail.textContent).not.toContain('wanglei-mbp')
     fireEvent.click(within(rail).getByRole('button', { name: '机器与会话' }))
@@ -333,33 +366,52 @@ describe('run rail', () => {
     await waitFor(() => expect(calls.filter((c) => c === 'GET /runs/r1')).toHaveLength(2))
     expect(within(rail).getAllByText('已完成').length).toBeGreaterThan(0)
 
+    // 改动 lists this turn's files beside the picked one's diff, written back to the tab.
     fireEvent.click(within(rail).getByRole('tab', { name: '改动' }))
+    expect(tabs()[0]).toMatchObject({ view: 'diff', file: null })
     expect(rail.textContent).toContain('a.ts')
     expect(rail.textContent).toContain('+2')
     expect(rail.textContent).toContain('−1')
-    // A file opens in the diff window, which shares the scopes of the tab.
+    expect(await within(rail).findByText('+second line')).toBeTruthy()
     fireEvent.click(within(rail).getByRole('button', { name: /b\.md/ }))
-    const win = await screen.findByRole('dialog', { name: '改动 · 小王的 Claude' })
-    expect(await within(win).findByText('+# b')).toBeTruthy()
-    fireEvent.click(within(win).getByRole('radio', { name: '未提交' }))
-    expect(await within(win).findByText('+wip')).toBeTruthy()
-    fireEvent.click(within(win).getByRole('radio', { name: '对比主分支' }))
-    expect(await within(win).findByText('feat/refund 相对 main 没有改动')).toBeTruthy()
-    fireEvent.click(within(win).getByRole('button', { name: '关闭' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(tabs()[0]).toMatchObject({ view: 'diff', file: 'docs/b.md' })
+    expect(await within(rail).findByText('+# b')).toBeTruthy()
+    fireEvent.click(within(rail).getByRole('radio', { name: '未提交' }))
+    expect(tabs()[0]).toMatchObject({ file: null })
+    expect(await within(rail).findByText('+wip')).toBeTruthy()
+    fireEvent.click(within(rail).getByRole('radio', { name: '对比主分支' }))
+    expect(await within(rail).findByText('feat/refund 相对 main 没有改动')).toBeTruthy()
 
     fireEvent.click(within(rail).getByRole('tab', { name: '审批记录' }))
+    expect(tabs()[0]).toMatchObject({ view: 'audit' })
     expect(rail.textContent).toContain('echo hello-approval')
     expect(rail.textContent).toContain('王磊 已批准')
     expect(rail.textContent).toContain(
       '审批与提问记录永久保存；完整运行过程保留 30 天，过期后卡片只保留摘要。',
     )
-
-    fireEvent.click(within(rail).getByRole('button', { name: '关闭' }))
-    expect(screen.queryByTestId('run-rail')).toBeNull()
   })
 
-  it('renders replies as markdown, copies the session id and closes on Escape (not mid-IME)', async () => {
+  it('titles the tab by bot and round, with the run state as its mark', async () => {
+    let current = detail()
+    mockApi(() => current, {
+      'GET /runs/r1/session': () => ({
+        rounds: [{ run: run({ id: 'p1', status: 'completed', endedAt: at }), prompt: '先看看' }],
+      }),
+    })
+    renderChat()
+    await openProcess()
+    const label = await waitFor(() => screen.getByTestId('bench-run:r1').querySelector('h2')!)
+    await waitFor(() => expect(label.textContent).toBe('小王的 Claude · 第 2 轮'))
+    expect(label.dataset.status).toBe('running')
+    expect(label.dataset.icon).toBe('square-terminal')
+    current = detail({ run: run({ status: 'completed', endedAt: at }) })
+    push({ t: 'run.updated', run: current.run })
+    await waitFor(() => expect(label.dataset.status).toBe('done'))
+    push({ t: 'run.updated', run: run({ status: 'interrupted', endedAt: at }) })
+    await waitFor(() => expect(label.dataset.status).toBe('failed'))
+  })
+
+  it('renders replies as markdown and copies the session id', async () => {
     const base = detail()
     mockApi(() => ({
       ...base,
@@ -368,9 +420,7 @@ describe('run rail', () => {
     const writeText = vi.fn(async (_: string) => {})
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     renderChat()
-    const card = (await screen.findAllByTestId('run-card')).at(-1)
-    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    const rail = await screen.findByTestId('run-rail')
+    const rail = await openProcess()
     expect((await within(rail).findByText('加粗')).tagName).toBe('STRONG')
     expect(within(rail).getByText('code').tagName).toBe('CODE')
     expect(rail.textContent).not.toContain('**')
@@ -381,44 +431,59 @@ describe('run rail', () => {
     writeText.mockRejectedValueOnce(new Error('denied'))
     fireEvent.click(within(rail).getByRole('button', { name: '复制会话 ID' }))
     expect(await screen.findByText('复制失败')).toBeTruthy()
-
-    fireEvent.keyDown(document, { key: 'Escape', isComposing: true })
-    expect(screen.getByTestId('run-rail')).toBeTruthy()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByTestId('run-rail')).toBeNull()
   })
 
   it('opens the diff of a file path clicked in a bot reply', async () => {
     mockApi(detail)
     renderChat()
     fireEvent.click(await screen.findByRole('button', { name: 'a.ts' }))
-    const win = await screen.findByRole('dialog', { name: /改动/ })
-    expect(await within(win).findByText('+second line')).toBeTruthy()
-    fireEvent.click(within(win).getByRole('button', { name: '关闭' }))
+    expect(tabs()).toEqual([{ kind: 'run', runId: 'r1', view: 'diff', file: 'src/a.ts' }])
+    const tab = await screen.findByTestId('run-tab')
+    expect(await within(tab).findByText('+second line')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'untouched.go' }))
-    const again = await screen.findByRole('dialog', { name: /改动/ })
-    expect(await within(again).findByText('server/untouched.go 在这个范围内没有改动')).toBeTruthy()
+    expect(tabs()).toHaveLength(1)
+    expect(await within(tab).findByText('server/untouched.go 在这个范围内没有改动')).toBeTruthy()
   })
 
   it('opens the run (and file) linked from a notification or search hit', async () => {
     mockApi(detail)
+    renderChat('/g/g1?run=r1&file=src%2Fa.ts')
+    const tab = await screen.findByTestId('run-tab')
+    expect(tabs()).toEqual([{ kind: 'run', runId: 'r1', view: 'diff', file: 'src/a.ts' }])
+    expect(await within(tab).findByText('+second line')).toBeTruthy()
+  })
+
+  it('says so when the workbench is full', async () => {
+    mockApi(detail)
+    useWorkbench.setState({
+      benches: {
+        g1: {
+          tabs: Array.from({ length: WORKBENCH_MAX_TABS }, (_, i) => ({
+            kind: 'web' as const,
+            previewId: `p${i}`,
+            path: '/',
+          })),
+          active: null,
+          used: {},
+        },
+      },
+    })
     render(
-      <MemoryRouter initialEntries={['/g/g1?run=r1&file=src%2Fa.ts']}>
+      <MemoryRouter initialEntries={['/g/g1']}>
         <App />
       </MemoryRouter>,
     )
-    expect(await screen.findByTestId('run-rail')).toBeTruthy()
-    const win = await screen.findByRole('dialog', { name: /改动/ })
-    expect(await within(win).findByText('+second line')).toBeTruthy()
+    const card = (await screen.findAllByTestId('run-card')).at(-1)
+    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
+    expect(await screen.findByText('标签页已满（最多 12 个），请先关闭一些')).toBeTruthy()
+    expect(tabs().some((t) => t.kind === 'run')).toBe(false)
   })
 
   it('keeps only the summary once the process has been purged', async () => {
     mockApi(() => detail({ purged: true, patch: null, events: [] }))
     renderChat()
-    const card = (await screen.findAllByTestId('run-card')).at(-1)
-    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    const rail = await screen.findByTestId('run-rail')
+    const rail = await openProcess()
     expect(await within(rail).findByText('运行过程已过期，仅保留摘要')).toBeTruthy()
     fireEvent.click(within(rail).getByRole('tab', { name: '审批记录' }))
     expect(rail.textContent).toContain('echo hello-approval')
@@ -441,9 +506,7 @@ describe('run rail', () => {
       'GET /runs/p2': () => past('p2', '第二轮回复'),
     })
     renderChat()
-    const card = (await screen.findAllByTestId('run-card')).at(-1)
-    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    const rail = await screen.findByTestId('run-rail')
+    const rail = await openProcess()
     fireEvent.click(await within(rail).findByRole('button', { name: '查看上一轮（还有 2 轮）' }))
     expect(await within(rail).findByText('第二轮回复')).toBeTruthy()
     expect(rail.textContent).toContain('@小王的 Claude 再改改')
@@ -460,24 +523,13 @@ describe('run rail', () => {
     fireEvent.click(within(rail).getByRole('button', { name: /再改改/ }))
     expect(within(rail).queryByText('第二轮回复')).toBeNull()
   })
-
-  it('covers the whole screen on mobile', async () => {
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
-    mockApi(detail)
-    renderChat()
-    const card = (await screen.findAllByTestId('run-card')).at(-1)
-    fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    expect((await screen.findByRole('complementary', { name: '侧栏' })).className).toContain(
-      'chat__rail--overlay',
-    )
-  })
 })
 
 describe('process timeline', () => {
   const openRail = async () => {
     const card = (await screen.findAllByTestId('run-card')).at(-1)
     fireEvent.click(within(card!).getByRole('button', { name: '查看过程' }))
-    return screen.findByTestId('run-rail')
+    return screen.findByTestId('run-tab')
   }
   const tool = (
     id: number,
@@ -536,12 +588,13 @@ describe('process timeline', () => {
     expect(within(list).getByText('正在运行').closest('li')!.dataset.state).toBe('running')
     expect(within(list).queryByText('正在处理')).toBeNull()
     // The live turn's counts come from the bot's machine.
-    const edit = await within(list).findByRole('button', { name: /已编辑\s*a\.ts\s*\+2 −1/ })
-    fireEvent.click(edit)
-    const win = await screen.findByRole('dialog', { name: /改动/ })
-    expect(await within(win).findByText('+second line')).toBeTruthy()
+    await within(list).findByRole('button', { name: /已编辑\s*a\.ts\s*\+2 −1/ })
     fireEvent.click(seg)
     expect(seg.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(seg)
+    fireEvent.click(within(list).getByRole('button', { name: /已编辑\s*a\.ts\s*\+2 −1/ }))
+    expect(tabs()[0]).toMatchObject({ view: 'diff', file: '/h/ws/src/a.ts' })
+    expect(await within(rail).findByText('+second line')).toBeTruthy()
   })
 
   it('shows delegated work on the card and in the process, and stops a background task', async () => {
@@ -621,7 +674,7 @@ describe('process timeline', () => {
     expect(within(rail).getByRole('button', { name: /已运行\s*echo hi/ })).toBeTruthy()
   })
 
-  it('shows a five-cell +/− bar per file in the diff tab', async () => {
+  it('shows a five-cell +/− bar per file in the diff view', async () => {
     mockApi(detail)
     renderChat()
     const rail = await openRail()

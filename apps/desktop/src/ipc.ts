@@ -120,6 +120,31 @@ export interface Workspaces {
   offline: boolean
 }
 
+/** 穿透与服务: this machine's open preview tunnels and live hosted services, as the server lists them. */
+export interface Tunnels {
+  previews: {
+    id: string
+    title: string
+    groupName: string
+    botName: string
+    port: number | null
+    path: string
+    serviceId: string | null
+    serviceName: string | null
+    status: 'online' | 'offline'
+  }[]
+  services: {
+    id: string
+    name: string
+    groupName: string
+    botName: string
+    command: string
+    cwd: string
+    port: number | null
+    status: 'starting' | 'running' | 'exited' | 'failed'
+  }[]
+}
+
 export type CheckStatus = 'ok' | 'warn' | 'error' | 'skipped'
 
 export interface Check {
@@ -183,6 +208,12 @@ export const ipc = {
   bots: () => invoke<MachineBot[]>('bots'),
   /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
   openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),
+  tunnels: () => invoke<Tunnels>('tunnels'),
+  /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
+  closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),
+  stopService: (id: string) => invoke<void>('stop_service', { id }),
+  /** The forwarded port in the default browser: `http://localhost:<port><path>`. */
+  openLocal: (port: number, path: string) => invoke<void>('open_local', { port, path }),
 }
 
 export function onSnapshot(cb: (s: Snapshot) => void): Promise<UnlistenFn> {

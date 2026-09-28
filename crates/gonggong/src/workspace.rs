@@ -21,6 +21,14 @@ pub fn managed_path(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) 
     home.join("workspaces").join(group).join(bot).join(repo_id.unwrap_or("_empty"))
 }
 
+/// The directory a (group, bot) works in: the /cd directory, else the managed path.
+pub fn workspace_dir(home: &Path, group: &str, bot: &str, spec: &WorkspaceSpec) -> PathBuf {
+    match &spec.cd_path {
+        Some(path) => PathBuf::from(path),
+        None => managed_path(home, group, bot, spec.repo.as_ref().map(|r| &*r.id)),
+    }
+}
+
 /// Serializes clones, /cd checks and run cwd resolution of one (group, bot).
 type Locks = Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>;
 
@@ -172,7 +180,7 @@ impl Workspaces {
             None => self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None)).await,
             Some(path) => {
                 let dir = PathBuf::from(path);
-                match check_cd(&dir, req.repo.as_ref()).await {
+                match check_cd(&dir, req.repo.as_ref().filter(|_| !req.force)).await {
                     Ok(()) => match git::is_repo(&dir) {
                         true => Ok((dir.clone(), git::status(&dir, WorkspaceKind::Cd).await.ok(), remotes(&dir).await)),
                         false => Ok((dir, None, vec![])),
@@ -186,10 +194,7 @@ impl Workspaces {
 
     /// The directory a (group, bot) works in: the /cd directory, else the managed path.
     pub fn dir(&self, group: &str, bot: &str, spec: &WorkspaceSpec) -> PathBuf {
-        match &spec.cd_path {
-            Some(path) => PathBuf::from(path),
-            None => managed_path(&self.home, group, bot, spec.repo.as_ref().map(|r| &*r.id)),
-        }
+        workspace_dir(&self.home, group, bot, spec)
     }
 
     /// A run's cwd: the /cd directory, else the managed clone (re-cloned if it went missing), else `_empty`.

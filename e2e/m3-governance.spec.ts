@@ -87,13 +87,12 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     await expect(page.getByTestId('bot-reply').filter({ hasText: 'hello-approval' })).toHaveCount(1)
     await expect(viewerCard).toContainText('appr1 已批准')
 
-    // The side panel keeps the approval record.
+    // The run tab keeps the approval record.
     // Message actions appear while the message is hovered, as with a pointer.
     await cardA.hover()
     await cardA.getByRole('button', { name: '查看过程' }).click()
     await page.getByRole('tab', { name: '审批记录' }).click()
-    await expect(page.getByTestId('run-rail')).toContainText("console.log('hello-' + 'approval')")
-    await page.getByTestId('run-rail').getByRole('button', { name: '关闭' }).click()
+    await expect(page.getByTestId('run-tab')).toContainText("console.log('hello-' + 'approval')")
 
     // /stop while a request is pending: the run is interrupted and the request is voided.
     await say(page, '@审批 A 请用 Bash 工具执行命令 `node -e "console.log(\'second\')"`，然后只回复输出。')

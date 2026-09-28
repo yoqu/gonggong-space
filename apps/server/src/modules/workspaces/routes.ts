@@ -20,6 +20,7 @@ import { groupLocalPaths } from '../repos/service.js'
 import { ABSOLUTE, announceCd, requestCd } from './cd.js'
 import { daemonWorkspaceRoutes } from './daemon.js'
 import { workspaceDiffRoutes } from './diff.js'
+import { workspaceFileRoutes } from './files.js'
 import { ensureWorkspace, onlineMachine, PAUSING } from './provision.js'
 import { listBotStates } from './state.js'
 
@@ -110,10 +111,10 @@ export function workspaceRoutes(ctx: Ctx) {
         const bot = await ownBot(ctx, me.id, req.params.botId)
         if (!(await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
           fail('not_found', '该 Bot 不在群内')
-        const { path } = BindWorkspaceReq.parse(req.body)
+        const { path, force } = BindWorkspaceReq.parse(req.body)
         if (path !== null && group.mode !== 'partition') fail('conflict', '强制同步群只能使用托管工作区')
         if (path !== null && !ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')
-        if (!(await requestCd(ctx, { groupId: group.id, botId: bot.id, path })))
+        if (!(await requestCd(ctx, { groupId: group.id, botId: bot.id, path, force })))
           fail('conflict', `${bot.name} 离线，无法绑定工作区`)
         await announceCd(ctx, { groupId: group.id, userId: me.id, bot, path })
         return reply.status(204).send()
@@ -153,5 +154,6 @@ export function workspaceRoutes(ctx: Ctx) {
 
     await app.register(daemonWorkspaceRoutes(ctx))
     await app.register(workspaceDiffRoutes(ctx))
+    await app.register(workspaceFileRoutes(ctx))
   }
 }

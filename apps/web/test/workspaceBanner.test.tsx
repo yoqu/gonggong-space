@@ -80,16 +80,47 @@ describe('workspace banner', () => {
   it('offers the default workspace and the managed clone of the group repo', async () => {
     useWorkspace.setState({ bots: [bot({ defaultWorkspace: '/src/pay' })], botStates: unbound() })
     const calls = mockApi({
-      'GET /machines/m1/dirs?path=%2Fsrc%2Fpay': listing('/src/pay'),
+      'GET /machines/m1/dirs?path=%2Fsrc%2Fpay': {
+        ...listing('/src/pay'),
+        git: { root: '/src/pay', remotes: ['https://git.corp/team/pay.git'], branch: 'main' },
+      },
       'PUT /groups/g1/bots/b1/workspace': undefined,
     })
-    render(<WorkspaceBanner group={group({ repo: { url: 'git@x:pay.git', branch: 'main' } })} />)
+    render(<WorkspaceBanner group={group({ repo: { url: 'git@git.corp:team/pay.git', branch: 'main' } })} />)
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('托管克隆群仓库'))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: null }))
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('使用默认工作区'))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: '/src/pay' }))
+  })
+
+  it('warns before binding a directory outside the group repo', async () => {
+    useWorkspace.setState({ bots: [bot()], botStates: unbound() })
+    const calls = mockApi({
+      'GET /machines/m1/dirs': listing('/Users/w'),
+      'GET /machines/m1/dirs?path=%2FUsers%2Fw%2Fpay': {
+        ...listing('/Users/w/pay'),
+        entries: [],
+        git: { root: '/Users/w/pay', remotes: ['git@git.corp:team/other.git'], branch: 'main' },
+      },
+      'PUT /groups/g1/bots/b1/workspace': undefined,
+    })
+    render(<WorkspaceBanner group={group({ repo: { url: 'git@git.corp:team/pay.git', branch: 'main' } })} />)
+    fireEvent.click(screen.getByText('绑定工作区'))
+    fireEvent.click(await screen.findByText('pay'))
+    await screen.findByTestId('dirpick-git')
+    fireEvent.click(screen.getByText('选择此目录'))
+    expect(await screen.findByText('该目录不是群仓库')).toBeTruthy()
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
+    fireEvent.click(screen.getByText('仍然使用'))
+    await waitFor(() =>
+      expect(calls.at(-1)).toEqual({
+        method: 'PUT',
+        path: '/groups/g1/bots/b1/workspace',
+        body: { path: '/Users/w/pay', force: true },
+      }),
+    )
   })
 
   it('folds several of my unbound bots into one line with a button each', () => {

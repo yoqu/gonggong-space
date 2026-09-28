@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot 性格角色</title>
+<style>
+:root {
+  --bg: #f5f5f7; --panel: #fff; --label: #1d1d1f; --label2: #6e6e73; --sep: rgba(0,0,0,.09);
+  --accent: #007aff; --accent-soft: rgba(0,122,255,.1); --bubble: #fff; --bubble-edge: #d8dfea;
+  --stage: radial-gradient(120% 90% at 50% 0%, #fff 0%, #eef2f8 70%);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
+    --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060;
+    --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
+  --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060;
+  --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--label); font: 13px/1.5 var(--font); }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.01em; }
+h2 { font-size: 17px; margin: 44px 0 4px; }
+.sub { color: var(--label2); margin: 0 0 16px; max-width: 800px; }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 16px 0; }
+.chip { font: 12px var(--font); border: 1px solid var(--sep); background: var(--panel); color: var(--label); padding: 3px 11px; border-radius: 999px; cursor: pointer; }
+.chip:hover { background: var(--accent-soft); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.av { display: block; border-radius: 24%; flex: none; }
+
+.hero { display: flex; gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; }
+.hero p { margin: 2px 0 0; color: var(--label2); }
+.tag { display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 2px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.card { position: relative; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+.card .stage { background: var(--stage); border-radius: 10px; display: grid; place-items: center; padding: 22px 0 16px; position: relative; }
+.card h3 { margin: 4px 0 0; font-size: 15px; }
+.card .trait { font-size: 12px; font-weight: 600; }
+.card p { margin: 0; color: var(--label2); font-size: 12px; }
+.card .move { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--sep); font-size: 11.5px; color: var(--label2); }
+.say { position: absolute; top: 10px; left: 50%; transform: translate(-50%, 4px); background: var(--bubble); border: 1px solid var(--bubble-edge); border-radius: 10px; padding: 3px 9px; font-size: 12px; white-space: nowrap; opacity: 0; transition: .2s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.card.saying .say { opacity: 1; transform: translate(-50%, -6px); }
+
+.ladder { background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px 16px; overflow-x: auto; }
+.ladder .row { display: flex; gap: 10px; align-items: center; padding: 8px 0; min-width: max-content; }
+.ladder .row + .row { border-top: 1px solid var(--sep); }
+.ladder .lbl { width: 56px; color: var(--label2); font-size: 12px; flex: none; }
+
+.chat { display: grid; grid-template-columns: 1fr; gap: 14px; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; max-width: 720px; }
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg .who { font-size: 12px; color: var(--label2); margin-bottom: 3px; }
+.msg .bubble { background: var(--bg); border-radius: 4px 12px 12px 12px; padding: 7px 11px; display: inline-block; max-width: 520px; }
+.msg .work { color: var(--label2); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.msg .work i { width: 6px; height: 6px; border-radius: 50%; background: #30c85e; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+ol.q { max-width: 800px; padding-left: 20px; }
+ol.q li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bot 角色 · 性格版 <span class="tag">讨论稿 v1</span></h1>
+  <p class="sub">从「职能」改为「性格」：每个角色是一种程序员性格，场景都落在互联网应用开发里。默认共字君不变；其余 12 个候选（选 10 或全留，待定）。视觉沿用现有规范——40×40 渐变方块、白色主体、主色描脸，可直接替换 <code>avatars.tsx</code>。</p>
+
+  <div class="bar">
+    <span style="color:var(--label2)">动画：</span>
+    <button class="chip" data-live="hover" aria-pressed="true">悬停播放</button>
+    <button class="chip" data-live="all" aria-pressed="false">全部播放（干活中）</button>
+    <button class="chip" data-live="none" aria-pressed="false">全部静止</button>
+    <span style="width:12px"></span>
+    <span style="color:var(--label2)">主题：</span>
+    <button class="chip" data-theme-set="" aria-pressed="true">跟随系统</button>
+    <button class="chip" data-theme-set="light" aria-pressed="false">浅色</button>
+    <button class="chip" data-theme-set="dark" aria-pressed="false">深色</button>
+  </div>
+
+  <div class="hero" id="hero"></div>
+
+  <h2>12 个性格候选</h2>
+  <p class="sub">点卡片听它的口头禅。卡片底部是「干活中」动画的设计意图——动作本身就是性格：急性子抖、慢性子呼吸、社恐往后躲。</p>
+  <div class="cards" id="cards"></div>
+
+  <h2>尺寸检查</h2>
+  <p class="sub">会话列表 20–28px、消息头像 32–40px、选择器 64px。小尺寸只要轮廓与主色可辨即可。</p>
+  <div class="ladder" id="ladder"></div>
+
+  <h2>群聊场景</h2>
+  <p class="sub">运行中的 Bot 头像播放动画，其余静止。</p>
+  <div class="chat" id="chat"></div>
+
+  <h2>待讨论</h2>
+  <ol class="q">
+    <li>12 个候选保留哪 10 个？（或全部保留，列表不必凑整）</li>
+    <li>性格是否只决定形象与动画（与现在一致），还是顺带给一段可选的「语气」提示词？</li>
+    <li>命名风格：叠字昵称（稳稳、叨叨）是否 OK，还是用「急性子·闪电」这种性格前缀一起展示？</li>
+    <li>聊天里 Bot 干活的共字君「换装」是否也跟着改为性格形象（目前头部换成角色方块）？</li>
+  </ol>
+</main>
+
+<script>
+const W = '#fff'
+const stroke = (c, w) => `fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`
+const eyes = (ink, y, dx = 4, rx = 1.9) =>
+  `<ellipse cx="${20 - dx}" cy="${y}" rx="${rx}" ry="${rx * 1.2}" fill="${ink}"/><ellipse cx="${20 + dx}" cy="${y}" rx="${rx}" ry="${rx * 1.2}" fill="${ink}"/>`
+const FB = 'transform-box:fill-box;transform-origin:center'
+
+const GONG = {
+  key: 'gong', name: '共字君', trait: '默认角色', line: '品牌吉祥物，什么活都肯接，把大家托举在一起', say: '交给我吧！',
+  from: '#2f6bff', to: '#0fa3a0',
+  glyph: (ink) =>
+    `<path class="jade" d="M20 3.2 22.9 6.1 20 9 17.1 6.1Z" fill="#b8f5ea"/>` +
+    `<g class="legs" ${stroke(W, 3.2)}><path d="M16.4 28.4 13.8 34.6"/><path d="M23.6 28.4l2.6 6.2"/></g>` +
+    `<rect x="15" y="15.6" width="10" height="10" rx="1.6" fill="${W}"/>` +
+    `<g fill="${W}"><rect x="12.2" y="9.4" width="3.6" height="17.6" rx="1.8"/><rect x="24.2" y="9.4" width="3.6" height="17.6" rx="1.8"/>` +
+    `<rect x="8.6" y="13.4" width="22.8" height="3.6" rx="1.8"/><rect x="9.8" y="24.6" width="20.4" height="3.6" rx="1.8"/></g>` +
+    `<ellipse cx="17.9" cy="20.2" rx="1.3" ry="1.6" fill="${ink}"/><ellipse cx="22.1" cy="20.2" rx="1.3" ry="1.6" fill="${ink}"/>` +
+    `<circle cx="16.6" cy="22.6" r=".8" fill="#ff8fb1"/><circle cx="23.4" cy="22.6" r=".8" fill="#ff8fb1"/>`,
+  motion:
+    '.jade{animation:float 1.6s ease-in-out infinite}@keyframes float{50%{transform:translateY(-1.4px)}}' +
+    '.legs path{transform-box:fill-box;transform-origin:50% 0;animation:step .5s ease-in-out infinite alternate}' +
+    '.legs path+path{animation-direction:alternate-reverse}@keyframes step{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}',
+}
+
+const ROLES = [
+  {
+    key: 'rush', name: '闪电', trait: '急性子', line: '先跑起来再说，hotfix 手速全组第一', say: '马上好！',
+    move: '全身高频抖动 + 速度线后掠 + 闪电呆毛闪黄',
+    from: '#ffe04d', to: '#f08a00',
+    glyph: (ink) =>
+      `<g class="speed" ${stroke(W, 1.4)}><path d="M3.5 19h4"/><path d="M2.5 23h5"/><path d="M4 27h3.5"/></g>` +
+      `<g class="body"><path class="bolt" d="M23 2.5 15.5 11.5H20L18.5 16 25.5 8.5H21Z" fill="${W}"/>` +
+      `<rect x="10" y="13.5" width="20" height="17.5" rx="7" fill="${W}"/>` +
+      `<path d="M13.6 18.6l3.6 1.3M26.4 18.6l-3.6 1.3" ${stroke(ink, 1.4)}/>${eyes(ink, 22.4, 4, 1.7)}` +
+      `<path d="M16.8 25.6h6.4a3.2 3.2 0 0 1-6.4 0z" fill="${ink}"/></g>`,
+    motion:
+      '.body{animation:jit .16s linear infinite}@keyframes jit{25%{transform:translate(.5px,-.4px)}75%{transform:translate(-.5px,.3px)}}' +
+      '.speed path{animation:dash .45s linear infinite}.speed path:nth-child(2){animation-delay:.15s}.speed path:nth-child(3){animation-delay:.3s}' +
+      '@keyframes dash{from{transform:translateX(3px);opacity:0}50%{opacity:1}to{transform:translateX(-3px);opacity:0}}' +
+      '.bolt{animation:flash .8s steps(1) infinite}@keyframes flash{50%{fill:#fff27a}}',
+  },
+  {
+    key: 'steady', name: '稳稳', trait: '慢性子', line: '改一行读十行，没把握的代码不落笔', say: '稳一点，再跑一遍测试。',
+    move: '缓慢呼吸 + 慢眨眼 + 右上角一笔一笔画出对勾',
+    from: '#9bd86e', to: '#3d8a34',
+    glyph: (ink) =>
+      `<path class="chk" d="M29.4 6.4l2.2 2.2 4-4.4" ${stroke(W, 1.8)}/>` +
+      `<g class="all"><rect x="10.5" y="16" width="19" height="15" rx="7" fill="${W}"/>` +
+      `<path d="M8.4 19.4a11.6 9.6 0 0 1 23.2 0z" fill="${W}" stroke="${ink}" stroke-width="1.2"/>` +
+      `<path d="M16 13.4l4-2.3 4 2.3v3.4l-4 2.2-4-2.2z" fill="none" stroke="${ink}" stroke-width=".9" opacity=".35"/>` +
+      `<rect x="7.4" y="18.6" width="25.2" height="2" rx="1" fill="${ink}"/>` +
+      `<path class="lids" d="M14.3 23.4h3.4a1.7 1.7 0 0 1-3.4 0zM22.3 23.4h3.4a1.7 1.7 0 0 1-3.4 0z" fill="${ink}"/>` +
+      `<path d="M18 27.6q2 1 4 0" ${stroke(ink, 1.3)}/></g>`,
+    motion:
+      '.all{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite}@keyframes breathe{50%{transform:scaleY(1.04)}}' +
+      '.lids{transform-box:fill-box;transform-origin:50% 0;animation:blink 3.2s ease-in-out infinite}@keyframes blink{0%,40%,60%,100%{transform:scaleY(1)}50%{transform:scaleY(.2)}}' +
+      '.chk{stroke-dasharray:10;stroke-dashoffset:10;animation:draw 3.2s ease-in-out infinite}@keyframes draw{50%,85%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}',
+  },
+  {
+    key: 'chatty', name: '叨叨', trait: '话痨', line: '注释比代码长，PR 描述能写成小作文', say: '我展开讲讲……',
+    move: '嘴巴快速开合 + 气泡外的省略号依次跳',
+    from: '#ff9cc8', to: '#d6337a',
+    glyph: (ink) =>
+      `<rect x="7.5" y="8.5" width="25" height="18" rx="8" fill="${W}"/><path d="M13 25 10.5 32 19.5 26z" fill="${W}"/>` +
+      `${eyes(ink, 16.4, 4.6, 1.6)}<ellipse class="mouth" cx="20" cy="21.6" rx="2.8" ry="2" fill="${ink}"/>` +
+      `<circle cx="12.6" cy="20" r="1.3" fill="#ffc2dc"/><circle cx="27.4" cy="20" r="1.3" fill="#ffc2dc"/>` +
+      `<g class="dots" fill="${W}"><circle cx="25" cy="31.5" r="1.4"/><circle cx="29" cy="31.5" r="1.4"/><circle cx="33" cy="31.5" r="1.4"/></g>`,
+    motion:
+      `.mouth{${FB};animation:talk .22s ease-in-out infinite alternate}@keyframes talk{from{transform:scaleY(.3)}to{transform:scaleY(1.1)}}` +
+      '.dots circle{animation:hop .9s ease-in-out infinite}.dots circle:nth-child(2){animation-delay:.15s}.dots circle:nth-child(3){animation-delay:.3s}' +
+      '@keyframes hop{30%{transform:translateY(-2px)}}',
+  },
+  {
+    key: 'cool', name: '冷冷', trait: '高冷', line: '能一行不写两行，评审只回四个字母', say: 'LGTM',
+    move: '墨镜反光一扫而过，其余纹丝不动',
+    from: '#8190ad', to: '#232a3d',
+    glyph: (ink) => {
+      const lens = 'M11.4 19.2h7.4v2.6a2.4 2.4 0 0 1-2.4 2.4h-2.6a2.4 2.4 0 0 1-2.4-2.4zM21.2 19.2h7.4v2.6a2.4 2.4 0 0 1-2.4 2.4h-2.6a2.4 2.4 0 0 1-2.4-2.4z'
+      return `<defs><clipPath id="l"><path d="${lens}"/></clipPath></defs>` +
+        `<rect x="10" y="12" width="20" height="19" rx="5.5" fill="${W}"/>` +
+        `<path d="M9.6 17.4c.2-4.6 3.6-7.4 10.6-7.4 5.6 0 9.6 2 10.2 5.4-4.6-1.8-11.4-1.4-15.6 2.4z" fill="${ink}"/>` +
+        `<path d="${lens}" fill="${ink}"/><path d="M18.8 19.8h2.4" stroke="${ink}" stroke-width="1.2"/>` +
+        `<g clip-path="url(#l)"><g class="glint" fill="${W}" opacity=".8"><path d="M13.4 24.4l4-5.6h1.6l-4 5.6z"/><path d="M23.2 24.4l4-5.6h1.6l-4 5.6z"/></g></g>` +
+        `<path d="M18 27.6q2.2.2 4-.8" ${stroke(ink, 1.4)}/>`
+    },
+    motion: '.glint{animation:glint 2.6s ease-in-out infinite}@keyframes glint{0%,55%{transform:translateX(-8px)}85%,100%{transform:translateX(8px)}}',
+  },
+  {
+    key: 'sunny', name: '嘿嘿', trait: '乐天派', line: 'CI 全红也能笑出来，修就是了', say: '问题不大～',
+    move: '光芒慢慢旋转 + 脸蛋一蹦一蹦',
+    from: '#ffc05a', to: '#f2651d',
+    glyph: (ink) =>
+      `<g class="rays" ${stroke(W, 2)}><path d="M31.2 21h2.4M27.9 28.9l1.7 1.7M20 32.2v2.4M12.1 28.9l-1.7 1.7M8.8 21H6.4M12.1 13.1l-1.7-1.7M20 9.8V7.4M27.9 13.1l1.7-1.7"/></g>` +
+      `<g class="face"><circle cx="20" cy="21" r="9.4" fill="${W}"/>` +
+      `<path d="M14.6 20.2q1.6-2.2 3.2 0M22.2 20.2q1.6-2.2 3.2 0" ${stroke(ink, 1.5)}/>` +
+      `<path d="M15.8 23.2h8.4a4.2 4.2 0 0 1-8.4 0z" fill="${ink}"/>` +
+      `<circle cx="13.6" cy="23.4" r="1.2" fill="#ffc9a8"/><circle cx="26.4" cy="23.4" r="1.2" fill="#ffc9a8"/></g>`,
+    motion:
+      '.rays{transform-origin:20px 21px;animation:spin 6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}' +
+      '.face{animation:hop .35s cubic-bezier(.3,0,.5,1) infinite alternate}@keyframes hop{to{transform:translateY(-1.6px)}}',
+  },
+  {
+    key: 'picky', name: '抠抠', trait: '完美主义', line: '缩进差一格、命名不统一，都要重排', say: '这里还能再优雅点。',
+    move: '单片镜放大审视、瞳孔扫描 + 火花闪烁',
+    from: '#e39bff', to: '#9b2fcf',
+    glyph: (ink) =>
+      `<path class="spark" d="M32 5.5l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z" fill="${W}"/>` +
+      `<rect x="10.5" y="12.5" width="19" height="18.5" rx="4.5" fill="${W}"/>` +
+      `<path d="M10.5 17v-.5a4 4 0 0 1 4-4h3.9L17 17zM19.6 12.5h5.9a4 4 0 0 1 4 4v.5h-8.7z" fill="${ink}"/>` +
+      `<path d="M13.4 19.6q1.8-1.2 3.6 0" ${stroke(ink, 1.2)}/><circle cx="15.2" cy="22.2" r="1.4" fill="${ink}"/>` +
+      `<path d="M27.4 24.6q2.6 3.2 1.4 6.4" ${stroke(ink, .8)}/>` +
+      `<g class="mono"><circle cx="24.6" cy="22" r="3.6" fill="#f6ebff" stroke="${ink}" stroke-width="1.4"/><circle class="pupil" cx="24.6" cy="22" r="1.5" fill="${ink}"/></g>` +
+      `<path d="M18.4 27.6h3.2" ${stroke(ink, 1.3)}/>`,
+    motion:
+      '.mono{transform-origin:24.6px 22px;animation:zoom 1.8s ease-in-out infinite}@keyframes zoom{50%{transform:scale(1.18)}}' +
+      '.pupil{animation:scan 1.8s ease-in-out infinite}@keyframes scan{25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}' +
+      `.spark{${FB};animation:tw 1.8s ease-in-out infinite}@keyframes tw{0%,100%{transform:scale(.4);opacity:.4}50%{transform:scale(1.1) rotate(45deg);opacity:1}}`,
+  },
+  {
+    key: 'owl', name: '熬熬', trait: '夜猫子', line: '白天迷糊，凌晨三点灵感最多', say: '夜深了，正好写代码。',
+    move: '猫眼慢眨 + 星星明灭 + 月亮发光',
+    from: '#5468e6', to: '#161b5a',
+    glyph: (ink) =>
+      `<g class="stars" fill="${W}"><circle cx="6.5" cy="8" r=".9"/><circle cx="11" cy="4.6" r=".6"/><circle cx="4.6" cy="13.6" r=".6"/></g>` +
+      `<path class="moon" d="M32.5 3.2a4.6 4.6 0 1 0 3.9 7.2 3.8 3.8 0 0 1-3.9-7.2z" fill="#ffe27a"/>` +
+      `<path d="M10.5 18.5 11.6 9.4l6.4 5.2zM29.5 18.5 28.4 9.4 22 14.6z" fill="${W}"/>` +
+      `<rect x="10" y="13.5" width="20" height="17.5" rx="7.5" fill="${W}"/>` +
+      `<path d="M12.7 14.4l.5-2.8 2.2 1.8zM27.3 14.4l-.5-2.8-2.2 1.8z" fill="#ffb3c7"/>` +
+      `<g class="eye"><circle cx="15.6" cy="21.4" r="2.7" fill="${ink}"/><circle cx="24.4" cy="21.4" r="2.7" fill="${ink}"/>` +
+      `<circle cx="15.6" cy="21.4" r="1.8" fill="#ffe27a"/><circle cx="24.4" cy="21.4" r="1.8" fill="#ffe27a"/>` +
+      `<rect x="15.1" y="19.9" width="1" height="3" rx=".5" fill="${ink}"/><rect x="23.9" y="19.9" width="1" height="3" rx=".5" fill="${ink}"/></g>` +
+      `<path d="M17.6 26.2q1.2 1.2 2.4 0 1.2 1.2 2.4 0" ${stroke(ink, 1.2)}/>`,
+    motion:
+      `.eye{${FB};animation:blink 3s infinite}@keyframes blink{0%,44%,54%,100%{transform:scaleY(1)}49%{transform:scaleY(.1)}}` +
+      '.stars circle{animation:twk 1.6s ease-in-out infinite}.stars circle:nth-child(2){animation-delay:.5s}.stars circle:nth-child(3){animation-delay:1s}@keyframes twk{50%{opacity:.15}}' +
+      '.moon{animation:glow 3s ease-in-out infinite}@keyframes glow{50%{fill:#fff8d0}}',
+  },
+  {
+    key: 'curious', name: '问问', trait: '好奇宝宝', line: '凡事刨根问底，顺手把依赖源码读一遍', say: '为什么会这样？',
+    move: '歪头思考 + 问号左右摇',
+    from: '#5fe0ef', to: '#0a86a8',
+    glyph: (ink) =>
+      `<g class="q"><path d="M25.4 5a3 3 0 1 1 4.2 2.8c-.8.4-1.2 1-1.2 1.9" ${stroke(W, 1.8)}/><circle cx="28.4" cy="12.4" r="1.1" fill="${W}"/></g>` +
+      `<g class="hd"><path d="M16.6 14 14.4 8.4" ${stroke(W, 1.5)}/><circle cx="14" cy="7.4" r="1.9" fill="${W}"/>` +
+      `<circle cx="20" cy="22.5" r="9.5" fill="${W}"/>` +
+      `<circle cx="16" cy="22" r="2.4" fill="${ink}"/><circle cx="24.2" cy="21.6" r="2.9" fill="${ink}"/>` +
+      `<circle cx="16.8" cy="21.2" r=".8" fill="${W}"/><circle cx="25.2" cy="20.6" r="1" fill="${W}"/>` +
+      `<ellipse cx="20" cy="27.4" rx="1.2" ry="1.4" fill="${ink}"/></g>`,
+    motion:
+      '.hd{transform-origin:20px 32px;animation:tilt 2.2s ease-in-out infinite}@keyframes tilt{0%,100%{transform:rotate(0)}30%,65%{transform:rotate(-9deg)}}' +
+      '.q{transform-box:fill-box;transform-origin:50% 100%;animation:wob .6s ease-in-out infinite alternate}@keyframes wob{from{transform:rotate(-12deg)}to{transform:rotate(12deg) translateY(-1px)}}',
+  },
+  {
+    key: 'zen', name: '随缘', trait: '佛系', line: '需求改了？好的。线上抖了？先喝口茶', say: '都行，看情况。',
+    move: '云朵缓缓漂浮 + 小芽随风摆',
+    from: '#b3c6ff', to: '#5d74e0',
+    glyph: (ink) =>
+      `<g class="float"><g class="sprout"><path d="M19.6 12.4V9" ${stroke(W, 1.4)}/>` +
+      `<path d="M19.6 9.4c.4-2.4 2.4-3.4 4.4-3.2-.2 2.2-2 3.4-4.4 3.2zM19.6 10c-.6-1.8-2.2-2.6-3.8-2.4.2 1.8 1.8 2.8 3.8 2.4z" fill="${W}"/></g>` +
+      `<path d="M11.5 30.5a5 5 0 0 1-.3-10 8.4 8.4 0 0 1 15.6-3 6.8 6.8 0 0 1 2.7 13z" fill="${W}"/>` +
+      `<path d="M14.6 22.4q1.6 1.4 3.2 0M22.2 22.4q1.6 1.4 3.2 0" ${stroke(ink, 1.4)}/>` +
+      `<path d="M18.4 25.8q1.6 1.2 3.2 0" ${stroke(ink, 1.3)}/>` +
+      `<circle cx="13.4" cy="25" r="1.2" fill="#dbe3ff"/><circle cx="26.6" cy="25" r="1.2" fill="#dbe3ff"/></g>` +
+      `<path class="wind" d="M5 34.5h6M27 35.5h7" ${stroke(W, 1.2)} opacity=".6"/>`,
+    motion:
+      '.float{animation:float 3.6s ease-in-out infinite}@keyframes float{50%{transform:translateY(-2px)}}' +
+      '.sprout{transform-origin:19.6px 12.4px;animation:sway 3.6s ease-in-out infinite}@keyframes sway{25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}' +
+      '.wind{animation:drift 3.6s linear infinite}@keyframes drift{from{transform:translateX(-3px);opacity:0}50%{opacity:.6}to{transform:translateX(3px);opacity:0}}',
+  },
+  {
+    key: 'fire', name: '燃燃', trait: '热血', line: 'deadline 越近越兴奋，冲刺从不喊累', say: '冲！今天上线！',
+    move: '火焰头发跳动 + 头带飘扬',
+    from: '#ffa14a', to: '#e0262b',
+    glyph: (ink) =>
+      `<path class="flame" d="M11 18c-1.4-4.6 1-7.4 3.2-9 0 2 .8 3.2 2 3.6-.2-3.8 2.2-7 5.6-8.6-.8 3 .4 4.8 2 6.2.4-1.6 1.4-2.6 2.8-3.2.2 3.6 3.2 6.2 2.4 11z" fill="${W}"/>` +
+      `<path class="core" d="M16 17.4c-.6-2.6.6-4.2 2-5 .2 1.4.8 2 1.6 2.2.2-1.8 1.2-3.2 2.8-4-.3 1.6.4 2.8 1.4 3.6.3-.8.8-1.2 1.4-1.4 0 1.8 1 3.2.8 4.6z" fill="#ffd84a"/>` +
+      `<rect x="10.5" y="15" width="19" height="16" rx="7" fill="${W}"/>` +
+      `<rect x="12.4" y="16.4" width="15.2" height="2.8" rx="1.2" fill="${ink}"/>` +
+      `<path class="ties" d="M27.6 17.2l5.2-2.6-.9 3 2.6 1.2-6.6.4z" fill="${ink}"/>` +
+      `<path d="M13.8 21.2l3.4 1M26.2 21.2l-3.4 1" ${stroke(ink, 1.5)}/>${eyes(ink, 24.2, 4, 1.5)}` +
+      `<path d="M16.8 27h6.4a3.2 2.6 0 0 1-6.4 0z" fill="${ink}"/>`,
+    motion:
+      '.flame{transform-box:fill-box;transform-origin:50% 100%;animation:fl .3s ease-in-out infinite alternate}' +
+      '.core{transform-box:fill-box;transform-origin:50% 100%;animation:fl .22s ease-in-out infinite alternate-reverse}' +
+      '@keyframes fl{from{transform:scale(1,.92) skewX(-4deg)}to{transform:scale(.96,1.06) skewX(4deg)}}' +
+      '.ties{transform-origin:27.6px 17.6px;animation:flap .25s ease-in-out infinite alternate}@keyframes flap{to{transform:rotate(-16deg)}}',
+  },
+  {
+    key: 'shy', name: '躲躲', trait: '社恐', line: '话少活细，有问题先自己默默查清楚', say: '……我先看看。',
+    move: '缩到笔记本后面，再悄悄探头左右瞟',
+    from: '#e8c49c', to: '#9a6440',
+    glyph: (ink) =>
+      `<g class="peek"><circle cx="20" cy="21" r="8.5" fill="${W}"/>` +
+      `<g class="look"><ellipse cx="17.2" cy="19.8" rx="1.4" ry="1.7" fill="${ink}"/><ellipse cx="22.8" cy="19.8" rx="1.4" ry="1.7" fill="${ink}"/></g>` +
+      `<ellipse cx="15.2" cy="22.6" rx="1.6" ry=".9" fill="#ffb8a8"/><ellipse cx="24.8" cy="22.6" rx="1.6" ry=".9" fill="#ffb8a8"/></g>` +
+      `<rect x="6.5" y="24.5" width="27" height="11" rx="2.4" fill="${W}" stroke="${ink}" stroke-width="1.2"/>` +
+      `<g fill="${W}" stroke="${ink}" stroke-width="1"><rect x="11.4" y="22.6" width="3.6" height="3.2" rx="1.6"/><rect x="25" y="22.6" width="3.6" height="3.2" rx="1.6"/></g>` +
+      `<path d="M16.4 28.6l2 1.6-2 1.6" ${stroke(ink, 1.3)}/><rect class="cur" x="19.8" y="31" width="3" height="1.2" rx=".5" fill="${ink}"/>`,
+    motion:
+      '.peek{animation:peek 3.4s ease-in-out infinite}@keyframes peek{0%,100%{transform:translateY(0)}35%,60%{transform:translateY(6px)}}' +
+      '.look{animation:look 3.4s ease-in-out infinite}@keyframes look{10%,25%{transform:translateX(-1.2px)}70%,85%{transform:translateX(1.2px)}}' +
+      '.cur{animation:caret .9s steps(1) infinite}@keyframes caret{50%{opacity:0}}',
+  },
+  {
+    key: 'rocket', name: '冲冲', trait: '尝鲜党', line: '新框架出一个试一个，最爱从零搭脚手架', say: '换个新技术试试？',
+    move: '火箭抖动喷火 + 星线向下划过',
+    from: '#6fd0ff', to: '#1a5fe0',
+    glyph: (ink) =>
+      `<g class="streak" ${stroke(W, 1.2)} opacity=".7"><path d="M6 6v5"/><path d="M34 12v4"/><path d="M7.5 26v4"/></g>` +
+      `<g class="ship"><path d="M13 22.5 8.5 28.5v2.5l4.5-2zM27 22.5l4.5 6v2.5l-4.5-2z" fill="${W}"/>` +
+      `<path class="fire" d="M15.8 29.5h8.4l-1.6 4.4-1.4-1.6-1.2 3.2-1.2-3.2-1.4 1.6z" fill="#ffd84a"/>` +
+      `<path d="M20 4.5c4.6 3.2 7 8.6 7 14.5v10.5H13V19c0-5.9 2.4-11.3 7-14.5z" fill="${W}"/>` +
+      `<circle cx="20" cy="17" r="4.6" fill="${ink}"/>` +
+      `<circle cx="18.4" cy="16.6" r="1" fill="${W}"/><circle cx="21.6" cy="16.6" r="1" fill="${W}"/>` +
+      `<path d="M18.6 18.8q1.4 1 2.8 0" ${stroke(W, .9)}/>` +
+      `<path d="M13 24.5h14" stroke="${ink}" stroke-width="1.2" opacity=".3"/></g>`,
+    motion:
+      '.ship{animation:shake .12s linear infinite}@keyframes shake{50%{transform:translate(.4px,-.3px)}}' +
+      '.fire{transform-box:fill-box;transform-origin:50% 0;animation:burn .15s ease-in-out infinite alternate}@keyframes burn{to{transform:scaleY(1.35)}}' +
+      '.streak path{animation:fall .6s linear infinite}.streak path:nth-child(2){animation-delay:.2s}.streak path:nth-child(3){animation-delay:.4s}' +
+      '@keyframes fall{from{transform:translateY(-6px);opacity:0}50%{opacity:1}to{transform:translateY(6px);opacity:0}}',
+  },
+]
+
+const cache = new Map()
+function src(r, live) {
+  const id = r.key + (live ? '!' : '')
+  if (!cache.has(id)) {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">` +
+      (live ? `<style>${r.motion}@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>` : '') +
+      `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${r.from}"/><stop offset="1" stop-color="${r.to}"/></linearGradient></defs>` +
+      `<rect width="40" height="40" fill="url(#g)"/>${r.glyph(r.to)}</svg>`
+    cache.set(id, `data:image/svg+xml,${encodeURIComponent(svg)}`)
+  }
+  return cache.get(id)
+}
+
+let mode = 'hover'
+const avs = []
+function av(r, size, opts = {}) {
+  const img = document.createElement('img')
+  img.className = 'av'
+  img.width = img.height = size
+  img.alt = r.name
+  const entry = { img, r, always: opts.always, hovered: false }
+  avs.push(entry)
+  sync(entry)
+  return entry
+}
+function sync(e) {
+  const live = e.always || mode === 'all' || (mode === 'hover' && e.hovered)
+  const s = src(e.r, live)
+  if (e.img.getAttribute('src') !== s) e.img.src = s
+}
+const syncAll = () => avs.forEach(sync)
+
+const el = (tag, cls, html) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, html != null ? { innerHTML: html } : {})
+
+const hero = document.getElementById('hero')
+const g = av(GONG, 72, { always: true })
+hero.append(g.img, el('div', '', `<strong style="font-size:16px">共字君</strong><span class="tag">默认 · 不变</span><p>${GONG.line}。新建 Bot 默认选它；其余角色只换形象与动画，不预置人设。</p>`))
+
+const cards = document.getElementById('cards')
+for (const r of ROLES) {
+  const card = el('div', 'card')
+  const stage = el('div', 'stage')
+  const e = av(r, 96)
+  stage.append(e.img, el('span', 'say', r.say))
+  card.append(stage,
+    el('h3', '', `${r.name} <span class="trait" style="color:${r.to}">· ${r.trait}</span>`),
+    el('p', '', r.line),
+    el('div', 'move', `干活中：${r.move}`))
+  card.onmouseenter = () => { e.hovered = true; sync(e) }
+  card.onmouseleave = () => { e.hovered = false; sync(e); card.classList.remove('saying') }
+  card.onclick = () => card.classList.toggle('saying')
+  cards.append(card)
+}
+
+const ladder = document.getElementById('ladder')
+for (const [size, live] of [[20, false], [28, false], [40, false], [40, true], [64, true]]) {
+  const row = el('div', 'row')
+  row.append(el('span', 'lbl', `${size}px${live ? ' 动' : ''}`))
+  for (const r of [GONG, ...ROLES]) row.append(av(r, size, { always: live }).img)
+  ladder.append(row)
+}
+
+const chat = document.getElementById('chat')
+const by = (k) => ROLES.find((r) => r.key === k)
+const msgs = [
+  [by('rush'), '登录页白屏已修，热更新推上去了，先跑起来再说 ⚡', false],
+  [by('steady'), '我复核了一下，缺一个空态单测，补上后再合。', false],
+  [by('cool'), 'LGTM', false],
+  [by('curious'), '为什么 token 过期后没刷新？我去翻 axios 拦截器的源码……', true],
+]
+for (const [r, text, running] of msgs) {
+  const m = el('div', 'msg')
+  const e = av(r, 36, { always: running })
+  const body = el('div', '', `<div class="who">${r.name} · ${r.trait}</div><div class="bubble">${text}</div>`)
+  if (running) body.append(el('div', 'work', '<i></i>正在处理 · 读取 src/api/http.ts'))
+  m.append(e.img, body)
+  chat.append(m)
+}
+
+document.querySelectorAll('[data-live]').forEach((b) => (b.onclick = () => {
+  mode = b.dataset.live
+  document.querySelectorAll('[data-live]').forEach((x) => x.setAttribute('aria-pressed', x === b))
+  syncAll()
+}))
+document.querySelectorAll('[data-theme-set]').forEach((b) => (b.onclick = () => {
+  const t = b.dataset.themeSet
+  t ? document.documentElement.setAttribute('data-theme', t) : document.documentElement.removeAttribute('data-theme')
+  document.querySelectorAll('[data-theme-set]').forEach((x) => x.setAttribute('aria-pressed', x === b))
+}))
+</script>
+</body>
+</html>

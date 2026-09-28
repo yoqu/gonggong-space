@@ -95,6 +95,7 @@ beforeEach(() => {
     'GET /api/bots': () => [],
     'GET /api/machines': () => [],
     'GET /api/notifications': () => [],
+    'GET /api/bots/b1/activity': () => [],
     'GET /api/users': () => [
       { id: 'u1', name: '王磊', account: 'wanglei' },
       { id: 'u2', name: '李建国', account: 'lijg' },
@@ -131,10 +132,12 @@ function renderAt(path: string, user: UserDto) {
   )
 }
 
-/** Members manage their bots from the chat sidebar. */
+/** Members open their bots from the chat sidebar: an overview in the main area, settings in a dialog. */
 async function openMyBot(name = '小王的 Claude') {
   const nav = screen.getByRole('navigation', { name: '会话列表' })
-  fireEvent.click(await within(nav).findByRole('button', { name: new RegExp(name) }))
+  fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
+  const page = await screen.findByRole('region', { name: 'Bot 概况' })
+  fireEvent.click(within(page).getByRole('button', { name: '设置' }))
   return screen.findByRole('complementary', { name: 'Bot 详情' })
 }
 
@@ -193,6 +196,9 @@ describe('sidebar 我的 BOT', () => {
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     expect(await within(nav).findByText('wanglei-mbp · 在线')).toBeTruthy()
     expect(within(nav).queryByText('别人的')).toBeNull()
+    const row = within(nav).getByRole('link', { name: /小王的 Claude/ })
+    expect(row.querySelector('.ui-avatar img')?.getAttribute('src')).toMatch(/^data:image\/svg/)
+    expect(row.getAttribute('href')).toBe('/bot/b1')
     fireEvent.click(within(nav).getByRole('button', { name: '确认' }))
     expect(await within(nav).findByText('wanglei-mbp · agent 缺失')).toBeTruthy()
     expect(within(nav).queryByRole('button', { name: '确认' })).toBeNull()
@@ -432,7 +438,7 @@ describe('bot detail', () => {
     expect('approval' in body || 'allowlist' in body).toBe(false)
   })
 
-  it('opens a bot from the ?bot= deep link and leaves the URL', async () => {
+  it('opens a bot page from the ?bot= deep link', async () => {
     routes['GET /api/bots'] = () => [bot({})]
     // Home redirects to the last group; the dialog must survive that.
     routes['GET /api/groups'] = () => [
@@ -460,10 +466,9 @@ describe('bot detail', () => {
         <Probe />
       </MemoryRouter>,
     )
-    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
-    expect(within(detail).getByText('小王的 Claude')).toBeTruthy()
-    await waitFor(() => expect([pathname, search]).toEqual(['/g/g1', '']))
-    expect(screen.getByRole('complementary', { name: 'Bot 详情' })).toBeTruthy()
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(within(page).getByRole('heading', { name: '小王的 Claude' })).toBeTruthy()
+    await waitFor(() => expect([pathname, search]).toEqual(['/bot/b1', '']))
   })
 
   it('changes the default model, keeping a thought level the new model offers', async () => {
@@ -542,5 +547,62 @@ describe('bot detail', () => {
       .getAllByTestId('usage-row')
       .map((r) => r.textContent)
     expect(rows).toEqual(['王磊256k', '李建国未上报'])
+  })
+})
+
+describe('bot page', () => {
+  it('shows where the bot works, its live turn and token usage in the main area', async () => {
+    routes['GET /api/bots'] = () => [bot({ presence: 'running', groupCount: 2 })]
+    routes['GET /api/bots/b1/activity'] = () => [
+      {
+        groupId: 'g1',
+        groupName: '支付服务重构',
+        groupKind: 'group',
+        workspacePath: '/Users/wang/pay',
+        run: { id: 'r1', status: 'running', step: '编辑 src/pay.ts', startedAt: new Date().toISOString() },
+        lastRunAt: new Date().toISOString(),
+      },
+      {
+        groupId: 'g2',
+        groupName: '官网改版',
+        groupKind: 'group',
+        workspacePath: null,
+        run: null,
+        lastRunAt: null,
+      },
+    ]
+    routes['GET /api/usage?by=user&days=30&botId=b1'] = () => [
+      { key: 'u1', name: '王磊', runs: 3, totalTokens: 256_000, unreported: 0 },
+      { key: 'u2', name: '李建国', runs: 1, totalTokens: 0, unreported: 1 },
+    ]
+    routes['GET /api/usage?by=group&days=30&botId=b1'] = () => [
+      { key: 'g1', name: '支付服务重构', runs: 4, totalTokens: 256_000, unreported: 1 },
+    ]
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(within(page).getByRole('heading', { name: '小王的 Claude' })).toBeTruthy()
+
+    const live = await within(page).findByRole('list', { name: '正在工作' })
+    expect(within(live).getByText('运行中')).toBeTruthy()
+    expect(within(live).getByText('支付服务重构')).toBeTruthy()
+    expect(within(live).getByText('编辑 src/pay.ts')).toBeTruthy()
+    const places = within(page).getByRole('list', { name: '工作位置' })
+    expect(within(places).getByText('/Users/wang/pay')).toBeTruthy()
+    expect(within(places).getByText('官网改版')).toBeTruthy()
+
+    const tile = (label: string) => within(page).getByText(label).closest('.usage-stat')?.textContent
+    await waitFor(() => expect(tile('token 合计')).toBe('token 合计256k'))
+    expect(tile('运行轮次')).toBe('运行轮次4')
+    expect(tile('所在群')).toBe('所在群2')
+
+    fireEvent.click(within(places).getByRole('link', { name: /官网改版/ }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Bot 概况' })).toBeNull())
+  })
+
+  it('says the bot is idle when nothing runs', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(await within(page).findByText('空闲，在群里 @ 它即可开工')).toBeTruthy()
   })
 })

@@ -9,5 +9,6 @@
     "branch": "main",
     "protocol": "auto"
   },
-  "path": "/Users/w/code/pay-server"
+  "path": "/Users/w/code/pay-server",
+  "force": false
 }

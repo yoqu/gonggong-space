@@ -1,0 +1,7 @@
+{
+  "snapshot": { "previewId": "p1", "port": 5173 },
+  "method": "GET",
+  "path": "/login",
+  "headers": [],
+  "upgrade": false
+}

@@ -3,6 +3,7 @@ use crate::agents;
 use crate::ask::{AskServer, Asker};
 use crate::attachments;
 use crate::config::Config;
+use crate::explorer;
 use crate::files;
 use crate::git;
 use crate::hosted::Services;
@@ -230,6 +231,42 @@ impl Handler for Engine {
                     out.send(DaemonToServer::FilesResult { request_id: req.request_id, entries, error });
                 });
             }
+            ServerToDaemon::FilesTree(req) => {
+                let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let (entries, truncated, error) = match explorer::tree(&dir, &req.path, req.show_ignored).await {
+                        Ok((entries, truncated)) => (entries, truncated, None),
+                        Err(e) => (vec![], false, Some(e)),
+                    };
+                    out.send(DaemonToServer::FilesTreeResult { request_id: req.request_id, entries, truncated, error });
+                });
+            }
+            ServerToDaemon::FilesRead(req) => {
+                let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let request_id = req.request_id;
+                    out.send(match explorer::read(&dir, &req.path, req.max_bytes).await {
+                        Ok(r) => DaemonToServer::FilesReadResult {
+                            request_id,
+                            size: r.size,
+                            binary: r.binary,
+                            mime: r.mime,
+                            text: r.text,
+                            error: None,
+                        },
+                        Err(e) => DaemonToServer::FilesReadResult {
+                            request_id,
+                            size: 0,
+                            binary: false,
+                            mime: String::new(),
+                            text: None,
+                            error: Some(e),
+                        },
+                    });
+                });
+            }
             ServerToDaemon::WorkspaceDiff(req) => {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
                 let key = (req.group_id.clone(), req.bot_id.clone());
@@ -259,6 +296,13 @@ impl Handler for Engine {
             ServerToDaemon::ServiceStop { service_id } => {
                 let services = self.0.services.clone();
                 tokio::spawn(async move { services.stop_id(&service_id).await });
+            }
+            ServerToDaemon::ServiceRestart { request_id, service_id } => {
+                let (services, out) = (self.0.services.clone(), out.clone());
+                tokio::spawn(async move {
+                    let error = services.restart_id(&service_id, &out).await.err();
+                    out.send(DaemonToServer::ServiceRestartResult { request_id, error });
+                });
             }
             ServerToDaemon::PreviewsSync { previews } => {
                 tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());

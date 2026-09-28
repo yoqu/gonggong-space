@@ -169,6 +169,13 @@
       "when": 1790515969369,
       "tag": "0023_fluffy_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790581018623,
+      "tag": "0024_mighty_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

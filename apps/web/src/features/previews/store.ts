@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
+import { openTab } from '../workbench/open'
 
 /** Each group's open previews and live services, loaded on first use and replaced by `group.previews` events. */
 const useStore = create<Record<string, GroupPreviewsDto>>()(() => ({}))
@@ -14,7 +15,9 @@ function sync() {
   synced = true
   realtime.subscribe((e) => {
     if (e.t === 'group.previews')
-      useStore.setState({ [e.groupId]: { previews: e.previews, services: e.services } })
+      useStore.setState({
+        [e.groupId]: { previews: e.previews, services: e.services, manageableBotIds: e.manageableBotIds },
+      })
   })
   // Events missed while offline: the next use reloads.
   realtime.onStatus((s) => {
@@ -51,3 +54,11 @@ export function resetPreviews() {
 
 export const openUrl = (previewId: string, path = '/') =>
   `/api/previews/${previewId}/open?path=${encodeURIComponent(path)}`
+
+/** Opens the preview as a workbench tab; false (and a toast) when the workbench is full. */
+export const openInWorkbench = (p: { id: string; path: string }) =>
+  openTab({ kind: 'web', previewId: p.id, path: p.path })
+
+/** Versioned by when it was taken, so a retake shows at once while the image stays cacheable. */
+export const snapshotUrl = (p: { id: string; snapshotAt: string | null }) =>
+  `/api/previews/${p.id}/snapshot?v=${encodeURIComponent(p.snapshotAt ?? '')}`

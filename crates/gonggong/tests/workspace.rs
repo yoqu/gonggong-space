@@ -84,12 +84,17 @@ impl Rig {
     }
 
     fn cd(&self, id: &str, repo: Option<RepoSpec>, path: Option<&Path>) {
+        self.cd_with(id, repo, path, false);
+    }
+
+    fn cd_with(&self, id: &str, repo: Option<RepoSpec>, path: Option<&Path>, force: bool) {
         let msg = WorkspaceCd {
             request_id: id.into(),
             group_id: "g1".into(),
             bot_id: "b1".into(),
             repo,
             path: path.map(|p| p.to_string_lossy().into_owned()),
+            force,
         };
         self.engine.handle(ServerToDaemon::WorkspaceCd(msg), &self.out);
     }
@@ -232,6 +237,27 @@ async fn cd_validates_directory_repo_and_remote() {
     assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
     assert_eq!(s.git.unwrap().workspace, WorkspaceKind::Managed);
     assert!(s.remotes.is_empty());
+}
+
+#[tokio::test]
+async fn forced_cd_skips_only_the_group_repo_check() {
+    let remote = Remote::new();
+    let foreign = Remote::new();
+    let mut r = rig();
+    let other = foreign.clone_to("other");
+    r.cd_with("f1", Some(remote.spec("rp")), Some(&other), true);
+    let (s, _) = r.settled("f1").await;
+    assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
+    assert_eq!(s.git, Some(clean("main", WorkspaceKind::Cd)));
+
+    let plain = tempfile::tempdir().unwrap();
+    r.cd_with("f2", Some(remote.spec("rp")), Some(plain.path()), true);
+    let (s, _) = r.settled("f2").await;
+    assert_eq!((s.state, s.git), (WorkspaceStateKind::Ready, None), "{:?}", s.error);
+
+    r.cd_with("f3", Some(remote.spec("rp")), Some(&plain.path().join("missing")), true);
+    let (s, _) = r.settled("f3").await;
+    assert_eq!((s.state, s.error.as_deref()), (WorkspaceStateKind::Failed, Some("目录不存在")));
 }
 
 #[tokio::test]

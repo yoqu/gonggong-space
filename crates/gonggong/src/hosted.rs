@@ -31,7 +31,7 @@ pub struct Scope {
     pub out: Outbox,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StartArgs {
     pub name: String,
     pub command: String,
@@ -47,6 +47,8 @@ pub struct Services(Arc<Inner>);
 struct Inner {
     pids: PathBuf,
     list: Mutex<Vec<Hosted>>,
+    /// Stopped ones by id, until their (group, bot, name) starts again: the server may still restart them.
+    ended: Mutex<HashMap<String, Hosted>>,
 }
 
 #[derive(Clone)]
@@ -55,9 +57,22 @@ enum Stop {
     Task(tokio::task::AbortHandle),
 }
 
+/// What a service was started with, for the server's restart (the card's 启动).
+struct Origin {
+    run_id: Option<String>,
+    root: PathBuf,
+    how: How,
+}
+
+enum How {
+    Command(StartArgs),
+    Static(String),
+}
+
 #[derive(Clone)]
 struct Hosted {
     info: Arc<Mutex<ServiceInfo>>,
+    origin: Arc<Origin>,
     stop: Stop,
     logs: Arc<Mutex<VecDeque<String>>>,
     started: Instant,
@@ -88,7 +103,7 @@ impl Services {
             }
             let _ = std::fs::remove_file(&pids);
         }
-        Services(Arc::new(Inner { pids, list: Mutex::default() }))
+        Services(Arc::new(Inner { pids, list: Mutex::default(), ended: Mutex::default() }))
     }
 
     /// A name taken by this (group, bot) is restarted: the old one is ended first; then the per-bot limit applies.
@@ -99,6 +114,10 @@ impl Services {
         if let Some(old) = self.find(&scope.group_id, &scope.bot_id, name) {
             self.end(old).await;
         }
+        self.0.ended.lock().unwrap().retain(|_, h| {
+            let i = h.info.lock().unwrap();
+            !(i.group_id == scope.group_id && i.bot_id == scope.bot_id && i.name == name)
+        });
         let live = self.0.list.lock().unwrap().iter().filter(|h| h.live() && same_bot(h, &scope.bot_id)).count();
         if live >= MAX_PER_BOT {
             return Err(format!("每个 bot 最多同时托管 {MAX_PER_BOT} 个服务，请先用 service_stop 停掉不用的"));
@@ -143,7 +162,8 @@ impl Services {
             });
         }
         let logs = Arc::new(Mutex::new(VecDeque::new()));
-        self.0.list.lock().unwrap().push(Hosted { info, stop, logs, started: Instant::now(), exited });
+        let origin = Arc::new(Origin { run_id: scope.run_id, root: scope.root, how: How::Static(dir.into()) });
+        self.0.list.lock().unwrap().push(Hosted { info, origin, stop, logs, started: Instant::now(), exited });
         Ok(port)
     }
 
@@ -215,7 +235,12 @@ impl Services {
             });
         }
         let stop = Stop::Group(pid);
-        let hosted = Hosted { info: info.clone(), stop, logs, started: Instant::now(), exited: exited.clone() };
+        let origin = Arc::new(Origin {
+            run_id: scope.run_id.clone(),
+            root: scope.root.clone(),
+            how: How::Command(args.clone()),
+        });
+        let hosted = Hosted { info: info.clone(), origin, stop, logs, started: Instant::now(), exited: exited.clone() };
         self.0.list.lock().unwrap().push(hosted);
         self.0.save_pids();
 
@@ -323,6 +348,27 @@ impl Services {
         }
     }
 
+    /// service.restart from the server: starts the service again as it was started, ending it first if still live.
+    pub async fn restart_id(&self, id: &str, out: &Outbox) -> Result<String, String> {
+        let h = self
+            .find_id(id)
+            .or_else(|| self.0.ended.lock().unwrap().get(id).cloned())
+            .ok_or("本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动")?;
+        let (group_id, bot_id, name) = {
+            let i = h.info.lock().unwrap();
+            (i.group_id.clone(), i.bot_id.clone(), i.name.clone())
+        };
+        let o = &h.origin;
+        let scope = Scope { group_id, bot_id, run_id: o.run_id.clone(), root: o.root.clone(), out: out.clone() };
+        match &o.how {
+            How::Command(args) => self.start(scope, args.clone()).await,
+            How::Static(dir) => {
+                let port = self.start_static(scope, &name, dir).await?;
+                Ok(format!("静态站点 {name} 已重新开放，端口 {port}"))
+            }
+        }
+    }
+
     fn find(&self, group: &str, bot: &str, name: &str) -> Option<Hosted> {
         let list = self.0.list.lock().unwrap();
         list.iter()
@@ -359,6 +405,8 @@ impl Services {
         }
         self.0.list.lock().unwrap().retain(|x| !Arc::ptr_eq(&x.info, &h.info));
         self.0.save_pids();
+        let id = h.info.lock().unwrap().id.clone();
+        self.0.ended.lock().unwrap().insert(id, h);
     }
 }
 

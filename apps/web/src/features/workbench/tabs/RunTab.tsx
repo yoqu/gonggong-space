@@ -7,46 +7,56 @@ import {
   type TaskStopRes,
 } from '@gonggong/protocol'
 import { useEffect, useMemo, useState } from 'react'
-import { useWorkspace } from '../../app/workspace'
-import { api } from '../../lib/api'
-import { useNow } from '../../lib/now'
-import { realtime } from '../../lib/realtime'
+import { create } from 'zustand'
+import { useWorkbench } from '../../../app/workbench'
+import { useWorkspace } from '../../../app/workspace'
+import { api } from '../../../lib/api'
+import { cx } from '../../../lib/cx'
+import { useNow } from '../../../lib/now'
+import { realtime } from '../../../lib/realtime'
 import {
-  CloseButton,
   EmptyState,
   FailedArt,
   GroupBox,
   GroupRow,
   Icon,
   IconButton,
-  NoChangesArt,
   Spinner,
   Tabs,
   Tag,
   Toolbar,
   toast,
-  useEscape,
-} from '../../ui'
-import { BotAvatar, useBotCostume } from '../bots/avatars'
-import { fmtDuration, fmtUsage, RUN_STATUS } from '../chat/TimelineItems'
-import { DiffFileList, DiffLayoutToggle, DiffScopeBar, emptyText, scopeNote } from '../diff/DiffParts'
-import { type DiffSource, useDiffWindow } from '../diff/store'
-import { useWorkspaceDiff, type WorkspaceDiff } from '../diff/useWorkspaceDiff'
-import { ProcessView } from './ProcessView'
-import { approvalText, buildSteps, hhmm } from './process'
-import { type RailTab, useRunRail } from './rail'
-import './rail.css'
-import './runs.css'
+} from '../../../ui'
+import { BotAvatar, useBotCostume } from '../../bots/avatars'
+import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
+import { DiffPane } from '../../diff/DiffPane'
+import type { DiffSource } from '../../diff/store'
+import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
+import { ProcessView } from '../../runs/ProcessView'
+import { approvalText, buildSteps, hhmm } from '../../runs/process'
+import { openTab } from '../open'
+import type { TabMeta, TabProps } from '../types'
+import { locateFile } from './DiffTab'
+import '../../runs/runs.css'
 
-const TABS: { value: RailTab; label: string }[] = [
+type RunView = TabProps<'run'>['tab']['view']
+
+const VIEWS: { value: RunView; label: string }[] = [
   { value: 'process', label: '过程' },
   { value: 'diff', label: '改动' },
   { value: 'audit', label: '审批记录' },
 ]
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+const FAILED = ['forbidden', 'interrupted', 'expired']
 const PURGED = '运行过程已过期，仅保留摘要'
 /** Coalesces bursts of run.updated into one refetch. */
 const REFETCH_MS = 300
+
+/** What the open run tabs learned about their runs, for the tab bar's title and mark. */
+const useRunInfo = create<{ runs: Record<string, RunDto>; rounds: Record<string, number> }>(() => ({
+  runs: {},
+  rounds: {},
+}))
 
 /** GET /api/runs/:id, kept live: card updates refetch the process, streamed text is appended in place. */
 function useRunDetail(runId: string) {
@@ -96,14 +106,17 @@ function useRunDetail(runId: string) {
   return { detail, error }
 }
 
-/** Right rail for one run (spec §8.2): header facts, then 过程 / 文件 diff / 审批记录. */
-export function RunRail({ runId }: { runId: string }) {
-  const { tab, setTab, close } = useRunRail()
+/** One run in the workbench (design §4.3): header facts, then 过程 / 改动 / 审批记录. */
+export function RunTab({ tab, tabKey }: TabProps<'run'>) {
+  const { runId, view, file } = tab
+  const patch = useWorkbench((s) => s.patch)
   const { detail, error } = useRunDetail(runId)
-  useEscape(close)
   const bots = useWorkspace((s) => s.bots)
   const groups = useWorkspace((s) => s.groups)
   const run = detail?.run
+  useEffect(() => {
+    if (run) useRunInfo.setState((s) => ({ runs: { ...s.runs, [run.id]: run } }))
+  }, [run])
   const now = useNow(!!run && LIVE.includes(run.status) && !!run.startedAt)
   const bot = bots.find((b) => b.id === run?.botId)
   const costume = useBotCostume(bot?.id)
@@ -118,15 +131,14 @@ export function RunRail({ runId }: { runId: string }) {
   )
   // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
   const turn = useWorkspaceDiff(source, 'turn', live ? undefined : (detail?.patch ?? null))
-  const openDiff = useDiffWindow((s) => s.open)
   // Machine and session id are rarely needed; hidden behind ⓘ so the process gets the height.
   const [more, setMore] = useState(false)
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
   const ended = run?.endedAt ? Date.parse(run.endedAt) : now
   return (
-    <div className="run-rail" data-testid="run-rail">
+    <div className="run-tab" data-testid="run-tab">
       <Toolbar
-        className="rail-bar"
+        className="run-tab__bar"
         scrolled={false}
         leading={<BotAvatar id={bot?.id} name={bot?.name ?? 'bot'} size={24} />}
         title={bot?.name ?? 'bot'}
@@ -136,14 +148,13 @@ export function RunRail({ runId }: { runId: string }) {
         <IconButton title="机器与会话" aria-pressed={more} onClick={() => setMore(!more)}>
           <Icon name="info" />
         </IconButton>
-        <CloseButton onClick={close} />
       </Toolbar>
-      <div className="run-rail__head">
+      <div className="run-tab__head">
         {run ? (
-          <div className="run-rail__facts">
-            <span className="run-rail__fact" title="模型">
+          <div className="run-tab__facts">
+            <span className="run-tab__fact" title="模型">
               <Icon name="cpu" size={14} />
-              <span className="run-rail__val">
+              <span className="run-tab__val">
                 {run.model || run.effort
                   ? agentConfigLabel(
                       bot?.catalog ?? null,
@@ -153,42 +164,42 @@ export function RunRail({ runId }: { runId: string }) {
                   : '默认'}
               </span>
             </span>
-            <span className="run-rail__fact" title="耗时">
+            <span className="run-tab__fact" title="耗时">
               <Icon name="clock" size={14} />
               {started === null ? '—' : fmtDuration(ended - started)}
             </span>
-            <span className="run-rail__fact" title="用量">
+            <span className="run-tab__fact" title="用量">
               <Icon name="chart-bar" size={14} />
-              <span className="run-rail__val">{fmtUsage(run.usage)}</span>
+              <span className="run-tab__val">{fmtUsage(run.usage)}</span>
             </span>
           </div>
         ) : null}
         {run && more ? (
           <GroupBox>
             <GroupRow label="机器">
-              <span className="run-rail__val run-rail__mono">{bot?.machineName ?? '—'}</span>
+              <span className="run-tab__val run-tab__mono">{bot?.machineName ?? '—'}</span>
             </GroupRow>
             <GroupRow label="会话">
-              <span className="run-rail__val run-rail__mono">
+              <span className="run-tab__val run-tab__mono">
                 {detail.sessionId ? <SessionId id={detail.sessionId} /> : '—'}
               </span>
             </GroupRow>
           </GroupBox>
         ) : null}
-        <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
+        <Tabs size="sm" items={VIEWS} value={view} onChange={(v) => patch(tabKey, { view: v })} />
       </div>
-      <div className="run-rail__body">
+      <div className={cx('run-tab__body', view === 'diff' && 'run-tab__body--fill')}>
         {error ? (
           <EmptyState bare illustration={<FailedArt />} title="无法加载运行过程" description={error} />
         ) : !detail ? (
-          <div className="run-rail__loading">
+          <div className="run-tab__loading">
             <Spinner />
           </div>
-        ) : !source ? null : tab === 'process' ? (
-          <>
+        ) : !source ? null : view === 'process' ? (
+          <div className="run-tab__column">
             <EarlierRounds key={runId} runId={runId} root={root} />
             {detail.purged ? (
-              <div className="run-rail__empty">{PURGED}</div>
+              <div className="run-tab__empty">{PURGED}</div>
             ) : (
               <ProcessView
                 key={runId}
@@ -197,20 +208,45 @@ export function RunRail({ runId }: { runId: string }) {
                 live={live}
                 startedAt={run?.startedAt ?? null}
                 workedMs={workedMs(run)}
-                onOpenDiff={(path) => openDiff(source, 'turn', path)}
+                onOpenDiff={(path) => patch(tabKey, { view: 'diff', file: path })}
                 onStopTask={(taskId) => stopTask(runId, taskId)}
                 costume={costume}
               />
             )}
-          </>
-        ) : tab === 'diff' ? (
-          <ChangesTab detail={detail} source={source} turn={turn} />
+          </div>
+        ) : view === 'diff' ? (
+          <Changes
+            purged={detail.purged}
+            source={source}
+            turn={turn}
+            file={file}
+            onFile={(f) => patch(tabKey, { file: f })}
+          />
         ) : (
-          <AuditTab detail={detail} userName={userName} />
+          <div className="run-tab__column">
+            <Audit detail={detail} userName={userName} />
+          </div>
         )}
       </div>
     </div>
   )
+}
+
+export function useRunTabMeta(tab: TabProps<'run'>['tab']): TabMeta {
+  const run = useRunInfo((s) => s.runs[tab.runId])
+  const round = useRunInfo((s) => s.rounds[tab.runId])
+  const name = useWorkspace((s) => s.bots.find((b) => b.id === run?.botId)?.name) ?? 'Bot'
+  return {
+    icon: 'square-terminal',
+    title: `${name} · ${round ? `第 ${round} 轮` : '运行'}`,
+    status: !run
+      ? undefined
+      : run.status === 'completed'
+        ? 'done'
+        : FAILED.includes(run.status)
+          ? 'failed'
+          : 'running',
+  }
 }
 
 const workedMs = (run?: RunDto) =>
@@ -222,7 +258,10 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
   const [shown, setShown] = useState(0)
   useEffect(() => {
     api.get<RunSessionDto>(`/runs/${runId}/session`).then(
-      (d) => setRounds(d.rounds),
+      (d) => {
+        setRounds(d.rounds)
+        useRunInfo.setState((s) => ({ rounds: { ...s.rounds, [runId]: d.rounds.length + 1 } }))
+      },
       (e: Error) => toast({ type: 'error', message: `无法加载上一轮：${e.message}` }),
     )
   }, [runId])
@@ -246,7 +285,6 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
 function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: string | null }) {
   const [open, setOpen] = useState(true)
   const { detail, error } = useRunDetail(run.id)
-  const openDiff = useDiffWindow((s) => s.open)
   const worked = workedMs(run)
   return (
     <section className="run-round">
@@ -260,11 +298,11 @@ function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: s
         <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag>
       </button>
       {!open ? null : error ? (
-        <div className="run-rail__empty">{error}</div>
+        <div className="run-tab__empty">{error}</div>
       ) : !detail ? (
         <Spinner />
       ) : detail.purged ? (
-        <div className="run-rail__empty">{PURGED}</div>
+        <div className="run-tab__empty">{PURGED}</div>
       ) : (
         <ProcessView
           steps={buildSteps(detail)}
@@ -272,9 +310,7 @@ function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: s
           live={LIVE.includes(run.status)}
           startedAt={run.startedAt}
           workedMs={worked}
-          onOpenDiff={(path) =>
-            openDiff({ groupId: run.groupId, botId: run.botId, runId: run.id }, 'turn', path)
-          }
+          onOpenDiff={(path) => openTab({ kind: 'run', runId: run.id, view: 'diff', file: path })}
           onStopTask={(taskId) => stopTask(run.id, taskId)}
         />
       )}
@@ -303,13 +339,13 @@ function SessionId({ id }: { id: string }) {
     }
   }
   return (
-    <span className="run-rail__session">
-      <span className="run-rail__session-id" title={id}>
+    <span className="run-tab__session">
+      <span className="run-tab__session-id" title={id}>
         {id}
       </span>
       <button
         type="button"
-        className="run-rail__copy"
+        className="run-tab__copy"
         aria-label="复制会话 ID"
         title="复制会话 ID"
         onClick={() => void copy()}
@@ -321,55 +357,39 @@ function SessionId({ id }: { id: string }) {
 }
 
 /** 改动: this turn (live while it runs), the workspace's uncommitted work, or the branch against main. */
-function ChangesTab({
-  detail,
+function Changes({
+  purged,
   source,
   turn,
+  file,
+  onFile,
 }: {
-  detail: RunDetailDto
+  purged: boolean
   source: DiffSource
   turn: WorkspaceDiff
+  file: string | null
+  onFile: (file: string | null) => void
 }) {
   const [scope, setScope] = useState<DiffScope>('turn')
-  const openDiff = useDiffWindow((s) => s.open)
   const other = useWorkspaceDiff(scope === 'turn' ? null : source, scope)
-  const diff = scope === 'turn' ? turn : other
-  const { file } = useRunRail()
-  // A file asked for from a reply or a notification opens straight in the diff window.
-  useEffect(() => {
-    if (!file) return
-    openDiff(source, 'turn', file)
-    useRunRail.setState({ file: null })
-  }, [file, source, openDiff])
   return (
-    <>
-      <div className="run-changes__bar">
-        <DiffScopeBar scope={scope} turn onChange={setScope} />
-        <span className="run-changes__branch">{scopeNote(scope, diff.branch, diff.base)}</span>
-        <DiffLayoutToggle />
-      </div>
-      {scope === 'turn' && detail.purged ? (
-        <div className="run-rail__empty">{PURGED}</div>
-      ) : diff.loading && !diff.files.length ? (
-        <div className="run-rail__loading">
-          <Spinner />
-        </div>
-      ) : diff.error ? (
-        <EmptyState compact icon="warning" title="无法读取改动" description={diff.error} />
-      ) : diff.files.length ? (
-        <DiffFileList files={diff.files} onPick={(path) => openDiff(source, scope, path)} />
-      ) : (
-        <EmptyState
-          compact
-          illustration={<NoChangesArt />}
-          title={emptyText(scope, diff.branch, diff.base)}
-        />
-      )}
-    </>
+    <DiffPane
+      diff={scope === 'turn' ? turn : other}
+      scope={scope}
+      turn
+      file={file}
+      onScope={(s) => {
+        setScope(s)
+        onFile(null)
+      }}
+      onFile={onFile}
+      onLocate={(path) => locateFile(source.botId, path)}
+      notice={scope === 'turn' && purged ? PURGED : undefined}
+    />
   )
 }
 
-function AuditTab({ detail, userName }: { detail: RunDetailDto; userName: (id: string | null) => string }) {
+function Audit({ detail, userName }: { detail: RunDetailDto; userName: (id: string | null) => string }) {
   const { run } = detail
   const rows = [
     {

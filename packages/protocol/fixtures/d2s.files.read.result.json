@@ -1,0 +1,9 @@
+{
+  "t": "files.read.result",
+  "requestId": "r1",
+  "size": 18,
+  "binary": false,
+  "mime": "text/plain; charset=utf-8",
+  "text": "console.log('hi')\n",
+  "error": null
+}

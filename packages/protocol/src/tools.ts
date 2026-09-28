@@ -166,7 +166,8 @@ export const DAEMON_TOOLS = {
     title: '启动托管服务',
     description:
       '在工作区里启动一个长期运行的服务（如 dev server），由 gonggong 托管：本轮结束后仍在运行，可查看日志、随时停止。' +
-      '需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动。',
+      '需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动；' +
+      '群里已有的预览卡片会自动接上重启后的服务，不必重新发布。',
     input: ServiceStartArgs,
   },
   service_list: {
@@ -181,7 +182,8 @@ export const DAEMON_TOOLS = {
   },
   service_stop: {
     title: '停止托管服务',
-    description: '停止托管服务及其子进程，并关闭它的预览。',
+    description:
+      '停止托管服务及其子进程。它的预览卡片保留并显示服务已停止，重新启动同名服务或成员在卡片上点启动即可恢复。',
     input: ServiceStopArgs,
   },
   preview_static: {

@@ -7,6 +7,7 @@ mod onboarding;
 mod overview;
 mod settings;
 mod shell;
+mod tunnels;
 mod workspaces;
 
 /// Command errors reach the frontend as the rejected promise's message.
@@ -38,6 +39,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         agents::reset_agent_path,
         bots::bots,
         bots::open_bot_in_web,
+        tunnels::tunnels,
+        tunnels::close_tunnel,
+        tunnels::stop_service,
+        tunnels::open_local,
     ]
 }
 

@@ -1,18 +1,20 @@
 import {
   agentConfigLabel,
   type BotOwnerDto,
+  type BotPlaceDto,
   CreateBotReq,
   fitEffort,
   GroupBotConfigReq,
   GroupBotTierReq,
+  TERMINAL_RUN_STATUS,
   type Tier,
   UpdateBotReq,
 } from '@gonggong/protocol'
-import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, max, ne, notInArray } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { bots, groupBots, machines, users } from '../../db/schema.js'
+import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
@@ -124,6 +126,54 @@ export function botRoutes(ctx: Ctx) {
     app.get<IdParams>('/api/bots/:id', async (req) => {
       await requireUser(ctx, req)
       return botDto(ctx, await loadBot(ctx, req.params.id))
+    })
+
+    app.get<IdParams>('/api/bots/:id/activity', async (req): Promise<BotPlaceDto[]> => {
+      const user = await requireUser(ctx, req)
+      const bot = await loadBot(ctx, req.params.id)
+      if (user.id !== bot.ownerId && user.role !== 'sysadmin')
+        fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的工作情况')
+      const places = await ctx.db
+        .select({
+          groupId: groups.id,
+          groupName: groups.name,
+          groupKind: groups.kind,
+          workspacePath: groupBots.workspacePath,
+          lastRunAt: max(runs.startedAt),
+        })
+        .from(groupBots)
+        .innerJoin(groups, eq(groups.id, groupBots.groupId))
+        .leftJoin(runs, and(eq(runs.groupId, groupBots.groupId), eq(runs.botId, bot.id)))
+        .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt), isNull(groups.archivedAt)))
+        .groupBy(groups.id, groupBots.workspacePath)
+      const live = await ctx.db
+        .select({
+          id: runs.id,
+          groupId: runs.groupId,
+          status: runs.status,
+          step: runs.step,
+          startedAt: runs.startedAt,
+        })
+        .from(runs)
+        .where(and(eq(runs.botId, bot.id), notInArray(runs.status, [...TERMINAL_RUN_STATUS])))
+        .orderBy(desc(runs.queuedAt))
+      const dtos = places.map((p): BotPlaceDto => {
+        const run = live.find((r) => r.groupId === p.groupId)
+        return {
+          ...p,
+          groupKind: p.groupKind as BotPlaceDto['groupKind'],
+          lastRunAt: p.lastRunAt?.toISOString() ?? null,
+          run: run
+            ? {
+                id: run.id,
+                status: run.status as NonNullable<BotPlaceDto['run']>['status'],
+                step: run.step,
+                startedAt: run.startedAt?.toISOString() ?? null,
+              }
+            : null,
+        }
+      })
+      return dtos.sort((a, b) => +!a.run - +!b.run || (b.lastRunAt ?? '').localeCompare(a.lastRunAt ?? ''))
     })
 
     app.post('/api/bots', async (req) => {

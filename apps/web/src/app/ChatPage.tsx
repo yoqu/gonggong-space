@@ -1,29 +1,28 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
-import { PreviewPanel } from '../features/attachments/PreviewPanel'
-import { usePreview } from '../features/attachments/preview'
 import { BotDialog } from '../features/bots/BotDialog'
+import { BotPage } from '../features/bots/BotPage'
 import { botsApi } from '../features/bots/model'
 import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
-import { DiffWindow } from '../features/diff/DiffWindow'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
 import { MachineDialog } from '../features/machines/MachineDialog'
-import { RunRail } from '../features/runs/RunRail'
-import { useRunRail } from '../features/runs/rail'
+import { openTab } from '../features/workbench/open'
+import { Workbench } from '../features/workbench/Workbench'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence, toast } from '../ui'
 import { AppRail } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
-import { useInspector, useLegacyRailWins } from './inspector'
-import { Sidebar } from './Sidebar'
+import { useInspector } from './inspector'
+import { ChatStrip, ConversationStrip, Sidebar } from './Sidebar'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
 import { Welcome } from './Welcome'
+import { useWorkbench } from './workbench'
 import { useWorkspace } from './workspace'
 
 const LAST_GROUP_KEY = 'gonggong.lastGroup'
@@ -72,38 +71,32 @@ function useChatData() {
   return [state, retry] as const
 }
 
-/** `?run=<id>[&file=<path>]` from a notification or search hit opens that run in the rail, then leaves the URL. */
-function useLinkedRun() {
+/** `?run=<id>[&file=<path>]` from a notification or search hit opens that run's tab, then leaves the URL. */
+function useLinkedRun(groupId: string | undefined) {
   const [params, setParams] = useSearchParams()
   const run = params.get('run')
   const file = params.get('file')
+  // Tabs belong to the workbench's group: wait until it has switched to the linked one.
+  const bench = useWorkbench((s) => s.groupId)
   useEffect(() => {
-    if (!run) return
-    useRunRail.getState().open(run, file ? 'diff' : 'process', file)
+    if (!run || !groupId || bench !== groupId) return
+    openTab({ kind: 'run', runId: run, view: file ? 'diff' : 'process', file })
     setParams({}, { replace: true })
-  }, [run, file, setParams])
+  }, [run, file, groupId, bench, setParams])
 }
 
-/** `?bot=<id>` (the desktop app's 在 Web 中管理) opens that bot's dialog, then leaves the URL. */
-function useLinkedBot(open: (id: string) => void) {
-  const [params, setParams] = useSearchParams()
+/** `?bot=<id>` (the desktop app's 在 Web 中管理) opens that bot's page. */
+function useLinkedBot() {
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
   const bot = params.get('bot')
   useEffect(() => {
-    if (!bot) return
-    open(bot)
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        next.delete('bot')
-        return next
-      },
-      { replace: true },
-    )
-  }, [bot, open, setParams])
+    if (bot) navigate(`/bot/${bot}`, { replace: true })
+  }, [bot, navigate])
 }
 
 export function ChatPage() {
-  const { groupId } = useParams()
+  const { groupId, botId } = useParams()
   const navigate = useNavigate()
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
@@ -112,62 +105,50 @@ export function ChatPage() {
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
-  const [openBotId, setOpenBotId] = useState<string | null>(null)
+  const [settingBotId, setSettingBotId] = useState<string | null>(null)
   const [machineId, setMachineId] = useState<string | null>(null)
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
-  const firstRun = !groupId && groupsState === 'ready' && !groups.length
-  const openBot = bots.find((b) => b.id === openBotId)
+  const firstRun = !groupId && !botId && groupsState === 'ready' && !groups.length
+  const openBot = bots.find((b) => b.id === botId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
-  const railRun = useRunRail((s) => s.runId)
-  const preview = usePreview((s) => s.open)
   const inspector = useInspector((s) => s.view)
-  useLegacyRailWins(!!railRun || !!preview)
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
-  useEffect(
-    () => () => {
-      useRunRail.getState().close()
-      usePreview.getState().close()
-      useInspector.getState().close()
-    },
-    [groupId],
+  useEffect(() => () => useInspector.getState().close(), [groupId])
+  // The group must be loaded, so the workbench has switched to it for good.
+  useLinkedRun(group?.id)
+  useLinkedBot()
+  const benchGroup = botId ? null : (group?.id ?? null)
+  useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
+  const benchShown = useWorkbench(
+    (s) => !!benchGroup && s.groupId === benchGroup && s.open && !!s.benches[benchGroup]?.tabs.length,
   )
-  useLinkedRun()
-  useLinkedBot(setOpenBotId)
   useEffect(() => {
     if (group) rememberGroup(group.id)
   }, [group])
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
-    if (groupId || mobile || groupsState !== 'ready' || !groups.length) return
+    if (groupId || botId || mobile || groupsState !== 'ready' || !groups.length) return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, mobile, groupsState, groups, navigate])
+  }, [groupId, botId, mobile, groupsState, groups, navigate])
 
   return (
     <>
-      <DiffWindow />
       <ChatLayout
-        mobileView={groupId ? 'chat' : 'list'}
+        mobileView={groupId || botId ? 'chat' : 'list'}
         nav={(orientation) => <AppRail orientation={orientation} />}
+        workbench={benchShown ? <Workbench /> : undefined}
+        strip={<ConversationStrip groups={groups} />}
+        chatStrip={group ? <ChatStrip key={group.id} group={group} /> : null}
         rail={
           inspector ? (
             <div ref={(host) => useInspector.setState({ host })} className="chat__inspector" />
-          ) : railRun ? (
-            <RunRail key={railRun} runId={railRun} />
-          ) : preview ? (
-            <PreviewPanel key={preview.attachment.id} target={preview} />
           ) : undefined
         }
-        railOpen={!!inspector || !!railRun || !!preview}
-        railKind={
-          inspector === 'group-info'
-            ? 'info'
-            : inspector === 'preview' || (!inspector && !railRun && preview)
-              ? 'preview'
-              : 'run'
-        }
+        railOpen={!!inspector}
+        railKind={inspector === 'group-info' ? 'info' : 'run'}
         sidebar={
           <Sidebar
             groups={groups}
@@ -180,7 +161,6 @@ export function ChatPage() {
             loaded={workspaceLoaded && groupsState === 'ready'}
             onBindMachine={() => setBinding(true)}
             onNewBot={() => setNewBot(true)}
-            onOpenBot={setOpenBotId}
             onOpenMachine={setMachineId}
             onConfirmBot={(id) =>
               botsApi
@@ -191,7 +171,25 @@ export function ChatPage() {
           />
         }
       >
-        {group ? (
+        {botId ? (
+          openBot && me ? (
+            <BotPage
+              key={openBot.id}
+              bot={openBot}
+              me={me}
+              onSettings={() => setSettingBotId(openBot.id)}
+              onBack={mobile ? () => navigate('/') : undefined}
+            />
+          ) : (
+            <div className="chat__placeholder">
+              {workspaceLoaded ? (
+                <EmptyState illustration={<DeniedArt />} title="Bot 不存在或已删除" />
+              ) : (
+                <Mascot action="wait" size={72} label="加载中" />
+              )}
+            </div>
+          )
+        ) : group ? (
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
@@ -233,7 +231,9 @@ export function ChatPage() {
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
       <Presence>{newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}</Presence>
       <Presence>
-        {openBot && me ? <BotDialog bot={openBot} me={me} onClose={() => setOpenBotId(null)} /> : null}
+        {openBot && openBot.id === settingBotId && me ? (
+          <BotDialog bot={openBot} me={me} onClose={() => setSettingBotId(null)} />
+        ) : null}
       </Presence>
       <Presence>
         {openMachine ? <MachineDialog machine={openMachine} onClose={() => setMachineId(null)} /> : null}

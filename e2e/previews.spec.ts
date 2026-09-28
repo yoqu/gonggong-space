@@ -63,12 +63,16 @@ test('a bot hosts a dev server and publishes it; members open it, embed a static
 
     await say(page, `@pv1 Bot mock:tool preview_static ${JSON.stringify({ dir: 'site', title: '静态报告' })}`)
     const report = main.locator('.pv-card', { hasText: '静态报告' })
-    await report.getByRole('button', { name: '内嵌预览' }).click()
-    await expect(
-      page.frameLocator('iframe[title="静态报告"]').getByRole('heading', { name: 'Hello 预览' }),
-    ).toBeVisible({
-      timeout: 30_000,
-    })
+    await report.getByRole('button', { name: '在工作台打开' }).click()
+    const report$ = page.frameLocator('iframe[title="静态报告"]')
+    await expect(report$.getByRole('heading', { name: 'Hello 预览' })).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: '刷新' }).click()
+    await expect(report$.getByRole('heading', { name: 'Hello 预览' })).toBeVisible({ timeout: 30_000 })
+    const path = page.getByRole('textbox', { name: '进入路径' })
+    await path.fill('/index.html')
+    await path.press('Enter')
+    await expect(report$.getByRole('heading', { name: 'Hello 预览' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.locator('iframe[title="静态报告"]')).toHaveAttribute('src', /path=%2Findex\.html/)
 
     await main.getByRole('button', { name: '群设置' }).click()
     const drawer = page.getByRole('complementary', { name: '群设置' })

@@ -45,11 +45,16 @@ import {
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
 
+export const TRIGGER_SCOPE_LABEL: Record<TriggerScope, string> = {
+  all: '任何群成员',
+  list: '指定名单',
+  self: '仅本人',
+}
 const TIERS: Tier[] = ['read-only', 'workspace', 'full']
 const FULL_HINT = '完全访问档位只允许指定名单触发'
 const MAX_CONCURRENCY = 8
 
-function warning(bot: BotDto, userName: (id: string) => string) {
+export function warning(bot: BotDto, userName: (id: string) => string) {
   const agent = AGENT_LABEL[bot.agentKind]
   if (bot.presence === 'pending_confirm')
     return {
@@ -253,9 +258,9 @@ export function BotDetail({
               value={scope}
               onChange={setScope}
               items={[
-                { value: 'all', label: '任何群成员', disabled: !canEdit || tier === 'full' },
-                { value: 'list', label: '指定名单', disabled: !canEdit },
-                { value: 'self', label: '仅本人', disabled: !canEdit },
+                { value: 'all', label: TRIGGER_SCOPE_LABEL.all, disabled: !canEdit || tier === 'full' },
+                { value: 'list', label: TRIGGER_SCOPE_LABEL.list, disabled: !canEdit },
+                { value: 'self', label: TRIGGER_SCOPE_LABEL.self, disabled: !canEdit },
               ]}
             />
           </div>

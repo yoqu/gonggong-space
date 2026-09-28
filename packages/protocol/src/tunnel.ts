@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { WorkspaceSpec } from './daemon.js'
 
 /**
  * Preview tunnel (`/ws/daemon/tunnel`, machine token as Bearer): the server multiplexes HTTP requests and upgraded
@@ -33,9 +34,7 @@ export function decodeFrame(frame: Uint8Array) {
 /** Ordered name/value pairs: repeated headers such as set-cookie must survive. */
 export const TunnelHeaders = z.array(z.tuple([z.string(), z.string()]))
 
-export const TunnelOpen = z.object({
-  previewId: z.string(),
-  port: z.number().int().min(1).max(65535),
+const TunnelRequest = z.object({
   method: z.string(),
   /** Path and query as the browser sent them. */
   path: z.string(),
@@ -43,6 +42,21 @@ export const TunnelOpen = z.object({
   /** Upgrade request: after `head` 101 the stream carries the raw connection both ways. */
   upgrade: z.boolean(),
 })
+
+const PreviewPort = z.object({ previewId: z.string(), port: z.number().int().min(1).max(65535) })
+
+/**
+ * Targets: an open preview's loopback port; the read-only file server over a (group, bot) workspace (files
+ * browser raw bytes: GET / HEAD with Range; `path` = `/` + percent-encoded path relative to the workspace root); or
+ * a first-screen PNG of an open preview at `path`, rendered by the machine's headless Chrome (404 without one).
+ */
+export const TunnelOpen = z.union([
+  TunnelRequest.extend(PreviewPort.shape),
+  TunnelRequest.extend({ snapshot: PreviewPort }),
+  TunnelRequest.extend({
+    files: z.object({ groupId: z.string(), botId: z.string(), workspace: WorkspaceSpec }),
+  }),
+])
 export type TunnelOpen = z.infer<typeof TunnelOpen>
 
 export const TunnelHead = z.object({ status: z.number().int(), headers: TunnelHeaders })

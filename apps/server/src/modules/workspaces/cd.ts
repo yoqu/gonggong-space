@@ -12,7 +12,10 @@ export const ABSOLUTE = /^(\/|[A-Za-z]:[\\/])/
  * directory (against the group repo, if any) and answers with workspace.state, which the workspace engine applies
  * and hands to `onCdResult`. Returns false when the machine is offline.
  */
-export async function requestCd(ctx: Ctx, o: { groupId: string; botId: string; path: string | null }) {
+export async function requestCd(
+  ctx: Ctx,
+  o: { groupId: string; botId: string; path: string | null; force?: boolean },
+) {
   const [bot] = await ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, o.botId))
   const repo = await currentRepo(ctx, o.groupId, o.botId)
   const machineId = onlineMachine(ctx, bot?.machineId ?? null)
@@ -25,7 +28,7 @@ export async function requestCd(ctx: Ctx, o: { groupId: string; botId: string; p
     cdPath: o.path,
     joined: false,
   })
-  const sent = ctx.hub.send(machineId, { t: 'workspace.cd', requestId, ...o, repo })
+  const sent = ctx.hub.send(machineId, { t: 'workspace.cd', requestId, ...o, force: !!o.force, repo })
   if (!sent) forget(requestId)
   return sent
 }

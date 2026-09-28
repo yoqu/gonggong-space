@@ -1,7 +1,7 @@
 import type { DaemonToServer } from '@gonggong/protocol'
 import type { Ctx } from '../../context.js'
 import { publishPreviews } from './service.js'
-import { recordService, syncPreviews } from './services.js'
+import { recordService, settleRestart, syncPreviews } from './services.js'
 
 export function startPreviewEngine(ctx: Ctx) {
   // In order: a service's starting → running must not be applied backwards.
@@ -12,6 +12,7 @@ export function startPreviewEngine(ctx: Ctx) {
         .then(() => recordService(ctx, machineId, msg.service))
         .then(() => publishPreviews(ctx, msg.service.groupId))
         .catch((err) => console.error('service.state:', err))
+    else if (msg.t === 'service.restart.result') chain = chain.then(() => settleRestart(machineId, msg))
   }
   const onOnline = (machineId: string) => {
     chain = chain

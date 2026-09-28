@@ -10,6 +10,9 @@ export interface ChatHeaderAction {
   label: string
   onClick?: () => void
   active?: boolean
+  /** Shown beside the icon, e.g. a count. */
+  text?: ReactNode
+  disabled?: boolean
 }
 
 export interface ChatHeaderProps {

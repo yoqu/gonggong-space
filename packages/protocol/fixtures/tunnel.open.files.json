@@ -1,0 +1,11 @@
+{
+  "files": {
+    "groupId": "g1",
+    "botId": "b1",
+    "workspace": { "repo": null, "cdPath": null }
+  },
+  "method": "GET",
+  "path": "/assets/demo%20clip.mp4",
+  "headers": [["range", "bytes=0-1023"]],
+  "upgrade": false
+}

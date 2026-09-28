@@ -1,0 +1,24 @@
+{
+  "t": "files.tree.result",
+  "requestId": "t1",
+  "entries": [
+    {
+      "name": "icons",
+      "dir": true,
+      "size": 0,
+      "mtime": 1790000000000,
+      "uncommitted": false,
+      "ignored": false
+    },
+    {
+      "name": "logo.svg",
+      "dir": false,
+      "size": 2048,
+      "mtime": 1790000000123,
+      "uncommitted": true,
+      "ignored": false
+    }
+  ],
+  "truncated": false,
+  "error": null
+}

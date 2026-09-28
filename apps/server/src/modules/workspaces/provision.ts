@@ -111,7 +111,15 @@ async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string,
     cdPath: path,
     joined,
   })
-  const sent = ctx.hub.send(machineId, { t: 'workspace.cd', requestId, groupId, botId: bot.id, repo, path })
+  const sent = ctx.hub.send(machineId, {
+    t: 'workspace.cd',
+    requestId,
+    groupId,
+    botId: bot.id,
+    repo,
+    path,
+    force: false,
+  })
   if (!sent) forget(requestId)
   return sent
 }

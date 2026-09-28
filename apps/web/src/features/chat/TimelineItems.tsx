@@ -1,5 +1,6 @@
 import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
 import { memo, type ReactNode, useMemo, useState } from 'react'
+import { useWorkbench } from '../../app/workbench'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import {
@@ -29,8 +30,8 @@ import { toolTitle } from '../runs/mcp'
 import { filePaths } from '../runs/paths'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
-import { useRunRail } from '../runs/rail'
 import { UserCardTrigger } from '../users'
+import { openTab } from '../workbench/open'
 import { Clamp } from './Clamp'
 import { isRich } from './grouping'
 import { Markdown } from './Markdown'
@@ -313,14 +314,14 @@ const FILE_CHIPS = 2
 
 /** The first files a reply names, by base name; the rest are left to the run's full diff. */
 function FileChips({ runId, text }: { runId: string; text: string }) {
-  const open = useRunRail((s) => s.open)
+  const open = (file: string | null) => openTab({ kind: 'run', runId, view: 'diff', file })
   const files = useMemo(() => filePaths(text), [text])
   if (!files.length) return null
   const rest = files.length - FILE_CHIPS
   return (
     <div className="tl-files">
       {files.slice(0, FILE_CHIPS).map((f) => (
-        <button key={f} type="button" className="tl-file" title={f} onClick={() => open(runId, 'diff', f)}>
+        <button key={f} type="button" className="tl-file" title={f} onClick={() => open(f)}>
           <Icon name="doc-text" size={12} />
           {f.split('/').at(-1)}
         </button>
@@ -331,7 +332,7 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
           className="tl-file"
           aria-label={`还有 ${rest} 个文件，查看完整改动`}
           title={`还有 ${rest} 个文件，查看完整改动`}
-          onClick={() => open(runId, 'diff')}
+          onClick={() => open(null)}
         >
           +{rest}
         </button>
@@ -376,7 +377,12 @@ function ReplyMessage({
         }
       >
         {m.previewId ? (
-          <PreviewCard previewId={m.previewId} groupId={m.groupId} fallback={m.body} />
+          <PreviewCard
+            previewId={m.previewId}
+            groupId={m.groupId}
+            botId={m.authorId ?? ''}
+            fallback={m.body}
+          />
         ) : (
           <Clamp>
             <Markdown text={m.body} />
@@ -433,8 +439,9 @@ export const RunCard = memo(function RunCard({
   const [expanded, setExpanded] = useState<boolean | null>(null)
   const live = LIVE.includes(run.status)
   const now = useNow(live && !!run.startedAt)
-  const selected = useRunRail((s) => s.runId === run.id)
-  const openRail = useRunRail((s) => s.open)
+  const selected = useWorkbench(
+    (s) => s.open && !!s.groupId && s.benches[s.groupId]?.active === `run:${run.id}`,
+  )
   const quote = useQuote((s) => s.set)
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const note = NOTE.includes(run.status)
@@ -465,7 +472,12 @@ export const RunCard = memo(function RunCard({
     copyText: reply?.body,
   }
   const process = (
-    <Button size="small" variant="plain" icon="sidebar-right" onClick={() => openRail(run.id)}>
+    <Button
+      size="small"
+      variant="plain"
+      icon="sidebar-right"
+      onClick={() => openTab({ kind: 'run', runId: run.id, view: 'process', file: null })}
+    >
       查看过程
     </Button>
   )

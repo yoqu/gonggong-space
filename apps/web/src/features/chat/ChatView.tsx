@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 import { InspectorPortal, useInspector } from '../../app/inspector'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
+import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
@@ -28,6 +29,7 @@ import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
+import { PreviewTags } from '../previews/PreviewTags'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
@@ -93,6 +95,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const drag = useFileDrag()
   const inspector = useInspector()
   const infoOpen = inspector.view === 'group-info'
+  const benchTabs = useWorkbench((s) => s.benches[group.id]?.tabs.length ?? 0)
+  const benchOpen = useWorkbench((s) => s.open)
   const [settings, setSettings] = useState<SettingsTab | null>(null)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
@@ -324,6 +328,14 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               ]
             : []),
           {
+            icon: 'dashboard' as const,
+            label: benchTabs ? '工作台' : '工作台 · 还没有打开的标签页',
+            text: benchTabs || undefined,
+            active: benchOpen && benchTabs > 0,
+            disabled: !benchTabs,
+            onClick: () => useWorkbench.getState().setOpen(!benchOpen),
+          },
+          {
             icon: 'sidebar-right',
             label: '群设置',
             active: infoOpen,
@@ -447,6 +459,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           ) : null}
         </div>
       </div>
+      <PreviewTags groupId={group.id} />
       <MessageComposer
         group={group}
         dropFiles={dropFiles}

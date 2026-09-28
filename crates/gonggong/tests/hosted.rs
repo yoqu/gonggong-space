@@ -236,3 +236,36 @@ async fn stop_all_ends_every_service_when_the_daemon_exits() {
     assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_err());
     assert!(services.live().is_empty());
 }
+
+#[tokio::test]
+async fn the_server_can_restart_a_service_by_id_as_it_was_started() {
+    let (home, root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let port = free_port();
+    let mut web = args("web", &format!("echo \"$GREETING\"; exec python3 -m http.server {port} --bind 127.0.0.1"), Some(port));
+    web.env.insert("GREETING".into(), "hi-from-env".into());
+    services.start(scope(root.path(), "b1", &out), web).await.unwrap();
+    let first = next_state(&mut rx).await;
+    next_state(&mut rx).await;
+    services.stop("g1", "b1", "web").await.unwrap();
+    assert_eq!(next_state(&mut rx).await.status, ServiceStatus::Exited);
+
+    let text = services.restart_id(&first.id, &out).await.unwrap();
+    assert!(text.contains("hi-from-env"), "{text}");
+    let again = next_state(&mut rx).await;
+    assert_ne!(again.id, first.id);
+    assert_eq!((again.name.as_str(), again.port, again.run_id.as_deref()), ("web", Some(port), Some("r1")));
+    assert_eq!(next_state(&mut rx).await.status, ServiceStatus::Running);
+
+    std::fs::create_dir_all(root.path().join("dist")).unwrap();
+    services.start_static(scope(root.path(), "b1", &out), "site", "dist").await.unwrap();
+    let site = next_state(&mut rx).await;
+    services.restart_id(&site.id, &out).await.unwrap();
+    assert_eq!(next_state(&mut rx).await.status, ServiceStatus::Exited);
+    let reopened = next_state(&mut rx).await;
+    assert_eq!((reopened.name.as_str(), reopened.status), ("site", ServiceStatus::Running));
+
+    assert!(services.restart_id("nope", &out).await.unwrap_err().contains("重新启动"));
+    services.stop_all().await;
+}

@@ -161,6 +161,17 @@ describe('joining without a workspace choice', () => {
     await until(async () => (await w.bodies(g.id)).includes('✓ 小王的 Claude 已使用托管工作区'))
   })
 
+  it('passes a confirmed binding outside the group repo on to the daemon', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const g = await w.createGroup()
+    const url = `/api/groups/${g.id}/bots/${w.bot.id}/workspace`
+    expect((await w.asAlice.put(url, { path: '/src/other' })).status).toBe(204)
+    expect(await d.next()).toMatchObject({ t: 'workspace.cd', path: '/src/other', force: false })
+    expect((await w.asAlice.put(url, { path: '/src/other', force: true })).status).toBe(204)
+    expect(await d.next()).toMatchObject({ t: 'workspace.cd', path: '/src/other', force: true })
+  })
+
   it('only lets the bot owner bind, and only while the machine is online', async () => {
     const w = await world()
     const g = await w.createGroup()

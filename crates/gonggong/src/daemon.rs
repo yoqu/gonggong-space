@@ -67,7 +67,12 @@ impl Daemon {
         let background = [
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
-            tokio::spawn(crate::tunnel::run(opts.config.clone(), engine.previews(), engine.tunnel_offered())),
+            tokio::spawn(crate::tunnel::run(
+                opts.config.clone(),
+                engine.previews(),
+                opts.home.clone(),
+                engine.tunnel_offered(),
+            )),
         ];
         let service = Service {
             config: opts.config,

@@ -1,20 +1,24 @@
 import { randomBytes } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { GroupPreviewsDto, PreviewDto, ServiceDto } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupMembers, previews, type runs, services } from '../../db/schema.js'
+import { bots, groupBots, groupMembers, groups, previews, type runs, services } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { refuse } from '../agent-tools/service.js'
+import { dataDir } from '../attachments/service.js'
 import { requireMember } from '../groups/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { closePortListener, openPortListener } from './gateway.js'
-import { syncPreviews } from './services.js'
+import { restartService, syncPreviews } from './services.js'
 
 type Run = typeof runs.$inferSelect
 type Preview = typeof previews.$inferSelect
 const LIVE = ['starting', 'running']
 const REAP_EVERY_MS = 10 * 60_000
+const SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024
 
 /** 16 base32 characters (80 bits): the subdomain label in domain mode. */
 const newSlug = () => {
@@ -39,30 +43,45 @@ async function canManage(ctx: Ctx, groupId: string, botOwnerId: string, userId: 
   return !!m?.isAdmin
 }
 
-export async function groupPreviews(ctx: Ctx, groupId: string, userId: string): Promise<GroupPreviewsDto> {
-  const [member] = await ctx.db
-    .select({ isAdmin: groupMembers.isAdmin })
-    .from(groupMembers)
-    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
-  const manages = (ownerId: string) => ownerId === userId || !!member?.isAdmin
+/** Open previews and live services of a group (as `userId` may manage them) or of a machine (its owner's). */
+async function listPreviews(
+  ctx: Ctx,
+  scope: { groupId: string } | { machineId: string },
+  manages: (botOwnerId: string) => boolean,
+  manageableBotIds: string[],
+): Promise<GroupPreviewsDto> {
+  const inPreviews =
+    'groupId' in scope ? eq(previews.groupId, scope.groupId) : eq(previews.machineId, scope.machineId)
+  const inServices =
+    'groupId' in scope ? eq(services.groupId, scope.groupId) : eq(services.machineId, scope.machineId)
   const open = await ctx.db
-    .select({ p: previews, botName: bots.name, ownerId: bots.ownerId, serviceName: services.name })
+    .select({
+      p: previews,
+      botName: bots.name,
+      ownerId: bots.ownerId,
+      groupName: groups.name,
+      serviceName: services.name,
+      serviceStatus: services.status,
+    })
     .from(previews)
     .innerJoin(bots, eq(bots.id, previews.botId))
+    .innerJoin(groups, eq(groups.id, previews.groupId))
     .leftJoin(services, eq(services.id, previews.serviceId))
-    .where(and(eq(previews.groupId, groupId), isNull(previews.closedAt)))
+    .where(and(inPreviews, isNull(previews.closedAt)))
     .orderBy(desc(previews.createdAt))
   const live = await ctx.db
-    .select({ s: services, botName: bots.name, ownerId: bots.ownerId })
+    .select({ s: services, botName: bots.name, ownerId: bots.ownerId, groupName: groups.name })
     .from(services)
     .innerJoin(bots, eq(bots.id, services.botId))
-    .where(and(eq(services.groupId, groupId), inArray(services.status, LIVE)))
+    .innerJoin(groups, eq(groups.id, services.groupId))
+    .where(and(inServices, inArray(services.status, LIVE)))
     .orderBy(desc(services.createdAt))
   return {
     previews: open.map(
-      ({ p, botName, ownerId, serviceName }): PreviewDto => ({
+      ({ p, botName, ownerId, groupName, serviceName, serviceStatus }): PreviewDto => ({
         id: p.id,
         groupId: p.groupId,
+        groupName,
         botId: p.botId,
         botName,
         kind: p.kind as PreviewDto['kind'],
@@ -70,15 +89,22 @@ export async function groupPreviews(ctx: Ctx, groupId: string, userId: string): 
         path: p.path,
         serviceId: p.serviceId,
         serviceName,
-        status: ctx.tunnels.get(p.machineId) ? 'online' : 'offline',
+        port: p.port,
+        snapshotAt: p.snapshotAt?.toISOString() ?? null,
+        status: !ctx.tunnels.get(p.machineId)
+          ? 'offline'
+          : serviceStatus && !LIVE.includes(serviceStatus)
+            ? 'stopped'
+            : 'online',
         canManage: manages(ownerId),
         createdAt: p.createdAt.toISOString(),
       }),
     ),
     services: live.map(
-      ({ s, botName, ownerId }): ServiceDto => ({
+      ({ s, botName, ownerId, groupName }): ServiceDto => ({
         id: s.id,
         groupId: s.groupId,
+        groupName,
         botId: s.botId,
         botName,
         name: s.name,
@@ -90,7 +116,34 @@ export async function groupPreviews(ctx: Ctx, groupId: string, userId: string): 
         createdAt: s.createdAt.toISOString(),
       }),
     ),
+    manageableBotIds,
   }
+}
+
+export async function groupPreviews(ctx: Ctx, groupId: string, userId: string) {
+  const [member] = await ctx.db
+    .select({ isAdmin: groupMembers.isAdmin })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+  const manages = (ownerId: string) => ownerId === userId || !!member?.isAdmin
+  const inGroup = await ctx.db
+    .select({ id: bots.id, ownerId: bots.ownerId })
+    .from(groupBots)
+    .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .where(and(eq(groupBots.groupId, groupId), isNull(groupBots.removedAt)))
+  const manageable = inGroup.filter((b) => manages(b.ownerId)).map((b) => b.id)
+  return listPreviews(ctx, { groupId }, manages, manageable)
+}
+
+/** The desktop app's view: a machine's bots all belong to its owner, who manages everything on it. */
+export async function machinePreviews(ctx: Ctx, machineId: string) {
+  const own = await ctx.db.select({ id: bots.id }).from(bots).where(eq(bots.machineId, machineId))
+  return listPreviews(
+    ctx,
+    { machineId },
+    () => true,
+    own.map((b) => b.id),
+  )
 }
 
 export async function publishPreviews(ctx: Ctx, groupId: string) {
@@ -168,6 +221,7 @@ export async function exposePreview(
   await ctx.db.update(previews).set({ messageId: card.id }).where(eq(previews.id, preview.id))
   await syncPreviews(ctx, bot.machineId)
   await publishPreviews(ctx, run.groupId)
+  void takeSnapshot(ctx, preview).catch(() => {})
   const link = publicLink(ctx, preview)
   return [
     `已发布预览「${a.title}」（id ${preview.id}），群里已出现它的卡片，群成员可直接打开。`,
@@ -175,6 +229,109 @@ export async function exposePreview(
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+export const snapshotFile = (previewId: string) => join(dataDir(), 'previews', `${previewId}.png`)
+
+/** Its first screen, rendered by the machine's headless Chrome through the tunnel; fails with the machine's reason. */
+export async function takeSnapshot(ctx: Ctx, p: Preview) {
+  const conn = ctx.tunnels.get(p.machineId)
+  if (!conn || p.port === null) return fail('conflict', '预览所在的机器离线')
+  let png: Buffer
+  try {
+    const stream = conn.open({
+      snapshot: { previewId: p.id, port: p.port },
+      method: 'GET',
+      path: p.path,
+      headers: [],
+      upgrade: false,
+    })
+    stream.end()
+    const head = await stream.head
+    const chunks: Buffer[] = []
+    let size = 0
+    for await (const c of stream) {
+      size += (c as Buffer).length
+      if (size > SNAPSHOT_MAX_BYTES) throw new Error('截图过大')
+      chunks.push(c as Buffer)
+    }
+    png = Buffer.concat(chunks)
+    if (head.status !== 200) throw new Error(png.toString() || `截图失败（${head.status}）`)
+  } catch (err) {
+    return fail('conflict', (err as Error).message)
+  }
+  const file = snapshotFile(p.id)
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, png)
+  await ctx.db.update(previews).set({ snapshotAt: ctx.now() }).where(eq(previews.id, p.id))
+  await publishPreviews(ctx, p.groupId)
+}
+
+/** Asks the machine to stop a live service; its exit report closes the service's previews. */
+export function stopService(ctx: Ctx, svc: { id: string; machineId: string }) {
+  if (!ctx.hub.send(svc.machineId, { t: 'service.stop', serviceId: svc.id }))
+    fail('conflict', '服务所在的机器离线')
+}
+
+/** 停止: closes the tunnel and, with `withService`, stops the live service behind it first. */
+export async function stopPreview(ctx: Ctx, preview: Preview, withService: boolean) {
+  if (withService && preview.serviceId) {
+    const [svc] = await ctx.db
+      .select({ id: services.id, machineId: services.machineId })
+      .from(services)
+      .where(and(eq(services.id, preview.serviceId), inArray(services.status, LIVE)))
+    if (svc) stopService(ctx, svc)
+  }
+  await closePreview(ctx, preview)
+}
+
+/**
+ * 启动 on a card: restarts the stopped service behind the preview as it was started, then reopens the preview if it
+ * was closed (the service's report has moved it onto the restarted one by then).
+ */
+export async function startPreview(ctx: Ctx, p: Preview) {
+  if (p.closedAt && p.port !== null) {
+    const [taken] = await ctx.db
+      .select({ title: previews.title })
+      .from(previews)
+      .where(
+        and(
+          eq(previews.groupId, p.groupId),
+          eq(previews.botId, p.botId),
+          eq(previews.port, p.port),
+          isNull(previews.closedAt),
+        ),
+      )
+    if (taken) fail('conflict', `端口 ${p.port} 已有新的预览「${taken.title}」`)
+  }
+  const [svc] = p.serviceId ? await ctx.db.select().from(services).where(eq(services.id, p.serviceId)) : []
+  if (svc && !LIVE.includes(svc.status)) await restartService(ctx, svc)
+  if (p.closedAt) {
+    const [now] = svc
+      ? await ctx.db
+          .select({ id: services.id, port: services.port })
+          .from(services)
+          .where(
+            and(
+              eq(services.groupId, svc.groupId),
+              eq(services.botId, svc.botId),
+              eq(services.name, svc.name),
+              inArray(services.status, LIVE),
+            ),
+          )
+          .orderBy(desc(services.createdAt))
+          .limit(1)
+      : []
+    await ctx.db
+      .update(previews)
+      .set({ closedAt: null, ...(now ? { serviceId: now.id, port: now.port ?? p.port } : {}) })
+      .where(eq(previews.id, p.id))
+    if (!ctx.config.preview.domain) await openPortListener(ctx, p.id)
+    await syncPreviews(ctx, p.machineId)
+  }
+  await publishPreviews(ctx, p.groupId)
+  const [fresh] = await ctx.db.select().from(previews).where(eq(previews.id, p.id))
+  if (fresh) void takeSnapshot(ctx, fresh).catch(() => {})
 }
 
 export async function closePreview(ctx: Ctx, preview: Preview) {

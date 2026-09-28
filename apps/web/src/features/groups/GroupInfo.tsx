@@ -167,7 +167,7 @@ export function GroupInfo({
       ) : view === 'notices' ? (
         <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
       ) : view === 'previews' ? (
-        <PreviewsView groupId={group.id} />
+        <PreviewsView groupId={group.id} onOpen={onClose} />
       ) : (
         <InfoForm group={group} onSaved={() => setView('main')} />
       )}

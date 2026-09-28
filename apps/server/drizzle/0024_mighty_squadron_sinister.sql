@@ -1,0 +1,1 @@
+ALTER TABLE "previews" ADD COLUMN "snapshot_at" timestamp with time zone;

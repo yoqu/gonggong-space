@@ -68,7 +68,7 @@ async function world() {
     expect(res.statusCode).toBe(200)
     return res.json<ToolCallRes>()
   }
-  return { wang, li, machine, bot, group, other, run: run!, web: web!, sent, seen, call }
+  return { wang, li, machine, token, bot, group, other, run: run!, web: web!, sent, seen, call }
 }
 
 const openRows = async () => (await t.db.select().from(previews)).filter((p) => !p.closedAt)
@@ -178,6 +178,147 @@ describe('previews in the group', () => {
     const wang = client(t, await t.seed.cookie(w.wang.id))
     expect((await wang.post(`/api/services/${w.web.id}/stop`)).status).toBe(204)
     expect(w.sent).toContainEqual({ t: 'service.stop', serviceId: w.web.id })
+  })
+
+  it('stops the tunnel together with the service behind it, and says so when that machine is offline', async () => {
+    const w = await world()
+    await w.call('preview_expose', { service: 'web', title: '登录页' })
+    const [p] = await openRows()
+    const li = client(t, await t.seed.cookie(w.li.id))
+    expect((await li.post(`/api/previews/${p!.id}/close`, { stopService: true })).status).toBe(403)
+    const wang = client(t, await t.seed.cookie(w.wang.id))
+    const conn = { send: (m: ServerToDaemon) => w.sent.push(m), close: () => {} }
+    t.ctx.hub.register(w.machine.id, conn)
+    t.ctx.hub.unregister(w.machine.id, conn)
+    expect((await wang.post(`/api/previews/${p!.id}/close`, { stopService: true })).status).toBe(409)
+    expect(await openRows()).toHaveLength(1)
+    t.ctx.hub.register(w.machine.id, conn)
+    expect((await wang.post(`/api/previews/${p!.id}/close`, { stopService: true })).status).toBe(204)
+    expect(w.sent).toContainEqual({ t: 'service.stop', serviceId: w.web.id })
+    expect(await openRows()).toHaveLength(0)
+  })
+})
+
+describe('a stopped or closed preview comes back without asking the bot', () => {
+  /** The machine answers service.restart with `error` and reports the new service like the real daemon. */
+  function answering(w: Awaited<ReturnType<typeof world>>, error: string | null) {
+    t.ctx.hub.register(w.machine.id, {
+      send: (m) => {
+        w.sent.push(m)
+        if (m.t !== 'service.restart') return
+        setTimeout(() => {
+          if (!error)
+            t.ctx.hub.emit('message', w.machine.id, {
+              t: 'service.state',
+              service: {
+                id: crypto.randomUUID(),
+                groupId: w.group.id,
+                botId: w.bot.id,
+                runId: w.run.id,
+                name: 'web',
+                command: 'pnpm dev',
+                cwd: '',
+                port: 5173,
+                status: 'running',
+                exitCode: null,
+              },
+            })
+          t.ctx.hub.emit('message', w.machine.id, {
+            t: 'service.restart.result',
+            requestId: m.requestId,
+            error,
+          })
+        }, 10)
+      },
+      close: () => {},
+    })
+  }
+
+  it('shows 服务已停止 while its service is down, and 启动 restarts it as it was started', async () => {
+    const w = await world()
+    await w.call('preview_expose', { service: 'web', title: '登录页' })
+    const [p] = await openRows()
+    await t.db.update(services).set({ status: 'exited' }).where(eq(services.id, w.web.id))
+    t.ctx.tunnels.register(w.machine.id, { close: () => {} } as never)
+    const li = client(t, await t.seed.cookie(w.li.id))
+    const listed = await li.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)
+    expect(listed.body.previews[0]?.status).toBe('stopped')
+    expect(listed.body.manageableBotIds).toEqual([])
+    expect((await li.post(`/api/previews/${p!.id}/start`)).status).toBe(403)
+
+    const wang = client(t, await t.seed.cookie(w.wang.id))
+    expect(
+      (await wang.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body.manageableBotIds,
+    ).toEqual([w.bot.id])
+    answering(w, null)
+    expect((await wang.post(`/api/previews/${p!.id}/start`)).status).toBe(204)
+    expect(w.sent).toContainEqual(expect.objectContaining({ t: 'service.restart', serviceId: w.web.id }))
+    const [row] = await openRows()
+    expect(row?.serviceId).not.toBe(w.web.id)
+  })
+
+  it("reopens a closed preview, restarting its service; the machine's reason when it cannot", async () => {
+    const w = await world()
+    await w.call('preview_expose', { service: 'web', title: '登录页' })
+    const [p] = await openRows()
+    const wang = client(t, await t.seed.cookie(w.wang.id))
+    await wang.post(`/api/previews/${p!.id}/close`, { stopService: true })
+    await t.db.update(services).set({ status: 'exited' }).where(eq(services.id, w.web.id))
+
+    answering(w, '本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动')
+    const failed = await wang.post(`/api/previews/${p!.id}/start`)
+    expect(failed).toMatchObject({
+      status: 409,
+      body: { message: expect.stringContaining('请让 Bot 重新启动') },
+    })
+    expect(await openRows()).toHaveLength(0)
+
+    answering(w, null)
+    w.seen.length = 0
+    expect((await wang.post(`/api/previews/${p!.id}/start`)).status).toBe(204)
+    expect((await openRows()).map((r) => r.id)).toEqual([p!.id])
+    expect(w.seen).toContainEqual(
+      expect.objectContaining({ t: 'group.previews', previews: [expect.objectContaining({ id: p!.id })] }),
+    )
+  })
+})
+
+describe('the machine manages its own tunnels (desktop app)', () => {
+  it("lists this machine's previews and services and stops them, which members see at once", async () => {
+    const w = await world()
+    await w.call('preview_expose', { service: 'web', title: '登录页' })
+    const [p] = await openRows()
+    const daemon = (method: 'GET' | 'POST', url: string, token = w.token, payload?: object) =>
+      t.app.inject({ method, url, headers: { authorization: `Bearer ${token}` }, payload })
+    const list = await daemon('GET', '/api/daemon/previews')
+    expect(list.statusCode).toBe(200)
+    expect(list.json()).toMatchObject({
+      previews: [
+        { id: p!.id, title: '登录页', groupName: w.group.name, botName: '小王的 Claude', port: 5173 },
+      ],
+      services: [{ id: w.web.id, name: 'web', groupName: w.group.name, port: 5173, status: 'running' }],
+    })
+
+    const stranger = await t.seed.machine(w.li.id)
+    expect((await daemon('POST', `/api/daemon/previews/${p!.id}/close`, stranger.token, {})).statusCode).toBe(
+      404,
+    )
+    expect((await daemon('POST', `/api/daemon/services/${w.web.id}/stop`, stranger.token)).statusCode).toBe(
+      404,
+    )
+    expect((await daemon('GET', '/api/daemon/previews', stranger.token)).json()).toEqual({
+      previews: [],
+      services: [],
+      manageableBotIds: [],
+    })
+
+    w.seen.length = 0
+    const closed = await daemon('POST', `/api/daemon/previews/${p!.id}/close`, w.token, { stopService: true })
+    expect(closed.statusCode).toBe(204)
+    expect(w.sent).toContainEqual({ t: 'service.stop', serviceId: w.web.id })
+    expect(await openRows()).toHaveLength(0)
+    expect(w.seen).toContainEqual(expect.objectContaining({ t: 'group.previews', previews: [] }))
+    expect((await daemon('POST', `/api/daemon/services/${w.web.id}/stop`)).statusCode).toBe(204)
   })
 })
 

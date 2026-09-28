@@ -15,13 +15,13 @@ const TABS: { value: By; label: string }[] = [
   { value: 'user', label: '按触发人' },
   { value: 'group', label: '按群' },
 ]
-const WINDOW = 30
-const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
+export const WINDOW = 30
+export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 export const fmtTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n))
 
 /** GET `path`; `data` stays null while loading. */
-function useGet<T>(path: string) {
+export function useGet<T>(path: string) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -125,7 +125,7 @@ function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageD
 const dayParts = (day: string) => day.split('-').slice(1).map(Number) as [number, number]
 
 /** Daily columns for the last 30 days; token or run count. */
-function Trend({ daily }: { daily: UsageDayDto[] }) {
+export function Trend({ daily }: { daily: UsageDayDto[] }) {
   const [metric, setMetric] = useState<'totalTokens' | 'runs'>('totalTokens')
   const days = daily.slice(-WINDOW)
   const tokens = metric === 'totalTokens'

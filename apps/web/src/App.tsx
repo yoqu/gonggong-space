@@ -49,6 +49,7 @@ export function App() {
         <Route element={<AppShell />}>
           <Route index element={<ChatPage />} />
           <Route path="g/:groupId" element={<ChatPage />} />
+          <Route path="bot/:botId" element={<ChatPage />} />
         </Route>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminIndex />} />

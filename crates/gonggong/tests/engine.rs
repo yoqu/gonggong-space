@@ -724,6 +724,56 @@ async fn lists_files_of_the_bot_workspace() {
     }
 }
 
+#[tokio::test]
+async fn browses_and_reads_the_bot_workspace_read_only() {
+    let mut r = rig(Duration::from_secs(60));
+    let _remote = repo_workspace(&r);
+    std::fs::write(r.workspace().join("notes.md"), "# 笔记\n").unwrap();
+    let workspace = WorkspaceSpec { repo: None, cd_path: None };
+    r.send(ServerToDaemon::FilesTree(FilesTree {
+        request_id: "t1".into(),
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        workspace: workspace.clone(),
+        path: "".into(),
+        show_ignored: false,
+    }));
+    match r.next().await {
+        DaemonToServer::FilesTreeResult { request_id, entries, truncated, error } => {
+            assert_eq!((request_id.as_str(), truncated, error), ("t1", false, None));
+            let got: Vec<_> = entries.iter().map(|e| (e.name.as_str(), e.uncommitted)).collect();
+            assert_eq!(got, [("notes.md", true), ("README.md", false)]);
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+    let read = |request_id: &str, path: &str| {
+        ServerToDaemon::FilesRead(FilesRead {
+            request_id: request_id.into(),
+            group_id: "g1".into(),
+            bot_id: "b1".into(),
+            workspace: workspace.clone(),
+            path: path.into(),
+            max_bytes: 2 * 1024 * 1024,
+        })
+    };
+    r.send(read("r1", "notes.md"));
+    match r.next().await {
+        DaemonToServer::FilesReadResult { request_id, size, binary, text, error, .. } => {
+            assert_eq!((request_id.as_str(), size, binary, error), ("r1", 9, false, None));
+            assert_eq!(text.as_deref(), Some("# 笔记\n"));
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+    r.send(read("r2", "../../x"));
+    match r.next().await {
+        DaemonToServer::FilesReadResult { request_id, text, error, .. } => {
+            assert_eq!((request_id.as_str(), text), ("r2", None));
+            assert!(error.unwrap().contains("超出工作区"));
+        }
+        other => panic!("unexpected {other:?}"),
+    }
+}
+
 fn running(step: &str) -> RunEvent {
     RunEvent::Status { status: RunStatus::Running, step: step.into() }
 }

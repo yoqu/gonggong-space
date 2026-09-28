@@ -23,6 +23,8 @@ interface FileListProps {
   files: DiffFile[]
   active?: DiffFile
   onPick: (path: string) => void
+  /** Offers 「在文件浏览器中定位」 on each file. */
+  onLocate?: (path: string) => void
 }
 
 /** Changed files, flat or as a folder tree per the shared layout switch. */
@@ -34,7 +36,13 @@ export function DiffFileList(props: FileListProps) {
         <DiffTree {...props} />
       ) : (
         props.files.map((f) => (
-          <DiffFileRow key={f.path} file={f} active={f === props.active} onPick={props.onPick} />
+          <DiffFileRow
+            key={f.path}
+            file={f}
+            active={f === props.active}
+            onPick={props.onPick}
+            onLocate={props.onLocate}
+          />
         ))
       )}
     </div>
@@ -55,7 +63,7 @@ export function DiffLayoutToggle() {
   )
 }
 
-function DiffTree({ files, active, onPick }: FileListProps) {
+function DiffTree({ files, active, onPick, onLocate }: FileListProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
   const toggle = (path: string) =>
     setClosed((s) => {
@@ -74,6 +82,7 @@ function DiffTree({ files, active, onPick }: FileListProps) {
             depth={depth}
             active={n.file === active}
             onPick={onPick}
+            onLocate={onLocate}
           />
         )
       const open = !closed.has(n.path)
@@ -108,6 +117,7 @@ function DiffFileRow({
   depth,
   active,
   onPick,
+  onLocate,
 }: {
   file: DiffFile
   /** Tree rows show the bare name; list rows show the name plus its folder. */
@@ -115,8 +125,9 @@ function DiffFileRow({
   depth?: number
   active: boolean
   onPick: (path: string) => void
+  onLocate?: (path: string) => void
 }) {
-  return (
+  const row = (
     <button
       type="button"
       className={cx(
@@ -137,6 +148,20 @@ function DiffFileRow({
       <span className="diff__del">−{file.del}</span>
       {file.binary ? null : <DiffBar add={file.add} del={file.del} />}
     </button>
+  )
+  if (!onLocate) return row
+  return (
+    <div className="diff__row">
+      {row}
+      <IconButton
+        size="small"
+        className="diff__locate"
+        title="在文件浏览器中定位"
+        onClick={() => onLocate(file.path)}
+      >
+        {'folder-open' as const}
+      </IconButton>
+    </div>
   )
 }
 

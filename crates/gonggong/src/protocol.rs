@@ -240,6 +240,17 @@ pub struct FileEntry {
     pub uncommitted: bool,
 }
 
+/// One entry of a files.tree listing (mtime in ms since epoch).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TreeEntry {
+    pub name: String,
+    pub dir: bool,
+    pub size: u64,
+    pub mtime: u64,
+    pub uncommitted: bool,
+    pub ignored: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DirEntry {
     pub name: String,
@@ -352,6 +363,28 @@ pub struct FilesList {
     pub workspace: WorkspaceSpec,
     pub query: String,
     pub limit: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesTree {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub workspace: WorkspaceSpec,
+    pub path: String,
+    pub show_ignored: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilesRead {
+    pub request_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub workspace: WorkspaceSpec,
+    pub path: String,
+    pub max_bytes: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -609,6 +642,9 @@ pub struct WorkspaceCd {
     pub bot_id: String,
     pub repo: Option<RepoSpec>,
     pub path: Option<String>,
+    /// The owner confirmed `path` although it is not a work tree of `repo`.
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -649,12 +685,45 @@ pub type TunnelHeaders = Vec<(String, String)>;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TunnelOpen {
-    pub preview_id: String,
-    pub port: u16,
+    #[serde(flatten)]
+    pub target: TunnelTarget,
     pub method: String,
     pub path: String,
     pub headers: TunnelHeaders,
     pub upgrade: bool,
+}
+
+/// Where a tunnel stream goes: an open preview's loopback port, the read-only files of a (group, bot) workspace, or a
+/// first-screen PNG of an open preview.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TunnelTarget {
+    #[serde(rename_all = "camelCase")]
+    Preview {
+        preview_id: String,
+        port: u16,
+    },
+    Files {
+        files: WorkspaceFiles,
+    },
+    Snapshot {
+        snapshot: SnapshotTarget,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotTarget {
+    pub preview_id: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceFiles {
+    pub group_id: String,
+    pub bot_id: String,
+    pub workspace: WorkspaceSpec,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -701,6 +770,17 @@ pub enum DaemonToServer {
     DirResult(DirResult),
     #[serde(rename = "files.result", rename_all = "camelCase")]
     FilesResult { request_id: String, entries: Vec<FileEntry>, error: Option<String> },
+    #[serde(rename = "files.tree.result", rename_all = "camelCase")]
+    FilesTreeResult { request_id: String, entries: Vec<TreeEntry>, truncated: bool, error: Option<String> },
+    #[serde(rename = "files.read.result", rename_all = "camelCase")]
+    FilesReadResult {
+        request_id: String,
+        size: u64,
+        binary: bool,
+        mime: String,
+        text: Option<String>,
+        error: Option<String>,
+    },
     #[serde(rename = "workspace.diff.result", rename_all = "camelCase")]
     WorkspaceDiffResult {
         request_id: String,
@@ -721,6 +801,8 @@ pub enum DaemonToServer {
     RepoProbeResult(RepoProbeResult),
     #[serde(rename = "service.state")]
     ServiceState { service: ServiceInfo },
+    #[serde(rename = "service.restart.result", rename_all = "camelCase")]
+    ServiceRestartResult { request_id: String, error: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -776,6 +858,10 @@ pub enum ServerToDaemon {
     RunDiscard { run_id: String },
     #[serde(rename = "files.list")]
     FilesList(FilesList),
+    #[serde(rename = "files.tree")]
+    FilesTree(FilesTree),
+    #[serde(rename = "files.read")]
+    FilesRead(FilesRead),
     #[serde(rename = "workspace.diff")]
     WorkspaceDiff(WorkspaceDiff),
     #[serde(rename = "dir.list", rename_all = "camelCase")]
@@ -794,6 +880,8 @@ pub enum ServerToDaemon {
     RepoProbe(RepoProbe),
     #[serde(rename = "service.stop", rename_all = "camelCase")]
     ServiceStop { service_id: String },
+    #[serde(rename = "service.restart", rename_all = "camelCase")]
+    ServiceRestart { request_id: String, service_id: String },
     #[serde(rename = "previews.sync")]
     PreviewsSync { previews: Vec<PreviewPort> },
 }
