@@ -1,3 +1,5 @@
 [workspace]
 resolver = "3"
 members = ["crates/gonggong", "apps/desktop/src-tauri"]
+# B0 spike: libwebrtc is a ~277 MB download, kept out of the main build until it is adopted.
+exclude = ["crates/gg-cast"]

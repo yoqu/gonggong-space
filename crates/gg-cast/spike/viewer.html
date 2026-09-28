@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>gg-cast viewer</title>
+<style>
+  body { font: 14px system-ui; margin: 16px; background: #f5f5f7; }
+  #clock { font: 64px Menlo, monospace; }
+  video { max-width: 100%; border: 1px solid #ccc; background: #000; cursor: crosshair; }
+  #stats { font: 12px Menlo, monospace; white-space: pre; }
+</style>
+<div id="clock"></div>
+<div id="video"></div>
+<div id="stats">connecting…</div>
+<script type="module">
+  import { Room, RoomEvent, Track } from 'https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/+esm'
+
+  const token = location.hash.slice(1)
+  const clock = document.getElementById('clock')
+  const tick = () => {
+    clock.textContent = String(Date.now() % 100000).padStart(5, '0')
+    requestAnimationFrame(tick)
+  }
+  tick()
+  const room = new Room({ adaptiveStream: false })
+  let video
+  room.on(RoomEvent.TrackSubscribed, (track) => {
+    if (track.kind !== Track.Kind.Video) return
+    video = track.attach()
+    document.getElementById('video').appendChild(video)
+    video.addEventListener('click', (e) => {
+      const r = video.getBoundingClientRect()
+      const msg = { t: 'click', x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+      room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(msg)), { reliable: true })
+    })
+    let lastBytes = 0
+    setInterval(async () => {
+      const report = await track.getRTCStatsReport()
+      for (const s of report.values())
+        if (s.type === 'inbound-rtp' && s.kind === 'video') {
+          const kbps = ((s.bytesReceived - lastBytes) * 8) / 1000
+          lastBytes = s.bytesReceived
+          document.getElementById('stats').textContent =
+            `${s.frameWidth}x${s.frameHeight} · ${s.framesPerSecond ?? 0} fps · ${kbps.toFixed(0)} kbps · jitterBuffer ${
+              s.jitterBufferEmittedCount ? ((s.jitterBufferDelay / s.jitterBufferEmittedCount) * 1000).toFixed(0) : '?'
+            } ms · decoded ${s.framesDecoded} · dropped ${s.framesDropped ?? 0} · codec ${s.codecId ?? ''}`
+        }
+    }, 1000)
+  })
+  await room.connect('ws://127.0.0.1:7880', token)
+</script>
