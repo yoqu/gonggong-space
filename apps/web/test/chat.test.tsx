@@ -381,7 +381,7 @@ describe('my machines and bots', () => {
     const section = await within(nav).findByRole('region', { name: '我的机器' })
     fireEvent.click(await within(section).findByRole('button', { name: /old-box/ }))
     const dialog = await screen.findByRole('dialog', { name: '机器详情' })
-    for (const text of ['Ubuntu 24.04', '6.8.0', 'AMD EPYC · 8 核', '16 GB', 'Claude Code 2.1.4'])
+    for (const text of ['Ubuntu 24.04', '6.8.0', 'AMD EPYC · 8 核', '16 GB', 'Claude Code', '2.1.4'])
       expect(within(dialog).getByText(text)).toBeTruthy()
     fireEvent.change(within(dialog).getByRole('textbox', { name: '名称' }), { target: { value: '旧服务器' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))

@@ -1,7 +1,7 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
 import { api } from '../../lib/api'
-import { Button, Dialog, Divider, Form, FormRow, Presence, TextField, toast } from '../../ui'
+import { Button, Dialog, Form, FormRow, Icon, type IconName, Presence, TextField, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -15,6 +15,7 @@ const cpuText = (m: MachineDto) =>
 export const hardwareText = (m: MachineDto) =>
   [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || null
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '--')
+const OS_ICON: Record<MachineDto['os'], IconName> = { macos: 'apple', linux: 'linux', windows: 'windows' }
 
 /** Details of one machine; its owner or a sysadmin can rename or revoke it. */
 export function MachineDialog({
@@ -45,19 +46,11 @@ export function MachineDialog({
       setSaving(false)
     }
   }
-  const rows: [string, string | null][] = [
-    ['主人', ownerName ?? null],
-    ['状态', machine.online ? '在线' : `离线 · 最后在线 ${dateText(machine.lastSeenAt)}`],
-    ['主机名', machine.hostname],
-    ['系统', osText(machine)],
-    ['内核', machine.system?.kernel ?? null],
-    ['架构', machine.arch],
-    ['CPU', cpuText(machine)],
-    ['内存', memoryText(machine.system?.memoryBytes)],
-    ['MAC 地址', machine.system?.macAddress ?? null],
-    ['daemon', machine.daemonVersion ? `v${machine.daemonVersion}` : null],
-    ['首次绑定', dateText(machine.createdAt)],
-    ['最近绑定', dateText(machine.boundAt)],
+  const specs: [IconName, string, string | null][] = [
+    ['cpu', 'CPU', cpuText(machine)],
+    ['activity', '内存', memoryText(machine.system?.memoryBytes)],
+    ['terminal', '内核', machine.system?.kernel ?? null],
+    ['wifi', 'MAC 地址', machine.system?.macAddress ?? null],
   ]
   return (
     <>
@@ -74,41 +67,87 @@ export function MachineDialog({
         }
         actions={[{ label: '完成', variant: 'primary', onClick: onClose }]}
       >
-        <Form id={formId} onSubmit={() => void save()}>
-          <FormRow label="名称" hint="留空则使用主机名。">
-            <span className="machine__rename">
-              <TextField
-                aria-label="名称"
-                value={name}
-                placeholder={machine.hostname}
-                maxLength={64}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Button type="submit" disabled={saving}>
-                保存
-              </Button>
+        <div className="machine">
+          <section className="machine__hero" data-os={machine.os}>
+            <span className="machine__os">
+              <Icon name={OS_ICON[machine.os]} size={30} label={OS_LABEL[machine.os]} />
             </span>
-          </FormRow>
-          <Divider />
-          {rows
-            .filter((r): r is [string, string] => r[1] !== null)
-            .map(([k, v]) => (
-              <FormRow key={k} label={k}>
-                <span className="machine__value">{v}</span>
-              </FormRow>
-            ))}
-          <FormRow label="Agent" align="top">
-            <span className="machine__value">
-              {machine.agents.length
-                ? machine.agents.map((a) => (
-                    <span key={a.kind}>
-                      {`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}
-                    </span>
-                  ))
-                : '--'}
+            <span className="machine__id">
+              <span className="machine__host">{machine.hostname}</span>
+              <span className="machine__tags">
+                <span className="machine__tag">{osText(machine)}</span>
+                <span className="machine__tag">{machine.arch}</span>
+                {machine.daemonVersion ? (
+                  <span className="machine__tag">daemon v{machine.daemonVersion}</span>
+                ) : null}
+              </span>
             </span>
-          </FormRow>
-        </Form>
+            <span className="machine__status" data-online={machine.online}>
+              {machine.online ? '在线' : '离线'}
+            </span>
+          </section>
+          <Form id={formId} onSubmit={() => void save()}>
+            <FormRow label="名称" hint="留空则使用主机名。">
+              <span className="machine__rename">
+                <TextField
+                  aria-label="名称"
+                  value={name}
+                  placeholder={machine.hostname}
+                  maxLength={64}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <Button type="submit" disabled={saving}>
+                  保存
+                </Button>
+              </span>
+            </FormRow>
+          </Form>
+          <div className="machine__specs">
+            {specs
+              .filter((r): r is [IconName, string, string] => r[2] !== null)
+              .map(([icon, k, v]) => (
+                <div key={k} className="machine__spec">
+                  <Icon name={icon} size={18} className="machine__spec-icon" />
+                  <span className="machine__spec-label">{k}</span>
+                  <span className="machine__spec-value">{v}</span>
+                </div>
+              ))}
+          </div>
+          <section className="machine__card" aria-label="Agent">
+            <span className="machine__card-title">Agent</span>
+            {machine.agents.length ? (
+              machine.agents.map((a) => (
+                <span key={a.kind} className="machine__agent" data-available={a.available}>
+                  <Icon name="bot" size={16} />
+                  <span className="machine__agent-name">{AGENT_LABEL[a.kind]}</span>
+                  <span className="machine__agent-version">
+                    {a.available ? (a.version ?? '已安装') : '未安装'}
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span className="machine__muted">未检测到 Agent</span>
+            )}
+          </section>
+          <dl className="machine__meta">
+            {ownerName ? (
+              <>
+                <dt>主人</dt>
+                <dd>{ownerName}</dd>
+              </>
+            ) : null}
+            {machine.online ? null : (
+              <>
+                <dt>最后在线</dt>
+                <dd>{dateText(machine.lastSeenAt)}</dd>
+              </>
+            )}
+            <dt>首次绑定</dt>
+            <dd>{dateText(machine.createdAt)}</dd>
+            <dt>最近绑定</dt>
+            <dd>{dateText(machine.boundAt)}</dd>
+          </dl>
+        </div>
       </Dialog>
       <Presence>
         {revoking ? (
