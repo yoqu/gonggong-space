@@ -43,6 +43,8 @@ const PARAMS: SystemParams = {
   backupRetentionDays: 7,
   archiveRetentionDays: 30,
   registrationOpen: false,
+  previewIdleHours: 24,
+  previewShareMaxDays: 30,
 }
 
 class NoopSocket {

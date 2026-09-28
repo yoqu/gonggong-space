@@ -17,6 +17,8 @@ export type MessageMeta = {
   quote?: MessageDto['quote']
   /** One-shot model / thought level by triggered bot id. */
   runOptions?: Record<string, RunConfigPick>
+  /** Preview card (plan 结果预览): the preview id. */
+  preview?: string
 }
 
 /** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */
@@ -37,6 +39,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     quote: (m.meta as MessageMeta).quote ?? null,
     reactions: recalled ? [] : reactions,
     recalled,
+    ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
   }
 }
 

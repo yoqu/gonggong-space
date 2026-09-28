@@ -120,6 +120,21 @@ async fn list_workspaces(config: &Config) -> Vec<Entry> {
     gonggong::workspace::list(&config::home(), &pairs)
 }
 
+/// SIGTERM (service managers, `kill`) or Ctrl-C.
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let mut term = signal(SignalKind::terminate()).expect("SIGTERM handler");
+        tokio::select! {
+            _ = term.recv() => {}
+            _ = tokio::signal::ctrl_c() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = tokio::signal::ctrl_c().await;
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -174,7 +189,16 @@ async fn main() -> anyhow::Result<()> {
         },
         Cmd::Run { adapter_cmd } => {
             let options = Options { home: config::home(), config: config()?, adapter_cmd, self_upgrade: true };
-            let stopped = Daemon::start(options)?.wait().await;
+            let daemon = Daemon::start(options)?;
+            let services = daemon.services();
+            let stopped = tokio::select! {
+                stopped = daemon.wait() => stopped,
+                _ = shutdown_signal() => {
+                    // Hosted services (dev servers) never outlive the daemon.
+                    services.stop_all().await;
+                    std::process::exit(0)
+                }
+            };
             eprintln!("{}", stopped.fatal);
             if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = stopped.fatal {
                 eprintln!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据：");

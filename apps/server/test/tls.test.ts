@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import WebSocket from 'ws'
 import { buildApp } from '../src/app.js'
 import { DaemonHub } from '../src/daemon/hub.js'
+import { TunnelHub } from '../src/modules/previews/tunnel.js'
 import { Bus } from '../src/realtime/bus.js'
 import { certFingerprint, tlsOptions } from '../src/tls.js'
 import { createTestDb } from './support/db.js'
@@ -58,8 +59,14 @@ describe('server over TLS', () => {
       db: t.db,
       bus: new Bus(),
       hub: new DaemonHub(),
+      tunnels: new TunnelHub(),
       now: () => new Date(),
-      config: { heartbeatSec: 15, secureCookies: true, fingerprint: null },
+      config: {
+        heartbeatSec: 15,
+        secureCookies: true,
+        fingerprint: null,
+        preview: { domain: null, ports: [0, 0] as [number, number], publicUrl: null },
+      },
     }
     const app = await buildApp(ctx, { https: tlsOptions(env) })
     await app.listen({ port: 0, host: '127.0.0.1' })

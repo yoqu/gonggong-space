@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": [
+    ["content-type", "text/javascript"],
+    ["set-cookie", "a=1; Path=/"],
+    ["set-cookie", "b=2; Path=/"]
+  ]
+}

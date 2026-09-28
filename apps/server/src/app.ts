@@ -25,6 +25,12 @@ import { machineRoutes } from './modules/machines/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
 import { notificationRoutes } from './modules/notifications/routes.js'
+import { startPreviewEngine } from './modules/previews/engine.js'
+import { previewServerFactory, routeUpgrades, startPortListeners } from './modules/previews/gateway.js'
+import { previewRoutes } from './modules/previews/routes.js'
+import { startPreviewReaper } from './modules/previews/service.js'
+import { shareRoutes } from './modules/previews/shares.js'
+import { tunnelGateway } from './modules/previews/tunnel.js'
 import { questionRoutes } from './modules/questions/routes.js'
 import { startQuestionTimer } from './modules/questions/service.js'
 import { reactionRoutes } from './modules/reactions/routes.js'
@@ -47,11 +53,14 @@ import type { TlsOptions } from './tls.js'
 export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {}) {
   const logger = process.env.GONGGONG_LOG === '1'
   // Route plugins are typed for the default http server; the https instance exposes the same API.
-  const app = (opts.https ? Fastify({ logger, https: opts.https }) : Fastify({ logger })) as FastifyInstance
+  const serverFactory = previewServerFactory(ctx, opts.https ?? null)
+  const app = Fastify({ logger, serverFactory }) as unknown as FastifyInstance
   await app.register(cookie)
   await app.register(websocket)
   // After the websocket plugin: its onResponse hook then closes the socket of a refused upgrade.
   originCheck(app)
+  app.addHook('onReady', async () => routeUpgrades(ctx, app.server))
+  app.addHook('onClose', startPortListeners(ctx, opts.https ?? null))
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HttpError)
       return reply.status(err.status).send({ error: err.code, message: err.message })
@@ -68,7 +77,12 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(attachmentRoutes(ctx))
   await app.register(webGateway(ctx))
   await app.register(daemonGateway(ctx))
+  await app.register(tunnelGateway(ctx))
+  await app.register(previewRoutes(ctx))
+  await app.register(shareRoutes(ctx))
   await app.register(runRoutes(ctx))
+  app.addHook('onClose', startPreviewEngine(ctx))
+  app.addHook('onClose', startPreviewReaper(ctx))
   const stopRunEngine = startRunEngine(ctx)
   app.addHook('onClose', stopRunEngine)
   await app.register(stopRoutes(ctx))

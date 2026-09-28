@@ -18,7 +18,7 @@ fs4 = "1.1.0"
 futures-util = "0.3.34"
 gethostname = "1.1.0"
 http-body-util = "0.1.5"
-hyper = { version = "1.11.1", features = ["server", "http1"] }
+hyper = { version = "1.11.1", features = ["server", "client", "http1"] }
 hyper-util = { version = "0.1.20", features = ["tokio"] }
 machine-uid = "0.6.0"
 regex = "1.13.1"

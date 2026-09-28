@@ -176,6 +176,16 @@ pub async fn connect_ws(config: &Config) -> Result<Ws> {
     Ok(ws)
 }
 
+/// The preview tunnel (`/ws/daemon/tunnel`), authenticated like the REST calls.
+pub async fn connect_tunnel(config: &Config) -> Result<Ws> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut req = config.tunnel_url().into_client_request()?;
+    req.headers_mut().insert("authorization", format!("Bearer {}", config.token).parse()?);
+    let connector = bound(config)?.map(|p| Connector::Rustls(p.config));
+    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(req, None, false, connector).await?;
+    Ok(ws)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

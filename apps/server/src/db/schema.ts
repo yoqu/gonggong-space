@@ -482,6 +482,98 @@ export const questionSets = pgTable(
   (t) => [index('question_sets_run').on(t.runId), index('question_sets_pending').on(t.status, t.expiresAt)],
 )
 
+// ── Previews (plan 结果预览) ─────────────────────────────────────────────────
+/** Processes hosted by a daemon (built-in `service_start`); the daemon owns them, this is the registry it reports. */
+export const services = pgTable(
+  'services',
+  {
+    /** Chosen by the daemon (ServiceInfo.id). */
+    id: uuid('id').primaryKey(),
+    machineId: uuid('machine_id')
+      .notNull()
+      .references(() => machines.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    runId: uuid('run_id').references(() => runs.id),
+    name: text('name').notNull(),
+    command: text('command').notNull(),
+    cwd: text('cwd').notNull(),
+    port: integer('port'),
+    /** 'starting' | 'running' | 'exited' | 'failed' */
+    status: text('status').notNull(),
+    exitCode: integer('exit_code'),
+    exitedAt: ts('exited_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('services_group').on(t.groupId, t.botId),
+    index('services_machine').on(t.machineId, t.status),
+  ],
+)
+
+export const previews = pgTable(
+  'previews',
+  {
+    id: id(),
+    /** Subdomain label in domain mode; random, unguessable. */
+    slug: text('slug').notNull().unique(),
+    /** 'http' | 'static' | 'gui' */
+    kind: text('kind').notNull(),
+    machineId: uuid('machine_id')
+      .notNull()
+      .references(() => machines.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    serviceId: uuid('service_id').references(() => services.id),
+    attachmentId: uuid('attachment_id').references(() => attachments.id),
+    /** Daemon loopback port (http / gui). */
+    port: integer('port'),
+    path: text('path').notNull().default('/'),
+    title: text('title').notNull(),
+    /** Port mode: the server port this preview listens on while open. */
+    publicPort: integer('public_port'),
+    createdByRunId: uuid('created_by_run_id').references(() => runs.id),
+    /** The card message posted for it. */
+    messageId: uuid('message_id'),
+    lastAccessAt: ts('last_access_at'),
+    closedAt: ts('closed_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('previews_group').on(t.groupId, t.closedAt),
+    index('previews_machine').on(t.machineId, t.closedAt),
+  ],
+)
+
+/** Public links (plan P8): created by people only, always expiring, managed in the admin console. */
+export const previewShares = pgTable(
+  'preview_shares',
+  {
+    id: id(),
+    previewId: uuid('preview_id')
+      .notNull()
+      .references(() => previews.id),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: ts('expires_at').notNull(),
+    revokedAt: ts('revoked_at'),
+    visitCount: integer('visit_count').notNull().default(0),
+    lastVisitAt: ts('last_visit_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('preview_shares_preview').on(t.previewId)],
+)
+
 /** Global MCP layer maintained by sysadmins (spec §7.1), injected into new sessions over ACP. */
 export const mcpServers = pgTable('mcp_servers', {
   id: id(),

@@ -54,6 +54,10 @@ impl Config {
     pub fn ws_url(&self) -> String {
         format!("{}/ws/daemon", self.server.trim_end_matches('/').replacen("http", "ws", 1))
     }
+
+    pub fn tunnel_url(&self) -> String {
+        format!("{}/tunnel", self.ws_url())
+    }
 }
 
 /// Local preferences kept across unbinding, in `<home>/settings.json`.

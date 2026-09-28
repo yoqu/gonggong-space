@@ -53,6 +53,30 @@ export const ListQuestionsArgs = z.object({
 
 export const FetchAttachmentsArgs = z.object({ message: seq.describe('消息 #seq') })
 
+const serviceName = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,31}$/)
+  .describe('服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一')
+const port = z.number().int().min(1).max(65535)
+
+export const PreviewExposeArgs = z
+  .object({
+    port: port.describe('本机端口').optional(),
+    service: serviceName.describe('service_start 启动的服务名，使用它的端口').optional(),
+    title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+    path: z
+      .string()
+      .regex(/^\//)
+      .max(500)
+      .describe('打开时的路径（以 / 开头，可带查询串），默认 /')
+      .optional(),
+  })
+  .refine((a) => (a.port === undefined) !== (a.service === undefined), {
+    message: 'port 与 service 需要且只能给一个',
+  })
+
+export const PreviewCloseArgs = z.object({ preview: z.string().describe('preview_expose 返回的预览 id') })
+
 export const GONGGONG_TOOLS = {
   list_messages: {
     title: '读取聊天记录',
@@ -85,13 +109,87 @@ export const GONGGONG_TOOLS = {
     description: '把某条消息的附件下载到工作区 .gonggong/attachments/ 下，返回相对路径。',
     input: FetchAttachmentsArgs,
   },
+  preview_expose: {
+    title: '发布预览',
+    description:
+      '把本机端口上的网页或服务发布给群成员：返回预览链接，并在群里发一张可内嵌打开的预览卡片。服务请先用 service_start 启动。',
+    input: PreviewExposeArgs,
+  },
+  preview_close: {
+    title: '关闭预览',
+    description: '关闭一个预览链接（服务本身不停止）。',
+    input: PreviewCloseArgs,
+  },
 } as const
 
 export type GonggongToolName = keyof typeof GONGGONG_TOOLS
 
-/** MCP `tools/list` entries (what `gonggong-tools.json` holds). */
-export const gonggongToolList = () =>
-  Object.entries(GONGGONG_TOOLS).map(([name, t]) => {
+type ToolDefs = Record<string, { title: string; description: string; input: z.ZodType }>
+const toolList = (tools: ToolDefs) =>
+  Object.entries(tools).map(([name, t]) => {
     const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' })
     return { name, title: t.title, description: t.description, inputSchema }
   })
+
+/** MCP `tools/list` entries (what `gonggong-tools.json` holds). */
+export const gonggongToolList = () => toolList(GONGGONG_TOOLS)
+
+export const ServiceStartArgs = z.object({
+  name: serviceName,
+  command: z.string().min(1).max(2000).describe('在工作区里用 shell 执行的启动命令'),
+  cwd: z.string().max(500).describe('工作区内的相对目录，默认工作区根目录').optional(),
+  port: port.describe('服务监听的本机端口；给出时等待端口就绪（最多 60 秒）').optional(),
+  env: z.record(z.string(), z.string()).describe('额外的环境变量').optional(),
+})
+export const ServiceListArgs = z.object({})
+export const ServiceLogsArgs = z.object({
+  name: serviceName,
+  tail: z.number().int().min(1).max(1000).describe('最后多少行，默认 100').optional(),
+})
+export const ServiceStopArgs = z.object({ name: serviceName })
+export const PreviewStaticArgs = z.object({
+  dir: z
+    .string()
+    .max(500)
+    .describe('工作区内要发布的目录（如 dist、docs/report），默认工作区根目录')
+    .optional(),
+  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+  path: z.string().regex(/^\//).max(500).describe('打开时的路径，默认 /（目录下的 index.html）').optional(),
+})
+
+/**
+ * Tools of the built-in `gonggong` MCP server answered by the daemon itself (it owns the processes); generated into
+ * `gonggong-daemon-tools.json`. `service_start` is not auto-approved: it runs an arbitrary command.
+ */
+export const DAEMON_TOOLS = {
+  service_start: {
+    title: '启动托管服务',
+    description:
+      '在工作区里启动一个长期运行的服务（如 dev server），由 gonggong 托管：本轮结束后仍在运行，可查看日志、随时停止。' +
+      '需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动。',
+    input: ServiceStartArgs,
+  },
+  service_list: {
+    title: '托管服务列表',
+    description: '你在本群托管的服务：名字、状态、端口、运行时长。',
+    input: ServiceListArgs,
+  },
+  service_logs: {
+    title: '托管服务日志',
+    description: '查看托管服务的输出（stdout 与 stderr 合并）末尾若干行。',
+    input: ServiceLogsArgs,
+  },
+  service_stop: {
+    title: '停止托管服务',
+    description: '停止托管服务及其子进程，并关闭它的预览。',
+    input: ServiceStopArgs,
+  },
+  preview_static: {
+    title: '发布静态页面',
+    description:
+      '把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。',
+    input: PreviewStaticArgs,
+  },
+} as const
+
+export const daemonToolList = () => toolList(DAEMON_TOOLS)

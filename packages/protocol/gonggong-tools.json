@@ -162,5 +162,54 @@
       },
       "required": ["message"]
     }
+  },
+  {
+    "name": "preview_expose",
+    "title": "发布预览",
+    "description": "把本机端口上的网页或服务发布给群成员：返回预览链接，并在群里发一张可内嵌打开的预览卡片。服务请先用 service_start 启动。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "本机端口"
+        },
+        "service": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "description": "service_start 启动的服务名，使用它的端口"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "卡片标题，说明这是什么"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^\\/",
+          "description": "打开时的路径（以 / 开头，可带查询串），默认 /"
+        }
+      },
+      "required": ["title"]
+    }
+  },
+  {
+    "name": "preview_close",
+    "title": "关闭预览",
+    "description": "关闭一个预览链接（服务本身不停止）。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "preview": {
+          "type": "string",
+          "description": "preview_expose 返回的预览 id"
+        }
+      },
+      "required": ["preview"]
+    }
   }
 ]

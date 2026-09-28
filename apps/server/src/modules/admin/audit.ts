@@ -129,6 +129,18 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'group.repo.change':
           return `${d.previous ? '更换' : '绑定'}仓库 ${str(d.url)} · 基准分支 ${str(d.branch)}`
       }
+      break
+    case 'preview':
+      switch (row.action) {
+        case 'share.create':
+          return `生成预览「${str(d.title)}」的公开链接，有效 ${Number(d.days)} 天`
+        case 'share.revoke':
+          return `收回预览「${str(d.title)}」的公开链接`
+        case 'share.extend':
+          return `预览「${str(d.title)}」的公开链接有效期改到 ${str(d.expiresAt).slice(0, 16).replace('T', ' ')}`
+        case 'share.visit':
+          return `通过公开链接访问预览「${str(d.title)}」`
+      }
   }
   return row.action
 }

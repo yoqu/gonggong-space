@@ -5,14 +5,16 @@ use crate::attachments;
 use crate::config::Config;
 use crate::files;
 use crate::git;
+use crate::hosted::Services;
 use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
-    ServerToDaemon, Tier,
+    ServerToDaemon, ServiceInfo, Tier,
 };
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
+use crate::tunnel;
 use crate::turn::system_prompt;
 use crate::workspace::{self, Workspaces};
 use agent_client_protocol::{AcpAgent, AcpAgentConfig};
@@ -54,6 +56,10 @@ pub(crate) struct Inner {
     ask: tokio::sync::OnceCell<AskServer>,
     /// Runs received but still preparing (workspace, attachments): already active for hello reconciliation.
     preparing: Mutex<HashSet<String>>,
+    pub(crate) services: Services,
+    previews: tunnel::Allow,
+    /// The server offered the preview tunnel (welcome).
+    tunnel: tokio::sync::watch::Sender<bool>,
 }
 
 /// Drops a run from `Inner::preparing` however `start` exits.
@@ -72,6 +78,7 @@ struct Actor {
 impl Engine {
     pub fn new(config: EngineConfig) -> Self {
         let workspaces = Workspaces::new(config.home.clone());
+        let services = Services::new(&config.home);
         Engine(Arc::new(Inner {
             config,
             workspaces,
@@ -79,7 +86,24 @@ impl Engine {
             install: tokio::sync::Mutex::default(),
             ask: tokio::sync::OnceCell::new(),
             preparing: Mutex::default(),
+            services,
+            previews: tunnel::Allow::default(),
+            tunnel: tokio::sync::watch::Sender::new(false),
         }))
+    }
+
+    pub fn services(&self) -> Services {
+        self.0.services.clone()
+    }
+
+    /// True once a server that serves previews welcomed this daemon.
+    pub fn tunnel_offered(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.0.tunnel.subscribe()
+    }
+
+    /// Ports the preview tunnel may forward to, kept current by `previews.sync`.
+    pub fn previews(&self) -> tunnel::Allow {
+        self.0.previews.clone()
     }
 
     /// What the agent's adapter offers (models and their thought levels), from a throwaway session.
@@ -232,7 +256,22 @@ impl Handler for Engine {
                 tokio::spawn(async move { out.send(DaemonToServer::RepoProbeResult(repo::probe(req).await)) });
             }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
+            ServerToDaemon::ServiceStop { service_id } => {
+                let services = self.0.services.clone();
+                tokio::spawn(async move { services.stop_id(&service_id).await });
+            }
+            ServerToDaemon::PreviewsSync { previews } => {
+                tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());
+            }
         }
+    }
+
+    fn services(&self) -> Vec<ServiceInfo> {
+        self.0.services.live()
+    }
+
+    fn connected(&self, tunnel: bool) {
+        self.0.tunnel.send_replace(tunnel);
     }
 
     fn active_runs(&self) -> Vec<String> {
@@ -254,10 +293,11 @@ impl Inner {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
-        let ask = match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone())).await {
-            Ok(ask) => ask,
-            Err(e) => return out.send(failed(&start.run_id, format!("无法启动内置 gonggong 工具：{e}"))),
-        };
+        let ask =
+            match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone(), self.services.clone())).await {
+                Ok(ask) => ask,
+                Err(e) => return out.send(failed(&start.run_id, format!("无法启动内置 gonggong 工具：{e}"))),
+            };
         if let Some(api) = &self.config.api {
             let p = &start.prompt;
             let context = p.context.iter().chain(&p.fallback_context).flat_map(|m| &m.attachments);

@@ -3,6 +3,7 @@
 use crate::bind::machine_info;
 use crate::config::Config;
 use crate::engine::{Engine, EngineConfig};
+use crate::hosted::Services;
 use crate::local::{CachedCatalog, LocalSettings, save_catalog};
 use crate::lock::Lock;
 use crate::protocol::{AgentInfo, RejectReason};
@@ -39,9 +40,10 @@ pub struct Stopped {
 pub struct Daemon {
     monitor: Monitor,
     agents: watch::Sender<Vec<AgentInfo>>,
-    /// Re-detection and catalog probing.
-    background: [JoinHandle<()>; 2],
+    /// Re-detection, catalog probing and the preview tunnel.
+    background: [JoinHandle<()>; 3],
     task: JoinHandle<Stopped>,
+    services: Services,
     _lock: Lock,
 }
 
@@ -61,9 +63,11 @@ impl Daemon {
             idle: IDLE_REAP,
             api: Some(opts.config.clone()),
         });
+        let services = engine.services();
         let background = [
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
+            tokio::spawn(crate::tunnel::run(opts.config.clone(), engine.previews(), engine.tunnel_offered())),
         ];
         let service = Service {
             config: opts.config,
@@ -82,7 +86,7 @@ impl Daemon {
             m.rejected(*reason, message.clone(), &wiped);
             Stopped { fatal, wiped }
         });
-        Ok(Daemon { monitor, agents, background, task, _lock: lock })
+        Ok(Daemon { monitor, agents, background, task, services, _lock: lock })
     }
 
     pub fn status(&self) -> Status {
@@ -112,8 +116,14 @@ impl Daemon {
         }
     }
 
-    /// Disconnects and releases the machine lock.
+    /// Hosted services, for stopping them before the process exits.
+    pub fn services(&self) -> Services {
+        self.services.clone()
+    }
+
+    /// Disconnects, ends hosted services and releases the machine lock.
     pub fn stop(self) {
+        self.services.kill_now();
         self.background.iter().for_each(JoinHandle::abort);
         self.task.abort();
     }

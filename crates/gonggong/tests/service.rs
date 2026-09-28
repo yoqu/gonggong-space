@@ -2,6 +2,7 @@ use futures_util::{SinkExt, StreamExt};
 use gonggong::config::Config;
 use gonggong::protocol::{
     AgentInfo, AgentKind, DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon,
+    ServiceInfo, ServiceStatus,
 };
 use gonggong::service::{Fatal, Handler, Outbox, Service};
 use std::sync::{Arc, Mutex};
@@ -11,8 +12,12 @@ use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Clone, Default)]
-struct Recorder(Arc<Mutex<Vec<ServerToDaemon>>>, Arc<Mutex<Option<Outbox>>>);
+struct Recorder(Arc<Mutex<Vec<ServerToDaemon>>>, Arc<Mutex<Option<Outbox>>>, Arc<Mutex<Vec<bool>>>);
 impl Handler for Recorder {
+    fn connected(&self, tunnel: bool) {
+        self.2.lock().unwrap().push(tunnel);
+    }
+
     fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
         if matches!(msg, ServerToDaemon::RunCancel { .. }) {
             out.send(DaemonToServer::Heartbeat);
@@ -23,6 +28,21 @@ impl Handler for Recorder {
 
     fn active_runs(&self) -> Vec<String> {
         vec!["r-live".into()]
+    }
+
+    fn services(&self) -> Vec<ServiceInfo> {
+        vec![ServiceInfo {
+            id: "s1".into(),
+            group_id: "g".into(),
+            bot_id: "b".into(),
+            run_id: None,
+            name: "web".into(),
+            command: "pnpm dev".into(),
+            cwd: String::new(),
+            port: Some(5173),
+            status: ServiceStatus::Running,
+            exit_code: None,
+        }]
     }
 }
 
@@ -111,11 +131,16 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
 
     let (s, _) = listener.accept().await.unwrap();
     let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
-    assert_eq!(text(&mut ws).await["activeRuns"], serde_json::json!(["r-live"]));
-    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60,"upgrade":null}"#)).await.unwrap();
+    let hello = text(&mut ws).await;
+    assert_eq!(hello["activeRuns"], serde_json::json!(["r-live"]));
+    assert_eq!(hello["services"][0]["id"], "s1", "hosted services survive a reconnect, not a restart");
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60,"upgrade":null,"tunnel":true}"#))
+        .await
+        .unwrap();
     ws.send(Message::text(r#"{"t":"run.cancel","runId":"r9"}"#)).await.unwrap();
     assert_eq!(text(&mut ws).await["t"], "heartbeat");
     let out = rec.1.lock().unwrap().clone().unwrap();
+    assert_eq!(*rec.2.lock().unwrap(), [true], "the preview tunnel opens only once a server offers it");
 
     // Server goes away mid-run; the turn keeps reporting.
     ws.close(None).await.unwrap();

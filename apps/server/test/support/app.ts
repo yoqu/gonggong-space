@@ -7,6 +7,7 @@ import { DaemonHub } from '../../src/daemon/hub.js'
 import { bots, groupBots, groupMembers, groups, machines, users } from '../../src/db/schema.js'
 import { newToken, sha256 } from '../../src/lib/crypto.js'
 import { createSession, SESSION_COOKIE } from '../../src/modules/auth/session.js'
+import { TunnelHub } from '../../src/modules/previews/tunnel.js'
 import { Bus } from '../../src/realtime/bus.js'
 import { createTestDb } from './db.js'
 
@@ -19,8 +20,14 @@ export async function createTestApp(opts: { heartbeatSec?: number; now?: () => D
     db: t.db,
     bus: new Bus(),
     hub: new DaemonHub(),
+    tunnels: new TunnelHub(),
     now: opts.now ?? (() => new Date()),
-    config: { heartbeatSec: opts.heartbeatSec ?? 15, secureCookies: false, fingerprint: null },
+    config: {
+      heartbeatSec: opts.heartbeatSec ?? 15,
+      secureCookies: false,
+      fingerprint: null,
+      preview: { domain: null, ports: [0, 0], publicUrl: null },
+    },
   }
   const app: FastifyInstance = await buildApp(ctx)
   await app.listen({ port: 0, host: '127.0.0.1' })

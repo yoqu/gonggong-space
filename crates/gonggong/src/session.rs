@@ -3,6 +3,7 @@ use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
+use crate::hosted::Scope;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::protocol::{
     AgentCatalog, AgentCommand, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer, ModelChoice,
@@ -750,6 +751,17 @@ impl Asker for Shared {
     fn active_run(&self) -> Option<(String, PathBuf)> {
         let s = self.0.lock().unwrap();
         s.active.as_ref().filter(|a| a.streaming && !a.sealed).map(|a| (a.run_id.clone(), a.cwd.clone()))
+    }
+
+    fn scope(&self) -> Option<Scope> {
+        let s = self.0.lock().unwrap();
+        s.active.as_ref().filter(|a| a.streaming && !a.sealed).map(|a| Scope {
+            group_id: a.key.0.clone(),
+            bot_id: a.key.1.clone(),
+            run_id: Some(a.run_id.clone()),
+            root: a.cwd.clone(),
+            out: a.out.clone(),
+        })
     }
 }
 

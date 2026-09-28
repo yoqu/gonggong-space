@@ -33,5 +33,19 @@
     }
   ],
   "token": "mt_abc123",
-  "activeRuns": ["r1"]
+  "activeRuns": ["r1"],
+  "services": [
+    {
+      "id": "5f0c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+      "groupId": "11111111-1111-4111-8111-111111111111",
+      "botId": "22222222-2222-4222-8222-222222222222",
+      "runId": "33333333-3333-4333-8333-333333333333",
+      "name": "web",
+      "command": "pnpm dev",
+      "cwd": "",
+      "port": 5173,
+      "status": "running",
+      "exitCode": null
+    }
+  ]
 }

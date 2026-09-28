@@ -446,8 +446,81 @@ export const MessageDto = z.object({
   reactions: z.array(ReactionDto).optional(),
   /** Recalled by its author: body, attachments, quote, mentions and reactions are blanked. Always sent by the server. */
   recalled: z.boolean().optional(),
+  /** A bot's preview card; its live state is in the group's preview list (group.previews). */
+  previewId: z.string().nullable().optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
+
+// ── Previews (plan 结果预览) ─────────────────────────────────────────────────
+export const PreviewKind = z.enum(['http', 'static', 'gui'])
+export const PreviewDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  botName: z.string(),
+  kind: PreviewKind,
+  title: z.string(),
+  path: z.string(),
+  serviceId: z.string().nullable(),
+  serviceName: z.string().nullable(),
+  /** online = its machine's tunnel is up. */
+  status: z.enum(['online', 'offline']),
+  /** The bot owner and group admins may close it and share it publicly. */
+  canManage: z.boolean(),
+  createdAt: z.string(),
+})
+export type PreviewDto = z.infer<typeof PreviewDto>
+export const ServiceDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  botName: z.string(),
+  name: z.string(),
+  command: z.string(),
+  cwd: z.string(),
+  port: z.number().int().nullable(),
+  status: z.enum(['starting', 'running', 'exited', 'failed']),
+  canManage: z.boolean(),
+  createdAt: z.string(),
+})
+export type ServiceDto = z.infer<typeof ServiceDto>
+/**
+ * GET /api/groups/:id/previews: open previews and live services. 打开 = GET /api/previews/:id/open?path= (also the
+ * iframe src); POST /api/previews/:id/close and /api/services/:id/stop → 204 (bot owner or group admin).
+ */
+export const GroupPreviewsDto = z.object({ previews: z.array(PreviewDto), services: z.array(ServiceDto) })
+export type GroupPreviewsDto = z.infer<typeof GroupPreviewsDto>
+
+/**
+ * Public preview links (plan P8), created by the bot owner or a group admin, always expiring:
+ * POST /api/previews/:id/shares → CreatedPreviewShare (the url, with its secret, is shown once);
+ * GET /api/previews/:id/shares → PreviewShareDto[]; POST /api/preview-shares/:id/revoke → 204 (managers, sysadmins).
+ * Admin console: GET /api/admin/preview-shares → all; PATCH /api/admin/preview-shares/:id → new expiry.
+ */
+export const PreviewShareDto = z.object({
+  id: z.string(),
+  previewId: z.string(),
+  previewTitle: z.string(),
+  groupId: z.string(),
+  groupName: z.string(),
+  botName: z.string(),
+  createdByName: z.string(),
+  expiresAt: z.string(),
+  revokedAt: z.string().nullable(),
+  visitCount: z.number().int(),
+  lastVisitAt: z.string().nullable(),
+  createdAt: z.string(),
+  /** Not revoked, not expired, preview still open. */
+  active: z.boolean(),
+})
+export type PreviewShareDto = z.infer<typeof PreviewShareDto>
+export const PREVIEW_SHARE_DEFAULT_DAYS = 7
+export const CreatePreviewShareReq = z.object({
+  days: z.number().int().min(1).max(365).default(PREVIEW_SHARE_DEFAULT_DAYS),
+})
+export const CreatedPreviewShare = z.object({ share: PreviewShareDto, url: z.string() })
+export type CreatedPreviewShare = z.infer<typeof CreatedPreviewShare>
+export const UpdatePreviewShareReq = z.object({ expiresAt: z.iso.datetime() })
 /**
  * POST /api/messages/:id/recall (author, own user message, within the window) → the blanked MessageDto.
  * POST /api/messages/:id/hide (author, any time) → 204; hides it from the author only.
@@ -683,7 +756,7 @@ export const DaemonRelease = z.object({
 export type DaemonRelease = z.infer<typeof DaemonRelease>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
-export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command'])
+export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command', 'preview'])
 export const AuditQuery = z.object({
   category: AuditCategory.optional(),
   before: z.coerce.number().int().positive().optional(),
@@ -752,6 +825,10 @@ export const SystemParams = GroupParams.extend({
   archiveRetentionDays: z.number().int().min(1).max(365),
   /** Anyone may create a member account from the login page. */
   registrationOpen: z.boolean(),
+  /** Previews nobody opened for this long are closed and their services stopped (plan P11). */
+  previewIdleHours: z.number().int().min(1).max(720),
+  /** Longest a public preview link may stay valid (plan P8). */
+  previewShareMaxDays: z.number().int().min(1).max(365),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 export const UpdateSystemParamsReq = SystemParams.partial()
@@ -768,6 +845,8 @@ export const SYSTEM_PARAM_VIEW: {
   { key: 'sessionReplayCount', label: '会话恢复失败时补送群消息数', unit: '条' },
   { key: 'contextInlineMax', label: '每轮随消息附带的群聊上下文', unit: '条' },
   { key: 'runRetentionDays', label: '完整运行过程保留', unit: '天' },
+  { key: 'previewIdleHours', label: '预览无人访问后自动关闭', unit: '小时' },
+  { key: 'previewShareMaxDays', label: '预览公开链接最长有效期', unit: '天' },
   { key: 'attachmentMaxMb', label: '单个附件大小上限', unit: 'MB' },
   { key: 'attachmentsPerMessage', label: '每条消息附件数', unit: '个' },
   { key: 'questionsPerCard', label: '提问卡片每张题数上限', unit: '题' },
@@ -836,6 +915,8 @@ export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 
 export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
+  /** The group's previews or services changed; replaces both lists (`canManage` is per receiving user). */
+  GroupPreviewsDto.extend({ t: z.literal('group.previews'), groupId: z.string() }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
   /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
   ReactionsDto.extend({ t: z.literal('message.reactions') }),

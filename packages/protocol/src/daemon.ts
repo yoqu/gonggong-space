@@ -302,6 +302,25 @@ export const RunEvent = z.discriminatedUnion('kind', [
 export type RunEvent = z.infer<typeof RunEvent>
 
 // ── daemon → server ─────────────────────────────────────────────────────────
+/** A process the daemon hosts for a (group, bot) workspace (built-in `service_start`). */
+export const ServiceStatus = z.enum(['starting', 'running', 'exited', 'failed'])
+export type ServiceStatus = z.infer<typeof ServiceStatus>
+export const ServiceInfo = z.object({
+  /** Chosen by the daemon; a restart under the same name gets a new id. */
+  id: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  /** The run whose agent started it. */
+  runId: z.string().nullable(),
+  name: z.string(),
+  command: z.string(),
+  /** Relative to the workspace root; '' = the root. */
+  cwd: z.string(),
+  port: z.number().int().nullable(),
+  status: ServiceStatus,
+  exitCode: z.number().int().nullable(),
+})
+export type ServiceInfo = z.infer<typeof ServiceInfo>
 export const Hello = z.object({
   t: z.literal('hello'),
   protocol: z.number().int(),
@@ -312,6 +331,8 @@ export const Hello = z.object({
   /** Runs this daemon is still executing (spec §14: server outage → turns go on locally). Others marked running
    * on this machine were lost (daemon restart) and are reconciled as interrupted. */
   activeRuns: z.array(z.string()).default([]),
+  /** Services this daemon still hosts; the server marks the machine's other live ones exited. */
+  services: z.array(ServiceInfo).default([]),
 })
 export const Heartbeat = z.object({ t: z.literal('heartbeat') })
 export const RunEventMsg = z.object({ t: z.literal('run.event'), runId: z.string(), event: RunEvent })
@@ -473,6 +494,9 @@ export const QuestionWithdraw = z.object({
   requestId: z.string(),
 })
 
+/** Every status change of a hosted service. */
+export const ServiceState = z.object({ t: z.literal('service.state'), service: ServiceInfo })
+
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
@@ -490,6 +514,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   RunDone,
   WorkspaceState,
   RepoProbeResult,
+  ServiceState,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -504,6 +529,8 @@ export const Welcome = z.object({
   heartbeatSec: z.number().int(),
   /** Newer build available; null when up to date or none published. */
   upgrade: UpgradeInfo.nullable(),
+  /** This server serves previews: the daemon opens `/ws/daemon/tunnel` (older servers leave it out). */
+  tunnel: z.boolean().default(false),
 })
 export const RejectReason = z.enum(['protocol', 'revoked', 'unauthorized'])
 export const Reject = z.object({
@@ -616,6 +643,17 @@ export const RunAppend = z.object({
   attachments: z.array(Attachment),
 })
 
+/** Stop a hosted service (sidebar 停止, preview idle timeout); the daemon answers with service.state. */
+export const ServiceStop = z.object({ t: z.literal('service.stop'), serviceId: z.string() })
+/**
+ * The machine's open previews, replaced wholesale after welcome and on every change: the tunnel only forwards to
+ * ports listed here (plan P9).
+ */
+export const PreviewsSync = z.object({
+  t: z.literal('previews.sync'),
+  previews: z.array(z.object({ id: z.string(), port: z.number().int().min(1).max(65535) })),
+})
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   FilesList,
@@ -633,5 +671,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   WorkspaceEnsure,
   WorkspaceCd,
   RepoProbe,
+  ServiceStop,
+  PreviewsSync,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

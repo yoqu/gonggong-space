@@ -6,6 +6,7 @@ import type { Ctx } from '../context.js'
 import { machines, users } from '../db/schema.js'
 import { sha256 } from '../lib/crypto.js'
 import { sysParams } from '../modules/admin/params.js'
+import { reconcileServices } from '../modules/previews/services.js'
 import { daemonRelease, upgradeFor } from '../modules/releases/routes.js'
 import { reconcileRuns } from '../modules/runs/reconcile.js'
 import type { DaemonConn } from './hub.js'
@@ -119,9 +120,10 @@ export function daemonGateway(ctx: Ctx) {
             ctx.hub.emit('message', machineId, msg.data)
         })
         await reconcileRuns(ctx, machineId, hello.activeRuns)
+        await reconcileServices(ctx, machineId, hello.services)
         if (ws.readyState !== ws.OPEN) return
         armTimeout()
-        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade })
+        send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade, tunnel: true })
         ctx.hub.register(machineId, conn)
       })
     })

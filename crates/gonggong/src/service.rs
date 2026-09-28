@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::protocol::{
-    AgentInfo, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon,
+    AgentInfo, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon, ServiceInfo,
 };
 use crate::status::Monitor;
 use crate::tls::Ws;
@@ -32,6 +32,14 @@ pub trait Handler: Send + Sync + 'static {
 
     /// Runs still executing locally, reported in hello so the server can reconcile lost ones (M5).
     fn active_runs(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Welcomed by the server; `tunnel`: it serves previews over `/ws/daemon/tunnel` (older servers do not).
+    fn connected(&self, _tunnel: bool) {}
+
+    /// Hosted services still running, reported in hello so the server can mark the lost ones exited.
+    fn services(&self) -> Vec<ServiceInfo> {
         Vec::new()
     }
 }
@@ -153,12 +161,14 @@ impl<H: Handler> Service<H> {
             machine: self.machine.clone(),
             agents: agents.borrow_and_update().clone(),
             active_runs,
+            services: self.handler.services(),
         };
         send(&mut ws, &hello).await?;
         let heartbeat_sec = match next_msg(&mut ws).await? {
-            ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade } => {
+            ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade, tunnel } => {
                 tracing::info!(machine_id, "connected");
                 self.monitor.online(heartbeat_sec);
+                self.handler.connected(tunnel);
                 if let (Some(up), Some(info)) = (&self.upgrader, upgrade) {
                     up.offer(info);
                 }

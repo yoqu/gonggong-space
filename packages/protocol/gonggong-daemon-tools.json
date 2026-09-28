@@ -1,0 +1,120 @@
+[
+  {
+    "name": "service_start",
+    "title": "启动托管服务",
+    "description": "在工作区里启动一个长期运行的服务（如 dev server），由 gonggong 托管：本轮结束后仍在运行，可查看日志、随时停止。需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "在工作区里用 shell 执行的启动命令"
+        },
+        "cwd": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "工作区内的相对目录，默认工作区根目录"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "服务监听的本机端口；给出时等待端口就绪（最多 60 秒）"
+        },
+        "env": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "额外的环境变量"
+        }
+      },
+      "required": ["name", "command"]
+    }
+  },
+  {
+    "name": "service_list",
+    "title": "托管服务列表",
+    "description": "你在本群托管的服务：名字、状态、端口、运行时长。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "service_logs",
+    "title": "托管服务日志",
+    "description": "查看托管服务的输出（stdout 与 stderr 合并）末尾若干行。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+        },
+        "tail": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "最后多少行，默认 100"
+        }
+      },
+      "required": ["name"]
+    }
+  },
+  {
+    "name": "service_stop",
+    "title": "停止托管服务",
+    "description": "停止托管服务及其子进程，并关闭它的预览。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+        }
+      },
+      "required": ["name"]
+    }
+  },
+  {
+    "name": "preview_static",
+    "title": "发布静态页面",
+    "description": "把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "工作区内要发布的目录（如 dist、docs/report），默认工作区根目录"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "卡片标题，说明这是什么"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^\\/",
+          "description": "打开时的路径，默认 /（目录下的 index.html）"
+        }
+      },
+      "required": ["title"]
+    }
+  }
+]

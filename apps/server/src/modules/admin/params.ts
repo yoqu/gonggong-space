@@ -25,6 +25,8 @@ export const PARAM_DEFAULTS: SystemParams = {
   backupRetentionDays: 7,
   archiveRetentionDays: 30,
   registrationOpen: false,
+  previewIdleHours: 24,
+  previewShareMaxDays: 30,
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]

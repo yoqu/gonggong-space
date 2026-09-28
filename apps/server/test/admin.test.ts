@@ -364,6 +364,8 @@ describe('system params', () => {
       backupRetentionDays: 7,
       archiveRetentionDays: 30,
       registrationOpen: false,
+      previewIdleHours: 24,
+      previewShareMaxDays: 30,
     })
   })
 
