@@ -31,12 +31,14 @@ const FILTERS: { label: string; category?: string }[] = [
   { label: '锁与同步', category: 'lock' },
   { label: '管理', category: 'admin' },
   { label: '运行', category: 'run' },
+  { label: '预览', category: 'preview' },
 ]
 const TONE: Record<string, TagTone> = {
   approval: 'orange',
   question: 'purple',
   lock: 'blue',
   run: 'green',
+  preview: 'gray',
 }
 const TYPE: Record<string, string> = Object.fromEntries(
   FILTERS.filter((f) => f.category).map((f) => [f.category, f.label]),

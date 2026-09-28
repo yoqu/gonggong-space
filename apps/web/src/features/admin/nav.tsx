@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { IconName } from '../../ui'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
 import { ConfigPage } from '../config/ConfigPage'
+import { SharesPage } from '../previews/SharesPage'
 import { UsagePage } from '../usage/UsagePage'
 import { AuditPage } from './AuditPage'
 import { GroupsPage } from './GroupsPage'
@@ -91,6 +92,14 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         color: 'var(--system-teal)',
         desc: '按 Bot、触发人、群汇总 token 用量。',
         element: <UsagePage />,
+      },
+      {
+        path: 'previews',
+        label: '公开链接',
+        icon: 'link',
+        color: 'var(--system-cyan)',
+        desc: 'Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。',
+        element: <SharesPage />,
       },
       {
         path: 'audit',

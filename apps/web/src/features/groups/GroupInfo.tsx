@@ -29,6 +29,8 @@ import {
 import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/BotDialog'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { PreviewsView } from '../previews/PreviewsView'
+import { usePreviews } from '../previews/store'
 import { repoPath } from '../repos/RepoPicker'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { effectiveTier, TIER_LABEL } from '../runs/tier'
@@ -39,7 +41,7 @@ import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
 import './groups.css'
 
 export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params'
-export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices'
+export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices' | 'previews'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
 
@@ -135,6 +137,7 @@ export function GroupInfo({
     repo: '仓库与工作区',
     info: dm ? '名称' : '群名称与公告',
     notices: '群公告',
+    previews: '预览与服务',
   }[view]
   return (
     <InspectorPanel
@@ -163,6 +166,8 @@ export function GroupInfo({
         <RepoWorkspaceView group={group} isAdmin={isAdmin} />
       ) : view === 'notices' ? (
         <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
+      ) : view === 'previews' ? (
+        <PreviewsView groupId={group.id} />
       ) : (
         <InfoForm group={group} onSaved={() => setView('main')} />
       )}
@@ -185,6 +190,7 @@ function MainView({
 }) {
   const navigate = useNavigate()
   const allBots = useWorkspace((s) => s.bots)
+  const previews = usePreviews(group.id)
   const [params, setParams] = useState<GroupParams | null>(null)
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
@@ -324,6 +330,11 @@ function MainView({
               label: '仓库与工作区',
               value: group.repo ? repoPath(group.repo.url) : '未绑定',
               onClick: () => setView('repo'),
+            },
+            {
+              label: '预览与服务',
+              value: previews ? `${previews.previews.length} 个预览` : undefined,
+              onClick: () => setView('previews'),
             },
             ...(dm
               ? []

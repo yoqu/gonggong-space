@@ -20,6 +20,7 @@ import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
 import { useQuote } from '../attachments/quote'
 import { BotAvatar } from '../bots/avatars'
+import { PreviewCard } from '../previews/PreviewCard'
 import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
@@ -374,9 +375,13 @@ function ReplyMessage({
           </>
         }
       >
-        <Clamp>
-          <Markdown text={m.body} />
-        </Clamp>
+        {m.previewId ? (
+          <PreviewCard previewId={m.previewId} groupId={m.groupId} fallback={m.body} />
+        ) : (
+          <Clamp>
+            <Markdown text={m.body} />
+          </Clamp>
+        )}
         <ReactionBar message={m} />
       </Message>
     </div>
