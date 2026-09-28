@@ -17,6 +17,7 @@ import { botRoutes } from './modules/bots/routes.js'
 import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
+import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { machineRoutes } from './modules/machines/routes.js'
@@ -86,6 +87,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))
   await app.register(repoRoutes(ctx))
+  await app.register(gitAccountRoutes(ctx))
   await backfillRepos(ctx)
   await app.register(usageRoutes(ctx))
   await app.register(releaseRoutes(ctx))

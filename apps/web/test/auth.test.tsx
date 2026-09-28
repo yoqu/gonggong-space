@@ -33,6 +33,13 @@ function renderAt(path: string) {
 const fill = (label: string, value: string, exact = true) =>
   fireEvent.change(screen.getByLabelText(label, { exact }), { target: { value } })
 
+/** Account menu → 设置…; resolves to the settings window. */
+async function openSettings() {
+  fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
+  fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '设置…' }))
+  return screen.findByRole('dialog', { name: '外观' })
+}
+
 beforeEach(() => {
   vi.stubGlobal('WebSocket', NoopSocket)
   useSession.setState({ user: null, status: 'idle' })
@@ -209,34 +216,78 @@ describe('account menu', () => {
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/logout')).toBe(true))
   })
 
-  it('sets which git protocol my bots try first', async () => {
-    const calls = mockApi({ 'GET /me': me, 'PATCH /me': { ...me, gitProtocol: 'https' } })
+  it('sets which git protocol my bots try first in settings', async () => {
+    const calls = mockApi({
+      'GET /me': me,
+      'GET /me/git-accounts': [],
+      'PATCH /me': { ...me, gitProtocol: 'https' },
+    })
     renderAt('/')
-    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    const menu = screen.getByRole('menu')
-    expect(within(menu).getByText('Git 协议')).toBeTruthy()
-    expect(
-      within(menu).getByRole('menuitemcheckbox', { name: '按仓库地址' }).getAttribute('aria-checked'),
-    ).toBe('true')
-    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '优先 HTTPS' }))
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /Git 与仓库/ }))
+    const protocol = await within(settings).findByRole('button', { name: '协议偏好' })
+    expect(protocol.textContent).toContain('按仓库地址')
+    fireEvent.click(protocol)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '优先 HTTPS' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ gitProtocol: 'https' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('menu'))
-          .getByRole('menuitemcheckbox', { name: '优先 HTTPS' })
-          .getAttribute('aria-checked'),
-      ).toBe('true'),
-    )
+    await waitFor(() => expect(protocol.textContent).toContain('优先 HTTPS'))
   })
 
-  it('changes my own password from the menu without leaving the chat', async () => {
+  it('connects a git account, showing why a token was rejected', async () => {
+    let attempts = 0
+    const calls = mockApi({
+      'GET /me': me,
+      'GET /me/git-accounts': [],
+      'POST /me/git-accounts': () =>
+        ++attempts === 1
+          ? apiError(400, 'invalid', 'Token 无效或已过期')
+          : { id: 'a1', provider: 'gitlab', baseUrl: 'https://gl.corp', login: 'wanglei', status: 'ok' },
+    })
+    renderAt('/')
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /Git 与仓库/ }))
+    fireEvent.click(await within(settings).findByRole('button', { name: /添加账号/ }))
+    const sheet = await screen.findByRole('dialog', { name: '添加 Git 账号' })
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    const guide = within(sheet).getByRole('region', { name: '如何获取 Token' })
+    fireEvent.click(within(guide).getByRole('button', { name: '在 GitHub 创建 Token' }))
+    const github = new URL(open.mock.calls[0]?.[0])
+    expect(github.origin + github.pathname).toBe('https://github.com/settings/personal-access-tokens/new')
+    expect(github.searchParams.get('contents')).toBe('read')
+    expect(github.searchParams.get('name')).toBe('共工')
+    expect(guide.textContent).toContain('All repositories')
+
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'GitLab' }))
+    expect(within(guide).getByRole('button', { name: '在 GitLab 创建 Token' }).hasAttribute('disabled')).toBe(
+      true,
+    )
+    fill('实例地址', 'https://gl.corp/')
+    fireEvent.click(within(guide).getByRole('button', { name: '在 GitLab 创建 Token' }))
+    const gitlab = new URL(open.mock.calls[1]?.[0])
+    expect(gitlab.origin + gitlab.pathname).toBe('https://gl.corp/-/user_settings/personal_access_tokens')
+    expect(gitlab.searchParams.get('scopes')).toBe('read_api')
+    fill('Token', 'glpat-1')
+    fireEvent.click(within(sheet).getByRole('button', { name: '连接' }))
+    expect(await within(sheet).findByText('Token 无效或已过期')).toBeTruthy()
+    fireEvent.click(within(sheet).getByRole('button', { name: '连接' }))
+    expect(await within(settings).findByText('wanglei')).toBeTruthy()
+    expect(calls.filter((c) => c.method === 'POST').at(-1)?.body).toEqual({
+      provider: 'gitlab',
+      baseUrl: 'https://gl.corp',
+      token: 'glpat-1',
+    })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '添加 Git 账号' })).toBeNull())
+  })
+
+  it('changes my own password from settings without leaving the chat', async () => {
     const calls = mockApi({ 'GET /me': me, 'POST /auth/password': me })
     renderAt('/')
-    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '修改密码…' }))
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
+    fireEvent.click(within(settings).getByRole('button', { name: '修改密码…' }))
     const dialog = await screen.findByRole('dialog', { name: '修改密码' })
     fill('当前密码', 'old-pass-1')
     fill('新密码', 'new-pass-22')
@@ -252,7 +303,7 @@ describe('account menu', () => {
   })
 })
 
-describe('account menu appearance', () => {
+describe('appearance settings', () => {
   type ChangeListener = (event: { matches: boolean }) => void
   let systemDark = false
   let changeListeners: Set<ChangeListener> = new Set()
@@ -282,8 +333,7 @@ describe('account menu appearance', () => {
   const openMenu = async () => {
     mockApi({ 'GET /me': me })
     renderAt('/')
-    fireEvent.click(await screen.findByRole('button', { name: '账户菜单' }))
-    return screen.getByRole('menu')
+    return openSettings()
   }
 
   beforeEach(() => {
@@ -304,21 +354,15 @@ describe('account menu appearance', () => {
   it('offers light / dark / system with the current preference marked', async () => {
     setTheme('dark')
     const menu = await openMenu()
-    expect(within(menu).getByText('外观')).toBeTruthy()
-    expect(within(menu).getByRole('menuitemcheckbox', { name: '浅色' }).getAttribute('aria-checked')).toBe(
-      'false',
-    )
-    expect(within(menu).getByRole('menuitemcheckbox', { name: '深色' }).getAttribute('aria-checked')).toBe(
-      'true',
-    )
-    expect(
-      within(menu).getByRole('menuitemcheckbox', { name: '跟随系统' }).getAttribute('aria-checked'),
-    ).toBe('false')
+    expect(within(menu).getByRole('radiogroup', { name: '主题' })).toBeTruthy()
+    expect(within(menu).getByRole('radio', { name: '浅色' }).getAttribute('aria-checked')).toBe('false')
+    expect(within(menu).getByRole('radio', { name: '深色' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(menu).getByRole('radio', { name: '跟随系统' }).getAttribute('aria-checked')).toBe('false')
   })
 
   it('applies the choice immediately and persists across reload and remount', async () => {
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '深色' }))
+    fireEvent.click(within(menu).getByRole('radio', { name: '深色' }))
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
 
@@ -329,11 +373,9 @@ describe('account menu appearance', () => {
 
     cleanup()
     const remounted = await openMenu()
-    expect(
-      within(remounted).getByRole('menuitemcheckbox', { name: '深色' }).getAttribute('aria-checked'),
-    ).toBe('true')
+    expect(within(remounted).getByRole('radio', { name: '深色' }).getAttribute('aria-checked')).toBe('true')
 
-    fireEvent.click(within(remounted).getByRole('menuitemcheckbox', { name: '浅色' }))
+    fireEvent.click(within(remounted).getByRole('radio', { name: '浅色' }))
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
   })
@@ -341,7 +383,7 @@ describe('account menu appearance', () => {
   it('follows the OS appearance in system mode', async () => {
     setSystemDark(true)
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '跟随系统' }))
+    fireEvent.click(within(menu).getByRole('radio', { name: '跟随系统' }))
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system')
     expect(document.documentElement.dataset.theme).toBe('dark')
 
@@ -351,9 +393,8 @@ describe('account menu appearance', () => {
 
   it('offers clear / standard / tinted glass with standard marked by default', async () => {
     const menu = await openMenu()
-    expect(within(menu).getByText('玻璃效果')).toBeTruthy()
-    const checked = (name: string) =>
-      within(menu).getByRole('menuitemcheckbox', { name }).getAttribute('aria-checked')
+    expect(within(menu).getByRole('radiogroup', { name: '玻璃效果' })).toBeTruthy()
+    const checked = (name: string) => within(menu).getByRole('radio', { name }).getAttribute('aria-checked')
     expect(checked('清透')).toBe('false')
     expect(checked('标准')).toBe('true')
     expect(checked('着色')).toBe('false')
@@ -361,16 +402,14 @@ describe('account menu appearance', () => {
 
   it('applies the glass choice immediately and persists across remount', async () => {
     const menu = await openMenu()
-    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: '着色' }))
+    fireEvent.click(within(menu).getByRole('radio', { name: '着色' }))
     expect(document.documentElement.dataset.glass).toBe('tinted')
     expect(window.localStorage.getItem(GLASS_STORAGE_KEY)).toBe('tinted')
 
     cleanup()
     const remounted = await openMenu()
-    expect(
-      within(remounted).getByRole('menuitemcheckbox', { name: '着色' }).getAttribute('aria-checked'),
-    ).toBe('true')
-    fireEvent.click(within(remounted).getByRole('menuitemcheckbox', { name: '清透' }))
+    expect(within(remounted).getByRole('radio', { name: '着色' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(within(remounted).getByRole('radio', { name: '清透' }))
     expect(document.documentElement.dataset.glass).toBe('clear')
   })
 })

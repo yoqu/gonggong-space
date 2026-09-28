@@ -1,25 +1,15 @@
 import type { BotDto, GroupDto, RepoAccessReason } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Button, Icon, PinnedBanner, Presence, toast } from '../../ui'
-import { DirPicker } from '../workspaces/DirPicker'
+import { Button, PinnedBanner, Presence, toast } from '../../ui'
+import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 
 const PAUSING: Partial<Record<RepoAccessReason, string>> = {
   denied: '无权限或仓库不存在',
   network: '网络或证书问题',
   timeout: '连接超时',
-}
-
-/** Directories on the caller's machines already holding the group repo, offered before a fresh clone. */
-function useLocalPaths(group: GroupDto, wanted: boolean) {
-  const [paths, setPaths] = useState<{ machineId: string; path: string }[]>([])
-  useEffect(() => {
-    if (!wanted || !group.repo) return
-    api.get<{ machineId: string; path: string }[]>(`/groups/${group.id}/local-paths`).then(setPaths, () => {})
-  }, [wanted, group.id, group.repo])
-  return paths
 }
 
 /**
@@ -37,7 +27,6 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
     const s = states?.[b.id]
     return s?.state === 'failed' && !!s.reason && !!PAUSING[s.reason]
   })
-  const local = useLocalPaths(group, !!picking)
   if (!waiting.length && !paused.length) return null
 
   const recheck = (bot: BotDto) =>
@@ -46,14 +35,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
       .then(() => toast({ type: 'info', message: `正在让 ${bot.name} 的机器重新 clone…` }))
       .catch((e: Error) => toast({ type: 'error', message: e.message }))
 
-  const bind = (bot: BotDto, path: string | null) =>
-    api
-      .put(`/groups/${group.id}/bots/${bot.id}/workspace`, { path })
-      .then(() => setPicking(null))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
-
   const mineReady = waiting.filter((b) => b.ownerId === me?.id && b.machineId && !states?.[b.id]?.error)
-  const here = local.filter((p) => p.machineId === picking?.machineId)
   return (
     <>
       {paused.map((b) => {
@@ -126,63 +108,10 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
       })}
       <Presence>
         {picking?.machineId ? (
-          <DirPicker
-            machineId={picking.machineId}
-            title={`为 ${picking.name} 选择工作区`}
-            start={picking.defaultWorkspace}
-            onPick={(path) => void bind(picking, path)}
+          <WorkspacePicker
+            group={group}
+            bot={{ ...picking, machineId: picking.machineId }}
             onClose={() => setPicking(null)}
-            extra={
-              picking.defaultWorkspace || group.repo ? (
-                <div className="dirpick__choices">
-                  {here.map((p) => (
-                    <button
-                      key={p.path}
-                      type="button"
-                      className="dirpick__choice"
-                      onClick={() => void bind(picking, p.path)}
-                    >
-                      <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
-                      <span className="dirpick__choice-text">
-                        <span className="dirpick__choice-title">
-                          使用本机已有的仓库目录<span className="dirpick__badge">免 clone</span>
-                        </span>
-                        <span className="dirpick__choice-desc">{p.path}</span>
-                      </span>
-                    </button>
-                  ))}
-                  {group.repo ? (
-                    <button
-                      type="button"
-                      className="dirpick__choice"
-                      onClick={() => void bind(picking, null)}
-                    >
-                      <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
-                      <span className="dirpick__choice-text">
-                        <span className="dirpick__choice-title">
-                          托管克隆群仓库<span className="dirpick__badge">推荐</span>
-                        </span>
-                        <span className="dirpick__choice-desc">在机器上自动克隆到独立目录，互不干扰</span>
-                      </span>
-                    </button>
-                  ) : null}
-                  {picking.defaultWorkspace ? (
-                    <button
-                      type="button"
-                      className="dirpick__choice"
-                      onClick={() => void bind(picking, picking.defaultWorkspace)}
-                    >
-                      <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
-                      <span className="dirpick__choice-text">
-                        <span className="dirpick__choice-title">使用默认工作区</span>
-                        <span className="dirpick__choice-desc">{picking.defaultWorkspace}</span>
-                      </span>
-                    </button>
-                  ) : null}
-                  <span className="dirpick__or">或选择机器上已有的目录</span>
-                </div>
-              ) : null
-            }
           />
         ) : null}
       </Presence>

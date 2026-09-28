@@ -29,6 +29,8 @@ import {
 import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/BotDialog'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { repoPath } from '../repos/RepoPicker'
+import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { effectiveTier, TIER_LABEL } from '../runs/tier'
 import { groupsApi, paramsSummary } from './api'
 import { attempt } from './attempt'
@@ -36,8 +38,8 @@ import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
 import './groups.css'
 
-export type SettingsTab = 'basic' | 'bots' | 'mode' | 'params'
-export type InfoView = 'main' | 'members' | 'bots' | 'info' | 'notices'
+export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params'
+export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
 
@@ -130,6 +132,7 @@ export function GroupInfo({
     main: label,
     members: `群成员 · ${group.members.length}`,
     bots: `Bot · ${group.botIds.length}`,
+    repo: '仓库与工作区',
     info: dm ? '名称' : '群名称与公告',
     notices: '群公告',
   }[view]
@@ -156,6 +159,8 @@ export function GroupInfo({
         <MembersView group={group} isAdmin={isAdmin} initialAdding={adding} />
       ) : view === 'bots' ? (
         <BotsView group={group} isAdmin={isAdmin} />
+      ) : view === 'repo' ? (
+        <RepoWorkspaceView group={group} isAdmin={isAdmin} />
       ) : view === 'notices' ? (
         <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
       ) : (
@@ -315,6 +320,11 @@ function MainView({
               value: `${group.botIds.length} 个`,
               onClick: () => setView('bots'),
             },
+            {
+              label: '仓库与工作区',
+              value: group.repo ? repoPath(group.repo.url) : '未绑定',
+              onClick: () => setView('repo'),
+            },
             ...(dm
               ? []
               : [
@@ -346,7 +356,7 @@ function MainView({
             manage(
               '仓库与基准分支',
               <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? '未绑定'}</span>,
-              () => onSettings('basic'),
+              () => onSettings('repo'),
             ),
             manage('同步模式', GROUP_MODE_LABEL[group.mode], () => onSettings('mode')),
             paramsFailed

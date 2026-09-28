@@ -1,0 +1,60 @@
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.settings-section__title {
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-subheadline-size);
+  font-weight: 500;
+  color: var(--label-secondary);
+}
+.settings-account {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.settings-account__login {
+  color: var(--label-secondary);
+}
+.settings-account__bad {
+  color: var(--system-red);
+  font-size: var(--text-subheadline-size);
+}
+.settings-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.settings-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+  font-size: var(--text-subheadline-size);
+}
+.settings-guide__title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+.settings-guide__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding-left: var(--space-16);
+  color: var(--label-secondary);
+}
+.settings-guide__steps .ui-btn {
+  display: flex;
+  width: fit-content;
+  margin-top: var(--space-4);
+}
+.settings-guide__note {
+  margin: 0;
+  color: var(--label-tertiary);
+}

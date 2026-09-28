@@ -1,73 +1,95 @@
-import type { BotDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
+import type { BotDto, BotProbeDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
-import { cx } from '../../lib/cx'
-import { Button, Dialog, Icon, Input, Tabs, toast } from '../../ui'
+import { Button, Dialog, GroupBox, Icon, IconButton, Input, Popover, SearchField, toast } from '../../ui'
+import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
-import { type RepoDraft, RepoFields, repoBody, repoUnavailable, repoValidated } from './RepoFields'
+import { RepoPicker } from '../repos/RepoPicker'
+import {
+  AccessResult,
+  branchMissing,
+  emptyRepo,
+  type RepoDraft,
+  repoBody,
+  repoUnavailable,
+  repoValidated,
+} from '../repos/repo-access'
 import { repoName } from './repo'
 import './chat.css'
 
 export type GroupKind = GroupDto['kind']
 
-const botState = (b: BotDto) =>
-  b.binding === 'bound'
-    ? PRESENCE[b.presence]
-    : { label: BINDING_LABEL[b.binding], color: 'var(--system-orange)' }
+const toggle = (list: string[], id: string) =>
+  list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
 
-interface Draft extends RepoDraft {
-  kind: GroupKind
-  name: string
-  repoMode: 'repo' | 'none'
-  people: string[]
-  bots: string[]
+/** Presence dot and label, shown while there is no access check result for the bot. */
+function Presence({ bot }: { bot: BotDto }) {
+  const st =
+    bot.binding === 'bound'
+      ? PRESENCE[bot.presence]
+      : { label: BINDING_LABEL[bot.binding], color: 'var(--system-orange)' }
+  return (
+    <span className="ng-presence">
+      <span className="dot dot--sm" style={{ background: st.color }} />
+      {st.label}
+    </span>
+  )
 }
 
-const blank = (kind: GroupKind): Draft => ({
-  kind,
-  name: '',
-  repoMode: 'repo',
-  url: '',
-  branch: 'main',
-  check: null,
-  people: [],
-  bots: [],
-})
-
 export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: GroupKind; onClose: () => void }) {
-  const bots = useWorkspace((s) => s.bots)
-  const [users, setUsers] = useState<UserBriefDto[]>([])
+  const allBots = useWorkspace((s) => s.bots)
   const navigate = useNavigate()
-  const [d, setD] = useState(() => blank(kind))
+  const [users, setUsers] = useState<UserBriefDto[]>([])
+  const [name, setName] = useState('')
+  const [nameTouched, setNameTouched] = useState(false)
+  const [botIds, setBotIds] = useState<string[]>([])
+  const [people, setPeople] = useState<string[]>([])
+  const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
-  const set = (o: Partial<Draft>) => setD((prev) => ({ ...prev, ...o }))
+  const dm = kind === 'dm'
 
   useEffect(() => {
-    api.get<UserBriefDto[]>('/users').then(setUsers, () => {})
-  }, [])
+    if (!dm) api.get<UserBriefDto[]>('/users').then(setUsers, () => {})
+  }, [dm])
 
-  const dm = d.kind === 'dm'
-  const repo = d.repoMode === 'repo'
-  const choices = bots.filter((b) => !dm || b.ownerId === me.id)
-  const owners = new Set(
-    bots.filter((b) => d.bots.includes(b.id) && b.ownerId !== me.id).map((b) => b.ownerId),
+  const setRepoDraft = (o: Partial<RepoDraft>) => {
+    setRepo((r) => ({ ...r, ...o }))
+    if (o.url !== undefined && !nameTouched) setName(o.url ? repoName(o.url) : '')
+  }
+
+  const choices = allBots.filter((b) => !dm || b.ownerId === me.id)
+  const picked = botIds.map((id) => allBots.find((b) => b.id === id)).filter((b): b is BotDto => !!b)
+  const owners = [...new Set(picked.filter((b) => b.ownerId !== me.id).map((b) => b.ownerId))]
+  const manual = people.filter((id) => !owners.includes(id))
+  const userName = (id: string) =>
+    users.find((u) => u.id === id)?.name ?? allBots.find((b) => b.ownerId === id)?.ownerName ?? ''
+
+  const bound = !!repo.url.trim()
+  const checking = bound && repo.check === 'checking'
+  const disabled = !name.trim() || creating || (bound && !repoValidated(repo))
+  const results = new Map<string, BotProbeDto>(
+    repo.check && repo.check !== 'checking' ? repo.check.results.map((r) => [r.botId, r]) : [],
   )
-  const members = new Set([...d.people, ...owners])
-  const blocked = !d.name.trim() ? '填写群名' : repo && !repoValidated(d) ? '先检查仓库访问' : ''
-  const name = repoName(d.url.trim())
-  const unavailable = repo ? repoUnavailable(d) : 0
+  const paused = bound ? repoUnavailable(repo) : 0
+  const status = !bound
+    ? ''
+    : branchMissing(repo)
+      ? `分支 ${repo.branch.trim() || 'main'} 不存在`
+      : paused
+        ? `${paused} 个 Bot 进群后暂停，主人配置凭据后可重新检查`
+        : ''
 
   const submit = async () => {
     setCreating(true)
     try {
       const group = await api.post<GroupDto>('/groups', {
-        name: d.name.trim(),
-        kind: d.kind,
-        memberIds: dm ? [] : d.people,
-        botIds: d.bots,
-        repo: repo ? repoBody(d) : null,
+        name: name.trim(),
+        kind,
+        memberIds: dm ? [] : manual,
+        botIds,
+        repo: bound ? repoBody(repo) : null,
       })
       useWorkspace.getState().applyEvent({ t: 'group.updated', group })
       onClose()
@@ -79,166 +101,201 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
     }
   }
 
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
-
   return (
     <Dialog
       open
-      width={540}
+      width={520}
       closeOnBackdrop={false}
       title={dm ? '新建私聊' : '新建群'}
-      subtitle={dm ? '只有你和你的 Bot' : '创建者即群管理员'}
       onClose={onClose}
       footer={
         <>
-          <span className={cx('ng-foot', blocked && 'ng-foot--muted')}>
-            {blocked ||
-              (unavailable
-                ? `${unavailable} 个 Bot 无法访问仓库，进群后暂停，主人配置后可重新检查`
-                : repo
-                  ? `${d.bots.length} 个 Bot 进群后绑定工作区，可托管克隆 ${name}`
-                  : `${d.bots.length} 个 Bot 进群后使用默认工作区或主人选择的目录`)}
-          </span>
+          <span className="ng-foot">{status}</span>
           <Button onClick={onClose}>取消</Button>
-          <Button variant="primary" disabled={!!blocked || creating} onClick={() => void submit()}>
-            创建
+          <Button variant="primary" disabled={disabled || checking} onClick={() => void submit()}>
+            {checking ? '检查中…' : '创建'}
           </Button>
         </>
       }
     >
       <div className="ng">
-        <Tabs
-          size="sm"
-          value={d.kind}
-          onChange={(k) => set({ kind: k, people: [], bots: [] })}
-          items={[
-            { value: 'group', label: '群' },
-            { value: 'dm', label: '私聊' },
-          ]}
-        />
-        <div className="ng-field">
-          <span className="ng-label">名称 *</span>
-          <Input
-            aria-label="名称"
-            value={d.name}
-            maxLength={60}
-            placeholder="如：退款 v2 迁移"
-            onChange={(e) => set({ name: e.target.value })}
-          />
-        </div>
+        <section className="ng-section">
+          <h3 className="ng-section__title">名称</h3>
+          <GroupBox>
+            <div className="ng-name">
+              <Input
+                aria-label="名称"
+                value={name}
+                maxLength={60}
+                placeholder={dm ? '如：脚本实验' : '如：退款 v2 迁移'}
+                onChange={(e) => {
+                  setNameTouched(true)
+                  setName(e.target.value)
+                }}
+              />
+            </div>
+          </GroupBox>
+        </section>
 
-        <div className="ng-field">
-          <div className="ng-row">
-            <span className="ng-label">git 仓库</span>
-            <span className="spacer" />
-            <Tabs
-              size="sm"
-              value={d.repoMode}
-              onChange={(repoMode) => set({ repoMode })}
-              items={[
-                { value: 'repo', label: '绑定仓库' },
-                { value: 'none', label: '暂不绑定' },
-              ]}
-            />
-          </div>
-          {repo ? (
-            <>
-              <RepoFields draft={d} set={set} botIds={d.bots} />
-              <span className="ng-note">
-                每个群绑定一个仓库。Bot 加入后由各自 daemon 用本机 git 凭据 clone
-                到托管工作区；服务器不持有写权限。
-              </span>
-            </>
-          ) : (
-            <span className="ng-note">
-              每个 Bot 得到一个托管的空工作区，只能用分区模式；之后绑定仓库时工作区重建。
-            </span>
-          )}
-        </div>
-
-        <div className="ng-mode">
-          <Icon name="git-fork" size={14} className="muted-icon" />
-          <div className="ng-mode__text">
-            <span className="ng-mode__title">同步模式 · 分区模式</span>
-            <span className="ng-note">
-              {repo
-                ? '新群默认分区模式。需要强制同步时，在群设置中切换（含网络检测与就绪检查）。'
-                : '未绑定仓库的群只能使用分区模式。'}
-            </span>
-          </div>
-        </div>
-
-        {dm ? null : (
-          <div className="ng-field">
-            <span className="ng-label">成员 · {members.size + 1} 人</span>
-            <fieldset className="ng-chips" aria-label="成员">
-              <button type="button" className="ng-chip ng-chip--on ng-chip--fixed" aria-pressed="true">
-                <Icon name="check" size={11} weight={2} />
-                {me.name}
-                <span className="ng-chip__sub">群管理员</span>
-              </button>
-              {users
-                .filter((u) => u.id !== me.id)
-                .map((u) => {
-                  const auto = owners.has(u.id)
-                  const on = members.has(u.id)
+        <section className="ng-section">
+          <h3 className="ng-section__title">Bot · {picked.length}</h3>
+          <GroupBox>
+            {picked.map((b) => {
+              const r = results.get(b.id)
+              return (
+                <div key={b.id} className="ng-botrow">
+                  <BotAvatar id={b.id} name={b.name} size={24} />
+                  <span className="ng-botrow__main">
+                    <span className="ng-botrow__name">{b.name}</span>
+                    <span className="ng-botrow__sub">
+                      {AGENT_LABEL[b.agentKind]} · {b.ownerName}
+                    </span>
+                  </span>
+                  {r ? <AccessResult result={r} /> : <Presence bot={b} />}
+                  <IconButton
+                    size="small"
+                    title={`移除 ${b.name}`}
+                    onClick={() => setBotIds(botIds.filter((id) => id !== b.id))}
+                  >
+                    {'minus' as const}
+                  </IconButton>
+                </div>
+              )
+            })}
+            <Popover
+              width={320}
+              aria-label="添加 Bot"
+              className="ng-add"
+              trigger={
+                <button type="button" className="ng-add__trigger">
+                  添加 Bot…
+                </button>
+              }
+            >
+              <fieldset className="ng-pick" aria-label="可添加的 Bot">
+                {choices.map((b) => {
+                  const on = botIds.includes(b.id)
                   return (
                     <button
-                      key={u.id}
+                      key={b.id}
                       type="button"
-                      aria-pressed={on}
-                      className={cx('ng-chip', on && 'ng-chip--on', auto && 'ng-chip--fixed')}
-                      onClick={() => !auto && set({ people: toggle(d.people, u.id) })}
+                      role="menuitemcheckbox"
+                      aria-checked={on}
+                      disabled={b.binding !== 'bound'}
+                      title={b.binding === 'bound' ? undefined : `${BINDING_LABEL[b.binding]}，暂不能拉入`}
+                      className="ng-pick__row"
+                      onClick={() => setBotIds(toggle(botIds, b.id))}
                     >
-                      {on ? <Icon name="check" size={11} weight={2} /> : null}
-                      {u.name}
-                      {auto ? <span className="ng-chip__sub">Bot 主人</span> : null}
+                      <span className="ng-pick__check">
+                        {on ? <Icon name="check" size={12} weight={2} /> : null}
+                      </span>
+                      <BotAvatar id={b.id} name={b.name} size={20} />
+                      <span className="ng-botrow__main">
+                        <span className="ng-botrow__name">{b.name}</span>
+                        <span className="ng-botrow__sub">
+                          {AGENT_LABEL[b.agentKind]} · {b.ownerName}
+                        </span>
+                      </span>
+                      <Presence bot={b} />
                     </button>
                   )
                 })}
-            </fieldset>
-          </div>
+                {choices.length ? null : <span className="ng-pick__empty">还没有可拉入的 Bot</span>}
+              </fieldset>
+            </Popover>
+          </GroupBox>
+        </section>
+
+        {dm ? null : (
+          <section className="ng-section">
+            <h3 className="ng-section__title">
+              成员 · {1 + owners.length + manual.length}
+              {owners.length ? '（Bot 主人自动加入）' : ''}
+            </h3>
+            <GroupBox>
+              <fieldset className="ng-members" aria-label="成员">
+                <span className="ng-member ng-member--fixed" title="群管理员">
+                  {me.name}
+                  <span className="ng-member__sub">群管理员</span>
+                </span>
+                {owners.map((id) => (
+                  <span key={id} className="ng-member ng-member--fixed" title="Bot 主人，自动加入">
+                    {userName(id)}
+                    <span className="ng-member__sub">Bot 主人</span>
+                  </span>
+                ))}
+                {manual.map((id) => (
+                  <span key={id} className="ng-member">
+                    {userName(id)}
+                    <button
+                      type="button"
+                      className="ng-member__x"
+                      aria-label={`移除 ${userName(id)}`}
+                      onClick={() => setPeople(people.filter((p) => p !== id))}
+                    >
+                      <Icon name="xmark" size={9} weight={2.4} />
+                    </button>
+                  </span>
+                ))}
+                <AddMember
+                  users={users.filter(
+                    (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
+                  )}
+                  onAdd={(id) => setPeople([...people, id])}
+                />
+              </fieldset>
+            </GroupBox>
+          </section>
         )}
 
-        <div className="ng-field">
-          <span className="ng-label">拉入 Bot · {d.bots.length} 个</span>
-          {choices.map((b) => {
-            const on = d.bots.includes(b.id)
-            const st = botState(b)
-            return (
-              <button
-                key={b.id}
-                type="button"
-                aria-pressed={on}
-                disabled={b.binding !== 'bound'}
-                className={cx('ng-bot', on && 'ng-bot--on')}
-                onClick={() => set({ bots: toggle(d.bots, b.id) })}
-              >
-                <span className="ng-bot__box">
-                  {on ? <Icon name="check" size={10} weight={2.2} /> : null}
-                </span>
-                <span className="ng-bot__main">
-                  <span className="ng-bot__name">{b.name}</span>
-                  <span className="ng-bot__sub">
-                    {AGENT_LABEL[b.agentKind]} · {b.ownerName}
-                  </span>
-                </span>
-                <span className="ng-bot__state">
-                  <span className="dot dot--sm" style={{ background: st.color }} />
-                  {st.label}
-                </span>
-              </button>
-            )
-          })}
-          {choices.length ? null : <span className="ng-note">还没有可拉入的 Bot</span>}
-          <span className="ng-note">
-            {dm
-              ? '私聊只能拉入你自己的 Bot；其他人不能加入，也不能触发。可绑仓库、可选同步模式，规则与群相同。'
-              : 'Bot 的主人会自动成为群成员；谁能触发由 Bot 自己的触发范围决定。'}
-          </span>
-        </div>
+        <section className="ng-section">
+          <h3 className="ng-section__title">仓库</h3>
+          <GroupBox>
+            <RepoPicker draft={repo} set={setRepoDraft} botIds={botIds} clearable />
+          </GroupBox>
+        </section>
       </div>
     </Dialog>
+  )
+}
+
+function AddMember({ users, onAdd }: { users: UserBriefDto[]; onAdd: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const needle = q.trim().toLowerCase()
+  const list = users.filter((u) => !needle || `${u.name} ${u.account}`.toLowerCase().includes(needle))
+  return (
+    <Popover
+      width={240}
+      aria-label="添加成员"
+      trigger={
+        <button type="button" className="ng-member ng-member--add" aria-label="添加成员">
+          <Icon name="plus" size={11} weight={2} />
+        </button>
+      }
+    >
+      {(close) => (
+        <div className="ng-pick">
+          <SearchField aria-label="搜索成员" value={q} onChange={setQ} />
+          {list.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              className="ng-pick__row"
+              onClick={() => {
+                onAdd(u.id)
+                setQ('')
+                close()
+              }}
+            >
+              <span className="ng-botrow__main">
+                <span className="ng-botrow__name">{u.name}</span>
+                <span className="ng-botrow__sub">{u.account}</span>
+              </span>
+            </button>
+          ))}
+          {list.length ? null : <span className="ng-pick__empty">没有可添加的成员</span>}
+        </div>
+      )}
+    </Popover>
   )
 }

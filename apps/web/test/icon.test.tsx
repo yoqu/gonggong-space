@@ -50,6 +50,15 @@ describe('Icon', () => {
     expect(ICON_NAMES).toEqual(expect.arrayContaining(['arrow-up', 'arrow-down']))
   })
 
+  it('fills the GitHub and GitLab marks on their own 24-grid', () => {
+    for (const name of ['github', 'gitlab'] as const) {
+      const svg = render(<Icon name={name} />).container.querySelector('svg') as SVGSVGElement
+      expect(svg.getAttribute('viewBox')).toBe('0 0 24 24')
+      expect(svg.getAttribute('fill')).toBe('currentColor')
+      expect(svg.getAttribute('stroke')).toBe('none')
+    }
+  })
+
   it('renders Pane originals for names Pane v2 added', () => {
     const { container } = render(<Icon name="copy" />)
     expect(container.querySelector('path')?.getAttribute('d')).toBe(PANE_PATHS.copy)

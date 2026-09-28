@@ -11,6 +11,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -43,6 +44,28 @@ export const webSessions = pgTable('web_sessions', {
   revokedAt: ts('revoked_at'),
   createdAt: createdAt(),
 })
+
+/** Personal GitHub / GitLab accounts, used only to list the caller's repos and branches. */
+export const gitAccounts = pgTable(
+  'git_accounts',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** 'github' | 'gitlab' */
+    provider: text('provider').notNull(),
+    /** Instance web address without a trailing slash, e.g. https://github.com. */
+    baseUrl: text('base_url').notNull(),
+    login: text('login').notNull(),
+    /** seal()ed personal access token; never sent to the browser. */
+    token: text('token').notNull(),
+    /** 'ok' | 'invalid' */
+    status: text('status').notNull().default('ok'),
+    createdAt: createdAt(),
+  },
+  (t) => [unique().on(t.userId, t.baseUrl, t.login)],
+)
 
 // ── Machines & daemon binding ───────────────────────────────────────────────
 export const bindCodes = pgTable('bind_codes', {

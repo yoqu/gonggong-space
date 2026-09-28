@@ -419,89 +419,6 @@ describe('my machines and bots', () => {
   })
 })
 
-describe('new group dialog', () => {
-  it('creates a repo-less DM with my bound bot and opens it', async () => {
-    const created = group({ id: 'd9', kind: 'dm', name: '脚本实验', repo: null, botIds: ['b1'], members: [] })
-    const calls = mockApi({
-      ...baseRoutes([]),
-      'POST /groups': () => created,
-      'GET /groups/d9/timeline': () => ({ messages: [], runs: [] }),
-      'POST /groups/d9/read': () => created,
-    })
-    renderAt('/')
-    fireEvent.click(screen.getByRole('button', { name: '新建私聊' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建私聊' })
-    expect(within(dialog).getByRole('tab', { name: '私聊' }).getAttribute('aria-selected')).toBe('true')
-    await within(dialog).findByRole('button', { name: /小王的 Claude/ })
-    expect(within(dialog).queryByRole('button', { name: /老李的 Codex/ })).toBeNull()
-    expect(
-      within(dialog)
-        .getByRole('button', { name: /小王的 Codex/ })
-        .hasAttribute('disabled'),
-    ).toBe(true)
-
-    const create = within(dialog).getByRole('button', { name: '创建' })
-    expect(create.hasAttribute('disabled')).toBe(true)
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '脚本实验' } })
-    expect(create.hasAttribute('disabled')).toBe(true)
-    fireEvent.click(within(dialog).getByRole('tab', { name: '暂不绑定' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: /小王的 Claude/ }))
-    expect(create.hasAttribute('disabled')).toBe(false)
-    fireEvent.click(create)
-
-    expect(await screen.findByRole('heading', { name: '脚本实验' })).toBeTruthy()
-    expect(calls.find((c) => c.method === 'POST' && c.path === '/groups')?.body).toEqual({
-      name: '脚本实验',
-      kind: 'dm',
-      memberIds: [],
-      botIds: ['b1'],
-      repo: null,
-    })
-  })
-
-  it('requires a repo access check and auto-adds bot owners as members', async () => {
-    const calls = mockApi({
-      ...baseRoutes([]),
-      'POST /repos/probe': () =>
-        probeRes([{ botId: 'b2', ok: true, usedUrl: 'git@git.corp:pay/refund.git' }]),
-      'POST /groups': () => group({ id: 'g7' }),
-    })
-    renderAt('/')
-    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '退款' } })
-    const create = within(dialog).getByRole('button', { name: '创建' })
-    expect(create.hasAttribute('disabled')).toBe(true)
-    expect(within(dialog).getByText('先检查仓库访问')).toBeTruthy()
-
-    fireEvent.click(await within(dialog).findByRole('button', { name: /老李的 Codex/ }))
-    fireEvent.change(within(dialog).getByLabelText('仓库地址'), {
-      target: { value: 'git@git.corp:pay/refund.git' },
-    })
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
-    const results = await within(dialog).findByRole('list', { name: '访问检查' })
-    expect(results.textContent).toContain('老李的 Codex可访问SSH')
-    expect(calls.find((c) => c.path === '/repos/probe')?.body).toEqual({
-      url: 'git@git.corp:pay/refund.git',
-      branch: 'main',
-      botIds: ['b2'],
-    })
-    expect(create.hasAttribute('disabled')).toBe(false)
-
-    const people = within(dialog).getByRole('group', { name: '成员' })
-    expect(within(people).getByRole('button', { name: /李建国/ }).textContent).toContain('Bot 主人')
-    fireEvent.click(within(people).getByRole('button', { name: /赵敏/ }))
-    fireEvent.click(create)
-    await waitFor(() => expect(calls.some((c) => c.path === '/groups' && c.method === 'POST')).toBe(true))
-    expect(calls.find((c) => c.path === '/groups' && c.method === 'POST')?.body).toMatchObject({
-      kind: 'group',
-      memberIds: ['u3'],
-      botIds: ['b2'],
-      repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
-    })
-  })
-})
-
 describe('chat view', () => {
   it('renders events, messages, markdown replies and run cards', async () => {
     const calls = mockApi(baseRoutes([group()]))
@@ -808,75 +725,286 @@ describe('chat view', () => {
   })
 })
 
-describe('repo validation and binding', () => {
-  it('shows format, checking and per-bot results; only a missing branch blocks', async () => {
+const history = [
+  {
+    id: 'r1',
+    key: 'git.corp/pay/refund',
+    url: 'git@git.corp:pay/refund.git',
+    name: 'refund',
+    lastBranch: 'release',
+    lastUsedAt: '2026-09-20T00:00:00Z',
+    groups: 3,
+    mine: true,
+    localPaths: [{ machineId: 'm1', path: '/Users/w/refund' }],
+  },
+]
+
+/** Opens the repo popover of `scope` and returns it. */
+async function openRepoPanel(scope: HTMLElement) {
+  fireEvent.click(within(scope).getByRole('button', { name: '仓库' }))
+  return screen.findByRole('dialog', { name: '选择仓库' })
+}
+
+async function addBot(dialog: HTMLElement, name: RegExp) {
+  fireEvent.click(within(dialog).getByRole('button', { name: '添加 Bot…' }))
+  const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+  fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name }))
+  fireEvent.click(within(dialog).getByRole('button', { name: '添加 Bot…' }))
+}
+
+describe('new group dialog', () => {
+  it('creates a repo-less DM with only my bound bots on offer', async () => {
+    const created = group({ id: 'd9', kind: 'dm', name: '脚本实验', repo: null, botIds: ['b1'], members: [] })
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'POST /groups': () => created,
+      'GET /groups/d9/timeline': () => ({ messages: [], runs: [] }),
+      'POST /groups/d9/read': () => created,
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建私聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建私聊' })
+    expect(within(dialog).queryByRole('tab')).toBeNull()
+    expect(within(dialog).queryByRole('group', { name: '成员' })).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加 Bot…' }))
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    expect(within(pick).queryByRole('menuitemcheckbox', { name: /老李的 Codex/ })).toBeNull()
+    expect(
+      within(pick)
+        .getByRole('menuitemcheckbox', { name: /小王的 Codex/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name: /小王的 Claude/ }))
+
+    const create = within(dialog).getByRole('button', { name: '创建' })
+    expect(create.hasAttribute('disabled')).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '脚本实验' } })
+    expect(within(dialog).getByText('不绑定 · 各 Bot 使用本机目录')).toBeTruthy()
+    expect(create.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(create)
+
+    expect(await screen.findByRole('heading', { name: '脚本实验' })).toBeTruthy()
+    expect(calls.find((c) => c.method === 'POST' && c.path === '/groups')?.body).toEqual({
+      name: '脚本实验',
+      kind: 'dm',
+      memberIds: [],
+      botIds: ['b1'],
+      repo: null,
+    })
+  })
+
+  it('checks the repo on its own and marks the result on each bot row', async () => {
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => history,
+      'POST /repos/probe': () =>
+        probeRes([{ botId: 'b2', ok: true, usedUrl: 'git@git.corp:pay/refund.git' }], ['main', 'release']),
+      'POST /groups': () => group({ id: 'g7' }),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    await addBot(dialog, /老李的 Codex/)
+    expect(within(dialog).getByText('Bot · 1')).toBeTruthy()
+
+    const panel = await openRepoPanel(dialog)
+    const option = await within(panel).findByRole('option', { name: /pay\/refund/ })
+    expect(option.textContent).toContain('3 个群在用 · release · 本机已有')
+    fireEvent.mouseDown(option)
+    // The repo name fills the empty name field.
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('refund')
+    expect((within(dialog).getByLabelText('基准分支') as HTMLInputElement).value).toBe('release')
+    expect(within(dialog).getByRole('button', { name: '检查中…' }).hasAttribute('disabled')).toBe(true)
+
+    const row = await within(dialog).findByText('可访问 · SSH')
+    expect(row.closest('.ng-botrow')?.textContent).toContain('老李的 Codex')
+    expect(within(dialog).getByText('1 个 Bot 可访问')).toBeTruthy()
+    expect(calls.find((c) => c.path === '/repos/probe')?.body).toEqual({
+      url: 'git@git.corp:pay/refund.git',
+      branch: 'release',
+      botIds: ['b2'],
+    })
+
+    const people = within(dialog).getByRole('group', { name: '成员' })
+    expect(within(people).getByText('李建国').parentElement?.textContent).toContain('Bot 主人')
+    fireEvent.click(within(people).getByRole('button', { name: '添加成员' }))
+    fireEvent.click(await screen.findByRole('button', { name: /赵敏/ }))
+    expect(within(dialog).getByText(/成员 · 3/)).toBeTruthy()
+
+    const create = within(dialog).getByRole('button', { name: '创建' })
+    fireEvent.click(create)
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups' && c.method === 'POST')).toBe(true))
+    expect(calls.find((c) => c.path === '/groups' && c.method === 'POST')?.body).toEqual({
+      name: 'refund',
+      kind: 'group',
+      memberIds: ['u3'],
+      botIds: ['b2'],
+      repo: { url: 'git@git.corp:pay/refund.git', branch: 'release' },
+    })
+  })
+
+  it('blocks creating without a name, while checking, and on a missing branch', async () => {
     let answer: (v: unknown) => void = () => {}
     mockApi({
       ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
       'POST /repos/probe': () => new Promise((r) => (answer = r)),
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '新建群' }))
     const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    await addBot(dialog, /小王的 Claude/)
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '仓库协作' } })
-    const url = within(dialog).getByLabelText('仓库地址')
-    fireEvent.change(url, { target: { value: 'ftp://x' } })
-    expect(within(dialog).getByText('地址格式不正确，支持 git@ / https:// / http:// / ssh://')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '检查访问' }).hasAttribute('disabled')).toBe(true)
-
-    fireEvent.change(url, { target: { value: 'https://git.corp/pay/demo.git' } })
-    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
-    expect(within(dialog).getByRole('button', { name: '检查中…' }).hasAttribute('disabled')).toBe(true)
-    await act(async () => answer(probeRes([{ botId: 'b1', ok: false, reason: 'branch_missing' }], ['main'])))
-    expect(within(dialog).getByText('分支不存在')).toBeTruthy()
-    expect(within(dialog).getByText('先检查仓库访问')).toBeTruthy()
-
-    fireEvent.click(within(dialog).getByRole('button', { name: '重新检查' }))
-    await act(async () =>
-      answer(probeRes([{ botId: 'b1', ok: false, reason: 'denied', detail: 'Repository not found.' }])),
+    const panel = await openRepoPanel(dialog)
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), {
+      target: { value: 'https://git.corp/pay/demo.git' },
+    })
+    fireEvent.mouseDown(
+      await within(panel).findByRole('option', { name: /使用地址 https:\/\/git.corp\/pay\/demo.git/ }),
     )
-    expect(within(dialog).getByText('无权限或仓库不存在 · 进群后暂停')).toBeTruthy()
-    expect(within(dialog).getByText('Repository not found.')).toBeTruthy()
-    expect(within(dialog).getByText('1 个 Bot 无法访问仓库，进群后暂停，主人配置后可重新检查')).toBeTruthy()
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('仓库协作')
+    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
+    const checking = await within(dialog).findByRole('button', { name: '检查中…' })
+    expect(checking.hasAttribute('disabled')).toBe(true)
+    await waitFor(() => expect(answer).not.toBe(undefined))
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 450))
+      answer(probeRes([{ botId: 'b1', ok: false, reason: 'branch_missing' }], ['main']))
+    })
+    expect(within(dialog).getByText('分支不存在')).toBeTruthy()
+    expect(within(dialog).getAllByText('分支 dev 不存在').length).toBeGreaterThan(0)
+    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
 
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '' } })
     fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'main' } })
-    expect(within(dialog).queryByRole('list', { name: '访问检查' })).toBeNull()
-    expect(within(dialog).getByRole('button', { name: '检查访问' })).toBeTruthy()
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 450))
+      answer(probeRes([{ botId: 'b1', ok: false, reason: 'denied', detail: 'Repository not found.' }]))
+    })
+    expect(within(dialog).getByText('无权限 · 进群后暂停').getAttribute('title')).toBe(
+      'Repository not found.',
+    )
+    expect(within(dialog).getByText('1 个 Bot 进群后暂停，主人配置凭据后可重新检查')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '仓库协作' } })
+    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(false)
+  })
+})
+
+describe('repo picker', () => {
+  const account = {
+    id: 'a1',
+    provider: 'github',
+    baseUrl: 'https://github.com',
+    login: 'wanglei',
+    status: 'ok',
+  }
+
+  it('searches my GitHub repos, defaults to their default branch and lists its branches', async () => {
+    localStorage.setItem('gonggong.repoSource', 'a1')
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /me/git-accounts': () => [account, { ...account, id: 'a2', login: 'old', status: 'invalid' }],
+      'GET /repos': () => history,
+      'GET /git-accounts/a1/repos': () => [
+        { fullName: 'acme/shop', url: 'git@github.com:acme/shop.git', defaultBranch: 'trunk', private: true },
+      ],
+      'GET /git-accounts/a1/branches': () => ['trunk', 'next'],
+      'POST /repos/probe': () =>
+        probeRes([{ botId: 'b1', ok: true, usedUrl: 'git@github.com:acme/shop.git' }]),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const panel = await openRepoPanel(dialog)
+    const sources = within(panel).getByRole('radiogroup', { name: '来源' })
+    expect(
+      within(sources)
+        .getAllByRole('radio')
+        .map((r) => r.textContent),
+    ).toEqual(['最近', 'GitHub'])
+    expect(within(sources).getByRole('radio', { name: 'GitHub' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), { target: { value: 'shop' } })
+    await waitFor(() => expect(calls.some((c) => c.path === '/git-accounts/a1/repos?q=shop')).toBe(true))
+    const option = await within(panel).findByRole('option', { name: /acme\/shop/ })
+    expect(within(option).getByRole('img', { name: '私有' })).toBeTruthy()
+    fireEvent.keyDown(within(panel).getByLabelText('搜索仓库'), { key: 'Enter' })
+
+    expect((within(dialog).getByLabelText('基准分支') as HTMLInputElement).value).toBe('trunk')
+    await waitFor(() =>
+      expect(calls.some((c) => c.path === '/git-accounts/a1/branches?repo=acme%2Fshop&q=')).toBe(true),
+    )
+    fireEvent.click(within(dialog).getAllByRole('button', { name: '显示选项' }).at(-1)!)
+    const branches = await within(dialog).findByRole('listbox', { name: '' })
+    expect(
+      within(branches)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['trunk', 'next'])
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '仓库' }))
+    const again = await screen.findByRole('dialog', { name: '选择仓库' })
+    fireEvent.click(within(again).getByRole('radio', { name: '最近' }))
+    expect(await within(again).findByRole('option', { name: /pay\/refund/ })).toBeTruthy()
+    expect(localStorage.getItem('gonggong.repoSource')).toBe('recent')
+    fireEvent.click(within(again).getByRole('button', { name: '不绑定仓库' }))
+    expect(within(dialog).getByText('不绑定 · 各 Bot 使用本机目录')).toBeTruthy()
+    localStorage.clear()
   })
 
-  it('drops a check once the picked bots change, and reports a failed check', async () => {
-    let answer: (v: unknown) => void = () => {}
+  it('offers to connect an account when there is none', async () => {
+    mockApi({ ...baseRoutes([]), 'GET /me/git-accounts': () => [], 'GET /repos': () => [] })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const panel = await openRepoPanel(dialog)
+    expect(within(panel).queryByRole('radiogroup', { name: '来源' })).toBeNull()
+    expect(await within(panel).findByText('没有匹配的仓库')).toBeTruthy()
+    fireEvent.click(within(panel).getByRole('button', { name: '连接 GitHub / GitLab 账号…' }))
+    expect(await screen.findByRole('dialog', { name: 'Git 与仓库' })).toBeTruthy()
+  })
+
+  it('drops a check once the picked bots change, and offers a retry when the check fails', async () => {
+    const answers: ((v: unknown) => void)[] = []
     let fail = false
-    mockApi({
+    const calls = mockApi({
       ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => history,
       'POST /repos/probe': () => {
         if (fail) throw new Error('offline')
-        return new Promise((r) => (answer = r))
+        return new Promise((r) => answers.push(r))
       },
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '新建群' }))
     const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '支付' } })
-    fireEvent.change(within(dialog).getByLabelText('仓库地址'), {
-      target: { value: 'git@git.corp:pay/x.git' },
-    })
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
-    fireEvent.click(await within(dialog).findByRole('button', { name: /老李的 Codex/ }))
-    await act(async () => answer(probeRes([{ botId: 'b1', ok: true }])))
-    expect(within(dialog).queryByRole('list', { name: '访问检查' })).toBeNull()
-    expect(within(dialog).getByText('先检查仓库访问')).toBeTruthy()
+    const panel = await openRepoPanel(dialog)
+    fireEvent.mouseDown(await within(panel).findByRole('option', { name: /pay\/refund/ }))
+    await waitFor(() => expect(answers).toHaveLength(1))
+    await addBot(dialog, /小王的 Claude/)
+    await act(async () => answers[0]!(probeRes([{ botId: 'b1', ok: true }])))
+    expect(within(dialog).queryByText(/可访问/)).toBeNull()
+    await waitFor(() => expect(answers).toHaveLength(2))
+    expect(calls.filter((c) => c.path === '/repos/probe').at(-1)?.body).toMatchObject({ botIds: ['b1'] })
 
     fail = true
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
+    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'main' } })
     expect(await within(dialog).findByText('网络连接失败，请检查网络后重试')).toBeTruthy()
-    expect(within(dialog).getByText('先检查仓库访问')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
+    fail = false
+    fireEvent.click(within(dialog).getByRole('button', { name: '重新检查' }))
+    await waitFor(() => expect(answers).toHaveLength(3))
   })
 
   it('follows the repo default branch when the branch field was left as is', async () => {
     const calls = mockApi({
       ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
       'POST /repos/probe': (body) =>
         (body as { branch: string }).branch === 'master'
           ? probeRes(
@@ -889,54 +1017,40 @@ describe('repo validation and binding', () => {
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '新建群' }))
     const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    fireEvent.change(within(dialog).getByLabelText('仓库地址'), {
+    await addBot(dialog, /小王的 Claude/)
+    const panel = await openRepoPanel(dialog)
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), {
       target: { value: 'https://git.corp/ops/infra.git' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
-    expect((await within(dialog).findByRole('list', { name: '访问检查' })).textContent).toContain(
-      '可访问HTTPS',
-    )
+    fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
+    expect(await within(dialog).findByText('可访问 · HTTPS', {}, { timeout: 2000 })).toBeTruthy()
     expect((within(dialog).getByLabelText('基准分支') as HTMLInputElement).value).toBe('master')
     expect(
       calls.filter((c) => c.path === '/repos/probe').map((c) => (c.body as { branch: string }).branch),
     ).toEqual(['main', 'master'])
   })
+})
 
-  it('fills address and branch from the team repo history', async () => {
-    mockApi({
-      ...baseRoutes([]),
-      'GET /repos': () => [
-        {
-          id: 'r1',
-          key: 'git.corp/pay/refund',
-          url: 'git@git.corp:pay/refund.git',
-          name: 'refund',
-          lastBranch: 'release',
-          lastUsedAt: '2026-09-20T00:00:00Z',
-          groups: 3,
-          mine: true,
-          localPaths: [{ machineId: 'm1', path: '/Users/w/refund' }],
-        },
-      ],
-    })
-    renderAt('/')
-    fireEvent.click(screen.getByRole('button', { name: '新建群' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    fireEvent.click(within(dialog).getAllByRole('button', { name: '显示选项' })[0]!)
-    const option = await within(dialog).findByRole('option', { name: /git@git.corp:pay\/refund.git/ })
-    expect(option.textContent).toContain('3 个群在用 · release · 本机已有')
-    fireEvent.mouseDown(option)
-    expect((within(dialog).getByLabelText('仓库地址') as HTMLInputElement).value).toBe(
-      'git@git.corp:pay/refund.git',
-    )
-    expect((within(dialog).getByLabelText('基准分支') as HTMLInputElement).value).toBe('release')
-  })
+describe('repo and workspaces', () => {
+  const states = [
+    { botId: 'b1', workspace: 'managed', state: 'ready', path: null },
+    { botId: 'b2', workspace: 'cd', state: 'failed', path: '/Users/li/pay', reason: 'denied' },
+  ].map((s) => ({ git: null, error: null, reason: null, tier: null, model: null, effort: null, ...s }))
 
-  it('lets a group admin change the repo after validating it', async () => {
+  it('lets a group admin change the repo, checking it against the group bots', async () => {
     const calls = mockApi({
       ...baseRoutes([group()]),
+      'GET /groups/g1/bot-states': () => states,
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
       'POST /repos/probe': () =>
-        probeRes([{ botId: 'b1', ok: true, usedUrl: 'git@git.corp:pay/new.git' }], ['dev']),
+        probeRes(
+          [
+            { botId: 'b1', ok: true, usedUrl: 'git@git.corp:pay/new.git' },
+            { botId: 'b2', ok: false, reason: 'offline' },
+          ],
+          ['dev'],
+        ),
       'PATCH /groups/g1/repo': (body) => group({ repo: body as GroupDto['repo'] }),
     })
     renderAt('/g/g1')
@@ -944,27 +1058,68 @@ describe('repo validation and binding', () => {
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
     fireEvent.click(within(drawer).getByRole('button', { name: /仓库与基准分支/ }))
-    const dialog = await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })
-    expect(within(dialog).getByText('git@git.corp:pay/refund.git')).toBeTruthy()
-    expect(within(dialog).getByText('每个群绑定一个仓库')).toBeTruthy()
-    expect(within(dialog).getByText(/更换仓库会重建所有 Bot 的托管工作区/)).toBeTruthy()
+    const dialog = await screen.findByRole('dialog', { name: '仓库与工作区 · 退款 v2 迁移' })
+    expect(within(dialog).getByText('pay/refund')).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '更换…' }))
-    const save = within(dialog).getByRole('button', { name: '保存' })
-    expect(save.hasAttribute('disabled')).toBe(true)
-    fireEvent.change(within(dialog).getByLabelText('仓库地址'), {
+    const panel = await openRepoPanel(dialog)
+    expect(within(panel).queryByRole('button', { name: '不绑定仓库' })).toBeNull()
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), {
       target: { value: 'git@git.corp:pay/new.git' },
     })
+    fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
     fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '检查访问' }))
-    expect((await within(dialog).findByRole('list', { name: '访问检查' })).textContent).toContain('可访问')
-    fireEvent.click(save)
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
-      url: 'git@git.corp:pay/new.git',
-      branch: 'dev',
-    })
+    expect(await within(dialog).findByText('可访问 · SSH', {}, { timeout: 2000 })).toBeTruthy()
+    expect(within(dialog).getByTestId('rw-bot-b2').textContent).toContain('离线 · 上线后验证')
+    expect(within(dialog).getByText('各 Bot 的托管工作区将重建')).toBeTruthy()
+    expect(calls.find((c) => c.path === '/repos/probe')?.body).toMatchObject({ botIds: ['b1', 'b2'] })
+    fireEvent.click(within(dialog).getByRole('button', { name: '更换仓库' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
+        url: 'git@git.corp:pay/new.git',
+        branch: 'dev',
+      }),
+    )
     expect(await within(main).findByText('new · dev')).toBeTruthy()
+  })
+
+  it('shows every member where each bot works; only the owner can move it', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: false }] })]),
+      'GET /groups/g1/bot-states': () => states,
+      'POST /groups/g1/bots/b2/recheck': () => ({}),
+    })
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与工作区/ }))
+    expect(within(drawer).queryByRole('button', { name: '更换…' })).toBeNull()
+    const mine = await within(drawer).findByTestId('rw-bot-b1')
+    expect(mine.textContent).toContain('托管克隆 · 就绪')
+    expect(within(mine).getByRole('button', { name: '更改…' })).toBeTruthy()
+    const theirs = within(drawer).getByTestId('rw-bot-b2')
+    expect(theirs.textContent).toContain('老李的 Codex · 李建国')
+    expect(theirs.textContent).toContain('已暂停 · 无权限')
+    expect(within(theirs).queryByRole('button', { name: '更改…' })).toBeNull()
+    expect(within(theirs).queryByRole('button', { name: '重新检查' })).toBeNull()
+    expect(calls.some((c) => c.path.endsWith('/recheck'))).toBe(false)
+  })
+
+  it('lets an admin recheck a paused bot', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/bot-states': () => states,
+      'POST /groups/g1/bots/b2/recheck': () => ({}),
+    })
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与工作区/ }))
+    const theirs = await within(drawer).findByTestId('rw-bot-b2')
+    fireEvent.click(within(theirs).getByRole('button', { name: '重新检查' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/bots/b2/recheck')).toBe(true))
   })
 
   it('locks repo binding for non-admins', async () => {

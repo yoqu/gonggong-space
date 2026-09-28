@@ -46,28 +46,41 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
   alice.m.start()
   bob.m.start()
   try {
-    // New group dialog: each bot's machine checks the repo with its own git.
-    await page.goto('/')
-    await page.getByRole('button', { name: '新建群' }).first().click()
-    const dialog = page.getByRole('dialog', { name: '新建群' })
-    await dialog.getByLabel('名称').fill('权限校验')
-    await dialog.getByRole('button', { name: /有权限 Claude/ }).click()
-    await dialog.getByRole('button', { name: /无权限 Codex/ }).click()
-    await dialog.getByLabel('仓库地址').fill(repo.url)
-    const results = dialog.getByRole('list', { name: '访问检查' })
     // Both machines must be online before the check means anything.
     await expect
       .poll(
         async () => {
-          await dialog.getByRole('button', { name: /检查访问|重新检查/ }).click()
-          await expect(results).toBeVisible({ timeout: 60_000 })
-          return results.textContent()
+          const bots: { id: string; presence: string }[] = await (await page.request.get('/api/bots')).json()
+          return [aliceBot.id, bobBot.id].every(
+            (id) => !['offline', undefined].includes(bots.find((b) => b.id === id)?.presence),
+          )
         },
-        { timeout: 90_000 },
+        { timeout: 60_000 },
       )
-      .toMatch(/^(?=[\s\S]*有权限 Claude可访问)(?=[\s\S]*无权限 Codex无权限或仓库不存在 · 进群后暂停)/)
-    await expect(results).toContainText('does not appear to be a git repository')
-    await expect(dialog.getByText('1 个 Bot 无法访问仓库，进群后暂停，主人配置后可重新检查')).toBeVisible()
+      .toBe(true)
+
+    // New group dialog: each bot's machine checks the repo with its own git, as soon as a repo is picked.
+    await page.goto('/')
+    await page.getByRole('button', { name: '新建群' }).first().click()
+    const dialog = page.getByRole('dialog', { name: '新建群' })
+    await dialog.getByLabel('名称').fill('权限校验')
+    await dialog.getByRole('button', { name: '添加 Bot…' }).click()
+    const pick = page.getByRole('dialog', { name: '添加 Bot' })
+    await pick.getByRole('menuitemcheckbox', { name: /有权限 Claude/ }).click()
+    await pick.getByRole('menuitemcheckbox', { name: /无权限 Codex/ }).click()
+    await dialog.getByRole('button', { name: '添加 Bot…' }).click()
+    await dialog.getByRole('button', { name: '仓库', exact: true }).click()
+    const panel = page.getByRole('dialog', { name: '选择仓库' })
+    await panel.getByLabel('搜索仓库').fill(repo.url)
+    await panel.getByRole('option', { name: /使用地址/ }).click()
+    const row = (name: string) => dialog.locator('.ng-botrow', { hasText: name })
+    await expect(row('有权限 Claude')).toContainText('可访问', { timeout: 60_000 })
+    await expect(row('无权限 Codex')).toContainText('无权限 · 进群后暂停')
+    await expect(row('无权限 Codex').locator('.repo-access')).toHaveAttribute(
+      'title',
+      /does not appear to be a git repository/,
+    )
+    await expect(dialog.getByText('1 个 Bot 进群后暂停，主人配置凭据后可重新检查')).toBeVisible()
     await dialog.getByRole('button', { name: '创建' }).click()
     await expect(page).toHaveURL(/\/g\//)
     const groupId = page.url().split('/g/')[1]!.split(/[?#]/)[0]!

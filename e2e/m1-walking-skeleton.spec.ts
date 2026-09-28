@@ -53,8 +53,12 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await page.getByRole('button', { name: '新建私聊' }).click()
     const dm = page.getByRole('dialog', { name: '新建私聊' })
     await dm.getByLabel('名称').fill('脚本实验')
-    await dm.getByRole('tab', { name: '暂不绑定' }).click()
-    await dm.getByRole('button', { name: /小王的 Claude/ }).click()
+    await dm.getByRole('button', { name: '添加 Bot…' }).click()
+    await page
+      .getByRole('dialog', { name: '添加 Bot' })
+      .getByRole('menuitemcheckbox', { name: /小王的 Claude/ })
+      .click()
+    await dm.getByRole('button', { name: '添加 Bot…' }).click()
     await dm.getByRole('button', { name: '创建' }).click()
 
     // The bot joins unbound; its owner picks a local directory through the daemon-backed picker.

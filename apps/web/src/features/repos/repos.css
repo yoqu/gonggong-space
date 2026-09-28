@@ -1,0 +1,168 @@
+/* RepoPicker: trigger in a GroupRow, the popover panel and per-bot access results */
+.repo-picker__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  max-width: 280px;
+  min-width: 0;
+  padding: 2px var(--space-6);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  cursor: default;
+}
+.repo-picker__trigger:hover,
+.repo-picker__trigger[aria-expanded="true"] {
+  background: var(--control-track);
+}
+.repo-picker__path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repo-picker__none {
+  color: var(--label-secondary);
+}
+.repo-picker__branch {
+  width: 200px;
+}
+.repo-picker__branch .ui-input {
+  font-family: var(--font-mono);
+}
+.repo-picker__failure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--tint-red-text);
+}
+.repo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8);
+}
+.repo-panel__list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.repo-panel__row {
+  height: 28px;
+}
+.repo-panel__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-16) 0;
+  color: var(--label-secondary);
+}
+.repo-panel__empty--error {
+  color: var(--tint-red-text);
+}
+.repo-panel__foot {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--separator);
+}
+.repo-panel__action {
+  height: 26px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.repo-panel__action:hover {
+  background: var(--control-track);
+}
+.repo-access {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-subheadline-size);
+  white-space: nowrap;
+}
+.repo-access--ok {
+  color: var(--tint-green-text);
+}
+.repo-access--warn {
+  color: var(--tint-orange-text);
+}
+.repo-access--bad {
+  color: var(--tint-red-text);
+}
+.repo-access--muted {
+  color: var(--label-secondary);
+}
+
+/* RepoWorkspaceView: the group repo and each bot's workspace */
+.rw {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.rw-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.rw-section__title {
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-subheadline-size);
+  font-weight: 500;
+  color: var(--label-secondary);
+}
+.rw-repo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.rw-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.rw-note {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.rw-bot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 44px;
+  padding: var(--space-4) var(--space-12);
+}
+.ui-group > * + .rw-bot {
+  border-top: 1px solid var(--separator);
+}
+.rw-bot__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rw-bot__name,
+.rw-bot__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rw-bot__sub {
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.rw-path {
+  font-family: var(--font-mono);
+}

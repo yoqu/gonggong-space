@@ -1,7 +1,8 @@
+import { BRAND_PATHS } from './icons/brand'
 import { DRAWN_PATHS } from './icons/drawn'
 import { PANE_PATHS } from './icons/pane'
 
-const PATHS = { ...PANE_PATHS, ...DRAWN_PATHS }
+const PATHS = { ...PANE_PATHS, ...DRAWN_PATHS, ...BRAND_PATHS }
 
 export type IconName = keyof typeof PATHS
 export const ICON_NAMES = Object.keys(PATHS) as IconName[]
@@ -15,15 +16,16 @@ export interface IconProps {
   className?: string
 }
 
-/** Pane line icon; decorative unless `label` is given. */
+/** Pane line icon (brand marks are filled); decorative unless `label` is given. */
 export function Icon({ name, size = 16, color, weight = 1.4, label, className }: IconProps) {
+  const brand = name in BRAND_PATHS
   return (
     <svg
-      viewBox="0 0 18 18"
+      viewBox={brand ? '0 0 24 24' : '0 0 18 18'}
       width={size}
       height={size}
-      fill="none"
-      stroke="currentColor"
+      fill={brand ? 'currentColor' : 'none'}
+      stroke={brand ? 'none' : 'currentColor'}
       strokeWidth={weight}
       strokeLinecap="round"
       strokeLinejoin="round"

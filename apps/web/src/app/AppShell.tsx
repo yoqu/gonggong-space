@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { NotificationPanel } from '../features/notifications/NotificationPanel'
 import { syncPush } from '../features/notifications/push'
 import { SearchOverlay } from '../features/search/SearchOverlay'
+import { SettingsHost } from '../features/settings/SettingsDialog'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { useIsMobile } from './viewport'
@@ -91,6 +92,7 @@ export function AppShell() {
       </div>
       <NotificationPanel open={overlay === 'notif'} onClose={close} />
       {overlay === 'search' ? <SearchOverlay onClose={close} /> : null}
+      <SettingsHost />
       <Toaster />
     </div>
   )

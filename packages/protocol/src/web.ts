@@ -377,6 +377,34 @@ export const RepoProbeRes = z.object({
 })
 export type RepoProbeRes = z.infer<typeof RepoProbeRes>
 
+// ── Git accounts (personal access tokens, repo discovery only) ─────────────
+export const GitProvider = z.enum(['github', 'gitlab'])
+export type GitProvider = z.infer<typeof GitProvider>
+export const GitAccountDto = z.object({
+  id: z.string(),
+  provider: GitProvider,
+  baseUrl: z.string(),
+  login: z.string(),
+  /** invalid = the provider rejected the token (401); reconnect to fix. */
+  status: z.enum(['ok', 'invalid']),
+})
+export type GitAccountDto = z.infer<typeof GitAccountDto>
+/** POST /api/me/git-accounts; baseUrl defaults to https://github.com for GitHub. */
+export const AddGitAccountReq = z.object({
+  provider: GitProvider,
+  baseUrl: z.string().optional(),
+  token: z.string().min(1, '请填写 Token'),
+})
+export const ProviderRepoDto = z.object({
+  /** `owner/name`. */
+  fullName: z.string(),
+  /** Clone URL in the caller's preferred protocol. */
+  url: z.string(),
+  defaultBranch: z.string().nullable(),
+  private: z.boolean(),
+})
+export type ProviderRepoDto = z.infer<typeof ProviderRepoDto>
+
 // ── Timeline ────────────────────────────────────────────────────────────────
 /** Fixed set of emoji reactions, in display order. */
 export const REACTION_EMOJIS = ['👍', '✅', '👀', '🎉', '❤️', '😂'] as const
