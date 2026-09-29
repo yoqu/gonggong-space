@@ -47,8 +47,10 @@ const AWAITING_LOGIN: &str = "本机的微信开发者工具还没有登录：�
 
 /// The conversation behind a session's URL: relays questions to the group and scopes the server tools to its run.
 pub trait Asker: Send + Sync {
-    /// Resolves with the tool's text result; a dropped sender means the question was withdrawn (stop / append).
-    fn ask(&self, questions: Vec<Question>) -> Result<oneshot::Receiver<String>, String>;
+    /// The request id and the tool's text result; a dropped sender means the question was withdrawn (stop / append).
+    fn ask(&self, questions: Vec<Question>) -> Result<(String, oneshot::Receiver<String>), String>;
+    /// The agent stopped waiting (its MCP client timed out and hung up): nobody should answer any more.
+    fn abandon(&self, request_id: &str);
     /// The run in progress and its workspace.
     fn active_run(&self) -> Option<(String, PathBuf)>;
     /// The run in progress as hosted services see it.
@@ -278,7 +280,15 @@ struct InputQuestion {
 
 async fn call(asker: &dyn Asker, args: &Value) -> Result<String, String> {
     let questions = parse(args)?;
-    let rx = asker.ask(questions)?;
+    let (request_id, rx) = asker.ask(questions)?;
+    // Dropped with the request when the client hangs up; a no-op once the question is settled.
+    struct Abandon<'a>(&'a dyn Asker, String);
+    impl Drop for Abandon<'_> {
+        fn drop(&mut self) {
+            self.0.abandon(&self.1);
+        }
+    }
+    let _abandon = Abandon(asker, request_id);
     rx.await.map_err(|_| "提问已作废（运行被停止或被打断），请不要再等待回答。".to_string())
 }
 
@@ -538,14 +548,23 @@ mod tests {
     }
 
     #[derive(Default)]
-    struct Fake(Mutex<Option<oneshot::Sender<String>>>, Mutex<Vec<Question>>, Option<(String, PathBuf)>);
+    struct Fake(
+        Mutex<Option<oneshot::Sender<String>>>,
+        Mutex<Vec<Question>>,
+        Option<(String, PathBuf)>,
+        Mutex<Vec<String>>,
+    );
 
     impl Asker for Fake {
-        fn ask(&self, questions: Vec<Question>) -> Result<oneshot::Receiver<String>, String> {
+        fn ask(&self, questions: Vec<Question>) -> Result<(String, oneshot::Receiver<String>), String> {
             let (tx, rx) = oneshot::channel();
             *self.0.lock().unwrap() = Some(tx);
             *self.1.lock().unwrap() = questions;
-            Ok(rx)
+            Ok(("r1/q1".into(), rx))
+        }
+
+        fn abandon(&self, request_id: &str) {
+            self.3.lock().unwrap().push(request_id.into());
         }
 
         fn active_run(&self) -> Option<(String, PathBuf)> {
@@ -603,6 +622,7 @@ mod tests {
                 "preview_expose",
                 "preview_gui",
                 "preview_close",
+                "hand_off",
                 "service_start",
                 "service_list",
                 "service_logs",
@@ -642,6 +662,25 @@ mod tests {
         assert_eq!(http.get(url).send().await.unwrap().status().as_u16(), 405);
     }
 
+    #[tokio::test]
+    async fn abandons_the_question_when_the_agent_hangs_up() {
+        let server = AskServer::start(None, services()).await.unwrap();
+        let fake = Arc::new(Fake::default());
+        let McpServer::Http(entry) = server.register(Arc::downgrade(&fake) as Weak<dyn Asker>) else { panic!() };
+        let args = json!({ "questions": [{ "type": "text", "title": "发哪个环境？" }] });
+        let call =
+            json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": { "name": TOOL, "arguments": args } });
+        let http = reqwest::Client::builder().timeout(std::time::Duration::from_millis(200)).build().unwrap();
+        assert!(http.post(entry.url.as_str()).json(&call).send().await.is_err());
+        let abandoned = async {
+            while fake.3.lock().unwrap().is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(2), abandoned).await.unwrap();
+        assert_eq!(*fake.3.lock().unwrap(), ["r1/q1"]);
+    }
+
     /// Answers each request by path: the tool call with `tool`, attachment downloads with their name; records them.
     async fn fake_server(tool: &'static str) -> (String, Arc<Mutex<Vec<String>>>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -676,7 +715,8 @@ mod tests {
         let res = r##"{"text":"#12 的附件：","isError":false,"attachments":[{"id":"a1","name":"spec.pdf","size":3,"mime":"application/pdf","messageId":"m12"}]}"##;
         let (base, seen) = fake_server(res).await;
         let dir = tempfile::tempdir().unwrap();
-        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
         let args = json!({ "message": 12 });
 
         let text = forward(Some(&config(base.clone())), &live, "fetch_attachments", &args).await.unwrap();
@@ -701,7 +741,12 @@ mod tests {
     async fn answers_hosted_service_tools_for_the_live_run() {
         let server = AskServer::start(None, services()).await.unwrap();
         let dir = tempfile::tempdir().unwrap();
-        let live = Arc::new(Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf()))));
+        let live = Arc::new(Fake(
+            Mutex::default(),
+            Mutex::default(),
+            Some(("r1".into(), dir.path().to_path_buf())),
+            Mutex::default(),
+        ));
         let McpServer::Http(entry) = server.register(Arc::downgrade(&live) as Weak<dyn Asker>) else { panic!() };
         let http = reqwest::Client::new();
         let call = |id: u32, name: &str, args: Value| json!({ "jsonrpc": "2.0", "id": id, "method": "tools/call", "params": { "name": name, "arguments": args } });
@@ -722,7 +767,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("out/report")).unwrap();
         std::fs::write(dir.path().join("out/report/index.html"), "ok").unwrap();
-        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
         let services = services();
         let args = json!({ "dir": "out/report", "title": "报告" });
         let backends = Backends {
@@ -749,7 +795,8 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("mp")).unwrap();
         std::fs::write(dir.path().join("mp/project.config.json"), "{}").unwrap();
         let project = dir.path().join("mp").canonicalize().unwrap().to_string_lossy().to_string();
-        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
         let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
 
         let args = json!({ "dir": "mp", "page": "pages/goods/detail", "query": "id=42", "title": "商城" });
@@ -787,7 +834,8 @@ mod tests {
         let (calls, devtools, _data) = crate::wechatide::fake::install(crate::wechatide::fake::answering(world)).await;
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("project.config.json"), "{}").unwrap();
-        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
         let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
 
         let text = hosted(&backends, &live, "preview_miniprogram", &json!({ "title": "商城" })).await.unwrap();
@@ -806,7 +854,8 @@ mod tests {
         let (_, devtools, _data) = crate::wechatide::fake::install(slow).await;
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("project.config.json"), "{}").unwrap();
-        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
         let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
 
         let started = std::time::Instant::now();

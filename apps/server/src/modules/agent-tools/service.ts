@@ -22,6 +22,8 @@ import {
 import { isUuid } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
+import { groupParams } from '../groups/params.js'
+import { activeBots } from '../groups/service.js'
 import type { MessageMeta } from '../messages/service.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
 
@@ -312,6 +314,28 @@ async function fetchAttachments(ctx: Ctx, s: Scope, a: Args<'fetch_attachments'>
   return { text: `#${a.message} 的附件：`, attachments, groups: [m.groupId] }
 }
 
+/** Registers the next hop; it starts once this run completes (spec §4.6), so the reply is in its context. */
+async function handOff(ctx: Ctx, s: Scope, a: Args<'hand_off'>): Promise<ToolOutput> {
+  const { run } = s
+  const max = (await groupParams(ctx, s.pick())).chainMaxHops
+  if (run.hop >= max) refuse(`接力已达上限（${max} 跳），不能再交给其他 Bot；请在回复里说明，由群成员决定`)
+  const members = await activeBots(ctx, run.groupId)
+  const name = a.bot.trim().replace(/^@/, '')
+  const bot = members.find((b) => b.name === name)
+  if (bot?.id === run.botId) refuse('不能交给自己')
+  if (!bot) {
+    const others = members.filter((b) => b.id !== run.botId).map((b) => b.name)
+    return refuse(`本群没有叫「${name}」的 Bot，可接手的有：${others.join('、') || '无'}`)
+  }
+  const task = a.task.trim()
+  const handoffs = [...run.handoffs.filter((h) => h.botId !== bot.id), { botId: bot.id, task }]
+  await ctx.db.update(runs).set({ handoffs }).where(eq(runs.id, run.id))
+  return {
+    text: `已登记：本轮结束后由「${bot.name}」接手（任务：${task}）。回复里不需要再 @ 它。`,
+    groups: [],
+  }
+}
+
 const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Promise<ToolOutput> } = {
   list_messages: listMessages,
   search_messages: searchMessages,
@@ -322,6 +346,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   preview_expose: async (ctx, s, a) => ({ text: await exposePreview(ctx, s.run, a), groups: [] }),
   preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),
+  hand_off: handOff,
 }
 
 export async function callTool(

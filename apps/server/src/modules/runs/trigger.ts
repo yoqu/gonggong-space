@@ -1,11 +1,10 @@
-import type { MessageDto, RepoAccessReason } from '@gonggong/protocol'
+import type { RepoAccessReason } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, type messages, runs, users } from '../../db/schema.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
-import { parseMentions } from '../messages/mentions.js'
-import { postEvent } from '../messages/service.js'
+import { postEvent, postMessage } from '../messages/service.js'
 import { PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
@@ -123,25 +122,36 @@ export async function triggerRuns(ctx: Ctx, message: typeof messages.$inferSelec
 }
 
 /**
- * Relay (spec §4.6): bots @-mentioned in a completed run's final reply run as the next hop, authorized against the
- * chain's human initiator. Beyond the group's chainMaxHops the @ stays plain text.
+ * Relay (spec §4.6): the bots a completed run handed off to (hand_off) run as the next hop, each triggered by a message
+ * of the parent bot that @-s it with the task, authorized against the chain's human initiator.
  */
-export async function triggerChain(ctx: Ctx, parent: RunRow, reply: MessageDto): Promise<void> {
-  if (parent.status !== 'completed' || (await isChainStopped(ctx, parent))) return
+export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
+  if (parent.status !== 'completed' || !parent.handoffs.length || (await isChainStopped(ctx, parent))) return
   const [group] = await ctx.db
     .select({ params: groups.params })
     .from(groups)
     .where(eq(groups.id, parent.groupId))
   const hop = parent.hop + 1
   if (!group || hop > (await groupParams(ctx, group)).chainMaxHops) return
-  const mentioned = parseMentions(reply.body, await activeBots(ctx, parent.groupId))
-  await createRuns(ctx, {
-    groupId: parent.groupId,
-    messageId: reply.id,
-    botIds: mentioned.filter((id) => id !== parent.botId),
-    originUserId: parent.originUserId,
-    triggerUserId: null,
-    hop,
-    parentRunId: parent.id,
-  })
+  const names = new Map((await activeBots(ctx, parent.groupId)).map((b) => [b.id, b.name]))
+  for (const h of parent.handoffs) {
+    const name = names.get(h.botId)
+    if (!name) continue
+    const message = await postMessage(ctx, {
+      groupId: parent.groupId,
+      kind: 'bot',
+      authorBotId: parent.botId,
+      body: `@${name} ${h.task}`,
+      meta: { mentions: [h.botId] },
+    })
+    await createRuns(ctx, {
+      groupId: parent.groupId,
+      messageId: message.id,
+      botIds: [h.botId],
+      originUserId: parent.originUserId,
+      triggerUserId: null,
+      hop,
+      parentRunId: parent.id,
+    })
+  }
 }

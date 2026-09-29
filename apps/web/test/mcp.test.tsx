@@ -95,4 +95,30 @@ describe('MCP steps', () => {
     expect(screen.getByText('结果')).toBeTruthy()
     expect(screen.getByText(/退款要兼容 v1/)).toBeTruthy()
   })
+
+  it('shows the questions of an ask call and the answer', () => {
+    const ask = {
+      server: 'gonggong',
+      tool: 'ask_group_members',
+      input: JSON.stringify({
+        questions: [
+          { type: 'single', title: '用哪种语言？', options: ['Python', 'Go'], recommended: 0 },
+          { type: 'text', title: '还有什么要注意？' },
+        ],
+      }),
+      output: '王磊 的回答：\n1. 用哪种语言？（单选）→ Go\n2. 还有什么要注意？（自由文本）→ 幂等',
+    }
+    const steps = processSteps(
+      [{ id: 1, at: at(1), event: tool({ title: 'mcp__gonggong__ask_group_members', mcp: ask }) }],
+      [],
+      false,
+    )
+    expect(steps[0]!.mono).toBe('用哪种语言？ / 还有什么要注意？')
+    render(<ProcessView steps={steps} root={null} live={false} startedAt={null} workedMs={null} />)
+    fireEvent.click(screen.getByRole('button', { name: /向群成员提问/ }))
+    expect(screen.getByText('问题')).toBeTruthy()
+    expect(screen.getByText('Python（推荐） / Go')).toBeTruthy()
+    expect(screen.queryByText('questions')).toBeNull()
+    expect(screen.getByText(/1\. 用哪种语言？（单选）→ Go/)).toBeTruthy()
+  })
 })

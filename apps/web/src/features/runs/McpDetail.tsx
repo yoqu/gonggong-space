@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { type McpCall, mcpArgs } from './mcp'
+import { type AskedQuestion, askedQuestions, type McpCall, mcpArgs, QUESTION_TYPE } from './mcp'
 
 const HEAD_LINES = 8
 
 /** An MCP call unfolded: its arguments as a key / value list, then the head of its result. */
 export function McpDetail({ call }: { call: McpCall }) {
+  const asked = askedQuestions(call)
   const args = mcpArgs(call.input)
   return (
     <div className="act-detail act-detail--mono act-mcp">
-      {call.input ? (
+      {asked ? (
+        <Asked questions={asked} />
+      ) : call.input ? (
         <section>
           <div className="act-mcp__label">参数</div>
           {args ? (
@@ -27,6 +30,29 @@ export function McpDetail({ call }: { call: McpCall }) {
       ) : null}
       {call.output ? <Result text={call.output} /> : null}
     </div>
+  )
+}
+
+function Asked({ questions }: { questions: AskedQuestion[] }) {
+  return (
+    <section>
+      <div className="act-mcp__label">问题</div>
+      <ol className="act-ask">
+        {questions.map((q, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: questions are positional
+          <li key={i}>
+            <div>
+              <span className="act-ask__type">{QUESTION_TYPE[q.type]}</span> {q.title}
+            </div>
+            {q.options?.length ? (
+              <div className="act-ask__opts">
+                {q.options.map((o, j) => (j === q.recommended ? `${o}（推荐）` : o)).join(' / ')}
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 

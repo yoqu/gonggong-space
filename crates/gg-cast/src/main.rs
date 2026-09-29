@@ -1,7 +1,7 @@
 //! gg-cast (plan 结果预览 B2): publishes one app window to a preview's LiveKit room for the daemon.
 //!
 //! `gg-cast --url <signaling url> (--pids <pid,pid,…> [--title <title>]… | --screen) [--fps 30]`, the publisher token
-//! in `GG_CAST_TOKEN`. Publishes a visible window of those processes (see `pick`), or with `--screen` the whole screen
+//! in `GG_CAST_TOKEN`; a `fps <n>` line on stdin changes the frame rate while it runs. Publishes a visible window of those processes (see `pick`), or with `--screen` the whole screen
 //! of `$DISPLAY` (Linux: a service's own virtual display, plan B3), prints `live` once it is published, and runs until
 //! the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
@@ -12,13 +12,14 @@ mod window;
 
 use anyhow::{Context, bail};
 use input::{Injector, Input};
-use livekit::options::{TrackPublishOptions, VideoCodec, VideoEncoding, VideoPreset};
+use livekit::options::{TrackPublishOptions, VideoCodec, VideoPreset};
 use livekit::prelude::*;
 use livekit::track::{LocalTrack, LocalVideoTrack, TrackSource};
 use livekit::webrtc::native::yuv_helper;
 use livekit::webrtc::prelude::{I420Buffer, RtcVideoSource, VideoBuffer, VideoFrame, VideoResolution, VideoRotation};
 use livekit::webrtc::video_source::native::NativeVideoSource;
-use std::io::Read;
+use std::io::BufRead;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
@@ -28,7 +29,11 @@ use webrtc_sys::desktop_capturer::{CaptureError, DesktopCapturerCallback, Deskto
 /// B0: H264 is hardware-encoded on macOS, about a quarter of VP8's CPU. A Linux virtual display has no encoder
 /// hardware to use and is small; VP8 there is decoded by every browser build, including Chromium without H264.
 const CODEC: VideoCodec = if cfg!(target_os = "linux") { VideoCodec::VP8 } else { VideoCodec::H264 };
-const MAX_BITRATE: u64 = 3_000_000;
+/// The top of the frame rates viewers pick from (`LIVE_FPS` in packages/protocol); every layer is encoded up to it.
+const MAX_FPS: u32 = 90;
+/// Bits per pixel and frame for a layer's cap: screen content at this rate keeps text sharp.
+const BITS_PER_PIXEL: f64 = 0.06;
+const MAX_BITRATE: u64 = 20_000_000;
 /// `CAST_INPUT_TOPIC` in packages/protocol.
 const INPUT_TOPIC: &str = "input";
 
@@ -57,7 +62,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
                 pids = v.split(',').map(str::parse).collect::<Result<_, _>>().context("--pids 应为逗号分隔的进程号")?
             }
             "--title" => titles.push(v),
-            "--fps" => fps = v.parse().context("--fps 应为整数")?,
+            "--fps" => fps = frame_rate(&v).context("--fps 应为 1 到 90 的整数")?,
             _ => bail!("未知参数 {k}"),
         }
     }
@@ -69,6 +74,10 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
         );
     }
     Ok(Args { url: url.context("缺少 --url")?, pids, titles, fps, screen })
+}
+
+fn frame_rate(v: &str) -> Option<u32> {
+    v.trim().parse().ok().filter(|f| (1..=MAX_FPS).contains(f))
 }
 
 #[cfg(target_os = "macos")]
@@ -298,7 +307,12 @@ fn no_source(window_id: Option<u32>) -> anyhow::Error {
 
 /// The native capturer (macOS: ScreenCaptureKit, B0: far cheaper than screenshots) on the window found by pid, or on
 /// the screen without one; sends why capturing ended.
-fn capture(window_id: Option<u32>, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<String>) -> anyhow::Result<()> {
+fn capture(
+    window_id: Option<u32>,
+    fps: Arc<AtomicU32>,
+    slot: Slot,
+    ended: mpsc::UnboundedSender<String>,
+) -> anyhow::Result<()> {
     let (ready, started) = std::sync::mpsc::channel::<anyhow::Result<()>>();
     std::thread::spawn(move || {
         let (capturer, cut) = match start(window_id, &slot, &ended) {
@@ -309,10 +323,10 @@ fn capture(window_id: Option<u32>, fps: u32, slot: Slot, ended: mpsc::UnboundedS
             }
         };
         let _ = ready.send(Ok(()));
-        let period = Duration::from_secs_f64(1.0 / fps as f64);
         let mut moved_at = Instant::now();
         loop {
             let t = Instant::now();
+            let period = Duration::from_secs_f64(1.0 / fps.load(Ordering::Relaxed) as f64);
             capturer.capture_frame();
             // A cut-out window may be moved or closed; its display's capture would not say.
             if let Some((id, at)) = &cut
@@ -341,16 +355,20 @@ fn capture(window_id: Option<u32>, fps: u32, slot: Slot, ended: mpsc::UnboundedS
 }
 
 /// Simulcast, so each viewer's quality (their pick, or LiveKit's per-viewer bandwidth estimate) leaves the others'
-/// alone. The lower layers stay at half size, where text is still legible, and save mostly by frame rate. LiveKit
-/// sends all three from 960 px up, two from 480 px.
-fn publish_options(width: u32, height: u32, fps: u32) -> TrackPublishOptions {
-    let (w, h) = (width / 2, height / 2);
+/// alone: full size (原画), two thirds (超清) and half (高清), all at the frame rate captured, which viewers set for
+/// everyone. The caps are for `MAX_FPS`, and viewers read them as the bandwidth each needs (scaled to the frame rate).
+/// LiveKit sends all three from 960 px up, two from 480 px.
+fn publish_options(width: u32, height: u32) -> TrackPublishOptions {
+    let preset = |w: u32, h: u32| {
+        let bitrate = (w as f64 * h as f64 * MAX_FPS as f64 * BITS_PER_PIXEL) as u64;
+        VideoPreset::new(w, h, bitrate.min(MAX_BITRATE), MAX_FPS as f64)
+    };
     TrackPublishOptions {
         source: TrackSource::Screenshare,
         video_codec: CODEC,
-        video_encoding: Some(VideoEncoding { max_bitrate: MAX_BITRATE, max_framerate: fps as f64 }),
+        video_encoding: Some(preset(width, height).encoding),
         simulcast: true,
-        simulcast_layers: Some(vec![VideoPreset::new(w, h, 300_000, 5.0), VideoPreset::new(w, h, 800_000, 15.0)]),
+        simulcast_layers: Some(vec![preset(width / 2, height / 2), preset(width * 2 / 3, height * 2 / 3)]),
         ..Default::default()
     }
 }
@@ -370,17 +388,22 @@ async fn run(a: Args) -> anyhow::Result<()> {
     let slot: Slot = Arc::new(Mutex::new((source.clone(), frame)));
     let track = LocalVideoTrack::create_video_track("window", RtcVideoSource::Native(source));
     room.local_participant()
-        .publish_track(LocalTrack::Video(track), publish_options(width, height, a.fps))
+        .publish_track(LocalTrack::Video(track), publish_options(width, height))
         .await
         .context("无法发布画面")?;
 
     let (ended_tx, mut ended) = mpsc::unbounded_channel();
-    capture(window, a.fps, slot, ended_tx)?;
+    let fps = Arc::new(AtomicU32::new(a.fps));
+    capture(window, fps.clone(), slot, ended_tx)?;
     // Created on the first input: on macOS it needs the accessibility permission, which viewing alone does not.
     let mut injector = None;
     let (gone_tx, mut gone) = mpsc::unbounded_channel::<()>();
     std::thread::spawn(move || {
-        let _ = std::io::stdin().read_to_end(&mut Vec::new());
+        for line in std::io::stdin().lock().lines().map_while(Result::ok) {
+            if let Some(f) = line.strip_prefix("fps ").and_then(frame_rate) {
+                fps.store(f, Ordering::Relaxed);
+            }
+        }
         let _ = gone_tx.send(());
     });
     println!("live");
@@ -438,21 +461,26 @@ mod tests {
     #[test]
     fn publishes_quality_layers_for_viewers_to_pick() {
         let layers = |w, h| {
-            livekit::options::compute_video_encodings(w, h, &publish_options(w, h, 30))
+            livekit::options::compute_video_encodings(w, h, &publish_options(w, h))
                 .iter()
-                .map(|e| (e.rid.clone(), e.scale_resolution_down_by, e.max_framerate))
+                .map(|e| (e.rid.clone(), e.scale_resolution_down_by, e.max_bitrate))
                 .collect::<Vec<_>>()
         };
         assert_eq!(
             layers(1920, 1080),
             [
-                ("f".into(), Some(1.0), Some(30.0)),
-                ("h".into(), Some(2.0), Some(15.0)),
-                ("q".into(), Some(2.0), Some(5.0))
+                ("f".into(), Some(1.0), Some(11_197_440)),
+                ("h".into(), Some(1.5), Some(4_976_640)),
+                ("q".into(), Some(2.0), Some(2_799_360))
             ]
         );
         // A phone-sized simulator window gets two.
-        assert_eq!(layers(390, 844), [("h".into(), Some(1.0), Some(30.0)), ("q".into(), Some(2.0), Some(15.0))]);
+        assert_eq!(
+            layers(390, 844),
+            [("h".into(), Some(1.0), Some(1_777_464)), ("q".into(), Some(1.5), Some(789_048))]
+        );
+        // A Retina-sized window at 90 fps is capped.
+        assert_eq!(layers(3024, 1964)[0].2, Some(MAX_BITRATE));
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -465,6 +493,7 @@ mod tests {
         let mini = args("--url ws://x --pids 7 --title 商城 --title shop").unwrap();
         assert_eq!(mini.titles, ["商城", "shop"]);
         assert_eq!(args("--pids 1 --url wss://x --fps 15").unwrap().fps, 15);
+        assert!(args("--pids 1 --url wss://x --fps 120").is_err());
         assert!(args("--url ws://x").is_err());
         assert!(args("--pids 1").is_err());
         assert!(args("--pids a --url ws://x").is_err());

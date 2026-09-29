@@ -4,19 +4,14 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Icon, Input, Tag, Textarea, toast } from '../../ui'
+import { Button, Icon, Tag, Textarea, toast } from '../../ui'
 import { workspacePath } from '../attachments/api'
 import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { countdown, hm, useNow } from './ApprovalBlock'
+import { QUESTION_TYPE } from './mcp'
 import { useMemberName } from './RunActions'
 import './question.css'
 
-const TYPE: Record<Question['type'], string> = {
-  single: '单选',
-  multi: '多选',
-  yesno: '是/否',
-  text: '自由文本',
-}
 const LIVE: RunDto['status'][] = ['running', 'awaiting_approval', 'awaiting_answer']
 
 type Draft = { choices: number[]; text: string }
@@ -44,7 +39,7 @@ function outcome(q: QuestionSetDto, run: RunDto) {
     case 'expired':
       return `无人回答，agent 已按推荐项继续 · ${hm(q.expiresAt)}`
     case 'void':
-      if (LIVE.includes(run.status)) return '已打断并追加，提问作废'
+      if (LIVE.includes(run.status)) return '提问已作废，agent 不再等待回答'
       return run.status === 'interrupted' ? '运行已停止，提问作废' : '运行已结束，提问作废'
     default:
       return null
@@ -115,24 +110,33 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   const owner = bot?.ownerName ?? ''
   const who =
     run.originUserId === bot?.ownerId
-      ? `触发人兼 Bot 主人 ${trigger} 可回答`
+      ? `${trigger}（触发人兼 Bot 主人）可回答`
       : `触发人 ${trigger} 或 Bot 主人 ${owner} 可回答`
   const ready = set.questions.every((question) => answered(question, draftOf(question)))
 
   return (
     <div className="question">
-      <div className="question__title">
-        <Icon name="bubble-question" size={14} />
-        <span>向群成员提问 · {set.questions.length} 个问题</span>
-        <span className="question__who">· {who}</span>
+      <div className="question__head">
+        <div className="question__title">
+          <Icon name="bubble-question" size={14} />
+          <span>向群成员提问 · {set.questions.length} 个问题</span>
+        </div>
+        <div className="question__meta">
+          <span>{who}</span>
+          {pending ? (
+            <span className="question__timeout" title="超时后 agent 按推荐项继续，并在最终回复列出假设">
+              {countdown(Date.parse(set.expiresAt) - now)} 后超时，按推荐项继续
+            </span>
+          ) : null}
+        </div>
       </div>
       {set.questions.map((question) => {
         const d = draftOf(question)
         return (
           <div key={question.id} className="question__item">
             <div className="question__q">
-              <span className="question__type">{`${TYPE[question.type]} · `}</span>
-              {question.title}
+              <span className="question__type">{QUESTION_TYPE[question.type]}</span>
+              <span>{question.title}</span>
             </div>
             {question.options.length ? (
               <div className="question__opts">
@@ -143,12 +147,19 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
                       // biome-ignore lint/suspicious/noArrayIndexKey: options are positional
                       key={i}
                       type="button"
-                      className={cx('question__opt', on && 'question__opt--on')}
+                      className={cx(
+                        'question__opt',
+                        question.type === 'multi' && 'question__opt--multi',
+                        on && 'question__opt--on',
+                      )}
                       aria-pressed={on}
                       disabled={locked}
                       onClick={() => pick(question, i)}
                     >
-                      {label}
+                      <span className="question__mark" aria-hidden>
+                        {on ? <Icon name="check" size={10} /> : null}
+                      </span>
+                      <span className="question__label">{label}</span>
                       {question.recommended === i ? <span className="question__rec">推荐</span> : null}
                     </button>
                   )
@@ -166,8 +177,9 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
               />
             ) : null}
             {question.type === 'single' || question.type === 'multi' ? (
-              <Input
-                size="sm"
+              <Textarea
+                rows={1}
+                className="question__other"
                 placeholder="其他，我来补充"
                 value={d.text}
                 disabled={locked}
@@ -205,14 +217,12 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
           <Button
             variant="primary"
             size="small"
+            className="question__submit"
             disabled={locked || !ready || uploads.uploading}
             onClick={() => void submit()}
           >
             提交回答
           </Button>
-          <span className="question__timeout">
-            {countdown(Date.parse(set.expiresAt) - now)} 后超时，agent 按推荐项继续并在最终回复列出假设
-          </span>
         </div>
       ) : (
         <div className="question__done">

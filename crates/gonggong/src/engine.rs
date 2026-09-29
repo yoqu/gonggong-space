@@ -35,6 +35,9 @@ pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
 ];
 const MIN_NODE_MAJOR: u32 = 22;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
+/// Claude Code aborts an HTTP MCP call after a minute, or five silent minutes, while 「向群成员提问」 waits for a person
+/// up to the group's timeout (at most a day): the call must outlast it.
+const ASK_TIMEOUT_MS: &str = "90000000";
 
 pub struct EngineConfig {
     pub home: PathBuf,
@@ -407,7 +410,10 @@ impl Inner {
         };
         let cli = agents::locate(bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
         Ok(match bot.agent_kind {
-            AgentKind::Claude => base.envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
+            AgentKind::Claude => base
+                .env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
+                .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
+                .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
             AgentKind::Codex => base
                 .env("CODEX_CONFIG", serde_json::json!({ "developer_instructions": system_prompt(bot) }).to_string())
                 .envs(cli.map(|p| ("CODEX_PATH", p))),

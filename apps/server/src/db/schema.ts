@@ -387,6 +387,8 @@ export const runs = pgTable(
     patch: text('patch'),
     /** Latest state of each subagent / background task by id: { subagents: {id: state}, tasks: {id: state} }. */
     delegation: jsonb('delegation').notNull().default({}),
+    /** Bots that take over once this run completes (the hand_off tool); an @ in the reply alone relays nothing. */
+    handoffs: jsonb('handoffs').$type<{ botId: string; task: string }[]>().notNull().default([]),
     purgedAt: ts('purged_at'),
     /** Requested at dispatch, then as the daemon reported them in effect (session.config). */
     model: text('model'),

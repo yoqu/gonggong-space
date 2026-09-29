@@ -685,6 +685,13 @@ pub struct CastTarget {
     pub preview_id: String,
     #[serde(flatten)]
     pub source: CastSource,
+    /// Changes while it runs: the running gg-cast is told, not restarted.
+    #[serde(default = "default_fps")]
+    pub fps: u32,
+}
+
+fn default_fps() -> u32 {
+    30
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

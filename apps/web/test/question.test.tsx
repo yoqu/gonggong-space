@@ -110,20 +110,19 @@ describe('QuestionBlock', () => {
   it('shows the card like the prototype, with who may answer and a live countdown', () => {
     render(<QuestionBlock run={run()} />)
     expect(screen.getByText('向群成员提问 · 4 个问题')).toBeTruthy()
-    expect(screen.getByText('· 触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
-    for (const label of ['单选 ·', '多选 ·', '是/否 ·', '自由文本 ·'])
-      expect(screen.getByText(label)).toBeTruthy()
+    expect(screen.getByText('触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
+    for (const label of ['单选', '多选', '是/否', '自由文本']) expect(screen.getByText(label)).toBeTruthy()
     expect(button('Python推荐')).toBeTruthy()
     expect(button('是推荐')).toBeTruthy()
     expect(button('Go')).toBeTruthy()
     // 「其他，我来补充」 only for single / multi choice; free text for text questions.
     expect(screen.getAllByPlaceholderText('其他，我来补充')).toHaveLength(2)
     expect(screen.getByPlaceholderText('自由作答')).toBeTruthy()
-    expect(screen.getByText('27:02 后超时，agent 按推荐项继续并在最终回复列出假设')).toBeTruthy()
+    expect(screen.getByText('27:02 后超时，按推荐项继续')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(screen.getByText('27:01 后超时，agent 按推荐项继续并在最终回复列出假设')).toBeTruthy()
+    expect(screen.getByText('27:01 后超时，按推荐项继续')).toBeTruthy()
     expect(button('附图片或附件…')).toBeTruthy()
   })
 
@@ -133,7 +132,7 @@ describe('QuestionBlock', () => {
     expect(button('提交回答').disabled).toBe(true)
     fireEvent.click(button('Python推荐'))
     // Single choice: 「其他」 replaces the chosen option and vice versa.
-    const [single, multi] = screen.getAllByPlaceholderText('其他，我来补充') as HTMLInputElement[]
+    const [single, multi] = screen.getAllByPlaceholderText('其他，我来补充') as HTMLTextAreaElement[]
     fireEvent.change(single!, { target: { value: 'Rust' } })
     expect(button('Python推荐').getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(button('Go'))
@@ -203,7 +202,7 @@ describe('QuestionBlock', () => {
 
   it('names the chain initiator as the answerer of a relay hop', () => {
     render(<QuestionBlock run={run({ triggerUserId: null, hop: 2 })} />)
-    expect(screen.getByText('· 触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
+    expect(screen.getByText('触发人 王磊 或 Bot 主人 李建国 可回答')).toBeTruthy()
   })
 
   it.each([
@@ -222,7 +221,7 @@ describe('QuestionBlock', () => {
       '王磊 已回答 · 10:26 · 已写入审计记录',
     ],
     [set({ status: 'expired' }), '无人回答，agent 已按推荐项继续 · 10:48'],
-    [set({ status: 'void' }), '已打断并追加，提问作废'],
+    [set({ status: 'void' }), '提问已作废，agent 不再等待回答'],
   ])('shows the outcome %#', (q, text) => {
     render(<QuestionBlock run={run({ status: 'running', questions: [q] })} />)
     expect(screen.getByText(text)).toBeTruthy()

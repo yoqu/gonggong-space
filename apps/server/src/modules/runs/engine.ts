@@ -164,20 +164,19 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
       .set({ sessionId: done.sessionId })
       .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
   if (done.git) await updateBotState(ctx, run.groupId, run.botId, { gitStatus: done.git })
-  const reply = done.reply.trim()
-    ? await postMessage(ctx, {
-        groupId: run.groupId,
-        kind: 'bot',
-        authorBotId: run.botId,
-        body: redact(done.reply),
-        meta: { mentions: [] },
-        runId: run.id,
-      })
-    : null
+  if (done.reply.trim())
+    await postMessage(ctx, {
+      groupId: run.groupId,
+      kind: 'bot',
+      authorBotId: run.botId,
+      body: redact(done.reply),
+      meta: { mentions: [] },
+      runId: run.id,
+    })
   await publishRun(ctx, run)
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
-  if (reply) await triggerChain(ctx, run, reply)
+  await triggerChain(ctx, run)
   await requeueAppends(ctx, run, done.appendsApplied)
   // Last: a relay hop created above keeps the chain open.
   await notifyChainDone(ctx, run)

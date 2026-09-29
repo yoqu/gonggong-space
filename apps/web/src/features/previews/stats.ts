@@ -1,3 +1,5 @@
+import { LIVE_FPS, type LiveFps } from '@gonggong/protocol'
+
 /** Cumulative counters from one read of the video receiver's RTCStatsReport. */
 export interface StatsSample {
   at: number
@@ -103,21 +105,56 @@ export interface Layer {
   quality: number
   width: number
   height: number
+  /** bit/s at `LIVE_FPS`'s top rate (gg-cast's cap). */
+  bitrate: number
 }
 
 const LAYER_PICKS = [
-  { value: 'high', label: '高清' },
-  { value: 'medium', label: '标清' },
-  { value: 'low', label: '流畅' },
+  { value: 'high', label: '原画' },
+  { value: 'medium', label: '超清' },
+  { value: 'low', label: '高清' },
 ] as const
 
-/** What a viewer can choose from; nothing when the machine sends a single layer. Auto caps at the top layer. */
-export function qualityPicks(layers: Layer[]): { value: QualityPick; label: string; quality: number }[] {
+const TOP_FPS = Math.max(...LIVE_FPS)
+
+/**
+ * What a viewer can choose from, each with the bandwidth it needs at `fps`; nothing when the machine sends a single
+ * layer. Auto caps at the top layer and names the one arriving (`width`: the received frame's).
+ */
+export function qualityPicks(
+  layers: Layer[],
+  fps: number,
+  width: number | null,
+): { value: QualityPick; label: string; quality: number }[] {
   const sorted = [...layers].sort((a, b) => b.quality - a.quality)
   const picks = LAYER_PICKS.flatMap((p, i) => {
     const l = sorted[i]
-    return l ? [{ ...p, quality: l.quality }] : []
+    return l ? [{ ...p, layer: l }] : []
   })
   const top = picks[0]
-  return top && picks.length > 1 ? [{ value: 'auto', label: '自动', quality: top.quality }, ...picks] : []
+  if (!top || picks.length < 2) return []
+  const arriving =
+    width === null
+      ? null
+      : picks.reduce((a, b) => (Math.abs(b.layer.width - width) < Math.abs(a.layer.width - width) ? b : a))
+  return [
+    { value: 'auto', label: arriving ? `自动（${arriving.label}）` : '自动', quality: top.layer.quality },
+    ...picks.map((p) => ({
+      value: p.value,
+      label: `${p.label} · 约 ${((p.layer.bitrate * fps) / TOP_FPS / 1e6).toFixed(1)} Mbps`,
+      quality: p.layer.quality,
+    })),
+  ]
+}
+
+export type FpsPick = 'auto' | `${LiveFps}`
+
+/** The frame rate auto asks for: 90 only when picked, it costs half as much again as 60. */
+export const autoFps = (g: Grade): LiveFps => (g === 'good' ? 60 : 30)
+
+export function fpsPicks(auto: LiveFps): { value: FpsPick; label: string }[] {
+  return [
+    { value: 'auto', label: `自动（${auto} fps）` },
+    ...[...LIVE_FPS].reverse().map((f) => ({ value: `${f}` as FpsPick, label: `${f} fps` })),
+  ]
 }

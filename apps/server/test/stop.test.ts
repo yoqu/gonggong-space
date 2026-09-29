@@ -11,6 +11,7 @@ import {
   notifications,
   runs,
 } from '../src/db/schema.js'
+import { callTool } from '../src/modules/agent-tools/service.js'
 import { expireOfflineRuns, isChainStopped } from '../src/modules/runs/stop.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -137,7 +138,7 @@ async function world(o: { online?: boolean } = {}) {
 
 type World = Awaited<ReturnType<typeof world>>
 
-/** Inserts a relay hop below `parent` (what the chain module does when a bot @-s another bot). */
+/** Inserts a relay hop below `parent` (what the chain module does when a bot hands off to another bot). */
 async function relay(w: World, parent: typeof runs.$inferSelect, botId: string, status = 'running') {
   const [m] = await t.db
     .insert(messages)
@@ -425,7 +426,8 @@ describe('offline expiry and chain notifications', () => {
     const w = await world()
     await w.say(w.as.li, '@小王的 Claude 开始')
     const [root] = await w.runsOf(w.claude.id)
-    w.done(root!.id, { outcome: 'completed', reply: '@老李的 Codex 继续' })
+    await callTool(t.ctx, root!, 'hand_off', { bot: '老李的 Codex', task: '继续' })
+    w.done(root!.id, { outcome: 'completed', reply: '好了' })
     const [hop2] = await until(
       () => w.runsOf(w.codex.id),
       (r) => r[0]?.status === 'running',
@@ -453,8 +455,9 @@ describe('offline expiry and chain notifications', () => {
     await w.say(w.as.li, '@小王的 Claude 开始')
     const [root] = await w.runsOf(w.claude.id)
     const hop2 = await relay(w, root!, w.codex.id)
+    await callTool(t.ctx, hop2, 'hand_off', { bot: '小王的 Claude', task: '继续' })
     await w.say(w.as.li, '/stop @小王的 Claude')
-    w.done(hop2.id, { outcome: 'completed', reply: '@小王的 Claude 继续' })
+    w.done(hop2.id, { outcome: 'completed', reply: '好了' })
     await until(
       () => w.run(hop2.id),
       (r) => r.status === 'completed',

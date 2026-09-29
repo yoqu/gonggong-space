@@ -370,6 +370,20 @@
 }
 
 /* Changed files named in a reply open the rail's diff. */
+.tl-handoff {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--control-small);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+  cursor: default;
+}
 .tl-files {
   display: flex;
   flex-wrap: wrap;

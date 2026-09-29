@@ -1,4 +1,4 @@
-import { scanMentions } from '../messages/mentions.js'
+import { scanMentions } from '@gonggong/protocol'
 
 export interface ParsedCommand {
   /** Case-sensitive, as typed after `/`. */

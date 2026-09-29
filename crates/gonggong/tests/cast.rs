@@ -104,6 +104,39 @@ fn token_route(url: &'static str) -> Route {
 }
 
 #[tokio::test]
+async fn changes_the_frame_rate_without_restarting() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let service = hosted_service(&services, root.path(), &out, &mut rx).await;
+    let stdin = bins.path().join("stdin");
+    let (bin, seen) =
+        fake_cast(bins.path(), &format!("echo live\nwhile read l; do echo \"$l\" >> {}; done", stdin.display()));
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
+    let target =
+        |fps| CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: service.clone() }, fps };
+
+    casts.sync(vec![target(60)], &out);
+    assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
+    assert_eq!(next_cast(&mut rx).await, (CastPhase::Live, None));
+    assert!(std::fs::read_to_string(&seen).unwrap().lines().next().unwrap().ends_with("--fps 60"));
+    casts.sync(vec![target(90)], &out);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while std::fs::read_to_string(&stdin).unwrap_or_default() != "fps 90\n" {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("the new rate never reached gg-cast");
+    assert!(rx.try_recv().is_err(), "gg-cast was restarted");
+    casts.sync(vec![], &out);
+    services.stop_all().await;
+}
+
+#[tokio::test]
 async fn publishes_a_watched_service_window_until_nobody_watches() {
     let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let (out, mut rx) = Outbox::channel();
@@ -116,7 +149,7 @@ async fn publishes_a_watched_service_window_until_nobody_watches() {
             .permissions(Vec::new);
 
     casts.sync(
-        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: service.clone() } }],
+        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: service.clone() }, fps: 30 }],
         &out,
     );
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
@@ -129,7 +162,7 @@ async fn publishes_a_watched_service_window_until_nobody_watches() {
     assert!(alive(cast_pid));
 
     // Watched again: nothing restarts.
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
     casts.sync(vec![], &out);
     tokio::time::timeout(Duration::from_secs(5), async {
         while alive(cast_pid) {
@@ -154,7 +187,7 @@ async fn reports_why_gg_cast_failed_and_tries_again() {
         Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
             .permissions(Vec::new);
 
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Failed, Some("本机没有授予「屏幕录制」权限".into())));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
@@ -174,7 +207,7 @@ async fn says_the_machine_lacks_screen_recording_without_starting_gg_cast() {
         Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
             .permissions(|| vec![Permission::ScreenRecording, Permission::Accessibility]);
 
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
     let mut states = vec![];
     while states.len() < 2 {
         if let Some(DaemonToServer::CastState { state, error, missing, .. }) = rx.recv().await {
@@ -204,7 +237,7 @@ async fn a_live_window_says_remote_control_lacks_accessibility() {
         Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
             .permissions(|| vec![Permission::Accessibility]);
 
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
     loop {
         if let Some(DaemonToServer::CastState { state: CastPhase::Live, missing, .. }) = rx.recv().await {
             assert_eq!(missing, vec![Permission::Accessibility]);
@@ -230,7 +263,7 @@ async fn a_stopped_service_has_no_window_to_publish() {
     )
     .permissions(Vec::new);
     casts.sync(
-        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: "gone".into() } }],
+        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: "gone".into() }, fps: 30 }],
         &out,
     );
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
@@ -356,7 +389,7 @@ async fn publishes_a_virtual_display_as_a_whole_screen() {
     let casts =
         Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
             .permissions(Vec::new);
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Live, None));
     // The display belongs to the service alone: its whole screen is the app's windows.

@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "handoffs" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -1,4 +1,4 @@
-import { GONGGONG_TOOLS, type RunEvent } from '@gonggong/protocol'
+import { GONGGONG_TOOLS, type Question, type RunEvent } from '@gonggong/protocol'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 
@@ -7,6 +7,13 @@ const GONGGONG: Record<string, string> = {
   ...Object.fromEntries(Object.entries(GONGGONG_TOOLS).map(([name, t]) => [name, t.title])),
 }
 const VALUE_MAX = 60
+
+export const QUESTION_TYPE: Record<Question['type'], string> = {
+  single: '单选',
+  multi: '多选',
+  yesno: '是/否',
+  text: '自由文本',
+}
 
 /** Built-in gonggong tools by their Chinese title; others as `Server · tool` (claude.ai connectors lose their prefix). */
 export function mcpLabel(server: string, tool: string) {
@@ -42,7 +49,29 @@ export function mcpArgs(input: string | undefined): [string, string][] | null {
   }
 }
 
+export type AskedQuestion = Pick<Question, 'type' | 'title'> & {
+  options?: string[]
+  recommended?: number | null
+}
+
+/** The questions of a 「向群成员提问」 call as the agent sent them; null for other calls or clipped input. */
+export function askedQuestions(call: McpCall): AskedQuestion[] | null {
+  if (call.server !== 'gonggong' || call.tool !== 'ask_group_members' || !call.input) return null
+  try {
+    const qs = (JSON.parse(call.input) as { questions?: unknown }).questions
+    const valid =
+      Array.isArray(qs) && qs.every((q) => typeof q?.title === 'string' && q.type in QUESTION_TYPE)
+    return valid ? (qs as AskedQuestion[]) : null
+  } catch {
+    return null
+  }
+}
+
 export const argSummary = (call: McpCall) =>
+  askedQuestions(call)
+    ?.map((q) => q.title)
+    .join(' / ') ||
   mcpArgs(call.input)
     ?.map(([k, v]) => `${k}=${v}`)
-    .join(' · ') || undefined
+    .join(' · ') ||
+  undefined

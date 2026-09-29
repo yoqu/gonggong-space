@@ -1,6 +1,7 @@
-import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
+import { type MessageDto, parseMentions, type RunDto, type RunStatus } from '@gonggong/protocol'
 import { memo, type ReactNode, useMemo, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
+import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import {
@@ -32,6 +33,7 @@ import { OfflineNote, RunActions } from '../runs/RunActions'
 import { UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
 import { Clamp } from './Clamp'
+import { citeInChat } from './cite'
 import { isRich, replyFiles } from './grouping'
 import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
@@ -341,6 +343,36 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
   )
 }
 
+/**
+ * Bots a reply only mentions (an @ in a reply relays nothing): a member hands one the work by @-ing it from the
+ * composer. Hand-off messages carry their target in `mentions` and it is already running.
+ */
+function HandOffChips({ m }: { m: MessageDto }) {
+  const botIds = useWorkspace((s) => s.groups.find((g) => g.id === m.groupId)?.botIds)
+  const all = useWorkspace((s) => s.bots)
+  const bots = useMemo(() => {
+    const inGroup = all.filter(
+      (b) => botIds?.includes(b.id) && b.id !== m.authorId && !m.mentions.includes(b.id),
+    )
+    return parseMentions(m.body, inGroup).flatMap((id) => inGroup.filter((b) => b.id === id))
+  }, [all, botIds, m])
+  if (!bots.length) return null
+  return (
+    <div className="tl-files">
+      {bots.map((b) => (
+        <button
+          key={b.id}
+          type="button"
+          className="tl-handoff"
+          onClick={() => citeInChat(m.groupId, `@${b.name}`)}
+        >
+          <Icon name="at" size={12} />让 {b.name} 处理
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** A bot's text reply as a bubble (Markdown inside); attachments and changed files follow as bare content. */
 function ReplyMessage({
   m,
@@ -372,6 +404,7 @@ function ReplyMessage({
           <>
             <MessageAttachments list={m.attachments} from={m.authorName} />
             {runId ? <FileChips runId={runId} text={m.body} /> : null}
+            <HandOffChips m={m} />
             {tags}
           </>
         }

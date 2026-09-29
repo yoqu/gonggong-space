@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type RunStart } from '@gonggong/protocol'
+import { PROTOCOL_VERSION, type RunStart, type ToolCallRes } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groups, messages, runs } from '../src/db/schema.js'
@@ -28,6 +28,15 @@ async function daemon(token: string) {
   expect(await box.next()).toMatchObject({ t: 'welcome' })
   return {
     next: () => box.next<RunStart>(),
+    handOff: async (runId: string, bot: string, task = '继续') => {
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/daemon/runs/${runId}/tools/hand_off`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { arguments: { bot, task } },
+      })
+      return res.json<ToolCallRes>()
+    },
     done: (runId: string, reply: string, o: Record<string, unknown> = {}) =>
       ws.send(
         JSON.stringify({
@@ -157,18 +166,26 @@ describe('trigger scope', () => {
 })
 
 describe('relay chain', () => {
-  it('relays bot → bot up to chainMaxHops, then leaves the @ as plain text', async () => {
+  it('relays through hand_off up to chainMaxHops, posting who hands what to whom', async () => {
     const w = await world()
     const d = await daemon(w.token)
     const human = await w.say(w.bob.id, '@接力 A 开始', [w.a.id])
-    let replied = 0
-    for (const expected of [w.a, w.b, w.a]) {
+    for (const [expected, next] of [
+      [w.a, '接力 B'],
+      [w.b, '接力 A'],
+    ] as const) {
       const start = await d.next()
       expect(start.bot.id).toBe(expected.id)
-      if (replied) expect(start.prompt.triggeredBy).toBe(expected === w.a ? '接力 B' : '接力 A')
-      d.done(start.runId, expected === w.a ? '@接力 B 继续' : '@接力 A 继续')
-      replied += 1
+      expect(await d.handOff(start.runId, next, '把测试补齐')).toMatchObject({ isError: false })
+      d.done(start.runId, '改好了')
     }
+    const last = await d.next()
+    expect(last.prompt).toMatchObject({ text: '@接力 A 把测试补齐', triggeredBy: '接力 B' })
+    expect(await d.handOff(last.runId, '接力 B')).toMatchObject({
+      isError: true,
+      text: expect.stringContaining('接力已达上限（3 跳）'),
+    })
+    d.done(last.runId, '好了')
     const rows = await until(w.allRuns, (r) => r.length === 3 && r[2]!.status === 'completed')
     await new Promise((r) => setTimeout(r, 100))
     expect(await w.allRuns()).toHaveLength(3)
@@ -181,10 +198,48 @@ describe('relay chain', () => {
     expect(rows[1]!.parentRunId).toBe(rows[0]!.id)
     expect(rows[2]!.parentRunId).toBe(rows[1]!.id)
     const [trigger] = await t.db.select().from(messages).where(eq(messages.id, rows[1]!.triggerMessageId))
-    expect(trigger).toMatchObject({ kind: 'bot', authorBotId: w.a.id, runId: rows[0]!.id })
+    expect(trigger).toMatchObject({
+      kind: 'bot',
+      authorBotId: w.a.id,
+      runId: null,
+      body: '@接力 B 把测试补齐',
+      meta: { mentions: [w.b.id] },
+    })
   })
 
-  it('honours the group chainMaxHops param and relays a fan-out reply to both bots at hop + 1', async () => {
+  it('leaves an @ in the reply as a plain mention', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A', [w.a.id])
+    const start = await d.next()
+    d.done(start.runId, '预览也可以直接 @接力 B 来发')
+    await until(w.allRuns, (r) => r[0]!.status === 'completed')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(await w.allRuns()).toHaveLength(1)
+  })
+
+  it('checks the target when handing off and keeps one task per bot', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A', [w.a.id])
+    const start = await d.next()
+    expect(await d.handOff(start.runId, '接力 Z')).toMatchObject({
+      isError: true,
+      text: '本群没有叫「接力 Z」的 Bot，可接手的有：接力 B',
+    })
+    expect(await d.handOff(start.runId, '接力 A')).toMatchObject({ isError: true, text: '不能交给自己' })
+    await d.handOff(start.runId, '接力 B', '先写接口')
+    expect(await d.handOff(start.runId, '接力 B', '先写测试')).toMatchObject({
+      isError: false,
+      text: '已登记：本轮结束后由「接力 B」接手（任务：先写测试）。回复里不需要再 @ 它。',
+    })
+    d.done(start.runId, '好了')
+    expect((await d.next()).prompt.text).toBe('@接力 B 先写测试')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(await w.allRuns()).toHaveLength(2)
+  })
+
+  it('honours the group chainMaxHops param and fans a hand-off out to several bots at hop + 1', async () => {
     const w = await world()
     const c = await w.bot('接力 C')
     const group = await t.seed.group({ createdBy: w.owner.id, botIds: [w.a.id, w.b.id, c.id] })
@@ -205,10 +260,15 @@ describe('relay chain', () => {
       .returning()
     await triggerRuns(t.ctx, m!)
     const first = await d.next()
-    d.done(first.runId, '@接力 B 和 @接力 C 分头做，@接力 A 是我自己')
+    await d.handOff(first.runId, '接力 B', '做前端')
+    await d.handOff(first.runId, '接力 C', '做后端')
+    d.done(first.runId, '分好工了')
     const hop2 = [await d.next(), await d.next()]
     expect(hop2.map((s) => s.bot.id).sort()).toEqual([w.b.id, c.id].sort())
-    for (const s of hop2) d.done(s.runId, '@接力 A 回来')
+    for (const s of hop2) {
+      expect(await d.handOff(s.runId, '接力 A')).toMatchObject({ isError: true })
+      d.done(s.runId, '好了')
+    }
     const all = () => t.db.select().from(runs).where(eq(runs.groupId, group.id))
     const rows = await until(all, (r) => r.filter((x) => x.status === 'completed').length === 3)
     await new Promise((r) => setTimeout(r, 100))
@@ -223,7 +283,8 @@ describe('relay chain', () => {
     const d = await daemon(w.token)
     await w.say(w.bob.id, '@接力 A 再来', [w.a.id])
     const start = await d.next()
-    d.done(start.runId, '@接力 B 继续')
+    await d.handOff(start.runId, '接力 B')
+    d.done(start.runId, '好了')
     const rows = await until(w.allRuns, (r) => r.length === 2)
     expect(rows[1]).toMatchObject({
       botId: b.id,
@@ -239,10 +300,12 @@ describe('relay chain', () => {
     const d = await daemon(w.token)
     await w.say(w.bob.id, '@接力 A', [w.a.id])
     const s1 = await d.next()
-    d.done(s1.runId, '@接力 B 半截', { outcome: 'interrupted' })
+    await d.handOff(s1.runId, '接力 B')
+    d.done(s1.runId, '半截', { outcome: 'interrupted' })
     await w.say(w.bob.id, '@接力 A', [w.a.id])
     const s2 = await d.next()
-    d.done(s2.runId, '@接力 B 出错', { outcome: 'failed', error: 'boom' })
+    await d.handOff(s2.runId, '接力 B')
+    d.done(s2.runId, '出错', { outcome: 'failed', error: 'boom' })
     const rows = await until(w.allRuns, (r) => r.length === 2 && r.every((x) => x.status === 'interrupted'))
     await new Promise((r) => setTimeout(r, 100))
     expect(await w.allRuns()).toHaveLength(rows.length)

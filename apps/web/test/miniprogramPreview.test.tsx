@@ -88,47 +88,14 @@ describe('小程序 · 开发者工具未登录', () => {
 describe('小程序 · 截图失败', () => {
   const failed = preview({ snapshotAt: null, snapshotError: '本机的微信开发者工具未运行' })
 
-  it('says why on the card and in the workbench', async () => {
+  it('says why on the card', async () => {
     mockApi({ 'GET /groups/g1/previews': list([failed]) })
-    render(
-      <>
-        <PreviewCard previewId="p2" groupId="g1" botId="b1" fallback="预览：商城" />
-        <MiniprogramTab tab={tab} tabKey="mp:p2" active />
-      </>,
-    )
-    expect(await screen.findAllByText('本机的微信开发者工具未运行')).toHaveLength(2)
-    expect(screen.queryByText('正在截取模拟器画面…')).toBeNull()
+    render(<PreviewCard previewId="p2" groupId="g1" botId="b1" fallback="预览：商城" />)
+    await screen.findByText('本机的微信开发者工具未运行')
   })
 })
 
 describe('工作台 · 小程序', () => {
-  it('shows the latest screenshot; managers refresh it or switch the page', async () => {
-    const calls = mockApi({
-      'GET /groups/g1/previews': list([preview({ canManage: true })]),
-      'POST /previews/p2/snapshot': undefined,
-    })
-    render(<MiniprogramTab tab={tab} tabKey="mp:p2" active />)
-    expect((await screen.findByRole('img', { name: '商城 模拟器' })).getAttribute('src')).toContain('v=2026')
-    const page = screen.getByRole('textbox', { name: '页面' }) as HTMLInputElement
-    expect(page.value).toBe('pages/goods/detail?id=42')
-
-    fireEvent.click(screen.getByRole('button', { name: '刷新截图' }))
-    await waitFor(() => expect(calls.at(-1)).toMatchObject({ method: 'POST', path: '/previews/p2/snapshot' }))
-    expect(calls.at(-1)?.body).toBeUndefined()
-
-    fireEvent.change(page, { target: { value: 'pages/me/me' } })
-    fireEvent.keyDown(page, { key: 'Enter' })
-    await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: '/pages/me/me' }))
-  })
-
-  it('members only look', async () => {
-    mockApi({ 'GET /groups/g1/previews': list([preview()]) })
-    render(<MiniprogramTab tab={tab} tabKey="mp:p2" active />)
-    await screen.findByRole('img', { name: '商城 模拟器' })
-    expect(screen.queryByRole('button', { name: '刷新截图' })).toBeNull()
-    expect((screen.getByRole('textbox', { name: '页面' }) as HTMLInputElement).readOnly).toBe(true)
-  })
-
   it('labels the tab with the preview and its state', async () => {
     mockApi({ 'GET /groups/g1/previews': list([preview({ status: 'offline' })]) })
     const { result } = renderHook(() => useMiniprogramTabMeta(tab))

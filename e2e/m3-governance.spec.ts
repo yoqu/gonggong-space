@@ -123,8 +123,10 @@ test('relay chain stops at 3 hops and every hop is authorized against the chain 
       machineId,
       systemPrompt,
     })
-  const a = await bot('接力 A', '无论收到什么消息，你的回复只能是这一行，不要调用任何工具：@接力 B 继续')
-  const b = await bot('接力 B', '无论收到什么消息，你的回复只能是这一行，不要调用任何工具：@接力 A 继续')
+  const relay = (to: string) =>
+    `无论收到什么消息，只调用一次 gonggong 的 hand_off（bot=${to}，task=继续），不调用其他工具，然后只回复这一行：交给 ${to} 了`
+  const a = await bot('接力 A', relay('接力 B'))
+  const b = await bot('接力 B', relay('接力 A'))
   const viewer = await extraMember(page, 'relayviewer')
   const group = await api.call<{ id: string }>('post', '/api/groups', {
     name: '接力',
@@ -142,7 +144,7 @@ test('relay chain stops at 3 hops and every hop is authorized against the chain 
     await expect(cards.nth(2)).toContainText('已完成', { timeout: 4 * 60_000 })
     await expect(cards.nth(1)).toContainText('接力 2/3')
     await expect(cards.nth(2)).toContainText('接力 3/3')
-    // The 3rd hop's @接力 B stays plain text: no 4th run.
+    // The 3rd hop's hand_off is refused: no 4th run.
     await page.waitForTimeout(5_000)
     await expect(cards).toHaveCount(3)
 

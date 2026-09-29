@@ -103,7 +103,10 @@ describe('desktop app previews', () => {
     expect(w.casts()).toEqual([])
 
     expect((await w.liClient.post(`/api/previews/${p.id}/watch`)).status).toBe(204)
-    expect(w.casts().at(-1)).toEqual({ t: 'cast.sync', casts: [{ previewId: p.id, service: w.service.id }] })
+    expect(w.casts().at(-1)).toEqual({
+      t: 'cast.sync',
+      casts: [{ previewId: p.id, service: w.service.id, fps: 30 }],
+    })
     const before = w.casts().length
     await w.liClient.post(`/api/previews/${p.id}/watch`)
     expect(w.casts()).toHaveLength(before)
@@ -116,6 +119,27 @@ describe('desktop app previews', () => {
     expect(w.casts().at(-1)).toEqual({ t: 'cast.sync', casts: [] })
   })
 
+  it('publishes at the highest frame rate its viewers ask for, lowering it once they leave', async () => {
+    const w = await world()
+    const p = await publish(w)
+    const wang = client(t, await t.seed.cookie(w.wang.id))
+    const fps = () => (w.casts().at(-1) as { casts: { fps: number }[] }).casts[0]?.fps
+    await w.liClient.post(`/api/previews/${p.id}/watch`, { fps: 60 })
+    expect(fps()).toBe(60)
+    await wang.post(`/api/previews/${p.id}/watch`, { fps: 90 })
+    expect(fps()).toBe(90)
+    const before = w.casts().length
+    await w.liClient.post(`/api/previews/${p.id}/watch`, { fps: 30 })
+    expect(w.casts()).toHaveLength(before)
+    expect((await w.liClient.post(`/api/previews/${p.id}/watch`, { fps: 45 })).status).toBe(400)
+
+    clock += 30_000
+    await w.liClient.post(`/api/previews/${p.id}/watch`, { fps: 30 })
+    clock += 31_000
+    await reapWatches(t.ctx)
+    expect(fps()).toBe(30)
+  })
+
   it('stops publishing a closed preview, and tells a reconnected machine what to publish', async () => {
     const w = await world()
     const p = await publish(w)
@@ -124,7 +148,10 @@ describe('desktop app previews', () => {
     const again: ServerToDaemon[] = []
     t.ctx.hub.register(w.machine.id, { send: (m) => again.push(m), close: () => {} })
     await vi.waitFor(() =>
-      expect(again).toContainEqual({ t: 'cast.sync', casts: [{ previewId: p.id, service: w.service.id }] }),
+      expect(again).toContainEqual({
+        t: 'cast.sync',
+        casts: [{ previewId: p.id, service: w.service.id, fps: 30 }],
+      }),
     )
 
     const wang = client(t, await t.seed.cookie(w.wang.id))
@@ -181,7 +208,7 @@ describe('desktop app previews', () => {
     expect((await w.liClient.post(`/api/previews/${mp!.id}/watch`)).status).toBe(204)
     expect(w.casts().at(-1)).toEqual({
       t: 'cast.sync',
-      casts: [{ previewId: mp!.id, miniprogram: '/Users/dev/work/shop' }],
+      casts: [{ previewId: mp!.id, miniprogram: '/Users/dev/work/shop', fps: 30 }],
     })
     const list = (await w.liClient.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body
     expect(list.previews.find((p) => p.id === mp!.id)?.control).toEqual({ controller: null, requests: [] })

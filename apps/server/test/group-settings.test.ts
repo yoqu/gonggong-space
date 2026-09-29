@@ -1,4 +1,4 @@
-import type { GroupDto, GroupNoticeDto, GroupParams, MessageDto, TimelineDto } from '@gonggong/protocol'
+import type { GroupDto, GroupNoticeDto, GroupParams, TimelineDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupMembers, groups, messages, runs, systemParams } from '../src/db/schema.js'
@@ -203,14 +203,10 @@ describe('group params', () => {
     const [group] = await t.db.select().from(groups).where(eq(groups.id, w.g.id))
     expect(await timeoutMin(t.ctx, group!)).toBe(12)
 
-    const parent = await queuedRun(w, w.wangBot.id, 'completed')
-    const [reply] = await t.db
-      .insert(messages)
-      .values({ groupId: w.g.id, kind: 'bot', authorBotId: w.wangBot.id, body: '@老李的 Codex 接着写测试' })
-      .returning()
-    const dto = { id: reply!.id, body: reply!.body } as MessageDto
+    const queued = await queuedRun(w, w.wangBot.id, 'completed')
+    const parent = { ...queued, handoffs: [{ botId: w.liBot.id, task: '接着写测试' }] }
     const count = async () => (await t.db.select().from(runs).where(eq(runs.groupId, w.g.id))).length
-    await triggerChain(t.ctx, parent, dto)
+    await triggerChain(t.ctx, parent)
     expect(await count()).toBe(1)
 
     await w.as.wang.put(`/api/groups/${w.g.id}/params`, {
@@ -218,7 +214,7 @@ describe('group params', () => {
       chainMaxHops: 2,
       offlineWaitMin: 30,
     })
-    await triggerChain(t.ctx, parent, dto)
+    await triggerChain(t.ctx, parent)
     expect(await count()).toBe(2)
   })
 })

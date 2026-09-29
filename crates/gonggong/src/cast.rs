@@ -14,9 +14,10 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::Command;
+use tokio::sync::watch;
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
@@ -25,6 +26,9 @@ const MAX_RETRY: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct Casts(Arc<Inner>);
+
+/// A preview's gg-cast: what it publishes, and its frame rate, which reaches it without a restart.
+type Run = (CastSource, AbortHandle, watch::Sender<u32>);
 
 struct Inner {
     api: Option<Config>,
@@ -35,7 +39,7 @@ struct Inner {
     devtools: &'static crate::wechatide::Shared,
     /// The permissions this machine lacks, checked before each run (`permission::missing`).
     missing: fn() -> Vec<Permission>,
-    running: Mutex<HashMap<String, (CastTarget, AbortHandle)>>,
+    running: Mutex<HashMap<String, Run>>,
 }
 
 impl Casts {
@@ -63,22 +67,25 @@ impl Casts {
         self
     }
 
-    /// Runs exactly the `wanted` casts: new ones start, dropped ones stop (their gg-cast is killed).
+    /// Runs exactly the `wanted` casts: new ones start, dropped ones stop (their gg-cast is killed), a changed frame
+    /// rate is passed on.
     pub fn sync(&self, wanted: Vec<CastTarget>, out: &Outbox) {
         let mut running = self.0.running.lock().unwrap();
-        running.retain(|_, (target, task)| {
-            let keep = wanted.contains(target);
+        running.retain(|id, (source, task, _)| {
+            let keep = wanted.iter().any(|w| &w.preview_id == id && &w.source == source);
             if !keep {
                 task.abort();
             }
             keep
         });
         for target in wanted {
-            if running.contains_key(&target.preview_id) {
+            if let Some((_, _, fps)) = running.get(&target.preview_id) {
+                fps.send_replace(target.fps);
                 continue;
             }
-            let task = tokio::spawn(supervise(self.0.clone(), target.clone(), out.clone()));
-            running.insert(target.preview_id.clone(), (target, task.abort_handle()));
+            let (fps, rx) = watch::channel(target.fps);
+            let task = tokio::spawn(supervise(self.0.clone(), target.clone(), rx, out.clone()));
+            running.insert(target.preview_id, (target.source, task.abort_handle(), fps));
         }
     }
 }
@@ -88,38 +95,11 @@ pub fn local_bin() -> Option<PathBuf> {
     std::env::var_os("GG_CAST_BIN").map(PathBuf::from).or_else(bundled)
 }
 
-/// The desktop app's own gg-cast (Tauri `externalBin`: next to the app executable, same build).
+/// The desktop app's own gg-cast (Tauri `externalBin`: next to the app executable, same build), run in place. macOS
+/// judges an executable inside the bundle as the app: signed with the app's Developer ID it has the app's screen
+/// recording grant; in an ad-hoc signed app the grant is keyed to the main executable's cdhash and gg-cast is refused.
 pub fn bundled() -> Option<PathBuf> {
     beside(&std::env::current_exe().ok()?)
-}
-
-/// A copy of the bundled gg-cast outside the app, where it runs. macOS judges an executable inside an app bundle as
-/// the app itself: gg-cast's ad-hoc signature is not the app's, so screen recording was refused (ScreenCaptureKit
-/// -3801) although the app was granted; outside, it is the app's child and inherits the grant. One copy per build.
-pub async fn staged(bundled: &Path, home: &Path) -> Result<PathBuf, String> {
-    use sha2::{Digest, Sha256};
-    let stage = async {
-        let bytes = tokio::fs::read(bundled).await?;
-        let sha: String = Sha256::digest(&bytes).iter().take(6).map(|b| format!("{b:02x}")).collect();
-        let dir = home.join("bin");
-        let path = dir.join(format!("gg-cast-bundled-{sha}{}", std::env::consts::EXE_SUFFIX));
-        if path.is_file() {
-            return Ok(path);
-        }
-        tokio::fs::create_dir_all(&dir).await?;
-        let part = path.with_extension(format!("part{}", std::process::id()));
-        tokio::fs::copy(bundled, &part).await?;
-        tokio::fs::rename(&part, &path).await?;
-        let mut old = tokio::fs::read_dir(&dir).await?;
-        while let Some(entry) = old.next_entry().await? {
-            let name = entry.file_name();
-            if name.to_string_lossy().starts_with("gg-cast-bundled-") && entry.path() != path {
-                let _ = tokio::fs::remove_file(entry.path()).await;
-            }
-        }
-        std::io::Result::Ok(path)
-    };
-    stage.await.map_err(|e| format!("无法准备内置的 gg-cast：{e}"))
 }
 
 fn beside(exe: &Path) -> Option<PathBuf> {
@@ -132,13 +112,13 @@ fn report(out: &Outbox, target: &CastTarget, missing: &[Permission], state: Cast
     out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error, missing });
 }
 
-async fn supervise(inner: Arc<Inner>, target: CastTarget, out: Outbox) {
+async fn supervise(inner: Arc<Inner>, target: CastTarget, mut fps: watch::Receiver<u32>, out: Outbox) {
     let mut retry = FIRST_RETRY;
     loop {
         let missing = (inner.missing)();
         report(&out, &target, &missing, CastPhase::Starting, None);
         let mut went_live = false;
-        let reason = match publish(&inner, &target, &out, &missing, &mut went_live).await {
+        let reason = match publish(&inner, &target, &mut fps, &out, &missing, &mut went_live).await {
             Ok(reason) | Err(reason) => reason,
         };
         report(&out, &target, &missing, CastPhase::Failed, Some(reason));
@@ -154,6 +134,7 @@ async fn supervise(inner: Arc<Inner>, target: CastTarget, out: Outbox) {
 async fn publish(
     inner: &Inner,
     target: &CastTarget,
+    fps: &mut watch::Receiver<u32>,
     out: &Outbox,
     missing: &[Permission],
     went_live: &mut bool,
@@ -164,7 +145,6 @@ async fn publish(
     }
     let (window, display) = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
-        Some(bin) if bundled().as_ref() == Some(bin) => staged(bin, &inner.home).await?,
         Some(bin) => bin.clone(),
         None => binary(api, &inner.home).await?,
     };
@@ -182,6 +162,7 @@ async fn publish(
     let mut child = cmd
         .args(["--url", &url])
         .args(window)
+        .args(["--fps", &fps.borrow_and_update().to_string()])
         .env("GG_CAST_TOKEN", &token.token)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -190,7 +171,7 @@ async fn publish(
         .spawn()
         .map_err(|e| format!("无法启动 gg-cast：{e}"))?;
     // gg-cast exits once this closes: when this task is stopped, or the daemon is gone without killing it.
-    let _stdin = child.stdin.take();
+    let mut stdin = child.stdin.take().expect("piped");
     let stderr = child.stderr.take().expect("piped");
     let last_error = tokio::spawn(async move {
         let mut lines = BufReader::new(stderr).lines();
@@ -203,10 +184,20 @@ async fn publish(
         last
     });
     let mut stdout = BufReader::new(child.stdout.take().expect("piped")).lines();
-    while let Ok(Some(line)) = stdout.next_line().await {
-        if line.trim() == "live" {
-            *went_live = true;
-            report(out, target, missing, CastPhase::Live, None);
+    loop {
+        tokio::select! {
+            line = stdout.next_line() => match line {
+                Ok(Some(line)) if line.trim() == "live" => {
+                    *went_live = true;
+                    report(out, target, missing, CastPhase::Live, None);
+                }
+                Ok(Some(_)) => {}
+                _ => break,
+            },
+            Ok(()) = fps.changed() => {
+                let line = format!("fps {}\n", *fps.borrow_and_update());
+                let _ = stdin.write_all(line.as_bytes()).await;
+            }
         }
     }
     let status = child.wait().await.map_err(|e| format!("gg-cast：{e}"))?;
@@ -414,7 +405,10 @@ mod tests {
                 .permissions(Vec::new);
         let (out, mut rx) = Outbox::channel();
         let miniprogram = project.path().to_string_lossy().into_owned();
-        casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Miniprogram { miniprogram } }], &out);
+        casts.sync(
+            vec![CastTarget { preview_id: "p1".into(), source: CastSource::Miniprogram { miniprogram }, fps: 30 }],
+            &out,
+        );
 
         let mut states = vec![];
         while states.len() < 2 {
@@ -442,20 +436,5 @@ mod bin_tests {
         let cast = dir.path().join(format!("gg-cast{}", std::env::consts::EXE_SUFFIX));
         std::fs::write(&cast, "").unwrap();
         assert_eq!(beside(&exe), Some(cast));
-    }
-
-    #[tokio::test]
-    async fn the_bundled_gg_cast_runs_from_a_copy_outside_the_app() {
-        let (app, home) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-        let bundled = app.path().join("gg-cast");
-        std::fs::write(&bundled, "v1").unwrap();
-        let first = staged(&bundled, home.path()).await.unwrap();
-        assert!(first.starts_with(home.path().join("bin")));
-        assert_eq!(std::fs::read_to_string(&first).unwrap(), "v1");
-        assert_eq!(staged(&bundled, home.path()).await.unwrap(), first);
-        std::fs::write(&bundled, "v2").unwrap();
-        let second = staged(&bundled, home.path()).await.unwrap();
-        assert_ne!(second, first);
-        assert!(!first.exists(), "the previous build's copy is removed");
     }
 }

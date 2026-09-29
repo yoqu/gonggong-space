@@ -255,3 +255,20 @@ button.act-row:hover .act-row__target--file {
   color: var(--label-secondary);
   overflow-wrap: anywhere;
 }
+.act-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding-left: var(--space-16);
+  font-size: var(--text-callout-size);
+  line-height: var(--text-body-line);
+  color: var(--label);
+  overflow-wrap: anywhere;
+}
+.act-ask__type {
+  color: var(--label-tertiary);
+}
+.act-ask__opts {
+  color: var(--label-secondary);
+}

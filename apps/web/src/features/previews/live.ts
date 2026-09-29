@@ -3,6 +3,7 @@ import {
   CAST_KEYS,
   type CastInput,
   LIVE_WATCH_SECONDS,
+  type LiveFps,
   type LiveTokenDto,
 } from '@gonggong/protocol'
 import {
@@ -18,6 +19,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { errorText } from '../auth/AuthCard'
 import {
+  autoFps,
+  type FpsPick,
+  fpsPicks,
   type Grade,
   grade,
   type LiveStats,
@@ -36,8 +40,8 @@ const RENEW_MS = (LIVE_WATCH_SECONDS * 1000) / 3
 const serverLiveKit = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/livekit`
 
 /**
- * Watches a live preview (plan B4): keeps the machine publishing while mounted, joins the preview's room and hands
- * back its video track; `send` delivers input to the machine (LiveKit drops it unless this member has control).
+ * Joins a live preview's room (plan B4) and hands back its video track; `send` delivers input to the machine (LiveKit
+ * drops it unless this member has control). The machine publishes only while someone holds `useWatch`.
  */
 export function useLiveRoom(previewId: string) {
   const [track, setTrack] = useState<RemoteTrack | null>(null)
@@ -62,9 +66,6 @@ export function useLiveRoom(previewId: string) {
       if (who.identity === CAST) setWeak((w) => ({ ...w, machine: bad }))
       else if (who.identity === r.localParticipant.identity) setWeak((w) => ({ ...w, me: bad }))
     })
-    const watch = () => api.post(`/previews/${previewId}/watch`).catch(() => {})
-    void watch()
-    const timer = setInterval(watch, RENEW_MS)
     api
       .post<LiveTokenDto>(`/previews/${previewId}/live`)
       .then(({ url, token }) => (left ? undefined : r.connect(url ?? serverLiveKit(), token)))
@@ -73,7 +74,6 @@ export function useLiveRoom(previewId: string) {
       })
     return () => {
       left = true
-      clearInterval(timer)
       setTrack(null)
       setPublication(null)
       void r.disconnect()
@@ -89,6 +89,16 @@ export function useLiveRoom(previewId: string) {
   }, [])
 
   return { track, publication, weak, error, send }
+}
+
+/** Keeps the machine publishing while mounted, at `fps` or above (another viewer may ask for more). */
+export function useWatch(previewId: string, fps: LiveFps) {
+  useEffect(() => {
+    const watch = () => api.post(`/previews/${previewId}/watch`, { fps }).catch(() => {})
+    void watch()
+    const timer = setInterval(watch, RENEW_MS)
+    return () => clearInterval(timer)
+  }, [previewId, fps])
 }
 
 /** gg-cast's identity in the room. */
@@ -127,39 +137,61 @@ export function useLiveStats(track: RemoteTrack | null) {
   return state
 }
 
-const QUALITY_KEY = 'gonggong.live.quality'
-
-function savedPick(): QualityPick {
+function saved<T extends string>(key: string, valid: readonly T[], fallback: T): T {
   try {
-    const v = localStorage.getItem(QUALITY_KEY)
-    return v === 'high' || v === 'medium' || v === 'low' ? v : 'auto'
+    const v = localStorage.getItem(key)
+    return valid.includes(v as T) ? (v as T) : fallback
   } catch {
-    return 'auto'
+    return fallback
   }
 }
 
+/** A pick remembered in this browser. */
+export function useSaved<T extends string>(key: string, valid: readonly T[], fallback: T) {
+  const [value, setValue] = useState(() => saved(key, valid, fallback))
+  const choose = useCallback(
+    (v: T) => {
+      setValue(v)
+      try {
+        localStorage.setItem(key, v)
+      } catch {}
+    },
+    [key],
+  )
+  return [value, choose] as const
+}
+
 /**
- * This viewer's quality layer: automatic by default (LiveKit lowers it to fit their bandwidth), or a layer they pick,
- * remembered in this browser. Picks are caps; LiveKit still steps down when the network cannot carry them.
+ * This viewer's quality layer: automatic by default (LiveKit lowers it to fit their bandwidth), or a layer they pick.
+ * Picks are caps; LiveKit still steps down when the network cannot carry them. `width`: the frame arriving now.
  */
-export function useQuality(publication: RemoteTrackPublication | null) {
-  const [pick, setPick] = useState(savedPick)
+export function useQuality(publication: RemoteTrackPublication | null, fps: LiveFps, width: number | null) {
+  const [pick, choose] = useSaved<QualityPick>(
+    'gonggong.live.quality',
+    ['auto', 'high', 'medium', 'low'],
+    'auto',
+  )
   const info = publication?.trackInfo
-  const picks = useMemo(() => qualityPicks(info?.codecs[0]?.layers ?? info?.layers ?? []), [info])
+  const picks = useMemo(
+    () => qualityPicks(info?.codecs[0]?.layers ?? info?.layers ?? [], fps, width),
+    [info, fps, width],
+  )
   const chosen = picks.find((p) => p.value === pick) ?? picks[0]
+  const quality = chosen?.quality
 
   useEffect(() => {
-    if (publication && chosen) publication.setVideoQuality(chosen.quality)
-  }, [publication, chosen])
-
-  const choose = useCallback((v: QualityPick) => {
-    setPick(v)
-    try {
-      localStorage.setItem(QUALITY_KEY, v)
-    } catch {}
-  }, [])
+    if (publication && quality !== undefined) publication.setVideoQuality(quality)
+  }, [publication, quality])
 
   return { picks, pick: chosen?.value ?? 'auto', choose }
+}
+
+/** The frame rate this viewer asks the machine for: automatic by the network's grade, or picked. */
+export function useFrameRate(g: Grade | undefined) {
+  const [pick, choose] = useSaved<FpsPick>('gonggong.live.fps', ['auto', '30', '60', '90'], 'auto')
+  const auto = autoFps(g ?? 'good')
+  const fps = pick === 'auto' ? auto : (Number(pick) as LiveFps)
+  return { picks: fpsPicks(auto), pick, choose, fps }
 }
 
 /**

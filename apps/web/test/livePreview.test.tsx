@@ -279,7 +279,7 @@ describe('桌面应用预览 · 控制', () => {
 })
 
 describe('小程序 · 实时画面', () => {
-  it('switches the workbench tab from the last screenshot to the live simulator', async () => {
+  it('shows the live simulator in the workbench tab, never a screenshot', async () => {
     const mp = preview({ kind: 'miniprogram', title: '商城', serviceId: null, serviceName: null, live: null })
     mockApi({
       'GET /groups/g1/previews': list([mp]),
@@ -287,18 +287,17 @@ describe('小程序 · 实时画面', () => {
       'POST /previews/p3/live': { url: null, token: 'tok-li', identity: 'u:u-li:ab' },
     })
     render(<MiniprogramTab tab={{ kind: 'miniprogram', previewId: 'p3' }} tabKey="mp:p3" active />)
-    await screen.findByRole('radio', { name: '截图' })
-    expect(lk.rooms).toHaveLength(0)
-    fireEvent.click(screen.getByRole('radio', { name: '实时画面' }))
     await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
     expect(await screen.findByRole('button', { name: '请求控制' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('radio', { name: '截图' }))
-    await waitFor(() => expect(lk.rooms[0]?.disconnected).toBe(true))
+    expect(screen.queryByRole('img')).toBeNull()
   })
 })
 
 /** A video track whose receiver reports `lossPerSecond` of its packets lost, and its publication's quality layers. */
-function stream(lossPerSecond: number, layers: { quality: number; width: number; height: number }[]) {
+function stream(
+  lossPerSecond: number,
+  layers: { quality: number; width: number; height: number; bitrate: number }[],
+) {
   let second = 0
   const track = {
     kind: 'video',
@@ -330,23 +329,32 @@ function stream(lossPerSecond: number, layers: { quality: number; width: number;
   return { track, publication }
 }
 
-describe('实时画面 · 网络与画质', () => {
-  it("shows the picture's frame rate, loss and round trip, red when poor and naming whose network it is", async () => {
+describe('实时画面 · 网络、帧率与画质', () => {
+  it("shows the picture's figures over its top right corner, red when poor and naming whose network it is", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     routes(preview())
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
     await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
-    const { track, publication } = stream(10, [{ quality: 2, width: 1920, height: 1080 }])
+    const { track, publication } = stream(10, [
+      { quality: 2, width: 1920, height: 1080, bitrate: 11_197_440 },
+    ])
     act(() => lk.rooms[0]?.emit('trackSubscribed', track, publication, { identity: 'cast' }))
 
     await act(() => vi.advanceTimersByTimeAsync(5000))
-    await screen.findByText('30 fps · 丢包 10.0% · 延迟 50 ms')
+    const figures = await screen.findByRole('status', { name: '画面数据' })
+    expect(figures.textContent).toContain('30 fps · 1920×1080 · 2.0 Mbps')
+    expect(figures.textContent).toContain('丢包 10.0% · 延迟 50 ms · 抖动 4 ms')
     screen.getByText('网络差')
     // One layer only: nothing to pick.
     expect(screen.queryByRole('button', { name: '画质' })).toBeNull()
 
     act(() => lk.rooms[0]?.emit('connectionQualityChanged', 'poor', { identity: 'cast' }))
-    await screen.findByText('机器网络差')
+    await waitFor(() => expect(figures.textContent).toContain('机器网络差'))
+
+    fireEvent.click(screen.getByRole('button', { name: '隐藏画面数据' }))
+    expect(screen.queryByRole('status', { name: '画面数据' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '显示画面数据' }))
+    screen.getByRole('status', { name: '画面数据' })
   })
 
   it('stays quiet on a good network', async () => {
@@ -357,16 +365,39 @@ describe('实时画面 · 网络与画质', () => {
     const { track, publication } = stream(0, [])
     act(() => lk.rooms[0]?.emit('trackSubscribed', track, publication, { identity: 'cast' }))
     await act(() => vi.advanceTimersByTimeAsync(5000))
-    await screen.findByText('30 fps · 丢包 0.0% · 延迟 50 ms')
+    const figures = await screen.findByRole('status', { name: '画面数据' })
+    expect(figures.textContent).toContain('丢包 0.0% · 延迟 50 ms')
     expect(screen.queryByText('网络差')).toBeNull()
     expect(screen.queryByText('网络一般')).toBeNull()
   })
 
-  it('lets each viewer pick the quality, automatic by default, and remembers it', async () => {
+  it('asks the machine for a frame rate: automatic by the network, or picked, and remembered', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const calls = routes(preview())
+    const watched = () => calls.filter((c) => c.path === '/previews/p3/watch').at(-1)?.body
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    const { track, publication } = stream(10, [])
+    act(() => lk.rooms[0]?.emit('trackSubscribed', track, publication, { identity: 'cast' }))
+    await waitFor(() => expect(watched()).toEqual({ fps: 60 }))
+    screen.getByRole('button', { name: '帧率' })
+
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await waitFor(() => expect(watched()).toEqual({ fps: 30 }))
+    expect(screen.getByRole('button', { name: '帧率' }).textContent).toContain('自动（30 fps）')
+
+    fireEvent.click(screen.getByRole('button', { name: '帧率' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '90 fps' }))
+    await waitFor(() => expect(watched()).toEqual({ fps: 90 }))
+    expect(localStorage.getItem('gonggong.live.fps')).toBe('90')
+  })
+
+  it('lets each viewer pick the quality with the bandwidth it needs, automatic by default, and remembers it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const layers = [
-      { quality: 0, width: 960, height: 540 },
-      { quality: 1, width: 960, height: 540 },
-      { quality: 2, width: 1920, height: 1080 },
+      { quality: 0, width: 960, height: 540, bitrate: 2_799_360 },
+      { quality: 1, width: 1280, height: 720, bitrate: 4_976_640 },
+      { quality: 2, width: 1920, height: 1080, bitrate: 11_197_440 },
     ]
     routes(preview())
     const first = render(<LiveTab tab={tab} tabKey="live:p3" active />)
@@ -374,9 +405,13 @@ describe('实时画面 · 网络与画质', () => {
     const a = stream(0, layers)
     act(() => lk.rooms[0]?.emit('trackSubscribed', a.track, a.publication, { identity: 'cast' }))
     await waitFor(() => expect(a.publication.setVideoQuality).toHaveBeenLastCalledWith(2))
+    // The frame arriving is the top layer's.
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(screen.getByRole('button', { name: '画质' }).textContent).toContain('自动（原画）')
 
-    fireEvent.click(await screen.findByRole('button', { name: '画质' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '流畅' }))
+    fireEvent.click(screen.getByRole('button', { name: '画质' }))
+    screen.getByRole('menuitemcheckbox', { name: '原画 · 约 7.5 Mbps' })
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '高清 · 约 1.9 Mbps' }))
     await waitFor(() => expect(a.publication.setVideoQuality).toHaveBeenLastCalledWith(0))
     first.unmount()
 
@@ -385,6 +420,6 @@ describe('实时画面 · 网络与画质', () => {
     const b = stream(0, layers)
     act(() => lk.rooms[1]?.emit('trackSubscribed', b.track, b.publication, { identity: 'cast' }))
     await waitFor(() => expect(b.publication.setVideoQuality).toHaveBeenLastCalledWith(0))
-    expect(screen.getByRole('button', { name: '画质' }).textContent).toContain('流畅')
+    expect(screen.getByRole('button', { name: '画质' }).textContent).toContain('高清')
   })
 })

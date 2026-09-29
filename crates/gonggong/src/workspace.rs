@@ -133,7 +133,7 @@ impl Workspaces {
             });
             if taken {
                 if let Ask::Pending(request_id, _) = &ask {
-                    shared.withdraw(request_id);
+                    shared.withdraw(request_id, "工作区已空闲，开始运行");
                 }
                 return DirGuard { dir, run_id: me.run_id };
             }

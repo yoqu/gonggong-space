@@ -274,8 +274,8 @@ impl Shared {
         Some((request_id, rx))
     }
 
-    /// Takes back a confirmation nobody answered: the directory freed up first.
-    pub(crate) fn withdraw(&self, request_id: &str) {
+    /// Takes back a question nobody answered, e.g. the directory freed up first.
+    pub(crate) fn withdraw(&self, request_id: &str, step: &str) {
         let mut s = self.0.lock().unwrap();
         let Some(a) = s.active.as_ref() else { return };
         let (run_id, out) = (a.run_id.clone(), a.out.clone());
@@ -283,7 +283,7 @@ impl Shared {
             return;
         }
         out.send(DaemonToServer::QuestionWithdraw { run_id: run_id.clone(), request_id: request_id.into() });
-        let event = RunEvent::Status { status: RunStatus::Running, step: "工作区已空闲，开始运行".into() };
+        let event = RunEvent::Status { status: RunStatus::Running, step: step.into() };
         out.send(DaemonToServer::RunEvent { run_id, event });
     }
 
@@ -728,7 +728,7 @@ fn select(
 }
 
 impl Asker for Shared {
-    fn ask(&self, questions: Vec<Question>) -> Result<oneshot::Receiver<String>, String> {
+    fn ask(&self, questions: Vec<Question>) -> Result<(String, oneshot::Receiver<String>), String> {
         let mut s = self.0.lock().unwrap();
         s.requests += 1;
         let n = s.requests;
@@ -744,8 +744,12 @@ impl Asker for Shared {
         let request_id = format!("{run_id}/q{n}");
         out.send(DaemonToServer::QuestionAsk { run_id, request_id: request_id.clone(), questions: questions.clone() });
         let (tx, rx) = oneshot::channel();
-        s.questions.insert(request_id, Asked { questions, reply: Reply::Agent(tx) });
-        Ok(rx)
+        s.questions.insert(request_id.clone(), Asked { questions, reply: Reply::Agent(tx) });
+        Ok((request_id, rx))
+    }
+
+    fn abandon(&self, request_id: &str) {
+        self.withdraw(request_id, "agent 已不再等待回答，提问作废");
     }
 
     fn active_run(&self) -> Option<(String, PathBuf)> {

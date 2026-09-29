@@ -2,6 +2,7 @@ import {
   type CastTarget,
   type ControlReq,
   type DaemonToServer,
+  LIVE_DEFAULT_FPS,
   LIVE_WATCH_SECONDS,
   type PreviewDto,
 } from '@gonggong/protocol'
@@ -21,8 +22,8 @@ export const CAST_KINDS = ['gui', 'miniprogram']
 const REAP_EVERY_MS = 15_000
 
 interface LiveState {
-  /** Per watched preview: its machine and each viewer's lease end (ms). */
-  watches: Map<string, { machineId: string; until: Map<string, number> }>
+  /** Per watched preview: its machine, each viewer's lease end (ms) and frame rate, and the rate last sent to it. */
+  watches: Map<string, { machineId: string; until: Map<string, { at: number; fps: number }>; sent: number }>
   /** The machines' gg-cast state per preview while asked to publish it. */
   casts: Map<string, NonNullable<PreviewDto['live']>>
   controls: Map<string, Control>
@@ -56,25 +57,31 @@ function controlState(ctx: Ctx, previewId: string): Control {
 }
 
 function watchedBy(ctx: Ctx, previewId: string, userId: string) {
-  return (live(ctx).watches.get(previewId)?.until.get(userId) ?? 0) > ctx.now().getTime()
+  return (live(ctx).watches.get(previewId)?.until.get(userId)?.at ?? 0) > ctx.now().getTime()
 }
 
-function watched(ctx: Ctx, previewId: string) {
+function leases(ctx: Ctx, previewId: string) {
   const now = ctx.now().getTime()
-  return [...(live(ctx).watches.get(previewId)?.until.values() ?? [])].some((t) => t > now)
+  return [...(live(ctx).watches.get(previewId)?.until.values() ?? [])].filter((l) => l.at > now)
 }
+
+const watched = (ctx: Ctx, previewId: string) => leases(ctx, previewId).length > 0
+const fpsOf = (ctx: Ctx, previewId: string) => Math.max(0, ...leases(ctx, previewId).map((l) => l.fps))
 
 /**
  * A viewer renews its lease on a live preview (plan B2): the machine publishes while any lease holds, so gg-cast and
  * the screen recording run only while someone watches. Watching is a visit (plan P11).
  */
-export async function watch(ctx: Ctx, preview: Preview, userId: string) {
-  const fresh = !watched(ctx, preview.id)
-  const entry = live(ctx).watches.get(preview.id) ?? { machineId: preview.machineId, until: new Map() }
-  entry.until.set(userId, ctx.now().getTime() + LIVE_WATCH_SECONDS * 1000)
+export async function watch(ctx: Ctx, preview: Preview, userId: string, fps = LIVE_DEFAULT_FPS) {
+  const entry = live(ctx).watches.get(preview.id) ?? {
+    machineId: preview.machineId,
+    until: new Map(),
+    sent: 0,
+  }
+  entry.until.set(userId, { at: ctx.now().getTime() + LIVE_WATCH_SECONDS * 1000, fps })
   live(ctx).watches.set(preview.id, entry)
   await ctx.db.update(previews).set({ lastAccessAt: ctx.now() }).where(eq(previews.id, preview.id))
-  if (fresh) await syncCasts(ctx, preview.machineId)
+  if (fpsOf(ctx, preview.id) !== entry.sent) await syncCasts(ctx, preview.machineId)
 }
 
 /** The machine's open, watched live previews as cast.sync; `onConnect` skips an empty list like previews.sync. */
@@ -88,8 +95,11 @@ export async function syncCasts(ctx: Ctx, machineId: string, { onConnect = false
   const casts: CastTarget[] = []
   for (const p of open) {
     const target = p.project ? { miniprogram: p.project } : p.serviceId ? { service: p.serviceId } : null
-    if (target && watched(ctx, p.id)) casts.push({ previewId: p.id, ...target })
-    else live(ctx).casts.delete(p.id)
+    const entry = live(ctx).watches.get(p.id)
+    if (target && entry && watched(ctx, p.id)) {
+      entry.sent = fpsOf(ctx, p.id)
+      casts.push({ previewId: p.id, ...target, fps: entry.sent })
+    } else live(ctx).casts.delete(p.id)
   }
   if (onConnect && !casts.length) return
   ctx.hub.send(machineId, { t: 'cast.sync', casts })
@@ -103,10 +113,9 @@ export async function reapWatches(ctx: Ctx) {
   const now = ctx.now().getTime()
   const machines = new Set<string>()
   for (const [previewId, entry] of live(ctx).watches) {
-    for (const [userId, until] of entry.until) if (until <= now) entry.until.delete(userId)
-    if (entry.until.size) continue
-    live(ctx).watches.delete(previewId)
-    machines.add(entry.machineId)
+    for (const [userId, lease] of entry.until) if (lease.at <= now) entry.until.delete(userId)
+    if (!entry.until.size) live(ctx).watches.delete(previewId)
+    if (fpsOf(ctx, previewId) !== entry.sent) machines.add(entry.machineId)
   }
   for (const machineId of machines) await syncCasts(ctx, machineId)
   for (const [previewId, c] of live(ctx).controls) {

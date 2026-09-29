@@ -746,11 +746,11 @@ export const PreviewsSync = z.object({
 
 /**
  * A window to publish: a hosted service's (its process tree's largest window), or a mini program project's simulator
- * in the machine's WeChat devtools (absolute project dir; macOS only for now).
+ * in the machine's WeChat devtools (absolute project dir; macOS only for now); at `fps`, which may change while it runs.
  */
 export const CastTarget = z.union([
-  z.object({ previewId: z.string(), service: z.string() }),
-  z.object({ previewId: z.string(), miniprogram: z.string() }),
+  z.object({ previewId: z.string(), service: z.string(), fps: z.number().int().positive() }),
+  z.object({ previewId: z.string(), miniprogram: z.string(), fps: z.number().int().positive() }),
 ])
 export type CastTarget = z.infer<typeof CastTarget>
 /**

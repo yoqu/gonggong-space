@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseMentions } from '../src/modules/messages/mentions.js'
+import { parseMentions } from '../src/index.js'
 
 const bots = [
   { id: 'b1', name: '小王的 Claude' },

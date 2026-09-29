@@ -587,9 +587,14 @@ export const LiveTokenDto = z.object({ url: z.string().nullable(), token: z.stri
 export type LiveTokenDto = z.infer<typeof LiveTokenDto>
 /**
  * POST /api/previews/:id/watch (members) → 204: someone is watching; the machine publishes while a viewer renewed
- * within `LIVE_WATCH_SECONDS`.
+ * within `LIVE_WATCH_SECONDS`, at the highest frame rate its viewers ask for (`LIVE_DEFAULT_FPS` when none does).
  */
 export const LIVE_WATCH_SECONDS = 60
+export const LIVE_FPS = [30, 60, 90] as const
+export type LiveFps = (typeof LIVE_FPS)[number]
+export const LIVE_DEFAULT_FPS: LiveFps = 30
+export const WatchReq = z.object({ fps: z.union([z.literal(30), z.literal(60), z.literal(90)]).optional() })
+export type WatchReq = z.infer<typeof WatchReq>
 /**
  * POST /api/previews/:id/control → 204. Members `request` (managers take control at once) and `release` (give it
  * back, or withdraw their request); managers `grant` / `deny` a request and `revoke` control. Control lapses with the

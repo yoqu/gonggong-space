@@ -1,10 +1,21 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
 import { useSession } from '../../app/session'
-import { EmptyState, Icon, PopUpButton, Tag, Tooltip } from '../../ui'
+import { EmptyState, Icon, IconButton, PopUpButton, Tag } from '../../ui'
 import { ControlBar, ControlRequests } from './control'
-import { framePoint, keyInput, useLiveRoom, useLiveStats, useQuality, type Weak } from './live'
+import {
+  framePoint,
+  keyInput,
+  useFrameRate,
+  useLiveRoom,
+  useLiveStats,
+  useQuality,
+  useSaved,
+  useWatch,
+  type Weak,
+} from './live'
 import './live.css'
+import type { LiveStats } from './stats'
 
 /** Drags send at most this often; the release carries the final position. */
 const MOVE_MS = 33
@@ -20,6 +31,11 @@ const DESKTOP_PAGE = '共工桌面端「实时画面」页'
 export function LiveView({ preview: p }: { preview: PreviewDto }) {
   const me = useSession((s) => s.user?.id)
   const { track, publication, weak, error, send } = useLiveRoom(p.id)
+  const live = useLiveStats(track)
+  const rate = useFrameRate(live?.grade)
+  useWatch(p.id, rate.fps)
+  const quality = useQuality(publication, rate.fps, live?.stats.width ?? null)
+  const [figures, setFigures] = useSaved('gonggong.live.figures', ['shown', 'hidden'], 'shown')
   const video = useRef<HTMLVideoElement>(null)
   const keys = useRef<HTMLTextAreaElement>(null)
   const pressed = useRef(false)
@@ -93,11 +109,54 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
             {`机器未授权辅助功能，远程操作不会生效，请在${DESKTOP_PAGE}完成授权`}
           </span>
         ) : null}
-        {track ? <LiveNetwork track={track} publication={publication} weak={weak} /> : null}
+        {track ? (
+          <div className="lv-net">
+            {live?.grade === 'poor' ? (
+              <Tag tone="red">{weakSide(weak) ?? '网络差'}</Tag>
+            ) : live?.grade === 'fair' ? (
+              <Tag tone="orange">网络一般</Tag>
+            ) : null}
+            <PopUpButton
+              size="small"
+              aria-label="帧率"
+              options={rate.picks}
+              value={rate.pick}
+              onChange={rate.choose}
+            />
+            {quality.picks.length ? (
+              <PopUpButton
+                size="small"
+                aria-label="画质"
+                options={quality.picks.map((q) => ({ value: q.value, label: q.label }))}
+                value={quality.pick}
+                onChange={quality.choose}
+              />
+            ) : null}
+            <IconButton
+              size="small"
+              title={figures === 'shown' ? '隐藏画面数据' : '显示画面数据'}
+              aria-pressed={figures === 'shown'}
+              onClick={() => setFigures(figures === 'shown' ? 'hidden' : 'shown')}
+            >
+              <Icon name={figures === 'shown' ? 'eye' : 'eye-slash'} />
+            </IconButton>
+          </div>
+        ) : null}
       </div>
       <div className="lv__stage">
         {problem ? (
           <EmptyState icon="desktop" title={problem.title} description={problem.description} />
+        ) : null}
+        {track && live && figures === 'shown' ? (
+          <LiveFigures
+            stats={live.stats}
+            notes={[
+              weakSide(weak),
+              live.grade === 'poor' && quality.pick !== 'auto' && quality.pick !== quality.picks.at(-1)?.value
+                ? `网络较差，建议切换到「${quality.picks.at(-1)?.label.split(' ')[0]}」`
+                : null,
+            ]}
+          />
         ) : null}
         <video
           ref={video}
@@ -154,57 +213,30 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
   )
 }
 
-/** The picture's network figures and this viewer's quality pick, at the bar's right end. */
-function LiveNetwork({
-  track,
-  publication,
-  weak,
-}: {
-  track: Parameters<typeof useLiveStats>[0]
-  publication: Parameters<typeof useQuality>[0]
-  weak: Weak
-}) {
-  const live = useLiveStats(track)
-  const { picks, pick, choose } = useQuality(publication)
-  const who = weak.machine ? '机器网络差' : weak.me ? '你的网络差' : null
-  const s = live?.stats
-  const details = s
-    ? [
-        s.width && s.height ? `分辨率 ${s.width}×${s.height}` : null,
-        `码率 ${(s.kbps / 1000).toFixed(1)} Mbps`,
-        s.jitter === null ? null : `抖动 ${s.jitter} ms`,
-        who,
-        live.grade === 'poor' && pick !== 'auto' && pick !== picks.at(-1)?.value
-          ? `网络较差，建议切换到「${picks.at(-1)?.label}」`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : null
+const weakSide = (weak: Weak) => (weak.machine ? '机器网络差' : weak.me ? '你的网络差' : null)
 
+/** The picture's figures as a watermark over the stage's top right corner; clicks pass through to the picture. */
+function LiveFigures({ stats: s, notes }: { stats: LiveStats; notes: (string | null)[] }) {
+  const lines = [
+    [
+      `${s.fps === null ? '—' : Math.round(s.fps)} fps`,
+      s.width && s.height ? `${s.width}×${s.height}` : null,
+      `${(s.kbps / 1000).toFixed(1)} Mbps`,
+    ],
+    [
+      `丢包 ${(s.loss * 100).toFixed(1)}%`,
+      `延迟 ${s.rtt ?? '—'} ms`,
+      s.jitter === null ? null : `抖动 ${s.jitter} ms`,
+    ],
+    notes,
+  ]
+    .map((l) => l.filter(Boolean).join(' · '))
+    .filter(Boolean)
   return (
-    <div className="lv-net">
-      {live?.grade === 'poor' ? (
-        <Tag tone="red">{who ?? '网络差'}</Tag>
-      ) : live?.grade === 'fair' ? (
-        <Tag tone="orange">网络一般</Tag>
-      ) : null}
-      {s && details ? (
-        <Tooltip content={details} placement="bottom" delay={300}>
-          <button type="button" className="lv-net__figures">
-            {`${s.fps === null ? '—' : Math.round(s.fps)} fps · 丢包 ${(s.loss * 100).toFixed(1)}% · 延迟 ${s.rtt ?? '—'} ms`}
-          </button>
-        </Tooltip>
-      ) : null}
-      {picks.length ? (
-        <PopUpButton
-          size="small"
-          aria-label="画质"
-          options={picks.map((q) => ({ value: q.value, label: q.label }))}
-          value={pick}
-          onChange={choose}
-        />
-      ) : null}
+    <div className="lv-figures" role="status" aria-label="画面数据">
+      {lines.map((l) => (
+        <div key={l}>{l}</div>
+      ))}
     </div>
   )
 }

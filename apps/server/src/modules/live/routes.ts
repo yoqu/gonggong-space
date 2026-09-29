@@ -2,7 +2,13 @@ import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, Server } from 'node:http'
 import { connect } from 'node:net'
 import type { Duplex } from 'node:stream'
-import { type CastBuildDto, type CastTokenDto, ControlReq, type LiveTokenDto } from '@gonggong/protocol'
+import {
+  type CastBuildDto,
+  type CastTokenDto,
+  ControlReq,
+  type LiveTokenDto,
+  WatchReq,
+} from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -52,7 +58,7 @@ export function liveRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
       await requireMember(ctx, preview.groupId, user.id)
-      await watch(ctx, preview, user.id)
+      await watch(ctx, preview, user.id, WatchReq.parse(req.body ?? {}).fps)
       return reply.status(204).send()
     })
 
