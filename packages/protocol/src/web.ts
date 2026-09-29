@@ -517,6 +517,16 @@ export const PreviewDto = z.object({
   snapshotError: z.string().nullable(),
   /** Its machine's gg-cast while someone watches a live preview (`gui`, `miniprogram`); null otherwise. */
   live: z.object({ state: z.enum(['starting', 'live', 'failed']), error: z.string().nullable() }).nullable(),
+  /**
+   * Remote control of a live preview (plan P14): at most one member controls; members ask, the bot owner or a group
+   * admin approves (or takes over). Null for previews without a live view.
+   */
+  control: z
+    .object({
+      controller: z.object({ id: z.string(), name: z.string() }).nullable(),
+      requests: z.array(z.object({ id: z.string(), name: z.string() })),
+    })
+    .nullable(),
   /** The bot owner and group admins may close it and share it publicly. */
   canManage: z.boolean(),
   createdAt: z.string(),
@@ -568,6 +578,57 @@ export type LiveTokenDto = z.infer<typeof LiveTokenDto>
  * within `LIVE_WATCH_SECONDS`.
  */
 export const LIVE_WATCH_SECONDS = 60
+/**
+ * POST /api/previews/:id/control → 204. Members `request` (managers take control at once) and `release` (give it
+ * back, or withdraw their request); managers `grant` / `deny` a request and `revoke` control. Control lapses with the
+ * controller's watch lease.
+ */
+export const ControlReq = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('request') }),
+  z.object({ action: z.literal('release') }),
+  z.object({ action: z.literal('grant'), userId: z.string() }),
+  z.object({ action: z.literal('deny'), userId: z.string() }),
+  z.object({ action: z.literal('revoke') }),
+])
+export type ControlReq = z.infer<typeof ControlReq>
+
+/** Keys the controller can press besides typing text (`CastInput` `key`, with a letter or digit for shortcuts). */
+export const CAST_KEYS = [
+  'Enter',
+  'Backspace',
+  'Delete',
+  'Tab',
+  'Escape',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+] as const
+const point = { x: z.number().min(0).max(1), y: z.number().min(0).max(1) }
+/**
+ * The controller's input, as JSON on the LiveKit data channel (topic `input`, to the `cast` participant only); gg-cast
+ * replays it on the machine. Points are fractions of the video frame; `wheel` deltas are CSS pixels; `text` is typed
+ * as is (IME output included).
+ */
+export const CastInput = z.discriminatedUnion('t', [
+  z.object({ t: z.literal('down'), ...point }),
+  z.object({ t: z.literal('move'), ...point }),
+  z.object({ t: z.literal('up'), ...point }),
+  z.object({ t: z.literal('wheel'), ...point, dx: z.number(), dy: z.number() }),
+  z.object({ t: z.literal('text'), text: z.string().min(1).max(1000) }),
+  z.object({
+    t: z.literal('key'),
+    key: z.union([z.enum(CAST_KEYS), z.string().regex(/^[a-z0-9]$/)]),
+    mods: z.array(z.enum(['meta', 'ctrl', 'alt', 'shift'])),
+  }),
+])
+export type CastInput = z.infer<typeof CastInput>
+export const CAST_INPUT_TOPIC = 'input'
+
 /** POST /api/daemon/previews/:id/cast (machine token, its own preview) → the publisher token for gg-cast. */
 export const CastTokenDto = z.object({ url: z.string().nullable(), token: z.string() })
 export type CastTokenDto = z.infer<typeof CastTokenDto>

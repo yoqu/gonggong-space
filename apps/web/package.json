@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@gonggong/protocol": "workspace:*",
+    "livekit-client": "2.22.3",
     "motion": "13.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

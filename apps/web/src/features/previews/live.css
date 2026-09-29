@@ -1,0 +1,90 @@
+.lv {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.lv__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--separator);
+}
+.lv-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lv-control__who {
+  color: var(--label-secondary);
+  font-size: 12px;
+}
+.lv-requests {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lv-request {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.lv-request__who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lv__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--window-bg);
+}
+.lv__stage > .ui-empty {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+.lv__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  touch-action: none;
+}
+.lv__video--control {
+  cursor: crosshair;
+}
+/* Receives the keyboard (and IME) for the machine while controlling; kept focusable but out of sight. */
+.lv__keys {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  resize: none;
+}
+.wt-live {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.wt-live__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--separator);
+}

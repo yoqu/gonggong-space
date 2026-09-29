@@ -14,7 +14,11 @@ export default defineConfig({
     port: Number(process.env.WEB_PORT ?? 5173),
     https,
     // The upstream is our own loopback server with a self-signed certificate.
-    proxy: { '/api': { target: server, secure: false }, '/ws': { target: server, ws: true, secure: false } },
+    proxy: {
+      '/api': { target: server, secure: false },
+      '/ws': { target: server, ws: true, secure: false },
+      '/livekit': { target: server, ws: true, secure: false },
+    },
   },
   test: { environment: 'jsdom', globals: false, setupFiles: ['./test/setup.ts'] },
 })

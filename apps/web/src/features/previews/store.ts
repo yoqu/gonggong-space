@@ -76,8 +76,13 @@ export const openInWorkbench = (p: Pick<PreviewDto, 'id' | 'path' | 'kind'>) =>
   openTab(
     p.kind === 'miniprogram'
       ? { kind: 'miniprogram', previewId: p.id }
-      : { kind: 'web', previewId: p.id, path: p.path },
+      : p.kind === 'gui'
+        ? { kind: 'live', previewId: p.id }
+        : { kind: 'web', previewId: p.id, path: p.path },
   )
+
+export const previewIcon = (kind: PreviewDto['kind']) =>
+  kind === 'miniprogram' ? 'smartphone' : kind === 'gui' ? 'desktop' : 'globe'
 
 /** Versioned by when it was taken, so a retake shows at once while the image stays cacheable. */
 export const snapshotUrl = (p: { id: string; snapshotAt: string | null }) =>

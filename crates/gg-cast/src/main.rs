@@ -3,8 +3,13 @@
 //! `gg-cast --url <signaling url> --pids <pid,pid,…> [--fps 30]`, the publisher token in `GG_CAST_TOKEN`. Publishes the
 //! largest visible window of those processes, prints `live` once it is published, and runs until the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
-//! the reason shown to users, and exit 1.
+//! the reason shown to users, and exit 1. The member granted control sends input on the data channel (topic `input`,
+//! see `input.rs`); LiveKit only lets that member publish data.
+mod input;
+mod window;
+
 use anyhow::{Context, bail};
+use input::{Injector, Input};
 use livekit::options::{TrackPublishOptions, VideoCodec, VideoEncoding};
 use livekit::prelude::*;
 use livekit::track::{LocalTrack, LocalVideoTrack, TrackSource};
@@ -22,6 +27,8 @@ use tokio::sync::mpsc;
 /// B0: H264 is hardware-encoded on macOS, about a quarter of VP8's CPU.
 const CODEC: VideoCodec = VideoCodec::H264;
 const MAX_BITRATE: u64 = 3_000_000;
+/// `CAST_INPUT_TOPIC` in packages/protocol.
+const INPUT_TOPIC: &str = "input";
 
 #[derive(Debug, PartialEq)]
 struct Args {
@@ -154,6 +161,9 @@ async fn run(a: Args) -> anyhow::Result<()> {
 
     let (ended_tx, mut ended) = mpsc::unbounded_channel();
     capture(window.id()?, a.fps, slot, ended_tx)?;
+    let target = window::Window { id: window.id()?, pid: window.pid()?, title: window.title()? };
+    // Created on the first input: on macOS it needs the accessibility permission, which viewing alone does not.
+    let mut injector = None;
     let (gone_tx, mut gone) = mpsc::unbounded_channel::<()>();
     std::thread::spawn(move || {
         let _ = std::io::stdin().read_to_end(&mut Vec::new());
@@ -166,11 +176,29 @@ async fn run(a: Args) -> anyhow::Result<()> {
             _ = gone.recv() => return Ok(()),
             ev = events.recv() => match ev {
                 Some(RoomEvent::Disconnected { reason }) => bail!("与实时画面服务断开（{reason:?}）"),
+                Some(RoomEvent::DataReceived { payload, topic, .. }) if topic.as_deref() == Some(INPUT_TOPIC) => {
+                    if let Err(e) = replay(&mut injector, &target, &payload).await {
+                        eprintln!("input: {e:#}");
+                    }
+                }
                 None => bail!("与实时画面服务断开"),
                 Some(_) => {}
             },
         }
     }
+}
+
+async fn replay(
+    injector: &mut Option<Injector<window::Window>>,
+    target: &window::Window,
+    payload: &[u8],
+) -> anyhow::Result<()> {
+    let input = Input::parse(payload)?;
+    let injector = match injector {
+        Some(i) => i,
+        None => injector.insert(Injector::new(target.clone())?),
+    };
+    injector.apply(input).await
 }
 
 #[tokio::main]

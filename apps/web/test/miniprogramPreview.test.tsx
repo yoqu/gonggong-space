@@ -25,6 +25,7 @@ const preview = (o: Partial<PreviewDto> = {}): PreviewDto => ({
   awaiting: null,
   snapshotError: null,
   live: null,
+  control: null,
   canManage: false,
   createdAt: '2026-09-27T10:00:00Z',
   ...o,

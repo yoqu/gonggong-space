@@ -10,7 +10,7 @@ import { sysParams } from '../admin/params.js'
 import { refuse } from '../agent-tools/service.js'
 import { dataDir } from '../attachments/service.js'
 import { requireMember } from '../groups/service.js'
-import { castState, syncCasts } from '../live/service.js'
+import { castState, controlOf, syncCasts } from '../live/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { closePortListener, openPortListener } from './gateway.js'
 import { restartService, syncPreviews } from './services.js'
@@ -97,6 +97,7 @@ async function listPreviews(
         awaiting: p.awaiting as PreviewDto['awaiting'],
         snapshotError: p.snapshotError,
         live: castState(ctx, p.id),
+        control: controlOf(ctx, p),
         status: !ctx.tunnels.get(p.machineId)
           ? 'offline'
           : serviceStatus && !LIVE.includes(serviceStatus)
@@ -523,9 +524,12 @@ export async function closeOwnPreview(ctx: Ctx, run: Run, previewId: string) {
 /** A member who is the bot owner or a group admin (plan §6 sidebar). */
 export async function requireManager(ctx: Ctx, groupId: string, botId: string, userId: string) {
   await requireMember(ctx, groupId, userId)
+  if (!(await isManager(ctx, groupId, botId, userId))) fail('forbidden', '仅 Bot 主人或群管理员可操作')
+}
+
+export async function isManager(ctx: Ctx, groupId: string, botId: string, userId: string) {
   const [bot] = await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, botId))
-  if (!bot || !(await canManage(ctx, groupId, bot.ownerId, userId)))
-    fail('forbidden', '仅 Bot 主人或群管理员可操作')
+  return !!bot && (await canManage(ctx, groupId, bot.ownerId, userId))
 }
 
 /** Plan P11: previews nobody opened for `previewIdleHours` close; services left without an open preview stop. */

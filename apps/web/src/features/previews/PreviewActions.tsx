@@ -32,9 +32,16 @@ export function PreviewActions({
       setBusy(undefined)
     }
   }
-  // A mini program lives in the machine's devtools: no web address to open or share.
-  const web = p.kind !== 'miniprogram'
-  const stopLabel = !web ? '关闭预览' : p.serviceId ? '停止穿透和服务' : '停止穿透'
+  // A mini program lives in the machine's devtools, a desktop app on its screen: no web address to open or share.
+  const web = p.kind === 'http' || p.kind === 'static'
+  const gui = p.kind === 'gui'
+  const stopLabel = gui
+    ? '关闭预览并停止应用'
+    : !web
+      ? '关闭预览'
+      : p.serviceId
+        ? '停止穿透和服务'
+        : '停止穿透'
   return (
     <div className="pv-actions">
       {web ? (
@@ -77,14 +84,16 @@ export function PreviewActions({
               {'link' as const}
             </IconButton>
           ) : null}
-          <IconButton
-            size="small"
-            title="重新截图"
-            disabled={busy === 'shot'}
-            onClick={() => void run('shot', `/previews/${p.id}/snapshot`)}
-          >
-            {'arrow-clockwise' as const}
-          </IconButton>
+          {gui ? null : (
+            <IconButton
+              size="small"
+              title="重新截图"
+              disabled={busy === 'shot'}
+              onClick={() => void run('shot', `/previews/${p.id}/snapshot`)}
+            >
+              {'arrow-clockwise' as const}
+            </IconButton>
+          )}
           <IconButton
             size="small"
             title={stopLabel}

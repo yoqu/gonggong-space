@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, Server } from 'node:http'
 import { connect } from 'node:net'
 import type { Duplex } from 'node:stream'
-import type { CastBuildDto, CastTokenDto, LiveTokenDto } from '@gonggong/protocol'
+import { type CastBuildDto, type CastTokenDto, ControlReq, type LiveTokenDto } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -10,16 +10,17 @@ import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { requireOpenPreview } from '../previews/routes.js'
+import { isManager } from '../previews/service.js'
 import { daemonRelease } from '../releases/routes.js'
 import { liveTokens } from './livekit.js'
-import { watch } from './service.js'
+import { CAST_KINDS, control, controlOf, watch } from './service.js'
 
 const PREFIX = '/livekit'
 
-/** A preview streamed through LiveKit: a desktop app's window or a mini program's simulator. */
+/** A preview streamed through LiveKit. */
 async function requireLivePreview(ctx: Ctx, id: string) {
   const preview = await requireOpenPreview(ctx, id)
-  if (preview.kind !== 'gui' && preview.kind !== 'miniprogram') fail('invalid', '这个预览没有实时画面')
+  if (!CAST_KINDS.includes(preview.kind)) fail('invalid', '这个预览没有实时画面')
   return preview
 }
 
@@ -32,8 +33,19 @@ export function liveRoutes(ctx: Ctx) {
       const ep = await ctx.livekit.endpoint()
       // One identity per viewer connection: several tabs of one member must not kick each other out.
       const identity = `u:${user.id}:${randomBytes(4).toString('hex')}`
-      const token = await liveTokens.viewer(ep, preview.id, { identity, name: user.name, control: false })
+      const control = controlOf(ctx, preview)?.controller?.id === user.id
+      const token = await liveTokens.viewer(ep, preview.id, { identity, name: user.name, control })
       return { url: ep.url, token, identity }
+    })
+
+    app.post('/api/previews/:id/control', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
+      await requireMember(ctx, preview.groupId, user.id)
+      const body = ControlReq.parse(req.body)
+      const manages = await isManager(ctx, preview.groupId, preview.botId, user.id)
+      await control(ctx, preview, { id: user.id, name: user.name }, body, manages)
+      return reply.status(204).send()
     })
 
     app.post('/api/previews/:id/watch', async (req, reply) => {

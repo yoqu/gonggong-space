@@ -1,0 +1,19 @@
+{
+  "valid": [
+    { "t": "down", "x": 0.25, "y": 0.5 },
+    { "t": "move", "x": 0.3, "y": 0.55 },
+    { "t": "up", "x": 0.3, "y": 0.6 },
+    { "t": "wheel", "x": 0.5, "y": 0.5, "dx": 0, "dy": 120 },
+    { "t": "text", "text": "你好 world" },
+    { "t": "key", "key": "Enter", "mods": [] },
+    { "t": "key", "key": "a", "mods": ["meta"] },
+    { "t": "key", "key": "ArrowLeft", "mods": ["shift", "alt"] }
+  ],
+  "invalid": [
+    { "t": "down", "x": 1.5, "y": 0.5 },
+    { "t": "text", "text": "" },
+    { "t": "key", "key": "F13", "mods": [] },
+    { "t": "key", "key": "a", "mods": ["hyper"] },
+    { "t": "scroll", "x": 0, "y": 0 }
+  ]
+}

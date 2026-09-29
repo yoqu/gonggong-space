@@ -4,8 +4,9 @@ import { api } from '../../lib/api'
 import { Icon, IconButton, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
 import './previews.css'
+import { ControlRequests } from './control'
 import { PreviewActions } from './PreviewActions'
-import { openInWorkbench, snapshotUrl, usePreviews } from './store'
+import { openInWorkbench, previewIcon, snapshotUrl, usePreviews } from './store'
 
 /** What a mini program card says while its machine's WeChat devtools wait for a login. */
 export const loginNote = (p: PreviewDto) =>
@@ -44,6 +45,7 @@ export function PreviewCard({
   const state = p ? p.status : list ? 'closed' : undefined
   const title = p?.title ?? fallback
   const mini = p?.kind === 'miniprogram'
+  const gui = p?.kind === 'gui'
   const reopen = async () => {
     setReopening(true)
     try {
@@ -69,7 +71,7 @@ export function PreviewCard({
           ) : p.snapshotAt ? (
             <img src={snapshotUrl(p)} alt={`${p.title} ${mini ? '模拟器' : '首屏'}`} loading="lazy" />
           ) : (
-            <Icon name={mini ? 'smartphone' : 'globe'} size={32} className="pv-card__placeholder" />
+            <Icon name={previewIcon(p.kind)} size={32} className="pv-card__placeholder" />
           )}
         </button>
       ) : null}
@@ -91,13 +93,15 @@ export function PreviewCard({
         {p ? (
           <div className="pv-card__meta">
             {mini ? (p.awaiting === 'login' ? loginNote(p) : `小程序 · ${p.path}`) : null}
+            {gui ? `桌面应用 · ${p.serviceName ?? ''}` : null}
             {p.snapshotError ? <span className="pv-card__error">{p.snapshotError}</span> : null}
-            {!mini && p.status === 'stopped' ? '服务已停止 · ' : ''}
+            {!mini && !gui && p.status === 'stopped' ? '服务已停止 · ' : ''}
             {!mini && p.port ? `:${p.port}` : ''}
-            {mini ? null : p.path}
-            {p.serviceName ? ` · ${p.serviceName}` : ''}
+            {mini || gui ? null : p.path}
+            {p.serviceName && !gui ? ` · ${p.serviceName}` : ''}
           </div>
         ) : null}
+        {p ? <ControlRequests preview={p} /> : null}
       </div>
     </div>
   )

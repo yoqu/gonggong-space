@@ -14,3 +14,8 @@ enigo = "0.6.1"
 livekit = { version = "0.9.3", features = ["rustls-tls-native-roots"] }
 tokio = { version = "1.53.1", features = ["full"] }
 xcap = "0.9.8"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10.1"

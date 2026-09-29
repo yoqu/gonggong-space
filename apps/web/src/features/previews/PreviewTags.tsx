@@ -3,7 +3,7 @@ import { Icon, Popover } from '../../ui'
 import './previews.css'
 import { PreviewActions } from './PreviewActions'
 import { PREVIEW_STATE } from './PreviewCard'
-import { snapshotUrl, usePreviews } from './store'
+import { previewIcon, snapshotUrl, usePreviews } from './store'
 
 /** Pinned above the composer: every open preview tunnel of the group, for all members. */
 export function PreviewTags({ groupId }: { groupId: string }) {
@@ -27,7 +27,7 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
       trigger={
         <button type="button" className="pv-tag">
           <span className={`pv-dot pv-dot--${p.status}`} />
-          <Icon name={p.kind === 'miniprogram' ? 'smartphone' : 'globe'} size={13} className="pv-tag__icon" />
+          <Icon name={previewIcon(p.kind)} size={13} className="pv-tag__icon" />
           <span className="pv-tag__title">{p.title}</span>
           {p.port ? <span className="pv-tag__port">:{p.port}</span> : null}
         </button>

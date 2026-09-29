@@ -1160,8 +1160,11 @@ name = "gg-cast"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "core-foundation",
  "enigo",
  "livekit",
+ "serde",
+ "serde_json",
  "tokio",
  "xcap",
 ]
