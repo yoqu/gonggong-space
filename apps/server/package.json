@@ -10,13 +10,14 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@gonggong/protocol": "workspace:*",
     "@fastify/cookie": "11.1.2",
     "@fastify/multipart": "10.1.1",
     "@fastify/websocket": "11.3.1",
+    "@gonggong/protocol": "workspace:*",
     "@node-rs/argon2": "2.2.1",
     "drizzle-orm": "0.45.3",
     "fastify": "5.12.5",
+    "livekit-server-sdk": "2.19.1",
     "postgres": "3.4.9",
     "web-push": "3.6.7",
     "zod": "4.6.5"

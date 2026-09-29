@@ -7,20 +7,36 @@ import { DaemonHub } from '../../src/daemon/hub.js'
 import { bots, groupBots, groupMembers, groups, machines, users } from '../../src/db/schema.js'
 import { newToken, sha256 } from '../../src/lib/crypto.js'
 import { createSession, SESSION_COOKIE } from '../../src/modules/auth/session.js'
+import type { LiveKit } from '../../src/modules/live/livekit.js'
 import { TunnelHub } from '../../src/modules/previews/tunnel.js'
 import { Bus } from '../../src/realtime/bus.js'
 import { createTestDb } from './db.js'
 
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>
 
+/** Signs tokens; nothing listens (tests that need a server pass a HostedLiveKit). */
+const unreachableLiveKit: LiveKit = {
+  endpoint: async () => ({
+    url: null,
+    api: 'http://127.0.0.1:9',
+    key: 'test',
+    secret: 'test-secret-'.repeat(3),
+  }),
+  signalPort: null,
+  close: async () => {},
+}
+
 /** Real app on an ephemeral port + fresh DB + direct-to-DB seed helpers. */
-export async function createTestApp(opts: { heartbeatSec?: number; now?: () => Date } = {}) {
+export async function createTestApp(
+  opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit } = {},
+) {
   const t = await createTestDb()
   const ctx: Ctx = {
     db: t.db,
     bus: new Bus(),
     hub: new DaemonHub(),
     tunnels: new TunnelHub(),
+    livekit: opts.livekit ?? unreachableLiveKit,
     now: opts.now ?? (() => new Date()),
     config: {
       heartbeatSec: opts.heartbeatSec ?? 15,

@@ -21,6 +21,7 @@ import { startCandidates } from './modules/candidates/service.js'
 import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
+import { liveRoutes, routeLiveKitUpgrades } from './modules/live/routes.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
@@ -59,7 +60,11 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(websocket)
   // After the websocket plugin: its onResponse hook then closes the socket of a refused upgrade.
   originCheck(app)
-  app.addHook('onReady', async () => routeUpgrades(ctx, app.server))
+  app.addHook('onReady', async () => {
+    routeUpgrades(ctx, app.server)
+    routeLiveKitUpgrades(ctx, app.server)
+  })
+  app.addHook('onClose', () => ctx.livekit.close())
   app.addHook('onClose', startPortListeners(ctx, opts.https ?? null))
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HttpError)
@@ -80,6 +85,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(tunnelGateway(ctx))
   await app.register(previewRoutes(ctx))
   await app.register(shareRoutes(ctx))
+  await app.register(liveRoutes(ctx))
   await app.register(runRoutes(ctx))
   app.addHook('onClose', startPreviewEngine(ctx))
   app.addHook('onClose', startPreviewReaper(ctx))

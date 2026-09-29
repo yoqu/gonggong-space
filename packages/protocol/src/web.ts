@@ -555,6 +555,17 @@ export type GroupPreviewsDto = z.infer<typeof GroupPreviewsDto>
 export const ClosePreviewReq = z.object({ stopService: z.boolean().optional() })
 
 /**
+ * Live view of a `gui` or `miniprogram` preview through LiveKit (plan P12–P14), room = preview id.
+ * POST /api/previews/:id/live (members) → a viewer token for this connection. `url` null: the server's own
+ * `/livekit` (ws(s)://<its host>/livekit), else an external LiveKit.
+ */
+export const LiveTokenDto = z.object({ url: z.string().nullable(), token: z.string(), identity: z.string() })
+export type LiveTokenDto = z.infer<typeof LiveTokenDto>
+/** POST /api/daemon/previews/:id/cast (machine token, its own preview) → the publisher token for gg-cast. */
+export const CastTokenDto = z.object({ url: z.string().nullable(), token: z.string() })
+export type CastTokenDto = z.infer<typeof CastTokenDto>
+
+/**
  * Public preview links (plan P8), created by the bot owner or a group admin, always expiring:
  * POST /api/previews/:id/shares → CreatedPreviewShare (the url, with its secret, is shown once);
  * GET /api/previews/:id/shares → PreviewShareDto[]; POST /api/preview-shares/:id/revoke → 204 (managers, sysadmins).
