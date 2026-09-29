@@ -36,3 +36,36 @@ builder() {
   docker rm -f "$id" >/dev/null
   return "$rc"
 }
+
+# cast_image [<platform>]: builds the gg-cast image (release/cast.Dockerfile) for the Docker host's Linux arch, or for
+# <platform> (another arch, emulated); prints its tag, ending in the arch (or "native").
+cast_image() {
+  local platform="${1:-}" arch
+  arch="${platform#linux/}"
+  arch="${arch:-native}"
+  docker build -q ${platform:+--platform "$platform"} -t "gonggong-cast-build:1.98-bullseye-$arch" \
+    -f "$ROOT/scripts/release/cast.Dockerfile" "$ROOT/scripts/release" >/dev/null || return
+  echo "gonggong-cast-build:1.98-bullseye-$arch"
+}
+
+# in_container <image> <out-dir> <bash-script> [docker create options…]: runs the script in the image with the working
+# tree at /src; whatever it wrote to /out is copied to <out-dir>, also when it failed (test reports).
+in_container() {
+  local image="$1" out="$2" script="$3" id rc=0
+  shift 3
+  id=$(docker create "$@" "$image" bash -eo pipefail -c "mkdir -p /out; $script")
+  source_tar | docker cp - "$id:/src" >/dev/null && docker start -a "$id" || rc=$?
+  mkdir -p "$out"
+  docker cp "$id:/out/." "$out" >/dev/null 2>&1 || true
+  docker rm -f "$id" >/dev/null
+  return "$rc"
+}
+
+# cast_builder <out-dir> <platform or ""> <bash-script>: `builder` in the gg-cast image, for another Linux arch through
+# emulation when a platform is given. Cargo registry and target dir are per arch.
+cast_builder() {
+  local out="$1" platform="$2" script="$3" image
+  image="$(cast_image "$platform")"
+  in_container "$image" "$out" "$script" ${platform:+--platform "$platform"} \
+    -v "gonggong-cast-registry-${image##*-}:/usr/local/cargo/registry" -v "gonggong-cast-target-${image##*-}:/target"
+}

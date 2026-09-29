@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Release builds of the gonggong daemon (plan D16/D17).
 #   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop] [--publish <server-url>]
-# Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], SHA256SUMS, manifest.json
-# ({version, builds: {<os>-<arch>: {url, sha256}}}) and the macOS desktop .dmg (apps/desktop). URLs are
+# Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], gg-cast-<version>-<os>-<arch>[.exe] (the desktop
+# preview publisher, crates/gg-cast, downloaded by daemons on their first live preview), SHA256SUMS, manifest.json
+# ({version, builds: {<os>-<arch>: {url, sha256}}, cast: {…same}}) and the macOS desktop .dmg (apps/desktop). URLs are
 # /downloads/<file>, served by the server from GONGGONG_DATA_DIR/downloads, or GONGGONG_DOWNLOAD_BASE/<file> when set.
 # --publish copies the builds into $GONGGONG_DATA_DIR/downloads (when set) and PUTs the manifest to
 # <server-url>/api/admin/daemon-release as GONGGONG_ADMIN_ACCOUNT (default admin) / GONGGONG_ADMIN_PASSWORD;
 # GONGGONG_CACERT trusts a self-signed server certificate.
 # macOS builds need a macOS host with rustup targets; Linux (glibc ≥ 2.31) and Windows (mingw-w64) build in Docker.
+# gg-cast links libwebrtc's prebuilt archives: on Linux and Windows (MSVC, through cargo-xwin) it builds in the image
+# of release/cast.Dockerfile, natively for the Docker host's Linux arch and emulated (`--platform`) for the other.
 set -euo pipefail
 source "$(dirname "$0")/release/lib.sh"
 
@@ -33,6 +36,11 @@ PLATFORMS=(
 )
 wanted() { [ -z "$only" ] || [[ ",$only," == *",$1,"* ]]; }
 artifact() { echo "gonggong-$version-$1$([[ $1 == windows-* ]] && echo .exe || true)"; }
+cast_artifact() { echo "gg-cast-$version-$1$([[ $1 == windows-* ]] && echo .exe || true)"; }
+# libwebrtc ships MSVC archives only.
+cast_target() { [[ $1 == windows-* ]] && echo x86_64-pc-windows-msvc || echo "$2"; }
+# Linking libwebrtc takes GBs of memory per job; Docker VMs often have a few.
+CAST=(-j 4 --release --locked --manifest-path crates/gg-cast/Cargo.toml)
 
 docker_targets=()
 for p in "${PLATFORMS[@]}"; do
@@ -44,8 +52,12 @@ for p in "${PLATFORMS[@]}"; do
     # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not. `rustup run` (not the
     # bare toolchain binaries) also sets the library path rust-objcopy needs to find libLLVM when stripping.
     rustup="$(command -v rustup || echo /opt/homebrew/opt/rustup/bin/rustup)"
+    # `rustup run` leaves PATH alone, so cargo would still spawn a Homebrew rustc that lacks the cross target.
+    export RUSTC="$("$rustup" which --toolchain stable rustc)"
     (cd "$ROOT" && "$rustup" run stable cargo build -q --release --locked -p gonggong --target "$target")
     cp "$ROOT/target/$target/release/gg" "$out/$(artifact "$key")"
+    (cd "$ROOT" && "$rustup" run stable cargo build -q "${CAST[@]}" --target "$target")
+    cp "$ROOT/crates/gg-cast/target/$target/release/gg-cast" "$out/$(cast_artifact "$key")"
   else
     docker_targets+=("$key:$target")
   fi
@@ -60,6 +72,15 @@ if [ ${#docker_targets[@]} -gt 0 ]; then
     script+="cp /target/$target/release/gg$exe /out/$(artifact "$key");"
   done
   builder "$out" "$script"
+  host="linux-$(docker_arch)"
+  for p in "${docker_targets[@]}"; do
+    key="${p%%:*}" target="$(cast_target "${p%%:*}" "${p#*:}")" exe="" build=build platform=""
+    [[ $key == windows-* ]] && exe=.exe build=xwin\ build
+    [[ $key == linux-* && $key != "$host" ]] && platform="linux/${key#linux-}"
+    echo "== gg-cast $key ($target${platform:+, emulated})"
+    cast_builder "$out" "$platform" "cargo $build -q ${CAST[*]} --target $target; \
+      cp /target/$target/release/gg-cast$exe /out/$(cast_artifact "$key")"
+  done
 fi
 
 # Desktop app (Tauri; only macOS is bundled in P1): `--only desktop` or a full release.
@@ -71,23 +92,28 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
 fi
 
 cd "$out"
-builds="" sep=""
 : > SHA256SUMS
-for p in "${PLATFORMS[@]}"; do
-  key="${p%%:*}" file="$(artifact "${p%%:*}")"
-  [ -f "$file" ] || continue
-  sum="$(sha256_of "$file")"
-  echo "$sum  $file" >> SHA256SUMS
-  builds+="$sep\"$key\":{\"url\":\"${GONGGONG_DOWNLOAD_BASE:-/downloads}/$file\",\"sha256\":\"$sum\"}" sep=","
-done
-echo "{\"version\":\"$version\",\"builds\":{$builds}}" > manifest.json
+# entries <artifact-fn>: the manifest's {<os>-<arch>: {url, sha256}} of the files built; adds them to SHA256SUMS.
+entries() {
+  local p key file sum json="" sep=""
+  for p in "${PLATFORMS[@]}"; do
+    key="${p%%:*}" file="$("$1" "$key")"
+    [ -f "$file" ] || continue
+    sum="$(sha256_of "$file")"
+    echo "$sum  $file" >> SHA256SUMS
+    json+="$sep\"$key\":{\"url\":\"${GONGGONG_DOWNLOAD_BASE:-/downloads}/$file\",\"sha256\":\"$sum\"}" sep=","
+  done
+  echo "{$json}"
+}
+builds="$(entries artifact)" cast="$(entries cast_artifact)"
+echo "{\"version\":\"$version\",\"builds\":$builds,\"cast\":$cast}" > manifest.json
 echo "== dist/$version"
 ls -l "$out"
 
 if [ -n "$publish" ]; then
   if [ -n "${GONGGONG_DATA_DIR:-}" ]; then
     mkdir -p "$GONGGONG_DATA_DIR/downloads"
-    cp gonggong-"$version"-* "$GONGGONG_DATA_DIR/downloads/"
+    cp gonggong-"$version"-* gg-cast-"$version"-* "$GONGGONG_DATA_DIR/downloads/"
   fi
   : "${GONGGONG_ADMIN_PASSWORD:?GONGGONG_ADMIN_PASSWORD is required to publish}"
   jar="$(mktemp)"
