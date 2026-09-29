@@ -312,15 +312,21 @@ impl Drop for Relay {
 // The handshake callback's error type is tungstenite's own.
 #[allow(clippy::result_large_err)]
 async fn bridge(config: &Config, tcp: TcpStream) -> anyhow::Result<()> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     let (tx, rx) = std::sync::mpsc::channel();
+    // The SDK sends its token as `Authorization: Bearer`, which LiveKit needs as much as the path.
     let local = tokio_tungstenite::accept_hdr_async(tcp, move |req: &Request, res: Response| {
-        let _ = tx.send(req.uri().to_string());
+        let _ = tx.send((req.uri().to_string(), req.headers().get("authorization").cloned()));
         Ok(res)
     })
     .await?;
-    let path = rx.recv()?;
+    let (path, auth) = rx.recv()?;
     let url = format!("{}/livekit{path}", config.server.trim_end_matches('/').replacen("http", "ws", 1));
-    let upstream = crate::tls::connect_url(config, &url).await?;
+    let mut request = url.into_client_request()?;
+    if let Some(auth) = auth {
+        request.headers_mut().insert("authorization", auth);
+    }
+    let upstream = crate::tls::connect_url(config, request).await?;
     let (mut local_tx, mut local_rx) = local.split();
     let (mut up_tx, mut up_rx) = upstream.split();
     let up = async {

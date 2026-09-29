@@ -171,13 +171,16 @@ pub type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 /// The daemon WebSocket (`wss://` pinned, or `ws://` to loopback).
 pub async fn connect_ws(config: &Config) -> Result<Ws> {
-    connect_url(config, &config.ws_url()).await
+    connect_url(config, config.ws_url()).await
 }
 
 /// Any WebSocket on the bound server, pinned like the daemon's own.
-pub async fn connect_url(config: &Config, url: &str) -> Result<Ws> {
+pub async fn connect_url<R>(config: &Config, request: R) -> Result<Ws>
+where
+    R: tokio_tungstenite::tungstenite::client::IntoClientRequest + Unpin,
+{
     let connector = bound(config)?.map(|p| Connector::Rustls(p.config));
-    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(url, None, false, connector).await?;
+    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(request, None, false, connector).await?;
     Ok(ws)
 }
 

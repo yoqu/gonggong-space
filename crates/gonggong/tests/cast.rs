@@ -13,6 +13,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 fn config(server: String) -> Config {
     Config { server, token: "mt-1".into(), machine_id: "m1".into(), owner_name: "王磊".into(), cert_sha256: None }
@@ -248,7 +249,8 @@ async fn relays_signaling_to_the_servers_livekit_path() {
         let mut ws = tokio_tungstenite::accept_hdr_async(
             tcp,
             |req: &tokio_tungstenite::tungstenite::handshake::server::Request, res| {
-                seen.lock().unwrap().push(req.uri().to_string());
+                let auth = req.headers().get("authorization").map(|v| v.to_str().unwrap().to_string());
+                seen.lock().unwrap().push((req.uri().to_string(), auth));
                 Ok(res)
             },
         )
@@ -261,11 +263,17 @@ async fn relays_signaling_to_the_servers_livekit_path() {
         }
     });
     let relay = cast::Relay::start(config(server)).await.unwrap();
-    let (mut ws, _) = tokio_tungstenite::connect_async(format!("{}/rtc/v1?access_token=a", relay.url())).await.unwrap();
+    // The Rust SDK sends its token as `Authorization: Bearer`, not in the query.
+    let mut req = format!("{}/rtc/v1?auto_subscribe=1", relay.url()).into_client_request().unwrap();
+    req.headers_mut().insert("authorization", "Bearer tok-1".parse().unwrap());
+    let (mut ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
     ws.send(Message::Binary(vec![1, 2, 3].into())).await.unwrap();
     let echoed = ws.next().await.unwrap().unwrap();
     assert_eq!(echoed.into_data().to_vec(), vec![1, 2, 3]);
-    assert_eq!(paths.lock().unwrap().as_slice(), ["/livekit/rtc/v1?access_token=a"]);
+    assert_eq!(
+        paths.lock().unwrap().as_slice(),
+        [("/livekit/rtc/v1?auto_subscribe=1".to_string(), Some("Bearer tok-1".to_string()))]
+    );
 }
 
 #[tokio::test]
