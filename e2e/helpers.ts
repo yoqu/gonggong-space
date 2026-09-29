@@ -9,6 +9,8 @@ export const SERVER = 'http://127.0.0.1:8790'
 export const GONGGONG_BIN = join(ROOT, 'target/debug/gg')
 
 export function buildDaemon() {
+  // scripts/gui-e2e.sh builds it in its build image and runs the tests in another.
+  if (process.env.GONGGONG_E2E_PREBUILT) return
   execFileSync('cargo', ['build', '-q', '-p', 'gonggong'], { cwd: ROOT, stdio: 'inherit' })
 }
 
