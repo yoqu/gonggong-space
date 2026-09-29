@@ -7,8 +7,8 @@ import { PREVIEW_STATE } from '../../previews/PreviewCard'
 import { usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
 
-// livekit-client loads with the first live tab, not with the chat.
-const LiveView = lazy(() => import('../../previews/LiveView').then((m) => ({ default: m.LiveView })))
+// livekit-client loads with the first live view, not with the chat.
+export const LiveView = lazy(() => import('../../previews/LiveView').then((m) => ({ default: m.LiveView })))
 
 /** A desktop app's window, live, in the workbench (plan B4). */
 export function LiveTab({ tab, tabKey: key }: TabProps<'live'>) {

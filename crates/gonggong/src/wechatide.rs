@@ -562,6 +562,18 @@ pub async fn screenshot(devtools: &Shared, project: &Path, page: &str) -> Result
     }
 }
 
+/// Where gg-cast finds `project`'s simulator: the running devtools' processes, and the titles its window may have.
+pub fn simulator_window(project: &Path) -> Result<(Vec<u32>, Vec<String>), String> {
+    #[cfg(target_os = "macos")]
+    let pids: Vec<u32> = ax::devtools_pids().into_iter().map(|p| p as u32).collect();
+    #[cfg(not(target_os = "macos"))]
+    let pids: Vec<u32> = vec![];
+    if pids.is_empty() {
+        return Err("本机的微信开发者工具未运行".into());
+    }
+    Ok((pids, window_titles(project)))
+}
+
 fn require_project(project: &Path) -> Result<(), String> {
     if project.join("project.config.json").is_file() {
         return Ok(());

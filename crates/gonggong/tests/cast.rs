@@ -3,7 +3,7 @@ use futures_util::{SinkExt, StreamExt};
 use gonggong::cast::{self, Casts};
 use gonggong::config::Config;
 use gonggong::hosted::{Scope, Services, StartArgs};
-use gonggong::protocol::{CastPhase, CastTarget, DaemonToServer};
+use gonggong::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer};
 use gonggong::service::Outbox;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -104,9 +104,13 @@ async fn publishes_a_watched_service_window_until_nobody_watches() {
     let service = hosted_service(&services, root.path(), &out, &mut rx).await;
     let (bin, seen) = fake_cast(bins.path(), "echo live\nexec sleep 30");
     let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
-    let casts = Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin));
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools());
 
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), service: service.clone() }], &out);
+    casts.sync(
+        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: service.clone() } }],
+        &out,
+    );
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Live, None));
     let lines: Vec<String> = std::fs::read_to_string(&seen).unwrap().lines().map(String::from).collect();
@@ -117,7 +121,7 @@ async fn publishes_a_watched_service_window_until_nobody_watches() {
     assert!(alive(cast_pid));
 
     // Watched again: nothing restarts.
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), service }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
     casts.sync(vec![], &out);
     tokio::time::timeout(Duration::from_secs(5), async {
         while alive(cast_pid) {
@@ -138,9 +142,10 @@ async fn reports_why_gg_cast_failed_and_tries_again() {
     let service = hosted_service(&services, root.path(), &out, &mut rx).await;
     let (bin, _) = fake_cast(bins.path(), "echo 'starting' >&2\necho '本机没有授予「屏幕录制」权限' >&2\nexit 1");
     let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
-    let casts = Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin));
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools());
 
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), service }], &out);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Failed, Some("本机没有授予「屏幕录制」权限".into())));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
@@ -154,8 +159,17 @@ async fn a_stopped_service_has_no_window_to_publish() {
     let (out, mut rx) = Outbox::channel();
     let (bin, _) = fake_cast(bins.path(), "exit 0");
     let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
-    let casts = Casts::new(Some(config(api)), home.path().into(), Services::new(home.path()), Some(bin));
-    casts.sync(vec![CastTarget { preview_id: "p1".into(), service: "gone".into() }], &out);
+    let casts = Casts::new(
+        Some(config(api)),
+        home.path().into(),
+        Services::new(home.path()),
+        Some(bin),
+        gonggong::wechatide::devtools(),
+    );
+    casts.sync(
+        vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: "gone".into() } }],
+        &out,
+    );
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     let (phase, error) = next_cast(&mut rx).await;
     assert_eq!(phase, CastPhase::Failed);

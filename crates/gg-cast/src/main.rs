@@ -1,7 +1,7 @@
 //! gg-cast (plan 结果预览 B2): publishes one app window to a preview's LiveKit room for the daemon.
 //!
-//! `gg-cast --url <signaling url> --pids <pid,pid,…> [--fps 30]`, the publisher token in `GG_CAST_TOKEN`. Publishes the
-//! largest visible window of those processes, prints `live` once it is published, and runs until the window closes,
+//! `gg-cast --url <signaling url> --pids <pid,pid,…> [--title <title>]… [--fps 30]`, the publisher token in
+//! `GG_CAST_TOKEN`. Publishes the largest visible window of those processes (titled one of `--title`, if given), prints `live` once it is published, and runs until the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
 //! the reason shown to users, and exit 1. The member granted control sends input on the data channel (topic `input`,
 //! see `input.rs`); LiveKit only lets that member publish data.
@@ -34,11 +34,13 @@ const INPUT_TOPIC: &str = "input";
 struct Args {
     url: String,
     pids: Vec<u32>,
+    /// A mini program's simulator: the devtools own many windows, the project's is titled after it.
+    titles: Vec<String>,
     fps: u32,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
-    let (mut url, mut pids, mut fps) = (None, vec![], 30);
+    let (mut url, mut pids, mut titles, mut fps) = (None, vec![], vec![], 30);
     let mut it = args.into_iter();
     while let Some(k) = it.next() {
         let v = it.next().with_context(|| format!("{k} 缺少取值"))?;
@@ -47,6 +49,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
             "--pids" => {
                 pids = v.split(',').map(str::parse).collect::<Result<_, _>>().context("--pids 应为逗号分隔的进程号")?
             }
+            "--title" => titles.push(v),
             "--fps" => fps = v.parse().context("--fps 应为整数")?,
             _ => bail!("未知参数 {k}"),
         }
@@ -54,7 +57,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
     if pids.is_empty() {
         bail!("缺少 --pids");
     }
-    Ok(Args { url: url.context("缺少 --url")?, pids, fps })
+    Ok(Args { url: url.context("缺少 --url")?, pids, titles, fps })
 }
 
 #[cfg(target_os = "macos")]
@@ -74,11 +77,12 @@ fn require_screen_recording() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The largest visible window of `pids` (apps own helper windows too).
-fn find_window(pids: &[u32]) -> anyhow::Result<xcap::Window> {
+/// The largest visible window of `pids` (apps own helper windows too), titled one of `titles` if any.
+fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<xcap::Window> {
     let mut hits: Vec<_> = xcap::Window::all()?
         .into_iter()
         .filter(|w| w.pid().is_ok_and(|p| pids.contains(&p)) && !w.is_minimized().unwrap_or(true))
+        .filter(|w| titles.is_empty() || w.title().is_ok_and(|t| titles.contains(&t)))
         .collect();
     hits.sort_by_key(|w| std::cmp::Reverse(w.width().unwrap_or(0) * w.height().unwrap_or(0)));
     hits.into_iter().next().context("应用还没有可见窗口（或窗口已最小化）")
@@ -137,7 +141,7 @@ fn capture(window_id: u32, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<St
 async fn run(a: Args) -> anyhow::Result<()> {
     let token = std::env::var("GG_CAST_TOKEN").context("缺少 GG_CAST_TOKEN")?;
     require_screen_recording()?;
-    let window = find_window(&a.pids)?;
+    let window = find_window(&a.pids, &a.titles)?;
     let (width, height) = (window.width()?, window.height()?);
     let (room, mut events) =
         Room::connect(&a.url, &token, RoomOptions::default()).await.context("无法连接实时画面服务（LiveKit）")?;
@@ -225,8 +229,10 @@ mod tests {
     fn parses_the_daemons_arguments() {
         assert_eq!(
             args("--url ws://127.0.0.1:5000 --pids 10,11,12").unwrap(),
-            Args { url: "ws://127.0.0.1:5000".into(), pids: vec![10, 11, 12], fps: 30 }
+            Args { url: "ws://127.0.0.1:5000".into(), pids: vec![10, 11, 12], titles: vec![], fps: 30 }
         );
+        let mini = args("--url ws://x --pids 7 --title 商城 --title shop").unwrap();
+        assert_eq!(mini.titles, ["商城", "shop"]);
         assert_eq!(args("--pids 1 --url wss://x --fps 15").unwrap().fps, 15);
         assert!(args("--url ws://x").is_err());
         assert!(args("--pids 1").is_err());

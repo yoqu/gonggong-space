@@ -157,6 +157,30 @@ describe('desktop app previews', () => {
     )
   })
 
+  it("streams a watched mini program's simulator, which members may ask to control", async () => {
+    const w = await world()
+    const [mp] = await t.db
+      .insert(previews)
+      .values({
+        slug: 'mp1',
+        kind: 'miniprogram',
+        machineId: w.machine.id,
+        groupId: w.group.id,
+        botId: w.service.botId,
+        project: '/Users/dev/work/shop',
+        path: '/pages/index/index',
+        title: '商城',
+      })
+      .returning()
+    expect((await w.liClient.post(`/api/previews/${mp!.id}/watch`)).status).toBe(204)
+    expect(w.casts().at(-1)).toEqual({
+      t: 'cast.sync',
+      casts: [{ previewId: mp!.id, miniprogram: '/Users/dev/work/shop' }],
+    })
+    const list = (await w.liClient.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body
+    expect(list.previews.find((p) => p.id === mp!.id)?.control).toEqual({ controller: null, requests: [] })
+  })
+
   it('serves the published gg-cast build for the machine platform', async () => {
     const w = await world()
     const get = () =>

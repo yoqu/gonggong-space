@@ -6,6 +6,7 @@ import { useWorkbench, type WorkbenchTab } from '../src/app/workbench'
 import { PreviewCard } from '../src/features/previews/PreviewCard'
 import { resetPreviews } from '../src/features/previews/store'
 import { LiveTab } from '../src/features/workbench/tabs/LiveTab'
+import { MiniprogramTab } from '../src/features/workbench/tabs/MiniprogramTab'
 import { mockApi } from './mockApi'
 
 /** livekit-client stand-in: records the connection and what was published, and lets the test fire room events. */
@@ -231,5 +232,24 @@ describe('桌面应用预览 · 控制', () => {
     fireEvent.pointerDown(video, { clientX: 10, clientY: 10, button: 0 })
     expect(screen.queryByLabelText('键盘输入')).toBeNull()
     expect(lk.rooms[0]?.sent).toEqual([])
+  })
+})
+
+describe('小程序 · 实时画面', () => {
+  it('switches the workbench tab from the last screenshot to the live simulator', async () => {
+    const mp = preview({ kind: 'miniprogram', title: '商城', serviceId: null, serviceName: null, live: null })
+    mockApi({
+      'GET /groups/g1/previews': list([mp]),
+      'POST /previews/p3/watch': undefined,
+      'POST /previews/p3/live': { url: null, token: 'tok-li', identity: 'u:u-li:ab' },
+    })
+    render(<MiniprogramTab tab={{ kind: 'miniprogram', previewId: 'p3' }} tabKey="mp:p3" active />)
+    await screen.findByRole('radio', { name: '截图' })
+    expect(lk.rooms).toHaveLength(0)
+    fireEvent.click(screen.getByRole('radio', { name: '实时画面' }))
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    expect(await screen.findByRole('button', { name: '请求控制' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: '截图' }))
+    await waitFor(() => expect(lk.rooms[0]?.disconnected).toBe(true))
   })
 })

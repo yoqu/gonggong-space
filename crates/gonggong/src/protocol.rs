@@ -678,12 +678,22 @@ pub struct PreviewPort {
     pub port: u16,
 }
 
-/// A window gg-cast publishes for a watched live preview: the hosted service's.
+/// A window gg-cast publishes for a watched live preview.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CastTarget {
     pub preview_id: String,
-    pub service: String,
+    #[serde(flatten)]
+    pub source: CastSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CastSource {
+    /// A hosted service's id: its process tree's largest window.
+    Service { service: String },
+    /// A mini program project's absolute dir: its simulator in the machine's WeChat devtools.
+    Miniprogram { miniprogram: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

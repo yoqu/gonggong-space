@@ -1,9 +1,10 @@
-//! Live previews (plan 结果预览 B2): one gg-cast per watched preview, publishing a hosted service's window to the
-//! preview's LiveKit room for as long as the server asks for it (`cast.sync`); restarted after a failure, stopped
-//! when nobody watches. gg-cast is downloaded from the server on first use (it bundles libwebrtc, so `gg` does not).
+//! Live previews (plan 结果预览 B2, B6-2): one gg-cast per watched preview, publishing a hosted service's window or a
+//! mini program's simulator to the preview's LiveKit room for as long as the server asks for it (`cast.sync`);
+//! restarted after a failure, stopped when nobody watches. gg-cast is downloaded from the server on first use (it
+//! bundles libwebrtc, so `gg` does not).
 use crate::config::Config;
 use crate::hosted::Services;
-use crate::protocol::{CastPhase, CastTarget, DaemonToServer};
+use crate::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer};
 use crate::service::Outbox;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -30,12 +31,19 @@ struct Inner {
     services: Services,
     /// GG_CAST_BIN: a local gg-cast build instead of the published one.
     bin: Option<PathBuf>,
+    devtools: &'static crate::wechatide::Shared,
     running: Mutex<HashMap<String, (CastTarget, AbortHandle)>>,
 }
 
 impl Casts {
-    pub fn new(api: Option<Config>, home: PathBuf, services: Services, bin: Option<PathBuf>) -> Self {
-        Casts(Arc::new(Inner { api, home, services, bin, running: Mutex::default() }))
+    pub fn new(
+        api: Option<Config>,
+        home: PathBuf,
+        services: Services,
+        bin: Option<PathBuf>,
+        devtools: &'static crate::wechatide::Shared,
+    ) -> Self {
+        Casts(Arc::new(Inner { api, home, services, bin, devtools, running: Mutex::default() }))
     }
 
     /// Runs exactly the `wanted` casts: new ones start, dropped ones stop (their gg-cast is killed).
@@ -82,7 +90,7 @@ async fn supervise(inner: Arc<Inner>, target: CastTarget, out: Outbox) {
 /// One gg-cast run; returns why it ended.
 async fn publish(inner: &Inner, target: &CastTarget, out: &Outbox, went_live: &mut bool) -> Result<String, String> {
     let api = inner.api.as_ref().ok_or("未连接服务器")?;
-    let pid = inner.services.pid(&target.service).ok_or("服务已停止，请重新启动服务后再看")?;
+    let window = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
         Some(bin) => bin.clone(),
         None => binary(api, &inner.home).await?,
@@ -94,9 +102,9 @@ async fn publish(inner: &Inner, target: &CastTarget, out: &Outbox, went_live: &m
         None => Some(Relay::start(api.clone()).await?),
     };
     let url = relay.as_ref().map(Relay::url).or(token.url).unwrap_or_default();
-    let pids = process_tree(pid).iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     let mut child = Command::new(&bin)
-        .args(["--url", &url, "--pids", &pids])
+        .args(["--url", &url])
+        .args(window)
         .env("GG_CAST_TOKEN", &token.token)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -127,6 +135,33 @@ async fn publish(inner: &Inner, target: &CastTarget, out: &Outbox, went_live: &m
     let status = child.wait().await.map_err(|e| format!("gg-cast：{e}"))?;
     let last = last_error.await.unwrap_or_default();
     Ok(if last.is_empty() { format!("gg-cast 已退出（{status}）") } else { last })
+}
+
+/// gg-cast's window arguments: the processes that may own it and, for a mini program, the titles it may have.
+async fn window_args(inner: &Inner, source: &CastSource) -> Result<Vec<String>, String> {
+    let join = |pids: Vec<u32>| pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+    match source {
+        CastSource::Service { service } => {
+            let pid = inner.services.pid(service).ok_or("服务已停止，请重新启动服务后再看")?;
+            Ok(vec!["--pids".into(), join(process_tree(pid))])
+        }
+        CastSource::Miniprogram { miniprogram } => {
+            if !cfg!(target_os = "macos") {
+                return Err("小程序实时画面目前只支持 macOS".into());
+            }
+            // Its window exists once the project is open (§12.2: the devtools keep rendering it behind other windows).
+            let project = Path::new(miniprogram);
+            if crate::wechatide::open(inner.devtools, project, None).await?.is_some() {
+                return Err("微信开发者工具未登录：请 Bot 主人在卡片上扫码登录后再看".into());
+            }
+            let (pids, titles) = crate::wechatide::simulator_window(project)?;
+            let mut args = vec!["--pids".into(), join(pids)];
+            for title in titles {
+                args.extend(["--title".into(), title]);
+            }
+            Ok(args)
+        }
+    }
 }
 
 /// The service's process and all its descendants: GUI apps usually run under the shell or package manager started.
@@ -266,5 +301,43 @@ async fn bridge(config: &Config, tcp: TcpStream) -> anyhow::Result<()> {
     tokio::select! {
         r = up => r,
         r = down => r,
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+    use crate::wechatide::fake;
+
+    #[tokio::test]
+    async fn a_mini_program_waits_for_the_devtools_login_before_publishing() {
+        let world = fake::World { trusted: Arc::new(true.into()), ..Default::default() };
+        let (calls, devtools, _data) = fake::install(fake::answering(world)).await;
+        let (home, project) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(project.path().join("project.config.json"), "{}").unwrap();
+        let api = Config {
+            server: "http://127.0.0.1:9".into(),
+            token: "mt".into(),
+            machine_id: "m".into(),
+            owner_name: "王磊".into(),
+            cert_sha256: None,
+        };
+        let casts =
+            Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools);
+        let (out, mut rx) = Outbox::channel();
+        let miniprogram = project.path().to_string_lossy().into_owned();
+        casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Miniprogram { miniprogram } }], &out);
+
+        let mut states = vec![];
+        while states.len() < 2 {
+            if let Some(DaemonToServer::CastState { state, error, .. }) = rx.recv().await {
+                states.push((state, error));
+            }
+        }
+        assert_eq!(states[0], (CastPhase::Starting, None));
+        assert_eq!(states[1].0, CastPhase::Failed);
+        assert!(states[1].1.as_deref().unwrap().contains("未登录"), "{:?}", states[1]);
+        assert!(calls.lock().unwrap().iter().any(|c| c.0 == "login"));
+        casts.sync(vec![], &out);
     }
 }

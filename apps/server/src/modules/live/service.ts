@@ -17,7 +17,7 @@ type CastStateMsg = Extract<DaemonToServer, { t: 'cast.state' }>
 type Control = NonNullable<PreviewDto['control']>
 type Member = Control['requests'][number]
 /** Kinds the machine publishes through gg-cast: they have a live view and can be controlled. */
-export const CAST_KINDS = ['gui']
+export const CAST_KINDS = ['gui', 'miniprogram']
 const REAP_EVERY_MS = 15_000
 
 interface LiveState {
@@ -80,14 +80,15 @@ export async function watch(ctx: Ctx, preview: Preview, userId: string) {
 /** The machine's open, watched live previews as cast.sync; `onConnect` skips an empty list like previews.sync. */
 export async function syncCasts(ctx: Ctx, machineId: string, { onConnect = false } = {}) {
   const open = await ctx.db
-    .select({ id: previews.id, serviceId: previews.serviceId })
+    .select({ id: previews.id, serviceId: previews.serviceId, project: previews.project })
     .from(previews)
     .where(
       and(eq(previews.machineId, machineId), isNull(previews.closedAt), inArray(previews.kind, CAST_KINDS)),
     )
   const casts: CastTarget[] = []
   for (const p of open) {
-    if (p.serviceId && watched(ctx, p.id)) casts.push({ previewId: p.id, service: p.serviceId })
+    const target = p.project ? { miniprogram: p.project } : p.serviceId ? { service: p.serviceId } : null
+    if (target && watched(ctx, p.id)) casts.push({ previewId: p.id, ...target })
     else live(ctx).casts.delete(p.id)
   }
   if (onConnect && !casts.length) return

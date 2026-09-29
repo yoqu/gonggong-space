@@ -52,7 +52,7 @@ fn find_button(element: &CFType, title: &str, depth: usize) -> Option<CFType> {
 }
 
 /// The running devtools (their main Electron process).
-fn devtools_pids() -> Vec<i32> {
+pub(super) fn devtools_pids() -> Vec<i32> {
     use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
     let mut sys = System::new();
     sys.refresh_processes_specifics(

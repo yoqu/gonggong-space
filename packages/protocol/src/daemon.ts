@@ -741,8 +741,14 @@ export const PreviewsSync = z.object({
   previews: z.array(z.object({ id: z.string(), port: z.number().int().min(1).max(65535) })),
 })
 
-/** A window to publish: the hosted service's (its process tree's largest window). */
-export const CastTarget = z.object({ previewId: z.string(), service: z.string() })
+/**
+ * A window to publish: a hosted service's (its process tree's largest window), or a mini program project's simulator
+ * in the machine's WeChat devtools (absolute project dir; macOS only for now).
+ */
+export const CastTarget = z.union([
+  z.object({ previewId: z.string(), service: z.string() }),
+  z.object({ previewId: z.string(), miniprogram: z.string() }),
+])
 export type CastTarget = z.infer<typeof CastTarget>
 /**
  * The live previews someone is watching on this machine, replaced wholesale: the daemon runs one gg-cast per entry

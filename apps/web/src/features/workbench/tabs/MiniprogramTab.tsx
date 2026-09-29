@@ -1,23 +1,32 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { api } from '../../../lib/api'
-import { Button, EmptyState, TextField, toast } from '../../../ui'
+import { Button, EmptyState, SegmentedControl, TextField, toast } from '../../../ui'
 import { errorText } from '../../auth/AuthCard'
 import '../../previews/previews.css'
 import { DevtoolsLogin, loginNote, PREVIEW_STATE } from '../../previews/PreviewCard'
 import { snapshotUrl, usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
+import { LiveView } from './LiveTab'
 import './miniprogram-tab.css'
 
+type View = 'shot' | 'live'
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'shot', label: '截图' },
+  { value: 'live', label: '实时画面' },
+]
+
 /**
- * A mini program preview in the workbench (plan 结果预览 §13): the machine's devtools simulator as last captured. The
- * bot owner or a group admin retakes it or moves it to another page; the card follows.
+ * A mini program preview in the workbench (plan 结果预览 §13, B6-2): the machine's devtools simulator as last captured,
+ * or live, where the member granted control operates it. The bot owner or a group admin retakes the screenshot or
+ * moves it to another page; the card follows.
  */
 export function MiniprogramTab({ tab, tabKey: key }: TabProps<'miniprogram'>) {
   const state = usePreview(tab.previewId)
   const p = state?.preview
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const [view, setView] = useState<View>('shot')
   useEffect(() => setDraft(p?.path.replace(/^\//, '') ?? ''), [p?.path])
 
   const capture = async (path?: string) => {
@@ -62,6 +71,7 @@ export function MiniprogramTab({ tab, tabKey: key }: TabProps<'miniprogram'>) {
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) go()
           }}
         />
+        <SegmentedControl size="small" aria-label="显示方式" items={VIEWS} value={view} onChange={setView} />
         {state ? (
           <span className="pv-card__state">
             <span className={`pv-dot pv-dot--${state.status}`} />
@@ -69,26 +79,32 @@ export function MiniprogramTab({ tab, tabKey: key }: TabProps<'miniprogram'>) {
           </span>
         ) : null}
       </div>
-      <div className="wt-mp__stage">
-        {p?.awaiting === 'login' ? (
-          <div className="wt-mp__login">
-            <DevtoolsLogin preview={p} />
-            <span>{loginNote(p)}</span>
-          </div>
-        ) : p?.snapshotAt ? (
-          <img className="wt-mp__shot" src={snapshotUrl(p)} alt={`${p.title} 模拟器`} />
-        ) : p?.snapshotError ? (
-          <EmptyState icon="smartphone" title="没有截到模拟器画面" description={p.snapshotError} />
-        ) : p ? (
-          <EmptyState icon="smartphone" title="正在截取模拟器画面…" />
-        ) : state?.status === 'closed' ? (
-          <EmptyState
-            icon="smartphone"
-            title="预览已关闭"
-            action={<Button onClick={() => useWorkbench.getState().closeTab(key)}>关闭标签页</Button>}
-          />
-        ) : null}
-      </div>
+      {view === 'live' && p ? (
+        <Suspense fallback={null}>
+          <LiveView preview={p} />
+        </Suspense>
+      ) : (
+        <div className="wt-mp__stage">
+          {p?.awaiting === 'login' ? (
+            <div className="wt-mp__login">
+              <DevtoolsLogin preview={p} />
+              <span>{loginNote(p)}</span>
+            </div>
+          ) : p?.snapshotAt ? (
+            <img className="wt-mp__shot" src={snapshotUrl(p)} alt={`${p.title} 模拟器`} />
+          ) : p?.snapshotError ? (
+            <EmptyState icon="smartphone" title="没有截到模拟器画面" description={p.snapshotError} />
+          ) : p ? (
+            <EmptyState icon="smartphone" title="正在截取模拟器画面…" />
+          ) : state?.status === 'closed' ? (
+            <EmptyState
+              icon="smartphone"
+              title="预览已关闭"
+              action={<Button onClick={() => useWorkbench.getState().closeTab(key)}>关闭标签页</Button>}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
