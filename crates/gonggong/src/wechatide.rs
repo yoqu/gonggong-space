@@ -473,15 +473,20 @@ fn answer_trust_prompt(_: &Path) -> bool {
     false
 }
 
-/// Titles the devtools may give a project's window: its (URL-encoded) project names, or its directory name.
+/// Titles the devtools may give a project's window, most likely first: its (URL-encoded) project name, the private
+/// one overriding the shared one, else its directory name, which another project's window may carry too.
 fn window_titles(project: &Path) -> Vec<String> {
-    let mut titles: Vec<String> = ["project.config.json", "project.private.config.json"]
+    let names = ["project.private.config.json", "project.config.json"]
         .iter()
         .filter_map(|f| std::fs::read_to_string(project.join(f)).ok())
         .filter_map(|s| serde_json::from_str::<Value>(&s).ok())
-        .filter_map(|v| v["projectname"].as_str().map(percent_decode))
-        .collect();
-    titles.extend(project.file_name().map(|n| n.to_string_lossy().into_owned()));
+        .filter_map(|v| v["projectname"].as_str().map(percent_decode));
+    let mut titles = Vec::new();
+    for t in names.chain(project.file_name().map(|n| n.to_string_lossy().into_owned())) {
+        if !titles.contains(&t) {
+            titles.push(t);
+        }
+    }
     titles
 }
 
@@ -984,7 +989,10 @@ mod tests {
         std::fs::create_dir(&project).unwrap();
         std::fs::write(project.join("project.config.json"), r#"{"projectname":"luhu%2B%E5%95%86%E5%9F%8E"}"#).unwrap();
         std::fs::write(project.join("project.private.config.json"), r#"{"projectname":"luke-plus"}"#).unwrap();
-        assert_eq!(window_titles(&project), ["luhu+商城", "luke-plus", "luke-plus-miniprogram"]);
+        assert_eq!(window_titles(&project), ["luke-plus", "luhu+商城", "luke-plus-miniprogram"]);
+        std::fs::write(project.join("project.private.config.json"), r#"{"projectname":"luke-plus-miniprogram"}"#)
+            .unwrap();
+        assert_eq!(window_titles(&project), ["luke-plus-miniprogram", "luhu+商城"]);
         assert_eq!(percent_decode("a%2"), "a%2");
     }
 

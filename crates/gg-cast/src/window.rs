@@ -23,6 +23,50 @@ impl Target for Window {
     }
 }
 
+/// The ids of on-screen windows kept above normal ones (always on top).
+pub fn floating() -> std::collections::HashSet<u32> {
+    #[cfg(target_os = "macos")]
+    return cg::floating();
+    #[cfg(not(target_os = "macos"))]
+    Default::default()
+}
+
+#[cfg(target_os = "macos")]
+mod cg {
+    use core_foundation::array::{CFArray, CFArrayRef};
+    use core_foundation::base::{CFType, TCFType};
+    use core_foundation::dictionary::CFDictionary;
+    use core_foundation::number::CFNumber;
+    use core_foundation::string::CFString;
+    use std::collections::HashSet;
+
+    const ON_SCREEN_ONLY: u32 = 1;
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGWindowListCopyWindowInfo(option: u32, relative_to: u32) -> CFArrayRef;
+    }
+
+    /// Windows above layer 0 (`kCGNormalWindowLevel`), e.g. 3 for `kCGFloatingWindowLevel`.
+    pub fn floating() -> HashSet<u32> {
+        // SAFETY: returns a new array of dictionaries (Create Rule), or null.
+        let list = unsafe { CGWindowListCopyWindowInfo(ON_SCREEN_ONLY, 0) };
+        if list.is_null() {
+            return HashSet::new();
+        }
+        let list: CFArray<CFDictionary<CFString, CFType>> = unsafe { CFArray::wrap_under_create_rule(list) };
+        let (number, layer) = (CFString::new("kCGWindowNumber"), CFString::new("kCGWindowLayer"));
+        let int = |d: &CFDictionary<CFString, CFType>, k: &CFString| {
+            d.find(k).and_then(|v| v.downcast::<CFNumber>()).and_then(|n| n.to_i64())
+        };
+        list.iter()
+            .filter(|d| int(d, &layer).is_some_and(|l| l > 0))
+            .filter_map(|d| int(&d, &number))
+            .map(|n| n as u32)
+            .collect()
+    }
+}
+
 #[cfg(target_os = "macos")]
 mod ax {
     use core_foundation::array::CFArray;

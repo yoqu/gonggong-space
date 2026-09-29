@@ -1,7 +1,7 @@
 //! gg-cast (plan 结果预览 B2): publishes one app window to a preview's LiveKit room for the daemon.
 //!
 //! `gg-cast --url <signaling url> --pids <pid,pid,…> [--title <title>]… [--fps 30]`, the publisher token in
-//! `GG_CAST_TOKEN`. Publishes the largest visible window of those processes (titled one of `--title`, if given), prints `live` once it is published, and runs until the window closes,
+//! `GG_CAST_TOKEN`. Publishes a visible window of those processes (see `pick`), prints `live` once it is published, and runs until the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
 //! the reason shown to users, and exit 1. The member granted control sends input on the data channel (topic `input`,
 //! see `input.rs`); LiveKit only lets that member publish data.
@@ -77,15 +77,46 @@ fn require_screen_recording() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The largest visible window of `pids` (apps own helper windows too), titled one of `titles` if any.
-fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<xcap::Window> {
-    let mut hits: Vec<_> = xcap::Window::all()?
+/// A visible window that may be published.
+#[derive(Debug, Clone)]
+struct Candidate {
+    id: u32,
+    pid: u32,
+    title: String,
+    width: u32,
+    height: u32,
+    /// Above normal windows: the devtools keep a liteMode (simulator only) window always on top.
+    floating: bool,
+}
+
+/// The window of `pids` to publish: the largest (apps own helper windows too), or with `titles` (a mini program's
+/// simulator, titled after its project) the earliest title matched, always-on-top before others: another project's
+/// full IDE window may carry the same directory name and be larger.
+fn pick(windows: Vec<Candidate>, pids: &[u32], titles: &[String]) -> Option<Candidate> {
+    windows
         .into_iter()
-        .filter(|w| w.pid().is_ok_and(|p| pids.contains(&p)) && !w.is_minimized().unwrap_or(true))
-        .filter(|w| titles.is_empty() || w.title().is_ok_and(|t| titles.contains(&t)))
-        .collect();
-    hits.sort_by_key(|w| std::cmp::Reverse(w.width().unwrap_or(0) * w.height().unwrap_or(0)));
-    hits.into_iter().next().context("应用还没有可见窗口（或窗口已最小化）")
+        .filter(|w| pids.contains(&w.pid))
+        .filter_map(|w| Some((if titles.is_empty() { 0 } else { titles.iter().position(|t| *t == w.title)? }, w)))
+        .min_by_key(|(rank, w)| {
+            (*rank, titles.is_empty() || !w.floating, std::cmp::Reverse(w.width as u64 * w.height as u64))
+        })
+        .map(|(_, w)| w)
+}
+
+fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<Candidate> {
+    let floating = window::floating();
+    let visible = xcap::Window::all()?.into_iter().filter(|w| !w.is_minimized().unwrap_or(true)).filter_map(|w| {
+        let id = w.id().ok()?;
+        Some(Candidate {
+            id,
+            pid: w.pid().ok()?,
+            title: w.title().unwrap_or_default(),
+            width: w.width().ok()?,
+            height: w.height().ok()?,
+            floating: floating.contains(&id),
+        })
+    });
+    pick(visible.collect(), pids, titles).context("应用还没有可见窗口（或窗口已最小化）")
 }
 
 type Slot = Arc<Mutex<(NativeVideoSource, VideoFrame<I420Buffer>)>>;
@@ -142,7 +173,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
     let token = std::env::var("GG_CAST_TOKEN").context("缺少 GG_CAST_TOKEN")?;
     require_screen_recording()?;
     let window = find_window(&a.pids, &a.titles)?;
-    let (width, height) = (window.width()?, window.height()?);
+    let (width, height) = (window.width, window.height);
     let (room, mut events) =
         Room::connect(&a.url, &token, RoomOptions::default()).await.context("无法连接实时画面服务（LiveKit）")?;
     let source = NativeVideoSource::new(VideoResolution { width, height }, true);
@@ -164,8 +195,8 @@ async fn run(a: Args) -> anyhow::Result<()> {
     room.local_participant().publish_track(LocalTrack::Video(track), options).await.context("无法发布画面")?;
 
     let (ended_tx, mut ended) = mpsc::unbounded_channel();
-    capture(window.id()?, a.fps, slot, ended_tx)?;
-    let target = window::Window { id: window.id()?, pid: window.pid()?, title: window.title()? };
+    capture(window.id, a.fps, slot, ended_tx)?;
+    let target = window::Window { id: window.id, pid: window.pid, title: window.title };
     // Created on the first input: on macOS it needs the accessibility permission, which viewing alone does not.
     let mut injector = None;
     let (gone_tx, mut gone) = mpsc::unbounded_channel::<()>();
@@ -238,5 +269,35 @@ mod tests {
         assert!(args("--pids 1").is_err());
         assert!(args("--pids a --url ws://x").is_err());
         assert!(args("--pids 1 --url ws://x --codec vp8").is_err());
+    }
+
+    fn window(id: u32, pid: u32, title: &str, (width, height): (u32, u32), floating: bool) -> Candidate {
+        Candidate { id, pid, title: title.into(), width, height, floating }
+    }
+
+    #[test]
+    fn picks_the_largest_window_of_the_processes() {
+        let all = vec![
+            window(1, 7, "helper", (1, 10), true),
+            window(2, 7, "main", (30, 30), false),
+            window(3, 8, "other", (99, 99), false),
+        ];
+        assert_eq!(pick(all, &[7], &[]).map(|w| w.id), Some(2));
+        assert!(pick(vec![window(3, 8, "other", (1, 1), false)], &[7], &[]).is_none());
+    }
+
+    #[test]
+    fn picks_a_mini_programs_simulator_over_other_projects_windows() {
+        // Observed: this project's liteMode simulator (always on top) titled after its project name, and another
+        // project's full IDE titled after the same directory name.
+        let titles = ["luhu+".to_string(), "luke-plus-miniprogram".to_string()];
+        let all =
+            vec![window(1, 7, "luke-plus-miniprogram", (1250, 1000), false), window(2, 7, "luhu+", (420, 904), true)];
+        assert_eq!(pick(all, &[7], &titles).map(|w| w.id), Some(2));
+        // Only the directory name to go by: the always-on-top liteMode window before a larger one.
+        let titles = ["shop".to_string()];
+        let all = vec![window(1, 7, "shop", (1250, 1000), false), window(2, 7, "shop", (420, 904), true)];
+        assert_eq!(pick(all, &[7], &titles).map(|w| w.id), Some(2));
+        assert!(pick(vec![window(1, 7, "项目列表", (711, 700), false)], &[7], &titles).is_none());
     }
 }
