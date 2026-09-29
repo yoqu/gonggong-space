@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { type Check, ipc, type LogLine } from '../src/ipc'
 import { LogsPage } from '../src/pages/Logs'
+import { usePermissions } from '../src/permissions'
 
 const m = vi.mocked(ipc)
 
@@ -41,6 +42,21 @@ describe('日志与诊断', () => {
       'ok',
       'skipped',
     ])
+  })
+
+  it('opens the permissions guide from a missing permission', async () => {
+    m.diagnostics.mockResolvedValue([
+      ...CHECKS,
+      { kind: 'screen_recording', label: '屏幕录制', status: 'warn', detail: '未授权' },
+      { kind: 'accessibility', label: '辅助功能', status: 'ok', detail: '已授权' },
+    ])
+    usePermissions.setState({ guide: false })
+    render(<LogsPage go={() => {}} />)
+    await screen.findByText('屏幕录制')
+    const buttons = screen.getAllByRole('button', { name: '去授权' })
+    expect(buttons).toHaveLength(1)
+    fireEvent.click(buttons[0] as HTMLElement)
+    expect(usePermissions.getState().guide).toBe(true)
   })
 
   it('measures the network and exports a bundle', async () => {

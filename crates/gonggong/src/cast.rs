@@ -4,6 +4,7 @@
 //! bundles libwebrtc, so `gg` does not).
 use crate::config::Config;
 use crate::hosted::Services;
+use crate::permission::{self, Permission};
 use crate::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer};
 use crate::service::Outbox;
 use futures_util::{SinkExt, StreamExt};
@@ -32,6 +33,8 @@ struct Inner {
     /// GG_CAST_BIN: a local gg-cast build instead of the published one.
     bin: Option<PathBuf>,
     devtools: &'static crate::wechatide::Shared,
+    /// The permissions this machine lacks, checked before each run (`permission::missing`).
+    missing: fn() -> Vec<Permission>,
     running: Mutex<HashMap<String, (CastTarget, AbortHandle)>>,
 }
 
@@ -43,7 +46,21 @@ impl Casts {
         bin: Option<PathBuf>,
         devtools: &'static crate::wechatide::Shared,
     ) -> Self {
-        Casts(Arc::new(Inner { api, home, services, bin, devtools, running: Mutex::default() }))
+        Casts(Arc::new(Inner {
+            api,
+            home,
+            services,
+            bin,
+            devtools,
+            missing: permission::missing,
+            running: Mutex::default(),
+        }))
+    }
+
+    /// Replaces the permission check (tests), before the first `sync`.
+    pub fn permissions(mut self, missing: fn() -> Vec<Permission>) -> Self {
+        Arc::get_mut(&mut self.0).expect("not shared yet").missing = missing;
+        self
     }
 
     /// Runs exactly the `wanted` casts: new ones start, dropped ones stop (their gg-cast is killed).
@@ -66,19 +83,22 @@ impl Casts {
     }
 }
 
-fn report(out: &Outbox, target: &CastTarget, state: CastPhase, error: Option<String>) {
-    out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error });
+/// Every state carries the missing permissions: without accessibility the window shows, but control does nothing.
+fn report(out: &Outbox, target: &CastTarget, missing: &[Permission], state: CastPhase, error: Option<String>) {
+    let missing = missing.to_vec();
+    out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error, missing });
 }
 
 async fn supervise(inner: Arc<Inner>, target: CastTarget, out: Outbox) {
     let mut retry = FIRST_RETRY;
     loop {
-        report(&out, &target, CastPhase::Starting, None);
+        let missing = (inner.missing)();
+        report(&out, &target, &missing, CastPhase::Starting, None);
         let mut went_live = false;
-        let reason = match publish(&inner, &target, &out, &mut went_live).await {
+        let reason = match publish(&inner, &target, &out, &missing, &mut went_live).await {
             Ok(reason) | Err(reason) => reason,
         };
-        report(&out, &target, CastPhase::Failed, Some(reason));
+        report(&out, &target, &missing, CastPhase::Failed, Some(reason));
         if went_live {
             retry = FIRST_RETRY;
         }
@@ -88,8 +108,17 @@ async fn supervise(inner: Arc<Inner>, target: CastTarget, out: Outbox) {
 }
 
 /// One gg-cast run; returns why it ended.
-async fn publish(inner: &Inner, target: &CastTarget, out: &Outbox, went_live: &mut bool) -> Result<String, String> {
+async fn publish(
+    inner: &Inner,
+    target: &CastTarget,
+    out: &Outbox,
+    missing: &[Permission],
+    went_live: &mut bool,
+) -> Result<String, String> {
     let api = inner.api.as_ref().ok_or("未连接服务器")?;
+    if missing.contains(&Permission::ScreenRecording) {
+        return Err(permission::SCREEN_RECORDING_DENIED.into());
+    }
     let window = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
         Some(bin) => bin.clone(),
@@ -129,7 +158,7 @@ async fn publish(inner: &Inner, target: &CastTarget, out: &Outbox, went_live: &m
     while let Ok(Some(line)) = stdout.next_line().await {
         if line.trim() == "live" {
             *went_live = true;
-            report(out, target, CastPhase::Live, None);
+            report(out, target, missing, CastPhase::Live, None);
         }
     }
     let status = child.wait().await.map_err(|e| format!("gg-cast：{e}"))?;
@@ -323,7 +352,8 @@ mod tests {
             cert_sha256: None,
         };
         let casts =
-            Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools);
+            Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools)
+                .permissions(Vec::new);
         let (out, mut rx) = Outbox::channel();
         let miniprogram = project.path().to_string_lossy().into_owned();
         casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Miniprogram { miniprogram } }], &out);

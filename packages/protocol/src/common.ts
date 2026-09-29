@@ -95,3 +95,7 @@ export function compareVersions(a: string, b: string): number {
   }
   return 0
 }
+
+/** macOS privacy permissions the desktop previews need, held by the app running the daemon (gg-cast inherits them). */
+export const Permission = z.enum(['screen_recording', 'accessibility'])
+export type Permission = z.infer<typeof Permission>

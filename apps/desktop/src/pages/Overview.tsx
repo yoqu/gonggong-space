@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { type DaemonStatus, ipc, type MachineBot, type Overview } from '../ipc'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { Section } from '../lib/ui'
+import { openGuide, PERMISSIONS, useMissing } from '../permissions'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
 import { RunDetail } from './RunDetail'
@@ -49,6 +50,7 @@ export function OverviewPage(_: PageProps) {
     <>
       {status ? <ConnAlert status={status} version={info?.version} protocol={info?.protocol} /> : null}
       {snapshot.phase === 'blocked' ? <BlockedAlert message={snapshot.message} /> : null}
+      <PermissionsAlert />
       <div className="dk-stats" data-testid="stats">
         <Stat k="连接" v={CONN_STAT[kind]} s={secure} />
         <Stat
@@ -174,6 +176,22 @@ function ConnAlert({
   return (
     <Alert variant="error" title="token 无效 · 服务器拒绝连接" description={c.message}>
       <Rebind />
+    </Alert>
+  )
+}
+
+function PermissionsAlert() {
+  const missing = useMissing()
+  if (!missing.length) return null
+  return (
+    <Alert
+      variant="warning"
+      title={`未授权：${missing.map((p) => PERMISSIONS[p.kind].label).join('、')}`}
+      description="Bot 推送的桌面应用、小程序实时画面或远程操作在本机不可用，授权后即可使用。"
+    >
+      <Button size="small" onClick={openGuide}>
+        去授权
+      </Button>
     </Alert>
   )
 }

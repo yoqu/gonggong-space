@@ -3,7 +3,7 @@ use futures_util::{SinkExt, StreamExt};
 use gonggong::cast::{self, Casts};
 use gonggong::config::Config;
 use gonggong::hosted::{Scope, Services, StartArgs};
-use gonggong::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer};
+use gonggong::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer, Permission};
 use gonggong::service::Outbox;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -78,7 +78,7 @@ async fn hosted_service(
 async fn next_cast(rx: &mut UnboundedReceiver<DaemonToServer>) -> (CastPhase, Option<String>) {
     loop {
         let msg = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.expect("no cast.state").unwrap();
-        if let DaemonToServer::CastState { preview_id, state, error } = msg {
+        if let DaemonToServer::CastState { preview_id, state, error, .. } = msg {
             assert_eq!(preview_id, "p1");
             return (state, error);
         }
@@ -105,7 +105,8 @@ async fn publishes_a_watched_service_window_until_nobody_watches() {
     let (bin, seen) = fake_cast(bins.path(), "echo live\nexec sleep 30");
     let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
     let casts =
-        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools());
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
 
     casts.sync(
         vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: service.clone() } }],
@@ -143,12 +144,63 @@ async fn reports_why_gg_cast_failed_and_tries_again() {
     let (bin, _) = fake_cast(bins.path(), "echo 'starting' >&2\necho '本机没有授予「屏幕录制」权限' >&2\nexit 1");
     let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
     let casts =
-        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools());
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
 
     casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Failed, Some("本机没有授予「屏幕录制」权限".into())));
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
+    casts.sync(vec![], &out);
+    services.stop_all().await;
+}
+
+#[tokio::test]
+async fn says_the_machine_lacks_screen_recording_without_starting_gg_cast() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let service = hosted_service(&services, root.path(), &out, &mut rx).await;
+    let (bin, seen) = fake_cast(bins.path(), "echo live\nexec sleep 30");
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(|| vec![Permission::ScreenRecording, Permission::Accessibility]);
+
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    let mut states = vec![];
+    while states.len() < 2 {
+        if let Some(DaemonToServer::CastState { state, error, missing, .. }) = rx.recv().await {
+            states.push((state, error, missing));
+        }
+    }
+    let both = vec![Permission::ScreenRecording, Permission::Accessibility];
+    assert_eq!(states[0], (CastPhase::Starting, None, both.clone()));
+    assert_eq!(states[1], (CastPhase::Failed, Some("机器未授权屏幕录制，请在桌面端完成授权".into()), both));
+    assert!(!seen.exists(), "gg-cast must not start");
+    casts.sync(vec![], &out);
+    services.stop_all().await;
+}
+
+#[tokio::test]
+async fn a_live_window_says_remote_control_lacks_accessibility() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let service = hosted_service(&services, root.path(), &out, &mut rx).await;
+    let (bin, _) = fake_cast(bins.path(), "echo live\nexec sleep 30");
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(|| vec![Permission::Accessibility]);
+
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    loop {
+        if let Some(DaemonToServer::CastState { state: CastPhase::Live, missing, .. }) = rx.recv().await {
+            assert_eq!(missing, vec![Permission::Accessibility]);
+            break;
+        }
+    }
     casts.sync(vec![], &out);
     services.stop_all().await;
 }
@@ -165,7 +217,8 @@ async fn a_stopped_service_has_no_window_to_publish() {
         Services::new(home.path()),
         Some(bin),
         gonggong::wechatide::devtools(),
-    );
+    )
+    .permissions(Vec::new);
     casts.sync(
         vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service: "gone".into() } }],
         &out,

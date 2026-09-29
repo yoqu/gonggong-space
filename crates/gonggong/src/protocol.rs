@@ -704,6 +704,14 @@ pub enum CastPhase {
     Failed,
 }
 
+/// macOS privacy permissions the desktop previews need; see `permission.rs`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Permission {
+    ScreenRecording,
+    Accessibility,
+}
+
 /// Ordered name/value pairs so repeated headers (set-cookie) survive.
 pub type TunnelHeaders = Vec<(String, String)>;
 
@@ -833,7 +841,13 @@ pub enum DaemonToServer {
     #[serde(rename = "service.restart.result", rename_all = "camelCase")]
     ServiceRestartResult { request_id: String, error: Option<String> },
     #[serde(rename = "cast.state", rename_all = "camelCase")]
-    CastState { preview_id: String, state: CastPhase, error: Option<String> },
+    CastState {
+        preview_id: String,
+        state: CastPhase,
+        error: Option<String>,
+        #[serde(default)]
+        missing: Vec<Permission>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

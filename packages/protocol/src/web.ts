@@ -9,6 +9,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
   MAX_QUESTIONS,
+  Permission,
   Question,
   RunStatus,
   Tier,
@@ -516,7 +517,13 @@ export const PreviewDto = z.object({
   /** Why the machine could not take the last snapshot, until one works. */
   snapshotError: z.string().nullable(),
   /** Its machine's gg-cast while someone watches a live preview (`gui`, `miniprogram`); null otherwise. */
-  live: z.object({ state: z.enum(['starting', 'live', 'failed']), error: z.string().nullable() }).nullable(),
+  live: z
+    .object({
+      state: z.enum(['starting', 'live', 'failed']),
+      error: z.string().nullable(),
+      missing: z.array(Permission),
+    })
+    .nullable(),
   /**
    * Remote control of a live preview (plan P14): at most one member controls; members ask, the bot owner or a group
    * admin approves (or takes over). Null for previews without a live view.

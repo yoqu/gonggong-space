@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
 import { Section } from '../lib/ui'
+import { openGuide } from '../permissions'
 import type { PageProps } from '.'
 
 const ICONS: Record<Check['kind'], IconName> = {
@@ -96,6 +97,11 @@ export function LogsPage(_: PageProps) {
                 </span>
               </div>
               <Tag tone={STATUS[c.status].tone}>{STATUS[c.status].text}</Tag>
+              {c.status === 'warn' && (c.kind === 'screen_recording' || c.kind === 'accessibility') ? (
+                <Button size="small" onClick={openGuide}>
+                  去授权
+                </Button>
+              ) : null}
             </div>
           ))}
           {checks ? null : (

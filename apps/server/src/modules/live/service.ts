@@ -191,7 +191,7 @@ async function recordCastState(ctx: Ctx, machineId: string, msg: CastStateMsg) {
     .from(previews)
     .where(and(eq(previews.id, msg.previewId), eq(previews.machineId, machineId)))
   if (!p) return
-  live(ctx).casts.set(msg.previewId, { state: msg.state, error: msg.error })
+  live(ctx).casts.set(msg.previewId, { state: msg.state, error: msg.error, missing: msg.missing })
   await publishPreviews(ctx, p.groupId)
 }
 

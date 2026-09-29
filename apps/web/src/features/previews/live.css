@@ -21,6 +21,13 @@
   color: var(--label-secondary);
   font-size: 12px;
 }
+.lv-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--system-orange);
+  font-size: 12px;
+}
 .lv-requests {
   display: flex;
   flex-direction: column;

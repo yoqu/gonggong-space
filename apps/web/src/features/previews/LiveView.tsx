@@ -1,7 +1,7 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
 import { useSession } from '../../app/session'
-import { EmptyState } from '../../ui'
+import { EmptyState, Icon } from '../../ui'
 import { ControlBar, ControlRequests } from './control'
 import { framePoint, keyInput, useLiveRoom } from './live'
 import './live.css'
@@ -69,17 +69,25 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
       ? { title: '机器离线' }
       : p.status === 'stopped'
         ? { title: '应用已停止' }
-        : p.live?.state === 'failed'
-          ? { title: '没有推送画面', description: p.live.error ?? undefined }
-          : !track
-            ? { title: '正在启动实时画面…' }
-            : null
+        : p.live?.missing.includes('screen_recording')
+          ? { title: '机器未授权屏幕录制', description: '请 Bot 主人在共工桌面端完成授权' }
+          : p.live?.state === 'failed'
+            ? { title: '没有推送画面', description: p.live.error ?? undefined }
+            : !track
+              ? { title: '正在启动实时画面…' }
+              : null
 
   return (
     <div className="lv">
       <div className="lv__bar">
         <ControlBar preview={p} me={me} />
         <ControlRequests preview={p} />
+        {(controlling || p.canManage) && p.live?.missing.includes('accessibility') ? (
+          <span className="lv-warn">
+            <Icon name="hand" size={12} />
+            机器未授权辅助功能，远程操作不会生效，请在桌面端完成授权
+          </span>
+        ) : null}
       </div>
       <div className="lv__stage">
         {problem ? (

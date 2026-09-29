@@ -76,7 +76,7 @@ const preview = (o: Partial<PreviewDto> = {}): PreviewDto => ({
   status: 'online',
   awaiting: null,
   snapshotError: null,
-  live: { state: 'live', error: null },
+  live: { state: 'live', error: null, missing: [] },
   control: { controller: null, requests: [] },
   canManage: false,
   createdAt: '2026-09-29T10:00:00Z',
@@ -138,9 +138,24 @@ describe('桌面应用预览 · 观看', () => {
   })
 
   it('says why there is no picture', async () => {
-    routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限' } }))
+    routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限', missing: [] } }))
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
     await screen.findByText('本机没有授予「屏幕录制」权限')
+  })
+
+  it("names the machine's missing screen recording permission", async () => {
+    routes(
+      preview({
+        live: {
+          state: 'failed',
+          error: '机器未授权屏幕录制，请在桌面端完成授权',
+          missing: ['screen_recording', 'accessibility'],
+        },
+      }),
+    )
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await screen.findByText('机器未授权屏幕录制')
+    screen.getByText('请 Bot 主人在共工桌面端完成授权')
   })
 
   it('opens from its card in the workbench', async () => {
@@ -221,6 +236,17 @@ describe('桌面应用预览 · 控制', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '交还控制' }))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ action: 'release' }))
+  })
+
+  it('warns the controller that the machine cannot take input without accessibility', async () => {
+    routes(
+      preview({
+        control: { controller: LI, requests: [] },
+        live: { state: 'live', error: null, missing: ['accessibility'] },
+      }),
+    )
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在桌面端完成授权')
   })
 
   it('viewers only watch: no input leaves the page', async () => {

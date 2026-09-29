@@ -1,7 +1,7 @@
 //! 日志与诊断 (spec §14): machine self-checks for `gg doctor` / the desktop app, and the redacted diagnostics bundle.
 use crate::config::Config;
 use crate::logs::{self, redact};
-use crate::protocol::{AgentInfo, PROTOCOL_VERSION};
+use crate::protocol::{AgentInfo, PROTOCOL_VERSION, Permission};
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
 use serde::Serialize;
@@ -75,8 +75,8 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
         git_credentials(&entries).await,
         disk(home, &entries),
         eol(&entries).await,
-        permission(CheckKind::ScreenRecording, screen_recording_granted()),
-        permission(CheckKind::Accessibility, accessibility_granted()),
+        permission(CheckKind::ScreenRecording, crate::permission::granted(Permission::ScreenRecording)),
+        permission(CheckKind::Accessibility, crate::permission::granted(Permission::Accessibility)),
     ]
 }
 
@@ -210,35 +210,6 @@ pub async fn eol(entries: &[Entry]) -> Check {
     }
 }
 
-#[cfg(target_os = "macos")]
-#[link(name = "CoreGraphics", kind = "framework")]
-unsafe extern "C" {
-    fn CGPreflightScreenCaptureAccess() -> bool;
-}
-
-#[cfg(target_os = "macos")]
-#[link(name = "ApplicationServices", kind = "framework")]
-unsafe extern "C" {
-    fn AXIsProcessTrusted() -> bool;
-}
-
-/// macOS grants these to the app that started gg (terminal, desktop app), and gg-cast inherits them; None elsewhere.
-fn screen_recording_granted() -> Option<bool> {
-    #[cfg(target_os = "macos")]
-    // SAFETY: no arguments; reads this process's TCC state without prompting.
-    return Some(unsafe { CGPreflightScreenCaptureAccess() });
-    #[cfg(not(target_os = "macos"))]
-    None
-}
-
-fn accessibility_granted() -> Option<bool> {
-    #[cfg(target_os = "macos")]
-    // SAFETY: no arguments.
-    return Some(unsafe { AXIsProcessTrusted() });
-    #[cfg(not(target_os = "macos"))]
-    None
-}
-
 /// Desktop previews: screen recording to publish app windows, accessibility to control them (and to answer the WeChat
 /// devtools' trust prompt). Not granted is a warning: everything else works without them.
 pub fn permission(kind: CheckKind, granted: Option<bool>) -> Check {
@@ -363,7 +334,6 @@ mod tests {
         assert!(ax.detail.contains("隐私与安全性 → 辅助功能") && ax.detail.contains("远程操作"), "{}", ax.detail);
         assert_eq!(permission(CheckKind::Accessibility, Some(true)).status, Status::Ok);
         assert_eq!(permission(CheckKind::ScreenRecording, None).status, Status::Skipped);
-        assert_eq!(screen_recording_granted().is_some(), cfg!(target_os = "macos"));
     }
 
     #[tokio::test]

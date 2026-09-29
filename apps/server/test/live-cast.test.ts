@@ -145,15 +145,21 @@ describe('desktop app previews', () => {
       previewId: p.id,
       state: 'live',
       error: null,
+      missing: [],
     })
     t.ctx.hub.emit('message', w.machine.id, {
       t: 'cast.state',
       previewId: p.id,
       state: 'failed',
-      error: '本机没有授予「屏幕录制」权限',
+      error: '机器未授权屏幕录制，请在桌面端完成授权',
+      missing: ['screen_recording', 'accessibility'],
     })
     await vi.waitFor(async () =>
-      expect(await live()).toEqual({ state: 'failed', error: '本机没有授予「屏幕录制」权限' }),
+      expect(await live()).toEqual({
+        state: 'failed',
+        error: '机器未授权屏幕录制，请在桌面端完成授权',
+        missing: ['screen_recording', 'accessibility'],
+      }),
     )
   })
 

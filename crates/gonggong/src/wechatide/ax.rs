@@ -15,7 +15,6 @@ const MAX_DEPTH: usize = 60;
 
 #[link(name = "ApplicationServices", kind = "framework")]
 unsafe extern "C" {
-    fn AXIsProcessTrusted() -> bool;
     fn AXUIElementCreateApplication(pid: i32) -> AXUIElementRef;
     fn AXUIElementCopyAttributeValue(element: AXUIElementRef, attribute: CFStringRef, value: *mut CFTypeRef)
     -> AXError;
@@ -70,8 +69,7 @@ pub(super) fn devtools_pids() -> Vec<i32> {
 /// Presses the button titled `button` in a devtools window titled one of `windows`; false without the accessibility
 /// permission, such a window or such a button.
 pub fn press_in_window(windows: &[String], button: &str) -> bool {
-    // SAFETY: no arguments.
-    if !unsafe { AXIsProcessTrusted() } {
+    if crate::permission::granted(crate::permission::Permission::Accessibility) != Some(true) {
         tracing::warn!("no accessibility permission: cannot answer the devtools' prompt");
         return false;
     }
