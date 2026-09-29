@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, Server } from 'node:http'
 import { connect } from 'node:net'
 import type { Duplex } from 'node:stream'
-import type { CastTokenDto, LiveTokenDto } from '@gonggong/protocol'
+import type { CastBuildDto, CastTokenDto, LiveTokenDto } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -10,7 +10,9 @@ import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { requireOpenPreview } from '../previews/routes.js'
+import { daemonRelease } from '../releases/routes.js'
 import { liveTokens } from './livekit.js'
+import { watch } from './service.js'
 
 const PREFIX = '/livekit'
 
@@ -32,6 +34,23 @@ export function liveRoutes(ctx: Ctx) {
       const identity = `u:${user.id}:${randomBytes(4).toString('hex')}`
       const token = await liveTokens.viewer(ep, preview.id, { identity, name: user.name, control: false })
       return { url: ep.url, token, identity }
+    })
+
+    app.post('/api/previews/:id/watch', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
+      await requireMember(ctx, preview.groupId, user.id)
+      await watch(ctx, preview, user.id)
+      return reply.status(204).send()
+    })
+
+    app.get('/api/daemon/cast-build', async (req): Promise<CastBuildDto> => {
+      const machine = await requireMachine(ctx, req)
+      const platform = `${machine.os}-${machine.arch}`
+      const release = await daemonRelease(ctx)
+      const build = release?.cast?.[platform]
+      if (!release || !build) return fail('not_found', `服务器还没有发布 ${platform} 的 gg-cast`)
+      return { version: release.version, ...build }
     })
 
     app.post('/api/daemon/previews/:id/cast', async (req): Promise<CastTokenDto> => {

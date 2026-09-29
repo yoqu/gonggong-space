@@ -10,6 +10,7 @@ import { sysParams } from '../admin/params.js'
 import { refuse } from '../agent-tools/service.js'
 import { dataDir } from '../attachments/service.js'
 import { requireMember } from '../groups/service.js'
+import { castState, syncCasts } from '../live/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
 import { closePortListener, openPortListener } from './gateway.js'
 import { restartService, syncPreviews } from './services.js'
@@ -95,6 +96,7 @@ async function listPreviews(
         snapshotAt: p.snapshotAt?.toISOString() ?? null,
         awaiting: p.awaiting as PreviewDto['awaiting'],
         snapshotError: p.snapshotError,
+        live: castState(ctx, p.id),
         status: !ctx.tunnels.get(p.machineId)
           ? 'offline'
           : serviceStatus && !LIVE.includes(serviceStatus)
@@ -227,6 +229,49 @@ export async function exposePreview(
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+/** `preview_gui`: a hosted service's window, streamed while members watch; one open card per service. */
+export async function exposeGui(ctx: Ctx, run: Run, a: { service: string; title: string }) {
+  const [bot] = await ctx.db.select().from(bots).where(eq(bots.id, run.botId))
+  if (!bot?.machineId) return refuse('bot 未绑定机器')
+  const [svc] = await ctx.db
+    .select()
+    .from(services)
+    .where(
+      and(
+        eq(services.groupId, run.groupId),
+        eq(services.botId, run.botId),
+        eq(services.name, a.service),
+        inArray(services.status, LIVE),
+      ),
+    )
+    .orderBy(desc(services.createdAt))
+    .limit(1)
+  if (!svc) return refuse(`服务 ${a.service} 不在运行，请先用 service_start 启动`)
+  const [existing] = await ctx.db
+    .select()
+    .from(previews)
+    .where(and(eq(previews.serviceId, svc.id), eq(previews.kind, 'gui'), isNull(previews.closedAt)))
+  if (existing)
+    return `服务 ${a.service} 已发布过预览「${existing.title}」（id ${existing.id}），群里已有它的卡片。`
+  const [p] = await ctx.db
+    .insert(previews)
+    .values({
+      slug: newSlug(),
+      kind: 'gui',
+      machineId: bot.machineId,
+      groupId: run.groupId,
+      botId: run.botId,
+      serviceId: svc.id,
+      title: a.title,
+      createdByRunId: run.id,
+    })
+    .returning()
+  const preview = p as Preview
+  await announce(ctx, run, preview)
+  await publishPreviews(ctx, run.groupId)
+  return `已发布桌面应用预览「${a.title}」（id ${preview.id}），群里已出现它的卡片，群成员打开后能看到窗口的实时画面。`
 }
 
 /** Posts the preview's card in its group. */
@@ -453,6 +498,7 @@ export async function closePreview(ctx: Ctx, preview: Preview) {
   await ctx.db.update(previews).set({ closedAt: ctx.now() }).where(eq(previews.id, preview.id))
   await closePortListener(ctx, preview.id)
   await syncPreviews(ctx, preview.machineId)
+  await syncCasts(ctx, preview.machineId)
   await publishPreviews(ctx, preview.groupId)
 }
 

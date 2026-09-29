@@ -515,6 +515,8 @@ export const PreviewDto = z.object({
   awaiting: z.enum(['login']).nullable(),
   /** Why the machine could not take the last snapshot, until one works. */
   snapshotError: z.string().nullable(),
+  /** Its machine's gg-cast while someone watches a live preview (`gui`, `miniprogram`); null otherwise. */
+  live: z.object({ state: z.enum(['starting', 'live', 'failed']), error: z.string().nullable() }).nullable(),
   /** The bot owner and group admins may close it and share it publicly. */
   canManage: z.boolean(),
   createdAt: z.string(),
@@ -561,6 +563,11 @@ export const ClosePreviewReq = z.object({ stopService: z.boolean().optional() })
  */
 export const LiveTokenDto = z.object({ url: z.string().nullable(), token: z.string(), identity: z.string() })
 export type LiveTokenDto = z.infer<typeof LiveTokenDto>
+/**
+ * POST /api/previews/:id/watch (members) → 204: someone is watching; the machine publishes while a viewer renewed
+ * within `LIVE_WATCH_SECONDS`.
+ */
+export const LIVE_WATCH_SECONDS = 60
 /** POST /api/daemon/previews/:id/cast (machine token, its own preview) → the publisher token for gg-cast. */
 export const CastTokenDto = z.object({ url: z.string().nullable(), token: z.string() })
 export type CastTokenDto = z.infer<typeof CastTokenDto>
@@ -826,8 +833,13 @@ export const DaemonRelease = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+$/, '版本号需为 x.y.z'),
   /** Keyed by `<os>-<arch>` as the daemon reports them, e.g. `macos-aarch64`, `linux-x86_64`. */
   builds: z.record(z.string(), DaemonBuild),
+  /** gg-cast (desktop preview publisher) per platform, downloaded by the daemon on its first live preview. */
+  cast: z.record(z.string(), DaemonBuild).optional(),
 })
 export type DaemonRelease = z.infer<typeof DaemonRelease>
+/** GET /api/daemon/cast-build (machine token) → gg-cast for its platform; 404 when none is published. */
+export const CastBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
+export type CastBuildDto = z.infer<typeof CastBuildDto>
 
 // ── Audit (spec §9, §13) ────────────────────────────────────────────────────
 export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command', 'preview'])

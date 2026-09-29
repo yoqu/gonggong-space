@@ -678,6 +678,22 @@ pub struct PreviewPort {
     pub port: u16,
 }
 
+/// A window gg-cast publishes for a watched live preview: the hosted service's.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CastTarget {
+    pub preview_id: String,
+    pub service: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CastPhase {
+    Starting,
+    Live,
+    Failed,
+}
+
 /// Ordered name/value pairs so repeated headers (set-cookie) survive.
 pub type TunnelHeaders = Vec<(String, String)>;
 
@@ -806,6 +822,8 @@ pub enum DaemonToServer {
     ServiceState { service: ServiceInfo },
     #[serde(rename = "service.restart.result", rename_all = "camelCase")]
     ServiceRestartResult { request_id: String, error: Option<String> },
+    #[serde(rename = "cast.state", rename_all = "camelCase")]
+    CastState { preview_id: String, state: CastPhase, error: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -887,4 +905,6 @@ pub enum ServerToDaemon {
     ServiceRestart { request_id: String, service_id: String },
     #[serde(rename = "previews.sync")]
     PreviewsSync { previews: Vec<PreviewPort> },
+    #[serde(rename = "cast.sync")]
+    CastSync { casts: Vec<CastTarget> },
 }

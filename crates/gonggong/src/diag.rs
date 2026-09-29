@@ -25,6 +25,8 @@ pub enum CheckKind {
     Git,
     Disk,
     Eol,
+    ScreenRecording,
+    Accessibility,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -52,6 +54,8 @@ fn check(kind: CheckKind, status: Status, detail: impl Into<String>) -> Check {
         CheckKind::Git => "git 凭据",
         CheckKind::Disk => "磁盘",
         CheckKind::Eol => "换行符",
+        CheckKind::ScreenRecording => "屏幕录制",
+        CheckKind::Accessibility => "辅助功能",
     };
     Check { kind, label, status, detail: detail.into() }
 }
@@ -71,6 +75,8 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
         git_credentials(&entries).await,
         disk(home, &entries),
         eol(&entries).await,
+        permission(CheckKind::ScreenRecording, screen_recording_granted()),
+        permission(CheckKind::Accessibility, accessibility_granted()),
     ]
 }
 
@@ -204,6 +210,55 @@ pub async fn eol(entries: &[Entry]) -> Check {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> bool;
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "ApplicationServices", kind = "framework")]
+unsafe extern "C" {
+    fn AXIsProcessTrusted() -> bool;
+}
+
+/// macOS grants these to the app that started gg (terminal, desktop app), and gg-cast inherits them; None elsewhere.
+fn screen_recording_granted() -> Option<bool> {
+    #[cfg(target_os = "macos")]
+    // SAFETY: no arguments; reads this process's TCC state without prompting.
+    return Some(unsafe { CGPreflightScreenCaptureAccess() });
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
+fn accessibility_granted() -> Option<bool> {
+    #[cfg(target_os = "macos")]
+    // SAFETY: no arguments.
+    return Some(unsafe { AXIsProcessTrusted() });
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
+/// Desktop previews: screen recording to publish app windows, accessibility to control them (and to answer the WeChat
+/// devtools' trust prompt). Not granted is a warning: everything else works without them.
+pub fn permission(kind: CheckKind, granted: Option<bool>) -> Check {
+    let (pane, needs) = match kind {
+        CheckKind::ScreenRecording => ("屏幕录制", "桌面应用和小程序的实时画面"),
+        _ => ("辅助功能", "远程操作桌面应用和小程序、自动信任小程序项目"),
+    };
+    match granted {
+        None => check(kind, Status::Skipped, "仅 macOS 需要"),
+        Some(true) => check(kind, Status::Ok, "已授权"),
+        Some(false) => check(
+            kind,
+            Status::Warn,
+            format!(
+                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工桌面端）"
+            ),
+        ),
+    }
+}
+
 /// Writes `dest` (.zip): redacted recent logs, the checks, versions, and config.json / local.json without
 /// credentials. Returns the entry names written.
 pub fn bundle(home: &Path, config: Option<&Config>, checks: &[Check], dest: &Path) -> anyhow::Result<Vec<String>> {
@@ -293,6 +348,22 @@ mod tests {
             size: Some(1_000_000),
             state,
         }
+    }
+
+    #[test]
+    fn permission_checks_say_what_is_missing_and_where_to_grant_it() {
+        let denied = permission(CheckKind::ScreenRecording, Some(false));
+        assert_eq!((denied.label, denied.status), ("屏幕录制", Status::Warn));
+        assert!(
+            denied.detail.contains("隐私与安全性 → 屏幕录制") && denied.detail.contains("实时画面"),
+            "{}",
+            denied.detail
+        );
+        let ax = permission(CheckKind::Accessibility, Some(false));
+        assert!(ax.detail.contains("隐私与安全性 → 辅助功能") && ax.detail.contains("远程操作"), "{}", ax.detail);
+        assert_eq!(permission(CheckKind::Accessibility, Some(true)).status, Status::Ok);
+        assert_eq!(permission(CheckKind::ScreenRecording, None).status, Status::Skipped);
+        assert_eq!(screen_recording_granted().is_some(), cfg!(target_os = "macos"));
     }
 
     #[tokio::test]

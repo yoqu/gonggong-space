@@ -31,19 +31,19 @@ pub enum StageError {
     Other(#[from] anyhow::Error),
 }
 
-/// Downloads `info` into `<home>/updates/` and verifies it; the file only appears there once verified.
-/// Server-relative URLs (`/downloads/...`) resolve against `server` and go through its (pinned) client `http`;
-/// builds hosted elsewhere use the system trust store. Either way the sha256 decides.
-pub async fn stage(
-    home: &Path,
+/// Downloads a published build and verifies it. Server-relative URLs (`/downloads/...`) resolve against `server` and
+/// go through its (pinned) client `http`; builds hosted elsewhere use the system trust store. Either way the sha256
+/// decides.
+pub async fn download(
     server: &str,
     http: &reqwest::Client,
-    info: &UpgradeInfo,
-) -> Result<PathBuf, StageError> {
-    let (url, http) = if info.url.starts_with('/') {
-        (format!("{}{}", server.trim_end_matches('/'), info.url), http.clone())
+    url: &str,
+    sha256: &str,
+) -> Result<hyper::body::Bytes, StageError> {
+    let (url, http) = if url.starts_with('/') {
+        (format!("{}{url}", server.trim_end_matches('/')), http.clone())
     } else {
-        (info.url.clone(), reqwest::Client::new())
+        (url.to_string(), reqwest::Client::new())
     };
     let bytes = async {
         let res = http.get(&url).send().await?.error_for_status()?;
@@ -52,9 +52,20 @@ pub async fn stage(
     .await
     .with_context(|| format!("download {url}"))?;
     let actual: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
-    if !actual.eq_ignore_ascii_case(&info.sha256) {
-        return Err(StageError::Mismatch { expected: info.sha256.clone(), actual });
+    if !actual.eq_ignore_ascii_case(sha256) {
+        return Err(StageError::Mismatch { expected: sha256.to_string(), actual });
     }
+    Ok(bytes)
+}
+
+/// Downloads `info` into `<home>/updates/` and verifies it; the file only appears there once verified.
+pub async fn stage(
+    home: &Path,
+    server: &str,
+    http: &reqwest::Client,
+    info: &UpgradeInfo,
+) -> Result<PathBuf, StageError> {
+    let bytes = download(server, http, &info.url, &info.sha256).await?;
     let dir = home.join("updates");
     tokio::fs::create_dir_all(&dir).await.context("create updates dir")?;
     let path = dir.join(format!("gonggong-{}{}", info.version, std::env::consts::EXE_SUFFIX));

@@ -22,6 +22,7 @@ import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { liveRoutes, routeLiveKitUpgrades } from './modules/live/routes.js'
+import { startLiveEngine } from './modules/live/service.js'
 import { machineRoutes } from './modules/machines/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
 import { messageRoutes } from './modules/messages/routes.js'
@@ -88,6 +89,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(liveRoutes(ctx))
   await app.register(runRoutes(ctx))
   app.addHook('onClose', startPreviewEngine(ctx))
+  app.addHook('onClose', startLiveEngine(ctx))
   app.addHook('onClose', startPreviewReaper(ctx))
   app.addHook('onClose', startLoginWatch(ctx))
   const stopRunEngine = startRunEngine(ctx)

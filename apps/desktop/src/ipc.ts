@@ -148,7 +148,7 @@ export interface Tunnels {
 export type CheckStatus = 'ok' | 'warn' | 'error' | 'skipped'
 
 export interface Check {
-  kind: 'server' | 'agent' | 'git' | 'disk' | 'eol'
+  kind: 'server' | 'agent' | 'git' | 'disk' | 'eol' | 'screen_recording' | 'accessibility'
   label: string
   status: CheckStatus
   detail: string

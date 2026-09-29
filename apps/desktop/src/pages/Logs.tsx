@@ -21,6 +21,8 @@ const ICONS: Record<Check['kind'], IconName> = {
   git: 'git-branch',
   disk: 'hard-drive',
   eol: 'doc-warning',
+  screen_recording: 'record',
+  accessibility: 'hand',
 }
 
 const STATUS: Record<CheckStatus, { color: string; tone: TagTone; text: string }> = {

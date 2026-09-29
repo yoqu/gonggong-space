@@ -1,9 +1,10 @@
-//! B0 spike (plan 结果预览): publish one app window (found by pid) to a LiveKit room and apply remote clicks.
+//! gg-cast (plan 结果预览 B2): publishes one app window to a preview's LiveKit room for the daemon.
 //!
-//! gg-cast --pid <pid> [--title <substring>] [--capture xcap|native] [--fps 30] [--codec vp8|h264|vp9]
-//! env LIVEKIT_URL (ws://127.0.0.1:7880), LIVEKIT_API_KEY (devkey), LIVEKIT_API_SECRET (secret), LIVEKIT_ROOM (b0)
+//! `gg-cast --url <signaling url> --pids <pid,pid,…> [--fps 30]`, the publisher token in `GG_CAST_TOKEN`. Publishes the
+//! largest visible window of those processes, prints `live` once it is published, and runs until the window closes,
+//! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
+//! the reason shown to users, and exit 1.
 use anyhow::{Context, bail};
-use enigo::{Button, Coordinate, Direction, Enigo, Mouse, Settings};
 use livekit::options::{TrackPublishOptions, VideoCodec, VideoEncoding};
 use livekit::prelude::*;
 use livekit::track::{LocalTrack, LocalVideoTrack, TrackSource};
@@ -13,247 +14,195 @@ use livekit::webrtc::desktop_capturer::{
 use livekit::webrtc::native::yuv_helper;
 use livekit::webrtc::prelude::{I420Buffer, RtcVideoSource, VideoBuffer, VideoFrame, VideoResolution, VideoRotation};
 use livekit::webrtc::video_source::native::NativeVideoSource;
-use livekit_api::access_token::{AccessToken, VideoGrants};
-use serde::Deserialize;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
 
+/// B0: H264 is hardware-encoded on macOS, about a quarter of VP8's CPU.
+const CODEC: VideoCodec = VideoCodec::H264;
+const MAX_BITRATE: u64 = 3_000_000;
+
+#[derive(Debug, PartialEq)]
 struct Args {
-    pid: u32,
-    title: Option<String>,
-    capture: String,
+    url: String,
+    pids: Vec<u32>,
     fps: u32,
-    codec: VideoCodec,
 }
 
-fn args() -> anyhow::Result<Args> {
-    let mut a = Args { pid: 0, title: None, capture: "native".into(), fps: 30, codec: VideoCodec::VP8 };
-    let mut it = std::env::args().skip(1);
+fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
+    let (mut url, mut pids, mut fps) = (None, vec![], 30);
+    let mut it = args.into_iter();
     while let Some(k) = it.next() {
-        let v = it.next().context("missing value")?;
+        let v = it.next().with_context(|| format!("{k} 缺少取值"))?;
         match k.as_str() {
-            "--pid" => a.pid = v.parse()?,
-            "--title" => a.title = Some(v),
-            "--capture" => a.capture = v,
-            "--fps" => a.fps = v.parse()?,
-            "--codec" => {
-                a.codec = match v.as_str() {
-                    "h264" => VideoCodec::H264,
-                    "vp9" => VideoCodec::VP9,
-                    _ => VideoCodec::VP8,
-                }
+            "--url" => url = Some(v),
+            "--pids" => {
+                pids = v.split(',').map(str::parse).collect::<Result<_, _>>().context("--pids 应为逗号分隔的进程号")?
             }
-            _ => bail!("unknown {k}"),
+            "--fps" => fps = v.parse().context("--fps 应为整数")?,
+            _ => bail!("未知参数 {k}"),
         }
     }
-    if a.pid == 0 {
-        bail!("--pid required");
+    if pids.is_empty() {
+        bail!("缺少 --pids");
     }
-    Ok(a)
+    Ok(Args { url: url.context("缺少 --url")?, pids, fps })
 }
 
-fn env(k: &str, d: &str) -> String {
-    std::env::var(k).unwrap_or_else(|_| d.into())
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> bool;
 }
 
-fn token(identity: &str, publish: bool) -> anyhow::Result<String> {
-    let t = AccessToken::with_api_key(&env("LIVEKIT_API_KEY", "devkey"), &env("LIVEKIT_API_SECRET", "secret"))
-        .with_identity(identity)
-        .with_grants(VideoGrants {
-            room_join: true,
-            room: env("LIVEKIT_ROOM", "b0"),
-            can_publish: Some(publish),
-            can_subscribe: Some(true),
-            can_publish_data: Some(true),
-            ..Default::default()
-        })
-        .to_jwt()?;
-    Ok(t)
+fn require_screen_recording() -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")]
+    // SAFETY: no arguments; only reads the TCC state of this process's responsible app.
+    if !unsafe { CGPreflightScreenCaptureAccess() } {
+        bail!(
+            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工桌面端）"
+        );
+    }
+    Ok(())
 }
 
-/// The largest visible window of `pid` (apps often own helper windows), optionally narrowed by title.
-fn find_window(pid: u32, title: Option<&str>) -> anyhow::Result<xcap::Window> {
+/// The largest visible window of `pids` (apps own helper windows too).
+fn find_window(pids: &[u32]) -> anyhow::Result<xcap::Window> {
     let mut hits: Vec<_> = xcap::Window::all()?
         .into_iter()
-        .filter(|w| w.pid().ok() == Some(pid) && !w.is_minimized().unwrap_or(true))
-        .filter(|w| title.is_none_or(|t| w.title().is_ok_and(|n| n.contains(t))))
+        .filter(|w| w.pid().is_ok_and(|p| pids.contains(&p)) && !w.is_minimized().unwrap_or(true))
         .collect();
     hits.sort_by_key(|w| std::cmp::Reverse(w.width().unwrap_or(0) * w.height().unwrap_or(0)));
-    hits.into_iter().next().with_context(|| format!("进程 {pid} 没有可见窗口"))
+    hits.into_iter().next().context("应用还没有可见窗口（或窗口已最小化）")
 }
 
-#[derive(Default)]
-struct Stats {
-    frames: AtomicU64,
-    capture_us: AtomicU64,
-    convert_us: AtomicU64,
-}
+type Slot = Arc<Mutex<(NativeVideoSource, VideoFrame<I420Buffer>)>>;
 
-type Slot = Arc<Mutex<Option<(NativeVideoSource, VideoFrame<I420Buffer>)>>>;
-
-/// RGBA (xcap) or BGRA (native capturer, libyuv "ARGB") → I420 → the track.
-fn push(slot: &Slot, stats: &Stats, data: &[u8], stride: u32, w: u32, h: u32, rgba: bool) {
+/// BGRA (libyuv "ARGB") → I420 → the track.
+fn push(slot: &Slot, f: &DesktopFrame) {
+    let (w, h) = (f.width() as u32, f.height() as u32);
     let mut guard = slot.lock().unwrap();
-    let Some((source, frame)) = guard.as_mut() else { return };
-    let t = Instant::now();
+    let (source, frame) = &mut *guard;
     if frame.buffer.width() != w || frame.buffer.height() != h {
         frame.buffer = I420Buffer::new(w, h);
     }
     let (sy, su, sv) = frame.buffer.strides();
     let (y, u, v) = frame.buffer.data_mut();
-    let convert = if rgba { yuv_helper::abgr_to_i420 } else { yuv_helper::argb_to_i420 };
-    convert(data, stride, y, sy, u, su, v, sv, w as i32, h as i32);
-    stats.convert_us.fetch_add(t.elapsed().as_micros() as u64, Ordering::Relaxed);
+    yuv_helper::argb_to_i420(f.data(), f.stride(), y, sy, u, su, v, sv, w as i32, h as i32);
     source.capture_frame(frame);
-    stats.frames.fetch_add(1, Ordering::Relaxed);
 }
 
-fn capture_xcap(window: xcap::Window, fps: u32, slot: Slot, stats: Arc<Stats>) {
-    std::thread::spawn(move || {
-        let period = Duration::from_secs_f64(1.0 / fps as f64);
-        loop {
-            let t = Instant::now();
-            match window.capture_image() {
-                Ok(img) => {
-                    stats.capture_us.fetch_add(t.elapsed().as_micros() as u64, Ordering::Relaxed);
-                    let (w, h) = img.dimensions();
-                    push(&slot, &stats, img.as_raw(), w * 4, w, h, true);
-                }
-                Err(e) => eprintln!("capture: {e}"),
-            }
-            std::thread::sleep(period.saturating_sub(t.elapsed()));
-        }
-    });
-}
-
-fn capture_native(window_id: u32, fps: u32, slot: Slot, stats: Arc<Stats>) -> anyhow::Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel::<anyhow::Result<()>>();
+/// ScreenCaptureKit (B0: far cheaper than screenshots) on the window found by pid; sends why capturing ended.
+fn capture(window_id: u32, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<String>) -> anyhow::Result<()> {
+    let (ready, started) = std::sync::mpsc::channel::<anyhow::Result<()>>();
     std::thread::spawn(move || {
         let mut options = DesktopCapturerOptions::new(DesktopCaptureSourceType::Window);
         #[cfg(target_os = "macos")]
         options.set_sck_system_picker(false);
         options.set_include_cursor(true);
         let Some(mut capturer) = DesktopCapturer::new(options) else {
-            let _ = tx.send(Err(anyhow::anyhow!("无法创建 native 采集器")));
+            let _ = ready.send(Err(anyhow::anyhow!("无法创建窗口采集器")));
             return;
         };
-        let sources = capturer.get_source_list();
-        let ids: Vec<_> = sources.iter().map(|s| (s.id(), s.title())).collect();
-        let Some(source) = sources.into_iter().find(|s| s.id() == window_id as u64) else {
-            let _ = tx.send(Err(anyhow::anyhow!("native 采集器里没有窗口 {window_id}，可选：{ids:?}")));
+        let Some(source) = capturer.get_source_list().into_iter().find(|s| s.id() == window_id as u64) else {
+            let _ = ready.send(Err(anyhow::anyhow!("窗口采集器里没有这个窗口（{window_id}）")));
             return;
         };
-        let _ = tx.send(Ok(()));
-        let cb_stats = stats.clone();
-        capturer.start_capture(Some(source), move |r: Result<DesktopFrame, CaptureError>| {
-            let Ok(f) = r else { return };
-            push(&slot, &cb_stats, f.data(), f.stride(), f.width() as u32, f.height() as u32, false);
+        let _ = ready.send(Ok(()));
+        capturer.start_capture(Some(source), move |r: Result<DesktopFrame, CaptureError>| match r {
+            Ok(f) => push(&slot, &f),
+            Err(CaptureError::Permanent) => {
+                let _ = ended.send("窗口已关闭".into());
+            }
+            Err(CaptureError::Temporary) => {}
         });
         let period = Duration::from_secs_f64(1.0 / fps as f64);
         loop {
             let t = Instant::now();
             capturer.capture_frame();
-            stats.capture_us.fetch_add(t.elapsed().as_micros() as u64, Ordering::Relaxed);
             std::thread::sleep(period.saturating_sub(t.elapsed()));
         }
     });
-    rx.recv()?
+    started.recv()?
 }
 
-/// Viewer input: coordinates relative to the video (0..1).
-#[derive(Deserialize, Debug)]
-#[serde(tag = "t", rename_all = "lowercase")]
-enum Input {
-    Click { x: f64, y: f64 },
-}
-
-/// macOS only delivers a click to an app in front: the first one merely activates it.
-fn activate(pid: u32) {
-    #[cfg(target_os = "macos")]
-    {
-        let script = format!(
-            "tell application \"System Events\" to set frontmost of (first process whose unix id is {pid}) to true"
-        );
-        let _ = std::process::Command::new("osascript").args(["-e", &script]).status();
-    }
-}
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let a = args()?;
-    let window = find_window(a.pid, a.title.as_deref())?;
-    let (wx, wy, ww, wh) = (window.x()?, window.y()?, window.width()?, window.height()?);
-    println!("window id={} title={:?} at {wx},{wy} {ww}x{wh}", window.id()?, window.title()?);
-    let url = env("LIVEKIT_URL", "ws://127.0.0.1:7880");
-    println!("viewer token: {}", token("viewer", false)?);
-
-    let started = Instant::now();
-    let (room, mut events) = Room::connect(&url, &token("gg-cast", true)?, RoomOptions::default()).await?;
-    println!("connected in {:?}", started.elapsed());
-
-    let source = NativeVideoSource::new(VideoResolution { width: ww, height: wh }, true);
+async fn run(a: Args) -> anyhow::Result<()> {
+    let token = std::env::var("GG_CAST_TOKEN").context("缺少 GG_CAST_TOKEN")?;
+    require_screen_recording()?;
+    let window = find_window(&a.pids)?;
+    let (width, height) = (window.width()?, window.height()?);
+    let (room, mut events) =
+        Room::connect(&a.url, &token, RoomOptions::default()).await.context("无法连接实时画面服务（LiveKit）")?;
+    let source = NativeVideoSource::new(VideoResolution { width, height }, true);
     let frame = VideoFrame {
         rotation: VideoRotation::VideoRotation0,
         timestamp_us: 0,
         frame_metadata: None,
-        buffer: I420Buffer::new(ww, wh),
+        buffer: I420Buffer::new(width, height),
     };
-    let slot: Slot = Arc::new(Mutex::new(Some((source.clone(), frame))));
+    let slot: Slot = Arc::new(Mutex::new((source.clone(), frame)));
     let track = LocalVideoTrack::create_video_track("window", RtcVideoSource::Native(source));
     let options = TrackPublishOptions {
         source: TrackSource::Screenshare,
-        video_codec: a.codec,
-        video_encoding: Some(VideoEncoding { max_bitrate: 3_000_000, max_framerate: a.fps as f64 }),
+        video_codec: CODEC,
+        video_encoding: Some(VideoEncoding { max_bitrate: MAX_BITRATE, max_framerate: a.fps as f64 }),
         simulcast: false,
         ..Default::default()
     };
-    room.local_participant().publish_track(LocalTrack::Video(track), options).await?;
+    room.local_participant().publish_track(LocalTrack::Video(track), options).await.context("无法发布画面")?;
 
-    let stats = Arc::new(Stats::default());
-    match a.capture.as_str() {
-        "xcap" => capture_xcap(window, a.fps, slot, stats.clone()),
-        _ => capture_native(window.id()?, a.fps, slot, stats.clone())?,
-    }
-
-    let mut enigo = Enigo::new(&Settings::default())?;
-    let mut tick = tokio::time::interval(Duration::from_secs(5));
-    let mut last = 0u64;
+    let (ended_tx, mut ended) = mpsc::unbounded_channel();
+    capture(window.id()?, a.fps, slot, ended_tx)?;
+    let (gone_tx, mut gone) = mpsc::unbounded_channel::<()>();
+    std::thread::spawn(move || {
+        let _ = std::io::stdin().read_to_end(&mut Vec::new());
+        let _ = gone_tx.send(());
+    });
+    println!("live");
     loop {
         tokio::select! {
-            _ = tick.tick() => {
-                let n = stats.frames.load(Ordering::Relaxed);
-                let d = (n - last).max(1);
-                println!(
-                    "fps {:.1} · capture {:.1} ms · convert {:.1} ms",
-                    (n - last) as f64 / 5.0,
-                    stats.capture_us.swap(0, Ordering::Relaxed) as f64 / d as f64 / 1000.0,
-                    stats.convert_us.swap(0, Ordering::Relaxed) as f64 / d as f64 / 1000.0,
-                );
-                last = n;
-            }
-            Some(ev) = events.recv() => {
-                if let RoomEvent::DataReceived { payload, .. } = ev {
-                    match serde_json::from_slice::<Input>(&payload) {
-                        Ok(Input::Click { x, y }) => {
-                            // xcap reports points on macOS; enigo takes the same space (checked in B0).
-                            let (px, py) = (wx + (x * ww as f64) as i32, wy + (y * wh as f64) as i32);
-                            let t = Instant::now();
-                            // Always-on-top windows (the mini program simulator) take clicks without activation.
-                            if std::env::var_os("GG_NO_ACTIVATE").is_none() {
-                                activate(a.pid);
-                            }
-                            let activated = t.elapsed();
-                            enigo.move_mouse(px, py, Coordinate::Abs)?;
-                            // B0: clicked right after the move, macOS still reports the old cursor position.
-                            tokio::time::sleep(Duration::from_millis(20)).await;
-                            enigo.button(Button::Left, Direction::Click)?;
-                            println!("click at {px},{py} in {:?} (activate {activated:?})", t.elapsed());
-                        }
-                        Err(e) => eprintln!("input: {e}"),
-                    }
-                }
-            }
+            Some(reason) = ended.recv() => bail!(reason),
+            _ = gone.recv() => return Ok(()),
+            ev = events.recv() => match ev {
+                Some(RoomEvent::Disconnected { reason }) => bail!("与实时画面服务断开（{reason:?}）"),
+                None => bail!("与实时画面服务断开"),
+                Some(_) => {}
+            },
         }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let result = match parse(std::env::args().skip(1)) {
+        Ok(a) => run(a).await,
+        Err(e) => Err(e),
+    };
+    if let Err(e) = result {
+        eprintln!("{e:#}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(s: &str) -> anyhow::Result<Args> {
+        parse(s.split_whitespace().map(String::from))
+    }
+
+    #[test]
+    fn parses_the_daemons_arguments() {
+        assert_eq!(
+            args("--url ws://127.0.0.1:5000 --pids 10,11,12").unwrap(),
+            Args { url: "ws://127.0.0.1:5000".into(), pids: vec![10, 11, 12], fps: 30 }
+        );
+        assert_eq!(args("--pids 1 --url wss://x --fps 15").unwrap().fps, 15);
+        assert!(args("--url ws://x").is_err());
+        assert!(args("--pids 1").is_err());
+        assert!(args("--pids a --url ws://x").is_err());
+        assert!(args("--pids 1 --url ws://x --codec vp8").is_err());
     }
 }

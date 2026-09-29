@@ -601,6 +601,7 @@ mod tests {
                 "list_questions",
                 "fetch_attachments",
                 "preview_expose",
+                "preview_gui",
                 "preview_close",
                 "service_start",
                 "service_list",

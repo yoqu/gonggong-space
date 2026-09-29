@@ -4,15 +4,13 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-# Spike (plan 结果预览 B0): its own workspace, see the root Cargo.toml.
+# Desktop preview publisher (plan 结果预览 B2), started by the daemon. Its own workspace: libwebrtc is a ~277 MB
+# download, so only the release pipeline builds it and daemons download it on first use.
 [workspace]
 
 [dependencies]
 anyhow = "1.0.104"
 enigo = "0.6.1"
 livekit = { version = "0.9.3", features = ["rustls-tls-native-roots"] }
-livekit-api = { version = "0.8.1", default-features = false, features = ["access-token"] }
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
 tokio = { version = "1.53.1", features = ["full"] }
 xcap = "0.9.8"

@@ -23,7 +23,7 @@ import { isUuid } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import type { MessageMeta } from '../messages/service.js'
-import { closeOwnPreview, exposePreview } from '../previews/service.js'
+import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -320,6 +320,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   list_questions: listQuestions,
   fetch_attachments: fetchAttachments,
   preview_expose: async (ctx, s, a) => ({ text: await exposePreview(ctx, s.run, a), groups: [] }),
+  preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),
 }
 

@@ -81,6 +81,11 @@ export const PreviewExposeArgs = z
     message: 'port、service 与 miniprogram 需要且只能给一个',
   })
 
+export const PreviewGuiArgs = z.object({
+  service: serviceName.describe('service_start 启动的桌面应用服务名，推送它的窗口'),
+  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+})
+
 export const PreviewCloseArgs = z.object({ preview: z.string().describe('preview_expose 返回的预览 id') })
 
 export const GONGGONG_TOOLS = {
@@ -120,6 +125,13 @@ export const GONGGONG_TOOLS = {
     description:
       '把本机端口上的网页或服务发布给群成员：返回预览链接，并在群里发一张可内嵌打开的预览卡片。服务请先用 service_start 启动。',
     input: PreviewExposeArgs,
+  },
+  preview_gui: {
+    title: '发布桌面应用预览',
+    description:
+      '把 service_start 启动的桌面应用（如 Electron、Tauri 应用）的窗口实时推给群成员：群里出现一张预览卡片，' +
+      '成员打开后看到实时画面，经 Bot 主人同意可以远程操作。只推这个服务进程的窗口，不推整个屏幕。',
+    input: PreviewGuiArgs,
   },
   preview_close: {
     title: '关闭预览',

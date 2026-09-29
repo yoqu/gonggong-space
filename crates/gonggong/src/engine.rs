@@ -2,6 +2,7 @@
 use crate::agents;
 use crate::ask::{AskServer, Asker};
 use crate::attachments;
+use crate::cast::Casts;
 use crate::config::Config;
 use crate::explorer;
 use crate::files;
@@ -58,6 +59,7 @@ pub(crate) struct Inner {
     /// Runs received but still preparing (workspace, attachments): already active for hello reconciliation.
     preparing: Mutex<HashSet<String>>,
     pub(crate) services: Services,
+    casts: Casts,
     previews: tunnel::Allow,
     /// The server offered the preview tunnel (welcome).
     tunnel: tokio::sync::watch::Sender<bool>,
@@ -80,6 +82,8 @@ impl Engine {
     pub fn new(config: EngineConfig) -> Self {
         let workspaces = Workspaces::new(config.home.clone());
         let services = Services::new(&config.home);
+        let bin = std::env::var_os("GG_CAST_BIN").map(PathBuf::from);
+        let casts = Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin);
         Engine(Arc::new(Inner {
             config,
             workspaces,
@@ -88,6 +92,7 @@ impl Engine {
             ask: tokio::sync::OnceCell::new(),
             preparing: Mutex::default(),
             services,
+            casts,
             previews: tunnel::Allow::default(),
             tunnel: tokio::sync::watch::Sender::new(false),
         }))
@@ -307,6 +312,7 @@ impl Handler for Engine {
             ServerToDaemon::PreviewsSync { previews } => {
                 tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());
             }
+            ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
         }
     }
 

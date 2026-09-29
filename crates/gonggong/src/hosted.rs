@@ -369,6 +369,15 @@ impl Services {
         }
     }
 
+    /// The process (group leader) of a live command service; static sites have none.
+    pub fn pid(&self, id: &str) -> Option<u32> {
+        let h = self.find_id(id).filter(Hosted::live)?;
+        match h.stop {
+            Stop::Group(pid) => Some(pid),
+            Stop::Task(_) => None,
+        }
+    }
+
     fn find(&self, group: &str, bot: &str, name: &str) -> Option<Hosted> {
         let list = self.0.list.lock().unwrap();
         list.iter()

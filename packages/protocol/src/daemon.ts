@@ -539,6 +539,17 @@ export const ServiceRestartResult = z.object({
   error: z.string().nullable(),
 })
 
+/**
+ * gg-cast for a live preview (plan B2), as asked by cast.sync: starting (fetching gg-cast, finding the window,
+ * joining the room), live (publishing), failed (`error` in the daemon's words; retried while still asked for).
+ */
+export const CastState = z.object({
+  t: z.literal('cast.state'),
+  previewId: z.string(),
+  state: z.enum(['starting', 'live', 'failed']),
+  error: z.string().nullable(),
+})
+
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
@@ -560,6 +571,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   RepoProbeResult,
   ServiceState,
   ServiceRestartResult,
+  CastState,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -729,6 +741,15 @@ export const PreviewsSync = z.object({
   previews: z.array(z.object({ id: z.string(), port: z.number().int().min(1).max(65535) })),
 })
 
+/** A window to publish: the hosted service's (its process tree's largest window). */
+export const CastTarget = z.object({ previewId: z.string(), service: z.string() })
+export type CastTarget = z.infer<typeof CastTarget>
+/**
+ * The live previews someone is watching on this machine, replaced wholesale: the daemon runs one gg-cast per entry
+ * and stops the others (plan B2).
+ */
+export const CastSync = z.object({ t: z.literal('cast.sync'), casts: z.array(CastTarget) })
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   FilesList,
@@ -751,5 +772,6 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   ServiceStop,
   ServiceRestart,
   PreviewsSync,
+  CastSync,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

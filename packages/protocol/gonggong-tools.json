@@ -204,6 +204,28 @@
     }
   },
   {
+    "name": "preview_gui",
+    "title": "发布桌面应用预览",
+    "description": "把 service_start 启动的桌面应用（如 Electron、Tauri 应用）的窗口实时推给群成员：群里出现一张预览卡片，成员打开后看到实时画面，经 Bot 主人同意可以远程操作。只推这个服务进程的窗口，不推整个屏幕。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "description": "service_start 启动的桌面应用服务名，推送它的窗口"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "卡片标题，说明这是什么"
+        }
+      },
+      "required": ["service", "title"]
+    }
+  },
+  {
     "name": "preview_close",
     "title": "关闭预览",
     "description": "关闭一个预览链接（服务本身不停止）。",
