@@ -6,8 +6,10 @@ use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Se
 use serde::Deserialize;
 use std::time::Duration;
 
-/// Lets an app switch to the front before the press (B0: the activation itself took 170–360 ms via osascript).
-const RAISE_SETTLE: Duration = Duration::from_millis(150);
+/// How often, and at most how long, a raised window is checked for being in front before the press lands (B0: the
+/// switch took 170–360 ms); past the limit the press goes ahead, as it would without a raise.
+const SETTLE_POLL: Duration = Duration::from_millis(10);
+const SETTLE_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -113,6 +115,16 @@ pub trait Target {
     fn frame(&mut self) -> anyhow::Result<Frame>;
     /// Brings the window in front of the others before a press lands on it; true when it was not.
     fn raise(&mut self) -> bool;
+    /// Whether it is now the window in front, receiving input.
+    fn frontmost(&mut self) -> bool;
+}
+
+/// Waits until a raised window is in front: the switch happens asynchronously in the window server.
+async fn settle(target: &mut impl Target) {
+    let deadline = tokio::time::Instant::now() + SETTLE_TIMEOUT;
+    while !target.frontmost() && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(SETTLE_POLL).await;
+    }
 }
 
 pub struct Injector<T: Target> {
@@ -132,7 +144,7 @@ impl<T: Target> Injector<T> {
 
     async fn fresh(&mut self) -> anyhow::Result<Frame> {
         if self.target.raise() {
-            tokio::time::sleep(RAISE_SETTLE).await;
+            settle(&mut self.target).await;
         }
         let frame = self.target.frame()?;
         self.frame = Some(frame);
@@ -230,6 +242,44 @@ mod tests {
     #[test]
     fn scrolls_at_least_a_line_in_the_wheels_direction() {
         assert_eq!((lines(0.0), lines(3.0), lines(-3.0), lines(120.0), lines(-100.0)), (0, 1, -1, 3, -3));
+    }
+
+    /// In front after `after` checks, or never.
+    struct Switching {
+        after: Option<u32>,
+        checks: u32,
+    }
+
+    impl Target for Switching {
+        fn frame(&mut self) -> anyhow::Result<Frame> {
+            unreachable!()
+        }
+        fn raise(&mut self) -> bool {
+            true
+        }
+        fn frontmost(&mut self) -> bool {
+            self.checks += 1;
+            self.after.is_some_and(|n| self.checks >= n)
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn waits_until_the_raised_window_is_in_front() {
+        let start = tokio::time::Instant::now();
+        let mut slow = Switching { after: Some(30), checks: 0 };
+        settle(&mut slow).await;
+        assert_eq!(slow.checks, 30);
+        // B0 measured 170–360 ms for the switch: waited as long as it takes, not a fixed guess.
+        assert_eq!(start.elapsed(), SETTLE_POLL * 29);
+
+        let start = tokio::time::Instant::now();
+        let mut instant = Switching { after: Some(1), checks: 0 };
+        settle(&mut instant).await;
+        assert_eq!(start.elapsed(), Duration::ZERO);
+
+        let start = tokio::time::Instant::now();
+        settle(&mut Switching { after: None, checks: 0 }).await;
+        assert!(start.elapsed() >= SETTLE_TIMEOUT && start.elapsed() < SETTLE_TIMEOUT + SETTLE_POLL * 2);
     }
 
     #[test]

@@ -21,6 +21,13 @@ impl Target for Window {
         #[cfg(not(target_os = "macos"))]
         false
     }
+
+    fn frontmost(&mut self) -> bool {
+        #[cfg(target_os = "macos")]
+        return ax::frontmost(self.pid as i32, &self.title);
+        #[cfg(not(target_os = "macos"))]
+        true
+    }
 }
 
 /// The ids of on-screen windows kept above normal ones (always on top).
@@ -112,24 +119,35 @@ mod ax {
         attr(element, name).and_then(|v| v.downcast::<CFBoolean>()).is_some_and(bool::from)
     }
 
-    /// The app of `pid` in front with the window titled `title` on top (its only window when none has that title);
-    /// true when it had to be moved, so the caller lets the switch settle.
-    pub fn raise(pid: i32, title: &str) -> bool {
-        // SAFETY: returns new elements (Create Rule).
-        let system = unsafe { CFType::wrap_under_create_rule(AXUIElementCreateSystemWide()) };
+    /// The app of `pid` and its window titled `title` (its only window when none has that title).
+    fn find(pid: i32, title: &str) -> Option<(CFType, CFType)> {
+        // SAFETY: returns a new element (Create Rule).
         let app = unsafe { CFType::wrap_under_create_rule(AXUIElementCreateApplication(pid)) };
-        let all = windows(&app);
-        let Some(window) =
-            all.iter().find(|w| title_of(w).as_deref() == Some(title)).or(all.first().filter(|_| all.len() == 1))
-        else {
-            return false;
-        };
-        let front = attr(&system, "AXFocusedApplication").is_some_and(|focused| {
+        let mut all = windows(&app);
+        let at = all.iter().position(|w| title_of(w).as_deref() == Some(title)).or((all.len() == 1).then_some(0))?;
+        Some((app, all.swap_remove(at)))
+    }
+
+    /// The focused app is `pid`'s, with `window` as its main window.
+    fn in_front(pid: i32, window: &CFType) -> bool {
+        // SAFETY: returns a new element (Create Rule).
+        let system = unsafe { CFType::wrap_under_create_rule(AXUIElementCreateSystemWide()) };
+        let focused = attr(&system, "AXFocusedApplication").is_some_and(|focused| {
             let mut p = 0;
             // SAFETY: a live element and an out pointer.
             unsafe { AXUIElementGetPid(focused.as_CFTypeRef(), &mut p) == SUCCESS && p == pid }
         });
-        if front && is_true(window, "AXMain") {
+        focused && is_true(window, "AXMain")
+    }
+
+    pub fn frontmost(pid: i32, title: &str) -> bool {
+        find(pid, title).is_some_and(|(_, window)| in_front(pid, &window))
+    }
+
+    /// The app of `pid` in front with the window titled `title` on top; true when it had to be moved.
+    pub fn raise(pid: i32, title: &str) -> bool {
+        let Some((app, window)) = find(pid, title) else { return false };
+        if in_front(pid, &window) {
             return false;
         }
         let (raise, frontmost) = (CFString::new("AXRaise"), CFString::new("AXFrontmost"));
