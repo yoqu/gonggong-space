@@ -711,11 +711,14 @@ pub enum TunnelTarget {
     },
 }
 
+/// A web page on an open preview's port (headless Chrome), or a mini program project's simulator (WeChat devtools).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SnapshotTarget {
-    pub preview_id: String,
-    pub port: u16,
+#[serde(untagged)]
+pub enum SnapshotTarget {
+    #[serde(rename_all = "camelCase")]
+    Page { preview_id: String, port: u16 },
+    #[serde(rename_all = "camelCase")]
+    Miniprogram { preview_id: String, miniprogram: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

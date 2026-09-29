@@ -184,3 +184,13 @@
   border: 1px solid var(--separator);
   border-radius: 8px;
 }
+.pv-login {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  background: #fff;
+}
+.pv-card__error {
+  display: block;
+  color: var(--system-red);
+}

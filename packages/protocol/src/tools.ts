@@ -63,6 +63,12 @@ export const PreviewExposeArgs = z
   .object({
     port: port.describe('本机端口').optional(),
     service: serviceName.describe('service_start 启动的服务名，使用它的端口').optional(),
+    miniprogram: z
+      .string()
+      .min(1)
+      .max(1000)
+      .describe('小程序项目在本机的绝对路径；由 preview_miniprogram 填写，不要直接使用')
+      .optional(),
     title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
     path: z
       .string()
@@ -71,8 +77,8 @@ export const PreviewExposeArgs = z
       .describe('打开时的路径（以 / 开头，可带查询串），默认 /')
       .optional(),
   })
-  .refine((a) => (a.port === undefined) !== (a.service === undefined), {
-    message: 'port 与 service 需要且只能给一个',
+  .refine((a) => [a.port, a.service, a.miniprogram].filter((x) => x !== undefined).length === 1, {
+    message: 'port、service 与 miniprogram 需要且只能给一个',
   })
 
 export const PreviewCloseArgs = z.object({ preview: z.string().describe('preview_expose 返回的预览 id') })
@@ -157,6 +163,22 @@ export const PreviewStaticArgs = z.object({
   path: z.string().regex(/^\//).max(500).describe('打开时的路径，默认 /（目录下的 index.html）').optional(),
 })
 
+export const PreviewMiniprogramArgs = z.object({
+  dir: z
+    .string()
+    .max(500)
+    .describe('工作区内小程序项目的目录（含 project.config.json），默认工作区根目录')
+    .optional(),
+  page: z
+    .string()
+    .regex(/^[^/?]/)
+    .max(300)
+    .describe('打开的页面路径，如 pages/goods/detail，默认首页')
+    .optional(),
+  query: z.string().regex(/^[^?]/).max(500).describe('页面参数，如 id=42&from=share').optional(),
+  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+})
+
 /**
  * Tools of the built-in `gonggong` MCP server answered by the daemon itself (it owns the processes); generated into
  * `gonggong-daemon-tools.json`. `service_start` is not auto-approved: it runs an arbitrary command.
@@ -191,6 +213,14 @@ export const DAEMON_TOOLS = {
     description:
       '把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。',
     input: PreviewStaticArgs,
+  },
+  preview_miniprogram: {
+    title: '发布小程序预览',
+    description:
+      '在本机微信开发者工具里打开工作区的小程序项目并跳到指定页面，在群里发一张带模拟器截图的预览卡片；' +
+      '同一项目再次调用会切换卡片的页面并重新截图。开发者工具的启动、登录（未登录时卡片上显示登录二维码，扫码后自动恢复）' +
+      '和「信任此项目」都由它处理：不要自己用 wechatide、cli 或其他命令操作开发者工具，也不要另发登录二维码。',
+    input: PreviewMiniprogramArgs,
   },
 } as const
 

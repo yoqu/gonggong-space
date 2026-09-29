@@ -1,3 +1,4 @@
+import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { Icon, IconButton, toast } from '../../ui'
@@ -5,6 +6,19 @@ import { errorText } from '../auth/AuthCard'
 import './previews.css'
 import { PreviewActions } from './PreviewActions'
 import { openInWorkbench, snapshotUrl, usePreviews } from './store'
+
+/** What a mini program card says while its machine's WeChat devtools wait for a login. */
+export const loginNote = (p: PreviewDto) =>
+  p.canManage ? '微信开发者工具未登录，请用微信扫码登录' : '等待 Bot 主人登录微信开发者工具'
+
+/** The devtools' login code, for the bot owner or a group admin only (scanning logs the scanner in). */
+export function DevtoolsLogin({ preview: p }: { preview: PreviewDto }) {
+  return p.canManage ? (
+    <img className="pv-login" src={snapshotUrl(p)} alt="微信开发者工具登录二维码" />
+  ) : (
+    <Icon name="smartphone" size={32} className="pv-card__placeholder" />
+  )
+}
 
 export const PREVIEW_STATE = { online: '在线', offline: '离线', stopped: '服务已停止', closed: '已关闭' }
 
@@ -29,6 +43,7 @@ export function PreviewCard({
   const p = list?.previews.find((x) => x.id === previewId)
   const state = p ? p.status : list ? 'closed' : undefined
   const title = p?.title ?? fallback
+  const mini = p?.kind === 'miniprogram'
   const reopen = async () => {
     setReopening(true)
     try {
@@ -49,10 +64,12 @@ export function PreviewCard({
           onClick={() => openInWorkbench(p)}
           tabIndex={-1}
         >
-          {p.snapshotAt ? (
-            <img src={snapshotUrl(p)} alt={`${p.title} 首屏`} loading="lazy" />
+          {p.awaiting === 'login' ? (
+            <DevtoolsLogin preview={p} />
+          ) : p.snapshotAt ? (
+            <img src={snapshotUrl(p)} alt={`${p.title} ${mini ? '模拟器' : '首屏'}`} loading="lazy" />
           ) : (
-            <Icon name="globe" size={32} className="pv-card__placeholder" />
+            <Icon name={mini ? 'smartphone' : 'globe'} size={32} className="pv-card__placeholder" />
           )}
         </button>
       ) : null}
@@ -73,9 +90,11 @@ export function PreviewCard({
         </div>
         {p ? (
           <div className="pv-card__meta">
-            {p.status === 'stopped' ? '服务已停止 · ' : ''}
-            {p.port ? `:${p.port}` : ''}
-            {p.path}
+            {mini ? (p.awaiting === 'login' ? loginNote(p) : `小程序 · ${p.path}`) : null}
+            {p.snapshotError ? <span className="pv-card__error">{p.snapshotError}</span> : null}
+            {!mini && p.status === 'stopped' ? '服务已停止 · ' : ''}
+            {!mini && p.port ? `:${p.port}` : ''}
+            {mini ? null : p.path}
             {p.serviceName ? ` · ${p.serviceName}` : ''}
           </div>
         ) : null}

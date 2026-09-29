@@ -27,7 +27,7 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
       trigger={
         <button type="button" className="pv-tag">
           <span className={`pv-dot pv-dot--${p.status}`} />
-          <Icon name="globe" size={13} className="pv-tag__icon" />
+          <Icon name={p.kind === 'miniprogram' ? 'smartphone' : 'globe'} size={13} className="pv-tag__icon" />
           <span className="pv-tag__title">{p.title}</span>
           {p.port ? <span className="pv-tag__port">:{p.port}</span> : null}
         </button>
@@ -36,7 +36,11 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
       {(close) => (
         <div className="pv-pop">
           {p.snapshotAt ? (
-            <img className="pv-pop__shot" src={snapshotUrl(p)} alt={`${p.title} 首屏`} />
+            <img
+              className="pv-pop__shot"
+              src={snapshotUrl(p)}
+              alt={`${p.title} ${p.kind === 'miniprogram' ? '模拟器' : '首屏'}`}
+            />
           ) : null}
           <div className="pv-card__head">
             <span className="pv-card__title">{p.title}</span>

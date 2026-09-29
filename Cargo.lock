@@ -1933,6 +1933,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "clap",
+ "core-foundation 0.10.1",
  "fs4",
  "futures-util",
  "gethostname",

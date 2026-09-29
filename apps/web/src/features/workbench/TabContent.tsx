@@ -3,6 +3,7 @@ import { tabKey, type WorkbenchTab } from '../../app/workbench'
 import { DiffTab, useDiffTabMeta } from './tabs/DiffTab'
 import { FilesTab, useFilesTabMeta } from './tabs/FilesTab'
 import { FileTab, useFileTabMeta } from './tabs/FileTab'
+import { MiniprogramTab, useMiniprogramTabMeta } from './tabs/MiniprogramTab'
 import { RunTab, useRunTabMeta } from './tabs/RunTab'
 import { useWebTabMeta, WebTab } from './tabs/WebTab'
 import type { TabMeta } from './types'
@@ -13,6 +14,8 @@ export function TabContent({ tab, active }: { tab: WorkbenchTab; active: boolean
   switch (tab.kind) {
     case 'web':
       return <WebTab tab={tab} tabKey={key} active={active} />
+    case 'miniprogram':
+      return <MiniprogramTab tab={tab} tabKey={key} active={active} />
     case 'run':
       return <RunTab tab={tab} tabKey={key} active={active} />
     case 'diff':
@@ -31,6 +34,8 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
   switch (tab.kind) {
     case 'web':
       return <WebMeta tab={tab}>{children}</WebMeta>
+    case 'miniprogram':
+      return <MiniprogramMeta tab={tab}>{children}</MiniprogramMeta>
     case 'run':
       return <RunMeta tab={tab}>{children}</RunMeta>
     case 'diff':
@@ -44,6 +49,7 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
 
 type MetaProps<K extends WorkbenchTab['kind']> = { tab: Extract<WorkbenchTab, { kind: K }>; children: Render }
 const WebMeta = ({ tab, children }: MetaProps<'web'>) => children(useWebTabMeta(tab))
+const MiniprogramMeta = ({ tab, children }: MetaProps<'miniprogram'>) => children(useMiniprogramTabMeta(tab))
 const RunMeta = ({ tab, children }: MetaProps<'run'>) => children(useRunTabMeta(tab))
 const DiffMeta = ({ tab, children }: MetaProps<'diff'>) => children(useDiffTabMeta(tab))
 const FilesMeta = ({ tab, children }: MetaProps<'files'>) => children(useFilesTabMeta(tab))

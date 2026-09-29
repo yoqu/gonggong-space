@@ -28,7 +28,7 @@ import { notificationRoutes } from './modules/notifications/routes.js'
 import { startPreviewEngine } from './modules/previews/engine.js'
 import { previewServerFactory, routeUpgrades, startPortListeners } from './modules/previews/gateway.js'
 import { previewRoutes } from './modules/previews/routes.js'
-import { startPreviewReaper } from './modules/previews/service.js'
+import { startLoginWatch, startPreviewReaper } from './modules/previews/service.js'
 import { shareRoutes } from './modules/previews/shares.js'
 import { tunnelGateway } from './modules/previews/tunnel.js'
 import { questionRoutes } from './modules/questions/routes.js'
@@ -83,6 +83,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(runRoutes(ctx))
   app.addHook('onClose', startPreviewEngine(ctx))
   app.addHook('onClose', startPreviewReaper(ctx))
+  app.addHook('onClose', startLoginWatch(ctx))
   const stopRunEngine = startRunEngine(ctx)
   app.addHook('onClose', stopRunEngine)
   await app.register(stopRoutes(ctx))

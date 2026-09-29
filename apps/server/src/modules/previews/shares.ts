@@ -10,7 +10,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { sysParams } from '../admin/params.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
-import { previewOrigin, requireOpenPreview } from './routes.js'
+import { previewOrigin, requireOpenPreview, requireWebPreview } from './routes.js'
 import { requireManager } from './service.js'
 
 type Preview = typeof previews.$inferSelect
@@ -106,7 +106,7 @@ export function shareRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post('/api/previews/:id/shares', async (req) => {
       const user = await requireUser(ctx, req)
-      const preview = await requireOpenPreview(ctx, (req.params as { id: string }).id)
+      const preview = await requireWebPreview(ctx, (req.params as { id: string }).id)
       await requireManager(ctx, preview.groupId, preview.botId, user.id)
       const { days } = CreatePreviewShareReq.parse(req.body ?? {})
       const { previewShareMaxDays } = await sysParams(ctx.db)

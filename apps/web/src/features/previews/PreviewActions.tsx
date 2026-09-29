@@ -32,19 +32,23 @@ export function PreviewActions({
       setBusy(undefined)
     }
   }
-  const stopLabel = p.serviceId ? '停止穿透和服务' : '停止穿透'
+  // A mini program lives in the machine's devtools: no web address to open or share.
+  const web = p.kind !== 'miniprogram'
+  const stopLabel = !web ? '关闭预览' : p.serviceId ? '停止穿透和服务' : '停止穿透'
   return (
     <div className="pv-actions">
-      <a
-        className="ui-btn ui-btn--plain ui-btn--small ui-icon-btn"
-        href={openUrl(p.id, p.path)}
-        target="_blank"
-        rel="noreferrer"
-        title="打开"
-        aria-label="打开"
-      >
-        <Icon name="external" size={15} />
-      </a>
+      {web ? (
+        <a
+          className="ui-btn ui-btn--plain ui-btn--small ui-icon-btn"
+          href={openUrl(p.id, p.path)}
+          target="_blank"
+          rel="noreferrer"
+          title="打开"
+          aria-label="打开"
+        >
+          <Icon name="external" size={15} />
+        </a>
+      ) : null}
       {p.status === 'online' ? (
         <IconButton
           size="small"
@@ -68,7 +72,7 @@ export function PreviewActions({
               {'play' as const}
             </IconButton>
           ) : null}
-          {share ? (
+          {share && web ? (
             <IconButton size="small" title="公开链接" onClick={() => setSharing(true)}>
               {'link' as const}
             </IconButton>

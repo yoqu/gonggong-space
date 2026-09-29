@@ -21,6 +21,8 @@ const preview = (o: Partial<PreviewDto> = {}): PreviewDto => ({
   port: 5173,
   snapshotAt: null,
   status: 'online',
+  awaiting: null,
+  snapshotError: null,
   canManage: false,
   createdAt: '2026-09-27T10:00:00Z',
   ...o,

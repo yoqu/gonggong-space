@@ -30,4 +30,5 @@ pub mod tls;
 pub mod tunnel;
 pub mod turn;
 pub mod upgrade;
+pub mod wechatide;
 pub mod workspace;

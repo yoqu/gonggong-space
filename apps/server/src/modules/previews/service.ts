@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { GroupPreviewsDto, PreviewDto, ServiceDto } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
@@ -18,6 +18,8 @@ type Run = typeof runs.$inferSelect
 type Preview = typeof previews.$inferSelect
 const LIVE = ['starting', 'running']
 const REAP_EVERY_MS = 10 * 60_000
+/** A login code scanned shows as the simulator within this. */
+const LOGIN_WATCH_MS = 5_000
 const SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024
 
 /** 16 base32 characters (80 bits): the subdomain label in domain mode. */
@@ -91,6 +93,8 @@ async function listPreviews(
         serviceName,
         port: p.port,
         snapshotAt: p.snapshotAt?.toISOString() ?? null,
+        awaiting: p.awaiting as PreviewDto['awaiting'],
+        snapshotError: p.snapshotError,
         status: !ctx.tunnels.get(p.machineId)
           ? 'offline'
           : serviceStatus && !LIVE.includes(serviceStatus)
@@ -159,10 +163,11 @@ export async function publishPreviews(ctx: Ctx, groupId: string) {
 export async function exposePreview(
   ctx: Ctx,
   run: Run,
-  a: { port?: number; service?: string; title: string; path?: string },
+  a: { port?: number; service?: string; miniprogram?: string; title: string; path?: string },
 ) {
   const [bot] = await ctx.db.select().from(bots).where(eq(bots.id, run.botId))
   if (!bot?.machineId) return refuse('bot 未绑定机器')
+  if (a.miniprogram) return exposeMiniprogram(ctx, run, bot.machineId, { ...a, miniprogram: a.miniprogram })
   const mine = and(
     eq(services.groupId, run.groupId),
     eq(services.botId, run.botId),
@@ -211,14 +216,7 @@ export async function exposePreview(
   let preview = p as Preview
   if (!ctx.config.preview.domain)
     preview = { ...preview, publicPort: await openPortListener(ctx, preview.id) }
-  const card = await postMessage(ctx, {
-    groupId: run.groupId,
-    kind: 'bot',
-    authorBotId: run.botId,
-    body: `预览：${a.title}`,
-    meta: { preview: preview.id },
-  })
-  await ctx.db.update(previews).set({ messageId: card.id }).where(eq(previews.id, preview.id))
+  await announce(ctx, run, preview)
   await syncPreviews(ctx, bot.machineId)
   await publishPreviews(ctx, run.groupId)
   void takeSnapshot(ctx, preview).catch(() => {})
@@ -231,16 +229,87 @@ export async function exposePreview(
     .join('\n')
 }
 
+/** Posts the preview's card in its group. */
+async function announce(ctx: Ctx, run: Run, preview: Preview) {
+  const card = await postMessage(ctx, {
+    groupId: run.groupId,
+    kind: 'bot',
+    authorBotId: run.botId,
+    body: `预览：${preview.title}`,
+    meta: { preview: preview.id },
+  })
+  await ctx.db.update(previews).set({ messageId: card.id }).where(eq(previews.id, preview.id))
+}
+
+/** A mini program in the machine's devtools (plan §13): one open card per (group, bot, project), moved by republishing. */
+async function exposeMiniprogram(
+  ctx: Ctx,
+  run: Run,
+  machineId: string,
+  a: { miniprogram: string; title: string; path?: string },
+) {
+  const path = a.path ?? '/'
+  const [existing] = await ctx.db
+    .select()
+    .from(previews)
+    .where(
+      and(
+        eq(previews.groupId, run.groupId),
+        eq(previews.botId, run.botId),
+        eq(previews.project, a.miniprogram),
+        isNull(previews.closedAt),
+      ),
+    )
+  if (existing) {
+    const [moved] = await ctx.db
+      .update(previews)
+      .set({ title: a.title, path })
+      .where(eq(previews.id, existing.id))
+      .returning()
+    await publishPreviews(ctx, run.groupId)
+    void takeSnapshot(ctx, moved as Preview).catch(() => {})
+    return `小程序预览「${a.title}」（id ${existing.id}）已切换到 ${path}，群里已有它的卡片。`
+  }
+  const [p] = await ctx.db
+    .insert(previews)
+    .values({
+      slug: newSlug(),
+      kind: 'miniprogram',
+      machineId,
+      groupId: run.groupId,
+      botId: run.botId,
+      project: a.miniprogram,
+      path,
+      title: a.title,
+      createdByRunId: run.id,
+    })
+    .returning()
+  const preview = p as Preview
+  await announce(ctx, run, preview)
+  await publishPreviews(ctx, run.groupId)
+  void takeSnapshot(ctx, preview).catch(() => {})
+  return `已发布预览「${a.title}」（id ${preview.id}），群里已出现带模拟器截图的卡片。`
+}
+
 export const snapshotFile = (previewId: string) => join(dataDir(), 'previews', `${previewId}.png`)
 
-/** Its first screen, rendered by the machine's headless Chrome through the tunnel; fails with the machine's reason. */
+/**
+ * Its first screen through the tunnel: a web page rendered by the machine's headless Chrome, or a mini program's
+ * simulator in the machine's devtools; fails with the machine's reason.
+ */
 export async function takeSnapshot(ctx: Ctx, p: Preview) {
   const conn = ctx.tunnels.get(p.machineId)
-  if (!conn || p.port === null) return fail('conflict', '预览所在的机器离线')
+  const target = p.project
+    ? { previewId: p.id, miniprogram: p.project }
+    : p.port !== null
+      ? { previewId: p.id, port: p.port }
+      : null
+  if (!conn || !target) return fail('conflict', '预览所在的机器离线')
   let png: Buffer
+  let status: number
   try {
     const stream = conn.open({
-      snapshot: { previewId: p.id, port: p.port },
+      snapshot: target,
       method: 'GET',
       path: p.path,
       headers: [],
@@ -256,15 +325,60 @@ export async function takeSnapshot(ctx: Ctx, p: Preview) {
       chunks.push(c as Buffer)
     }
     png = Buffer.concat(chunks)
-    if (head.status !== 200) throw new Error(png.toString() || `截图失败（${head.status}）`)
+    status = head.status
+    if (status !== 200 && status !== 202) throw new Error(png.toString() || `截图失败（${status}）`)
   } catch (err) {
-    return fail('conflict', (err as Error).message)
+    const reason = (err as Error).message
+    if (p.snapshotError !== reason) {
+      await ctx.db.update(previews).set({ snapshotError: reason }).where(eq(previews.id, p.id))
+      await publishPreviews(ctx, p.groupId)
+    }
+    return fail('conflict', reason)
   }
+  // 202: the machine's devtools want a login first; their QR code stands in for the picture.
+  const awaiting = status === 202 ? 'login' : null
   const file = snapshotFile(p.id)
+  const unchanged = awaiting && p.awaiting === awaiting && !p.snapshotError
+  if (unchanged && (await readFile(file).catch(() => null))?.equals(png)) return
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, png)
-  await ctx.db.update(previews).set({ snapshotAt: ctx.now() }).where(eq(previews.id, p.id))
+  await ctx.db
+    .update(previews)
+    .set({ snapshotAt: ctx.now(), awaiting, snapshotError: null })
+    .where(eq(previews.id, p.id))
   await publishPreviews(ctx, p.groupId)
+}
+
+const retaking = new Set<string>()
+
+/** Mini program cards waiting for their devtools' login: asks again, so a scanned code turns into the simulator. */
+export async function retakeAwaitingLogin(ctx: Ctx) {
+  const waiting = await ctx.db
+    .select()
+    .from(previews)
+    .where(and(eq(previews.awaiting, 'login'), isNull(previews.closedAt)))
+  await Promise.all(
+    waiting
+      .filter((p) => !retaking.has(p.id) && ctx.tunnels.get(p.machineId))
+      .map(async (p) => {
+        retaking.add(p.id)
+        try {
+          await takeSnapshot(ctx, p)
+        } catch {
+          // offline or failing machine: the next round tries again
+        } finally {
+          retaking.delete(p.id)
+        }
+      }),
+  )
+}
+
+export function startLoginWatch(ctx: Ctx) {
+  const timer = setInterval(
+    () => void retakeAwaitingLogin(ctx).catch((err) => console.error('preview login watch:', err)),
+    LOGIN_WATCH_MS,
+  )
+  return async () => clearInterval(timer)
 }
 
 /** Asks the machine to stop a live service; its exit report closes the service's previews. */
@@ -290,19 +404,20 @@ export async function stopPreview(ctx: Ctx, preview: Preview, withService: boole
  * was closed (the service's report has moved it onto the restarted one by then).
  */
 export async function startPreview(ctx: Ctx, p: Preview) {
-  if (p.closedAt && p.port !== null) {
+  const same = p.project
+    ? eq(previews.project, p.project)
+    : p.port !== null
+      ? eq(previews.port, p.port)
+      : null
+  if (p.closedAt && same) {
     const [taken] = await ctx.db
       .select({ title: previews.title })
       .from(previews)
       .where(
-        and(
-          eq(previews.groupId, p.groupId),
-          eq(previews.botId, p.botId),
-          eq(previews.port, p.port),
-          isNull(previews.closedAt),
-        ),
+        and(eq(previews.groupId, p.groupId), eq(previews.botId, p.botId), same, isNull(previews.closedAt)),
       )
-    if (taken) fail('conflict', `端口 ${p.port} 已有新的预览「${taken.title}」`)
+    if (taken)
+      fail('conflict', `${p.project ? '这个小程序' : `端口 ${p.port}`} 已有新的预览「${taken.title}」`)
   }
   const [svc] = p.serviceId ? await ctx.db.select().from(services).where(eq(services.id, p.serviceId)) : []
   if (svc && !LIVE.includes(svc.status)) await restartService(ctx, svc)
@@ -326,7 +441,7 @@ export async function startPreview(ctx: Ctx, p: Preview) {
       .update(previews)
       .set({ closedAt: null, ...(now ? { serviceId: now.id, port: now.port ?? p.port } : {}) })
       .where(eq(previews.id, p.id))
-    if (!ctx.config.preview.domain) await openPortListener(ctx, p.id)
+    if (!ctx.config.preview.domain && p.port !== null) await openPortListener(ctx, p.id)
     await syncPreviews(ctx, p.machineId)
   }
   await publishPreviews(ctx, p.groupId)

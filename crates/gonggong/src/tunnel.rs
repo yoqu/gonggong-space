@@ -53,7 +53,8 @@ impl Frame {
 
 // ── Daemon runtime ───────────────────────────────────────────────────────────
 use crate::config::Config;
-use crate::protocol::{TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
+use crate::protocol::{SnapshotTarget, TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
+use crate::wechatide::Shot;
 use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
@@ -202,12 +203,12 @@ where
                             });
                             continue;
                         }
-                        TunnelTarget::Snapshot { snapshot } => {
-                            if allow.read().unwrap().get(&snapshot.preview_id) != Some(&snapshot.port) {
-                                out.reset(format!("端口 {} 未开放预览", snapshot.port)).await;
+                        TunnelTarget::Snapshot { snapshot: SnapshotTarget::Page { preview_id, port } } => {
+                            if allow.read().unwrap().get(preview_id) != Some(port) {
+                                out.reset(format!("端口 {port} 未开放预览")).await;
                                 continue;
                             }
-                            let (port, path) = (snapshot.port, open.path.clone());
+                            let (port, path) = (*port, open.path.clone());
                             tokio::spawn(async move {
                                 match crate::snapshot::capture(port, &path).await {
                                     Ok(Some(png)) => answer(&out, 200, "image/png", png).await,
@@ -216,6 +217,19 @@ where
                                         answer(&out, 404, "text/plain; charset=utf-8", msg.into()).await
                                     }
                                     Err(e) => out.reset(format!("{e:#}")).await,
+                                }
+                            });
+                            continue;
+                        }
+                        TunnelTarget::Snapshot { snapshot: SnapshotTarget::Miniprogram { miniprogram, .. } } => {
+                            let (project, path) = (PathBuf::from(miniprogram), open.path.clone());
+                            tokio::spawn(async move {
+                                match crate::wechatide::screenshot(crate::wechatide::devtools(), &project, &path).await
+                                {
+                                    Ok(Shot::Simulator(jpeg)) => answer(&out, 200, "image/jpeg", jpeg).await,
+                                    // Not the page yet: the devtools' login code for the bot's owner.
+                                    Ok(Shot::Login(qr)) => answer(&out, 202, "image/jpeg", qr).await,
+                                    Err(e) => out.reset(e).await,
                                 }
                             });
                             continue;

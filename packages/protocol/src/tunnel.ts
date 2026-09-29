@@ -48,11 +48,14 @@ const PreviewPort = z.object({ previewId: z.string(), port: z.number().int().min
 /**
  * Targets: an open preview's loopback port; the read-only file server over a (group, bot) workspace (files
  * browser raw bytes: GET / HEAD with Range; `path` = `/` + percent-encoded path relative to the workspace root); or
- * a first-screen PNG of an open preview at `path`, rendered by the machine's headless Chrome (404 without one).
+ * a first-screen image of an open preview at `path`: a web page rendered by the machine's headless Chrome (404 without
+ * one), or a mini program project's simulator at page `path` (`/<page>?<query>`) in the machine's WeChat devtools.
  */
 export const TunnelOpen = z.union([
   TunnelRequest.extend(PreviewPort.shape),
-  TunnelRequest.extend({ snapshot: PreviewPort }),
+  TunnelRequest.extend({
+    snapshot: z.union([PreviewPort, z.object({ previewId: z.string(), miniprogram: z.string() })]),
+  }),
   TunnelRequest.extend({
     files: z.object({ groupId: z.string(), botId: z.string(), workspace: WorkspaceSpec }),
   }),

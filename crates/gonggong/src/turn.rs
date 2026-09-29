@@ -60,7 +60,8 @@ pub fn system_prompt(bot: &RunBot) -> String {
         需要触发人拍板（方案取舍、范围、缺失信息）时，调用 gonggong 的 ask_group_members（Claude 中为 \
         mcp__gonggong__ask_group_members）提问并等待回答，不要只在回复里用文字列出问题就结束本轮。\
         需要给群成员看运行中的网页或服务时，用 gonggong 的 service_start 启动、preview_expose 发布；静态页面用 \
-        preview_static 发布。不要自己在后台起进程，也不要让大家访问 localhost。",
+        preview_static 发布；微信小程序用 preview_miniprogram 在本机开发者工具里打开并发布。不要自己在后台起进程，\
+        也不要让大家访问 localhost。",
         bot.name
     );
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
@@ -486,6 +487,7 @@ mod tests {
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));
         assert!(s.contains("用 gonggong 工具查询"));
         assert!(s.contains("preview_expose 发布"));
+        assert!(s.contains("微信小程序用 preview_miniprogram"));
         assert!(s.contains("mcp__gonggong__ask_group_members"));
         assert!(s.ends_with("\n\n只改 server/"));
     }

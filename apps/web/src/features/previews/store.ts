@@ -1,6 +1,7 @@
-import type { GroupPreviewsDto } from '@gonggong/protocol'
-import { useEffect } from 'react'
+import type { GroupPreviewsDto, PreviewDto } from '@gonggong/protocol'
+import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
+import { useWorkbench } from '../../app/workbench'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { openTab } from '../workbench/open'
@@ -45,6 +46,21 @@ export function usePreviews(groupId: string): GroupPreviewsDto | undefined {
   return list
 }
 
+export type PreviewStatus = PreviewDto['status'] | 'closed'
+
+/** A workbench tab's preview and its state; undefined until the group's list first loads. */
+export function usePreview(previewId: string) {
+  const groupId = useWorkbench((s) => s.groupId) ?? ''
+  const list = usePreviews(groupId)
+  // A realtime reconnect clears the list for a moment: keep the last answer so the tab does not flash.
+  const last = useRef<{ preview: PreviewDto | undefined; status: PreviewStatus } | undefined>(undefined)
+  if (list) {
+    const preview = list.previews.find((p) => p.id === previewId)
+    last.current = { preview, status: preview ? preview.status : 'closed' }
+  }
+  return last.current
+}
+
 /** Tests: forget loaded lists and the realtime hook-up. */
 export function resetPreviews() {
   useStore.setState({}, true)
@@ -56,8 +72,12 @@ export const openUrl = (previewId: string, path = '/') =>
   `/api/previews/${previewId}/open?path=${encodeURIComponent(path)}`
 
 /** Opens the preview as a workbench tab; false (and a toast) when the workbench is full. */
-export const openInWorkbench = (p: { id: string; path: string }) =>
-  openTab({ kind: 'web', previewId: p.id, path: p.path })
+export const openInWorkbench = (p: Pick<PreviewDto, 'id' | 'path' | 'kind'>) =>
+  openTab(
+    p.kind === 'miniprogram'
+      ? { kind: 'miniprogram', previewId: p.id }
+      : { kind: 'web', previewId: p.id, path: p.path },
+  )
 
 /** Versioned by when it was taken, so a retake shows at once while the image stays cacheable. */
 export const snapshotUrl = (p: { id: string; snapshotAt: string | null }) =>

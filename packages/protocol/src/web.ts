@@ -490,7 +490,7 @@ export const MessageDto = z.object({
 export type MessageDto = z.infer<typeof MessageDto>
 
 // ── Previews (plan 结果预览) ─────────────────────────────────────────────────
-export const PreviewKind = z.enum(['http', 'static', 'gui'])
+export const PreviewKind = z.enum(['http', 'static', 'gui', 'miniprogram'])
 export const PreviewDto = z.object({
   id: z.string(),
   groupId: z.string(),
@@ -508,6 +508,13 @@ export const PreviewDto = z.object({
   snapshotAt: z.string().nullable(),
   /** online = its machine's tunnel is up; stopped = the service behind it is not running (启动 brings it back). */
   status: z.enum(['online', 'offline', 'stopped']),
+  /**
+   * login = a mini program whose machine's WeChat devtools nobody is logged in to: its snapshot is their login QR
+   * code, served to managers only; the card turns into the simulator once scanned.
+   */
+  awaiting: z.enum(['login']).nullable(),
+  /** Why the machine could not take the last snapshot, until one works. */
+  snapshotError: z.string().nullable(),
   /** The bot owner and group admins may close it and share it publicly. */
   canManage: z.boolean(),
   createdAt: z.string(),

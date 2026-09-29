@@ -4,6 +4,7 @@ import { create } from 'zustand'
 /** Right-hand workbench of the chat page (docs/plan/预览工作台-设计.md): tabs per group, three space modes. */
 export type WorkbenchTab =
   | { kind: 'web'; previewId: string; path: string }
+  | { kind: 'miniprogram'; previewId: string }
   | { kind: 'run'; runId: string; view: 'process' | 'diff' | 'audit'; file: string | null }
   | { kind: 'diff'; botId: string; scope: DiffScope; file: string | null }
   | { kind: 'files'; botId: string; dir: string; selected: string | null }
@@ -49,6 +50,8 @@ export function tabKey(t: WorkbenchTab): string {
   switch (t.kind) {
     case 'web':
       return `web:${t.previewId}`
+    case 'miniprogram':
+      return `mp:${t.previewId}`
     case 'run':
       return `run:${t.runId}`
     case 'diff':

@@ -444,8 +444,8 @@ fn code(c: Option<i32>) -> String {
 }
 
 /// `rel` resolved under `root`, refusing anything that leaves it.
-fn inside(root: &Path, rel: &str) -> Result<PathBuf, String> {
-    const OUTSIDE: &str = "cwd 必须是工作区内已存在的相对目录";
+pub(crate) fn inside(root: &Path, rel: &str) -> Result<PathBuf, String> {
+    const OUTSIDE: &str = "目录必须是工作区内已存在的相对目录";
     let root = root.canonicalize().map_err(|e| format!("工作区不可用：{e}"))?;
     let dir = root.join(rel).canonicalize().map_err(|_| OUTSIDE.to_string())?;
     if dir.starts_with(&root) && dir.is_dir() { Ok(dir) } else { Err(OUTSIDE.into()) }

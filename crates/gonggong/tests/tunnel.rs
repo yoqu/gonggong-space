@@ -1,5 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
-use gonggong::protocol::{TunnelHead, TunnelOpen, TunnelReset, TunnelTarget, WorkspaceFiles, WorkspaceSpec};
+use gonggong::protocol::{
+    SnapshotTarget, TunnelHead, TunnelOpen, TunnelReset, TunnelTarget, WorkspaceFiles, WorkspaceSpec,
+};
 use gonggong::tunnel::{self, Allow, Frame, FrameType};
 use http_body_util::{BodyExt, Full, StreamBody};
 use hyper::body::{Bytes, Frame as BodyFrame, Incoming};
@@ -188,6 +190,25 @@ async fn refuses_ports_without_an_open_preview_and_reports_dead_ones() {
     assert_eq!((f.stream_id, f.kind), (5, FrameType::Reset));
     let reset: TunnelReset = serde_json::from_slice(&f.payload).unwrap();
     assert!(reset.reason.contains(&dead.to_string()), "{}", reset.reason);
+}
+
+#[tokio::test]
+async fn mini_program_snapshots_need_a_project_and_no_open_port() {
+    let mut ws = connect(allow(&[])).await;
+    let dir = tempfile::tempdir().unwrap();
+    let target = SnapshotTarget::Miniprogram { preview_id: "p9".into(), miniprogram: dir.path().display().to_string() };
+    let shot = TunnelOpen {
+        target: TunnelTarget::Snapshot { snapshot: target },
+        method: "GET".into(),
+        path: "/pages/index/index".into(),
+        headers: vec![],
+        upgrade: false,
+    };
+    open(&mut ws, 7, shot).await;
+    let f = next(&mut ws).await;
+    assert_eq!((f.stream_id, f.kind), (7, FrameType::Reset));
+    let reset: TunnelReset = serde_json::from_slice(&f.payload).unwrap();
+    assert!(reset.reason.contains("不是小程序项目"), "{}", reset.reason);
 }
 
 #[tokio::test]

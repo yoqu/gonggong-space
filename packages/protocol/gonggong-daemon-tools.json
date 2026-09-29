@@ -116,5 +116,39 @@
       },
       "required": ["title"]
     }
+  },
+  {
+    "name": "preview_miniprogram",
+    "title": "发布小程序预览",
+    "description": "在本机微信开发者工具里打开工作区的小程序项目并跳到指定页面，在群里发一张带模拟器截图的预览卡片；同一项目再次调用会切换卡片的页面并重新截图。开发者工具的启动、登录（未登录时卡片上显示登录二维码，扫码后自动恢复）和「信任此项目」都由它处理：不要自己用 wechatide、cli 或其他命令操作开发者工具，也不要另发登录二维码。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "工作区内小程序项目的目录（含 project.config.json），默认工作区根目录"
+        },
+        "page": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^[^/?]",
+          "description": "打开的页面路径，如 pages/goods/detail，默认首页"
+        },
+        "query": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^[^?]",
+          "description": "页面参数，如 id=42&from=share"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "卡片标题，说明这是什么"
+        }
+      },
+      "required": ["title"]
+    }
   }
 ]

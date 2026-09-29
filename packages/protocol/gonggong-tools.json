@@ -181,6 +181,12 @@
           "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
           "description": "service_start 启动的服务名，使用它的端口"
         },
+        "miniprogram": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "小程序项目在本机的绝对路径；由 preview_miniprogram 填写，不要直接使用"
+        },
         "title": {
           "type": "string",
           "minLength": 1,

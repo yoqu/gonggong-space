@@ -25,7 +25,7 @@ async fn connect(allow: Allow) -> ServerWs {
 
 async fn open(ws: &mut ServerWs, stream_id: u32, preview: &str, port: u16) {
     let open = TunnelOpen {
-        target: TunnelTarget::Snapshot { snapshot: SnapshotTarget { preview_id: preview.into(), port } },
+        target: TunnelTarget::Snapshot { snapshot: SnapshotTarget::Page { preview_id: preview.into(), port } },
         method: "GET".into(),
         path: "/login".into(),
         headers: vec![],

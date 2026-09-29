@@ -1,27 +1,11 @@
-import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { Button, EmptyState, Icon, Presence, SegmentedControl, TextField } from '../../../ui'
 import '../../previews/previews.css'
 import { ShareDialog } from '../../previews/ShareDialog'
-import { openUrl, usePreviews } from '../../previews/store'
+import { openUrl, usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
 import './web-tab.css'
-
-type Status = PreviewDto['status'] | 'closed'
-
-/** The tab's preview and its state; undefined until the group's list first loads. */
-function usePreview(previewId: string) {
-  const groupId = useWorkbench((s) => s.groupId) ?? ''
-  const list = usePreviews(groupId)
-  // A realtime reconnect clears the list for a moment: keep the last answer so the frame does not reload.
-  const last = useRef<{ preview: PreviewDto | undefined; status: Status } | undefined>(undefined)
-  if (list) {
-    const preview = list.previews.find((p) => p.id === previewId)
-    last.current = { preview, status: preview ? preview.status : 'closed' }
-  }
-  return last.current
-}
 
 const VIEWPORTS = ['fit', '1440', '1024', '768', '390'] as const
 type Viewport = (typeof VIEWPORTS)[number]

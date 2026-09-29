@@ -1,6 +1,6 @@
 //! B0 spike (plan 结果预览): publish one app window (found by pid) to a LiveKit room and apply remote clicks.
 //!
-//! gg-cast --pid <pid> [--capture xcap|native] [--fps 30] [--codec vp8|h264|vp9]
+//! gg-cast --pid <pid> [--title <substring>] [--capture xcap|native] [--fps 30] [--codec vp8|h264|vp9]
 //! env LIVEKIT_URL (ws://127.0.0.1:7880), LIVEKIT_API_KEY (devkey), LIVEKIT_API_SECRET (secret), LIVEKIT_ROOM (b0)
 use anyhow::{Context, bail};
 use enigo::{Button, Coordinate, Direction, Enigo, Mouse, Settings};
@@ -21,18 +21,20 @@ use std::time::{Duration, Instant};
 
 struct Args {
     pid: u32,
+    title: Option<String>,
     capture: String,
     fps: u32,
     codec: VideoCodec,
 }
 
 fn args() -> anyhow::Result<Args> {
-    let mut a = Args { pid: 0, capture: "native".into(), fps: 30, codec: VideoCodec::VP8 };
+    let mut a = Args { pid: 0, title: None, capture: "native".into(), fps: 30, codec: VideoCodec::VP8 };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let v = it.next().context("missing value")?;
         match k.as_str() {
             "--pid" => a.pid = v.parse()?,
+            "--title" => a.title = Some(v),
             "--capture" => a.capture = v,
             "--fps" => a.fps = v.parse()?,
             "--codec" => {
@@ -70,11 +72,12 @@ fn token(identity: &str, publish: bool) -> anyhow::Result<String> {
     Ok(t)
 }
 
-/// The largest visible window of `pid` (apps often own helper windows).
-fn find_window(pid: u32) -> anyhow::Result<xcap::Window> {
+/// The largest visible window of `pid` (apps often own helper windows), optionally narrowed by title.
+fn find_window(pid: u32, title: Option<&str>) -> anyhow::Result<xcap::Window> {
     let mut hits: Vec<_> = xcap::Window::all()?
         .into_iter()
         .filter(|w| w.pid().ok() == Some(pid) && !w.is_minimized().unwrap_or(true))
+        .filter(|w| title.is_none_or(|t| w.title().is_ok_and(|n| n.contains(t))))
         .collect();
     hits.sort_by_key(|w| std::cmp::Reverse(w.width().unwrap_or(0) * w.height().unwrap_or(0)));
     hits.into_iter().next().with_context(|| format!("进程 {pid} 没有可见窗口"))
@@ -179,7 +182,7 @@ fn activate(pid: u32) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let a = args()?;
-    let window = find_window(a.pid)?;
+    let window = find_window(a.pid, a.title.as_deref())?;
     let (wx, wy, ww, wh) = (window.x()?, window.y()?, window.width()?, window.height()?);
     println!("window id={} title={:?} at {wx},{wy} {ww}x{wh}", window.id()?, window.title()?);
     let url = env("LIVEKIT_URL", "ws://127.0.0.1:7880");
@@ -236,7 +239,10 @@ async fn main() -> anyhow::Result<()> {
                             // xcap reports points on macOS; enigo takes the same space (checked in B0).
                             let (px, py) = (wx + (x * ww as f64) as i32, wy + (y * wh as f64) as i32);
                             let t = Instant::now();
-                            activate(a.pid);
+                            // Always-on-top windows (the mini program simulator) take clicks without activation.
+                            if std::env::var_os("GG_NO_ACTIVATE").is_none() {
+                                activate(a.pid);
+                            }
                             let activated = t.elapsed();
                             enigo.move_mouse(px, py, Coordinate::Abs)?;
                             // B0: clicked right after the move, macOS still reports the old cursor position.

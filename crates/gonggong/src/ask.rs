@@ -33,9 +33,17 @@ const YES_NO: [&str; 2] = ["是", "否"];
 const SERVER_TOOLS: &str = include_str!("../../../packages/protocol/gonggong-tools.json");
 /// Hosted-service tools answered here (`hosted.rs`), generated from the same file.
 const DAEMON_TOOLS: &str = include_str!("../../../packages/protocol/gonggong-daemon-tools.json");
-/// Runs an arbitrary command, so it goes through the bot's approval like the agent's own shell (plan P10).
-const NEEDS_APPROVAL: &str = "service_start";
+/// Run code (an arbitrary command; a mini program in the simulator, whose trust prompt is then answered), so they go
+/// through the bot's approval like the agent's own shell (plan P10).
+const NEEDS_APPROVAL: [&str; 2] = ["service_start", "preview_miniprogram"];
 const NOT_RUNNING: &str = "当前不在运行中，无法查询";
+const STILL_OPENING: &str = "微信开发者工具还在启动或打开项目（首次打开需要编译，可能要一两分钟）：卡片会在打开后自动显示模拟器画面，不需要再调用。";
+/// Under the agents' own tool timeout (a minute for Claude Code and Codex).
+#[cfg(not(test))]
+const TOOL_BUDGET: std::time::Duration = std::time::Duration::from_secs(45);
+#[cfg(test)]
+const TOOL_BUDGET: std::time::Duration = std::time::Duration::from_secs(2);
+const AWAITING_LOGIN: &str = "本机的微信开发者工具还没有登录：卡片上显示了登录二维码，Bot 主人用微信扫码后，卡片会自动打开这个页面，不需要再调用。";
 
 /// The conversation behind a session's URL: relays questions to the group and scopes the server tools to its run.
 pub trait Asker: Send + Sync {
@@ -68,7 +76,7 @@ fn is_daemon_tool(name: &str) -> bool {
 pub fn is_builtin(title: &str) -> bool {
     title.contains(TOOL)
         || title.contains(SERVER_NAME)
-            && !title.contains(NEEDS_APPROVAL)
+            && !NEEDS_APPROVAL.iter().any(|t| title.contains(t))
             && [server_tools(), daemon_tools()]
                 .concat()
                 .iter()
@@ -89,6 +97,7 @@ struct Backends {
     /// Where the server tools are forwarded; `None` (tests) answers them with an error.
     api: Arc<Option<Config>>,
     services: Services,
+    devtools: &'static crate::wechatide::Shared,
 }
 
 impl AskServer {
@@ -97,7 +106,11 @@ impl AskServer {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let base = format!("http://{}/mcp/", listener.local_addr()?);
         let routes = Routes::default();
-        tokio::spawn(accept(listener, routes.clone(), Backends { api: Arc::new(api), services }));
+        tokio::spawn(accept(
+            listener,
+            routes.clone(),
+            Backends { api: Arc::new(api), services, devtools: crate::wechatide::devtools() },
+        ));
         Ok(AskServer { base, routes })
     }
 
@@ -309,6 +322,15 @@ struct StaticArgs {
     path: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct MiniprogramArgs {
+    #[serde(default)]
+    dir: String,
+    page: Option<String>,
+    query: Option<String>,
+    title: String,
+}
+
 /// `static-<dir>` as a service name (lowercase ascii, dashes, at most 32).
 fn static_name(dir: &str) -> String {
     let slug: String =
@@ -332,6 +354,30 @@ async fn hosted(backends: &Backends, asker: &dyn Asker, name: &str, args: &Value
             expose["path"] = json!(path);
         }
         return forward(backends.api.as_ref().as_ref(), asker, "preview_expose", &expose).await;
+    }
+    if name == "preview_miniprogram" {
+        let a = MiniprogramArgs::deserialize(args).map_err(invalid)?;
+        let project = crate::hosted::inside(&scope.root, &a.dir)?;
+        let page = a.page.map(|p| a.query.map_or_else(|| p.clone(), |q| format!("{p}?{q}")));
+        // Agents give a tool call about a minute: launching the devtools, a first compile or a trust prompt may take
+        // longer. The card's snapshot then finishes opening (the same steps, resumed).
+        let opened =
+            tokio::time::timeout(TOOL_BUDGET, crate::wechatide::open(backends.devtools, &project, page.as_deref()));
+        let login = match opened.await {
+            Ok(login) => Some(login?),
+            Err(_) => None,
+        };
+        let mut expose = json!({ "miniprogram": project.to_string_lossy(), "title": a.title });
+        if let Some(page) = page {
+            expose["path"] = json!(format!("/{page}"));
+        }
+        let published = forward(backends.api.as_ref().as_ref(), asker, "preview_expose", &expose).await?;
+        return Ok(match login {
+            Some(None) => published,
+            // The card shows the code; once scanned, it opens the page by itself.
+            Some(Some(_)) => format!("{published}\n{AWAITING_LOGIN}"),
+            None => format!("{published}\n{STILL_OPENING}"),
+        });
     }
     if name == "service_start" {
         return services.start(scope, StartArgs::deserialize(args).map_err(invalid)?).await;
@@ -560,7 +606,8 @@ mod tests {
                 "service_list",
                 "service_logs",
                 "service_stop",
-                "preview_static"
+                "preview_static",
+                "preview_miniprogram"
             ]
         );
 
@@ -677,7 +724,11 @@ mod tests {
         let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
         let services = services();
         let args = json!({ "dir": "out/report", "title": "报告" });
-        let backends = Backends { api: Arc::new(Some(config(base))), services: services.clone() };
+        let backends = Backends {
+            api: Arc::new(Some(config(base))),
+            services: services.clone(),
+            devtools: crate::wechatide::devtools(),
+        };
         let text = hosted(&backends, &live, "preview_static", &args).await.unwrap();
         assert_eq!(text, "已发布预览「报告」");
         let running = services.list_infos("g", "b");
@@ -687,6 +738,81 @@ mod tests {
         assert!(req.starts_with("POST /api/daemon/runs/r1/tools/preview_expose HTTP/1.1"), "{req}");
         assert!(req.ends_with(&format!(r#"{{"arguments":{{"port":{port},"title":"报告"}}}}"#)), "{req}");
         assert_eq!(reqwest::get(format!("http://127.0.0.1:{port}/")).await.unwrap().text().await.unwrap(), "ok");
+    }
+
+    #[tokio::test]
+    async fn opens_a_mini_program_on_its_page_and_publishes_it_through_preview_expose() {
+        let (base, seen) = fake_server(r#"{"text":"已发布预览「商城」","isError":false,"attachments":[]}"#).await;
+        let (calls, devtools, _data) = crate::wechatide::fake::install(crate::wechatide::fake::standard()).await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("mp")).unwrap();
+        std::fs::write(dir.path().join("mp/project.config.json"), "{}").unwrap();
+        let project = dir.path().join("mp").canonicalize().unwrap().to_string_lossy().to_string();
+        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
+
+        let args = json!({ "dir": "mp", "page": "pages/goods/detail", "query": "id=42", "title": "商城" });
+        assert_eq!(hosted(&backends, &live, "preview_miniprogram", &args).await.unwrap(), "已发布预览「商城」");
+        let tools: Vec<(String, Value)> =
+            calls.lock().unwrap().iter().filter(|c| c.0 != "initialize").cloned().collect();
+        let window = ("open_project_window".to_string(), json!({ "project": project, "windowMode": "liteMode" }));
+        assert!(tools.contains(&window), "{tools:?}");
+        let url = "/pages/goods/detail?id=42";
+        let navigate =
+            ("automation_navigate".to_string(), json!({ "project": project, "action": "reLaunch", "url": url }));
+        assert!(tools.contains(&navigate), "{tools:?}");
+        let req = seen.lock().unwrap()[0].clone();
+        assert!(req.starts_with("POST /api/daemon/runs/r1/tools/preview_expose HTTP/1.1"), "{req}");
+        let body: Value = serde_json::from_str(req.split_once("\r\n\r\n").unwrap().1).unwrap();
+        let expose = json!({ "miniprogram": project, "path": "/pages/goods/detail?id=42", "title": "商城" });
+        assert_eq!(body["arguments"], expose);
+
+        // Refused before the devtools are touched: outside the workspace, or not a mini program project.
+        let touched = calls.lock().unwrap().len();
+        let outside = hosted(&backends, &live, "preview_miniprogram", &json!({ "dir": "..", "title": "x" })).await;
+        assert_eq!(outside.unwrap_err(), "目录必须是工作区内已存在的相对目录");
+        let plain = hosted(&backends, &live, "preview_miniprogram", &json!({ "title": "x" })).await;
+        assert!(plain.unwrap_err().contains("不是小程序项目"));
+        assert_eq!(calls.lock().unwrap().len(), touched);
+    }
+
+    #[tokio::test]
+    async fn publishes_the_card_at_once_when_the_devtools_first_need_a_login() {
+        let (base, seen) = fake_server(r#"{"text":"已发布预览「商城」","isError":false,"attachments":[]}"#).await;
+        let world = crate::wechatide::fake::World {
+            trusted: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            ..Default::default()
+        };
+        let (calls, devtools, _data) = crate::wechatide::fake::install(crate::wechatide::fake::answering(world)).await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("project.config.json"), "{}").unwrap();
+        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
+
+        let text = hosted(&backends, &live, "preview_miniprogram", &json!({ "title": "商城" })).await.unwrap();
+        assert_eq!(text, format!("已发布预览「商城」\n{AWAITING_LOGIN}"));
+        assert!(seen.lock().unwrap()[0].starts_with("POST /api/daemon/runs/r1/tools/preview_expose"));
+        assert!(calls.lock().unwrap().iter().any(|c| c.0 == "login"));
+    }
+
+    #[tokio::test]
+    async fn publishes_the_card_within_the_agents_tool_timeout_while_the_devtools_are_still_opening() {
+        let (base, seen) = fake_server(r#"{"text":"已发布预览「商城」","isError":false,"attachments":[]}"#).await;
+        // Opening a window that never shows, like a first compile or a launch taking minutes.
+        let standard = crate::wechatide::fake::standard();
+        let slow: crate::wechatide::fake::Reply =
+            Box::new(move |key, args| if key == "open_project_window" { Value::Null } else { standard(key, args) });
+        let (_, devtools, _data) = crate::wechatide::fake::install(slow).await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("project.config.json"), "{}").unwrap();
+        let live = Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())));
+        let backends = Backends { api: Arc::new(Some(config(base))), services: services(), devtools };
+
+        let started = std::time::Instant::now();
+        let text = hosted(&backends, &live, "preview_miniprogram", &json!({ "title": "商城" })).await.unwrap();
+        assert!(started.elapsed() < TOOL_BUDGET * 2, "{:?}", started.elapsed());
+        assert_eq!(text, format!("已发布预览「商城」\n{STILL_OPENING}"));
+        assert!(seen.lock().unwrap()[0].starts_with("POST /api/daemon/runs/r1/tools/preview_expose"));
     }
 
     #[test]
@@ -704,6 +830,7 @@ mod tests {
         assert!(is_builtin("mcp__gonggong__preview_expose"));
         assert!(is_builtin("mcp__gonggong__service_logs"));
         assert!(!is_builtin("mcp__gonggong__service_start"), "runs a command: the owner decides");
+        assert!(!is_builtin("mcp__gonggong__preview_miniprogram"), "runs the project's code in the simulator");
         assert!(!is_builtin("mcp__wiki__list_messages"));
         assert!(!is_builtin("Bash"));
     }
