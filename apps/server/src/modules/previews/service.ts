@@ -361,6 +361,8 @@ export async function takeSnapshot(ctx: Ctx, p: Preview) {
       headers: [],
       upgrade: false,
     })
+    // A reset rejects `head` too; without a listener the stream's own 'error' would crash the process.
+    stream.on('error', () => {})
     stream.end()
     const head = await stream.head
     const chunks: Buffer[] = []

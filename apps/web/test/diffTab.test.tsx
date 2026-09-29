@@ -50,6 +50,7 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: string) => {
       calls.push(url)
+      if (url.includes('/tree?')) return new Response(JSON.stringify({ entries: [], truncated: false }))
       const scope = new URL(url, 'http://x').searchParams.get('scope') as DiffScope
       return new Response(
         JSON.stringify({ scope, patch: PATCHES[scope] ?? null, base: 'main', branch: 'feat/x' }),
