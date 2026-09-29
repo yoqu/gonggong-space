@@ -24,6 +24,10 @@ core-foundation = "0.10.1"
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 xcap = "0.9.8"
 
+# Foregrounding the controlled window; the version xcap already uses.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+
 # The version enigo already uses.
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = "0.13.2"

@@ -5,7 +5,9 @@ use anyhow::Context;
 
 #[derive(Clone)]
 pub enum Shown {
+    /// Windows needs only the handle (`id`); macOS finds the window again by its app and title.
     #[cfg(not(target_os = "linux"))]
+    #[cfg_attr(windows, allow(dead_code))]
     Window { id: u32, pid: u32, title: String },
     #[cfg(target_os = "linux")]
     Screen,
@@ -37,6 +39,8 @@ impl Target for Shown {
         match self {
             #[cfg(target_os = "macos")]
             Shown::Window { pid, title, .. } => ax::raise(*pid as i32, title),
+            #[cfg(windows)]
+            Shown::Window { id, .. } => win::raise(*id),
             #[allow(unreachable_patterns)]
             _ => false,
         }
@@ -46,6 +50,8 @@ impl Target for Shown {
         match self {
             #[cfg(target_os = "macos")]
             Shown::Window { pid, title, .. } => ax::frontmost(*pid as i32, title),
+            #[cfg(windows)]
+            Shown::Window { id, .. } => win::frontmost(*id),
             #[allow(unreachable_patterns)]
             _ => true,
         }
@@ -57,8 +63,60 @@ impl Target for Shown {
 pub fn floating() -> std::collections::HashSet<u32> {
     #[cfg(target_os = "macos")]
     return cg::floating();
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    return xcap::Window::all()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|w| w.id().ok())
+        .filter(|&id| win::topmost(id))
+        .collect();
+    #[cfg(not(any(target_os = "macos", windows)))]
     Default::default()
+}
+
+/// xcap's window ids on Windows are their handles.
+#[cfg(windows)]
+mod win {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_MOVE, MOUSEINPUT, SendInput,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, SetForegroundWindow, WS_EX_TOPMOST,
+    };
+
+    fn hwnd(id: u32) -> HWND {
+        HWND(id as usize as *mut _)
+    }
+
+    /// Always on top (`WS_EX_TOPMOST`), as the devtools keep a liteMode window.
+    pub fn topmost(id: u32) -> bool {
+        // SAFETY: reads a window's style; a stale handle reads as 0.
+        unsafe { GetWindowLongPtrW(hwnd(id), GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
+    }
+
+    pub fn frontmost(id: u32) -> bool {
+        // SAFETY: no arguments.
+        unsafe { GetForegroundWindow() == hwnd(id) }
+    }
+
+    /// Brings the window to the foreground; true when it was not there. Windows lets a background process do that only
+    /// when it sent the last input event: a zero pointer move counts, and moves nothing.
+    pub fn raise(id: u32) -> bool {
+        if frontmost(id) {
+            return false;
+        }
+        let nudge = INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 { mi: MOUSEINPUT { dwFlags: MOUSEEVENTF_MOVE, ..Default::default() } },
+        };
+        // SAFETY: one well-formed input record; a window handle.
+        unsafe {
+            SendInput(&[nudge], size_of::<INPUT>() as i32);
+            let _ = SetForegroundWindow(hwnd(id));
+        }
+        true
+    }
 }
 
 #[cfg(target_os = "macos")]

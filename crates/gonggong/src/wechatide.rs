@@ -9,6 +9,8 @@ use serde_json::{Map, Value, json};
 
 #[cfg(target_os = "macos")]
 mod ax;
+#[cfg(windows)]
+mod uia;
 
 /// Shown in the devtools' authorization dialog and its list of authorized clients.
 const CLIENT: &str = "Gonggong";
@@ -468,7 +470,13 @@ fn answer_trust_prompt(project: &Path) -> bool {
     ax::press_in_window(&window_titles(project), "信任并运行")
 }
 
-#[cfg(not(target_os = "macos"))]
+/// The same through Windows UI Automation (no permission involved).
+#[cfg(windows)]
+fn answer_trust_prompt(project: &Path) -> bool {
+    uia::press_in_window(&window_titles(project), "信任并运行")
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 fn answer_trust_prompt(_: &Path) -> bool {
     false
 }
@@ -571,7 +579,9 @@ pub async fn screenshot(devtools: &Shared, project: &Path, page: &str) -> Result
 pub fn simulator_window(project: &Path) -> Result<(Vec<u32>, Vec<String>), String> {
     #[cfg(target_os = "macos")]
     let pids: Vec<u32> = ax::devtools_pids().into_iter().map(|p| p as u32).collect();
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    let pids: Vec<u32> = uia::devtools_pids().into_iter().map(|p| p as u32).collect();
+    #[cfg(not(any(target_os = "macos", windows)))]
     let pids: Vec<u32> = vec![];
     if pids.is_empty() {
         return Err("本机的微信开发者工具未运行".into());

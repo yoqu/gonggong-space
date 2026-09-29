@@ -183,8 +183,8 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
             })
         }
         CastSource::Miniprogram { miniprogram } => {
-            if !cfg!(target_os = "macos") {
-                return Err("小程序实时画面目前只支持 macOS".into());
+            if !cfg!(any(target_os = "macos", windows)) {
+                return Err("小程序实时画面目前只支持 macOS 和 Windows".into());
             }
             // Its window exists once the project is open (§12.2: the devtools keep rendering it behind other windows).
             let project = Path::new(miniprogram);

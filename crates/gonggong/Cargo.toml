@@ -40,6 +40,10 @@ zip = { version = "8.6.0", default-features = false, features = ["chrono", "defl
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10.1"
 
+# UI Automation for the WeChat devtools' prompts; the version already in the lockfile (Tauri).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility"] }
+
 [dev-dependencies]
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }
 tempfile = "3.27.0"
