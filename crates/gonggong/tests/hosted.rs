@@ -1,5 +1,5 @@
 #![cfg(unix)]
-use gonggong::hosted::{Scope, Services, StartArgs};
+use gonggong::hosted::{Display, Scope, Services, StartArgs};
 use gonggong::protocol::{DaemonToServer, ServiceInfo, ServiceStatus};
 use gonggong::service::Outbox;
 use std::path::Path;
@@ -11,7 +11,7 @@ fn scope(root: &Path, bot: &str, out: &Outbox) -> Scope {
 }
 
 fn args(name: &str, command: &str, port: Option<u16>) -> StartArgs {
-    StartArgs { name: name.into(), command: command.into(), cwd: None, port, env: Default::default() }
+    StartArgs { name: name.into(), command: command.into(), cwd: None, port, env: Default::default(), display: None }
 }
 
 async fn next_state(rx: &mut UnboundedReceiver<DaemonToServer>) -> ServiceInfo {
@@ -243,7 +243,8 @@ async fn the_server_can_restart_a_service_by_id_as_it_was_started() {
     let (out, mut rx) = Outbox::channel();
     let services = Services::new(home.path());
     let port = free_port();
-    let mut web = args("web", &format!("echo \"$GREETING\"; exec python3 -m http.server {port} --bind 127.0.0.1"), Some(port));
+    let mut web =
+        args("web", &format!("echo \"$GREETING\"; exec python3 -m http.server {port} --bind 127.0.0.1"), Some(port));
     web.env.insert("GREETING".into(), "hi-from-env".into());
     services.start(scope(root.path(), "b1", &out), web).await.unwrap();
     let first = next_state(&mut rx).await;
@@ -268,4 +269,65 @@ async fn the_server_can_restart_a_service_by_id_as_it_was_started() {
 
     assert!(services.restart_id("nope", &out).await.unwrap_err().contains("重新启动"));
     services.stop_all().await;
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tokio::test]
+async fn a_virtual_display_is_linux_only() {
+    let (home, root) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, _rx) = Outbox::channel();
+    let gui = StartArgs { display: Some(Display::Virtual), ..args("app", "sleep 30", None) };
+    let err = Services::new(home.path()).start(scope(root.path(), "b1", &out), gui).await.unwrap_err();
+    assert!(err.contains("Linux"), "{err}");
+}
+
+/// Xvfb stand-in: announces display 42 on the `-displayfd` descriptor (stdout), records its arguments and pid.
+#[cfg(target_os = "linux")]
+fn fake_xvfb(dir: &Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    let (bin, seen) = (dir.join("Xvfb"), dir.join("seen"));
+    std::fs::write(
+        &bin,
+        format!("#!/bin/sh\necho \"$@\" > {0}\necho $$ >> {0}\necho 42\nexec sleep 30\n", seen.display()),
+    )
+    .unwrap();
+    std::fs::set_permissions(&bin, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    (bin, seen)
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn runs_a_gui_on_its_own_virtual_display_that_ends_with_it() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let (xvfb, seen) = fake_xvfb(bins.path());
+    let services = Services::new(home.path()).xvfb(xvfb);
+    let cmd = "echo display=$DISPLAY wayland=${WAYLAND_DISPLAY:-none} session=$XDG_SESSION_TYPE; exec sleep 30";
+    let gui = StartArgs { display: Some(Display::Virtual), ..args("app", cmd, None) };
+    services.start(scope(root.path(), "b1", &out), gui).await.unwrap();
+    let id = next_state(&mut rx).await.id;
+    let seen = std::fs::read_to_string(&seen).unwrap();
+    let (xvfb_args, xvfb_pid) = seen.split_once('\n').unwrap();
+    assert!(xvfb_args.starts_with("-displayfd 1 ") && xvfb_args.contains("-nolisten tcp"), "{xvfb_args}");
+    let xvfb_pid: u32 = xvfb_pid.trim().parse().unwrap();
+    assert!(alive(xvfb_pid));
+    assert_eq!(services.display(&id).as_deref(), Some(":42"));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let logs = services.logs("g1", "b1", "app", None).unwrap();
+    // GTK and Electron pick Wayland over X11 when they see it: the app must land on the virtual display.
+    assert!(logs.contains("display=:42 wayland=none session=x11"), "{logs}");
+
+    services.stop("g1", "b1", "app").await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while alive(xvfb_pid) {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("Xvfb outlived its service");
+    assert_eq!(services.display(&id), None);
+
+    let missing = Services::new(home.path()).xvfb(bins.path().join("nope"));
+    let gui = StartArgs { display: Some(Display::Virtual), ..args("app", "sleep 30", None) };
+    let err = missing.start(scope(root.path(), "b1", &out), gui).await.unwrap_err();
+    assert!(err.contains("apt install xvfb"), "{err}");
 }

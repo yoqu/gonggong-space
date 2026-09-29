@@ -1,7 +1,9 @@
 //! gg-cast (plan 结果预览 B2): publishes one app window to a preview's LiveKit room for the daemon.
 //!
-//! `gg-cast --url <signaling url> --pids <pid,pid,…> [--title <title>]… [--fps 30]`, the publisher token in
-//! `GG_CAST_TOKEN`. Publishes a visible window of those processes (see `pick`), prints `live` once it is published, and runs until the window closes,
+//! `gg-cast --url <signaling url> (--pids <pid,pid,…> [--title <title>]… | --screen) [--fps 30]`, the publisher token
+//! in `GG_CAST_TOKEN`. Publishes a visible window of those processes (see `pick`), or with `--screen` the whole screen
+//! of `$DISPLAY` (Linux: a service's own virtual display, plan B3), prints `live` once it is published, and runs until
+//! the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
 //! the reason shown to users, and exit 1. The member granted control sends input on the data channel (topic `input`,
 //! see `input.rs`); LiveKit only lets that member publish data.
@@ -24,8 +26,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
-/// B0: H264 is hardware-encoded on macOS, about a quarter of VP8's CPU.
-const CODEC: VideoCodec = VideoCodec::H264;
+/// B0: H264 is hardware-encoded on macOS, about a quarter of VP8's CPU. A Linux virtual display has no encoder
+/// hardware to use and is small; VP8 there is decoded by every browser build, including Chromium without H264.
+const CODEC: VideoCodec = if cfg!(target_os = "linux") { VideoCodec::VP8 } else { VideoCodec::H264 };
 const MAX_BITRATE: u64 = 3_000_000;
 /// `CAST_INPUT_TOPIC` in packages/protocol.
 const INPUT_TOPIC: &str = "input";
@@ -37,12 +40,17 @@ struct Args {
     /// A mini program's simulator: the devtools own many windows, the project's is titled after it.
     titles: Vec<String>,
     fps: u32,
+    screen: bool,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
-    let (mut url, mut pids, mut titles, mut fps) = (None, vec![], vec![], 30);
+    let (mut url, mut pids, mut titles, mut fps, mut screen) = (None, vec![], vec![], 30, false);
     let mut it = args.into_iter();
     while let Some(k) = it.next() {
+        if k == "--screen" {
+            screen = true;
+            continue;
+        }
         let v = it.next().with_context(|| format!("{k} 缺少取值"))?;
         match k.as_str() {
             "--url" => url = Some(v),
@@ -54,10 +62,14 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
             _ => bail!("未知参数 {k}"),
         }
     }
-    if pids.is_empty() {
-        bail!("缺少 --pids");
+    // Linux publishes a service's own virtual display, never windows on the owner's desktop (plan P15); elsewhere the
+    // screen would be the owner's own.
+    if cfg!(target_os = "linux") != screen || screen == !pids.is_empty() {
+        bail!(
+            "Linux 上只能推送虚拟显示里的桌面应用：请用 service_start 的 display: \"virtual\" 重新启动服务（其他系统推送窗口，用 --pids）"
+        );
     }
-    Ok(Args { url: url.context("缺少 --url")?, pids, titles, fps })
+    Ok(Args { url: url.context("缺少 --url")?, pids, titles, fps, screen })
 }
 
 #[cfg(target_os = "macos")]
@@ -78,6 +90,7 @@ fn require_screen_recording() -> anyhow::Result<()> {
 }
 
 /// A visible window that may be published.
+#[cfg(not(target_os = "linux"))]
 #[derive(Debug, Clone)]
 struct Candidate {
     id: u32,
@@ -92,6 +105,7 @@ struct Candidate {
 /// The window of `pids` to publish: the largest (apps own helper windows too), or with `titles` (a mini program's
 /// simulator, titled after its project) the earliest title matched, always-on-top before others: another project's
 /// full IDE window may carry the same directory name and be larger.
+#[cfg(not(target_os = "linux"))]
 fn pick(windows: Vec<Candidate>, pids: &[u32], titles: &[String]) -> Option<Candidate> {
     windows
         .into_iter()
@@ -103,6 +117,20 @@ fn pick(windows: Vec<Candidate>, pids: &[u32], titles: &[String]) -> Option<Cand
         .map(|(_, w)| w)
 }
 
+/// What to publish: its capture source (a window id, or none for the screen), size and input target.
+#[cfg(not(target_os = "linux"))]
+fn shown(a: &Args) -> anyhow::Result<(Option<u32>, (u32, u32), window::Shown)> {
+    let w = find_window(&a.pids, &a.titles)?;
+    Ok((Some(w.id), (w.width, w.height), window::Shown::Window { id: w.id, pid: w.pid, title: w.title }))
+}
+
+#[cfg(target_os = "linux")]
+fn shown(_: &Args) -> anyhow::Result<(Option<u32>, (u32, u32), window::Shown)> {
+    let f = window::screen()?;
+    Ok((None, (f.width, f.height), window::Shown::Screen))
+}
+
+#[cfg(not(target_os = "linux"))]
 fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<Candidate> {
     let floating = window::floating();
     let visible = xcap::Window::all()?.into_iter().filter(|w| !w.is_minimized().unwrap_or(true)).filter_map(|w| {
@@ -135,11 +163,14 @@ fn push(slot: &Slot, f: &DesktopFrame) {
     source.capture_frame(frame);
 }
 
-/// ScreenCaptureKit (B0: far cheaper than screenshots) on the window found by pid; sends why capturing ended.
-fn capture(window_id: u32, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<String>) -> anyhow::Result<()> {
+/// The native capturer (macOS: ScreenCaptureKit, B0: far cheaper than screenshots) on the window found by pid, or on
+/// the screen without one; sends why capturing ended.
+fn capture(window_id: Option<u32>, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<String>) -> anyhow::Result<()> {
     let (ready, started) = std::sync::mpsc::channel::<anyhow::Result<()>>();
     std::thread::spawn(move || {
-        let mut options = DesktopCapturerOptions::new(DesktopCaptureSourceType::Window);
+        let kind =
+            if window_id.is_some() { DesktopCaptureSourceType::Window } else { DesktopCaptureSourceType::Screen };
+        let mut options = DesktopCapturerOptions::new(kind);
         #[cfg(target_os = "macos")]
         options.set_sck_system_picker(false);
         options.set_include_cursor(true);
@@ -147,8 +178,9 @@ fn capture(window_id: u32, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<St
             let _ = ready.send(Err(anyhow::anyhow!("无法创建窗口采集器")));
             return;
         };
-        let Some(source) = capturer.get_source_list().into_iter().find(|s| s.id() == window_id as u64) else {
-            let _ = ready.send(Err(anyhow::anyhow!("窗口采集器里没有这个窗口（{window_id}）")));
+        let sources = capturer.get_source_list();
+        let Some(source) = sources.into_iter().find(|s| window_id.is_none_or(|id| s.id() == id as u64)) else {
+            let _ = ready.send(Err(anyhow::anyhow!("采集器里没有要推送的画面（{window_id:?}）")));
             return;
         };
         let _ = ready.send(Ok(()));
@@ -172,8 +204,7 @@ fn capture(window_id: u32, fps: u32, slot: Slot, ended: mpsc::UnboundedSender<St
 async fn run(a: Args) -> anyhow::Result<()> {
     let token = std::env::var("GG_CAST_TOKEN").context("缺少 GG_CAST_TOKEN")?;
     require_screen_recording()?;
-    let window = find_window(&a.pids, &a.titles)?;
-    let (width, height) = (window.width, window.height);
+    let (window, (width, height), target) = shown(&a)?;
     let (room, mut events) =
         Room::connect(&a.url, &token, RoomOptions::default()).await.context("无法连接实时画面服务（LiveKit）")?;
     let source = NativeVideoSource::new(VideoResolution { width, height }, true);
@@ -195,8 +226,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
     room.local_participant().publish_track(LocalTrack::Video(track), options).await.context("无法发布画面")?;
 
     let (ended_tx, mut ended) = mpsc::unbounded_channel();
-    capture(window.id, a.fps, slot, ended_tx)?;
-    let target = window::Window { id: window.id, pid: window.pid, title: window.title };
+    capture(window, a.fps, slot, ended_tx)?;
     // Created on the first input: on macOS it needs the accessibility permission, which viewing alone does not.
     let mut injector = None;
     let (gone_tx, mut gone) = mpsc::unbounded_channel::<()>();
@@ -224,8 +254,8 @@ async fn run(a: Args) -> anyhow::Result<()> {
 }
 
 async fn replay(
-    injector: &mut Option<Injector<window::Window>>,
-    target: &window::Window,
+    injector: &mut Option<Injector<window::Shown>>,
+    target: &window::Shown,
     payload: &[u8],
 ) -> anyhow::Result<()> {
     let input = Input::parse(payload)?;
@@ -256,11 +286,12 @@ mod tests {
         parse(s.split_whitespace().map(String::from))
     }
 
+    #[cfg(not(target_os = "linux"))]
     #[test]
     fn parses_the_daemons_arguments() {
         assert_eq!(
             args("--url ws://127.0.0.1:5000 --pids 10,11,12").unwrap(),
-            Args { url: "ws://127.0.0.1:5000".into(), pids: vec![10, 11, 12], titles: vec![], fps: 30 }
+            Args { url: "ws://127.0.0.1:5000".into(), pids: vec![10, 11, 12], titles: vec![], fps: 30, screen: false }
         );
         let mini = args("--url ws://x --pids 7 --title 商城 --title shop").unwrap();
         assert_eq!(mini.titles, ["商城", "shop"]);
@@ -271,10 +302,28 @@ mod tests {
         assert!(args("--pids 1 --url ws://x --codec vp8").is_err());
     }
 
+    #[test]
+    fn publishes_a_whole_virtual_screen_only_on_linux() {
+        let screen = args("--url ws://x --screen");
+        if cfg!(target_os = "linux") {
+            assert_eq!(
+                screen.unwrap(),
+                Args { url: "ws://x".into(), pids: vec![], titles: vec![], fps: 30, screen: true }
+            );
+            assert!(args("--url ws://x --pids 1").is_err());
+        } else {
+            // Elsewhere the screen would be the owner's own.
+            assert!(screen.unwrap_err().to_string().contains("Linux"));
+        }
+        assert!(args("--url ws://x --screen --pids 1").is_err());
+    }
+
+    #[cfg(not(target_os = "linux"))]
     fn window(id: u32, pid: u32, title: &str, (width, height): (u32, u32), floating: bool) -> Candidate {
         Candidate { id, pid, title: title.into(), width, height, floating }
     }
 
+    #[cfg(not(target_os = "linux"))]
     #[test]
     fn picks_the_largest_window_of_the_processes() {
         let all = vec![
@@ -286,6 +335,7 @@ mod tests {
         assert!(pick(vec![window(3, 8, "other", (1, 1), false)], &[7], &[]).is_none());
     }
 
+    #[cfg(not(target_os = "linux"))]
     #[test]
     fn picks_a_mini_programs_simulator_over_other_projects_windows() {
         // Observed: this project's liteMode simulator (always on top) titled after its project name, and another

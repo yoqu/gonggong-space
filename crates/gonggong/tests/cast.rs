@@ -66,8 +66,14 @@ async fn hosted_service(
     rx: &mut UnboundedReceiver<DaemonToServer>,
 ) -> String {
     let scope = Scope { group_id: "g1".into(), bot_id: "b1".into(), run_id: None, root: root.into(), out: out.clone() };
-    let args =
-        StartArgs { name: "calc".into(), command: "sleep 30".into(), cwd: None, port: None, env: Default::default() };
+    let args = StartArgs {
+        name: "calc".into(),
+        command: "sleep 30".into(),
+        cwd: None,
+        port: None,
+        env: Default::default(),
+        display: None,
+    };
     services.start(scope, args).await.unwrap();
     match rx.recv().await.unwrap() {
         DaemonToServer::ServiceState { service } => service.id,
@@ -300,4 +306,52 @@ async fn downloads_the_published_gg_cast_once_and_checks_it() {
     }))
     .await;
     assert!(cast::binary(&config(none), home.path()).await.unwrap_err().contains("还没有发布"));
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn publishes_a_virtual_display_as_a_whole_screen() {
+    use gonggong::hosted::Display;
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let xvfb = bins.path().join("Xvfb");
+    std::fs::write(&xvfb, "#!/bin/sh\necho 42\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&xvfb, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    let services = Services::new(home.path()).xvfb(xvfb);
+    let scope =
+        Scope { group_id: "g1".into(), bot_id: "b1".into(), run_id: None, root: root.path().into(), out: out.clone() };
+    let args = StartArgs {
+        name: "calc".into(),
+        command: "sleep 30".into(),
+        cwd: None,
+        port: None,
+        env: Default::default(),
+        display: Some(Display::Virtual),
+    };
+    services.start(scope, args).await.unwrap();
+    let service = match rx.recv().await.unwrap() {
+        DaemonToServer::ServiceState { service } => service.id,
+        other => panic!("unexpected {other:?}"),
+    };
+    let env = bins.path().join("env");
+    let (bin, seen) = fake_cast(
+        bins.path(),
+        &format!(
+            "echo \"DISPLAY=$DISPLAY WAYLAND=${{WAYLAND_DISPLAY:-none}}\" > {}\necho live\nexec sleep 30",
+            env.display()
+        ),
+    );
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service } }], &out);
+    assert_eq!(next_cast(&mut rx).await, (CastPhase::Starting, None));
+    assert_eq!(next_cast(&mut rx).await, (CastPhase::Live, None));
+    // The display belongs to the service alone: its whole screen is the app's windows.
+    let args = std::fs::read_to_string(&seen).unwrap();
+    assert_eq!(args.lines().next().unwrap(), "--url wss://lk.example.com --screen");
+    assert_eq!(std::fs::read_to_string(&env).unwrap().trim(), "DISPLAY=:42 WAYLAND=none");
+    casts.sync(vec![], &out);
+    services.stop_all().await;
 }

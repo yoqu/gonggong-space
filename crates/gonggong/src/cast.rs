@@ -119,7 +119,7 @@ async fn publish(
     if missing.contains(&Permission::ScreenRecording) {
         return Err(permission::SCREEN_RECORDING_DENIED.into());
     }
-    let window = window_args(inner, &target.source).await?;
+    let (window, display) = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
         Some(bin) => bin.clone(),
         None => binary(api, &inner.home).await?,
@@ -131,7 +131,11 @@ async fn publish(
         None => Some(Relay::start(api.clone()).await?),
     };
     let url = relay.as_ref().map(Relay::url).or(token.url).unwrap_or_default();
-    let mut child = Command::new(&bin)
+    let mut cmd = Command::new(&bin);
+    if let Some(display) = display {
+        cmd.env("DISPLAY", display).env("XDG_SESSION_TYPE", "x11").env_remove("WAYLAND_DISPLAY");
+    }
+    let mut child = cmd
         .args(["--url", &url])
         .args(window)
         .env("GG_CAST_TOKEN", &token.token)
@@ -166,13 +170,17 @@ async fn publish(
     Ok(if last.is_empty() { format!("gg-cast 已退出（{status}）") } else { last })
 }
 
-/// gg-cast's window arguments: the processes that may own it and, for a mini program, the titles it may have.
-async fn window_args(inner: &Inner, source: &CastSource) -> Result<Vec<String>, String> {
+/// gg-cast's window arguments: the processes that may own it and, for a mini program, the titles it may have; or the
+/// whole screen of the service's own virtual display, which gg-cast then runs on.
+async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>, Option<String>), String> {
     let join = |pids: Vec<u32>| pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     match source {
         CastSource::Service { service } => {
             let pid = inner.services.pid(service).ok_or("服务已停止，请重新启动服务后再看")?;
-            Ok(vec!["--pids".into(), join(process_tree(pid))])
+            Ok(match inner.services.display(service) {
+                Some(display) => (vec!["--screen".into()], Some(display)),
+                None => (vec!["--pids".into(), join(process_tree(pid))], None),
+            })
         }
         CastSource::Miniprogram { miniprogram } => {
             if !cfg!(target_os = "macos") {
@@ -188,7 +196,7 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<Vec<String>, 
             for title in titles {
                 args.extend(["--title".into(), title]);
             }
-            Ok(args)
+            Ok((args, None))
         }
     }
 }

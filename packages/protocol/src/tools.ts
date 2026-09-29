@@ -158,6 +158,12 @@ export const ServiceStartArgs = z.object({
   cwd: z.string().max(500).describe('工作区内的相对目录，默认工作区根目录').optional(),
   port: port.describe('服务监听的本机端口；给出时等待端口就绪（最多 60 秒）').optional(),
   env: z.record(z.string(), z.string()).describe('额外的环境变量').optional(),
+  display: z
+    .enum(['virtual'])
+    .describe(
+      '桌面应用的显示位置：virtual 表示在本机新建的虚拟显示（Xvfb）上运行，不占用机器主人的屏幕，preview_gui 推送整块虚拟屏幕；仅 Linux',
+    )
+    .optional(),
 })
 export const ServiceListArgs = z.object({})
 export const ServiceLogsArgs = z.object({

@@ -1,36 +1,59 @@
-//! The published window as an input target: its frame from xcap, raised through macOS accessibility.
+//! What is published, as an input target: a window (its frame from xcap, raised through macOS accessibility), or on
+//! Linux the whole screen of a virtual display that belongs to one app (plan B3).
 use crate::input::{Frame, Target};
 use anyhow::Context;
 
 #[derive(Clone)]
-pub struct Window {
-    pub id: u32,
-    pub pid: u32,
-    pub title: String,
+pub enum Shown {
+    #[cfg(not(target_os = "linux"))]
+    Window { id: u32, pid: u32, title: String },
+    #[cfg(target_os = "linux")]
+    Screen,
 }
 
-impl Target for Window {
+/// The screen of `$DISPLAY`.
+#[cfg(target_os = "linux")]
+pub fn screen() -> anyhow::Result<Frame> {
+    use x11rb::connection::Connection;
+    let (conn, n) = x11rb::connect(None).context("无法连接虚拟显示（DISPLAY）")?;
+    let root = &conn.setup().roots[n];
+    Ok(Frame { x: 0, y: 0, width: root.width_in_pixels.into(), height: root.height_in_pixels.into() })
+}
+
+impl Target for Shown {
     fn frame(&mut self) -> anyhow::Result<Frame> {
-        let w = xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(self.id)).context("窗口已关闭")?;
-        Ok(Frame { x: w.x()?, y: w.y()?, width: w.width()?, height: w.height()? })
+        match self {
+            #[cfg(target_os = "linux")]
+            Shown::Screen => screen(),
+            #[cfg(not(target_os = "linux"))]
+            Shown::Window { id, .. } => {
+                let w = xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(*id)).context("窗口已关闭")?;
+                Ok(Frame { x: w.x()?, y: w.y()?, width: w.width()?, height: w.height()? })
+            }
+        }
     }
 
     fn raise(&mut self) -> bool {
-        #[cfg(target_os = "macos")]
-        return ax::raise(self.pid as i32, &self.title);
-        #[cfg(not(target_os = "macos"))]
-        false
+        match self {
+            #[cfg(target_os = "macos")]
+            Shown::Window { pid, title, .. } => ax::raise(*pid as i32, title),
+            #[allow(unreachable_patterns)]
+            _ => false,
+        }
     }
 
     fn frontmost(&mut self) -> bool {
-        #[cfg(target_os = "macos")]
-        return ax::frontmost(self.pid as i32, &self.title);
-        #[cfg(not(target_os = "macos"))]
-        true
+        match self {
+            #[cfg(target_os = "macos")]
+            Shown::Window { pid, title, .. } => ax::frontmost(*pid as i32, title),
+            #[allow(unreachable_patterns)]
+            _ => true,
+        }
     }
 }
 
 /// The ids of on-screen windows kept above normal ones (always on top).
+#[cfg(not(target_os = "linux"))]
 pub fn floating() -> std::collections::HashSet<u32> {
     #[cfg(target_os = "macos")]
     return cg::floating();

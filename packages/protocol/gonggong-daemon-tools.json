@@ -37,6 +37,11 @@
             "type": "string"
           },
           "description": "额外的环境变量"
+        },
+        "display": {
+          "type": "string",
+          "enum": ["virtual"],
+          "description": "桌面应用的显示位置：virtual 表示在本机新建的虚拟显示（Xvfb）上运行，不占用机器主人的屏幕，preview_gui 推送整块虚拟屏幕；仅 Linux"
         }
       },
       "required": ["name", "command"]
