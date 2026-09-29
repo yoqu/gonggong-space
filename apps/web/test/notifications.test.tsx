@@ -192,6 +192,15 @@ describe('notification center', () => {
     ])
   })
 
+  it('disables the bulk actions when there is nothing to act on', async () => {
+    mockApi({ 'GET /notifications': [] })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    await screen.findByText('暂无通知')
+    expect(screen.getByRole('button', { name: '全部标为已读' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '清除已读' }).hasAttribute('disabled')).toBe(true)
+  })
+
   it('closes on Escape unless an IME is composing', async () => {
     mockApi({ 'GET /notifications': [] })
     renderShell()

@@ -140,3 +140,11 @@
   left: -6px;
   transform: rotate(-45deg);
 }
+
+/* Portalled Popover: placed in viewport coordinates by JS, above the modal layer. */
+.ui-float.ui-float--fixed {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 60;
+}

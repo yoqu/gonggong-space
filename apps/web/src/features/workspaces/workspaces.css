@@ -14,7 +14,7 @@
 .dirpick__hint {
   margin: 0;
   font-size: var(--text-callout-size);
-  color: var(--tint-orange-text);
+  color: var(--label-secondary);
 }
 .dirpick__git {
   display: flex;

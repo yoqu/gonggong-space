@@ -6,6 +6,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
+import { groupTitle } from './title.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -46,7 +47,7 @@ const recallNote = (mine: boolean, author: string | null) =>
 /** Group DTOs as seen by `userId` (unread is per user). */
 export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
   const rows = await ctx.db
-    .select({ group: groups, me: groupMembers })
+    .select({ group: groups, title: groupTitle, me: groupMembers })
     .from(groups)
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
     .where(and(isNull(groups.archivedAt), ids ? inArray(groups.id, ids) : undefined))
@@ -112,13 +113,13 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       .orderBy(asc(runs.queuedAt)),
   ])
 
-  return rows.map(({ group: g, me }) => {
+  return rows.map(({ group: g, title, me }) => {
     const repo = repos.find((r) => r.groupId === g.id)
     const stat = stats.find((s) => s.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
     return {
       id: g.id,
-      name: g.name,
+      name: title,
       kind: g.kind as GroupDto['kind'],
       mode: g.mode as GroupDto['mode'],
       notice: g.notice,
@@ -175,4 +176,14 @@ export async function publishGroup(ctx: Ctx, groupId: string) {
     const [group] = await groupDtos(ctx, userId, [groupId])
     if (group) ctx.bus.publish([userId], { t: 'group.updated', group })
   }
+}
+
+/** DMs are titled by their Bot, so renaming or deleting it retitles them. */
+export async function publishDmsOf(ctx: Ctx, botId: string) {
+  const rows = await ctx.db
+    .selectDistinct({ id: groups.id })
+    .from(groupBots)
+    .innerJoin(groups, eq(groups.id, groupBots.groupId))
+    .where(and(eq(groupBots.botId, botId), eq(groups.kind, 'dm'), isNull(groups.archivedAt)))
+  for (const g of rows) await publishGroup(ctx, g.id)
 }

@@ -206,6 +206,7 @@ describe('repo history', () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = (await w.createGroup({ botIds: [w.claude.id] })).body
+    expect(await d.next()).toMatchObject({ t: 'workspace.ensure' })
     await w.asAlice.put(`/api/groups/${g.id}/bots/${w.claude.id}/workspace`, { path: '/Users/w/code/pay' })
     const req = await d.next()
     expect(req).toMatchObject({ t: 'workspace.cd', path: '/Users/w/code/pay', repo: { protocol: 'auto' } })
@@ -233,8 +234,8 @@ async function pausedWorld() {
   const w = await world()
   const d = await daemon(w.a.token)
   const g = (await w.createGroup({ botIds: [w.claude.id] })).body
-  await w.asAlice.put(`/api/groups/${g.id}/bots/${w.claude.id}/workspace`, { path: null })
   const req = await d.next()
+  expect(req).toMatchObject({ t: 'workspace.ensure' })
   d.send({
     t: 'workspace.state',
     groupId: g.id,

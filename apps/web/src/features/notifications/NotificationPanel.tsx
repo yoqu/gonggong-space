@@ -150,10 +150,20 @@ function Panel({
         <div className="notif__head">
           <span className="notif__title">通知</span>
           <span className="spacer" />
-          <Button size="small" variant="plain" onClick={() => void readAll()}>
+          <Button
+            size="small"
+            variant="plain"
+            disabled={!items?.some((n) => !n.readAt)}
+            onClick={() => void readAll()}
+          >
             全部标为已读
           </Button>
-          <Button size="small" variant="plain" onClick={() => void clearRead()}>
+          <Button
+            size="small"
+            variant="plain"
+            disabled={!items?.some((n) => n.readAt)}
+            onClick={() => void clearRead()}
+          >
             清除已读
           </Button>
         </div>

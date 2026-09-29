@@ -336,6 +336,20 @@ describe('audit query', () => {
     expect(s('something.new', {})).toBe('something.new')
   })
 
+  it('summarizes every emitted action in Chinese', () => {
+    const n = { user: (id: unknown) => (id === 'u1' ? '王磊' : ''), bot: () => '', runBot: () => '小王的 Claude' }
+    const s = (category: string, action: string, d: Record<string, unknown>) => summarize({ category, action }, d, n)
+    expect(s('admin', 'group.notice.remove', { notice: '周五发布' })).toBe('删除群公告')
+    expect(s('admin', 'bot.approval', { name: '设计师' })).toBe('修改 Bot 设计师 的审批设置')
+    expect(s('admin', 'machine.transfer', { name: 'mac-mini', fromOwnerId: 'u1' })).toBe(
+      '将 王磊 的机器 mac-mini 转移到名下',
+    )
+    expect(s('run', 'run.task_stop', { runId: 'r1' })).toBe('中断 小王的 Claude 的后台任务')
+    expect(s('run', 'tool.cross_group_read', { runId: 'r1', groups: ['g1', 'g2'] })).toBe(
+      '小王的 Claude 跨群读取 2 个群的内容',
+    )
+  })
+
   it('is sysadmin only', async () => {
     const m = await t.seed.user()
     expect((await client(t, await t.seed.cookie(m.id)).get('/api/admin/audit')).status).toBe(403)
@@ -397,7 +411,7 @@ describe('system params', () => {
       sessionReplayCount: 20,
     })
     const [a] = (await admin.get<AuditDto[]>('/api/admin/audit')).body
-    expect(a?.summary).toBe('修改系统参数：写入方断线后释放锁 90 → 未设置')
+    expect(a?.summary).toBe('修改系统参数：持锁 Bot 断线后自动释放锁 90 → 未设置')
   })
 
   it('the attachment limits bound uploads and message sends', async () => {
@@ -456,7 +470,7 @@ describe('system params', () => {
       name: 'x',
       ownerId: adminId,
       agentKind: 'claude',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: null,
       systemPrompt: '',
     })

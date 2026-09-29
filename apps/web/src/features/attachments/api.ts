@@ -6,19 +6,16 @@ export type Upload = Omit<Attachment, 'messageId'>
 
 export const attachmentUrl = (id: string) => `/api/attachments/${id}`
 
-/** POST /api/uploads with upload progress (fetch has none); `groupId` goes first so the server checks it before the file. */
-export function uploadFile(groupId: string, file: File, onProgress: (pct: number) => void) {
+/** POST multipart with upload progress (fetch has none). */
+export function postForm<T>(url: string, form: FormData, onProgress: (pct: number) => void) {
   const xhr = new XMLHttpRequest()
-  const done = new Promise<Upload>((resolve, reject) => {
-    const form = new FormData()
-    form.append('groupId', groupId)
-    form.append('file', file)
-    xhr.open('POST', '/api/uploads')
+  const done = new Promise<T>((resolve, reject) => {
+    xhr.open('POST', url)
     xhr.withCredentials = true
     xhr.responseType = 'json'
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100))
     xhr.onload = () => {
-      const body = xhr.response as (Upload & { error?: string; message?: string }) | null
+      const body = xhr.response as (T & { error?: string; message?: string }) | null
       if (xhr.status >= 200 && xhr.status < 300 && body) resolve(body)
       else reject(new ApiError(xhr.status, 'http_error', body?.message ?? '上传失败'))
     }
@@ -27,6 +24,14 @@ export function uploadFile(groupId: string, file: File, onProgress: (pct: number
     xhr.send(form)
   })
   return { done, abort: () => xhr.abort() }
+}
+
+/** POST /api/uploads; `groupId` goes first so the server checks it before the file. */
+export function uploadFile(groupId: string, file: File, onProgress: (pct: number) => void) {
+  const form = new FormData()
+  form.append('groupId', groupId)
+  form.append('file', file)
+  return postForm<Upload>('/api/uploads', form, onProgress)
 }
 
 export type FileKind = 'image' | 'video' | 'md' | 'text' | 'code' | 'file'

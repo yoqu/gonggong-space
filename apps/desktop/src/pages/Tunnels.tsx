@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ipc, type Tunnels } from '../ipc'
 import { Section } from '../lib/ui'
 import type { PageProps } from '.'
+import { isLive } from './Live'
 
 const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 /** The Web may change them at any time; this page follows without a push channel. */
@@ -18,7 +19,11 @@ const SERVICE: Record<Tunnels['services'][number]['status'], { text: string; ton
 /** 穿透与服务: what this machine exposes and hosts; stopping here is the same as 停止 on the Web. */
 export function TunnelsPage(_: PageProps) {
   const [data, setData] = useState<Tunnels | null>(null)
-  const load = useCallback(() => ipc.tunnels().then(setData, fail), [])
+  // Live previews (gui / miniprogram) have their own page, 实时画面.
+  const load = useCallback(
+    () => ipc.tunnels().then((t) => setData({ ...t, previews: t.previews.filter((p) => !isLive(p)) }), fail),
+    [],
+  )
 
   useEffect(() => {
     void load()
@@ -104,8 +109,7 @@ export function TunnelsPage(_: PageProps) {
         </GroupBox>
       </Section>
       <p className="dk-footnote">
-        Bot 用 service_start 启动、preview_expose 开放的内容由本机托管。在这里停止与在 Web
-        群里停止效果相同，群成员会立即看到变化。
+        Bot 开放的预览与启动的后台服务由本机托管。在这里停止与在 Web 群里停止效果相同，群成员会立即看到变化。
       </p>
     </>
   )

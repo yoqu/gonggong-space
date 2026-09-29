@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type DaemonRelease, PROTOCOL_VERSION } from '@gonggong/protocol'
@@ -114,5 +115,103 @@ describe('daemon release publishing', () => {
     } finally {
       process.env.GONGGONG_DATA_DIR = prev
     }
+  })
+})
+
+describe('daemon release files (管理后台 · 客户端发布)', () => {
+  let dir: string
+  let prev: string | undefined
+  beforeEach(() => {
+    prev = process.env.GONGGONG_DATA_DIR
+    dir = mkdtempSync(join(tmpdir(), 'gonggong-data-'))
+    process.env.GONGGONG_DATA_DIR = dir
+  })
+  afterEach(() => {
+    process.env.GONGGONG_DATA_DIR = prev
+  })
+
+  const digest = (data: string) => createHash('sha256').update(data).digest('hex')
+  async function upload(cookie: string, name: string, data: string) {
+    const form = new FormData()
+    form.set('file', new Blob([data]), name)
+    const res = await fetch(t.url('/api/admin/daemon-release/files'), {
+      method: 'POST',
+      headers: { cookie },
+      body: form,
+    })
+    return { status: res.status, body: (await res.json()) as DaemonRelease & { message?: string } }
+  }
+  const admin = async () => t.seed.cookie((await t.seed.user({ role: 'sysadmin' })).id)
+  const downloaded = (file: string) => join(dir, 'downloads', file)
+
+  it('stores an artifact, hashes it and adds it to the release named by the file', async () => {
+    const cookie = await admin()
+    const member = await t.seed.cookie((await t.seed.user()).id)
+    expect((await upload(member, 'gonggong-0.2.0-macos-aarch64', 'x')).status).toBe(403)
+
+    const first = await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'daemon')
+    expect(first.status).toBe(200)
+    const cast = await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')
+    expect(cast.body).toEqual({
+      version: '0.2.0',
+      builds: {
+        'macos-aarch64': { url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: digest('daemon') },
+      },
+      cast: { 'macos-aarch64': { url: '/downloads/gg-cast-0.2.0-macos-aarch64', sha256: digest('cast') } },
+    })
+    expect(readFileSync(downloaded('gg-cast-0.2.0-macos-aarch64'), 'utf8')).toBe('cast')
+    expect((await t.app.inject('/downloads/gg-cast-0.2.0-macos-aarch64')).body).toBe('cast')
+
+    const { token } = await t.seed.machine((await t.seed.user()).id, { os: 'macos', arch: 'aarch64' })
+    const build = await t.app.inject({
+      url: '/api/daemon/cast-build',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(build.json()).toEqual({
+      version: '0.2.0',
+      url: '/downloads/gg-cast-0.2.0-macos-aarch64',
+      sha256: digest('cast'),
+    })
+
+    const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'daemon.release.upload'))
+    expect(log?.detail).toMatchObject({ kind: 'builds', version: '0.2.0', platform: 'macos-aarch64' })
+    const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
+    expect(audit.json()[0].summary).toBe('上传 gg-cast 0.2.0（macos-aarch64）')
+  })
+
+  it('replaces the whole release on a newer version and refuses older versions and unknown names', async () => {
+    const cookie = await admin()
+    await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'old')
+    await upload(cookie, 'gg-cast-0.2.0-linux-x86_64', 'old-cast')
+    const next = await upload(cookie, 'gonggong-0.3.0-linux-x86_64', 'new')
+    expect(next.body).toEqual({
+      version: '0.3.0',
+      builds: { 'linux-x86_64': { url: '/downloads/gonggong-0.3.0-linux-x86_64', sha256: digest('new') } },
+      cast: {},
+    })
+    expect(existsSync(downloaded('gonggong-0.2.0-macos-aarch64'))).toBe(false)
+    expect(existsSync(downloaded('gg-cast-0.2.0-linux-x86_64'))).toBe(false)
+
+    const older = await upload(cookie, 'gg-cast-0.2.0-linux-x86_64', 'x')
+    expect(older.status).toBe(400)
+    expect(older.body.message).toContain('0.3.0')
+    expect((await upload(cookie, 'gonggong.exe', 'x')).status).toBe(400)
+    expect(existsSync(downloaded('gonggong.exe'))).toBe(false)
+  })
+
+  it('removes one platform build and its file', async () => {
+    const cookie = await admin()
+    await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'a')
+    await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'b')
+    const del = (path: string) => t.app.inject({ method: 'DELETE', url: path, headers: { cookie } })
+    const res = await del('/api/admin/daemon-release/cast/macos-aarch64')
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ version: '0.2.0', cast: {} })
+    expect(Object.keys(res.json().builds)).toEqual(['macos-aarch64'])
+    expect(existsSync(downloaded('gg-cast-0.2.0-macos-aarch64'))).toBe(false)
+    expect((await del('/api/admin/daemon-release/cast/macos-aarch64')).statusCode).toBe(404)
+    expect((await del('/api/admin/daemon-release/docs/macos-aarch64')).statusCode).toBe(400)
+    const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
+    expect(audit.json()[0].summary).toBe('移除 gg-cast 0.2.0（macos-aarch64）')
   })
 })

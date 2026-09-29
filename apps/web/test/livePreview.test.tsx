@@ -1,5 +1,5 @@
 import type { GroupPreviewsDto, PreviewDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench, type WorkbenchTab } from '../src/app/workbench'
@@ -28,6 +28,7 @@ vi.mock('livekit-client', () => {
     disconnected = false
     sent: { input: unknown; opts: unknown }[] = []
     localParticipant = {
+      identity: 'u:u-li:ab',
       publishData: async (data: Uint8Array, opts: unknown) => {
         this.sent.push({ input: JSON.parse(new TextDecoder().decode(data)), opts })
       },
@@ -52,8 +53,20 @@ vi.mock('livekit-client', () => {
   }
   return {
     Room,
-    RoomEvent: { TrackSubscribed: 'trackSubscribed', TrackUnsubscribed: 'trackUnsubscribed' },
+    RoomEvent: {
+      TrackSubscribed: 'trackSubscribed',
+      TrackUnsubscribed: 'trackUnsubscribed',
+      ConnectionQualityChanged: 'connectionQualityChanged',
+    },
     Track: { Kind: { Video: 'video' } },
+    VideoQuality: { LOW: 0, MEDIUM: 1, HIGH: 2 },
+    ConnectionQuality: {
+      Excellent: 'excellent',
+      Good: 'good',
+      Poor: 'poor',
+      Lost: 'lost',
+      Unknown: 'unknown',
+    },
   }
 })
 
@@ -119,7 +132,11 @@ beforeEach(() => {
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
   vi.stubGlobal('WebSocket', NoopSocket)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+  localStorage.clear()
+})
 
 describe('桌面应用预览 · 观看', () => {
   it("joins the preview's room through the server, keeps watching, and shows the window", async () => {
@@ -140,7 +157,7 @@ describe('桌面应用预览 · 观看', () => {
   it('says why there is no picture', async () => {
     routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限', missing: [] } }))
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('本机没有授予「屏幕录制」权限')
+    await screen.findByText('本机没有授予「屏幕录制」权限。Bot 主人可在共工桌面端「实时画面」页查看')
   })
 
   it("names the machine's missing screen recording permission", async () => {
@@ -148,14 +165,14 @@ describe('桌面应用预览 · 观看', () => {
       preview({
         live: {
           state: 'failed',
-          error: '机器未授权屏幕录制，请在桌面端完成授权',
+          error: '机器未授权屏幕录制，请在共工桌面端「实时画面」页完成授权',
           missing: ['screen_recording', 'accessibility'],
         },
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
     await screen.findByText('机器未授权屏幕录制')
-    screen.getByText('请 Bot 主人在共工桌面端完成授权')
+    screen.getByText('请 Bot 主人在共工桌面端「实时画面」页完成授权')
   })
 
   it('opens from its card in the workbench', async () => {
@@ -246,7 +263,7 @@ describe('桌面应用预览 · 控制', () => {
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在桌面端完成授权')
+    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在共工桌面端「实时画面」页完成授权')
   })
 
   it('viewers only watch: no input leaves the page', async () => {
@@ -277,5 +294,97 @@ describe('小程序 · 实时画面', () => {
     expect(await screen.findByRole('button', { name: '请求控制' })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: '截图' }))
     await waitFor(() => expect(lk.rooms[0]?.disconnected).toBe(true))
+  })
+})
+
+/** A video track whose receiver reports `lossPerSecond` of its packets lost, and its publication's quality layers. */
+function stream(lossPerSecond: number, layers: { quality: number; width: number; height: number }[]) {
+  let second = 0
+  const track = {
+    kind: 'video',
+    attach: vi.fn(),
+    detach: vi.fn(),
+    getRTCStatsReport: async () => {
+      second++
+      return new Map<string, unknown>([
+        [
+          'in',
+          {
+            type: 'inbound-rtp',
+            kind: 'video',
+            packetsLost: second * lossPerSecond,
+            packetsReceived: second * (100 - lossPerSecond),
+            bytesReceived: second * 250_000,
+            framesPerSecond: 30,
+            frameWidth: 1920,
+            frameHeight: 1080,
+            jitter: 0.004,
+            freezeCount: 0,
+          },
+        ],
+        ['cp', { type: 'candidate-pair', state: 'succeeded', nominated: true, currentRoundTripTime: 0.05 }],
+      ])
+    },
+  }
+  const publication = { trackInfo: { codecs: [], layers }, setVideoQuality: vi.fn() }
+  return { track, publication }
+}
+
+describe('实时画面 · 网络与画质', () => {
+  it("shows the picture's frame rate, loss and round trip, red when poor and naming whose network it is", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    routes(preview())
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    const { track, publication } = stream(10, [{ quality: 2, width: 1920, height: 1080 }])
+    act(() => lk.rooms[0]?.emit('trackSubscribed', track, publication, { identity: 'cast' }))
+
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await screen.findByText('30 fps · 丢包 10.0% · 延迟 50 ms')
+    screen.getByText('网络差')
+    // One layer only: nothing to pick.
+    expect(screen.queryByRole('button', { name: '画质' })).toBeNull()
+
+    act(() => lk.rooms[0]?.emit('connectionQualityChanged', 'poor', { identity: 'cast' }))
+    await screen.findByText('机器网络差')
+  })
+
+  it('stays quiet on a good network', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    routes(preview())
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    const { track, publication } = stream(0, [])
+    act(() => lk.rooms[0]?.emit('trackSubscribed', track, publication, { identity: 'cast' }))
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await screen.findByText('30 fps · 丢包 0.0% · 延迟 50 ms')
+    expect(screen.queryByText('网络差')).toBeNull()
+    expect(screen.queryByText('网络一般')).toBeNull()
+  })
+
+  it('lets each viewer pick the quality, automatic by default, and remembers it', async () => {
+    const layers = [
+      { quality: 0, width: 960, height: 540 },
+      { quality: 1, width: 960, height: 540 },
+      { quality: 2, width: 1920, height: 1080 },
+    ]
+    routes(preview())
+    const first = render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    const a = stream(0, layers)
+    act(() => lk.rooms[0]?.emit('trackSubscribed', a.track, a.publication, { identity: 'cast' }))
+    await waitFor(() => expect(a.publication.setVideoQuality).toHaveBeenLastCalledWith(2))
+
+    fireEvent.click(await screen.findByRole('button', { name: '画质' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '流畅' }))
+    await waitFor(() => expect(a.publication.setVideoQuality).toHaveBeenLastCalledWith(0))
+    first.unmount()
+
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[1]?.token).toBe('tok-li'))
+    const b = stream(0, layers)
+    act(() => lk.rooms[1]?.emit('trackSubscribed', b.track, b.publication, { identity: 'cast' }))
+    await waitFor(() => expect(b.publication.setVideoQuality).toHaveBeenLastCalledWith(0))
+    expect(screen.getByRole('button', { name: '画质' }).textContent).toContain('流畅')
   })
 })

@@ -56,8 +56,11 @@ export const UserDto = z.object({
   gitProtocol: GitProtocol,
 })
 export type UserDto = z.infer<typeof UserDto>
-/** PATCH /api/me: the caller's own preferences. */
-export const UpdateMeReq = z.object({ gitProtocol: GitProtocol })
+/** PATCH /api/me: the caller's own preferences and display name (same rule as sign-up). */
+export const UpdateMeReq = z.object({
+  gitProtocol: GitProtocol.optional(),
+  name: z.string().trim().min(1).max(40).optional(),
+})
 
 export const LoginReq = z.object({ account: z.string(), password: z.string() })
 export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword: z.string().min(8) })
@@ -130,19 +133,21 @@ export const BotPresence = z.enum([
   'offline',
   'agent_missing',
 ])
-/** Built-in bot characters: 共字君 (the default) and the ten functions of a software team; art lives in the web app. */
+/** Built-in bot characters: 共字君 (the default) and twelve blended work personalities; art lives in the web app. */
 export const BOT_AVATARS = [
   'role-gong',
-  'role-pm',
-  'role-pjm',
-  'role-designer',
-  'role-architect',
-  'role-frontend',
-  'role-backend',
-  'role-qa',
-  'role-security',
-  'role-devops',
-  'role-data',
+  'role-hammock',
+  'role-braces',
+  'role-focus',
+  'role-steps',
+  'role-blank',
+  'role-no',
+  'role-abacus',
+  'role-invert',
+  'role-sentry',
+  'role-spring',
+  'role-compass',
+  'role-loop',
 ] as const
 export const BotAvatar = z.enum(BOT_AVATARS)
 export type BotAvatar = z.infer<typeof BotAvatar>
@@ -905,6 +910,32 @@ export const DaemonRelease = z.object({
   cast: z.record(z.string(), DaemonBuild).optional(),
 })
 export type DaemonRelease = z.infer<typeof DaemonRelease>
+/** `<os>-<arch>` built by scripts/release.sh. */
+export const RELEASE_PLATFORMS = [
+  'macos-aarch64',
+  'macos-x86_64',
+  'linux-x86_64',
+  'linux-aarch64',
+  'windows-x86_64',
+] as const
+export const ReleaseKind = z.enum(['builds', 'cast'])
+export type ReleaseKind = z.infer<typeof ReleaseKind>
+export interface ReleaseFile {
+  kind: ReleaseKind
+  version: string
+  platform: string
+}
+const RELEASE_FILE =
+  /^(gonggong|gg-cast)-(\d+\.\d+\.\d+)-((?:macos|linux)-(?:x86_64|aarch64)|windows-x86_64)(\.exe)?$/
+/**
+ * POST /api/admin/daemon-release/files takes scripts/release.sh artifacts as named (`gonggong-0.2.0-macos-aarch64`,
+ * `gg-cast-0.2.0-windows-x86_64.exe`): the name alone says what the file is, so admins just drop dist/<version>/.
+ */
+export function parseReleaseFile(name: string): ReleaseFile | null {
+  const [, prefix, version, platform, exe] = RELEASE_FILE.exec(name) ?? []
+  if (!version || !platform || platform.startsWith('windows') !== Boolean(exe)) return null
+  return { kind: prefix === 'gonggong' ? 'builds' : 'cast', version, platform }
+}
 /** GET /api/daemon/cast-build (machine token) → gg-cast for its platform; 404 when none is published. */
 export const CastBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
 export type CastBuildDto = z.infer<typeof CastBuildDto>
@@ -993,7 +1024,7 @@ export const SYSTEM_PARAM_VIEW: {
   unit: string
   measure?: true
 }[] = [
-  { key: 'writerDisconnectReleaseSec', label: '写入方断线后释放锁', unit: '秒', measure: true },
+  { key: 'writerDisconnectReleaseSec', label: '持锁 Bot 断线后自动释放锁', unit: '秒', measure: true },
   { key: 'forceSyncMaxLatencyMs', label: '开启强制同步 · 延迟阈值', unit: 'ms', measure: true },
   { key: 'forceSyncMinBandwidthMbps', label: '开启强制同步 · 带宽阈值', unit: 'Mbps', measure: true },
   { key: 'sessionReplayCount', label: '会话恢复失败时补送群消息数', unit: '条' },
@@ -1004,8 +1035,8 @@ export const SYSTEM_PARAM_VIEW: {
   { key: 'attachmentMaxMb', label: '单个附件大小上限', unit: 'MB' },
   { key: 'attachmentsPerMessage', label: '每条消息附件数', unit: '个' },
   { key: 'questionsPerCard', label: '提问卡片每张题数上限', unit: '题' },
-  { key: 'heartbeatSec', label: 'daemon 心跳间隔', unit: '秒' },
-  { key: 'offlineMisses', label: 'daemon 离线判定（连续未收到心跳）', unit: '次' },
+  { key: 'heartbeatSec', label: '机器心跳间隔', unit: '秒' },
+  { key: 'offlineMisses', label: '机器离线判定（连续未收到心跳）', unit: '次' },
   { key: 'backupRetentionDays', label: '服务器备份（每日）保留', unit: '天' },
   { key: 'archiveRetentionDays', label: '删群后存档保留', unit: '天' },
   { key: 'approvalTimeoutMin', label: '权限审批等待（分区模式）· 群默认', unit: '分钟' },

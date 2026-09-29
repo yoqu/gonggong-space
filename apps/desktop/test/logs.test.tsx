@@ -83,3 +83,14 @@ describe('日志与诊断', () => {
     await waitFor(() => expect(m.recentLogs).toHaveBeenLastCalledWith('debug', expect.any(Number)))
   })
 })
+
+describe('诊断 while it runs', () => {
+  it('says what it is checking instead of an empty box, and keeps a failure visible', async () => {
+    let fail = (_: unknown) => {}
+    m.diagnostics.mockReturnValue(new Promise((_, reject) => (fail = reject)))
+    render(<LogsPage go={() => {}} />)
+    expect(screen.getByText(/正在检测服务器连接、Agent、git 凭据、磁盘与换行符/)).toBeTruthy()
+    await act(async () => fail('boom'))
+    expect(await screen.findByText('诊断未完成')).toBeTruthy()
+  })
+})

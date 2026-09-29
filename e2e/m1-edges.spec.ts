@@ -18,7 +18,7 @@ test('offline bot waits, runs when its machine comes online, and resumes the ses
     name: '离线测试 Claude',
     ownerId: me.id,
     agentKind: 'claude',
-    avatar: 'role-pm',
+    avatar: 'role-no',
     machineId: await api.machineId(),
     systemPrompt: '',
   })
@@ -73,7 +73,7 @@ test('a bot waiting for its owner to confirm cannot be triggered', async ({ page
     name: '待确认 Codex',
     ownerId: me.id,
     agentKind: 'codex',
-    avatar: 'role-pm',
+    avatar: 'role-no',
     machineId,
     systemPrompt: '',
   })

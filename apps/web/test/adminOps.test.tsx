@@ -152,7 +152,15 @@ describe('群', () => {
     mockApi({
       'GET /admin/groups': [
         g({}),
-        g({ id: 'g2', name: '1', ownerName: '王磊', kind: 'dm', repo: null, members: 1, bots: 1 }),
+        g({
+          id: 'g2',
+          name: '小王的 Claude',
+          ownerName: '王磊',
+          kind: 'dm',
+          repo: null,
+          members: 1,
+          bots: 1,
+        }),
         g({
           id: 'g3',
           name: '旧版后台',
@@ -181,7 +189,14 @@ describe('群', () => {
       '4',
       '--',
     ])
-    expect(cells('王磊 的私聊')).toEqual(['王磊 的私聊', '分区模式', '未绑定', '1', '1', '--'])
+    expect(cells('王磊 ⇄ 小王的 Claude')).toEqual([
+      '王磊 ⇄ 小王的 Claude',
+      '分区模式',
+      '未绑定',
+      '1',
+      '1',
+      '--',
+    ])
     await waitFor(() =>
       expect(cells('旧版后台')).toEqual(['旧版后台', '已归档', '未绑定', '3', '0', '归档 · 21 天后清除']),
     )
@@ -491,9 +506,12 @@ describe('系统参数', () => {
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     expect(retention.value).toBe('30')
-    for (const h of ['同步与锁', '运行与会话', '附件', 'daemon', '数据保留', '群与 Bot 默认值'])
+    for (const h of ['同步与锁', '运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy()
-    expect((screen.getByLabelText('写入方断线后释放锁') as HTMLInputElement).value).toBe('60')
+    expect((screen.getByLabelText('持锁 Bot 断线后自动释放锁') as HTMLInputElement).value).toBe('60')
+    expect(screen.getByLabelText('机器心跳间隔')).toBeTruthy()
+    expect(screen.getByLabelText('机器离线判定（连续未收到心跳）')).toBeTruthy()
+    expect(screen.queryByText(/daemon/)).toBeNull()
     expect(screen.queryByText('需实测')).toBeNull()
     expect(screen.queryByPlaceholderText('待定')).toBeNull()
     expect(screen.queryByRole('button', { name: '保存' })).toBeNull()

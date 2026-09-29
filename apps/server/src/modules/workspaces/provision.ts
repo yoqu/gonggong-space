@@ -125,12 +125,25 @@ async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string,
 }
 
 /**
- * Picks a joining bot's workspace (plan W2–W5): its default directory, validated against the group repo by the
- * owner's daemon; without one the bot stays `unbound` until the owner binds it. Also used after a repo change.
+ * Picks a joining bot's workspace (plan W2–W5). Repo groups always start on a managed clone: a local directory,
+ * even the default one, is the owner's explicit choice (/cd or the picker), never shared implicitly. Repo-less
+ * groups use the bot's default directory, validated by the owner's daemon; without one the bot stays `unbound`
+ * until the owner binds it. Also used after a repo change.
  */
 export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: { joined: boolean }) {
-  const [row] = await ctx.db.select({ path: bots.defaultWorkspace }).from(bots).where(eq(bots.id, bot.id))
   const lead = `${bot.name}${o.joined ? ' 加入' : ''}`
+  if (await currentRepo(ctx, groupId)) {
+    await updateBotState(ctx, groupId, bot.id, MANAGED)
+    await postEvent(
+      ctx,
+      groupId,
+      onlineMachine(ctx, bot.machineId)
+        ? `${lead} · 使用托管工作区，等待本机克隆…`
+        : `${lead} · daemon 离线，上线后克隆托管工作区`,
+    )
+    return ensureWorkspace(ctx, groupId, bot)
+  }
+  const [row] = await ctx.db.select({ path: bots.defaultWorkspace }).from(bots).where(eq(bots.id, bot.id))
   const path = row?.path
   if (!path) {
     await updateBotState(ctx, groupId, bot.id, { ...MANAGED, workspaceState: 'unbound' })

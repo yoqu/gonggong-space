@@ -53,7 +53,7 @@ describe('POST /api/bots', () => {
       agentKind: 'claude',
       machineId: machine.id,
       systemPrompt: '后端接口开发',
-      avatar: 'role-backend',
+      avatar: 'role-braces',
     })
     expect(res.statusCode).toBe(200)
     const bot = res.json<BotDto>()
@@ -64,7 +64,7 @@ describe('POST /api/bots', () => {
       binding: 'bound',
       presence: 'offline',
       systemPrompt: '后端接口开发',
-      avatar: 'role-backend',
+      avatar: 'role-braces',
       agentVersion: '2.1.4',
       agentMinVersion: '2.0.0',
       groupCount: 0,
@@ -81,7 +81,7 @@ describe('POST /api/bots', () => {
       name: 'x',
       ownerId: li.id,
       agentKind: 'claude',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: null,
     })
     expect(res.statusCode).toBe(403)
@@ -96,7 +96,7 @@ describe('POST /api/bots', () => {
       name: '小王的 Codex',
       ownerId: wang.id,
       agentKind: 'codex',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: machine.id,
     })
     const bot = res.json<BotDto>()
@@ -118,7 +118,7 @@ describe('POST /api/bots', () => {
         name: 'b',
         ownerId: wang.user.id,
         agentKind: 'claude',
-        avatar: 'role-pm',
+        avatar: 'role-no',
         machineId: m.id,
       })
       expect(res.statusCode).toBe(400)
@@ -131,7 +131,7 @@ describe('POST /api/bots', () => {
       name: 'b1',
       ownerId: wang.user.id,
       agentKind: 'claude',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: null,
     })
     expect(res.json()).toMatchObject({ binding: 'pending_bind', presence: 'pending_bind', machineId: null })
@@ -140,7 +140,7 @@ describe('POST /api/bots', () => {
       name: 'b2',
       ownerId: wang.user.id,
       agentKind: 'claude',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: null,
     })
     expect(again.statusCode).toBe(400)
@@ -152,7 +152,7 @@ describe('POST /api/bots', () => {
       name: '同名',
       ownerId: wang.user.id,
       agentKind: 'claude',
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId: null,
     }
     const first = (await wang.req('POST', '/api/bots', body)).json<BotDto>()
@@ -242,15 +242,19 @@ describe('PATCH /api/bots/:id', () => {
     expect(byAdmin.json()).toMatchObject({ systemPrompt: '只读分析', tier: 'read-only' })
   })
 
-  it('gives every bot a role, 共字君 by default, mapping legacy presets', async () => {
+  it('gives every bot a character: anything outside the current list shows as 共字君', async () => {
     const wang = await actor()
     const none = await t.seed.bot({ ownerId: wang.user.id, agentKind: 'codex' })
     const cat = await t.seed.bot({ ownerId: wang.user.id, avatar: 'bot-cat' })
     expect((await wang.req('GET', `/api/bots/${none.id}`)).json()).toMatchObject({ avatar: 'role-gong' })
     const url = `/api/bots/${cat.id}`
-    expect((await wang.req('GET', url)).json()).toMatchObject({ avatar: 'role-devops' })
-    expect((await wang.req('PATCH', url, { avatar: 'role-qa' })).json()).toMatchObject({ avatar: 'role-qa' })
-    for (const avatar of ['nope', 'bot-cat', null])
+    expect((await wang.req('GET', url)).json()).toMatchObject({ avatar: 'role-gong' })
+    expect((await wang.req('PATCH', url, { avatar: 'role-invert' })).json()).toMatchObject({
+      avatar: 'role-invert',
+    })
+    const qa = await t.seed.bot({ ownerId: wang.user.id, avatar: 'role-qa' })
+    expect((await wang.req('GET', `/api/bots/${qa.id}`)).json()).toMatchObject({ avatar: 'role-gong' })
+    for (const avatar of ['nope', 'bot-cat', 'role-qa', null])
       expect((await wang.req('PATCH', url, { avatar })).statusCode).toBe(400)
     const body = { name: 'r', ownerId: wang.user.id, agentKind: 'claude', machineId: null }
     expect((await wang.req('POST', '/api/bots', body)).json()).toMatchObject({ avatar: 'role-gong' })
@@ -267,7 +271,7 @@ describe('confirm', () => {
         name: '小王的 Codex',
         ownerId: wang.user.id,
         agentKind: 'codex',
-        avatar: 'role-pm',
+        avatar: 'role-no',
         machineId: machine.id,
       })
     ).json<BotDto>()

@@ -134,14 +134,18 @@
 .tl-time {
   white-space: nowrap;
 }
-/* The day separator stays at the top while its day scrolls by. */
+/* The day separator stays at the top while its day scrolls by, on a band of the page colour that fades out below
+   it so text passing underneath never shows beside the capsule. The negative margin keeps the in-flow spacing. */
 .pn-msglist > .pn-notice--date {
   position: sticky;
-  top: var(--space-6);
-  z-index: 2;
+  top: 0;
+  z-index: 3;
+  margin-block: calc(-1 * var(--space-6));
+  padding-block: var(--space-6);
+  background: linear-gradient(var(--content-bg) 70%, transparent);
 }
 .chat-scroll:has(.chat-view__banners > *) .pn-msglist > .pn-notice--date {
-  top: 52px;
+  top: 46px;
 }
 /* Stuck over the messages it must read as a floating capsule, never as text colliding with an author row:
    an opaque content-bg fill with the glass shadow, so nothing shows through. */
@@ -235,11 +239,23 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* In a narrow column the author name stays on one line; the secondary meta truncates first. */
+.chat-view .pn-msg__meta > * {
+  flex: none;
+  white-space: nowrap;
+}
 .run-card__sub {
   color: var(--label-tertiary);
 }
+.chat-view .pn-msg__meta > .run-card__sub {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .run-mcard {
   width: 460px;
+  max-width: 100%;
   transition: box-shadow var(--motion-fast);
 }
 .run-mcard--selected {

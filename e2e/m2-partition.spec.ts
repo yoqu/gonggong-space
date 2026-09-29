@@ -34,7 +34,7 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
       name,
       ownerId: me.id,
       agentKind,
-      avatar: 'role-pm',
+      avatar: 'role-no',
       machineId,
       systemPrompt: '',
     })

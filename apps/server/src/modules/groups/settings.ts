@@ -48,6 +48,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       const { notice, ...body } = UpdateGroupReq.parse(req.body)
+      if (group.kind === 'dm' && body.name) return fail('invalid', '私聊以 Bot 名称命名，不能改名')
       if (body.name) await ctx.db.update(groups).set(body).where(eq(groups.id, group.id))
       if (notice !== undefined && notice !== group.notice) await setNotice(ctx, group.id, notice, me.id)
       await audit(ctx, {

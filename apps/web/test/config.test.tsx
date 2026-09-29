@@ -67,6 +67,8 @@ describe('配置中心', () => {
     expect(screen.getByRole('tab', { name: '服务器全局层' }).getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('tab', { name: '服务器群层' }).hasAttribute('disabled')).toBe(true)
     await screen.findByText('wiki-search')
+    // The built-in gonggong row is always on and not counted: the subtitle says custom.
+    expect(screen.getByText('自定义 MCP 2 个 · 已启用 1 个')).toBeTruthy()
     expect(row('wiki-search').textContent).toContain('npx @corp/mcp-wiki · env TOKEN')
     expect(row('grafana').textContent).toContain('https://mcp.corp/grafana')
     expect(within(row('wiki-search')).getByRole('switch').getAttribute('aria-checked')).toBe('true')

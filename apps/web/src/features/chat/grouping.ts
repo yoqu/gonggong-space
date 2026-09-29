@@ -28,11 +28,17 @@ export function unreadStart(messages: MessageDto[], unread: number, meId: string
   return (counted.at(-unread) ?? counted[0])?.id ?? null
 }
 
+/** A bare capitalized `X.js` is how prose names a technology (Node.js, Vue.js, Next.js), not a file. */
+const TECH_NAME = /^[A-Z][\w-]*\.js$/
+
+/** Files a reply names: its paths minus technology names. */
+export const replyFiles = (markdown: string) => filePaths(markdown).filter((p) => !TECH_NAME.test(p))
+
 const CODE_OR_TABLE = /```|^\s*\|?\s*:?-{3,}:?\s*\|/m
 
 /** Replies with code, tables, attachments or file paths need the wide run card; plain text stays a bubble (C2). */
 export const isRich = (m: MessageDto) =>
-  m.attachments.length > 0 || CODE_OR_TABLE.test(m.body) || filePaths(m.body).length > 0
+  m.attachments.length > 0 || CODE_OR_TABLE.test(m.body) || replyFiles(m.body).length > 0
 
 /** Shortest run of consecutive system events that folds into one expandable row. */
 export const EVENT_FOLD_MIN = 3

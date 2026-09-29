@@ -1,0 +1,27 @@
+import { inArray, sql } from 'drizzle-orm'
+import type { Ctx } from '../../context.js'
+import { groups } from '../../db/schema.js'
+import { isUuid } from '../../lib/ids.js'
+
+const DELETED_BOT = '已删除的 Bot'
+
+/**
+ * What people see a group called: a DM is always titled by its Bot's current name, never a stored string.
+ * Columns are spelled out qualified: drizzle leaves them bare in single-table selects, where `id` would bind to `b`.
+ */
+export const groupTitle = sql<string>`case when "groups"."kind" = 'dm' then coalesce((
+  select case when b.deleted_at is null then b.name else ${DELETED_BOT}::text end
+  from group_bots gb join bots b on b.id = gb.bot_id
+  where gb.group_id = "groups"."id"
+  order by (gb.removed_at is null and b.deleted_at is null) desc, gb.created_at
+  limit 1), "groups"."name") else "groups"."name" end`
+
+export async function groupTitles(ctx: Ctx, ids: string[]) {
+  const valid = [...new Set(ids.filter(isUuid))]
+  if (!valid.length) return new Map<string, string>()
+  const rows = await ctx.db
+    .select({ id: groups.id, title: groupTitle })
+    .from(groups)
+    .where(inArray(groups.id, valid))
+  return new Map(rows.map((r) => [r.id, r.title]))
+}

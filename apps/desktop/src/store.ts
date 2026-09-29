@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
 import { create } from 'zustand'
-import { type AppInfo, ipc, onSnapshot, type Snapshot } from './ipc'
+import { type AppInfo, ipc, type Overview, onSnapshot, type Snapshot } from './ipc'
 
-export const useDaemon = create<{ info: AppInfo | null; snapshot: Snapshot }>()(() => ({
+export const useDaemon = create<{
+  info: AppInfo | null
+  snapshot: Snapshot
+  /** The last 概览 stats: counting walks every workspace, so a revisit shows these meanwhile. */
+  overview: Overview | null
+}>()(() => ({
   info: null,
   snapshot: { phase: 'unbound' },
+  overview: null,
+}))
+
+/** Replaces the page's toolbar title while a page shows a sub-view (a run of 概览). */
+export const useHeading = create<{ heading: { title: string; subtitle?: string } | null }>()(() => ({
+  heading: null,
 }))
 
 /** Loads the initial state and follows snapshot events; resolves to the unlisten function. */

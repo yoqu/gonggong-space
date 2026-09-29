@@ -5,7 +5,7 @@ import {
   Icon,
   type IconName,
   SegmentedControl,
-  Skeleton,
+  Spinner,
   Tag,
   type TagTone,
   toast,
@@ -51,7 +51,10 @@ export function LogsPage(_: PageProps) {
   const [lines, setLines] = useState<LogLine[]>([])
 
   useEffect(() => {
-    ipc.diagnostics().then(setChecks, fail)
+    ipc.diagnostics().then(setChecks, (e) => {
+      setChecks([])
+      fail(e)
+    })
   }, [])
 
   useEffect(() => {
@@ -104,9 +107,13 @@ export function LogsPage(_: PageProps) {
               ) : null}
             </div>
           ))}
+          {checks?.length === 0 ? <EmptyState compact icon="warning" title="诊断未完成" /> : null}
           {checks ? null : (
             <div className="dk-row">
-              <Skeleton count={3} label="检测中" />
+              <Spinner />
+              <span className="dk-sub">
+                正在检测服务器连接、Agent、git 凭据、磁盘与换行符，可能需要半分钟…
+              </span>
             </div>
           )}
         </GroupBox>

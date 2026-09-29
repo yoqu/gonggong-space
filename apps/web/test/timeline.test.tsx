@@ -11,8 +11,8 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
-import { avatarSrc } from '../src/features/bots/avatars'
 import { continues, eventFolds, isRich, unreadStart } from '../src/features/chat/grouping'
 import { RunStatusIcon } from '../src/features/chat/RunGraphics'
 import { fmtDuration, RUN_STATUS } from '../src/features/chat/TimelineItems'
@@ -58,7 +58,7 @@ const bot: BotDto = {
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: 'role-pm',
+  avatar: 'role-no',
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -304,10 +304,8 @@ describe('timeline bubbles', () => {
     expect(art(tool as HTMLElement).getAttribute('data-action')).toBe('carry')
     expect(art(idle as HTMLElement).getAttribute('data-action')).toBe('carry')
     expect(within(idle as HTMLElement).getByText('正在工作…')).toBeTruthy()
-    expect(document.querySelector('.pn-typing .ui-mascot')?.getAttribute('data-action')).toBe('think')
-    // The bot's own role plays the part: its avatar tile becomes the head.
-    for (const svg of [art(tool as HTMLElement), document.querySelector('.pn-typing .ui-mascot')])
-      expect(svg?.querySelector('image')?.getAttribute('href')).toBe(avatarSrc('role-pm', true))
+    // The bot's own role plays the part, with its own body and moves.
+    expect(art(tool as HTMLElement).getAttribute('data-role')).toBe('no')
   })
 
   it('shows run facts as labelled graphics', async () => {
@@ -320,6 +318,13 @@ describe('timeline bubbles', () => {
       expect(within(card).getByTitle(label).querySelector('svg, .token-meter, .hop-chain__dot')).toBeTruthy()
     expect(within(card).getByTitle(/^耗时 /)).toBeTruthy()
     expect(within(card).getByTitle('接力 2/5').querySelectorAll('.hop-chain__dot--on')).toHaveLength(2)
+    fireEvent.click(within(card).getByRole('button', { name: '改动 2 个文件' }))
+    expect(useWorkbench.getState().benches.g1?.tabs).toContainEqual({
+      kind: 'run',
+      runId: 'r1',
+      view: 'diff',
+      file: null,
+    })
   })
 })
 
@@ -400,9 +405,27 @@ describe('hover action bar', () => {
     expect(screen.queryByRole('menuitem', { name: '查看过程' })).toBeNull()
   })
 
-  it('ends the list with the working Bots while a run executes', async () => {
-    renderChat({ messages: [msg({ seq: 1 })], runs: [run()] })
+  it('ends the list with the working Bots whose run card is not in view', async () => {
+    renderChat({ messages: [msg({ seq: 2 })], runs: [run()] })
     expect((await screen.findByText('小王的 Claude 正在处理…')).closest('[role=status]')).toBeTruthy()
+    const mascot = document.querySelector('.pn-typing .ui-mascot')
+    expect(mascot?.getAttribute('data-action')).toBe('think')
+    expect(mascot?.getAttribute('data-role')).toBe('no')
+  })
+
+  it('shows no typing row for a Bot whose running card is in the timeline', async () => {
+    renderChat({ messages: [msg({ seq: 1 })], runs: [run()] })
+    await screen.findByTestId('run-card')
+    expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
+  })
+
+  it('keeps the group mode and the per-Bot wording out of a private chat header', async () => {
+    renderChat({ messages: [msg({ seq: 1 })], runs: [] }, group({ kind: 'dm', name: '王磊 的私聊' }))
+    const head = (await screen.findByRole('heading', { name: '王磊 的私聊' })).closest(
+      'header',
+    ) as HTMLElement
+    expect(within(head).queryByText('分区模式')).toBeNull()
+    expect(head.textContent).toContain('仅你和你的 Bot · 未绑定仓库 · Bot 使用本机目录')
   })
 
   it('shows a drop zone while files are dragged over the chat', async () => {

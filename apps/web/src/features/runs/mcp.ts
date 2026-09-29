@@ -14,8 +14,13 @@ export function mcpLabel(server: string, tool: string) {
   return `${server.replace(/^claude_ai_/, '')} · ${tool}`
 }
 
-/** A tool title made readable when it names an MCP call (Claude `mcp__s__t`, Codex `mcp.s.t`), else as is. */
+/** The daemon's echo of the session's model / effort (`已切换推理强度：High`): setup, not progress. */
+export const CONFIG_ECHO = /^已切换[^：]+：/
+
+/** A tool title made readable when it names an MCP call (Claude `mcp__s__t`, Codex `mcp.s.t`); config echoes
+ * are blank so the run card shows its working label instead. */
 export function toolTitle(title: string) {
+  if (CONFIG_ECHO.test(title)) return ''
   const [, server, tool] = /^mcp__(.+?)__(.+)$/.exec(title) ?? /^mcp\.([^.]+)\.(.+)$/.exec(title) ?? []
   return server && tool ? mcpLabel(server, tool) : title
 }

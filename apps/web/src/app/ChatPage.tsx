@@ -236,7 +236,13 @@ export function ChatPage() {
         ) : null}
       </Presence>
       <Presence>
-        {openMachine ? <MachineDialog machine={openMachine} onClose={() => setMachineId(null)} /> : null}
+        {openMachine ? (
+          <MachineDialog
+            machine={openMachine}
+            bots={myBots.filter((b) => b.machineId === openMachine.id)}
+            onClose={() => setMachineId(null)}
+          />
+        ) : null}
       </Presence>
     </>
   )

@@ -349,10 +349,20 @@ function AddAccountSheet({
 }
 
 function AccountPage() {
+  const name = useSession((s) => s.user?.name)
   const [changing, setChanging] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   return (
     <>
       <GroupBox>
+        <GroupRow label="显示名">
+          <span className="gs-value-line">
+            {name}
+            <Button size="small" onClick={() => setRenaming(true)}>
+              修改显示名…
+            </Button>
+          </span>
+        </GroupRow>
         <GroupRow label="密码">
           <Button size="small" onClick={() => setChanging(true)}>
             修改密码…
@@ -360,6 +370,58 @@ function AccountPage() {
         </GroupRow>
       </GroupBox>
       <Presence>{changing ? <ChangePasswordDialog onClose={() => setChanging(false)} /> : null}</Presence>
+      <RenameSheet open={renaming} current={name ?? ''} onClose={() => setRenaming(false)} />
     </>
+  )
+}
+
+function RenameSheet({ open, current, onClose }: { open: boolean; current: string; onClose: () => void }) {
+  const [name, setName] = useState(current)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!open) return
+    setName(current)
+    setError('')
+  }, [open, current])
+
+  const next = name.trim()
+  const disabled = busy || !next || next === current
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (disabled) return
+    setBusy(true)
+    setError('')
+    try {
+      useSession.getState().setUser(await api.patch<UserDto>('/me', { name: next }))
+      onClose()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '保存失败，请重试')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="修改显示名"
+      width={420}
+      actions={[
+        { label: '取消', onClick: onClose },
+        { label: '保存', variant: 'primary', type: 'submit', form: 'rename-me', disabled },
+      ]}
+    >
+      <form id="rename-me" className="settings-add" onSubmit={submit} noValidate>
+        <TextField
+          label="显示名"
+          value={name}
+          maxLength={40}
+          hint="在群成员与消息里显示，头像取首字"
+          onChange={(e) => setName(e.target.value)}
+        />
+        {error ? <Alert variant="error" description={error} /> : null}
+      </form>
+    </Sheet>
   )
 }

@@ -23,6 +23,13 @@ pub struct Bot {
     pub approval: Approval,
     #[serde(default)]
     pub allowlist: Vec<String>,
+    /// Role key of the avatar (`role-gong`, …); the desktop app draws it like the Web.
+    #[serde(default = "default_avatar")]
+    pub avatar: String,
+}
+
+fn default_avatar() -> String {
+    "role-gong".into()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

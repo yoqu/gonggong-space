@@ -57,6 +57,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-callout-size);
 }
+/* The Pane block's 280px floor would widen a narrow chat column; the code scrolls inside the bubble instead. */
+.md .pn-code {
+  min-width: 0;
+}
 .md-table {
   max-width: 100%;
   overflow-x: auto;
@@ -69,8 +73,10 @@
   font-size: var(--text-callout-size);
   min-width: 100%;
 }
+/* Cells keep numbers and words whole (the bubble's overflow-wrap would split 926 into 92/6); the table scrolls instead. */
 .md-table th,
 .md-table td {
+  overflow-wrap: normal;
   padding: var(--space-6) var(--space-12);
   text-align: left;
   border-bottom: 1px solid var(--separator);

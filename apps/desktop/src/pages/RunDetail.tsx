@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ipc, type RunProcess } from '../ipc'
 import { runBadge } from '../lib/labels'
 import { Section } from '../lib/ui'
+import { useHeading } from '../store'
 
 /** Local IPC is cheap: polling keeps the view simple and also follows background tasks after the run ended. */
 const POLL_MS = 1000
@@ -46,6 +47,12 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
     [process, live],
   )
   const run = process?.run
+  const title = run?.botName
+  const subtitle = run && `${run.groupName} · ${run.triggeredBy} 触发`
+  useEffect(() => {
+    if (title) useHeading.setState({ heading: { title, subtitle } })
+  }, [title, subtitle])
+  useEffect(() => () => useHeading.setState({ heading: null }), [])
   const badge = process?.outcome ? OUTCOME[process.outcome] : runBadge(run?.status ?? null)
   return (
     <>
@@ -54,18 +61,7 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
           <Icon name="chevron-left" size={14} />
           返回
         </Button>
-        {run ? (
-          <span className="dk-row__main">
-            <span className="dk-row__title">
-              <span className="dk-strong">{run.botName}</span>
-              <span className="dk-sub">
-                {run.groupName} · {run.triggeredBy} 触发
-              </span>
-            </span>
-          </span>
-        ) : (
-          <span className="dk-flex" />
-        )}
+        <span className="dk-flex" />
         {run ? <Badge variant={badge.variant}>{badge.text}</Badge> : null}
       </div>
       <Section title="运行过程">

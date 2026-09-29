@@ -34,7 +34,7 @@ const SECTIONS: { title: string; keys: Key[] }[] = [
   },
   { title: '运行与会话', keys: ['sessionReplayCount', 'contextInlineMax', 'questionsPerCard'] },
   { title: '附件', keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
-  { title: 'daemon', keys: ['heartbeatSec', 'offlineMisses'] },
+  { title: '机器连接', keys: ['heartbeatSec', 'offlineMisses'] },
   { title: '数据保留', keys: ['runRetentionDays', 'backupRetentionDays', 'archiveRetentionDays'] },
   {
     title: '群与 Bot 默认值',

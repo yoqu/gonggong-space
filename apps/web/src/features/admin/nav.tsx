@@ -8,6 +8,7 @@ import { AuditPage } from './AuditPage'
 import { GroupsPage } from './GroupsPage'
 import { MachinesPage } from './MachinesPage'
 import { ParamsPage } from './ParamsPage'
+import { ReleasesPage } from './ReleasesPage'
 import { UsersPage } from './UsersPage'
 
 export interface AdminItem {
@@ -71,6 +72,14 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         color: 'var(--system-gray)',
         desc: '全局默认值；群级参数由群管理员在群设置中调整。',
         element: <ParamsPage />,
+      },
+      {
+        path: 'releases',
+        label: '客户端发布',
+        icon: 'download',
+        color: 'var(--system-blue)',
+        desc: '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。',
+        element: <ReleasesPage />,
       },
     ],
   },

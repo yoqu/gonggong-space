@@ -199,7 +199,7 @@ export function BotDetail({
         <FormRow
           label="系统提示词"
           align="top"
-          hint="同时作为群内简介，下一次新开会话时生效。优先级：仓库基线 < 本提示词 < 全局层 < 群层"
+          hint="作为 Bot 的角色说明和群内简介，群内可再补充；下一次新开会话时生效"
         >
           <TextField
             multiline
@@ -212,7 +212,11 @@ export function BotDetail({
         </FormRow>
 
         {me.id === bot.ownerId && bot.machineId ? (
-          <FormRow label="默认工作区" align="top" hint="进群时自动使用；群绑定了仓库时需与其 remote 一致">
+          <FormRow
+            label="默认工作区"
+            align="top"
+            hint="未绑定仓库的群和私聊中自动使用；绑定仓库的群默认托管克隆"
+          >
             <div
               className="bots-detail__workspace"
               data-testid="default-workspace"
@@ -402,6 +406,8 @@ export function BotsAdminPage() {
               {
                 key: 'name',
                 title: 'Bot',
+                // Beside the detail panel the name keeps its room; Agent and 机器 give way and truncate.
+                width: 'minmax(160px, 1fr)',
                 sortable: true,
                 render: (b) => (
                   <>
@@ -413,7 +419,7 @@ export function BotsAdminPage() {
               {
                 key: 'agent',
                 title: 'Agent',
-                width: 150,
+                width: 'minmax(0, 150px)',
                 secondary: true,
                 sortable: true,
                 sortValue: agentLine,
@@ -433,7 +439,7 @@ export function BotsAdminPage() {
                     <Tag tone="orange">{BINDING_LABEL[b.binding]}</Tag>
                   ),
               },
-              { key: 'machineName', title: '机器', width: 200, mono: true, secondary: true, sortable: true },
+              { key: 'machineName', title: '机器', width: 'minmax(0, 200px)', mono: true, secondary: true, sortable: true },
               {
                 key: 'presence',
                 title: '状态',

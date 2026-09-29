@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type { AgentCatalog, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
@@ -62,7 +63,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: 'role-pm',
+  avatar: 'role-no',
   machineId: 'm1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -137,7 +138,7 @@ async function openMyBot(name = '小王的 Claude') {
   const nav = screen.getByRole('navigation', { name: '会话列表' })
   fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
   const page = await screen.findByRole('region', { name: 'Bot 概况' })
-  fireEvent.click(within(page).getByRole('button', { name: '设置' }))
+  fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
   return screen.findByRole('complementary', { name: 'Bot 详情' })
 }
 
@@ -229,9 +230,9 @@ describe('新建 Bot', () => {
     expect(within(dialog).getByText('创建后立即可用')).toBeTruthy()
     fireEvent.change(name, { target: { value: '小王的 Claude' } })
     const roles = within(dialog).getByRole('radiogroup', { name: '角色' })
-    expect(within(roles).getAllByRole('radio')).toHaveLength(11)
+    expect(within(roles).getAllByRole('radio')).toHaveLength(13)
     expect((within(roles).getByRole('radio', { name: /共字君/ }) as HTMLInputElement).checked).toBe(true)
-    fireEvent.click(within(roles).getByRole('radio', { name: /测试工程师/ }))
+    fireEvent.click(within(roles).getByRole('radio', { name: /反推/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     expect(await within(dialog).findByText('已就绪，可以在群里 @ 它了')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
@@ -242,7 +243,7 @@ describe('新建 Bot', () => {
       agentKind: 'claude',
       machineId: 'm1',
       systemPrompt: '',
-      avatar: 'role-qa',
+      avatar: 'role-invert',
       model: null,
       effort: null,
     })
@@ -383,11 +384,11 @@ describe('bot detail', () => {
     expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
     expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
     expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(within(detail).getByRole('radio', { name: /数据工程师/ }))
+    fireEvent.click(within(detail).getByRole('radio', { name: /算盘/ }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
-        avatar: 'role-data',
+        avatar: 'role-abacus',
         systemPrompt: '',
         triggerScope: 'list',
         triggerList: ['u2'],
@@ -516,6 +517,14 @@ describe('bot detail', () => {
     expect(within(await screen.findByRole('alertdialog')).getByText('要删除 小王的 Claude 吗？')).toBeTruthy()
   })
 
+  it('keeps the Bot name column wide while machine and Agent shrink beside the detail panel', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    renderAt('/admin/bots', admin)
+    const grid = await screen.findByRole('grid', { name: 'Bot 列表' })
+    const template = (grid.querySelector('.ui-table__head') as HTMLElement).style.gridTemplateColumns
+    expect(template.startsWith('minmax(160px, 1fr) minmax(0, 150px) 96px 64px minmax(0, 200px) 104px')).toBe(true)
+  })
+
   it('warns when the bot waits for its owner', async () => {
     routes['GET /api/bots'] = () => [
       bot({ binding: 'pending_confirm', presence: 'pending_confirm', createdBy: 'u9', agentVersion: null }),
@@ -587,7 +596,7 @@ describe('bot page', () => {
     expect(within(live).getByText('支付服务重构')).toBeTruthy()
     expect(within(live).getByText('编辑 src/pay.ts')).toBeTruthy()
     const places = within(page).getByRole('list', { name: '工作位置' })
-    expect(within(places).getByText('/Users/wang/pay')).toBeTruthy()
+    expect(within(places).getByText('~/pay')).toBeTruthy()
     expect(within(places).getByText('官网改版')).toBeTruthy()
 
     const tile = (label: string) => within(page).getByText(label).closest('.usage-stat')?.textContent
@@ -604,5 +613,76 @@ describe('bot page', () => {
     renderAt('/bot/b1', wang)
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
     expect(await within(page).findByText('空闲，在群里 @ 它即可开工')).toBeTruthy()
+  })
+})
+
+describe('bot page ux', () => {
+  it('lets the page body scroll inside the fixed-height main area', () => {
+    const css = readFileSync('src/features/bots/bots.css', 'utf8')
+    const block = css.slice(css.indexOf('.bot-page {'), css.indexOf('}', css.indexOf('.bot-page {')))
+    expect(block).toContain('min-height: 0')
+  })
+
+  it('names managed workspaces instead of showing their internal path', async () => {
+    routes['GET /api/bots'] = () => [bot({ groupCount: 2 })]
+    routes['GET /api/bots/b1/activity'] = () => [
+      {
+        groupId: 'g1',
+        groupName: '支付服务重构',
+        groupKind: 'group',
+        workspacePath: '/Users/wang/.gonggong/workspaces/g1/b1/_empty',
+        run: null,
+        lastRunAt: null,
+      },
+      {
+        groupId: 'g2',
+        groupName: '官网改版',
+        groupKind: 'group',
+        workspacePath: '/home/wang/site',
+        run: null,
+        lastRunAt: null,
+      },
+    ]
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    const places = await within(page).findByRole('list', { name: '工作位置' })
+    const managed = within(places).getByText('托管工作区')
+    expect(managed.getAttribute('title')).toBe('/Users/wang/.gonggong/workspaces/g1/b1/_empty')
+    expect(within(places).getByText('~/site').getAttribute('title')).toBe('/home/wang/site')
+    expect(within(places).queryByText(/\.gonggong/)).toBeNull()
+  })
+
+  it('labels the header button that opens the bot editor', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    const edit = within(page).getByRole('button', { name: '编辑 Bot' })
+    expect(edit.textContent).toBe('编辑')
+    fireEvent.click(edit)
+    const dialog = await screen.findByRole('dialog', { name: /Bot 详情/ })
+    expect(within(dialog).getByText(/作为 Bot 的角色说明/)).toBeTruthy()
+    expect(within(dialog).queryByText(/优先级/)).toBeNull()
+  })
+
+  it('lists the bots running on a machine in its detail dialog', async () => {
+    routes['GET /api/bots'] = () => [
+      bot({}),
+      bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex', presence: 'running' }),
+      bot({ id: 'b3', name: '别处的 Bot', machineId: 'm2', machineName: 'other' }),
+    ]
+    routes['GET /api/machines'] = () => [mbp]
+    renderAt('/', wang)
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const section = await within(nav).findByRole('region', { name: '我的机器' })
+    fireEvent.click(await within(section).findByRole('button', { name: /wanglei-mbp/ }))
+    const dialog = await screen.findByRole('dialog', { name: '机器详情' })
+    const list = within(dialog).getByRole('list', { name: '运行的 Bot' })
+    const rows = within(list)
+      .getAllByRole('listitem')
+      .map((r) => r.textContent)
+    expect(rows).toEqual(['小王的 Claude在线空闲', '小王的 Codex运行中'])
+    fireEvent.click(within(list).getByRole('link', { name: /小王的 Codex/ }))
+    expect(await screen.findByRole('region', { name: 'Bot 概况' })).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '机器详情' })).toBeNull())
   })
 })

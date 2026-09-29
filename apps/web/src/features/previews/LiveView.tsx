@@ -1,15 +1,17 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
 import { useSession } from '../../app/session'
-import { EmptyState, Icon } from '../../ui'
+import { EmptyState, Icon, PopUpButton, Tag, Tooltip } from '../../ui'
 import { ControlBar, ControlRequests } from './control'
-import { framePoint, keyInput, useLiveRoom } from './live'
+import { framePoint, keyInput, useLiveRoom, useLiveStats, useQuality, type Weak } from './live'
 import './live.css'
 
 /** Drags send at most this often; the release carries the final position. */
 const MOVE_MS = 33
 /** Wheel deltas are summed over this long: trackpads fire many tiny ones. */
 const WHEEL_MS = 50
+/** Where the machine owner fixes a live preview: gg-cast, permissions and its errors are all on this page. */
+const DESKTOP_PAGE = '共工桌面端「实时画面」页'
 
 /**
  * A live preview's picture (plan §6 GUI 观看页, B4): everyone watches; the member in control drives the machine's
@@ -17,7 +19,7 @@ const WHEEL_MS = 50
  */
 export function LiveView({ preview: p }: { preview: PreviewDto }) {
   const me = useSession((s) => s.user?.id)
-  const { track, error, send } = useLiveRoom(p.id)
+  const { track, publication, weak, error, send } = useLiveRoom(p.id)
   const video = useRef<HTMLVideoElement>(null)
   const keys = useRef<HTMLTextAreaElement>(null)
   const pressed = useRef(false)
@@ -70,9 +72,12 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
       : p.status === 'stopped'
         ? { title: '应用已停止' }
         : p.live?.missing.includes('screen_recording')
-          ? { title: '机器未授权屏幕录制', description: '请 Bot 主人在共工桌面端完成授权' }
+          ? { title: '机器未授权屏幕录制', description: `请 Bot 主人在${DESKTOP_PAGE}完成授权` }
           : p.live?.state === 'failed'
-            ? { title: '没有推送画面', description: p.live.error ?? undefined }
+            ? {
+                title: '没有推送画面',
+                description: [p.live.error, `Bot 主人可在${DESKTOP_PAGE}查看`].filter(Boolean).join('。'),
+              }
             : !track
               ? { title: '正在启动实时画面…' }
               : null
@@ -85,9 +90,10 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
         {(controlling || p.canManage) && p.live?.missing.includes('accessibility') ? (
           <span className="lv-warn">
             <Icon name="hand" size={12} />
-            机器未授权辅助功能，远程操作不会生效，请在桌面端完成授权
+            {`机器未授权辅助功能，远程操作不会生效，请在${DESKTOP_PAGE}完成授权`}
           </span>
         ) : null}
+        {track ? <LiveNetwork track={track} publication={publication} weak={weak} /> : null}
       </div>
       <div className="lv__stage">
         {problem ? (
@@ -144,6 +150,61 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
           />
         ) : null}
       </div>
+    </div>
+  )
+}
+
+/** The picture's network figures and this viewer's quality pick, at the bar's right end. */
+function LiveNetwork({
+  track,
+  publication,
+  weak,
+}: {
+  track: Parameters<typeof useLiveStats>[0]
+  publication: Parameters<typeof useQuality>[0]
+  weak: Weak
+}) {
+  const live = useLiveStats(track)
+  const { picks, pick, choose } = useQuality(publication)
+  const who = weak.machine ? '机器网络差' : weak.me ? '你的网络差' : null
+  const s = live?.stats
+  const details = s
+    ? [
+        s.width && s.height ? `分辨率 ${s.width}×${s.height}` : null,
+        `码率 ${(s.kbps / 1000).toFixed(1)} Mbps`,
+        s.jitter === null ? null : `抖动 ${s.jitter} ms`,
+        who,
+        live.grade === 'poor' && pick !== 'auto' && pick !== picks.at(-1)?.value
+          ? `网络较差，建议切换到「${picks.at(-1)?.label}」`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null
+
+  return (
+    <div className="lv-net">
+      {live?.grade === 'poor' ? (
+        <Tag tone="red">{who ?? '网络差'}</Tag>
+      ) : live?.grade === 'fair' ? (
+        <Tag tone="orange">网络一般</Tag>
+      ) : null}
+      {s && details ? (
+        <Tooltip content={details} placement="bottom" delay={300}>
+          <button type="button" className="lv-net__figures">
+            {`${s.fps === null ? '—' : Math.round(s.fps)} fps · 丢包 ${(s.loss * 100).toFixed(1)}% · 延迟 ${s.rtt ?? '—'} ms`}
+          </button>
+        </Tooltip>
+      ) : null}
+      {picks.length ? (
+        <PopUpButton
+          size="small"
+          aria-label="画质"
+          options={picks.map((q) => ({ value: q.value, label: q.label }))}
+          value={pick}
+          onChange={choose}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 //! This machine's preview tunnels and hosted services as the server lists them, for the desktop app to manage.
 use crate::bots::{Client, ok};
+use crate::protocol::Permission;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +9,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Preview {
     pub id: String,
+    /// http / static tunnel; gui / miniprogram are watched live through gg-cast.
+    pub kind: String,
     pub title: String,
     pub group_name: String,
     pub bot_name: String,
@@ -16,6 +19,31 @@ pub struct Preview {
     pub service_id: Option<String>,
     pub service_name: Option<String>,
     pub status: String,
+    /// This machine's gg-cast while someone watches.
+    #[serde(default)]
+    pub live: Option<Live>,
+    #[serde(default)]
+    pub control: Option<Control>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Live {
+    pub state: String,
+    pub error: Option<String>,
+    pub missing: Vec<Permission>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Control {
+    pub controller: Option<Member>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Member {
+    pub name: String,
 }
 
 /// Subset of the server's `ServiceDto`.

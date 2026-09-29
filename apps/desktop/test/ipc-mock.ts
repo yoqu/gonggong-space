@@ -28,10 +28,11 @@ vi.mock('../src/ipc', () => ({
     resetAgentPath: vi.fn(),
     bots: vi.fn(),
     openBotInWeb: vi.fn(),
-    tunnels: vi.fn(),
+    tunnels: vi.fn(async () => ({ previews: [], services: [] })),
     closeTunnel: vi.fn(),
     stopService: vi.fn(),
     openLocal: vi.fn(),
+    castComponent: vi.fn(),
     permissions: vi.fn(async () => []),
     requestPermission: vi.fn(),
     restartApp: vi.fn(),
@@ -134,6 +135,7 @@ export function bot(over: Partial<MachineBot>): MachineBot {
     concurrency: 2,
     approval: 'ask',
     allowlist: [],
+    avatar: 'role-gong',
     ...over,
   }
 }

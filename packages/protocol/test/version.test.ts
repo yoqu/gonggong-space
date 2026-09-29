@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AgentInfo, compareVersions, DaemonRelease } from '../src/index.js'
+import { AgentInfo, compareVersions, DaemonRelease, parseReleaseFile } from '../src/index.js'
 
 describe('compareVersions', () => {
   it('orders dotted numeric versions, ignoring pre-release / build suffixes', () => {
@@ -27,5 +27,29 @@ describe('contracts', () => {
     expect(
       DaemonRelease.safeParse({ ...ok, builds: { 'macos-aarch64': { url: '/x', sha256: 'nope' } } }).success,
     ).toBe(false)
+  })
+})
+
+describe('parseReleaseFile', () => {
+  it('reads kind, version and platform from release.sh artifact names', () => {
+    expect(parseReleaseFile('gonggong-0.2.0-macos-aarch64')).toEqual({
+      kind: 'builds',
+      version: '0.2.0',
+      platform: 'macos-aarch64',
+    })
+    expect(parseReleaseFile('gg-cast-1.10.3-windows-x86_64.exe')).toEqual({
+      kind: 'cast',
+      version: '1.10.3',
+      platform: 'windows-x86_64',
+    })
+    for (const bad of [
+      'gg-cast',
+      'gonggong-0.2.0-macos-aarch64.exe',
+      'gonggong-0.2.0-windows-x86_64',
+      'gonggong-0.2-linux-x86_64',
+      'gonggong-0.2.0-windows-aarch64.exe',
+      'SHA256SUMS',
+    ])
+      expect(parseReleaseFile(bad)).toBeNull()
   })
 })

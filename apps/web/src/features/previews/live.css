@@ -28,6 +28,22 @@
   color: var(--system-orange);
   font-size: 12px;
 }
+.lv-net {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.lv-net__figures {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
 .lv-requests {
   display: flex;
   flex-direction: column;
@@ -51,8 +67,11 @@
   flex: 1;
   min-height: 0;
   display: grid;
+  /* A fixed track, not the video's natural size, so object-fit: contain scales the whole window into view. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   padding: 16px;
+  overflow: hidden;
   background: var(--window-bg);
 }
 .lv__stage > .ui-empty {

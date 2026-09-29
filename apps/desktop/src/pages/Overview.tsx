@@ -1,23 +1,25 @@
 import { toolTitle } from '@web/features/runs/mcp'
 import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
 import { type ReactNode, useEffect, useState } from 'react'
-import { type DaemonStatus, ipc, type MachineBot, type Overview } from '../ipc'
+import { type DaemonStatus, ipc, type MachineBot, type Tunnels } from '../ipc'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
 import { Section } from '../lib/ui'
 import { openGuide, PERMISSIONS, useMissing } from '../permissions'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
+import { isLive } from './Live'
 import { RunDetail } from './RunDetail'
 
 const REFRESH_MS = 15_000
 
-export function OverviewPage(_: PageProps) {
+export function OverviewPage({ go }: PageProps) {
   const snapshot = useDaemon((s) => s.snapshot)
   const info = useDaemon((s) => s.info)
   const status = snapshot.phase === 'running' ? snapshot.status : null
   const runs = status?.runs ?? []
   const [bots, setBots] = useState<MachineBot[]>([])
-  const [overview, setOverview] = useState<Overview | null>(null)
+  const [failedLive, setFailedLive] = useState<Tunnels['previews']>([])
+  const overview = useDaemon((s) => s.overview)
   const [detail, setDetail] = useState<string | null>(null)
   const kind = connKind(snapshot)
 
@@ -27,7 +29,14 @@ export function OverviewPage(_: PageProps) {
     if (kind !== 'ok') return
     const load = () => {
       ipc.bots().then(setBots, () => {})
-      ipc.overview().then(setOverview, () => {})
+      ipc.tunnels().then(
+        (t) => setFailedLive(t.previews.filter((p) => isLive(p) && p.live?.state === 'failed')),
+        () => {},
+      )
+      ipc.overview().then(
+        (overview) => useDaemon.setState({ overview }),
+        () => {},
+      )
     }
     load()
     const t = setInterval(load, REFRESH_MS)
@@ -39,11 +48,7 @@ export function OverviewPage(_: PageProps) {
   const bound = bots.filter((b) => b.binding === 'bound')
   const capacity = bound.reduce((n, b) => n + b.concurrency, 0)
   const agents = status?.agents ?? []
-  const secure = info?.server?.startsWith('https')
-    ? info.certPinned
-      ? 'WSS · 证书固定'
-      : 'WSS'
-    : 'WS · 未加密'
+  const secure = info?.server?.startsWith('https') ? '加密连接' : '未加密连接'
 
   if (detail) return <RunDetail runId={detail} onBack={() => setDetail(null)} />
   return (
@@ -51,18 +56,29 @@ export function OverviewPage(_: PageProps) {
       {status ? <ConnAlert status={status} version={info?.version} protocol={info?.protocol} /> : null}
       {snapshot.phase === 'blocked' ? <BlockedAlert message={snapshot.message} /> : null}
       <PermissionsAlert />
+      {failedLive.length ? (
+        <Alert
+          variant="warning"
+          title={`实时画面推流失败：${failedLive.map((p) => p.title).join('、')}`}
+          description={failedLive[0]?.live?.error ?? undefined}
+        >
+          <Button size="small" onClick={() => go('live')}>
+            查看
+          </Button>
+        </Alert>
+      ) : null}
       <div className="dk-stats" data-testid="stats">
         <Stat k="连接" v={CONN_STAT[kind]} s={secure} />
         <Stat
           k="Bot"
           v={`${bound.length} 已绑定`}
-          s={`agent 可用 ${agents.filter((a) => a.available).length} / ${agents.length}`}
+          s={`Agent 可用 ${agents.filter((a) => a.available).length} / ${agents.length}`}
         />
         <Stat k="并发" v={`${running.length} / ${capacity}`} s={`本机队列 ${queued.length}`} />
         <Stat
           k="工作区"
           v={overview ? `${overview.workspaces.count} 个` : '—'}
-          s={overview?.workspaces.detail ?? ''}
+          s={overview?.workspaces.detail ?? '统计中…'}
         />
       </div>
       <Section title="正在运行">

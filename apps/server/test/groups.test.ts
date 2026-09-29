@@ -65,8 +65,8 @@ describe('create group', () => {
     expect(await bodies(p.asWang, g.id)).toEqual([
       '王磊 创建了群 · 成为群管理员 · 邀请 赵敏、李建国',
       '群绑定仓库 git@git.corp:team/refund.git · 基准分支 main · 分区模式',
-      '小王的 Claude 加入 · 等待 王磊 绑定工作区',
-      '老李的 Codex 加入 · 等待 李建国 绑定工作区',
+      '小王的 Claude 加入 · daemon 离线，上线后克隆托管工作区',
+      '老李的 Codex 加入 · daemon 离线，上线后克隆托管工作区',
     ])
     expect(wangEvents).toContainEqual({ t: 'group.updated', group: expect.objectContaining({ id: g.id }) })
     expect(liEvents).toContainEqual({ t: 'group.updated', group: expect.objectContaining({ id: g.id }) })

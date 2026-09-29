@@ -477,7 +477,7 @@ impl Entry {
         match self.kind {
             EntryKind::Managed => "托管",
             EntryKind::Empty => "托管 · 无仓库",
-            EntryKind::Cd => "/cd 绑定",
+            EntryKind::Cd => "本机目录",
         }
     }
 
@@ -740,7 +740,7 @@ mod tests {
         assert_eq!((old.group_name.as_deref(), old.state_label()), (Some("群 old"), "已移出 · 2.5 KB".into()));
         assert_eq!(entries.iter().find(|e| e.group_id == "gx").unwrap().bot_name, None);
         assert!(entries.iter().find(|e| e.group_id == "dm").unwrap().dm);
-        assert_eq!(entries[1].kind_label(), "/cd 绑定");
+        assert_eq!(entries[1].kind_label(), "本机目录");
         assert!(old.matches("old/bw") && old.matches("群 old/小王的 Claude") && !old.matches("old"));
         let gx = entries.iter().find(|e| e.group_id == "gx").unwrap();
         assert_eq!((gx.group_label(), gx.bot_label()), ("gx".into(), "by"));

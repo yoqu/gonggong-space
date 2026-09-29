@@ -32,5 +32,9 @@ mod tests {
         assert_eq!(json["binding"], "pending_confirm");
         assert_eq!((json["concurrency"].as_u64(), json["approval"].as_str()), (Some(2), Some("allowlist")));
         assert_eq!(json["allowlist"], serde_json::json!(["go build"]));
+        assert_eq!(json["avatar"], "role-gong", "older servers send no avatar");
+        let mut sent = json;
+        sent["avatar"] = "role-sentry".into();
+        assert_eq!(serde_json::from_value::<Bot>(sent).unwrap().avatar, "role-sentry");
     }
 }

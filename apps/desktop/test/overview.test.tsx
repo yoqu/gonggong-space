@@ -15,7 +15,9 @@ function show(s: DaemonStatus) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · /cd 1 · 1.8 GB' } })
+  useDaemon.setState({ overview: null })
+  m.tunnels.mockResolvedValue({ previews: [], services: [] })
+  m.overview.mockResolvedValue({ workspaces: { count: 5, detail: '托管 4 · 本机目录 1 · 1.8 GB' } })
   m.bots.mockResolvedValue([
     bot({ presence: 'running' }),
     bot({
@@ -30,6 +32,37 @@ beforeEach(() => {
 })
 
 describe('overview', () => {
+  it('points to 实时画面 when a live preview fails to publish', async () => {
+    const go = vi.fn()
+    m.tunnels.mockResolvedValue({
+      services: [],
+      previews: [
+        {
+          id: 'p1',
+          kind: 'gui',
+          title: '桌面客户端',
+          groupName: '支付重构',
+          botName: '小王的 Claude',
+          port: null,
+          path: '/',
+          serviceId: null,
+          serviceName: null,
+          status: 'online',
+          live: { state: 'failed', error: '找不到服务的窗口', missing: [] },
+          control: null,
+        },
+      ],
+    })
+    useDaemon.setState({ info: INFO, snapshot: { phase: 'running', status: status() } })
+    render(<OverviewPage go={go} />)
+    const alert = (await screen.findByText('实时画面推流失败：桌面客户端')).closest(
+      '[role="alert"]',
+    ) as HTMLElement
+    expect(within(alert).getByText('找不到服务的窗口')).toBeTruthy()
+    fireEvent.click(within(alert).getByRole('button', { name: '查看' }))
+    expect(go).toHaveBeenCalledWith('live')
+  })
+
   it('shows stats, running runs with their state and step, and the local queue', async () => {
     show(
       status({
@@ -49,13 +82,13 @@ describe('overview', () => {
     )
     const stats = screen.getByTestId('stats')
     expect(within(stats).getByText('在线')).toBeTruthy()
-    expect(within(stats).getByText('WSS · 证书固定')).toBeTruthy()
+    expect(within(stats).getByText('加密连接')).toBeTruthy()
     expect(await within(stats).findByText('1 已绑定')).toBeTruthy()
-    expect(within(stats).getByText('agent 可用 1 / 2')).toBeTruthy()
+    expect(within(stats).getByText('Agent 可用 1 / 2')).toBeTruthy()
     expect(within(stats).getByText('2 / 2')).toBeTruthy()
     expect(within(stats).getByText('本机队列 1')).toBeTruthy()
     expect(await within(stats).findByText('5 个')).toBeTruthy()
-    expect(within(stats).getByText('托管 4 · /cd 1 · 1.8 GB')).toBeTruthy()
+    expect(within(stats).getByText('托管 4 · 本机目录 1 · 1.8 GB')).toBeTruthy()
 
     const running = screen.getByTestId('running')
     expect(within(running).getByText('等待审批')).toBeTruthy()
@@ -64,6 +97,17 @@ describe('overview', () => {
     expect(within(running).getByText('官网改版 · 王磊 触发')).toBeTruthy()
     expect(screen.getByText('小王的 Claude · 支付服务重构 · 陈晨 触发 · 排第 1')).toBeTruthy()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('keeps the last workspace count while it is counted again', async () => {
+    m.overview.mockReturnValue(new Promise(() => {}))
+    const first = show(status())
+    expect(within(screen.getByTestId('stats')).getByText('统计中…')).toBeTruthy()
+    first.unmount()
+    useDaemon.setState({ overview: { workspaces: { count: 6, detail: '托管 2 · 本机目录 4 · 1.5 GB' } } })
+    show(status())
+    expect(within(screen.getByTestId('stats')).getByText('6 个')).toBeTruthy()
+    expect(within(screen.getByTestId('stats')).getByText('托管 2 · 本机目录 4 · 1.5 GB')).toBeTruthy()
   })
 
   it('drills into a running run and shows its process, subagents included', async () => {

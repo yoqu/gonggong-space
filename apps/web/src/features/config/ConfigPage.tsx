@@ -122,7 +122,7 @@ export function ConfigPage() {
     <AdminPage
       title={TITLE}
       desc={DESC}
-      subtitle={items ? `${items.length} 个 MCP · 已启用 ${enabledNames.length} 个` : undefined}
+      subtitle={items ? `自定义 MCP ${items.length} 个 · 已启用 ${enabledNames.length} 个` : undefined}
     >
       <div className="cfg__bar">
         <Tabs items={LAYERS} value="global" onChange={() => undefined} />

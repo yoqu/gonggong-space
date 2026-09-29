@@ -9,6 +9,7 @@ import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
+import { groupTitle } from '../groups/title.js'
 import { notHiddenBy } from '../messages/recall.js'
 
 const LIMIT = 20
@@ -26,7 +27,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
 
   async function searchMessages(userId: string, q: string): Promise<SearchResultDto[]> {
     const rows = await ctx.db
-      .select({ m: messages, author: users.name, bot: bots.name, group: groups.name })
+      .select({ m: messages, author: users.name, bot: bots.name, group: groupTitle })
       .from(messages)
       .innerJoin(groups, eq(groups.id, messages.groupId))
       .leftJoin(users, eq(users.id, messages.authorUserId))
@@ -66,7 +67,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
         patch: runs.patch,
         queuedAt: runs.queuedAt,
         bot: bots.name,
-        group: groups.name,
+        group: groupTitle,
       })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
@@ -94,7 +95,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
         url: groupRepos.url,
         branch: groupRepos.baseBranch,
         groupId: groupRepos.groupId,
-        group: groups.name,
+        group: groupTitle,
       })
       .from(groupRepos)
       .innerJoin(groups, eq(groups.id, groupRepos.groupId))
@@ -125,7 +126,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     const trigger = alias(messages, 'trigger')
     const reply = alias(messages, 'reply')
     const rows = await ctx.db
-      .select({ r: runs, bot: bots.name, group: groups.name, task: trigger.body })
+      .select({ r: runs, bot: bots.name, group: groupTitle, task: trigger.body })
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
       .innerJoin(groups, eq(groups.id, runs.groupId))

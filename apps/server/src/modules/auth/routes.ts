@@ -9,12 +9,14 @@ import { hash, verify } from '@node-rs/argon2'
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { users, webSessions } from '../../db/schema.js'
+import { bots, groupMembers, users, webSessions } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
 import { sysParams } from '../admin/params.js'
+import { publishBots } from '../bots/dto.js'
+import { publishGroup } from '../groups/service.js'
 import { toUserDto } from '../users/dto.js'
 import { createSession, requireUser, SESSION_COOKIE } from './session.js'
 
@@ -106,8 +108,17 @@ export function authRoutes(ctx: Ctx) {
 
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
-      const { gitProtocol } = UpdateMeReq.parse(req.body)
-      const [row] = await ctx.db.update(users).set({ gitProtocol }).where(eq(users.id, user.id)).returning()
+      const patch = UpdateMeReq.parse(req.body)
+      if (!Object.keys(patch).length) return toUserDto(user)
+      const [row] = await ctx.db.update(users).set(patch).where(eq(users.id, user.id)).returning()
+      if (patch.name !== undefined && patch.name !== user.name) {
+        const mine = await ctx.db
+          .select({ id: groupMembers.groupId })
+          .from(groupMembers)
+          .where(eq(groupMembers.userId, user.id))
+        for (const g of mine) await publishGroup(ctx, g.id)
+        await publishBots(ctx, eq(bots.ownerId, user.id))
+      }
       return toUserDto(row ?? user)
     })
 

@@ -11,6 +11,7 @@ import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, groupRepos, groups, machines, users } from '../../db/schema.js'
 import { requireSysadmin } from '../auth/session.js'
 import { machineDto } from '../bots/dto.js'
+import { groupTitle } from '../groups/title.js'
 import { listAudit } from './audit.js'
 import { saveSysParams, sysParams } from './params.js'
 
@@ -21,7 +22,7 @@ export function adminRoutes(ctx: Ctx) {
       await requireSysadmin(ctx, req)
       const [rows, repos, members, bots] = await Promise.all([
         ctx.db
-          .select({ g: groups, owner: users.name })
+          .select({ g: groups, title: groupTitle, owner: users.name })
           .from(groups)
           .leftJoin(users, eq(users.id, groups.createdBy))
           .orderBy(desc(groups.createdAt)),
@@ -38,9 +39,9 @@ export function adminRoutes(ctx: Ctx) {
       ])
       const n = (list: { groupId: string; n: number }[], id: string) =>
         list.find((x) => x.groupId === id)?.n ?? 0
-      return rows.map(({ g, owner }) => ({
+      return rows.map(({ g, title, owner }) => ({
         id: g.id,
-        name: g.name,
+        name: title,
         ownerName: owner,
         kind: g.kind as AdminGroupDto['kind'],
         mode: g.mode as AdminGroupDto['mode'],

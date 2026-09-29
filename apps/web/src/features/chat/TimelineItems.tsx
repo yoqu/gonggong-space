@@ -27,13 +27,12 @@ import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { runMascot } from '../runs/mascot'
 import { toolTitle } from '../runs/mcp'
-import { filePaths } from '../runs/paths'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
 import { UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
 import { Clamp } from './Clamp'
-import { isRich } from './grouping'
+import { isRich, replyFiles } from './grouping'
 import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import {
@@ -120,6 +119,7 @@ const usageTotal = (u: RunDto['usage']) => u?.totalTokens ?? (u?.inputTokens ?? 
 export function fmtUsage(u: RunDto['usage']) {
   const total = usageTotal(u)
   if (!total) return '用量未上报'
+  if (total >= 999_950) return `${(total / 1e6).toFixed(1)}M tokens`
   return total >= 1000 ? `${(total / 1000).toFixed(1)}k tokens` : `${total} tokens`
 }
 
@@ -315,7 +315,7 @@ const FILE_CHIPS = 2
 /** The first files a reply names, by base name; the rest are left to the run's full diff. */
 function FileChips({ runId, text }: { runId: string; text: string }) {
   const open = (file: string | null) => openTab({ kind: 'run', runId, view: 'diff', file })
-  const files = useMemo(() => filePaths(text), [text])
+  const files = useMemo(() => replyFiles(text), [text])
   if (!files.length) return null
   const rest = files.length - FILE_CHIPS
   return (
@@ -471,6 +471,7 @@ export const RunCard = memo(function RunCard({
           }),
     copyText: reply?.body,
   }
+  const diff = () => openTab({ kind: 'run', runId: run.id, view: 'diff', file: null })
   const process = (
     <Button
       size="small"
@@ -481,13 +482,18 @@ export const RunCard = memo(function RunCard({
       查看过程
     </Button>
   )
-  const meta = <span className="run-card__sub">{`${agent} · ${trigger} 触发`}</span>
+  const sub = `${agent} · ${trigger} 触发`
+  const meta = (
+    <span className="run-card__sub" title={sub}>
+      {sub}
+    </span>
+  )
   if (reply && !live && run.interrupt !== 'pending') {
     const tags = (
       <div className="run-card__meta run-card__tags">
         {run.status === 'completed' ? null : <Tag tone={TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>}
         {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
-        <FilesFact n={run.filesChanged} />
+        <FilesFact n={run.filesChanged} onOpen={diff} />
         {started !== null ? <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={false} /> : null}
         <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
         <DelegationFacts d={run.delegation} />
@@ -572,7 +578,7 @@ export const RunCard = memo(function RunCard({
                       ) : null}
                       {started !== null ? (
                         <div className="run-card__meta">
-                          <FilesFact n={run.filesChanged} />
+                          <FilesFact n={run.filesChanged} onOpen={diff} />
                           <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
                           <DelegationFacts d={run.delegation} />

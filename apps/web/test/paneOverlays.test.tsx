@@ -182,6 +182,29 @@ describe('Popover', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
+
+  it('portals out of a clipping ancestor, flips above when there is no room below, and keeps inner presses', () => {
+    const rect = (top: number, height: number) =>
+      ({ top, bottom: top + height, left: 40, right: 140, width: 100, height }) as DOMRect
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('ui-popover') ? rect(0, 300) : rect(window.innerHeight - 60, 30)
+    })
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto' }}>
+        <Popover portal aria-label="挑选" trigger={<Button>添加</Button>}>
+          <Button>甲</Button>
+        </Popover>
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    const panel = screen.getByRole('dialog', { name: '挑选' })
+    expect(screen.getByTestId('clip').contains(panel)).toBe(false)
+    expect(panel.classList.contains('ui-float--fixed')).toBe(true)
+    expect(panel.style.top).toBe(`${window.innerHeight - 60 - 8 - 300}px`)
+    fireEvent.mouseDown(within(panel).getByRole('button', { name: '甲' }))
+    expect(screen.getByRole('dialog', { name: '挑选' })).toBeTruthy()
+    vi.restoreAllMocks()
+  })
 })
 
 describe('Tooltip', () => {

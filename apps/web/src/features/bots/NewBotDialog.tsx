@@ -336,7 +336,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         </FormRow>
 
         {self && m?.online ? (
-          <FormRow label="默认工作区" hint="可选；不设置则进群时再选择。">
+          <FormRow label="默认工作区" hint="可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认托管克隆。">
             {draft.workspace ? (
               <WorkspacePath path={draft.workspace} onPick={setPicking} />
             ) : (

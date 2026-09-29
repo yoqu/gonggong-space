@@ -20,6 +20,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
+import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { updateBotState } from '../workspaces/state.js'
@@ -273,6 +274,7 @@ export function botRoutes(ctx: Ctx) {
           },
         })
       if (tier !== bot.tier) await applyTier(ctx, user.id, bot.id)
+      if (name !== undefined && name !== bot.name) await publishDmsOf(ctx, bot.id)
       return publishBot(ctx, bot.id)
     })
 
@@ -357,6 +359,7 @@ export function botRoutes(ctx: Ctx) {
         .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)))
       await auditForeign(ctx, user, bot, 'bot.delete')
       await publishBotRemoved(ctx, bot.id)
+      await publishDmsOf(ctx, bot.id)
       return reply.status(204).send()
     })
 

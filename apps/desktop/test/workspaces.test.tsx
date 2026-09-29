@@ -29,7 +29,7 @@ const DATA: Workspaces = {
       groupId: 'g2',
       group: '数据平台',
       kind: 'cd',
-      kindLabel: '/cd 绑定',
+      kindLabel: '本机目录',
       path: '/Users/wl/code/data-etl',
       state: 'idle',
       stateLabel: '空闲',
@@ -79,7 +79,9 @@ describe('工作区', () => {
     expect(m.reveal).toHaveBeenCalledWith('/Users/wl/.gonggong/workspaces/g1/b1/r1')
 
     const cd = rowOf('数据平台')
-    expect(within(cd).getByText('/cd 绑定')).toBeTruthy()
+    expect(within(cd).getByText('本机目录')).toBeTruthy()
+    fireEvent.click(within(cd).getByRole('button', { name: '打开' }))
+    expect(m.reveal).toHaveBeenCalledWith('/Users/wl/code/data-etl')
     fireEvent.click(within(cd).getByRole('button', { name: '改回托管' }))
     await waitFor(() => expect(m.resetCd).toHaveBeenCalledWith('g2', 'b1'))
 

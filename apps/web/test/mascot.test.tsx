@@ -7,6 +7,11 @@ import { Welcome } from '../src/app/Welcome'
 import { runMascot } from '../src/features/runs/mascot'
 import { MASCOT_ACTIONS, Mascot, type MascotCostume } from '../src/ui'
 
+const tester: MascotCostume = {
+  role: 't',
+  scene: (action, words) => `data:image/svg+xml,${action}${words ? '+words' : ''}`,
+}
+
 describe('Mascot', () => {
   it('draws 共字君 in the requested action with its prop', () => {
     render(<Mascot action="carry" label="执行工具" />)
@@ -41,28 +46,9 @@ describe('Mascot', () => {
     expect(container.querySelector('svg')?.classList.contains('ui-mascot--compact')).toBe(false)
   })
 
-  it('turns the jade into a status light, and gives role costumes one of their own', () => {
-    const { container, rerender } = render(<Mascot action="raise" size={32} />)
+  it('turns the jade into a status light when small', () => {
+    const { container } = render(<Mascot action="raise" size={32} />)
     expect(container.querySelector('.ui-mascot__gem')).toBeTruthy()
-    rerender(
-      <Mascot
-        action="raise"
-        size={32}
-        costume={{ head: '', headLive: '', from: '#000', to: '#000', eyes: [], ink: '#000' }}
-      />,
-    )
-    expect(container.querySelector('.ui-mascot__light')).toBeTruthy()
-  })
-
-  it('draws costume arms over the head when small, so raised arms stay visible', () => {
-    const c = { head: '', headLive: '', from: '#000', to: '#000', eyes: [], ink: '#000' }
-    const armAfterHead = (size: number) => {
-      const { container } = render(<Mascot action="raise" size={size} costume={c} />)
-      const [head, arm] = [container.querySelector('image'), container.querySelector('.ui-mascot__ra')]
-      return !!(head && arm && head.compareDocumentPosition(arm) & Node.DOCUMENT_POSITION_FOLLOWING)
-    }
-    expect(armAfterHead(32)).toBe(true)
-    expect(armAfterHead(84)).toBe(false)
   })
 
   it('covers every action', () => {
@@ -84,26 +70,18 @@ describe('Mascot', () => {
 })
 
 describe('costume', () => {
-  const qa: MascotCostume = {
-    head: 'data:still',
-    headLive: 'data:live',
-    from: '#ff8a66',
-    to: '#d9362a',
-    eyes: [
-      [15, 21.6],
-      [24.5, 21],
-    ],
-    ink: '#d9362a',
-  }
-
-  it('wears a bot role: its avatar tile as the head, moving only while working', () => {
-    const { container, rerender } = render(<Mascot action="carry" costume={qa} />)
-    expect(container.querySelector('image')?.getAttribute('href')).toBe('data:live')
-    expect(container.querySelector('.ui-mascot__window')).toBeNull()
-    expect(container.querySelector('.ui-mascot__prop--carry')).toBeTruthy()
-    rerender(<Mascot action="done" costume={qa} />)
-    expect(container.querySelector('image')?.getAttribute('href')).toBe('data:still')
-    expect(container.querySelectorAll('.ui-mascot__role-face .ui-mascot__eyes--happy path')).toHaveLength(2)
+  it("plays a bot's character: its own scene per action, tagged with its role", () => {
+    const { container, rerender } = render(<Mascot action="carry" size={32} costume={tester} />)
+    const art = container.querySelector('.ui-mascot') as HTMLImageElement
+    expect(art.tagName).toBe('IMG')
+    expect(art.getAttribute('src')).toBe('data:image/svg+xml,carry')
+    expect([art.dataset.role, art.dataset.action]).toEqual(['t', 'carry'])
+    expect(art.getAttribute('aria-hidden')).toBe('true')
+    rerender(<Mascot action="done" size={32} costume={tester} label="完成" />)
+    expect(container.querySelector('[role=img]')?.getAttribute('aria-label')).toBe('完成')
+    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,done')
+    rerender(<Mascot action="ask" size={96} costume={tester} />)
+    expect(container.querySelector('.ui-mascot')?.getAttribute('src')).toBe('data:image/svg+xml,ask+words')
   })
 })
 

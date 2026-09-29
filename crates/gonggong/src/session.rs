@@ -842,7 +842,7 @@ async fn connect(
                 .await?;
             let caps = &init.agent_capabilities;
             tracing::info!(
-                agent = ?init.agent_info.as_ref().map(|i| format!("{} {}", i.name, i.version)),
+                agent = %init.agent_info.as_ref().map_or_else(|| "unknown".into(), |i| format!("{} {}", i.name, i.version)),
                 load = caps.load_session,
                 resume = caps.session_capabilities.resume.is_some(),
                 image = caps.prompt_capabilities.image,

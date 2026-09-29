@@ -123,7 +123,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
     token.char === '@'
       ? [
           {
-            label: '成员 / BOT',
+            label: '成员 / Bot',
             src: '',
             items: people
               .filter((p) => has(p.name))

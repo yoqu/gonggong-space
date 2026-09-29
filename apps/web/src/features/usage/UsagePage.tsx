@@ -18,7 +18,8 @@ const TABS: { value: By; label: string }[] = [
 export const WINDOW = 30
 export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export const fmtTokens = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n))
+export const fmtTokens = (n: number) =>
+  n >= 999_500 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
 
 /** GET `path`; `data` stays null while loading. */
 export function useGet<T>(path: string) {

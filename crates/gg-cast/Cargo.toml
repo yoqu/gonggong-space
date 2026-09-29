@@ -15,6 +15,9 @@ livekit = { version = "0.9.3", features = ["rustls-tls-native-roots"] }
 tokio = { version = "1.53.1", features = ["full"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+# livekit's own versions: its capturer wrapper cannot select a display it does not list (ScreenCaptureKit lists none).
+cxx = "1.0.202"
+webrtc-sys = "0.3.47"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10.1"

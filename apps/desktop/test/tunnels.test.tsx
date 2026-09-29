@@ -10,6 +10,7 @@ const LIST: Tunnels = {
   previews: [
     {
       id: 'p1',
+      kind: 'http',
       title: '登录页',
       groupName: '支付重构',
       botName: '小王的 Claude',
@@ -18,9 +19,12 @@ const LIST: Tunnels = {
       serviceId: 'sv1',
       serviceName: 'web',
       status: 'online',
+      live: null,
+      control: null,
     },
     {
       id: 'p2',
+      kind: 'static',
       title: '静态报告',
       groupName: '数据看板',
       botName: '小王的 Claude',
@@ -29,6 +33,22 @@ const LIST: Tunnels = {
       serviceId: null,
       serviceName: null,
       status: 'online',
+      live: null,
+      control: null,
+    },
+    {
+      id: 'p3',
+      kind: 'gui',
+      title: '桌面客户端',
+      groupName: '支付重构',
+      botName: '小王的 Claude',
+      port: null,
+      path: '/',
+      serviceId: 'sv1',
+      serviceName: 'web',
+      status: 'online',
+      live: null,
+      control: null,
     },
   ],
   services: [
@@ -65,6 +85,7 @@ it('lists the tunnels and hosted services of this machine', async () => {
   expect(m.openLocal).toHaveBeenCalledWith(5173, '/login')
   const web = await row(/pnpm dev/)
   expect(web.getByText('运行中')).toBeTruthy()
+  expect(screen.queryByText('桌面客户端')).toBeNull()
 })
 
 it('stops a tunnel with its service, or a service alone, and reloads', async () => {
@@ -86,4 +107,12 @@ it('keeps in step with the Web by reloading every few seconds', async () => {
   await act(async () => vi.advanceTimersByTime(5000))
   expect(screen.getByText('本机没有开放的穿透')).toBeTruthy()
   expect(screen.getByText('本机没有托管服务')).toBeTruthy()
+})
+
+it('explains hosting without internal tool names', async () => {
+  render(<TunnelsPage go={() => {}} />)
+  const note = await screen.findByText(/由本机托管/)
+  expect(note.textContent).toBe(
+    'Bot 开放的预览与启动的后台服务由本机托管。在这里停止与在 Web 群里停止效果相同，群成员会立即看到变化。',
+  )
 })

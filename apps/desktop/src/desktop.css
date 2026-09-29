@@ -140,30 +140,6 @@ code,
   top: 0;
   height: 1px;
 }
-/* Large title of a settings pane; the toolbar shows the title once this passes under it. */
-.dk-largetitle {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding-top: var(--space-8);
-}
-.dk-largetitle h1 {
-  margin: 0;
-  font-family: var(--text-large-title-family);
-  font-size: var(--text-large-title-size);
-  line-height: var(--text-large-title-line);
-  font-weight: 700;
-  letter-spacing: var(--text-large-title-tracking);
-}
-.dk-largetitle p {
-  margin: 0;
-  color: var(--label-secondary);
-}
-.dk-largetitle .dk-sentinel {
-  top: auto;
-  bottom: var(--toolbar-height);
-}
 .dk-statusline {
   flex: none;
   display: flex;

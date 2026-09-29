@@ -46,7 +46,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: 'role-pm',
+  avatar: 'role-no',
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -318,15 +318,21 @@ describe('group settings inspector', () => {
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/dissolve')).toBe(true)
   })
 
-  it('calls a DM deletion 删除私聊 and offers no leaving', async () => {
+  it('calls a DM deletion 删除私聊, offers no leaving and no renaming', async () => {
     mockApi(
       routes([
-        group({ kind: 'dm', name: '脚本实验', members: [{ userId: 'u1', name: '王磊', isAdmin: true }] }),
+        group({
+          kind: 'dm',
+          name: '小王的 Claude',
+          members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
+        }),
       ]),
     )
     renderAt('/g/g1')
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
     const d = await screen.findByRole('complementary', { name: '私聊设置' })
+    // A DM is titled by its Bot.
+    expect(within(d).queryByRole('button', { name: /名称/ })).toBeNull()
     expect(within(d).queryByRole('region', { name: '群成员' })).toBeNull()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     fireEvent.click(within(d).getByRole('button', { name: '删除私聊' }))

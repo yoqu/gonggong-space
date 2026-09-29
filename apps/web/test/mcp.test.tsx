@@ -30,6 +30,12 @@ describe('MCP tool names', () => {
     expect(toolTitle('Read src/a.ts')).toBe('Read src/a.ts')
   })
 
+  it('hides session config echoes from the run card step', () => {
+    expect(toolTitle('已切换推理强度：High')).toBe('')
+    expect(toolTitle('已切换模型：Opus')).toBe('')
+    expect(toolTitle('档位已切换为「完全访问」，自动批准：ls')).toBe('档位已切换为「完全访问」，自动批准：ls')
+  })
+
   it('lists arguments as key and short value', () => {
     expect(mcpArgs('{"limit":20,"author":"王磊","all":true}')).toEqual([
       ['limit', '20'],

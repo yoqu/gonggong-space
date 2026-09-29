@@ -1,7 +1,7 @@
 import type { UsageDayDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { UsageDialog } from '../src/features/usage/UsagePage'
+import { fmtTokens, UsageDialog } from '../src/features/usage/UsagePage'
 import { mockApi } from './mockApi'
 
 const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
@@ -26,6 +26,18 @@ const setup = () =>
 afterEach(() => vi.unstubAllGlobals())
 
 describe('usage charts', () => {
+  it('formats token counts in compact k / M units', () => {
+    expect([999, 1500, 849_000, 999_499, 999_500, 20_000_000, 21_056_000].map(fmtTokens)).toEqual([
+      '999',
+      '2k',
+      '849k',
+      '999k',
+      '1M',
+      '20M',
+      '21.1M',
+    ])
+  })
+
   it('shows stat tiles with the change against the prior 30 days', async () => {
     setup()
     render(<UsageDialog onClose={() => {}} />)

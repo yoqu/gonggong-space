@@ -77,6 +77,21 @@ describe('workspace banner', () => {
     await waitFor(() => expect(screen.queryByText('选择此目录')).toBeNull())
   })
 
+  it('opens on a too-broad home directory with a neutral hint instead of an error', async () => {
+    useWorkspace.setState({ bots: [bot()], botStates: unbound() })
+    mockApi({
+      'GET /machines/m1/dirs': { ...listing('/Users/w'), unusable: '目录范围过大，请选择具体的项目目录' },
+    })
+    render(<WorkspaceBanner group={group()} />)
+    fireEvent.click(screen.getByText('绑定工作区'))
+    await screen.findByText('pay')
+    expect(screen.queryByText('目录范围过大，请选择具体的项目目录')).toBeNull()
+    expect(screen.getByText('进入具体项目目录后选择')).toBeTruthy()
+    const choose = screen.getByRole('button', { name: '选择此目录' })
+    expect(choose.hasAttribute('disabled')).toBe(true)
+    expect(choose.getAttribute('title')).toBe('目录范围过大，请选择具体的项目目录')
+  })
+
   it('offers the default workspace and the managed clone of the group repo', async () => {
     useWorkspace.setState({ bots: [bot({ defaultWorkspace: '/src/pay' })], botStates: unbound() })
     const calls = mockApi({

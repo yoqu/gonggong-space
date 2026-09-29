@@ -203,6 +203,60 @@ describe('process steps', () => {
     expect(steps[4]).toMatchObject({ mono: 'go build ./...', body: '等待 Bot 主人审批' })
   })
 
+  it('keeps one row per approval, dropping the status rows that mirror its lifecycle', () => {
+    const status = (id: number, step: string) => ({
+      id,
+      at: at(id),
+      event: { kind: 'status' as const, status: 'running' as const, step },
+    })
+    const steps = buildSteps({
+      run: run({
+        approvals: [
+          approval({ status: 'approved', decidedByName: '系统管理员' }),
+          approval({ id: 'ap2', status: 'rejected', decidedByName: '系统管理员', createdAt: at(21) }),
+        ],
+      }),
+      patch: null,
+      purged: false,
+      sessionId: 's1',
+      retentionDays: 30,
+      events: [
+        { id: 1, at: at(1), event: { kind: 'text', delta: '开始' } },
+        status(10, '等待审批：go build ./...'),
+        status(12, '已批准：go build ./...'),
+        status(22, '等待审批：rm -rf dist'),
+        status(24, '请求被拒绝，agent 自行绕路'),
+        status(30, '档位已切换为「完全访问」，自动批准：ls'),
+      ],
+    })
+    expect(steps.map((s) => [s.kind, s.body])).toEqual([
+      ['context', '续用上次会话，补送上次被 @ 以来的群消息'],
+      ['text', '开始'],
+      ['approval', '系统管理员 已批准'],
+      ['approval', '系统管理员 已拒绝'],
+      ['status', '档位已切换为「完全访问」，自动批准：ls'],
+    ])
+  })
+
+  it('folds session config echoes into the context step', () => {
+    const steps = buildSteps({
+      run: run(),
+      patch: null,
+      purged: false,
+      sessionId: 's1',
+      retentionDays: 30,
+      events: [
+        { id: 1, at: at(1), event: { kind: 'status', status: 'running', step: '已切换模型：Opus' } },
+        { id: 2, at: at(2), event: { kind: 'status', status: 'running', step: '已切换推理强度：High' } },
+        { id: 3, at: at(3), event: { kind: 'text', delta: '好' } },
+      ],
+    })
+    expect(steps.map((s) => s.kind)).toEqual(['context', 'text'])
+    expect(steps[0]!.body).toBe(
+      '续用上次会话，补送上次被 @ 以来的群消息。已切换模型：Opus。已切换推理强度：High',
+    )
+  })
+
   it('without git or a new session the context step says the session was resumed', () => {
     const steps = buildSteps({
       run: run(),

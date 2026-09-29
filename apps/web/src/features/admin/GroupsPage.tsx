@@ -23,7 +23,8 @@ function mode(g: AdminGroupDto): [string, TagTone] {
   return g.mode === 'force' ? ['强制同步', 'blue'] : ['分区模式', 'green']
 }
 
-const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? g.name} 的私聊` : g.name)
+/** A DM's `name` is its Bot's current name. */
+const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? ''} ⇄ ${g.name}` : g.name)
 
 /** 管理后台 · 群: every group incl. archived ones. */
 export function GroupsPage() {

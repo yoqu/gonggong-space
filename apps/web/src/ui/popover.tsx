@@ -8,8 +8,10 @@ import {
   type RefObject,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { useEscape } from './overlay'
@@ -23,6 +25,7 @@ export function useDismiss(
   open: boolean,
   root: RefObject<HTMLElement | null>,
   onClose: (refocus: boolean) => void,
+  also?: RefObject<HTMLElement | null>,
 ) {
   const close = useRef(onClose)
   close.current = onClose
@@ -30,11 +33,12 @@ export function useDismiss(
   useEffect(() => {
     if (!open) return
     const outside = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) close.current(false)
+      const t = e.target as Node
+      if (!root.current?.contains(t) && !also?.current?.contains(t)) close.current(false)
     }
     document.addEventListener('mousedown', outside)
     return () => document.removeEventListener('mousedown', outside)
-  }, [open, root])
+  }, [open, root, also])
 }
 
 export interface FloatProps extends HTMLAttributes<HTMLDivElement> {
@@ -78,8 +82,12 @@ export interface PopoverProps {
   /** Small pointer toward the trigger. */
   arrow?: boolean
   className?: string
+  /** Fix the panel in document.body so a scrolling ancestor (a Dialog body) cannot clip it; flips above when short of room below. */
+  portal?: boolean
   'aria-label'?: string
 }
+
+const GAP = 8
 
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
@@ -98,6 +106,7 @@ export function Popover({
   width,
   arrow,
   className,
+  portal,
   'aria-label': label,
 }: PopoverProps) {
   const [shown, setShown] = useControlled(open, defaultOpen)
@@ -113,7 +122,30 @@ export function Popover({
     set(false)
     if (refocus) root.current?.querySelector<HTMLElement>('.ui-popover__trigger > *')?.focus()
   }
-  useDismiss(shown, root, close)
+  useDismiss(shown, root, close, panel)
+
+  useLayoutEffect(() => {
+    const el = panel.current
+    if (!portal || !shown || !el || !root.current) return
+    const r = root.current.getBoundingClientRect()
+    const { width: w, height: h } = el.getBoundingClientRect()
+    const below = r.bottom + GAP + h <= window.innerHeight - GAP || r.top < window.innerHeight - r.bottom
+    el.style.top = `${below ? r.bottom + GAP : Math.max(GAP, r.top - GAP - h)}px`
+    el.style.left = `${Math.max(GAP, Math.min(placement.endsWith('end') ? r.right - w : r.left, window.innerWidth - GAP - w))}px`
+  }, [portal, shown, placement])
+  // A fixed panel would drift from its trigger, so scrolling elsewhere or resizing closes it.
+  useEffect(() => {
+    if (!portal || !shown) return
+    const dismiss = (e: Event) => {
+      if (!panel.current?.contains(e.target as Node)) close(false)
+    }
+    document.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      document.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('resize', dismiss)
+    }
+  })
 
   // Only a user-opened panel takes focus; a demo shown on mount leaves it where it is.
   useEffect(() => {
@@ -122,6 +154,22 @@ export function Popover({
     const el = panel.current
     if (shown && el) (el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus()
   }, [shown])
+
+  const float = (
+    <Float
+      ref={panel}
+      open={shown}
+      placement={placement}
+      id={id}
+      role="dialog"
+      aria-label={label}
+      tabIndex={-1}
+      className={cx('ui-popover', arrow && 'ui-popover--arrow', portal && 'ui-float--fixed')}
+      style={{ width }}
+    >
+      {typeof children === 'function' ? children(() => close()) : children}
+    </Float>
+  )
 
   return (
     <span ref={root} className={cx('ui-popover-anchor', className)}>
@@ -135,19 +183,7 @@ export function Popover({
             })
           : trigger}
       </span>
-      <Float
-        ref={panel}
-        open={shown}
-        placement={placement}
-        id={id}
-        role="dialog"
-        aria-label={label}
-        tabIndex={-1}
-        className={cx('ui-popover', arrow && 'ui-popover--arrow')}
-        style={{ width }}
-      >
-        {typeof children === 'function' ? children(() => close()) : children}
-      </Float>
+      {portal ? createPortal(float, document.body) : float}
     </span>
   )
 }

@@ -301,6 +301,25 @@ describe('account menu', () => {
       newPassword: 'new-pass-22',
     })
   })
+
+  it('changes my own display name from settings and shows it at once', async () => {
+    const calls = mockApi({ 'GET /me': me, 'PATCH /me': { ...me, name: '王小磊' } })
+    renderAt('/')
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
+    expect(within(settings).getByText('王磊')).toBeTruthy()
+    fireEvent.click(within(settings).getByRole('button', { name: '修改显示名…' }))
+    const sheet = await screen.findByRole('dialog', { name: '修改显示名' })
+    const save = within(sheet).getByRole('button', { name: '保存' })
+    fill('显示名', '   ')
+    expect((save as HTMLButtonElement).disabled).toBe(true)
+    fill('显示名', ' 王小磊 ')
+    fireEvent.click(save)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '修改显示名' })).toBeNull())
+    expect(calls.find((c) => c.method === 'PATCH' && c.path === '/me')?.body).toEqual({ name: '王小磊' })
+    expect(useSession.getState().user?.name).toBe('王小磊')
+    expect(within(settings).getByText('王小磊')).toBeTruthy()
+  })
 })
 
 describe('appearance settings', () => {

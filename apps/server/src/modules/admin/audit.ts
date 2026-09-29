@@ -71,6 +71,10 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return d.path ? `/cd ${n.bot(d.botId)} → ${str(d.path)}` : `/cd ${n.bot(d.botId)} 恢复托管工作区`
         case 'command.new':
           return `/new ${n.bot(d.botId)} 开新会话`
+        case 'run.task_stop':
+          return `中断 ${bot} 的后台任务`
+        case 'tool.cross_group_read':
+          return `${bot} 跨群读取 ${count(d.groups)} 个群的内容`
       }
       break
     case 'admin':
@@ -85,6 +89,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return `删除 ${n.user(d.ownerId)} 的 Bot ${str(d.name)}`
         case 'bot.confirm':
           return `确认 Bot ${str(d.name)}`
+        case 'bot.approval':
+          return `修改 Bot ${str(d.name)} 的审批设置`
         case 'user.create':
           return `新建账号 ${str(d.account)}（${ROLE[str(d.role)] ?? str(d.role)}）`
         case 'user.update': {
@@ -104,12 +110,19 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return `启用账号 ${str(d.account)}`
         case 'daemon.release':
           return `发布 daemon ${str(d.version)}（${(d.platforms as string[]).join('、')}）`
+        case 'daemon.release.upload':
+        case 'daemon.release.remove':
+          return `${row.action.endsWith('upload') ? '上传' : '移除'} ${d.kind === 'cast' ? 'gg-cast' : 'daemon'} ${str(d.version)}（${str(d.platform)}）`
         case 'machine.revoke':
           return `吊销 ${n.user(d.ownerId)} 的机器 ${str(d.name)}`
+        case 'machine.transfer':
+          return `将 ${n.user(d.fromOwnerId)} 的机器 ${str(d.name)} 转移到名下`
         case 'params.update':
           return `修改系统参数：${paramChanges(d)}`
         case 'group.update':
           return '修改群名称与公告'
+        case 'group.notice.remove':
+          return '删除群公告'
         case 'group.params':
           return `修改群级参数：审批等待 ${d.approvalTimeoutMin} 分钟，接力链长上限 ${d.chainMaxHops} 跳，离线等待 ${d.offlineWaitMin} 分钟`
         case 'group.admin.grant':
@@ -161,7 +174,7 @@ export async function listAudit(ctx: Ctx, q: z.infer<typeof AuditQuery>): Promis
     .orderBy(desc(auditLogs.id))
     .limit(q.limit)
   const details = rows.map((r) => r.log.detail as Detail)
-  const userIds = [...new Set(details.flatMap((d) => ids([d.userId, d.ownerId])))]
+  const userIds = [...new Set(details.flatMap((d) => ids([d.userId, d.ownerId, d.fromOwnerId])))]
   const runIds = [...new Set(details.flatMap((d) => ids([d.runId])))]
   const botIds = [...new Set(details.flatMap((d) => ids([d.botId, ...ids(d.botIds)])))]
   const [userRows, runRows, botRows] = await Promise.all([

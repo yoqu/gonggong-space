@@ -1,7 +1,7 @@
 //! Live previews (plan 结果预览 B2, B6-2): one gg-cast per watched preview, publishing a hosted service's window or a
 //! mini program's simulator to the preview's LiveKit room for as long as the server asks for it (`cast.sync`);
-//! restarted after a failure, stopped when nobody watches. gg-cast is downloaded from the server on first use (it
-//! bundles libwebrtc, so `gg` does not).
+//! restarted after a failure, stopped when nobody watches. gg-cast bundles libwebrtc, so `gg` does not: the desktop
+//! app ships it beside its executable, the CLI downloads the server's build on first use.
 use crate::config::Config;
 use crate::hosted::Services;
 use crate::permission::{self, Permission};
@@ -30,7 +30,7 @@ struct Inner {
     api: Option<Config>,
     home: PathBuf,
     services: Services,
-    /// GG_CAST_BIN: a local gg-cast build instead of the published one.
+    /// `local_bin`: used instead of the server's build.
     bin: Option<PathBuf>,
     devtools: &'static crate::wechatide::Shared,
     /// The permissions this machine lacks, checked before each run (`permission::missing`).
@@ -83,6 +83,49 @@ impl Casts {
     }
 }
 
+/// The gg-cast to run instead of the server's: GG_CAST_BIN (a local build), else the one beside this executable.
+pub fn local_bin() -> Option<PathBuf> {
+    std::env::var_os("GG_CAST_BIN").map(PathBuf::from).or_else(bundled)
+}
+
+/// The desktop app's own gg-cast (Tauri `externalBin`: next to the app executable, same build).
+pub fn bundled() -> Option<PathBuf> {
+    beside(&std::env::current_exe().ok()?)
+}
+
+/// A copy of the bundled gg-cast outside the app, where it runs. macOS judges an executable inside an app bundle as
+/// the app itself: gg-cast's ad-hoc signature is not the app's, so screen recording was refused (ScreenCaptureKit
+/// -3801) although the app was granted; outside, it is the app's child and inherits the grant. One copy per build.
+pub async fn staged(bundled: &Path, home: &Path) -> Result<PathBuf, String> {
+    use sha2::{Digest, Sha256};
+    let stage = async {
+        let bytes = tokio::fs::read(bundled).await?;
+        let sha: String = Sha256::digest(&bytes).iter().take(6).map(|b| format!("{b:02x}")).collect();
+        let dir = home.join("bin");
+        let path = dir.join(format!("gg-cast-bundled-{sha}{}", std::env::consts::EXE_SUFFIX));
+        if path.is_file() {
+            return Ok(path);
+        }
+        tokio::fs::create_dir_all(&dir).await?;
+        let part = path.with_extension(format!("part{}", std::process::id()));
+        tokio::fs::copy(bundled, &part).await?;
+        tokio::fs::rename(&part, &path).await?;
+        let mut old = tokio::fs::read_dir(&dir).await?;
+        while let Some(entry) = old.next_entry().await? {
+            let name = entry.file_name();
+            if name.to_string_lossy().starts_with("gg-cast-bundled-") && entry.path() != path {
+                let _ = tokio::fs::remove_file(entry.path()).await;
+            }
+        }
+        std::io::Result::Ok(path)
+    };
+    stage.await.map_err(|e| format!("无法准备内置的 gg-cast：{e}"))
+}
+
+fn beside(exe: &Path) -> Option<PathBuf> {
+    Some(exe.parent()?.join(format!("gg-cast{}", std::env::consts::EXE_SUFFIX))).filter(|p| p.is_file())
+}
+
 /// Every state carries the missing permissions: without accessibility the window shows, but control does nothing.
 fn report(out: &Outbox, target: &CastTarget, missing: &[Permission], state: CastPhase, error: Option<String>) {
     let missing = missing.to_vec();
@@ -121,6 +164,7 @@ async fn publish(
     }
     let (window, display) = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
+        Some(bin) if bundled().as_ref() == Some(bin) => staged(bin, &inner.home).await?,
         Some(bin) => bin.clone(),
         None => binary(api, &inner.home).await?,
     };
@@ -383,5 +427,35 @@ mod tests {
         assert!(states[1].1.as_deref().unwrap().contains("未登录"), "{:?}", states[1]);
         assert!(calls.lock().unwrap().iter().any(|c| c.0 == "login"));
         casts.sync(vec![], &out);
+    }
+}
+
+#[cfg(test)]
+mod bin_tests {
+    use super::*;
+
+    #[test]
+    fn a_bundled_gg_cast_sits_beside_the_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("gonggong-desktop");
+        assert_eq!(beside(&exe), None);
+        let cast = dir.path().join(format!("gg-cast{}", std::env::consts::EXE_SUFFIX));
+        std::fs::write(&cast, "").unwrap();
+        assert_eq!(beside(&exe), Some(cast));
+    }
+
+    #[tokio::test]
+    async fn the_bundled_gg_cast_runs_from_a_copy_outside_the_app() {
+        let (app, home) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let bundled = app.path().join("gg-cast");
+        std::fs::write(&bundled, "v1").unwrap();
+        let first = staged(&bundled, home.path()).await.unwrap();
+        assert!(first.starts_with(home.path().join("bin")));
+        assert_eq!(std::fs::read_to_string(&first).unwrap(), "v1");
+        assert_eq!(staged(&bundled, home.path()).await.unwrap(), first);
+        std::fs::write(&bundled, "v2").unwrap();
+        let second = staged(&bundled, home.path()).await.unwrap();
+        assert_ne!(second, first);
+        assert!(!first.exists(), "the previous build's copy is removed");
     }
 }

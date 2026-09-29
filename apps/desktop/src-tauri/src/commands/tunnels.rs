@@ -34,7 +34,12 @@ mod tests {
         let tunnels: Tunnels = serde_json::from_str(
             r#"{"previews":[{"id":"p1","groupId":"g1","groupName":"支付重构","botId":"b1","botName":"小王的 Claude",
                 "kind":"http","title":"登录页","path":"/login","serviceId":"sv1","serviceName":"web","port":5173,
-                "snapshotAt":null,"status":"online","canManage":true,"createdAt":"2026-09-28T10:00:00Z"}],
+                "snapshotAt":null,"status":"online","canManage":true,"createdAt":"2026-09-28T10:00:00Z"},
+               {"id":"p2","groupId":"g1","groupName":"支付重构","botId":"b1","botName":"小王的 Claude",
+                "kind":"gui","title":"桌面客户端","path":"/","serviceId":"sv2","serviceName":"app","port":null,
+                "snapshotAt":null,"status":"online","canManage":true,"createdAt":"2026-09-28T10:00:00Z",
+                "live":{"state":"failed","error":"窗口已关闭","missing":["accessibility"]},
+                "control":{"controller":{"id":"u2","name":"李建国"},"requests":[]}}],
                "services":[{"id":"sv1","groupId":"g1","groupName":"支付重构","botId":"b1","botName":"小王的 Claude",
                 "name":"web","command":"pnpm dev","cwd":"apps/web","port":5173,"status":"running","canManage":true,
                 "createdAt":"2026-09-28T10:00:00Z"}]}"#,
@@ -44,5 +49,9 @@ mod tests {
         assert_eq!(json["previews"][0]["groupName"], "支付重构");
         assert_eq!(json["previews"][0]["serviceId"], "sv1");
         assert_eq!(json["services"][0]["port"], 5173);
+        assert_eq!(json["previews"][0]["live"], serde_json::Value::Null);
+        assert_eq!(json["previews"][1]["kind"], "gui");
+        assert_eq!(json["previews"][1]["live"]["missing"][0], "accessibility");
+        assert_eq!(json["previews"][1]["control"]["controller"]["name"], "李建国");
     }
 }

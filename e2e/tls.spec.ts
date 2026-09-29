@@ -62,7 +62,7 @@ test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a chang
           name: 'TLS Claude',
           ownerId: me.id,
           agentKind: 'claude',
-          avatar: 'role-pm',
+          avatar: 'role-no',
           machineId,
           systemPrompt: '',
         },

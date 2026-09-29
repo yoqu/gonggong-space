@@ -1,4 +1,4 @@
-import { PushSubscriptionReq } from '@gonggong/protocol'
+import { type NotificationDto, PushSubscriptionReq } from '@gonggong/protocol'
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -6,7 +6,7 @@ import { notifications, pushSubscriptions } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
-import { notificationDto } from './notify.js'
+import { notificationDto, withGroupTitles } from './notify.js'
 import { vapidKeys } from './push.js'
 
 const LIMIT = 100
@@ -21,7 +21,11 @@ export function notificationRoutes(ctx: Ctx) {
         .where(eq(notifications.userId, user.id))
         .orderBy(desc(notifications.createdAt))
         .limit(LIMIT)
-      return rows.map(notificationDto)
+      const payloads = await withGroupTitles(
+        ctx,
+        rows.map((r) => r.payload as NotificationDto['payload']),
+      )
+      return rows.map((r, i) => notificationDto({ ...r, payload: payloads[i] }))
     })
 
     app.post<{ Params: { id: string } }>('/api/notifications/:id/read', async (req, reply) => {

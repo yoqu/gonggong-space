@@ -6,6 +6,7 @@ import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
+import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Badge, Button, ConversationContent, Icon } from '../ui'
 import { keyNav } from '../ui/im/keynav'
@@ -63,7 +64,9 @@ const draftOf = (groupId: string) => {
 function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabStop: boolean }) {
   const dm = g.kind === 'dm'
   // The mode lives in the chat header; the row's second line is for the latest message.
-  const preview = g.last || (dm ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
+  const preview =
+    (g.last && plainText(g.last)) ||
+    (dm ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
   return (
     <NavLink
       to={`/g/${g.id}`}

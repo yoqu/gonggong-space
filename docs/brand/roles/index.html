@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bot 性格角色</title>
+<title>Bot 复合性格角色</title>
 <style>
 :root {
   --bg: #f5f5f7; --panel: #fff; --label: #1d1d1f; --label2: #6e6e73; --sep: rgba(0,0,0,.09);
-  --accent: #007aff; --accent-soft: rgba(0,122,255,.1); --bubble: #fff; --bubble-edge: #d8dfea;
+  --accent: #007aff; --accent-soft: rgba(0,122,255,.1); --bubble: #fff; --bubble-edge: #d8dfea; --quote: #f2f3f7;
   --stage: radial-gradient(120% 90% at 50% 0%, #fff 0%, #eef2f8 70%);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
-    --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060;
+    --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060; --quote: #2c2c30;
     --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
   }
 }
 :root[data-theme="dark"] {
   --bg: #161618; --panel: #232326; --label: #f5f5f7; --label2: #a1a1a6; --sep: rgba(255,255,255,.1);
-  --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060;
+  --accent: #0a84ff; --accent-soft: rgba(10,132,255,.16); --bubble: #3a3f4d; --bubble-edge: #4a5060; --quote: #2c2c30;
   --stage: radial-gradient(120% 90% at 50% 0%, #2c3140 0%, #1d2029 70%);
 }
 * { box-sizing: border-box; }
@@ -28,48 +28,76 @@ body { margin: 0; background: var(--bg); color: var(--label); font: 13px/1.5 var
 main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
 h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.01em; }
 h2 { font-size: 17px; margin: 44px 0 4px; }
-.sub { color: var(--label2); margin: 0 0 16px; max-width: 800px; }
+a { color: var(--accent); text-decoration: none; }
+.sub { color: var(--label2); margin: 0 0 16px; max-width: 820px; }
 .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 16px 0; }
 .chip { font: 12px var(--font); border: 1px solid var(--sep); background: var(--panel); color: var(--label); padding: 3px 11px; border-radius: 999px; cursor: pointer; }
 .chip:hover { background: var(--accent-soft); }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .av { display: block; border-radius: 24%; flex: none; }
-
-.hero { display: flex; gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; }
-.hero p { margin: 2px 0 0; color: var(--label2); }
 .tag { display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 2px; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-.card { position: relative; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.flow div { background: var(--panel); border: 1px solid var(--sep); border-radius: 12px; padding: 10px 12px; }
+.flow b { display: block; font-size: 13px; margin-bottom: 2px; }
+.flow span { color: var(--label2); font-size: 12px; }
+
+.hero { display: flex; gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; margin-top: 16px; }
+.hero p { margin: 2px 0 0; color: var(--label2); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.card { position: relative; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 7px; cursor: pointer; }
 .card .stage { background: var(--stage); border-radius: 10px; display: grid; place-items: center; padding: 22px 0 16px; position: relative; }
-.card h3 { margin: 4px 0 0; font-size: 15px; }
-.card .trait { font-size: 12px; font-weight: 600; }
-.card p { margin: 0; color: var(--label2); font-size: 12px; }
+.card h3 { margin: 4px 0 0; font-size: 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mix { font-size: 12px; font-weight: 600; }
+.card p { margin: 0; font-size: 12.5px; }
+.src { background: var(--quote); border-radius: 8px; padding: 6px 9px; display: grid; gap: 3px; }
+.src div { font-size: 11.5px; color: var(--label2); }
+.src b { color: var(--label); font-weight: 600; }
+.fit { display: flex; flex-wrap: wrap; gap: 4px; }
+.fit span { font-size: 11px; border: 1px solid var(--sep); border-radius: 999px; padding: 0 7px; color: var(--label2); }
 .card .move { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--sep); font-size: 11.5px; color: var(--label2); }
 .say { position: absolute; top: 10px; left: 50%; transform: translate(-50%, 4px); background: var(--bubble); border: 1px solid var(--bubble-edge); border-radius: 10px; padding: 3px 9px; font-size: 12px; white-space: nowrap; opacity: 0; transition: .2s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
 .card.saying .say { opacity: 1; transform: translate(-50%, -6px); }
+
+.tbl-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; }
+th, td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--sep); font-size: 12px; }
+th { color: var(--label2); font-weight: 500; }
+td:first-child, th:first-child { text-align: left; }
+td:first-child { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.dot { color: var(--accent); }
+.dot.soft { opacity: .45; }
 
 .ladder { background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 12px 16px; overflow-x: auto; }
 .ladder .row { display: flex; gap: 10px; align-items: center; padding: 8px 0; min-width: max-content; }
 .ladder .row + .row { border-top: 1px solid var(--sep); }
 .ladder .lbl { width: 56px; color: var(--label2); font-size: 12px; flex: none; }
 
-.chat { display: grid; grid-template-columns: 1fr; gap: 14px; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; max-width: 720px; }
+.chat { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--sep); border-radius: 14px; padding: 16px; max-width: 720px; }
 .msg { display: flex; gap: 10px; align-items: flex-start; }
 .msg .who { font-size: 12px; color: var(--label2); margin-bottom: 3px; }
-.msg .bubble { background: var(--bg); border-radius: 4px 12px 12px 12px; padding: 7px 11px; display: inline-block; max-width: 520px; }
-.msg .work { color: var(--label2); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.msg .bubble { background: var(--bg); border-radius: 4px 12px 12px 12px; padding: 7px 11px; display: inline-block; max-width: 540px; }
+.msg .work { color: var(--label2); font-size: 12px; display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .msg .work i { width: 6px; height: 6px; border-radius: 50%; background: #30c85e; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
 
-ol.q { max-width: 800px; padding-left: 20px; }
+ol.q { max-width: 820px; padding-left: 20px; }
 ol.q li { margin: 6px 0; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Bot 角色 · 性格版 <span class="tag">讨论稿 v1</span></h1>
-  <p class="sub">从「职能」改为「性格」：每个角色是一种程序员性格，场景都落在互联网应用开发里。默认共字君不变；其余 12 个候选（选 10 或全留，待定）。视觉沿用现有规范——40×40 渐变方块、白色主体、主色描脸，可直接替换 <code>avatars.tsx</code>。</p>
+  <h1>Bot 角色 · 复合性格 <span class="tag">讨论稿 v2</span></h1>
+  <p class="sub">v1 是单一形容词，太扁平。这一版先拆出各职能的典型特质，再从编程、产品、管理、金融圈知名人物公开记录的工作风格里各取 2–3 种，融合成一个有张力的性格。名人只作灵感来源，形象全部是抽象角色与物件，不描绘任何真人。</p>
+
+  <div class="flow">
+    <div><b>① 拆职能</b><span>每个职能在研发中的关键动作：架构要取舍、测试要找坏、运维要扛事故……</span></div>
+    <div><b>② 找原型</b><span>在 27 位人物的公开原则里找对应特质：Linus 的「Show me the code」、芒格的「反过来想」……</span></div>
+    <div><b>③ 融合</b><span>2–3 种特质叠成一个性格，最好带反差：外冷内热、温柔而偏执、悲观的守护者。</span></div>
+    <div><b>④ 落形象</b><span>道具表现特质，干活中动画就是性格本身：慢想荡吊床、说不划清单、抗摔被压扁再弹起。</span></div>
+  </div>
 
   <div class="bar">
     <span style="color:var(--label2)">动画：</span>
@@ -85,25 +113,32 @@ ol.q li { margin: 6px 0; }
 
   <div class="hero" id="hero"></div>
 
-  <h2>12 个性格候选</h2>
-  <p class="sub">点卡片听它的口头禅。卡片底部是「干活中」动画的设计意图——动作本身就是性格：急性子抖、慢性子呼吸、社恐往后躲。</p>
+  <h2>12 个复合性格</h2>
+  <p class="sub">点卡片听口头禅。灰底框是灵感来源（人物 · 公开原则），底部是「干活中」动画。</p>
   <div class="cards" id="cards"></div>
 
+  <h2>职能覆盖</h2>
+  <p class="sub">性格不绑定职能，只是「天然合适」。● 最合适，○ 也合适。</p>
+  <div class="tbl-wrap"><table id="matrix"></table></div>
+
   <h2>尺寸检查</h2>
-  <p class="sub">会话列表 20–28px、消息头像 32–40px、选择器 64px。小尺寸只要轮廓与主色可辨即可。</p>
+  <p class="sub">会话列表 20–28px、消息头像 32–40px、选择器 64px。</p>
   <div class="ladder" id="ladder"></div>
 
   <h2>群聊场景</h2>
-  <p class="sub">运行中的 Bot 头像播放动画，其余静止。</p>
+  <p class="sub">同一个问题，不同性格的 Bot 各说各话；运行中的头像在动。</p>
   <div class="chat" id="chat"></div>
 
   <h2>待讨论</h2>
   <ol class="q">
-    <li>12 个候选保留哪 10 个？（或全部保留，列表不必凑整）</li>
-    <li>性格是否只决定形象与动画（与现在一致），还是顺带给一段可选的「语气」提示词？</li>
-    <li>命名风格：叠字昵称（稳稳、叨叨）是否 OK，还是用「急性子·闪电」这种性格前缀一起展示？</li>
-    <li>聊天里 Bot 干活的共字君「换装」是否也跟着改为性格形象（目前头部换成角色方块）？</li>
+    <li>12 个里保留哪些？有没有想加的人物或特质（比如雷军、Guido、Jeff Dean，这次没找到可靠出处，暂未收录）？</li>
+    <li>卡片上是否展示「灵感来源」的人物名？还是只在内部文档保留，界面只写性格描述？</li>
+    <li>性格仍只决定形象与动画，还是附一段可选的语气提示词（比如铁码评审更直接、复盘爱总结）？</li>
+    <li>命名：现在是两字昵称（铁码、说不），要不要带上性格公式一起显示（「毒舌 × 洁癖 × 实干」）？</li>
   </ol>
+
+  <h2>出处</h2>
+  <p class="sub" id="refs"></p>
 </main>
 
 <script>
@@ -112,10 +147,10 @@ const stroke = (c, w) => `fill="none" stroke="${c}" stroke-width="${w}" stroke-l
 const eyes = (ink, y, dx = 4, rx = 1.9) =>
   `<ellipse cx="${20 - dx}" cy="${y}" rx="${rx}" ry="${rx * 1.2}" fill="${ink}"/><ellipse cx="${20 + dx}" cy="${y}" rx="${rx}" ry="${rx * 1.2}" fill="${ink}"/>`
 const FB = 'transform-box:fill-box;transform-origin:center'
+const FUNCS = ['产品', '项目', '设计', '架构', '前端', '后端', '测试', '安全', '运维', '数据']
 
 const GONG = {
-  key: 'gong', name: '共字君', trait: '默认角色', line: '品牌吉祥物，什么活都肯接，把大家托举在一起', say: '交给我吧！',
-  from: '#2f6bff', to: '#0fa3a0',
+  key: 'gong', name: '共字君', from: '#2f6bff', to: '#0fa3a0',
   glyph: (ink) =>
     `<path class="jade" d="M20 3.2 22.9 6.1 20 9 17.1 6.1Z" fill="#b8f5ea"/>` +
     `<g class="legs" ${stroke(W, 3.2)}><path d="M16.4 28.4 13.8 34.6"/><path d="M23.6 28.4l2.6 6.2"/></g>` +
@@ -132,202 +167,304 @@ const GONG = {
 
 const ROLES = [
   {
-    key: 'rush', name: '闪电', trait: '急性子', line: '先跑起来再说，hotfix 手速全组第一', say: '马上好！',
-    move: '全身高频抖动 + 速度线后掠 + 闪电呆毛闪黄',
-    from: '#ffe04d', to: '#f08a00',
+    key: 'hammock', name: '慢想', mix: '深思 × 逆向 × 守边界',
+    line: '看着在发呆，其实在想第二层。问题没说清楚，一行代码都不写。',
+    src: [
+      ['Rich Hickey', '要解决问题，而不是堆功能（Hammock Driven Development）'],
+      ['巴菲特', '能力圈多大不重要，知道边界在哪才重要'],
+      ['霍华德·马克斯', '二阶思维：与众不同，而且更好'],
+    ],
+    fit: { 架构: 2, 后端: 1, 数据: 1 }, say: '先别写，想清楚问题是什么。',
+    move: '躺在吊床上轻轻摆，头顶的思考圈一圈圈扩散',
+    from: '#a3b5ff', to: '#4b5fd6',
     glyph: (ink) =>
-      `<g class="speed" ${stroke(W, 1.4)}><path d="M3.5 19h4"/><path d="M2.5 23h5"/><path d="M4 27h3.5"/></g>` +
-      `<g class="body"><path class="bolt" d="M23 2.5 15.5 11.5H20L18.5 16 25.5 8.5H21Z" fill="${W}"/>` +
-      `<rect x="10" y="13.5" width="20" height="17.5" rx="7" fill="${W}"/>` +
-      `<path d="M13.6 18.6l3.6 1.3M26.4 18.6l-3.6 1.3" ${stroke(ink, 1.4)}/>${eyes(ink, 22.4, 4, 1.7)}` +
-      `<path d="M16.8 25.6h6.4a3.2 3.2 0 0 1-6.4 0z" fill="${ink}"/></g>`,
+      `<g class="think"><circle class="ring" cx="30" cy="8" r="4" ${stroke(W, 1.2)}/><circle cx="30" cy="8" r="1.6" fill="${W}"/><circle cx="25.4" cy="12.6" r=".9" fill="${W}"/></g>` +
+      `<g class="swing"><path d="M6 21 3.5 12.5M34 21l2.5-8.5" ${stroke(W, 1)} opacity=".7"/>` +
+      `<circle cx="20" cy="19" r="7" fill="${W}"/>` +
+      `<path d="M16.3 18.6h3a1.5 1.5 0 0 1-3 0zM20.7 18.6h3a1.5 1.5 0 0 1-3 0z" fill="${ink}"/>` +
+      `<path d="M18.6 22.4q1.4.8 2.8 0" ${stroke(ink, 1.1)}/>` +
+      `<path d="M6 21q14 13 28 0-14 8-28 0z" fill="${W}" stroke="${ink}" stroke-width=".8"/>` +
+      `<path d="M10 23.8q10 6 20 0" stroke="${ink}" stroke-width=".7" stroke-dasharray="1.2 1.2" fill="none" opacity=".4"/></g>`,
     motion:
-      '.body{animation:jit .16s linear infinite}@keyframes jit{25%{transform:translate(.5px,-.4px)}75%{transform:translate(-.5px,.3px)}}' +
-      '.speed path{animation:dash .45s linear infinite}.speed path:nth-child(2){animation-delay:.15s}.speed path:nth-child(3){animation-delay:.3s}' +
-      '@keyframes dash{from{transform:translateX(3px);opacity:0}50%{opacity:1}to{transform:translateX(-3px);opacity:0}}' +
-      '.bolt{animation:flash .8s steps(1) infinite}@keyframes flash{50%{fill:#fff27a}}',
+      '.swing{transform-origin:20px 6px;animation:swing 3s ease-in-out infinite}@keyframes swing{25%{transform:rotate(4deg)}75%{transform:rotate(-4deg)}}' +
+      '.ring{transform-origin:30px 8px;animation:ring 1.6s ease-out infinite}@keyframes ring{from{transform:scale(.5);opacity:1}to{transform:scale(1.4);opacity:0}}',
   },
   {
-    key: 'steady', name: '稳稳', trait: '慢性子', line: '改一行读十行，没把握的代码不落笔', say: '稳一点，再跑一遍测试。',
-    move: '缓慢呼吸 + 慢眨眼 + 右上角一笔一笔画出对勾',
-    from: '#9bd86e', to: '#3d8a34',
+    key: 'braces', name: '铁码', mix: '毒舌 × 洁癖 × 实干',
+    line: '嘴毒是因为对代码有洁癖。空谈免谈，只认跑得起来的实现。',
+    src: [
+      ['Linus Torvalds', 'Talk is cheap. Show me the code.'],
+      ['Rob Pike', '数据主导：数据结构才是核心，算法其次'],
+      ['云风', '核心精简到有经验的人一读就懂，不背历史包袱'],
+    ],
+    fit: { 后端: 2, 架构: 1 }, say: 'Show me the code.',
+    move: '花括号一收一紧，下面的代码行一行行被删短',
+    from: '#a0a9b5', to: '#39424f',
     glyph: (ink) =>
-      `<path class="chk" d="M29.4 6.4l2.2 2.2 4-4.4" ${stroke(W, 1.8)}/>` +
-      `<g class="all"><rect x="10.5" y="16" width="19" height="15" rx="7" fill="${W}"/>` +
-      `<path d="M8.4 19.4a11.6 9.6 0 0 1 23.2 0z" fill="${W}" stroke="${ink}" stroke-width="1.2"/>` +
-      `<path d="M16 13.4l4-2.3 4 2.3v3.4l-4 2.2-4-2.2z" fill="none" stroke="${ink}" stroke-width=".9" opacity=".35"/>` +
-      `<rect x="7.4" y="18.6" width="25.2" height="2" rx="1" fill="${ink}"/>` +
-      `<path class="lids" d="M14.3 23.4h3.4a1.7 1.7 0 0 1-3.4 0zM22.3 23.4h3.4a1.7 1.7 0 0 1-3.4 0z" fill="${ink}"/>` +
-      `<path d="M18 27.6q2 1 4 0" ${stroke(ink, 1.3)}/></g>`,
+      `<g class="bl" ${stroke(W, 2)}><path d="M9.5 10.5c-2 0-2.5 1-2.5 3V17c0 1.5-1 2.5-2.4 2.5 1.4 0 2.4 1 2.4 2.5v3.5c0 2 .5 3 2.5 3"/></g>` +
+      `<g class="br" ${stroke(W, 2)}><path d="M30.5 10.5c2 0 2.5 1 2.5 3V17c0 1.5 1 2.5 2.4 2.5-1.4 0-2.4 1-2.4 2.5v3.5c0 2-.5 3-2.5 3"/></g>` +
+      `<rect x="11.5" y="10" width="17" height="18" rx="3.5" fill="${W}"/>` +
+      `<path d="M14 15.4l4 1.2M26 15.4l-4 1.2" ${stroke(ink, 1.6)}/>` +
+      `<rect x="15" y="18.6" width="2.4" height="2.4" rx=".6" fill="${ink}"/><rect x="22.6" y="18.6" width="2.4" height="2.4" rx=".6" fill="${ink}"/>` +
+      `<path d="M17.4 24h5.2" ${stroke(ink, 1.5)}/>` +
+      `<g fill="${W}"><rect class="c1" x="11.5" y="31" width="17" height="1.8" rx=".9"/><rect class="c2" x="11.5" y="34.2" width="11" height="1.8" rx=".9"/></g>`,
     motion:
-      '.all{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite}@keyframes breathe{50%{transform:scaleY(1.04)}}' +
-      '.lids{transform-box:fill-box;transform-origin:50% 0;animation:blink 3.2s ease-in-out infinite}@keyframes blink{0%,40%,60%,100%{transform:scaleY(1)}50%{transform:scaleY(.2)}}' +
-      '.chk{stroke-dasharray:10;stroke-dashoffset:10;animation:draw 3.2s ease-in-out infinite}@keyframes draw{50%,85%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}',
+      '.bl{animation:bl 1.2s ease-in-out infinite}.br{animation:br 1.2s ease-in-out infinite}' +
+      '@keyframes bl{50%{transform:translateX(1.2px)}}@keyframes br{50%{transform:translateX(-1.2px)}}' +
+      '.c1,.c2{transform-box:fill-box;transform-origin:0 50%;animation:del 2.4s ease-in-out infinite}.c2{animation-delay:.4s}' +
+      '@keyframes del{0%,20%{transform:scaleX(1)}60%,80%{transform:scaleX(.25)}100%{transform:scaleX(1)}}',
   },
   {
-    key: 'chatty', name: '叨叨', trait: '话痨', line: '注释比代码长，PR 描述能写成小作文', say: '我展开讲讲……',
-    move: '嘴巴快速开合 + 气泡外的省略号依次跳',
-    from: '#ff9cc8', to: '#d6337a',
+    key: 'focus', name: '闭关', mix: '沉默 × 狂热 × 精算',
+    line: '一进心流就戴上耳机屏蔽世界；先测量，只抠真正关键的 3%。',
+    src: [
+      ['John Carmack', '炫酷 demo 和生产代码之间差得很远'],
+      ['高德纳（Knuth）', '过早优化是万恶之源——但别放过关键的 3%'],
+    ],
+    fit: { 前端: 2, 后端: 1, 数据: 1 }, say: '先 profile，再说。',
+    move: '戴着耳机一动不动，眼前的火焰图条逐根变短',
+    from: '#7a6dff', to: '#23198a',
     glyph: (ink) =>
-      `<rect x="7.5" y="8.5" width="25" height="18" rx="8" fill="${W}"/><path d="M13 25 10.5 32 19.5 26z" fill="${W}"/>` +
-      `${eyes(ink, 16.4, 4.6, 1.6)}<ellipse class="mouth" cx="20" cy="21.6" rx="2.8" ry="2" fill="${ink}"/>` +
-      `<circle cx="12.6" cy="20" r="1.3" fill="#ffc2dc"/><circle cx="27.4" cy="20" r="1.3" fill="#ffc2dc"/>` +
-      `<g class="dots" fill="${W}"><circle cx="25" cy="31.5" r="1.4"/><circle cx="29" cy="31.5" r="1.4"/><circle cx="33" cy="31.5" r="1.4"/></g>`,
+      `<path d="M8.6 19a11.4 11.4 0 0 1 22.8 0" ${stroke(W, 2.2)}/>` +
+      `<rect x="10.5" y="10" width="19" height="18" rx="8" fill="${W}"/>` +
+      `<rect x="6" y="15" width="4.2" height="8" rx="2.1" fill="${W}"/><rect x="29.8" y="15" width="4.2" height="8" rx="2.1" fill="${W}"/>` +
+      `<path d="M14 16.6h3.8M22.2 16.6H26" ${stroke(ink, 1.3)}/>` +
+      `<ellipse cx="16" cy="19.6" rx="1.7" ry="1.1" fill="${ink}"/><ellipse cx="24" cy="19.6" rx="1.7" ry="1.1" fill="${ink}"/>` +
+      `<path d="M18.6 23.8h2.8" ${stroke(ink, 1.3)}/>` +
+      `<rect class="f1" x="16" y="29.4" width="8" height="2" rx=".6" fill="#ffd84a"/>` +
+      `<rect class="f2" x="13" y="31.8" width="14" height="2" rx=".6" fill="#ffa24a"/>` +
+      `<rect class="f3" x="9" y="34.2" width="22" height="2" rx=".6" fill="#ff6b5a"/>`,
     motion:
-      `.mouth{${FB};animation:talk .22s ease-in-out infinite alternate}@keyframes talk{from{transform:scaleY(.3)}to{transform:scaleY(1.1)}}` +
-      '.dots circle{animation:hop .9s ease-in-out infinite}.dots circle:nth-child(2){animation-delay:.15s}.dots circle:nth-child(3){animation-delay:.3s}' +
-      '@keyframes hop{30%{transform:translateY(-2px)}}',
+      '.f1,.f2,.f3{transform-box:fill-box;transform-origin:0 50%;animation:opt 2.4s ease-in-out infinite}.f2{animation-delay:.3s}.f3{animation-delay:.6s}' +
+      '@keyframes opt{0%,15%{transform:scaleX(1)}55%,85%{transform:scaleX(.45)}100%{transform:scaleX(1)}}',
   },
   {
-    key: 'cool', name: '冷冷', trait: '高冷', line: '能一行不写两行，评审只回四个字母', say: 'LGTM',
-    move: '墨镜反光一扫而过，其余纹丝不动',
-    from: '#8190ad', to: '#232a3d',
-    glyph: (ink) => {
-      const lens = 'M11.4 19.2h7.4v2.6a2.4 2.4 0 0 1-2.4 2.4h-2.6a2.4 2.4 0 0 1-2.4-2.4zM21.2 19.2h7.4v2.6a2.4 2.4 0 0 1-2.4 2.4h-2.6a2.4 2.4 0 0 1-2.4-2.4z'
-      return `<defs><clipPath id="l"><path d="${lens}"/></clipPath></defs>` +
-        `<rect x="10" y="12" width="20" height="19" rx="5.5" fill="${W}"/>` +
-        `<path d="M9.6 17.4c.2-4.6 3.6-7.4 10.6-7.4 5.6 0 9.6 2 10.2 5.4-4.6-1.8-11.4-1.4-15.6 2.4z" fill="${ink}"/>` +
-        `<path d="${lens}" fill="${ink}"/><path d="M18.8 19.8h2.4" stroke="${ink}" stroke-width="1.2"/>` +
-        `<g clip-path="url(#l)"><g class="glint" fill="${W}" opacity=".8"><path d="M13.4 24.4l4-5.6h1.6l-4 5.6z"/><path d="M23.2 24.4l4-5.6h1.6l-4 5.6z"/></g></g>` +
-        `<path d="M18 27.6q2.2.2 4-.8" ${stroke(ink, 1.4)}/>`
-    },
-    motion: '.glint{animation:glint 2.6s ease-in-out infinite}@keyframes glint{0%,55%{transform:translateX(-8px)}85%,100%{transform:translateX(8px)}}',
+    key: 'steps', name: '小步', mix: '乐天 × 务实 × 敢割舍',
+    line: '红了就修，绿了就走；对复杂度零容忍，笑着删功能。',
+    src: [
+      ['Kent Beck', 'Make it work, make it right, make it fast'],
+      ['DHH', '概念压缩必然有损——要简单，就得舍掉点什么'],
+    ],
+    fit: { 前端: 2, 后端: 1, 测试: 1 }, say: '先让测试变绿～',
+    move: '一蹦一蹦往上走，台阶上的红灯依次变绿',
+    from: '#8be07a', to: '#239a3c',
+    glyph: (ink) =>
+      `<g class="hop"><rect x="10.5" y="6.5" width="19" height="17" rx="7" fill="${W}"/>` +
+      `<path d="M14.4 14.4q1.6-2 3.2 0M22.4 14.4q1.6-2 3.2 0" ${stroke(ink, 1.5)}/>` +
+      `<path d="M16.4 17.4h7.2a3.6 3.6 0 0 1-7.2 0z" fill="${ink}"/></g>` +
+      `<path d="M5 36.5h9.5V33h9.5v-3.5h10" ${stroke(W, 1.6)}/>` +
+      `<circle class="s s1" cx="9.8" cy="34.4" r="1.4" fill="#ff5f57"/><circle class="s s2" cx="19.3" cy="30.9" r="1.4" fill="#ff5f57"/><circle class="s s3" cx="29" cy="27.4" r="1.4" fill="#ff5f57"/>`,
+    motion:
+      '.hop{animation:hop .6s cubic-bezier(.3,0,.5,1) infinite alternate}@keyframes hop{to{transform:translateY(-2px)}}' +
+      '.s{animation:green 2.4s steps(1) infinite}.s2{animation-delay:.6s}.s3{animation-delay:1.2s}' +
+      '@keyframes green{0%{fill:#ff5f57}25%,100%{fill:#30c85e}}',
   },
   {
-    key: 'sunny', name: '嘿嘿', trait: '乐天派', line: 'CI 全红也能笑出来，修就是了', say: '问题不大～',
-    move: '光芒慢慢旋转 + 脸蛋一蹦一蹦',
-    from: '#ffc05a', to: '#f2651d',
+    key: 'blank', name: '留白', mix: '温柔 × 偏执 × 克制',
+    line: '说话轻声细语，对粗糙零容忍；每个像素都要讲得出理由。',
+    src: [
+      ['Dieter Rams', 'Less, but better'],
+      ['Jony Ive', '人能感知到用心，就像能感知到敷衍'],
+      ['张小龙', '好的工具应该用完即走'],
+    ],
+    fit: { 设计: 2, 产品: 1, 前端: 1 }, say: '这里可以再少一点。',
+    move: '四角的参考线一根根淡出，只留下安静呼吸的脸',
+    from: '#ffc3d6', to: '#d8578a',
     glyph: (ink) =>
-      `<g class="rays" ${stroke(W, 2)}><path d="M31.2 21h2.4M27.9 28.9l1.7 1.7M20 32.2v2.4M12.1 28.9l-1.7 1.7M8.8 21H6.4M12.1 13.1l-1.7-1.7M20 9.8V7.4M27.9 13.1l1.7-1.7"/></g>` +
-      `<g class="face"><circle cx="20" cy="21" r="9.4" fill="${W}"/>` +
-      `<path d="M14.6 20.2q1.6-2.2 3.2 0M22.2 20.2q1.6-2.2 3.2 0" ${stroke(ink, 1.5)}/>` +
-      `<path d="M15.8 23.2h8.4a4.2 4.2 0 0 1-8.4 0z" fill="${ink}"/>` +
-      `<circle cx="13.6" cy="23.4" r="1.2" fill="#ffc9a8"/><circle cx="26.4" cy="23.4" r="1.2" fill="#ffc9a8"/></g>`,
+      `<g ${stroke(W, 1.3)}><path class="k k1" d="M5 10V5h5"/><path class="k k2" d="M30 5h5v5"/><path class="k k3" d="M35 30v5h-5"/><path class="k k4" d="M10 35H5v-5"/></g>` +
+      `<g class="breath"><circle cx="20" cy="20" r="10" fill="${W}"/>` +
+      `<circle cx="16.4" cy="19.2" r="1.2" fill="${ink}"/><circle cx="23.6" cy="19.2" r="1.2" fill="${ink}"/>` +
+      `<path d="M18.4 23.4q1.6 1 3.2 0" ${stroke(ink, 1.2)}/>` +
+      `<circle cx="25.6" cy="23" r=".9" fill="#ff9fbf"/></g>`,
     motion:
-      '.rays{transform-origin:20px 21px;animation:spin 6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}' +
-      '.face{animation:hop .35s cubic-bezier(.3,0,.5,1) infinite alternate}@keyframes hop{to{transform:translateY(-1.6px)}}',
+      '.breath{transform-origin:20px 20px;animation:breath 3.6s ease-in-out infinite}@keyframes breath{50%{transform:scale(1.05)}}' +
+      '.k{animation:fade 3.6s ease-in-out infinite}.k2{animation-delay:.3s}.k3{animation-delay:.6s}.k4{animation-delay:.9s}' +
+      '@keyframes fade{0%,10%{opacity:1}40%,80%{opacity:0}100%{opacity:1}}',
   },
   {
-    key: 'picky', name: '抠抠', trait: '完美主义', line: '缩进差一格、命名不统一，都要重排', say: '这里还能再优雅点。',
-    move: '单片镜放大审视、瞳孔扫描 + 火花闪烁',
-    from: '#e39bff', to: '#9b2fcf',
+    key: 'no', name: '说不', mix: '果断 × 本分 × 聚焦',
+    line: '对诱惑说不，对用户说是；发现方向错了，当场叫停。',
+    src: [
+      ['乔布斯', 'Focusing is about saying no.'],
+      ['段永平', '本分；做对的事情，把事情做对；不为清单'],
+    ],
+    fit: { 产品: 2, 项目: 1 }, say: '这个，不做。',
+    move: '清单上的删除线一道道划过，只剩一行亮起对勾',
+    from: '#ffcf40', to: '#ec7300',
     glyph: (ink) =>
-      `<path class="spark" d="M32 5.5l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z" fill="${W}"/>` +
-      `<rect x="10.5" y="12.5" width="19" height="18.5" rx="4.5" fill="${W}"/>` +
-      `<path d="M10.5 17v-.5a4 4 0 0 1 4-4h3.9L17 17zM19.6 12.5h5.9a4 4 0 0 1 4 4v.5h-8.7z" fill="${ink}"/>` +
-      `<path d="M13.4 19.6q1.8-1.2 3.6 0" ${stroke(ink, 1.2)}/><circle cx="15.2" cy="22.2" r="1.4" fill="${ink}"/>` +
-      `<path d="M27.4 24.6q2.6 3.2 1.4 6.4" ${stroke(ink, .8)}/>` +
-      `<g class="mono"><circle cx="24.6" cy="22" r="3.6" fill="#f6ebff" stroke="${ink}" stroke-width="1.4"/><circle class="pupil" cx="24.6" cy="22" r="1.5" fill="${ink}"/></g>` +
-      `<path d="M18.4 27.6h3.2" ${stroke(ink, 1.3)}/>`,
+      `<circle cx="20" cy="12.6" r="7.6" fill="${W}"/>` +
+      `<path d="M15.6 10.2h3M21.4 10.2h3" ${stroke(ink, 1.4)}/>` +
+      `<ellipse cx="17" cy="12.8" rx="1.2" ry="1.4" fill="${ink}"/><ellipse cx="23" cy="12.8" rx="1.2" ry="1.4" fill="${ink}"/>` +
+      `<path d="M18.2 16.4h3.6" ${stroke(ink, 1.3)}/>` +
+      `<rect x="10.5" y="19.5" width="19" height="16" rx="2.4" fill="${W}" stroke="${ink}" stroke-width="1.1"/>` +
+      `<g fill="${ink}" opacity=".35"><rect x="13.5" y="22.8" width="11" height="1.6" rx=".8"/><rect x="13.5" y="26.8" width="9" height="1.6" rx=".8"/><rect x="13.5" y="30.8" width="10" height="1.6" rx=".8"/></g>` +
+      `<path class="x x1" d="M12.5 23.6h13" stroke="#ff5f57" stroke-width="1.3" stroke-linecap="round"/>` +
+      `<path class="x x2" d="M12.5 31.6h12" stroke="#ff5f57" stroke-width="1.3" stroke-linecap="round"/>` +
+      `<path class="ok" d="M24.4 27.4l1.4 1.4 2.4-2.8" ${stroke('#30c85e', 1.4)}/>`,
     motion:
-      '.mono{transform-origin:24.6px 22px;animation:zoom 1.8s ease-in-out infinite}@keyframes zoom{50%{transform:scale(1.18)}}' +
-      '.pupil{animation:scan 1.8s ease-in-out infinite}@keyframes scan{25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}' +
-      `.spark{${FB};animation:tw 1.8s ease-in-out infinite}@keyframes tw{0%,100%{transform:scale(.4);opacity:.4}50%{transform:scale(1.1) rotate(45deg);opacity:1}}`,
+      '.x{stroke-dasharray:14;animation:strike 2.8s ease-in-out infinite}.x2{animation-delay:.4s}' +
+      '@keyframes strike{0%,10%{stroke-dashoffset:14}40%,90%{stroke-dashoffset:0}100%{stroke-dashoffset:14}}' +
+      `.ok{${FB};animation:ok 2.8s ease-in-out infinite}@keyframes ok{0%,45%{transform:scale(0)}60%{transform:scale(1.4)}70%,90%{transform:scale(1)}100%{transform:scale(0)}}`,
   },
   {
-    key: 'owl', name: '熬熬', trait: '夜猫子', line: '白天迷糊，凌晨三点灵感最多', say: '夜深了，正好写代码。',
-    move: '猫眼慢眨 + 星星明灭 + 月亮发光',
-    from: '#5468e6', to: '#161b5a',
+    key: 'abacus', name: '算盘', mix: '冷静 × 理性 × 算账',
+    line: '不听故事只看账：用户价值 = 新体验 − 旧体验 − 替换成本。',
+    src: [
+      ['俞军', '用户价值 = 新体验 − 旧体验 − 替换成本'],
+      ['Jim Simons', '我们不从模型出发，我们从数据出发'],
+    ],
+    fit: { 数据: 2, 产品: 1 }, say: '数据呢？',
+    move: '头顶的算珠噼里啪啦来回拨',
+    from: '#5fdcf0', to: '#0a82a8',
     glyph: (ink) =>
-      `<g class="stars" fill="${W}"><circle cx="6.5" cy="8" r=".9"/><circle cx="11" cy="4.6" r=".6"/><circle cx="4.6" cy="13.6" r=".6"/></g>` +
-      `<path class="moon" d="M32.5 3.2a4.6 4.6 0 1 0 3.9 7.2 3.8 3.8 0 0 1-3.9-7.2z" fill="#ffe27a"/>` +
-      `<path d="M10.5 18.5 11.6 9.4l6.4 5.2zM29.5 18.5 28.4 9.4 22 14.6z" fill="${W}"/>` +
-      `<rect x="10" y="13.5" width="20" height="17.5" rx="7.5" fill="${W}"/>` +
-      `<path d="M12.7 14.4l.5-2.8 2.2 1.8zM27.3 14.4l-.5-2.8-2.2 1.8z" fill="#ffb3c7"/>` +
-      `<g class="eye"><circle cx="15.6" cy="21.4" r="2.7" fill="${ink}"/><circle cx="24.4" cy="21.4" r="2.7" fill="${ink}"/>` +
-      `<circle cx="15.6" cy="21.4" r="1.8" fill="#ffe27a"/><circle cx="24.4" cy="21.4" r="1.8" fill="#ffe27a"/>` +
-      `<rect x="15.1" y="19.9" width="1" height="3" rx=".5" fill="${ink}"/><rect x="23.9" y="19.9" width="1" height="3" rx=".5" fill="${ink}"/></g>` +
-      `<path d="M17.6 26.2q1.2 1.2 2.4 0 1.2 1.2 2.4 0" ${stroke(ink, 1.2)}/>`,
+      `<path d="M8 7.5h24" ${stroke(W, 1.2)}/><path d="M8 4.5v6M32 4.5v6" ${stroke(W, 1.6)}/>` +
+      `<g fill="${W}"><ellipse class="b1" cx="12" cy="7.5" rx="1.7" ry="2"/><ellipse class="b2" cx="15.6" cy="7.5" rx="1.7" ry="2"/><ellipse class="b3" cx="24.4" cy="7.5" rx="1.7" ry="2"/><ellipse cx="28" cy="7.5" rx="1.7" ry="2"/></g>` +
+      `<circle cx="20" cy="23" r="10" fill="${W}"/>` +
+      `<g ${stroke(ink, 1.3)}><circle cx="15.9" cy="22.4" r="3.1"/><circle cx="24.1" cy="22.4" r="3.1"/><path d="M19 22.4h2"/></g>` +
+      `<circle cx="15.9" cy="22.4" r="1.2" fill="${ink}"/><circle cx="24.1" cy="22.4" r="1.2" fill="${ink}"/>` +
+      `<path d="M18.4 28h3.2" ${stroke(ink, 1.3)}/>`,
     motion:
-      `.eye{${FB};animation:blink 3s infinite}@keyframes blink{0%,44%,54%,100%{transform:scaleY(1)}49%{transform:scaleY(.1)}}` +
-      '.stars circle{animation:twk 1.6s ease-in-out infinite}.stars circle:nth-child(2){animation-delay:.5s}.stars circle:nth-child(3){animation-delay:1s}@keyframes twk{50%{opacity:.15}}' +
-      '.moon{animation:glow 3s ease-in-out infinite}@keyframes glow{50%{fill:#fff8d0}}',
+      '.b1,.b2{animation:flick 1.6s ease-in-out infinite}.b2{animation-delay:.2s}.b3{animation:flickr 1.6s ease-in-out infinite .6s}' +
+      '@keyframes flick{0%,20%{transform:translateX(0)}40%,70%{transform:translateX(5px)}90%,100%{transform:translateX(0)}}' +
+      '@keyframes flickr{0%,20%{transform:translateX(0)}40%,70%{transform:translateX(-5px)}90%,100%{transform:translateX(0)}}',
   },
   {
-    key: 'curious', name: '问问', trait: '好奇宝宝', line: '凡事刨根问底，顺手把依赖源码读一遍', say: '为什么会这样？',
-    move: '歪头思考 + 问号左右摇',
-    from: '#5fe0ef', to: '#0a86a8',
+    key: 'invert', name: '反推', mix: '悲观 × 缜密 × 守护',
+    line: '总在问「它会怎么坏」——就是为了让它永远不坏。',
+    src: [
+      ['芒格', 'Invert, always invert.（反过来想）'],
+      ['Margaret Hamilton', '「永远不会发生」的事也会发生'],
+    ],
+    fit: { 测试: 2, 安全: 1, 运维: 1 }, say: '万一呢？',
+    move: '皱着眉，手里的沙漏翻过来又翻过去',
+    from: '#57d6b8', to: '#0b7d68',
     glyph: (ink) =>
-      `<g class="q"><path d="M25.4 5a3 3 0 1 1 4.2 2.8c-.8.4-1.2 1-1.2 1.9" ${stroke(W, 1.8)}/><circle cx="28.4" cy="12.4" r="1.1" fill="${W}"/></g>` +
-      `<g class="hd"><path d="M16.6 14 14.4 8.4" ${stroke(W, 1.5)}/><circle cx="14" cy="7.4" r="1.9" fill="${W}"/>` +
-      `<circle cx="20" cy="22.5" r="9.5" fill="${W}"/>` +
-      `<circle cx="16" cy="22" r="2.4" fill="${ink}"/><circle cx="24.2" cy="21.6" r="2.9" fill="${ink}"/>` +
-      `<circle cx="16.8" cy="21.2" r=".8" fill="${W}"/><circle cx="25.2" cy="20.6" r="1" fill="${W}"/>` +
-      `<ellipse cx="20" cy="27.4" rx="1.2" ry="1.4" fill="${ink}"/></g>`,
+      `<rect x="7.5" y="10" width="19" height="19" rx="8" fill="${W}"/>` +
+      `<path d="M10.8 16.6l3.6-1.4M23.2 16.6l-3.6-1.4" ${stroke(ink, 1.3)}/><ellipse cx="13.8" cy="19.8" rx="1.5" ry="1.8" fill="${ink}"/><ellipse cx="20.2" cy="19.8" rx="1.5" ry="1.8" fill="${ink}"/>` +
+      `<path d="M13.2 24.8q1.1-1 2.2 0t2.2 0 2.2 0" ${stroke(ink, 1.1)}/>` +
+      `<g class="glass"><path d="M28 22h7l-3.5 4.6 3.5 4.6h-7l3.5-4.6z" fill="${W}" stroke="${ink}" stroke-width=".8"/>` +
+      `<path d="M29.6 23h3.8l-1.9 2.4z" fill="#ffd84a"/><path d="M30.2 30.6h2.6l-1.3-1.8z" fill="#ffd84a"/></g>` +
+      `<path d="M26.2 25.6q1.4.4 2.2 1" ${stroke(W, 1.8)}/>`,
     motion:
-      '.hd{transform-origin:20px 32px;animation:tilt 2.2s ease-in-out infinite}@keyframes tilt{0%,100%{transform:rotate(0)}30%,65%{transform:rotate(-9deg)}}' +
-      '.q{transform-box:fill-box;transform-origin:50% 100%;animation:wob .6s ease-in-out infinite alternate}@keyframes wob{from{transform:rotate(-12deg)}to{transform:rotate(12deg) translateY(-1px)}}',
+      '.glass{transform-origin:31.5px 26.6px;animation:flip 2.4s ease-in-out infinite}@keyframes flip{0%,35%{transform:rotate(0)}55%,100%{transform:rotate(180deg)}}',
   },
   {
-    key: 'zen', name: '随缘', trait: '佛系', line: '需求改了？好的。线上抖了？先喝口茶', say: '都行，看情况。',
-    move: '云朵缓缓漂浮 + 小芽随风摆',
-    from: '#b3c6ff', to: '#5d74e0',
+    key: 'sentry', name: '哨兵', mix: '警觉 × 冷静 × 讲流程',
+    line: '默认已经被攻破，却从不制造恐慌；风险是连续的，不是非黑即白。',
+    src: [
+      ['Bruce Schneier', 'Security is a process, not a product.'],
+      ['Andy Grove', '只有偏执狂才能生存'],
+    ],
+    fit: { 安全: 2, 运维: 1, 测试: 1 }, say: '先假设已经被攻破。',
+    move: '面罩里的雷达持续扫描，扫到目标时闪一下',
+    from: '#56688a', to: '#121a2a',
     glyph: (ink) =>
-      `<g class="float"><g class="sprout"><path d="M19.6 12.4V9" ${stroke(W, 1.4)}/>` +
-      `<path d="M19.6 9.4c.4-2.4 2.4-3.4 4.4-3.2-.2 2.2-2 3.4-4.4 3.2zM19.6 10c-.6-1.8-2.2-2.6-3.8-2.4.2 1.8 1.8 2.8 3.8 2.4z" fill="${W}"/></g>` +
-      `<path d="M11.5 30.5a5 5 0 0 1-.3-10 8.4 8.4 0 0 1 15.6-3 6.8 6.8 0 0 1 2.7 13z" fill="${W}"/>` +
-      `<path d="M14.6 22.4q1.6 1.4 3.2 0M22.2 22.4q1.6 1.4 3.2 0" ${stroke(ink, 1.4)}/>` +
-      `<path d="M18.4 25.8q1.6 1.2 3.2 0" ${stroke(ink, 1.3)}/>` +
-      `<circle cx="13.4" cy="25" r="1.2" fill="#dbe3ff"/><circle cx="26.6" cy="25" r="1.2" fill="#dbe3ff"/></g>` +
-      `<path class="wind" d="M5 34.5h6M27 35.5h7" ${stroke(W, 1.2)} opacity=".6"/>`,
+      `<path d="M20 11.4V7" ${stroke(W, 1.4)}/><circle class="tip" cx="20" cy="6" r="1.6" fill="#ff5f57"/>` +
+      `<path d="M9 23a11 11 0 0 1 22 0v5a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3z" fill="${W}"/>` +
+      `<defs><clipPath id="v"><rect x="11" y="18.6" width="18" height="7.4" rx="3.7"/></clipPath></defs>` +
+      `<rect x="11" y="18.6" width="18" height="7.4" rx="3.7" fill="${ink}"/>` +
+      `<g clip-path="url(#v)"><path class="sweep" d="M20 22.3 20 12A10.3 10.3 0 0 1 28.9 17.2z" fill="#7cf0c4" opacity=".55"/>` +
+      `<circle class="blip" cx="24.6" cy="21" r=".9" fill="#7cf0c4"/><circle cx="20" cy="22.3" r=".8" fill="#7cf0c4"/></g>` +
+      `<path d="M18 29h4" ${stroke(ink, 1.3)}/>`,
     motion:
-      '.float{animation:float 3.6s ease-in-out infinite}@keyframes float{50%{transform:translateY(-2px)}}' +
-      '.sprout{transform-origin:19.6px 12.4px;animation:sway 3.6s ease-in-out infinite}@keyframes sway{25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}' +
-      '.wind{animation:drift 3.6s linear infinite}@keyframes drift{from{transform:translateX(-3px);opacity:0}50%{opacity:.6}to{transform:translateX(3px);opacity:0}}',
+      '.sweep{transform-origin:20px 22.3px;animation:spin 2s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}' +
+      '.blip{animation:blip 2s steps(1) infinite}@keyframes blip{0%,10%{opacity:1}20%,100%{opacity:.15}}' +
+      '.tip{animation:tip 1s steps(1) infinite}@keyframes tip{50%{opacity:.3}}',
   },
   {
-    key: 'fire', name: '燃燃', trait: '热血', line: 'deadline 越近越兴奋，冲刺从不喊累', say: '冲！今天上线！',
-    move: '火焰头发跳动 + 头带飘扬',
-    from: '#ffa14a', to: '#e0262b',
+    key: 'spring', name: '抗摔', mix: '冷幽默 × 反脆弱 × 少即是多',
+    line: '嘴上冷笑话，骨子里抗造；每次事故都让系统更强一点。',
+    src: [
+      ['塔勒布', '反脆弱：受冲击后不只是扛住，而是变得更好'],
+      ['Kelsey Hightower', 'Write nothing; deploy nowhere.'],
+    ],
+    fit: { 运维: 2, 后端: 1 }, say: '最好的代码是没写的代码。',
+    move: '被压扁再弹起来，贴着创可贴越弹越稳',
+    from: '#c08eff', to: '#6a2bd6',
     glyph: (ink) =>
-      `<path class="flame" d="M11 18c-1.4-4.6 1-7.4 3.2-9 0 2 .8 3.2 2 3.6-.2-3.8 2.2-7 5.6-8.6-.8 3 .4 4.8 2 6.2.4-1.6 1.4-2.6 2.8-3.2.2 3.6 3.2 6.2 2.4 11z" fill="${W}"/>` +
-      `<path class="core" d="M16 17.4c-.6-2.6.6-4.2 2-5 .2 1.4.8 2 1.6 2.2.2-1.8 1.2-3.2 2.8-4-.3 1.6.4 2.8 1.4 3.6.3-.8.8-1.2 1.4-1.4 0 1.8 1 3.2.8 4.6z" fill="#ffd84a"/>` +
-      `<rect x="10.5" y="15" width="19" height="16" rx="7" fill="${W}"/>` +
-      `<rect x="12.4" y="16.4" width="15.2" height="2.8" rx="1.2" fill="${ink}"/>` +
-      `<path class="ties" d="M27.6 17.2l5.2-2.6-.9 3 2.6 1.2-6.6.4z" fill="${ink}"/>` +
-      `<path d="M13.8 21.2l3.4 1M26.2 21.2l-3.4 1" ${stroke(ink, 1.5)}/>${eyes(ink, 24.2, 4, 1.5)}` +
-      `<path d="M16.8 27h6.4a3.2 2.6 0 0 1-6.4 0z" fill="${ink}"/>`,
+      `<path d="M11 36.5h18" ${stroke(W, 1.6)}/>` +
+      `<path class="coil" d="M15 35.2l10-1.5-10-1.5 10-1.5-10-1.5 10-1.5" ${stroke(W, 1.4)}/>` +
+      `<g class="cube"><rect x="11" y="8" width="18" height="18" rx="3.4" fill="${W}"/>` +
+      `<path d="M13.8 13.2l3-.8M23.4 13.4h3" ${stroke(ink, 1.3)}/>` +
+      `<circle cx="16" cy="16.4" r="1.3" fill="${ink}"/><circle cx="24.4" cy="16.4" r="1.3" fill="${ink}"/>` +
+      `<path d="M17.4 21q2.6 1 4.8-.8" ${stroke(ink, 1.3)}/>` +
+      `<g transform="rotate(-35 24.6 10.4)"><rect x="21.4" y="9.1" width="6.4" height="2.6" rx="1.3" fill="#ffd9b0"/><rect x="23.8" y="9.1" width="1.6" height="2.6" fill="#f2b98a"/></g></g>`,
     motion:
-      '.flame{transform-box:fill-box;transform-origin:50% 100%;animation:fl .3s ease-in-out infinite alternate}' +
-      '.core{transform-box:fill-box;transform-origin:50% 100%;animation:fl .22s ease-in-out infinite alternate-reverse}' +
-      '@keyframes fl{from{transform:scale(1,.92) skewX(-4deg)}to{transform:scale(.96,1.06) skewX(4deg)}}' +
-      '.ties{transform-origin:27.6px 17.6px;animation:flap .25s ease-in-out infinite alternate}@keyframes flap{to{transform:rotate(-16deg)}}',
+      '.cube{transform-origin:20px 26px;animation:sq 1s ease-in-out infinite}' +
+      '@keyframes sq{0%,100%{transform:translateY(0)}35%{transform:translateY(2.4px) scale(1.08,.88)}65%{transform:translateY(-2.6px) scale(.97,1.04)}}' +
+      '.coil{transform-box:fill-box;transform-origin:50% 100%;animation:coil 1s ease-in-out infinite}@keyframes coil{35%{transform:scaleY(.72)}65%{transform:scaleY(1.12)}}',
   },
   {
-    key: 'shy', name: '躲躲', trait: '社恐', line: '话少活细，有问题先自己默默查清楚', say: '……我先看看。',
-    move: '缩到笔记本后面，再悄悄探头左右瞟',
-    from: '#e8c49c', to: '#9a6440',
+    key: 'compass', name: '灰度', mix: '外柔内刚 × 果断 × 放权',
+    line: '方向寸步不让，路径随时可绕；可逆的决定当场拍板。',
+    src: [
+      ['任正非', '方向不可妥协，过程中的一切都可以妥协'],
+      ['贝索斯', 'Disagree and commit；可逆的「双向门」决策要快'],
+    ],
+    fit: { 项目: 2, 产品: 1 }, say: '方向不变，路可以绕。',
+    move: '身体左右摇摆，头顶的指针始终指北',
+    from: '#e8c089', to: '#a26a2e',
     glyph: (ink) =>
-      `<g class="peek"><circle cx="20" cy="21" r="8.5" fill="${W}"/>` +
-      `<g class="look"><ellipse cx="17.2" cy="19.8" rx="1.4" ry="1.7" fill="${ink}"/><ellipse cx="22.8" cy="19.8" rx="1.4" ry="1.7" fill="${ink}"/></g>` +
-      `<ellipse cx="15.2" cy="22.6" rx="1.6" ry=".9" fill="#ffb8a8"/><ellipse cx="24.8" cy="22.6" rx="1.6" ry=".9" fill="#ffb8a8"/></g>` +
-      `<rect x="6.5" y="24.5" width="27" height="11" rx="2.4" fill="${W}" stroke="${ink}" stroke-width="1.2"/>` +
-      `<g fill="${W}" stroke="${ink}" stroke-width="1"><rect x="11.4" y="22.6" width="3.6" height="3.2" rx="1.6"/><rect x="25" y="22.6" width="3.6" height="3.2" rx="1.6"/></g>` +
-      `<path d="M16.4 28.6l2 1.6-2 1.6" ${stroke(ink, 1.3)}/><rect class="cur" x="19.8" y="31" width="3" height="1.2" rx=".5" fill="${ink}"/>`,
+      `<path class="road" d="M5 36c4-3 7 0 11-2s6-3 10-1.6 6 .6 9-1.4" ${stroke(W, 1.6)} stroke-dasharray="2.4 2"/>` +
+      `<g class="sway"><rect x="10.5" y="11" width="19" height="18" rx="8" fill="${W}"/>` +
+      `<path d="M14.2 16.6h3.4M22.4 16.6h3.4" ${stroke(ink, 1.4)}/>${eyes(ink, 19.8, 4, 1.5)}` +
+      `<path d="M17 23.8q3 2 6 0" ${stroke(ink, 1.4)}/>` +
+      `<g class="needle"><path d="M20 2.4l1.9 5h-3.8z" fill="#ff6b5a"/><path d="M18.1 7.4h3.8L20 11.6z" fill="${W}"/><circle cx="20" cy="7.4" r="1" fill="${ink}"/></g></g>`,
     motion:
-      '.peek{animation:peek 3.4s ease-in-out infinite}@keyframes peek{0%,100%{transform:translateY(0)}35%,60%{transform:translateY(6px)}}' +
-      '.look{animation:look 3.4s ease-in-out infinite}@keyframes look{10%,25%{transform:translateX(-1.2px)}70%,85%{transform:translateX(1.2px)}}' +
-      '.cur{animation:caret .9s steps(1) infinite}@keyframes caret{50%{opacity:0}}',
+      '.sway{transform-origin:20px 30px;animation:sw 2.4s ease-in-out infinite}@keyframes sw{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}' +
+      '.needle{transform-origin:20px 7.4px;animation:un 2.4s ease-in-out infinite}@keyframes un{25%{transform:rotate(8deg)}75%{transform:rotate(-8deg)}}' +
+      '.road{animation:road 1s linear infinite}@keyframes road{to{stroke-dashoffset:-8.8}}',
   },
   {
-    key: 'rocket', name: '冲冲', trait: '尝鲜党', line: '新框架出一个试一个，最爱从零搭脚手架', say: '换个新技术试试？',
-    move: '火箭抖动喷火 + 星线向下划过',
-    from: '#6fd0ff', to: '#1a5fe0',
+    key: 'loop', name: '复盘', mix: '直率 × 暖心 × 透明',
+    line: '把问题摊开讲，是为了让人成长；每个里程碑都要复盘。',
+    src: [
+      ['瑞·达利欧', 'Pain + Reflection = Progress（痛苦 + 反思 = 进步）'],
+      ['Julie Zhuo', '好的管理者是练出来的，关注目的、人与流程'],
+    ],
+    fit: { 项目: 2, 测试: 1, 产品: 1 }, say: '我们复盘一下？',
+    move: '循环箭头绕着转，转满一圈爱心跳一下',
+    from: '#ff9270', to: '#d8342c',
     glyph: (ink) =>
-      `<g class="streak" ${stroke(W, 1.2)} opacity=".7"><path d="M6 6v5"/><path d="M34 12v4"/><path d="M7.5 26v4"/></g>` +
-      `<g class="ship"><path d="M13 22.5 8.5 28.5v2.5l4.5-2zM27 22.5l4.5 6v2.5l-4.5-2z" fill="${W}"/>` +
-      `<path class="fire" d="M15.8 29.5h8.4l-1.6 4.4-1.4-1.6-1.2 3.2-1.2-3.2-1.4 1.6z" fill="#ffd84a"/>` +
-      `<path d="M20 4.5c4.6 3.2 7 8.6 7 14.5v10.5H13V19c0-5.9 2.4-11.3 7-14.5z" fill="${W}"/>` +
-      `<circle cx="20" cy="17" r="4.6" fill="${ink}"/>` +
-      `<circle cx="18.4" cy="16.6" r="1" fill="${W}"/><circle cx="21.6" cy="16.6" r="1" fill="${W}"/>` +
-      `<path d="M18.6 18.8q1.4 1 2.8 0" ${stroke(W, .9)}/>` +
-      `<path d="M13 24.5h14" stroke="${ink}" stroke-width="1.2" opacity=".3"/></g>`,
+      `<g class="arc"><path d="M31.3 14.5A13 13 0 1 1 26.5 9.7" ${stroke(W, 1.6)}/><path d="M28.2 10.7 25.7 11.1 27.3 8.4z" fill="${W}" stroke="${W}" stroke-width="1" stroke-linejoin="round"/></g>` +
+      `<path class="heart" d="M8 10.8 5.3 8.1a1.7 1.7 0 0 1 2.7-2.1 1.7 1.7 0 0 1 2.7 2.1z" fill="${W}"/>` +
+      `<circle cx="20" cy="21" r="8.6" fill="${W}"/>${eyes(ink, 19.6, 3.4, 1.4)}` +
+      `<path d="M16.8 23.2h6.4a3.2 3.2 0 0 1-6.4 0z" fill="${ink}"/>` +
+      `<circle cx="14.6" cy="23" r="1" fill="#ffc2b0"/><circle cx="25.4" cy="23" r="1" fill="#ffc2b0"/>`,
     motion:
-      '.ship{animation:shake .12s linear infinite}@keyframes shake{50%{transform:translate(.4px,-.3px)}}' +
-      '.fire{transform-box:fill-box;transform-origin:50% 0;animation:burn .15s ease-in-out infinite alternate}@keyframes burn{to{transform:scaleY(1.35)}}' +
-      '.streak path{animation:fall .6s linear infinite}.streak path:nth-child(2){animation-delay:.2s}.streak path:nth-child(3){animation-delay:.4s}' +
-      '@keyframes fall{from{transform:translateY(-6px);opacity:0}50%{opacity:1}to{transform:translateY(6px);opacity:0}}',
+      '.arc{transform-origin:20px 21px;animation:spin 2.4s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}' +
+      `.heart{${FB};animation:beat 2.4s ease-in-out infinite}@keyframes beat{0%,80%,100%{transform:scale(1)}88%{transform:scale(1.45)}}`,
   },
+]
+
+const REFS = [
+  ['Linus Torvalds', 'https://quotepark.com/quotes/659374-linus-torvalds-talk-is-cheap-show-me-the-code/'],
+  ['John Carmack', 'https://www.fabiensanglard.net/fd_proxy/doom3/pdfs/johnc-plan_1998.pdf'],
+  ['Knuth', 'https://news.ycombinator.com/item?id=8281486'],
+  ['Kent Beck', 'https://kidneybone.com/c2/wiki/MakeItFastBreaksMakeItRight'],
+  ['DHH', 'https://world.hey.com/dhh/conceptual-compression-is-lossy-and-loss-hurts-c62d027a'],
+  ['Rich Hickey', 'https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/HammockDrivenDev-mostly-text.md'],
+  ['Margaret Hamilton', 'https://www.technologyreview.com/2019/08/16/579/margaret-hamilton/'],
+  ['Rob Pike', 'https://zoo.cs.yale.edu/classes/cs323/doc/Pike.pdf'],
+  ['Bruce Schneier', 'https://www.schneier.com/essays/archives/2000/04/the_process_of_secur.html'],
+  ['Kelsey Hightower', 'http://github.com/kelseyhightower/nocode'],
+  ['云风', 'https://blog.codingnow.com/2012/09/the_design_of_skynet.html'],
+  ['乔布斯', 'https://allaboutstevejobs.com/videos/misc/wwdc_1997_closing_chat'],
+  ['Jony Ive', 'https://www.iconeye.com/design/jonathan-ive-on'],
+  ['Dieter Rams', 'https://www.vitsoe.com/eu/about/good-design'],
+  ['张小龙', 'https://www.leiphone.com/category/industrynews/bvuVgrMkMvP3QJeU.html'],
+  ['俞军', 'http://www.samirchen.com/rn-the-product-methodology-of-yujun/'],
+  ['Julie Zhuo', 'https://www.penguinrandomhouse.com/books/558155/the-making-of-a-manager-by-julie-zhuo/'],
+  ['贝索斯', 'https://www.aboutamazon.com/news/company-news/2016-letter-to-shareholders'],
+  ['Andy Grove', 'https://www.london.edu/think/navigating-strategic-inflection-points'],
+  ['任正非', 'https://www.jiemian.com/article/3922692.html'],
+  ['巴菲特', 'https://www.greggturkfoundation.org/buffet-on-your-investments'],
+  ['芒格', 'https://mungerarchive.com/q/inversion-always-invert/'],
+  ['达利欧', 'https://www.bridgewater.com/_document/principles-excerpt?id=00000174-ffa8-d25e-a9ff-ffeabe9d0000'],
+  ['塔勒布', 'https://www.investopedia.com/terms/a/anti-fragility.asp'],
+  ['霍华德·马克斯', 'https://www.oaktreecapital.com/docs/default-source/memos/2015-09-09-its-not-easy.pdf'],
+  ['Jim Simons', 'https://www.institutionalinvestor.com/article/2btfwtg2jyu7f6oj3i6f4/home/the-secret-world-of-jim-simons'],
+  ['段永平', 'https://finance.sina.com.cn/wm/2020-05-20/doc-iirczymk2650648.shtml'],
 ]
 
 const cache = new Map()
@@ -346,28 +483,25 @@ function src(r, live) {
 
 let mode = 'hover'
 const avs = []
-function av(r, size, opts = {}) {
+function av(r, size, always) {
   const img = document.createElement('img')
   img.className = 'av'
   img.width = img.height = size
   img.alt = r.name
-  const entry = { img, r, always: opts.always, hovered: false }
-  avs.push(entry)
-  sync(entry)
-  return entry
+  const e = { img, r, always, hovered: false }
+  avs.push(e)
+  sync(e)
+  return e
 }
 function sync(e) {
-  const live = e.always || mode === 'all' || (mode === 'hover' && e.hovered)
-  const s = src(e.r, live)
+  const s = src(e.r, e.always || mode === 'all' || (mode === 'hover' && e.hovered))
   if (e.img.getAttribute('src') !== s) e.img.src = s
 }
-const syncAll = () => avs.forEach(sync)
-
 const el = (tag, cls, html) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, html != null ? { innerHTML: html } : {})
 
-const hero = document.getElementById('hero')
-const g = av(GONG, 72, { always: true })
-hero.append(g.img, el('div', '', `<strong style="font-size:16px">共字君</strong><span class="tag">默认 · 不变</span><p>${GONG.line}。新建 Bot 默认选它；其余角色只换形象与动画，不预置人设。</p>`))
+document.getElementById('hero').append(
+  av(GONG, 72, true).img,
+  el('div', '', `<strong style="font-size:16px">共字君</strong><span class="tag">默认 · 不变</span><p>品牌吉祥物，什么活都肯接。新建 Bot 默认选它；下面的性格只换形象与动画，不预置人设。</p>`))
 
 const cards = document.getElementById('cards')
 for (const r of ROLES) {
@@ -375,9 +509,12 @@ for (const r of ROLES) {
   const stage = el('div', 'stage')
   const e = av(r, 96)
   stage.append(e.img, el('span', 'say', r.say))
+  const fit = Object.entries(r.fit).sort((a, b) => b[1] - a[1]).map(([f]) => `<span>${f}</span>`).join('')
   card.append(stage,
-    el('h3', '', `${r.name} <span class="trait" style="color:${r.to}">· ${r.trait}</span>`),
+    el('h3', '', `${r.name}<span class="mix" style="color:${r.to}">${r.mix}</span>`),
     el('p', '', r.line),
+    el('div', 'src', r.src.map(([who, what]) => `<div><b>${who}</b> · ${what}</div>`).join('')),
+    el('div', 'fit', fit),
     el('div', 'move', `干活中：${r.move}`))
   card.onmouseenter = () => { e.hovered = true; sync(e) }
   card.onmouseleave = () => { e.hovered = false; sync(e); card.classList.remove('saying') }
@@ -385,35 +522,48 @@ for (const r of ROLES) {
   cards.append(card)
 }
 
+const matrix = document.getElementById('matrix')
+matrix.innerHTML = `<tr><th>性格</th>${FUNCS.map((f) => `<th>${f}</th>`).join('')}</tr>`
+for (const r of ROLES) {
+  const tr = el('tr')
+  const name = el('td')
+  name.append(av(r, 24).img, r.name)
+  tr.append(name)
+  for (const f of FUNCS) tr.append(el('td', '', r.fit[f] === 2 ? '<span class="dot">●</span>' : r.fit[f] ? '<span class="dot soft">○</span>' : ''))
+  matrix.append(tr)
+}
+
 const ladder = document.getElementById('ladder')
 for (const [size, live] of [[20, false], [28, false], [40, false], [40, true], [64, true]]) {
   const row = el('div', 'row')
   row.append(el('span', 'lbl', `${size}px${live ? ' 动' : ''}`))
-  for (const r of [GONG, ...ROLES]) row.append(av(r, size, { always: live }).img)
+  for (const r of [GONG, ...ROLES]) row.append(av(r, size, live).img)
   ladder.append(row)
 }
 
-const chat = document.getElementById('chat')
 const by = (k) => ROLES.find((r) => r.key === k)
-const msgs = [
-  [by('rush'), '登录页白屏已修，热更新推上去了，先跑起来再说 ⚡', false],
-  [by('steady'), '我复核了一下，缺一个空态单测，补上后再合。', false],
-  [by('cool'), 'LGTM', false],
-  [by('curious'), '为什么 token 过期后没刷新？我去翻 axios 拦截器的源码……', true],
-]
-for (const [r, text, running] of msgs) {
+const chat = document.getElementById('chat')
+chat.append(el('div', 'msg', `<div style="width:36px"></div><div><div class="who">你</div><div class="bubble">登录接口偶发 500，大家看看怎么处理？</div></div>`))
+for (const [k, text, work] of [
+  ['braces', '别猜了，把复现代码和日志贴出来。连接池那段我看了，写得太绕，重写一版 60 行就够。'],
+  ['invert', '先想想还会怎么坏：token 刷新并发、DB 主从切换、下游超时……我把这三条都补上用例。'],
+  ['compass', '修复方向就定连接池；灰度 10% 先上，回滚开关留好，今天就能决策。'],
+  ['loop', '收尾后我写个复盘：影响范围、根因、下次怎么更早发现。', '正在处理 · 汇总告警与发布记录'],
+]) {
+  const r = by(k)
   const m = el('div', 'msg')
-  const e = av(r, 36, { always: running })
-  const body = el('div', '', `<div class="who">${r.name} · ${r.trait}</div><div class="bubble">${text}</div>`)
-  if (running) body.append(el('div', 'work', '<i></i>正在处理 · 读取 src/api/http.ts'))
-  m.append(e.img, body)
+  const body = el('div', '', `<div class="who">${r.name} · ${r.mix}</div><div class="bubble">${text}</div>`)
+  if (work) body.append(el('div', 'work', `<i></i>${work}`))
+  m.append(av(r, 36, !!work).img, body)
   chat.append(m)
 }
+
+document.getElementById('refs').innerHTML = REFS.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${n}</a>`).join(' · ')
 
 document.querySelectorAll('[data-live]').forEach((b) => (b.onclick = () => {
   mode = b.dataset.live
   document.querySelectorAll('[data-live]').forEach((x) => x.setAttribute('aria-pressed', x === b))
-  syncAll()
+  avs.forEach(sync)
 }))
 document.querySelectorAll('[data-theme-set]').forEach((b) => (b.onclick = () => {
   const t = b.dataset.themeSet

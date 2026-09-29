@@ -158,12 +158,16 @@ function Fact({
   )
 }
 
-export function FilesFact({ n }: { n: number }) {
+/** Changed-file count, spelled out and opening the run's 改动 tab. */
+export function FilesFact({ n, onOpen }: { n: number; onOpen: () => void }) {
   if (!n) return null
   return (
-    <Fact label={`改动 ${n} 个文件`} value={n}>
-      <Icon name="doc-text" size={12} />
-    </Fact>
+    <button type="button" className="run-fact run-fact--open" title={`改动 ${n} 个文件`} onClick={onOpen}>
+      <span className="run-fact__art">
+        <Icon name="doc-text" size={12} />
+        改动 {n} 个文件
+      </span>
+    </button>
   )
 }
 

@@ -63,7 +63,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: 'role-pm',
+  avatar: 'role-no',
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -408,7 +408,7 @@ describe('my machines and bots', () => {
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     fireEvent.click(await within(nav).findByRole('link', { name: /小王的 Claude/ }))
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
-    fireEvent.click(within(page).getByRole('button', { name: '设置' }))
+    fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
     const detail = await screen.findByRole('dialog', { name: /Bot 详情/ })
     expect(within(detail).getByRole('textbox', { name: '系统提示词' })).toBeTruthy()
 
@@ -571,7 +571,7 @@ describe('chat view', () => {
     const list = screen.getByRole('listbox', { name: '@ 候选' })
     expect(within(list).getByRole('option', { name: /老李的 Codex/ })).toBeTruthy()
     expect(
-      within(within(list).getByRole('group', { name: '成员 / BOT' })).getByRole('option', {
+      within(within(list).getByRole('group', { name: '成员 / Bot' })).getByRole('option', {
         name: /^李建国/,
       }),
     ).toBeTruthy()
@@ -756,7 +756,14 @@ async function addBot(dialog: HTMLElement, name: RegExp) {
 
 describe('new group dialog', () => {
   it('creates a repo-less DM with only my bound bots on offer', async () => {
-    const created = group({ id: 'd9', kind: 'dm', name: '脚本实验', repo: null, botIds: ['b1'], members: [] })
+    const created = group({
+      id: 'd9',
+      kind: 'dm',
+      name: '小王的 Claude',
+      repo: null,
+      botIds: ['b1'],
+      members: [],
+    })
     const calls = mockApi({
       ...baseRoutes([]),
       'POST /groups': () => created,
@@ -769,8 +776,16 @@ describe('new group dialog', () => {
     expect(within(dialog).queryByRole('tab')).toBeNull()
     expect(within(dialog).queryByRole('group', { name: '成员' })).toBeNull()
 
+    expect(within(dialog).queryByRole('heading', { name: '仓库' })).toBeNull()
+    expect(within(dialog).getAllByText('仓库')).toHaveLength(1)
+    // A DM is titled by its Bot: no name to fill, a Bot to pick instead.
+    expect(within(dialog).queryByLabelText('名称')).toBeNull()
+    const create = within(dialog).getByRole('button', { name: '创建' })
+    expect(create.hasAttribute('disabled')).toBe(true)
+
     fireEvent.click(within(dialog).getByRole('button', { name: '添加 Bot…' }))
     const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    expect(dialog.contains(pick)).toBe(false)
     expect(within(pick).queryByRole('menuitemcheckbox', { name: /老李的 Codex/ })).toBeNull()
     expect(
       within(pick)
@@ -779,16 +794,13 @@ describe('new group dialog', () => {
     ).toBe(true)
     fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name: /小王的 Claude/ }))
 
-    const create = within(dialog).getByRole('button', { name: '创建' })
-    expect(create.hasAttribute('disabled')).toBe(true)
-    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '脚本实验' } })
     expect(within(dialog).getByText('不绑定 · 各 Bot 使用本机目录')).toBeTruthy()
     expect(create.hasAttribute('disabled')).toBe(false)
     fireEvent.click(create)
 
-    expect(await screen.findByRole('heading', { name: '脚本实验' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '小王的 Claude' })).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST' && c.path === '/groups')?.body).toEqual({
-      name: '脚本实验',
+      name: '小王的 Claude',
       kind: 'dm',
       memberIds: [],
       botIds: ['b1'],

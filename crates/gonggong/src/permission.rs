@@ -7,7 +7,7 @@ pub use crate::protocol::Permission;
 pub const ALL: [Permission; 2] = [Permission::ScreenRecording, Permission::Accessibility];
 
 /// Shown wherever a preview cannot publish because of it (cast.state, the Web's live tab).
-pub const SCREEN_RECORDING_DENIED: &str = "机器未授权屏幕录制，请在桌面端完成授权";
+pub const SCREEN_RECORDING_DENIED: &str = "机器未授权屏幕录制，请在共工桌面端「实时画面」页完成授权";
 
 #[cfg(target_os = "macos")]
 mod mac {

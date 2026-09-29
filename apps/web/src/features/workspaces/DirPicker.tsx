@@ -62,7 +62,12 @@ export function DirPicker({
       footer={
         <>
           <Button onClick={onClose}>取消</Button>
-          <Button variant="primary" disabled={!dir || !!dir.unusable} onClick={() => dir && onPick(dir.path)}>
+          <Button
+            variant="primary"
+            disabled={!dir || !!dir.unusable}
+            title={dir?.unusable ?? undefined}
+            onClick={() => dir && onPick(dir.path)}
+          >
             选择此目录
           </Button>
         </>
@@ -99,7 +104,8 @@ export function DirPicker({
             <span className="dirpick__remote">{dir.git.remotes[0] ?? '无 remote'}</span>
           </div>
         ) : null}
-        {dir?.unusable ? <p className="dirpick__hint">{dir.unusable}</p> : null}
+        {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
+        {dir?.unusable ? <p className="dirpick__hint">进入具体项目目录后选择</p> : null}
         {error ? <Alert variant="error" title={error} /> : null}
         <div className="dirpick__list">
           {!dir && !error ? (

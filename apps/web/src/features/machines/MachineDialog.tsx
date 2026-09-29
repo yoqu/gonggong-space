@@ -1,8 +1,11 @@
-import type { MachineDto } from '@gonggong/protocol'
+import type { BotDto, MachineDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
+import { Link } from 'react-router'
 import { api } from '../../lib/api'
 import { Button, Dialog, Form, FormRow, Icon, type IconName, Presence, TextField, toast } from '../../ui'
 import { errorText } from '../auth/AuthCard'
+import { BotAvatar } from '../bots/avatars'
+import { PRESENCE } from '../bots/model'
 import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
 
@@ -21,11 +24,14 @@ const OS_ICON: Record<MachineDto['os'], IconName> = { macos: 'apple', linux: 'li
 export function MachineDialog({
   machine,
   ownerName,
+  bots,
   onChanged,
   onClose,
 }: {
   machine: MachineDto
   ownerName?: string
+  /** Bots bound to this machine, when the caller has them. */
+  bots?: BotDto[]
   /** Rename or revoke done: machine events reach only the owner, so a sysadmin's list must reload itself. */
   onChanged?: () => void
   onClose: () => void
@@ -129,6 +135,28 @@ export function MachineDialog({
               <span className="machine__muted">未检测到 Agent</span>
             )}
           </section>
+          {bots?.length ? (
+            <section className="machine__card">
+              <span className="machine__card-title">运行的 Bot</span>
+              <ul className="machine__bots" aria-label="运行的 Bot">
+                {bots.map((b) => (
+                  <li key={b.id}>
+                    <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onClose}>
+                      <BotAvatar id={b.id} name={b.name} size={20} />
+                      <span className="machine__agent-name">{b.name}</span>
+                      <span className="machine__bot-state">
+                        <span
+                          className="machine__bot-dot"
+                          style={{ background: PRESENCE[b.presence].color }}
+                        />
+                        {PRESENCE[b.presence].label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <dl className="machine__meta">
             {ownerName ? (
               <>

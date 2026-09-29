@@ -84,13 +84,18 @@ export function WorkspacesPage(_: PageProps) {
     {
       key: 'action',
       title: '',
-      width: 96,
+      width: 168,
       align: 'right',
       render: (w) =>
         w.kind === 'cd' ? (
-          <Button size="small" onClick={() => resetCd(w)}>
-            改回托管
-          </Button>
+          <span className="dk-inline">
+            <Button size="small" onClick={() => ipc.reveal(w.path).catch(fail)}>
+              打开
+            </Button>
+            <Button size="small" onClick={() => resetCd(w)}>
+              改回托管
+            </Button>
+          </span>
         ) : w.deletable ? (
           <Button
             size="small"

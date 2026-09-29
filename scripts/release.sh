@@ -42,6 +42,16 @@ cast_target() { [[ $1 == windows-* ]] && echo x86_64-pc-windows-msvc || echo "$2
 # Linking libwebrtc takes GBs of memory per job; Docker VMs often have a few.
 CAST=(-j 4 --release --locked --manifest-path crates/gg-cast/Cargo.toml)
 
+rustup="$(command -v rustup || echo /opt/homebrew/opt/rustup/bin/rustup)"
+# mac_cast <key> <target>: gg-cast for a macOS target, into $out.
+mac_cast() {
+  local webrtc
+  webrtc="$(webrtc_prebuilt "$2")"
+  (cd "$ROOT" && LK_CUSTOM_WEBRTC="$webrtc" RUSTC="$("$rustup" which --toolchain stable rustc)" \
+    "$rustup" run stable cargo build -q "${CAST[@]}" --target "$2")
+  cp "$ROOT/crates/gg-cast/target/$2/release/gg-cast" "$out/$(cast_artifact "$1")"
+}
+
 docker_targets=()
 for p in "${PLATFORMS[@]}"; do
   key="${p%%:*}" target="${p#*:}"
@@ -51,14 +61,11 @@ for p in "${PLATFORMS[@]}"; do
     echo "== $key ($target)"
     # The rustup toolchain has the cross targets; a Homebrew rustc earlier on PATH would not. `rustup run` (not the
     # bare toolchain binaries) also sets the library path rust-objcopy needs to find libLLVM when stripping.
-    rustup="$(command -v rustup || echo /opt/homebrew/opt/rustup/bin/rustup)"
     # `rustup run` leaves PATH alone, so cargo would still spawn a Homebrew rustc that lacks the cross target.
     export RUSTC="$("$rustup" which --toolchain stable rustc)"
     (cd "$ROOT" && "$rustup" run stable cargo build -q --release --locked -p gonggong --target "$target")
     cp "$ROOT/target/$target/release/gg" "$out/$(artifact "$key")"
-    webrtc="$(webrtc_prebuilt "$target")"
-    (cd "$ROOT" && LK_CUSTOM_WEBRTC="$webrtc" "$rustup" run stable cargo build -q "${CAST[@]}" --target "$target")
-    cp "$ROOT/crates/gg-cast/target/$target/release/gg-cast" "$out/$(cast_artifact "$key")"
+    mac_cast "$key" "$target"
   else
     docker_targets+=("$key:$target")
   fi
@@ -88,9 +95,28 @@ fi
 if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
   echo "== desktop (.app/.dmg)"
   rm -rf "$ROOT/target/release/bundle"
+  # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
+  # so everyday desktop builds do not need libwebrtc.
+  arch="$(uname -m | sed s/arm64/aarch64/)"
+  [ -f "$out/$(cast_artifact "macos-$arch")" ] || mac_cast "macos-$arch" "$arch-apple-darwin"
+  mkdir -p "$ROOT/apps/desktop/src-tauri/binaries"
+  cp "$out/$(cast_artifact "macos-$arch")" "$ROOT/apps/desktop/src-tauri/binaries/gg-cast-$arch-apple-darwin"
+  # TCC keys its grants (屏幕录制, 辅助功能) to the signature: an ad-hoc one changes every build and loses them, a
+  # Developer ID one keeps them across builds. Tauri signs with APPLE_SIGNING_IDENTITY (the keychain's Developer ID
+  # when unset) and notarizes when APPLE_API_KEY/APPLE_API_ISSUER/APPLE_API_KEY_PATH or APPLE_ID/APPLE_PASSWORD/
+  # APPLE_TEAM_ID are set.
+  : "${APPLE_SIGNING_IDENTITY:=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)}"
+  if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+    export APPLE_SIGNING_IDENTITY
+    echo "signing with $APPLE_SIGNING_IDENTITY"
+  else
+    unset APPLE_SIGNING_IDENTITY
+    echo "warning: no Developer ID Application certificate, the app is signed ad hoc (permissions reset on update)" >&2
+  fi
   # Host-only build: drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips
   # DYLD_* on the way) and so could not strip the binary.
-  (cd "$ROOT" && env -u RUSTC pnpm --filter @gonggong/desktop tauri build --bundles app,dmg)
+  (cd "$ROOT" && env -u RUSTC pnpm --filter @gonggong/desktop tauri build --bundles app,dmg \
+    --config '{"bundle":{"externalBin":["binaries/gg-cast"]}}')
   cp "$ROOT"/target/release/bundle/dmg/*.dmg "$out/"
 fi
 

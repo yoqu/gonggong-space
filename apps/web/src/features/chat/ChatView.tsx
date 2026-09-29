@@ -223,18 +223,20 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     return out
   }, [runsByTrigger, botsById])
 
-  /** The first of them lends its role to the mascot in the typing bubble. */
-  const workingCostume = useBotCostume(Object.values(tl.runs).find((r) => r.status === 'running')?.botId)
-  /** Bots whose run is executing now: the list ends with their typing dots. */
-  const working = useMemo(
-    () => [
-      ...new Set(
-        Object.values(tl.runs)
-          .filter((r) => r.status === 'running')
-          .map((r) => botsById.get(r.botId)?.name ?? 'Bot'),
+  /** Executing runs whose card is not in the timeline (its trigger not loaded yet): a card already shows the rest. */
+  const offscreen = useMemo(
+    () =>
+      Object.values(tl.runs).filter(
+        (r) => r.status === 'running' && !byId.has(r.triggerMessageId) && !replies.has(r.id),
       ),
-    ],
-    [tl.runs, botsById],
+    [tl.runs, byId, replies],
+  )
+  /** The first of them lends its role to the mascot in the typing bubble. */
+  const workingCostume = useBotCostume(offscreen[0]?.botId)
+  /** Their Bots: the list ends with their typing dots. */
+  const working = useMemo(
+    () => [...new Set(offscreen.map((r) => botsById.get(r.botId)?.name ?? 'Bot'))],
+    [offscreen, botsById],
   )
 
   const names = useMemo(
@@ -294,6 +296,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   }
 
   const botCount = group.botIds.length
+  const dm = group.kind === 'dm'
   return (
     <div className="chat-view" {...drag.handlers}>
       <ChatHeader
@@ -301,24 +304,24 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         avatar={<GroupAvatar group={group} size={32} />}
         title={group.name}
         onBack={onBack}
-        tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
+        tags={dm ? undefined : [{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
         subtitle={
           <>
             {group.muted ? (
               <Icon name="bell-slash" size={11} label="消息免打扰" className="chat-view__muted" />
             ) : null}
-            {group.kind === 'group'
-              ? `${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''} · `
-              : '仅你和你的 Bot · '}
+            {dm
+              ? '仅你和你的 Bot · '
+              : `${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''} · `}
             <span title={group.repo?.url}>
               {group.repo
                 ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                : '未绑定仓库 · 各 Bot 使用本机目录'}
+                : `未绑定仓库 · ${dm ? '' : '各 '}Bot 使用本机目录`}
             </span>
           </>
         }
         actions={[
-          ...(group.kind === 'group'
+          ...(!dm
             ? [
                 {
                   icon: 'person-2' as const,

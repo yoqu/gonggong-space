@@ -228,7 +228,7 @@ export function groupRoutes(ctx: Ctx) {
       return groupDto(ctx, me.id, group.id)
     })
 
-    // P1: exactly one repo per group, never unbound. Old workspaces belong to the previous repo: every bot binds again.
+    // P1: exactly one repo per group, never unbound. Old workspaces belong to the previous repo: every bot re-clones.
     app.patch<{ Params: { id: string } }>('/api/groups/:id/repo', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
@@ -263,7 +263,7 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         old
-          ? `群更换仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 各 Bot 需重新绑定工作区`
+          ? `群更换仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 各 Bot 重建托管工作区`
           : `群绑定仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 分区模式`,
       )
       await auditAdmin(me.id, group.id, 'group.repo.change', {

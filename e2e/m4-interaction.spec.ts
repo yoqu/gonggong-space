@@ -20,7 +20,7 @@ async function setup(page: Page, account: string, opts: { tier?: 'full'; repo?: 
     name: `${account} Claude`,
     ownerId: me.id,
     agentKind: 'claude',
-    avatar: 'role-pm',
+    avatar: 'role-no',
     machineId: await api.machineId(),
     systemPrompt: '',
   })

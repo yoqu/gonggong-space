@@ -82,7 +82,7 @@ impl Engine {
     pub fn new(config: EngineConfig) -> Self {
         let workspaces = Workspaces::new(config.home.clone());
         let services = Services::new(&config.home);
-        let bin = std::env::var_os("GG_CAST_BIN").map(PathBuf::from);
+        let bin = crate::cast::local_bin();
         let casts =
             Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin, crate::wechatide::devtools());
         Engine(Arc::new(Inner {

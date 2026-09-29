@@ -1,5 +1,7 @@
-import { avatarSrc, ROLES, roleCostume } from '../../features/bots/avatars'
+import { useState } from 'react'
+import { avatarSrc, type PersonaRole, ROLES, roleCostume } from '../../features/bots/avatars'
 import {
+  Button,
   ComingSoonArt,
   DeniedArt,
   EmptyChatArt,
@@ -87,6 +89,48 @@ function IconGrid({ title, names }: { title: string; names: string[] }) {
           </div>
         ))}
       </div>
+    </>
+  )
+}
+
+/** 10 roles × 12 actions × 2 sizes is ~240 animated figures: drawn on demand, not on every gallery load. */
+function RoleMascots() {
+  const [shown, setShown] = useState(false)
+  if (!shown)
+    return (
+      <Button size="small" onClick={() => setShown(true)}>
+        显示全部角色动作
+      </Button>
+    )
+  return (
+    <>
+      <div
+        style={{ display: 'flex', gap: 4, paddingLeft: 96, color: 'var(--label-secondary)', fontSize: 11 }}
+      >
+        {MASCOT_ACTIONS.map((a) => (
+          <span key={a} style={{ width: 84, textAlign: 'center' }}>
+            {a}
+          </span>
+        ))}
+      </div>
+      {(Object.keys(ROLES) as (keyof typeof ROLES)[])
+        .filter((k): k is PersonaRole => k !== 'role-gong')
+        .map((k) => (
+          <div key={k} data-role-row={k} style={{ display: 'grid', gap: 2 }}>
+            {[84, 32].map((size) => (
+              <div key={size} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ width: 92, fontSize: 12 }}>
+                  {size === 84 ? `${ROLES[k].name} · ${ROLES[k].mix}` : ''}
+                </span>
+                {MASCOT_ACTIONS.map((a) => (
+                  <span key={a} style={{ width: 84, display: 'grid', placeItems: 'center' }}>
+                    <Mascot action={a} size={size} costume={roleCostume(k)} />
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
     </>
   )
 }
@@ -187,9 +231,9 @@ export function FoundationGallery() {
                 style={{ borderRadius: '28%' }}
               />
               <div>
-                <b>{r.name}</b> · {r.title}
+                <b>{r.name}</b> · {r.mix}
                 <div style={{ fontSize: 'var(--text-footnote-size)', color: 'var(--label-secondary)' }}>
-                  {r.trait}
+                  {r.line}
                 </div>
               </div>
             </div>
@@ -198,16 +242,8 @@ export function FoundationGallery() {
       </section>
 
       <section className="gallery__section" data-testid="role-mascots">
-        <h2 className="eyebrow">ROLE MASCOTS · 对话界面动作</h2>
-        {Object.keys(ROLES)
-          .filter((k) => k !== 'role-gong')
-          .map((k) => (
-            <div key={k} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              {MASCOT_ACTIONS.map((a) => (
-                <Mascot key={a} action={a} size={84} costume={roleCostume(k as keyof typeof ROLES)} />
-              ))}
-            </div>
-          ))}
+        <h2 className="eyebrow">ROLE MASCOTS · 对话界面动作（84px / 32px）</h2>
+        <RoleMascots />
       </section>
 
       <section className="gallery__section" data-testid="art-overview">

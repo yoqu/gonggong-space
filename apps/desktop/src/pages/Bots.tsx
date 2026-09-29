@@ -1,4 +1,16 @@
-import { Button, EmptyState, GroupBox, GroupRow, Icon, Skeleton, Tag, type TagTone, toast } from '@web/ui'
+import { avatarSrc } from '@web/features/bots/avatars'
+import {
+  Avatar,
+  Button,
+  EmptyState,
+  GroupBox,
+  GroupRow,
+  Icon,
+  Skeleton,
+  Tag,
+  type TagTone,
+  toast,
+} from '@web/ui'
 import { useEffect, useState } from 'react'
 import { type AgentCard, ipc, type MachineBot } from '../ipc'
 import { AGENTS, APPROVAL } from '../lib/labels'
@@ -44,9 +56,12 @@ export function BotsPage({ go }: PageProps) {
           <div key={b.id} className="dk-bot">
             <GroupBox>
               <div className="dk-row">
-                <span className="dk-tile" style={{ background: 'var(--system-indigo)' }}>
-                  <Icon name="bot" size={16} />
-                </span>
+                <Avatar
+                  name={b.name}
+                  shape="square"
+                  size={28}
+                  src={avatarSrc(b.avatar, b.presence === 'running')}
+                />
                 <div className="dk-row__main">
                   <span className="dk-row__title">
                     <span className="dk-strong">{b.name}</span>

@@ -46,6 +46,20 @@ function usePlaces(botId: string, enabled: boolean) {
   return places
 }
 
+/** `~` for the home dir; the daemon's managed dir (<home>/workspaces/<groupId>/…) gets a name instead of its ids. */
+export function workspaceText(path: string, groupId?: string) {
+  if (groupId && path.includes(`/workspaces/${groupId}/`)) return '托管工作区'
+  return path.replace(/^(\/Users|\/home)\/[^/]+(?=\/|$)/, '~')
+}
+
+function WorkspacePath({ path, groupId }: { path: string; groupId?: string }) {
+  return (
+    <span className="bot-page__path" title={path}>
+      {workspaceText(path, groupId)}
+    </span>
+  )
+}
+
 function idleText(bot: BotDto) {
   if (bot.presence === 'online') return '空闲，在群里 @ 它即可开工'
   if (bot.presence === 'offline') return `${bot.machineName ?? '机器'} 离线，被 @ 的请求会等待机器上线`
@@ -81,7 +95,7 @@ function Live({ bot, places }: { bot: BotDto; places: BotPlaceDto[] | null }) {
               {run.startedAt ? <span className="bot-page__muted">{ago(run.startedAt)}开始</span> : null}
             </div>
             {run.step ? <span className="bot-page__step">{run.step}</span> : null}
-            {p.workspacePath ? <span className="bot-page__path">{p.workspacePath}</span> : null}
+            {p.workspacePath ? <WorkspacePath path={p.workspacePath} groupId={p.groupId} /> : null}
           </li>
         )
       })}
@@ -102,9 +116,11 @@ function Places({ places }: { places: BotPlaceDto[] }) {
               <span className="spacer" />
               <span className="bot-page__muted">{p.lastRunAt ? ago(p.lastRunAt) : '尚未运行'}</span>
             </span>
-            <span className={p.workspacePath ? 'bot-page__path' : 'bot-page__muted'}>
-              {p.workspacePath ?? '工作区未就绪'}
-            </span>
+            {p.workspacePath ? (
+              <WorkspacePath path={p.workspacePath} groupId={p.groupId} />
+            ) : (
+              <span className="bot-page__muted">工作区未就绪</span>
+            )}
           </Link>
         </li>
       ))}
@@ -158,13 +174,7 @@ function Config({ bot }: { bot: BotDto }) {
     ['命令审批', APPROVAL_LABEL[bot.approval]],
     [
       '默认工作区',
-      bot.defaultWorkspace ? (
-        <span key="path" className="bot-page__path">
-          {bot.defaultWorkspace}
-        </span>
-      ) : (
-        '未设置'
-      ),
+      bot.defaultWorkspace ? <WorkspacePath key="path" path={bot.defaultWorkspace} /> : '未设置',
     ],
   ]
   return (
@@ -211,7 +221,11 @@ export function BotPage({
         title={bot.name}
         subtitle={[agentLine(bot), bot.machineName, bot.ownerName].filter(Boolean).join(' · ')}
         onBack={onBack}
-        actions={[{ icon: 'gear', label: '设置', onClick: onSettings }]}
+        actions={[
+          canView
+            ? { icon: 'gear', label: '编辑 Bot', text: '编辑', onClick: onSettings }
+            : { icon: 'info', label: 'Bot 详情', text: '详情', onClick: onSettings },
+        ]}
       />
       <div className="bot-page__body">
         <div className="bot-page__hero">
@@ -219,14 +233,14 @@ export function BotPage({
           <div className="bot-page__intro">
             <div className="bot-page__line">
               <span className="bot-page__role">
-                {role.name} · {role.title}
+                {role.name} · {role.mix}
               </span>
               <span className="bot-page__presence">
                 <span className="bot-page__dot" style={{ background: presence.color }} />
                 {presence.label}
               </span>
             </div>
-            <p className="bot-page__prompt">{bot.systemPrompt || role.trait}</p>
+            <p className="bot-page__prompt">{bot.systemPrompt || role.line}</p>
           </div>
         </div>
 

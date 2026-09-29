@@ -108,11 +108,11 @@ pub async fn delete_workspace(group_id: String, bot_id: String, path: PathBuf, h
     workspace::delete(&host.home, entry)
 }
 
-/// 概览 · 工作区: `5 个` / `托管 4 · /cd 1 · 1.8 GB` (托管 includes removed dirs still on disk).
+/// 概览 · 工作区: `5 个` / `托管 4 · 本机目录 1 · 1.8 GB` (托管 includes removed dirs still on disk).
 pub fn summary(entries: &[Entry]) -> (usize, String) {
     let cd = entries.iter().filter(|e| e.kind == EntryKind::Cd).count();
     let size: u64 = entries.iter().filter_map(|e| e.size).sum();
-    (entries.len(), format!("托管 {} · /cd {cd} · {}", entries.len() - cd, human_size(size)))
+    (entries.len(), format!("托管 {} · 本机目录 {cd} · {}", entries.len() - cd, human_size(size)))
 }
 
 #[cfg(test)]
@@ -141,8 +141,8 @@ mod tests {
             entry(EntryKind::Cd, None, EntryState::Idle),
             entry(EntryKind::Managed, Some(600_000_000), EntryState::Removed),
         ];
-        assert_eq!(summary(&entries), (4, "托管 3 · /cd 1 · 1.8 GB".into()));
-        assert_eq!(summary(&[]), (0, "托管 0 · /cd 0 · 0 B".into()));
+        assert_eq!(summary(&entries), (4, "托管 3 · 本机目录 1 · 1.8 GB".into()));
+        assert_eq!(summary(&[]), (0, "托管 0 · 本机目录 0 · 0 B".into()));
     }
 
     #[test]

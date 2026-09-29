@@ -135,7 +135,7 @@ export function GroupInfo({
     members: `群成员 · ${group.members.length}`,
     bots: `Bot · ${group.botIds.length}`,
     repo: '仓库与工作区',
-    info: dm ? '名称' : '群名称与公告',
+    info: '群名称与公告',
     notices: '群公告',
     previews: '预览与服务',
   }[view]
@@ -299,7 +299,7 @@ function MainView({
         ...(dm ? [] : [{ icon: 'person-2' as const, label: '成员', onClick: () => setView('members') }]),
         ...(isAdmin
           ? [
-              { icon: 'megaphone' as const, label: dm ? '名称' : '公告', onClick: () => setView('info') },
+              ...(dm ? [] : [{ icon: 'megaphone' as const, label: '公告', onClick: () => setView('info') }]),
               { icon: 'gear' as const, label: '设置', onClick: () => onSettings('basic') },
             ]
           : []),
@@ -363,7 +363,7 @@ function MainView({
               ? '你是群管理员'
               : `仅群管理员 · ${admins.map((m) => m.name).join('、')}`,
           rows: [
-            manage(dm ? '名称' : '群名称与公告', group.name, () => setView('info')),
+            ...(dm ? [] : [manage('群名称与公告', group.name, () => setView('info'))]),
             manage(
               '仓库与基准分支',
               <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? '未绑定'}</span>,
@@ -693,32 +693,23 @@ function InfoForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) 
   const [name, setName] = useState(group.name)
   const [notice, setNotice] = useState(group.notice)
   const [saving, setSaving] = useState(false)
-  const dm = group.kind === 'dm'
   const save = async () => {
     setSaving(true)
-    const body = dm ? { name } : { name, notice }
-    if (await attempt(() => groupsApi.update(group.id, body))) onSaved()
+    if (await attempt(() => groupsApi.update(group.id, { name, notice }))) onSaved()
     setSaving(false)
   }
   return (
     <div className="gs-form">
+      <TextField label="群名称" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
       <TextField
-        label={dm ? '名称' : '群名称'}
-        value={name}
-        maxLength={60}
-        onChange={(e) => setName(e.target.value)}
+        multiline
+        label="群公告 · 置顶展示在对话顶部"
+        rows={4}
+        value={notice}
+        maxLength={500}
+        placeholder="如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线"
+        onChange={(e) => setNotice(e.target.value)}
       />
-      {dm ? null : (
-        <TextField
-          multiline
-          label="群公告 · 置顶展示在对话顶部"
-          rows={4}
-          value={notice}
-          maxLength={500}
-          placeholder="如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线"
-          onChange={(e) => setNotice(e.target.value)}
-        />
-      )}
       <div className="gs-form__foot">
         <Button variant="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
           保存

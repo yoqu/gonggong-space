@@ -70,8 +70,6 @@
 }
 
 /* Which face, mouth and props each action shows. */
-.ui-mascot__role-face,
-.ui-mascot__light,
 .ui-mascot__prop,
 .ui-mascot__eyes--happy,
 .ui-mascot__eyes--closed,
@@ -86,8 +84,6 @@
 .ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="error"]) .ui-mascot__mouth--smile {
   display: none;
 }
-.ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="sleep"], [data-action="error"])
-  .ui-mascot__role-face,
 .ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--happy,
 .ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__mouth--open,
 .ui-mascot[data-action="sleep"] .ui-mascot__eyes--closed,
@@ -271,7 +267,7 @@
 
 /*
  * Under 48px a unit is ~0.27px: props blur into specks and eye moves vanish, so only the silhouette and the jade,
- * recoloured as a status light, tell the actions apart. Role costumes have no jade and get a round light instead.
+ * recoloured as a status light, tell the actions apart.
  */
 .ui-mascot.ui-mascot--compact[data-action] .ui-mascot__prop {
   display: none;
@@ -294,7 +290,7 @@
     [data-action="raise"],
     [data-action="ask"]
   )
-  :is(.ui-mascot__gem, .ui-mascot__light) {
+  .ui-mascot__gem {
   display: inline;
   fill: var(--mascot-light);
 }
@@ -345,7 +341,7 @@
 .ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__ra {
   transform: rotate(calc(-20deg - var(--rest)));
 }
-.ui-mascot.ui-mascot--compact[data-action="wait"] :is(.ui-mascot__jade, .ui-mascot__light) {
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__jade {
   opacity: 0.6;
 }
 
@@ -357,7 +353,7 @@
   animation: none;
   transform: rotate(-155deg) scaleY(2.4) rotate(calc(0deg - var(--rest)));
 }
-.ui-mascot.ui-mascot--compact[data-action="raise"] :is(.ui-mascot__jade, .ui-mascot__light) {
+.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__jade {
   animation: ui-mascot-lamp 1.6s ease-in-out infinite;
 }
 

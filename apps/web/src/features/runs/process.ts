@@ -2,6 +2,7 @@ import type { ApprovalDto, RunDetailDto } from '@gonggong/protocol'
 import { newSessionNote } from '../chat/TimelineItems'
 import { parsePatch } from '../diff/patch'
 import { VOID_TEXT } from './ApprovalBlock'
+import { CONFIG_ECHO } from './mcp'
 import { processSteps, type Step, type Timed } from './steps'
 
 export type { Step }
@@ -27,7 +28,12 @@ export function approvalText(a: ApprovalDto) {
   }
 }
 
-function contextStep(d: RunDetailDto, gitStep: string | undefined): Step {
+/** Daemon statuses that only mirror an approval's lifecycle; its 权限请求 row carries the outcome. */
+const APPROVAL_ECHO = /^(等待审批|已批准)：|^请求被拒绝，/
+
+const statusOf = (e: RunDetailDto['events'][number]) => (e.event.kind === 'status' ? e.event.step : null)
+
+function contextStep(d: RunDetailDto, gitStep: string | undefined, configs: string[]): Step {
   const reason = d.run.newSessionReason
   const session =
     reason === null
@@ -39,7 +45,7 @@ function contextStep(d: RunDetailDto, gitStep: string | undefined): Step {
     kind: 'context',
     label: '本轮上下文',
     meta: reason === null ? '续用会话' : '新会话',
-    body: [session, git].filter(Boolean).join('。'),
+    body: [session, git, ...configs].filter(Boolean).join('。'),
   }
 }
 
@@ -62,8 +68,12 @@ export function buildSteps(d: RunDetailDto): Step[] {
         running: a.status === 'pending',
       },
     })
-  const events = d.events.filter((e) => e !== gitEvent)
+  const configs = d.events.map(statusOf).filter((s): s is string => !!s && CONFIG_ECHO.test(s))
+  const events = d.events.filter((e) => {
+    const s = statusOf(e)
+    return e !== gitEvent && !(s && (CONFIG_ECHO.test(s) || APPROVAL_ECHO.test(s)))
+  })
   const steps = processSteps(events, parsePatch(d.patch ?? ''), d.run.status === 'running', timed)
   const gitStep = gitEvent?.event.kind === 'status' ? gitEvent.event.step : undefined
-  return [contextStep(d, gitStep), ...steps]
+  return [contextStep(d, gitStep, configs), ...steps]
 }

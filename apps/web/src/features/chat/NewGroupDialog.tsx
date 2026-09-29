@@ -68,7 +68,8 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
 
   const bound = !!repo.url.trim()
   const checking = bound && repo.check === 'checking'
-  const disabled = !name.trim() || creating || (bound && !repoValidated(repo))
+  // A DM is titled by its Bot: it needs one, not a name.
+  const disabled = (dm ? !picked.length : !name.trim()) || creating || (bound && !repoValidated(repo))
   const results = new Map<string, BotProbeDto>(
     repo.check && repo.check !== 'checking' ? repo.check.results.map((r) => [r.botId, r]) : [],
   )
@@ -85,7 +86,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
     setCreating(true)
     try {
       const group = await api.post<GroupDto>('/groups', {
-        name: name.trim(),
+        name: dm ? (picked[0]?.name ?? '') : name.trim(),
         kind,
         memberIds: dm ? [] : manual,
         botIds,
@@ -119,23 +120,25 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
       }
     >
       <div className="ng">
-        <section className="ng-section">
-          <h3 className="ng-section__title">名称</h3>
-          <GroupBox>
-            <div className="ng-name">
-              <Input
-                aria-label="名称"
-                value={name}
-                maxLength={60}
-                placeholder={dm ? '如：脚本实验' : '如：退款 v2 迁移'}
-                onChange={(e) => {
-                  setNameTouched(true)
-                  setName(e.target.value)
-                }}
-              />
-            </div>
-          </GroupBox>
-        </section>
+        {dm ? null : (
+          <section className="ng-section">
+            <h3 className="ng-section__title">名称</h3>
+            <GroupBox>
+              <div className="ng-name">
+                <Input
+                  aria-label="名称"
+                  value={name}
+                  maxLength={60}
+                  placeholder="如：退款 v2 迁移"
+                  onChange={(e) => {
+                    setNameTouched(true)
+                    setName(e.target.value)
+                  }}
+                />
+              </div>
+            </GroupBox>
+          </section>
+        )}
 
         <section className="ng-section">
           <h3 className="ng-section__title">Bot · {picked.length}</h3>
@@ -163,6 +166,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
               )
             })}
             <Popover
+              portal
               width={320}
               aria-label="添加 Bot"
               className="ng-add"
@@ -249,7 +253,6 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         )}
 
         <section className="ng-section">
-          <h3 className="ng-section__title">仓库</h3>
           <GroupBox>
             <RepoPicker draft={repo} set={setRepoDraft} botIds={botIds} clearable />
           </GroupBox>
@@ -265,6 +268,7 @@ function AddMember({ users, onAdd }: { users: UserBriefDto[]; onAdd: (id: string
   const list = users.filter((u) => !needle || `${u.name} ${u.account}`.toLowerCase().includes(needle))
   return (
     <Popover
+      portal
       width={240}
       aria-label="添加成员"
       trigger={

@@ -83,6 +83,18 @@
   transform-origin: 8px 8px;
   transform: rotate(-90deg);
 }
+.run-fact--open {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+.run-fact--open:hover {
+  color: var(--accent-text);
+}
 .run-fact--live {
   color: var(--accent);
 }

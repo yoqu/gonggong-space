@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { avatarSrc } from '@web/features/bots/avatars'
 import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc } from '../src/ipc'
@@ -22,6 +23,7 @@ beforeEach(() => {
       concurrency: 1,
       approval: 'allowlist',
       allowlist: ['go build', 'npm test'],
+      avatar: 'role-sentry',
     }),
   ])
 })
@@ -33,12 +35,18 @@ it('shows the server settings of each bot read-only', async () => {
   render(<BotsPage go={go} />)
   const claude = await card('小王的 Claude')
   expect(claude.getByText('在线')).toBeTruthy()
+  expect(claude.getByRole('img', { name: '小王的 Claude' }).querySelector('img')?.getAttribute('src')).toBe(
+    avatarSrc('role-gong'),
+  )
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
   expect(claude.getByText('每次询问')).toBeTruthy()
   expect(claude.queryByText('命令白名单')).toBeNull()
 
   const codex = await card('小王的 Codex')
   expect(codex.getByText('待确认')).toBeTruthy()
+  expect(codex.getByRole('img', { name: '小王的 Codex' }).querySelector('img')?.getAttribute('src')).toBe(
+    avatarSrc('role-sentry'),
+  )
   expect(codex.getByText('他人为你创建，请在 Web 中确认')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
   expect(codex.getByText('白名单自动')).toBeTruthy()
@@ -60,4 +68,9 @@ it('opens each bot on the Web to manage or confirm it', async () => {
   expect(codex.queryByRole('button', { name: '在 Web 中管理' })).toBeNull()
   fireEvent.click(codex.getByRole('button', { name: '在 Web 中确认' }))
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
+})
+
+it('describes the page as read-only', async () => {
+  const { PAGES } = await import('../src/pages')
+  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe('本机运行的 Bot，设置请在 Web 端修改')
 })

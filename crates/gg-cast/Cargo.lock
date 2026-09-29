@@ -1161,11 +1161,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "core-foundation",
+ "cxx",
  "enigo",
  "livekit",
  "serde",
  "serde_json",
  "tokio",
+ "webrtc-sys",
  "windows 0.62.2",
  "x11rb",
  "xcap",

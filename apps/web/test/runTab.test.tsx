@@ -49,7 +49,7 @@ const bot: BotDto = {
   ownerId: 'u1',
   ownerName: '王磊',
   agentKind: 'claude',
-  avatar: 'role-pm',
+  avatar: 'role-no',
   machineId: 'mc1',
   machineName: 'wanglei-mbp',
   binding: 'bound',
@@ -351,7 +351,9 @@ describe('run tab', () => {
         ?.querySelector('.ui-mascot')
         ?.getAttribute('data-action'),
     ).toBe('think')
-    expect(within(rail).getByText('正在处理').closest('li')?.querySelector('.ui-mascot image')).toBeTruthy()
+    expect(
+      within(rail).getByText('正在处理').closest('li')?.querySelector('.ui-mascot[data-role]'),
+    ).toBeTruthy()
 
     push({ t: 'run.delta', runId: 'r1', text: '正在收尾' })
     expect(await within(rail).findByText('正在收尾')).toBeTruthy()

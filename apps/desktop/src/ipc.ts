@@ -76,6 +76,7 @@ export type MachineBot = Pick<
   | 'concurrency'
   | 'approval'
   | 'allowlist'
+  | 'avatar'
 >
 
 /** A parsed 接入链接 (or `gg login` command); `fingerprint` like `sha256:AB:CD:…`. */
@@ -85,7 +86,7 @@ export interface BindLink {
   fingerprint: string | null
 }
 
-/** 概览 · 工作区 card: `count` workspaces, `detail` like `托管 4 · /cd 1 · 1.8 GB`. */
+/** 概览 · 工作区 card: `count` workspaces, `detail` like `托管 4 · 本机目录 1 · 1.8 GB`. */
 export interface Overview {
   workspaces: { count: number; detail: string }
 }
@@ -124,6 +125,8 @@ export interface Workspaces {
 export interface Tunnels {
   previews: {
     id: string
+    /** gui / miniprogram are watched live (实时画面) through gg-cast; the others are tunnels. */
+    kind: 'http' | 'static' | 'gui' | 'miniprogram'
     title: string
     groupName: string
     botName: string
@@ -132,6 +135,9 @@ export interface Tunnels {
     serviceId: string | null
     serviceName: string | null
     status: 'online' | 'offline'
+    /** This machine's gg-cast while someone watches; null otherwise. */
+    live: { state: 'starting' | 'live' | 'failed'; error: string | null; missing: Permission[] } | null
+    control: { controller: { name: string } | null } | null
   }[]
   services: {
     id: string
@@ -144,6 +150,12 @@ export interface Tunnels {
     status: 'starting' | 'running' | 'exited' | 'failed'
   }[]
 }
+
+/** Where this app's gg-cast (实时画面 publisher) comes from. */
+export type CastComponent =
+  | { source: 'bundled' | 'local'; path: string }
+  /** A dev build without it: downloaded from the server on first use. */
+  | { source: 'download' }
 
 export type CheckStatus = 'ok' | 'warn' | 'error' | 'skipped'
 
@@ -220,6 +232,7 @@ export const ipc = {
   stopService: (id: string) => invoke<void>('stop_service', { id }),
   /** The forwarded port in the default browser: `http://localhost:<port><path>`. */
   openLocal: (port: number, path: string) => invoke<void>('open_local', { port, path }),
+  castComponent: () => invoke<CastComponent>('cast_component'),
   permissions: () => invoke<PermissionState[]>('permissions'),
   /** Shows the system prompt where macOS still does and opens the permission's pane in System Settings. */
   requestPermission: (kind: Permission) => invoke<void>('request_permission', { kind }),

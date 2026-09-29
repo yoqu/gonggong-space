@@ -105,7 +105,11 @@ describe('Sidebar rows', () => {
       render(
         <MemoryRouter initialEntries={['/g/g2']}>
           <Sidebar
-            groups={[group('g1', '前端'), group('g2', '后端'), group('d1', '脚本实验', 'dm')]}
+            groups={[
+              group('g1', '前端'),
+              group('g2', '后端'),
+              { ...group('d1', '脚本实验', 'dm'), last: '设计师大象：**快速开始**' },
+            ]}
             bots={[]}
             machines={[]}
           />
@@ -116,6 +120,7 @@ describe('Sidebar rows', () => {
       const preview = (id: string) => screen.getByTestId(id).querySelector('.pn-conv__preview')?.textContent
       expect(preview('group-item-g1')).toBe('[草稿] 周报晚点补')
       expect(preview('group-item-g2')).toBe('0 人 · 分区模式')
+      expect(preview('group-item-d1')).toBe('设计师大象：快速开始')
     } finally {
       sessionStorage.clear()
     }

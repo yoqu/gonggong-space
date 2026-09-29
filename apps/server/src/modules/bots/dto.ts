@@ -14,30 +14,9 @@ import { fail } from '../../lib/errors.js'
 type BotRow = typeof bots.$inferSelect
 type MachineRow = typeof machines.$inferSelect
 
-// Presets from before the role characters, each onto the role of the nearest look; unset ones become 共字君.
-const LEGACY_ROLE: Record<string, BotAvatar> = {
-  'bot-dot': 'role-frontend',
-  'bot-visor': 'role-backend',
-  'bot-cyclops': 'role-qa',
-  'bot-bunny': 'role-designer',
-  'bot-cat': 'role-devops',
-  'bot-screen': 'role-architect',
-  'bot-dome': 'role-pjm',
-  'bot-pixel': 'role-qa',
-  'agent-spark': 'role-pm',
-  'agent-orbit': 'role-data',
-  'agent-prism': 'role-architect',
-  'agent-nodes': 'role-backend',
-  'agent-prompt': 'role-security',
-  'agent-compass': 'role-pjm',
-  'agent-wave': 'role-designer',
-  'agent-hex': 'role-architect',
-}
-
+/** Values from retired looks read as the default character. */
 export const botRole = (avatar: string | null): BotAvatar =>
-  (BOT_AVATARS as readonly string[]).includes(avatar ?? '')
-    ? (avatar as BotAvatar)
-    : (LEGACY_ROLE[avatar ?? ''] ?? 'role-gong')
+  (BOT_AVATARS as readonly string[]).includes(avatar ?? '') ? (avatar as BotAvatar) : 'role-gong'
 
 export const machineAgents = (m: MachineRow) => m.agents as AgentInfo[]
 

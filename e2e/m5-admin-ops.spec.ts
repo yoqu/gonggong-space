@@ -30,7 +30,7 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
     name: '将停用 Claude',
     ownerId: me.id,
     agentKind: 'claude',
-    avatar: 'role-pm',
+    avatar: 'role-no',
     machineId: await api.machineId(),
     systemPrompt: '',
   })
@@ -149,7 +149,7 @@ test('ops: a run survives a server outage; a daemon restart reconciles the lost 
           name: '运维 Claude',
           ownerId: me.id,
           agentKind: 'claude',
-          avatar: 'role-pm',
+          avatar: 'role-no',
           machineId,
           systemPrompt: '',
         },

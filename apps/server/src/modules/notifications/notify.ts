@@ -2,6 +2,7 @@ import { type NotificationDto, PUSHED_NOTIFICATION_TYPES } from '@gonggong/proto
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { notifications } from '../../db/schema.js'
+import { groupTitles } from '../groups/title.js'
 import { sendPush } from './push.js'
 
 type Row = typeof notifications.$inferSelect
@@ -15,6 +16,18 @@ export const notificationDto = (n: Row): NotificationDto => ({
   createdAt: n.createdAt.toISOString(),
 })
 
+/** Payloads name the group as it is titled now (a DM follows its Bot's current name). */
+export async function withGroupTitles(ctx: Ctx, payloads: NotificationDto['payload'][]) {
+  const titles = await groupTitles(
+    ctx,
+    payloads.map((p) => String(p.groupId ?? '')),
+  )
+  return payloads.map((p) => {
+    const title = titles.get(String(p.groupId ?? ''))
+    return title === undefined ? p : { ...p, groupName: title }
+  })
+}
+
 /** Stores an in-app notification for one user, pushes it live and, for actionable types, to their browsers. */
 export async function notify(
   ctx: Ctx,
@@ -22,7 +35,11 @@ export async function notify(
   type: NotificationDto['type'],
   payload: NotificationDto['payload'],
 ) {
-  const [row] = (await ctx.db.insert(notifications).values({ userId, type, payload }).returning()) as [Row]
+  const [titled] = await withGroupTitles(ctx, [payload])
+  const [row] = (await ctx.db
+    .insert(notifications)
+    .values({ userId, type, payload: titled })
+    .returning()) as [Row]
   const dto = notificationDto(row)
   ctx.bus.publish([userId], { t: 'notification.new', notification: dto })
   // Push delivery can be slow; it must not hold up the flow that raised the notification.
