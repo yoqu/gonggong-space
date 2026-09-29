@@ -56,7 +56,8 @@ for p in "${PLATFORMS[@]}"; do
     export RUSTC="$("$rustup" which --toolchain stable rustc)"
     (cd "$ROOT" && "$rustup" run stable cargo build -q --release --locked -p gonggong --target "$target")
     cp "$ROOT/target/$target/release/gg" "$out/$(artifact "$key")"
-    (cd "$ROOT" && "$rustup" run stable cargo build -q "${CAST[@]}" --target "$target")
+    webrtc="$(webrtc_prebuilt "$target")"
+    (cd "$ROOT" && LK_CUSTOM_WEBRTC="$webrtc" "$rustup" run stable cargo build -q "${CAST[@]}" --target "$target")
     cp "$ROOT/crates/gg-cast/target/$target/release/gg-cast" "$out/$(cast_artifact "$key")"
   else
     docker_targets+=("$key:$target")
@@ -87,7 +88,9 @@ fi
 if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
   echo "== desktop (.app/.dmg)"
   rm -rf "$ROOT/target/release/bundle"
-  (cd "$ROOT" && pnpm --filter @gonggong/desktop tauri build --bundles app,dmg)
+  # Host-only build: drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips
+  # DYLD_* on the way) and so could not strip the binary.
+  (cd "$ROOT" && env -u RUSTC pnpm --filter @gonggong/desktop tauri build --bundles app,dmg)
   cp "$ROOT"/target/release/bundle/dmg/*.dmg "$out/"
 fi
 

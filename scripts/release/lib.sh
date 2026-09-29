@@ -18,6 +18,35 @@ docker_arch() {
 
 sha256_of() { shasum -a 256 "$1" | cut -d' ' -f1; }
 
+# webrtc_prebuilt <rust-target>: dir of the libwebrtc archive gg-cast links (for LK_CUSTOM_WEBRTC), fetched once into
+# a shared cache. webrtc-sys would download it itself, but with a timeout slow links to GitHub hit, and per build dir.
+webrtc_prebuilt() {
+  local arch os triple tag lib cache
+  case "$1" in
+    aarch64-*) arch=arm64 ;;
+    x86_64-*) arch=x64 ;;
+  esac
+  case "$1" in
+    *-apple-darwin) os=mac ;;
+    *-linux-*) os=linux ;;
+    *-windows-*) os=win ;;
+  esac
+  triple="$os-$arch-release"
+  cargo fetch -q --locked --manifest-path "$ROOT/crates/gg-cast/Cargo.toml" >&2
+  lib="$(ls "${CARGO_HOME:-$HOME/.cargo}"/registry/src/*/webrtc-sys-build-"$(sed -n '/^name = "webrtc-sys-build"$/{n;s/^version = "\(.*\)"$/\1/p;}' \
+    "$ROOT/crates/gg-cast/Cargo.lock")"/src/lib.rs | head -1)"
+  tag="$(sed -n 's/^pub const WEBRTC_TAG: &str = "\(.*\)";$/\1/p' "$lib")"
+  cache="${XDG_CACHE_HOME:-$HOME/.cache}/gonggong/webrtc/$tag"
+  if [ ! -d "$cache/$triple" ]; then
+    mkdir -p "$cache"
+    echo "downloading libwebrtc $tag ($triple)" >&2
+    curl -fL --retry 10 --retry-all-errors -C - -o "$cache/$triple.zip.part" \
+      "https://github.com/livekit/rust-sdks/releases/download/$tag/webrtc-$triple.zip" >&2
+    unzip -q -o "$cache/$triple.zip.part" -d "$cache" && rm "$cache/$triple.zip.part"
+  fi
+  echo "$cache/$triple"
+}
+
 # Tar of the working tree (tracked + untracked, minus ignored files) on stdout.
 source_tar() { (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | COPYFILE_DISABLE=1 tar --no-xattrs --null -cf - -T -); }
 
