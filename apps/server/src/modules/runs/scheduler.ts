@@ -154,6 +154,9 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .from(users)
     .where(eq(users.id, bot.ownerId))
   const params = await sysParams(tx)
+  const meta = trigger.meta as MessageMeta
+  // An agent command carries no group context, so it leaves the context cursor where it was.
+  const command = meta.agentCommand ?? null
   const since = and(
     eq(messages.groupId, run.groupId),
     gt(messages.seq, gb.contextSeq),
@@ -161,22 +164,22 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
   )
   // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
-  const context = (await contextMessages(tx, since, params.contextInlineMax)).reverse()
+  const context = command ? [] : (await contextMessages(tx, since, params.contextInlineMax)).reverse()
   const omitted =
-    context.length < params.contextInlineMax ? 0 : (await countContext(tx, since)) - context.length
+    command || context.length < params.contextInlineMax ? 0 : (await countContext(tx, since)) - context.length
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = gb.newSessionReason ? null : gb.sessionId
-  const fallbackContext = resumeSessionId
-    ? (
-        await contextMessages(
-          tx,
-          and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
-          Math.min(params.sessionReplayCount, params.contextInlineMax),
-        )
-      ).reverse()
-    : []
+  const fallbackContext =
+    resumeSessionId && !command
+      ? (
+          await contextMessages(
+            tx,
+            and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
+            Math.min(params.sessionReplayCount, params.contextInlineMax),
+          )
+        ).reverse()
+      : []
   const interrupted = await interruptNote(tx, run, trigger.at.toISOString())
-  const meta = trigger.meta as MessageMeta
   const config = resolveConfig(await botCatalog(tx, bot), meta.runOptions?.[bot.id], gb, bot)
   const note = interrupted ? [interrupted.note] : []
   const msg: RunStart = {
@@ -217,8 +220,9 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       quote: quoteOf(meta),
     },
     mcpServers: await enabledMcpServers(tx),
+    command,
   }
-  return { msg, config, triggerSeq: trigger.seq, settled: interrupted?.settled }
+  return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
 }
 
 const contextFilter = (where: SQL | undefined) =>

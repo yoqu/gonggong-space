@@ -8,7 +8,7 @@ import { fail } from '../../lib/errors.js'
 import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
-import { commands, parseCommand, runCommand } from '../commands/index.js'
+import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { reactionsFor } from '../reactions/service.js'
 import { listRuns } from '../runs/dto.js'
@@ -69,12 +69,15 @@ export function messageRoutes(ctx: Ctx) {
       const explicit = [...new Set([...parseMentions(body, inGroup), ...byQuote])]
       // A dm with a single bot needs no @: plain messages and commands are addressed to it.
       const soleDmBot = group.kind === 'dm' && inGroup.length === 1 && !target ? inGroup[0] : undefined
-      const mentions = !explicit.length && soleDmBot ? [soleDmBot.id] : explicit
       const parsed = parseCommand(body, inGroup)
+      const addressed = parsed && (!parsed.mentions.length && soleDmBot ? [soleDmBot.id] : parsed.mentions)
       const command =
-        parsed && commands.get(parsed.name)
-          ? { ...parsed, mentions: !parsed.mentions.length && soleDmBot ? [soleDmBot.id] : parsed.mentions }
+        parsed && addressed && commands.get(parsed.name) ? { ...parsed, mentions: addressed } : null
+      const agent =
+        parsed && addressed && !command && !target
+          ? await agentCommand(ctx, group.id, parsed, addressed, inGroup)
           : null
+      const mentions = agent?.botIds ?? (!explicit.length && soleDmBot ? [soleDmBot.id] : explicit)
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.
@@ -101,6 +104,8 @@ export function messageRoutes(ctx: Ctx) {
           mentions,
           clientId,
           ...(command && !target && { command: command.name }),
+          // `command` also keeps it out of later group context.
+          ...(agent && { command: parsed?.name, agentCommand: agent.text }),
           ...(target && { appendTo: target.runId }),
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
         }

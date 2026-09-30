@@ -378,6 +378,7 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             quote: None,
         },
         mcp_servers: vec![],
+        command: None,
     };
     let cwd = |d: &RunDone| -> PathBuf {
         let v: serde_json::Value = serde_json::from_str(&d.reply).unwrap_or_else(|_| panic!("{d:?}"));
@@ -446,6 +447,7 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
             quote: None,
         },
         mcp_servers: vec![],
+        command: None,
     }
 }
 

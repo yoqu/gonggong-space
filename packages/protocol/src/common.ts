@@ -40,6 +40,10 @@ export const Usage = z.object({
 })
 export type Usage = z.infer<typeof Usage>
 
+/** Context window occupancy of an ACP session (usage_update): tokens in context now vs the model's window. */
+export const ContextUsage = z.object({ used: z.number().int(), size: z.number().int() })
+export type ContextUsage = z.infer<typeof ContextUsage>
+
 /** Partition-mode git state of one (group, bot) workspace, refreshed after every turn (spec §5.3). */
 export const GitStatus = z.object({
   branch: z.string().nullable(),

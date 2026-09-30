@@ -134,6 +134,7 @@ v1 中 `session/resume`, `session/list`, `session/close`, `session/delete` **已
 - MCP 注入：`session/new.mcpServers` 中的 stdio、http、sse 都会转换为 SDK 的 mcpServers。
 - 模式（modes 和 configOption `mode` 同时提供）：`default`(Manual)、`acceptEdits`、`plan`、`auto`、`bypassPermissions`（以 root 运行且不在沙箱时，或 `_meta.claudeCode.options.allowDangerouslySkipPermissions:false` 时不提供）。另外还有 model 和 `effort` 两个 config option。
 - `available_commands_update` 在 session/new 之后异步发送。`usage_update` 带 `used/size/cost(USD)`。PromptResponse 附带 `usage`。
+- `/compact [指令]`（首个文本块原样发送，已实测 2026-09-30）：未声明 `session.compaction` 时回退为 tool_call「Compact conversation」(kind think)，结束后补发 `usage_update`（29601→2831）；该轮 PromptResponse.usage 为 0，无文字回复。`used` 是当前上下文占用，`size` 是模型窗口（opus[1m] 为 1000000）。
 - cancel 后可以继续：已确认（见上）。
 
 ## 4. Codex 适配器 `@agentclientprotocol/codex-acp` 1.13.0
@@ -143,6 +144,7 @@ v1 中 `session/resume`, `session/list`, `session/close`, `session/delete` **已
 - 模式：`read-only`（Ask for approval）、`agent`（默认，auto_review）、`agent-full-access`。env `INITIAL_AGENT_MODE` 可设初始模式。另有 config option `collaboration_mode`（default/plan），以及 model、reasoning effort、fast mode。
 - 斜杠命令：/status /mcp /skills /goal /review /review-branch /review-commit /compact /logout，以及已配置的 skills。
 - `usage_update`：只有 `{used,size}`，**没有 cost**。
+- `/compact`：`thread/compact/start`，同样回退为 tool_call「Compact conversation」并补发 `usage_update`（25640→5215，size 258400，已实测 2026-09-30）。
 - cancel：`interruptSessionTurn`。cancel 后能否继续 prompt 未单独测试，按规范应当可以 [未实测]。
 
 ## 5. 按 session 注入 system prompt

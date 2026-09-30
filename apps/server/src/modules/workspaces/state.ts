@@ -1,4 +1,4 @@
-import type { GitStatus, GroupBotStateDto, RepoAccessReason, Tier } from '@gonggong/protocol'
+import type { ContextUsage, GitStatus, GroupBotStateDto, RepoAccessReason, Tier } from '@gonggong/protocol'
 import { and, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
@@ -17,6 +17,7 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   tier: r.tier as Tier | null,
   model: r.model,
   effort: r.effort,
+  context: (r.contextUsage as ContextUsage | null) ?? null,
 })
 
 export async function listBotStates(ctx: Ctx, groupId: string) {
@@ -45,6 +46,7 @@ export async function updateBotState(
       | 'tier'
       | 'model'
       | 'effort'
+      | 'contextUsage'
     >
   >,
 ) {

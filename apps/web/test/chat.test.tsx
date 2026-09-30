@@ -482,6 +482,7 @@ describe('chat view', () => {
         tier: null,
         model: null,
         effort: null,
+        context: null,
       },
     })
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain1未提交托管')
@@ -1051,7 +1052,16 @@ describe('repo and workspaces', () => {
   const states = [
     { botId: 'b1', workspace: 'managed', state: 'ready', path: null },
     { botId: 'b2', workspace: 'cd', state: 'failed', path: '/Users/li/pay', reason: 'denied' },
-  ].map((s) => ({ git: null, error: null, reason: null, tier: null, model: null, effort: null, ...s }))
+  ].map((s) => ({
+    git: null,
+    error: null,
+    reason: null,
+    tier: null,
+    model: null,
+    effort: null,
+    context: null,
+    ...s,
+  }))
 
   it('lets a group admin change the repo, checking it against the group bots', async () => {
     const calls = mockApi({

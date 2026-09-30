@@ -69,6 +69,13 @@ pub struct Usage {
     pub cost_usd: Option<f64>,
 }
 
+/// Context window occupancy of an ACP session (usage_update).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextUsage {
+    pub used: u64,
+    pub size: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceKind {
@@ -442,6 +449,9 @@ pub struct RunStart {
     pub new_session_reason: Option<String>,
     pub prompt: RunPrompt,
     pub mcp_servers: Vec<McpServer>,
+    /// An agent command sent verbatim as the prompt instead of the composed group context.
+    #[serde(default)]
+    pub command: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -498,6 +508,8 @@ pub enum RunEvent {
     },
     Usage {
         usage: Usage,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context: Option<ContextUsage>,
     },
     #[serde(rename_all = "camelCase")]
     Subagent {

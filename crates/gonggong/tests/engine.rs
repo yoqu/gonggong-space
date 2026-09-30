@@ -53,6 +53,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         resume_session_id: None,
         new_session_reason: None,
         mcp_servers: vec![],
+        command: None,
         prompt: RunPrompt {
             text: text.into(),
             triggered_by: "王磊".into(),
@@ -266,6 +267,17 @@ async fn injects_cwd_mode_system_prompt_and_context_then_reuses_the_session() {
     assert_eq!(second.session_id, first.session_id);
     assert_eq!(second.new_session_reason, None);
     assert_eq!(echo(&second)["pid"], e["pid"]);
+}
+
+#[tokio::test]
+async fn an_agent_command_is_sent_verbatim_without_the_group_context() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(RunStart {
+        command: Some("/mock:echo 保留接口约定".into()),
+        ..start("r1", "/mock:echo @小王的 Claude 保留接口约定")
+    });
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(echo(&done)["prompt"], "/mock:echo 保留接口约定");
 }
 
 #[tokio::test]

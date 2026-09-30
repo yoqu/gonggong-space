@@ -4,6 +4,7 @@ import {
   Answer,
   Approval,
   Attachment,
+  ContextUsage,
   DevtoolsBlocker,
   GitStatus,
   Permission,
@@ -244,6 +245,8 @@ export const RunStart = z.object({
   }),
   /** Global MCP servers (spec §7.2, P1 global layer), injected on session creation only (§7.4). */
   mcpServers: z.array(McpServer),
+  /** An agent command (`/compact …`): sent verbatim as the prompt so the adapter runs it; `prompt` is not composed. */
+  command: z.string().nullable().default(null),
 })
 export type RunStart = z.infer<typeof RunStart>
 
@@ -275,7 +278,7 @@ export const RunEvent = z.discriminatedUnion('kind', [
       })
       .optional(),
   }),
-  z.object({ kind: z.literal('usage'), usage: Usage }),
+  z.object({ kind: z.literal('usage'), usage: Usage, context: ContextUsage.optional() }),
   /** Full snapshot of a delegated subagent (Claude Agent/Task tool, Codex spawn_agent), sent on every change. */
   z.object({
     kind: z.literal('subagent'),

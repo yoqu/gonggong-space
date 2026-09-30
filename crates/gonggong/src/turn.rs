@@ -2,8 +2,8 @@
 use crate::attachments::rel_path;
 use crate::mcp_call;
 use crate::protocol::{
-    self, AgentKind, ContextMessage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, SubagentState, TaskState, Tier,
-    ToolStatus, Usage,
+    self, AgentKind, ContextMessage, ContextUsage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, SubagentState,
+    TaskState, Tier, ToolStatus, Usage,
 };
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
@@ -295,7 +295,7 @@ impl Turn {
                     ..Default::default()
                 };
                 self.usage = Some(usage.clone());
-                Some(RunEvent::Usage { usage })
+                Some(RunEvent::Usage { usage, context: Some(ContextUsage { used: u.used, size: u.size }) })
             }
             SessionUpdate::SessionInfoUpdate(u) => {
                 if let Some(title) = session_failure(u.meta.as_ref()) {
@@ -572,8 +572,13 @@ mod tests {
         );
         assert_eq!(t.files.iter().cloned().collect::<Vec<_>>(), vec!["/w/b.rs", "/w/c.rs"]);
 
-        t.apply("s", SessionUpdate::UsageUpdate(UsageUpdate::new(1200, 200000).cost(Cost::new(0.5, "USD"))));
+        let usage =
+            t.apply("s", SessionUpdate::UsageUpdate(UsageUpdate::new(1200, 200000).cost(Cost::new(0.5, "USD"))));
         assert_eq!(t.usage, Some(Usage { total_tokens: Some(1200), cost_usd: Some(0.5), ..Default::default() }));
+        assert!(matches!(
+            usage,
+            Some(RunEvent::Usage { context: Some(ContextUsage { used: 1200, size: 200000 }), .. })
+        ));
     }
 
     #[test]

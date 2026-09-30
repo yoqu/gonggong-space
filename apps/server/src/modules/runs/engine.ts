@@ -10,7 +10,7 @@ import { publishBot } from '../bots/dto.js'
 import { requeueAppends } from '../messages/append.js'
 import { authorName, memberIds, messageDto, publishMessage } from '../messages/service.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
-import { publishBotState } from '../workspaces/state.js'
+import { publishBotState, updateBotState } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { redact, redactDeep } from './redact.js'
 import { schedule } from './scheduler.js'
@@ -155,6 +155,8 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
       await publishRun(ctx, row)
       card = true
     }
+  if (event.kind === 'usage' && event.context)
+    await updateBotState(ctx, run.groupId, run.botId, { contextUsage: event.context })
   if (event.kind === 'subagent' || event.kind === 'task') {
     const [field, id] = event.kind === 'subagent' ? ['subagents', event.agentId] : ['tasks', event.taskId]
     const delegation = sql`jsonb_set(${runs.delegation}, ${`{${field}}`}::text[], coalesce(${runs.delegation} -> ${field}, '{}') || jsonb_build_object(${id}::text, ${event.state}::text))`

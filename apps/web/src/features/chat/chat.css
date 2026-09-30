@@ -369,3 +369,68 @@
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
+
+/* Context occupancy in the bot bar */
+.ctx-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 22px;
+  padding: 0 var(--space-6) 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.ctx-meter:hover {
+  background: var(--selection-fill);
+  color: var(--label);
+}
+.ctx-meter circle {
+  fill: none;
+  stroke-width: 2;
+}
+.ctx-meter__track {
+  stroke: var(--control-track);
+}
+.ctx-meter__arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.ctx-meter[data-level="warning"] {
+  color: var(--tint-orange-text);
+}
+.ctx-meter[data-level="warning"] .ctx-meter__arc {
+  stroke: var(--tint-orange-text);
+}
+.ctx-meter[data-level="critical"] {
+  color: var(--tint-red-text);
+}
+.ctx-meter[data-level="critical"] .ctx-meter__arc {
+  stroke: var(--tint-red-text);
+}
+.ctx-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+}
+.ctx-pop .ui-levelwrap {
+  min-width: 0;
+}
+.ctx-pop__detail {
+  font-variant-numeric: tabular-nums;
+  color: var(--label-secondary);
+}
+.ctx-pop__hint {
+  margin: 0;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.ctx-pop__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-6);
+}

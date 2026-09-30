@@ -5,6 +5,7 @@ import {
   Answer,
   Approval,
   Attachment,
+  ContextUsage,
   DevtoolsBlocker,
   GitStatus,
   MAX_ATTACHMENT_BYTES,
@@ -1121,6 +1122,8 @@ export const GroupBotStateDto = z.object({
   /** This group's model / thought level; null follows the bot's defaults. */
   model: z.string().nullable(),
   effort: z.string().nullable(),
+  /** Context occupancy of the bot's current session here; null before its first report or after /new. */
+  context: ContextUsage.nullable(),
 })
 export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 

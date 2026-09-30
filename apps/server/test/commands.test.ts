@@ -1,4 +1,4 @@
-import type { MessageDto, RunStart, ServerToDaemon } from '@gonggong/protocol'
+import type { MessageDto, RunStart, ServerToDaemon, WebEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupRepos, groups, messages, runs } from '../src/db/schema.js'
@@ -75,6 +75,24 @@ describe('system commands', () => {
     expect(await w.gb(w.claude.id)).toMatchObject({ sessionId: null, newSessionReason: 'requested' })
   })
 
+  it('/new forgets the context occupancy and pushes it', async () => {
+    const w = await world()
+    await t.db
+      .update(groupBots)
+      .set({ sessionId: 'sess-0', contextUsage: { used: 9000, size: 200000 } })
+      .where(eq(groupBots.botId, w.claude.id))
+    const pushed: WebEvent[] = []
+    t.ctx.bus.attach(w.li.id, (e) => pushed.push(e))
+    await w.say(w.asWang, '/new @小王的 Claude')
+    expect((await w.gb(w.claude.id)).contextUsage).toBeNull()
+    expect(pushed).toContainEqual(
+      expect.objectContaining({
+        t: 'group.botState',
+        state: expect.objectContaining({ botId: w.claude.id, context: null }),
+      }),
+    )
+  })
+
   it('/new without a bot explains the usage', async () => {
     const w = await world()
     await w.say(w.asWang, '/new')
@@ -132,6 +150,49 @@ describe('system commands', () => {
       '/release 仅在强制同步群可用',
       '没有运行中的轮次',
     ])
+  })
+})
+
+describe('agent commands', () => {
+  const reported = (w: Awaited<ReturnType<typeof world>>, botId: string, names: string[]) =>
+    t.db
+      .update(groupBots)
+      .set({ agentCommands: names.map((name) => ({ name, description: '' })) })
+      .where(and(eq(groupBots.groupId, w.g.id), eq(groupBots.botId, botId)))
+
+  it('is sent verbatim, without the group context, which stays for the next turn', async () => {
+    const w = await world()
+    await reported(w, w.claude.id, ['compact'])
+    await w.say(w.asWang, '先聊点别的')
+    await w.say(w.asWang, '/compact @小王的 Claude 保留接口约定')
+    const first = w.sent.find((m): m is RunStart => m.t === 'run.start')!
+    expect(first).toMatchObject({ command: '/compact 保留接口约定', prompt: { context: [], omitted: 0 } })
+    expect(await w.eventsText()).toEqual([])
+    await t.db.update(runs).set({ status: 'completed' }).where(eq(runs.id, first.runId))
+    await w.say(w.asWang, '@小王的 Claude 继续')
+    const second = w.sent.filter((m): m is RunStart => m.t === 'run.start')[1]!
+    expect(second.command).toBeNull()
+    expect(second.prompt.context.map((c) => c.body)).toEqual(['先聊点别的'])
+  })
+
+  it('needs every addressed bot to have reported it, otherwise it is a normal message', async () => {
+    const w = await world()
+    await reported(w, w.claude.id, ['compact'])
+    await w.say(w.asWang, '/compact @小王的 Claude @老李的 Codex')
+    await w.say(w.asWang, '/path/to/file @小王的 Claude 看下')
+    const starts = w.sent.filter((m): m is RunStart => m.t === 'run.start')
+    expect(starts.map((s) => s.command)).toEqual([null])
+    expect(await w.allRuns()).toHaveLength(3)
+  })
+
+  it('/bot名:命令 addresses a command whose name a system command took', async () => {
+    const w = await world()
+    await reported(w, w.claude.id, ['new'])
+    const res = await w.say(w.asWang, '/小王的Claude:new 参数')
+    expect(res.body).toMatchObject({ mentions: [w.claude.id] })
+    const start = w.sent.find((m): m is RunStart => m.t === 'run.start')!
+    expect(start.command).toBe('/new 参数')
+    expect(await w.eventsText()).toEqual([])
   })
 })
 

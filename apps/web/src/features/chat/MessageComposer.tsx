@@ -40,7 +40,7 @@ function loadDraft(groupId: string) {
 }
 
 /** UUID v4 without crypto.randomUUID, which only exists in secure contexts (plain-http LAN access lacks it). */
-function uuid() {
+export function uuid() {
   const b = crypto.getRandomValues(new Uint8Array(16))
   b[6] = ((b[6] ?? 0) & 0x0f) | 0x40
   b[8] = ((b[8] ?? 0) & 0x3f) | 0x80
@@ -58,7 +58,7 @@ interface SendBody {
 }
 
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
-async function postMessage(groupId: string, req: SendBody): Promise<MessageDto> {
+export async function postMessage(groupId: string, req: SendBody): Promise<MessageDto> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await api.post<MessageDto>(`/groups/${groupId}/messages`, req)

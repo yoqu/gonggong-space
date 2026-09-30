@@ -1,0 +1,1 @@
+ALTER TABLE "group_bots" ADD COLUMN "context_usage" jsonb;

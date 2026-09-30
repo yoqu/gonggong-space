@@ -4,6 +4,7 @@ import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { realtime } from '../../lib/realtime'
 import { Icon, type IconName } from '../../ui'
 import { openTab } from '../workbench/open'
+import { ContextMeter } from './ContextMeter'
 
 const WORKSPACE_LABEL = { managed: '托管', cd: '本机目录' } as const
 
@@ -17,7 +18,17 @@ function Commits({ icon, label, n }: { icon: IconName; label: string; n: number 
   )
 }
 
-function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
+function Item({
+  groupId,
+  name,
+  s,
+  git: showGit,
+}: {
+  groupId: string
+  name: string
+  s: GroupBotStateDto
+  git: boolean
+}) {
   const git = s.git
   const hint =
     s.state === 'unbound' ? (
@@ -42,19 +53,26 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
   return (
     <div className="git-bar__item" data-testid={`git-${s.botId}`}>
       <span className="git-bar__name">{name}</span>
-      {hint ?? (
+      {showGit ? (
         <>
-          <span className="git-bar__branch">{git?.branch ?? '—'}</span>
-          {git?.behind ? <Commits icon="arrow-down" label="落后" n={git.behind} /> : null}
-          {git?.ahead ? <Commits icon="arrow-up" label="领先" n={git.ahead} /> : null}
-          {git?.dirty ? <span className="git-bar__dirty">未提交</span> : null}
+          {hint ?? (
+            <>
+              <span className="git-bar__branch">{git?.branch ?? '—'}</span>
+              {git?.behind ? <Commits icon="arrow-down" label="落后" n={git.behind} /> : null}
+              {git?.ahead ? <Commits icon="arrow-up" label="领先" n={git.ahead} /> : null}
+              {git?.dirty ? <span className="git-bar__dirty">未提交</span> : null}
+            </>
+          )}
+          <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>
         </>
-      )}
-      <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>
-      <span className="git-bar__actions">
-        <Action icon="git-branch" label={`查看 ${name} 的改动`} title="改动" onClick={diff} />
-        <Action icon="folder" label={`浏览 ${name} 的文件`} title="文件" onClick={files} />
-      </span>
+      ) : null}
+      {s.context ? <ContextMeter groupId={groupId} bot={name} context={s.context} /> : null}
+      {showGit ? (
+        <span className="git-bar__actions">
+          <Action icon="git-branch" label={`查看 ${name} 的改动`} title="改动" onClick={diff} />
+          <Action icon="folder" label={`浏览 ${name} 的文件`} title="文件" onClick={files} />
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -85,31 +103,32 @@ function Action({
 }
 
 /**
- * Partition-mode top bar (spec §5.3 / §8.4): each bot's git status, refreshed after every turn. Shown for repo groups;
- * the states are loaded for every partition group since the workspace banner needs them too.
+ * Bot bar under the header: each bot's context occupancy (every group, once reported) and, in partition groups with
+ * a repo, its git status refreshed after every turn (spec §5.3 / §8.4). The workspace banner reads the same states.
  */
 export function GitBar({ group }: { group: GroupDto }) {
-  const partition = group.mode === 'partition'
-  const shown = partition && !!group.repo
+  const showGit = group.mode === 'partition' && !!group.repo
   const states = useWorkspace((s) => s.botStates[group.id])
   const bots = useWorkspace((s) => s.bots)
   const botKey = group.botIds.join()
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the group's bots change
   useEffect(() => {
-    if (!partition) return
     const load = () => loadBotStates(group.id).catch(() => {})
     load()
     // Updates pushed while the socket was down are lost: catch up on reconnect.
     return realtime.onStatus((st) => st === 'open' && load())
-  }, [partition, group.id, botKey])
+  }, [group.id, botKey])
 
-  if (!shown) return null
+  const ids = showGit ? group.botIds : group.botIds.filter((id) => states?.[id]?.context)
+  if (!ids.length) return null
   return (
     <div className="git-bar" data-testid="git-bar">
-      {group.botIds.map((id) => (
+      {ids.map((id) => (
         <Item
           key={id}
+          groupId={group.id}
+          git={showGit}
           name={bots.find((b) => b.id === id)?.name ?? 'bot'}
           s={
             states?.[id] ?? {
@@ -123,6 +142,7 @@ export function GitBar({ group }: { group: GroupDto }) {
               tier: null,
               model: null,
               effort: null,
+              context: null,
             }
           }
         />

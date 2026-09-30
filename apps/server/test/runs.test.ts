@@ -323,6 +323,7 @@ describe('run engine', () => {
         tier: null,
         model: null,
         effort: null,
+        context: null,
       },
     })
     const [gb] = await t.db
@@ -330,6 +331,25 @@ describe('run engine', () => {
       .from(groupBots)
       .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
     expect(gb?.gitStatus).toEqual(git)
+  })
+
+  it('stores and publishes the context occupancy reported by usage events', async () => {
+    const w = await world()
+    const web = watch(w.bob.id)
+    const d = await daemon(w.token)
+    await w.mention('hi')
+    const { runId } = await d.next()
+    const context = { used: 124000, size: 200000 }
+    d.send({ t: 'run.event', runId, event: { kind: 'usage', usage: { totalTokens: 124000 }, context } })
+    const pushed = await web.until<Extract<WebEvent, { t: 'group.botState' }>>(
+      (e) => e.t === 'group.botState' && e.state.context !== null,
+    )
+    expect(pushed.state).toMatchObject({ botId: w.bot.id, context })
+    const [gb] = await t.db
+      .select()
+      .from(groupBots)
+      .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
+    expect(gb?.contextUsage).toEqual(context)
   })
 
   it('marks a failed agent run as interrupted with the error', async () => {

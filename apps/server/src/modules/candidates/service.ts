@@ -10,7 +10,7 @@ import type { Ctx } from '../../context.js'
 import { bots, groupBots } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { commands } from '../commands/index.js'
+import { commandPrefix, commands } from '../commands/index.js'
 import { activeBots } from '../groups/service.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { pick } from './match.js'
@@ -157,7 +157,7 @@ export async function commandCandidates(
   const agent = rows.flatMap((b) =>
     (b.commands as AgentCommand[]).map((c) => ({
       ...(reserved.has(c.name)
-        ? { name: `${b.name.replace(/\s+/g, '')}:${c.name}`, hint: '与系统命令重名' }
+        ? { name: `${commandPrefix(b.name)}:${c.name}`, hint: '与系统命令重名' }
         : { name: c.name, hint: c.description }),
       botId: b.id,
       botName: b.name,

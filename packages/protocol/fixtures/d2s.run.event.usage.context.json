@@ -1,0 +1,9 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "usage",
+    "usage": { "totalTokens": 124000 },
+    "context": { "used": 124000, "size": 200000 }
+  }
+}

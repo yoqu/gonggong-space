@@ -159,6 +159,7 @@ describe('joining a repo group', () => {
       tier: null,
       model: null,
       effort: null,
+      context: null,
     })
     await until(async () => (await w.bodies(g.id)).includes('小王的 Claude · daemon 已 clone 到托管工作区'))
   })

@@ -10,6 +10,7 @@ commands.register('release', forceSyncOnly, '释放群锁')
 commands.register('new', newSession, '开新会话')
 commands.register('cd', cd, '绑定本机目录（仅分区）')
 
+export { agentCommand, commandPrefix } from './agent.js'
 export { parseCommand } from './parse.js'
 export { commands } from './registry.js'
 

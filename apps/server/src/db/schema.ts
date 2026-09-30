@@ -275,6 +275,8 @@ export const groupBots = pgTable(
     contextSeq: bigint('context_seq', { mode: 'number' }).notNull().default(0),
     /** Current ACP session id on the owner's machine, if any. */
     sessionId: text('session_id'),
+    /** Context occupancy ({used, size}) last reported for that session; null before the first report or after /new. */
+    contextUsage: jsonb('context_usage'),
     /** Set by /new ('requested'): the next dispatch opens a fresh session and reports why; cleared once sent. */
     newSessionReason: text('new_session_reason'),
     /** Last git status reported after a turn (partition mode status bar). */

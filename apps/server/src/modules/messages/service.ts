@@ -13,6 +13,8 @@ export type MessageMeta = {
   mentions?: string[]
   clientId?: string
   command?: string
+  /** An agent command sent verbatim to the mentioned bots (RunStart.command). */
+  agentCommand?: string
   appendTo?: string
   relayOf?: string
   attachments?: Attachment[]

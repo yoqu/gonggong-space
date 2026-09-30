@@ -38,6 +38,7 @@ const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateD
   tier: null,
   model: null,
   effort: null,
+  context: null,
   ...o,
 })
 
@@ -167,18 +168,63 @@ describe('git status bar', () => {
     await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude待绑定托管'))
   })
 
-  it('is hidden outside partition groups with a repo; repo-less partition groups still load states', async () => {
+  it('outside partition groups with a repo shows only bots whose context is known', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('[]')),
     )
-    const { unmount } = render(<GitBar group={group({ mode: 'force' })} />)
-    expect(screen.queryByTestId('git-bar')).toBeNull()
-    expect(fetch).not.toHaveBeenCalled()
-    unmount()
-    render(<GitBar group={group({ repo: null })} />)
-    expect(screen.queryByTestId('git-bar')).toBeNull()
+    render(<GitBar group={group({ mode: 'force', botIds: ['b1', 'b2'] })} />)
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/groups/g1/bot-states', expect.anything()))
+    expect(screen.queryByTestId('git-bar')).toBeNull()
+    useWorkspace.getState().applyEvent({
+      t: 'group.botState',
+      groupId: 'g1',
+      state: state('b2', { git: git(), context: { used: 50_000, size: 200_000 } }),
+    })
+    await waitFor(() => expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codex25%'))
+    expect(screen.queryByTestId('git-b1')).toBeNull()
+  })
+})
+
+describe('context meter', () => {
+  const posted = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => url === '/api/groups/g1/messages')
+      .map(([, init]) => JSON.parse(String(init?.body)).body)
+
+  it('shows the occupancy by level and offers /compact and /new for the bot', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.endsWith('/bot-states')
+          ? new Response(
+              JSON.stringify([
+                state('b1', { git: git(), context: { used: 124_000, size: 200_000 } }),
+                state('b2', { git: git(), context: { used: 190_000, size: 200_000 } }),
+                state('b3', { git: git(), context: { used: 800_000, size: 1_000_000 } }),
+              ]),
+            )
+          : new Response(JSON.stringify({ id: 'm1' })),
+      ),
+    )
+    render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
+    const meter = await screen.findByRole('button', { name: '小王的 Claude 上下文 124k / 200k' })
+    expect(meter.textContent).toBe('62%')
+    expect(meter.dataset.level).toBe('normal')
+    expect(screen.getByRole('button', { name: '老李的 Codex 上下文 190k / 200k' }).dataset.level).toBe(
+      'critical',
+    )
+    expect(screen.getByRole('button', { name: '阿杰的 Claude 上下文 800k / 1M' }).dataset.level).toBe(
+      'warning',
+    )
+
+    fireEvent.click(meter)
+    fireEvent.click(await screen.findByRole('button', { name: '压缩上下文' }))
+    await waitFor(() => expect(posted()).toEqual(['/compact @小王的 Claude']))
+    fireEvent.click(meter)
+    fireEvent.click(await screen.findByRole('button', { name: '开新对话' }))
+    await waitFor(() => expect(posted()).toEqual(['/compact @小王的 Claude', '/new @小王的 Claude']))
   })
 })
 

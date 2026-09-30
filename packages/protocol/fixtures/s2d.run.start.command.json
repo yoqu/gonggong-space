@@ -1,0 +1,31 @@
+{
+  "t": "run.start",
+  "runId": "r2",
+  "groupId": "g1",
+  "groupName": "支付服务重构",
+  "bot": {
+    "id": "b1",
+    "name": "小王的 Claude",
+    "agentKind": "claude",
+    "systemPrompt": "",
+    "tier": "workspace",
+    "model": null,
+    "effort": null,
+    "approval": "ask",
+    "allowlist": []
+  },
+  "workspace": { "repo": null, "cdPath": null },
+  "resumeSessionId": "sess-0",
+  "newSessionReason": null,
+  "prompt": {
+    "text": "/compact @小王的 Claude 保留接口约定",
+    "triggeredBy": "王磊",
+    "context": [],
+    "omitted": 0,
+    "fallbackContext": [],
+    "attachments": [],
+    "quote": null
+  },
+  "mcpServers": [],
+  "command": "/compact 保留接口约定"
+}

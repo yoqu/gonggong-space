@@ -607,6 +607,7 @@ describe('process timeline', () => {
             tier: null,
             model: null,
             effort: null,
+            context: null,
           },
         },
       },

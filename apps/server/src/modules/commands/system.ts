@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { groupBots } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { postEvent } from '../messages/service.js'
+import { publishBotState } from '../workspaces/state.js'
 import type { CommandHandler, CommandInput } from './registry.js'
 
 /** Mentioned bots in mention order (mentions are already limited to the group's bots). */
@@ -17,10 +18,12 @@ export const newSession: CommandHandler = async (ctx, input) => {
     return
   }
   for (const bot of picked) {
-    await ctx.db
+    const [row] = await ctx.db
       .update(groupBots)
-      .set({ sessionId: null, newSessionReason: 'requested' })
+      .set({ sessionId: null, newSessionReason: 'requested', contextUsage: null })
       .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+      .returning()
+    if (row) await publishBotState(ctx, row)
     await audit(ctx, {
       category: 'run',
       actorUserId: user.id,

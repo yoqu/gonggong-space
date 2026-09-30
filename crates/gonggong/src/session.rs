@@ -935,7 +935,7 @@ impl Conversation<'_> {
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = compose_prompt(&s.prompt, history, omitted);
+        let text = s.command.clone().unwrap_or_else(|| compose_prompt(&s.prompt, history, omitted));
         let image = self.init.agent_capabilities.prompt_capabilities.image;
         let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
         let mut spent: Option<AcpUsage> = None;
