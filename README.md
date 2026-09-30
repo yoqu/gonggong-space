@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/brand/logo.svg" width="96" alt="共工空间"></p>
 
-<h1 align="center">共工空间 Gonggong</h1>
+<h1 align="center">共工空间 Gonggong Space</h1>
 
 <p align="center"><b>在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工，做完的网页直接在群里打开。</b></p>
 
