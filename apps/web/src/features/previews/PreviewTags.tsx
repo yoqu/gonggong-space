@@ -47,7 +47,7 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
             <PreviewActions preview={p} share={false} onDone={close} />
           </div>
           <div className="pv-card__meta">
-            {p.botName} · {PREVIEW_STATE[p.status]}
+            {p.botName} · {PREVIEW_STATE[p.status].label}
             {p.port ? ` · :${p.port}` : ''}
           </div>
           {service ? (

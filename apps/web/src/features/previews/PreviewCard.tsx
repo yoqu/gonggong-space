@@ -1,8 +1,8 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Icon, IconButton, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { toastError } from '../../lib/errors'
+import { Icon, IconButton } from '../../ui'
 import './previews.css'
 import { ControlRequests } from './control'
 import { PreviewActions } from './PreviewActions'
@@ -21,7 +21,12 @@ export function DevtoolsLogin({ preview: p }: { preview: PreviewDto }) {
   )
 }
 
-export const PREVIEW_STATE = { online: '在线', offline: '离线', stopped: '服务已停止', closed: '已关闭' }
+export const PREVIEW_STATE = {
+  online: { label: '在线', color: 'var(--system-green)' },
+  offline: { label: '离线', color: 'var(--system-gray)' },
+  stopped: { label: '服务已停止', color: 'var(--system-orange)' },
+  closed: { label: '已关闭', color: 'var(--system-gray)' },
+}
 
 /**
  * A bot's preview card (plan §6), a link card like Feishu's: the page's first screen as the machine last rendered
@@ -51,7 +56,7 @@ export function PreviewCard({
     try {
       await api.post(`/previews/${previewId}/start`)
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     } finally {
       setReopening(false)
     }
@@ -78,7 +83,7 @@ export function PreviewCard({
       <div className="pv-card__body">
         <div className="pv-card__head">
           {state ? (
-            <span className={`pv-dot pv-dot--${state}`} role="img" aria-label={PREVIEW_STATE[state]} />
+            <span className={`pv-dot pv-dot--${state}`} role="img" aria-label={PREVIEW_STATE[state].label} />
           ) : null}
           <span className="pv-card__title" title={title}>
             {title}

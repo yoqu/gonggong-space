@@ -2,9 +2,9 @@ import type { UserDto } from '@gonggong/protocol'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
-import { api } from '../../lib/api'
-import { Button, Icon, SecureField, Spinner, TextField } from '../../ui'
-import { AuthCard, errorText } from './AuthCard'
+import { api, errorText } from '../../lib/api'
+import { Icon, SecureField, TextField } from '../../ui'
+import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
 import { useAuthOptions } from './options'
 
 const ACCOUNT_RE = /^[a-z0-9_.-]{2,32}$/
@@ -18,7 +18,7 @@ export function RegisterPage() {
   const [form, setForm] = useState({ account: '', name: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [errorKey, setErrorKey] = useState(0)
-  const [phase, setPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  const [phase, setPhase] = useState<SubmitPhase>('idle')
 
   if (user && phase !== 'done') return <Navigate to="/" replace />
 
@@ -122,29 +122,7 @@ export function RegisterPage() {
               ) : null}
             </p>
           </div>
-          <Button
-            type="submit"
-            variant="primary"
-            size="xlarge"
-            fullWidth
-            className="auth__submit"
-            data-phase={phase}
-            aria-busy={phase === 'busy' || undefined}
-          >
-            {phase === 'busy' ? (
-              <>
-                <Spinner size={14} color="currentColor" />
-                注册中…
-              </>
-            ) : phase === 'done' ? (
-              <>
-                <Icon name="check" weight={2.4} />
-                注册成功
-              </>
-            ) : (
-              '注册并进入'
-            )}
-          </Button>
+          <AuthSubmit phase={phase} label="注册并进入" busy="注册中…" done="注册成功" />
         </>
       )}
     </AuthCard>

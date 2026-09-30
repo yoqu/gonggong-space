@@ -1,11 +1,14 @@
 import type { BotDto, BotProbeDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
-import { Button, Dialog, GroupBox, Icon, IconButton, Input, Popover, SearchField, toast } from '../../ui'
+import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
+import { Button, Dialog, GroupBox, Icon, IconButton, Input } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
-import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
+import { AGENT_LABEL } from '../bots/model'
+import { BotPicker, BotPresence, MemberPicker } from '../groups/pickers'
 import { RepoPicker } from '../repos/RepoPicker'
 import {
   AccessResult,
@@ -24,24 +27,9 @@ export type GroupKind = GroupDto['kind']
 const toggle = (list: string[], id: string) =>
   list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
 
-/** Presence dot and label, shown while there is no access check result for the bot. */
-function Presence({ bot }: { bot: BotDto }) {
-  const st =
-    bot.binding === 'bound'
-      ? PRESENCE[bot.presence]
-      : { label: BINDING_LABEL[bot.binding], color: 'var(--system-orange)' }
-  return (
-    <span className="ng-presence">
-      <span className="dot dot--sm" style={{ background: st.color }} />
-      {st.label}
-    </span>
-  )
-}
-
 export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: GroupKind; onClose: () => void }) {
   const allBots = useWorkspace((s) => s.bots)
   const navigate = useNavigate()
-  const [users, setUsers] = useState<UserBriefDto[]>([])
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [botIds, setBotIds] = useState<string[]>([])
@@ -49,10 +37,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
   const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
   const dm = kind === 'dm'
-
-  useEffect(() => {
-    if (!dm) api.get<UserBriefDto[]>('/users').then(setUsers, () => {})
-  }, [dm])
+  const users = useGet<UserBriefDto[]>(dm ? null : '/users').data ?? []
 
   const setRepoDraft = (o: Partial<RepoDraft>) => {
     setRepo((r) => ({ ...r, ...o }))
@@ -96,7 +81,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
       onClose()
       navigate(`/g/${group.id}`)
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '创建失败，请重试' })
+      toastError(e)
     } finally {
       setCreating(false)
     }
@@ -148,13 +133,13 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
               return (
                 <div key={b.id} className="ng-botrow">
                   <BotAvatar id={b.id} name={b.name} size={24} />
-                  <span className="ng-botrow__main">
-                    <span className="ng-botrow__name">{b.name}</span>
-                    <span className="ng-botrow__sub">
+                  <span className="pick__main">
+                    <span className="pick__name">{b.name}</span>
+                    <span className="pick__sub">
                       {AGENT_LABEL[b.agentKind]} · {b.ownerName}
                     </span>
                   </span>
-                  {r ? <AccessResult result={r} /> : <Presence bot={b} />}
+                  {r ? <AccessResult result={r} /> : <BotPresence bot={b} />}
                   <IconButton
                     size="small"
                     title={`移除 ${b.name}`}
@@ -165,48 +150,17 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 </div>
               )
             })}
-            <Popover
-              portal
-              width={320}
-              aria-label="添加 Bot"
+            <BotPicker
               className="ng-add"
               trigger={
                 <button type="button" className="ng-add__trigger">
                   添加 Bot…
                 </button>
               }
-            >
-              <fieldset className="ng-pick" aria-label="可添加的 Bot">
-                {choices.map((b) => {
-                  const on = botIds.includes(b.id)
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked={on}
-                      disabled={b.binding !== 'bound'}
-                      title={b.binding === 'bound' ? undefined : `${BINDING_LABEL[b.binding]}，暂不能拉入`}
-                      className="ng-pick__row"
-                      onClick={() => setBotIds(toggle(botIds, b.id))}
-                    >
-                      <span className="ng-pick__check">
-                        {on ? <Icon name="check" size={12} weight={2} /> : null}
-                      </span>
-                      <BotAvatar id={b.id} name={b.name} size={20} />
-                      <span className="ng-botrow__main">
-                        <span className="ng-botrow__name">{b.name}</span>
-                        <span className="ng-botrow__sub">
-                          {AGENT_LABEL[b.agentKind]} · {b.ownerName}
-                        </span>
-                      </span>
-                      <Presence bot={b} />
-                    </button>
-                  )
-                })}
-                {choices.length ? null : <span className="ng-pick__empty">还没有可拉入的 Bot</span>}
-              </fieldset>
-            </Popover>
+              bots={choices}
+              isOn={(id) => botIds.includes(id)}
+              onPick={(b) => setBotIds(toggle(botIds, b.id))}
+            />
           </GroupBox>
         </section>
 
@@ -241,7 +195,12 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                     </button>
                   </span>
                 ))}
-                <AddMember
+                <MemberPicker
+                  trigger={
+                    <button type="button" className="ng-member ng-member--add" aria-label="添加成员">
+                      <Icon name="plus" size={11} weight={2} />
+                    </button>
+                  }
                   users={users.filter(
                     (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
                   )}
@@ -259,47 +218,5 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         </section>
       </div>
     </Dialog>
-  )
-}
-
-function AddMember({ users, onAdd }: { users: UserBriefDto[]; onAdd: (id: string) => void }) {
-  const [q, setQ] = useState('')
-  const needle = q.trim().toLowerCase()
-  const list = users.filter((u) => !needle || `${u.name} ${u.account}`.toLowerCase().includes(needle))
-  return (
-    <Popover
-      portal
-      width={240}
-      aria-label="添加成员"
-      trigger={
-        <button type="button" className="ng-member ng-member--add" aria-label="添加成员">
-          <Icon name="plus" size={11} weight={2} />
-        </button>
-      }
-    >
-      {(close) => (
-        <div className="ng-pick">
-          <SearchField aria-label="搜索成员" value={q} onChange={setQ} />
-          {list.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              className="ng-pick__row"
-              onClick={() => {
-                onAdd(u.id)
-                setQ('')
-                close()
-              }}
-            >
-              <span className="ng-botrow__main">
-                <span className="ng-botrow__name">{u.name}</span>
-                <span className="ng-botrow__sub">{u.account}</span>
-              </span>
-            </button>
-          ))}
-          {list.length ? null : <span className="ng-pick__empty">没有可添加的成员</span>}
-        </div>
-      )}
-    </Popover>
   )
 }

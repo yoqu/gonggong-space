@@ -7,11 +7,13 @@ import type {
   UserBriefDto,
   UserDto,
 } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
+import { fmtTokens } from '../../lib/format'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
@@ -34,8 +36,8 @@ import {
   toast,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
-import { TIER_LABEL } from '../runs/tier'
-import { fmtTokens, UsageBars, useUsage } from '../usage/UsagePage'
+import { TIER_LABEL, TIERS } from '../runs/tier'
+import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
@@ -49,21 +51,17 @@ import {
   agentOutdated,
   BINDING_LABEL,
   botsApi,
+  confirmBot,
   PRESENCE,
+  TRIGGER_SCOPE_LABEL,
 } from './model'
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
 
-export const TRIGGER_SCOPE_LABEL: Record<TriggerScope, string> = {
-  all: '任何群成员',
-  list: '指定名单',
-  self: '仅本人',
-}
-const TIERS: Tier[] = ['read-only', 'workspace', 'full']
 const FULL_HINT = '完全访问档位只允许指定名单触发'
 const MAX_CONCURRENCY = 8
 
-export function warning(bot: BotDto, userName: (id: string) => string) {
+function warning(bot: BotDto, userName: (id: string) => string) {
   const agent = AGENT_LABEL[bot.agentKind]
   if (bot.presence === 'pending_confirm')
     return {
@@ -86,6 +84,23 @@ export function warning(bot: BotDto, userName: (id: string) => string) {
       desc: `${bot.machineName} 上的 ${agentCliVersion(bot)} 低于 ACP 适配器要求的 ${bot.agentMinVersion}，可能无法正常运行，请升级该 CLI。`,
     }
   return null
+}
+
+/** Why the Bot cannot run yet; its owner confirms a Bot someone else created for them right here. */
+export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBriefDto[]; owner: boolean }) {
+  const warn = warning(bot, (id) => users.find((u) => u.id === id)?.name ?? '--')
+  if (!warn) return null
+  return (
+    <Alert variant="warning" title={warn.title} description={warn.desc}>
+      {bot.presence === 'pending_confirm' && owner ? (
+        <div className="bots-detail__confirm">
+          <Button variant="primary" onClick={() => void confirmBot(bot.id)}>
+            确认
+          </Button>
+        </div>
+      ) : null}
+    </Alert>
+  )
 }
 
 function weekUsage(rows: UsageRowDto[]) {
@@ -138,7 +153,6 @@ export function BotDetail({
   const canEdit = owner || me.role === 'sysadmin'
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '--'
   const idOf = (name: string) => users.find((u) => u.name === name)?.id
-  const warn = warning(bot, userName)
   const usage = useUsage(`by=user&days=7&botId=${bot.id}`).rows
 
   const save = async () => {
@@ -161,7 +175,7 @@ export function BotDetail({
       })
       toast({ type: 'success', message: `${bot.name} 已保存 · 下一次新开会话时生效` })
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
     } finally {
       setSaving(false)
     }
@@ -170,12 +184,7 @@ export function BotDetail({
     botsApi
       .setDefaultWorkspace(bot.id, path)
       .then(() => setPicking(false))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
-  const confirm = () =>
-    botsApi
-      .confirm(bot.id)
-      .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
 
   return (
     <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="Bot 详情">
@@ -189,17 +198,7 @@ export function BotDetail({
         </div>
       </div>
 
-      {warn ? (
-        <Alert variant="warning" title={warn.title} description={warn.desc}>
-          {bot.presence === 'pending_confirm' && me.id === bot.ownerId ? (
-            <div className="bots-detail__confirm">
-              <Button variant="primary" onClick={() => void confirm()}>
-                确认
-              </Button>
-            </div>
-          ) : null}
-        </Alert>
-      ) : null}
+      <BotWarning bot={bot} users={users} owner={owner} />
 
       <Form>
         {canEdit ? (
@@ -377,20 +376,13 @@ export function BotsAdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<BotDto | null>(null)
-  const [users, setUsers] = useState<UserBriefDto[]>([])
+  const users = useGet<UserBriefDto[]>('/users').data ?? []
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const shown = bots.filter(
     (b) => !q || `${b.name} ${b.ownerName} ${b.machineName ?? ''}`.toLowerCase().includes(q),
   )
   const selected = shown.find((b) => b.id === selectedId) ?? shown[0]
-
-  useEffect(() => {
-    api
-      .get<UserBriefDto[]>('/users')
-      .then(setUsers)
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
-  }, [])
 
   return (
     <AdminPage

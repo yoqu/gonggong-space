@@ -1,21 +1,14 @@
 import { type MessageDto, RECALL_WINDOW_MS } from '@gonggong/protocol'
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
+import { toastError } from '../../lib/errors'
 import { Button, ContextMenu, Dialog, Icon, MenuButton, type MenuItem, Presence, toast } from '../../ui'
 import { ReactionPicker } from '../reactions'
 import { applyWithdrawn } from './useTimeline'
 import './recall.css'
 
 const LONG_PRESS_MS = 500
-
-async function copy(text: string, done: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    toast({ type: 'success', message: done })
-  } catch {
-    toast({ type: 'error', message: '复制失败' })
-  }
-}
 
 async function recall(m: MessageDto) {
   try {
@@ -33,7 +26,7 @@ async function hide(m: MessageDto) {
     applyWithdrawn({ t: 'message.hidden', groupId: m.groupId, messageId: m.id })
     return true
   } catch (e) {
-    toast({ type: 'error', message: (e as Error).message })
+    toastError(e)
     return false
   }
 }
@@ -134,8 +127,8 @@ function useMessageMenu(t: ActionTarget) {
   const select = (value: string) => {
     if (value === 'react') setPicking(true)
     else if (value === 'quote') t.onQuote()
-    else if (value === 'copy' && t.copyText !== undefined) void copy(t.copyText, '已复制')
-    else if (value === 'link') void copy(t.link, '链接已复制')
+    else if (value === 'copy' && t.copyText !== undefined) void copyWithToast(t.copyText, '已复制')
+    else if (value === 'link') void copyWithToast(t.link, '链接已复制')
     else if (value === 'recall' && mine) void recall(mine)
     else if (value === 'delete') setDeleting(true)
   }

@@ -1,7 +1,8 @@
 import type { UsageDayDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fmtTokens, UsageDialog } from '../src/features/usage/UsagePage'
+import { UsageDialog } from '../src/features/usage/UsagePage'
+import { fmtTokens } from '../src/lib/format'
 import { mockApi } from './mockApi'
 
 const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)

@@ -1,9 +1,9 @@
 import { SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { Alert, Button, GroupBox, GroupRow, Spinner, Stepper, Switch, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
 type Key = (typeof SYSTEM_PARAM_VIEW)[number]['key']
@@ -86,7 +86,7 @@ export function ParamsPage() {
       setSaved((s) => (s ? { ...s, registrationOpen: next.registrationOpen } : next))
       toast({ type: 'success', message: registrationOpen ? '已开放自助注册' : '已关闭自助注册' })
     } catch (err) {
-      toast({ type: 'error', message: errorText(err) })
+      toastError(err)
     }
   }
 

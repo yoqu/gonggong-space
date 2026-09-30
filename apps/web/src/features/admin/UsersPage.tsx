@@ -1,12 +1,15 @@
 import type { AdminUserDto, UserDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useId, useState } from 'react'
 import { useSession } from '../../app/session'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
+import { copyText } from '../../lib/clipboard'
+import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  AlertDialog,
   Avatar,
   Button,
+  ConfirmActionDialog,
   Dialog,
   EmptyState,
   Form,
@@ -25,7 +28,6 @@ import {
   toast,
 } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
-import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
 const TITLE = '账号与角色'
@@ -59,14 +61,11 @@ export function tempPassword() {
   return `${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8).join('')}`
 }
 
-async function copy(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
+const copy = (text: string) =>
+  copyText(text).then(
+    () => true,
+    () => false,
+  )
 
 /** Temporary password: generated on open and regenerable; it is copied only once it is actually in effect. */
 function TempPasswordField({
@@ -96,23 +95,11 @@ function TempPasswordField({
 export function UsersPage() {
   // AdminLayout guarantees a sysadmin.
   const me = useSession((s) => s.user) as UserDto
-  const [users, setUsers] = useState<AdminUserDto[] | null>(null)
-  const [error, setError] = useState('')
+  const { data: users, error, reload: load } = useGet<AdminUserDto[]>('/admin/users')
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<AdminUserDto | 'new' | null>(null)
   const [disabling, setDisabling] = useState<AdminUserDto | null>(null)
   const [resetting, setResetting] = useState<AdminUserDto | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      setUsers(await api.get<AdminUserDto[]>('/admin/users'))
-    } catch (err) {
-      setError(errorText(err))
-    }
-  }, [])
-  useEffect(() => {
-    void load()
-  }, [load])
 
   async function enable(u: AdminUserDto) {
     try {
@@ -120,7 +107,7 @@ export function UsersPage() {
       toast({ type: 'success', message: `已启用 ${u.name}，需重新绑定机器` })
       void load()
     } catch (err) {
-      toast({ type: 'error', message: errorText(err) })
+      toastError(err)
     }
   }
 
@@ -285,40 +272,21 @@ function DisableDialog({
   onClose: () => void
   onDone: () => void
 }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  async function disable() {
-    setBusy(true)
-    try {
-      await api.post(`/admin/users/${user.id}/disable`)
-      toast({ type: 'success', message: `已停用 ${user.name}` })
-      onDone()
-    } catch (err) {
-      setError(errorText(err))
-      setBusy(false)
-    }
-  }
   return (
-    <AlertDialog
-      open
+    <ConfirmActionDialog
       title={`要停用账号 ${user.name} 吗？`}
       message="可以随时重新启用，但需要重新绑定机器。"
-      detail={
-        <>
-          <ul className="ui-consequences">
-            <li>立即吊销其所有 daemon token 和 Web 会话</li>
-            <li>daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）</li>
-            <li>其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理</li>
-            <li>群消息与审计记录保留</li>
-          </ul>
-          {error ? <Alert variant="error" description={error} /> : null}
-        </>
-      }
-      onClose={onClose}
-      actions={[
-        { label: '取消', onClick: onClose },
-        { label: '停用', variant: 'destructive', disabled: busy, onClick: () => void disable() },
+      consequences={[
+        '立即吊销其所有 daemon token 和 Web 会话',
+        'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
+        '其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理',
+        '群消息与审计记录保留',
       ]}
+      label="停用"
+      done={`已停用 ${user.name}`}
+      run={() => api.post(`/admin/users/${user.id}/disable`)}
+      onDone={onDone}
+      onClose={onClose}
     />
   )
 }

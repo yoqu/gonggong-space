@@ -7,9 +7,8 @@ import {
   modelName,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { FormRow, PopUpButton } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 
 export interface AgentConfig {
   model: string | null

@@ -1,9 +1,12 @@
 import type { ApprovalDto, PermissionOption, RunDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
-import { Button, Icon, Tag, type TagTone, toast } from '../../ui'
+import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
+import { useNow } from '../../lib/now'
+import { countdown, hm } from '../../lib/time'
+import { Button, Icon, Tag, type TagTone } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
 import { effectiveTier, TIER_LABEL } from './tier'
 import './approval.css'
@@ -23,16 +26,6 @@ const KIND: Record<string, string> = {
   move: '移动文件',
   read: '读取文件',
   search: '搜索',
-}
-
-const pad = (n: number) => String(n).padStart(2, '0')
-export const hm = (iso: string) => {
-  const d = new Date(iso)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-export const countdown = (ms: number) => {
-  const s = Math.max(0, Math.ceil(ms / 1000))
-  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
 
 const DONE: Record<ApprovalDto['status'], [string, TagTone]> = {
@@ -62,17 +55,6 @@ function outcome(a: ApprovalDto) {
   }
 }
 
-export function useNow(ticking: boolean) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!ticking) return
-    setNow(Date.now())
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [ticking])
-  return now
-}
-
 /** The run's latest permission request (spec §3.4): only the bot owner may decide, others just watch. */
 export function ApprovalBlock({ run }: { run: RunDto }) {
   const a = run.approvals.at(-1)
@@ -95,7 +77,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
     try {
       await api.post(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId })
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '操作失败' })
+      toastError(e)
     } finally {
       setBusy(false)
     }

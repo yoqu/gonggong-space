@@ -1,6 +1,6 @@
 import type { AdminGroupDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { useState } from 'react'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
   EmptyState,
@@ -12,7 +12,6 @@ import {
   Tag,
   type TagTone,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
 
@@ -28,16 +27,9 @@ const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? ''} ⇄
 
 /** 管理后台 · 群: every group incl. archived ones. */
 export function GroupsPage() {
-  const [groups, setGroups] = useState<AdminGroupDto[] | null>(null)
-  const [error, setError] = useState('')
+  const { data: groups, error } = useGet<AdminGroupDto[]>('/admin/groups')
   const [query, setQuery] = useState('')
   const params = useSystemParams()
-  useEffect(() => {
-    api
-      .get<AdminGroupDto[]>('/admin/groups')
-      .then(setGroups)
-      .catch((e) => setError(errorText(e)))
-  }, [])
 
   const copy = (g: AdminGroupDto) => {
     if (!g.archivedAt) return null

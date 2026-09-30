@@ -7,7 +7,7 @@ import type {
   SaveProviderReq,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import {
   Button,
   Checkbox,
@@ -23,8 +23,7 @@ import {
   Skeleton,
   TextField,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
-import { AGENT_LABEL } from './BindMachineDialog'
+import { AGENT_LABEL } from '../bots/model'
 
 const GROUPS: { key: ProviderPreset['group']; label: string }[] = [
   { key: 'cn', label: '国内厂商' },

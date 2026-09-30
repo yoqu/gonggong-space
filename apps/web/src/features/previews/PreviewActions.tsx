@@ -1,8 +1,8 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Icon, IconButton, Presence, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { toastError } from '../../lib/errors'
+import { Icon, IconButton, Presence } from '../../ui'
 import { ShareDialog } from './ShareDialog'
 import { openInWorkbench, openUrl } from './store'
 
@@ -27,7 +27,7 @@ export function PreviewActions({
       await api.post(path, body)
       if (key === 'stop') onDone?.()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     } finally {
       setBusy(undefined)
     }

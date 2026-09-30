@@ -400,7 +400,7 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
-    fireEvent.click(await within(d).findByRole('button', { name: '赵敏' }))
+    fireEvent.click(await screen.findByRole('button', { name: /赵敏/ }))
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/members')?.body).toEqual({ userId: 'u3' }),
     )
@@ -408,12 +408,20 @@ describe('group settings inspector', () => {
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
     fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
     fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
-    const cand = within(d).getByRole('button', { name: /小周的 Codex/ })
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    expect(
+      within(pick)
+        .getByRole('menuitemcheckbox', { name: /老李的 Codex/ })
+        .getAttribute('aria-checked'),
+    ).toBe('true')
+    const cand = within(pick).getByRole('menuitemcheckbox', { name: /小周的 Codex/ })
     expect(cand.textContent).toContain('主人将一并加入')
     fireEvent.click(cand)
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/bots')?.body).toEqual({ botId: 'b3' }),
     )
+    fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name: /老李的 Codex/ }))
+    expect(await screen.findByRole('dialog', { name: '移出 Bot 老李的 Codex' })).toBeTruthy()
   })
 
   it('the 添加 tile opens 群成员 with the candidates already listed', async () => {
@@ -422,7 +430,7 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '添加' }))
     expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
-    expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /赵敏/ })).toBeTruthy()
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
     expect(within(d).getByRole('heading', { name: '群设置' })).toBeTruthy()
   })
@@ -501,10 +509,11 @@ describe('group settings inspector', () => {
     fail = true
     fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
-    expect(await within(d).findByText('成员列表加载失败')).toBeTruthy()
+    const pick = await screen.findByRole('dialog', { name: '添加成员' })
+    expect(await within(pick).findByText('成员列表加载失败')).toBeTruthy()
     fail = false
-    fireEvent.click(within(d).getByRole('button', { name: '重试' }))
-    expect(await within(d).findByRole('button', { name: '赵敏' })).toBeTruthy()
+    fireEvent.click(within(pick).getByRole('button', { name: '重试' }))
+    expect(await within(pick).findByRole('button', { name: /赵敏/ })).toBeTruthy()
   })
 
   it("lets a bot owner set this group's tier; others only read the effective one", async () => {

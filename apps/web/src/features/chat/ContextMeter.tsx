@@ -1,14 +1,13 @@
 import type { ContextUsage } from '@gonggong/protocol'
-import { Button, LevelIndicator, Popover, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { fmtTokens } from '../../lib/format'
+import { Button, LevelIndicator, Popover } from '../../ui'
 import { postMessage, uuid } from './MessageComposer'
 
 const WARNING = 70
 const CRITICAL = 90
 const R = 5
 const ARC = 2 * Math.PI * R
-
-export const fmtTokens = (n: number) =>
-  n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
 
 /** A bot's context window occupancy in this group, with /compact and /new at hand (both sent as group messages). */
 export function ContextMeter({
@@ -30,7 +29,7 @@ export function ContextMeter({
       attachmentIds: [],
       quote: null,
       appendTo: null,
-    }).catch((e: Error) => toast({ type: 'error', message: e.message }))
+    }).catch(toastError)
   return (
     <Popover
       portal

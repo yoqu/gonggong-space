@@ -1,8 +1,9 @@
-import type { AgentInfo, MachineDto } from '@gonggong/protocol'
+import type { MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus, toast } from '../../ui'
+import { AGENT_LABEL } from '../bots/model'
 import { BindCodePanel, useBindCode } from './BindCodePanel'
 import './machines.css'
 
@@ -11,7 +12,6 @@ export const OS_LABEL: Record<MachineDto['os'], string> = {
   linux: 'Linux',
   windows: 'Windows',
 }
-export const AGENT_LABEL: Record<AgentInfo['kind'], string> = { claude: 'Claude Code', codex: 'Codex' }
 
 /** 绑定新机器 (Web 对话.dc.html ovBind): 接入链接 → desktop app binds → machine/agents reported. */
 export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: () => void }) {

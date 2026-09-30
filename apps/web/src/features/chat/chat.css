@@ -138,32 +138,6 @@
   min-height: 40px;
   padding: var(--space-4) var(--space-8) var(--space-4) var(--space-12);
 }
-.ng-botrow__main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.ng-botrow__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ng-botrow__sub {
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ng-presence {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-6);
-  font-size: var(--text-subheadline-size);
-  color: var(--label-secondary);
-  white-space: nowrap;
-}
 .ng-add {
   display: block;
 }
@@ -181,49 +155,6 @@
   font: inherit;
   text-align: left;
   cursor: default;
-}
-.ng-pick {
-  min-width: 0;
-  margin: 0;
-  border: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-6);
-  max-height: 320px;
-  overflow-y: auto;
-}
-.ng-pick__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  min-height: 36px;
-  padding: var(--space-4) var(--space-8);
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--label);
-  font: inherit;
-  text-align: left;
-  cursor: default;
-}
-.ng-pick__row:not(:disabled):hover {
-  background: var(--control-track);
-}
-.ng-pick__row:disabled {
-  opacity: 0.45;
-}
-.ng-pick__check {
-  width: 14px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  color: var(--accent-text);
-}
-.ng-pick__empty {
-  padding: var(--space-12);
-  color: var(--label-secondary);
-  text-align: center;
 }
 .ng-members {
   display: flex;

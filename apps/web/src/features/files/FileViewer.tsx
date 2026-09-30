@@ -2,7 +2,7 @@ import { FILE_TEXT_MAX_BYTES, type FileTextDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { api } from '../../lib/api'
-import { copyText } from '../../lib/clipboard'
+import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import {
   Button,
@@ -20,7 +20,6 @@ import {
   Spinner,
   Tabs,
   Tokens,
-  toast,
   useHighlight,
 } from '../../ui'
 import { fmtSize } from '../attachments/api'
@@ -155,11 +154,7 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
     }
   }, [textual, read, attempt])
 
-  const copy = () =>
-    copyText(path).then(
-      () => toast({ type: 'success', message: '已复制路径' }),
-      () => toast({ type: 'error', message: '复制失败' }),
-    )
+  const copy = () => copyWithToast(path, '已复制路径')
 
   const body = (() => {
     switch (kind) {

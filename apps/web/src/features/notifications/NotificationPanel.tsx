@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import {
   Button,
@@ -99,7 +100,7 @@ function Panel({
     try {
       await api.post('/notifications/read-all')
     } catch (e) {
-      toast({ type: 'error', title: '标记已读失败', message: (e as Error).message })
+      toastError(e, '标记已读失败')
       return
     }
     const now = new Date().toISOString()
@@ -111,7 +112,7 @@ function Panel({
     try {
       await api.del('/notifications/read')
     } catch (e) {
-      toast({ type: 'error', title: '清除已读失败', message: (e as Error).message })
+      toastError(e, '清除已读失败')
       return
     }
     setItems((list) => list?.filter((n) => !n.readAt) ?? null)
@@ -121,7 +122,7 @@ function Panel({
     try {
       await api.del(`/notifications/${n.id}`)
     } catch (e) {
-      toast({ type: 'error', title: '删除通知失败', message: (e as Error).message })
+      toastError(e, '删除通知失败')
       return
     }
     setItems((list) => list?.filter((x) => x.id !== n.id) ?? null)

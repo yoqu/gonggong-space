@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
+import { toastError } from '../lib/errors'
 import { realtime } from '../lib/realtime'
-import { Alert, Button, Mascot, toast } from '../ui'
+import { Alert, Button, Mascot } from '../ui'
 import { useSession } from './session'
 import { loadWorkspace, useWorkspace } from './workspace'
 
@@ -19,7 +20,7 @@ export function RequireSession() {
     if (!userId) return
     const off = realtime.subscribe(useWorkspace.getState().applyEvent)
     realtime.start()
-    loadWorkspace().catch((e: Error) => toast({ type: 'error', title: '加载工作区失败', message: e.message }))
+    loadWorkspace().catch((e) => toastError(e, '加载工作区失败'))
     return () => {
       off()
       realtime.stop()

@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { api } from '../../lib/api'
+import { attempt } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Avatar,
   Button,
@@ -14,9 +15,7 @@ import {
   Dialog,
   EmptyState,
   GroupBox,
-  Icon,
   InspectorPanel,
-  NoBotsArt,
   PopUpButton,
   Presence,
   SearchField,
@@ -28,16 +27,16 @@ import {
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/BotDialog'
-import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { AGENT_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from '../bots/model'
 import { PreviewsView } from '../previews/PreviewsView'
 import { usePreviews } from '../previews/store'
 import { repoPath } from '../repos/RepoPicker'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
-import { effectiveTier, TIER_LABEL } from '../runs/tier'
+import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { groupsApi, paramsSummary } from './api'
-import { attempt } from './attempt'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
+import { BotPicker, MemberPicker } from './pickers'
 import './groups.css'
 
 export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params'
@@ -102,11 +101,9 @@ async function removeWithToast(fn: () => Promise<unknown>, name: string) {
 }
 
 const SCOPE_LABEL = (b: BotDto) =>
-  b.triggerScope === 'all'
-    ? '任何群成员'
-    : b.triggerScope === 'self'
-      ? '仅主人'
-      : `指定名单 ${b.triggerList.length} 人`
+  b.triggerScope === 'list'
+    ? `${TRIGGER_SCOPE_LABEL.list} ${b.triggerList.length} 人`
+    : TRIGGER_SCOPE_LABEL[b.triggerScope]
 
 /**
  * Group settings as the Pane ChatInfoPanel in the chat inspector: identity, shortcuts, members, my switches, 群管理
@@ -394,17 +391,11 @@ function MembersView({
   const me = useSession((s) => s.user)
   const allBots = useWorkspace((s) => s.bots)
   const [q, setQ] = useState('')
-  const [adding, setAdding] = useState(initialAdding)
-  const [users, setUsers] = useState<UserBriefDto[]>([])
-  const [usersFailed, setUsersFailed] = useState(false)
   const [removing, setRemoving] = useState<GroupDto['members'][number] | null>(null)
-  const loadUsers = useCallback(() => {
-    setUsersFailed(false)
-    api.get<UserBriefDto[]>('/users').then(setUsers, () => setUsersFailed(true))
-  }, [])
-  useEffect(() => {
-    if (adding) loadUsers()
-  }, [adding, loadUsers])
+  // Loaded once the picker first opens; reopening refreshes it.
+  const [wanted, setWanted] = useState(initialAdding)
+  const usersQ = useGet<UserBriefDto[]>(wanted ? '/users' : null)
+  const users = usersQ.data ?? []
   const candidates = users.filter((u) => !group.members.some((m) => m.userId === u.id))
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
 
@@ -413,28 +404,23 @@ function MembersView({
       <div className="gs-toolbar">
         <SearchField className="gs-search" placeholder="搜索成员" value={q} onChange={setQ} />
         {isAdmin ? (
-          <Button size="small" onClick={() => setAdding(!adding)}>
-            {adding ? '完成' : '添加成员'}
-          </Button>
+          <MemberPicker
+            placement="bottom-end"
+            trigger={<Button size="small">添加成员</Button>}
+            users={candidates}
+            defaultOpen={initialAdding}
+            onOpen={() => (wanted ? usersQ.reload() : setWanted(true))}
+            onAdd={(id) => void attempt(() => groupsApi.addMember(group.id, id))}
+            status={
+              usersQ.error ? (
+                <LoadError text="成员列表加载失败" onRetry={usersQ.reload} />
+              ) : users.length ? (
+                <span className="pick__empty">所有账号都已在群里</span>
+              ) : undefined
+            }
+          />
         ) : null}
       </div>
-      {adding ? (
-        <div className="gs-candidates">
-          {candidates.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              className="gs-candidate"
-              onClick={() => void attempt(() => groupsApi.addMember(group.id, u.id))}
-            >
-              <Icon name="plus" size={11} weight={2} />
-              {u.name}
-            </button>
-          ))}
-          {usersFailed ? <LoadError text="成员列表加载失败" onRetry={loadUsers} /> : null}
-          {users.length && !candidates.length ? <span className="gs-desc">所有账号都已在群里</span> : null}
-        </div>
-      ) : null}
       <GroupBox>
         {group.members
           .filter((m) => !q || m.name.includes(q))
@@ -491,15 +477,12 @@ function MembersView({
 export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) {
   const me = useSession((s) => s.user)
   const allBots = useWorkspace((s) => s.bots)
-  const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<BotDto | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const states = useWorkspace((s) => s.botStates[group.id])
   const editing = allBots.find((b) => b.id === editingId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
-  const candidates = allBots.filter(
-    (b) => !group.botIds.includes(b.id) && (group.kind === 'group' || b.ownerId === me?.id),
-  )
+  const choices = allBots.filter((b) => group.kind === 'group' || b.ownerId === me?.id)
   const inGroup = (userId: string) => group.members.some((m) => m.userId === userId)
 
   return (
@@ -510,33 +493,20 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
           {bots.filter((b) => b.presence === 'online' || b.presence === 'running').length}
         </span>
         {isAdmin ? (
-          <Button size="small" onClick={() => setAdding(!adding)}>
-            {adding ? '完成' : '拉入 Bot'}
-          </Button>
+          <BotPicker
+            placement="bottom-end"
+            trigger={<Button size="small">拉入 Bot</Button>}
+            bots={choices}
+            isOn={(id) => group.botIds.includes(id)}
+            onPick={(b, close) => {
+              if (!group.botIds.includes(b.id)) return void attempt(() => groupsApi.addBot(group.id, b.id))
+              close()
+              setRemoving(b)
+            }}
+            note={(b) => (inGroup(b.ownerId) ? '' : ' · 主人将一并加入')}
+          />
         ) : null}
       </div>
-      {adding ? (
-        <div className="gs-candidates gs-candidates--col">
-          {candidates.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className="gs-candidate gs-candidate--bot"
-              onClick={() => void attempt(() => groupsApi.addBot(group.id, b.id))}
-            >
-              <Icon name="plus" size={12} weight={2} />
-              <span className="gs-candidate__name">{b.name}</span>
-              <span className="gs-desc">
-                {AGENT_LABEL[b.agentKind]} · {b.ownerName}
-                {inGroup(b.ownerId) ? '' : ' · 主人将一并加入'}
-              </span>
-            </button>
-          ))}
-          {candidates.length ? null : (
-            <EmptyState compact title="没有可拉入的 Bot" illustration={<NoBotsArt />} />
-          )}
-        </div>
-      ) : null}
       <GroupBox>
         {bots.map((b) => (
           <div key={b.id} className="gs-bot">
@@ -668,7 +638,6 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
 }
 
 const FOLLOW = 'follow'
-const TIERS: Tier[] = ['read-only', 'workspace', 'full']
 
 /** This group's tier override; 跟随全局 clears it. */
 function GroupTierPicker({ groupId, bot, tier }: { groupId: string; bot: BotDto; tier: Tier | null }) {

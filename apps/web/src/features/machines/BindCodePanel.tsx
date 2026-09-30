@@ -1,25 +1,11 @@
 import type { BindCodeDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '../../lib/api'
-import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { api, errorText } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
+import { useNow } from '../../lib/now'
+import { countdown } from '../../lib/time'
+import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner } from '../../ui'
 import './machines.css'
-
-const mmss = (ms: number) => {
-  const s = Math.floor(ms / 1000)
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-}
-
-function useNow(active: boolean) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!active) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [active])
-  return now
-}
 
 export interface BindCode {
   code: BindCodeDto | null
@@ -56,8 +42,7 @@ export function useBindCode(open: boolean, done = false): BindCode {
 export const loginCommand = (code: BindCodeDto) =>
   `gg login --server ${location.origin} --code ${code.code}${code.fingerprint ? ` --fingerprint ${code.fingerprint}` : ''}`
 
-const copy = (text: string, message: string) =>
-  void navigator.clipboard?.writeText(text).then(() => toast({ type: 'success', message }))
+const copy = (text: string, message: string) => void copyWithToast(text, message)
 
 /** 接入链接: open it in the desktop app, or copy it; the gg login command sits under 使用命令行. */
 export function BindCodePanel({ bind }: { bind: BindCode }) {
@@ -68,7 +53,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
       <FormRow
         label="接入链接"
         align="top"
-        hint={waiting ? `一次性接入链接 · ${mmss(remaining)} 后失效` : undefined}
+        hint={waiting ? `一次性接入链接 · ${countdown(remaining)} 后失效` : undefined}
       >
         {expired ? (
           <span className="bind__code-line">

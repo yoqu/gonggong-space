@@ -1,6 +1,7 @@
 export * from './brand'
 export * from './calendar'
 export * from './color-well'
+export * from './confirm'
 export * from './context-menu'
 export * from './controls'
 export * from './disclosure'

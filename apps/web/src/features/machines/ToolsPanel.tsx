@@ -8,7 +8,8 @@ import {
   type ToolsStateDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import {
   Alert,
@@ -22,7 +23,6 @@ import {
   TextField,
   toast,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 
 const MIN_NODE = 22
 const TOOLS: { kind: ToolKind; name: string; sub: string }[] = [
@@ -97,7 +97,7 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
       setState(await api.put<ToolsStateDto>(`${base}/settings`, { mirror }))
       toast({ type: 'success', message: '镜像源已保存' })
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   }
 

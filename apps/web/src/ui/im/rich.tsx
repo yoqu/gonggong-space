@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
+import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { langFor, Tokens, useHighlight } from '../highlight'
 import { Icon } from '../icon'
@@ -39,7 +40,7 @@ export function CodeBlock({
           className="pn-code__copy"
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(code)
+              await copyText(code)
               setCopied(true)
             } catch {
               onCopyError?.()

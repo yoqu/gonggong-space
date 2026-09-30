@@ -1,18 +1,12 @@
 import { api } from '../../lib/api'
-import { Button, EmptyState, GroupBox, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { attempt } from '../../lib/errors'
+import { Button, EmptyState, GroupBox } from '../../ui'
 import './previews.css'
 import { openInWorkbench, openUrl, usePreviews } from './store'
 
 const SERVICE_STATE = { starting: '启动中', running: '运行中', exited: '已退出', failed: '启动失败' }
 
-async function act(path: string) {
-  try {
-    await api.post(path)
-  } catch (e) {
-    toast({ type: 'error', message: errorText(e) })
-  }
-}
+const act = (path: string) => attempt(() => api.post(path))
 
 /**
  * 群设置 · 预览与服务: what the group's bots published and host; the bot owner or a group admin may end them.

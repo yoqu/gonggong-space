@@ -2,7 +2,8 @@ import type { BotDto, BotProbeDto, GroupBotStateDto, GroupDto, RepoAccessReason 
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
+import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { Button, GroupBox, GroupRow, Icon, Presence, toast } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { groupsApi } from '../groups/api'
@@ -58,7 +59,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
       })
       setDraft(null)
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '保存失败，请重试' })
+      toastError(e)
     } finally {
       setSaving(false)
     }
@@ -67,7 +68,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
     api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
       .then(() => toast({ type: 'info', message: `正在让 ${bot.name} 的机器重新 clone…` }))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
 
   return (
     <div className="rw">

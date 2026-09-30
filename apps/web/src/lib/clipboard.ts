@@ -1,3 +1,5 @@
+import { toast } from '../ui/toast'
+
 /** Copies text; plain-http LAN access has no `navigator.clipboard`, so it falls back to a selected textarea. */
 export async function copyText(text: string) {
   if (navigator.clipboard) return navigator.clipboard.writeText(text)
@@ -14,3 +16,9 @@ export async function copyText(text: string) {
     area.remove()
   }
 }
+
+export const copyWithToast = (text: string, done: string, fail = '复制失败') =>
+  copyText(text).then(
+    () => toast({ type: 'success', message: done }),
+    () => toast({ type: 'error', message: fail }),
+  )

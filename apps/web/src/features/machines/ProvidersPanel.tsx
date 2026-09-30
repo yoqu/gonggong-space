@@ -6,11 +6,10 @@ import {
   type ProviderView,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { Alert, AlertDialog, Button, GroupBox, Presence, Skeleton, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
-import { AGENTS } from '../bots/model'
-import { AGENT_LABEL } from './BindMachineDialog'
+import { AGENT_LABEL, AGENTS } from '../bots/model'
 import { ProviderEditor } from './ProviderEditor'
 import { CcSwitchImport, LinkImport } from './ProviderImports'
 import { OFFICIAL_NAME, removalLines, SessionLines, useProviderSwitch } from './providers'
@@ -30,7 +29,7 @@ export function ProvidersPanel({ machine }: { machine: MachineDto }) {
       setView(await api.put<ProviderStoreView>(`${base}/default`, { agent, choice }))
       toast({ type: 'success', message: `${AGENT_LABEL[agent]} 的本机默认已切换，新会话生效` })
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   })
 
@@ -114,7 +113,7 @@ function ProviderBox({
       onView(await api.del<ProviderStoreView>(`/machines/${machine.id}/providers/${p.id}`))
       toast({ type: 'success', message: `已删除供应商 ${p.name}` })
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   }
   const removeNote =

@@ -4,6 +4,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
+import { pad } from '../../lib/time'
 import {
   Avatar,
   Button,
@@ -80,8 +81,6 @@ export const newSessionNote = (reason: string | null) =>
 
 const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
-
-const pad = (n: number) => String(n).padStart(2, '0')
 
 export function fmtTime(iso: string) {
   const d = new Date(iso)

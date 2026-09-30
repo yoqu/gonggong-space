@@ -51,3 +51,13 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T = void>(path: string) => request<T>('DELETE', path),
 }
+
+/** User-facing text for a failure; a bare HTTP error (proxy, gateway) reads as the server being unreachable. */
+export const errorText = (err: unknown) =>
+  err instanceof ApiError
+    ? err.code === 'http_error'
+      ? '无法连接服务器，请稍后重试'
+      : err.message
+    : err instanceof Error
+      ? err.message
+      : '操作失败，请重试'

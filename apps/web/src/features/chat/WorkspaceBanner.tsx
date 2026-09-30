@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { Button, PinnedBanner, Presence, toast } from '../../ui'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 
@@ -33,7 +34,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
     api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
       .then(() => toast({ type: 'info', message: `正在让 ${bot.name} 的机器重新 clone…` }))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
 
   const mineReady = waiting.filter((b) => b.ownerId === me?.id && b.machineId && !states?.[b.id]?.error)
   return (

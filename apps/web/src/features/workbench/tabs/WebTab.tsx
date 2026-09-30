@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { Button, EmptyState, Icon, Presence, SegmentedControl, TextField } from '../../../ui'
 import '../../previews/previews.css'
+import { PREVIEW_STATE } from '../../previews/PreviewCard'
 import { ShareDialog } from '../../previews/ShareDialog'
 import { openUrl, usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
@@ -29,13 +30,6 @@ function saveViewport(previewId: string, v: Viewport) {
   }
 }
 
-const STATE = {
-  online: { label: '在线', color: 'var(--system-green)' },
-  offline: { label: '离线', color: 'var(--system-gray)' },
-  stopped: { label: '服务已停止', color: 'var(--system-orange)' },
-  closed: { label: '已关闭', color: 'var(--system-gray)' },
-}
-
 /**
  * A preview in the workbench (design §4.2). The frame is cross-origin, so its own navigation can't be read: the path
  * field is only where the frame enters, never synced back.
@@ -61,7 +55,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
 
   const src = openUrl(tab.previewId, tab.path)
   const p = state?.preview
-  const status = state ? STATE[state.status] : null
+  const status = state ? PREVIEW_STATE[state.status] : null
   const enter = () => {
     const path = draft.trim().startsWith('/') ? draft.trim() : `/${draft.trim()}`
     setDraft(path)

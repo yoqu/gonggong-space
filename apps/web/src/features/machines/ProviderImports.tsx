@@ -6,10 +6,9 @@ import type {
   ProviderSavedDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { Checkbox, Dialog, GroupBox, Skeleton, Tag, TextField } from '../../ui'
-import { errorText } from '../auth/AuthCard'
-import { AGENT_LABEL } from './BindMachineDialog'
+import { AGENT_LABEL } from '../bots/model'
 
 /** 从 CC Switch 导入: the machine's own CC Switch providers of `agent`, keys masked; all chosen by default. */
 export function CcSwitchImport({

@@ -11,7 +11,8 @@ import {
 import { useIsMobile } from '../../app/viewport'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
-import { Composer, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { Composer } from '../../ui'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
 import { AppendBanner } from '../runs/AppendBanner'
@@ -207,7 +208,7 @@ export function MessageComposer({
       uploads.clear()
       if (q) useQuote.getState().clear()
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '发送失败，请检查网络后重试' })
+      toastError(e)
     } finally {
       sending.current = false
       setBusy(false)

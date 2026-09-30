@@ -16,8 +16,7 @@ import {
   Track,
 } from 'livekit-client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api } from '../../lib/api'
-import { errorText } from '../auth/AuthCard'
+import { api, errorText } from '../../lib/api'
 import {
   autoFps,
   type FpsPick,

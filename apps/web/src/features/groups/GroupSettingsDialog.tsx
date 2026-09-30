@@ -2,8 +2,8 @@ import { type GroupDto, GroupParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
-import { ApiError } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Spinner, Stepper, toast } from '../../ui'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { groupsApi } from './api'
@@ -58,7 +58,7 @@ export function GroupSettingsDialog({
       toast({ type: 'success', message: '群级参数已保存' })
       onClose()
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '保存失败，请重试' })
+      toastError(e)
     } finally {
       setSaving(false)
     }

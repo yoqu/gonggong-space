@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '../../app/session'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import {
   Button,
   Dialog,
@@ -16,10 +17,9 @@ import {
   TextField,
   toast,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 import { BotAvatar } from '../bots/avatars'
-import { PRESENCE } from '../bots/model'
-import { AGENT_LABEL, OS_LABEL } from './BindMachineDialog'
+import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { OS_LABEL } from './BindMachineDialog'
 import { ProvidersPanel } from './ProvidersPanel'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
 import { ToolsPanel } from './ToolsPanel'
@@ -77,7 +77,7 @@ export function MachineDialog({
       toast({ type: 'success', message: `已重命名为 ${m.name}` })
       onChanged?.()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     } finally {
       setSaving(false)
     }

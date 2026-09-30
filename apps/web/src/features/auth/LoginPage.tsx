@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
-import { api } from '../../lib/api'
-import { Button, Checkbox, Icon, SecureField, Spinner, TextField } from '../../ui'
-import { AuthCard, errorText } from './AuthCard'
+import { api, errorText } from '../../lib/api'
+import { Checkbox, Icon, SecureField, TextField } from '../../ui'
+import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
 import { useAuthOptions } from './options'
 
 const ACCOUNT_KEY = 'gonggong.lastAccount'
@@ -33,7 +33,7 @@ export function LoginPage() {
   const [keep, setKeep] = useState(() => remembered() !== '')
   const [error, setError] = useState('')
   const [errorKey, setErrorKey] = useState(0)
-  const [phase, setPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  const [phase, setPhase] = useState<SubmitPhase>('idle')
   const [forgot, setForgot] = useState(false)
   const options = useAuthOptions()
   const accountRef = useRef<HTMLInputElement>(null)
@@ -150,29 +150,7 @@ export function LoginPage() {
           </motion.p>
         ) : null}
       </AnimatePresence>
-      <Button
-        type="submit"
-        variant="primary"
-        size="xlarge"
-        fullWidth
-        className="auth__submit"
-        data-phase={phase}
-        aria-busy={phase === 'busy' || undefined}
-      >
-        {phase === 'busy' ? (
-          <>
-            <Spinner size={14} color="currentColor" />
-            登录中…
-          </>
-        ) : phase === 'done' ? (
-          <>
-            <Icon name="check" weight={2.4} />
-            登录成功
-          </>
-        ) : (
-          '登录'
-        )}
-      </Button>
+      <AuthSubmit phase={phase} label="登录" busy="登录中…" done="登录成功" />
     </AuthCard>
   )
 }

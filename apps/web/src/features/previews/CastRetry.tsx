@@ -1,20 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Button, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { useNow } from '../../lib/now'
+import { Button } from '../../ui'
 import './live.css'
-
-/** Seconds until `at`, ticking; 0 once past. */
-function useSecondsLeft(at: string | undefined) {
-  const left = () => (at ? Math.max(0, Math.ceil((Date.parse(at) - Date.now()) / 1000)) : 0)
-  const [secs, setSecs] = useState(left)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `left` reads `at`.
-  useEffect(() => {
-    setSecs(left())
-    if (!at) return
-    const timer = setInterval(() => setSecs(left()), 1000)
-    return () => clearInterval(timer)
-  }, [at])
-  return secs
-}
 
 /**
  * A failed live preview's next automatic try, and 立即重试 for when its cause is fixed (a window shown again). The
@@ -29,7 +17,8 @@ export function CastRetry({
   attempt: unknown
   retry: () => Promise<unknown>
 }) {
-  const secs = useSecondsLeft(retryAt)
+  const now = useNow(!!retryAt)
+  const secs = retryAt ? Math.max(0, Math.ceil((Date.parse(retryAt) - now) / 1000)) : 0
   const [busy, setBusy] = useState(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new report from the machine ends the wait.
   useEffect(() => setBusy(false), [attempt])
@@ -39,7 +28,7 @@ export function CastRetry({
       await retry()
     } catch (e) {
       setBusy(false)
-      toast({ type: 'error', message: e instanceof Error ? e.message : String(e) })
+      toastError(e)
     }
   }
   return (

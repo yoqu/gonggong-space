@@ -1,6 +1,7 @@
 import type { AuditDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
+import { pad } from '../../lib/time'
 import {
   Alert,
   Button,
@@ -19,7 +20,6 @@ import {
   Tag,
   type TagTone,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 import { AdminPage } from './AdminPage'
 
 const PAGE = 50
@@ -86,7 +86,6 @@ function AuditDialog({ record, onClose }: { record: AuditDto; onClose: () => voi
   )
 }
 
-const pad = (n: number) => String(n).padStart(2, '0')
 const stamp = (iso: string) => {
   const d = new Date(iso)
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`

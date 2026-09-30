@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
+import { pad } from '../../lib/time'
 import { Avatar, type AvatarProps, Badge, Tag } from '../display'
 import { Icon } from '../icon'
 import { Mascot } from '../mascot'
@@ -31,7 +32,6 @@ export interface Conversation {
 }
 
 const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六']
-const pad = (n: number) => String(n).padStart(2, '0')
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 
 /** List time (Pane IM): today「10:42」, yesterday「昨天」, within a week「星期二」, earlier「9月20日」. */

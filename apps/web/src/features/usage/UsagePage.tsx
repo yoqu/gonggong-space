@@ -1,10 +1,10 @@
 import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { useState } from 'react'
+import { fmtTokens } from '../../lib/format'
+import { useGet } from '../../lib/useGet'
 import { Alert, Dialog, EmptyState, NoDataArt, SegmentedControl, Spinner, Table, Tabs } from '../../ui'
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
-import { errorText } from '../auth/AuthCard'
 import './usage.css'
 
 type By = 'bot' | 'user' | 'group'
@@ -17,24 +17,6 @@ const TABS: { value: By; label: string }[] = [
 ]
 export const WINDOW = 30
 export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
-
-export const fmtTokens = (n: number) =>
-  n >= 999_500 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
-
-/** GET `path`; `data` stays null while loading. */
-export function useGet<T>(path: string) {
-  const [data, setData] = useState<T | null>(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    setData(null)
-    setError('')
-    api
-      .get<T>(path)
-      .then(setData)
-      .catch((e) => setError(errorText(e)))
-  }, [path])
-  return { data, error }
-}
 
 /** GET /api/usage; `rows` stays null while loading. */
 export function useUsage(query: string) {

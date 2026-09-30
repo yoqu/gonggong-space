@@ -8,7 +8,8 @@ import {
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Icon, MenuButton, type MenuItem, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { Icon, MenuButton, type MenuItem } from '../../ui'
 import { effortOptions, modelOptions, useBotCatalog, withModel } from '../bots/AgentConfig'
 
 export type Picks = Record<string, RunConfigPick>
@@ -115,7 +116,7 @@ function RunConfigChip({
     api
       .put(`/groups/${group.id}/bots/${bot.id}/config`, { model, effort })
       .then(() => set({}))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
   const efforts = effortOptions(available, model)
   const items: MenuItem[] = [
     { header: '模型' },

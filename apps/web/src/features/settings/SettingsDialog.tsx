@@ -5,6 +5,7 @@ import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import {
   Alert,
   Button,
@@ -20,7 +21,6 @@ import {
   Sheet,
   Spinner,
   TextField,
-  toast,
 } from '../../ui'
 import { ChangePasswordDialog } from '../auth/ChangePasswordPage'
 import '../groups/groups.css'
@@ -125,7 +125,7 @@ function GitPage() {
   const { accounts, load, set } = useGitAccounts()
   const [adding, setAdding] = useState(false)
   useEffect(() => {
-    load().catch((e: Error) => toast({ type: 'error', message: e.message }))
+    load().catch(toastError)
   }, [load])
   if (!user) return null
 
@@ -134,14 +134,14 @@ function GitPage() {
       await gitAccountsApi.remove(a.id)
       set((accounts ?? []).filter((x) => x.id !== a.id))
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
     }
   }
   const setProtocol = (gitProtocol: UserDto['gitProtocol']) =>
     api
       .patch<UserDto>('/me', { gitProtocol })
       .then((u) => useSession.getState().setUser(u))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
 
   return (
     <>

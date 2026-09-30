@@ -1,12 +1,8 @@
 import { motion, useAnimationControls } from 'motion/react'
 import { type FormEvent, type ReactNode, useEffect } from 'react'
-import { ApiError } from '../../lib/api'
-import { Logo } from '../../ui'
+import { Button, Icon, Logo, Spinner } from '../../ui'
 import { AuthStage, type AuthVariant, ThemeToggle } from './AuthStage'
 import './auth.css'
-
-export const errorText = (err: unknown) =>
-  err instanceof ApiError && err.code !== 'http_error' ? err.message : '无法连接服务器，请稍后重试'
 
 /**
  * Split auth screen shared by login, sign-up and the forced password change: the stage on the left,
@@ -56,5 +52,46 @@ export function AuthCard({
         </div>
       </main>
     </div>
+  )
+}
+
+export type SubmitPhase = 'idle' | 'busy' | 'done'
+
+/** Full-width submit that shows a spinner while busy and a check once done. */
+export function AuthSubmit({
+  phase,
+  label,
+  busy,
+  done,
+}: {
+  phase: SubmitPhase
+  label: string
+  busy: string
+  done: string
+}) {
+  return (
+    <Button
+      type="submit"
+      variant="primary"
+      size="xlarge"
+      fullWidth
+      className="auth__submit"
+      data-phase={phase}
+      aria-busy={phase === 'busy' || undefined}
+    >
+      {phase === 'busy' ? (
+        <>
+          <Spinner size={14} color="currentColor" />
+          {busy}
+        </>
+      ) : phase === 'done' ? (
+        <>
+          <Icon name="check" weight={2.4} />
+          {done}
+        </>
+      ) : (
+        label
+      )}
+    </Button>
   )
 }

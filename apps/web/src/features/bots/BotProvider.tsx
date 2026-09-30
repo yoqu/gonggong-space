@@ -9,8 +9,8 @@ import {
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { FormRow, PopUpButton, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
 import { effectiveProvider, OFFICIAL_NAME, providerName, useProviderSwitch } from '../machines/providers'
 import { useBotCatalog } from './AgentConfig'
 
@@ -44,7 +44,7 @@ export function BotProviderField({
 
   useEffect(() => {
     if (reason) return
-    api.get<ProviderStoreView>(base).then(setView, (e) => toast({ type: 'error', message: errorText(e) }))
+    api.get<ProviderStoreView>(base).then(setView, (e) => toastError(e))
   }, [base, reason])
 
   const effective = view && !reason ? effectiveProvider(view, bot.agentKind, bot.id) : OFFICIAL_PROVIDER
@@ -56,7 +56,7 @@ export function BotProviderField({
       setView(await api.put<ProviderStoreView>(`/bots/${bot.id}/provider`, { choice }))
       toast({ type: 'success', message: `${bot.name} 的供应商已切换，新会话生效` })
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   })
 

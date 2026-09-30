@@ -1,16 +1,11 @@
 import type { ControlReq, PreviewDto } from '@gonggong/protocol'
 import { api } from '../../lib/api'
-import { Button, Tag, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { attempt } from '../../lib/errors'
+import { Button, Tag } from '../../ui'
 import './live.css'
 
-async function act(previewId: string, body: ControlReq) {
-  try {
-    await api.post(`/previews/${previewId}/control`, body)
-  } catch (e) {
-    toast({ type: 'error', message: errorText(e) })
-  }
-}
+const act = (previewId: string, body: ControlReq) =>
+  attempt(() => api.post(`/previews/${previewId}/control`, body))
 
 /** Members waiting for control, for the bot owner or a group admin to approve (plan P14). */
 export function ControlRequests({ preview: p }: { preview: PreviewDto }) {

@@ -2,8 +2,9 @@ import type { BotDto, GroupDto, GroupProviderStateDto } from '@gonggong/protocol
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
-import { Button, PinnedBanner, toast } from '../../ui'
+import { Button, PinnedBanner } from '../../ui'
 import { postMessage, uuid } from './MessageComposer'
 
 type Item = GroupProviderStateDto['items'][number]
@@ -47,7 +48,7 @@ export function ProviderBanner({ group }: { group: GroupDto }) {
       quote: null,
       appendTo: null,
     })
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
       .finally(() => setSending(null))
   }
 

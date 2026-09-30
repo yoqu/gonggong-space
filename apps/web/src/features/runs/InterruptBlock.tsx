@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Button, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { Button } from '../../ui'
 import { useMemberName } from './RunActions'
 
 const TITLE = {
@@ -26,7 +27,7 @@ export function InterruptBlock({ run }: { run: RunDto }) {
     try {
       await api.post(`/runs/${run.id}/interrupt`, { choice })
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
     } finally {
       setBusy(false)
     }

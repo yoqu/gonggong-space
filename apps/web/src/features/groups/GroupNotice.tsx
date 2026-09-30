@@ -1,9 +1,9 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
+import { attempt } from '../../lib/errors'
 import { Button, Dialog, PinnedBanner, Presence, toast } from '../../ui'
 import { groupsApi } from './api'
-import { attempt } from './attempt'
 
 export const isGroupAdmin = (group: GroupDto, userId?: string) =>
   group.members.some((m) => m.userId === userId && m.isAdmin)

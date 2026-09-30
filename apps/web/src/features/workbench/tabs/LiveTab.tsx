@@ -45,7 +45,7 @@ export function LivePreview({
       <div className="wt-live__head">
         <span className={`pv-dot pv-dot--${p.status}`} />
         <span className="pv-card__title">{p.title}</span>
-        <span className="pv-muted">{PREVIEW_STATE[p.status]}</span>
+        <span className="pv-muted">{PREVIEW_STATE[p.status].label}</span>
       </div>
       {p.awaiting === 'login' ? (
         <div className="wt-live__login">

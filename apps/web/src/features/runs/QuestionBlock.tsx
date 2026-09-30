@@ -2,12 +2,14 @@ import type { Answer, Question, QuestionSetDto, RunDto } from '@gonggong/protoco
 import { useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
+import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { Button, Icon, Tag, Textarea, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { useNow } from '../../lib/now'
+import { countdown, hm } from '../../lib/time'
+import { Button, Icon, Tag, Textarea } from '../../ui'
 import { workspacePath } from '../attachments/api'
 import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
-import { countdown, hm, useNow } from './ApprovalBlock'
 import { QUESTION_TYPE } from './mcp'
 import { useMemberName } from './RunActions'
 import './question.css'
@@ -101,7 +103,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
         attachmentIds: uploads.ids,
       })
     } catch (e) {
-      toast({ type: 'error', message: e instanceof ApiError ? e.message : '提交失败' })
+      toastError(e)
     } finally {
       setBusy(false)
     }

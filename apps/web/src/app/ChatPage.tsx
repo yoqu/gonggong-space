@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { BotDialog } from '../features/bots/BotDialog'
 import { BotPage } from '../features/bots/BotPage'
-import { botsApi } from '../features/bots/model'
+import { confirmBot } from '../features/bots/model'
 import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
@@ -13,7 +13,7 @@ import { openTab } from '../features/workbench/open'
 import { Workbench } from '../features/workbench/Workbench'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
-import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence, toast } from '../ui'
+import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence } from '../ui'
 import { AppRail } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
@@ -162,12 +162,7 @@ export function ChatPage() {
             onBindMachine={() => setBinding(true)}
             onNewBot={() => setNewBot(true)}
             onOpenMachine={setMachineId}
-            onConfirmBot={(id) =>
-              botsApi
-                .confirm(id)
-                .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
-                .catch((e: Error) => toast({ type: 'error', message: e.message }))
-            }
+            onConfirmBot={(id) => void confirmBot(id)}
           />
         }
       >

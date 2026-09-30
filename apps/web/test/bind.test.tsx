@@ -81,7 +81,7 @@ describe('bind machine dialog', () => {
     api()
     render(<BindMachineDialog open onClose={() => {}} />)
     expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P', null))
-    expect(screen.getByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
+    expect(await screen.findByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
     expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
     for (const step of ['生成接入链接', '客户端绑定', '上报机器与 agent'])
       expect(screen.getByText(step)).toBeTruthy()

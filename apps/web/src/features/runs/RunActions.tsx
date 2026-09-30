@@ -1,9 +1,12 @@
 import type { RunDto, RunStatus } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
-import { Button, Dialog, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { useNow } from '../../lib/now'
+import { countdown } from '../../lib/time'
+import { Button, Dialog } from '../../ui'
 import { useAppend } from './append'
 
 const STOPPABLE: RunStatus[] = ['queued', 'running', 'awaiting_approval', 'awaiting_answer']
@@ -14,8 +17,6 @@ export const useMemberName = (groupId: string, userId: string | null) =>
   useWorkspace(
     (s) => s.groups.find((g) => g.id === groupId)?.members.find((m) => m.userId === userId)?.name ?? '—',
   )
-
-const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Spec §8.9: the trigger user (chain initiator) or the bot owner may send the next message into a live run. */
 function AppendAction({ run }: { run: RunDto }) {
@@ -46,7 +47,7 @@ export function RunActions({ run }: { run: RunDto }) {
       await api.post(`/runs/${run.id}/${chain ? 'stop-chain' : 'stop'}`, {})
       setConfirming(false)
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
     } finally {
       setBusy(false)
     }
@@ -98,13 +99,8 @@ export function RunActions({ run }: { run: RunDto }) {
 /** Spec §4.8: an offline bot's request waits in its queue and expires (the trigger user is told). */
 export function OfflineNote({ run }: { run: RunDto }) {
   const trigger = useMemberName(run.groupId, run.triggerUserId ?? run.originUserId)
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  const s = Math.floor(Math.max(0, Date.parse(run.queuedAt) + run.offlineWaitMin * 60_000 - now) / 1000)
+  const left = Date.parse(run.queuedAt) + run.offlineWaitMin * 60_000 - useNow(true)
   return (
-    <span>{`Bot 离线，已进入本机队列 · 上线后自动执行，${pad(Math.floor(s / 60))}:${pad(s % 60)} 后作废并通知 ${trigger}`}</span>
+    <span>{`Bot 离线，已进入本机队列 · 上线后自动执行，${countdown(left)} 后作废并通知 ${trigger}`}</span>
   )
 }

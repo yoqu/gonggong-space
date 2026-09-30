@@ -10,23 +10,19 @@ import {
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api } from '../../lib/api'
+import { fmtTokens } from '../../lib/format'
 import { realtime } from '../../lib/realtime'
-import { Alert, Button, ChatHeader, Tag, toast } from '../../ui'
+import { ago } from '../../lib/time'
+import { useGet } from '../../lib/useGet'
+import { ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { TIER_LABEL } from '../runs/tier'
-import { fmtTokens, Trend, TZ, UsageBars, useGet, WINDOW } from '../usage/UsagePage'
+import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { APPROVAL_LABEL } from './ApprovalFields'
 import { BotAvatar, ROLES } from './avatars'
-import { TRIGGER_SCOPE_LABEL, warning } from './BotsAdminPage'
-import { agentLine, botsApi, PRESENCE } from './model'
+import { BotWarning } from './BotsAdminPage'
+import { agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import './bots.css'
-
-function ago(iso: string) {
-  const min = Math.floor((Date.now() - Date.parse(iso)) / 60_000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
-}
 
 /** Groups the bot is in; refetched whenever one of its runs changes. */
 function usePlaces(botId: string, enabled: boolean) {
@@ -205,14 +201,8 @@ export function BotPage({
   const canView = owner || me.role === 'sysadmin'
   const places = usePlaces(bot.id, canView)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
-  const warn = warning(bot, (id) => users.find((u) => u.id === id)?.name ?? '--')
   const role = ROLES[bot.avatar]
   const presence = PRESENCE[bot.presence]
-  const confirm = () =>
-    botsApi
-      .confirm(bot.id)
-      .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
 
   return (
     <section className="bot-page" aria-label="Bot 概况">
@@ -244,17 +234,7 @@ export function BotPage({
           </div>
         </div>
 
-        {warn ? (
-          <Alert variant="warning" title={warn.title} description={warn.desc}>
-            {bot.presence === 'pending_confirm' && owner ? (
-              <div className="bots-detail__confirm">
-                <Button variant="primary" onClick={() => void confirm()}>
-                  确认
-                </Button>
-              </div>
-            ) : null}
-          </Alert>
-        ) : null}
+        <BotWarning bot={bot} users={users} owner={owner} />
 
         {canView ? (
           <>

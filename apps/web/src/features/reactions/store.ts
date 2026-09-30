@@ -2,8 +2,8 @@ import type { MessageDto, ReactionDto, ReactionEmoji } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
-import { toast } from '../../ui'
 import { setReaction } from './api'
 
 export type ReactionTarget = Pick<MessageDto, 'id' | 'groupId' | 'reactions'>
@@ -55,6 +55,6 @@ export async function toggleReaction(messageId: string, current: ReactionDto[], 
     put(messageId, (await setReaction(messageId, emoji, on)).reactions)
   } catch (e) {
     put(messageId, current)
-    toast({ type: 'error', message: e instanceof Error ? e.message : '表情回应失败' })
+    toastError(e)
   }
 }

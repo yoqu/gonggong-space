@@ -2,8 +2,9 @@ import type { CreatedPreviewShare, PreviewDto, PreviewShareDto } from '@gonggong
 import { PREVIEW_SHARE_DEFAULT_DAYS } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { Button, Dialog, GroupBox, PopUpButton, Tag, TextField, toast } from '../../ui'
-import { errorText } from '../auth/AuthCard'
+import { copyWithToast } from '../../lib/clipboard'
+import { toastError } from '../../lib/errors'
+import { Button, Dialog, GroupBox, PopUpButton, Tag, TextField } from '../../ui'
 
 const DAYS = [1, 3, 7, 30].map((d) => ({ value: String(d), label: `${d} 天` }))
 
@@ -23,7 +24,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
       api
         .get<PreviewShareDto[]>(`/previews/${preview.id}/shares`)
         .then(setShares)
-        .catch((e) => toast({ type: 'error', message: errorText(e) })),
+        .catch((e) => toastError(e)),
     [preview.id],
   )
   useEffect(() => void load(), [load])
@@ -36,7 +37,7 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
       setCreated(res.url)
       await load()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
     setBusy(false)
   }
@@ -45,18 +46,10 @@ export function ShareDialog({ preview, onClose }: { preview: PreviewDto; onClose
       await api.post(`/preview-shares/${s.id}/revoke`)
       await load()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   }
-  const copy = async () => {
-    if (!created) return
-    try {
-      await navigator.clipboard.writeText(created)
-      toast({ message: '已复制公开链接' })
-    } catch {
-      toast({ type: 'error', message: '复制失败，请手动选择链接' })
-    }
-  }
+  const copy = () => created && void copyWithToast(created, '已复制公开链接', '复制失败，请手动选择链接')
   return (
     <Dialog
       open

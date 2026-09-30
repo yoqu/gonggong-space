@@ -1,7 +1,8 @@
 import { type BotDto, type DirListingDto, type GroupDto, repoKey } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { AlertDialog, Icon, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { AlertDialog, Icon } from '../../ui'
 import { repoPath } from '../repos/RepoPicker'
 import { DirPicker } from './DirPicker'
 
@@ -39,7 +40,7 @@ export function WorkspacePicker({
         onDone?.()
         onClose()
       })
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
   // A directory outside the group repo is allowed for this bot only, after a warning. Local (file://) group repos
   // can't be compared here; the daemon keeps checking those.
   const pick = async (path: string) => {
@@ -52,7 +53,7 @@ export function WorkspacePicker({
       if (git?.remotes.some((u) => repoKey(u) === want)) return bind(path)
       setForeign({ path, remote: git ? (git.remotes[0] ?? '无 remote') : '不是 git 仓库' })
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
     }
   }
 

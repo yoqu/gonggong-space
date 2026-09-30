@@ -1,5 +1,7 @@
 import type { BotDto, GroupBotStateDto, Tier } from '@gonggong/protocol'
 
+export const TIERS: Tier[] = ['read-only', 'workspace', 'full']
+
 export const TIER_LABEL: Record<Tier, string> = {
   'read-only': '只读',
   workspace: '工作区写入',

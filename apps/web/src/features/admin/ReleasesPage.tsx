@@ -6,10 +6,10 @@ import {
   type ReleaseKind,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { Alert, AlertDialog, type DropFile, DropZone, Spinner, Table, Tag, toast } from '../../ui'
 import { fmtSize, postForm } from '../attachments/api'
-import { errorText } from '../auth/AuthCard'
 import { OS_LABEL } from '../machines/BindMachineDialog'
 import { AdminPage } from './AdminPage'
 
@@ -91,7 +91,7 @@ export function ReleasesPage() {
       setRelease(await api.del<DaemonRelease>(`/admin/daemon-release/${removing.kind}/${removing.platform}`))
       toast({ type: 'success', message: `已移除 ${KIND_LABEL[removing.kind]}（${removing.platform}）` })
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
     setRemoving(null)
   }

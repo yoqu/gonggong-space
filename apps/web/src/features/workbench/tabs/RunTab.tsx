@@ -11,9 +11,11 @@ import { create } from 'zustand'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { api } from '../../../lib/api'
+import { copyWithToast } from '../../../lib/clipboard'
 import { cx } from '../../../lib/cx'
 import { useNow } from '../../../lib/now'
 import { realtime } from '../../../lib/realtime'
+import { hm } from '../../../lib/time'
 import {
   EmptyState,
   FailedArt,
@@ -33,7 +35,7 @@ import { DiffPane } from '../../diff/DiffPane'
 import type { DiffSource } from '../../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
 import { ProcessView } from '../../runs/ProcessView'
-import { approvalText, buildSteps, hhmm } from '../../runs/process'
+import { approvalText, buildSteps } from '../../runs/process'
 import { openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
 import { locateFile } from './DiffTab'
@@ -341,7 +343,7 @@ function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: s
         <Icon name="chevron-right" size={12} className="run-round__chevron" />
         <span className="run-round__prompt">{prompt || '—'}</span>
         <span className="run-round__meta">
-          {run.startedAt ? hhmm(run.startedAt) : ''}
+          {run.startedAt ? hm(run.startedAt) : ''}
           {worked === null ? '' : ` · ${fmtDuration(worked)}`}
         </span>
         <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag>
@@ -378,15 +380,7 @@ async function stopTask(runId: string, taskId: string) {
 }
 
 function SessionId({ id }: { id: string }) {
-  // navigator.clipboard is missing outside secure contexts, so the call itself may throw.
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(id)
-      toast({ type: 'success', message: '已复制会话 ID' })
-    } catch {
-      toast({ type: 'error', message: '复制失败' })
-    }
-  }
+  const copy = () => void copyWithToast(id, '已复制会话 ID')
   return (
     <span className="run-tab__session">
       <span className="run-tab__session-id" title={id}>
@@ -459,7 +453,7 @@ function Audit({ detail, userName }: { detail: RunDetailDto; userName: (id: stri
     <>
       {rows.map((r) => (
         <div key={`${r.at}${r.text}`} className="run-audit">
-          <span className="run-audit__time">{hhmm(r.at)}</span>
+          <span className="run-audit__time">{hm(r.at)}</span>
           <span className="run-audit__text">{r.text}</span>
         </div>
       ))}

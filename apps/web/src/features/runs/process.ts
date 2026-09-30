@@ -1,4 +1,5 @@
 import type { ApprovalDto, RunDetailDto } from '@gonggong/protocol'
+import { hm } from '../../lib/time'
 import { newSessionNote } from '../chat/TimelineItems'
 import { parsePatch } from '../diff/patch'
 import { VOID_TEXT } from './ApprovalBlock'
@@ -6,12 +7,6 @@ import { CONFIG_ECHO } from './mcp'
 import { processSteps, type Step, type Timed } from './steps'
 
 export type { Step }
-
-const pad = (n: number) => String(n).padStart(2, '0')
-export const hhmm = (iso: string) => {
-  const d = new Date(iso)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 export function approvalText(a: ApprovalDto) {
   switch (a.status) {
@@ -62,7 +57,7 @@ export function buildSteps(d: RunDetailDto): Step[] {
         key: `a${a.id}`,
         kind: 'approval',
         label: '权限请求',
-        meta: hhmm(a.createdAt),
+        meta: hm(a.createdAt),
         mono: a.detail,
         body: approvalText(a),
         running: a.status === 'pending',

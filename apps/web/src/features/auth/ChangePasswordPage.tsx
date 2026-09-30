@@ -2,9 +2,9 @@ import type { UserDto } from '@gonggong/protocol'
 import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '../../app/session'
-import { api } from '../../lib/api'
-import { Alert, Button, Dialog, Icon, SecureField, Spinner, toast } from '../../ui'
-import { AuthCard, errorText } from './AuthCard'
+import { api, errorText } from '../../lib/api'
+import { Alert, Dialog, Icon, SecureField, toast } from '../../ui'
+import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
 import { logout } from './logout'
 
 const MIN_LENGTH = 8
@@ -18,14 +18,13 @@ function strength(pw: string) {
   return Math.min(4, 1 + (kinds >= 2 ? 1 : 0) + (kinds >= 3 ? 1 : 0) + (pw.length >= 12 ? 1 : 0))
 }
 
-type Phase = 'idle' | 'busy' | 'done'
 type RuleState = 'ok' | 'bad' | undefined
 
 function usePasswordChange(onChanged: (me: UserDto) => void) {
   const [form, setForm] = useState({ old: '', next: '', confirm: '' })
   const [error, setError] = useState('')
   const [errorKey, setErrorKey] = useState(0)
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [phase, setPhase] = useState<SubmitPhase>('idle')
   const [confirmLeft, setConfirmLeft] = useState(false)
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -72,24 +71,6 @@ function usePasswordChange(onChanged: (me: UserDto) => void) {
 }
 
 type PasswordChange = ReturnType<typeof usePasswordChange>
-
-function SubmitContent({ phase, label }: { phase: Phase; label: string }) {
-  if (phase === 'busy')
-    return (
-      <>
-        <Spinner size={14} color="currentColor" />
-        保存中…
-      </>
-    )
-  if (phase === 'done')
-    return (
-      <>
-        <Icon name="check" weight={2.4} />
-        已更新
-      </>
-    )
-  return label
-}
 
 function PasswordChangeFields({
   pc,
@@ -170,19 +151,7 @@ function PasswordChangeFields({
           </motion.div>
         ) : null}
       </AnimatePresence>
-      {submitLabel ? (
-        <Button
-          type="submit"
-          variant="primary"
-          size="xlarge"
-          fullWidth
-          className="auth__submit"
-          data-phase={phase}
-          aria-busy={phase === 'busy' || undefined}
-        >
-          <SubmitContent phase={phase} label={submitLabel} />
-        </Button>
-      ) : null}
+      {submitLabel ? <AuthSubmit phase={phase} label={submitLabel} busy="保存中…" done="已更新" /> : null}
     </>
   )
 }

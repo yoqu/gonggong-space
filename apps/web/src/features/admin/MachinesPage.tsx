@@ -1,7 +1,8 @@
 import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
+import { ago } from '../../lib/time'
 import {
   Alert,
   EmptyState,
@@ -16,8 +17,7 @@ import {
   ToolbarButton,
   ToolbarGroup,
 } from '../../ui'
-import { errorText } from '../auth/AuthCard'
-import { AGENT_LABEL } from '../machines/BindMachineDialog'
+import { AGENT_LABEL } from '../bots/model'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
@@ -33,11 +33,7 @@ const POLL_MS = 15_000
 /** The server stamps lastSeenAt on connect and disconnect only, so an online machine is live by definition. */
 function lastHeartbeat(m: AdminMachineDto) {
   if (m.online) return '刚刚'
-  if (!m.lastSeenAt) return '从未连接'
-  const min = Math.floor((Date.now() - Date.parse(m.lastSeenAt)) / 60_000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
+  return m.lastSeenAt ? ago(m.lastSeenAt) : '从未连接'
 }
 
 /** Latest measurement reported by the daemon; red with a warning sign past the force-sync thresholds. */

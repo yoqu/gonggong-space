@@ -1,9 +1,10 @@
 import type { PreviewShareDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Alert, EmptyState, SearchField, Spinner, Table, Tag, toast } from '../../ui'
+import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
+import { Alert, EmptyState, SearchField, Spinner, Table, Tag } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
-import { errorText } from '../auth/AuthCard'
 import { shareState } from './ShareDialog'
 
 const DAY = 86400_000
@@ -11,21 +12,8 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '�
 
 /** 管理后台 · 公开链接 (plan P8): every public preview link across groups; revoke or extend any of them. */
 export function SharesPage() {
-  const [rows, setRows] = useState<PreviewShareDto[] | null>(null)
-  const [error, setError] = useState('')
+  const { data: rows, error, reload } = useGet<PreviewShareDto[]>('/admin/preview-shares')
   const [query, setQuery] = useState('')
-  const load = useCallback(
-    () =>
-      api
-        .get<PreviewShareDto[]>('/admin/preview-shares')
-        .then((list) => {
-          setRows(list)
-          setError('')
-        })
-        .catch((e) => setError(errorText(e))),
-    [],
-  )
-  useEffect(() => void load(), [load])
   const act = async (action: string, s: PreviewShareDto) => {
     try {
       if (action === 'revoke') await api.post(`/preview-shares/${s.id}/revoke`)
@@ -33,9 +21,9 @@ export function SharesPage() {
         const expiresAt = new Date(Math.max(Date.parse(s.expiresAt), Date.now()) + 7 * DAY).toISOString()
         await api.patch(`/admin/preview-shares/${s.id}`, { expiresAt })
       }
-      await load()
+      reload()
     } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
+      toastError(e)
     }
   }
   const q = query.trim().toLowerCase()

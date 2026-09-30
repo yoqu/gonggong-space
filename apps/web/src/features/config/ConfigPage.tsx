@@ -1,6 +1,6 @@
 import { GONGGONG_TOOLS, type McpServer, type McpServerDto } from '@gonggong/protocol'
 import { type CSSProperties, useCallback, useEffect, useId, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import {
   Alert,
   Button,
@@ -24,7 +24,6 @@ import {
   UnsupportedArt,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
-import { errorText } from '../auth/AuthCard'
 import './config.css'
 
 const TITLE = '配置中心'

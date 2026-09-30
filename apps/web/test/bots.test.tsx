@@ -523,7 +523,9 @@ describe('bot detail', () => {
     renderAt('/admin/bots', admin)
     const grid = await screen.findByRole('grid', { name: 'Bot 列表' })
     const template = (grid.querySelector('.ui-table__head') as HTMLElement).style.gridTemplateColumns
-    expect(template.startsWith('minmax(160px, 1fr) minmax(0, 150px) 96px 64px minmax(0, 200px) 104px')).toBe(true)
+    expect(template.startsWith('minmax(160px, 1fr) minmax(0, 150px) 96px 64px minmax(0, 200px) 104px')).toBe(
+      true,
+    )
   })
 
   it('warns when the bot waits for its owner', async () => {

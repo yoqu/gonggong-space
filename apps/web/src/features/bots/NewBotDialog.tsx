@@ -2,6 +2,7 @@ import type { AgentKind, BotAvatar, BotDto, BotOwnerDto, MachineDto, UserDto } f
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import {
   Alert,
   Button,
@@ -150,7 +151,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         setOwners(sorted)
         if (sorted[0]) setDraft(draftFor(sorted[0], sorted[0].machines))
       })
-      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+      .catch(toastError)
   }, [me.id])
 
   const owner = owners?.find((o) => o.id === draft?.ownerId)
@@ -221,7 +222,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
       onCreated?.(bot)
       setCreated(bot)
     } catch (e) {
-      toast({ type: 'error', message: (e as Error).message })
+      toastError(e)
       setBusy(false)
     }
   }

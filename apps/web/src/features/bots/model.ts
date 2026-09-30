@@ -4,9 +4,12 @@ import {
   type BotDto,
   compareVersions,
   type MachineDto,
+  type TriggerScope,
 } from '@gonggong/protocol'
 import { refreshNotifCount, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
+import { toast } from '../../ui'
 
 export const AGENTS: AgentKind[] = ['claude', 'codex']
 export const AGENT_LABEL: Record<AgentKind, string> = { claude: 'Claude Code', codex: 'Codex' }
@@ -96,4 +99,16 @@ export const botsApi = {
     await refreshNotifCount()
     return bot
   },
+}
+
+export const confirmBot = (id: string) =>
+  botsApi
+    .confirm(id)
+    .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
+    .catch(toastError)
+
+export const TRIGGER_SCOPE_LABEL: Record<TriggerScope, string> = {
+  all: '任何群成员',
+  list: '指定名单',
+  self: '仅本人',
 }
