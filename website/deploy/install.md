@@ -1,6 +1,6 @@
 # 从源码部署
 
-本页按步骤在一台 Linux 服务器上从源码部署共工Bot 服务端：准备环境、建库、构建网页、配置并用 systemd 启动 server、创建首个管理员。
+本页按步骤在一台 Linux 服务器上从源码部署共工空间服务端：准备环境、建库、构建网页、配置并用 systemd 启动 server、创建首个管理员。
 
 以下示例假设：代码放在 `/srv/gonggong`，数据目录 `/var/lib/gonggong`，配置文件 `/etc/gonggong/server.env`，以系统用户 `gonggong` 运行。
 
@@ -23,7 +23,7 @@ node --version            # 确认 ≥ 22
 
 ```bash
 sudo useradd --system --home /srv/gonggong --shell /usr/sbin/nologin gonggong
-sudo git clone https://github.com/yoqu/gonggong.git /srv/gonggong
+sudo git clone https://github.com/yoqu/gonggong-space.git /srv/gonggong
 sudo chown -R gonggong: /srv/gonggong
 cd /srv/gonggong
 sudo -u gonggong pnpm install --frozen-lockfile

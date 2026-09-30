@@ -1,6 +1,6 @@
 # 协议
 
-本页介绍共工Bot 各组件之间的通信契约：`packages/protocol` 的组成、daemon 与服务器的消息、ACP 与 Agent 适配器、内置 MCP 工具，以及预览隧道的二进制帧。
+本页介绍共工空间各组件之间的通信契约：`packages/protocol` 的组成、daemon 与服务器的消息、ACP 与 Agent 适配器、内置 MCP 工具，以及预览隧道的二进制帧。
 
 ## 总览
 

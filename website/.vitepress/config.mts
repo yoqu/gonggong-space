@@ -1,20 +1,20 @@
 import { defineConfig } from 'vitepress'
 
-const REPO = 'https://github.com/yoqu/gonggong'
+const REPO = 'https://github.com/yoqu/gonggong-space'
 
 export default defineConfig({
   lang: 'zh-CN',
-  title: '共工Bot',
+  title: '共工空间',
   description: '在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工。',
   // GitHub Pages project site: https://<owner>.github.io/gonggong/
-  base: process.env.DOCS_BASE ?? '/gonggong/',
+  base: process.env.DOCS_BASE ?? '/gonggong-space/',
   cleanUrls: true,
   srcExclude: ['WRITING.md', 'scripts/**'],
   lastUpdated: true,
-  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/gonggong/logo.svg' }]],
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/gonggong-space/logo.svg' }]],
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: '共工Bot',
+    siteTitle: '共工空间',
     nav: [
       { text: '指南', link: '/guide/introduction', activeMatch: '/guide/' },
       { text: '使用手册', link: '/user/login', activeMatch: '/user/' },
@@ -29,7 +29,7 @@ export default defineConfig({
         {
           text: '入门',
           items: [
-            { text: '共工Bot 是什么', link: '/guide/introduction' },
+            { text: '共工空间是什么', link: '/guide/introduction' },
             { text: '核心概念', link: '/guide/concepts' },
             { text: '系统架构', link: '/guide/architecture' },
             { text: '快速上手', link: '/guide/quick-start' },
@@ -174,6 +174,6 @@ export default defineConfig({
     returnToTopLabel: '回到顶部',
     sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '外观',
-    footer: { copyright: 'Copyright © 2026 共工Bot' },
+    footer: { copyright: 'Copyright © 2026 共工空间' },
   },
 })

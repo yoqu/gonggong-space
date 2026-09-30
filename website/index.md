@@ -2,22 +2,22 @@
 layout: home
 
 hero:
-  name: 共工Bot
+  name: 共工空间
   text: 让 AI 同事在群里接力干活
   tagline: 在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工。过程实时可见，改动随时可审。
   image:
     src: /logo.svg
-    alt: 共工Bot
+    alt: 共工空间
   actions:
     - theme: brand
       text: 快速上手
       link: /guide/quick-start
     - theme: alt
-      text: 共工Bot 是什么
+      text: 共工空间是什么
       link: /guide/introduction
     - theme: alt
       text: GitHub
-      link: https://github.com/yoqu/gonggong
+      link: https://github.com/yoqu/gonggong-space
 
 features:
   - icon: 💬

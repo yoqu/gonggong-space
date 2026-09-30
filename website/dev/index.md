@@ -1,8 +1,8 @@
 # 参与开发
 
-本页介绍共工Bot 的技术栈，以及第一次读代码时从哪里入手。
+本页介绍共工空间的技术栈，以及第一次读代码时从哪里入手。
 
-共工Bot 是一个 pnpm + Cargo 的单仓（monorepo）：TypeScript 写服务器、Web 与桌面端界面，Rust 写成员机器上的 daemon 与 `gg` 命令行，两边共用一份协议定义。
+共工空间是一个 pnpm + Cargo 的单仓（monorepo）：TypeScript 写服务器、Web 与桌面端界面，Rust 写成员机器上的 daemon 与 `gg` 命令行，两边共用一份协议定义。
 
 ## 技术栈一览
 

@@ -1,10 +1,10 @@
 <p align="center"><img src="docs/brand/logo.svg" width="96" alt="共工"></p>
 
-<h1 align="center">共工 Gonggong</h1>
+<h1 align="center">共工空间 Gonggong Space</h1>
 
 <p align="center">在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工。</p>
 
-共工是面向小团队的 AI 协作平台：成员在 Web 群聊里指挥各自机器上的 agent（Bot），每个 Bot 在自己的工作区里干活，接力完成同一个 git 仓库，过程实时可见。
+共工空间是面向小团队的 AI 协作平台：成员在 Web 群聊里指挥各自机器上的 agent（Bot），每个 Bot 在自己的工作区里干活，接力完成同一个 git 仓库，过程实时可见。
 
 名字取自上古水神共工；「共」字甲骨文是双手合力托举一物。Logo 即两道浪尖托起一枚玉。
 
