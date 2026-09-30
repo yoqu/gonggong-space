@@ -13,6 +13,7 @@
       "!.obsidian",
       "!**/test-results",
       "!**/playwright-report",
+      "!website/.vitepress/cache",
       "!apps/web/src/ui/im/twemoji"
     ]
   },

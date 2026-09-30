@@ -2,6 +2,7 @@ packages:
   - packages/*
   - apps/*
   - tools/*
+  - website
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:

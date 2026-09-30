@@ -12,3 +12,4 @@ test-results/
 .claude/worktrees/
 test-results/
 .obsidian/
+website/.vitepress/cache/
