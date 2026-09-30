@@ -7,7 +7,7 @@ import type { DiffSource } from './store'
 
 const EMPTY: WorkspaceDiff = { patch: null, files: [], base: null, branch: null, error: null, loading: true }
 
-/** A live turn keeps changing: refetch its diff at most this often while run.updated events arrive. */
+/** A live turn keeps changing: refetch its diff at most this often while its run moves. */
 const LIVE_REFETCH_MS = 2000
 
 export interface WorkspaceDiff {
@@ -56,7 +56,8 @@ export function useWorkspaceDiff(
     setState((s) => ({ ...s, loading: true }))
     void load()
     const off = realtime.subscribe((e) => {
-      if (e.t !== 'run.updated' || e.run.botId !== botId || e.run.groupId !== groupId || timer) return
+      const of = e.t === 'run.updated' ? e.run : e.t === 'run.progress' ? e : null
+      if (!of || of.botId !== botId || of.groupId !== groupId || timer) return
       timer = setTimeout(() => {
         timer = undefined
         void load()

@@ -451,9 +451,11 @@ describe('chat view', () => {
     expect(card.textContent).toContain('读取聊天记录')
     expect(card.textContent).not.toContain('mcp__')
 
+    // A burst of streamed text lands as one update rather than a re-render per chunk.
     push({ t: 'run.delta', runId: 'r1', text: '正在对比 v1 与 v2 ' })
     push({ t: 'run.delta', runId: 'r1', text: '的字段' })
-    expect(card.textContent).toContain('正在对比 v1 与 v2 的字段')
+    expect(card.textContent).not.toContain('正在对比')
+    await waitFor(() => expect(card.textContent).toContain('正在对比 v1 与 v2 的字段'))
     push({
       t: 'run.updated',
       run: run({ status: 'completed', usage: null, endedAt: at, newSessionReason: 'resume_failed' }),

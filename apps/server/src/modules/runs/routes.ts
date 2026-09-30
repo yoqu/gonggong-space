@@ -1,4 +1,4 @@
-import type { RunDetailDto, RunEvent, RunSessionDto } from '@gonggong/protocol'
+import { type RunDetailDto, RunDetailQuery, type RunEvent, type RunSessionDto } from '@gonggong/protocol'
 import { and, asc, desc, eq, gte, isNotNull, lt, lte, max } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -14,6 +14,24 @@ import { openEvent } from './sealed.js'
 /** Most rounds the session list returns; older ones are rarely worth scrolling back to. */
 const SESSION_ROUNDS = 50
 
+/** A long stream is stored as consecutive rows (see appendStream); clients get it back as one event. */
+function joinStreams(events: RunDetailDto['events']) {
+  const out: RunDetailDto['events'] = []
+  for (const e of events) {
+    const last = out.at(-1)
+    const prev = last?.event
+    if (
+      last &&
+      (e.event.kind === 'text' || e.event.kind === 'thought') &&
+      prev?.kind === e.event.kind &&
+      prev.agentId === e.event.agentId
+    )
+      last.event = { ...prev, delta: prev.delta + e.event.delta }
+    else out.push(e)
+  }
+  return out
+}
+
 export function runRoutes(ctx: Ctx) {
   const visibleRun = async (req: FastifyRequest) => {
     const user = await requireUser(ctx, req)
@@ -28,10 +46,11 @@ export function runRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.get('/api/runs/:id', async (req): Promise<RunDetailDto> => {
       const row = await visibleRun(req)
+      const { since } = RunDetailQuery.parse(req.query)
       const events = await ctx.db
         .select()
         .from(runEvents)
-        .where(eq(runEvents.runId, row.run.id))
+        .where(and(eq(runEvents.runId, row.run.id), since ? gte(runEvents.id, since) : undefined))
         .orderBy(asc(runEvents.id))
       const [gb] = await ctx.db
         .select({ sessionId: groupBots.sessionId })
@@ -44,11 +63,13 @@ export function runRoutes(ctx: Ctx) {
         purged: row.run.purgedAt !== null,
         sessionId: gb?.sessionId ?? null,
         retentionDays: await runRetentionDays(ctx),
-        events: events.map((e) => ({
-          id: e.id,
-          at: e.createdAt.toISOString(),
-          event: openEvent(e.payload as RunEvent),
-        })),
+        events: joinStreams(
+          events.map((e) => ({
+            id: e.id,
+            at: e.createdAt.toISOString(),
+            event: openEvent(e.payload as RunEvent),
+          })),
+        ),
       }
     })
 

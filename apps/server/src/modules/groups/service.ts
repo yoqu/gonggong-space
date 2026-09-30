@@ -1,5 +1,5 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
@@ -46,16 +46,43 @@ const recallNote = (mine: boolean, author: string | null) =>
 
 /** Group DTOs as seen by `userId` (unread is per user). */
 export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
+  return (await groupViews(ctx, [userId], ids)).map((v) => v.group)
+}
+
+/**
+ * A group's messages after seq `after`, spelled as row comparisons so that only the (group_id, seq) index serves them:
+ * given `group_id = …` the planner may walk the global seq index instead, past every other group's messages.
+ */
+const inGroupAfter = (after: string) =>
+  `(m.group_id, m.seq) > ("groups"."id", ${after}) and (m.group_id, m.seq) < ("groups"."id", ${Number.MAX_SAFE_INTEGER})`
+const latest = (col: string) =>
+  sql.raw(
+    `(select m.${col} from messages m where ${inGroupAfter('0')} order by m.group_id desc, m.seq desc limit 1)`,
+  )
+const lastSeq = sql<number | null>`${latest('seq')}`
+const lastId = sql<string | null>`${latest('id')}`
+// System events and the viewer's own messages never count as unread.
+const unread =
+  sql<number>`${sql.raw(`(select count(*) from messages m where ${inGroupAfter('"group_members"."last_read_seq"')}
+  and m.kind <> 'event' and m.author_user_id is distinct from "group_members"."user_id")`)}`.mapWith(Number)
+
+/**
+ * Each of `userIds`' views of their groups among `ids` (all when omitted): what the groups are is loaded once; unread,
+ * the last line's wording and their own settings differ per viewer.
+ */
+async function groupViews(ctx: Ctx, userIds: string[], ids?: string[]) {
+  if (!userIds.length) return []
   const rows = await ctx.db
-    .select({ group: groups, title: groupTitle, me: groupMembers })
+    .select({ group: groups, title: groupTitle, me: groupMembers, lastSeq, lastId, unread })
     .from(groups)
-    .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
+    .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), inArray(groupMembers.userId, userIds)))
     .where(and(isNull(groups.archivedAt), ids ? inArray(groups.id, ids) : undefined))
     .orderBy(asc(groups.createdAt))
-  const gids = rows.map((r) => r.group.id)
+  const gids = [...new Set(rows.map((r) => r.group.id))]
   if (!gids.length) return []
+  const lastIds = [...new Set(rows.flatMap((r) => (r.lastId ? [r.lastId] : [])))]
 
-  const [members, groupBotRows, repos, stats, lasts, live] = await Promise.all([
+  const [members, groupBotRows, repos, lasts, live] = await Promise.all([
     ctx.db
       .select({
         groupId: groupMembers.groupId,
@@ -74,38 +101,22 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       .where(and(inArray(groupBots.groupId, gids), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
       .orderBy(asc(groupBots.addedAt)),
     ctx.db.select().from(groupRepos).where(inArray(groupRepos.groupId, gids)),
-    ctx.db
-      .select({
-        groupId: messages.groupId,
-        lastSeq: sql<number>`max(${messages.seq})`.mapWith(Number),
-        // System events and my own messages never count as unread.
-        unread: sql<number>`count(*) filter (where ${messages.seq} > ${groupMembers.lastReadSeq}
-          and ${messages.kind} <> 'event' and ${messages.authorUserId} is distinct from ${userId})`.mapWith(
-          Number,
-        ),
-      })
-      .from(messages)
-      .innerJoin(
-        groupMembers,
-        and(eq(groupMembers.groupId, messages.groupId), eq(groupMembers.userId, userId)),
-      )
-      .where(inArray(messages.groupId, gids))
-      .groupBy(messages.groupId, groupMembers.lastReadSeq),
-    ctx.db
-      .selectDistinctOn([messages.groupId], {
-        groupId: messages.groupId,
-        kind: messages.kind,
-        body: messages.body,
-        userName: users.name,
-        botName: bots.name,
-        authorUserId: messages.authorUserId,
-        recalledAt: messages.recalledAt,
-      })
-      .from(messages)
-      .leftJoin(users, eq(users.id, messages.authorUserId))
-      .leftJoin(bots, eq(bots.id, messages.authorBotId))
-      .where(inArray(messages.groupId, gids))
-      .orderBy(messages.groupId, desc(messages.seq)),
+    lastIds.length
+      ? ctx.db
+          .select({
+            groupId: messages.groupId,
+            kind: messages.kind,
+            body: messages.body,
+            userName: users.name,
+            botName: bots.name,
+            authorUserId: messages.authorUserId,
+            recalledAt: messages.recalledAt,
+          })
+          .from(messages)
+          .leftJoin(users, eq(users.id, messages.authorUserId))
+          .leftJoin(bots, eq(bots.id, messages.authorBotId))
+          .where(inArray(messages.id, lastIds))
+      : [],
     ctx.db
       .select({ groupId: runs.groupId, id: runs.id })
       .from(runs)
@@ -113,11 +124,10 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
       .orderBy(asc(runs.queuedAt)),
   ])
 
-  return rows.map(({ group: g, title, me }) => {
+  return rows.map(({ group: g, title, me, lastSeq, unread }) => {
     const repo = repos.find((r) => r.groupId === g.id)
-    const stat = stats.find((s) => s.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
-    return {
+    const group: GroupDto = {
       id: g.id,
       name: title,
       kind: g.kind as GroupDto['kind'],
@@ -129,18 +139,19 @@ export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promi
         .filter((m) => m.groupId === g.id)
         .map(({ userId, name, isAdmin }) => ({ userId, name, isAdmin })),
       botIds: groupBotRows.filter((b) => b.groupId === g.id).map((b) => b.botId),
-      unread: stat?.unread ?? 0,
-      lastSeq: stat?.lastSeq ?? 0,
+      unread,
+      lastSeq: Number(lastSeq ?? 0),
       last: !last
         ? ''
         : last.recalledAt
-          ? recallNote(last.authorUserId === userId, last.userName)
+          ? recallNote(last.authorUserId === me.userId, last.userName)
           : preview(last.kind, last.userName ?? last.botName, last.body),
       pinned: me.pinned,
       muted: me.muted,
       foldRuns: me.foldRuns,
       liveRunIds: live.filter((r) => r.groupId === g.id).map((r) => r.id),
     }
+    return { userId: me.userId, group }
   })
 }
 
@@ -172,10 +183,8 @@ export async function removeMember(ctx: Ctx, groupId: string, userId: string, by
 
 /** Pushes each member their own view of the group. */
 export async function publishGroup(ctx: Ctx, groupId: string) {
-  for (const userId of await memberIds(ctx, groupId)) {
-    const [group] = await groupDtos(ctx, userId, [groupId])
-    if (group) ctx.bus.publish([userId], { t: 'group.updated', group })
-  }
+  for (const { userId, group } of await groupViews(ctx, await memberIds(ctx, groupId), [groupId]))
+    ctx.bus.publish([userId], { t: 'group.updated', group })
 }
 
 /** DMs are titled by their Bot, so renaming or deleting it retitles them. */

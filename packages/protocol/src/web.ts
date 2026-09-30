@@ -786,6 +786,9 @@ export const TimelineQuery = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
+/** GET /api/runs/:id?since=<event id>: the process from that event on, which is included because streamed text
+ * extends the latest event in place. */
+export const RunDetailQuery = z.object({ since: z.coerce.number().int().positive().optional() })
 /** GET /api/runs/:id — card fields plus the full (redacted) process for the side panel. */
 export const RunDetailDto = z.object({
   run: RunDto,
@@ -1134,6 +1137,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('message.hidden'), groupId: z.string(), messageId: z.string() }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),
   z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
+  /** The run's process got an event that left its card as it was. */
+  z.object({ t: z.literal('run.progress'), runId: z.string(), groupId: z.string(), botId: z.string() }),
   z.object({ t: z.literal('bot.updated'), bot: BotDto }),
   z.object({ t: z.literal('bot.removed'), botId: z.string() }),
   z.object({ t: z.literal('notification.new'), notification: NotificationDto }),

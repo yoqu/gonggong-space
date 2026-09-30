@@ -3,6 +3,7 @@ use crate::agents;
 use crate::ask::{AskServer, Asker};
 use crate::attachments;
 use crate::cast::Casts;
+use crate::coalesce::Coalesce;
 use crate::config::Config;
 use crate::explorer;
 use crate::files;
@@ -66,7 +67,14 @@ pub(crate) struct Inner {
     previews: tunnel::Allow,
     /// The server offered the preview tunnel (welcome).
     tunnel: tokio::sync::watch::Sender<bool>,
+    /// Every viewer of a live turn refetches its diff as the run moves, and each diff stages the whole work tree.
+    diffs: Coalesce<String, DiffResult>,
+    diff_slots: Arc<tokio::sync::Semaphore>,
 }
+
+type DiffResult = Result<(Option<String>, Option<String>), String>;
+/// Workspace diffs computed at once; more wait for a slot.
+const DIFF_SLOTS: usize = 2;
 
 /// Drops a run from `Inner::preparing` however `start` exits.
 struct Preparing<'a>(&'a Inner, String);
@@ -99,6 +107,8 @@ impl Engine {
             casts,
             previews: tunnel::Allow::default(),
             tunnel: tokio::sync::watch::Sender::new(false),
+            diffs: Coalesce::default(),
+            diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
         }))
     }
 
@@ -142,12 +152,7 @@ impl Engine {
 }
 
 /// (patch, main branch compared against) of one workspace diff request.
-async fn workspace_diff(
-    dir: &Path,
-    scope: DiffScope,
-    run_id: Option<&str>,
-    shared: Option<Arc<Shared>>,
-) -> Result<(Option<String>, Option<String>), String> {
+async fn workspace_diff(dir: &Path, scope: DiffScope, run_id: Option<&str>, shared: Option<Arc<Shared>>) -> DiffResult {
     const ENDED: &str = "该轮已结束或不在本机运行";
     if scope == DiffScope::Turn {
         let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ENDED.into()) };
@@ -280,9 +285,15 @@ impl Handler for Engine {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
                 let key = (req.group_id.clone(), req.bot_id.clone());
                 let shared = self.0.actors.lock().unwrap().get(&key).map(|a| a.shared.clone());
-                let out = out.clone();
+                let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move {
-                    let result = workspace_diff(&dir, req.scope, req.run_id.as_deref(), shared).await;
+                    let key = format!("{}|{:?}|{:?}", dir.display(), req.scope, req.run_id);
+                    let (slots, d, run_id) = (inner.diff_slots.clone(), dir.clone(), req.run_id.clone());
+                    let compute = async move {
+                        let _slot = slots.acquire_owned().await.expect("never closed");
+                        workspace_diff(&d, req.scope, run_id.as_deref(), shared).await
+                    };
+                    let result = inner.diffs.run(key, compute).await;
                     let (patch, base, error) = match result {
                         Ok((patch, base)) => (patch, base, None),
                         Err(e) => (None, None, Some(e)),

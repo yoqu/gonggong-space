@@ -150,6 +150,62 @@ describe('run process', () => {
     expect(d.events.map((e) => e.event)).toEqual(rows.map((r) => openEvent(r.payload as RunEvent)))
   })
 
+  it('persists long streamed text in bounded segments without splitting secrets, served as one event', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const filler = `${'x'.repeat(99)}\n`.repeat(100)
+    const pem = '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n'
+    const chunks = [
+      filler,
+      `token ${GH.slice(0, 12)}`,
+      `${GH.slice(12)}\n`,
+      filler,
+      pem.slice(0, 40),
+      pem.slice(40),
+    ]
+    for (let i = 0; i < 40; i++) chunks.push(filler)
+    for (const delta of chunks) w.send(runId, { kind: 'text', delta })
+    w.done(runId)
+    await w.ended(runId)
+
+    const rows = await t.db
+      .select()
+      .from(runEvents)
+      .where(eq(runEvents.runId, runId))
+      .orderBy(asc(runEvents.id))
+    const texts = rows.map((r) => (openEvent(r.payload as RunEvent) as { delta: string }).delta)
+    expect(texts.length).toBeGreaterThan(1)
+    for (const s of texts) expect(s.length).toBeLessThanOrEqual(32 * 1024)
+    expect(texts.join('')).not.toContain('ghp_')
+    expect(texts.join('')).not.toContain('MIIEpAIBAAKCAQEA')
+
+    const full = chunks.join('').replace(GH, MASK).replace(pem.slice(0, -1), MASK)
+    expect((await w.detail(runId)).events.map((e) => e.event)).toEqual([{ kind: 'text', delta: full }])
+  })
+
+  it('serves the process from a known event on, that event included since streamed text may have grown', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const status = { kind: 'status', status: 'running', step: '读取' }
+    w.send(runId, status)
+    w.send(runId, { kind: 'text', delta: '第一' })
+    const tool = { kind: 'tool', toolCallId: 'c1', title: 'ls', toolKind: 'execute', status: 'completed' }
+    await expect.poll(async () => (await w.detail(runId)).events.length).toBe(2)
+    const [, text] = (await w.detail(runId)).events
+    w.send(runId, { kind: 'text', delta: '段' })
+    w.send(runId, tool)
+    await expect.poll(async () => (await w.detail(runId)).events.length).toBe(3)
+
+    const res = await t.app.inject({
+      url: `/api/runs/${runId}?since=${text!.id}`,
+      headers: { cookie: await t.seed.cookie(w.bob.id) },
+    })
+    expect(res.json<RunDetailDto>().events.map((e) => e.event)).toEqual([
+      { kind: 'text', delta: '第一段' },
+      tool,
+    ])
+  })
+
   it('redacts and seals MCP call arguments and results; server and tool stay plain', async () => {
     const w = await world()
     const runId = await w.mention()
@@ -249,6 +305,23 @@ describe('run process', () => {
     expect(await w.box.next()).toEqual({ t: 'task.stop', runId, taskId: 'bg1' })
     const outsider = await t.seed.user({ name: '外人' })
     expect((await stop(outsider.id)).statusCode).toBe(404)
+  })
+
+  it('pushes the card only when it changed; other process events only say the process moved', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const tool = { kind: 'tool', toolCallId: 'c1', title: 'ls', toolKind: 'execute' }
+    const before = w.seen.length
+    w.send(runId, { ...tool, status: 'pending' })
+    w.send(runId, { ...tool, status: 'in_progress' })
+    w.send(runId, { ...tool, status: 'completed' })
+    const seen = () => w.seen.slice(before).filter((e) => e.t === 'run.updated' || e.t === 'run.progress')
+    await expect.poll(() => seen().length).toBe(3)
+    expect(seen()).toEqual([
+      expect.objectContaining({ t: 'run.updated', run: expect.objectContaining({ id: runId, step: 'ls' }) }),
+      { t: 'run.progress', runId, groupId: w.group.id, botId: w.bot.id },
+      { t: 'run.progress', runId, groupId: w.group.id, botId: w.bot.id },
+    ])
   })
 
   it('serves approvals and the group hop limit on detail, timeline and realtime cards', async () => {

@@ -393,6 +393,42 @@ describe('run tab', () => {
     )
   })
 
+  it('refetches the process only from its last event, and nothing while the tab is hidden', async () => {
+    let current = detail()
+    mockApi(() => current)
+    renderChat()
+    const rail = await openProcess()
+    expect(await within(rail).findByText('本轮上下文')).toBeTruthy()
+    const urls = (path: string) =>
+      vi
+        .mocked(fetch)
+        .mock.calls.map(([u]) => String(u))
+        .filter((u) => u.split('?')[0] === `/api${path}`)
+    const [tool] = detail().events.slice(-1)
+    current = detail({ events: [tool!, { id: 4, at, event: { kind: 'text', delta: '改完了' } }] })
+    push({ t: 'run.updated', run: current.run })
+    await waitFor(() => expect(urls('/runs/r1')).toEqual(['/api/runs/r1', '/api/runs/r1?since=3']))
+    expect(await within(rail).findByText('改完了')).toBeTruthy()
+    expect(within(rail).getByRole('button', { name: /思考\s*先看调用方/ })).toBeTruthy()
+    const diffsLive = urls('/groups/g1/bots/b1/diff').length
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+    await waitFor(() => expect(urls('/runs/r1').at(-1)).toBe('/api/runs/r1?since=4'))
+    await waitFor(() => expect(urls('/groups/g1/bots/b1/diff').length).toBe(diffsLive + 1), { timeout: 3000 })
+
+    act(() => {
+      useWorkbench.getState().show({ kind: 'run', runId: 'r2', view: 'process', file: null })
+    })
+    const diffs = urls('/groups/g1/bots/b1/diff').length
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+    push({ t: 'run.delta', runId: 'r1', text: '，收尾' })
+    await act(() => new Promise((r) => setTimeout(r, 2100)))
+    expect(urls('/runs/r1')).toHaveLength(3)
+    expect(urls('/groups/g1/bots/b1/diff')).toHaveLength(diffs)
+
+    act(() => useWorkbench.getState().activate('run:r1'))
+    await waitFor(() => expect(urls('/runs/r1')).toHaveLength(4))
+  }, 15_000)
+
   it('titles the tab by bot and round, with the run state as its mark', async () => {
     let current = detail()
     mockApi(() => current, {

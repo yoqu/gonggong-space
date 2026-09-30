@@ -263,8 +263,12 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
     )
   }
 
-  const folds = eventFolds(tl.messages, unreadAt)
-  const foldedAt = (i: number) => [...folds].some(([start, end]) => i > start && i <= end)
+  const { folds, folded } = useMemo(() => {
+    const folds = eventFolds(tl.messages, unreadAt)
+    const folded = new Set<number>()
+    for (const [start, end] of folds) for (let i = start + 1; i <= end; i++) folded.add(i)
+    return { folds, folded }
+  }, [tl.messages, unreadAt])
   const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
   /** Merged under the previous message: nothing (run card, divider) is drawn between them. */
   const isCompact = (prev: MessageDto | undefined, m: MessageDto) =>
@@ -413,7 +417,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               tl.messages.map((m, i) => {
                 const prev = tl.messages[i - 1]
                 const foldEnd = folds.get(i)
-                if (foldEnd === undefined && foldedAt(i)) return null
+                if (folded.has(i)) return null
                 return (
                   <Fragment key={m.id}>
                     {prev && sameDay(prev.createdAt, m.createdAt) ? null : (

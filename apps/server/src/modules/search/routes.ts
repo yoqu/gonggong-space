@@ -16,8 +16,22 @@ const LIMIT = 20
 /** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
 const PATCH_SCAN = 100
 const EXPIRED = '运行过程已过期，仅保留卡片摘要'
+/** Runs whose changed paths are kept in memory. */
+const PATHS_CACHED = 5000
 
 export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
+  // A run's patch is fixed once it ended: its sealed patch is opened for paths once, not on every search.
+  const paths = new Map<string, string[]>()
+  const pathsOf = (runId: string, patch: string) => {
+    let hit = paths.get(runId)
+    if (!hit) {
+      hit = patchPaths(open(patch))
+      if (paths.size >= PATHS_CACHED) paths.delete(paths.keys().next().value as string)
+      paths.set(runId, hit)
+    }
+    return hit
+  }
+
   const myGroups = (userId: string) =>
     ctx.db
       .select({ id: groupMembers.groupId })
@@ -77,7 +91,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .limit(PATCH_SCAN)
     const needle = q.toLowerCase()
     for (const r of changed)
-      for (const path of patchPaths(open(r.patch ?? '')))
+      for (const path of pathsOf(r.id, r.patch ?? ''))
         if (path.toLowerCase().includes(needle))
           add({
             kind: 'file',
@@ -100,10 +114,9 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .from(groupRepos)
       .innerJoin(groups, eq(groups.id, groupRepos.groupId))
       .where(inArray(groupRepos.groupId, myGroups(userId)))
-    const trees = await Promise.all(repos.map(async (repo) => ({ repo, tree: await mirrors.get(repo) })))
-    for (const { repo, tree } of trees)
+    for (const repo of repos)
       for (const e of pick(
-        tree.entries.filter((f) => !f.dir && f.path.toLowerCase().includes(needle)),
+        mirrors.peek(repo).filter((f) => !f.dir && f.path.toLowerCase().includes(needle)),
         q,
         LIMIT,
       ))

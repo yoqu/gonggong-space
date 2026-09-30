@@ -77,41 +77,31 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
 /** Loads what cards need beyond the row (approval records, the group's hop limit) for `rows`, then maps them. */
 export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow) => RunDto> {
   if (!rows.length) return (r) => runDto(r)
-  const aps = await ctx.db
-    .select({ a: approvals, name: users.name })
-    .from(approvals)
-    .leftJoin(users, eq(users.id, approvals.decidedBy))
-    .where(
-      inArray(
-        approvals.runId,
-        rows.map((r) => r.id),
-      ),
-    )
-    .orderBy(asc(approvals.createdAt))
-  const qs = await ctx.db
-    .select({ q: questionSets, name: users.name })
-    .from(questionSets)
-    .leftJoin(users, eq(users.id, questionSets.answeredBy))
-    .where(
-      inArray(
-        questionSets.runId,
-        rows.map((r) => r.id),
-      ),
-    )
-    .orderBy(asc(questionSets.createdAt))
+  const ids = rows.map((r) => r.id)
+  const [aps, qs, groupRows, defaults] = await Promise.all([
+    ctx.db
+      .select({ a: approvals, name: users.name })
+      .from(approvals)
+      .leftJoin(users, eq(users.id, approvals.decidedBy))
+      .where(inArray(approvals.runId, ids))
+      .orderBy(asc(approvals.createdAt)),
+    ctx.db
+      .select({ q: questionSets, name: users.name })
+      .from(questionSets)
+      .leftJoin(users, eq(users.id, questionSets.answeredBy))
+      .where(inArray(questionSets.runId, ids))
+      .orderBy(asc(questionSets.createdAt)),
+    ctx.db
+      .select({ id: groups.id, params: groups.params })
+      .from(groups)
+      .where(inArray(groups.id, [...new Set(rows.map((r) => r.groupId))])),
+    groupParamDefaults(ctx),
+  ])
   const fileIds = qs.flatMap((x) => x.q.attachmentIds)
   const files = fileIds.length
     ? (await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))).map(attachmentDto)
     : []
-  const params = new Map(
-    (
-      await ctx.db
-        .select({ id: groups.id, params: groups.params })
-        .from(groups)
-        .where(inArray(groups.id, [...new Set(rows.map((r) => r.groupId))]))
-    ).map((g) => [g.id, g.params]),
-  )
-  const defaults = await groupParamDefaults(ctx)
+  const params = new Map(groupRows.map((g) => [g.id, g.params]))
   return (r) => {
     const p = withDefaults(params.get(r.groupId) ?? {}, defaults)
     return runDto(r, {

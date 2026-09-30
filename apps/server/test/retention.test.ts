@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { messages, runEvents, runs, systemParams } from '../src/db/schema.js'
 import { purgeExpiredRuns, startRetention } from '../src/modules/runs/retention.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -75,6 +75,16 @@ describe('run retention', () => {
       headers: { cookie: await t.seed.cookie(w.user.id) },
     })
     expect(res.json()).toMatchObject({ purged: true, patch: null, events: [], retentionDays: 30 })
+  })
+
+  it('purges in bounded batches, each its own transaction', async () => {
+    const w = await world()
+    const old = await Promise.all([31, 32, 33, 34, 35].map((d) => w.run(d)))
+    const tx = vi.spyOn(t.ctx.db, 'transaction')
+    expect(await purgeExpiredRuns(t.ctx, 2)).toBe(5)
+    expect(tx).toHaveBeenCalledTimes(3)
+    tx.mockRestore()
+    for (const r of old) expect(await eventsOf(r.id)).toBe(0)
   })
 
   it('honours the runRetentionDays system parameter', async () => {

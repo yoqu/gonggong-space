@@ -4,6 +4,7 @@ import {
   encodeFrame,
   TUNNEL_FRAME,
   TUNNEL_MAX_STREAMS,
+  TUNNEL_STREAM_BUFFER,
   type TunnelFrameType,
   TunnelHead,
   type TunnelOpen,
@@ -84,7 +85,7 @@ export class TunnelConn {
     if (!s) return
     const json = () => JSON.parse(Buffer.from(f.payload).toString())
     if (f.type === TUNNEL_FRAME.head) s.onHead(TunnelHead.parse(json()))
-    else if (f.type === TUNNEL_FRAME.data) s.push(Buffer.from(f.payload))
+    else if (f.type === TUNNEL_FRAME.data) s.receive(Buffer.from(f.payload))
     else if (f.type === TUNNEL_FRAME.end) s.onEnd()
     else if (f.type === TUNNEL_FRAME.reset) s.fail(TunnelReset.parse(json()).reason)
   }
@@ -136,6 +137,12 @@ export class TunnelStream extends Duplex {
 
   onHead(head: TunnelHead) {
     this.settle.resolve(head)
+  }
+
+  /** The daemon can't be paused per stream, so a reader that falls too far behind loses the stream instead. */
+  receive(chunk: Buffer) {
+    if (!this.push(chunk) && this.readableLength > TUNNEL_STREAM_BUFFER)
+      this.destroy(new Error('预览接收过慢，已断开'))
   }
 
   onEnd() {

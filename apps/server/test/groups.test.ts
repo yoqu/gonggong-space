@@ -1,7 +1,8 @@
 import type { GroupDto, TimelineDto } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { auditLogs, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
+import { publishGroup } from '../src/modules/groups/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client, events } from './support/http.js'
 
@@ -155,6 +156,34 @@ describe('reading groups', () => {
     expect((await p.asWang.post(`/api/groups/${mine.id}/read`, { seq: lastSeq })).status).toBe(200)
     expect((await p.asWang.get<GroupDto[]>('/api/groups')).body[0]!.unread).toBe(0)
     expect(wangEvents).toEqual([{ t: 'group.updated', group: expect.objectContaining({ unread: 0 }) }])
+  })
+
+  it('pushes each member their own view of a group, in as many queries however many members', async () => {
+    const p = await people()
+    const more = await Promise.all([1, 2, 3, 4].map((i) => t.seed.user({ name: `成员${i}` })))
+    const big = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id, ...more.map((u) => u.id)] })
+    const small = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    await p.asLi.post(`/api/groups/${big.id}/messages`, { body: '在吗', clientId: 'client-0001' })
+    await p.asLi.post(`/api/groups/${small.id}/messages`, { body: '在吗', clientId: 'client-0002' })
+    const queries = async (groupId: string) => {
+      const spies = (['select', 'selectDistinct', 'selectDistinctOn'] as const).map((m) =>
+        vi.spyOn(t.ctx.db, m),
+      )
+      await publishGroup(t.ctx, groupId)
+      const n = spies.reduce((sum, s) => sum + s.mock.calls.length, 0)
+      for (const s of spies) s.mockRestore()
+      return n
+    }
+    expect(await queries(big.id)).toBe(await queries(small.id))
+
+    const [wang, li] = [events(t, p.wang.id), events(t, p.li.id)]
+    await publishGroup(t.ctx, big.id)
+    expect(wang).toEqual([
+      { t: 'group.updated', group: expect.objectContaining({ unread: 1, last: '李建国：在吗' }) },
+    ])
+    expect(li).toEqual([
+      { t: 'group.updated', group: expect.objectContaining({ unread: 0, last: '李建国：在吗' }) },
+    ])
   })
 
   it('flags groups where a bot is running, waiting for approval or for an answer', async () => {

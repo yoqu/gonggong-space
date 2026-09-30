@@ -175,6 +175,30 @@ async fn forwards_requests_to_allowed_loopback_ports() {
 }
 
 #[tokio::test]
+async fn resets_a_request_body_the_local_port_does_not_take() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let _held = tokio::spawn(async move {
+        let (s, _) = listener.accept().await.unwrap();
+        std::future::pending::<()>().await;
+        drop(s);
+    });
+    let mut ws = connect(allow(&[("p1", port)])).await;
+    let mut upload = req("p1", port, "POST", "/upload");
+    upload.headers.push(("content-length".into(), (1u64 << 30).to_string()));
+    open(&mut ws, 1, upload).await;
+    let chunk = Bytes::from(vec![0u8; 64 * 1024]);
+    let sent = async {
+        for _ in 0..1024 {
+            send(&mut ws, 1, FrameType::Data, chunk.clone()).await;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(20), sent).await.expect("the daemon stopped reading the tunnel");
+    let f = next(&mut ws).await;
+    assert_eq!((f.stream_id, f.kind), (1, FrameType::Reset), "{f:?}");
+}
+
+#[tokio::test]
 async fn refuses_ports_without_an_open_preview_and_reports_dead_ones() {
     let port = dev_server().await;
     let dead = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();

@@ -3,6 +3,7 @@ import {
   encodeFrame,
   TUNNEL_FRAME,
   TUNNEL_MAX_STREAMS,
+  TUNNEL_STREAM_BUFFER,
   type TunnelFrameType,
   type TunnelOpen,
 } from '@gonggong/protocol'
@@ -19,8 +20,9 @@ afterEach(() => t.close())
 
 const json = (v: unknown) => Buffer.from(JSON.stringify(v))
 
-/** A daemon end: /hello answers, /echo returns the body, /ws echoes raw bytes after 101, /hang never answers. */
-function fakeDaemon(ws: WebSocket) {
+/** A daemon end: /hello answers, /echo returns the body, /ws echoes raw bytes after 101, /hang never answers,
+ * /flood answers far more than a stream may buffer. Records the streams the server reset. */
+function fakeDaemon(ws: WebSocket, resets: number[]) {
   const send = (id: number, type: TunnelFrameType, payload: Uint8Array = new Uint8Array()) =>
     ws.send(encodeFrame(id, type, payload))
   const bodies = new Map<number, { path: string; chunks: Buffer[] }>()
@@ -32,6 +34,7 @@ function fakeDaemon(ws: WebSocket) {
       if (open.path === '/ws') send(f.streamId, TUNNEL_FRAME.head, json({ status: 101, headers: [] }))
       return
     }
+    if (f.type === TUNNEL_FRAME.reset) resets.push(f.streamId)
     const s = bodies.get(f.streamId)
     if (!s) return
     if (f.type === TUNNEL_FRAME.data) {
@@ -40,6 +43,13 @@ function fakeDaemon(ws: WebSocket) {
     }
     if (f.type !== TUNNEL_FRAME.end) return
     if (s.path === '/hang') return
+    if (s.path === '/flood') {
+      send(f.streamId, TUNNEL_FRAME.head, json({ status: 200, headers: [] }))
+      const chunk = Buffer.alloc(64 * 1024)
+      for (let i = 0; i <= TUNNEL_STREAM_BUFFER / chunk.length + 8; i++)
+        send(f.streamId, TUNNEL_FRAME.data, chunk)
+      return
+    }
     if (s.path !== '/ws') {
       const body = s.path === '/hello' ? Buffer.from('hi') : Buffer.concat(s.chunks)
       send(
@@ -63,9 +73,10 @@ async function daemon() {
   const u = await t.seed.user()
   const { machine, token } = await t.seed.machine(u.id)
   const ws = t.ws('/ws/daemon/tunnel', { authorization: `Bearer ${token}` })
-  fakeDaemon(ws)
+  const resets: number[] = []
+  fakeDaemon(ws, resets)
   await vi.waitFor(() => expect(t.ctx.tunnels.get(machine.id)).toBeDefined())
-  return { machine, ws, conn: t.ctx.tunnels.get(machine.id)! }
+  return { machine, ws, resets, conn: t.ctx.tunnels.get(machine.id)! }
 }
 
 const open = (path: string, upgrade = false): TunnelOpen => ({
@@ -134,6 +145,17 @@ describe('preview tunnel (server side)', () => {
     ws.close()
     await expect(s.head).rejects.toThrow('daemon')
     await vi.waitFor(() => expect(t.ctx.tunnels.get(machine.id)).toBeUndefined())
+  })
+
+  it('resets a stream whose reader falls too far behind instead of buffering without bound', async () => {
+    const { conn, resets } = await daemon()
+    const s = conn.open(open('/flood'))
+    s.end()
+    const failed = new Promise<Error>((r) => s.on('error', r))
+    await s.head
+    expect((await failed).message).toMatch('过慢')
+    expect(s.readableLength).toBeLessThanOrEqual(TUNNEL_STREAM_BUFFER + 64 * 1024)
+    await vi.waitFor(() => expect(resets).toContain(s.id))
   })
 
   it(`allows at most ${TUNNEL_MAX_STREAMS} concurrent streams per machine`, async () => {

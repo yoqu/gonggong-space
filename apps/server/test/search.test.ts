@@ -130,11 +130,13 @@ describe('⌘K search', () => {
     for (const groupId of [w.mine.id, w.theirs.id])
       await t.db.insert(groupRepos).values({ groupId, url: remote.url, baseBranch: 'main' })
     const run = await w.run(w.mine.id, { patch: PATCH })
-    const hits = await w.search('handler', 'file')
-    expect(hits.map((h) => [h.title, h.sub, h.runId])).toEqual([
-      ['server/refund/v2/handler.go', '小王的 Claude 工作区 · 支付服务重构', run.id],
-      ['server/refund/v1/handler.go', 'main 镜像 · 支付服务重构', null],
-    ])
+    const workspace = ['server/refund/v2/handler.go', '小王的 Claude 工作区 · 支付服务重构', run.id]
+    // A mirror never synced is cloned in the background: search doesn't wait for it.
+    const first = await w.search('handler', 'file')
+    expect(first.map((h) => [h.title, h.sub, h.runId])).toEqual([workspace])
+    await expect
+      .poll(async () => (await w.search('handler', 'file')).map((h) => [h.title, h.sub, h.runId]))
+      .toEqual([workspace, ['server/refund/v1/handler.go', 'main 镜像 · 支付服务重构', null]])
   })
 
   it('finds runs by bot, step, reply or process; expired processes only by their card summary', async () => {

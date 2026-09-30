@@ -6,7 +6,7 @@ import {
   type RunSessionDto,
   type TaskStopRes,
 } from '@gonggong/protocol'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
@@ -49,7 +49,7 @@ const VIEWS: { value: RunView; label: string }[] = [
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const FAILED = ['forbidden', 'interrupted', 'expired']
 const PURGED = '运行过程已过期，仅保留摘要'
-/** Coalesces bursts of run.updated into one refetch. */
+/** Coalesces bursts of run.updated / run.progress into one refetch. */
 const REFETCH_MS = 300
 
 /** What the open run tabs learned about their runs, for the tab bar's title and mark. */
@@ -58,59 +58,88 @@ const useRunInfo = create<{ runs: Record<string, RunDto>; rounds: Record<string,
   rounds: {},
 }))
 
-/** GET /api/runs/:id, kept live: card updates refetch the process, streamed text is appended in place. */
-function useRunDetail(runId: string) {
+/**
+ * GET /api/runs/:id, kept live while shown: card updates refetch the process from its last stored event on, streamed
+ * text is appended in place. A hidden tab only keeps the card current and catches up once shown again.
+ */
+function useRunDetail(runId: string, active: boolean) {
   const [detail, setDetail] = useState<RunDetailDto | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const current = useRef(detail)
+  current.current = detail
+  const shown = useRef(active)
+  shown.current = active
+  const catchUp = useRef<(() => void) | null>(null)
   useEffect(() => {
     let alive = true
     let timer: ReturnType<typeof setTimeout> | undefined
-    const load = () =>
-      api.get<RunDetailDto>(`/runs/${runId}`).then(
-        (d) => alive && setDetail(d),
+    current.current = null
+    const load = () => {
+      const since = current.current?.events.findLast((e) => e.id > 0)?.id
+      api.get<RunDetailDto>(`/runs/${runId}${since ? `?since=${since}` : ''}`).then(
+        (d) =>
+          alive &&
+          setDetail((prev) =>
+            since && prev
+              ? { ...d, events: [...prev.events.filter((e) => e.id > 0 && e.id < since), ...d.events] }
+              : d,
+          ),
         (e: Error) => alive && setError(e.message),
       )
-    void load()
+    }
+    load()
     const off = realtime.subscribe((e) => {
-      if (e.t === 'run.updated' && e.run.id === runId) {
-        setDetail((d) => d && { ...d, run: e.run })
+      const moved =
+        (e.t === 'run.updated' && e.run.id === runId) || (e.t === 'run.progress' && e.runId === runId)
+      if (moved) {
+        if (e.t === 'run.updated') setDetail((d) => d && { ...d, run: e.run })
         clearTimeout(timer)
-        timer = setTimeout(load, REFETCH_MS)
-      } else if (e.t === 'run.delta' && e.runId === runId)
-        setDetail((d) => {
-          if (!d) return d
-          const last = d.events.at(-1)
-          const events =
-            last?.event.kind === 'text' && !last.event.agentId
-              ? [
-                  ...d.events.slice(0, -1),
-                  { ...last, event: { kind: 'text' as const, delta: last.event.delta + e.text } },
-                ]
-              : [
-                  ...d.events,
-                  {
-                    id: -Date.now(),
-                    at: new Date().toISOString(),
-                    event: { kind: 'text' as const, delta: e.text },
-                  },
-                ]
-          return { ...d, events }
-        })
+        if (shown.current) timer = setTimeout(load, REFETCH_MS)
+        else catchUp.current = load
+      } else if (e.t === 'run.delta' && e.runId === runId) {
+        if (!shown.current) catchUp.current = load
+        else
+          setDetail((d) => {
+            if (!d) return d
+            const last = d.events.at(-1)
+            const events =
+              last?.event.kind === 'text' && !last.event.agentId
+                ? [
+                    ...d.events.slice(0, -1),
+                    { ...last, event: { kind: 'text' as const, delta: last.event.delta + e.text } },
+                  ]
+                : [
+                    ...d.events,
+                    {
+                      id: -Date.now(),
+                      at: new Date().toISOString(),
+                      event: { kind: 'text' as const, delta: e.text },
+                    },
+                  ]
+            return { ...d, events }
+          })
+      }
     })
     return () => {
       alive = false
       off()
       clearTimeout(timer)
+      catchUp.current = null
     }
   }, [runId])
+  useEffect(() => {
+    if (!active || !catchUp.current) return
+    catchUp.current()
+    catchUp.current = null
+  }, [active])
   return { detail, error }
 }
 
 /** One run in the workbench (design §4.3): header facts, then 过程 / 改动 / 审批记录. */
-export function RunTab({ tab, tabKey }: TabProps<'run'>) {
+export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   const { runId, view, file } = tab
   const patch = useWorkbench((s) => s.patch)
-  const { detail, error } = useRunDetail(runId)
+  const { detail, error } = useRunDetail(runId, active)
   const bots = useWorkspace((s) => s.bots)
   const groups = useWorkspace((s) => s.groups)
   const run = detail?.run
@@ -130,7 +159,12 @@ export function RunTab({ tab, tabKey }: TabProps<'run'>) {
     [groupId, botId, id],
   )
   // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
-  const turn = useWorkspaceDiff(source, 'turn', live ? undefined : (detail?.patch ?? null))
+  const turn = useWorkspaceDiff(active ? source : null, 'turn', live ? undefined : (detail?.patch ?? null))
+  // The clock re-renders every second; the process only changes with the detail or the live patch.
+  const steps = useMemo(
+    () => detail && buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail),
+    [detail, live, turn.patch],
+  )
   // Machine and session id are rarely needed; hidden behind ⓘ so the process gets the height.
   const [more, setMore] = useState(false)
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
@@ -203,7 +237,7 @@ export function RunTab({ tab, tabKey }: TabProps<'run'>) {
             ) : (
               <ProcessView
                 key={runId}
-                steps={buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail)}
+                steps={steps ?? []}
                 root={root}
                 live={live}
                 startedAt={run?.startedAt ?? null}
@@ -218,6 +252,7 @@ export function RunTab({ tab, tabKey }: TabProps<'run'>) {
           <Changes
             purged={detail.purged}
             source={source}
+            active={active}
             turn={turn}
             file={file}
             onFile={(f) => patch(tabKey, { file: f })}
@@ -284,7 +319,7 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
 
 function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: string | null }) {
   const [open, setOpen] = useState(true)
-  const { detail, error } = useRunDetail(run.id)
+  const { detail, error } = useRunDetail(run.id, true)
   const worked = workedMs(run)
   return (
     <section className="run-round">
@@ -360,18 +395,20 @@ function SessionId({ id }: { id: string }) {
 function Changes({
   purged,
   source,
+  active,
   turn,
   file,
   onFile,
 }: {
   purged: boolean
   source: DiffSource
+  active: boolean
   turn: WorkspaceDiff
   file: string | null
   onFile: (file: string | null) => void
 }) {
   const [scope, setScope] = useState<DiffScope>('turn')
-  const other = useWorkspaceDiff(scope === 'turn' ? null : source, scope)
+  const other = useWorkspaceDiff(scope === 'turn' || !active ? null : source, scope)
   return (
     <DiffPane
       diff={scope === 'turn' ? turn : other}

@@ -4,6 +4,7 @@ pub mod attachments;
 pub mod bind;
 pub mod bots;
 pub mod cast;
+pub mod coalesce;
 pub mod config;
 pub mod configure;
 pub mod daemon;

@@ -43,6 +43,21 @@ export class Mirrors {
   ) {}
 
   async get(repo: Repo): Promise<{ entries: PathEntry[]; updatedAt: Date | null }> {
+    const s = this.touch(repo)
+    if (s.refreshing)
+      await (s.entries
+        ? Promise.race([s.refreshing, new Promise((r) => setTimeout(r, WAIT_MS))])
+        : s.refreshing)
+    return { entries: s.entries ?? [], updatedAt: s.updatedAt }
+  }
+
+  /** The listing at hand, never waiting for a fetch or first clone (search spans every repo of the user). */
+  peek(repo: Repo): PathEntry[] {
+    return this.touch(repo).entries ?? []
+  }
+
+  /** Starts a refresh when due. */
+  private touch(repo: Repo) {
     const s = this.states.get(repo.id) ?? { entries: null, updatedAt: null, triedAt: null, refreshing: null }
     this.states.set(repo.id, s)
     const now = this.now()
@@ -52,11 +67,7 @@ export class Mirrors {
         s.refreshing = null
       })
     }
-    if (s.refreshing)
-      await (s.entries
-        ? Promise.race([s.refreshing, new Promise((r) => setTimeout(r, WAIT_MS))])
-        : s.refreshing)
-    return { entries: s.entries ?? [], updatedAt: s.updatedAt }
+    return s
   }
 
   private async refresh(repo: Repo, s: State) {

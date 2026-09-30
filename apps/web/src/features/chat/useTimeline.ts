@@ -12,6 +12,8 @@ import { realtime } from '../../lib/realtime'
 const PAGE = 50
 /** Streaming text kept per run; only the tail is shown on the card. */
 const DELTA_KEEP = 400
+/** How long streamed text is gathered before it is shown. */
+const DELTA_FLUSH_MS = 100
 
 interface TimelineState {
   messages: MessageDto[]
@@ -116,20 +118,29 @@ export function useTimeline(groupId: string) {
       if (e.groupId === groupId) setState((s) => withdraw(s, e))
     }
     local.add(onWithdrawn)
+    // Streamed text is applied in batches: each update re-renders the whole timeline and re-pins the scroll.
+    const pending = new Map<string, string>()
+    let flushTimer: ReturnType<typeof setTimeout> | undefined
+    const flushDeltas = () => {
+      flushTimer = undefined
+      const batch = [...pending]
+      pending.clear()
+      setState((s) => {
+        const deltas = { ...s.deltas }
+        for (const [runId, text] of batch)
+          if (s.runs[runId]) deltas[runId] = ((deltas[runId] ?? '') + text).slice(-DELTA_KEEP)
+        return { ...s, deltas }
+      })
+    }
     const offEvents = realtime.subscribe((e) => {
       if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
       else if (e.t === 'message.recalled' || e.t === 'message.hidden') onWithdrawn(e)
       else if (e.t === 'run.updated' && e.run.groupId === groupId)
         setState((s) => ({ ...s, runs: mergeRuns(s.runs, [e.run]) }))
-      else if (e.t === 'run.delta')
-        setState((s) =>
-          s.runs[e.runId]
-            ? {
-                ...s,
-                deltas: { ...s.deltas, [e.runId]: ((s.deltas[e.runId] ?? '') + e.text).slice(-DELTA_KEEP) },
-              }
-            : s,
-        )
+      else if (e.t === 'run.delta') {
+        pending.set(e.runId, (pending.get(e.runId) ?? '') + e.text)
+        flushTimer ??= setTimeout(flushDeltas, DELTA_FLUSH_MS)
+      }
     })
     // Refill anything missed while the socket was down.
     let wasOpen = realtime.getStatus() === 'open'
@@ -139,6 +150,7 @@ export function useTimeline(groupId: string) {
     })
     return () => {
       alive = false
+      clearTimeout(flushTimer)
       local.delete(onWithdrawn)
       offEvents()
       offStatus()

@@ -11,6 +11,9 @@ export const TUNNEL_FRAME = { open: 1, head: 2, data: 3, end: 4, reset: 5 } as c
 export type TunnelFrameType = (typeof TUNNEL_FRAME)[keyof typeof TUNNEL_FRAME]
 /** Concurrent streams per machine; the server resets new ones beyond it. */
 export const TUNNEL_MAX_STREAMS = 64
+/** Bytes a stream may hold for a reader that falls behind; beyond it the stream is reset rather than stalling the
+ * shared connection. */
+export const TUNNEL_STREAM_BUFFER = 16 * 1024 * 1024
 
 const HEADER = 5
 const TYPES = new Set<number>(Object.values(TUNNEL_FRAME))

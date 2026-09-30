@@ -12,24 +12,37 @@ export async function runRetentionDays(ctx: Ctx): Promise<number> {
   return typeof row?.value === 'number' ? row.value : DEFAULT_RUN_RETENTION_DAYS
 }
 
+/** Runs purged per transaction, so a backlog (first enabled, long downtime) never becomes one huge transaction. */
+const PURGE_BATCH = 500
+
 /** Drops the events and patch of runs that ended before the retention window; cards keep their summary. */
-export async function purgeExpiredRuns(ctx: Ctx): Promise<number> {
+export async function purgeExpiredRuns(ctx: Ctx, batch = PURGE_BATCH): Promise<number> {
   const cutoff = new Date(ctx.now().getTime() - (await runRetentionDays(ctx)) * DAY_MS)
-  return ctx.db.transaction(async (tx) => {
-    const expired = await tx
-      .update(runs)
-      .set({ patch: null, purgedAt: ctx.now() })
-      .where(and(isNull(runs.purgedAt), lt(runs.endedAt, cutoff)))
-      .returning({ id: runs.id })
-    if (expired.length)
-      await tx.delete(runEvents).where(
-        inArray(
-          runEvents.runId,
-          expired.map((r) => r.id),
-        ),
-      )
-    return expired.length
-  })
+  let purged = 0
+  for (;;) {
+    const n = await ctx.db.transaction(async (tx) => {
+      const due = tx
+        .select({ id: runs.id })
+        .from(runs)
+        .where(and(isNull(runs.purgedAt), lt(runs.endedAt, cutoff)))
+        .limit(batch)
+      const expired = await tx
+        .update(runs)
+        .set({ patch: null, purgedAt: ctx.now() })
+        .where(inArray(runs.id, due))
+        .returning({ id: runs.id })
+      if (expired.length)
+        await tx.delete(runEvents).where(
+          inArray(
+            runEvents.runId,
+            expired.map((r) => r.id),
+          ),
+        )
+      return expired.length
+    })
+    purged += n
+    if (n < batch) return purged
+  }
 }
 
 /** Purges now and then every `everyMs`; the returned function stops and waits for a purge in flight. */
