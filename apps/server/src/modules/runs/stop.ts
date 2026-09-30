@@ -169,7 +169,7 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
         : ''
   const note: ContextMessage = {
     seq: 0,
-    author: '共工',
+    author: '共工空间',
     kind: 'user',
     body: `上一轮被 /stop 中断${detail}。`,
     at,

@@ -22,7 +22,7 @@ const HOP = new Set([
 ])
 
 function page(res: ServerResponse, status: number, text: string) {
-  const html = `<!doctype html><meta charset="utf-8"><title>共工预览</title><body style="font:15px system-ui;padding:48px;color:#555">${text}</body>`
+  const html = `<!doctype html><meta charset="utf-8"><title>共工空间预览</title><body style="font:15px system-ui;padding:48px;color:#555">${text}</body>`
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(html)
 }
 
@@ -33,7 +33,7 @@ function localPath(target: string) {
 }
 
 const OFFLINE = '预览所在的机器离线，稍后再试。'
-const UNKNOWN = '请从共工的预览卡片打开这个预览。'
+const UNKNOWN = '请从共工空间的预览卡片打开这个预览。'
 
 const lastWrite = new Map<string, number>()
 /** Idle previews are closed (plan P11); a write a minute is enough to tell. */
@@ -89,7 +89,7 @@ export async function servePreviewHttp(
   const url = new URL(req.url ?? '/', 'http://x')
   if (url.pathname === '/__gg/auth') {
     const visitor = redeemCode(ctx, url.searchParams.get('code') ?? '', preview.id)
-    if (!visitor) return page(res, 401, '链接已失效，请回到共工重新打开预览。')
+    if (!visitor) return page(res, 401, '链接已失效，请回到共工空间重新打开预览。')
     const back = localPath(url.searchParams.get('return') ?? '/')
     res.writeHead(302, { location: back, 'set-cookie': setCookie(ctx, preview.id, visitor) })
     return res.end()

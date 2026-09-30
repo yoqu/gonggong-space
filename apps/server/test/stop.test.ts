@@ -344,7 +344,7 @@ describe('interrupt choice (keep / discard)', () => {
     await w.say(w.as.li, '@小王的 Claude 继续')
     const start = w.starts().at(-1)!
     expect(start.prompt.context.at(-1)).toMatchObject({
-      author: '共工',
+      author: '共工空间',
       body: '上一轮被 /stop 中断；本轮改动已保留，上一轮改动的 2 个文件仍在工作区，未提交。',
     })
     expect((await w.run(r.id)).interrupt).toBe('kept')
@@ -361,7 +361,7 @@ describe('interrupt choice (keep / discard)', () => {
       w
         .starts()
         .at(-1)!
-        .prompt.context.some((c) => c.author === '共工'),
+        .prompt.context.some((c) => c.author === '共工空间'),
     ).toBe(false)
   })
 

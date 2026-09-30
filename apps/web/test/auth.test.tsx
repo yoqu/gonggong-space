@@ -257,7 +257,7 @@ describe('account menu', () => {
     const github = new URL(open.mock.calls[0]?.[0])
     expect(github.origin + github.pathname).toBe('https://github.com/settings/personal-access-tokens/new')
     expect(github.searchParams.get('contents')).toBe('read')
-    expect(github.searchParams.get('name')).toBe('共工')
+    expect(github.searchParams.get('name')).toBe('共工空间')
     expect(guide.textContent).toContain('All repositories')
 
     fireEvent.click(within(sheet).getByRole('radio', { name: 'GitLab' }))

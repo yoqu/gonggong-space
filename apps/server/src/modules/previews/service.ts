@@ -226,7 +226,7 @@ export async function exposePreview(
   const link = publicLink(ctx, preview)
   return [
     `已发布预览「${a.title}」（id ${preview.id}），群里已出现它的卡片，群成员可直接打开。`,
-    link ? `地址：${link}（需通过共工登录，外部人员需要群管理员生成公开链接）` : '',
+    link ? `地址：${link}（需通过共工空间登录，外部人员需要群管理员生成公开链接）` : '',
   ]
     .filter(Boolean)
     .join('\n')

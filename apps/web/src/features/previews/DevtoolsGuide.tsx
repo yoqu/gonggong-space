@@ -8,7 +8,7 @@ const GUIDE: Record<DevtoolsBlocker, { title: string; steps: string[] }> = {
     steps: ['打开微信开发者工具', '菜单栏「设置 → 安全设置」', '打开「服务端口」'],
   },
   auth: {
-    title: '请在微信开发者工具里允许共工访问',
+    title: '请在微信开发者工具里允许共工空间访问',
     steps: ['切换到微信开发者工具', '在「Gonggong」授权弹窗中点击「允许」'],
   },
   trust: {

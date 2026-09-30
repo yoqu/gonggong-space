@@ -259,7 +259,7 @@ describe('新建 Bot', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
     expect(
-      await within(dialog).findByText('机器 wanglei-mbp 当前离线，打开该机器上的共工客户端后即可使用'),
+      await within(dialog).findByText('机器 wanglei-mbp 当前离线，打开该机器上的共工空间客户端后即可使用'),
     ).toBeTruthy()
   })
 

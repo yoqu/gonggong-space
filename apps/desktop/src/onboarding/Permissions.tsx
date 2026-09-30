@@ -9,7 +9,7 @@ import { TitleBar } from '../shell/TitleBar'
 const POLL_MS = 2000
 
 /**
- * 系统权限 (macOS): what the previews need and why, each asked for by this app so macOS lists 共工 — the daemon and
+ * 系统权限 (macOS): what the previews need and why, each asked for by this app so macOS lists 共工空间 — the daemon and
  * gg-cast run under it. Shown after binding, on the first launch that finds one missing, and from the reminders.
  */
 export function PermissionsGuide({ onDone }: { onDone: () => void }) {
@@ -43,7 +43,7 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
           <h1 className="dk-onboarding__title">授予系统权限</h1>
           <p className="dk-onboarding__desc">
             Bot 推送本机桌面应用和小程序的实时画面、成员远程操作时，需要 macOS
-            授予「共工」以下权限。未授权不影响其他功能。
+            授予「共工空间」以下权限。未授权不影响其他功能。
           </p>
           <GroupBox>
             {list.map((p) => {
@@ -70,9 +70,9 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
             })}
           </GroupBox>
           <p className="dk-footnote">
-            在系统设置中打开「共工」的开关后回到这里，状态会自动刷新。屏幕录制需重启共工后才生效。
+            在系统设置中打开「共工空间」的开关后回到这里，状态会自动刷新。屏幕录制需重启共工空间后才生效。
           </p>
-          {screenAsked && !done ? <Button onClick={() => void ipc.restartApp()}>重启共工</Button> : null}
+          {screenAsked && !done ? <Button onClick={() => void ipc.restartApp()}>重启共工空间</Button> : null}
           <Button variant="primary" size="xlarge" fullWidth onClick={onDone}>
             {done ? '完成' : '稍后'}
           </Button>

@@ -23,7 +23,7 @@ export function ShellBar({ onNewGroup }: { onNewGroup?: () => void }) {
   const mobile = useIsMobile()
   return (
     <div className="shellbar">
-      <Toolbar leading={<Logo size={20} />} title="共工" scrolled={false}>
+      <Toolbar leading={<Logo size={20} />} title="共工空间" scrolled={false}>
         {onNewGroup ? (
           <ToolbarGroup>
             <ToolbarButton icon="plus" label="新建群" onClick={onNewGroup} />

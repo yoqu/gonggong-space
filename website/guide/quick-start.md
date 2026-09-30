@@ -40,7 +40,7 @@ daemon 只允许用 `https://` 连接非本机的服务器。团队其他成员�
 
 - git；
 - Claude Code 和/或 Codex CLI，并在终端里**登录好**（能正常对话即可）；
-- 共工的 daemon：命令行 `gg`（见 [安装](/cli/)）或 macOS 桌面端（见 [桌面端](/desktop/)）。
+- 共工空间的 daemon：命令行 `gg`（见 [安装](/cli/)）或 macOS 桌面端（见 [桌面端](/desktop/)）。
 
 然后绑定：
 

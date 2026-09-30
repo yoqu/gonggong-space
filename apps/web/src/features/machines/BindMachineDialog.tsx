@@ -57,7 +57,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
     <Dialog
       open={open}
       title="绑定新机器"
-      message="在共工客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。"
+      message="在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。"
       width={520}
       onClose={onClose}
       actions={[
@@ -79,7 +79,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
             ) : null}
             <p className="bind__note">
               绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
-              Codex；同一台机器重新绑定会恢复原记录。还没安装共工客户端？
+              Codex；同一台机器重新绑定会恢复原记录。还没安装共工空间客户端？
               <button
                 type="button"
                 className="bind__link"
@@ -129,7 +129,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
           ) : (
             <span className="bind__waiting">
               <Spinner size={14} />
-              等待上报 agent…在机器上打开共工客户端
+              等待上报 agent…在机器上打开共工空间客户端
             </span>
           )}
         </FormRow>

@@ -345,7 +345,7 @@ describe('机器与网络', () => {
       '',
     ])
     expect(screen.getByText('可升级').closest('[title]')?.getAttribute('title')).toBe(
-      '最新版本 2.1.285 · 共工托管',
+      '最新版本 2.1.285 · 共工空间托管',
     )
     await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
     expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')

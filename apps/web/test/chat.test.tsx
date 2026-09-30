@@ -287,7 +287,7 @@ describe('sidebar', () => {
     mockApi({ ...baseRoutes([]), 'GET /bots': () => [] })
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
-    expect(within(welcome).getByRole('heading', { name: /欢迎来到共工/ })).toBeTruthy()
+    expect(within(welcome).getByRole('heading', { name: /欢迎来到共工空间/ })).toBeTruthy()
     for (const b of ['绑定机器', '新建 Bot', '新建群'])
       expect(within(welcome).getByRole('button', { name: b })).toBeTruthy()
     // The main area carries the guide, so the sidebar doesn't repeat it.

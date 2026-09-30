@@ -31,7 +31,7 @@ export function Welcome({
       icon: 'laptop',
       color: 'var(--system-blue)',
       title: '绑定机器',
-      desc: '在你的机器上安装共工客户端并打开接入链接，Bot 就在这台机器上运行。',
+      desc: '在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。',
       action: '绑定机器',
       done: bound,
       onClick: onBindMachine,
@@ -59,7 +59,7 @@ export function Welcome({
   return (
     <section className="welcome" aria-label="开始使用">
       <Mascot action="wave" size={112} />
-      <h1 className="welcome__title">欢迎来到共工，{name}</h1>
+      <h1 className="welcome__title">欢迎来到共工空间，{name}</h1>
       <p className="welcome__lead">三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。</p>
       <ol className="welcome__steps">
         {steps.map((s, i) => (

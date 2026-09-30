@@ -118,7 +118,7 @@ gg logout
 gg run
 ```
 
-- 同一台机器只能运行一个 daemon。桌面端在运行时执行 `gg run` 会报错「本机已有共工 daemon 在运行（…gg run 或桌面端），同一台机器只能运行一个」。
+- 同一台机器只能运行一个 daemon。桌面端在运行时执行 `gg run` 会报错「本机已有共工空间 daemon 在运行（…gg run 或桌面端），同一台机器只能运行一个」。
 - 按 Ctrl-C 或收到 SIGTERM 时，会先停掉 Bot 启动的托管服务再退出。
 - 被服务器拒绝时退出并打印原因。若机器被吊销（账号停用或机器被吊销），会清除托管工作区与本机凭据，并逐条列出删除的路径。
 - 日志同时写到 `~/.gonggong/logs/`，见 [本地数据与日志](/cli/local-data)。
@@ -145,7 +145,7 @@ Claude Code	2.1.285	已是最新	自行安装	~/.nvm/versions/node/v24.15.0/bin/
 Codex	0.156.1	最新 0.159.2（可升级）	自行安装	~/.nvm/versions/node/v24.15.0/bin/codex	可选模型待探测（daemon 运行时自动探测）
 ```
 
-各列依次是：名称、版本、最新版本、来源（共工托管 / 自行安装）、路径、可选模型。Node.js 低于 22 时末尾会提示「ACP 适配器需要 Node.js ≥ 22」。
+各列依次是：名称、版本、最新版本、来源（共工空间托管 / 自行安装）、路径、可选模型。Node.js 低于 22 时末尾会提示「ACP 适配器需要 Node.js ≥ 22」。
 
 ### gg agents install
 
@@ -159,7 +159,7 @@ Options:
       --version <VERSION>  Exact version (x.y.z); the latest by default
 ```
 
-从镜像源安装共工托管版，装在 `~/.gonggong/` 下，不需要管理员权限，也不影响系统里已有的版本。
+从镜像源安装共工空间托管版，装在 `~/.gonggong/` 下，不需要管理员权限，也不影响系统里已有的版本。
 
 ```bash
 gg agents install node
@@ -178,7 +178,7 @@ Options:
       --all
 ```
 
-把共工托管版升级到最新版本。必须指定 `KIND` 或 `--all`（二者互斥）。自行安装的版本请用你原来的方式升级。
+把共工空间托管版升级到最新版本。必须指定 `KIND` 或 `--all`（二者互斥）。自行安装的版本请用你原来的方式升级。
 
 ### gg agents mirror
 

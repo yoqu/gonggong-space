@@ -4,9 +4,9 @@ Bot 在成员自己的机器上运行。本页讲怎样把一台机器绑定到�
 
 ## 开始之前
 
-机器上需要先装好共工客户端，二选一：
+机器上需要先装好共工空间客户端，二选一：
 
-- **桌面端 Gonggong**（macOS）：自带 daemon，不用开终端，见 [桌面端](/desktop/)。
+- **桌面端「共工空间」**（macOS）：自带 daemon，不用开终端，见 [桌面端](/desktop/)。
 - **命令行 `gg`**（macOS / Linux / Windows）：见 [命令行安装](/cli/)。
 
 Claude Code、Codex 和 Node.js 可以先不装，绑定后可以在 Web 上一键安装，见 [Agent 工具与供应商](/user/agents-providers)。

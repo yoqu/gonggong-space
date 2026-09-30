@@ -131,7 +131,7 @@ gg agents mirror https://registry.example.com --node-mirror https://example.com/
 gg agents mirror npmmirror       # 改回默认
 ```
 
-共工只修改自己的配置，不会改动你的全局 npm 设置。
+共工空间只修改自己的配置，不会改动你的全局 npm 设置。
 
 ### `gg` 提示 `command not found`
 

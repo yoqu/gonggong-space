@@ -40,12 +40,12 @@ describe('permissions guide', () => {
     await waitFor(() => expect(within(row('屏幕录制')).getByText('未授权')).toBeTruthy())
     expect(within(row('屏幕录制')).getByText(/实时画面/)).toBeTruthy()
     expect(within(row('辅助功能')).getByText(/远程操作/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '重启共工' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '重启共工空间' })).toBeNull()
 
     fireEvent.click(within(row('屏幕录制')).getByRole('button', { name: '去授权' }))
     await waitFor(() => expect(m.requestPermission).toHaveBeenCalledWith('screen_recording'))
     // Screen recording only takes effect once the app restarts.
-    fireEvent.click(await screen.findByRole('button', { name: '重启共工' }))
+    fireEvent.click(await screen.findByRole('button', { name: '重启共工空间' }))
     expect(m.restartApp).toHaveBeenCalled()
 
     m.permissions.mockResolvedValue([NONE[0] as PermissionState, { kind: 'accessibility', granted: true }])

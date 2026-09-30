@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn tells_the_page_where_gg_cast_comes_from() {
         let json = serde_json::to_value(CastComponent::Bundled {
-            path: "/Applications/共工.app/Contents/MacOS/gg-cast".into(),
+            path: "/Applications/共工空间.app/Contents/MacOS/gg-cast".into(),
         })
         .unwrap();
         assert_eq!(json["source"], "bundled");

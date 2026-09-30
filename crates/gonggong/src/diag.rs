@@ -224,7 +224,7 @@ pub fn permission(kind: CheckKind, granted: Option<bool>) -> Check {
             kind,
             Status::Warn,
             format!(
-                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工桌面端）"
+                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工空间桌面端）"
             ),
         ),
     }

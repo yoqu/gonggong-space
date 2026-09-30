@@ -202,8 +202,8 @@ function GitPage() {
   )
 }
 
-const TOKEN_NAME = '共工'
-const TOKEN_NOTE = '共工：列出我的仓库和分支（只读）'
+const TOKEN_NAME = '共工空间'
+const TOKEN_NOTE = '共工空间：列出我的仓库和分支（只读）'
 
 /** Creation page with the name and read-only permission prefilled; unknown parameters are ignored by older instances. */
 export function tokenUrl(provider: GitProvider, base: string) {

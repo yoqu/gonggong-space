@@ -15,8 +15,8 @@
 ├── models.json          从各 Agent 探测到的可选模型，上报服务器供网页选择
 ├── tools-latest.json    Node.js / Claude Code / Codex 最新版本的查询缓存
 ├── adapters/            ACP 适配器（首次运行时用 npm 安装）
-├── runtime/             共工托管版 Node.js
-├── tools/               共工托管版 Claude Code / Codex
+├── runtime/             共工空间托管版 Node.js
+├── tools/               共工空间托管版 Claude Code / Codex
 ├── workspaces/          托管工作区：workspaces/<群>/<Bot>/<仓库>
 ├── backups/             本机备份：被覆盖的本地修改、中断的半成品
 ├── logs/                daemon 日志：daemon.<日期>.log

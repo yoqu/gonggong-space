@@ -415,7 +415,7 @@ function fakeTauri({ unbound }) {
         },
       ],
     }),
-    cast_component: () => ({ source: 'bundled', path: '/Applications/Gonggong.app/Contents/MacOS/gg-cast' }),
+    cast_component: () => ({ source: 'bundled', path: '/Applications/共工空间.app/Contents/MacOS/gg-cast' }),
     permissions: () => [
       { kind: 'screen_recording', granted: true },
       { kind: 'accessibility', granted: true },

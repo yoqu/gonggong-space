@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Gonggong",
+  "productName": "共工空间",
   "version": "0.1.0",
   "identifier": "cn.gonggong.daemon",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "共工",
+        "title": "共工空间",
         "width": 1100,
         "height": 720,
         "minWidth": 900,

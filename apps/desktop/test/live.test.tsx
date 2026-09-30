@@ -29,7 +29,7 @@ beforeEach(() => {
   usePermissions.setState({ list: [], guide: false })
   m.castComponent.mockResolvedValue({
     source: 'bundled',
-    path: '/Applications/共工.app/Contents/MacOS/gg-cast',
+    path: '/Applications/共工空间.app/Contents/MacOS/gg-cast',
   })
   m.closeTunnel.mockResolvedValue()
   m.tunnels.mockResolvedValue({
@@ -58,7 +58,7 @@ it('shows the bundled gg-cast and the live previews with their state, controller
   render(<LivePage go={() => {}} />)
   const cast = await row('gg-cast')
   expect(cast.getByText('已内置')).toBeTruthy()
-  expect(cast.getByText('随共工一起安装与升级，无需单独下载')).toBeTruthy()
+  expect(cast.getByText('随共工空间一起安装与升级，无需单独下载')).toBeTruthy()
   const app = await row('桌面客户端')
   expect(app.getByText('推流中')).toBeTruthy()
   expect(app.getByText('支付重构 · 小王的 Claude · 桌面应用 · 李建国 正在远程操作')).toBeTruthy()

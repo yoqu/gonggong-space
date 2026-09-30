@@ -36,7 +36,7 @@ pub async fn tools(host: State<'_, Host>) -> Result<Vec<ToolStatus>> {
     .map_err(|e| e.to_string())?
 }
 
-/// 安装 / 升级 / 安装共工托管版; afterwards the new detection reaches the server like 重新检测.
+/// 安装 / 升级 / 安装共工空间托管版; afterwards the new detection reaches the server like 重新检测.
 #[tauri::command]
 pub async fn run_tool(
     op: ToolOp,

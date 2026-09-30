@@ -122,7 +122,7 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
               </div>
               {t?.installed ? (
                 <>
-                  <GroupRow label="来源" wideValue value={t.managed ? '共工托管' : '自行安装'} />
+                  <GroupRow label="来源" wideValue value={t.managed ? '共工空间托管' : '自行安装'} />
                   <GroupRow
                     label="最新版本"
                     wideValue
@@ -157,7 +157,7 @@ function Badge({ tool: t }: { tool: ToolStatus | undefined }) {
   return <Tag tone="green">{`已安装 ${t.version ?? ''}`.trim()}</Tag>
 }
 
-/** 安装 when missing, 升级到 X for a managed tool with an update, 安装共工托管版 next to the user's own install. */
+/** 安装 when missing, 升级到 X for a managed tool with an update, 安装共工空间托管版 next to the user's own install. */
 function ToolAction({
   tool: t,
   busy,
@@ -181,7 +181,7 @@ function ToolAction({
     ) : null
   return (
     <Button disabled={busy} onClick={() => onRun('install')}>
-      安装共工托管版
+      安装共工空间托管版
     </Button>
   )
 }

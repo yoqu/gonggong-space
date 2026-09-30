@@ -109,11 +109,11 @@ function NextStep({ created, self }: { created: BotDto; self: boolean }) {
         ? {
             tone: 'pending',
             desc: self
-              ? `在要运行 Bot 的机器上用共工客户端打开接入链接，绑定并上报 ${agent} 后自动可用。`
+              ? `在要运行 Bot 的机器上用共工空间客户端打开接入链接，绑定并上报 ${agent} 后自动可用。`
               : `${bot.ownerName} 绑定第一台机器并上报 ${agent} 后自动可用。`,
           }
         : bot.presence === 'offline'
-          ? { tone: 'warn', desc: `机器 ${bot.machineName} 当前离线，打开该机器上的共工客户端后即可使用` }
+          ? { tone: 'warn', desc: `机器 ${bot.machineName} 当前离线，打开该机器上的共工空间客户端后即可使用` }
           : bot.presence === 'agent_missing'
             ? { tone: 'warn', desc: `${bot.machineName} 未上报 ${agent}。在该机器安装并重新检测后自动可用。` }
             : { tone: 'ok', desc: '已就绪，可以在群里 @ 它了' }

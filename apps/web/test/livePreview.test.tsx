@@ -168,7 +168,7 @@ describe('桌面应用预览 · 观看', () => {
   it('says why there is no picture', async () => {
     routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限', missing: [] } }))
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('本机没有授予「屏幕录制」权限。Bot 主人可在共工桌面端「实时画面」页查看')
+    await screen.findByText('本机没有授予「屏幕录制」权限。Bot 主人可在共工空间桌面端「实时画面」页查看')
   })
 
   it('retries at once when asked, and says when it retries by itself', async () => {
@@ -192,14 +192,14 @@ describe('桌面应用预览 · 观看', () => {
       preview({
         live: {
           state: 'failed',
-          error: '机器未授权屏幕录制，请在共工桌面端「实时画面」页完成授权',
+          error: '机器未授权屏幕录制，请在共工空间桌面端「实时画面」页完成授权',
           missing: ['screen_recording', 'accessibility'],
         },
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
     await screen.findByText('机器未授权屏幕录制')
-    screen.getByText('请 Bot 主人在共工桌面端「实时画面」页完成授权')
+    screen.getByText('请 Bot 主人在共工空间桌面端「实时画面」页完成授权')
   })
 
   it('opens from its card in the workbench', async () => {
@@ -290,7 +290,7 @@ describe('桌面应用预览 · 控制', () => {
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在共工桌面端「实时画面」页完成授权')
+    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在共工空间桌面端「实时画面」页完成授权')
   })
 
   it('viewers only watch: no input leaves the page', async () => {
@@ -346,7 +346,7 @@ describe('小程序 · 实时画面', () => {
 
   it('guides the owner through the authorization and trust prompts', async () => {
     watch({ state: 'failed', error: '已弹出授权请求', missing: [], devtools: 'auth' })
-    await screen.findByText('请在微信开发者工具里允许共工访问')
+    await screen.findByText('请在微信开发者工具里允许共工空间访问')
     cleanup()
     resetPreviews()
     watch({ state: 'failed', error: '小程序没有运行起来', missing: [], devtools: 'trust' })

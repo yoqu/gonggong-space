@@ -13,8 +13,8 @@ Mac 上更推荐 [桌面端](/desktop/)：自带 daemon，不需要再装 `gg`�
 成员机器需要：
 
 - **git**
-- **Node.js 22 或更高**（含 npm）。没有的话，daemon 首次运行时会自动安装共工托管版 Node.js 到 `~/.gonggong/runtime`；也可以用 `gg agents install node` 提前安装。
-- **Claude Code** 和/或 **Codex CLI**，并在终端里先登录好。也可以用 `gg agents install claude` / `gg agents install codex` 安装共工托管版。
+- **Node.js 22 或更高**（含 npm）。没有的话，daemon 首次运行时会自动安装共工空间托管版 Node.js 到 `~/.gonggong/runtime`；也可以用 `gg agents install node` 提前安装。
+- **Claude Code** 和/或 **Codex CLI**，并在终端里先登录好。也可以用 `gg agents install claude` / `gg agents install codex` 安装共工空间托管版。
 
 daemon 首次运行时会用 npm 把 ACP 适配器安装到 `~/.gonggong/adapters/`，所以机器需要能访问 npm 源（默认淘宝镜像 npmmirror，可用 `gg agents mirror` 更换）。
 

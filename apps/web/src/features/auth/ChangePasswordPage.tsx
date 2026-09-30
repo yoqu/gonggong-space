@@ -192,7 +192,7 @@ export function ChangePasswordPage() {
   const setUser = useSession((s) => s.setUser)
   const pc = usePasswordChange((me) => {
     setUser(me)
-    toast({ type: 'success', message: '密码已更新，欢迎加入共工' })
+    toast({ type: 'success', message: '密码已更新，欢迎加入共工空间' })
   })
   return (
     <AuthCard

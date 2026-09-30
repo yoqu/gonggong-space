@@ -34,12 +34,12 @@ const STATE: Record<NonNullable<LivePreview['live']>['state'] | 'idle', { text: 
 const WAITING = { text: '等待操作', tone: 'orange' } satisfies (typeof STATE)[keyof typeof STATE]
 
 const COMPONENT: Record<CastComponent['source'], { text: string; tone: TagTone; desc: string }> = {
-  bundled: { text: '已内置', tone: 'green', desc: '随共工一起安装与升级，无需单独下载' },
+  bundled: { text: '已内置', tone: 'green', desc: '随共工空间一起安装与升级，无需单独下载' },
   local: { text: '本地构建', tone: 'blue', desc: '使用 GG_CAST_BIN 指定的开发构建' },
   download: {
     text: '未内置',
     tone: 'orange',
-    desc: '当前是开发版共工：首次推流时从服务器下载，服务器需在「客户端发布」上传 gg-cast',
+    desc: '当前是开发版共工空间：首次推流时从服务器下载，服务器需在「客户端发布」上传 gg-cast',
   },
 }
 

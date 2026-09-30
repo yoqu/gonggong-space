@@ -321,7 +321,7 @@ test('Agent 工具 installs Node.js and Claude Code from a custom mirror, stream
     await expect(nodeLog).toContainText(`已切换到 Node.js ${NODE}`, { timeout: 60_000 })
     await expect(node).toContainText('安装完成')
     await expect(node).toContainText(`已安装 ${NODE}`)
-    await expect(node).toContainText('共工托管')
+    await expect(node).toContainText('共工空间托管')
     expect(existsSync(join(m.home, `runtime/node-v${NODE}/bin/node`))).toBe(true)
 
     const claude = dialog.getByRole('region', { name: 'Claude Code', exact: true })
@@ -331,7 +331,7 @@ test('Agent 工具 installs Node.js and Claude Code from a custom mirror, stream
     await expect(claudeLog).toContainText('added 1 package', { timeout: 60_000 })
     await expect(claude).toContainText('安装完成')
     await expect(claude).toContainText('已安装 2.1.300')
-    await expect(claude).toContainText('共工托管')
+    await expect(claude).toContainText('共工空间托管')
 
     // A newer release on the mirror switched to: the upgrade installs exactly it from there.
     mirror.state.claude = '2.1.301'

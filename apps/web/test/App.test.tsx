@@ -79,7 +79,7 @@ describe('session guard', () => {
     )
     renderAt('/')
     const nav = await screen.findByRole('navigation', { name: '会话列表' })
-    expect(within(nav).getByRole('heading', { name: '共工' })).toBeTruthy()
+    expect(within(nav).getByRole('heading', { name: '共工空间' })).toBeTruthy()
     const rail = screen.getByRole('navigation', { name: '应用导航' })
     expect(within(rail).getByRole('button', { name: /^消息/ }).getAttribute('aria-current')).toBe('page')
     expect(within(rail).getByRole('button', { name: '管理后台' })).toBeTruthy()

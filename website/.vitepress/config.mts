@@ -174,6 +174,6 @@ export default defineConfig({
     returnToTopLabel: '回到顶部',
     sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '外观',
-    footer: { copyright: 'Copyright © 2026 共工空间' },
+    footer: { message: '基于 Apache License 2.0 开源', copyright: 'Copyright © 2026 共工空间' },
   },
 })

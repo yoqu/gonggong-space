@@ -3,7 +3,7 @@ import { cx } from '../lib/cx'
 import './brand.css'
 
 /**
- * 共工 mark: two wave crests (the oracle-bone 共 is two hands raising one object) lift a jade above the water.
+ * 共工空间 mark: two wave crests (the oracle-bone 共 is two hands raising one object) lift a jade above the water.
  * `motion="enter"` draws it in once; `"idle"` also keeps the jade floating and the water flowing (splash screens).
  */
 export function Logo({
@@ -61,7 +61,7 @@ export function Brand({
     <span className="ui-brand" style={{ ['--brand-size' as string]: `${size}px` }}>
       <Logo size={size} motion={motion} />
       <span className="ui-brand__text">
-        <span className="ui-brand__name">共工</span>
+        <span className="ui-brand__name">共工空间</span>
         {subtitle ? <span className="ui-brand__sub">{subtitle}</span> : null}
       </span>
     </span>

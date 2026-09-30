@@ -1,4 +1,4 @@
-//! 系统权限 guide: the macOS permissions the previews need, asked for by this app so that TCC lists 共工 — the daemon
+//! 系统权限 guide: the macOS permissions the previews need, asked for by this app so that TCC lists 共工空间 — the daemon
 //! runs in this process and gg-cast, its child, is attributed to this app too.
 use super::Result;
 use gonggong::permission::{self, Permission};
@@ -21,7 +21,7 @@ pub fn permissions() -> Vec<PermissionState> {
         .collect()
 }
 
-/// Lists 共工 under the permission (with the system prompt where macOS still shows one), then opens its pane in
+/// Lists 共工空间 under the permission (with the system prompt where macOS still shows one), then opens its pane in
 /// System Settings: a permission denied once is only switched on there.
 #[tauri::command]
 pub fn request_permission(kind: Permission, app: AppHandle) -> Result<()> {

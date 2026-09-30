@@ -12,7 +12,7 @@
 | daemon | daemon | 成员机器上的常驻程序，接活并调用本机 Agent |
 | gg | gg | daemon 的命令行，`gg run` 启动 daemon |
 | 桌面端 | desktop app | 内置 daemon 的 macOS 图形客户端（Tauri） |
-| 共工客户端 | client | 界面上对 daemon（命令行或桌面端）的统称 |
+| 共工空间客户端 | client | 界面上对 daemon（命令行或桌面端）的统称 |
 | 管理后台 | admin | 系统管理员使用的后台页面 |
 
 ## 账号与机器

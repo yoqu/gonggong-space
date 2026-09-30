@@ -277,7 +277,7 @@ async fn says_the_machine_lacks_screen_recording_without_starting_gg_cast() {
     assert_eq!(states[0], (CastPhase::Starting, None, both.clone()));
     assert_eq!(
         states[1],
-        (CastPhase::Failed, Some("机器未授权屏幕录制，请在共工桌面端「实时画面」页完成授权".into()), both)
+        (CastPhase::Failed, Some("机器未授权屏幕录制，请在共工空间桌面端「实时画面」页完成授权".into()), both)
     );
     assert!(!seen.exists(), "gg-cast must not start");
     casts.sync(vec![], &out);

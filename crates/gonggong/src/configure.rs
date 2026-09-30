@@ -25,7 +25,7 @@ fn catalog_line(catalog: Option<&AgentCatalog>) -> String {
     }
 }
 
-/// The latest version and who installed it, e.g. 「最新 2.1.285（可升级）\t共工托管」.
+/// The latest version and who installed it, e.g. 「最新 2.1.285（可升级）\t共工空间托管」.
 fn tool_columns(s: &ToolStatus) -> String {
     let latest = match &s.latest {
         Some(l) if s.has_update() => format!("最新 {l}（可升级）"),
@@ -35,7 +35,7 @@ fn tool_columns(s: &ToolStatus) -> String {
     };
     let source = match (s.installed, s.managed) {
         (false, _) => "-",
-        (true, true) => "共工托管",
+        (true, true) => "共工空间托管",
         (true, false) => "自行安装",
     };
     format!("{latest}\t{source}")

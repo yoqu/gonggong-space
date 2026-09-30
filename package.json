@@ -1,6 +1,7 @@
 {
   "name": "gonggong",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "scripts": {

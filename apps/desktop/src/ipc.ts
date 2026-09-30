@@ -215,7 +215,7 @@ export interface ToolStatus {
   version: string | null
   /** Latest on the mirror; null when it could not be checked. */
   latest: string | null
-  /** Installed by Gonggong (共工托管) rather than by the user (自行安装). */
+  /** Installed by Gonggong (共工空间托管) rather than by the user (自行安装). */
   managed: boolean
   path: string | null
 }

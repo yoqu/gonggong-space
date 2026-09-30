@@ -142,7 +142,7 @@ export function AgentsPage(_: PageProps) {
   )
 }
 
-/** 安装 when missing, 升级 for a managed tool with an update, 安装共工托管版 next to the user's own install. */
+/** 安装 when missing, 升级 for a managed tool with an update, 安装共工空间托管版 next to the user's own install. */
 function ToolActions({
   tool: t,
   busy,
@@ -171,7 +171,7 @@ function ToolActions({
   }
   return (
     <Button disabled={busy} onClick={() => onRun('install')}>
-      安装共工托管版
+      安装共工空间托管版
     </Button>
   )
 }
@@ -196,13 +196,13 @@ function ToolLog({ op }: { op: Op }) {
   )
 }
 
-/** 版本 · 共工托管 / 自行安装 · 最新版本 rows of a detected tool. */
+/** 版本 · 共工空间托管 / 自行安装 · 最新版本 rows of a detected tool. */
 function toolRows(t: ToolStatus | undefined, loaded: boolean) {
   if (!loaded) return <GroupRow label="最新版本" wideValue value="检查中…" />
   if (!t?.installed) return null
   return (
     <>
-      <GroupRow label="来源" wideValue value={t.managed ? '共工托管' : '自行安装'} />
+      <GroupRow label="来源" wideValue value={t.managed ? '共工空间托管' : '自行安装'} />
       <GroupRow
         label="最新版本"
         wideValue
@@ -293,8 +293,8 @@ function NodeCard({
           <Icon name="warning" size={16} color="var(--system-orange)" />
           <span className="dk-row__main">
             {tooOld
-              ? `系统的 Node.js ${t?.version} 低于 ${MIN_NODE}，ACP 适配器无法运行，请安装共工托管版（不影响系统的 Node.js）。`
-              : `本机没有 Node.js ≥ ${MIN_NODE}。安装共工托管版到 ~/.gonggong/runtime，不影响系统环境。`}
+              ? `系统的 Node.js ${t?.version} 低于 ${MIN_NODE}，ACP 适配器无法运行，请安装共工空间托管版（不影响系统的 Node.js）。`
+              : `本机没有 Node.js ≥ ${MIN_NODE}。安装共工空间托管版到 ~/.gonggong/runtime，不影响系统环境。`}
           </span>
         </div>
       ) : null}
@@ -394,7 +394,7 @@ function Agent({
               {a.path
                 ? `（指定的路径 ${a.path} 不存在）`
                 : '（已检查 PATH、~/.local/bin、/opt/homebrew/bin）'}
-              。点「安装」从镜像源安装共工托管版，不需要管理员权限。
+              。点「安装」从镜像源安装共工空间托管版，不需要管理员权限。
               {users.length
                 ? `${users.join('、')} 依赖它，安装前收到的消息会被拒绝，并在群里提示发起人「执行机器缺少 ${meta.name}」。`
                 : ''}

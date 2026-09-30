@@ -25,7 +25,7 @@ const MOVE_MS = 33
 /** Wheel deltas are summed over this long: trackpads fire many tiny ones. */
 const WHEEL_MS = 50
 /** Where the machine owner fixes a live preview: gg-cast, permissions and its errors are all on this page. */
-const DESKTOP_PAGE = '共工桌面端「实时画面」页'
+const DESKTOP_PAGE = '共工空间桌面端「实时画面」页'
 
 /**
  * A live preview's picture (plan §6 GUI 观看页, B4): everyone watches; the member in control drives the machine's

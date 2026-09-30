@@ -169,7 +169,7 @@ describe('preview access (domain mode)', () => {
     expect((await t.app.inject({ url: `/api/previews/${s.preview.id}/open` })).statusCode).toBe(401)
     const stranger = await onPreview('/', { accept: 'text/html' })
     expect(stranger.status).toBe(401)
-    expect(stranger.text).toContain('请从共工的预览卡片打开')
+    expect(stranger.text).toContain('请从共工空间的预览卡片打开')
 
     const { cookie } = await login(s.preview.id, s.cookie)
     await t.db.update(previews).set({ closedAt: new Date() }).where(eq(previews.id, s.preview.id))

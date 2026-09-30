@@ -51,7 +51,7 @@ bash scripts/release.sh --only macos-aarch64,desktop   # 只打部分产物
 | --- | --- |
 | `gonggong-<版本>-<平台>[.exe]` | daemon（命令行 `gg`），各平台一个 |
 | `gg-cast-<版本>-<平台>[.exe]` | 实时画面推送程序，各平台一个 |
-| `Gonggong_<版本>_<架构>.dmg` | macOS 桌面端安装包，内置 gg-cast |
+| `共工空间_<版本>_<架构>.dmg` | macOS 桌面端安装包，内置 gg-cast |
 | `SHA256SUMS` | 各文件的 sha256 |
 | `manifest.json` | 发布清单：版本及各平台文件的下载地址与 sha256 |
 

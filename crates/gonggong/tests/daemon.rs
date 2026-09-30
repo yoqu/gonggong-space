@@ -52,7 +52,7 @@ fn the_lock_admits_one_daemon_per_home_until_released() {
     assert_eq!(std::fs::read_to_string(home.path().join("daemon.lock")).unwrap(), std::process::id().to_string());
     let err = Lock::acquire(home.path()).err().expect("second acquire must fail");
     assert!(matches!(err, LockError::Held { pid: Some(p) } if p == std::process::id()));
-    assert!(err.to_string().contains("已有共工 daemon 在运行"), "{err}");
+    assert!(err.to_string().contains("已有共工空间 daemon 在运行"), "{err}");
     drop(lock);
     // A child forked by a concurrent test may briefly share the descriptor until it execs.
     let reacquired = (0..50).any(|_| {
@@ -77,7 +77,7 @@ async fn reports_connection_heartbeat_latency_reconnects_and_wipes_on_revoke() {
     let mut rx = daemon.subscribe();
     assert!(matches!(daemon.status().conn, Conn::Connecting | Conn::Offline { .. }));
     let again = Daemon::start(options(home.path(), port)).err().expect("a second daemon on the same home must refuse");
-    assert!(again.to_string().contains("已有共工 daemon 在运行"), "{again}");
+    assert!(again.to_string().contains("已有共工空间 daemon 在运行"), "{again}");
 
     let (s, _) = listener.accept().await.unwrap();
     let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();

@@ -14,7 +14,7 @@ export function AdminLayout() {
       <nav className="ui-sidebar admin__nav" aria-label="管理后台">
         <div className="admin__brand">
           <Logo size={20} />
-          <span className="admin__product">共工</span>
+          <span className="admin__product">共工空间</span>
           <span className="admin__crumb">管理后台</span>
         </div>
         {ADMIN_NAV.map((g) => (

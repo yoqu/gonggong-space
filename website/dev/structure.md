@@ -8,7 +8,7 @@
 | --- | --- |
 | `apps/web` | Web 客户端（React + Vite）。`src/ui/` 是设计系统组件，`src/features/<领域>/` 按领域组织页面与组件，`src/app/` 是应用外壳 |
 | `apps/server` | 服务器（Fastify + Drizzle + PostgreSQL）。`src/modules/<领域>/` 按领域组织路由与服务；`src/db/schema.ts` 是唯一的表定义，迁移文件在 `drizzle/`；`src/daemon/` 是 daemon 的 WebSocket 网关，`src/realtime/` 是推给浏览器的实时通道 |
-| `apps/desktop` | 桌面端 Gonggong（Tauri）。`src/` 是 React 界面，`src-tauri/` 是 Rust 壳，直接依赖 `crates/gonggong` 在进程内运行 daemon |
+| `apps/desktop` | 桌面端「共工空间」（Tauri）。`src/` 是 React 界面，`src-tauri/` 是 Rust 壳，直接依赖 `crates/gonggong` 在进程内运行 daemon |
 | `crates/gonggong` | 成员机器上的 daemon 与 `gg` 命令行（二进制名 `gg`），集成测试在 `tests/` |
 | `packages/protocol` | 全部线上契约（zod）：Web ⇄ 服务器接口、daemon ⇄ 服务器消息、预览隧道帧、内置 MCP 工具。`fixtures/*.json` 是 daemon 协议的共享样例，TS 与 Rust 两边都要能往返；`cases/` 是其他跨语言共享用例 |
 | `tools/mock-agent` | 可脚本化的 ACP Agent，daemon 测试与部分端到端测试用它代替真实 Agent，按提示词决定行为（如 `mock:echo`、`mock:slow`、`mock:crash`） |

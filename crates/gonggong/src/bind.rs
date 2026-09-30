@@ -79,7 +79,7 @@ fn unquote(s: &str) -> &str {
 fn link_of_url(input: &str) -> Result<Link> {
     let url = reqwest::Url::parse(input).context("接入链接格式错误")?;
     if url.scheme() != LINK_SCHEME || url.host_str() != Some(LINK_HOST) {
-        bail!("不是共工的接入链接");
+        bail!("不是共工空间的接入链接");
     }
     let param = |name: &str| url.query_pairs().find(|(k, _)| k == name).map(|(_, v)| v.into_owned());
     checked(param("server"), param("code"), param("fp"))

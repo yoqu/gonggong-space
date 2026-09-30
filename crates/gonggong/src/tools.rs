@@ -217,7 +217,7 @@ async fn ensure_node_locked(home: &Path, mirror: &Mirror, progress: Progress<'_>
     if let Some(node) = node(home) {
         return Ok(node);
     }
-    progress(&format!("未找到 Node.js ≥ {MIN_NODE_MAJOR}，安装共工托管版"));
+    progress(&format!("未找到 Node.js ≥ {MIN_NODE_MAJOR}，安装共工空间托管版"));
     install_node(home, mirror, None, progress).await?;
     managed_node(home).context("托管 Node.js 安装后无法运行")
 }
@@ -278,7 +278,7 @@ pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Res
     }
     if !status.managed {
         bail!(
-            "{} 为自行安装（{}），共工不代为升级，可改为安装共工托管版",
+            "{} 为自行安装（{}），共工空间不代为升级，可改为安装共工空间托管版",
             kind.label(),
             status.path.as_deref().unwrap_or("-")
         );

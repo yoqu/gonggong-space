@@ -88,14 +88,14 @@ unsafe extern "C" {
 }
 
 /// Why capture failed when this process is refused screen recording. Only a hint: preflight is unreliable in a child
-/// process (it said no for gg-cast spawned by the granted 共工.app), so the daemon's own check in the responsible
+/// process (it said no for gg-cast spawned by the granted 共工空间.app), so the daemon's own check in the responsible
 /// process decides whether to start gg-cast at all, and capture itself is tried regardless.
 fn screen_recording_hint() -> Option<&'static str> {
     #[cfg(target_os = "macos")]
     // SAFETY: no arguments; only reads the TCC state.
     if !unsafe { CGPreflightScreenCaptureAccess() } {
         return Some(
-            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工桌面端）",
+            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工空间桌面端）",
         );
     }
     None

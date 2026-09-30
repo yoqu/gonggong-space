@@ -174,7 +174,7 @@ export function MachinesPage() {
                         className="admin-agent"
                         title={
                           a.latest
-                            ? `最新版本 ${a.latest} · ${a.managed ? '共工托管' : '自行安装'}`
+                            ? `最新版本 ${a.latest} · ${a.managed ? '共工空间托管' : '自行安装'}`
                             : undefined
                         }
                       >
