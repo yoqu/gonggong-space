@@ -221,11 +221,14 @@ where
                             });
                             continue;
                         }
-                        TunnelTarget::Snapshot { snapshot: SnapshotTarget::Miniprogram { miniprogram, .. } } => {
-                            let (project, path) = (PathBuf::from(miniprogram), open.path.clone());
+                        TunnelTarget::Snapshot {
+                            snapshot: SnapshotTarget::Miniprogram { miniprogram, launch, .. },
+                        } => {
+                            let (project, path, launch) =
+                                (PathBuf::from(miniprogram), open.path.clone(), launch.unwrap_or(true));
                             tokio::spawn(async move {
-                                match crate::wechatide::screenshot(crate::wechatide::devtools(), &project, &path).await
-                                {
+                                let devtools = crate::wechatide::devtools();
+                                match crate::wechatide::screenshot(devtools, &project, &path, launch).await {
                                     Ok(Shot::Simulator(jpeg)) => answer(&out, 200, "image/jpeg", jpeg).await,
                                     // Not the page yet: the devtools' login code for the bot's owner.
                                     Ok(Shot::Login(qr)) => answer(&out, 202, "image/jpeg", qr).await,

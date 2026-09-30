@@ -196,7 +196,11 @@ async fn refuses_ports_without_an_open_preview_and_reports_dead_ones() {
 async fn mini_program_snapshots_need_a_project_and_no_open_port() {
     let mut ws = connect(allow(&[])).await;
     let dir = tempfile::tempdir().unwrap();
-    let target = SnapshotTarget::Miniprogram { preview_id: "p9".into(), miniprogram: dir.path().display().to_string() };
+    let target = SnapshotTarget::Miniprogram {
+        preview_id: "p9".into(),
+        miniprogram: dir.path().display().to_string(),
+        launch: None,
+    };
     let shot = TunnelOpen {
         target: TunnelTarget::Snapshot { snapshot: target },
         method: "GET".into(),

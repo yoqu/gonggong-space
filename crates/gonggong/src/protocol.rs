@@ -768,7 +768,13 @@ pub enum SnapshotTarget {
     #[serde(rename_all = "camelCase")]
     Page { preview_id: String, port: u16 },
     #[serde(rename_all = "camelCase")]
-    Miniprogram { preview_id: String, miniprogram: String },
+    Miniprogram {
+        preview_id: String,
+        miniprogram: String,
+        /// `Some(false)`: devtools not running stay closed (a background retake).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        launch: Option<bool>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

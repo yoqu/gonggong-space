@@ -341,12 +341,13 @@ export const snapshotFile = (previewId: string) => join(dataDir(), 'previews', `
 
 /**
  * Its first screen through the tunnel: a web page rendered by the machine's headless Chrome, or a mini program's
- * simulator in the machine's devtools; fails with the machine's reason.
+ * simulator in the machine's devtools (started if they do not run, unless `launch` is false); fails with the
+ * machine's reason.
  */
-export async function takeSnapshot(ctx: Ctx, p: Preview) {
+export async function takeSnapshot(ctx: Ctx, p: Preview, { launch = true } = {}) {
   const conn = ctx.tunnels.get(p.machineId)
   const target = p.project
-    ? { previewId: p.id, miniprogram: p.project }
+    ? { previewId: p.id, miniprogram: p.project, ...(launch ? {} : { launch: false as const }) }
     : p.port !== null
       ? { previewId: p.id, port: p.port }
       : null
@@ -399,7 +400,10 @@ export async function takeSnapshot(ctx: Ctx, p: Preview) {
 
 const retaking = new Set<string>()
 
-/** Mini program cards waiting for their devtools' login: asks again, so a scanned code turns into the simulator. */
+/**
+ * Mini program cards waiting for their devtools' login: asks again, so a scanned code turns into the simulator; devtools
+ * the owner has quit stay closed.
+ */
 export async function retakeAwaitingLogin(ctx: Ctx) {
   const waiting = await ctx.db
     .select()
@@ -411,7 +415,7 @@ export async function retakeAwaitingLogin(ctx: Ctx) {
       .map(async (p) => {
         retaking.add(p.id)
         try {
-          await takeSnapshot(ctx, p)
+          await takeSnapshot(ctx, p, { launch: false })
         } catch {
           // offline or failing machine: the next round tries again
         } finally {

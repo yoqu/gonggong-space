@@ -198,9 +198,11 @@ describe('mini program previews', () => {
     const seen = (await w.li.get<GroupPreviewsDto>(`/api/groups/${w.group.id}/previews`)).body.previews[0]
     expect(seen).toMatchObject({ awaiting: 'login', status: 'online' })
 
-    // Nobody scanned yet: asking again changes nothing.
+    // Nobody scanned yet: asking again changes nothing, and never starts devtools the owner has quit.
     await retakeAwaitingLogin(t.ctx)
     expect((await t.db.select().from(previews))[0]!.awaiting).toBe('login')
+    expect(w.opens.at(-1)).toMatchObject({ snapshot: { miniprogram: shop.miniprogram, launch: false } })
+    expect(w.opens[0]).not.toHaveProperty('snapshot.launch')
 
     machine.loggedIn = true
     await retakeAwaitingLogin(t.ctx)

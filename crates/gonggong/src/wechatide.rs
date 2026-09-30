@@ -392,12 +392,12 @@ fn data_roots() -> Vec<PathBuf> {
 /// Runs `$call` with `$ide` bound to the shared session's devtools, connecting (again, once, when the session is
 /// gone) as needed. An unauthorized session is dropped: the owner's approval counts for the next one.
 macro_rules! with_session {
-    ($shared:expr, |$ide:ident| $call:expr) => {{
+    ($shared:expr, $launch:expr, |$ide:ident| $call:expr) => {{
         let mut session = $shared.session.lock().await;
         let mut retried = false;
         loop {
             if session.is_none() {
-                *session = Some($shared.connect().await?);
+                *session = Some($shared.connect($launch).await?);
             }
             let $ide = session.as_ref().expect("connected above");
             match $call {
@@ -443,8 +443,9 @@ impl Shared {
         Self { roots, trust, launch, session: tokio::sync::Mutex::new(None) }
     }
 
-    async fn connect(&self) -> Result<Devtools, Error> {
+    async fn connect(&self, launch: bool) -> Result<Devtools, Error> {
         let mut ide = match Devtools::connect_in(&self.roots).await {
+            Err(Error::NotRunning) if !launch => return Err(Error::NotRunning),
             Err(Error::NotRunning) => match (self.launch)() {
                 Launched::Now => self.await_launch().await?,
                 Launched::Already => return Err(Error::PortOff),
@@ -472,15 +473,20 @@ impl Shared {
 
     /// Whether the devtools answer this client: running, their service port on, it authorized.
     pub async fn ping(&self) -> Result<(), Error> {
-        with_session!(self, |ide| ide.call("check_wechatide_status", json!({})).await.map(|_| ()))
+        with_session!(self, true, |ide| ide.call("check_wechatide_status", json!({})).await.map(|_| ()))
     }
 
     pub async fn open(&self, project: &Path, page: Option<&str>) -> Result<(), Error> {
-        with_session!(self, |ide| ide.open(project, page).await)
+        with_session!(self, true, |ide| ide.open(project, page).await)
     }
 
     pub async fn screenshot(&self, project: &Path, page: &str) -> Result<Vec<u8>, Error> {
-        with_session!(self, |ide| ide.screenshot(project, page).await)
+        with_session!(self, true, |ide| ide.screenshot(project, page).await)
+    }
+
+    /// A screenshot that leaves devtools not running closed: polling must not reopen what the owner quit.
+    pub async fn screenshot_running(&self, project: &Path, page: &str) -> Result<Vec<u8>, Error> {
+        with_session!(self, false, |ide| ide.screenshot(project, page).await)
     }
 }
 
@@ -643,10 +649,16 @@ pub async fn open(devtools: &Shared, project: &Path, page: Option<&str>) -> Resu
     }
 }
 
-/// The simulator of `project` on `page` through `devtools` (launched and the project opened if needed).
-pub async fn screenshot(devtools: &Shared, project: &Path, page: &str) -> Result<Shot, String> {
+/// The simulator of `project` on `page` through `devtools` (the project opened if needed; the devtools launched too
+/// with `launch`).
+pub async fn screenshot(devtools: &Shared, project: &Path, page: &str, launch: bool) -> Result<Shot, String> {
     require_project(project)?;
-    match devtools.screenshot(project, page).await {
+    let shot = if launch {
+        devtools.screenshot(project, page).await
+    } else {
+        devtools.screenshot_running(project, page).await
+    };
+    match shot {
         Ok(jpeg) => Ok(Shot::Simulator(jpeg)),
         Err(Error::NeedsLogin(qr)) => Ok(Shot::Login(qr)),
         Err(e) => Err(explain(e)),
@@ -1228,6 +1240,14 @@ mod tests {
         let nowhere = tempfile::tempdir().unwrap();
         let cannot = Shared::new(vec![nowhere.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::No));
         assert_eq!(cannot.screenshot(Path::new("/w/shop"), "/").await.err(), Some(Error::NotRunning));
+    }
+
+    #[tokio::test]
+    async fn a_background_screenshot_leaves_devtools_the_owner_quit_closed() {
+        let nowhere = tempfile::tempdir().unwrap();
+        let shared =
+            Shared::new(vec![nowhere.path().into()], Arc::new(|_: &Path| false), Arc::new(|| panic!("launched")));
+        assert_eq!(shared.screenshot_running(Path::new("/w/shop"), "/").await.err(), Some(Error::NotRunning));
     }
 
     #[tokio::test]
