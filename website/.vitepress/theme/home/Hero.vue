@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { PERSONAS, personaScene } from '../../../../apps/web/src/features/bots/personas'
 import { useCopy } from './copy'
 import Mascot from './Mascot.vue'
-import { pinned, reducedMotion, useScroll } from './motion'
+import { clamp, pinned, reducedMotion, smooth, useClock, useScroll } from './motion'
 
 const root = ref<HTMLElement>()
 const narrow = ref(false)
@@ -16,6 +17,41 @@ const box = computed(() =>
 )
 
 useScroll(root, (r, vh) => root.value?.style.setProperty('--p', pinned(r, vh).toFixed(4)))
+
+/*
+ * The team on the rocks passes the jade along: 共字君 asks (@), one Bot builds (</>), the next checks (✓), and the jade
+ * sails back for the next round. One 9-second loop; each leg is a thrown arc, each stop a short hold.
+ */
+const HANDS: [number, number][] = [
+  [450, 640],
+  [724, 694],
+  [974, 668],
+]
+const LEG = 1.3
+const HOLD = 1.7
+const CYCLE = (LEG + HOLD) * 3
+const clock = useClock(root, CYCLE, HOLD * 0.6)
+const relay = computed(() => {
+  const k = clock.value / (LEG + HOLD)
+  const i = Math.floor(k)
+  const f = (k - i) * (LEG + HOLD)
+  const [x0, y0] = HANDS[i]
+  const [x1, y1] = HANDS[(i + 1) % 3]
+  const u = smooth(clamp((f - HOLD) / LEG))
+  const back = i === 2
+  // The throw back to 共字君 flies high over the water.
+  const lift = back ? 150 : 90
+  return {
+    x: x0 + (x1 - x0) * u,
+    y: y0 + (y1 - y0) * u - Math.sin(u * Math.PI) * lift,
+    spin: u * (back ? 360 : 180),
+    at: u < 0.5 ? i : (i + 1) % 3,
+    holding: f < HOLD,
+  }
+})
+const persona = (key: string, act: 'idle' | 'type' | 'done' | 'wave') =>
+  personaScene(PERSONAS.find((p) => p.key === key) ?? PERSONAS[0], act, false)
+const BUBBLES = ['@', '</>', '✓']
 
 // The pointer tilts the scene; layers move by their own depth.
 let raf = 0
@@ -135,7 +171,21 @@ const pine = (x: number, y: number, s: number) =>
           </defs>
           <path class="rock" d="M330 900C328 860 350 826 392 816 430 806 470 812 494 826 530 818 560 836 566 866 570 884 568 900Z" />
           <path class="ridge ridge--light" d="M372 846C392 840 410 844 424 852M494 830C512 838 530 840 546 836" />
-          <Mascot action="wave" :size="170" x="365" y="663" />
+          <path class="rock rock--low" d="M650 872C656 852 676 842 700 840 730 838 760 842 780 852 794 860 800 868 800 872Z" />
+          <path class="rock rock--low" d="M900 848C906 826 928 814 956 812 988 810 1018 816 1034 830 1044 838 1046 846 1046 848Z" />
+          <Mascot :action="relay.at === 0 && relay.holding ? 'wave' : 'idle'" :size="170" x="365" y="663" />
+          <image :href="persona('braces', relay.at === 1 && relay.holding ? 'type' : 'idle')" x="660" y="724" width="128" height="128" />
+          <image :href="persona('sentry', relay.at === 2 && relay.holding ? 'done' : 'idle')" x="908" y="692" width="130" height="130" />
+          <g v-for="(b, i) in BUBBLES" :key="b" class="say" :class="{ on: relay.at === i && relay.holding }" :transform="`translate(${HANDS[i][0] + 34} ${HANDS[i][1] - 58})`">
+            <rect x="-4" y="-22" :width="b.length * 11 + 22" height="30" rx="15" />
+            <path d="M6 7 2 16 16 7Z" />
+            <text :x="b.length * 5.5 + 7" y="-2" text-anchor="middle">{{ b }}</text>
+          </g>
+          <g class="baton" :transform="`translate(${relay.x} ${relay.y}) rotate(${relay.spin})`">
+            <circle r="22" class="baton__glow" />
+            <path d="M0 -15 15 0 0 15 -15 0Z" fill="url(#jade)" />
+            <path d="M0 -15 15 0H0Z" fill="#fff" opacity=".5" />
+          </g>
           <g class="surge surge--l">
             <path class="surge__body" :d="SURGE" />
             <path class="surge__foam" d="M4 820C40 776 96 744 160 736" />
@@ -168,8 +218,6 @@ const pine = (x: number, y: number, s: number) =>
           </a>
         </div>
       </div>
-
-      <div class="cue" aria-hidden="true"><span>{{ t.hero.cue }}</span><i /></div>
     </div>
   </section>
 </template>
@@ -397,38 +445,34 @@ const pine = (x: number, y: number, s: number) =>
   margin-top: 30px;
 }
 
-.cue {
-  position: absolute;
-  left: 50%;
-  bottom: 22px;
-  translate: -50% 0;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--ink-2);
-  opacity: calc(1 - var(--p) * 5);
+.say {
+  opacity: 0;
+  transition: opacity 0.25s;
 }
-.cue i {
-  width: 1px;
-  height: 36px;
-  background: linear-gradient(var(--ink-2), transparent);
-  animation: cue 2s ease-in-out infinite;
-  transform-origin: top;
+.say.on {
+  opacity: 1;
 }
-@keyframes cue {
-  0% {
-    transform: scaleY(0);
-  }
-  60% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scaleY(1);
-    opacity: 0;
-  }
+.say rect,
+.say path {
+  fill: var(--card);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.say path {
+  stroke: none;
+}
+.say text {
+  font: 700 17px var(--mono);
+  fill: var(--ink);
+}
+.baton__glow {
+  fill: var(--jade);
+  opacity: 0.14;
+}
+.rock--low {
+  fill: var(--m4);
+  stroke: color-mix(in srgb, var(--m4) 55%, var(--ink));
+  stroke-width: 2;
 }
 
 .en .title {

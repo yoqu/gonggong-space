@@ -1,4 +1,4 @@
-import { type Directive, onBeforeUnmount, onMounted, type Ref } from 'vue'
+import { type Directive, onBeforeUnmount, onMounted, type Ref, ref } from 'vue'
 
 export const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v))
 export const smooth = (t: number) => t * t * (3 - 2 * t)
@@ -58,4 +58,40 @@ export const vReveal: Directive<HTMLElement> = {
     )
     io.observe(el)
   },
+}
+
+/**
+ * A looping clock in seconds that only runs while the element is on screen. Reduced motion freezes it on `still`, a
+ * moment that shows the finished story.
+ */
+export function useClock(target: Ref<HTMLElement | undefined>, loop: number, still: number) {
+  const t = ref(0)
+  let raf = 0
+  let last = 0
+  let io: IntersectionObserver | undefined
+  const frame = (now: number) => {
+    // rAF can stamp a frame slightly before the performance.now() we started from.
+    t.value = (t.value + clamp(now - last, 0, 100) / 1000) % loop
+    last = now
+    raf = requestAnimationFrame(frame)
+  }
+  onMounted(() => {
+    if (reducedMotion()) {
+      t.value = still
+      return
+    }
+    io = new IntersectionObserver(([e]) => {
+      cancelAnimationFrame(raf)
+      raf = 0
+      if (!e.isIntersecting) return
+      last = performance.now()
+      raf = requestAnimationFrame(frame)
+    })
+    if (target.value) io.observe(target.value)
+  })
+  onBeforeUnmount(() => {
+    io?.disconnect()
+    cancelAnimationFrame(raf)
+  })
+  return t
 }

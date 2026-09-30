@@ -9,7 +9,6 @@ const zh = {
     tagline: '在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工。过程实时可见，改动随时可审。',
     start: '快速上手',
     about: '共工空间是什么',
-    cue: '往下滚动，看一次真实的协作',
   },
   stage: {
     kicker: '真实界面 · 一次完整协作',
@@ -105,7 +104,6 @@ const en: Copy = {
       'Mention a Bot in a group, and Claude Code / Codex gets to work on a teammate’s machine. Every step is visible live, every change is reviewable.',
     start: 'Quick Start',
     about: 'What is Gonggong Space',
-    cue: 'Scroll to watch a real collaboration',
   },
   stage: {
     kicker: 'The real product · one full run',
