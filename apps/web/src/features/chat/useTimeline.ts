@@ -126,9 +126,11 @@ export function useTimeline(groupId: string) {
       const batch = [...pending]
       pending.clear()
       setState((s) => {
+        // Every group's runs stream over the one socket; another group's text must not re-render this one.
+        const mine = batch.filter(([runId]) => s.runs[runId])
+        if (!mine.length) return s
         const deltas = { ...s.deltas }
-        for (const [runId, text] of batch)
-          if (s.runs[runId]) deltas[runId] = ((deltas[runId] ?? '') + text).slice(-DELTA_KEEP)
+        for (const [runId, text] of mine) deltas[runId] = ((deltas[runId] ?? '') + text).slice(-DELTA_KEEP)
         return { ...s, deltas }
       })
     }

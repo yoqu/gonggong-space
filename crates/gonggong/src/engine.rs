@@ -164,6 +164,10 @@ impl Engine {
 }
 
 /// (patch, main branch compared against) of one workspace diff request.
+/// How long the server waits for a workspace diff (DIFF_TIMEOUT_MS).
+const DIFF_TIMEOUT: Duration = Duration::from_secs(10);
+const DIFF_SLOW: &str = "读取工作区改动超时";
+
 async fn workspace_diff(dir: &Path, scope: DiffScope, run_id: Option<&str>, shared: Option<Arc<Shared>>) -> DiffResult {
     const ENDED: &str = "该轮已结束或不在本机运行";
     if scope == DiffScope::Turn {
@@ -306,9 +310,13 @@ impl Handler for Engine {
                 tokio::spawn(async move {
                     let key = format!("{}|{:?}|{:?}", dir.display(), req.scope, req.run_id);
                     let (slots, d, run_id) = (inner.diff_slots.clone(), dir.clone(), req.run_id.clone());
+                    // The server stops waiting by then; dropping the work kills its git processes and frees the slot.
                     let compute = async move {
-                        let _slot = slots.acquire_owned().await.expect("never closed");
-                        workspace_diff(&d, req.scope, run_id.as_deref(), shared).await
+                        let work = async {
+                            let _slot = slots.acquire_owned().await.expect("never closed");
+                            workspace_diff(&d, req.scope, run_id.as_deref(), shared).await
+                        };
+                        tokio::time::timeout(DIFF_TIMEOUT, work).await.unwrap_or_else(|_| Err(DIFF_SLOW.into()))
                     };
                     let result = inner.diffs.run(key, compute).await;
                     let (patch, base, error) = match result {

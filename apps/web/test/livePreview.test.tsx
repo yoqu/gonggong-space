@@ -155,6 +155,16 @@ describe('桌面应用预览 · 观看', () => {
     expect(lk.rooms[0]?.disconnected).toBe(true)
   })
 
+  it('leaves the room while its tab is hidden and joins again when shown', async () => {
+    routes(preview())
+    const { rerender } = render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
+    rerender(<LiveTab tab={tab} tabKey="live:p3" active={false} />)
+    await waitFor(() => expect(lk.rooms[0]?.disconnected).toBe(true))
+    rerender(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await waitFor(() => expect(lk.rooms[1]?.token).toBe('tok-li'))
+  })
+
   it('says why there is no picture', async () => {
     routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限', missing: [] } }))
     render(<LiveTab tab={tab} tabKey="live:p3" active />)

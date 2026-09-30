@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { type DaemonToServer, DiffScope, type WorkspaceDiffDto } from '@gonggong/protocol'
+import { DiffScope, type WorkspaceDiffDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
@@ -13,8 +13,6 @@ import { activeBots, requireMember } from '../groups/service.js'
 import { redact } from '../runs/redact.js'
 import { currentRepo, onlineMachine } from './provision.js'
 
-type DiffResult = Extract<DaemonToServer, { t: 'workspace.diff.result' }>
-
 /** Large repos take a while to write a tree and diff it. */
 const DIFF_TIMEOUT_MS = 10_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -25,18 +23,6 @@ const Query = z.object({ scope: DiffScope, runId: z.string().optional() })
 /** GET /api/groups/:id/bots/:botId/diff — a bot workspace's changes, from its daemon (or a finished run's patch). */
 export function workspaceDiffRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    const waiting = new Map<string, { machineId: string; resolve: (r: DiffResult | null) => void }>()
-    const settle = (requestId: string, res: DiffResult | null) => {
-      waiting.get(requestId)?.resolve(res)
-      waiting.delete(requestId)
-    }
-    const onMessage = (machineId: string, msg: DaemonToServer) => {
-      if (msg.t === 'workspace.diff.result' && waiting.get(msg.requestId)?.machineId === machineId)
-        settle(msg.requestId, msg)
-    }
-    ctx.hub.on('message', onMessage)
-    app.addHook('onClose', async () => void ctx.hub.off('message', onMessage))
-
     app.get<{ Params: { id: string; botId: string }; Querystring: unknown }>(
       '/api/groups/:id/bots/:botId/diff',
       async (req): Promise<WorkspaceDiffDto> => {
@@ -66,22 +52,18 @@ export function workspaceDiffRoutes(ctx: Ctx) {
           .from(groupBots)
           .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
         const repo = await currentRepo(ctx, group.id)
-        const requestId = randomUUID()
-        const answer = new Promise<DiffResult | null>((resolve) => {
-          waiting.set(requestId, { machineId, resolve })
-          setTimeout(() => settle(requestId, null), DIFF_TIMEOUT_MS).unref()
-        })
-        const sent = ctx.hub.send(machineId, {
+        const ask = {
           t: 'workspace.diff',
-          requestId,
+          requestId: randomUUID(),
           groupId: group.id,
           botId: bot.id,
           workspace: { repo, cdPath: gb?.cdPath ?? null },
           scope,
           runId: runId ?? null,
-        })
-        if (!sent) settle(requestId, null)
-        const res = (await answer) ?? fail('conflict', OFFLINE)
+        } as const
+        const res =
+          (await ctx.hub.request(machineId, ask, 'workspace.diff.result', DIFF_TIMEOUT_MS)) ??
+          fail('conflict', OFFLINE)
         if (res.error) return fail('conflict', res.error)
         return { scope, patch: res.patch && redact(res.patch), base: res.base, branch: res.branch }
       },

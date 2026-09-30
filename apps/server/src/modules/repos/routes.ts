@@ -5,13 +5,11 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { repoProblem } from '../groups/repo.js'
-import { probeBots, startProbes } from './probe.js'
+import { probeBots } from './probe.js'
 import { hideRepo, searchRepos } from './service.js'
 
 export function repoRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    app.addHook('onClose', startProbes(ctx))
-
     app.get<{ Querystring: { q?: string } }>('/api/repos', async (req): Promise<RepoDto[]> => {
       const me = await requireUser(ctx, req)
       return searchRepos(ctx, me.id, req.query.q ?? '')

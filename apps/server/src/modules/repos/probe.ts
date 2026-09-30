@@ -1,11 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type {
-  BotProbeDto,
-  DaemonToServer,
-  GitProtocol,
-  RepoProbeRes,
-  RepoProbeResult,
-} from '@gonggong/protocol'
+import type { BotProbeDto, GitProtocol, RepoProbeRes, RepoProbeResult } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, users } from '../../db/schema.js'
@@ -16,33 +10,12 @@ const PROBE_TIMEOUT_MS = 40_000
 /** How long a probe's "branch missing" verdict blocks binding that url + branch (spec §4). */
 const MISSING_TTL_MS = 60_000
 
-const waiting = new Map<string, { machineId: string; resolve: (r: RepoProbeResult | null) => void }>()
 const missing = new Map<string, number>()
 const cacheKey = (url: string, branch: string) => `${url.trim()}\n${branch.trim()}`
 
-const settle = (requestId: string, res: RepoProbeResult | null) => {
-  waiting.get(requestId)?.resolve(res)
-  waiting.delete(requestId)
-}
-
-/** Routes repo.probe.result answers to their waiting probes. Returns the detach fn. */
-export function startProbes(ctx: Ctx) {
-  const onMessage = (machineId: string, msg: DaemonToServer) => {
-    if (msg.t === 'repo.probe.result' && waiting.get(msg.requestId)?.machineId === machineId)
-      settle(msg.requestId, msg)
-  }
-  ctx.hub.on('message', onMessage)
-  return async () => void ctx.hub.off('message', onMessage)
-}
-
 function ask(ctx: Ctx, machineId: string, o: { url: string; branch: string; protocol: GitProtocol }) {
-  const requestId = randomUUID()
-  const answer = new Promise<RepoProbeResult | null>((resolve) => {
-    waiting.set(requestId, { machineId, resolve })
-    setTimeout(() => settle(requestId, null), PROBE_TIMEOUT_MS).unref()
-  })
-  if (!ctx.hub.send(machineId, { t: 'repo.probe', requestId, ...o })) settle(requestId, null)
-  return answer
+  const msg = { t: 'repo.probe', requestId: randomUUID(), ...o } as const
+  return ctx.hub.request(machineId, msg, 'repo.probe.result', PROBE_TIMEOUT_MS)
 }
 
 /** True while a recent probe found the repo readable but without this branch. */
@@ -71,7 +44,7 @@ export async function probeBots(
   const url = o.url.trim()
   const branch = o.branch.trim()
   const list = await targets(ctx, userId, o.botIds)
-  const probes = new Map<string, Promise<RepoProbeResult | null>>()
+  const probes = new Map<string, Promise<RepoProbeResult | undefined>>()
   const results = await Promise.all(
     list.map(async (bot): Promise<[BotProbeDto, RepoProbeResult | null]> => {
       const machineId = onlineMachine(ctx, bot.machineId)

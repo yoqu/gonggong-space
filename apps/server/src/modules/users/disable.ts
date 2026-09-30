@@ -10,6 +10,7 @@ import { publishBotRemoved } from '../bots/dto.js'
 import { publishGroup } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { publishRun } from '../runs/dto.js'
+import { forgetStream } from '../runs/engine.js'
 import { notifyChainDone, stopRuns } from '../runs/stop.js'
 import { toUserDto } from './dto.js'
 
@@ -82,6 +83,7 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
         .returning()
     : []
   for (const run of cut) {
+    forgetStream(run.id)
     await publishRun(ctx, run)
     await notifyChainDone(ctx, run)
   }

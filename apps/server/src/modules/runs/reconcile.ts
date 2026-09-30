@@ -5,6 +5,7 @@ import { voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { voidQuestions } from '../questions/service.js'
 import { publishRun } from './dto.js'
+import { forgetStream } from './engine.js'
 import { notifyChainDone } from './stop.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -26,6 +27,7 @@ export async function reconcileRuns(ctx: Ctx, machineId: string, activeRuns: str
     )
     .returning()
   for (const run of lost) {
+    forgetStream(run.id)
     await voidApprovals(ctx, run.id, 'ended')
     await voidQuestions(ctx, run.id)
     await publishRun(ctx, run)

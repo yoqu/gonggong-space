@@ -47,21 +47,6 @@ const offline = (bot: string) => fail('conflict', `${bot} 离线，无法读取�
 /** GET /api/groups/:id/bots/:botId/files/{tree,text,raw} — the read-only files browser (group members). */
 export function workspaceFileRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    const waiting = new Map<string, { machineId: string; resolve: (r: Answer | null) => void }>()
-    const settle = (requestId: string, res: Answer | null) => {
-      waiting.get(requestId)?.resolve(res)
-      waiting.delete(requestId)
-    }
-    const onMessage = (machineId: string, msg: DaemonToServer) => {
-      if (
-        (msg.t === 'files.tree.result' || msg.t === 'files.read.result') &&
-        waiting.get(msg.requestId)?.machineId === machineId
-      )
-        settle(msg.requestId, msg)
-    }
-    ctx.hub.on('message', onMessage)
-    app.addHook('onClose', async () => void ctx.hub.off('message', onMessage))
-
     /** The member-visible bot and its workspace, with the query. */
     async function target(req: Req) {
       const me = await requireUser(ctx, req)
@@ -79,31 +64,28 @@ export function workspaceFileRoutes(ctx: Ctx) {
       return { groupId: group.id, bot, workspace, query }
     }
 
-    async function ask<T extends Answer['t']>(t: Awaited<ReturnType<typeof target>>, msg: AskBody) {
+    async function ask<T extends Answer['t']>(t: Awaited<ReturnType<typeof target>>, msg: AskBody, reply: T) {
       const machineId = onlineMachine(ctx, t.bot.machineId)
       if (!machineId) return offline(t.bot.name)
-      const requestId = randomUUID()
-      const answer = new Promise<Answer | null>((resolve) => {
-        waiting.set(requestId, { machineId, resolve })
-        setTimeout(() => settle(requestId, null), TIMEOUT_MS).unref()
-      })
-      const sent = ctx.hub.send(machineId, {
+      const full = {
         ...msg,
-        requestId,
+        requestId: randomUUID(),
         groupId: t.groupId,
         botId: t.bot.id,
         workspace: t.workspace,
-      })
-      if (!sent) settle(requestId, null)
-      const res = (await answer) ?? offline(t.bot.name)
+      }
+      const res =
+        ((await ctx.hub.request(machineId, full as Ask, reply, TIMEOUT_MS)) as
+          | Extract<Answer, { t: T }>
+          | undefined) ?? offline(t.bot.name)
       if (res.error) return fail('conflict', res.error)
-      return res as Extract<Answer, { t: T }>
+      return res
     }
 
     app.get('/api/groups/:id/bots/:botId/files/tree', async (req: Req): Promise<FilesTreeDto> => {
       const t = await target(req)
       const { path, ignored } = t.query
-      const res = await ask<'files.tree.result'>(t, { t: 'files.tree', path, showIgnored: ignored === '1' })
+      const res = await ask(t, { t: 'files.tree', path, showIgnored: ignored === '1' }, 'files.tree.result')
       return { path, entries: res.entries, truncated: res.truncated }
     })
 
@@ -111,7 +93,7 @@ export function workspaceFileRoutes(ctx: Ctx) {
       const t = await target(req)
       const { path } = t.query
       if (!path) return fail('invalid', '缺少文件路径')
-      const res = await ask<'files.read.result'>(t, { t: 'files.read', path, maxBytes: FILE_TEXT_MAX_BYTES })
+      const res = await ask(t, { t: 'files.read', path, maxBytes: FILE_TEXT_MAX_BYTES }, 'files.read.result')
       return { path, size: res.size, binary: res.binary, mime: res.mime, text: res.text }
     })
 

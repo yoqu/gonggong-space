@@ -11,19 +11,24 @@ import type { TabMeta, TabProps } from '../types'
 const LiveView = lazy(() => import('../../previews/LiveView').then((m) => ({ default: m.LiveView })))
 
 /** A desktop app's window, live, in the workbench (plan B4). */
-export const LiveTab = ({ tab, tabKey }: TabProps<'live'>) => (
-  <LivePreview previewId={tab.previewId} tabKey={tabKey} icon="desktop" />
+export const LiveTab = ({ tab, tabKey, active }: TabProps<'live'>) => (
+  <LivePreview previewId={tab.previewId} tabKey={tabKey} icon="desktop" active={active} />
 )
 
-/** A live preview's tab: its picture, or why there is none. A mini program waits for its devtools login first. */
+/**
+ * A live preview's tab: its picture, or why there is none. A mini program waits for its devtools login first.
+ * A hidden tab leaves the room, so it stops costing the machine a stream.
+ */
 export function LivePreview({
   previewId,
   tabKey,
   icon,
+  active,
 }: {
   previewId: string
   tabKey: string
   icon: IconName
+  active: boolean
 }) {
   const state = usePreview(previewId)
   const p = state?.preview
@@ -47,7 +52,7 @@ export function LivePreview({
           <DevtoolsLogin preview={p} />
           <span>{loginNote(p)}</span>
         </div>
-      ) : (
+      ) : !active ? null : (
         <Suspense fallback={null}>
           <LiveView preview={p} />
         </Suspense>

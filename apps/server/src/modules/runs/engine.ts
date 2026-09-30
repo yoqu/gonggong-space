@@ -102,7 +102,7 @@ export function startRunEngine(ctx: Ctx) {
   return async () => {
     ctx.hub.off('message', onMessage)
     ctx.hub.off('online', onOnline)
-    await Promise.all(chains.values())
+    await Promise.all([...chains.values()].map((c) => c.tail))
   }
 }
 
@@ -216,6 +216,11 @@ const PROBES = ['a'.repeat(64), 'a"', "a'"]
 
 /** Plaintext of each live run's stream row, so appends skip reading and decrypting it back. */
 const segments = new Map<string, Segment>()
+
+/** A run that ended without run.done (daemon lost, account disabled) no longer streams. */
+export function forgetStream(runId: string) {
+  segments.delete(runId)
+}
 
 /** Where `plain` rolls over into a new row, if it does: after its last line, never inside a private key block. */
 function rollover(plain: string) {

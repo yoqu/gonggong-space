@@ -21,28 +21,14 @@ const LIMIT = 50
 const DAEMON_TIMEOUT_MS = 2_000
 
 type FilesList = Extract<ServerToDaemon, { t: 'files.list' }>
-type FilesResult = Extract<DaemonToServer, { t: 'files.result' }>
 type CommandsUpdate = Extract<DaemonToServer, { t: 'commands.update' }>
 type AgentCommand = CommandsUpdate['commands'][number]
 
-const waiting = new Map<string, { machineId: string; resolve: (r: FilesResult | null) => void }>()
-
 /** Asks the bot's daemon for workspace entries; null when it is offline, errs or times out. */
 async function askDaemon(ctx: Ctx, machineId: string, req: Omit<FilesList, 't' | 'requestId'>) {
-  const requestId = randomUUID()
-  const answer = new Promise<FilesResult | null>((resolve) => {
-    waiting.set(requestId, { machineId, resolve })
-    setTimeout(() => settle(requestId, null), DAEMON_TIMEOUT_MS).unref()
-  })
-  if (!ctx.hub.send(machineId, { t: 'files.list', requestId, ...req })) settle(requestId, null)
-  const res = await answer
+  const ask = { t: 'files.list', requestId: randomUUID(), ...req } as const
+  const res = await ctx.hub.request(machineId, ask, 'files.result', DAEMON_TIMEOUT_MS)
   return res && !res.error ? res.entries : null
-}
-
-function settle(requestId: string, res: FilesResult | null) {
-  const w = waiting.get(requestId)
-  waiting.delete(requestId)
-  w?.resolve(res)
 }
 
 function ago(from: Date, now: Date) {
@@ -166,12 +152,10 @@ export async function commandCandidates(
   return { system, agent }
 }
 
-/** Wires files.result and commands.update from daemons. Returns a drain-and-detach fn. */
+/** Wires commands.update from daemons. Returns a drain-and-detach fn. */
 export function startCandidates(ctx: Ctx) {
   let chain = Promise.resolve()
   const onMessage = (machineId: string, msg: DaemonToServer) => {
-    if (msg.t === 'files.result' && waiting.get(msg.requestId)?.machineId === machineId)
-      settle(msg.requestId, msg)
     if (msg.t === 'commands.update')
       chain = chain
         .then(() => onCommandsUpdate(ctx, machineId, msg))

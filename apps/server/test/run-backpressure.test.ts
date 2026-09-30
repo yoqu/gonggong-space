@@ -124,6 +124,22 @@ it('bounds a slow machine’s pending stream, keeps order, and still finishes th
   expect(warn).toHaveBeenCalledTimes(1)
 })
 
+it('waits for in-flight reports when shutting down', SLOW, async () => {
+  const w = await world()
+  const release = await stall(w.runId)
+  w.done()
+  let closed = false
+  const closing = t.app.close().then(() => {
+    closed = true
+  })
+  await new Promise((r) => setTimeout(r, 300))
+  expect(closed).toBe(false)
+  await release()
+  await closing
+  const [run] = await t.db.select().from(runs).where(eq(runs.id, w.runId))
+  expect(run?.status).toBe('completed')
+})
+
 it('releases the budget once the queue drains', SLOW, async () => {
   const w = await world()
   const release = await stall(w.runId)

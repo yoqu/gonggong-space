@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import {
   BindWorkspaceReq,
-  type DaemonToServer,
   DefaultWorkspaceReq,
   type DirListingDto,
-  type DirResult,
   type RepoAccessReason,
 } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
@@ -38,18 +36,6 @@ async function ownBot(ctx: Ctx, userId: string, rawId: string) {
 
 export function workspaceRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    const waiting = new Map<string, { machineId: string; resolve: (r: DirResult | null) => void }>()
-    const settle = (requestId: string, res: DirResult | null) => {
-      waiting.get(requestId)?.resolve(res)
-      waiting.delete(requestId)
-    }
-    const onMessage = (machineId: string, msg: DaemonToServer) => {
-      if (msg.t === 'dir.result' && waiting.get(msg.requestId)?.machineId === machineId)
-        settle(msg.requestId, msg)
-    }
-    ctx.hub.on('message', onMessage)
-    app.addHook('onClose', async () => void ctx.hub.off('message', onMessage))
-
     /** dir.list on a machine; fails when it is offline, silent or reports an error. */
     const listDirs = async (
       m: { name: string; machineId: string | null },
@@ -58,13 +44,10 @@ export function workspaceRoutes(ctx: Ctx) {
     ) => {
       const machineId = onlineMachine(ctx, m.machineId)
       if (!machineId) return fail('conflict', `${m.name} 离线，无法${verb}`)
-      const requestId = randomUUID()
-      const answer = new Promise<DirResult | null>((resolve) => {
-        waiting.set(requestId, { machineId, resolve })
-        setTimeout(() => settle(requestId, null), DIR_TIMEOUT_MS).unref()
-      })
-      if (!ctx.hub.send(machineId, { t: 'dir.list', requestId, path })) settle(requestId, null)
-      const res = (await answer) ?? fail('conflict', `${m.name} 未响应，请稍后重试`)
+      const ask = { t: 'dir.list', requestId: randomUUID(), path } as const
+      const res =
+        (await ctx.hub.request(machineId, ask, 'dir.result', DIR_TIMEOUT_MS)) ??
+        fail('conflict', `${m.name} 未响应，请稍后重试`)
       return res.error ? fail('invalid', res.error) : res
     }
 
