@@ -5,7 +5,8 @@
 //! of `$DISPLAY` (Linux: a service's own virtual display, plan B3), prints `live` once it is published, and runs until
 //! the window closes,
 //! the room drops it, or stdin closes (the daemon that started it is gone). Failures go to stderr, the last line being
-//! the reason shown to users, and exit 1. The member granted control sends input on the data channel (topic `input`,
+//! the reason shown to users, and exit 1, or 2 when the machine's owner can fix it there (a hidden, closed or misplaced
+//! window: `OwnerFix`), which the daemon retries soon. The member granted control sends input on the data channel (topic `input`,
 //! see `input.rs`); LiveKit only lets that member publish data.
 mod input;
 mod window;
@@ -155,7 +156,7 @@ fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<Candidate> {
             floating: floating.contains(&id),
         })
     });
-    pick(visible.collect(), pids, titles).context("应用还没有可见窗口（或窗口已最小化）")
+    pick(visible.collect(), pids, titles).ok_or_else(|| owner_fix("应用还没有可见窗口（或窗口已最小化）"))
 }
 
 type Slot = Arc<Mutex<(NativeVideoSource, VideoFrame<I420Buffer>)>>;
@@ -178,7 +179,8 @@ struct Region {
 /// Where window `id` is, on which display.
 #[cfg(not(target_os = "linux"))]
 fn region(id: u32) -> anyhow::Result<Region> {
-    let w = xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(id)).context("窗口已关闭")?;
+    let w =
+        xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(id)).ok_or_else(|| owner_fix("窗口已关闭"))?;
     let m = w.current_monitor()?;
     Ok(Region {
         left: w.x()? - m.x()?,
@@ -248,6 +250,26 @@ fn capturer(source_type: SourceType) -> anyhow::Result<Capturer> {
 /// A floating window cut out of its display: its id, to follow it, and where it is now.
 type Cut = (u32, Arc<Mutex<Region>>);
 
+/// A failure the machine's owner fixes on the machine by showing, reopening or moving the window.
+#[derive(Debug)]
+struct OwnerFix(String);
+
+impl std::fmt::Display for OwnerFix {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for OwnerFix {}
+
+fn owner_fix(reason: impl Into<String>) -> anyhow::Error {
+    OwnerFix(reason.into()).into()
+}
+
+fn exit_code(e: &anyhow::Error) -> i32 {
+    if e.chain().any(|c| c.is::<OwnerFix>()) { 2 } else { 1 }
+}
+
 /// Frames into the track (cut to `region` when set); a lost source ends publishing.
 struct OnFrame {
     slot: Slot,
@@ -293,7 +315,7 @@ fn start(
     let r = region(id)?;
     // Windows captures the main display unselected; ScreenCaptureKit lists no displays but selects one by its id.
     if cfg!(windows) && !r.primary {
-        bail!("要推送的窗口是置顶窗口，只能在主显示器上推送：请把它移到主显示器");
+        return Err(owner_fix("要推送的窗口是置顶窗口，只能在主显示器上推送：请把它移到主显示器"));
     }
     let region = Arc::new(Mutex::new(r));
     let display = cfg!(target_os = "macos").then_some(r.display as u64);
@@ -409,7 +431,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
     println!("live");
     loop {
         tokio::select! {
-            Some(reason) = ended.recv() => bail!(reason),
+            Some(reason) = ended.recv() => return Err(owner_fix(reason)),
             _ = gone.recv() => return Ok(()),
             ev = events.recv() => match ev {
                 Some(RoomEvent::Disconnected { reason }) => bail!("与实时画面服务断开（{reason:?}）"),
@@ -446,13 +468,19 @@ async fn main() {
     };
     if let Err(e) = result {
         eprintln!("{e:#}");
-        std::process::exit(1);
+        std::process::exit(exit_code(&e));
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exits_2_on_what_the_owner_fixes_on_the_machine() {
+        assert_eq!(exit_code(&owner_fix("窗口已关闭").context("推送失败")), 2);
+        assert_eq!(exit_code(&anyhow::anyhow!("无法发布画面")), 1);
+    }
 
     fn args(s: &str) -> anyhow::Result<Args> {
         parse(s.split_whitespace().map(String::from))

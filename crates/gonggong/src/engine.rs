@@ -317,6 +317,7 @@ impl Handler for Engine {
                 tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());
             }
             ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
+            ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
         }
     }
 

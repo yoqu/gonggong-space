@@ -19,7 +19,7 @@ import { requireOpenPreview } from '../previews/routes.js'
 import { isManager } from '../previews/service.js'
 import { daemonRelease } from '../releases/routes.js'
 import { liveTokens } from './livekit.js'
-import { CAST_KINDS, control, controlOf, watch } from './service.js'
+import { CAST_KINDS, control, controlOf, retryCast, watch } from './service.js'
 
 const PREFIX = '/livekit'
 
@@ -59,6 +59,23 @@ export function liveRoutes(ctx: Ctx) {
       const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
       await requireMember(ctx, preview.groupId, user.id)
       await watch(ctx, preview, user.id, WatchReq.parse(req.body ?? {}).fps)
+      return reply.status(204).send()
+    })
+
+    app.post('/api/previews/:id/live/retry', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
+      await requireMember(ctx, preview.groupId, user.id)
+      retryCast(ctx, preview)
+      return reply.status(204).send()
+    })
+
+    /** The machine owner's 立即重试, from the desktop app's 实时画面 page. */
+    app.post('/api/daemon/previews/:id/live/retry', async (req, reply) => {
+      const machine = await requireMachine(ctx, req)
+      const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
+      if (preview.machineId !== machine.id) return fail('not_found', '预览不存在或已关闭')
+      retryCast(ctx, preview)
       return reply.status(204).send()
     })
 

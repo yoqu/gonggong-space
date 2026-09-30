@@ -105,6 +105,12 @@ export async function syncCasts(ctx: Ctx, machineId: string, { onConnect = false
   ctx.hub.send(machineId, { t: 'cast.sync', casts })
 }
 
+/** 立即重试: the machine tries a failed live preview someone watches again now. */
+export function retryCast(ctx: Ctx, preview: Preview) {
+  if (!watched(ctx, preview.id)) fail('invalid', '没有人在看这个实时画面')
+  ctx.hub.send(preview.machineId, { t: 'cast.retry', previewId: preview.id })
+}
+
 /**
  * Drops lapsed leases: machines whose previews nobody watches any more stop publishing them, and a controller or
  * requester who stopped watching loses control or the request.
@@ -201,9 +207,12 @@ async function recordCastState(ctx: Ctx, machineId: string, msg: CastStateMsg) {
     .where(and(eq(previews.id, msg.previewId), eq(previews.machineId, machineId)))
   if (!p) return
   const next = { state: msg.state, error: msg.error, missing: msg.missing, devtools: msg.devtools }
-  // A mini program waiting on its devtools reports the same failure every few seconds.
-  if (JSON.stringify(live(ctx).casts.get(msg.previewId)) === JSON.stringify(next)) return
-  live(ctx).casts.set(msg.previewId, next)
+  // What waits on the machine's owner fails the same way every few seconds: the first retryAt stands.
+  const { retryAt: _, ...prev } = live(ctx).casts.get(msg.previewId) ?? {}
+  if (JSON.stringify(prev) === JSON.stringify(next)) return
+  const retryAt =
+    msg.retryIn === undefined ? undefined : new Date(ctx.now().getTime() + msg.retryIn * 1000).toISOString()
+  live(ctx).casts.set(msg.previewId, retryAt ? { ...next, retryAt } : next)
   await publishPreviews(ctx, p.groupId)
 }
 

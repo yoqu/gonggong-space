@@ -546,6 +546,7 @@ export const ServiceRestartResult = z.object({
  * joining the room), live (publishing), failed (`error` in the daemon's words; retried while still asked for).
  * `missing`: permissions the machine lacks — no screen recording fails, no accessibility leaves control inert.
  * `devtools`: a mini program waits on its owner in the WeChat devtools; retried every few seconds meanwhile.
+ * `retryIn`: seconds until a failed one is tried again (cast.retry tries at once).
  */
 export const CastState = z.object({
   t: z.literal('cast.state'),
@@ -554,6 +555,7 @@ export const CastState = z.object({
   error: z.string().nullable(),
   missing: z.array(Permission).default([]),
   devtools: DevtoolsBlocker.optional(),
+  retryIn: z.number().int().nonnegative().optional(),
 })
 
 export const DaemonToServer = z.discriminatedUnion('t', [
@@ -761,6 +763,8 @@ export type CastTarget = z.infer<typeof CastTarget>
  * and stops the others (plan B2).
  */
 export const CastSync = z.object({ t: z.literal('cast.sync'), casts: z.array(CastTarget) })
+/** A viewer asks to try a failed live preview again now, e.g. once its window shows. */
+export const CastRetry = z.object({ t: z.literal('cast.retry'), previewId: z.string() })
 
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
@@ -785,5 +789,6 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   ServiceRestart,
   PreviewsSync,
   CastSync,
+  CastRetry,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

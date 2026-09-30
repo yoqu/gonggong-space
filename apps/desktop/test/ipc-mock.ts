@@ -30,6 +30,7 @@ vi.mock('../src/ipc', () => ({
     openBotInWeb: vi.fn(),
     tunnels: vi.fn(async () => ({ previews: [], services: [] })),
     closeTunnel: vi.fn(),
+    retryCast: vi.fn(),
     stopService: vi.fn(),
     openLocal: vi.fn(),
     castComponent: vi.fn(),

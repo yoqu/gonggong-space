@@ -150,6 +150,8 @@ export interface Tunnels {
       missing: Permission[]
       /** A mini program waiting on this machine's owner in the WeChat devtools. */
       devtools?: DevtoolsBlocker
+      /** When a failed one is tried again. */
+      retryAt?: string
     } | null
     control: { controller: { name: string } | null } | null
   }[]
@@ -243,6 +245,7 @@ export const ipc = {
   tunnels: () => invoke<Tunnels>('tunnels'),
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),
+  retryCast: (id: string) => invoke<void>('retry_cast', { id }),
   stopService: (id: string) => invoke<void>('stop_service', { id }),
   /** The forwarded port in the default browser: `http://localhost:<port><path>`. */
   openLocal: (port: number, path: string) => invoke<void>('open_local', { port, path }),

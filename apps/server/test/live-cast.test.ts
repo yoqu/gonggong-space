@@ -1,4 +1,4 @@
-import type { GroupPreviewsDto, ServerToDaemon, ServiceInfo } from '@gonggong/protocol'
+import type { DaemonToServer, GroupPreviewsDto, ServerToDaemon, ServiceInfo } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { messages, previews, runs, services, systemParams } from '../src/db/schema.js'
@@ -198,6 +198,30 @@ describe('desktop app previews', () => {
       devtools: 'port',
     })
     await vi.waitFor(async () => expect((await live())?.devtools).toBe('port'))
+
+    const at = new Date(clock + 4000).toISOString()
+    const window: Extract<DaemonToServer, { t: 'cast.state' }> = {
+      t: 'cast.state',
+      previewId: p.id,
+      state: 'failed',
+      error: '应用还没有可见窗口',
+      missing: [],
+    }
+    t.ctx.hub.emit('message', w.machine.id, { ...window, retryIn: 4 })
+    await vi.waitFor(async () => expect((await live())?.retryAt).toBe(at))
+    clock += 2000
+    t.ctx.hub.emit('message', w.machine.id, { ...window, retryIn: 2 })
+    await new Promise((r) => setTimeout(r, 50))
+    expect((await live())?.retryAt, 'the same failure again keeps its time').toBe(at)
+  })
+
+  it('asks the machine to retry a watched live preview now', async () => {
+    const w = await world()
+    const p = await publish(w)
+    expect((await w.liClient.post(`/api/previews/${p.id}/live/retry`)).status).toBe(400)
+    await w.liClient.post(`/api/previews/${p.id}/watch`)
+    expect((await w.liClient.post(`/api/previews/${p.id}/live/retry`)).status).toBe(204)
+    expect(w.sent.at(-1)).toEqual({ t: 'cast.retry', previewId: p.id })
   })
 
   it("streams a watched mini program's simulator, which members may ask to control", async () => {

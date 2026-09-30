@@ -1,7 +1,9 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
 import { useSession } from '../../app/session'
+import { api } from '../../lib/api'
 import { EmptyState, Icon, IconButton, PopUpButton, ProgressIndicator, Tag } from '../../ui'
+import { CastRetry } from './CastRetry'
 import { ControlBar, ControlRequests } from './control'
 import { DevtoolsGuide, DevtoolsLoading } from './DevtoolsGuide'
 import {
@@ -148,7 +150,20 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
       </div>
       <div className="lv__stage">
         {problem ? (
-          <EmptyState icon="desktop" title={problem.title} description={problem.description} />
+          <EmptyState
+            icon="desktop"
+            title={problem.title}
+            description={problem.description}
+            action={
+              p.live?.state === 'failed' && p.status === 'online' && !error ? (
+                <CastRetry
+                  retryAt={p.live.retryAt}
+                  attempt={p.live}
+                  retry={() => api.post(`/previews/${p.id}/live/retry`)}
+                />
+              ) : undefined
+            }
+          />
         ) : devtools ? (
           <DevtoolsGuide blocker={devtools} owner="请 Bot 主人在运行 Bot 的电脑上操作" />
         ) : loading && p.kind === 'miniprogram' ? (

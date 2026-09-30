@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::Command;
-use tokio::sync::watch;
+use tokio::sync::{Notify, watch};
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
@@ -27,8 +27,9 @@ const MAX_RETRY: Duration = Duration::from_secs(60);
 #[derive(Clone)]
 pub struct Casts(Arc<Inner>);
 
-/// A preview's gg-cast: what it publishes, and its frame rate, which reaches it without a restart.
-type Run = (CastSource, AbortHandle, watch::Sender<u32>);
+/// A preview's gg-cast: what it publishes, its frame rate, which reaches it without a restart, and the nudge that
+/// retries it now.
+type Run = (CastSource, AbortHandle, watch::Sender<u32>, Arc<Notify>);
 
 struct Inner {
     api: Option<Config>,
@@ -71,7 +72,7 @@ impl Casts {
     /// rate is passed on.
     pub fn sync(&self, wanted: Vec<CastTarget>, out: &Outbox) {
         let mut running = self.0.running.lock().unwrap();
-        running.retain(|id, (source, task, _)| {
+        running.retain(|id, (source, task, _, _)| {
             let keep = wanted.iter().any(|w| &w.preview_id == id && &w.source == source);
             if !keep {
                 task.abort();
@@ -79,13 +80,21 @@ impl Casts {
             keep
         });
         for target in wanted {
-            if let Some((_, _, fps)) = running.get(&target.preview_id) {
+            if let Some((_, _, fps, _)) = running.get(&target.preview_id) {
                 fps.send_replace(target.fps);
                 continue;
             }
             let (fps, rx) = watch::channel(target.fps);
-            let task = tokio::spawn(supervise(self.0.clone(), target.clone(), rx, out.clone()));
-            running.insert(target.preview_id, (target.source, task.abort_handle(), fps));
+            let nudge = Arc::new(Notify::new());
+            let task = tokio::spawn(supervise(self.0.clone(), target.clone(), rx, nudge.clone(), out.clone()));
+            running.insert(target.preview_id, (target.source, task.abort_handle(), fps, nudge));
+        }
+    }
+
+    /// Tries a failed cast again now (立即重试), starting over from the shortest wait; one running is left alone.
+    pub fn retry(&self, preview_id: &str) {
+        if let Some((_, _, _, nudge)) = self.0.running.lock().unwrap().get(preview_id) {
+            nudge.notify_one();
         }
     }
 }
@@ -107,27 +116,41 @@ fn beside(exe: &Path) -> Option<PathBuf> {
 }
 
 /// Every state carries the missing permissions: without accessibility the window shows, but control does nothing.
-fn report(
-    out: &Outbox,
-    target: &CastTarget,
-    missing: &[Permission],
-    state: CastPhase,
-    error: Option<String>,
-    devtools: Option<DevtoolsBlocker>,
-) {
+fn report(out: &Outbox, target: &CastTarget, missing: &[Permission], state: CastPhase) {
+    let preview_id = target.preview_id.clone();
     let missing = missing.to_vec();
-    out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error, missing, devtools });
+    out.send(DaemonToServer::CastState { preview_id, state, error: None, missing, devtools: None, retry_in: None });
 }
 
-/// Why a run ended; `devtools` when it waits on the owner in the WeChat devtools.
+/// A failed run, and when it is tried again.
+fn report_stop(out: &Outbox, target: &CastTarget, missing: &[Permission], stop: Stop, retry: Duration) {
+    out.send(DaemonToServer::CastState {
+        preview_id: target.preview_id.clone(),
+        state: CastPhase::Failed,
+        error: Some(stop.reason),
+        missing: missing.to_vec(),
+        devtools: stop.devtools,
+        retry_in: Some(retry.as_secs()),
+    });
+}
+
+/// Why a run ended; `devtools` when it waits on the owner in the WeChat devtools, `owner` when the owner fixes it on
+/// the machine (shows the window, starts the service, grants a permission) and it is worth trying again soon.
 struct Stop {
     reason: String,
     devtools: Option<DevtoolsBlocker>,
+    owner: bool,
+}
+
+impl Stop {
+    fn owner(reason: impl Into<String>) -> Self {
+        Stop { reason: reason.into(), devtools: None, owner: true }
+    }
 }
 
 impl From<String> for Stop {
     fn from(reason: String) -> Self {
-        Stop { reason, devtools: None }
+        Stop { reason, devtools: None, owner: false }
     }
 }
 
@@ -139,56 +162,67 @@ impl From<&str> for Stop {
 
 impl From<crate::wechatide::Error> for Stop {
     fn from(e: crate::wechatide::Error) -> Self {
-        Stop { devtools: e.blocker(), reason: crate::wechatide::explain(e) }
+        let devtools = e.blocker();
+        Stop { owner: devtools.is_some(), devtools, reason: crate::wechatide::explain(e) }
     }
 }
 
-/// While waiting on the owner in the devtools, runs are retried this often, without backing off: what they do there
-/// shows at once.
-async fn supervise(inner: Arc<Inner>, target: CastTarget, mut fps: watch::Receiver<u32>, out: Outbox) {
+/// Runs are retried with a growing wait, except what waits on the owner on the machine: that is retried every
+/// `FIRST_RETRY`, without reporting each start, so what they do there shows at once and the reason stays up meanwhile.
+/// A nudge (立即重试) retries at once, reporting the start.
+async fn supervise(
+    inner: Arc<Inner>,
+    target: CastTarget,
+    mut fps: watch::Receiver<u32>,
+    nudge: Arc<Notify>,
+    out: Outbox,
+) {
     let mut retry = FIRST_RETRY;
-    let mut blocked = false;
+    let mut quiet = false;
     loop {
         let missing = (inner.missing)();
-        if !blocked {
-            report(&out, &target, &missing, CastPhase::Starting, None, None);
+        if !quiet {
+            report(&out, &target, &missing, CastPhase::Starting);
         }
         let mut went_live = false;
-        let stop = match publish(&inner, &target, &mut fps, &out, &missing, blocked, &mut went_live).await {
-            Ok(reason) => reason.into(),
-            Err(stop) => stop,
-        };
-        blocked = stop.devtools.is_some();
-        report(&out, &target, &missing, CastPhase::Failed, Some(stop.reason), stop.devtools);
-        if went_live || blocked {
+        let (Ok(stop) | Err(stop)) = publish(&inner, &target, &mut fps, &out, &missing, quiet, &mut went_live).await;
+        quiet = stop.owner;
+        if went_live || quiet {
             retry = FIRST_RETRY;
         }
-        tokio::time::sleep(retry).await;
-        if !blocked {
-            retry = (retry * 2).min(MAX_RETRY);
+        report_stop(&out, &target, &missing, stop, retry);
+        tokio::select! {
+            _ = tokio::time::sleep(retry) => {
+                if !quiet {
+                    retry = (retry * 2).min(MAX_RETRY);
+                }
+            }
+            _ = nudge.notified() => {
+                quiet = false;
+                retry = FIRST_RETRY;
+            }
         }
     }
 }
 
-/// One gg-cast run; returns why it ended. After a run `blocked` in the devtools, starting is reported only once they
-/// answer: the owner's guide stays up meanwhile.
+/// One gg-cast run; why it ended. After a `quiet` run a mini program reports starting only once its devtools answer.
 async fn publish(
     inner: &Inner,
     target: &CastTarget,
     fps: &mut watch::Receiver<u32>,
     out: &Outbox,
     missing: &[Permission],
-    blocked: bool,
+    quiet: bool,
     went_live: &mut bool,
-) -> Result<String, Stop> {
+) -> Result<Stop, Stop> {
     let api = inner.api.as_ref().ok_or("未连接服务器")?;
     if missing.contains(&Permission::ScreenRecording) {
-        return Err(permission::SCREEN_RECORDING_DENIED.into());
+        return Err(Stop::owner(permission::SCREEN_RECORDING_DENIED));
     }
     if matches!(target.source, CastSource::Miniprogram { .. }) {
         inner.devtools.ping().await?;
-        if blocked {
-            report(out, target, missing, CastPhase::Starting, None, None);
+        if quiet {
+            report(out, target, missing, CastPhase::Starting);
         }
     }
     let (window, display) = window_args(inner, &target.source).await?;
@@ -237,7 +271,7 @@ async fn publish(
             line = stdout.next_line() => match line {
                 Ok(Some(line)) if line.trim() == "live" => {
                     *went_live = true;
-                    report(out, target, missing, CastPhase::Live, None, None);
+                    report(out, target, missing, CastPhase::Live);
                 }
                 Ok(Some(_)) => {}
                 _ => break,
@@ -250,7 +284,9 @@ async fn publish(
     }
     let status = child.wait().await.map_err(|e| format!("gg-cast：{e}"))?;
     let last = last_error.await.unwrap_or_default();
-    Ok(if last.is_empty() { format!("gg-cast 已退出（{status}）") } else { last })
+    let reason = if last.is_empty() { format!("gg-cast 已退出（{status}）") } else { last };
+    // gg-cast exits 2 on what the owner fixes on the machine: no visible window, a closed or misplaced one.
+    Ok(if status.code() == Some(2) { Stop::owner(reason) } else { reason.into() })
 }
 
 /// gg-cast's window arguments: the processes that may own it and, for a mini program, the titles it may have; or the
@@ -259,7 +295,7 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
     let join = |pids: Vec<u32>| pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     match source {
         CastSource::Service { service } => {
-            let pid = inner.services.pid(service).ok_or("服务已停止，请重新启动服务后再看")?;
+            let pid = inner.services.pid(service).ok_or_else(|| Stop::owner("服务已停止，请重新启动服务后再看"))?;
             Ok(match inner.services.display(service) {
                 Some(display) => (vec!["--screen".into()], Some(display)),
                 None => (vec!["--pids".into(), join(process_tree(pid))], None),

@@ -529,6 +529,8 @@ export const PreviewDto = z.object({
       error: z.string().nullable(),
       missing: z.array(Permission),
       devtools: DevtoolsBlocker.optional(),
+      /** When a failed one is tried again (the machine's retryIn); 立即重试 = POST /api/previews/:id/live/retry. */
+      retryAt: z.string().optional(),
     })
     .nullable(),
   /**

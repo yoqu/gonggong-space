@@ -137,3 +137,10 @@
   font-size: 13px;
   background: var(--window-bg);
 }
+.cast-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--label-tertiary);
+  font-size: 12px;
+}

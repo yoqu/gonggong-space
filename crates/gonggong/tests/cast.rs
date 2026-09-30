@@ -195,6 +195,71 @@ async fn reports_why_gg_cast_failed_and_tries_again() {
     services.stop_all().await;
 }
 
+/// The next cast.state as (phase, retry_in).
+async fn next_retry(rx: &mut UnboundedReceiver<DaemonToServer>) -> (CastPhase, Option<u64>) {
+    loop {
+        let msg = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.expect("no cast.state").unwrap();
+        if let DaemonToServer::CastState { state, retry_in, .. } = msg {
+            return (state, retry_in);
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_window_the_owner_has_to_show_is_retried_soon_without_flashing_a_start() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let service = hosted_service(&services, root.path(), &out, &mut rx).await;
+    let shown = bins.path().join("shown");
+    let (bin, _) = fake_cast(
+        bins.path(),
+        &format!(
+            "[ -f {} ] || {{ echo '应用还没有可见窗口（或窗口已最小化）' >&2; exit 2; }}\necho live\nexec sleep 30",
+            shown.display()
+        ),
+    );
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
+
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Starting, None));
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Failed, Some(2)));
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Failed, Some(2)), "no growing wait, no start in between");
+    std::fs::write(&shown, "").unwrap();
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Live, None));
+    casts.sync(vec![], &out);
+    services.stop_all().await;
+}
+
+#[tokio::test]
+async fn retries_at_once_when_asked() {
+    let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (out, mut rx) = Outbox::channel();
+    let services = Services::new(home.path());
+    let service = hosted_service(&services, root.path(), &out, &mut rx).await;
+    let (bin, _) = fake_cast(bins.path(), "echo '无法发布画面' >&2\nexit 1");
+    let (api, _) = fake_api(token_route("wss://lk.example.com")).await;
+    let casts =
+        Casts::new(Some(config(api)), home.path().into(), services.clone(), Some(bin), gonggong::wechatide::devtools())
+            .permissions(Vec::new);
+
+    casts.sync(vec![CastTarget { preview_id: "p1".into(), source: CastSource::Service { service }, fps: 30 }], &out);
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Starting, None));
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Failed, Some(2)));
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Starting, None));
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Failed, Some(4)), "backing off");
+    let asked = std::time::Instant::now();
+    casts.retry("p1");
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Starting, None));
+    assert!(asked.elapsed() < Duration::from_secs(1), "waited {:?}", asked.elapsed());
+    assert_eq!(next_retry(&mut rx).await, (CastPhase::Failed, Some(2)), "the wait starts over");
+    casts.sync(vec![], &out);
+    services.stop_all().await;
+}
+
 #[tokio::test]
 async fn says_the_machine_lacks_screen_recording_without_starting_gg_cast() {
     let (home, root, bins) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());

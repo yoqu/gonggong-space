@@ -118,6 +118,7 @@ function routes(p: PreviewDto) {
     'POST /previews/p3/watch': undefined,
     'POST /previews/p3/live': { url: null, token: 'tok-li', identity: 'u:u-li:ab' },
     'POST /previews/p3/control': undefined,
+    'POST /previews/p3/live/retry': undefined,
   })
 }
 
@@ -158,6 +159,22 @@ describe('桌面应用预览 · 观看', () => {
     routes(preview({ live: { state: 'failed', error: '本机没有授予「屏幕录制」权限', missing: [] } }))
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
     await screen.findByText('本机没有授予「屏幕录制」权限。Bot 主人可在共工桌面端「实时画面」页查看')
+  })
+
+  it('retries at once when asked, and says when it retries by itself', async () => {
+    const retryAt = new Date(Date.now() + 12_000).toISOString()
+    const calls = routes(
+      preview({
+        live: { state: 'failed', error: '应用还没有可见窗口（或窗口已最小化）', missing: [], retryAt },
+      }),
+    )
+    render(<LiveTab tab={tab} tabKey="live:p3" active />)
+    await screen.findByText(/^(12|11) 秒后自动重试$/)
+    fireEvent.click(screen.getByRole('button', { name: '立即重试' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/previews/p3/live/retry')).toBe(true),
+    )
+    screen.getByText('正在重试…')
   })
 
   it("names the machine's missing screen recording permission", async () => {

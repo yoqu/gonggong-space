@@ -1,3 +1,4 @@
+import { CastRetry } from '@web/features/previews/CastRetry'
 import { DevtoolsGuide } from '@web/features/previews/DevtoolsGuide'
 import {
   Button,
@@ -147,6 +148,13 @@ export function LivePage(_: PageProps) {
                       </span>
                       {p.live?.state === 'failed' && p.live.error && !p.live.devtools ? (
                         <span className="dk-sub dk-danger">{p.live.error}</span>
+                      ) : null}
+                      {p.live?.state === 'failed' && !p.live.devtools ? (
+                        <CastRetry
+                          retryAt={p.live.retryAt}
+                          attempt={p.live}
+                          retry={() => ipc.retryCast(p.id).then(load)}
+                        />
                       ) : null}
                     </div>
                     {p.live?.missing.length ? (

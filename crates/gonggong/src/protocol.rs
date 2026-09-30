@@ -865,6 +865,8 @@ pub enum DaemonToServer {
         missing: Vec<Permission>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         devtools: Option<DevtoolsBlocker>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        retry_in: Option<u64>,
     },
 }
 
@@ -949,4 +951,6 @@ pub enum ServerToDaemon {
     PreviewsSync { previews: Vec<PreviewPort> },
     #[serde(rename = "cast.sync")]
     CastSync { casts: Vec<CastTarget> },
+    #[serde(rename = "cast.retry", rename_all = "camelCase")]
+    CastRetry { preview_id: String },
 }

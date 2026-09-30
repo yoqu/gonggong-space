@@ -15,6 +15,11 @@ pub async fn close_tunnel(id: String, stop_service: bool) -> Result<()> {
 }
 
 #[tauri::command]
+pub async fn retry_cast(id: String) -> Result<()> {
+    client()?.retry_cast(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn stop_service(id: String) -> Result<()> {
     client()?.stop_service(&id).await.map_err(|e| e.to_string())
 }
@@ -38,7 +43,8 @@ mod tests {
                {"id":"p2","groupId":"g1","groupName":"支付重构","botId":"b1","botName":"小王的 Claude",
                 "kind":"gui","title":"桌面客户端","path":"/","serviceId":"sv2","serviceName":"app","port":null,
                 "snapshotAt":null,"status":"online","canManage":true,"createdAt":"2026-09-28T10:00:00Z",
-                "live":{"state":"failed","error":"窗口已关闭","missing":["accessibility"]},
+                "live":{"state":"failed","error":"窗口已关闭","missing":["accessibility"],"devtools":"port",
+                  "retryAt":"2026-09-28T10:00:04.000Z"},
                 "control":{"controller":{"id":"u2","name":"李建国"},"requests":[]}}],
                "services":[{"id":"sv1","groupId":"g1","groupName":"支付重构","botId":"b1","botName":"小王的 Claude",
                 "name":"web","command":"pnpm dev","cwd":"apps/web","port":5173,"status":"running","canManage":true,
@@ -52,6 +58,8 @@ mod tests {
         assert_eq!(json["previews"][0]["live"], serde_json::Value::Null);
         assert_eq!(json["previews"][1]["kind"], "gui");
         assert_eq!(json["previews"][1]["live"]["missing"][0], "accessibility");
+        assert_eq!(json["previews"][1]["live"]["devtools"], "port");
+        assert_eq!(json["previews"][1]["live"]["retryAt"], "2026-09-28T10:00:04.000Z");
         assert_eq!(json["previews"][1]["control"]["controller"]["name"], "李建国");
     }
 }

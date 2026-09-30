@@ -112,3 +112,25 @@ it('guides the owner through the WeChat devtools while a mini program waits on t
   expect(screen.getByText('完成后自动继续')).toBeTruthy()
   expect(screen.queryByText('微信开发者工具未开启服务端口')).toBeNull()
 })
+
+it('retries a failed live preview at once, and says when it retries by itself', async () => {
+  m.retryCast.mockResolvedValue()
+  m.tunnels.mockResolvedValue({
+    services: [],
+    previews: [
+      preview({
+        live: {
+          state: 'failed',
+          error: '应用还没有可见窗口（或窗口已最小化）',
+          missing: [],
+          retryAt: new Date(Date.now() + 30_000).toISOString(),
+        },
+      }),
+    ],
+  })
+  render(<LivePage go={() => {}} />)
+  const app = await row('桌面客户端')
+  expect(app.getByText(/^(30|29) 秒后自动重试$/)).toBeTruthy()
+  fireEvent.click(app.getByRole('button', { name: '立即重试' }))
+  await waitFor(() => expect(m.retryCast).toHaveBeenCalledWith('p1'))
+})

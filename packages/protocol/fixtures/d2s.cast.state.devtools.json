@@ -4,5 +4,6 @@
   "state": "failed",
   "error": "微信开发者工具未开启服务端口",
   "missing": [],
-  "devtools": "port"
+  "devtools": "port",
+  "retryIn": 2
 }

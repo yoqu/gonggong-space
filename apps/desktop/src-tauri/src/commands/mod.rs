@@ -43,6 +43,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         bots::open_bot_in_web,
         tunnels::tunnels,
         tunnels::close_tunnel,
+        tunnels::retry_cast,
         tunnels::stop_service,
         tunnels::open_local,
         live::cast_component,
