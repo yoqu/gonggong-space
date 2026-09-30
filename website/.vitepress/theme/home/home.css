@@ -1,0 +1,180 @@
+.gg-home {
+  --paper: #f3efe6;
+  --paper-2: #e9e3d6;
+  --card: #fbf9f4;
+  --ink: #1b2233;
+  --ink-2: #4b5367;
+  --ink-3: #8b8f9b;
+  --rule: rgb(27 34 51 / 0.14);
+  --blue: #0071e3;
+  --blue-ink: #0a58b8;
+  --jade: #14b3ae;
+  --jade-soft: #b8f5ea;
+  --seal: #c23b22;
+  --sun: #f1d5bd;
+  --cloud: #f8f5ee;
+  --m1: #dde1e6;
+  --m2: #c3ccd8;
+  --m3: #95a6bd;
+  --m4: #6b83a3;
+  --w1: #d7e5f1;
+  --w2: #9dbfe0;
+  --serif:
+    "Iowan Old Style", "Palatino", "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC",
+    "Noto Serif SC", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* 共字君's stylesheet reads the app's tokens. */
+  --system-blue: #0088ff;
+  --system-teal: #00c3d0;
+  --system-orange: #ff8d28;
+  --system-green: #34c759;
+  --label: rgb(0 0 0 / 0.85);
+  --label-tertiary: rgb(0 0 0 / 0.26);
+  --separator: rgb(0 0 0 / 0.1);
+  --content-bg: #fff;
+  --font-sans: -apple-system, "PingFang SC", system-ui, sans-serif;
+  --font-mono: var(--mono);
+
+  --vp-c-bg: var(--paper);
+  --vp-nav-bg-color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.dark .gg-home {
+  --paper: #0f131c;
+  --paper-2: #161b27;
+  --card: #151a25;
+  --ink: #e9e6de;
+  --ink-2: #b3b2ad;
+  --ink-3: #7c7f88;
+  --rule: rgb(233 230 222 / 0.14);
+  --blue: #3b9bff;
+  --blue-ink: #6db4ff;
+  --seal: #d4553b;
+  --sun: #e8e1cf;
+  --cloud: #1a2030;
+  --m1: #1b2232;
+  --m2: #222c40;
+  --m3: #2d3a53;
+  --m4: #3a4b68;
+  --w1: #17233a;
+  --w2: #2c4468;
+  --label: rgb(255 255 255 / 0.85);
+  --label-tertiary: rgb(255 255 255 / 0.25);
+  --separator: rgb(255 255 255 / 0.12);
+  --content-bg: #1e1e1e;
+}
+
+.gg-home .VPFooter {
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+
+.gg {
+  font-family: var(--font-sans);
+  overflow-x: clip;
+}
+.gg a {
+  text-decoration: none;
+}
+
+.gg-wrap {
+  width: min(1200px, 100% - 32px);
+  margin-inline: auto;
+}
+
+.gg-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+.gg-kicker::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+}
+
+.gg-h2 {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: 1.18;
+  letter-spacing: 0.02em;
+  margin: 18px 0 16px;
+  color: var(--ink);
+}
+.gg--en .gg-h2 {
+  font-size: clamp(28px, 3.6vw, 44px);
+  letter-spacing: 0;
+}
+.gg-lead {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  max-width: 34em;
+}
+
+.gg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 0.2s,
+    box-shadow 0.25s;
+}
+.gg-btn:hover {
+  transform: translateY(-2px);
+}
+.gg-btn--ink {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 10px 24px -12px rgb(27 34 51 / 0.6);
+}
+.gg-btn--line {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.gg-btn--text {
+  padding: 0 8px;
+  color: var(--ink-2);
+}
+.gg-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Reveal on first sight: a short rise that respects reduced motion. */
+.gg-rise {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+.is-in .gg-rise,
+.gg-rise.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg *,
+  .gg *::before,
+  .gg *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+}
