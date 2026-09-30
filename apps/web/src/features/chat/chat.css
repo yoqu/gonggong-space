@@ -297,22 +297,16 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-.git-bar__item:not(:disabled):hover {
-  background: var(--selection-fill);
-}
 .git-bar::-webkit-scrollbar {
   display: none;
 }
 .git-bar__item {
-  border: 0;
-  color: inherit;
-  font: inherit;
   display: flex;
   align-items: center;
   gap: var(--space-6);
   flex: none;
   height: var(--control-small);
-  padding: 0 var(--space-8);
+  padding: 0 var(--space-2) 0 var(--space-8);
   border-radius: var(--radius-capsule);
   background: var(--quote-fill);
   box-shadow: var(--shadow-outline, none);
@@ -336,6 +330,29 @@
 .git-bar__hint,
 .git-bar__ws {
   color: var(--label-secondary);
+}
+.git-bar__actions {
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--separator);
+}
+.git-bar__act {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: none;
+  color: var(--label-secondary);
+}
+.git-bar__act:not(:disabled):hover {
+  background: var(--selection-fill);
+  color: var(--label);
+}
+.git-bar__act:disabled {
+  opacity: 0.35;
 }
 .git-bar__error {
   color: var(--tint-red-text);

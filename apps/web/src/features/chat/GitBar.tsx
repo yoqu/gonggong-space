@@ -32,19 +32,15 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
       </span>
     ) : null
   // Uncommitted work first; a clean feature branch shows what it holds against main.
-  const inspect = git
+  const diff = git
     ? () => openTab({ kind: 'diff', botId: s.botId, scope: git.dirty ? 'uncommitted' : 'base', file: null })
     : undefined
+  const files =
+    git || s.state === 'ready'
+      ? () => openTab({ kind: 'files', botId: s.botId, dir: '', selected: null })
+      : undefined
   return (
-    <button
-      type="button"
-      className="git-bar__item"
-      data-testid={`git-${s.botId}`}
-      aria-label={`查看 ${name} 的改动`}
-      title="查看改动"
-      disabled={!inspect}
-      onClick={inspect}
-    >
+    <div className="git-bar__item" data-testid={`git-${s.botId}`}>
       <span className="git-bar__name">{name}</span>
       {hint ?? (
         <>
@@ -55,6 +51,35 @@ function Item({ name, s }: { name: string; s: GroupBotStateDto }) {
         </>
       )}
       <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>
+      <span className="git-bar__actions">
+        <Action icon="git-branch" label={`查看 ${name} 的改动`} title="改动" onClick={diff} />
+        <Action icon="folder" label={`浏览 ${name} 的文件`} title="文件" onClick={files} />
+      </span>
+    </div>
+  )
+}
+
+function Action({
+  icon,
+  label,
+  title,
+  onClick,
+}: {
+  icon: IconName
+  label: string
+  title: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="git-bar__act"
+      aria-label={label}
+      title={title}
+      disabled={!onClick}
+      onClick={onClick}
+    >
+      <Icon name={icon} size={13} />
     </button>
   )
 }

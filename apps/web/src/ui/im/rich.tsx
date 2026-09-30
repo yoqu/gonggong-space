@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { cx } from '../../lib/cx'
+import { langFor, Tokens, useHighlight } from '../highlight'
 import { Icon } from '../icon'
 import './rich.css'
 
@@ -23,6 +24,7 @@ export function CodeBlock({
   style?: CSSProperties
 }) {
   const [copied, setCopied] = useState(false)
+  const lines = useHighlight(code, langFor(language))
   useEffect(() => {
     if (!copied) return
     const t = setTimeout(() => setCopied(false), COPIED_MS)
@@ -53,7 +55,17 @@ export function CodeBlock({
       </div>
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard */}
       <pre className="pn-code__pre" tabIndex={0}>
-        <code>{code}</code>
+        <code>
+          {lines
+            ? lines.map((l, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional
+                <span key={i}>
+                  {i ? '\n' : null}
+                  <Tokens tokens={l} />
+                </span>
+              ))
+            : code}
+        </code>
       </pre>
     </div>
   )

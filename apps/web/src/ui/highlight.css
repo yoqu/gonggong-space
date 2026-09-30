@@ -1,0 +1,7 @@
+/* Syntax tokens carry both GitHub theme colours; the app theme picks one. */
+.hl {
+  color: var(--hl-l);
+}
+[data-theme="dark"] .hl {
+  color: var(--hl-d);
+}

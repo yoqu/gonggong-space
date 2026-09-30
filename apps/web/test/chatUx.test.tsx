@@ -563,7 +563,7 @@ describe('composer', () => {
 })
 
 describe('markdown code blocks', () => {
-  it('renders fenced code as a Pane CodeBlock, uncoloured, scrolling inside its cap, and reports copy failures', async () => {
+  it('renders fenced code as a Pane CodeBlock, coloured by language, scrolling inside its cap, and reports copy failures', async () => {
     const code = Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n')
     render(<Markdown text={`\`\`\`ts\n${code}\n\`\`\``} />)
     const block = document.querySelector('.pn-code') as HTMLElement
@@ -571,7 +571,8 @@ describe('markdown code blocks', () => {
     const pre = block.querySelector('pre') as HTMLElement
     expect(pre.textContent).toBe(code)
     expect(pre.tabIndex).toBe(0)
-    expect(pre.querySelector('span')).toBeNull()
+    await waitFor(() => expect(pre.querySelector('.hl')).toBeTruthy())
+    expect(pre.textContent).toBe(code)
 
     vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.reject(new Error('denied')) } })
     fireEvent.click(screen.getByRole('button', { name: '复制' }))

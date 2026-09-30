@@ -173,6 +173,8 @@ describe('files tab', () => {
     expect(calls).toContain('/api/groups/g1/bots/b1/files/text?path=src%2Fmain.ts')
     const line = files().getByText('console.log(a)').closest('.pv-line') as HTMLElement
     expect(line.querySelector('.pv-line__n')?.textContent).toBe('2')
+    await waitFor(() => expect(line.querySelector('.hl')).toBeTruthy())
+    expect(line.querySelector('.pv-line__t')?.textContent).toBe('console.log(a)')
     expect(row(/main\.ts/).getAttribute('aria-selected')).toBe('true')
   })
 

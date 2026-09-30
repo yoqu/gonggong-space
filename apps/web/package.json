@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@gonggong/protocol": "workspace:*",
+    "@shikijs/langs": "4.4.3",
+    "@shikijs/themes": "4.4.3",
     "livekit-client": "2.22.3",
     "motion": "13.4.2",
     "react": "19.3.0",
@@ -17,6 +19,7 @@
     "react-markdown": "10.1.0",
     "react-router": "8.4.0",
     "remark-gfm": "4.0.1",
+    "shiki": "4.4.3",
     "zustand": "5.0.15"
   },
   "devDependencies": {

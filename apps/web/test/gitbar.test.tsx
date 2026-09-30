@@ -119,6 +119,32 @@ describe('git status bar', () => {
     ).toBe(true)
   })
 
+  it('opens the bot workspace files once the workspace exists', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify([
+              state('b1', { git: git() }),
+              state('b2', { state: 'ready' }),
+              state('b3', { state: 'cloning' }),
+            ]),
+          ),
+      ),
+    )
+    useWorkbench.setState({ groupId: 'g1', benches: {} })
+    render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
+    fireEvent.click(await screen.findByRole('button', { name: '浏览 小王的 Claude 的文件' }))
+    const tabs = () => useWorkbench.getState().benches.g1?.tabs
+    expect(tabs()).toEqual([{ kind: 'files', botId: 'b1', dir: '', selected: null }])
+    fireEvent.click(screen.getByRole('button', { name: '浏览 老李的 Codex 的文件' }))
+    expect(tabs()?.at(-1)).toEqual({ kind: 'files', botId: 'b2', dir: '', selected: null })
+    expect(
+      (screen.getByRole('button', { name: '浏览 阿杰的 Claude 的文件' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
   it('shows 待创建 before the daemon reports and follows realtime updates', async () => {
     vi.stubGlobal(
       'fetch',

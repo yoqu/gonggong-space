@@ -14,10 +14,14 @@ import {
   GroupRow,
   Icon,
   type IconName,
+  type Lang,
+  langOf,
   SegmentedControl,
   Spinner,
   Tabs,
+  Tokens,
   toast,
+  useHighlight,
 } from '../../ui'
 import { fmtSize } from '../attachments/api'
 import { citeInChat } from '../chat/cite'
@@ -72,19 +76,23 @@ const TEXTUAL: ViewKind[] = ['md', 'html', 'text', 'unknown']
 
 const level = (line: string) => (/ERROR|FAIL/.test(line) ? 'error' : /WARN/.test(line) ? 'warn' : null)
 
-function Lines({ text, colored }: { text: string; colored: boolean }) {
+function Lines({ text, colored, lang }: { text: string; colored: boolean; lang: Lang | null }) {
   const lines = text.replace(/\n$/, '').split('\n')
   const shown = lines.slice(0, LINES_MAX)
+  const tokens = useHighlight(shown.join('\n'), lang)
   return (
     <>
       <div className="pv-lines">
         {shown.map((l, i) => {
           const lv = colored ? level(l) : null
+          const t = tokens?.[i]
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional
             <div key={i} className="pv-line">
               <span className="pv-line__n">{i + 1}</span>
-              <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>{l || ' '}</span>
+              <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>
+                {t?.length ? <Tokens tokens={t} /> : l || ' '}
+              </span>
             </div>
           )
         })}
@@ -223,7 +231,7 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
           <Markdown text={text.text} />
         </div>
       )
-    return <Lines text={text.text} colored={fileType(name) === 'text'} />
+    return <Lines text={text.text} colored={fileType(name) === 'text'} lang={langOf(name)} />
   })()
 
   const rows =

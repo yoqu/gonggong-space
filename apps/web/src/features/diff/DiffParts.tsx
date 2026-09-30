@@ -1,7 +1,7 @@
 import type { DiffScope } from '@gonggong/protocol'
 import { type CSSProperties, Fragment, type ReactNode, useState } from 'react'
 import { cx } from '../../lib/cx'
-import { Icon, IconButton, SegmentedControl } from '../../ui'
+import { Icon, IconButton, langOf, SegmentedControl, Tokens, useHighlight } from '../../ui'
 import { type DiffFile, type DiffNode, diffCells, diffTree } from './patch'
 import { useDiffLayout } from './store'
 import './diff.css'
@@ -176,17 +176,33 @@ const lineClass = (l: string) =>
           ? ''
           : 'note'
 
+const isCode = (l: string) => /^[+\- ]/.test(l)
+
 export function DiffView({ file }: { file: DiffFile }) {
+  // Code lines of all hunks tokenized as one text: the n-th code line maps to the n-th token line.
+  const code = file.lines.filter(isCode)
+  const tokens = useHighlight(code.map((l) => l.slice(1)).join('\n'), langOf(file.path))
+  let n = 0
   return (
     <div className="diff">
       <div className="diff__name">{file.path}</div>
       <div className="diff__lines">
-        {file.lines.map((l, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional and never reorder
-          <div key={i} className={cx('diff__line', lineClass(l) && `diff__line--${lineClass(l)}`)}>
-            {l || ' '}
-          </div>
-        ))}
+        {file.lines.map((l, i) => {
+          const t = isCode(l) ? tokens?.[n++] : undefined
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional and never reorder
+            <div key={i} className={cx('diff__line', lineClass(l) && `diff__line--${lineClass(l)}`)}>
+              {t?.length ? (
+                <>
+                  {l[0]}
+                  <Tokens tokens={t} />
+                </>
+              ) : (
+                l || ' '
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
