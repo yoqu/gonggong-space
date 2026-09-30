@@ -172,6 +172,11 @@ impl Handler for Engine {
     fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
         match msg {
             ServerToDaemon::RunStart(start) => {
+                // A start the server sent again (it never gets an ack) must not run the turn twice.
+                if self.active_runs().contains(&start.run_id) {
+                    tracing::warn!("run.start for {} ignored: it is already running here", start.run_id);
+                    return;
+                }
                 self.0.preparing.lock().unwrap().insert(start.run_id.clone());
                 tokio::spawn(self.0.clone().start(*start, out.clone()));
             }

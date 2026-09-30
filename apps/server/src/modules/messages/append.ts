@@ -6,7 +6,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { voidApprovals } from '../approvals/service.js'
 import { voidQuestions } from '../questions/service.js'
-import { triggerRuns } from '../runs/trigger.js'
+import { hasRun, triggerRuns } from '../runs/trigger.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -34,7 +34,7 @@ export async function appendTarget(
 
 /**
  * Appends that reached the run after the agent had finished were never applied: they fall back to a queued new
- * run of the same bot (spec §8.9), unless the run was stopped.
+ * run of the same bot (spec §8.9), unless the run was stopped. Repeatable: a message that already started a run is skipped.
  */
 export async function requeueAppends(ctx: Ctx, run: typeof runs.$inferSelect, applied: number) {
   if (run.stoppedBy) return
@@ -44,6 +44,7 @@ export async function requeueAppends(ctx: Ctx, run: typeof runs.$inferSelect, ap
     .where(and(eq(messages.groupId, run.groupId), sql`${messages.meta}->>'appendTo' = ${run.id}`))
     .orderBy(asc(messages.seq))
   for (const m of pending.slice(applied)) {
+    if (await hasRun(ctx, m.groupId, m.id)) continue
     const [row] = await ctx.db
       .update(messages)
       .set({ meta: sql`${messages.meta} || ${JSON.stringify({ mentions: [run.botId] })}::jsonb` })

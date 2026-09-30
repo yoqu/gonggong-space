@@ -7,22 +7,91 @@ use crate::tls::Ws;
 use crate::upgrade::{self, Upgrader};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
 
+/// Byte budget of each of the two places a message waits before it is written: the outbox channel and the backlog.
+/// Past it `run.event`s are dropped; every other message is kept.
+const MAX_QUEUED_BYTES: usize = 16 << 20;
+/// A merged text/thought delta stops growing here; the next delta starts a new one.
+const MAX_MERGED_DELTA: usize = 64 << 10;
+/// Fixed weight of any message, so a flood of tiny events is bounded as well.
+const MESSAGE_OVERHEAD: usize = 256;
+
+/// Approximate memory a waiting message holds. Only streamed payloads are measured; the rest is small.
+fn weight(msg: &DaemonToServer) -> usize {
+    MESSAGE_OVERHEAD
+        + match msg {
+            DaemonToServer::RunEvent {
+                event: RunEvent::Text { delta, .. } | RunEvent::Thought { delta, .. }, ..
+            } => delta.len(),
+            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, .. }, .. } => {
+                detail.as_deref().map_or(0, str::len)
+            }
+            _ => 0,
+        }
+}
+
+#[derive(Default)]
+struct Queued {
+    bytes: AtomicUsize,
+    dropping: AtomicBool,
+}
+
 /// Sender for daemon → server messages. Survives reconnects: messages queued while offline are flushed after the next welcome.
 #[derive(Clone)]
-pub struct Outbox(mpsc::UnboundedSender<DaemonToServer>);
+pub struct Outbox {
+    tx: mpsc::UnboundedSender<(DaemonToServer, usize)>,
+    queued: Arc<Queued>,
+}
+
+/// Receiving end of an [`Outbox`]; taking a message out releases its bytes from the channel budget.
+pub struct OutboxRx {
+    rx: mpsc::UnboundedReceiver<(DaemonToServer, usize)>,
+    queued: Arc<Queued>,
+}
 
 impl Outbox {
-    pub fn channel() -> (Outbox, mpsc::UnboundedReceiver<DaemonToServer>) {
+    pub fn channel() -> (Outbox, OutboxRx) {
         let (tx, rx) = mpsc::unbounded_channel();
-        (Outbox(tx), rx)
+        let queued = Arc::new(Queued::default());
+        (Outbox { tx, queued: queued.clone() }, OutboxRx { rx, queued })
     }
 
     pub fn send(&self, msg: DaemonToServer) {
-        let _ = self.0.send(msg);
+        let bytes = weight(&msg);
+        if let DaemonToServer::RunEvent { run_id, .. } = &msg {
+            if self.queued.bytes.load(Ordering::Relaxed) >= MAX_QUEUED_BYTES {
+                if !self.queued.dropping.swap(true, Ordering::Relaxed) {
+                    tracing::warn!(run_id, "outbox full, dropping run events");
+                }
+                return;
+            }
+            self.queued.dropping.store(false, Ordering::Relaxed);
+        }
+        self.queued.bytes.fetch_add(bytes, Ordering::Relaxed);
+        let _ = self.tx.send((msg, bytes));
+    }
+}
+
+impl OutboxRx {
+    pub async fn recv(&mut self) -> Option<DaemonToServer> {
+        let (msg, bytes) = self.rx.recv().await?;
+        self.queued.bytes.fetch_sub(bytes, Ordering::Relaxed);
+        Some(msg)
+    }
+
+    pub fn try_recv(&mut self) -> Result<DaemonToServer, mpsc::error::TryRecvError> {
+        let (msg, bytes) = self.rx.try_recv()?;
+        self.queued.bytes.fetch_sub(bytes, Ordering::Relaxed);
+        Ok(msg)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.rx.is_empty()
     }
 }
 
@@ -51,38 +120,56 @@ pub enum Fatal {
 }
 
 /// Unsent daemon → server messages, kept across reconnects and flushed in order after the next welcome (spec §14).
-/// Only `run.event`s may be dropped, once the backlog is full; streamed deltas are merged while they wait.
+/// Only `run.event`s may be dropped, once the byte budget is spent; streamed deltas are merged while they wait.
 #[derive(Default)]
-struct Backlog(VecDeque<DaemonToServer>);
-
-const MAX_BACKLOG: usize = 10_000;
+struct Backlog {
+    msgs: VecDeque<DaemonToServer>,
+    bytes: usize,
+    dropping: bool,
+}
 
 impl Backlog {
     fn push(&mut self, msg: DaemonToServer) {
         if let DaemonToServer::RunEvent { run_id, event } = &msg {
-            if let Some(DaemonToServer::RunEvent { run_id: last_run, event: last }) = self.0.back_mut()
+            if self.bytes >= MAX_QUEUED_BYTES {
+                if !std::mem::replace(&mut self.dropping, true) {
+                    tracing::warn!(run_id, "backlog full, dropping run events");
+                }
+                return;
+            }
+            self.dropping = false;
+            if let Some(DaemonToServer::RunEvent { run_id: last_run, event: last }) = self.msgs.back_mut()
                 && last_run == run_id
             {
                 match (last, event) {
                     (RunEvent::Text { delta: a, agent_id: x }, RunEvent::Text { delta: b, agent_id: y })
                     | (RunEvent::Thought { delta: a, agent_id: x }, RunEvent::Thought { delta: b, agent_id: y })
-                        if x == y =>
+                        if x == y && a.len() + b.len() <= MAX_MERGED_DELTA =>
                     {
+                        self.bytes += b.len();
                         return a.push_str(b);
                     }
                     _ => {}
                 }
             }
-            if self.0.len() >= MAX_BACKLOG {
-                return tracing::warn!(run_id, "backlog full, dropping a run event");
-            }
         }
-        self.0.push_back(msg);
+        self.bytes += weight(&msg);
+        self.msgs.push_back(msg);
+    }
+
+    fn front(&self) -> Option<&DaemonToServer> {
+        self.msgs.front()
+    }
+
+    fn pop_front(&mut self) -> Option<DaemonToServer> {
+        let msg = self.msgs.pop_front()?;
+        self.bytes -= weight(&msg);
+        Some(msg)
     }
 
     /// Runs whose run.done is still waiting here: they ended locally and must not be reconciled as lost.
     fn finished_runs(&self) -> impl Iterator<Item = String> + '_ {
-        self.0.iter().filter_map(|m| match m {
+        self.msgs.iter().filter_map(|m| match m {
             DaemonToServer::RunDone(d) => Some(d.run_id.clone()),
             _ => None,
         })
@@ -143,7 +230,7 @@ impl<H: Handler> Service<H> {
     async fn session(
         &self,
         outbox: &Outbox,
-        rx: &mut mpsc::UnboundedReceiver<DaemonToServer>,
+        rx: &mut OutboxRx,
         backlog: &mut Backlog,
     ) -> anyhow::Result<Option<Fatal>> {
         let mut ws = crate::tls::connect_ws(&self.config).await?;
@@ -190,9 +277,9 @@ impl<H: Handler> Service<H> {
         ws.send(Message::Ping(Default::default())).await?;
         loop {
             // A message leaves the backlog only once written: a failed send keeps it for the next connection.
-            while let Some(msg) = backlog.0.front() {
+            while let Some(msg) = backlog.front() {
                 send(&mut ws, msg).await?;
-                backlog.0.pop_front();
+                backlog.pop_front();
             }
             tokio::select! {
                 incoming = ws.next() => match incoming {
@@ -257,29 +344,138 @@ async fn next_msg(ws: &mut Ws) -> anyhow::Result<ServerToDaemon> {
 mod tests {
     use super::*;
     use crate::engine::failed;
+    use crate::protocol::{RunStatus, ToolStatus};
 
     fn event(run_id: &str, event: RunEvent) -> DaemonToServer {
         DaemonToServer::RunEvent { run_id: run_id.into(), event }
     }
 
-    #[test]
-    fn merges_deltas_and_drops_only_run_events_when_full() {
-        let mut b = Backlog::default();
-        b.push(event("r1", RunEvent::Text { delta: "a".into(), agent_id: None }));
-        b.push(event("r1", RunEvent::Text { delta: "b".into(), agent_id: None }));
-        b.push(event("r2", RunEvent::Text { delta: "c".into(), agent_id: None }));
-        assert_eq!(b.0.len(), 2);
-        assert_eq!(b.0[0], event("r1", RunEvent::Text { delta: "ab".into(), agent_id: None }));
-        b.push(event("r2", RunEvent::Text { delta: "d".into(), agent_id: Some("sub".into()) }));
-        assert_eq!(b.0.len(), 3, "a subagent's text never merges into the main agent's");
+    fn text(run_id: &str, delta: &str) -> DaemonToServer {
+        event(run_id, RunEvent::Text { delta: delta.into(), agent_id: None })
+    }
 
-        let tool = |i: usize| RunEvent::Status { status: crate::protocol::RunStatus::Running, step: i.to_string() };
-        for i in 0..MAX_BACKLOG {
-            b.push(event("r1", tool(i)));
+    /// A run.event that alone weighs about `bytes`.
+    fn heavy(run_id: &str, bytes: usize) -> DaemonToServer {
+        event(
+            run_id,
+            RunEvent::Tool {
+                agent_id: None,
+                tool_call_id: "t".into(),
+                title: "t".into(),
+                tool_kind: "execute".into(),
+                status: ToolStatus::Completed,
+                detail: Some("x".repeat(bytes)),
+                mcp: None,
+            },
+        )
+    }
+
+    fn critical() -> Vec<DaemonToServer> {
+        vec![
+            failed("r1", "x".into()),
+            DaemonToServer::ApprovalRequest(crate::protocol::ApprovalRequest {
+                run_id: "r1".into(),
+                request_id: "a1".into(),
+                title: "t".into(),
+                tool_kind: "execute".into(),
+                detail: String::new(),
+                options: Vec::new(),
+            }),
+            DaemonToServer::QuestionWithdraw { run_id: "r1".into(), request_id: "q1".into() },
+        ]
+    }
+
+    #[test]
+    fn merges_same_stream_deltas_only() {
+        let mut b = Backlog::default();
+        b.push(text("r1", "a"));
+        b.push(text("r1", "b"));
+        b.push(text("r2", "c"));
+        assert_eq!(b.msgs.len(), 2);
+        assert_eq!(b.msgs[0], text("r1", "ab"));
+        b.push(event("r2", RunEvent::Text { delta: "d".into(), agent_id: Some("sub".into()) }));
+        assert_eq!(b.msgs.len(), 3, "a subagent's text never merges into the main agent's");
+    }
+
+    #[test]
+    fn a_merged_delta_stops_growing_at_its_cap() {
+        let mut b = Backlog::default();
+        let piece = "y".repeat(1000);
+        let pieces = 3 * MAX_MERGED_DELTA / piece.len();
+        for _ in 0..pieces {
+            b.push(text("r1", &piece));
         }
-        assert_eq!(b.0.len(), MAX_BACKLOG);
-        b.push(failed("r1", "x".into()));
-        assert_eq!(b.0.len(), MAX_BACKLOG + 1, "run.done is never dropped");
+        let deltas: Vec<_> = b
+            .msgs
+            .iter()
+            .map(|m| match m {
+                DaemonToServer::RunEvent { event: RunEvent::Text { delta, .. }, .. } => delta.len(),
+                other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert!(deltas.len() >= 3, "{deltas:?}");
+        assert!(deltas.iter().all(|n| *n <= MAX_MERGED_DELTA), "{deltas:?}");
+        assert_eq!(deltas.iter().sum::<usize>(), pieces * piece.len(), "nothing lost, order kept");
+    }
+
+    #[test]
+    fn over_budget_drops_only_run_events_and_keeps_order() {
+        let mut b = Backlog::default();
+        let mut pushed = 0;
+        while b.bytes < MAX_QUEUED_BYTES {
+            b.push(heavy("r1", 1 << 20));
+            pushed += 1;
+        }
+        let before = b.msgs.len();
+        b.push(text("r1", "late"));
+        b.push(heavy("r1", 10));
+        assert_eq!(b.msgs.len(), before, "run events are dropped once the budget is spent");
+        for msg in critical() {
+            b.push(msg);
+        }
+        assert_eq!(b.msgs.len(), pushed + 3, "critical messages are never dropped");
+        assert!(matches!(b.msgs[pushed], DaemonToServer::RunDone(_)));
+        assert!(matches!(b.msgs[pushed + 1], DaemonToServer::ApprovalRequest(_)));
+        assert!(matches!(b.msgs[pushed + 2], DaemonToServer::QuestionWithdraw { .. }));
         assert_eq!(b.finished_runs().collect::<Vec<_>>(), vec!["r1".to_string()]);
+
+        while b.pop_front().is_some() {}
+        assert_eq!(b.bytes, 0, "bytes are released as messages are sent");
+        b.push(text("r1", "again"));
+        assert_eq!(b.msgs.len(), 1, "run events are accepted again once there is room");
+    }
+
+    #[test]
+    fn many_tiny_events_are_bounded_too() {
+        let mut b = Backlog::default();
+        let step = |i: usize| RunEvent::Status { status: RunStatus::Running, step: i.to_string() };
+        for i in 0..2 * MAX_QUEUED_BYTES / MESSAGE_OVERHEAD {
+            b.push(event("r1", step(i)));
+        }
+        assert!(b.msgs.len() <= MAX_QUEUED_BYTES / MESSAGE_OVERHEAD + 1, "each message weighs at least its overhead");
+    }
+
+    #[tokio::test]
+    async fn the_channel_is_bounded_by_the_same_budget() {
+        let (out, mut rx) = Outbox::channel();
+        let mut sent = 0;
+        while sent < 2 * MAX_QUEUED_BYTES / (1 << 20) {
+            out.send(heavy("r1", 1 << 20));
+            sent += 1;
+        }
+        for msg in critical() {
+            out.send(msg);
+        }
+        let mut got = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            got.push(msg);
+        }
+        let events = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { .. })).count();
+        assert!(events <= MAX_QUEUED_BYTES / (1 << 20) + 1, "kept {events} of {sent}");
+        assert!(matches!(got[events], DaemonToServer::RunDone(_)));
+        assert_eq!(got.len(), events + 3, "critical messages follow in order");
+
+        out.send(text("r1", "after"));
+        assert!(rx.try_recv().is_ok(), "receiving released the budget");
     }
 }

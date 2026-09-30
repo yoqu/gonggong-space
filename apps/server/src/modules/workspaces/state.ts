@@ -54,8 +54,12 @@ export async function updateBotState(
     .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
     .returning()
   if (!row) return null
+  return publishBotState(ctx, row)
+}
+
+export async function publishBotState(ctx: Ctx, row: Row) {
   const state = botStateDto(row)
-  ctx.bus.publish(await memberIds(ctx, groupId), { t: 'group.botState', groupId, state })
+  ctx.bus.publish(await memberIds(ctx, row.groupId), { t: 'group.botState', groupId: row.groupId, state })
   return state
 }
 

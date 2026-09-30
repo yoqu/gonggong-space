@@ -389,6 +389,13 @@ export const runs = pgTable(
     delegation: jsonb('delegation').notNull().default({}),
     /** Bots that take over once this run completes (the hand_off tool); an @ in the reply alone relays nothing. */
     handoffs: jsonb('handoffs').$type<{ botId: string; task: string }[]>().notNull().default([]),
+    /**
+     * Set with the terminal state of a run that reported run.done, cleared once its follow-up work (relay, requeued
+     * appends, notifications) is done: a run left flagged is finished again by a repeated run.done or on reconnect.
+     */
+    finalizing: boolean('finalizing').notNull().default(false),
+    /** How many 打断并追加 messages the agent applied (run.done); the rest are requeued while finalizing. */
+    appendsApplied: integer('appends_applied').notNull().default(0),
     purgedAt: ts('purged_at'),
     /** Requested at dispatch, then as the daemon reported them in effect (session.config). */
     model: text('model'),

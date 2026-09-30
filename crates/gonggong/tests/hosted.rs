@@ -1,10 +1,9 @@
 #![cfg(unix)]
 use gonggong::hosted::{Display, Scope, Services, StartArgs};
 use gonggong::protocol::{DaemonToServer, ServiceInfo, ServiceStatus};
-use gonggong::service::Outbox;
+use gonggong::service::{Outbox, OutboxRx};
 use std::path::Path;
 use std::time::Duration;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 fn scope(root: &Path, bot: &str, out: &Outbox) -> Scope {
     Scope { group_id: "g1".into(), bot_id: bot.into(), run_id: Some("r1".into()), root: root.into(), out: out.clone() }
@@ -14,7 +13,7 @@ fn args(name: &str, command: &str, port: Option<u16>) -> StartArgs {
     StartArgs { name: name.into(), command: command.into(), cwd: None, port, env: Default::default(), display: None }
 }
 
-async fn next_state(rx: &mut UnboundedReceiver<DaemonToServer>) -> ServiceInfo {
+async fn next_state(rx: &mut OutboxRx) -> ServiceInfo {
     let msg = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.expect("no service.state").unwrap();
     match msg {
         DaemonToServer::ServiceState { service } => service,

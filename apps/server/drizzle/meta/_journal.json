@@ -204,6 +204,13 @@
       "when": 1790679945222,
       "tag": "0028_perfect_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790740095289,
+      "tag": "0029_useful_thing",
+      "breakpoints": true
     }
   ]
 }

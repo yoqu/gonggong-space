@@ -29,14 +29,14 @@ export async function schedule(ctx: Ctx, botId: string) {
   const changed = await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${botId}))`)
     const [bot] = await tx.select().from(bots).where(eq(bots.id, botId))
-    if (!bot) return []
+    if (!bot) return { out: [], dispatches: [] }
     const waiting = await tx
       .select({ run: runs })
       .from(runs)
       .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
       .orderBy(asc(messages.seq))
-    if (!waiting.length) return []
+    if (!waiting.length) return { out: [], dispatches: [] }
     const active = await tx
       .select({ groupId: runs.groupId })
       .from(runs)
@@ -48,6 +48,7 @@ export async function schedule(ctx: Ctx, botId: string) {
     const groupQueue = new Map<string, number>()
     let position = 0
     const out: RunRow[] = []
+    const dispatches: { run: RunRow; machineId: string; msg: RunStart; triggerSeq: number }[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
     for (const { run } of waiting) {
@@ -68,7 +69,8 @@ export async function schedule(ctx: Ctx, botId: string) {
       if (machineId && busy < bot.concurrency) {
         const start = await buildRunStart(tx, bot, run)
         if (start.settled) out.push(start.settled)
-        // Mark running before sending: a fast run.done then waits on this row lock instead of missing the run.
+        // Marked running inside the transaction, sent only after it committed: a fast run.done then finds the
+        // committed running row, and a rollback never leaves a daemon executing a run the server has queued.
         const [running] = await tx
           .update(runs)
           .set({
@@ -81,27 +83,44 @@ export async function schedule(ctx: Ctx, botId: string) {
           })
           .where(eq(runs.id, run.id))
           .returning()
-        if (running && ctx.hub.send(machineId, start.msg)) {
+        if (running) {
           busy += 1
           busyGroups.add(run.groupId)
-          await tx
-            .update(groupBots)
-            .set({
-              contextSeq: sql`greatest(${groupBots.contextSeq}, ${start.triggerSeq})`,
-              newSessionReason: null,
-            })
-            .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, bot.id)))
           out.push(running)
-        } else await setRun(run.id, OFFLINE)
+          dispatches.push({ run: running, machineId, msg: start.msg, triggerSeq: start.triggerSeq })
+        }
         continue
       }
       const next = machineId ? { status: 'queued', step: `该 Bot 忙，排第 ${++position}` } : OFFLINE
       if (next.status !== run.status || next.step !== run.step) await setRun(run.id, next)
     }
-    return out
+    return { out, dispatches }
   })
-  for (const run of changed) await publishRun(ctx, run)
-  if (changed.some((r) => r.status === 'running')) await publishBot(ctx, botId)
+  const unsent = new Map<string, RunRow>()
+  for (const { run, machineId, msg, triggerSeq } of changed.dispatches) {
+    if (ctx.hub.send(machineId, msg)) {
+      // After the send: a cursor advanced for a start that never went out would drop that context for good.
+      await ctx.db
+        .update(groupBots)
+        .set({
+          contextSeq: sql`greatest(${groupBots.contextSeq}, ${triggerSeq})`,
+          newSessionReason: null,
+        })
+        .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, botId)))
+    } else {
+      // The machine dropped since the transaction. (A crash between commit and send leaves a running run the
+      // daemon never got; its next hello lists no such run and reconcileRuns interrupts it.)
+      const [back] = await ctx.db
+        .update(runs)
+        .set(OFFLINE)
+        .where(and(eq(runs.id, run.id), eq(runs.status, 'running')))
+        .returning()
+      if (back) unsent.set(run.id, back)
+    }
+  }
+  const settled = changed.out.map((r) => unsent.get(r.id) ?? r)
+  for (const run of settled) await publishRun(ctx, run)
+  if (settled.some((r) => r.status === 'running')) await publishBot(ctx, botId)
 }
 
 async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {

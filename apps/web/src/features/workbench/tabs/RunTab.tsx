@@ -73,18 +73,22 @@ function useRunDetail(runId: string, active: boolean) {
   useEffect(() => {
     let alive = true
     let timer: ReturnType<typeof setTimeout> | undefined
+    // Only the newest request may write: it was sent last, so it saw the newest server state.
+    let seq = 0
     current.current = null
     const load = () => {
+      const mine = ++seq
       const since = current.current?.events.findLast((e) => e.id > 0)?.id
       api.get<RunDetailDto>(`/runs/${runId}${since ? `?since=${since}` : ''}`).then(
         (d) =>
           alive &&
+          mine === seq &&
           setDetail((prev) =>
             since && prev
               ? { ...d, events: [...prev.events.filter((e) => e.id > 0 && e.id < since), ...d.events] }
               : d,
           ),
-        (e: Error) => alive && setError(e.message),
+        (e: Error) => alive && mine === seq && setError(e.message),
       )
     }
     load()
@@ -120,9 +124,19 @@ function useRunDetail(runId: string, active: boolean) {
           })
       }
     })
+    // Refill anything missed while the socket was down.
+    let wasOpen = realtime.getStatus() === 'open'
+    const offStatus = realtime.onStatus((st) => {
+      if (st === 'open' && wasOpen) {
+        if (shown.current) load()
+        else catchUp.current = load
+      }
+      if (st === 'open') wasOpen = true
+    })
     return () => {
       alive = false
       off()
+      offStatus()
       clearTimeout(timer)
       catchUp.current = null
     }

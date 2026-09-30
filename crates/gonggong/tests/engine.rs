@@ -2,15 +2,14 @@
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::local::LocalSettings;
 use gonggong::protocol::*;
-use gonggong::service::{Handler, Outbox};
+use gonggong::service::{Handler, Outbox, OutboxRx};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 struct Rig {
     engine: Engine,
     out: Outbox,
-    rx: UnboundedReceiver<DaemonToServer>,
+    rx: OutboxRx,
     home: tempfile::TempDir,
     /// session.config reports (run id, model, effort), set aside by `next`.
     configs: Vec<(String, Option<String>, Option<String>)>,
@@ -341,6 +340,18 @@ async fn reports_runs_in_flight_as_active_until_they_end() {
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     r.finish("r1").await;
     assert!(r.engine.active_runs().is_empty());
+}
+
+#[tokio::test]
+async fn a_repeated_run_start_does_not_start_the_run_twice() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:slow"));
+    r.run(start("r1", "mock:slow"));
+    assert!(matches!(r.next().await, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. }));
+    r.run(start("r1", "mock:slow"));
+    r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+    r.finish("r1").await;
+    assert!(tokio::time::timeout(Duration::from_millis(500), r.rx.recv()).await.is_err());
 }
 
 #[tokio::test]

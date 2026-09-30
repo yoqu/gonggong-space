@@ -70,8 +70,8 @@ it('handles one machine’s reports while another machine’s are stuck', async 
     locked = r
   })
 
-  da.ws.send(JSON.stringify({ t: 'run.event', runId: runA, event: { kind: 'text', delta: 'A' } }))
-  db.ws.send(JSON.stringify({ t: 'run.event', runId: runB, event: { kind: 'text', delta: 'B' } }))
+  da.ws.send(JSON.stringify({ t: 'run.event', runId: runA, event: { kind: 'text', delta: 'A ' } }))
+  db.ws.send(JSON.stringify({ t: 'run.event', runId: runB, event: { kind: 'text', delta: 'B ' } }))
   await expect.poll(() => delta(runB)).toBe(true)
   expect(delta(runA)).toBe(false)
 

@@ -2,12 +2,11 @@
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::git;
 use gonggong::protocol::*;
-use gonggong::service::{Handler, Outbox};
+use gonggong::service::{Handler, Outbox, OutboxRx};
 use gonggong::workspace::managed_path;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 fn git(dir: &Path, args: &[&str]) -> String {
     let out = Command::new("git")
@@ -60,7 +59,7 @@ impl Remote {
 struct Rig {
     engine: Engine,
     out: Outbox,
-    rx: UnboundedReceiver<DaemonToServer>,
+    rx: OutboxRx,
     home: tempfile::TempDir,
 }
 
@@ -450,14 +449,14 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
     }
 }
 
-async fn dir_result(rx: &mut UnboundedReceiver<DaemonToServer>) -> DirResult {
+async fn dir_result(rx: &mut OutboxRx) -> DirResult {
     match tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.unwrap().unwrap() {
         DaemonToServer::DirResult(d) => d,
         other => panic!("unexpected {other:?}"),
     }
 }
 
-async fn done(rx: &mut UnboundedReceiver<DaemonToServer>) -> RunDone {
+async fn done(rx: &mut OutboxRx) -> RunDone {
     loop {
         if let DaemonToServer::RunDone(d) =
             tokio::time::timeout(Duration::from_secs(30), rx.recv()).await.unwrap().unwrap()

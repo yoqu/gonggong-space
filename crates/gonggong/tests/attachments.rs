@@ -2,14 +2,13 @@
 use gonggong::config::Config;
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::protocol::*;
-use gonggong::service::{Handler, Outbox};
+use gonggong::service::{Handler, Outbox, OutboxRx};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 const TOKEN: &str = "mt_secret";
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\nfake-image";
@@ -50,7 +49,7 @@ async fn file_server(files: HashMap<String, Vec<u8>>) -> (String, Arc<Mutex<Vec<
 struct Rig {
     engine: Engine,
     out: Outbox,
-    rx: UnboundedReceiver<DaemonToServer>,
+    rx: OutboxRx,
     _home: tempfile::TempDir,
 }
 

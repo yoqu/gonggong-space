@@ -4,14 +4,13 @@ use gonggong::cast::{self, Casts};
 use gonggong::config::Config;
 use gonggong::hosted::{Scope, Services, StartArgs};
 use gonggong::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer, Permission};
-use gonggong::service::Outbox;
+use gonggong::service::{Outbox, OutboxRx};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::UnboundedReceiver;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
@@ -60,12 +59,7 @@ fn fake_cast(dir: &Path, then: &str) -> (PathBuf, PathBuf) {
     (bin, seen)
 }
 
-async fn hosted_service(
-    services: &Services,
-    root: &Path,
-    out: &Outbox,
-    rx: &mut UnboundedReceiver<DaemonToServer>,
-) -> String {
+async fn hosted_service(services: &Services, root: &Path, out: &Outbox, rx: &mut OutboxRx) -> String {
     let scope = Scope { group_id: "g1".into(), bot_id: "b1".into(), run_id: None, root: root.into(), out: out.clone() };
     let args = StartArgs {
         name: "calc".into(),
@@ -82,7 +76,7 @@ async fn hosted_service(
     }
 }
 
-async fn next_cast(rx: &mut UnboundedReceiver<DaemonToServer>) -> (CastPhase, Option<String>) {
+async fn next_cast(rx: &mut OutboxRx) -> (CastPhase, Option<String>) {
     loop {
         let msg = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.expect("no cast.state").unwrap();
         if let DaemonToServer::CastState { preview_id, state, error, .. } = msg {
@@ -196,7 +190,7 @@ async fn reports_why_gg_cast_failed_and_tries_again() {
 }
 
 /// The next cast.state as (phase, retry_in).
-async fn next_retry(rx: &mut UnboundedReceiver<DaemonToServer>) -> (CastPhase, Option<u64>) {
+async fn next_retry(rx: &mut OutboxRx) -> (CastPhase, Option<u64>) {
     loop {
         let msg = tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.expect("no cast.state").unwrap();
         if let DaemonToServer::CastState { state, retry_in, .. } = msg {

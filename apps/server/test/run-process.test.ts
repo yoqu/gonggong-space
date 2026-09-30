@@ -183,6 +183,110 @@ describe('run process', () => {
     expect((await w.detail(runId)).events.map((e) => e.event)).toEqual([{ kind: 'text', delta: full }])
   })
 
+  describe('live stream redaction', () => {
+    const SK = 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789'
+    const pushed = (w: Awaited<ReturnType<typeof world>>, runId: string) =>
+      w.seen
+        .filter((e) => e.t === 'run.delta' && e.runId === runId)
+        .map((e) => (e.t === 'run.delta' ? e.text : ''))
+        .join('')
+    const stored = async (runId: string) => {
+      const rows = await t.db
+        .select()
+        .from(runEvents)
+        .where(eq(runEvents.runId, runId))
+        .orderBy(asc(runEvents.id))
+      return rows.map((r) => (openEvent(r.payload as RunEvent) as { delta: string }).delta).join('')
+    }
+
+    it('never pushes a secret split across two chunks, and matches what is stored', async () => {
+      const w = await world()
+      const runId = await w.mention()
+      w.send(runId, { kind: 'text', delta: `key ${SK.slice(0, 10)}` })
+      w.send(runId, { kind: 'text', delta: `${SK.slice(10)} ok` })
+      w.done(runId)
+      await w.ended(runId)
+
+      expect(pushed(w, runId)).toBe(`key ${MASK} ok`)
+      expect(await stored(runId)).toBe(`key ${MASK} ok`)
+    })
+
+    it('holds back every chunk of a secret split many ways, labels and quotes included', async () => {
+      const w = await world()
+      const runId = await w.mention()
+      const chunks = [
+        `token ${SK.slice(0, 7)}`,
+        SK.slice(7, 20),
+        SK.slice(20, 33),
+        `${SK.slice(33)}\n`,
+        'Authorization: Bearer ',
+        'abcdefghij',
+        'klmnopqrstuvwxyz\n',
+        'password="hun',
+        'ter 2 x"\n',
+        '-----BEGIN RSA PRIV',
+        'ATE KEY-----\nMIIEpAIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n',
+        'done',
+      ]
+      for (const delta of chunks) w.send(runId, { kind: 'text', delta })
+      w.done(runId)
+      await w.ended(runId)
+
+      const out = pushed(w, runId)
+      for (const secret of ['sk-ant', 'abcdefghij', 'hunter', 'hun', 'MIIE', 'PRIV'])
+        expect(out).not.toContain(secret)
+      expect(out).toBe(await stored(runId))
+      expect(out).toContain(MASK)
+    })
+
+    it('keeps secrets split across an 8KB segment rollover out of the live stream', async () => {
+      const w = await world()
+      const runId = await w.mention()
+      const filler = `${'x'.repeat(99)}\n`.repeat(100)
+      const chunks = [
+        filler,
+        `token ${SK.slice(0, 12)}`,
+        SK.slice(12, 30),
+        `${SK.slice(30)}\n`,
+        filler,
+        'end',
+      ]
+      for (const delta of chunks) w.send(runId, { kind: 'text', delta })
+      w.done(runId)
+      await w.ended(runId)
+
+      const out = pushed(w, runId)
+      expect(out).not.toContain('sk-ant')
+      expect(out).toBe(await stored(runId))
+      expect(out).toBe(chunks.join('').replace(SK, MASK))
+    })
+
+    it('streams ordinary text unchanged, without waiting for CJK text to end', async () => {
+      const w = await world()
+      const runId = await w.mention()
+      w.send(runId, { kind: 'text', delta: 'Hello wor' })
+      w.send(runId, { kind: 'text', delta: 'ld 你好，世界' })
+      await expect.poll(() => pushed(w, runId)).toBe('Hello world 你好，世界')
+      w.send(runId, { kind: 'text', delta: ' tail' })
+      w.done(runId)
+      await w.ended(runId)
+
+      expect(pushed(w, runId)).toBe('Hello world 你好，世界 tail')
+      expect(await stored(runId)).toBe('Hello world 你好，世界 tail')
+    })
+
+    it('flushes the held token when the stream is closed by another event', async () => {
+      const w = await world()
+      const runId = await w.mention()
+      w.send(runId, { kind: 'text', delta: 'reading file' })
+      w.send(runId, { kind: 'tool', toolCallId: 'c1', title: 'ls', toolKind: 'execute', status: 'completed' })
+      await expect.poll(() => pushed(w, runId)).toBe('reading file')
+      w.send(runId, { kind: 'text', delta: 'more' })
+      w.send(runId, { kind: 'thought', delta: 'hm' })
+      await expect.poll(() => pushed(w, runId)).toBe('reading filemore')
+    })
+  })
+
   it('serves the process from a known event on, that event included since streamed text may have grown', async () => {
     const w = await world()
     const runId = await w.mention()

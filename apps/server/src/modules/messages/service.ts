@@ -7,12 +7,14 @@ export type MessageRow = typeof messages.$inferSelect
 /**
  * `command`: the system command this message invoked (never replayed to agents as context).
  * `appendTo`: the run it was 打断并追加 into (it triggers nothing itself).
+ * `relayOf`: `<parent run id>:<hand-off index>` of the relay message that started a next hop.
  */
 export type MessageMeta = {
   mentions?: string[]
   clientId?: string
   command?: string
   appendTo?: string
+  relayOf?: string
   attachments?: Attachment[]
   quote?: MessageDto['quote']
   /** One-shot model / thought level by triggered bot id. */

@@ -1,7 +1,7 @@
 import type { RepoAccessReason } from '@gonggong/protocol'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groups, type messages, runs, users } from '../../db/schema.js'
+import { bots, groupBots, groups, messages, runs, users } from '../../db/schema.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { postEvent, postMessage } from '../messages/service.js'
@@ -121,6 +121,16 @@ export async function triggerRuns(ctx: Ctx, message: typeof messages.$inferSelec
   })
 }
 
+/** Whether `messageId` already started a run: a repeated follow-up pass must not start it again. */
+export async function hasRun(ctx: Ctx, groupId: string, messageId: string) {
+  const [hit] = await ctx.db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.groupId, groupId), eq(runs.triggerMessageId, messageId)))
+    .limit(1)
+  return !!hit
+}
+
 /**
  * Relay (spec §4.6): the bots a completed run handed off to (hand_off) run as the next hop, each triggered by a message
  * of the parent bot that @-s it with the task, authorized against the chain's human initiator.
@@ -134,19 +144,30 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
   const hop = parent.hop + 1
   if (!group || hop > (await groupParams(ctx, group)).chainMaxHops) return
   const names = new Map((await activeBots(ctx, parent.groupId)).map((b) => [b.id, b.name]))
-  for (const h of parent.handoffs) {
+  // Repeatable: a hop whose relay message or run already exists is not created again.
+  for (const [i, h] of parent.handoffs.entries()) {
     const name = names.get(h.botId)
     if (!name) continue
-    const message = await postMessage(ctx, {
-      groupId: parent.groupId,
-      kind: 'bot',
-      authorBotId: parent.botId,
-      body: `@${name} ${h.task}`,
-      meta: { mentions: [h.botId] },
-    })
+    const relayOf = `${parent.id}:${i}`
+    const [prior] = await ctx.db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(and(eq(messages.groupId, parent.groupId), sql`${messages.meta}->>'relayOf' = ${relayOf}`))
+    if (prior && (await hasRun(ctx, parent.groupId, prior.id))) continue
+    const messageId =
+      prior?.id ??
+      (
+        await postMessage(ctx, {
+          groupId: parent.groupId,
+          kind: 'bot',
+          authorBotId: parent.botId,
+          body: `@${name} ${h.task}`,
+          meta: { mentions: [h.botId], relayOf },
+        })
+      ).id
     await createRuns(ctx, {
       groupId: parent.groupId,
-      messageId: message.id,
+      messageId,
       botIds: [h.botId],
       originUserId: parent.originUserId,
       triggerUserId: null,
