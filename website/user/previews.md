@@ -85,6 +85,10 @@ Bot 发布预览后，群里出现一张预览卡片，显示首屏截图（小�
 
 桌面应用和小程序预览打开后是实时画面。有人在看时机器才推送画面。
 
+![小程序实时画面](/screenshots/web/workbench-miniprogram.webp)
+
+![桌面应用实时画面，正在处理他人的控制请求](/screenshots/web/workbench-live.webp)
+
 ### 远程操作
 
 所有群成员都能观看，同一时间只有一个人能操作：
