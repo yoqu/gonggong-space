@@ -4,11 +4,13 @@ use crate::attachments;
 use crate::engine::Inner;
 use crate::git;
 use crate::hosted::Scope;
+use crate::inject;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::protocol::{
-    AgentCatalog, AgentCommand, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer, ModelChoice,
-    Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer,
+    ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
+use crate::providers::{RunPlan, Selection, Store};
 use crate::service::Outbox;
 use crate::turn::{
     ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt,
@@ -28,13 +30,16 @@ use agent_client_protocol::schema::v1::{
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo, Handled, UntypedMessage};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 
 const ERROR_MAX: usize = 800;
 pub(crate) const NOT_GIT: &str = "工作区不是 git 仓库";
 const REJECTED: &str = "请求被拒绝，agent 自行绕路";
+const RESUME_FAILED: &str = "resume_failed";
+/// The session to resume was pinned to a provider since deleted (§4.3).
+const PROVIDER_REMOVED: &str = "provider_removed";
 
 pub(crate) struct TurnReq {
     pub start: RunStart,
@@ -42,6 +47,37 @@ pub(crate) struct TurnReq {
     pub out: Outbox,
     /// The owner's local settings as of this run.
     pub local: LocalSettings,
+}
+
+/// An active turn and the provider it runs with.
+struct Planned {
+    req: TurnReq,
+    selection: Selection,
+    /// Its session's pinned provider is gone: start a new session instead of resuming.
+    removed: bool,
+}
+
+/// Makes `req` the active turn and decides its provider from the store as of now, so CLI / desktop edits apply from
+/// the next turn on. None: it will not run (cancelled while queued, or no provider to run with).
+fn plan(engine: &Inner, shared: &Shared, req: TurnReq) -> Option<Planned> {
+    if !shared.begin(&req) {
+        return None;
+    }
+    let home = &engine.config.home;
+    let s = &req.start;
+    let resolved = Store::load(home).and_then(|store| {
+        inject::prune(home, &store);
+        store.resolve_run(s.bot.agent_kind, &s.bot.id, s.resume_session_id.as_deref())
+    });
+    let (selection, removed) = match resolved {
+        Ok(RunPlan::Resume(selection)) => (selection, false),
+        Ok(RunPlan::New { selection, provider_removed }) => (selection, provider_removed),
+        Err(e) => {
+            shared.finish(Err(format!("{e:#}")), None, None);
+            return None;
+        }
+    };
+    Some(Planned { req, selection, removed })
 }
 
 struct Active {
@@ -778,12 +814,20 @@ pub(crate) async fn run(
 ) {
     // Survives adapter restarts so the next process resumes the same conversation.
     let mut resume: Option<SessionId> = None;
-    while let Some(req) = rx.recv().await {
-        if !shared.begin(&req) {
-            continue;
-        }
-        let result = match engine.adapter(&req.start.bot, &req.local).await {
-            Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), req, &mut rx, &mut resume).await,
+    let mut next: Option<Planned> = None;
+    loop {
+        let turn = match next.take() {
+            Some(turn) => turn,
+            None => match rx.recv().await {
+                Some(req) => match plan(&engine, &shared, req) {
+                    Some(turn) => turn,
+                    None => continue,
+                },
+                None => break,
+            },
+        };
+        let result = match engine.adapter(&turn.req.start.bot, &turn.req.local, &turn.selection).await {
+            Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await,
             Err(e) => Err(format!("{e:#}")),
         };
         // Its background tasks went with the adapter process.
@@ -793,7 +837,15 @@ pub(crate) async fn run(
             s.tasks.clear();
         }
         // A turn still active here was cut short by the adapter exiting or failing to start.
-        let error = result.err().unwrap_or_else(|| "agent 进程意外退出".into());
+        let error = match result {
+            // The next turn runs on another provider (or revision): a new adapter process takes it (§4.4).
+            Ok(Some(turn)) => {
+                next = Some(turn);
+                continue;
+            }
+            Ok(None) => "agent 进程意外退出".into(),
+            Err(e) => e,
+        };
         if shared.0.lock().unwrap().active.is_some() {
             tracing::warn!("adapter ended mid-turn: {error}");
             shared.post_turn().await;
@@ -802,15 +854,16 @@ pub(crate) async fn run(
     }
 }
 
+/// Runs turns on one adapter process until it idles out or the next turn needs another provider (returned).
 async fn connect(
     engine: &Inner,
     shared: &Arc<Shared>,
     ask: &acp::McpServer,
     agent: AcpAgent,
-    first: TurnReq,
+    first: Planned,
     rx: &mut mpsc::UnboundedReceiver<TurnReq>,
     resume: &mut Option<SessionId>,
-) -> Result<(), String> {
+) -> Result<Option<Planned>, String> {
     let (on_update, on_permission) = (shared.clone(), shared.clone());
     Client
         .builder()
@@ -857,25 +910,32 @@ async fn connect(
                 init: &init,
                 shared,
                 ask,
+                home: &engine.config.home,
+                selection: first.selection.clone(),
                 session: None,
                 mode: None,
                 options: vec![],
                 initial: HashMap::new(),
                 applied: HashMap::new(),
             };
-            let mut req = first;
+            let mut turn = first;
             loop {
                 {
-                    let _dir = engine.workspaces.occupy(&req, shared).await;
-                    conv.turn(req, resume).await?;
+                    let _dir = engine.workspaces.occupy(&turn.req, shared).await;
+                    conv.turn(turn.req, turn.removed, resume).await?;
                 }
-                req = loop {
+                turn = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
-                        Ok(Some(next)) if shared.begin(&next) => break next,
-                        Ok(Some(_)) => continue,
-                        Ok(None) | Err(_) => return Ok(()),
+                        Ok(Some(next)) => match plan(engine, shared, next) {
+                            Some(turn) => break turn,
+                            None => continue,
+                        },
+                        Ok(None) | Err(_) => return Ok(None),
                     }
                 };
+                if turn.selection != conv.selection {
+                    return Ok(Some(turn));
+                }
             }
         })
         .await
@@ -888,6 +948,9 @@ struct Conversation<'a> {
     init: &'a InitializeResponse,
     shared: &'a Shared,
     ask: &'a acp::McpServer,
+    home: &'a Path,
+    /// The provider this adapter process was started with.
+    selection: Selection,
     session: Option<SessionId>,
     mode: Option<String>,
     /// The session's config options as last reported, their values when it was opened, and the values we set
@@ -899,21 +962,36 @@ struct Conversation<'a> {
 
 impl Conversation<'_> {
     /// Runs one prompt turn. Only transport-level failures are returned (they tear the adapter down).
-    async fn turn(&mut self, req: TurnReq, resume: &mut Option<SessionId>) -> Result<(), agent_client_protocol::Error> {
+    /// `removed`: the session to resume lost its provider, so a new one is started.
+    async fn turn(
+        &mut self,
+        req: TurnReq,
+        removed: bool,
+        resume: &mut Option<SessionId>,
+    ) -> Result<(), agent_client_protocol::Error> {
         let s = &req.start;
         // The server owns the session id: reuse the live one only if it asks for it (/new sends none).
-        let wanted = s.resume_session_id.clone().map(SessionId::new);
+        let wanted = s.resume_session_id.clone().filter(|_| !removed).map(SessionId::new);
         let context = (&s.prompt.context, s.prompt.omitted);
         let (session, reason, (history, omitted)) = match self.session.clone().filter(|id| wanted.as_ref() == Some(id))
         {
             Some(id) => (id, None, context),
             None => match self.open(&req, wanted).await {
                 Ok((id, reason)) => {
-                    let history = if reason.as_deref() == Some("resume_failed") {
+                    let reason = if removed { Some(PROVIDER_REMOVED.into()) } else { reason };
+                    // `context` only reaches back to the previous run: a new session needs the recent history.
+                    let history = if matches!(reason.as_deref(), Some(RESUME_FAILED | PROVIDER_REMOVED)) {
                         (&s.prompt.fallback_context, 0)
                     } else {
                         context
                     };
+                    // New sessions keep the provider they start with (§4.3): recorded before the agent is prompted.
+                    if reason.is_some()
+                        && let Err(e) = self.pin(&req, &id)
+                    {
+                        self.shared.finish(Err(e), None, None);
+                        return Ok(());
+                    }
                     (id, reason, history)
                 }
                 Err(e) => {
@@ -991,7 +1069,7 @@ impl Conversation<'_> {
         self.set_modes(res.modes);
         self.set_options(res.config_options.unwrap_or_default());
         let reason =
-            if tried { "resume_failed".into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
+            if tried { RESUME_FAILED.into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
         Ok((res.session_id, Some(reason)))
     }
 
@@ -1036,8 +1114,24 @@ impl Conversation<'_> {
     /// on offer and reset the effort set before.
     async fn configure(&mut self, req: &TurnReq, session: &SessionId) {
         let bot = &req.start.bot;
+        // A third-party provider only serves its own models; its default one is injected with the process, and the
+        // adapter's catalog may not list it.
+        let (model, injected) = match &self.selection {
+            Selection::Official => (bot.model.clone(), None),
+            Selection::Provider(p) => {
+                let model = inject::model(p, bot.model.as_deref());
+                let injected = model.clone().filter(|m| p.model.as_ref() == Some(m));
+                (model, injected)
+            }
+        };
+        let unlisted = |options: &[SessionConfigOption]| {
+            injected.clone().filter(|m| {
+                select(options, &SessionConfigOptionCategory::Model)
+                    .is_none_or(|(.., c)| c.iter().all(|c| c.value != *m))
+            })
+        };
         let wanted = [
-            (SessionConfigOptionCategory::Model, "模型", &bot.model),
+            (SessionConfigOptionCategory::Model, "模型", &model),
             (SessionConfigOptionCategory::ThoughtLevel, "推理强度", &bot.effort),
         ];
         for (category, label, want) in wanted {
@@ -1048,7 +1142,10 @@ impl Conversation<'_> {
                 continue;
             };
             let Some(target) = want.clone().or_else(|| self.initial.get(&id).cloned()) else { continue };
-            if current == target || self.applied.get(&id) == Some(&target) {
+            if current == target
+                || self.applied.get(&id) == Some(&target)
+                || (category == SessionConfigOptionCategory::Model && unlisted(&self.options).is_some())
+            {
                 continue;
             }
             let set = SetSessionConfigOptionRequest::new(
@@ -1078,16 +1175,34 @@ impl Conversation<'_> {
         };
         req.out.send(DaemonToServer::SessionConfig {
             run_id: req.start.run_id.clone(),
-            model: in_effect(SessionConfigOptionCategory::Model),
+            model: unlisted(&self.options).or_else(|| in_effect(SessionConfigOptionCategory::Model)),
             effort: in_effect(SessionConfigOptionCategory::ThoughtLevel),
         });
     }
 
-    /// Claude reads the per-session system prompt from `_meta`; Codex gets it per process (CODEX_CONFIG).
+    /// Claude reads the per-session system prompt and the provider's settings file (written with the process) from
+    /// `_meta`, on every new, resume and load: a resume without it falls back to the user's config. Codex gets both
+    /// per process.
     fn meta(&self, start: &RunStart) -> Option<Meta> {
-        let json = serde_json::json!({ "systemPrompt": { "append": system_prompt(&start.bot) } });
-        (start.bot.agent_kind == crate::protocol::AgentKind::Claude)
-            .then(|| json.as_object().cloned().unwrap_or_default())
+        if start.bot.agent_kind != AgentKind::Claude {
+            return None;
+        }
+        let mut meta = Meta::new();
+        meta.insert("systemPrompt".into(), serde_json::json!({ "append": system_prompt(&start.bot) }));
+        if let Selection::Provider(p) = &self.selection {
+            let settings = inject::claude_settings_path(self.home, &p.id);
+            meta.insert("claudeCode".into(), serde_json::json!({ "options": { "settings": settings } }));
+        }
+        Some(meta)
+    }
+
+    fn pin(&self, req: &TurnReq, session: &SessionId) -> Result<(), String> {
+        let s = &req.start;
+        Store::update(self.home, |store| {
+            store.pin(&session.0, s.bot.agent_kind, &s.group_id, &s.bot.id, &self.selection);
+            Ok(())
+        })
+        .map_err(|e| format!("无法记录会话使用的供应商：{e:#}"))
     }
 }
 

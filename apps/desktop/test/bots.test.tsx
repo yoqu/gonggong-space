@@ -4,7 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc } from '../src/ipc'
 import { BotsPage } from '../src/pages/Bots'
-import { bot, CLAUDE, CODEX } from './ipc-mock'
+import { bot, CLAUDE, CODEX, provider } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
@@ -57,7 +57,7 @@ it('shows the server settings of each bot read-only', async () => {
 
   expect(screen.queryByRole('button', { name: '设置…' })).toBeNull()
   expect(screen.queryByRole('button', { name: '确认' })).toBeNull()
-  expect(screen.getByText(/Bot 的全部设置都在 Web 端管理/)).toBeTruthy()
+  expect(screen.getByText(/供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理/)).toBeTruthy()
 })
 
 it('opens each bot on the Web to manage or confirm it', async () => {
@@ -70,7 +70,52 @@ it('opens each bot on the Web to manage or confirm it', async () => {
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
 })
 
-it('describes the page as read-only', async () => {
+it('describes what the page manages', async () => {
   const { PAGES } = await import('../src/pages')
-  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe('本机运行的 Bot，设置请在 Web 端修改')
+  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe('本机运行的 Bot 与其供应商，其余设置请在 Web 端修改')
+})
+
+it('sets a bot’s provider: inherit, official or one of its agent, confirming when sessions keep the old one', async () => {
+  m.providers.mockResolvedValue({
+    machine: { claude: 'kimi-1' },
+    bots: { b2: 'official' },
+    providers: [
+      provider({ id: 'kimi-1', name: 'Kimi' }),
+      provider({ id: 'glm-1', name: '智谱 GLM' }),
+      provider({ id: 'ds-1', agent: 'codex', name: 'DeepSeek' }),
+    ],
+    ccSwitch: false,
+  })
+  m.chooseProvider.mockResolvedValue()
+  render(<BotsPage go={() => {}} />)
+  const claude = await card('小王的 Claude')
+  const select = await claude.findByRole('button', { name: '小王的 Claude 的供应商' })
+  expect(select.textContent).toContain('继承机器（当前：Kimi）')
+  fireEvent.click(select)
+  const menu = within(claude.getByRole('menu', { name: '小王的 Claude 的供应商' }))
+  expect(menu.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual([
+    '继承机器（当前：Kimi）',
+    '官方登录',
+    'Kimi',
+    '智谱 GLM',
+  ])
+
+  m.providerImpact.mockResolvedValue([
+    { group: '支付服务重构', bot: '小王的 Claude', from: 'Kimi', to: '智谱 GLM' },
+  ])
+  fireEvent.click(menu.getByRole('menuitemcheckbox', { name: '智谱 GLM' }))
+  await waitFor(() => expect(m.providerImpact).toHaveBeenCalledWith('claude', 'glm-1', 'b1'))
+  const alert = within(await screen.findByRole('alertdialog'))
+  expect(alert.getByText('1 个群的会话仍在使用 Kimi，开启新会话后才会切换到 智谱 GLM：')).toBeTruthy()
+  expect(alert.getByText('支付服务重构（小王的 Claude）')).toBeTruthy()
+  expect(m.chooseProvider).not.toHaveBeenCalled()
+  fireEvent.click(alert.getByRole('button', { name: '切换' }))
+  await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('claude', 'glm-1', 'b1'))
+
+  const codex = await card('小王的 Codex')
+  expect(codex.getByRole('button', { name: '小王的 Codex 的供应商' }).textContent).toContain('官方登录')
+  fireEvent.click(codex.getByRole('button', { name: '小王的 Codex 的供应商' }))
+  m.providerImpact.mockResolvedValue([])
+  fireEvent.click(within(codex.getByRole('menu')).getByRole('menuitemcheckbox', { name: /继承机器/ }))
+  await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('codex', 'inherit', 'b2'))
 })

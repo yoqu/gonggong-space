@@ -1,5 +1,14 @@
 import { vi } from 'vitest'
-import type { AgentCard, AppInfo, DaemonStatus, MachineBot, RunInfo } from '../src/ipc'
+import type {
+  AgentCard,
+  AppInfo,
+  DaemonStatus,
+  MachineBot,
+  Preset,
+  ProviderView,
+  RunInfo,
+  ToolStatus,
+} from '../src/ipc'
 
 vi.mock('../src/ipc', () => ({
   ipc: {
@@ -13,6 +22,7 @@ vi.mock('../src/ipc', () => ({
     runProcess: vi.fn(),
     settings: vi.fn(),
     setAutoUpgrade: vi.fn(),
+    setMirror: vi.fn(),
     setLaunchAtLogin: vi.fn(),
     unbind: vi.fn(),
     workspaces: vi.fn(),
@@ -26,6 +36,18 @@ vi.mock('../src/ipc', () => ({
     agents: vi.fn(),
     pickAgentPath: vi.fn(),
     resetAgentPath: vi.fn(),
+    tools: vi.fn(async () => []),
+    runTool: vi.fn(),
+    providers: vi.fn(async () => ({ machine: {}, bots: {}, providers: [], ccSwitch: false })),
+    providerPresets: vi.fn(async () => []),
+    saveProvider: vi.fn(),
+    removeProvider: vi.fn(),
+    chooseProvider: vi.fn(),
+    providerImpact: vi.fn(async () => []),
+    ccswitchPreview: vi.fn(),
+    ccswitchImport: vi.fn(),
+    importProviderLink: vi.fn(),
+    openKeyPage: vi.fn(),
     bots: vi.fn(),
     openBotInWeb: vi.fn(),
     tunnels: vi.fn(async () => ({ previews: [], services: [] })),
@@ -39,6 +61,7 @@ vi.mock('../src/ipc', () => ({
     restartApp: vi.fn(),
   },
   onSnapshot: vi.fn(async () => () => {}),
+  onToolProgress: vi.fn(async () => () => {}),
   onOpenLinks: vi.fn(async () => () => {}),
 }))
 
@@ -87,8 +110,19 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
         path: '/opt/homebrew/bin/claude',
         minVersion: '2.0.0',
         catalog: null,
+        latest: null,
+        managed: false,
       },
-      { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0', catalog: null },
+      {
+        kind: 'codex',
+        available: false,
+        version: null,
+        path: null,
+        minVersion: '0.40.0',
+        catalog: null,
+        latest: null,
+        managed: false,
+      },
     ],
     runs: [],
     ...over,
@@ -112,6 +146,8 @@ export const CLAUDE: AgentCard = {
     effort: null,
   },
   login: '已登录 · Claude Max',
+  latest: null,
+  managed: false,
 }
 
 export const CODEX: AgentCard = {
@@ -123,6 +159,8 @@ export const CODEX: AgentCard = {
   customPath: false,
   catalog: null,
   login: null,
+  latest: null,
+  managed: false,
 }
 
 export function bot(over: Partial<MachineBot>): MachineBot {
@@ -139,4 +177,55 @@ export function bot(over: Partial<MachineBot>): MachineBot {
     avatar: 'role-gong',
     ...over,
   }
+}
+
+export function tool(over: Partial<ToolStatus> & Pick<ToolStatus, 'kind'>): ToolStatus {
+  return { installed: true, version: null, latest: null, managed: false, path: null, ...over }
+}
+
+export function provider(over: Partial<ProviderView>): ProviderView {
+  return {
+    id: 'kimi-coding-a1b2',
+    agent: 'claude',
+    name: 'Kimi For Coding',
+    presetId: 'kimi-coding',
+    revision: 1,
+    baseUrl: 'https://api.kimi.com/coding/',
+    apiKey: '****abcd',
+    apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
+    model: 'kimi-for-coding',
+    models: null,
+    env: {},
+    wireApi: null,
+    effort: null,
+    source: null,
+    ...over,
+  }
+}
+
+export const KIMI: Preset = {
+  id: 'kimi-coding',
+  agent: 'claude',
+  name: 'Kimi For Coding',
+  group: 'cn',
+  websiteUrl: 'https://www.kimi.com/code/',
+  apiKeyUrl: null,
+  baseUrl: 'https://api.kimi.com/coding/',
+  model: 'kimi-for-coding',
+  models: { haiku: 'kimi-for-coding', sonnet: 'kimi-for-coding', opus: 'kimi-for-coding' },
+  modelOptions: ['kimi-for-coding', 'kimi-k2'],
+  env: { CLAUDE_CODE_MAX_CONTEXT_TOKENS: '262144' },
+}
+
+export const OPENROUTER: Preset = {
+  ...KIMI,
+  id: 'openrouter',
+  name: 'OpenRouter',
+  group: 'aggregator',
+  websiteUrl: null,
+  baseUrl: 'https://openrouter.ai/api',
+  model: null,
+  models: null,
+  modelOptions: [],
+  env: {},
 }

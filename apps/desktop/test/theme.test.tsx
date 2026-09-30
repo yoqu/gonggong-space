@@ -23,7 +23,11 @@ beforeEach(() => {
   window.localStorage.clear()
   delete document.documentElement.dataset.theme
   delete document.documentElement.dataset.glass
-  vi.mocked(ipc).settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false })
+  vi.mocked(ipc).settings.mockResolvedValue({
+    autoUpgrade: true,
+    launchAtLogin: false,
+    mirror: { kind: 'npmmirror' },
+  })
   useDaemon.setState({ info: INFO })
 })
 

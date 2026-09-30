@@ -7,6 +7,8 @@ import { expect, type Page } from '@playwright/test'
 export const ROOT = join(import.meta.dirname, '..')
 export const SERVER = 'http://127.0.0.1:8790'
 export const GONGGONG_BIN = join(ROOT, 'target/debug/gg')
+/** Everything the e2e server prints (request log included), for asserting what it never contains. */
+export const SERVER_LOG = join(tmpdir(), 'gonggong-e2e-server.log')
 
 export function buildDaemon() {
   // scripts/gui-e2e.sh builds it in its build image and runs the tests in another.
@@ -25,8 +27,8 @@ export function machine(server = SERVER, extraEnv: Record<string, string> = {}) 
     GONGGONG_HOME: home,
     GONGGONG_MACHINE_ID: home,
     GONGGONG_LOG: 'info',
-    CODEX_HOME: codexHome(),
     ...extraEnv,
+    CODEX_HOME: extraEnv.CODEX_HOME ?? codexHome(),
   }
   let proc: ChildProcess | undefined
   let exited: Promise<number | null> = Promise.resolve(null)

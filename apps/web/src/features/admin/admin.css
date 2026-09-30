@@ -127,6 +127,17 @@ a.ui-sidebar__item:hover:not([aria-current]) {
 .admin-table__warn {
   color: var(--tint-orange-text);
 }
+.admin-agents {
+  display: flex;
+  gap: var(--space-8);
+  overflow: hidden;
+}
+.admin-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
 .admin-table__bad {
   color: var(--tint-red-text);
 }

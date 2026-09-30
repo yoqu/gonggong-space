@@ -1,0 +1,18 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-2",
+  "action": "save",
+  "setDefault": true,
+  "provider": {
+    "agent": "claude",
+    "presetId": "kimi-coding",
+    "apiKey": "sk-test-0123456789abcd",
+    "model": "kimi-for-coding",
+    "models": {
+      "haiku": "kimi-for-coding"
+    },
+    "env": {
+      "ENABLE_TOOL_SEARCH": "1"
+    }
+  }
+}

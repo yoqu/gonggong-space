@@ -10,7 +10,7 @@ const m = vi.mocked(ipc)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false })
+  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
   m.setAutoUpgrade.mockResolvedValue()
   m.setLaunchAtLogin.mockResolvedValue()
   m.unbind.mockResolvedValue()
@@ -38,4 +38,34 @@ it('shows local paths and the server, toggles preferences and unbinds after conf
   expect(m.unbind).not.toHaveBeenCalled()
   fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '解除绑定' }))
   expect(m.unbind).toHaveBeenCalled()
+})
+
+it('switches the download mirror, a custom one only with both addresses', async () => {
+  m.setMirror.mockResolvedValue()
+  render(<SettingsPage go={() => {}} />)
+  const mirror = await screen.findByRole('button', { name: '镜像源' })
+  expect(mirror.textContent).toContain('淘宝镜像（npmmirror）')
+  fireEvent.click(mirror)
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '官方源' }))
+  await waitFor(() => expect(m.setMirror).toHaveBeenCalledWith({ kind: 'official' }))
+
+  fireEvent.click(screen.getByRole('button', { name: '镜像源' }))
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '自定义' }))
+  expect(m.setMirror).toHaveBeenCalledTimes(1)
+  const save = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
+  expect(save.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox', { name: 'npm registry' }), {
+    target: { value: 'https://r.corp.cn' },
+  })
+  fireEvent.change(screen.getByRole('textbox', { name: 'Node.js 下载地址' }), {
+    target: { value: 'https://r.corp.cn/node' },
+  })
+  fireEvent.click(save)
+  await waitFor(() =>
+    expect(m.setMirror).toHaveBeenLastCalledWith({
+      kind: 'custom',
+      registry: 'https://r.corp.cn',
+      node: 'https://r.corp.cn/node',
+    }),
+  )
 })

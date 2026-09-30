@@ -1,5 +1,15 @@
-import { type AgentCatalog, effortName, fitEffort, modelEfforts, modelName } from '@gonggong/protocol'
+import {
+  type AgentCatalog,
+  type BotCatalogDto,
+  effortName,
+  fitEffort,
+  modelEfforts,
+  modelName,
+} from '@gonggong/protocol'
+import { useEffect, useState } from 'react'
+import { api } from '../../lib/api'
 import { FormRow, PopUpButton } from '../../ui'
+import { errorText } from '../auth/AuthCard'
 
 export interface AgentConfig {
   model: string | null
@@ -35,6 +45,26 @@ export const withModel = (catalog: AgentCatalog | null, effort: string | null, m
   model,
   effort: effort && fitEffort(catalog, model, effort) === effort ? effort : null,
 })
+
+/**
+ * What a new session of the bot may pick (its provider's models when third-party, design §4.4); undefined while
+ * asked. `key` refetches it, e.g. when the provider in effect changes.
+ */
+export function useBotCatalog(botId: string, key?: unknown) {
+  const [state, setState] = useState<{ catalog: AgentCatalog | null; error: string | null }>()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` only triggers a refetch
+  useEffect(() => {
+    let live = true
+    api.get<BotCatalogDto>(`/bots/${botId}/catalog`).then(
+      ({ catalog }) => live && setState({ catalog, error: null }),
+      (e) => live && setState({ catalog: null, error: errorText(e) }),
+    )
+    return () => {
+      live = false
+    }
+  }, [botId, key])
+  return state
+}
 
 /** 模型 / 推理强度 rows of the bot forms; values not on the catalog stay selectable but none can be added. */
 export function AgentConfigFields({

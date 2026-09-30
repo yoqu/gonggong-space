@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, watch};
 use tokio_tungstenite::tungstenite::Message;
 
 /// Byte budget of each of the two places a message waits before it is written: the outbox channel and the backlog.
-/// Past it `run.event`s are dropped; every other message is kept.
+/// Past it `run.event`s are shed (see [`over_budget`]); every other message is kept.
 const MAX_QUEUED_BYTES: usize = 16 << 20;
 /// A merged text/thought delta stops growing here; the next delta starts a new one.
 const MAX_MERGED_DELTA: usize = 64 << 10;
@@ -28,11 +28,35 @@ fn weight(msg: &DaemonToServer) -> usize {
             DaemonToServer::RunEvent {
                 event: RunEvent::Text { delta, .. } | RunEvent::Thought { delta, .. }, ..
             } => delta.len(),
-            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, .. }, .. } => {
-                detail.as_deref().map_or(0, str::len)
+            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, .. }, .. } => {
+                let mcp = mcp.as_ref().map_or(0, |m| {
+                    m.input.as_deref().map_or(0, str::len) + m.output.as_deref().map_or(0, str::len)
+                });
+                detail.as_deref().map_or(0, str::len) + mcp
             }
             _ => 0,
         }
+}
+
+/// What of a run event still goes out once the budget is spent: streamed text and status/usage reports (superseded
+/// by later ones) are dropped; a tool call keeps its state without its payloads; delegation changes are kept whole,
+/// since nothing later repeats them.
+fn over_budget(mut msg: DaemonToServer) -> Option<DaemonToServer> {
+    match &mut msg {
+        DaemonToServer::RunEvent {
+            event: RunEvent::Text { .. } | RunEvent::Thought { .. } | RunEvent::Status { .. } | RunEvent::Usage { .. },
+            ..
+        } => return None,
+        DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, .. }, .. } => {
+            *detail = None;
+            if let Some(m) = mcp {
+                m.input = None;
+                m.output = None;
+            }
+        }
+        _ => {}
+    }
+    Some(msg)
 }
 
 #[derive(Default)]
@@ -61,17 +85,19 @@ impl Outbox {
         (Outbox { tx, queued: queued.clone() }, OutboxRx { rx, queued })
     }
 
-    pub fn send(&self, msg: DaemonToServer) {
-        let bytes = weight(&msg);
+    pub fn send(&self, mut msg: DaemonToServer) {
         if let DaemonToServer::RunEvent { run_id, .. } = &msg {
-            if self.queued.bytes.load(Ordering::Relaxed) >= MAX_QUEUED_BYTES {
+            if self.queued.bytes.load(Ordering::Relaxed) < MAX_QUEUED_BYTES {
+                self.queued.dropping.store(false, Ordering::Relaxed);
+            } else {
                 if !self.queued.dropping.swap(true, Ordering::Relaxed) {
-                    tracing::warn!(run_id, "outbox full, dropping run events");
+                    tracing::warn!(run_id, "outbox full, shedding run events");
                 }
-                return;
+                let Some(kept) = over_budget(msg) else { return };
+                msg = kept;
             }
-            self.queued.dropping.store(false, Ordering::Relaxed);
         }
+        let bytes = weight(&msg);
         self.queued.bytes.fetch_add(bytes, Ordering::Relaxed);
         let _ = self.tx.send((msg, bytes));
     }
@@ -111,6 +137,14 @@ pub trait Handler: Send + Sync + 'static {
     fn services(&self) -> Vec<ServiceInfo> {
         Vec::new()
     }
+
+    /// Optional capabilities announced in hello (`protocol::FEATURE_*`).
+    fn features(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Sends state the server keeps in memory only; called after each welcome and each run.done.
+    fn report(&self, _out: &Outbox) {}
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -120,7 +154,7 @@ pub enum Fatal {
 }
 
 /// Unsent daemon → server messages, kept across reconnects and flushed in order after the next welcome (spec §14).
-/// Only `run.event`s may be dropped, once the byte budget is spent; streamed deltas are merged while they wait.
+/// Only `run.event`s are shed, once the byte budget is spent; streamed deltas are merged while they wait.
 #[derive(Default)]
 struct Backlog {
     msgs: VecDeque<DaemonToServer>,
@@ -129,14 +163,16 @@ struct Backlog {
 }
 
 impl Backlog {
-    fn push(&mut self, msg: DaemonToServer) {
-        if let DaemonToServer::RunEvent { run_id, event } = &msg {
-            if self.bytes >= MAX_QUEUED_BYTES {
-                if !std::mem::replace(&mut self.dropping, true) {
-                    tracing::warn!(run_id, "backlog full, dropping run events");
-                }
-                return;
+    fn push(&mut self, mut msg: DaemonToServer) {
+        if let DaemonToServer::RunEvent { run_id, .. } = &msg
+            && self.bytes >= MAX_QUEUED_BYTES
+        {
+            if !std::mem::replace(&mut self.dropping, true) {
+                tracing::warn!(run_id, "backlog full, shedding run events");
             }
+            let Some(kept) = over_budget(msg) else { return };
+            msg = kept;
+        } else if let DaemonToServer::RunEvent { run_id, event } = &msg {
             self.dropping = false;
             if let Some(DaemonToServer::RunEvent { run_id: last_run, event: last }) = self.msgs.back_mut()
                 && last_run == run_id
@@ -249,6 +285,7 @@ impl<H: Handler> Service<H> {
             agents: agents.borrow_and_update().clone(),
             active_runs,
             services: self.handler.services(),
+            features: self.handler.features(),
         };
         send(&mut ws, &hello).await?;
         let heartbeat_sec = match next_msg(&mut ws).await? {
@@ -256,6 +293,7 @@ impl<H: Handler> Service<H> {
                 tracing::info!(machine_id, "connected");
                 self.monitor.online(heartbeat_sec);
                 self.handler.connected(tunnel);
+                self.handler.report(outbox);
                 if let (Some(up), Some(info)) = (&self.upgrader, upgrade) {
                     up.offer(info);
                 }
@@ -299,7 +337,13 @@ impl<H: Handler> Service<H> {
                     Some(Ok(_)) => {}
                     Some(Err(e)) => return Err(e.into()),
                 },
-                Some(out) = rx.recv() => self.queue(backlog, out),
+                Some(out) = rx.recv() => {
+                    let done = matches!(out, DaemonToServer::RunDone(_));
+                    self.queue(backlog, out);
+                    if done {
+                        self.handler.report(outbox);
+                    }
+                }
                 Ok(()) = agents.changed() => {
                     let list = agents.borrow_and_update().clone();
                     self.monitor.agents(list.clone());
@@ -418,8 +462,28 @@ mod tests {
         assert_eq!(deltas.iter().sum::<usize>(), pieces * piece.len(), "nothing lost, order kept");
     }
 
+    fn delegation(run_id: &str) -> DaemonToServer {
+        event(
+            run_id,
+            RunEvent::Subagent {
+                agent_id: "a1".into(),
+                parent_id: None,
+                name: "n".into(),
+                task: "t".into(),
+                state: crate::protocol::SubagentState::Completed,
+            },
+        )
+    }
+
+    fn detail(msg: &DaemonToServer) -> Option<&str> {
+        match msg {
+            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, .. }, .. } => detail.as_deref(),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
     #[test]
-    fn over_budget_drops_only_run_events_and_keeps_order() {
+    fn over_budget_sheds_only_streamed_and_superseded_events_and_keeps_order() {
         let mut b = Backlog::default();
         let mut pushed = 0;
         while b.bytes < MAX_QUEUED_BYTES {
@@ -428,15 +492,19 @@ mod tests {
         }
         let before = b.msgs.len();
         b.push(text("r1", "late"));
+        b.push(event("r1", RunEvent::Status { status: RunStatus::Running, step: "s".into() }));
+        assert_eq!(b.msgs.len(), before, "streamed text and status reports are dropped once the budget is spent");
         b.push(heavy("r1", 10));
-        assert_eq!(b.msgs.len(), before, "run events are dropped once the budget is spent");
+        b.push(delegation("r1"));
+        assert_eq!(b.msgs.len(), before + 2, "state changes are kept");
+        assert_eq!(detail(&b.msgs[before]), None, "a tool call keeps its state without its detail");
         for msg in critical() {
             b.push(msg);
         }
-        assert_eq!(b.msgs.len(), pushed + 3, "critical messages are never dropped");
-        assert!(matches!(b.msgs[pushed], DaemonToServer::RunDone(_)));
-        assert!(matches!(b.msgs[pushed + 1], DaemonToServer::ApprovalRequest(_)));
-        assert!(matches!(b.msgs[pushed + 2], DaemonToServer::QuestionWithdraw { .. }));
+        assert_eq!(b.msgs.len(), pushed + 5, "critical messages are never dropped");
+        assert!(matches!(b.msgs[pushed + 2], DaemonToServer::RunDone(_)));
+        assert!(matches!(b.msgs[pushed + 3], DaemonToServer::ApprovalRequest(_)));
+        assert!(matches!(b.msgs[pushed + 4], DaemonToServer::QuestionWithdraw { .. }));
         assert_eq!(b.finished_runs().collect::<Vec<_>>(), vec!["r1".to_string()]);
 
         while b.pop_front().is_some() {}
@@ -461,6 +529,7 @@ mod tests {
         let mut sent = 0;
         while sent < 2 * MAX_QUEUED_BYTES / (1 << 20) {
             out.send(heavy("r1", 1 << 20));
+            out.send(text("r1", "x"));
             sent += 1;
         }
         for msg in critical() {
@@ -470,8 +539,13 @@ mod tests {
         while let Ok(msg) = rx.try_recv() {
             got.push(msg);
         }
-        let events = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { .. })).count();
-        assert!(events <= MAX_QUEUED_BYTES / (1 << 20) + 1, "kept {events} of {sent}");
+        let tools: Vec<_> = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Tool { .. }, .. })).collect();
+        assert_eq!(tools.len(), sent, "every tool call's state arrives");
+        let full = tools.iter().filter(|m| detail(m).is_some()).count();
+        assert!(full <= MAX_QUEUED_BYTES / (1 << 20) + 1, "kept {full} details of {sent}");
+        let texts = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).count();
+        assert!(texts < sent, "streamed text is dropped past the budget");
+        let events = tools.len() + texts;
         assert!(matches!(got[events], DaemonToServer::RunDone(_)));
         assert_eq!(got.len(), events + 3, "critical messages follow in order");
 

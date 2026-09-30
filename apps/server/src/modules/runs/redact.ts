@@ -1,7 +1,7 @@
 /** Replacement for anything that looks like a secret (spec §13, plan risk 6). */
 export const MASK = '[已脱敏]'
 
-const KEY = '[A-Za-z0-9_.-]*(?:password|passwd|secret|token|api_?key)[A-Za-z0-9_]*'
+const KEY = '[A-Za-z0-9_.-]*(?:password|passwd|secret|token|api_?key|provider_key)[A-Za-z0-9_]*'
 
 const TOKENS = [
   /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g,

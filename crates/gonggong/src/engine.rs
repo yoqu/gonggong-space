@@ -4,19 +4,23 @@ use crate::ask::{AskServer, Asker};
 use crate::attachments;
 use crate::cast::Casts;
 use crate::coalesce::Coalesce;
-use crate::config::Config;
+use crate::config::{Config, Settings};
 use crate::explorer;
 use crate::files;
 use crate::git;
 use crate::hosted::Services;
+use crate::inject;
 use crate::local::LocalSettings;
+use crate::manage::Manage;
 use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
     ServerToDaemon, ServiceInfo, Tier,
 };
+use crate::providers::Selection;
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
+use crate::tools;
 use crate::tunnel;
 use crate::turn::system_prompt;
 use crate::workspace::{self, Workspaces};
@@ -34,7 +38,6 @@ pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "1.13.0"),
 ];
-const MIN_NODE_MAJOR: u32 = 22;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Claude Code aborts an HTTP MCP call after a minute, or five silent minutes, while 「向群成员提问」 waits for a person
 /// up to the group's timeout (at most a day): the call must outlast it.
@@ -70,6 +73,8 @@ pub(crate) struct Inner {
     /// Every viewer of a live turn refetches its diff as the run moves, and each diff stages the whole work tree.
     diffs: Coalesce<String, DiffResult>,
     diff_slots: Arc<tokio::sync::Semaphore>,
+    /// Agent tools and providers driven from the Web.
+    manage: Manage,
 }
 
 type DiffResult = Result<(Option<String>, Option<String>), String>;
@@ -96,6 +101,7 @@ impl Engine {
         let bin = crate::cast::local_bin();
         let casts =
             Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin, crate::wechatide::devtools());
+        let home = config.home.clone();
         Engine(Arc::new(Inner {
             config,
             workspaces,
@@ -109,7 +115,13 @@ impl Engine {
             tunnel: tokio::sync::watch::Sender::new(false),
             diffs: Coalesce::default(),
             diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
+            manage: Manage::new(home, crate::config::user_home().join(".cc-switch")),
         }))
+    }
+
+    /// Local agent detection, republished after a tool is installed or upgraded from the Web.
+    pub fn watch_agents(&self, tx: tokio::sync::watch::Sender<Vec<crate::protocol::AgentInfo>>) {
+        self.0.manage.watch_agents(tx);
     }
 
     pub fn services(&self) -> Services {
@@ -140,7 +152,7 @@ impl Engine {
             approval: Approval::Ask,
             allowlist: vec![],
         };
-        let agent = AcpAgent::new(self.0.adapter(&bot, &local).await?);
+        let agent = AcpAgent::new(self.0.adapter(&bot, &local, &Selection::Official).await?);
         let dir = self.0.config.home.join("probe");
         tokio::fs::create_dir_all(&dir).await?;
         let probe = session::probe(agent, &dir);
@@ -334,7 +346,21 @@ impl Handler for Engine {
             }
             ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
             ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
+            ServerToDaemon::ToolsCmd(cmd) => self.0.manage.tools(cmd, out),
+            ServerToDaemon::ProvidersCmd(cmd) => self.0.manage.providers(*cmd, out),
+            ServerToDaemon::CcSwitchRead { request_id } => self.0.manage.ccswitch_read(request_id, out),
+            ServerToDaemon::CcSwitchApply { request_id, keys, set_default } => {
+                self.0.manage.ccswitch_apply(request_id, keys, set_default, out)
+            }
         }
+    }
+
+    fn features(&self) -> Vec<String> {
+        self.0.manage.features()
+    }
+
+    fn report(&self, out: &Outbox) {
+        self.0.manage.report(out);
     }
 
     fn services(&self) -> Vec<ServiceInfo> {
@@ -343,6 +369,7 @@ impl Handler for Engine {
 
     fn connected(&self, tunnel: bool) {
         self.0.tunnel.send_replace(tunnel);
+        self.0.manage.connected();
     }
 
     fn active_runs(&self) -> Vec<String> {
@@ -416,51 +443,69 @@ impl Inner {
         });
     }
 
-    /// Launch config of the adapter for this bot, with the local agent CLI and per-process system prompt.
-    pub(crate) async fn adapter(&self, bot: &RunBot, local: &LocalSettings) -> anyhow::Result<AcpAgentConfig> {
+    /// Launch config of the adapter for this bot, with the local agent CLI, per-process system prompt and the
+    /// provider (§4.4; Claude's settings file is named per session).
+    pub(crate) async fn adapter(
+        &self,
+        bot: &RunBot,
+        local: &LocalSettings,
+        selection: &Selection,
+    ) -> anyhow::Result<AcpAgentConfig> {
         let base = match &self.config.adapter_cmd {
             Some(cmd) => AcpAgent::from_str(cmd)?.into_config(),
             None => {
                 let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
-                AcpAgentConfig::new(node).arg(script.to_string_lossy())
+                // The agent CLIs npm installs are node scripts: they must find this Node too.
+                AcpAgentConfig::new(&node.path)
+                    .arg(script.to_string_lossy())
+                    .env("PATH", node.path_env().to_string_lossy())
             }
         };
-        let cli = agents::locate(bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
+        let cli = agents::locate(&self.config.home, bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
+        let provider = match selection {
+            Selection::Official => None,
+            Selection::Provider(p) => Some(p.as_ref()),
+        };
         Ok(match bot.agent_kind {
-            AgentKind::Claude => base
-                .env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
-                .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
-                .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
-            AgentKind::Codex => base
-                .env("CODEX_CONFIG", serde_json::json!({ "developer_instructions": system_prompt(bot) }).to_string())
-                .envs(cli.map(|p| ("CODEX_PATH", p))),
+            AgentKind::Claude => {
+                if let Some(p) = provider {
+                    inject::write_claude_settings(&self.config.home, p)?;
+                }
+                base.env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
+                    .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
+                    .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p)))
+            }
+            AgentKind::Codex => {
+                let mut config = serde_json::Map::new();
+                config.insert("developer_instructions".into(), system_prompt(bot).into());
+                if let Some(p) = provider {
+                    inject::codex_config(&mut config, p);
+                }
+                base.env("CODEX_CONFIG", serde_json::Value::Object(config).to_string())
+                    .envs(provider.map(inject::codex_env).into_iter().flatten())
+                    .envs(cli.map(|p| ("CODEX_PATH", p)))
+            }
         })
     }
 
-    /// Installs the pinned adapters once; returns (node, adapter script).
-    async fn ensure_adapter(&self, kind: AgentKind) -> anyhow::Result<(PathBuf, PathBuf)> {
+    /// Installs the pinned adapters once (and the managed Node when no Node ≥ 22 is found), from the configured
+    /// mirror; returns (node, adapter script).
+    async fn ensure_adapter(&self, kind: AgentKind) -> anyhow::Result<(tools::Node, PathBuf)> {
         let _guard = self.install.lock().await;
-        let node = agents::find("node").context("未找到 Node.js（ACP 适配器需要 Node ≥ 22）")?;
-        let version = tokio::process::Command::new(&node).arg("--version").output().await?;
-        let version = String::from_utf8_lossy(&version.stdout).trim().to_string();
-        if node_major(&version).is_none_or(|m| m < MIN_NODE_MAJOR) {
-            bail!("Node.js 版本过低（{version}），ACP 适配器需要 Node ≥ {MIN_NODE_MAJOR}");
-        }
-        let dir = self.config.home.join("adapters");
+        let home = &self.config.home;
+        let log = |line: &str| tracing::info!("{line}");
+        let node = tools::ensure_node(home, &log).await.context("ACP 适配器需要 Node.js ≥ 22")?;
+        let dir = home.join("adapters");
         let modules = dir.join("node_modules");
         if !ADAPTERS.iter().all(|(_, name, ver)| installed_version(&modules.join(name)).as_deref() == Some(*ver)) {
-            let npm = agents::find("npm").context("未找到 npm，无法安装 ACP 适配器")?;
+            let registry = Settings::load(home)?.mirror.registry().to_string();
             tokio::fs::create_dir_all(&dir).await?;
-            tracing::info!("installing ACP adapters into {}", dir.display());
-            let out = tokio::process::Command::new(npm)
-                .args(["install", "--no-audit", "--no-fund", "--prefix"])
+            tracing::info!("installing ACP adapters into {} from {registry}", dir.display());
+            let mut npm = node.npm().context("无法安装 ACP 适配器")?;
+            npm.args(["install", "--no-audit", "--no-fund", "--registry", &registry, "--prefix"])
                 .arg(&dir)
-                .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")))
-                .output()
-                .await?;
-            if !out.status.success() {
-                bail!("安装 ACP 适配器失败：{}", String::from_utf8_lossy(&out.stderr).trim());
-            }
+                .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")));
+            tools::run(npm, &log).await.context("安装 ACP 适配器失败")?;
         }
         let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
         Ok((node, modules.join(name).join("dist/index.js")))
@@ -470,10 +515,6 @@ impl Inner {
 fn installed_version(pkg: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(pkg.join("package.json")).ok()?;
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
-}
-
-fn node_major(version: &str) -> Option<u32> {
-    version.trim_start_matches('v').split('.').next()?.parse().ok()
 }
 
 pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
@@ -490,15 +531,4 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         patch: None,
         appends_applied: 0,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_node_major() {
-        assert_eq!(node_major("v24.15.0"), Some(24));
-        assert_eq!(node_major("garbage"), None);
-    }
 }

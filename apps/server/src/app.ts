@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import type { Writable } from 'node:stream'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
 import { PROTOCOL_VERSION } from '@gonggong/protocol'
@@ -33,6 +34,7 @@ import { previewRoutes } from './modules/previews/routes.js'
 import { startLoginWatch, startPreviewReaper } from './modules/previews/service.js'
 import { shareRoutes } from './modules/previews/shares.js'
 import { tunnelGateway } from './modules/previews/tunnel.js'
+import { providerRoutes } from './modules/providers/routes.js'
 import { questionRoutes } from './modules/questions/routes.js'
 import { startQuestionTimer } from './modules/questions/service.js'
 import { reactionRoutes } from './modules/reactions/routes.js'
@@ -52,8 +54,11 @@ import { workspaceRoutes } from './modules/workspaces/routes.js'
 import { webGateway } from './realtime/gateway.js'
 import type { TlsOptions } from './tls.js'
 
-export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {}) {
-  const logger = process.env.GONGGONG_LOG === '1'
+/** `logStream`: capture the request log (tests asserting what it never contains). */
+export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logStream?: Writable } = {}) {
+  const logger = opts.logStream
+    ? { level: 'trace', stream: opts.logStream }
+    : process.env.GONGGONG_LOG === '1'
   // Route plugins are typed for the default http server; the https instance exposes the same API.
   const serverFactory = previewServerFactory(ctx, opts.https ?? null)
   const app = Fastify({ logger, serverFactory }) as unknown as FastifyInstance
@@ -109,6 +114,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null } = {
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(machineRoutes(ctx))
+  await app.register(providerRoutes(ctx))
   await app.register(botRoutes(ctx))
   await app.register(notificationRoutes(ctx))
   await app.register(workspaceRoutes(ctx))

@@ -1,0 +1,39 @@
+{
+  "t": "tools.result",
+  "requestId": "op-1",
+  "ok": true,
+  "error": null,
+  "tools": [
+    {
+      "kind": "node",
+      "installed": true,
+      "version": "24.2.0",
+      "latest": "24.3.0",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/runtime/current/bin/node"
+    },
+    {
+      "kind": "claude",
+      "installed": true,
+      "version": "2.1.285",
+      "latest": "2.1.285",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/claude"
+    },
+    {
+      "kind": "codex",
+      "installed": false,
+      "version": null,
+      "latest": null,
+      "managed": false,
+      "path": null
+    }
+  ],
+  "settings": {
+    "mirror": {
+      "kind": "custom",
+      "registry": "https://npm.corp.example",
+      "node": "https://npm.corp.example/node"
+    }
+  }
+}

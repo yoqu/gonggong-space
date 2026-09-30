@@ -24,6 +24,11 @@ describe('redaction', () => {
       `mysql -u root password=${MASK} --host db`,
     ],
     ['token assignment', 'GITHUB_TOKEN=abc123 npm publish', `GITHUB_TOKEN=${MASK} npm publish`],
+    [
+      'provider key env',
+      'GG_PROVIDER_KEY=kimi-abc ANTHROPIC_AUTH_TOKEN=x1',
+      `GG_PROVIDER_KEY=${MASK} ANTHROPIC_AUTH_TOKEN=${MASK}`,
+    ],
     ['quoted secret assignment', 'client_secret="a b"', `client_secret="${MASK}"`],
     ['JSON secret', '{"api_key": "zzz-111", "name": "x"}', `{"api_key": "${MASK}", "name": "x"}`],
     [

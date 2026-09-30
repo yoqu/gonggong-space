@@ -9,19 +9,40 @@
       "minVersion": "2.0.0",
       "catalog": {
         "current": "sonnet",
-        "efforts": [{ "value": "medium", "name": "Medium" }],
+        "efforts": [
+          {
+            "value": "medium",
+            "name": "Medium"
+          }
+        ],
         "effort": "medium",
         "models": [
           {
             "value": "opus",
             "name": "Opus",
             "description": "Most capable",
-            "efforts": [{ "value": "low", "name": "Low" }, { "value": "high", "name": "High" }],
+            "efforts": [
+              {
+                "value": "low",
+                "name": "Low"
+              },
+              {
+                "value": "high",
+                "name": "High"
+              }
+            ],
             "effort": "high"
           },
-          { "value": "haiku", "name": "Haiku", "efforts": [], "effort": null }
+          {
+            "value": "haiku",
+            "name": "Haiku",
+            "efforts": [],
+            "effort": null
+          }
         ]
-      }
+      },
+      "latest": "2.1.285",
+      "managed": false
     },
     {
       "kind": "codex",
@@ -29,7 +50,9 @@
       "version": null,
       "path": null,
       "minVersion": "0.40.0",
-      "catalog": null
+      "catalog": null,
+      "latest": null,
+      "managed": false
     }
   ]
 }

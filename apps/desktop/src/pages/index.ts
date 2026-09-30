@@ -47,7 +47,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: 'Agent',
         icon: 'cpu',
         color: 'var(--system-purple)',
-        desc: '本机安装的 CLI 运行时：检测、路径、登录状态与默认模型',
+        desc: '本机的 Node.js 与 CLI 运行时：安装升级、检测与供应商',
         Component: AgentsPage,
       },
       {
@@ -55,7 +55,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: 'Bot',
         icon: 'bot',
         color: 'var(--system-indigo)',
-        desc: '本机运行的 Bot，设置请在 Web 端修改',
+        desc: '本机运行的 Bot 与其供应商，其余设置请在 Web 端修改',
         Component: BotsPage,
       },
       {
@@ -100,7 +100,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: '设置',
         icon: 'gear',
         color: 'var(--system-gray)',
-        desc: '外观、升级、启动项与存储位置',
+        desc: '外观、升级、镜像源、启动项与存储位置',
         Component: SettingsPage,
       },
     ],

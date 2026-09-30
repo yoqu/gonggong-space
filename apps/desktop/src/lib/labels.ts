@@ -2,9 +2,9 @@ import type { AgentKind, Approval, RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
 import type { Snapshot } from '../ipc'
 
-export const AGENTS: Record<AgentKind, { name: string; install: string }> = {
-  claude: { name: 'Claude Code', install: 'npm install -g @anthropic-ai/claude-code' },
-  codex: { name: 'Codex', install: 'npm install -g @openai/codex' },
+export const AGENTS: Record<AgentKind, { name: string }> = {
+  claude: { name: 'Claude Code' },
+  codex: { name: 'Codex' },
 }
 
 export type ConnKind = 'ok' | 'connecting' | 'offline' | 'proto' | 'revoked' | 'blocked' | 'unbound'

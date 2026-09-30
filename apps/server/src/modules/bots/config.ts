@@ -1,10 +1,18 @@
-import { type AgentCatalog, fitEffort, modelEfforts, type RunConfigPick } from '@gonggong/protocol'
+import { randomUUID } from 'node:crypto'
+import {
+  type AgentCatalog,
+  type AgentKind,
+  fitEffort,
+  modelEfforts,
+  type RunConfigPick,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupMembers, groups, machines } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import type { SessionUser } from '../auth/session.js'
+import { relay } from '../machines/relay.js'
 import { machineAgents } from './dto.js'
 
 type Bot = Pick<typeof bots.$inferSelect, 'agentKind' | 'machineId'>
@@ -18,6 +26,24 @@ export async function botCatalog(db: Pick<Db, 'select'>, bot: Bot): Promise<Agen
   if (!bot.machineId) return null
   const [m] = await db.select().from(machines).where(eq(machines.id, bot.machineId))
   return m ? catalogOf(machineAgents(m), bot.agentKind) : null
+}
+
+/**
+ * What a new session of the bot (no id: a new one) may pick. Only its machine knows the provider in effect (design
+ * §2), so it is asked live; daemons without providers, or offline, are checked against what they reported.
+ */
+export async function pickCatalog(ctx: Ctx, bot: Bot & { id?: string }): Promise<AgentCatalog | null> {
+  const { machineId } = bot
+  if (!machineId || !ctx.hub.isOnline(machineId) || !ctx.hub.features(machineId).includes('providers'))
+    return botCatalog(ctx.db, bot)
+  const msg = {
+    t: 'providers.cmd',
+    requestId: randomUUID(),
+    action: 'botCatalog',
+    agent: bot.agentKind as AgentKind,
+    botId: bot.id,
+  } as const
+  return (await relay(ctx, machineId, msg, 'providers.result', 15_000)).catalog ?? null
 }
 
 /**
@@ -79,7 +105,7 @@ export async function checkPicks(
       .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
     if (!row) continue
     await assertCanConfigure(ctx, user, row.bot, groupId)
-    assertPick(await botCatalog(ctx.db, row.bot), pick, row.groupModel ?? row.bot.model)
+    assertPick(await pickCatalog(ctx, row.bot), pick, row.groupModel ?? row.bot.model)
     kept[botId] = pick
   }
   return kept

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { ipc } from '../ipc'
 import { tildify } from './labels'
 
+export const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
+
 /** A titled block of page content; the title reads like a macOS settings group heading. */
 export function Section({
   title,

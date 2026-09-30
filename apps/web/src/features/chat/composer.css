@@ -145,3 +145,22 @@
 .run-config__once {
   color: var(--accent-text);
 }
+
+/* 群聊横条：会话仍在用旧供应商 */
+.provider-banners {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-16) 0;
+}
+/* The new provider must stay readable on a phone: wrap instead of truncating. */
+.provider-banners .pn-pinned {
+  height: auto;
+  min-height: 36px;
+  padding-block: var(--space-4);
+  border-radius: 18px;
+}
+.provider-banners .pn-pinned__text {
+  white-space: normal;
+}

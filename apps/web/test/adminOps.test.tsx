@@ -220,6 +220,7 @@ describe('机器与网络', () => {
       online: true,
       agents: [],
       daemonVersion: '0.9.3',
+      features: [],
       protocol: 1,
       lastSeenAt: '2026-09-23T09:59:57Z',
       hostname: 'wanglei-mbp',
@@ -231,6 +232,29 @@ describe('机器与网络', () => {
     mockApi({
       'GET /admin/machines': [
         m({
+          agents: [
+            {
+              kind: 'claude',
+              available: true,
+              version: '2.1.0',
+              path: '/c',
+              minVersion: null,
+              catalog: null,
+              latest: '2.1.285',
+              managed: true,
+            },
+            {
+              kind: 'codex',
+              available: true,
+              version: '0.159.2',
+              path: '/x',
+              minVersion: null,
+              catalog: null,
+              latest: '0.159.2',
+              managed: false,
+            },
+            { kind: 'claude', available: false, version: null, path: null, minVersion: null, catalog: null },
+          ],
           latencyMs: 38,
           bandwidthMbps: 87.46,
           netMeasuredAt: '2026-09-23T09:00:00Z',
@@ -250,6 +274,7 @@ describe('机器与网络', () => {
           os: 'windows',
           online: false,
           daemonVersion: '0.8.7',
+          features: [],
           protocol: 0,
           lastSeenAt: '2026-09-23T09:18:00Z',
           latencyMs: 180,
@@ -262,7 +287,18 @@ describe('机器与网络', () => {
     })
     renderAt('/admin/machines')
     expect(await screen.findByRole('heading', { name: '机器与网络' })).toBeTruthy()
-    for (const h of ['主人', '机器', '系统', '硬件', 'daemon', '延迟', '带宽', '状态', '最后心跳'])
+    for (const h of [
+      '主人',
+      '机器',
+      '系统',
+      '硬件',
+      'daemon',
+      'Agent 版本',
+      '延迟',
+      '带宽',
+      '状态',
+      '最后心跳',
+    ])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
@@ -275,6 +311,7 @@ describe('机器与网络', () => {
       'macOS 15.2 Sequoia',
       'Apple M3 Pro · 12 核 · 36 GB',
       'v0.9.3',
+      'Claude Code 2.1.0可升级Codex 0.159.2',
       '38 ms',
       '87.5 Mbps',
       '在线',
@@ -287,6 +324,7 @@ describe('机器与网络', () => {
       'Windows',
       '--',
       'v0.8.7',
+      '',
       '180 ms',
       '4.2 Mbps',
       '离线',
@@ -299,12 +337,16 @@ describe('机器与网络', () => {
       'macOS',
       '--',
       'v0.9.3',
+      '',
       '--',
       '--',
       '离线',
       '从未连接',
       '',
     ])
+    expect(screen.getByText('可升级').closest('[title]')?.getAttribute('title')).toBe(
+      '最新版本 2.1.285 · 共工托管',
+    )
     await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
     expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')
     expect(screen.getByText('38 ms').className).not.toContain('admin-table__bad')
@@ -363,6 +405,7 @@ describe('机器与网络 · 实时', () => {
       online: false,
       agents: [],
       daemonVersion: '0.9.3',
+      features: [],
       protocol: 1,
       lastSeenAt: null,
       hostname: 'cc-mbp',

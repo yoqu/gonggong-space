@@ -1,17 +1,20 @@
 import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
 import {
   AlertDialog,
+  Button,
   GroupBox,
   GroupRow,
   HelpButton,
+  PopUpButton,
   SegmentedControl,
   Skeleton,
   Switch,
+  TextField,
   toast,
 } from '@web/ui'
 import { useEffect, useState } from 'react'
 import logo from '../assets/logo.svg'
-import { ipc, type Settings } from '../ipc'
+import { ipc, type Mirror, type Settings } from '../ipc'
 import { host } from '../lib/labels'
 import { PathValue } from '../lib/ui'
 import { useDaemon } from '../store'
@@ -30,6 +33,67 @@ const GLASS: { value: GlassPreference; label: string }[] = [
   { value: 'tinted', label: '着色' },
 ]
 
+const MIRRORS: { value: Mirror['kind']; label: string }[] = [
+  { value: 'npmmirror', label: '淘宝镜像（npmmirror）' },
+  { value: 'official', label: '官方源' },
+  { value: 'custom', label: '自定义' },
+]
+
+/** 镜像源 of Node.js and the agent CLIs; a custom one takes both addresses before it is saved. */
+function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) => Promise<void> }) {
+  const [kind, setKind] = useState(mirror.kind)
+  const [registry, setRegistry] = useState(mirror.kind === 'custom' ? mirror.registry : '')
+  const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
+  const changed = mirror.kind !== 'custom' || mirror.registry !== registry || mirror.node !== node
+  return (
+    <>
+      <GroupRow label="镜像源" description="安装、升级 Node.js、Claude Code 与 Codex 时从这里下载">
+        <PopUpButton
+          aria-label="镜像源"
+          options={MIRRORS}
+          value={kind}
+          onChange={(k) => {
+            setKind(k)
+            if (k !== 'custom') onSave({ kind: k })
+          }}
+        />
+      </GroupRow>
+      {kind === 'custom' ? (
+        <>
+          <GroupRow label="npm registry">
+            <TextField
+              aria-label="npm registry"
+              style={{ width: 320 }}
+              placeholder="https://registry.example.com"
+              value={registry}
+              onChange={(e) => setRegistry(e.target.value)}
+            />
+          </GroupRow>
+          <GroupRow label="Node.js 下载地址" description="index.json 所在的目录">
+            <TextField
+              aria-label="Node.js 下载地址"
+              style={{ width: 320 }}
+              placeholder="https://example.com/mirrors/node"
+              value={node}
+              onChange={(e) => setNode(e.target.value)}
+            />
+          </GroupRow>
+          <div className="dk-row">
+            <span className="dk-row__main" />
+            <Button
+              variant="primary"
+              disabled={!registry.trim() || !node.trim() || !changed}
+              onClick={() => onSave({ kind: 'custom', registry, node })}
+            >
+              保存
+            </Button>
+          </div>
+        </>
+      ) : null}
+    </>
+  )
+}
+
 export function SettingsPage(_: PageProps) {
   const info = useDaemon((s) => s.info)
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -41,10 +105,21 @@ export function SettingsPage(_: PageProps) {
     ipc.settings().then(setSettings, (e) => toast({ type: 'error', message: String(e) }))
   }, [])
 
-  const toggle = (key: keyof Settings, save: (on: boolean) => Promise<void>) => async (on: boolean) => {
+  const toggle =
+    (key: 'autoUpgrade' | 'launchAtLogin', save: (on: boolean) => Promise<void>) => async (on: boolean) => {
+      try {
+        await save(on)
+        setSettings((s) => s && { ...s, [key]: on })
+      } catch (e) {
+        toast({ type: 'error', message: String(e) })
+      }
+    }
+
+  const saveMirror = async (mirror: Mirror) => {
     try {
-      await save(on)
-      setSettings((s) => s && { ...s, [key]: on })
+      await ipc.setMirror(mirror)
+      setSettings((s) => s && { ...s, mirror })
+      toast({ type: 'success', message: '镜像源已保存' })
     } catch (e) {
       toast({ type: 'error', message: String(e) })
     }
@@ -96,6 +171,15 @@ export function SettingsPage(_: PageProps) {
             onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
           />
         </GroupRow>
+      </GroupBox>
+      <GroupBox>
+        {settings ? (
+          <MirrorRows mirror={settings.mirror} onSave={saveMirror} />
+        ) : (
+          <GroupRow label="镜像源">
+            <Skeleton count={1} width={160} />
+          </GroupRow>
+        )}
       </GroupBox>
       <GroupBox>
         <GroupRow label="工作区根目录" description="托管工作区与附件目录">

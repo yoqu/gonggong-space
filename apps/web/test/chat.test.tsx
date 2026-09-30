@@ -113,6 +113,7 @@ const machine: MachineDto = {
   online: true,
   agents: [],
   daemonVersion: '0.1.0',
+  features: [],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,

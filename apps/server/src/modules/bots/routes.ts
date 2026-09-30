@@ -25,7 +25,7 @@ import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
-import { assertCanConfigure, assertPick, botCatalog } from './config.js'
+import { assertCanConfigure, assertPick, pickCatalog } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
 import { applyTier, TIER_LABEL } from './tier.js'
 
@@ -200,8 +200,10 @@ export function botRoutes(ctx: Ctx) {
         fail('invalid', '执行机器不属于归属人或已吊销')
       }
       await assertNameFree(ctx, name)
-      const catalog = await botCatalog(ctx.db, { machineId: body.machineId, agentKind: body.agentKind })
-      assertPick(catalog, { model: body.model, effort: body.effort }, null)
+      if (body.model || body.effort) {
+        const catalog = await pickCatalog(ctx, { machineId: body.machineId, agentKind: body.agentKind })
+        assertPick(catalog, { model: body.model, effort: body.effort }, null)
+      }
 
       const binding = !body.machineId ? 'pending_bind' : owner.id === user.id ? 'bound' : 'pending_confirm'
       const [bot] = (await ctx.db
@@ -249,7 +251,7 @@ export function botRoutes(ctx: Ctx) {
       }
       if (body.triggerList) await assertUsers(ctx, body.triggerList)
       if (body.model !== undefined || body.effort !== undefined) {
-        const catalog = await botCatalog(ctx.db, bot)
+        const catalog = await pickCatalog(ctx, bot)
         assertPick(catalog, { model: body.model, effort: body.effort }, bot.model)
         // A new model keeps the old level only if it offers it.
         if (body.model !== undefined && body.effort === undefined)
@@ -323,7 +325,7 @@ export function botRoutes(ctx: Ctx) {
           )
         if (!gb) return fail('not_found', '该 Bot 不在群内')
         await assertCanConfigure(ctx, user, bot, groupId)
-        const catalog = await botCatalog(ctx.db, bot)
+        const catalog = model || effort ? await pickCatalog(ctx, bot) : null
         assertPick(catalog, { model, effort }, bot.model)
         if (gb.model === model && gb.effort === effort) return reply.status(204).send()
         await updateBotState(ctx, groupId, bot.id, { model, effort })

@@ -194,6 +194,8 @@ async fn reports_agent_detection_changes_after_hello() {
         path: Some("/bin/claude".into()),
         min_version: None,
         catalog: None,
+        latest: None,
+        managed: false,
     };
     let (tx, rx) = watch::channel(vec![claude(false)]);
     let task = tokio::spawn(with_agents(port, Recorder::default(), rx).run());
@@ -208,5 +210,61 @@ async fn reports_agent_detection_changes_after_hello() {
     // An unchanged detection is not reported: the next message is the heartbeat.
     assert!(!gonggong::daemon::publish_agents(&tx, vec![claude(true)]));
     assert_eq!(text(&mut ws).await["t"], "heartbeat");
+    task.abort();
+}
+
+/// Announces a feature and reports in-memory state (like the provider banner) after welcome and each run.done.
+struct Reporter;
+impl Handler for Reporter {
+    fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
+        if let ServerToDaemon::RunCancel { run_id } = msg {
+            out.send(DaemonToServer::RunDone(RunDone {
+                run_id,
+                outcome: RunOutcome::Interrupted,
+                reply: String::new(),
+                files_changed: 0,
+                usage: None,
+                session_id: None,
+                new_session_reason: None,
+                error: None,
+                git: None,
+                patch: None,
+                appends_applied: 0,
+            }));
+        }
+    }
+
+    fn features(&self) -> Vec<String> {
+        vec!["tools".into()]
+    }
+
+    fn report(&self, out: &Outbox) {
+        out.send(DaemonToServer::BotsProviderState { items: vec![] });
+    }
+}
+
+#[tokio::test]
+async fn hello_carries_features_and_state_is_reported_after_welcome_and_each_run() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let s = service(port, Recorder::default());
+    let reporter = Service {
+        config: s.config,
+        machine: s.machine,
+        agents: s.agents,
+        handler: Reporter,
+        max_backoff: s.max_backoff,
+        upgrader: None,
+        monitor: Default::default(),
+    };
+    let task = tokio::spawn(reporter.run());
+    let (s, _) = listener.accept().await.unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut ws).await["features"], serde_json::json!(["tools"]));
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60}"#)).await.unwrap();
+    assert_eq!(text(&mut ws).await["t"], "bots.providerState");
+    ws.send(Message::text(r#"{"t":"run.cancel","runId":"r1"}"#)).await.unwrap();
+    assert_eq!(text(&mut ws).await["t"], "run.done");
+    assert_eq!(text(&mut ws).await["t"], "bots.providerState");
     task.abort();
 }

@@ -1,0 +1,28 @@
+{
+  "t": "providers.result",
+  "requestId": "rq-3",
+  "ok": true,
+  "error": null,
+  "presets": [
+    {
+      "id": "kimi-coding",
+      "agent": "claude",
+      "name": "Kimi For Coding",
+      "group": "cn",
+      "websiteUrl": "https://www.kimi.com/code/",
+      "apiKeyUrl": null,
+      "baseUrl": "https://api.kimi.com/coding/",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "kimi-for-coding",
+      "models": {
+        "opus": "kimi-for-coding"
+      },
+      "modelOptions": ["kimi-for-coding"],
+      "env": {
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+      },
+      "wireApi": null,
+      "effort": null
+    }
+  ]
+}

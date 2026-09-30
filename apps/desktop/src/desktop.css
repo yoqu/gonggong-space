@@ -266,22 +266,34 @@ code,
 .dk-bot {
   display: contents;
 }
-.dk-install {
-  display: inline-flex;
+.dk-toollog {
+  display: block;
+}
+.dk-toollog > .ui-disc {
+  width: 100%;
+}
+/* 本机供应商 */
+.dk-provider {
+  flex-direction: row;
   align-items: center;
   gap: var(--space-8);
-  min-width: 0;
 }
-.dk-install__cmd {
-  padding: var(--space-2) var(--space-8);
-  border-radius: var(--radius-field);
-  background: var(--quote-fill);
-  font-family: var(--font-mono);
-  font-size: var(--text-subheadline-size);
-  line-height: var(--text-subheadline-line);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.dk-vendors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.dk-vendors__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.dk-field-row {
+  flex-wrap: nowrap;
+}
+.dk-field-row > .ui-field {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 概览 */
@@ -330,6 +342,10 @@ code,
   font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);
   line-height: 18px;
+}
+.dk-toollog .dk-logpane {
+  max-height: 200px;
+  margin-top: var(--space-8);
 }
 .dk-log {
   padding: 0 var(--space-12);

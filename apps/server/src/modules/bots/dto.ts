@@ -32,6 +32,7 @@ export const machineDto = (ctx: Ctx, m: MachineRow): MachineDto => ({
   agents: machineAgents(m),
   daemonVersion: m.daemonVersion,
   lastSeenAt: m.lastSeenAt?.toISOString() ?? null,
+  features: ctx.hub.features(m.id),
   boundAt: m.boundAt.toISOString(),
   createdAt: m.createdAt.toISOString(),
 })

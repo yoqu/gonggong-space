@@ -80,6 +80,10 @@ export const AgentInfo = z.object({
   minVersion: z.string().nullable().default(null),
   /** What the adapter offers, probed by the daemon; null until probed or when unavailable. */
   catalog: AgentCatalog.nullable().default(null),
+  /** Latest version on the machine's mirror (last check, cached by the daemon); absent from older daemons. */
+  latest: z.string().nullable().optional(),
+  /** Installed by Gonggong under its home, so it can upgrade it; absent from older daemons. */
+  managed: z.boolean().optional(),
 })
 export type AgentInfo = z.infer<typeof AgentInfo>
 
@@ -338,6 +342,8 @@ export const Hello = z.object({
   activeRuns: z.array(z.string()).default([]),
   /** Services this daemon still hosts; the server marks the machine's other live ones exited. */
   services: z.array(ServiceInfo).default([]),
+  /** Optional capabilities (DaemonFeature); unknown ones are kept, older daemons send none. */
+  features: z.array(z.string()).default([]),
 })
 export const Heartbeat = z.object({ t: z.literal('heartbeat') })
 export const RunEventMsg = z.object({ t: z.literal('run.event'), runId: z.string(), event: RunEvent })
@@ -561,6 +567,184 @@ export const CastState = z.object({
   retryIn: z.number().int().nonnegative().optional(),
 })
 
+// ── Agent tools and providers (docs/plan/Agent工具与供应商统一管理-设计.md) ─────
+/**
+ * `tools`: tools.cmd; `providers`: providers.cmd; `ccSwitch`: ccswitch.* (only when the machine has CC Switch).
+ * Provider settings live on the machine only: the server relays them in memory and never stores or logs them.
+ */
+export const DaemonFeature = z.enum(['tools', 'providers', 'ccSwitch'])
+export type DaemonFeature = z.infer<typeof DaemonFeature>
+
+export const ToolKind = z.enum(['node', 'claude', 'codex'])
+export type ToolKind = z.infer<typeof ToolKind>
+export const ToolStatus = z.object({
+  kind: ToolKind,
+  installed: z.boolean(),
+  version: z.string().nullable(),
+  /** Latest version on the mirror; null when it could not be checked. */
+  latest: z.string().nullable(),
+  /** Installed by Gonggong (and so upgradable by it). */
+  managed: z.boolean(),
+  path: z.string().nullable(),
+})
+export type ToolStatus = z.infer<typeof ToolStatus>
+/** Where Node and the agent CLIs are downloaded from; npmmirror by default. */
+export const Mirror = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('npmmirror') }),
+  z.object({ kind: z.literal('official') }),
+  z.object({
+    kind: z.literal('custom'),
+    registry: z.url({ protocol: /^https?$/ }),
+    node: z.url({ protocol: /^https?$/ }),
+  }),
+])
+export type Mirror = z.infer<typeof Mirror>
+export const ToolsSettings = z.object({ mirror: Mirror })
+export type ToolsSettings = z.infer<typeof ToolsSettings>
+/** `latest` or an exact x.y.z (optionally v-prefixed); anything else never reaches npm. */
+export const TOOL_VERSION = /^(latest|v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?)$/
+
+export const ModelMap = z.object({
+  haiku: z.string().optional(),
+  sonnet: z.string().optional(),
+  opus: z.string().optional(),
+})
+export type ModelMap = z.infer<typeof ModelMap>
+export const PresetGroup = z.enum(['cn', 'aggregator', 'global'])
+/** A built-in vendor (adapted from CC Switch): choosing one only leaves the API key to fill in. */
+export const ProviderPreset = z.object({
+  id: z.string(),
+  agent: AgentKind,
+  name: z.string(),
+  group: PresetGroup,
+  websiteUrl: z.string().nullable(),
+  apiKeyUrl: z.string().nullable(),
+  baseUrl: z.string(),
+  apiKeyField: z.string().nullable(),
+  model: z.string().nullable(),
+  models: ModelMap.nullable(),
+  modelOptions: z.array(z.string()),
+  env: z.record(z.string(), z.string()),
+  wireApi: z.string().nullable(),
+  effort: z.string().nullable(),
+})
+export type ProviderPreset = z.infer<typeof ProviderPreset>
+/** A machine's provider as it may leave the machine: `apiKey` masked to its last 4 characters at most. */
+export const ProviderView = z.object({
+  id: z.string(),
+  agent: AgentKind,
+  name: z.string(),
+  presetId: z.string().nullable(),
+  revision: z.number().int(),
+  baseUrl: z.string(),
+  apiKey: z.string(),
+  apiKeyField: z.string().nullable(),
+  model: z.string().nullable(),
+  models: ModelMap.nullable(),
+  env: z.record(z.string(), z.string()),
+  wireApi: z.string().nullable(),
+  effort: z.string().nullable(),
+  source: z.object({ kind: z.enum(['cc-switch', 'link']), id: z.string().optional() }).nullable(),
+})
+export type ProviderView = z.infer<typeof ProviderView>
+/** `official` = the CLI's own login (nothing injected); a bot without an override inherits the machine default. */
+export const OFFICIAL_PROVIDER = 'official'
+export const INHERIT_PROVIDER = 'inherit'
+export const ProviderStoreView = z.object({
+  /** Default per agent: a provider id or `official`; absent = official. */
+  machine: z.partialRecord(AgentKind, z.string()),
+  /** Bot overrides: bot id → provider id or `official`; absent = inherit. */
+  bots: z.record(z.string(), z.string()),
+  providers: z.array(ProviderView),
+  /** Latest session of each (group, bot) and the provider it is pinned to, for the switch confirmation. */
+  sessions: z.array(
+    z.object({ groupId: z.string(), botId: z.string(), agent: AgentKind, provider: z.string() }),
+  ),
+})
+export type ProviderStoreView = z.infer<typeof ProviderStoreView>
+/**
+ * Adds a provider (no `id`: from `presetId` or by hand) or edits one. Absent fields keep what is there (or the
+ * preset's value); `apiKey` is required for a new one and replaced only when given.
+ */
+export const ProviderInput = z.object({
+  id: z.string().optional(),
+  agent: AgentKind,
+  presetId: z.string().optional(),
+  name: z.string().trim().min(1).max(64).optional(),
+  baseUrl: z.url({ protocol: /^https?$/ }).optional(),
+  apiKey: z.string().trim().min(1).max(4096).optional(),
+  apiKeyField: z.enum(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']).optional(),
+  model: z.string().trim().max(128).optional(),
+  models: ModelMap.optional(),
+  env: z.record(z.string(), z.string()).optional(),
+  effort: z.string().max(32).optional(),
+})
+export type ProviderInput = z.infer<typeof ProviderInput>
+/** CC Switch import preview row: `key` is what ccswitch.apply takes; `existing` = the local provider it updates. */
+export const CcSwitchCandidate = z.object({
+  key: z.string(),
+  agent: AgentKind,
+  name: z.string(),
+  baseUrl: z.string(),
+  apiKey: z.string(),
+  model: z.string().nullable(),
+  current: z.boolean(),
+  existing: z.string().nullable(),
+})
+export type CcSwitchCandidate = z.infer<typeof CcSwitchCandidate>
+/** A (group, bot) whose session keeps a provider other than a new session would use (names only). */
+export const ProviderStateItem = z.object({
+  groupId: z.string(),
+  botId: z.string(),
+  session: z.string(),
+  effective: z.string(),
+})
+export type ProviderStateItem = z.infer<typeof ProviderStateItem>
+
+/** Streamed output of a running tools.cmd install / upgrade (lines capped by the daemon). */
+export const ToolsProgress = z.object({
+  t: z.literal('tools.progress'),
+  requestId: z.string(),
+  line: z.string(),
+})
+export const ToolsResult = z.object({
+  t: z.literal('tools.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  tools: z.array(ToolStatus),
+  settings: ToolsSettings,
+})
+export type ToolsResult = z.infer<typeof ToolsResult>
+export const ProvidersResult = z.object({
+  t: z.literal('providers.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  view: ProviderStoreView.optional(),
+  presets: z.array(ProviderPreset).optional(),
+  catalog: AgentCatalog.optional(),
+  /** The provider saved or imported. */
+  id: z.string().optional(),
+})
+export type ProvidersResult = z.infer<typeof ProvidersResult>
+export const CcSwitchResult = z.object({
+  t: z.literal('ccswitch.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  candidates: z.array(CcSwitchCandidate),
+  /** Local ids written by ccswitch.apply. */
+  imported: z.array(z.string()),
+  view: ProviderStoreView.optional(),
+})
+export type CcSwitchResult = z.infer<typeof CcSwitchResult>
+/** Replaces the machine's list; sent after welcome, after each run and whenever providers change. */
+export const BotsProviderState = z.object({
+  t: z.literal('bots.providerState'),
+  items: z.array(ProviderStateItem),
+})
+
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   CommandsUpdate,
@@ -583,6 +767,11 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   ServiceState,
   ServiceRestartResult,
   CastState,
+  ToolsProgress,
+  ToolsResult,
+  ProvidersResult,
+  CcSwitchResult,
+  BotsProviderState,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -769,6 +958,46 @@ export const CastSync = z.object({ t: z.literal('cast.sync'), casts: z.array(Cas
 /** A viewer asks to try a failed live preview again now, e.g. once its window shows. */
 export const CastRetry = z.object({ t: z.literal('cast.retry'), previewId: z.string() })
 
+/** Status, install / upgrade (answered by tools.progress lines then tools.result) or mirror settings. */
+export const ToolsCmd = z.object({
+  t: z.literal('tools.cmd'),
+  requestId: z.string(),
+  action: z.enum(['status', 'install', 'upgrade', 'settings']),
+  kind: ToolKind.optional(),
+  version: z.string().regex(TOOL_VERSION).optional(),
+  mirror: Mirror.optional(),
+})
+export type ToolsCmd = z.infer<typeof ToolsCmd>
+/**
+ * The machine's providers; answered by providers.result. `save` / `importLink` may carry a plaintext key (never
+ * persisted or logged by the server). `use`: the machine default of `agent`, or with `botId` that bot's override
+ * (`agent` = the bot's agentKind, `choice` also `inherit`). `catalog`: the models provider `id` declares.
+ * `botCatalog`: what a new session of `botId` (absent: a new bot) on `agent` may pick, from the provider it would use —
+ * the adapter's catalog when official (absent until probed), else the provider's declared models.
+ */
+export const ProvidersCmd = z.object({
+  t: z.literal('providers.cmd'),
+  requestId: z.string(),
+  action: z.enum(['presets', 'list', 'save', 'remove', 'use', 'importLink', 'catalog', 'botCatalog']),
+  agent: AgentKind.optional(),
+  botId: z.string().optional(),
+  id: z.string().optional(),
+  choice: z.string().optional(),
+  provider: ProviderInput.optional(),
+  link: z.string().optional(),
+  setDefault: z.boolean().optional(),
+})
+export type ProvidersCmd = z.infer<typeof ProvidersCmd>
+/** Preview this machine's CC Switch providers (keys masked). */
+export const CcSwitchRead = z.object({ t: z.literal('ccswitch.read'), requestId: z.string() })
+/** Import the previewed `keys`; `setDefault` also makes CC Switch's current ones the machine defaults. */
+export const CcSwitchApply = z.object({
+  t: z.literal('ccswitch.apply'),
+  requestId: z.string(),
+  keys: z.array(z.string()),
+  setDefault: z.boolean(),
+})
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   FilesList,
@@ -793,5 +1022,9 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   PreviewsSync,
   CastSync,
   CastRetry,
+  ToolsCmd,
+  ProvidersCmd,
+  CcSwitchRead,
+  CcSwitchApply,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

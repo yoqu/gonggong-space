@@ -9,6 +9,7 @@ use crate::lock::Lock;
 use crate::protocol::{AgentInfo, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, Status};
+use crate::tools::ToolKind;
 use crate::upgrade::Upgrader;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,7 @@ const IDLE_REAP: Duration = Duration::from_secs(10 * 60);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// Picks up agents installed or paths changed by the CLI while running.
 const REDETECT: Duration = Duration::from_secs(60);
+const LATEST_CHECK: Duration = Duration::from_secs(6 * 3600);
 
 pub struct Options {
     pub home: PathBuf,
@@ -63,6 +65,7 @@ impl Daemon {
             idle: IDLE_REAP,
             api: Some(opts.config.clone()),
         });
+        engine.watch_agents(agents.clone());
         let services = engine.services();
         let background = [
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
@@ -148,8 +151,18 @@ pub fn publish_agents(tx: &watch::Sender<Vec<AgentInfo>>, agents: Vec<AgentInfo>
 async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentInfo>>) {
     let mut tick = tokio::time::interval(REDETECT);
     tick.tick().await;
+    // The latest versions reported as `AgentInfo.latest`, refreshed from the mirror now and then.
+    let mut checked: Option<std::time::Instant> = None;
     loop {
         tick.tick().await;
+        if checked.is_none_or(|at| at.elapsed() >= LATEST_CHECK) {
+            checked = Some(std::time::Instant::now());
+            for kind in [ToolKind::Claude, ToolKind::Codex] {
+                if let Err(e) = crate::tools::latest(&home, kind, false).await {
+                    tracing::warn!("{} latest version check failed: {e:#}", kind.label());
+                }
+            }
+        }
         republish(&home, &tx).await;
     }
 }

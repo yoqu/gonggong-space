@@ -1,5 +1,9 @@
 //! Wire types mirrored from `packages/protocol/src/{common,daemon}.ts`.
 //! `tests/contract.rs` round-trips every shared JSON fixture to keep both sides aligned.
+pub use crate::ccswitch::CandidateView;
+pub use crate::config::Mirror;
+pub use crate::providers::{ModelMap, Preset, StoreView};
+pub use crate::tools::{ToolKind, ToolStatus as ToolState};
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -103,6 +107,12 @@ pub struct AgentInfo {
     pub min_version: Option<String>,
     #[serde(default)]
     pub catalog: Option<AgentCatalog>,
+    /// Latest version on the mirror as last checked (cached); `None` when never checked.
+    #[serde(default)]
+    pub latest: Option<String>,
+    /// Installed by Gonggong under its home.
+    #[serde(default)]
+    pub managed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -808,6 +818,124 @@ pub struct TunnelReset {
     pub reason: String,
 }
 
+pub const FEATURE_TOOLS: &str = "tools";
+pub const FEATURE_PROVIDERS: &str = "providers";
+pub const FEATURE_CC_SWITCH: &str = "ccSwitch";
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolsSettings {
+    pub mirror: Mirror,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolsAction {
+    Status,
+    Install,
+    Upgrade,
+    Settings,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsCmd {
+    pub request_id: String,
+    pub action: ToolsAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<ToolKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mirror: Option<Mirror>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProvidersAction {
+    Presets,
+    List,
+    Save,
+    Remove,
+    Use,
+    ImportLink,
+    Catalog,
+    BotCatalog,
+}
+
+/// Adds (no `id`) or edits a provider; absent fields keep the stored (or preset) value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub agent: AgentKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub models: Option<ModelMap>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProvidersCmd {
+    pub request_id: String,
+    pub action: ProvidersAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<AgentKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bot_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<ProviderInput>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub set_default: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProvidersResult {
+    pub request_id: String,
+    pub ok: bool,
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<StoreView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presets: Option<Vec<Preset>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog: Option<AgentCatalog>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+}
+
+/// A (group, bot) whose session keeps another provider than a new session would use; names only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderStateItem {
+    pub group_id: String,
+    pub bot_id: String,
+    pub session: String,
+    pub effective: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t")]
 pub enum DaemonToServer {
@@ -822,6 +950,9 @@ pub enum DaemonToServer {
         active_runs: Vec<String>,
         #[serde(default)]
         services: Vec<ServiceInfo>,
+        /// Optional capabilities: [`FEATURE_TOOLS`], [`FEATURE_PROVIDERS`], [`FEATURE_CC_SWITCH`].
+        #[serde(default)]
+        features: Vec<String>,
     },
     #[serde(rename = "heartbeat")]
     Heartbeat,
@@ -886,6 +1017,24 @@ pub enum DaemonToServer {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         retry_in: Option<u64>,
     },
+    #[serde(rename = "tools.progress", rename_all = "camelCase")]
+    ToolsProgress { request_id: String, line: String },
+    #[serde(rename = "tools.result", rename_all = "camelCase")]
+    ToolsResult { request_id: String, ok: bool, error: Option<String>, tools: Vec<ToolState>, settings: ToolsSettings },
+    #[serde(rename = "providers.result")]
+    ProvidersResult(ProvidersResult),
+    #[serde(rename = "ccswitch.result", rename_all = "camelCase")]
+    CcSwitchResult {
+        request_id: String,
+        ok: bool,
+        error: Option<String>,
+        candidates: Vec<CandidateView>,
+        imported: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        view: Option<StoreView>,
+    },
+    #[serde(rename = "bots.providerState")]
+    BotsProviderState { items: Vec<ProviderStateItem> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -971,4 +1120,12 @@ pub enum ServerToDaemon {
     CastSync { casts: Vec<CastTarget> },
     #[serde(rename = "cast.retry", rename_all = "camelCase")]
     CastRetry { preview_id: String },
+    #[serde(rename = "tools.cmd")]
+    ToolsCmd(ToolsCmd),
+    #[serde(rename = "providers.cmd")]
+    ProvidersCmd(Box<ProvidersCmd>),
+    #[serde(rename = "ccswitch.read", rename_all = "camelCase")]
+    CcSwitchRead { request_id: String },
+    #[serde(rename = "ccswitch.apply", rename_all = "camelCase")]
+    CcSwitchApply { request_id: String, keys: Vec<String>, set_default: bool },
 }

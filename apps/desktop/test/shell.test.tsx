@@ -13,7 +13,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   m.bots.mockResolvedValue([])
   m.overview.mockResolvedValue({ workspaces: { count: 0, detail: '' } })
-  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false })
+  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
   useDaemon.setState({
     info: INFO,
     snapshot: { phase: 'running', status: status({ runs: [run({ runId: 'r1', groupName: '官网改版' })] }) },
@@ -24,7 +24,7 @@ it('titles 设置 in the toolbar like every other page', () => {
   render(<Shell />)
   fireEvent.click(screen.getByRole('button', { name: '设置' }))
   expect(within(toolbar()).getByRole('heading', { name: '设置' })).toBeTruthy()
-  expect(within(toolbar()).getByText('外观、升级、启动项与存储位置')).toBeTruthy()
+  expect(within(toolbar()).getByText('外观、升级、镜像源、启动项与存储位置')).toBeTruthy()
   expect(screen.getAllByRole('heading', { name: '设置' })).toHaveLength(1)
 })
 

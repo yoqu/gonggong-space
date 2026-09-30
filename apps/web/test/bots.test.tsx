@@ -38,6 +38,7 @@ const mbp: MachineDto = {
     { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0', catalog: null },
   ],
   daemonVersion: '0.1.0',
+  features: [],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,

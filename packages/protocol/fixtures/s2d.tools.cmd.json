@@ -1,0 +1,7 @@
+{
+  "t": "tools.cmd",
+  "requestId": "op-1",
+  "action": "install",
+  "kind": "claude",
+  "version": "2.1.285"
+}

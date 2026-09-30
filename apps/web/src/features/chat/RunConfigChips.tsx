@@ -9,7 +9,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { Icon, MenuButton, type MenuItem, toast } from '../../ui'
-import { effortOptions, modelOptions, withModel } from '../bots/AgentConfig'
+import { effortOptions, modelOptions, useBotCatalog, withModel } from '../bots/AgentConfig'
 
 export type Picks = Record<string, RunConfigPick>
 
@@ -46,91 +46,114 @@ export function RunConfigChips({
   picks: Picks
   onChange: (picks: Picks) => void
 }) {
-  const states = useWorkspace((s) => s.botStates[group.id])
   const canConfigure = useCanConfigure(group)
+  const set = (botId: string, next: Picks[string] | null) => {
+    const rest = { ...picks }
+    delete rest[botId]
+    onChange(next ? { ...rest, [botId]: next } : rest)
+  }
   return (
     <span className="run-config">
-      {bots.map((bot) => {
-        const catalog = bot.catalog
-        const saved = {
-          model: states?.[bot.id]?.model ?? bot.model,
-          effort: states?.[bot.id]?.effort ?? bot.effort,
-        }
-        const pick = picks[bot.id]
-        const model = pick?.model !== undefined ? pick.model : saved.model
-        const effort = fitEffort(catalog, model, pick?.effort !== undefined ? pick.effort : saved.effort)
-        const label = agentConfigLabel(catalog, model ?? catalog?.current ?? null, effort)
-        const text = `${bot.name} · ${label}`
-        const name = `${bot.name} 的模型与推理强度`
-        if (!canConfigure(bot) || !catalog)
-          return (
-            <MenuButton
-              key={bot.id}
-              className="run-config__chip"
-              aria-label={name}
-              title={catalog ? READ_ONLY : '机器尚未上报可选模型'}
-              disabled
-              items={[]}
-              onSelect={() => {}}
-            >
-              {text}
-            </MenuButton>
-          )
-        const set = (next: RunConfigPick) => {
-          const rest = { ...picks }
-          delete rest[bot.id]
-          const same =
-            (next.model === undefined || next.model === saved.model) &&
-            (next.effort === undefined || next.effort === saved.effort)
-          onChange(same ? rest : { ...rest, [bot.id]: next })
-        }
-        const save = () =>
-          api
-            .put(`/groups/${group.id}/bots/${bot.id}/config`, { model, effort })
-            .then(() => set({}))
-            .catch((e: Error) => toast({ type: 'error', message: e.message }))
-        const efforts = effortOptions(catalog, model)
-        const items: MenuItem[] = [
-          { header: '模型' },
-          ...modelOptions(catalog, model).map((o) => ({
-            label: o.label,
-            value: `m:${o.value}`,
-            checked: (model ?? '') === o.value,
-          })),
-          ...(efforts.length
-            ? [
-                { separator: true as const },
-                { header: '推理强度' },
-                ...efforts
-                  .slice(1)
-                  .map((o) => ({ label: o.label, value: `e:${o.value}`, checked: effort === o.value })),
-              ]
-            : []),
-          ...(pick ? [{ separator: true as const }, { label: '设为本群默认', value: 'save' }] : []),
-        ]
-        return (
-          <MenuButton
-            key={bot.id}
-            className="run-config__chip"
-            aria-label={name}
-            align="end"
-            placement="above"
-            items={items}
-            onSelect={(v) => {
-              if (v === 'save') return void save()
-              if (v.startsWith('m:')) {
-                const next = withModel(catalog, pick?.effort ?? null, v.slice(2) || null)
-                return set({ model: next.model, ...(next.effort && { effort: next.effort }) })
-              }
-              set({ ...pick, effort: v.slice(2) })
-            }}
-          >
-            {text}
-            {pick ? <span className="run-config__once">仅本条</span> : null}
-            <Icon name="chevron-updown" size={10} weight={2.2} />
-          </MenuButton>
-        )
-      })}
+      {bots.map((bot) => (
+        <RunConfigChip
+          key={bot.id}
+          group={group}
+          bot={bot}
+          pick={picks[bot.id]}
+          editable={canConfigure(bot)}
+          onPick={(next) => set(bot.id, next)}
+        />
+      ))}
     </span>
+  )
+}
+
+/** The picks offered are those of the bot's next session, asked of its machine (its provider's models). */
+function RunConfigChip({
+  group,
+  bot,
+  pick,
+  editable,
+  onPick,
+}: {
+  group: GroupDto
+  bot: BotDto
+  pick: RunConfigPick | undefined
+  editable: boolean
+  onPick: (next: RunConfigPick | null) => void
+}) {
+  const state = useWorkspace((s) => s.botStates[group.id]?.[bot.id])
+  const live = useBotCatalog(bot.id)
+  const catalog = live ? live.catalog : bot.catalog
+  const saved = { model: state?.model ?? bot.model, effort: state?.effort ?? bot.effort }
+  const model = pick?.model !== undefined ? pick.model : saved.model
+  const effort = fitEffort(catalog, model, pick?.effort !== undefined ? pick.effort : saved.effort)
+  const label = agentConfigLabel(catalog, model ?? catalog?.current ?? null, effort)
+  const text = `${bot.name} · ${label}`
+  const name = `${bot.name} 的模型与推理强度`
+  if (!editable || !live?.catalog)
+    return (
+      <MenuButton
+        className="run-config__chip"
+        aria-label={name}
+        title={!editable ? READ_ONLY : !live ? '正在读取可选模型…' : (live.error ?? '机器尚未上报可选模型')}
+        disabled
+        items={[]}
+        onSelect={() => {}}
+      >
+        {text}
+      </MenuButton>
+    )
+  const available = live.catalog
+  const set = (next: RunConfigPick) => {
+    const same =
+      (next.model === undefined || next.model === saved.model) &&
+      (next.effort === undefined || next.effort === saved.effort)
+    onPick(same ? null : next)
+  }
+  const save = () =>
+    api
+      .put(`/groups/${group.id}/bots/${bot.id}/config`, { model, effort })
+      .then(() => set({}))
+      .catch((e: Error) => toast({ type: 'error', message: e.message }))
+  const efforts = effortOptions(available, model)
+  const items: MenuItem[] = [
+    { header: '模型' },
+    ...modelOptions(available, model).map((o) => ({
+      label: o.label,
+      value: `m:${o.value}`,
+      checked: (model ?? '') === o.value,
+    })),
+    ...(efforts.length
+      ? [
+          { separator: true as const },
+          { header: '推理强度' },
+          ...efforts
+            .slice(1)
+            .map((o) => ({ label: o.label, value: `e:${o.value}`, checked: effort === o.value })),
+        ]
+      : []),
+    ...(pick ? [{ separator: true as const }, { label: '设为本群默认', value: 'save' }] : []),
+  ]
+  return (
+    <MenuButton
+      className="run-config__chip"
+      aria-label={name}
+      align="end"
+      placement="above"
+      items={items}
+      onSelect={(v) => {
+        if (v === 'save') return void save()
+        if (v.startsWith('m:')) {
+          const next = withModel(available, pick?.effort ?? null, v.slice(2) || null)
+          return set({ model: next.model, ...(next.effort && { effort: next.effort }) })
+        }
+        set({ ...pick, effort: v.slice(2) })
+      }}
+    >
+      {text}
+      {pick ? <span className="run-config__once">仅本条</span> : null}
+      <Icon name="chevron-updown" size={10} weight={2.2} />
+    </MenuButton>
   )
 }

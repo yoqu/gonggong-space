@@ -7,8 +7,10 @@ mod logs;
 mod onboarding;
 mod overview;
 mod permissions;
+mod providers;
 mod settings;
 mod shell;
+mod tools;
 mod tunnels;
 mod workspaces;
 
@@ -26,6 +28,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         overview::run_process,
         settings::get_settings,
         settings::set_auto_upgrade,
+        settings::set_mirror,
         settings::set_launch_at_login,
         settings::unbind,
         workspaces::workspaces,
@@ -39,6 +42,18 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         agents::agents,
         agents::pick_agent_path,
         agents::reset_agent_path,
+        tools::tools,
+        tools::run_tool,
+        providers::providers,
+        providers::provider_presets,
+        providers::save_provider,
+        providers::remove_provider,
+        providers::choose_provider,
+        providers::provider_impact,
+        providers::ccswitch_preview,
+        providers::ccswitch_import,
+        providers::import_provider_link,
+        providers::open_key_page,
         bots::bots,
         bots::open_bot_in_web,
         tunnels::tunnels,

@@ -1,8 +1,9 @@
-//! `gg agents` and `gg config`: the owner's local agent settings from the terminal. Models, thought levels and the
+//! `gg agents` and `gg config`: the owner's local agent settings from the terminal (installs: `tools`). Models, thought levels and the
 //! bots' settings are chosen on the Web (plan J12); this only lists what the adapters offer.
 use crate::bots;
 use crate::local::LocalSettings;
 use crate::protocol::{AgentCatalog, AgentKind};
+use crate::tools::{self, ToolStatus};
 use anyhow::{Result, bail};
 use std::path::Path;
 
@@ -24,18 +25,49 @@ fn catalog_line(catalog: Option<&AgentCatalog>) -> String {
     }
 }
 
-pub fn print_agents(home: &Path) -> Result<()> {
+/// The latest version and who installed it, e.g. 「最新 2.1.285（可升级）\t共工托管」.
+fn tool_columns(s: &ToolStatus) -> String {
+    let latest = match &s.latest {
+        Some(l) if s.has_update() => format!("最新 {l}（可升级）"),
+        Some(_) if s.installed => "已是最新".into(),
+        Some(l) => format!("最新 {l}"),
+        None => "最新版本未知".into(),
+    };
+    let source = match (s.installed, s.managed) {
+        (false, _) => "-",
+        (true, true) => "共工托管",
+        (true, false) => "自行安装",
+    };
+    format!("{latest}\t{source}")
+}
+
+pub async fn print_agents(home: &Path) -> Result<()> {
     let local = LocalSettings::load(home)?;
+    let node = tools::with_latest(home, tools::node_status(home)).await;
+    let too_old = node
+        .version
+        .as_deref()
+        .and_then(|v| v.split('.').next()?.parse::<u32>().ok())
+        .is_some_and(|m| m < tools::MIN_NODE_MAJOR);
+    println!(
+        "Node.js\t{}\t{}\t{}\t{}",
+        node.version.as_deref().unwrap_or("-"),
+        tool_columns(&node),
+        node.path.as_deref().unwrap_or("未安装"),
+        if too_old { format!("ACP 适配器需要 Node.js ≥ {}", tools::MIN_NODE_MAJOR) } else { String::new() }
+    );
     for a in crate::agents::detect(home, &local) {
+        let status = tools::with_latest(home, tools::agent_status(home, &a)).await;
         let path = match (&a.path, a.available) {
             (Some(p), true) => p.clone(),
             (Some(p), false) => format!("{p}（不存在）"),
             (None, _) => "未安装".into(),
         };
         println!(
-            "{}\t{}\t{path}\t{}",
+            "{}\t{}\t{}\t{path}\t{}",
             bots::agent_label(a.kind),
             a.version.as_deref().unwrap_or("-"),
+            tool_columns(&status),
             catalog_line(a.catalog.as_ref())
         );
     }

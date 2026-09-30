@@ -22,14 +22,18 @@
       "available": true,
       "version": "2.1.4",
       "path": "/opt/homebrew/bin/claude",
-      "minVersion": "2.0.0"
+      "minVersion": "2.0.0",
+      "latest": "2.1.285",
+      "managed": true
     },
     {
       "kind": "codex",
       "available": false,
       "version": null,
       "path": null,
-      "minVersion": "0.40.0"
+      "minVersion": "0.40.0",
+      "latest": null,
+      "managed": false
     }
   ],
   "token": "mt_abc123",
@@ -47,5 +51,6 @@
       "status": "running",
       "exitCode": null
     }
-  ]
+  ],
+  "features": ["tools", "providers", "ccSwitch"]
 }

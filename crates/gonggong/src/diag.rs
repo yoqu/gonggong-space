@@ -388,6 +388,8 @@ mod tests {
             path: None,
             min_version: Some(crate::agents::min_version(kind).into()),
             catalog: None,
+            latest: None,
+            managed: false,
         };
         let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.46.0"))]);
         assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.46.0 可用"));

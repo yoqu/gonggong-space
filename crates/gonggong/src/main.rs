@@ -21,8 +21,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// List agent CLIs detected on this machine.
-    Agents,
+    /// List agent CLIs and Node.js on this machine; install, upgrade or pick their download mirror.
+    Agents {
+        #[command(subcommand)]
+        cmd: Option<gonggong::tools::AgentsCmd>,
+    },
     /// Bind this machine to your account with a one-time code from the Web (头像菜单 → 绑定新机器): pass the 接入链接
     /// (gg login 'gonggong://bind?…') or --server and --code.
     Login {
@@ -77,6 +80,11 @@ enum Cmd {
     Config {
         #[command(subcommand)]
         cmd: ConfigCmd,
+    },
+    /// This machine's model providers (third-party endpoints and API keys); they never leave the machine.
+    Provider {
+        #[command(subcommand)]
+        cmd: gonggong::provider_cli::ProviderCmd,
     },
 }
 
@@ -147,7 +155,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     match cli.cmd {
-        Cmd::Agents => configure::print_agents(&config::home())?,
+        Cmd::Agents { cmd } => gonggong::tools::cli(&config::home(), cmd).await?,
         Cmd::Login { link, server, code, fingerprint } => {
             let (server, code, fingerprint) = match (link, server, code) {
                 (Some(link), _, _) => {
@@ -266,6 +274,7 @@ async fn main() -> anyhow::Result<()> {
             println!("已导出诊断包 {}（{}）", dest.display(), names.join("、"));
         }
         Cmd::Config { cmd: ConfigCmd::Agent { kind, path } } => configure::agent(&config::home(), kind, path)?,
+        Cmd::Provider { cmd } => gonggong::provider_cli::run(&config::home(), cmd).await?,
     }
     Ok(())
 }

@@ -33,6 +33,7 @@ import { PreviewTags } from '../previews/PreviewTags'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
+import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
 import { BotReply, dayLabel, EventFold, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { useTimeline } from './useTimeline'
@@ -467,6 +468,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         </div>
       </div>
       <PreviewTags groupId={group.id} />
+      <ProviderBanner group={group} />
       <MessageComposer
         group={group}
         dropFiles={dropFiles}

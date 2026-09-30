@@ -1,0 +1,8 @@
+{
+  "t": "tools.cmd",
+  "requestId": "op-2",
+  "action": "settings",
+  "mirror": {
+    "kind": "official"
+  }
+}

@@ -1,0 +1,861 @@
+{
+  "source": "cc-switch@36d9504",
+  "presets": [
+    {
+      "id": "kimi",
+      "agent": "claude",
+      "name": "Kimi",
+      "group": "cn",
+      "websiteUrl": "https://platform.kimi.com/",
+      "baseUrl": "https://api.moonshot.cn/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "kimi-k2.7-code",
+      "models": {
+        "haiku": "kimi-k2.7-code",
+        "sonnet": "kimi-k2.7-code",
+        "opus": "kimi-k2.7-code"
+      },
+      "modelOptions": ["kimi-k2.7-code"]
+    },
+    {
+      "id": "kimi-global",
+      "agent": "claude",
+      "name": "Kimi（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.kimi.ai/",
+      "baseUrl": "https://api.moonshot.ai/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "kimi-k2.7-code",
+      "models": {
+        "haiku": "kimi-k2.7-code",
+        "sonnet": "kimi-k2.7-code",
+        "opus": "kimi-k2.7-code"
+      },
+      "modelOptions": ["kimi-k2.7-code"]
+    },
+    {
+      "id": "kimi-coding",
+      "agent": "claude",
+      "name": "Kimi For Coding",
+      "group": "cn",
+      "websiteUrl": "https://www.kimi.com/code/",
+      "baseUrl": "https://api.kimi.com/coding/",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "kimi-for-coding",
+      "models": {
+        "haiku": "kimi-for-coding",
+        "sonnet": "kimi-for-coding",
+        "opus": "kimi-for-coding"
+      },
+      "modelOptions": ["kimi-for-coding"],
+      "env": {
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+      }
+    },
+    {
+      "id": "kimi-coding-global",
+      "agent": "claude",
+      "name": "Kimi For Coding（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://www.kimi.ai/code",
+      "baseUrl": "https://api.kimi.ai/coding/",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "kimi-for-coding",
+      "models": {
+        "haiku": "kimi-for-coding",
+        "sonnet": "kimi-for-coding",
+        "opus": "kimi-for-coding"
+      },
+      "modelOptions": ["kimi-for-coding"],
+      "env": {
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+      }
+    },
+    {
+      "id": "deepseek",
+      "agent": "claude",
+      "name": "DeepSeek",
+      "group": "cn",
+      "websiteUrl": "https://platform.deepseek.com/",
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "deepseek-v4-pro",
+      "models": {
+        "haiku": "deepseek-flash",
+        "sonnet": "deepseek-v4-pro",
+        "opus": "deepseek-v4-pro"
+      },
+      "modelOptions": ["deepseek-v4-pro", "deepseek-flash"]
+    },
+    {
+      "id": "zhipu",
+      "agent": "claude",
+      "name": "智谱 GLM",
+      "group": "cn",
+      "websiteUrl": "https://open.bigmodel.cn/",
+      "apiKeyUrl": "https://www.bigmodel.cn/claude-code",
+      "baseUrl": "https://open.bigmodel.cn/api/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "glm-5.3",
+      "models": {
+        "haiku": "glm-5.3",
+        "sonnet": "glm-5.3",
+        "opus": "glm-5.3"
+      },
+      "modelOptions": ["glm-5.3"]
+    },
+    {
+      "id": "zhipu-en",
+      "agent": "claude",
+      "name": "智谱 GLM（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://z.ai/",
+      "apiKeyUrl": "https://z.ai/subscribe",
+      "baseUrl": "https://api.z.ai/api/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "glm-5.3",
+      "models": {
+        "haiku": "glm-5.3",
+        "sonnet": "glm-5.3",
+        "opus": "glm-5.3"
+      },
+      "modelOptions": ["glm-5.3"]
+    },
+    {
+      "id": "qwen",
+      "agent": "claude",
+      "name": "通义千问",
+      "group": "cn",
+      "websiteUrl": "https://platform.qianwenai.com/",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "baseUrl": "https://dashscope.aliyuncs.com/apps/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "qwen3.8-max",
+      "models": {
+        "haiku": "qwen3.8-flash",
+        "sonnet": "qwen3.7-plus",
+        "opus": "qwen3.8-max"
+      },
+      "modelOptions": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash"],
+      "env": {
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
+      }
+    },
+    {
+      "id": "qwen-coding",
+      "agent": "claude",
+      "name": "通义千问 Coding Plan",
+      "group": "cn",
+      "websiteUrl": "https://bailian.console.aliyun.com/",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "modelOptions": []
+    },
+    {
+      "id": "qwen-intl",
+      "agent": "claude",
+      "name": "通义千问（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://home.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/apps/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "qwen3.8-max",
+      "models": {
+        "haiku": "qwen3.8-flash",
+        "sonnet": "qwen3.7-plus",
+        "opus": "qwen3.8-max"
+      },
+      "modelOptions": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash"]
+    },
+    {
+      "id": "qwen-coding-intl",
+      "agent": "claude",
+      "name": "通义千问 Coding Plan（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://www.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "baseUrl": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "qwen3.7-plus",
+      "models": {
+        "haiku": "qwen3.7-plus",
+        "sonnet": "qwen3.7-plus",
+        "opus": "qwen3.7-plus"
+      },
+      "modelOptions": ["qwen3.7-plus"]
+    },
+    {
+      "id": "volcengine-coding",
+      "agent": "claude",
+      "name": "火山方舟 Coding Plan",
+      "group": "cn",
+      "websiteUrl": "https://www.volcengine.com/activity/codingplan",
+      "apiKeyUrl": "https://www.volcengine.com/activity/codingplan",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "ark-code-latest",
+      "models": {
+        "haiku": "ark-code-latest",
+        "sonnet": "ark-code-latest",
+        "opus": "ark-code-latest"
+      },
+      "modelOptions": ["ark-code-latest"]
+    },
+    {
+      "id": "volcengine-agent",
+      "agent": "claude",
+      "name": "火山方舟 Agent Plan",
+      "group": "cn",
+      "websiteUrl": "https://www.volcengine.com/activity/agentplan",
+      "apiKeyUrl": "https://www.volcengine.com/activity/agentplan",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "ark-code-latest",
+      "models": {
+        "haiku": "ark-code-latest",
+        "sonnet": "ark-code-latest",
+        "opus": "ark-code-latest"
+      },
+      "modelOptions": ["ark-code-latest"]
+    },
+    {
+      "id": "volcengine",
+      "agent": "claude",
+      "name": "火山方舟（豆包）",
+      "group": "cn",
+      "websiteUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/compatible",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "doubao-seed-2-1-pro-260628",
+      "models": {
+        "haiku": "doubao-seed-2-1-pro-260628",
+        "sonnet": "doubao-seed-2-1-pro-260628",
+        "opus": "doubao-seed-2-1-pro-260628"
+      },
+      "modelOptions": ["doubao-seed-2-1-pro-260628"]
+    },
+    {
+      "id": "byteplus",
+      "agent": "claude",
+      "name": "BytePlus（火山方舟国际版）",
+      "group": "cn",
+      "websiteUrl": "https://www.byteplus.com/en/product/modelark",
+      "apiKeyUrl": "https://www.byteplus.com/en/product/modelark",
+      "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "ark-code-latest",
+      "models": {
+        "haiku": "ark-code-latest",
+        "sonnet": "ark-code-latest",
+        "opus": "ark-code-latest"
+      },
+      "modelOptions": ["ark-code-latest"]
+    },
+    {
+      "id": "minimax",
+      "agent": "claude",
+      "name": "MiniMax",
+      "group": "cn",
+      "websiteUrl": "https://platform.minimax.cn/",
+      "apiKeyUrl": "https://platform.minimax.cn/subscribe/token-plan",
+      "baseUrl": "https://api.minimax.cn/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "MiniMax-M3[1M]",
+      "models": {
+        "haiku": "MiniMax-M3[1M]",
+        "sonnet": "MiniMax-M3[1M]",
+        "opus": "MiniMax-M3[1M]"
+      },
+      "modelOptions": ["MiniMax-M3[1M]"],
+      "env": {
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000"
+      }
+    },
+    {
+      "id": "minimax-en",
+      "agent": "claude",
+      "name": "MiniMax（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.minimax.io/",
+      "apiKeyUrl": "https://platform.minimax.io/subscribe/coding-plan",
+      "baseUrl": "https://api.minimax.io/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "MiniMax-M3[1M]",
+      "models": {
+        "haiku": "MiniMax-M3[1M]",
+        "sonnet": "MiniMax-M3[1M]",
+        "opus": "MiniMax-M3[1M]"
+      },
+      "modelOptions": ["MiniMax-M3[1M]"],
+      "env": {
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000"
+      }
+    },
+    {
+      "id": "stepfun",
+      "agent": "claude",
+      "name": "阶跃星辰 Step Plan",
+      "group": "cn",
+      "websiteUrl": "https://platform.stepfun.com/step-plan",
+      "apiKeyUrl": "https://platform.stepfun.com/interface-key",
+      "baseUrl": "https://api.stepfun.com/step_plan",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "step-3.5-flash-2603",
+      "models": {
+        "haiku": "step-3.5-flash-2603",
+        "sonnet": "step-3.5-flash-2603",
+        "opus": "step-3.5-flash-2603"
+      },
+      "modelOptions": ["step-3.5-flash-2603"]
+    },
+    {
+      "id": "stepfun-en",
+      "agent": "claude",
+      "name": "阶跃星辰 Step Plan（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.stepfun.ai/step-plan",
+      "apiKeyUrl": "https://platform.stepfun.ai/interface-key",
+      "baseUrl": "https://api.stepfun.ai/step_plan",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "step-3.5-flash-2603",
+      "models": {
+        "haiku": "step-3.5-flash-2603",
+        "sonnet": "step-3.5-flash-2603",
+        "opus": "step-3.5-flash-2603"
+      },
+      "modelOptions": ["step-3.5-flash-2603"]
+    },
+    {
+      "id": "qianfan-coding",
+      "agent": "claude",
+      "name": "百度千帆 Coding Plan",
+      "group": "cn",
+      "websiteUrl": "https://cloud.baidu.com/product/qianfan_modelbuilder",
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application",
+      "baseUrl": "https://qianfan.baidubce.com/anthropic/coding",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "qianfan-code-latest",
+      "models": {
+        "haiku": "qianfan-code-latest",
+        "sonnet": "qianfan-code-latest",
+        "opus": "qianfan-code-latest"
+      },
+      "modelOptions": ["qianfan-code-latest"]
+    },
+    {
+      "id": "tencent-token-plan",
+      "agent": "claude",
+      "name": "腾讯云 Token Plan",
+      "group": "cn",
+      "websiteUrl": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/tokenplan",
+      "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "tc-code-latest",
+      "models": {
+        "haiku": "tc-code-latest",
+        "sonnet": "tc-code-latest",
+        "opus": "tc-code-latest"
+      },
+      "modelOptions": ["tc-code-latest"]
+    },
+    {
+      "id": "mimo",
+      "agent": "claude",
+      "name": "小米 MiMo",
+      "group": "cn",
+      "websiteUrl": "https://platform.xiaomimimo.com/",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/api-keys",
+      "baseUrl": "https://api.xiaomimimo.com/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "mimo-v2.6-pro",
+      "models": {
+        "haiku": "mimo-v2.6-pro",
+        "sonnet": "mimo-v2.6-pro",
+        "opus": "mimo-v2.6-pro"
+      },
+      "modelOptions": ["mimo-v2.6-pro"]
+    },
+    {
+      "id": "longcat",
+      "agent": "claude",
+      "name": "美团 LongCat",
+      "group": "cn",
+      "websiteUrl": "https://longcat.chat/platform",
+      "apiKeyUrl": "https://longcat.chat/platform/api_keys",
+      "baseUrl": "https://api.longcat.chat/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "LongCat-2.0",
+      "models": {
+        "haiku": "LongCat-2.0",
+        "sonnet": "LongCat-2.0",
+        "opus": "LongCat-2.0"
+      },
+      "modelOptions": ["LongCat-2.0"],
+      "env": {
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "131072",
+        "ANTHROPIC_SMALL_FAST_MODEL": "LongCat-2.0"
+      }
+    },
+    {
+      "id": "bailing",
+      "agent": "claude",
+      "name": "蚂蚁百灵",
+      "group": "cn",
+      "websiteUrl": "https://developer.ant-ling.com/zh-CN/docs/",
+      "apiKeyUrl": "https://chat.ant-ling.com/open",
+      "baseUrl": "https://api.ant-ling.com/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "Ling-2.6-1T",
+      "models": {
+        "haiku": "Ling-2.6-1T",
+        "sonnet": "Ling-2.6-1T",
+        "opus": "Ling-2.6-1T"
+      },
+      "modelOptions": ["Ling-2.6-1T"]
+    },
+    {
+      "id": "openrouter",
+      "agent": "claude",
+      "name": "OpenRouter",
+      "group": "aggregator",
+      "websiteUrl": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "baseUrl": "https://openrouter.ai/api",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "anthropic/claude-sonnet-5",
+      "models": {
+        "haiku": "anthropic/claude-haiku-4.5",
+        "sonnet": "anthropic/claude-sonnet-5",
+        "opus": "anthropic/claude-opus-5"
+      },
+      "modelOptions": ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5", "anthropic/claude-haiku-4.5"]
+    },
+    {
+      "id": "siliconflow",
+      "agent": "claude",
+      "name": "硅基流动",
+      "group": "aggregator",
+      "websiteUrl": "https://siliconflow.cn/",
+      "baseUrl": "https://api.siliconflow.cn",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "Pro/MiniMaxAI/MiniMax-M2.5",
+      "models": {
+        "haiku": "Pro/MiniMaxAI/MiniMax-M2.5",
+        "sonnet": "Pro/MiniMaxAI/MiniMax-M2.5",
+        "opus": "Pro/MiniMaxAI/MiniMax-M2.5"
+      },
+      "modelOptions": ["Pro/MiniMaxAI/MiniMax-M2.5"]
+    },
+    {
+      "id": "siliconflow-en",
+      "agent": "claude",
+      "name": "硅基流动（国际版）",
+      "group": "aggregator",
+      "websiteUrl": "https://siliconflow.com/",
+      "baseUrl": "https://api.siliconflow.com",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "MiniMaxAI/MiniMax-M3",
+      "models": {
+        "haiku": "MiniMaxAI/MiniMax-M3",
+        "sonnet": "MiniMaxAI/MiniMax-M3",
+        "opus": "MiniMaxAI/MiniMax-M3"
+      },
+      "modelOptions": ["MiniMaxAI/MiniMax-M3"]
+    },
+    {
+      "id": "modelscope",
+      "agent": "claude",
+      "name": "魔搭 ModelScope",
+      "group": "aggregator",
+      "websiteUrl": "https://modelscope.cn/",
+      "baseUrl": "https://api-inference.modelscope.cn",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "ZhipuAI/GLM-5.2",
+      "models": {
+        "haiku": "ZhipuAI/GLM-5.2",
+        "sonnet": "ZhipuAI/GLM-5.2",
+        "opus": "ZhipuAI/GLM-5.2"
+      },
+      "modelOptions": ["ZhipuAI/GLM-5.2"]
+    },
+    {
+      "id": "aihubmix",
+      "agent": "claude",
+      "name": "AiHubMix",
+      "group": "aggregator",
+      "websiteUrl": "https://aihubmix.com/",
+      "apiKeyUrl": "https://aihubmix.com/",
+      "baseUrl": "https://aihubmix.com",
+      "apiKeyField": "ANTHROPIC_API_KEY",
+      "modelOptions": []
+    },
+    {
+      "id": "ppio",
+      "agent": "claude",
+      "name": "PPIO",
+      "group": "aggregator",
+      "websiteUrl": "https://ppio.com/",
+      "baseUrl": "https://api.ppio.com/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "models": {
+        "haiku": "deepseek/deepseek-v4-flash-0731",
+        "sonnet": "deepseek/deepseek-v4-flash-0731",
+        "opus": "deepseek/deepseek-v4-flash-0731"
+      },
+      "modelOptions": ["deepseek/deepseek-v4-flash-0731"]
+    },
+    {
+      "id": "novita",
+      "agent": "claude",
+      "name": "Novita AI",
+      "group": "aggregator",
+      "websiteUrl": "https://novita.ai/",
+      "apiKeyUrl": "https://novita.ai/",
+      "baseUrl": "https://api.novita.ai/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "zai-org/glm-5.1",
+      "models": {
+        "haiku": "zai-org/glm-5.1",
+        "sonnet": "zai-org/glm-5.1",
+        "opus": "zai-org/glm-5.1"
+      },
+      "modelOptions": ["zai-org/glm-5.1"]
+    },
+    {
+      "id": "kimi",
+      "agent": "codex",
+      "name": "Kimi",
+      "group": "cn",
+      "websiteUrl": "https://platform.kimi.com/",
+      "apiKeyUrl": "https://platform.kimi.com/console/api-keys",
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "wireApi": "responses",
+      "model": "kimi-k3",
+      "modelOptions": ["kimi-k3", "kimi-k2.7-code"],
+      "effort": "high"
+    },
+    {
+      "id": "kimi-global",
+      "agent": "codex",
+      "name": "Kimi（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.kimi.ai/",
+      "apiKeyUrl": "https://platform.kimi.ai/console/api-keys",
+      "baseUrl": "https://api.moonshot.ai/v1",
+      "wireApi": "responses",
+      "model": "kimi-k3",
+      "modelOptions": ["kimi-k3", "kimi-k2.7-code"],
+      "effort": "high"
+    },
+    {
+      "id": "kimi-coding",
+      "agent": "codex",
+      "name": "Kimi For Coding",
+      "group": "cn",
+      "websiteUrl": "https://www.kimi.com/code/",
+      "apiKeyUrl": "https://www.kimi.com/code/",
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "wireApi": "responses",
+      "model": "kimi-for-coding",
+      "modelOptions": ["kimi-for-coding", "kimi-for-coding-highspeed", "k3", "k3-256k"],
+      "effort": "high"
+    },
+    {
+      "id": "kimi-coding-global",
+      "agent": "codex",
+      "name": "Kimi For Coding（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://www.kimi.ai/code",
+      "apiKeyUrl": "https://www.kimi.ai/code",
+      "baseUrl": "https://api.kimi.ai/coding/v1",
+      "wireApi": "responses",
+      "model": "kimi-for-coding",
+      "modelOptions": ["kimi-for-coding", "kimi-for-coding-highspeed", "k3", "k3-256k"],
+      "effort": "high"
+    },
+    {
+      "id": "deepseek",
+      "agent": "codex",
+      "name": "DeepSeek",
+      "group": "cn",
+      "websiteUrl": "https://platform.deepseek.com/",
+      "apiKeyUrl": "https://platform.deepseek.com/api_keys",
+      "baseUrl": "https://api.deepseek.com",
+      "wireApi": "responses",
+      "model": "deepseek-flash",
+      "modelOptions": ["deepseek-flash", "deepseek-v4-pro"],
+      "effort": "high"
+    },
+    {
+      "id": "zhipu",
+      "agent": "codex",
+      "name": "智谱 GLM",
+      "group": "cn",
+      "websiteUrl": "https://open.bigmodel.cn/",
+      "apiKeyUrl": "https://www.bigmodel.cn/claude-code",
+      "baseUrl": "https://open.bigmodel.cn/api/v1",
+      "wireApi": "responses",
+      "model": "glm-5.3",
+      "modelOptions": ["glm-5.3", "glm-5.3-flash", "glm-5-turbo"],
+      "effort": "high"
+    },
+    {
+      "id": "zhipu-en",
+      "agent": "codex",
+      "name": "智谱 GLM（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://z.ai/",
+      "apiKeyUrl": "https://z.ai/subscribe",
+      "baseUrl": "https://api.z.ai/api/v1",
+      "wireApi": "responses",
+      "model": "glm-5.3",
+      "modelOptions": ["glm-5.3", "glm-5.3-flash"],
+      "effort": "high"
+    },
+    {
+      "id": "qwen",
+      "agent": "codex",
+      "name": "通义千问",
+      "group": "cn",
+      "websiteUrl": "https://platform.qianwenai.com/",
+      "apiKeyUrl": "https://platform.qianwenai.com/home/api-keys",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "wireApi": "responses",
+      "model": "qwen3.8-max",
+      "modelOptions": ["qwen3.8-max", "qwen3.8-2.4t-a95b", "qwen3.8-27b"],
+      "effort": "high"
+    },
+    {
+      "id": "qwen-intl",
+      "agent": "codex",
+      "name": "通义千问（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://home.qwencloud.com/",
+      "apiKeyUrl": "https://home.qwencloud.com/api-keys",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "wireApi": "responses",
+      "model": "qwen3.8-max",
+      "modelOptions": ["qwen3.8-max", "qwen3.8-flash", "qwen3.7-max", "qwen3.8-2.4t-a95b", "qwen3.8-27b"],
+      "effort": "high"
+    },
+    {
+      "id": "volcengine-coding",
+      "agent": "codex",
+      "name": "火山方舟 Coding Plan",
+      "group": "cn",
+      "websiteUrl": "https://www.volcengine.com/activity/codingplan",
+      "apiKeyUrl": "https://www.volcengine.com/activity/codingplan",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "wireApi": "responses",
+      "model": "ark-code-latest",
+      "modelOptions": ["ark-code-latest"],
+      "effort": "high"
+    },
+    {
+      "id": "volcengine-agent",
+      "agent": "codex",
+      "name": "火山方舟 Agent Plan",
+      "group": "cn",
+      "websiteUrl": "https://www.volcengine.com/activity/agentplan",
+      "apiKeyUrl": "https://www.volcengine.com/activity/agentplan",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
+      "wireApi": "responses",
+      "model": "ark-code-latest",
+      "modelOptions": ["ark-code-latest"],
+      "effort": "high"
+    },
+    {
+      "id": "volcengine",
+      "agent": "codex",
+      "name": "火山方舟（豆包）",
+      "group": "cn",
+      "websiteUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "wireApi": "responses",
+      "model": "doubao-seed-2-1-pro-260628",
+      "modelOptions": ["doubao-seed-2-1-pro-260628"],
+      "effort": "high"
+    },
+    {
+      "id": "byteplus",
+      "agent": "codex",
+      "name": "BytePlus（火山方舟国际版）",
+      "group": "cn",
+      "websiteUrl": "https://www.byteplus.com/en/product/modelark",
+      "apiKeyUrl": "https://www.byteplus.com/en/product/modelark",
+      "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+      "wireApi": "responses",
+      "model": "ark-code-latest",
+      "modelOptions": ["ark-code-latest"],
+      "effort": "high"
+    },
+    {
+      "id": "minimax",
+      "agent": "codex",
+      "name": "MiniMax",
+      "group": "cn",
+      "websiteUrl": "https://platform.minimax.cn/",
+      "apiKeyUrl": "https://platform.minimax.cn/subscribe/token-plan",
+      "baseUrl": "https://api.minimax.cn/v1",
+      "wireApi": "responses",
+      "model": "MiniMax-M3",
+      "modelOptions": ["MiniMax-M3"],
+      "effort": "high"
+    },
+    {
+      "id": "minimax-en",
+      "agent": "codex",
+      "name": "MiniMax（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.minimax.io/",
+      "apiKeyUrl": "https://platform.minimax.io/subscribe/coding-plan",
+      "baseUrl": "https://api.minimax.io/v1",
+      "wireApi": "responses",
+      "model": "MiniMax-M3",
+      "modelOptions": ["MiniMax-M3"],
+      "effort": "high"
+    },
+    {
+      "id": "stepfun-api",
+      "agent": "codex",
+      "name": "阶跃星辰 API",
+      "group": "cn",
+      "websiteUrl": "https://platform.stepfun.com/",
+      "apiKeyUrl": "https://platform.stepfun.com/interface-key",
+      "baseUrl": "https://api.stepfun.com/v1",
+      "wireApi": "responses",
+      "model": "step-3.7-flash",
+      "modelOptions": ["step-3.7-flash"],
+      "effort": "high"
+    },
+    {
+      "id": "stepfun-api-en",
+      "agent": "codex",
+      "name": "阶跃星辰 API（国际版）",
+      "group": "cn",
+      "websiteUrl": "https://platform.stepfun.ai/",
+      "apiKeyUrl": "https://platform.stepfun.ai/interface-key",
+      "baseUrl": "https://api.stepfun.ai/v1",
+      "wireApi": "responses",
+      "model": "step-3.7-flash",
+      "modelOptions": ["step-3.7-flash"],
+      "effort": "high"
+    },
+    {
+      "id": "qianfan",
+      "agent": "codex",
+      "name": "百度千帆",
+      "group": "cn",
+      "websiteUrl": "https://cloud.baidu.com/product/qianfan_modelbuilder",
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application",
+      "baseUrl": "https://qianfan.baidubce.com/v2",
+      "wireApi": "responses",
+      "model": "deepseek-v4-pro",
+      "modelOptions": ["deepseek-v4-pro", "deepseek-v4-flash"],
+      "effort": "high"
+    },
+    {
+      "id": "hunyuan",
+      "agent": "codex",
+      "name": "腾讯混元",
+      "group": "cn",
+      "websiteUrl": "https://cloud.tencent.com/product/tokenhub",
+      "apiKeyUrl": "https://console.cloud.tencent.com/tokenhub/apikey",
+      "baseUrl": "https://tokenhub.tencentmaas.com/v1",
+      "wireApi": "responses",
+      "model": "hy3",
+      "modelOptions": ["hy3", "hy4-preview", "hy3-preview"],
+      "effort": "high"
+    },
+    {
+      "id": "mimo",
+      "agent": "codex",
+      "name": "小米 MiMo",
+      "group": "cn",
+      "websiteUrl": "https://platform.xiaomimimo.com/",
+      "apiKeyUrl": "https://platform.xiaomimimo.com/#/console/api-keys",
+      "baseUrl": "https://api.xiaomimimo.com/v1",
+      "wireApi": "responses",
+      "model": "mimo-v2.6-pro",
+      "modelOptions": [
+        "mimo-v2.6-pro",
+        "mimo-v2.6-flash",
+        "mimo-v2.6-pro-ultraspeed",
+        "mimo-v2.5-pro",
+        "mimo-v2.5"
+      ],
+      "effort": "high"
+    },
+    {
+      "id": "longcat",
+      "agent": "codex",
+      "name": "美团 LongCat",
+      "group": "cn",
+      "websiteUrl": "https://longcat.chat/platform",
+      "apiKeyUrl": "https://longcat.chat/platform/api_keys",
+      "baseUrl": "https://api.longcat.chat/openai/v1",
+      "wireApi": "responses",
+      "model": "LongCat-2.0",
+      "modelOptions": ["LongCat-2.0"],
+      "effort": "high"
+    },
+    {
+      "id": "astron-coding",
+      "agent": "codex",
+      "name": "讯飞星辰 Coding Plan",
+      "group": "cn",
+      "websiteUrl": "https://maas.xfyun.cn/packageSubscription",
+      "apiKeyUrl": "https://maas.xfyun.cn/packageSubscription",
+      "baseUrl": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v1",
+      "wireApi": "responses",
+      "model": "astron-code-latest",
+      "modelOptions": ["astron-code-latest"],
+      "effort": "high"
+    },
+    {
+      "id": "openrouter",
+      "agent": "codex",
+      "name": "OpenRouter",
+      "group": "aggregator",
+      "websiteUrl": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "wireApi": "responses",
+      "model": "gpt-5.6-sol",
+      "modelOptions": ["gpt-5.6-sol"],
+      "effort": "high"
+    },
+    {
+      "id": "aihubmix",
+      "agent": "codex",
+      "name": "AiHubMix",
+      "group": "aggregator",
+      "websiteUrl": "https://aihubmix.com/",
+      "baseUrl": "https://aihubmix.com/v1",
+      "wireApi": "responses",
+      "model": "gpt-5.6-sol",
+      "modelOptions": ["gpt-5.6-sol"],
+      "effort": "high"
+    },
+    {
+      "id": "xai",
+      "agent": "codex",
+      "name": "xAI Grok",
+      "group": "global",
+      "websiteUrl": "https://x.ai/api",
+      "apiKeyUrl": "https://console.x.ai/",
+      "baseUrl": "https://api.x.ai/v1",
+      "wireApi": "responses",
+      "model": "grok-4.5",
+      "modelOptions": ["grok-4.5", "grok-4.7"],
+      "effort": "high"
+    }
+  ]
+}

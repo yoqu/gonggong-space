@@ -1,0 +1,67 @@
+{
+  "t": "ccswitch.result",
+  "requestId": "rq-6",
+  "ok": true,
+  "error": null,
+  "candidates": [],
+  "imported": ["kimi-coding-1a2b"],
+  "view": {
+    "machine": {
+      "claude": "kimi-coding-1a2b",
+      "codex": "official"
+    },
+    "bots": {
+      "22222222-2222-4222-8222-222222222222": "official"
+    },
+    "providers": [
+      {
+        "id": "kimi-coding-1a2b",
+        "agent": "claude",
+        "name": "Kimi For Coding",
+        "presetId": "kimi-coding",
+        "revision": 2,
+        "baseUrl": "https://api.kimi.com/coding/",
+        "apiKey": "****abcd",
+        "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+        "model": "kimi-for-coding",
+        "models": {
+          "haiku": "kimi-for-coding",
+          "sonnet": "kimi-for-coding"
+        },
+        "env": {
+          "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144"
+        },
+        "wireApi": null,
+        "effort": null,
+        "source": {
+          "kind": "cc-switch",
+          "id": "d1f0"
+        }
+      },
+      {
+        "id": "zhipu-9c8d",
+        "agent": "codex",
+        "name": "智谱 GLM",
+        "presetId": null,
+        "revision": 1,
+        "baseUrl": "https://open.bigmodel.cn/api/v1",
+        "apiKey": "****",
+        "apiKeyField": null,
+        "model": "glm-5.3",
+        "models": null,
+        "env": {},
+        "wireApi": "responses",
+        "effort": "high",
+        "source": null
+      }
+    ],
+    "sessions": [
+      {
+        "groupId": "11111111-1111-4111-8111-111111111111",
+        "botId": "22222222-2222-4222-8222-222222222222",
+        "agent": "claude",
+        "provider": "kimi-coding-1a2b"
+      }
+    ]
+  }
+}

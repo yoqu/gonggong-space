@@ -21,14 +21,21 @@ import {
 import {
   AgentCatalog,
   AgentInfo,
+  CcSwitchCandidate,
   DiffScope,
   FileTreeEntry,
   GitProtocol,
   MachineInfo,
   McpServer,
   PermissionOption,
+  ProviderInput,
+  ProviderStateItem,
+  ProviderStoreView,
   RepoAccessReason,
   RunEvent,
+  TOOL_VERSION,
+  ToolStatus,
+  ToolsSettings,
 } from './daemon.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
@@ -119,10 +126,67 @@ export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
   agents: z.array(AgentInfo),
   daemonVersion: z.string().nullable(),
   lastSeenAt: z.string().nullable(),
+  /** DaemonFeature values of the connected daemon; empty while offline or for daemons that predate them. */
+  features: z.array(z.string()),
 })
 export type MachineDto = z.infer<typeof MachineDto>
 /** PATCH /api/machines/:id; an empty name falls back to the hostname. */
 export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
+
+/*
+ * Agent tools and providers of a machine (owner only, relayed live to its daemon; nothing is stored server-side).
+ * Offline → 409 「机器离线」; a daemon without the feature → 409 「请先升级该机器的 daemon」.
+ *   GET    /api/machines/:id/tools                          → ToolsStateDto
+ *   POST   /api/machines/:id/tools/:kind/install  InstallToolReq → ToolOpDto (progress + result over realtime)
+ *   POST   /api/machines/:id/tools/:kind/upgrade             → ToolOpDto
+ *   PUT    /api/machines/:id/tools/settings   ToolsSettings  → ToolsStateDto
+ *   GET    /api/machines/:id/providers                      → ProviderStoreView
+ *   GET    /api/machines/:id/providers/presets?agent=        → ProviderPreset[]
+ *   POST   /api/machines/:id/providers        SaveProviderReq → ProviderSavedDto
+ *   PUT    /api/machines/:id/providers/:pid   SaveProviderReq → ProviderSavedDto
+ *   DELETE /api/machines/:id/providers/:pid                 → ProviderStoreView
+ *   PUT    /api/machines/:id/providers/default  UseProviderReq → ProviderStoreView
+ *   POST   /api/machines/:id/providers/import-link ImportLinkReq → ProviderSavedDto
+ *   GET    /api/machines/:id/ccswitch                       → CcSwitchPreviewDto
+ *   POST   /api/machines/:id/ccswitch/apply   CcSwitchApplyReq → CcSwitchImportedDto
+ *   PUT    /api/bots/:id/provider             BotProviderReq  → ProviderStoreView (bot owner who owns its machine)
+ *   GET    /api/bots/:id/catalog                            → BotCatalogDto (its owner, sysadmins and its groups' members)
+ *   GET    /api/groups/:id/provider-state                   → GroupProviderStateDto
+ */
+export const ToolsStateDto = z.object({ tools: z.array(ToolStatus), settings: ToolsSettings })
+export type ToolsStateDto = z.infer<typeof ToolsStateDto>
+export const InstallToolReq = z.object({ version: z.string().regex(TOOL_VERSION).optional() })
+/** A started install / upgrade: its lines arrive as machine.tools.progress, its end as machine.tools.result. */
+export const ToolOpDto = z.object({ opId: z.string() })
+export type ToolOpDto = z.infer<typeof ToolOpDto>
+export const SaveProviderReq = ProviderInput.omit({ id: true }).extend({
+  setDefault: z.boolean().default(false),
+})
+export type SaveProviderReq = z.input<typeof SaveProviderReq>
+export const ProviderSavedDto = z.object({ id: z.string(), view: ProviderStoreView })
+export type ProviderSavedDto = z.infer<typeof ProviderSavedDto>
+/** `choice`: a provider id of `agent` or `official`. */
+export const UseProviderReq = z.object({ agent: AgentKind, choice: z.string().min(1) })
+/** `choice`: a provider id of the bot's agent, `official` or `inherit`. */
+export const BotProviderReq = z.object({ choice: z.string().min(1) })
+/** What a new session of the bot may pick: asked live of its machine, else what it reported. */
+export const BotCatalogDto = z.object({ catalog: AgentCatalog.nullable() })
+export type BotCatalogDto = z.infer<typeof BotCatalogDto>
+export const ImportLinkReq = z.object({
+  link: z.string().trim().startsWith('ccswitch://').max(16_384),
+  setDefault: z.boolean().default(false),
+})
+export const CcSwitchPreviewDto = z.object({ candidates: z.array(CcSwitchCandidate) })
+export type CcSwitchPreviewDto = z.infer<typeof CcSwitchPreviewDto>
+export const CcSwitchApplyReq = z.object({
+  keys: z.array(z.string()).min(1),
+  setDefault: z.boolean().default(false),
+})
+export const CcSwitchImportedDto = z.object({ imported: z.array(z.string()), view: ProviderStoreView })
+export type CcSwitchImportedDto = z.infer<typeof CcSwitchImportedDto>
+/** The group's bots whose session keeps an older provider (群聊横条); memory only, empty while their machine is offline. */
+export const GroupProviderStateDto = z.object({ items: z.array(ProviderStateItem.omit({ groupId: true })) })
+export type GroupProviderStateDto = z.infer<typeof GroupProviderStateDto>
 
 // ── Bots ────────────────────────────────────────────────────────────────────
 export const BotBinding = z.enum(['pending_bind', 'pending_confirm', 'bound'])
@@ -1156,5 +1220,23 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('group.removed'), groupId: z.string() }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
   z.object({ t: z.literal('machine.removed'), machineId: z.string() }),
+  /** Owner only: a line of a running tools install / upgrade. */
+  z.object({
+    t: z.literal('machine.tools.progress'),
+    machineId: z.string(),
+    opId: z.string(),
+    line: z.string(),
+  }),
+  /** Owner only: the install / upgrade ended; `state` null when the machine went offline or never answered. */
+  z.object({
+    t: z.literal('machine.tools.result'),
+    machineId: z.string(),
+    opId: z.string(),
+    ok: z.boolean(),
+    error: z.string().nullable(),
+    state: ToolsStateDto.nullable(),
+  }),
+  /** Group members: replaces the group's provider banner items. */
+  GroupProviderStateDto.extend({ t: z.literal('group.providerState'), groupId: z.string() }),
 ])
 export type WebEvent = z.infer<typeof WebEvent>

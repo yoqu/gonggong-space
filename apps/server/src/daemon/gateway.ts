@@ -124,7 +124,7 @@ export function daemonGateway(ctx: Ctx) {
         if (ws.readyState !== ws.OPEN) return
         armTimeout()
         send(ws, { t: 'welcome', machineId, heartbeatSec: ctx.config.heartbeatSec, upgrade, tunnel: true })
-        ctx.hub.register(machineId, conn)
+        ctx.hub.register(machineId, conn, hello.features)
       })
     })
   }

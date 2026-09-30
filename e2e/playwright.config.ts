@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+import { SERVER_LOG } from './helpers'
 
 const SERVER_PORT = 8790
 const WEB_PORT = 5190
@@ -17,9 +18,10 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure' },
   webServer: [
     {
-      command: 'bash ../scripts/pg.sh reset gonggong_e2e && pnpm --filter @gonggong/server start',
+      command: `bash ../scripts/pg.sh reset gonggong_e2e && pnpm --filter @gonggong/server start 2>&1 | tee ${SERVER_LOG}`,
       env: {
         PORT: String(SERVER_PORT),
+        GONGGONG_LOG: '1',
         GONGGONG_DB: 'gonggong_e2e',
         GONGGONG_ADMIN_PASSWORD: 'admin-init-pass',
       },

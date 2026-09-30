@@ -26,7 +26,7 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
     [AgentKind::Claude, AgentKind::Codex]
         .into_iter()
         .map(|kind| {
-            let mut info = detect_one(kind, local);
+            let mut info = detect_one(home, kind, local);
             let key = catalog_key(kind, info.version.as_deref());
             info.catalog = cached.get(&kind).filter(|c| info.available && c.key == key).map(|c| c.catalog.clone());
             info
@@ -40,22 +40,31 @@ pub fn catalog_key(kind: AgentKind, version: Option<&str>) -> String {
     format!("{}+{adapter}", version.unwrap_or("?"))
 }
 
-fn detect_one(kind: AgentKind, local: &LocalSettings) -> AgentInfo {
-    let path = locate(kind, local);
+fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentInfo {
+    let path = locate(home, kind, local);
     let available = path.as_deref().is_some_and(Path::is_file);
+    let tool = match kind {
+        AgentKind::Claude => crate::tools::ToolKind::Claude,
+        AgentKind::Codex => crate::tools::ToolKind::Codex,
+    };
     AgentInfo {
         kind,
         available,
-        version: path.as_deref().filter(|_| available).and_then(version),
+        version: path.as_deref().filter(|_| available).and_then(|p| version(home, p)),
+        managed: path.as_deref().filter(|_| available).is_some_and(|p| crate::tools::is_managed(home, p)),
         path: path.map(|p| p.to_string_lossy().into_owned()),
         min_version: Some(min_version(kind).into()),
         catalog: None,
+        latest: crate::tools::cached_latest(home, tool),
     }
 }
 
-/// The agent CLI to run: the configured path (even if it no longer exists, so the error names it), else a search.
-pub fn locate(kind: AgentKind, local: &LocalSettings) -> Option<PathBuf> {
-    local.agent(kind).path.map(PathBuf::from).or_else(|| find(binary(kind)))
+/// The agent CLI to run: the configured path (even if it no longer exists, so the error names it), else the
+/// Gonggong-managed install, else a search.
+pub fn locate(home: &Path, kind: AgentKind, local: &LocalSettings) -> Option<PathBuf> {
+    let managed =
+        || file_names(binary(kind)).into_iter().map(|n| crate::tools::tools_bin(home).join(n)).find(|p| p.is_file());
+    local.agent(kind).path.map(PathBuf::from).or_else(managed).or_else(|| find(binary(kind)))
 }
 
 pub fn find(bin: &str) -> Option<PathBuf> {
@@ -71,7 +80,7 @@ pub fn find(bin: &str) -> Option<PathBuf> {
 
 /// Windows can only run `.exe` files and (via cmd.exe) the `.cmd` shims npm installs; the extensionless file npm
 /// puts next to them is a sh script.
-fn file_names(bin: &str) -> Vec<String> {
+pub(crate) fn file_names(bin: &str) -> Vec<String> {
     if cfg!(windows) { vec![format!("{bin}.exe"), format!("{bin}.cmd")] } else { vec![bin.into()] }
 }
 
@@ -118,9 +127,14 @@ fn marked_path(out: &str) -> Option<String> {
     Some(rest[..rest.find(PATH_MARK)?].to_string()).filter(|p| !p.is_empty())
 }
 
-/// First semver-looking token of `<bin> --version`, e.g. "codex-cli 0.156.1" → "0.156.1".
-fn version(path: &Path) -> Option<String> {
-    let out = Command::new(path).arg("--version").output().ok()?;
+/// First semver-looking token of `<bin> --version`, e.g. "codex-cli 0.156.1" → "0.156.1". npm installs the CLIs as
+/// node scripts, so the managed Node goes first on PATH.
+fn version(home: &Path, path: &Path) -> Option<String> {
+    let mut cmd = Command::new(path);
+    if let Some(bin) = crate::tools::runtime_bin(home) {
+        cmd.env("PATH", crate::tools::prepend_path(&bin));
+    }
+    let out = cmd.arg("--version").output().ok()?;
     parse_version(&String::from_utf8_lossy(&out.stdout))
 }
 
@@ -232,6 +246,25 @@ mod tests {
         let fresh = CachedCatalog { key: catalog_key(AgentKind::Claude, Some("2.1.4")), catalog: catalog.clone() };
         save_catalog(home.path(), AgentKind::Claude, fresh).unwrap();
         assert_eq!(claude(home.path()).catalog, Some(catalog));
+    }
+
+    #[test]
+    fn prefers_the_configured_path_then_the_managed_install_then_the_search() {
+        use super::locate;
+        use crate::local::{AgentSettings, LocalSettings};
+        use crate::protocol::AgentKind;
+        let home = tempfile::tempdir().unwrap();
+        let bin = crate::tools::tools_bin(home.path());
+        std::fs::create_dir_all(&bin).unwrap();
+        for name in file_names("codex") {
+            std::fs::write(bin.join(name), "").unwrap();
+        }
+        let managed = bin.join(&file_names("codex")[0]);
+        let mut local = LocalSettings::default();
+        assert_eq!(locate(home.path(), AgentKind::Codex, &local), Some(managed));
+        let manual = std::env::current_exe().unwrap();
+        local.agents.insert(AgentKind::Codex, AgentSettings { path: Some(manual.to_string_lossy().into()) });
+        assert_eq!(locate(home.path(), AgentKind::Codex, &local), Some(manual));
     }
 
     #[test]

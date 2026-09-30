@@ -66,11 +66,47 @@ impl Config {
 pub struct Settings {
     /// Off = the persistent form of `GONGGONG_NO_AUTO_UPGRADE=1`.
     pub auto_upgrade: bool,
+    /// Where Node and the agent CLIs are downloaded from.
+    pub mirror: Mirror,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { auto_upgrade: true }
+        Settings { auto_upgrade: true, mirror: Mirror::default() }
+    }
+}
+
+/// Download source of the managed tools (npm registry and Node binaries); npmmirror by default since the official
+/// ones are often unreachable in China.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum Mirror {
+    #[default]
+    Npmmirror,
+    Official,
+    Custom {
+        registry: String,
+        node: String,
+    },
+}
+
+impl Mirror {
+    /// npm registry base URL, without a trailing slash.
+    pub fn registry(&self) -> &str {
+        match self {
+            Mirror::Npmmirror => "https://registry.npmmirror.com",
+            Mirror::Official => "https://registry.npmjs.org",
+            Mirror::Custom { registry, .. } => registry.trim_end_matches('/'),
+        }
+    }
+
+    /// Base URL of the Node distribution (`<base>/index.json`, `<base>/v<ver>/…`), without a trailing slash.
+    pub fn node_dist(&self) -> &str {
+        match self {
+            Mirror::Npmmirror => "https://npmmirror.com/mirrors/node",
+            Mirror::Official => "https://nodejs.org/dist",
+            Mirror::Custom { node, .. } => node.trim_end_matches('/'),
+        }
     }
 }
 
@@ -104,13 +140,31 @@ fn restrict_permissions(_: &std::path::Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::Settings;
+    use super::{Mirror, Settings};
 
     #[test]
     fn settings_default_to_auto_upgrade_and_round_trip() {
         let home = tempfile::tempdir().unwrap();
         assert!(Settings::load(home.path()).unwrap().auto_upgrade);
-        Settings { auto_upgrade: false }.save(home.path()).unwrap();
+        Settings { auto_upgrade: false, ..Settings::default() }.save(home.path()).unwrap();
         assert!(!Settings::load(home.path()).unwrap().auto_upgrade);
+    }
+
+    #[test]
+    fn mirror_defaults_to_npmmirror_and_round_trips() {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::write(home.path().join("settings.json"), r#"{"autoUpgrade":false}"#).unwrap();
+        let settings = Settings::load(home.path()).unwrap();
+        assert_eq!(settings.mirror, Mirror::Npmmirror);
+        assert_eq!(settings.mirror.registry(), "https://registry.npmmirror.com");
+        assert_eq!(settings.mirror.node_dist(), "https://npmmirror.com/mirrors/node");
+        assert_eq!(Mirror::Official.registry(), "https://registry.npmjs.org");
+        assert_eq!(Mirror::Official.node_dist(), "https://nodejs.org/dist");
+
+        let custom = Mirror::Custom { registry: "http://r.local/".into(), node: "http://n.local/node/".into() };
+        assert_eq!(custom.registry(), "http://r.local");
+        assert_eq!(custom.node_dist(), "http://n.local/node");
+        Settings { mirror: custom.clone(), ..settings }.save(home.path()).unwrap();
+        assert_eq!(Settings::load(home.path()).unwrap().mirror, custom);
     }
 }

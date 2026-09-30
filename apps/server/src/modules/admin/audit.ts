@@ -24,6 +24,13 @@ const VOID_REASON: Record<string, string> = {
 }
 const MCP: Record<string, string> = { 'mcp.create': '添加', 'mcp.update': '修改', 'mcp.delete': '删除' }
 const ROLE: Record<string, string> = { sysadmin: '系统管理员', member: '普通成员' }
+const TOOL: Record<string, string> = { node: 'Node.js', claude: 'Claude Code', codex: 'Codex' }
+const PROVIDERS: Record<string, string> = {
+  'machine.providers.save': '保存机器的供应商',
+  'machine.providers.remove': '删除机器的供应商',
+  'machine.providers.default': '修改机器的默认供应商',
+  'machine.providers.import': '导入机器的供应商',
+}
 
 const paramValue = (v: unknown, unit: string) => (v === null ? '未设置' : `${v}${unit}`)
 
@@ -78,6 +85,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
       }
       break
     case 'admin':
+      if (row.action in PROVIDERS) return PROVIDERS[row.action] as string
       if (row.action in MCP)
         return `${MCP[row.action]}全局层 MCP：${d.enabled === false ? '停用' : '启用'} ${str(d.name)} · ${d.forceNewSession ? '已勾选' : '未勾选'}强制新会话`
       switch (row.action) {
@@ -117,6 +125,13 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return `吊销 ${n.user(d.ownerId)} 的机器 ${str(d.name)}`
         case 'machine.transfer':
           return `将 ${n.user(d.fromOwnerId)} 的机器 ${str(d.name)} 转移到名下`
+        case 'machine.tools.install':
+        case 'machine.tools.upgrade':
+          return `${row.action.endsWith('install') ? '安装' : '升级'} ${TOOL[str(d.kind)] ?? str(d.kind)}`
+        case 'machine.tools.settings':
+          return '修改 Agent 工具的镜像源'
+        case 'bot.provider':
+          return `设置 Bot ${n.bot(d.botId)} 的供应商`
         case 'params.update':
           return `修改系统参数：${paramChanges(d)}`
         case 'group.update':

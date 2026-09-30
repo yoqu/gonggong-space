@@ -1,0 +1,19 @@
+{
+  "t": "providers.result",
+  "requestId": "rq-8",
+  "ok": true,
+  "error": null,
+  "catalog": {
+    "models": [
+      {
+        "value": "kimi-for-coding",
+        "name": "kimi-for-coding",
+        "efforts": [],
+        "effort": null
+      }
+    ],
+    "current": "kimi-for-coding",
+    "efforts": [],
+    "effort": null
+  }
+}

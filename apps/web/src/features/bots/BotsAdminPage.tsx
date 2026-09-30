@@ -1,4 +1,12 @@
-import type { BotDto, Tier, TriggerScope, UsageRowDto, UserBriefDto, UserDto } from '@gonggong/protocol'
+import type {
+  AgentCatalog,
+  BotDto,
+  Tier,
+  TriggerScope,
+  UsageRowDto,
+  UserBriefDto,
+  UserDto,
+} from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -32,6 +40,7 @@ import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
 import { BotAvatar, RolePicker, roleHint } from './avatars'
+import { BotProviderField } from './BotProvider'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
   AGENT_LABEL,
@@ -114,6 +123,8 @@ export function BotDetail({
   const [list, setList] = useState(bot.triggerList)
   const [tier, setTier] = useState<Tier>(bot.tier)
   const [config, setConfig] = useState<AgentConfig>({ model: bot.model, effort: bot.effort })
+  /** Models of the third-party provider in effect; null = the adapter's own catalog. */
+  const [providerCatalog, setProviderCatalog] = useState<AgentCatalog | null>(null)
   const [concurrency, setConcurrency] = useState(bot.concurrency)
   const [approval, setApproval] = useState<ApprovalValue>({
     approval: bot.approval,
@@ -252,7 +263,13 @@ export function BotDetail({
           </FormRow>
         ) : null}
 
-        <AgentConfigFields catalog={bot.catalog} value={config} disabled={!canEdit} onChange={setConfig} />
+        {bot.machineId ? <BotProviderField bot={bot} me={me} onCatalog={setProviderCatalog} /> : null}
+        <AgentConfigFields
+          catalog={providerCatalog ?? bot.catalog}
+          value={config}
+          disabled={!canEdit}
+          onChange={setConfig}
+        />
 
         <FormRow label="触发范围" hint={tier === 'full' ? FULL_HINT : undefined}>
           <div title={tier === 'full' ? FULL_HINT : undefined}>
@@ -439,7 +456,14 @@ export function BotsAdminPage() {
                     <Tag tone="orange">{BINDING_LABEL[b.binding]}</Tag>
                   ),
               },
-              { key: 'machineName', title: '机器', width: 'minmax(0, 200px)', mono: true, secondary: true, sortable: true },
+              {
+                key: 'machineName',
+                title: '机器',
+                width: 'minmax(0, 200px)',
+                mono: true,
+                secondary: true,
+                sortable: true,
+              },
               {
                 key: 'presence',
                 title: '状态',

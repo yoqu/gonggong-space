@@ -1,3 +1,4 @@
+import type { Writable } from 'node:stream'
 import { hash } from '@node-rs/argon2'
 import type { FastifyInstance } from 'fastify'
 import WebSocket from 'ws'
@@ -28,7 +29,7 @@ const unreachableLiveKit: LiveKit = {
 
 /** Real app on an ephemeral port + fresh DB + direct-to-DB seed helpers. */
 export async function createTestApp(
-  opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit } = {},
+  opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit; logStream?: Writable } = {},
 ) {
   const t = await createTestDb()
   const ctx: Ctx = {
@@ -45,7 +46,7 @@ export async function createTestApp(
       preview: { domain: null, ports: [0, 0], publicUrl: null },
     },
   }
-  const app: FastifyInstance = await buildApp(ctx)
+  const app: FastifyInstance = await buildApp(ctx, { logStream: opts.logStream })
   await app.listen({ port: 0, host: '127.0.0.1' })
   const port = (app.server.address() as { port: number }).port
   let n = 0

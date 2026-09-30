@@ -194,9 +194,119 @@ export interface NetResult {
   bandwidthMbps: number
 }
 
+/** 镜像源 of Node.js and the agent CLIs. */
+export type Mirror =
+  | { kind: 'npmmirror' }
+  | { kind: 'official' }
+  | { kind: 'custom'; registry: string; node: string }
+
 export interface Settings {
   autoUpgrade: boolean
   launchAtLogin: boolean
+  mirror: Mirror
+}
+
+export type ToolKind = 'node' | AgentKind
+
+/** Node.js or an agent CLI as a managed tool (design §4.1). */
+export interface ToolStatus {
+  kind: ToolKind
+  installed: boolean
+  version: string | null
+  /** Latest on the mirror; null when it could not be checked. */
+  latest: string | null
+  /** Installed by Gonggong (共工托管) rather than by the user (自行安装). */
+  managed: boolean
+  path: string | null
+}
+
+export type ToolOp = 'install' | 'upgrade'
+
+export interface ModelMap {
+  haiku?: string | null
+  sonnet?: string | null
+  opus?: string | null
+}
+
+/** A local provider as the page sees it: `apiKey` is masked (`****abcd`). */
+export interface ProviderView {
+  id: string
+  agent: AgentKind
+  name: string
+  presetId: string | null
+  revision: number
+  baseUrl: string
+  apiKey: string
+  apiKeyField: string | null
+  model: string | null
+  models: ModelMap | null
+  env: Record<string, string>
+  wireApi: string | null
+  effort: string | null
+  source: { kind: 'cc-switch' | 'link'; id?: string } | null
+}
+
+/** `official`, a provider id, or (bots) `inherit`. */
+export type ProviderChoice = string
+
+export interface Providers {
+  /** Machine default per agent; absent = official. */
+  machine: Partial<Record<AgentKind, ProviderChoice>>
+  /** Per-bot override; absent = inherit the machine default. */
+  bots: Record<string, ProviderChoice>
+  providers: ProviderView[]
+  /** This machine has CC Switch (~/.cc-switch) to import from. */
+  ccSwitch: boolean
+}
+
+/** A built-in vendor (CC Switch presets). */
+export interface Preset {
+  id: string
+  agent: AgentKind
+  name: string
+  group: 'cn' | 'aggregator' | 'global'
+  websiteUrl: string | null
+  apiKeyUrl: string | null
+  baseUrl: string
+  model: string | null
+  models: ModelMap | null
+  modelOptions: string[]
+  env: Record<string, string>
+}
+
+/** The provider form; an empty `apiKey` keeps the stored key when editing. */
+export interface ProviderDraft {
+  id: string | null
+  agent: AgentKind
+  presetId: string | null
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string | null
+  models: ModelMap | null
+  env: Record<string, string>
+}
+
+/** A CC Switch provider that can be imported, key masked. */
+export interface Candidate {
+  key: string
+  agent: AgentKind
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string | null
+  /** CC Switch's current provider for that agent. */
+  current: boolean
+  /** The local provider it would update. */
+  existing: string | null
+}
+
+/** A group's session that keeps `from` after a switch until a new session starts on `to`. */
+export interface Impact {
+  group: string
+  bot: string
+  from: string
+  to: string
 }
 
 export interface AgentCard extends AgentInfo {
@@ -223,6 +333,7 @@ export const ipc = {
   runProcess: (runId: string) => invoke<RunProcess | null>('run_process', { runId }),
   settings: () => invoke<Settings>('get_settings'),
   setAutoUpgrade: (on: boolean) => invoke<void>('set_auto_upgrade', { on }),
+  setMirror: (mirror: Mirror) => invoke<void>('set_mirror', { mirror }),
   setLaunchAtLogin: (on: boolean) => invoke<void>('set_launch_at_login', { on }),
   unbind: () => invoke<void>('unbind'),
   workspaces: () => invoke<Workspaces>('workspaces'),
@@ -239,6 +350,25 @@ export const ipc = {
   /** Resolves false when the file dialog was cancelled. */
   pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
   resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),
+  tools: () => invoke<ToolStatus[]>('tools'),
+  /** Output lines arrive through `onToolProgress(opId, …)`. */
+  runTool: (op: ToolOp, kind: ToolKind, opId: string) => invoke<ToolStatus>('run_tool', { op, kind, opId }),
+  providers: () => invoke<Providers>('providers'),
+  providerPresets: () => invoke<Preset[]>('provider_presets'),
+  /** Resolves with the provider id. */
+  saveProvider: (draft: ProviderDraft) => invoke<string>('save_provider', { draft }),
+  removeProvider: (id: string) => invoke<void>('remove_provider', { id }),
+  /** The machine default of `agent`, or `bot`'s override. */
+  chooseProvider: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
+    invoke<void>('choose_provider', { agent, choice, bot: bot ?? null }),
+  providerImpact: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
+    invoke<Impact[]>('provider_impact', { agent, choice, bot: bot ?? null }),
+  ccswitchPreview: () => invoke<Candidate[]>('ccswitch_preview'),
+  /** Resolves with the local ids, in the order of `keys`. */
+  ccswitchImport: (keys: string[]) => invoke<string[]>('ccswitch_import', { keys }),
+  importProviderLink: (link: string) => invoke<ProviderView>('import_provider_link', { link }),
+  /** 获取 Key: the preset's key page in the default browser. */
+  openKeyPage: (agent: AgentKind, presetId: string) => invoke<void>('open_key_page', { agent, presetId }),
   bots: () => invoke<MachineBot[]>('bots'),
   /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
   openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),
@@ -258,6 +388,12 @@ export const ipc = {
 
 export function onSnapshot(cb: (s: Snapshot) => void): Promise<UnlistenFn> {
   return listen<Snapshot>('daemon://snapshot', (e) => cb(e.payload))
+}
+
+export function onToolProgress(opId: string, cb: (line: string) => void): Promise<UnlistenFn> {
+  return listen<{ opId: string; line: string }>('tools://progress', (e) => {
+    if (e.payload.opId === opId) cb(e.payload.line)
+  })
 }
 
 /** URLs this app is opened with (`gonggong://bind?…`): the one it was launched with, then every later one. */

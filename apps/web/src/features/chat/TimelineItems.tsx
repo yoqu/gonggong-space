@@ -73,6 +73,7 @@ const NEW_SESSION: Record<string, string | null> = {
   resume_failed: '会话恢复失败，已开新会话并补送最近 50 条群消息',
   requested: '已按要求开启新会话',
   config_changed: '本轮因配置变更开启新会话',
+  provider_removed: '原供应商已删除，已开启新会话',
 }
 export const newSessionNote = (reason: string | null) =>
   reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason

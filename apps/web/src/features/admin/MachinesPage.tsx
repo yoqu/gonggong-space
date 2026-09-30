@@ -12,13 +12,16 @@ import {
   SearchField,
   Spinner,
   Table,
+  Tag,
   ToolbarButton,
   ToolbarGroup,
 } from '../../ui'
 import { errorText } from '../auth/AuthCard'
+import { AGENT_LABEL } from '../machines/BindMachineDialog'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
+import { hasUpdate } from '../machines/ToolsPanel'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
 
@@ -155,6 +158,32 @@ export function MachinesPage() {
                 m.daemonVersion ? (
                   <span className={outdated(m) ? 'admin-table__warn' : undefined}>v{m.daemonVersion}</span>
                 ) : null,
+            },
+            {
+              key: 'agents',
+              title: 'Agent 版本',
+              width: 300,
+              secondary: true,
+              render: (m) => (
+                <span className="admin-agents">
+                  {m.agents
+                    .filter((a) => a.available)
+                    .map((a) => (
+                      <span
+                        key={a.kind}
+                        className="admin-agent"
+                        title={
+                          a.latest
+                            ? `最新版本 ${a.latest} · ${a.managed ? '共工托管' : '自行安装'}`
+                            : undefined
+                        }
+                      >
+                        {AGENT_LABEL[a.kind]} {a.version}
+                        {hasUpdate(a) ? <Tag tone="orange">可升级</Tag> : null}
+                      </span>
+                    ))}
+                </span>
+              ),
             },
             {
               key: 'latencyMs',
