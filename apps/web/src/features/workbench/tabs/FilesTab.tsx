@@ -95,7 +95,9 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   const root = useRef<HTMLDivElement>(null)
   const treeRef = useRef<HTMLDivElement>(null)
   const wide = useWide(root, WIDE_PX)
+  // Narrow: the tree replaces the file while open. Wide: it sits beside the file unless collapsed.
   const [treeOpen, setTreeOpen] = useState(!tab.selected)
+  const [collapsed, setCollapsed] = useState(false)
   const [ignored, setIgnored] = useState(false)
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState(() => new Set(chain(tab.dir)))
@@ -104,7 +106,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
     ...expanded,
   ])
   const hits = useSearch(groupId, tab.botId, query)
-  const showTree = wide || treeOpen
+  const showTree = wide ? !collapsed : treeOpen
 
   // Navigating to a folder (breadcrumbs, 在文件浏览器中定位) reveals it.
   useEffect(() => {
@@ -233,16 +235,15 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   return (
     <div ref={root} className="wt-files" data-layout={wide ? 'wide' : 'narrow'}>
       <div className="wt-files__bar">
-        {wide ? null : (
-          <Button
-            size="small"
-            variant="plain"
-            icon="sidebar"
-            aria-label="目录"
-            aria-pressed={treeOpen}
-            onClick={() => setTreeOpen((o) => !o)}
-          />
-        )}
+        <Button
+          size="small"
+          variant="plain"
+          icon="sidebar"
+          aria-label="目录"
+          title={showTree ? '收起目录' : '展开目录'}
+          aria-pressed={showTree}
+          onClick={() => (wide ? setCollapsed((c) => !c) : setTreeOpen((o) => !o))}
+        />
         <PathControl className="wt-files__path" items={crumbs} onSelect={(dir) => patch(tabKey, { dir })} />
         <SearchField
           className="wt-files__search"
@@ -250,7 +251,10 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           value={query}
           onChange={(q) => {
             setQuery(q)
-            if (q.trim()) setTreeOpen(true)
+            if (q.trim()) {
+              setTreeOpen(true)
+              setCollapsed(false)
+            }
           }}
         />
         <Button size="small" variant="plain" icon="arrow-clockwise" aria-label="刷新" onClick={reload} />

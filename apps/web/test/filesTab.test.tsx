@@ -217,6 +217,19 @@ describe('files tab', () => {
     expect(current().at(-1)).toEqual({ kind: 'file', source: { botId: 'b1', path: 'src/main.ts' } })
   })
 
+  it('collapses and expands the tree when wide, keeping the file in view', async () => {
+    openFiles({ dir: 'src', selected: 'src/main.ts' })
+    await files().findByText('console.log(a)')
+    const toggle = files().getByRole('button', { name: '目录' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(toggle)
+    expect(screen.queryByRole('tree', { name: '文件' })).toBeNull()
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(document.querySelector('.pv-lines')?.textContent).toContain('console.log(a)')
+    fireEvent.click(toggle)
+    expect(screen.getByRole('tree', { name: '文件' })).toBeTruthy()
+  })
+
   it('folds the tree into a toggleable panel when narrow', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500)
     openFiles({ dir: 'src', selected: 'src/main.ts' })

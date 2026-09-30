@@ -212,9 +212,10 @@
 .ft__row:hover {
   background: var(--control-track);
 }
+/* Solid accent with white text, icons and marks included (their own colours would vanish on blue). */
 .ft__row[aria-selected="true"] {
   background: var(--accent-fill);
-  color: var(--accent-text);
+  color: var(--on-accent);
 }
 .ft__row:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -251,6 +252,11 @@
   font-size: var(--text-caption-size);
   font-weight: 600;
   color: var(--system-orange);
+}
+.ft__row[aria-selected="true"] > svg,
+.ft__row[aria-selected="true"] .ft__chevron,
+.ft__row[aria-selected="true"] .ft__mark {
+  color: inherit;
 }
 .ft__note {
   display: flex;
