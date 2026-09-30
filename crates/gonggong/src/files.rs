@@ -23,15 +23,22 @@ pub async fn list(dir: &Path, query: &str, limit: usize) -> Result<Vec<FileEntry
 }
 
 /// `git ls-files` (tracked + untracked, not ignored) → path → uncommitted; files deleted in the work tree are left out.
+/// Checked-out submodules contribute their own files instead of their commit pointer.
 async fn tracked(dir: &Path) -> Result<BTreeMap<String, bool>, String> {
+    let subs = git::submodules(dir).await;
     let changed = git::porcelain(dir).await?;
     let raw = git(dir, &["ls-files", "-z", "--cached", "--others", "--exclude-standard"]).await?;
-    Ok(raw
+    let mut files: BTreeMap<String, bool> = raw
         .split('\0')
-        .filter(|p| !p.is_empty() && !p.starts_with(git::PRIVATE_DIR))
+        .filter(|p| !p.is_empty() && !p.starts_with(git::PRIVATE_DIR) && !subs.contains(*p))
         .filter(|p| !changed.get(*p).is_some_and(|xy| xy.contains('D')))
         .map(|p| (p.to_string(), changed.contains_key(p)))
-        .collect())
+        .collect();
+    for sub in &subs {
+        let inner = Box::pin(tracked(&dir.join(sub))).await?;
+        files.extend(inner.into_iter().map(|(p, u)| (format!("{sub}/{p}"), u)));
+    }
+    Ok(files)
 }
 
 async fn walk(root: std::path::PathBuf) -> Result<BTreeMap<String, bool>, String> {
@@ -142,6 +149,17 @@ mod tests {
         run(&w, &["add", "-A"]);
         run(&w, &["commit", "-q", "-m", "c"]);
         assert!(list(&w, "handler", 10).await.unwrap().iter().all(|e| !e.uncommitted));
+    }
+
+    #[tokio::test]
+    async fn submodule_files_are_listed_in_place_of_the_submodule_pointer() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        r.add_submodule(&w, "lib", "vendor/lib");
+        fs::write(w.join("vendor/lib/b.txt"), "x").unwrap();
+        let all = list(&w, "vendor", 10).await.unwrap();
+        assert_eq!(paths(&all), ["vendor/", "vendor/lib/", "vendor/lib/a.txt", "vendor/lib/b.txt"]);
+        assert!(all.iter().all(|e| e.dir || e.uncommitted == (e.path == "vendor/lib/b.txt")));
     }
 
     #[tokio::test]

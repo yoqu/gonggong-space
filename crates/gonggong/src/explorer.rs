@@ -61,7 +61,7 @@ pub async fn tree(root: &Path, rel: &str, show_ignored: bool) -> Result<(Vec<Tre
     .map_err(|e| format!("读取目录失败：{e}"))?;
     for e in &mut entries {
         e.ignored = marks.ignored.contains(&e.name);
-        e.uncommitted = marks.changed.contains(&e.name);
+        e.uncommitted = marks.untracked || marks.changed.contains(&e.name);
     }
     entries.retain(|e| show_ignored || !e.ignored);
     entries.sort_by(|a, b| b.dir.cmp(&a.dir).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
@@ -75,10 +75,24 @@ pub async fn tree(root: &Path, rel: &str, show_ignored: bool) -> Result<(Vec<Tre
 struct Marks {
     ignored: HashSet<String>,
     changed: HashSet<String>,
+    /// The directory (or one above it) is untracked, so is everything in it.
+    untracked: bool,
 }
 
 impl Marks {
+    /// Asked of the innermost checked-out submodule holding `prefix`: git refuses pathspecs inside a submodule.
     async fn of(root: &Path, prefix: &str) -> Result<Self, String> {
+        let (mut root, mut prefix) = (root.to_path_buf(), prefix.to_string());
+        'descend: loop {
+            for sub in git::submodules(&root).await {
+                if let Some(rest) = prefix.strip_prefix(&sub).filter(|r| r.is_empty() || r.starts_with('/')) {
+                    (root, prefix) = (root.join(&sub), rest.trim_start_matches('/').to_string());
+                    continue 'descend;
+                }
+            }
+            break;
+        }
+        let (root, prefix) = (root.as_path(), prefix.as_str());
         let spec = if prefix.is_empty() { ".".to_string() } else { format!(":(literal){prefix}") };
         let args = ["status", "--porcelain=v1", "-z", "--ignored=matching", "--untracked-files=normal", "--", &spec];
         let raw = git(root, &args).await?;
@@ -89,6 +103,9 @@ impl Marks {
             let (xy, path) = t.split_at(3.min(t.len()));
             if xy.contains(['R', 'C']) {
                 tokens.next();
+            }
+            if xy.trim_end() == "??" && path.ends_with('/') && lead.starts_with(path) {
+                marks.untracked = true;
             }
             let Some(rest) = path.strip_prefix(&lead) else { continue };
             let name = rest.split('/').next().unwrap_or_default().to_string();
@@ -193,6 +210,23 @@ mod tests {
         assert_eq!(names(&src), ["main.rs"]);
         assert!(src[0].uncommitted);
         assert!(tree(&w, "", false).await.unwrap().0.iter().find(|e| e.name == "src").unwrap().uncommitted);
+    }
+
+    #[tokio::test]
+    async fn marks_changes_inside_submodules() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        r.add_submodule(&w, "lib", "lib");
+        fs::create_dir_all(w.join("lib/src")).unwrap();
+        fs::write(w.join("lib/src/new.rs"), "x").unwrap();
+        fs::write(w.join("lib/a.txt"), "changed").unwrap();
+        let (top, _) = tree(&w, "", false).await.unwrap();
+        assert!(top.iter().find(|e| e.name == "lib").unwrap().uncommitted);
+        let (lib, _) = tree(&w, "lib", false).await.unwrap();
+        assert_eq!(names(&lib), ["src", "a.txt"]);
+        assert!(lib.iter().all(|e| e.uncommitted));
+        let (src, _) = tree(&w, "lib/src", false).await.unwrap();
+        assert!(src[0].uncommitted);
     }
 
     #[tokio::test]

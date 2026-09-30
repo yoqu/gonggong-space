@@ -252,10 +252,28 @@ async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -
     };
     if is_clone_root(dir).await {
         // Clones made before autocrlf was enforced get it too (spec §12 risk 1).
-        return Ok(git(dir, &["config", "core.autocrlf", "false"]).await.map(drop)?);
+        git(dir, &["config", "core.autocrlf", "false"]).await?;
+    } else {
+        on_clone();
+        clone(dir, repo).await?;
     }
-    on_clone();
-    clone(dir, repo).await
+    init_submodules(dir).await;
+    Ok(())
+}
+
+/// Checks out the submodules this clone never initialized (fresh clones, clones from before submodules were
+/// supported), one at a time so a broken one doesn't hold back the rest. A failed one stays initialized, so later
+/// runs don't retry it; the workspace works without it.
+async fn init_submodules(dir: &Path) {
+    for (name, path) in git::gitmodules(dir).await {
+        if git(dir, &["config", "--get", &format!("submodule.{name}.url")]).await.is_ok() {
+            continue;
+        }
+        let args = ["submodule", "update", "--init", "--recursive", "--", &path];
+        if let Err(f) = repo::remote_git(dir, &args, None).await {
+            tracing::warn!("submodule {path} of {} not checked out: {}", dir.display(), f.detail);
+        }
+    }
 }
 
 async fn is_clone_root(dir: &Path) -> bool {
