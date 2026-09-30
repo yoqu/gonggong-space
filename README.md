@@ -2,6 +2,10 @@
 
 <h1 align="center">共工空间 Gonggong Space</h1>
 
+[English](README.en.md) | 简体中文
+
+帮助手册：[中文](https://yoqu.github.io/gonggong-space/) · [English](https://yoqu.github.io/gonggong-space/en/)
+
 <p align="center"><b>在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工，做完的网页直接在群里打开。</b></p>
 
 <p align="center">

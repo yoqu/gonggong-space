@@ -63,7 +63,7 @@ server 按**单实例**设计：浏览器实时推送、daemon 连接、预览�
 | git | server 用它维护群仓库的基准分支镜像（`@` 文件候选和文件搜索），需要能访问群仓库，见 [从源码部署](/deploy/install#仓库访问凭据) |
 | Nginx | 或其他能反向代理 WebSocket 的 Web 服务器 |
 | openssl | 生成自签证书时需要 |
-| livekit-server | 可选。Linux x86_64 / arm64 上 server 会自动从 GitHub 下载官方发布包并校验；也可自行安装后用 `GONGGONG_LIVEKIT_BIN` 指定 |
+| livekit-server | 可选。Linux、Windows（x86_64 / arm64）上 server 会自动从 GitHub 下载官方发布包并校验；也可自行安装后用 `GONGGONG_LIVEKIT_BIN` 指定 |
 
 服务器不需要安装 Claude Code、Codex 或 Rust，这些只在成员机器（或构建客户端的机器）上需要。
 
