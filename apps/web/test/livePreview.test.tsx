@@ -1,5 +1,5 @@
 import type { GroupPreviewsDto, PreviewDto } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench, type WorkbenchTab } from '../src/app/workbench'
@@ -290,6 +290,40 @@ describe('小程序 · 实时画面', () => {
     await waitFor(() => expect(lk.rooms[0]?.token).toBe('tok-li'))
     expect(await screen.findByRole('button', { name: '请求控制' })).toBeTruthy()
     expect(screen.queryByRole('img')).toBeNull()
+  })
+
+  const watch = (live: PreviewDto['live']) => {
+    mockApi({
+      'GET /groups/g1/previews': list([
+        preview({ kind: 'miniprogram', title: '商城', serviceId: null, serviceName: null, live }),
+      ]),
+      'POST /previews/p3/watch': undefined,
+      'POST /previews/p3/live': { url: null, token: 'tok-li', identity: 'u:u-li:ab' },
+    })
+    render(<MiniprogramTab tab={{ kind: 'miniprogram', previewId: 'p3' }} tabKey="mp:p3" active />)
+  }
+
+  it('shows it is opening the devtools until the simulator shows', async () => {
+    watch({ state: 'starting', error: null, missing: [] })
+    await screen.findByText('正在打开微信开发者工具…')
+    screen.getByRole('progressbar', { name: '正在打开微信开发者工具' })
+  })
+
+  it("guides the owner to turn on the devtools' service port, and goes on by itself", async () => {
+    watch({ state: 'failed', error: '微信开发者工具未开启服务端口', missing: [], devtools: 'port' })
+    await screen.findByText('请开启微信开发者工具的服务端口')
+    screen.getByText('打开「服务端口」')
+    screen.getByText('完成后自动继续')
+    expect(screen.queryByText('没有推送画面')).toBeNull()
+  })
+
+  it('guides the owner through the authorization and trust prompts', async () => {
+    watch({ state: 'failed', error: '已弹出授权请求', missing: [], devtools: 'auth' })
+    await screen.findByText('请在微信开发者工具里允许共工访问')
+    cleanup()
+    resetPreviews()
+    watch({ state: 'failed', error: '小程序没有运行起来', missing: [], devtools: 'trust' })
+    await screen.findByText('请在微信开发者工具里信任此项目')
   })
 })
 

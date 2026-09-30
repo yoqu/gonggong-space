@@ -91,3 +91,24 @@ it('fixes missing permissions and closes a live preview from here', async () => 
   fireEvent.click((await row('桌面客户端')).getByRole('button', { name: '关闭并停止应用' }))
   await waitFor(() => expect(m.closeTunnel).toHaveBeenCalledWith('p1', true))
 })
+
+it('guides the owner through the WeChat devtools while a mini program waits on them', async () => {
+  m.tunnels.mockResolvedValue({
+    services: [],
+    previews: [
+      preview({
+        id: 'p2',
+        kind: 'miniprogram',
+        title: '会员小程序',
+        serviceId: null,
+        live: { state: 'failed', error: '微信开发者工具未开启服务端口', missing: [], devtools: 'port' },
+      }),
+    ],
+  })
+  render(<LivePage go={() => {}} />)
+  const mini = await row('会员小程序')
+  expect(mini.getByText('等待操作')).toBeTruthy()
+  expect(screen.getByText('请开启微信开发者工具的服务端口')).toBeTruthy()
+  expect(screen.getByText('完成后自动继续')).toBeTruthy()
+  expect(screen.queryByText('微信开发者工具未开启服务端口')).toBeNull()
+})

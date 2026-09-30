@@ -188,6 +188,16 @@ describe('desktop app previews', () => {
         missing: ['screen_recording', 'accessibility'],
       }),
     )
+
+    t.ctx.hub.emit('message', w.machine.id, {
+      t: 'cast.state',
+      previewId: p.id,
+      state: 'failed',
+      error: '微信开发者工具未开启服务端口',
+      missing: [],
+      devtools: 'port',
+    })
+    await vi.waitFor(async () => expect((await live())?.devtools).toBe('port'))
   })
 
   it("streams a watched mini program's simulator, which members may ask to control", async () => {

@@ -5,7 +5,7 @@
 use crate::config::Config;
 use crate::hosted::Services;
 use crate::permission::{self, Permission};
-use crate::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer};
+use crate::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer, DevtoolsBlocker};
 use crate::service::Outbox;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -107,41 +107,89 @@ fn beside(exe: &Path) -> Option<PathBuf> {
 }
 
 /// Every state carries the missing permissions: without accessibility the window shows, but control does nothing.
-fn report(out: &Outbox, target: &CastTarget, missing: &[Permission], state: CastPhase, error: Option<String>) {
+fn report(
+    out: &Outbox,
+    target: &CastTarget,
+    missing: &[Permission],
+    state: CastPhase,
+    error: Option<String>,
+    devtools: Option<DevtoolsBlocker>,
+) {
     let missing = missing.to_vec();
-    out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error, missing });
+    out.send(DaemonToServer::CastState { preview_id: target.preview_id.clone(), state, error, missing, devtools });
 }
 
-async fn supervise(inner: Arc<Inner>, target: CastTarget, mut fps: watch::Receiver<u32>, out: Outbox) {
-    let mut retry = FIRST_RETRY;
-    loop {
-        let missing = (inner.missing)();
-        report(&out, &target, &missing, CastPhase::Starting, None);
-        let mut went_live = false;
-        let reason = match publish(&inner, &target, &mut fps, &out, &missing, &mut went_live).await {
-            Ok(reason) | Err(reason) => reason,
-        };
-        report(&out, &target, &missing, CastPhase::Failed, Some(reason));
-        if went_live {
-            retry = FIRST_RETRY;
-        }
-        tokio::time::sleep(retry).await;
-        retry = (retry * 2).min(MAX_RETRY);
+/// Why a run ended; `devtools` when it waits on the owner in the WeChat devtools.
+struct Stop {
+    reason: String,
+    devtools: Option<DevtoolsBlocker>,
+}
+
+impl From<String> for Stop {
+    fn from(reason: String) -> Self {
+        Stop { reason, devtools: None }
     }
 }
 
-/// One gg-cast run; returns why it ended.
+impl From<&str> for Stop {
+    fn from(reason: &str) -> Self {
+        reason.to_string().into()
+    }
+}
+
+impl From<crate::wechatide::Error> for Stop {
+    fn from(e: crate::wechatide::Error) -> Self {
+        Stop { devtools: e.blocker(), reason: crate::wechatide::explain(e) }
+    }
+}
+
+/// While waiting on the owner in the devtools, runs are retried this often, without backing off: what they do there
+/// shows at once.
+async fn supervise(inner: Arc<Inner>, target: CastTarget, mut fps: watch::Receiver<u32>, out: Outbox) {
+    let mut retry = FIRST_RETRY;
+    let mut blocked = false;
+    loop {
+        let missing = (inner.missing)();
+        if !blocked {
+            report(&out, &target, &missing, CastPhase::Starting, None, None);
+        }
+        let mut went_live = false;
+        let stop = match publish(&inner, &target, &mut fps, &out, &missing, blocked, &mut went_live).await {
+            Ok(reason) => reason.into(),
+            Err(stop) => stop,
+        };
+        blocked = stop.devtools.is_some();
+        report(&out, &target, &missing, CastPhase::Failed, Some(stop.reason), stop.devtools);
+        if went_live || blocked {
+            retry = FIRST_RETRY;
+        }
+        tokio::time::sleep(retry).await;
+        if !blocked {
+            retry = (retry * 2).min(MAX_RETRY);
+        }
+    }
+}
+
+/// One gg-cast run; returns why it ended. After a run `blocked` in the devtools, starting is reported only once they
+/// answer: the owner's guide stays up meanwhile.
 async fn publish(
     inner: &Inner,
     target: &CastTarget,
     fps: &mut watch::Receiver<u32>,
     out: &Outbox,
     missing: &[Permission],
+    blocked: bool,
     went_live: &mut bool,
-) -> Result<String, String> {
+) -> Result<String, Stop> {
     let api = inner.api.as_ref().ok_or("未连接服务器")?;
     if missing.contains(&Permission::ScreenRecording) {
         return Err(permission::SCREEN_RECORDING_DENIED.into());
+    }
+    if matches!(target.source, CastSource::Miniprogram { .. }) {
+        inner.devtools.ping().await?;
+        if blocked {
+            report(out, target, missing, CastPhase::Starting, None, None);
+        }
     }
     let (window, display) = window_args(inner, &target.source).await?;
     let bin = match &inner.bin {
@@ -189,7 +237,7 @@ async fn publish(
             line = stdout.next_line() => match line {
                 Ok(Some(line)) if line.trim() == "live" => {
                     *went_live = true;
-                    report(out, target, missing, CastPhase::Live, None);
+                    report(out, target, missing, CastPhase::Live, None, None);
                 }
                 Ok(Some(_)) => {}
                 _ => break,
@@ -207,7 +255,7 @@ async fn publish(
 
 /// gg-cast's window arguments: the processes that may own it and, for a mini program, the titles it may have; or the
 /// whole screen of the service's own virtual display, which gg-cast then runs on.
-async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>, Option<String>), String> {
+async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>, Option<String>), Stop> {
     let join = |pids: Vec<u32>| pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     match source {
         CastSource::Service { service } => {
@@ -223,8 +271,13 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
             }
             // Its window exists once the project is open (§12.2: the devtools keep rendering it behind other windows).
             let project = Path::new(miniprogram);
-            if crate::wechatide::open(inner.devtools, project, None).await?.is_some() {
-                return Err("微信开发者工具未登录：请 Bot 主人在卡片上扫码登录后再看".into());
+            crate::wechatide::require_project(project)?;
+            match inner.devtools.open(project, None).await {
+                Ok(()) => {}
+                Err(crate::wechatide::Error::NeedsLogin(_)) => {
+                    return Err("微信开发者工具未登录：请 Bot 主人在卡片上扫码登录后再看".into());
+                }
+                Err(e) => return Err(e.into()),
             }
             let (pids, titles) = crate::wechatide::simulator_window(project)?;
             let mut args = vec!["--pids".into(), join(pids)];
@@ -420,6 +473,50 @@ mod tests {
         assert_eq!(states[1].0, CastPhase::Failed);
         assert!(states[1].1.as_deref().unwrap().contains("未登录"), "{:?}", states[1]);
         assert!(calls.lock().unwrap().iter().any(|c| c.0 == "login"));
+        casts.sync(vec![], &out);
+    }
+
+    #[tokio::test]
+    async fn a_mini_program_keeps_the_port_guide_up_until_the_devtools_answer() {
+        let (home, project, data) =
+            (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        std::fs::write(project.path().join("project.config.json"), "{}").unwrap();
+        let devtools = Box::leak(Box::new(crate::wechatide::Shared::new(
+            vec![data.path().into()],
+            Arc::new(|_: &Path| false),
+            Arc::new(|| crate::wechatide::Launched::Already),
+        )));
+        let api = Config {
+            server: "http://127.0.0.1:9".into(),
+            token: "mt".into(),
+            machine_id: "m".into(),
+            owner_name: "王磊".into(),
+            cert_sha256: None,
+        };
+        let casts =
+            Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools)
+                .permissions(Vec::new);
+        let (out, mut rx) = Outbox::channel();
+        let miniprogram = project.path().to_string_lossy().into_owned();
+        casts.sync(
+            vec![CastTarget { preview_id: "p1".into(), source: CastSource::Miniprogram { miniprogram }, fps: 30 }],
+            &out,
+        );
+        let mut next = async || loop {
+            if let Some(DaemonToServer::CastState { state, devtools, .. }) = rx.recv().await {
+                break (state, devtools);
+            }
+        };
+
+        assert_eq!(next().await, (CastPhase::Starting, None));
+        assert_eq!(next().await, (CastPhase::Failed, Some(DevtoolsBlocker::Port)));
+        assert_eq!(next().await, (CastPhase::Failed, Some(DevtoolsBlocker::Port)), "retried without a loading flash");
+
+        let f = fake::fake(false, fake::standard()).await;
+        fake::port_file(data.path(), "h", f.port);
+        let (state, _) = next().await;
+        let state = if state == CastPhase::Failed { next().await.0 } else { state };
+        assert_eq!(state, CastPhase::Starting, "the devtools answer: loading again");
         casts.sync(vec![], &out);
     }
 }

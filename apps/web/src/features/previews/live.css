@@ -85,6 +85,12 @@
   inset: 0;
   margin: auto;
 }
+.lv__stage > .dg {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  max-width: none;
+}
 .lv__video {
   display: block;
   width: 100%;

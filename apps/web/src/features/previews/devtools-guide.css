@@ -1,0 +1,264 @@
+.dg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  margin: auto;
+  padding: 16px;
+  text-align: center;
+  color: var(--label-secondary);
+  font-size: 13px;
+}
+.dg__art {
+  margin-bottom: 8px;
+}
+.dg__title {
+  color: var(--label);
+  font-size: 15px;
+  font-weight: 600;
+}
+.dg__owner {
+  font-size: 12px;
+  color: var(--label-tertiary);
+}
+.dg__steps {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  text-align: left;
+  line-height: 22px;
+}
+.dg__wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--label-tertiary);
+}
+
+/* A sketch of the devtools window: the owner's pointer moves to the control and presses it, in a loop. */
+.dg-win {
+  position: relative;
+  width: 260px;
+  border-radius: 10px;
+  background: var(--content-bg);
+  box-shadow: var(--shadow-window);
+  overflow: hidden;
+  font-size: 11px;
+  text-align: left;
+  color: var(--label-secondary);
+}
+.dg-win__bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--separator);
+}
+.dg-win__bar i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--separator);
+}
+.dg-win__bar span {
+  margin: 0 auto;
+  transform: translateX(-16px);
+  font-weight: 600;
+}
+.dg-win__body {
+  display: flex;
+  height: 104px;
+}
+.dg-win__side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 76px;
+  padding: 8px 6px;
+  border-right: 1px solid var(--separator);
+}
+.dg-win__side span {
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+.dg-win__side .dg-win__on {
+  background: var(--accent);
+  color: #fff;
+}
+.dg-win__main {
+  flex: 1;
+  padding: 10px;
+}
+.dg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+  color: var(--label);
+}
+.dg-row--dim {
+  opacity: 0.5;
+  border-bottom: 0;
+}
+.dg-toggle {
+  position: relative;
+  width: 26px;
+  height: 15px;
+  border-radius: 8px;
+  background: var(--separator);
+  animation: dg-toggle 4s ease-in-out infinite;
+}
+.dg-toggle::after {
+  content: "";
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  animation: dg-knob 4s ease-in-out infinite;
+}
+.dg-toggle--off,
+.dg-toggle--off::after {
+  animation: none;
+}
+@keyframes dg-toggle {
+  0%,
+  50% {
+    background: var(--separator);
+  }
+  58%,
+  92% {
+    background: var(--system-green);
+  }
+}
+@keyframes dg-knob {
+  0%,
+  50% {
+    transform: none;
+  }
+  58%,
+  92% {
+    transform: translateX(11px);
+  }
+}
+
+.dg-win--dialog {
+  width: 240px;
+  padding: 16px 14px 12px;
+}
+.dg-dialog__title {
+  color: var(--label);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.dg-dialog__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.dg-dialog__buttons span {
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: var(--separator);
+}
+.dg-dialog__buttons .dg-dialog__primary {
+  background: var(--accent);
+  color: #fff;
+  animation: dg-press 4s ease-in-out infinite;
+}
+@keyframes dg-press {
+  0%,
+  48%,
+  60%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  54% {
+    transform: scale(0.94);
+    filter: brightness(0.85);
+  }
+}
+
+.dg-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--label);
+  clip-path: polygon(0 0, 0 100%, 30% 72%, 52% 100%, 64% 94%, 44% 66%, 80% 66%);
+  animation: dg-cursor-port 4s ease-in-out infinite;
+}
+.dg-cursor--dialog {
+  animation-name: dg-cursor-dialog;
+}
+@keyframes dg-cursor-port {
+  0% {
+    left: 40%;
+    top: 90%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  45%,
+  60% {
+    left: 88%;
+    top: 46%;
+  }
+  54% {
+    transform: scale(0.85);
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 88%;
+    top: 46%;
+    opacity: 0;
+  }
+}
+@keyframes dg-cursor-dialog {
+  0% {
+    left: 30%;
+    top: 100%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  45%,
+  60% {
+    left: 82%;
+    top: 68%;
+  }
+  54% {
+    transform: scale(0.85);
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 82%;
+    top: 68%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-cursor {
+    display: none;
+  }
+  .dg-toggle,
+  .dg-toggle::after,
+  .dg-dialog__primary {
+    animation: none;
+  }
+}

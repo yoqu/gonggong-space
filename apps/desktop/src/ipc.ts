@@ -2,7 +2,15 @@
  * Typed bridge to the Rust side (`src-tauri/src/commands/*`). Every command is mirrored here; pages never call
  * `invoke` directly, so tests can mock this module.
  */
-import type { AgentInfo, AgentKind, BotDto, Permission, RunEvent, RunStatus } from '@gonggong/protocol'
+import type {
+  AgentInfo,
+  AgentKind,
+  BotDto,
+  DevtoolsBlocker,
+  Permission,
+  RunEvent,
+  RunStatus,
+} from '@gonggong/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
@@ -136,7 +144,13 @@ export interface Tunnels {
     serviceName: string | null
     status: 'online' | 'offline'
     /** This machine's gg-cast while someone watches; null otherwise. */
-    live: { state: 'starting' | 'live' | 'failed'; error: string | null; missing: Permission[] } | null
+    live: {
+      state: 'starting' | 'live' | 'failed'
+      error: string | null
+      missing: Permission[]
+      /** A mini program waiting on this machine's owner in the WeChat devtools. */
+      devtools?: DevtoolsBlocker
+    } | null
     control: { controller: { name: string } | null } | null
   }[]
   services: {

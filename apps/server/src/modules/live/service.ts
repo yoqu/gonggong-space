@@ -200,7 +200,10 @@ async function recordCastState(ctx: Ctx, machineId: string, msg: CastStateMsg) {
     .from(previews)
     .where(and(eq(previews.id, msg.previewId), eq(previews.machineId, machineId)))
   if (!p) return
-  live(ctx).casts.set(msg.previewId, { state: msg.state, error: msg.error, missing: msg.missing })
+  const next = { state: msg.state, error: msg.error, missing: msg.missing, devtools: msg.devtools }
+  // A mini program waiting on its devtools reports the same failure every few seconds.
+  if (JSON.stringify(live(ctx).casts.get(msg.previewId)) === JSON.stringify(next)) return
+  live(ctx).casts.set(msg.previewId, next)
   await publishPreviews(ctx, p.groupId)
 }
 

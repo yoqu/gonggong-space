@@ -4,6 +4,7 @@ import {
   Answer,
   Approval,
   Attachment,
+  DevtoolsBlocker,
   GitStatus,
   Permission,
   Question,
@@ -544,6 +545,7 @@ export const ServiceRestartResult = z.object({
  * gg-cast for a live preview (plan B2), as asked by cast.sync: starting (fetching gg-cast, finding the window,
  * joining the room), live (publishing), failed (`error` in the daemon's words; retried while still asked for).
  * `missing`: permissions the machine lacks — no screen recording fails, no accessibility leaves control inert.
+ * `devtools`: a mini program waits on its owner in the WeChat devtools; retried every few seconds meanwhile.
  */
 export const CastState = z.object({
   t: z.literal('cast.state'),
@@ -551,6 +553,7 @@ export const CastState = z.object({
   state: z.enum(['starting', 'live', 'failed']),
   error: z.string().nullable(),
   missing: z.array(Permission).default([]),
+  devtools: DevtoolsBlocker.optional(),
 })
 
 export const DaemonToServer = z.discriminatedUnion('t', [

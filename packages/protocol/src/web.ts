@@ -5,6 +5,7 @@ import {
   Answer,
   Approval,
   Attachment,
+  DevtoolsBlocker,
   GitStatus,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
@@ -527,6 +528,7 @@ export const PreviewDto = z.object({
       state: z.enum(['starting', 'live', 'failed']),
       error: z.string().nullable(),
       missing: z.array(Permission),
+      devtools: DevtoolsBlocker.optional(),
     })
     .nullable(),
   /**

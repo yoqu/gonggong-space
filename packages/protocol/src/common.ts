@@ -99,3 +99,10 @@ export function compareVersions(a: string, b: string): number {
 /** macOS privacy permissions the desktop previews need, held by the app running the daemon (gg-cast inherits them). */
 export const Permission = z.enum(['screen_recording', 'accessibility'])
 export type Permission = z.infer<typeof Permission>
+
+/**
+ * What the machine owner must do in the WeChat devtools before a mini program shows: port = turn on 设置 → 安全设置 →
+ * 服务端口; auth = allow Gonggong in the authorization dialog; trust = press 「信任并运行」 for the project.
+ */
+export const DevtoolsBlocker = z.enum(['port', 'auth', 'trust'])
+export type DevtoolsBlocker = z.infer<typeof DevtoolsBlocker>

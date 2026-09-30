@@ -1,8 +1,9 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
 import { useSession } from '../../app/session'
-import { EmptyState, Icon, IconButton, PopUpButton, Tag } from '../../ui'
+import { EmptyState, Icon, IconButton, PopUpButton, ProgressIndicator, Tag } from '../../ui'
 import { ControlBar, ControlRequests } from './control'
+import { DevtoolsGuide, DevtoolsLoading } from './DevtoolsGuide'
 import {
   framePoint,
   keyInput,
@@ -89,14 +90,16 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
         ? { title: '应用已停止' }
         : p.live?.missing.includes('screen_recording')
           ? { title: '机器未授权屏幕录制', description: `请 Bot 主人在${DESKTOP_PAGE}完成授权` }
-          : p.live?.state === 'failed'
-            ? {
-                title: '没有推送画面',
-                description: [p.live.error, `Bot 主人可在${DESKTOP_PAGE}查看`].filter(Boolean).join('。'),
-              }
-            : !track
-              ? { title: '正在启动实时画面…' }
+          : p.live?.devtools
+            ? null
+            : p.live?.state === 'failed'
+              ? {
+                  title: '没有推送画面',
+                  description: [p.live.error, `Bot 主人可在${DESKTOP_PAGE}查看`].filter(Boolean).join('。'),
+                }
               : null
+  const devtools = !error && p.status === 'online' ? p.live?.devtools : undefined
+  const loading = !problem && !devtools && !track
 
   return (
     <div className="lv">
@@ -146,6 +149,15 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
       <div className="lv__stage">
         {problem ? (
           <EmptyState icon="desktop" title={problem.title} description={problem.description} />
+        ) : devtools ? (
+          <DevtoolsGuide blocker={devtools} owner="请 Bot 主人在运行 Bot 的电脑上操作" />
+        ) : loading && p.kind === 'miniprogram' ? (
+          <DevtoolsLoading />
+        ) : loading ? (
+          <EmptyState
+            icon={<ProgressIndicator variant="spinner" aria-label="正在启动实时画面" />}
+            title="正在启动实时画面…"
+          />
         ) : null}
         {track && live && figures === 'shown' ? (
           <LiveFigures

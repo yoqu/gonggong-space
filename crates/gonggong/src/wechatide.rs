@@ -7,6 +7,8 @@ use std::time::Duration;
 
 use serde_json::{Map, Value, json};
 
+use crate::protocol::DevtoolsBlocker;
+
 #[cfg(target_os = "macos")]
 mod ax;
 #[cfg(windows)]
@@ -35,16 +37,17 @@ const PROBE: Duration = Duration::from_secs(3);
 const PROBE: Duration = Duration::from_millis(300);
 const POLL: Duration = Duration::from_millis(300);
 const ATTEMPTS: u32 = 3;
-/// How long launched devtools may take to serve their port.
+/// How long launched devtools may take to serve their port; still silent then, it is off.
 #[cfg(not(test))]
-const LAUNCH: Duration = Duration::from_secs(60);
+const LAUNCH: Duration = Duration::from_secs(30);
 #[cfg(test)]
 const LAUNCH: Duration = Duration::from_secs(3);
 /// Why an opened project's app may never start: the devtools ask whether to trust the author of a project opened
 /// the first time (MCP skips that only with the setting below or a CLI access token), or its compile failed.
 const NOT_UP: &str = "小程序没有在模拟器里运行起来。如果微信开发者工具弹出「您信任此项目的作者吗？」：gonggong 会代为点击「信任并运行」，\
 但运行 gg 的程序需要在「系统设置 → 隐私与安全性 → 辅助功能」里获得授权；也可以由机器主人手动点一次（每个项目只需一次），\
-或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。然后重试。";
+或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。";
+const PORT_OFF: &str = "微信开发者工具未开启服务端口：请在开发者工具「设置 → 安全设置」中开启「服务端口」";
 
 /// Seconds the simulator renders a page that just showed before it is captured.
 const RENDER_WAIT: f64 = 1.0;
@@ -56,15 +59,31 @@ pub type Trust = Arc<dyn Fn(&Path) -> bool + Send + Sync>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    /// No devtools answers: not installed, not running, or its service port is off.
+    /// No devtools answers: not installed, or not running.
     NotRunning,
+    /// The devtools run, but their service port is off.
+    PortOff,
     /// This client is not authorized yet (or a CLI access token is required).
     Unauthorized,
     /// The session is gone: the devtools restarted (maybe on another port).
     Gone,
     /// Nobody is logged in to the devtools: the login QR code (JPEG) to scan.
     NeedsLogin(Vec<u8>),
+    /// The opened project's app never started: its trust prompt went unanswered, or it failed to compile.
+    NotUp,
     Failed(String),
+}
+
+impl Error {
+    /// What the machine's owner must do in the devtools, if that is what this waits on.
+    pub fn blocker(&self) -> Option<DevtoolsBlocker> {
+        match self {
+            Error::PortOff => Some(DevtoolsBlocker::Port),
+            Error::Unauthorized => Some(DevtoolsBlocker::Auth),
+            Error::NotUp => Some(DevtoolsBlocker::Trust),
+            _ => None,
+        }
+    }
 }
 
 /// A failed call: worth another try, or final.
@@ -262,10 +281,10 @@ impl Devtools {
                 }
             }
             if std::time::Instant::now() > deadline {
-                return Err(Error::Failed(match page {
-                    Some(page) => format!("模拟器没有打开页面 {page}"),
-                    None => NOT_UP.into(),
-                }));
+                return Err(match page {
+                    Some(page) => Error::Failed(format!("模拟器没有打开页面 {page}")),
+                    None => Error::NotUp,
+                });
             }
             tokio::time::sleep(POLL).await;
         }
@@ -371,7 +390,7 @@ fn data_roots() -> Vec<PathBuf> {
 }
 
 /// Runs `$call` with `$ide` bound to the shared session's devtools, connecting (again, once, when the session is
-/// gone) as needed.
+/// gone) as needed. An unauthorized session is dropped: the owner's approval counts for the next one.
 macro_rules! with_session {
     ($shared:expr, |$ide:ident| $call:expr) => {{
         let mut session = $shared.session.lock().await;
@@ -386,14 +405,28 @@ macro_rules! with_session {
                     retried = true;
                     *session = None;
                 }
-                done => break done,
+                done => {
+                    if done == Err(Error::Unauthorized) {
+                        *session = None;
+                    }
+                    break done;
+                }
             }
         }
     }};
 }
 
-/// Starts the devtools; whether they could be.
-pub type Launch = Arc<dyn Fn() -> bool + Send + Sync>;
+/// Starts the devtools unless they run already.
+pub type Launch = Arc<dyn Fn() -> Launched + Send + Sync>;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Launched {
+    /// Not installed, or not on a platform they can be started on.
+    No,
+    Now,
+    /// They run already: silent, their service port is off.
+    Already,
+}
 
 /// The devtools of `roots` (this machine's by default) through one reused MCP session: a new session costs the
 /// devtools a check with WeChat's servers. Calls take turns, as the simulator shows one page at a time. Devtools not
@@ -412,7 +445,11 @@ impl Shared {
 
     async fn connect(&self) -> Result<Devtools, Error> {
         let mut ide = match Devtools::connect_in(&self.roots).await {
-            Err(Error::NotRunning) if (self.launch)() => self.await_launch().await?,
+            Err(Error::NotRunning) => match (self.launch)() {
+                Launched::Now => self.await_launch().await?,
+                Launched::Already => return Err(Error::PortOff),
+                Launched::No => return Err(Error::NotRunning),
+            },
             other => other?,
         };
         ide.trust = self.trust.clone();
@@ -427,9 +464,15 @@ impl Shared {
             tokio::time::sleep(POLL).await;
             match Devtools::connect_in(&self.roots).await {
                 Err(Error::NotRunning | Error::Failed(_)) if std::time::Instant::now() < deadline => {}
+                Err(Error::NotRunning) => return Err(Error::PortOff),
                 done => return done,
             }
         }
+    }
+
+    /// Whether the devtools answer this client: running, their service port on, it authorized.
+    pub async fn ping(&self) -> Result<(), Error> {
+        with_session!(self, |ide| ide.call("check_wechatide_status", json!({})).await.map(|_| ()))
     }
 
     pub async fn open(&self, project: &Path, page: Option<&str>) -> Result<(), Error> {
@@ -449,18 +492,27 @@ const APP: &str = "/Applications/wechatwebdevtools.app";
 
 /// Starts the devtools in the background, without taking the owner's focus.
 #[cfg(target_os = "macos")]
-fn launch() -> bool {
+fn launch() -> Launched {
+    if !ax::devtools_pids().is_empty() {
+        return Launched::Already;
+    }
     let started = Path::new(APP).is_dir()
         && std::process::Command::new("open").args(["-g", "-a", APP]).status().is_ok_and(|s| s.success());
-    if started {
-        tracing::info!("launched the WeChat devtools");
+    if !started {
+        return Launched::No;
     }
-    started
+    tracing::info!("launched the WeChat devtools");
+    Launched::Now
 }
 
-#[cfg(not(target_os = "macos"))]
-fn launch() -> bool {
-    false
+#[cfg(windows)]
+fn launch() -> Launched {
+    if uia::devtools_pids().is_empty() { Launched::No } else { Launched::Already }
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn launch() -> Launched {
+    Launched::No
 }
 
 /// Presses 「信任并运行」 in the devtools window of `project` through macOS accessibility (no pointer, works behind
@@ -516,20 +568,46 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// The devtools' last authorization dialog (`wechatide auth` waits for the owner's answer) and when it was asked for.
+#[cfg(target_os = "macos")]
+static AUTH: std::sync::Mutex<Option<(std::process::Child, std::time::Instant)>> = std::sync::Mutex::new(None);
+/// A dismissed dialog pops again only after this: callers retry every few seconds.
+#[cfg(target_os = "macos")]
+const REASK: Duration = Duration::from_secs(60);
+
+/// Pops the devtools' authorization dialog for the machine's owner unless it shows (or just showed); whether it does.
+fn ask_authorization() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let mut auth = AUTH.lock().unwrap();
+        if let Some((child, at)) = auth.as_mut()
+            && (matches!(child.try_wait(), Ok(None)) || at.elapsed() < REASK)
+        {
+            return true;
+        }
+        *auth = std::process::Command::new(CLI)
+            .args(["auth", "-c", CLIENT])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .ok()
+            .map(|c| (c, std::time::Instant::now()));
+        auth.is_some()
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
+}
+
 /// What the agent or the card is told; an unauthorized client pops the devtools' authorization dialog for the
 /// machine's owner.
-fn explain(e: Error) -> String {
+pub fn explain(e: Error) -> String {
     match e {
-        Error::NotRunning | Error::Gone => {
-            "本机的微信开发者工具未运行，或未开启「设置 → 安全 → 服务端口」（需 2.02 及以上版本）".into()
-        }
+        Error::NotRunning | Error::Gone => "本机的微信开发者工具未运行".into(),
+        Error::PortOff => PORT_OFF.into(),
+        Error::NotUp => NOT_UP.into(),
         Error::Unauthorized => {
-            #[cfg(target_os = "macos")]
-            let asked = std::process::Command::new(CLI).args(["auth", "-c", CLIENT]).spawn().is_ok();
-            #[cfg(not(target_os = "macos"))]
-            let asked = false;
-            if asked {
-                format!("已在本机微信开发者工具里弹出「{CLIENT}」的授权请求，请机器主人点击「允许」后重试")
+            if ask_authorization() {
+                format!("已在本机微信开发者工具里弹出「{CLIENT}」的授权请求，请机器主人点击「允许」，之后会自动继续")
             } else {
                 format!(
                     "请机器主人在微信开发者工具里授权「{CLIENT}」（运行 wechatide auth -c {CLIENT}），或关闭 CLI 访问令牌后重试"
@@ -589,7 +667,7 @@ pub fn simulator_window(project: &Path) -> Result<(Vec<u32>, Vec<String>), Strin
     Ok((pids, window_titles(project)))
 }
 
-fn require_project(project: &Path) -> Result<(), String> {
+pub(crate) fn require_project(project: &Path) -> Result<(), String> {
     if project.join("project.config.json").is_file() {
         return Ok(());
     }
@@ -614,6 +692,8 @@ pub(crate) mod fake {
         pub calls: Calls,
         /// Set: like devtools that restarted, it forgets its sessions (400) and stops answering heartbeats.
         pub dead: Arc<AtomicBool>,
+        /// Set: this client is not authorized (401), until the owner allows it.
+        pub denied: Arc<AtomicBool>,
     }
 
     /// A devtools MCP endpoint: answers each JSON-RPC request with `reply(method or tool, arguments)` as an SSE
@@ -622,8 +702,8 @@ pub(crate) mod fake {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let calls: Calls = Arc::default();
-        let dead = Arc::new(AtomicBool::new(false));
-        let (log, gone) = (calls.clone(), dead.clone());
+        let (dead, denied) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(unauthorized)));
+        let (log, gone, unauthorized) = (calls.clone(), dead.clone(), denied.clone());
         let session = format!("s{port}");
         tokio::spawn(async move {
             loop {
@@ -648,7 +728,7 @@ pub(crate) mod fake {
                     "HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string()
                 } else if head.starts_with("GET /mcp/heartbeat") {
                     "HTTP/1.1 200 OK\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string()
-                } else if unauthorized {
+                } else if unauthorized.load(Ordering::SeqCst) {
                     "HTTP/1.1 401 Unauthorized\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string()
                 } else {
                     let rpc: Value = serde_json::from_str(&body).unwrap();
@@ -685,7 +765,7 @@ pub(crate) mod fake {
                 s.write_all(res.as_bytes()).await.unwrap();
             }
         });
-        Fake { port, calls, dead }
+        Fake { port, calls, dead, denied }
     }
 
     pub fn ok(v: Value) -> Value {
@@ -818,7 +898,7 @@ pub(crate) mod fake {
         let Fake { port, calls, .. } = fake(false, reply).await;
         port_file(data.path(), "h", port);
         let none = std::sync::Arc::new(|_: &Path| false);
-        let shared = super::Shared::new(vec![data.path().into()], none, std::sync::Arc::new(|| false));
+        let shared = super::Shared::new(vec![data.path().into()], none, std::sync::Arc::new(|| super::Launched::No));
         (calls, Box::leak(Box::new(shared)), data)
     }
 }
@@ -892,6 +972,35 @@ mod tests {
         let f = fake(true, standard()).await;
         port_file(root.path(), "h", f.port);
         assert_eq!(Devtools::connect_in(&[root.path().into()]).await.err(), Some(Error::Unauthorized));
+    }
+
+    #[tokio::test]
+    async fn picks_up_the_owners_approval_on_the_next_call() {
+        let root = tempfile::tempdir().unwrap();
+        let f = fake(false, standard()).await;
+        port_file(root.path(), "h", f.port);
+        let shared = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::No));
+        let project = Path::new("/w/shop");
+        shared.screenshot(project, "/").await.unwrap();
+
+        f.denied.store(true, Ordering::SeqCst);
+        let denied = shared.screenshot(project, "/").await.err().unwrap();
+        assert_eq!(denied.blocker(), Some(DevtoolsBlocker::Auth));
+        f.denied.store(false, Ordering::SeqCst);
+        assert_eq!(shared.screenshot(project, "/").await.unwrap(), b"pages/index/index");
+        assert_eq!(f.calls.lock().unwrap().iter().filter(|c| c.0 == "initialize").count(), 2, "a new session");
+    }
+
+    #[tokio::test]
+    async fn running_devtools_that_stay_silent_have_their_service_port_off() {
+        let root = tempfile::tempdir().unwrap();
+        let shared = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::Already));
+        let off = shared.screenshot(Path::new("/w/shop"), "/").await.err().unwrap();
+        assert_eq!((off.blocker(), explain(off)), (Some(DevtoolsBlocker::Port), PORT_OFF.to_string()));
+
+        // Launched but never serving: the port is off too.
+        let launched = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::Now));
+        assert_eq!(launched.screenshot(Path::new("/w/shop"), "/").await.err(), Some(Error::PortOff));
     }
 
     #[tokio::test]
@@ -975,7 +1084,7 @@ mod tests {
                     }
                     can
                 }),
-                Arc::new(|| false),
+                Arc::new(|| Launched::No),
             );
 
             let opened = shared.open(Path::new("/w/shop"), Some("pages/me/me")).await;
@@ -986,7 +1095,9 @@ mod tests {
                 opened.unwrap();
                 assert!(calls.iter().any(|c| c.0 == "automation_navigate"), "{calls:?}");
             } else {
-                let Err(Error::Failed(why)) = opened else { panic!("an app that never starts cannot be opened") };
+                let Err(e) = opened else { panic!("an app that never starts cannot be opened") };
+                assert_eq!(e.blocker(), Some(DevtoolsBlocker::Trust));
+                let why = explain(e);
                 assert!(why.contains("信任并运行") && why.contains("辅助功能"), "{why}");
             }
         }
@@ -1019,7 +1130,7 @@ mod tests {
                 flag.store(true, Ordering::SeqCst);
                 true
             }),
-            Arc::new(|| false),
+            Arc::new(|| Launched::No),
         );
         shared.screenshot(Path::new("/w/shop"), "/pages/me/me").await.unwrap();
         assert!(!asked.load(Ordering::SeqCst));
@@ -1030,7 +1141,7 @@ mod tests {
     }
 
     fn shared(root: &Path) -> Shared {
-        Shared::new(vec![root.into()], Arc::new(|_: &Path| false), Arc::new(|| false))
+        Shared::new(vec![root.into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::No))
     }
 
     #[tokio::test]
@@ -1108,14 +1219,14 @@ mod tests {
                     std::thread::sleep(Duration::from_millis(300));
                     port_file(&dir, "h", port);
                 });
-                true
+                Launched::Now
             }),
         );
         assert_eq!(shared.screenshot(Path::new("/w/shop"), "/").await.unwrap(), b"pages/index/index");
         assert!(launched.load(Ordering::SeqCst));
 
         let nowhere = tempfile::tempdir().unwrap();
-        let cannot = Shared::new(vec![nowhere.path().into()], Arc::new(|_: &Path| false), Arc::new(|| false));
+        let cannot = Shared::new(vec![nowhere.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::No));
         assert_eq!(cannot.screenshot(Path::new("/w/shop"), "/").await.err(), Some(Error::NotRunning));
     }
 
@@ -1124,7 +1235,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let old = fake(false, standard()).await;
         port_file(root.path(), "h", old.port);
-        let shared = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| false));
+        let shared = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::No));
         let project = Path::new("/w/shop");
 
         shared.screenshot(project, "/").await.unwrap();

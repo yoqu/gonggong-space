@@ -711,6 +711,15 @@ pub enum CastPhase {
     Failed,
 }
 
+/// What the machine owner must do in the WeChat devtools before a mini program shows (`wechatide::Error::blocker`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DevtoolsBlocker {
+    Port,
+    Auth,
+    Trust,
+}
+
 /// macOS privacy permissions the desktop previews need; see `permission.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -854,6 +863,8 @@ pub enum DaemonToServer {
         error: Option<String>,
         #[serde(default)]
         missing: Vec<Permission>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        devtools: Option<DevtoolsBlocker>,
     },
 }
 

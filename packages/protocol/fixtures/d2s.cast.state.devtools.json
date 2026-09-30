@@ -1,0 +1,8 @@
+{
+  "t": "cast.state",
+  "previewId": "7c0e6a52-2c3b-4f0a-9a57-2f5a1f3f9a10",
+  "state": "failed",
+  "error": "微信开发者工具未开启服务端口",
+  "missing": [],
+  "devtools": "port"
+}
