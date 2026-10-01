@@ -16,12 +16,12 @@ import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
 import { sysParams } from '../admin/params.js'
 import { publishBots } from '../bots/dto.js'
-import { mainApp } from '../feishu/apps.js'
 import { publishGroup } from '../groups/service.js'
 import { meDto } from '../teams/dto.js'
 import { acceptInvite, findInvite } from '../teams/members.js'
 import { joinDefaultTeam } from '../teams/service.js'
-import { createSession, requireUser, SESSION_COOKIE } from './session.js'
+import { feishuLoginReady } from './feishu.js'
+import { requireUser, SESSION_COOKIE, startSession } from './session.js'
 
 const LOGIN_MAX_FAILURES = 5
 const LOGIN_WINDOW_MS = 5 * 60_000
@@ -35,16 +35,7 @@ export function authRoutes(ctx: Ctx) {
     const decoy = hash('decoy-password')
     const signups = new Throttle(REGISTER_MAX_PER_HOUR, 60 * 60_000, ctx.now)
 
-    const signIn = async (reply: FastifyReply, userId: string) => {
-      const session = await createSession(ctx, userId)
-      reply.setCookie(SESSION_COOKIE, session.token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: ctx.config.secureCookies,
-        path: '/',
-        expires: session.expiresAt,
-      })
-    }
+    const signIn = (reply: FastifyReply, userId: string) => startSession(ctx, reply, userId)
 
     app.post('/api/auth/login', async (req, reply) => {
       const { account, password } = LoginReq.parse(req.body)
@@ -65,7 +56,7 @@ export function authRoutes(ctx: Ctx) {
       '/api/auth/options',
       async (): Promise<AuthOptionsDto> => ({
         registrationOpen: (await sysParams(ctx.db)).registrationOpen,
-        feishuLogin: !!(await mainApp(ctx)),
+        feishuLogin: await feishuLoginReady(ctx),
       }),
     )
 

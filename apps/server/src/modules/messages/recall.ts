@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import { messageHides, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { mirrorRecall } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
 import { publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
@@ -11,7 +12,7 @@ import { notifyChainDone } from '../runs/stop.js'
 import { type MessageRow, memberIds, messageDto } from './service.js'
 
 /** Only the author may recall or delete, and only their own user messages (not bot replies or events). */
-async function ownMessage(ctx: Ctx, userId: string, id: string) {
+export async function ownMessage(ctx: Ctx, userId: string, id: string) {
   const [m] = await ctx.db
     .select()
     .from(messages)
@@ -59,6 +60,7 @@ export async function recallMessage(ctx: Ctx, user: { id: string; name: string }
     await publishRun(ctx, run)
     await notifyChainDone(ctx, run)
   }
+  await mirrorRecall(ctx, m.id, m.groupId)
   ctx.bus.publish(await memberIds(ctx, m.groupId), {
     t: 'message.recalled',
     groupId: m.groupId,

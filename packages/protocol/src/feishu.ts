@@ -43,3 +43,45 @@ export const FeishuIdentityDto = z.object({
   boundAt: z.string(),
 })
 export type FeishuIdentityDto = z.infer<typeof FeishuIdentityDto>
+
+/** GET /api/auth/feishu/ticket/:ticket — a first 飞书登录 waiting for 绑定已有账号 / 新建账号 (10 minutes, one use). */
+export const FeishuTicketDto = z.object({
+  name: z.string(),
+  email: z.string().nullable(),
+  avatar: z.string().nullable(),
+  /** 新建账号 is offered: 飞书自动开户 is on, or the login started from a usable team invite. */
+  canCreate: z.boolean(),
+  /** Where to land once signed in. */
+  next: z.string(),
+})
+export type FeishuTicketDto = z.infer<typeof FeishuTicketDto>
+
+/** POST /api/auth/feishu/ticket/:ticket/bind — link the Feishu identity to an existing account. */
+export const FeishuBindReq = z.object({ account: z.string(), password: z.string() })
+
+/** GET /api/me/feishu — the caller's linked Feishu identity, if any. */
+export const FeishuIdentityView = z.object({ identity: FeishuIdentityDto.nullable() })
+export type FeishuIdentityView = z.infer<typeof FeishuIdentityView>
+
+/** A group bot as seen from the bound chat: whether its own app is set up and is in the chat. */
+export const GroupFeishuBotDto = z.object({
+  botId: z.string(),
+  name: z.string(),
+  /** null: the bot has no Feishu app. */
+  appId: z.string().nullable(),
+  inChat: z.boolean(),
+})
+export type GroupFeishuBotDto = z.infer<typeof GroupFeishuBotDto>
+
+/** GET /api/groups/:id/feishu (group admins). `available` is false until the main app is configured. */
+export const GroupFeishuView = z.object({
+  available: z.boolean(),
+  chat: FeishuChatDto.nullable(),
+  /** The main app's chats not bound to another group, to pick from. */
+  chats: z.array(z.object({ chatId: z.string(), name: z.string() })),
+  bots: z.array(GroupFeishuBotDto),
+})
+export type GroupFeishuView = z.infer<typeof GroupFeishuView>
+
+/** PUT /api/groups/:id/feishu: bind the group to one of the main app's chats (one to one). */
+export const BindFeishuChatReq = z.object({ chatId: z.string().trim().min(1) })

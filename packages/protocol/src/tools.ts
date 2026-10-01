@@ -53,6 +53,11 @@ export const ListQuestionsArgs = z.object({
 
 export const FetchAttachmentsArgs = z.object({ message: seq.describe('消息 #seq') })
 
+export const ListFeishuMessagesArgs = z.object({
+  limit: z.number().int().min(1).max(50).describe('条数，默认 20').optional(),
+  before: z.string().describe('取该时间之前的消息，ISO 8601（上一页末尾给出）').optional(),
+})
+
 const serviceName = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{0,31}$/)
@@ -124,6 +129,13 @@ export const GONGGONG_TOOLS = {
     title: '下载历史附件',
     description: '把某条消息的附件下载到工作区 .gonggong/attachments/ 下，返回相对路径。',
     input: FetchAttachmentsArgs,
+  },
+  list_feishu_messages: {
+    title: '读取飞书群消息',
+    description:
+      '实时读取当前群绑定的飞书群的近期消息（以触发人的飞书身份读取，结果不保存）。' +
+      '飞书里只有与 Bot 交互的消息会同步到共工，需要了解飞书群里此前的讨论时用它。',
+    input: ListFeishuMessagesArgs,
   },
   preview_expose: {
     title: '发布预览',

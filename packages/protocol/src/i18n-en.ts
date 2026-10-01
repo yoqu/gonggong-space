@@ -89,6 +89,7 @@ export const protocolEn = {
   'daemon 重启，本轮已中断': 'The daemon restarted, this turn was interrupted',
   '{user} 的账号已停用，本轮中断': "{user}'s account was disabled, this turn was interrupted",
   '触发消息已撤回，已作废': 'The triggering message was recalled, voided',
+  '消息已编辑，已重新运行': 'Message edited, run again',
   '等待回答：{n} 个问题': 'Awaiting answers: {n} {n:question|questions}',
   '等待审批：{title}': 'Awaiting approval: {title}',
   '整条链已被 {user} /stop 终止': 'The whole relay was ended by {user} with /stop',

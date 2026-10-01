@@ -126,6 +126,16 @@ export const en = {
   'App ID 应以 cli_ 开头': 'The App ID must start with cli_',
   '该飞书应用已被其他 Bot 或主应用使用': 'This Feishu app is already used by another bot or the main app',
   '飞书校验失败：{reason}': 'Feishu rejected the credentials: {reason}',
+  该账号或飞书身份已绑定其他身份: 'This account or Feishu identity is already linked to another one',
+  '飞书登录已过期，请重新登录': 'The Feishu sign-in has expired; please sign in again',
+  '未开启飞书自动开户，请绑定已有账号或联系系统管理员':
+    'Feishu auto sign-up is off; link an existing account or contact the system admin',
+  '账号未设置密码，解绑后将无法登录':
+    'This account has no password; after unlinking you could no longer sign in',
+  '对外地址改为 {url}': 'Public URL set to {url}',
+  '飞书登录新建账号 {account}': 'Created account {account} via Feishu sign-in',
+  '绑定飞书身份 {name}': 'Linked Feishu identity {name}',
+  解绑飞书身份: 'Unlinked the Feishu identity',
 
   // Runs, approvals, questions
   运行不存在: 'Run not found',
@@ -323,6 +333,9 @@ export const en = {
   消息不存在: 'Message not found',
   只能操作自己发送的消息: 'You can only do this to your own messages',
   '超过 24 小时，无法撤回': "Messages older than 24 hours can't be recalled",
+  '超过 24 小时，无法编辑': "Messages older than 24 hours can't be edited",
+  命令消息不能编辑: "Command messages can't be edited",
+  '编辑不能修改 @ 的对象': "An edit can't change whom the message @-mentions",
   消息不能为空: "Message can't be empty",
   通知不存在: 'Notification not found',
 
@@ -387,4 +400,46 @@ export const en = {
   '{bot} 未处于暂停状态': '{bot} is not paused',
   机器未在规定时间内响应: "The machine didn't respond in time",
   '{bot} 离线，上线后会自动重新检查': '{bot} is offline and will recheck once it is back',
+
+  // 飞书联动 · 群绑定与消息
+  '……（完整内容见共工）': '… (see Gonggong for the full text)',
+  排队中: 'Queued',
+  离线等待: 'Waiting for the Bot to come online',
+  无权触发: 'Not allowed to trigger',
+  运行中: 'Running',
+  等待审批: 'Awaiting approval',
+  等待回答: 'Awaiting an answer',
+  已完成: 'Completed',
+  已中断: 'Interrupted',
+  已作废: 'Voided',
+  查看过程: 'View process',
+  '{bot} 的提问': 'Questions from {bot}',
+  输入回答: 'Enter your answer',
+  请选择: 'Choose',
+  提交回答: 'Submit answers',
+  '{bot} 请求审批': '{bot} requests approval',
+  已超时: 'Timed out',
+  '已由 {name} 拒绝': 'Rejected by {name}',
+  '已由 {name} 处理': 'Handled by {name}',
+  共工: 'Gonggong',
+  '飞书调用失败：{reason}': 'Feishu call failed: {reason}',
+  私聊不能绑定飞书群: "A DM can't be bound to a Feishu chat",
+  系统管理员尚未配置飞书主应用: "The system admin hasn't configured the Feishu main app yet",
+  '该群已绑定飞书群，请先解绑': 'This group is already bound to a Feishu chat, unbind it first',
+  主应用不在该飞书群中: "The main app isn't in that Feishu chat",
+  该飞书群已绑定其他群: 'That Feishu chat is already bound to another group',
+  该群尚未绑定飞书群: "This group isn't bound to a Feishu chat yet",
+  '该 Bot 没有绑定飞书应用': "This Bot doesn't have a Feishu app",
+  '这个飞书群还没有绑定共工群，请群管理员在共工的群设置中绑定。':
+    "This Feishu chat isn't bound to a Gonggong group yet. Ask a group admin to bind it in Gonggong's group settings.",
+  '这个 Bot 不在绑定的共工群中，请先把它加入该群。':
+    "This Bot isn't in the bound Gonggong group. Add it to the group first.",
+  认证共工账号: 'Verify your Gonggong account',
+  '你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。':
+    "You're not a member of the bound Gonggong group, so you can't use this Bot. Ask a group admin to add you.",
+  '使用 Bot 前需要先认证共工账号，认证后重新 @ 即可。':
+    'Verify your Gonggong account before using Bots, then @ the Bot again.',
+  请先认证共工账号: 'Verify your Gonggong account first',
+  已提交回答: 'Answers submitted',
+  已处理: 'Handled',
 } satisfies Record<string, string>

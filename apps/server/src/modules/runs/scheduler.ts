@@ -3,8 +3,10 @@ import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, s
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupRepos, groups, messages, runs, teams, users } from '../../db/schema.js'
+import { FEISHU_HINT } from '../agent-tools/feishu.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
+import { boundChat } from '../feishu/mirror.js'
 import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
@@ -190,6 +192,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
         ).reverse()
       : []
   const interrupted = await interruptNote(tx, run, trigger.at.toISOString())
+  const feishu = await boundChat(tx, run.groupId)
   const config = resolveConfig(await botCatalog(tx, bot), meta.runOptions?.[bot.id], gb, bot)
   const note = interrupted ? [interrupted.note] : []
   const msg: RunStart = {
@@ -201,7 +204,9 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       id: bot.id,
       name: bot.name,
       agentKind: bot.agentKind as AgentKind,
-      systemPrompt: bot.systemPrompt,
+      systemPrompt: feishu
+        ? [FEISHU_HINT, bot.systemPrompt].filter((s) => s.trim()).join('\n\n')
+        : bot.systemPrompt,
       tier: (gb.tier ?? bot.tier) as Tier,
       approval: bot.approval as Approval,
       allowlist: bot.allowlist,

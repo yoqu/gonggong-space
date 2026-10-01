@@ -58,6 +58,8 @@ export default {
   '浏览 {name} 的文件': "Browse {name}'s files",
   复制失败: 'Copy failed',
   '超过 24 小时，无法撤回': "Messages older than 24 hours can't be recalled",
+  编辑消息: 'Edit message',
+  'Enter 保存 · Esc 取消': 'Enter to save · Esc to cancel',
   '删除消息？': 'Delete message?',
   取消: 'Cancel',
   删除: 'Delete',

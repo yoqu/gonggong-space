@@ -13,6 +13,15 @@ export interface FeishuBody {
   content: string
 }
 
+/** Asked at authorization; each must also be enabled on the main app. offline_access is what yields a refresh_token. */
+export const USER_SCOPES = [
+  'offline_access',
+  'contact:user.email:readonly',
+  'im:message',
+  'im:message.send_as_user',
+  'im:message.group_msg:get_as_user',
+]
+
 export interface FeishuTokens {
   accessToken: string
   refreshToken: string | null
@@ -203,6 +212,7 @@ export function larkApi(): FeishuApi {
         client_id: appId,
         response_type: 'code',
         redirect_uri: redirectUri,
+        scope: USER_SCOPES.join(' '),
         state,
       })
       return `https://accounts.feishu.cn/open-apis/authen/v1/authorize?${q}`

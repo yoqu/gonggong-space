@@ -38,6 +38,7 @@ import { citeInChat } from './cite'
 import { isRich, replyFiles } from './grouping'
 import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
+import { MessageEditor } from './MessageEditor'
 import {
   ClockFact,
   DelegationFacts,
@@ -92,11 +93,18 @@ export function fmtTime(iso: string) {
 const fullTime = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 
-function Time({ iso }: { iso: string }) {
+function Time({ iso, edited }: { iso: string; edited?: string | null }) {
   return (
-    <time className="tl-time" dateTime={iso} title={fullTime(new Date(iso))}>
-      {fmtTime(iso)}
-    </time>
+    <>
+      <time className="tl-time" dateTime={iso} title={fullTime(new Date(iso))}>
+        {fmtTime(iso)}
+      </time>
+      {edited ? (
+        <span className="tl-edited" title={fullTime(new Date(edited))}>
+          {t('已编辑')}
+        </span>
+      ) : null}
+    </>
   )
 }
 
@@ -219,9 +227,10 @@ const link = (groupId: string, query: string) => `${location.origin}/g/${groupId
 /** Quoting a bot = @ that bot (spec §8.6). */
 const BOT_QUOTE = t('引用回复等同 @ 该 Bot')
 
-const messageTarget = (m: MessageDto, own = false): ActionTarget => ({
+const messageTarget = (m: MessageDto, own = false, onEdit?: () => void): ActionTarget => ({
   message: m,
   own,
+  onEdit,
   link: link(m.groupId, `msg=${m.id}`),
   quoteTitle: m.kind === 'bot' ? BOT_QUOTE : undefined,
   onQuote: () => quoteMessage(m),
@@ -288,14 +297,15 @@ export const UserMessage = memo(function UserMessage({
   compact?: boolean
 }) {
   const text = !!(m.body || m.quote)
+  const [editing, setEditing] = useState(false)
   return (
-    <MessageMenu {...messageTarget(m, mine)}>
+    <MessageMenu {...messageTarget(m, mine, mine ? () => setEditing(true) : undefined)}>
       {(bar) => (
         <Message
           author={mine ? { name: m.authorName } : person(m)}
           self={mine}
           continued={compact}
-          time={<Time iso={m.createdAt} />}
+          time={<Time iso={m.createdAt} edited={m.editedAt} />}
           bare={!text}
           actionBar={bar}
           footer={
@@ -312,7 +322,11 @@ export const UserMessage = memo(function UserMessage({
           ) : (
             <MessageAttachments list={m.attachments} from={m.authorName} />
           )}
-          {m.body ? <Text body={m.body} names={names} me={me} /> : null}
+          {editing ? (
+            <MessageEditor message={m} onDone={() => setEditing(false)} />
+          ) : m.body ? (
+            <Text body={m.body} names={names} me={me} />
+          ) : null}
           <ReactionBar message={m} />
         </Message>
       )}

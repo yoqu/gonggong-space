@@ -1,0 +1,272 @@
+import { FeishuBindReq, type FeishuIdentityView, type FeishuTicketDto } from '@gonggong/protocol'
+import { verify } from '@node-rs/argon2'
+import { eq, or } from 'drizzle-orm'
+import type { FastifyInstance } from 'fastify'
+import type { Ctx } from '../../context.js'
+import { feishuIdentities, users } from '../../db/schema.js'
+import { audit } from '../../lib/audit.js'
+import { newToken } from '../../lib/crypto.js'
+import { fail } from '../../lib/errors.js'
+import { seal } from '../../lib/seal.js'
+import { Throttle } from '../../lib/throttle.js'
+import { sysParams } from '../admin/params.js'
+import { mainApp } from '../feishu/apps.js'
+import { FeishuError, type FeishuTokens, type FeishuUser } from '../feishu/client.js'
+import { credsOf } from '../feishu/gateway.js'
+import { publicUrl } from '../feishu/identity.js'
+import { meDto } from '../teams/dto.js'
+import { acceptInvite, findInvite } from '../teams/members.js'
+import { joinDefaultTeam } from '../teams/service.js'
+import { requireUser, resolveSession, SESSION_COOKIE, startSession } from './session.js'
+
+const TTL_MS = 10 * 60_000
+const CALLBACK = '/api/auth/feishu/callback'
+const INVITE_NEXT = /^\/join\/([^/?#]+)$/
+
+/** 飞书登录 needs both the main app and 对外地址 (the OAuth redirect base). */
+export async function feishuLoginReady(ctx: Ctx) {
+  return !!(await mainApp(ctx)) && !!(await publicUrl(ctx))
+}
+
+/** Same-origin paths only, never another site. */
+const safeNext = (next: unknown) => (typeof next === 'string' && /^\/(?!\/)/.test(next) ? next : '/')
+
+interface State {
+  next: string
+  /** Set when a signed-in user links their account (个人设置). */
+  linkUserId?: string
+  expiresAt: number
+}
+interface Ticket {
+  user: FeishuUser
+  tokens: FeishuTokens
+  next: string
+  expiresAt: number
+}
+
+/** Stores the Feishu identity (and its tokens) for `userId`; one identity per account and per Feishu user. */
+async function link(ctx: Ctx, userId: string, user: FeishuUser, tokens: FeishuTokens) {
+  const values = {
+    unionId: user.unionId,
+    feishuUserId: user.userId,
+    openId: user.openId,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar,
+    accessToken: seal(tokens.accessToken),
+    refreshToken: tokens.refreshToken ? seal(tokens.refreshToken) : null,
+    expiresAt: tokens.expiresAt,
+    refreshExpiresAt: tokens.refreshExpiresAt,
+    updatedAt: ctx.now(),
+  }
+  const taken = await ctx.db
+    .select({ userId: feishuIdentities.userId, unionId: feishuIdentities.unionId })
+    .from(feishuIdentities)
+    .where(or(eq(feishuIdentities.userId, userId), eq(feishuIdentities.unionId, user.unionId)))
+  if (taken.some((r) => r.userId !== userId || r.unionId !== user.unionId))
+    return fail('conflict', '该账号或飞书身份已绑定其他身份')
+  if (taken.length)
+    await ctx.db.update(feishuIdentities).set(values).where(eq(feishuIdentities.userId, userId))
+  else await ctx.db.insert(feishuIdentities).values({ userId, ...values })
+}
+
+/** Lowercase email prefix fitted to the account rule, or `feishu`; a numeric suffix avoids taken accounts. */
+async function freeAccount(ctx: Ctx, email: string | null) {
+  const base =
+    (email?.split('@')[0] ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_.-]/g, '')
+      .slice(0, 28) || 'feishu'
+  const stem = base.length < 2 ? 'feishu' : base
+  for (let i = 1; ; i++) {
+    const account = i === 1 ? stem : `${stem}${i}`
+    const [hit] = await ctx.db.select({ id: users.id }).from(users).where(eq(users.account, account))
+    if (!hit) return account
+  }
+}
+
+/** The team invite a login started from (`next` = /join/:token), when still usable. */
+async function inviteOf(ctx: Ctx, next: string) {
+  const token = INVITE_NEXT.exec(next)?.[1]
+  if (!token) return null
+  try {
+    const found = await findInvite(ctx, decodeURIComponent(token))
+    return found.usable ? found : null
+  } catch {
+    return null
+  }
+}
+
+export function feishuAuthRoutes(ctx: Ctx) {
+  return async (app: FastifyInstance) => {
+    // One server holds the Feishu connections, so pending logins live in memory; a restart only voids them.
+    const states = new Map<string, State>()
+    const tickets = new Map<string, Ticket>()
+    const throttle = new Throttle(5, 5 * 60_000, ctx.now)
+
+    const take = <T extends { expiresAt: number }>(map: Map<string, T>, key: string, keep = false) => {
+      const hit = map.get(key)
+      if (!keep || (hit && hit.expiresAt <= ctx.now().getTime())) map.delete(key)
+      return hit && hit.expiresAt > ctx.now().getTime() ? hit : null
+    }
+    const ticketOf = (key: string, keep = false) =>
+      take(tickets, key, keep) ?? fail('code_expired', '飞书登录已过期，请重新登录')
+
+    app.get('/api/auth/feishu/start', async (req, reply) => {
+      const q = req.query as { next?: string; mode?: string }
+      const main = await mainApp(ctx)
+      const base = await publicUrl(ctx)
+      if (!main || !base) return reply.redirect('/login?feishu=unavailable')
+      let linkUserId: string | undefined
+      if (q.mode === 'link') {
+        const user = await resolveSession(ctx, req.cookies[SESSION_COOKIE])
+        if (!user) return reply.redirect('/login')
+        linkUserId = user.id
+      }
+      const state = newToken('fs')
+      states.set(state, { next: safeNext(q.next), linkUserId, expiresAt: ctx.now().getTime() + TTL_MS })
+      return reply.redirect(ctx.feishu.api.authorizeUrl(main.appId, `${base}${CALLBACK}`, state))
+    })
+
+    app.get(CALLBACK, async (req, reply) => {
+      const q = req.query as { code?: string; state?: string; error?: string }
+      const state = q.state ? take(states, q.state) : null
+      const back = (reason: string) =>
+        reply.redirect(state?.linkUserId ? `${state.next}?feishu=${reason}` : `/login?feishu=${reason}`)
+      if (!state) return reply.redirect('/login?feishu=expired')
+      if (q.error || !q.code) return back('denied')
+      const main = await mainApp(ctx)
+      const base = await publicUrl(ctx)
+      if (!main || !base) return back('unavailable')
+      let tokens: FeishuTokens
+      let user: FeishuUser
+      try {
+        tokens = await ctx.feishu.api.exchangeCode(credsOf(main), q.code, `${base}${CALLBACK}`)
+        user = await ctx.feishu.api.userInfo(credsOf(main), tokens.accessToken)
+      } catch (err) {
+        if (!(err instanceof FeishuError)) throw err
+        req.log.warn({ err }, 'feishu login failed')
+        return back('failed')
+      }
+
+      if (state.linkUserId) {
+        try {
+          await link(ctx, state.linkUserId, user, tokens)
+        } catch {
+          return back('taken')
+        }
+        await audit(ctx, {
+          category: 'admin',
+          actorUserId: state.linkUserId,
+          action: 'user.feishu.link',
+          detail: { userId: state.linkUserId, feishu: user.name },
+        })
+        return back('linked')
+      }
+
+      const [linked] = await ctx.db
+        .select({ user: users })
+        .from(feishuIdentities)
+        .innerJoin(users, eq(users.id, feishuIdentities.userId))
+        .where(eq(feishuIdentities.unionId, user.unionId))
+      if (linked) {
+        if (linked.user.disabledAt) return back('disabled')
+        await link(ctx, linked.user.id, user, tokens)
+        await startSession(ctx, reply, linked.user.id)
+        return reply.redirect(state.next)
+      }
+      const ticket = newToken('ft')
+      tickets.set(ticket, { user, tokens, next: state.next, expiresAt: ctx.now().getTime() + TTL_MS })
+      return reply.redirect(`/feishu/choose?ticket=${encodeURIComponent(ticket)}`)
+    })
+
+    app.get('/api/auth/feishu/ticket/:ticket', async (req): Promise<FeishuTicketDto> => {
+      const { user, next } = ticketOf((req.params as { ticket: string }).ticket, true)
+      return {
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        canCreate: (await sysParams(ctx.db)).feishuAutoSignup || !!(await inviteOf(ctx, next)),
+        next,
+      }
+    })
+
+    app.post('/api/auth/feishu/ticket/:ticket/bind', async (req, reply) => {
+      const key = (req.params as { ticket: string }).ticket
+      const ticket = ticketOf(key, true)
+      const { account, password } = FeishuBindReq.parse(req.body)
+      if (throttle.blocked(account)) return fail('forbidden', '登录失败次数过多，请稍后再试')
+      const [user] = await ctx.db.select().from(users).where(eq(users.account, account))
+      if (!user?.passwordHash || !(await verify(user.passwordHash, password))) {
+        throttle.fail(account)
+        return fail('unauthorized', '账号或密码错误')
+      }
+      if (user.disabledAt) return fail('forbidden', '账号已停用，请联系系统管理员')
+      throttle.reset(account)
+      await link(ctx, user.id, ticket.user, ticket.tokens)
+      tickets.delete(key)
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: user.id,
+        action: 'user.feishu.link',
+        detail: { userId: user.id, feishu: ticket.user.name },
+      })
+      await startSession(ctx, reply, user.id)
+      return meDto(ctx, user)
+    })
+
+    app.post('/api/auth/feishu/ticket/:ticket/create', async (req, reply) => {
+      const key = (req.params as { ticket: string }).ticket
+      const ticket = ticketOf(key, true)
+      const invite = await inviteOf(ctx, ticket.next)
+      if (!(await sysParams(ctx.db)).feishuAutoSignup && !invite)
+        return fail('forbidden', '未开启飞书自动开户，请绑定已有账号或联系系统管理员')
+      tickets.delete(key)
+      const [user] = await ctx.db
+        .insert(users)
+        .values({
+          account: await freeAccount(ctx, ticket.user.email),
+          name: ticket.user.name.slice(0, 40),
+          role: 'member',
+          passwordHash: null,
+          mustChangePassword: false,
+        })
+        .returning()
+      if (!user) return fail('conflict', '账号已存在')
+      await link(ctx, user.id, ticket.user, ticket.tokens)
+      if (invite) await acceptInvite(ctx, invite, user)
+      await joinDefaultTeam(ctx.db, user.id)
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: user.id,
+        action: 'user.register',
+        detail: { userId: user.id, account: user.account, via: 'feishu' },
+      })
+      await startSession(ctx, reply, user.id)
+      return reply.status(201).send(await meDto(ctx, user))
+    })
+
+    app.get('/api/me/feishu', async (req): Promise<FeishuIdentityView> => {
+      const user = await requireUser(ctx, req)
+      const [row] = await ctx.db.select().from(feishuIdentities).where(eq(feishuIdentities.userId, user.id))
+      return {
+        identity: row
+          ? { name: row.name, avatar: row.avatar, email: row.email, boundAt: row.createdAt.toISOString() }
+          : null,
+      }
+    })
+
+    app.delete('/api/me/feishu', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      if (!user.passwordHash) return fail('invalid', '账号未设置密码，解绑后将无法登录')
+      await ctx.db.delete(feishuIdentities).where(eq(feishuIdentities.userId, user.id))
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: user.id,
+        action: 'user.feishu.unlink',
+        detail: { userId: user.id },
+      })
+      return reply.status(204).send()
+    })
+  }
+}

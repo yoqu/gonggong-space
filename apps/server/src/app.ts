@@ -16,12 +16,16 @@ import { agentToolRoutes } from './modules/agent-tools/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
 import { attachmentRoutes } from './modules/attachments/routes.js'
+import { feishuAuthRoutes } from './modules/auth/feishu.js'
 import { authRoutes } from './modules/auth/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
 import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
+import { feishuChatRoutes } from './modules/feishu/chats.js'
 import { startFeishu } from './modules/feishu/gateway.js'
+import { startFeishuInbound } from './modules/feishu/inbound.js'
+import { feishuIdle, stopFeishuMirror } from './modules/feishu/mirror.js'
 import { feishuRoutes } from './modules/feishu/routes.js'
 import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
@@ -120,6 +124,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   app.addHook('onClose', async () => stopQuestionTimer())
   await app.register(questionRoutes(ctx))
   await app.register(authRoutes(ctx))
+  await app.register(feishuAuthRoutes(ctx))
   await app.register(userRoutes(ctx))
   await app.register(teamRoutes(ctx))
   await app.register(machineRoutes(ctx))
@@ -135,6 +140,12 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(adminRoutes(ctx))
   await app.register(adminTeamRoutes(ctx))
   await app.register(feishuRoutes(ctx))
+  await app.register(feishuChatRoutes(ctx))
+  startFeishuInbound(ctx)
+  app.addHook('onClose', async () => {
+    stopFeishuMirror(ctx)
+    await feishuIdle(ctx)
+  })
   app.addHook('onClose', await startFeishu(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data', 'mirrors'), ctx.now)

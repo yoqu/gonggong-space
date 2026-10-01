@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { parseMentions, SendMessageReq, type TimelineDto, TimelineQuery } from '@gonggong/protocol'
+import {
+  EditMessageReq,
+  parseMentions,
+  SendMessageReq,
+  type TimelineDto,
+  TimelineQuery,
+} from '@gonggong/protocol'
 import { and, desc, eq, lt, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -9,11 +15,13 @@ import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
 import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
+import { mirrorEdit, mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots, requireMember, requireReader } from '../groups/service.js'
 import { reactionsFor } from '../reactions/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { appendTarget, sendAppend } from './append.js'
+import { editMessage } from './edit.js'
 import { resolveQuote } from './quote.js'
 import { hideMessage, notHiddenBy, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
@@ -123,7 +131,10 @@ export function messageRoutes(ctx: Ctx) {
         await publishMessage(ctx, dto)
         if (target) await sendAppend(ctx, target, dto)
         else if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
-        else if (mentions.length) await triggerRuns(ctx, row)
+        else if (mentions.length) {
+          await mirrorUserMessage(ctx, row, me)
+          await triggerRuns(ctx, row)
+        }
       }
       return dto
     })
@@ -131,6 +142,13 @@ export function messageRoutes(ctx: Ctx) {
     app.post<{ Params: { id: string } }>('/api/messages/:id/recall', async (req) =>
       recallMessage(ctx, await requireUser(ctx, req), req.params.id),
     )
+
+    app.patch<{ Params: { id: string } }>('/api/messages/:id', async (req) => {
+      const me = await requireUser(ctx, req)
+      const dto = await editMessage(ctx, me, req.params.id, EditMessageReq.parse(req.body).body)
+      await mirrorEdit(ctx, dto, me.name)
+      return dto
+    })
 
     app.post<{ Params: { id: string } }>('/api/messages/:id/hide', async (req, reply) => {
       await hideMessage(ctx, (await requireUser(ctx, req)).id, req.params.id)

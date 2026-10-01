@@ -3,6 +3,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
+import { mirrorRun } from '../feishu/mirror.js'
 import { groupParams } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
 import { attachmentDto, questionSetDto } from '../questions/dto.js'
@@ -135,4 +136,5 @@ export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: st
 export async function publishRun(ctx: Ctx, run: RunRow) {
   const toDto = await runDtoLoader(ctx, [run])
   ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
+  await mirrorRun(ctx, run)
 }

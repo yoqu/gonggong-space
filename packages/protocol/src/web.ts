@@ -51,6 +51,8 @@ export const ErrorCode = z.enum([
   'code_locked',
   /** POST /api/messages/:id/recall past RECALL_WINDOW_MS. */
   'recall_expired',
+  /** PATCH /api/messages/:id past RECALL_WINDOW_MS. */
+  'edit_expired',
 ])
 export const ApiError = z.object({ error: ErrorCode, message: z.string() })
 
@@ -665,6 +667,8 @@ export const MessageDto = z.object({
   reactions: z.array(ReactionDto).optional(),
   /** Recalled by its author: body, attachments, quote, mentions and reactions are blanked. Always sent by the server. */
   recalled: z.boolean().optional(),
+  /** Last edit by its author; null/absent when never edited. */
+  editedAt: z.string().nullable().optional(),
   /** A bot's preview card; its live state is in the group's preview list (group.previews). */
   previewId: z.string().nullable().optional(),
   /** An event's translatable source; `body` holds its Chinese rendering. */
@@ -867,6 +871,8 @@ export const UpdatePreviewShareReq = z.object({ expiresAt: z.iso.datetime() })
 export const RECALL_WINDOW_MS = 24 * 3600_000
 /** Quote snapshot text of a message that was recalled after being quoted. */
 export const RECALLED_QUOTE = '该消息已撤回'
+/** PATCH /api/messages/:id (author, own plain user message, within RECALL_WINDOW_MS, same @ targets) → the MessageDto. */
+export const EditMessageReq = z.object({ body: z.string().max(20000) })
 
 export const ApprovalDto = z.object({
   id: z.string(),
@@ -1374,6 +1380,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   ReactionsDto.extend({ t: z.literal('message.reactions') }),
   /** Sent to every member; quotes of it now read RECALLED_QUOTE. */
   z.object({ t: z.literal('message.recalled'), groupId: z.string(), messageId: z.string() }),
+  /** Sent to every member; quotes of it now read the new text. */
+  z.object({ t: z.literal('message.edited'), message: MessageDto }),
   /** Sent to the author only (their other sessions). */
   z.object({ t: z.literal('message.hidden'), groupId: z.string(), messageId: z.string() }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),

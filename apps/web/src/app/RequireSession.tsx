@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
+import { useFeishuLinkResult } from '../features/feishu/login'
 import { applyTeamEvent } from '../features/teams/store'
 import { t } from '../i18n'
 import { toastError } from '../lib/errors'
@@ -11,11 +12,13 @@ import { loadWorkspace, useWorkspace } from './workspace'
 
 export function RequireSession() {
   const { user, tenancy, status, load } = useSession()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // Without a team there is nothing to chat in (plan /welcome); sysadmins may still run the platform from /admin.
   const teamless = tenancy?.teams.length === 0
   // The workspace endpoints refuse a user who still has to change the initial password, or one in no team.
   const userId = user && !user.mustChangePassword && !teamless ? user.id : undefined
+
+  useFeishuLinkResult(!!user)
 
   useEffect(() => {
     if (status === 'idle') void load()
@@ -54,7 +57,13 @@ export function RequireSession() {
         <span className="app-splash__hint">{t('正在连接…')}</span>
       </div>
     )
-  if (!user) return <Navigate to="/login" replace />
+  if (!user)
+    return (
+      <Navigate
+        to={pathname === '/' && !search ? '/login' : `/login?next=${encodeURIComponent(pathname + search)}`}
+        replace
+      />
+    )
   if (user.mustChangePassword) return <ChangePasswordPage />
   if (teamless && pathname !== '/welcome' && !(user.role === 'sysadmin' && pathname.startsWith('/admin')))
     return <Navigate to="/welcome" replace />

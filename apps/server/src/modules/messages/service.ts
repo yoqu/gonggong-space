@@ -53,6 +53,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     quote: (m.meta as MessageMeta).quote ?? null,
     reactions: recalled ? [] : reactions,
     recalled,
+    editedAt: m.editedAt?.toISOString() ?? null,
     ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
     ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
   }

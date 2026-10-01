@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull } from 'drizzle-orm'
-import type { FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { users, webSessions } from '../../db/schema.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
@@ -15,6 +15,18 @@ export async function createSession(ctx: Ctx, userId: string) {
   const expiresAt = new Date(ctx.now().getTime() + SESSION_DAYS * 86_400_000)
   await ctx.db.insert(webSessions).values({ tokenHash: sha256(token), userId, expiresAt })
   return { token, expiresAt }
+}
+
+/** Signs the browser in as `userId` (session cookie). */
+export async function startSession(ctx: Ctx, reply: FastifyReply, userId: string) {
+  const session = await createSession(ctx, userId)
+  reply.setCookie(SESSION_COOKIE, session.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: ctx.config.secureCookies,
+    path: '/',
+    expires: session.expiresAt,
+  })
 }
 
 export async function resolveSession(ctx: Ctx, token: string | undefined): Promise<SessionUser | null> {

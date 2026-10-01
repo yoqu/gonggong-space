@@ -6,7 +6,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 
 /** Quoted text sent to the agent is capped; the UI shows one line of it anyway. */
-const QUOTE_MAX = 2000
+export const QUOTE_MAX = 2000
 
 export type Quote = NonNullable<MessageDto['quote']>
 

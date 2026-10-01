@@ -3,16 +3,35 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { GroupBox, GroupRow, Switch, toast } from '../../ui'
+import { Button, GroupBox, GroupRow, Switch, TextField, toast } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
 
 /** 管理后台 · 飞书: the system-wide main app (飞书登录, mirroring people's messages) and auto sign-up. */
 export function FeishuAdminPage() {
   const [autoSignup, setAutoSignup] = useState<boolean | null>(null)
+  const [publicUrl, setPublicUrl] = useState('')
+  const [urlDraft, setUrlDraft] = useState('')
   useEffect(() => {
-    api.get<SystemParams>('/admin/params').then((p) => setAutoSignup(p.feishuAutoSignup), toastError)
+    api.get<SystemParams>('/admin/params').then((p) => {
+      setAutoSignup(p.feishuAutoSignup)
+      setPublicUrl(p.publicUrl ?? '')
+      setUrlDraft(p.publicUrl ?? '')
+    }, toastError)
   }, [])
+
+  const saveUrl = async () => {
+    try {
+      const next = await api.put<SystemParams>('/admin/params', {
+        publicUrl: urlDraft.trim().replace(/\/+$/, ''),
+      })
+      setPublicUrl(next.publicUrl)
+      setUrlDraft(next.publicUrl)
+      toast({ type: 'success', message: t('对外地址已保存') })
+    } catch (e) {
+      toastError(e)
+    }
+  }
 
   const toggle = async (v: boolean) => {
     try {
@@ -42,6 +61,46 @@ export function FeishuAdminPage() {
           </GroupRow>
         </GroupBox>
       </section>
+      {autoSignup !== null ? (
+        <section className="admin-params">
+          <h2 className="admin-params__title">{t('对外地址')}</h2>
+          <GroupBox>
+            <GroupRow
+              label={t('对外地址')}
+              description={t(
+                '浏览器访问共工的地址，如 https://gonggong.example.com；飞书卡片中的链接和飞书登录回调都基于它。',
+              )}
+            >
+              <span className="gs-value-line">
+                <TextField
+                  aria-label={t('对外地址')}
+                  placeholder="https://…"
+                  value={urlDraft}
+                  onChange={(e) => setUrlDraft(e.target.value)}
+                />
+                <Button
+                  size="small"
+                  aria-label={t('保存对外地址')}
+                  disabled={urlDraft.trim().replace(/\/+$/, '') === publicUrl}
+                  onClick={() => void saveUrl()}
+                >
+                  {t('保存')}
+                </Button>
+              </span>
+            </GroupRow>
+            {publicUrl ? (
+              <GroupRow
+                label={t('重定向 URL')}
+                description={t(
+                  '在飞书开发者后台「安全设置 · 重定向 URL」中添加此地址，飞书登录才能回到共工。',
+                )}
+              >
+                <code className="feishu-app__id">{`${publicUrl}/api/auth/feishu/callback`}</code>
+              </GroupRow>
+            ) : null}
+          </GroupBox>
+        </section>
+      ) : null}
       {autoSignup !== null ? (
         <section className="admin-params">
           <h2 className="admin-params__title">{t('账号')}</h2>

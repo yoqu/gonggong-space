@@ -24,6 +24,7 @@ import {
   TextField,
 } from '../../ui'
 import { ChangePasswordDialog } from '../auth/ChangePasswordPage'
+import { FeishuIdentityRow } from '../feishu/FeishuIdentityRow'
 import '../groups/groups.css'
 import { accountLabel, gitAccountsApi, useGitAccounts } from './api'
 import { type SettingsPage, useSettings } from './store'
@@ -386,6 +387,7 @@ function AccountPage() {
             {t('修改密码…')}
           </Button>
         </GroupRow>
+        <FeishuIdentityRow />
       </GroupBox>
       <Presence>{changing ? <ChangePasswordDialog onClose={() => setChanging(false)} /> : null}</Presence>
       <RenameSheet open={renaming} current={name ?? ''} onClose={() => setRenaming(false)} />

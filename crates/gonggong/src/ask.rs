@@ -619,6 +619,7 @@ mod tests {
                 "get_run",
                 "list_questions",
                 "fetch_attachments",
+                "list_feishu_messages",
                 "preview_expose",
                 "preview_gui",
                 "preview_close",

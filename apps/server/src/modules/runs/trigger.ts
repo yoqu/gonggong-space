@@ -127,6 +127,21 @@ export async function triggerRuns(ctx: Ctx, message: typeof messages.$inferSelec
   })
 }
 
+/** A fresh hop-1 run of `botIds` for the (edited) user message `message` (plan F8). */
+export async function rerunFor(ctx: Ctx, message: typeof messages.$inferSelect, botIds: string[]) {
+  const author = message.authorUserId
+  if (!author) return
+  await createRuns(ctx, {
+    groupId: message.groupId,
+    messageId: message.id,
+    botIds,
+    originUserId: author,
+    triggerUserId: author,
+    hop: 1,
+    parentRunId: null,
+  })
+}
+
 /** Whether `messageId` already started a run: a repeated follow-up pass must not start it again. */
 export async function hasRun(ctx: Ctx, groupId: string, messageId: string) {
   const [hit] = await ctx.db

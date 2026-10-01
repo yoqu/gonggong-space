@@ -2,7 +2,7 @@ import { type ContextMessage, type RunDiscarded, type RunDone, TERMINAL_RUN_STAT
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groups, notifications, runs, teams, users } from '../../db/schema.js'
+import { bots, groups, messages, notifications, runs, teams, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
@@ -50,7 +50,10 @@ const stopStep = (name: string, run: Pick<RunRow, 'hop'>) =>
 
 export type StopTarget =
   | { groupId: string; botIds?: string[] }
-  | { groupId: string; runId: string; chain?: boolean }
+  | { groupId: string; runId: string; chain?: boolean; edited?: boolean }
+
+/** A run stopped because its author edited the triggering message (plan F8); a fresh run follows. */
+const EDITED_STEP = '消息已编辑，已重新运行'
 
 /**
  * Plan D7. Waiting runs end at once; live ones get `run.cancel` and end on the daemon's run.done (see
@@ -68,16 +71,18 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
     .where(and(eq(runs.groupId, target.groupId), notInArray(runs.status, [...TERMINAL_RUN_STATUS]), scope))
+  const edited = 'edited' in target && target.edited
   const stopped: RunRow[] = []
   for (const { run, machineId } of targets) {
+    const step = edited ? runStep(EDITED_STEP) : stopStep(by.name, run)
     // Marked before run.cancel goes out, so the daemon's run.done always finds who stopped it.
     const live = !WAITING.includes(run.status) && !!machineId && ctx.hub.isOnline(machineId)
     const [row] = await ctx.db
       .update(runs)
       .set(
         live
-          ? { stoppedBy: by.id }
-          : { stoppedBy: by.id, status: 'interrupted', ...stopStep(by.name, run), endedAt: ctx.now() },
+          ? { stoppedBy: by.id, ...(edited && step) }
+          : { stoppedBy: by.id, status: 'interrupted', ...step, endedAt: ctx.now() },
       )
       .where(and(eq(runs.id, run.id), notInArray(runs.status, [...TERMINAL_RUN_STATUS])))
       .returning()
@@ -105,7 +110,7 @@ export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise
   if (!run.stoppedBy || done.outcome === 'completed') return {}
   const [by] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, run.stoppedBy))
   const kept = done.filesChanged > 0 && done.git !== null
-  const step = stopStep(by?.name ?? '', run)
+  const step = (await stoppedByEdit(ctx, run)) ? runStep(EDITED_STEP) : stopStep(by?.name ?? '', run)
   return kept
     ? {
         ...runStep('{step} · 分区模式：已改的 {n} 个文件留在工作区，未提交', {
@@ -115,6 +120,16 @@ export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise
         interrupt: 'pending',
       }
     : step
+}
+
+/** Its author edited the triggering message while it ran (the edit stops it, see `editMessage`). */
+async function stoppedByEdit(ctx: Ctx, run: RunRow) {
+  if (!run.startedAt) return false
+  const [m] = await ctx.db
+    .select({ editedAt: messages.editedAt, author: messages.authorUserId })
+    .from(messages)
+    .where(eq(messages.id, run.triggerMessageId))
+  return !!m?.editedAt && m.editedAt >= run.startedAt && m.author === run.stoppedBy
 }
 
 /** The chain's initiator learns when a relay chain (more than one hop) has no unfinished run left (spec §8.11). */

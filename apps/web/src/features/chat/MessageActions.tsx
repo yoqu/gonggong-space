@@ -5,7 +5,7 @@ import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { Button, ContextMenu, Dialog, Icon, MenuButton, type MenuItem, Presence, toast } from '../../ui'
 import { ReactionPicker } from '../reactions'
-import { applyWithdrawn } from './useTimeline'
+import { applyLocal } from './useTimeline'
 import './recall.css'
 import { t } from '../../i18n'
 
@@ -14,7 +14,7 @@ const LONG_PRESS_MS = 500
 async function recall(m: MessageDto) {
   try {
     await api.post(`/messages/${m.id}/recall`)
-    applyWithdrawn({ t: 'message.recalled', groupId: m.groupId, messageId: m.id })
+    applyLocal({ t: 'message.recalled', groupId: m.groupId, messageId: m.id })
   } catch (e) {
     const late = e instanceof ApiError && e.code === 'recall_expired'
     toast({ type: 'error', message: late ? t('超过 24 小时，无法撤回') : (e as Error).message })
@@ -24,7 +24,7 @@ async function recall(m: MessageDto) {
 async function hide(m: MessageDto) {
   try {
     await api.post(`/messages/${m.id}/hide`)
-    applyWithdrawn({ t: 'message.hidden', groupId: m.groupId, messageId: m.id })
+    applyLocal({ t: 'message.hidden', groupId: m.groupId, messageId: m.id })
     return true
   } catch (e) {
     toastError(e)
@@ -100,8 +100,10 @@ export interface ActionTarget {
   quoteTitle?: string
   onQuote: () => void
   copyText?: string
-  /** My own user message: 撤回 (within the window) and 删除. */
+  /** My own user message: 编辑 / 撤回 (within the window) and 删除. */
   own?: boolean
+  /** Opens the inline editor of my own message (编辑). */
+  onEdit?: () => void
 }
 
 /**
@@ -113,8 +115,11 @@ function useMessageMenu(target: ActionTarget) {
   const [deleting, setDeleting] = useState(false)
   const mine = target.own && target.message ? target.message : null
   const recallable = !!mine && Date.now() - Date.parse(mine.createdAt) < RECALL_WINDOW_MS
+  // Commands are not editable (the server refuses them too).
+  const editable = recallable && !!target.onEdit && !!mine?.body && !mine.body.trimStart().startsWith('/')
   const more: MenuItem[] = [
     { value: 'link', label: t('复制链接'), icon: 'link' },
+    ...(editable ? [{ value: 'edit', label: t('编辑'), icon: 'textformat' as const }] : []),
     ...(mine && recallable ? [{ value: 'recall', label: t('撤回'), icon: 'undo' as const }] : []),
     ...(mine ? [{ value: 'delete', label: t('删除'), icon: 'trash' as const, destructive: true }] : []),
   ]
@@ -131,6 +136,7 @@ function useMessageMenu(target: ActionTarget) {
     else if (value === 'copy' && target.copyText !== undefined)
       void copyWithToast(target.copyText, t('已复制'))
     else if (value === 'link') void copyWithToast(target.link, t('链接已复制'))
+    else if (value === 'edit') target.onEdit?.()
     else if (value === 'recall' && mine) void recall(mine)
     else if (value === 'delete') setDeleting(true)
   }

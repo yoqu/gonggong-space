@@ -67,9 +67,23 @@ const withdraw = (s: TimelineState, e: Withdrawn): TimelineState => ({
         ),
 })
 
-const local = new Set<(e: Withdrawn) => void>()
-/** Applies my confirmed recall / delete at once instead of waiting for its realtime echo. */
-export const applyWithdrawn = (e: Withdrawn) => {
+type Edited = Extract<WebEvent, { t: 'message.edited' }>
+
+/** New text and 已编辑 for the message and quotes of it; reactions stay (theirs carry the editor's `mine`). */
+const edit = (s: TimelineState, { message: e }: Edited): TimelineState => ({
+  ...s,
+  messages: s.messages.map((m) =>
+    m.id === e.id
+      ? { ...m, body: e.body, editedAt: e.editedAt }
+      : m.quote?.kind === 'message' && m.quote.id === e.id
+        ? { ...m, quote: { ...m.quote, text: e.body } }
+        : m,
+  ),
+})
+
+const local = new Set<(e: Withdrawn | Edited) => void>()
+/** Applies my confirmed recall / delete / edit at once instead of waiting for its realtime echo. */
+export const applyLocal = (e: Withdrawn | Edited) => {
   for (const h of local) h(e)
 }
 
@@ -114,10 +128,12 @@ export function useTimeline(groupId: string) {
         () => alive && setState((s) => (s.loaded ? s : { ...s, failed: true })),
       )
     void latest()
-    const onWithdrawn = (e: Withdrawn) => {
-      if (e.groupId === groupId) setState((s) => withdraw(s, e))
+    const onLocal = (e: Withdrawn | Edited) => {
+      if (e.t === 'message.edited') {
+        if (e.message.groupId === groupId) setState((s) => edit(s, e))
+      } else if (e.groupId === groupId) setState((s) => withdraw(s, e))
     }
-    local.add(onWithdrawn)
+    local.add(onLocal)
     // Streamed text is applied in batches: each update re-renders the whole timeline and re-pins the scroll.
     const pending = new Map<string, string>()
     let flushTimer: ReturnType<typeof setTimeout> | undefined
@@ -136,7 +152,7 @@ export function useTimeline(groupId: string) {
     }
     const offEvents = realtime.subscribe((e) => {
       if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
-      else if (e.t === 'message.recalled' || e.t === 'message.hidden') onWithdrawn(e)
+      else if (e.t === 'message.recalled' || e.t === 'message.hidden' || e.t === 'message.edited') onLocal(e)
       else if (e.t === 'run.updated' && e.run.groupId === groupId)
         setState((s) => ({ ...s, runs: mergeRuns(s.runs, [e.run]) }))
       else if (e.t === 'run.delta') {
@@ -153,7 +169,7 @@ export function useTimeline(groupId: string) {
     return () => {
       alive = false
       clearTimeout(flushTimer)
-      local.delete(onWithdrawn)
+      local.delete(onLocal)
       offEvents()
       offStatus()
     }

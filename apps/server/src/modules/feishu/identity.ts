@@ -9,8 +9,19 @@ import { credsOf } from './gateway.js'
 
 const SKEW_MS = 60_000
 
+/** Feishu refresh tokens are single-use: concurrent refreshes for one user must share one call. */
+const pending = new Map<string, Promise<string | null>>()
+
 /** The user's main-app access token, refreshed when about to expire; null when not linked, revoked or the main app is gone. */
-export async function userToken(ctx: Ctx, userId: string): Promise<string | null> {
+export function userToken(ctx: Ctx, userId: string): Promise<string | null> {
+  const running = pending.get(userId)
+  if (running) return running
+  const p = currentToken(ctx, userId).finally(() => pending.delete(userId))
+  pending.set(userId, p)
+  return p
+}
+
+async function currentToken(ctx: Ctx, userId: string): Promise<string | null> {
   const [row] = await ctx.db.select().from(feishuIdentities).where(eq(feishuIdentities.userId, userId))
   if (!row?.accessToken) return null
   if (row.expiresAt && row.expiresAt.getTime() - SKEW_MS > ctx.now().getTime()) return open(row.accessToken)

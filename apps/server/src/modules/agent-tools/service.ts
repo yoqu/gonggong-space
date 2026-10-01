@@ -26,6 +26,7 @@ import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import type { MessageMeta } from '../messages/service.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
+import { listFeishuMessages } from './feishu.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -352,6 +353,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   get_run: getRun,
   list_questions: listQuestions,
   fetch_attachments: fetchAttachments,
+  list_feishu_messages: (ctx, s, a) => listFeishuMessages(ctx, s.run, a),
   preview_expose: async (ctx, s, a) => ({ text: await exposePreview(ctx, s.run, a), groups: [] }),
   preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),

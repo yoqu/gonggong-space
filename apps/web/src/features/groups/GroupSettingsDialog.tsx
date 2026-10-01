@@ -7,6 +7,7 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Spinner, Stepper, toast } from '../../ui'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
+import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { groupsApi } from './api'
 import { BotsView, type SettingsTab } from './GroupInfo'
@@ -42,7 +43,12 @@ export function GroupSettingsDialog({
     { value: 'repo', label: t('仓库与工作区'), icon: 'folder-git' },
     { value: 'mode', label: t('同步模式'), icon: 'arrow-clockwise' },
     { value: 'params', label: dm ? t('参数#settings') : t('群级参数'), icon: 'slider-horizontal' },
-    ...(dm ? [] : [{ value: 'mcp' as const, label: 'MCP', icon: 'plug' as const }]),
+    ...(dm
+      ? []
+      : [
+          { value: 'mcp' as const, label: 'MCP', icon: 'plug' as const },
+          { value: 'feishu' as const, label: t('飞书'), icon: 'message' as const },
+        ]),
   ]
 
   useEffect(() => {
@@ -110,6 +116,8 @@ export function GroupSettingsDialog({
             <RepoWorkspaceView group={group} isAdmin />
           ) : tab === 'mcp' ? (
             <GroupMcpTab group={group} />
+          ) : tab === 'feishu' ? (
+            <GroupFeishuTab group={group} />
           ) : tab === 'mode' ? (
             <div className="gs-mode">
               <GroupBox>

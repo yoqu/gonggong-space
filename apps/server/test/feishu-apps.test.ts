@@ -74,11 +74,13 @@ describe('main app (管理后台 · 飞书)', () => {
     expect((await http.put('/api/admin/feishu', MAIN)).status).toBe(403)
   })
 
-  it('turns on 飞书登录 in the login options', async () => {
+  it('turns on 飞书登录 in the login options once 对外地址 is set too', async () => {
     const { http } = await sysadmin()
     const anon = () => t.app.inject({ url: '/api/auth/options' }).then((r) => r.json<AuthOptionsDto>())
     expect((await anon()).feishuLogin).toBe(false)
     await http.put('/api/admin/feishu', MAIN)
+    expect((await anon()).feishuLogin).toBe(false)
+    await http.put('/api/admin/params', { publicUrl: 'https://gg.example.com' })
     expect((await anon()).feishuLogin).toBe(true)
   })
 })
@@ -188,7 +190,7 @@ describe('accounts without a password', () => {
 
 describe('larkApi', () => {
   it('builds the OAuth authorization page of the main app', async () => {
-    const { larkApi } = await import('../src/modules/feishu/client.js')
+    const { larkApi, USER_SCOPES } = await import('../src/modules/feishu/client.js')
     const url = new URL(
       larkApi().authorizeUrl('cli_main01', 'http://10.0.0.2:8787/api/auth/feishu/callback', 's1'),
     )
@@ -197,7 +199,9 @@ describe('larkApi', () => {
       client_id: 'cli_main01',
       response_type: 'code',
       redirect_uri: 'http://10.0.0.2:8787/api/auth/feishu/callback',
+      scope: USER_SCOPES.join(' '),
       state: 's1',
     })
+    expect(USER_SCOPES).toContain('offline_access')
   })
 })

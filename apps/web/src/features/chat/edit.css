@@ -1,0 +1,14 @@
+.msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: min(360px, 60vw);
+}
+.msg-edit-hint {
+  color: var(--label-tertiary);
+  font-size: var(--text-footnote-size);
+}
+.tl-edited {
+  margin-inline-start: var(--space-4);
+  color: var(--label-tertiary);
+}

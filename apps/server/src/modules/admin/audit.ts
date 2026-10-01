@@ -66,7 +66,10 @@ function paramChanges(d: Detail) {
   const feishu = changes.feishuAutoSignup
     ? [t(changes.feishuAutoSignup[1] ? '开启飞书自动开户' : '关闭飞书自动开户')]
     : []
-  return [...reg, ...single, ...creation, ...feishu, ...numeric].join(t('；'))
+  const url = changes.publicUrl
+    ? [t('对外地址改为 {url}', { url: str(changes.publicUrl[1]) || t('未设置') })]
+    : []
+  return [...reg, ...single, ...creation, ...feishu, ...url, ...numeric].join(t('；'))
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
@@ -159,7 +162,13 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'user.password.reset':
           return t('重置 {account} 的密码', { account: str(d.account) })
         case 'user.register':
-          return t('自助注册账号 {account}', { account: str(d.account) })
+          return d.via === 'feishu'
+            ? t('飞书登录新建账号 {account}', { account: str(d.account) })
+            : t('自助注册账号 {account}', { account: str(d.account) })
+        case 'user.feishu.link':
+          return t('绑定飞书身份 {name}', { name: str(d.feishu) })
+        case 'user.feishu.unlink':
+          return t('解绑飞书身份')
         case 'user.disable':
           return t('停用账号 {account}', { account: str(d.account) })
         case 'team.create':
