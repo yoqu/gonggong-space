@@ -20,7 +20,7 @@ daemon 首次运行时会用 npm 把 ACP 适配器安装到 `~/.gonggong/adapter
 
 ## 选择安装包
 
-向管理员索取安装包，文件名形如 `gonggong-<版本>-<系统>-<架构>`：
+从 [GitHub Releases](https://github.com/yoqu/gonggong-space/releases/latest) 下载或向管理员索取安装包，文件名形如 `gonggong-<版本>-<系统>-<架构>`：
 
 | 机器 | 文件 |
 | --- | --- |

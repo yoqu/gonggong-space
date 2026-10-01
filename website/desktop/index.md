@@ -19,8 +19,8 @@
 
 ## 安装
 
-1. 向管理员索取安装包，文件名形如 `共工空间_<版本>_<架构>.dmg`：
-   - Apple 芯片（M1/M2/M3…）：文件名中的架构为 `aarch64`，如 `共工空间_0.1.0_aarch64.dmg`
+1. 从 [GitHub Releases](https://github.com/yoqu/gonggong-space/releases/latest) 下载或向管理员索取安装包，文件名形如 `Gonggong_<版本>_<架构>.dmg`：
+   - Apple 芯片（M1/M2/M3…）：文件名中的架构为 `aarch64`，如 `Gonggong_0.1.0_aarch64.dmg`
    - Intel 芯片：需要管理员在 Intel 芯片的 Mac 上单独打包
 
    不确定芯片型号：点屏幕左上角苹果菜单 →「关于本机」查看。

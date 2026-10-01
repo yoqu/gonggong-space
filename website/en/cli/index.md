@@ -20,7 +20,7 @@ On first run, the daemon uses npm to install the ACP adapters into `~/.gonggong/
 
 ## Choose the right package
 
-Ask your admin for the package. File names look like `gonggong-<version>-<os>-<arch>`:
+Download the package from [GitHub Releases](https://github.com/yoqu/gonggong-space/releases/latest) or ask your admin. File names look like `gonggong-<version>-<os>-<arch>`:
 
 | Machine | File |
 | --- | --- |

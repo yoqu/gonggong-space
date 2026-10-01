@@ -19,8 +19,8 @@ Only **macOS** installers are available at the moment. Installers are built per 
 
 ## Installation
 
-1. Ask your admin for the installer. The file name looks like `共工空间_<version>_<arch>.dmg`:
-   - Apple silicon (M1/M2/M3…): the architecture in the file name is `aarch64`, e.g. `共工空间_0.1.0_aarch64.dmg`
+1. Download the installer from [GitHub Releases](https://github.com/yoqu/gonggong-space/releases/latest) or ask your admin. The file name looks like `Gonggong_<version>_<arch>.dmg`:
+   - Apple silicon (M1/M2/M3…): the architecture in the file name is `aarch64`, e.g. `Gonggong_0.1.0_aarch64.dmg`
    - Intel: the admin needs to build a separate installer on an Intel Mac
 
    Not sure which chip you have? Click the Apple menu in the top-left corner → 「关于本机」 (About This Mac).
