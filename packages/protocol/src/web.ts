@@ -1221,6 +1221,8 @@ export const SystemParams = GroupParams.extend({
   teamCreation: z.enum(['all', 'sysadmin']),
   /** First 飞书登录 may create an account (only the enterprise's own members can authorize the main app). */
   feishuAutoSignup: z.boolean(),
+  /** How browsers reach this server (OAuth redirect, links in Feishu cards); '' = not set. */
+  publicUrl: z.union([z.literal(''), z.url().regex(/^https?:\/\/[^/]+$/)]),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 /** Params a team may override for its groups (plan D9). */
@@ -1259,7 +1261,7 @@ export const UpdateSystemParamsReq = SystemParams.partial()
 export const SYSTEM_PARAM_VIEW: {
   key: Exclude<
     keyof SystemParams,
-    'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'feishuAutoSignup'
+    'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'feishuAutoSignup' | 'publicUrl'
   >
   label: string
   unit: string

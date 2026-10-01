@@ -31,6 +31,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   singleTeamMode: true,
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
+  publicUrl: '',
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]
