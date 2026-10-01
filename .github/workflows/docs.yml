@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --filter @gonggong/website
+      - run: pnpm install --frozen-lockfile --filter "@gonggong/website..."
       - run: pnpm --filter @gonggong/website build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

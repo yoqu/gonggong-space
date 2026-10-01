@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { type DefaultTheme, defineConfig } from 'vitepress'
 
 const REPO = 'https://github.com/yoqu/gonggong-space'
@@ -209,6 +210,13 @@ export default defineConfig({
   cleanUrls: true,
   srcExclude: ['WRITING.md', 'TRANSLATING.md', 'scripts/**'],
   lastUpdated: true,
+  // The home page borrows the web app's personas, which import the protocol package; CI installs only the website,
+  // so resolve it here rather than from apps/web/node_modules.
+  vite: {
+    resolve: {
+      alias: { '@gonggong/protocol': fileURLToPath(new URL('../../packages/protocol/src/index.ts', import.meta.url)) },
+    },
+  },
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/gonggong-space/logo.svg' }]],
   locales: {
     root: {

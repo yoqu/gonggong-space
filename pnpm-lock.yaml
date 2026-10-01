@@ -217,6 +217,9 @@ importers:
         specifier: 0.186.1
         version: 0.186.1
     devDependencies:
+      '@gonggong/protocol':
+        specifier: workspace:*
+        version: link:../packages/protocol
       '@types/three':
         specifier: 0.186.0
         version: 0.186.0

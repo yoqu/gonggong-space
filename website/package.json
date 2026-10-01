@@ -8,6 +8,7 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
+    "@gonggong/protocol": "workspace:*",
     "@types/three": "0.186.0",
     "vitepress": "1.6.4"
   },
