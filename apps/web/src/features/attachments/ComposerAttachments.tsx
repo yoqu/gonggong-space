@@ -5,6 +5,7 @@ import { Button, FileIcon, Icon, Lightbox, toast } from '../../ui'
 import { fmtSize, type Upload, uploadFile } from './api'
 import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
+import { t } from '../../i18n'
 
 interface Pending {
   key: number
@@ -41,11 +42,11 @@ export function useUploads(groupId: string) {
     const added: Pending[] = []
     for (const file of files) {
       if (file.size > MAX_ATTACHMENT_BYTES) {
-        toast({ type: 'error', message: `${file.name} 超过 50 MB，未添加` })
+        toast({ type: 'error', message: t('{name} 超过 50 MB，未添加', { name: file.name }) })
         continue
       }
       if (room-- <= 0) {
-        toast({ type: 'warning', message: `每条消息最多 ${MAX_ATTACHMENTS} 个附件` })
+        toast({ type: 'warning', message: t('每条消息最多 {n} 个附件', { n: MAX_ATTACHMENTS }) })
         break
       }
       const key = ++seq
@@ -131,15 +132,15 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
   return (
     <div className="quote-chip">
       <Icon name="quote" size={14} className="quote-chip__icon" />
-      <span className="quote-chip__who">引用 {quote.who}</span>
+      <span className="quote-chip__who">{t('引用 {who}', { who: quote.who })}</span>
       <span className="quote-chip__text">{quote.text}</span>
-      <span className="quote-chip__note">等同 @，引用内容一起发送</span>
+      <span className="quote-chip__note">{t('等同 @，引用内容一起发送')}</span>
       <Button
         variant="plain"
         size="small"
         icon="xmark"
-        aria-label="关闭引用"
-        title="关闭引用"
+        aria-label={t('关闭引用')}
+        title={t('关闭引用')}
         onClick={clear}
       />
     </div>
@@ -159,8 +160,8 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
             <button
               type="button"
               className="att-chip__thumb"
-              aria-label={`预览 ${i.name}`}
-              title="点击放大"
+              aria-label={t('预览 {name}', { name: i.name })}
+              title={t('点击放大')}
               onClick={() => setViewKey(i.key)}
             >
               <img src={i.thumb} alt={i.name} />
@@ -174,7 +175,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           <button
             type="button"
             className="att-chip__rm"
-            aria-label={`移除 ${i.name}`}
+            aria-label={t('移除 {name}', { name: i.name })}
             onClick={() => uploads.remove(i.key)}
           >
             <Icon name="xmark" size={10} weight={2.2} />
@@ -185,7 +186,7 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
         <Lightbox src={viewing.thumb} alt={viewing.name} onClose={() => setViewKey(null)} />
       ) : null}
       <span className="att-chips__note">
-        {`${uploads.items.length} / ${MAX_ATTACHMENTS} · 写入工作区 .gonggong/attachments/，不进 git${image ? ' · 图片：agent 支持时同时以 ACP 图片发送' : ''}`}
+        {`${t('{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git', { n: uploads.items.length, max: MAX_ATTACHMENTS })}${image ? t(' · 图片：agent 支持时同时以 ACP 图片发送') : ''}`}
       </span>
     </div>
   )

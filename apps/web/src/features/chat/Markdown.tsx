@@ -1,9 +1,10 @@
 import { isValidElement, memo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { t } from '../../i18n'
 import { CodeBlock, toast } from '../../ui'
 
-const copyFailed = () => toast({ type: 'error', message: '复制失败' })
+const copyFailed = () => toast({ type: 'error', message: t('复制失败') })
 
 /** Fenced code: the single `<code>` child of `<pre>`, its language from `language-*`. */
 function fenced(children: ReactNode) {

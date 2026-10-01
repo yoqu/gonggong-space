@@ -4,6 +4,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groupRepos, groups, messages, runEvents, runs, users } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { requireUser } from '../auth/session.js'
@@ -15,7 +16,6 @@ import { notHiddenBy } from '../messages/recall.js'
 const LIMIT = 20
 /** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
 const PATCH_SCAN = 100
-const EXPIRED = '运行过程已过期，仅保留卡片摘要'
 /** Runs whose changed paths are kept in memory. */
 const PATHS_CACHED = 5000
 
@@ -59,7 +59,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     return rows.map(({ m, author, bot, group }) => ({
       kind: 'msg',
       title: snippet(m.body, q),
-      sub: `${bot ? `${bot} 最终回复` : (author ?? '')} · ${group}`,
+      sub: `${bot ? t('{bot} 最终回复', { bot }) : (author ?? '')} · ${group}`,
       groupId: m.groupId,
       messageId: m.id,
       runId: m.runId,
@@ -96,7 +96,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
           add({
             kind: 'file',
             title: path,
-            sub: `${r.bot} 工作区 · ${r.group}`,
+            sub: t('{bot} 工作区 · {group}', { bot: r.bot, group: r.group }),
             groupId: r.groupId,
             messageId: null,
             runId: r.id,
@@ -123,7 +123,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
         add({
           kind: 'file',
           title: e.path,
-          sub: `${repo.branch} 镜像 · ${repo.group}`,
+          sub: t('{branch} 镜像 · {group}', { branch: repo.branch, group: repo.group }),
           groupId: repo.groupId,
           messageId: null,
           runId: null,
@@ -185,8 +185,8 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       sub: [
         group,
         r.step || null,
-        r.filesChanged ? `改动 ${r.filesChanged} 文件` : null,
-        r.purgedAt ? EXPIRED : null,
+        r.filesChanged ? t('改动 {n} 文件', { n: r.filesChanged }) : null,
+        r.purgedAt ? t('运行过程已过期，仅保留卡片摘要') : null,
       ]
         .filter(Boolean)
         .join(' · '),

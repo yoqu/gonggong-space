@@ -5,6 +5,7 @@ import { Emoji } from '../../ui'
 import { UserCardTrigger } from '../users'
 import { type ReactionTarget, toggleReaction, useReactions } from './store'
 import './reactions.css'
+import { t } from '../../i18n'
 
 const POP = { opacity: 0, scale: 0.6 }
 /** Feishu shows up to three reactor names, then the total. */
@@ -20,7 +21,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
           key="bar"
           className="pn-reactions reaction-bar"
           role="group"
-          aria-label="表情回应"
+          aria-label={t('表情回应')}
           initial={POP}
           animate={{ opacity: 1, scale: 1 }}
           exit={POP}
@@ -50,7 +51,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
                 <span className="reaction-pill__users">
                   {r.users.slice(0, SHOWN).map((u, i) => (
                     <Fragment key={u.id}>
-                      {i ? '、' : null}
+                      {i ? t('、') : null}
                       <UserCardTrigger
                         userId={u.id}
                         groupId={message.groupId}
@@ -60,7 +61,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
                       </UserCardTrigger>
                     </Fragment>
                   ))}
-                  {r.count > SHOWN ? ` 等 ${r.count} 人` : null}
+                  {r.count > SHOWN ? t(' 等 {n} 人', { n: r.count }) : null}
                 </span>
               </motion.div>
             ))}

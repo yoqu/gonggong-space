@@ -55,8 +55,8 @@ export function daemonWorkspaceRoutes(ctx: Ctx) {
     /** 改回托管 = `/cd @bot --reset` issued by the bot owner from the machine itself. */
     app.post<PairParams>('/api/daemon/workspaces/:groupId/:botId/reset-cd', async (req, reply) => {
       const machine = await requireMachine(ctx, req)
-      const groupId = idParam(req.params.groupId, '群')
-      const botId = idParam(req.params.botId, 'bot')
+      const groupId = idParam(req.params.groupId, '群不存在')
+      const botId = idParam(req.params.botId, 'Bot 不存在')
       const [row] = await ctx.db
         .select({ gb: groupBots, bot: bots })
         .from(groupBots)

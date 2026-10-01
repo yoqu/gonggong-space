@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { t } from '../i18n/index.js'
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -18,6 +19,6 @@ export function originCheck(app: FastifyInstance) {
       host = ''
     }
     if (host === req.headers.host || host === req.headers['x-forwarded-host']) return
-    return reply.status(403).send({ error: 'cross_origin', message: '拒绝跨站请求' })
+    return reply.status(403).send({ error: 'cross_origin', message: t('拒绝跨站请求') })
   })
 }

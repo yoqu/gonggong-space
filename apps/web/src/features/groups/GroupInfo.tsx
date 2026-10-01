@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
@@ -50,7 +51,7 @@ function LoadError({ text, onRetry }: { text: string; onRetry: () => void }) {
     <span className="gs-error">
       {text}
       <Button size="small" onClick={onRetry}>
-        重试
+        {t('重试')}
       </Button>
     </span>
   )
@@ -82,9 +83,9 @@ function ConfirmRemove({
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('取消')}</Button>
           <Button variant="destructive" disabled={busy} onClick={() => void run()}>
-            移出
+            {t('移出')}
           </Button>
         </>
       }
@@ -96,13 +97,13 @@ function ConfirmRemove({
 
 async function removeWithToast(fn: () => Promise<unknown>, name: string) {
   const ok = await attempt(fn)
-  if (ok) toast({ type: 'success', message: `已移出 ${name}` })
+  if (ok) toast({ type: 'success', message: t('已移出 {name}', { name }) })
   return ok
 }
 
 const SCOPE_LABEL = (b: BotDto) =>
   b.triggerScope === 'list'
-    ? `${TRIGGER_SCOPE_LABEL.list} ${b.triggerList.length} 人`
+    ? t('{scope} {n} 人', { scope: TRIGGER_SCOPE_LABEL.list, n: b.triggerList.length })
     : TRIGGER_SCOPE_LABEL[b.triggerScope]
 
 /**
@@ -125,16 +126,16 @@ export function GroupInfo({
   const [adding, setAdding] = useState(false)
   const dm = group.kind === 'dm'
   const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
-  const label = dm ? '私聊设置' : '群设置'
+  const label = dm ? t('私聊设置') : t('群设置')
   useEscape(onClose)
   const title = {
     main: label,
-    members: `群成员 · ${group.members.length}`,
+    members: t('群成员 · {n}', { n: group.members.length }),
     bots: `Bot · ${group.botIds.length}`,
-    repo: '仓库与工作区',
-    info: '群名称与公告',
-    notices: '群公告',
-    previews: '预览与服务',
+    repo: t('仓库与工作区'),
+    info: t('群名称与公告'),
+    notices: t('群公告'),
+    previews: t('预览与服务'),
   }[view]
   return (
     <InspectorPanel
@@ -234,11 +235,11 @@ function MainView({
   const leave = () => {
     if (confirm !== 'leave') return setConfirm('leave')
     if (onlyAdmin) return setView('members')
-    void gone(() => groupsApi.leave(group.id), '已退出群')
+    void gone(() => groupsApi.leave(group.id), t('已退出群'))
   }
   const dissolve = () => {
     if (confirm !== 'dissolve') return setConfirm('dissolve')
-    void gone(() => groupsApi.dissolve(group.id), dm ? '已删除私聊' : '群已解散')
+    void gone(() => groupsApi.dissolve(group.id), dm ? t('已删除私聊') : t('群已解散'))
   }
 
   const manage = (name: string, value: ReactNode, onClick: () => void): ChatInfoRow => ({
@@ -251,13 +252,13 @@ function MainView({
     ...(canLeave
       ? [
           {
-            label: confirm === 'leave' && !onlyAdmin ? '确认退出' : '退出群',
+            label: confirm === 'leave' && !onlyAdmin ? t('确认退出') : t('退出群'),
             onClick: leave,
             note:
               confirm === 'leave'
                 ? onlyAdmin
-                  ? '你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。'
-                  : '退出后你的 Bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。'
+                  ? t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')
+                  : t('退出后你的 Bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。')
                 : undefined,
           },
         ]
@@ -267,17 +268,21 @@ function MainView({
           {
             label: dm
               ? confirm === 'dissolve'
-                ? '确认删除'
-                : '删除私聊'
+                ? t('确认删除')
+                : t('删除私聊')
               : confirm === 'dissolve'
-                ? '确认解散'
-                : '解散群',
+                ? t('确认解散')
+                : t('解散群'),
             onClick: dissolve,
             note:
               confirm === 'dissolve'
                 ? dm
-                  ? '删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。再次点击确认。'
-                  : '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。再次点击确认。'
+                  ? t(
+                      '删除后消息与审计记录保留；Bot 的托管工作区保留在本机，由你决定是否删除。再次点击确认。',
+                    )
+                  : t(
+                      '解散后群归档，消息与审计记录保留；强制同步群的存档 30 天后清除；各 Bot 的托管工作区保留，由主人决定是否删除。再次点击确认。',
+                    )
                 : undefined,
           },
         ]
@@ -290,14 +295,16 @@ function MainView({
       name={group.name}
       tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
       description={
-        group.repo ? `${group.repo.url} · ${group.repo.branch}` : '未绑定仓库 · 各 Bot 使用本机目录'
+        group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
       }
       shortcuts={[
-        ...(dm ? [] : [{ icon: 'person-2' as const, label: '成员', onClick: () => setView('members') }]),
+        ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
         ...(isAdmin
           ? [
-              ...(dm ? [] : [{ icon: 'megaphone' as const, label: '公告', onClick: () => setView('info') }]),
-              { icon: 'gear' as const, label: '设置', onClick: () => onSettings('basic') },
+              ...(dm
+                ? []
+                : [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]),
+              { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
             ]
           : []),
       ]}
@@ -320,26 +327,26 @@ function MainView({
                   ))}
                 </span>
               ),
-              value: `${group.botIds.length} 个`,
+              value: t('{n} 个', { n: group.botIds.length }),
               onClick: () => setView('bots'),
             },
             {
-              label: '仓库与工作区',
-              value: group.repo ? repoPath(group.repo.url) : '未绑定',
+              label: t('仓库与工作区'),
+              value: group.repo ? repoPath(group.repo.url) : t('未绑定'),
               onClick: () => setView('repo'),
             },
             {
-              label: '预览与服务',
-              value: previews ? `${previews.previews.length} 个预览` : undefined,
+              label: t('预览与服务'),
+              value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
               onClick: () => setView('previews'),
             },
             ...(dm
               ? []
               : [
                   {
-                    label: '群公告',
+                    label: t('群公告'),
                     description: group.notice || undefined,
-                    value: group.noticeHidden ? '已隐藏' : group.notice ? undefined : '暂无',
+                    value: group.noticeHidden ? t('已隐藏') : group.notice ? undefined : t('暂无'),
                     onClick: () => setView('notices'),
                   },
                 ]),
@@ -347,29 +354,36 @@ function MainView({
         },
         {
           rows: [
-            pref('muted', '消息免打扰', '普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒'),
-            pref('pinned', '置顶群'),
-            pref('foldRuns', '运行卡片默认折叠', '只对我生效，审批与提问卡片始终展开'),
+            pref(
+              'muted',
+              t('消息免打扰'),
+              t('普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒'),
+            ),
+            pref('pinned', t('置顶群')),
+            pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
           ],
         },
         {
-          title: dm ? '设置' : '群管理',
+          title: dm ? t('设置') : t('群管理'),
           note: dm
             ? undefined
             : isAdmin
-              ? '你是群管理员'
-              : `仅群管理员 · ${admins.map((m) => m.name).join('、')}`,
+              ? t('你是群管理员')
+              : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
           rows: [
-            ...(dm ? [] : [manage('群名称与公告', group.name, () => setView('info'))]),
+            ...(dm ? [] : [manage(t('群名称与公告'), group.name, () => setView('info'))]),
             manage(
-              '仓库与基准分支',
-              <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? '未绑定'}</span>,
+              t('仓库与基准分支'),
+              <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? t('未绑定')}</span>,
               () => onSettings('repo'),
             ),
-            manage('同步模式', GROUP_MODE_LABEL[group.mode], () => onSettings('mode')),
+            manage(t('同步模式'), GROUP_MODE_LABEL[group.mode], () => onSettings('mode')),
             paramsFailed
-              ? { label: '群级参数', value: <LoadError text="群级参数加载失败" onRetry={loadParams} /> }
-              : manage('群级参数', params ? paramsSummary(params) : '', () => onSettings('params')),
+              ? {
+                  label: t('群级参数'),
+                  value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
+                }
+              : manage(t('群级参数'), params ? paramsSummary(params) : '', () => onSettings('params')),
           ],
         },
       ]}
@@ -402,20 +416,20 @@ function MembersView({
   return (
     <>
       <div className="gs-toolbar">
-        <SearchField className="gs-search" placeholder="搜索成员" value={q} onChange={setQ} />
+        <SearchField className="gs-search" placeholder={t('搜索成员')} value={q} onChange={setQ} />
         {isAdmin ? (
           <MemberPicker
             placement="bottom-end"
-            trigger={<Button size="small">添加成员</Button>}
+            trigger={<Button size="small">{t('添加成员')}</Button>}
             users={candidates}
             defaultOpen={initialAdding}
             onOpen={() => (wanted ? usersQ.reload() : setWanted(true))}
             onAdd={(id) => void attempt(() => groupsApi.addMember(group.id, id))}
             status={
               usersQ.error ? (
-                <LoadError text="成员列表加载失败" onRetry={usersQ.reload} />
+                <LoadError text={t('成员列表加载失败')} onRetry={usersQ.reload} />
               ) : users.length ? (
-                <span className="pick__empty">所有账号都已在群里</span>
+                <span className="pick__empty">{t('所有账号都已在群里')}</span>
               ) : undefined
             }
           />
@@ -432,11 +446,11 @@ function MembersView({
                 <div className="gs-member__main">
                   <span className="gs-member__name">
                     {m.name}
-                    {m.userId === me?.id ? '（我）' : ''}
-                    {m.isAdmin ? <Tag tone="blue">群管理员</Tag> : null}
+                    {m.userId === me?.id ? t('（我）') : ''}
+                    {m.isAdmin ? <Tag tone="blue">{t('群管理员')}</Tag> : null}
                   </span>
                   <span className="gs-desc">
-                    {theirs.length ? `带入 ${theirs.join('、')}` : '未带入 Bot'}
+                    {theirs.length ? t('带入 {bots}', { bots: theirs.join(t('、')) }) : t('未带入 Bot')}
                   </span>
                 </div>
                 {isAdmin && m.userId !== me?.id ? (
@@ -446,10 +460,10 @@ function MembersView({
                       size="small"
                       onClick={() => void attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin))}
                     >
-                      {m.isAdmin ? '取消管理员' : '设为管理员'}
+                      {m.isAdmin ? t('取消管理员') : t('设为管理员')}
                     </Button>
                     <Button variant="plain" size="small" onClick={() => setRemoving(m)}>
-                      移出
+                      {t('移出')}
                     </Button>
                   </span>
                 ) : null}
@@ -457,12 +471,12 @@ function MembersView({
             )
           })}
       </GroupBox>
-      <div className="gs-foot">移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。</div>
+      <div className="gs-foot">{t('移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。')}</div>
       <Presence>
         {removing ? (
           <ConfirmRemove
-            title={`移出成员 ${removing.name}`}
-            desc="其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。"
+            title={t('移出成员 {name}', { name: removing.name })}
+            desc={t('其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。')}
             onClose={() => setRemoving(null)}
             onConfirm={() =>
               removeWithToast(() => groupsApi.removeMember(group.id, removing.userId), removing.name)
@@ -489,13 +503,15 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
     <>
       <div className="gs-toolbar">
         <span className="gs-toolbar__text">
-          {bots.length} 个 · 在线{' '}
-          {bots.filter((b) => b.presence === 'online' || b.presence === 'running').length}
+          {t('{n} 个 · 在线 {online}', {
+            n: bots.length,
+            online: bots.filter((b) => b.presence === 'online' || b.presence === 'running').length,
+          })}
         </span>
         {isAdmin ? (
           <BotPicker
             placement="bottom-end"
-            trigger={<Button size="small">拉入 Bot</Button>}
+            trigger={<Button size="small">{t('拉入 Bot')}</Button>}
             bots={choices}
             isOn={(id) => group.botIds.includes(id)}
             onPick={(b, close) => {
@@ -503,7 +519,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
               close()
               setRemoving(b)
             }}
-            note={(b) => (inGroup(b.ownerId) ? '' : ' · 主人将一并加入')}
+            note={(b) => (inGroup(b.ownerId) ? '' : t(' · 主人将一并加入'))}
           />
         ) : null}
       </div>
@@ -518,7 +534,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
                   <Tag tone="blue">Bot</Tag>
                 </span>
                 <span className="gs-desc">
-                  {AGENT_LABEL[b.agentKind]} · 主人 {b.ownerName}
+                  {t('{agent} · 主人 {owner}', { agent: AGENT_LABEL[b.agentKind], owner: b.ownerName })}
                 </span>
               </span>
               <span className="gs-bot__state">
@@ -528,22 +544,22 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
             </div>
             <div className="gs-bot__meta">
               <span>
-                档位 {TIER_LABEL[effectiveTier(b, states?.[b.id])]}
-                {states?.[b.id]?.tier ? ' · 本群' : ''}
+                {t('档位 {tier}', { tier: TIER_LABEL[effectiveTier(b, states?.[b.id])] })}
+                {states?.[b.id]?.tier ? t(' · 本群') : ''}
               </span>
-              <span>触发 {SCOPE_LABEL(b)}</span>
+              <span>{t('触发 {scope}', { scope: SCOPE_LABEL(b) })}</span>
               <span className="spacer" />
               {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
                 <>
                   <GroupTierPicker groupId={group.id} bot={b} tier={states?.[b.id]?.tier ?? null} />
                   <Button variant="plain" size="small" onClick={() => setEditingId(b.id)}>
-                    全局设置
+                    {t('全局设置')}
                   </Button>
                 </>
               ) : null}
               {isAdmin ? (
                 <Button variant="plain" size="small" onClick={() => setRemoving(b)}>
-                  移出
+                  {t('移出')}
                 </Button>
               ) : null}
             </div>
@@ -551,15 +567,15 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         ))}
       </GroupBox>
       <div className="gs-foot">
-        档位默认跟随 Bot 全局设置，Bot
-        主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。 想少审批，Bot
-        主人可在 Bot 详情的「命令审批」中开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。
+        {t(
+          '档位默认跟随 Bot 全局设置，Bot 主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。 想少审批，Bot 主人可在 Bot 详情的「命令审批」中开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。',
+        )}
       </div>
       <Presence>
         {removing ? (
           <ConfirmRemove
-            title={`移出 Bot ${removing.name}`}
-            desc="移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。"
+            title={t('移出 Bot {name}', { name: removing.name })}
+            desc={t('移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。')}
             onClose={() => setRemoving(null)}
             onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
           />
@@ -589,12 +605,12 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
         <div className="gs-toolbar">
           <span className="spacer" />
           <Button size="small" onClick={onEdit}>
-            {group.notice ? '编辑公告' : '发布公告'}
+            {group.notice ? t('编辑公告') : t('发布公告')}
           </Button>
         </div>
       ) : null}
-      {failed ? <LoadError text="群公告加载失败" onRetry={load} /> : null}
-      {list && !list.length ? <EmptyState compact title="暂无群公告" /> : null}
+      {failed ? <LoadError text={t('群公告加载失败')} onRetry={load} /> : null}
+      {list && !list.length ? <EmptyState compact title={t('暂无群公告')} /> : null}
       {list?.length ? (
         <GroupBox>
           {list.map((n) => {
@@ -606,11 +622,13 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
                   <span>
                     {n.authorName} · {new Date(n.createdAt).toLocaleString()}
                   </span>
-                  {current ? <Tag tone="blue">{group.noticeHidden ? '当前 · 已隐藏' : '当前'}</Tag> : null}
+                  {current ? (
+                    <Tag tone="blue">{group.noticeHidden ? t('当前 · 已隐藏') : t('当前')}</Tag>
+                  ) : null}
                   <span className="spacer" />
                   {current && isAdmin ? (
                     <Button variant="plain" size="small" onClick={() => setRemoving(true)}>
-                      移除
+                      {t('移除')}
                     </Button>
                   ) : current ? (
                     <Button
@@ -618,7 +636,7 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
                       size="small"
                       onClick={() => void hideNotice(group.id, !group.noticeHidden)}
                     >
-                      {group.noticeHidden ? '在对话顶部显示' : '不再显示'}
+                      {group.noticeHidden ? t('在对话顶部显示') : t('不再显示')}
                     </Button>
                   ) : null}
                 </div>
@@ -628,7 +646,7 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
         </GroupBox>
       ) : null}
       <div className="gs-foot">
-        群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。
+        {t('群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。')}
       </div>
       <Presence>
         {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}
@@ -642,12 +660,12 @@ const FOLLOW = 'follow'
 /** This group's tier override; 跟随全局 clears it. */
 function GroupTierPicker({ groupId, bot, tier }: { groupId: string; bot: BotDto; tier: Tier | null }) {
   const options = [
-    { value: FOLLOW, label: `跟随全局（${TIER_LABEL[bot.tier]}）` },
-    ...TIERS.map((t) => ({ value: t, label: TIER_LABEL[t] })),
+    { value: FOLLOW, label: t('跟随全局（{tier}）', { tier: TIER_LABEL[bot.tier] }) },
+    ...TIERS.map((x) => ({ value: x, label: TIER_LABEL[x] })),
   ]
   return (
     <PopUpButton
-      aria-label="本群档位"
+      aria-label={t('本群档位')}
       size="small"
       value={tier ?? FOLLOW}
       options={options}
@@ -669,19 +687,19 @@ function InfoForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) 
   }
   return (
     <div className="gs-form">
-      <TextField label="群名称" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+      <TextField label={t('群名称')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
       <TextField
         multiline
-        label="群公告 · 置顶展示在对话顶部"
+        label={t('群公告 · 置顶展示在对话顶部')}
         rows={4}
         value={notice}
         maxLength={500}
-        placeholder="如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线"
+        placeholder={t('如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线')}
         onChange={(e) => setNotice(e.target.value)}
       />
       <div className="gs-form__foot">
         <Button variant="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
-          保存
+          {t('保存')}
         </Button>
       </div>
     </div>

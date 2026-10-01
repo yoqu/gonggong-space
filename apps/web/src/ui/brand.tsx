@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import './brand.css'
 
@@ -61,7 +62,7 @@ export function Brand({
     <span className="ui-brand" style={{ ['--brand-size' as string]: `${size}px` }}>
       <Logo size={size} motion={motion} />
       <span className="ui-brand__text">
-        <span className="ui-brand__name">共工空间</span>
+        <span className="ui-brand__name">{t('共工空间')}</span>
         {subtitle ? <span className="ui-brand__sub">{subtitle}</span> : null}
       </span>
     </span>

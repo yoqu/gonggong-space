@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../i18n'
 import { errorText } from '../lib/api'
 import { Alert } from './display'
 import { AlertDialog } from './overlay'
@@ -55,7 +56,7 @@ export function ConfirmActionDialog({
       }
       onClose={onClose}
       actions={[
-        { label: '取消', onClick: onClose },
+        { label: t('取消'), onClick: onClose },
         { label, variant: 'destructive', disabled: busy, onClick: () => void confirm() },
       ]}
     />

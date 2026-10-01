@@ -3,6 +3,7 @@ import type { BotProbeDto, GitProtocol, RepoProbeRes, RepoProbeResult } from '@g
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, users } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { onlineMachine } from '../workspaces/provision.js'
 
 /** A daemon tries up to two URLs at 15 s each; the rest is slack for the round trip. */
@@ -54,7 +55,7 @@ export async function probeBots(
       if (!probes.has(k))
         probes.set(k, ask(ctx, machineId, { url, branch, protocol: bot.protocol as GitProtocol }))
       const r = await probes.get(k)
-      if (!r) return [{ ...offline, reason: 'timeout', detail: '机器未在规定时间内响应' }, null]
+      if (!r) return [{ ...offline, reason: 'timeout', detail: t('机器未在规定时间内响应') }, null]
       return [{ botId: bot.id, ok: r.ok, reason: r.reason, usedUrl: r.usedUrl, detail: r.detail }, r]
     }),
   )

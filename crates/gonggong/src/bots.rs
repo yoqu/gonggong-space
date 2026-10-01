@@ -2,6 +2,7 @@
 //! the Web (plan J11).
 use crate::config::Config;
 use crate::protocol::{AgentKind, Approval};
+use crate::t;
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
@@ -69,7 +70,11 @@ pub(crate) async fn ok(res: reqwest::Response) -> Result<reqwest::Response> {
     }
     let status = res.status();
     let body: serde_json::Value = res.json().await.unwrap_or_default();
-    bail!("服务器返回 {status}: {}", body["message"].as_str().unwrap_or("未知错误"))
+    bail!(t!(
+        "服务器返回 {status}: {message}",
+        status = status,
+        message = body["message"].as_str().unwrap_or(t!("未知错误"))
+    ))
 }
 
 /// Where the bot is managed: the Web opens its settings from `?bot=<id>`.
@@ -86,13 +91,13 @@ pub fn agent_label(kind: AgentKind) -> &'static str {
 
 pub fn state_label(bot: &Bot) -> String {
     match bot.binding {
-        Binding::PendingBind => "待绑定".into(),
-        Binding::PendingConfirm => "待确认 · 请在 Web 中确认".into(),
+        Binding::PendingBind => t!("待绑定").into(),
+        Binding::PendingConfirm => t!("待确认 · 请在 Web 中确认").into(),
         Binding::Bound => match bot.presence.as_str() {
-            "online" => "在线",
-            "running" => "运行中",
-            "agent_missing" => "本机未安装该 agent",
-            _ => "离线",
+            "online" => t!("在线"),
+            "running" => t!("运行中"),
+            "agent_missing" => t!("本机未安装该 agent"),
+            _ => t!("离线"),
         }
         .into(),
     }
@@ -101,11 +106,12 @@ pub fn state_label(bot: &Bot) -> String {
 pub async fn list(config: &Config) -> Result<()> {
     let bots = Client::new(config)?.list().await?;
     if bots.is_empty() {
-        println!("本机还没有 Bot");
+        println!("{}", t!("本机还没有 Bot"));
     }
     for b in &bots {
-        println!("{}\t{}\t{}\t命令审批 {}", b.name, agent_label(b.agent_kind), state_label(b), b.approval.label());
-        println!("\t在 Web 中管理：{}", web_url(&config.server, &b.id));
+        let approval = t!("命令审批 {label}", label = b.approval.label());
+        println!("{}\t{}\t{}\t{approval}", b.name, agent_label(b.agent_kind), state_label(b));
+        println!("\t{}", t!("在 Web 中管理：{url}", url = web_url(&config.server, &b.id)));
     }
     Ok(())
 }

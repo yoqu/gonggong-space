@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useState } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, type ButtonVariant, type Glyph, renderGlyph } from '../controls'
 import { AvatarGroup, type AvatarProps, ProgressIndicator, Tag, type TagTone } from '../display'
@@ -48,11 +49,17 @@ export function FileAttachment({
       <FileIcon name={ext ? `.${ext}` : name} mime={mime} size={40} />
       <span className="pn-file__body">
         <span className="pn-file__name">{name}</span>
-        {progress != null && <ProgressIndicator value={progress} aria-label="上传进度" />}
+        {progress != null && <ProgressIndicator value={progress} aria-label={t('上传进度')} />}
         <span className="pn-file__meta">{[size, meta].filter(Boolean).join(' · ')}</span>
       </span>
       {onDownload !== false && !onOpen && (
-        <Button variant="glass" icon="download" aria-label="下载" title="下载" onClick={onDownload} />
+        <Button
+          variant="glass"
+          icon="download"
+          aria-label={t('下载')}
+          title={t('下载')}
+          onClick={onDownload}
+        />
       )}
     </Root>
   )
@@ -81,12 +88,12 @@ export function ImageAttachment({
 export type DocKind = 'doc' | 'sheet' | 'base' | 'slides' | 'wiki' | 'mindnote'
 
 const DOC_KINDS: Record<DocKind, [Tint, IconName, string]> = {
-  doc: ['blue', 'doc', '文档'],
-  sheet: ['green', 'sheet', '表格'],
-  base: ['purple', 'grid', '多维表格'],
-  slides: ['orange', 'slides', '幻灯片'],
-  wiki: ['blue', 'folder', '知识库'],
-  mindnote: ['purple', 'share', '思维笔记'],
+  doc: ['blue', 'doc', t('文档')],
+  sheet: ['green', 'sheet', t('表格')],
+  base: ['purple', 'grid', t('多维表格')],
+  slides: ['orange', 'slides', t('幻灯片')],
+  wiki: ['blue', 'folder', t('知识库')],
+  mindnote: ['purple', 'share', t('思维笔记')],
 }
 
 export interface DocLinkProps {
@@ -227,9 +234,9 @@ export interface MeetingCardProps {
 }
 
 const MEETING_TAG = {
-  live: ['green', '进行中'],
-  ended: ['gray', '已结束'],
-  scheduled: ['blue', '即将开始'],
+  live: ['green', t('进行中#live')],
+  ended: ['gray', t('已结束')],
+  scheduled: ['blue', t('即将开始')],
 } as const
 
 export function MeetingCard({
@@ -250,8 +257,10 @@ export function MeetingCard({
   const [tone, label] = MEETING_TAG[status]
   const people =
     status === 'live'
-      ? `${joined ?? participants.length} 人在会中`
-      : `${participants.length} 人${status === 'ended' ? '参加' : '受邀'}`
+      ? t('{n} 人在会中', { n: joined ?? participants.length })
+      : status === 'ended'
+        ? t('{n} 人参加', { n: participants.length })
+        : t('{n} 人受邀', { n: participants.length })
   const ended = status === 'ended'
   return (
     <div className={cx('pn-card', 'pn-meet', `pn-meet--${status}`, className)} style={style}>
@@ -272,19 +281,19 @@ export function MeetingCard({
         <dl className="pn-meet__meta">
           {meetingId && (
             <>
-              <dt>会议号</dt>
+              <dt>{t('会议号')}</dt>
               <dd className="pn-meet__id">{meetingId}</dd>
             </>
           )}
           {host && (
             <>
-              <dt>发起人</dt>
+              <dt>{t('发起人')}</dt>
               <dd>{host}</dd>
             </>
           )}
           {ended && duration && (
             <>
-              <dt>时长</dt>
+              <dt>{t('时长')}</dt>
               <dd>{duration}</dd>
             </>
           )}
@@ -301,11 +310,11 @@ export function MeetingCard({
         )}
         {!ended ? (
           <Button variant="primary" onClick={onJoin}>
-            加入会议
+            {t('加入会议')}
           </Button>
         ) : onReplay ? (
           <Button icon="record" onClick={onReplay}>
-            查看回放
+            {t('查看回放')}
           </Button>
         ) : null}
       </div>
@@ -334,14 +343,14 @@ export interface EventCardProps {
 }
 
 const RSVP_TEXT: Record<Rsvp, string> = {
-  accepted: '你已接受',
-  tentative: '你已回复待定',
-  declined: '你已拒绝',
+  accepted: t('你已接受'),
+  tentative: t('你已回复待定'),
+  declined: t('你已拒绝'),
 }
 const RSVP_ITEMS: { value: Rsvp; label: string }[] = [
-  { value: 'accepted', label: '接受' },
-  { value: 'tentative', label: '待定' },
-  { value: 'declined', label: '拒绝' },
+  { value: 'accepted', label: t('接受') },
+  { value: 'tentative', label: t('待定') },
+  { value: 'declined', label: t('拒绝#rsvp') },
 ]
 
 export function EventCard({
@@ -364,7 +373,11 @@ export function EventCard({
   return (
     <div className={cx('pn-card', 'pn-event', className)} style={style}>
       <div className="pn-event__top">
-        <div className="pn-event__date" role="img" aria-label={`${month}${day}日 ${weekday ?? ''}`.trim()}>
+        <div
+          className="pn-event__date"
+          role="img"
+          aria-label={t('{month}{day}日 {weekday}', { month, day, weekday: weekday ?? '' }).trim()}
+        >
           <span className="pn-event__month">{weekday ?? month}</span>
           <span className="pn-event__day">{day}</span>
         </div>
@@ -383,17 +396,19 @@ export function EventCard({
           {organizer && (
             <div className="pn-event__line">
               <Icon name="person" />
-              {`${organizer} 组织${attendees ? ` · ${attendees} 人` : ''}`}
+              {attendees
+                ? t('{name} 组织 · {n} 人', { name: organizer, n: attendees })
+                : t('{name} 组织', { name: organizer })}
             </div>
           )}
         </div>
       </div>
       {rsvp !== false && (
         <div className="pn-event__foot">
-          <span>{current ? RSVP_TEXT[current] : '是否参加？'}</span>
+          <span>{current ? RSVP_TEXT[current] : t('是否参加？')}</span>
           <SegmentedControl<Rsvp | ''>
             size="small"
-            aria-label="回复日程"
+            aria-label={t('回复日程')}
             value={current ?? ''}
             items={RSVP_ITEMS}
             onChange={(v) => {

@@ -1,5 +1,6 @@
 import { Toaster, toast } from '@web/ui'
 import { useEffect, useState } from 'react'
+import { t } from './i18n'
 import { onOpenLinks } from './ipc'
 import { host } from './lib/labels'
 import { Onboarding } from './onboarding/Onboarding'
@@ -40,7 +41,11 @@ export function App() {
       const url = urls[urls.length - 1]
       const server = useDaemon.getState().info?.server
       if (!url) return
-      if (server) toast({ type: 'warning', message: `本机已绑定到 ${host(server)}，请先在设置中解绑` })
+      if (server)
+        toast({
+          type: 'warning',
+          message: t('本机已绑定到 {host}，请先在设置中解绑', { host: host(server) }),
+        })
       else setLink({ url })
     }
     // Links are handled once the binding is known.

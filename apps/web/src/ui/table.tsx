@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { ContextMenu } from './context-menu'
 import { useControlled } from './controlled'
@@ -91,7 +92,7 @@ export function Table<R extends TableRow = TableRow>({
   alternating = true,
   density = 'regular',
   active,
-  emptyText = '没有项目',
+  emptyText = t('没有项目'),
   height,
   maxHeight,
   className,
@@ -284,7 +285,7 @@ export function Table<R extends TableRow = TableRow>({
         {rowActions ? (
           // biome-ignore lint/a11y/useSemanticElements: div rows are CSS grid tracks under a sticky header
           // biome-ignore lint/a11y/useFocusableInteractive: the grid owns focus
-          <div role="columnheader" aria-label="操作" className="ui-table__th" />
+          <div role="columnheader" aria-label={t('操作')} className="ui-table__th" />
         ) : null}
       </div>
       {visible.length ? (
@@ -335,7 +336,7 @@ export function Table<R extends TableRow = TableRow>({
                               type="button"
                               tabIndex={-1}
                               className={cx('ui-disclosure', open && 'ui-disclosure--open')}
-                              aria-label={open ? '折叠' : '展开'}
+                              aria-label={open ? t('折叠') : t('展开')}
                               onMouseDown={(e) => e.stopPropagation()}
                               onClick={() => toggleExpand(row.id, !open)}
                             >
@@ -391,7 +392,7 @@ function ActionsCell({ items, onSelect }: { items: MenuItem[]; onSelect: (value:
       {items.length ? (
         <PullDownButton
           icon="more"
-          aria-label="操作"
+          aria-label={t('操作')}
           variant="plain"
           size="small"
           align="end"

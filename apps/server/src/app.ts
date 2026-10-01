@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
+import { localize, type MessageKey, t } from './i18n/index.js'
 import { HttpError } from './lib/errors.js'
 import { originCheck } from './lib/origin.js'
 import { adminRoutes } from './modules/admin/routes.js'
@@ -62,6 +63,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   // Route plugins are typed for the default http server; the https instance exposes the same API.
   const serverFactory = previewServerFactory(ctx, opts.https ?? null)
   const app = Fastify({ logger, serverFactory }) as unknown as FastifyInstance
+  localize(app)
   await app.register(cookie)
   await app.register(websocket)
   // After the websocket plugin: its onResponse hook then closes the socket of a refused upgrade.
@@ -76,7 +78,9 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
     if (err instanceof HttpError)
       return reply.status(err.status).send({ error: err.code, message: err.message })
     if (err instanceof ZodError)
-      return reply.status(400).send({ error: 'invalid', message: err.issues[0]?.message ?? 'invalid' })
+      return reply
+        .status(400)
+        .send({ error: 'invalid', message: t((err.issues[0]?.message ?? 'invalid') as MessageKey) })
     app.log.error(err)
     return reply.status(500).send({ error: 'invalid', message: 'internal error' })
   })

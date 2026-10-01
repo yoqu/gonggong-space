@@ -40,6 +40,7 @@ import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
 import './timeline.css'
+import { t } from '../../i18n'
 
 /** Distance from the bottom (px) within which new items keep the view pinned to the end. */
 const STICK_PX = 80
@@ -196,8 +197,8 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
 
   useEffect(() => {
     if (!flash) return
-    const t = setTimeout(() => setFlash(null), FLASH_MS)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setFlash(null), FLASH_MS)
+    return () => clearTimeout(timer)
   }, [flash])
 
   const botsById = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
@@ -313,15 +314,19 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         subtitle={
           <>
             {group.muted ? (
-              <Icon name="bell-slash" size={11} label="消息免打扰" className="chat-view__muted" />
+              <Icon name="bell-slash" size={11} label={t('消息免打扰#muted')} className="chat-view__muted" />
             ) : null}
             {dm
-              ? '仅你和你的 Bot · '
-              : `${group.members.length} 人${botCount ? ` · ${botCount} Bot` : ''} · `}
+              ? t('仅你和你的 Bot · ')
+              : botCount
+                ? t('{n} 人 · {bots} Bot · ', { n: group.members.length, bots: botCount })
+                : t('{n} 人 · ', { n: group.members.length })}
             <span title={group.repo?.url}>
               {group.repo
                 ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                : `未绑定仓库 · ${dm ? '' : '各 '}Bot 使用本机目录`}
+                : dm
+                  ? t('未绑定仓库 · Bot 使用本机目录')
+                  : t('未绑定仓库 · 各 Bot 使用本机目录')}
             </span>
           </>
         }
@@ -330,14 +335,16 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
             ? [
                 {
                   icon: 'person-2' as const,
-                  label: `群成员：${group.members.length} 人${botCount ? `，${botCount} 个 Bot` : ''}`,
+                  label: botCount
+                    ? t('群成员：{n} 人，{bots} 个 Bot', { n: group.members.length, bots: botCount })
+                    : t('群成员：{n} 人', { n: group.members.length }),
                   onClick: () => inspector.open('group-info', 'members'),
                 },
               ]
             : []),
           {
             icon: 'dashboard' as const,
-            label: benchTabs ? '工作台' : '工作台 · 还没有打开的标签页',
+            label: benchTabs ? t('工作台') : t('工作台 · 还没有打开的标签页'),
             text: benchTabs || undefined,
             active: benchOpen && benchTabs > 0,
             disabled: !benchTabs,
@@ -345,7 +352,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           },
           {
             icon: 'sidebar-right',
-            label: '群设置',
+            label: t('群设置'),
             active: infoOpen,
             onClick: () => (infoOpen ? inspector.close() : inspector.open('group-info', 'main')),
           },
@@ -372,10 +379,10 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
             <DropZone
               defaultDragging
               multiple
-              aria-label="添加附件"
-              title="将文件拖到这里"
-              overTitle="松开以添加附件"
-              description="随下一条消息发送给群里的 Bot"
+              aria-label={t('添加附件')}
+              title={t('将文件拖到这里')}
+              overTitle={t('松开以添加附件')}
+              description={t('随下一条消息发送给群里的 Bot')}
               onFiles={(files) => dropFiles.current?.(files)}
             />
           </div>
@@ -392,9 +399,9 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               </div>
             ) : tl.older === 'failed' ? (
               <div className="chat-scroll__older" data-testid="older-error">
-                加载更早消息失败
+                {t('加载更早消息失败')}
                 <Button size="small" variant="plain" onClick={loadOlder}>
-                  重试
+                  {t('重试')}
                 </Button>
               </div>
             ) : null}
@@ -402,17 +409,17 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               <EmptyState
                 bare
                 illustration={<FailedArt />}
-                title="消息加载失败"
-                description="请检查网络后重试。"
+                title={t('消息加载失败')}
+                description={t('请检查网络后重试。')}
                 actions={
                   <Button size="small" onClick={tl.retry}>
-                    重试
+                    {t('重试')}
                   </Button>
                 }
               />
             ) : !tl.loaded ? (
               <div className="chat-scroll__loading">
-                <Mascot action="wait" size={72} label="加载中" />
+                <Mascot action="wait" size={72} label={t('加载中')} />
               </div>
             ) : tl.messages.length ? (
               tl.messages.map((m, i) => {
@@ -447,14 +454,14 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
               <EmptyState
                 bare
                 illustration={<EmptyChatArt />}
-                title="还没有消息"
-                description="@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。"
+                title={t('还没有消息')}
+                description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
               />
             )}
             {working.length ? (
               <TypingIndicator
                 name={working}
-                action="正在处理"
+                action={t('正在处理')}
                 bubble={<Mascot action="think" costume={workingCostume} size={36} />}
               />
             ) : null}
@@ -462,7 +469,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           {unseen ? (
             <button type="button" className="chat-scroll__pill" onClick={toBottom}>
               <Icon name="chevron-down" size={13} />
-              {unseen} 条新消息
+              {t('{n} 条新消息', { n: unseen })}
             </button>
           ) : null}
         </div>

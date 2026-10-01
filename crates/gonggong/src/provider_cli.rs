@@ -6,6 +6,7 @@ use crate::config::{self, Config};
 use crate::configure::parse_kind;
 use crate::protocol::AgentKind;
 use crate::providers::{self, INHERIT, OFFICIAL, OFFICIAL_NAME, PresetGroup, Provider, Store};
+use crate::t;
 use anyhow::{Context, Result, bail};
 use clap::Subcommand;
 use std::path::Path;
@@ -82,11 +83,11 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
         ProviderCmd::Presets { agent } => print_presets(agent),
         ProviderCmd::List { agent } => print_list(&Store::load(home)?, agent)?,
         ProviderCmd::Add { agent, preset, name, base_url, model, key_stdin, default } => {
-            let key = read_key(key_stdin)?.context("新增供应商需要 --key-stdin 传入 API Key")?;
+            let key = read_key(key_stdin)?.context(t!("新增供应商需要 --key-stdin 传入 API Key"))?;
             let mut p = match (preset, base_url) {
                 (Some(id), _) => Provider::from_preset(
                     providers::preset(agent, &id).with_context(|| {
-                        format!("没有 {} 预设 {id}，可用 gg provider presets 查看", agent_label(agent))
+                        t!("没有 {agent} 预设 {id}，可用 gg provider presets 查看", agent = agent_label(agent), id = id)
                     })?,
                     key,
                 ),
@@ -103,7 +104,10 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 }
                 Ok(id)
             })?;
-            println!("已新增 {label}（{id}）{}", if default { "，并设为本机默认" } else { "" });
+            match default {
+                true => println!("{}", t!("已新增 {label}（{id}），并设为本机默认", label = label, id = id)),
+                false => println!("{}", t!("已新增 {label}（{id}）", label = label, id = id)),
+            }
             if default {
                 print_stale(home, agent).await?;
             }
@@ -111,7 +115,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
         ProviderCmd::Edit { id, name, base_url, model, key_stdin } => {
             let key = read_key(key_stdin)?;
             if name.is_none() && base_url.is_none() && model.is_none() && key.is_none() {
-                bail!("没有要修改的内容（--name / --base-url / --model / --key-stdin）");
+                bail!(t!("没有要修改的内容（--name / --base-url / --model / --key-stdin）"));
             }
             Store::update(home, |s| {
                 s.edit(&id, |p| {
@@ -121,49 +125,53 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                     p.api_key = key.unwrap_or(p.api_key.clone());
                 })
             })?;
-            println!("已修改 {id}；使用它的会话会重启 adapter 后继续");
+            println!("{}", t!("已修改 {id}；使用它的会话会重启 adapter 后继续", id = id));
         }
         ProviderCmd::Rm { id } => {
             let p = Store::update(home, |s| s.remove(&id))?;
             crate::inject::prune(home, &Store::load(home)?);
-            println!("已删除 {}；使用它的会话下一轮会自动开启新会话", p.name);
+            println!("{}", t!("已删除 {name}；使用它的会话下一轮会自动开启新会话", name = p.name));
         }
         ProviderCmd::Use { bot: None, args } => {
             let [agent, choice] = args.as_slice() else {
-                bail!("用法：gg provider use <claude|codex> <id|official>")
+                bail!(t!("用法：gg provider use <claude|codex> <id|official>"))
             };
             let agent = parse_kind(agent).map_err(anyhow::Error::msg)?;
             let name = Store::update(home, |s| {
                 s.use_machine(agent, choice)?;
                 Ok(s.machine_default(agent)?.name().to_string())
             })?;
-            println!("{} 本机默认供应商：{name}", agent_label(agent));
+            println!("{}", t!("{agent} 本机默认供应商：{name}", agent = agent_label(agent), name = name));
             print_stale(home, agent).await?;
         }
         ProviderCmd::Use { bot: Some(bot), args } => {
-            let [choice] = args.as_slice() else { bail!("用法：gg provider use --bot <bot> <id|official|inherit>") };
-            let config = Config::load()?.context("设置 Bot 的供应商需要先 gg login（要查询 Bot 的 agent）")?;
+            let [choice] = args.as_slice() else {
+                bail!(t!("用法：gg provider use --bot <bot> <id|official|inherit>"))
+            };
+            let config = Config::load()?.context(t!("设置 Bot 的供应商需要先 gg login（要查询 Bot 的 agent）"))?;
             let bots = crate::bots::Client::new(&config)?.list().await?;
-            let bot =
-                bots.iter().find(|b| b.id == bot || b.name == bot).with_context(|| format!("本机没有 Bot「{bot}」"))?;
+            let bot = bots
+                .iter()
+                .find(|b| b.id == bot || b.name == bot)
+                .with_context(|| t!("本机没有 Bot「{bot}」", bot = bot))?;
             let name = Store::update(home, |s| {
                 s.use_bot(&bot.id, bot.agent_kind, choice)?;
                 Ok(s.effective(bot.agent_kind, &bot.id)?.name().to_string())
             })?;
-            let how = if choice == INHERIT { "继承本机默认" } else { "单独设置" };
-            println!("{} 的供应商：{name}（{how}）", bot.name);
+            let how = if choice == INHERIT { t!("继承本机默认") } else { t!("单独设置") };
+            println!("{}", t!("{bot} 的供应商：{name}（{how}）", bot = bot.name, name = name, how = how));
             print_stale(home, bot.agent_kind).await?;
         }
         ProviderCmd::Import { source, all, ids, set_default } if source == "cc-switch" => {
             let candidates = ccswitch::read(&config::user_home().join(".cc-switch"))?;
             if candidates.is_empty() {
-                println!("CC Switch 里没有可直接使用的 claude / codex 供应商");
+                println!("{}", t!("CC Switch 里没有可直接使用的 claude / codex 供应商"));
                 return Ok(());
             }
             if !all && ids.is_empty() {
                 for v in ccswitch::preview(&candidates, &Store::load(home)?) {
-                    let action = v.existing.map_or("新增".into(), |id| format!("更新 {id}"));
-                    let current = if v.current { "CC Switch 当前" } else { "" };
+                    let action = v.existing.map_or(t!("新增").into(), |id| t!("更新 {id}", id = id));
+                    let current = if v.current { t!("CC Switch 当前") } else { "" };
                     println!(
                         "{}\t{}\t{}\t{}\t{}\t{}\t{current}\t{action}",
                         v.key,
@@ -175,13 +183,16 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                     );
                 }
                 println!(
-                    "\n用 --all 导入全部，或 --ids <key,…> 选择；加 --set-default 同时把 CC Switch 当前使用的设为本机默认"
+                    "\n{}",
+                    t!(
+                        "用 --all 导入全部，或 --ids <key,…> 选择；加 --set-default 同时把 CC Switch 当前使用的设为本机默认"
+                    )
                 );
                 return Ok(());
             }
             let keys = if all { candidates.iter().map(|c| c.key.clone()).collect() } else { ids };
             let imported = Store::update(home, |s| ccswitch::apply(&candidates, &keys, set_default, s))?;
-            println!("已从 CC Switch 导入 {} 个供应商", imported.len());
+            println!("{}", t!("已从 CC Switch 导入 {n} 个供应商", n = imported.len()));
         }
         ProviderCmd::Import { source, set_default, .. } if source.starts_with("ccswitch://") => {
             let p = ccswitch::parse_link(&source)?;
@@ -193,12 +204,15 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 }
                 Ok(id)
             })?;
-            println!("已导入 {} 供应商 {label}（{id}）", agent_label(agent));
+            println!(
+                "{}",
+                t!("已导入 {agent} 供应商 {label}（{id}）", agent = agent_label(agent), label = label, id = id)
+            );
             if set_default {
                 print_stale(home, agent).await?;
             }
         }
-        ProviderCmd::Import { .. } => bail!("导入来源应为 cc-switch 或 ccswitch:// 链接"),
+        ProviderCmd::Import { .. } => bail!(t!("导入来源应为 cc-switch 或 ccswitch:// 链接")),
     }
     Ok(())
 }
@@ -211,16 +225,16 @@ fn read_key(key_stdin: bool) -> Result<Option<String>> {
     std::io::stdin().read_line(&mut key)?;
     let key = key.trim().to_string();
     if key.is_empty() {
-        bail!("标准输入里没有 API Key");
+        bail!(t!("标准输入里没有 API Key"));
     }
     Ok(Some(key))
 }
 
 fn group_label(group: PresetGroup) -> &'static str {
     match group {
-        PresetGroup::Cn => "国内厂商",
-        PresetGroup::Aggregator => "聚合平台",
-        PresetGroup::Global => "海外",
+        PresetGroup::Cn => t!("国内厂商"),
+        PresetGroup::Aggregator => t!("聚合平台"),
+        PresetGroup::Global => t!("海外"),
     }
 }
 
@@ -232,13 +246,13 @@ fn print_presets(agent: Option<AgentKind>) {
             println!("  {}\t{}\t{}\t{}\t{model}", p.id, p.name, group_label(p.group), p.base_url);
         }
     }
-    println!("\n预设来自 {}", providers::presets_source());
+    println!("\n{}", t!("预设来自 {source}", source = providers::presets_source()));
 }
 
 fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
     for agent in agent.map_or(vec![AgentKind::Claude, AgentKind::Codex], |a| vec![a]) {
         let default = store.machine_default(agent)?;
-        println!("{} · 本机默认：{}", agent_label(agent), default.name());
+        println!("{}", t!("{agent} · 本机默认：{name}", agent = agent_label(agent), name = default.name()));
         for p in store.providers.iter().filter(|p| p.agent == agent).map(Provider::view) {
             let mark = if p.id == default.key() { "*" } else { " " };
             let model = p.model.as_deref().unwrap_or("-");
@@ -246,10 +260,13 @@ fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
         }
     }
     if !store.bots.is_empty() {
-        println!("\nBot 单独设置：");
+        println!("\n{}", t!("Bot 单独设置："));
         for (bot, choice) in &store.bots {
-            let name =
-                if choice == OFFICIAL { OFFICIAL_NAME } else { store.get(choice).map_or(choice.as_str(), |p| &p.name) };
+            let name = if choice == OFFICIAL {
+                crate::i18n::tr(OFFICIAL_NAME)
+            } else {
+                store.get(choice).map_or(choice.as_str(), |p| &p.name)
+            };
             println!("  {bot}\t{name}");
         }
     }
@@ -280,7 +297,10 @@ async fn print_stale(home: &Path, agent: AgentKind) -> Result<()> {
         by_change.entry((&s.session, &s.effective)).or_default().push(label);
     }
     for ((from, to), groups) in by_change {
-        println!("{} 个群的会话仍在使用 {from}，开启新会话后才会切换到 {to}：", groups.len());
+        println!(
+            "{}",
+            t!("{n} 个群的会话仍在使用 {from}，开启新会话后才会切换到 {to}：", n = groups.len(), from = from, to = to)
+        );
         for g in groups {
             println!("  {g}");
         }

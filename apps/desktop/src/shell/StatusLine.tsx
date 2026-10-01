@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useDaemon, useNow } from '../store'
 
 export function StatusLine() {
@@ -7,8 +8,8 @@ export function StatusLine() {
   const status = snapshot.phase === 'running' ? snapshot.status : null
   const online = status?.conn.state === 'online'
   const beat = status?.lastHeartbeatMs
-    ? `上次 ${Math.max(0, Math.round((now - status.lastHeartbeatMs) / 1000))} 秒前`
-    : '尚未发送'
+    ? t('上次 {n} 秒前', { n: Math.max(0, Math.round((now - status.lastHeartbeatMs) / 1000)) })
+    : t('尚未发送')
   const runs = status?.runs ?? []
   const available = new Set(status?.agents.filter((a) => a.available).map((a) => a.kind))
   const adapters = info?.adapters
@@ -18,18 +19,23 @@ export function StatusLine() {
   return (
     <footer className="dk-statusline" data-testid="status-line">
       <span>
-        {status?.heartbeatSec && online ? `心跳 ${status.heartbeatSec}s · ${beat}` : '心跳 — · 未连接'}
+        {status?.heartbeatSec && online
+          ? t('心跳 {sec}s · {beat}', { sec: status.heartbeatSec, beat })
+          : t('心跳 — · 未连接')}
       </span>
-      <span>{online && status?.latencyMs != null ? `延迟 ${status.latencyMs} ms` : '延迟 —'}</span>
       <span>
-        运行 {runs.filter((r) => !r.queued).length} · 队列 {runs.filter((r) => r.queued).length}
+        {online && status?.latencyMs != null ? t('延迟 {ms} ms', { ms: status.latencyMs }) : t('延迟 —')}
+      </span>
+      <span>
+        {t('运行 {running} · 队列 {queued}', {
+          running: runs.filter((r) => !r.queued).length,
+          queued: runs.filter((r) => r.queued).length,
+        })}
       </span>
       <span className="dk-flex" />
-      <span className="dk-ellipsis">ACP 适配器 {adapters || '—'}</span>
+      <span className="dk-ellipsis">{t('ACP 适配器 {list}', { list: adapters || '—' })}</span>
       {info ? (
-        <span>
-          v{info.version} · 协议 v{info.protocol}
-        </span>
+        <span>{t('v{version} · 协议 v{protocol}', { version: info.version, protocol: info.protocol })}</span>
       ) : null}
     </footer>
   )

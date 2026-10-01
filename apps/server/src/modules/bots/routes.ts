@@ -1,11 +1,12 @@
 import {
-  agentConfigLabel,
   type BotOwnerDto,
   type BotPlaceDto,
   CreateBotReq,
+  effortName,
   fitEffort,
   GroupBotConfigReq,
   GroupBotTierReq,
+  modelName,
   TERMINAL_RUN_STATUS,
   type Tier,
   UpdateBotReq,
@@ -23,6 +24,7 @@ import { requireUser, type SessionUser } from '../auth/session.js'
 import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
+import { stepI18nOf } from '../runs/step.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
 import { assertCanConfigure, assertPick, pickCatalog } from './config.js'
@@ -33,7 +35,7 @@ type BotRow = typeof bots.$inferSelect
 type IdParams = { Params: { id: string } }
 
 async function loadBot(ctx: Ctx, rawId: string) {
-  const id = idParam(rawId, 'bot ')
+  const id = idParam(rawId, 'Bot 不存在')
   const [bot] = await ctx.db
     .select()
     .from(bots)
@@ -46,7 +48,7 @@ async function assertNameFree(ctx: Ctx, name: string, exceptId?: string) {
     .select({ id: bots.id })
     .from(bots)
     .where(and(eq(bots.name, name), isNull(bots.deletedAt), exceptId ? ne(bots.id, exceptId) : undefined))
-  if (taken) fail('conflict', `名称「${name}」已被占用`)
+  if (taken) fail('conflict', '名称「{name}」已被占用', { name })
 }
 
 async function assertUsers(ctx: Ctx, ids: string[]) {
@@ -153,6 +155,7 @@ export function botRoutes(ctx: Ctx) {
           groupId: runs.groupId,
           status: runs.status,
           step: runs.step,
+          stepI18n: runs.stepI18n,
           startedAt: runs.startedAt,
         })
         .from(runs)
@@ -169,6 +172,7 @@ export function botRoutes(ctx: Ctx) {
                 id: run.id,
                 status: run.status as NonNullable<BotPlaceDto['run']>['status'],
                 step: run.step,
+                ...stepI18nOf(run),
                 startedAt: run.startedAt?.toISOString() ?? null,
               }
             : null,
@@ -286,7 +290,7 @@ export function botRoutes(ctx: Ctx) {
         const user = await requireUser(ctx, req)
         const { tier } = GroupBotTierReq.parse(req.body)
         const bot = await loadBot(ctx, req.params.botId)
-        const groupId = idParam(req.params.id, '群')
+        const groupId = idParam(req.params.id, '群不存在')
         const [gb] = await ctx.db
           .select({ tier: groupBots.tier })
           .from(groupBots)
@@ -302,8 +306,9 @@ export function botRoutes(ctx: Ctx) {
           ctx,
           groupId,
           tier
-            ? `${user.name} 将 ${bot.name} 在本群的档位设为「${TIER_LABEL[tier]}」`
-            : `${user.name} 将 ${bot.name} 在本群的档位恢复为跟随全局（${TIER_LABEL[bot.tier as Tier]}）`,
+            ? '{user} 将 {bot} 在本群的档位设为「{tier}」'
+            : '{user} 将 {bot} 在本群的档位恢复为跟随全局（{tier}）',
+          { user: user.name, bot: bot.name, tier: { key: TIER_LABEL[tier ?? (bot.tier as Tier)] } },
         )
         await applyTier(ctx, user.id, bot.id, groupId)
         return reply.status(204).send()
@@ -316,7 +321,7 @@ export function botRoutes(ctx: Ctx) {
         const user = await requireUser(ctx, req)
         const { model, effort } = GroupBotConfigReq.parse(req.body)
         const bot = await loadBot(ctx, req.params.botId)
-        const groupId = idParam(req.params.id, '群')
+        const groupId = idParam(req.params.id, '群不存在')
         const [gb] = await ctx.db
           .select({ model: groupBots.model, effort: groupBots.effort })
           .from(groupBots)
@@ -330,13 +335,22 @@ export function botRoutes(ctx: Ctx) {
         if (gb.model === model && gb.effort === effort) return reply.status(204).send()
         await updateBotState(ctx, groupId, bot.id, { model, effort })
         const now = model ?? bot.model
-        const label = agentConfigLabel(catalog, now, fitEffort(catalog, now, effort ?? bot.effort))
+        const picked = fitEffort(catalog, now, effort ?? bot.effort)
+        const params = {
+          user: user.name,
+          bot: bot.name,
+          model: now === null ? { key: '默认模型' } : modelName(catalog, now),
+          ...(picked && { effort: { key: effortName(picked) } }),
+        }
         await postEvent(
           ctx,
           groupId,
-          model || effort
-            ? `${user.name} 将 ${bot.name} 在本群的模型设为 ${label}`
-            : `${user.name} 将 ${bot.name} 在本群的模型恢复为跟随 Bot 默认`,
+          !(model || effort)
+            ? '{user} 将 {bot} 在本群的模型恢复为跟随 Bot 默认'
+            : picked
+              ? '{user} 将 {bot} 在本群的模型设为 {model} · {effort}'
+              : '{user} 将 {bot} 在本群的模型设为 {model}',
+          params,
         )
         return reply.status(204).send()
       },

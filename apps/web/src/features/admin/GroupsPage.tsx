@@ -1,5 +1,6 @@
 import type { AdminGroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -18,8 +19,8 @@ import { useSystemParams } from './ParamsPage'
 const DAY_MS = 86_400_000
 
 function mode(g: AdminGroupDto): [string, TagTone] {
-  if (g.archivedAt) return ['已归档', 'gray']
-  return g.mode === 'force' ? ['强制同步', 'blue'] : ['分区模式', 'green']
+  if (g.archivedAt) return [t('已归档'), 'gray']
+  return g.mode === 'force' ? [t('强制同步'), 'blue'] : [t('分区模式'), 'green']
 }
 
 /** A DM's `name` is its Bot's current name. */
@@ -33,39 +34,39 @@ export function GroupsPage() {
 
   const copy = (g: AdminGroupDto) => {
     if (!g.archivedAt) return null
-    if (!params) return '归档'
+    if (!params) return t('归档')
     const left = params.archiveRetentionDays - Math.floor((Date.now() - Date.parse(g.archivedAt)) / DAY_MS)
-    return `归档 · ${Math.max(0, left)} 天后清除`
+    return t('归档 · {n} 天后清除', { n: Math.max(0, left) })
   }
   const q = query.trim().toLowerCase()
   const shown = groups?.filter((g) => !q || `${title(g)} ${g.repo ?? ''}`.toLowerCase().includes(q))
 
   return (
     <AdminPage
-      title="群"
-      desc="所有群的模式、仓库与存档状态。"
-      subtitle={groups ? `${groups.length} 个群` : undefined}
-      search={<SearchField placeholder="搜索群或仓库" value={query} onChange={setQuery} />}
+      title={t('群#nav')}
+      desc={t('所有群的模式、仓库与存档状态。')}
+      subtitle={groups ? t('{n} 个群', { n: groups.length }) : undefined}
+      search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
         <Table<AdminGroupDto>
-          aria-label="群列表"
+          aria-label={t('群列表')}
           className="admin-grid"
           rows={shown}
           defaultSort={{ key: 'name', dir: 'asc' }}
           emptyText={
             <EmptyState
               compact
-              title={q ? '没有匹配的群' : '还没有群'}
+              title={q ? t('没有匹配的群') : t('还没有群')}
               illustration={q ? <NoResultsArt /> : <NoGroupsArt />}
             />
           }
           columns={[
-            { key: 'name', title: '群', sortable: true, sortValue: title, render: title },
+            { key: 'name', title: t('群'), sortable: true, sortValue: title, render: title },
             {
               key: 'mode',
-              title: '模式',
+              title: t('模式'),
               width: 104,
               sortable: true,
               sortValue: (g) => mode(g)[0],
@@ -76,15 +77,15 @@ export function GroupsPage() {
             },
             {
               key: 'repo',
-              title: '仓库',
+              title: t('仓库'),
               mono: true,
               secondary: true,
               sortable: true,
-              render: (g) => g.repo ?? '未绑定',
+              render: (g) => g.repo ?? t('未绑定'),
             },
-            { key: 'members', title: '成员', width: 72, align: 'right', sortable: true },
+            { key: 'members', title: t('成员'), width: 72, align: 'right', sortable: true },
             { key: 'bots', title: 'Bot', width: 72, align: 'right', sortable: true },
-            { key: 'archive', title: '存档', width: 176, secondary: true, render: copy },
+            { key: 'archive', title: t('存档'), width: 176, secondary: true, render: copy },
           ]}
         />
       ) : error ? null : (

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import './level.css'
@@ -69,7 +70,7 @@ export function LevelIndicator({
         <path d={STAR} strokeLinejoin="round" />
       </svg>
     ))
-    const name = `${ariaLabel ?? '评分'}：${v} / ${max}`
+    const name = t('{label}：{v} / {max}', { label: ariaLabel ?? t('评分'), v, max })
     return editable ? (
       <span
         className={cx('ui-rating', 'ui-rating--edit', className)}

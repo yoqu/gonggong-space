@@ -12,6 +12,7 @@ import { notify } from '../notifications/notify.js'
 import { voidQuestions } from '../questions/service.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
+import { runStep } from './step.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 type User = { id: string; name: string }
@@ -45,7 +46,7 @@ export async function isChainStopped(ctx: Ctx, run: Pick<RunRow, 'id'>) {
 
 /** Chain hops show that the whole chain ended; other runs name who stopped them. */
 const stopStep = (name: string, run: Pick<RunRow, 'hop'>) =>
-  run.hop > 1 ? `整条链已被 ${name} /stop 终止` : `${name} 执行了 /stop`
+  runStep(run.hop > 1 ? '整条链已被 {user} /stop 终止' : '{user} 执行了 /stop', { user: name })
 
 export type StopTarget =
   | { groupId: string; botIds?: string[] }
@@ -76,7 +77,7 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
       .set(
         live
           ? { stoppedBy: by.id }
-          : { stoppedBy: by.id, status: 'interrupted', step: stopStep(by.name, run), endedAt: ctx.now() },
+          : { stoppedBy: by.id, status: 'interrupted', ...stopStep(by.name, run), endedAt: ctx.now() },
       )
       .where(and(eq(runs.id, run.id), notInArray(runs.status, [...TERMINAL_RUN_STATUS])))
       .returning()
@@ -107,10 +108,13 @@ export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise
   const step = stopStep(by?.name ?? '', run)
   return kept
     ? {
-        step: `${step} · 分区模式：已改的 ${done.filesChanged} 个文件留在工作区，未提交`,
+        ...runStep('{step} · 分区模式：已改的 {n} 个文件留在工作区，未提交', {
+          step: step.stepI18n,
+          n: done.filesChanged,
+        }),
         interrupt: 'pending',
       }
-    : { step }
+    : step
 }
 
 /** The chain's initiator learns when a relay chain (more than one hop) has no unfinished run left (spec §8.11). */
@@ -204,8 +208,9 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     const error = res ? (res.ok ? null : (res.error ?? '未知错误')) : 'Bot 离线'
     await record({ ok: !error, files: res?.files ?? 0, error })
     if (error) {
-      await postEvent(ctx, run.groupId, `丢弃本轮改动失败：${error}`)
-      return fail('conflict', `丢弃本轮改动失败：${error}`)
+      const reason = res ? (res.error ?? { key: '未知错误' }) : { key: 'Bot 离线' }
+      await postEvent(ctx, run.groupId, '丢弃本轮改动失败：{error}', { error: reason })
+      return fail('conflict', '丢弃本轮改动失败：{error}', { error: reason })
     }
   } else await record({})
   const [updated] = await ctx.db
@@ -256,7 +261,7 @@ export async function expireOfflineRuns(ctx: Ctx) {
       .update(runs)
       .set({
         status: 'expired',
-        step: `Bot 离线超过 ${min} 分钟，已作废并通知 ${trigger ?? ''}`,
+        ...runStep('Bot 离线超过 {n} 分钟，已作废并通知 {user}', { n: min, user: trigger ?? '' }),
         endedAt: ctx.now(),
       })
       .where(and(eq(runs.id, run.id), eq(runs.status, 'offline_wait')))

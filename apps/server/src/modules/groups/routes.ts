@@ -68,9 +68,12 @@ async function isMember(ctx: Ctx, groupId: string, userId: string) {
 
 export function groupRoutes(ctx: Ctx) {
   /** Bots that cannot reach the repo don't block binding (they pause); a branch the repo lacks does. */
-  const bindProblem = (url: string, branch: string) =>
-    repoProblem(url, branch) ??
-    (branchKnownMissing(url, branch, ctx.now()) ? `分支 ${branch} 不存在，换一个基准分支` : null)
+  const assertBindable = (url: string, branch: string) => {
+    const problem = repoProblem(url, branch)
+    if (problem) fail('invalid', problem)
+    if (branchKnownMissing(url, branch, ctx.now()))
+      fail('invalid', '分支 {branch} 不存在，换一个基准分支', { branch })
+  }
 
   const auditAdmin = (
     actorUserId: string,
@@ -92,8 +95,7 @@ export function groupRoutes(ctx: Ctx) {
       const name = body.name.trim()
       if (!name) return fail('invalid', '填写群名')
       const repo = body.repo && { url: body.repo.url.trim(), branch: body.repo.branch.trim() }
-      const problem = repo && bindProblem(repo.url, repo.branch)
-      if (problem) return fail('invalid', problem)
+      if (repo) assertBindable(repo.url, repo.branch)
       const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)
       if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 Bot')
       const picked = await liveBots(ctx, uniq(body.botIds))
@@ -122,15 +124,19 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         dm
-          ? `${me.name} 创建了私聊 · 仅你和你的 Bot`
-          : `${me.name} 创建了群 · 成为群管理员${invited.length ? ` · 邀请 ${invited.map((u) => u.name).join('、')}` : ''}`,
+          ? '{user} 创建了私聊 · 仅你和你的 Bot'
+          : invited.length
+            ? '{user} 创建了群 · 成为群管理员 · 邀请 {invited}'
+            : '{user} 创建了群 · 成为群管理员',
+        { user: me.name, invited: invited.map((u) => u.name).join('、') },
       )
       await postEvent(
         ctx,
         group.id,
         repo
-          ? `群绑定仓库 ${publicRepoUrl(repo.url)} · 基准分支 ${repo.branch} · 分区模式`
+          ? '群绑定仓库 {url} · 基准分支 {branch} · 分区模式'
           : '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
+        repo ? { url: publicRepoUrl(repo.url), branch: repo.branch } : undefined,
       )
       if (repo) await recordRepo(ctx, { ...repo, userId: me.id })
       for (const b of picked) await joinWorkspace(ctx, group.id, b, { joined: true })
@@ -172,7 +178,7 @@ export function groupRoutes(ctx: Ctx) {
       const user = await oneUser(ctx, userId)
       if (!(await isMember(ctx, group.id, user.id))) {
         await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: user.id })
-        await postEvent(ctx, group.id, `${me.name} 邀请 ${user.name} 加入群`)
+        await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member: user.name })
         await auditAdmin(me.id, group.id, 'group.member.add', { userId: user.id, name: user.name })
         await publishGroup(ctx, group.id)
       }
@@ -191,7 +197,7 @@ export function groupRoutes(ctx: Ctx) {
 
       const [user] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, userId))
       await removeMember(ctx, group.id, userId, me)
-      await postEvent(ctx, group.id, `${me.name} 将 ${user?.name ?? ''} 移出群`)
+      await postEvent(ctx, group.id, '{user} 将 {member} 移出群', { user: me.name, member: user?.name ?? '' })
       await auditAdmin(me.id, group.id, 'group.member.remove', { userId, name: user?.name ?? null })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
@@ -220,7 +226,10 @@ export function groupRoutes(ctx: Ctx) {
       })
       if (ownerJoins) {
         const [owner] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, bot.ownerId))
-        await postEvent(ctx, group.id, `${owner?.name ?? ''} 作为 ${bot.name} 的主人一并加入群`)
+        await postEvent(ctx, group.id, '{owner} 作为 {bot} 的主人一并加入群', {
+          owner: owner?.name ?? '',
+          bot: bot.name,
+        })
       }
       await joinWorkspace(ctx, group.id, bot, { joined: true })
       await auditAdmin(me.id, group.id, 'group.bot.add', { botId: bot.id, name: bot.name })
@@ -236,8 +245,7 @@ export function groupRoutes(ctx: Ctx) {
       const url = body.url.trim()
       const branch = body.branch.trim()
       if (!url) return fail('invalid', '一期不支持解绑仓库')
-      const problem = bindProblem(url, branch)
-      if (problem) return fail('invalid', problem)
+      assertBindable(url, branch)
       const [old] = await ctx.db.select().from(groupRepos).where(eq(groupRepos.groupId, group.id))
       if (old?.url === url && old.baseBranch === branch) return groupDto(ctx, me.id, group.id)
 
@@ -263,8 +271,9 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         old
-          ? `群更换仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 各 Bot 重建托管工作区`
-          : `群绑定仓库 ${publicRepoUrl(url)} · 基准分支 ${branch} · 分区模式`,
+          ? '群更换仓库 {url} · 基准分支 {branch} · 各 Bot 重建托管工作区'
+          : '群绑定仓库 {url} · 基准分支 {branch} · 分区模式',
+        { url: publicRepoUrl(url), branch },
       )
       await auditAdmin(me.id, group.id, 'group.repo.change', {
         url: publicRepoUrl(url),
@@ -287,7 +296,7 @@ export function groupRoutes(ctx: Ctx) {
         .update(groupBots)
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
-      await postEvent(ctx, group.id, `${bot.name} 被移出 · 工作区保留`)
+      await postEvent(ctx, group.id, '{bot} 被移出 · 工作区保留', { bot: bot.name })
       await auditAdmin(me.id, group.id, 'group.bot.remove', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)

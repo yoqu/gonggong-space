@@ -2,6 +2,7 @@ import { ProcessView } from '@web/features/runs/ProcessView'
 import { processSteps } from '@web/features/runs/steps'
 import { Badge, Button, EmptyState, GroupBox, Icon, Spinner } from '@web/ui'
 import { useEffect, useMemo, useState } from 'react'
+import { t } from '../i18n'
 import { ipc, type RunProcess } from '../ipc'
 import { runBadge } from '../lib/labels'
 import { Section } from '../lib/ui'
@@ -10,9 +11,9 @@ import { useHeading } from '../store'
 /** Local IPC is cheap: polling keeps the view simple and also follows background tasks after the run ended. */
 const POLL_MS = 1000
 const OUTCOME = {
-  completed: { text: '已完成', variant: 'success' },
-  interrupted: { text: '已中断', variant: 'secondary' },
-  failed: { text: '失败', variant: 'destructive' },
+  completed: { text: t('已完成'), variant: 'success' },
+  interrupted: { text: t('已中断'), variant: 'secondary' },
+  failed: { text: t('失败'), variant: 'destructive' },
 } as const
 
 /** 概览 → one run: its process as this machine executed it, rendered like the web run rail. */
@@ -26,10 +27,10 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
         () => {},
       )
     load()
-    const t = setInterval(load, POLL_MS)
+    const timer = setInterval(load, POLL_MS)
     return () => {
       alive = false
-      clearInterval(t)
+      clearInterval(timer)
     }
   }, [runId])
   const live = !!process && process.endedMs === null
@@ -48,7 +49,7 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
   )
   const run = process?.run
   const title = run?.botName
-  const subtitle = run && `${run.groupName} · ${run.triggeredBy} 触发`
+  const subtitle = run && t('{group} · {user} 触发', { group: run.groupName, user: run.triggeredBy })
   useEffect(() => {
     if (title) useHeading.setState({ heading: { title, subtitle } })
   }, [title, subtitle])
@@ -59,19 +60,19 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
       <div className="dk-row dk-detail__head">
         <Button size="small" variant="plain" onClick={onBack}>
           <Icon name="chevron-left" size={14} />
-          返回
+          {t('返回')}
         </Button>
         <span className="dk-flex" />
         {run ? <Badge variant={badge.variant}>{badge.text}</Badge> : null}
       </div>
-      <Section title="运行过程">
+      <Section title={t('运行过程')}>
         <GroupBox>
           {process === undefined ? (
             <div className="dk-row">
               <Spinner />
             </div>
           ) : process === null ? (
-            <EmptyState compact icon="tray" title="该轮次的过程已不在本机保留" />
+            <EmptyState compact icon="tray" title={t('该轮次的过程已不在本机保留')} />
           ) : (
             <div className="dk-process">
               <ProcessView

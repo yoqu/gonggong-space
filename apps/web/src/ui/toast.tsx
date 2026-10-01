@@ -1,10 +1,13 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { create } from 'zustand'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
 import { usePresence } from './presence'
 import './toast.css'
+
+const CLOSE_LABEL = t('关闭#close')
 
 export interface ToastProps {
   message: ReactNode
@@ -167,7 +170,7 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
         <button
           type="button"
           className="ui-toast__close"
-          aria-label="关闭"
+          aria-label={CLOSE_LABEL}
           onClick={() => dismissToast(t.id)}
         >
           <Icon name="xmark" size={12} weight={1.8} />

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import './feedback.css'
@@ -58,7 +59,7 @@ export function Skeleton({
   count = 3,
   width = '100%',
   height = 120,
-  label = '正在载入',
+  label = t('正在载入'),
   className,
   style,
 }: {

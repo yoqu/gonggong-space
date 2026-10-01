@@ -8,10 +8,12 @@
 //! the reason shown to users, and exit 1, or 2 when the machine's owner can fix it there (a hidden, closed or misplaced
 //! window: `OwnerFix`), which the daemon retries soon. The member granted control sends input on the data channel (topic `input`,
 //! see `input.rs`); LiveKit only lets that member publish data.
+mod i18n;
 mod input;
 mod window;
 
 use anyhow::{Context, bail};
+use i18n::t;
 use input::{Injector, Input};
 use livekit::options::{TrackPublishOptions, VideoCodec, VideoPreset};
 use livekit::prelude::*;
@@ -56,25 +58,26 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
             screen = true;
             continue;
         }
-        let v = it.next().with_context(|| format!("{k} 缺少取值"))?;
+        let v = it.next().with_context(|| t!("{k} 缺少取值", k = k))?;
         match k.as_str() {
             "--url" => url = Some(v),
             "--pids" => {
-                pids = v.split(',').map(str::parse).collect::<Result<_, _>>().context("--pids 应为逗号分隔的进程号")?
+                pids =
+                    v.split(',').map(str::parse).collect::<Result<_, _>>().context(t!("--pids 应为逗号分隔的进程号"))?
             }
             "--title" => titles.push(v),
-            "--fps" => fps = frame_rate(&v).context("--fps 应为 1 到 90 的整数")?,
-            _ => bail!("未知参数 {k}"),
+            "--fps" => fps = frame_rate(&v).context(t!("--fps 应为 1 到 90 的整数"))?,
+            _ => bail!(t!("未知参数 {k}", k = k)),
         }
     }
     // Linux publishes a service's own virtual display, never windows on the owner's desktop (plan P15); elsewhere the
     // screen would be the owner's own.
     if cfg!(target_os = "linux") != screen || screen == !pids.is_empty() {
-        bail!(
+        bail!(t!(
             "Linux 上只能推送虚拟显示里的桌面应用：请用 service_start 的 display: \"virtual\" 重新启动服务（其他系统推送窗口，用 --pids）"
-        );
+        ));
     }
-    Ok(Args { url: url.context("缺少 --url")?, pids, titles, fps, screen })
+    Ok(Args { url: url.context(t!("缺少 --url"))?, pids, titles, fps, screen })
 }
 
 fn frame_rate(v: &str) -> Option<u32> {
@@ -94,9 +97,9 @@ fn screen_recording_hint() -> Option<&'static str> {
     #[cfg(target_os = "macos")]
     // SAFETY: no arguments; only reads the TCC state.
     if !unsafe { CGPreflightScreenCaptureAccess() } {
-        return Some(
-            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工空间桌面端）",
-        );
+        return Some(t!(
+            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工空间桌面端）"
+        ));
     }
     None
 }
@@ -156,7 +159,7 @@ fn find_window(pids: &[u32], titles: &[String]) -> anyhow::Result<Candidate> {
             floating: floating.contains(&id),
         })
     });
-    pick(visible.collect(), pids, titles).ok_or_else(|| owner_fix("应用还没有可见窗口（或窗口已最小化）"))
+    pick(visible.collect(), pids, titles).ok_or_else(|| owner_fix(t!("应用还没有可见窗口（或窗口已最小化）")))
 }
 
 type Slot = Arc<Mutex<(NativeVideoSource, VideoFrame<I420Buffer>)>>;
@@ -179,8 +182,10 @@ struct Region {
 /// Where window `id` is, on which display.
 #[cfg(not(target_os = "linux"))]
 fn region(id: u32) -> anyhow::Result<Region> {
-    let w =
-        xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(id)).ok_or_else(|| owner_fix("窗口已关闭"))?;
+    let w = xcap::Window::all()?
+        .into_iter()
+        .find(|w| w.id().ok() == Some(id))
+        .ok_or_else(|| owner_fix(t!("窗口已关闭")))?;
     let m = w.current_monitor()?;
     Ok(Region {
         left: w.x()? - m.x()?,
@@ -195,7 +200,7 @@ fn region(id: u32) -> anyhow::Result<Region> {
 
 #[cfg(target_os = "linux")]
 fn region(_: u32) -> anyhow::Result<Region> {
-    bail!("Linux 只推送虚拟屏")
+    bail!(t!("Linux 只推送虚拟屏"))
 }
 
 /// The part of a `fw`×`fh` frame to publish, as x, y, width, height in pixels: `region` of it
@@ -242,7 +247,7 @@ fn capturer(source_type: SourceType) -> anyhow::Result<Capturer> {
         allow_sck_system_picker: false,
     });
     if c.is_null() {
-        bail!("无法创建窗口采集器");
+        bail!(t!("无法创建窗口采集器"));
     }
     Ok(c)
 }
@@ -282,7 +287,7 @@ impl DesktopCapturerCallback for OnFrame {
         match r {
             Ok(f) => push(&self.slot, &f, self.region.as_ref().map(|r| *r.lock().unwrap())),
             Err(CaptureError::Permanent) => {
-                let _ = self.ended.send("窗口已关闭".into());
+                let _ = self.ended.send(t!("窗口已关闭").into());
             }
             Err(CaptureError::Temporary) => {}
         }
@@ -315,7 +320,7 @@ fn start(
     let r = region(id)?;
     // Windows captures the main display unselected; ScreenCaptureKit lists no displays but selects one by its id.
     if cfg!(windows) && !r.primary {
-        return Err(owner_fix("要推送的窗口是置顶窗口，只能在主显示器上推送：请把它移到主显示器"));
+        return Err(owner_fix(t!("要推送的窗口是置顶窗口，只能在主显示器上推送：请把它移到主显示器")));
     }
     let region = Arc::new(Mutex::new(r));
     let display = cfg!(target_os = "macos").then_some(r.display as u64);
@@ -324,7 +329,9 @@ fn start(
 
 fn no_source(window_id: Option<u32>) -> anyhow::Error {
     let hint = screen_recording_hint().map(String::from);
-    anyhow::anyhow!(hint.unwrap_or_else(|| format!("采集器里没有要推送的画面（{window_id:?}）")))
+    anyhow::anyhow!(
+        hint.unwrap_or_else(|| t!("采集器里没有要推送的画面（{window}）", window = format!("{window_id:?}")))
+    )
 }
 
 /// The native capturer (macOS: ScreenCaptureKit, B0: far cheaper than screenshots) on the window found by pid, or on
@@ -396,10 +403,10 @@ fn publish_options(width: u32, height: u32) -> TrackPublishOptions {
 }
 
 async fn run(a: Args) -> anyhow::Result<()> {
-    let token = std::env::var("GG_CAST_TOKEN").context("缺少 GG_CAST_TOKEN")?;
+    let token = std::env::var("GG_CAST_TOKEN").context(t!("缺少 GG_CAST_TOKEN"))?;
     let (window, (width, height), target) = shown(&a)?;
     let (room, mut events) =
-        Room::connect(&a.url, &token, RoomOptions::default()).await.context("无法连接实时画面服务（LiveKit）")?;
+        Room::connect(&a.url, &token, RoomOptions::default()).await.context(t!("无法连接实时画面服务（LiveKit）"))?;
     let source = NativeVideoSource::new(VideoResolution { width, height }, true);
     let frame = VideoFrame {
         rotation: VideoRotation::VideoRotation0,
@@ -412,7 +419,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
     room.local_participant()
         .publish_track(LocalTrack::Video(track), publish_options(width, height))
         .await
-        .context("无法发布画面")?;
+        .context(t!("无法发布画面"))?;
 
     let (ended_tx, mut ended) = mpsc::unbounded_channel();
     let fps = Arc::new(AtomicU32::new(a.fps));
@@ -434,13 +441,13 @@ async fn run(a: Args) -> anyhow::Result<()> {
             Some(reason) = ended.recv() => return Err(owner_fix(reason)),
             _ = gone.recv() => return Ok(()),
             ev = events.recv() => match ev {
-                Some(RoomEvent::Disconnected { reason }) => bail!("与实时画面服务断开（{reason:?}）"),
+                Some(RoomEvent::Disconnected { reason }) => bail!(t!("与实时画面服务断开（{reason}）", reason = format!("{reason:?}"))),
                 Some(RoomEvent::DataReceived { payload, topic, .. }) if topic.as_deref() == Some(INPUT_TOPIC) => {
                     if let Err(e) = replay(&mut injector, &target, &payload).await {
                         eprintln!("input: {e:#}");
                     }
                 }
-                None => bail!("与实时画面服务断开"),
+                None => bail!(t!("与实时画面服务断开")),
                 Some(_) => {}
             },
         }

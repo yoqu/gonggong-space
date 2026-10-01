@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { SPRING } from '../../lib/motion'
 import { Icon } from '../../ui'
 import './run-graphics.css'
+import { t } from '../../i18n'
 
 /** SF Symbols style: 16px grid, one stroke weight, hierarchical color (`sf-2` = secondary layer at 40%). */
 const STROKE = {
@@ -95,15 +96,15 @@ const GLYPH: Record<RunStatus, ReactNode> = {
 }
 
 export const STATUS_LABEL: Record<RunStatus, string> = {
-  queued: '排队中',
-  offline_wait: '离线等待',
-  forbidden: '无权触发',
-  running: '运行中',
-  awaiting_approval: '等待审批',
-  awaiting_answer: '等待回答',
-  completed: '已完成',
-  interrupted: '已中断',
-  expired: '已作废',
+  queued: t('排队中'),
+  offline_wait: t('离线等待'),
+  forbidden: t('无权触发'),
+  running: t('运行中'),
+  awaiting_approval: t('等待审批'),
+  awaiting_answer: t('等待回答'),
+  completed: t('已完成'),
+  interrupted: t('已中断'),
+  expired: t('已作废'),
 }
 
 /** Statuses that need someone to act keep their text visible (C6); the rest show it on hover. */
@@ -162,10 +163,15 @@ function Fact({
 export function FilesFact({ n, onOpen }: { n: number; onOpen: () => void }) {
   if (!n) return null
   return (
-    <button type="button" className="run-fact run-fact--open" title={`改动 ${n} 个文件`} onClick={onOpen}>
+    <button
+      type="button"
+      className="run-fact run-fact--open"
+      title={t('改动 {n} 个文件', { n })}
+      onClick={onOpen}
+    >
       <span className="run-fact__art">
         <Icon name="doc-text" size={12} />
-        改动 {n} 个文件
+        {t('改动 {n} 个文件', { n })}
       </span>
     </button>
   )
@@ -179,8 +185,8 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
         <Fact
           label={
             d.subagentsRunning
-              ? `子 agent ${d.subagents} 个，${d.subagentsRunning} 个运行中`
-              : `子 agent ${d.subagents} 个`
+              ? t('子 agent {n} 个，{running} 个运行中', { n: d.subagents, running: d.subagentsRunning })
+              : t('子 agent {n} 个', { n: d.subagents })
           }
           value={d.subagents}
         >
@@ -188,7 +194,7 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
         </Fact>
       ) : null}
       {d.tasksRunning ? (
-        <Fact label={`后台任务 ${d.tasksRunning} 个运行中`} value={d.tasksRunning}>
+        <Fact label={t('后台任务 {n} 个运行中', { n: d.tasksRunning })} value={d.tasksRunning}>
           <Icon name="bolt" size={12} />
         </Fact>
       ) : null}
@@ -200,7 +206,11 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
 export function ClockFact({ ms, text, live }: { ms: number; text: string; live: boolean }) {
   const p = ((ms / 1000) % 60) / 60
   return (
-    <Fact label={`耗时 ${text}`} value={text} className={live ? 'run-fact--live' : undefined}>
+    <Fact
+      label={t('耗时 {time}', { time: text })}
+      value={text}
+      className={live ? 'run-fact--live' : undefined}
+    >
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <circle className="sf-2" cx="8" cy="8" r="6" {...STROKE} strokeWidth={1.5} />
         <path d="M8 5v3l2 1.5" {...STROKE} strokeWidth={1.5} />
@@ -235,12 +245,12 @@ export function TokenFact({ total, label }: { total: number; label: string }) {
 /** Relay hop as chain links; walked ones are solid. */
 export function HopChain({ hop, max }: { hop: number; max: number }) {
   return (
-    <span className="hop-chain" title={`接力 ${hop}/${max}`}>
+    <span className="hop-chain" title={t('接力 {hop}/{max}', { hop, max })}>
       {Array.from({ length: Math.max(max, hop) }, (_, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: links are positional
         <span key={i} className={i < hop ? 'hop-chain__dot hop-chain__dot--on' : 'hop-chain__dot'} />
       ))}
-      <span className="run-vh">{`接力 ${hop}/${max}`}</span>
+      <span className="run-vh">{t('接力 {hop}/{max}', { hop, max })}</span>
     </span>
   )
 }
@@ -251,9 +261,9 @@ const FAN_STEP = 24
 export function FanOut({ bots }: { bots: string[] }) {
   const reduced = useReducedMotion()
   const w = bots.length * FAN_STEP
-  const label = `扇出 · ${bots.length} 个 Bot 并行`
+  const label = t('扇出 · {n} 个 Bot 并行', { n: bots.length })
   return (
-    <div className="tl-fan" title={`${label}：${bots.join('、')}`}>
+    <div className="tl-fan" title={t('{label}：{bots}', { label, bots: bots.join(t('、')) })}>
       <span className="run-vh">{label}</span>
       <svg width={w} height="12" viewBox={`0 0 ${w} 12`} aria-hidden="true">
         {bots.map((_, i) => {
@@ -302,7 +312,7 @@ export function CountdownRing({
   return (
     <span
       className={left <= URGENT_MS ? 'countdown-ring countdown-ring--urgent' : 'countdown-ring'}
-      title={`剩余 ${text}`}
+      title={t('剩余 {time}', { time: text })}
       aria-hidden="true"
     >
       <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
@@ -331,9 +341,9 @@ export function OfflineGlyph() {
       width="40"
       height="16"
       role="img"
-      aria-label="机器离线"
+      aria-label={t('机器离线')}
     >
-      <title>机器离线</title>
+      <title>{t('机器离线')}</title>
       <rect className="sf-2" x="1" y="2.8" width="12" height="8.4" rx="1.6" fill="currentColor" />
       <rect x="1" y="2.8" width="12" height="8.4" rx="1.6" {...STROKE} />
       <path d="M5 14h4M7 11.2V14M25.5 5.5l-3 5" {...STROKE} />

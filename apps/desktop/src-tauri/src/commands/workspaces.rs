@@ -1,5 +1,6 @@
 use super::Result;
 use crate::host::Host;
+use crate::i18n::tr;
 use gonggong::config::Config;
 use gonggong::workspace::{self, Entry, EntryKind, EntryState, human_size};
 use serde::Serialize;
@@ -93,7 +94,7 @@ pub fn reveal(path: PathBuf, app: AppHandle) -> Result<()> {
 /// 改回托管 (`/cd @bot --reset`).
 #[tauri::command]
 pub async fn reset_cd(group_id: String, bot_id: String) -> Result<()> {
-    let config = Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
+    let config = Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
     workspace::reset_cd(&config, &group_id, &bot_id).await.map_err(|e| format!("{e:#}"))
 }
 
@@ -104,7 +105,7 @@ pub async fn delete_workspace(group_id: String, bot_id: String, path: PathBuf, h
     let entry = entries
         .iter()
         .find(|e| e.group_id == group_id && e.bot_id == bot_id && e.path == path)
-        .ok_or("工作区不存在或已变化，请刷新")?;
+        .ok_or(tr!("工作区不存在或已变化，请刷新"))?;
     workspace::delete(&host.home, entry)
 }
 
@@ -112,7 +113,10 @@ pub async fn delete_workspace(group_id: String, bot_id: String, path: PathBuf, h
 pub fn summary(entries: &[Entry]) -> (usize, String) {
     let cd = entries.iter().filter(|e| e.kind == EntryKind::Cd).count();
     let size: u64 = entries.iter().filter_map(|e| e.size).sum();
-    (entries.len(), format!("托管 {} · 本机目录 {cd} · {}", entries.len() - cd, human_size(size)))
+    (
+        entries.len(),
+        tr!("托管 {managed} · 本机目录 {cd} · {size}", managed = entries.len() - cd, cd = cd, size = human_size(size)),
+    )
 }
 
 #[cfg(test)]
@@ -135,6 +139,7 @@ mod tests {
 
     #[test]
     fn summarizes_counts_by_kind_and_total_size() {
+        gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
         let entries = [
             entry(EntryKind::Managed, Some(1_200_000_000), EntryState::Running),
             entry(EntryKind::Empty, Some(0), EntryState::Idle),
@@ -147,6 +152,7 @@ mod tests {
 
     #[test]
     fn rows_carry_the_prototype_labels() {
+        gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
         let row = Row::from(&entry(EntryKind::Managed, Some(412_000_000), EntryState::Removed));
         assert_eq!((row.group.as_str(), row.bot.as_str()), ("支付服务重构", "b"));
         assert_eq!((row.kind_label, row.state_label.as_str(), row.deletable), ("托管", "已移出 · 412 MB", true));

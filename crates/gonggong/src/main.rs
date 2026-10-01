@@ -9,12 +9,16 @@ use gonggong::logs::LogLevel;
 use gonggong::protocol::AgentKind;
 use gonggong::protocol::RejectReason;
 use gonggong::service::Fatal;
+use gonggong::t;
 use gonggong::workspace::{Entry, EntryKind, human_size};
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "gg", version, about = "Gonggong daemon: runs your team bots on this machine")]
 struct Cli {
+    /// Output language: zh or en (default: GG_LANG, then LC_ALL / LC_MESSAGES / LANG; Chinese unless another language).
+    #[arg(long, global = true, env = "GG_LANG", value_name = "zh|en")]
+    lang: Option<String>,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -100,20 +104,20 @@ enum ConfigCmd {
 }
 
 fn config() -> anyhow::Result<Config> {
-    Config::load()?.context("尚未绑定，请先执行 gg login")
+    Config::load()?.context(t!("尚未绑定，请先执行 gg login"))
 }
 
 fn workspaces(entries: &[Entry], backups: &[gonggong::workspace::Backup]) {
     if entries.is_empty() {
-        println!("本机还没有工作区");
+        println!("{}", t!("本机还没有工作区"));
     }
     for e in entries {
         let who = format!("{} × {}", e.group_label(), e.bot_label());
         println!("{who}\t{}\t{}\t{}", e.kind_label(), e.path.display(), e.state_label());
     }
-    println!("\n本机备份 · 不上传");
+    println!("\n{}", t!("本机备份 · 不上传"));
     if backups.is_empty() {
-        println!("（无）");
+        println!("{}", t!("（无）"));
     }
     for b in backups {
         println!("{}\t{}\t{}", b.name, human_size(b.size), b.path.display());
@@ -122,7 +126,7 @@ fn workspaces(entries: &[Entry], backups: &[gonggong::workspace::Backup]) {
 
 async fn list_workspaces(config: &Config) -> Vec<Entry> {
     let pairs = gonggong::workspace::fetch_pairs(config).await.unwrap_or_else(|e| {
-        eprintln!("无法从服务器获取群与 Bot 信息（{e:#}），以下仅按本机目录列出");
+        eprintln!("{}", t!("无法从服务器获取群与 Bot 信息（{e}），以下仅按本机目录列出", e = format!("{e:#}")));
         vec![]
     });
     gonggong::workspace::list(&config::home(), &pairs)
@@ -146,6 +150,9 @@ async fn shutdown_signal() {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    if let Some(lang) = &cli.lang {
+        gonggong::i18n::set_locale(gonggong::i18n::resolve(lang));
+    }
     // The daemon logs to <home>/logs as well; one-shot commands only to stderr.
     let _log_guard = match cli.cmd {
         Cmd::Run { .. } => Some(gonggong::logs::init(&config::home())?.1),
@@ -170,15 +177,25 @@ async fn main() -> anyhow::Result<()> {
                 gonggong::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
             config.save()?;
             if restored {
-                println!("绑定成功：已恢复本机原有机器记录（{}），原有 Bot 绑定保持不变", machine.name);
+                println!(
+                    "{}",
+                    t!("绑定成功：已恢复本机原有机器记录（{name}），原有 Bot 绑定保持不变", name = machine.name)
+                );
             } else {
-                println!("绑定成功：本机已归属 {}（{}）", config.owner_name, machine.name);
+                println!(
+                    "{}",
+                    t!("绑定成功：本机已归属 {owner}（{name}）", owner = config.owner_name, name = machine.name)
+                );
             }
             match (&config.cert_sha256, fingerprint) {
                 (Some(fp), None) => println!(
-                    "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员"
+                    "{}",
+                    t!(
+                        "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员",
+                        fp = fp
+                    )
                 ),
-                (Some(fp), Some(_)) => println!("已按指定指纹固定服务器证书 sha256:{fp}"),
+                (Some(fp), Some(_)) => println!("{}", t!("已按指定指纹固定服务器证书 sha256:{fp}", fp = fp)),
                 (None, _) => {}
             }
         }
@@ -186,14 +203,25 @@ async fn main() -> anyhow::Result<()> {
             if let Some(config) = Config::load()?
                 && let Err(e) = gonggong::bind::logout(&config).await
             {
-                eprintln!("未能通知服务器（{e:#}），本机凭据仍会删除；如需停用该机器请在 Web 端移除");
+                eprintln!(
+                    "{}",
+                    t!("未能通知服务器（{e}），本机凭据仍会删除；如需停用该机器请在 Web 端移除", e = format!("{e:#}"))
+                );
             }
             Config::remove()?;
-            println!("已退出登录；再次 gg login 会恢复这台机器及其 Bot");
+            println!("{}", t!("已退出登录；再次 gg login 会恢复这台机器及其 Bot"));
         }
         Cmd::Status => match Config::load()? {
-            Some(c) => println!("已绑定：{} · 归属 {} · 机器 {}", c.server, c.owner_name, c.machine_id),
-            None => println!("未绑定"),
+            Some(c) => println!(
+                "{}",
+                t!(
+                    "已绑定：{server} · 归属 {owner} · 机器 {machine}",
+                    server = c.server,
+                    owner = c.owner_name,
+                    machine = c.machine_id
+                )
+            ),
+            None => println!("{}", t!("未绑定")),
         },
         Cmd::Run { adapter_cmd } => {
             let options = Options { home: config::home(), config: config()?, adapter_cmd, self_upgrade: true };
@@ -209,9 +237,9 @@ async fn main() -> anyhow::Result<()> {
             };
             eprintln!("{}", stopped.fatal);
             if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = stopped.fatal {
-                eprintln!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据：");
+                eprintln!("{}", t!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据："));
                 for path in stopped.wiped {
-                    eprintln!("  已删除 {}", path.display());
+                    eprintln!("  {}", t!("已删除 {path}", path = path.display()));
                 }
             }
             std::process::exit(1);
@@ -219,7 +247,14 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Bots => gonggong::bots::list(&config()?).await?,
         Cmd::Net => {
             let r = gonggong::net::run(&config()?).await?;
-            println!("延迟 {} ms · 带宽 {} Mbps（已上报服务器，仅管理员可见）", r.latency_ms, r.bandwidth_mbps);
+            println!(
+                "{}",
+                t!(
+                    "延迟 {ms} ms · 带宽 {mbps} Mbps（已上报服务器，仅管理员可见）",
+                    ms = r.latency_ms,
+                    mbps = r.bandwidth_mbps
+                )
+            );
         }
         Cmd::Doctor => {
             let checks = gonggong::diag::run(&config::home(), Config::load()?.as_ref()).await;
@@ -244,11 +279,18 @@ async fn main() -> anyhow::Result<()> {
             let entries = list_workspaces(&config()?).await;
             let doomed: Vec<_> = entries.iter().filter(|e| e.matches(&target) && e.deletable()).collect();
             if doomed.is_empty() {
-                bail!("「{target}」没有可删除的工作区（只能删除已移出或未使用的托管工作区）");
+                bail!(t!("「{target}」没有可删除的工作区（只能删除已移出或未使用的托管工作区）", target = target));
             }
             for e in doomed {
                 gonggong::workspace::delete(&config::home(), e).map_err(anyhow::Error::msg)?;
-                println!("已删除 {}（{}）", e.path.display(), e.size.map(human_size).unwrap_or_default());
+                println!(
+                    "{}",
+                    t!(
+                        "已删除 {path}（{size}）",
+                        path = e.path.display(),
+                        size = e.size.map(human_size).unwrap_or_default()
+                    )
+                );
             }
         }
         Cmd::Workspaces { reset_cd: Some(target), .. } => {
@@ -257,9 +299,9 @@ async fn main() -> anyhow::Result<()> {
             let e = entries
                 .iter()
                 .find(|e| e.matches(&target) && e.kind == EntryKind::Cd)
-                .with_context(|| format!("「{target}」不是 /cd 绑定的工作区"))?;
+                .with_context(|| t!("「{target}」不是 /cd 绑定的工作区", target = target))?;
             gonggong::workspace::reset_cd(&config, &e.group_id, &e.bot_id).await?;
-            println!("已请求 {} 恢复托管工作区，结果见群消息", e.bot_label());
+            println!("{}", t!("已请求 {bot} 恢复托管工作区，结果见群消息", bot = e.bot_label()));
         }
         Cmd::Logs { level, lines, export: None } => {
             for l in gonggong::logs::read_recent(&config::home(), level, lines) {
@@ -271,7 +313,7 @@ async fn main() -> anyhow::Result<()> {
             let config = Config::load()?;
             let checks = gonggong::diag::run(&config::home(), config.as_ref()).await;
             let names = gonggong::diag::bundle(&config::home(), config.as_ref(), &checks, &dest)?;
-            println!("已导出诊断包 {}（{}）", dest.display(), names.join("、"));
+            println!("{}", t!("已导出诊断包 {path}（{files}）", path = dest.display(), files = names.join(t!("、"))));
         }
         Cmd::Config { cmd: ConfigCmd::Agent { kind, path } } => configure::agent(&config::home(), kind, path)?,
         Cmd::Provider { cmd } => gonggong::provider_cli::run(&config::home(), cmd).await?,

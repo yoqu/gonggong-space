@@ -58,7 +58,14 @@ export function groupSettingsRoutes(ctx: Ctx) {
         groupId: group.id,
         detail: { before: { name: group.name, notice: group.notice }, ...body, notice },
       })
-      await postEvent(ctx, group.id, `${me.name} 修改了${group.kind === 'dm' ? '名称' : '群名称与公告'}`)
+      await postEvent(
+        ctx,
+        group.id,
+        group.kind === 'dm' ? '{user} 修改了名称' : '{user} 修改了群名称与公告',
+        {
+          user: me.name,
+        },
+      )
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })
@@ -75,7 +82,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
           groupId: group.id,
           detail: { name: group.name, notice: group.notice },
         })
-        await postEvent(ctx, group.id, `${me.name} 移除了群公告`)
+        await postEvent(ctx, group.id, '{user} 移除了群公告', { user: me.name })
         await publishGroup(ctx, group.id)
       }
       return groupDto(ctx, me.id, group.id)
@@ -167,7 +174,8 @@ export function groupSettingsRoutes(ctx: Ctx) {
       await postEvent(
         ctx,
         group.id,
-        isAdmin ? `${me.name} 将 ${target.name} 设为群管理员` : `${me.name} 取消了 ${target.name} 的群管理员`,
+        isAdmin ? '{user} 将 {member} 设为群管理员' : '{user} 取消了 {member} 的群管理员',
+        { user: me.name, member: target.name },
       )
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
@@ -183,7 +191,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
       if (member.isAdmin && list.filter((m) => m.isAdmin).length === 1)
         return fail('conflict', list.length > 1 ? ONLY_ADMIN : '群里只剩你一人，请直接解散群')
       await removeMember(ctx, group.id, me.id, me)
-      await postEvent(ctx, group.id, `${me.name} 退出了群`)
+      await postEvent(ctx, group.id, '{user} 退出了群', { user: me.name })
       await publishGroup(ctx, group.id)
       return { ok: true }
     })

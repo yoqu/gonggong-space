@@ -15,13 +15,14 @@ import {
   useEscape,
 } from '../../ui'
 import './search.css'
+import { t } from '../../i18n'
 
 type Tab = SearchResultDto['kind']
 
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'msg', label: '消息' },
-  { value: 'file', label: '文件' },
-  { value: 'run', label: '运行' },
+  { value: 'msg', label: t('消息') },
+  { value: 'file', label: t('文件') },
+  { value: 'run', label: t('运行') },
 ]
 const ICON: Record<Tab, IconName> = { msg: 'bubble', file: 'doc-code', run: 'play' }
 const DEBOUNCE_MS = 200
@@ -46,7 +47,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   const terms = query
     .split(/\s+/)
     .filter(Boolean)
-    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   if (!terms.length) return text
   // A capturing split puts the matches at odd indices.
   return text.split(new RegExp(`(${terms.join('|')})`, 'gi')).map((part, i) =>
@@ -116,14 +117,14 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="search__backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="search" role="dialog" aria-label="搜索">
+      <div className="search" role="dialog" aria-label={t('搜索')}>
         <div className="search__bar">
           <Icon name="search" size={15} weight={1.7} className="search__glass" />
           <input
             // biome-ignore lint/a11y/noAutofocus: the overlay exists to type a query
             autoFocus
             className="search__input"
-            placeholder="搜索消息、文件、运行"
+            placeholder={t('搜索消息、文件、运行')}
             role="combobox"
             aria-expanded={results.length > 0}
             aria-controls={listId}
@@ -132,7 +133,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          <span className="search__esc">esc 关闭</span>
+          <span className="search__esc">{t('esc 关闭')}</span>
         </div>
         <div className="search__tabs">
           <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
@@ -144,16 +145,16 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             </div>
           ) : settled && found.failed ? (
             <div className="search__empty">
-              搜索失败
+              {t('搜索失败')}
               <button type="button" className="search__retry" onClick={() => setAttempt((a) => a + 1)}>
-                重试
+                {t('重试')}
               </button>
             </div>
           ) : settled && !results.length ? (
-            <EmptyState compact title="没有匹配的结果" illustration={<NoResultsArt />} />
+            <EmptyState compact title={t('没有匹配的结果')} illustration={<NoResultsArt />} />
           ) : null}
           {results.length ? (
-            <div id={listId} role="listbox" aria-label="搜索结果" className="search__list">
+            <div id={listId} role="listbox" aria-label={t('搜索结果')} className="search__list">
               {results.map((r, i) => {
                 const icon = r.kind === 'run' && r.sub.includes('运行过程已过期') ? 'archive' : ICON[r.kind]
                 const title = r.kind === 'file' ? r.title : plainText(r.title)

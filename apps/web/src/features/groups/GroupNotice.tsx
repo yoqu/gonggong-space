@@ -1,6 +1,7 @@
 import type { GroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { Button, Dialog, PinnedBanner, Presence, toast } from '../../ui'
 import { groupsApi } from './api'
@@ -22,19 +23,19 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
   return (
     <Dialog
       open
-      title="移除群公告"
+      title={t('移除群公告')}
       width={400}
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('取消')}</Button>
           <Button variant="destructive" disabled={busy} onClick={() => void run()}>
-            移除
+            {t('移除')}
           </Button>
         </>
       }
     >
-      <p className="gs-note">移除后所有成员都不再看到这条公告，仍可在群设置「群公告」中查看历史。</p>
+      <p className="gs-note">{t('移除后所有成员都不再看到这条公告，仍可在群设置「群公告」中查看历史。')}</p>
     </Dialog>
   )
 }
@@ -47,13 +48,13 @@ export function GroupNotice({ group }: { group: GroupDto }) {
   const admin = isGroupAdmin(group, me?.id)
   const hide = async () => {
     if (await hideNotice(group.id, true))
-      toast({ type: 'success', message: '已隐藏，可在群设置「群公告」中查看' })
+      toast({ type: 'success', message: t('已隐藏，可在群设置「群公告」中查看') })
   }
   return (
     <div data-testid="group-notice">
       <PinnedBanner
         text={group.notice}
-        closeLabel={admin ? '移除' : '不再显示'}
+        closeLabel={admin ? t('移除') : t('不再显示')}
         onClose={admin ? () => setRemoving(true) : () => void hide()}
       />
       <Presence>

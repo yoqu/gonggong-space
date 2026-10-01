@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Checkbox, Icon, SecureField, TextField } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
@@ -47,7 +48,7 @@ export function LoginPage() {
     // Enabled even when empty: pressing it points at what is missing instead of a dead, greyed-out button.
     if (!account.trim() || !password) {
       ;(account.trim() ? passwordRef : accountRef).current?.focus()
-      setError(account.trim() ? '请输入密码' : '请输入账号')
+      setError(account.trim() ? t('请输入密码') : t('请输入账号'))
       setErrorKey((k) => k + 1)
       return
     }
@@ -73,27 +74,27 @@ export function LoginPage() {
     <AuthCard
       testId="login-page"
       variant="login"
-      title="登录"
-      subtitle="欢迎回来，继续和团队一起干活。"
+      title={t('登录')}
+      subtitle={t('欢迎回来，继续和团队一起干活。')}
       errorKey={errorKey}
       leaving={phase === 'done'}
       onSubmit={submit}
       footer={
         options?.registrationOpen ? (
           <p className="auth__foot">
-            还没有账号？
+            {t('还没有账号？')}
             <Link to="/register" className="auth__link">
-              立即注册
+              {t('立即注册')}
             </Link>
           </p>
         ) : (
-          <p className="auth__foot">还没有账号？请联系系统管理员开通</p>
+          <p className="auth__foot">{t('还没有账号？请联系系统管理员开通')}</p>
         )
       }
     >
       <div className="auth__fields">
         <TextField
-          label="账号"
+          label={t('账号')}
           size="large"
           ref={accountRef}
           autoComplete="username"
@@ -105,7 +106,7 @@ export function LoginPage() {
           autoFocus={!account}
         />
         <SecureField
-          label="密码"
+          label={t('密码')}
           size="large"
           autoComplete="current-password"
           value={password}
@@ -127,14 +128,14 @@ export function LoginPage() {
         </p>
       </div>
       <div className="auth__row">
-        <Checkbox checked={keep} onChange={setKeep} label="记住我" />
+        <Checkbox checked={keep} onChange={setKeep} label={t('记住我')} />
         <button
           type="button"
           className="auth__link"
           aria-expanded={forgot}
           onClick={() => setForgot((f) => !f)}
         >
-          忘记密码？
+          {t('忘记密码？')}
         </button>
       </div>
       <AnimatePresence initial={false}>
@@ -146,11 +147,11 @@ export function LoginPage() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
           >
-            请联系系统管理员重置密码，用拿到的临时密码登录后再修改。
+            {t('请联系系统管理员重置密码，用拿到的临时密码登录后再修改。')}
           </motion.p>
         ) : null}
       </AnimatePresence>
-      <AuthSubmit phase={phase} label="登录" busy="登录中…" done="登录成功" />
+      <AuthSubmit phase={phase} label={t('登录')} busy={t('登录中…')} done={t('登录成功')} />
     </AuthCard>
   )
 }

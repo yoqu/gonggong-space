@@ -1,6 +1,7 @@
 import type { AdminUserDto, UserDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
@@ -30,25 +31,25 @@ import {
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { AdminPage } from './AdminPage'
 
-const TITLE = '账号与角色'
-const DESC = '创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。'
+const TITLE = t('账号与角色')
+const DESC = t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。')
 const ROLE_OPTIONS = (['member', 'sysadmin'] as const).map((value) => ({ value, label: ROLE_LABEL[value] }))
 
 function Status({ user }: { user: AdminUserDto }) {
-  if (user.disabled) return <Tag tone="gray">已停用</Tag>
-  if (user.mustChangePassword) return <Tag tone="orange">待修改密码</Tag>
+  if (user.disabled) return <Tag tone="gray">{t('已停用')}</Tag>
+  if (user.mustChangePassword) return <Tag tone="orange">{t('待修改密码')}</Tag>
   return (
     <span className="admin-status">
       <span className="admin-dot admin-dot--on" />
-      正常
+      {t('正常')}
     </span>
   )
 }
 
 function machinesCell(u: AdminUserDto) {
   if (u.disabled) return null
-  if (!u.machineCount) return '未绑定'
-  return `${u.machineCount} 台 · ${u.online ? '在线' : '离线'}`
+  if (!u.machineCount) return t('未绑定')
+  return t('{n} 台 · {state}', { n: u.machineCount, state: u.online ? t('在线') : t('离线') })
 }
 
 const STATUS_ORDER = (u: AdminUserDto) => (u.disabled ? 2 : u.mustChangePassword ? 1 : 0)
@@ -84,9 +85,9 @@ function TempPasswordField({
         mono
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={`至少 ${MIN_PASSWORD} 位`}
+        placeholder={t('至少 {n} 位', { n: MIN_PASSWORD })}
       />
-      <Button onClick={() => onChange(tempPassword())}>重新生成</Button>
+      <Button onClick={() => onChange(tempPassword())}>{t('重新生成')}</Button>
     </span>
   )
 }
@@ -104,7 +105,7 @@ export function UsersPage() {
   async function enable(u: AdminUserDto) {
     try {
       await api.post(`/admin/users/${u.id}/enable`)
-      toast({ type: 'success', message: `已启用 ${u.name}，需重新绑定机器` })
+      toast({ type: 'success', message: t('已启用 {name}，需重新绑定机器', { name: u.name }) })
       void load()
     } catch (err) {
       toastError(err)
@@ -118,38 +119,38 @@ export function UsersPage() {
     <AdminPage
       title={TITLE}
       desc={DESC}
-      subtitle={users ? `${users.length} 个账号` : undefined}
+      subtitle={users ? t('{n} 个账号', { n: users.length }) : undefined}
       actions={
         <ToolbarGroup>
           <ToolbarButton
             icon="person-add"
-            label="新建账号…"
-            text="新建账号…"
+            label={t('新建账号…')}
+            text={t('新建账号…')}
             onClick={() => setEditing('new')}
           />
         </ToolbarGroup>
       }
-      search={<SearchField placeholder="搜索姓名或账号" value={query} onChange={setQuery} />}
+      search={<SearchField placeholder={t('搜索姓名或账号')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
         <Table<AdminUserDto>
-          aria-label="账号列表"
+          aria-label={t('账号列表')}
           className="admin-grid"
           rows={shown}
           multiple={false}
           defaultSort={{ key: 'name', dir: 'asc' }}
           onOpen={setEditing}
           rowActions={(u) => [
-            { label: '编辑…', value: 'edit' },
+            { label: t('编辑…'), value: 'edit' },
             ...(u.id === me.id
               ? []
               : u.disabled
-                ? [{ label: '启用', value: 'enable' }]
+                ? [{ label: t('启用'), value: 'enable' }]
                 : [
-                    { label: '重置密码…', value: 'reset' },
+                    { label: t('重置密码…'), value: 'reset' },
                     { separator: true as const },
-                    { label: '停用…', value: 'disable', destructive: true },
+                    { label: t('停用…'), value: 'disable', destructive: true },
                   ]),
           ]}
           onRowAction={(action, u) => {
@@ -161,14 +162,14 @@ export function UsersPage() {
           emptyText={
             <EmptyState
               compact
-              title={q ? '没有匹配的成员' : '还没有账号'}
+              title={q ? t('没有匹配的成员') : t('还没有账号')}
               illustration={q ? <NoResultsArt /> : <NoMembersArt />}
             />
           }
           columns={[
             {
               key: 'name',
-              title: '成员',
+              title: t('成员'),
               sortable: true,
               render: (u) => (
                 <>
@@ -177,10 +178,10 @@ export function UsersPage() {
                 </>
               ),
             },
-            { key: 'account', title: '账号', sortable: true, mono: true, secondary: true },
+            { key: 'account', title: t('账号'), sortable: true, mono: true, secondary: true },
             {
               key: 'role',
-              title: '角色',
+              title: t('角色'),
               width: 108,
               sortable: true,
               sortValue: (u) => ROLE_LABEL[u.role],
@@ -188,7 +189,7 @@ export function UsersPage() {
             },
             {
               key: 'machines',
-              title: '机器',
+              title: t('机器#count'),
               width: 120,
               secondary: true,
               sortable: true,
@@ -197,7 +198,7 @@ export function UsersPage() {
             },
             {
               key: 'status',
-              title: '状态',
+              title: t('状态'),
               width: 104,
               sortable: true,
               sortValue: STATUS_ORDER,
@@ -212,11 +213,11 @@ export function UsersPage() {
         <EmptyState
           compact
           illustration={<NoMembersArt />}
-          title="还没有其他成员"
-          description="新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。"
+          title={t('还没有其他成员')}
+          description={t('新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。')}
           action={
             <Button variant="primary" onClick={() => setEditing('new')}>
-              新建账号…
+              {t('新建账号…')}
             </Button>
           }
         />
@@ -274,16 +275,16 @@ function DisableDialog({
 }) {
   return (
     <ConfirmActionDialog
-      title={`要停用账号 ${user.name} 吗？`}
-      message="可以随时重新启用，但需要重新绑定机器。"
+      title={t('要停用账号 {name} 吗？', { name: user.name })}
+      message={t('可以随时重新启用，但需要重新绑定机器。')}
       consequences={[
-        '立即吊销其所有 daemon token 和 Web 会话',
-        'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
-        '其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理',
-        '群消息与审计记录保留',
+        t('立即吊销其所有 daemon token 和 Web 会话'),
+        t('daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）'),
+        t('其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理'),
+        t('群消息与审计记录保留'),
       ]}
-      label="停用"
-      done={`已停用 ${user.name}`}
+      label={t('停用')}
+      done={t('已停用 {name}', { name: user.name })}
       run={() => api.post(`/admin/users/${user.id}/disable`)}
       onDone={onDone}
       onClose={onClose}
@@ -305,7 +306,7 @@ function ResetPasswordDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function reset() {
-    if (password.length < MIN_PASSWORD) return setError(`临时密码至少 ${MIN_PASSWORD} 位`)
+    if (password.length < MIN_PASSWORD) return setError(t('临时密码至少 {n} 位', { n: MIN_PASSWORD }))
     setBusy(true)
     try {
       await api.post(`/admin/users/${user.id}/password`, { password })
@@ -313,8 +314,8 @@ function ResetPasswordDialog({
       toast({
         type: 'success',
         message: copied
-          ? `已重置，临时密码已复制，请私下发给 ${user.name}`
-          : `已重置 ${user.name} 的密码，请记下临时密码 ${password}`,
+          ? t('已重置，临时密码已复制，请私下发给 {name}', { name: user.name })
+          : t('已重置 {name} 的密码，请记下临时密码 {password}', { name: user.name, password }),
       })
       onDone()
     } catch (err) {
@@ -325,22 +326,22 @@ function ResetPasswordDialog({
   return (
     <Dialog
       open
-      title={`重置 ${user.name} 的密码`}
-      message="对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。"
+      title={t('重置 {name} 的密码', { name: user.name })}
+      message={t('对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。')}
       onClose={onClose}
       closeOnBackdrop={false}
       width={480}
       actions={[
-        { label: '取消', onClick: onClose },
-        { label: '重置并复制', variant: 'primary', type: 'submit', form: formId, disabled: busy },
+        { label: t('取消'), onClick: onClose },
+        { label: t('重置并复制'), variant: 'primary', type: 'submit', form: formId, disabled: busy },
       ]}
     >
       <Form id={formId} onSubmit={() => void reset()}>
-        <FormRow label="账号">
+        <FormRow label={t('账号')}>
           <span className="admin-form__static">{user.account}</span>
         </FormRow>
-        <FormRow label="临时密码" hint="重置后自动复制，请私下发给对方。">
-          <TempPasswordField label="临时密码" value={password} onChange={setPassword} />
+        <FormRow label={t('临时密码')} hint={t('重置后自动复制，请私下发给对方。')}>
+          <TempPasswordField label={t('临时密码')} value={password} onChange={setPassword} />
         </FormRow>
       </Form>
       {error ? <Alert variant="error" description={error} /> : null}
@@ -376,19 +377,24 @@ function UserDialog({
     setForm((f) => ({ ...f, [k]: e.target.value }))
 
   async function submit() {
-    if (!user && !ACCOUNT_RE.test(form.account)) return setError('账号需为 2–32 位小写字母、数字或 . _ -')
-    if (!form.name.trim()) return setError('请填写姓名')
-    if (!user && form.password.length < MIN_PASSWORD) return setError(`初始密码至少 ${MIN_PASSWORD} 位`)
+    if (!user && !ACCOUNT_RE.test(form.account)) return setError(t('账号需为 2–32 位小写字母、数字或 . _ -'))
+    if (!form.name.trim()) return setError(t('请填写姓名'))
+    if (!user && form.password.length < MIN_PASSWORD)
+      return setError(t('初始密码至少 {n} 位', { n: MIN_PASSWORD }))
     setBusy(true)
     setError('')
     try {
       if (user) await api.patch(`/admin/users/${user.id}`, { name: form.name.trim(), role: form.role })
       else {
         await api.post('/admin/users', { ...form, name: form.name.trim() })
-        const copied = await copy(`账号 ${form.account}  初始密码 ${form.password}`)
+        const copied = await copy(
+          t('账号 {account}  初始密码 {password}', { account: form.account, password: form.password }),
+        )
         toast({
           type: 'success',
-          message: `已创建账号 ${form.account}${copied ? '，账号和初始密码已复制' : ''}，首次登录需修改密码`,
+          message: copied
+            ? t('已创建账号 {account}，账号和初始密码已复制，首次登录需修改密码', { account: form.account })
+            : t('已创建账号 {account}，首次登录需修改密码', { account: form.account }),
         })
       }
       onSaved()
@@ -401,15 +407,15 @@ function UserDialog({
   return (
     <Dialog
       open
-      title={user ? `编辑成员 ${user.name}` : '新建成员'}
-      subtitle={user ? undefined : '首次登录需修改初始密码'}
+      title={user ? t('编辑成员 {name}', { name: user.name }) : t('新建成员')}
+      subtitle={user ? undefined : t('首次登录需修改初始密码')}
       onClose={onClose}
       closeOnBackdrop={false}
       width={460}
       actions={[
-        { label: '取消', onClick: onClose },
+        { label: t('取消'), onClick: onClose },
         {
-          label: user ? '保存' : '创建',
+          label: user ? t('保存') : t('创建'),
           variant: 'primary',
           type: 'submit',
           form: formId,
@@ -418,12 +424,15 @@ function UserDialog({
       ]}
     >
       <Form id={formId} onSubmit={submit}>
-        <FormRow label="账号" hint={user ? undefined : '2–32 位小写字母、数字或 . _ -，创建后不能修改'}>
+        <FormRow
+          label={t('账号')}
+          hint={user ? undefined : t('2–32 位小写字母、数字或 . _ -，创建后不能修改')}
+        >
           {user ? (
             <span className="admin-form__static">{user.account}</span>
           ) : (
             <TextField
-              aria-label="账号"
+              aria-label={t('账号')}
               mono
               value={form.account}
               onChange={set('account')}
@@ -432,18 +441,18 @@ function UserDialog({
             />
           )}
         </FormRow>
-        <FormRow label="姓名">
+        <FormRow label={t('姓名')}>
           <TextField
-            aria-label="姓名"
+            aria-label={t('姓名')}
             value={form.name}
             onChange={set('name')}
-            placeholder="王磊"
+            placeholder={t('王磊')}
             autoFocus={!!user}
           />
         </FormRow>
-        <FormRow label="角色" hint={self ? '不能修改自己的角色' : undefined}>
+        <FormRow label={t('角色')} hint={self ? t('不能修改自己的角色') : undefined}>
           <PopUpButton
-            aria-label="角色"
+            aria-label={t('角色')}
             options={ROLE_OPTIONS}
             value={form.role}
             disabled={self}
@@ -451,9 +460,9 @@ function UserDialog({
           />
         </FormRow>
         {user ? null : (
-          <FormRow label="初始密码" hint="创建后账号与初始密码会一起复制。">
+          <FormRow label={t('初始密码')} hint={t('创建后账号与初始密码会一起复制。')}>
             <TempPasswordField
-              label="初始密码"
+              label={t('初始密码')}
               value={form.password}
               onChange={(password) => setForm((f) => ({ ...f, password }))}
             />

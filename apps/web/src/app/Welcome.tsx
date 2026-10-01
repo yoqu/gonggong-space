@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import { t } from '../i18n'
 import { SPRING } from '../lib/motion'
 import { Button, Icon, type IconName, Mascot } from '../ui'
 
@@ -30,37 +31,39 @@ export function Welcome({
     {
       icon: 'laptop',
       color: 'var(--system-blue)',
-      title: '绑定机器',
-      desc: '在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。',
-      action: '绑定机器',
+      title: t('绑定机器'),
+      desc: t('在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。'),
+      action: t('绑定机器'),
       done: bound,
       onClick: onBindMachine,
     },
     {
       icon: 'bot',
       color: 'var(--system-indigo)',
-      title: '新建 Bot',
-      desc: '选择机器上的 Claude Code 或 Codex，给它起个好认的名字。',
-      action: '新建 Bot',
+      title: t('新建 Bot'),
+      desc: t('选择机器上的 Claude Code 或 Codex，给它起个好认的名字。'),
+      action: t('新建 Bot'),
       done: hasBot,
       onClick: onNewBot,
     },
     {
       icon: 'hashtag',
       color: 'var(--system-green)',
-      title: '建群并 @ Bot',
-      desc: '拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。',
-      action: '新建群',
+      title: t('建群并 @ Bot'),
+      desc: t('拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。'),
+      action: t('新建群'),
       done: false,
       onClick: onNewGroup,
     },
   ]
   const current = steps.findIndex((s) => !s.done)
   return (
-    <section className="welcome" aria-label="开始使用">
+    <section className="welcome" aria-label={t('开始使用')}>
       <Mascot action="wave" size={112} />
-      <h1 className="welcome__title">欢迎来到共工空间，{name}</h1>
-      <p className="welcome__lead">三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。</p>
+      <h1 className="welcome__title">{t('欢迎来到共工空间，{name}', { name })}</h1>
+      <p className="welcome__lead">
+        {t('三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。')}
+      </p>
       <ol className="welcome__steps">
         {steps.map((s, i) => (
           <motion.li
@@ -80,7 +83,7 @@ export function Welcome({
             <h2 className="welcome__step-title">{s.title}</h2>
             <p className="welcome__step-desc">{s.desc}</p>
             {s.done ? (
-              <span className="welcome__done">已完成</span>
+              <span className="welcome__done">{t('已完成')}</span>
             ) : (
               <Button variant={i === current ? 'primary' : 'default'} onClick={s.onClick}>
                 {s.action}

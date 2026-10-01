@@ -1,6 +1,7 @@
 //! Agent page: detected CLIs with their local path and the models each adapter offers (chosen on the server).
 use super::{Result, local};
 use crate::host::Host;
+use crate::i18n::tr;
 use gonggong::local::LocalSettings;
 use gonggong::protocol::{AgentInfo, AgentKind};
 use serde::Serialize;
@@ -48,7 +49,7 @@ fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
     if let Some(p) = &path
         && !p.is_file()
     {
-        return Err(format!("找不到 {}", p.display()));
+        return Err(tr!("找不到 {path}", path = p.display()));
     }
     local(home, |s| s.agents.entry(kind).or_default().path = path.map(|p| p.to_string_lossy().into_owned()))
 }
@@ -56,7 +57,7 @@ fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
 /// 更换路径 / 手动指定路径: picks the CLI with the system file dialog. Returns false when cancelled.
 #[tauri::command]
 pub async fn pick_agent_path(kind: AgentKind, app: AppHandle, host: State<'_, Host>) -> Result<bool> {
-    let title = format!("选择 {} 可执行文件", gonggong::bots::agent_label(kind));
+    let title = tr!("选择 {agent} 可执行文件", agent = gonggong::bots::agent_label(kind));
     let Some(picked) = app.dialog().file().set_title(title).blocking_pick_file() else { return Ok(false) };
     set_path(&host.home, kind, Some(picked.into_path().map_err(|e| e.to_string())?))?;
     Ok(true)

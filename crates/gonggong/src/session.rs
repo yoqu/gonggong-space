@@ -12,6 +12,7 @@ use crate::protocol::{
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::service::Outbox;
+use crate::t;
 use crate::turn::{
     ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt,
     wire_options,
@@ -35,8 +36,9 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 
 const ERROR_MAX: usize = 800;
-pub(crate) const NOT_GIT: &str = "工作区不是 git 仓库";
-const REJECTED: &str = "请求被拒绝，agent 自行绕路";
+pub(crate) fn not_git() -> &'static str {
+    t!("工作区不是 git 仓库")
+}
 const RESUME_FAILED: &str = "resume_failed";
 /// The session to resume was pinned to a provider since deleted (§4.3).
 const PROVIDER_REMOVED: &str = "provider_removed";
@@ -203,7 +205,7 @@ impl Shared {
         if s.cancelled.contains(run_id) {
             return false;
         }
-        let event = RunEvent::Status { status: RunStatus::Running, step: format!("{from} 打断并追加") };
+        let event = RunEvent::Status { status: RunStatus::Running, step: t!("{from} 打断并追加", from = from) };
         a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
         let streaming = a.streaming;
         let note = ask::attachment_note(&attachments);
@@ -270,13 +272,13 @@ impl Shared {
         let mut s = self.0.lock().unwrap();
         let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
         let Some(q) = s.questions.remove(request_id) else { return false };
-        let who = answered_by.unwrap_or("群成员");
+        let who = answered_by.unwrap_or(t!("群成员"));
         let step = match (&q.reply, answers) {
-            (Reply::Agent(_), Some(_)) => format!("{who} 已回答"),
-            (Reply::Agent(_), None) => "无人回答，agent 按推荐项继续".into(),
-            (Reply::Dir(_), Some(a)) if workspace::parallel(a) => format!("{who} 确认并行运行"),
-            (Reply::Dir(_), Some(_)) => format!("{who} 选择排队，等待工作区空闲"),
-            (Reply::Dir(_), None) => "无人确认，等待工作区空闲".into(),
+            (Reply::Agent(_), Some(_)) => t!("{who} 已回答", who = who),
+            (Reply::Agent(_), None) => t!("无人回答，agent 按推荐项继续").into(),
+            (Reply::Dir(_), Some(a)) if workspace::parallel(a) => t!("{who} 确认并行运行", who = who),
+            (Reply::Dir(_), Some(_)) => t!("{who} 选择排队，等待工作区空闲", who = who),
+            (Reply::Dir(_), None) => t!("无人确认，等待工作区空闲").into(),
         };
         let event = RunEvent::Status { status: RunStatus::Running, step };
         out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
@@ -297,7 +299,7 @@ impl Shared {
         s.requests += 1;
         let n = s.requests;
         let (run_id, out) = s.active.as_ref().map(|a| (a.run_id.clone(), a.out.clone()))?;
-        let step = "等待确认：同一工作区有其他会话在运行".to_string();
+        let step = t!("等待确认：同一工作区有其他会话在运行").to_string();
         out.send(DaemonToServer::RunEvent {
             run_id: run_id.clone(),
             event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
@@ -337,7 +339,11 @@ impl Shared {
         let allowed = choice
             .as_ref()
             .is_some_and(|o| matches!(o.kind, PermissionOptionKind::AllowOnce | PermissionOptionKind::AllowAlways));
-        let step = if allowed { format!("已批准：{}", p.title) } else { REJECTED.into() };
+        let step = if allowed {
+            t!("已批准：{title}", title = p.title)
+        } else {
+            t!("请求被拒绝，agent 自行绕路").into()
+        };
         let event = RunEvent::Status { status: RunStatus::Running, step };
         out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
         let _ = p.tx.send(choice.map(|o| o.option_id));
@@ -355,7 +361,7 @@ impl Shared {
             let ids: Vec<_> = s.approvals.keys().filter(|k| k.starts_with(&prefix)).cloned().collect();
             for id in ids {
                 let p = s.approvals.remove(&id).unwrap();
-                let step = format!("档位已切换为「完全访问」，自动批准：{}", p.title);
+                let step = t!("档位已切换为「完全访问」，自动批准：{title}", title = p.title);
                 let event = RunEvent::Status { status: RunStatus::Running, step };
                 a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
                 let _ = p.tx.send(auto_allow(&p.options));
@@ -434,7 +440,7 @@ impl Shared {
             let a = s.active.as_ref().filter(|a| a.run_id == run_id)?;
             a.git.as_ref().map(|g| (g.cwd.clone(), g.snap.clone()))
         };
-        let Some((cwd, snap)) = git else { return Some(Err(NOT_GIT.into())) };
+        let Some((cwd, snap)) = git else { return Some(Err(not_git().into())) };
         Some(git::patch_since(&cwd, &snap).await)
     }
 
@@ -545,7 +551,7 @@ impl Shared {
         match a.rules.decide(a.tier, command.as_deref(), &a.cwd, &s.always) {
             Decision::Full => return Permission::Now(permission_response(auto_allow(&req.options))),
             Decision::Local if let Some(allow) = auto_allow(&req.options) => {
-                let step = format!("已按命令审批规则自动批准：{}", command.unwrap_or(title));
+                let step = t!("已按命令审批规则自动批准：{command}", command = command.unwrap_or(title));
                 let event = RunEvent::Status { status: RunStatus::Running, step };
                 a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
                 return Permission::Now(permission_response(Some(allow)));
@@ -553,7 +559,8 @@ impl Shared {
             _ => {}
         }
         let (run_id, out) = (a.run_id.clone(), a.out.clone());
-        let event = RunEvent::Status { status: RunStatus::AwaitingApproval, step: format!("等待审批：{title}") };
+        let event =
+            RunEvent::Status { status: RunStatus::AwaitingApproval, step: t!("等待审批：{title}", title = title) };
         out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
         let request_id = format!("{run_id}/{n}");
         out.send(DaemonToServer::ApprovalRequest(ApprovalRequest {
@@ -772,7 +779,7 @@ impl Asker for Shared {
             return Err("当前没有进行中的运行，无法提问".into());
         };
         let (run_id, out) = (a.run_id.clone(), a.out.clone());
-        let step = format!("等待回答：{} 个问题", questions.len());
+        let step = t!("等待回答：{n} 个问题", n = questions.len());
         out.send(DaemonToServer::RunEvent {
             run_id: run_id.clone(),
             event: RunEvent::Status { status: RunStatus::AwaitingAnswer, step },
@@ -785,7 +792,7 @@ impl Asker for Shared {
     }
 
     fn abandon(&self, request_id: &str) {
-        self.withdraw(request_id, "agent 已不再等待回答，提问作废");
+        self.withdraw(request_id, t!("agent 已不再等待回答，提问作废"));
     }
 
     fn active_run(&self) -> Option<(String, PathBuf)> {
@@ -843,7 +850,7 @@ pub(crate) async fn run(
                 next = Some(turn);
                 continue;
             }
-            Ok(None) => "agent 进程意外退出".into(),
+            Ok(None) => t!("agent 进程意外退出").into(),
             Err(e) => e,
         };
         if shared.0.lock().unwrap().active.is_some() {
@@ -995,7 +1002,7 @@ impl Conversation<'_> {
                     (id, reason, history)
                 }
                 Err(e) => {
-                    self.shared.finish(Err(format!("无法建立 agent 会话：{}", describe(&e))), None, None);
+                    self.shared.finish(Err(t!("无法建立 agent 会话：{e}", e = describe(&e))), None, None);
                     return Ok(());
                 }
             },
@@ -1131,8 +1138,8 @@ impl Conversation<'_> {
             })
         };
         let wanted = [
-            (SessionConfigOptionCategory::Model, "模型", &model),
-            (SessionConfigOptionCategory::ThoughtLevel, "推理强度", &bot.effort),
+            (SessionConfigOptionCategory::Model, t!("模型"), &model),
+            (SessionConfigOptionCategory::ThoughtLevel, t!("推理强度"), &bot.effort),
         ];
         for (category, label, want) in wanted {
             let Some((id, current, choices)) = select(&self.options, &category) else {
@@ -1157,14 +1164,14 @@ impl Conversation<'_> {
                 Ok(res) => {
                     self.options = res.config_options;
                     let name = choices.iter().find(|c| c.value == target).map_or(target.as_str(), |c| &c.name);
-                    let step = format!("已切换{label}：{name}");
+                    let step = t!("已切换{label}：{name}", label = label, name = name);
                     if category == SessionConfigOptionCategory::Model {
                         self.applied.clear();
                     }
                     self.applied.insert(id, target);
                     step
                 }
-                Err(e) => format!("{label} {target} 不可用：{}", describe(&e)),
+                Err(e) => t!("{label} {target} 不可用：{e}", label = label, target = target, e = describe(&e)),
             };
             let event = RunEvent::Status { status: RunStatus::Running, step };
             req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
@@ -1202,7 +1209,7 @@ impl Conversation<'_> {
             store.pin(&session.0, s.bot.agent_kind, &s.group_id, &s.bot.id, &self.selection);
             Ok(())
         })
-        .map_err(|e| format!("无法记录会话使用的供应商：{e:#}"))
+        .map_err(|e| t!("无法记录会话使用的供应商：{e}", e = format!("{e:#}")))
     }
 }
 

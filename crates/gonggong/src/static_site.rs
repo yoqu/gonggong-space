@@ -1,6 +1,7 @@
 //! A workspace directory served as a static site on loopback (built-in `preview_static`), inside the daemon process
 //! so it works the same when the desktop app hosts the daemon. The files browser's raw bytes (through the preview
 //! tunnel) are served by the same code.
+use crate::t;
 use futures_util::stream;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Empty, Full, StreamBody};
@@ -39,14 +40,14 @@ pub async fn serve(listener: TcpListener, root: PathBuf) {
 /// ETag revalidation and one byte range (206 / 416) so media can seek. Never writes.
 pub async fn answer<B>(root: &Path, req: &Request<B>, index: bool) -> Response<Body> {
     if req.method() != Method::GET && req.method() != Method::HEAD {
-        return text(StatusCode::METHOD_NOT_ALLOWED, "只读".into());
+        return text(StatusCode::METHOD_NOT_ALLOWED, t!("只读").into());
     }
     let path = match locate(root, req.uri().path(), index) {
         Ok(path) => path,
         Err(e) => return text(StatusCode::NOT_FOUND, e),
     };
     let (Ok(mut file), Ok(meta)) = (tokio::fs::File::open(&path).await, tokio::fs::metadata(&path).await) else {
-        return text(StatusCode::NOT_FOUND, "文件不存在".into());
+        return text(StatusCode::NOT_FOUND, t!("文件不存在").into());
     };
     let len = meta.len();
     let mtime = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis());
@@ -81,19 +82,19 @@ pub async fn answer<B>(root: &Path, req: &Request<B>, index: bool) -> Response<B
         return res.body(empty()).unwrap();
     }
     if start > 0 && file.seek(std::io::SeekFrom::Start(start)).await.is_err() {
-        return text(StatusCode::INTERNAL_SERVER_ERROR, "读取文件失败".into());
+        return text(StatusCode::INTERNAL_SERVER_ERROR, t!("读取文件失败").into());
     }
     res.body(file_body(file.take(end - start))).unwrap()
 }
 
 /// A percent-encoded URL path under `root`, through the workspace path check.
 fn locate(root: &Path, url_path: &str, index: bool) -> Result<PathBuf, String> {
-    let decoded = percent_decode(url_path).ok_or("路径无效")?;
+    let decoded = percent_decode(url_path).ok_or(t!("路径无效"))?;
     let (_, mut path) = crate::explorer::resolve(root, decoded.trim_start_matches('/'))?;
     if path.is_dir() && index {
         path = path.join("index.html");
     }
-    if path.is_file() { Ok(path) } else { Err("文件不存在".into()) }
+    if path.is_file() { Ok(path) } else { Err(t!("文件不存在").into()) }
 }
 
 /// One `bytes=` range as (first, last) inclusive; None = serve the whole file (absent, malformed or several

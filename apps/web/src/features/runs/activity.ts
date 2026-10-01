@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import type { Step } from './steps'
 
 /**
@@ -121,22 +122,24 @@ export function relative(path: string, root: string | null) {
   return p
 }
 
-const VERB: Record<string, [running: string, done: string]> = {
-  file: ['正在读取', '已读取'],
-  search: ['正在搜索', '已搜索'],
-  list: ['正在列出', '已列出'],
-  probe: ['正在查看', '已查看'],
-  execute: ['正在运行', '已运行'],
-  edit: ['正在编辑', '已编辑'],
-  delete: ['正在删除', '已删除'],
-  move: ['正在移动', '已移动'],
-  fetch: ['正在访问', '已访问'],
-  thought: ['正在思考', '思考'],
+const VERB: Record<string, [running: string, done: string, failed: string]> = {
+  file: [t('正在读取'), t('已读取'), t('读取失败')],
+  search: [t('正在搜索'), t('已搜索'), t('搜索失败')],
+  list: [t('正在列出'), t('已列出'), t('列出失败')],
+  probe: [t('正在查看'), t('已查看'), t('查看失败')],
+  execute: [t('正在运行'), t('已运行'), t('运行失败')],
+  edit: [t('正在编辑'), t('已编辑'), t('编辑失败')],
+  delete: [t('正在删除'), t('已删除'), t('删除失败')],
+  move: [t('正在移动'), t('已移动'), t('移动失败')],
+  fetch: [t('正在访问'), t('已访问'), t('访问失败')],
+  thought: [t('正在思考'), t('思考'), t('思考失败')],
 }
 
-const verbOf = (key: string, s: Step, failedText = '失败') => {
-  const [running, done] = VERB[key] ?? ['进行中', s.label]
-  return s.failed ? `${done.replace(/^已/, '')}${failedText}` : s.running ? running : done
+const failedOf = (label?: string) => t('{label}失败', { label: label ?? '' })
+
+const verbOf = (key: string, s: Step) => {
+  const [running, done, failed] = VERB[key] ?? [t('进行中'), s.label, failedOf(s.label)]
+  return s.failed ? failed : s.running ? running : done
 }
 
 export function classify(s: Step, root: string | null): Action {
@@ -165,7 +168,7 @@ export function classify(s: Step, root: string | null): Action {
           ...base,
           family: 'explore',
           bucket,
-          verb: '未找到',
+          verb: t('未找到'),
           target: shellTarget(cmd, bucket, root),
           quiet: true,
         }
@@ -190,7 +193,7 @@ export function classify(s: Step, root: string | null): Action {
     case 'task':
       return { ...base, family: 'task', verb: s.label, target: s.title }
     case 'mcp':
-      return { ...base, family: 'mcp', verb: `${s.title}${s.failed ? '失败' : ''}`, target: s.mono }
+      return { ...base, family: 'mcp', verb: s.failed ? failedOf(s.title) : (s.title ?? ''), target: s.mono }
     default: {
       const collab = COLLAB[s.title ?? '']
       if (collab) return { ...base, family: 'delegate', verb: collab[0], target: collab[1] }
@@ -206,11 +209,11 @@ export function classify(s: Step, root: string | null): Action {
 
 /** Codex multi-agent tools: without native subagent sessions (multi_agent v1) the child's work is not reported. */
 const COLLAB: Record<string, [verb: string, target?: string]> = {
-  spawnAgent: ['派出子 agent', '详情不可见'],
-  wait: ['等待子 agent'],
-  sendInput: ['向子 agent 发送消息'],
-  resumeAgent: ['恢复子 agent'],
-  closeAgent: ['关闭子 agent'],
+  spawnAgent: [t('派出子 agent'), t('详情不可见')],
+  wait: [t('等待子 agent')],
+  sendInput: [t('向子 agent 发送消息')],
+  resumeAgent: [t('恢复子 agent')],
+  closeAgent: [t('关闭子 agent')],
 }
 
 /** Titles adapters send before a call's input arrives. */
@@ -225,22 +228,24 @@ const BOUNDARY = new Set<Family>(['text', 'approval', 'context', 'subagent', 'ta
 /** Carried along inside a segment but not counted as its calls. */
 const PASSIVE = new Set<Family>(['thought', 'status'])
 
+export const GROUP_SEP = t('、')
+
 const WHAT = (a: Action) =>
   a.family === 'explore'
     ? a.bucket === 'search'
-      ? '搜索了代码'
+      ? t('搜索了代码')
       : a.bucket === 'list'
-        ? '查看了目录'
-        : '读取了文件'
+        ? t('查看了目录')
+        : t('读取了文件')
     : a.family === 'execute'
-      ? '运行了命令'
+      ? t('运行了命令')
       : a.family === 'edit'
-        ? '编辑了文件'
+        ? t('编辑了文件')
         : a.family === 'fetch'
-          ? '访问了网络'
+          ? t('访问了网络')
           : a.family === 'delegate'
-            ? '调度了子 agent'
-            : '调用了工具'
+            ? t('调度了子 agent')
+            : t('调用了工具')
 
 function segment(actions: Action[], running: boolean): Item[] {
   const calls = actions.filter((a) => !PASSIVE.has(a.family))
@@ -251,7 +256,9 @@ function segment(actions: Action[], running: boolean): Item[] {
       key: `g${first.key}`,
       kind: 'group',
       actions,
-      title: [...new Set(calls.map(WHAT))].join('、'),
+      title: [...new Set(calls.map(WHAT))]
+        .map((w, i) => (i ? w.charAt(0).toLowerCase() + w.slice(1) : w))
+        .join(GROUP_SEP),
       failed: calls.filter((a) => a.step.failed && !a.quiet).length,
       running,
     },
@@ -278,7 +285,11 @@ export function groupActions(actions: Action[], live: boolean): Item[] {
 export function fmtWorked(ms: number) {
   const s = Math.max(1, Math.round(ms / 1000))
   const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
-  return [h && `${h} 小时`, m && `${m} 分`, (sec || (!h && !m)) && `${sec} 秒`]
+  return [
+    h && t('{n} 小时', { n: h }),
+    m && t('{n} 分', { n: m }),
+    (sec || (!h && !m)) && t('{n} 秒', { n: sec }),
+  ]
     .filter(Boolean)
     .slice(0, 2)
     .join(' ')
@@ -288,10 +299,10 @@ function workSummary(actions: Action[]) {
   const n = (f: Family) => actions.filter((a) => a.family === f).length
   const files = new Set(actions.filter((a) => a.family === 'edit').map((a) => a.target)).size
   return [
-    n('explore') && `查阅 ${n('explore')}`,
-    n('execute') && `命令 ${n('execute')}`,
-    files && `改动 ${files}`,
-    n('subagent') && `子 agent ${n('subagent')}`,
+    n('explore') && t('查阅 {n}', { n: n('explore') }),
+    n('execute') && t('命令 {n}', { n: n('execute') }),
+    files && t('改动 {n}', { n: files }),
+    n('subagent') && t('子 agent {n}', { n: n('subagent') }),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -322,7 +333,7 @@ export function buildItems(
       key: 'work',
       kind: 'work',
       items: groupActions(done, false),
-      title: `已工作 ${fmtWorked(workedMs)}`,
+      title: t('已工作 {time}', { time: fmtWorked(workedMs) }),
       summary: workSummary(done),
     },
     ...before.filter(running).map((a) => ({ kind: 'action' as const, ...a })),

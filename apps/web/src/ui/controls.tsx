@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { ProgressIndicator } from './display'
@@ -67,7 +68,7 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ProgressIndicator variant="spinner" aria-label="正在处理" />
+        <ProgressIndicator variant="spinner" aria-label={t('正在处理')} />
       ) : icon ? (
         renderGlyph(icon)
       ) : null}
@@ -106,7 +107,7 @@ export function IconButton({
   )
 }
 
-export function CloseButton({ onClick, title = '关闭' }: { onClick?: () => void; title?: string }) {
+export function CloseButton({ onClick, title = t('关闭#close') }: { onClick?: () => void; title?: string }) {
   return (
     <IconButton title={title} onClick={onClick} className="ui-close">
       <Icon name="xmark" />
@@ -315,7 +316,7 @@ export function Link({ external, className, children, target, rel, ...rest }: Li
     >
       {children}
       {external ? (
-        <Icon name="external" weight={1.6} label="（在新窗口打开）" className="ui-link__ext" />
+        <Icon name="external" weight={1.6} label={t('（在新窗口打开）')} className="ui-link__ext" />
       ) : null}
     </a>
   )
@@ -344,7 +345,7 @@ export function HelpButton({
     setOpen(false)
     if (refocus) trigger.current?.focus()
   })
-  const label = aria['aria-label'] ?? '帮助'
+  const label = aria['aria-label'] ?? t('帮助')
   return (
     <span ref={root} className="ui-anchor">
       <button
@@ -359,7 +360,7 @@ export function HelpButton({
         ?
       </button>
       {help ? (
-        <Float open={open} placement={placement} role="dialog" aria-label="帮助" style={{ width: 260 }}>
+        <Float open={open} placement={placement} role="dialog" aria-label={t('帮助')} style={{ width: 260 }}>
           <div className="ui-helptext">{help}</div>
         </Float>
       ) : null}

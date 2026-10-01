@@ -15,6 +15,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 fn config(server: String) -> Config {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     Config { server, token: "mt-1".into(), machine_id: "m1".into(), owner_name: "王磊".into(), cert_sha256: None }
 }
 

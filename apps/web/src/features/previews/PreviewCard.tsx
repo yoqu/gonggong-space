@@ -4,28 +4,29 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Icon, IconButton } from '../../ui'
 import './previews.css'
+import { t } from '../../i18n'
 import { ControlRequests } from './control'
 import { PreviewActions } from './PreviewActions'
 import { openInWorkbench, previewIcon, snapshotUrl, usePreviews } from './store'
 
 /** What a mini program card says while its machine's WeChat devtools wait for a login. */
 export const loginNote = (p: PreviewDto) =>
-  p.canManage ? '微信开发者工具未登录，请用微信扫码登录' : '等待 Bot 主人登录微信开发者工具'
+  p.canManage ? t('微信开发者工具未登录，请用微信扫码登录') : t('等待 Bot 主人登录微信开发者工具')
 
 /** The devtools' login code, for the bot owner or a group admin only (scanning logs the scanner in). */
 export function DevtoolsLogin({ preview: p }: { preview: PreviewDto }) {
   return p.canManage ? (
-    <img className="pv-login" src={snapshotUrl(p)} alt="微信开发者工具登录二维码" />
+    <img className="pv-login" src={snapshotUrl(p)} alt={t('微信开发者工具登录二维码')} />
   ) : (
     <Icon name="smartphone" size={32} className="pv-card__placeholder" />
   )
 }
 
 export const PREVIEW_STATE = {
-  online: { label: '在线', color: 'var(--system-green)' },
-  offline: { label: '离线', color: 'var(--system-gray)' },
-  stopped: { label: '服务已停止', color: 'var(--system-orange)' },
-  closed: { label: '已关闭', color: 'var(--system-gray)' },
+  online: { label: t('在线'), color: 'var(--system-green)' },
+  offline: { label: t('离线'), color: 'var(--system-gray)' },
+  stopped: { label: t('服务已停止'), color: 'var(--system-orange)' },
+  closed: { label: t('已关闭'), color: 'var(--system-gray)' },
 }
 
 /**
@@ -74,7 +75,11 @@ export function PreviewCard({
           {p.awaiting === 'login' ? (
             <DevtoolsLogin preview={p} />
           ) : p.snapshotAt ? (
-            <img src={snapshotUrl(p)} alt={`${p.title} ${mini ? '模拟器' : '首屏'}`} loading="lazy" />
+            <img
+              src={snapshotUrl(p)}
+              alt={mini ? t('{title} 模拟器', { title: p.title }) : t('{title} 首屏', { title: p.title })}
+              loading="lazy"
+            />
           ) : (
             <Icon name={previewIcon(p.kind)} size={32} className="pv-card__placeholder" />
           )}
@@ -90,17 +95,17 @@ export function PreviewCard({
           </span>
           {p ? <PreviewActions preview={p} /> : null}
           {state === 'closed' && list?.manageableBotIds.includes(botId) ? (
-            <IconButton size="small" title="重新开放" disabled={reopening} onClick={() => void reopen()}>
+            <IconButton size="small" title={t('重新开放')} disabled={reopening} onClick={() => void reopen()}>
               {'play' as const}
             </IconButton>
           ) : null}
         </div>
         {p ? (
           <div className="pv-card__meta">
-            {mini ? (p.awaiting === 'login' ? loginNote(p) : `小程序 · ${p.path}`) : null}
-            {gui ? `桌面应用 · ${p.serviceName ?? ''}` : null}
+            {mini ? (p.awaiting === 'login' ? loginNote(p) : t('小程序 · {path}', { path: p.path })) : null}
+            {gui ? t('桌面应用 · {name}', { name: p.serviceName ?? '' }) : null}
             {p.snapshotError ? <span className="pv-card__error">{p.snapshotError}</span> : null}
-            {!mini && !gui && p.status === 'stopped' ? '服务已停止 · ' : ''}
+            {!mini && !gui && p.status === 'stopped' ? t('服务已停止 · ') : ''}
             {!mini && p.port ? `:${p.port}` : ''}
             {mini || gui ? null : p.path}
             {p.serviceName && !gui ? ` · ${p.serviceName}` : ''}

@@ -1,6 +1,7 @@
 import { Alert, Button, Form, FormRow, GroupBox, GroupRow, Input } from '@web/ui'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import logo from '../assets/logo.svg'
+import { t } from '../i18n'
 import { type BindLink, ipc } from '../ipc'
 import { host } from '../lib/labels'
 import { TitleBar } from '../shell/TitleBar'
@@ -82,36 +83,37 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
       <div className="dk-onboarding">
         <div className="dk-onboarding__panel">
           <img className="dk-onboarding__logo" src={logo} alt="" width={64} height={64} />
-          <h1 className="dk-onboarding__title">绑定到团队服务器</h1>
+          <h1 className="dk-onboarding__title">{t('绑定到团队服务器')}</h1>
           <p className="dk-onboarding__desc">
-            在 Web
-            端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。
+            {t(
+              '在 Web 端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。',
+            )}
           </p>
-          <Form aria-label="绑定到团队服务器">
-            <FormRow label="接入链接" hint={invalid || undefined}>
+          <Form aria-label={t('绑定到团队服务器')}>
+            <FormRow label={t('接入链接')} hint={invalid || undefined}>
               <Input
-                aria-label="接入链接"
+                aria-label={t('接入链接')}
                 mono
                 invalid={!!invalid}
                 value={text}
-                placeholder="粘贴网页上复制的接入链接或 gg login 命令"
+                placeholder={t('粘贴网页上复制的接入链接或 gg login 命令')}
                 onChange={(e) => update(e.target.value)}
               />
             </FormRow>
           </Form>
           {parsed ? (
             <GroupBox>
-              <GroupRow label="服务器" wideValue value={host(parsed.server)} />
-              <GroupRow label="绑定码" value={parsed.code} />
+              <GroupRow label={t('服务器')} wideValue value={host(parsed.server)} />
+              <GroupRow label={t('绑定码')} value={parsed.code} />
               {parsed.fingerprint ? (
-                <GroupRow label="证书" description={parsed.fingerprint} value="已固定证书指纹" />
+                <GroupRow label={t('证书')} description={parsed.fingerprint} value={t('已固定证书指纹')} />
               ) : null}
             </GroupBox>
           ) : null}
-          {parsed ? <p className="dk-footnote">请确认这是你们团队的服务器，再点「绑定」。</p> : null}
+          {parsed ? <p className="dk-footnote">{t('请确认这是你们团队的服务器，再点「绑定」。')}</p> : null}
           {error ? <Alert variant="error" description={error} /> : null}
           <Button variant="primary" size="xlarge" fullWidth disabled={!parsed || busy} onClick={bind}>
-            {busy ? '绑定中…' : '绑定'}
+            {busy ? t('绑定中…') : t('绑定')}
           </Button>
         </div>
       </div>

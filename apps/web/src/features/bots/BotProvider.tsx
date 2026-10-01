@@ -8,6 +8,7 @@ import {
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { FormRow, PopUpButton, toast } from '../../ui'
@@ -32,14 +33,14 @@ export function BotProviderField({
   const [view, setView] = useState<ProviderStoreView | null>(null)
   const reason =
     bot.ownerId !== me.id
-      ? '只有 Bot 主人可以设置其供应商'
+      ? t('只有 Bot 主人可以设置其供应商')
       : machine?.ownerId !== me.id
-        ? '只能在自己的机器上设置 Bot 的供应商'
+        ? t('只能在自己的机器上设置 Bot 的供应商')
         : !machine.online
-          ? '机器离线，上线后才能设置'
+          ? t('机器离线，上线后才能设置')
           : machine.features.includes('providers')
             ? null
-            : '请先升级该机器的 daemon'
+            : t('请先升级该机器的 daemon')
   const base = `/machines/${bot.machineId}/providers`
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export function BotProviderField({
   const switcher = useProviderSwitch(async ({ choice }) => {
     try {
       setView(await api.put<ProviderStoreView>(`/bots/${bot.id}/provider`, { choice }))
-      toast({ type: 'success', message: `${bot.name} 的供应商已切换，新会话生效` })
+      toast({ type: 'success', message: t('{name} 的供应商已切换，新会话生效', { name: bot.name }) })
     } catch (e) {
       toastError(e)
     }
@@ -63,7 +64,10 @@ export function BotProviderField({
   const machineDefault = view?.machine[bot.agentKind] ?? OFFICIAL_PROVIDER
   const options = view
     ? [
-        { value: INHERIT_PROVIDER, label: `继承机器（当前：${providerName(view, machineDefault)}）` },
+        {
+          value: INHERIT_PROVIDER,
+          label: t('继承机器（当前：{name}）', { name: providerName(view, machineDefault) }),
+        },
         { value: OFFICIAL_PROVIDER, label: OFFICIAL_NAME },
         ...view.providers
           .filter((p) => p.agent === bot.agentKind)
@@ -71,11 +75,14 @@ export function BotProviderField({
       ]
     : []
   return (
-    <FormRow label="供应商" hint={reason ?? '只保存在 Bot 所在的机器上；进行中的会话开启新会话后才切换'}>
+    <FormRow
+      label={t('供应商')}
+      hint={reason ?? t('只保存在 Bot 所在的机器上；进行中的会话开启新会话后才切换')}
+    >
       <PopUpButton
-        aria-label="供应商"
+        aria-label={t('供应商')}
         value={view ? (view.bots[bot.id] ?? INHERIT_PROVIDER) : null}
-        placeholder={reason ? '--' : '读取中…'}
+        placeholder={reason ? '--' : t('读取中…')}
         disabled={!!reason || !view}
         options={options}
         onChange={(choice) => view && switcher.request({ agent: bot.agentKind, choice, botId: bot.id }, view)}

@@ -21,6 +21,7 @@ import { type Candidate, CandidatePopover, useCandidates } from './ComposerCandi
 import { useCite } from './cite'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import './composer.css'
+import { t } from '../../i18n'
 
 /** The input grows with its content up to this height (and 40% of the window), then scrolls. */
 const MAX_INPUT_PX = 240
@@ -228,23 +229,25 @@ export function MessageComposer({
         sent={sent}
         onFiles={uploads.add}
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
-        placeholder={mobile ? '发消息，@ 触发 Bot' : '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'}
+        placeholder={mobile ? t('发消息，@ 触发 Bot') : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')}
         tools={[
           {
             icon: 'at',
-            label: '@ 提及',
+            label: t('@ 提及'),
             onClick: () => {
               const c = focused()?.selectionStart ?? draft.length
               const at = c > 0 && !/\s/.test(draft[c - 1] ?? '') ? ' @' : '@'
               change(draft.slice(0, c) + at + draft.slice(c), c + at.length)
             },
           },
-          { icon: 'slash', label: '命令', onClick: () => change(`${draft}/`) },
-          { icon: 'paperclip', label: '附件', onClick: () => filePicker.current?.click() },
-          { icon: 'image', label: '图片', onClick: () => imagePicker.current?.click() },
+          { icon: 'slash', label: t('命令'), onClick: () => change(`${draft}/`) },
+          { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
+          { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },
         ]}
         hint={
-          mobile || targets.length || soleDm ? false : '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务'
+          mobile || targets.length || soleDm
+            ? false
+            : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
         }
         accessory={
           targets.length ? (

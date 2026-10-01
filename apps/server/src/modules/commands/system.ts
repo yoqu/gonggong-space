@@ -14,7 +14,9 @@ export const newSession: CommandHandler = async (ctx, input) => {
   const { group, user, bots } = input
   const picked = targets(input)
   if (!picked.length) {
-    await postEvent(ctx, group.id, `/new 需要同时 @ 一个 Bot，如 /new @${bots[0]?.name ?? 'bot'}`)
+    await postEvent(ctx, group.id, '/new 需要同时 @ 一个 Bot，如 /new @{bot}', {
+      bot: bots[0]?.name ?? 'bot',
+    })
     return
   }
   for (const bot of picked) {
@@ -31,10 +33,10 @@ export const newSession: CommandHandler = async (ctx, input) => {
       groupId: group.id,
       detail: { botId: bot.id },
     })
-    await postEvent(ctx, group.id, `${bot.name} 下一轮将开新会话`)
+    await postEvent(ctx, group.id, '{bot} 下一轮将开新会话', { bot: bot.name })
   }
 }
 
 /** /hold, /release: the group lock only exists in force-sync groups (P2). */
 export const forceSyncOnly: CommandHandler = (ctx, { group, command }) =>
-  postEvent(ctx, group.id, `/${command.name} 仅在强制同步群可用`).then(() => undefined)
+  postEvent(ctx, group.id, '/{command} 仅在强制同步群可用', { command: command.name }).then(() => undefined)

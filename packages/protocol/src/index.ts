@@ -1,5 +1,7 @@
 export * from './common.js'
 export * from './daemon.js'
+export * from './i18n.js'
+export * from './i18n-en.js'
 export * from './mentions.js'
 export * from './notification-view.js'
 export * from './repo.js'

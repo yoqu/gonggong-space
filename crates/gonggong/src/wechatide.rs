@@ -8,6 +8,7 @@ use std::time::Duration;
 use serde_json::{Map, Value, json};
 
 use crate::protocol::DevtoolsBlocker;
+use crate::t;
 
 #[cfg(target_os = "macos")]
 mod ax;
@@ -44,10 +45,14 @@ const LAUNCH: Duration = Duration::from_secs(30);
 const LAUNCH: Duration = Duration::from_secs(3);
 /// Why an opened project's app may never start: the devtools ask whether to trust the author of a project opened
 /// the first time (MCP skips that only with the setting below or a CLI access token), or its compile failed.
-const NOT_UP: &str = "小程序没有在模拟器里运行起来。如果微信开发者工具弹出「您信任此项目的作者吗？」：gonggong 会代为点击「信任并运行」，\
-但运行 gg 的程序需要在「系统设置 → 隐私与安全性 → 辅助功能」里获得授权；也可以由机器主人手动点一次（每个项目只需一次），\
-或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。";
-const PORT_OFF: &str = "微信开发者工具未开启服务端口：请在开发者工具「设置 → 安全设置」中开启「服务端口」";
+fn not_up() -> &'static str {
+    t!(
+        "小程序没有在模拟器里运行起来。如果微信开发者工具弹出「您信任此项目的作者吗？」：gonggong 会代为点击「信任并运行」，但运行 gg 的程序需要在「系统设置 → 隐私与安全性 → 辅助功能」里获得授权；也可以由机器主人手动点一次（每个项目只需一次），或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。"
+    )
+}
+fn port_off() -> &'static str {
+    t!("微信开发者工具未开启服务端口：请在开发者工具「设置 → 安全设置」中开启「服务端口」")
+}
 
 /// Seconds the simulator renders a page that just showed before it is captured.
 const RENDER_WAIT: f64 = 1.0;
@@ -172,7 +177,11 @@ impl Devtools {
         let result = rpc_result(post(&self.http, &self.url, Some(&self.session), &req, timeout).await?).await?;
         let text = result["content"][0]["text"].as_str().unwrap_or_default();
         if result["isError"] == true {
-            return Err(Other(Error::Failed(if text.is_empty() { format!("{tool} 失败") } else { text.into() })));
+            return Err(Other(Error::Failed(if text.is_empty() {
+                t!("{tool} 失败", tool = tool)
+            } else {
+                text.into()
+            })));
         }
         let value = match result.get("structuredContent") {
             Some(v) => v.clone(),
@@ -239,13 +248,13 @@ impl Devtools {
             "params": { "name": "login", "arguments": { "type": "image" } } });
         let result = rpc_result(post(&self.http, &self.url, Some(&self.session), &req, CALL).await?).await?;
         let task =
-            result["structuredContent"]["taskId"].as_str().ok_or(Error::Failed("登录请求没有返回任务".into()))?;
+            result["structuredContent"]["taskId"].as_str().ok_or(Error::Failed(t!("登录请求没有返回任务").into()))?;
         let image = result["content"].as_array().into_iter().flatten().find(|c| c["type"] == "image");
         use base64::Engine;
         let qr = image
             .and_then(|c| c["data"].as_str())
             .and_then(|d| base64::engine::general_purpose::STANDARD.decode(d).ok())
-            .ok_or(Error::Failed("登录请求没有返回二维码".into()))?;
+            .ok_or(Error::Failed(t!("登录请求没有返回二维码").into()))?;
         *self.login.lock().unwrap() = Some((task.to_string(), qr.clone()));
         Ok(Some(qr))
     }
@@ -282,7 +291,7 @@ impl Devtools {
             }
             if std::time::Instant::now() > deadline {
                 return Err(match page {
-                    Some(page) => Error::Failed(format!("模拟器没有打开页面 {page}")),
+                    Some(page) => Error::Failed(t!("模拟器没有打开页面 {page}", page = page)),
                     None => Error::NotUp,
                 });
             }
@@ -309,7 +318,7 @@ impl Devtools {
         let bytes = std::fs::read(&file);
         let _ = std::fs::remove_file(&file);
         shot?;
-        bytes.map_err(|e| Error::Failed(format!("读取截图失败：{e}")))
+        bytes.map_err(|e| Error::Failed(t!("读取截图失败：{e}", e = e)))
     }
 }
 
@@ -353,7 +362,7 @@ async fn post(
     }
     let res = req.send().await.map_err(|e| {
         if e.is_timeout() {
-            Error::Failed(format!("微信开发者工具 {} 秒内没有响应", timeout.as_secs()))
+            Error::Failed(t!("微信开发者工具 {s} 秒内没有响应", s = timeout.as_secs()))
         } else {
             Error::Gone
         }
@@ -361,7 +370,7 @@ async fn post(
     match res.status().as_u16() {
         401 | 403 => Err(Error::Unauthorized),
         400 | 404 => Err(Error::Gone),
-        s if s >= 400 => Err(Error::Failed(format!("微信开发者工具返回 {s}"))),
+        s if s >= 400 => Err(Error::Failed(t!("微信开发者工具返回 {status}", status = s))),
         _ => Ok(res),
     }
 }
@@ -370,9 +379,10 @@ async fn post(
 async fn rpc_result(res: reqwest::Response) -> Result<Value, Error> {
     let body = res.text().await.map_err(|e| Error::Failed(e.to_string()))?;
     let data = body.lines().filter_map(|l| l.strip_prefix("data:")).next_back().unwrap_or(&body);
-    let msg: Value = serde_json::from_str(data.trim()).map_err(|_| Error::Failed(format!("无法解析的响应：{body}")))?;
+    let msg: Value =
+        serde_json::from_str(data.trim()).map_err(|_| Error::Failed(t!("无法解析的响应：{body}", body = body)))?;
     if let Some(e) = msg.get("error") {
-        return Err(Error::Failed(e["message"].as_str().unwrap_or("调用失败").into()));
+        return Err(Error::Failed(e["message"].as_str().unwrap_or(t!("调用失败")).into()));
     }
     Ok(msg["result"].clone())
 }
@@ -608,19 +618,23 @@ fn ask_authorization() -> bool {
 /// machine's owner.
 pub fn explain(e: Error) -> String {
     match e {
-        Error::NotRunning | Error::Gone => "本机的微信开发者工具未运行".into(),
-        Error::PortOff => PORT_OFF.into(),
-        Error::NotUp => NOT_UP.into(),
+        Error::NotRunning | Error::Gone => t!("本机的微信开发者工具未运行").into(),
+        Error::PortOff => port_off().into(),
+        Error::NotUp => not_up().into(),
         Error::Unauthorized => {
             if ask_authorization() {
-                format!("已在本机微信开发者工具里弹出「{CLIENT}」的授权请求，请机器主人点击「允许」，之后会自动继续")
+                t!(
+                    "已在本机微信开发者工具里弹出「{client}」的授权请求，请机器主人点击「允许」，之后会自动继续",
+                    client = CLIENT
+                )
             } else {
-                format!(
-                    "请机器主人在微信开发者工具里授权「{CLIENT}」（运行 wechatide auth -c {CLIENT}），或关闭 CLI 访问令牌后重试"
+                t!(
+                    "请机器主人在微信开发者工具里授权「{client}」（运行 wechatide auth -c {client}），或关闭 CLI 访问令牌后重试",
+                    client = CLIENT
                 )
             }
         }
-        Error::NeedsLogin(_) => "微信开发者工具未登录".into(),
+        Error::NeedsLogin(_) => t!("微信开发者工具未登录").into(),
         Error::Failed(e) => e,
     }
 }
@@ -674,7 +688,7 @@ pub fn simulator_window(project: &Path) -> Result<(Vec<u32>, Vec<String>), Strin
     #[cfg(not(any(target_os = "macos", windows)))]
     let pids: Vec<u32> = vec![];
     if pids.is_empty() {
-        return Err("本机的微信开发者工具未运行".into());
+        return Err(t!("本机的微信开发者工具未运行").into());
     }
     Ok((pids, window_titles(project)))
 }
@@ -683,7 +697,7 @@ pub(crate) fn require_project(project: &Path) -> Result<(), String> {
     if project.join("project.config.json").is_file() {
         return Ok(());
     }
-    Err(format!("{} 不是小程序项目（缺少 project.config.json）", project.display()))
+    Err(t!("{path} 不是小程序项目（缺少 project.config.json）", path = project.display()))
 }
 
 #[cfg(test)]
@@ -1008,7 +1022,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let shared = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::Already));
         let off = shared.screenshot(Path::new("/w/shop"), "/").await.err().unwrap();
-        assert_eq!((off.blocker(), explain(off)), (Some(DevtoolsBlocker::Port), PORT_OFF.to_string()));
+        assert_eq!((off.blocker(), explain(off)), (Some(DevtoolsBlocker::Port), port_off().to_string()));
 
         // Launched but never serving: the port is off too.
         let launched = Shared::new(vec![root.path().into()], Arc::new(|_: &Path| false), Arc::new(|| Launched::Now));

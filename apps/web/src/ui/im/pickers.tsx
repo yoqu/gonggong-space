@@ -1,4 +1,5 @@
 import { type CSSProperties, useRef, useState } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Avatar, type AvatarProps } from '../display'
 import { SearchField } from '../form'
@@ -29,9 +30,11 @@ export function filterMembers(members: MentionMember[] = [], query = '', include
   const list = members.filter(
     (m) => !q || m.name.toLowerCase().includes(q) || (m.pinyin ?? '').toLowerCase().startsWith(q),
   )
-  const all = includeAll && (!q || '所有人'.includes(q) || 'all'.startsWith(q))
+  const all = includeAll && (!q || t('所有人').toLowerCase().includes(q) || 'all'.startsWith(q))
   return (
-    all ? [{ id: '__all', name: '所有人', subtitle: `${members.length} 人`, all: true }, ...list] : list
+    all
+      ? [{ id: '__all', name: t('所有人'), subtitle: t('{n} 人', { n: members.length }), all: true }, ...list]
+      : list
   ).slice(0, MAX_MENTIONS)
 }
 
@@ -82,10 +85,10 @@ export function MentionPicker({
       className={cx('pn-mentionpicker', className)}
       style={style}
       role="listbox"
-      aria-label="选择要提及的人"
+      aria-label={t('选择要提及的人')}
     >
       <div className="pn-mentionpicker__head" aria-hidden="true">
-        {query ? `匹配「${query}」` : '群成员'}
+        {query ? t('匹配「{query}」', { query }) : t('群成员')}
       </div>
       {rows.length ? (
         rows.map((m, i) => (
@@ -114,7 +117,7 @@ export function MentionPicker({
           </div>
         ))
       ) : (
-        <div className="pn-mentionpicker__empty">没有匹配的成员</div>
+        <div className="pn-mentionpicker__empty">{t('没有匹配的成员')}</div>
       )}
     </div>
   )
@@ -126,80 +129,80 @@ type EmojiCategory = 'recent' | 'smile' | 'hand' | 'symbol'
 const EMOJI: { id: Exclude<EmojiCategory, 'recent'>; label: string; items: EmojiEntry[] }[] = [
   {
     id: 'smile',
-    label: '笑脸',
+    label: t('笑脸'),
     items: [
-      ['😀', '笑 开心'],
-      ['😄', '大笑 开心'],
-      ['😂', '笑哭'],
-      ['🤣', '打滚笑'],
-      ['😊', '微笑 害羞'],
-      ['🙂', '微笑'],
-      ['😉', '眨眼'],
-      ['😍', '喜欢 爱心眼'],
-      ['🥳', '庆祝 派对'],
-      ['😎', '酷 墨镜'],
-      ['🤔', '思考 想'],
-      ['😮', '惊讶 哇'],
-      ['😅', '尴尬 汗'],
-      ['😴', '困 睡觉'],
-      ['😢', '难过 哭'],
-      ['😭', '大哭'],
-      ['😡', '生气'],
-      ['🤯', '爆炸 震惊'],
-      ['🥲', '含泪笑'],
-      ['😬', '紧张'],
-      ['🤗', '拥抱'],
-      ['🫡', '敬礼 收到'],
-      ['🙃', '倒脸'],
-      ['😇', '天使'],
+      ['😀', t('笑 开心')],
+      ['😄', t('大笑 开心')],
+      ['😂', t('笑哭')],
+      ['🤣', t('打滚笑')],
+      ['😊', t('微笑 害羞')],
+      ['🙂', t('微笑')],
+      ['😉', t('眨眼')],
+      ['😍', t('喜欢 爱心眼')],
+      ['🥳', t('庆祝 派对')],
+      ['😎', t('酷 墨镜')],
+      ['🤔', t('思考 想')],
+      ['😮', t('惊讶 哇')],
+      ['😅', t('尴尬 汗')],
+      ['😴', t('困 睡觉')],
+      ['😢', t('难过 哭')],
+      ['😭', t('大哭')],
+      ['😡', t('生气')],
+      ['🤯', t('爆炸 震惊')],
+      ['🥲', t('含泪笑')],
+      ['😬', t('紧张')],
+      ['🤗', t('拥抱')],
+      ['🫡', t('敬礼 收到')],
+      ['🙃', t('倒脸')],
+      ['😇', t('天使')],
     ],
   },
   {
     id: 'hand',
-    label: '手势',
+    label: t('手势'),
     items: [
-      ['👍', '赞 好 同意'],
-      ['👎', '踩 不同意'],
-      ['👌', '好的 OK'],
-      ['🙏', '谢谢 拜托'],
-      ['👏', '鼓掌'],
-      ['🙌', '举手 庆祝'],
-      ['💪', '加油 强'],
-      ['🤝', '握手 合作'],
-      ['👋', '你好 再见 挥手'],
-      ['✌️', '耶 胜利'],
-      ['🤞', '祈祷 好运'],
-      ['👀', '看 关注'],
-      ['✋', '举手 停'],
-      ['🫶', '比心'],
-      ['☝️', '一 注意'],
-      ['👉', '这里 指'],
+      ['👍', t('赞 好 同意')],
+      ['👎', t('踩 不同意')],
+      ['👌', t('好的 OK')],
+      ['🙏', t('谢谢 拜托')],
+      ['👏', t('鼓掌')],
+      ['🙌', t('举手 庆祝')],
+      ['💪', t('加油 强')],
+      ['🤝', t('握手 合作')],
+      ['👋', t('你好 再见 挥手')],
+      ['✌️', t('耶 胜利')],
+      ['🤞', t('祈祷 好运')],
+      ['👀', t('看 关注')],
+      ['✋', t('举手 停')],
+      ['🫶', t('比心')],
+      ['☝️', t('一 注意')],
+      ['👉', t('这里 指')],
     ],
   },
   {
     id: 'symbol',
-    label: '符号',
+    label: t('符号'),
     items: [
-      ['✅', '完成 对 已处理'],
-      ['❌', '错 不行'],
-      ['⭕', '对 可以'],
-      ['❗', '重要 注意'],
-      ['❓', '问题 疑问'],
-      ['🔥', '火 热门'],
-      ['✨', '闪亮 新'],
-      ['🎉', '庆祝 撒花'],
-      ['❤️', '爱心 喜欢'],
-      ['💯', '满分 一百'],
-      ['⚡', '闪电 加急'],
-      ['🚀', '火箭 上线 发布'],
-      ['📌', '置顶 固定'],
-      ['📎', '附件'],
-      ['📅', '日程 日历'],
-      ['☕', '咖啡 休息'],
-      ['🍵', '茶'],
-      ['🎯', '目标'],
-      ['💡', '想法 灯泡'],
-      ['⏰', '闹钟 时间'],
+      ['✅', t('完成 对 已处理')],
+      ['❌', t('错 不行')],
+      ['⭕', t('对 可以')],
+      ['❗', t('重要 注意')],
+      ['❓', t('问题 疑问')],
+      ['🔥', t('火 热门')],
+      ['✨', t('闪亮 新')],
+      ['🎉', t('庆祝 撒花')],
+      ['❤️', t('爱心 喜欢')],
+      ['💯', t('满分 一百')],
+      ['⚡', t('闪电 加急')],
+      ['🚀', t('火箭 上线 发布')],
+      ['📌', t('置顶 固定')],
+      ['📎', t('附件#emoji')],
+      ['📅', t('日程 日历')],
+      ['☕', t('咖啡 休息')],
+      ['🍵', t('茶')],
+      ['🎯', t('目标')],
+      ['💡', t('想法 灯泡')],
+      ['⏰', t('闹钟 时间')],
     ],
   },
 ]
@@ -207,7 +210,7 @@ const EMOJI: { id: Exclude<EmojiCategory, 'recent'>; label: string; items: Emoji
 const ALL = EMOJI.flatMap((g) => g.items)
 const DEFAULT_RECENT = ['👍', '✅', '🎉', '😄', '🙏', '👀', '🔥', '💪']
 const CATEGORIES = [
-  { value: 'recent' as const, label: '常用' },
+  { value: 'recent' as const, label: t('常用') },
   ...EMOJI.map((g) => ({ value: g.id, label: g.label })),
 ]
 const COLS = 8
@@ -243,7 +246,7 @@ export function EmojiPicker({
   const items: EmojiEntry[] = only
     ? only.map(entry)
     : q
-      ? ALL.filter((it) => it[1].includes(q))
+      ? ALL.filter((it) => it[1].includes(q.toLowerCase()))
       : cat === 'recent'
         ? recent.map(entry)
         : (EMOJI.find((g) => g.id === cat)?.items ?? [])
@@ -252,11 +255,11 @@ export function EmojiPicker({
       className={cx('pn-emoji', only && 'pn-emoji--fixed', className)}
       style={style}
       role="dialog"
-      aria-label="选择表情"
+      aria-label={t('选择表情')}
     >
       {!only && (
         <SearchField
-          placeholder="搜索表情"
+          placeholder={t('搜索表情')}
           value={query}
           onChange={setQuery}
           style={{ minWidth: 0, width: '100%' }}
@@ -268,7 +271,7 @@ export function EmojiPicker({
           items={CATEGORIES}
           value={cat}
           onChange={setCat}
-          aria-label="表情分类"
+          aria-label={t('表情分类')}
         />
       )}
       {items.length ? (
@@ -276,7 +279,7 @@ export function EmojiPicker({
           ref={grid}
           className="pn-emoji__grid"
           role="listbox"
-          aria-label={q ? '搜索结果' : '表情'}
+          aria-label={q ? t('搜索结果') : t('表情')}
           onKeyDown={(e) => keyNav(e, grid.current, '.pn-emoji__cell', { cols: COLS })}
         >
           {items.map(([emoji, words], i) => {
@@ -300,7 +303,7 @@ export function EmojiPicker({
           })}
         </div>
       ) : (
-        <div className="pn-emoji__empty">没有找到相关表情</div>
+        <div className="pn-emoji__empty">{t('没有找到相关表情')}</div>
       )}
     </div>
   )

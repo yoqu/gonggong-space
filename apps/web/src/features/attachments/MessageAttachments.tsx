@@ -5,14 +5,15 @@ import { Button, FileAttachment, Icon, Lightbox } from '../../ui'
 import { openTab } from '../workbench/open'
 import { attachmentUrl, fmtSize, KIND_LABEL, kindOf } from './api'
 import './attachments.css'
+import { t } from '../../i18n'
 
 /** The quoted bot reply / run card / message shown inside the sent message. */
 export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
   if (!quote) return null
   return (
     <div className="pn-quote">
-      <b>引用 {quote.who}</b>
-      {'：'}
+      <b>{t('引用 {who}', { who: quote.who })}</b>
+      {t('：')}
       <span>{quote.text}</span>
     </div>
   )
@@ -51,8 +52,8 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
                 <button
                   type="button"
                   className="att-tile__open"
-                  title={video ? '在工作台查看' : '查看大图'}
-                  aria-label={`${video ? '在工作台查看' : '查看大图'} ${a.name}`}
+                  title={video ? t('在工作台查看') : t('查看大图')}
+                  aria-label={`${video ? t('在工作台查看') : t('查看大图')} ${a.name}`}
                   onClick={() => (video ? open(a) : setZoomed(a))}
                 />
               </figure>
@@ -68,7 +69,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
           actions={
             <>
               <a className="ui-btn ui-btn--small" href={attachmentUrl(zoomed.id)} download={zoomed.name}>
-                下载
+                {t('下载')}
               </a>
               <Button
                 size="small"
@@ -77,7 +78,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
                   open(zoomed)
                 }}
               >
-                在工作台查看
+                {t('在工作台查看')}
               </Button>
             </>
           }
@@ -90,7 +91,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
             key={a.id}
             name={a.name}
             mime={a.mime}
-            meta={`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : ' · 点击预览'}`}
+            meta={`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : t(' · 点击预览')}`}
             onOpen={() => open(a)}
           />
         )

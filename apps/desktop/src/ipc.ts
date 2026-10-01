@@ -7,6 +7,7 @@ import type {
   AgentKind,
   BotDto,
   DevtoolsBlocker,
+  Locale,
   Permission,
   RunEvent,
   RunStatus,
@@ -323,6 +324,8 @@ export interface PermissionState {
 
 export const ipc = {
   appInfo: () => invoke<AppInfo>('app_info'),
+  /** Native texts (tray, dialogs, errors) and the daemon follow the UI's language. */
+  setLocale: (locale: Locale) => invoke<void>('set_locale', { locale }),
   snapshot: () => invoke<Snapshot>('snapshot'),
   /** Rejects with the reason when `input` is neither a 接入链接 nor a `gg login` command. */
   parseLink: (input: string) => invoke<BindLink>('parse_link', { input }),

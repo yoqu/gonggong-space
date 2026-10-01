@@ -10,6 +10,7 @@ use crate::protocol::{
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, EXTRA_ENV, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
+use crate::t;
 use crate::tools;
 use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
@@ -89,7 +90,7 @@ impl Manage {
                 let line = if before + line.len() <= PROGRESS_MAX_BYTES {
                     line.to_string()
                 } else if before <= PROGRESS_MAX_BYTES {
-                    "……输出过多，其余省略".to_string()
+                    t!("……输出过多，其余省略").to_string()
                 } else {
                     return;
                 };
@@ -192,7 +193,7 @@ fn clip(s: &str, max: usize) -> &str {
 }
 
 async fn tools_op(home: &Path, cmd: &ToolsCmd, progress: tools::Progress<'_>) -> Result<()> {
-    let kind = || cmd.kind.context("缺少要操作的工具");
+    let kind = || cmd.kind.context(t!("缺少要操作的工具"));
     match cmd.action {
         ToolsAction::Status => {}
         ToolsAction::Install => {
@@ -202,7 +203,7 @@ async fn tools_op(home: &Path, cmd: &ToolsCmd, progress: tools::Progress<'_>) ->
             tools::upgrade(home, kind()?, progress).await?;
         }
         ToolsAction::Settings => {
-            let mirror = cmd.mirror.clone().context("缺少镜像源设置")?;
+            let mirror = cmd.mirror.clone().context(t!("缺少镜像源设置"))?;
             if let Mirror::Custom { registry, node } = &mirror {
                 tools::http_url(registry)?;
                 tools::http_url(node)?;
@@ -236,12 +237,12 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
         ProvidersAction::Presets => r.presets = Some(providers::presets(cmd.agent).cloned().collect()),
         ProvidersAction::List => r.view = Some(Store::load(home)?.view()),
         ProvidersAction::Catalog => {
-            let id = cmd.id.context("缺少供应商")?;
+            let id = cmd.id.context(t!("缺少供应商"))?;
             let store = Store::load(home)?;
-            r.catalog = Some(catalog(store.get(&id).with_context(|| format!("供应商 {id} 不存在"))?));
+            r.catalog = Some(catalog(store.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?));
         }
         ProvidersAction::BotCatalog => {
-            let agent = cmd.agent.context("缺少 agent")?;
+            let agent = cmd.agent.context(t!("缺少 agent"))?;
             let store = Store::load(home)?;
             let selection = match &cmd.bot_id {
                 Some(bot) => store.effective(agent, bot)?,
@@ -255,7 +256,7 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
             };
         }
         ProvidersAction::Save => {
-            let input = cmd.provider.context("缺少供应商内容")?;
+            let input = cmd.provider.context(t!("缺少供应商内容"))?;
             let set_default = cmd.set_default.unwrap_or(false);
             let (id, view) = Store::update(home, |s| {
                 let agent = input.agent;
@@ -268,7 +269,7 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
             (r.id, r.view) = (Some(id), Some(view));
         }
         ProvidersAction::Remove => {
-            let id = cmd.id.context("缺少供应商")?;
+            let id = cmd.id.context(t!("缺少供应商"))?;
             let store = Store::update(home, |s| {
                 s.remove(&id)?;
                 Ok(s.clone())
@@ -277,18 +278,18 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
             r.view = Some(store.view());
         }
         ProvidersAction::Use => {
-            let (agent, choice) = cmd.agent.zip(cmd.choice).context("缺少 agent 或要使用的供应商")?;
+            let (agent, choice) = cmd.agent.zip(cmd.choice).context(t!("缺少 agent 或要使用的供应商"))?;
             r.view = Some(Store::update(home, |s| {
                 match &cmd.bot_id {
                     Some(bot) => s.use_bot(bot, agent, &choice)?,
-                    None if choice == INHERIT => bail!("本机默认不能选择「继承」"),
+                    None if choice == INHERIT => bail!(t!("本机默认不能选择「继承」")),
                     None => s.use_machine(agent, &choice)?,
                 }
                 Ok(s.view())
             })?);
         }
         ProvidersAction::ImportLink => {
-            let p = ccswitch::parse_link(cmd.link.as_deref().context("缺少导入链接")?)?;
+            let p = ccswitch::parse_link(cmd.link.as_deref().context(t!("缺少导入链接"))?)?;
             let set_default = cmd.set_default.unwrap_or(false);
             let (id, view) = Store::update(home, |s| {
                 let agent = p.agent;
@@ -307,23 +308,23 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
 /// Adds (no id: from the preset, or by hand) or edits a provider; returns its id.
 fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
     if let Some(id) = input.id.clone() {
-        let existing = store.get(&id).with_context(|| format!("供应商 {id} 不存在"))?;
+        let existing = store.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
         if existing.agent != input.agent {
-            bail!("不能修改供应商所属的 agent");
+            bail!(t!("不能修改供应商所属的 agent"));
         }
         store.edit(&id, |p| apply(p, input))?;
         return Ok(id);
     }
-    let key = input.api_key.clone().context("新增供应商需要填写 API Key")?;
+    let key = input.api_key.clone().context(t!("新增供应商需要填写 API Key"))?;
     let mut p = match &input.preset_id {
         Some(preset) => Provider::from_preset(
-            providers::preset(input.agent, preset).with_context(|| format!("没有预设 {preset}"))?,
+            providers::preset(input.agent, preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
             key,
         ),
         None => Provider::custom(
             input.agent,
             input.name.clone().unwrap_or_default(),
-            input.base_url.clone().context("自定义供应商需要填写 Base URL")?,
+            input.base_url.clone().context(t!("自定义供应商需要填写 Base URL"))?,
             key,
         ),
     };

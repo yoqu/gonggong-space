@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { groupBots, runs } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
@@ -29,7 +29,7 @@ export function workspaceDiffRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const { group } = await requireMember(ctx, req.params.id, me.id)
         const { scope, runId } = Query.parse(req.query)
-        const botId = idParam(req.params.botId, 'bot ')
+        const botId = idParam(req.params.botId, 'Bot 不存在')
         const bot = (await activeBots(ctx, group.id)).find((b) => b.id === botId)
         if (!bot) return fail('not_found', '该 Bot 不在群内')
         if (scope === 'turn') {
@@ -38,7 +38,11 @@ export function workspaceDiffRoutes(ctx: Ctx) {
             .select({ status: runs.status, patch: runs.patch })
             .from(runs)
             .where(
-              and(eq(runs.id, idParam(runId, '运行')), eq(runs.groupId, group.id), eq(runs.botId, bot.id)),
+              and(
+                eq(runs.id, idParam(runId, '运行不存在')),
+                eq(runs.groupId, group.id),
+                eq(runs.botId, bot.id),
+              ),
             )
           if (!run) return fail('not_found', '运行不存在')
           // A finished turn's patch was stored with run.done; the daemon only knows the live one.
@@ -64,7 +68,7 @@ export function workspaceDiffRoutes(ctx: Ctx) {
         const res =
           (await ctx.hub.request(machineId, ask, 'workspace.diff.result', DIFF_TIMEOUT_MS)) ??
           fail('conflict', OFFLINE)
-        if (res.error) return fail('conflict', res.error)
+        if (res.error) throw new HttpError('conflict', res.error)
         return { scope, patch: res.patch && redact(res.patch), base: res.base, branch: res.branch }
       },
     )

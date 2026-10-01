@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { Button, EmptyState, Icon, Presence, SegmentedControl, TextField } from '../../../ui'
 import '../../previews/previews.css'
+import { t } from '../../../i18n'
 import { PREVIEW_STATE } from '../../previews/PreviewCard'
 import { ShareDialog } from '../../previews/ShareDialog'
 import { openUrl, usePreview } from '../../previews/store'
@@ -10,7 +11,7 @@ import './web-tab.css'
 
 const VIEWPORTS = ['fit', '1440', '1024', '768', '390'] as const
 type Viewport = (typeof VIEWPORTS)[number]
-const VIEWPORT_ITEMS = VIEWPORTS.map((v) => ({ value: v, label: v === 'fit' ? '自适应' : v }))
+const VIEWPORT_ITEMS = VIEWPORTS.map((v) => ({ value: v, label: v === 'fit' ? t('自适应') : v }))
 const viewportKey = (previewId: string) => `gonggong.webtab.viewport.${previewId}`
 
 function loadViewport(previewId: string): Viewport {
@@ -72,15 +73,15 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
           size="small"
           variant="plain"
           icon="arrow-clockwise"
-          aria-label="刷新"
+          aria-label={t('刷新')}
           onClick={() => setReload((n) => n + 1)}
         />
         <TextField
           className="wt-web__path"
           size="regular"
-          aria-label="进入路径"
-          prefix="进入路径"
-          title="回车后从这个路径重新进入；页面内的跳转不会同步到这里"
+          aria-label={t('进入路径')}
+          prefix={t('进入路径')}
+          title={t('回车后从这个路径重新进入；页面内的跳转不会同步到这里')}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -89,7 +90,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
         />
         <SegmentedControl
           size="small"
-          aria-label="视口尺寸"
+          aria-label={t('视口尺寸')}
           items={VIEWPORT_ITEMS}
           value={viewport}
           onChange={(v) => {
@@ -102,14 +103,14 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
           href={src}
           target="_blank"
           rel="noreferrer"
-          aria-label="新窗口打开"
-          title="新窗口打开"
+          aria-label={t('新窗口打开')}
+          title={t('新窗口打开')}
         >
           <Icon name="external" size={14} />
         </a>
         {p?.canManage ? (
           <Button size="small" variant="plain" icon="link" onClick={() => setSharing(true)}>
-            公开链接…
+            {t('公开链接…')}
           </Button>
         ) : null}
         {status ? (
@@ -138,14 +139,14 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
         ) : state?.status === 'offline' ? (
           <EmptyState
             icon="desktop"
-            title="服务已停止 · 等待 Bot 重新发布"
-            description="恢复在线后自动重新加载"
+            title={t('服务已停止 · 等待 Bot 重新发布')}
+            description={t('恢复在线后自动重新加载')}
           />
         ) : state?.status === 'closed' ? (
           <EmptyState
             icon="desktop"
-            title="预览已关闭"
-            action={<Button onClick={() => useWorkbench.getState().closeTab(key)}>关闭标签页</Button>}
+            title={t('预览已关闭')}
+            action={<Button onClick={() => useWorkbench.getState().closeTab(key)}>{t('关闭标签页')}</Button>}
           />
         ) : null}
       </div>
@@ -160,7 +161,7 @@ export function useWebTabMeta(tab: TabProps<'web'>['tab']): TabMeta {
   const state = usePreview(tab.previewId)
   return {
     icon: 'desktop',
-    title: state?.preview?.title ?? '预览',
+    title: state?.preview?.title ?? t('预览'),
     ...(state ? { status: state.status === 'online' ? 'online' : 'offline' } : {}),
   }
 }

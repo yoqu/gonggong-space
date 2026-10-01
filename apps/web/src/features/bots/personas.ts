@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import type { MascotAction } from '../../ui'
 
 /*
@@ -50,9 +51,9 @@ const FACE: Partial<Record<MascotAction, Face>> = {
 export const PERSONAS: Persona[] = [
   {
     key: 'hammock',
-    line: '看着在发呆，其实在想第二层。问题没说清楚，一行代码都不写。',
-    name: '慢想',
-    mix: '深思 × 逆向 × 守边界',
+    line: t('看着在发呆，其实在想第二层。问题没说清楚，一行代码都不写。'),
+    name: t('慢想'),
+    mix: t('深思 × 逆向 × 守边界'),
     tempo: 1.5,
     from: '#a3b5ff',
     to: '#4b5fd6',
@@ -95,9 +96,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'braces',
-    line: '嘴毒是因为对代码有洁癖。空谈免谈，只认跑得起来的实现。',
-    name: '铁码',
-    mix: '毒舌 × 洁癖 × 实干',
+    line: t('嘴毒是因为对代码有洁癖。空谈免谈，只认跑得起来的实现。'),
+    name: t('铁码'),
+    mix: t('毒舌 × 洁癖 × 实干'),
     tempo: 0.8,
     from: '#a0a9b5',
     to: '#39424f',
@@ -141,9 +142,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'focus',
-    line: '一进心流就戴上耳机屏蔽世界；先测量，只抠真正关键的 3%。',
-    name: '闭关',
-    mix: '沉默 × 狂热 × 精算',
+    line: t('一进心流就戴上耳机屏蔽世界；先测量，只抠真正关键的 3%。'),
+    name: t('闭关'),
+    mix: t('沉默 × 狂热 × 精算'),
     tempo: 1,
     from: '#7a6dff',
     to: '#23198a',
@@ -178,9 +179,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'steps',
-    line: '红了就修，绿了就走；对复杂度零容忍，笑着删功能。',
-    name: '小步',
-    mix: '乐天 × 务实 × 敢割舍',
+    line: t('红了就修，绿了就走；对复杂度零容忍，笑着删功能。'),
+    name: t('小步'),
+    mix: t('乐天 × 务实 × 敢割舍'),
     tempo: 0.7,
     from: '#8be07a',
     to: '#239a3c',
@@ -216,9 +217,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'blank',
-    line: '说话轻声细语，对粗糙零容忍；每个像素都要讲得出理由。',
-    name: '留白',
-    mix: '温柔 × 偏执 × 克制',
+    line: t('说话轻声细语，对粗糙零容忍；每个像素都要讲得出理由。'),
+    name: t('留白'),
+    mix: t('温柔 × 偏执 × 克制'),
     tempo: 1.3,
     from: '#ffc3d6',
     to: '#d8578a',
@@ -253,9 +254,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'no',
-    line: '对诱惑说不，对用户说是；发现方向错了，当场叫停。',
-    name: '说不',
-    mix: '果断 × 本分 × 聚焦',
+    line: t('对诱惑说不，对用户说是；发现方向错了，当场叫停。'),
+    name: t('说不'),
+    mix: t('果断 × 本分 × 聚焦'),
     tempo: 0.9,
     from: '#ffcf40',
     to: '#ec7300',
@@ -293,9 +294,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'abacus',
-    line: '不听故事只看账：用户价值 = 新体验 − 旧体验 − 替换成本。',
-    name: '算盘',
-    mix: '冷静 × 理性 × 算账',
+    line: t('不听故事只看账：用户价值 = 新体验 − 旧体验 − 替换成本。'),
+    name: t('算盘'),
+    mix: t('冷静 × 理性 × 算账'),
     tempo: 1,
     from: '#5fdcf0',
     to: '#0a82a8',
@@ -331,9 +332,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'invert',
-    line: '总在问「它会怎么坏」——就是为了让它永远不坏。',
-    name: '反推',
-    mix: '悲观 × 缜密 × 守护',
+    line: t('总在问「它会怎么坏」——就是为了让它永远不坏。'),
+    name: t('反推'),
+    mix: t('悲观 × 缜密 × 守护'),
     tempo: 1.1,
     from: '#57d6b8',
     to: '#0b7d68',
@@ -368,9 +369,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'sentry',
-    line: '默认已经被攻破，却从不制造恐慌；风险是连续的，不是非黑即白。',
-    name: '哨兵',
-    mix: '警觉 × 冷静 × 讲流程',
+    line: t('默认已经被攻破，却从不制造恐慌；风险是连续的，不是非黑即白。'),
+    name: t('哨兵'),
+    mix: t('警觉 × 冷静 × 讲流程'),
     tempo: 1,
     from: '#56688a',
     to: '#121a2a',
@@ -416,9 +417,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'spring',
-    line: '嘴上冷笑话，骨子里抗造；每次事故都让系统更强一点。',
-    name: '抗摔',
-    mix: '冷幽默 × 反脆弱 × 少即是多',
+    line: t('嘴上冷笑话，骨子里抗造；每次事故都让系统更强一点。'),
+    name: t('抗摔'),
+    mix: t('冷幽默 × 反脆弱 × 少即是多'),
     tempo: 0.9,
     from: '#c08eff',
     to: '#6a2bd6',
@@ -460,9 +461,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'compass',
-    line: '方向寸步不让，路径随时可绕；可逆的决定当场拍板。',
-    name: '灰度',
-    mix: '外柔内刚 × 果断 × 放权',
+    line: t('方向寸步不让，路径随时可绕；可逆的决定当场拍板。'),
+    name: t('灰度'),
+    mix: t('外柔内刚 × 果断 × 放权'),
     tempo: 1.1,
     from: '#e8c089',
     to: '#a26a2e',
@@ -498,9 +499,9 @@ export const PERSONAS: Persona[] = [
   },
   {
     key: 'loop',
-    line: '把问题摊开讲，是为了让人成长；每个里程碑都要复盘。',
-    name: '复盘',
-    mix: '直率 × 暖心 × 透明',
+    line: t('把问题摊开讲，是为了让人成长；每个里程碑都要复盘。'),
+    name: t('复盘'),
+    mix: t('直率 × 暖心 × 透明'),
     tempo: 1,
     from: '#ff9270',
     to: '#d8342c',
@@ -674,9 +675,9 @@ export function personaScene(ip: Persona, act: MascotAction, words = true) {
   let src = scenes.get(id)
   if (!src) {
     const full = ip.acts[act]
-    const t = full[1]
+    const word = full[1]
     const a: Act =
-      words || act === 'wait' || !t || fitsSmall(t) ? full : [full[0], FALLBACK[act] ?? '', full[2]]
+      words || act === 'wait' || !word || fitsSmall(word) ? full : [full[0], FALLBACK[act] ?? '', full[2]]
     const ex = a[2] ?? {}
     const st = ex.face ?? FACE[act] ?? 'open'
     const { back = '', front = '' } = PROPS[act](ip, a)

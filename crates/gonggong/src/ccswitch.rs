@@ -5,6 +5,7 @@ use crate::protocol::AgentKind;
 use crate::providers::{
     API_KEY, AUTH_TOKEN, EXTRA_ENV, ModelMap, Provider, Source, SourceKind, Store, WIRE_RESPONSES, mask_key,
 };
+use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -53,11 +54,11 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
     } else {
         match ["config.json", "config.json.migrated"].iter().find_map(|f| read_json(&dir.join(f)).transpose()) {
             Some(rows) => rows?,
-            None => bail!("没有找到 CC Switch 配置（{}）", dir.display()),
+            None => bail!(t!("没有找到 CC Switch 配置（{path}）", path = dir.display())),
         }
     };
     let settings: Value = match std::fs::read_to_string(dir.join("settings.json")) {
-        Ok(s) => serde_json::from_str(&s).context("CC Switch settings.json 已损坏")?,
+        Ok(s) => serde_json::from_str(&s).context(t!("CC Switch settings.json 已损坏"))?,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Value::Null,
         Err(e) => return Err(e.into()),
     };
@@ -87,14 +88,14 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
 fn read_db(path: &Path) -> Result<Vec<Row>> {
     use rusqlite::{Connection, OpenFlags};
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .context("无法只读打开 CC Switch 数据库")?;
+        .context(t!("无法只读打开 CC Switch 数据库"))?;
     // Older CC Switch schemas lack the columns added by later migrations.
     let columns: HashSet<String> = conn
         .prepare("PRAGMA table_info(providers)")?
         .query_map([], |r| r.get::<_, String>(1))?
         .collect::<Result<_, _>>()?;
     if columns.is_empty() {
-        bail!("CC Switch 数据库里没有 providers 表");
+        bail!(t!("CC Switch 数据库里没有 providers 表"));
     }
     let column =
         |name: &str, fallback: &str| if columns.contains(name) { name.to_string() } else { fallback.to_string() };
@@ -129,7 +130,7 @@ fn read_json(path: &Path) -> Result<Option<Vec<Row>>> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
-    let doc: Value = serde_json::from_str(&text).with_context(|| format!("{} 已损坏", path.display()))?;
+    let doc: Value = serde_json::from_str(&text).with_context(|| t!("{path} 已损坏", path = path.display()))?;
     let apps: Vec<_> = ["claude", "codex"].into_iter().filter(|a| doc[a]["providers"].is_object()).collect();
     if apps.is_empty() {
         return Ok(None);
@@ -241,7 +242,7 @@ fn codex_parts(auth: Option<&Value>, config: &str) -> Result<CodexParts> {
     if config.trim().is_empty() {
         return Ok(CodexParts { key: text(auth.and_then(|a| a.get("OPENAI_API_KEY"))), ..Default::default() });
     }
-    let doc: toml::Table = toml::from_str(config).context("CC Switch 的 Codex 配置不是合法的 TOML")?;
+    let doc: toml::Table = toml::from_str(config).context(t!("CC Switch 的 Codex 配置不是合法的 TOML"))?;
     let get = |t: Option<&toml::Table>, k: &str| {
         t.and_then(|t| t.get(k)).and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()).map(String::from)
     };
@@ -283,7 +284,7 @@ pub fn apply(candidates: &[Candidate], keys: &[String], set_default: bool, store
     let by_key: HashMap<_, _> = candidates.iter().map(|c| (c.key.as_str(), c)).collect();
     let mut ids = vec![];
     for key in keys {
-        let c = by_key.get(key.as_str()).with_context(|| format!("CC Switch 里没有可导入的 {key}"))?;
+        let c = by_key.get(key.as_str()).with_context(|| t!("CC Switch 里没有可导入的 {key}", key = key))?;
         let id = store.upsert(c.provider.clone())?;
         if set_default && c.current {
             store.use_machine(c.provider.agent, &id)?;
@@ -297,25 +298,25 @@ pub fn apply(candidates: &[Candidate], keys: &[String], set_default: bool, store
 /// `haikuModel`/`sonnetModel`/`opusModel` and a base64 `config` (`configFormat` json|toml) whose values the explicit
 /// parameters override. Returns a provider without an id, for [`Store::upsert`].
 pub fn parse_link(link: &str) -> Result<Provider> {
-    let url = url::Url::parse(link.trim()).context("不是合法的链接")?;
+    let url = url::Url::parse(link.trim()).context(t!("不是合法的链接"))?;
     if url.scheme() != "ccswitch" || url.host_str() != Some("v1") || url.path() != "/import" {
-        bail!("不是 CC Switch 导入链接（ccswitch://v1/import?…）");
+        bail!(t!("不是 CC Switch 导入链接（ccswitch://v1/import?…）"));
     }
     let q: HashMap<String, String> = url.query_pairs().into_owned().collect();
     let param = |k: &str| q.get(k).map(|v| v.trim()).filter(|v| !v.is_empty()).map(String::from);
     if param("resource").as_deref() != Some("provider") {
-        bail!("只能导入供应商（resource=provider）");
+        bail!(t!("只能导入供应商（resource=provider）"));
     }
     let agent = match param("app").as_deref() {
         Some("claude") => AgentKind::Claude,
         Some("codex") => AgentKind::Codex,
-        other => bail!("只支持 claude 与 codex 的供应商，链接里是 {}", other.unwrap_or("（空）")),
+        other => bail!(t!("只支持 claude 与 codex 的供应商，链接里是 {app}", app = other.unwrap_or(t!("（空）")))),
     };
-    let name = param("name").context("链接缺少 name")?;
+    let name = param("name").context(t!("链接缺少 name"))?;
     let endpoints: Vec<&str> = q.get("endpoint").map_or(vec![], |e| e.split(',').map(str::trim).collect());
     for e in endpoints.iter().filter(|e| !e.is_empty()) {
         if !matches!(url::Url::parse(e).map(|u| u.scheme().to_string()).as_deref(), Ok("http" | "https")) {
-            bail!("endpoint 不是 http(s) 地址：{e}");
+            bail!(t!("endpoint 不是 http(s) 地址：{e}", e = e));
         }
     }
     let endpoint = endpoints.into_iter().find(|e| !e.is_empty()).map(String::from);
@@ -352,7 +353,7 @@ pub fn parse_link(link: &str) -> Result<Provider> {
             parts.into_provider(&name, param("apiKey"), endpoint, param("model"))
         }
     };
-    let mut provider = provider.context("链接缺少 API Key 或 endpoint，或不是直连格式")?;
+    let mut provider = provider.context(t!("链接缺少 API Key 或 endpoint，或不是直连格式"))?;
     provider.source = Some(Source { kind: SourceKind::Link, id: None });
     Ok(provider)
 }
@@ -365,12 +366,14 @@ fn decode_config(b64: &str, format: &str) -> Result<Value> {
     let bytes = STANDARD_PAD_INDIFFERENT
         .decode(&b64)
         .or_else(|_| URL_SAFE_PAD_INDIFFERENT.decode(&b64))
-        .context("config 参数不是合法的 Base64")?;
-    let text = String::from_utf8(bytes).context("config 参数不是 UTF-8 文本")?;
+        .context(t!("config 参数不是合法的 Base64"))?;
+    let text = String::from_utf8(bytes).context(t!("config 参数不是 UTF-8 文本"))?;
     match format {
-        "json" => serde_json::from_str(&text).context("config 不是合法的 JSON"),
-        "toml" => Ok(serde_json::to_value(toml::from_str::<toml::Table>(&text).context("config 不是合法的 TOML")?)?),
-        other => bail!("不支持的 configFormat：{other}"),
+        "json" => serde_json::from_str(&text).context(t!("config 不是合法的 JSON")),
+        "toml" => {
+            Ok(serde_json::to_value(toml::from_str::<toml::Table>(&text).context(t!("config 不是合法的 TOML"))?)?)
+        }
+        other => bail!(t!("不支持的 configFormat：{format}", format = other)),
     }
 }
 

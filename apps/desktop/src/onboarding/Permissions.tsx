@@ -1,6 +1,7 @@
 import type { Permission } from '@gonggong/protocol'
 import { Button, GroupBox, Icon, Tag, toast } from '@web/ui'
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 import { ipc } from '../ipc'
 import { PERMISSIONS, refreshPermissions, usePermissions } from '../permissions'
 import { TitleBar } from '../shell/TitleBar'
@@ -19,10 +20,10 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const refresh = () => void refreshPermissions().catch(() => {})
     refresh()
-    const t = setInterval(refresh, POLL_MS)
+    const timer = setInterval(refresh, POLL_MS)
     window.addEventListener('focus', refresh)
     return () => {
-      clearInterval(t)
+      clearInterval(timer)
       window.removeEventListener('focus', refresh)
     }
   }, [])
@@ -40,10 +41,11 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
       <TitleBar lights scrolled={false} />
       <div className="dk-onboarding">
         <div className="dk-onboarding__panel">
-          <h1 className="dk-onboarding__title">授予系统权限</h1>
+          <h1 className="dk-onboarding__title">{t('授予系统权限')}</h1>
           <p className="dk-onboarding__desc">
-            Bot 推送本机桌面应用和小程序的实时画面、成员远程操作时，需要 macOS
-            授予「共工空间」以下权限。未授权不影响其他功能。
+            {t(
+              'Bot 推送本机桌面应用和小程序的实时画面、成员远程操作时，需要 macOS 授予「共工空间」以下权限。未授权不影响其他功能。',
+            )}
           </p>
           <GroupBox>
             {list.map((p) => {
@@ -59,10 +61,10 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
                     <span>{label}</span>
                     <span className="dk-sub">{why}</span>
                   </div>
-                  <Tag tone={p.granted ? 'green' : 'orange'}>{p.granted ? '已授权' : '未授权'}</Tag>
+                  <Tag tone={p.granted ? 'green' : 'orange'}>{p.granted ? t('已授权') : t('未授权')}</Tag>
                   {p.granted ? null : (
                     <Button size="small" onClick={() => void request(p.kind)}>
-                      去授权
+                      {t('去授权')}
                     </Button>
                   )}
                 </div>
@@ -70,11 +72,15 @@ export function PermissionsGuide({ onDone }: { onDone: () => void }) {
             })}
           </GroupBox>
           <p className="dk-footnote">
-            在系统设置中打开「共工空间」的开关后回到这里，状态会自动刷新。屏幕录制需重启共工空间后才生效。
+            {t(
+              '在系统设置中打开「共工空间」的开关后回到这里，状态会自动刷新。屏幕录制需重启共工空间后才生效。',
+            )}
           </p>
-          {screenAsked && !done ? <Button onClick={() => void ipc.restartApp()}>重启共工空间</Button> : null}
+          {screenAsked && !done ? (
+            <Button onClick={() => void ipc.restartApp()}>{t('重启共工空间')}</Button>
+          ) : null}
           <Button variant="primary" size="xlarge" fullWidth onClick={onDone}>
-            {done ? '完成' : '稍后'}
+            {done ? t('完成') : t('稍后')}
           </Button>
         </div>
       </div>

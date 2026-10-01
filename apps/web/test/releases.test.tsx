@@ -40,6 +40,7 @@ function fakeXhr(reply: (name: string) => { status: number; body: unknown }) {
     open(_m: string, url: string) {
       this.url = url
     }
+    setRequestHeader() {}
     send(form: FormData) {
       const name = (form.get('file') as File).name
       sent.push(`${this.url} ${name}`)

@@ -12,6 +12,7 @@ const BOTS: &str = r#"[
 
 /// One-shot HTTP server: answers each connection with the next canned `(status, body)` and returns the request heads.
 async fn serve(replies: Vec<(u16, &'static str)>) -> (Config, JoinHandle<Vec<String>>) {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let task = tokio::spawn(async move {

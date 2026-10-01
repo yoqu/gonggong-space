@@ -3,6 +3,7 @@ import { useWorkbench } from '../../../app/workbench'
 import { Button, EmptyState, type IconName } from '../../../ui'
 import '../../previews/live.css'
 import '../../previews/previews.css'
+import { t } from '../../../i18n'
 import { DevtoolsLogin, loginNote, PREVIEW_STATE } from '../../previews/PreviewCard'
 import { usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
@@ -36,8 +37,8 @@ export function LivePreview({
     return state?.status === 'closed' ? (
       <EmptyState
         icon={icon}
-        title="预览已关闭"
-        action={<Button onClick={() => useWorkbench.getState().closeTab(tabKey)}>关闭标签页</Button>}
+        title={t('预览已关闭')}
+        action={<Button onClick={() => useWorkbench.getState().closeTab(tabKey)}>{t('关闭标签页')}</Button>}
       />
     ) : null
   return (
@@ -65,7 +66,7 @@ export function useLiveTabMeta(tab: TabProps<'live'>['tab']): TabMeta {
   const state = usePreview(tab.previewId)
   return {
     icon: 'desktop',
-    title: state?.preview?.title ?? '桌面应用',
+    title: state?.preview?.title ?? t('桌面应用'),
     ...(state ? { status: state.status === 'online' ? 'online' : 'offline' } : {}),
   }
 }

@@ -49,7 +49,8 @@ export async function announceCd(
     ctx,
     o.groupId,
     o.path === null
-      ? `已请求 ${o.bot.name} 使用托管工作区，等待本机确认…`
-      : `已请求 ${o.bot.name} 绑定到 ${o.path}，等待本机校验…`,
+      ? '已请求 {bot} 使用托管工作区，等待本机确认…'
+      : '已请求 {bot} 绑定到 {path}，等待本机校验…',
+    { bot: o.bot.name, path: o.path ?? '' },
   )
 }

@@ -9,7 +9,8 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, machines } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import type { MessageKey } from '../../i18n/index.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { publishBot } from '../bots/dto.js'
@@ -29,7 +30,7 @@ async function ownBot(ctx: Ctx, userId: string, rawId: string) {
   const [bot] = await ctx.db
     .select()
     .from(bots)
-    .where(and(eq(bots.id, idParam(rawId, 'bot ')), isNull(bots.deletedAt)))
+    .where(and(eq(bots.id, idParam(rawId, 'Bot 不存在')), isNull(bots.deletedAt)))
   if (!bot) return fail('not_found', 'Bot 不存在')
   return bot.ownerId === userId ? bot : fail('forbidden', '只有 Bot 主人可以操作其工作区')
 }
@@ -40,15 +41,16 @@ export function workspaceRoutes(ctx: Ctx) {
     const listDirs = async (
       m: { name: string; machineId: string | null },
       path: string | null,
-      verb: string,
+      offline: MessageKey,
     ) => {
       const machineId = onlineMachine(ctx, m.machineId)
-      if (!machineId) return fail('conflict', `${m.name} 离线，无法${verb}`)
+      if (!machineId) return fail('conflict', offline, { name: m.name })
       const ask = { t: 'dir.list', requestId: randomUUID(), path } as const
       const res =
         (await ctx.hub.request(machineId, ask, 'dir.result', DIR_TIMEOUT_MS)) ??
-        fail('conflict', `${m.name} 未响应，请稍后重试`)
-      return res.error ? fail('invalid', res.error) : res
+        fail('conflict', '{name} 未响应，请稍后重试', { name: m.name })
+      if (res.error) throw new HttpError('invalid', res.error)
+      return res
     }
 
     app.get<{ Params: { id: string } }>('/api/groups/:id/bot-states', async (req) => {
@@ -64,11 +66,15 @@ export function workspaceRoutes(ctx: Ctx) {
         const [m] = await ctx.db
           .select()
           .from(machines)
-          .where(and(eq(machines.id, idParam(req.params.id, '机器')), isNull(machines.revokedAt)))
+          .where(and(eq(machines.id, idParam(req.params.id, '机器不存在')), isNull(machines.revokedAt)))
         if (!m) return fail('not_found', '机器不存在')
         if (m.ownerId !== me.id) return fail('forbidden', '只能浏览自己机器上的目录')
         const at = { name: m.name, machineId: m.id }
-        const { path, entries, git, unusable } = await listDirs(at, req.query.path || null, '浏览目录')
+        const { path, entries, git, unusable } = await listDirs(
+          at,
+          req.query.path || null,
+          '{name} 离线，无法浏览目录',
+        )
         return { path, entries, git, unusable }
       },
     )
@@ -79,8 +85,8 @@ export function workspaceRoutes(ctx: Ctx) {
       const { path } = DefaultWorkspaceReq.parse(req.body)
       if (path !== null) {
         if (!ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')
-        const { unusable } = await listDirs(bot, path, '设置默认工作区')
-        if (unusable) fail('invalid', unusable)
+        const { unusable } = await listDirs(bot, path, '{name} 离线，无法设置默认工作区')
+        if (unusable) throw new HttpError('invalid', unusable)
       }
       await ctx.db.update(bots).set({ defaultWorkspace: path }).where(eq(bots.id, bot.id))
       return publishBot(ctx, bot.id)
@@ -98,7 +104,7 @@ export function workspaceRoutes(ctx: Ctx) {
         if (path !== null && group.mode !== 'partition') fail('conflict', '强制同步群只能使用托管工作区')
         if (path !== null && !ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')
         if (!(await requestCd(ctx, { groupId: group.id, botId: bot.id, path, force })))
-          fail('conflict', `${bot.name} 离线，无法绑定工作区`)
+          fail('conflict', '{bot} 离线，无法绑定工作区', { bot: bot.name })
         await announceCd(ctx, { groupId: group.id, userId: me.id, bot, path })
         return reply.status(204).send()
       },
@@ -120,9 +126,9 @@ export function workspaceRoutes(ctx: Ctx) {
           .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
         const reason = gb?.reason as RepoAccessReason | null | undefined
         if (gb?.state !== 'failed' || !reason || !PAUSING.includes(reason))
-          return fail('conflict', `${bot.name} 未处于暂停状态`)
+          return fail('conflict', '{bot} 未处于暂停状态', { bot: bot.name })
         if (!onlineMachine(ctx, bot.machineId))
-          return fail('conflict', `${bot.name} 离线，上线后会自动重新检查`)
+          return fail('conflict', '{bot} 离线，上线后会自动重新检查', { bot: bot.name })
         await ensureWorkspace(ctx, group.id, bot)
         return reply.status(204).send()
       },

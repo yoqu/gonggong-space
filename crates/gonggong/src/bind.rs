@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::protocol::{DaemonLoginReq, DaemonLoginRes, MachineInfo, SystemInfo};
+use crate::t;
 use crate::tls;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -77,9 +78,9 @@ fn unquote(s: &str) -> &str {
 }
 
 fn link_of_url(input: &str) -> Result<Link> {
-    let url = reqwest::Url::parse(input).context("接入链接格式错误")?;
+    let url = reqwest::Url::parse(input).context(t!("接入链接格式错误"))?;
     if url.scheme() != LINK_SCHEME || url.host_str() != Some(LINK_HOST) {
-        bail!("不是共工空间的接入链接");
+        bail!(t!("不是共工空间的接入链接"));
     }
     let param = |name: &str| url.query_pairs().find(|(k, _)| k == name).map(|(_, v)| v.into_owned());
     checked(param("server"), param("code"), param("fp"))
@@ -88,10 +89,10 @@ fn link_of_url(input: &str) -> Result<Link> {
 fn link_of_command(input: &str) -> Result<Link> {
     let words: Vec<&str> = input.split_whitespace().filter(|w| *w != "\\").collect();
     let [gg, login, args @ ..] = words.as_slice() else {
-        bail!("无法识别：请粘贴接入链接或 gg login 命令")
+        bail!(t!("无法识别：请粘贴接入链接或 gg login 命令"))
     };
     if *gg != "gg" || *login != "login" {
-        bail!("无法识别：请粘贴接入链接或 gg login 命令");
+        bail!(t!("无法识别：请粘贴接入链接或 gg login 命令"));
     }
     if let [link] = args
         && !link.starts_with("--")
@@ -101,16 +102,21 @@ fn link_of_command(input: &str) -> Result<Link> {
     let (mut server, mut code, mut fingerprint) = (None, None, None);
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        let Some(flag) = arg.strip_prefix("--") else { bail!("gg login 命令中有无法识别的参数 {arg}") };
+        let Some(flag) = arg.strip_prefix("--") else {
+            bail!(t!("gg login 命令中有无法识别的参数 {arg}", arg = arg))
+        };
         let (name, value) = match flag.split_once('=') {
             Some((name, value)) => (name, value),
-            None => (flag, *args.next().filter(|v| !v.starts_with("--")).with_context(|| format!("--{flag} 缺少值"))?),
+            None => (
+                flag,
+                *args.next().filter(|v| !v.starts_with("--")).with_context(|| t!("--{flag} 缺少值", flag = flag))?,
+            ),
         };
         let slot = match name {
             "server" => &mut server,
             "code" => &mut code,
             "fingerprint" => &mut fingerprint,
-            _ => bail!("gg login 命令中有无法识别的参数 --{name}"),
+            _ => bail!(t!("gg login 命令中有无法识别的参数 {arg}", arg = format!("--{name}"))),
         };
         *slot = Some(unquote(value).to_string());
     }
@@ -118,21 +124,21 @@ fn link_of_command(input: &str) -> Result<Link> {
 }
 
 fn checked(server: Option<String>, code: Option<String>, fingerprint: Option<String>) -> Result<Link> {
-    let server = server.context("缺少服务器地址")?;
+    let server = server.context(t!("缺少服务器地址"))?;
     let server = server.trim().trim_end_matches('/');
-    let url = reqwest::Url::parse(server).with_context(|| format!("服务器地址格式错误：{server}"))?;
+    let url = reqwest::Url::parse(server).with_context(|| t!("服务器地址格式错误：{server}", server = server))?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-        bail!("服务器地址必须是 http(s) 地址：{server}");
+        bail!(t!("服务器地址必须是 http(s) 地址：{server}", server = server));
     }
     // Requests are built as `{server}/api/…`: anything past the path would swallow it.
     if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
-        bail!("服务器地址不能包含账号、查询参数或 #：{server}");
+        bail!(t!("服务器地址不能包含账号、查询参数或 #：{server}", server = server));
     }
     tls::pinning(server, None)?;
-    let code = code.context("缺少绑定码")?.trim().to_uppercase();
+    let code = code.context(t!("缺少绑定码"))?.trim().to_uppercase();
     let valid = |part: &str| part.len() == 4 && part.chars().all(|c| c.is_ascii_alphanumeric());
     if !code.split_once('-').is_some_and(|(a, b)| valid(a) && valid(b)) {
-        bail!("绑定码格式错误，应为 XXXX-XXXX");
+        bail!(t!("绑定码格式错误，应为 XXXX-XXXX"));
     }
     let fingerprint = fingerprint.map(|f| tls::parse_fingerprint(&f).map(|hex| format!("sha256:{hex}"))).transpose()?;
     Ok(Link { server: server.into(), code, fingerprint })
@@ -160,22 +166,22 @@ pub async fn login(
         .json(&DaemonLoginReq { code: code.trim().to_uppercase(), machine })
         .send()
         .await
-        .with_context(|| format!("无法连接服务器 {server}"))?;
+        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
     if !res.status().is_success() {
         let status = res.status();
         let reason = match res.json::<ApiError>().await {
             Ok(e) => match e.error.as_str() {
-                "code_expired" => "绑定码已失效（已过期或已被使用），请在 Web 端重新生成".into(),
-                "code_locked" => "尝试次数过多，绑定码已锁定，请稍后在 Web 端重新生成".into(),
-                "unauthorized" => "绑定码无效，请核对后重试".into(),
-                "invalid" => "绑定码格式错误，应为 XXXX-XXXX".into(),
+                "code_expired" => t!("绑定码已失效（已过期或已被使用），请在 Web 端重新生成").into(),
+                "code_locked" => t!("尝试次数过多，绑定码已锁定，请稍后在 Web 端重新生成").into(),
+                "unauthorized" => t!("绑定码无效，请核对后重试").into(),
+                "invalid" => t!("绑定码格式错误，应为 XXXX-XXXX").into(),
                 _ => e.message,
             },
-            Err(_) => format!("服务器返回 {status}"),
+            Err(_) => t!("服务器返回 {status}", status = status),
         };
-        bail!("绑定失败：{reason}");
+        bail!(t!("绑定失败：{reason}", reason = reason));
     }
-    let body: DaemonLoginRes = res.json().await.context("服务器响应无法解析")?;
+    let body: DaemonLoginRes = res.json().await.context(t!("服务器响应无法解析"))?;
     let config = Config {
         server: server.into(),
         token: body.token,

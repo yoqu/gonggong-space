@@ -54,6 +54,7 @@ impl Frame {
 // ── Daemon runtime ───────────────────────────────────────────────────────────
 use crate::config::Config;
 use crate::protocol::{SnapshotTarget, TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
+use crate::t;
 use crate::wechatide::Shot;
 use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
@@ -173,14 +174,14 @@ where
                     let open = match serde_json::from_slice::<TunnelOpen>(&frame.payload) {
                         Ok(open) => open,
                         Err(e) => {
-                            out.reset(format!("open 无效：{e}")).await;
+                            out.reset(t!("open 无效：{e}", e = e)).await;
                             continue;
                         }
                     };
                     let port = match &open.target {
                         TunnelTarget::Preview { preview_id, port } => {
                             if allow.read().unwrap().get(preview_id) != Some(port) {
-                                out.reset(format!("端口 {port} 未开放预览")).await;
+                                out.reset(t!("端口 {port} 未开放预览", port = port)).await;
                                 continue;
                             }
                             *port
@@ -207,7 +208,7 @@ where
                         }
                         TunnelTarget::Snapshot { snapshot: SnapshotTarget::Page { preview_id, port } } => {
                             if allow.read().unwrap().get(preview_id) != Some(port) {
-                                out.reset(format!("端口 {port} 未开放预览")).await;
+                                out.reset(t!("端口 {port} 未开放预览", port = port)).await;
                                 continue;
                             }
                             let (port, path) = (*port, open.path.clone());
@@ -215,7 +216,7 @@ where
                                 match crate::snapshot::capture(port, &path).await {
                                     Ok(Some(png)) => answer(&out, 200, "image/png", png).await,
                                     Ok(None) => {
-                                        let msg = "本机没有可用于截图的 Chrome / Edge";
+                                        let msg = t!("本机没有可用于截图的 Chrome / Edge");
                                         answer(&out, 404, "text/plain; charset=utf-8", msg.into()).await
                                     }
                                     Err(e) => out.reset(format!("{e:#}")).await,
@@ -255,7 +256,7 @@ where
                     {
                         let out = Out { id, tx: tx.clone() };
                         tokio::spawn(async move {
-                            out.reset("本机端口接收过慢，已断开".into()).await;
+                            out.reset(t!("本机端口接收过慢，已断开").into()).await;
                             let _ = s.send(Inbound::Reset).await;
                         });
                     }
@@ -298,7 +299,7 @@ fn request_body(inbound: mpsc::Receiver<Inbound>) -> Body {
     let frames = futures_util::stream::unfold(inbound, |mut rx| async move {
         match rx.recv().await? {
             Inbound::Data(b) => Some((Ok(hyper::body::Frame::data(b)), rx)),
-            Inbound::Reset => Some((Err(std::io::Error::other("请求已取消")), rx)),
+            Inbound::Reset => Some((Err(std::io::Error::other(t!("请求已取消"))), rx)),
             Inbound::End => None,
         }
     });
@@ -306,7 +307,7 @@ fn request_body(inbound: mpsc::Receiver<Inbound>) -> Body {
 }
 
 async fn forward(port: u16, open: TunnelOpen, inbound: mpsc::Receiver<Inbound>, out: &Out) -> anyhow::Result<()> {
-    let tcp = connect_local(port).await.with_context(|| format!("无法连接本机端口 {port}"))?;
+    let tcp = connect_local(port).await.with_context(|| t!("无法连接本机端口 {port}", port = port))?;
     let (mut sender, conn) = hyper::client::conn::http1::handshake::<_, Body>(TokioIo::new(tcp)).await?;
     tokio::spawn(async move {
         let _ = conn.with_upgrades().await;
@@ -343,7 +344,7 @@ async fn forward(port: u16, open: TunnelOpen, inbound: mpsc::Receiver<Inbound>, 
 /// The files browser's raw bytes: GET / HEAD (with Range) on the workspace's read-only file server; any request
 /// body the server sends is ignored.
 async fn files(root: &Path, open: &TunnelOpen, out: &Out) -> anyhow::Result<()> {
-    anyhow::ensure!(!open.upgrade, "工作区文件不支持升级连接");
+    anyhow::ensure!(!open.upgrade, t!("工作区文件不支持升级连接"));
     let mut req = Request::builder().method(open.method.as_str()).uri(&open.path);
     for (k, v) in &open.headers {
         req = req.header(k, v);

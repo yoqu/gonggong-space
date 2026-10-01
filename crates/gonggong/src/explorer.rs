@@ -2,6 +2,7 @@
 //! and the path check every workspace file access goes through.
 use crate::git::{self, git};
 use crate::protocol::TreeEntry;
+use crate::t;
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -13,16 +14,16 @@ const SNIFF_BYTES: usize = 8 * 1024;
 /// `rel` (relative to `root`, '' = the root) as a canonical path inside the canonical root. Absolute paths, `..`,
 /// symlinks leading outside and anything in `.git` (remote URLs may carry credentials) are refused.
 pub fn resolve(root: &Path, rel: &str) -> Result<(PathBuf, PathBuf), String> {
-    let root = root.canonicalize().map_err(|_| format!("工作区不存在：{}", root.display()))?;
-    let outside = || format!("路径超出工作区：{rel}");
+    let root = root.canonicalize().map_err(|_| t!("工作区不存在：{path}", path = root.display()))?;
+    let outside = || t!("路径超出工作区：{path}", path = rel);
     let rel_path = Path::new(rel);
     if rel_path.components().any(|c| !matches!(c, Component::Normal(_) | Component::CurDir)) {
         return Err(outside());
     }
-    let path = root.join(rel_path).canonicalize().map_err(|_| format!("文件不存在：{rel}"))?;
+    let path = root.join(rel_path).canonicalize().map_err(|_| t!("文件不存在：{path}", path = rel))?;
     let inner = path.strip_prefix(&root).map_err(|_| outside())?;
     if inner.components().any(|c| c.as_os_str() == ".git") {
-        return Err(format!("不能读取 .git：{rel}"));
+        return Err(t!("不能读取 .git：{path}", path = rel));
     }
     Ok((root, path))
 }
@@ -32,7 +33,7 @@ pub fn resolve(root: &Path, rel: &str) -> Result<(PathBuf, PathBuf), String> {
 pub async fn tree(root: &Path, rel: &str, show_ignored: bool) -> Result<(Vec<TreeEntry>, bool), String> {
     let (root, dir) = resolve(root, rel)?;
     if !dir.is_dir() {
-        return Err(format!("不是目录：{rel}"));
+        return Err(t!("不是目录：{path}", path = rel));
     }
     let prefix = dir.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/");
     let marks = if git::is_repo(&root) { Marks::of(&root, &prefix).await? } else { Marks::default() };
@@ -57,8 +58,8 @@ pub async fn tree(root: &Path, rel: &str, show_ignored: bool) -> Result<(Vec<Tre
         })
     })
     .await
-    .map_err(|e| format!("读取目录失败：{e}"))?
-    .map_err(|e| format!("读取目录失败：{e}"))?;
+    .map_err(|e| t!("读取目录失败：{e}", e = e))?
+    .map_err(|e| t!("读取目录失败：{e}", e = e))?;
     for e in &mut entries {
         e.ignored = marks.ignored.contains(&e.name);
         e.uncommitted = marks.untracked || marks.changed.contains(&e.name);
@@ -130,13 +131,13 @@ pub struct Read {
 /// A file's metadata, with its content when it is UTF-8 text of at most `max_bytes`.
 pub async fn read(root: &Path, rel: &str, max_bytes: u64) -> Result<Read, String> {
     let (_, path) = resolve(root, rel)?;
-    let meta = tokio::fs::metadata(&path).await.map_err(|e| format!("读取文件失败：{e}"))?;
+    let meta = tokio::fs::metadata(&path).await.map_err(|e| t!("读取文件失败：{e}", e = e))?;
     if !meta.is_file() {
-        return Err(format!("不是文件：{rel}"));
+        return Err(t!("不是文件：{path}", path = rel));
     }
     let size = meta.len();
     let (binary, text) = if size <= max_bytes {
-        let bytes = tokio::fs::read(&path).await.map_err(|e| format!("读取文件失败：{e}"))?;
+        let bytes = tokio::fs::read(&path).await.map_err(|e| t!("读取文件失败：{e}", e = e))?;
         match String::from_utf8(bytes) {
             Ok(s) if !s.contains('\0') => (false, Some(s)),
             _ => (true, None),
@@ -145,8 +146,8 @@ pub async fn read(root: &Path, rel: &str, max_bytes: u64) -> Result<Read, String
         let mut head = vec![0; SNIFF_BYTES];
         let n = {
             use tokio::io::AsyncReadExt;
-            let mut f = tokio::fs::File::open(&path).await.map_err(|e| format!("读取文件失败：{e}"))?;
-            f.read(&mut head).await.map_err(|e| format!("读取文件失败：{e}"))?
+            let mut f = tokio::fs::File::open(&path).await.map_err(|e| t!("读取文件失败：{e}", e = e))?;
+            f.read(&mut head).await.map_err(|e| t!("读取文件失败：{e}", e = e))?
         };
         (!looks_like_text(&head[..n]), None)
     };

@@ -1,5 +1,6 @@
 //! Bot page: the machine's bots as the server reports them, read-only; they are managed on the Web (plan J11).
 use super::{Result, client};
+use crate::i18n::tr;
 use gonggong::bots::Bot;
 use gonggong::config::Config;
 use tauri::AppHandle;
@@ -13,7 +14,7 @@ pub async fn bots() -> Result<Vec<Bot>> {
 /// 在 Web 中管理 / 确认: the bot's settings on the bound server, in the default browser.
 #[tauri::command]
 pub fn open_bot_in_web(id: String, app: AppHandle) -> Result<()> {
-    let config = Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
+    let config = Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
     app.opener().open_url(gonggong::bots::web_url(&config.server, &id), None::<&str>).map_err(|e| e.to_string())
 }
 

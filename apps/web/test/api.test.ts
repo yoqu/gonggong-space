@@ -17,17 +17,21 @@ describe('api client', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/groups', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'accept-language': 'zh', 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'x' }),
     })
   })
 
-  it('omits body and content-type for GET, resolves undefined on 204', async () => {
+  it('omits body and content-type for GET but sends the locale, resolves undefined on 204', async () => {
     const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetchMock)
     await expect(api.del('/bots/b1')).resolves.toBeUndefined()
     await api.get('/me')
-    expect(fetchMock).toHaveBeenLastCalledWith('/api/me', { method: 'GET', credentials: 'include' })
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/me', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'accept-language': 'zh' },
+    })
   })
 
   it('maps error bodies to ApiError with code and message', async () => {

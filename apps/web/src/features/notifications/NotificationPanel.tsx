@@ -23,6 +23,7 @@ import {
 } from '../../ui'
 import { enablePush, type PushState, pushState } from './push'
 import './notifications.css'
+import { t } from '../../i18n'
 
 const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> = {
   approval: { icon: 'shield-warning', color: 'var(--system-orange)' },
@@ -37,19 +38,19 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
 function PushAction() {
   const [state, setState] = useState<PushState>(pushState)
   if (state === 'unsupported') return null
-  if (state === 'granted') return <span>浏览器通知已开启</span>
-  if (state === 'denied') return <span>浏览器通知已被禁止，请在浏览器设置中允许</span>
+  if (state === 'granted') return <span>{t('浏览器通知已开启')}</span>
+  if (state === 'denied') return <span>{t('浏览器通知已被禁止，请在浏览器设置中允许')}</span>
   return (
     <Button
       size="small"
       variant="plain"
       onClick={() =>
         enablePush().then(setState, (e: Error) =>
-          toast({ type: 'error', title: '开启浏览器通知失败', message: e.message }),
+          toast({ type: 'error', title: t('开启浏览器通知失败'), message: e.message }),
         )
       }
     >
-      开启浏览器通知
+      {t('开启浏览器通知')}
     </Button>
   )
 }
@@ -100,7 +101,7 @@ function Panel({
     try {
       await api.post('/notifications/read-all')
     } catch (e) {
-      toastError(e, '标记已读失败')
+      toastError(e, t('标记已读失败'))
       return
     }
     const now = new Date().toISOString()
@@ -112,7 +113,7 @@ function Panel({
     try {
       await api.del('/notifications/read')
     } catch (e) {
-      toastError(e, '清除已读失败')
+      toastError(e, t('清除已读失败'))
       return
     }
     setItems((list) => list?.filter((n) => !n.readAt) ?? null)
@@ -122,7 +123,7 @@ function Panel({
     try {
       await api.del(`/notifications/${n.id}`)
     } catch (e) {
-      toastError(e, '删除通知失败')
+      toastError(e, t('删除通知失败'))
       return
     }
     setItems((list) => list?.filter((x) => x.id !== n.id) ?? null)
@@ -135,7 +136,7 @@ function Panel({
       void api.post(`/notifications/${n.id}/read`)
     }
     onClose()
-    navigate(notificationView(n).href)
+    navigate(notificationView(n, t.text).href)
   }
 
   return (
@@ -144,12 +145,12 @@ function Panel({
       <div
         className="notif ui-popover"
         role="dialog"
-        aria-label="通知"
+        aria-label={t('通知')}
         data-state={state}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="notif__head">
-          <span className="notif__title">通知</span>
+          <span className="notif__title">{t('通知')}</span>
           <span className="spacer" />
           <Button
             size="small"
@@ -157,7 +158,7 @@ function Panel({
             disabled={!items?.some((n) => !n.readAt)}
             onClick={() => void readAll()}
           >
-            全部标为已读
+            {t('全部标为已读')}
           </Button>
           <Button
             size="small"
@@ -165,15 +166,15 @@ function Panel({
             disabled={!items?.some((n) => n.readAt)}
             onClick={() => void clearRead()}
           >
-            清除已读
+            {t('清除已读')}
           </Button>
         </div>
         <div className="notif__list" data-testid="notification-list">
           {failed ? (
             <div className="notif__empty">
-              加载失败
+              {t('加载失败')}
               <Button size="small" variant="plain" onClick={load}>
-                重试
+                {t('重试')}
               </Button>
             </div>
           ) : !items ? (
@@ -184,14 +185,14 @@ function Panel({
             <EmptyState
               compact
               illustration={<NoNotificationsArt />}
-              title="暂无通知"
-              description="需要你审批或回答的事项会出现在这里。"
+              title={t('暂无通知')}
+              description={t('需要你审批或回答的事项会出现在这里。')}
             />
           ) : null}
           {failed
             ? null
             : items?.map((n) => {
-                const v = notificationView(n)
+                const v = notificationView(n, t.text)
                 const { icon, color } = ICON[n.type]
                 return (
                   <div key={n.id} className="notif__row">
@@ -210,7 +211,7 @@ function Panel({
                       <div className="notif__body">
                         <div className="notif__line">
                           <span className="notif__type">{v.label}</span>
-                          {n.resolvedAt ? <Tag>已处理</Tag> : null}
+                          {n.resolvedAt ? <Tag>{t('已处理')}</Tag> : null}
                           <span className="spacer" />
                           <span className="notif__time">{listTime(n.createdAt)}</span>
                         </div>
@@ -223,7 +224,7 @@ function Panel({
                     <IconButton
                       size="small"
                       variant="plain"
-                      title="删除通知"
+                      title={t('删除通知')}
                       className="notif__delete"
                       onClick={() => void remove(n)}
                     >
@@ -234,7 +235,7 @@ function Panel({
               })}
         </div>
         <div className="notif__foot">
-          只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。
+          {t('只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。')}
           <PushAction />
         </div>
       </div>

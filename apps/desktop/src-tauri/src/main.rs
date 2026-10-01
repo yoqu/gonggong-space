@@ -3,14 +3,16 @@
 
 mod commands;
 mod host;
+mod i18n;
 
 use host::Host;
+use i18n::tr;
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use tauri::RunEvent;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, Runtime, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Event carrying every `host::Snapshot` change to the UI (`onSnapshot` in `src/ipc.ts`).
@@ -24,21 +26,37 @@ fn show_window(app: &AppHandle) {
     }
 }
 
+fn tray_menu<R: Runtime>(app: &impl Manager<R>) -> tauri::Result<Menu<R>> {
+    let open = MenuItem::with_id(app, "open", tr!("打开"), true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", tr!("退出"), true, None::<&str>)?;
+    Menu::with_items(app, &[&open, &quit])
+}
+
 /// Menu-bar icon: the daemon keeps running with the window closed; 退出 is the only way to stop it.
 fn tray(app: &tauri::App) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "打开", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     TrayIconBuilder::with_id("main")
         .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
         .icon_as_template(true)
-        .tooltip("共工空间")
-        .menu(&Menu::with_items(app, &[&open, &quit])?)
+        .tooltip(tr!("共工空间"))
+        .menu(&tray_menu(app)?)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_window(app),
             "quit" => app.exit(0),
             _ => {}
         })
         .build(app)?;
+    Ok(())
+}
+
+/// Re-labels the tray and the window title once the frontend has reported its locale.
+fn localize(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(tray) = app.tray_by_id("main") {
+        tray.set_menu(Some(tray_menu(app)?))?;
+        tray.set_tooltip(Some(tr!("共工空间")))?;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        window.set_title(tr!("共工空间"))?;
+    }
     Ok(())
 }
 

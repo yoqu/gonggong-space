@@ -1,5 +1,6 @@
 //! First-screen PNGs of previews for their chat cards, rendered by the machine's own Chrome-family browser.
 
+use crate::t;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -71,8 +72,8 @@ async fn shot(child: &mut tokio::process::Child, file: &Path) -> anyhow::Result<
         if let Some(status) = child.try_wait()?
             && size == 0
         {
-            anyhow::bail!("浏览器没有产出截图：{status}");
+            anyhow::bail!(t!("浏览器没有产出截图：{status}", status = status));
         }
     }
-    anyhow::bail!("截图超时")
+    anyhow::bail!(t!("截图超时"))
 }

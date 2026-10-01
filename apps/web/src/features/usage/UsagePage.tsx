@@ -6,14 +6,15 @@ import { Alert, Dialog, EmptyState, NoDataArt, SegmentedControl, Spinner, Table,
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
 import './usage.css'
+import { t } from '../../i18n'
 
 type By = 'bot' | 'user' | 'group'
 type Metric = 'totalTokens' | 'runs' | 'unreported'
 
 const TABS: { value: By; label: string }[] = [
-  { value: 'bot', label: '按 Bot' },
-  { value: 'user', label: '按触发人' },
-  { value: 'group', label: '按群' },
+  { value: 'bot', label: t('按 Bot') },
+  { value: 'user', label: t('按触发人') },
+  { value: 'group', label: t('按群') },
 ]
 export const WINDOW = 30
 export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -41,15 +42,19 @@ export function UsageBars({ rows }: { rows: UsageRowDto[] }) {
         <div key={r.key} className="usage-bars__row" data-testid="usage-row">
           <span className="usage-bars__name">{r.name}</span>
           <Bar value={r.totalTokens} max={max} />
-          <span className="usage-bars__value">{r.totalTokens ? fmtTokens(r.totalTokens) : '未上报'}</span>
+          <span className="usage-bars__value">{r.totalTokens ? fmtTokens(r.totalTokens) : t('未上报')}</span>
         </div>
       ))}
     </div>
   )
 }
 
-const UNIT: Record<By, string> = { bot: '个 Bot', user: '位触发人', group: '个群' }
-const NAME_COLUMN: Record<By, string> = { bot: 'Bot', user: '触发人', group: '群' }
+const COUNT: Record<By, (n: number) => string> = {
+  bot: (n) => t('{n} 个 Bot', { n }),
+  user: (n) => t('{n} 位触发人', { n }),
+  group: (n) => t('{n} 个群', { n }),
+}
+const NAME_COLUMN: Record<By, string> = { bot: 'Bot', user: t('触发人'), group: t('群') }
 /** Categorical order keeps neighbours apart in hue; a sixth entity folds into 其他. */
 const PALETTE = [
   'var(--system-blue)',
@@ -74,31 +79,31 @@ function Delta({ daily, metric }: { daily: UsageDayDto[]; metric: Metric }) {
   const pct = Math.round(((sumOf(daily.slice(-WINDOW), metric) - prev) / prev) * 100)
   return (
     <span className="usage-stat__delta">
-      <span>{pct ? `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%` : '持平'}</span>
-      <span>较前 {WINDOW} 天</span>
+      <span>{pct ? `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%` : t('持平')}</span>
+      <span>{t('较前 {n} 天', { n: WINDOW })}</span>
     </span>
   )
 }
 
 function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageDayDto[] | null }) {
   const tiles: { label: string; value: string; metric?: Metric }[] = [
-    { label: 'token 合计', value: fmtTokens(sumOf(rows, 'totalTokens')), metric: 'totalTokens' },
-    { label: '运行轮次', value: String(sumOf(rows, 'runs')), metric: 'runs' },
-    { label: '未上报轮次', value: String(sumOf(rows, 'unreported')), metric: 'unreported' },
-    { label: '参与统计', value: `${rows.length} ${UNIT[by]}` },
+    { label: t('token 合计'), value: fmtTokens(sumOf(rows, 'totalTokens')), metric: 'totalTokens' },
+    { label: t('运行轮次'), value: String(sumOf(rows, 'runs')), metric: 'runs' },
+    { label: t('未上报轮次'), value: String(sumOf(rows, 'unreported')), metric: 'unreported' },
+    { label: t('参与统计'), value: COUNT[by](rows.length) },
   ]
   return (
     <div className="usage-stats">
-      {tiles.map((t) => (
-        <div key={t.label} className="usage-stat">
-          <span className="usage-stat__label">{t.label}</span>
+      {tiles.map((tile) => (
+        <div key={tile.label} className="usage-stat">
+          <span className="usage-stat__label">{tile.label}</span>
           <div className="usage-stat__body">
-            <span className="usage-stat__value">{t.value}</span>
-            {daily && t.metric ? (
-              <Sparkline values={daily.slice(-WINDOW).map((d) => d[t.metric as Metric])} />
+            <span className="usage-stat__value">{tile.value}</span>
+            {daily && tile.metric ? (
+              <Sparkline values={daily.slice(-WINDOW).map((d) => d[tile.metric as Metric])} />
             ) : null}
           </div>
-          {daily && t.metric ? <Delta daily={daily} metric={t.metric} /> : null}
+          {daily && tile.metric ? <Delta daily={daily} metric={tile.metric} /> : null}
         </div>
       ))}
     </div>
@@ -112,33 +117,38 @@ export function Trend({ daily }: { daily: UsageDayDto[] }) {
   const [metric, setMetric] = useState<'totalTokens' | 'runs'>('totalTokens')
   const days = daily.slice(-WINDOW)
   const tokens = metric === 'totalTokens'
-  const fmt = (n: number) => (tokens ? `${fmtTokens(n)} tokens` : `${n} 轮`)
+  const fmt = (n: number) => (tokens ? `${fmtTokens(n)} tokens` : t('{n} 轮', { n }))
   const points = days.map((d) => {
     const [m, dd] = dayParts(d.day)
-    const lines = [`${fmtTokens(d.totalTokens)} tokens`, `${d.runs} 轮`]
+    const lines = [`${fmtTokens(d.totalTokens)} tokens`, t('{n} 轮', { n: d.runs })]
     return {
-      label: `${m}月${dd}日`,
+      label: t('{m}月{d}日', { m, d: dd }),
       tick: `${m}/${dd}`,
       value: d[metric],
-      lines: [...(tokens ? lines : lines.reverse()), ...(d.unreported ? [`${d.unreported} 轮未上报`] : [])],
+      lines: [
+        ...(tokens ? lines : lines.reverse()),
+        ...(d.unreported ? [t('{n} 轮未上报', { n: d.unreported })] : []),
+      ],
     }
   })
   const peak = points.reduce((a, b) => (b.value > a.value ? b : a), points[0] ?? { label: '', value: 0 })
-  const summary = `近 ${WINDOW} 天每日${tokens ? ' token' : '运行轮次'}：合计 ${fmt(sumOf(days, metric))}${
-    peak.value ? `，峰值 ${peak.label} ${fmt(peak.value)}` : ''
-  }`
+  const summary =
+    t(tokens ? '近 {n} 天每日 token：合计 {total}' : '近 {n} 天每日运行轮次：合计 {total}', {
+      n: WINDOW,
+      total: fmt(sumOf(days, metric)),
+    }) + (peak.value ? t('，峰值 {day} {value}', { day: peak.label, value: fmt(peak.value) }) : '')
   return (
     <section className="usage-card">
       <div className="usage-card__head">
-        <span className="usage-card__title">每日趋势</span>
+        <span className="usage-card__title">{t('每日趋势')}</span>
         <SegmentedControl
           size="small"
-          aria-label="趋势指标"
+          aria-label={t('趋势指标')}
           value={metric}
           onChange={setMetric}
           items={[
             { value: 'totalTokens', label: 'token' },
-            { value: 'runs', label: '轮次' },
+            { value: 'runs', label: t('轮次') },
           ]}
         />
       </div>
@@ -160,24 +170,26 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
   const rest = total - sumOf(shown, 'totalTokens')
   const parts = [
     ...shown.map((r) => ({ key: r.key, name: r.name, value: r.totalTokens, color: colors.get(r.key) })),
-    ...(rest ? [{ key: '', name: '其他', value: rest, color: OTHER }] : []),
+    ...(rest ? [{ key: '', name: t('其他'), value: rest, color: OTHER }] : []),
   ]
   return (
     <section className="usage-card">
       <div className="usage-card__head">
-        <span className="usage-card__title">token 分布</span>
-        <span className="usage-card__meta">合计 {fmtTokens(total)} tokens</span>
+        <span className="usage-card__title">{t('token 分布')}</span>
+        <span className="usage-card__meta">{t('合计 {total} tokens', { total: fmtTokens(total) })}</span>
       </div>
       <div
         className="usage-share"
         role="img"
-        aria-label={`token 分布：${parts.map((p) => `${p.name} ${pctOf(p.value, total)}`).join('，')}`}
+        aria-label={t('token 分布：{parts}', {
+          parts: parts.map((p) => `${p.name} ${pctOf(p.value, total)}`).join(t('，')),
+        })}
       >
         {parts.map((p) => (
           <span key={p.key} style={{ flexGrow: p.value, background: p.color }} />
         ))}
       </div>
-      <ul className="usage-legend" aria-label="token 分布图例">
+      <ul className="usage-legend" aria-label={t('token 分布图例')}>
         {parts.map((p) => (
           <li key={p.key}>
             <span className="usage-legend__swatch" style={{ background: p.color }} aria-hidden="true" />
@@ -216,7 +228,7 @@ function UsagePanel() {
         )
       ) : rows.length ? (
         <Table<UsageRowDto & { id: string }>
-          aria-label="用量明细"
+          aria-label={t('用量明细')}
           rows={rows.map((r) => ({ ...r, id: r.key }))}
           multiple={false}
           defaultSort={{ key: 'totalTokens', dir: 'desc' }}
@@ -224,7 +236,7 @@ function UsagePanel() {
             { key: 'name', title: NAME_COLUMN[by], sortable: true },
             {
               key: 'share',
-              title: '占比',
+              title: t('占比'),
               width: 140,
               render: (r) => <Bar value={r.totalTokens} max={max} color={colors.get(r.key) ?? OTHER} />,
             },
@@ -234,12 +246,12 @@ function UsagePanel() {
               width: 96,
               align: 'right',
               sortable: true,
-              render: (r) => (r.totalTokens ? fmtTokens(r.totalTokens) : '未上报'),
+              render: (r) => (r.totalTokens ? fmtTokens(r.totalTokens) : t('未上报')),
             },
-            { key: 'runs', title: '轮次', width: 64, align: 'right', sortable: true },
+            { key: 'runs', title: t('轮次'), width: 64, align: 'right', sortable: true },
             {
               key: 'unreported',
-              title: '未上报',
+              title: t('未上报'),
               width: 72,
               align: 'right',
               secondary: true,
@@ -248,10 +260,10 @@ function UsagePanel() {
           ]}
         />
       ) : (
-        <EmptyState compact illustration={<NoDataArt />} title="近 30 天没有运行" />
+        <EmptyState compact illustration={<NoDataArt />} title={t('近 30 天没有运行')} />
       )}
       <p className="usage-note">
-        近 30 天 · 不做配额限制 · Codex 适配器未上报的轮次计为「未上报」，不计入 token 合计。
+        {t('近 30 天 · 不做配额限制 · Codex 适配器未上报的轮次计为「未上报」，不计入 token 合计。')}
       </p>
     </>
   )
@@ -260,7 +272,7 @@ function UsagePanel() {
 /** 管理后台 · 用量: every bot in the system. */
 export function UsagePage() {
   return (
-    <AdminPage title="用量" desc="按 Bot、触发人、群汇总 token 用量。">
+    <AdminPage title={t('用量')} desc={t('按 Bot、触发人、群汇总 token 用量。')}>
       <UsagePanel />
     </AdminPage>
   )
@@ -269,7 +281,7 @@ export function UsagePage() {
 /** 我的用量 from the account menu: my bots only. */
 export function UsageDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog open title="我的用量" subtitle="我的 Bot 近 30 天用量" width={600} onClose={onClose}>
+    <Dialog open title={t('我的用量')} subtitle={t('我的 Bot 近 30 天用量')} width={600} onClose={onClose}>
       <UsagePanel />
     </Dialog>
   )

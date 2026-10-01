@@ -29,9 +29,9 @@ fn weight(msg: &DaemonToServer) -> usize {
                 event: RunEvent::Text { delta, .. } | RunEvent::Thought { delta, .. }, ..
             } => delta.len(),
             DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, .. }, .. } => {
-                let mcp = mcp.as_ref().map_or(0, |m| {
-                    m.input.as_deref().map_or(0, str::len) + m.output.as_deref().map_or(0, str::len)
-                });
+                let mcp = mcp
+                    .as_ref()
+                    .map_or(0, |m| m.input.as_deref().map_or(0, str::len) + m.output.as_deref().map_or(0, str::len));
                 detail.as_deref().map_or(0, str::len) + mcp
             }
             _ => 0,
@@ -236,7 +236,7 @@ impl<H: Handler> Service<H> {
                 Ok(Some(fatal)) => return fatal,
                 Ok(None) => {
                     backoff = Duration::from_secs(1);
-                    "连接已断开".to_string()
+                    crate::t!("连接已断开").to_string()
                 }
                 Err(e) => {
                     tracing::warn!("connection failed: {e:#}");
@@ -539,11 +539,13 @@ mod tests {
         while let Ok(msg) = rx.try_recv() {
             got.push(msg);
         }
-        let tools: Vec<_> = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Tool { .. }, .. })).collect();
+        let tools: Vec<_> =
+            got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Tool { .. }, .. })).collect();
         assert_eq!(tools.len(), sent, "every tool call's state arrives");
         let full = tools.iter().filter(|m| detail(m).is_some()).count();
         assert!(full <= MAX_QUEUED_BYTES / (1 << 20) + 1, "kept {full} details of {sent}");
-        let texts = got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).count();
+        let texts =
+            got.iter().filter(|m| matches!(m, DaemonToServer::RunEvent { event: RunEvent::Text { .. }, .. })).count();
         assert!(texts < sent, "streamed text is dropped past the budget");
         let events = tools.len() + texts;
         assert!(matches!(got[events], DaemonToServer::RunDone(_)));

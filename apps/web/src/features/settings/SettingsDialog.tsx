@@ -1,8 +1,9 @@
-import type { GitAccountDto, GitProvider, UserDto } from '@gonggong/protocol'
+import type { GitAccountDto, GitProvider, Locale, UserDto } from '@gonggong/protocol'
 import { type FormEvent, useEffect, useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
+import { locale, setLocale, t } from '../../i18n'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
@@ -29,28 +30,33 @@ import { type SettingsPage, useSettings } from './store'
 import './settings.css'
 
 const PAGES: { value: SettingsPage; label: string; icon: IconName }[] = [
-  { value: 'appearance', label: '外观', icon: 'appearance' },
-  { value: 'git', label: 'Git 与仓库', icon: 'git-branch' },
-  { value: 'account', label: '账户', icon: 'person' },
+  { value: 'appearance', label: t('外观'), icon: 'appearance' },
+  { value: 'git', label: t('Git 与仓库'), icon: 'git-branch' },
+  { value: 'account', label: t('账户'), icon: 'person' },
 ]
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'light', label: '浅色' },
-  { value: 'dark', label: '深色' },
-  { value: 'system', label: '跟随系统' },
+  { value: 'light', label: t('浅色') },
+  { value: 'dark', label: t('深色') },
+  { value: 'system', label: t('跟随系统') },
 ]
 
 const GLASS_OPTIONS: { value: GlassPreference; label: string }[] = [
-  { value: 'clear', label: '清透' },
-  { value: 'standard', label: '标准' },
-  { value: 'tinted', label: '着色' },
+  { value: 'clear', label: t('清透') },
+  { value: 'standard', label: t('标准') },
+  { value: 'tinted', label: t('着色') },
 ]
 
 /** Tried first when my bots clone or check a repo; the other protocol is the fallback. */
 const GIT_OPTIONS: { value: UserDto['gitProtocol']; label: string }[] = [
-  { value: 'auto', label: '按仓库地址' },
-  { value: 'ssh', label: '优先 SSH' },
-  { value: 'https', label: '优先 HTTPS' },
+  { value: 'auto', label: t('按仓库地址') },
+  { value: 'ssh', label: t('优先 SSH') },
+  { value: 'https', label: t('优先 HTTPS') },
+]
+
+const LOCALE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
 ]
 
 /** Mounted once in the shell; `useSettings().open(page)` shows it. */
@@ -67,7 +73,7 @@ function SettingsDialog({ page: initial, onClose }: { page: SettingsPage; onClos
     <Dialog open width={720} title={PAGES.find((p) => p.value === page)?.label} onClose={onClose}>
       <div className="gs-settings">
         <nav className="gs-settings__nav">
-          <span className="gs-settings__heading">设置</span>
+          <span className="gs-settings__heading">{t('设置')}</span>
           {PAGES.map((p) => (
             <button
               key={p.value}
@@ -94,9 +100,19 @@ function AppearancePage() {
   const [glass, setGlassState] = useState(getGlass)
   return (
     <GroupBox>
-      <GroupRow label="主题">
+      <GroupRow label={t('语言')}>
         <SegmentedControl
-          aria-label="主题"
+          aria-label={t('语言')}
+          items={LOCALE_OPTIONS}
+          value={locale}
+          onChange={(v) => {
+            if (v !== locale) setLocale(v)
+          }}
+        />
+      </GroupRow>
+      <GroupRow label={t('主题')}>
+        <SegmentedControl
+          aria-label={t('主题')}
           items={THEME_OPTIONS}
           value={theme}
           onChange={(v) => {
@@ -105,9 +121,9 @@ function AppearancePage() {
           }}
         />
       </GroupRow>
-      <GroupRow label="玻璃效果">
+      <GroupRow label={t('玻璃效果')}>
         <SegmentedControl
-          aria-label="玻璃效果"
+          aria-label={t('玻璃效果')}
           items={GLASS_OPTIONS}
           value={glass}
           onChange={(v) => {
@@ -146,7 +162,7 @@ function GitPage() {
   return (
     <>
       <section className="settings-section">
-        <h3 className="settings-section__title">已连接的账号</h3>
+        <h3 className="settings-section__title">{t('已连接的账号')}</h3>
         <GroupBox>
           {accounts === null ? (
             <GroupRow label={<Spinner />} />
@@ -165,24 +181,24 @@ function GitPage() {
               >
                 <span className="gs-value-line">
                   {a.status === 'invalid' ? (
-                    <span className="settings-account__bad">需要重新连接</span>
+                    <span className="settings-account__bad">{t('需要重新连接')}</span>
                   ) : null}
                   <Button size="small" onClick={() => void disconnect(a)}>
-                    断开
+                    {t('断开')}
                   </Button>
                 </span>
               </GroupRow>
             ))
           )}
-          <GroupRow label="添加账号…" onClick={() => setAdding(true)} />
+          <GroupRow label={t('添加账号…')} onClick={() => setAdding(true)} />
         </GroupBox>
       </section>
       <section className="settings-section">
-        <h3 className="settings-section__title">克隆</h3>
+        <h3 className="settings-section__title">{t('克隆')}</h3>
         <GroupBox>
-          <GroupRow label="协议偏好" description="我的 Bot 克隆或检查仓库时优先尝试的协议">
+          <GroupRow label={t('协议偏好')} description={t('我的 Bot 克隆或检查仓库时优先尝试的协议')}>
             <PopUpButton
-              aria-label="协议偏好"
+              aria-label={t('协议偏好')}
               options={GIT_OPTIONS}
               value={user.gitProtocol}
               onChange={(v) => void setProtocol(v)}
@@ -202,8 +218,8 @@ function GitPage() {
   )
 }
 
-const TOKEN_NAME = '共工空间'
-const TOKEN_NOTE = '共工空间：列出我的仓库和分支（只读）'
+const TOKEN_NAME = t('共工空间')
+const TOKEN_NOTE = t('共工空间：列出我的仓库和分支（只读）')
 
 /** Creation page with the name and read-only permission prefilled; unknown parameters are ignored by older instances. */
 export function tokenUrl(provider: GitProvider, base: string) {
@@ -218,15 +234,15 @@ export function tokenUrl(provider: GitProvider, base: string) {
 
 const TOKEN_STEPS: Record<GitProvider, { prefilled: string; steps: string[] }> = {
   github: {
-    prefilled: '名称、90 天有效期、Contents 只读',
+    prefilled: t('名称、90 天有效期、Contents 只读'),
     steps: [
-      'Repository access 选「All repositories」；要列出组织仓库，Resource owner 选对应组织',
-      '点「Generate token」，复制以 github_pat_ 开头的 Token，粘贴到下方',
+      t('Repository access 选「All repositories」；要列出组织仓库，Resource owner 选对应组织'),
+      t('点「Generate token」，复制以 github_pat_ 开头的 Token，粘贴到下方'),
     ],
   },
   gitlab: {
-    prefilled: '名称、read_api 权限',
-    steps: ['按需设置过期时间，点「Create token」', '复制以 glpat- 开头的 Token，粘贴到下方'],
+    prefilled: t('名称、read_api 权限'),
+    steps: [t('按需设置过期时间，点「Create token」'), t('复制以 glpat- 开头的 Token，粘贴到下方')],
   },
 }
 
@@ -237,26 +253,28 @@ function TokenGuide({ provider, base }: { provider: GitProvider; base: string })
   const guide = TOKEN_STEPS[provider]
   const ready = /^https?:\/\/[^/\s]+/.test(base)
   return (
-    <section className="settings-guide" aria-label="如何获取 Token">
-      <h4 className="settings-guide__title">如何获取 Token</h4>
+    <section className="settings-guide" aria-label={t('如何获取 Token')}>
+      <h4 className="settings-guide__title">{t('如何获取 Token')}</h4>
       <ol className="settings-guide__steps">
         <li>
-          <span>打开已预填（{guide.prefilled}）的创建页</span>
+          <span>{t('打开已预填（{fields}）的创建页', { fields: guide.prefilled })}</span>
           <Button
             size="small"
             icon={provider}
             disabled={!ready}
-            title={ready ? undefined : '先填写实例地址'}
+            title={ready ? undefined : t('先填写实例地址')}
             onClick={() => window.open(tokenUrl(provider, base), '_blank', 'noopener')}
           >
-            在 {LABEL[provider]} 创建 Token
+            {t('在 {provider} 创建 Token', { provider: LABEL[provider] })}
           </Button>
         </li>
         {guide.steps.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>
-      <p className="settings-guide__note">Token 只用于列出仓库和分支，加密保存在服务器，不用于 clone。</p>
+      <p className="settings-guide__note">
+        {t('Token 只用于列出仓库和分支，加密保存在服务器，不用于 clone。')}
+      </p>
     </section>
   )
 }
@@ -292,7 +310,7 @@ function AddAccountSheet({
     try {
       onAdded(await gitAccountsApi.add({ provider, baseUrl: base, token: token.trim() }))
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '连接失败，请重试')
+      setError(err instanceof ApiError ? err.message : t('连接失败，请重试'))
     } finally {
       setBusy(false)
     }
@@ -301,12 +319,12 @@ function AddAccountSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title="添加 Git 账号"
+      title={t('添加 Git 账号')}
       width={420}
       actions={[
-        { label: '取消', onClick: onClose },
+        { label: t('取消'), onClick: onClose },
         {
-          label: busy ? '验证中…' : '连接',
+          label: busy ? t('验证中…') : t('连接'),
           variant: 'primary',
           type: 'submit',
           form: 'add-git-account',
@@ -316,7 +334,7 @@ function AddAccountSheet({
     >
       <form id="add-git-account" className="settings-add" onSubmit={submit} noValidate>
         <SegmentedControl
-          aria-label="类型"
+          aria-label={t('类型')}
           items={[
             { value: 'github', label: 'GitHub', icon: 'github' },
             { value: 'gitlab', label: 'GitLab', icon: 'gitlab' },
@@ -329,7 +347,7 @@ function AddAccountSheet({
           }}
         />
         <TextField
-          label="实例地址"
+          label={t('实例地址')}
           value={baseUrl}
           placeholder={provider === 'gitlab' ? 'https://gitlab.example.com' : undefined}
           onChange={(e) => setBaseUrl(e.target.value)}
@@ -355,17 +373,17 @@ function AccountPage() {
   return (
     <>
       <GroupBox>
-        <GroupRow label="显示名">
+        <GroupRow label={t('显示名')}>
           <span className="gs-value-line">
             {name}
             <Button size="small" onClick={() => setRenaming(true)}>
-              修改显示名…
+              {t('修改显示名…')}
             </Button>
           </span>
         </GroupRow>
-        <GroupRow label="密码">
+        <GroupRow label={t('密码')}>
           <Button size="small" onClick={() => setChanging(true)}>
-            修改密码…
+            {t('修改密码…')}
           </Button>
         </GroupRow>
       </GroupBox>
@@ -396,7 +414,7 @@ function RenameSheet({ open, current, onClose }: { open: boolean; current: strin
       useSession.getState().setUser(await api.patch<UserDto>('/me', { name: next }))
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '保存失败，请重试')
+      setError(err instanceof ApiError ? err.message : t('保存失败，请重试'))
     } finally {
       setBusy(false)
     }
@@ -405,19 +423,19 @@ function RenameSheet({ open, current, onClose }: { open: boolean; current: strin
     <Sheet
       open={open}
       onClose={onClose}
-      title="修改显示名"
+      title={t('修改显示名')}
       width={420}
       actions={[
-        { label: '取消', onClick: onClose },
-        { label: '保存', variant: 'primary', type: 'submit', form: 'rename-me', disabled },
+        { label: t('取消'), onClick: onClose },
+        { label: t('保存'), variant: 'primary', type: 'submit', form: 'rename-me', disabled },
       ]}
     >
       <form id="rename-me" className="settings-add" onSubmit={submit} noValidate>
         <TextField
-          label="显示名"
+          label={t('显示名')}
           value={name}
           maxLength={40}
-          hint="在群成员与消息里显示，头像取首字"
+          hint={t('在群成员与消息里显示，头像取首字')}
           onChange={(e) => setName(e.target.value)}
         />
         {error ? <Alert variant="error" description={error} /> : null}

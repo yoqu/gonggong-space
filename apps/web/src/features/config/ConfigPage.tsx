@@ -25,23 +25,27 @@ import {
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import './config.css'
+import { t } from '../../i18n'
 
-const TITLE = '配置中心'
-const DESC = '仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。'
+const TITLE = t('配置中心')
+const DESC = t('仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。')
 /** Name of the daemon's built-in MCP server; the server rejects it too. */
 const RESERVED = 'gonggong'
-const BUILTIN_TOOLS = ['向群成员提问', ...Object.values(GONGGONG_TOOLS).map((t) => t.title)].join('、')
+const BUILTIN_TOOLS = [
+  t('向群成员提问'),
+  ...Object.values(GONGGONG_TOOLS).map((tool) => t.text({ key: tool.title })),
+].join(t('、'))
 
 type CType = 'mcp' | 'skill' | 'prompt' | 'secret'
 const LAYERS = [
-  { value: 'global' as const, label: '服务器全局层' },
-  { value: 'group' as const, label: '服务器群层', disabled: true },
+  { value: 'global' as const, label: t('服务器全局层') },
+  { value: 'group' as const, label: t('服务器群层'), disabled: true },
 ]
 const CTYPES: { value: CType; label: string }[] = [
   { value: 'mcp', label: 'MCP' },
   { value: 'skill', label: 'Skill' },
-  { value: 'prompt', label: '指令' },
-  { value: 'secret', label: '团队密钥' },
+  { value: 'prompt', label: t('指令') },
+  { value: 'secret', label: t('团队密钥') },
 ]
 
 interface Item {
@@ -108,7 +112,7 @@ export function ConfigPage() {
       setSavedForce(force)
       setForce(false)
     } catch (e) {
-      toast({ type: 'error', title: '保存失败', message: errorText(e) })
+      toast({ type: 'error', title: t('保存失败'), message: errorText(e) })
     } finally {
       await load()
       setBusy(false)
@@ -121,7 +125,11 @@ export function ConfigPage() {
     <AdminPage
       title={TITLE}
       desc={DESC}
-      subtitle={items ? `自定义 MCP ${items.length} 个 · 已启用 ${enabledNames.length} 个` : undefined}
+      subtitle={
+        items
+          ? t('自定义 MCP {n} 个 · 已启用 {enabled} 个', { n: items.length, enabled: enabledNames.length })
+          : undefined
+      }
     >
       <div className="cfg__bar">
         <Tabs items={LAYERS} value="global" onChange={() => undefined} />
@@ -129,10 +137,10 @@ export function ConfigPage() {
         <Tabs items={CTYPES} value={ctype} onChange={setCtype} />
       </div>
       {loadError ? (
-        <Alert variant="error" title="配置加载失败" description={loadError}>
+        <Alert variant="error" title={t('配置加载失败')} description={loadError}>
           <div className="cfg__retry">
             <Button size="small" onClick={() => void load()}>
-              重试
+              {t('重试')}
             </Button>
           </div>
         </Alert>
@@ -142,8 +150,8 @@ export function ConfigPage() {
           {ctype !== 'mcp' ? (
             <EmptyState
               illustration={<UnsupportedArt />}
-              title={`暂不支持 ${CTYPES.find((c) => c.value === ctype)?.label}`}
-              description="目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。"
+              title={t('暂不支持 {type}', { type: CTYPES.find((c) => c.value === ctype)?.label ?? '' })}
+              description={t('目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。')}
             />
           ) : (
             <>
@@ -155,15 +163,15 @@ export function ConfigPage() {
                     label={
                       <span className="cfg__name-line">
                         <span className="cfg__name">{i.config.name}</span>
-                        <Tag tone="blue">全局层</Tag>
-                        {i.saved ? null : <Tag tone="orange">未保存</Tag>}
+                        <Tag tone="blue">{t('全局层')}</Tag>
+                        {i.saved ? null : <Tag tone="orange">{t('未保存')}</Tag>}
                       </span>
                     }
                     description={describeMcp(i.config)}
                   >
                     <span className="cfg__controls">
                       <IconButton
-                        title={`删除 ${i.config.name}`}
+                        title={t('删除 {name}', { name: i.config.name })}
                         size="regular"
                         onClick={() => {
                           if (i.saved) setRemoved((r) => [...r, i.key])
@@ -173,7 +181,7 @@ export function ConfigPage() {
                         {'trash' as const}
                       </IconButton>
                       <Switch
-                        ariaLabel={`启用 ${i.config.name}`}
+                        ariaLabel={t('启用 {name}', { name: i.config.name })}
                         checked={i.enabled}
                         onChange={(enabled) => edit(items.map((x) => (x === i ? { ...x, enabled } : x)))}
                       />
@@ -185,51 +193,60 @@ export function ConfigPage() {
                   label={
                     <span className="cfg__name-line">
                       <span className="cfg__name">{RESERVED}</span>
-                      <Tag tone="gray">内置</Tag>
+                      <Tag tone="gray">{t('内置')}</Tag>
                     </span>
                   }
                   description={
                     <>
-                      系统内置 · 始终注入，不受层级影响
+                      {t('系统内置 · 始终注入，不受层级影响')}
                       <br />
                       {BUILTIN_TOOLS}
                     </>
                   }
                 >
-                  <Switch ariaLabel={`启用 ${RESERVED}`} checked disabled onChange={() => undefined} />
+                  <Switch
+                    ariaLabel={t('启用 {name}', { name: RESERVED })}
+                    checked
+                    disabled
+                    onChange={() => undefined}
+                  />
                 </GroupRow>
               </GroupBox>
               <div className="cfg__foot">
-                <Checkbox label="强制相关 Bot 下一轮开新会话" checked={force} onChange={setForce} />
-                <HelpButton help="勾选后，受影响的 Bot 下一轮会放弃已有会话、按新配置重开，卡片会提示原因；不勾选则已有会话继续使用旧配置。" />
+                <Checkbox label={t('强制相关 Bot 下一轮开新会话')} checked={force} onChange={setForce} />
+                <HelpButton
+                  help={t(
+                    '勾选后，受影响的 Bot 下一轮会放弃已有会话、按新配置重开，卡片会提示原因；不勾选则已有会话继续使用旧配置。',
+                  )}
+                />
                 <span className="spacer" />
-                <Button onClick={() => setAdding(true)}>添加 MCP…</Button>
+                <Button onClick={() => setAdding(true)}>{t('添加 MCP…')}</Button>
                 <Button variant="primary" disabled={!dirty || busy} onClick={() => void save()}>
-                  保存
+                  {t('保存')}
                 </Button>
               </div>
             </>
           )}
         </div>
         <div className="cfg__preview">
-          <div className="cfg__eyebrow">合并预览 · 全部 Bot</div>
+          <div className="cfg__eyebrow">{t('合并预览 · 全部 Bot')}</div>
           {[
-            { name: '服务器群层', pri: '优先级高', color: 'var(--system-blue)', text: '暂未开放' },
+            { name: t('服务器群层'), pri: t('优先级高'), color: 'var(--system-blue)', text: t('暂未开放') },
             {
-              name: '服务器全局层',
-              pri: '中',
+              name: t('服务器全局层'),
+              pri: t('中'),
               color: 'var(--system-teal)',
-              text: `mcp: ${enabledNames.join(', ') || '无'}`,
+              text: `mcp: ${enabledNames.join(', ') || t('无')}`,
             },
             {
-              name: 'Bot 系统提示词',
+              name: t('Bot 系统提示词'),
               pri: '',
               color: 'var(--system-gray)',
-              text: '各 Bot 在 Bot 页设置',
+              text: t('各 Bot 在 Bot 页设置'),
             },
             {
-              name: '仓库基线',
-              pri: '低',
+              name: t('仓库基线'),
+              pri: t('低'),
               color: 'var(--label-tertiary)',
               text: '.mcp.json · .claude/ · AGENTS.md',
             },
@@ -243,17 +260,18 @@ export function ConfigPage() {
             </div>
           ))}
           <div className="cfg__note">
-            合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent
-            本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。
+            {t(
+              '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent 本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。',
+            )}
           </div>
           {savedForce === null ? null : (
             <Alert
               variant="success"
-              title="已保存，全员下一轮新会话生效"
+              title={t('已保存，全员下一轮新会话生效')}
               description={
                 savedForce
-                  ? '已要求相关 Bot 下一轮开新会话，卡片会提示原因。'
-                  : '运行中的轮次不受影响；已有会话继续使用旧配置。'
+                  ? t('已要求相关 Bot 下一轮开新会话，卡片会提示原因。')
+                  : t('运行中的轮次不受影响；已有会话继续使用旧配置。')
               }
             />
           )}
@@ -302,18 +320,18 @@ function AddMcpDialog({
 
   const submit = () => {
     const name = f.name.trim()
-    if (!name) return setError('请填写名称')
-    if (name === RESERVED) return setError(`${RESERVED} 是系统内置 MCP 的名称`)
-    if (taken.includes(name)) return setError('MCP 名称已存在')
+    if (!name) return setError(t('请填写名称'))
+    if (name === RESERVED) return setError(t('{name} 是系统内置 MCP 的名称', { name: RESERVED }))
+    if (taken.includes(name)) return setError(t('MCP 名称已存在'))
     if (transport === 'stdio') {
-      if (!f.command.trim()) return setError('请填写命令')
+      if (!f.command.trim()) return setError(t('请填写命令'))
       const args = f.args
         .split('\n')
         .map((a) => a.trim())
         .filter(Boolean)
       return onAdd({ transport, name, command: f.command.trim(), args, env: pairs(f.env, '=') })
     }
-    if (!/^https?:\/\//.test(f.url.trim())) return setError('URL 需以 http:// 或 https:// 开头')
+    if (!/^https?:\/\//.test(f.url.trim())) return setError(t('URL 需以 http:// 或 https:// 开头'))
     onAdd({ transport, name, url: f.url.trim(), headers: pairs(f.headers, ':') })
   }
 
@@ -321,20 +339,20 @@ function AddMcpDialog({
   return (
     <Dialog
       open
-      title="添加 MCP"
-      message="保存配置中心后，全员下一轮新会话生效。"
+      title={t('添加 MCP')}
+      message={t('保存配置中心后，全员下一轮新会话生效。')}
       width={520}
       onClose={onClose}
       closeOnBackdrop={false}
       actions={[
-        { label: '取消', onClick: onClose },
-        { label: '添加', variant: 'primary', type: 'submit', form: formId },
+        { label: t('取消'), onClick: onClose },
+        { label: t('添加'), variant: 'primary', type: 'submit', form: formId },
       ]}
     >
       <Form id={formId} onSubmit={submit}>
-        <FormRow label="传输方式">
+        <FormRow label={t('传输方式')}>
           <SegmentedControl
-            aria-label="传输方式"
+            aria-label={t('传输方式')}
             size="small"
             items={[
               { value: 'stdio' as const, label: 'Stdio' },
@@ -344,9 +362,9 @@ function AddMcpDialog({
             onChange={setTransport}
           />
         </FormRow>
-        <FormRow label="名称">
+        <FormRow label={t('名称')}>
           <TextField
-            aria-label="名称"
+            aria-label={t('名称')}
             mono
             value={f.name}
             onChange={set('name')}
@@ -356,19 +374,19 @@ function AddMcpDialog({
         </FormRow>
         {transport === 'stdio' ? (
           <>
-            <FormRow label="命令">
+            <FormRow label={t('命令')}>
               <TextField
-                aria-label="命令"
+                aria-label={t('命令')}
                 mono
                 value={f.command}
                 onChange={set('command')}
                 placeholder="npx"
               />
             </FormRow>
-            <FormRow label="参数" align="top" hint="每行一个。">
+            <FormRow label={t('参数')} align="top" hint={t('每行一个。')}>
               <TextField
                 multiline
-                aria-label="参数"
+                aria-label={t('参数')}
                 className="cfg__mono"
                 rows={3}
                 value={f.args}
@@ -389,11 +407,15 @@ function AddMcpDialog({
         )}
       </Form>
       {transport === 'stdio' ? (
-        <Disclosure variant="group" title="环境变量" summary={lines(f.env) ? `${lines(f.env)} 项` : '未设置'}>
+        <Disclosure
+          variant="group"
+          title={t('环境变量')}
+          summary={lines(f.env) ? t('{n} 项', { n: lines(f.env) }) : t('未设置')}
+        >
           <TextField
             multiline
-            aria-label="环境变量"
-            hint="每行一个 KEY=VALUE；以明文保存，只在新建会话时经 ACP 注入。"
+            aria-label={t('环境变量')}
+            hint={t('每行一个 KEY=VALUE；以明文保存，只在新建会话时经 ACP 注入。')}
             className="cfg__mono"
             rows={3}
             value={f.env}
@@ -403,13 +425,13 @@ function AddMcpDialog({
       ) : (
         <Disclosure
           variant="group"
-          title="请求头"
-          summary={lines(f.headers) ? `${lines(f.headers)} 项` : '未设置'}
+          title={t('请求头')}
+          summary={lines(f.headers) ? t('{n} 项', { n: lines(f.headers) }) : t('未设置')}
         >
           <TextField
             multiline
-            aria-label="请求头"
-            hint="每行一个 Key: Value；以明文保存，只在新建会话时经 ACP 注入。"
+            aria-label={t('请求头')}
+            hint={t('每行一个 Key: Value；以明文保存，只在新建会话时经 ACP 注入。')}
             className="cfg__mono"
             rows={3}
             value={f.headers}

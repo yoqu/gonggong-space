@@ -1,6 +1,7 @@
 import type { CommandCandidatesDto, FileCandidatesDto, GroupDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Avatar, Icon, type IconName } from '../../ui'
@@ -68,9 +69,9 @@ function useRemote<T>(path: string | null) {
 }
 
 function fileHint(e: FileCandidatesDto['entries'][number]) {
-  if (e.dir) return '文件夹'
-  if (e.notInWorkspace) return '该文件不在你的工作区，可能需要拉取'
-  return e.uncommitted ? '未提交' : ''
+  if (e.dir) return t('文件夹')
+  if (e.notInWorkspace) return t('该文件不在你的工作区，可能需要拉取')
+  return e.uncommitted ? t('未提交') : ''
 }
 
 /** @ and / candidates of the composer (spec §8.7): grouped, with file sources and agent commands from the server. */
@@ -88,7 +89,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
       key: `member:${m.userId}`,
       icon: 'person' as const,
       name: m.name,
-      hint: '成员',
+      hint: t('成员'),
     })),
   ]
   const names = people.map((p) => p.name)
@@ -123,15 +124,15 @@ export function useCandidates(group: GroupDto, before: string | null) {
     token.char === '@'
       ? [
           {
-            label: '成员 / Bot',
+            label: t('成员 / Bot'),
             src: '',
             items: people
               .filter((p) => has(p.name))
               .map((p) => ({ ...p, label: p.name, mono: false, insert: `@${p.name}` })),
           },
           {
-            label: '文件',
-            src: files && files.source !== 'none' ? `来源：${files.label}` : '',
+            label: t('文件'),
+            src: files && files.source !== 'none' ? t('来源：{source}', { source: files.label }) : '',
             items: fileEntries.map((e) => ({
               key: `file:${e.path}`,
               icon: e.dir ? 'folder' : 'doc-text',
@@ -144,7 +145,7 @@ export function useCandidates(group: GroupDto, before: string | null) {
         ]
       : [
           {
-            label: '系统命令',
+            label: t('系统命令'),
             src: '',
             items: (commands?.value.system ?? [])
               .filter((c) => has(c.name))
@@ -158,8 +159,8 @@ export function useCandidates(group: GroupDto, before: string | null) {
               })),
           },
           {
-            label: 'AGENT 命令',
-            src: 'ACP 上报',
+            label: t('AGENT 命令'),
+            src: t('ACP 上报'),
             items: (commands?.value.agent ?? [])
               .filter((c) => has(c.name))
               .map((c) => ({
@@ -210,7 +211,7 @@ export function CandidatePopover({
       id={id}
       className="pn-mentionpicker mention-pop"
       role="listbox"
-      aria-label={char === '/' ? '/ 命令' : '@ 候选'}
+      aria-label={char === '/' ? t('/ 命令') : t('@ 候选')}
       data-testid="composer-popover"
     >
       {sections.map((s) => (

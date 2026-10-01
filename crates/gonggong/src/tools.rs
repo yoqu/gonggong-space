@@ -5,6 +5,7 @@ use crate::bots::agent_label;
 use crate::config::{Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{AgentInfo, AgentKind};
+use crate::t;
 use crate::upgrade::is_newer;
 use anyhow::{Context, Result, bail};
 use regex::Regex;
@@ -174,7 +175,7 @@ impl Node {
                 .map(|n| self.dir().join(n))
                 .find(|p| p.is_file())
                 .or_else(|| agents::find("npm"))
-                .context("未找到 npm")?;
+                .context(t!("未找到 npm"))?;
             tokio::process::Command::new(npm)
         };
         cmd.env("PATH", self.path_env());
@@ -217,9 +218,9 @@ async fn ensure_node_locked(home: &Path, mirror: &Mirror, progress: Progress<'_>
     if let Some(node) = node(home) {
         return Ok(node);
     }
-    progress(&format!("未找到 Node.js ≥ {MIN_NODE_MAJOR}，安装共工空间托管版"));
+    progress(&t!("未找到 Node.js ≥ {v}，安装共工空间托管版", v = MIN_NODE_MAJOR));
     install_node(home, mirror, None, progress).await?;
-    managed_node(home).context("托管 Node.js 安装后无法运行")
+    managed_node(home).context(t!("托管 Node.js 安装后无法运行"))
 }
 
 /// One install or upgrade at a time per machine, across the daemon and the CLI; held until dropped.
@@ -228,7 +229,7 @@ fn busy(home: &Path) -> Result<File> {
     let file = OpenOptions::new().create(true).write(true).truncate(false).open(home.join("tools.lock"))?;
     match file.try_lock() {
         Ok(()) => Ok(file),
-        Err(TryLockError::WouldBlock) => bail!("本机已有工具安装或升级在进行中，请稍后再试"),
+        Err(TryLockError::WouldBlock) => bail!(t!("本机已有工具安装或升级在进行中，请稍后再试")),
         Err(TryLockError::Error(e)) => Err(e.into()),
     }
 }
@@ -240,8 +241,9 @@ fn requested(version: &str) -> Result<Option<String>> {
     if version == "latest" {
         return Ok(None);
     }
-    let caps =
-        SEMVER.captures(version).with_context(|| format!("版本号格式不正确：{version}（应为 x.y.z 或 latest）"))?;
+    let caps = SEMVER
+        .captures(version)
+        .with_context(|| t!("版本号格式不正确：{version}（应为 x.y.z 或 latest）", version = version))?;
     Ok(Some(caps[1].to_string()))
 }
 
@@ -256,7 +258,7 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
         && let Some(v) = &version
         && major(v).is_none_or(|m| m < MIN_NODE_MAJOR)
     {
-        bail!("ACP 适配器需要 Node.js ≥ {MIN_NODE_MAJOR}，不能安装 {v}");
+        bail!(t!("ACP 适配器需要 Node.js ≥ {min}，不能安装 {v}", min = MIN_NODE_MAJOR, v = v));
     }
     {
         let _busy = busy(home)?;
@@ -274,18 +276,18 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
 pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Result<ToolStatus> {
     let status = current(home, kind)?;
     if !status.installed {
-        bail!("{} 未安装", kind.label());
+        bail!(t!("{tool} 未安装", tool = kind.label()));
     }
     if !status.managed {
-        bail!(
-            "{} 为自行安装（{}），共工空间不代为升级，可改为安装共工空间托管版",
-            kind.label(),
-            status.path.as_deref().unwrap_or("-")
-        );
+        bail!(t!(
+            "{tool} 为自行安装（{path}），共工空间不代为升级，可改为安装共工空间托管版",
+            tool = kind.label(),
+            path = status.path.as_deref().unwrap_or("-")
+        ));
     }
     let latest = latest(home, kind, true).await?;
     if status.version.as_deref().is_some_and(|v| !is_newer(&latest, v)) {
-        progress(&format!("{} 已是最新版本 {latest}", kind.label()));
+        progress(&t!("{tool} 已是最新版本 {v}", tool = kind.label(), v = latest));
         return Ok(ToolStatus { latest: Some(latest), ..status });
     }
     install(home, kind, Some(&latest), progress).await
@@ -300,7 +302,7 @@ async fn install_package(
 ) -> Result<()> {
     let node = ensure_node_locked(home, mirror, progress).await?;
     let spec = format!("{pkg}@{}", version.as_deref().unwrap_or("latest"));
-    progress(&format!("安装 {spec}（{}）", mirror.registry()));
+    progress(&t!("安装 {spec}（{registry}）", spec = spec, registry = mirror.registry()));
     let prefix = tools_dir(home);
     std::fs::create_dir_all(&prefix)?;
     let mut npm = node.npm()?;
@@ -317,7 +319,7 @@ pub async fn run(mut cmd: tokio::process::Command, progress: Progress<'_>) -> Re
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .context("无法启动 npm")?;
+        .context(t!("无法启动 npm"))?;
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     forward(child.stdout.take().expect("piped"), tx.clone());
     forward(child.stderr.take().expect("piped"), tx);
@@ -331,7 +333,7 @@ pub async fn run(mut cmd: tokio::process::Command, progress: Progress<'_>) -> Re
     }
     let status = child.wait().await?;
     if !status.success() {
-        bail!("npm 执行失败（{status}）：{}", Vec::from(tail).join("\n"));
+        bail!(t!("npm 执行失败（{status}）：{output}", status = status, output = Vec::from(tail).join("\n")));
     }
     Ok(())
 }
@@ -354,7 +356,7 @@ fn http() -> Result<reqwest::Client> {
 async fn get_text(http: &reqwest::Client, url: &str) -> Result<String> {
     async { anyhow::Ok(http.get(url).timeout(Duration::from_secs(30)).send().await?.error_for_status()?.text().await?) }
         .await
-        .with_context(|| format!("请求 {url} 失败"))
+        .with_context(|| t!("请求 {url} 失败", url = url))
 }
 
 /// Node's platform suffix for this build (`darwin-arm64`, `win-x64`…); `None` where Node publishes no binary.
@@ -389,14 +391,14 @@ fn latest_lts(index: &str) -> Result<String> {
         version: String,
         lts: serde_json::Value,
     }
-    let releases: Vec<Release> = serde_json::from_str(index).context("Node.js 版本索引格式错误")?;
+    let releases: Vec<Release> = serde_json::from_str(index).context(t!("Node.js 版本索引格式错误"))?;
     releases
         .into_iter()
         .filter(|r| r.lts.is_string())
         .map(|r| r.version.trim_start_matches('v').to_string())
         .filter(|v| requested(v).is_ok() && major(v).is_some_and(|m| m >= MIN_NODE_MAJOR))
         .max_by_key(|v| v.split(['.', '-']).take(3).map(|n| n.parse::<u64>().unwrap_or(0)).collect::<Vec<_>>())
-        .with_context(|| format!("镜像上没有 ≥ {MIN_NODE_MAJOR} 的 Node.js LTS 版本"))
+        .with_context(|| t!("镜像上没有 ≥ {v} 的 Node.js LTS 版本", v = MIN_NODE_MAJOR))
 }
 
 /// The SHA-256 of `file` in a `SHASUMS256.txt`.
@@ -413,23 +415,23 @@ async fn install_node(home: &Path, mirror: &Mirror, version: Option<String>, pro
     let version = match version {
         Some(v) => v,
         None => {
-            progress("查询 Node.js 最新 LTS 版本");
+            progress(t!("查询 Node.js 最新 LTS 版本"));
             latest_lts(&get_text(&http, &format!("{dist}/index.json")).await?)?
         }
     };
-    let platform = node_platform().context("当前平台没有 Node.js 官方构建")?;
+    let platform = node_platform().context(t!("当前平台没有 Node.js 官方构建"))?;
     let file = node_archive_name(&version, platform);
     let name = format!("node-v{version}");
     let runtime = runtime_dir(home);
     let target = runtime.join(&name);
     if !node_exe(&target).is_file() {
         let sums = get_text(&http, &format!("{dist}/v{version}/SHASUMS256.txt")).await?;
-        let expected = checksum(&sums, &file).with_context(|| format!("镜像未提供 {file}"))?.to_string();
+        let expected = checksum(&sums, &file).with_context(|| t!("镜像未提供 {file}", file = file))?.to_string();
         std::fs::create_dir_all(&runtime)?;
         let archive = runtime.join(&file);
         let res = async {
             download(&http, &format!("{dist}/v{version}/{file}"), &archive, &expected, progress).await?;
-            progress("解压");
+            progress(t!("解压"));
             let root = file.trim_end_matches(".tar.gz").trim_end_matches(".zip").to_string();
             let (archive, target) = (archive.clone(), target.clone());
             tokio::task::spawn_blocking(move || extract(&archive, &root, &target)).await?
@@ -439,21 +441,25 @@ async fn install_node(home: &Path, mirror: &Mirror, version: Option<String>, pro
         res?;
     }
     switch_current(home, &name)?;
-    progress(&format!("已切换到 Node.js {version}"));
+    progress(&t!("已切换到 Node.js {version}", version = version));
     Ok(())
 }
 
 /// Streams `url` into `dest`, reporting every 10%, and verifies its SHA-256.
 async fn download(http: &reqwest::Client, url: &str, dest: &Path, sha256: &str, progress: Progress<'_>) -> Result<()> {
-    let mut res =
-        http.get(url).send().await.and_then(|r| r.error_for_status()).with_context(|| format!("下载 {url} 失败"))?;
+    let mut res = http
+        .get(url)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .with_context(|| t!("下载 {url} 失败", url = url))?;
     let total = res.content_length();
     let name = url.rsplit('/').next().unwrap_or(url);
-    progress(&format!("下载 {name}"));
+    progress(&t!("下载 {name}", name = name));
     let mut out = tokio::fs::File::create(dest).await?;
     let mut hasher = Sha256::new();
     let (mut done, mut reported) = (0u64, 0u64);
-    while let Some(chunk) = res.chunk().await.with_context(|| format!("下载 {url} 中断"))? {
+    while let Some(chunk) = res.chunk().await.with_context(|| t!("下载 {url} 中断", url = url))? {
         hasher.update(&chunk);
         out.write_all(&chunk).await?;
         done += chunk.len() as u64;
@@ -461,14 +467,19 @@ async fn download(http: &reqwest::Client, url: &str, dest: &Path, sha256: &str, 
             let pct = done * 100 / total / 10 * 10;
             if pct > reported {
                 reported = pct;
-                progress(&format!("下载 {name}（{pct}%）"));
+                progress(&t!("下载 {name}（{pct}%）", name = name, pct = pct));
             }
         }
     }
     out.flush().await?;
     let actual: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
     if !actual.eq_ignore_ascii_case(sha256) {
-        bail!("{name} 的 SHA256 校验失败（应为 {sha256}，实为 {actual}）");
+        bail!(t!(
+            "{name} 的 SHA256 校验失败（应为 {sha256}，实为 {actual}）",
+            name = name,
+            sha256 = sha256,
+            actual = actual
+        ));
     }
     Ok(())
 }
@@ -488,7 +499,7 @@ fn extract(archive: &Path, root: &str, target: &Path) -> Result<()> {
     if target.exists() {
         std::fs::remove_dir_all(target)?;
     }
-    std::fs::rename(staging.join(root), target).with_context(|| format!("压缩包里没有 {root}"))?;
+    std::fs::rename(staging.join(root), target).with_context(|| t!("压缩包里没有 {root}", root = root))?;
     std::fs::remove_dir_all(&staging)?;
     Ok(())
 }
@@ -538,9 +549,9 @@ pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> 
     let body = get_text(&http()?, &source).await?;
     let version = match kind.package() {
         Some(_) => {
-            let v: serde_json::Value = serde_json::from_str(&body).context("npm 版本信息格式错误")?;
-            let v = v["version"].as_str().context("npm 版本信息缺少 version")?;
-            requested(v)?.context("npm 版本信息格式错误")?
+            let v: serde_json::Value = serde_json::from_str(&body).context(t!("npm 版本信息格式错误"))?;
+            let v = v["version"].as_str().context(t!("npm 版本信息缺少 version"))?;
+            requested(v)?.context(t!("npm 版本信息格式错误"))?
         }
         None => latest_lts(&body)?,
     };
@@ -642,7 +653,8 @@ pub async fn cli(home: &Path, cmd: Option<AgentsCmd>) -> Result<()> {
         None => crate::configure::print_agents(home).await,
         Some(AgentsCmd::Install { kind, version }) => {
             let s = install(home, kind, version.as_deref(), &print).await?;
-            println!("已安装 {} {}", kind.label(), s.version.as_deref().unwrap_or("（版本未知）"));
+            let version = s.version.as_deref().unwrap_or(t!("（版本未知）"));
+            println!("{}", t!("已安装 {tool} {version}", tool = kind.label(), version = version));
             Ok(())
         }
         Some(AgentsCmd::Upgrade { kind, all }) => {
@@ -666,26 +678,26 @@ fn set_mirror(home: &Path, value: Option<String>, node: Option<String>) -> Resul
         settings.mirror = match (value.as_str(), node) {
             ("npmmirror", None) => Mirror::Npmmirror,
             ("official", None) => Mirror::Official,
-            ("npmmirror" | "official", Some(_)) => bail!("--node-mirror 只用于自定义镜像"),
+            ("npmmirror" | "official", Some(_)) => bail!(t!("--node-mirror 只用于自定义镜像")),
             (registry, Some(node)) => Mirror::Custom { registry: http_url(registry)?, node: http_url(&node)? },
-            (_, None) => bail!("自定义镜像需同时用 --node-mirror 指定 Node.js 下载地址"),
+            (_, None) => bail!(t!("自定义镜像需同时用 --node-mirror 指定 Node.js 下载地址")),
         };
         settings.save(home)?;
     }
     let m = &settings.mirror;
     let name = match m {
-        Mirror::Npmmirror => "淘宝镜像（npmmirror）",
-        Mirror::Official => "官方源",
-        Mirror::Custom { .. } => "自定义",
+        Mirror::Npmmirror => t!("淘宝镜像（npmmirror）"),
+        Mirror::Official => t!("官方源"),
+        Mirror::Custom { .. } => t!("自定义"),
     };
-    println!("镜像源：{name}\nnpm\t{}\nNode.js\t{}", m.registry(), m.node_dist());
+    println!("{}\nnpm\t{}\nNode.js\t{}", t!("镜像源：{name}", name = name), m.registry(), m.node_dist());
     Ok(())
 }
 
 pub(crate) fn http_url(s: &str) -> Result<String> {
     match reqwest::Url::parse(s) {
         Ok(u) if matches!(u.scheme(), "http" | "https") => Ok(s.to_string()),
-        _ => bail!("不是有效的 http(s) 地址：{s}"),
+        _ => bail!(t!("不是有效的 http(s) 地址：{s}", s = s)),
     }
 }
 

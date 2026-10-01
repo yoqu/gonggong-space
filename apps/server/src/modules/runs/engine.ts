@@ -15,6 +15,7 @@ import { publishRun, type RunRow } from './dto.js'
 import { redact, redactDeep } from './redact.js'
 import { schedule } from './scheduler.js'
 import { sealEvent } from './sealed.js'
+import { runStep } from './step.js'
 import { notifyChainDone, stoppedDone } from './stop.js'
 import { triggerChain } from './trigger.js'
 
@@ -352,7 +353,9 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
       .update(runs)
       .set({
         status: done.outcome === 'completed' ? 'completed' : 'interrupted',
-        step: done.outcome === 'failed' ? `agent 异常：${redact(done.error ?? '未知错误')}` : '',
+        ...(done.outcome === 'failed'
+          ? runStep('agent 异常：{error}', { error: done.error ? redact(done.error) : { key: '未知错误' } })
+          : { step: '' }),
         filesChanged: done.filesChanged,
         patch: done.patch && seal(redact(done.patch)),
         ...(done.usage && { usage: done.usage }),

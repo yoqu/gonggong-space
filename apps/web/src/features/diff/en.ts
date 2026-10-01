@@ -1,0 +1,18 @@
+export default {
+  无法读取改动: "Couldn't read changes",
+  '{n} 个文件': '{n} {n:file|files}',
+  '{file} 在这个范围内没有改动': '{file} has no changes in this scope',
+  '新增 {add} 行，删除 {del} 行': '{add} {add:line|lines} added, {del} {del:line|lines} deleted',
+  以列表显示: 'Show as list',
+  以目录树显示: 'Show as tree',
+  在文件浏览器中定位: 'Show in file browser',
+  本轮: 'This turn',
+  未提交: 'Uncommitted',
+  对比主分支: 'Against main',
+  改动范围: 'Change scope',
+  本轮没有文件改动: 'No file changes this turn',
+  没有未提交的改动: 'No uncommitted changes',
+  '{branch} 相对 {base} 没有改动': '{branch} has no changes against {base}',
+  当前分支: 'The current branch',
+  '当前就在主分支，没有可对比的改动': 'Already on the main branch; nothing to compare',
+} satisfies Record<string, string>

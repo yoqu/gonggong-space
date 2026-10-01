@@ -7,6 +7,7 @@ import { groupParams } from '../groups/params.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
 import { redact } from '../runs/redact.js'
+import { runStep } from '../runs/step.js'
 
 type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'
@@ -61,7 +62,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       createdAt: ctx.now(),
     })
     .returning()) as [Approval]
-  await syncRun(ctx, req.runId, `等待审批：${req.title}`)
+  await syncRun(ctx, req.runId, runStep('等待审批：{title}', { title: req.title }))
   await notify(ctx, row.bot.ownerId, 'approval', {
     groupId: row.group.id,
     groupName: row.group.name,
@@ -187,13 +188,13 @@ const auditDetail = (a: Approval) => ({
 })
 
 /** A live run awaits approval exactly while it has a pending request; publishes the run with its approvals. */
-async function syncRun(ctx: Ctx, runId: string, step?: string) {
+async function syncRun(ctx: Ctx, runId: string, step?: ReturnType<typeof runStep>) {
   const pending = sql`exists (select 1 from ${approvals} where ${approvals.runId} = ${runs.id} and ${approvals.status} = 'pending')`
   const [updated] = await ctx.db
     .update(runs)
     .set({
       status: sql`case when ${pending} then 'awaiting_approval' else 'running' end`,
-      ...(step !== undefined && { step }),
+      ...step,
     })
     .where(and(eq(runs.id, runId), inArray(runs.status, ['running', 'awaiting_approval'])))
     .returning()

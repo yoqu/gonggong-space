@@ -65,7 +65,7 @@ export function userRoutes(ctx: Ctx) {
 
     app.patch<{ Params: { id: string } }>('/api/admin/users/:id', async (req) => {
       const actor = await requireSysadmin(ctx, req)
-      const id = idParam(req.params.id, '账号')
+      const id = idParam(req.params.id, '账号不存在')
       const patch = UpdateUserReq.parse(req.body)
       if (!Object.keys(patch).length) return fail('invalid', '没有要修改的字段')
       if (id === actor.id && patch.role && patch.role !== actor.role)
@@ -83,7 +83,7 @@ export function userRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/admin/users/:id/password', async (req) => {
       const actor = await requireSysadmin(ctx, req)
-      const id = idParam(req.params.id, '账号')
+      const id = idParam(req.params.id, '账号不存在')
       const { password } = ResetPasswordReq.parse(req.body)
       if (id === actor.id) return fail('invalid', '修改自己的密码请在账户菜单中操作')
       const passwordHash = await hash(password)
@@ -112,11 +112,11 @@ export function userRoutes(ctx: Ctx) {
     })
 
     app.post<{ Params: { id: string } }>('/api/admin/users/:id/disable', async (req) =>
-      disableUser(ctx, idParam(req.params.id, '账号'), await requireSysadmin(ctx, req)),
+      disableUser(ctx, idParam(req.params.id, '账号不存在'), await requireSysadmin(ctx, req)),
     )
 
     app.post<{ Params: { id: string } }>('/api/admin/users/:id/enable', async (req) =>
-      enableUser(ctx, idParam(req.params.id, '账号'), await requireSysadmin(ctx, req)),
+      enableUser(ctx, idParam(req.params.id, '账号不存在'), await requireSysadmin(ctx, req)),
     )
 
     app.get('/api/users', async (req): Promise<UserBriefDto[]> => {
@@ -133,7 +133,12 @@ export function userRoutes(ctx: Ctx) {
       async (req) => {
         const viewer = await requireUser(ctx, req)
         const { groupId } = req.query
-        return userCard(ctx, viewer, idParam(req.params.id, '账号'), groupId && idParam(groupId, '群'))
+        return userCard(
+          ctx,
+          viewer,
+          idParam(req.params.id, '账号不存在'),
+          groupId && idParam(groupId, '群不存在'),
+        )
       },
     )
   }

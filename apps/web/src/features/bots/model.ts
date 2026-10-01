@@ -7,6 +7,7 @@ import {
   type TriggerScope,
 } from '@gonggong/protocol'
 import { refreshNotifCount, useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
@@ -16,25 +17,25 @@ export const AGENT_LABEL: Record<AgentKind, string> = { claude: 'Claude Code', c
 const AGENT_CLI: Record<AgentKind, string> = { claude: 'claude-code', codex: 'codex' }
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
-  bound: '已绑定',
-  pending_confirm: '待确认',
-  pending_bind: '待绑定',
+  bound: t('已绑定'),
+  pending_confirm: t('待确认'),
+  pending_bind: t('待绑定'),
 }
 
 export const PRESENCE: Record<BotDto['presence'], { label: string; color: string }> = {
-  online: { label: '在线空闲', color: 'var(--system-green)' },
-  running: { label: '运行中', color: 'var(--system-blue)' },
-  offline: { label: '离线', color: 'var(--system-gray)' },
-  agent_missing: { label: 'agent 缺失', color: 'var(--system-orange)' },
-  pending_bind: { label: '不可触发', color: 'var(--system-gray)' },
-  pending_confirm: { label: '不可触发', color: 'var(--system-gray)' },
+  online: { label: t('在线空闲'), color: 'var(--system-green)' },
+  running: { label: t('运行中'), color: 'var(--system-blue)' },
+  offline: { label: t('离线'), color: 'var(--system-gray)' },
+  agent_missing: { label: t('agent 缺失'), color: 'var(--system-orange)' },
+  pending_bind: { label: t('不可触发'), color: 'var(--system-gray)' },
+  pending_confirm: { label: t('不可触发'), color: 'var(--system-gray)' },
 }
 
 const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
-  online: '在线',
-  running: '运行中',
-  offline: '离线',
-  agent_missing: 'agent 缺失',
+  online: t('在线'),
+  running: t('运行中'),
+  offline: t('离线'),
+  agent_missing: t('agent 缺失'),
 }
 
 /** Sidebar line, e.g. `wanglei-mbp · 在线`, or the binding state while not bound; missing parts are left out. */
@@ -104,11 +105,11 @@ export const botsApi = {
 export const confirmBot = (id: string) =>
   botsApi
     .confirm(id)
-    .then((b) => toast({ type: 'success', message: `${b.name} 已确认` }))
+    .then((b) => toast({ type: 'success', message: t('{name} 已确认', { name: b.name }) }))
     .catch(toastError)
 
 export const TRIGGER_SCOPE_LABEL: Record<TriggerScope, string> = {
-  all: '任何群成员',
-  list: '指定名单',
-  self: '仅本人',
+  all: t('任何群成员'),
+  list: t('指定名单'),
+  self: t('仅本人'),
 }

@@ -1,5 +1,6 @@
 import type { AgentKind, Approval, RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
+import { t } from '../i18n'
 import type { Snapshot } from '../ipc'
 
 export const AGENTS: Record<AgentKind, { name: string }> = {
@@ -23,23 +24,23 @@ const RED = 'var(--system-red)'
 const GRAY = 'var(--system-gray)'
 
 export const PILL: Record<ConnKind, { text: string; color: string }> = {
-  ok: { text: '已连接', color: GREEN },
-  connecting: { text: '连接中', color: ORANGE },
-  offline: { text: '重连中', color: ORANGE },
-  proto: { text: '协议不兼容', color: RED },
-  revoked: { text: 'token 已吊销', color: RED },
-  blocked: { text: '未运行', color: RED },
-  unbound: { text: '未绑定', color: GRAY },
+  ok: { text: t('已连接'), color: GREEN },
+  connecting: { text: t('连接中'), color: ORANGE },
+  offline: { text: t('重连中'), color: ORANGE },
+  proto: { text: t('协议不兼容'), color: RED },
+  revoked: { text: t('token 已吊销'), color: RED },
+  blocked: { text: t('未运行'), color: RED },
+  unbound: { text: t('未绑定'), color: GRAY },
 }
 
 export const CONN_STAT: Record<ConnKind, string> = {
-  ok: '在线',
-  connecting: '连接中',
-  offline: '重连中',
-  proto: '已拒绝',
-  revoked: '已吊销',
-  blocked: '未运行',
-  unbound: '未绑定',
+  ok: t('在线'),
+  connecting: t('连接中'),
+  offline: t('重连中'),
+  proto: t('已拒绝'),
+  revoked: t('已吊销'),
+  blocked: t('未运行'),
+  unbound: t('未绑定'),
 }
 
 export function host(server: string | null | undefined) {
@@ -54,29 +55,29 @@ export function host(server: string | null | undefined) {
 export function runBadge(status: RunStatus | null): { text: string; variant: BadgeVariant } {
   switch (status) {
     case null:
-      return { text: '准备中', variant: 'secondary' }
+      return { text: t('准备中'), variant: 'secondary' }
     case 'awaiting_approval':
-      return { text: '等待审批', variant: 'warning' }
+      return { text: t('等待审批'), variant: 'warning' }
     case 'awaiting_answer':
-      return { text: '等待回答', variant: 'warning' }
+      return { text: t('等待回答'), variant: 'warning' }
     default:
-      return { text: '运行中', variant: 'info' }
+      return { text: t('运行中'), variant: 'info' }
   }
 }
 
 /** 在 Finder 中显示, in the platform's words. */
 export function revealLabel(os: string | undefined) {
-  if (os === 'windows') return '在资源管理器中显示'
-  if (os === 'linux') return '在文件管理器中显示'
-  return '在 Finder 中显示'
+  if (os === 'windows') return t('在资源管理器中显示')
+  if (os === 'linux') return t('在文件管理器中显示')
+  return t('在 Finder 中显示')
 }
 
 export const VENDOR: Record<AgentKind, string> = { claude: 'Anthropic · CLI', codex: 'OpenAI · CLI' }
 
 export const APPROVAL: Record<Approval, string> = {
-  ask: '每次询问',
-  allowlist: '白名单自动',
-  all: '全部自动',
+  ask: t('每次询问'),
+  allowlist: t('白名单自动'),
+  all: t('全部自动'),
 }
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */

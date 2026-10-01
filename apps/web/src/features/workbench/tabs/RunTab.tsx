@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
+import { t } from '../../../i18n'
 import { api } from '../../../lib/api'
 import { copyWithToast } from '../../../lib/clipboard'
 import { cx } from '../../../lib/cx'
@@ -44,13 +45,13 @@ import '../../runs/runs.css'
 type RunView = TabProps<'run'>['tab']['view']
 
 const VIEWS: { value: RunView; label: string }[] = [
-  { value: 'process', label: '过程' },
-  { value: 'diff', label: '改动' },
-  { value: 'audit', label: '审批记录' },
+  { value: 'process', label: t('过程') },
+  { value: 'diff', label: t('改动') },
+  { value: 'audit', label: t('审批记录') },
 ]
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const FAILED = ['forbidden', 'interrupted', 'expired']
-const PURGED = '运行过程已过期，仅保留摘要'
+const PURGED = t('运行过程已过期，仅保留摘要')
 /** Coalesces bursts of run.updated / run.progress into one refetch. */
 const REFETCH_MS = 300
 
@@ -192,17 +193,19 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
         scrolled={false}
         leading={<BotAvatar id={bot?.id} name={bot?.name ?? 'bot'} size={24} />}
         title={bot?.name ?? 'bot'}
-        subtitle={run ? `${userName(run.triggerUserId ?? run.originUserId)} 触发` : undefined}
+        subtitle={
+          run ? t('{name} 触发', { name: userName(run.triggerUserId ?? run.originUserId) }) : undefined
+        }
       >
         {run ? <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag> : null}
-        <IconButton title="机器与会话" aria-pressed={more} onClick={() => setMore(!more)}>
+        <IconButton title={t('机器与会话')} aria-pressed={more} onClick={() => setMore(!more)}>
           <Icon name="info" />
         </IconButton>
       </Toolbar>
       <div className="run-tab__head">
         {run ? (
           <div className="run-tab__facts">
-            <span className="run-tab__fact" title="模型">
+            <span className="run-tab__fact" title={t('模型')}>
               <Icon name="cpu" size={14} />
               <span className="run-tab__val">
                 {run.model || run.effort
@@ -211,14 +214,14 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
                       run.model ?? bot?.catalog?.current ?? null,
                       run.effort,
                     )
-                  : '默认'}
+                  : t('默认')}
               </span>
             </span>
-            <span className="run-tab__fact" title="耗时">
+            <span className="run-tab__fact" title={t('耗时')}>
               <Icon name="clock" size={14} />
               {started === null ? '—' : fmtDuration(ended - started)}
             </span>
-            <span className="run-tab__fact" title="用量">
+            <span className="run-tab__fact" title={t('用量')}>
               <Icon name="chart-bar" size={14} />
               <span className="run-tab__val">{fmtUsage(run.usage)}</span>
             </span>
@@ -226,10 +229,10 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
         ) : null}
         {run && more ? (
           <GroupBox>
-            <GroupRow label="机器">
+            <GroupRow label={t('机器')}>
               <span className="run-tab__val run-tab__mono">{bot?.machineName ?? '—'}</span>
             </GroupRow>
-            <GroupRow label="会话">
+            <GroupRow label={t('会话')}>
               <span className="run-tab__val run-tab__mono">
                 {detail.sessionId ? <SessionId id={detail.sessionId} /> : '—'}
               </span>
@@ -240,7 +243,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
       </div>
       <div className={cx('run-tab__body', view === 'diff' && 'run-tab__body--fill')}>
         {error ? (
-          <EmptyState bare illustration={<FailedArt />} title="无法加载运行过程" description={error} />
+          <EmptyState bare illustration={<FailedArt />} title={t('无法加载运行过程')} description={error} />
         ) : !detail ? (
           <div className="run-tab__loading">
             <Spinner />
@@ -289,7 +292,7 @@ export function useRunTabMeta(tab: TabProps<'run'>['tab']): TabMeta {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === run?.botId)?.name) ?? 'Bot'
   return {
     icon: 'square-terminal',
-    title: `${name} · ${round ? `第 ${round} 轮` : '运行'}`,
+    title: round ? t('{name} · 第 {round} 轮', { name, round }) : t('{name} · 运行', { name }),
     status: !run
       ? undefined
       : run.status === 'completed'
@@ -313,7 +316,7 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
         setRounds(d.rounds)
         useRunInfo.setState((s) => ({ rounds: { ...s.rounds, [runId]: d.rounds.length + 1 } }))
       },
-      (e: Error) => toast({ type: 'error', message: `无法加载上一轮：${e.message}` }),
+      (e: Error) => toast({ type: 'error', message: t('无法加载上一轮：{error}', { error: e.message }) }),
     )
   }, [runId])
   const left = rounds.length - shown
@@ -322,13 +325,13 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
       {left > 0 ? (
         <button type="button" className="run-rounds__more" onClick={() => setShown(shown + 1)}>
           <Icon name="chevron-up" size={14} />
-          查看上一轮（还有 {left} 轮）
+          {t('查看上一轮（还有 {n} 轮）', { n: left })}
         </button>
       ) : null}
       {rounds.slice(left).map((r) => (
         <PastRound key={r.run.id} run={r.run} prompt={r.prompt} root={root} />
       ))}
-      {shown > 0 ? <div className="run-rounds__divider">本轮</div> : null}
+      {shown > 0 ? <div className="run-rounds__divider">{t('本轮')}</div> : null}
     </>
   )
 }
@@ -372,15 +375,15 @@ function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: s
 async function stopTask(runId: string, taskId: string) {
   try {
     const { sent } = await api.post<TaskStopRes>(`/runs/${runId}/tasks/${encodeURIComponent(taskId)}/stop`)
-    if (!sent) throw new Error('Bot 所在机器离线')
+    if (!sent) throw new Error(t('Bot 所在机器离线'))
   } catch (e) {
-    toast({ type: 'error', message: `停止失败：${(e as Error).message}` })
+    toast({ type: 'error', message: t('停止失败：{error}', { error: (e as Error).message }) })
     throw e
   }
 }
 
 function SessionId({ id }: { id: string }) {
-  const copy = () => void copyWithToast(id, '已复制会话 ID')
+  const copy = () => void copyWithToast(id, t('已复制会话 ID'))
   return (
     <span className="run-tab__session">
       <span className="run-tab__session-id" title={id}>
@@ -389,8 +392,8 @@ function SessionId({ id }: { id: string }) {
       <button
         type="button"
         className="run-tab__copy"
-        aria-label="复制会话 ID"
-        title="复制会话 ID"
+        aria-label={t('复制会话 ID')}
+        title={t('复制会话 ID')}
         onClick={() => void copy()}
       >
         <Icon name="copy" size={12} />
@@ -441,12 +444,15 @@ function Audit({ detail, userName }: { detail: RunDetailDto; userName: (id: stri
       at: run.queuedAt,
       text:
         run.hop > 1
-          ? `接力第 ${run.hop} 跳 · 发起人 ${userName(run.originUserId)}`
-          : `${userName(run.triggerUserId)} 触发运行`,
+          ? t('接力第 {hop} 跳 · 发起人 {name}', { hop: run.hop, name: userName(run.originUserId) })
+          : t('{name} 触发运行', { name: userName(run.triggerUserId) }),
     },
-    ...run.approvals.map((a) => ({ at: a.createdAt, text: `权限请求：${a.detail} · ${approvalText(a)}` })),
+    ...run.approvals.map((a) => ({
+      at: a.createdAt,
+      text: t('权限请求：{detail} · {status}', { detail: a.detail, status: approvalText(a) }),
+    })),
     ...(run.stoppedBy && run.endedAt
-      ? [{ at: run.endedAt, text: `${userName(run.stoppedBy)} 停止了运行` }]
+      ? [{ at: run.endedAt, text: t('{name} 停止了运行', { name: userName(run.stoppedBy) }) }]
       : []),
   ]
   return (
@@ -458,7 +464,9 @@ function Audit({ detail, userName }: { detail: RunDetailDto; userName: (id: stri
         </div>
       ))}
       <div className="run-audit__note">
-        审批与提问记录永久保存；完整运行过程保留 {detail.retentionDays} 天，过期后卡片只保留摘要。
+        {t('审批与提问记录永久保存；完整运行过程保留 {n} 天，过期后卡片只保留摘要。', {
+          n: detail.retentionDays,
+        })}
       </div>
     </>
   )

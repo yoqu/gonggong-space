@@ -1,7 +1,7 @@
 import { motion, useAnimationControls } from 'motion/react'
 import { type FormEvent, type ReactNode, useEffect } from 'react'
 import { Button, Icon, Logo, Spinner } from '../../ui'
-import { AuthStage, type AuthVariant, ThemeToggle } from './AuthStage'
+import { AuthStage, type AuthVariant, LocaleToggle, ThemeToggle } from './AuthStage'
 import './auth.css'
 
 /**
@@ -37,7 +37,10 @@ export function AuthCard({
   return (
     <div className="auth" data-testid={testId} data-leaving={leaving || undefined}>
       <AuthStage variant={variant} />
-      <ThemeToggle />
+      <div className="auth__corner">
+        <LocaleToggle />
+        <ThemeToggle />
+      </div>
       <main className="auth__panel">
         <div className="auth__card">
           <motion.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">

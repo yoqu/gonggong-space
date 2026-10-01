@@ -1,4 +1,5 @@
 import type { BotProbeDto, GitProvider, RepoProbeRes } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Icon, type IconName } from '../../ui'
 
@@ -36,12 +37,12 @@ export const RESULT: Record<
   NonNullable<BotProbeDto['reason']> | 'ok',
   { icon: IconName; text: string; tone: 'ok' | 'warn' | 'bad' | 'muted' }
 > = {
-  ok: { icon: 'checkmark-circle', text: '可访问', tone: 'ok' },
-  denied: { icon: 'warning', text: '无权限 · 进群后暂停', tone: 'warn' },
-  network: { icon: 'warning', text: '网络或证书 · 进群后暂停', tone: 'warn' },
-  timeout: { icon: 'warning', text: '超时 · 进群后暂停', tone: 'warn' },
-  branch_missing: { icon: 'xmark-circle', text: '分支不存在', tone: 'bad' },
-  offline: { icon: 'moon', text: '离线 · 上线后验证', tone: 'muted' },
+  ok: { icon: 'checkmark-circle', text: t('可访问'), tone: 'ok' },
+  denied: { icon: 'warning', text: t('无权限 · 进群后暂停'), tone: 'warn' },
+  network: { icon: 'warning', text: t('网络或证书 · 进群后暂停'), tone: 'warn' },
+  timeout: { icon: 'warning', text: t('超时 · 进群后暂停'), tone: 'warn' },
+  branch_missing: { icon: 'xmark-circle', text: t('分支不存在#status'), tone: 'bad' },
+  offline: { icon: 'moon', text: t('离线 · 上线后验证'), tone: 'muted' },
 }
 
 /** Badge for the URL a machine actually used; none for local (file://) repos. */
@@ -64,16 +65,16 @@ export function AccessResult({ result }: { result: BotProbeDto }) {
 export function checkSummary(d: RepoDraft) {
   const c = settled(d)
   if (!c) return null
-  if (!c.results.length) return '没有可检查的 Bot · 进群后由各 Bot 的机器验证'
+  if (!c.results.length) return t('没有可检查的 Bot · 进群后由各 Bot 的机器验证')
   const count = (f: (r: BotProbeDto) => boolean) => c.results.filter(f).length
   const ok = count((r) => r.ok)
   const paused = repoUnavailable(d)
   const offline = count((r) => r.reason === 'offline')
   return [
-    branchMissing(d) ? `分支 ${d.branch.trim() || 'main'} 不存在` : null,
-    ok ? `${ok} 个 Bot 可访问` : null,
-    paused ? `${paused} 个进群后暂停` : null,
-    offline ? `${offline} 个离线` : null,
+    branchMissing(d) ? t('分支 {branch} 不存在', { branch: d.branch.trim() || 'main' }) : null,
+    ok ? t('{n} 个 Bot 可访问', { n: ok }) : null,
+    paused ? t('{n} 个进群后暂停', { n: paused }) : null,
+    offline ? t('{n} 个离线', { n: offline }) : null,
   ]
     .filter(Boolean)
     .join(' · ')

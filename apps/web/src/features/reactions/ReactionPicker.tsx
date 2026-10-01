@@ -2,6 +2,7 @@ import { REACTION_EMOJIS, type ReactionEmoji } from '@gonggong/protocol'
 import { EmojiPicker, Icon, Popover } from '../../ui'
 import { type ReactionTarget, toggleReaction, useReactions } from './store'
 import './reactions.css'
+import { t } from '../../i18n'
 
 /** Hover-bar button opening the Pane EmojiPicker on the fixed set the server accepts; mine are marked. */
 export function ReactionPicker({
@@ -22,9 +23,9 @@ export function ReactionPicker({
       placement="top-start"
       open={open}
       onOpenChange={onOpenChange}
-      aria-label="表情回应"
+      aria-label={t('表情回应')}
       trigger={
-        <button type="button" title="添加表情回应" aria-label="添加表情回应">
+        <button type="button" title={t('添加表情回应')} aria-label={t('添加表情回应')}>
           <Icon name="smile" />
         </button>
       }

@@ -1,6 +1,7 @@
 import type { BotDto, GroupDto, GroupProviderStateDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
@@ -65,10 +66,14 @@ export function ProviderBanner({ group }: { group: GroupDto }) {
           icon="info"
           color="var(--system-blue)"
           title={null}
-          text={`${bot.name} 本会话使用 ${session}；已切换为 ${effective}，开启新会话后生效`}
+          text={t('{name} 本会话使用 {session}；已切换为 {effective}，开启新会话后生效', {
+            name: bot.name,
+            session,
+            effective,
+          })}
           action={
             <Button size="small" disabled={sending === bot.id} onClick={() => renew(bot)}>
-              开启新会话
+              {t('开启新会话')}
             </Button>
           }
         />

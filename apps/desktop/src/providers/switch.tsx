@@ -1,6 +1,7 @@
 import type { AgentKind } from '@gonggong/protocol'
 import { AlertDialog } from '@web/ui'
 import { useState } from 'react'
+import { t } from '../i18n'
 import { type Impact, ipc, type ProviderChoice } from '../ipc'
 import { fail } from '../lib/ui'
 
@@ -19,8 +20,12 @@ export function impactLines(impact: Impact[]) {
     by.set(key, [...(by.get(key) ?? []), i])
   }
   return [...by.values()].map((list) => ({
-    text: `${list.length} 个群的会话仍在使用 ${list[0]?.from}，开启新会话后才会切换到 ${list[0]?.to}`,
-    groups: list.map((i) => `${i.group}（${i.bot}）`),
+    text: t('{n} 个群的会话仍在使用 {from}，开启新会话后才会切换到 {to}', {
+      n: list.length,
+      from: list[0]?.from ?? '',
+      to: list[0]?.to ?? '',
+    }),
+    groups: list.map((i) => t('{group}（{bot}）', { group: i.group, bot: i.bot })),
   }))
 }
 
@@ -59,11 +64,11 @@ export function useProviderSwitch(onDone: () => void) {
     <AlertDialog
       open={open}
       onClose={() => setOpen(false)}
-      title={`要让新会话改用 ${pending?.impact[0]?.to ?? ''} 吗？`}
-      message="进行中的会话不受影响，在群里开启新会话后才会切换。"
+      title={t('要让新会话改用 {to} 吗？', { to: pending?.impact[0]?.to ?? '' })}
+      message={t('进行中的会话不受影响，在群里开启新会话后才会切换。')}
       detail={lines.map((l) => (
         <div key={l.text}>
-          <p>{l.text}：</p>
+          <p>{t('{text}：', { text: l.text })}</p>
           <ul className="ui-consequences">
             {l.groups.map((g) => (
               <li key={g}>{g}</li>
@@ -72,9 +77,9 @@ export function useProviderSwitch(onDone: () => void) {
         </div>
       ))}
       actions={[
-        { label: '取消', onClick: () => setOpen(false) },
+        { label: t('取消'), onClick: () => setOpen(false) },
         {
-          label: '切换',
+          label: t('切换'),
           variant: 'primary',
           onClick: () => {
             setOpen(false)

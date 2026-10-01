@@ -19,9 +19,9 @@ export function agentToolRoutes(ctx: Ctx) {
       '/api/daemon/runs/:runId/tools/:name',
       async (req): Promise<ToolCallRes> => {
         const machine = await requireMachine(ctx, req)
-        const runId = idParam(req.params.runId, '运行')
+        const runId = idParam(req.params.runId, '运行不存在')
         const name = req.params.name
-        if (!Object.hasOwn(GONGGONG_TOOLS, name)) return fail('not_found', `工具 ${name} 不存在`)
+        if (!Object.hasOwn(GONGGONG_TOOLS, name)) return fail('not_found', '工具 {name} 不存在', { name })
         const [row] = await ctx.db
           .select({ run: runs })
           .from(runs)

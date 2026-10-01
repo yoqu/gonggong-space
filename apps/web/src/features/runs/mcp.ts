@@ -1,18 +1,21 @@
-import { GONGGONG_TOOLS, type Question, type RunEvent } from '@gonggong/protocol'
+import { GONGGONG_TOOLS, type I18nText, type Question, type RunEvent } from '@gonggong/protocol'
+import { t } from '../../i18n'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 
 const GONGGONG: Record<string, string> = {
-  ask_group_members: '向群成员提问',
-  ...Object.fromEntries(Object.entries(GONGGONG_TOOLS).map(([name, t]) => [name, t.title])),
+  ask_group_members: t('向群成员提问'),
+  ...Object.fromEntries(
+    Object.entries(GONGGONG_TOOLS).map(([name, tool]) => [name, t.text({ key: tool.title })]),
+  ),
 }
 const VALUE_MAX = 60
 
 export const QUESTION_TYPE: Record<Question['type'], string> = {
-  single: '单选',
-  multi: '多选',
-  yesno: '是/否',
-  text: '自由文本',
+  single: t('单选'),
+  multi: t('多选#choice'),
+  yesno: t('是/否'),
+  text: t('自由文本'),
 }
 
 /** Built-in gonggong tools by their Chinese title; others as `Server · tool` (claude.ai connectors lose their prefix). */
@@ -22,7 +25,7 @@ export function mcpLabel(server: string, tool: string) {
 }
 
 /** The daemon's echo of the session's model / effort (`已切换推理强度：High`): setup, not progress. */
-export const CONFIG_ECHO = /^已切换[^：]+：/
+export const CONFIG_ECHO = /^已切换[^：]+：|^Switched (?!to ).+ to /
 
 /** A tool title made readable when it names an MCP call (Claude `mcp__s__t`, Codex `mcp.s.t`); config echoes
  * are blank so the run card shows its working label instead. */
@@ -32,8 +35,11 @@ export function toolTitle(title: string) {
   return server && tool ? mcpLabel(server, tool) : title
 }
 
+export const stepText = (r: { step: string; stepI18n?: I18nText }) =>
+  r.stepI18n ? t.text(r.stepI18n) : r.step
+
 const short = (v: unknown) => {
-  const s = typeof v === 'string' ? v : Array.isArray(v) ? `${v.length} 项` : JSON.stringify(v)
+  const s = typeof v === 'string' ? v : Array.isArray(v) ? t('{n} 项', { n: v.length }) : JSON.stringify(v)
   return s.length > VALUE_MAX ? `${s.slice(0, VALUE_MAX - 1)}…` : s
 }
 

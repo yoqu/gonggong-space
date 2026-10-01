@@ -92,10 +92,14 @@ export function releaseRoutes(ctx: Ctx) {
       if (!file || (current && compareVersions(file.version, current.version) < 0)) {
         part.file.resume()
         return file
-          ? fail('invalid', `${part.filename} 的版本低于当前发布的 ${current?.version}`)
+          ? fail('invalid', '{file} 的版本低于当前发布的 {version}', {
+              file: part.filename,
+              version: current?.version ?? '',
+            })
           : fail(
               'invalid',
-              `${part.filename} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe`,
+              '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe',
+              { file: part.filename },
             )
       }
       await mkdir(downloads(), { recursive: true })
@@ -112,7 +116,7 @@ export function releaseRoutes(ctx: Ctx) {
           },
           createWriteStream(tmp),
         )
-        if (part.file.truncated) fail('invalid', `单个文件不能超过 ${MAX_FILE_MB} MB`)
+        if (part.file.truncated) fail('invalid', '单个文件不能超过 {mb} MB', { mb: MAX_FILE_MB })
         await rename(tmp, join(downloads(), part.filename))
       } catch (e) {
         await unlink(tmp).catch(() => {})

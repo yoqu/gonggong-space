@@ -1,5 +1,6 @@
 import type { DiffScope } from '@gonggong/protocol'
 import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
+import { t } from '../../i18n'
 import { EmptyState, Icon, NoChangesArt, Spinner } from '../../ui'
 import { DiffFileList, DiffLayoutToggle, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
 import { findFile } from './patch'
@@ -63,7 +64,7 @@ export function DiffPane({ diff, scope, turn, file, onScope, onFile, onLocate, n
           <Spinner />
         </div>
       ) : diff.error ? (
-        <EmptyState compact icon="warning" title="无法读取改动" description={diff.error} />
+        <EmptyState compact icon="warning" title={t('无法读取改动')} description={diff.error} />
       ) : !diff.files.length ? (
         <EmptyState
           compact
@@ -84,7 +85,7 @@ export function DiffPane({ diff, scope, turn, file, onScope, onFile, onLocate, n
               >
                 <Icon name="doc-code" size={13} />
                 <span className="diff-pane__pick-path">{picked?.path ?? file}</span>
-                <span className="diff-pane__count">{diff.files.length} 个文件</span>
+                <span className="diff-pane__count">{t('{n} 个文件', { n: diff.files.length })}</span>
                 <Icon name="chevron-down" size={12} />
               </button>
               {listOpen ? list : null}
@@ -93,7 +94,7 @@ export function DiffPane({ diff, scope, turn, file, onScope, onFile, onLocate, n
           {picked ? (
             <DiffView file={picked} />
           ) : (
-            <div className="diff-pane__state">{file} 在这个范围内没有改动</div>
+            <div className="diff-pane__state">{t('{file} 在这个范围内没有改动', { file: file ?? '' })}</div>
           )}
         </div>
       )}

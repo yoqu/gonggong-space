@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, runs, users } from '../../db/schema.js'
+import { type MessageKey, t } from '../../i18n/index.js'
 
 type Row = typeof auditLogs.$inferSelect
 type Detail = Record<string, unknown>
@@ -16,158 +17,210 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
 const count = (v: unknown) => (Array.isArray(v) ? v.length : 0)
 
-const APPROVAL: Record<string, string> = { approved: '批准', rejected: '拒绝', expired: '超时自动拒绝' }
-const VOID_REASON: Record<string, string> = {
+const APPROVAL: Record<string, MessageKey> = {
+  approved: '批准 {bot} 执行 {title}',
+  rejected: '拒绝 {bot} 执行 {title}',
+  expired: '超时自动拒绝 {bot} 执行 {title}',
+}
+const VOID_REASON: Record<string, MessageKey> = {
   stopped: '已 /stop',
   chain_stopped: '接力链已终止',
   ended: '运行已结束',
 }
-const MCP: Record<string, string> = { 'mcp.create': '添加', 'mcp.update': '修改', 'mcp.delete': '删除' }
-const ROLE: Record<string, string> = { sysadmin: '系统管理员', member: '普通成员' }
+const QUESTION: Record<string, MessageKey> = {
+  answered: '回答 {bot} 的 {n} 个问题',
+  expired: '{bot} 的 {n} 个问题超时未答',
+}
+const MCP: Record<string, MessageKey> = { 'mcp.create': '添加', 'mcp.update': '修改', 'mcp.delete': '删除' }
+const ROLE: Record<string, MessageKey> = { sysadmin: '系统管理员', member: '普通成员' }
 const TOOL: Record<string, string> = { node: 'Node.js', claude: 'Claude Code', codex: 'Codex' }
-const PROVIDERS: Record<string, string> = {
+const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存机器的供应商',
   'machine.providers.remove': '删除机器的供应商',
   'machine.providers.default': '修改机器的默认供应商',
   'machine.providers.import': '导入机器的供应商',
 }
 
-const paramValue = (v: unknown, unit: string) => (v === null ? '未设置' : `${v}${unit}`)
+const role = (v: unknown) => (ROLE[str(v)] ? t(ROLE[str(v)] as MessageKey) : str(v))
+const paramValue = (v: unknown, unit: string) => (v === null ? t('未设置') : `${v}${unit}`)
 
 function paramChanges(d: Detail) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
   const numeric = SYSTEM_PARAM_VIEW.filter((p) => p.key in changes).map(({ key, label, unit }) => {
     const [from, to] = changes[key] as [unknown, unknown]
-    return `${label} ${paramValue(from, '')} → ${paramValue(to, ` ${unit}`)}`
+    return `${t(label as MessageKey)} ${paramValue(from, '')} → ${paramValue(to, ` ${t(unit as MessageKey)}`)}`
   })
-  const reg = changes.registrationOpen ? [changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册'] : []
-  return [...reg, ...numeric].join('；')
+  const reg = changes.registrationOpen
+    ? [t(changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册')]
+    : []
+  return [...reg, ...numeric].join(t('；'))
 }
 
-/** One-line Chinese description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
+/** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
 export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: Names): string {
   const bot = n.runBot(d.runId)
   switch (row.category) {
-    case 'approval':
-      if (row.action === 'void')
-        return `${bot} 的审批请求作废：${str(d.title)}（${VOID_REASON[str(d.reason)] ?? str(d.reason)}）`
-      return `${APPROVAL[row.action] ?? row.action} ${bot} 执行 ${str(d.title)}`
-    case 'question': {
-      const q = `${bot} 的 ${count(d.questions)} 个问题`
-      return row.action === 'answered'
-        ? `回答 ${q}`
-        : row.action === 'expired'
-          ? `${q}超时未答`
-          : `${q}已作废`
+    case 'approval': {
+      const title = str(d.title)
+      if (row.action === 'void') {
+        const reason = VOID_REASON[str(d.reason)]
+        return t('{bot} 的审批请求作废：{title}（{reason}）', {
+          bot,
+          title,
+          reason: reason ? t(reason) : str(d.reason),
+        })
+      }
+      const approval = APPROVAL[row.action]
+      return approval ? t(approval, { bot, title }) : `${row.action} ${bot} ${title}`
     }
+    case 'question':
+      return t(QUESTION[row.action] ?? '{bot} 的 {n} 个问题已作废', { bot, n: count(d.questions) })
     case 'run':
       switch (row.action) {
         case 'command.stop': {
           const names = ids(d.botIds).map(n.bot)
-          return `/stop 中断 ${names.length ? names.join('、') : '本群全部轮次'}`
+          return names.length
+            ? t('/stop 中断 {bots}', { bots: names.join('、') })
+            : t('/stop 中断本群全部轮次')
         }
         case 'run.stop':
-          return `/stop 中断 ${bot}`
+          return t('/stop 中断 {bots}', { bots: bot })
         case 'run.stop_chain':
-          return `终止 ${bot} 所在的整条接力链`
+          return t('终止 {bot} 所在的整条接力链', { bot })
         case 'run.keep':
-          return `保留 ${bot} 被中断轮次的改动`
+          return t('保留 {bot} 被中断轮次的改动', { bot })
         case 'run.discard':
-          return `丢弃 ${bot} 被中断轮次的改动${d.ok === false ? `（失败：${str(d.error)}）` : ''}`
+          return d.ok === false
+            ? t('丢弃 {bot} 被中断轮次的改动（失败：{error}）', { bot, error: str(d.error) })
+            : t('丢弃 {bot} 被中断轮次的改动', { bot })
         case 'command.cd':
-          return d.path ? `/cd ${n.bot(d.botId)} → ${str(d.path)}` : `/cd ${n.bot(d.botId)} 恢复托管工作区`
+          return d.path
+            ? `/cd ${n.bot(d.botId)} → ${str(d.path)}`
+            : t('/cd {bot} 恢复托管工作区', { bot: n.bot(d.botId) })
         case 'command.new':
-          return `/new ${n.bot(d.botId)} 开新会话`
+          return t('/new {bot} 开新会话', { bot: n.bot(d.botId) })
         case 'run.task_stop':
-          return `中断 ${bot} 的后台任务`
+          return t('中断 {bot} 的后台任务', { bot })
         case 'tool.cross_group_read':
-          return `${bot} 跨群读取 ${count(d.groups)} 个群的内容`
+          return t('{bot} 跨群读取 {n} 个群的内容', { bot, n: count(d.groups) })
       }
       break
     case 'admin':
-      if (row.action in PROVIDERS) return PROVIDERS[row.action] as string
+      if (row.action in PROVIDERS) return t(PROVIDERS[row.action] as MessageKey)
       if (row.action in MCP)
-        return `${MCP[row.action]}全局层 MCP：${d.enabled === false ? '停用' : '启用'} ${str(d.name)} · ${d.forceNewSession ? '已勾选' : '未勾选'}强制新会话`
+        return t('{verb}全局层 MCP：{state} {name} · {forced}强制新会话', {
+          verb: { key: MCP[row.action] as MessageKey },
+          state: { key: d.enabled === false ? '停用' : '启用' },
+          name: str(d.name),
+          forced: { key: d.forceNewSession ? '已勾选' : '未勾选' },
+        })
       switch (row.action) {
         case 'bot.create':
-          return `为 ${n.user(d.ownerId)} 新建 Bot ${str(d.name)}`
+          return t('为 {user} 新建 Bot {name}', { user: n.user(d.ownerId), name: str(d.name) })
         case 'bot.update':
-          return `修改 ${n.user(d.ownerId)} 的 Bot ${str(d.name)}`
+          return t('修改 {user} 的 Bot {name}', { user: n.user(d.ownerId), name: str(d.name) })
         case 'bot.delete':
-          return `删除 ${n.user(d.ownerId)} 的 Bot ${str(d.name)}`
+          return t('删除 {user} 的 Bot {name}', { user: n.user(d.ownerId), name: str(d.name) })
         case 'bot.confirm':
-          return `确认 Bot ${str(d.name)}`
+          return t('确认 Bot {name}', { name: str(d.name) })
         case 'bot.approval':
-          return `修改 Bot ${str(d.name)} 的审批设置`
+          return t('修改 Bot {name} 的审批设置', { name: str(d.name) })
         case 'user.create':
-          return `新建账号 ${str(d.account)}（${ROLE[str(d.role)] ?? str(d.role)}）`
+          return t('新建账号 {account}（{role}）', { account: str(d.account), role: role(d.role) })
         case 'user.update': {
           const parts = [
-            d.name === undefined ? '' : `姓名改为 ${str(d.name)}`,
-            d.role === undefined ? '' : `角色改为 ${ROLE[str(d.role)] ?? str(d.role)}`,
+            d.name === undefined ? '' : t('姓名改为 {name}', { name: str(d.name) }),
+            d.role === undefined ? '' : t('角色改为 {role}', { role: role(d.role) }),
           ].filter(Boolean)
-          return `修改账号 ${n.user(d.userId)}：${parts.join('，')}`
+          return t('修改账号 {user}：{changes}', { user: n.user(d.userId), changes: parts.join(t('，')) })
         }
         case 'user.password.reset':
-          return `重置 ${str(d.account)} 的密码`
+          return t('重置 {account} 的密码', { account: str(d.account) })
         case 'user.register':
-          return `自助注册账号 ${str(d.account)}`
+          return t('自助注册账号 {account}', { account: str(d.account) })
         case 'user.disable':
-          return `停用账号 ${str(d.account)}`
+          return t('停用账号 {account}', { account: str(d.account) })
         case 'user.enable':
-          return `启用账号 ${str(d.account)}`
+          return t('启用账号 {account}', { account: str(d.account) })
         case 'daemon.release':
-          return `发布 daemon ${str(d.version)}（${(d.platforms as string[]).join('、')}）`
+          return t('发布 daemon {version}（{platforms}）', {
+            version: str(d.version),
+            platforms: (d.platforms as string[]).join('、'),
+          })
         case 'daemon.release.upload':
         case 'daemon.release.remove':
-          return `${row.action.endsWith('upload') ? '上传' : '移除'} ${d.kind === 'cast' ? 'gg-cast' : 'daemon'} ${str(d.version)}（${str(d.platform)}）`
+          return t(
+            row.action.endsWith('upload')
+              ? '上传 {kind} {version}（{platform}）'
+              : '移除 {kind} {version}（{platform}）',
+            {
+              kind: d.kind === 'cast' ? 'gg-cast' : 'daemon',
+              version: str(d.version),
+              platform: str(d.platform),
+            },
+          )
         case 'machine.revoke':
-          return `吊销 ${n.user(d.ownerId)} 的机器 ${str(d.name)}`
+          return t('吊销 {user} 的机器 {name}', { user: n.user(d.ownerId), name: str(d.name) })
         case 'machine.transfer':
-          return `将 ${n.user(d.fromOwnerId)} 的机器 ${str(d.name)} 转移到名下`
+          return t('将 {user} 的机器 {name} 转移到名下', { user: n.user(d.fromOwnerId), name: str(d.name) })
         case 'machine.tools.install':
         case 'machine.tools.upgrade':
-          return `${row.action.endsWith('install') ? '安装' : '升级'} ${TOOL[str(d.kind)] ?? str(d.kind)}`
+          return t(row.action.endsWith('install') ? '安装 {tool}' : '升级 {tool}', {
+            tool: TOOL[str(d.kind)] ?? str(d.kind),
+          })
         case 'machine.tools.settings':
-          return '修改 Agent 工具的镜像源'
+          return t('修改 Agent 工具的镜像源')
         case 'bot.provider':
-          return `设置 Bot ${n.bot(d.botId)} 的供应商`
+          return t('设置 Bot {bot} 的供应商', { bot: n.bot(d.botId) })
         case 'params.update':
-          return `修改系统参数：${paramChanges(d)}`
+          return t('修改系统参数：{changes}', { changes: paramChanges(d) })
         case 'group.update':
-          return '修改群名称与公告'
+          return t('修改群名称与公告')
         case 'group.notice.remove':
-          return '删除群公告'
+          return t('删除群公告')
         case 'group.params':
-          return `修改群级参数：审批等待 ${d.approvalTimeoutMin} 分钟，接力链长上限 ${d.chainMaxHops} 跳，离线等待 ${d.offlineWaitMin} 分钟`
+          return t(
+            '修改群级参数：审批等待 {approval} 分钟，接力链长上限 {hops} 跳，离线等待 {offline} 分钟',
+            {
+              approval: String(d.approvalTimeoutMin),
+              hops: String(d.chainMaxHops),
+              offline: String(d.offlineWaitMin),
+            },
+          )
         case 'group.admin.grant':
-          return `设 ${str(d.userName)} 为群管理员`
+          return t('设 {user} 为群管理员', { user: str(d.userName) })
         case 'group.admin.revoke':
-          return `取消 ${str(d.userName)} 的群管理员`
+          return t('取消 {user} 的群管理员', { user: str(d.userName) })
         case 'group.dissolve':
-          return '解散群'
+          return t('解散群')
         case 'group.member.add':
-          return `邀请 ${str(d.name)} 入群`
+          return t('邀请 {name} 入群', { name: str(d.name) })
         case 'group.member.remove':
-          return `将 ${str(d.name)} 移出群`
+          return t('将 {name} 移出群', { name: str(d.name) })
         case 'group.bot.add':
-          return `拉入 Bot ${str(d.name)}`
+          return t('拉入 Bot {name}', { name: str(d.name) })
         case 'group.bot.remove':
-          return `移出 Bot ${str(d.name)}`
+          return t('移出 Bot {name}', { name: str(d.name) })
         case 'group.repo.change':
-          return `${d.previous ? '更换' : '绑定'}仓库 ${str(d.url)} · 基准分支 ${str(d.branch)}`
+          return t(d.previous ? '更换仓库 {url} · 基准分支 {branch}' : '绑定仓库 {url} · 基准分支 {branch}', {
+            url: str(d.url),
+            branch: str(d.branch),
+          })
       }
       break
     case 'preview':
       switch (row.action) {
         case 'share.create':
-          return `生成预览「${str(d.title)}」的公开链接，有效 ${Number(d.days)} 天`
+          return t('生成预览「{title}」的公开链接，有效 {n} 天', { title: str(d.title), n: Number(d.days) })
         case 'share.revoke':
-          return `收回预览「${str(d.title)}」的公开链接`
+          return t('收回预览「{title}」的公开链接', { title: str(d.title) })
         case 'share.extend':
-          return `预览「${str(d.title)}」的公开链接有效期改到 ${str(d.expiresAt).slice(0, 16).replace('T', ' ')}`
+          return t('预览「{title}」的公开链接有效期改到 {at}', {
+            title: str(d.title),
+            at: str(d.expiresAt).slice(0, 16).replace('T', ' '),
+          })
         case 'share.visit':
-          return `通过公开链接访问预览「${str(d.title)}」`
+          return t('通过公开链接访问预览「{title}」', { title: str(d.title) })
       }
   }
   return row.action

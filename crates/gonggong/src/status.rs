@@ -227,7 +227,7 @@ impl Monitor {
             bot_name: start.bot.name.clone(),
             triggered_by: start.prompt.triggered_by.clone(),
             status: None,
-            step: "准备工作区".into(),
+            step: crate::t!("准备工作区").into(),
             queued: false,
             started_ms: now_ms(),
         };

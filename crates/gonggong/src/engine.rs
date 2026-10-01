@@ -20,6 +20,7 @@ use crate::providers::Selection;
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
+use crate::t;
 use crate::tools;
 use crate::tunnel;
 use crate::turn::system_prompt;
@@ -158,7 +159,7 @@ impl Engine {
         let probe = session::probe(agent, &dir);
         match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
             Ok(result) => result.map_err(anyhow::Error::msg),
-            Err(_) => bail!("探测 {kind:?} 可选模型超时"),
+            Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = format!("{kind:?}"))),
         }
     }
 }
@@ -166,16 +167,15 @@ impl Engine {
 /// (patch, main branch compared against) of one workspace diff request.
 /// How long the server waits for a workspace diff (DIFF_TIMEOUT_MS).
 const DIFF_TIMEOUT: Duration = Duration::from_secs(10);
-const DIFF_SLOW: &str = "读取工作区改动超时";
 
 async fn workspace_diff(dir: &Path, scope: DiffScope, run_id: Option<&str>, shared: Option<Arc<Shared>>) -> DiffResult {
-    const ENDED: &str = "该轮已结束或不在本机运行";
+    let ended = t!("该轮已结束或不在本机运行");
     if scope == DiffScope::Turn {
-        let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ENDED.into()) };
-        return Ok((shared.live_patch(run_id).await.ok_or(ENDED)??, None));
+        let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ended.into()) };
+        return Ok((shared.live_patch(run_id).await.ok_or(ended)??, None));
     }
     if !git::is_repo(dir) {
-        return Err(session::NOT_GIT.into());
+        return Err(session::not_git().into());
     }
     if scope == DiffScope::Uncommitted {
         return Ok((git::uncommitted_patch(dir).await?, None));
@@ -221,7 +221,7 @@ impl Handler for Engine {
                 let out = out.clone();
                 tokio::spawn(async move {
                     let mut result =
-                        Err("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 Bot 已开始新一轮）".to_string());
+                        Err(t!("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 Bot 已开始新一轮）").to_string());
                     for shared in sessions {
                         if let Some(r) = shared.discard(&run_id).await {
                             result = r;
@@ -316,7 +316,9 @@ impl Handler for Engine {
                             let _slot = slots.acquire_owned().await.expect("never closed");
                             workspace_diff(&d, req.scope, run_id.as_deref(), shared).await
                         };
-                        tokio::time::timeout(DIFF_TIMEOUT, work).await.unwrap_or_else(|_| Err(DIFF_SLOW.into()))
+                        tokio::time::timeout(DIFF_TIMEOUT, work)
+                            .await
+                            .unwrap_or_else(|_| Err(t!("读取工作区改动超时").into()))
                     };
                     let result = inner.diffs.run(key, compute).await;
                     let (patch, base, error) = match result {
@@ -402,7 +404,7 @@ impl Inner {
         let ask =
             match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone(), self.services.clone())).await {
                 Ok(ask) => ask,
-                Err(e) => return out.send(failed(&start.run_id, format!("无法启动内置 gonggong 工具：{e}"))),
+                Err(e) => return out.send(failed(&start.run_id, t!("无法启动内置 gonggong 工具：{e}", e = e))),
             };
         if let Some(api) = &self.config.api {
             let p = &start.prompt;
@@ -502,18 +504,20 @@ impl Inner {
         let _guard = self.install.lock().await;
         let home = &self.config.home;
         let log = |line: &str| tracing::info!("{line}");
-        let node = tools::ensure_node(home, &log).await.context("ACP 适配器需要 Node.js ≥ 22")?;
+        let node = tools::ensure_node(home, &log)
+            .await
+            .context(t!("ACP 适配器需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))?;
         let dir = home.join("adapters");
         let modules = dir.join("node_modules");
         if !ADAPTERS.iter().all(|(_, name, ver)| installed_version(&modules.join(name)).as_deref() == Some(*ver)) {
             let registry = Settings::load(home)?.mirror.registry().to_string();
             tokio::fs::create_dir_all(&dir).await?;
             tracing::info!("installing ACP adapters into {} from {registry}", dir.display());
-            let mut npm = node.npm().context("无法安装 ACP 适配器")?;
+            let mut npm = node.npm().context(t!("无法安装 ACP 适配器"))?;
             npm.args(["install", "--no-audit", "--no-fund", "--registry", &registry, "--prefix"])
                 .arg(&dir)
                 .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")));
-            tools::run(npm, &log).await.context("安装 ACP 适配器失败")?;
+            tools::run(npm, &log).await.context(t!("安装 ACP 适配器失败"))?;
         }
         let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
         Ok((node, modules.join(name).join("dist/index.js")))

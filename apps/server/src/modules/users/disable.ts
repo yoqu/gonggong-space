@@ -11,6 +11,7 @@ import { publishGroup } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { publishRun } from '../runs/dto.js'
 import { forgetStream } from '../runs/engine.js'
+import { runStep } from '../runs/step.js'
 import { notifyChainDone, stopRuns } from '../runs/stop.js'
 import { toUserDto } from './dto.js'
 
@@ -78,7 +79,11 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
   const cut = botIds.length
     ? await ctx.db
         .update(runs)
-        .set({ status: 'interrupted', step: `${user.name} 的账号已停用，本轮中断`, endedAt: now })
+        .set({
+          status: 'interrupted',
+          ...runStep('{user} 的账号已停用，本轮中断', { user: user.name }),
+          endedAt: now,
+        })
         .where(and(inArray(runs.botId, botIds), notInArray(runs.status, [...TERMINAL_RUN_STATUS])))
         .returning()
     : []
@@ -90,7 +95,7 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
 
   for (const { groupId, botId } of removed) {
     const name = owned.find((b) => b.id === botId)?.name ?? ''
-    await postEvent(ctx, groupId, `${name} 被移出 · ${user.name} 的账号已停用`)
+    await postEvent(ctx, groupId, '{bot} 被移出 · {user} 的账号已停用', { bot: name, user: user.name })
   }
   for (const groupId of new Set(removed.map((r) => r.groupId))) await publishGroup(ctx, groupId)
   for (const botId of botIds) await publishBotRemoved(ctx, botId)

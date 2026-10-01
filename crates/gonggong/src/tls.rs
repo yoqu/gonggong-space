@@ -2,6 +2,7 @@
 //! SHA-256 instead of a CA chain, so a self-signed server certificate is as trustworthy as a public one. Plain http
 //! is accepted only for loopback servers (local dev and tests).
 use crate::config::Config;
+use crate::t;
 use anyhow::{Context, Result, bail};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
@@ -32,7 +33,7 @@ pub fn parse_fingerprint(s: &str) -> Result<String> {
         .filter(|c| *c != ':')
         .collect();
     if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        bail!("证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）");
+        bail!(t!("证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）"));
     }
     let hex = hex.to_ascii_uppercase();
     Ok(hex.as_bytes().chunks(2).map(|p| std::str::from_utf8(p).unwrap()).collect::<Vec<_>>().join(":"))
@@ -59,7 +60,7 @@ impl ServerCertVerifier for PinVerifier {
         *self.seen.lock().unwrap() = Some(actual.clone());
         match &self.pin {
             Some(pin) if *pin != actual => {
-                let msg = format!("服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}");
+                let msg = t!("服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}", pin = pin, actual = actual);
                 tracing::error!("{msg}");
                 Err(rustls::Error::General(msg))
             }
@@ -117,12 +118,12 @@ impl Pinning {
 
 /// `Some` for https servers (pinned to `pin`, or trusting on first use when `None`); `None` for loopback http.
 pub fn pinning(server: &str, pin: Option<String>) -> Result<Option<Pinning>> {
-    let url = reqwest::Url::parse(server).with_context(|| format!("服务器地址无效：{server}"))?;
+    let url = reqwest::Url::parse(server).with_context(|| t!("服务器地址无效：{server}", server = server))?;
     match url.scheme() {
         "https" => Ok(Some(Pinning::new(pin)?)),
         "http" if is_loopback(url.host_str().unwrap_or_default()) => Ok(None),
-        "http" => bail!("只允许通过 https:// 连接非本机服务器：{server}"),
-        other => bail!("不支持的服务器协议 {other}://，请使用 https://"),
+        "http" => bail!(t!("只允许通过 https:// 连接非本机服务器：{server}", server = server)),
+        other => bail!(t!("不支持的服务器协议 {scheme}://，请使用 https://", scheme = other)),
     }
 }
 
@@ -138,13 +139,19 @@ pub fn bound(config: &Config) -> Result<Option<Pinning>> {
         (_, true) => {
             static WARN: Once = Once::new();
             WARN.call_once(|| {
-                eprintln!("警告：{INSECURE_ENV}=1，已关闭服务器证书固定，连接可被中间人冒充。只可用于本地开发！")
+                eprintln!(
+                    "{}",
+                    t!(
+                        "警告：{env}=1，已关闭服务器证书固定，连接可被中间人冒充。只可用于本地开发！",
+                        env = INSECURE_ENV
+                    )
+                )
             });
             None
         }
         (Some(pin), false) => Some(pin.clone()),
         (None, false) if config.server.starts_with("https:") => {
-            bail!("本机配置缺少服务器证书指纹（certSha256），请重新执行 gg login")
+            bail!(t!("本机配置缺少服务器证书指纹（certSha256），请重新执行 gg login"))
         }
         (None, false) => None,
     };

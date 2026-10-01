@@ -21,7 +21,7 @@ async function findAttachment(ctx: Ctx, id: string) {
   const [row] = await ctx.db
     .select()
     .from(attachments)
-    .where(eq(attachments.id, idParam(id, '附件')))
+    .where(eq(attachments.id, idParam(id, '附件不存在')))
   return row ?? fail('not_found', '附件不存在')
 }
 
@@ -64,7 +64,7 @@ export function attachmentRoutes(ctx: Ctx) {
       try {
         await pipeline(part.file, sealStream(), createWriteStream(path))
         // busboy stops at the limit and marks the stream truncated instead of failing it.
-        if (part.file.truncated) fail('invalid', `单个附件不能超过 ${maxMb} MB`)
+        if (part.file.truncated) fail('invalid', '单个附件不能超过 {maxMb} MB', { maxMb })
       } catch (e) {
         await unlink(path).catch(() => {})
         throw e

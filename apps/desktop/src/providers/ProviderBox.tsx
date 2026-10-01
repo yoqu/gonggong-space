@@ -1,13 +1,14 @@
 import type { AgentKind } from '@gonggong/protocol'
 import { AlertDialog, Button, GroupBox, toast } from '@web/ui'
 import { type ReactNode, useState } from 'react'
+import { t } from '../i18n'
 import { ipc, type Providers, type ProviderView } from '../ipc'
 import { fail } from '../lib/ui'
 import { CcSwitchImport, LinkImport } from './ImportDialogs'
 import { ProviderEditor } from './ProviderEditor'
 
 export const OFFICIAL = 'official'
-export const OFFICIAL_NAME = '官方登录'
+export const OFFICIAL_NAME = t('官方登录')
 
 type Open =
   | { kind: 'editor'; editing: ProviderView | null }
@@ -56,9 +57,9 @@ export function ProviderBox({
   )
 
   const removeNote = removing && [
-    current === removing.id ? '它是本机默认，删除后本机默认改为官方登录。' : '',
-    Object.values(data.bots).includes(removing.id) ? '单独设置为它的 Bot 改为继承本机默认。' : '',
-    '正在使用它的会话下一轮会自动开启新会话。',
+    current === removing.id ? t('它是本机默认，删除后本机默认改为官方登录。') : '',
+    Object.values(data.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承本机默认。') : '',
+    t('正在使用它的会话下一轮会自动开启新会话。'),
   ]
 
   return (
@@ -66,16 +67,18 @@ export function ProviderBox({
       <GroupBox>
         <div className="dk-row">
           <span className="dk-row__main">
-            <span className="dk-strong">本机供应商</span>
-            <span className="dk-sub">选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换</span>
+            <span className="dk-strong">{t('本机供应商')}</span>
+            <span className="dk-sub">
+              {t('选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换')}
+            </span>
           </span>
           {data.ccSwitch ? (
-            <Button onClick={() => setOpen({ kind: 'ccswitch' })}>从 CC Switch 导入…</Button>
+            <Button onClick={() => setOpen({ kind: 'ccswitch' })}>{t('从 CC Switch 导入…')}</Button>
           ) : null}
-          <Button onClick={() => setOpen({ kind: 'link' })}>粘贴链接导入…</Button>
-          <Button onClick={() => setOpen({ kind: 'editor', editing: null })}>新增…</Button>
+          <Button onClick={() => setOpen({ kind: 'link' })}>{t('粘贴链接导入…')}</Button>
+          <Button onClick={() => setOpen({ kind: 'editor', editing: null })}>{t('新增…')}</Button>
         </div>
-        {row(OFFICIAL, OFFICIAL_NAME, '使用本机 CLI 自己的登录与配置')}
+        {row(OFFICIAL, OFFICIAL_NAME, t('使用本机 CLI 自己的登录与配置'))}
         {list.map((p) =>
           row(
             p.id,
@@ -83,10 +86,10 @@ export function ProviderBox({
             [p.baseUrl, p.model, `Key ${p.apiKey}`].filter(Boolean).join(' · '),
             <>
               <Button size="small" onClick={() => setOpen({ kind: 'editor', editing: p })}>
-                编辑…
+                {t('编辑…')}
               </Button>
               <Button size="small" onClick={() => setOpen({ kind: 'remove', provider: p })}>
-                删除
+                {t('删除')}
               </Button>
             </>,
           ),
@@ -99,7 +102,7 @@ export function ProviderBox({
           onClose={close}
           onSaved={(id, setDefault) => {
             close()
-            toast({ type: 'success', message: '供应商已保存' })
+            toast({ type: 'success', message: t('供应商已保存') })
             onChange()
             if (setDefault) onSwitch(agent, id)
           }}
@@ -111,7 +114,7 @@ export function ProviderBox({
           onClose={close}
           onImported={(count, currentId) => {
             close()
-            toast({ type: 'success', message: `已从 CC Switch 导入 ${count} 个供应商` })
+            toast({ type: 'success', message: t('已从 CC Switch 导入 {n} 个供应商', { n: count }) })
             onChange()
             if (currentId) onSwitch(agent, currentId)
           }}
@@ -122,7 +125,7 @@ export function ProviderBox({
           onClose={close}
           onImported={(p, setDefault) => {
             close()
-            toast({ type: 'success', message: `已导入供应商 ${p.name}` })
+            toast({ type: 'success', message: t('已导入供应商 {name}', { name: p.name }) })
             onChange()
             if (setDefault) onSwitch(p.agent, p.id)
           }}
@@ -131,12 +134,12 @@ export function ProviderBox({
       <AlertDialog
         open={removing !== null}
         onClose={close}
-        title={`要删除供应商 ${removing?.name ?? ''} 吗？`}
+        title={t('要删除供应商 {name} 吗？', { name: removing?.name ?? '' })}
         message={removeNote?.join('')}
         actions={[
-          { label: '取消', onClick: close },
+          { label: t('取消'), onClick: close },
           {
-            label: '删除',
+            label: t('删除'),
             variant: 'destructive',
             onClick: () => {
               if (!removing) return

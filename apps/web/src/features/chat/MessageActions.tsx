@@ -7,6 +7,7 @@ import { Button, ContextMenu, Dialog, Icon, MenuButton, type MenuItem, Presence,
 import { ReactionPicker } from '../reactions'
 import { applyWithdrawn } from './useTimeline'
 import './recall.css'
+import { t } from '../../i18n'
 
 const LONG_PRESS_MS = 500
 
@@ -16,7 +17,7 @@ async function recall(m: MessageDto) {
     applyWithdrawn({ t: 'message.recalled', groupId: m.groupId, messageId: m.id })
   } catch (e) {
     const late = e instanceof ApiError && e.code === 'recall_expired'
-    toast({ type: 'error', message: late ? '超过 24 小时，无法撤回' : (e as Error).message })
+    toast({ type: 'error', message: late ? t('超过 24 小时，无法撤回') : (e as Error).message })
   }
 }
 
@@ -36,12 +37,12 @@ function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () =
   return (
     <Dialog
       open
-      title="删除消息？"
+      title={t('删除消息？')}
       width={400}
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('取消')}</Button>
           <Button
             variant="destructive"
             disabled={busy}
@@ -51,12 +52,12 @@ function DeleteDialog({ message, onClose }: { message: MessageDto; onClose: () =
               else setBusy(false)
             }}
           >
-            删除
+            {t('删除')}
           </Button>
         </>
       }
     >
-      <p className="msg-delete-note">删除后仅对你隐藏，其他成员仍可见</p>
+      <p className="msg-delete-note">{t('删除后仅对你隐藏，其他成员仍可见')}</p>
     </Dialog>
   )
 }
@@ -107,28 +108,29 @@ export interface ActionTarget {
  * One action set for both the hover bar and the right-click menu (Pane `messageMenuItems` order: reply first,
  * destructive last); the menu is the bar's superset since it also lists what the bar keeps under 更多.
  */
-function useMessageMenu(t: ActionTarget) {
+function useMessageMenu(target: ActionTarget) {
   const [picking, setPicking] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const mine = t.own && t.message ? t.message : null
+  const mine = target.own && target.message ? target.message : null
   const recallable = !!mine && Date.now() - Date.parse(mine.createdAt) < RECALL_WINDOW_MS
   const more: MenuItem[] = [
-    { value: 'link', label: '复制链接', icon: 'link' },
-    ...(mine && recallable ? [{ value: 'recall', label: '撤回', icon: 'undo' as const }] : []),
-    ...(mine ? [{ value: 'delete', label: '删除', icon: 'trash' as const, destructive: true }] : []),
+    { value: 'link', label: t('复制链接'), icon: 'link' },
+    ...(mine && recallable ? [{ value: 'recall', label: t('撤回'), icon: 'undo' as const }] : []),
+    ...(mine ? [{ value: 'delete', label: t('删除'), icon: 'trash' as const, destructive: true }] : []),
   ]
   const all: MenuItem[] = [
-    ...(t.message ? [{ value: 'react', label: '表情回应', icon: 'smile' as const }] : []),
-    { value: 'quote', label: '引用回复', icon: 'quote' },
-    ...(t.copyText !== undefined ? [{ value: 'copy', label: '复制', icon: 'copy' as const }] : []),
+    ...(target.message ? [{ value: 'react', label: t('表情回应'), icon: 'smile' as const }] : []),
+    { value: 'quote', label: t('引用回复'), icon: 'quote' },
+    ...(target.copyText !== undefined ? [{ value: 'copy', label: t('复制'), icon: 'copy' as const }] : []),
     { separator: true },
     ...more,
   ]
   const select = (value: string) => {
     if (value === 'react') setPicking(true)
-    else if (value === 'quote') t.onQuote()
-    else if (value === 'copy' && t.copyText !== undefined) void copyWithToast(t.copyText, '已复制')
-    else if (value === 'link') void copyWithToast(t.link, '链接已复制')
+    else if (value === 'quote') target.onQuote()
+    else if (value === 'copy' && target.copyText !== undefined)
+      void copyWithToast(target.copyText, t('已复制'))
+    else if (value === 'link') void copyWithToast(target.link, t('链接已复制'))
     else if (value === 'recall' && mine) void recall(mine)
     else if (value === 'delete') setDeleting(true)
   }
@@ -137,14 +139,14 @@ function useMessageMenu(t: ActionTarget) {
       {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
     </Presence>
   )
-  return { t, picking, setPicking, more, all, select, dialog }
+  return { target, picking, setPicking, more, all, select, dialog }
 }
 
 type MessageMenuState = ReturnType<typeof useMessageMenu>
 
 /** The Pane glass hover bar; kept visible while its menus are open or after a touch long-press. */
 function Bar({ menu }: { menu: MessageMenuState }) {
-  const { t } = menu
+  const { target } = menu
   const bar = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState(false)
   useLongPress(bar)
@@ -153,24 +155,29 @@ function Bar({ menu }: { menu: MessageMenuState }) {
       ref={bar}
       className="pn-msgactions msg-actions"
       role="toolbar"
-      aria-label="消息操作"
-      data-message-id={t.message?.id}
+      aria-label={t('消息操作')}
+      data-message-id={target.message?.id}
       data-open={more || menu.picking || undefined}
     >
-      {t.message ? (
-        <ReactionPicker message={t.message} open={menu.picking} onOpenChange={menu.setPicking} />
+      {target.message ? (
+        <ReactionPicker message={target.message} open={menu.picking} onOpenChange={menu.setPicking} />
       ) : null}
-      <button type="button" aria-label="引用回复" title={t.quoteTitle ?? '引用回复'} onClick={t.onQuote}>
+      <button
+        type="button"
+        aria-label={t('引用回复')}
+        title={target.quoteTitle ?? t('引用回复')}
+        onClick={target.onQuote}
+      >
         <Icon name="quote" />
       </button>
-      {t.copyText !== undefined ? (
-        <button type="button" aria-label="复制" title="复制" onClick={() => menu.select('copy')}>
+      {target.copyText !== undefined ? (
+        <button type="button" aria-label={t('复制')} title={t('复制')} onClick={() => menu.select('copy')}>
           <Icon name="copy" />
         </button>
       ) : null}
       <MenuButton
-        aria-label="更多"
-        title="更多"
+        aria-label={t('更多')}
+        title={t('更多')}
         align="end"
         items={menu.more}
         onSelect={menu.select}

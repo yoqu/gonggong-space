@@ -1,4 +1,5 @@
 import type { ErrorCode } from '@gonggong/protocol'
+import { locale, t } from '../i18n'
 
 export type ApiErrorCode = ReturnType<(typeof ErrorCode)['parse']> | 'http_error' | 'network_error'
 
@@ -20,16 +21,16 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, credentials: 'include' }
+  const init: RequestInit = { method, credentials: 'include', headers: { 'accept-language': locale } }
   if (body !== undefined) {
-    init.headers = { 'content-type': 'application/json' }
+    init.headers = { ...init.headers, 'content-type': 'application/json' }
     init.body = JSON.stringify(body)
   }
   let res: Response
   try {
     res = await fetch(`/api${path}`, init)
   } catch {
-    throw new ApiError(0, 'network_error', '网络连接失败，请检查网络后重试')
+    throw new ApiError(0, 'network_error', t('网络连接失败，请检查网络后重试'))
   }
   if (res.ok) return (res.status === 204 ? undefined : await res.json()) as T
 
@@ -40,7 +41,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     parsed = JSON.parse(text) ?? {}
   } catch {}
   const fallback =
-    res.status >= 500 ? `服务暂时不可用（HTTP ${res.status}）` : `请求失败（HTTP ${res.status}）`
+    res.status >= 500
+      ? t('服务暂时不可用（HTTP {status}）', { status: res.status })
+      : t('请求失败（HTTP {status}）', { status: res.status })
   throw new ApiError(res.status, parsed.error ?? 'http_error', parsed.message || fallback)
 }
 
@@ -56,8 +59,8 @@ export const api = {
 export const errorText = (err: unknown) =>
   err instanceof ApiError
     ? err.code === 'http_error'
-      ? '无法连接服务器，请稍后重试'
+      ? t('无法连接服务器，请稍后重试')
       : err.message
     : err instanceof Error
       ? err.message
-      : '操作失败，请重试'
+      : t('操作失败，请重试')

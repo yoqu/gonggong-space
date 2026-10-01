@@ -7,6 +7,7 @@ import {
   modelName,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { FormRow, PopUpButton } from '../../ui'
 
@@ -17,7 +18,7 @@ export interface AgentConfig {
 
 /** `默认（Sonnet）` when the adapter names the model a fresh session starts with. */
 export const defaultModelLabel = (catalog: AgentCatalog | null) =>
-  catalog?.current ? `默认（${modelName(catalog, catalog.current)}）` : '默认'
+  catalog?.current ? t('默认（{name}）', { name: modelName(catalog, catalog.current) }) : t('默认')
 
 /** The model options of a picker ('' = the adapter's default), keeping a value the catalog no longer lists. */
 export function modelOptions(catalog: AgentCatalog | null, model: string | null) {
@@ -34,7 +35,7 @@ export function effortOptions(catalog: AgentCatalog | null, model: string | null
   const m = catalog && modelEfforts(catalog, model)
   if (!m?.efforts.length) return []
   return [
-    { value: '', label: m.effort ? `默认（${effortName(m.effort)}）` : '默认' },
+    { value: '', label: m.effort ? t('默认（{name}）', { name: effortName(m.effort) }) : t('默认') },
     ...m.efforts.map((e) => ({ value: e.value, label: effortName(e.value) })),
   ]
 }
@@ -79,16 +80,16 @@ export function AgentConfigFields({
 }) {
   if (!catalog)
     return (
-      <FormRow label="模型">
-        <span className="bots-detail__unset">跟随默认 · 机器上报可选模型后可设置</span>
+      <FormRow label={t('模型')}>
+        <span className="bots-detail__unset">{t('跟随默认 · 机器上报可选模型后可设置')}</span>
       </FormRow>
     )
   const efforts = effortOptions(catalog, value.model)
   return (
     <>
-      <FormRow label="模型" hint="群内可临时切换，发消息时也可单条指定">
+      <FormRow label={t('模型')} hint={t('群内可临时切换，发消息时也可单条指定')}>
         <PopUpButton
-          aria-label="模型"
+          aria-label={t('模型')}
           value={value.model ?? ''}
           disabled={disabled}
           options={modelOptions(catalog, value.model)}
@@ -96,9 +97,9 @@ export function AgentConfigFields({
         />
       </FormRow>
       {efforts.length ? (
-        <FormRow label="推理强度">
+        <FormRow label={t('推理强度')}>
           <PopUpButton
-            aria-label="推理强度"
+            aria-label={t('推理强度')}
             value={value.effort ?? ''}
             disabled={disabled}
             options={efforts}

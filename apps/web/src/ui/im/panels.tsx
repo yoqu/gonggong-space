@@ -1,4 +1,5 @@
 import { Children, type CSSProperties, Fragment, type ReactNode } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, type ButtonVariant, Checkbox, type Glyph, renderGlyph } from '../controls'
 import { Avatar, type AvatarProps, Tag } from '../display'
@@ -21,7 +22,13 @@ function PanelHead({
   return (
     <div className="pn-info__head">
       {onBack && (
-        <button type="button" className="pn-info__close" aria-label="返回" title="返回" onClick={onBack}>
+        <button
+          type="button"
+          className="pn-info__close"
+          aria-label={t('返回')}
+          title={t('返回')}
+          onClick={onBack}
+        >
           <Icon name="chevron-left" weight={2} />
         </button>
       )}
@@ -151,7 +158,7 @@ export function InspectorPanel({
       style={style}
       aria-label={label ?? (typeof title === 'string' ? title : undefined)}
     >
-      <PanelHead onClose={onClose} onBack={onBack} closeLabel="关闭">
+      <PanelHead onClose={onClose} onBack={onBack} closeLabel={t('关闭#close')}>
         <h2 className="pn-info__title">{title}</h2>
       </PanelHead>
       <div className="pn-info__scroll">{children}</div>
@@ -160,7 +167,13 @@ export function InspectorPanel({
 }
 
 /** Group info inspector (300px): identity, shortcuts, members, settings, then the destructive action. */
-export function ChatInfoPanel({ title = '群设置', onClose, className, style, ...body }: ChatInfoPanelProps) {
+export function ChatInfoPanel({
+  title = t('群设置'),
+  onClose,
+  className,
+  style,
+  ...body
+}: ChatInfoPanelProps) {
   return (
     <InspectorPanel title={title} onClose={onClose} className={className} style={style}>
       <ChatInfoBody {...body} />
@@ -213,14 +226,14 @@ export function ChatInfoBody({
         </div>
       )}
       {members.length > 0 && (
-        <section className="pn-info__section" aria-label="群成员">
+        <section className="pn-info__section" aria-label={t('群成员')}>
           <div className="pn-info__section-head">
             <span>
-              群成员 <span className="pn-info__count">{memberCount ?? members.length}</span>
+              {t('群成员')} <span className="pn-info__count">{memberCount ?? members.length}</span>
             </span>
             {onShowAllMembers && (
               <button type="button" className="pn-info__link" onClick={onShowAllMembers}>
-                查看全部
+                {t('查看全部')}
               </button>
             )}
           </div>
@@ -230,7 +243,7 @@ export function ChatInfoBody({
                 <span className="pn-info__add" aria-hidden="true">
                   <Icon name="plus" weight={1.8} />
                 </span>
-                <span>添加</span>
+                <span>{t('添加')}</span>
               </button>
             )}
             {members.slice(0, maxMembers).map((m) => (
@@ -305,7 +318,7 @@ export interface ThreadPanelProps {
 
 /** Thread inspector (360px): root message, reply count divider, replies, and a thread composer. */
 export function ThreadPanel({
-  title = '话题',
+  title = t('话题'),
   subtitle,
   onClose,
   root,
@@ -322,7 +335,7 @@ export function ThreadPanel({
   const replies = Children.toArray(children)
   return (
     <aside className={cx('pn-threadpanel', className)} style={style} aria-label={title}>
-      <PanelHead onClose={onClose} closeLabel="关闭话题">
+      <PanelHead onClose={onClose} closeLabel={t('关闭话题')}>
         <div className="pn-threadpanel__titles">
           <span>{title}</span>
           {subtitle && <span className="pn-threadpanel__sub">{subtitle}</span>}
@@ -332,19 +345,23 @@ export function ThreadPanel({
         <div className="pn-threadpanel__root">{root}</div>
         {/* biome-ignore lint/a11y/useSemanticElements: a labelled divider; <hr> cannot hold text */}
         <div className="pn-threadpanel__count" role="separator">
-          {replyCount ?? replies.length} 条回复
+          {t('{n} 条回复', { n: replyCount ?? replies.length })}
         </div>
         <div className="pn-threadpanel__replies">{replies}</div>
       </div>
       {composer !== false && (
         <div className="pn-threadpanel__composer">
           <Composer
-            placeholder="回复话题"
+            placeholder={t('回复话题')}
             hint={false}
             tools={DEFAULT_TOOLS.slice(0, 4)}
             accessory={
               alsoSend ? (
-                <Checkbox label="同时发送到群" defaultChecked={alsoSendDefault} onChange={onAlsoSendChange} />
+                <Checkbox
+                  label={t('同时发送到群')}
+                  defaultChecked={alsoSendDefault}
+                  onChange={onAlsoSendChange}
+                />
               ) : null
             }
             {...composerProps}

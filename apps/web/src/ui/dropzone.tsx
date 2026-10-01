@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { Button, type Glyph, renderGlyph } from './controls'
 import { ProgressIndicator } from './display'
@@ -40,10 +41,10 @@ export function DropZone({
   onFiles,
   accept,
   multiple,
-  title = '将文件拖到这里',
-  overTitle = '松开以添加',
+  title = t('将文件拖到这里'),
+  overTitle = t('松开以添加'),
   description,
-  buttonLabel = '选择文件…',
+  buttonLabel = t('选择文件…'),
   icon = 'upload',
   files = [],
   onRemove,
@@ -68,7 +69,7 @@ export function DropZone({
       {/* biome-ignore lint/a11y/useSemanticElements: a <fieldset> would need a legend; the drop area is named by aria-label */}
       <div
         role="group"
-        aria-label={aria['aria-label'] ?? '上传文件'}
+        aria-label={aria['aria-label'] ?? t('上传文件')}
         className={cx(
           'ui-drop',
           over && 'ui-drop--over',
@@ -137,12 +138,12 @@ export function DropZone({
                 ) : f.progress != null && f.progress < 100 ? (
                   <ProgressIndicator
                     value={f.progress}
-                    aria-label={`${f.name} 上传进度`}
+                    aria-label={t('{name} 上传进度', { name: f.name })}
                     style={{ width: '100%', height: 4 }}
                   />
                 ) : (
                   <div className="ui-drop__fmeta">
-                    {[f.size, f.progress === 100 ? '已上传' : null].filter(Boolean).join(' · ')}
+                    {[f.size, f.progress === 100 ? t('已上传') : null].filter(Boolean).join(' · ')}
                   </div>
                 )}
               </div>
@@ -150,7 +151,7 @@ export function DropZone({
                 <button
                   type="button"
                   className="ui-inputwrap__btn"
-                  aria-label={`移除 ${f.name}`}
+                  aria-label={t('移除 {name}', { name: f.name })}
                   onClick={() => onRemove(i, f)}
                 >
                   <Icon name="xmark" weight={2} />

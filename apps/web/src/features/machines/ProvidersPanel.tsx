@@ -6,6 +6,7 @@ import {
   type ProviderView,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
+import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Alert, AlertDialog, Button, GroupBox, Presence, Skeleton, toast } from '../../ui'
@@ -27,7 +28,10 @@ export function ProvidersPanel({ machine }: { machine: MachineDto }) {
   const switcher = useProviderSwitch(async ({ agent, choice }) => {
     try {
       setView(await api.put<ProviderStoreView>(`${base}/default`, { agent, choice }))
-      toast({ type: 'success', message: `${AGENT_LABEL[agent]} 的本机默认已切换，新会话生效` })
+      toast({
+        type: 'success',
+        message: t('{agent} 的本机默认已切换，新会话生效', { agent: AGENT_LABEL[agent] }),
+      })
     } catch (e) {
       toastError(e)
     }
@@ -85,7 +89,7 @@ function ProviderBox({
   const current = view.machine[agent] ?? OFFICIAL_PROVIDER
   const list = view.providers.filter((p) => p.agent === agent)
   const removing = open?.kind === 'remove' ? open.provider : null
-  const title = `${AGENT_LABEL[agent]} 供应商`
+  const title = t('{agent} 供应商', { agent: AGENT_LABEL[agent] })
 
   const row = (value: string, name: string, sub: string, actions?: ReactNode) => (
     <div key={value} className="mx-row">
@@ -111,7 +115,7 @@ function ProviderBox({
     close()
     try {
       onView(await api.del<ProviderStoreView>(`/machines/${machine.id}/providers/${p.id}`))
-      toast({ type: 'success', message: `已删除供应商 ${p.name}` })
+      toast({ type: 'success', message: t('已删除供应商 {name}', { name: p.name }) })
     } catch (e) {
       toastError(e)
     }
@@ -119,9 +123,11 @@ function ProviderBox({
   const removeNote =
     removing &&
     [
-      current === removing.id ? '它是本机默认，删除后本机默认改为官方登录。' : '',
-      Object.values(view.bots).includes(removing.id) ? '单独设置为它的 Bot 改为继承本机默认。' : '',
-    ].join('')
+      current === removing.id ? t('它是本机默认，删除后本机默认改为官方登录。') : '',
+      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承本机默认。') : '',
+    ]
+      .filter(Boolean)
+      .join(locale === 'en' ? ' ' : '')
   const removeLines = removing ? removalLines(view, removing.id) : []
 
   return (
@@ -129,11 +135,13 @@ function ProviderBox({
       <div className="mx-section__head">
         <span className="mx-row__main">
           <span className="mx-strong">{title}</span>
-          <span className="mx-sub">选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换</span>
+          <span className="mx-sub">
+            {t('选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换')}
+          </span>
         </span>
       </div>
       <GroupBox>
-        {row(OFFICIAL_PROVIDER, OFFICIAL_NAME, '使用这台机器上 CLI 自己的登录与配置')}
+        {row(OFFICIAL_PROVIDER, OFFICIAL_NAME, t('使用这台机器上 CLI 自己的登录与配置'))}
         {list.map((p) =>
           row(
             p.id,
@@ -141,10 +149,10 @@ function ProviderBox({
             [p.baseUrl, p.model, `Key ${p.apiKey}`].filter(Boolean).join(' · '),
             <>
               <Button size="small" onClick={() => setOpen({ kind: 'editor', editing: p })}>
-                编辑…
+                {t('编辑…')}
               </Button>
               <Button size="small" onClick={() => setOpen({ kind: 'remove', provider: p })}>
-                删除
+                {t('删除')}
               </Button>
             </>,
           ),
@@ -152,14 +160,14 @@ function ProviderBox({
         <div className="mx-row mx-row--end">
           {machine.features.includes('ccSwitch') ? (
             <Button size="small" onClick={() => setOpen({ kind: 'ccswitch' })}>
-              从 CC Switch 导入…
+              {t('从 CC Switch 导入…')}
             </Button>
           ) : null}
           <Button size="small" onClick={() => setOpen({ kind: 'link' })}>
-            粘贴链接导入…
+            {t('粘贴链接导入…')}
           </Button>
           <Button size="small" variant="primary" onClick={() => setOpen({ kind: 'editor', editing: null })}>
-            新增…
+            {t('新增…')}
           </Button>
         </div>
       </GroupBox>
@@ -174,7 +182,7 @@ function ProviderBox({
             onSaved={({ id, view: v }, setDefault) => {
               close()
               onView(v)
-              toast({ type: 'success', message: '供应商已保存' })
+              toast({ type: 'success', message: t('供应商已保存') })
               if (setDefault) onSwitch(agent, id, v)
             }}
           />
@@ -190,7 +198,10 @@ function ProviderBox({
             onImported={({ imported, view: v }, currentId) => {
               close()
               onView(v)
-              toast({ type: 'success', message: `已从 CC Switch 导入 ${imported.length} 个供应商` })
+              toast({
+                type: 'success',
+                message: t('已从 CC Switch 导入 {n} 个供应商', { n: imported.length }),
+              })
               if (currentId) onSwitch(agent, currentId, v)
             }}
           />
@@ -206,7 +217,7 @@ function ProviderBox({
               close()
               onView(v)
               const p = v.providers.find((x) => x.id === id)
-              toast({ type: 'success', message: `已导入供应商 ${p?.name ?? ''}` })
+              toast({ type: 'success', message: t('已导入供应商 {name}', { name: p?.name ?? '' }) })
               if (setDefault && p) onSwitch(p.agent, id, v)
             }}
           />
@@ -215,13 +226,13 @@ function ProviderBox({
       <AlertDialog
         open={removing !== null}
         onClose={close}
-        title={`要删除供应商 ${removing?.name ?? ''} 吗？`}
+        title={t('要删除供应商 {name} 吗？', { name: removing?.name ?? '' })}
         message={removeNote || undefined}
         detail={removeLines.length ? <SessionLines lines={removeLines} /> : undefined}
         actions={[
-          { label: '取消', onClick: close },
+          { label: t('取消'), onClick: close },
           {
-            label: '删除',
+            label: t('删除'),
             variant: 'destructive',
             onClick: () => {
               if (removing) void remove(removing)

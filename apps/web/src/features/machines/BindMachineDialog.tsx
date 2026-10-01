@@ -6,6 +6,7 @@ import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus, 
 import { AGENT_LABEL } from '../bots/model'
 import { BindCodePanel, useBindCode } from './BindCodePanel'
 import './machines.css'
+import { t } from '../../i18n'
 
 export const OS_LABEL: Record<MachineDto['os'], string> = {
   macos: 'macOS',
@@ -45,23 +46,25 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
 
   const waiting = !!code && !bound && !expired
   const steps: { label: string; status: StepStatus }[] = [
-    { label: '生成接入链接', status: code || bound ? 'completed' : error ? 'error' : 'active' },
+    { label: t('生成接入链接'), status: code || bound ? 'completed' : error ? 'error' : 'active' },
     {
-      label: '客户端绑定',
+      label: t('客户端绑定'),
       status: bound ? 'completed' : expired ? 'error' : waiting ? 'active' : 'pending',
     },
-    { label: '上报机器与 agent', status: bound ? (bound.online ? 'completed' : 'active') : 'pending' },
+    { label: t('上报机器与 agent'), status: bound ? (bound.online ? 'completed' : 'active') : 'pending' },
   ]
 
   return (
     <Dialog
       open={open}
-      title="绑定新机器"
-      message="在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。"
+      title={t('绑定新机器')}
+      message={t('在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。')}
       width={520}
       onClose={onClose}
       actions={[
-        bound ? { label: '完成', variant: 'primary', onClick: onClose } : { label: '取消', onClick: onClose },
+        bound
+          ? { label: t('完成'), variant: 'primary', onClick: onClose }
+          : { label: t('取消'), onClick: onClose },
       ]}
     >
       <div className="bind">
@@ -74,18 +77,19 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
             {waiting ? (
               <span className="bind__waiting">
                 <Spinner size={14} />
-                等待客户端确认绑定…
+                {t('等待客户端确认绑定…')}
               </span>
             ) : null}
             <p className="bind__note">
-              绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code /
-              Codex；同一台机器重新绑定会恢复原记录。还没安装共工空间客户端？
+              {t(
+                '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。还没安装共工空间客户端？',
+              )}
               <button
                 type="button"
                 className="bind__link"
-                onClick={() => toast({ message: '安装包下载即将上线，请先从源码构建' })}
+                onClick={() => toast({ message: t('安装包下载即将上线，请先从源码构建') })}
               >
-                下载 macOS / Linux / Windows 版
+                {t('下载 macOS / Linux / Windows 版')}
               </button>
             </p>
           </>
@@ -101,15 +105,23 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
     <>
       <Alert
         variant="success"
-        title={restored ? '已恢复原有机器' : '绑定成功'}
+        title={restored ? t('已恢复原有机器') : t('绑定成功')}
         description={
           restored
-            ? `${machine.name} 之前绑定过，已沿用原机器记录与其上的 Bot（${OS_LABEL[machine.os]} · ${machine.arch}）`
-            : `本机已归属你 · ${machine.name}（${OS_LABEL[machine.os]} · ${machine.arch}）`
+            ? t('{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）', {
+                name: machine.name,
+                os: OS_LABEL[machine.os],
+                arch: machine.arch,
+              })
+            : t('本机已归属你 · {name}（{os} · {arch}）', {
+                name: machine.name,
+                os: OS_LABEL[machine.os],
+                arch: machine.arch,
+              })
         }
       />
       <Form>
-        <FormRow label="本机 agent" align="top">
+        <FormRow label={t('本机 agent')} align="top">
           {machine.agents.length ? (
             <ul className="bind__agents">
               {machine.agents.map((a) => (
@@ -118,25 +130,28 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
                     className="bind__dot"
                     style={{ background: a.available ? 'var(--system-green)' : 'var(--system-gray)' }}
                   />
-                  <span>{`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : '未安装'}`.trim()}</span>
+                  <span>
+                    {`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : t('未安装')}`.trim()}
+                  </span>
                 </li>
               ))}
             </ul>
           ) : machine.online ? (
             <span className="bind__note">
-              未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。
+              {t('未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。')}
             </span>
           ) : (
             <span className="bind__waiting">
               <Spinner size={14} />
-              等待上报 agent…在机器上打开共工空间客户端
+              {t('等待上报 agent…在机器上打开共工空间客户端')}
             </span>
           )}
         </FormRow>
       </Form>
       <p className="bind__note">
-        你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的
-        Bot，需在通知中确认后才能被触发。
+        {t(
+          '你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的 Bot，需在通知中确认后才能被触发。',
+        )}
       </p>
     </>
   )

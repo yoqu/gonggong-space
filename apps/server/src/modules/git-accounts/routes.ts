@@ -33,7 +33,7 @@ export function gitAccountRoutes(ctx: Ctx) {
     const [row] = await ctx.db
       .select()
       .from(gitAccounts)
-      .where(and(eq(gitAccounts.id, idParam(id, '账号')), eq(gitAccounts.userId, userId)))
+      .where(and(eq(gitAccounts.id, idParam(id, '账号不存在')), eq(gitAccounts.userId, userId)))
     return row ?? fail('not_found', '账号不存在')
   }
 
@@ -43,7 +43,7 @@ export function gitAccountRoutes(ctx: Ctx) {
       return await call(providerApi(account(row)))
     } catch (e) {
       if (!(e instanceof ProviderError)) throw e
-      if (e.kind !== 'unauthorized') return fail('invalid', e.message)
+      if (e.kind !== 'unauthorized') return fail('invalid', e.key, e.params)
       await ctx.db.update(gitAccounts).set({ status: 'invalid' }).where(eq(gitAccounts.id, row.id))
       forgetAccount(row.id)
       return fail('invalid', 'Token 已失效，请在设置中重新连接')
@@ -70,7 +70,7 @@ export function gitAccountRoutes(ctx: Ctx) {
       try {
         login = await providerApi({ id: '', provider: body.provider, baseUrl, token }).me()
       } catch (e) {
-        if (e instanceof ProviderError) return fail('invalid', e.message)
+        if (e instanceof ProviderError) return fail('invalid', e.key, e.params)
         throw e
       }
       const [row] = await ctx.db

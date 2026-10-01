@@ -119,7 +119,7 @@ pub fn session_failure(meta: Option<&serde_json::Map<String, serde_json::Value>>
     if f.get("severity")?.as_str()? != "error" {
         return None;
     }
-    let title = f.get("title").and_then(|t| t.as_str()).unwrap_or("agent 错误");
+    let title = f.get("title").and_then(|t| t.as_str()).unwrap_or(crate::t!("agent 错误"));
     let inner = serde_json::from_str::<serde_json::Value>(title).ok();
     let message = inner.as_ref().and_then(|v| v.pointer("/error/message")).and_then(|m| m.as_str());
     Some(message.unwrap_or(title).to_string())

@@ -6,13 +6,19 @@ use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LockError {
-    #[error(
-        "本机已有共工空间 daemon 在运行（{}gg run 或桌面端），同一台机器只能运行一个",
-        .pid.map(|p| format!("pid {p}，")).unwrap_or_default()
-    )]
+    #[error("{}", held(*.pid))]
     Held { pid: Option<u32> },
-    #[error("无法创建 daemon 锁文件：{0}")]
+    #[error("{}", crate::t!("无法创建 daemon 锁文件：{e}", e = .0))]
     Io(#[from] std::io::Error),
+}
+
+fn held(pid: Option<u32>) -> String {
+    match pid {
+        Some(pid) => {
+            crate::t!("本机已有共工空间 daemon 在运行（pid {pid}，gg run 或桌面端），同一台机器只能运行一个", pid = pid)
+        }
+        None => crate::t!("本机已有共工空间 daemon 在运行（gg run 或桌面端），同一台机器只能运行一个").into(),
+    }
 }
 
 /// Held for as long as the daemon runs; dropping it releases the lock.

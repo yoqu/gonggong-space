@@ -1,5 +1,6 @@
 import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
@@ -32,8 +33,8 @@ const POLL_MS = 15_000
 
 /** The server stamps lastSeenAt on connect and disconnect only, so an online machine is live by definition. */
 function lastHeartbeat(m: AdminMachineDto) {
-  if (m.online) return '刚刚'
-  return m.lastSeenAt ? ago(m.lastSeenAt) : '从未连接'
+  if (m.online) return t('刚刚')
+  return m.lastSeenAt ? ago(m.lastSeenAt) : t('从未连接')
 }
 
 /** Latest measurement reported by the daemon; red with a warning sign past the force-sync thresholds. */
@@ -41,7 +42,7 @@ function Net({ text, bad, at }: { text: string; bad: boolean; at: string | null 
   return (
     <span
       className={bad ? 'admin-table__bad' : undefined}
-      title={at ? `测量于 ${new Date(at).toLocaleString()}` : undefined}
+      title={at ? t('测量于 {time}', { time: new Date(at).toLocaleString() }) : undefined}
     >
       {bad ? <Icon name="warning" size={12} className="admin-table__bad-icon" /> : null}
       {text}
@@ -94,25 +95,25 @@ export function MachinesPage() {
 
   return (
     <AdminPage
-      title="机器与网络"
-      desc="所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。"
-      subtitle={machines ? `${machines.length} 台 · ${online} 台在线` : undefined}
+      title={t('机器与网络')}
+      desc={t('所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。')}
+      subtitle={machines ? t('{n} 台 · {online} 台在线', { n: machines.length, online }) : undefined}
       actions={
         <ToolbarGroup>
           <ToolbarButton
             icon="info"
-            label="机器详情…"
+            label={t('机器详情…')}
             disabled={!selected}
             onClick={() => setOpenId(selected)}
           />
         </ToolbarGroup>
       }
-      search={<SearchField placeholder="搜索机器或主人" value={query} onChange={setQuery} />}
+      search={<SearchField placeholder={t('搜索机器或主人')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
         <Table<AdminMachineDto>
-          aria-label="机器列表"
+          aria-label={t('机器列表')}
           className="admin-grid"
           rows={shown}
           multiple={false}
@@ -121,29 +122,29 @@ export function MachinesPage() {
           defaultSort={{ key: 'ownerName', dir: 'asc' }}
           onOpen={(m) => setOpenId(m.id)}
           rowActions={() => [
-            { label: '机器详情…', value: 'open' },
+            { label: t('机器详情…'), value: 'open' },
             { separator: true },
-            { label: '吊销机器…', value: 'revoke', destructive: true },
+            { label: t('吊销机器…'), value: 'revoke', destructive: true },
           ]}
           onRowAction={(action, m) => (action === 'open' ? setOpenId(m.id) : setRevoking(m))}
           emptyText={
             <EmptyState
               compact
-              title={q ? '没有匹配的机器' : '还没有机器'}
+              title={q ? t('没有匹配的机器') : t('还没有机器')}
               illustration={q ? <NoResultsArt /> : <NoMachinesArt />}
             />
           }
           columns={[
-            { key: 'ownerName', title: '主人', width: 88, sortable: true },
+            { key: 'ownerName', title: t('主人'), width: 88, sortable: true },
             {
               key: 'name',
-              title: '机器',
+              title: t('机器'),
               mono: true,
               sortable: true,
               render: (m) => <span title={m.name === m.hostname ? undefined : m.hostname}>{m.name}</span>,
             },
-            { key: 'os', title: '系统', sortable: true, sortValue: osText, render: osText },
-            { key: 'hardware', title: '硬件', secondary: true, render: (m) => hardwareText(m) },
+            { key: 'os', title: t('系统'), sortable: true, sortValue: osText, render: osText },
+            { key: 'hardware', title: t('硬件'), secondary: true, render: (m) => hardwareText(m) },
             {
               key: 'daemonVersion',
               title: 'daemon',
@@ -157,7 +158,7 @@ export function MachinesPage() {
             },
             {
               key: 'agents',
-              title: 'Agent 版本',
+              title: t('Agent 版本'),
               width: 300,
               secondary: true,
               render: (m) => (
@@ -170,12 +171,15 @@ export function MachinesPage() {
                         className="admin-agent"
                         title={
                           a.latest
-                            ? `最新版本 ${a.latest} · ${a.managed ? '共工空间托管' : '自行安装'}`
+                            ? t('最新版本 {version} · {source}', {
+                                version: a.latest,
+                                source: a.managed ? t('共工空间托管') : t('自行安装'),
+                              })
                             : undefined
                         }
                       >
                         {AGENT_LABEL[a.kind]} {a.version}
-                        {hasUpdate(a) ? <Tag tone="orange">可升级</Tag> : null}
+                        {hasUpdate(a) ? <Tag tone="orange">{t('可升级')}</Tag> : null}
                       </span>
                     ))}
                 </span>
@@ -183,7 +187,7 @@ export function MachinesPage() {
             },
             {
               key: 'latencyMs',
-              title: '延迟',
+              title: t('延迟'),
               width: 80,
               align: 'right',
               sortable: true,
@@ -199,7 +203,7 @@ export function MachinesPage() {
             },
             {
               key: 'bandwidthMbps',
-              title: '带宽',
+              title: t('带宽'),
               width: 96,
               align: 'right',
               sortable: true,
@@ -215,20 +219,20 @@ export function MachinesPage() {
             },
             {
               key: 'online',
-              title: '状态',
+              title: t('状态'),
               width: 72,
               sortable: true,
               sortValue: (m) => (m.online ? 0 : 1),
               render: (m) => (
                 <span className="admin-status">
                   <span className={m.online ? 'admin-dot admin-dot--on' : 'admin-dot'} />
-                  {m.online ? '在线' : '离线'}
+                  {m.online ? t('在线') : t('离线')}
                 </span>
               ),
             },
             {
               key: 'lastSeenAt',
-              title: '最后心跳',
+              title: t('最后心跳'),
               width: 96,
               secondary: true,
               sortable: true,
@@ -270,14 +274,27 @@ export function MachinesPage() {
       {old.length ? (
         <Alert
           variant="warning"
-          title={`${old.length} 台 daemon 协议版本过旧`}
-          description={`${old.map((m) => `${m.name} 运行 v${m.daemonVersion ?? '?'}（协议 v${m.protocol}）`).join('、')}，服务器已拒绝连接并提示升级。`}
+          title={t('{n} 台 daemon 协议版本过旧', { n: old.length })}
+          description={t('{list}，服务器已拒绝连接并提示升级。', {
+            list: old
+              .map((m) =>
+                t('{name} 运行 v{version}（协议 v{protocol}）', {
+                  name: m.name,
+                  version: m.daemonVersion ?? '?',
+                  protocol: m.protocol ?? '?',
+                }),
+              )
+              .join(t('、')),
+          })}
         />
       ) : null}
       <p className="admin__foot">
         {params
-          ? `网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ ${params.forceSyncMaxLatencyMs} ms，带宽 ≥ ${params.forceSyncMinBandwidthMbps} Mbps。`
-          : '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。'}
+          ? t(
+              '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ {latency} ms，带宽 ≥ {bandwidth} Mbps。',
+              { latency: params.forceSyncMaxLatencyMs, bandwidth: params.forceSyncMinBandwidthMbps },
+            )
+          : t('网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。')}
       </p>
     </AdminPage>
   )

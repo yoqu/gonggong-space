@@ -1,4 +1,5 @@
 import { Toolbar, ToolbarGroup } from '@web/ui'
+import { t } from '../i18n'
 import { connKind, host, PILL } from '../lib/labels'
 import { useDaemon } from '../store'
 
@@ -19,7 +20,7 @@ export function TitleBar({
 }) {
   const info = useDaemon((s) => s.info)
   const pill = PILL[connKind(useDaemon((s) => s.snapshot))]
-  const text = pill.text === '已连接' ? `已连接 ${host(info?.server)}` : pill.text
+  const text = pill === PILL.ok ? t('已连接 {host}', { host: host(info?.server) }) : pill.text
   return (
     <Toolbar
       className="dk-toolbar"

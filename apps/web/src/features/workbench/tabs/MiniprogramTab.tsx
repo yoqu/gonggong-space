@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 import { usePreview } from '../../previews/store'
 import type { TabMeta, TabProps } from '../types'
 import { LivePreview } from './LiveTab'
@@ -11,7 +12,7 @@ export function useMiniprogramTabMeta(tab: TabProps<'miniprogram'>['tab']): TabM
   const state = usePreview(tab.previewId)
   return {
     icon: 'smartphone',
-    title: state?.preview?.title ?? '小程序',
+    title: state?.preview?.title ?? t('小程序'),
     ...(state ? { status: state.status === 'online' ? 'online' : 'offline' } : {}),
   }
 }

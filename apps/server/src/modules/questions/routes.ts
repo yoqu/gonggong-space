@@ -12,8 +12,8 @@ export function questionRoutes(ctx: Ctx) {
       async (req) => {
         const user = await requireUser(ctx, req)
         const { answers, attachmentIds } = AnswerQuestionsReq.parse(req.body)
-        const runId = idParam(req.params.runId, '运行')
-        return answerQuestions(ctx, user, runId, idParam(req.params.id, '提问'), answers, attachmentIds)
+        const runId = idParam(req.params.runId, '运行不存在')
+        return answerQuestions(ctx, user, runId, idParam(req.params.id, '提问不存在'), answers, attachmentIds)
       },
     )
   }

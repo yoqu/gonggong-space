@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
+import { t } from '../../../i18n'
 import { DiffPane } from '../../diff/DiffPane'
 import { useWorkspaceDiff } from '../../diff/useWorkspaceDiff'
 import { openTab } from '../open'
@@ -36,5 +37,5 @@ export function DiffTab({ tab, tabKey }: TabProps<'diff'>) {
 
 export function useDiffTabMeta(tab: TabProps<'diff'>['tab']): TabMeta {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === tab.botId)?.name) ?? 'Bot'
-  return { icon: 'git-branch', title: `改动 · ${name}` }
+  return { icon: 'git-branch', title: t('改动 · {name}', { name }) }
 }

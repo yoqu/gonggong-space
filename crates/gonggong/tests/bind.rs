@@ -15,6 +15,7 @@ fn machine() -> MachineInfo {
 
 /// One-shot HTTP server: records the request, answers with `status` + JSON `body`.
 async fn serve_once(status: &'static str, body: &'static str) -> (String, tokio::task::JoinHandle<String>) {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let task = tokio::spawn(async move {
@@ -99,6 +100,7 @@ async fn login_explains_rejections_in_chinese() {
 
 #[tokio::test]
 async fn login_reports_unreachable_servers() {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);

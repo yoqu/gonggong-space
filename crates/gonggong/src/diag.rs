@@ -2,6 +2,7 @@
 use crate::config::Config;
 use crate::logs::{self, redact};
 use crate::protocol::{AgentInfo, PROTOCOL_VERSION, Permission};
+use crate::t;
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
 use serde::Serialize;
@@ -49,13 +50,13 @@ pub struct Check {
 
 fn check(kind: CheckKind, status: Status, detail: impl Into<String>) -> Check {
     let label = match kind {
-        CheckKind::Server => "服务器连接",
+        CheckKind::Server => t!("服务器连接"),
         CheckKind::Agent => "Agent",
-        CheckKind::Git => "git 凭据",
-        CheckKind::Disk => "磁盘",
-        CheckKind::Eol => "换行符",
-        CheckKind::ScreenRecording => "屏幕录制",
-        CheckKind::Accessibility => "辅助功能",
+        CheckKind::Git => t!("git 凭据"),
+        CheckKind::Disk => t!("磁盘"),
+        CheckKind::Eol => t!("换行符"),
+        CheckKind::ScreenRecording => t!("屏幕录制"),
+        CheckKind::Accessibility => t!("辅助功能"),
     };
     Check { kind, label, status, detail: detail.into() }
 }
@@ -83,20 +84,20 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
 /// Reaches the server over the pinned transport with the machine token (the same TLS setup as the daemon WebSocket).
 pub async fn server(config: Option<&Config>) -> Check {
     let Some(config) = config else {
-        return check(CheckKind::Server, Status::Error, "未绑定，请先执行 gg login");
+        return check(CheckKind::Server, Status::Error, t!("未绑定，请先执行 gg login"));
     };
     let result = async { crate::bots::Client::new(config)?.list().await }.await;
     match result {
         Err(e) => check(CheckKind::Server, Status::Error, format!("{e:#}")),
         Ok(_) if !config.server.starts_with("https:") => {
-            check(CheckKind::Server, Status::Ok, "HTTP 正常 · 本机回环（未加密）")
+            check(CheckKind::Server, Status::Ok, t!("HTTP 正常 · 本机回环（未加密）"))
         }
         Ok(_) if std::env::var(crate::tls::INSECURE_ENV).is_ok_and(|v| v == "1") => check(
             CheckKind::Server,
             Status::Warn,
-            format!("HTTPS 正常 · 证书固定已关闭（{}=1）", crate::tls::INSECURE_ENV),
+            t!("HTTPS 正常 · 证书固定已关闭（{env}=1）", env = crate::tls::INSECURE_ENV),
         ),
-        Ok(_) => check(CheckKind::Server, Status::Ok, "WSS 正常 · 证书固定通过"),
+        Ok(_) => check(CheckKind::Server, Status::Ok, t!("WSS 正常 · 证书固定通过")),
     }
 }
 
@@ -104,22 +105,23 @@ pub fn agents(list: &[AgentInfo]) -> Check {
     let name = |a: &AgentInfo| crate::bots::agent_label(a.kind);
     let installed: Vec<_> = list.iter().filter(|a| a.available).collect();
     if installed.is_empty() {
-        return check(CheckKind::Agent, Status::Error, "未检测到 Claude Code 或 Codex");
+        return check(CheckKind::Agent, Status::Error, t!("未检测到 Claude Code 或 Codex"));
     }
     let old: Vec<String> = installed
         .iter()
         .filter_map(|a| {
             let (v, min) = (a.version.as_deref()?, a.min_version.as_deref()?);
-            crate::upgrade::is_newer(min, v).then(|| format!("{} {v} 低于 {min}", name(a)))
+            crate::upgrade::is_newer(min, v).then(|| t!("{agent} {v} 低于 {min}", agent = name(a), v = v, min = min))
         })
         .collect();
-    let missing: Vec<String> = list.iter().filter(|a| !a.available).map(|a| format!("{} 未安装", name(a))).collect();
+    let missing: Vec<String> =
+        list.iter().filter(|a| !a.available).map(|a| t!("{tool} 未安装", tool = name(a))).collect();
     let ok: Vec<String> = installed
         .iter()
         .map(|a| a.version.as_deref().map_or_else(|| name(a).to_string(), |v| format!("{} {v}", name(a))))
         .collect();
     match (old.is_empty(), missing.is_empty()) {
-        (true, true) => check(CheckKind::Agent, Status::Ok, format!("{} 可用", ok.join(" · "))),
+        (true, true) => check(CheckKind::Agent, Status::Ok, t!("{agents} 可用", agents = ok.join(" · "))),
         _ => check(CheckKind::Agent, Status::Warn, [old, missing].concat().join(" · ")),
     }
 }
@@ -151,26 +153,28 @@ fn git_cmd(dir: &Path, args: &[&str]) -> Command {
 /// Can this machine's git reach a group remote without prompting? `git ls-remote` of one managed clone's origin.
 pub async fn git_credentials(entries: &[Entry]) -> Check {
     let Some(clone) = clones(entries).into_iter().next() else {
-        return check(CheckKind::Git, Status::Skipped, "本机暂无托管仓库");
+        return check(CheckKind::Git, Status::Skipped, t!("本机暂无托管仓库"));
     };
     let url = git_cmd(&clone.path, &["remote", "get-url", "origin"]).output().await;
     let url = url.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     let via = if url.starts_with("http") {
         "HTTPS"
     } else if url.contains("://") && !url.starts_with("ssh://") || Path::new(&url).is_absolute() {
-        "本地"
+        t!("本地")
     } else {
         "SSH"
     };
     let run = tokio::time::timeout(GIT_TIMEOUT, git_cmd(&clone.path, &["ls-remote", "--heads", "origin"]).output());
     let where_ = describe(clone);
     match run.await {
-        Err(_) => check(CheckKind::Git, Status::Error, format!("{via} · 访问远端超时 · {where_}")),
-        Ok(Err(e)) => check(CheckKind::Git, Status::Error, format!("无法执行 git：{e}")),
-        Ok(Ok(out)) if out.status.success() => check(CheckKind::Git, Status::Ok, format!("{via} · 可访问 · {where_}")),
+        Err(_) => check(CheckKind::Git, Status::Error, t!("{via} · 访问远端超时 · {clone}", via = via, clone = where_)),
+        Ok(Err(e)) => check(CheckKind::Git, Status::Error, t!("无法执行 git：{e}", e = e)),
+        Ok(Ok(out)) if out.status.success() => {
+            check(CheckKind::Git, Status::Ok, t!("{via} · 可访问 · {clone}", via = via, clone = where_))
+        }
         Ok(Ok(out)) => {
             let err = String::from_utf8_lossy(&out.stderr);
-            let first = err.lines().find(|l| !l.trim().is_empty()).unwrap_or("ls-remote 失败").trim();
+            let first = err.lines().find(|l| !l.trim().is_empty()).unwrap_or(t!("ls-remote 失败")).trim();
             check(CheckKind::Git, Status::Error, format!("{via} · {first} · {where_}"))
         }
     }
@@ -181,10 +185,18 @@ pub fn disk(home: &Path, entries: &[Entry]) -> Check {
     let used: u64 = entries.iter().filter(|e| e.kind != EntryKind::Cd).filter_map(|e| e.size).sum();
     let volume = home.ancestors().find(|p| p.exists()).unwrap_or(home);
     match fs4::available_space(volume) {
-        Err(e) => check(CheckKind::Disk, Status::Warn, format!("工作区 {} · 无法读取剩余空间：{e}", human_size(used))),
+        Err(e) => check(
+            CheckKind::Disk,
+            Status::Warn,
+            t!("工作区 {used} · 无法读取剩余空间：{e}", used = human_size(used), e = e),
+        ),
         Ok(free) => {
             let status = if free < DISK_LOW { Status::Warn } else { Status::Ok };
-            check(CheckKind::Disk, status, format!("工作区 {} · 剩余 {}", human_size(used), human_size(free)))
+            check(
+                CheckKind::Disk,
+                status,
+                t!("工作区 {used} · 剩余 {free}", used = human_size(used), free = human_size(free)),
+            )
         }
     }
 }
@@ -193,7 +205,7 @@ pub fn disk(home: &Path, entries: &[Entry]) -> Check {
 pub async fn eol(entries: &[Entry]) -> Check {
     let clones = clones(entries);
     if clones.is_empty() {
-        return check(CheckKind::Eol, Status::Skipped, "本机暂无托管仓库");
+        return check(CheckKind::Eol, Status::Skipped, t!("本机暂无托管仓库"));
     }
     let mut on = vec![];
     for c in &clones {
@@ -204,9 +216,13 @@ pub async fn eol(entries: &[Entry]) -> Check {
         }
     }
     if on.is_empty() {
-        check(CheckKind::Eol, Status::Ok, "core.autocrlf 已关闭")
+        check(CheckKind::Eol, Status::Ok, t!("core.autocrlf 已关闭"))
     } else {
-        check(CheckKind::Eol, Status::Warn, format!("core.autocrlf 未关闭：{} · 下次运行时自动关闭", on.join("、")))
+        check(
+            CheckKind::Eol,
+            Status::Warn,
+            t!("core.autocrlf 未关闭：{clones} · 下次运行时自动关闭", clones = on.join(t!("、"))),
+        )
     }
 }
 
@@ -214,17 +230,19 @@ pub async fn eol(entries: &[Entry]) -> Check {
 /// devtools' trust prompt). Not granted is a warning: everything else works without them.
 pub fn permission(kind: CheckKind, granted: Option<bool>) -> Check {
     let (pane, needs) = match kind {
-        CheckKind::ScreenRecording => ("屏幕录制", "桌面应用和小程序的实时画面"),
-        _ => ("辅助功能", "远程操作桌面应用和小程序、自动信任小程序项目"),
+        CheckKind::ScreenRecording => (t!("屏幕录制"), t!("桌面应用和小程序的实时画面")),
+        _ => (t!("辅助功能"), t!("远程操作桌面应用和小程序、自动信任小程序项目")),
     };
     match granted {
-        None => check(kind, Status::Skipped, "仅 macOS 需要"),
-        Some(true) => check(kind, Status::Ok, "已授权"),
+        None => check(kind, Status::Skipped, t!("仅 macOS 需要")),
+        Some(true) => check(kind, Status::Ok, t!("已授权")),
         Some(false) => check(
             kind,
             Status::Warn,
-            format!(
-                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工空间桌面端）"
+            t!(
+                "未授权，{needs}不可用：请在 系统设置 → 隐私与安全性 → {pane} 中允许运行 gg 的程序（终端或共工空间桌面端）",
+                needs = needs,
+                pane = pane
             ),
         ),
     }
@@ -259,7 +277,7 @@ pub fn bundle(home: &Path, config: Option<&Config>, checks: &[Check], dest: &Pat
         files.push(("local.json".into(), scrub_json(value, &secrets)?));
     }
 
-    let file = std::fs::File::create(dest).with_context(|| format!("无法写入 {}", dest.display()))?;
+    let file = std::fs::File::create(dest).with_context(|| t!("无法写入 {path}", path = dest.display()))?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)

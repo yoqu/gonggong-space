@@ -15,7 +15,7 @@ export type Quote = NonNullable<MessageDto['quote']>
  * human's message only adds context (plan D11).
  */
 export async function resolveQuote(ctx: Ctx, groupId: string, q: { kind: 'message' | 'run'; id: string }) {
-  const id = idParam(q.id, '引用的内容')
+  const id = idParam(q.id, '引用的内容不存在')
   if (q.kind === 'message') {
     const [m] = await ctx.db
       .select({

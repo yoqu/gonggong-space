@@ -2,6 +2,7 @@
 //! `providers.json`. Keys only come in (on save); what goes back to the page is masked.
 use super::Result;
 use crate::host::Host;
+use crate::i18n::tr;
 use anyhow::Context;
 use gonggong::ccswitch::{self, CandidateView};
 use gonggong::config::{Config, user_home};
@@ -89,7 +90,7 @@ impl Draft {
 /// Adds or edits a provider; returns its id.
 fn save(store: &mut Store, draft: Draft) -> anyhow::Result<String> {
     if let Some(k) = draft.env.keys().find(|k| !env_name(k)) {
-        anyhow::bail!("环境变量名不合法：{k}");
+        anyhow::bail!(tr!("环境变量名不合法：{name}", name = k));
     }
     if let Some(id) = draft.id.clone() {
         store.edit(&id, |p| draft.fill(p))?;
@@ -97,7 +98,7 @@ fn save(store: &mut Store, draft: Draft) -> anyhow::Result<String> {
     }
     let mut p = match &draft.preset_id {
         Some(pid) => Provider::from_preset(
-            providers::preset(draft.agent, pid).with_context(|| format!("没有预设 {pid}"))?,
+            providers::preset(draft.agent, pid).with_context(|| tr!("没有预设 {id}", id = pid))?,
             String::new(),
         ),
         None => Provider::custom(draft.agent, String::new(), String::new(), String::new()),
@@ -216,8 +217,9 @@ pub fn import_provider_link(link: String, host: State<'_, Host>) -> Result<Provi
 /// 获取 Key: the preset's key page (else its website) in the default browser; only preset URLs are opened.
 #[tauri::command]
 pub fn open_key_page(agent: AgentKind, preset_id: String, app: AppHandle) -> Result<()> {
-    let preset = providers::preset(agent, &preset_id).ok_or_else(|| format!("没有预设 {preset_id}"))?;
-    let url = preset.api_key_url.as_ref().or(preset.website_url.as_ref()).ok_or("该厂商没有提供获取 Key 的地址")?;
+    let preset = providers::preset(agent, &preset_id).ok_or_else(|| tr!("没有预设 {id}", id = preset_id))?;
+    let url =
+        preset.api_key_url.as_ref().or(preset.website_url.as_ref()).ok_or(tr!("该厂商没有提供获取 Key 的地址"))?;
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 

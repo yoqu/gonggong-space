@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
@@ -30,7 +31,7 @@ export function ChatNotice({
     return (
       <div className="pn-notice pn-notice--system">
         <span>
-          {children ?? '你撤回了一条消息'}
+          {children ?? t('你撤回了一条消息')}
           {action && (
             <button type="button" className="pn-notice__action" onClick={action.onClick}>
               {action.label}
@@ -43,7 +44,7 @@ export function ChatNotice({
     return (
       // biome-ignore lint/a11y/useSemanticElements: a labelled divider; <hr> cannot hold text
       <div className="pn-notice pn-notice--unread" role="separator">
-        {children ?? '以下为新消息'}
+        {children ?? t('以下为新消息')}
       </div>
     )
   if (kind === 'urgent')
@@ -88,12 +89,12 @@ export interface PinnedBannerProps {
 
 export function PinnedBanner({
   text,
-  title = '群公告',
+  title = t('群公告'),
   icon = 'megaphone',
   color,
   action,
   onClose,
-  closeLabel = '关闭',
+  closeLabel = t('关闭#close'),
   className,
   style,
 }: PinnedBannerProps) {

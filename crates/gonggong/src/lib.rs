@@ -15,6 +15,7 @@ pub mod explorer;
 pub mod files;
 pub mod git;
 pub mod hosted;
+pub mod i18n;
 pub mod inject;
 pub mod local;
 pub mod lock;

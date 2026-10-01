@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { t } from '../../i18n'
 import type { IconName } from '../../ui'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
 import { ConfigPage } from '../config/ConfigPage'
@@ -26,96 +27,96 @@ export interface AdminItem {
 /** Route table + left nav of 管理后台.dc.html (sysadmins only). Slices add their page by setting `element` on their item. */
 export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
   {
-    head: '管理',
+    head: t('管理'),
     items: [
       {
         path: 'users',
-        label: '账号与角色',
+        label: t('账号与角色'),
         icon: 'person-2',
         color: 'var(--system-blue)',
-        desc: '创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。',
+        desc: t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。'),
         element: <UsersPage />,
       },
       {
         path: 'bots',
-        label: 'Bot',
+        label: t('Bot#nav'),
         icon: 'bot',
         color: 'var(--system-purple)',
-        desc: '全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。',
+        desc: t('全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。'),
         element: <BotsAdminPage />,
       },
       {
         path: 'groups',
-        label: '群',
+        label: t('群#nav'),
         icon: 'hashtag',
         color: 'var(--system-green)',
-        desc: '所有群的模式、仓库与权威副本状态。',
+        desc: t('所有群的模式、仓库与权威副本状态。'),
         element: <GroupsPage />,
       },
     ],
   },
   {
-    head: '配置',
+    head: t('配置'),
     items: [
       {
         path: 'config',
-        label: '配置中心',
+        label: t('配置中心'),
         icon: 'plug',
         color: 'var(--system-orange)',
-        desc: '仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。',
+        desc: t('仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。'),
         element: <ConfigPage />,
       },
       {
         path: 'params',
-        label: '系统参数',
+        label: t('系统参数'),
         icon: 'slider-horizontal',
         color: 'var(--system-gray)',
-        desc: '全局默认值；群级参数由群管理员在群设置中调整。',
+        desc: t('全局默认值；群级参数由群管理员在群设置中调整。'),
         element: <ParamsPage />,
       },
       {
         path: 'releases',
-        label: '客户端发布',
+        label: t('客户端发布'),
         icon: 'download',
         color: 'var(--system-blue)',
-        desc: '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。',
+        desc: t('成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。'),
         element: <ReleasesPage />,
       },
     ],
   },
   {
-    head: '观测',
+    head: t('观测'),
     items: [
       {
         path: 'machines',
-        label: '机器',
+        label: t('机器#nav'),
         icon: 'server',
         color: 'var(--system-indigo)',
-        desc: '所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。',
+        desc: t('所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。'),
         element: <MachinesPage />,
       },
       {
         path: 'usage',
-        label: '用量',
+        label: t('用量'),
         icon: 'chart-bar',
         color: 'var(--system-teal)',
-        desc: '按 Bot、触发人、群汇总 token 用量。',
+        desc: t('按 Bot、触发人、群汇总 token 用量。'),
         element: <UsagePage />,
       },
       {
         path: 'previews',
-        label: '公开链接',
+        label: t('公开链接#nav'),
         icon: 'link',
         color: 'var(--system-cyan)',
-        desc: 'Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。',
+        desc: t('Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。'),
         element: <SharesPage />,
       },
       {
         path: 'audit',
-        label: '审计记录',
+        label: t('审计记录'),
         icon: 'doc-text',
         color: 'var(--system-brown)',
-        desc: '审批、提问、锁与同步事件、管理员操作，永久保存。',
+        desc: t('审批、提问、锁与同步事件、管理员操作，永久保存。'),
         element: <AuditPage />,
       },
     ],

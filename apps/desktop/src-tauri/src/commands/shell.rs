@@ -3,7 +3,7 @@ use crate::host::{Host, Snapshot};
 use gonggong::config::Config;
 use gonggong::protocol::{AgentKind, MachineInfo, PROTOCOL_VERSION};
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +45,13 @@ pub fn app_info(host: State<'_, Host>) -> Result<AppInfo> {
             .map(|&(kind, package, version)| Adapter { kind, package, version })
             .collect(),
     })
+}
+
+/// The frontend's language (`gg.locale`), sent at startup: native texts and the in-process daemon follow it.
+#[tauri::command]
+pub fn set_locale(locale: String, app: AppHandle) -> Result<()> {
+    gonggong::i18n::set_locale(gonggong::i18n::resolve(&locale));
+    crate::localize(&app).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

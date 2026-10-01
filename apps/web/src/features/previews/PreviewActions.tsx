@@ -1,5 +1,6 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Icon, IconButton, Presence } from '../../ui'
@@ -36,12 +37,12 @@ export function PreviewActions({
   const web = p.kind === 'http' || p.kind === 'static'
   const gui = p.kind === 'gui'
   const stopLabel = gui
-    ? '关闭预览并停止应用'
+    ? t('关闭预览并停止应用')
     : !web
-      ? '关闭预览'
+      ? t('关闭预览')
       : p.serviceId
-        ? '停止穿透和服务'
-        : '停止穿透'
+        ? t('停止穿透和服务')
+        : t('停止穿透')
   return (
     <div className="pv-actions">
       {web ? (
@@ -50,8 +51,8 @@ export function PreviewActions({
           href={openUrl(p.id, p.path)}
           target="_blank"
           rel="noreferrer"
-          title="打开"
-          aria-label="打开"
+          title={t('打开')}
+          aria-label={t('打开')}
         >
           <Icon name="external" size={15} />
         </a>
@@ -59,7 +60,7 @@ export function PreviewActions({
       {p.status === 'online' ? (
         <IconButton
           size="small"
-          title="在工作台打开"
+          title={t('在工作台打开')}
           onClick={() => {
             if (openInWorkbench(p)) onDone?.()
           }}
@@ -72,7 +73,7 @@ export function PreviewActions({
           {p.status === 'stopped' ? (
             <IconButton
               size="small"
-              title="启动服务"
+              title={t('启动服务')}
               disabled={busy === 'start'}
               onClick={() => void run('start', `/previews/${p.id}/start`)}
             >
@@ -80,14 +81,14 @@ export function PreviewActions({
             </IconButton>
           ) : null}
           {share && web ? (
-            <IconButton size="small" title="公开链接" onClick={() => setSharing(true)}>
+            <IconButton size="small" title={t('公开链接')} onClick={() => setSharing(true)}>
               {'link' as const}
             </IconButton>
           ) : null}
           {gui ? null : (
             <IconButton
               size="small"
-              title="重新截图"
+              title={t('重新截图')}
               disabled={busy === 'shot'}
               onClick={() => void run('shot', `/previews/${p.id}/snapshot`)}
             >

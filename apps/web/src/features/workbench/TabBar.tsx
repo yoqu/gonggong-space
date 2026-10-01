@@ -1,5 +1,6 @@
 import { type DragEvent, useEffect, useRef } from 'react'
 import { tabKey, useWorkbench, type WorkbenchTab } from '../../app/workbench'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { ContextMenu, Icon, MenuButton, Spinner } from '../../ui'
 import { TabLabel } from './TabContent'
@@ -51,7 +52,7 @@ export function TabBar({
 
   return (
     <div className="bench-tabs">
-      <div ref={list} role="tablist" aria-label="标签页" className="bench-tabs__list">
+      <div ref={list} role="tablist" aria-label={t('标签页')} className="bench-tabs__list">
         {tabs.map((tab, index) => {
           const key = tabKey(tab)
           const selected = key === active
@@ -68,9 +69,9 @@ export function TabBar({
                 <ContextMenu
                   className="bench-tab__ctx"
                   items={[
-                    { label: '关闭', value: 'close' },
-                    { label: '关闭其他标签页', value: 'others', disabled: tabs.length < 2 },
-                    { label: '关闭右侧标签页', value: 'right', disabled: index === tabs.length - 1 },
+                    { label: t('关闭#close'), value: 'close' },
+                    { label: t('关闭其他标签页'), value: 'others', disabled: tabs.length < 2 },
+                    { label: t('关闭右侧标签页'), value: 'right', disabled: index === tabs.length - 1 },
                   ]}
                   onSelect={(v) => onMenu(v, key, index)}
                 >
@@ -112,13 +113,13 @@ export function TabBar({
                     </span>
                     <span className="bench-tab__title">{meta.title}</span>
                     {key.startsWith('web:') && !live.has(key) ? (
-                      <Icon name="moon" size={11} label="休眠" className="bench-tab__sleep" />
+                      <Icon name="moon" size={11} label={t('休眠')} className="bench-tab__sleep" />
                     ) : null}
                     <button
                       type="button"
                       tabIndex={-1}
                       className="bench-tab__close"
-                      aria-label={`关闭 ${meta.title}`}
+                      aria-label={t('关闭 {title}', { title: meta.title })}
                       onClick={(e) => {
                         e.stopPropagation()
                         closeTab(key)
@@ -134,8 +135,8 @@ export function TabBar({
         })}
       </div>
       <MenuButton
-        aria-label="全部标签页"
-        title="全部标签页"
+        aria-label={t('全部标签页')}
+        title={t('全部标签页')}
         className="bench__btn"
         align="end"
         items={tabs.map((t) => ({

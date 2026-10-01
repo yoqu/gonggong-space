@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { pad } from '../../lib/time'
+import { dateLocale, pad } from '../../lib/time'
 import { Avatar, type AvatarProps, Badge, Tag } from '../display'
 import { Icon } from '../icon'
 import { Mascot } from '../mascot'
@@ -31,7 +32,6 @@ export interface Conversation {
   live?: boolean
 }
 
-const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六']
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 
 /** List time (Pane IM): today「10:42」, yesterday「昨天」, within a week「星期二」, earlier「9月20日」. */
@@ -39,14 +39,14 @@ export function listTime(iso: string, now = new Date()) {
   const d = new Date(iso)
   const days = Math.round((dayStart(now) - dayStart(d)) / 86_400_000)
   if (days <= 0) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  if (days === 1) return '昨天'
-  if (days < 7) return `星期${WEEKDAY[d.getDay()]}`
-  const md = `${d.getMonth() + 1}月${d.getDate()}日`
-  return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}年${md}`
+  if (days === 1) return t('昨天')
+  if (days < 7) return d.toLocaleDateString(dateLocale, { weekday: 'long' })
+  const year = d.getFullYear() === now.getFullYear() ? undefined : 'numeric'
+  return d.toLocaleDateString(dateLocale, { year, month: 'short', day: 'numeric' })
 }
 
 const flagOf = (it: Conversation) =>
-  it.urgent ? '[加急] ' : it.mention ? '[有人@我] ' : it.draft ? '[草稿] ' : null
+  it.urgent ? t('[加急] ') : it.mention ? t('[有人@我] ') : it.draft ? t('[草稿] ') : null
 
 /** Avatar and the two text lines of a row; ConversationItem wraps it in a button, routed lists in a link with class `pn-conv`. */
 export function ConversationContent({ item: it }: { item: Conversation }) {
@@ -75,11 +75,11 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
           {it.live && (
             <Tag tone="blue" className="pn-conv__live">
               <Mascot action="run" size={22} />
-              运行中
+              {t('运行中')}
             </Tag>
           )}
           <span className="pn-conv__time">
-            {it.pinned && <Icon name="pin" label="已置顶" />}
+            {it.pinned && <Icon name="pin" label={t('已置顶')} />}
             {it.time}
           </span>
         </span>
@@ -88,10 +88,10 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
             {flag && <span className="pn-conv__flag">{flag}</span>}
             {it.draft || it.preview}
           </span>
-          {it.muted && <Icon name="bell-slash" className="pn-conv__muted" label="免打扰" />}
+          {it.muted && <Icon name="bell-slash" className="pn-conv__muted" label={t('免打扰')} />}
           {it.unread ? (
             it.muted && it.unreadDot ? (
-              <span className="pn-conv__dot" role="img" aria-label="有未读" />
+              <span className="pn-conv__dot" role="img" aria-label={t('有未读')} />
             ) : (
               <Badge count={it.unread} muted={it.muted} />
             )
@@ -150,7 +150,7 @@ export function ConversationList({
   header,
   className,
   style,
-  'aria-label': label = '会话',
+  'aria-label': label = t('会话#list'),
 }: ConversationListProps) {
   const [own, setOwn] = useState(defaultSelected)
   const current = selected ?? own

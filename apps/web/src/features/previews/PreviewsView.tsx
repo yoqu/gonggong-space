@@ -2,9 +2,15 @@ import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { Button, EmptyState, GroupBox } from '../../ui'
 import './previews.css'
+import { t } from '../../i18n'
 import { openInWorkbench, openUrl, usePreviews } from './store'
 
-const SERVICE_STATE = { starting: '启动中', running: '运行中', exited: '已退出', failed: '启动失败' }
+const SERVICE_STATE = {
+  starting: t('启动中'),
+  running: t('运行中'),
+  exited: t('已退出'),
+  failed: t('启动失败'),
+}
 
 const act = (path: string) => attempt(() => api.post(path))
 
@@ -18,7 +24,7 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
   return (
     <>
       <div className="gs-toolbar">
-        <span className="gs-toolbar__text">预览 {list.previews.length} 个</span>
+        <span className="gs-toolbar__text">{t('预览 {n} 个', { n: list.previews.length })}</span>
       </div>
       {list.previews.length ? (
         <GroupBox>
@@ -29,8 +35,8 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
                   {p.title}
                 </a>
                 <span className="pv-muted">
-                  {p.botName} · {p.status === 'online' ? '在线' : '离线'}
-                  {p.serviceName ? ` · 服务 ${p.serviceName}` : ''}
+                  {p.botName} · {p.status === 'online' ? t('在线') : t('离线')}
+                  {p.serviceName ? t(' · 服务 {name}', { name: p.serviceName }) : ''}
                 </span>
               </span>
               {p.status === 'online' ? (
@@ -41,22 +47,22 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
                     if (openInWorkbench(p)) onOpen?.()
                   }}
                 >
-                  在工作台打开
+                  {t('在工作台打开')}
                 </Button>
               ) : null}
               {p.canManage ? (
                 <Button variant="plain" size="small" onClick={() => void act(`/previews/${p.id}/close`)}>
-                  关闭
+                  {t('关闭#close')}
                 </Button>
               ) : null}
             </div>
           ))}
         </GroupBox>
       ) : (
-        <EmptyState compact title="暂无预览" />
+        <EmptyState compact title={t('暂无预览')} />
       )}
       <div className="gs-toolbar">
-        <span className="gs-toolbar__text">托管服务 {list.services.length} 个</span>
+        <span className="gs-toolbar__text">{t('托管服务 {n} 个', { n: list.services.length })}</span>
       </div>
       {list.services.length ? (
         <GroupBox>
@@ -66,24 +72,25 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
                 <span className="pv-row__title">{s.name}</span>
                 <span className="pv-muted pv-mono">
                   {SERVICE_STATE[s.status]}
-                  {s.port ? ` · 端口 ${s.port}` : ''} · {s.cwd ? `${s.cwd}$ ` : '$ '}
+                  {s.port ? t(' · 端口 {port}', { port: s.port }) : ''} · {s.cwd ? `${s.cwd}$ ` : '$ '}
                   {s.command}
                 </span>
               </span>
               {s.canManage ? (
                 <Button variant="plain" size="small" onClick={() => void act(`/services/${s.id}/stop`)}>
-                  停止
+                  {t('停止')}
                 </Button>
               ) : null}
             </div>
           ))}
         </GroupBox>
       ) : (
-        <EmptyState compact title="暂无托管服务" />
+        <EmptyState compact title={t('暂无托管服务')} />
       )}
       <div className="gs-foot">
-        Bot 用 service_start 启动的服务由它所在的机器托管，本轮结束后仍在运行；预览 24
-        小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。
+        {t(
+          'Bot 用 service_start 启动的服务由它所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。',
+        )}
       </div>
     </>
   )

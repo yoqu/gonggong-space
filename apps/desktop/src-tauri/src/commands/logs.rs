@@ -1,5 +1,6 @@
 use super::Result;
 use crate::host::Host;
+use crate::i18n::tr;
 use gonggong::config::Config;
 use gonggong::diag::{self, Check};
 use gonggong::logs::{LogLevel, LogLine, Logs};
@@ -19,7 +20,7 @@ pub async fn diagnostics(host: State<'_, Host>) -> Result<Vec<Check>> {
 /// 测量延迟与带宽: measured and reported to the server.
 #[tauri::command]
 pub async fn measure_net() -> Result<NetResult> {
-    let config = config().ok_or("尚未绑定")?;
+    let config = config().ok_or(tr!("尚未绑定"))?;
     gonggong::net::run(&config).await.map_err(|e| format!("{e:#}"))
 }
 

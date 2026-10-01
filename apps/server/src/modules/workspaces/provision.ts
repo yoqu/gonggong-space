@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   type DaemonToServer,
   type GitProtocol,
+  type ProtocolKey,
   publicRepoUrl,
   type RepoAccessReason,
   type WorkspaceState,
@@ -56,13 +57,15 @@ const MANAGED = {
 
 /** Reasons that pause a bot: its machine cannot reach the repo (a missing branch is the group's problem). */
 export const PAUSING: readonly RepoAccessReason[] = ['denied', 'network', 'timeout']
-const REASON_TEXT: Record<RepoAccessReason, string> = {
+const REASON_TEXT: Record<RepoAccessReason, ProtocolKey> = {
   denied: '无权限或仓库不存在',
   branch_missing: '分支不存在',
   network: '网络或证书问题',
   timeout: '连接超时',
 }
 export const reasonText = (r: RepoAccessReason) => REASON_TEXT[r]
+
+const joinedName = (bot: string, joined: boolean) => (joined ? { key: '{bot} 加入', params: { bot } } : bot)
 
 /** The group's repo as sent to daemons; `protocol` is the bot owner's preference when a bot is given. */
 export async function currentRepo(ctx: Ctx, groupId: string, botId?: string) {
@@ -131,15 +134,16 @@ async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string,
  * until the owner binds it. Also used after a repo change.
  */
 export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: { joined: boolean }) {
-  const lead = `${bot.name}${o.joined ? ' 加入' : ''}`
+  const lead = joinedName(bot.name, o.joined)
   if (await currentRepo(ctx, groupId)) {
     await updateBotState(ctx, groupId, bot.id, MANAGED)
     await postEvent(
       ctx,
       groupId,
       onlineMachine(ctx, bot.machineId)
-        ? `${lead} · 使用托管工作区，等待本机克隆…`
-        : `${lead} · daemon 离线，上线后克隆托管工作区`,
+        ? '{bot} · 使用托管工作区，等待本机克隆…'
+        : '{bot} · daemon 离线，上线后克隆托管工作区',
+      { bot: lead },
     )
     return ensureWorkspace(ctx, groupId, bot)
   }
@@ -147,7 +151,10 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
   const path = row?.path
   if (!path) {
     await updateBotState(ctx, groupId, bot.id, { ...MANAGED, workspaceState: 'unbound' })
-    return void (await postEvent(ctx, groupId, `${lead} · 等待 ${await ownerName(ctx, bot.id)} 绑定工作区`))
+    return void (await postEvent(ctx, groupId, '{bot} · 等待 {owner} 绑定工作区', {
+      bot: lead,
+      owner: await ownerName(ctx, bot.id),
+    }))
   }
   await updateBotState(ctx, groupId, bot.id, {
     ...MANAGED,
@@ -156,7 +163,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
     workspaceState: 'pending',
   })
   if (!(await sendDefault(ctx, groupId, bot, path, o.joined)))
-    await postEvent(ctx, groupId, `${lead} · daemon 离线，上线后使用默认工作区`)
+    await postEvent(ctx, groupId, '{bot} · daemon 离线，上线后使用默认工作区', { bot: lead })
 }
 
 async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: string) {
@@ -172,7 +179,8 @@ async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: stri
     return void (await postEvent(
       ctx,
       msg.groupId,
-      `${name} 默认工作区不可用：${msg.error ?? '未知错误'}，等待 ${owner} 绑定工作区`,
+      '{bot} 默认工作区不可用：{error}，等待 {owner} 绑定工作区',
+      { bot: name, error: msg.error ?? { key: '未知错误' }, owner },
     ))
   }
   await updateBotState(ctx, msg.groupId, msg.botId, {
@@ -185,11 +193,10 @@ async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: stri
     workspaceReason: null,
   })
   await rememberDir(ctx, req, msg)
-  await postEvent(
-    ctx,
-    msg.groupId,
-    `${name}${req.joined ? ' 加入' : ''} · 使用默认工作区 ${req.cdPath}（主人可改绑）`,
-  )
+  await postEvent(ctx, msg.groupId, '{bot} · 使用默认工作区 {path}（主人可改绑）', {
+    bot: joinedName(name, req.joined),
+    path: req.cdPath ?? '',
+  })
   await schedule(ctx, msg.botId)
 }
 
@@ -261,10 +268,13 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
     await forgetLocalPath(ctx, machineId, req.cdPath)
   if (req?.kind === 'cd' && msg.state !== 'cloning') await onCdResult(ctx, msg, req.cdPath === null)
   if (req?.kind === 'ensure' && msg.state === 'ready')
-    await postEvent(ctx, msg.groupId, `${row.name} · daemon 已 clone 到托管工作区`)
+    await postEvent(ctx, msg.groupId, '{bot} · daemon 已 clone 到托管工作区', { bot: row.name })
   // A retry failing the same way (e.g. on every reconnect) is not announced again.
   if (req?.kind === 'ensure' && msg.state === 'failed' && msg.error !== row.error)
-    await postEvent(ctx, msg.groupId, `${row.name} 工作区创建失败：${msg.error ?? '未知错误'}`)
+    await postEvent(ctx, msg.groupId, '{bot} 工作区创建失败：{error}', {
+      bot: row.name,
+      error: msg.error ?? { key: '未知错误' },
+    })
   // Clones fail from ensure and from `/cd --reset` alike.
   if (msg.state === 'failed' && msg.reason && PAUSING.includes(msg.reason) && msg.error !== row.error)
     await notifyPaused(ctx, msg, row)

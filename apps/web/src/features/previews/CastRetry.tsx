@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
 import { Button } from '../../ui'
@@ -33,9 +34,11 @@ export function CastRetry({
   }
   return (
     <span className="cast-retry">
-      {retryAt ? <span>{busy || secs === 0 ? '正在重试…' : `${secs} 秒后自动重试`}</span> : null}
+      {retryAt ? (
+        <span>{busy || secs === 0 ? t('正在重试…') : t('{n} 秒后自动重试', { n: secs })}</span>
+      ) : null}
       <Button size="small" loading={busy} onClick={() => void click()}>
-        立即重试
+        {t('立即重试')}
       </Button>
     </span>
   )

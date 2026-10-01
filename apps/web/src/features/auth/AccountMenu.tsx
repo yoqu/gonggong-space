@@ -1,6 +1,7 @@
 import type { UserDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { Avatar, MenuButton, type MenuItem, Presence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { useSettings } from '../settings/store'
@@ -8,7 +9,10 @@ import { UsageDialog } from '../usage/UsagePage'
 import { logout } from './logout'
 import './account-menu.css'
 
-export const ROLE_LABEL: Record<UserDto['role'], string> = { sysadmin: '系统管理员', member: '普通成员' }
+export const ROLE_LABEL: Record<UserDto['role'], string> = {
+  sysadmin: t('系统管理员'),
+  member: t('普通成员'),
+}
 
 /** Avatar button with the glass account menu (Pane MenuButton + Menu); at the NavRail foot it opens upward. */
 export function AccountMenu({
@@ -35,12 +39,12 @@ export function AccountMenu({
       ),
     },
     { separator: true },
-    { label: '绑定新机器', value: 'bind' },
-    { label: '我的用量', value: 'usage' },
+    { label: t('绑定新机器'), value: 'bind' },
+    { label: t('我的用量'), value: 'usage' },
     { separator: true },
-    { label: '设置…', value: 'settings' },
+    { label: t('设置…'), value: 'settings' },
     { separator: true },
-    { label: '退出登录', value: 'logout' },
+    { label: t('退出登录'), value: 'logout' },
   ]
 
   const select = (value: string) => {
@@ -53,7 +57,7 @@ export function AccountMenu({
     <>
       <MenuButton
         className="account__trigger"
-        aria-label="账户菜单"
+        aria-label={t('账户菜单')}
         title={user.name}
         align={align}
         placement={placement}

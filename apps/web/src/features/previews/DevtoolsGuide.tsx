@@ -1,22 +1,23 @@
 import type { DevtoolsBlocker } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { ProgressIndicator } from '../../ui'
 import './devtools-guide.css'
 
 const GUIDE: Record<DevtoolsBlocker, { title: string; steps: string[] }> = {
   port: {
-    title: '请开启微信开发者工具的服务端口',
-    steps: ['打开微信开发者工具', '菜单栏「设置 → 安全设置」', '打开「服务端口」'],
+    title: t('请开启微信开发者工具的服务端口'),
+    steps: [t('打开微信开发者工具'), t('菜单栏「设置 → 安全设置」'), t('打开「服务端口」')],
   },
   auth: {
-    title: '请在微信开发者工具里允许共工空间访问',
-    steps: ['切换到微信开发者工具', '在「Gonggong」授权弹窗中点击「允许」'],
+    title: t('请在微信开发者工具里允许共工空间访问'),
+    steps: [t('切换到微信开发者工具'), t('在「Gonggong」授权弹窗中点击「允许」')],
   },
   trust: {
-    title: '请在微信开发者工具里信任此项目',
+    title: t('请在微信开发者工具里信任此项目'),
     steps: [
-      '切换到微信开发者工具',
-      '在「您信任此项目的作者吗？」弹窗中点击「信任并运行」',
-      '若没有弹窗，请查看开发者工具的编译输出',
+      t('切换到微信开发者工具'),
+      t('在「您信任此项目的作者吗？」弹窗中点击「信任并运行」'),
+      t('若没有弹窗，请查看开发者工具的编译输出'),
     ],
   },
 }
@@ -37,8 +38,8 @@ export function DevtoolsGuide({ blocker, owner }: { blocker: DevtoolsBlocker; ow
         ))}
       </ol>
       <div className="dg__wait">
-        <ProgressIndicator variant="spinner" aria-label="正在等待" />
-        完成后自动继续
+        <ProgressIndicator variant="spinner" aria-label={t('正在等待')} />
+        {t('完成后自动继续')}
       </div>
     </div>
   )
@@ -51,22 +52,22 @@ function PortSketch() {
         <i />
         <i />
         <i />
-        <span>设置</span>
+        <span>{t('设置')}</span>
       </div>
       <div className="dg-win__body">
         <div className="dg-win__side">
-          <span>通用</span>
-          <span>外观</span>
-          <span className="dg-win__on">安全设置</span>
-          <span>代理</span>
+          <span>{t('通用')}</span>
+          <span>{t('外观')}</span>
+          <span className="dg-win__on">{t('安全设置')}</span>
+          <span>{t('代理')}</span>
         </div>
         <div className="dg-win__main">
           <div className="dg-row">
-            <span>服务端口</span>
+            <span>{t('服务端口')}</span>
             <span className="dg-toggle" />
           </div>
           <div className="dg-row dg-row--dim">
-            <span>CLI 访问令牌</span>
+            <span>{t('CLI 访问令牌')}</span>
             <span className="dg-toggle dg-toggle--off" />
           </div>
         </div>
@@ -80,11 +81,11 @@ function DialogSketch({ blocker }: { blocker: 'auth' | 'trust' }) {
   return (
     <div className="dg-win dg-win--dialog">
       <div className="dg-dialog__title">
-        {blocker === 'auth' ? '「Gonggong」请求访问微信开发者工具' : '您信任此项目的作者吗？'}
+        {blocker === 'auth' ? t('「Gonggong」请求访问微信开发者工具') : t('您信任此项目的作者吗？')}
       </div>
       <div className="dg-dialog__buttons">
-        <span>{blocker === 'auth' ? '拒绝' : '取消'}</span>
-        <span className="dg-dialog__primary">{blocker === 'auth' ? '允许' : '信任并运行'}</span>
+        <span>{blocker === 'auth' ? t('拒绝') : t('取消')}</span>
+        <span className="dg-dialog__primary">{blocker === 'auth' ? t('允许') : t('信任并运行')}</span>
       </div>
       <span className="dg-cursor dg-cursor--dialog" />
     </div>
@@ -97,11 +98,11 @@ export function DevtoolsLoading() {
     <div className="dg" role="status">
       <ProgressIndicator
         variant="spinner"
-        aria-label="正在打开微信开发者工具"
+        aria-label={t('正在打开微信开发者工具')}
         style={{ width: 28, height: 28 }}
       />
-      <div className="dg__title">正在打开微信开发者工具…</div>
-      <div className="dg__owner">启动开发者工具并编译小程序，首次可能需要几十秒</div>
+      <div className="dg__title">{t('正在打开微信开发者工具…')}</div>
+      <div className="dg__owner">{t('启动开发者工具并编译小程序，首次可能需要几十秒')}</div>
     </div>
   )
 }

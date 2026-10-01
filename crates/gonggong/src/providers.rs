@@ -2,6 +2,7 @@
 //! `<home>/providers.json` (0600), the machine default per agent, per-bot overrides and the provider each ACP session
 //! was started with. Never sent anywhere unmasked: whatever leaves the machine goes through [`Store::view`].
 use crate::protocol::AgentKind;
+use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -185,13 +186,13 @@ impl Provider {
 
     fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
-            bail!("供应商名称不能为空");
+            bail!(t!("供应商名称不能为空"));
         }
         if !(self.base_url.starts_with("https://") || self.base_url.starts_with("http://")) {
-            bail!("Base URL 必须以 http:// 或 https:// 开头");
+            bail!(t!("Base URL 必须以 http:// 或 https:// 开头"));
         }
         if self.api_key.trim().is_empty() {
-            bail!("API Key 不能为空");
+            bail!(t!("API Key 不能为空"));
         }
         Ok(())
     }
@@ -345,7 +346,7 @@ impl Store {
 
     pub fn load(home: &Path) -> Result<Store> {
         match std::fs::read_to_string(Self::path(home)) {
-            Ok(s) => serde_json::from_str(&s).context("providers.json 已损坏"),
+            Ok(s) => serde_json::from_str(&s).context(t!("providers.json 已损坏")),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Store::default()),
             Err(e) => Err(e.into()),
         }
@@ -393,9 +394,14 @@ impl Store {
     }
 
     fn get_for(&self, agent: AgentKind, id: &str) -> Result<&Provider> {
-        let p = self.get(id).with_context(|| format!("供应商 {id} 不存在"))?;
+        let p = self.get(id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
         if p.agent != agent {
-            bail!("供应商 {} 属于 {}，不能用于 {}", p.name, agent_name(p.agent), agent_name(agent));
+            bail!(t!(
+                "供应商 {name} 属于 {owner}，不能用于 {agent}",
+                name = p.name,
+                owner = agent_name(p.agent),
+                agent = agent_name(agent)
+            ));
         }
         Ok(p)
     }
@@ -417,7 +423,7 @@ impl Store {
 
     /// Edits in place; the revision goes up when anything changed.
     pub fn edit(&mut self, id: &str, f: impl FnOnce(&mut Provider)) -> Result<()> {
-        let p = self.providers.iter_mut().find(|p| p.id == id).with_context(|| format!("供应商 {id} 不存在"))?;
+        let p = self.providers.iter_mut().find(|p| p.id == id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
         let mut next = p.clone();
         f(&mut next);
         next.validate()?;
@@ -431,7 +437,7 @@ impl Store {
     /// Defaults and overrides pointing at it fall back (official / inherit); sessions pinned to it keep the id so
     /// [`Store::resolve_run`] reports it as removed.
     pub fn remove(&mut self, id: &str) -> Result<Provider> {
-        let i = self.providers.iter().position(|p| p.id == id).with_context(|| format!("供应商 {id} 不存在"))?;
+        let i = self.providers.iter().position(|p| p.id == id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
         self.machine.retain(|_, v| v != id);
         self.bots.retain(|_, v| v != id);
         Ok(self.providers.remove(i))

@@ -1,3 +1,8 @@
+import { locale, t } from '../i18n'
+
+/** BCP 47 tag for `Intl` date formatting. */
+export const dateLocale = locale === 'en' ? 'en-US' : 'zh-CN'
+
 export const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Local HH:mm. */
@@ -14,7 +19,8 @@ export const countdown = (ms: number) => {
 
 export function ago(iso: string) {
   const min = Math.floor((Date.now() - Date.parse(iso)) / 60_000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
+  if (min < 1) return t('刚刚')
+  if (min < 60) return t('{n} 分钟前', { n: min })
+  if (min < 1440) return t('{n} 小时前', { n: Math.floor(min / 60) })
+  return t('{n} 天前', { n: Math.floor(min / 1440) })
 }

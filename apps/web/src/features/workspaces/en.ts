@@ -1,0 +1,29 @@
+export default {
+  取消: 'Cancel',
+  选择此目录: 'Choose this folder',
+  上一级: 'Up one level',
+  目录路径: 'Folder path',
+  'git 仓库 · {branch}': 'git repo · {branch}',
+  '游离 HEAD': 'detached HEAD',
+  '无 remote': 'no remote',
+  进入具体项目目录后选择: 'Open a project folder to choose it',
+  没有子目录: 'No subfolders',
+  '不是 git 仓库': 'not a git repo',
+  '为 {bot} 选择工作区': 'Choose a workspace for {bot}',
+  使用本机已有的仓库目录: 'Use the existing repo folder on this machine',
+  '免 clone': 'No clone',
+  托管克隆群仓库: 'Managed clone of the group repo',
+  推荐: 'Recommended',
+  '在机器上自动克隆到独立目录，互不干扰':
+    'Cloned automatically into its own folder on the machine, isolated from others',
+  使用默认工作区: 'Use the default workspace',
+  或选择机器上已有的目录: 'Or choose an existing folder on the machine',
+  该目录不是群仓库: 'This folder is not the group repo',
+  '{bot} 将在 {path} 工作，不再使用群仓库 {repo}。':
+    '{bot} will work in {path} instead of the group repo {repo}.',
+  '目录 remote：{remote}': 'Folder remote: {remote}',
+  '群的基准分支与托管克隆对 {bot} 不再生效':
+    "The group's base branch and managed clone no longer apply to {bot}",
+  '仅影响 {bot}，群内其他 Bot 不变': 'Only affects {bot}; other Bots in the group are unchanged',
+  仍然使用: 'Use anyway',
+} satisfies Record<string, string>

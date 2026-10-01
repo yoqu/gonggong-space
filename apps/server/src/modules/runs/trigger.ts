@@ -1,4 +1,4 @@
-import type { RepoAccessReason } from '@gonggong/protocol'
+import type { ProtocolKey, RepoAccessReason } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, messages, runs, users } from '../../db/schema.js'
@@ -8,6 +8,7 @@ import { postEvent, postMessage } from '../messages/service.js'
 import { PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
+import { runStep } from './step.js'
 import { isChainStopped } from './stop.js'
 
 type Target = Pick<
@@ -16,7 +17,7 @@ type Target = Pick<
 >
 
 /** Why `origin` may not trigger `bot` (spec §3.6), or null when allowed. The owner is always allowed. */
-export function refusal(bot: Target, origin: string): string | null {
+export function refusal(bot: Target, origin: string): ProtocolKey | null {
   if (bot.binding !== 'bound') return 'Bot 未绑定或未确认，不能被触发'
   if (origin === bot.ownerId) return null
   const scope = bot.tier === 'full' && bot.triggerScope === 'all' ? 'list' : bot.triggerScope
@@ -72,14 +73,19 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         return void (await postEvent(
           ctx,
           t.groupId,
-          `${bot.name} 还没有工作区，本次未执行；${bot.ownerName} 绑定工作区后重新发起即可`,
+          '{bot} 还没有工作区，本次未执行；{owner} 绑定工作区后重新发起即可',
+          {
+            bot: bot.name,
+            owner: bot.ownerName,
+          },
         ))
       const reason = bot.workspaceReason as RepoAccessReason | null
       if (!refused && bot.workspaceState === 'failed' && reason && PAUSING.includes(reason))
         return void (await postEvent(
           ctx,
           t.groupId,
-          `${bot.name} 所在机器无法访问仓库（${reasonText(reason)}），本次未执行；${bot.ownerName} 配置后点「重新检查」`,
+          '{bot} 所在机器无法访问仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」',
+          { bot: bot.name, reason: { key: reasonText(reason) }, owner: bot.ownerName },
         ))
       const [run] = await ctx.db
         .insert(runs)
@@ -92,7 +98,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           parentRunId: t.parentRunId,
           hop: t.hop,
           status: refused ? 'forbidden' : 'queued',
-          step: refused ?? '',
+          ...(refused ? runStep(refused) : { step: '' }),
           queuedAt: ctx.now(),
           endedAt: refused ? ctx.now() : null,
         })

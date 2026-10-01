@@ -1,4 +1,5 @@
 import type { Attachment } from '@gonggong/protocol'
+import { locale, t } from '../../i18n'
 import { ApiError } from '../../lib/api'
 import { fileType } from '../../ui/file-icon'
 
@@ -12,14 +13,15 @@ export function postForm<T>(url: string, form: FormData, onProgress: (pct: numbe
   const done = new Promise<T>((resolve, reject) => {
     xhr.open('POST', url)
     xhr.withCredentials = true
+    xhr.setRequestHeader('accept-language', locale)
     xhr.responseType = 'json'
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100))
     xhr.onload = () => {
       const body = xhr.response as (T & { error?: string; message?: string }) | null
       if (xhr.status >= 200 && xhr.status < 300 && body) resolve(body)
-      else reject(new ApiError(xhr.status, 'http_error', body?.message ?? '上传失败'))
+      else reject(new ApiError(xhr.status, 'http_error', body?.message ?? t('上传失败')))
     }
-    xhr.onerror = () => reject(new Error('上传失败，请检查网络'))
+    xhr.onerror = () => reject(new Error(t('上传失败，请检查网络')))
     xhr.onabort = () => reject(new DOMException('aborted', 'AbortError'))
     xhr.send(form)
   })
@@ -40,18 +42,18 @@ export type FileKind = 'image' | 'video' | 'md' | 'text' | 'code' | 'file'
 export function kindOf(a: Pick<Attachment, 'name' | 'mime'>): FileKind {
   if (a.mime.startsWith('image/') && a.mime !== 'image/svg+xml') return 'image'
   if (a.mime.startsWith('video/')) return 'video'
-  const t = fileType(a.name, a.mime)
-  if (t === 'md' || t === 'code' || t === 'text') return t
+  const type = fileType(a.name, a.mime)
+  if (type === 'md' || type === 'code' || type === 'text') return type
   return a.mime.startsWith('text/') || /\.csv$/i.test(a.name) ? 'text' : 'file'
 }
 
 export const KIND_LABEL: Record<FileKind, string> = {
-  image: '图片',
-  video: '视频',
+  image: t('图片'),
+  video: t('视频'),
   md: 'Markdown',
-  text: '文本日志',
-  code: '代码',
-  file: '文件',
+  text: t('文本日志'),
+  code: t('代码'),
+  file: t('文件#item'),
 }
 
 export function fmtSize(bytes: number) {

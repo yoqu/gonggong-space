@@ -1,5 +1,6 @@
 import type { GroupDto, GroupNoticeDto, GroupParams, GroupPrefsReq, Tier } from '@gonggong/protocol'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 
 const apply = (group: GroupDto) => {
@@ -34,4 +35,5 @@ export const groupsApi = {
 }
 
 /** Summary shown on the 群级参数 row, e.g. 「审批 30 分 · 接力 3 跳」. */
-export const paramsSummary = (p: GroupParams) => `审批 ${p.approvalTimeoutMin} 分 · 接力 ${p.chainMaxHops} 跳`
+export const paramsSummary = (p: GroupParams) =>
+  t('审批 {min} 分 · 接力 {hops} 跳', { min: p.approvalTimeoutMin, hops: p.chainMaxHops })

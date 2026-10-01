@@ -57,31 +57,49 @@ import {
 } from './model'
 import { NewBotDialog } from './NewBotDialog'
 import './bots.css'
+import { t } from '../../i18n'
 
-const FULL_HINT = '完全访问档位只允许指定名单触发'
+const FULL_HINT = t('完全访问档位只允许指定名单触发')
 const MAX_CONCURRENCY = 8
 
 function warning(bot: BotDto, userName: (id: string) => string) {
   const agent = AGENT_LABEL[bot.agentKind]
   if (bot.presence === 'pending_confirm')
     return {
-      title: `等待 ${bot.ownerName} 确认`,
-      desc: `${userName(bot.createdBy)} 为${bot.ownerName}创建并绑定到 ${bot.machineName}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。`,
+      title: t('等待 {owner} 确认', { owner: bot.ownerName }),
+      desc: t(
+        '{creator} 为{owner}创建并绑定到 {machine}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。',
+        {
+          creator: userName(bot.createdBy),
+          owner: bot.ownerName,
+          machine: bot.machineName ?? '',
+        },
+      ),
     }
   if (bot.presence === 'pending_bind')
     return {
-      title: '待绑定',
-      desc: `${bot.ownerName} 绑定第一台机器并上报 ${agent} 后自动绑定，无需再操作；此前不能被触发。`,
+      title: t('待绑定'),
+      desc: t('{owner} 绑定第一台机器并上报 {agent} 后自动绑定，无需再操作；此前不能被触发。', {
+        owner: bot.ownerName,
+        agent,
+      }),
     }
   if (bot.presence === 'agent_missing')
     return {
-      title: `${agent} 未安装`,
-      desc: `${bot.machineName} 未上报 ${agent}。在该机器安装并重新检测后自动可用。`,
+      title: t('{agent} 未安装', { agent }),
+      desc: t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', {
+        machine: bot.machineName ?? '',
+        agent,
+      }),
     }
   if (agentOutdated(bot))
     return {
-      title: 'agent 版本低于适配器要求',
-      desc: `${bot.machineName} 上的 ${agentCliVersion(bot)} 低于 ACP 适配器要求的 ${bot.agentMinVersion}，可能无法正常运行，请升级该 CLI。`,
+      title: t('agent 版本低于适配器要求'),
+      desc: t('{machine} 上的 {cli} 低于 ACP 适配器要求的 {min}，可能无法正常运行，请升级该 CLI。', {
+        machine: bot.machineName ?? '',
+        cli: agentCliVersion(bot),
+        min: bot.agentMinVersion ?? '',
+      }),
     }
   return null
 }
@@ -95,7 +113,7 @@ export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBrie
       {bot.presence === 'pending_confirm' && owner ? (
         <div className="bots-detail__confirm">
           <Button variant="primary" onClick={() => void confirmBot(bot.id)}>
-            确认
+            {t('确认')}
           </Button>
         </div>
       ) : null}
@@ -106,7 +124,10 @@ export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBrie
 function weekUsage(rows: UsageRowDto[]) {
   const runs = rows.reduce((n, r) => n + r.runs, 0)
   const tokens = rows.reduce((n, r) => n + r.totalTokens, 0)
-  return `${tokens || !runs ? `${fmtTokens(tokens)} tokens` : '用量未上报'} · ${runs} 轮`
+  return t('{usage} · {n} 轮', {
+    usage: tokens || !runs ? `${fmtTokens(tokens)} tokens` : t('用量未上报'),
+    n: runs,
+  })
 }
 
 /** Path as a clickable NSPathControl; a segment reopens the picker at that folder. */
@@ -117,7 +138,7 @@ export function WorkspacePath({ path, onPick }: { path: string; onPick: (start: 
     label: p,
     icon: 'folder' as const,
   }))
-  return <PathControl items={items} maxItems={3} onSelect={onPick} aria-label="默认工作区路径" />
+  return <PathControl items={items} maxItems={3} onSelect={onPick} aria-label={t('默认工作区路径')} />
 }
 
 export function BotDetail({
@@ -173,7 +194,7 @@ export function BotDetail({
         ...(owner &&
           approval.allowlist.join('\n') !== bot.allowlist.join('\n') && { allowlist: approval.allowlist }),
       })
-      toast({ type: 'success', message: `${bot.name} 已保存 · 下一次新开会话时生效` })
+      toast({ type: 'success', message: t('{name} 已保存 · 下一次新开会话时生效', { name: bot.name }) })
     } catch (e) {
       toastError(e)
     } finally {
@@ -187,7 +208,7 @@ export function BotDetail({
       .catch(toastError)
 
   return (
-    <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label="Bot 详情">
+    <aside className={cx('bots-detail', plain && 'bots-detail--plain')} aria-label={t('Bot 详情')}>
       <div className="bots-detail__head">
         <BotAvatar id={bot.id} name={bot.name} size={32} />
         <div className="bots-detail__titles">
@@ -202,18 +223,18 @@ export function BotDetail({
 
       <Form>
         {canEdit ? (
-          <FormRow label="角色" align="top" hint={roleHint(avatar)}>
+          <FormRow label={t('角色')} align="top" hint={roleHint(avatar)}>
             <RolePicker value={avatar} onChange={setAvatar} />
           </FormRow>
         ) : null}
         <FormRow
-          label="系统提示词"
+          label={t('系统提示词')}
           align="top"
-          hint="作为 Bot 的角色说明和群内简介，群内可再补充；下一次新开会话时生效"
+          hint={t('作为 Bot 的角色说明和群内简介，群内可再补充；下一次新开会话时生效')}
         >
           <TextField
             multiline
-            aria-label="系统提示词"
+            aria-label={t('系统提示词')}
             rows={3}
             value={prompt}
             disabled={!canEdit}
@@ -223,9 +244,9 @@ export function BotDetail({
 
         {me.id === bot.ownerId && bot.machineId ? (
           <FormRow
-            label="默认工作区"
+            label={t('默认工作区')}
             align="top"
-            hint="未绑定仓库的群和私聊中自动使用；绑定仓库的群默认托管克隆"
+            hint={t('未绑定仓库的群和私聊中自动使用；绑定仓库的群默认托管克隆')}
           >
             <div
               className="bots-detail__workspace"
@@ -235,16 +256,16 @@ export function BotDetail({
               {bot.defaultWorkspace ? (
                 <WorkspacePath path={bot.defaultWorkspace} onPick={setPicking} />
               ) : (
-                <span className="bots-detail__unset">未设置</span>
+                <span className="bots-detail__unset">{t('未设置')}</span>
               )}
             </div>
             <div className="bots-detail__buttons">
               <Button size="small" onClick={() => setPicking(bot.defaultWorkspace)}>
-                选择…
+                {t('选择…')}
               </Button>
               {bot.defaultWorkspace ? (
                 <Button size="small" onClick={() => void setDefault(null)}>
-                  清除
+                  {t('清除')}
                 </Button>
               ) : null}
             </div>
@@ -252,7 +273,7 @@ export function BotDetail({
               {picking !== false ? (
                 <DirPicker
                   machineId={bot.machineId}
-                  title="默认工作区"
+                  title={t('默认工作区')}
                   start={picking}
                   onPick={(path) => void setDefault(path)}
                   onClose={() => setPicking(false)}
@@ -270,10 +291,10 @@ export function BotDetail({
           onChange={setConfig}
         />
 
-        <FormRow label="触发范围" hint={tier === 'full' ? FULL_HINT : undefined}>
+        <FormRow label={t('触发范围')} hint={tier === 'full' ? FULL_HINT : undefined}>
           <div title={tier === 'full' ? FULL_HINT : undefined}>
             <SegmentedControl<TriggerScope>
-              aria-label="触发范围"
+              aria-label={t('触发范围')}
               size="small"
               value={scope}
               onChange={setScope}
@@ -287,11 +308,11 @@ export function BotDetail({
         </FormRow>
 
         {scope === 'list' ? (
-          <FormRow label="触发名单">
+          <FormRow label={t('触发名单')}>
             {canEdit ? (
               <TokenField
-                aria-label="触发名单"
-                placeholder="输入成员姓名"
+                aria-label={t('触发名单')}
+                placeholder={t('输入成员姓名')}
                 value={list.map(userName)}
                 suggestions={users.map((u) => ({ label: u.name, detail: u.account }))}
                 onChange={(tokens) =>
@@ -303,14 +324,14 @@ export function BotDetail({
                 }
               />
             ) : (
-              <span>{list.map(userName).join('、') || '--'}</span>
+              <span>{list.map(userName).join(t('、')) || '--'}</span>
             )}
           </FormRow>
         ) : null}
 
-        <FormRow label="权限档位">
+        <FormRow label={t('权限档位')}>
           <SegmentedControl<Tier>
-            aria-label="默认权限档位"
+            aria-label={t('默认权限档位')}
             size="small"
             value={tier}
             onChange={(v) => {
@@ -321,10 +342,10 @@ export function BotDetail({
           />
         </FormRow>
 
-        <FormRow label="并发上限" hint={canEdit ? '同时运行的轮次，超出的在本机排队' : undefined}>
+        <FormRow label={t('并发上限')} hint={canEdit ? t('同时运行的轮次，超出的在本机排队') : undefined}>
           {canEdit ? (
             <Stepper
-              aria-label="并发上限"
+              aria-label={t('并发上限')}
               min={1}
               max={Math.max(MAX_CONCURRENCY, bot.concurrency)}
               value={concurrency}
@@ -332,20 +353,20 @@ export function BotDetail({
               width={48}
             />
           ) : (
-            `${bot.concurrency} 个群并行`
+            t('{n} 个群并行', { n: bot.concurrency })
           )}
         </FormRow>
         <ApprovalFields owner={owner} value={approval} onChange={setApproval} />
-        <FormRow label="所在群">{bot.groupCount} 个</FormRow>
-        <FormRow label="agent 版本">
+        <FormRow label={t('所在群')}>{t('{n} 个', { n: bot.groupCount })}</FormRow>
+        <FormRow label={t('agent 版本')}>
           <span className="bots-detail__mono">{agentCliVersion(bot)}</span>
         </FormRow>
-        <FormRow label="近 7 天用量">{usage ? weekUsage(usage) : '--'}</FormRow>
-        <FormRow label="谁用了" align="top">
+        <FormRow label={t('近 7 天用量')}>{usage ? weekUsage(usage) : '--'}</FormRow>
+        <FormRow label={t('谁用了')} align="top">
           {usage?.length ? (
             <UsageBars rows={usage} />
           ) : (
-            <span className="bots-detail__unset">{usage ? '近 7 天无人使用' : '--'}</span>
+            <span className="bots-detail__unset">{usage ? t('近 7 天无人使用') : '--'}</span>
           )}
         </FormRow>
       </Form>
@@ -353,11 +374,11 @@ export function BotDetail({
       {canEdit ? (
         <div className="bots-detail__actions">
           <Button variant="plain" className="bots-detail__delete" onClick={() => setDeleting(true)}>
-            删除 Bot
+            {t('删除 Bot')}
           </Button>
           <span className="spacer" />
           <Button variant="primary" disabled={saving} onClick={() => void save()}>
-            保存
+            {t('保存')}
           </Button>
         </div>
       ) : null}
@@ -387,19 +408,24 @@ export function BotsAdminPage() {
   return (
     <AdminPage
       title="Bot"
-      desc="全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。"
-      subtitle={`${bots.length} 个 Bot`}
+      desc={t('全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。')}
+      subtitle={t('{n} 个 Bot', { n: bots.length })}
       actions={
         <ToolbarGroup>
-          <ToolbarButton icon="plus" label="新建 Bot…" text="新建 Bot…" onClick={() => setCreating(true)} />
+          <ToolbarButton
+            icon="plus"
+            label={t('新建 Bot…')}
+            text={t('新建 Bot…')}
+            onClick={() => setCreating(true)}
+          />
         </ToolbarGroup>
       }
-      search={<SearchField placeholder="搜索 Bot、归属人或机器" value={query} onChange={setQuery} />}
+      search={<SearchField placeholder={t('搜索 Bot、归属人或机器')} value={query} onChange={setQuery} />}
     >
       {bots.length ? (
         <div className="bots-page__body">
           <Table<BotDto>
-            aria-label="Bot 列表"
+            aria-label={t('Bot 列表')}
             className="admin-grid bots-grid"
             rows={shown}
             multiple={false}
@@ -408,9 +434,9 @@ export function BotsAdminPage() {
               if (ids[0] != null) setSelectedId(String(ids[0]))
             }}
             defaultSort={{ key: 'name', dir: 'asc' }}
-            rowActions={() => [{ label: '删除 Bot…', value: 'delete', destructive: true }]}
+            rowActions={() => [{ label: t('删除 Bot…'), value: 'delete', destructive: true }]}
             onRowAction={(_, b) => setDeleting(b)}
-            emptyText={<EmptyState compact title="没有匹配的 Bot" illustration={<NoResultsArt />} />}
+            emptyText={<EmptyState compact title={t('没有匹配的 Bot')} illustration={<NoResultsArt />} />}
             columns={[
               {
                 key: 'name',
@@ -434,10 +460,10 @@ export function BotsAdminPage() {
                 sortValue: agentLine,
                 render: agentLine,
               },
-              { key: 'ownerName', title: '归属人', width: 96, sortable: true },
+              { key: 'ownerName', title: t('归属人'), width: 96, sortable: true },
               {
                 key: 'binding',
-                title: '绑定',
+                title: t('绑定'),
                 width: 64,
                 sortable: true,
                 sortValue: (b) => BINDING_LABEL[b.binding],
@@ -450,7 +476,7 @@ export function BotsAdminPage() {
               },
               {
                 key: 'machineName',
-                title: '机器',
+                title: t('机器'),
                 width: 'minmax(0, 200px)',
                 mono: true,
                 secondary: true,
@@ -458,7 +484,7 @@ export function BotsAdminPage() {
               },
               {
                 key: 'presence',
-                title: '状态',
+                title: t('状态'),
                 width: 104,
                 sortable: true,
                 sortValue: (b) => PRESENCE[b.presence].label,
@@ -476,9 +502,9 @@ export function BotsAdminPage() {
       ) : (
         <EmptyState
           illustration={<NoBotsArt />}
-          title="还没有 Bot"
-          description="Bot 绑定到成员的机器，在群里被 @ 后开工。"
-          action={<Button onClick={() => setCreating(true)}>新建 Bot…</Button>}
+          title={t('还没有 Bot')}
+          description={t('Bot 绑定到成员的机器，在群里被 @ 后开工。')}
+          action={<Button onClick={() => setCreating(true)}>{t('新建 Bot…')}</Button>}
         />
       )}
       <Presence>

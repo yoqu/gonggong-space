@@ -6,6 +6,7 @@ import {
   type ReleaseKind,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Alert, AlertDialog, type DropFile, DropZone, Spinner, Table, Tag, toast } from '../../ui'
@@ -29,10 +30,10 @@ function platformText(key: string) {
 }
 
 function BuildCell({ build, needed }: { build?: Build; needed: boolean }) {
-  if (!build) return <span className={needed ? 'admin-table__warn' : undefined}>未发布</span>
+  if (!build) return <span className={needed ? 'admin-table__warn' : undefined}>{t('未发布')}</span>
   return (
     <span title={build.url}>
-      <Tag tone="green">已发布</Tag> <code>{build.sha256.slice(0, 12)}</code>
+      <Tag tone="green">{t('已发布')}</Tag> <code>{build.sha256.slice(0, 12)}</code>
     </span>
   )
 }
@@ -67,7 +68,7 @@ export function ReleasesPage() {
     ])
     for (const [i, file] of files.entries()) {
       if (!parseReleaseFile(file.name)) {
-        set(i, { progress: undefined, error: '不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64' })
+        set(i, { progress: undefined, error: t('不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64') })
         continue
       }
       const form = new FormData()
@@ -89,7 +90,13 @@ export function ReleasesPage() {
     if (!removing) return
     try {
       setRelease(await api.del<DaemonRelease>(`/admin/daemon-release/${removing.kind}/${removing.platform}`))
-      toast({ type: 'success', message: `已移除 ${KIND_LABEL[removing.kind]}（${removing.platform}）` })
+      toast({
+        type: 'success',
+        message: t('已移除 {kind}（{platform}）', {
+          kind: KIND_LABEL[removing.kind],
+          platform: removing.platform,
+        }),
+      })
     } catch (e) {
       toastError(e)
     }
@@ -112,16 +119,24 @@ export function ReleasesPage() {
 
   return (
     <AdminPage
-      title="客户端发布"
-      desc="成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。"
-      subtitle={release === undefined ? undefined : release ? `当前版本 ${release.version}` : '尚未发布'}
+      title={t('客户端发布')}
+      desc={t('成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。')}
+      subtitle={
+        release === undefined
+          ? undefined
+          : release
+            ? t('当前版本 {version}', { version: release.version })
+            : t('尚未发布')
+      }
     >
       {error ? <Alert variant="error" description={error} /> : null}
       <DropZone
         multiple
         onFiles={(files) => void upload(files)}
-        title="拖入发布产物"
-        description="运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 gg-cast-* 文件拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。"
+        title={t('拖入发布产物')}
+        description={t(
+          '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 gg-cast-* 文件拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。',
+        )}
         files={uploads}
         onRemove={(i) => setUploads((list) => list.filter((_, j) => j !== i))}
       />
@@ -129,12 +144,12 @@ export function ReleasesPage() {
         <Spinner size={18} />
       ) : (
         <Table<Row>
-          aria-label="各平台发布文件"
+          aria-label={t('各平台发布文件')}
           className="admin-grid"
           rows={rows}
           columns={[
-            { key: 'platform', title: '平台', render: (r) => platformText(r.id) },
-            { key: 'id', title: '标识', mono: true, secondary: true, width: 150 },
+            { key: 'platform', title: t('平台'), render: (r) => platformText(r.id) },
+            { key: 'id', title: t('标识'), mono: true, secondary: true, width: 150 },
             {
               key: 'builds',
               title: 'daemon',
@@ -142,15 +157,19 @@ export function ReleasesPage() {
             },
             {
               key: 'cast',
-              title: 'gg-cast（实时画面）',
+              title: t('gg-cast（实时画面）'),
               render: (r) => <BuildCell build={r.cast} needed={false} />,
             },
-            { key: 'machines', title: '机器', width: 72, align: 'right' },
+            { key: 'machines', title: t('机器#count'), width: 72, align: 'right' },
           ]}
           rowActions={(r) =>
             (['builds', 'cast'] as const)
               .filter((k) => r[k])
-              .map((k) => ({ label: `移除 ${KIND_LABEL[k]}…`, value: k, destructive: true }))
+              .map((k) => ({
+                label: t('移除 {kind}…', { kind: KIND_LABEL[k] }),
+                value: k,
+                destructive: true,
+              }))
           }
           onRowAction={(kind, r) => setRemoving({ kind: kind as ReleaseKind, platform: r.id })}
         />
@@ -158,16 +177,19 @@ export function ReleasesPage() {
       {removing ? (
         <AlertDialog
           open
-          title={`要移除 ${removing.platform} 的 ${KIND_LABEL[removing.kind]} 吗？`}
+          title={t('要移除 {platform} 的 {kind} 吗？', {
+            platform: removing.platform,
+            kind: KIND_LABEL[removing.kind],
+          })}
           message={
             removing.kind === 'builds'
-              ? '该平台的机器将不再自动升级，直到重新上传。'
-              : '该平台的机器将无法推送实时画面，直到重新上传。'
+              ? t('该平台的机器将不再自动升级，直到重新上传。')
+              : t('该平台的机器将无法推送实时画面，直到重新上传。')
           }
           onClose={() => setRemoving(null)}
           actions={[
-            { label: '取消', onClick: () => setRemoving(null) },
-            { label: '移除', variant: 'destructive', onClick: () => void remove() },
+            { label: t('取消'), onClick: () => setRemoving(null) },
+            { label: t('移除'), variant: 'destructive', onClick: () => void remove() },
           ]}
         />
       ) : null}

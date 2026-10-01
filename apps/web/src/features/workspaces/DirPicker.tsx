@@ -1,5 +1,6 @@
 import type { DirListingDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { Alert, Button, Dialog, Icon, Input, Spinner } from '../../ui'
 import './workspaces.css'
@@ -61,14 +62,14 @@ export function DirPicker({
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('取消')}</Button>
           <Button
             variant="primary"
             disabled={!dir || !!dir.unusable}
             title={dir?.unusable ?? undefined}
             onClick={() => dir && onPick(dir.path)}
           >
-            选择此目录
+            {t('选择此目录')}
           </Button>
         </>
       }
@@ -84,8 +85,8 @@ export function DirPicker({
         >
           <Button
             icon="arrow-turn-left-up"
-            aria-label="上一级"
-            title="上一级"
+            aria-label={t('上一级')}
+            title={t('上一级')}
             disabled={!up}
             onClick={() => up && setPath(up)}
           />
@@ -93,19 +94,19 @@ export function DirPicker({
             size="sm"
             mono
             value={typed}
-            aria-label="目录路径"
+            aria-label={t('目录路径')}
             onChange={(e) => setTyped(e.target.value)}
           />
         </form>
         {dir?.git ? (
           <div className="dirpick__git" data-testid="dirpick-git">
             <Icon name="git-branch" size={13} />
-            <span>git 仓库 · {dir.git.branch ?? '游离 HEAD'}</span>
-            <span className="dirpick__remote">{dir.git.remotes[0] ?? '无 remote'}</span>
+            <span>{t('git 仓库 · {branch}', { branch: dir.git.branch ?? t('游离 HEAD') })}</span>
+            <span className="dirpick__remote">{dir.git.remotes[0] ?? t('无 remote')}</span>
           </div>
         ) : null}
         {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
-        {dir?.unusable ? <p className="dirpick__hint">进入具体项目目录后选择</p> : null}
+        {dir?.unusable ? <p className="dirpick__hint">{t('进入具体项目目录后选择')}</p> : null}
         {error ? <Alert variant="error" title={error} /> : null}
         <div className="dirpick__list">
           {!dir && !error ? (
@@ -127,7 +128,7 @@ export function DirPicker({
               </button>
             ))
           ) : dir ? (
-            <div className="dirpick__empty">没有子目录</div>
+            <div className="dirpick__empty">{t('没有子目录')}</div>
           ) : null}
         </div>
       </div>

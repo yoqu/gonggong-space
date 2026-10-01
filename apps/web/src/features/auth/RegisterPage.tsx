@@ -2,6 +2,7 @@ import type { UserDto } from '@gonggong/protocol'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Icon, SecureField, TextField } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
@@ -35,10 +36,10 @@ export function RegisterPage() {
     e.preventDefault()
     if (phase !== 'idle') return
     const account = form.account.trim()
-    if (!ACCOUNT_RE.test(account)) return fail('账号需为 2–32 位小写字母、数字或 . _ -')
-    if (!form.name.trim()) return fail('请填写姓名')
-    if (form.password.length < MIN_PASSWORD) return fail(`密码至少 ${MIN_PASSWORD} 位`)
-    if (form.password !== form.confirm) return fail('两次输入的密码不一致')
+    if (!ACCOUNT_RE.test(account)) return fail(t('账号需为 2–32 位小写字母、数字或 . _ -'))
+    if (!form.name.trim()) return fail(t('请填写姓名'))
+    if (form.password.length < MIN_PASSWORD) return fail(t('密码至少 {n} 位', { n: MIN_PASSWORD }))
+    if (form.password !== form.confirm) return fail(t('两次输入的密码不一致'))
     setPhase('busy')
     try {
       const me = await api.post<UserDto>('/auth/register', {
@@ -62,18 +63,20 @@ export function RegisterPage() {
     <AuthCard
       testId="register-page"
       variant="register"
-      title="注册"
+      title={t('注册')}
       subtitle={
-        closed ? '当前未开放注册，请联系系统管理员创建账号。' : '注册后即可加入群、绑定机器、创建你的 Bot。'
+        closed
+          ? t('当前未开放注册，请联系系统管理员创建账号。')
+          : t('注册后即可加入群、绑定机器、创建你的 Bot。')
       }
       errorKey={errorKey}
       leaving={phase === 'done'}
       onSubmit={submit}
       footer={
         <p className="auth__foot">
-          已有账号？
+          {t('已有账号？')}
           <Link to="/login" className="auth__link">
-            去登录
+            {t('去登录')}
           </Link>
         </p>
       }
@@ -82,32 +85,32 @@ export function RegisterPage() {
         <>
           <div className="auth__fields">
             <TextField
-              label="账号"
+              label={t('账号')}
               size="large"
               autoComplete="username"
-              placeholder="登录用，如 wanglei"
+              placeholder={t('登录用，如 wanglei')}
               value={form.account}
               onChange={set('account')}
               autoFocus
             />
             <TextField
-              label="姓名"
+              label={t('姓名')}
               size="large"
               autoComplete="name"
-              placeholder="群里显示的名字"
+              placeholder={t('群里显示的名字')}
               value={form.name}
               onChange={set('name')}
             />
             <SecureField
-              label="密码"
+              label={t('密码')}
               size="large"
               autoComplete="new-password"
-              placeholder={`至少 ${MIN_PASSWORD} 位`}
+              placeholder={t('至少 {n} 位', { n: MIN_PASSWORD })}
               value={form.password}
               onChange={set('password')}
             />
             <SecureField
-              label="确认密码"
+              label={t('确认密码')}
               size="large"
               autoComplete="new-password"
               value={form.confirm}
@@ -122,7 +125,7 @@ export function RegisterPage() {
               ) : null}
             </p>
           </div>
-          <AuthSubmit phase={phase} label="注册并进入" busy="注册中…" done="注册成功" />
+          <AuthSubmit phase={phase} label={t('注册并进入')} busy={t('注册中…')} done={t('注册成功')} />
         </>
       )}
     </AuthCard>

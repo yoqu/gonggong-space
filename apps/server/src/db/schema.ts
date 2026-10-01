@@ -1,3 +1,4 @@
+import type { I18nText } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
 import {
   bigint,
@@ -374,6 +375,8 @@ export const runs = pgTable(
     /** See protocol RunStatus. */
     status: text('status').notNull(),
     step: text('step').notNull().default(''),
+    /** `step`'s translatable source when the server wrote it; stale once `step` is rewritten from elsewhere. */
+    stepI18n: jsonb('step_i18n').$type<I18nText>(),
     filesChanged: integer('files_changed').notNull().default(0),
     /** { input?, output?, total?, costUsd? } or null when the adapter did not report. */
     usage: jsonb('usage'),
@@ -610,6 +613,8 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
     .references(() => users.id),
   endpoint: text('endpoint').notNull().unique(),
   keys: jsonb('keys').notNull(),
+  /** The subscriber's language (its Accept-Language when subscribing): pushes are rendered outside a request. */
+  locale: text('locale').notNull().default('zh'),
   createdAt: createdAt(),
 })
 

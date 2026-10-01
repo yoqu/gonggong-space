@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { ComingSoonArt, EmptyState, Toolbar } from '../../ui'
 import { AccountMenu, ROLE_LABEL } from '../auth/AccountMenu'
 import type { AdminItem } from './nav'
@@ -60,7 +61,11 @@ export function AdminPage({
 export function AdminPlaceholder({ item }: { item: AdminItem }) {
   return (
     <AdminPage title={item.label} desc={item.desc}>
-      <EmptyState illustration={<ComingSoonArt />} title="即将上线" description="该页面正在开发中。" />
+      <EmptyState
+        illustration={<ComingSoonArt />}
+        title={t('即将上线')}
+        description={t('该页面正在开发中。')}
+      />
     </AdminPage>
   )
 }

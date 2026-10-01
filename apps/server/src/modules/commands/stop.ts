@@ -17,7 +17,18 @@ export const stop: CommandHandler = async (ctx, input) => {
     groupId: group.id,
     detail: { botIds: picked.map((b) => b.id), runIds: stopped.map((r) => r.id) },
   })
-  const scope = picked.length ? `停止 ${picked.map((b) => b.name).join('、')} 的 ` : '未 @ Bot，停止本群全部 '
-  const chain = stopped.some((r) => r.hop > 1) ? '（含接力链，整条链终止）' : ''
-  await postEvent(ctx, group.id, `${user.name} /stop · ${scope}${stopped.length} 个轮次${chain}`)
+  const params = {
+    user: user.name,
+    bots: picked.map((b) => b.name).join('、'),
+    n: stopped.length,
+    chain: stopped.some((r) => r.hop > 1) ? { key: '（含接力链，整条链终止）' } : '',
+  }
+  await postEvent(
+    ctx,
+    group.id,
+    picked.length
+      ? '{user} /stop · 停止 {bots} 的 {n} 个轮次{chain}'
+      : '{user} /stop · 未 @ Bot，停止本群全部 {n} 个轮次{chain}',
+    params,
+  )
 }

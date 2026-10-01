@@ -167,7 +167,7 @@ export function providerRoutes(ctx: Ctx) {
         .select({ bot: bots, machineOwner: machines.ownerId })
         .from(bots)
         .leftJoin(machines, and(eq(machines.id, bots.machineId), isNull(machines.revokedAt)))
-        .where(and(eq(bots.id, idParam(req.params.id, 'Bot ')), isNull(bots.deletedAt)))
+        .where(and(eq(bots.id, idParam(req.params.id, 'Bot 不存在')), isNull(bots.deletedAt)))
       if (!row) return fail('not_found', 'Bot 不存在')
       const { bot, machineOwner } = row
       if (bot.ownerId !== me.id) return fail('forbidden', '只有 Bot 主人可以设置其供应商')
@@ -194,7 +194,7 @@ export function providerRoutes(ctx: Ctx) {
       const [bot] = await ctx.db
         .select()
         .from(bots)
-        .where(and(eq(bots.id, idParam(req.params.id, 'Bot ')), isNull(bots.deletedAt)))
+        .where(and(eq(bots.id, idParam(req.params.id, 'Bot 不存在')), isNull(bots.deletedAt)))
       if (!bot) return fail('not_found', 'Bot 不存在')
       if (bot.ownerId !== me.id && me.role !== 'sysadmin') {
         const [seat] = await ctx.db

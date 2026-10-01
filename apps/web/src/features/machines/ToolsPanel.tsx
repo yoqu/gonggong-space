@@ -8,6 +8,7 @@ import {
   type ToolsStateDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
@@ -29,15 +30,15 @@ const TOOLS: { kind: ToolKind; name: string; sub: string }[] = [
   {
     kind: 'node',
     name: 'Node.js',
-    sub: `运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ ${MIN_NODE}）`,
+    sub: t('运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ {min}）', { min: MIN_NODE }),
   },
   { kind: 'claude', name: 'Claude Code', sub: 'Anthropic' },
   { kind: 'codex', name: 'Codex', sub: 'OpenAI' },
 ]
 const MIRRORS: { value: Mirror['kind']; label: string }[] = [
-  { value: 'npmmirror', label: '淘宝镜像（npmmirror）' },
-  { value: 'official', label: '官方源' },
-  { value: 'custom', label: '自定义' },
+  { value: 'npmmirror', label: t('淘宝镜像（npmmirror）') },
+  { value: 'official', label: t('官方源') },
+  { value: 'custom', label: t('自定义') },
 ]
 
 export const hasUpdate = (t: { version?: string | null; latest?: string | null }) =>
@@ -95,7 +96,7 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
   const saveMirror = async (mirror: Mirror) => {
     try {
       setState(await api.put<ToolsStateDto>(`${base}/settings`, { mirror }))
-      toast({ type: 'success', message: '镜像源已保存' })
+      toast({ type: 'success', message: t('镜像源已保存') })
     } catch (e) {
       toastError(e)
     }
@@ -106,7 +107,7 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
   return (
     <div className="mx">
       {TOOLS.map(({ kind, name, sub }) => {
-        const t = state.tools.find((x) => x.kind === kind)
+        const tool = state.tools.find((x) => x.kind === kind)
         return (
           <section key={kind} aria-label={name}>
             <GroupBox>
@@ -114,22 +115,28 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
                 <span className="mx-row__main">
                   <span className="mx-row__title">
                     <span className="mx-strong">{name}</span>
-                    <Badge tool={t} />
+                    <Badge tool={tool} />
                   </span>
                   <span className="mx-sub">{sub}</span>
                 </span>
-                {t ? <ToolAction tool={t} busy={!!op?.running} onRun={(w) => void run(kind, w)} /> : null}
+                {tool ? (
+                  <ToolAction tool={tool} busy={!!op?.running} onRun={(w) => void run(kind, w)} />
+                ) : null}
               </div>
-              {t?.installed ? (
+              {tool?.installed ? (
                 <>
-                  <GroupRow label="来源" wideValue value={t.managed ? '共工空间托管' : '自行安装'} />
                   <GroupRow
-                    label="最新版本"
+                    label={t('来源')}
+                    wideValue
+                    value={tool.managed ? t('共工空间托管') : t('自行安装')}
+                  />
+                  <GroupRow
+                    label={t('最新版本')}
                     wideValue
                     value={
                       <span className="mx-inline">
-                        {t.latest ?? '无法获取，请检查镜像源'}
-                        {hasUpdate(t) ? <Tag tone="orange">有更新</Tag> : null}
+                        {tool.latest ?? t('无法获取，请检查镜像源')}
+                        {hasUpdate(tool) ? <Tag tone="orange">{t('有更新')}</Tag> : null}
                       </span>
                     }
                   />
@@ -151,15 +158,15 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
   )
 }
 
-function Badge({ tool: t }: { tool: ToolStatus | undefined }) {
-  if (!t?.installed) return <Tag tone="orange">未安装</Tag>
-  if (tooOld(t)) return <Tag tone="red">{`版本过低 ${t.version}`}</Tag>
-  return <Tag tone="green">{`已安装 ${t.version ?? ''}`.trim()}</Tag>
+function Badge({ tool }: { tool: ToolStatus | undefined }) {
+  if (!tool?.installed) return <Tag tone="orange">{t('未安装')}</Tag>
+  if (tooOld(tool)) return <Tag tone="red">{t('版本过低 {version}', { version: tool.version ?? '' })}</Tag>
+  return <Tag tone="green">{t('已安装 {version}', { version: tool.version ?? '' }).trim()}</Tag>
 }
 
 /** 安装 when missing, 升级到 X for a managed tool with an update, 安装共工空间托管版 next to the user's own install. */
 function ToolAction({
-  tool: t,
+  tool,
   busy,
   onRun,
 }: {
@@ -167,33 +174,33 @@ function ToolAction({
   busy: boolean
   onRun: (which: 'install' | 'upgrade') => void
 }) {
-  if (!t.installed || tooOld(t))
+  if (!tool.installed || tooOld(tool))
     return (
       <Button variant="primary" disabled={busy} onClick={() => onRun('install')}>
-        安装
+        {t('安装')}
       </Button>
     )
-  if (t.managed)
-    return hasUpdate(t) ? (
+  if (tool.managed)
+    return hasUpdate(tool) ? (
       <Button variant="primary" disabled={busy} onClick={() => onRun('upgrade')}>
-        升级到 {t.latest}
+        {t('升级到 {version}', { version: tool.latest ?? '' })}
       </Button>
     ) : null
   return (
     <Button disabled={busy} onClick={() => onRun('install')}>
-      安装共工空间托管版
+      {t('安装共工空间托管版')}
     </Button>
   )
 }
 
 function ToolLog({ op }: { op: Op }) {
   const [open, setOpen] = useState(true)
-  const title = op.running ? '正在安装…' : op.failed ? '安装失败' : '安装完成'
+  const title = op.running ? t('正在安装…') : op.failed ? t('安装失败') : t('安装完成')
   return (
     <div className="mx-row mx-toollog">
       <Disclosure title={title} summary={op.lines.at(-1)} open={open} onToggle={setOpen}>
-        <div className="mx-logpane" role="log" aria-label="安装日志">
-          {op.lines.length ? null : <div className="mx-log mx-sub">等待机器输出…</div>}
+        <div className="mx-logpane" role="log" aria-label={t('安装日志')}>
+          {op.lines.length ? null : <div className="mx-log mx-sub">{t('等待机器输出…')}</div>}
           {op.lines.map((l, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: an append-only log
             <div key={i} className="mx-log">
@@ -214,9 +221,9 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
   const changed = mirror.kind !== 'custom' || mirror.registry !== registry || mirror.node !== node
   return (
     <>
-      <GroupRow label="镜像源" description="安装、升级 Node.js、Claude Code 与 Codex 时从这里下载">
+      <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js、Claude Code 与 Codex 时从这里下载')}>
         <PopUpButton
-          aria-label="镜像源"
+          aria-label={t('镜像源')}
           options={MIRRORS}
           value={kind}
           onChange={(k) => {
@@ -236,9 +243,9 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
               onChange={(e) => setRegistry(e.target.value)}
             />
           </GroupRow>
-          <GroupRow label="Node.js 下载地址" description="index.json 所在的目录">
+          <GroupRow label={t('Node.js 下载地址')} description={t('index.json 所在的目录')}>
             <TextField
-              aria-label="Node.js 下载地址"
+              aria-label={t('Node.js 下载地址')}
               className="mx-mirror-field"
               placeholder="https://example.com/mirrors/node"
               value={node}
@@ -251,7 +258,7 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
               disabled={!registry.trim() || !node.trim() || !changed}
               onClick={() => void onSave({ kind: 'custom', registry: registry.trim(), node: node.trim() })}
             >
-              保存
+              {t('保存')}
             </Button>
           </div>
         </>

@@ -1,5 +1,6 @@
 //! Workspace git plumbing for partition mode (spec §5): shells out to the machine's `git` so its credentials apply.
 use crate::protocol::{GitStatus, PATCH_MAX_BYTES, WorkspaceKind};
+use crate::t;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -12,7 +13,9 @@ use tokio::process::Command;
 pub(crate) const PRIVATE_DIR: &str = ".gonggong/";
 const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 /// Appended to a patch cut at PATCH_MAX_BYTES.
-pub const PATCH_TRUNCATED: &str = "… 补丁超过 512 KB，已截断\n";
+pub fn patch_truncated() -> &'static str {
+    t!("… 补丁超过 512 KB，已截断\n")
+}
 
 /// Only a workspace root counts: a managed `_empty` dir nested in some other checkout is not a repo.
 pub fn is_repo(dir: &Path) -> bool {
@@ -34,13 +37,13 @@ async fn run_git_raw(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<
     if let Some(index) = index {
         cmd.env("GIT_INDEX_FILE", index);
     }
-    let out = cmd.output().await.map_err(|e| format!("无法执行 git：{e}"))?;
+    let out = cmd.output().await.map_err(|e| t!("无法执行 git：{e}", e = e))?;
     if out.status.success() { Ok(out.stdout) } else { Err(failure(&out.stderr)) }
 }
 
 fn failure(stderr: &[u8]) -> String {
     let err = String::from_utf8_lossy(stderr);
-    err.lines().find(|l| !l.trim().is_empty()).unwrap_or("git 执行失败").trim().to_string()
+    err.lines().find(|l| !l.trim().is_empty()).unwrap_or(t!("git 执行失败")).trim().to_string()
 }
 
 /// Like [`git`], but reads at most `limit` bytes of output: past it git is killed and the output cut there.
@@ -55,12 +58,12 @@ async fn git_capped(dir: &Path, args: &[&str], limit: usize) -> Result<String, S
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|e| format!("无法执行 git：{e}"))?;
+        .map_err(|e| t!("无法执行 git：{e}", e = e))?;
     let mut out = Vec::new();
     let stdout = child.stdout.take().expect("piped");
-    stdout.take(limit as u64).read_to_end(&mut out).await.map_err(|e| format!("读取 git 输出失败：{e}"))?;
+    stdout.take(limit as u64).read_to_end(&mut out).await.map_err(|e| t!("读取 git 输出失败：{e}", e = e))?;
     if out.len() < limit {
-        let done = child.wait_with_output().await.map_err(|e| format!("无法执行 git：{e}"))?;
+        let done = child.wait_with_output().await.map_err(|e| t!("无法执行 git：{e}", e = e))?;
         if !done.status.success() {
             return Err(failure(&done.stderr));
         }
@@ -189,7 +192,7 @@ async fn work_tree(dir: &Path) -> Result<String, String> {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     let scratch = std::env::temp_dir().join(format!("gonggong-index-{}-{nanos}", std::process::id()));
     if index.exists() {
-        std::fs::copy(&index, &scratch).map_err(|e| format!("无法复制 git index：{e}"))?;
+        std::fs::copy(&index, &scratch).map_err(|e| t!("无法复制 git index：{e}", e = e))?;
     }
     // Naming an ignored path in a pathspec is an error, so the exclusion is only spelled out when git doesn't ignore it.
     let ignored = git(dir, &["check-ignore", "-q", ".gonggong"]).await.is_ok();
@@ -317,13 +320,13 @@ fn cap_patch(mut patch: String) -> String {
     if patch.len() <= PATCH_MAX_BYTES {
         return patch;
     }
-    let mut cut = PATCH_MAX_BYTES - PATCH_TRUNCATED.len();
+    let mut cut = PATCH_MAX_BYTES - patch_truncated().len();
     while !patch.is_char_boundary(cut) {
         cut -= 1;
     }
     cut = patch[..cut].rfind('\n').map_or(0, |i| i + 1);
     patch.truncate(cut);
-    patch.push_str(PATCH_TRUNCATED);
+    patch.push_str(patch_truncated());
     patch
 }
 
@@ -353,7 +356,7 @@ pub async fn discard(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
 }
 
 async fn discard_own(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
-    let base = snap.base.as_deref().ok_or("这一轮开始时的工作区快照不可用")?;
+    let base = snap.base.as_deref().ok_or(t!("这一轮开始时的工作区快照不可用"))?;
     let exists = async |rev: &str, path: &str| git(dir, &["cat-file", "-e", &format!("{rev}:{path}")]).await.is_ok();
     let paths = touched(dir, snap).await?;
     let (mut from_head, mut created) = (vec![], vec![]);
@@ -367,9 +370,9 @@ async fn discard_own(dir: &Path, snap: &Snapshot) -> Result<usize, String> {
         } else if exists(base, path).await {
             let body = run_git_raw(dir, &["cat-file", "blob", &format!("{base}:{path}")], None).await?;
             if let Some(parent) = file.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| format!("无法还原 {path}：{e}"))?;
+                std::fs::create_dir_all(parent).map_err(|e| t!("无法还原 {path}：{e}", path = path, e = e))?;
             }
-            std::fs::write(&file, body).map_err(|e| format!("无法还原 {path}：{e}"))?;
+            std::fs::write(&file, body).map_err(|e| t!("无法还原 {path}：{e}", path = path, e = e))?;
         } else {
             remove(dir, &file)?;
         }
@@ -396,7 +399,7 @@ fn remove(root: &Path, file: &Path) -> Result<(), String> {
     if let Err(e) = std::fs::remove_file(file)
         && e.kind() != std::io::ErrorKind::NotFound
     {
-        return Err(format!("无法删除 {}：{e}", file.display()));
+        return Err(t!("无法删除 {path}：{e}", path = file.display(), e = e));
     }
     let mut dir = file.parent();
     while let Some(d) = dir.filter(|d| *d != root && d.starts_with(root)) {
@@ -764,8 +767,8 @@ mod tests {
         let big = line.repeat(PATCH_MAX_BYTES / line.len() + 10);
         let capped = cap_patch(big);
         assert!(capped.len() <= PATCH_MAX_BYTES, "{}", capped.len());
-        assert!(capped.ends_with(PATCH_TRUNCATED));
-        let body = capped.strip_suffix(PATCH_TRUNCATED).unwrap();
+        assert!(capped.ends_with(patch_truncated()));
+        let body = capped.strip_suffix(patch_truncated()).unwrap();
         assert!(body.ends_with('\n') && body.lines().all(|l| l == line.trim_end()));
     }
 
@@ -777,7 +780,7 @@ mod tests {
         let out = git_capped(&w, &["diff", "--no-index", "--", "/dev/null", "big.txt"], 1000).await.unwrap();
         assert_eq!(out.len(), 1000);
         let p = uncommitted_patch(&w).await.unwrap().unwrap();
-        assert!(p.len() <= PATCH_MAX_BYTES && p.ends_with(PATCH_TRUNCATED), "{}", p.len());
+        assert!(p.len() <= PATCH_MAX_BYTES && p.ends_with(patch_truncated()), "{}", p.len());
     }
 
     #[test]

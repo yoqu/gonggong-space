@@ -218,6 +218,7 @@ async fn refuses_ports_without_an_open_preview_and_reports_dead_ones() {
 
 #[tokio::test]
 async fn mini_program_snapshots_need_a_project_and_no_open_port() {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let mut ws = connect(allow(&[])).await;
     let dir = tempfile::tempdir().unwrap();
     let target = SnapshotTarget::Miniprogram {

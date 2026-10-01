@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useBenchMode } from '../../app/ChatLayout'
 import { useIsMobile } from '../../app/viewport'
 import { liveFrames, tabKey, useBench, useWorkbench, type WorkbenchMode } from '../../app/workbench'
+import { t } from '../../i18n'
 import { Icon, Popover, Tooltip } from '../../ui'
 import { TabBar } from './TabBar'
 import { TabContent, TabLabel } from './TabContent'
@@ -11,9 +12,9 @@ const panel =
   'M3.8 3.5h10.4c.7 0 1.3.6 1.3 1.3v8.4c0 .7-.6 1.3-1.3 1.3H3.8c-.7 0-1.3-.6-1.3-1.3V4.8c0-.7.6-1.3 1.3-1.3z'
 
 const MODES: { mode: WorkbenchMode; label: string; shortcut: string; d: string }[] = [
-  { mode: 'split', label: '分栏', shortcut: '⌘\\', d: `${panel} M6.5 3.5v11 M9.5 3.5v11` },
-  { mode: 'focus', label: '专注', shortcut: '⌘\\', d: `${panel} M4.8 3.5v11 M8.5 3.5v11` },
-  { mode: 'full', label: '全屏', shortcut: '⌘⇧\\', d: 'M3 7V3h4 M11 3h4v4 M15 11v4h-4 M7 15H3v-4' },
+  { mode: 'split', label: t('分栏'), shortcut: '⌘\\', d: `${panel} M6.5 3.5v11 M9.5 3.5v11` },
+  { mode: 'focus', label: t('专注'), shortcut: '⌘\\', d: `${panel} M4.8 3.5v11 M8.5 3.5v11` },
+  { mode: 'full', label: t('全屏'), shortcut: '⌘⇧\\', d: 'M3 7V3h4 M11 3h4v4 M15 11v4h-4 M7 15H3v-4' },
 ]
 
 const typing = (t: EventTarget | null) =>
@@ -54,17 +55,22 @@ function PhoneWorkbench() {
   const { activate, closeTab, setOpen } = useWorkbench.getState()
   const tab = bench.tabs.find((t) => tabKey(t) === bench.active) ?? bench.tabs[0]
   return (
-    <section aria-label="工作台" className="bench bench--phone">
+    <section aria-label={t('工作台')} className="bench bench--phone">
       <div className="bench__bar">
-        <button type="button" className="bench__back" aria-label="返回聊天" onClick={() => setOpen(false)}>
+        <button
+          type="button"
+          className="bench__back"
+          aria-label={t('返回聊天')}
+          onClick={() => setOpen(false)}
+        >
           <Icon name="chevron-left" size={20} weight={1.8} />
         </button>
         <Popover
-          aria-label="标签页"
+          aria-label={t('标签页')}
           className="bench-switch"
           width="min(320px, calc(100vw - 32px))"
           trigger={
-            <button type="button" className="bench-switch__trigger" aria-label="全部标签页">
+            <button type="button" className="bench-switch__trigger" aria-label={t('全部标签页')}>
               {tab ? (
                 <TabLabel tab={tab}>
                   {(meta) => <span className="bench-switch__title">{meta.title}</span>}
@@ -75,10 +81,10 @@ function PhoneWorkbench() {
           }
         >
           {(close) =>
-            bench.tabs.map((t) => {
-              const key = tabKey(t)
+            bench.tabs.map((item) => {
+              const key = tabKey(item)
               return (
-                <TabLabel key={key} tab={t}>
+                <TabLabel key={key} tab={item}>
                   {(meta) => (
                     <div className="bench-switch__row" aria-current={key === bench.active || undefined}>
                       <button
@@ -95,7 +101,7 @@ function PhoneWorkbench() {
                       <button
                         type="button"
                         className="bench__btn"
-                        aria-label={`关闭 ${meta.title}`}
+                        aria-label={t('关闭 {title}', { title: meta.title })}
                         onClick={() => closeTab(key)}
                       >
                         <Icon name="xmark" size={11} weight={2} />
@@ -131,11 +137,11 @@ function DesktopWorkbench() {
   const live = liveFrames(bench)
   useShortcuts(mode)
   return (
-    <section aria-label="工作台" className="bench">
+    <section aria-label={t('工作台')} className="bench">
       <div className="bench__bar">
         <TabBar tabs={bench.tabs} active={bench.active} live={live} />
         <div className="bench__modes">
-          <fieldset aria-label="布局" className="bench__seg">
+          <fieldset aria-label={t('布局')} className="bench__seg">
             {MODES.map((m) => (
               <Tooltip key={m.mode} content={m.label} shortcut={m.shortcut} placement="bottom">
                 <button
@@ -162,11 +168,11 @@ function DesktopWorkbench() {
               </Tooltip>
             ))}
           </fieldset>
-          <Tooltip content="隐藏工作台" placement="bottom">
+          <Tooltip content={t('隐藏工作台')} placement="bottom">
             <button
               type="button"
               className="bench__btn"
-              aria-label="隐藏工作台"
+              aria-label={t('隐藏工作台')}
               onClick={() => setOpen(false)}
             >
               <Icon name="xmark" size={13} weight={1.8} />

@@ -11,6 +11,7 @@ import {
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
+import { t } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { requireUser } from '../auth/session.js'
 import { OFFLINE, ownMachine, quietErrors, relay, requireFeature } from './relay.js'
@@ -90,7 +91,7 @@ export function toolRoutes(ctx: Ctx) {
           .request(m.id, msg, 'tools.result', OP_TIMEOUT_MS)
           .then(async (res) => {
             ops.delete(opId)
-            const error = res ? res.error : ctx.hub.isOnline(m.id) ? '操作超时，请稍后查看状态' : OFFLINE
+            const error = res ? res.error : t(ctx.hub.isOnline(m.id) ? '操作超时，请稍后查看状态' : OFFLINE)
             ctx.bus.publish([m.ownerId], {
               t: 'machine.tools.result',
               machineId: m.id,

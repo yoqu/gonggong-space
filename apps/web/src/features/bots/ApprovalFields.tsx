@@ -1,10 +1,11 @@
 import type { Approval } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { FormRow, Kbd, SegmentedControl, type Token, TokenField } from '../../ui'
 
 export const APPROVAL_LABEL: Record<Approval, string> = {
-  ask: '每次询问',
-  allowlist: '白名单自动',
-  all: '全部自动',
+  ask: t('每次询问'),
+  allowlist: t('白名单自动'),
+  all: t('全部自动'),
 }
 const APPROVALS = Object.keys(APPROVAL_LABEL) as Approval[]
 
@@ -32,19 +33,19 @@ export function ApprovalFields({
 }) {
   if (!owner)
     return (
-      <FormRow label="命令审批" hint="只有 Bot 主人能修改命令审批">
+      <FormRow label={t('命令审批')} hint={t('只有 Bot 主人能修改命令审批')}>
         <span>
           {value.approval === 'allowlist' && value.allowlist.length
-            ? `${APPROVAL_LABEL.allowlist} · ${value.allowlist.join('、')}`
+            ? `${APPROVAL_LABEL.allowlist} · ${value.allowlist.join(t('、'))}`
             : APPROVAL_LABEL[value.approval]}
         </span>
       </FormRow>
     )
   return (
     <>
-      <FormRow label="命令审批">
+      <FormRow label={t('命令审批')}>
         <SegmentedControl<Approval>
-          aria-label="命令审批"
+          aria-label={t('命令审批')}
           size="small"
           value={value.approval}
           onChange={(approval) => onChange({ ...value, approval })}
@@ -53,20 +54,21 @@ export function ApprovalFields({
       </FormRow>
       {value.approval === 'allowlist' ? (
         <FormRow
-          label="命令白名单"
+          label={t('命令白名单')}
           align="top"
           hint={
             <>
-              输入命令前缀后按 <Kbd>↩</Kbd> 添加。以这些前缀开头的命令自动批准；用 &&、;、|
-              连接时每一段都要在白名单内（cat、ls、git status 等只读命令除外），写文件的重定向或 $( )
-              仍需你审批。
+              {t('输入命令前缀后按')} <Kbd>↩</Kbd>{' '}
+              {t(
+                '添加。以这些前缀开头的命令自动批准；用 &&、;、| 连接时每一段都要在白名单内（cat、ls、git status 等只读命令除外），写文件的重定向或 $( ) 仍需你审批。',
+              )}
             </>
           }
         >
           <TokenField
-            aria-label="命令白名单"
+            aria-label={t('命令白名单')}
             value={value.allowlist}
-            placeholder="命令前缀，如 go build"
+            placeholder={t('命令前缀，如 go build')}
             onChange={(tokens) => onChange({ ...value, allowlist: prefixes(tokens) })}
           />
         </FormRow>

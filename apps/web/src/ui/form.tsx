@@ -9,6 +9,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { ICON_NAMES, Icon, type IconName } from './icon'
@@ -197,7 +198,7 @@ function LineField({
             <button
               type="button"
               className="ui-search__clear ui-inputwrap__clear"
-              aria-label="清除"
+              aria-label={t('清除')}
               onClick={() => {
                 setText('')
                 onClear?.()
@@ -293,7 +294,7 @@ export interface SearchFieldProps {
 }
 
 export function SearchField({
-  placeholder = '搜索',
+  placeholder = t('搜索'),
   value,
   defaultValue = '',
   onChange,
@@ -322,7 +323,7 @@ export function SearchField({
         }}
       />
       {text ? (
-        <button type="button" className="ui-search__clear" aria-label="清除" onClick={() => set('')}>
+        <button type="button" className="ui-search__clear" aria-label={t('清除')} onClick={() => set('')}>
           <Icon name="xmark" weight={2.6} />
         </button>
       ) : null}

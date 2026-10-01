@@ -3,6 +3,7 @@ import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { notifications, pushSubscriptions } from '../../db/schema.js'
+import { locale } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -30,7 +31,7 @@ export function notificationRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/notifications/:id/read', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '通知')
+      const id = idParam(req.params.id, '通知不存在')
       const [row] = await ctx.db
         .update(notifications)
         .set({ readAt: ctx.now() })
@@ -59,7 +60,7 @@ export function notificationRoutes(ctx: Ctx) {
 
     app.delete<{ Params: { id: string } }>('/api/notifications/:id', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '通知')
+      const id = idParam(req.params.id, '通知不存在')
       const [row] = await ctx.db
         .delete(notifications)
         .where(and(eq(notifications.id, id), eq(notifications.userId, user.id)))
@@ -79,8 +80,11 @@ export function notificationRoutes(ctx: Ctx) {
       const { endpoint, keys } = PushSubscriptionReq.parse(req.body)
       await ctx.db
         .insert(pushSubscriptions)
-        .values({ userId: user.id, endpoint, keys })
-        .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: { userId: user.id, keys } })
+        .values({ userId: user.id, endpoint, keys, locale: locale() })
+        .onConflictDoUpdate({
+          target: pushSubscriptions.endpoint,
+          set: { userId: user.id, keys, locale: locale() },
+        })
       return reply.status(204).send()
     })
 

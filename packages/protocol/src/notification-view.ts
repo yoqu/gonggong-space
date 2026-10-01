@@ -1,3 +1,5 @@
+import type { I18nText } from './i18n.js'
+import type { ProtocolKey } from './i18n-en.js'
 import type { NotificationDto } from './web.js'
 
 export interface NotificationView {
@@ -8,53 +10,64 @@ export interface NotificationView {
   href: string
 }
 
-/** Human text of a notification, shared by the in-app center and the browser push. */
-export function notificationView(n: NotificationDto): NotificationView {
+/** Human text of a notification, shared by the in-app center and the browser push; `tr` renders it in the reader's language. */
+export function notificationView(n: NotificationDto, tr: (t: I18nText) => string): NotificationView {
   const p = (k: string) => String(n.payload[k] ?? '')
+  const say = (key: ProtocolKey, params?: I18nText['params']) => tr({ key, params })
   const group = p('groupName')
   const at = (runKey: string) => (p(runKey) ? `/g/${p('groupId')}?run=${p(runKey)}` : `/g/${p('groupId')}`)
+  const bot = p('botName')
   switch (n.type) {
     case 'approval':
       return {
-        label: n.resolvedAt ? '审批请求' : '待审批',
-        text: `${p('botName')} 请求执行 ${p('title')}`,
+        label: say(n.resolvedAt ? '审批请求' : '待审批'),
+        text: say('{bot} 请求执行 {title}', { bot, title: p('title') }),
         group,
         href: at('runId'),
       }
     case 'question':
       return {
-        label: n.resolvedAt ? '提问' : '待回答',
-        text: `${p('botName')} 向你提了 ${p('count')} 个问题`,
+        label: say(n.resolvedAt ? '提问' : '待回答'),
+        text: say('{bot} 向你提了 {n} 个问题', { bot, n: p('count') }),
         group,
         href: at('runId'),
       }
     case 'lock':
-      return { label: '锁轮到你', text: `${p('botName')} 在 ${group} 拿到群锁`, group, href: at('runId') }
+      return {
+        label: say('锁轮到你'),
+        text: say('{bot} 在 {group} 拿到群锁', { bot, group }),
+        group,
+        href: at('runId'),
+      }
     case 'offline_expired':
       return {
-        label: 'Bot 离线作废',
-        text: `你 @${p('botName')} 的请求等待 ${p('waitMin')} 分钟未上线，已作废`,
+        label: say('Bot 离线作废'),
+        text: say('你 @{bot} 的请求等待 {n} 分钟未上线，已作废', { bot, n: p('waitMin') }),
         group,
         href: at('runId'),
       }
     case 'chain_done':
       return {
-        label: '接力链结束',
-        text: `${p('hops')} 跳${n.payload.stopped ? ' · 已被 /stop 中断' : '完成'}`,
+        label: say('接力链结束'),
+        text: say(n.payload.stopped ? '{n} 跳 · 已被 /stop 中断' : '{n} 跳完成', { n: p('hops') }),
         group,
         href: at('rootRunId'),
       }
     case 'repo_access':
       return {
-        label: 'Bot 无法访问仓库',
-        text: `${p('botName')} 所在机器无法访问 ${p('repo')}（${p('reason')}），配置后在群里点「重新检查」`,
+        label: say('Bot 无法访问仓库'),
+        text: say('{bot} 所在机器无法访问 {repo}（{reason}），配置后在群里点「重新检查」', {
+          bot,
+          repo: p('repo'),
+          reason: { key: p('reason') },
+        }),
         group,
         href: at(''),
       }
     case 'bot_confirm':
       return {
-        label: '待确认 Bot',
-        text: `${p('byName')} 为你创建了 ${p('botName')}，请确认绑定`,
+        label: say('待确认 Bot'),
+        text: say('{by} 为你创建了 {bot}，请确认绑定', { by: p('byName'), bot }),
         group: '',
         href: '/admin/bots',
       }

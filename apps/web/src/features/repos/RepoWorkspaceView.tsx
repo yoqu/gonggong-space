@@ -2,6 +2,7 @@ import type { BotDto, BotProbeDto, GroupBotStateDto, GroupDto, RepoAccessReason 
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, GroupBox, GroupRow, Icon, Presence, toast } from '../../ui'
@@ -12,9 +13,9 @@ import { RepoPicker, repoPath } from './RepoPicker'
 import { AccessResult, emptyRepo, type RepoDraft, repoBody, repoIcon, repoValidated } from './repo-access'
 
 const PAUSING: Partial<Record<RepoAccessReason, string>> = {
-  denied: '无权限',
-  network: '网络或证书',
-  timeout: '超时',
+  denied: t('无权限'),
+  network: t('网络或证书'),
+  timeout: t('超时'),
 }
 
 /** Keeps both ends of a long path: `/Users/w/…/pay/refund`. */
@@ -22,14 +23,14 @@ const middle = (path: string, max = 40) =>
   path.length <= max ? path : `${path.slice(0, max / 2 - 1)}…${path.slice(-(max / 2 - 1))}`
 
 function workspaceText(s: GroupBotStateDto | undefined, online: boolean) {
-  if (!s || s.state === 'unbound') return '未选择工作区'
+  if (!s || s.state === 'unbound') return t('未选择工作区')
   const paused = s.state === 'failed' && s.reason ? PAUSING[s.reason] : undefined
-  if (paused) return `已暂停 · ${paused}`
+  if (paused) return t('已暂停 · {reason}', { reason: paused })
   if (s.workspace === 'cd' && s.path) return <span className="rw-path">{middle(s.path)}</span>
-  if (s.state === 'ready') return '托管克隆 · 就绪'
-  if (s.state === 'cloning') return '克隆中…'
-  if (s.state === 'pending') return online ? '克隆中…' : '等待上线'
-  return s.error ?? '失败'
+  if (s.state === 'ready') return t('托管克隆 · 就绪')
+  if (s.state === 'cloning') return t('克隆中…')
+  if (s.state === 'pending') return online ? t('克隆中…') : t('等待上线')
+  return s.error ?? t('失败')
 }
 
 /**
@@ -55,7 +56,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
       await groupsApi.setRepo(group.id, repoBody(draft))
       toast({
         type: 'success',
-        message: group.repo ? '已更换仓库 · 各 Bot 的托管工作区将重建' : '已绑定仓库',
+        message: group.repo ? t('已更换仓库 · 各 Bot 的托管工作区将重建') : t('已绑定仓库'),
       })
       setDraft(null)
     } catch (e) {
@@ -67,13 +68,13 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
   const recheck = (bot: BotDto) =>
     api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
-      .then(() => toast({ type: 'info', message: `正在让 ${bot.name} 的机器重新 clone…` }))
+      .then(() => toast({ type: 'info', message: t('正在让 {name} 的机器重新 clone…', { name: bot.name }) }))
       .catch(toastError)
 
   return (
     <div className="rw">
       <section className="rw-section">
-        <h3 className="rw-section__title">仓库</h3>
+        <h3 className="rw-section__title">{t('仓库')}</h3>
         <GroupBox>
           {draft ? (
             <RepoPicker
@@ -83,7 +84,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
             />
           ) : (
             <>
-              <GroupRow label="仓库">
+              <GroupRow label={t('仓库')}>
                 <span className="gs-value-line">
                   {group.repo ? (
                     <span className="rw-repo" title={group.repo.url}>
@@ -91,25 +92,25 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
                       {repoPath(group.repo.url)}
                     </span>
                   ) : (
-                    <span className="gs-value">未绑定 · 各 Bot 使用本机目录</span>
+                    <span className="gs-value">{t('未绑定 · 各 Bot 使用本机目录')}</span>
                   )}
                   {isAdmin ? (
                     <Button size="small" onClick={() => setDraft(emptyRepo(group.repo?.branch))}>
-                      {group.repo ? '更换…' : '绑定仓库…'}
+                      {group.repo ? t('更换…') : t('绑定仓库…')}
                     </Button>
                   ) : null}
                 </span>
               </GroupRow>
-              {group.repo ? <GroupRow label="基准分支" value={group.repo.branch} /> : null}
+              {group.repo ? <GroupRow label={t('基准分支')} value={group.repo.branch} /> : null}
             </>
           )}
         </GroupBox>
         {draft ? (
           <div className="rw-actions">
-            {group.repo ? <span className="rw-note">各 Bot 的托管工作区将重建</span> : null}
+            {group.repo ? <span className="rw-note">{t('各 Bot 的托管工作区将重建')}</span> : null}
             <span className="spacer" />
             <Button size="small" onClick={() => setDraft(null)}>
-              取消
+              {t('取消')}
             </Button>
             <Button
               size="small"
@@ -117,14 +118,14 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
               disabled={!draft.url || !repoValidated(draft) || saving}
               onClick={() => void save()}
             >
-              {draft.check === 'checking' ? '检查中…' : group.repo ? '更换仓库' : '绑定仓库'}
+              {draft.check === 'checking' ? t('检查中…') : group.repo ? t('更换仓库') : t('绑定仓库')}
             </Button>
           </div>
         ) : null}
       </section>
 
       <section className="rw-section">
-        <h3 className="rw-section__title">各 Bot 的工作区</h3>
+        <h3 className="rw-section__title">{t('各 Bot 的工作区')}</h3>
         <GroupBox>
           {bots.map((b) => {
             const s = states?.[b.id]
@@ -147,17 +148,17 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
                   <>
                     {paused && (mine || isAdmin) ? (
                       <Button size="small" onClick={() => void recheck(b)}>
-                        重新检查
+                        {t('重新检查')}
                       </Button>
                     ) : null}
                     {mine ? (
                       <Button
                         size="small"
                         disabled={!online || !b.machineId}
-                        title={online ? undefined : '离线，上线后可更改'}
+                        title={online ? undefined : t('离线，上线后可更改')}
                         onClick={() => setPicking(b)}
                       >
-                        更改…
+                        {t('更改…')}
                       </Button>
                     ) : null}
                   </>
@@ -165,7 +166,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
               </div>
             )
           })}
-          {bots.length ? null : <GroupRow label={<span className="gs-value">本群还没有 Bot</span>} />}
+          {bots.length ? null : <GroupRow label={<span className="gs-value">{t('本群还没有 Bot')}</span>} />}
         </GroupBox>
       </section>
       <Presence>

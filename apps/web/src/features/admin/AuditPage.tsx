@@ -1,5 +1,6 @@
 import type { AuditDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { pad } from '../../lib/time'
 import {
@@ -25,13 +26,13 @@ import { AdminPage } from './AdminPage'
 const PAGE = 50
 const ALL = 'all'
 const FILTERS: { label: string; category?: string }[] = [
-  { label: '全部' },
-  { label: '审批', category: 'approval' },
-  { label: '提问', category: 'question' },
-  { label: '锁与同步', category: 'lock' },
-  { label: '管理', category: 'admin' },
-  { label: '运行', category: 'run' },
-  { label: '预览', category: 'preview' },
+  { label: t('全部') },
+  { label: t('审批'), category: 'approval' },
+  { label: t('提问'), category: 'question' },
+  { label: t('锁与同步'), category: 'lock' },
+  { label: t('管理'), category: 'admin' },
+  { label: t('运行'), category: 'run' },
+  { label: t('预览'), category: 'preview' },
 ]
 const TONE: Record<string, TagTone> = {
   approval: 'orange',
@@ -44,7 +45,7 @@ const TYPE: Record<string, string> = Object.fromEntries(
   FILTERS.filter((f) => f.category).map((f) => [f.category, f.label]),
 )
 
-const SYSTEM = '系统'
+const SYSTEM = t('系统')
 const actorOf = (a: AuditDto) => a.actorName ?? SYSTEM
 const detailText = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v))
 
@@ -54,23 +55,23 @@ function AuditDialog({ record, onClose }: { record: AuditDto; onClose: () => voi
   return (
     <Dialog
       open
-      title="审计记录"
+      title={t('审计记录')}
       message={new Date(record.at).toLocaleString()}
       width={520}
       onClose={onClose}
-      actions={[{ label: '完成', variant: 'primary', onClick: onClose, autoFocus: true }]}
+      actions={[{ label: t('完成'), variant: 'primary', onClick: onClose, autoFocus: true }]}
     >
       <Form>
-        <FormRow label="类型">
+        <FormRow label={t('类型')}>
           <Tag tone={TONE[record.category] ?? 'gray'}>{TYPE[record.category] ?? record.category}</Tag>
         </FormRow>
-        <FormRow label="操作人">{actorOf(record)}</FormRow>
-        {record.groupName ? <FormRow label="群">{record.groupName}</FormRow> : null}
-        <FormRow label="摘要" align="top">
+        <FormRow label={t('操作人')}>{actorOf(record)}</FormRow>
+        {record.groupName ? <FormRow label={t('群')}>{record.groupName}</FormRow> : null}
+        <FormRow label={t('摘要')} align="top">
           <span className="admin-audit__summary">{record.summary}</span>
         </FormRow>
         {extra.length ? (
-          <FormRow label="详情" align="top">
+          <FormRow label={t('详情')} align="top">
             <dl className="admin-audit__detail">
               {extra.map(([k, v]) => (
                 <div key={k}>
@@ -141,18 +142,18 @@ export function AuditPage() {
   const shown = rows?.filter(
     (a) =>
       (!actor || actorOf(a) === actor) &&
-      (!q || [a.summary, a.groupName ?? '', actorOf(a)].some((t) => t.toLowerCase().includes(q))),
+      (!q || [a.summary, a.groupName ?? '', actorOf(a)].some((s) => s.toLowerCase().includes(q))),
   )
 
   return (
     <AdminPage
-      title="审计记录"
-      desc="审批、提问、锁与同步事件、管理员操作，永久保存。"
-      subtitle={rows ? `已载入 ${rows.length} 条` : undefined}
+      title={t('审计记录')}
+      desc={t('审批、提问、锁与同步事件、管理员操作，永久保存。')}
+      subtitle={rows ? t('已载入 {n} 条', { n: rows.length }) : undefined}
       search={
         <SearchField
-          aria-label="搜索审计记录"
-          placeholder="搜索摘要、群或操作人"
+          aria-label={t('搜索审计记录')}
+          placeholder={t('搜索摘要、群或操作人')}
           value={keyword}
           onChange={setKeyword}
         />
@@ -160,15 +161,15 @@ export function AuditPage() {
     >
       <div className="admin-filters">
         <SegmentedControl
-          aria-label="类型"
+          aria-label={t('类型')}
           items={FILTERS.map((f) => ({ value: f.category ?? ALL, label: f.label }))}
           value={category ?? ALL}
           onChange={(v) => setCategory(v === ALL ? undefined : v)}
         />
         <PopUpButton
-          aria-label="操作人"
+          aria-label={t('操作人')}
           value={actor}
-          options={[{ value: '', label: '全部操作人' }, ...actors.map((n) => ({ value: n, label: n }))]}
+          options={[{ value: '', label: t('全部操作人') }, ...actors.map((n) => ({ value: n, label: n }))]}
           onChange={setActor}
         />
       </div>
@@ -176,7 +177,7 @@ export function AuditPage() {
       <div className="admin-grid" data-testid="audit-list">
         {shown ? (
           <Table<AuditDto>
-            aria-label="审计记录列表"
+            aria-label={t('审计记录列表')}
             rows={shown}
             multiple={false}
             sortRows={false}
@@ -184,14 +185,14 @@ export function AuditPage() {
             emptyText={
               <EmptyState
                 compact
-                title={rows?.length ? '没有匹配的记录' : '暂无记录'}
+                title={rows?.length ? t('没有匹配的记录') : t('暂无记录')}
                 illustration={rows?.length ? <NoResultsArt /> : <NoDataArt />}
               />
             }
             columns={[
               {
                 key: 'at',
-                title: '时间',
+                title: t('时间'),
                 width: 128,
                 mono: true,
                 secondary: true,
@@ -199,14 +200,14 @@ export function AuditPage() {
               },
               {
                 key: 'category',
-                title: '类型',
+                title: t('类型'),
                 width: 88,
                 render: (a) => <Tag tone={TONE[a.category] ?? 'gray'}>{TYPE[a.category] ?? a.category}</Tag>,
               },
-              { key: 'actor', title: '操作人', width: 96, render: actorOf },
+              { key: 'actor', title: t('操作人'), width: 96, render: actorOf },
               {
                 key: 'summary',
-                title: '摘要',
+                title: t('摘要'),
                 render: (a) => <span title={a.summary}>{a.summary}</span>,
               },
             ]}
@@ -217,7 +218,7 @@ export function AuditPage() {
       </div>
       {more ? (
         <Button className="admin-more" onClick={() => void loadMore()}>
-          加载更多
+          {t('加载更多')}
         </Button>
       ) : null}
       <Presence>{open ? <AuditDialog record={open} onClose={() => setOpen(null)} /> : null}</Presence>

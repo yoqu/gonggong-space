@@ -23,7 +23,7 @@ export async function appendTarget(
     .select({ run: runs, ownerId: bots.ownerId, machineId: bots.machineId })
     .from(runs)
     .innerJoin(bots, eq(bots.id, runs.botId))
-    .where(and(eq(runs.id, idParam(runId, '运行')), eq(runs.groupId, groupId)))
+    .where(and(eq(runs.id, idParam(runId, '运行不存在')), eq(runs.groupId, groupId)))
   if (!row) return fail('not_found', '运行不存在')
   if (userId !== row.run.originUserId && userId !== row.ownerId)
     return fail('forbidden', '仅触发人或 Bot 主人可以打断并追加')

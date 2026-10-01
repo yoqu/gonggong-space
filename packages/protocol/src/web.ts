@@ -37,6 +37,7 @@ import {
   ToolStatus,
   ToolsSettings,
 } from './daemon.js'
+import { I18nText } from './i18n.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -412,6 +413,8 @@ export const GroupDto = z.object({
   lastSeq: z.number().int(),
   /** One-line preview of the latest message, '' when empty. */
   last: z.string(),
+  /** `last`'s translatable source for recall notes and events; `last` holds its Chinese rendering. */
+  lastI18n: I18nText.optional(),
   /** The requesting user's own prefs. */
   pinned: z.boolean(),
   muted: z.boolean(),
@@ -558,6 +561,8 @@ export const MessageDto = z.object({
   recalled: z.boolean().optional(),
   /** A bot's preview card; its live state is in the group's preview list (group.previews). */
   previewId: z.string().nullable().optional(),
+  /** An event's translatable source; `body` holds its Chinese rendering. */
+  i18n: I18nText.optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
@@ -815,6 +820,8 @@ export const RunDto = z.object({
   hop: z.number().int(),
   status: RunStatus,
   step: z.string(),
+  /** `step`'s translatable source when the server wrote it; `step` holds its Chinese rendering. */
+  stepI18n: I18nText.optional(),
   filesChanged: z.number().int(),
   usage: Usage.nullable(),
   newSessionReason: z.string().nullable(),
@@ -1131,7 +1138,13 @@ export const BotPlaceDto = z.object({
   workspacePath: z.string().nullable(),
   /** Not yet finished: queued, running or waiting on approval / an answer; the newest if several. */
   run: z
-    .object({ id: z.string(), status: RunStatus, step: z.string(), startedAt: z.string().nullable() })
+    .object({
+      id: z.string(),
+      status: RunStatus,
+      step: z.string(),
+      stepI18n: I18nText.optional(),
+      startedAt: z.string().nullable(),
+    })
     .nullable(),
   lastRunAt: z.string().nullable(),
 })

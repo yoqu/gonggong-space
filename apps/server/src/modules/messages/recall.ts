@@ -6,6 +6,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireMember } from '../groups/service.js'
 import { publishRun } from '../runs/dto.js'
+import { runStep } from '../runs/step.js'
 import { notifyChainDone } from '../runs/stop.js'
 import { type MessageRow, memberIds, messageDto } from './service.js'
 
@@ -14,7 +15,7 @@ async function ownMessage(ctx: Ctx, userId: string, id: string) {
   const [m] = await ctx.db
     .select()
     .from(messages)
-    .where(eq(messages.id, idParam(id, '消息')))
+    .where(eq(messages.id, idParam(id, '消息不存在')))
   if (!m) return fail('not_found', '消息不存在')
   await requireMember(ctx, m.groupId, userId)
   if (m.kind !== 'user' || m.authorUserId !== userId) return fail('forbidden', '只能操作自己发送的消息')
@@ -51,7 +52,7 @@ export async function recallMessage(ctx: Ctx, user: { id: string; name: string }
   })
   const voided = await ctx.db
     .update(runs)
-    .set({ status: 'expired', step: '触发消息已撤回，已作废', endedAt: ctx.now() })
+    .set({ status: 'expired', ...runStep('触发消息已撤回，已作废'), endedAt: ctx.now() })
     .where(and(eq(runs.triggerMessageId, m.id), inArray(runs.status, ['queued', 'offline_wait'])))
     .returning()
   for (const run of voided) {

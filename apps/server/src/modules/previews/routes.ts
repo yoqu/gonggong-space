@@ -103,7 +103,7 @@ export function previewRoutes(ctx: Ctx) {
 
     app.post('/api/previews/:id/start', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam((req.params as { id: string }).id, '预览')
+      const id = idParam((req.params as { id: string }).id, '预览不存在')
       const [preview] = await ctx.db.select().from(previews).where(eq(previews.id, id))
       if (!preview) return fail('not_found', '预览不存在')
       await requireManager(ctx, preview.groupId, preview.botId, user.id)
@@ -113,7 +113,7 @@ export function previewRoutes(ctx: Ctx) {
 
     app.post('/api/services/:id/stop', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam((req.params as { id: string }).id, '服务')
+      const id = idParam((req.params as { id: string }).id, '服务不存在')
       const [svc] = await ctx.db.select().from(services).where(eq(services.id, id))
       if (!svc) return fail('not_found', '服务不存在')
       await requireManager(ctx, svc.groupId, svc.botId, user.id)
@@ -137,7 +137,7 @@ export function previewRoutes(ctx: Ctx) {
 
     app.post('/api/daemon/services/:id/stop', async (req, reply) => {
       const machine = await requireMachine(ctx, req)
-      const id = idParam((req.params as { id: string }).id, '服务')
+      const id = idParam((req.params as { id: string }).id, '服务不存在')
       const [svc] = await ctx.db
         .select()
         .from(services)

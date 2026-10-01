@@ -39,9 +39,9 @@ pub enum Approval {
 impl Approval {
     pub fn label(self) -> &'static str {
         match self {
-            Approval::Ask => "每次询问",
-            Approval::Allowlist => "白名单自动",
-            Approval::All => "全部自动",
+            Approval::Ask => crate::t!("每次询问"),
+            Approval::Allowlist => crate::t!("白名单自动"),
+            Approval::All => crate::t!("全部自动"),
         }
     }
 }

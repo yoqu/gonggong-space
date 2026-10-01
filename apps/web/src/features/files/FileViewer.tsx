@@ -26,6 +26,7 @@ import { fmtSize } from '../attachments/api'
 import { citeInChat } from '../chat/cite'
 import { Markdown } from '../chat/Markdown'
 import './files.css'
+import { t } from '../../i18n'
 
 /** How the viewer shows a file (design §4.6); `unknown` is decided by what the text read reports. */
 export type ViewKind = 'image' | 'video' | 'audio' | 'pdf' | 'md' | 'html' | 'text' | 'binary' | 'unknown'
@@ -84,20 +85,22 @@ function Lines({ text, colored, lang }: { text: string; colored: boolean; lang: 
       <div className="pv-lines">
         {shown.map((l, i) => {
           const lv = colored ? level(l) : null
-          const t = tokens?.[i]
+          const lineTokens = tokens?.[i]
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional
             <div key={i} className="pv-line">
               <span className="pv-line__n">{i + 1}</span>
               <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>
-                {t?.length ? <Tokens tokens={t} /> : l || ' '}
+                {lineTokens?.length ? <Tokens tokens={lineTokens} /> : l || ' '}
               </span>
             </div>
           )
         })}
       </div>
       {lines.length > shown.length ? (
-        <div className="fv__note">{`仅显示前 ${LINES_MAX} 行，共 ${lines.length} 行，完整内容请下载`}</div>
+        <div className="fv__note">
+          {t('仅显示前 {max} 行，共 {n} 行，完整内容请下载', { max: LINES_MAX, n: lines.length })}
+        </div>
       ) : null}
     </>
   )
@@ -108,7 +111,7 @@ function Download({ url, name, message }: { url: string; name: string; message: 
     <div className="fv__none">
       <span>{message}</span>
       <a className="ui-btn ui-btn--small" href={url} download={name}>
-        下载
+        {t('下载')}
       </a>
     </div>
   )
@@ -147,14 +150,14 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
     setError(null)
     read().then(
       (r) => live && setText(r),
-      (e: unknown) => live && setError(e instanceof Error ? e.message : '读取失败'),
+      (e: unknown) => live && setError(e instanceof Error ? e.message : t('读取失败')),
     )
     return () => {
       live = false
     }
   }, [textual, read, attempt])
 
-  const copy = () => copyWithToast(path, '已复制路径')
+  const copy = () => copyWithToast(path, t('已复制路径'))
 
   const body = (() => {
     switch (kind) {
@@ -190,16 +193,16 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
       case 'pdf':
         return <iframe className="fv__pdf" title={name} src={url} />
       case 'binary':
-        return <Download url={url} name={name} message="该类型暂不支持预览，可下载查看" />
+        return <Download url={url} name={name} message={t('该类型暂不支持预览，可下载查看')} />
     }
     if (error)
       return (
         <EmptyState
           compact
           icon="warning"
-          title="无法读取文件"
+          title={t('无法读取文件')}
           description={error}
-          action={<Button onClick={() => setAttempt((n) => n + 1)}>重试</Button>}
+          action={<Button onClick={() => setAttempt((n) => n + 1)}>{t('重试')}</Button>}
         />
       )
     if (!text)
@@ -215,8 +218,11 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
           name={name}
           message={
             text.binary
-              ? `二进制文件（${fmtSize(text.size)}），无法预览，可下载查看`
-              : `文件过大（${fmtSize(text.size)}，超过 ${fmtSize(FILE_TEXT_MAX_BYTES)}），可下载查看`
+              ? t('二进制文件（{size}），无法预览，可下载查看', { size: fmtSize(text.size) })
+              : t('文件过大（{size}，超过 {max}），可下载查看', {
+                  size: fmtSize(text.size),
+                  max: fmtSize(FILE_TEXT_MAX_BYTES),
+                })
           }
         />
       )
@@ -230,7 +236,9 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
   })()
 
   const rows =
-    details && dim ? [...details, [kind === 'video' ? '分辨率' : '尺寸', dim] as [string, string]] : details
+    details && dim
+      ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), dim] as [string, string]]
+      : details
   return (
     <div className="fv">
       <div className="fv__bar">
@@ -245,19 +253,19 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
             value={md}
             onChange={setMd}
             items={[
-              { value: 'preview', label: '预览' },
-              { value: 'source', label: '源码' },
+              { value: 'preview', label: t('预览') },
+              { value: 'source', label: t('源码') },
             ]}
           />
         ) : null}
         {kind === 'image' ? (
           <SegmentedControl
             size="small"
-            aria-label="显示尺寸"
+            aria-label={t('显示尺寸')}
             value={fit}
             onChange={setFit}
             items={[
-              { value: 'fit', label: '适应' },
+              { value: 'fit', label: t('适应') },
               { value: 'actual', label: '1:1' },
             ]}
           />
@@ -266,16 +274,16 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
           size="small"
           variant="plain"
           icon="copy"
-          aria-label="复制路径"
-          title="复制路径"
+          aria-label={t('复制路径')}
+          title={t('复制路径')}
           onClick={copy}
         />
         <a
           className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
           href={url}
           download={name}
-          aria-label="下载"
-          title="下载"
+          aria-label={t('下载')}
+          title={t('下载')}
         >
           <Icon name="download" size={14} />
         </a>
@@ -284,8 +292,8 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
             size="small"
             variant="plain"
             icon="external"
-            aria-label="在新标签页打开"
-            title="在新标签页打开"
+            aria-label={t('在新标签页打开')}
+            title={t('在新标签页打开')}
             onClick={onOpenTab}
           />
         ) : null}
@@ -294,8 +302,8 @@ export function FileViewer({ name, path, url, kind, read, details, onOpenTab, on
             size="small"
             variant="plain"
             icon="at"
-            aria-label="在聊天中引用"
-            title="在聊天中引用"
+            aria-label={t('在聊天中引用')}
+            title={t('在聊天中引用')}
             onClick={onCite}
           />
         ) : null}

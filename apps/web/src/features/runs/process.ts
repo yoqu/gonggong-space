@@ -1,4 +1,5 @@
 import type { ApprovalDto, RunDetailDto } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { hm } from '../../lib/time'
 import { newSessionNote } from '../chat/TimelineItems'
 import { parsePatch } from '../diff/patch'
@@ -11,20 +12,20 @@ export type { Step }
 export function approvalText(a: ApprovalDto) {
   switch (a.status) {
     case 'pending':
-      return '等待 Bot 主人审批'
+      return t('等待 Bot 主人审批')
     case 'approved':
-      return `${a.decidedByName ?? ''} 已批准`.trim()
+      return t('{name} 已批准', { name: a.decidedByName ?? '' }).trim()
     case 'rejected':
-      return `${a.decidedByName ?? ''} 已拒绝`.trim()
+      return t('{name} 已拒绝', { name: a.decidedByName ?? '' }).trim()
     case 'expired':
-      return '超时未审批，已自动拒绝'
+      return t('超时未审批，已自动拒绝')
     case 'void':
       return VOID_TEXT[a.voidReason ?? 'ended']
   }
 }
 
 /** Daemon statuses that only mirror an approval's lifecycle; its 权限请求 row carries the outcome. */
-const APPROVAL_ECHO = /^(等待审批|已批准)：|^请求被拒绝，/
+const APPROVAL_ECHO = /^(等待审批|已批准)：|^请求被拒绝，|^(Awaiting approval|Approved): |^Request denied; /
 
 const statusOf = (e: RunDetailDto['events'][number]) => (e.event.kind === 'status' ? e.event.step : null)
 
@@ -32,15 +33,15 @@ function contextStep(d: RunDetailDto, gitStep: string | undefined, configs: stri
   const reason = d.run.newSessionReason
   const session =
     reason === null
-      ? '续用上次会话，补送上次被 @ 以来的群消息'
-      : (newSessionNote(reason) ?? '首次会话，补送此前的群消息')
-  const git = gitStep ? `git 默认动作：${gitStep.replace(/^git /, '')}` : null
+      ? t('续用上次会话，补送上次被 @ 以来的群消息')
+      : (newSessionNote(reason) ?? t('首次会话，补送此前的群消息'))
+  const git = gitStep ? t('git 默认动作：{action}', { action: gitStep.replace(/^git /, '') }) : null
   return {
     key: 'context',
     kind: 'context',
-    label: '本轮上下文',
-    meta: reason === null ? '续用会话' : '新会话',
-    body: [session, git, ...configs].filter(Boolean).join('。'),
+    label: t('本轮上下文'),
+    meta: reason === null ? t('续用会话') : t('新会话'),
+    body: [session, git, ...configs].filter(Boolean).join(t('。')),
   }
 }
 
@@ -56,7 +57,7 @@ export function buildSteps(d: RunDetailDto): Step[] {
       step: {
         key: `a${a.id}`,
         kind: 'approval',
-        label: '权限请求',
+        label: t('权限请求'),
         meta: hm(a.createdAt),
         mono: a.detail,
         body: approvalText(a),

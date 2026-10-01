@@ -54,6 +54,7 @@ struct Rig {
 }
 
 fn rig(server: &str) -> Rig {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let home = tempfile::tempdir().unwrap();
     let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/mock-agent/agent.js");
     let engine = Engine::new(EngineConfig {

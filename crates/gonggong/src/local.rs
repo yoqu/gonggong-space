@@ -3,6 +3,7 @@
 //! permission requests here. Also the catalog probed from each adapter (`<home>/models.json`), reported to the server
 //! for its pickers.
 use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, Tier};
+use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -58,7 +59,7 @@ impl LocalSettings {
     pub fn load(home: &Path) -> Result<Self> {
         match std::fs::read_to_string(Self::path(home)) {
             Ok(s) => {
-                let settings: Self = serde_json::from_str(&s).context("本机设置 local.json 格式错误")?;
+                let settings: Self = serde_json::from_str(&s).context(t!("本机设置 local.json 格式错误"))?;
                 settings.validate()?;
                 Ok(settings)
             }
@@ -83,7 +84,7 @@ impl LocalSettings {
             if let Some(p) = &a.path
                 && !Path::new(p).is_absolute()
             {
-                bail!("{kind:?} 的路径必须是绝对路径：{p}");
+                bail!(t!("{kind} 的路径必须是绝对路径：{p}", kind = format!("{kind:?}"), p = p));
             }
         }
         Ok(())

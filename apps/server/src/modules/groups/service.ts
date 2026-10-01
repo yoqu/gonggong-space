@@ -1,10 +1,11 @@
-import type { GroupDto } from '@gonggong/protocol'
+import type { GroupDto, I18nText } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
+import { zhText } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { memberIds, postEvent } from '../messages/service.js'
+import { type MessageMeta, memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
 import { groupTitle } from './title.js'
 
@@ -41,8 +42,8 @@ const preview = (kind: string, author: string | null, body: string) => {
   return kind === 'event' ? line : `${author ?? ''}：${line}`
 }
 
-const recallNote = (mine: boolean, author: string | null) =>
-  `${mine ? '你' : `${author ?? ''} `}撤回了一条消息`
+const recallNote = (mine: boolean, author: string | null): I18nText =>
+  mine ? { key: '你撤回了一条消息' } : { key: '{user} 撤回了一条消息', params: { user: author ?? '' } }
 
 /** Group DTOs as seen by `userId` (unread is per user). */
 export async function groupDtos(ctx: Ctx, userId: string, ids?: string[]): Promise<GroupDto[]> {
@@ -111,6 +112,7 @@ async function groupViews(ctx: Ctx, userIds: string[], ids?: string[]) {
             botName: bots.name,
             authorUserId: messages.authorUserId,
             recalledAt: messages.recalledAt,
+            meta: messages.meta,
           })
           .from(messages)
           .leftJoin(users, eq(users.id, messages.authorUserId))
@@ -127,6 +129,11 @@ async function groupViews(ctx: Ctx, userIds: string[], ids?: string[]) {
   return rows.map(({ group: g, title, me, lastSeq, unread }) => {
     const repo = repos.find((r) => r.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
+    const lastI18n = last?.recalledAt
+      ? recallNote(last.authorUserId === me.userId, last.userName)
+      : last?.kind === 'event'
+        ? (last.meta as MessageMeta).i18n
+        : undefined
     const group: GroupDto = {
       id: g.id,
       name: title,
@@ -143,9 +150,10 @@ async function groupViews(ctx: Ctx, userIds: string[], ids?: string[]) {
       lastSeq: Number(lastSeq ?? 0),
       last: !last
         ? ''
-        : last.recalledAt
-          ? recallNote(last.authorUserId === me.userId, last.userName)
+        : last.recalledAt && lastI18n
+          ? zhText(lastI18n)
           : preview(last.kind, last.userName ?? last.botName, last.body),
+      ...(lastI18n && { lastI18n }),
       pinned: me.pinned,
       muted: me.muted,
       foldRuns: me.foldRuns,
@@ -177,7 +185,7 @@ export async function removeMember(ctx: Ctx, groupId: string, userId: string, by
       .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
   })
   if (botIds.length) await stopRuns(ctx, { groupId, botIds }, by)
-  for (const b of theirBots) await postEvent(ctx, groupId, `${b.name} 被移出 · 工作区保留`)
+  for (const b of theirBots) await postEvent(ctx, groupId, '{bot} 被移出 · 工作区保留', { bot: b.name })
   ctx.bus.publish([userId], { t: 'group.removed', groupId })
 }
 

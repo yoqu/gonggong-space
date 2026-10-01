@@ -10,6 +10,7 @@ import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
 import { unreadyGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
+import { runStep } from './step.js'
 import { interruptNote } from './stop.js'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -18,8 +19,8 @@ type Bot = typeof bots.$inferSelect
 const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
 const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
-const OFFLINE = { status: 'offline_wait', step: 'Bot 离线，等待上线', startedAt: null }
-const WORKSPACE_WAIT = '工作区准备中'
+const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
+const WORKSPACE_WAIT = runStep('工作区准备中')
 
 /**
  * Server-authoritative scheduling (plan D22): dispatches the bot's waiting runs in trigger order while its machine
@@ -56,14 +57,15 @@ export async function schedule(ctx: Ctx, botId: string) {
       if (machineId && busyGroups.has(run.groupId)) {
         const n = (groupQueue.get(run.groupId) ?? 0) + 1
         groupQueue.set(run.groupId, n)
-        const step = `本群上一轮未结束，排第 ${n}`
-        if (run.status !== 'queued' || run.step !== step) await setRun(run.id, { status: 'queued', step })
+        const step = runStep('本群上一轮未结束，排第 {n}', { n })
+        if (run.status !== 'queued' || run.step !== step.step)
+          await setRun(run.id, { status: 'queued', ...step })
         continue
       }
       // Dispatch only once the bot's clone / directory is ready; the workspace engine reschedules then.
       if (machineId && unready.has(run.groupId)) {
-        if (run.status !== 'queued' || run.step !== WORKSPACE_WAIT)
-          await setRun(run.id, { status: 'queued', step: WORKSPACE_WAIT })
+        if (run.status !== 'queued' || run.step !== WORKSPACE_WAIT.step)
+          await setRun(run.id, { status: 'queued', ...WORKSPACE_WAIT })
         continue
       }
       if (machineId && busy < bot.concurrency) {
@@ -91,7 +93,9 @@ export async function schedule(ctx: Ctx, botId: string) {
         }
         continue
       }
-      const next = machineId ? { status: 'queued', step: `该 Bot 忙，排第 ${++position}` } : OFFLINE
+      const next = machineId
+        ? { status: 'queued', ...runStep('该 Bot 忙，排第 {n}', { n: ++position }) }
+        : OFFLINE
       if (next.status !== run.status || next.step !== run.step) await setRun(run.id, next)
     }
     return { out, dispatches }

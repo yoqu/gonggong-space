@@ -15,6 +15,14 @@
 - HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `GONGGONG_TLS_CERT/GONGGONG_TLS_KEY` 与指纹，daemon 用 `gg login --server https://127.0.0.1:<port> [--fingerprint sha256:…]`（见 `docs/plan/安全说明.md`）
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @gonggong/server db:generate`
 
+## 多语言（zh 默认 + en）
+- Gettext 风格：**中文原文即 key**，只维护英文词典；缺词条时回退中文。同一中文需不同英文时加上下文后缀 `'关闭#off'`（中文输出自动去掉）；web 各领域词典会合并，同 key 只能一个英文。占位 `{name}`，英文复数 `{n:item|items}`。
+- TS 核心 `packages/protocol/src/i18n.ts`（`createTranslator`、`resolveLocale`、`I18nText`）；`protocolEn`（`i18n-en.ts`）放群事件消息等跨端文案。
+- web：`import { t } from '<rel>/i18n'`，词条写在所在领域的 `en.ts`（`features/<d>/en.ts`、`ui/en.ts`…），`t()` 的 key 类型即词典 key，漏词条 typecheck 报错。语言存 `localStorage['gg.locale']`，切换即刷新；模块级常量可直接调 `t()`。
+- desktop：`src/i18n`（复用 web 的 locale）。server：`src/i18n`，按请求 `Accept-Language` 经 AsyncLocalStorage 取语言，`fail(code, '中文 {x}', { x })` 自动翻译；群事件 `postEvent(ctx, groupId, key, params)` 存中文 body + `meta.i18n`，客户端按本地语言渲染。
+- Rust：`gonggong::t!("中文 {x}", x = v)`，词条在 `crates/gonggong/src/i18n/en.rs`，测试扫描保证全覆盖；语言取 `GG_LANG` → `LC_ALL` → `LC_MESSAGES` → `LANG`。
+- 给 AI agent 看的文本（提示词、工具描述与结果）不翻译。测试默认中文（web/desktop setup 固定 `gg.locale=zh`，e2e `locale: 'zh-CN'`）。
+
 ## 规则
 - **TDD**：先写失败测试（验收 → 集成 → 单元），再实现。切片完成 = 本切片测试全绿 + 全量不回归 + typecheck + lint。
 - 服务端测试用 `test/support/db.ts` 的 `createTestDb()`（每个文件独立数据库），用 `test/support/app.ts` 的种子助手造数据，不要依赖其他切片的 HTTP 流程。

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router'
 import { AccountMenu } from '../features/auth/AccountMenu'
+import { t } from '../i18n'
 import { NavRail, type NavRailItem } from '../ui'
 import { useShellOverlay } from './AppShell'
 import { useSession } from './session'
@@ -14,10 +15,10 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const { overlay, set } = useShellOverlay()
   const bar = orientation === 'horizontal'
   const items: NavRailItem[] = [
-    { id: 'chat', label: '消息', icon: 'message', badge: unread },
-    { id: 'notif', label: '通知', icon: 'bell', badge: notifCount },
+    { id: 'chat', label: t('消息'), icon: 'message', badge: unread },
+    { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
-  const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: '管理后台', icon: 'shield-check' }] : []
+  const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: t('管理后台'), icon: 'shield-check' }] : []
   const select = (id: string) => {
     if (id === 'admin') navigate('/admin')
     else set(id === 'notif' && overlay !== 'notif' ? 'notif' : null)

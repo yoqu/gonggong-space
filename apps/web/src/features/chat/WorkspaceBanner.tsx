@@ -2,15 +2,16 @@ import type { BotDto, GroupDto, RepoAccessReason } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, PinnedBanner, Presence, toast } from '../../ui'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 
 const PAUSING: Partial<Record<RepoAccessReason, string>> = {
-  denied: '无权限或仓库不存在',
-  network: '网络或证书问题',
-  timeout: '连接超时',
+  denied: t('无权限或仓库不存在'),
+  network: t('网络或证书问题'),
+  timeout: t('连接超时'),
 }
 
 /**
@@ -33,7 +34,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const recheck = (bot: BotDto) =>
     api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
-      .then(() => toast({ type: 'info', message: `正在让 ${bot.name} 的机器重新 clone…` }))
+      .then(() => toast({ type: 'info', message: t('正在让 {name} 的机器重新 clone…', { name: bot.name }) }))
       .catch(toastError)
 
   const mineReady = waiting.filter((b) => b.ownerId === me?.id && b.machineId && !states?.[b.id]?.error)
@@ -49,13 +50,22 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
             <PinnedBanner
               icon="warning"
               title={null}
-              text={`${b.name} 已暂停：所在机器无法访问仓库（${why}）${
-                mine ? '，在这台机器上配置 git 凭据后重新检查' : `，等待 ${b.ownerName} 处理`
-              }`}
+              text={
+                mine
+                  ? t('{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器上配置 git 凭据后重新检查', {
+                      name: b.name,
+                      why: why ?? '',
+                    })
+                  : t('{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理', {
+                      name: b.name,
+                      why: why ?? '',
+                      owner: b.ownerName,
+                    })
+              }
               action={
                 mine || isAdmin ? (
                   <Button size="small" onClick={() => void recheck(b)}>
-                    重新检查
+                    {t('重新检查')}
                   </Button>
                 ) : null
               }
@@ -68,7 +78,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
         <PinnedBanner
           icon="folder-open"
           title={null}
-          text={`${mineReady.length} 个 Bot 还没有工作区，此前 @ 它们不会执行`}
+          text={t('{n} 个 Bot 还没有工作区，此前 @ 它们不会执行', { n: mineReady.length })}
           action={mineReady.map((b) => (
             <Button
               key={b.id}
@@ -77,7 +87,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               data-testid={`ws-banner-${b.id}`}
               onClick={() => setPicking(b)}
             >
-              {`绑定 ${b.name}`}
+              {t('绑定 {name}', { name: b.name })}
             </Button>
           ))}
         />
@@ -93,13 +103,13 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               title={null}
               text={`${
                 mine
-                  ? `为 ${b.name} 选择工作区后才能开始工作，此前 @ 它不会执行`
-                  : `等待 ${b.ownerName} 为 ${b.name} 绑定工作区`
+                  ? t('为 {name} 选择工作区后才能开始工作，此前 @ 它不会执行', { name: b.name })
+                  : t('等待 {owner} 为 {name} 绑定工作区', { owner: b.ownerName, name: b.name })
               }${error ? ` · ${error}` : ''}`}
               action={
                 mine && b.machineId ? (
                   <Button size="small" variant="primary" onClick={() => setPicking(b)}>
-                    绑定工作区
+                    {t('绑定工作区')}
                   </Button>
                 ) : null
               }

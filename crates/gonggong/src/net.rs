@@ -1,6 +1,7 @@
 //! 测量延迟与带宽 (spec §8.5): round trips and a download over the same pinned transport as the daemon, reported to
 //! the server for the admin 机器与网络 page.
 use crate::config::Config;
+use crate::t;
 use anyhow::{Result, bail};
 use serde::Serialize;
 use std::time::Instant;
@@ -42,7 +43,7 @@ pub async fn measure(config: &Config) -> Result<NetResult> {
     }
     let secs = start.elapsed().as_secs_f64();
     if got != PROBE_BYTES {
-        bail!("测速下载不完整：{got} / {PROBE_BYTES} 字节");
+        bail!(t!("测速下载不完整：{got} / {total} 字节", got = got, total = PROBE_BYTES));
     }
     let round = |v: f64| (v * 10.0).round() / 10.0;
     Ok(NetResult {

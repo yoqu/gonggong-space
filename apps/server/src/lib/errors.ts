@@ -1,5 +1,6 @@
-import type { ErrorCode } from '@gonggong/protocol'
+import type { ErrorCode, I18nParams } from '@gonggong/protocol'
 import type { z } from 'zod'
+import { type MessageKey, t } from '../i18n/index.js'
 
 const STATUS: Record<z.infer<typeof ErrorCode>, number> = {
   unauthorized: 401,
@@ -25,6 +26,7 @@ export class HttpError extends Error {
   }
 }
 
-export const fail = (code: z.infer<typeof ErrorCode>, message: string): never => {
-  throw new HttpError(code, message)
+/** `message` is a Chinese source text, translated for the requester. */
+export const fail = (code: z.infer<typeof ErrorCode>, message: MessageKey, params?: I18nParams): never => {
+  throw new HttpError(code, t(message, params))
 }

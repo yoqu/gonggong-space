@@ -1,4 +1,5 @@
 //! The in-process daemon of the desktop app and what the UI sees of it.
+use crate::i18n::tr;
 use gonggong::config::Config;
 use gonggong::daemon::{Daemon, Options};
 use gonggong::lock::LockError;
@@ -50,7 +51,7 @@ impl Host {
 
     /// Starts the daemon for the saved binding. Must run inside the async runtime.
     pub fn start(&self) -> Result<(), String> {
-        let config = Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
+        let config = Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
         let mut state = self.state.lock().unwrap();
         if matches!(*state, State::Running(_)) {
             return Ok(());

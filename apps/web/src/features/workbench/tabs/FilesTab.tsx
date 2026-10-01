@@ -7,6 +7,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
+import { t } from '../../../i18n'
 import { api } from '../../../lib/api'
 import { cx } from '../../../lib/cx'
 import { Button, Checkbox, EmptyState, Icon, PathControl, SearchField, Spinner } from '../../../ui'
@@ -25,7 +26,7 @@ const parentOf = (path: string) => path.split('/').slice(0, -1).join('/')
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name)
 /** 'a/b' → ['a', 'a/b']. */
 const chain = (dir: string) => (dir ? dir.split('/').map((_, i, all) => all.slice(0, i + 1).join('/')) : [])
-const message = (e: unknown) => (e instanceof Error ? e.message : '读取失败')
+const message = (e: unknown) => (e instanceof Error ? e.message : t('读取失败'))
 
 const sorted = (entries: FileTreeEntry[]) =>
   [...entries].sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name))
@@ -181,7 +182,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           <Icon name={e.dir ? (open ? 'folder-open' : 'folder') : 'doc'} size={14} />
           <span className="ft__name">{e.name}</span>
           {e.uncommitted ? (
-            <span className="ft__mark" title="未提交">
+            <span className="ft__mark" title={t('未提交')}>
               M
             </span>
           ) : null}
@@ -192,7 +193,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
     if (l.truncated)
       out.push(
         <div key={`${dir}\n+`} className="ft__note" style={pad}>
-          {`已截断，仅显示前 ${FILE_TREE_MAX_ENTRIES} 项`}
+          {t('已截断，仅显示前 {n} 项', { n: FILE_TREE_MAX_ENTRIES })}
         </div>,
       )
     return out
@@ -201,7 +202,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   const top = listings['']
   const failed = top && 'error' in top ? top.error : null
   const crumbs = [
-    { id: '', label: '工作区' },
+    { id: '', label: t('工作区') },
     ...chain(tab.dir).map((id) => ({ id, label: id.split('/').pop() as string })),
   ]
 
@@ -223,11 +224,11 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
             </button>
           ))
         ) : (
-          <div className="ft__note">没有匹配的文件</div>
+          <div className="ft__note">{t('没有匹配的文件')}</div>
         )}
       </div>
     ) : (
-      <div ref={treeRef} role="tree" aria-label="文件" className="ft">
+      <div ref={treeRef} role="tree" aria-label={t('文件')} className="ft">
         {rows('', 0)}
       </div>
     )
@@ -239,15 +240,15 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           size="small"
           variant="plain"
           icon="sidebar"
-          aria-label="目录"
-          title={showTree ? '收起目录' : '展开目录'}
+          aria-label={t('目录')}
+          title={showTree ? t('收起目录') : t('展开目录')}
           aria-pressed={showTree}
           onClick={() => (wide ? setCollapsed((c) => !c) : setTreeOpen((o) => !o))}
         />
         <PathControl className="wt-files__path" items={crumbs} onSelect={(dir) => patch(tabKey, { dir })} />
         <SearchField
           className="wt-files__search"
-          placeholder="搜索文件"
+          placeholder={t('搜索文件')}
           value={query}
           onChange={(q) => {
             setQuery(q)
@@ -257,15 +258,15 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
             }
           }}
         />
-        <Button size="small" variant="plain" icon="arrow-clockwise" aria-label="刷新" onClick={reload} />
-        <Checkbox label="显示忽略的" checked={ignored} onChange={setIgnored} />
+        <Button size="small" variant="plain" icon="arrow-clockwise" aria-label={t('刷新')} onClick={reload} />
+        <Checkbox label={t('显示忽略的')} checked={ignored} onChange={setIgnored} />
       </div>
       {failed ? (
         <EmptyState
           icon="warning"
-          title="无法读取工作区文件"
+          title={t('无法读取工作区文件')}
           description={failed}
-          action={<Button onClick={reload}>重试</Button>}
+          action={<Button onClick={reload}>{t('重试')}</Button>}
         />
       ) : (
         <div className="wt-files__main">
@@ -282,7 +283,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
                   }
                 />
               ) : (
-                <EmptyState compact icon="doc" title="选择左侧的文件查看" />
+                <EmptyState compact icon="doc" title={t('选择左侧的文件查看')} />
               )}
             </div>
           ) : null}
@@ -294,5 +295,5 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
 
 export function useFilesTabMeta(tab: TabProps<'files'>['tab']): TabMeta {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === tab.botId)?.name) ?? 'Bot'
-  return { icon: 'folder', title: `文件 · ${name}` }
+  return { icon: 'folder', title: t('文件 · {name}', { name }) }
 }

@@ -7,6 +7,7 @@ import { timeoutMin } from '../approvals/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { publishRun } from '../runs/dto.js'
+import { runStep } from '../runs/step.js'
 import { questionSetDto } from './dto.js'
 
 type QuestionSet = typeof questionSets.$inferSelect
@@ -42,7 +43,7 @@ export async function onQuestionAsk(ctx: Ctx, machineId: string, ask: QuestionAs
       createdAt: ctx.now(),
     })
     .returning()) as [QuestionSet]
-  await syncRun(ctx, ask.runId, `等待回答：${ask.questions.length} 个问题`)
+  await syncRun(ctx, ask.runId, runStep('等待回答：{n} 个问题', { n: ask.questions.length }))
   const payload = {
     groupId: row.group.id,
     groupName: row.group.name,
@@ -224,13 +225,13 @@ const auditDetail = (q: QuestionSet) => ({
 })
 
 /** A live run awaits an answer exactly while it has a pending card; publishes the run with its cards. */
-async function syncRun(ctx: Ctx, runId: string, step?: string) {
+async function syncRun(ctx: Ctx, runId: string, step?: ReturnType<typeof runStep>) {
   const pending = sql`exists (select 1 from ${questionSets} where ${questionSets.runId} = ${runs.id} and ${questionSets.status} = 'pending')`
   const [updated] = await ctx.db
     .update(runs)
     .set({
       status: sql`case when ${pending} then 'awaiting_answer' else 'running' end`,
-      ...(step !== undefined && { step }),
+      ...step,
     })
     .where(and(eq(runs.id, runId), inArray(runs.status, ['running', 'awaiting_answer'])))
     .returning()

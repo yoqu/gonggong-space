@@ -1,4 +1,5 @@
 import type { RunDetailDto, RunEvent } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { type DiffFile, findFile } from '../diff/patch'
 import { argSummary, type McpCall, mcpLabel } from './mcp'
 
@@ -33,14 +34,14 @@ export interface Step {
 const SLOW_MS = 2000
 
 export const TOOL_LABEL: Record<string, string> = {
-  read: '读取文件',
-  edit: '编辑文件',
-  delete: '删除文件',
-  move: '移动文件',
-  search: '搜索',
-  execute: '执行命令',
-  think: '思考',
-  fetch: '访问网络',
+  read: t('读取文件'),
+  edit: t('编辑文件'),
+  delete: t('删除文件'),
+  move: t('移动文件'),
+  search: t('搜索'),
+  execute: t('执行命令'),
+  think: t('思考'),
+  fetch: t('访问网络'),
 }
 
 export type Timed = { at: string; step: Step }
@@ -104,38 +105,38 @@ export function processSteps(
 }
 
 const SUBAGENT_STATE: Record<string, string> = {
-  running: '进行中',
-  completed: '已完成',
-  failed: '失败',
-  cancelled: '已取消',
-  disconnected: '已断开',
+  running: t('进行中'),
+  completed: t('已完成'),
+  failed: t('失败'),
+  cancelled: t('已取消'),
+  disconnected: t('已断开'),
 }
 const TASK_STATE: Record<string, string> = {
-  running: '运行中',
-  paused: '已暂停',
-  completed: '已完成',
-  failed: '失败',
-  stopped: '已停止',
+  running: t('运行中'),
+  paused: t('已暂停'),
+  completed: t('已完成'),
+  failed: t('失败'),
+  stopped: t('已停止'),
 }
 
 function eventStep(id: number, e: RunEvent): Step | null {
   const key = `e${id}`
   switch (e.kind) {
     case 'thought':
-      return { key, kind: 'thought', label: '思考', body: e.delta }
+      return { key, kind: 'thought', label: t('思考'), body: e.delta }
     case 'text':
-      return { key, kind: 'text', label: '回复', body: e.delta }
+      return { key, kind: 'text', label: t('回复'), body: e.delta }
     case 'status':
-      return { key, kind: 'status', label: '状态', body: e.step }
+      return { key, kind: 'status', label: t('状态'), body: e.step }
     case 'tool':
       return e.mcp
-        ? { key, kind: 'mcp', label: '工具调用', title: mcpLabel(e.mcp.server, e.mcp.tool) }
-        : { key, kind: e.toolKind, label: TOOL_LABEL[e.toolKind] ?? '工具调用', title: e.title }
+        ? { key, kind: 'mcp', label: t('工具调用'), title: mcpLabel(e.mcp.server, e.mcp.tool) }
+        : { key, kind: e.toolKind, label: TOOL_LABEL[e.toolKind] ?? t('工具调用'), title: e.title }
     case 'subagent':
       return {
         key,
         kind: 'subagent',
-        label: '子 agent',
+        label: t('子 agent'),
         title: e.name,
         body: e.task,
         meta: SUBAGENT_STATE[e.state],
@@ -146,7 +147,7 @@ function eventStep(id: number, e: RunEvent): Step | null {
       return {
         key,
         kind: 'task',
-        label: '后台任务',
+        label: t('后台任务'),
         title: e.name,
         body: e.summary,
         mono: e.outputPath,
@@ -178,7 +179,13 @@ function toolStep(
       failed,
       running,
       // Quick calls are the norm; only slow ones earn a duration (Codex shows none per call).
-      meta: failed ? '失败' : running ? '进行中' : ms >= SLOW_MS ? `${(ms / 1000).toFixed(1)}s` : undefined,
+      meta: failed
+        ? t('失败')
+        : running
+          ? t('进行中')
+          : ms >= SLOW_MS
+            ? `${(ms / 1000).toFixed(1)}s`
+            : undefined,
     }
   const file = e.detail ? findFile(files, e.detail.replace(/:\d+$/, '')) : undefined
   const diff = file && !file.binary ? { add: file.add, del: file.del } : undefined
@@ -187,6 +194,6 @@ function toolStep(
     failed,
     running,
     diff,
-    meta: failed ? '失败' : running ? '进行中' : diff ? `+${diff.add} −${diff.del}` : undefined,
+    meta: failed ? t('失败') : running ? t('进行中') : diff ? `+${diff.add} −${diff.del}` : undefined,
   }
 }

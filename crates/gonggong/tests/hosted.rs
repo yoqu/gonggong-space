@@ -6,6 +6,7 @@ use std::path::Path;
 use std::time::Duration;
 
 fn scope(root: &Path, bot: &str, out: &Outbox) -> Scope {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     Scope { group_id: "g1".into(), bot_id: bot.into(), run_id: Some("r1".into()), root: root.into(), out: out.clone() }
 }
 

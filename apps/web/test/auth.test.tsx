@@ -59,6 +59,7 @@ describe('login page', () => {
     expect(screen.getByRole('heading', { name: '登录' })).toBeTruthy()
     // Accounts are issued by the sysadmin: no sign-up entry, only the form's own affordances.
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'English',
       '切换到深色',
       '显示明文',
       '忘记密码？',

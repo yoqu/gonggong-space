@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "step_i18n" jsonb;

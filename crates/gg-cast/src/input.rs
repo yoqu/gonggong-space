@@ -1,6 +1,7 @@
 //! The controller's input (`CastInput` in packages/protocol) replayed on this machine: points map from the video
 //! frame onto the window, which is brought to the front first, since macOS delivers the first click to a background
 //! app only as its activation (B0).
+use crate::i18n::t;
 use anyhow::{Context, bail};
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use serde::Deserialize;
@@ -136,7 +137,7 @@ pub struct Injector<T: Target> {
 impl<T: Target> Injector<T> {
     pub fn new(target: T) -> anyhow::Result<Self> {
         Ok(Injector {
-            enigo: Enigo::new(&Settings::default()).context("无法注入输入（需要辅助功能权限）")?,
+            enigo: Enigo::new(&Settings::default()).context(t!("无法注入输入（需要辅助功能权限）"))?,
             target,
             frame: None,
         })

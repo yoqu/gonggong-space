@@ -1,4 +1,5 @@
 import { LIVE_FPS, type LiveFps } from '@gonggong/protocol'
+import { t } from '../../i18n'
 
 /** Cumulative counters from one read of the video receiver's RTCStatsReport. */
 export interface StatsSample {
@@ -110,9 +111,9 @@ export interface Layer {
 }
 
 const LAYER_PICKS = [
-  { value: 'high', label: '原画' },
-  { value: 'medium', label: '超清' },
-  { value: 'low', label: '高清' },
+  { value: 'high', label: t('原画') },
+  { value: 'medium', label: t('超清') },
+  { value: 'low', label: t('高清') },
 ] as const
 
 const TOP_FPS = Math.max(...LIVE_FPS)
@@ -138,10 +139,17 @@ export function qualityPicks(
       ? null
       : picks.reduce((a, b) => (Math.abs(b.layer.width - width) < Math.abs(a.layer.width - width) ? b : a))
   return [
-    { value: 'auto', label: arriving ? `自动（${arriving.label}）` : '自动', quality: top.layer.quality },
+    {
+      value: 'auto',
+      label: arriving ? t('自动（{label}）', { label: arriving.label }) : t('自动'),
+      quality: top.layer.quality,
+    },
     ...picks.map((p) => ({
       value: p.value,
-      label: `${p.label} · 约 ${((p.layer.bitrate * fps) / TOP_FPS / 1e6).toFixed(1)} Mbps`,
+      label: t('{label} · 约 {mbps} Mbps', {
+        label: p.label,
+        mbps: ((p.layer.bitrate * fps) / TOP_FPS / 1e6).toFixed(1),
+      }),
       quality: p.layer.quality,
     })),
   ]
@@ -154,7 +162,7 @@ export const autoFps = (g: Grade): LiveFps => (g === 'good' ? 60 : 30)
 
 export function fpsPicks(auto: LiveFps): { value: FpsPick; label: string }[] {
   return [
-    { value: 'auto', label: `自动（${auto} fps）` },
+    { value: 'auto', label: t('自动（{fps} fps）', { fps: auto }) },
     ...[...LIVE_FPS].reverse().map((f) => ({ value: `${f}` as FpsPick, label: `${f} fps` })),
   ]
 }

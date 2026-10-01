@@ -199,6 +199,7 @@ describe('run engine', () => {
     await w.mention('@小王的 Claude hi')
     const waiting = await web.until<Extract<WebEvent, { t: 'run.updated' }>>(runUpdated('offline_wait'))
     expect(waiting.run.step).toBe('Bot 离线，等待上线')
+    expect(waiting.run.stepI18n).toEqual({ key: 'Bot 离线，等待上线' })
 
     const d = await daemon(w.token)
     const start = await d.next()

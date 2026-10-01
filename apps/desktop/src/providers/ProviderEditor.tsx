@@ -13,14 +13,15 @@ import {
   TextField,
 } from '@web/ui'
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 import { ipc, type ModelMap, type Preset, type ProviderDraft, type ProviderView } from '../ipc'
 import { AGENTS } from '../lib/labels'
 import { fail } from '../lib/ui'
 
 const GROUPS: { key: Preset['group']; label: string }[] = [
-  { key: 'cn', label: '国内厂商' },
-  { key: 'aggregator', label: '聚合平台' },
-  { key: 'global', label: '海外' },
+  { key: 'cn', label: t('国内厂商') },
+  { key: 'aggregator', label: t('聚合平台') },
+  { key: 'global', label: t('海外') },
 ]
 
 const TIERS = ['haiku', 'sonnet', 'opus'] as const
@@ -32,7 +33,7 @@ export function parseEnv(text: string): Record<string, string> {
     const line = raw.trim()
     if (!line) continue
     const at = line.indexOf('=')
-    if (at <= 0) throw new Error(`额外环境变量每行一个 KEY=VALUE：${line}`)
+    if (at <= 0) throw new Error(t('额外环境变量每行一个 KEY=VALUE：{line}', { line }))
     env[line.slice(0, at).trim()] = line.slice(at + 1).trim()
   }
   return env
@@ -103,9 +104,9 @@ export function ProviderEditor({
   const set = (patch: Partial<Fields>) => setF((x) => ({ ...x, ...patch }))
 
   const save = async () => {
-    if (!f.name.trim()) return setError('请填写名称')
-    if (!f.baseUrl.trim()) return setError('请填写 Base URL')
-    if (!editing && !f.apiKey.trim()) return setError('请填写 API Key')
+    if (!f.name.trim()) return setError(t('请填写名称'))
+    if (!f.baseUrl.trim()) return setError(t('请填写 Base URL'))
+    if (!editing && !f.apiKey.trim()) return setError(t('请填写 API Key'))
     let env: Record<string, string>
     try {
       env = parseEnv(f.env)
@@ -134,10 +135,10 @@ export function ProviderEditor({
     }
   }
 
-  const title = editing ? '编辑供应商' : `新增 ${AGENTS[agent].name} 供应商`
+  const title = editing ? t('编辑供应商') : t('新增 {agent} 供应商', { agent: AGENTS[agent].name })
   if (preset === undefined) {
     return (
-      <Dialog open onClose={onClose} title={title} message="选择厂商，之后只需填写 API Key" width={520}>
+      <Dialog open onClose={onClose} title={title} message={t('选择厂商，之后只需填写 API Key')} width={520}>
         <VendorPicker presets={presets} onPick={pick} />
       </Dialog>
     )
@@ -164,37 +165,37 @@ export function ProviderEditor({
       footer={
         editing && preset ? (
           <Button variant="plain" onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey })}>
-            恢复为预设值
+            {t('恢复为预设值')}
           </Button>
         ) : undefined
       }
       actions={[
-        { label: '取消', onClick: onClose },
-        { label: '保存', variant: 'primary', type: 'submit', form: 'provider-form', disabled: saving },
+        { label: t('取消'), onClick: onClose },
+        { label: t('保存'), variant: 'primary', type: 'submit', form: 'provider-form', disabled: saving },
       ]}
     >
       <Form id="provider-form" aria-label={title} onSubmit={save}>
-        <FormRow label="厂商">
+        <FormRow label={t('厂商')}>
           <span className="dk-inline">
-            <span>{preset ? preset.name : '自定义'}</span>
+            <span>{preset ? preset.name : t('自定义')}</span>
             {editing ? null : (
               <Button size="small" variant="plain" onClick={() => setPreset(undefined)}>
-                更换…
+                {t('更换…')}
               </Button>
             )}
           </span>
         </FormRow>
-        <FormRow label="名称">
-          <TextField aria-label="名称" value={f.name} onChange={(e) => set({ name: e.target.value })} />
+        <FormRow label={t('名称')}>
+          <TextField aria-label={t('名称')} value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </FormRow>
         {preset ? null : baseUrl}
-        <FormRow label="API Key" hint={editing ? '留空则保留已保存的 Key' : undefined}>
+        <FormRow label="API Key" hint={editing ? t('留空则保留已保存的 Key') : undefined}>
           <span className="dk-inline dk-field-row">
             <SecureField
               aria-label="API Key"
               autoComplete="off"
               value={f.apiKey}
-              placeholder={editing ? editing.apiKey : '必填'}
+              placeholder={editing ? editing.apiKey : t('必填')}
               onChange={(e) => set({ apiKey: e.target.value })}
             />
             {keyUrl && preset ? (
@@ -203,47 +204,50 @@ export function ProviderEditor({
                 variant="plain"
                 onClick={() => ipc.openKeyPage(agent, preset.id).catch(fail)}
               >
-                获取 Key
+                {t('获取 Key')}
               </Button>
             ) : null}
           </span>
         </FormRow>
-        <FormRow label="模型" hint="可从列表选择，也可直接输入">
+        <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
           <ComboBox
-            aria-label="模型"
+            aria-label={t('模型')}
             options={preset?.modelOptions ?? []}
             value={f.model}
-            placeholder="默认"
+            placeholder={t('默认')}
             onInput={(model) => set({ model })}
             onChange={(model) => set({ model })}
           />
         </FormRow>
         {editing ? null : (
           <FormRow>
-            <Checkbox label="设为本机默认" checked={setDefault} onChange={setSetDefault} />
+            <Checkbox label={t('设为本机默认')} checked={setDefault} onChange={setSetDefault} />
           </FormRow>
         )}
         <FormRow>
-          <Disclosure title="高级" open={advanced} onToggle={setAdvanced} />
+          <Disclosure title={t('高级')} open={advanced} onToggle={setAdvanced} />
         </FormRow>
         {advanced ? (
           <>
             {preset ? baseUrl : null}
             {agent === 'claude' ? (
               <>
-                {TIERS.map((t) => (
-                  <FormRow key={t} label={`${t[0]?.toUpperCase()}${t.slice(1)} 模型`}>
+                {TIERS.map((tier) => (
+                  <FormRow
+                    key={tier}
+                    label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
+                  >
                     <TextField
-                      aria-label={`${t} 模型`}
-                      value={f.models[t]}
-                      onChange={(e) => set({ models: { ...f.models, [t]: e.target.value } })}
+                      aria-label={t('{tier} 模型', { tier })}
+                      value={f.models[tier]}
+                      onChange={(e) => set({ models: { ...f.models, [tier]: e.target.value } })}
                     />
                   </FormRow>
                 ))}
-                <FormRow label="额外环境变量" align="top" hint="每行一个 KEY=VALUE">
+                <FormRow label={t('额外环境变量')} align="top" hint={t('每行一个 KEY=VALUE')}>
                   <TextField
                     multiline
-                    aria-label="额外环境变量"
+                    aria-label={t('额外环境变量')}
                     rows={3}
                     value={f.env}
                     onChange={(e) => set({ env: e.target.value })}
@@ -269,7 +273,7 @@ function VendorPicker({ presets, onPick }: { presets: Preset[] | null; onPick: (
   const match = (p: Preset) => !text || p.name.toLowerCase().includes(text) || p.id.includes(text)
   return (
     <div className="dk-vendors">
-      <SearchField aria-label="搜索厂商" placeholder="搜索厂商" value={q} onChange={setQ} />
+      <SearchField aria-label={t('搜索厂商')} placeholder={t('搜索厂商')} value={q} onChange={setQ} />
       {GROUPS.map((g) => {
         const list = presets?.filter((p) => p.group === g.key && match(p)) ?? []
         return list.length ? (
@@ -291,8 +295,8 @@ function VendorPicker({ presets, onPick }: { presets: Preset[] | null; onPick: (
       <GroupBox>
         <button type="button" className="dk-row dk-row--button" onClick={() => onPick(null)}>
           <span className="dk-row__main">
-            <span>自定义</span>
-            <span className="dk-sub">手动填写 Base URL</span>
+            <span>{t('自定义')}</span>
+            <span className="dk-sub">{t('手动填写 Base URL')}</span>
           </span>
         </button>
       </GroupBox>

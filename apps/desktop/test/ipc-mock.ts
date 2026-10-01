@@ -13,6 +13,7 @@ import type {
 vi.mock('../src/ipc', () => ({
   ipc: {
     appInfo: vi.fn(),
+    setLocale: vi.fn(async () => {}),
     snapshot: vi.fn(),
     parseLink: vi.fn(),
     login: vi.fn(),

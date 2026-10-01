@@ -1,4 +1,5 @@
 import type { ControlReq, PreviewDto } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { Button, Tag } from '../../ui'
@@ -14,20 +15,20 @@ export function ControlRequests({ preview: p }: { preview: PreviewDto }) {
     <div className="lv-requests">
       {p.control.requests.map((r) => (
         <div key={r.id} className="lv-request">
-          <span className="lv-request__who">{r.name} 请求控制</span>
+          <span className="lv-request__who">{t('{name} 请求控制', { name: r.name })}</span>
           <Button
             size="small"
             variant="primary"
             onClick={() => void act(p.id, { action: 'grant', userId: r.id })}
           >
-            同意
+            {t('同意')}
           </Button>
           <Button
             size="small"
             variant="plain"
             onClick={() => void act(p.id, { action: 'deny', userId: r.id })}
           >
-            拒绝
+            {t('拒绝')}
           </Button>
         </div>
       ))}
@@ -46,33 +47,35 @@ export function ControlBar({ preview: p, me }: { preview: PreviewDto; me: string
       {mine ? (
         <>
           <Tag tone="blue" icon="hand">
-            你正在控制
+            {t('你正在控制')}
           </Tag>
           <Button size="small" onClick={() => void act(p.id, { action: 'release' })}>
-            交还控制
+            {t('交还控制')}
           </Button>
         </>
       ) : (
         <>
-          <span className="lv-control__who">{c.controller ? `${c.controller.name} 正在控制` : '仅观看'}</span>
+          <span className="lv-control__who">
+            {c.controller ? t('{name} 正在控制', { name: c.controller.name }) : t('仅观看')}
+          </span>
           {p.canManage ? (
             <>
               <Button size="small" icon="hand" onClick={() => void act(p.id, { action: 'request' })}>
-                {c.controller ? '接管控制' : '开始控制'}
+                {c.controller ? t('接管控制') : t('开始控制')}
               </Button>
               {c.controller ? (
                 <Button size="small" variant="plain" onClick={() => void act(p.id, { action: 'revoke' })}>
-                  收回控制
+                  {t('收回控制')}
                 </Button>
               ) : null}
             </>
           ) : asked ? (
             <Button size="small" variant="plain" onClick={() => void act(p.id, { action: 'release' })}>
-              取消请求
+              {t('取消请求')}
             </Button>
           ) : (
             <Button size="small" icon="hand" onClick={() => void act(p.id, { action: 'request' })}>
-              请求控制
+              {t('请求控制')}
             </Button>
           )}
         </>

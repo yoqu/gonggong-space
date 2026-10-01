@@ -13,7 +13,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { groupBots } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { activeBots, requireMember } from '../groups/service.js'
@@ -42,7 +42,7 @@ const Query = z.object({
   ignored: z.enum(['0', '1']).optional(),
 })
 
-const offline = (bot: string) => fail('conflict', `${bot} 离线，无法读取文件`)
+const offline = (bot: string) => fail('conflict', '{bot} 离线，无法读取文件', { bot })
 
 /** GET /api/groups/:id/bots/:botId/files/{tree,text,raw} — the read-only files browser (group members). */
 export function workspaceFileRoutes(ctx: Ctx) {
@@ -52,14 +52,14 @@ export function workspaceFileRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
       const query = Query.parse(req.query)
-      const botId = idParam(req.params.botId, 'bot ')
+      const botId = idParam(req.params.botId, 'Bot 不存在')
       const bot = (await activeBots(ctx, group.id)).find((b) => b.id === botId)
       if (!bot) return fail('not_found', '该 Bot 不在群内')
       const [gb] = await ctx.db
         .select({ cdPath: groupBots.cdPath, state: groupBots.workspaceState })
         .from(groupBots)
         .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
-      if (gb?.state === 'unbound') return fail('conflict', `${bot.name} 尚未设置工作区`)
+      if (gb?.state === 'unbound') return fail('conflict', '{bot} 尚未设置工作区', { bot: bot.name })
       const workspace = { repo: await currentRepo(ctx, group.id), cdPath: gb?.cdPath ?? null }
       return { groupId: group.id, bot, workspace, query }
     }
@@ -78,7 +78,7 @@ export function workspaceFileRoutes(ctx: Ctx) {
         ((await ctx.hub.request(machineId, full as Ask, reply, TIMEOUT_MS)) as
           | Extract<Answer, { t: T }>
           | undefined) ?? offline(t.bot.name)
-      if (res.error) return fail('conflict', res.error)
+      if (res.error) throw new HttpError('conflict', res.error)
       return res
     }
 
@@ -121,19 +121,19 @@ export function workspaceFileRoutes(ctx: Ctx) {
           upgrade: false,
         })
       } catch {
-        return fail('conflict', `${t.bot.name} 的文件读取繁忙，请稍后再试`)
+        return fail('conflict', '{bot} 的文件读取繁忙，请稍后再试', { bot: t.bot.name })
       }
       stream.end()
       let head: TunnelHead
       try {
         head = await stream.head
       } catch (err) {
-        return fail('conflict', (err as Error).message)
+        throw new HttpError('conflict', (err as Error).message)
       }
       if (head.status >= 400 && head.status !== 416) {
         const chunks: Buffer[] = []
         for await (const c of stream) chunks.push(c as Buffer)
-        return fail(head.status === 404 ? 'not_found' : 'conflict', Buffer.concat(chunks).toString())
+        throw new HttpError(head.status === 404 ? 'not_found' : 'conflict', Buffer.concat(chunks).toString())
       }
       const kept = head.headers.filter(([k]) => RETURNED.includes(k.toLowerCase()))
       const type = kept.find(([k]) => k.toLowerCase() === 'content-type')?.[1] ?? ''

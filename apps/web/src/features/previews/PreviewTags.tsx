@@ -1,6 +1,7 @@
 import type { PreviewDto, ServiceDto } from '@gonggong/protocol'
 import { Icon, Popover } from '../../ui'
 import './previews.css'
+import { t } from '../../i18n'
 import { PreviewActions } from './PreviewActions'
 import { PREVIEW_STATE } from './PreviewCard'
 import { previewIcon, snapshotUrl, usePreviews } from './store'
@@ -39,7 +40,11 @@ function PreviewTag({ preview: p, service }: { preview: PreviewDto; service?: Se
             <img
               className="pv-pop__shot"
               src={snapshotUrl(p)}
-              alt={`${p.title} ${p.kind === 'miniprogram' ? '模拟器' : '首屏'}`}
+              alt={
+                p.kind === 'miniprogram'
+                  ? t('{title} 模拟器', { title: p.title })
+                  : t('{title} 首屏', { title: p.title })
+              }
             />
           ) : null}
           <div className="pv-card__head">

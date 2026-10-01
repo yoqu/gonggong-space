@@ -1,4 +1,5 @@
 import { type CSSProperties, Fragment, type ReactNode } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
@@ -19,7 +20,7 @@ export function PathControl({
   maxItems = 5,
   className,
   style,
-  'aria-label': ariaLabel = '路径',
+  'aria-label': ariaLabel = t('路径'),
 }: {
   items: PathItem[]
   onSelect?: (id: string) => void
@@ -59,7 +60,7 @@ export function PathControl({
           ) : (
             <MenuButton
               className="ui-path__seg"
-              aria-label="显示上层文件夹"
+              aria-label={t('显示上层文件夹')}
               items={hidden.map((x) => ({ label: x.label, value: x.id, icon: x.icon ?? 'folder' }))}
               onSelect={(id) => onSelect?.(id)}
             >

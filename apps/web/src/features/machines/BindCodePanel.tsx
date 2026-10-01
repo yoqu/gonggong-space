@@ -6,6 +6,7 @@ import { useNow } from '../../lib/now'
 import { countdown } from '../../lib/time'
 import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner } from '../../ui'
 import './machines.css'
+import { t } from '../../i18n'
 
 export interface BindCode {
   code: BindCodeDto | null
@@ -51,32 +52,32 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
   return (
     <Form>
       <FormRow
-        label="接入链接"
+        label={t('接入链接')}
         align="top"
-        hint={waiting ? `一次性接入链接 · ${countdown(remaining)} 后失效` : undefined}
+        hint={waiting ? t('一次性接入链接 · {time} 后失效', { time: countdown(remaining) }) : undefined}
       >
         {expired ? (
           <span className="bind__code-line">
-            <span className="bind__expired">接入链接已失效</span>
+            <span className="bind__expired">{t('接入链接已失效')}</span>
             <Button size="small" onClick={() => void generate()}>
-              重新生成
+              {t('重新生成')}
             </Button>
           </span>
         ) : code ? (
           <div className="bind__open">
             <span className="bind__code-line">
               <a className="ui-btn ui-btn--primary bind__open-link" href={code.link}>
-                在客户端中打开
+                {t('在客户端中打开')}
               </a>
-              <Button onClick={() => copy(code.link, '已复制接入链接')}>复制接入链接</Button>
+              <Button onClick={() => copy(code.link, t('已复制接入链接'))}>{t('复制接入链接')}</Button>
             </span>
-            <span className="bind__note">没有自动打开？复制接入链接，粘贴到客户端。</span>
+            <span className="bind__note">{t('没有自动打开？复制接入链接，粘贴到客户端。')}</span>
           </div>
         ) : error ? (
           <span className="bind__code-line">
             <Alert variant="error" description={error} />
             <Button size="small" onClick={() => void generate()}>
-              重试
+              {t('重试')}
             </Button>
           </span>
         ) : (
@@ -84,18 +85,18 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
         )}
       </FormRow>
       <FormRow align="top">
-        <Disclosure title="使用命令行">
+        <Disclosure title={t('使用命令行')}>
           <div className="bind__cmd">
             <span className="bind__cmd-text">{code ? loginCommand(code) : '—'}</span>
             <IconButton
-              title="复制命令"
+              title={t('复制命令')}
               disabled={!waiting}
-              onClick={() => code && copy(loginCommand(code), '已复制绑定命令')}
+              onClick={() => code && copy(loginCommand(code), t('已复制绑定命令'))}
             >
               <Icon name="copy" />
             </IconButton>
           </div>
-          <p className="bind__note">没有安装客户端时，在机器的终端里执行。</p>
+          <p className="bind__note">{t('没有安装客户端时，在机器的终端里执行。')}</p>
         </Disclosure>
       </FormRow>
     </Form>

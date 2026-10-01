@@ -10,8 +10,8 @@ export function approvalRoutes(ctx: Ctx) {
     app.post<{ Params: { runId: string; id: string } }>('/api/runs/:runId/approvals/:id', async (req) => {
       const user = await requireUser(ctx, req)
       const { optionId } = DecideApprovalReq.parse(req.body)
-      const runId = idParam(req.params.runId, '运行')
-      return decideApproval(ctx, user, runId, idParam(req.params.id, '审批请求'), optionId)
+      const runId = idParam(req.params.runId, '运行不存在')
+      return decideApproval(ctx, user, runId, idParam(req.params.id, '审批请求不存在'), optionId)
     })
   }
 }

@@ -18,6 +18,7 @@ import {
   type Weak,
 } from './live'
 import './live.css'
+import { locale, t } from '../../i18n'
 import type { LiveStats } from './stats'
 
 /** Drags send at most this often; the release carries the final position. */
@@ -25,7 +26,7 @@ const MOVE_MS = 33
 /** Wheel deltas are summed over this long: trackpads fire many tiny ones. */
 const WHEEL_MS = 50
 /** Where the machine owner fixes a live preview: gg-cast, permissions and its errors are all on this page. */
-const DESKTOP_PAGE = '共工空间桌面端「实时画面」页'
+const DESKTOP_PAGE = t('共工空间桌面端「实时画面」页')
 
 /**
  * A live preview's picture (plan §6 GUI 观看页, B4): everyone watches; the member in control drives the machine's
@@ -85,19 +86,24 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
   }
 
   const problem = error
-    ? { title: '无法连接实时画面', description: error }
+    ? { title: t('无法连接实时画面'), description: error }
     : p.status === 'offline'
-      ? { title: '机器离线' }
+      ? { title: t('机器离线') }
       : p.status === 'stopped'
-        ? { title: '应用已停止' }
+        ? { title: t('应用已停止') }
         : p.live?.missing.includes('screen_recording')
-          ? { title: '机器未授权屏幕录制', description: `请 Bot 主人在${DESKTOP_PAGE}完成授权` }
+          ? {
+              title: t('机器未授权屏幕录制'),
+              description: t('请 Bot 主人在{page}完成授权', { page: DESKTOP_PAGE }),
+            }
           : p.live?.devtools
             ? null
             : p.live?.state === 'failed'
               ? {
-                  title: '没有推送画面',
-                  description: [p.live.error, `Bot 主人可在${DESKTOP_PAGE}查看`].filter(Boolean).join('。'),
+                  title: t('没有推送画面'),
+                  description: [p.live.error, t('Bot 主人可在{page}查看', { page: DESKTOP_PAGE })]
+                    .filter(Boolean)
+                    .join(locale === 'en' ? '. ' : '。'),
                 }
               : null
   const devtools = !error && p.status === 'online' ? p.live?.devtools : undefined
@@ -111,19 +117,19 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
         {(controlling || p.canManage) && p.live?.missing.includes('accessibility') ? (
           <span className="lv-warn">
             <Icon name="hand" size={12} />
-            {`机器未授权辅助功能，远程操作不会生效，请在${DESKTOP_PAGE}完成授权`}
+            {t('机器未授权辅助功能，远程操作不会生效，请在{page}完成授权', { page: DESKTOP_PAGE })}
           </span>
         ) : null}
         {track ? (
           <div className="lv-net">
             {live?.grade === 'poor' ? (
-              <Tag tone="red">{weakSide(weak) ?? '网络差'}</Tag>
+              <Tag tone="red">{weakSide(weak) ?? t('网络差')}</Tag>
             ) : live?.grade === 'fair' ? (
-              <Tag tone="orange">网络一般</Tag>
+              <Tag tone="orange">{t('网络一般')}</Tag>
             ) : null}
             <PopUpButton
               size="small"
-              aria-label="帧率"
+              aria-label={t('帧率')}
               options={rate.picks}
               value={rate.pick}
               onChange={rate.choose}
@@ -131,7 +137,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
             {quality.picks.length ? (
               <PopUpButton
                 size="small"
-                aria-label="画质"
+                aria-label={t('画质')}
                 options={quality.picks.map((q) => ({ value: q.value, label: q.label }))}
                 value={quality.pick}
                 onChange={quality.choose}
@@ -139,7 +145,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
             ) : null}
             <IconButton
               size="small"
-              title={figures === 'shown' ? '隐藏画面数据' : '显示画面数据'}
+              title={figures === 'shown' ? t('隐藏画面数据') : t('显示画面数据')}
               aria-pressed={figures === 'shown'}
               onClick={() => setFigures(figures === 'shown' ? 'hidden' : 'shown')}
             >
@@ -165,13 +171,13 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
             }
           />
         ) : devtools ? (
-          <DevtoolsGuide blocker={devtools} owner="请 Bot 主人在运行 Bot 的电脑上操作" />
+          <DevtoolsGuide blocker={devtools} owner={t('请 Bot 主人在运行 Bot 的电脑上操作')} />
         ) : loading && p.kind === 'miniprogram' ? (
           <DevtoolsLoading />
         ) : loading ? (
           <EmptyState
-            icon={<ProgressIndicator variant="spinner" aria-label="正在启动实时画面" />}
-            title="正在启动实时画面…"
+            icon={<ProgressIndicator variant="spinner" aria-label={t('正在启动实时画面')} />}
+            title={t('正在启动实时画面…')}
           />
         ) : null}
         {track && live && figures === 'shown' ? (
@@ -180,7 +186,9 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
             notes={[
               weakSide(weak),
               live.grade === 'poor' && quality.pick !== 'auto' && quality.pick !== quality.picks.at(-1)?.value
-                ? `网络较差，建议切换到「${quality.picks.at(-1)?.label.split(' ')[0]}」`
+                ? t('网络较差，建议切换到「{quality}」', {
+                    quality: quality.picks.at(-1)?.label.split(' · ')[0] ?? '',
+                  })
                 : null,
             ]}
           />
@@ -189,7 +197,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
           ref={video}
           hidden={!track}
           className={controlling ? 'lv__video lv__video--control' : 'lv__video'}
-          aria-label={`${p.title} 实时画面`}
+          aria-label={t('{title} 实时画面', { title: p.title })}
           autoPlay
           muted
           playsInline
@@ -221,7 +229,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
           <textarea
             ref={keys}
             className="lv__keys"
-            aria-label="键盘输入"
+            aria-label={t('键盘输入')}
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing) return
               const input = keyInput(e)
@@ -240,7 +248,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
   )
 }
 
-const weakSide = (weak: Weak) => (weak.machine ? '机器网络差' : weak.me ? '你的网络差' : null)
+const weakSide = (weak: Weak) => (weak.machine ? t('机器网络差') : weak.me ? t('你的网络差') : null)
 
 /** The picture's figures as a watermark over the stage's top right corner; clicks pass through to the picture. */
 function LiveFigures({ stats: s, notes }: { stats: LiveStats; notes: (string | null)[] }) {
@@ -251,16 +259,16 @@ function LiveFigures({ stats: s, notes }: { stats: LiveStats; notes: (string | n
       `${(s.kbps / 1000).toFixed(1)} Mbps`,
     ],
     [
-      `丢包 ${(s.loss * 100).toFixed(1)}%`,
-      `延迟 ${s.rtt ?? '—'} ms`,
-      s.jitter === null ? null : `抖动 ${s.jitter} ms`,
+      t('丢包 {loss}%', { loss: (s.loss * 100).toFixed(1) }),
+      t('延迟 {rtt} ms', { rtt: s.rtt ?? '—' }),
+      s.jitter === null ? null : t('抖动 {jitter} ms', { jitter: s.jitter }),
     ],
     notes,
   ]
     .map((l) => l.filter(Boolean).join(' · '))
     .filter(Boolean)
   return (
-    <div className="lv-figures" role="status" aria-label="画面数据">
+    <div className="lv-figures" role="status" aria-label={t('画面数据')}>
       {lines.map((l) => (
         <div key={l}>{l}</div>
       ))}

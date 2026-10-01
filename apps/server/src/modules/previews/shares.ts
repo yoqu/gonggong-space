@@ -98,7 +98,7 @@ async function requireShare(ctx: Ctx, id: string) {
     .select({ s: previewShares, p: previews })
     .from(previewShares)
     .innerJoin(previews, eq(previews.id, previewShares.previewId))
-    .where(eq(previewShares.id, idParam(id, '公开链接')))
+    .where(eq(previewShares.id, idParam(id, '公开链接不存在')))
   return row ?? fail('not_found', '公开链接不存在')
 }
 
@@ -110,7 +110,8 @@ export function shareRoutes(ctx: Ctx) {
       await requireManager(ctx, preview.groupId, preview.botId, user.id)
       const { days } = CreatePreviewShareReq.parse(req.body ?? {})
       const { previewShareMaxDays } = await sysParams(ctx.db)
-      if (days > previewShareMaxDays) fail('invalid', `公开链接最长有效 ${previewShareMaxDays} 天`)
+      if (days > previewShareMaxDays)
+        fail('invalid', '公开链接最长有效 {days} 天', { days: previewShareMaxDays })
       const token = newToken('ps')
       const expiresAt = new Date(ctx.now().getTime() + days * DAY)
       const [{ id }] = (await ctx.db
@@ -162,7 +163,7 @@ export function shareRoutes(ctx: Ctx) {
       const expiresAt = new Date(UpdatePreviewShareReq.parse(req.body).expiresAt)
       const { previewShareMaxDays } = await sysParams(ctx.db)
       if (expiresAt.getTime() > ctx.now().getTime() + previewShareMaxDays * DAY)
-        fail('invalid', `公开链接最长有效 ${previewShareMaxDays} 天`)
+        fail('invalid', '公开链接最长有效 {days} 天', { days: previewShareMaxDays })
       await ctx.db.update(previewShares).set({ expiresAt }).where(eq(previewShares.id, s.id))
       await audit(ctx, {
         category: 'preview',

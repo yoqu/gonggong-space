@@ -1,5 +1,6 @@
 import { Link, Navigate, NavLink, Outlet } from 'react-router'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { Icon, Logo, Toaster } from '../../ui'
 import '../../ui/sidebar.css'
 import { ADMIN_NAV } from './nav'
@@ -11,11 +12,11 @@ export function AdminLayout() {
   if (user?.role !== 'sysadmin') return <Navigate to="/" replace />
   return (
     <div className="admin">
-      <nav className="ui-sidebar admin__nav" aria-label="管理后台">
+      <nav className="ui-sidebar admin__nav" aria-label={t('管理后台')}>
         <div className="admin__brand">
           <Logo size={20} />
-          <span className="admin__product">共工空间</span>
-          <span className="admin__crumb">管理后台</span>
+          <span className="admin__product">{t('共工空间')}</span>
+          <span className="admin__crumb">{t('管理后台')}</span>
         </div>
         {ADMIN_NAV.map((g) => (
           <div key={g.head} className="ui-sidebar__section">
@@ -38,7 +39,7 @@ export function AdminLayout() {
             >
               <Icon name="bubble" />
             </span>
-            <span className="ui-sidebar__label">返回消息</span>
+            <span className="ui-sidebar__label">{t('返回消息')}</span>
           </Link>
         </div>
       </nav>

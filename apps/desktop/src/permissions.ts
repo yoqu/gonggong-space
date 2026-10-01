@@ -1,6 +1,7 @@
 import type { Permission } from '@gonggong/protocol'
 import type { IconName } from '@web/ui'
 import { create } from 'zustand'
+import { t } from './i18n'
 import { ipc, type PermissionState } from './ipc'
 
 /** macOS permissions of this app, and whether the 系统权限 guide is open (it takes the window while it is). */
@@ -11,14 +12,14 @@ export const usePermissions = create<{ list: PermissionState[]; guide: boolean }
 
 export const PERMISSIONS: Record<Permission, { label: string; icon: IconName; why: string }> = {
   screen_recording: {
-    label: '屏幕录制',
+    label: t('屏幕录制'),
     icon: 'record',
-    why: '推送桌面应用和小程序的实时画面；未授权时成员看不到画面',
+    why: t('推送桌面应用和小程序的实时画面；未授权时成员看不到画面'),
   },
   accessibility: {
-    label: '辅助功能',
+    label: t('辅助功能'),
     icon: 'hand',
-    why: '远程操作桌面应用和小程序、自动信任小程序项目；未授权时远程点击和输入不生效',
+    why: t('远程操作桌面应用和小程序、自动信任小程序项目；未授权时远程点击和输入不生效'),
   },
 }
 

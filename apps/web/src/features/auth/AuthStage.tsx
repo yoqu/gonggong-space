@@ -1,8 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { resolveTheme, setTheme } from '../../app/theme'
+import { locale, setLocale, t } from '../../i18n'
 import { SPRING } from '../../lib/motion'
-import { Avatar, Brand, Icon, IconButton, Mascot, Message } from '../../ui'
+import { Avatar, Brand, Button, Icon, IconButton, Mascot, Message } from '../../ui'
 import { roleCostume } from '../bots/avatars'
 
 export type AuthVariant = 'login' | 'register' | 'password'
@@ -11,8 +12,7 @@ export function ThemeToggle() {
   const [dark, setDark] = useState(() => resolveTheme() === 'dark')
   return (
     <IconButton
-      title={dark ? '切换到浅色' : '切换到深色'}
-      className="auth__theme"
+      title={dark ? t('切换到浅色') : t('切换到深色')}
       onClick={() => {
         setTheme(dark ? 'light' : 'dark')
         setDark(!dark)
@@ -20,6 +20,16 @@ export function ThemeToggle() {
     >
       {dark ? ('sun' as const) : ('moon' as const)}
     </IconButton>
+  )
+}
+
+/** Named in the language it switches to, so a reader of either can find it. */
+export function LocaleToggle() {
+  const next = locale === 'zh' ? 'en' : 'zh'
+  return (
+    <Button variant="plain" size="large" lang={next} onClick={() => setLocale(next)}>
+      {next === 'en' ? 'English' : '中文'}
+    </Button>
   )
 }
 
@@ -56,29 +66,30 @@ type Line = { id: string; who: string; bot?: boolean; text?: ReactNode; run?: bo
 const SCRIPT: Line[] = [
   {
     id: 'l0',
-    who: '王磊',
+    who: t('王磊'),
     text: (
       <p>
-        <span className="pn-mention">@小王的 Claude</span> 登录页的表单校验有问题，帮忙修一下
+        <span className="pn-mention">@{t('小王的 Claude')}</span> {t('登录页的表单校验有问题，帮忙修一下')}
       </p>
     ),
   },
-  { id: 'l1', who: '小王的 Claude', bot: true, run: true },
+  { id: 'l1', who: t('小王的 Claude'), bot: true, run: true },
   {
     id: 'l2',
-    who: '小王的 Claude',
+    who: t('小王的 Claude'),
     bot: true,
     text: (
       <p>
-        已修复并提交。<span className="pn-mention">@李娜的 Codex</span> 帮忙 review 一下
+        {t('已修复并提交。')}
+        <span className="pn-mention">@{t('李娜的 Codex')}</span> {t('帮忙 review 一下')}
       </p>
     ),
   },
-  { id: 'l3', who: '李娜的 Codex', bot: true, text: <p>看过了，逻辑没问题，可以合并。</p> },
+  { id: 'l3', who: t('李娜的 Codex'), bot: true, text: <p>{t('看过了，逻辑没问题，可以合并。')}</p> },
 ]
 // The demo bot fixes a login form in small green steps: it plays 小步.
 const DEMO_ROLE = roleCostume('role-steps')
-const STEPS = ['读取 LoginPage.tsx', '编辑 2 处校验逻辑', '运行测试 · 12 项通过']
+const STEPS = [t('读取 LoginPage.tsx'), t('编辑 2 处校验逻辑'), t('运行测试 · 12 项通过')]
 // Cumulative ms at which each beat appears; the loop restarts after the last.
 const BEATS = [400, 1500, 2300, 3100, 3900, 5000, 6600, 9400]
 
@@ -110,9 +121,9 @@ function RelayDemo() {
   return (
     <div className="relay" aria-hidden="true">
       <div className="relay__bar">
-        <Avatar name="web-site 重构" size={24} shape="square" />
-        <span className="relay__group">web-site 重构</span>
-        <span className="relay__members">3 人 · 2 Bot</span>
+        <Avatar name={t('web-site 重构')} size={24} shape="square" />
+        <span className="relay__group">{t('web-site 重构')}</span>
+        <span className="relay__members">{t('3 人 · 2 Bot')}</span>
       </div>
       <AnimatePresence mode="wait">
         <motion.div
@@ -144,7 +155,7 @@ function RelayDemo() {
                         costume={DEMO_ROLE}
                         size={32}
                       />
-                      {done ? '已完成' : '运行中'}
+                      {done ? t('已完成') : t('运行中')}
                     </span>
                     {STEPS.slice(0, steps).map((s) => (
                       <motion.span
@@ -172,15 +183,15 @@ function RelayDemo() {
 }
 
 const FIRST_RUN = [
-  { label: '用初始密码登录', state: 'done' },
-  { label: '设置自己的密码', state: 'active' },
-  { label: '绑定机器、新建 Bot，开始协作', state: 'todo' },
+  { label: t('用初始密码登录'), state: 'done' },
+  { label: t('设置自己的密码'), state: 'active' },
+  { label: t('绑定机器、新建 Bot，开始协作'), state: 'todo' },
 ] as const
 
 /** The password stage's counterpart of the relay demo: where the member is in their first-run path. */
 function FirstRunSteps() {
   return (
-    <ol className="first-run" aria-label="首次登录进度">
+    <ol className="first-run" aria-label={t('首次登录进度')}>
       {FIRST_RUN.map((s, i) => (
         <li key={s.label} data-state={s.state}>
           <span className="first-run__mark">
@@ -199,27 +210,27 @@ export function AuthStage({ variant }: { variant: AuthVariant }) {
   return (
     <section className="auth-stage">
       <Waves />
-      <Brand size={28} motion="enter" subtitle="人与 Bot 的协作平台" />
+      <Brand size={28} motion="enter" subtitle={t('人与 Bot 的协作平台')} />
       <div className="auth-stage__copy">
         <h2 className="auth-stage__title">
           {password ? (
             <>
-              最后一步，
+              {t('最后一步，')}
               <br />
-              设置只属于你的密码。
+              {t('设置只属于你的密码。')}
             </>
           ) : (
             <>
-              在群里 @ 一下，
+              {t('在群里 @ 一下，')}
               <br />
-              队友的 Bot 就开工。
+              {t('队友的 Bot 就开工。')}
             </>
           )}
         </h2>
         <p className="auth-stage__lead">
           {password
-            ? '初始密码由管理员发放；修改后，其他设备上的登录会自动失效。'
-            : 'Claude Code / Codex 在各自的工作区里干活，接力完成同一个仓库，每一步都看得见。'}
+            ? t('初始密码由管理员发放；修改后，其他设备上的登录会自动失效。')
+            : t('Claude Code / Codex 在各自的工作区里干活，接力完成同一个仓库，每一步都看得见。')}
         </p>
       </div>
       {password ? <FirstRunSteps /> : <RelayDemo />}

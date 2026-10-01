@@ -1,5 +1,6 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { CloseButton } from './controls'
 import { useEscape, useFocusTrap } from './overlay'
@@ -34,7 +35,7 @@ export function Lightbox({
         <button
           type="button"
           className="ui-lightbox__img"
-          aria-label={zoomed ? '缩小' : '放大'}
+          aria-label={zoomed ? t('缩小') : t('放大')}
           onClick={() => setZoomed((z) => !z)}
         >
           <img src={src} alt={alt} />

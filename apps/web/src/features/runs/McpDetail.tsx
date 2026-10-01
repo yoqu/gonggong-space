@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../../i18n'
 import { type AskedQuestion, askedQuestions, type McpCall, mcpArgs, QUESTION_TYPE } from './mcp'
 
 const HEAD_LINES = 8
@@ -13,7 +14,7 @@ export function McpDetail({ call }: { call: McpCall }) {
         <Asked questions={asked} />
       ) : call.input ? (
         <section>
-          <div className="act-mcp__label">参数</div>
+          <div className="act-mcp__label">{t('参数')}</div>
           {args ? (
             <dl className="act-mcp__args">
               {args.map(([k, v]) => (
@@ -36,7 +37,7 @@ export function McpDetail({ call }: { call: McpCall }) {
 function Asked({ questions }: { questions: AskedQuestion[] }) {
   return (
     <section>
-      <div className="act-mcp__label">问题</div>
+      <div className="act-mcp__label">{t('问题')}</div>
       <ol className="act-ask">
         {questions.map((q, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: questions are positional
@@ -46,7 +47,9 @@ function Asked({ questions }: { questions: AskedQuestion[] }) {
             </div>
             {q.options?.length ? (
               <div className="act-ask__opts">
-                {q.options.map((o, j) => (j === q.recommended ? `${o}（推荐）` : o)).join(' / ')}
+                {q.options
+                  .map((o, j) => (j === q.recommended ? t('{option}（推荐）', { option: o }) : o))
+                  .join(' / ')}
               </div>
             ) : null}
           </li>
@@ -63,11 +66,11 @@ function Result({ text }: { text: string }) {
   const hidden = all ? 0 : Math.max(0, lines.length - HEAD_LINES)
   return (
     <section>
-      <div className="act-mcp__label">结果</div>
+      <div className="act-mcp__label">{t('结果')}</div>
       <pre>{hidden ? lines.slice(0, HEAD_LINES).join('\n') : text}</pre>
       {hidden ? (
         <button type="button" className="act-detail__more" onClick={() => setAll(true)}>
-          … 另有 {hidden} 行
+          {t('… 另有 {n} 行', { n: hidden })}
         </button>
       ) : null}
     </section>

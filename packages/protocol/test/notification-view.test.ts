@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { type NotificationDto, notificationView } from '../src/index.js'
+import { createTranslator, type NotificationDto, protocolEn, notificationView as view } from '../src/index.js'
+
+const zh = createTranslator('zh', protocolEn).text
+const notificationView = (n: NotificationDto) => view(n, zh)
 
 const n = (type: NotificationDto['type'], payload: Record<string, unknown>): NotificationDto => ({
   id: 'n1',
@@ -59,5 +62,16 @@ describe('notificationView', () => {
       group: '',
       href: '/admin/bots',
     })
+  })
+  it("renders in the reader's language, nested reasons included", () => {
+    const en = createTranslator('en', protocolEn).text
+    expect(
+      view(n('question', { groupId: 'g1', groupName: 'Pay', runId: 'r1', botName: 'Codex', count: 1 }), en),
+    ).toMatchObject({ label: 'Awaiting answer', text: 'Codex asked you 1 question' })
+    expect(
+      view(n('repo_access', { groupId: 'g1', botName: 'C', repo: 'org/app', reason: '连接超时' }), en).text,
+    ).toBe(
+      'C\'s machine cannot reach org/app (connection timed out); fix it, then click "Recheck" in the group',
+    )
   })
 })

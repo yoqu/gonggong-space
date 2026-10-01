@@ -1,7 +1,16 @@
-import type { Attachment, MessageDto, ReactionDto, RunConfigPick } from '@gonggong/protocol'
+import type {
+  Attachment,
+  I18nParams,
+  I18nText,
+  MessageDto,
+  ProtocolKey,
+  ReactionDto,
+  RunConfigPick,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, messages, users } from '../../db/schema.js'
+import { zh } from '../../i18n/index.js'
 
 export type MessageRow = typeof messages.$inferSelect
 /**
@@ -23,6 +32,7 @@ export type MessageMeta = {
   runOptions?: Record<string, RunConfigPick>
   /** Preview card (plan 结果预览): the preview id. */
   preview?: string
+  i18n?: I18nText
 }
 
 /** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */
@@ -44,6 +54,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     reactions: recalled ? [] : reactions,
     recalled,
     ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
+    ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
   }
 }
 
@@ -79,5 +90,6 @@ export async function postMessage(ctx: Ctx, values: typeof messages.$inferInsert
   return dto
 }
 
-export const postEvent = (ctx: Ctx, groupId: string, body: string) =>
-  postMessage(ctx, { groupId, kind: 'event', body })
+/** Stored in Chinese for search and agent context; clients render `i18n` in their own language. */
+export const postEvent = (ctx: Ctx, groupId: string, key: ProtocolKey, params?: I18nParams) =>
+  postMessage(ctx, { groupId, kind: 'event', body: zh(key, params), meta: { i18n: { key, params } } })

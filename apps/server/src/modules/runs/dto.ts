@@ -6,6 +6,7 @@ import { PARAM_DEFAULTS } from '../admin/params.js'
 import { groupParamDefaults, withDefaults } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
 import { attachmentDto, questionSetDto } from '../questions/dto.js'
+import { stepI18nOf } from './step.js'
 
 export type RunRow = typeof runs.$inferSelect
 type ApprovalRow = typeof approvals.$inferSelect
@@ -28,6 +29,7 @@ export const runDto = (
   hop: r.hop,
   status: r.status as RunStatus,
   step: r.step,
+  ...stepI18nOf(r),
   filesChanged: r.filesChanged,
   usage: (r.usage as Usage | null) ?? null,
   newSessionReason: r.newSessionReason,

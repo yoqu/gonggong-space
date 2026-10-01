@@ -81,7 +81,7 @@ export function mcpRoutes(ctx: Ctx) {
 
     app.patch<IdParams>('/api/admin/mcp/:id', async (req) => {
       const actor = await requireSysadmin(ctx, req)
-      const id = idParam(req.params.id, 'MCP ')
+      const id = idParam(req.params.id, 'MCP 不存在')
       const body = parse(req.body)
       const [taken] = await ctx.db
         .select({ id: mcpServers.id })
@@ -100,7 +100,7 @@ export function mcpRoutes(ctx: Ctx) {
       '/api/admin/mcp/:id',
       async (req, reply) => {
         const actor = await requireSysadmin(ctx, req)
-        const id = idParam(req.params.id, 'MCP ')
+        const id = idParam(req.params.id, 'MCP 不存在')
         const [row] = await ctx.db.delete(mcpServers).where(eq(mcpServers.id, id)).returning()
         await save(actor.id, 'mcp.delete', row, req.query.forceNewSession === 'true')
         return reply.status(204).send()

@@ -3,7 +3,7 @@ import type { DaemonToServer, ServiceInfo } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, ne, notInArray, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, previews, services } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 
 const LIVE = ['starting', 'running']
 /** The daemon waits up to 60 s for the port before it answers. */
@@ -115,7 +115,7 @@ export async function restartService(ctx: Ctx, svc: { id: string; machineId: str
     settle(requestId, null)
   const res = await answer
   if (!res) return fail('conflict', '服务所在的机器离线或没有响应')
-  if (res.error) return fail('conflict', res.error)
+  if (res.error) throw new HttpError('conflict', res.error)
 }
 
 /** service.restart.result, in order after the service.state reports that came before it. */

@@ -6,16 +6,17 @@ import {
 } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { AlertDialog } from '../../ui'
 
-export const OFFICIAL_NAME = '官方登录'
+export const OFFICIAL_NAME = t('官方登录')
 
 type Session = ProviderStoreView['sessions'][number]
 
 export const providerName = (view: ProviderStoreView, id: string) =>
   id === OFFICIAL_PROVIDER
     ? OFFICIAL_NAME
-    : (view.providers.find((p) => p.id === id)?.name ?? '已删除的供应商')
+    : (view.providers.find((p) => p.id === id)?.name ?? t('已删除的供应商'))
 
 /** What a new session of `botId` uses: its own choice, else the machine default of its agent (§4.2). */
 export const effectiveProvider = (view: ProviderStoreView, agent: AgentKind, botId: string) =>
@@ -37,8 +38,8 @@ function applied(view: ProviderStoreView, { agent, choice, botId }: ProviderChan
 /** `前端组（小王的 Claude）`, from what this member can see. */
 const sessionLabel = (s: Session) => {
   const { groups, bots } = useWorkspace.getState()
-  const group = groups.find((g) => g.id === s.groupId)?.name ?? '其他群'
-  return `${group}（${bots.find((b) => b.id === s.botId)?.name ?? 'Bot'}）`
+  const group = groups.find((g) => g.id === s.groupId)?.name ?? t('其他群')
+  return t('{group}（{bot}）', { group, bot: bots.find((b) => b.id === s.botId)?.name ?? 'Bot' })
 }
 
 export interface SessionLine {
@@ -63,7 +64,11 @@ export function switchLines(view: ProviderStoreView, change: ProviderChange): Se
   return [...by.entries()].map(([key, list]) => {
     const [from = '', to = ''] = key.split('\u0000')
     return {
-      text: `${list.length} 个群的会话仍在使用 ${providerName(view, from)}，开启新会话后才会切换到 ${providerName(after, to)}`,
+      text: t('{n} 个群的会话仍在使用 {from}，开启新会话后才会切换到 {to}', {
+        n: list.length,
+        from: providerName(view, from),
+        to: providerName(after, to),
+      }),
       groups: list.map(sessionLabel),
     }
   })
@@ -75,7 +80,10 @@ export function removalLines(view: ProviderStoreView, id: string): SessionLine[]
   if (!list.length) return []
   return [
     {
-      text: `${list.length} 个群的会话正在使用 ${providerName(view, id)}，删除后它们下一轮会自动开启新会话`,
+      text: t('{n} 个群的会话正在使用 {name}，删除后它们下一轮会自动开启新会话', {
+        n: list.length,
+        name: providerName(view, id),
+      }),
       groups: list.map(sessionLabel),
     },
   ]
@@ -84,7 +92,7 @@ export function removalLines(view: ProviderStoreView, id: string): SessionLine[]
 export function SessionLines({ lines }: { lines: SessionLine[] }) {
   return lines.map((l) => (
     <div key={l.text}>
-      <p>{l.text}：</p>
+      <p>{t('{text}：', { text: l.text })}</p>
       <ul className="ui-consequences">
         {l.groups.map((g) => (
           <li key={g}>{g}</li>
@@ -116,13 +124,13 @@ export function useProviderSwitch(apply: (change: ProviderChange) => Promise<voi
     <AlertDialog
       open={open}
       onClose={() => setOpen(false)}
-      title={`要让新会话改用 ${pending?.to ?? ''} 吗？`}
-      message="进行中的会话不受影响，在群里开启新会话后才会切换。"
+      title={t('要让新会话改用 {name} 吗？', { name: pending?.to ?? '' })}
+      message={t('进行中的会话不受影响，在群里开启新会话后才会切换。')}
       detail={pending ? <SessionLines lines={pending.lines} /> : null}
       actions={[
-        { label: '取消', onClick: () => setOpen(false) },
+        { label: t('取消'), onClick: () => setOpen(false) },
         {
-          label: '切换',
+          label: t('切换'),
           variant: 'primary',
           onClick: () => {
             setOpen(false)

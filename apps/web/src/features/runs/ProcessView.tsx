@@ -3,10 +3,11 @@ import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
 import { Button, Icon, type IconName, Mascot, type MascotCostume } from '../../ui'
 import { Markdown } from '../chat/Markdown'
-import { type Action, buildItems, fmtWorked, type Item } from './activity'
+import { type Action, buildItems, fmtWorked, GROUP_SEP, type Item } from './activity'
 import { McpDetail } from './McpDetail'
 import type { Step } from './steps'
 import './process.css'
+import { t } from '../../i18n'
 
 /**
  * 过程 list of one run, shared by the web run rail and the desktop app. Pure view: steps in, folding state kept
@@ -47,14 +48,14 @@ export function ProcessView({
     onStopTask,
   }
   return (
-    <ol className="act" aria-label="运行过程">
+    <ol className="act" aria-label={t('运行过程')}>
       {items.map((item) => (
         <ItemRow key={item.key} item={item} {...ctx} />
       ))}
       {idle ? (
         <li className="act-item act-working" aria-live="polite">
           <Mascot className="act-working__mascot" action="think" costume={costume} size={32} />
-          <span className="act-shimmer">正在处理</span>
+          <span className="act-shimmer">{t('正在处理')}</span>
           {startedAt ? <span className="act-row__meta">{fmtWorked(now - Date.parse(startedAt))}</span> : null}
         </li>
       ) : null}
@@ -72,12 +73,12 @@ type Ctx = {
 }
 
 const GROUP_ICON: Record<string, IconName> = {
-  编辑了文件: 'textformat',
-  运行了命令: 'terminal',
-  读取了文件: 'doc-text',
-  搜索了代码: 'search',
-  查看了目录: 'folder',
-  访问了网络: 'globe',
+  [t('编辑了文件')]: 'textformat',
+  [t('运行了命令')]: 'terminal',
+  [t('读取了文件')]: 'doc-text',
+  [t('搜索了代码')]: 'search',
+  [t('查看了目录')]: 'folder',
+  [t('访问了网络')]: 'globe',
 }
 
 function ItemRow({ item, ...ctx }: { item: Item } & Ctx) {
@@ -95,7 +96,7 @@ function ItemRow({ item, ...ctx }: { item: Item } & Ctx) {
       ? item.items.map((i) => <ItemRow key={i.key} item={i} {...ctx} />)
       : item.actions.map((a) => <ItemRow key={a.key} item={{ kind: 'action', ...a }} {...ctx} />)
   const work = item.kind === 'work'
-  const icon: IconName = work ? 'clock' : (GROUP_ICON[item.title.split('、')[0] ?? ''] ?? 'gear')
+  const icon: IconName = work ? 'clock' : (GROUP_ICON[item.title.split(GROUP_SEP)[0] ?? ''] ?? 'gear')
   return (
     <li
       className={cx('act-item', work ? 'act-item--work' : 'act-item--group')}
@@ -111,7 +112,7 @@ function ItemRow({ item, ...ctx }: { item: Item } & Ctx) {
         <span className="act-row__verb">{item.title}</span>
         {work ? <span className="act-row__target">{item.summary}</span> : null}
         {item.kind === 'group' && item.failed ? (
-          <span className="act-row__fail">{item.failed} 个失败</span>
+          <span className="act-row__fail">{t('{n} 个失败', { n: item.failed })}</span>
         ) : null}
         <Icon name="chevron-right" size={12} className="act-row__chevron" />
       </button>
@@ -142,7 +143,9 @@ function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
         <span className="act-row__target" title={a.target}>
           {a.target}
         </span>
-        <span className="act-row__state">{calls ? `${calls} 次调用 · ${s.meta}` : s.meta}</span>
+        <span className="act-row__state">
+          {calls ? t('{n} 次调用 · {state}', { n: calls, state: s.meta ?? '' }) : s.meta}
+        </span>
         <Icon name="chevron-right" size={12} className="act-row__chevron" />
       </button>
       {expanded ? (
@@ -192,7 +195,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
       <li className="act-item">
         <button type="button" className="act-row act-row--head" aria-expanded={open} onClick={onToggle}>
           <Icon name="tray" size={14} className="act-row__icon" />
-          <span className="act-row__verb">本轮上下文</span>
+          <span className="act-row__verb">{t('本轮上下文')}</span>
           <span className="act-row__target">{s.meta}</span>
           <Icon name="chevron-right" size={12} className="act-row__chevron" />
         </button>
@@ -204,7 +207,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
       <li className="act-item act-approval" data-state={s.running ? 'running' : undefined}>
         <div className="act-row">
           <Icon name="shield-warning" size={14} className="act-row__icon" />
-          <span className="act-row__verb">权限请求</span>
+          <span className="act-row__verb">{t('权限请求')}</span>
           <span className="act-row__target act-row__target--mono">{s.mono}</span>
         </div>
         <div className="act-approval__state">{s.body}</div>
@@ -216,7 +219,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
     a.family === 'thought'
       ? s.body
       : task
-        ? [s.body, s.mono && `日志：${s.mono}`].filter(Boolean).join('\n')
+        ? [s.body, s.mono && t('日志：{path}', { path: s.mono })].filter(Boolean).join('\n')
         : s.out
   const edit = a.family === 'edit' && !!a.target && !!onOpenDiff
   const mcp = s.mcp?.input || s.mcp?.output ? s.mcp : undefined
@@ -261,7 +264,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
     <button
       type="button"
       className="act-row act-row--head"
-      title={`查看 ${a.target} 的改动`}
+      title={t('查看 {path} 的改动', { path: a.target ?? '' })}
       onClick={() => onOpenDiff?.(a.target ?? '')}
     >
       {head}
@@ -301,13 +304,13 @@ function StopTask({
       size="small"
       variant="plain"
       disabled={busy}
-      aria-label={`停止后台任务 ${name}`}
+      aria-label={t('停止后台任务 {name}', { name })}
       onClick={() => {
         setBusy(true)
         onStop(id).catch(() => setBusy(false))
       }}
     >
-      停止
+      {t('停止')}
     </Button>
   )
 }
@@ -321,7 +324,7 @@ function Output({ text, mono }: { text: string; mono: boolean }) {
     <div className={cx('act-detail', mono ? 'act-detail--mono' : 'act-detail--text')}>
       {hidden ? (
         <button type="button" className="act-detail__more" onClick={() => setAll(true)}>
-          … 另有 {hidden} 行
+          {t('… 另有 {n} 行', { n: hidden })}
         </button>
       ) : null}
       {mono ? <pre>{lines.slice(hidden).join('\n')}</pre> : text}

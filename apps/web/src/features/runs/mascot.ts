@@ -1,4 +1,5 @@
 import type { RunStatus } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import type { MascotAction } from '../../ui'
 
 /** What 共字君 acts out in a run card's step line; null keeps the status icon. */
@@ -8,13 +9,13 @@ export function runMascot(
 ): { action: MascotAction; label: string } | null {
   switch (status) {
     case 'running':
-      return streaming ? { action: 'type', label: '正在回复' } : { action: 'carry', label: '正在工作' }
+      return streaming ? { action: 'type', label: t('正在回复') } : { action: 'carry', label: t('正在工作') }
     case 'queued':
-      return { action: 'wait', label: '排队中' }
+      return { action: 'wait', label: t('排队中') }
     case 'awaiting_approval':
-      return { action: 'raise', label: '等待审批' }
+      return { action: 'raise', label: t('等待审批') }
     case 'awaiting_answer':
-      return { action: 'ask', label: '等待回答' }
+      return { action: 'ask', label: t('等待回答') }
     default:
       return null
   }

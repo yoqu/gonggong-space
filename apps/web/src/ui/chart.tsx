@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type PointerEvent, useLayoutEffect, useRef, useState } from 'react'
+import { t } from '../i18n'
 import './chart.css'
 
 /** Word-less trend line for stat tiles; the numbers live elsewhere, so it is hidden from assistive tech. */
@@ -112,7 +113,7 @@ export function TrendChart({
       {/* biome-ignore lint/a11y/useSemanticElements: a chart, not a form fieldset */}
       <div
         role="group"
-        aria-roledescription="柱状图"
+        aria-roledescription={t('柱状图')}
         aria-label={ariaLabel}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: the chart is explored with arrow keys
         tabIndex={0}

@@ -2,6 +2,7 @@ import type { BotDto, MachineDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import {
@@ -29,23 +30,27 @@ const GB = 1024 ** 3
 export const osText = (m: MachineDto) => m.system?.osVersion ?? OS_LABEL[m.os]
 const memoryText = (bytes: number | null | undefined) => (bytes ? `${Math.round(bytes / GB)} GB` : null)
 const cpuText = (m: MachineDto) =>
-  [m.system?.cpuModel, m.system?.cpuCores && `${m.system.cpuCores} 核`].filter(Boolean).join(' · ') || null
+  [m.system?.cpuModel, m.system?.cpuCores && t('{n} 核', { n: m.system.cpuCores })]
+    .filter(Boolean)
+    .join(' · ') || null
 export const hardwareText = (m: MachineDto) =>
   [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || null
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '--')
 const OS_ICON: Record<MachineDto['os'], IconName> = { macos: 'apple', linux: 'linux', windows: 'windows' }
 
 type Tab = 'overview' | 'tools' | 'providers'
-const TAB_NAME = { tools: 'Agent 工具', providers: '供应商' } as const
+const TAB_NAME = { tools: t('Agent 工具'), providers: t('供应商#nav') }
 
 /** Why the machine's tools / providers cannot be managed live right now, if so. */
 const blocked = (m: MachineDto, feature: 'tools' | 'providers') =>
   !m.online ? 'offline' : m.features.includes(feature) ? null : 'outdated'
 
 function blockedNote(m: MachineDto) {
-  if (!m.online) return '机器离线，上线后才能管理 Agent 工具与供应商'
+  if (!m.online) return t('机器离线，上线后才能管理 Agent 工具与供应商')
   const old = (['tools', 'providers'] as const).filter((f) => blocked(m, f))
-  return old.length ? `请先升级该机器的 daemon，才能管理${old.map((f) => TAB_NAME[f]).join('与')}` : null
+  return old.length
+    ? t('请先升级该机器的 daemon，才能管理{what}', { what: old.map((f) => TAB_NAME[f]).join(t('与')) })
+    : null
 }
 
 /** Details of one machine; its owner or a sysadmin can rename or revoke it. */
@@ -74,7 +79,7 @@ export function MachineDialog({
     setSaving(true)
     try {
       const m = await api.patch<MachineDto>(`/machines/${machine.id}`, { name: name.trim() })
-      toast({ type: 'success', message: `已重命名为 ${m.name}` })
+      toast({ type: 'success', message: t('已重命名为 {name}', { name: m.name }) })
       onChanged?.()
     } catch (e) {
       toastError(e)
@@ -84,33 +89,33 @@ export function MachineDialog({
   }
   const specs: [IconName, string, string | null][] = [
     ['cpu', 'CPU', cpuText(machine)],
-    ['activity', '内存', memoryText(machine.system?.memoryBytes)],
-    ['terminal', '内核', machine.system?.kernel ?? null],
-    ['wifi', 'MAC 地址', machine.system?.macAddress ?? null],
+    ['activity', t('内存'), memoryText(machine.system?.memoryBytes)],
+    ['terminal', t('内核'), machine.system?.kernel ?? null],
+    ['wifi', t('MAC 地址'), machine.system?.macAddress ?? null],
   ]
   return (
     <>
       <Dialog
         open={!revoking}
-        title="机器详情"
+        title={t('机器详情')}
         message={machine.name}
         width={owner ? 600 : 520}
         onClose={onClose}
         footer={
           <Button variant="plain" className="machine__revoke" onClick={() => setRevoking(true)}>
-            吊销机器
+            {t('吊销机器')}
           </Button>
         }
-        actions={[{ label: '完成', variant: 'primary', onClick: onClose }]}
+        actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}
       >
         {owner ? (
           <div className="machine__tabs">
             <Tabs<Tab>
-              aria-label="机器详情"
+              aria-label={t('机器详情')}
               value={tab}
               onChange={setTab}
               items={[
-                { value: 'overview', label: '概览' },
+                { value: 'overview', label: t('概览') },
                 { value: 'tools', label: TAB_NAME.tools, disabled: !!blocked(machine, 'tools') },
                 { value: 'providers', label: TAB_NAME.providers, disabled: !!blocked(machine, 'providers') },
               ]}
@@ -121,11 +126,11 @@ export function MachineDialog({
         {tab === 'overview' ? null : blocked(machine, tab) ? (
           <EmptyState
             compact
-            title={blocked(machine, tab) === 'offline' ? '机器离线' : '请先升级该机器的 daemon'}
+            title={blocked(machine, tab) === 'offline' ? t('机器离线') : t('请先升级该机器的 daemon')}
             description={
               blocked(machine, tab) === 'offline'
-                ? '供应商与 Agent 工具只保存在机器上，机器上线后才能查看和修改。'
-                : '当前 daemon 版本不支持在 Web 上管理，升级后即可使用。'
+                ? t('供应商与 Agent 工具只保存在机器上，机器上线后才能查看和修改。')
+                : t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')
             }
           />
         ) : tab === 'tools' ? (
@@ -150,21 +155,21 @@ export function MachineDialog({
                 </span>
               </span>
               <span className="machine__status" data-online={machine.online}>
-                {machine.online ? '在线' : '离线'}
+                {machine.online ? t('在线') : t('离线')}
               </span>
             </section>
             <Form id={formId} onSubmit={() => void save()}>
-              <FormRow label="名称" hint="留空则使用主机名。">
+              <FormRow label={t('名称')} hint={t('留空则使用主机名。')}>
                 <span className="machine__rename">
                   <TextField
-                    aria-label="名称"
+                    aria-label={t('名称')}
                     value={name}
                     placeholder={machine.hostname}
                     maxLength={64}
                     onChange={(e) => setName(e.target.value)}
                   />
                   <Button type="submit" disabled={saving}>
-                    保存
+                    {t('保存')}
                   </Button>
                 </span>
               </FormRow>
@@ -188,18 +193,18 @@ export function MachineDialog({
                     <Icon name="bot" size={16} />
                     <span className="machine__agent-name">{AGENT_LABEL[a.kind]}</span>
                     <span className="machine__agent-version">
-                      {a.available ? (a.version ?? '已安装') : '未安装'}
+                      {a.available ? (a.version ?? t('已安装')) : t('未安装')}
                     </span>
                   </span>
                 ))
               ) : (
-                <span className="machine__muted">未检测到 Agent</span>
+                <span className="machine__muted">{t('未检测到 Agent')}</span>
               )}
             </section>
             {bots?.length ? (
               <section className="machine__card">
-                <span className="machine__card-title">运行的 Bot</span>
-                <ul className="machine__bots" aria-label="运行的 Bot">
+                <span className="machine__card-title">{t('运行的 Bot')}</span>
+                <ul className="machine__bots" aria-label={t('运行的 Bot')}>
                   {bots.map((b) => (
                     <li key={b.id}>
                       <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onClose}>
@@ -221,19 +226,19 @@ export function MachineDialog({
             <dl className="machine__meta">
               {ownerName ? (
                 <>
-                  <dt>主人</dt>
+                  <dt>{t('主人')}</dt>
                   <dd>{ownerName}</dd>
                 </>
               ) : null}
               {machine.online ? null : (
                 <>
-                  <dt>最后在线</dt>
+                  <dt>{t('最后在线')}</dt>
                   <dd>{dateText(machine.lastSeenAt)}</dd>
                 </>
               )}
-              <dt>首次绑定</dt>
+              <dt>{t('首次绑定')}</dt>
               <dd>{dateText(machine.createdAt)}</dd>
-              <dt>最近绑定</dt>
+              <dt>{t('最近绑定')}</dt>
               <dd>{dateText(machine.boundAt)}</dd>
             </dl>
           </div>

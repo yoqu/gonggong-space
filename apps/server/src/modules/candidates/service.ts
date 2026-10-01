@@ -8,6 +8,7 @@ import type {
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { commandPrefix, commands } from '../commands/index.js'
@@ -33,9 +34,11 @@ async function askDaemon(ctx: Ctx, machineId: string, req: Omit<FilesList, 't' |
 
 function ago(from: Date, now: Date) {
   const min = Math.floor((now.getTime() - from.getTime()) / 60_000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  return min < 1440 ? `${Math.floor(min / 60)} 小时前` : `${Math.floor(min / 1440)} 天前`
+  if (min < 1) return t('刚刚')
+  if (min < 60) return t('{n} 分钟前', { n: min })
+  return min < 1440
+    ? t('{n} 小时前', { n: Math.floor(min / 60) })
+    : t('{n} 天前', { n: Math.floor(min / 1440) })
 }
 
 /**
@@ -73,7 +76,7 @@ export async function fileCandidates(
       const missing = (mirror ? (await mirror).entries : []).filter((e) => !have.has(e.path))
       return {
         source: 'workspace',
-        label: `${bot.name} 工作区 · 含未提交`,
+        label: t('{bot} 工作区 · 含未提交', { bot: bot.name }),
         entries: pick(
           [
             ...entries.map((e) => ({ ...e, notInWorkspace: false })),
@@ -90,8 +93,8 @@ export async function fileCandidates(
   return {
     source: 'mirror',
     label: m.updatedAt
-      ? `${repo.branch} 镜像 · ${ago(m.updatedAt, ctx.now())}更新`
-      : `${repo.branch} 镜像不可用 · 服务端无法访问该仓库`,
+      ? t('{branch} 镜像 · {ago}更新', { branch: repo.branch, ago: ago(m.updatedAt, ctx.now()) })
+      : t('{branch} 镜像不可用 · 服务端无法访问该仓库', { branch: repo.branch }),
     entries: pick(
       m.entries.map((e) => ({ ...e, uncommitted: false, notInWorkspace: false })),
       query,
@@ -143,7 +146,7 @@ export async function commandCandidates(
   const agent = rows.flatMap((b) =>
     (b.commands as AgentCommand[]).map((c) => ({
       ...(reserved.has(c.name)
-        ? { name: `${commandPrefix(b.name)}:${c.name}`, hint: '与系统命令重名' }
+        ? { name: `${commandPrefix(b.name)}:${c.name}`, hint: t('与系统命令重名') }
         : { name: c.name, hint: c.description }),
       botId: b.id,
       botName: b.name,

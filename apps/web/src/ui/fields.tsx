@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useId, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { type LineFieldProps, TextField } from './form'
@@ -45,7 +46,7 @@ export function SecureField({
         caps ? (
           <span className="ui-caps">
             <Icon name="capslock" />
-            大写锁定已打开
+            {t('大写锁定已打开')}
           </span>
         ) : (
           hint
@@ -54,7 +55,7 @@ export function SecureField({
       trailing={
         <>
           {caps ? (
-            <span className="ui-inputwrap__affix" title="大写锁定已打开">
+            <span className="ui-inputwrap__affix" title={t('大写锁定已打开')}>
               <Icon name="capslock" />
             </span>
           ) : null}
@@ -62,7 +63,7 @@ export function SecureField({
             <button
               type="button"
               className="ui-inputwrap__btn"
-              aria-label={shown ? '隐藏明文' : '显示明文'}
+              aria-label={shown ? t('隐藏明文') : t('显示明文')}
               aria-pressed={shown}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShown(!shown)}
@@ -166,7 +167,7 @@ export function Stepper({
           <button
             type="button"
             tabIndex={-1}
-            aria-label="增加"
+            aria-label={t('增加')}
             disabled={disabled || base >= max}
             onClick={() => set(base + step)}
           >
@@ -175,7 +176,7 @@ export function Stepper({
           <button
             type="button"
             tabIndex={-1}
-            aria-label="减少"
+            aria-label={t('减少')}
             disabled={disabled || base <= min}
             onClick={() => set(base - step)}
           >
@@ -294,7 +295,7 @@ export function ComboBox({
           type="button"
           tabIndex={-1}
           className="ui-inputwrap__btn"
-          aria-label="显示选项"
+          aria-label={t('显示选项')}
           onClick={() => {
             setFiltering(false)
             setOpen(!open)
@@ -410,8 +411,8 @@ export function TokenField({
           input.current?.focus()
         }}
       >
-        {tokens.map((t, i) => {
-          const k = tokenOf(t)
+        {tokens.map((token, i) => {
+          const k = tokenOf(token)
           return (
             <span key={k.label} className={cx('ui-token', k.tone && `ui-token--${k.tone}`)}>
               {k.label}
@@ -419,7 +420,7 @@ export function TokenField({
                 type="button"
                 tabIndex={-1}
                 className="ui-token__x"
-                aria-label={`移除 ${k.label}`}
+                aria-label={t('移除 {name}', { name: k.label })}
                 onClick={() => remove(i)}
               >
                 <Icon name="xmark" weight={2.4} />

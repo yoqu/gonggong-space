@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { AppFrame } from '../ui'
 import { useEscape } from '../ui/overlay'
@@ -221,7 +222,7 @@ export function ChatLayout({
   }, full)
   const railBody = rail && railOpen ? rail : null
   const list = (
-    <nav aria-label="会话列表" className="chat__sidebar">
+    <nav aria-label={t('会话列表')} className="chat__sidebar">
       {sidebar}
     </nav>
   )
@@ -242,13 +243,15 @@ export function ChatLayout({
       inspector={
         railBody && !bench ? (
           <>
-            {mobile ? null : <Splitter label="调整侧栏宽度" resize={resize} className="chat__rail-handle" />}
+            {mobile ? null : (
+              <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
+            )}
             {railBody}
           </>
         ) : undefined
       }
       inspectorProps={{
-        'aria-label': '侧栏',
+        'aria-label': t('侧栏'),
         className: cx('chat__rail', mobile && 'chat__rail--overlay'),
         style: mobile ? undefined : { width: resize.width },
       }}
@@ -257,7 +260,7 @@ export function ChatLayout({
         <button
           type="button"
           className="chat__strip"
-          aria-label={over ? '收起聊天' : '展开聊天'}
+          aria-label={over ? t('收起聊天') : t('展开聊天')}
           aria-expanded={over}
           onClick={() => setOver(!over)}
         >
@@ -275,11 +278,11 @@ export function ChatLayout({
           {children}
         </main>
       ) : null}
-      {bench && !full ? <Splitter label="调整聊天栏宽度" resize={chat} className="chat__split" /> : null}
+      {bench && !full ? <Splitter label={t('调整聊天栏宽度')} resize={chat} className="chat__split" /> : null}
       {bench || phoneBench ? workbench : null}
       {/* Over the workbench rather than beside it, so its frames never remount when the inspector toggles. */}
       {bench && railBody ? (
-        <aside aria-label="侧栏" className="chat__drawer" style={{ width: resize.width }}>
+        <aside aria-label={t('侧栏')} className="chat__drawer" style={{ width: resize.width }}>
           {railBody}
         </aside>
       ) : null}

@@ -13,6 +13,7 @@ import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { QUESTION_TYPE } from './mcp'
 import { useMemberName } from './RunActions'
 import './question.css'
+import { t } from '../../i18n'
 
 const LIVE: RunDto['status'][] = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -37,12 +38,15 @@ const answered = (q: Question, d: Draft) => {
 function outcome(q: QuestionSetDto, run: RunDto) {
   switch (q.status) {
     case 'answered':
-      return `${q.answeredByName} 已回答 · ${q.answeredAt ? hm(q.answeredAt) : ''} · 已写入审计记录`
+      return t('{name} 已回答 · {at} · 已写入审计记录', {
+        name: q.answeredByName ?? '',
+        at: q.answeredAt ? hm(q.answeredAt) : '',
+      })
     case 'expired':
-      return `无人回答，agent 已按推荐项继续 · ${hm(q.expiresAt)}`
+      return t('无人回答，agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
     case 'void':
-      if (LIVE.includes(run.status)) return '提问已作废，agent 不再等待回答'
-      return run.status === 'interrupted' ? '运行已停止，提问作废' : '运行已结束，提问作废'
+      if (LIVE.includes(run.status)) return t('提问已作废，agent 不再等待回答')
+      return run.status === 'interrupted' ? t('运行已停止，提问作废') : t('运行已结束，提问作废')
     default:
       return null
   }
@@ -112,8 +116,8 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   const owner = bot?.ownerName ?? ''
   const who =
     run.originUserId === bot?.ownerId
-      ? `${trigger}（触发人兼 Bot 主人）可回答`
-      : `触发人 ${trigger} 或 Bot 主人 ${owner} 可回答`
+      ? t('{name}（触发人兼 Bot 主人）可回答', { name: trigger })
+      : t('触发人 {trigger} 或 Bot 主人 {owner} 可回答', { trigger, owner })
   const ready = set.questions.every((question) => answered(question, draftOf(question)))
 
   return (
@@ -121,13 +125,13 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
       <div className="question__head">
         <div className="question__title">
           <Icon name="bubble-question" size={14} />
-          <span>向群成员提问 · {set.questions.length} 个问题</span>
+          <span>{t('向群成员提问 · {n} 个问题', { n: set.questions.length })}</span>
         </div>
         <div className="question__meta">
           <span>{who}</span>
           {pending ? (
-            <span className="question__timeout" title="超时后 agent 按推荐项继续，并在最终回复列出假设">
-              {countdown(Date.parse(set.expiresAt) - now)} 后超时，按推荐项继续
+            <span className="question__timeout" title={t('超时后 agent 按推荐项继续，并在最终回复列出假设')}>
+              {t('{time} 后超时，按推荐项继续', { time: countdown(Date.parse(set.expiresAt) - now) })}
             </span>
           ) : null}
         </div>
@@ -162,7 +166,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
                         {on ? <Icon name="check" size={10} /> : null}
                       </span>
                       <span className="question__label">{label}</span>
-                      {question.recommended === i ? <span className="question__rec">推荐</span> : null}
+                      {question.recommended === i ? <span className="question__rec">{t('推荐')}</span> : null}
                     </button>
                   )
                 })}
@@ -172,7 +176,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
               <Textarea
                 rows={2}
                 className="question__free"
-                placeholder="自由作答"
+                placeholder={t('自由作答')}
                 value={d.text}
                 disabled={locked}
                 onChange={(e) => edit(question, { choices: [], text: e.target.value })}
@@ -182,7 +186,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
               <Textarea
                 rows={1}
                 className="question__other"
-                placeholder="其他，我来补充"
+                placeholder={t('其他，我来补充')}
                 value={d.text}
                 disabled={locked}
                 onChange={(e) => other(question, e.target.value)}
@@ -214,7 +218,7 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
             }}
           />
           <Button size="small" icon="paperclip" disabled={locked} onClick={() => fileInput.current?.click()}>
-            附图片或附件…
+            {t('附图片或附件…')}
           </Button>
           <Button
             variant="primary"
@@ -223,13 +227,13 @@ function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
             disabled={locked || !ready || uploads.uploading}
             onClick={() => void submit()}
           >
-            提交回答
+            {t('提交回答')}
           </Button>
         </div>
       ) : (
         <div className="question__done">
           <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
-            {set.status === 'answered' ? '已回答' : set.status === 'expired' ? '已超时' : '已作废'}
+            {set.status === 'answered' ? t('已回答') : set.status === 'expired' ? t('已超时') : t('已作废')}
           </Tag>
           <span>{outcome(set, run)}</span>
         </div>

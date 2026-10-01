@@ -12,6 +12,7 @@ use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Message;
 
 fn options(home: &Path, port: u16) -> Options {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     Options {
         home: home.to_path_buf(),
         config: Config {
@@ -47,6 +48,7 @@ fn now_ms() -> u64 {
 
 #[test]
 fn the_lock_admits_one_daemon_per_home_until_released() {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let home = tempfile::tempdir().unwrap();
     let lock = Lock::acquire(home.path()).unwrap();
     assert_eq!(std::fs::read_to_string(home.path().join("daemon.lock")).unwrap(), std::process::id().to_string());

@@ -6,6 +6,7 @@ import { publishBot } from '../bots/dto.js'
 import { voidQuestions } from '../questions/service.js'
 import { publishRun } from './dto.js'
 import { forgetStream } from './engine.js'
+import { runStep } from './step.js'
 import { notifyChainDone } from './stop.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -17,7 +18,7 @@ const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 export async function reconcileRuns(ctx: Ctx, machineId: string, activeRuns: string[]) {
   const lost = await ctx.db
     .update(runs)
-    .set({ status: 'interrupted', step: 'daemon 重启，本轮已中断', endedAt: ctx.now() })
+    .set({ status: 'interrupted', ...runStep('daemon 重启，本轮已中断'), endedAt: ctx.now() })
     .where(
       and(
         inArray(runs.status, LIVE),

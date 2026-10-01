@@ -4,7 +4,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
 import { useNow } from '../../lib/now'
-import { pad } from '../../lib/time'
+import { dateLocale, pad } from '../../lib/time'
 import {
   Avatar,
   Button,
@@ -28,7 +28,7 @@ import { ReactionBar } from '../reactions'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { runMascot } from '../runs/mascot'
-import { toolTitle } from '../runs/mcp'
+import { stepText, toolTitle } from '../runs/mcp'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
 import { UserCardTrigger } from '../users'
@@ -50,6 +50,7 @@ import {
   TokenFact,
 } from './RunGraphics'
 import './recall.css'
+import { t } from '../../i18n'
 
 const TONE: Record<RunStatus, TagTone> = {
   queued: 'gray',
@@ -71,10 +72,10 @@ export const RUN_STATUS = Object.fromEntries(
 /** Daemon reason codes; the first session of a (group, bot) pair needs no note. */
 const NEW_SESSION: Record<string, string | null> = {
   first: null,
-  resume_failed: '会话恢复失败，已开新会话并补送最近 50 条群消息',
-  requested: '已按要求开启新会话',
-  config_changed: '本轮因配置变更开启新会话',
-  provider_removed: '原供应商已删除，已开启新会话',
+  resume_failed: t('会话恢复失败，已开新会话并补送最近 50 条群消息'),
+  requested: t('已按要求开启新会话'),
+  config_changed: t('本轮因配置变更开启新会话'),
+  provider_removed: t('原供应商已删除，已开启新会话'),
 }
 export const newSessionNote = (reason: string | null) =>
   reason === null ? null : reason in NEW_SESSION ? NEW_SESSION[reason] : reason
@@ -103,10 +104,10 @@ function Time({ iso }: { iso: string }) {
 export function dayLabel(iso: string) {
   const d = new Date(iso)
   const today = new Date()
-  if (d.toDateString() === today.toDateString()) return '今天'
+  if (d.toDateString() === today.toDateString()) return t('今天')
   today.setDate(today.getDate() - 1)
-  if (d.toDateString() === today.toDateString()) return '昨天'
-  return `${d.getMonth() + 1}月${d.getDate()}日`
+  if (d.toDateString() === today.toDateString()) return t('昨天')
+  return d.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })
 }
 
 export const fmtDuration = (ms: number) => {
@@ -120,7 +121,7 @@ const usageTotal = (u: RunDto['usage']) => u?.totalTokens ?? (u?.inputTokens ?? 
 
 export function fmtUsage(u: RunDto['usage']) {
   const total = usageTotal(u)
-  if (!total) return '用量未上报'
+  if (!total) return t('用量未上报')
   if (total >= 999_950) return `${(total / 1e6).toFixed(1)}M tokens`
   return total >= 1000 ? `${(total / 1000).toFixed(1)}k tokens` : `${total} tokens`
 }
@@ -138,12 +139,15 @@ function eventIcon(body: string): IconName {
   return 'info'
 }
 
+export const eventText = (m: Pick<MessageDto, 'body' | 'i18n'>) => (m.i18n ? t.text(m.i18n) : m.body)
+
 export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
+  const text = eventText(m)
   return (
     <ChatNotice>
-      <span className="tl-event" title={m.body}>
+      <span className="tl-event" title={text}>
         <Icon name={eventIcon(m.body)} size={13} />
-        <span className="tl-event__text">{m.body}</span>
+        <span className="tl-event__text">{text}</span>
         <Time iso={m.createdAt} />
       </span>
     </ChatNotice>
@@ -169,7 +173,9 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
           onClick={() => setOpen(!open)}
         >
           <Icon name="list" size={13} />
-          <span className="tl-event__text">{`${events.length} 条系统事件 · ${last.body}`}</span>
+          <span className="tl-event__text">
+            {t('{n} 条系统事件 · {last}', { n: events.length, last: eventText(last) })}
+          </span>
           <Time iso={last.createdAt} />
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
         </button>
@@ -190,7 +196,9 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
 /** A recalled message: the Pane recalled notice in place of the content (no 重新编辑: the body is gone). */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   return (
-    <ChatNotice kind="recalled">{mine ? '你撤回了一条消息' : `${m.authorName} 撤回了一条消息`}</ChatNotice>
+    <ChatNotice kind="recalled">
+      {mine ? t('你撤回了一条消息') : t('{name} 撤回了一条消息', { name: m.authorName })}
+    </ChatNotice>
   )
 })
 
@@ -209,7 +217,7 @@ const quoteMessage = (m: MessageDto) =>
 const link = (groupId: string, query: string) => `${location.origin}/g/${groupId}?${query}`
 
 /** Quoting a bot = @ that bot (spec §8.6). */
-const BOT_QUOTE = '引用回复等同 @ 该 Bot'
+const BOT_QUOTE = t('引用回复等同 @ 该 Bot')
 
 const messageTarget = (m: MessageDto, own = false): ActionTarget => ({
   message: m,
@@ -332,8 +340,8 @@ function FileChips({ runId, text }: { runId: string; text: string }) {
         <button
           type="button"
           className="tl-file"
-          aria-label={`还有 ${rest} 个文件，查看完整改动`}
-          title={`还有 ${rest} 个文件，查看完整改动`}
+          aria-label={t('还有 {n} 个文件，查看完整改动', { n: rest })}
+          title={t('还有 {n} 个文件，查看完整改动', { n: rest })}
           onClick={() => open(null)}
         >
           +{rest}
@@ -366,7 +374,8 @@ function HandOffChips({ m }: { m: MessageDto }) {
           className="tl-handoff"
           onClick={() => citeInChat(m.groupId, `@${b.name}`)}
         >
-          <Icon name="at" size={12} />让 {b.name} 处理
+          <Icon name="at" size={12} />
+          {t('让 {name} 处理', { name: b.name })}
         </button>
       ))}
     </div>
@@ -478,7 +487,7 @@ export const RunCard = memo(function RunCard({
   const quote = useQuote((s) => s.set)
   const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
   const note = NOTE.includes(run.status)
-  const step = note || reply ? '' : streamed || toolTitle(run.step)
+  const step = note || reply ? '' : streamed || toolTitle(stepText(run))
   const working = !note && !reply && run.status === 'running'
   const mascot = runMascot(run.status, !!streamed)
   const costume = useBotCostume(run.botId)
@@ -499,8 +508,8 @@ export const RunCard = memo(function RunCard({
             groupId: run.groupId,
             kind: 'run',
             id: run.id,
-            who: `${botName} 的运行卡片`,
-            text: toolTitle(run.step) || STATUS_LABEL[run.status],
+            who: t('{name} 的运行卡片', { name: botName }),
+            text: toolTitle(stepText(run)) || STATUS_LABEL[run.status],
           }),
     copyText: reply?.body,
   }
@@ -512,10 +521,10 @@ export const RunCard = memo(function RunCard({
       icon="sidebar-right"
       onClick={() => openTab({ kind: 'run', runId: run.id, view: 'process', file: null })}
     >
-      查看过程
+      {t('查看过程')}
     </Button>
   )
-  const sub = `${agent} · ${trigger} 触发`
+  const sub = t('{agent} · {name} 触发', { agent, name: trigger })
   const meta = (
     <span className="run-card__sub" title={sub}>
       {sub}
@@ -576,9 +585,9 @@ export const RunCard = memo(function RunCard({
                   <button
                     type="button"
                     className="run-card__fold"
-                    aria-label={folded ? '展开' : '收起'}
+                    aria-label={folded ? t('展开') : t('收起')}
                     aria-expanded={!folded}
-                    title={folded ? '展开' : '收起'}
+                    title={folded ? t('展开') : t('收起')}
                     onClick={() => setExpanded(folded)}
                   >
                     <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
@@ -635,7 +644,7 @@ export const RunCard = memo(function RunCard({
                           ) : (
                             <>
                               <Icon name="octagon-xmark" size={13} />
-                              <span>{run.step}</span>
+                              <span>{stepText(run)}</span>
                             </>
                           )}
                         </div>

@@ -1,6 +1,7 @@
 //! Remote repo identity and access with the machine's own credentials: canonical keys, the ssh ↔ https fallback
 //! (the owner's preferred protocol first), and `repo.probe`.
 use crate::protocol::{GitProtocol, REPO_BRANCHES_MAX, RepoAccessReason, RepoProbe, RepoProbeResult};
+use crate::t;
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -99,7 +100,7 @@ const NETWORK: &[&str] = &[
 fn explain(stderr: &str) -> String {
     let lines: Vec<&str> = stderr.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
     let pick = |prefix: &str| lines.iter().find_map(|l| l.strip_prefix(prefix)).map(str::trim);
-    let line = pick("remote:").or_else(|| pick("fatal:")).or(lines.first().copied()).unwrap_or("git 执行失败");
+    let line = pick("remote:").or_else(|| pick("fatal:")).or(lines.first().copied()).unwrap_or(t!("git 执行失败"));
     USERINFO.replace_all(line, "$1").into_owned()
 }
 
@@ -114,7 +115,7 @@ fn classify(stderr: &str) -> Failure {
         RepoAccessReason::Denied
     };
     let detail = match lower.contains("host key verification failed") {
-        true => "Host key verification failed：先在这台机器上手动 ssh 一次该主机，确认 host key".into(),
+        true => t!("Host key verification failed：先在这台机器上手动 ssh 一次该主机，确认 host key").into(),
         false => detail,
     };
     Failure { reason, detail }
@@ -140,11 +141,11 @@ pub async fn remote_git(dir: &Path, args: &[&str], limit: Option<Duration>) -> R
         None => cmd.output().await,
         Some(limit) => tokio::time::timeout(limit, cmd.output()).await.map_err(|_| Failure {
             reason: RepoAccessReason::Timeout,
-            detail: format!("{} 秒内无响应", limit.as_secs()),
+            detail: t!("{s} 秒内无响应", s = limit.as_secs()),
         })?,
     };
     let out =
-        out.map_err(|e| Failure { reason: RepoAccessReason::Denied, detail: format!("无法执行 git：{e}") })?;
+        out.map_err(|e| Failure { reason: RepoAccessReason::Denied, detail: t!("无法执行 git：{e}", e = e) })?;
     match out.status.success() {
         true => Ok(String::from_utf8_lossy(&out.stdout).into_owned()),
         false => Err(classify(&String::from_utf8_lossy(&out.stderr))),
@@ -194,7 +195,7 @@ pub async fn probe(req: RepoProbe) -> RepoProbeResult {
                 let has = listing.branches.contains(&req.branch);
                 result.ok = has;
                 result.reason = (!has).then_some(RepoAccessReason::BranchMissing);
-                result.detail = (!has).then(|| format!("分支 {} 不存在", req.branch));
+                result.detail = (!has).then(|| t!("分支 {branch} 不存在", branch = req.branch));
                 result.used_url = Some(url);
                 result.default_branch = listing.default_branch;
                 result.branches = listing.branches.into_iter().take(REPO_BRANCHES_MAX).collect();

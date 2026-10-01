@@ -1,10 +1,10 @@
-import type { Tier } from '@gonggong/protocol'
+import type { ProtocolKey, Tier } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, runs } from '../../db/schema.js'
 import { approvePending } from '../approvals/service.js'
 
-export const TIER_LABEL: Record<Tier, string> = {
+export const TIER_LABEL: Record<Tier, ProtocolKey> = {
   'read-only': '只读',
   workspace: '工作区写入',
   full: '完全访问',

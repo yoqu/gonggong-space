@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
+import { locale, t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { langFor, Tokens, useHighlight } from '../highlight'
@@ -34,7 +35,7 @@ export function CodeBlock({
   return (
     <div className={cx('pn-code', className)} style={style}>
       <div className="pn-code__head">
-        <span>{filename ?? language ?? '代码'}</span>
+        <span>{filename ?? language ?? t('代码')}</span>
         <button
           type="button"
           className="pn-code__copy"
@@ -48,10 +49,10 @@ export function CodeBlock({
           }}
         >
           <Icon name={copied ? 'check' : 'copy'} />
-          {copied ? '已复制' : '复制'}
+          {copied ? t('已复制') : t('复制')}
         </button>
         <span className="pn-code__live" role="status">
-          {copied ? '已复制' : ''}
+          {copied ? t('已复制') : ''}
         </span>
       </div>
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard */}
@@ -170,7 +171,7 @@ export function VoiceMessage({
         <button
           type="button"
           className="pn-voice__play"
-          aria-label={playing ? '暂停' : '播放语音'}
+          aria-label={playing ? t('暂停') : t('播放语音')}
           aria-pressed={playing}
           onClick={() => {
             setPlaying(!playing)
@@ -195,25 +196,26 @@ export function VoiceMessage({
           ))}
         </span>
         <span className="pn-voice__dur">{duration(secs)}</span>
-        {!played && <span className="pn-voice__unread" role="img" aria-label="未听" />}
+        {!played && <span className="pn-voice__unread" role="img" aria-label={t('未听')} />}
       </div>
       {transcript && <div className="pn-voice__text">{transcript}</div>}
     </div>
   )
 }
 
+const SEP = locale === 'en' ? ', ' : '、'
 const typingWho = (name: string | string[]) =>
   Array.isArray(name)
     ? name.length > 2
-      ? `${name.slice(0, 2).join('、')} 等 ${name.length} 人`
-      : name.join('、')
+      ? t('{names} 等 {n} 人', { names: name.slice(0, 2).join(SEP), n: name.length, more: name.length - 2 })
+      : name.join(SEP)
     : name
 
 /** 「正在输入」: three bouncing dots in a bubble at the list end, or text only (`bubble={false}`) as a header subtitle. */
 export function TypingIndicator({
   name,
   bubble = true,
-  action = '正在输入',
+  action = t('正在输入'),
   className,
 }: {
   name?: string | string[]

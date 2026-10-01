@@ -7,6 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Icon, MenuButton, type MenuItem } from '../../ui'
@@ -14,7 +15,7 @@ import { effortOptions, modelOptions, useBotCatalog, withModel } from '../bots/A
 
 export type Picks = Record<string, RunConfigPick>
 
-const READ_ONLY = '只有 Bot 主人或群管理员可以切换'
+const READ_ONLY = t('只有 Bot 主人或群管理员可以切换')
 
 /** Bots mentioned in `draft`, in order of appearance. */
 export function mentionedBots(draft: string, bots: BotDto[]) {
@@ -91,13 +92,15 @@ function RunConfigChip({
   const effort = fitEffort(catalog, model, pick?.effort !== undefined ? pick.effort : saved.effort)
   const label = agentConfigLabel(catalog, model ?? catalog?.current ?? null, effort)
   const text = `${bot.name} · ${label}`
-  const name = `${bot.name} 的模型与推理强度`
+  const name = t('{name} 的模型与推理强度', { name: bot.name })
   if (!editable || !live?.catalog)
     return (
       <MenuButton
         className="run-config__chip"
         aria-label={name}
-        title={!editable ? READ_ONLY : !live ? '正在读取可选模型…' : (live.error ?? '机器尚未上报可选模型')}
+        title={
+          !editable ? READ_ONLY : !live ? t('正在读取可选模型…') : (live.error ?? t('机器尚未上报可选模型'))
+        }
         disabled
         items={[]}
         onSelect={() => {}}
@@ -119,7 +122,7 @@ function RunConfigChip({
       .catch(toastError)
   const efforts = effortOptions(available, model)
   const items: MenuItem[] = [
-    { header: '模型' },
+    { header: t('模型') },
     ...modelOptions(available, model).map((o) => ({
       label: o.label,
       value: `m:${o.value}`,
@@ -128,13 +131,13 @@ function RunConfigChip({
     ...(efforts.length
       ? [
           { separator: true as const },
-          { header: '推理强度' },
+          { header: t('推理强度') },
           ...efforts
             .slice(1)
             .map((o) => ({ label: o.label, value: `e:${o.value}`, checked: effort === o.value })),
         ]
       : []),
-    ...(pick ? [{ separator: true as const }, { label: '设为本群默认', value: 'save' }] : []),
+    ...(pick ? [{ separator: true as const }, { label: t('设为本群默认'), value: 'save' }] : []),
   ]
   return (
     <MenuButton
@@ -153,7 +156,7 @@ function RunConfigChip({
       }}
     >
       {text}
-      {pick ? <span className="run-config__once">仅本条</span> : null}
+      {pick ? <span className="run-config__once">{t('仅本条')}</span> : null}
       <Icon name="chevron-updown" size={10} weight={2.2} />
     </MenuButton>
   )

@@ -5,7 +5,7 @@ import type { GroupPreviewsDto, PreviewDto, ServiceDto } from '@gonggong/protoco
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groups, previews, type runs, services } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { refuse } from '../agent-tools/service.js'
 import { dataDir } from '../attachments/service.js'
@@ -382,7 +382,7 @@ export async function takeSnapshot(ctx: Ctx, p: Preview, { launch = true } = {})
       await ctx.db.update(previews).set({ snapshotError: reason }).where(eq(previews.id, p.id))
       await publishPreviews(ctx, p.groupId)
     }
-    return fail('conflict', reason)
+    throw new HttpError('conflict', reason)
   }
   // 202: the machine's devtools want a login first; their QR code stands in for the picture.
   const awaiting = status === 202 ? 'login' : null
@@ -469,7 +469,14 @@ export async function startPreview(ctx: Ctx, p: Preview) {
         and(eq(previews.groupId, p.groupId), eq(previews.botId, p.botId), same, isNull(previews.closedAt)),
       )
     if (taken)
-      fail('conflict', `${p.project ? '这个小程序' : `端口 ${p.port}`} 已有新的预览「${taken.title}」`)
+      fail(
+        'conflict',
+        p.project ? '这个小程序已有新的预览「{title}」' : '端口 {port} 已有新的预览「{title}」',
+        {
+          title: taken.title,
+          port: p.port ?? '',
+        },
+      )
   }
   const [svc] = p.serviceId ? await ctx.db.select().from(services).where(eq(services.id, p.serviceId)) : []
   if (svc && !LIVE.includes(svc.status)) await restartService(ctx, svc)

@@ -2,6 +2,7 @@
 use crate::config::Config;
 use crate::git;
 use crate::protocol::Attachment;
+use crate::t;
 use crate::tls;
 use agent_client_protocol::schema::v1::{ContentBlock, ImageContent, TextContent};
 use base64::prelude::{BASE64_STANDARD, Engine as _};
@@ -36,10 +37,10 @@ pub async fn fetch<'a>(api: &Config, cwd: &Path, list: impl IntoIterator<Item = 
         if std::fs::metadata(&path).is_ok_and(|m| m.len() == a.size) {
             continue;
         }
-        download(api, a, &path).await.map_err(|e| format!("附件下载失败：{}：{e}", a.name))?;
+        download(api, a, &path).await.map_err(|e| t!("附件下载失败：{name}：{e}", name = a.name, e = e))?;
     }
     if any && git::is_repo(cwd) {
-        exclude(cwd).await.map_err(|e| format!("无法写入 .git/info/exclude：{e}"))?;
+        exclude(cwd).await.map_err(|e| t!("无法写入 .git/info/exclude：{e}", e = e))?;
     }
     Ok(())
 }

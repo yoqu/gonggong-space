@@ -1,4 +1,5 @@
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { type Glyph, renderGlyph } from './controls'
@@ -74,7 +75,7 @@ export function NavRail({
   onSelect,
   className,
   style,
-  'aria-label': label = '应用导航',
+  'aria-label': label = t('应用导航'),
 }: NavRailProps) {
   const [current, setCurrent] = useControlled(selected, defaultSelected ?? items[0]?.id)
   const all = [...items, ...(footer ?? [])]
@@ -89,7 +90,11 @@ export function NavRail({
         aria-current={on ? 'page' : undefined}
         title={it.label}
         aria-label={
-          it.badge ? `${it.label}（${it.badge} 条未读）` : it.dot ? `${it.label}（有新内容）` : it.label
+          it.badge
+            ? t('{label}（{n} 条未读）', { label: it.label, n: it.badge })
+            : it.dot
+              ? t('{label}（有新内容）', { label: it.label })
+              : it.label
         }
         tabIndex={it.id === stop ? 0 : -1}
         onClick={() => {
@@ -104,7 +109,7 @@ export function NavRail({
               <Badge count={it.badge} muted={it.muted} />
             </span>
           ) : it.dot ? (
-            <span className="ui-rail__dot" role="img" aria-label="有新内容" />
+            <span className="ui-rail__dot" role="img" aria-label={t('有新内容')} />
           ) : null}
         </span>
         <span className="ui-rail__label">{it.label}</span>

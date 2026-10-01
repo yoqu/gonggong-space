@@ -9,6 +9,7 @@ import type {
   WebEvent,
 } from '@gonggong/protocol'
 import { create } from 'zustand'
+import { t } from '../i18n'
 import { api } from '../lib/api'
 import { useSession } from './session'
 
@@ -40,8 +41,11 @@ export const previewOf = (m: Pick<MessageDto, 'kind' | 'authorName' | 'body'>) =
 function withMessage(g: GroupDto, m: MessageDto, activeGroupId: string | null): GroupDto {
   if (m.seq <= g.lastSeq) return g
   const counts = m.kind !== 'event' && m.authorId !== useSession.getState().user?.id && g.id !== activeGroupId
-  return { ...g, lastSeq: m.seq, last: previewOf(m), unread: g.unread + (counts ? 1 : 0) }
+  const lastI18n = m.kind === 'event' ? m.i18n : undefined
+  return { ...g, lastSeq: m.seq, last: previewOf(m), lastI18n, unread: g.unread + (counts ? 1 : 0) }
 }
+
+export const lastText = (g: Pick<GroupDto, 'last' | 'lastI18n'>) => (g.lastI18n ? t.text(g.lastI18n) : g.last)
 
 const LIVE: RunDto['status'][] = ['running', 'awaiting_approval', 'awaiting_answer']
 

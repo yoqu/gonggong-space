@@ -2,13 +2,14 @@ import type { UserDto } from '@gonggong/protocol'
 import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '../../app/session'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Alert, Dialog, Icon, SecureField, toast } from '../../ui'
 import { AuthCard, AuthSubmit, type SubmitPhase } from './AuthCard'
 import { logout } from './logout'
 
 const MIN_LENGTH = 8
-const STRENGTH = ['', '较弱', '一般', '较强', '很强'] as const
+const STRENGTH = ['', t('较弱'), t('一般'), t('较强'), t('很强')] as const
 
 /** 0–4: length plus character variety; advisory only, the server enforces just the minimum length. */
 function strength(pw: string) {
@@ -38,10 +39,10 @@ function usePasswordChange(onChanged: (me: UserDto) => void) {
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (phase !== 'idle') return
-    if (!form.old) return fail('请输入原密码')
-    if (form.next.length < MIN_LENGTH) return fail(`新密码至少 ${MIN_LENGTH} 位`)
-    if (form.next !== form.confirm) return fail('两次输入的新密码不一致')
-    if (form.next === form.old) return fail('新密码不能与原密码相同')
+    if (!form.old) return fail(t('请输入原密码'))
+    if (form.next.length < MIN_LENGTH) return fail(t('新密码至少 {n} 位', { n: MIN_LENGTH }))
+    if (form.next !== form.confirm) return fail(t('两次输入的新密码不一致'))
+    if (form.next === form.old) return fail(t('新密码不能与原密码相同'))
     setPhase('busy')
     try {
       const me = await api.post<UserDto>('/auth/password', { oldPassword: form.old, newPassword: form.next })
@@ -57,13 +58,13 @@ function usePasswordChange(onChanged: (me: UserDto) => void) {
   const mismatch =
     !!form.confirm && form.confirm !== form.next && (confirmLeft || form.confirm.length >= form.next.length)
   const rules: { label: string; state: RuleState }[] = [
-    { label: `至少 ${MIN_LENGTH} 位`, state: form.next.length >= MIN_LENGTH ? 'ok' : undefined },
+    { label: t('至少 {n} 位', { n: MIN_LENGTH }), state: form.next.length >= MIN_LENGTH ? 'ok' : undefined },
     {
-      label: '与原密码不同',
+      label: t('与原密码不同'),
       state: !form.next || !form.old ? undefined : form.next === form.old ? 'bad' : 'ok',
     },
     {
-      label: '两次输入一致',
+      label: t('两次输入一致'),
       state: mismatch ? 'bad' : form.confirm && form.confirm === form.next ? 'ok' : undefined,
     },
   ]
@@ -97,10 +98,10 @@ function PasswordChangeFields({
           autoFocus
         />
         <SecureField
-          label="新密码"
+          label={t('新密码')}
           size={size}
           autoComplete="new-password"
-          placeholder={`至少 ${MIN_LENGTH} 位`}
+          placeholder={t('至少 {n} 位', { n: MIN_LENGTH })}
           value={form.next}
           onChange={set('next')}
         />
@@ -111,11 +112,11 @@ function PasswordChangeFields({
             ))}
           </span>
           <span className="auth-meter__label">
-            {form.next ? `强度：${STRENGTH[score]}` : '建议混合字母、数字和符号'}
+            {form.next ? t('强度：{level}', { level: STRENGTH[score] ?? '' }) : t('建议混合字母、数字和符号')}
           </span>
         </div>
         <SecureField
-          label="确认新密码"
+          label={t('确认新密码')}
           size={size}
           autoComplete="new-password"
           value={form.confirm}
@@ -151,7 +152,9 @@ function PasswordChangeFields({
           </motion.div>
         ) : null}
       </AnimatePresence>
-      {submitLabel ? <AuthSubmit phase={phase} label={submitLabel} busy="保存中…" done="已更新" /> : null}
+      {submitLabel ? (
+        <AuthSubmit phase={phase} label={submitLabel} busy={t('保存中…')} done={t('已更新')} />
+      ) : null}
     </>
   )
 }
@@ -161,23 +164,23 @@ export function ChangePasswordPage() {
   const setUser = useSession((s) => s.setUser)
   const pc = usePasswordChange((me) => {
     setUser(me)
-    toast({ type: 'success', message: '密码已更新，欢迎加入共工空间' })
+    toast({ type: 'success', message: t('密码已更新，欢迎加入共工空间') })
   })
   return (
     <AuthCard
       variant="password"
-      title="修改密码"
-      subtitle="首次登录需修改管理员设置的初始密码。"
+      title={t('修改密码')}
+      subtitle={t('首次登录需修改管理员设置的初始密码。')}
       errorKey={pc.errorKey}
       leaving={pc.phase === 'done'}
       onSubmit={pc.submit}
       footer={
         <button type="button" className="auth__link auth__foot" onClick={() => void logout()}>
-          退出登录
+          {t('退出登录')}
         </button>
       }
     >
-      <PasswordChangeFields pc={pc} oldLabel="初始密码" submitLabel="修改密码" />
+      <PasswordChangeFields pc={pc} oldLabel={t('初始密码')} submitLabel={t('修改密码')} />
     </AuthCard>
   )
 }
@@ -187,21 +190,21 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const setUser = useSession((s) => s.setUser)
   const pc = usePasswordChange((me) => {
     setUser(me)
-    toast({ type: 'success', message: '密码已修改，其他设备上的登录已失效' })
+    toast({ type: 'success', message: t('密码已修改，其他设备上的登录已失效') })
     onClose()
   })
   return (
     <Dialog
       open
-      title="修改密码"
-      message="修改后，其他设备上的登录会失效。"
+      title={t('修改密码')}
+      message={t('修改后，其他设备上的登录会失效。')}
       onClose={onClose}
       closeOnBackdrop={false}
       width={420}
       actions={[
-        { label: '取消', onClick: onClose },
+        { label: t('取消'), onClick: onClose },
         {
-          label: pc.phase === 'busy' ? '保存中…' : '保存新密码',
+          label: pc.phase === 'busy' ? t('保存中…') : t('保存新密码'),
           variant: 'primary',
           type: 'submit',
           form: 'change-password',
@@ -210,7 +213,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       ]}
     >
       <form id="change-password" className="auth-dialog" onSubmit={pc.submit} noValidate>
-        <PasswordChangeFields pc={pc} oldLabel="当前密码" />
+        <PasswordChangeFields pc={pc} oldLabel={t('当前密码')} />
       </form>
     </Dialog>
   )

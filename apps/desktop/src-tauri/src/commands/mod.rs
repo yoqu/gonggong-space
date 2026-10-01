@@ -14,12 +14,15 @@ mod tools;
 mod tunnels;
 mod workspaces;
 
+use crate::i18n::tr;
+
 /// Command errors reach the frontend as the rejected promise's message.
 pub type Result<T> = std::result::Result<T, String>;
 
 pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         shell::app_info,
+        shell::set_locale,
         shell::snapshot,
         onboarding::parse_link,
         onboarding::login,
@@ -69,7 +72,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
 }
 
 fn client() -> Result<gonggong::bots::Client> {
-    let config = gonggong::config::Config::load().map_err(|e| e.to_string())?.ok_or("尚未绑定")?;
+    let config = gonggong::config::Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
     gonggong::bots::Client::new(&config).map_err(|e| e.to_string())
 }
 

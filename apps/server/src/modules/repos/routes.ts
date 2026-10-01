@@ -17,7 +17,7 @@ export function repoRoutes(ctx: Ctx) {
 
     app.delete<{ Params: { id: string } }>('/api/repos/:id', async (req, reply) => {
       const me = await requireUser(ctx, req)
-      if (!(await hideRepo(ctx, me, idParam(req.params.id, '仓库'))))
+      if (!(await hideRepo(ctx, me, idParam(req.params.id, '仓库不存在'))))
         fail('forbidden', '只有系统管理员或唯一使用过它的人可以移除')
       return reply.status(204).send()
     })
@@ -27,7 +27,7 @@ export function repoRoutes(ctx: Ctx) {
       const body = RepoProbeReq.parse(req.body)
       const problem = repoProblem(body.url.trim(), body.branch.trim() || 'main')
       if (problem) fail('invalid', problem)
-      const botIds = body.botIds.map((id) => idParam(id, 'Bot '))
+      const botIds = body.botIds.map((id) => idParam(id, 'Bot 不存在'))
       return probeBots(ctx, me.id, { ...body, botIds, branch: body.branch.trim() || 'main' })
     })
   }

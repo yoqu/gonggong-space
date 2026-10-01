@@ -15,7 +15,7 @@ export default defineConfig({
     { name: 'first-run', testMatch: /m1-walking-skeleton/ },
     { name: 'rest', testIgnore: /m1-walking-skeleton/, dependencies: ['first-run'] },
   ],
-  use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure' },
+  use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure', locale: 'zh-CN' },
   webServer: [
     {
       command: `bash ../scripts/pg.sh reset gonggong_e2e && pnpm --filter @gonggong/server start 2>&1 | tee ${SERVER_LOG}`,

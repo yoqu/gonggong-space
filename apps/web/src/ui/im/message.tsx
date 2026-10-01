@@ -1,4 +1,5 @@
 import { Children, type CSSProperties, type ReactNode, useEffect, useRef } from 'react'
+import { locale, t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import type { Glyph } from '../controls'
 import { Avatar, AvatarGroup, type AvatarProps, ProgressIndicator, Tag } from '../display'
@@ -40,8 +41,11 @@ export interface Reaction {
   label?: string
 }
 
+const SEP = locale === 'en' ? ', ' : '，'
 const who = (users: string[]) =>
-  users.slice(0, 3).join('，') + (users.length > 3 ? ` 等 ${users.length} 人` : '')
+  users.length > 3
+    ? t('{names} 等 {n} 人', { names: users.slice(0, 3).join(SEP), n: users.length, more: users.length - 3 })
+    : users.join(SEP)
 
 export function Reactions({
   items,
@@ -62,7 +66,12 @@ export function Reactions({
   compact?: boolean
 }) {
   const add = (
-    <button type="button" className="pn-reaction pn-reaction--add" aria-label="添加表情回复" onClick={onAdd}>
+    <button
+      type="button"
+      className="pn-reaction pn-reaction--add"
+      aria-label={t('添加表情回复')}
+      onClick={onAdd}
+    >
       <Icon name="smile" />
     </button>
   )
@@ -89,7 +98,7 @@ export function Reactions({
           placement="top-start"
           defaultOpen={defaultPickerOpen}
           className="pn-reaction__picker"
-          aria-label="添加表情回复"
+          aria-label={t('添加表情回复')}
         >
           {(close) => (
             <EmojiPicker
@@ -113,11 +122,11 @@ export function ReadReceipt({ read, total = 1 }: { read: number; total?: number 
   const label =
     state === 'all'
       ? total > 1
-        ? '全部已读'
-        : '已读'
+        ? t('全部已读')
+        : t('已读')
       : total > 1
-        ? `${total - Math.max(read, 0)} 人未读`
-        : '未读'
+        ? t('{n} 人未读', { n: total - Math.max(read, 0) })
+        : t('未读')
   return (
     <span
       className={`pn-receipt pn-receipt--${state}`}
@@ -146,8 +155,8 @@ export function ThreadSummary({ count, people = [], lastTime, onClick }: ThreadS
   return (
     <button type="button" className="pn-thread" onClick={onClick}>
       <AvatarGroup people={people} size={20} max={3} />
-      <span className="pn-thread__count">{count} 条回复</span>
-      {lastTime && <span className="pn-thread__last">最后回复 {lastTime}</span>}
+      <span className="pn-thread__count">{t('{n} 条回复', { n: count })}</span>
+      {lastTime && <span className="pn-thread__last">{t('最后回复 {time}', { time: lastTime })}</span>}
     </button>
   )
 }
@@ -159,11 +168,11 @@ export interface MessageAction {
 }
 
 const DEFAULT_ACTIONS: MessageAction[] = [
-  { icon: 'smile', label: '表情回复' },
-  { icon: 'reply', label: '回复' },
-  { icon: 'thread', label: '回复话题' },
-  { icon: 'forward', label: '转发' },
-  { icon: 'more', label: '更多' },
+  { icon: 'smile', label: t('表情回复') },
+  { icon: 'reply', label: t('回复') },
+  { icon: 'thread', label: t('回复话题') },
+  { icon: 'forward', label: t('转发') },
+  { icon: 'more', label: t('更多') },
 ]
 
 /** Glass hover bar; `children` append custom controls such as a menu trigger. */
@@ -177,7 +186,7 @@ export function MessageActions({
   children?: ReactNode
 }) {
   return (
-    <div className="pn-msgactions" role="toolbar" aria-label="消息操作">
+    <div className="pn-msgactions" role="toolbar" aria-label={t('消息操作')}>
       {items.map((a) => (
         <button
           key={a.label}
@@ -250,14 +259,14 @@ export interface MessageProps {
 }
 
 function sideStatus({ status, receipt, onRetry }: Pick<MessageProps, 'status' | 'receipt' | 'onRetry'>) {
-  if (status === 'sending') return <ProgressIndicator variant="spinner" aria-label="正在发送" />
+  if (status === 'sending') return <ProgressIndicator variant="spinner" aria-label={t('正在发送')} />
   if (status === 'failed')
     return (
       <button
         type="button"
         className="pn-msg__retry"
-        aria-label="发送失败，重新发送"
-        title="发送失败，点按重新发送"
+        aria-label={t('发送失败，重新发送')}
+        title={t('发送失败，点按重新发送')}
         onClick={onRetry}
       >
         !
@@ -298,7 +307,7 @@ export function Message({
   const content = typeof children === 'string' ? <p>{children}</p> : children
   const quote = reply && (
     <div className="pn-quote">
-      <b>回复 {reply.author}：</b>
+      <b>{t('回复 {name}：', { name: reply.author })}</b>
       {reply.text}
     </div>
   )
@@ -358,7 +367,7 @@ export function Message({
             ))}
             {urgent && (
               <Tag tone="solid-red" icon="bolt">
-                加急
+                {t('加急')}
               </Tag>
             )}
             {time && <span className="pn-msg__time">{time}</span>}
@@ -376,7 +385,7 @@ export function Message({
             <div className={cx('pn-bubble', urgent && 'pn-bubble--urgent')}>
               {quote}
               {content}
-              {edited && <span className="pn-msg__edited">（已编辑）</span>}
+              {edited && <span className="pn-msg__edited">{t('（已编辑）')}</span>}
               {reacts}
             </div>
           )}
@@ -439,7 +448,7 @@ export function MessageList({
   stickToBottom,
   className,
   style,
-  'aria-label': label = '消息',
+  'aria-label': label = t('消息'),
 }: {
   children?: ReactNode
   /** On mount and whenever the message count changes, scroll the nearest scroller to the bottom. */

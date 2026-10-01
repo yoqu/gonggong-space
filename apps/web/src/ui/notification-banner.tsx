@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { Avatar, type AvatarProps } from './display'
 import { Icon } from './icon'
@@ -34,8 +35,8 @@ export function NotificationBanner({
   title,
   body,
   subtitle,
-  time = '现在',
-  app = { name: '消息' },
+  time = t('现在'),
+  app = { name: t('消息') },
   avatar,
   actions,
   stacked,
@@ -54,7 +55,7 @@ export function NotificationBanner({
       {stacked ? <span className="ui-notif__layer" aria-hidden="true" /> : null}
       <div className="ui-notif__card">
         {onClose ? (
-          <button type="button" className="ui-notif__close" aria-label="关闭通知" onClick={onClose}>
+          <button type="button" className="ui-notif__close" aria-label={t('关闭通知')} onClick={onClose}>
             <Icon name="xmark" size={8} weight={2.2} />
           </button>
         ) : null}
@@ -76,7 +77,7 @@ export function NotificationBanner({
             </div>
             {subtitle ? <div className="ui-notif__subtitle">{subtitle}</div> : null}
             <div className="ui-notif__body">{body}</div>
-            {stacked ? <div className="ui-notif__more">{`另外 ${stacked} 条通知`}</div> : null}
+            {stacked ? <div className="ui-notif__more">{t('另外 {n} 条通知', { n: stacked })}</div> : null}
           </div>
         </div>
         {actions?.length ? (

@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { type Glyph, renderGlyph } from './controls'
@@ -62,7 +63,7 @@ export function Sidebar({
   iconStyle = 'glyph',
   className,
   style,
-  'aria-label': label = '侧栏',
+  'aria-label': label = t('侧栏'),
 }: SidebarProps) {
   const [current, setCurrent] = useControlled(selected, defaultSelected)
   const [collapsed, setCollapsed] = useState(defaultCollapsed)

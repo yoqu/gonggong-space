@@ -1,15 +1,15 @@
 import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { realtime } from '../../lib/realtime'
 import { Icon, type IconName } from '../../ui'
 import { openTab } from '../workbench/open'
 import { ContextMeter } from './ContextMeter'
 
-const WORKSPACE_LABEL = { managed: '托管', cd: '本机目录' } as const
+const WORKSPACE_LABEL = { managed: t('托管'), cd: t('本机目录') }
 
-function Commits({ icon, label, n }: { icon: IconName; label: string; n: number }) {
-  const name = `${label} ${n} 个提交`
+function Commits({ icon, name, n }: { icon: IconName; name: string; n: number }) {
   return (
     <span className="git-bar__ab" role="img" aria-label={name} title={name}>
       <Icon name={icon} size={12} />
@@ -32,14 +32,14 @@ function Item({
   const git = s.git
   const hint =
     s.state === 'unbound' ? (
-      <span className="git-bar__hint">待绑定</span>
+      <span className="git-bar__hint">{t('待绑定')}</span>
     ) : s.state === 'pending' && !git ? (
-      <span className="git-bar__hint">待创建</span>
+      <span className="git-bar__hint">{t('待创建')}</span>
     ) : s.state === 'cloning' ? (
-      <span className="git-bar__hint">clone 中…</span>
+      <span className="git-bar__hint">{t('clone 中…')}</span>
     ) : s.state === 'failed' ? (
       <span className="git-bar__error" title={s.error ?? undefined}>
-        工作区创建失败
+        {t('工作区创建失败')}
       </span>
     ) : null
   // Uncommitted work first; a clean feature branch shows what it holds against main.
@@ -58,9 +58,13 @@ function Item({
           {hint ?? (
             <>
               <span className="git-bar__branch">{git?.branch ?? '—'}</span>
-              {git?.behind ? <Commits icon="arrow-down" label="落后" n={git.behind} /> : null}
-              {git?.ahead ? <Commits icon="arrow-up" label="领先" n={git.ahead} /> : null}
-              {git?.dirty ? <span className="git-bar__dirty">未提交</span> : null}
+              {git?.behind ? (
+                <Commits icon="arrow-down" name={t('落后 {n} 个提交', { n: git.behind })} n={git.behind} />
+              ) : null}
+              {git?.ahead ? (
+                <Commits icon="arrow-up" name={t('领先 {n} 个提交', { n: git.ahead })} n={git.ahead} />
+              ) : null}
+              {git?.dirty ? <span className="git-bar__dirty">{t('未提交')}</span> : null}
             </>
           )}
           <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>
@@ -69,8 +73,13 @@ function Item({
       {s.context ? <ContextMeter groupId={groupId} bot={name} context={s.context} /> : null}
       {showGit ? (
         <span className="git-bar__actions">
-          <Action icon="git-branch" label={`查看 ${name} 的改动`} title="改动" onClick={diff} />
-          <Action icon="folder" label={`浏览 ${name} 的文件`} title="文件" onClick={files} />
+          <Action
+            icon="git-branch"
+            label={t('查看 {name} 的改动', { name })}
+            title={t('改动')}
+            onClick={diff}
+          />
+          <Action icon="folder" label={t('浏览 {name} 的文件', { name })} title={t('文件')} onClick={files} />
         </span>
       ) : null}
     </div>

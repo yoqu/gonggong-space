@@ -3,6 +3,7 @@
 //! the adapter's env only. The official login injects nothing. Keys go to the 0600 file or the child's env, never to
 //! argv, logs or errors.
 use crate::providers::{self, API_KEY, AUTH_TOKEN, EXTRA_ENV, Provider, Store};
+use crate::t;
 use anyhow::{Result, bail};
 use serde_json::{Map, Value, json};
 use std::io::Write;
@@ -35,7 +36,7 @@ pub fn claude_settings(p: &Provider) -> Result<Value> {
     let other = match key_field {
         AUTH_TOKEN => API_KEY,
         API_KEY => AUTH_TOKEN,
-        _ => bail!("供应商 {} 的 Key 字段 {key_field} 不受支持", p.name),
+        _ => bail!(t!("供应商 {name} 的 Key 字段 {field} 不受支持", name = p.name, field = key_field)),
     };
     let models = p.models.clone().unwrap_or_default();
     let or_blank = |v: &Option<String>| v.clone().unwrap_or_default();

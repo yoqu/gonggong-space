@@ -1,4 +1,5 @@
-import type { GitProvider } from '@gonggong/protocol'
+import type { GitProvider, I18nParams } from '@gonggong/protocol'
+import type { MessageKey } from '../../i18n/index.js'
 
 export const limits = { timeoutMs: 10_000 }
 const REPO_LIMIT = 30
@@ -10,9 +11,10 @@ const GITHUB_MAX_PAGES = 10
 export class ProviderError extends Error {
   constructor(
     readonly kind: 'unauthorized' | 'network' | 'http',
-    message: string,
+    readonly key: MessageKey,
+    readonly params?: I18nParams,
   ) {
-    super(message)
+    super(key)
   }
 }
 
@@ -40,7 +42,8 @@ async function get<T>(url: string, headers: Record<string, string>): Promise<T> 
     throw new ProviderError('network', '无法连接，请检查实例地址或证书')
   }
   if (res.status === 401) throw new ProviderError('unauthorized', 'Token 无效或已过期')
-  if (!res.ok) throw new ProviderError('http', `${new URL(url).host} 返回 ${res.status}`)
+  if (!res.ok)
+    throw new ProviderError('http', '{host} 返回 {status}', { host: new URL(url).host, status: res.status })
   return (await res.json()) as T
 }
 

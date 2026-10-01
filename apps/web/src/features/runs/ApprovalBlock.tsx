@@ -10,30 +10,31 @@ import { Button, Icon, Tag, type TagTone } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
 import { effectiveTier, TIER_LABEL } from './tier'
 import './approval.css'
+import { t } from '../../i18n'
 
 /** ACP tool kinds as the prototype names them. */
 export const VOID_TEXT = {
-  stopped: '运行已停止，请求作废',
-  chain_stopped: '链已终止，请求作废',
-  ended: '运行已结束，请求作废',
-} as const
+  stopped: t('运行已停止，请求作废'),
+  chain_stopped: t('链已终止，请求作废'),
+  ended: t('运行已结束，请求作废'),
+}
 
 const KIND: Record<string, string> = {
-  execute: '执行命令',
-  fetch: '访问网络',
-  edit: '写入文件',
-  delete: '删除文件',
-  move: '移动文件',
-  read: '读取文件',
-  search: '搜索',
+  execute: t('执行命令'),
+  fetch: t('访问网络'),
+  edit: t('写入文件'),
+  delete: t('删除文件'),
+  move: t('移动文件'),
+  read: t('读取文件'),
+  search: t('搜索'),
 }
 
 const DONE: Record<ApprovalDto['status'], [string, TagTone]> = {
-  pending: ['待审批', 'orange'],
-  approved: ['已批准', 'green'],
-  rejected: ['已拒绝', 'red'],
-  expired: ['已超时', 'gray'],
-  void: ['已作废', 'gray'],
+  pending: [t('待审批'), 'orange'],
+  approved: [t('已批准'), 'green'],
+  rejected: [t('已拒绝'), 'red'],
+  expired: [t('已超时'), 'gray'],
+  void: [t('已作废'), 'gray'],
 }
 
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
@@ -43,11 +44,11 @@ function outcome(a: ApprovalDto) {
   const at = a.decidedAt ? hm(a.decidedAt) : ''
   switch (a.status) {
     case 'approved':
-      return `${a.decidedByName} 已批准 · ${at}`
+      return t('{name} 已批准 · {at}', { name: a.decidedByName ?? '', at })
     case 'rejected':
-      return `${a.decidedByName} 已拒绝 · ${at} · agent 将自行绕路`
+      return t('{name} 已拒绝 · {at} · agent 将自行绕路', { name: a.decidedByName ?? '', at })
     case 'expired':
-      return `超时未处理，已自动拒绝 · ${at} · agent 将自行绕路`
+      return t('超时未处理，已自动拒绝 · {at} · agent 将自行绕路', { at })
     case 'void':
       return VOID_TEXT[a.voidReason ?? 'ended']
     default:
@@ -69,7 +70,7 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   const allow = pick(a.options, ['allow_once', 'allow_always'])
   const always = a.options.find((o) => o.kind === 'allow_always' && o !== allow)
   const reject = pick(a.options, ['reject_once', 'reject_always'])
-  const tier = `超出「${TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace']}」档位`
+  const tier = t('超出「{tier}」档位', { tier: TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace'] })
   const left = Date.parse(a.expiresAt) - now
 
   const decide = async (option: PermissionOption) => {
@@ -97,11 +98,11 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
         ) : (
           <Icon name="shield-warning" size={14} />
         )}
-        权限请求 · {KIND[a.toolKind] ?? '其他操作'}
+        {t('权限请求 · {kind}', { kind: KIND[a.toolKind] ?? t('其他操作') })}
       </div>
       <div className="approval__cmd">{a.detail}</div>
       <div className="approval__why">
-        {pending ? `${tier} · ${countdown(left)} 后自动拒绝，agent 自行绕路` : tier}
+        {pending ? t('{tier} · {time} 后自动拒绝，agent 自行绕路', { tier, time: countdown(left) }) : tier}
       </div>
       {pending ? (
         <div className="approval__actions">
@@ -111,18 +112,20 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
             disabled={!mine || busy || !allow}
             onClick={() => allow && decide(allow)}
           >
-            批准
+            {t('批准')}
           </Button>
           {always && (
             <Button size="small" disabled={!mine || busy} onClick={() => decide(always)}>
-              始终允许
+              {t('始终允许')}
             </Button>
           )}
           <Button size="small" disabled={!mine || busy || !reject} onClick={() => reject && decide(reject)}>
-            拒绝
+            {t('拒绝#reject')}
           </Button>
           <span className="approval__hint">
-            {mine ? '你是 Bot 主人' : `仅 Bot 主人 ${bot?.ownerName ?? ''} 可操作，你只能查看`}
+            {mine
+              ? t('你是 Bot 主人')
+              : t('仅 Bot 主人 {name} 可操作，你只能查看', { name: bot?.ownerName ?? '' })}
           </span>
         </div>
       ) : (

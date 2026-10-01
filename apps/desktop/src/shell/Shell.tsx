@@ -1,5 +1,6 @@
 import { Avatar, Sidebar, useScrollEdge } from '@web/ui'
 import { useState } from 'react'
+import { t } from '../i18n'
 import { PAGES, type PageKey, SECTIONS } from '../pages'
 import { useDaemon, useHeading } from '../store'
 import { StatusLine } from './StatusLine'
@@ -19,7 +20,7 @@ export function Shell() {
       <aside className="dk-sidebar">
         <div className="dk-sidebar__lights" data-tauri-drag-region="deep" />
         <Sidebar
-          aria-label="导航"
+          aria-label={t('导航')}
           iconStyle="tile"
           selected={page}
           onSelect={(id) => setPage(id as PageKey)}
@@ -30,9 +31,9 @@ export function Shell() {
         />
         {info ? (
           <div className="dk-me">
-            <Avatar name={info.ownerName ?? '未绑定'} size={28} />
+            <Avatar name={info.ownerName ?? t('未绑定')} size={28} />
             <div className="dk-me__text">
-              <span className="dk-strong dk-ellipsis">{info.ownerName ?? '未绑定'}</span>
+              <span className="dk-strong dk-ellipsis">{info.ownerName ?? t('未绑定')}</span>
               <span className="dk-sub dk-ellipsis">
                 {info.machine.name} · {OS[info.machine.os] ?? info.machine.os}
               </span>

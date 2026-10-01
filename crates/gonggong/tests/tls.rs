@@ -67,6 +67,7 @@ fn machine() -> MachineInfo {
 }
 
 fn config(server: &str, pin: Option<&str>) -> Config {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     Config {
         server: server.into(),
         token: "mt_1".into(),
@@ -88,6 +89,7 @@ async fn login_trusts_the_first_certificate_and_records_it() {
 
 #[tokio::test]
 async fn login_with_a_fingerprint_accepts_only_that_certificate() {
+    gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
     let (url, fp) = serve(Reply::Json(LOGIN)).await;
     let lower = format!("sha256:{}", fp.to_lowercase());
     let (cfg, _) = bind::login(&url, "AAAA-AAAA", machine(), Some(&lower)).await.unwrap();

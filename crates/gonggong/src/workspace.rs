@@ -9,6 +9,7 @@ use crate::protocol::{
 use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
 use crate::session::{Shared, TurnReq};
+use crate::t;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -46,9 +47,6 @@ struct Holder {
     label: String,
 }
 
-const PARALLEL: &str = "并行开始";
-const QUEUE: &str = "排队等待";
-
 /// Whether the answer to the shared-directory confirmation chose to run in parallel.
 pub(crate) fn parallel(answers: &[Answer]) -> bool {
     answers.first().is_some_and(|a| a.choices == [0])
@@ -59,12 +57,12 @@ fn dir_question(dir: &Path, others: &[Holder]) -> Question {
     Question {
         id: "q1".into(),
         kind: QuestionType::Single,
-        title: format!(
-            "工作区 {} 正在被 {} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
-            dir.display(),
-            names.join("、")
+        title: t!(
+            "工作区 {dir} 正在被 {holders} 使用。改动范围不重叠时可以并行；改到同一文件会互相覆盖。现在就开始吗？",
+            dir = dir.display(),
+            holders = names.join(t!("、"))
         ),
-        options: vec![PARALLEL.into(), QUEUE.into()],
+        options: vec![t!("并行开始").into(), t!("排队等待").into()],
         recommended: Some(1),
     }
 }
@@ -117,7 +115,7 @@ impl Workspaces {
         let dir = self.dirs.lock().unwrap().entry(key.clone()).or_insert_with(|| watch::Sender::new(vec![])).clone();
         let me = Holder {
             run_id: req.start.run_id.clone(),
-            label: format!("{}（群「{}」）", req.start.bot.name, req.start.group_name),
+            label: t!("{bot}（群「{group}」）", bot = req.start.bot.name, group = req.start.group_name),
         };
         let mut changed = dir.subscribe();
         let (mut ask, mut go) = (Ask::Unasked, false);
@@ -133,7 +131,7 @@ impl Workspaces {
             });
             if taken {
                 if let Ask::Pending(request_id, _) = &ask {
-                    shared.withdraw(request_id, "工作区已空闲，开始运行");
+                    shared.withdraw(request_id, t!("工作区已空闲，开始运行"));
                 }
                 return DirGuard { dir, run_id: me.run_id };
             }
@@ -201,7 +199,7 @@ impl Workspaces {
     pub async fn resolve(&self, start: &RunStart) -> Result<PathBuf, String> {
         if let Some(path) = &start.workspace.cd_path {
             let dir = PathBuf::from(path);
-            return if dir.is_dir() { Ok(dir) } else { Err(format!("/cd 目录不存在：{path}")) };
+            return if dir.is_dir() { Ok(dir) } else { Err(t!("/cd 目录不存在：{path}", path = path)) };
         }
         let lock = self.lock(&start.group_id, &start.bot.id);
         let _guard = lock.lock().await;
@@ -247,7 +245,7 @@ fn report(out: &Outbox, group: &str, bot: &str, request_id: &str, outcome: Optio
 /// Makes `dir` a usable workspace: an existing clone is kept as is; anything else there is replaced by a fresh clone.
 async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -> Result<(), Failed> {
     let Some(repo) = repo else {
-        let io = |e| format!("无法创建工作区 {}: {e}", dir.display());
+        let io = |e: std::io::Error| t!("无法创建工作区 {path}: {e}", path = dir.display(), e = e);
         return Ok(tokio::fs::create_dir_all(dir).await.map_err(io)?);
     };
     if is_clone_root(dir).await {
@@ -286,7 +284,7 @@ async fn is_clone_root(dir: &Path) -> bool {
 async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
     let parent = dir.parent().expect("managed paths have a parent");
     let partial = dir.with_extension("partial");
-    let io = |e: std::io::Error| format!("无法创建工作区 {}: {e}", dir.display());
+    let io = |e: std::io::Error| t!("无法创建工作区 {path}: {e}", path = dir.display(), e = e);
     tokio::fs::create_dir_all(parent).await.map_err(io)?;
     if dir.exists() {
         tokio::fs::remove_dir_all(dir).await.map_err(io)?;
@@ -312,7 +310,7 @@ async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
     }
     let _ = tokio::fs::remove_dir_all(&partial).await;
     let f = first.expect("candidates is never empty");
-    Err(Failed { reason: Some(f.reason), message: format!("clone 失败：{}", f.detail) })
+    Err(Failed { reason: Some(f.reason), message: t!("clone 失败：{detail}", detail = f.detail) })
 }
 
 /// /cd target must be an absolute, existing, usable directory; with a group repo also a work tree of that repo.
@@ -323,22 +321,23 @@ async fn check_cd(dir: &Path, repo: Option<&RepoSpec>) -> Result<(), String> {
     }
     let Some(repo) = repo else { return Ok(()) };
     if !git(dir, &["rev-parse", "--is-inside-work-tree"]).await.is_ok_and(|s| s.trim() == "true") {
-        return Err("不是 git 仓库".into());
+        return Err(t!("不是 git 仓库").into());
     }
     let urls = remotes(dir).await;
     let want = normalize_remote(&repo.url);
     if urls.iter().any(|u| normalize_remote(u) == want) {
         return Ok(());
     }
-    Err(format!("remote 与群仓库不一致（{}）", if urls.is_empty() { "无 remote".into() } else { urls.join("、") }))
+    let found = if urls.is_empty() { t!("无 remote").into() } else { urls.join(t!("、")) };
+    Err(t!("remote 与群仓库不一致（{found}）", found = found))
 }
 
 fn existing_dir(dir: &Path) -> Result<(), String> {
     if !dir.is_absolute() {
-        return Err("需要本机绝对路径".into());
+        return Err(t!("需要本机绝对路径").into());
     }
     if !dir.is_dir() {
-        return Err("目录不存在".into());
+        return Err(t!("目录不存在").into());
     }
     Ok(())
 }
@@ -351,9 +350,9 @@ pub fn unusable(dir: &Path) -> Option<String> {
     let real = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
     let home = user_home();
     if real.parent().is_none() || real == home.canonicalize().unwrap_or(home) {
-        return Some("目录范围过大，请选择具体的项目目录".into());
+        return Some(t!("目录范围过大，请选择具体的项目目录").into());
     }
-    SYSTEM_DIRS.iter().any(|d| real.starts_with(d)).then(|| "不能使用系统目录".into())
+    SYSTEM_DIRS.iter().any(|d| real.starts_with(d)).then(|| t!("不能使用系统目录").into())
 }
 
 /// Remote URLs configured in the repo containing `dir`.
@@ -474,7 +473,7 @@ impl Entry {
     /// `私聊` for DMs; the id when the server no longer knows the group.
     pub fn group_label(&self) -> String {
         match (&self.group_name, self.dm) {
-            (_, true) => "私聊".into(),
+            (_, true) => t!("私聊").into(),
             (Some(name), false) => name.clone(),
             (None, false) => self.group_id.clone(),
         }
@@ -493,19 +492,19 @@ impl Entry {
 
     pub fn kind_label(&self) -> &'static str {
         match self.kind {
-            EntryKind::Managed => "托管",
-            EntryKind::Empty => "托管 · 无仓库",
-            EntryKind::Cd => "本机目录",
+            EntryKind::Managed => t!("托管"),
+            EntryKind::Empty => t!("托管 · 无仓库"),
+            EntryKind::Cd => t!("本机目录"),
         }
     }
 
     pub fn state_label(&self) -> String {
         let size = self.size.map(|s| format!(" · {}", human_size(s))).unwrap_or_default();
         match self.state {
-            EntryState::Running => "运行中".into(),
-            EntryState::Idle => "空闲".into(),
-            EntryState::Removed => format!("已移出{size}"),
-            EntryState::Unused => format!("未使用{size}"),
+            EntryState::Running => t!("运行中").into(),
+            EntryState::Idle => t!("空闲").into(),
+            EntryState::Removed => t!("已移出{size}", size = size),
+            EntryState::Unused => t!("未使用{size}", size = size),
         }
     }
 }
@@ -613,7 +612,7 @@ pub fn dir_size(path: &Path, max_entries: usize) -> u64 {
 /// `<home>/workspaces/<group>/<bot>/<leaf>`. Emptied bot and group dirs go too.
 pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
     if !entry.deletable() {
-        return Err("只能删除已移出或未使用的托管工作区".into());
+        return Err(t!("只能删除已移出或未使用的托管工作区").into());
     }
     let inside = entry
         .path
@@ -621,9 +620,9 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
         .is_ok_and(|rel| rel.components().count() == 3 && rel.components().all(|c| matches!(c, Component::Normal(_))));
     let is_dir = std::fs::symlink_metadata(&entry.path).is_ok_and(|m| m.is_dir());
     if !inside || !is_dir {
-        return Err(format!("不是托管工作区目录：{}", entry.path.display()));
+        return Err(t!("不是托管工作区目录：{path}", path = entry.path.display()));
     }
-    std::fs::remove_dir_all(&entry.path).map_err(|e| format!("删除失败：{e}"))?;
+    std::fs::remove_dir_all(&entry.path).map_err(|e| t!("删除失败：{e}", e = e))?;
     for dir in entry.path.ancestors().skip(1).take(2) {
         if std::fs::remove_dir(dir).is_err() {
             break;

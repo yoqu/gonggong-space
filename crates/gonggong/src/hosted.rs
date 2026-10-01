@@ -400,7 +400,7 @@ impl Services {
         let h = self
             .find_id(id)
             .or_else(|| self.0.ended.lock().unwrap().get(id).cloned())
-            .ok_or("本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动")?;
+            .ok_or(crate::t!("本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动"))?;
         let (group_id, bot_id, name) = {
             let i = h.info.lock().unwrap();
             (i.group_id.clone(), i.bot_id.clone(), i.name.clone())
@@ -411,7 +411,7 @@ impl Services {
             How::Command(args) => self.start(scope, args.clone()).await,
             How::Static(dir) => {
                 let port = self.start_static(scope, &name, dir).await?;
-                Ok(format!("静态站点 {name} 已重新开放，端口 {port}"))
+                Ok(crate::t!("静态站点 {name} 已重新开放，端口 {port}", name = name, port = port))
             }
         }
     }

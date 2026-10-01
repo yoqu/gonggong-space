@@ -1,4 +1,5 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
+import { t } from '../../i18n'
 
 const MAX = 360
 // Only clamp when there is clearly more to hide than the toggle costs.
@@ -25,7 +26,7 @@ export function Clamp({ children }: { children: ReactNode }) {
       </div>
       {over ? (
         <button type="button" className="clamp__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? '收起' : '展开全文'}
+          {open ? t('收起') : t('展开全文')}
         </button>
       ) : null}
     </div>

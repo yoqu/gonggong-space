@@ -11,6 +11,7 @@ import { BindMachineDialog } from '../features/machines/BindMachineDialog'
 import { MachineDialog } from '../features/machines/MachineDialog'
 import { openTab } from '../features/workbench/open'
 import { Workbench } from '../features/workbench/Workbench'
+import { t } from '../i18n'
 import { api } from '../lib/api'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence } from '../ui'
@@ -178,9 +179,9 @@ export function ChatPage() {
           ) : (
             <div className="chat__placeholder">
               {workspaceLoaded ? (
-                <EmptyState illustration={<DeniedArt />} title="Bot 不存在或已删除" />
+                <EmptyState illustration={<DeniedArt />} title={t('Bot 不存在或已删除')} />
               ) : (
-                <Mascot action="wait" size={72} label="加载中" />
+                <Mascot action="wait" size={72} label={t('加载中')} />
               )}
             </div>
           )
@@ -188,15 +189,15 @@ export function ChatPage() {
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
-            <Mascot action="wait" size={72} label="加载中" />
+            <Mascot action="wait" size={72} label={t('加载中')} />
           </div>
         ) : groupsState === 'error' ? (
           <div className="chat__placeholder">
             <EmptyState
               illustration={<FailedArt />}
-              title="加载失败"
-              description="无法获取群列表，请检查网络后重试。"
-              action={<Button onClick={retryGroups}>重试</Button>}
+              title={t('加载失败')}
+              description={t('无法获取群列表，请检查网络后重试。')}
+              action={<Button onClick={retryGroups}>{t('重试')}</Button>}
             />
           </div>
         ) : firstRun && me ? (
@@ -214,8 +215,8 @@ export function ChatPage() {
           <div className="chat__placeholder">
             <EmptyState
               illustration={groupId ? <DeniedArt /> : <PickChatArt />}
-              title={groupId ? '群不存在或你已不在群内' : '选择一个群或私聊开始'}
-              description="在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。"
+              title={groupId ? t('群不存在或你已不在群内') : t('选择一个群或私聊开始')}
+              description={t('在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。')}
             />
           </div>
         )}

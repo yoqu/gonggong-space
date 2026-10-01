@@ -143,7 +143,10 @@ export function machineRoutes(ctx: Ctx) {
               .select({ name: users.name })
               .from(users)
               .where(eq(users.id, prev.ownerId))
-            fail('conflict', `这台机器已归属 ${holder?.name}，其上还有 ${n} 个 Bot，需先删除后才能转给你`)
+            fail('conflict', '这台机器已归属 {owner}，其上还有 {n} 个 Bot，需先删除后才能转给你', {
+              owner: holder?.name ?? '',
+              n,
+            })
           }
         }
         const values = { ownerId: claimed.userId, ...body.machine, tokenHash: sha256(token), boundAt: now }
@@ -169,7 +172,10 @@ export function machineRoutes(ctx: Ctx) {
         if (!row) return fail('unauthorized', '绑定码无效，请核对后重试')
         if (row.failedAttempts > CODE_MAX_FAILURES)
           return fail('code_locked', '绑定码已作废，请在 Web 端重新生成')
-        return fail('code_expired', `绑定码${row.usedAt ? '已被使用' : '已过期'}，请在 Web 端重新生成`)
+        return fail(
+          'code_expired',
+          row.usedAt ? '绑定码已被使用，请在 Web 端重新生成' : '绑定码已过期，请在 Web 端重新生成',
+        )
       }
       const { machine, ownerName, prev } = bound
       // A daemon still running on the old token must not keep serving; it reconnects and is told to log in.
@@ -213,7 +219,7 @@ export function machineRoutes(ctx: Ctx) {
 
     app.patch<{ Params: { id: string } }>('/api/machines/:id', async (req): Promise<MachineDto> => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '机器')
+      const id = idParam(req.params.id, '机器不存在')
       const { name } = UpdateMachineReq.parse(req.body)
       const [m] = await ctx.db
         .select()
@@ -230,7 +236,7 @@ export function machineRoutes(ctx: Ctx) {
 
     app.delete<{ Params: { id: string } }>('/api/machines/:id', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '机器')
+      const id = idParam(req.params.id, '机器不存在')
       const [m] = await ctx.db
         .select()
         .from(machines)
@@ -241,7 +247,7 @@ export function machineRoutes(ctx: Ctx) {
         .select({ n: count() })
         .from(bots)
         .where(and(eq(bots.machineId, id), isNull(bots.deletedAt)))
-      if (n) return fail('conflict', `还有 ${n} 个 Bot 绑定在这台机器上，请先删除`)
+      if (n) return fail('conflict', '还有 {n} 个 Bot 绑定在这台机器上，请先删除', { n })
       await ctx.db.update(machines).set({ revokedAt: ctx.now() }).where(eq(machines.id, id))
       ctx.hub.kick(id, CLOSE.revoked, 'revoked')
       ctx.bus.publish([m.ownerId], { t: 'machine.removed', machineId: id })

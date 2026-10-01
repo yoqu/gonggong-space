@@ -1,6 +1,7 @@
 //! @ file candidates from a (group, bot) workspace (spec §8.7): git-visible files incl. uncommitted, plus folders.
 use crate::git::{self, git};
 use crate::protocol::FileEntry;
+use crate::t;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -11,7 +12,7 @@ const SKIP: [&str; 3] = [".gonggong", ".git", "node_modules"];
 /// Entries matching `query` (case-insensitive prefix / substring / subsequence), best first; folders end with `/`.
 pub async fn list(dir: &Path, query: &str, limit: usize) -> Result<Vec<FileEntry>, String> {
     if !dir.is_dir() {
-        return Err(format!("工作区不存在：{}", dir.display()));
+        return Err(t!("工作区不存在：{path}", path = dir.display()));
     }
     let files = if git::is_repo(dir) { tracked(dir).await? } else { walk(dir.to_path_buf()).await? };
     let mut entries: Vec<(Rank, FileEntry)> = with_dirs(files)
@@ -67,7 +68,7 @@ async fn walk(root: std::path::PathBuf) -> Result<BTreeMap<String, bool>, String
         files
     })
     .await
-    .map_err(|e| format!("遍历工作区失败：{e}"))
+    .map_err(|e| t!("遍历工作区失败：{e}", e = e))
 }
 
 /// Files plus every ancestor folder (`a/`, `a/b/`) → (dir, uncommitted).

@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { nextEnabled, useControlled } from './controlled'
 import { Button, type ButtonSize } from './controls'
@@ -176,7 +177,7 @@ export function Select<V extends string>({
   options,
   value,
   onChange,
-  placeholder = '请选择',
+  placeholder = t('请选择'),
   disabled,
   label,
 }: {

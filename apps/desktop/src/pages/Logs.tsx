@@ -11,6 +11,7 @@ import {
   toast,
 } from '@web/ui'
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 import { type Check, type CheckStatus, ipc, type LogLevel, type LogLine, type NetResult } from '../ipc'
 import { Section } from '../lib/ui'
 import { openGuide } from '../permissions'
@@ -27,10 +28,10 @@ const ICONS: Record<Check['kind'], IconName> = {
 }
 
 const STATUS: Record<CheckStatus, { color: string; tone: TagTone; text: string }> = {
-  ok: { color: 'var(--system-green)', tone: 'green', text: '正常' },
-  warn: { color: 'var(--system-orange)', tone: 'orange', text: '注意' },
-  error: { color: 'var(--system-red)', tone: 'red', text: '异常' },
-  skipped: { color: 'var(--system-gray)', tone: 'gray', text: '跳过' },
+  ok: { color: 'var(--system-green)', tone: 'green', text: t('正常') },
+  warn: { color: 'var(--system-orange)', tone: 'orange', text: t('注意') },
+  error: { color: 'var(--system-red)', tone: 'red', text: t('异常') },
+  skipped: { color: 'var(--system-gray)', tone: 'gray', text: t('跳过') },
 }
 
 const LEVELS: { value: LogLevel; label: string }[] = [
@@ -60,8 +61,8 @@ export function LogsPage(_: PageProps) {
   useEffect(() => {
     const load = () => ipc.recentLogs(level, LOG_LIMIT).then(setLines, () => {})
     load()
-    const t = setInterval(load, REFRESH_MS)
-    return () => clearInterval(t)
+    const timer = setInterval(load, REFRESH_MS)
+    return () => clearInterval(timer)
   }, [level])
 
   const measure = async () => {
@@ -78,7 +79,7 @@ export function LogsPage(_: PageProps) {
     setExporting(true)
     try {
       const path = await ipc.exportDiagnostics()
-      if (path) toast({ type: 'success', message: `诊断包已导出：${path}` })
+      if (path) toast({ type: 'success', message: t('诊断包已导出：{path}', { path }) })
     } catch (e) {
       fail(e)
     } finally {
@@ -88,7 +89,7 @@ export function LogsPage(_: PageProps) {
 
   return (
     <>
-      <Section title="诊断">
+      <Section title={t('诊断')}>
         <GroupBox>
           {(checks ?? []).map((c) => (
             <div key={c.kind} className="dk-row" data-testid="check" data-status={c.status}>
@@ -102,42 +103,45 @@ export function LogsPage(_: PageProps) {
               <Tag tone={STATUS[c.status].tone}>{STATUS[c.status].text}</Tag>
               {c.status === 'warn' && (c.kind === 'screen_recording' || c.kind === 'accessibility') ? (
                 <Button size="small" onClick={openGuide}>
-                  去授权
+                  {t('去授权')}
                 </Button>
               ) : null}
             </div>
           ))}
-          {checks?.length === 0 ? <EmptyState compact icon="warning" title="诊断未完成" /> : null}
+          {checks?.length === 0 ? <EmptyState compact icon="warning" title={t('诊断未完成')} /> : null}
           {checks ? null : (
             <div className="dk-row">
               <Spinner />
               <span className="dk-sub">
-                正在检测服务器连接、Agent、git 凭据、磁盘与换行符，可能需要半分钟…
+                {t('正在检测服务器连接、Agent、git 凭据、磁盘与换行符，可能需要半分钟…')}
               </span>
             </div>
           )}
         </GroupBox>
         <div className="dk-inline">
           <Button onClick={measure} disabled={net === 'measuring'}>
-            测量延迟与带宽
+            {t('测量延迟与带宽')}
           </Button>
           <Button onClick={exportBundle} disabled={exporting}>
-            导出诊断包…
+            {t('导出诊断包…')}
           </Button>
           <span className="dk-sub">
             {net === 'measuring'
-              ? '测量中…'
+              ? t('测量中…')
               : net
-                ? `延迟 ${net.latencyMs} ms · 带宽 ${net.bandwidthMbps} Mbps · 已上报服务器`
+                ? t('延迟 {ms} ms · 带宽 {mbps} Mbps · 已上报服务器', {
+                    ms: net.latencyMs,
+                    mbps: net.bandwidthMbps,
+                  })
                 : ''}
           </span>
         </div>
       </Section>
       <Section
-        title="最近日志"
+        title={t('最近日志')}
         aside={
           <SegmentedControl
-            aria-label="日志级别"
+            aria-label={t('日志级别')}
             size="small"
             items={LEVELS}
             value={level}
@@ -146,7 +150,7 @@ export function LogsPage(_: PageProps) {
         }
       >
         <div className="dk-logpane" data-testid="log-pane">
-          {lines.length === 0 ? <EmptyState compact icon="doc-text" title="暂无日志" /> : null}
+          {lines.length === 0 ? <EmptyState compact icon="doc-text" title={t('暂无日志')} /> : null}
           {lines.map((l, i) => (
             // Lines have no identity; the list is replaced wholesale on every refresh.
             // biome-ignore lint/suspicious/noArrayIndexKey: see above

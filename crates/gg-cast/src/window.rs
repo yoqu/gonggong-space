@@ -1,5 +1,6 @@
 //! What is published, as an input target: a window (its frame from xcap, raised through macOS accessibility), or on
 //! Linux the whole screen of a virtual display that belongs to one app (plan B3).
+use crate::i18n::t;
 use crate::input::{Frame, Target};
 use anyhow::Context;
 
@@ -17,7 +18,7 @@ pub enum Shown {
 #[cfg(target_os = "linux")]
 pub fn screen() -> anyhow::Result<Frame> {
     use x11rb::connection::Connection;
-    let (conn, n) = x11rb::connect(None).context("无法连接虚拟显示（DISPLAY）")?;
+    let (conn, n) = x11rb::connect(None).context(t!("无法连接虚拟显示（DISPLAY）"))?;
     let root = &conn.setup().roots[n];
     Ok(Frame { x: 0, y: 0, width: root.width_in_pixels.into(), height: root.height_in_pixels.into() })
 }
@@ -29,7 +30,8 @@ impl Target for Shown {
             Shown::Screen => screen(),
             #[cfg(not(target_os = "linux"))]
             Shown::Window { id, .. } => {
-                let w = xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(*id)).context("窗口已关闭")?;
+                let w =
+                    xcap::Window::all()?.into_iter().find(|w| w.id().ok() == Some(*id)).context(t!("窗口已关闭"))?;
                 Ok(Frame { x: w.x()?, y: w.y()?, width: w.width()?, height: w.height()? })
             }
         }

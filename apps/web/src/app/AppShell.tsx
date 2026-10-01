@@ -5,6 +5,7 @@ import { NotificationPanel } from '../features/notifications/NotificationPanel'
 import { syncPush } from '../features/notifications/push'
 import { SearchOverlay } from '../features/search/SearchOverlay'
 import { SettingsHost } from '../features/settings/SettingsDialog'
+import { t } from '../i18n'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { useIsMobile } from './viewport'
@@ -23,21 +24,21 @@ export function ShellBar({ onNewGroup }: { onNewGroup?: () => void }) {
   const mobile = useIsMobile()
   return (
     <div className="shellbar">
-      <Toolbar leading={<Logo size={20} />} title="共工空间" scrolled={false}>
+      <Toolbar leading={<Logo size={20} />} title={t('共工空间')} scrolled={false}>
         {onNewGroup ? (
           <ToolbarGroup>
-            <ToolbarButton icon="plus" label="新建群" onClick={onNewGroup} />
+            <ToolbarButton icon="plus" label={t('新建群')} onClick={onNewGroup} />
           </ToolbarGroup>
         ) : null}
       </Toolbar>
       <button
         type="button"
         className="shellbar__search"
-        aria-label="搜索消息、文件、运行"
+        aria-label={t('搜索消息、文件、运行')}
         onClick={() => set('search')}
       >
         <Icon name="search" size={13} weight={1.7} />
-        <span className="shellbar__placeholder">搜索</span>
+        <span className="shellbar__placeholder">{t('搜索')}</span>
         {mobile ? null : (
           <kbd className="shellbar__kbd">{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K'}</kbd>
         )}
@@ -84,7 +85,7 @@ export function AppShell() {
     <div className="app">
       {mobile && lost ? (
         <div className="app__offline" role="status">
-          连接已断开，正在重连…
+          {t('连接已断开，正在重连…')}
         </div>
       ) : null}
       <div className="app__body">

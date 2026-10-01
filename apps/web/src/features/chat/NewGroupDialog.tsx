@@ -21,6 +21,7 @@ import {
 } from '../repos/repo-access'
 import { repoName } from './repo'
 import './chat.css'
+import { t } from '../../i18n'
 
 export type GroupKind = GroupDto['kind']
 
@@ -62,9 +63,9 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
   const status = !bound
     ? ''
     : branchMissing(repo)
-      ? `分支 ${repo.branch.trim() || 'main'} 不存在`
+      ? t('分支 {branch} 不存在', { branch: repo.branch.trim() || 'main' })
       : paused
-        ? `${paused} 个 Bot 进群后暂停，主人配置凭据后可重新检查`
+        ? t('{n} 个 Bot 进群后暂停，主人配置凭据后可重新检查', { n: paused })
         : ''
 
   const submit = async () => {
@@ -92,14 +93,14 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
       open
       width={520}
       closeOnBackdrop={false}
-      title={dm ? '新建私聊' : '新建群'}
+      title={dm ? t('新建私聊') : t('新建群')}
       onClose={onClose}
       footer={
         <>
           <span className="ng-foot">{status}</span>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('取消')}</Button>
           <Button variant="primary" disabled={disabled || checking} onClick={() => void submit()}>
-            {checking ? '检查中…' : '创建'}
+            {checking ? t('检查中…') : t('创建')}
           </Button>
         </>
       }
@@ -107,14 +108,14 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
       <div className="ng">
         {dm ? null : (
           <section className="ng-section">
-            <h3 className="ng-section__title">名称</h3>
+            <h3 className="ng-section__title">{t('名称')}</h3>
             <GroupBox>
               <div className="ng-name">
                 <Input
-                  aria-label="名称"
+                  aria-label={t('名称')}
                   value={name}
                   maxLength={60}
-                  placeholder="如：退款 v2 迁移"
+                  placeholder={t('如：退款 v2 迁移')}
                   onChange={(e) => {
                     setNameTouched(true)
                     setName(e.target.value)
@@ -142,7 +143,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                   {r ? <AccessResult result={r} /> : <BotPresence bot={b} />}
                   <IconButton
                     size="small"
-                    title={`移除 ${b.name}`}
+                    title={t('移除 {name}', { name: b.name })}
                     onClick={() => setBotIds(botIds.filter((id) => id !== b.id))}
                   >
                     {'minus' as const}
@@ -154,7 +155,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
               className="ng-add"
               trigger={
                 <button type="button" className="ng-add__trigger">
-                  添加 Bot…
+                  {t('添加 Bot…')}
                 </button>
               }
               bots={choices}
@@ -167,19 +168,19 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
         {dm ? null : (
           <section className="ng-section">
             <h3 className="ng-section__title">
-              成员 · {1 + owners.length + manual.length}
-              {owners.length ? '（Bot 主人自动加入）' : ''}
+              {t('成员 · {n}', { n: 1 + owners.length + manual.length })}
+              {owners.length ? t('（Bot 主人自动加入）') : ''}
             </h3>
             <GroupBox>
-              <fieldset className="ng-members" aria-label="成员">
-                <span className="ng-member ng-member--fixed" title="群管理员">
+              <fieldset className="ng-members" aria-label={t('成员')}>
+                <span className="ng-member ng-member--fixed" title={t('群管理员')}>
                   {me.name}
-                  <span className="ng-member__sub">群管理员</span>
+                  <span className="ng-member__sub">{t('群管理员')}</span>
                 </span>
                 {owners.map((id) => (
-                  <span key={id} className="ng-member ng-member--fixed" title="Bot 主人，自动加入">
+                  <span key={id} className="ng-member ng-member--fixed" title={t('Bot 主人，自动加入')}>
                     {userName(id)}
-                    <span className="ng-member__sub">Bot 主人</span>
+                    <span className="ng-member__sub">{t('Bot 主人')}</span>
                   </span>
                 ))}
                 {manual.map((id) => (
@@ -188,7 +189,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                     <button
                       type="button"
                       className="ng-member__x"
-                      aria-label={`移除 ${userName(id)}`}
+                      aria-label={t('移除 {name}', { name: userName(id) })}
                       onClick={() => setPeople(people.filter((p) => p !== id))}
                     >
                       <Icon name="xmark" size={9} weight={2.4} />
@@ -197,7 +198,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                 ))}
                 <MemberPicker
                   trigger={
-                    <button type="button" className="ng-member ng-member--add" aria-label="添加成员">
+                    <button type="button" className="ng-member ng-member--add" aria-label={t('添加成员')}>
                       <Icon name="plus" size={11} weight={2} />
                     </button>
                   }

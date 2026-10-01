@@ -218,6 +218,20 @@
       "when": 1790745364082,
       "tag": "0030_cold_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790777534905,
+      "tag": "0031_harsh_kid_colt",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790778638942,
+      "tag": "0032_curly_skrulls",
+      "breakpoints": true
     }
   ]
 }

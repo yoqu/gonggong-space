@@ -1,5 +1,6 @@
 import { SYSTEM_PARAM_VIEW, type SystemParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
@@ -29,21 +30,21 @@ const STEP: Partial<Record<Key, number>> = { forceSyncMinBandwidthMbps: 0.1 }
 
 const SECTIONS: { title: string; keys: Key[] }[] = [
   {
-    title: '同步与锁',
+    title: t('同步与锁'),
     keys: ['writerDisconnectReleaseSec', 'forceSyncMaxLatencyMs', 'forceSyncMinBandwidthMbps'],
   },
-  { title: '运行与会话', keys: ['sessionReplayCount', 'contextInlineMax', 'questionsPerCard'] },
-  { title: '附件', keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
-  { title: '机器连接', keys: ['heartbeatSec', 'offlineMisses'] },
-  { title: '数据保留', keys: ['runRetentionDays', 'backupRetentionDays', 'archiveRetentionDays'] },
+  { title: t('运行与会话'), keys: ['sessionReplayCount', 'contextInlineMax', 'questionsPerCard'] },
+  { title: t('附件#nav'), keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
+  { title: t('机器连接'), keys: ['heartbeatSec', 'offlineMisses'] },
+  { title: t('数据保留'), keys: ['runRetentionDays', 'backupRetentionDays', 'archiveRetentionDays'] },
   {
-    title: '群与 Bot 默认值',
+    title: t('群与 Bot 默认值'),
     keys: ['approvalTimeoutMin', 'chainMaxHops', 'offlineWaitMin', 'botConcurrencyDefault'],
   },
 ]
 const listed = new Set(SECTIONS.flatMap((g) => g.keys))
 const unlisted = SYSTEM_PARAM_VIEW.filter((v) => !listed.has(v.key)).map((v) => v.key)
-const GROUPS = unlisted.length ? [...SECTIONS, { title: '其他', keys: unlisted }] : SECTIONS
+const GROUPS = unlisted.length ? [...SECTIONS, { title: t('其他'), keys: unlisted }] : SECTIONS
 const VIEW = new Map(SYSTEM_PARAM_VIEW.map((v) => [v.key, v]))
 
 /** 管理后台 · 系统参数 (spec §10): system-wide defaults; group admins override the group-level ones. */
@@ -84,7 +85,7 @@ export function ParamsPage() {
     try {
       const next = await api.put<SystemParams>('/admin/params', { registrationOpen })
       setSaved((s) => (s ? { ...s, registrationOpen: next.registrationOpen } : next))
-      toast({ type: 'success', message: registrationOpen ? '已开放自助注册' : '已关闭自助注册' })
+      toast({ type: 'success', message: registrationOpen ? t('已开放自助注册') : t('已关闭自助注册') })
     } catch (err) {
       toastError(err)
     }
@@ -97,7 +98,7 @@ export function ParamsPage() {
     setError('')
     try {
       reset(await api.put<SystemParams>('/admin/params', patch))
-      toast({ type: 'success', message: '系统参数已保存，已写入审计记录' })
+      toast({ type: 'success', message: t('系统参数已保存，已写入审计记录') })
     } catch (err) {
       setError(errorText(err))
     } finally {
@@ -106,19 +107,19 @@ export function ParamsPage() {
   }
 
   return (
-    <AdminPage title="系统参数" desc="全局默认值；群级参数由群管理员在群设置中调整。">
+    <AdminPage title={t('系统参数')} desc={t('全局默认值；群级参数由群管理员在群设置中调整。')}>
       {error ? <Alert variant="error" description={error} /> : null}
       {saved ? (
         <section className="admin-params">
-          <h2 className="admin-params__title">账号</h2>
+          <h2 className="admin-params__title">{t('账号')}</h2>
           <GroupBox>
             <GroupRow
-              label="开放自助注册"
-              description="开启后登录页显示注册入口，注册即成为普通成员；关闭后只能由管理员创建账号。"
+              label={t('开放自助注册')}
+              description={t('开启后登录页显示注册入口，注册即成为普通成员；关闭后只能由管理员创建账号。')}
             >
               <Switch
-                ariaLabel="开放自助注册"
-                label={saved.registrationOpen ? '已开放' : '已关闭'}
+                ariaLabel={t('开放自助注册')}
+                label={saved.registrationOpen ? t('已开放') : t('已关闭#off')}
                 checked={saved.registrationOpen}
                 onChange={(v) => void setRegistration(v)}
               />
@@ -140,7 +141,7 @@ export function ParamsPage() {
                     className={cx('admin-param', edited && 'is-dirty')}
                     label={
                       <span className="admin-param__label">
-                        {edited ? <span className="admin-param__dot" title="已修改" /> : null}
+                        {edited ? <span className="admin-param__dot" title={t('已修改')} /> : null}
                         {label}
                       </span>
                     }
@@ -164,15 +165,15 @@ export function ParamsPage() {
         <Spinner size={18} />
       )}
       {dirty && saved ? (
-        <section className="admin-savebar" aria-label="未保存的修改">
+        <section className="admin-savebar" aria-label={t('未保存的修改')}>
           <span className="admin-param__dot" />
-          <span>已修改 {changed.length} 项</span>
+          <span>{t('已修改 {n} 项', { n: changed.length })}</span>
           <span className="spacer" />
           <Button disabled={busy} onClick={() => reset(saved)}>
-            放弃
+            {t('放弃')}
           </Button>
           <Button variant="primary" disabled={busy} onClick={() => void save()}>
-            保存
+            {t('保存')}
           </Button>
         </section>
       ) : null}

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { type Glyph, renderGlyph } from '../controls'
 import { Icon } from '../icon'
@@ -27,12 +28,12 @@ export interface ComposerTool {
 }
 
 export const DEFAULT_TOOLS: ComposerTool[] = [
-  { icon: 'smile', label: '表情' },
-  { icon: 'at', label: '提及' },
-  { icon: 'image', label: '图片' },
-  { icon: 'paperclip', label: '文件' },
-  { icon: 'scissors', label: '截图' },
-  { icon: 'textformat', label: '格式' },
+  { icon: 'smile', label: t('表情') },
+  { icon: 'at', label: t('提及') },
+  { icon: 'image', label: t('图片') },
+  { icon: 'paperclip', label: t('文件#item') },
+  { icon: 'scissors', label: t('截图') },
+  { icon: 'textformat', label: t('格式') },
 ]
 
 /** `@query` right before the caret, the @ not glued to a word. */
@@ -312,10 +313,10 @@ export function Composer({
         {replyTo && (
           <div className="pn-composer__reply">
             <div className="pn-quote">
-              <b>回复 {replyTo.author}：</b>
+              <b>{t('回复 {name}：', { name: replyTo.author })}</b>
               {replyTo.text}
             </div>
-            {onCancelReply && <SmallClose label="取消回复" onClick={onCancelReply} />}
+            {onCancelReply && <SmallClose label={t('取消回复')} onClick={onCancelReply} />}
           </div>
         )}
         {above}
@@ -334,7 +335,7 @@ export function Composer({
             </div>
           )}
           <textarea
-            aria-label="消息输入"
+            aria-label={t('消息输入')}
             {...(mentions && {
               role: 'combobox',
               'aria-autocomplete': 'list' as const,
@@ -347,7 +348,7 @@ export function Composer({
             ref={ref}
             rows={1}
             value={text}
-            placeholder={placeholder ?? `发送给 ${recipient ?? '…'}`}
+            placeholder={placeholder ?? t('发送给 {name}', { name: recipient ?? '…' })}
             disabled={disabled}
             onChange={(e) => {
               set(e.target.value)
@@ -404,13 +405,13 @@ export function Composer({
           {hint === false ? (
             !accessory && <span className="pn-composer__spacer" />
           ) : (
-            <span className="pn-composer__hint">{hint ?? 'Enter 发送 · ⇧Enter 换行'}</span>
+            <span className="pn-composer__hint">{hint ?? t('Enter 发送 · ⇧Enter 换行')}</span>
           )}
           <button
             type="button"
             className="pn-composer__send"
-            aria-label="发送"
-            title="发送（Enter），换行（Shift + Enter）"
+            aria-label={t('发送')}
+            title={t('发送（Enter），换行（Shift + Enter）')}
             data-state={busy ? 'busy' : sendable ? 'ready' : 'idle'}
             data-sent={sent}
             disabled={!sendable}

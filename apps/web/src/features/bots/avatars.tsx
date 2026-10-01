@@ -2,6 +2,7 @@ import type { BotAvatar as RoleKey } from '@gonggong/protocol'
 import { BOT_AVATARS } from '@gonggong/protocol'
 import { useId } from 'react'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { Avatar, type AvatarProps, type MascotCostume } from '../../ui'
 import { PERSONAS, personaScene } from './personas'
 
@@ -24,9 +25,9 @@ const stroke = (color: string, w: number) =>
   `fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`
 
 const GONG: Role = {
-  name: '共字君',
-  mix: '默认角色',
-  line: '品牌吉祥物，什么活都肯接，把大家托举在一起',
+  name: t('共字君'),
+  mix: t('默认角色'),
+  line: t('品牌吉祥物，什么活都肯接，把大家托举在一起'),
   from: '#2f6bff',
   to: '#0fa3a0',
   glyph: (ink) =>
@@ -117,7 +118,7 @@ export function BotAvatar({ id, name, ...rest }: BotAvatarProps) {
   )
 }
 
-export const roleHint = (k: RoleKey) => `${ROLES[k].name}：${ROLES[k].line}`
+export const roleHint = (k: RoleKey) => t('{name}：{line}', { name: ROLES[k].name, line: ROLES[k].line })
 
 /** Every bot plays a character: 共字君 unless the creator picks one of the twelve personalities. */
 export function RolePicker({
@@ -131,7 +132,7 @@ export function RolePicker({
 }) {
   const name = useId()
   return (
-    <div role="radiogroup" aria-label="角色" className="role-picker">
+    <div role="radiogroup" aria-label={t('角色')} className="role-picker">
       {BOT_AVATARS.map((k) => {
         const r = ROLES[k]
         return (

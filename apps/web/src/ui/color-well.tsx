@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { TextField } from './form'
@@ -96,7 +97,7 @@ export function ColorWell({
     return (
       <div
         role="radiogroup"
-        aria-label={aria['aria-label'] ?? '颜色'}
+        aria-label={aria['aria-label'] ?? t('颜色')}
         className={cx('ui-colorrow', className)}
         style={style}
         onKeyDown={onKeyDown}
@@ -130,14 +131,14 @@ export function ColorWell({
           ref={trigger}
           type="button"
           className="ui-colorwell"
-          aria-label={`${aria['aria-label'] ?? '颜色'}：${color}`}
+          aria-label={t('{label}：{color}', { label: aria['aria-label'] ?? t('颜色'), color })}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => (open ? close(false) : setOpen(true))}
         >
           <span style={{ background: color }} />
         </button>
-        <Float open={open} role="dialog" aria-label="选择颜色" style={{ width: 232 }}>
+        <Float open={open} role="dialog" aria-label={t('选择颜色')} style={{ width: 232 }}>
           <div className="ui-colorwell__grid">
             {colors.map((c) => (
               <button
@@ -157,9 +158,9 @@ export function ColorWell({
           <div className="ui-colorwell__hex">
             <span className="ui-colorwell__preview" style={{ background: typed ?? color }} />
             <TextField
-              aria-label="十六进制颜色"
+              aria-label={t('十六进制颜色')}
               value={draft ?? color}
-              error={hexOk ? undefined : '格式为 #RRGGBB'}
+              error={hexOk ? undefined : t('格式为 #RRGGBB')}
               style={{ flex: 1, minWidth: 0 }}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {

@@ -84,7 +84,7 @@ export function liveRoutes(ctx: Ctx) {
       const platform = `${machine.os}-${machine.arch}`
       const release = await daemonRelease(ctx)
       const build = release?.cast?.[platform]
-      if (!release || !build) return fail('not_found', `服务器还没有发布 ${platform} 的 gg-cast`)
+      if (!release || !build) return fail('not_found', '服务器还没有发布 {platform} 的 gg-cast', { platform })
       return { version: release.version, ...build }
     })
 

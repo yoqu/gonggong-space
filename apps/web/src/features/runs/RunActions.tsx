@@ -2,6 +2,7 @@ import type { RunDto, RunStatus } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useNow } from '../../lib/now'
@@ -30,7 +31,7 @@ function AppendAction({ run }: { run: RunDto }) {
       icon="arrow-turn-down-right"
       onClick={() => start({ runId: run.id, groupId: run.groupId, botName: bot.name })}
     >
-      打断并追加
+      {t('打断并追加')}
     </Button>
   )
 }
@@ -61,31 +62,31 @@ export function RunActions({ run }: { run: RunDto }) {
         disabled={busy}
         onClick={() => setConfirming(true)}
       >
-        终止整条链
+        {t('终止整条链')}
       </Button>
       <Dialog
         open={confirming}
-        title="终止整条链"
+        title={t('终止整条链')}
         onClose={() => setConfirming(false)}
         width={420}
         footer={
           <>
-            <Button onClick={() => setConfirming(false)}>取消</Button>
+            <Button onClick={() => setConfirming(false)}>{t('取消')}</Button>
             <Button variant="destructive" disabled={busy} onClick={() => void stop()}>
-              终止
+              {t('终止')}
             </Button>
           </>
         }
       >
         <ul className="ui-consequences">
-          <li>停止这条接力链上所有未完成的轮次</li>
-          <li>后续接力不再触发</li>
+          <li>{t('停止这条接力链上所有未完成的轮次')}</li>
+          <li>{t('后续接力不再触发')}</li>
         </ul>
       </Dialog>
     </>
   ) : (
     <Button size="small" icon="stop" disabled={busy} onClick={stop}>
-      停止
+      {t('停止')}
     </Button>
   )
   return (
@@ -101,6 +102,11 @@ export function OfflineNote({ run }: { run: RunDto }) {
   const trigger = useMemberName(run.groupId, run.triggerUserId ?? run.originUserId)
   const left = Date.parse(run.queuedAt) + run.offlineWaitMin * 60_000 - useNow(true)
   return (
-    <span>{`Bot 离线，已进入本机队列 · 上线后自动执行，${countdown(left)} 后作废并通知 ${trigger}`}</span>
+    <span>
+      {t('Bot 离线，已进入本机队列 · 上线后自动执行，{time} 后作废并通知 {name}', {
+        time: countdown(left),
+        name: trigger,
+      })}
+    </span>
   )
 }

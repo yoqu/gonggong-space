@@ -1,5 +1,6 @@
 use super::Result;
 use crate::host::Host;
+use crate::i18n::tr;
 use gonggong::config::{Mirror, Settings};
 use serde::Serialize;
 use std::path::Path;
@@ -35,7 +36,7 @@ fn http_url(s: &str) -> Result<String> {
     let s = s.trim();
     match tauri::Url::parse(s) {
         Ok(u) if matches!(u.scheme(), "http" | "https") && u.has_host() => Ok(s.to_string()),
-        _ => Err(format!("不是有效的 http(s) 地址：{s}")),
+        _ => Err(tr!("不是有效的 http(s) 地址：{url}", url = s)),
     }
 }
 

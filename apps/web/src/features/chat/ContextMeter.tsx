@@ -1,4 +1,5 @@
 import type { ContextUsage } from '@gonggong/protocol'
+import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { fmtTokens } from '../../lib/format'
 import { Button, LevelIndicator, Popover } from '../../ui'
@@ -35,14 +36,14 @@ export function ContextMeter({
       portal
       placement="bottom-end"
       width={272}
-      aria-label={`${bot} 的上下文`}
+      aria-label={t('{bot} 的上下文', { bot })}
       trigger={
         <button
           type="button"
           className="ctx-meter"
           data-level={level}
-          aria-label={`${bot} 上下文 ${detail}`}
-          title={`上下文 ${detail}`}
+          aria-label={t('{bot} 上下文 {detail}', { bot, detail })}
+          title={t('上下文 {detail}', { detail })}
         >
           <svg viewBox="0 0 14 14" width={14} height={14} aria-hidden="true">
             <circle className="ctx-meter__track" cx={7} cy={7} r={R} />
@@ -65,17 +66,17 @@ export function ContextMeter({
             value={pct}
             warning={WARNING}
             critical={CRITICAL}
-            aria-label="上下文占用"
+            aria-label={t('上下文占用')}
             label={
               <>
-                <span>上下文</span>
+                <span>{t('上下文')}</span>
                 <span className="ctx-pop__detail">{detail}</span>
               </>
             }
           />
           <p className="ctx-pop__hint">
-            {level === 'critical' ? '即将用满，Agent 会自动压缩。' : null}
-            压缩会把此前的对话总结后保留；开新对话则不再带上此前的对话。
+            {level === 'critical' ? t('即将用满，Agent 会自动压缩。') : null}
+            {t('压缩会把此前的对话总结后保留；开新对话则不再带上此前的对话。')}
           </p>
           <div className="ctx-pop__actions">
             <Button
@@ -86,7 +87,7 @@ export function ContextMeter({
                 send('new')
               }}
             >
-              开新对话
+              {t('开新对话')}
             </Button>
             <Button
               size="small"
@@ -96,7 +97,7 @@ export function ContextMeter({
                 send('compact')
               }}
             >
-              压缩上下文
+              {t('压缩上下文')}
             </Button>
           </div>
         </div>

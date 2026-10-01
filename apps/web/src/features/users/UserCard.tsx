@@ -8,6 +8,7 @@ import { Float, ProfileCard, Spinner } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { useHoverCard } from './useHoverCard'
 import './users.css'
+import { t } from '../../i18n'
 
 /** Loaded cards by `groupId:userId` (group admin differs per group); kept for the session. */
 const useCards = create<Record<string, UserCardDto>>()(() => ({}))
@@ -100,7 +101,7 @@ export function UserCardTrigger({
           open={open}
           placement={spot?.above ? 'top-start' : 'bottom-start'}
           role="dialog"
-          aria-label="用户名片"
+          aria-label={t('用户名片')}
           className="ui-popover user-card"
           style={spot?.style}
           {...cardProps}
@@ -109,10 +110,10 @@ export function UserCardTrigger({
             <ProfileCard
               name={card.name}
               status={card.online ? 'online' : 'offline'}
-              statusText={card.online ? '在线' : '离线'}
+              statusText={card.online ? t('在线') : t('离线')}
               title={card.account}
-              tags={card.groupAdmin ? [{ label: '群管理员', tone: 'blue' }] : undefined}
-              fields={[{ label: '角色', value: ROLE_LABEL[card.role] }]}
+              tags={card.groupAdmin ? [{ label: t('群管理员'), tone: 'blue' }] : undefined}
+              fields={[{ label: t('角色'), value: ROLE_LABEL[card.role] }]}
             />
           ) : (
             <div className="user-card__status">{error ?? <Spinner />}</div>

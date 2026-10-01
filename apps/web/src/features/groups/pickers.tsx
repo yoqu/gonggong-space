@@ -1,5 +1,6 @@
 import type { BotDto, UserBriefDto } from '@gonggong/protocol'
 import { type ReactElement, type ReactNode, useState } from 'react'
+import { t } from '../../i18n'
 import { Icon, type Placement, Popover, SearchField } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, BINDING_LABEL, PRESENCE } from '../bots/model'
@@ -41,13 +42,13 @@ export function BotPicker({
     <Popover
       portal
       width={360}
-      aria-label="添加 Bot"
+      aria-label={t('添加 Bot')}
       placement={placement}
       className={className}
       trigger={trigger}
     >
       {(close) => (
-        <fieldset className="pick" aria-label="可添加的 Bot">
+        <fieldset className="pick" aria-label={t('可添加的 Bot')}>
           {bots.map((b) => {
             const on = isOn(b.id)
             return (
@@ -57,7 +58,11 @@ export function BotPicker({
                 role="menuitemcheckbox"
                 aria-checked={on}
                 disabled={b.binding !== 'bound'}
-                title={b.binding === 'bound' ? undefined : `${BINDING_LABEL[b.binding]}，暂不能拉入`}
+                title={
+                  b.binding === 'bound'
+                    ? undefined
+                    : t('{state}，暂不能拉入', { state: BINDING_LABEL[b.binding] })
+                }
                 className="pick__row"
                 onClick={() => onPick(b, close)}
               >
@@ -74,7 +79,7 @@ export function BotPicker({
               </button>
             )
           })}
-          {bots.length ? null : <span className="pick__empty">还没有可拉入的 Bot</span>}
+          {bots.length ? null : <span className="pick__empty">{t('还没有可拉入的 Bot')}</span>}
         </fieldset>
       )}
     </Popover>
@@ -108,7 +113,7 @@ export function MemberPicker({
     <Popover
       portal
       width={240}
-      aria-label="添加成员"
+      aria-label={t('添加成员')}
       placement={placement}
       className={className}
       defaultOpen={defaultOpen}
@@ -117,7 +122,7 @@ export function MemberPicker({
     >
       {(close) => (
         <div className="pick">
-          <SearchField aria-label="搜索成员" value={q} onChange={setQ} />
+          <SearchField aria-label={t('搜索成员')} value={q} onChange={setQ} />
           {list.map((u) => (
             <button
               key={u.id}
@@ -135,7 +140,7 @@ export function MemberPicker({
               </span>
             </button>
           ))}
-          {list.length ? null : (status ?? <span className="pick__empty">没有可添加的成员</span>)}
+          {list.length ? null : (status ?? <span className="pick__empty">{t('没有可添加的成员')}</span>)}
         </div>
       )}
     </Popover>

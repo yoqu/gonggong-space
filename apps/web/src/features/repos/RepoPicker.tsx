@@ -16,6 +16,7 @@ import { accountLabel, gitAccountsApi, useGitAccounts } from '../settings/api'
 import { useSettings } from '../settings/store'
 import { checkSummary, type RepoDraft, repoBody, repoIcon } from './repo-access'
 import './repos.css'
+import { t } from '../../i18n'
 
 const SEARCH_DEBOUNCE_MS = 200
 const CHECK_DEBOUNCE_MS = 400
@@ -103,7 +104,7 @@ export function RepoPicker({
         res = await api.post<RepoProbeRes>('/repos/probe', body)
       } catch (e) {
         if (at !== edits.current) return
-        setFailure(e instanceof ApiError ? e.message : '检查失败，请稍后重试')
+        setFailure(e instanceof ApiError ? e.message : t('检查失败，请稍后重试'))
         return set({ check: null })
       }
       if (at !== edits.current) return
@@ -137,18 +138,18 @@ export function RepoPicker({
   }
   const check = d.check && d.check !== 'checking' ? d.check : null
   const branches = accountBranches ?? check?.branches ?? []
-  const summary = d.check === 'checking' ? '正在检查访问…' : checkSummary(d)
+  const summary = d.check === 'checking' ? t('正在检查访问…') : checkSummary(d)
 
   return (
     <>
       <GroupRow
-        label="仓库"
+        label={t('仓库')}
         description={
           failure ? (
             <span className="repo-picker__failure">
               {failure}
               <Button size="small" variant="plain" onClick={() => setRetry((n) => n + 1)}>
-                重新检查
+                {t('重新检查')}
               </Button>
             </span>
           ) : (
@@ -159,13 +160,13 @@ export function RepoPicker({
         <Popover
           width={360}
           placement="bottom-end"
-          aria-label="选择仓库"
+          aria-label={t('选择仓库')}
           trigger={
             <button
               type="button"
               className="repo-picker__trigger"
               title={d.url || undefined}
-              aria-label="仓库"
+              aria-label={t('仓库')}
             >
               {d.url ? (
                 <>
@@ -173,7 +174,7 @@ export function RepoPicker({
                   <span className="repo-picker__path">{repoPath(d.url)}</span>
                 </>
               ) : (
-                <span className="repo-picker__none">不绑定 · 各 Bot 使用本机目录</span>
+                <span className="repo-picker__none">{t('不绑定 · 各 Bot 使用本机目录')}</span>
               )}
               {d.check === 'checking' ? <Spinner size={12} /> : null}
               <Icon name="chevron-updown" size={12} />
@@ -197,10 +198,10 @@ export function RepoPicker({
         </Popover>
       </GroupRow>
       {d.url ? (
-        <GroupRow label="基准分支">
+        <GroupRow label={t('基准分支')}>
           <ComboBox
             className="repo-picker__branch"
-            aria-label="基准分支"
+            aria-label={t('基准分支')}
             value={d.branch}
             placeholder="main"
             options={branches}
@@ -276,9 +277,9 @@ function RepoPanel({
               url: r.url,
               title: repoPath(r.url),
               detail: [
-                r.groups ? `${r.groups} 个群在用` : null,
+                r.groups ? t('{n} 个群在用', { n: r.groups }) : null,
                 r.lastBranch,
-                r.localPaths.length ? '本机已有' : null,
+                r.localPaths.length ? t('本机已有') : null,
               ]
                 .filter(Boolean)
                 .join(' · '),
@@ -288,7 +289,7 @@ function RepoPanel({
       } catch (e) {
         if (!current) return
         setRows([])
-        setError(e instanceof ApiError ? e.message : '加载失败')
+        setError(e instanceof ApiError ? e.message : t('加载失败'))
       }
     }, SEARCH_DEBOUNCE_MS)
     return () => {
@@ -303,7 +304,7 @@ function RepoPanel({
         key: `direct:${typed}`,
         icon: 'link',
         url: typed,
-        title: `使用地址 ${typed}`,
+        title: t('使用地址 {url}', { url: typed }),
         detail: '',
         pick: () => onPick({ url: typed, branch: null, touched: false, from: null }),
       }
@@ -313,7 +314,7 @@ function RepoPanel({
 
   const sameHost = (host: string) => usable.filter((a) => accountLabel(a) === host).length > 1
   const sources = [
-    { value: 'recent', label: '最近' },
+    { value: 'recent', label: t('最近') },
     ...usable.map((a) => {
       const label = accountLabel(a)
       return {
@@ -339,7 +340,7 @@ function RepoPanel({
     <div className="repo-panel" onKeyDown={onKey}>
       {sources.length > 1 ? (
         <SegmentedControl
-          aria-label="来源"
+          aria-label={t('来源')}
           size="small"
           items={sources}
           value={from}
@@ -352,15 +353,15 @@ function RepoPanel({
         />
       ) : null}
       <SearchField
-        aria-label="搜索仓库"
-        placeholder="搜索仓库，或粘贴地址"
+        aria-label={t('搜索仓库')}
+        placeholder={t('搜索仓库，或粘贴地址')}
         value={query}
         onChange={(q) => {
           setQuery(q)
           setActive(0)
         }}
       />
-      <div className="repo-panel__list" role="listbox" aria-label="仓库">
+      <div className="repo-panel__list" role="listbox" aria-label={t('仓库')}>
         {list.map((r, i) => (
           <div
             key={r.key}
@@ -378,7 +379,7 @@ function RepoPanel({
           >
             <Icon name={r.icon} size={14} />
             <span className="ui-float__label">{r.title}</span>
-            {r.locked ? <Icon name="lock" size={12} label="私有" /> : null}
+            {r.locked ? <Icon name="lock" size={12} label={t('私有')} /> : null}
             <span className="ui-float__detail">{r.detail}</span>
           </div>
         ))}
@@ -390,23 +391,23 @@ function RepoPanel({
           <div className="repo-panel__empty repo-panel__empty--error">
             {error}
             <Button size="small" variant="plain" onClick={() => setReload((n) => n + 1)}>
-              重试
+              {t('重试')}
             </Button>
           </div>
         ) : !list.length ? (
-          <div className="repo-panel__empty">没有匹配的仓库</div>
+          <div className="repo-panel__empty">{t('没有匹配的仓库')}</div>
         ) : null}
       </div>
       {!usable.length || (clearable && bound) ? (
         <div className="repo-panel__foot">
           {usable.length ? null : (
             <button type="button" className="repo-panel__action" onClick={() => openSettings('git')}>
-              连接 GitHub / GitLab 账号…
+              {t('连接 GitHub / GitLab 账号…')}
             </button>
           )}
           {clearable && bound ? (
             <button type="button" className="repo-panel__action" onClick={onClear}>
-              不绑定仓库
+              {t('不绑定仓库')}
             </button>
           ) : null}
         </div>

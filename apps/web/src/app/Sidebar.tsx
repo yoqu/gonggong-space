@@ -6,18 +6,19 @@ import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
+import { t } from '../i18n'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Badge, Button, ConversationContent, Icon } from '../ui'
 import { keyNav } from '../ui/im/keynav'
 import { useWorkbench } from './workbench'
-import { useWorkspace } from './workspace'
+import { lastText, useWorkspace } from './workspace'
 
-export const GROUP_MODE_LABEL = { partition: '分区模式', force: '强制同步' } as const
+export const GROUP_MODE_LABEL = { partition: t('分区模式'), force: t('强制同步') }
 const CONN = {
-  open: { label: '已连接', color: 'var(--system-green)' },
-  connecting: { label: '连接中…', color: 'var(--system-orange)' },
-  closed: { label: '已断开 · 重连中', color: 'var(--system-red)' },
+  open: { label: t('已连接'), color: 'var(--system-green)' },
+  connecting: { label: t('连接中…'), color: 'var(--system-orange)' },
+  closed: { label: t('已断开 · 重连中'), color: 'var(--system-red)' },
 }
 
 export interface SidebarProps {
@@ -65,8 +66,8 @@ function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabS
   const dm = g.kind === 'dm'
   // The mode lives in the chat header; the row's second line is for the latest message.
   const preview =
-    (g.last && plainText(g.last)) ||
-    (dm ? '仅你和你的 Bot' : `${g.members.length} 人 · ${GROUP_MODE_LABEL[g.mode]}`)
+    (g.last && plainText(lastText(g))) ||
+    (dm ? t('仅你和你的 Bot') : t('{n} 人 · {mode}', { n: g.members.length, mode: GROUP_MODE_LABEL[g.mode] }))
   return (
     <NavLink
       to={`/g/${g.id}`}
@@ -113,17 +114,17 @@ function SetupGuide({
 }) {
   const steps = [
     {
-      label: '绑定机器',
-      hint: '在机器上安装共工空间客户端，打开接入链接关联账号',
+      label: t('绑定机器'),
+      hint: t('在机器上安装共工空间客户端，打开接入链接关联账号'),
       done: bound,
       onClick: onBindMachine,
     },
-    { label: '新建 Bot', hint: '选择机器上的 Claude Code 或 Codex', done: hasBot, onClick: onNewBot },
-    { label: '建群并 @ Bot', hint: '拉上同事、绑定仓库，分配任务', done: inGroup, onClick: onNewGroup },
+    { label: t('新建 Bot'), hint: t('选择机器上的 Claude Code 或 Codex'), done: hasBot, onClick: onNewBot },
+    { label: t('建群并 @ Bot'), hint: t('拉上同事、绑定仓库，分配任务'), done: inGroup, onClick: onNewGroup },
   ]
   return (
-    <section className="sidebar-guide" aria-label="开始使用">
-      <div className="sidebar-guide__title">开始使用</div>
+    <section className="sidebar-guide" aria-label={t('开始使用')}>
+      <div className="sidebar-guide__title">{t('开始使用')}</div>
       {steps.map((s, i) => (
         <button
           key={s.label}
@@ -178,12 +179,12 @@ export function ConversationStrip({ groups }: { groups: GroupDto[] }) {
     ...byPin(groups.filter((g) => g.kind === 'dm')),
   ]
   return (
-    <nav aria-label="会话列表" className="conv-strip">
+    <nav aria-label={t('会话列表')} className="conv-strip">
       <button
         type="button"
         className="conv-strip__item"
-        title="展开会话列表"
-        aria-label="展开会话列表"
+        title={t('展开会话列表')}
+        aria-label={t('展开会话列表')}
         onClick={() => useWorkbench.getState().setMode('split')}
       >
         <Icon name="sidebar" size={18} />
@@ -227,8 +228,8 @@ function Footer({ machines }: { machines: MachineDto[] }) {
     <footer className="sidebar__foot">
       <span className="sidebar__dot" style={{ background: conn.color }} />
       <span>{conn.label}</span>
-      <span>{`${bots} 个 Bot 在线`}</span>
-      {machines.length ? <span>{`${online} 台机器在线`}</span> : null}
+      <span>{t('{n} 个 Bot 在线', { n: bots })}</span>
+      {machines.length ? <span>{t('{n} 台机器在线', { n: online })}</span> : null}
     </footer>
   )
 }
@@ -252,13 +253,17 @@ export function Sidebar({
   const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
   const inGroup = groups.some((g) => g.kind === 'group')
   const lists = [
-    { label: '群', items: byPin(groups.filter((g) => g.kind === 'group')), empty: '还没有加入任何群' },
     {
-      label: '私聊',
+      label: t('群#nav'),
+      items: byPin(groups.filter((g) => g.kind === 'group')),
+      empty: t('还没有加入任何群'),
+    },
+    {
+      label: t('私聊#nav'),
       add: onNewDm,
-      addTitle: '新建私聊',
+      addTitle: t('新建私聊'),
       items: byPin(groups.filter((g) => g.kind === 'dm')),
-      empty: '还没有私聊',
+      empty: t('还没有私聊'),
     },
   ]
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
@@ -291,7 +296,7 @@ export function Sidebar({
           </section>
         ))}
         <section>
-          <SectionHead label="我的 Bot" onAdd={onNewBot} addTitle={onNewBot && '新建 Bot…'} />
+          <SectionHead label={t('我的 Bot')} onAdd={onNewBot} addTitle={onNewBot && t('新建 Bot…')} />
           <div className="sidebar__list">
             {bots.length
               ? bots.map((b) => (
@@ -315,27 +320,33 @@ export function Sidebar({
                     </NavLink>
                     {b.binding === 'pending_confirm' && onConfirmBot ? (
                       <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
-                        确认
+                        {t('确认')}
                       </Button>
                     ) : null}
                   </div>
                 ))
-              : empty('还没有 Bot')}
+              : empty(t('还没有 Bot'))}
           </div>
         </section>
-        <section aria-label="我的机器">
-          <SectionHead label="我的机器" onAdd={onBindMachine} addTitle={onBindMachine && '绑定新机器'} />
+        <section aria-label={t('我的机器')}>
+          <SectionHead
+            label={t('我的机器')}
+            onAdd={onBindMachine}
+            addTitle={onBindMachine && t('绑定新机器')}
+          />
           <div className="sidebar__list">
             {machines.length
               ? machines.map((m) => {
                   const bound = bots.filter((b) => b.machineId === m.id).length
-                  const meta = [OS_LABEL[m.os], bound && `${bound} 个 Bot`].filter(Boolean).join(' · ')
+                  const meta = [OS_LABEL[m.os], bound && t('{n} 个 Bot', { n: bound })]
+                    .filter(Boolean)
+                    .join(' · ')
                   return (
                     <div key={m.id} className="sidebar__row">
                       <button
                         type="button"
                         className="sidebar__open"
-                        title={[m.name, m.online ? '在线' : '离线', meta].filter(Boolean).join(' · ')}
+                        title={[m.name, m.online ? t('在线') : t('离线'), meta].filter(Boolean).join(' · ')}
                         onClick={() => onOpenMachine?.(m.id)}
                       >
                         <span
@@ -350,7 +361,7 @@ export function Sidebar({
                     </div>
                   )
                 })
-              : empty('还没有绑定机器')}
+              : empty(t('还没有绑定机器'))}
           </div>
         </section>
       </div>

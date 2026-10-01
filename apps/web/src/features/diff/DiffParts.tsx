@@ -5,10 +5,11 @@ import { Icon, IconButton, langOf, SegmentedControl, Tokens, useHighlight } from
 import { type DiffFile, type DiffNode, diffCells, diffTree } from './patch'
 import { useDiffLayout } from './store'
 import './diff.css'
+import { t } from '../../i18n'
 
 /** Five cells split between added and deleted lines (GitHub style); the numbers stay as text beside it. */
 export function DiffBar({ add, del }: { add: number; del: number }) {
-  const label = `新增 ${add} 行，删除 ${del} 行`
+  const label = t('新增 {add} 行，删除 {del} 行', { add, del })
   return (
     <span className="diff-bar" role="img" aria-label={label} title={label}>
       {diffCells(add, del).map((c, i) => (
@@ -55,7 +56,7 @@ export function DiffLayoutToggle() {
     <IconButton
       size="small"
       className="diff-layout-toggle"
-      title={layout === 'tree' ? '以列表显示' : '以目录树显示'}
+      title={layout === 'tree' ? t('以列表显示') : t('以目录树显示')}
       onClick={toggle}
     >
       {layout === 'tree' ? ('list' as const) : ('folder' as const)}
@@ -156,7 +157,7 @@ function DiffFileRow({
       <IconButton
         size="small"
         className="diff__locate"
-        title="在文件浏览器中定位"
+        title={t('在文件浏览器中定位')}
         onClick={() => onLocate(file.path)}
       >
         {'folder-open' as const}
@@ -219,12 +220,18 @@ export function DiffScopeBar({
   onChange: (scope: DiffScope) => void
 }) {
   const items: { value: DiffScope; label: string }[] = [
-    ...(turn ? [{ value: 'turn' as const, label: '本轮' }] : []),
-    { value: 'uncommitted', label: '未提交' },
-    { value: 'base', label: '对比主分支' },
+    ...(turn ? [{ value: 'turn' as const, label: t('本轮') }] : []),
+    { value: 'uncommitted', label: t('未提交') },
+    { value: 'base', label: t('对比主分支') },
   ]
   return (
-    <SegmentedControl size="small" aria-label="改动范围" items={items} value={scope} onChange={onChange} />
+    <SegmentedControl
+      size="small"
+      aria-label={t('改动范围')}
+      items={items}
+      value={scope}
+      onChange={onChange}
+    />
   )
 }
 
@@ -236,7 +243,9 @@ export function scopeNote(scope: DiffScope, branch: string | null, base: string 
 
 /** Why a scope is empty, in the user's terms. */
 export function emptyText(scope: DiffScope, branch: string | null, base: string | null) {
-  if (scope === 'turn') return '本轮没有文件改动'
-  if (scope === 'uncommitted') return '没有未提交的改动'
-  return base ? `${branch ?? '当前分支'} 相对 ${base} 没有改动` : '当前就在主分支，没有可对比的改动'
+  if (scope === 'turn') return t('本轮没有文件改动')
+  if (scope === 'uncommitted') return t('没有未提交的改动')
+  return base
+    ? t('{branch} 相对 {base} 没有改动', { branch: branch ?? t('当前分支'), base })
+    : t('当前就在主分支，没有可对比的改动')
 }

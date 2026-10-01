@@ -257,6 +257,30 @@ describe('process steps', () => {
     )
   })
 
+  it('recognises the config and approval echoes of an English daemon', () => {
+    const status = (id: number, step: string) => ({
+      id,
+      at: at(id),
+      event: { kind: 'status' as const, status: 'running' as const, step },
+    })
+    const steps = buildSteps({
+      run: run(),
+      patch: null,
+      purged: false,
+      sessionId: 's1',
+      retentionDays: 30,
+      events: [
+        status(1, 'Switched Model to Opus'),
+        status(2, 'Awaiting approval: ls'),
+        status(3, 'Approved: ls'),
+        status(4, 'Request denied; the agent will work around it'),
+        { id: 5, at: at(5), event: { kind: 'text', delta: 'ok' } },
+      ],
+    })
+    expect(steps.map((s) => s.kind)).toEqual(['context', 'text'])
+    expect(steps[0]!.body).toContain('Switched Model to Opus')
+  })
+
   it('without git or a new session the context step says the session was resumed', () => {
     const steps = buildSteps({
       run: run(),

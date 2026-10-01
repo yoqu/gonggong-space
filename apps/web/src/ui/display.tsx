@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useId } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
@@ -58,7 +59,7 @@ export function Badge(props: BadgeProps) {
     <span
       className={cx('ui-badge', props.muted && 'ui-badge--muted')}
       role="img"
-      aria-label={`${props.count} 条未读`}
+      aria-label={t('{n} 条未读', { n: props.count })}
     >
       {props.count > 99 ? '99+' : props.count}
     </span>
@@ -67,7 +68,7 @@ export function Badge(props: BadgeProps) {
 
 const HAN = /[\u3400-\u9fff]/
 const HAN_ALL = /[^\u3400-\u9fff]/g
-const STATUS_TEXT = { online: '在线', busy: '忙碌', away: '离开' }
+const STATUS_TEXT = { online: t('在线'), busy: t('忙碌'), away: t('离开') }
 
 /**
  * Chinese person name (2–3 characters) → last two characters; groups and longer Chinese names
@@ -333,7 +334,7 @@ export function ProgressIndicator({
   ...aria
 }: ProgressIndicatorProps) {
   if (variant === 'spinner')
-    return <SpinnerGlyph role="progressbar" label={aria['aria-label'] ?? '正在载入'} style={style} />
+    return <SpinnerGlyph role="progressbar" label={aria['aria-label'] ?? t('正在载入')} style={style} />
   return (
     <div
       className={cx('ui-progress', value == null && 'ui-progress--indeterminate', className)}
@@ -385,7 +386,7 @@ export function Progress({
 
 /** Inline wait indicator announced as a live status. */
 export function Spinner({ size = 16, color }: { size?: number; color?: string }) {
-  return <SpinnerGlyph role="status" label="正在载入" style={{ width: size, height: size, color }} />
+  return <SpinnerGlyph role="status" label={t('正在载入')} style={{ width: size, height: size, color }} />
 }
 
 export function GroupBox({

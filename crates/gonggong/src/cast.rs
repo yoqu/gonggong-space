@@ -7,6 +7,7 @@ use crate::hosted::Services;
 use crate::permission::{self, Permission};
 use crate::protocol::{CastPhase, CastSource, CastTarget, DaemonToServer, DevtoolsBlocker};
 use crate::service::Outbox;
+use crate::t;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -215,9 +216,9 @@ async fn publish(
     quiet: bool,
     went_live: &mut bool,
 ) -> Result<Stop, Stop> {
-    let api = inner.api.as_ref().ok_or("未连接服务器")?;
+    let api = inner.api.as_ref().ok_or(t!("未连接服务器"))?;
     if missing.contains(&Permission::ScreenRecording) {
-        return Err(Stop::owner(permission::SCREEN_RECORDING_DENIED));
+        return Err(Stop::owner(permission::screen_recording_denied()));
     }
     if matches!(target.source, CastSource::Miniprogram { .. }) {
         inner.devtools.ping().await?;
@@ -246,12 +247,13 @@ async fn publish(
         .args(window)
         .args(["--fps", &fps.borrow_and_update().to_string()])
         .env("GG_CAST_TOKEN", &token.token)
+        .env("GG_LANG", crate::i18n::tag())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|e| format!("无法启动 gg-cast：{e}"))?;
+        .map_err(|e| t!("无法启动 gg-cast：{e}", e = e))?;
     // gg-cast exits once this closes: when this task is stopped, or the daemon is gone without killing it.
     let mut stdin = child.stdin.take().expect("piped");
     let stderr = child.stderr.take().expect("piped");
@@ -284,7 +286,7 @@ async fn publish(
     }
     let status = child.wait().await.map_err(|e| format!("gg-cast：{e}"))?;
     let last = last_error.await.unwrap_or_default();
-    let reason = if last.is_empty() { format!("gg-cast 已退出（{status}）") } else { last };
+    let reason = if last.is_empty() { t!("gg-cast 已退出（{status}）", status = status) } else { last };
     // gg-cast exits 2 on what the owner fixes on the machine: no visible window, a closed or misplaced one.
     Ok(if status.code() == Some(2) { Stop::owner(reason) } else { reason.into() })
 }
@@ -295,7 +297,7 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
     let join = |pids: Vec<u32>| pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
     match source {
         CastSource::Service { service } => {
-            let pid = inner.services.pid(service).ok_or_else(|| Stop::owner("服务已停止，请重新启动服务后再看"))?;
+            let pid = inner.services.pid(service).ok_or_else(|| Stop::owner(t!("服务已停止，请重新启动服务后再看")))?;
             Ok(match inner.services.display(service) {
                 Some(display) => (vec!["--screen".into()], Some(display)),
                 None => (vec!["--pids".into(), join(process_tree(pid))], None),
@@ -303,7 +305,7 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
         }
         CastSource::Miniprogram { miniprogram } => {
             if !cfg!(any(target_os = "macos", windows)) {
-                return Err("小程序实时画面目前只支持 macOS 和 Windows".into());
+                return Err(t!("小程序实时画面目前只支持 macOS 和 Windows").into());
             }
             // Its window exists once the project is open (§12.2: the devtools keep rendering it behind other windows).
             let project = Path::new(miniprogram);
@@ -311,7 +313,7 @@ async fn window_args(inner: &Inner, source: &CastSource) -> Result<(Vec<String>,
             match inner.devtools.open(project, None).await {
                 Ok(()) => {}
                 Err(crate::wechatide::Error::NeedsLogin(_)) => {
-                    return Err("微信开发者工具未登录：请 Bot 主人在卡片上扫码登录后再看".into());
+                    return Err(t!("微信开发者工具未登录：请 Bot 主人在卡片上扫码登录后再看").into());
                 }
                 Err(e) => return Err(e.into()),
             }
@@ -357,7 +359,7 @@ async fn cast_token(api: &Config, preview_id: &str) -> Result<CastToken, String>
         let res = crate::tls::client(api)?.post(url).bearer_auth(&api.token).send().await?;
         anyhow::Ok(crate::bots::ok(res).await?.json::<CastToken>().await?)
     };
-    fetch.await.map_err(|e| format!("无法取得推流凭据：{e:#}"))
+    fetch.await.map_err(|e| t!("无法取得推流凭据：{e}", e = format!("{e:#}")))
 }
 
 #[derive(Deserialize)]
@@ -375,7 +377,7 @@ pub async fn binary(api: &Config, home: &Path) -> Result<PathBuf, String> {
         let res = http.get(url).bearer_auth(&api.token).send().await?;
         anyhow::Ok(crate::bots::ok(res).await?.json::<CastBuild>().await?)
     };
-    let build = lookup.await.map_err(|e| format!("无法取得 gg-cast：{e:#}"))?;
+    let build = lookup.await.map_err(|e| t!("无法取得 gg-cast：{e}", e = format!("{e:#}")))?;
     let name = format!("gg-cast-{}-{}{}", build.version, &build.sha256[..12], std::env::consts::EXE_SUFFIX);
     let path = home.join("bin").join(name);
     if path.is_file() {
@@ -383,7 +385,7 @@ pub async fn binary(api: &Config, home: &Path) -> Result<PathBuf, String> {
     }
     let bytes = crate::upgrade::download(&api.server, &http, &build.url, &build.sha256)
         .await
-        .map_err(|e| format!("下载 gg-cast 失败：{e}"))?;
+        .map_err(|e| t!("下载 gg-cast 失败：{e}", e = e))?;
     let install = async {
         tokio::fs::create_dir_all(path.parent().expect("in bin")).await?;
         let part = path.with_extension(format!("part{}", std::process::id()));
@@ -395,7 +397,7 @@ pub async fn binary(api: &Config, home: &Path) -> Result<PathBuf, String> {
         }
         tokio::fs::rename(&part, &path).await
     };
-    install.await.map_err(|e| format!("无法保存 gg-cast：{e}"))?;
+    install.await.map_err(|e| t!("无法保存 gg-cast：{e}", e = e))?;
     Ok(path)
 }
 
@@ -407,7 +409,7 @@ pub struct Relay {
 
 impl Relay {
     pub async fn start(config: Config) -> Result<Relay, String> {
-        let listener = TcpListener::bind("127.0.0.1:0").await.map_err(|e| format!("无法监听本机端口：{e}"))?;
+        let listener = TcpListener::bind("127.0.0.1:0").await.map_err(|e| t!("无法监听本机端口：{e}", e = e))?;
         let url = format!("ws://{}", listener.local_addr().map_err(|e| e.to_string())?);
         let task = tokio::spawn(async move {
             while let Ok((tcp, _)) = listener.accept().await {

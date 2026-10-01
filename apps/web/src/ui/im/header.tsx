@@ -1,4 +1,5 @@
 import { type ReactElement, type ReactNode, useState } from 'react'
+import { t } from '../../i18n'
 import { Avatar, Tag } from '../display'
 import { Icon, type IconName } from '../icon'
 import { ToolbarButton, ToolbarGroup } from '../toolbar'
@@ -54,7 +55,7 @@ export function ChatHeader({
     <header className="pn-chathead">
       <div className="pn-chathead__bar">
         {onBack ? (
-          <button type="button" className="pn-chathead__back" aria-label="返回" onClick={onBack}>
+          <button type="button" className="pn-chathead__back" aria-label={t('返回')} onClick={onBack}>
             <Icon name="chevron-left" size={20} weight={1.8} />
           </button>
         ) : null}

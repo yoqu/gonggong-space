@@ -7,11 +7,14 @@
   background: var(--content-bg);
   color: var(--label);
 }
-.auth__theme.ui-btn {
+.auth__corner {
   position: absolute;
   z-index: 2;
   top: var(--space-16);
   right: var(--space-16);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 /* Stage */

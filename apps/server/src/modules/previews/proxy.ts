@@ -1,9 +1,10 @@
 import { type IncomingMessage, type ServerResponse, STATUS_CODES } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { TunnelHead } from '@gonggong/protocol'
+import { type I18nParams, resolveLocale, type TunnelHead } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { previews } from '../../db/schema.js'
+import { type MessageKey, translator } from '../../i18n/index.js'
 import { foreignCookies, redeemCode, setCookie, verifyCookie } from './access.js'
 import { redeemShare, shareAllows } from './shares.js'
 
@@ -21,8 +22,10 @@ const HOP = new Set([
   'transfer-encoding',
 ])
 
-function page(res: ServerResponse, status: number, text: string) {
-  const html = `<!doctype html><meta charset="utf-8"><title>共工空间预览</title><body style="font:15px system-ui;padding:48px;color:#555">${text}</body>`
+/** Served by the preview host, outside Fastify: the language comes from the visitor's own header. */
+function page(res: ServerResponse, status: number, key: MessageKey, params?: I18nParams) {
+  const t = translator(resolveLocale(res.req.headers['accept-language']))
+  const html = `<!doctype html><meta charset="utf-8"><title>${t('共工空间预览')}</title><body style="font:15px system-ui;padding:48px;color:#555">${t(key, params)}</body>`
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(html)
 }
 
@@ -123,7 +126,7 @@ export async function servePreviewHttp(
       upgrade: false,
     })
   } catch (err) {
-    return page(res, 503, `预览繁忙：${(err as Error).message}`)
+    return page(res, 503, '预览繁忙：{error}', { error: (err as Error).message })
   }
   stream.on('error', () => res.destroy())
   req.pipe(stream)
@@ -131,7 +134,9 @@ export async function servePreviewHttp(
   try {
     head = await stream.head
   } catch (err) {
-    return res.headersSent ? res.destroy() : page(res, 502, `${OFFLINE}（${(err as Error).message}）`)
+    return res.headersSent
+      ? res.destroy()
+      : page(res, 502, '预览所在的机器离线，稍后再试。（{error}）', { error: (err as Error).message })
   }
   res.writeHead(head.status, downstream(head).flat())
   stream.pipe(res)

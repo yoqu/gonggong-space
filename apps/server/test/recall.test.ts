@@ -180,6 +180,10 @@ describe('recall (撤回)', () => {
       (await as.get<GroupDto[]>('/api/groups')).body.find((g) => g.id === w.g.id)?.last
     expect(await last(w.asLi)).toBe('王磊 撤回了一条消息')
     expect(await last(w.asWang)).toBe('你撤回了一条消息')
+    const lastI18n = async (as: W['asWang']) =>
+      (await as.get<GroupDto[]>('/api/groups')).body.find((g) => g.id === w.g.id)?.lastI18n
+    expect(await lastI18n(w.asLi)).toEqual({ key: '{user} 撤回了一条消息', params: { user: '王磊' } })
+    expect(await lastI18n(w.asWang)).toEqual({ key: '你撤回了一条消息' })
   })
 
   it('keeps the run it triggered but leaves it out of agent context and the gonggong tools', async () => {

@@ -154,7 +154,7 @@ pub fn login_label(kind: AgentKind, out: &str) -> Option<String> {
         AgentKind::Claude => {
             let v: serde_json::Value = serde_json::from_str(out.trim()).ok()?;
             if !v["loggedIn"].as_bool()? {
-                return Some("未登录".into());
+                return Some(crate::t!("未登录").into());
             }
             let how = match v["subscriptionType"].as_str() {
                 Some(plan) => {
@@ -164,17 +164,17 @@ pub fn login_label(kind: AgentKind, out: &str) -> Option<String> {
                         c.next().map(|f| f.to_uppercase().chain(c).collect::<String>()).unwrap_or_default()
                     )
                 }
-                None => v["authMethod"].as_str().unwrap_or("未知方式").to_string(),
+                None => v["authMethod"].as_str().unwrap_or(crate::t!("未知方式")).to_string(),
             };
-            Some(format!("已登录 · {how}"))
+            Some(crate::t!("已登录 · {how}", how = how))
         }
         AgentKind::Codex => {
             let line = out.lines().map(str::trim).find(|l| !l.is_empty())?;
             if line.starts_with("Not logged in") {
-                return Some("未登录".into());
+                return Some(crate::t!("未登录").into());
             }
             let how = line.strip_prefix("Logged in using ")?;
-            Some(format!("已登录 · {}", how.trim_start_matches("an ").trim_start_matches("a ")))
+            Some(crate::t!("已登录 · {how}", how = how.trim_start_matches("an ").trim_start_matches("a ")))
         }
     }
 }

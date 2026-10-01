@@ -1,5 +1,7 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
+import { t } from '../i18n'
 import { cx } from '../lib/cx'
+import { dateLocale } from '../lib/time'
 import { useControlled } from './controlled'
 import { Button } from './controls'
 import { Icon } from './icon'
@@ -25,9 +27,16 @@ const ymdOf = (v: DateValue | null | undefined): Ymd | null => {
 const iso = (o: Ymd) => `${o.y}-${String(o.m).padStart(2, '0')}-${String(o.d).padStart(2, '0')}`
 const cmp = (a: Ymd, b: Ymd) => a.y - b.y || a.m - b.m || a.d - b.d
 const at = (y: number, m: number, d: number) => ymdOf(new Date(y, m - 1, d)) as Ymd
-const WEEK = ['日', '一', '二', '三', '四', '五', '六']
-const formatDate = (o: Ymd, weekday: boolean) =>
-  `${o.y}年${o.m}月${o.d}日${weekday ? ` 星期${WEEK[new Date(o.y, o.m - 1, o.d).getDay()]}` : ''}`
+const WEEK = [0, 1, 2, 3, 4, 5, 6].map((d) =>
+  new Date(2023, 0, d + 1).toLocaleDateString(dateLocale, { weekday: 'narrow' }),
+)
+const formatDate = (o: Ymd, weekday: boolean) => {
+  const d = new Date(o.y, o.m - 1, o.d)
+  const date = d.toLocaleDateString(dateLocale, { dateStyle: 'long' })
+  return weekday
+    ? t('{date} {weekday}', { date, weekday: d.toLocaleDateString(dateLocale, { weekday: 'long' }) })
+    : date
+}
 
 export interface CalendarProps {
   value?: DateValue | null
@@ -101,30 +110,30 @@ export function Calendar({
     // biome-ignore lint/a11y/useSemanticElements: a labelled widget group, not a form fieldset
     <div
       role="group"
-      aria-label={aria['aria-label'] ?? '日历'}
+      aria-label={aria['aria-label'] ?? t('日历')}
       className={cx('ui-cal', className)}
       style={style}
     >
       <div className="ui-cal__head">
         <span className="ui-cal__title" aria-live="polite">
-          {view.y}年{view.m}月
+          {new Date(view.y, view.m - 1).toLocaleDateString(dateLocale, { year: 'numeric', month: 'long' })}
         </span>
         <span className="ui-cal__nav">
           <button
             type="button"
             className="ui-inputwrap__btn"
-            aria-label="上个月"
+            aria-label={t('上个月')}
             onClick={() => shiftMonth(-1)}
           >
             <Icon name="chevron-left" weight={2} />
           </button>
           <button type="button" className="ui-cal__today" onClick={() => go(today)}>
-            今天
+            {t('今天')}
           </button>
           <button
             type="button"
             className="ui-inputwrap__btn"
-            aria-label="下个月"
+            aria-label={t('下个月')}
             onClick={() => shiftMonth(1)}
           >
             <Icon name="chevron-right" weight={2} />
@@ -215,7 +224,7 @@ export function DatePicker({
   defaultValue = null,
   onChange,
   label,
-  placeholder = '选择日期',
+  placeholder = t('选择日期'),
   min,
   max,
   marks,
@@ -236,7 +245,10 @@ export function DatePicker({
     if (refocus) trigger.current?.focus()
   })
   const v = ymdOf(current)
-  const name = `${typeof label === 'string' ? label : '日期'}：${v ? formatDate(v, true) : '未选择'}`
+  const name = t('{label}：{value}', {
+    label: typeof label === 'string' ? label : t('日期'),
+    value: v ? formatDate(v, true) : t('未选择'),
+  })
   return (
     <div className={cx('ui-field', 'ui-field--auto', className)} style={style}>
       {label ? <span className="ui-field__label">{label}</span> : null}
@@ -258,7 +270,7 @@ export function DatePicker({
             <Icon name="chevron-updown" weight={2.2} />
           </span>
         </Button>
-        <Float open={open} placement={placement} role="dialog" aria-label="选择日期">
+        <Float open={open} placement={placement} role="dialog" aria-label={t('选择日期')}>
           <Calendar
             value={current}
             min={min}

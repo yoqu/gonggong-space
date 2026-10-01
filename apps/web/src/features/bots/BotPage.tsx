@@ -16,6 +16,7 @@ import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
+import { stepText } from '../runs/mcp'
 import { TIER_LABEL } from '../runs/tier'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { APPROVAL_LABEL } from './ApprovalFields'
@@ -23,6 +24,7 @@ import { BotAvatar, ROLES } from './avatars'
 import { BotWarning } from './BotsAdminPage'
 import { agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import './bots.css'
+import { t } from '../../i18n'
 
 /** Groups the bot is in; refetched whenever one of its runs changes. */
 function usePlaces(botId: string, enabled: boolean) {
@@ -44,7 +46,7 @@ function usePlaces(botId: string, enabled: boolean) {
 
 /** `~` for the home dir; the daemon's managed dir (<home>/workspaces/<groupId>/…) gets a name instead of its ids. */
 export function workspaceText(path: string, groupId?: string) {
-  if (groupId && path.includes(`/workspaces/${groupId}/`)) return '托管工作区'
+  if (groupId && path.includes(`/workspaces/${groupId}/`)) return t('托管工作区')
   return path.replace(/^(\/Users|\/home)\/[^/]+(?=\/|$)/, '~')
 }
 
@@ -57,8 +59,9 @@ function WorkspacePath({ path, groupId }: { path: string; groupId?: string }) {
 }
 
 function idleText(bot: BotDto) {
-  if (bot.presence === 'online') return '空闲，在群里 @ 它即可开工'
-  if (bot.presence === 'offline') return `${bot.machineName ?? '机器'} 离线，被 @ 的请求会等待机器上线`
+  if (bot.presence === 'online') return t('空闲，在群里 @ 它即可开工')
+  if (bot.presence === 'offline')
+    return t('{machine} 离线，被 @ 的请求会等待机器上线', { machine: bot.machineName ?? t('机器') })
   return PRESENCE[bot.presence].label
 }
 
@@ -78,7 +81,7 @@ function Live({ bot, places }: { bot: BotDto; places: BotPlaceDto[] | null }) {
   const live = places?.filter((p) => p.run) ?? []
   if (!live.length) return <p className="bot-page__idle">{places ? idleText(bot) : '…'}</p>
   return (
-    <ul className="bot-page__list" aria-label="正在工作">
+    <ul className="bot-page__list" aria-label={t('正在工作')}>
       {live.map((p) => {
         const run = p.run as NonNullable<BotPlaceDto['run']>
         return (
@@ -88,9 +91,11 @@ function Live({ bot, places }: { bot: BotDto; places: BotPlaceDto[] | null }) {
                 {p.groupName}
               </Link>
               <Tag tone={RUN_STATUS[run.status].tone}>{RUN_STATUS[run.status].label}</Tag>
-              {run.startedAt ? <span className="bot-page__muted">{ago(run.startedAt)}开始</span> : null}
+              {run.startedAt ? (
+                <span className="bot-page__muted">{t('{ago}开始', { ago: ago(run.startedAt) })}</span>
+              ) : null}
             </div>
-            {run.step ? <span className="bot-page__step">{run.step}</span> : null}
+            {run.step ? <span className="bot-page__step">{stepText(run)}</span> : null}
             {p.workspacePath ? <WorkspacePath path={p.workspacePath} groupId={p.groupId} /> : null}
           </li>
         )
@@ -100,22 +105,22 @@ function Live({ bot, places }: { bot: BotDto; places: BotPlaceDto[] | null }) {
 }
 
 function Places({ places }: { places: BotPlaceDto[] }) {
-  if (!places.length) return <p className="bot-page__idle">还没有加入任何群，把它拉进群后即可 @ 它</p>
+  if (!places.length) return <p className="bot-page__idle">{t('还没有加入任何群，把它拉进群后即可 @ 它')}</p>
   return (
-    <ul className="bot-page__list" aria-label="工作位置">
+    <ul className="bot-page__list" aria-label={t('工作位置')}>
       {places.map((p) => (
         <li key={p.groupId}>
           <Link to={`/g/${p.groupId}`} className="bot-page__place">
             <span className="bot-page__line">
               <span className="bot-page__group">{p.groupName}</span>
-              {p.groupKind === 'dm' ? <Tag tone="gray">私聊</Tag> : null}
+              {p.groupKind === 'dm' ? <Tag tone="gray">{t('私聊')}</Tag> : null}
               <span className="spacer" />
-              <span className="bot-page__muted">{p.lastRunAt ? ago(p.lastRunAt) : '尚未运行'}</span>
+              <span className="bot-page__muted">{p.lastRunAt ? ago(p.lastRunAt) : t('尚未运行')}</span>
             </span>
             {p.workspacePath ? (
               <WorkspacePath path={p.workspacePath} groupId={p.groupId} />
             ) : (
-              <span className="bot-page__muted">工作区未就绪</span>
+              <span className="bot-page__muted">{t('工作区未就绪')}</span>
             )}
           </Link>
         </li>
@@ -131,10 +136,10 @@ function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
   const daily = useGet<UsageDayDto[]>(`/usage/daily?${q}&tz=${encodeURIComponent(TZ)}`).data
   const sum = (k: 'runs' | 'totalTokens' | 'unreported') => (byUser ?? []).reduce((n, r) => n + r[k], 0)
   const tiles = [
-    { label: 'token 合计', value: byUser ? fmtTokens(sum('totalTokens')) : '--' },
-    { label: '运行轮次', value: byUser ? String(sum('runs')) : '--' },
-    { label: '未上报轮次', value: byUser ? String(sum('unreported')) : '--' },
-    { label: '所在群', value: String(groupCount) },
+    { label: t('token 合计'), value: byUser ? fmtTokens(sum('totalTokens')) : '--' },
+    { label: t('运行轮次'), value: byUser ? String(sum('runs')) : '--' },
+    { label: t('未上报轮次'), value: byUser ? String(sum('unreported')) : '--' },
+    { label: t('所在群'), value: String(groupCount) },
   ]
   return (
     <>
@@ -149,10 +154,10 @@ function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
       {daily && sum('runs') ? <Trend daily={daily} /> : null}
       {byUser?.length ? (
         <div className="bot-page__pair">
-          <Card title="谁用了">
+          <Card title={t('谁用了')}>
             <UsageBars rows={byUser} />
           </Card>
-          <Card title="按群">
+          <Card title={t('按群')}>
             <UsageBars rows={byGroup ?? []} />
           </Card>
         </div>
@@ -163,14 +168,14 @@ function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
 
 function Config({ bot }: { bot: BotDto }) {
   const rows: [string, ReactNode][] = [
-    ['权限档位', TIER_LABEL[bot.tier]],
-    ['触发范围', TRIGGER_SCOPE_LABEL[bot.triggerScope]],
-    ['模型', agentConfigLabel(bot.catalog, bot.model, bot.effort)],
-    ['并发上限', `${bot.concurrency} 个群并行`],
-    ['命令审批', APPROVAL_LABEL[bot.approval]],
+    [t('权限档位'), TIER_LABEL[bot.tier]],
+    [t('触发范围'), TRIGGER_SCOPE_LABEL[bot.triggerScope]],
+    [t('模型'), agentConfigLabel(bot.catalog, bot.model, bot.effort)],
+    [t('并发上限'), t('{n} 个群并行', { n: bot.concurrency })],
+    [t('命令审批'), APPROVAL_LABEL[bot.approval]],
     [
-      '默认工作区',
-      bot.defaultWorkspace ? <WorkspacePath key="path" path={bot.defaultWorkspace} /> : '未设置',
+      t('默认工作区'),
+      bot.defaultWorkspace ? <WorkspacePath key="path" path={bot.defaultWorkspace} /> : t('未设置'),
     ],
   ]
   return (
@@ -205,7 +210,7 @@ export function BotPage({
   const presence = PRESENCE[bot.presence]
 
   return (
-    <section className="bot-page" aria-label="Bot 概况">
+    <section className="bot-page" aria-label={t('Bot 概况')}>
       <ChatHeader
         avatar={<BotAvatar id={bot.id} name={bot.name} size={32} />}
         title={bot.name}
@@ -213,8 +218,8 @@ export function BotPage({
         onBack={onBack}
         actions={[
           canView
-            ? { icon: 'gear', label: '编辑 Bot', text: '编辑', onClick: onSettings }
-            : { icon: 'info', label: 'Bot 详情', text: '详情', onClick: onSettings },
+            ? { icon: 'gear', label: t('编辑 Bot'), text: t('编辑'), onClick: onSettings }
+            : { icon: 'info', label: t('Bot 详情'), text: t('详情'), onClick: onSettings },
         ]}
       />
       <div className="bot-page__body">
@@ -238,20 +243,20 @@ export function BotPage({
 
         {canView ? (
           <>
-            <Card title="正在工作">
+            <Card title={t('正在工作')}>
               <Live bot={bot} places={places} />
             </Card>
             {places ? (
-              <Card title="工作位置" meta={`${places.length} 个群`}>
+              <Card title={t('工作位置')} meta={t('{n} 个群', { n: places.length })}>
                 <Places places={places} />
               </Card>
             ) : null}
-            <h2 className="bot-page__heading">近 {WINDOW} 天用量</h2>
+            <h2 className="bot-page__heading">{t('近 {n} 天用量', { n: WINDOW })}</h2>
             <Usage botId={bot.id} groupCount={bot.groupCount} />
           </>
         ) : null}
 
-        <Card title="配置">
+        <Card title={t('配置')}>
           <Config bot={bot} />
         </Card>
       </div>

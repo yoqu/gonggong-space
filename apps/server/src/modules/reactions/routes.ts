@@ -16,7 +16,7 @@ export function reactionRoutes(ctx: Ctx) {
   /** Idempotent toggle; members are told only when the set actually changed. */
   const react = async (userId: string, params: Params['Params'], on: boolean): Promise<ReactionsDto> => {
     const emoji = ReactionEmoji.parse(params.emoji)
-    const messageId = idParam(params.id, '消息')
+    const messageId = idParam(params.id, '消息不存在')
     const [m] = await ctx.db
       .select({ groupId: messages.groupId })
       .from(messages)
