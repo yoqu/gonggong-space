@@ -51,6 +51,7 @@ const KIMI: AgentCatalog = {
 
 const bot = (o: Partial<BotDto> = {}): BotDto => ({
   id: 'b1',
+  teamId: 't1',
   name: '小王的 Claude',
   ownerId: 'u1',
   ownerName: '王磊',

@@ -5,6 +5,7 @@ import { useWorkspace } from '../src/app/workspace'
 
 const g: GroupDto = {
   id: 'g1',
+  teamId: 't1',
   name: 'A',
   kind: 'group',
   mode: 'partition',
@@ -109,4 +110,26 @@ it('keeps each group live runs in step with run updates', () => {
   applyEvent({ t: 'run.updated', run: run('r0', 'completed') })
   applyEvent({ t: 'run.updated', run: run('r1', 'interrupted') })
   expect(live()).toEqual([[], []])
+})
+
+it("keeps another team's groups, bots and notifications out of the open team", () => {
+  localStorage.setItem('gg.team', 't1')
+  const apply = useWorkspace.getState().applyEvent
+  apply({ t: 'group.updated', group: { ...g, id: 'g9', teamId: 't2' } })
+  apply({
+    t: 'notification.new',
+    notification: {
+      id: 'n1',
+      teamId: 't2',
+      type: 'chain_done',
+      payload: {},
+      readAt: null,
+      resolvedAt: null,
+      createdAt: '',
+    },
+  })
+  apply({ t: 'group.updated', group: { ...g, id: 'g2' } })
+  expect(useWorkspace.getState().groups.map((x) => x.id)).toEqual(['g2'])
+  expect(useWorkspace.getState().notifCount).toBe(0)
+  localStorage.removeItem('gg.team')
 })

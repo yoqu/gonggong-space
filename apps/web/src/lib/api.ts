@@ -1,5 +1,6 @@
 import type { ErrorCode } from '@gonggong/protocol'
 import { locale, t } from '../i18n'
+import { storedTeam } from './team'
 
 export type ApiErrorCode = ReturnType<(typeof ErrorCode)['parse']> | 'http_error' | 'network_error'
 
@@ -20,8 +21,17 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler
 }
 
+const teamHeader = (): Record<string, string> => {
+  const team = storedTeam()
+  return team ? { 'x-gg-team': team } : {}
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, credentials: 'include', headers: { 'accept-language': locale } }
+  const init: RequestInit = {
+    method,
+    credentials: 'include',
+    headers: { 'accept-language': locale, ...teamHeader() },
+  }
   if (body !== undefined) {
     init.headers = { ...init.headers, 'content-type': 'application/json' }
     init.body = JSON.stringify(body)

@@ -1,9 +1,9 @@
-import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
+import type { ApprovalDto, GroupParams, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
-import { groupParamDefaults, withDefaults } from '../groups/params.js'
+import { groupParams } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
 import { attachmentDto, questionSetDto } from '../questions/dto.js'
 import { stepI18nOf } from './step.js'
@@ -80,7 +80,7 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
 export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow) => RunDto> {
   if (!rows.length) return (r) => runDto(r)
   const ids = rows.map((r) => r.id)
-  const [aps, qs, groupRows, defaults] = await Promise.all([
+  const [aps, qs, groupRows] = await Promise.all([
     ctx.db
       .select({ a: approvals, name: users.name })
       .from(approvals)
@@ -94,18 +94,19 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
       .where(inArray(questionSets.runId, ids))
       .orderBy(asc(questionSets.createdAt)),
     ctx.db
-      .select({ id: groups.id, params: groups.params })
+      .select({ id: groups.id, params: groups.params, teamId: groups.teamId })
       .from(groups)
       .where(inArray(groups.id, [...new Set(rows.map((r) => r.groupId))])),
-    groupParamDefaults(ctx),
   ])
   const fileIds = qs.flatMap((x) => x.q.attachmentIds)
   const files = fileIds.length
     ? (await ctx.db.select().from(attachments).where(inArray(attachments.id, fileIds))).map(attachmentDto)
     : []
-  const params = new Map(groupRows.map((g) => [g.id, g.params]))
+  const params = new Map(
+    await Promise.all(groupRows.map(async (g) => [g.id, await groupParams(ctx, g)] as const)),
+  )
   return (r) => {
-    const p = withDefaults(params.get(r.groupId) ?? {}, defaults)
+    const p = params.get(r.groupId) as GroupParams
     return runDto(r, {
       approvals: aps.filter((x) => x.a.runId === r.id).map((x) => approvalDto(x.a, x.name)),
       questions: qs.filter((x) => x.q.runId === r.id).map((x) => questionSetDto(x.q, x.name, files)),

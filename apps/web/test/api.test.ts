@@ -34,6 +34,22 @@ describe('api client', () => {
     })
   })
 
+  it('sends the current team picked in localStorage', async () => {
+    const fetchMock = vi.fn(async () => json(200, []))
+    vi.stubGlobal('fetch', fetchMock)
+    localStorage.setItem('gg.team', 't1')
+    try {
+      await api.get('/groups')
+    } finally {
+      localStorage.removeItem('gg.team')
+    }
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/groups', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'accept-language': 'zh', 'x-gg-team': 't1' },
+    })
+  })
+
   it('maps error bodies to ApiError with code and message', async () => {
     vi.stubGlobal(
       'fetch',

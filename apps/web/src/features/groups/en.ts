@@ -125,4 +125,6 @@ export default {
   '还没有可拉入的 Bot': 'No Bots to add yet',
   没有可添加的成员: 'No members to add',
   '审批 {min} 分 · 接力 {hops} 跳': 'Approval {min} min · relay {hops} {hops:hop|hops}',
+  '只对本群生效；与团队层、平台层同名时以群层为准。':
+    'Applies to this group only; replaces same-named team and platform servers.',
 } satisfies Record<string, string>

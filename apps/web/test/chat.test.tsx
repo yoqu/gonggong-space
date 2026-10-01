@@ -30,6 +30,7 @@ const me: UserDto = {
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   id: 'g1',
+  teamId: 't1',
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',
@@ -59,6 +60,7 @@ const users = [
 
 const bot = (o: Partial<BotDto>): BotDto => ({
   id: 'b1',
+  teamId: 't1',
   name: '小王的 Claude',
   ownerId: 'u1',
   ownerName: '王磊',

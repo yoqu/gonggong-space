@@ -9,7 +9,7 @@ import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
 import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
-import { activeBots, requireMember } from '../groups/service.js'
+import { activeBots, requireMember, requireReader } from '../groups/service.js'
 import { reactionsFor } from '../reactions/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
@@ -22,7 +22,7 @@ export function messageRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.get<{ Params: { id: string } }>('/api/groups/:id/timeline', async (req): Promise<TimelineDto> => {
       const me = await requireUser(ctx, req)
-      await requireMember(ctx, req.params.id, me.id)
+      await requireReader(ctx, req.params.id, me.id)
       const { before, limit } = TimelineQuery.parse(req.query)
       const rows = await ctx.db
         .select({ m: messages, userName: users.name, botName: bots.name })

@@ -8,8 +8,9 @@ import {
 } from '@gonggong/protocol'
 import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
+import { bots, groupBots, groups, machines, runs, teamMembers, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { teamOfBot, teamUserIds } from '../teams/service.js'
 
 type BotRow = typeof bots.$inferSelect
 type MachineRow = typeof machines.$inferSelect
@@ -75,6 +76,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       : undefined
     return {
       id: bot.id,
+      teamId: bot.teamId,
       name: bot.name,
       ownerId: bot.ownerId,
       ownerName,
@@ -108,15 +110,22 @@ export async function botDto(ctx: Ctx, row: Pick<BotRow, 'id'>) {
   return dto ?? fail('not_found', 'Bot 不存在')
 }
 
-async function everyone(ctx: Ctx) {
-  const rows = await ctx.db.select({ id: users.id }).from(users).where(isNull(users.disabledAt))
-  return rows.map((r) => r.id)
-}
-
-/** Pushes `bot.updated` for every live bot matching `where` to all users (bots are visible team-wide). */
+/** Pushes `bot.updated` for every live bot matching `where` to its team (bots are visible team-wide). */
 export async function publishBots(ctx: Ctx, where: SQL) {
-  const [list, userIds] = await Promise.all([listBotDtos(ctx, where), everyone(ctx)])
-  for (const bot of list) ctx.bus.publish(userIds, { t: 'bot.updated', bot })
+  const [list, audience] = await Promise.all([
+    listBotDtos(ctx, where),
+    ctx.db
+      .select({ botId: bots.id, userId: teamMembers.userId })
+      .from(bots)
+      .innerJoin(teamMembers, eq(teamMembers.teamId, bots.teamId))
+      .innerJoin(users, and(eq(users.id, teamMembers.userId), isNull(users.disabledAt)))
+      .where(where),
+  ])
+  for (const bot of list)
+    ctx.bus.publish(
+      audience.filter((a) => a.botId === bot.id).map((a) => a.userId),
+      { t: 'bot.updated', bot },
+    )
   return list
 }
 
@@ -126,5 +135,5 @@ export async function publishBot(ctx: Ctx, id: string) {
 }
 
 export async function publishBotRemoved(ctx: Ctx, botId: string) {
-  ctx.bus.publish(await everyone(ctx), { t: 'bot.removed', botId })
+  ctx.bus.publish(await teamUserIds(ctx, await teamOfBot(ctx, botId)), { t: 'bot.removed', botId })
 }

@@ -176,6 +176,8 @@ export function bot(over: Partial<MachineBot>): MachineBot {
     approval: 'ask',
     allowlist: [],
     avatar: 'role-gong',
+    teamId: 't1',
+    teamName: '默认团队',
     ...over,
   }
 }

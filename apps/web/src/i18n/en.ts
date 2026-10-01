@@ -17,6 +17,7 @@ import repos from '../features/repos/en'
 import runs from '../features/runs/en'
 import search from '../features/search/en'
 import settings from '../features/settings/en'
+import teams from '../features/teams/en'
 import usage from '../features/usage/en'
 import users from '../features/users/en'
 import workbench from '../features/workbench/en'
@@ -45,6 +46,7 @@ export const en = {
   ...repos,
   ...runs,
   ...search,
+  ...teams,
   ...settings,
   ...usage,
   ...users,

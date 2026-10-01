@@ -17,7 +17,9 @@ import { Throttle } from '../../lib/throttle.js'
 import { sysParams } from '../admin/params.js'
 import { publishBots } from '../bots/dto.js'
 import { publishGroup } from '../groups/service.js'
-import { toUserDto } from '../users/dto.js'
+import { meDto } from '../teams/dto.js'
+import { acceptInvite, findInvite } from '../teams/members.js'
+import { joinDefaultTeam } from '../teams/service.js'
 import { createSession, requireUser, SESSION_COOKIE } from './session.js'
 
 const LOGIN_MAX_FAILURES = 5
@@ -55,7 +57,7 @@ export function authRoutes(ctx: Ctx) {
       if (user.disabledAt) return fail('forbidden', '账号已停用，请联系系统管理员')
       throttle.reset(account)
       await signIn(reply, user.id)
-      return toUserDto(user)
+      return meDto(ctx, user)
     })
 
     app.get(
@@ -66,9 +68,11 @@ export function authRoutes(ctx: Ctx) {
     )
 
     app.post('/api/auth/register', async (req, reply) => {
-      if (!(await sysParams(ctx.db)).registrationOpen)
-        return fail('forbidden', '未开放注册，请联系系统管理员创建账号')
       const body = RegisterReq.parse(req.body)
+      const invite = body.inviteToken ? await findInvite(ctx, body.inviteToken) : null
+      if (invite && !invite.usable) return fail('code_expired', '邀请链接已失效')
+      if (!invite && !(await sysParams(ctx.db)).registrationOpen)
+        return fail('forbidden', '未开放注册，请联系系统管理员创建账号')
       if (signups.blocked(req.ip)) return fail('forbidden', '注册过于频繁，请稍后再试')
       const [user] = await ctx.db
         .insert(users)
@@ -82,6 +86,8 @@ export function authRoutes(ctx: Ctx) {
         .onConflictDoNothing({ target: users.account })
         .returning()
       if (!user) return fail('conflict', '账号已存在')
+      if (invite) await acceptInvite(ctx, invite, user)
+      await joinDefaultTeam(ctx.db, user.id)
       signups.fail(req.ip)
       await audit(ctx, {
         category: 'admin',
@@ -90,7 +96,7 @@ export function authRoutes(ctx: Ctx) {
         detail: { userId: user.id, account: user.account },
       })
       await signIn(reply, user.id)
-      return reply.status(201).send(toUserDto(user))
+      return reply.status(201).send(await meDto(ctx, user))
     })
 
     app.post('/api/auth/logout', async (req, reply) => {
@@ -104,12 +110,12 @@ export function authRoutes(ctx: Ctx) {
       return reply.status(204).send()
     })
 
-    app.get('/api/me', async (req) => toUserDto(await requireUser(ctx, req, { allowPending: true })))
+    app.get('/api/me', async (req) => meDto(ctx, await requireUser(ctx, req, { allowPending: true })))
 
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
       const patch = UpdateMeReq.parse(req.body)
-      if (!Object.keys(patch).length) return toUserDto(user)
+      if (!Object.keys(patch).length) return meDto(ctx, user)
       const [row] = await ctx.db.update(users).set(patch).where(eq(users.id, user.id)).returning()
       if (patch.name !== undefined && patch.name !== user.name) {
         const mine = await ctx.db
@@ -119,7 +125,7 @@ export function authRoutes(ctx: Ctx) {
         for (const g of mine) await publishGroup(ctx, g.id)
         await publishBots(ctx, eq(bots.ownerId, user.id))
       }
-      return toUserDto(row ?? user)
+      return meDto(ctx, row ?? user)
     })
 
     app.post('/api/auth/password', async (req) => {
@@ -141,7 +147,7 @@ export function authRoutes(ctx: Ctx) {
             ne(webSessions.tokenHash, sha256(req.cookies[SESSION_COOKIE] ?? '')),
           ),
         )
-      return toUserDto({ ...user, mustChangePassword: false })
+      return meDto(ctx, { ...user, mustChangePassword: false })
     })
   }
 }

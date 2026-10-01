@@ -41,7 +41,7 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
 }
 
 /** The pinned notice atop the chat: admins remove it for everyone, members hide it for themselves. */
-export function GroupNotice({ group }: { group: GroupDto }) {
+export function GroupNotice({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const me = useSession((s) => s.user)
   const [removing, setRemoving] = useState(false)
   if (!group.notice || group.noticeHidden) return null
@@ -55,7 +55,7 @@ export function GroupNotice({ group }: { group: GroupDto }) {
       <PinnedBanner
         text={group.notice}
         closeLabel={admin ? t('移除') : t('不再显示')}
-        onClose={admin ? () => setRemoving(true) : () => void hide()}
+        onClose={readOnly ? undefined : admin ? () => setRemoving(true) : () => void hide()}
       />
       <Presence>
         {removing ? <RemoveNoticeDialog groupId={group.id} onClose={() => setRemoving(false)} /> : null}

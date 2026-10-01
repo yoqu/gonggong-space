@@ -79,8 +79,8 @@ export default {
   '所有群的模式、仓库与权威副本状态。': 'Mode, repo and authoritative copy state of every group.',
   配置: 'Configuration',
   系统参数: 'System parameters',
-  '全局默认值；群级参数由群管理员在群设置中调整。':
-    'Global defaults; group admins adjust group parameters in group settings.',
+  '平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。':
+    'Platform defaults; team admins override some of them in team settings, and group admins adjust group-level params in group settings.',
   客户端发布: 'Client releases',
   '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。':
     "Daemons on members' machines upgrade to this version when they connect; gg-cast downloads on demand the first time a live view is streamed.",
@@ -195,4 +195,36 @@ export default {
   '创建后账号与初始密码会一起复制。': 'The account and initial password are copied together after creation.',
   '机器#count': 'Machines',
   'Bot#nav': 'Bots',
+  团队: 'Team',
+  '团队#nav': 'Teams',
+  全部团队: 'All teams',
+  所属团队: 'Teams',
+  单团队模式: 'Single-team mode',
+  '开启后不显示团队切换，新账号自动加入唯一的团队；仅在恰好有一个未归档团队时可开启。':
+    'Hides team switching and puts new accounts in the only team; can be turned on only when exactly one live team exists.',
+  已开启: 'On',
+  已开启单团队模式: 'Single-team mode turned on',
+  已关闭单团队模式: 'Single-team mode turned off',
+  建团队权限: 'Who can create teams',
+  '单团队模式下任何人都不能新建团队。': 'Nobody can create teams in single-team mode.',
+  建团队权限已保存: 'Team creation setting saved',
+  所有人: 'Everyone',
+  仅系统管理员: 'System admins only',
+  '全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。':
+    "Every team's owner, member count and status; members, invites and settings inside a team are managed by its admins in team settings.",
+  '{n} 个团队': '{n} {n:team|teams}',
+  '新建团队…': 'New team…',
+  搜索团队或所有者: 'Search teams or owners',
+  团队列表: 'Teams',
+  '指定所有者…': 'Set owner…',
+  恢复团队: 'Restore team',
+  没有匹配的团队: 'No matching teams',
+  创建时间: 'Created',
+  已恢复团队: 'Team restored',
+  已指定所有者: 'Owner set',
+  团队已创建: 'Team created',
+  '指定「{name}」的所有者': 'Set the owner of "{name}"',
+  '对方成为所有者（未加入则自动加入）；原所有者改为管理员。':
+    'They become an owner (joining if needed); the previous owners become admins.',
+  选择账号: 'Choose an account',
 } satisfies Record<string, string>

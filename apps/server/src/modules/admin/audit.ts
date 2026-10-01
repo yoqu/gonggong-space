@@ -4,6 +4,7 @@ import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, runs, users } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
+import { idParam } from '../../lib/ids.js'
 
 type Row = typeof auditLogs.$inferSelect
 type Detail = Record<string, unknown>
@@ -32,6 +33,7 @@ const QUESTION: Record<string, MessageKey> = {
   expired: '{bot} 的 {n} 个问题超时未答',
 }
 const MCP: Record<string, MessageKey> = { 'mcp.create': '添加', 'mcp.update': '修改', 'mcp.delete': '删除' }
+const LAYER: Record<string, MessageKey> = { platform: '平台层', team: '团队层', group: '群层' }
 const ROLE: Record<string, MessageKey> = { sysadmin: '系统管理员', member: '普通成员' }
 const TOOL: Record<string, string> = { node: 'Node.js', claude: 'Claude Code', codex: 'Codex' }
 const PROVIDERS: Record<string, MessageKey> = {
@@ -41,6 +43,8 @@ const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.import': '导入机器的供应商',
 }
 
+const TEAM_ROLE: Record<string, MessageKey> = { owner: '所有者', admin: '管理员', member: '成员' }
+const teamRole = (v: unknown) => (TEAM_ROLE[str(v)] ? t(TEAM_ROLE[str(v)] as MessageKey) : str(v))
 const role = (v: unknown) => (ROLE[str(v)] ? t(ROLE[str(v)] as MessageKey) : str(v))
 const paramValue = (v: unknown, unit: string) => (v === null ? t('未设置') : `${v}${unit}`)
 
@@ -53,7 +57,13 @@ function paramChanges(d: Detail) {
   const reg = changes.registrationOpen
     ? [t(changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册')]
     : []
-  return [...reg, ...numeric].join(t('；'))
+  const single = changes.singleTeamMode
+    ? [t(changes.singleTeamMode[1] ? '开启单团队模式' : '关闭单团队模式')]
+    : []
+  const creation = changes.teamCreation
+    ? [t(changes.teamCreation[1] === 'all' ? '建团队权限改为所有人' : '建团队权限改为仅系统管理员')]
+    : []
+  return [...reg, ...single, ...creation, ...numeric].join(t('；'))
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
@@ -108,8 +118,9 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
     case 'admin':
       if (row.action in PROVIDERS) return t(PROVIDERS[row.action] as MessageKey)
       if (row.action in MCP)
-        return t('{verb}全局层 MCP：{state} {name} · {forced}强制新会话', {
+        return t('{verb}{layer} MCP：{state} {name} · {forced}强制新会话', {
           verb: { key: MCP[row.action] as MessageKey },
+          layer: { key: LAYER[str(d.layer)] ?? '平台层' },
           state: { key: d.enabled === false ? '停用' : '启用' },
           name: str(d.name),
           forced: { key: d.forceNewSession ? '已勾选' : '未勾选' },
@@ -140,6 +151,32 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('自助注册账号 {account}', { account: str(d.account) })
         case 'user.disable':
           return t('停用账号 {account}', { account: str(d.account) })
+        case 'team.create':
+          return t('新建团队 {name}', { name: str(d.name) })
+        case 'team.update':
+          return t(d.params === undefined ? '修改团队名称与头像' : '修改团队参数')
+        case 'team.archive':
+          return t('归档团队 {name}', { name: str(d.name) })
+        case 'team.unarchive':
+          return t('恢复团队 {name}', { name: str(d.name) })
+        case 'team.owner':
+          return t('指定 {name} 为团队所有者', { name: str(d.name) })
+        case 'team.member.add':
+          return t('将 {name} 加入团队（{role}）', { name: str(d.name), role: teamRole(d.role) })
+        case 'team.member.role':
+          return t('将 {name} 的团队角色改为{role}', { name: str(d.name), role: teamRole(d.role) })
+        case 'team.member.remove':
+          return t('将 {name} 移出团队', { name: str(d.name) })
+        case 'team.leave':
+          return t('退出团队')
+        case 'team.transfer':
+          return t('将团队所有权转让给 {name}', { name: str(d.name) })
+        case 'team.invite.create':
+          return t('创建团队邀请链接（{role}）', { role: teamRole(d.role) })
+        case 'team.invite.revoke':
+          return t('撤销团队邀请链接')
+        case 'team.invite.accept':
+          return t('通过邀请链接加入团队（{role}）', { role: teamRole(d.role) })
         case 'user.enable':
           return t('启用账号 {account}', { account: str(d.account) })
         case 'daemon.release':
@@ -193,6 +230,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('取消 {user} 的群管理员', { user: str(d.userName) })
         case 'group.dissolve':
           return t('解散群')
+        case 'group.takeover':
+          return t('以团队管理员身份接管群')
         case 'group.member.add':
           return t('邀请 {name} 入群', { name: str(d.name) })
         case 'group.member.remove':
@@ -236,6 +275,7 @@ export async function listAudit(ctx: Ctx, q: z.infer<typeof AuditQuery>): Promis
     .where(
       and(
         q.category ? eq(auditLogs.category, q.category) : undefined,
+        q.teamId ? eq(auditLogs.teamId, idParam(q.teamId, '团队不存在')) : undefined,
         q.before ? lt(auditLogs.id, q.before) : undefined,
       ),
     )

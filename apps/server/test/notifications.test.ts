@@ -28,14 +28,17 @@ async function login() {
   const user = await t.seed.user()
   return { user, api: client(t, await t.seed.cookie(user.id)) }
 }
+/** Notifications are about a group of the recipients' team. */
+const someGroup = async (createdBy: string) => (await t.seed.group({ createdBy })).id
 
 describe('notification center', () => {
   it('marks all of my notifications read, leaving other users alone', async () => {
     const a = await login()
     const b = await login()
-    await notify(t.ctx, a.user.id, 'chain_done', { groupId: 'g', hops: 2 })
-    await notify(t.ctx, a.user.id, 'offline_expired', { groupId: 'g' })
-    await notify(t.ctx, b.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    const g = await someGroup(a.user.id)
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: g, hops: 2 })
+    await notify(t.ctx, a.user.id, 'offline_expired', { groupId: g })
+    await notify(t.ctx, b.user.id, 'chain_done', { groupId: g, hops: 2 })
     expect((await a.api.post('/api/notifications/read-all')).status).toBe(204)
     const mine = (await a.api.get<NotificationDto[]>('/api/notifications')).body
     expect(mine).toHaveLength(2)
@@ -47,8 +50,9 @@ describe('notification center', () => {
   it('deletes one of my notifications, but not someone else’s', async () => {
     const a = await login()
     const b = await login()
-    await notify(t.ctx, a.user.id, 'chain_done', { groupId: 'g', hops: 2 })
-    await notify(t.ctx, b.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    const g = await someGroup(a.user.id)
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: g, hops: 2 })
+    await notify(t.ctx, b.user.id, 'chain_done', { groupId: g, hops: 2 })
     const [mine] = (await a.api.get<NotificationDto[]>('/api/notifications')).body
     const [theirs] = (await b.api.get<NotificationDto[]>('/api/notifications')).body
     expect((await a.api.del(`/api/notifications/${theirs!.id}`)).status).toBe(404)
@@ -60,11 +64,12 @@ describe('notification center', () => {
   it('clears my read notifications, keeping unread ones', async () => {
     const a = await login()
     const b = await login()
-    await notify(t.ctx, a.user.id, 'chain_done', { groupId: 'g', hops: 2 })
-    await notify(t.ctx, b.user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    const g = await someGroup(a.user.id)
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: g, hops: 2 })
+    await notify(t.ctx, b.user.id, 'chain_done', { groupId: g, hops: 2 })
     await a.api.post('/api/notifications/read-all')
     await b.api.post('/api/notifications/read-all')
-    await notify(t.ctx, a.user.id, 'offline_expired', { groupId: 'g' })
+    await notify(t.ctx, a.user.id, 'offline_expired', { groupId: g })
     expect((await a.api.del('/api/notifications/read')).status).toBe(204)
     const left = (await a.api.get<NotificationDto[]>('/api/notifications')).body
     expect(left.map((n) => n.type)).toEqual(['offline_expired'])
@@ -129,11 +134,12 @@ describe('web push', () => {
 
   it('pushes only actionable types, with the notification text and link', async () => {
     const { user, api } = await login()
+    const g = (await t.seed.group({ createdBy: user.id, name: '支付' })).id
     await api.post('/api/push/subscriptions', sub('https://push.test/a'))
     await api.post('/api/push/subscriptions', sub('https://push.test/b'))
     await notify(t.ctx, user.id, 'bot_confirm', { botName: 'B', byName: '陈晨' })
     await notify(t.ctx, user.id, 'approval', {
-      groupId: 'g1',
+      groupId: g,
       groupName: '支付',
       runId: 'r1',
       botName: '小王的 Claude',
@@ -149,19 +155,20 @@ describe('web push', () => {
     expect(JSON.parse(body)).toEqual({
       title: '待审批 · 支付',
       body: '小王的 Claude 请求执行 go build',
-      url: '/g/g1?run=r1',
+      url: `/g/${g}?run=r1`,
     })
     expect(opts.vapidDetails.publicKey).toBe('PUB')
   })
 
   it('drops subscriptions the push service reports as gone (404/410) and keeps them on other errors', async () => {
     const { user, api } = await login()
+    const g = await someGroup(user.id)
     await api.post('/api/push/subscriptions', sub('https://push.test/gone'))
     await api.post('/api/push/subscriptions', sub('https://push.test/flaky'))
     push.sendNotification.mockImplementation(async (s: { endpoint: string }) => {
       throw Object.assign(new Error('push failed'), { statusCode: s.endpoint.endsWith('gone') ? 410 : 500 })
     })
-    await notify(t.ctx, user.id, 'chain_done', { groupId: 'g', hops: 2 })
+    await notify(t.ctx, user.id, 'chain_done', { groupId: g, hops: 2 })
     await vi.waitFor(async () => {
       const rows = await t.db.select().from(pushSubscriptions)
       expect(rows.map((r) => r.endpoint)).toEqual(['https://push.test/flaky'])

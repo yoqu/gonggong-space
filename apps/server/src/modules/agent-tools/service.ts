@@ -55,19 +55,28 @@ const time = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ')
 const clip = (s: string, max = BODY_MAX) =>
   s.length > max ? `${s.slice(0, max)}…（已截断，共 ${s.length} 字）` : s
 
-/** The run's own conversation plus the other live groups its bot is in; private chats only from inside (plan C4). */
+/**
+ * The run's own conversation plus the other live groups of its team its bot is in; private chats only from inside
+ * (plan C4, 团队层级 D6).
+ */
 async function scopeOf(ctx: Ctx, run: Run): Promise<Scope> {
   const joined = ctx.db
     .select({ id: groupBots.groupId })
     .from(groupBots)
     .where(and(eq(groupBots.botId, run.botId), isNull(groupBots.removedAt)))
+  const team = ctx.db.select({ id: groups.teamId }).from(groups).where(eq(groups.id, run.groupId))
   const rows = await ctx.db
     .select()
     .from(groups)
     .where(
       or(
         eq(groups.id, run.groupId),
-        and(inArray(groups.id, joined), isNull(groups.archivedAt), eq(groups.kind, 'group')),
+        and(
+          inArray(groups.id, joined),
+          inArray(groups.teamId, team),
+          isNull(groups.archivedAt),
+          eq(groups.kind, 'group'),
+        ),
       ),
     )
     .orderBy(asc(groups.createdAt))

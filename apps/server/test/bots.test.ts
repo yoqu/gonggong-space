@@ -1,4 +1,4 @@
-import { type BotDto, PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
+import { type BotDto, type DaemonBotDto, PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DaemonConn } from '../src/daemon/hub.js'
@@ -295,8 +295,8 @@ describe('confirm', () => {
     const auth = { authorization: `Bearer ${token}` }
     expect((await t.app.inject({ url: '/api/daemon/bots' })).statusCode).toBe(401)
     const list = await t.app.inject({ url: '/api/daemon/bots', headers: auth })
-    expect(list.json<BotDto[]>().map((b) => [b.name, b.binding])).toEqual([
-      ['小王的 Codex', 'pending_confirm'],
+    expect(list.json<DaemonBotDto[]>().map((b) => [b.name, b.binding, b.teamId, b.teamName])).toEqual([
+      ['小王的 Codex', 'pending_confirm', bot.teamId, '默认团队'],
     ])
     const confirm = await t.app.inject({
       method: 'POST',

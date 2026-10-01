@@ -5,6 +5,7 @@ import { NotificationPanel } from '../features/notifications/NotificationPanel'
 import { syncPush } from '../features/notifications/push'
 import { SearchOverlay } from '../features/search/SearchOverlay'
 import { SettingsHost } from '../features/settings/SettingsDialog'
+import { TeamSwitcher, useMultiTeam } from '../features/teams/TeamSwitcher'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
@@ -22,9 +23,11 @@ export const useShellOverlay = create<{ overlay: Overlay; set: (o: Overlay) => v
 export function ShellBar({ onNewGroup }: { onNewGroup?: () => void }) {
   const set = useShellOverlay((s) => s.set)
   const mobile = useIsMobile()
+  const multiTeam = useMultiTeam()
   return (
     <div className="shellbar">
-      <Toolbar leading={<Logo size={20} />} title={t('共工空间')} scrolled={false}>
+      <Toolbar leading={<Logo size={20} />} title={multiTeam ? undefined : t('共工空间')} scrolled={false}>
+        <TeamSwitcher />
         {onNewGroup ? (
           <ToolbarGroup>
             <ToolbarButton icon="plus" label={t('新建群')} onClick={onNewGroup} />

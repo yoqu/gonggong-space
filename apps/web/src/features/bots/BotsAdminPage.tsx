@@ -1,4 +1,5 @@
 import type {
+  AdminTeamDto,
   AgentCatalog,
   BotDto,
   Tier,
@@ -7,7 +8,7 @@ import type {
   UserBriefDto,
   UserDto,
 } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
@@ -36,6 +37,7 @@ import {
   toast,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
+import { TeamFilter } from '../admin/TeamFilter'
 import { TIER_LABEL, TIERS } from '../runs/tier'
 import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
@@ -393,7 +395,13 @@ export function BotDetail({
 export function BotsAdminPage() {
   // AdminLayout guarantees a sysadmin.
   const me = useSession((s) => s.user) as UserDto
-  const bots = useWorkspace((s) => s.bots)
+  const [teamId, setTeamId] = useState('')
+  const live = useWorkspace((s) => s.bots)
+  const { data, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
+  const teamNames = new Map((useGet<AdminTeamDto[]>('/admin/teams').data ?? []).map((x) => [x.id, x.name]))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the open team's live bot updates re-fetch every team's list
+  useEffect(() => reload(), [live, reload])
+  const bots = data ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<BotDto | null>(null)
@@ -412,6 +420,7 @@ export function BotsAdminPage() {
       subtitle={t('{n} 个 Bot', { n: bots.length })}
       actions={
         <ToolbarGroup>
+          <TeamFilter value={teamId} onChange={setTeamId} />
           <ToolbarButton
             icon="plus"
             label={t('新建 Bot…')}
@@ -461,6 +470,15 @@ export function BotsAdminPage() {
                 render: agentLine,
               },
               { key: 'ownerName', title: t('归属人'), width: 96, sortable: true },
+              {
+                key: 'teamId',
+                title: t('团队'),
+                width: 96,
+                secondary: true,
+                sortable: true,
+                sortValue: (b) => teamNames.get(b.teamId) ?? '',
+                render: (b) => teamNames.get(b.teamId) ?? '',
+              },
               {
                 key: 'binding',
                 title: t('绑定'),

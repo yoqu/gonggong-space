@@ -3,12 +3,14 @@ import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { notifications } from '../../db/schema.js'
 import { groupTitles } from '../groups/title.js'
+import { teamOfBot, teamOfGroup } from '../teams/service.js'
 import { sendPush } from './push.js'
 
 type Row = typeof notifications.$inferSelect
 
 export const notificationDto = (n: Row): NotificationDto => ({
   id: n.id,
+  teamId: n.teamId,
   type: n.type as NotificationDto['type'],
   payload: n.payload as NotificationDto['payload'],
   readAt: n.readAt?.toISOString() ?? null,
@@ -36,9 +38,14 @@ export async function notify(
   payload: NotificationDto['payload'],
 ) {
   const [titled] = await withGroupTitles(ctx, [payload])
+  const teamId = payload.groupId
+    ? await teamOfGroup(ctx, String(payload.groupId))
+    : payload.botId
+      ? await teamOfBot(ctx, String(payload.botId))
+      : null
   const [row] = (await ctx.db
     .insert(notifications)
-    .values({ userId, type, payload: titled })
+    .values({ userId, teamId, type, payload: titled })
     .returning()) as [Row]
   const dto = notificationDto(row)
   ctx.bus.publish([userId], { t: 'notification.new', notification: dto })

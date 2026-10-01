@@ -114,6 +114,7 @@ export const en = {
   '只保存在本机，进行中的会话开启新会话后才切换':
     'Stored only on this machine; ongoing sessions switch once a new session starts',
   '{name} 的供应商': 'Provider of {name}',
+  团队: 'Team',
   并发上限: 'Concurrency limit',
   命令审批: 'Command approval',
   命令白名单: 'Command allowlist',

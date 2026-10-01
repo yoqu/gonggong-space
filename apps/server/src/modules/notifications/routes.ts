@@ -1,25 +1,30 @@
 import { type NotificationDto, PushSubscriptionReq } from '@gonggong/protocol'
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import { and, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { notifications, pushSubscriptions } from '../../db/schema.js'
 import { locale } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
+import { currentTeam } from '../teams/service.js'
 import { notificationDto, withGroupTitles } from './notify.js'
 import { vapidKeys } from './push.js'
 
 const LIMIT = 100
 
 export function notificationRoutes(ctx: Ctx) {
+  /** The current team's notifications plus platform-level ones, which show in every team. */
+  const inTeam = async (req: FastifyRequest, userId: string) =>
+    or(eq(notifications.teamId, await currentTeam(ctx, req, userId)), isNull(notifications.teamId))
+
   return async (app: FastifyInstance) => {
     app.get('/api/notifications', async (req) => {
       const user = await requireUser(ctx, req)
       const rows = await ctx.db
         .select()
         .from(notifications)
-        .where(eq(notifications.userId, user.id))
+        .where(and(eq(notifications.userId, user.id), await inTeam(req, user.id)))
         .orderBy(desc(notifications.createdAt))
         .limit(LIMIT)
       const payloads = await withGroupTitles(
@@ -46,7 +51,9 @@ export function notificationRoutes(ctx: Ctx) {
       await ctx.db
         .update(notifications)
         .set({ readAt: ctx.now() })
-        .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)))
+        .where(
+          and(eq(notifications.userId, user.id), isNull(notifications.readAt), await inTeam(req, user.id)),
+        )
       return reply.status(204).send()
     })
 
@@ -54,7 +61,9 @@ export function notificationRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       await ctx.db
         .delete(notifications)
-        .where(and(eq(notifications.userId, user.id), isNotNull(notifications.readAt)))
+        .where(
+          and(eq(notifications.userId, user.id), isNotNull(notifications.readAt), await inTeam(req, user.id)),
+        )
       return reply.status(204).send()
     })
 

@@ -1,14 +1,15 @@
 import type { WebEvent } from '@gonggong/protocol'
 import type { TestApp } from './app.js'
 
-/** JSON client acting as one logged-in browser. */
-export function client(t: TestApp, cookie: string) {
+/** JSON client acting as one logged-in browser, in `teamId` when given (else its earliest-joined team). */
+export function client(t: TestApp, cookie: string, teamId?: string) {
+  const headers = teamId ? { cookie, 'x-gg-team': teamId } : { cookie }
   const call = async <T = { error?: string }>(
     method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     url: string,
     payload?: unknown,
   ) => {
-    const res = await t.app.inject({ method, url, headers: { cookie }, payload: payload as object })
+    const res = await t.app.inject({ method, url, headers, payload: payload as object })
     return { status: res.statusCode, body: (res.body ? res.json() : undefined) as T }
   }
   return {

@@ -5,6 +5,7 @@ import { useGet } from '../../lib/useGet'
 import { Alert, Dialog, EmptyState, NoDataArt, SegmentedControl, Spinner, Table, Tabs } from '../../ui'
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
+import { TeamFilter } from '../admin/TeamFilter'
 import './usage.css'
 import { t } from '../../i18n'
 
@@ -203,12 +204,16 @@ function Share({ rows, colors }: { rows: UsageRowDto[]; colors: Map<string, stri
   )
 }
 
-/** Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7). */
-function UsagePanel() {
+/**
+ * Last 30 days by bot, trigger user or group; the server scopes members to their own bots (spec §3.7).
+ * `base` /admin/usage is every team, `teamId` narrows to one team (its admins, or the sysadmin).
+ */
+export function UsagePanel({ base = '/usage', teamId = '' }: { base?: string; teamId?: string }) {
   const [by, setBy] = useState<By>('bot')
-  const { rows, error } = useUsage(`by=${by}&days=${WINDOW}`)
+  const team = teamId ? `&teamId=${teamId}` : ''
+  const { data: rows, error } = useGet<UsageRowDto[]>(`${base}?by=${by}&days=${WINDOW}${team}`)
   // Twice the window so the tiles can compare against the prior period.
-  const daily = useGet<UsageDayDto[]>(`/usage/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(TZ)}`)
+  const daily = useGet<UsageDayDto[]>(`${base}/daily?days=${WINDOW * 2}&tz=${encodeURIComponent(TZ)}${team}`)
   const max = Math.max(1, ...(rows ?? []).map((r) => r.totalTokens))
   const colors = colorsFor(rows ?? [])
   return (
@@ -269,11 +274,16 @@ function UsagePanel() {
   )
 }
 
-/** 管理后台 · 用量: every bot in the system. */
+/** 管理后台 · 用量: every bot in the system, or one team's. */
 export function UsagePage() {
+  const [teamId, setTeamId] = useState('')
   return (
-    <AdminPage title={t('用量')} desc={t('按 Bot、触发人、群汇总 token 用量。')}>
-      <UsagePanel />
+    <AdminPage
+      title={t('用量')}
+      desc={t('按 Bot、触发人、群汇总 token 用量。')}
+      actions={<TeamFilter value={teamId} onChange={setTeamId} />}
+    >
+      <UsagePanel base="/admin/usage" teamId={teamId} />
     </AdminPage>
   )
 }

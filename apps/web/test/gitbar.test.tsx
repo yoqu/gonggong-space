@@ -7,6 +7,7 @@ import { GitBar } from '../src/features/chat/GitBar'
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   id: 'g1',
+  teamId: 't1',
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',

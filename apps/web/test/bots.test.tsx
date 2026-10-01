@@ -60,6 +60,7 @@ const CATALOG: AgentCatalog = {
 
 const bot = (o: Partial<BotDto>): BotDto => ({
   id: 'b1',
+  teamId: 't1',
   name: '小王的 Claude',
   ownerId: 'u1',
   ownerName: '王磊',
@@ -115,7 +116,8 @@ beforeEach(() => {
       const key = `${init.method ?? 'GET'} ${url}`
       const body = init.body ? JSON.parse(String(init.body)) : undefined
       calls.push({ key, body })
-      const h = routes[key]
+      // 管理后台 · Bot lists every team's bots; here they are the open team's.
+      const h = routes[key] ?? (key === 'GET /api/admin/bots' ? routes['GET /api/bots'] : undefined)
       return h
         ? new Response(JSON.stringify(h(body)))
         : new Response(JSON.stringify({ error: 'not_found', message: key }), { status: 404 })
@@ -159,6 +161,7 @@ describe('workspace store', () => {
       t: 'notification.new',
       notification: {
         id: 'n3',
+        teamId: 't1',
         type: 'bot_confirm',
         payload: {},
         readAt: null,
@@ -523,9 +526,9 @@ describe('bot detail', () => {
     renderAt('/admin/bots', admin)
     const grid = await screen.findByRole('grid', { name: 'Bot 列表' })
     const template = (grid.querySelector('.ui-table__head') as HTMLElement).style.gridTemplateColumns
-    expect(template.startsWith('minmax(160px, 1fr) minmax(0, 150px) 96px 64px minmax(0, 200px) 104px')).toBe(
-      true,
-    )
+    expect(
+      template.startsWith('minmax(160px, 1fr) minmax(0, 150px) 96px 96px 64px minmax(0, 200px) 104px'),
+    ).toBe(true)
   })
 
   it('warns when the bot waits for its owner', async () => {

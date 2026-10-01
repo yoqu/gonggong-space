@@ -2,6 +2,7 @@ import {
   type BotOwnerDto,
   type BotPlaceDto,
   CreateBotReq,
+  type DaemonBotDto,
   effortName,
   fitEffort,
   GroupBotConfigReq,
@@ -15,16 +16,17 @@ import { and, asc, desc, eq, inArray, isNull, max, ne, notInArray } from 'drizzl
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { bots, groupBots, groups, machines, runs, users } from '../../db/schema.js'
+import { bots, groupBots, groups, machines, runs, teamMembers, teams, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
-import { sysParams } from '../admin/params.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
+import { teamParams } from '../groups/params.js'
 import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { stepI18nOf } from '../runs/step.js'
+import { currentTeam, requireTeam } from '../teams/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
 import { assertCanConfigure, assertPick, pickCatalog } from './config.js'
@@ -51,10 +53,14 @@ async function assertNameFree(ctx: Ctx, name: string, exceptId?: string) {
   if (taken) fail('conflict', '名称「{name}」已被占用', { name })
 }
 
-async function assertUsers(ctx: Ctx, ids: string[]) {
+/** Trigger lists name members of the bot's team. */
+async function assertUsers(ctx: Ctx, teamId: string, ids: string[]) {
   const unique = [...new Set(ids)]
   const found = unique.every(isUuid)
-    ? await ctx.db.select({ id: users.id }).from(users).where(inArray(users.id, unique))
+    ? await ctx.db
+        .select({ id: teamMembers.userId })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.teamId, teamId), inArray(teamMembers.userId, unique)))
     : []
   if (found.length !== unique.length) fail('invalid', '指定名单包含不存在的成员')
 }
@@ -73,6 +79,7 @@ async function auditForeign(ctx: Ctx, user: SessionUser, bot: BotRow, action: st
     await audit(ctx, {
       category: 'admin',
       actorUserId: user.id,
+      teamId: bot.teamId,
       action,
       detail: { botId: bot.id, name: bot.name, ownerId: bot.ownerId, ...detail },
     })
@@ -96,15 +103,17 @@ export function botRoutes(ctx: Ctx) {
     })
 
     app.get('/api/bots', async (req) => {
-      await requireUser(ctx, req)
-      return listBotDtos(ctx)
+      const user = await requireUser(ctx, req)
+      return listBotDtos(ctx, eq(bots.teamId, await currentTeam(ctx, req, user.id)))
     })
 
     app.get('/api/bots/owners', async (req): Promise<BotOwnerDto[]> => {
       const user = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, user.id)
       const owners = await ctx.db
         .select({ id: users.id, name: users.name })
         .from(users)
+        .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
         .where(and(isNull(users.disabledAt), user.role === 'sysadmin' ? undefined : eq(users.id, user.id)))
         .orderBy(asc(users.createdAt))
       const owned = await ctx.db
@@ -127,8 +136,10 @@ export function botRoutes(ctx: Ctx) {
     })
 
     app.get<IdParams>('/api/bots/:id', async (req) => {
-      await requireUser(ctx, req)
-      return botDto(ctx, await loadBot(ctx, req.params.id))
+      const user = await requireUser(ctx, req)
+      const bot = await loadBot(ctx, req.params.id)
+      await requireTeam(ctx, user.id, bot.teamId)
+      return botDto(ctx, bot)
     })
 
     app.get<IdParams>('/api/bots/:id/activity', async (req): Promise<BotPlaceDto[]> => {
@@ -183,14 +194,16 @@ export function botRoutes(ctx: Ctx) {
 
     app.post('/api/bots', async (req) => {
       const user = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, user.id)
       const body = CreateBotReq.parse(req.body)
       const name = body.name.trim()
       if (!name) fail('invalid', '名称不能为空')
       if (body.ownerId !== user.id && user.role !== 'sysadmin') fail('forbidden', '成员只能为自己创建 Bot')
       const [owner] = isUuid(body.ownerId)
         ? await ctx.db
-            .select()
+            .select({ id: users.id })
             .from(users)
+            .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
             .where(and(eq(users.id, body.ownerId), isNull(users.disabledAt)))
         : []
       if (!owner) return fail('invalid', '归属人不存在或已停用')
@@ -213,6 +226,7 @@ export function botRoutes(ctx: Ctx) {
       const [bot] = (await ctx.db
         .insert(bots)
         .values({
+          teamId,
           name,
           ownerId: owner.id,
           agentKind: body.agentKind,
@@ -222,7 +236,7 @@ export function botRoutes(ctx: Ctx) {
           avatar: body.avatar,
           model: body.model,
           effort: body.effort,
-          concurrency: (await sysParams(ctx.db)).botConcurrencyDefault,
+          concurrency: (await teamParams(ctx.db, teamId)).botConcurrencyDefault,
           createdBy: user.id,
         })
         .returning()) as [BotRow]
@@ -253,7 +267,7 @@ export function botRoutes(ctx: Ctx) {
         if (body.triggerScope === 'all') fail('invalid', 'full 档位强制使用指定名单')
         triggerScope = 'list'
       }
-      if (body.triggerList) await assertUsers(ctx, body.triggerList)
+      if (body.triggerList) await assertUsers(ctx, bot.teamId, body.triggerList)
       if (body.model !== undefined || body.effort !== undefined) {
         const catalog = await pickCatalog(ctx, bot)
         assertPick(catalog, { model: body.model, effort: body.effort }, bot.model)
@@ -271,6 +285,7 @@ export function botRoutes(ctx: Ctx) {
         await audit(ctx, {
           category: 'admin',
           actorUserId: user.id,
+          teamId: bot.teamId,
           action: 'bot.approval',
           detail: {
             botId: bot.id,
@@ -382,7 +397,18 @@ export function botRoutes(ctx: Ctx) {
     // ── daemon (machine token) ───────────────────────────────────────────────
     app.get('/api/daemon/bots', async (req) => {
       const machine = await requireMachine(ctx, req)
-      return listBotDtos(ctx, eq(bots.machineId, machine.id))
+      const [list, names] = await Promise.all([
+        listBotDtos(ctx, eq(bots.machineId, machine.id)),
+        ctx.db
+          .selectDistinct({ id: teams.id, name: teams.name })
+          .from(teams)
+          .innerJoin(bots, eq(bots.teamId, teams.id))
+          .where(eq(bots.machineId, machine.id)),
+      ])
+      const teamName = new Map(names.map((n) => [n.id, n.name]))
+      return list.map(
+        (b): DaemonBotDto => ({ ...b, teamName: teamName.get(b.teamId) ?? fail('not_found', '团队不存在') }),
+      )
     })
   }
 }

@@ -25,26 +25,33 @@ export function branchKnownMissing(url: string, branch: string, now: Date) {
   return missing.has(cacheKey(url, branch))
 }
 
-async function targets(ctx: Ctx, userId: string, botIds: string[]) {
+async function targets(ctx: Ctx, userId: string, teamId: string, botIds: string[]) {
   return ctx.db
     .select({ id: bots.id, machineId: bots.machineId, protocol: users.gitProtocol })
     .from(bots)
     .innerJoin(users, eq(users.id, bots.ownerId))
-    .where(and(isNull(bots.deletedAt), botIds.length ? inArray(bots.id, botIds) : eq(bots.ownerId, userId)))
+    .where(
+      and(
+        isNull(bots.deletedAt),
+        eq(bots.teamId, teamId),
+        botIds.length ? inArray(bots.id, botIds) : eq(bots.ownerId, userId),
+      ),
+    )
 }
 
 /**
- * Probes the repo from every given bot's machine (the caller's own bots when none are given). Bots sharing a machine
+ * Probes the repo from every given bot of the team's machine (the caller's own bots when none are given). Bots sharing a machine
  * and an owner protocol share one probe; offline machines are reported without asking.
  */
 export async function probeBots(
   ctx: Ctx,
   userId: string,
+  teamId: string,
   o: { url: string; branch: string; botIds: string[] },
 ): Promise<RepoProbeRes> {
   const url = o.url.trim()
   const branch = o.branch.trim()
-  const list = await targets(ctx, userId, o.botIds)
+  const list = await targets(ctx, userId, teamId, o.botIds)
   const probes = new Map<string, Promise<RepoProbeResult | undefined>>()
   const results = await Promise.all(
     list.map(async (bot): Promise<[BotProbeDto, RepoProbeResult | null]> => {

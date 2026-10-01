@@ -19,6 +19,7 @@ import {
   Icon,
   Mascot,
   MessageList,
+  PinnedBanner,
   Presence,
   Spinner,
   TypingIndicator,
@@ -30,6 +31,7 @@ import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
+import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
@@ -80,7 +82,45 @@ function useFileDrag() {
   }
 }
 
-export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => void }) {
+/** A team admin viewing a group of the team they are not in (plan D19): nothing can be sent, changed or acted on. */
+function ReadOnlyBanner({ group }: { group: GroupDto }) {
+  const [taking, setTaking] = useState(false)
+  return (
+    <div data-testid="readonly-banner">
+      <PinnedBanner
+        icon="eye"
+        title={t('只读查看')}
+        text={t('你正以团队管理员身份查看此群，不能发言或管理。')}
+        action={
+          <Button size="small" onClick={() => setTaking(true)}>
+            {t('进群并成为管理员')}
+          </Button>
+        }
+      />
+      <Presence>
+        {taking ? (
+          <TakeoverDialog
+            teamId={group.teamId}
+            group={group}
+            onDone={() => setTaking(false)}
+            onClose={() => setTaking(false)}
+          />
+        ) : null}
+      </Presence>
+    </div>
+  )
+}
+
+export function ChatView({
+  group,
+  readOnly = false,
+  onBack,
+}: {
+  group: GroupDto
+  /** Viewed by a team admin outside the group (plan D19). */
+  readOnly?: boolean
+  onBack?: () => void
+}) {
   const tl = useTimeline(group.id)
   const bots = useWorkspace((s) => s.bots)
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
@@ -118,14 +158,14 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   // A hidden tab has not really seen the messages: mark read once it is visible again.
   useEffect(() => {
     const flush = () => {
-      if (document.hidden || lastSeq <= readSeq.current) return
+      if (readOnly || document.hidden || lastSeq <= readSeq.current) return
       readSeq.current = lastSeq
       api.post(`/groups/${group.id}/read`, { seq: lastSeq }).catch(() => {})
     }
     flush()
     document.addEventListener('visibilitychange', flush)
     return () => document.removeEventListener('visibilitychange', flush)
-  }, [group.id, lastSeq])
+  }, [group.id, lastSeq, readOnly])
 
   const runCount = Object.keys(tl.runs).length
   // Runs and streamed deltas grow cards too, so they must re-pin the view.
@@ -304,7 +344,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
   const botCount = group.botIds.length
   const dm = group.kind === 'dm'
   return (
-    <div className="chat-view" {...drag.handlers}>
+    <div className="chat-view" {...(readOnly ? {} : drag.handlers)}>
       <ChatHeader
         group
         avatar={<GroupAvatar group={group} size={32} />}
@@ -350,12 +390,16 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
             disabled: !benchTabs,
             onClick: () => useWorkbench.getState().setOpen(!benchOpen),
           },
-          {
-            icon: 'sidebar-right',
-            label: t('群设置'),
-            active: infoOpen,
-            onClick: () => (infoOpen ? inspector.close() : inspector.open('group-info', 'main')),
-          },
+          ...(readOnly
+            ? []
+            : [
+                {
+                  icon: 'sidebar-right' as const,
+                  label: t('群设置'),
+                  active: infoOpen,
+                  onClick: () => (infoOpen ? inspector.close() : inspector.open('group-info', 'main')),
+                },
+              ]),
         ]}
       />
       <InspectorPortal view="group-info">
@@ -363,6 +407,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           key={String(inspector.payload)}
           group={group}
           initialView={(inspector.payload as InfoView | null) ?? 'main'}
+          readOnly={readOnly}
           onClose={inspector.close}
           onSettings={setSettings}
         />
@@ -372,7 +417,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
         ) : null}
       </Presence>
-      <GitBar group={group} />
+      {readOnly ? null : <GitBar group={group} />}
       <div className="chat-view__body">
         {drag.over ? (
           <div className="chat-view__drop">
@@ -389,8 +434,9 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
         ) : null}
         <div className="chat-scroll" ref={box} onScroll={onScroll}>
           <div className="chat-view__banners">
-            <GroupNotice group={group} />
-            <WorkspaceBanner group={group} />
+            {readOnly ? <ReadOnlyBanner group={group} /> : null}
+            <GroupNotice group={group} readOnly={readOnly} />
+            {readOnly ? null : <WorkspaceBanner group={group} />}
           </div>
           <MessageList className="chat-scroll__list">
             {tl.older === 'loading' ? (
@@ -434,6 +480,7 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                     {m.id === unreadAt ? <ChatNotice kind="unread" /> : null}
                     {foldEnd === undefined ? (
                       <div
+                        inert={readOnly}
                         data-msg-id={m.id}
                         className={cx(
                           'tl-item',
@@ -446,7 +493,15 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
                     ) : (
                       <EventFold events={tl.messages.slice(i, foldEnd + 1)} flash={flash} />
                     )}
-                    {runsByTrigger.get(m.id)?.map((r) => (replies.has(r.id) ? null : card(r)))}
+                    {runsByTrigger.get(m.id)?.map((r) =>
+                      replies.has(r.id) ? null : readOnly ? (
+                        <div key={r.id} inert className="chat-view__inert">
+                          {card(r)}
+                        </div>
+                      ) : (
+                        card(r)
+                      ),
+                    )}
                   </Fragment>
                 )
               })
@@ -474,16 +529,20 @@ export function ChatView({ group, onBack }: { group: GroupDto; onBack?: () => vo
           ) : null}
         </div>
       </div>
-      <PreviewTags groupId={group.id} />
-      <ProviderBanner group={group} />
-      <MessageComposer
-        group={group}
-        dropFiles={dropFiles}
-        onSent={(m) => {
-          stick.current = true
-          tl.addMessage(m)
-        }}
-      />
+      {readOnly ? null : (
+        <>
+          <PreviewTags groupId={group.id} />
+          <ProviderBanner group={group} />
+          <MessageComposer
+            group={group}
+            dropFiles={dropFiles}
+            onSent={(m) => {
+              stick.current = true
+              tl.addMessage(m)
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }

@@ -41,6 +41,7 @@ export async function confirmBot(ctx: Ctx, bot: typeof bots.$inferSelect) {
   await audit(ctx, {
     category: 'admin',
     actorUserId: bot.ownerId,
+    teamId: bot.teamId,
     action: 'bot.confirm',
     detail: { botId: bot.id, name: bot.name },
   })

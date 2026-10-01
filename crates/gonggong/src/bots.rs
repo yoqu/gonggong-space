@@ -27,6 +27,11 @@ pub struct Bot {
     /// Role key of the avatar (`role-gong`, …); the desktop app draws it like the Web.
     #[serde(default = "default_avatar")]
     pub avatar: String,
+    /// The bot's team; a machine may serve several (plan D20). Servers before teams send neither.
+    #[serde(default)]
+    pub team_id: Option<String>,
+    #[serde(default)]
+    pub team_name: Option<String>,
 }
 
 fn default_avatar() -> String {

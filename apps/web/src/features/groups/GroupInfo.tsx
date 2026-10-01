@@ -40,7 +40,7 @@ import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
 import { BotPicker, MemberPicker } from './pickers'
 import './groups.css'
 
-export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params'
+export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params' | 'mcp'
 export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices' | 'previews'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
@@ -113,11 +113,14 @@ const SCOPE_LABEL = (b: BotDto) =>
 export function GroupInfo({
   group,
   initialView = 'main',
+  readOnly = false,
   onClose,
   onSettings,
 }: {
   group: GroupDto
   initialView?: InfoView
+  /** A team admin outside the group (plan D19): only its members are shown. */
+  readOnly?: boolean
   onClose: () => void
   onSettings: (tab: SettingsTab) => void
 }) {
@@ -125,7 +128,7 @@ export function GroupInfo({
   const [view, setView] = useState<InfoView>(initialView)
   const [adding, setAdding] = useState(false)
   const dm = group.kind === 'dm'
-  const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
+  const isAdmin = !readOnly && group.members.some((m) => m.userId === me?.id && m.isAdmin)
   const label = dm ? t('私聊设置') : t('群设置')
   useEscape(onClose)
   const title = {
@@ -142,7 +145,7 @@ export function GroupInfo({
       title={title}
       label={label}
       className="gs-panel"
-      onBack={view === 'main' ? undefined : () => setView('main')}
+      onBack={view === 'main' || readOnly ? undefined : () => setView('main')}
       onClose={onClose}
     >
       {view === 'main' ? (

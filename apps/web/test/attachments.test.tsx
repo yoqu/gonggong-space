@@ -26,6 +26,7 @@ const me: UserDto = {
 }
 const group: GroupDto = {
   id: 'g1',
+  teamId: 't1',
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',
@@ -47,6 +48,7 @@ const group: GroupDto = {
 }
 const bot: BotDto = {
   id: 'b1',
+  teamId: 't1',
   name: '小王的 Claude',
   ownerId: 'u1',
   ownerName: '王磊',

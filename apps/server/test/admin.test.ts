@@ -300,7 +300,7 @@ describe('audit query', () => {
     expect(res.body.map((a) => a.summary)).toEqual([
       '停用账号 wanglei',
       '/stop 中断 小王的 Claude · 支付服务重构',
-      '修改全局层 MCP：启用 wiki-search · 未勾选强制新会话',
+      '修改平台层 MCP：启用 wiki-search · 未勾选强制新会话',
       '为 王磊 新建 Bot 小王的 Codex',
       '回答 小王的 Claude 的 3 个问题 · 支付服务重构',
       '批准 小王的 Claude 执行 go build ./... · 支付服务重构',
@@ -337,8 +337,13 @@ describe('audit query', () => {
   })
 
   it('summarizes every emitted action in Chinese', () => {
-    const n = { user: (id: unknown) => (id === 'u1' ? '王磊' : ''), bot: () => '', runBot: () => '小王的 Claude' }
-    const s = (category: string, action: string, d: Record<string, unknown>) => summarize({ category, action }, d, n)
+    const n = {
+      user: (id: unknown) => (id === 'u1' ? '王磊' : ''),
+      bot: () => '',
+      runBot: () => '小王的 Claude',
+    }
+    const s = (category: string, action: string, d: Record<string, unknown>) =>
+      summarize({ category, action }, d, n)
     expect(s('admin', 'group.notice.remove', { notice: '周五发布' })).toBe('删除群公告')
     expect(s('admin', 'bot.approval', { name: '设计师' })).toBe('修改 Bot 设计师 的审批设置')
     expect(s('admin', 'machine.transfer', { name: 'mac-mini', fromOwnerId: 'u1' })).toBe(
@@ -380,6 +385,8 @@ describe('system params', () => {
       registrationOpen: false,
       previewIdleHours: 24,
       previewShareMaxDays: 30,
+      singleTeamMode: true,
+      teamCreation: 'sysadmin',
     })
   })
 

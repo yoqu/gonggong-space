@@ -9,6 +9,7 @@ import type {
   WebEvent,
 } from '@gonggong/protocol'
 import { create } from 'zustand'
+import { otherTeam, refreshTeamsSoon } from '../features/teams/store'
 import { t } from '../i18n'
 import { api } from '../lib/api'
 import { useSession } from './session'
@@ -56,7 +57,7 @@ function withRun(g: GroupDto, run: RunDto): GroupDto {
   return { ...g, liveRunIds: had ? g.liveRunIds.filter((id) => id !== run.id) : [...g.liveRunIds, run.id] }
 }
 
-export const useWorkspace = create<WorkspaceState>()((set) => ({
+export const useWorkspace = create<WorkspaceState>()((set, get) => ({
   groups: [],
   bots: [],
   machines: [],
@@ -66,20 +67,32 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
   activeGroupId: null,
   setActiveGroup: (activeGroupId) => set({ activeGroupId }),
   applyEvent(e) {
-    if (e.t === 'group.updated') set((s) => ({ groups: upsert(s.groups, e.group) }))
-    else if (e.t === 'group.removed') set((s) => ({ groups: s.groups.filter((g) => g.id !== e.groupId) }))
-    else if (e.t === 'message.new')
+    // Events of the user's other teams only move those teams' unread counts.
+    if (e.t === 'group.updated') {
+      if (otherTeam(e.group.teamId)) refreshTeamsSoon()
+      else set((s) => ({ groups: upsert(s.groups, e.group) }))
+    } else if (e.t === 'group.removed') set((s) => ({ groups: s.groups.filter((g) => g.id !== e.groupId) }))
+    else if (e.t === 'message.new') {
+      if (!get().groups.some((g) => g.id === e.message.groupId)) refreshTeamsSoon()
       set((s) => ({
         groups: s.groups.map((g) =>
           g.id === e.message.groupId ? withMessage(g, e.message, s.activeGroupId) : g,
         ),
       }))
-    else if (e.t === 'run.updated') set((s) => ({ groups: s.groups.map((g) => withRun(g, e.run)) }))
-    else if (e.t === 'bot.updated') set((s) => ({ bots: upsert(s.bots, e.bot) }))
-    else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
-    else if (e.t === 'notification.new') set((s) => ({ notifCount: s.notifCount + 1 }))
-    else if (e.t === 'notification.resolved') set({ notifCount: e.unread })
-    else if (e.t === 'machine.updated') set((s) => ({ machines: upsert(s.machines, e.machine) }))
+    } else if (e.t === 'run.updated') set((s) => ({ groups: s.groups.map((g) => withRun(g, e.run)) }))
+    else if (e.t === 'bot.updated') {
+      if (!otherTeam(e.bot.teamId)) set((s) => ({ bots: upsert(s.bots, e.bot) }))
+    } else if (e.t === 'bot.removed') set((s) => ({ bots: s.bots.filter((b) => b.id !== e.botId) }))
+    else if (e.t === 'notification.new') {
+      if (otherTeam(e.notification.teamId)) refreshTeamsSoon()
+      else set((s) => ({ notifCount: s.notifCount + 1 }))
+    }
+    // `unread` counts every team, the badge only the open one and platform notices.
+    else if (e.t === 'notification.resolved') {
+      if ((useSession.getState().tenancy?.teams.length ?? 0) > 1)
+        refreshNotifCount().catch((err: Error) => console.warn('notification count refresh failed:', err))
+      else set({ notifCount: e.unread })
+    } else if (e.t === 'machine.updated') set((s) => ({ machines: upsert(s.machines, e.machine) }))
     else if (e.t === 'machine.removed')
       set((s) => ({ machines: s.machines.filter((m) => m.id !== e.machineId) }))
     else if (e.t === 'group.botState')

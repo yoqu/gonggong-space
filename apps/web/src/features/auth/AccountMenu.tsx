@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { Avatar, MenuButton, type MenuItem, Presence } from '../../ui'
 import { BindMachineDialog } from '../machines/BindMachineDialog'
 import { useSettings } from '../settings/store'
+import { TeamSettingsDialog } from '../teams/TeamSettingsDialog'
 import { UsageDialog } from '../usage/UsagePage'
 import { logout } from './logout'
 import './account-menu.css'
@@ -25,7 +26,9 @@ export function AccountMenu({
   placement?: 'below' | 'above'
 }) {
   const user = useSession((s) => s.user)
-  const [dialog, setDialog] = useState<'bind' | 'usage' | null>(null)
+  // Single-team mode has no team switcher, so 团队设置 lives here (plan D11).
+  const soleTeam = useSession((s) => (s.tenancy?.singleTeamMode ? s.tenancy.teams[0] : undefined))
+  const [dialog, setDialog] = useState<'bind' | 'usage' | 'team' | null>(null)
   const openSettings = useSettings((s) => s.open)
 
   if (!user) return null
@@ -41,6 +44,7 @@ export function AccountMenu({
     { separator: true },
     { label: t('绑定新机器'), value: 'bind' },
     { label: t('我的用量'), value: 'usage' },
+    ...(soleTeam ? [{ label: t('团队设置'), value: 'team' }] : []),
     { separator: true },
     { label: t('设置…'), value: 'settings' },
     { separator: true },
@@ -50,7 +54,7 @@ export function AccountMenu({
   const select = (value: string) => {
     if (value === 'logout') void logout()
     else if (value === 'settings') openSettings()
-    else setDialog(value as 'bind' | 'usage')
+    else setDialog(value as 'bind' | 'usage' | 'team')
   }
 
   return (
@@ -67,7 +71,13 @@ export function AccountMenu({
         <Avatar name={user.name} size={size} />
       </MenuButton>
       <BindMachineDialog open={dialog === 'bind'} onClose={() => setDialog(null)} />
-      <Presence>{dialog === 'usage' ? <UsageDialog onClose={() => setDialog(null)} /> : null}</Presence>
+      <Presence>
+        {dialog === 'usage' ? (
+          <UsageDialog onClose={() => setDialog(null)} />
+        ) : dialog === 'team' && soleTeam ? (
+          <TeamSettingsDialog team={soleTeam} onClose={() => setDialog(null)} />
+        ) : null}
+      </Presence>
     </>
   )
 }

@@ -4,10 +4,21 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
-import { Alert, Button, GroupBox, GroupRow, Spinner, Stepper, Switch, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  GroupBox,
+  GroupRow,
+  SegmentedControl,
+  Spinner,
+  Stepper,
+  Switch,
+  toast,
+} from '../../ui'
 import { AdminPage } from './AdminPage'
 
 type Key = (typeof SYSTEM_PARAM_VIEW)[number]['key']
+type Toggle = 'registrationOpen' | 'singleTeamMode' | 'teamCreation'
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
 export function useSystemParams(enabled = true) {
@@ -81,11 +92,13 @@ export function ParamsPage() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  async function setRegistration(registrationOpen: boolean) {
+  /** Switches apply at once, apart from the numeric form. */
+  async function apply(patch: Partial<Pick<SystemParams, Toggle>>, message: string) {
     try {
-      const next = await api.put<SystemParams>('/admin/params', { registrationOpen })
-      setSaved((s) => (s ? { ...s, registrationOpen: next.registrationOpen } : next))
-      toast({ type: 'success', message: registrationOpen ? t('已开放自助注册') : t('已关闭自助注册') })
+      const next = await api.put<SystemParams>('/admin/params', patch)
+      const keys = Object.keys(patch) as Toggle[]
+      setSaved((s) => (s ? { ...s, ...Object.fromEntries(keys.map((k) => [k, next[k]])) } : next))
+      toast({ type: 'success', message })
     } catch (err) {
       toastError(err)
     }
@@ -107,7 +120,10 @@ export function ParamsPage() {
   }
 
   return (
-    <AdminPage title={t('系统参数')} desc={t('全局默认值；群级参数由群管理员在群设置中调整。')}>
+    <AdminPage
+      title={t('系统参数')}
+      desc={t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。')}
+    >
       {error ? <Alert variant="error" description={error} /> : null}
       {saved ? (
         <section className="admin-params">
@@ -121,7 +137,39 @@ export function ParamsPage() {
                 ariaLabel={t('开放自助注册')}
                 label={saved.registrationOpen ? t('已开放') : t('已关闭#off')}
                 checked={saved.registrationOpen}
-                onChange={(v) => void setRegistration(v)}
+                onChange={(v) =>
+                  void apply({ registrationOpen: v }, v ? t('已开放自助注册') : t('已关闭自助注册'))
+                }
+              />
+            </GroupRow>
+          </GroupBox>
+          <h2 className="admin-params__title">{t('团队')}</h2>
+          <GroupBox>
+            <GroupRow
+              label={t('单团队模式')}
+              description={t(
+                '开启后不显示团队切换，新账号自动加入唯一的团队；仅在恰好有一个未归档团队时可开启。',
+              )}
+            >
+              <Switch
+                ariaLabel={t('单团队模式')}
+                label={saved.singleTeamMode ? t('已开启') : t('已关闭#off')}
+                checked={saved.singleTeamMode}
+                onChange={(v) =>
+                  void apply({ singleTeamMode: v }, v ? t('已开启单团队模式') : t('已关闭单团队模式'))
+                }
+              />
+            </GroupRow>
+            <GroupRow label={t('建团队权限')} description={t('单团队模式下任何人都不能新建团队。')}>
+              <SegmentedControl
+                aria-label={t('建团队权限')}
+                size="small"
+                value={saved.teamCreation}
+                onChange={(v) => void apply({ teamCreation: v }, t('建团队权限已保存'))}
+                items={[
+                  { value: 'all' as const, label: t('所有人') },
+                  { value: 'sysadmin' as const, label: t('仅系统管理员') },
+                ]}
               />
             </GroupRow>
           </GroupBox>

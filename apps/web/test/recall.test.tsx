@@ -19,6 +19,7 @@ const me: UserDto = {
 
 const group: GroupDto = {
   id: 'g1',
+  teamId: 't1',
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',

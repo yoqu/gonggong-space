@@ -38,6 +38,7 @@ const li = user('u2', '李建国')
 
 const group: GroupDto = {
   id: 'g1',
+  teamId: 't1',
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',
@@ -60,6 +61,7 @@ const group: GroupDto = {
 
 const bot: BotDto = {
   id: 'b1',
+  teamId: 't1',
   name: 'cc',
   ownerId: 'u1',
   ownerName: '王磊',

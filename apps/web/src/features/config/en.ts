@@ -1,7 +1,7 @@
 export default {
   配置中心: 'Configuration',
-  '仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。':
-    'Server global and group layers stack on top of the repo baseline; the server wins on conflicts. Repo files are never modified.',
+  '仓库基线之上依次叠加平台层、团队层与群层 MCP，同名时下层覆盖上层；不修改仓库文件。':
+    'Platform, team and group MCP layers stack on top of the repo baseline; a lower layer replaces a same-named server above it. Repo files are never modified.',
   向群成员提问: 'Ask group members',
   读取聊天记录: 'Read chat history',
   检索聊天记录: 'Search chat history',
@@ -14,8 +14,11 @@ export default {
   关闭预览: 'Close preview',
   '交给其他 Bot': 'Hand off to another Bot',
   '、': ', ',
-  服务器全局层: 'Server global layer',
-  服务器群层: 'Server group layer',
+  平台层: 'Platform',
+  团队层: 'Team',
+  群层: 'Group',
+  群管理员在群设置中配置: 'Set by group admins in group settings',
+  团队管理员在团队设置中配置: 'Set by team admins in team settings',
   指令: 'Instructions',
   团队密钥: 'Team secrets',
   保存失败: 'Failed to save',
@@ -23,9 +26,8 @@ export default {
   配置加载失败: 'Failed to load configuration',
   重试: 'Retry',
   '暂不支持 {type}': '{type} is not supported yet',
-  '目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。':
-    'Only MCP in the server global layer can be configured for now. MCP environment variables are stored in plain text.',
-  全局层: 'Global',
+  '目前只能配置 MCP。MCP 的环境变量以明文保存在配置中。':
+    'Only MCP can be configured for now. MCP environment variables are stored in plain text.',
   未保存: 'Unsaved',
   '删除 {name}': 'Delete {name}',
   '启用 {name}': 'Enable {name}',
@@ -38,7 +40,6 @@ export default {
   保存: 'Save',
   '合并预览 · 全部 Bot': 'Merged preview · All Bots',
   优先级高: 'Highest priority',
-  暂未开放: 'Not available yet',
   中: 'Medium',
   无: 'None',
   'Bot 系统提示词': 'Bot system prompts',
@@ -58,7 +59,7 @@ export default {
   请填写命令: 'Enter a command',
   'URL 需以 http:// 或 https:// 开头': 'The URL must start with http:// or https://',
   '添加 MCP': 'Add MCP',
-  '保存配置中心后，全员下一轮新会话生效。': "Takes effect in everyone's next new session after saving.",
+  '保存后，相关 Bot 下一轮新会话生效。': "Takes effect in affected Bots' next new session after saving.",
   取消: 'Cancel',
   添加: 'Add',
   传输方式: 'Transport',

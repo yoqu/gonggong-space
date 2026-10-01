@@ -24,6 +24,8 @@ beforeEach(() => {
       approval: 'allowlist',
       allowlist: ['go build', 'npm test'],
       avatar: 'role-sentry',
+      teamId: 't2',
+      teamName: '支付组',
     }),
   ])
 })
@@ -41,6 +43,7 @@ it('shows the server settings of each bot read-only', async () => {
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
   expect(claude.getByText('每次询问')).toBeTruthy()
   expect(claude.queryByText('命令白名单')).toBeNull()
+  expect(claude.getByText('默认团队')).toBeTruthy()
 
   const codex = await card('小王的 Codex')
   expect(codex.getByText('待确认')).toBeTruthy()
@@ -48,6 +51,7 @@ it('shows the server settings of each bot read-only', async () => {
     avatarSrc('role-sentry'),
   )
   expect(codex.getByText('他人为你创建，请在 Web 中确认')).toBeTruthy()
+  expect(codex.getByText('支付组')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
   expect(codex.getByText('白名单自动')).toBeTruthy()
   expect(codex.getByText('go build、npm test')).toBeTruthy()
@@ -118,4 +122,10 @@ it('sets a bot’s provider: inherit, official or one of its agent, confirming w
   m.providerImpact.mockResolvedValue([])
   fireEvent.click(within(codex.getByRole('menu')).getByRole('menuitemcheckbox', { name: /继承机器/ }))
   await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('codex', 'inherit', 'b2'))
+})
+
+it('leaves the team out for servers before teams', async () => {
+  m.bots.mockResolvedValue([bot({ teamId: null, teamName: null })])
+  render(<BotsPage go={() => {}} />)
+  expect((await card('小王的 Claude')).queryByText('团队')).toBeNull()
 })

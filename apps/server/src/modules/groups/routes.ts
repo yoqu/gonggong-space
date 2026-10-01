@@ -10,7 +10,16 @@ import {
 import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
+import {
+  bots,
+  groupBots,
+  groupMembers,
+  groupRepos,
+  groups,
+  messages,
+  teamMembers,
+  users,
+} from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
@@ -18,6 +27,7 @@ import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
 import { recordRepo } from '../repos/service.js'
+import { currentTeam } from '../teams/service.js'
 import { joinWorkspace } from '../workspaces/provision.js'
 import { repoProblem } from './repo.js'
 import {
@@ -25,38 +35,44 @@ import {
   groupDto,
   groupDtos,
   publishGroup,
+  readerGroupDto,
   removeMember,
   requireAdmin,
   requireMember,
+  requireReader,
 } from './service.js'
 
 const uniq = (ids: string[]) => [...new Set(ids)]
 
-async function activeUsers(ctx: Ctx, ids: string[]) {
+/** Enabled accounts of the team; anyone else reads as not existing. */
+async function activeUsers(ctx: Ctx, teamId: string, ids: string[]) {
   if (!ids.length) return []
   if (!ids.every(isUuid)) return fail('invalid', '成员不存在')
   const rows = await ctx.db
     .select({ id: users.id, name: users.name })
     .from(users)
+    .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
     .where(and(inArray(users.id, ids), isNull(users.disabledAt)))
   if (rows.length !== ids.length) return fail('invalid', '成员不存在或已停用')
   return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
 }
 
-async function liveBots(ctx: Ctx, ids: string[]) {
+/** Live bots of the team (plan D5). */
+async function liveBots(ctx: Ctx, teamId: string, ids: string[]) {
   if (!ids.length) return []
   if (!ids.every(isUuid)) return fail('invalid', 'Bot 不存在或已删除')
   const rows = await ctx.db
     .select({ id: bots.id, name: bots.name, ownerId: bots.ownerId, machineId: bots.machineId })
     .from(bots)
-    .where(and(inArray(bots.id, ids), isNull(bots.deletedAt)))
+    .where(and(inArray(bots.id, ids), eq(bots.teamId, teamId), isNull(bots.deletedAt)))
   if (rows.length !== ids.length) return fail('invalid', 'Bot 不存在或已删除')
   return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
 }
 
-const oneUser = async (ctx: Ctx, id: string) =>
-  (await activeUsers(ctx, [id]))[0] ?? fail('invalid', '成员不存在')
-const oneBot = async (ctx: Ctx, id: string) => (await liveBots(ctx, [id]))[0] ?? fail('invalid', 'Bot 不存在')
+const oneUser = async (ctx: Ctx, teamId: string, id: string) =>
+  (await activeUsers(ctx, teamId, [id]))[0] ?? fail('invalid', '成员不存在')
+const oneBot = async (ctx: Ctx, teamId: string, id: string) =>
+  (await liveBots(ctx, teamId, [id]))[0] ?? fail('invalid', 'Bot 不存在')
 
 async function isMember(ctx: Ctx, groupId: string, userId: string) {
   const [row] = await ctx.db
@@ -85,11 +101,12 @@ export function groupRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.get('/api/groups', async (req) => {
       const me = await requireUser(ctx, req)
-      return groupDtos(ctx, me.id)
+      return groupDtos(ctx, me.id, eq(groups.teamId, await currentTeam(ctx, req, me.id)))
     })
 
     app.post('/api/groups', async (req) => {
       const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
       const body = CreateGroupReq.parse(req.body)
       const dm = body.kind === 'dm'
       const name = body.name.trim()
@@ -98,16 +115,17 @@ export function groupRoutes(ctx: Ctx) {
       if (repo) assertBindable(repo.url, repo.branch)
       const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)
       if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 Bot')
-      const picked = await liveBots(ctx, uniq(body.botIds))
+      const picked = await liveBots(ctx, teamId, uniq(body.botIds))
       if (dm && picked.some((b) => b.ownerId !== me.id)) return fail('forbidden', '私聊只能拉入你自己的 Bot')
       const invited = await activeUsers(
         ctx,
+        teamId,
         uniq([...invitedIds, ...picked.map((b) => b.ownerId)]).filter((id) => id !== me.id),
       )
 
       const group = { id: randomUUID() }
       await ctx.db.transaction(async (tx) => {
-        await tx.insert(groups).values({ id: group.id, name, kind: body.kind, createdBy: me.id })
+        await tx.insert(groups).values({ id: group.id, teamId, name, kind: body.kind, createdBy: me.id })
         await tx
           .insert(groupMembers)
           .values([
@@ -138,7 +156,7 @@ export function groupRoutes(ctx: Ctx) {
           : '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
         repo ? { url: publicRepoUrl(repo.url), branch: repo.branch } : undefined,
       )
-      if (repo) await recordRepo(ctx, { ...repo, userId: me.id })
+      if (repo) await recordRepo(ctx, { ...repo, teamId, userId: me.id })
       for (const b of picked) await joinWorkspace(ctx, group.id, b, { joined: true })
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
@@ -146,8 +164,8 @@ export function groupRoutes(ctx: Ctx) {
 
     app.get<{ Params: { id: string } }>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
-      await requireMember(ctx, req.params.id, me.id)
-      return groupDto(ctx, me.id, req.params.id)
+      await requireReader(ctx, req.params.id, me.id)
+      return readerGroupDto(ctx, me.id, req.params.id)
     })
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/read', async (req) => {
@@ -175,7 +193,7 @@ export function groupRoutes(ctx: Ctx) {
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       if (group.kind === 'dm') return fail('invalid', '私聊不能添加成员')
       const { userId } = GroupMemberReq.parse(req.body)
-      const user = await oneUser(ctx, userId)
+      const user = await oneUser(ctx, group.teamId, userId)
       if (!(await isMember(ctx, group.id, user.id))) {
         await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: user.id })
         await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member: user.name })
@@ -207,7 +225,7 @@ export function groupRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       const { botId } = GroupBotReq.parse(req.body)
-      const bot = await oneBot(ctx, botId)
+      const bot = await oneBot(ctx, group.teamId, botId)
       if (group.kind === 'dm' && bot.ownerId !== group.createdBy)
         return fail('forbidden', '私聊只能拉入你自己的 Bot')
       if ((await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
@@ -280,7 +298,7 @@ export function groupRoutes(ctx: Ctx) {
         branch,
         previous: old ? { url: publicRepoUrl(old.url), branch: old.baseBranch } : null,
       })
-      await recordRepo(ctx, { url, branch, userId: me.id })
+      await recordRepo(ctx, { url, branch, teamId: group.teamId, userId: me.id })
       for (const bot of await activeBots(ctx, group.id))
         await joinWorkspace(ctx, group.id, bot, { joined: false })
       await publishGroup(ctx, group.id)

@@ -14,7 +14,7 @@ import { idParam } from '../../lib/ids.js'
 import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
-import { requireMember } from '../groups/service.js'
+import { requireMember, requireReader } from '../groups/service.js'
 import { type AttachmentRow, dataDir, inlineType, safeName, type Upload, uploadDto } from './service.js'
 
 async function findAttachment(ctx: Ctx, id: string) {
@@ -87,7 +87,7 @@ export function attachmentRoutes(ctx: Ctx) {
     app.get<{ Params: { id: string } }>('/api/attachments/:id', async (req, reply) => {
       const me = await requireUser(ctx, req)
       const a = await findAttachment(ctx, req.params.id)
-      await requireMember(ctx, a.groupId, me.id)
+      await requireReader(ctx, a.groupId, me.id)
       return sendFile(reply, a)
     })
 

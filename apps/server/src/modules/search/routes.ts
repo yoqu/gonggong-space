@@ -12,6 +12,7 @@ import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
 import { groupTitle } from '../groups/title.js'
 import { notHiddenBy } from '../messages/recall.js'
+import { currentTeam } from '../teams/service.js'
 
 const LIMIT = 20
 /** Recent patches scanned for file paths (decrypted in memory; they are sealed at rest). */
@@ -32,14 +33,14 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     return hit
   }
 
-  const myGroups = (userId: string) =>
+  const myGroups = (userId: string, teamId: string) =>
     ctx.db
       .select({ id: groupMembers.groupId })
       .from(groupMembers)
       .innerJoin(groups, eq(groups.id, groupMembers.groupId))
-      .where(and(eq(groupMembers.userId, userId), isNull(groups.archivedAt)))
+      .where(and(eq(groupMembers.userId, userId), eq(groups.teamId, teamId), isNull(groups.archivedAt)))
 
-  async function searchMessages(userId: string, q: string): Promise<SearchResultDto[]> {
+  async function searchMessages(userId: string, teamId: string, q: string): Promise<SearchResultDto[]> {
     const rows = await ctx.db
       .select({ m: messages, author: users.name, bot: bots.name, group: groupTitle })
       .from(messages)
@@ -48,7 +49,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .leftJoin(bots, eq(bots.id, messages.authorBotId))
       .where(
         and(
-          inArray(messages.groupId, myGroups(userId)),
+          inArray(messages.groupId, myGroups(userId, teamId)),
           inArray(messages.kind, ['user', 'bot']),
           ilike(messages.body, likePattern(q)),
           notHiddenBy(ctx, userId),
@@ -68,7 +69,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
   }
 
   /** Files changed by recent turns (from their patch headers), then base-branch files from the group mirrors. */
-  async function searchFiles(userId: string, q: string): Promise<SearchResultDto[]> {
+  async function searchFiles(userId: string, teamId: string, q: string): Promise<SearchResultDto[]> {
     const out = new Map<string, SearchResultDto>()
     const add = (r: SearchResultDto) => {
       const key = `${r.groupId}\n${r.title}`
@@ -86,7 +87,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .from(runs)
       .innerJoin(bots, eq(bots.id, runs.botId))
       .innerJoin(groups, eq(groups.id, runs.groupId))
-      .where(and(inArray(runs.groupId, myGroups(userId)), isNotNull(runs.patch)))
+      .where(and(inArray(runs.groupId, myGroups(userId, teamId)), isNotNull(runs.patch)))
       .orderBy(desc(runs.queuedAt))
       .limit(PATCH_SCAN)
     const needle = q.toLowerCase()
@@ -113,7 +114,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       })
       .from(groupRepos)
       .innerJoin(groups, eq(groups.id, groupRepos.groupId))
-      .where(inArray(groupRepos.groupId, myGroups(userId)))
+      .where(inArray(groupRepos.groupId, myGroups(userId, teamId)))
     for (const repo of repos)
       for (const e of pick(
         mirrors.peek(repo).filter((f) => !f.dir && f.path.toLowerCase().includes(needle)),
@@ -134,7 +135,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
 
   /** Runs by their card (bot, step, summary, reply); the process (tool titles and steps; its free text is sealed)
    * only while it is retained (plan D9). */
-  async function searchRuns(userId: string, q: string): Promise<SearchResultDto[]> {
+  async function searchRuns(userId: string, teamId: string, q: string): Promise<SearchResultDto[]> {
     const p = likePattern(q)
     const trigger = alias(messages, 'trigger')
     const reply = alias(messages, 'reply')
@@ -146,7 +147,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .innerJoin(trigger, eq(trigger.id, runs.triggerMessageId))
       .where(
         and(
-          inArray(runs.groupId, myGroups(userId)),
+          inArray(runs.groupId, myGroups(userId, teamId)),
           or(
             ilike(bots.name, p),
             ilike(runs.step, p),
@@ -203,7 +204,8 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     app.get('/api/search', async (req): Promise<SearchResultDto[]> => {
       const user = await requireUser(ctx, req)
       const { q, tab } = SearchQuery.parse(req.query)
-      return q.trim() ? SEARCH[tab](user.id, q.trim()) : []
+      const teamId = await currentTeam(ctx, req, user.id)
+      return q.trim() ? SEARCH[tab](user.id, teamId, q.trim()) : []
     })
   }
 }

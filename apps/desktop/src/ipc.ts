@@ -86,7 +86,11 @@ export type MachineBot = Pick<
   | 'approval'
   | 'allowlist'
   | 'avatar'
->
+> & {
+  /** Null from servers before teams (plan D20). */
+  teamId: string | null
+  teamName: string | null
+}
 
 /** A parsed 接入链接 (or `gg login` command); `fingerprint` like `sha256:AB:CD:…`. */
 export interface BindLink {

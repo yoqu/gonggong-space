@@ -19,6 +19,7 @@ const row = (o: Partial<AdminUserDto>): AdminUserDto => ({
   ...admin,
   machineCount: 0,
   online: false,
+  teams: [],
   ...o,
 })
 
@@ -71,7 +72,7 @@ describe('admin console', () => {
     useSession.setState({ user: admin, status: 'ready' })
     mockApi({
       'GET /admin/users': [
-        row({ machineCount: 2, online: true }),
+        row({ machineCount: 2, online: true, teams: ['默认团队', '风控组'] }),
         row({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member', machineCount: 1 }),
         row({ id: 'u2', account: 'zhaomin', name: '赵敏', role: 'member', mustChangePassword: true }),
         row({ id: 'u3', account: 'liuyang', name: '刘洋', role: 'member', disabled: true }),
@@ -79,7 +80,7 @@ describe('admin console', () => {
     })
     renderAt('/admin/users')
     expect(await screen.findByRole('heading', { name: '账号与角色' })).toBeTruthy()
-    for (const h of ['成员', '账号', '角色', '机器', '状态'])
+    for (const h of ['成员', '账号', '所属团队', '角色', '机器', '状态'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const rowOf = (account: string) =>
       screen.getByRole('gridcell', { name: account }).closest('[role="row"]') as HTMLElement
@@ -87,10 +88,18 @@ describe('admin console', () => {
       within(rowOf(account))
         .getAllByRole('gridcell')
         .map((c) => c.textContent)
-    expect(cells('chenchen')).toEqual(['陈晨陈晨', 'chenchen', '系统管理员', '2 台 · 在线', '正常', ''])
-    expect(cells('wanglei').slice(2, 5)).toEqual(['普通成员', '1 台 · 离线', '正常'])
-    expect(cells('zhaomin').slice(3, 5)).toEqual(['未绑定', '待修改密码'])
-    expect(cells('liuyang').slice(3, 5)).toEqual(['--', '已停用'])
+    expect(cells('chenchen')).toEqual([
+      '陈晨陈晨',
+      'chenchen',
+      '默认团队、风控组',
+      '系统管理员',
+      '2 台 · 在线',
+      '正常',
+      '',
+    ])
+    expect(cells('wanglei').slice(2, 6)).toEqual(['--', '普通成员', '1 台 · 离线', '正常'])
+    expect(cells('zhaomin').slice(4, 6)).toEqual(['未绑定', '待修改密码'])
+    expect(cells('liuyang').slice(4, 6)).toEqual(['--', '已停用'])
     // Row actions live in one trailing「操作」pull-down; my own row can only be edited.
     const more = within(rowOf('chenchen')).getByRole('button', { name: '操作' })
     expect(more.className).toContain('ui-btn--small')
@@ -184,14 +193,14 @@ describe('admin console', () => {
   it('shows usage by bot, trigger user and group', async () => {
     useSession.setState({ user: admin, status: 'ready' })
     mockApi({
-      'GET /usage?by=bot&days=30': [
+      'GET /admin/usage?by=bot&days=30': [
         { key: 'b1', name: '小王的 Claude', runs: 58, totalTokens: 412_000, unreported: 0 },
         { key: 'b2', name: '老李的 Codex', runs: 41, totalTokens: 0, unreported: 41 },
       ],
-      'GET /usage?by=user&days=30': [
+      'GET /admin/usage?by=user&days=30': [
         { key: 'u1', name: '王磊', runs: 61, totalTokens: 356_000, unreported: 0 },
       ],
-      [`GET /usage/daily?days=60&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`]:
+      [`GET /admin/usage/daily?days=60&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`]:
         [{ day: '2026-09-25', runs: 99, totalTokens: 412_000, unreported: 41 }],
     })
     renderAt('/admin/usage')

@@ -8,6 +8,8 @@ import { AdminPlaceholder } from './features/admin/AdminPage'
 import { ADMIN_NAV } from './features/admin/nav'
 import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
+import { JoinPage } from './features/teams/JoinPage'
+import { WelcomePage } from './features/teams/WelcomePage'
 import { EmptyState } from './ui'
 import './app/shell.css'
 
@@ -35,6 +37,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/join/:token" element={<JoinPage />} />
       {import.meta.env.DEV ? (
         <Route
           path="/_ui"
@@ -46,6 +49,7 @@ export function App() {
         />
       ) : null}
       <Route element={<RequireSession />}>
+        <Route path="welcome" element={<WelcomePage />} />
         <Route element={<AppShell />}>
           <Route index element={<ChatPage />} />
           <Route path="g/:groupId" element={<ChatPage />} />

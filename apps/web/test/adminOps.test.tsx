@@ -1,6 +1,7 @@
 import type {
   AdminGroupDto,
   AdminMachineDto,
+  AdminTeamDto,
   AdminUserDto,
   AuditDto,
   SystemParams,
@@ -22,7 +23,13 @@ const admin: UserDto = {
   disabled: false,
   gitProtocol: 'auto',
 }
-const user = (o: Partial<AdminUserDto>): AdminUserDto => ({ ...admin, machineCount: 0, online: false, ...o })
+const user = (o: Partial<AdminUserDto>): AdminUserDto => ({
+  ...admin,
+  machineCount: 0,
+  online: false,
+  teams: [],
+  ...o,
+})
 
 const PARAMS: SystemParams = {
   approvalTimeoutMin: 30,
@@ -45,6 +52,8 @@ const PARAMS: SystemParams = {
   registrationOpen: false,
   previewIdleHours: 24,
   previewShareMaxDays: 30,
+  singleTeamMode: true,
+  teamCreation: 'sysadmin',
 }
 
 class NoopSocket {
@@ -145,6 +154,8 @@ describe('群', () => {
       members: 6,
       bots: 4,
       archivedAt: null,
+      teamId: 't1',
+      teamName: '默认团队',
       ...o,
     })
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -174,7 +185,7 @@ describe('群', () => {
     })
     renderAt('/admin/groups')
     expect(await screen.findByRole('heading', { name: '群' })).toBeTruthy()
-    for (const h of ['群', '模式', '仓库', '成员', 'Bot', '存档'])
+    for (const h of ['群', '团队', '模式', '仓库', '成员', 'Bot', '存档'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const cells = (name: string) =>
       within(rowOf(name))
@@ -183,6 +194,7 @@ describe('群', () => {
     await screen.findByRole('gridcell', { name: '支付服务重构' })
     expect(cells('支付服务重构')).toEqual([
       '支付服务重构',
+      '默认团队',
       '分区模式',
       'git.corp/pay/pay-server',
       '6',
@@ -191,6 +203,7 @@ describe('群', () => {
     ])
     expect(cells('王磊 ⇄ 小王的 Claude')).toEqual([
       '王磊 ⇄ 小王的 Claude',
+      '默认团队',
       '分区模式',
       '未绑定',
       '1',
@@ -198,7 +211,15 @@ describe('群', () => {
       '--',
     ])
     await waitFor(() =>
-      expect(cells('旧版后台')).toEqual(['旧版后台', '已归档', '未绑定', '3', '0', '归档 · 21 天后清除']),
+      expect(cells('旧版后台')).toEqual([
+        '旧版后台',
+        '默认团队',
+        '已归档',
+        '未绑定',
+        '3',
+        '0',
+        '归档 · 21 天后清除',
+      ]),
     )
   })
 })
@@ -605,6 +626,78 @@ describe('系统参数', () => {
     fireEvent.blur(retention)
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(await screen.findByText('Too small: expected number to be >=1')).toBeTruthy()
+  })
+})
+
+describe('系统参数 · 团队', () => {
+  it('switches single-team mode and team creation at once, showing the server’s refusal', async () => {
+    const calls = mockApi({
+      'GET /admin/params': { ...PARAMS, singleTeamMode: false },
+      'PUT /admin/params': (body: unknown) =>
+        (body as Partial<SystemParams>).singleTeamMode
+          ? apiError(409, 'conflict', '仅在恰好有一个未归档团队时才能开启单团队模式（当前 2 个）')
+          : { ...PARAMS, singleTeamMode: false, ...(body as object) },
+    })
+    renderAt('/admin/params')
+    fireEvent.click(await screen.findByRole('switch', { name: '单团队模式' }))
+    expect(await screen.findByText('仅在恰好有一个未归档团队时才能开启单团队模式（当前 2 个）')).toBeTruthy()
+    expect((screen.getByRole('switch', { name: '单团队模式' }) as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(screen.getByRole('radio', { name: '所有人' }))
+    await waitFor(() => expect(calls.at(-1)?.body).toEqual({ teamCreation: 'all' }))
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('radio', { name: '所有人' }) as HTMLInputElement).getAttribute('aria-checked'),
+      ).toBe('true'),
+    )
+  })
+})
+
+describe('团队', () => {
+  const team = (o: Partial<AdminTeamDto>): AdminTeamDto => ({
+    id: 't1',
+    name: '默认团队',
+    avatar: null,
+    ownerId: 'u0',
+    ownerName: '陈晨',
+    members: 5,
+    archivedAt: null,
+    createdAt: '2026-01-01T00:00:00Z',
+    ...o,
+  })
+
+  it('lists teams, creates one for a chosen owner and archives another', async () => {
+    const calls = mockApi({
+      'GET /admin/teams': [team({}), team({ id: 't2', name: '风控组', ownerName: '王磊', members: 2 })],
+      'GET /admin/users': [user({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member' })],
+      'POST /admin/teams': (b: { name: string }) => team({ id: 't3', name: b.name }),
+      'POST /admin/teams/t2/archive': team({ id: 't2', archivedAt: '2026-02-01T00:00:00Z' }),
+    })
+    renderAt('/admin/teams')
+    expect(await screen.findByRole('heading', { name: '团队' })).toBeTruthy()
+    const cells = (name: string) =>
+      within(rowOf(name))
+        .getAllByRole('gridcell')
+        .map((c) => c.textContent)
+    await screen.findByText('风控组')
+    // Rows are found by their owner cell; the name cell also holds the avatar.
+    expect(cells('王磊').slice(1, 3)).toEqual(['王磊', '2'])
+
+    fireEvent.click(screen.getAllByRole('button', { name: '新建团队…' })[0] as HTMLElement)
+    const dialog = await screen.findByRole('dialog', { name: '新建团队' })
+    fireEvent.change(within(dialog).getByLabelText('团队名称'), { target: { value: '平台组' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '所有者' }))
+    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '王磊 · wanglei' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/teams')).toBe(true),
+    )
+    expect(calls.find((c) => c.path === '/admin/teams' && c.method === 'POST')?.body).toEqual({
+      name: '平台组',
+      ownerId: 'u1',
+    })
+
+    rowAction(rowOf('王磊'), '归档团队')
+    await waitFor(() => expect(calls.some((c) => c.path === '/admin/teams/t2/archive')).toBe(true))
   })
 })
 

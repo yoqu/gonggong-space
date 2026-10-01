@@ -2,6 +2,7 @@ import type { Answer, DaemonToServer, Question } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
+import { teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { timeoutMin } from '../approvals/service.js'
 import { claimAttachments } from '../attachments/service.js'
@@ -172,6 +173,7 @@ export async function voidQuestions(ctx: Ctx, runId: string, requestId?: string)
       category: 'question',
       action: 'void',
       groupId: run?.groupId,
+      teamId: run ? teamOfGroupSql(run.groupId) : null,
       detail: auditDetail(q),
       createdAt: ctx.now(),
     })),
@@ -212,6 +214,7 @@ async function settle(
     actorUserId: actor?.id ?? null,
     action: status,
     groupId: row.run.groupId,
+    teamId: teamOfGroupSql(row.run.groupId),
     detail: { ...auditDetail(q), answers: q.answers, attachmentIds: q.attachmentIds },
     createdAt: ctx.now(),
   })

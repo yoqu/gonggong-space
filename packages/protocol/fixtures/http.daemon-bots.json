@@ -1,0 +1,31 @@
+[
+  {
+    "id": "b1",
+    "teamId": "t1",
+    "teamName": "支付组",
+    "name": "小王的 Claude",
+    "ownerId": "u1",
+    "ownerName": "王磊",
+    "agentKind": "claude",
+    "avatar": "role-gong",
+    "machineId": "m1",
+    "machineName": "wang-mbp",
+    "binding": "bound",
+    "presence": "online",
+    "systemPrompt": "",
+    "tier": "workspace",
+    "triggerScope": "all",
+    "triggerList": [],
+    "concurrency": 2,
+    "createdBy": "u1",
+    "agentVersion": "2.1.4",
+    "agentMinVersion": null,
+    "groupCount": 1,
+    "defaultWorkspace": null,
+    "model": null,
+    "effort": null,
+    "catalog": null,
+    "approval": "allowlist",
+    "allowlist": ["go build"]
+  }
+]

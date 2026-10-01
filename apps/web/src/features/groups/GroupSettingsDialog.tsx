@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Spinner, Stepper, toast } from '../../ui'
+import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { groupsApi } from './api'
 import { BotsView, type SettingsTab } from './GroupInfo'
@@ -41,6 +42,7 @@ export function GroupSettingsDialog({
     { value: 'repo', label: t('仓库与工作区'), icon: 'folder-git' },
     { value: 'mode', label: t('同步模式'), icon: 'arrow-clockwise' },
     { value: 'params', label: dm ? t('参数#settings') : t('群级参数'), icon: 'slider-horizontal' },
+    ...(dm ? [] : [{ value: 'mcp' as const, label: 'MCP', icon: 'plug' as const }]),
   ]
 
   useEffect(() => {
@@ -106,6 +108,8 @@ export function GroupSettingsDialog({
             <BotsView group={group} isAdmin />
           ) : tab === 'repo' ? (
             <RepoWorkspaceView group={group} isAdmin />
+          ) : tab === 'mcp' ? (
+            <GroupMcpTab group={group} />
           ) : tab === 'mode' ? (
             <div className="gs-mode">
               <GroupBox>
@@ -167,5 +171,17 @@ function BasicTab({ group }: { group: GroupDto }) {
         </GroupRow>
       ))}
     </GroupBox>
+  )
+}
+
+/** 群设置 · MCP: the group layer, overriding same-named team and platform servers (plan D8). */
+function GroupMcpTab({ group }: { group: GroupDto }) {
+  const layer = useMcpLayer(`/groups/${group.id}/mcp`)
+  return (
+    <>
+      <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
+      <McpLayerList layer={layer} tag={t('群层')} />
+      <McpSaved force={layer.savedForce} />
+    </>
   )
 }

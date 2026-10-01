@@ -1,19 +1,25 @@
 import { type McpServer, type McpServerDto, SaveMcpReq } from '@gonggong/protocol'
-import { and, asc, eq, isNull, ne } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { groupBots, mcpServers } from '../../db/schema.js'
+import { groupBots, groups, mcpServers } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { requireSysadmin } from '../auth/session.js'
+import { requireSysadmin, requireUser } from '../auth/session.js'
+import { requireAdmin } from '../groups/service.js'
+import { requireTeam } from '../teams/service.js'
 
 type Row = typeof mcpServers.$inferSelect
-type IdParams = { Params: { id: string } }
+type Scope = 'platform' | 'team' | 'group'
+/** One layer's rows (plan D8): platform has neither id, team rows a team, group rows both. */
+type Layer = { scope: Scope; teamId: string | null; groupId: string | null }
+type Params = { Params: { id?: string; mcpId?: string } }
 
 /** The daemon injects the built-in ask server under this name (spec §8.8). */
 const RESERVED = 'gonggong'
+const RANK: Record<Scope, number> = { platform: 0, team: 1, group: 2 }
 
 const dto = (r: Row): McpServerDto => ({
   id: r.id,
@@ -22,14 +28,35 @@ const dto = (r: Row): McpServerDto => ({
   updatedAt: r.updatedAt.toISOString(),
 })
 
-/** Enabled global-layer servers, injected when a session is created (spec §7.2, §7.4). */
-export async function enabledMcpServers(db: Pick<Db, 'select'>): Promise<McpServer[]> {
+const inLayer = (l: Layer) =>
+  and(
+    eq(mcpServers.scope, l.scope),
+    l.teamId ? eq(mcpServers.teamId, l.teamId) : isNull(mcpServers.teamId),
+    l.groupId ? eq(mcpServers.groupId, l.groupId) : isNull(mcpServers.groupId),
+  )
+
+/**
+ * Enabled servers for a new session in the group (spec §7.2, §7.4): platform, the group's team and the group itself,
+ * a lower layer replacing a same-named server above it.
+ */
+export async function enabledMcpServers(db: Pick<Db, 'select'>, groupId: string): Promise<McpServer[]> {
+  const team = db.select({ id: groups.teamId }).from(groups).where(eq(groups.id, groupId))
   const rows = await db
     .select()
     .from(mcpServers)
-    .where(eq(mcpServers.enabled, true))
-    .orderBy(asc(mcpServers.name))
-  return rows.map((r) => r.config as McpServer)
+    .where(
+      and(
+        eq(mcpServers.enabled, true),
+        or(
+          eq(mcpServers.scope, 'platform'),
+          and(eq(mcpServers.scope, 'team'), inArray(mcpServers.teamId, team)),
+          and(eq(mcpServers.scope, 'group'), eq(mcpServers.groupId, groupId)),
+        ),
+      ),
+    )
+  const merged = new Map<string, Row>()
+  for (const r of rows.sort((a, b) => RANK[a.scope as Scope] - RANK[b.scope as Scope])) merged.set(r.name, r)
+  return [...merged.values()].sort((a, b) => (a.name < b.name ? -1 : 1)).map((r) => r.config as McpServer)
 }
 
 function parse(body: unknown) {
@@ -41,70 +68,112 @@ function parse(body: unknown) {
 }
 
 /** Running turns are unaffected: they already hold their session; only the next dispatch opens a new one. */
-async function forceNewSessions(ctx: Ctx) {
+async function forceNewSessions(ctx: Ctx, l: Layer) {
+  const affected = l.groupId
+    ? eq(groupBots.groupId, l.groupId)
+    : l.teamId
+      ? inArray(
+          groupBots.groupId,
+          ctx.db.select({ id: groups.id }).from(groups).where(eq(groups.teamId, l.teamId)),
+        )
+      : undefined
   await ctx.db
     .update(groupBots)
     .set({ newSessionReason: 'config_changed', sessionId: null })
-    .where(isNull(groupBots.removedAt))
+    .where(and(isNull(groupBots.removedAt), affected))
 }
 
+/** The same list / create / update / delete under `base` for each layer; `authorize` resolves the caller's layer. */
+function layerRoutes(
+  ctx: Ctx,
+  app: FastifyInstance,
+  base: string,
+  authorize: (req: FastifyRequest<Params>) => Promise<{ actorId: string; layer: Layer }>,
+) {
+  const save = async (actorId: string, l: Layer, action: string, row: Row | undefined, force: boolean) => {
+    if (!row) return fail('not_found', 'MCP 不存在')
+    if (force) await forceNewSessions(ctx, l)
+    await audit(ctx, {
+      category: 'admin',
+      actorUserId: actorId,
+      teamId: l.teamId,
+      groupId: l.groupId,
+      action,
+      detail: { id: row.id, layer: l.scope, name: row.name, enabled: row.enabled, forceNewSession: force },
+    })
+    return dto(row)
+  }
+
+  app.get<Params>(base, async (req) => {
+    const { layer } = await authorize(req)
+    return (await ctx.db.select().from(mcpServers).where(inLayer(layer)).orderBy(asc(mcpServers.name))).map(
+      dto,
+    )
+  })
+
+  app.post<Params>(base, async (req, reply) => {
+    const { actorId, layer } = await authorize(req)
+    const body = parse(req.body)
+    const [row] = await ctx.db
+      .insert(mcpServers)
+      .values({
+        ...layer,
+        name: body.config.name,
+        enabled: body.enabled,
+        config: body.config,
+        updatedAt: ctx.now(),
+      })
+      .onConflictDoNothing()
+      .returning()
+    if (!row) return fail('conflict', 'MCP 名称已存在')
+    return reply.status(201).send(await save(actorId, layer, 'mcp.create', row, body.forceNewSession))
+  })
+
+  app.patch<Params>(`${base}/:mcpId`, async (req) => {
+    const { actorId, layer } = await authorize(req)
+    const id = idParam(req.params.mcpId ?? '', 'MCP 不存在')
+    const body = parse(req.body)
+    const [taken] = await ctx.db
+      .select({ id: mcpServers.id })
+      .from(mcpServers)
+      .where(and(inLayer(layer), eq(mcpServers.name, body.config.name), ne(mcpServers.id, id)))
+    if (taken) return fail('conflict', 'MCP 名称已存在')
+    const [row] = await ctx.db
+      .update(mcpServers)
+      .set({ name: body.config.name, enabled: body.enabled, config: body.config, updatedAt: ctx.now() })
+      .where(and(inLayer(layer), eq(mcpServers.id, id)))
+      .returning()
+    return save(actorId, layer, 'mcp.update', row, body.forceNewSession)
+  })
+
+  app.delete<Params & { Querystring: { forceNewSession?: string } }>(`${base}/:mcpId`, async (req, reply) => {
+    const { actorId, layer } = await authorize(req)
+    const id = idParam(req.params.mcpId ?? '', 'MCP 不存在')
+    const [row] = await ctx.db
+      .delete(mcpServers)
+      .where(and(inLayer(layer), eq(mcpServers.id, id)))
+      .returning()
+    await save(actorId, layer, 'mcp.delete', row, req.query.forceNewSession === 'true')
+    return reply.status(204).send()
+  })
+}
+
+/** Platform layer for sysadmins, team layer for team admins, group layer for group admins (plan D8). */
 export function mcpRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    const save = async (actorId: string, action: string, row: Row | undefined, force: boolean) => {
-      if (!row) return fail('not_found', 'MCP 不存在')
-      if (force) await forceNewSessions(ctx)
-      await audit(ctx, {
-        category: 'admin',
-        actorUserId: actorId,
-        action,
-        detail: { id: row.id, name: row.name, enabled: row.enabled, forceNewSession: force },
-      })
-      return dto(row)
-    }
-
-    app.get('/api/admin/mcp', async (req) => {
-      await requireSysadmin(ctx, req)
-      return (await ctx.db.select().from(mcpServers).orderBy(asc(mcpServers.name))).map(dto)
+    layerRoutes(ctx, app, '/api/admin/mcp', async (req) => ({
+      actorId: (await requireSysadmin(ctx, req)).id,
+      layer: { scope: 'platform', teamId: null, groupId: null },
+    }))
+    layerRoutes(ctx, app, '/api/teams/:id/mcp', async (req) => {
+      const me = await requireUser(ctx, req)
+      const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
+      return { actorId: me.id, layer: { scope: 'team', teamId: team.id, groupId: null } }
     })
-
-    app.post('/api/admin/mcp', async (req, reply) => {
-      const actor = await requireSysadmin(ctx, req)
-      const body = parse(req.body)
-      const [row] = await ctx.db
-        .insert(mcpServers)
-        .values({ name: body.config.name, enabled: body.enabled, config: body.config, updatedAt: ctx.now() })
-        .onConflictDoNothing({ target: mcpServers.name })
-        .returning()
-      if (!row) return fail('conflict', 'MCP 名称已存在')
-      return reply.status(201).send(await save(actor.id, 'mcp.create', row, body.forceNewSession))
+    layerRoutes(ctx, app, '/api/groups/:id/mcp', async (req) => {
+      const me = await requireUser(ctx, req)
+      const { group } = await requireAdmin(ctx, req.params.id ?? '', me.id)
+      return { actorId: me.id, layer: { scope: 'group', teamId: group.teamId, groupId: group.id } }
     })
-
-    app.patch<IdParams>('/api/admin/mcp/:id', async (req) => {
-      const actor = await requireSysadmin(ctx, req)
-      const id = idParam(req.params.id, 'MCP 不存在')
-      const body = parse(req.body)
-      const [taken] = await ctx.db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.name, body.config.name), ne(mcpServers.id, id)))
-      if (taken) return fail('conflict', 'MCP 名称已存在')
-      const [row] = await ctx.db
-        .update(mcpServers)
-        .set({ name: body.config.name, enabled: body.enabled, config: body.config, updatedAt: ctx.now() })
-        .where(eq(mcpServers.id, id))
-        .returning()
-      return save(actor.id, 'mcp.update', row, body.forceNewSession)
-    })
-
-    app.delete<IdParams & { Querystring: { forceNewSession?: string } }>(
-      '/api/admin/mcp/:id',
-      async (req, reply) => {
-        const actor = await requireSysadmin(ctx, req)
-        const id = idParam(req.params.id, 'MCP 不存在')
-        const [row] = await ctx.db.delete(mcpServers).where(eq(mcpServers.id, id)).returning()
-        await save(actor.id, 'mcp.delete', row, req.query.forceNewSession === 'true')
-        return reply.status(204).send()
-      },
-    )
   }
 }

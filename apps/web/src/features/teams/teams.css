@@ -1,0 +1,60 @@
+/* Team switcher (sidebar toolbar title) and 团队设置 additions to the group settings layout. */
+.team-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  margin-right: auto;
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-field);
+  background: none;
+  color: var(--label-primary);
+  font: inherit;
+  font-size: var(--text-headline-size);
+  font-weight: 700;
+  cursor: default;
+}
+.team-switch:hover,
+.team-switch[aria-expanded="true"] {
+  background: var(--control-track);
+}
+.team-switch__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-switch__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--system-red);
+}
+.team-menu__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.team-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.team-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+.team-link__url {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.team-group__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}

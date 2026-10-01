@@ -11,6 +11,7 @@ import { localize, type MessageKey, t } from './i18n/index.js'
 import { HttpError } from './lib/errors.js'
 import { originCheck } from './lib/origin.js'
 import { adminRoutes } from './modules/admin/routes.js'
+import { adminTeamRoutes } from './modules/admin/teams.js'
 import { agentToolRoutes } from './modules/agent-tools/routes.js'
 import { approvalRoutes } from './modules/approvals/routes.js'
 import { startApprovalTimer } from './modules/approvals/service.js'
@@ -48,6 +49,7 @@ import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
 import { searchRoutes } from './modules/search/routes.js'
+import { teamRoutes } from './modules/teams/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
@@ -117,6 +119,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(questionRoutes(ctx))
   await app.register(authRoutes(ctx))
   await app.register(userRoutes(ctx))
+  await app.register(teamRoutes(ctx))
   await app.register(machineRoutes(ctx))
   await app.register(providerRoutes(ctx))
   await app.register(botRoutes(ctx))
@@ -128,6 +131,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(usageRoutes(ctx))
   await app.register(releaseRoutes(ctx))
   await app.register(adminRoutes(ctx))
+  await app.register(adminTeamRoutes(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))

@@ -144,7 +144,7 @@ export async function hasRun(ctx: Ctx, groupId: string, messageId: string) {
 export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
   if (parent.status !== 'completed' || !parent.handoffs.length || (await isChainStopped(ctx, parent))) return
   const [group] = await ctx.db
-    .select({ params: groups.params })
+    .select({ params: groups.params, teamId: groups.teamId })
     .from(groups)
     .where(eq(groups.id, parent.groupId))
   const hop = parent.hop + 1

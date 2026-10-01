@@ -2,6 +2,7 @@ import type { ApprovalRequest, PermissionOption } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
+import { teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { groupParams } from '../groups/params.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
@@ -130,6 +131,7 @@ export async function voidApprovals(ctx: Ctx, runId: string, reason: VoidReason)
       category: 'approval',
       action: 'void',
       groupId: run?.groupId,
+      teamId: run ? teamOfGroupSql(run.groupId) : null,
       detail: { ...auditDetail(a), reason },
       createdAt: ctx.now(),
     })),
@@ -171,6 +173,7 @@ async function settle(
     actorUserId,
     action: status,
     groupId: row.groupId,
+    teamId: teamOfGroupSql(row.groupId),
     detail: { ...auditDetail(a), optionId },
     createdAt: ctx.now(),
   })

@@ -1,9 +1,10 @@
 import { DEFAULT_OFFLINE_WAIT_MIN, MAX_ATTACHMENTS, MAX_QUESTIONS, SystemParams } from '@gonggong/protocol'
-import { inArray, sql } from 'drizzle-orm'
+import { count, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { systemParams } from '../../db/schema.js'
+import { systemParams, teams } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
+import { fail } from '../../lib/errors.js'
 
 /** Spec §10 defaults. */
 export const PARAM_DEFAULTS: SystemParams = {
@@ -27,6 +28,8 @@ export const PARAM_DEFAULTS: SystemParams = {
   registrationOpen: false,
   previewIdleHours: 24,
   previewShareMaxDays: 30,
+  singleTeamMode: true,
+  teamCreation: 'sysadmin',
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]
@@ -49,6 +52,12 @@ export async function sysParams(db: Pick<Db, 'select'>): Promise<SystemParams> {
 export async function saveSysParams(ctx: Ctx, patch: Partial<SystemParams>, actorUserId: string) {
   const current = await sysParams(ctx.db)
   const next = SystemParams.parse({ ...current, ...patch })
+  if (next.singleTeamMode && !current.singleTeamMode) {
+    // Plan D11: the one live team becomes the default team.
+    const [live] = await ctx.db.select({ n: count() }).from(teams).where(isNull(teams.archivedAt))
+    if (live?.n !== 1)
+      fail('conflict', '仅在恰好有一个未归档团队时才能开启单团队模式（当前 {n} 个）', { n: live?.n ?? 0 })
+  }
   const changes = Object.fromEntries(
     KEYS.filter((k) => k in patch && next[k] !== current[k]).map((k) => [k, [current[k], next[k]]]),
   )

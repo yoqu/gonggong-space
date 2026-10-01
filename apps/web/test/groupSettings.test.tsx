@@ -19,6 +19,7 @@ const me: UserDto = {
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   id: 'g1',
+  teamId: 't1',
   name: '支付服务重构',
   kind: 'group',
   mode: 'partition',
@@ -42,6 +43,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
 
 const bot = (o: Partial<BotDto>): BotDto => ({
   id: 'b1',
+  teamId: 't1',
   name: '小王的 Claude',
   ownerId: 'u1',
   ownerName: '王磊',
@@ -605,6 +607,42 @@ describe('group settings dialog', () => {
     expect(within(dlg).getByText('强制同步暂未开放')).toBeTruthy()
     fireEvent.click(within(dlg).getByRole('button', { name: '群级参数' }))
     expect(await screen.findByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
+  })
+})
+
+describe('group MCP', () => {
+  it('lets a group admin add a group-layer MCP server from the settings dialog', async () => {
+    const calls = mockApi(
+      routes([group()], {
+        'GET /groups/g1/mcp': [],
+        'POST /groups/g1/mcp': (b: { config: unknown }) => ({
+          id: 'm1',
+          enabled: true,
+          config: b.config,
+          updatedAt: '',
+        }),
+      }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(await within(await openDrawer()).findByRole('button', { name: /同步模式/ }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'MCP' }))
+    const dlg = await screen.findByRole('dialog', { name: 'MCP · 支付服务重构' })
+    expect(within(dlg).getByText('只对本群生效；与团队层、平台层同名时以群层为准。')).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '添加 MCP…' }))
+    const add = await screen.findByRole('dialog', { name: '添加 MCP' })
+    fireEvent.click(within(add).getByRole('radio', { name: 'HTTP' }))
+    fireEvent.change(within(add).getByLabelText('名称'), { target: { value: 'jira' } })
+    fireEvent.change(within(add).getByLabelText('URL'), { target: { value: 'https://mcp.corp/jira' } })
+    fireEvent.click(within(add).getByRole('button', { name: '添加' }))
+    expect(await within(dlg).findByText('群层')).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/mcp')).toBe(true),
+    )
+    expect(calls.find((c) => c.path === '/groups/g1/mcp' && c.method === 'POST')?.body).toMatchObject({
+      enabled: true,
+      config: { transport: 'http', name: 'jira', url: 'https://mcp.corp/jira' },
+    })
   })
 })
 

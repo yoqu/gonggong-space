@@ -20,6 +20,7 @@ const me: UserDto = {
 
 const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto => ({
   id,
+  teamId: 't1',
   name,
   kind: 'group',
   mode: 'partition',

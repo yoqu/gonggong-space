@@ -6,6 +6,7 @@ const notificationView = (n: NotificationDto) => view(n, zh)
 
 const n = (type: NotificationDto['type'], payload: Record<string, unknown>): NotificationDto => ({
   id: 'n1',
+  teamId: null,
   type,
   payload,
   readAt: null,

@@ -2,10 +2,10 @@ import type { AgentKind, Approval, ContextMessage, GitProtocol, RunStart, Tier }
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groupBots, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
-import { sysParams } from '../admin/params.js'
+import { bots, groupBots, groupRepos, groups, messages, runs, teams, users } from '../../db/schema.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
+import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
 import { unreadyGroups } from '../workspaces/state.js'
@@ -29,8 +29,14 @@ const WORKSPACE_WAIT = runStep('工作区准备中')
 export async function schedule(ctx: Ctx, botId: string) {
   const changed = await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${botId}))`)
-    const [bot] = await tx.select().from(bots).where(eq(bots.id, botId))
-    if (!bot) return { out: [], dispatches: [] }
+    const [row] = await tx
+      .select({ bot: bots, archivedAt: teams.archivedAt })
+      .from(bots)
+      .innerJoin(teams, eq(teams.id, bots.teamId))
+      .where(eq(bots.id, botId))
+    // Plan D15: an archived team's bots are no longer dispatched.
+    if (!row || row.archivedAt) return { out: [], dispatches: [] }
+    const { bot } = row
     const waiting = await tx
       .select({ run: runs })
       .from(runs)
@@ -157,7 +163,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     .select({ protocol: users.gitProtocol })
     .from(users)
     .where(eq(users.id, bot.ownerId))
-  const params = await sysParams(tx)
+  const params = await effectiveParams(tx, run.groupId)
   const meta = trigger.meta as MessageMeta
   // An agent command carries no group context, so it leaves the context cursor where it was.
   const command = meta.agentCommand ?? null
@@ -223,7 +229,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       attachments: meta.attachments ?? [],
       quote: quoteOf(meta),
     },
-    mcpServers: await enabledMcpServers(tx),
+    mcpServers: await enabledMcpServers(tx, run.groupId),
     command,
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }

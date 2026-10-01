@@ -180,6 +180,14 @@ export function UsersPage() {
             },
             { key: 'account', title: t('账号'), sortable: true, mono: true, secondary: true },
             {
+              key: 'teams',
+              title: t('所属团队'),
+              secondary: true,
+              sortable: true,
+              sortValue: (u) => u.teams.join(t('、')),
+              render: (u) => u.teams.join(t('、')) || '--',
+            },
+            {
               key: 'role',
               title: t('角色'),
               width: 108,

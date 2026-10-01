@@ -2,13 +2,13 @@ import { randomBytes } from 'node:crypto'
 import postgres from 'postgres'
 import { databaseUrl, migrateDb, openDb } from '../../src/db/client.js'
 
-/** A fresh, fully migrated database per test file; dropped by `close()`. */
-export async function createTestDb() {
+/** A fresh, fully migrated (unless told otherwise) database per test file; dropped by `close()`. */
+export async function createTestDb({ migrate = true } = {}) {
   const name = `gonggong_t_${randomBytes(4).toString('hex')}`
   const admin = postgres(databaseUrl('postgres'), { onnotice: () => {} })
   await admin.unsafe(`CREATE DATABASE ${name}`)
   const { db, sql } = openDb(databaseUrl(name))
-  await migrateDb(db)
+  if (migrate) await migrateDb(db)
   return {
     db,
     close: async () => {

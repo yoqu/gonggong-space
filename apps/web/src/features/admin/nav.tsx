@@ -10,6 +10,7 @@ import { GroupsPage } from './GroupsPage'
 import { MachinesPage } from './MachinesPage'
 import { ParamsPage } from './ParamsPage'
 import { ReleasesPage } from './ReleasesPage'
+import { TeamsPage } from './TeamsPage'
 import { UsersPage } from './UsersPage'
 
 export interface AdminItem {
@@ -38,6 +39,14 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         element: <UsersPage />,
       },
       {
+        path: 'teams',
+        label: t('团队#nav'),
+        icon: 'contacts',
+        color: 'var(--system-teal)',
+        desc: t('全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。'),
+        element: <TeamsPage />,
+      },
+      {
         path: 'bots',
         label: t('Bot#nav'),
         icon: 'bot',
@@ -63,7 +72,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('配置中心'),
         icon: 'plug',
         color: 'var(--system-orange)',
-        desc: t('仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。'),
+        desc: t('仓库基线之上依次叠加平台层、团队层与群层 MCP，同名时下层覆盖上层；不修改仓库文件。'),
         element: <ConfigPage />,
       },
       {
@@ -71,7 +80,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('系统参数'),
         icon: 'slider-horizontal',
         color: 'var(--system-gray)',
-        desc: t('全局默认值；群级参数由群管理员在群设置中调整。'),
+        desc: t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。'),
         element: <ParamsPage />,
       },
       {

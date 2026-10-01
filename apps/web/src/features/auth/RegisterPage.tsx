@@ -1,6 +1,6 @@
-import type { UserDto } from '@gonggong/protocol'
+import type { MeDto } from '@gonggong/protocol'
 import { type FormEvent, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
@@ -11,10 +11,11 @@ import { useAuthOptions } from './options'
 const ACCOUNT_RE = /^[a-z0-9_.-]{2,32}$/
 const MIN_PASSWORD = 8
 
-/** Self sign-up, reachable only while the sysadmin has opened registration (系统参数 · 开放自助注册). */
+/** Self sign-up while the sysadmin has opened registration (系统参数 · 开放自助注册), or with a team invite (plan D12). */
 export function RegisterPage() {
   const { user, setUser } = useSession()
   const navigate = useNavigate()
+  const invite = useSearchParams()[0].get('invite')
   const options = useAuthOptions()
   const [form, setForm] = useState({ account: '', name: '', password: '', confirm: '' })
   const [error, setError] = useState('')
@@ -42,15 +43,16 @@ export function RegisterPage() {
     if (form.password !== form.confirm) return fail(t('两次输入的密码不一致'))
     setPhase('busy')
     try {
-      const me = await api.post<UserDto>('/auth/register', {
+      const me = await api.post<MeDto>('/auth/register', {
         account,
         name: form.name.trim(),
         password: form.password,
+        inviteToken: invite ?? undefined,
       })
       setPhase('done')
       setTimeout(() => {
         setUser(me)
-        navigate('/', { replace: true })
+        navigate(invite ? `/join/${invite}` : '/', { replace: true })
       }, 420)
     } catch (err) {
       fail(errorText(err))
@@ -58,7 +60,7 @@ export function RegisterPage() {
     }
   }
 
-  const closed = options?.registrationOpen === false
+  const closed = options?.registrationOpen === false && !invite
   return (
     <AuthCard
       testId="register-page"

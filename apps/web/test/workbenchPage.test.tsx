@@ -24,6 +24,7 @@ const me: UserDto = {
 }
 const group = (id: string, name: string): GroupDto => ({
   id,
+  teamId: 't1',
   name,
   kind: 'group',
   mode: 'partition',

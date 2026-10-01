@@ -22,6 +22,11 @@ export const protocolEn = {
   '{user} 将 {member} 设为群管理员': '{user} made {member} a group admin',
   '{user} 取消了 {member} 的群管理员': '{user} revoked group admin from {member}',
   '{user} 退出了群': '{user} left the group',
+  '{user} 退出了团队': '{user} left the team',
+  '{user} 被移出团队': '{user} was removed from the team',
+  '{member} 接任群管理员': '{member} took over as group admin',
+  '{user} 以团队管理员身份加入并成为群管理员': '{user} joined as team admin and is now group admin',
+  '{user} 以团队管理员身份成为群管理员': '{user} is now group admin as team admin',
   '{user} 将 {bot} 在本群的档位设为「{tier}」': '{user} set the tier of {bot} in this group to "{tier}"',
   '{user} 将 {bot} 在本群的档位恢复为跟随全局（{tier}）':
     '{user} reset the tier of {bot} in this group to follow the global setting ({tier})',

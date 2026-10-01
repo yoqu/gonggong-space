@@ -1,3 +1,4 @@
+use gonggong::bots::Bot;
 use gonggong::protocol::{DaemonToServer, ServerToDaemon, TunnelHead, TunnelOpen, TunnelReset};
 use gonggong::tunnel::{Frame, FrameType};
 use serde::Serialize;
@@ -26,6 +27,18 @@ fn every_shared_fixture_round_trips() {
             ["tunnel", "open"] => round_trip::<TunnelOpen>(&raw, &name),
             ["tunnel", "head"] => round_trip::<TunnelHead>(&raw, &name),
             ["tunnel", "reset"] => round_trip::<TunnelReset>(&raw, &name),
+            ["http", "daemon-bots"] => {
+                // `Bot` keeps the subset the CLI and desktop app use: every field it keeps must survive.
+                let back = round_trip::<Vec<Bot>>(&raw, &name);
+                for (b, r) in back.as_array().unwrap().iter().zip(raw.as_array().unwrap()) {
+                    for (k, v) in b.as_object().unwrap() {
+                        assert_eq!(Some(v), r.get(k), "{name}: {k} changed after round trip");
+                    }
+                }
+                assert_eq!(back[0]["teamName"], "支付组");
+                n += 1;
+                continue;
+            }
             _ => panic!("unknown fixture {name}"),
         };
         assert_eq!(strip_nulls(back), strip_nulls(raw), "{name} changed after round trip");

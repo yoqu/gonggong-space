@@ -9,11 +9,12 @@ import { hash } from '@node-rs/argon2'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { machines, users, webSessions } from '../../db/schema.js'
+import { machines, teamMembers, teams, users, webSessions } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { currentTeam, joinDefaultTeam } from '../teams/service.js'
 import { userCard } from './card.js'
 import { disableUser, enableUser } from './disable.js'
 import { toUserDto } from './dto.js'
@@ -22,12 +23,18 @@ export function userRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.get('/api/admin/users', async (req): Promise<AdminUserDto[]> => {
       await requireSysadmin(ctx, req)
-      const [rows, live] = await Promise.all([
+      const [rows, live, memberships] = await Promise.all([
         ctx.db.select().from(users).orderBy(asc(users.createdAt)),
         ctx.db
           .select({ id: machines.id, ownerId: machines.ownerId })
           .from(machines)
           .where(isNull(machines.revokedAt)),
+        ctx.db
+          .select({ userId: teamMembers.userId, name: teams.name })
+          .from(teamMembers)
+          .innerJoin(teams, eq(teams.id, teamMembers.teamId))
+          .where(isNull(teams.archivedAt))
+          .orderBy(asc(teamMembers.joinedAt)),
       ])
       return rows.map((u) => {
         const own = live.filter((m) => m.ownerId === u.id)
@@ -35,6 +42,7 @@ export function userRoutes(ctx: Ctx) {
           ...toUserDto(u),
           machineCount: own.length,
           online: own.some((m) => ctx.hub.isOnline(m.id)),
+          teams: memberships.filter((m) => m.userId === u.id).map((m) => m.name),
         }
       })
     })
@@ -54,6 +62,7 @@ export function userRoutes(ctx: Ctx) {
         .onConflictDoNothing({ target: users.account })
         .returning()
       if (!user) return fail('conflict', '账号已存在')
+      await joinDefaultTeam(ctx.db, user.id)
       await audit(ctx, {
         category: 'admin',
         actorUserId: actor.id,
@@ -120,10 +129,12 @@ export function userRoutes(ctx: Ctx) {
     )
 
     app.get('/api/users', async (req): Promise<UserBriefDto[]> => {
-      await requireUser(ctx, req)
+      const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
       return ctx.db
         .select({ id: users.id, name: users.name, account: users.account })
         .from(users)
+        .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
         .where(isNull(users.disabledAt))
         .orderBy(asc(users.createdAt))
     })

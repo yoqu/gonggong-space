@@ -68,6 +68,59 @@ export const gitAccounts = pgTable(
   (t) => [unique().on(t.userId, t.baseUrl, t.login)],
 )
 
+// ── Teams (plan 团队层级) ───────────────────────────────────────────────────
+export const teams = pgTable('teams', {
+  id: id(),
+  name: text('name').notNull(),
+  avatar: text('avatar'),
+  /** Overrides of TEAM_PARAM_KEYS for the team's groups. */
+  params: jsonb('params').notNull().default({}),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => users.id),
+  archivedAt: ts('archived_at'),
+  createdAt: createdAt(),
+})
+
+export const teamMembers = pgTable(
+  'team_members',
+  {
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => teams.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** 'owner' | 'admin' | 'member' */
+    role: text('role').notNull().default('member'),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.userId] }), index('team_members_user').on(t.userId)],
+)
+
+export const teamInvites = pgTable('team_invites', {
+  id: id(),
+  teamId: uuid('team_id')
+    .notNull()
+    .references(() => teams.id),
+  tokenHash: text('token_hash').notNull().unique(),
+  role: text('role').notNull().default('member'),
+  /** null = unlimited. */
+  maxUses: integer('max_uses'),
+  uses: integer('uses').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => users.id),
+  revokedAt: ts('revoked_at'),
+  createdAt: createdAt(),
+})
+
+const teamId = () =>
+  uuid('team_id')
+    .notNull()
+    .references(() => teams.id)
+
 // ── Machines & daemon binding ───────────────────────────────────────────────
 export const bindCodes = pgTable('bind_codes', {
   code: text('code').primaryKey(),
@@ -112,6 +165,7 @@ export const machines = pgTable('machines', {
 // ── Bots ────────────────────────────────────────────────────────────────────
 export const bots = pgTable('bots', {
   id: id(),
+  teamId: teamId(),
   name: text('name').notNull(),
   ownerId: uuid('owner_id')
     .notNull()
@@ -147,6 +201,7 @@ export const bots = pgTable('bots', {
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const groups = pgTable('groups', {
   id: id(),
+  teamId: teamId(),
   name: text('name').notNull(),
   /** 'group' | 'dm' */
   kind: text('kind').notNull(),
@@ -189,19 +244,24 @@ export const groupRepos = pgTable('group_repos', {
   createdAt: createdAt(),
 })
 
-/** Team-wide history of remote repos bound to groups or found in /cd directories, one row per `repoKey`. */
-export const repos = pgTable('repos', {
-  id: id(),
-  key: text('key').notNull().unique(),
-  /** The latest URL it was used with, credentials removed. */
-  url: text('url').notNull(),
-  name: text('name').notNull(),
-  lastBranch: text('last_branch'),
-  lastUsedAt: ts('last_used_at').notNull().defaultNow(),
-  /** Hidden from the picker until it is used again. */
-  hiddenAt: ts('hidden_at'),
-  createdAt: createdAt(),
-})
+/** Team-wide history of remote repos bound to groups or found in /cd directories, one row per team and `repoKey`. */
+export const repos = pgTable(
+  'repos',
+  {
+    id: id(),
+    teamId: teamId(),
+    key: text('key').notNull(),
+    /** The latest URL it was used with, credentials removed. */
+    url: text('url').notNull(),
+    name: text('name').notNull(),
+    lastBranch: text('last_branch'),
+    lastUsedAt: ts('last_used_at').notNull().defaultNow(),
+    /** Hidden from the picker until it is used again. */
+    hiddenAt: ts('hidden_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [unique().on(t.teamId, t.key)],
+)
 
 /** Who used which repo last, for "recently used by me" ordering. */
 export const repoUsers = pgTable(
@@ -596,14 +656,22 @@ export const previewShares = pgTable(
   (t) => [index('preview_shares_preview').on(t.previewId)],
 )
 
-/** Global MCP layer maintained by sysadmins (spec §7.1), injected into new sessions over ACP. */
-export const mcpServers = pgTable('mcp_servers', {
-  id: id(),
-  name: text('name').notNull().unique(),
-  enabled: boolean('enabled').notNull().default(true),
-  config: jsonb('config').notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+/** MCP servers injected into new sessions over ACP (spec §7.1): platform (sysadmins) → team → group layers. */
+export const mcpServers = pgTable(
+  'mcp_servers',
+  {
+    id: id(),
+    /** 'platform' | 'team' | 'group' */
+    scope: text('scope').notNull().default('platform'),
+    teamId: uuid('team_id').references(() => teams.id),
+    groupId: uuid('group_id').references(() => groups.id),
+    name: text('name').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    config: jsonb('config').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.scope, t.teamId, t.groupId, t.name).nullsNotDistinct()],
+)
 
 /** Web Push subscriptions (plan D13). */
 export const pushSubscriptions = pgTable('push_subscriptions', {
@@ -626,6 +694,8 @@ export const notifications = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id),
+    /** Team of the group / bot it is about; null for platform-level notices. */
+    teamId: uuid('team_id').references(() => teams.id),
     /** 'approval' | 'question' | 'lock' | 'offline_expired' | 'chain_done' | 'bot_confirm' */
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
@@ -645,6 +715,8 @@ export const auditLogs = pgTable(
     category: text('category').notNull(),
     actorUserId: uuid('actor_user_id').references(() => users.id),
     action: text('action').notNull(),
+    /** null for platform-level events. */
+    teamId: uuid('team_id'),
     groupId: uuid('group_id'),
     detail: jsonb('detail').notNull().default({}),
     createdAt: createdAt(),

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { Navigate, Outlet } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
+import { applyTeamEvent } from '../features/teams/store'
 import { t } from '../i18n'
 import { toastError } from '../lib/errors'
 import { realtime } from '../lib/realtime'
@@ -9,9 +10,12 @@ import { useSession } from './session'
 import { loadWorkspace, useWorkspace } from './workspace'
 
 export function RequireSession() {
-  const { user, status, load } = useSession()
-  // The workspace endpoints refuse a user who still has to change the initial password.
-  const userId = user && !user.mustChangePassword ? user.id : undefined
+  const { user, tenancy, status, load } = useSession()
+  const { pathname } = useLocation()
+  // Without a team there is nothing to chat in (plan /welcome); sysadmins may still run the platform from /admin.
+  const teamless = tenancy?.teams.length === 0
+  // The workspace endpoints refuse a user who still has to change the initial password, or one in no team.
+  const userId = user && !user.mustChangePassword && !teamless ? user.id : undefined
 
   useEffect(() => {
     if (status === 'idle') void load()
@@ -20,10 +24,12 @@ export function RequireSession() {
   useEffect(() => {
     if (!userId) return
     const off = realtime.subscribe(useWorkspace.getState().applyEvent)
+    const offTeams = realtime.subscribe(applyTeamEvent)
     realtime.start()
     loadWorkspace().catch((e) => toastError(e, t('加载工作区失败')))
     return () => {
       off()
+      offTeams()
       realtime.stop()
     }
   }, [userId])
@@ -50,5 +56,7 @@ export function RequireSession() {
     )
   if (!user) return <Navigate to="/login" replace />
   if (user.mustChangePassword) return <ChangePasswordPage />
+  if (teamless && pathname !== '/welcome' && !(user.role === 'sysadmin' && pathname.startsWith('/admin')))
+    return <Navigate to="/welcome" replace />
   return <Outlet />
 }

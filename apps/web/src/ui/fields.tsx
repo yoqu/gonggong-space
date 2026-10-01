@@ -91,6 +91,8 @@ export interface StepperProps {
   label?: ReactNode
   /** Input width in px. */
   width?: number
+  /** Shown while `value` is null, e.g. the inherited value. */
+  placeholder?: string
   disabled?: boolean
   className?: string
   style?: CSSProperties
@@ -109,6 +111,7 @@ export function Stepper({
   unit,
   label,
   width = 72,
+  placeholder,
   disabled,
   className,
   style,
@@ -151,6 +154,7 @@ export function Stepper({
           aria-valuenow={current ?? undefined}
           aria-label={label ? undefined : aria['aria-label']}
           disabled={disabled}
+          placeholder={placeholder}
           value={draft ?? current?.toFixed(precision) ?? ''}
           style={{ width }}
           onChange={(e) => setDraft(e.target.value)}

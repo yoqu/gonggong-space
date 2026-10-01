@@ -101,6 +101,7 @@ export function BotsPage({ go }: PageProps) {
                   {pending ? t('在 Web 中确认') : t('在 Web 中管理')}
                 </Button>
               </div>
+              {b.teamName ? <GroupRow label={t('团队')} value={b.teamName} /> : null}
               <GroupRow
                 label="Agent"
                 wideValue

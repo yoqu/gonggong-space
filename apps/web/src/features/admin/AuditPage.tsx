@@ -22,6 +22,7 @@ import {
   type TagTone,
 } from '../../ui'
 import { AdminPage } from './AdminPage'
+import { TeamFilter } from './TeamFilter'
 
 const PAGE = 50
 const ALL = 'all'
@@ -93,12 +94,21 @@ const stamp = (iso: string) => {
 }
 
 /**
- * 管理后台 · 审计记录 (spec §9, §13): kept forever, newest first, filtered by category, paged by id.
- * Keyword and actor filters apply to the loaded pages; the API only filters by category.
+ * Audit rows from `base` (spec §9, §13): kept forever, newest first, filtered by category (and `teamId`), paged by id.
+ * Keyword and actor filters apply to the loaded pages; the API only filters by category and team.
  */
-export function AuditPage() {
+export function AuditPanel({
+  base,
+  teamId = '',
+  keyword = '',
+  onLoaded,
+}: {
+  base: string
+  teamId?: string
+  keyword?: string
+  onLoaded?: (n: number) => void
+}) {
   const [category, setCategory] = useState<string | undefined>()
-  const [keyword, setKeyword] = useState('')
   const [actor, setActor] = useState('')
   const [rows, setRows] = useState<AuditDto[] | null>(null)
   const [more, setMore] = useState(false)
@@ -109,11 +119,12 @@ export function AuditPage() {
     (before?: number) => {
       const q = new URLSearchParams()
       if (category) q.set('category', category)
+      if (teamId) q.set('teamId', teamId)
       q.set('limit', String(PAGE))
       if (before) q.set('before', String(before))
-      return api.get<AuditDto[]>(`/admin/audit?${q}`)
+      return api.get<AuditDto[]>(`${base}?${q}`)
     },
-    [category],
+    [base, category, teamId],
   )
 
   useEffect(() => {
@@ -126,6 +137,9 @@ export function AuditPage() {
       })
       .catch((e) => setError(errorText(e)))
   }, [fetchPage])
+  useEffect(() => {
+    if (rows) onLoaded?.(rows.length)
+  }, [rows, onLoaded])
 
   async function loadMore() {
     try {
@@ -146,19 +160,7 @@ export function AuditPage() {
   )
 
   return (
-    <AdminPage
-      title={t('审计记录')}
-      desc={t('审批、提问、锁与同步事件、管理员操作，永久保存。')}
-      subtitle={rows ? t('已载入 {n} 条', { n: rows.length }) : undefined}
-      search={
-        <SearchField
-          aria-label={t('搜索审计记录')}
-          placeholder={t('搜索摘要、群或操作人')}
-          value={keyword}
-          onChange={setKeyword}
-        />
-      }
-    >
+    <>
       <div className="admin-filters">
         <SegmentedControl
           aria-label={t('类型')}
@@ -222,6 +224,31 @@ export function AuditPage() {
         </Button>
       ) : null}
       <Presence>{open ? <AuditDialog record={open} onClose={() => setOpen(null)} /> : null}</Presence>
+    </>
+  )
+}
+
+/** 管理后台 · 审计记录: every team and platform-level events, or one team's. */
+export function AuditPage() {
+  const [keyword, setKeyword] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [loaded, setLoaded] = useState<number | null>(null)
+  return (
+    <AdminPage
+      title={t('审计记录')}
+      desc={t('审批、提问、锁与同步事件、管理员操作，永久保存。')}
+      subtitle={loaded === null ? undefined : t('已载入 {n} 条', { n: loaded })}
+      actions={<TeamFilter value={teamId} onChange={setTeamId} />}
+      search={
+        <SearchField
+          aria-label={t('搜索审计记录')}
+          placeholder={t('搜索摘要、群或操作人')}
+          value={keyword}
+          onChange={setKeyword}
+        />
+      }
+    >
+      <AuditPanel base="/admin/audit" teamId={teamId} keyword={keyword} onLoaded={setLoaded} />
     </AdminPage>
   )
 }

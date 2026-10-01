@@ -9,6 +9,7 @@ import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
 import { MachineDialog } from '../features/machines/MachineDialog'
+import { useGroupOutsideList } from '../features/teams/store'
 import { openTab } from '../features/workbench/open'
 import { Workbench } from '../features/workbench/Workbench'
 import { t } from '../i18n'
@@ -120,6 +121,7 @@ export function ChatPage() {
   // The group must be loaded, so the workbench has switched to it for good.
   useLinkedRun(group?.id)
   useLinkedBot()
+  const viewed = useGroupOutsideList(groupId, groupsState === 'ready' && !group)
   const benchGroup = botId ? null : (group?.id ?? null)
   useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
   const benchShown = useWorkbench(
@@ -187,6 +189,13 @@ export function ChatPage() {
           )
         ) : group ? (
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
+        ) : viewed ? (
+          <ChatView
+            key={`${viewed.id}:view`}
+            group={viewed}
+            readOnly
+            onBack={mobile ? () => navigate('/') : undefined}
+          />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
             <Mascot action="wait" size={72} label={t('加载中')} />

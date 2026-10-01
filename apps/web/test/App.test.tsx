@@ -19,6 +19,7 @@ const me: UserDto = {
 
 const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): GroupDto => ({
   id,
+  teamId: 't1',
   name,
   kind,
   mode: 'partition',

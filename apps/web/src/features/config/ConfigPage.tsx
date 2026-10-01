@@ -28,7 +28,7 @@ import './config.css'
 import { t } from '../../i18n'
 
 const TITLE = t('配置中心')
-const DESC = t('仓库基线之上叠加服务器全局层与群层，冲突时服务器优先；不修改仓库文件。')
+const DESC = t('仓库基线之上依次叠加平台层、团队层与群层 MCP，同名时下层覆盖上层；不修改仓库文件。')
 /** Name of the daemon's built-in MCP server; the server rejects it too. */
 const RESERVED = 'gonggong'
 const BUILTIN_TOOLS = [
@@ -38,8 +38,9 @@ const BUILTIN_TOOLS = [
 
 type CType = 'mcp' | 'skill' | 'prompt' | 'secret'
 const LAYERS = [
-  { value: 'global' as const, label: t('服务器全局层') },
-  { value: 'group' as const, label: t('服务器群层'), disabled: true },
+  { value: 'platform' as const, label: t('平台层') },
+  { value: 'team' as const, label: t('团队层'), disabled: true },
+  { value: 'group' as const, label: t('群层'), disabled: true },
 ]
 const CTYPES: { value: CType; label: string }[] = [
   { value: 'mcp', label: 'MCP' },
@@ -69,31 +70,28 @@ const describeMcp = (c: McpServer) => {
     .join(' · ')
 }
 
-/** 管理后台 · 配置中心: only the global MCP layer is editable (spec §7.1–7.4). */
-export function ConfigPage() {
+/** One MCP layer's draft list under `base` (`/admin/mcp`, `/teams/:id/mcp`, `/groups/:id/mcp`), saved as a batch. */
+export function useMcpLayer(base: string) {
   const [items, setItems] = useState<Item[] | null>(null)
   const [removed, setRemoved] = useState<string[]>([])
-  const [ctype, setCtype] = useState<CType>('mcp')
   const [force, setForce] = useState(false)
   const [savedForce, setSavedForce] = useState<boolean | null>(null)
-  const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState('')
 
   const load = useCallback(async () => {
     try {
-      setItems((await api.get<McpServerDto[]>('/admin/mcp')).map(fromDto))
+      setItems((await api.get<McpServerDto[]>(base)).map(fromDto))
       setRemoved([])
       setLoadError('')
     } catch (e) {
       setLoadError(errorText(e))
     }
-  }, [])
+  }, [base])
   useEffect(() => {
     void load()
   }, [load])
 
-  const dirty = removed.length > 0 || !!items?.some((i) => !i.saved || i.enabled !== i.saved.enabled)
   const edit = (next: Item[]) => {
     setItems(next)
     setSavedForce(null)
@@ -103,11 +101,11 @@ export function ConfigPage() {
     if (!items) return
     setBusy(true)
     try {
-      for (const id of removed) await api.del(`/admin/mcp/${id}?forceNewSession=${force}`)
+      for (const id of removed) await api.del(`${base}/${id}?forceNewSession=${force}`)
       for (const i of items) {
         const body = { enabled: i.enabled, config: i.config, forceNewSession: force }
-        if (!i.saved) await api.post('/admin/mcp', body)
-        else if (i.enabled !== i.saved.enabled) await api.patch(`/admin/mcp/${i.saved.id}`, body)
+        if (!i.saved) await api.post(base, body)
+        else if (i.enabled !== i.saved.enabled) await api.patch(`${base}/${i.saved.id}`, body)
       }
       setSavedForce(force)
       setForce(false)
@@ -119,7 +117,148 @@ export function ConfigPage() {
     }
   }
 
-  const enabledNames = items?.filter((i) => i.enabled).map((i) => i.config.name) ?? []
+  return {
+    items,
+    edit,
+    remove: (i: Item) => {
+      if (i.saved) setRemoved((r) => [...r, i.key])
+      edit((items ?? []).filter((x) => x !== i))
+    },
+    dirty: removed.length > 0 || !!items?.some((i) => !i.saved || i.enabled !== i.saved.enabled),
+    enabledNames: items?.filter((i) => i.enabled).map((i) => i.config.name) ?? [],
+    force,
+    setForce,
+    savedForce,
+    busy,
+    loadError,
+    load,
+    save,
+  }
+}
+
+type McpLayer = ReturnType<typeof useMcpLayer>
+
+/** The layer's servers with enable switches, the built-in row, the force option and 保存 (spec §7.4). */
+export function McpLayerList({ layer, tag }: { layer: McpLayer; tag: string }) {
+  const [adding, setAdding] = useState(false)
+  const { items, edit } = layer
+  return (
+    <>
+      {layer.loadError ? (
+        <Alert variant="error" title={t('配置加载失败')} description={layer.loadError}>
+          <div className="cfg__retry">
+            <Button size="small" onClick={() => void layer.load()}>
+              {t('重试')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+      <GroupBox>
+        {items?.map((i) => (
+          <GroupRow
+            key={i.key}
+            className="cfg__item"
+            label={
+              <span className="cfg__name-line">
+                <span className="cfg__name">{i.config.name}</span>
+                <Tag tone="blue">{tag}</Tag>
+                {i.saved ? null : <Tag tone="orange">{t('未保存')}</Tag>}
+              </span>
+            }
+            description={describeMcp(i.config)}
+          >
+            <span className="cfg__controls">
+              <IconButton
+                title={t('删除 {name}', { name: i.config.name })}
+                size="regular"
+                onClick={() => layer.remove(i)}
+              >
+                {'trash' as const}
+              </IconButton>
+              <Switch
+                ariaLabel={t('启用 {name}', { name: i.config.name })}
+                checked={i.enabled}
+                onChange={(enabled) => edit(items.map((x) => (x === i ? { ...x, enabled } : x)))}
+              />
+            </span>
+          </GroupRow>
+        ))}
+        <GroupRow
+          className="cfg__item"
+          label={
+            <span className="cfg__name-line">
+              <span className="cfg__name">{RESERVED}</span>
+              <Tag tone="gray">{t('内置')}</Tag>
+            </span>
+          }
+          description={
+            <>
+              {t('系统内置 · 始终注入，不受层级影响')}
+              <br />
+              {BUILTIN_TOOLS}
+            </>
+          }
+        >
+          <Switch
+            ariaLabel={t('启用 {name}', { name: RESERVED })}
+            checked
+            disabled
+            onChange={() => undefined}
+          />
+        </GroupRow>
+      </GroupBox>
+      <div className="cfg__foot">
+        <Checkbox label={t('强制相关 Bot 下一轮开新会话')} checked={layer.force} onChange={layer.setForce} />
+        <HelpButton
+          help={t(
+            '勾选后，受影响的 Bot 下一轮会放弃已有会话、按新配置重开，卡片会提示原因；不勾选则已有会话继续使用旧配置。',
+          )}
+        />
+        <span className="spacer" />
+        <Button disabled={!items} onClick={() => setAdding(true)}>
+          {t('添加 MCP…')}
+        </Button>
+        <Button variant="primary" disabled={!layer.dirty || layer.busy} onClick={() => void layer.save()}>
+          {t('保存')}
+        </Button>
+      </div>
+      <Presence>
+        {adding && items ? (
+          <AddMcpDialog
+            taken={items.map((i) => i.config.name)}
+            onClose={() => setAdding(false)}
+            onAdd={(config) => {
+              edit([...items, { key: `new:${config.name}`, enabled: true, config, saved: null }])
+              setAdding(false)
+            }}
+          />
+        ) : null}
+      </Presence>
+    </>
+  )
+}
+
+/** Shown once a layer was saved: what happens to running turns and sessions. */
+export function McpSaved({ force }: { force: boolean | null }) {
+  if (force === null) return null
+  return (
+    <Alert
+      variant="success"
+      title={t('已保存，全员下一轮新会话生效')}
+      description={
+        force
+          ? t('已要求相关 Bot 下一轮开新会话，卡片会提示原因。')
+          : t('运行中的轮次不受影响；已有会话继续使用旧配置。')
+      }
+    />
+  )
+}
+
+/** 管理后台 · 配置中心: the platform MCP layer (spec §7.1–7.4); teams and groups edit theirs in their settings. */
+export function ConfigPage() {
+  const layer = useMcpLayer('/admin/mcp')
+  const [ctype, setCtype] = useState<CType>('mcp')
+  const { items, enabledNames } = layer
 
   return (
     <AdminPage
@@ -132,108 +271,39 @@ export function ConfigPage() {
       }
     >
       <div className="cfg__bar">
-        <Tabs items={LAYERS} value="global" onChange={() => undefined} />
+        <Tabs items={LAYERS} value="platform" onChange={() => undefined} />
         <span className="spacer" />
         <Tabs items={CTYPES} value={ctype} onChange={setCtype} />
       </div>
-      {loadError ? (
-        <Alert variant="error" title={t('配置加载失败')} description={loadError}>
-          <div className="cfg__retry">
-            <Button size="small" onClick={() => void load()}>
-              {t('重试')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
       <div className="cfg">
         <div className="cfg__list">
           {ctype !== 'mcp' ? (
             <EmptyState
               illustration={<UnsupportedArt />}
               title={t('暂不支持 {type}', { type: CTYPES.find((c) => c.value === ctype)?.label ?? '' })}
-              description={t('目前只能配置服务器全局层的 MCP。MCP 的环境变量以明文保存在配置中。')}
+              description={t('目前只能配置 MCP。MCP 的环境变量以明文保存在配置中。')}
             />
           ) : (
-            <>
-              <GroupBox>
-                {items?.map((i) => (
-                  <GroupRow
-                    key={i.key}
-                    className="cfg__item"
-                    label={
-                      <span className="cfg__name-line">
-                        <span className="cfg__name">{i.config.name}</span>
-                        <Tag tone="blue">{t('全局层')}</Tag>
-                        {i.saved ? null : <Tag tone="orange">{t('未保存')}</Tag>}
-                      </span>
-                    }
-                    description={describeMcp(i.config)}
-                  >
-                    <span className="cfg__controls">
-                      <IconButton
-                        title={t('删除 {name}', { name: i.config.name })}
-                        size="regular"
-                        onClick={() => {
-                          if (i.saved) setRemoved((r) => [...r, i.key])
-                          edit(items.filter((x) => x !== i))
-                        }}
-                      >
-                        {'trash' as const}
-                      </IconButton>
-                      <Switch
-                        ariaLabel={t('启用 {name}', { name: i.config.name })}
-                        checked={i.enabled}
-                        onChange={(enabled) => edit(items.map((x) => (x === i ? { ...x, enabled } : x)))}
-                      />
-                    </span>
-                  </GroupRow>
-                ))}
-                <GroupRow
-                  className="cfg__item"
-                  label={
-                    <span className="cfg__name-line">
-                      <span className="cfg__name">{RESERVED}</span>
-                      <Tag tone="gray">{t('内置')}</Tag>
-                    </span>
-                  }
-                  description={
-                    <>
-                      {t('系统内置 · 始终注入，不受层级影响')}
-                      <br />
-                      {BUILTIN_TOOLS}
-                    </>
-                  }
-                >
-                  <Switch
-                    ariaLabel={t('启用 {name}', { name: RESERVED })}
-                    checked
-                    disabled
-                    onChange={() => undefined}
-                  />
-                </GroupRow>
-              </GroupBox>
-              <div className="cfg__foot">
-                <Checkbox label={t('强制相关 Bot 下一轮开新会话')} checked={force} onChange={setForce} />
-                <HelpButton
-                  help={t(
-                    '勾选后，受影响的 Bot 下一轮会放弃已有会话、按新配置重开，卡片会提示原因；不勾选则已有会话继续使用旧配置。',
-                  )}
-                />
-                <span className="spacer" />
-                <Button onClick={() => setAdding(true)}>{t('添加 MCP…')}</Button>
-                <Button variant="primary" disabled={!dirty || busy} onClick={() => void save()}>
-                  {t('保存')}
-                </Button>
-              </div>
-            </>
+            <McpLayerList layer={layer} tag={t('平台层')} />
           )}
         </div>
         <div className="cfg__preview">
           <div className="cfg__eyebrow">{t('合并预览 · 全部 Bot')}</div>
           {[
-            { name: t('服务器群层'), pri: t('优先级高'), color: 'var(--system-blue)', text: t('暂未开放') },
             {
-              name: t('服务器全局层'),
+              name: t('群层'),
+              pri: t('优先级高'),
+              color: 'var(--system-blue)',
+              text: t('群管理员在群设置中配置'),
+            },
+            {
+              name: t('团队层'),
+              pri: t('中'),
+              color: 'var(--system-indigo)',
+              text: t('团队管理员在团队设置中配置'),
+            },
+            {
+              name: t('平台层'),
               pri: t('中'),
               color: 'var(--system-teal)',
               text: `mcp: ${enabledNames.join(', ') || t('无')}`,
@@ -264,31 +334,9 @@ export function ConfigPage() {
               '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent 本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。',
             )}
           </div>
-          {savedForce === null ? null : (
-            <Alert
-              variant="success"
-              title={t('已保存，全员下一轮新会话生效')}
-              description={
-                savedForce
-                  ? t('已要求相关 Bot 下一轮开新会话，卡片会提示原因。')
-                  : t('运行中的轮次不受影响；已有会话继续使用旧配置。')
-              }
-            />
-          )}
+          <McpSaved force={layer.savedForce} />
         </div>
       </div>
-      <Presence>
-        {adding && items ? (
-          <AddMcpDialog
-            taken={items.map((i) => i.config.name)}
-            onClose={() => setAdding(false)}
-            onAdd={(config) => {
-              edit([...items, { key: `new:${config.name}`, enabled: true, config, saved: null }])
-              setAdding(false)
-            }}
-          />
-        ) : null}
-      </Presence>
     </AdminPage>
   )
 }
@@ -340,7 +388,7 @@ function AddMcpDialog({
     <Dialog
       open
       title={t('添加 MCP')}
-      message={t('保存配置中心后，全员下一轮新会话生效。')}
+      message={t('保存后，相关 Bot 下一轮新会话生效。')}
       width={520}
       onClose={onClose}
       closeOnBackdrop={false}

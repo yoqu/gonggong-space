@@ -1,7 +1,7 @@
-import type { UserDto } from '@gonggong/protocol'
+import type { MeDto } from '@gonggong/protocol'
 import { AnimatePresence, motion } from 'motion/react'
 import { type FormEvent, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
@@ -29,6 +29,10 @@ const remember = (account: string | null) => {
 export function LoginPage() {
   const { user, setUser } = useSession()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // Same-origin paths only (e.g. back to an invite), never another site.
+  const asked = params.get('next') ?? ''
+  const next = /^\/(?!\/)/.test(asked) ? asked : '/'
   const [account, setAccount] = useState(remembered)
   const [password, setPassword] = useState('')
   const [keep, setKeep] = useState(() => remembered() !== '')
@@ -40,7 +44,7 @@ export function LoginPage() {
   const accountRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
-  if (user && phase !== 'done') return <Navigate to="/" replace />
+  if (user && phase !== 'done') return <Navigate to={next} replace />
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -55,13 +59,13 @@ export function LoginPage() {
     setPhase('busy')
     setError('')
     try {
-      const me = await api.post<UserDto>('/auth/login', { account: account.trim(), password })
+      const me = await api.post<MeDto>('/auth/login', { account: account.trim(), password })
       remember(keep ? account.trim() : null)
       setPhase('done')
       // Let the success state land before the app replaces the screen.
       setTimeout(() => {
         setUser(me)
-        navigate('/', { replace: true })
+        navigate(next, { replace: true })
       }, 420)
     } catch (err) {
       setError(errorText(err))

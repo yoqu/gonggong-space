@@ -22,6 +22,7 @@ const me: UserDto = {
 
 const note = (o: Partial<NotificationDto>): NotificationDto => ({
   id: 'n1',
+  teamId: 't1',
   type: 'approval',
   payload: {
     groupId: 'g1',

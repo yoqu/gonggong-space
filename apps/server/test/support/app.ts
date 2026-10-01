@@ -5,11 +5,12 @@ import WebSocket from 'ws'
 import { buildApp } from '../../src/app.js'
 import type { Ctx } from '../../src/context.js'
 import { DaemonHub } from '../../src/daemon/hub.js'
-import { bots, groupBots, groupMembers, groups, machines, users } from '../../src/db/schema.js'
+import { bots, groupBots, groupMembers, groups, machines, teamMembers, users } from '../../src/db/schema.js'
 import { newToken, sha256 } from '../../src/lib/crypto.js'
 import { createSession, SESSION_COOKIE } from '../../src/modules/auth/session.js'
 import type { LiveKit } from '../../src/modules/live/livekit.js'
 import { TunnelHub } from '../../src/modules/previews/tunnel.js'
+import { createTeam } from '../../src/modules/teams/service.js'
 import { Bus } from '../../src/realtime/bus.js'
 import { createTestDb } from './db.js'
 
@@ -50,9 +51,20 @@ export async function createTestApp(
   await app.listen({ port: 0, host: '127.0.0.1' })
   const port = (app.server.address() as { port: number }).port
   let n = 0
+  /** Owned by the first seeded user; seeded users, groups and bots join it unless told otherwise. */
+  let defaultTeam: Promise<string> | undefined
+  const teamOf = (teamId: string | undefined) =>
+    teamId ?? defaultTeam ?? Promise.reject(new Error('seed a user first'))
 
   const seed = {
-    async user(o: Partial<typeof users.$inferInsert> & { password?: string } = {}) {
+    async team(o: { ownerId: string; name?: string; memberIds?: string[] }) {
+      const team = await createTeam(t.db, o.name ?? `团队${++n}`, o.ownerId)
+      if (o.memberIds?.length)
+        await t.db.insert(teamMembers).values(o.memberIds.map((userId) => ({ teamId: team.id, userId })))
+      return team
+    },
+    /** `teamId: null` leaves the account out of every team. */
+    async user(o: Partial<typeof users.$inferInsert> & { password?: string; teamId?: string | null } = {}) {
       n += 1
       const [u] = await t.db
         .insert(users)
@@ -65,6 +77,11 @@ export async function createTestApp(
           disabledAt: o.disabledAt ?? null,
         })
         .returning()
+      if (o.teamId === null) return u!
+      if (o.teamId === undefined && !defaultTeam) {
+        defaultTeam = seed.team({ ownerId: u!.id, name: '默认团队' }).then((team) => team.id)
+        await defaultTeam
+      } else await t.db.insert(teamMembers).values({ teamId: await teamOf(o.teamId), userId: u!.id })
       return u!
     },
     /** Cookie header value for an authenticated browser session. */
@@ -87,7 +104,7 @@ export async function createTestApp(
         .returning()
       return { machine: m!, token }
     },
-    async bot(o: Partial<typeof bots.$inferInsert> & { ownerId: string }) {
+    async bot(o: Partial<typeof bots.$inferInsert> & { ownerId: string; teamId?: string }) {
       const [b] = await t.db
         .insert(bots)
         .values({
@@ -96,12 +113,14 @@ export async function createTestApp(
           binding: o.binding ?? (o.machineId ? 'bound' : 'pending_bind'),
           createdBy: o.createdBy ?? o.ownerId,
           ...o,
+          teamId: await teamOf(o.teamId),
         })
         .returning()
       return b!
     },
     async group(o: {
       createdBy: string
+      teamId?: string
       kind?: 'group' | 'dm'
       name?: string
       memberIds?: string[]
@@ -109,7 +128,12 @@ export async function createTestApp(
     }) {
       const [g] = await t.db
         .insert(groups)
-        .values({ name: o.name ?? `群${++n}`, kind: o.kind ?? 'group', createdBy: o.createdBy })
+        .values({
+          name: o.name ?? `群${++n}`,
+          kind: o.kind ?? 'group',
+          createdBy: o.createdBy,
+          teamId: await teamOf(o.teamId),
+        })
         .returning()
       const memberIds = new Set([o.createdBy, ...(o.memberIds ?? [])])
       await t.db

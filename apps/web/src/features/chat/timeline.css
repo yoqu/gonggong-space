@@ -70,6 +70,10 @@
 .chat-scroll__list {
   flex: 1 0 auto;
 }
+/* Read-only view (plan D19): the timeline is shown but nothing in it can be acted on. */
+.chat-view__inert {
+  display: contents;
+}
 .chat-scroll__list > .ui-empty,
 .chat-scroll__loading {
   margin: auto;

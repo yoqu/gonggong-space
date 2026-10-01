@@ -93,6 +93,8 @@ export const RegisterReq = z.object({
   account: Account,
   name: z.string().trim().min(1).max(40),
   password: z.string().min(8),
+  /** A valid team invite allows signing up while registration is closed, and joins its team (plan D12). */
+  inviteToken: z.string().optional(),
 })
 /** GET /api/auth/options — public: what the login page may offer. */
 export const AuthOptionsDto = z.object({ registrationOpen: z.boolean() })
@@ -101,8 +103,101 @@ export const UpdateUserReq = z.object({ name: z.string().min(1).optional(), role
 /** POST /api/admin/users/:id/password — temporary password; the member must change it at next login. */
 export const ResetPasswordReq = z.object({ password: z.string().min(8) })
 /** Row of the admin 账号与角色 table. */
-export const AdminUserDto = UserDto.extend({ machineCount: z.number().int(), online: z.boolean() })
+export const AdminUserDto = UserDto.extend({
+  machineCount: z.number().int(),
+  online: z.boolean(),
+  /** Names of the live teams the account belongs to. */
+  teams: z.array(z.string()),
+})
 export type AdminUserDto = z.infer<typeof AdminUserDto>
+
+// ── Teams (plan 团队层级) ─────────────────────────────────────────────────────
+export const TeamRole = z.enum(['owner', 'admin', 'member'])
+export type TeamRole = z.infer<typeof TeamRole>
+export const TeamDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+  /** The caller's role in it. */
+  role: TeamRole,
+  archivedAt: z.string().nullable(),
+  createdAt: z.string(),
+  /** The caller's unread messages in its groups plus its unread notifications. */
+  unread: z.number().int(),
+})
+export type TeamDto = z.infer<typeof TeamDto>
+/** GET /api/me (and the other endpoints returning the signed-in account): live teams, earliest joined first. */
+export const MeDto = UserDto.extend({
+  teams: z.array(TeamDto),
+  /** Hides the team switcher (plan D11). */
+  singleTeamMode: z.boolean(),
+  /** 系统参数 · teamCreation allows the caller to create teams, and single-team mode is off. */
+  canCreateTeam: z.boolean(),
+})
+export type MeDto = z.infer<typeof MeDto>
+const TeamName = z.string().trim().min(1).max(40)
+/** One character or emoji shown instead of the name's initial. */
+const TeamAvatar = z.string().trim().max(8).nullable()
+export const CreateTeamReq = z.object({ name: TeamName })
+export const AddTeamMemberReq = z.object({
+  account: z.string().trim().min(1),
+  role: TeamRole.default('member'),
+})
+export const UpdateTeamMemberReq = z.object({ role: TeamRole })
+export const TransferTeamReq = z.object({ userId: z.string() })
+export const CreateTeamInviteReq = z.object({
+  role: z.enum(['admin', 'member']).default('member'),
+  expiresInDays: z.number().int().min(1).max(30),
+  /** null = unlimited. */
+  maxUses: z.number().int().min(1).max(1000).nullable(),
+})
+export const TeamMemberDto = z.object({
+  userId: z.string(),
+  name: z.string(),
+  account: z.string(),
+  role: TeamRole,
+  joinedAt: z.string(),
+})
+export type TeamMemberDto = z.infer<typeof TeamMemberDto>
+/** The token itself is only shown once, when the invite is created. */
+export const TeamInviteDto = z.object({
+  id: z.string(),
+  teamId: z.string(),
+  role: TeamRole,
+  maxUses: z.number().int().nullable(),
+  uses: z.number().int(),
+  expiresAt: z.string(),
+  createdBy: z.string(),
+  revokedAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type TeamInviteDto = z.infer<typeof TeamInviteDto>
+export const CreatedTeamInviteDto = z.object({ invite: TeamInviteDto, token: z.string() })
+export type CreatedTeamInviteDto = z.infer<typeof CreatedTeamInviteDto>
+/** GET /api/invites/:token — public; `valid` is false once expired, used up, revoked or the team archived. */
+export const InvitePreviewDto = z.object({
+  teamName: z.string(),
+  inviterName: z.string(),
+  valid: z.boolean(),
+})
+export type InvitePreviewDto = z.infer<typeof InvitePreviewDto>
+/** Row of 管理后台 · 团队 (archived teams included). */
+export const AdminTeamDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+  /** Earliest-joined owner. */
+  ownerId: z.string().nullable(),
+  ownerName: z.string().nullable(),
+  members: z.number().int(),
+  archivedAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type AdminTeamDto = z.infer<typeof AdminTeamDto>
+/** POST /api/admin/teams — the chosen account becomes its owner. */
+export const CreateAdminTeamReq = z.object({ name: TeamName, ownerId: z.string() })
+/** PUT /api/admin/teams/:id/owner — the account becomes an owner (joining if needed); other owners become admins. */
+export const SetTeamOwnerReq = z.object({ userId: z.string() })
 
 // ── Machines ────────────────────────────────────────────────────────────────
 /**
@@ -221,6 +316,7 @@ export type BotAvatar = z.infer<typeof BotAvatar>
 
 export const BotDto = z.object({
   id: z.string(),
+  teamId: z.string(),
   name: z.string(),
   ownerId: z.string(),
   ownerName: z.string(),
@@ -252,6 +348,9 @@ export const BotDto = z.object({
   allowlist: z.array(z.string()),
 })
 export type BotDto = z.infer<typeof BotDto>
+/** GET /api/daemon/bots (machine token): a machine serves bots of several teams, so each names its own (plan D20). */
+export const DaemonBotDto = BotDto.extend({ teamName: z.string() })
+export type DaemonBotDto = z.infer<typeof DaemonBotDto>
 
 /** GET /api/machines/:id/dirs?path= — a machine's directories for the workspace picker (its owner only). */
 export const DirListingDto = z.object({
@@ -372,6 +471,8 @@ export const NotificationType = z.enum([
 ])
 export const NotificationDto = z.object({
   id: z.string(),
+  /** null for platform-level notices, shown in every team. */
+  teamId: z.string().nullable(),
   type: NotificationType,
   payload: z.record(z.string(), z.unknown()),
   readAt: z.string().nullable(),
@@ -400,6 +501,7 @@ export type PushSubscriptionReq = z.infer<typeof PushSubscriptionReq>
 export const GroupKind = z.enum(['group', 'dm'])
 export const GroupDto = z.object({
   id: z.string(),
+  teamId: z.string(),
   name: z.string(),
   kind: GroupKind,
   mode: z.enum(['partition', 'force']),
@@ -925,7 +1027,7 @@ export const CommandCandidatesDto = z.object({
 })
 export type CommandCandidatesDto = z.infer<typeof CommandCandidatesDto>
 
-// ── Global MCP (spec §7, P1 global layer) ──────────────────────────────────
+// ── MCP layers (spec §7; platform → team → group, plan 团队层级 D8) ─────────
 export const McpServerDto = z.object({
   id: z.string(),
   enabled: z.boolean(),
@@ -1028,6 +1130,8 @@ export type CastBuildDto = z.infer<typeof CastBuildDto>
 export const AuditCategory = z.enum(['approval', 'question', 'lock', 'admin', 'run', 'command', 'preview'])
 export const AuditQuery = z.object({
   category: AuditCategory.optional(),
+  /** 管理后台 filter; the team endpoint sets it itself. */
+  teamId: z.string().optional(),
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
@@ -1056,8 +1160,17 @@ export const AdminGroupDto = z.object({
   members: z.number().int(),
   bots: z.number().int(),
   archivedAt: z.string().nullable(),
+  teamId: z.string(),
+  teamName: z.string(),
 })
 export type AdminGroupDto = z.infer<typeof AdminGroupDto>
+/** Row of 团队设置 · 群 (groups only, no DMs). */
+export const TeamGroupDto = AdminGroupDto.extend({
+  memberNames: z.array(z.string()),
+  /** The viewer is in it; otherwise they may only view it or take it over (plan D19). */
+  joined: z.boolean(),
+})
+export type TeamGroupDto = z.infer<typeof TeamGroupDto>
 
 /** Row of 管理后台 · 机器与网络. */
 export const AdminMachineDto = MachineDto.extend({
@@ -1098,12 +1211,47 @@ export const SystemParams = GroupParams.extend({
   previewIdleHours: z.number().int().min(1).max(720),
   /** Longest a public preview link may stay valid (plan P8). */
   previewShareMaxDays: z.number().int().min(1).max(365),
+  /** One team only: no team switcher, new accounts join the default team (plan D10, D11). */
+  singleTeamMode: z.boolean(),
+  /** Who may create teams. */
+  teamCreation: z.enum(['all', 'sysadmin']),
 })
 export type SystemParams = z.infer<typeof SystemParams>
+/** Params a team may override for its groups (plan D9). */
+export const TEAM_PARAM_KEYS = [
+  'approvalTimeoutMin',
+  'chainMaxHops',
+  'offlineWaitMin',
+  'contextInlineMax',
+  'sessionReplayCount',
+  'botConcurrencyDefault',
+  'attachmentsPerMessage',
+  'questionsPerCard',
+] as const satisfies readonly (keyof SystemParams)[]
+export type TeamParamKey = (typeof TEAM_PARAM_KEYS)[number]
+/** A team's own overrides; absent keys inherit the platform value, keys off the whitelist are refused. */
+export const TeamParams = SystemParams.pick(
+  Object.fromEntries(TEAM_PARAM_KEYS.map((k) => [k, true])) as { [K in TeamParamKey]: true },
+)
+  .partial()
+  .strict()
+export type TeamParams = z.infer<typeof TeamParams>
+/** GET /api/teams/:id/params (team admins): the overrides and the platform values they replace. */
+export const TeamParamsDto = z.object({
+  overrides: TeamParams,
+  platform: TeamParams.required(),
+})
+export type TeamParamsDto = z.infer<typeof TeamParamsDto>
+/** PATCH /api/teams/:id (admins); `params` replaces the team's overrides. */
+export const UpdateTeamReq = z.object({
+  name: TeamName.optional(),
+  avatar: TeamAvatar.optional(),
+  params: TeamParams.optional(),
+})
 export const UpdateSystemParamsReq = SystemParams.partial()
 /** Display order, labels and units of 系统参数 (also used by audit summaries); `measure` = 需实测 (spec §10 待定). */
 export const SYSTEM_PARAM_VIEW: {
-  key: Exclude<keyof SystemParams, 'registrationOpen'>
+  key: Exclude<keyof SystemParams, 'registrationOpen' | 'singleTeamMode' | 'teamCreation'>
   label: string
   unit: string
   measure?: true
@@ -1155,6 +1303,8 @@ export const UsageQuery = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),
   /** Restrict to one bot (its owner sees who used it). */
   botId: z.string().optional(),
+  /** The whole team (its admins, or sysadmins on /api/admin/usage). */
+  teamId: z.string().optional(),
 })
 export const UsageRowDto = z.object({
   key: z.string(),
@@ -1251,5 +1401,12 @@ export const WebEvent = z.discriminatedUnion('t', [
   }),
   /** Group members: replaces the group's provider banner items. */
   GroupProviderStateDto.extend({ t: z.literal('group.providerState'), groupId: z.string() }),
+  /** The receiving member's view of a team they are in (renamed, their role changed, or just joined). */
+  z.object({ t: z.literal('team.updated'), team: TeamDto }),
+  /** The receiving user left or was removed from the team, or it was archived. */
+  z.object({ t: z.literal('team.removed'), teamId: z.string() }),
+  /** Team members: someone joined or their role changed. */
+  z.object({ t: z.literal('team.member_updated'), teamId: z.string(), member: TeamMemberDto }),
+  z.object({ t: z.literal('team.member_removed'), teamId: z.string(), userId: z.string() }),
 ])
 export type WebEvent = z.infer<typeof WebEvent>

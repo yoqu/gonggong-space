@@ -284,9 +284,19 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
 /** A ready /cd directory: its remotes go to the repo history, with where they live on this machine. */
 async function rememberDir(ctx: Ctx, req: Pending, msg: WorkspaceState) {
   if (!req.cdPath) return
-  const [bot] = await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, req.botId))
+  const [bot] = await ctx.db
+    .select({ ownerId: bots.ownerId, teamId: bots.teamId })
+    .from(bots)
+    .where(eq(bots.id, req.botId))
+  if (!bot) return
   for (const url of msg.remotes)
-    await recordRepo(ctx, { url, userId: bot?.ownerId, machineId: req.machineId, path: req.cdPath })
+    await recordRepo(ctx, {
+      url,
+      teamId: bot.teamId,
+      userId: bot.ownerId,
+      machineId: req.machineId,
+      path: req.cdPath,
+    })
 }
 
 async function notifyPaused(ctx: Ctx, msg: WorkspaceState, bot: { name: string; ownerId: string }) {

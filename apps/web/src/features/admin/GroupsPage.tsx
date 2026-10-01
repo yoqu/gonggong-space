@@ -15,6 +15,7 @@ import {
 } from '../../ui'
 import { AdminPage } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
+import { TeamFilter } from './TeamFilter'
 
 const DAY_MS = 86_400_000
 
@@ -28,7 +29,8 @@ const title = (g: AdminGroupDto) => (g.kind === 'dm' ? `${g.ownerName ?? ''} ⇄
 
 /** 管理后台 · 群: every group incl. archived ones. */
 export function GroupsPage() {
-  const { data: groups, error } = useGet<AdminGroupDto[]>('/admin/groups')
+  const [teamId, setTeamId] = useState('')
+  const { data: groups, error } = useGet<AdminGroupDto[]>(`/admin/groups${teamId ? `?teamId=${teamId}` : ''}`)
   const [query, setQuery] = useState('')
   const params = useSystemParams()
 
@@ -46,6 +48,7 @@ export function GroupsPage() {
       title={t('群#nav')}
       desc={t('所有群的模式、仓库与存档状态。')}
       subtitle={groups ? t('{n} 个群', { n: groups.length }) : undefined}
+      actions={<TeamFilter value={teamId} onChange={setTeamId} />}
       search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
@@ -64,6 +67,7 @@ export function GroupsPage() {
           }
           columns={[
             { key: 'name', title: t('群'), sortable: true, sortValue: title, render: title },
+            { key: 'teamName', title: t('团队'), width: 120, secondary: true, sortable: true },
             {
               key: 'mode',
               title: t('模式'),

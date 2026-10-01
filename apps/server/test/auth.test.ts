@@ -1,7 +1,7 @@
 import { verify } from '@node-rs/argon2'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { users } from '../src/db/schema.js'
+import { teamMembers, teams, users } from '../src/db/schema.js'
 import { ensureBootstrapAdmin } from '../src/modules/auth/bootstrap.js'
 import { createTestApp, type TestApp } from './support/app.js'
 
@@ -41,6 +41,11 @@ describe('bootstrap admin', () => {
       mustChangePassword: true,
     })
     expect(await verify(rows[0]!.passwordHash, 'admin-init-pass')).toBe(true)
+    const [team] = await t.db.select().from(teams)
+    expect(team).toMatchObject({ name: '默认团队', createdBy: rows[0]!.id })
+    expect(await t.db.select().from(teamMembers)).toMatchObject([
+      { teamId: team!.id, userId: rows[0]!.id, role: 'owner' },
+    ])
   })
 
   it('does nothing without a password or when users exist', async () => {
@@ -65,6 +70,9 @@ describe('login / logout / me', () => {
       mustChangePassword: false,
       disabled: false,
       gitProtocol: 'auto',
+      teams: [expect.objectContaining({ name: '默认团队', role: 'owner' })],
+      singleTeamMode: true,
+      canCreateTeam: false,
     })
     const c = res.cookies.find((x) => x.name === 'gonggong_session')
     expect(c).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })
