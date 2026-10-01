@@ -147,6 +147,17 @@ cargo build -p gonggong               # 生成 target/debug/gg
 
 名字取自上古水神共工；「共」字甲骨文是双手合力托举一物。Logo 是两道浪尖托起一枚玉。
 
+## 交流
+
+扫码加入 QQ 群（群号 1045614717），或加微信 `yoqu2020`。
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/community/qq-group.jpg" width="220" alt="QQ 群二维码"><br>QQ 群：1045614717</td>
+    <td align="center"><img src="docs/community/wechat.png" width="220" alt="微信二维码"><br>微信：yoqu2020</td>
+  </tr>
+</table>
+
 ## 致谢
 
 感谢 [LINUX DO](https://linux.do) 社区的交流与反馈。
