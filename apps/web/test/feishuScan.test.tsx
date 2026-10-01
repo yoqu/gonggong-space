@@ -14,7 +14,13 @@ const waiting: FeishuRegisterDto = {
   configError: null,
 }
 const bound: FeishuAppView = {
-  app: { appId: 'cli_bot01', status: 'connected', error: null, updatedAt: '2026-10-01T00:00:00Z' },
+  app: {
+    appId: 'cli_bot01',
+    status: 'connected',
+    error: null,
+    configError: null,
+    updatedAt: '2026-10-01T00:00:00Z',
+  },
 }
 
 describe('扫码创建', () => {
@@ -53,7 +59,7 @@ describe('扫码创建', () => {
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
     fireEvent.click(await screen.findByRole('button', { name: '扫码创建' }))
     expect(await screen.findByText('自动配置失败：no permission', undefined, { timeout: 4000 })).toBeTruthy()
-    expect(screen.getByText(/长连接/)).toBeTruthy()
+    expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
   })
 
   it('更新权限 re-confirms the bound app; closing cancels the session', async () => {

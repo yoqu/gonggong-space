@@ -172,3 +172,62 @@ describe('扫码创建 · bot app', () => {
     expect((await other.post(`/api/bots/${bot.id}/feishu/register`, {})).status).toBe(403)
   })
 })
+
+describe('自动配置 pending until the first version is approved', () => {
+  async function pendingMain() {
+    const http = await sysadmin()
+    await http.put('/api/admin/params', { publicUrl: 'https://gg.example.com' })
+    t.feishu.configureError = 'scope not granted'
+    const start = await http.post<FeishuRegisterDto>('/api/admin/feishu/register', {})
+    t.feishu.approve({ appId: 'cli_new01', appSecret: 's' })
+    await settled(http, start.body.id)
+    return { http, start }
+  }
+
+  it('keeps the refusal on the app, retried on demand until Feishu accepts', async () => {
+    const { http } = await pendingMain()
+    expect((await http.get<FeishuAppView>('/api/admin/feishu')).body.app?.configError).toContain(
+      'scope not granted',
+    )
+
+    const again = await http.post<FeishuAppView>('/api/admin/feishu/configure', {})
+    expect(again.status).toBe(200)
+    expect(again.body.app?.configError).toContain('scope not granted')
+
+    t.feishu.configureError = null
+    const ok = await http.post<FeishuAppView>('/api/admin/feishu/configure', {})
+    expect(ok.body.app?.configError).toBeNull()
+    expect(t.feishu.configs).toEqual([
+      { appId: 'cli_new01', config: { redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'] } },
+    ])
+  })
+
+  it('is retried in the background, and stops once it succeeded', async () => {
+    await pendingMain()
+    const { retryFeishuConfig } = await import('../src/modules/feishu/config.js')
+    await retryFeishuConfig(t.ctx)
+    expect(t.feishu.configs).toEqual([])
+    t.feishu.configureError = null
+    await retryFeishuConfig(t.ctx)
+    await retryFeishuConfig(t.ctx)
+    expect(t.feishu.configs).toHaveLength(1)
+    const [row] = await t.db.select().from(feishuApps)
+    expect(row?.configError).toBeNull()
+  })
+
+  it('bot app: the owner retries; needs a bound app', async () => {
+    const owner = await t.seed.user()
+    const bot = await t.seed.bot({ ownerId: owner.id })
+    const http = client(t, await t.seed.cookie(owner.id))
+    expect((await http.post(`/api/bots/${bot.id}/feishu/configure`, {})).status).toBe(400)
+    t.feishu.configureError = 'scope not granted'
+    const start = await http.post<FeishuRegisterDto>(`/api/bots/${bot.id}/feishu/register`, {})
+    t.feishu.approve({ appId: 'cli_bot01', appSecret: 's' })
+    await settled(http, start.body.id)
+    t.feishu.configureError = null
+    const ok = await http.post<FeishuAppView>(`/api/bots/${bot.id}/feishu/configure`, {})
+    expect(ok.body.app?.configError).toBeNull()
+    const other = client(t, await t.seed.cookie((await t.seed.user()).id))
+    expect((await other.post(`/api/bots/${bot.id}/feishu/configure`, {})).status).toBe(403)
+  })
+})

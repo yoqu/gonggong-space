@@ -23,6 +23,7 @@ import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
 import { feishuChatRoutes } from './modules/feishu/chats.js'
+import { startFeishuConfigRetry } from './modules/feishu/config.js'
 import { startFeishu } from './modules/feishu/gateway.js'
 import { startFeishuInbound } from './modules/feishu/inbound.js'
 import { feishuIdle, stopFeishuMirror } from './modules/feishu/mirror.js'
@@ -143,6 +144,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(feishuRoutes(ctx))
   await app.register(feishuChatRoutes(ctx))
   startFeishuInbound(ctx)
+  app.addHook('onClose', startFeishuConfigRetry(ctx))
   app.addHook('onClose', async () => {
     stopFeishuMirror(ctx)
     stopRegister(ctx)

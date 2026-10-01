@@ -1,0 +1,1 @@
+ALTER TABLE "feishu_apps" ADD COLUMN "config_error" text;

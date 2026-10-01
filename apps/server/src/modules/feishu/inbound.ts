@@ -40,13 +40,23 @@ type Receive = FeishuInbound['im.message.receive_v1']
 type Mention = { key: string; name: string }
 type File = { key: string; type: 'image' | 'file'; name: string }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 /** Text of a Feishu message with its @ placeholders named, plus the files it carries. */
 export function parseContent(
   type: string,
   raw: string,
   mentions: Mention[] = [],
 ): { body: string; files: File[] } {
-  const named = (s: string) => mentions.reduce((acc, m) => acc.split(m.key).join(`@${m.name}`), s)
+  // Feishu keeps the spaces typed around a mention next to the one it inserts itself.
+  const named = (s: string) =>
+    mentions
+      .reduce(
+        (acc, m) =>
+          acc.replace(new RegExp(`[ \\t\\u00a0]*${escapeRe(m.key)}[ \\t\\u00a0]*`, 'g'), ` @${m.name} `),
+        s,
+      )
+      .replace(/^ +| +$/gm, '')
   let c: Record<string, unknown>
   try {
     c = JSON.parse(raw)
@@ -269,7 +279,14 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
       const questions = row.q.questions as Question[]
       const answers = formAnswers(questions, ev.action?.form_value ?? {})
       await answerQuestions(ctx, user, row.q.runId, row.q.id, answers, [])
-      const card = questionCard({ bot: row.bot, id: row.q.id, questions, status: 'answered', by: user.name })
+      const card = questionCard({
+        bot: row.bot,
+        id: row.q.id,
+        questions,
+        status: 'answered',
+        by: user.name,
+        answers,
+      })
       markRendered(ctx, messageId, card)
       return { ...toast('success', zt('已提交回答')), card: { type: 'raw', data: card } }
     }

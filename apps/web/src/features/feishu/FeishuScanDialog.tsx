@@ -102,9 +102,7 @@ export function FeishuScanDialog({
           <Alert
             variant="warning"
             title={session.configError}
-            description={t(
-              '应用已保存。请在飞书开发者后台手动完成：事件与回调的订阅方式改为长连接；主应用在安全设置中添加重定向 URL。',
-            )}
+            description={t('应用已保存。飞书管理员审核通过后会自动完成配置，也可稍后在应用设置中重试。')}
           />
         ) : null}
       </div>

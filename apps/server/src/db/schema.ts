@@ -751,6 +751,11 @@ export const feishuApps = pgTable(
     /** Long connection: 'connecting' | 'connected' | 'error' */
     status: text('status').notNull().default('connecting'),
     error: text('error'),
+    /**
+     * Why the scan-created app's dev config (long connection / redirect URL) is still not applied: Feishu's reason,
+     * or 'no_public_url'. Retried in the background; null once applied or for manually entered apps.
+     */
+    configError: text('config_error'),
     updatedBy: uuid('updated_by')
       .notNull()
       .references(() => users.id),

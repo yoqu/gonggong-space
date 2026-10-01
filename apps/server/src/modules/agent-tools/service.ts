@@ -26,6 +26,7 @@ import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import type { MessageMeta } from '../messages/service.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
+import { answerText } from '../questions/dto.js'
 import { listFeishuMessages } from './feishu.js'
 
 type Run = typeof runs.$inferSelect
@@ -237,12 +238,8 @@ function questionBlock(prefix: string, set: QuestionSet, answeredBy: string | nu
       : `${prefix}（${STATE[set.status] ?? set.status}）：`
   const lines = (set.questions as Question[]).map((q, i) => {
     const base = `${i + 1}. ${q.title}（${TYPE[q.type]}）`
-    if (!answers) return base
-    const a = answers.find((x) => x.questionId === q.id)
-    const parts = (a?.choices ?? []).map((c) => q.options[c]).filter((o) => o !== undefined)
-    const text = a?.text?.trim()
-    if (text) parts.push(q.type === 'text' ? text : `其他：${text}`)
-    return `${base}→ ${parts.join('、') || '（未作答）'}`
+    const answer = answerText(q, answers)
+    return answer === null ? base : `${base}→ ${answer}`
   })
   return [head, ...lines].join('\n')
 }

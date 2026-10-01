@@ -11,6 +11,8 @@ export const FeishuAppDto = z.object({
   appId: z.string(),
   status: FeishuAppStatus,
   error: z.string().nullable(),
+  /** Dev config not applied yet (e.g. the first version awaits approval); retried automatically. */
+  configError: z.string().nullable(),
   updatedAt: z.string(),
 })
 export type FeishuAppDto = z.infer<typeof FeishuAppDto>

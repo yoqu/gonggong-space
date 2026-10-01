@@ -1,4 +1,4 @@
-import type { PermissionOption, Question, RunStatus } from '@gonggong/protocol'
+import type { Answer, PermissionOption, Question, RunStatus } from '@gonggong/protocol'
 import { TERMINAL_RUN_STATUS } from '@gonggong/protocol'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -309,7 +309,14 @@ async function syncQuestions(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: st
   for (const { q, by } of rows) {
     const existing = await cardLink(ctx, 'question', { refId: q.id })
     if (!existing && q.status !== 'pending') continue
-    const card = questionCard({ bot, id: q.id, questions: q.questions as Question[], status: q.status, by })
+    const card = questionCard({
+      bot,
+      id: q.id,
+      questions: q.questions as Question[],
+      status: q.status,
+      by,
+      answers: q.answers as Answer[] | null,
+    })
     await putCard(ctx, app, trigger, existing, card, { kind: 'question', runId, refId: q.id })
   }
 }

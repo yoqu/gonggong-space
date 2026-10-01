@@ -115,7 +115,10 @@ describe('群设置 · 飞书 binding', () => {
     t.feishu.chats.set(BOT_APP, [])
     const view = await ownerHttp.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)
     expect(view.body.bots[0]?.inChat).toBe(false)
-    expect((await ownerHttp.post(`/api/groups/${group.id}/feishu/bots/${bot.id}`)).status).toBe(200)
+    // Feishu's chat list lags behind the add: the response must not wait for it.
+    const added = await ownerHttp.post<GroupFeishuView>(`/api/groups/${group.id}/feishu/bots/${bot.id}`)
+    expect(added.status).toBe(200)
+    expect(added.body.bots[0]?.inChat).toBe(true)
     expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: BOT_APP }])
   })
 
@@ -397,7 +400,10 @@ describe('question and approval cards', () => {
       formValue: { q0: '1', q1: '尽快' },
     })) as { toast: { type: string }; card: { data: unknown } }
     expect(res.toast.type).toBe('success')
-    expect(JSON.stringify(res.card.data)).toContain('已由 王磊 处理')
+    const settled = JSON.stringify(res.card.data)
+    expect(settled).toContain('已由 王磊 处理')
+    expect(settled).toContain('→ yup')
+    expect(settled).toContain('→ 尽快')
     const [after] = await t.db.select().from(questionSets).where(eq(questionSets.id, q!.id))
     expect(after).toMatchObject({
       status: 'answered',

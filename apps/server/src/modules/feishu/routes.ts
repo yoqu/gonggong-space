@@ -12,6 +12,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { appDto, botApp, mainApp, removeApp, saveApp } from './apps.js'
+import { configureApp } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
 import { cancelRegister, registerDto, registerSession, startRegister } from './register.js'
 
@@ -63,6 +64,17 @@ export function feishuRoutes(ctx: Ctx) {
         registerSession(ctx, user.id, req.params.id) ?? fail('not_found', '扫码会话不存在或已过期'),
       )
       return reply.status(204).send()
+    })
+
+    // Re-applies the dev config a scan-created app could not get yet (also retried in the background).
+    app.post('/api/admin/feishu/configure', async (req): Promise<FeishuAppView> => {
+      await requireSysadmin(ctx, req)
+      return { app: appDto(await configureApp(ctx, bound(true, await mainApp(ctx)) as FeishuAppRow)) }
+    })
+
+    app.post<IdParams>('/api/bots/:id/feishu/configure', async (req): Promise<FeishuAppView> => {
+      const { bot } = await manageableBot(req, req.params.id)
+      return { app: appDto(await configureApp(ctx, bound(true, await botApp(ctx, bot.id)) as FeishuAppRow)) }
     })
 
     app.get('/api/admin/feishu', async (req): Promise<FeishuAppView> => {

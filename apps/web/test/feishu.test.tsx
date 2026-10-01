@@ -28,7 +28,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 const connected: FeishuAppView = {
-  app: { appId: 'cli_main01', status: 'connected', error: null, updatedAt: '2026-10-01T00:00:00Z' },
+  app: {
+    appId: 'cli_main01',
+    status: 'connected',
+    error: null,
+    configError: null,
+    updatedAt: '2026-10-01T00:00:00Z',
+  },
 }
 
 describe('管理后台 · 飞书', () => {
@@ -77,6 +83,7 @@ describe('FeishuAppForm', () => {
           appId: 'cli_bot01',
           status: 'error',
           error: 'endpoint unreachable',
+          configError: null,
           updatedAt: '2026-10-01T00:00:00Z',
         },
       },
@@ -89,5 +96,32 @@ describe('FeishuAppForm', () => {
     fireEvent.change(screen.getByLabelText('App Secret'), { target: { value: 'x' } })
     fireEvent.click(screen.getByRole('button', { name: '更换' }))
     expect(await screen.findByText('飞书校验失败：app secret invalid')).toBeTruthy()
+  })
+
+  it('shows pending automatic configuration and retries it on demand', async () => {
+    const pending: FeishuAppView = {
+      app: {
+        appId: 'cli_bot01',
+        status: 'connected',
+        error: null,
+        configError: '自动配置失败：scope not granted',
+        updatedAt: '2026-10-01T00:00:00Z',
+      },
+    }
+    const done: FeishuAppView = { app: { ...pending.app!, configError: null } }
+    let view = pending
+    const calls = mockApi({
+      'GET /bots/b1/feishu': () => view,
+      'POST /bots/b1/feishu/configure': () => {
+        view = done
+        return view
+      },
+    })
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
+    expect(await screen.findByText('自动配置失败：scope not granted')).toBeTruthy()
+    expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试自动配置' }))
+    await waitFor(() => expect(screen.queryByText('自动配置失败：scope not granted')).toBeNull())
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/bots/b1/feishu/configure')).toBe(true)
   })
 })

@@ -48,6 +48,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
   const [error, setError] = useState('')
   const [removing, setRemoving] = useState(false)
   const [scan, setScan] = useState<'create' | 'update' | null>(null)
+  const [retrying, setRetrying] = useState(false)
 
   // A fresh connection reports in within seconds.
   useEffect(() => {
@@ -72,9 +73,32 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
     }
   }
 
+  const retry = async () => {
+    setRetrying(true)
+    try {
+      await api.post<FeishuAppView>(`${path}/configure`, {})
+      reload()
+    } catch (e) {
+      toast({ type: 'error', message: errorText(e) })
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <div className="feishu-app">
       {app ? <FeishuAppStatusLine app={app} /> : <span className="feishu-app__unset">{t('未配置')}</span>}
+      {app?.configError ? (
+        <Alert
+          variant="warning"
+          title={app.configError}
+          description={t('飞书管理员审核通过后会自动完成，也可以现在重试。')}
+        >
+          <Button size="small" disabled={retrying} onClick={() => void retry()}>
+            {t('重试自动配置')}
+          </Button>
+        </Alert>
+      ) : null}
       <div className="feishu-app__actions">
         <Button size="small" variant="primary" onClick={() => setScan('create')}>
           {t('扫码创建')}

@@ -24,7 +24,8 @@ async function feishu<T>(call: Promise<T>) {
   }
 }
 
-async function view(ctx: Ctx, groupId: string): Promise<GroupFeishuView> {
+/** `added`: a bot app just added to the chat, which Feishu's chat list may not show yet. */
+async function view(ctx: Ctx, groupId: string, added?: string): Promise<GroupFeishuView> {
   const main = await mainApp(ctx)
   if (!main) return { available: false, chat: null, chats: [], bots: [] }
   const chat = await boundChat(ctx.db, groupId)
@@ -47,7 +48,10 @@ async function view(ctx: Ctx, groupId: string): Promise<GroupFeishuView> {
       const inChat =
         !!chat &&
         !!app &&
-        (await ctx.feishu.api.listChats(credsOf(app)).catch(() => [])).some((c) => c.chatId === chat.chatId)
+        (app.appId === added ||
+          (await ctx.feishu.api.listChats(credsOf(app)).catch(() => [])).some(
+            (c) => c.chatId === chat.chatId,
+          ))
       return { botId: b.id, name: b.name, appId: app?.appId ?? null, inChat }
     }),
   )
@@ -125,7 +129,7 @@ export function feishuChatRoutes(ctx: Ctx) {
       if (!app) return fail('invalid', '该 Bot 没有绑定飞书应用')
       const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
       await feishu(ctx.feishu.api.addBot(credsOf(main), chat.chatId, app.appId))
-      return view(ctx, group.id)
+      return view(ctx, group.id, app.appId)
     })
   }
 }

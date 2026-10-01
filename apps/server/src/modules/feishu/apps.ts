@@ -6,6 +6,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { seal } from '../../lib/seal.js'
 import { FeishuError } from './client.js'
+import { configErrorText } from './config.js'
 import { type FeishuAppRow, reloadFeishu } from './gateway.js'
 
 export const appDto = (row: FeishuAppRow | undefined): FeishuAppDto | null =>
@@ -14,6 +15,7 @@ export const appDto = (row: FeishuAppRow | undefined): FeishuAppDto | null =>
         appId: row.appId,
         status: row.status as FeishuAppStatus,
         error: row.error,
+        configError: configErrorText(row.configError),
         updatedAt: row.updatedAt.toISOString(),
       }
     : null
@@ -49,6 +51,7 @@ export async function saveApp(ctx: Ctx, owner: Owner, req: FeishuAppReq, actorUs
     appSecret: seal(req.appSecret),
     status: 'connecting',
     error: null,
+    configError: null,
     updatedBy: actorUserId,
     updatedAt: ctx.now(),
   }

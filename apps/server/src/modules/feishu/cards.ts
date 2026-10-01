@@ -1,5 +1,6 @@
-import type { PermissionOption, Question, RunStatus } from '@gonggong/protocol'
+import type { Answer, PermissionOption, Question, RunStatus } from '@gonggong/protocol'
 import { translator } from '../../i18n/index.js'
+import { answerText } from '../questions/dto.js'
 
 /** Cards are read by everyone in the chat: always Chinese, whatever request led to them. */
 const zt = translator('zh')
@@ -71,11 +72,19 @@ export function questionCard(o: {
   questions: Question[]
   status: string
   by: string | null
+  answers: Answer[] | null
 }) {
   const lines = o.questions.map((q, i) => `**${i + 1}. ${q.title}**`)
   if (o.status !== 'pending')
     return card(zt('{bot} 的提问', { bot: o.bot }), 'grey', [
-      markdown(lines.join('\n')),
+      markdown(
+        lines
+          .map((line, i) => {
+            const answer = answerText(o.questions[i] as Question, o.answers)
+            return answer === null ? line : `${line}\n→ ${answer}`
+          })
+          .join('\n'),
+      ),
       markdown(settledNote(o.status, o.by)),
     ])
   const inputs = o.questions.flatMap((q, i) => {

@@ -92,6 +92,9 @@ export default {
   '{n} 秒后过期': 'Expires in {n}s',
   二维码已过期: 'The QR code has expired',
   飞书应用已创建并连接: 'Feishu app created and connected',
-  '应用已保存。请在飞书开发者后台手动完成：事件与回调的订阅方式改为长连接；主应用在安全设置中添加重定向 URL。':
-    'The app is saved. Finish in the Feishu developer console: switch events and callbacks to long connection; for the main app, add the redirect URL under Security settings.',
+  '应用已保存。飞书管理员审核通过后会自动完成配置，也可稍后在应用设置中重试。':
+    'The app is saved. Setup finishes automatically once a Feishu admin approves it; you can also retry later in the app settings.',
+  '飞书管理员审核通过后会自动完成，也可以现在重试。':
+    'This finishes automatically once a Feishu admin approves the app; you can also retry now.',
+  重试自动配置: 'Retry setup',
 } satisfies Record<string, string>

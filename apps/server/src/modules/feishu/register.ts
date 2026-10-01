@@ -11,14 +11,12 @@ import {
   BOT_EVENTS,
   BOT_TENANT_SCOPES,
   type FeishuCreds,
-  type FeishuDevConfig,
-  FeishuError,
   FeishuRegisterError,
   MAIN_TENANT_SCOPES,
   USER_SCOPES,
 } from './client.js'
+import { configErrorText, configureApp } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
-import { publicUrl } from './identity.js'
 
 /** Whose app a session creates (or, with `update`, re-confirms). */
 export type RegisterTarget = { kind: 'main' } | { kind: 'bot'; botId: string; teamId: string; name: string }
@@ -33,14 +31,13 @@ interface Session {
   expiresAt: Date
   status: FeishuRegisterStatus
   error: Text | null
-  configError: Text | null
   app: FeishuAppRow | undefined
   abort: AbortController
 }
 
 /** Settled sessions stay readable this long so the dialog can show the outcome. */
 const KEEP_MS = 10 * 60_000
-/** The dev config's long-connection mode only saves while the app holds a connection. */
+/** The bot app's long-connection mode only saves while the app holds a connection. */
 const CONNECT_WAIT_MS = 15_000
 
 const sessions = new WeakMap<Ctx, Map<string, Session>>()
@@ -66,7 +63,7 @@ export const registerDto = (s: Session): FeishuRegisterDto => ({
   status: s.status,
   error: tr(s.error),
   app: appDto(s.app),
-  configError: tr(s.configError),
+  configError: configErrorText(s.app?.configError ?? null),
 })
 
 /** The caller's own session; others' sessions do not exist for them. */
@@ -104,7 +101,6 @@ export async function startRegister(
     expiresAt: ctx.now(),
     status: 'waiting',
     error: null,
-    configError: null,
     app: undefined,
     abort: new AbortController(),
   }
@@ -164,29 +160,10 @@ async function finish(ctx: Ctx, s: Session, target: RegisterTarget, creds: Feish
     s.error = { key: '飞书创建应用失败：{reason}', params: { reason: (err as Error).message } }
     return
   }
-  s.configError = await applyDevConfig(ctx, target, creds)
-  s.app = await rowOf(ctx, target)
+  if (target.kind === 'bot') await connected(ctx, creds.appId)
+  const row = await rowOf(ctx, target)
+  s.app = row && (await configureApp(ctx, row))
   s.status = 'succeeded'
-}
-
-/** Long connection for a bot app's events and callbacks; the OAuth redirect URL for the main app. */
-async function applyDevConfig(ctx: Ctx, target: RegisterTarget, creds: FeishuCreds): Promise<Text | null> {
-  let config: FeishuDevConfig
-  if (target.kind === 'main') {
-    const base = await publicUrl(ctx)
-    if (!base) return { key: '未设置对外地址，重定向 URL 需在飞书开发者后台手动添加' }
-    config = { redirectUrls: [`${base}/api/auth/feishu/callback`] }
-  } else {
-    await connected(ctx, creds.appId)
-    config = { websocket: { events: BOT_EVENTS, callbacks: BOT_CALLBACKS } }
-  }
-  try {
-    await ctx.feishu.api.configure(creds, config)
-    return null
-  } catch (err) {
-    if (!(err instanceof FeishuError)) throw err
-    return { key: '自动配置失败：{reason}', params: { reason: err.message } }
-  }
 }
 
 async function connected(ctx: Ctx, appId: string) {
