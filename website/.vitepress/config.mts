@@ -148,6 +148,7 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
         en: 'Deployment',
         items: [
           ['/deploy/', '部署概览', 'Overview'],
+          ['/deploy/docker', 'Docker 部署', 'Docker Deployment'],
           ['/deploy/install', '从源码部署', 'Deploy from Source'],
           ['/deploy/env', '环境变量', 'Environment Variables'],
           ['/deploy/https', 'HTTPS 与证书', 'HTTPS & Certificates'],

@@ -1,0 +1,52 @@
+# Quick self-hosted deployment: `GONGGONG_ADMIN_PASSWORD=<initial password> docker compose up -d`, then open
+# GONGGONG_PUBLIC_URL. Uses a self-signed certificate; see the docs (deploy/docker) for a trusted one.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: gonggong
+      POSTGRES_PASSWORD: gonggong
+      POSTGRES_DB: gonggong
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U gonggong
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  server:
+    build: { context: ., target: server }
+    image: gonggong-server
+    environment:
+      GONGGONG_DATABASE_URL: postgres://gonggong:gonggong@db:5432/gonggong
+      GONGGONG_ADMIN_PASSWORD: ${GONGGONG_ADMIN_PASSWORD:-}
+      GONGGONG_PUBLIC_URL: ${GONGGONG_PUBLIC_URL:-https://localhost}
+      GONGGONG_PREVIEW_PORTS: 41000-41019
+    volumes:
+      - data:/data
+    ports:
+      - "41000-41019:41000-41019"
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: NODE_TLS_REJECT_UNAUTHORIZED=0 node -e "fetch('https://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+      interval: 2s
+      retries: 60
+    restart: unless-stopped
+
+  web:
+    build: { context: ., target: web }
+    image: gonggong-web
+    volumes:
+      - data:/data:ro
+    ports:
+      - "${GONGGONG_HTTP_PORT:-80}:80"
+      - "${GONGGONG_HTTPS_PORT:-443}:443"
+    depends_on:
+      server: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  pg:
+  data:

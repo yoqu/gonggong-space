@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+target
+crates
+videos
+docs
+e2e
+test-results
+.git
+.claude
+.gonggong-dev
+website
+apps/desktop

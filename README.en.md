@@ -89,10 +89,16 @@ Letting others @ your Bot means allowing them to run an Agent on your machine. G
 
 ## Quick start
 
-**1. Start the services** (Node.js 22+, pnpm)
+**1. Start the services** (Docker)
 
 ```bash
 git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
+GONGGONG_ADMIN_PASSWORD=<initial password> docker compose up -d   # open https://localhost
+```
+
+For LAN use, certificates and volumes, see [Docker deployment](https://yoqu.github.io/gonggong-space/en/deploy/docker). Without Docker (Node.js 22+, pnpm):
+
+```bash
 pnpm install
 pnpm db:up                                        # in-repo PostgreSQL (port 54329)
 GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
@@ -101,7 +107,7 @@ pnpm dev:web                                      # http://127.0.0.1:5173
 
 (`初始密码` is a placeholder for the initial admin password you choose.)
 
-**2. Connect a machine**: click 「绑定新机器」 (Bind new machine) in the top-right corner of the web app, copy the command, and run it on the machine that will run the Bot (on macOS you can also paste the connect link into the desktop app):
+**2. Connect a machine**: download `gg` or the macOS desktop app from [Releases](https://github.com/yoqu/gonggong-space/releases/latest), click 「绑定新机器」 (Bind new machine) in the top-right corner of the web app, copy the command, and run it on the machine that will run the Bot (or paste the connect link into the desktop app):
 
 ```bash
 gg login --server https://gg.example.com --code K7QM-4X2P
@@ -142,6 +148,10 @@ Prerequisites: Node.js 22+, pnpm, PostgreSQL, Rust 1.95+. See [Local development
 ## Where the name comes from
 
 The name comes from Gonggong (共工), the ancient Chinese water god; in oracle bone script, the character 共 shows two hands lifting an object together. The logo is two wave crests holding up a piece of jade.
+
+## Acknowledgements
+
+Thanks to the [LINUX DO](https://linux.do) community for discussion and feedback.
 
 ## License
 

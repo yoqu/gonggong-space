@@ -89,17 +89,23 @@ flowchart LR
 
 ## 快速开始
 
-**1. 起服务**（Node.js 22+、pnpm）
+**1. 起服务**（Docker）
 
 ```bash
 git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
+GONGGONG_ADMIN_PASSWORD=初始密码 docker compose up -d   # 打开 https://localhost
+```
+
+局域网使用、证书与数据卷见 [Docker 部署](https://yoqu.github.io/gonggong-space/deploy/docker)。不用 Docker 时（Node.js 22+、pnpm）：
+
+```bash
 pnpm install
 pnpm db:up                                        # 项目内 PostgreSQL（端口 54329）
 GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
 pnpm dev:web                                      # http://127.0.0.1:5173
 ```
 
-**2. 接入机器**：网页右上角「绑定新机器」，复制命令在要跑 Bot 的机器上执行（macOS 也可用桌面端粘贴接入链接）：
+**2. 接入机器**：从 [Releases](https://github.com/yoqu/gonggong-space/releases/latest) 下载 `gg` 或 macOS 桌面端，网页右上角「绑定新机器」，复制命令在要跑 Bot 的机器上执行（桌面端粘贴接入链接）：
 
 ```bash
 gg login --server https://gg.example.com --code K7QM-4X2P
@@ -140,6 +146,10 @@ cargo build -p gonggong               # 生成 target/debug/gg
 ## 名字由来
 
 名字取自上古水神共工；「共」字甲骨文是双手合力托举一物。Logo 是两道浪尖托起一枚玉。
+
+## 致谢
+
+感谢 [LINUX DO](https://linux.do) 社区的交流与反馈。
 
 ## 许可证
 
