@@ -17,7 +17,11 @@ export function buildDaemon() {
 }
 
 export function gonggong(args: string[], env: Record<string, string> = {}) {
-  return execFileSync(GONGGONG_BIN, args, { encoding: 'utf8', env: { ...process.env, ...env } })
+  // Specs assert Chinese daemon output regardless of the host locale.
+  return execFileSync(GONGGONG_BIN, args, {
+    encoding: 'utf8',
+    env: { ...process.env, GG_LANG: 'zh', ...env },
+  })
 }
 
 /** An isolated "member machine": its own GONGGONG_HOME, running `gg run` in the background. */
@@ -38,7 +42,10 @@ export function machine(server = SERVER, extraEnv: Record<string, string> = {}) 
     /** `gg login <接入链接>`, as copied from the web's bind dialog. */
     loginLink: (link: string) => gonggong(['login', link], env),
     start() {
-      proc = spawn(GONGGONG_BIN, ['run'], { env: { ...process.env, ...env }, stdio: 'inherit' })
+      proc = spawn(GONGGONG_BIN, ['run'], {
+        env: { ...process.env, GG_LANG: 'zh', ...env },
+        stdio: 'inherit',
+      })
       const p = proc
       exited = new Promise((r) => p.on('exit', (code) => r(code)))
     },
