@@ -81,4 +81,17 @@ export default {
   '飞书群里 @Bot 将不再触发运行': '@ mentions of bots in the Feishu chat no longer start runs',
   已同步的消息保留: 'Messages already mirrored are kept',
   已解绑飞书群: 'Feishu chat unbound',
+  扫码创建: 'Create by scanning',
+  更新权限: 'Update permissions',
+  或手动填写已有应用的凭证: "or enter an existing app's credentials",
+  更新飞书应用权限: 'Update Feishu app permissions',
+  扫码创建飞书应用: 'Create a Feishu app by scanning',
+  '用飞书扫码，确认后自动完成配置': 'Scan with Feishu and confirm there; setup finishes automatically',
+  飞书扫码: 'Scan with Feishu',
+  在飞书中打开: 'Open in Feishu',
+  '{n} 秒后过期': 'Expires in {n}s',
+  二维码已过期: 'The QR code has expired',
+  飞书应用已创建并连接: 'Feishu app created and connected',
+  '应用已保存。请在飞书开发者后台手动完成：事件与回调的订阅方式改为长连接；主应用在安全设置中添加重定向 URL。':
+    'The app is saved. Finish in the Feishu developer console: switch events and callbacks to long connection; for the main app, add the redirect URL under Security settings.',
 } satisfies Record<string, string>

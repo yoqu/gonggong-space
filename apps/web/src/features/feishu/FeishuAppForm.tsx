@@ -14,6 +14,7 @@ import {
   TextField,
   toast,
 } from '../../ui'
+import { FeishuScanDialog } from './FeishuScanDialog'
 import './feishu.css'
 
 const STATUS: Record<FeishuAppStatus, { label: string; tone: TagTone }> = {
@@ -46,6 +47,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [removing, setRemoving] = useState(false)
+  const [scan, setScan] = useState<'create' | 'update' | null>(null)
 
   // A fresh connection reports in within seconds.
   useEffect(() => {
@@ -73,6 +75,17 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
   return (
     <div className="feishu-app">
       {app ? <FeishuAppStatusLine app={app} /> : <span className="feishu-app__unset">{t('未配置')}</span>}
+      <div className="feishu-app__actions">
+        <Button size="small" variant="primary" onClick={() => setScan('create')}>
+          {t('扫码创建')}
+        </Button>
+        {app ? (
+          <Button size="small" variant="plain" onClick={() => setScan('update')}>
+            {t('更新权限')}
+          </Button>
+        ) : null}
+        <span className="feishu-app__or">{t('或手动填写已有应用的凭证')}</span>
+      </div>
       <div className="feishu-app__fields">
         <TextField
           aria-label="App ID"
@@ -91,7 +104,6 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
       <div className="feishu-app__actions">
         <Button
           size="small"
-          variant="primary"
           disabled={busy || !appId.trim() || !appSecret.trim()}
           onClick={() => void save()}
         >
@@ -103,6 +115,16 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
           </Button>
         ) : null}
       </div>
+      <Presence>
+        {scan ? (
+          <FeishuScanDialog
+            path={path}
+            update={scan === 'update'}
+            onClose={() => setScan(null)}
+            onDone={reload}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {removing ? (
           <ConfirmActionDialog

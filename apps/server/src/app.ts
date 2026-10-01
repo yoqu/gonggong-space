@@ -26,6 +26,7 @@ import { feishuChatRoutes } from './modules/feishu/chats.js'
 import { startFeishu } from './modules/feishu/gateway.js'
 import { startFeishuInbound } from './modules/feishu/inbound.js'
 import { feishuIdle, stopFeishuMirror } from './modules/feishu/mirror.js'
+import { stopRegister } from './modules/feishu/register.js'
 import { feishuRoutes } from './modules/feishu/routes.js'
 import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
@@ -144,6 +145,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   startFeishuInbound(ctx)
   app.addHook('onClose', async () => {
     stopFeishuMirror(ctx)
+    stopRegister(ctx)
     await feishuIdle(ctx)
   })
   app.addHook('onClose', await startFeishu(ctx))

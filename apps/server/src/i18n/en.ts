@@ -442,4 +442,11 @@ export const en = {
   请先认证共工账号: 'Verify your Gonggong account first',
   已提交回答: 'Answers submitted',
   已处理: 'Handled',
+  已在飞书中拒绝授权: 'Authorization was declined in Feishu',
+  '飞书创建应用失败：{reason}': 'Feishu could not create the app: {reason}',
+  '未设置对外地址，重定向 URL 需在飞书开发者后台手动添加':
+    'Public URL is not set: add the redirect URL in the Feishu developer console yourself',
+  '自动配置失败：{reason}': 'Automatic configuration failed: {reason}',
+  尚未绑定飞书应用: 'No Feishu app is bound yet',
+  扫码会话不存在或已过期: 'The scan session does not exist or has expired',
 } satisfies Record<string, string>

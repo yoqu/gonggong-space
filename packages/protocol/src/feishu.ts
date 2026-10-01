@@ -85,3 +85,26 @@ export type GroupFeishuView = z.infer<typeof GroupFeishuView>
 
 /** PUT /api/groups/:id/feishu: bind the group to one of the main app's chats (one to one). */
 export const BindFeishuChatReq = z.object({ chatId: z.string().trim().min(1) })
+
+/** 扫码创建 / 更新权限 session of a Feishu app (device authorization; the QR expires with it). */
+export const FeishuRegisterStatus = z.enum(['waiting', 'succeeded', 'failed', 'expired', 'cancelled'])
+export type FeishuRegisterStatus = z.infer<typeof FeishuRegisterStatus>
+
+/** POST /api/admin/feishu/register, POST /api/bots/:id/feishu/register; `update` re-confirms the bound app's scopes. */
+export const FeishuRegisterReq = z.object({ update: z.boolean().default(false) })
+export type FeishuRegisterReq = z.infer<typeof FeishuRegisterReq>
+
+/** GET /api/feishu/register/:id */
+export const FeishuRegisterDto = z.object({
+  id: z.string(),
+  /** Open in Feishu (scan as a QR code). */
+  url: z.string(),
+  expiresAt: z.string(),
+  status: FeishuRegisterStatus,
+  error: z.string().nullable(),
+  /** The saved app once succeeded. */
+  app: FeishuAppDto.nullable(),
+  /** Why long connection / redirect URL could not be set automatically: the admin sets them in the developer console. */
+  configError: z.string().nullable(),
+})
+export type FeishuRegisterDto = z.infer<typeof FeishuRegisterDto>

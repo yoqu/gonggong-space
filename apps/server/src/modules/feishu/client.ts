@@ -22,6 +22,55 @@ export const USER_SCOPES = [
   'im:message.group_msg:get_as_user',
 ]
 
+/** Tenant scopes of the main app: proxy sends, its chats, adding bot apps to a chat, setting its own dev config. */
+export const MAIN_TENANT_SCOPES = [
+  'im:message:send_as_bot',
+  'im:chat:readonly',
+  'im:chat.members:write_only',
+  'application:application:patch',
+]
+
+/** Tenant scopes, events and callbacks of a bot app (plan §8). */
+export const BOT_TENANT_SCOPES = [
+  'im:message.group_at_msg:readonly',
+  'im:message:send_as_bot',
+  'im:message:readonly',
+  'im:chat:readonly',
+  'application:application:patch',
+]
+export const BOT_EVENTS = ['im.message.receive_v1', 'im.message.recalled_v1']
+export const BOT_CALLBACKS = ['card.action.trigger']
+
+/** What 扫码创建 pre-fills on Feishu's confirm page; `appId` updates that app instead of creating one. */
+export interface FeishuRegistration {
+  name: string
+  desc: string
+  scopes: { tenant: string[]; user: string[] }
+  events: string[]
+  callbacks: string[]
+  appId?: string
+  signal: AbortSignal
+  onUrl: (url: string, expireIn: number) => void
+}
+
+/** 扫码创建 did not finish: `reason` is the device flow's code ('access_denied', 'expired_token', 'abort', …). */
+export class FeishuRegisterError extends Error {
+  constructor(
+    readonly reason: string,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+/** Sensitive dev config that cannot travel on the QR (set with the app's own tenant token). */
+export interface FeishuDevConfig {
+  /** Events and callbacks over the long connection. */
+  websocket?: { events: string[]; callbacks: string[] }
+  /** OAuth redirect URLs to add; also allows refreshing user tokens. */
+  redirectUrls?: string[]
+}
+
 export interface FeishuTokens {
   accessToken: string
   refreshToken: string | null
@@ -100,6 +149,10 @@ export interface FeishuApi {
   ): Promise<FeishuHistoryItem[]>
   /** Adds the bot of `botAppId` to the chat (the calling app must be in it). */
   addBot(app: FeishuCreds, chatId: string, botAppId: string): Promise<void>
+  /** 扫码创建: resolves once the scanning admin confirmed; throws FeishuRegisterError otherwise. */
+  register(reg: FeishuRegistration): Promise<FeishuCreds>
+  /** Applies dev config the QR cannot carry; the app must already hold its long connection for `websocket`. */
+  configure(app: FeishuCreds, config: FeishuDevConfig): Promise<void>
 }
 
 type Res<T> = { code?: number; msg?: string; data?: T }
@@ -295,6 +348,46 @@ export function larkApi(): FeishuApi {
           path: { chat_id: chatId },
           params: { member_id_type: 'app_id' },
           data: { id_list: [botAppId] },
+        }),
+      )
+    },
+
+    async register(reg) {
+      try {
+        const r = await lark.registerApp({
+          source: 'gonggong',
+          signal: reg.signal,
+          appPreset: { name: reg.name, desc: reg.desc },
+          // Minimal base: only the bot capability plus what 共工 declares.
+          addons: {
+            preset: false,
+            scopes: reg.scopes,
+            events: { items: { tenant: reg.events } },
+            callbacks: { items: reg.callbacks },
+          },
+          ...(reg.appId ? { appId: reg.appId } : { createOnly: true }),
+          onQRCodeReady: ({ url, expireIn }) => reg.onUrl(url, expireIn),
+        })
+        return { appId: r.client_id, appSecret: r.client_secret }
+      } catch (err) {
+        const e = err as { code?: string; description?: string; message?: string }
+        throw new FeishuRegisterError(e.code ?? 'error', e.description ?? e.message ?? String(err))
+      }
+    },
+
+    async configure(app, config) {
+      await call(
+        client(app).application.v7.applicationConfig.patch({
+          path: { app_id: app.appId },
+          data: {
+            ...(config.websocket && {
+              event: { subscription_type: 'websocket', add_events: config.websocket.events },
+              callback: { callback_type: 'websocket', add_callbacks: config.websocket.callbacks },
+            }),
+            ...(config.redirectUrls && {
+              security: { add: { redirect_urls: config.redirectUrls }, allow_refresh_token: true },
+            }),
+          },
         }),
       )
     },

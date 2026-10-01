@@ -35,3 +35,24 @@
   display: flex;
   gap: 8px;
 }
+
+.feishu-app__or {
+  align-self: center;
+  color: var(--label-tertiary);
+}
+
+.feishu-scan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.feishu-scan svg {
+  border-radius: 8px;
+  background: #fff;
+}
+
+.feishu-scan__hint {
+  color: var(--label-secondary);
+}

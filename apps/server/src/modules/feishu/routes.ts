@@ -1,4 +1,9 @@
-import { FeishuAppReq, type FeishuAppView } from '@gonggong/protocol'
+import {
+  FeishuAppReq,
+  type FeishuAppView,
+  type FeishuRegisterDto,
+  FeishuRegisterReq,
+} from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
@@ -7,6 +12,8 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { appDto, botApp, mainApp, removeApp, saveApp } from './apps.js'
+import type { FeishuAppRow } from './gateway.js'
+import { cancelRegister, registerDto, registerSession, startRegister } from './register.js'
 
 type IdParams = { Params: { id: string } }
 
@@ -24,7 +31,40 @@ export function feishuRoutes(ctx: Ctx) {
     return { user, bot }
   }
 
+  const bound = (update: boolean, row: FeishuAppRow | undefined) =>
+    update ? (row ?? fail('invalid', '尚未绑定飞书应用')) : undefined
+
   return async (app: FastifyInstance) => {
+    // 扫码创建 / 更新权限 (plan F1): the QR link comes back at once, the outcome is polled.
+    app.post('/api/admin/feishu/register', async (req): Promise<FeishuRegisterDto> => {
+      const actor = await requireSysadmin(ctx, req)
+      const { update } = FeishuRegisterReq.parse(req.body ?? {})
+      const s = await startRegister(ctx, actor.id, { kind: 'main' }, bound(update, await mainApp(ctx)))
+      return registerDto(s)
+    })
+
+    app.post<IdParams>('/api/bots/:id/feishu/register', async (req): Promise<FeishuRegisterDto> => {
+      const { user, bot } = await manageableBot(req, req.params.id)
+      const { update } = FeishuRegisterReq.parse(req.body ?? {})
+      const target = { kind: 'bot' as const, botId: bot.id, teamId: bot.teamId, name: bot.name }
+      return registerDto(await startRegister(ctx, user.id, target, bound(update, await botApp(ctx, bot.id))))
+    })
+
+    app.get<IdParams>('/api/feishu/register/:id', async (req): Promise<FeishuRegisterDto> => {
+      const user = await requireUser(ctx, req)
+      return registerDto(
+        registerSession(ctx, user.id, req.params.id) ?? fail('not_found', '扫码会话不存在或已过期'),
+      )
+    })
+
+    app.delete<IdParams>('/api/feishu/register/:id', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      cancelRegister(
+        registerSession(ctx, user.id, req.params.id) ?? fail('not_found', '扫码会话不存在或已过期'),
+      )
+      return reply.status(204).send()
+    })
+
     app.get('/api/admin/feishu', async (req): Promise<FeishuAppView> => {
       await requireSysadmin(ctx, req)
       return { app: appDto(await mainApp(ctx)) }

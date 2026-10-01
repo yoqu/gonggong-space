@@ -3,8 +3,12 @@ import {
   type FeishuApi,
   type FeishuBody,
   type FeishuChat,
+  type FeishuCreds,
+  type FeishuDevConfig,
   FeishuError,
   type FeishuHistoryItem,
+  FeishuRegisterError,
+  type FeishuRegistration,
   type FeishuTokens,
   type FeishuUser,
 } from '../../src/modules/feishu/client.js'
@@ -45,6 +49,13 @@ export class FakeFeishu {
   readonly history = new Map<string, FeishuHistoryItem[]>()
   /** Attachments by file key. */
   readonly files = new Map<string, Buffer>()
+  /** Dev config applied per app (`configure`). */
+  readonly configs: { appId: string; config: FeishuDevConfig }[] = []
+  /** `configure` fails with this message when set. */
+  configureError: string | null = null
+  /** 扫码创建 sessions waiting for the admin to scan; settle them with `approve` / `deny`. */
+  readonly registrations: (FeishuRegistration & { url: string; settle: (r: FeishuCreds | Error) => void })[] =
+    []
   private readonly codes = new Map<string, FakeUser>()
   private readonly tokens = new Map<string, FakeUser>()
   private readonly conns = new Map<string, { hooks: Hooks; open: boolean }>()
@@ -73,6 +84,22 @@ export class FakeFeishu {
     const code = this.next('code')
     this.codes.set(code, user)
     return code
+  }
+
+  /** The admin confirms the newest registration on Feishu: it yields these credentials. */
+  approve(creds: FeishuCreds) {
+    this.pending().settle(creds)
+  }
+
+  /** The newest registration ends without an app ('access_denied', 'expired_token', …). */
+  deny(reason = 'access_denied') {
+    this.pending().settle(new FeishuRegisterError(reason, reason))
+  }
+
+  private pending() {
+    const r = this.registrations.at(-1)
+    if (!r) throw new Error('no pending Feishu registration')
+    return r
   }
 
   /** Whether the gateway currently holds an open connection for the app. */
@@ -264,6 +291,33 @@ export class FakeFeishu {
     addBot: async (app, chatId, botAppId) => {
       this.check(app.appId)
       this.botsAdded.push({ appId: app.appId, chatId, botAppId })
+    },
+    register: (reg) =>
+      new Promise<FeishuCreds>((resolve, reject) => {
+        const url = `https://feishu.test/register/${this.next('reg')}`
+        const entry = {
+          ...reg,
+          url,
+          settle: (r: FeishuCreds | Error) => {
+            this.registrations.splice(this.registrations.indexOf(entry), 1)
+            if (r instanceof Error) reject(r)
+            else resolve(r)
+          },
+        }
+        this.registrations.push(entry)
+        reg.signal.addEventListener(
+          'abort',
+          () => entry.settle(new FeishuRegisterError('abort', 'aborted')),
+          {
+            once: true,
+          },
+        )
+        reg.onUrl(url, 600)
+      }),
+    configure: async (app, config) => {
+      this.check(app.appId)
+      if (this.configureError) throw new FeishuError(99991672, this.configureError)
+      this.configs.push({ appId: app.appId, config })
     },
   }
 }
