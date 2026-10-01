@@ -16,6 +16,7 @@ import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
 import { sysParams } from '../admin/params.js'
 import { publishBots } from '../bots/dto.js'
+import { mainApp } from '../feishu/apps.js'
 import { publishGroup } from '../groups/service.js'
 import { meDto } from '../teams/dto.js'
 import { acceptInvite, findInvite } from '../teams/members.js'
@@ -64,6 +65,7 @@ export function authRoutes(ctx: Ctx) {
       '/api/auth/options',
       async (): Promise<AuthOptionsDto> => ({
         registrationOpen: (await sysParams(ctx.db)).registrationOpen,
+        feishuLogin: !!(await mainApp(ctx)),
       }),
     )
 
@@ -131,7 +133,8 @@ export function authRoutes(ctx: Ctx) {
     app.post('/api/auth/password', async (req) => {
       const user = await requireUser(ctx, req, { allowPending: true })
       const { oldPassword, newPassword } = ChangePasswordReq.parse(req.body)
-      if (!(await verify(user.passwordHash, oldPassword))) return fail('invalid', '当前密码错误')
+      if (!user.passwordHash || !(await verify(user.passwordHash, oldPassword)))
+        return fail('invalid', '当前密码错误')
       if (oldPassword === newPassword) return fail('invalid', '新密码不能与当前密码相同')
       await ctx.db
         .update(users)

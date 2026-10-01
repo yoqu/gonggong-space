@@ -5,6 +5,7 @@ packages:
   - website
 allowBuilds:
   esbuild: true
+  protobufjs: false
 minimumReleaseAgeExclude:
   - framer-motion@13.4.2
   - motion-dom@13.4.2

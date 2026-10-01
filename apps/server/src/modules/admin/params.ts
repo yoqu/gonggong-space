@@ -30,6 +30,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   previewShareMaxDays: 30,
   singleTeamMode: true,
   teamCreation: 'sysadmin',
+  feishuAutoSignup: true,
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]

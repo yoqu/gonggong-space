@@ -40,7 +40,7 @@ describe('bootstrap admin', () => {
       role: 'sysadmin',
       mustChangePassword: true,
     })
-    expect(await verify(rows[0]!.passwordHash, 'admin-init-pass')).toBe(true)
+    expect(await verify(rows[0]!.passwordHash!, 'admin-init-pass')).toBe(true)
     const [team] = await t.db.select().from(teams)
     expect(team).toMatchObject({ name: '默认团队', createdBy: rows[0]!.id })
     expect(await t.db.select().from(teamMembers)).toMatchObject([

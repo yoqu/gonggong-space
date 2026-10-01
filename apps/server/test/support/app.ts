@@ -13,6 +13,7 @@ import { TunnelHub } from '../../src/modules/previews/tunnel.js'
 import { createTeam } from '../../src/modules/teams/service.js'
 import { Bus } from '../../src/realtime/bus.js'
 import { createTestDb } from './db.js'
+import { FakeFeishu } from './feishu.js'
 
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>
 
@@ -33,12 +34,14 @@ export async function createTestApp(
   opts: { heartbeatSec?: number; now?: () => Date; livekit?: LiveKit; logStream?: Writable } = {},
 ) {
   const t = await createTestDb()
+  const feishu = new FakeFeishu()
   const ctx: Ctx = {
     db: t.db,
     bus: new Bus(),
     hub: new DaemonHub(),
     tunnels: new TunnelHub(),
     livekit: opts.livekit ?? unreachableLiveKit,
+    feishu: { api: feishu.api, connector: feishu.connector },
     now: opts.now ?? (() => new Date()),
     config: {
       heartbeatSec: opts.heartbeatSec ?? 15,
@@ -150,6 +153,7 @@ export async function createTestApp(
     ctx,
     db: t.db,
     seed,
+    feishu,
     url: (path: string) => `http://127.0.0.1:${port}${path}`,
     ws: (path: string, headers: Record<string, string> = {}) =>
       new WebSocket(`ws://127.0.0.1:${port}${path}`, { headers }),

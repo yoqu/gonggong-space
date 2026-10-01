@@ -7,6 +7,7 @@ import bots from '../features/bots/en'
 import chat from '../features/chat/en'
 import config from '../features/config/en'
 import diff from '../features/diff/en'
+import feishu from '../features/feishu/en'
 import files from '../features/files/en'
 import groups from '../features/groups/en'
 import machines from '../features/machines/en'
@@ -37,6 +38,7 @@ export const en = {
   ...chat,
   ...config,
   ...diff,
+  ...feishu,
   ...files,
   ...groups,
   ...machines,

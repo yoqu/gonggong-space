@@ -6,7 +6,9 @@ import { api } from '../../lib/api'
 export function useAuthOptions() {
   const [options, setOptions] = useState<AuthOptionsDto | null>(null)
   useEffect(() => {
-    api.get<AuthOptionsDto>('/auth/options').then(setOptions, () => setOptions({ registrationOpen: false }))
+    api
+      .get<AuthOptionsDto>('/auth/options')
+      .then(setOptions, () => setOptions({ registrationOpen: false, feishuLogin: false }))
   }, [])
   return options
 }

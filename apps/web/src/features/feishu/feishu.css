@@ -1,0 +1,37 @@
+.feishu-app {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.feishu-app__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.feishu-app__status .ui-alert {
+  flex-basis: 100%;
+}
+
+.feishu-app__id {
+  font-family: var(--font-mono);
+  color: var(--label-secondary);
+}
+
+.feishu-app__unset {
+  color: var(--label-tertiary);
+}
+
+.feishu-app__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.feishu-app__actions {
+  display: flex;
+  gap: 8px;
+}

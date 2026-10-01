@@ -115,6 +115,18 @@ export const en = {
   '预览「{title}」的公开链接有效期改到 {at}': 'Public link of preview "{title}" now expires at {at}',
   '通过公开链接访问预览「{title}」': 'Visited preview "{title}" through its public link',
 
+  '配置飞书主应用 {appId}': 'Configured the Feishu main app {appId}',
+  '为 Bot {bot} 绑定飞书应用 {appId}': 'Bound Feishu app {appId} to bot {bot}',
+  '移除飞书主应用 {appId}': 'Removed the Feishu main app {appId}',
+  '解除 Bot {bot} 的飞书应用 {appId}': 'Unbound Feishu app {appId} from bot {bot}',
+  开启飞书自动开户: 'Turn on Feishu auto sign-up',
+  关闭飞书自动开户: 'Turn off Feishu auto sign-up',
+
+  // Feishu
+  'App ID 应以 cli_ 开头': 'The App ID must start with cli_',
+  '该飞书应用已被其他 Bot 或主应用使用': 'This Feishu app is already used by another bot or the main app',
+  '飞书校验失败：{reason}': 'Feishu rejected the credentials: {reason}',
+
   // Runs, approvals, questions
   运行不存在: 'Run not found',
   '工具 {name} 不存在': 'Tool {name} not found',

@@ -387,6 +387,7 @@ describe('system params', () => {
       previewShareMaxDays: 30,
       singleTeamMode: true,
       teamCreation: 'sysadmin',
+      feishuAutoSignup: true,
     })
   })
 

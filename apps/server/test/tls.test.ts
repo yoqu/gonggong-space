@@ -12,6 +12,7 @@ import { TunnelHub } from '../src/modules/previews/tunnel.js'
 import { Bus } from '../src/realtime/bus.js'
 import { certFingerprint, tlsOptions } from '../src/tls.js'
 import { createTestDb } from './support/db.js'
+import { FakeFeishu } from './support/feishu.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'gonggong-tls-'))
 const script = join(import.meta.dirname, '../../../scripts/dev-cert.sh')
@@ -65,6 +66,7 @@ describe('server over TLS', () => {
         { LIVEKIT_URL: 'ws://127.0.0.1:9', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 's' },
         dir,
       ),
+      feishu: (({ api, connector }) => ({ api, connector }))(new FakeFeishu()),
       now: () => new Date(),
       config: {
         heartbeatSec: 15,

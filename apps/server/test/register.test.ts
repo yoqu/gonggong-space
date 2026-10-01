@@ -24,7 +24,7 @@ const open = (registrationOpen: boolean) =>
 
 describe('self sign-up', () => {
   it('is closed by default, and the login page can tell without a session', async () => {
-    expect(await options()).toEqual({ registrationOpen: false })
+    expect(await options()).toEqual({ registrationOpen: false, feishuLogin: false })
     const res = await register()
     expect(res.statusCode).toBe(403)
     expect(res.json().message).toBe('未开放注册，请联系系统管理员创建账号')
@@ -32,7 +32,7 @@ describe('self sign-up', () => {
 
   it('once the sysadmin opens it, creates a member who is signed in at once, and audits it', async () => {
     expect((await open(true)).json()).toMatchObject({ registrationOpen: true })
-    expect(await options()).toEqual({ registrationOpen: true })
+    expect(await options()).toEqual({ registrationOpen: true, feishuLogin: false })
     const res = await register()
     expect(res.statusCode).toBe(201)
     expect(res.json()).toMatchObject({

@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -25,7 +26,8 @@ export const users = pgTable('users', {
   id: id(),
   account: text('account').notNull().unique(),
   name: text('name').notNull(),
-  passwordHash: text('password_hash').notNull(),
+  /** null for accounts created by 飞书登录 that never set a password: password login always fails. */
+  passwordHash: text('password_hash'),
   /** 'sysadmin' | 'member'; group admin is per group (groupMembers.isAdmin). */
   role: text('role').notNull().default('member'),
   mustChangePassword: boolean('must_change_password').notNull().default(true),
@@ -375,6 +377,7 @@ export const messages = pgTable(
     meta: jsonb('meta').notNull().default({}),
     runId: uuid('run_id'),
     createdAt: createdAt(),
+    editedAt: ts('edited_at'),
     /** Recalled by its author: body and meta attachments/quote are erased at that moment. */
     recalledAt: ts('recalled_at'),
   },
@@ -728,3 +731,100 @@ export const systemParams = pgTable('system_params', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
 })
+
+// ── 飞书联动 (plan 飞书联动-开发计划) ─────────────────────────────────────────
+/** Feishu self-built apps: one system-wide 'main' app (login, human mirroring) and one per bot (F1). */
+export const feishuApps = pgTable(
+  'feishu_apps',
+  {
+    id: id(),
+    /** 'main' | 'bot' */
+    kind: text('kind').notNull(),
+    /** The bot's team for 'bot'; null for the system-wide 'main' app. */
+    teamId: uuid('team_id').references(() => teams.id),
+    botId: uuid('bot_id')
+      .references(() => bots.id)
+      .unique(),
+    appId: text('app_id').notNull().unique(),
+    /** Sealed (lib/seal.ts). */
+    appSecret: text('app_secret').notNull(),
+    /** Long connection: 'connecting' | 'connected' | 'error' */
+    status: text('status').notNull().default('connecting'),
+    error: text('error'),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('feishu_apps_one_main').on(t.kind).where(sql`${t.kind} = 'main'`)],
+)
+
+/** A 共工 account's Feishu identity, via the main app's OAuth (F13); one to one both ways. */
+export const feishuIdentities = pgTable('feishu_identities', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id)
+    .unique(),
+  unionId: text('union_id').notNull().unique(),
+  /** Tenant-wide user_id when the main app may read it. */
+  feishuUserId: text('feishu_user_id'),
+  /** open_id under the main app. */
+  openId: text('open_id').notNull(),
+  name: text('name').notNull(),
+  email: text('email'),
+  avatar: text('avatar'),
+  /** Sealed user tokens of the main app (send as user, read chat context); null once revoked. */
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  expiresAt: ts('expires_at'),
+  refreshExpiresAt: ts('refresh_expires_at'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+})
+
+/** 共工 group ↔ Feishu chat, one to one while bound. */
+export const feishuChats = pgTable(
+  'feishu_chats',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    chatId: text('chat_id').notNull(),
+    /** Chat name when bound, for display. */
+    name: text('name').notNull().default(''),
+    boundBy: uuid('bound_by')
+      .notNull()
+      .references(() => users.id),
+    unboundAt: ts('unbound_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('feishu_chats_group').on(t.groupId).where(sql`${t.unboundAt} is null`),
+    uniqueIndex('feishu_chats_chat').on(t.chatId).where(sql`${t.unboundAt} is null`),
+  ],
+)
+
+/** Which Feishu message mirrors which 共工 message / card: dedup, loop guard, recall and edit sync. */
+export const feishuMessageLinks = pgTable(
+  'feishu_message_links',
+  {
+    id: id(),
+    feishuMessageId: text('feishu_message_id').notNull().unique(),
+    chatId: text('chat_id').notNull(),
+    /** The app that sent ('out') or first delivered ('in') it. */
+    appId: text('app_id').notNull(),
+    /** 'in' | 'out' */
+    direction: text('direction').notNull(),
+    /** 'message' | 'run_card' | 'question' | 'approval' */
+    kind: text('kind').notNull(),
+    messageId: uuid('message_id').references(() => messages.id),
+    runId: uuid('run_id').references(() => runs.id),
+    /** question_sets / approvals row a card stands for. */
+    refId: uuid('ref_id'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('feishu_links_message').on(t.messageId), index('feishu_links_run').on(t.runId)],
+)

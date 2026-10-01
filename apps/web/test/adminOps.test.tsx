@@ -54,6 +54,7 @@ const PARAMS: SystemParams = {
   previewShareMaxDays: 30,
   singleTeamMode: true,
   teamCreation: 'sysadmin',
+  feishuAutoSignup: true,
 }
 
 class NoopSocket {

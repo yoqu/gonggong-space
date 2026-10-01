@@ -3,6 +3,7 @@ import { t } from '../../i18n'
 import type { IconName } from '../../ui'
 import { BotsAdminPage } from '../bots/BotsAdminPage'
 import { ConfigPage } from '../config/ConfigPage'
+import { FeishuAdminPage } from '../feishu/FeishuAdminPage'
 import { SharesPage } from '../previews/SharesPage'
 import { UsagePage } from '../usage/UsagePage'
 import { AuditPage } from './AuditPage'
@@ -82,6 +83,16 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         color: 'var(--system-gray)',
         desc: t('平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。'),
         element: <ParamsPage />,
+      },
+      {
+        path: 'feishu',
+        label: t('飞书'),
+        icon: 'send',
+        color: 'var(--system-blue)',
+        desc: t(
+          '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的应用在 Bot 设置中绑定。',
+        ),
+        element: <FeishuAdminPage />,
       },
       {
         path: 'releases',

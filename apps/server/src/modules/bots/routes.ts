@@ -16,11 +16,22 @@ import { and, asc, desc, eq, inArray, isNull, max, ne, notInArray } from 'drizzl
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { bots, groupBots, groups, machines, runs, teamMembers, teams, users } from '../../db/schema.js'
+import {
+  bots,
+  feishuApps,
+  groupBots,
+  groups,
+  machines,
+  runs,
+  teamMembers,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
+import { reloadFeishu } from '../feishu/gateway.js'
 import { teamParams } from '../groups/params.js'
 import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
@@ -388,6 +399,8 @@ export function botRoutes(ctx: Ctx) {
         .update(groupBots)
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)))
+      await ctx.db.delete(feishuApps).where(eq(feishuApps.botId, bot.id))
+      await reloadFeishu(ctx)
       await auditForeign(ctx, user, bot, 'bot.delete')
       await publishBotRemoved(ctx, bot.id)
       await publishDmsOf(ctx, bot.id)

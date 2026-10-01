@@ -63,7 +63,10 @@ function paramChanges(d: Detail) {
   const creation = changes.teamCreation
     ? [t(changes.teamCreation[1] === 'all' ? '建团队权限改为所有人' : '建团队权限改为仅系统管理员')]
     : []
-  return [...reg, ...single, ...creation, ...numeric].join(t('；'))
+  const feishu = changes.feishuAutoSignup
+    ? [t(changes.feishuAutoSignup[1] ? '开启飞书自动开户' : '关闭飞书自动开户')]
+    : []
+  return [...reg, ...single, ...creation, ...feishu, ...numeric].join(t('；'))
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */
@@ -136,6 +139,14 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('确认 Bot {name}', { name: str(d.name) })
         case 'bot.approval':
           return t('修改 Bot {name} 的审批设置', { name: str(d.name) })
+        case 'feishu.app.save':
+          return d.kind === 'main'
+            ? t('配置飞书主应用 {appId}', { appId: str(d.appId) })
+            : t('为 Bot {bot} 绑定飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
+        case 'feishu.app.remove':
+          return d.kind === 'main'
+            ? t('移除飞书主应用 {appId}', { appId: str(d.appId) })
+            : t('解除 Bot {bot} 的飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
         case 'user.create':
           return t('新建账号 {account}（{role}）', { account: str(d.account), role: role(d.role) })
         case 'user.update': {

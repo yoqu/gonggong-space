@@ -21,6 +21,8 @@ import { botRoutes } from './modules/bots/routes.js'
 import { Mirrors } from './modules/candidates/mirror.js'
 import { candidateRoutes } from './modules/candidates/routes.js'
 import { startCandidates } from './modules/candidates/service.js'
+import { startFeishu } from './modules/feishu/gateway.js'
+import { feishuRoutes } from './modules/feishu/routes.js'
 import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
@@ -132,6 +134,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(releaseRoutes(ctx))
   await app.register(adminRoutes(ctx))
   await app.register(adminTeamRoutes(ctx))
+  await app.register(feishuRoutes(ctx))
+  app.addHook('onClose', await startFeishu(ctx))
   // Base-branch mirrors serve both the @ file candidates and ⌘K file search.
   const mirrors = new Mirrors(join(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data', 'mirrors'), ctx.now)
   await app.register(mcpRoutes(ctx))

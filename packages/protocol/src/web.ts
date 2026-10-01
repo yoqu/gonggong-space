@@ -97,7 +97,11 @@ export const RegisterReq = z.object({
   inviteToken: z.string().optional(),
 })
 /** GET /api/auth/options — public: what the login page may offer. */
-export const AuthOptionsDto = z.object({ registrationOpen: z.boolean() })
+export const AuthOptionsDto = z.object({
+  registrationOpen: z.boolean(),
+  /** The main Feishu app is configured: the login page offers 飞书登录. */
+  feishuLogin: z.boolean(),
+})
 export type AuthOptionsDto = z.infer<typeof AuthOptionsDto>
 export const UpdateUserReq = z.object({ name: z.string().min(1).optional(), role: Role.optional() })
 /** POST /api/admin/users/:id/password — temporary password; the member must change it at next login. */
@@ -1215,6 +1219,8 @@ export const SystemParams = GroupParams.extend({
   singleTeamMode: z.boolean(),
   /** Who may create teams. */
   teamCreation: z.enum(['all', 'sysadmin']),
+  /** First 飞书登录 may create an account (only the enterprise's own members can authorize the main app). */
+  feishuAutoSignup: z.boolean(),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 /** Params a team may override for its groups (plan D9). */
@@ -1251,7 +1257,10 @@ export const UpdateTeamReq = z.object({
 export const UpdateSystemParamsReq = SystemParams.partial()
 /** Display order, labels and units of 系统参数 (also used by audit summaries); `measure` = 需实测 (spec §10 待定). */
 export const SYSTEM_PARAM_VIEW: {
-  key: Exclude<keyof SystemParams, 'registrationOpen' | 'singleTeamMode' | 'teamCreation'>
+  key: Exclude<
+    keyof SystemParams,
+    'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'feishuAutoSignup'
+  >
   label: string
   unit: string
   measure?: true

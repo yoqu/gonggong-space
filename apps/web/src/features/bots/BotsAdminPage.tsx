@@ -38,6 +38,7 @@ import {
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { TeamFilter } from '../admin/TeamFilter'
+import { FeishuAppForm } from '../feishu/FeishuAppForm'
 import { TIER_LABEL, TIERS } from '../runs/tier'
 import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
@@ -359,6 +360,15 @@ export function BotDetail({
           )}
         </FormRow>
         <ApprovalFields owner={owner} value={approval} onChange={setApproval} />
+        {canEdit ? (
+          <FormRow
+            label={t('飞书应用')}
+            align="top"
+            hint={t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @')}
+          >
+            <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('解除飞书应用')} />
+          </FormRow>
+        ) : null}
         <FormRow label={t('所在群')}>{t('{n} 个', { n: bot.groupCount })}</FormRow>
         <FormRow label={t('agent 版本')}>
           <span className="bots-detail__mono">{agentCliVersion(bot)}</span>
