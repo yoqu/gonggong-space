@@ -8,6 +8,10 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
+    "@types/three": "0.186.0",
     "vitepress": "1.6.4"
+  },
+  "dependencies": {
+    "three": "0.186.1"
   }
 }

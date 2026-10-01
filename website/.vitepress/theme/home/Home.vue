@@ -3,7 +3,7 @@ import Cast from './Cast.vue'
 import { useCopy } from './copy'
 import Features from './Features.vue'
 import Flow from './Flow.vue'
-import Hero from './Hero.vue'
+import Hero3D from './Hero3D.vue'
 import LiveGroup from './LiveGroup.vue'
 import Outro from './Outro.vue'
 import Platforms from './Platforms.vue'
@@ -15,7 +15,7 @@ const { isEn } = useCopy()
 
 <template>
   <div class="gg" :class="{ 'gg--en': isEn }">
-    <Hero />
+    <Hero3D />
     <LiveGroup />
     <Stage />
     <Flow />
