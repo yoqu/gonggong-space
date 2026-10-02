@@ -547,8 +547,9 @@ describe('question and approval cards', () => {
       chatId: CHAT,
       operator: ownerFs,
       value: { k: 'approve', a: a!.id, o: 'ok' },
-    })) as { toast: { type: string } }
+    })) as { toast: { type: string }; card: { data: unknown } }
     expect(res.toast.type).toBe('success')
+    expect(JSON.stringify(res.card.data)).toContain('已由 王磊 允许')
     expect((await t.db.select().from(approvals).where(eq(approvals.id, a!.id)))[0]?.status).toBe('approved')
 
     await ask('r2')

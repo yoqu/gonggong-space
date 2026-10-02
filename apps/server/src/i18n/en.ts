@@ -431,6 +431,7 @@ export const en = {
   '{bot} 请求审批': '{bot} requests approval',
   已超时: 'Timed out',
   '已由 {name} 拒绝': 'Rejected by {name}',
+  '已由 {name} 允许': 'Approved by {name}',
   '已由 {name} 处理': 'Handled by {name}',
   共工: 'Gonggong',
   '飞书调用失败：{reason}': 'Feishu call failed: {reason}',

@@ -243,6 +243,7 @@ function settledNote(status: string, by: string | null) {
   if (status === 'expired') return zt('已超时')
   if (status === 'void') return zt('已作废')
   if (status === 'rejected') return zt('已由 {name} 拒绝', { name: by ?? '' })
+  if (status === 'approved') return zt('已由 {name} 允许', { name: by ?? '' })
   return zt('已由 {name} 处理', { name: by ?? '' })
 }
 
