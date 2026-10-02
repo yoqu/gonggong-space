@@ -159,6 +159,53 @@ export function approvalCard(o: {
   return card(zt('{bot} 请求审批', { bot: o.bot }), 'orange', [...head, ...buttons])
 }
 
+export type PreviewState = 'online' | 'offline' | 'login' | 'closed'
+
+const PREVIEW_KIND: Record<string, string> = {
+  http: zt('网页'),
+  static: zt('网页'),
+  gui: zt('桌面应用'),
+  miniprogram: zt('小程序'),
+}
+
+const PREVIEW_STATE: Record<PreviewState, { label: string; template: string }> = {
+  online: { label: zt('可打开'), template: 'green' },
+  offline: { label: zt('机器离线'), template: 'grey' },
+  login: { label: zt('等待开发者工具登录'), template: 'orange' },
+  closed: { label: zt('已关闭'), template: 'grey' },
+}
+
+/** Feishu applink that opens `url` in the chat's sidebar (desktop client). */
+const sidebarUrl = (url: string) =>
+  `https://applink.feishu.cn/client/web_url/open?mode=sidebar-semi&url=${encodeURIComponent(url)}`
+
+/** A bot's published preview: its snapshot and the ways to open it in 共工; `url` is null without 对外地址 or once closed. */
+export function previewCard(o: {
+  bot: string
+  title: string
+  kind: string
+  state: PreviewState
+  image: string | null
+  url: string | null
+}) {
+  const s = PREVIEW_STATE[o.state]
+  const elements = [
+    ...(o.image
+      ? [{ tag: 'img', img_key: o.image, alt: text(o.title), scale_type: 'fit_horizontal', preview: true }]
+      : []),
+    ...(o.url
+      ? [linkButton(zt('打开预览'), o.url, true), linkButton(zt('在飞书侧边栏打开'), sidebarUrl(o.url))]
+      : []),
+  ]
+  const note = o.state === 'closed' ? zt('预览已关闭') : zt('在共工群里打开此预览')
+  return card(
+    o.title,
+    s.template,
+    elements.length ? elements : [markdown(note)],
+    `${o.bot} · ${PREVIEW_KIND[o.kind] ?? o.kind} · ${s.label}`,
+  )
+}
+
 function settledNote(status: string, by: string | null) {
   if (status === 'expired') return zt('已超时')
   if (status === 'void') return zt('已作废')

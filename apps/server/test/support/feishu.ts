@@ -43,6 +43,8 @@ export class FakeFeishu {
   readonly edits: { appId: string; messageId: string; body: FeishuBody; userToken?: string }[] = []
   readonly recalls: { appId: string; messageId: string; userToken?: string }[] = []
   readonly botsAdded: { appId: string; chatId: string; botAppId: string }[] = []
+  /** Images uploaded per app; the key is `img_<n>`. */
+  readonly images: { appId: string; key: string; data: Buffer }[] = []
   /** Chats each app's bot is in. */
   readonly chats = new Map<string, FeishuChat[]>()
   /** Chat history by chat id, oldest first (read by `listMessages`). */
@@ -252,6 +254,12 @@ export class FakeFeishu {
     recall: async (app, messageId, userToken) => {
       this.check(app.appId)
       this.recalls.push({ appId: app.appId, messageId, ...(userToken && { userToken }) })
+    },
+    uploadImage: async (app, data) => {
+      this.check(app.appId)
+      const key = `img_${this.images.length + 1}`
+      this.images.push({ appId: app.appId, key, data })
+      return key
     },
     download: async (app, _messageId, fileKey) => {
       this.check(app.appId)

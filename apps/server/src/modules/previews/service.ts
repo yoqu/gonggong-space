@@ -9,6 +9,7 @@ import { fail, HttpError } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { refuse } from '../agent-tools/service.js'
 import { dataDir } from '../attachments/service.js'
+import { mirrorPreviews } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
 import { castState, controlOf, syncCasts } from '../live/service.js'
 import { memberIds, postMessage } from '../messages/service.js'
@@ -160,6 +161,7 @@ export async function publishPreviews(ctx: Ctx, groupId: string) {
       groupId,
       ...(await groupPreviews(ctx, groupId, userId)),
     })
+  await mirrorPreviews(ctx, groupId)
 }
 
 /** `preview_expose` for a live run (plan §5): one open preview per (group, bot, port), announced by a card. */

@@ -1,4 +1,4 @@
-import type { GroupDto } from '@gonggong/protocol'
+import type { GroupDto, GroupPreviewsDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { BotDialog } from '../features/bots/BotDialog'
@@ -9,6 +9,7 @@ import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
 import { MachineDialog } from '../features/machines/MachineDialog'
+import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
 import { openTab } from '../features/workbench/open'
 import { Workbench } from '../features/workbench/Workbench'
@@ -87,6 +88,24 @@ function useLinkedRun(groupId: string | undefined) {
   }, [run, file, groupId, bench, setParams])
 }
 
+/** `?preview=<id>` from a Feishu preview card opens that preview's tab (a closed one just lands in the group). */
+function useLinkedPreview(groupId: string | undefined) {
+  const [params, setParams] = useSearchParams()
+  const id = params.get('preview')
+  const bench = useWorkbench((s) => s.groupId)
+  useEffect(() => {
+    if (!id || !groupId || bench !== groupId) return
+    api
+      .get<GroupPreviewsDto>(`/groups/${groupId}/previews`)
+      .then((list) => {
+        const p = list.previews.find((x) => x.id === id)
+        if (p) openInWorkbench(p)
+      })
+      .catch(() => {})
+      .finally(() => setParams({}, { replace: true }))
+  }, [id, groupId, bench, setParams])
+}
+
 /** `?bot=<id>` (the desktop app's 在 Web 中管理) opens that bot's page. */
 function useLinkedBot() {
   const [params] = useSearchParams()
@@ -120,6 +139,7 @@ export function ChatPage() {
   useEffect(() => () => useInspector.getState().close(), [groupId])
   // The group must be loaded, so the workbench has switched to it for good.
   useLinkedRun(group?.id)
+  useLinkedPreview(group?.id)
   useLinkedBot()
   const viewed = useGroupOutsideList(groupId, groupsState === 'ready' && !group)
   const benchGroup = botId ? null : (group?.id ?? null)

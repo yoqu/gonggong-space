@@ -823,11 +823,11 @@ export const feishuMessageLinks = pgTable(
     appId: text('app_id').notNull(),
     /** 'in' | 'out' */
     direction: text('direction').notNull(),
-    /** 'message' | 'run_card' | 'question' | 'approval' */
+    /** 'message' | 'run_card' | 'question' | 'approval' | 'preview' */
     kind: text('kind').notNull(),
     messageId: uuid('message_id').references(() => messages.id),
     runId: uuid('run_id').references(() => runs.id),
-    /** question_sets / approvals row a card stands for. */
+    /** question_sets / approvals / previews row a card stands for. */
     refId: uuid('ref_id'),
     createdAt: createdAt(),
   },

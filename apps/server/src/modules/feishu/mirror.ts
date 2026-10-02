@@ -1,6 +1,7 @@
+import { readFile } from 'node:fs/promises'
 import type { Answer, PermissionOption, Question, RunStatus } from '@gonggong/protocol'
 import { TERMINAL_RUN_STATUS } from '@gonggong/protocol'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
@@ -10,12 +11,14 @@ import {
   feishuIdentities,
   feishuMessageLinks,
   messages,
+  previews,
   questionSets,
   runs,
   users,
 } from '../../db/schema.js'
+import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
-import { approvalCard, questionCard, runCard } from './cards.js'
+import { approvalCard, type PreviewState, previewCard, questionCard, runCard } from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
 import { publicUrl, userToken } from './identity.js'
@@ -33,6 +36,8 @@ interface Mirror {
   rendered: Map<string, string>
   /** Per run: when its card last changed, and the deferred update if one is due. */
   throttle: Map<string, { at: number; timer?: NodeJS.Timeout }>
+  /** Per preview: the snapshot uploaded to Feishu (by when it was taken) and its image_key. */
+  images: Map<string, { at: number; key: string }>
 }
 
 const mirrors = new WeakMap<Ctx, Mirror>()
@@ -40,7 +45,7 @@ const mirrors = new WeakMap<Ctx, Mirror>()
 function state(ctx: Ctx) {
   let m = mirrors.get(ctx)
   if (!m) {
-    m = { queues: new Map(), rendered: new Map(), throttle: new Map() }
+    m = { queues: new Map(), rendered: new Map(), throttle: new Map(), images: new Map() }
     mirrors.set(ctx, m)
   }
   return m
@@ -213,7 +218,7 @@ async function syncRun(ctx: Ctx, runId: string) {
 
 async function cardLink(
   ctx: Ctx,
-  kind: 'run_card' | 'question' | 'approval',
+  kind: 'run_card' | 'question' | 'approval' | 'preview',
   key: { runId?: string; refId?: string },
 ) {
   const [link] = await ctx.db
@@ -233,7 +238,8 @@ async function cardLink(
 async function putCard(
   ctx: Ctx,
   app: FeishuAppRow,
-  trigger: Link,
+  /** Replied to when it has a Feishu message; a card without one is posted to the chat. */
+  trigger: { chatId: string; feishuMessageId?: string },
   existing: Link | undefined,
   card: object,
   link: Pick<typeof feishuMessageLinks.$inferInsert, 'kind' | 'runId' | 'refId'>,
@@ -341,4 +347,85 @@ async function syncApprovals(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: st
     })
     await putCard(ctx, app, trigger, existing, card, { kind: 'approval', runId, refId: a.id })
   }
+}
+
+/** Called on every preview change (publishPreviews): mirrors the group's preview cards to the bound chat. */
+export async function mirrorPreviews(ctx: Ctx, groupId: string) {
+  if (!(await boundChat(ctx.db, groupId))) return
+  enqueue(ctx, groupId, () => syncPreviewCards(ctx, groupId))
+}
+
+async function syncPreviewCards(ctx: Ctx, groupId: string) {
+  const chat = await boundChat(ctx.db, groupId)
+  if (!chat) return
+  const mirrored = (
+    await ctx.db
+      .select({ id: feishuMessageLinks.refId })
+      .from(feishuMessageLinks)
+      .where(and(eq(feishuMessageLinks.kind, 'preview'), eq(feishuMessageLinks.chatId, chat.chatId)))
+  ).flatMap((l) => (l.id ? [l.id] : []))
+  // Open ones, plus closed ones whose card still has to say so.
+  const rows = await ctx.db
+    .select({ p: previews, bot: bots.name })
+    .from(previews)
+    .innerJoin(bots, eq(bots.id, previews.botId))
+    .where(
+      and(
+        eq(previews.groupId, groupId),
+        mirrored.length
+          ? or(isNull(previews.closedAt), inArray(previews.id, mirrored))
+          : isNull(previews.closedAt),
+      ),
+    )
+  const base = await publicUrl(ctx)
+  for (const { p, bot } of rows) {
+    const existing = await cardLink(ctx, 'preview', { refId: p.id })
+    const app = await appOfBot(ctx, p.botId)
+    if (!app) continue
+    const [trigger] = p.createdByRunId
+      ? await ctx.db
+          .select({ chatId: feishuMessageLinks.chatId, feishuMessageId: feishuMessageLinks.feishuMessageId })
+          .from(feishuMessageLinks)
+          .innerJoin(runs, eq(runs.triggerMessageId, feishuMessageLinks.messageId))
+          .where(and(eq(runs.id, p.createdByRunId), eq(feishuMessageLinks.kind, 'message')))
+      : []
+    const state: PreviewState = p.closedAt
+      ? 'closed'
+      : p.awaiting === 'login'
+        ? 'login'
+        : ctx.tunnels.get(p.machineId)
+          ? 'online'
+          : 'offline'
+    const url = base && !p.closedAt ? `${base}/g/${groupId}?preview=${p.id}` : null
+    const card = previewCard({
+      bot,
+      title: p.title,
+      kind: p.kind,
+      state,
+      image: state === 'login' ? null : await snapshotKey(ctx, app, p),
+      url,
+    })
+    await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {
+      kind: 'preview',
+      refId: p.id,
+    })
+  }
+}
+
+/** The preview's latest snapshot as a Feishu image; uploaded once per snapshot, skipped when Feishu refuses. */
+async function snapshotKey(ctx: Ctx, app: FeishuAppRow, p: typeof previews.$inferSelect) {
+  if (!p.snapshotAt) return null
+  const { images } = state(ctx)
+  const at = p.snapshotAt.getTime()
+  const cached = images.get(p.id)
+  if (cached?.at === at) return cached.key
+  const png = await readFile(snapshotFile(p.id)).catch(() => null)
+  if (!png) return null
+  const key = await ctx.feishu.api.uploadImage(credsOf(app), png).catch((err) => {
+    if (!(err instanceof FeishuError)) throw err
+    console.error('feishu snapshot upload:', `${err.code} ${err.message}`)
+    return null
+  })
+  if (key) images.set(p.id, { at, key })
+  return key
 }

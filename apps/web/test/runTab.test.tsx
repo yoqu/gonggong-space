@@ -494,6 +494,35 @@ describe('run tab', () => {
     expect(await within(tab).findByText('+second line')).toBeTruthy()
   })
 
+  it('opens the preview linked from a Feishu card', async () => {
+    const preview = {
+      id: 'p1',
+      groupId: 'g1',
+      groupName: '退款 v2 迁移',
+      botId: 'b1',
+      botName: '小王的 Claude',
+      kind: 'http' as const,
+      title: '登录页',
+      path: '/login',
+      serviceId: null,
+      serviceName: null,
+      port: 5173,
+      snapshotAt: null,
+      status: 'online' as const,
+      awaiting: null,
+      snapshotError: null,
+      live: null,
+      control: null,
+      canManage: false,
+      createdAt: '2026-09-27T10:00:00Z',
+    }
+    mockApi(detail, {
+      'GET /groups/g1/previews': () => ({ previews: [preview], services: [], manageableBotIds: [] }),
+    })
+    renderChat('/g/g1?preview=p1')
+    await waitFor(() => expect(tabs()).toEqual([{ kind: 'web', previewId: 'p1', path: '/login' }]))
+  })
+
   it('says so when the workbench is full', async () => {
     mockApi(detail)
     useWorkbench.setState({

@@ -27,6 +27,7 @@ export const MAIN_TENANT_SCOPES = [
   'im:message:send_as_bot',
   'im:chat:readonly',
   'im:chat.members:write_only',
+  'im:resource',
   'application:application:patch',
 ]
 
@@ -36,6 +37,7 @@ export const BOT_TENANT_SCOPES = [
   'im:message:send_as_bot',
   'im:message:readonly',
   'im:chat:readonly',
+  'im:resource',
   'application:application:patch',
 ]
 export const BOT_EVENTS = ['im.message.receive_v1', 'im.message.recalled_v1']
@@ -133,6 +135,8 @@ export interface FeishuApi {
   recall(app: FeishuCreds, messageId: string, userToken?: string): Promise<void>
   /** A file or image attached to a message the app can see. */
   download(app: FeishuCreds, messageId: string, fileKey: string, type: 'image' | 'file'): Promise<Buffer>
+  /** Uploads an image for cards and messages; returns its image_key. */
+  uploadImage(app: FeishuCreds, data: Buffer): Promise<string>
   /** The authorization page of the app's OAuth (web login). */
   authorizeUrl(appId: string, redirectUri: string, state: string): string
   exchangeCode(app: FeishuCreds, code: string, redirectUri: string): Promise<FeishuTokens>
@@ -258,6 +262,19 @@ export function larkApi(): FeishuApi {
         const data = (err as { response?: { data?: { code?: number; msg?: string } } }).response?.data
         throw new FeishuError(data?.code ?? 0, data?.msg ?? (err as Error).message)
       }
+    },
+
+    async uploadImage(app, data) {
+      let key: string | undefined
+      try {
+        key = (await client(app).im.v1.image.create({ data: { image_type: 'message', image: data } }))
+          ?.image_key
+      } catch (err) {
+        const res = (err as { response?: { data?: { code?: number; msg?: string } } }).response?.data
+        throw new FeishuError(res?.code ?? 0, res?.msg ?? (err as Error).message)
+      }
+      if (!key) throw new FeishuError(0, 'no image_key')
+      return key
     },
 
     authorizeUrl(appId, redirectUri, state) {
