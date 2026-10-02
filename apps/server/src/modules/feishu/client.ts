@@ -28,6 +28,8 @@ export const MAIN_TENANT_SCOPES = [
   'im:chat:readonly',
   'im:chat.members:write_only',
   'im:resource',
+  'im:message.reactions:write_only',
+  'cardkit:card:write',
   'application:application:patch',
 ]
 
@@ -38,6 +40,8 @@ export const BOT_TENANT_SCOPES = [
   'im:message:readonly',
   'im:chat:readonly',
   'im:resource',
+  'im:message.reactions:write_only',
+  'cardkit:card:write',
   'application:application:patch',
 ]
 export const BOT_EVENTS = ['im.message.receive_v1', 'im.message.recalled_v1']
@@ -137,6 +141,23 @@ export interface FeishuApi {
   download(app: FeishuCreds, messageId: string, fileKey: string, type: 'image' | 'file'): Promise<Buffer>
   /** Uploads an image for cards and messages; returns its image_key. */
   uploadImage(app: FeishuCreds, data: Buffer): Promise<string>
+  /** Adds an emoji reaction (`emoji` is an emoji_type) as the app; returns its reaction_id. */
+  addReaction(app: FeishuCreds, messageId: string, emoji: string): Promise<string>
+  removeReaction(app: FeishuCreds, messageId: string, reactionId: string): Promise<void>
+  /** Creates a CardKit card entity from card JSON 2.0; returns its card_id (sent as `{type:'card',data:{card_id}}`). */
+  createCard(app: FeishuCreds, card: string): Promise<string>
+  /** Replaces a card entity's whole JSON. `sequence` must grow strictly across all operations on one card. */
+  updateCardEntity(app: FeishuCreds, cardId: string, card: string, sequence: number): Promise<void>
+  /** Streams the full text of a markdown element (typewriter when the old text is its prefix). */
+  streamText(
+    app: FeishuCreds,
+    cardId: string,
+    elementId: string,
+    text: string,
+    sequence: number,
+  ): Promise<void>
+  /** Card entity settings, e.g. `{"config":{"streaming_mode":false}}`. */
+  cardSettings(app: FeishuCreds, cardId: string, settings: string, sequence: number): Promise<void>
   /** The authorization page of the app's OAuth (web login). */
   authorizeUrl(appId: string, redirectUri: string, state: string): string
   exchangeCode(app: FeishuCreds, code: string, redirectUri: string): Promise<FeishuTokens>
@@ -230,6 +251,55 @@ export function larkApi(): FeishuApi {
           )
       if (!sent?.message_id) throw new FeishuError(0, 'no message_id')
       return { messageId: sent.message_id }
+    },
+
+    async addReaction(app, messageId, emoji) {
+      const r = await call(
+        client(app).im.v1.messageReaction.create({
+          path: { message_id: messageId },
+          data: { reaction_type: { emoji_type: emoji } },
+        }),
+      )
+      if (!r?.reaction_id) throw new FeishuError(0, 'no reaction_id')
+      return r.reaction_id
+    },
+
+    async removeReaction(app, messageId, reactionId) {
+      await call(
+        client(app).im.v1.messageReaction.delete({
+          path: { message_id: messageId, reaction_id: reactionId },
+        }),
+      )
+    },
+
+    async createCard(app, card) {
+      const r = await call(client(app).cardkit.v1.card.create({ data: { type: 'card_json', data: card } }))
+      if (!r?.card_id) throw new FeishuError(0, 'no card_id')
+      return r.card_id
+    },
+
+    async updateCardEntity(app, cardId, card, sequence) {
+      await call(
+        client(app).cardkit.v1.card.update({
+          path: { card_id: cardId },
+          data: { card: { type: 'card_json', data: card }, sequence },
+        }),
+      )
+    },
+
+    async streamText(app, cardId, elementId, text, sequence) {
+      await call(
+        client(app).cardkit.v1.cardElement.content({
+          path: { card_id: cardId, element_id: elementId },
+          data: { content: text, sequence },
+        }),
+      )
+    },
+
+    async cardSettings(app, cardId, settings, sequence) {
+      await call(
+        client(app).cardkit.v1.card.settings({ path: { card_id: cardId }, data: { settings, sequence } }),
+      )
     },
 
     async updateCard(app, messageId, card) {

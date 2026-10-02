@@ -823,12 +823,17 @@ export const feishuMessageLinks = pgTable(
     appId: text('app_id').notNull(),
     /** 'in' | 'out' */
     direction: text('direction').notNull(),
-    /** 'message' | 'run_card' | 'question' | 'approval' | 'preview' */
+    /**
+     * 'message' | 'run_card' | 'question' | 'approval' | 'preview' | 'reaction' (a bot's working reaction: its
+     * reaction_id is `feishuMessageId`, the message it is on is `feishuRef`).
+     */
     kind: text('kind').notNull(),
     messageId: uuid('message_id').references(() => messages.id),
     runId: uuid('run_id').references(() => runs.id),
     /** question_sets / approvals / previews row a card stands for. */
     refId: uuid('ref_id'),
+    /** Feishu id paired with it: a streaming run card's CardKit card_id, a reaction's message. */
+    feishuRef: text('feishu_ref'),
     createdAt: createdAt(),
   },
   (t) => [index('feishu_links_message').on(t.messageId), index('feishu_links_run').on(t.runId)],

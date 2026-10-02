@@ -1,6 +1,6 @@
 import type { GroupFeishuView, MessageDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approvals,
   feishuIdentities,
@@ -12,7 +12,7 @@ import {
 } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { onApprovalRequest } from '../src/modules/approvals/service.js'
-import { feishuIdle } from '../src/modules/feishu/mirror.js'
+import { feishuIdle, mirrorDelta } from '../src/modules/feishu/mirror.js'
 import { onQuestionAsk } from '../src/modules/questions/service.js'
 import { publishRun } from '../src/modules/runs/dto.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -340,7 +340,7 @@ describe('共工 → 飞书', () => {
     ])
   })
 
-  it('the run card follows the run, throttled, and ends with the reply and a link to its process', async () => {
+  it('the run card streams the agent text and steps, then ends with the reply and a link to its process', async () => {
     const { ownerHttp, group, bot } = await setup()
     const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
       body: '@codex 跑',
@@ -348,20 +348,103 @@ describe('共工 → 飞书', () => {
     })
     await feishuIdle(t.ctx)
     const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
-    const card = t.feishu.sent.find((s) => s.msgType === 'interactive')!
+    const msg = t.feishu.sent.find((s) => s.msgType === 'interactive')!
+    expect(msg.content).toMatchObject({ type: 'card', data: { card_id: expect.any(String) } })
+    const cardId = (msg.content.data as { card_id: string }).card_id
+    expect(t.feishu.cards.get(cardId)).toMatchObject({ appId: BOT_APP, streaming: true })
+
     await setRun(run!.id, { status: 'running', step: '读取文件' })
-    await setRun(run!.id, { status: 'running', step: '编辑文件' })
-    expect(t.feishu.cardUpdates.length).toBeLessThanOrEqual(1)
+    mirrorDelta(t.ctx, run!.id, '正在')
+    mirrorDelta(t.ctx, run!.id, '修复')
+    await feishuIdle(t.ctx)
+    mirrorDelta(t.ctx, run!.id, '登录')
+    await feishuIdle(t.ctx)
+    const texts = t.feishu.cardOps.filter((o) => o.op === 'text').map((o) => o.text)
+    expect(texts).toEqual(['正在修复', '正在修复登录'])
+    expect(t.feishu.cardText(cardId, 'reply')).toBe('正在修复登录')
+    expect(JSON.stringify(t.feishu.cards.get(cardId)!.card)).toContain('读取文件')
 
     await t.db
       .insert(messages)
       .values({ groupId: group.id, kind: 'bot', authorBotId: bot.id, body: '已修复登录', runId: run!.id })
     await setRun(run!.id, { status: 'completed', step: '' })
-    const final = t.feishu.cardUpdates.at(-1)!
-    expect(final.messageId).toBe(card.messageId)
-    const json = JSON.stringify(final.card)
+    const json = JSON.stringify(t.feishu.cards.get(cardId)!.card)
     expect(json).toContain('已修复登录')
     expect(json).toContain(`${BASE}/g/${group.id}?run=${run!.id}`)
+    expect(t.feishu.cards.get(cardId)!.streaming).toBe(false)
+    const seqs = t.feishu.cardOps.map((o) => o.sequence)
+    expect(seqs).toEqual([...seqs].sort((a, b) => a - b))
+    expect(t.feishu.cardUpdates).toEqual([])
+  })
+
+  it('the message a bot works on shows Typing until the run ends; a completed run leaves DONE', async () => {
+    const { ownerHttp, group } = await setup()
+    const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 跑',
+      clientId: 'client-1',
+    })
+    await feishuIdle(t.ctx)
+    const target = t.feishu.sent.find((s) => s.msgType === 'text')!.messageId
+    expect(t.feishu.reactions).toEqual([
+      expect.objectContaining({ appId: BOT_APP, messageId: target, emoji: 'Typing' }),
+    ])
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
+    await setRun(run!.id, { status: 'running' })
+    expect(t.feishu.reactions).toHaveLength(1)
+    await setRun(run!.id, { status: 'completed' })
+    expect(t.feishu.reactions.map((r) => [r.emoji, r.removed])).toEqual([
+      ['Typing', true],
+      ['DONE', false],
+    ])
+  })
+
+  it('an interrupted run only takes its Typing reaction back', async () => {
+    const { ownerHttp, group } = await setup()
+    const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 跑',
+      clientId: 'client-1',
+    })
+    await feishuIdle(t.ctx)
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
+    await setRun(run!.id, { status: 'interrupted' })
+    expect(t.feishu.reactions.map((r) => [r.emoji, r.removed])).toEqual([['Typing', true]])
+  })
+
+  it('an app without CardKit falls back to a patched run card', async () => {
+    const { ownerHttp, group } = await setup()
+    t.feishu.cardkitError = 'cardkit:card:write required'
+    const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 跑',
+      clientId: 'client-1',
+    })
+    await feishuIdle(t.ctx)
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
+    const card = t.feishu.sent.find((s) => s.msgType === 'interactive')!
+    expect(card.content).toHaveProperty('schema', '2.0')
+    mirrorDelta(t.ctx, run!.id, '不会流式')
+    await setRun(run!.id, { status: 'completed', step: '' })
+    expect(t.feishu.cardUpdates.at(-1)?.messageId).toBe(card.messageId)
+    expect(t.feishu.cardOps).toEqual([])
+  })
+
+  it('turns streaming back on before Feishu ends it after 10 minutes', async () => {
+    const { ownerHttp, group } = await setup()
+    const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 跑',
+      clientId: 'client-1',
+    })
+    await feishuIdle(t.ctx)
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.now() + 9.5 * 60_000)
+      mirrorDelta(t.ctx, run!.id, '还在跑')
+      await feishuIdle(t.ctx)
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(t.feishu.cardOps.map((o) => o.op)).toEqual(['settings', 'text'])
+    expect(t.feishu.cardOps[0]?.data).toEqual({ config: { streaming_mode: true } })
   })
 })
 

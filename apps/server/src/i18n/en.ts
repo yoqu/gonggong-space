@@ -403,6 +403,7 @@ export const en = {
 
   // 飞书联动 · 群绑定与消息
   '……（完整内容见共工）': '… (see Gonggong for the full text)',
+  '正在处理…': 'Working on it…',
   排队中: 'Queued',
   离线等待: 'Waiting for the Bot to come online',
   无权触发: 'Not allowed to trigger',

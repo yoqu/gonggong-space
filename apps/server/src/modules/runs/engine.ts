@@ -7,6 +7,7 @@ import { bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
 import { open, seal } from '../../lib/seal.js'
 import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
+import { mirrorDelta } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
 import { authorName, memberIds, messageDto, publishMessage } from '../messages/service.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
@@ -176,7 +177,9 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
 }
 
 async function pushDelta(ctx: Ctx, run: { id: string; groupId: string }, text: string) {
-  if (text) ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId: run.id, text })
+  if (!text) return
+  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId: run.id, text })
+  mirrorDelta(ctx, run.id, text)
 }
 
 async function onSessionConfig(

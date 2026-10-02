@@ -18,13 +18,31 @@ import {
 } from '../../db/schema.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
-import { approvalCard, type PreviewState, previewCard, questionCard, runCard } from './cards.js'
+import {
+  approvalCard,
+  type PreviewState,
+  previewCard,
+  questionCard,
+  REPLY_ELEMENT,
+  runCard,
+  runStreamCard,
+  streamText,
+} from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
 import { publicUrl, userToken } from './identity.js'
 
-/** Run cards change at most this often; the final state is never held back. */
+/** Patched (non-streaming) run cards change at most this often; the final state is never held back. */
 export const CARD_THROTTLE_MS = 2000
+/** Streamed text and step changes are flushed to the card this often: continuous on screen, few API calls. */
+export const STREAM_FLUSH_MS = 250
+/** Feishu ends streaming mode 10 minutes after it was turned on; it is turned on again a little before that. */
+const STREAMING_RENEW_MS = 9 * 60_000
+/** Reaction on the message a bot works on, and the one left when it completed (Feishu emoji_type). */
+export const WORKING_EMOJI = 'Typing'
+export const DONE_EMOJI = 'DONE'
+/** CardKit sequences only grow: time-based (0.1 s since 2026) survives restarts, +1 keeps fast calls apart. */
+const SEQUENCE_EPOCH = Date.UTC(2026, 0, 1)
 
 type Row = typeof runs.$inferSelect
 type Link = typeof feishuMessageLinks.$inferSelect
@@ -38,6 +56,26 @@ interface Mirror {
   throttle: Map<string, { at: number; timer?: NodeJS.Timeout }>
   /** Per preview: the snapshot uploaded to Feishu (by when it was taken) and its image_key. */
   images: Map<string, { at: number; key: string }>
+  /** Per live run with a streaming card (or about to get one). */
+  streams: Map<string, Stream>
+  /** Runs whose working reaction Feishu refused, so it is not retried on every change. */
+  noReaction: Set<string>
+}
+
+interface Stream {
+  groupId: string
+  /** Main-agent text so far (redacted, as web viewers get it). */
+  text: string
+  /** What the card shows: header and step from the last full update, and the reply text. */
+  shown: { view: string; text: string }
+  /** Latest run state to show; set by the run sync. */
+  view?: { bot: string; status: RunStatus; step: string; url: string | null }
+  card?: { id: string; app: FeishuAppRow }
+  /** The card could not be a CardKit entity: the run uses a patched card instead. */
+  legacy?: boolean
+  seq: number
+  streamingSince: number
+  timer?: NodeJS.Timeout
 }
 
 const mirrors = new WeakMap<Ctx, Mirror>()
@@ -45,7 +83,14 @@ const mirrors = new WeakMap<Ctx, Mirror>()
 function state(ctx: Ctx) {
   let m = mirrors.get(ctx)
   if (!m) {
-    m = { queues: new Map(), rendered: new Map(), throttle: new Map(), images: new Map() }
+    m = {
+      queues: new Map(),
+      rendered: new Map(),
+      throttle: new Map(),
+      images: new Map(),
+      streams: new Map(),
+      noReaction: new Set(),
+    }
     mirrors.set(ctx, m)
   }
   return m
@@ -63,16 +108,25 @@ function enqueue(ctx: Ctx, groupId: string, task: () => Promise<void>) {
   })
 }
 
-/** Resolves once every queued Feishu call has run (tests, shutdown). */
+/** Resolves once every queued Feishu call, pending stream flushes included, has run (tests, shutdown). */
 export async function feishuIdle(ctx: Ctx) {
-  const { queues } = state(ctx)
+  const { queues, streams } = state(ctx)
+  for (const [runId, s] of streams)
+    if (s.timer) {
+      clearTimeout(s.timer)
+      s.timer = undefined
+      enqueue(ctx, s.groupId, () => flushStream(ctx, runId))
+    }
   while (queues.size) await Promise.all(queues.values())
 }
 
 /** Drops deferred card updates (app close). */
 export function stopFeishuMirror(ctx: Ctx) {
-  for (const t of state(ctx).throttle.values()) clearTimeout(t.timer)
-  state(ctx).throttle.clear()
+  const { throttle, streams } = state(ctx)
+  for (const t of throttle.values()) clearTimeout(t.timer)
+  for (const s of streams.values()) clearTimeout(s.timer)
+  throttle.clear()
+  streams.clear()
 }
 
 /** The Feishu chat bound to the group, if any (plan §2.5). */
@@ -192,7 +246,64 @@ export async function mirrorEdit(
 /** Called on every run change (publishRun): mirrors its card, question and approval cards to the bound chat. */
 export async function mirrorRun(ctx: Ctx, run: Row) {
   if (!(await boundChat(ctx.db, run.groupId))) return
+  // Registered before any Feishu call so text streamed meanwhile is kept for the card.
+  const { streams } = state(ctx)
+  if (!TERMINAL_RUN_STATUS.includes(run.status as RunStatus) && !streams.has(run.id))
+    streams.set(run.id, newStream(run.groupId))
   enqueue(ctx, run.groupId, () => syncRun(ctx, run.id))
+}
+
+const newStream = (groupId: string): Stream => ({
+  groupId,
+  text: '',
+  shown: { view: '', text: '' },
+  seq: 0,
+  streamingSince: Date.now(),
+})
+
+/** Text the main agent streams (already redacted): goes to the run's streaming card in coalesced flushes. */
+export function mirrorDelta(ctx: Ctx, runId: string, text: string) {
+  const s = state(ctx).streams.get(runId)
+  if (!s || s.legacy) return
+  s.text += text
+  scheduleFlush(ctx, runId, s)
+}
+
+function scheduleFlush(ctx: Ctx, runId: string, s: Stream) {
+  if (s.timer || !s.card) return
+  s.timer = setTimeout(() => {
+    s.timer = undefined
+    enqueue(ctx, s.groupId, () => flushStream(ctx, runId))
+  }, STREAM_FLUSH_MS).unref()
+}
+
+const nextSeq = (s: Pick<Stream, 'seq'>) =>
+  (s.seq = Math.max(s.seq + 1, Math.floor((Date.now() - SEQUENCE_EPOCH) / 100)))
+
+/** Brings the streaming card up to date: a full update when header or step changed, else the reply text. */
+async function flushStream(ctx: Ctx, runId: string) {
+  const s = state(ctx).streams.get(runId)
+  if (!s?.card || !s.view) return
+  const app = credsOf(s.card.app)
+  const cardId = s.card.id
+  if (Date.now() - s.streamingSince > STREAMING_RENEW_MS) {
+    await ctx.feishu.api.cardSettings(
+      app,
+      cardId,
+      JSON.stringify({ config: { streaming_mode: true } }),
+      nextSeq(s),
+    )
+    s.streamingSince = Date.now()
+  }
+  const view = JSON.stringify([s.view.status, s.view.step])
+  if (view !== s.shown.view) {
+    const card = runStreamCard({ ...s.view, text: s.text })
+    await ctx.feishu.api.updateCardEntity(app, cardId, JSON.stringify(card), nextSeq(s))
+    s.shown = { view, text: s.text }
+  } else if (s.text !== s.shown.text) {
+    await ctx.feishu.api.streamText(app, cardId, REPLY_ELEMENT, streamText(s.text), nextSeq(s))
+    s.shown.text = s.text
+  }
 }
 
 async function syncRun(ctx: Ctx, runId: string) {
@@ -210,7 +321,14 @@ async function syncRun(ctx: Ctx, runId: string) {
       and(eq(feishuMessageLinks.messageId, run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
     )
   const app = await appOfBot(ctx, run.botId)
-  if (!trigger || !app) return
+  if (!trigger || !app) {
+    state(ctx).streams.delete(run.id)
+    return
+  }
+  await syncReaction(ctx, app, trigger, run).catch((err) => {
+    if (!(err instanceof FeishuError)) throw err
+    console.error('feishu reaction:', `${err.code} ${err.message}`)
+  })
   await syncRunCard(ctx, app, trigger, row.bot, run)
   await syncQuestions(ctx, app, trigger, row.bot, run.id)
   await syncApprovals(ctx, app, trigger, row.bot, run.id)
@@ -218,7 +336,7 @@ async function syncRun(ctx: Ctx, runId: string) {
 
 async function cardLink(
   ctx: Ctx,
-  kind: 'run_card' | 'question' | 'approval' | 'preview',
+  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'reaction',
   key: { runId?: string; refId?: string },
 ) {
   const [link] = await ctx.db
@@ -270,8 +388,138 @@ export function markRendered(ctx: Ctx, feishuMessageId: string, card: object) {
   state(ctx).rendered.set(feishuMessageId, JSON.stringify(card))
 }
 
+/**
+ * The message a bot works on gets a 「Typing」 reaction as soon as its run exists (queued included: the user sees
+ * at once that it was picked up); when the run ends it is taken back, and a completed run leaves 「DONE」.
+ * The reaction's id is kept as a 'reaction' link (its feishuMessageId is the reaction_id) so a restart can remove it.
+ */
+async function syncReaction(ctx: Ctx, app: FeishuAppRow, trigger: Link, run: Row) {
+  if (run.status === 'forbidden') return
+  const { noReaction } = state(ctx)
+  const mark = await cardLink(ctx, 'reaction', { runId: run.id })
+  if (!TERMINAL_RUN_STATUS.includes(run.status as RunStatus)) {
+    if (mark || noReaction.has(run.id)) return
+    noReaction.add(run.id)
+    const reactionId = await ctx.feishu.api.addReaction(credsOf(app), trigger.feishuMessageId, WORKING_EMOJI)
+    noReaction.delete(run.id)
+    await ctx.db.insert(feishuMessageLinks).values({
+      feishuMessageId: reactionId,
+      chatId: trigger.chatId,
+      appId: app.appId,
+      direction: 'out',
+      kind: 'reaction',
+      runId: run.id,
+      feishuRef: trigger.feishuMessageId,
+    })
+    return
+  }
+  noReaction.delete(run.id)
+  if (!mark) return
+  await ctx.db.delete(feishuMessageLinks).where(eq(feishuMessageLinks.id, mark.id))
+  await ctx.feishu.api.removeReaction(credsOf(app), trigger.feishuMessageId, mark.feishuMessageId)
+  if (run.status === 'completed')
+    await ctx.feishu.api.addReaction(credsOf(app), trigger.feishuMessageId, DONE_EMOJI)
+}
+
+/**
+ * The run card is a CardKit entity in streaming mode while the run works (text streams in, steps update), and
+ * gets its final content when the run ends. An app whose CardKit call fails (e.g. it lacks cardkit:card:write
+ * until 更新权限) falls back to a patched card for that run, so the card never goes missing.
+ */
 async function syncRunCard(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: string, run: Row) {
   const existing = await cardLink(ctx, 'run_card', { runId: run.id })
+  const terminal = TERMINAL_RUN_STATUS.includes(run.status as RunStatus)
+  const { streams } = state(ctx)
+  const base = await publicUrl(ctx)
+  const url = base ? `${base}/g/${run.groupId}?run=${run.id}` : null
+  const s = streams.get(run.id)
+  // A card sent as a plain message (no card_id), a refused entity, or a run that ends before it had one.
+  if ((existing && !existing.feishuRef) || s?.legacy || (!existing && terminal)) {
+    if (terminal) streams.delete(run.id)
+    return patchedRunCard(ctx, app, trigger, existing, bot, run, url)
+  }
+  if (terminal) {
+    streams.delete(run.id)
+    clearTimeout(s?.timer)
+    if (!existing?.feishuRef) return
+    const seq = s ?? { seq: 0 }
+    const card = runCard({
+      bot,
+      status: run.status as RunStatus,
+      step: run.step,
+      reply: await replyOf(ctx, run.id),
+      url,
+    })
+    const creds = credsOf(app)
+    await ctx.feishu.api.updateCardEntity(creds, existing.feishuRef, JSON.stringify(card), nextSeq(seq))
+    await ctx.feishu.api.cardSettings(
+      creds,
+      existing.feishuRef,
+      JSON.stringify({ config: { streaming_mode: false } }),
+      nextSeq(seq),
+    )
+    return
+  }
+  const stream = s ?? newStream(run.groupId)
+  streams.set(run.id, stream)
+  stream.view = { bot, status: run.status as RunStatus, step: run.step, url }
+  if (existing?.feishuRef) {
+    stream.card ??= { id: existing.feishuRef, app }
+    return flushStream(ctx, run.id)
+  }
+  let cardId: string
+  try {
+    cardId = await ctx.feishu.api.createCard(
+      credsOf(app),
+      JSON.stringify(runStreamCard({ ...stream.view, text: stream.text })),
+    )
+  } catch (err) {
+    if (!(err instanceof FeishuError)) throw err
+    console.error('feishu streaming card:', `${err.code} ${err.message}`)
+    stream.legacy = true
+    return patchedRunCard(ctx, app, trigger, existing, bot, run, url)
+  }
+  const sent = await ctx.feishu.api.send(
+    credsOf(app),
+    trigger.chatId,
+    { msgType: 'interactive', content: JSON.stringify({ type: 'card', data: { card_id: cardId } }) },
+    { replyTo: trigger.feishuMessageId },
+  )
+  await ctx.db.insert(feishuMessageLinks).values({
+    feishuMessageId: sent.messageId,
+    chatId: trigger.chatId,
+    appId: app.appId,
+    direction: 'out',
+    kind: 'run_card',
+    runId: run.id,
+    feishuRef: cardId,
+  })
+  stream.card = { id: cardId, app }
+  stream.streamingSince = Date.now()
+  stream.shown = { view: JSON.stringify([stream.view.status, stream.view.step]), text: stream.text }
+  scheduleFlush(ctx, run.id, stream)
+}
+
+async function replyOf(ctx: Ctx, runId: string) {
+  const [reply] = await ctx.db
+    .select({ body: messages.body })
+    .from(messages)
+    .where(and(eq(messages.runId, runId), eq(messages.kind, 'bot')))
+    .orderBy(asc(messages.seq))
+    .limit(1)
+  return reply?.body ?? null
+}
+
+/** Fallback run card: an ordinary card message patched on change, throttled to CARD_THROTTLE_MS. */
+async function patchedRunCard(
+  ctx: Ctx,
+  app: FeishuAppRow,
+  trigger: Link,
+  existing: Link | undefined,
+  bot: string,
+  run: Row,
+  url: string | null,
+) {
   const terminal = TERMINAL_RUN_STATUS.includes(run.status as RunStatus)
   const { throttle } = state(ctx)
   const last = throttle.get(run.id)
@@ -285,21 +533,12 @@ async function syncRunCard(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: stri
     return
   }
   clearTimeout(last?.timer)
-  const [reply] = terminal
-    ? await ctx.db
-        .select({ body: messages.body })
-        .from(messages)
-        .where(and(eq(messages.runId, run.id), eq(messages.kind, 'bot')))
-        .orderBy(asc(messages.seq))
-        .limit(1)
-    : []
-  const base = await publicUrl(ctx)
   const card = runCard({
     bot,
     status: run.status as RunStatus,
     step: run.step,
-    reply: reply?.body ?? null,
-    url: base ? `${base}/g/${run.groupId}?run=${run.id}` : null,
+    reply: terminal ? await replyOf(ctx, run.id) : null,
+    url,
   })
   await putCard(ctx, app, trigger, existing, card, { kind: 'run_card', runId: run.id })
   if (terminal) throttle.delete(run.id)

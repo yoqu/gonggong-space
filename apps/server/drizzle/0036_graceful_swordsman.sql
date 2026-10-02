@@ -1,0 +1,1 @@
+ALTER TABLE "feishu_message_links" ADD COLUMN "feishu_ref" text;

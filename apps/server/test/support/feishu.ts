@@ -45,6 +45,27 @@ export class FakeFeishu {
   readonly botsAdded: { appId: string; chatId: string; botAppId: string }[] = []
   /** Images uploaded per app; the key is `img_<n>`. */
   readonly images: { appId: string; key: string; data: Buffer }[] = []
+  /** Emoji reactions added through the API; `removed` once taken back. */
+  readonly reactions: {
+    appId: string
+    messageId: string
+    emoji: string
+    reactionId: string
+    removed: boolean
+  }[] = []
+  /** CardKit entities by card_id: current JSON and streaming state. */
+  readonly cards = new Map<string, { appId: string; card: Record<string, unknown>; streaming: boolean }>()
+  /** Every CardKit operation in call order. */
+  readonly cardOps: {
+    cardId: string
+    op: 'update' | 'text' | 'settings'
+    sequence: number
+    elementId?: string
+    text?: string
+    data?: Record<string, unknown>
+  }[] = []
+  /** `createCard` fails with this message when set (e.g. the app lacks cardkit:card:write). */
+  cardkitError: string | null = null
   /** Chats each app's bot is in. */
   readonly chats = new Map<string, FeishuChat[]>()
   /** Chat history by chat id, oldest first (read by `listMessages`). */
@@ -189,6 +210,29 @@ export class FakeFeishu {
     return c
   }
 
+  /** Text the card's `elementId` shows now: the last streamed text, else its content in the card JSON. */
+  cardText(cardId: string, elementId: string) {
+    const streamed = this.cardOps.findLast(
+      (o) => o.cardId === cardId && o.op === 'text' && o.elementId === elementId,
+    )
+    const last = this.cardOps.findLast((o) => o.cardId === cardId && o.op !== 'settings')
+    if (streamed && last === streamed) return streamed.text
+    const elements = (
+      this.cards.get(cardId)?.card.body as { elements?: { element_id?: string; content?: string }[] }
+    )?.elements
+    return elements?.find((e) => e.element_id === elementId)?.content
+  }
+
+  /** CardKit requires the creating app and a strictly growing sequence per card. */
+  private cardOp(app: FeishuCreds, cardId: string, sequence: number) {
+    this.check(app.appId)
+    const entity = this.cards.get(cardId)
+    if (!entity || entity.appId !== app.appId) throw new FeishuError(300301, 'card not found')
+    const last = this.cardOps.findLast((o) => o.cardId === cardId)
+    if (last && sequence <= last.sequence) throw new FeishuError(300317, 'sequence did not increase')
+    return entity
+  }
+
   private check(appId: string) {
     if (this.invalid.has(appId)) throw new FeishuError(10014, 'app secret invalid')
   }
@@ -260,6 +304,43 @@ export class FakeFeishu {
       const key = `img_${this.images.length + 1}`
       this.images.push({ appId: app.appId, key, data })
       return key
+    },
+    addReaction: async (app, messageId, emoji) => {
+      this.check(app.appId)
+      const reactionId = this.next('rc')
+      this.reactions.push({ appId: app.appId, messageId, emoji, reactionId, removed: false })
+      return reactionId
+    },
+    removeReaction: async (app, messageId, reactionId) => {
+      this.check(app.appId)
+      const r = this.reactions.find((x) => x.reactionId === reactionId && x.messageId === messageId)
+      if (!r || r.removed) throw new FeishuError(231003, 'reaction not found')
+      r.removed = true
+    },
+    createCard: async (app, card) => {
+      this.check(app.appId)
+      if (this.cardkitError) throw new FeishuError(99991672, this.cardkitError)
+      const json = JSON.parse(card) as { config?: { streaming_mode?: boolean } }
+      const cardId = this.next('card')
+      this.cards.set(cardId, { appId: app.appId, card: json, streaming: !!json.config?.streaming_mode })
+      return cardId
+    },
+    updateCardEntity: async (app, cardId, card, sequence) => {
+      this.cardOp(app, cardId, sequence)
+      const entity = this.cards.get(cardId)!
+      entity.card = JSON.parse(card)
+      this.cardOps.push({ cardId, op: 'update', sequence, data: entity.card })
+    },
+    streamText: async (app, cardId, elementId, text, sequence) => {
+      const entity = this.cardOp(app, cardId, sequence)
+      if (!entity.streaming) throw new FeishuError(300309, 'streaming mode is closed')
+      this.cardOps.push({ cardId, op: 'text', sequence, elementId, text })
+    },
+    cardSettings: async (app, cardId, settings, sequence) => {
+      const entity = this.cardOp(app, cardId, sequence)
+      const data = JSON.parse(settings) as { config?: { streaming_mode?: boolean } }
+      if (data.config?.streaming_mode !== undefined) entity.streaming = data.config.streaming_mode
+      this.cardOps.push({ cardId, op: 'settings', sequence, data })
     },
     download: async (app, _messageId, fileKey) => {
       this.check(app.appId)

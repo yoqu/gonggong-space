@@ -61,6 +61,39 @@ export function runCard(o: {
   )
 }
 
+/** Element ids of the streaming run card: the reply streams into REPLY_ELEMENT, the current step sits below it. */
+export const REPLY_ELEMENT = 'reply'
+const STEP_ELEMENT = 'step'
+
+/**
+ * The run card while it works, as a CardKit entity in streaming mode: the agent's text so far, the step it is
+ * on and 查看过程. `text` is cut like the final reply so streamed updates keep a common prefix.
+ */
+export function runStreamCard(o: {
+  bot: string
+  status: RunStatus
+  step: string
+  text: string
+  url: string | null
+}) {
+  const s = STATUS[o.status]
+  return {
+    schema: '2.0',
+    config: { update_multi: true, streaming_mode: true },
+    header: { title: text(o.bot), subtitle: text(s.label), template: s.template },
+    body: {
+      elements: [
+        { ...markdown(streamText(o.text)), element_id: REPLY_ELEMENT },
+        ...(o.step ? [{ ...markdown(`▸ ${o.step}`), element_id: STEP_ELEMENT }] : []),
+        ...(o.url ? [linkButton(zt('查看过程'), o.url)] : []),
+      ],
+    },
+  }
+}
+
+/** What the reply element shows: the streamed text (cut like the final reply), or a placeholder before any. */
+export const streamText = (s: string) => (s ? truncated(s) : zt('正在处理…'))
+
 export type CardValue = { k: 'answer'; q: string } | { k: 'approve'; a: string; o: string }
 
 const field = (i: number) => `q${i}`

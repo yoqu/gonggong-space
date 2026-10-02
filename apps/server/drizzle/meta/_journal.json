@@ -253,6 +253,13 @@
       "when": 1790897699785,
       "tag": "0035_clever_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790901997950,
+      "tag": "0036_graceful_swordsman",
+      "breakpoints": true
     }
   ]
 }
