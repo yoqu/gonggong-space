@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c4-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c4-s1 { left: 90px; top: 140px; width: 1080px; }
+        #c4-s1 .vp { height: 372px; }
+        #c4-n1 { left: 800px; top: 590px; }
+        #c4-proc { left: 90px; top: 566px; width: 1080px; height: 370px; overflow: hidden; }
+        #c4-proc .hd { height: 58px; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 14px; padding: 0 24px; font-size: 23px; font-weight: 800; }
+        #c4-proc .hd .chip { margin-left: auto; }
+        #c4-live { font-size: 18px; }
+        #c4-proc .list { padding: 10px 24px; display: flex; flex-direction: column; gap: 4px; }
+        #c4-proc .row { height: 56px; display: flex; align-items: center; gap: 18px; font-size: 23px; font-weight: 600; }
+        #c4-proc .row .chip { width: 84px; justify-content: center; font-size: 18px; }
+        #c4-proc .row .st { margin-left: auto; font-size: 20px; font-weight: 800; color: #1f8f3f; }
+        #c4-proc .row .st.b { color: #0a7cff; }
+        #c4-proc .add { color: #1f8f3f; font-weight: 800; margin-left: 10px; }
+        #c4-proc .del { color: #d23b2a; font-weight: 800; margin-left: 6px; }
+
+        #c4-stats { position: absolute; left: 90px; top: 150px; width: 1080px; display: flex; gap: 18px; }
+        #c4-stats .panel { position: relative; flex: 1; height: 210px; padding: 26px 30px; box-sizing: border-box; }
+        #c4-stats .l { font-size: 22px; font-weight: 700; color: #6e6e73; }
+        #c4-stats .v { font-size: 74px; font-weight: 900; color: #0a7cff; margin-top: 18px; white-space: nowrap; letter-spacing: -1px; }
+        #c4-stats .v small { font-size: 30px; font-weight: 800; margin-left: 8px; color: #1d1d1f; letter-spacing: 0; }
+        #c4-card { left: 90px; top: 396px; width: 1080px; height: 250px; overflow: hidden; }
+        #c4-card .hd { height: 70px; display: flex; align-items: center; gap: 14px; padding: 0 28px; font-size: 26px; font-weight: 800; position: relative; }
+        #c4-card .hd > div { position: absolute; inset: 0; display: flex; align-items: center; gap: 14px; padding: 0 28px; }
+        #c4-run { background: #e6f0ff; color: #0a7cff; }
+        #c4-stop { background: #f2f3f5; color: #6e6e73; opacity: 0; }
+        #c4-spin { width: 26px; height: 26px; border-radius: 50%; border: 4px solid #0a7cff; border-right-color: transparent; box-sizing: border-box; }
+        #c4-stop i { width: 22px; height: 22px; border-radius: 5px; background: #6e6e73; }
+        #c4-card .bd { padding: 22px 28px; display: flex; align-items: center; gap: 18px; font-size: 24px; font-weight: 600; }
+        #c4-card .bd img { width: 64px; height: 64px; }
+        #c4-card .meta { padding: 0 28px; display: flex; gap: 26px; font-size: 21px; font-weight: 700; color: #6e6e73; }
+        #c4-card .meta b { color: #0a7cff; }
+        #c4-comp { left: 90px; top: 690px; width: 1080px; height: 110px; display: flex; align-items: center; gap: 18px; padding: 0 26px; box-sizing: border-box; }
+        #c4-comp .in { flex: 1; height: 64px; border-radius: 14px; border: 2px solid #e5e5ea; display: flex; align-items: center; padding: 0 20px; font-size: 27px; font-weight: 700; }
+        #c4-comp .in span { color: #c7c7cc; }
+        #c4-caret { width: 3px; height: 32px; background: #0a7cff; margin-left: 2px; }
+        #c4-send { width: 120px; height: 64px; border-radius: 14px; background: #0a7cff; color: #fff; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        #c4-n2 { left: 760px; top: 830px; }
+
+        #c4-st-h { position: absolute; left: 90px; top: 150px; font-size: 36px; font-weight: 900; white-space: nowrap; }
+        #c4-st-h em { font-style: normal; color: #0a7cff; }
+        #c4-root .stc { position: absolute; top: 240px; width: 340px; height: 600px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; padding-top: 30px; border: 4px solid transparent; }
+        #c4-root .stc img { width: 280px; height: 280px; }
+        #c4-root .stc .n { font-size: 40px; font-weight: 900; margin-top: 30px; white-space: nowrap; }
+        #c4-root .stc .d { font-size: 25px; font-weight: 700; color: #6e6e73; margin-top: 14px; white-space: nowrap; }
+        #c4-root .stc .chip { margin-top: 26px; font-size: 22px; }
+        #c4-c1 { left: 90px; }
+        #c4-c2 { left: 460px; }
+        #c4-c3 { left: 830px; }
+      </style>
+      <div id="c4-root" data-composition-id="c4" data-width="1920" data-height="1080">
+        <div class="col" id="c4-col">
+          <div class="kick"><em>第 4 关</em>运行卡片</div>
+          <div class="ttl">过程全透明</div>
+          <div class="kps">
+            <div class="kp" id="c4-k1"><span class="no">1</span><span><b>思考 · 读取 · 命令 · 编辑</b>，实时推到群里</span></div>
+            <div class="kp" id="c4-k2"><span class="no">2</span><span><b>改动数 · 耗时 · token</b>，一眼可见</span></div>
+            <div class="kp" id="c4-k3"><span class="no">3</span><span>发一句 <b class="mono">/stop</b>，随时叫停</span></div>
+          </div>
+        </div>
+
+        <div class="screen" id="c4-s1">
+          <div class="bar"><i></i><i></i><i></i><span>每次 @ 都生成一张运行卡片</span></div>
+          <div class="vp"><div class="zoomer" id="c4-z1"><img src="assets/shots/run-card.webp" width="2148" height="372" alt="" /><svg class="ring" id="c4-r1"></svg><svg class="ring" id="c4-r2"></svg></div></div>
+        </div>
+        <div class="note" id="c4-n1">每次 @，一张运行卡片</div>
+
+        <div class="panel" id="c4-proc">
+          <div class="hd">过程 · 前端小助手<span class="chip g" id="c4-live">● 实时推送</span></div>
+          <div class="list">
+            <div class="row" id="c4-p1"><span class="chip k">思考</span>先看看筛选逻辑<span class="st">✓</span></div>
+            <div class="row" id="c4-p2"><span class="chip">读取</span><span class="mono">public/app.js</span><span class="st">✓</span></div>
+            <div class="row" id="c4-p3"><span class="chip y">命令</span><span class="mono">npm test</span><span class="st">✓ 3.2s</span></div>
+            <div class="row" id="c4-p4"><span class="chip g">编辑</span><span class="mono">public/app.js<span class="add">+18</span><span class="del">−4</span></span><span class="st">✓</span></div>
+            <div class="row" id="c4-p5"><span class="chip r">MCP</span>向群成员提问<span class="st b">进行中…</span></div>
+          </div>
+        </div>
+
+        <div id="c4-stats">
+          <div class="panel" id="c4-t1"><div class="l">改动</div><div class="v"><span id="c4-v1">0</span><small>个文件</small></div></div>
+          <div class="panel" id="c4-t2"><div class="l">耗时</div><div class="v mono" id="c4-v2">00:00</div></div>
+          <div class="panel" id="c4-t3"><div class="l">用量</div><div class="v"><span id="c4-v3">0</span><small>tokens</small></div></div>
+        </div>
+        <div class="panel" id="c4-card">
+          <div class="hd"><div id="c4-run"><span id="c4-spin"></span>运行中</div><div id="c4-stop"><i></i>已中断</div></div>
+          <div class="bd"><img src="assets/cast/steps-type.svg" alt="" /><div>前端小助手 · 正在编辑 <span class="mono">public/app.js</span></div></div>
+          <div class="meta"><span>改动 <b>4</b> 个文件</span><span>耗时 <b>00:37</b></span><span>用量 <b>216.8k</b> tokens</span></div>
+        </div>
+        <div class="panel" id="c4-comp">
+          <div class="in"><span id="c4-ph">发消息…</span><b id="c4-typed" class="mono"></b><i id="c4-caret"></i></div>
+          <div id="c4-send">发送</div>
+        </div>
+        <div class="note" id="c4-n2">/stop 就停</div>
+
+        <div id="c4-st-h">看共字君的动作，<em>就知道它在干嘛</em></div>
+        <div class="panel stc" id="c4-c1"><img src="assets/cast/gong-carry.svg" alt="" /><div class="n">正在工作</div><div class="d">搬砖 = 干活</div><span class="chip">运行中</span></div>
+        <div class="panel stc" id="c4-c2"><img src="assets/cast/gong-type.svg" alt="" /><div class="n">正在回复</div><div class="d">敲键盘 = 回复</div><span class="chip g">输出中</span></div>
+        <div class="panel stc" id="c4-c3"><img src="assets/cast/gong-raise.svg" alt="" /><div class="n">等待审批</div><div class="d">举手 = 等你批</div><span class="chip y">等你批</span></div>
+
+        <div class="lv" id="c4-lv"><div class="lv-bg"></div><div class="lv-n">第 4 关</div><div class="lv-t">过程全透明</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S1 = 1
+        GG.ring('#c4-r1', S1, [118, 73, 912, 62], 8)
+        GG.ring('#c4-r2', S1, [490, 272, 140, 46], 8)
+
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+        const hide = (sel, t) => tl.to(sel, { opacity: 0, duration: 0.25 }, t)
+        const steps = (sel, values, t0, dt) => {
+          tl.set(sel, { textContent: values[0] }, 0)
+          values.forEach((v, i) => tl.set(sel, { textContent: v }, t0 + i * dt))
+        }
+
+        GG.level(tl, '#c4-lv')
+        GG.head(tl, '#c4-col')
+
+        // c4a — every @ makes a run card; the process streams in
+        tl.fromTo('#c4-s1', { opacity: 0, x: 160, y: 170, scale: 0.97 }, { opacity: 1, x: 0, y: 170, scale: 1, duration: 0.6, ease: 'power3.out' }, 1.8)
+        GG.kp(tl, '#c4-k1', 2.5)
+        GG.draw(tl, '#c4-r1', 5.0)
+        pop('#c4-n1', 5.6)
+        GG.draw(tl, '#c4-r2', 6.4, 0.45)
+        hide('#c4-n1', 6.5)
+        tl.to('#c4-s1', { y: 0, duration: 0.6, ease: 'power3.inOut' }, 6.55)
+        GG.enter(tl, '#c4-proc', 6.95, 'down')
+        ;[7.2, 8.3, 9.35, 9.9, 10.5].forEach((t, i) =>
+          tl.fromTo(`#c4-p${i + 1}`, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, ease: 'power3.out' }, t))
+        tl.fromTo('#c4-live', { scale: 1 }, { scale: 1.12, duration: 0.25, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 10.5)
+        GG.leave(tl, '#c4-s1', 11.7)
+        GG.leave(tl, '#c4-proc', 11.7)
+
+        // c4b — files / duration / tokens at a glance; /stop halts it
+        ;['#c4-t1', '#c4-t2', '#c4-t3'].forEach((s, i) => GG.enter(tl, s, 11.95 + i * 0.12, 'down'))
+        steps('#c4-v1', ['0', '1', '2', '3', '4'], 12.45, 0.15)
+        steps('#c4-v2', ['00:00', '00:06', '00:12', '00:18', '00:24', '00:30', '00:37'], 13.6, 0.08)
+        steps('#c4-v3', ['0', '18.4k', '52.1k', '97.6k', '141.3k', '183.9k', '216.8k'], 14.45, 0.1)
+        GG.kp(tl, '#c4-k2', 12.7)
+        ;['#c4-t1', '#c4-t2', '#c4-t3'].forEach((s, i) =>
+          tl.fromTo(s, { boxShadow: '0 0 0 0 rgba(10,124,255,0)' }, { boxShadow: '0 0 0 10px rgba(10,124,255,0.18)', duration: 0.25, yoyo: true, repeat: 1 }, 15.65 + i * 0.12))
+        GG.enter(tl, '#c4-card', 12.3, 'down')
+        tl.fromTo('#c4-spin', { rotation: 0 }, { rotation: 2520, duration: 7.2, ease: 'none' }, 12.3)
+        GG.enter(tl, '#c4-comp', 16.9, 'down')
+        tl.set('#c4-typed', { textContent: '' }, 0)
+        const cmd = '/stop @前端小助手'
+        tl.set('#c4-ph', { display: 'inline' }, 0)
+        tl.set('#c4-ph', { display: 'none' }, 18.2)
+        for (let i = 1; i <= cmd.length; i++) tl.set('#c4-typed', { textContent: cmd.slice(0, i) }, 18.2 + i * 0.065)
+        GG.kp(tl, '#c4-k3', 18.25)
+        tl.fromTo('#c4-send', { scale: 1 }, { scale: 0.88, duration: 0.1, yoyo: true, repeat: 1 }, 19.3)
+        tl.set('#c4-typed', { textContent: '' }, 19.45)
+        tl.set('#c4-ph', { display: 'inline' }, 19.45)
+        tl.to('#c4-run', { opacity: 0, duration: 0.2 }, 19.5)
+        tl.to('#c4-stop', { opacity: 1, duration: 0.2 }, 19.5)
+        tl.fromTo('#c4-card', { x: 0 }, { x: 10, duration: 0.06, yoyo: true, repeat: 3 }, 19.5)
+        pop('#c4-n2', 19.55)
+        ;['#c4-stats', '#c4-card', '#c4-comp', '#c4-n2'].forEach((s) => GG.leave(tl, s, 20.15))
+
+        // c4c — the mascot's poses are statuses
+        tl.fromTo('#c4-st-h', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 20.45)
+        ;['#c4-c1', '#c4-c2', '#c4-c3'].forEach((s, i) =>
+          tl.fromTo(s, { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 0.5, ease: 'back.out(1.6)' }, 20.4 + i * 0.15))
+        ;[22.75, 24.65, 26.75].forEach((t, i) => {
+          const c = `#c4-c${i + 1}`
+          tl.to(c, { scale: 1.06, borderColor: '#0a7cff', boxShadow: '0 30px 70px rgba(10,124,255,0.28)', opacity: 1, duration: 0.35, ease: 'back.out(2)' }, t)
+          tl.fromTo(`${c} img`, { y: 0 }, { y: -16, duration: 0.22, yoyo: true, repeat: 5, ease: 'sine.inOut' }, t)
+          ;[1, 2, 3].filter((j) => j !== i + 1).forEach((j) =>
+            tl.to(`#c4-c${j}`, { scale: 0.96, opacity: 0.5, borderColor: 'rgba(10,124,255,0)', boxShadow: '0 30px 70px rgba(30,50,100,0.16)', duration: 0.3 }, t))
+        })
+
+        window.__timelines['c4'] = tl
+      </script>
+    </template>
+  </body>
+</html>

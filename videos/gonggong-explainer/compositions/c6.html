@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c6-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c6-q { left: 290px; top: 180px; width: 720px; height: 430px; overflow: hidden; }
+        #c6-q .hd { height: 70px; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 14px; padding: 0 26px; font-size: 24px; font-weight: 800; }
+        #c6-qc, #c6-qc2 { margin-left: auto; }
+        #c6-qc2 { display: none; }
+        #c6-qm { position: absolute; left: 0; right: 0; top: 70px; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 180px; font-weight: 900; color: #aab3c5; }
+        #c6-ql { padding: 26px 26px; display: flex; flex-direction: column; gap: 8px; }
+        #c6-ql div { font-family: ui-monospace, Menlo, monospace; font-size: 22px; line-height: 1.5; padding: 2px 12px; border-radius: 6px; white-space: pre; opacity: 0; }
+        #c6-ql .a { background: #e9f8ee; color: #1f6f36; }
+        #c6-ql .d { background: #fdecea; color: #a8321f; }
+        #c6-s1 { left: 90px; top: 190px; width: 1080px; }
+        #c6-s1 .vp { height: 675px; }
+        #c6-n1 { left: 760px; top: 140px; }
+        #c6-s2 { left: 80px; top: 300px; width: 1120px; }
+        #c6-s2 .vp { height: 82px; }
+        #c6-n2 { left: 840px; top: 240px; }
+        #c6-root .bc { position: absolute; top: 490px; width: 330px; height: 330px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 22px; }
+        #c6-root .bc img { width: 130px; height: 130px; }
+        #c6-root .bc .n { font-size: 26px; font-weight: 800; }
+        #c6-root .bc .chip.mono { font-size: 20px; }
+        #c6-b1 { left: 92px; }
+        #c6-b2 { left: 424px; }
+        #c6-b3 { left: 823px; }
+        #c6-s3 { left: 90px; top: 170px; width: 1000px; }
+        #c6-s3 .vp { height: 625px; }
+        #c6-ft { position: absolute; left: 90px; top: 864px; display: flex; gap: 18px; }
+        #c6-ft .chip { font-size: 26px; padding: 8px 18px; border-radius: 12px; }
+        #c6-n3 { left: 760px; top: 120px; }
+        #c6-cam1 { left: 150px; top: 700px; }
+        #c6-cam2 { left: 830px; top: 700px; }
+      </style>
+      <div id="c6-root" data-composition-id="c6" data-width="1920" data-height="1080">
+        <div class="col" id="c6-col">
+          <div class="kick"><em>第 6 关</em>改动</div>
+          <div class="ttl">改动可审</div>
+          <div class="kps">
+            <div class="kp" id="c6-k1"><span class="no">1</span><span><b style="display: block">本轮 · 未提交 · 对比主分支</b><span style="display: block">三种范围随手切</span></span></div>
+            <div class="kp" id="c6-k2"><span class="no">2</span><span><span style="display: block">群头 <b>Git 条</b>：</span><span style="display: block">看每个 Bot 的分支与同步状态</span></span></div>
+            <div class="kp" id="c6-k3"><span class="no">3</span><span><span style="display: block"><b>Markdown / 图片 / 视频 / PDF</b></span><span style="display: block">直接打开看</span></span></div>
+          </div>
+        </div>
+
+        <div class="panel" id="c6-q">
+          <div class="hd"><img src="assets/cast/steps-idle.svg" alt="" width="44" height="44" />改动 · 前端小助手<span class="chip k" id="c6-qc">0 个文件</span><span class="chip" id="c6-qc2">4 个文件</span></div>
+          <div id="c6-qm">?</div>
+          <div id="c6-ql">
+            <div>  function render() {</div>
+            <div class="d">-   for (const todo of todos) {</div>
+            <div class="a">+   filterBtn.textContent = label</div>
+            <div class="a">+   for (const todo of shown) {</div>
+            <div>      list.append(li)</div>
+          </div>
+        </div>
+
+        <div class="screen" id="c6-s1">
+          <div class="bar"><i></i><i></i><i></i><span>改动 · 前端小助手 · 第 1 轮</span></div>
+          <div class="vp"><div class="zoomer" id="c6-z1"><img src="assets/shots/diff-pane.webp" width="1080" height="675" alt="" /><svg class="ring" id="c6-r1"></svg><svg class="ring" id="c6-r2"></svg><svg class="ring" id="c6-r3"></svg><svg class="ring" id="c6-r4"></svg></div></div>
+        </div>
+        <div class="note" id="c6-n1">三种范围，随手切</div>
+
+        <div class="screen" id="c6-s2">
+          <div class="bar"><i></i><i></i><i></i><span>群头 Git 条</span></div>
+          <div class="vp"><div class="zoomer" id="c6-z2"><img src="assets/shots/gitbar.webp" width="1822" height="82" alt="" /><svg class="ring" id="c6-r5"></svg><svg class="ring" id="c6-r6"></svg></div></div>
+        </div>
+        <div class="note" id="c6-n2">↑1 = 领先远端 1 个提交</div>
+        <div class="panel bc" id="c6-b1"><img src="assets/cast/sentry-idle.svg" alt="" /><div class="n">测试助手</div><span class="chip k mono">分支 main</span><span class="chip g">已同步</span></div>
+        <div class="panel bc" id="c6-b2"><img src="assets/cast/braces-type.svg" alt="" /><div class="n">后端助手</div><span class="chip k mono">分支 main</span><span class="chip g">已同步</span></div>
+        <div class="panel bc" id="c6-b3"><img src="assets/cast/steps-type.svg" alt="" /><div class="n">前端小助手</div><span class="chip k mono">分支 main</span><span class="chip y">↑1 待推送</span></div>
+
+        <div class="screen" id="c6-s3">
+          <div class="bar"><i></i><i></i><i></i><span>文件 · 前端小助手的工作区</span></div>
+          <div class="vp"><div class="zoomer" id="c6-z3"><img src="assets/shots/file-viewer.webp" width="1000" height="625" alt="" /><svg class="ring" id="c6-r7"></svg><svg class="ring" id="c6-r8"></svg><svg class="ring" id="c6-r9"></svg></div></div>
+        </div>
+        <div id="c6-ft">
+          <span class="chip" id="c6-t1">Markdown</span>
+          <span class="chip g" id="c6-t2">图片</span>
+          <span class="chip y" id="c6-t3">视频</span>
+          <span class="chip r" id="c6-t4">PDF</span>
+        </div>
+        <div class="note" id="c6-n3">工作区文件，点开就看</div>
+
+        <div class="cameo" id="c6-cam1"><img src="assets/cast/braces-ask.svg" alt="" /><div class="say">代码呢？</div></div>
+        <div class="cameo" id="c6-cam2"><img src="assets/cast/gong-raise.svg" alt="" /><div class="say l">在这儿！</div></div>
+
+        <div class="lv" id="c6-lv"><div class="lv-bg"></div><div class="lv-n">第 6 关</div><div class="lv-t">改动可审</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S1 = 1080 / 2880
+        const S2 = 1822 / 2180
+        const S3 = 1000 / 2880
+        GG.ring('#c6-r1', S1, [1515, 357, 110, 42], 8)
+        GG.ring('#c6-r2', S1, [1634, 357, 102, 42], 8)
+        GG.ring('#c6-r3', S1, [1750, 357, 156, 42], 8)
+        GG.ring('#c6-r4', S1, [1505, 1030, 1340, 98], 8)
+        GG.ring('#c6-r5', S2, [42, 16, 1296, 64], 6)
+        GG.ring('#c6-r6', S2, [1036, 28, 48, 40], 8)
+        GG.ring('#c6-r7', S3, [842, 1123, 471, 295], 10)
+        GG.ring('#c6-r8', S3, [842, 1430, 471, 121], 10)
+        GG.ring('#c6-r9', S3, [1483, 187, 511, 468], 10)
+
+        GG.level(tl, '#c6-lv')
+        GG.head(tl, '#c6-col')
+
+        // c6a/c6b — "where's the code?" "right here!"
+        GG.enter(tl, '#c6-q', 1.8, 'down')
+        tl.fromTo('#c6-qm', { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(2.4)' }, 2.0)
+        tl.to('#c6-qm', { rotation: -10, duration: 0.18, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 2.4)
+        GG.cameo(tl, '#c6-cam1', 1.9, 4.6)
+        GG.cameo(tl, '#c6-cam2', 3.4, 4.6)
+        tl.to('#c6-qm', { opacity: 0, scale: 1.4, duration: 0.25 }, 3.4)
+        tl.to('#c6-ql div', { opacity: 1, duration: 0.2, stagger: 0.12 }, 3.5)
+        tl.set('#c6-qc', { display: 'none' }, 3.5)
+        tl.set('#c6-qc2', { display: 'inline-flex' }, 3.5)
+        GG.leave(tl, '#c6-q', 4.35)
+
+        // c6c — three diff scopes, then the git bar
+        GG.enter(tl, '#c6-s1', 4.65)
+        GG.kp(tl, '#c6-k1', 5.4)
+        GG.focus(tl, '#c6-z1', S1, [1490, 110, 1390, 800], 1080, 675, 5.5)
+        GG.draw(tl, '#c6-r1', 6.5, 0.45)
+        GG.draw(tl, '#c6-r2', 7.5, 0.45)
+        GG.draw(tl, '#c6-r3', 8.8, 0.45)
+        tl.fromTo('#c6-n1', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 9.9)
+        GG.focus(tl, '#c6-z1', S1, [1500, 700, 1380, 560], 1080, 675, 10.2)
+        GG.draw(tl, '#c6-r4', 11.0, 0.5)
+        tl.to('#c6-n1', { opacity: 0, duration: 0.25 }, 11.7)
+        GG.leave(tl, '#c6-s1', 11.7)
+
+        GG.enter(tl, '#c6-s2', 11.95, 'down')
+        GG.kp(tl, '#c6-k2', 12.6)
+        GG.draw(tl, '#c6-r5', 12.8, 0.6)
+        ;['#c6-b1', '#c6-b2', '#c6-b3'].forEach((b, i) =>
+          tl.fromTo(b, { opacity: 0, y: -40 }, { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(1.8)' }, 13.2 + i * 0.35))
+        GG.draw(tl, '#c6-r6', 15.3, 0.4)
+        tl.fromTo('#c6-n2', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 15.6)
+        tl.to('#c6-b3', { boxShadow: '0 0 0 10px rgba(196,95,0,0.22)', duration: 0.3, yoyo: true, repeat: 3 }, 15.6)
+        tl.to(['#c6-n2', '#c6-b1', '#c6-b2', '#c6-b3'], { opacity: 0, y: -20, duration: 0.35, ease: 'power2.in' }, 16.9)
+        GG.leave(tl, '#c6-s2', 16.9)
+
+        // c6d — open any workspace file
+        GG.enter(tl, '#c6-s3', 17.25)
+        GG.kp(tl, '#c6-k3', 18.0)
+        ;['#c6-t1', '#c6-t2', '#c6-t3', '#c6-t4'].forEach((c, i) =>
+          tl.fromTo(c, { opacity: 0, y: 30, scale: 0.6 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, [17.5, 18.2, 18.8, 19.4][i]))
+        GG.draw(tl, '#c6-r7', 18.2, 0.45)
+        GG.draw(tl, '#c6-r8', 19.4, 0.45)
+        GG.draw(tl, '#c6-r9', 20.3, 0.5)
+        GG.focus(tl, '#c6-z3', S3, [1480, 110, 1400, 900], 1000, 625, 20.9)
+        tl.fromTo('#c6-n3', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 21.5)
+
+        window.__timelines['c6'] = tl
+      </script>
+    </template>
+  </body>
+</html>

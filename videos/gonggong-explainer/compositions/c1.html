@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c1-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c1-s1 { left: 90px; top: 230px; width: 1080px; }
+        #c1-s1 .vp { height: 455px; }
+        #c1-s3 { left: 90px; top: 220px; width: 1080px; }
+        #c1-s3 .vp { height: 464px; }
+        #c1-chat { left: 90px; top: 170px; width: 1080px; height: 740px; overflow: hidden; }
+        #c1-chat .hd { height: 74px; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 14px; padding: 0 28px; font-size: 24px; font-weight: 800; }
+        #c1-chat .hd img { width: 42px; height: 42px; }
+        #c1-chat .list { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+        #c1-chat .row { display: flex; align-items: center; gap: 16px; }
+        #c1-chat .row .chip { margin-left: auto; }
+        #c1-bot { position: absolute; left: 28px; right: 28px; bottom: 24px; height: 108px; border-radius: 18px; background: #f5f8ff; border: 2px solid #0a7cff; display: flex; align-items: center; gap: 18px; padding: 0 22px; }
+        #c1-bot img { width: 84px; height: 84px; }
+        #c1-bot .n { font-size: 25px; font-weight: 800; }
+        #c1-bot .d { font-size: 20px; color: #6e6e73; margin-top: 4px; }
+        #c1-bot .cnt { margin-left: auto; font-size: 44px; font-weight: 900; color: #0a7cff; }
+        #c1-root .fly { position: absolute; left: 140px; width: 240px; }
+        #c1-n1 { left: 560px; top: 160px; }
+        #c1-n3 { left: 600px; top: 760px; }
+        #c1-cam { left: 930px; top: 700px; }
+      </style>
+      <div id="c1-root" data-composition-id="c1" data-width="1920" data-height="1080">
+        <div class="col" id="c1-col">
+          <div class="kick"><em>第 1 关</em>群聊</div>
+          <div class="ttl">群聊即指挥台</div>
+          <div class="kps">
+            <div class="kp" id="c1-k1"><span class="no">1</span><span><b>@ 谁，谁开工</b>：在群里 @ Bot 写清需求</span></div>
+            <div class="kp" id="c1-k2"><span class="no">2</span><span><span style="display: block">没 @ 的消息不触发，</span><span style="display: block"><b>作为背景上下文</b>带给 Bot</span></span></div>
+            <div class="kp" id="c1-k3"><span class="no">3</span><span><b>引用 Bot 的消息 = @ 它</b>；运行中可「打断并追加」</span></div>
+          </div>
+        </div>
+
+        <div class="screen" id="c1-s1">
+          <div class="bar"><i></i><i></i><i></i><span>输入 @ 选择要触发的 Bot</span></div>
+          <div class="vp"><div class="zoomer" id="c1-z1"><img src="assets/shots/composer-mention.webp" width="1080" height="455" alt="" /><svg class="ring" id="c1-r1"></svg><svg class="ring" id="c1-r2"></svg></div></div>
+        </div>
+        <div class="note" id="c1-n1">@ 谁，谁开工</div>
+
+        <div class="panel" id="c1-chat">
+          <div class="hd"><img src="assets/logo.svg" alt="" />todo-app 开发群</div>
+          <div class="list">
+            <div class="row msg" id="c1-m1"><div class="av p" style="background: #c0394b">王磊</div><div><div class="who"><b>王磊</b></div><div class="bb">登录页要加表单校验</div></div><span class="chip k">未 @ · 不触发</span></div>
+            <div class="row msg" id="c1-m2"><div class="av p" style="background: #c46a2b">李娜</div><div><div class="who"><b>李娜</b></div><div class="bb">Safari 下记得测一下</div></div><span class="chip k">未 @ · 不触发</span></div>
+            <div class="row msg" id="c1-m3"><div class="av p" style="background: #b8572f">陈晨</div><div><div class="who"><b>陈晨</b></div><div class="bb">按钮文案就用「提交」</div></div><span class="chip k">未 @ · 不触发</span></div>
+            <div class="msg me" id="c1-m4"><div class="av p" style="background: #e0533a">你</div><div class="bb"><span class="at">@前端小助手</span> 开始做吧</div></div>
+          </div>
+          <div class="chip fly" id="c1-f1" style="top: 140px">📎 表单校验</div>
+          <div class="chip fly" id="c1-f2" style="top: 250px">📎 Safari 兼容</div>
+          <div class="chip fly" id="c1-f3" style="top: 360px">📎 按钮文案</div>
+          <div id="c1-bot"><img src="assets/cast/steps-type.svg" alt="" /><div><div class="n">前端小助手 开工</div><div class="d">已带上群里的背景讨论</div></div><div class="cnt" id="c1-cnt">+3</div></div>
+        </div>
+
+        <div class="screen" id="c1-s3">
+          <div class="bar"><i></i><i></i><i></i><span>运行中，打断并追加</span></div>
+          <div class="vp"><div class="zoomer" id="c1-z3"><img src="assets/shots/append.webp" width="1080" height="464" alt="" /><svg class="ring" id="c1-r3"></svg><svg class="ring" id="c1-r4"></svg></div></div>
+        </div>
+        <div class="note" id="c1-n3">追加的要求，仍算同一轮</div>
+
+        <div class="cameo" id="c1-cam"><img src="assets/cast/gong-raise.svg" alt="" /><div class="say l">引用我，也算 @ 我！</div></div>
+
+        <div class="lv" id="c1-lv"><div class="lv-bg"></div><div class="lv-n">第 1 关</div><div class="lv-t">群聊即指挥台</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="cur"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S1 = 1080 / 2188
+        const S3 = 1080 / 2196
+        GG.ring('#c1-r1', S1, [55, 25, 840, 715])
+        GG.ring('#c1-r2', S1, [65, 82, 820, 64], 8)
+        GG.ring('#c1-r3', S3, [175, 268, 205, 54], 10)
+        GG.ring('#c1-r4', S3, [80, 728, 2070, 60], 8)
+
+        GG.level(tl, '#c1-lv')
+        GG.head(tl, '#c1-col')
+
+        // c1a — @ triggers a bot
+        GG.enter(tl, '#c1-s1', 1.8)
+        GG.draw(tl, '#c1-r1', 2.6)
+        GG.kp(tl, '#c1-k1', 2.5)
+        GG.focus(tl, '#c1-z1', S1, [40, 20, 880, 300], 1080, 455, 3.6)
+        GG.draw(tl, '#c1-r2', 4.4, 0.5)
+        tl.fromTo('#c1-n1', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 4.8)
+        tl.to('#c1-n1', { opacity: 0, duration: 0.25 }, 7.1)
+        GG.leave(tl, '#c1-s1', 7.1)
+
+        // c1b — un-mentioned chatter becomes context
+        GG.enter(tl, '#c1-chat', 7.4, 'down')
+        ;['#c1-m1', '#c1-m2', '#c1-m3'].forEach((m, i) =>
+          tl.fromTo(m, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, ease: 'power3.out' }, 7.8 + i * 0.6))
+        tl.fromTo('#c1-m4', { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.35, ease: 'back.out(2)' }, 10.0)
+        tl.fromTo('#c1-bot', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 10.6)
+        ;['#c1-f1', '#c1-f2', '#c1-f3'].forEach((f, i) => {
+          tl.fromTo(f, { opacity: 0, x: 0, y: 0, scale: 1 }, { opacity: 1, duration: 0.2 }, 11.0 + i * 0.35)
+          tl.to(f, { x: -40, y: 600 - (i * 110), scale: 0.6, duration: 0.55, ease: 'power2.in' }, 11.2 + i * 0.35)
+          tl.to(f, { opacity: 0, duration: 0.1 }, 11.75 + i * 0.35)
+        })
+        tl.set('#c1-cnt', { textContent: '+0' }, 0)
+        ;[1, 2, 3].forEach((n) => tl.set('#c1-cnt', { textContent: `+${n}` }, 11.4 + n * 0.35))
+        tl.fromTo('#c1-bot', { boxShadow: '0 0 0 0 rgba(10,124,255,0)' }, { boxShadow: '0 0 0 12px rgba(10,124,255,0.18)', duration: 0.3, yoyo: true, repeat: 3 }, 12.4)
+        GG.kp(tl, '#c1-k2', 8.1)
+        GG.leave(tl, '#c1-chat', 14.4)
+
+        // c1c — quote = mention, interrupt & append
+        GG.enter(tl, '#c1-s3', 14.7)
+        GG.kp(tl, '#c1-k3', 15.4)
+        GG.draw(tl, '#c1-r3', 15.6, 0.5)
+        GG.cameo(tl, '#c1-cam', 14.8, 18.0)
+        GG.draw(tl, '#c1-r4', 18.4, 0.7)
+        GG.focus(tl, '#c1-z3', S3, [60, 640, 2100, 200], 1080, 464, 18.6)
+        tl.fromTo('#c1-n3', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 19.4)
+
+        window.__timelines['c1'] = tl
+      </script>
+    </template>
+  </body>
+</html>

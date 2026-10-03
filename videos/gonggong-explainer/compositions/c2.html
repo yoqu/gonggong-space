@@ -1,0 +1,163 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c2-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c2-chain { position: absolute; left: 140px; top: 160px; width: 940px; height: 760px; }
+        #c2-root .node { position: absolute; left: 0; width: 940px; height: 138px; border-radius: 24px; background: #fff; box-shadow: 0 20px 50px rgba(30, 50, 100, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05); display: flex; align-items: center; gap: 24px; padding: 0 30px; box-sizing: border-box; }
+        #c2-root .node .tag { flex: none; width: 104px; font-size: 20px; font-weight: 800; color: #6e6e73; letter-spacing: 1px; }
+        #c2-root .node .nm { font-size: 32px; font-weight: 800; white-space: nowrap; }
+        #c2-root .node .sb { font-size: 20px; color: #6e6e73; margin-top: 4px; white-space: nowrap; }
+        #c2-root .node .rt { margin-left: auto; }
+        #c2-root .node .ic { flex: none; width: 84px; height: 84px; border-radius: 20px; display: flex; align-items: center; justify-content: center; }
+        #c2-n1 { top: 0; }
+        #c2-n2 { top: 200px; }
+        #c2-n3 { top: 400px; }
+        #c2-n4 { top: 600px; }
+        #c2-root .pav { width: 84px; height: 84px; border-radius: 50%; background: #c0394b; color: #fff; font-size: 28px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+        #c2-root .mac { background: #1d1d1f; }
+        #c2-root .mac svg { width: 52px; height: 52px; }
+        #c2-root .ag { font-size: 28px; padding: 12px 22px; border-radius: 14px; background: #f2f3f5; color: #6e6e73; }
+        #c2-root .ag b { color: #1f8f3f; opacity: 0; }
+        #c2-n4 img { width: 104px; height: 104px; flex: none; margin: 0 -10px; }
+        #c2-on { font-size: 24px; }
+        #c2-on i { width: 12px; height: 12px; border-radius: 50%; background: #1f8f3f; }
+        #c2-root .arr { position: absolute; left: 456px; width: 28px; height: 62px; transform-origin: 50% 0; }
+        #c2-root .arr path { stroke: #0a7cff; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        #c2-a1 { top: 138px; }
+        #c2-a2 { top: 338px; }
+        #c2-a3 { top: 538px; }
+
+        #c2-s { left: 100px; top: 180px; width: 1080px; }
+        #c2-s .vp { height: 675px; }
+        #c2-scope { position: absolute; left: 150px; top: 730px; padding: 22px 26px; display: flex; align-items: center; gap: 14px; }
+        #c2-scope .lb { font-size: 24px; font-weight: 800; margin-right: 6px; white-space: nowrap; }
+        #c2-scope .chip { font-size: 22px; }
+        #c2-np { left: 690px; top: 645px; }
+        #c2-nr { left: 840px; top: 806px; }
+
+        #c2-cast { position: absolute; left: 100px; top: 140px; width: 1100px; height: 520px; }
+        #c2-cast .hd { position: absolute; left: 0; right: 0; top: 0; text-align: center; font-size: 30px; font-weight: 900; }
+        #c2-cast .hd b { color: #0a7cff; }
+        #c2-root .cc { position: absolute; width: 140px; text-align: center; }
+        #c2-root .cc img { width: 128px; height: 128px; display: block; margin: 0 auto; }
+        #c2-root .cc div { font-size: 22px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+        #c2-root .cc.main div { color: #0a7cff; }
+        #c2-cam { left: 110px; top: 690px; }
+      </style>
+      <div id="c2-root" data-composition-id="c2" data-width="1920" data-height="1080">
+        <div class="col" id="c2-col">
+          <div class="kick"><em>第 2 关</em>Bot</div>
+          <div class="ttl">认识你的 Bot 同事</div>
+          <div class="kps">
+            <div class="kp" id="c2-k1"><span class="no">1</span><span><b>归属一位成员</b>，跑在他的机器上</span></div>
+            <div class="kp" id="c2-k2"><span class="no">2</span><span>用本机已登录的 <b>Claude Code / Codex</b></span></div>
+            <div class="kp" id="c2-k3"><span class="no">3</span><span><b>提示词 · 触发范围 · 13 种形象</b></span></div>
+          </div>
+        </div>
+
+        <div id="c2-chain">
+          <div class="node" id="c2-n1"><span class="tag">成员</span><div class="pav">王磊</div><div><div class="nm">王磊</div><div class="sb">Bot 主人</div></div></div>
+          <svg class="arr" id="c2-a1" viewBox="0 0 28 62"><path d="M14 4 V56 M4 46 L14 57 L24 46" /></svg>
+          <div class="node" id="c2-n2"><span class="tag">机器</span><div class="ic mac"><svg viewBox="0 0 52 52"><rect x="8" y="12" width="36" height="24" rx="3" fill="none" stroke="#fff" stroke-width="3.5" /><path d="M3 41 H49" stroke="#fff" stroke-width="3.5" stroke-linecap="round" /></svg></div><div><div class="nm mono">wanglei-mbp</div><div class="sb">macOS · 他自己的电脑</div></div></div>
+          <svg class="arr" id="c2-a2" viewBox="0 0 28 62"><path d="M14 4 V56 M4 46 L14 57 L24 46" /></svg>
+          <div class="node" id="c2-n3"><span class="tag">Agent</span><span class="chip ag" id="c2-g1">Claude Code <b>✓</b></span><span class="chip ag" id="c2-g2">Codex <b>✓</b></span><span class="sb rt">本机已登录</span></div>
+          <svg class="arr" id="c2-a3" viewBox="0 0 28 62"><path d="M14 4 V56 M4 46 L14 57 L24 46" /></svg>
+          <div class="node" id="c2-n4"><span class="tag">Bot</span><img src="assets/cast/steps-idle.svg" alt="" /><div><div class="nm">前端小助手</div><div class="sb">归属 王磊 · 跑在 wanglei-mbp</div></div><span class="chip g rt" id="c2-on"><i></i>在线空闲</span></div>
+        </div>
+
+        <div class="screen" id="c2-s">
+          <div class="bar"><i></i><i></i><i></i><span>新建 Bot</span></div>
+          <div class="vp"><div class="zoomer" id="c2-z"><img src="assets/shots/new-bot.webp" width="1080" height="675" alt="" /><svg class="ring" id="c2-r1"></svg><svg class="ring" id="c2-r2"></svg></div></div>
+        </div>
+        <div class="note" id="c2-np">告诉它负责什么</div>
+        <div class="panel" id="c2-scope"><span class="lb">触发范围</span><span class="chip">任何群成员</span><span class="chip k">指定名单</span><span class="chip k">仅本人</span></div>
+        <div class="note" id="c2-nr">13 种形象任选</div>
+
+        <div id="c2-cast"><div class="hd">共字君 <b>+</b> 十二种性格</div></div>
+
+        <div class="cameo" id="c2-cam"><img src="assets/cast/braces-wave.svg" alt="" /><div class="say">别看脸，看活儿。</div></div>
+
+        <div class="lv" id="c2-lv"><div class="lv-bg"></div><div class="lv-n">第 2 关</div><div class="lv-t">认识你的 Bot 同事</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="cur"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const cast = [['gong', '共字君'], ['hammock', '慢想'], ['braces', '铁码'], ['focus', '闭关'], ['steps', '小步'], ['blank', '留白'], ['no', '说不'],
+          ['abacus', '算盘'], ['invert', '反推'], ['sentry', '哨兵'], ['spring', '抗摔'], ['compass', '灰度'], ['loop', '复盘']]
+        document.querySelector('#c2-cast').insertAdjacentHTML('beforeend', cast.map(([k, n], i) => {
+          const row = i < 7 ? 0 : 1
+          const col = row ? i - 7 : i
+          const left = (row ? 78 : 0) + col * 157 + 1
+          return `<div class="cc${i ? '' : ' main'}" id="c2-c${i}" style="left:${left}px;top:${70 + row * 230}px"><img src="assets/cast/${k}-${i ? 'idle' : 'wave'}.svg" alt="" /><div>${n}</div></div>`
+        }).join(''))
+
+        const tl = gsap.timeline({ paused: true })
+        const S = 1080 / 2880
+        GG.ring('#c2-r1', S, [930, 1235, 830, 130], 10)
+        GG.ring('#c2-r2', S, [1115, 705, 830, 470], 10)
+
+        GG.level(tl, '#c2-lv')
+        GG.head(tl, '#c2-col')
+
+        // c2a — member → machine → agent → bot
+        const nodes = ['#c2-n1', '#c2-n2', '#c2-n3', '#c2-n4']
+        nodes.forEach((n, i) => tl.fromTo(n, { opacity: 0, y: 40 }, { opacity: 0.35, y: 0, duration: 0.45, ease: 'power3.out' }, 1.8 + i * 0.12))
+        ;['#c2-a1', '#c2-a2', '#c2-a3'].forEach((a) => gsap.set(a, { scaleY: 0, opacity: 0 }))
+        gsap.set('#c2-on', { opacity: 0 })
+        GG.kp(tl, '#c2-k1', 2.5)
+        const lit = (n, t) => {
+          tl.to(n, { opacity: 1, duration: 0.3 }, t)
+          tl.fromTo(n, { boxShadow: '0 20px 50px rgba(30,50,100,0.12), 0 0 0 0px rgba(10,124,255,0)' }, { boxShadow: '0 20px 50px rgba(30,50,100,0.12), 0 0 0 4px rgba(10,124,255,1)', duration: 0.3, immediateRender: false }, t)
+          tl.fromTo(n, { scale: 1 }, { scale: 1.03, duration: 0.18, yoyo: true, repeat: 1, ease: 'sine.inOut', immediateRender: false }, t)
+        }
+        const arrow = (a, t) => tl.to(a, { scaleY: 1, opacity: 1, duration: 0.35, ease: 'power2.out' }, t)
+        lit('#c2-n1', 4.9)
+        arrow('#c2-a1', 6.6)
+        lit('#c2-n2', 6.9)
+        arrow('#c2-a2', 8.7)
+        lit('#c2-n3', 9.0)
+        GG.kp(tl, '#c2-k2', 9.0)
+        ;[['#c2-g1', 10.5], ['#c2-g2', 11.3]].forEach(([g, t]) => {
+          tl.to(g, { backgroundColor: '#e9f8ee', color: '#1f8f3f', duration: 0.25 }, t)
+          tl.fromTo(`${g} b`, { opacity: 0, scale: 0.2 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(3)' }, t)
+        })
+        arrow('#c2-a3', 11.6)
+        lit('#c2-n4', 11.85)
+        tl.fromTo('#c2-on', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.6)' }, 12.0)
+        tl.to('#c2-chain', { opacity: 0, y: -30, duration: 0.35, ease: 'power2.in' }, 12.35)
+
+        // c2b — prompt, trigger scope, 13 looks
+        GG.enter(tl, '#c2-s', 12.55)
+        GG.kp(tl, '#c2-k3', 13.29)
+        GG.focus(tl, '#c2-z', S, [900, 1190, 880, 230], 1080, 675, 13.1)
+        GG.draw(tl, '#c2-r1', 14.1)
+        tl.fromTo('#c2-np', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 14.8)
+        tl.to('#c2-np', { opacity: 0, duration: 0.25 }, 16.1)
+        tl.fromTo('#c2-scope', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, ease: 'back.out(1.8)' }, 16.3)
+        ;['任何群成员', '指定名单', '仅本人'].forEach((_, i) => {
+          const c = `#c2-scope .chip:nth-of-type(${i + 2})`
+          if (i) tl.to(c, { backgroundColor: '#e6f0ff', color: '#0a7cff', duration: 0.2 }, 16.6 + i * 0.35)
+          if (i) tl.to(`#c2-scope .chip:nth-of-type(${i + 1})`, { backgroundColor: '#f2f3f5', color: '#6e6e73', duration: 0.2 }, 16.6 + i * 0.35)
+        })
+        tl.to('#c2-scope', { opacity: 0, y: 30, duration: 0.3 }, 17.55)
+        GG.focus(tl, '#c2-z', S, [1100, 690, 860, 500], 1080, 675, 17.6, 0.7)
+        GG.draw(tl, '#c2-r2', 18.0)
+        tl.fromTo('#c2-nr', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 18.2)
+        tl.to('#c2-nr', { opacity: 0, duration: 0.2 }, 18.75)
+        GG.leave(tl, '#c2-s', 18.7)
+
+        tl.fromTo('#c2-cast .hd', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.35, ease: 'power3.out' }, 18.95)
+        tl.fromTo('#c2-c0', { opacity: 0, y: 60, scale: 0.4 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(2.2)' }, 19.0)
+        for (let i = 1; i < 13; i++)
+          tl.fromTo(`#c2-c${i}`, { opacity: 0, y: 60, scale: 0.4 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: 'back.out(2.2)' }, 19.95 + (i - 1) * 0.11)
+
+        // c2c — 铁码: don't judge by the face
+        for (let i = 0; i < 13; i++) tl.to(`#c2-c${i}`, { opacity: 0.35, duration: 0.4 }, 22.3)
+        GG.cameo(tl, '#c2-cam', 22.09, 25.2)
+
+        window.__timelines['c2'] = tl
+      </script>
+    </template>
+  </body>
+</html>

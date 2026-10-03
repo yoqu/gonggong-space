@@ -45,7 +45,9 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
     await bindManaged(page.request, group.id, [bot.id])
     await page.goto(`/g/${group.id}`)
     await say(page, '@将停用 Claude 在当前目录创建 keep.txt，只回复 ok')
-    await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(page.getByTestId('run-card').last()).toHaveAttribute('data-status', 'completed', {
+      timeout: 4 * 60_000,
+    })
     expect(m.find('keep.txt')).toBeTruthy()
 
     await admin.goto('/admin/users')
@@ -57,7 +59,7 @@ test('disabling an account revokes its sessions and daemon, wipes managed worksp
 
     // Web session revoked; the daemon is rejected, exits and wipes its managed workspaces.
     await page.reload()
-    await expect(page).toHaveURL(/\/login$/)
+    await expect(page).toHaveURL(/\/login(\?next=|$)/)
     expect(await m.exited()).not.toBe(0)
     expect(m.find('keep.txt')).toBeUndefined()
     const bots = await admin.request.get('/api/bots')

@@ -80,12 +80,13 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
 
     await cardA.getByRole('button', { name: '批准' }).click()
     await cardB.getByRole('button', { name: '拒绝' }).click()
-    await expect(cardA).toContainText('已完成', { timeout: 3 * 60_000 })
+    // The decision shows on the live card; a finished card with a reply folds it into the process view.
     await expect(cardA).toContainText('appr1 已批准')
     await expect(cardB).toContainText('appr1 已拒绝')
-    await expect(cardB).toContainText(/已完成|已中断/, { timeout: 3 * 60_000 })
-    await expect(page.getByTestId('bot-reply').filter({ hasText: 'hello-approval' })).toHaveCount(1)
     await expect(viewerCard).toContainText('appr1 已批准')
+    await expect(cardA).toHaveAttribute('data-status', 'completed', { timeout: 3 * 60_000 })
+    await expect(cardB).toHaveAttribute('data-status', /completed|interrupted/, { timeout: 3 * 60_000 })
+    await expect(page.getByTestId('bot-reply').filter({ hasText: 'hello-approval' })).toHaveCount(1)
 
     // The run tab keeps the approval record.
     // Message actions appear while the message is hovered, as with a pointer.
@@ -141,7 +142,7 @@ test('relay chain stops at 3 hops and every hop is authorized against the chain 
     await say(page, '@接力 A 开始')
     const cards = page.getByTestId('run-card')
     await expect(cards).toHaveCount(3, { timeout: 8 * 60_000 })
-    await expect(cards.nth(2)).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(cards.nth(2)).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
     await expect(cards.nth(1)).toContainText('接力 2/3')
     await expect(cards.nth(2)).toContainText('接力 3/3')
     // The 3rd hop's hand_off is refused: no 4th run.

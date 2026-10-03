@@ -68,7 +68,9 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
     const pick = page.getByRole('dialog', { name: '添加 Bot' })
     await pick.getByRole('menuitemcheckbox', { name: /有权限 Claude/ }).click()
     await pick.getByRole('menuitemcheckbox', { name: /无权限 Codex/ }).click()
-    await dialog.getByRole('button', { name: '添加 Bot…' }).click()
+    // With two rows the open picker covers its trigger: dismiss it with Escape (closes only the topmost layer).
+    await page.keyboard.press('Escape')
+    await expect(pick).toBeHidden()
     await dialog.getByRole('button', { name: '仓库', exact: true }).click()
     const panel = page.getByRole('dialog', { name: '选择仓库' })
     await panel.getByLabel('搜索仓库').fill(repo.url)
@@ -85,21 +87,8 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
     await expect(page).toHaveURL(/\/g\//)
     const groupId = page.url().split('/g/')[1]!.split(/[?#]/)[0]!
 
-    // Each owner picks the managed clone: Alice's is ready, Bob's clone fails on access and pauses the bot.
+    // Repo groups start every bot on a managed clone: Alice's is ready, Bob's clone fails on access and pauses the bot.
     await bindManaged(page.request, groupId, [aliceBot.id])
-    await expect
-      .poll(
-        async () =>
-          (
-            await bobSession.put(`/api/groups/${groupId}/bots/${bobBot.id}/workspace`, {
-              data: { path: null },
-            })
-          ).status(),
-        {
-          timeout: 60_000,
-        },
-      )
-      .toBe(204)
     const bobState = async () => {
       const states: { botId: string; state: string; reason: string | null }[] = await (
         await page.request.get(`/api/groups/${groupId}/bot-states`)

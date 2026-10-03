@@ -1,0 +1,684 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="ui-mascot" data-action="wait" width="240" height="240" viewBox="0 0 120 120" aria-hidden="true"><style>:root,svg{--label:#000;--content-bg:#fff;--separator:#d1d1d6;--secondary-label:#3c3c4399}.ui-mascot {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.ui-mascot--head {
+  overflow: hidden;
+}
+.ui-mascot__fig {
+  transform-origin: 60px 108px;
+  transition: transform 0.3s ease;
+}
+.ui-mascot__la,
+.ui-mascot__ra,
+.ui-mascot__lf,
+.ui-mascot__rf {
+  transition: transform 0.25s ease;
+}
+.ui-mascot__window {
+  fill: #fff;
+}
+.ui-mascot__shadow {
+  fill: color-mix(in srgb, var(--label) 10%, transparent);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ui-mascot__eye,
+.ui-mascot__fx,
+.ui-mascot__jade {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ui-mascot__eyes--open {
+  transition: transform 0.3s ease;
+}
+.ui-mascot__bubble {
+  fill: var(--content-bg);
+  stroke: var(--separator);
+}
+.ui-mascot__glyph {
+  font: 700 13px var(--font-sans);
+  fill: var(--label);
+}
+.ui-mascot__code {
+  font: 700 8px var(--font-mono);
+}
+.ui-mascot__z {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  fill: var(--label-tertiary);
+}
+.ui-mascot__laptop {
+  fill: #d6dce6;
+}
+.ui-mascot__laptop-base {
+  fill: #b8c2d3;
+}
+/* Always-on life: the jade floats and the eyes blink unless closed. */
+.ui-mascot__jade {
+  animation: ui-mascot-float 2.4s ease-in-out infinite;
+}
+.ui-mascot__eye {
+  animation: ui-mascot-blink 4s infinite;
+}
+.ui-mascot__prop--ground {
+  animation: ui-mascot-ground 1.2s linear infinite;
+  stroke: var(--separator);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Which face, mouth and props each action shows. */
+.ui-mascot__prop,
+.ui-mascot__eyes--happy,
+.ui-mascot__eyes--closed,
+.ui-mascot__eyes--x,
+.ui-mascot__mouth--open,
+.ui-mascot__mouth--wobble {
+  display: none;
+}
+.ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--open,
+.ui-mascot[data-action="sleep"] .ui-mascot__eyes--open,
+.ui-mascot[data-action="error"] .ui-mascot__eyes--open,
+.ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="error"]) .ui-mascot__mouth--smile {
+  display: none;
+}
+.ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--happy,
+.ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__mouth--open,
+.ui-mascot[data-action="sleep"] .ui-mascot__eyes--closed,
+.ui-mascot[data-action="error"] .ui-mascot__eyes--x,
+.ui-mascot[data-action="error"] .ui-mascot__mouth--wobble,
+.ui-mascot[data-action="think"] .ui-mascot__prop--think,
+.ui-mascot[data-action="ask"] .ui-mascot__prop--ask,
+.ui-mascot[data-action="raise"] .ui-mascot__prop--raise,
+.ui-mascot[data-action="wait"] .ui-mascot__prop--wait,
+.ui-mascot[data-action="type"] .ui-mascot__prop--type,
+.ui-mascot[data-action="carry"] .ui-mascot__prop--carry,
+.ui-mascot[data-action="run"] .ui-mascot__prop--run,
+.ui-mascot[data-action="done"] .ui-mascot__prop--done,
+.ui-mascot[data-action="error"] .ui-mascot__prop--error,
+.ui-mascot[data-action="sleep"] .ui-mascot__prop--sleep,
+.ui-mascot:is([data-action="run"], [data-action="carry"]) .ui-mascot__prop--ground {
+  display: inline;
+}
+.ui-mascot[data-action="carry"] .ui-mascot__jade {
+  display: none;
+}
+
+.ui-mascot[data-action="idle"] .ui-mascot__bob {
+  animation: ui-mascot-breathe 2.4s ease-in-out infinite;
+}
+
+.ui-mascot[data-action="wave"] .ui-mascot__bob {
+  animation: ui-mascot-breathe 1.6s ease-in-out infinite;
+}
+.ui-mascot[data-action="wave"] .ui-mascot__ra {
+  animation: ui-mascot-hi 0.5s ease-in-out infinite alternate;
+}
+
+.ui-mascot[data-action="think"] .ui-mascot__fig {
+  transform: rotate(-3deg);
+}
+.ui-mascot[data-action="think"] .ui-mascot__ra {
+  transform: rotate(calc(150deg - var(--rest)));
+}
+.ui-mascot:is([data-action="think"], [data-action="ask"]) .ui-mascot__eyes--open {
+  transform: translate(1.5px, -1.5px);
+}
+.ui-mascot:is([data-action="think"], [data-action="ask"], [data-action="wait"]) .ui-mascot__bob {
+  animation: ui-mascot-breathe 3s ease-in-out infinite;
+}
+.ui-mascot__prop--think .ui-mascot__fx {
+  animation: ui-mascot-dot 1s ease-in-out var(--dd, 0s) infinite;
+}
+
+.ui-mascot[data-action="ask"] .ui-mascot__fig {
+  transform: rotate(6deg);
+}
+.ui-mascot[data-action="ask"] .ui-mascot__ra {
+  transform: rotate(calc(-165deg - var(--rest)));
+}
+
+.ui-mascot[data-action="raise"] .ui-mascot__ra {
+  animation: ui-mascot-raise 1.2s ease-in-out infinite;
+}
+.ui-mascot[data-action="raise"] .ui-mascot__bob {
+  animation: ui-mascot-breathe 1.2s ease-in-out infinite;
+}
+.ui-mascot__prop--raise .ui-mascot__fx {
+  animation: ui-mascot-pulse 1.2s ease-in-out infinite;
+}
+
+.ui-mascot[data-action="wait"] .ui-mascot__rf {
+  animation: ui-mascot-tap 0.6s ease-in-out infinite;
+}
+.ui-mascot__hourglass {
+  animation: ui-mascot-flip 2.4s ease-in-out infinite;
+}
+
+.ui-mascot[data-action="type"] .ui-mascot__la {
+  animation: ui-mascot-tap-l 0.6s ease-in-out infinite;
+}
+.ui-mascot[data-action="type"] .ui-mascot__ra {
+  animation: ui-mascot-tap-r 0.6s ease-in-out -0.3s infinite;
+}
+.ui-mascot[data-action="type"] .ui-mascot__bob {
+  animation: ui-mascot-breathe 1.4s ease-in-out infinite;
+}
+.ui-mascot[data-action="type"] .ui-mascot__eyes--open {
+  transform: translate(0, 1.5px);
+}
+.ui-mascot__prop--type .ui-mascot__fx {
+  animation: ui-mascot-rise 1.8s ease-out var(--dd, 0s) infinite;
+}
+.ui-mascot__glow {
+  animation: ui-mascot-glow 1.2s ease-in-out infinite;
+}
+
+.ui-mascot[data-action="carry"] .ui-mascot__la {
+  transform: rotate(calc(165deg - var(--rest)));
+}
+.ui-mascot[data-action="carry"] .ui-mascot__ra {
+  transform: rotate(calc(-165deg - var(--rest)));
+}
+.ui-mascot[data-action="carry"] .ui-mascot__bob {
+  animation: ui-mascot-heavy 0.9s ease-in-out infinite;
+}
+.ui-mascot[data-action="carry"] .ui-mascot__lf {
+  animation: ui-mascot-plod 0.9s ease-in-out infinite;
+}
+.ui-mascot[data-action="carry"] .ui-mascot__rf {
+  animation: ui-mascot-plod 0.9s ease-in-out -0.45s infinite;
+}
+.ui-mascot__brick {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ui-mascot-wobble 0.9s ease-in-out infinite;
+}
+.ui-mascot__sweat {
+  animation: ui-mascot-sweat 1.2s ease-in var(--dd, 0s) infinite;
+}
+
+.ui-mascot[data-action="run"] .ui-mascot__fig {
+  transform: rotate(8deg);
+}
+.ui-mascot[data-action="run"] .ui-mascot__bob {
+  animation: ui-mascot-hop 0.6s ease-in-out infinite;
+}
+.ui-mascot[data-action="run"] .ui-mascot__la {
+  animation: ui-mascot-swing 1.2s ease-in-out -0.6s infinite;
+}
+.ui-mascot[data-action="run"] .ui-mascot__ra {
+  animation: ui-mascot-swing 1.2s ease-in-out infinite;
+}
+.ui-mascot[data-action="run"] .ui-mascot__lf {
+  animation: ui-mascot-stride 1.2s ease-in-out infinite;
+}
+.ui-mascot[data-action="run"] .ui-mascot__rf {
+  animation: ui-mascot-stride 1.2s ease-in-out -0.6s infinite;
+}
+.ui-mascot__prop--run .ui-mascot__fx {
+  animation: ui-mascot-speed 1.2s linear var(--dd, 0s) infinite;
+}
+
+.ui-mascot[data-action="done"] .ui-mascot__bob {
+  animation: ui-mascot-jump 1s cubic-bezier(0.3, 0.6, 0.4, 1) 2;
+}
+.ui-mascot[data-action="done"] .ui-mascot__la {
+  animation: ui-mascot-cheer-l 0.5s ease-in-out 4 alternate both;
+}
+.ui-mascot[data-action="done"] .ui-mascot__ra {
+  animation: ui-mascot-cheer-r 0.5s ease-in-out 4 alternate both;
+}
+.ui-mascot[data-action="done"] .ui-mascot__shadow {
+  animation: ui-mascot-shrink 1s cubic-bezier(0.3, 0.6, 0.4, 1) 2;
+}
+.ui-mascot__prop--done .ui-mascot__fx {
+  animation: ui-mascot-burst 1s ease-out var(--dd, 0s) 2 both;
+}
+
+.ui-mascot[data-action="error"] .ui-mascot__fig {
+  animation: ui-mascot-shake 1.6s ease-in-out 2;
+}
+.ui-mascot[data-action="error"] .ui-mascot__la {
+  transform: rotate(calc(172deg - var(--rest)));
+}
+.ui-mascot[data-action="error"] .ui-mascot__ra {
+  transform: rotate(calc(-172deg - var(--rest)));
+}
+.ui-mascot__bang {
+  animation: ui-mascot-pop 1.6s ease-out 2;
+}
+
+.ui-mascot[data-action="sleep"] .ui-mascot__fig {
+  transform: rotate(-6deg);
+}
+.ui-mascot[data-action="sleep"] .ui-mascot__bob {
+  animation: ui-mascot-breathe 3.2s ease-in-out infinite;
+}
+.ui-mascot[data-action="sleep"] .ui-mascot__jade {
+  animation-duration: 4.8s;
+  opacity: 0.6;
+}
+.ui-mascot__prop--sleep .ui-mascot__fx {
+  animation: ui-mascot-zzz 3s ease-out var(--dd, 0s) infinite;
+}
+
+/*
+ * Under 48px a unit is ~0.27px: props blur into specks and eye moves vanish, so only the silhouette and the jade,
+ * recoloured as a status light, tell the actions apart.
+ */
+.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__prop {
+  display: none;
+}
+.ui-mascot.ui-mascot--compact[data-action] :is(.ui-mascot__eye, .ui-mascot__eyes--open) {
+  animation: none;
+  transform: none;
+}
+.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__jade {
+  animation: none;
+  transform: scale(1.3);
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__jade {
+  display: inline;
+}
+.ui-mascot.ui-mascot--compact:is(
+    [data-action="type"],
+    [data-action="carry"],
+    [data-action="wait"],
+    [data-action="raise"],
+    [data-action="ask"]
+  )
+  .ui-mascot__gem {
+  display: inline;
+  fill: var(--mascot-light);
+}
+.ui-mascot.ui-mascot--compact:is(
+    [data-action="think"],
+    [data-action="ask"],
+    [data-action="raise"],
+    [data-action="wait"]
+  )
+  .ui-mascot__bob {
+  animation: none;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="think"] .ui-mascot__fig {
+  --sway-from: -6deg;
+  --sway-to: -2deg;
+  animation: ui-mascot-sway 1.2s ease-in-out infinite alternate;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="type"] {
+  --mascot-light: var(--system-blue);
+}
+.ui-mascot.ui-mascot--compact[data-action="type"] .ui-mascot__bob {
+  --dy: -4px;
+  animation: ui-mascot-bounce 1.2s ease-in-out infinite;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="carry"] {
+  --mascot-light: var(--system-teal);
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__bob {
+  --dy: 4px;
+  animation: ui-mascot-bounce 1.2s ease-in-out infinite;
+}
+.ui-mascot.ui-mascot--compact[data-action="carry"] :is(.ui-mascot__lf, .ui-mascot__rf) {
+  animation: none;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="wait"] {
+  --mascot-light: var(--label-tertiary);
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] :is(g, path, rect, ellipse, circle, line, text) {
+  animation: none;
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__la {
+  transform: rotate(calc(20deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__ra {
+  transform: rotate(calc(-20deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__jade {
+  opacity: 0.6;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="raise"] {
+  --mascot-light: var(--system-orange);
+}
+.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__ra {
+  /* Straighten to hanging, stretch so the hand clears the head, then raise. */
+  animation: none;
+  transform: rotate(-155deg) scaleY(2.4) rotate(calc(0deg - var(--rest)));
+}
+.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__jade {
+  animation: ui-mascot-lamp 1.6s ease-in-out infinite;
+}
+
+.ui-mascot.ui-mascot--compact[data-action="ask"] {
+  --mascot-light: var(--system-blue);
+}
+.ui-mascot.ui-mascot--compact[data-action="ask"] .ui-mascot__fig {
+  --sway-from: 8deg;
+  --sway-to: 4deg;
+  animation: ui-mascot-sway 1.2s ease-in-out infinite alternate;
+}
+.ui-mascot.ui-mascot--compact[data-action="ask"] .ui-mascot__ra {
+  transform: rotate(calc(-120deg - var(--rest)));
+}
+
+@keyframes ui-mascot-sway {
+  from {
+    transform: rotate(var(--sway-from));
+  }
+  to {
+    transform: rotate(var(--sway-to));
+  }
+}
+@keyframes ui-mascot-bounce {
+  50% {
+    transform: translateY(var(--dy));
+  }
+}
+@keyframes ui-mascot-lamp {
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes ui-mascot-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes ui-mascot-float {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes ui-mascot-breathe {
+  50% {
+    transform: translateY(1.6px);
+  }
+}
+@keyframes ui-mascot-hop {
+  50% {
+    transform: translateY(-1.75px);
+  }
+}
+@keyframes ui-mascot-heavy {
+  50% {
+    transform: translateY(2.5px);
+  }
+}
+@keyframes ui-mascot-swing {
+  0%,
+  100% {
+    transform: rotate(calc(50deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(-50deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-stride {
+  0%,
+  100% {
+    transform: rotate(calc(30deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(-30deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-plod {
+  0%,
+  100% {
+    transform: rotate(calc(14deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(-14deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-tap {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: rotate(calc(-40deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-tap-l {
+  0%,
+  100% {
+    transform: rotate(calc(-40deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(-26deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-tap-r {
+  0%,
+  100% {
+    transform: rotate(calc(40deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(26deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-hi {
+  from {
+    transform: rotate(calc(-130deg - var(--rest)));
+  }
+  to {
+    transform: rotate(calc(-165deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-raise {
+  0%,
+  100% {
+    transform: rotate(calc(-172deg - var(--rest)));
+  }
+  50% {
+    transform: rotate(calc(-160deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-cheer-l {
+  from {
+    transform: rotate(calc(145deg - var(--rest)));
+  }
+  to {
+    transform: rotate(calc(175deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-cheer-r {
+  from {
+    transform: rotate(calc(-145deg - var(--rest)));
+  }
+  to {
+    transform: rotate(calc(-175deg - var(--rest)));
+  }
+}
+@keyframes ui-mascot-wobble {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+@keyframes ui-mascot-jump {
+  0%,
+  72%,
+  100% {
+    transform: translateY(0);
+  }
+  12% {
+    transform: translateY(2px);
+  }
+  42% {
+    transform: translateY(-18px);
+  }
+}
+@keyframes ui-mascot-shrink {
+  0%,
+  72%,
+  100% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+}
+@keyframes ui-mascot-shake {
+  0%,
+  40%,
+  100% {
+    transform: translateX(0);
+  }
+  5%,
+  15%,
+  25% {
+    transform: translateX(-3px);
+  }
+  10%,
+  20%,
+  30% {
+    transform: translateX(3px);
+  }
+}
+@keyframes ui-mascot-pop {
+  0% {
+    transform: scale(0);
+  }
+  12% {
+    transform: scale(1.2);
+  }
+  20%,
+  85% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
+@keyframes ui-mascot-pulse {
+  50% {
+    transform: scale(1.15);
+  }
+}
+@keyframes ui-mascot-flip {
+  0%,
+  40% {
+    transform: rotate(0);
+  }
+  50%,
+  90% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ui-mascot-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+@keyframes ui-mascot-speed {
+  from {
+    transform: translateX(6px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+}
+@keyframes ui-mascot-ground {
+  to {
+    stroke-dashoffset: 14;
+  }
+}
+@keyframes ui-mascot-sweat {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}
+@keyframes ui-mascot-rise {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-26px);
+    opacity: 0;
+  }
+}
+@keyframes ui-mascot-glow {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes ui-mascot-burst {
+  0% {
+    transform: translate(0, 0) scale(0.2) rotate(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x), var(--y)) scale(1) rotate(200deg);
+    opacity: 0;
+  }
+}
+@keyframes ui-mascot-zzz {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(14px, -26px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Outranks every action rule, compact ones (0,4,0) included, so the static poses stay but nothing moves. */
+  .ui-mascot.ui-mascot[data-action][data-action] :is(g, path, rect, ellipse, circle, line, text) {
+    animation: none;
+    transition: none;
+  }
+}
+*{animation:none!important;transition:none!important}</style><defs><linearGradient id="_R_0_b" gradientUnits="userSpaceOnUse" x1="40" y1="20" x2="80" y2="106"><stop stop-color="#2F6BFF"></stop><stop offset="1" stop-color="#0FA3A0"></stop></linearGradient><linearGradient id="_R_0_j" gradientUnits="userSpaceOnUse" x1="54" y1="5" x2="66" y2="18"><stop stop-color="#B8F5EA"></stop><stop offset="1" stop-color="#14B3AE"></stop></linearGradient></defs><ellipse class="ui-mascot__shadow" cx="60" cy="109" rx="24" ry="3"></ellipse><g class="ui-mascot__fig"><g class="ui-mascot__bob" fill="url(#_R_0_b)"><g class="ui-mascot__lf" style="transform-origin:50px 78px;--rest:19deg"><path d="M50 78 41 103" fill="none" stroke="url(#_R_0_b)" stroke-width="9" stroke-linecap="round"></path></g><g class="ui-mascot__rf" style="transform-origin:70px 78px;--rest:-19deg"><path d="M70 78 79 103" fill="none" stroke="url(#_R_0_b)" stroke-width="9" stroke-linecap="round"></path></g><g class="ui-mascot__la" style="transform-origin:40px 66.5px;--rest:90deg"><rect x="22" y="62" width="22" height="9" rx="4.5"></rect></g><g class="ui-mascot__ra" style="transform-origin:80px 66.5px;--rest:-90deg"><rect x="76" y="62" width="22" height="9" rx="4.5"></rect></g><rect class="ui-mascot__window" x="48" y="41" width="24" height="23" rx="4"></rect><rect x="41" y="22" width="9" height="44" rx="4.5"></rect><rect x="70" y="22" width="9" height="44" rx="4.5"></rect><rect x="31" y="34" width="58" height="9" rx="4.5"></rect><rect x="38" y="62" width="44" height="9" rx="4.5"></rect><g class="ui-mascot__eyes ui-mascot__eyes--open" fill="#16213E"><ellipse class="ui-mascot__eye" cx="55.5" cy="50.5" rx="2.2" ry="2.8"></ellipse><ellipse class="ui-mascot__eye" cx="64.5" cy="50.5" rx="2.2" ry="2.8"></ellipse></g><g fill="none" stroke="#16213E" stroke-width="1.8" stroke-linecap="round"><g class="ui-mascot__eyes ui-mascot__eyes--happy"><path d="M53.1 51.6q2.4-4.4 4.8 0"></path><path d="M62.1 51.6q2.4-4.4 4.8 0"></path></g><g class="ui-mascot__eyes ui-mascot__eyes--closed"><path d="M53.1 50.6q2.4 3 4.8 0"></path><path d="M62.1 50.6q2.4 3 4.8 0"></path></g><g class="ui-mascot__eyes ui-mascot__eyes--x"><path d="M53.5 48.5l4 4m0-4-4 4"></path><path d="M62.5 48.5l4 4m0-4-4 4"></path></g><path class="ui-mascot__mouth ui-mascot__mouth--smile" d="M58.2 56.4q1.8 1.6 3.6 0" stroke-width="1.4"></path><path class="ui-mascot__mouth ui-mascot__mouth--wobble" d="M57.4 57.4l1.3-1 1.3 1 1.3-1 1.3 1" stroke-width="1.3"></path></g><path class="ui-mascot__mouth ui-mascot__mouth--open" d="M57.8 55.4h4.4a2.2 2.2 0 0 1-4.4 0Z" fill="#16213E"></path><circle cx="52.4" cy="56" r="1.6" fill="#FF8FB1"></circle><circle cx="67.6" cy="56" r="1.6" fill="#FF8FB1"></circle><g class="ui-mascot__jade"><path class="ui-mascot__gem" d="M60 4.5 67 11.5 60 18.5 53 11.5Z" fill="url(#_R_0_j)"></path><path d="M60 4.5 67 11.5H60Z" fill="#fff" opacity=".45"></path></g></g></g><line class="ui-mascot__prop ui-mascot__prop--ground" x1="-10" x2="130" y1="112" y2="112" stroke-dasharray="6 8"></line><g class="ui-mascot__prop ui-mascot__prop--think"><circle class="ui-mascot__bubble" cx="82" cy="27" r="2.2"></circle><circle class="ui-mascot__bubble" cx="86.5" cy="21.5" r="3.2"></circle><rect class="ui-mascot__bubble" x="84" y="2" width="32" height="18" rx="9"></rect><circle class="ui-mascot__fx" cx="93" cy="11" r="2.1" fill="var(--system-blue)" style="--dd:0s"></circle><circle class="ui-mascot__fx" cx="100" cy="11" r="2.1" fill="var(--system-blue)" style="--dd:0.15s"></circle><circle class="ui-mascot__fx" cx="107" cy="11" r="2.1" fill="var(--system-blue)" style="--dd:0.3s"></circle></g><g class="ui-mascot__prop ui-mascot__prop--ask"><circle class="ui-mascot__bubble" cx="82" cy="27" r="2.2"></circle><circle class="ui-mascot__bubble" cx="86.5" cy="21.5" r="3.2"></circle><rect class="ui-mascot__bubble" x="84" y="2" width="32" height="18" rx="9"></rect><text class="ui-mascot__glyph" x="100" y="15.5" text-anchor="middle">?</text></g><g class="ui-mascot__prop ui-mascot__prop--raise"><circle class="ui-mascot__bubble" cx="82" cy="27" r="2.2"></circle><circle class="ui-mascot__bubble" cx="86.5" cy="21.5" r="3.2"></circle><rect class="ui-mascot__bubble" x="84" y="2" width="32" height="18" rx="9"></rect><path class="ui-mascot__fx" d="M100 4.6l5.6 2.1v4.4c0 3.5-2.4 6-5.6 7.2-3.2-1.2-5.6-3.7-5.6-7.2V6.7z" fill="var(--system-orange)"></path><path d="M100 8v4M100 14.6v.1" stroke="#fff" stroke-width="1.6" stroke-linecap="round"></path></g><g class="ui-mascot__prop ui-mascot__prop--wait"><circle class="ui-mascot__bubble" cx="82" cy="27" r="2.2"></circle><circle class="ui-mascot__bubble" cx="86.5" cy="21.5" r="3.2"></circle><rect class="ui-mascot__bubble" x="84" y="2" width="32" height="18" rx="9"></rect><path class="ui-mascot__fx ui-mascot__hourglass" d="M95.5 5h9M95.5 17h9M96.8 5c0 4.2 3.2 4.4 3.2 6s-3.2 1.8-3.2 6M103.2 5c0 4.2-3.2 4.4-3.2 6s3.2 1.8 3.2 6" fill="none" stroke="var(--label)" stroke-width="1.5" stroke-linecap="round"></path></g><g class="ui-mascot__prop ui-mascot__prop--run" stroke="var(--separator)" stroke-width="2.5" stroke-linecap="round"><line class="ui-mascot__fx" x1="6" x2="20" y1="46" y2="46" style="--dd:0s"></line><line class="ui-mascot__fx" x1="2" x2="14" y1="62" y2="62" style="--dd:-0.15s"></line><line class="ui-mascot__fx" x1="8" x2="18" y1="78" y2="78" style="--dd:-0.28s"></line></g><g class="ui-mascot__prop ui-mascot__prop--carry"><g class="ui-mascot__brick"><rect x="40" y="7" width="40" height="15" rx="3.5" fill="var(--system-orange)"></rect><rect x="40" y="7" width="40" height="4" rx="2" fill="#fff" opacity=".25"></rect><text class="ui-mascot__code" x="60" y="18" text-anchor="middle" fill="#fff">&lt;/&gt;</text></g><path class="ui-mascot__fx ui-mascot__sweat" d="M89 30q3 4 0 6q-3-2 0-6Z" fill="#6FC3FF"></path></g><g class="ui-mascot__prop ui-mascot__prop--type"><rect class="ui-mascot__laptop" x="34" y="78" width="52" height="28" rx="5"></rect><path class="ui-mascot__glow" d="M60 85 66 92 60 99 54 92Z" fill="url(#_R_0_j)"></path><rect class="ui-mascot__laptop-base" x="28" y="104" width="64" height="5" rx="2.5"></rect><text class="ui-mascot__fx ui-mascot__code" x="40" y="76" text-anchor="middle" fill="var(--system-blue)" style="--dd:0s">{ }</text><text class="ui-mascot__fx ui-mascot__code" x="60" y="76" text-anchor="middle" fill="var(--system-teal)" style="--dd:-0.6s">&lt;/&gt;</text><text class="ui-mascot__fx ui-mascot__code" x="80" y="76" text-anchor="middle" fill="var(--system-orange)" style="--dd:-1.2s">01</text></g><g class="ui-mascot__prop ui-mascot__prop--done"><rect class="ui-mascot__fx" x="58.5" y="38" width="3" height="6" rx="1" fill="var(--system-blue)" style="--x:-34px;--y:-26px;--dd:0s"></rect><path class="ui-mascot__fx" d="M60 38 63 41 60 44 57 41Z" fill="var(--system-teal)" style="--x:30px;--y:-34px;--dd:-0.06s"></path><rect class="ui-mascot__fx" x="58.5" y="38" width="3" height="6" rx="1" fill="var(--system-orange)" style="--x:-42px;--y:6px;--dd:-0.12s"></rect><path class="ui-mascot__fx" d="M60 38 63 41 60 44 57 41Z" fill="var(--system-green)" style="--x:42px;--y:-4px;--dd:-0.18s"></path><rect class="ui-mascot__fx" x="58.5" y="38" width="3" height="6" rx="1" fill="var(--system-pink, #FF8FB1)" style="--x:-16px;--y:-42px;--dd:-0.24s"></rect><path class="ui-mascot__fx" d="M60 38 63 41 60 44 57 41Z" fill="var(--system-blue)" style="--x:18px;--y:-46px;--dd:-0.3s"></path><rect class="ui-mascot__fx" x="58.5" y="38" width="3" height="6" rx="1" fill="var(--system-orange)" style="--x:44px;--y:22px;--dd:-0.36s"></rect><path class="ui-mascot__fx" d="M60 38 63 41 60 44 57 41Z" fill="var(--system-teal)" style="--x:-44px;--y:24px;--dd:-0.42s"></path></g><g class="ui-mascot__prop ui-mascot__prop--error"><g class="ui-mascot__fx ui-mascot__bang"><circle cx="94" cy="20" r="8" fill="var(--system-red)"></circle><rect x="92.8" y="15" width="2.4" height="6.5" rx="1.2" fill="#fff"></rect><circle cx="94" cy="24" r="1.3" fill="#fff"></circle></g><path class="ui-mascot__fx ui-mascot__sweat" d="M27 34q3 4 0 6q-3-2 0-6Z" fill="#6FC3FF" style="--dd:-.4s"></path></g><g class="ui-mascot__prop ui-mascot__prop--sleep"><text class="ui-mascot__fx ui-mascot__z" x="84" y="28" font-size="9" style="--dd:0s">z</text><text class="ui-mascot__fx ui-mascot__z" x="84" y="28" font-size="11" style="--dd:-1s">z</text><text class="ui-mascot__fx ui-mascot__z" x="84" y="28" font-size="13" style="--dd:-2s">z</text></g></svg>

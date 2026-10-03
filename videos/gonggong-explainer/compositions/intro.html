@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #intro-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; }
+        #intro-root .g { position: absolute; left: 770px; top: 200px; width: 380px; height: 380px; transform-origin: 50% 100%; }
+        #intro-root .say { left: 1110px; top: 230px; font-size: 40px; }
+        #intro-head { position: absolute; left: 0; right: 0; top: 150px; text-align: center; }
+        #intro-head .big { font-size: 76px; font-weight: 900; margin-top: 18px; }
+        #intro-title { position: absolute; left: 0; right: 0; top: 120px; display: flex; flex-direction: column; align-items: center; }
+        #intro-title img { width: 110px; height: 110px; }
+        #intro-title .t { font-size: 120px; font-weight: 900; letter-spacing: 10px; margin-top: 10px; }
+        #intro-title .s { font-size: 40px; font-weight: 600; color: #3b4152; margin-top: 6px; }
+        #intro-map { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+        #intro-map path { fill: none; stroke: #b9c6e4; stroke-width: 6; stroke-dasharray: 1; stroke-linecap: round; }
+        #intro-root .node { position: absolute; width: 180px; margin-left: -90px; display: flex; flex-direction: column; align-items: center; }
+        #intro-root .node .c { width: 84px; height: 84px; border-radius: 50%; background: #fff; border: 4px solid #0a7cff; color: #0a7cff; font-size: 38px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(10, 124, 255, 0.18); }
+        #intro-root .node .l { margin-top: 10px; font-size: 22px; font-weight: 800; white-space: nowrap; }
+        #intro-cup { position: absolute; left: 1760px; top: 640px; width: 120px; height: 120px; border-radius: 30px; background: linear-gradient(135deg, #ffd85a, #f5a524); display: flex; align-items: center; justify-content: center; font-size: 66px; box-shadow: 0 14px 30px rgba(245, 165, 36, 0.35); }
+        #intro-cup span { position: absolute; top: 132px; font-size: 22px; font-weight: 800; white-space: nowrap; color: #3b4152; }
+      </style>
+      <div id="intro-root" data-composition-id="intro" data-width="1920" data-height="1080">
+        <svg id="intro-map" viewBox="0 0 1920 1080"><path id="intro-path" pathLength="1" d="M 140 700 C 200 600 220 640 260 640 S 400 780 460 780 S 600 640 660 640 S 800 780 860 780 S 1000 640 1060 640 S 1200 780 1260 780 S 1400 640 1460 640 S 1600 780 1660 780 S 1760 700 1820 700" /></svg>
+        <div class="node" style="left: 260px; top: 598px"><div class="c">1</div><div class="l">群聊即指挥台</div></div>
+        <div class="node" style="left: 460px; top: 738px"><div class="c">2</div><div class="l">Bot 同事</div></div>
+        <div class="node" style="left: 660px; top: 598px"><div class="c">3</div><div class="l">机器与工作区</div></div>
+        <div class="node" style="left: 860px; top: 738px"><div class="c">4</div><div class="l">过程透明</div></div>
+        <div class="node" style="left: 1060px; top: 598px"><div class="c">5</div><div class="l">权限审批</div></div>
+        <div class="node" style="left: 1260px; top: 738px"><div class="c">6</div><div class="l">改动可审</div></div>
+        <div class="node" style="left: 1460px; top: 598px"><div class="c">7</div><div class="l">一键预览</div></div>
+        <div class="node" style="left: 1660px; top: 738px"><div class="c">8</div><div class="l">接力多端</div></div>
+        <div id="intro-cup">🏆<span>老员工</span></div>
+        <div id="intro-head"><div class="kick"><em>新同事入职</em>通关地图</div><div class="big">八关打通，就是老员工</div></div>
+        <div id="intro-title"><img src="assets/logo.svg" alt="" /><div class="t">共工空间</div><div class="s">人和 AI 同事，在群里一起干活</div></div>
+        <img class="g" id="intro-g" src="assets/cast/gong-wave.svg" alt="" />
+        <div class="say" id="intro-say">又来新同事啦！</div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        tl.fromTo('#intro-g', { y: -620 }, { y: 0, duration: 0.8, ease: 'bounce.out' }, 0)
+        tl.fromTo('#intro-g', { scaleY: 1 }, { scaleY: 0.86, duration: 0.12, yoyo: true, repeat: 1 }, 0.62)
+        tl.fromTo('#intro-say', { opacity: 0, scale: 0.4, transformOrigin: '0% 100%' }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.5)' }, 0.9)
+        tl.to('#intro-g', { rotation: 8, duration: 0.25, yoyo: true, repeat: 5, ease: 'sine.inOut', transformOrigin: '50% 100%' }, 1.2)
+        tl.to('#intro-say', { opacity: 0, duration: 0.25 }, 4.2)
+
+        // the quest map
+        tl.to('#intro-g', { x: -700, y: 360, scale: 0.42, duration: 0.8, ease: 'power3.inOut' }, 4.3)
+        tl.fromTo('#intro-head', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 4.6)
+        tl.fromTo('#intro-path', { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 1.6, ease: 'none' }, 4.8)
+        tl.fromTo('#intro-root .node', { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.35, stagger: 0.2, ease: 'back.out(2.2)' }, 5.6)
+        tl.fromTo('#intro-cup', { opacity: 0, scale: 0.2, rotation: -20 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(2)' }, 8.0)
+        tl.to('#intro-cup', { y: -14, duration: 0.3, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 8.6)
+        tl.to('#intro-g', { y: 330, duration: 0.18, yoyo: true, repeat: 7, ease: 'sine.inOut' }, 6.0)
+
+        // product title
+        tl.to('#intro-head', { opacity: 0, y: -20, duration: 0.35 }, 9.5)
+        tl.fromTo('#intro-title img', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(2)' }, 9.8)
+        tl.fromTo('#intro-title .t', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 10.0)
+        tl.fromTo('#intro-title .s', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 11.2)
+        window.__timelines['intro'] = tl
+      </script>
+    </template>
+  </body>
+</html>

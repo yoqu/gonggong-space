@@ -54,7 +54,9 @@ test('attachments land in the workspace (git-excluded), images are previewed, an
     await expect(page.getByText('shot-4.png')).toBeVisible()
     await say(page, `@${name} 用一句话描述附件图片里最显眼的颜色。`)
     await expect(page.getByRole('main').getByRole('img', { name: 'shot-4.png' })).toBeVisible()
-    await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(page.getByTestId('run-card').last()).toHaveAttribute('data-status', 'completed', {
+      timeout: 4 * 60_000,
+    })
 
     const file = m.find('shot-4.png')
     expect(file).toMatch(/\.gonggong\/attachments\/[^/]+\/shot-4\.png$/)
@@ -69,7 +71,9 @@ test('attachments land in the workspace (git-excluded), images are previewed, an
     await expect(page.getByText(`引用 ${name}`)).toBeVisible()
     await say(page, '再用三个字总结一下')
     await expect(page.getByTestId('run-card')).toHaveCount(2)
-    await expect(page.getByTestId('run-card').nth(1)).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(page.getByTestId('run-card').nth(1)).toHaveAttribute('data-status', 'completed', {
+      timeout: 4 * 60_000,
+    })
   } finally {
     m.stop()
   }
@@ -90,9 +94,10 @@ test('question card: the agent asks, only the trigger user or owner answers, the
     await expect(card).toContainText('向群成员提问 · 1 个问题')
     await card.getByRole('button', { name: 'Go', exact: true }).click()
     await card.getByRole('button', { name: '提交回答' }).click()
-    await expect(card).toContainText('已完成', { timeout: 4 * 60_000 })
-    await expect(page.getByTestId('bot-reply').last()).toContainText('Go')
+    // The answer shows on the live card; a finished card with a reply folds it into the process view.
     await expect(card).toContainText('ask1 已回答')
+    await expect(card).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
+    await expect(page.getByTestId('bot-reply').last()).toContainText('Go')
   } finally {
     m.stop()
   }
@@ -114,7 +119,7 @@ test('interrupt-and-append continues the same run; candidates list files and age
     await expect(page.getByText(`打断并追加到 ${name}`)).toBeVisible()
     await say(page, '不要等了，停止那个命令，直接只回复 appended')
     await expect(page.getByTestId('run-card')).toHaveCount(1)
-    await expect(card).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(card).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
     await expect(page.getByTestId('bot-reply').last()).toContainText('appended')
 
     // @ candidates: files from the bot's workspace; / candidates: system + agent commands reported over ACP.
@@ -173,7 +178,9 @@ test('a global MCP server configured by the admin is injected into new sessions'
       page,
       `@${name} 调用 gonggong-echo 的 echo 工具，参数 text 为 "mcp-ok-42"，只回复工具返回的内容。`,
     )
-    await expect(page.getByTestId('run-card').last()).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(page.getByTestId('run-card').last()).toHaveAttribute('data-status', 'completed', {
+      timeout: 4 * 60_000,
+    })
     await expect(page.getByTestId('bot-reply').last()).toContainText('mcp-ok-42')
   } finally {
     m.stop()

@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c8-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c8-run { left: 90px; top: 170px; width: 1080px; height: 150px; }
+        #c8-run .hd { position: absolute; left: 28px; right: 28px; top: 22px; display: flex; align-items: center; gap: 14px; font-size: 26px; font-weight: 800; }
+        #c8-run .hd img { width: 40px; height: 40px; }
+        #c8-run .hd .chip { margin-left: auto; }
+        #c8-pr { position: absolute; left: 28px; top: 92px; width: 1024px; height: 36px; display: flex; align-items: center; gap: 20px; }
+        #c8-prog { font-size: 25px; font-weight: 900; color: #0a7cff; white-space: nowrap; width: 150px; }
+        #c8-pr .seg { flex: 1; height: 14px; border-radius: 7px; background: #e5e5ea; overflow: hidden; }
+        #c8-pr .seg i { display: block; height: 100%; width: 100%; background: #0a7cff; transform-origin: 0 50%; transform: scaleX(0); }
+        #c8-root .bot { top: 370px; width: 300px; height: 252px; display: flex; flex-direction: column; align-items: center; padding-top: 14px; }
+        #c8-root .bot img { width: 140px; height: 140px; }
+        #c8-root .bot .n { font-size: 26px; font-weight: 800; margin: 6px 0 10px; }
+        #c8-b1 { left: 110px; }
+        #c8-b2 { left: 480px; }
+        #c8-b3 { left: 850px; }
+        #c8-root .arw { position: absolute; top: 470px; width: 70px; height: 40px; overflow: visible; }
+        #c8-root .arw path { fill: none; stroke: #c7cede; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+        #c8-a1 { left: 410px; }
+        #c8-a2 { left: 780px; }
+        #c8-task { position: absolute; left: 140px; top: 650px; width: 240px; height: 66px; border-radius: 16px; background: #fff; border: 3px solid #0a7cff; box-shadow: 0 12px 26px rgba(10, 124, 255, 0.22); display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 22px; font-weight: 800; white-space: nowrap; }
+        #c8-task span { font-size: 17px; color: #6e6e73; font-weight: 600; }
+        #c8-set { left: 90px; top: 790px; width: 1080px; height: 110px; display: flex; align-items: center; gap: 22px; padding: 0 32px; font-size: 26px; font-weight: 800; }
+        #c8-set .g { font-size: 22px; color: #6e6e73; font-weight: 700; padding-right: 22px; border-right: 2px solid #e5e5ea; white-space: nowrap; }
+        #c8-step { position: relative; margin-left: auto; display: flex; align-items: center; border: 2px solid #e5e5ea; border-radius: 14px; overflow: visible; }
+        #c8-step b { width: 56px; height: 52px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #6e6e73; }
+        #c8-step em { font-style: normal; width: 70px; height: 52px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 900; color: #0a7cff; border-left: 2px solid #e5e5ea; border-right: 2px solid #e5e5ea; }
+
+        #c8-root .dev { position: absolute; top: 122px; }
+        #c8-d1 { left: 90px; }
+        #c8-d2 { left: 214px; }
+        #c8-d3 { left: 925px; }
+        #c8-pc { left: 90px; top: 175px; width: 820px; }
+        #c8-pc .vp { height: 513px; }
+        #c8-ph { position: absolute; left: 925px; top: 175px; width: 264px; height: 543px; padding: 12px; border-radius: 42px; background: #1d1d1f; box-shadow: 0 30px 70px rgba(30, 50, 100, 0.22); }
+        #c8-ph img { display: block; width: 240px; height: 519px; border-radius: 31px; }
+        #c8-ad { left: 300px; top: 505px; width: 600px; }
+        #c8-ad .vp { height: 375px; }
+        #c8-za .ring path { stroke-width: 2.2; }
+        #c8-n0 { left: 420px; top: 120px; }
+        #c8-n1 { left: 930px; top: 760px; }
+        #c8-n2 { left: 930px; top: 830px; }
+        #c8-cam { left: 940px; top: 690px; }
+        #c8-thumb { position: absolute; left: 30px; top: -40px; font-size: 54px; }
+      </style>
+      <div id="c8-root" data-composition-id="c8" data-width="1920" data-height="1080">
+        <div class="col" id="c8-col">
+          <div class="kick"><em>第 8 关</em>接力</div>
+          <div class="ttl">接力与多端</div>
+          <div class="kps">
+            <div class="kp" id="c8-k1"><span class="no">1</span><span><b>Bot 之间接力</b>，卡片显示接力进度</span></div>
+            <div class="kp" id="c8-k2"><span class="no">2</span><span>接力链多长，<b>群设置</b>说了算</span></div>
+            <div class="kp" id="c8-k3"><span class="no">3</span><span><b>网页 · 桌面 · 手机</b>同一个群<br />管理员看<b>用量统计与审计</b></span></div>
+          </div>
+        </div>
+
+        <!-- c8a: relay -->
+        <div class="panel" id="c8-run">
+          <div class="hd"><img src="assets/logo.svg" alt="" />接力任务 · 首页「只看未完成」筛选<span class="chip y" id="c8-st">进行中</span></div>
+          <div id="c8-pr">
+            <div id="c8-prog">接力 0/3</div>
+            <div class="seg"><i id="c8-g1"></i></div><div class="seg"><i id="c8-g2"></i></div><div class="seg"><i id="c8-g3"></i></div>
+            <svg class="ring" id="c8-rr"></svg>
+          </div>
+        </div>
+        <div class="panel bot" id="c8-b1"><img src="assets/cast/steps-type.svg" alt="" /><div class="n">前端小助手</div><span class="chip k" id="c8-s1">待命</span></div>
+        <div class="panel bot" id="c8-b2"><img src="assets/cast/braces-type.svg" alt="" /><div class="n">后端助手</div><span class="chip k" id="c8-s2">待命</span></div>
+        <div class="panel bot" id="c8-b3"><img src="assets/cast/sentry-done.svg" alt="" /><div class="n">测试助手</div><span class="chip k" id="c8-s3">待命</span></div>
+        <svg class="arw" id="c8-a1" viewBox="0 0 70 40"><path d="M 6 20 L 62 20 M 46 6 L 62 20 L 46 34" /></svg>
+        <svg class="arw" id="c8-a2" viewBox="0 0 70 40"><path d="M 6 20 L 62 20 M 46 6 L 62 20 L 46 34" /></svg>
+        <div id="c8-task">📋 任务卡<span>首页筛选</span></div>
+        <div class="panel" id="c8-set">
+          <div class="g">⚙ 群设置</div>
+          <div>接力链长度上限</div>
+          <div id="c8-step"><b>−</b><em>3</em><b>+</b><svg class="ring" id="c8-rs"></svg></div>
+        </div>
+
+        <!-- c8b: every device, same group -->
+        <span class="chip dev" id="c8-d1">🌐 网页</span>
+        <span class="chip dev" id="c8-d2">🖥 桌面端</span>
+        <span class="chip dev" id="c8-d3">📱 手机</span>
+        <div class="screen" id="c8-pc">
+          <div class="bar"><i></i><i></i><i></i><span>todo-app 开发群</span></div>
+          <div class="vp"><div class="zoomer" id="c8-zp"><img src="assets/shots/interface.webp" width="820" height="513" alt="" /><svg class="ring" id="c8-r0"></svg></div></div>
+        </div>
+        <div id="c8-ph"><img src="assets/shots/workbench-mobile.webp" alt="" /></div>
+        <div class="note" id="c8-n0">同一个群，随时跟进</div>
+        <div class="screen" id="c8-ad">
+          <div class="bar"><i></i><i></i><i></i><span>管理后台 · 用量</span></div>
+          <div class="vp"><div class="zoomer" id="c8-za"><img src="assets/shots/admin-usage.webp" width="600" height="375" alt="" /><svg class="ring" id="c8-r1"></svg><svg class="ring" id="c8-r2"></svg></div></div>
+        </div>
+        <div class="note" id="c8-n1">用量统计</div>
+        <div class="note" id="c8-n2">审计记录</div>
+
+        <div class="cameo" id="c8-cam"><img src="assets/cast/braces-done.svg" alt="" /><div class="say l">……还行。</div><div id="c8-thumb">👍</div></div>
+
+        <div class="lv" id="c8-lv"><div class="lv-bg"></div><div class="lv-n">第 8 关</div><div class="lv-t">接力与多端</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const SP = 820 / 2880
+        const SA = 600 / 2880
+        GG.ring('#c8-rr', 1, [0, 0, 1024, 36], 10)
+        GG.ring('#c8-rs', 1, [0, 0, 186, 56], 10)
+        GG.ring('#c8-r0', SP, [745, 14, 440, 76], 8)
+        GG.ring('#c8-r1', SA, [482, 252, 569, 137], 8)
+        GG.ring('#c8-r2', SA, [24, 792, 200, 56], 8)
+
+        GG.level(tl, '#c8-lv')
+        GG.head(tl, '#c8-col')
+
+        // c8a — bots hand the task card down the chain
+        const chip = (sel, text, bg, color, t) => {
+          tl.set(sel, { textContent: text, backgroundColor: bg, color }, t)
+          tl.fromTo(sel, { scale: 0.7 }, { scale: 1, duration: 0.3, ease: 'back.out(2.5)' }, t)
+        }
+        const glow = (sel, t) => tl.fromTo(sel, { boxShadow: '0 0 0 0 rgba(10,124,255,0)' }, { boxShadow: '0 0 0 10px rgba(10,124,255,0.22)', duration: 0.3, ease: 'power2.out' }, t)
+        const dim = (sel, t) => tl.to(sel, { boxShadow: '0 30px 70px rgba(30,50,100,0.16)', duration: 0.3 }, t)
+        const pass = (t, x) => {
+          tl.to('#c8-task', { x, duration: 0.7, ease: 'power2.inOut' }, t)
+          tl.to('#c8-task', { y: -70, rotation: 8, duration: 0.35, ease: 'power2.out' }, t)
+          tl.to('#c8-task', { y: 0, rotation: 0, duration: 0.35, ease: 'bounce.out' }, t + 0.35)
+        }
+        const prog = (n, t) => {
+          tl.set('#c8-prog', { textContent: `接力 ${n}/3` }, t)
+          tl.fromTo('#c8-prog', { scale: 1.35 }, { scale: 1, duration: 0.35, ease: 'back.out(2)', transformOrigin: '0 50%' }, t)
+          tl.to(`#c8-g${n}`, { scaleX: 1, duration: 0.5, ease: 'power2.out' }, t)
+        }
+
+        GG.enter(tl, '#c8-run', 1.75, 'down')
+        ;['#c8-b1', '#c8-b2', '#c8-b3'].forEach((b, i) =>
+          tl.fromTo(b, { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.45, ease: 'back.out(1.6)' }, 1.95 + i * 0.12))
+        tl.fromTo('#c8-root .arw', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2.3)
+        tl.fromTo('#c8-task', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(2)' }, 2.6)
+        GG.kp(tl, '#c8-k1', 2.5)
+
+        // "前端 Bot 改完页面"
+        prog(1, 3.9)
+        glow('#c8-b1', 3.9)
+        chip('#c8-s1', '改页面中', '#fff4e0', '#c45f00', 3.9)
+        chip('#c8-s1', '改完 ✓', '#e9f8ee', '#1f8f3f', 4.8)
+        // "交给后端 Bot 接着做"
+        tl.to('#c8-a1 path', { stroke: '#0a7cff', duration: 0.3 }, 5.9)
+        pass(5.9, 370)
+        dim('#c8-b1', 6.2)
+        glow('#c8-b2', 6.5)
+        prog(2, 6.6)
+        chip('#c8-s2', '接着做', '#fff4e0', '#c45f00', 6.8)
+        // "卡片上显示接力进度"
+        GG.draw(tl, '#c8-rr', 7.9, 0.6)
+        chip('#c8-s2', '完成 ✓', '#e9f8ee', '#1f8f3f', 8.0)
+        tl.to('#c8-a2 path', { stroke: '#0a7cff', duration: 0.3 }, 8.2)
+        pass(8.2, 740)
+        dim('#c8-b2', 8.5)
+        glow('#c8-b3', 8.8)
+        prog(3, 8.9)
+        chip('#c8-s3', '验收通过 ✓', '#e9f8ee', '#1f8f3f', 9.2)
+        chip('#c8-st', '已完成', '#e9f8ee', '#1f8f3f', 9.4)
+        tl.to('#c8-rr path', { opacity: 0, duration: 0.3 }, 9.5)
+        // "接力链有多长，由群设置说了算"
+        GG.enter(tl, '#c8-set', 9.55, 'down')
+        GG.kp(tl, '#c8-k2', 9.7)
+        GG.draw(tl, '#c8-rs', 10.8, 0.5)
+        tl.fromTo('#c8-step em', { scale: 1 }, { scale: 1.4, duration: 0.2, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 11.1)
+        ;['#c8-run', '#c8-b1', '#c8-b2', '#c8-b3', '#c8-task', '#c8-set'].forEach((s) => GG.leave(tl, s, 12.0))
+        tl.to('#c8-root .arw', { opacity: 0, duration: 0.3 }, 12.0)
+
+        // c8b — web, desktop, phone; admin usage & audit
+        GG.enter(tl, '#c8-pc', 12.45, 'left')
+        GG.kp(tl, '#c8-k3', 13.2)
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+        pop('#c8-d1', 12.95)
+        pop('#c8-d2', 13.6)
+        tl.fromTo('#c8-ph', { opacity: 0, y: 160, rotation: 6 }, { opacity: 1, y: 0, rotation: 0, duration: 0.55, ease: 'back.out(1.5)' }, 14.15)
+        pop('#c8-d3', 14.3)
+        GG.draw(tl, '#c8-r0', 15.05, 0.5)
+        pop('#c8-n0', 15.3)
+        GG.enter(tl, '#c8-ad', 16.8, 'down')
+        GG.focus(tl, '#c8-za', SA, [0, 200, 1100, 700], 600, 375, 17.3, 0.7)
+        GG.draw(tl, '#c8-r1', 17.7, 0.5)
+        pop('#c8-n1', 17.8)
+        GG.draw(tl, '#c8-r2', 18.9, 0.5)
+        pop('#c8-n2', 19.1)
+
+        // c8c — braces grudgingly approves
+        tl.to(['#c8-n1', '#c8-n2'], { opacity: 0, duration: 0.25 }, 20.0)
+        GG.cameo(tl, '#c8-cam', 20.3, 22.2)
+        tl.fromTo('#c8-thumb', { opacity: 0, scale: 0.2, rotation: -30 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.35, ease: 'back.out(3)' }, 21.0)
+
+        ;['#c8-pc', '#c8-ph', '#c8-ad', '#c8-n0', '#c8-d1', '#c8-d2', '#c8-d3', '#c8-col'].forEach((s) => tl.to(s, { opacity: 0, duration: 0.4 }, 22.4))
+
+        window.__timelines['c8'] = tl
+      </script>
+    </template>
+  </body>
+</html>

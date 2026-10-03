@@ -1,0 +1,11 @@
+{
+  "name": "gonggong-explainer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.8.103 preview",
+    "check": "npx --yes hyperframes@0.8.103 check",
+    "render": "npx --yes hyperframes@0.8.103 render",
+    "publish": "npx --yes hyperframes@0.8.103 publish"
+  }
+}

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="assets/shared.css" />
+    <script src="assets/shared.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #eef1f6; }
+      #root { width: 100%; height: 100%; position: relative; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; background: #eef1f6; }
+      #bg { position: absolute; inset: 0; background: linear-gradient(160deg, #f4f6fb 0%, #e8edf7 55%, #e6f1f1 100%); }
+      #bg .grid { position: absolute; inset: 0; opacity: 0.5; background-image: radial-gradient(#c7cede 1.2px, transparent 1.2px); background-size: 36px 36px; }
+      #bg .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; }
+      #hud { position: absolute; left: 56px; top: 40px; display: flex; align-items: center; gap: 14px; font-size: 20px; font-weight: 800; color: #3b4152; }
+      #hud img { width: 40px; height: 40px; }
+      #hud .dots { display: flex; gap: 10px; margin-left: 6px; }
+      #hud .dots i { width: 16px; height: 16px; border-radius: 50%; background: #d3d9e6; }
+      #hud #hudName { color: #0a7cff; min-width: 180px; }
+      #caps .cap { position: absolute; left: 0; right: 0; top: 972px; display: flex; justify-content: center; opacity: 0; }
+      #caps .cap span { max-width: 1560px; font-size: 31px; font-weight: 600; color: #fff; background: rgba(18, 22, 34, 0.8); padding: 10px 26px; border-radius: 14px; line-height: 1.4; text-align: center; }
+      #caps .cap b { margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="236" data-width="1920" data-height="1080">
+      <div id="bg" class="clip" data-start="0" data-duration="236" data-track-index="0">
+        <div class="grid"></div>
+        <div class="blob" style="width: 900px; height: 900px; left: -200px; top: -300px; background: #c9d8ff"></div>
+        <div class="blob" style="width: 800px; height: 800px; right: -220px; bottom: -320px; background: #c4ece8"></div>
+      </div>
+      <div id="hud" class="clip" data-start="16.5" data-duration="205.5" data-track-index="1">
+        <img src="assets/logo.svg" alt="" /><span>入职通关</span><span id="hudName">群聊即指挥台</span><div class="dots"><i id="hd0"></i><i id="hd1"></i><i id="hd2"></i><i id="hd3"></i><i id="hd4"></i><i id="hd5"></i><i id="hd6"></i><i id="hd7"></i></div>
+      </div>
+      <div id="h-intro" data-composition-id="intro" data-composition-src="compositions/intro.html" data-start="0.0" data-duration="16.5" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="h-c1" data-composition-id="c1" data-composition-src="compositions/c1.html" data-start="16.5" data-duration="22.5" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="h-c2" data-composition-id="c2" data-composition-src="compositions/c2.html" data-start="39.0" data-duration="26.0" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="h-c3" data-composition-id="c3" data-composition-src="compositions/c3.html" data-start="65.0" data-duration="27.0" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="h-c4" data-composition-id="c4" data-composition-src="compositions/c4.html" data-start="92.0" data-duration="30.0" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="h-c5" data-composition-id="c5" data-composition-src="compositions/c5.html" data-start="122.0" data-duration="27.0" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="h-c6" data-composition-id="c6" data-composition-src="compositions/c6.html" data-start="149.0" data-duration="24.5" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="h-c7" data-composition-id="c7" data-composition-src="compositions/c7.html" data-start="173.5" data-duration="25.5" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="h-c8" data-composition-id="c8" data-composition-src="compositions/c8.html" data-start="199.0" data-duration="23.0" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="h-outro" data-composition-id="outro" data-composition-src="compositions/outro.html" data-start="222.0" data-duration="14.0" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="caps" class="clip" data-start="0" data-duration="236" data-track-index="6">
+        <div class="cap" id="k-i1"><span><b style="color:#8fd6ff">共字君</b>又来新同事啦！我是共字君。今天带你逛一圈共工空间——一共八关，打通你就是老员工。</span></div>
+        <div class="cap" id="k-i2"><span>共工空间，是一个让人和 AI 同事在群里一起干活的协作平台。</span></div>
+        <div class="cap" id="k-c1a"><span>第一关，群聊即指挥台。在群里 @ 一个 Bot，它就开工。</span></div>
+        <div class="cap" id="k-c1b"><span>没 @ 的讨论不会触发谁，但会作为背景带给 Bot——需求背景，再也不用复制粘贴。</span></div>
+        <div class="cap" id="k-c1c"><span><b style="color:#8fd6ff">共字君</b>引用我的消息，也算 @ 我。我干到一半，你还能打断我、追加要求！</span></div>
+        <div class="cap" id="k-c2a"><span>第二关，认识你的 Bot 同事。每个 Bot 归属一位成员，固定跑在他的一台机器上，用的就是本机已登录的 Claude Code 或 Codex。</span></div>
+        <div class="cap" id="k-c2b"><span>新建时写一段提示词，告诉它负责什么，再设好谁能 @ 它；形象嘛，除了共字君，还有十二种性格可选。</span></div>
+        <div class="cap" id="k-c2c"><span><b style="color:#ffb4a8">铁码</b>别看脸，看活儿。</span></div>
+        <div class="cap" id="k-c3a"><span>第三关，机器与工作区。在电脑上运行 gg 命令行，或者直接打开桌面端，用接入链接一绑，这台机器就归你了。</span></div>
+        <div class="cap" id="k-c3b"><span>每个 Bot 在每个群里，都有一个独立的工作区，互不干扰；克隆仓库用的是你本机的 git 凭据，服务器不替你保管。</span></div>
+        <div class="cap" id="k-c3c"><span><b style="color:#8fd6ff">共字君</b>工位各是各的，钥匙在你自己兜里。</span></div>
+        <div class="cap" id="k-c4a"><span>第四关，过程全透明。每次 @ 都会生成一张运行卡片：它在想什么、读了哪些文件、跑了什么命令，实时推到群里。</span></div>
+        <div class="cap" id="k-c4b"><span>改了几个文件、用了多久、花了多少 token，一眼就知道；不想让它继续，发一句 /stop 就停。</span></div>
+        <div class="cap" id="k-c4c"><span><b style="color:#8fd6ff">共字君</b>看我动作就懂：搬砖是在干活，敲键盘是在回复，举手——就是在等你批。</span></div>
+        <div class="cap" id="k-c5a"><span><b style="color:#ffd36b">反推</b>万一……它把整个目录删了呢？</span></div>
+        <div class="cap" id="k-c5b"><span>第五关，权限与审批。Bot 有三档权限：只读、工作区写入、完全访问。</span></div>
+        <div class="cap" id="k-c5c"><span>超出档位的操作，会弹出审批卡片，只有 Bot 主人能批，群管理员也不行；三十分钟没人处理，就当拒绝。</span></div>
+        <div class="cap" id="k-c5d"><span><b style="color:#8fd6ff">共字君</b>我拿不准的时候，还会出道选择题问你。</span></div>
+        <div class="cap" id="k-c6a"><span><b style="color:#ffb4a8">铁码</b>代码呢？</span></div>
+        <div class="cap" id="k-c6b"><span><b style="color:#8fd6ff">共字君</b>在这儿！</span></div>
+        <div class="cap" id="k-c6c"><span>第六关，改动可审。本轮改动、未提交的改动、对比主分支，三种范围随手切；群头的 Git 条，显示每个 Bot 的分支和同步状态。</span></div>
+        <div class="cap" id="k-c6d"><span>Markdown、图片、视频、PDF，工作区里的文件都能直接打开看。</span></div>
+        <div class="cap" id="k-c7a"><span>第七关，结果一键预览。Bot 起的网页和服务，甚至桌面应用、小程序的实时画面，都能在群里直接打开。</span></div>
+        <div class="cap" id="k-c7b"><span>预览工作台能切五种视口尺寸；要给外部的人看，就生成一个有期限的公开链接，谁访问过都有记录。</span></div>
+        <div class="cap" id="k-c7c"><span><b style="color:#8fd6ff">共字君</b>再也不用问：做好了吗？发我看看！</span></div>
+        <div class="cap" id="k-c8a"><span>最后一关，接力。前端 Bot 改完页面，可以把任务交给后端 Bot 接着做，卡片上显示接力进度；接力链有多长，由群设置说了算。</span></div>
+        <div class="cap" id="k-c8b"><span>网页、桌面端、手机，同一个群随时跟进；管理员还有用量统计和审计记录。</span></div>
+        <div class="cap" id="k-c8c"><span><b style="color:#ffb4a8">铁码</b>……还行。</span></div>
+        <div class="cap" id="k-o1"><span><b style="color:#8fd6ff">共字君</b>恭喜通关！你已经是共工空间的老员工啦！</span></div>
+        <div class="cap" id="k-o2"><span>共工空间。开源，自托管。让 AI 同事，在群里接力干活。</span></div>
+      </div>
+      <audio id="music" src="audio/music.wav" data-start="0" data-duration="236" data-track-index="10" data-volume="0.55"></audio>
+      <audio id="sfx" src="audio/sfx.wav" data-start="0" data-duration="236" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="a-i1" src="audio/i1.mp3" data-start="0.8" data-duration="8.568" data-track-index="12"></audio>
+      <audio id="a-i2" src="audio/i2.mp3" data-start="9.77" data-duration="5.7" data-track-index="12"></audio>
+      <audio id="a-c1a" src="audio/c1a.mp3" data-start="18.4" data-duration="5.2" data-track-index="12"></audio>
+      <audio id="a-c1b" src="audio/c1b.mp3" data-start="24.0" data-duration="6.9" data-track-index="12"></audio>
+      <audio id="a-c1c" src="audio/c1c.mp3" data-start="31.3" data-duration="6.8" data-track-index="12"></audio>
+      <audio id="a-c2a" src="audio/c2a.mp3" data-start="40.9" data-duration="10.391" data-track-index="12"></audio>
+      <audio id="a-c2b" src="audio/c2b.mp3" data-start="51.69" data-duration="9.0" data-track-index="12"></audio>
+      <audio id="a-c2c" src="audio/c2c.mp3" data-start="61.09" data-duration="2.7" data-track-index="12"></audio>
+      <audio id="a-c3a" src="audio/c3a.mp3" data-start="66.9" data-duration="9.8" data-track-index="12"></audio>
+      <audio id="a-c3b" src="audio/c3b.mp3" data-start="77.1" data-duration="9.9" data-track-index="12"></audio>
+      <audio id="a-c3c" src="audio/c3c.mp3" data-start="87.4" data-duration="3.5" data-track-index="12"></audio>
+      <audio id="a-c4a" src="audio/c4a.mp3" data-start="93.9" data-duration="9.8" data-track-index="12"></audio>
+      <audio id="a-c4b" src="audio/c4b.mp3" data-start="104.1" data-duration="8.1" data-track-index="12"></audio>
+      <audio id="a-c4c" src="audio/c4c.mp3" data-start="112.6" data-duration="8.3" data-track-index="12"></audio>
+      <audio id="a-c5a" src="audio/c5a.mp3" data-start="123.9" data-duration="3.4" data-track-index="12"></audio>
+      <audio id="a-c5b" src="audio/c5b.mp3" data-start="127.7" data-duration="6.5" data-track-index="12"></audio>
+      <audio id="a-c5c" src="audio/c5c.mp3" data-start="134.6" data-duration="8.6" data-track-index="12"></audio>
+      <audio id="a-c5d" src="audio/c5d.mp3" data-start="143.6" data-duration="4.307" data-track-index="12"></audio>
+      <audio id="a-c6a" src="audio/c6a.mp3" data-start="150.9" data-duration="1.358" data-track-index="12"></audio>
+      <audio id="a-c6b" src="audio/c6b.mp3" data-start="152.4" data-duration="0.998" data-track-index="12"></audio>
+      <audio id="a-c6c" src="audio/c6c.mp3" data-start="153.8" data-duration="12.2" data-track-index="12"></audio>
+      <audio id="a-c6d" src="audio/c6d.mp3" data-start="166.4" data-duration="5.8" data-track-index="12"></audio>
+      <audio id="a-c7a" src="audio/c7a.mp3" data-start="175.4" data-duration="8.9" data-track-index="12"></audio>
+      <audio id="a-c7b" src="audio/c7b.mp3" data-start="184.7" data-duration="8.8" data-track-index="12"></audio>
+      <audio id="a-c7c" src="audio/c7c.mp3" data-start="193.9" data-duration="3.9" data-track-index="12"></audio>
+      <audio id="a-c8a" src="audio/c8a.mp3" data-start="200.9" data-duration="10.3" data-track-index="12"></audio>
+      <audio id="a-c8b" src="audio/c8b.mp3" data-start="211.6" data-duration="7.5" data-track-index="12"></audio>
+      <audio id="a-c8c" src="audio/c8c.mp3" data-start="219.5" data-duration="1.3" data-track-index="12"></audio>
+      <audio id="a-o1" src="audio/o1.mp3" data-start="222.6" data-duration="4.2" data-track-index="12"></audio>
+      <audio id="a-o2" src="audio/o2.mp3" data-start="227.2" data-duration="6.4" data-track-index="12"></audio>
+    </div>
+    <script>
+      const MAP = ["群聊即指挥台", "Bot 同事", "机器与工作区", "过程透明", "权限审批", "改动可审", "一键预览", "接力多端"]
+      const HUD = [[16.5, 0], [39.0, 1], [65.0, 2], [92.0, 3], [122.0, 4], [149.0, 5], [173.5, 6], [199.0, 7]]
+      const CAPS = [["i1", 0.8, 9.37], ["i2", 9.77, 15.47], ["c1a", 18.4, 23.6], ["c1b", 24.0, 30.9], ["c1c", 31.3, 38.1], ["c2a", 40.9, 51.29], ["c2b", 51.69, 60.69], ["c2c", 61.09, 63.79], ["c3a", 66.9, 76.7], ["c3b", 77.1, 87.0], ["c3c", 87.4, 90.9], ["c4a", 93.9, 103.7], ["c4b", 104.1, 112.2], ["c4c", 112.6, 120.9], ["c5a", 123.9, 127.3], ["c5b", 127.7, 134.2], ["c5c", 134.6, 143.2], ["c5d", 143.6, 147.91], ["c6a", 150.9, 152.26], ["c6b", 152.4, 153.4], ["c6c", 153.8, 166.0], ["c6d", 166.4, 172.2], ["c7a", 175.4, 184.3], ["c7b", 184.7, 193.5], ["c7c", 193.9, 197.8], ["c8a", 200.9, 211.2], ["c8b", 211.6, 219.1], ["c8c", 219.5, 220.8], ["o1", 222.6, 226.8], ["o2", 227.2, 233.6]]
+      const tl = gsap.timeline({ paused: true })
+      HUD.forEach(([t, i]) => {
+        tl.set('#hudName', { textContent: MAP[i] }, t)
+        if (i > 0) tl.set(`#hd${i - 1}`, { backgroundColor: '#34c759' }, t)
+        tl.fromTo(`#hd${i}`, { backgroundColor: '#d3d9e6', scale: 1 }, { backgroundColor: '#0a7cff', scale: 1.35, duration: 0.3, immediateRender: false }, t + 1.9)
+      })
+      CAPS.forEach(([id, a, b]) => {
+        tl.fromTo(`#k-${id}`, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, a)
+        tl.to(`#k-${id}`, { opacity: 0, duration: 0.2 }, b)
+      })
+      window.__timelines['main'] = tl
+    </script>
+  </body>
+</html>

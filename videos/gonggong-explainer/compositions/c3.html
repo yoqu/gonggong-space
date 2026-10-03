@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c3-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c3-term { position: absolute; left: 90px; top: 160px; width: 700px; height: 410px; border-radius: 20px; overflow: hidden; background: #1e1f24; box-shadow: 0 30px 70px rgba(30, 50, 100, 0.22); }
+        #c3-term .tb { height: 38px; background: #2b2c33; display: flex; align-items: center; gap: 8px; padding: 0 14px; }
+        #c3-term .tb i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+        #c3-term .tb i:nth-child(2) { background: #febc2e; }
+        #c3-term .tb i:nth-child(3) { background: #28c840; }
+        #c3-term .tb span { margin-left: 10px; font-size: 15px; color: #9a9ba3; font-weight: 600; }
+        #c3-term .bd { padding: 24px 28px; font-size: 25px; line-height: 1.55; color: #e8e8ea; }
+        #c3-term .ln { min-height: 39px; white-space: pre-wrap; margin-bottom: 6px; }
+        #c3-term .ok { color: #5fd38a; }
+        #c3-term .dim { color: #9a9ba3; }
+        #c3-mc { position: absolute; left: 90px; top: 610px; width: 1100px; height: 150px; display: flex; align-items: center; gap: 24px; padding: 0 32px; box-sizing: border-box; }
+        #c3-mc .ic { width: 86px; height: 86px; border-radius: 20px; background: #1d1d1f; display: flex; align-items: center; justify-content: center; flex: none; }
+        #c3-mc .nm { font-size: 32px; font-weight: 800; }
+        #c3-mc .sb { font-size: 20px; color: #6e6e73; margin-top: 4px; }
+        #c3-mc .rt { margin-left: auto; display: flex; gap: 12px; }
+        #c3-mc .chip { font-size: 22px; }
+        #c3-desk { position: absolute; left: 800px; top: 160px; width: 350px; height: 410px; overflow: hidden; }
+        #c3-desk .mb { height: 46px; background: #eef0f4; border-radius: 22px 22px 0 0; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 0 18px; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+        #c3-desk .mb .lg { width: 32px; height: 32px; border-radius: 8px; background: #0a7cff; display: flex; align-items: center; justify-content: center; }
+        #c3-desk .mb .lg img { width: 24px; height: 24px; filter: brightness(10); }
+        #c3-desk .menu { margin: 10px 16px 0 26px; border-radius: 14px; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06); padding: 8px; }
+        #c3-desk .it { font-size: 21px; padding: 10px 14px; border-radius: 9px; white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+        #c3-desk .it i { width: 11px; height: 11px; border-radius: 50%; background: #1f8f3f; }
+        #c3-desk .it.mute { color: #6e6e73; font-size: 18px; }
+        #c3-desk .sep { height: 1px; background: #e5e5ea; margin: 6px 8px; }
+        #c3-desk .cap { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 22px; font-weight: 800; color: #0a7cff; }
+
+        #c3-s { left: 100px; top: 180px; width: 1080px; }
+        #c3-s .vp { height: 675px; }
+        #c3-nl { left: 770px; top: 392px; }
+        #c3-own { left: 330px; top: 760px; font-size: 26px; padding: 12px 22px; box-shadow: 0 10px 30px rgba(31, 143, 63, 0.25); }
+
+        #c3-mach { position: absolute; left: 90px; top: 150px; width: 690px; height: 540px; }
+        #c3-mach .hd { height: 78px; display: flex; align-items: center; gap: 14px; padding: 0 28px; border-bottom: 1px solid #e5e5ea; font-size: 26px; font-weight: 800; }
+        #c3-mach .hd .chip { margin-left: auto; }
+        #c3-mach .pth { font-size: 21px; color: #6e6e73; padding: 18px 30px 0; }
+        #c3-root .ws { position: absolute; left: 44px; width: 602px; height: 96px; border-radius: 16px; background: #f5f8ff; border: 2px solid #cfe0ff; display: flex; align-items: center; gap: 14px; padding: 0 18px; box-sizing: border-box; font-size: 27px; font-weight: 700; white-space: nowrap; }
+        #c3-root .ws img { width: 72px; height: 72px; }
+        #c3-root .ws .x { color: #6e6e73; font-weight: 500; }
+        #c3-root .ws .fd { font-size: 28px; }
+        #c3-root .ws .lk { margin-left: auto; font-size: 18px; }
+        #c3-w1 { top: 136px; }
+        #c3-w2 { top: 250px; }
+        #c3-w3 { top: 364px; }
+        #c3-key { position: absolute; left: 44px; top: 474px; font-size: 26px; padding: 10px 20px; }
+        #c3-repo { position: absolute; left: 880px; top: 160px; width: 310px; height: 130px; padding: 20px 22px; box-sizing: border-box; }
+        #c3-repo .t { font-size: 18px; color: #6e6e73; font-weight: 700; }
+        #c3-repo .r { font-size: 22px; font-weight: 700; margin-top: 10px; white-space: nowrap; }
+        #c3-clone { position: absolute; left: 786px; top: 196px; width: 90px; height: 60px; }
+        #c3-clone path { stroke: #0a7cff; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        #c3-clone text { font-family: ui-monospace, Menlo, monospace; font-size: 17px; fill: #0a7cff; font-weight: 700; }
+        #c3-srv { position: absolute; left: 830px; top: 350px; width: 360px; height: 300px; }
+        #c3-srv svg.cl { position: absolute; left: 0; top: 0; width: 360px; height: 200px; }
+        #c3-srv .lb { position: absolute; left: 0; right: 0; top: 98px; text-align: center; font-size: 26px; font-weight: 800; color: #fff; }
+        #c3-srv .ky { position: absolute; left: 150px; top: 196px; width: 60px; height: 60px; font-size: 44px; text-align: center; line-height: 60px; }
+        #c3-srv .ky svg { position: absolute; left: -6px; top: -6px; width: 72px; height: 72px; }
+        #c3-srv .ky path { stroke: #d23b2a; stroke-width: 7; stroke-linecap: round; fill: none; }
+        #c3-srv .chip { position: absolute; left: 88px; top: 262px; font-size: 22px; }
+        #c3-cam { left: 900px; top: 690px; }
+      </style>
+      <div id="c3-root" data-composition-id="c3" data-width="1920" data-height="1080">
+        <div class="col" id="c3-col">
+          <div class="kick"><em>第 3 关</em>机器</div>
+          <div class="ttl">机器与工作区</div>
+          <div class="kps">
+            <div class="kp" id="c3-k1"><span class="no">1</span><span><b>gg 命令行或桌面端</b>，接入链接一绑</span></div>
+            <div class="kp" id="c3-k2"><span class="no">2</span><span>每个「<b>群 × Bot</b>」一个独立工作区</span></div>
+            <div class="kp" id="c3-k3"><span class="no">3</span><span>用<b>本机 git 凭据</b>，服务器不保管</span></div>
+          </div>
+        </div>
+
+        <div id="c3-term">
+          <div class="tb"><i></i><i></i><i></i><span>终端 — wanglei-mbp</span></div>
+          <div class="bd mono">
+            <div class="ln" id="c3-t1"></div>
+            <div class="ln ok" id="c3-t2">✓ 已绑定到 王磊</div>
+            <div class="ln" id="c3-t3"></div>
+            <div class="ln ok" id="c3-t4">● 已连接 <span class="dim">· Claude Code 2.1 · Codex 0.4</span></div>
+          </div>
+        </div>
+        <div class="panel" id="c3-desk">
+          <div class="mb"><span>周三 16:22</span><span class="lg"><img src="assets/logo.svg" alt="" /></span></div>
+          <div class="menu">
+            <div class="it"><i></i>共工 · 已连接</div>
+            <div class="it mute mono">wanglei-mbp</div>
+            <div class="sep"></div>
+            <div class="it" id="c3-open">打开接入链接…</div>
+            <div class="it mute">偏好设置</div>
+          </div>
+          <div class="cap">或者用桌面端</div>
+        </div>
+        <div class="panel" id="c3-mc">
+          <div class="ic"><svg viewBox="0 0 52 52" width="52" height="52"><rect x="8" y="12" width="36" height="24" rx="3" fill="none" stroke="#fff" stroke-width="3.5" /><path d="M3 41 H49" stroke="#fff" stroke-width="3.5" stroke-linecap="round" /></svg></div>
+          <div><div class="nm mono">wanglei-mbp</div><div class="sb">macOS · 归属 王磊</div></div>
+          <div class="rt"><span class="chip g">● 在线</span><span class="chip">Claude Code</span><span class="chip">Codex</span></div>
+        </div>
+
+        <div class="screen" id="c3-s">
+          <div class="bar"><i></i><i></i><i></i><span>绑定新机器</span></div>
+          <div class="vp"><div class="zoomer" id="c3-z"><img src="assets/shots/bind-machine.webp" width="1080" height="675" alt="" /><svg class="ring" id="c3-r1"></svg></div></div>
+        </div>
+        <div class="note" id="c3-nl">接入链接，一绑</div>
+        <div class="chip g" id="c3-own" style="position: absolute">✓ wanglei-mbp 已归属 王磊</div>
+
+        <div class="panel" id="c3-mach">
+          <div class="hd"><svg viewBox="0 0 52 52" width="40" height="40"><rect x="8" y="12" width="36" height="24" rx="3" fill="none" stroke="#1d1d1f" stroke-width="3.5" /><path d="M3 41 H49" stroke="#1d1d1f" stroke-width="3.5" stroke-linecap="round" /></svg><span class="mono">wanglei-mbp</span><span class="chip g" id="c3-iso">互不干扰</span></div>
+          <div class="pth mono">~/.gonggong/workspaces/</div>
+          <div class="ws" id="c3-w1"><span class="fd">📁</span>todo-app<span class="x">×</span><img src="assets/cast/steps-idle.svg" alt="" />前端小助手</div>
+          <div class="ws" id="c3-w2"><span class="fd">📁</span>todo-app<span class="x">×</span><img src="assets/cast/braces-idle.svg" alt="" />后端助手</div>
+          <div class="ws" id="c3-w3"><span class="fd">📁</span>官网改版<span class="x">×</span><img src="assets/cast/steps-idle.svg" alt="" />前端小助手</div>
+          <div class="chip y" id="c3-key">🔑 本机 git 凭据</div>
+        </div>
+        <svg id="c3-clone" viewBox="0 0 90 60"><text x="12" y="16">clone</text><path d="M84 38 H8 M20 26 L7 38 L20 50" /></svg>
+        <div class="panel" id="c3-repo"><div class="t">代码仓库</div><div class="r mono">team/todo-app</div></div>
+        <div id="c3-srv">
+          <svg class="cl" viewBox="0 0 360 200"><path d="M80 180 C30 180 20 120 62 108 C52 60 112 40 140 70 C160 20 250 20 262 80 C320 70 345 130 300 180 Z" fill="#7aa7e8" /></svg>
+          <div class="lb">共工服务器</div>
+          <div class="ky">🔑<svg viewBox="0 0 72 72"><path d="M10 10 L62 62" /></svg></div>
+          <span class="chip r">不保管仓库凭据</span>
+        </div>
+
+        <div class="cameo" id="c3-cam"><img src="assets/cast/gong-carry.svg" alt="" /><div class="say l">工位各是各的，钥匙在你兜里。</div></div>
+
+        <div class="lv" id="c3-lv"><div class="lv-bg"></div><div class="lv-n">第 3 关</div><div class="lv-t">机器与工作区</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="cur"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S = 1080 / 2880
+        GG.ring('#c3-r1', S, [957, 688, 612, 54], 10)
+
+        const type = (sel, text, t, dt) => {
+          for (let i = 1; i <= text.length; i++) tl.set(sel, { textContent: text.slice(0, i) }, t + i * dt)
+        }
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+
+        GG.level(tl, '#c3-lv')
+        GG.head(tl, '#c3-col')
+
+        // c3a — gg CLI or desktop, bind with an access link
+        GG.enter(tl, '#c3-term', 1.8, 'left')
+        GG.kp(tl, '#c3-k1', 2.5)
+        type('#c3-t1', '$ gg login --server https://gg.team.dev\n    --code 7K2Q-9XWD', 2.6, 0.03)
+        tl.fromTo('#c3-t2', { opacity: 0 }, { opacity: 1, duration: 0.2 }, 4.7)
+        type('#c3-t3', '$ gg run', 5.0, 0.04)
+        tl.fromTo('#c3-t4', { opacity: 0 }, { opacity: 1, duration: 0.2 }, 5.6)
+        GG.enter(tl, '#c3-mc', 5.9, 'down')
+        GG.enter(tl, '#c3-desk', 6.9)
+        tl.fromTo('#c3-open', { backgroundColor: 'rgba(10,124,255,0)', color: '#1d1d1f' }, { backgroundColor: 'rgba(10,124,255,1)', color: '#ffffff', duration: 0.25 }, 7.6)
+        ;['#c3-term', '#c3-desk', '#c3-mc'].forEach((s) => GG.leave(tl, s, 8.1))
+
+        GG.enter(tl, '#c3-s', 8.3)
+        GG.focus(tl, '#c3-z', S, [920, 465, 1040, 870], 1080, 675, 8.6, 0.7)
+        GG.draw(tl, '#c3-r1', 9.1, 0.5)
+        pop('#c3-nl', 9.4)
+        pop('#c3-own', 10.1)
+        tl.to(['#c3-nl', '#c3-own'], { opacity: 0, duration: 0.25 }, 11.6)
+        GG.leave(tl, '#c3-s', 11.6)
+
+        // c3b — one workspace per group × bot, local git credentials
+        GG.enter(tl, '#c3-mach', 11.95, 'left')
+        GG.kp(tl, '#c3-k2', 12.7)
+        ;[['#c3-w1', 12.45], ['#c3-w2', 13.35], ['#c3-w3', 14.45]].forEach(([w, t]) =>
+          tl.fromTo(w, { opacity: 0, y: -70 }, { opacity: 1, y: 0, duration: 0.45, ease: 'bounce.out' }, t))
+        gsap.set(['#c3-iso', '#c3-key'], { opacity: 0 })
+        pop('#c3-iso', 16.2)
+        ;['#c3-w1', '#c3-w2', '#c3-w3'].forEach((w, i) =>
+          tl.fromTo(w, { borderColor: '#cfe0ff' }, { borderColor: '#0a7cff', duration: 0.2, yoyo: true, repeat: 1 }, 16.2 + i * 0.12))
+        GG.enter(tl, '#c3-repo', 17.3)
+        tl.fromTo('#c3-clone', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' }, 17.6)
+        pop('#c3-key', 18.3)
+        GG.kp(tl, '#c3-k3', 18.4)
+        tl.fromTo('#c3-key', { boxShadow: '0 0 0 0 rgba(255,183,0,0)' }, { boxShadow: '0 0 0 14px rgba(255,183,0,0.35)', duration: 0.35, yoyo: true, repeat: 3 }, 18.7)
+        tl.fromTo('#c3-srv', { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 20.1)
+                tl.fromTo('#c3-srv .ky path', { strokeDasharray: 80, strokeDashoffset: 80 }, { strokeDashoffset: 0, duration: 0.3, ease: 'power2.out' }, 20.9)
+        tl.fromTo('#c3-srv .chip', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: 'back.out(2)' }, 21.0)
+
+        // c3c — 共字君
+        GG.cameo(tl, '#c3-cam', 22.4, 26.3)
+
+        window.__timelines['c3'] = tl
+      </script>
+    </template>
+  </body>
+</html>

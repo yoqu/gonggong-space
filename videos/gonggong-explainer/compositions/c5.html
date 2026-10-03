@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c5-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c5-col .kps { margin-top: 30px; gap: 14px; }
+        #c5-col .kp { padding: 16px 22px; font-size: 26px; }
+
+        #c5-warn { position: absolute; left: 90px; top: 160px; width: 1080px; height: 96px; border-radius: 18px; background: #d23b2a; color: #fff; display: flex; align-items: center; gap: 22px; padding: 0 30px; box-sizing: border-box; font-size: 34px; font-weight: 900; box-shadow: 0 20px 50px rgba(210, 59, 42, 0.35); }
+        #c5-warn .mono { font-size: 38px; background: rgba(0, 0, 0, 0.22); padding: 4px 18px; border-radius: 10px; }
+        #c5-warn span:last-child { margin-left: auto; font-size: 24px; font-weight: 800; opacity: 0.9; }
+        #c5-inv { position: absolute; left: 150px; top: 330px; width: 460px; height: 460px; }
+        #c5-inv img { width: 460px; height: 460px; }
+        #c5-inv .say { left: 450px; top: 110px; font-size: 38px; }
+
+        #c5-root .stp { position: absolute; width: 340px; bottom: 140px; border-radius: 22px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px rgba(30, 50, 100, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.05); }
+        #c5-root .stp .fill { position: absolute; inset: 0; opacity: 0; }
+        #c5-root .stp .cap { position: relative; height: 92px; display: flex; align-items: center; gap: 12px; padding: 0 24px; font-size: 34px; font-weight: 900; color: #fff; background: #c7c7cc; white-space: nowrap; }
+        #c5-root .stp .cap small { margin-left: auto; font-size: 20px; font-weight: 800; opacity: 0.85; }
+        #c5-root .stp .ds { position: relative; padding: 24px; font-size: 26px; line-height: 1.5; font-weight: 700; color: #6e6e73; }
+        #c5-p1 { left: 90px; height: 330px; }
+        #c5-p2 { left: 460px; height: 480px; }
+        #c5-p3 { left: 830px; height: 630px; }
+        #c5-p1 .fill { background: #e9f8ee; }
+        #c5-p2 .fill { background: #fff4e0; }
+        #c5-p3 .fill { background: #fdecea; }
+        #c5-stp-h { position: absolute; left: 90px; top: 170px; font-size: 36px; font-weight: 900; white-space: nowrap; }
+        #c5-stp-h em { font-style: normal; color: #0a7cff; }
+
+        #c5-s1 { left: 90px; top: 150px; width: 820px; }
+        #c5-s1 .vp { height: 564px; }
+        #c5-n1 { left: 935px; top: 412px; }
+        #c5-root .who { position: absolute; left: 945px; width: 240px; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+        #c5-root .who .av { width: 86px; height: 86px; border-radius: 50%; color: #fff; font-size: 30px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        #c5-root .who .r { font-size: 22px; font-weight: 800; white-space: nowrap; }
+        #c5-root .who .bd { position: absolute; right: 26px; top: 18px; width: 50px; height: 50px; border-radius: 50%; color: #fff; font-size: 30px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+        #c5-own { top: 200px; }
+        #c5-adm { top: 480px; }
+        #c5-own .bd { background: #1f8f3f; }
+        #c5-adm .bd { background: #d23b2a; }
+        #c5-timer { left: 90px; top: 760px; width: 820px; height: 150px; display: flex; align-items: center; gap: 28px; padding: 0 30px; box-sizing: border-box; }
+        #c5-timer .t { font-size: 72px; font-weight: 900; color: #c45f00; width: 230px; }
+        #c5-timer .bar2 { flex: 1; height: 18px; border-radius: 9px; background: #f2f3f5; overflow: hidden; }
+        #c5-timer .bar2 i { display: block; height: 100%; width: 100%; background: #c45f00; border-radius: 9px; transform-origin: 0 50%; }
+        #c5-timer .l { font-size: 22px; font-weight: 700; color: #6e6e73; white-space: nowrap; }
+        #c5-seal { position: absolute; left: 820px; top: 730px; padding: 14px 26px; border: 7px solid #d23b2a; border-radius: 16px; color: #d23b2a; font-size: 48px; font-weight: 900; white-space: nowrap; background: rgba(255, 255, 255, 0.85); letter-spacing: 2px; }
+
+        #c5-s2 { left: 500px; top: 140px; width: 680px; }
+        #c5-s2 .vp { height: 769px; }
+        #c5-qtags { position: absolute; left: 90px; top: 200px; display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+        #c5-qtags .chip { font-size: 30px; padding: 12px 22px; }
+        #c5-cam { left: 110px; top: 670px; }
+        #c5-cam .say { left: 0; top: -92px; }
+      </style>
+      <div id="c5-root" data-composition-id="c5" data-width="1920" data-height="1080">
+        <div class="col" id="c5-col">
+          <div class="kick"><em>第 5 关</em>权限</div>
+          <div class="ttl">权限与审批</div>
+          <div class="kps">
+            <div class="kp" id="c5-k1"><span class="no">1</span><span>三档权限：<b>只读 / 工作区写入 / 完全访问</b></span></div>
+            <div class="kp" id="c5-k2"><span class="no">2</span><span>超出档位弹审批，<b>只有 Bot 主人能批</b></span></div>
+            <div class="kp" id="c5-k3"><span class="no">3</span><span><b>30 分钟</b>没人处理 = 拒绝</span></div>
+            <div class="kp" id="c5-k4"><span class="no">4</span><span>拿不准就<b>向群成员提问</b></span></div>
+          </div>
+        </div>
+
+        <div id="c5-warn"><span>⚠</span><span class="mono">$ rm -rf ./</span><span>危险命令</span></div>
+        <div id="c5-inv"><img src="assets/cast/invert-error.svg" alt="" /><div class="say">万一……它把整个目录删了呢？</div></div>
+
+        <div id="c5-stp-h">Bot 有<em>三档权限</em></div>
+        <div class="stp" id="c5-p1"><div class="fill"></div><div class="cap">👀 只读<small>第 1 档</small></div><div class="ds">写文件、有副作用的命令都要审批</div></div>
+        <div class="stp" id="c5-p2"><div class="fill"></div><div class="cap">✏️ 工作区写入<small>第 2 档</small></div><div class="ds">可改工作区文件，执行命令等要审批</div></div>
+        <div class="stp" id="c5-p3"><div class="fill"></div><div class="cap">🔓 完全访问<small>第 3 档</small></div><div class="ds">全部自动允许</div></div>
+
+        <div class="screen" id="c5-s1">
+          <div class="bar"><i></i><i></i><i></i><span>超出档位 → 审批卡片</span></div>
+          <div class="vp"><div class="zoomer" id="c5-z1"><img src="assets/shots/approval.webp" width="1611" height="564" alt="" /><svg class="ring" id="c5-r1"></svg><svg class="ring" id="c5-r2"></svg><svg class="ring" id="c5-r3"></svg><svg class="ring" id="c5-r4"></svg></div></div>
+        </div>
+        <div class="note" id="c5-n1">只有 Bot 主人能批</div>
+        <div class="panel who" id="c5-own"><div class="av" style="background: #b8572f">陈晨</div><div class="r">Bot 主人</div><div class="bd">✓</div></div>
+        <div class="panel who" id="c5-adm"><div class="av" style="background: #c46a2b">李娜</div><div class="r">群管理员</div><div class="bd">✗</div></div>
+        <div class="panel" id="c5-timer"><div class="t mono" id="c5-tv">30:00</div><div class="bar2"><i id="c5-tb"></i></div><div class="l">无人处理</div></div>
+        <div id="c5-seal">超时 = 拒绝</div>
+
+        <div id="c5-qtags"><span class="chip">向群成员提问</span><span class="chip k">多选</span><span class="chip k">是 / 否</span></div>
+        <div class="screen" id="c5-s2">
+          <div class="bar"><i></i><i></i><i></i><span>拿不准？出道选择题</span></div>
+          <div class="vp"><div class="zoomer" id="c5-z2"><img src="assets/shots/question.webp" width="1375" height="768" alt="" /><svg class="ring" id="c5-r5"></svg></div></div>
+        </div>
+        <div class="cameo" id="c5-cam"><img src="assets/cast/gong-ask.svg" alt="" /><div class="say">拿不准？出道选择题</div></div>
+
+        <div class="lv" id="c5-lv"><div class="lv-bg"></div><div class="lv-n">第 5 关</div><div class="lv-t">权限与审批</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i></i><i></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S1 = 0.75
+        const S2 = 1375 / 2148
+        GG.ring('#c5-r1', S1, [160, 524, 610, 34], 8)
+        GG.ring('#c5-r2', S1, [118, 73, 913, 70], 8)
+        GG.ring('#c5-r3', S1, [164, 572, 95, 40], 6)
+        GG.ring('#c5-r4', S1, [417, 572, 97, 40], 6)
+        GG.ring('#c5-r5', S2, [160, 300, 730, 70], 8)
+
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+
+        GG.level(tl, '#c5-lv')
+        GG.head(tl, '#c5-col')
+
+        // c5a — the pessimist panics
+        tl.fromTo('#c5-inv', { y: 560, scale: 0.8 }, { y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.6)' }, 1.7)
+        tl.fromTo('#c5-inv .say', { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.6)' }, 1.95)
+        tl.fromTo('#c5-inv img', { x: 0 }, { x: 9, duration: 0.06, yoyo: true, repeat: 49, ease: 'none' }, 2.2)
+        tl.fromTo('#c5-warn', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power3.out' }, 3.35)
+        tl.to('#c5-warn', { backgroundColor: '#ff6b57', duration: 0.18, yoyo: true, repeat: 5 }, 3.65)
+        tl.to('#c5-inv', { y: 560, opacity: 0, duration: 0.35, ease: 'power2.in' }, 5.2)
+        GG.leave(tl, '#c5-warn', 5.2)
+
+        // c5b — three permission tiers
+        tl.fromTo('#c5-stp-h', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 5.55)
+        ;['#c5-p1', '#c5-p2', '#c5-p3'].forEach((s, i) =>
+          tl.fromTo(s, { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 0.5, ease: 'back.out(1.5)' }, 5.55 + i * 0.15))
+        GG.kp(tl, '#c5-k1', 6.3)
+        ;[[9.6, '#1f8f3f'], [10.2, '#c45f00'], [11.15, '#d23b2a']].forEach(([t, c], i) => {
+          const s = `#c5-p${i + 1}`
+          tl.to(`${s} .fill`, { opacity: 1, duration: 0.3 }, t)
+          tl.to(`${s} .cap`, { backgroundColor: c, duration: 0.3 }, t)
+          tl.to(`${s} .ds`, { color: '#1d1d1f', duration: 0.3 }, t)
+          tl.fromTo(s, { scale: 1 }, { scale: 1.05, duration: 0.18, yoyo: true, repeat: 1, ease: 'sine.out' }, t)
+        })
+        ;['#c5-stp-h', '#c5-p1', '#c5-p2', '#c5-p3'].forEach((s) => GG.leave(tl, s, 12.1))
+
+        // c5c — approval card, owner only, 30-minute timeout
+        GG.enter(tl, '#c5-s1', 12.45)
+        GG.kp(tl, '#c5-k2', 13.2)
+        GG.draw(tl, '#c5-r1', 13.0)
+        GG.draw(tl, '#c5-r2', 14.2)
+        GG.focus(tl, '#c5-z1', S1, [130, 470, 600, 150], 820, 564, 15.0)
+        GG.draw(tl, '#c5-r3', 15.6, 0.4)
+        GG.draw(tl, '#c5-r4', 15.9, 0.4)
+        tl.fromTo('#c5-own', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' }, 15.7)
+        pop('#c5-own .bd', 16.1)
+        pop('#c5-n1', 16.2)
+        tl.fromTo('#c5-adm', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.35, ease: 'power3.out' }, 17.2)
+        tl.to('#c5-adm', { x: -70, duration: 0.25, ease: 'power2.in' }, 17.55)
+        tl.to('#c5-adm', { x: 0, duration: 0.35, ease: 'back.out(3)' }, 17.8)
+        pop('#c5-adm .bd', 17.8)
+        tl.to('#c5-adm', { rotation: 4, duration: 0.07, yoyo: true, repeat: 5 }, 17.85)
+        tl.to('#c5-n1', { opacity: 0, duration: 0.25 }, 18.6)
+        GG.enter(tl, '#c5-timer', 18.6, 'down')
+        GG.kp(tl, '#c5-k3', 18.8)
+        tl.set('#c5-tv', { textContent: '30:00' }, 0)
+        ;['30:00', '25:00', '20:00', '15:00', '10:00', '05:00', '01:00', '00:00'].forEach((v, i) => tl.set('#c5-tv', { textContent: v }, 18.9 + i * 0.18))
+        tl.fromTo('#c5-tb', { scaleX: 1 }, { scaleX: 0, duration: 1.26, ease: 'none' }, 18.9)
+        tl.to('#c5-tv', { color: '#d23b2a', duration: 0.2 }, 20.1)
+        tl.fromTo('#c5-seal', { opacity: 0, scale: 2.4, rotation: -4 }, { opacity: 1, scale: 1, rotation: -10, duration: 0.25, ease: 'power4.in' }, 20.25)
+        tl.fromTo('#c5-timer', { y: 0 }, { y: 6, duration: 0.05, yoyo: true, repeat: 3 }, 20.5)
+        ;['#c5-s1', '#c5-own', '#c5-adm', '#c5-timer', '#c5-seal'].forEach((s) => GG.leave(tl, s, 21.15))
+
+        // c5d — when unsure, it asks the group
+        GG.enter(tl, '#c5-s2', 21.4)
+        GG.cameo(tl, '#c5-cam', 21.4, 26.1)
+        GG.kp(tl, '#c5-k4', 21.9)
+        ;['#c5-qtags .chip:nth-child(1)', '#c5-qtags .chip:nth-child(2)', '#c5-qtags .chip:nth-child(3)'].forEach((s, i) =>
+          tl.fromTo(s, { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, ease: 'back.out(2)' }, 22.4 + i * 0.3))
+        GG.draw(tl, '#c5-r5', 22.6)
+
+        window.__timelines['c5'] = tl
+      </script>
+    </template>
+  </body>
+</html>

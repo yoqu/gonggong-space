@@ -13,3 +13,5 @@ test-results/
 test-results/
 .obsidian/
 website/.vitepress/cache/
+videos/*/snapshots/
+videos/*/renders/

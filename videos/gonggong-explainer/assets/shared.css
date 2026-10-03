@@ -1,0 +1,74 @@
+/* Shared design system for every chapter. Chapter files scope their own rules under #<id>-root. */
+:root {
+  --blue: #0a7cff;
+  --blue-soft: #e6f0ff;
+  --ink: #1d1d1f;
+  --ink2: #6e6e73;
+  --line: #e5e5ea;
+  --bubble: #f2f3f5;
+  --seal: #d23b2a;
+  --green: #1f8f3f;
+  --amber: #c45f00;
+  --grad: linear-gradient(135deg, #1739c9 0%, #1557d8 45%, #0d8f8b 100%);
+}
+
+/* ---- level card (chapter local 0–1.95s) ---- */
+.lv { position: absolute; inset: 0; overflow: hidden; }
+.lv-bg { position: absolute; inset: 0; background: var(--grad); }
+.lv-n { position: absolute; left: 0; right: 0; top: 330px; text-align: center; color: #ffcf3f; font-size: 64px; font-weight: 900; letter-spacing: 12px; }
+.lv-t { position: absolute; left: 0; right: 0; top: 420px; text-align: center; color: #fff; font-size: 128px; font-weight: 900; letter-spacing: 6px; white-space: nowrap; }
+.lv-g { position: absolute; left: 0; top: 650px; width: 220px; height: 220px; }
+.lv-dots { position: absolute; left: 0; right: 0; top: 900px; display: flex; justify-content: center; gap: 22px; }
+.lv-dots i { width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
+.lv-dots i.done { background: #7ee2a8; }
+.lv-dots i.cur { background: #ffcf3f; box-shadow: 0 0 0 8px rgba(255, 207, 63, 0.3); }
+
+/* ---- right column ---- */
+.col { position: absolute; left: 1250px; top: 150px; width: 610px; }
+.kick { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; color: var(--blue); letter-spacing: 2px; }
+.kick em { font-style: normal; background: var(--blue); color: #fff; padding: 3px 12px; border-radius: 9px; letter-spacing: 1px; }
+.ttl { font-size: 62px; font-weight: 900; margin-top: 18px; letter-spacing: -0.5px; white-space: nowrap; color: var(--ink); }
+.kps { margin-top: 40px; display: flex; flex-direction: column; gap: 18px; }
+.kp { display: flex; align-items: flex-start; gap: 16px; background: #fff; border-radius: 18px; padding: 20px 24px; box-shadow: 0 6px 20px rgba(30, 50, 100, 0.07); font-size: 27px; line-height: 1.45; font-weight: 600; color: var(--ink); }
+.kp b { color: var(--blue); }
+.kp .no { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--blue-soft); color: var(--blue); font-size: 19px; font-weight: 900; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+
+/* ---- left stage: screenshot cards ---- */
+.screen { position: absolute; background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 70px rgba(30, 50, 100, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.screen .bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #f2f3f5; }
+.screen .bar i { width: 12px; height: 12px; border-radius: 50%; }
+.screen .bar i:nth-child(1) { background: #ff5f57; }
+.screen .bar i:nth-child(2) { background: #febc2e; }
+.screen .bar i:nth-child(3) { background: #28c840; }
+.screen .bar span { margin-left: 10px; font-size: 15px; color: var(--ink2); font-weight: 600; }
+.screen .vp { position: relative; overflow: hidden; }
+.zoomer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.screen .vp img { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.ring { position: absolute; overflow: visible; pointer-events: none; }
+.ring path { fill: none; stroke: var(--seal); stroke-width: 5; stroke-linecap: round; }
+.note { position: absolute; font-size: 24px; font-weight: 800; color: #fff; background: var(--seal); padding: 8px 16px; border-radius: 12px; white-space: nowrap; box-shadow: 0 8px 20px rgba(210, 59, 42, 0.25); }
+
+/* ---- mock UI pieces ---- */
+.panel { position: absolute; background: #fff; border-radius: 22px; box-shadow: 0 30px 70px rgba(30, 50, 100, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.05); }
+.msg { display: flex; gap: 14px; align-items: flex-start; }
+.msg .av { width: 58px; height: 58px; flex: none; }
+.msg .av.p { border-radius: 50%; color: #fff; font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; margin: 4px; }
+.msg .who { font-size: 16px; color: var(--ink2); margin-bottom: 6px; }
+.msg .who b { color: var(--ink); }
+.msg .bb { display: inline-block; background: var(--bubble); padding: 12px 18px; border-radius: 6px 18px 18px 18px; font-size: 23px; line-height: 1.45; }
+.msg.me { flex-direction: row-reverse; }
+.msg.me .bb { background: var(--blue); color: #fff; border-radius: 18px 6px 18px 18px; }
+.at { color: var(--blue); font-weight: 700; }
+.me .at { color: #fff; background: rgba(255, 255, 255, 0.22); padding: 0 6px; border-radius: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; padding: 6px 14px; border-radius: 10px; background: var(--blue-soft); color: var(--blue); white-space: nowrap; }
+.chip.g { background: #e9f8ee; color: var(--green); }
+.chip.r { background: #fdecea; color: var(--seal); }
+.chip.y { background: #fff4e0; color: var(--amber); }
+.chip.k { background: #f2f3f5; color: var(--ink2); }
+.mono { font-family: ui-monospace, Menlo, monospace; }
+
+/* ---- character cameo ---- */
+.cameo { position: absolute; width: 260px; height: 260px; }
+.cameo img { width: 260px; height: 260px; }
+.say { position: absolute; left: 200px; top: 10px; background: #fff; border: 3px solid var(--ink); border-radius: 24px; padding: 14px 22px; font-size: 30px; font-weight: 800; white-space: nowrap; box-shadow: 6px 6px 0 var(--ink); color: var(--ink); }
+.say.l { left: auto; right: 200px; }

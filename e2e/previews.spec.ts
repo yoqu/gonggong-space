@@ -53,7 +53,7 @@ test('a bot hosts a dev server and publishes it; members open it, embed a static
 
     await say(page, `@pv1 Bot mock:tool preview_expose ${JSON.stringify({ service: 'web', title: '首页' })}`)
     const card = main.locator('.pv-card', { hasText: '首页' })
-    await expect(card.getByText('在线')).toBeVisible({ timeout: 30_000 })
+    await expect(card.getByRole('img', { name: '在线', exact: true })).toBeVisible({ timeout: 30_000 })
     const href = await card.getByRole('link', { name: '打开' }).getAttribute('href')
     const tab = await context.newPage()
     await tab.goto(href!)
@@ -79,7 +79,7 @@ test('a bot hosts a dev server and publishes it; members open it, embed a static
     await drawer.getByText('预览与服务').click()
     await expect(drawer.getByText(/静态站点 site/)).toBeVisible()
     await drawer.locator('.pv-row', { hasText: '首页' }).getByRole('button', { name: '关闭' }).click()
-    await expect(card.getByText('已关闭')).toBeVisible()
+    await expect(card.getByRole('img', { name: '已关闭', exact: true })).toBeVisible()
   } finally {
     m.stop()
   }

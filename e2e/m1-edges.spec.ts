@@ -42,7 +42,7 @@ test('offline bot waits, runs when its machine comes online, and resumes the ses
 
   m.start()
   try {
-    await expect(first).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(first).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
 
     // Restart the daemon: the next turn must resume the ACP session and still know the secret.
     m.stop()
@@ -52,7 +52,7 @@ test('offline bot waits, runs when its machine comes online, and resumes the ses
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByTestId('run-card')).toHaveCount(2)
     const second = page.getByTestId('run-card').nth(1)
-    await expect(second).toContainText('已完成', { timeout: 4 * 60_000 })
+    await expect(second).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
     await expect(second).not.toContainText('会话恢复失败')
     await expect(page.getByTestId('bot-reply')).toHaveCount(2)
     await expect(page.getByTestId('bot-reply').nth(1)).toContainText('42')

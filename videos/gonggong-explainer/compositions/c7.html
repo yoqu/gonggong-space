@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #c7-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #c7-s1 { left: 90px; top: 170px; width: 1000px; }
+        #c7-s1 .vp { height: 625px; }
+        #c7-s2 { left: 250px; top: 230px; width: 900px; }
+        #c7-s2 .vp { height: 563px; }
+        #c7-n1 { left: 820px; top: 175px; }
+        #c7-ty { position: absolute; left: 90px; top: 864px; display: flex; gap: 18px; }
+        #c7-ty .chip { font-size: 26px; padding: 8px 18px; border-radius: 12px; }
+        #c7-vw { left: 90px; top: 200px; width: 1080px; height: 640px; overflow: hidden; background: #f7f8fa; }
+        #c7-vw .tb { height: 76px; background: #fff; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 18px; padding: 0 22px; }
+        #c7-vw .url { flex: 1; height: 44px; border: 1px solid #e5e5ea; border-radius: 10px; display: flex; align-items: center; padding: 0 16px; font-size: 20px; color: #6e6e73; }
+        #c7-seg { display: flex; background: #f2f3f5; border-radius: 12px; padding: 4px; gap: 4px; }
+        #c7-seg span { font-size: 21px; font-weight: 700; padding: 7px 16px; border-radius: 9px; color: #6e6e73; white-space: nowrap; }
+        #c7-pg { position: absolute; left: 0; right: 0; margin: 0 auto; top: 120px; width: 1020px; height: 470px; background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(30, 50, 100, 0.12); overflow: hidden; padding: 30px 28px; box-sizing: border-box; }
+        #c7-pg h3 { margin: 0 0 20px; font-size: 34px; font-weight: 900; white-space: nowrap; }
+        #c7-pg .in { display: flex; gap: 12px; margin-bottom: 18px; }
+        #c7-pg .in div:first-child { flex: 1; min-width: 0; height: 52px; border: 1px solid #d9dce3; border-radius: 10px; font-size: 20px; color: #9a9aa0; display: flex; align-items: center; padding: 0 14px; white-space: nowrap; overflow: hidden; }
+        #c7-pg .in div:last-child { flex: none; width: 84px; height: 52px; border-radius: 10px; background: #0a7cff; color: #fff; font-size: 21px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        #c7-pg .it { height: 60px; border-bottom: 1px solid #eef0f3; display: flex; align-items: center; gap: 14px; font-size: 22px; white-space: nowrap; overflow: hidden; }
+        #c7-pg .it i { flex: none; width: 22px; height: 22px; border: 2px solid #b8bcc6; border-radius: 5px; }
+        #c7-pg .it.ok i { background: #0a7cff; border-color: #0a7cff; }
+        #c7-pg .it.ok span { color: #9a9aa0; text-decoration: line-through; }
+        #c7-wl { position: absolute; right: 30px; top: 92px; font-size: 18px; font-weight: 800; color: #0a7cff; font-family: ui-monospace, Menlo, monospace; }
+        #c7-s3 { left: 90px; top: 170px; width: 1000px; }
+        #c7-s3 .vp { height: 625px; }
+        #c7-n2 { left: 760px; top: 120px; }
+        #c7-log { left: 540px; top: 712px; width: 640px; padding: 16px 24px 10px; box-sizing: border-box; }
+        #c7-log .h { display: flex; align-items: center; gap: 14px; font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+        #c7-log .h .chip { margin-left: auto; }
+        #c7-log .r { display: flex; gap: 22px; align-items: center; height: 50px; border-top: 1px solid #eef0f3; font-size: 20px; color: #3a3a3c; white-space: nowrap; }
+        #c7-log .r .mono { color: #0a7cff; font-weight: 700; }
+        #c7-boss { position: absolute; left: 220px; top: 300px; display: flex; align-items: center; gap: 22px; }
+        #c7-boss .a { width: 96px; height: 96px; border-radius: 50%; background: #6b4fd6; color: #fff; font-size: 30px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+        #c7-boss .b { position: relative; background: #fff; border-radius: 10px 28px 28px 28px; padding: 22px 34px; font-size: 46px; font-weight: 800; box-shadow: 0 16px 40px rgba(30, 50, 100, 0.12); white-space: nowrap; }
+        #c7-strike { position: absolute; left: 20px; right: 20px; top: 50%; height: 8px; margin-top: -4px; border-radius: 4px; background: #d23b2a; transform-origin: 0 50%; }
+        #c7-pv { left: 340px; top: 470px; height: 96px; display: flex; align-items: center; gap: 16px; padding: 0 28px; font-size: 26px; font-weight: 700; white-space: nowrap; }
+        #c7-pv i { width: 16px; height: 16px; border-radius: 50%; background: #28c840; }
+        #c7-cam { left: 880px; top: 700px; }
+      </style>
+      <div id="c7-root" data-composition-id="c7" data-width="1920" data-height="1080">
+        <div class="col" id="c7-col">
+          <div class="kick"><em>第 7 关</em>预览</div>
+          <div class="ttl">结果一键预览</div>
+          <div class="kps">
+            <div class="kp" id="c7-k1"><span class="no">1</span><span><b>网页 · 服务 · 桌面应用 · 小程序</b><br />都能在群里直接打开</span></div>
+            <div class="kp" id="c7-k2"><span class="no">2</span><span>预览工作台 <b>五种视口</b> 一键切</span></div>
+            <div class="kp" id="c7-k3"><span class="no">3</span><span><b>有期限的公开链接</b>，谁访问过都有记录</span></div>
+          </div>
+        </div>
+
+        <div class="screen" id="c7-s1">
+          <div class="bar"><i></i><i></i><i></i><span>预览 · todo-app：只看未完成筛选</span></div>
+          <div class="vp"><div class="zoomer" id="c7-z1"><img src="assets/shots/preview-workbench.webp" width="1000" height="625" alt="" /><svg class="ring" id="c7-r1"></svg><svg class="ring" id="c7-r2"></svg></div></div>
+        </div>
+        <div class="screen" id="c7-s2">
+          <div class="bar"><i></i><i></i><i></i><span>预览 · 待办清单小程序</span></div>
+          <div class="vp"><div class="zoomer" id="c7-z2"><img src="assets/shots/workbench-miniprogram.webp" width="900" height="563" alt="" /><svg class="ring" id="c7-r3"></svg><svg class="ring" id="c7-r4"></svg><svg class="ring" id="c7-r5"></svg></div></div>
+        </div>
+        <div class="note" id="c7-n1">实时画面 · 60 fps</div>
+        <div id="c7-ty">
+          <span class="chip" id="c7-t1">网页</span>
+          <span class="chip g" id="c7-t2">服务</span>
+          <span class="chip y" id="c7-t3">桌面应用</span>
+          <span class="chip r" id="c7-t4">小程序</span>
+        </div>
+
+        <div class="panel" id="c7-vw">
+          <div class="tb">
+            <div class="url">进入路径&nbsp;&nbsp;/</div>
+            <div id="c7-seg"><span id="c7-v0">自适应</span><span id="c7-v1">1440</span><span id="c7-v2">1024</span><span id="c7-v3">768</span><span id="c7-v4">390</span></div>
+          </div>
+          <div id="c7-wl">自适应</div>
+          <div id="c7-pg">
+            <h3>待办清单</h3>
+            <div class="in"><div>要做点什么？</div><div>添加</div></div>
+            <div class="it ok"><i></i><span>整理本周需求</span></div>
+            <div class="it"><i></i><span>给登录页加表单校验</span></div>
+            <div class="it"><i></i><span>周五发版前回归测试</span></div>
+            <div class="it ok"><i></i><span>README 补充筛选说明</span></div>
+          </div>
+        </div>
+
+        <div class="screen" id="c7-s3">
+          <div class="bar"><i></i><i></i><i></i><span>生成公开链接</span></div>
+          <div class="vp"><div class="zoomer" id="c7-z3"><img src="assets/shots/preview-share.webp" width="1000" height="625" alt="" /><svg class="ring" id="c7-r6"></svg><svg class="ring" id="c7-r7"></svg><svg class="ring" id="c7-r8"></svg></div></div>
+        </div>
+        <div class="note" id="c7-n2">到期或收回，立即失效</div>
+        <div class="panel" id="c7-log">
+          <div class="h">访问记录<span class="chip g">有效 · 7 天</span></div>
+          <div class="r" id="c7-l1"><span class="mono">16:31</span><span>198.51.100.7</span><span>iPhone · Safari</span></div>
+          <div class="r" id="c7-l2"><span class="mono">16:42</span><span>203.0.113.24</span><span>macOS · Chrome</span></div>
+          <div class="r" id="c7-l3"><span class="mono">17:05</span><span>198.51.100.7</span><span>iPhone · Safari</span></div>
+        </div>
+
+        <div id="c7-boss"><div class="a">老板</div><div class="b">做好了吗？发我看看<div id="c7-strike"></div></div></div>
+        <div class="panel" id="c7-pv"><i></i>todo-app：只看未完成筛选 :4380<span class="chip">群里直接打开</span></div>
+
+        <div class="cameo" id="c7-cam"><img src="assets/cast/gong-done.svg" alt="" /><div class="say l">再也不用问：发我看看！</div></div>
+
+        <div class="lv" id="c7-lv"><div class="lv-bg"></div><div class="lv-n">第 7 关</div><div class="lv-t">结果一键预览</div><img class="lv-g" src="assets/cast/gong-run.svg" alt="" /><div class="lv-dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i></i></div></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        const S1 = 1000 / 2880
+        const S2 = 900 / 2880
+        GG.ring('#c7-r1', S1, [1476, 371, 958, 697], 10)
+        GG.ring('#c7-r2', S1, [302, 1572, 468, 44], 8)
+        GG.ring('#c7-r3', S2, [749, 1570, 521, 50], 8)
+        GG.ring('#c7-r4', S2, [1829, 252, 698, 1519], 10)
+        GG.ring('#c7-r5', S2, [842, 389, 471, 1073], 10)
+        GG.ring('#c7-r6', S1, [958, 840, 388, 41], 8)
+        GG.ring('#c7-r7', S1, [960, 929, 818, 46], 8)
+        GG.ring('#c7-r8', S1, [962, 1025, 956, 69], 8)
+
+        GG.level(tl, '#c7-lv')
+        GG.head(tl, '#c7-col')
+
+        // c7a — web, service, desktop app, mini program, all live in the group
+        GG.enter(tl, '#c7-s1', 1.8)
+        GG.kp(tl, '#c7-k1', 2.5)
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, y: 30, scale: 0.6 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+        GG.draw(tl, '#c7-r1', 4.2, 0.5)
+        pop('#c7-t1', 4.4)
+        GG.draw(tl, '#c7-r2', 4.8, 0.4)
+        pop('#c7-t2', 4.9)
+        GG.enter(tl, '#c7-s2', 5.5)
+        GG.draw(tl, '#c7-r3', 5.9, 0.4)
+        pop('#c7-t3', 5.8)
+        GG.draw(tl, '#c7-r4', 6.6, 0.5)
+        pop('#c7-t4', 6.7)
+        GG.focus(tl, '#c7-z2', S2, [1500, 150, 1400, 900], 900, 563, 7.2)
+        tl.fromTo('#c7-n1', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 7.6)
+        tl.to('#c7-n1', { opacity: 0, duration: 0.25 }, 8.6)
+        GG.unfocus(tl, '#c7-z2', 8.6)
+        GG.draw(tl, '#c7-r5', 9.3, 0.5)
+        GG.leave(tl, '#c7-s2', 10.6)
+        GG.leave(tl, '#c7-s1', 10.6)
+        tl.to('#c7-ty', { opacity: 0, duration: 0.3 }, 10.6)
+
+        // c7b — five viewports, then an expiring public link with an access log
+        GG.enter(tl, '#c7-vw', 11.05, 'down')
+        GG.kp(tl, '#c7-k2', 11.8)
+        const seg = ['#c7-v0', '#c7-v1', '#c7-v2', '#c7-v3', '#c7-v4']
+        const widths = [1020, 900, 700, 540, 290]
+        const labels = ['自适应', '1440 px', '1024 px', '768 px', '390 px']
+        tl.set(seg[0], { backgroundColor: '#ffffff', color: '#0a7cff' }, 11.05)
+        ;[11.9, 12.4, 12.9, 13.4].forEach((t, i) => {
+          tl.set(seg[i], { backgroundColor: 'rgba(255,255,255,0)', color: '#6e6e73' }, t)
+          tl.set(seg[i + 1], { backgroundColor: '#ffffff', color: '#0a7cff' }, t)
+          tl.set('#c7-wl', { textContent: labels[i + 1] }, t)
+          tl.to('#c7-pg', { width: widths[i + 1], duration: 0.4, ease: 'power3.inOut' }, t)
+        })
+        GG.leave(tl, '#c7-vw', 14.4)
+
+        GG.enter(tl, '#c7-s3', 14.7)
+        GG.focus(tl, '#c7-z3', S1, [922, 662, 1036, 476], 1000, 625, 15.2)
+        GG.kp(tl, '#c7-k3', 16.0)
+        GG.draw(tl, '#c7-r6', 16.0, 0.4)
+        tl.fromTo('#c7-n2', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, 16.3)
+        GG.draw(tl, '#c7-r7', 16.9, 0.45)
+        GG.draw(tl, '#c7-r8', 17.6, 0.45)
+        tl.to('#c7-s3', { scale: 0.8, transformOrigin: '0 0', duration: 0.5, ease: 'power3.inOut' }, 17.9)
+        tl.to('#c7-n2', { opacity: 0, duration: 0.25 }, 17.9)
+        tl.fromTo('#c7-log', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, ease: 'back.out(1.8)' }, 18.1)
+        ;['#c7-l1', '#c7-l2', '#c7-l3'].forEach((r, i) =>
+          tl.fromTo(r, { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, 18.4 + i * 0.3))
+        tl.to('#c7-log', { opacity: 0, y: -20, duration: 0.35, ease: 'power2.in' }, 19.95)
+        GG.leave(tl, '#c7-s3', 19.95)
+
+        // c7c — no more "send me a look"
+        tl.fromTo('#c7-boss', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.4, ease: 'back.out(2)' }, 20.4)
+        GG.cameo(tl, '#c7-cam', 20.4, 24.4)
+        tl.fromTo('#c7-strike', { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: 'power2.out' }, 23.2)
+        tl.to('#c7-boss', { opacity: 0.45, duration: 0.3 }, 23.4)
+        tl.fromTo('#c7-pv', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: 'back.out(2)' }, 23.5)
+
+        window.__timelines['c7'] = tl
+      </script>
+    </template>
+  </body>
+</html>

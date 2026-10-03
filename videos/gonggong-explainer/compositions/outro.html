@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #outro-root { position: absolute; inset: 0; font-family: system-ui, -apple-system, sans-serif; color: #1d1d1f; }
+        #outro-root .conf { position: absolute; inset: 0; pointer-events: none; }
+        #outro-root .conf i { position: absolute; left: 0; top: 0; width: 14px; height: 22px; border-radius: 3px; opacity: 0; }
+        #outro-cast { position: absolute; left: 0; right: 0; top: 800px; height: 140px; display: flex; justify-content: center; align-items: flex-end; gap: 14px; }
+        #outro-cast img { width: 124px; height: 124px; transform-origin: 50% 100%; }
+        #outro-cast img.g { width: 140px; height: 140px; }
+        #outro-cert { position: absolute; left: 460px; top: 150px; width: 1000px; height: 610px; background: #fffdf7; border-radius: 28px; box-shadow: 0 34px 80px rgba(30, 50, 100, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05); overflow: visible; }
+        #outro-cert .frame { position: absolute; inset: 16px; border: 3px solid #e2c77a; border-radius: 18px; }
+        #outro-cert .frame::after { content: ''; position: absolute; inset: 6px; border: 1px solid #efdca6; border-radius: 13px; }
+        #outro-cert .in { position: absolute; left: 50px; right: 50px; top: 50px; display: flex; flex-direction: column; align-items: center; }
+        #outro-cert .t { font-size: 70px; font-weight: 900; letter-spacing: 14px; margin-top: 14px; white-space: nowrap; }
+        #outro-cert .b { font-size: 32px; font-weight: 600; color: #3b4152; margin-top: 18px; white-space: nowrap; }
+        #outro-cert .b u { text-decoration: none; color: #0a7cff; font-weight: 900; border-bottom: 3px solid #0a7cff; padding: 0 10px; margin: 0 6px; }
+        #outro-badges { margin-top: 34px; display: grid; grid-template-columns: repeat(4, 205px); gap: 14px 20px; }
+        #outro-badges div { height: 58px; border-radius: 14px; background: #e9f8ee; color: #1f8f3f; display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 21px; font-weight: 800; white-space: nowrap; }
+        #outro-badges b { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #34c759; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        #outro-sign { position: absolute; left: 60px; bottom: 44px; display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 700; color: #6e6e73; }
+        #outro-sign img { width: 66px; height: 66px; }
+        #outro-sign strong { color: #1d1d1f; }
+        #outro-seal { position: absolute; right: 56px; bottom: 34px; width: 184px; height: 184px; border: 9px solid #d23b2a; border-radius: 26px; color: #d23b2a; display: flex; align-items: center; justify-content: center; font-size: 70px; font-weight: 900; letter-spacing: 4px; background: rgba(255, 240, 236, 0.55); box-shadow: inset 0 0 0 5px #fffdf7, inset 0 0 0 8px #d23b2a; }
+        #outro-flash { position: absolute; left: 1222px; top: 544px; width: 180px; height: 180px; border-radius: 50%; border: 8px solid #d23b2a; opacity: 0; }
+        #outro-end { position: absolute; left: 0; right: 0; top: 150px; display: flex; flex-direction: column; align-items: center; }
+        #outro-end img { width: 132px; height: 132px; }
+        #outro-end .t { font-size: 148px; font-weight: 900; letter-spacing: 16px; margin-top: 10px; white-space: nowrap; }
+        #outro-end .s { font-size: 54px; font-weight: 700; color: #3b4152; margin-top: 20px; white-space: nowrap; }
+        #outro-end .s span { display: inline-block; }
+        #outro-end .s em { font-style: normal; color: #0a7cff; }
+        #outro-chips { display: flex; gap: 18px; margin-top: 48px; }
+        #outro-chips .chip { font-size: 30px; padding: 10px 24px; border-radius: 14px; }
+        #outro-url { margin-top: 40px; font-size: 32px; font-weight: 700; color: #3b4152; background: #fff; padding: 10px 26px; border-radius: 14px; box-shadow: 0 8px 22px rgba(30, 50, 100, 0.08); }
+      </style>
+      <div id="outro-root" data-composition-id="outro" data-width="1920" data-height="1080">
+        <div class="conf" id="outro-c1"></div>
+
+        <div id="outro-end">
+          <img src="assets/logo.svg" alt="" />
+          <div class="t">共工空间</div>
+          <div class="s"><span id="outro-s1">让 <em>AI 同事</em></span><span id="outro-s2">在群里接力干活</span></div>
+          <div id="outro-chips">
+            <span class="chip g" id="outro-p1">开源</span>
+            <span class="chip g" id="outro-p2">自托管</span>
+            <span class="chip" id="outro-p3">接入 Claude Code / Codex</span>
+            <span class="chip" id="outro-p4">网页 · 桌面 · 手机</span>
+          </div>
+          <div class="mono" id="outro-url">github.com/yoqu/gonggong-space</div>
+        </div>
+
+        <div id="outro-cert">
+          <div class="frame"></div>
+          <div class="in">
+            <div class="kick"><em>共工空间</em>新同事入职</div>
+            <div class="t">入职通关证书</div>
+            <div class="b">兹证明<u>你</u>已通关共工空间八大关卡</div>
+            <div id="outro-badges">
+              <div><b>✓</b>群聊即指挥台</div>
+              <div><b>✓</b>Bot 同事</div>
+              <div><b>✓</b>机器与工作区</div>
+              <div><b>✓</b>过程透明</div>
+              <div><b>✓</b>权限审批</div>
+              <div><b>✓</b>改动可审</div>
+              <div><b>✓</b>一键预览</div>
+              <div><b>✓</b>接力多端</div>
+            </div>
+          </div>
+          <div id="outro-sign"><img src="assets/cast/gong-done.svg" alt="" /><span><strong>共字君</strong> 签发</span></div>
+          <div id="outro-seal">通关</div>
+        </div>
+        <div id="outro-flash"></div>
+        <div class="conf" id="outro-c2"></div>
+
+        <div id="outro-cast">
+          <img src="assets/cast/hammock-done.svg" alt="" />
+          <img src="assets/cast/braces-done.svg" alt="" />
+          <img src="assets/cast/focus-done.svg" alt="" />
+          <img src="assets/cast/steps-wave.svg" alt="" />
+          <img src="assets/cast/blank-done.svg" alt="" />
+          <img src="assets/cast/no-wave.svg" alt="" />
+          <img class="g" src="assets/cast/gong-wave.svg" alt="" />
+          <img src="assets/cast/abacus-done.svg" alt="" />
+          <img src="assets/cast/invert-wave.svg" alt="" />
+          <img src="assets/cast/sentry-done.svg" alt="" />
+          <img src="assets/cast/spring-wave.svg" alt="" />
+          <img src="assets/cast/compass-done.svg" alt="" />
+          <img src="assets/cast/loop-wave.svg" alt="" />
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true })
+        let seed = 20261001
+        const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+        const COLORS = ['#0a7cff', '#ffcf3f', '#d23b2a', '#34c759', '#0d8f8b', '#7a6dff', '#ff8a3d']
+        const spawn = (host, n) => Array.from({ length: n }, (_, i) => {
+          const el = document.createElement('i')
+          el.style.background = COLORS[i % COLORS.length]
+          document.querySelector(host).appendChild(el)
+          return el
+        })
+
+        // o1 — characters hop up, confetti rains, the certificate is stamped at 3.4
+        const cast = '#outro-cast img'
+        tl.fromTo(cast, { y: 260 }, { y: 0, duration: 0.55, ease: 'back.out(1.7)', stagger: { each: 0.06, from: 'center' } }, 0)
+        spawn('#outro-c1', 46).forEach((el) => {
+          const t = 0.05 + rnd() * 0.9
+          const x = 60 + rnd() * 1800
+          const d = 2.0 + rnd() * 1.2
+          tl.fromTo(el, { x, y: -60, rotation: rnd() * 180, opacity: 1 }, { x: x + (rnd() - 0.5) * 220, y: 260 + rnd() * 560, rotation: 360 + rnd() * 540, duration: d, ease: 'power1.in' }, t)
+          tl.to(el, { opacity: 0, duration: 0.4 }, t + d - 0.4)
+        })
+        tl.fromTo('#outro-cert', { opacity: 0, scale: 0.6, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'back.out(1.6)' }, 1.2)
+        tl.fromTo('#outro-badges div', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.6)', stagger: 0.12 }, 1.75)
+        tl.fromTo('#outro-sign', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2.7)
+        tl.fromTo('#outro-seal', { opacity: 0, scale: 3.2, rotation: -32 }, { opacity: 1, scale: 1, rotation: -12, duration: 0.2, ease: 'power4.in' }, 3.2)
+        tl.to('#outro-cert', { x: 8, duration: 0.05, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 3.4)
+        tl.fromTo('#outro-flash', { opacity: 0.9, scale: 0.9 }, { opacity: 0, scale: 2.2, duration: 0.6, ease: 'power2.out', immediateRender: false }, 3.4)
+        spawn('#outro-c2', 28).forEach((el, i) => {
+          const a = (i / 28) * Math.PI * 2 + rnd() * 0.3
+          const r = 170 + rnd() * 190
+          const x = 1305 + Math.cos(a) * r
+          const y = 623 + Math.sin(a) * r * 0.75
+          tl.fromTo(el, { x: 1305, y: 623, rotation: 0, opacity: 1, scale: 0.6 }, { x, y, rotation: rnd() * 540, scale: 1, duration: 0.7, ease: 'power3.out', immediateRender: false }, 3.4)
+          tl.to(el, { y: y + 90, opacity: 0, duration: 0.7, ease: 'power1.in' }, 4.1 + rnd() * 0.3)
+        })
+        tl.to(cast, { y: -46, duration: 0.2, yoyo: true, repeat: 1, ease: 'power2.out', stagger: 0.03 }, 3.42)
+
+        // o2 — end card
+        tl.to('#outro-cert', { opacity: 0, y: -70, duration: 0.45, ease: 'power2.in' }, 5.0)
+        tl.fromTo('#outro-end img', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(2)' }, 5.3)
+        tl.fromTo('#outro-end .t', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 5.5)
+        const pop = (sel, t) => tl.fromTo(sel, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, t)
+        pop('#outro-p1', 6.8)
+        pop('#outro-p2', 7.5)
+        tl.fromTo('#outro-s1', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 8.75)
+        tl.fromTo('#outro-s2', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' }, 9.9)
+        pop('#outro-p3', 10.4)
+        pop('#outro-p4', 10.6)
+        tl.fromTo('#outro-url', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 11.0)
+        ;[6.0, 9.9, 12.0].forEach((t) =>
+          tl.to(cast, { y: -22, duration: 0.18, yoyo: true, repeat: 1, ease: 'sine.out', stagger: 0.07 }, t))
+
+        window.__timelines['outro'] = tl
+      </script>
+    </template>
+  </body>
+</html>

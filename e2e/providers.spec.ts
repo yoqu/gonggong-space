@@ -54,7 +54,9 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
   page.on('response', (r) => {
     if (r.url().includes('/api/')) received.push(r.text().catch(() => undefined))
   })
-  page.on('websocket', (ws) => ws.on('framereceived', (f) => received.push(Promise.resolve(String(f.payload)))))
+  page.on('websocket', (ws) =>
+    ws.on('framereceived', (f) => received.push(Promise.resolve(String(f.payload)))),
+  )
 
   const { m, api } = await memberWithMachine(page, 'pr1', { env: isolated() })
   const me = await api.me()

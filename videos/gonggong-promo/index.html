@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #eef1f6; }
+      :root {
+        --blue: #0a7cff;
+        --ink: #1d1d1f;
+        --ink2: #6e6e73;
+        --line: #e5e5ea;
+        --bubble: #f2f3f5;
+        --seal: #d23b2a;
+      }
+      #root {
+        width: 100%; height: 100%; position: relative; overflow: hidden;
+        font-family: system-ui, -apple-system, sans-serif; color: var(--ink);
+        background: #eef1f6;
+      }
+      .full { position: absolute; inset: 0; }
+      img { display: block; }
+
+      /* ---------- background ---------- */
+      #bg { background: linear-gradient(160deg, #f4f6fb 0%, #e8edf7 55%, #e6f1f1 100%); }
+      .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; }
+      #blob1 { width: 900px; height: 900px; left: -200px; top: -300px; background: #c9d8ff; }
+      #blob2 { width: 800px; height: 800px; right: -220px; bottom: -320px; background: #c4ece8; }
+      .grid {
+        position: absolute; inset: 0; opacity: 0.5;
+        background-image: radial-gradient(#c7cede 1.2px, transparent 1.2px);
+        background-size: 36px 36px;
+      }
+
+      /* ---------- chat window ---------- */
+      #win {
+        position: absolute; left: 450px; top: 64px; width: 1020px; height: 880px;
+        background: #fff; border-radius: 26px; overflow: hidden;
+        box-shadow: 0 40px 90px rgba(30, 50, 100, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        display: flex; flex-direction: column;
+      }
+      .titlebar { height: 46px; display: flex; align-items: center; gap: 9px; padding: 0 20px; background: #f7f7f9; border-bottom: 1px solid var(--line); }
+      .tl { width: 13px; height: 13px; border-radius: 50%; }
+      .titlebar .name { margin-left: 14px; font-size: 17px; color: var(--ink2); font-weight: 600; }
+      .ghead { height: 86px; display: flex; align-items: center; gap: 16px; padding: 0 30px; border-bottom: 1px solid var(--line); }
+      .ghead img { width: 52px; height: 52px; border-radius: 13px; }
+      .ghead .t { font-size: 25px; font-weight: 700; }
+      .ghead .s { font-size: 17px; color: var(--ink2); margin-top: 3px; }
+      .ghead .members { margin-left: auto; display: flex; }
+      .ghead .members img { width: 44px; height: 44px; margin-left: -10px; border-radius: 0; }
+      #vp { position: relative; flex: 1; overflow: hidden; }
+      #stack { position: absolute; left: 0; right: 0; top: 0; padding: 26px 32px 10px; }
+      .msg { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; }
+      .msg.me { flex-direction: row-reverse; }
+      .av { width: 64px; height: 64px; flex: none; }
+      .av.me { border-radius: 50%; background: linear-gradient(135deg, #ff9a62, #e0533a); color: #fff; font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; margin: 4px; }
+      .who { font-size: 17px; color: var(--ink2); margin-bottom: 7px; display: flex; gap: 9px; align-items: center; }
+      .who b { color: var(--ink); font-weight: 600; }
+      .badge { font-size: 13px; color: var(--blue); background: #e6f0ff; padding: 1px 7px; border-radius: 6px; font-weight: 600; }
+      .bubble { display: inline-block; max-width: 720px; background: var(--bubble); padding: 15px 20px; border-radius: 6px 20px 20px 20px; font-size: 25px; line-height: 1.5; }
+      .me .bubble { background: var(--blue); color: #fff; border-radius: 20px 6px 20px 20px; }
+      .me .body { display: flex; flex-direction: column; align-items: flex-end; }
+      .at { color: var(--blue); font-weight: 600; }
+      .me .at { color: #fff; background: rgba(255, 255, 255, 0.22); padding: 0 6px; border-radius: 6px; }
+      .sys { text-align: center; margin: 4px 0 24px; }
+      .sys span { font-size: 17px; color: var(--ink2); background: #f2f3f5; padding: 6px 16px; border-radius: 99px; }
+      .card { margin-top: 10px; width: 720px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05); overflow: hidden; position: relative; }
+
+      .sb { display: flex; gap: 12px; padding: 16px; }
+      .sb .f { flex: 1; height: 112px; border-radius: 10px; background: #f6f7fa; border: 1.5px dashed #c5cbd8; position: relative; }
+      .sb .f i { position: absolute; left: 8px; top: 6px; font-style: normal; font-size: 13px; color: #8a91a3; font-weight: 700; }
+      .sb .f u { position: absolute; background: #d9deea; border-radius: 4px; }
+
+      .run-h { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); font-size: 19px; }
+      .run-h .dot { width: 12px; height: 12px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 5px rgba(52, 199, 89, 0.18); }
+      .run-h .m { margin-left: auto; color: var(--ink2); font-size: 17px; }
+      .step { display: flex; align-items: center; gap: 14px; padding: 9px 20px; font-size: 19px; }
+      .step code { font-family: ui-monospace, Menlo, monospace; font-size: 17px; background: #f2f3f5; padding: 2px 8px; border-radius: 6px; }
+      .ico { width: 24px; height: 24px; position: relative; flex: none; }
+      .ico .spin { position: absolute; inset: 2px; border-radius: 50%; border: 3px solid #d6dbe6; border-top-color: var(--blue); }
+      .ico .ok { position: absolute; inset: 0; border-radius: 50%; background: #34c759; color: #fff; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+      .run-f { padding: 12px 20px 16px; color: var(--ink2); font-size: 17px; display: flex; gap: 22px; }
+
+      .appr-h { padding: 16px 20px 6px; font-size: 20px; font-weight: 700; color: #c45f00; display: flex; align-items: center; gap: 10px; }
+      .appr-b { padding: 4px 20px 6px; font-size: 18px; color: var(--ink2); }
+      .appr-b code { display: block; margin: 8px 0; font-family: ui-monospace, Menlo, monospace; font-size: 18px; color: var(--ink); background: #fff6ec; border: 1px solid #ffd9b0; padding: 10px 14px; border-radius: 10px; }
+      .appr-a { display: flex; gap: 12px; padding: 10px 20px 18px; position: relative; height: 66px; }
+      .btn { padding: 9px 26px; border-radius: 10px; font-size: 18px; font-weight: 600; }
+      .btn.no { background: #f2f3f5; }
+      .btn.yes { background: var(--blue); color: #fff; }
+      .appr-done { position: absolute; left: 20px; top: 14px; font-size: 18px; color: #1f8f3f; font-weight: 600; }
+      #seal {
+        position: absolute; right: 40px; top: 30px; width: 150px; height: 150px;
+        border: 6px solid var(--seal); border-radius: 22px; color: var(--seal);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 58px; font-weight: 900; letter-spacing: 4px;
+        background: rgba(210, 59, 42, 0.06);
+        box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.8), inset 0 0 0 7px var(--seal);
+      }
+
+      .pv-thumb { position: relative; width: 480px; height: 270px; background: #fff; border-bottom: 1px solid var(--line); overflow: hidden; }
+      .pv-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; font-size: 18px; }
+      .pv-foot .g { width: 10px; height: 10px; border-radius: 50%; background: #34c759; }
+      .pv-foot .m { color: var(--ink2); margin-left: auto; font-size: 16px; }
+      .play { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: rgba(0, 0, 0, 0.55); }
+      .play::after { content: ""; position: absolute; left: 27px; top: 21px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
+
+      .composer { height: 104px; padding: 16px 26px 22px; border-top: 1px solid var(--line); }
+      .field { height: 66px; border-radius: 16px; border: 1.5px solid #d8dce5; display: flex; align-items: center; padding: 0 12px 0 22px; font-size: 25px; position: relative; }
+      #ph { color: #848893; position: absolute; left: 22px; }
+      #typed span { opacity: 0; }
+      #typed .at { color: var(--blue); }
+      #caret { width: 2.5px; height: 30px; background: var(--blue); margin-left: 2px; }
+      .send { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; background: #d8dce5; position: relative; }
+      #sendOn { position: absolute; inset: 0; border-radius: 50%; background: var(--blue); opacity: 0; }
+      .send::after { content: ""; position: absolute; left: 15px; top: 12px; border-bottom: 13px solid #fff; border-left: 8px solid transparent; border-right: 8px solid transparent; }
+
+      /* ---------- right column ---------- */
+      #side { position: absolute; left: 1190px; top: 150px; width: 660px; height: 760px; }
+      .panel { position: absolute; left: 0; top: 0; width: 660px; opacity: 0; }
+      .kick { font-size: 22px; font-weight: 700; color: var(--blue); letter-spacing: 2px; display: flex; gap: 14px; align-items: center; }
+      .kick em { font-style: normal; font-family: ui-monospace, Menlo, monospace; background: var(--blue); color: #fff; padding: 2px 10px; border-radius: 8px; letter-spacing: 0; }
+      .h { font-size: 64px; white-space: nowrap; font-weight: 800; line-height: 1.15; margin-top: 22px; letter-spacing: -1px; }
+      .sub { font-size: 28px; color: var(--ink2); margin-top: 20px; line-height: 1.5; }
+      .hl { color: var(--blue); }
+
+      .ctx { margin-top: 46px; display: flex; flex-direction: column; gap: 14px; }
+      .ctx div { font-size: 22px; padding: 12px 18px; border-radius: 14px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05); width: fit-content; }
+      .ctx .q { color: var(--ink2); }
+      .ctx .go { background: var(--blue); color: #fff; font-weight: 600; }
+
+      .flow { margin-top: 40px; position: relative; height: 420px; }
+      .node { position: absolute; left: 0; width: 620px; height: 92px; background: #fff; border-radius: 18px; box-shadow: 0 6px 22px rgba(30, 50, 100, 0.08); display: flex; align-items: center; gap: 18px; padding: 0 22px; }
+      .node .n { font-size: 24px; font-weight: 700; white-space: nowrap; }
+      .node .d { font-size: 18px; color: var(--ink2); margin-top: 2px; }
+      .node .ic { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex: none; }
+      .node .chips { margin-left: auto; display: flex; gap: 8px; }
+      .chip { font-size: 15px; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: #e9f8ee; color: #1f8f3f; }
+      #n1 { top: 0; } #n2 { top: 160px; } #n3 { top: 320px; height: 100px; border: 2px solid var(--blue); }
+      .wire { position: absolute; left: 46px; width: 4px; height: 68px; background: repeating-linear-gradient(#b9c6e4 0 8px, transparent 8px 14px); }
+      #w1 { top: 92px; } #w2 { top: 252px; }
+      .pkt { position: absolute; left: 40px; width: 16px; height: 16px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 6px rgba(10, 124, 255, 0.2); }
+      #lock { margin-top: 26px; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 12px; color: #1f8f3f; }
+
+      .tiers { margin-top: 46px; display: flex; flex-direction: column; gap: 16px; }
+      .tier { display: flex; align-items: center; gap: 16px; font-size: 27px; padding: 18px 24px; background: #fff; border-radius: 16px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05); }
+      .tier .lv { width: 38px; height: 10px; border-radius: 5px; background: #d6dbe6; }
+      .tier .note { margin-left: auto; font-size: 18px; color: var(--ink2); }
+      #tier3 { border: 2px solid transparent; }
+      #trail { margin-top: 26px; font-size: 24px; font-weight: 600; color: #1f8f3f; }
+
+      /* ---------- roll call ---------- */
+      #rollBg { background: linear-gradient(135deg, #1739c9 0%, #1557d8 45%, #0d8f8b 100%); }
+      #rollTitle { position: absolute; top: 92px; left: 0; right: 0; text-align: center; color: #fff; font-size: 64px; font-weight: 800; letter-spacing: 2px; }
+      .hero { position: absolute; top: 250px; width: 360px; height: 470px; background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0, 20, 80, 0.35); display: flex; flex-direction: column; align-items: center; padding-top: 22px; }
+      .hero img { width: 250px; height: 250px; }
+      .hero .nm { font-size: 58px; font-weight: 800; margin-top: 4px; }
+      .hero .mx { font-size: 20px; color: var(--ink2); margin-top: 6px; }
+      .hero .job { position: absolute; top: -20px; right: -16px; background: #ffcf3f; color: #3a2a00; font-size: 24px; font-weight: 800; padding: 8px 16px; border-radius: 12px; transform: rotate(6deg); }
+      #crew { position: absolute; left: 0; right: 0; top: 790px; display: flex; justify-content: center; gap: 6px; }
+      #crew img { width: 118px; height: 118px; }
+
+      /* ---------- proof ---------- */
+      #proofBg { background: rgba(238, 241, 246, 0.94); }
+      #proofHead { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
+      #proofHead .h { margin-top: 12px; font-size: 64px; }
+      #proofHead .kick { justify-content: center; }
+      .shot { position: absolute; width: 960px; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 40px 90px rgba(30, 50, 100, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.06); }
+      .shot .bar { height: 34px; background: #f2f3f5; display: flex; align-items: center; gap: 8px; padding: 0 14px; }
+      .shot img { width: 960px; height: 600px; }
+      #shotA { left: 110px; top: 300px; }
+      #shotB { left: 850px; top: 340px; }
+      .tag { position: absolute; font-size: 26px; font-weight: 800; padding: 10px 18px; border-radius: 14px; color: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18); }
+      #tagA { left: 300px; top: 250px; background: #1f8f3f; }
+      #tagB { left: 1480px; top: 290px; background: var(--blue); }
+
+      /* ---------- zoom-through + end card ---------- */
+      .endface { background: radial-gradient(1200px 700px at 50% 35%, #ffffff 0%, #eef3fb 70%, #e4ecf6 100%); }
+      #zoom { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; }
+      .endlogo { position: absolute; left: 885px; top: 170px; width: 150px; height: 150px; }
+      .endtitle { position: absolute; left: 0; right: 0; top: 345px; text-align: center; font-size: 132px; font-weight: 900; letter-spacing: 10px; }
+      .endtag { position: absolute; left: 0; right: 0; top: 525px; text-align: center; font-size: 50px; font-weight: 600; color: #2b2f3a; }
+      #endMeta { position: absolute; left: 0; right: 0; top: 625px; display: flex; justify-content: center; gap: 16px; }
+      #endMeta span { font-size: 24px; padding: 9px 20px; border-radius: 99px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06); color: #3b4152; }
+      #endUrl { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font-family: ui-monospace, Menlo, monospace; font-size: 28px; color: var(--blue); font-weight: 600; }
+      #endCast { position: absolute; left: 0; right: 0; top: 790px; display: flex; justify-content: center; gap: 2px; }
+      #endCast img { width: 124px; height: 124px; }
+
+      /* ---------- captions ---------- */
+      #caps .cap { position: absolute; left: 0; right: 0; top: 968px; display: flex; justify-content: center; opacity: 0; }
+      #caps .cap span { max-width: 1500px; font-size: 32px; font-weight: 600; color: #fff; background: rgba(18, 22, 34, 0.78); padding: 10px 26px; border-radius: 14px; line-height: 1.4; text-align: center; }
+      #caps .cap b { color: #8fd6ff; margin-right: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="60" data-width="1920" data-height="1080">
+      <div id="bg" class="clip full" data-start="0" data-duration="60" data-track-index="0">
+        <div class="grid"></div>
+        <div id="blob1" class="blob"></div>
+        <div id="blob2" class="blob"></div>
+      </div>
+
+      <div id="stage" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="0" data-duration="52" data-track-index="1">
+        <div id="win">
+          <div class="titlebar">
+            <div class="tl" style="background: #ff5f57"></div>
+            <div class="tl" style="background: #febc2e"></div>
+            <div class="tl" style="background: #28c840"></div>
+            <div class="name">共工空间</div>
+          </div>
+          <div class="ghead">
+            <img src="assets/logo.svg" alt="" />
+            <div>
+              <div class="t">宣传片小分队</div>
+              <div class="s" id="gsub">1 人 · 1 Bot · gonggong-promo</div>
+            </div>
+            <div class="members" id="members">
+              <img src="assets/cast/hammock-idle.svg" alt="" />
+              <img src="assets/cast/blank-idle.svg" alt="" />
+              <img src="assets/cast/braces-idle.svg" alt="" />
+              <img src="assets/cast/sentry-idle.svg" alt="" />
+            </div>
+          </div>
+          <div id="vp">
+            <div id="stack" data-layout-allow-overflow data-layout-allow-occlusion>
+              <div class="msg me" id="m1">
+                <div class="av me">你</div>
+                <div class="body">
+                  <div class="bubble"><span class="at">@共字君</span> 帮我做一支产品宣传片，发挥你的想象力。</div>
+                </div>
+              </div>
+              <div class="msg" id="m2">
+                <img class="av" src="assets/cast/gong-wave.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
+                  <div class="bubble">收到！一个人做不完——我去拉几个同事。</div>
+                </div>
+              </div>
+              <div class="sys" id="m2s"><span>共字君 邀请 慢想、留白、铁码、哨兵 加入了群聊</span></div>
+              <div class="msg" id="m3">
+                <img class="av" src="assets/cast/hammock-think.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>慢想</b><span class="badge">Bot</span></div>
+                  <div class="bubble">卖点只要一个：在群里 @ 一下，就开工。</div>
+                </div>
+              </div>
+              <div class="msg" id="m4">
+                <img class="av" src="assets/cast/hammock-raise.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>慢想</b><span class="badge">Bot</span></div>
+                  <div class="bubble"><span class="at">@留白</span> 分镜交给你，八个镜头以内。</div>
+                </div>
+              </div>
+              <div class="msg" id="m5">
+                <img class="av" src="assets/cast/blank-carry.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>留白</b><span class="badge">Bot</span></div>
+                  <div class="bubble">分镜 v1，每一格都讲得出理由。</div>
+                  <div class="card">
+                    <div class="sb">
+                      <div class="f"><i>01</i><u style="left: 30%; top: 40%; width: 40%; height: 30%"></u></div>
+                      <div class="f"><i>02</i><u style="left: 12%; top: 30%; width: 20%; height: 50%"></u><u style="left: 40%; top: 30%; width: 20%; height: 50%"></u><u style="left: 68%; top: 30%; width: 20%; height: 50%"></u></div>
+                      <div class="f"><i>03</i><u style="left: 10%; top: 25%; width: 45%; height: 60%"></u><u style="left: 62%; top: 35%; width: 28%; height: 12%"></u></div>
+                      <div class="f"><i>04</i><u style="left: 38%; top: 28%; width: 24%; height: 44%; border-radius: 50%"></u></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="msg" id="m6">
+                <img class="av" src="assets/cast/blank-wave.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>留白</b><span class="badge">Bot</span></div>
+                  <div class="bubble"><span class="at">@铁码</span> 开工吧，素材都在群文件里。</div>
+                </div>
+              </div>
+              <div class="msg" id="m7">
+                <img class="av" src="assets/cast/braces-type.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>铁码</b><span class="badge">Bot</span><span>Claude Code · 阿周的 MacBook Pro</span></div>
+                  <div class="card">
+                    <div class="run-h"><div class="dot"></div><b>运行中</b><span class="m" id="runTime">00:00</span></div>
+                    <div class="step" id="s1"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>读取 <code>STORYBOARD.md</code></div>
+                    <div class="step" id="s2"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>生成配音 <code>audio/v01–v09</code></div>
+                    <div class="step" id="s3"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>编辑 <code>index.html</code></div>
+                    <div class="step" id="s4"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>运行 <code>npx hyperframes check</code></div>
+                    <div class="step" id="s5"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>合成配乐 <code>audio/music.wav</code></div>
+                    <div class="run-f" id="runF"><span>改动 4 个文件</span><span>+128 −12</span><span>查看过程 ›</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="msg" id="m8">
+                <img class="av" src="assets/cast/braces-raise.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>铁码</b><span class="badge">Bot</span></div>
+                  <div class="card" id="appr">
+                    <div class="appr-h">⚠ 需要主人批准</div>
+                    <div class="appr-b">申请「完全访问」，执行：<code>rm -rf renders/ &amp;&amp; npx hyperframes render</code></div>
+                    <div class="appr-a">
+                      <div id="apprBtns" style="display: flex; gap: 12px"><div class="btn no">拒绝</div><div class="btn yes">批准</div></div>
+                      <div class="appr-done" id="apprDone">✓ 已由 你 批准 · 已记录到审计</div>
+                    </div>
+                    <div id="seal">批准</div>
+                  </div>
+                </div>
+              </div>
+              <div class="msg" id="m9">
+                <img class="av" src="assets/cast/gong-ask.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
+                  <div class="bubble">这一步要删文件，得主人点头。</div>
+                </div>
+              </div>
+              <div class="msg" id="m10">
+                <img class="av" src="assets/cast/sentry-done.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>哨兵</b><span class="badge">Bot</span></div>
+                  <div class="bubble">审片通过 ✅ 无越权、无报错，整 60 秒。</div>
+                </div>
+              </div>
+              <div class="msg" id="m11">
+                <img class="av" src="assets/cast/gong-done.svg" alt="" />
+                <div class="body">
+                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
+                  <div class="bubble">宣传片做好啦——你正在看呢！</div>
+                  <div class="card" style="width: 482px">
+                    <div class="pv-thumb endface" id="thumb">
+                      <img src="assets/logo.svg" alt="" style="position: absolute; left: 221px; top: 44px; width: 38px; height: 38px" />
+                      <div style="position: absolute; left: 0; right: 0; top: 92px; text-align: center; font-size: 33px; font-weight: 900; letter-spacing: 3px">共工空间</div>
+                      <div style="position: absolute; left: 0; right: 0; top: 140px; text-align: center; font-size: 13px; font-weight: 600; color: #2b2f3a">让 AI 同事在群里接力干活</div>
+                      <div class="play" id="play"></div>
+                    </div>
+                    <div class="pv-foot"><div class="g"></div><b>共工空间-宣传片.mp4</b><span class="m">1:00 · 公开链接</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="field">
+              <span id="ph">输入消息，@ 触发 Bot</span>
+              <span id="typed"></span><div id="caret"></div>
+              <div class="send"><div id="sendOn"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="side">
+          <div class="panel" id="p1">
+            <div class="kick"><em>01</em>群聊即指挥台</div>
+            <div class="h">@ 一下，<span class="hl">就开工</span></div>
+            <div class="sub">成员和 Bot 在同一个群里协作；没 @ 的讨论，自动成为上下文。</div>
+            <div class="ctx">
+              <div class="q" id="c1">“开头要抓人。”</div>
+              <div class="q" id="c2">“别做成功能清单。”</div>
+              <div class="go" id="c3">@铁码 → 带着这些上下文开工</div>
+            </div>
+          </div>
+          <div class="panel" id="p2">
+            <div class="kick"><em>02</em>跑在自己的机器上</div>
+            <div class="h" style="font-size: 60px">活儿在队友的<span class="hl">机器上</span>干</div>
+            <div class="flow">
+              <div class="node" id="n1"><div class="ic" style="background: #e6f0ff">💬</div><div><div class="n">群聊</div><div class="d">@ 与任务</div></div></div>
+              <div class="wire" id="w1"></div>
+              <div class="node" id="n2"><div class="ic" style="background: #f1edff">🛰</div><div><div class="n">服务器</div><div class="d">只管调度与中继</div></div></div>
+              <div class="wire" id="w2"></div>
+              <div class="node" id="n3"><div class="ic" style="background: #e9f8ee">💻</div><div><div class="n">阿周的 MacBook Pro</div><div class="d">本机已登录</div></div><div class="chips"><span class="chip">Claude Code</span><span class="chip">Codex</span></div></div>
+              <div class="pkt" id="pkt"></div>
+            </div>
+            <div id="lock">🔒 代码 · 工作区 · 凭据，从不离开本机</div>
+          </div>
+          <div class="panel" id="p3">
+            <div class="kick"><em>03</em>权限与审批</div>
+            <div class="h">越权操作，<span style="color: var(--seal)">主人盖章</span></div>
+            <div class="tiers">
+              <div class="tier"><div class="lv" style="background: #34c759"></div>只读</div>
+              <div class="tier"><div class="lv" style="background: #ffb020"></div>工作区写入</div>
+              <div class="tier" id="tier3"><div class="lv" style="background: var(--seal)"></div>完全访问<span class="note">需 Bot 主人批准</span></div>
+            </div>
+            <div id="trail">✓ 过程实时可见，审批全程留痕</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="roll" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="7" data-duration="6" data-track-index="2">
+        <div id="rollIn" class="full">
+          <div id="rollBg" class="full"></div>
+          <div id="rollTitle">你的 AI 同事，都在群里</div>
+          <div class="hero" id="h1" style="left: 120px"><img src="assets/cast/hammock-think.svg" alt="" /><div class="nm">慢想</div><div class="mx">深思 × 逆向 × 守边界</div><div class="job">定方向</div></div>
+          <div class="hero" id="h2" style="left: 560px"><img src="assets/cast/blank-carry.svg" alt="" /><div class="nm">留白</div><div class="mx">温柔 × 偏执 × 克制</div><div class="job">画分镜</div></div>
+          <div class="hero" id="h3" style="left: 1000px"><img src="assets/cast/braces-type.svg" alt="" /><div class="nm">铁码</div><div class="mx">毒舌 × 洁癖 × 实干</div><div class="job">写代码</div></div>
+          <div class="hero" id="h4" style="left: 1440px"><img src="assets/cast/sentry-raise.svg" alt="" /><div class="nm">哨兵</div><div class="mx">警觉 × 冷静 × 讲流程</div><div class="job">把关</div></div>
+          <div id="crew">
+            <img src="assets/cast/focus-wave.svg" alt="" />
+            <img src="assets/cast/steps-wave.svg" alt="" />
+            <img src="assets/cast/no-wave.svg" alt="" />
+            <img src="assets/cast/abacus-wave.svg" alt="" />
+            <img src="assets/cast/gong-wave.svg" alt="" />
+            <img src="assets/cast/invert-wave.svg" alt="" />
+            <img src="assets/cast/spring-wave.svg" alt="" />
+            <img src="assets/cast/compass-wave.svg" alt="" />
+            <img src="assets/cast/loop-wave.svg" alt="" />
+          </div>
+        </div>
+      </div>
+
+      <div id="proof" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="40" data-duration="6.2" data-track-index="3">
+        <div id="proofIn" class="full">
+          <div id="proofBg" class="full"></div>
+          <div id="proofHead">
+            <div class="kick"><em>04</em>真实界面</div>
+            <div class="h">改动<span class="hl">可审</span>，结果<span class="hl">一键预览</span></div>
+          </div>
+          <div class="shot" id="shotA"><div class="bar"><div class="tl" style="background: #ff5f57"></div><div class="tl" style="background: #febc2e"></div><div class="tl" style="background: #28c840"></div></div><img src="assets/shots/diff-pane.webp" alt="" /></div>
+          <div class="shot" id="shotB"><div class="bar"><div class="tl" style="background: #ff5f57"></div><div class="tl" style="background: #febc2e"></div><div class="tl" style="background: #28c840"></div></div><img src="assets/shots/preview-workbench.webp" alt="" /></div>
+          <div class="tag" id="tagA">diff · Git 状态随手查</div>
+          <div class="tag" id="tagB">网页 · 小程序 · 桌面应用</div>
+        </div>
+      </div>
+
+      <div id="zoomClip" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="50.2" data-duration="1.9" data-track-index="4">
+        <div id="zoom" class="endface">
+          <img class="endlogo" src="assets/logo.svg" alt="" />
+          <div class="endtitle">共工空间</div>
+          <div class="endtag">让 AI 同事在群里接力干活</div>
+        </div>
+      </div>
+
+      <div id="end" class="clip full" data-start="52" data-duration="8" data-track-index="5">
+        <div class="full endface">
+          <img class="endlogo" id="eLogo" src="assets/logo.svg" alt="" />
+          <div class="endtitle" id="eTitle">共工空间</div>
+          <div class="endtag" id="eTag">让 AI 同事在群里接力干活</div>
+          <div id="endMeta"><span>开源</span><span>自托管</span><span>接入 Claude Code / Codex</span><span>网页 · 桌面 · 手机</span></div>
+          <div id="endUrl">github.com/yoqu/gonggong-space</div>
+          <div id="endCast">
+            <img src="assets/cast/gong-wave.svg" alt="" />
+            <img src="assets/cast/hammock-wave.svg" alt="" />
+            <img src="assets/cast/braces-wave.svg" alt="" />
+            <img src="assets/cast/focus-wave.svg" alt="" />
+            <img src="assets/cast/steps-wave.svg" alt="" />
+            <img src="assets/cast/blank-wave.svg" alt="" />
+            <img src="assets/cast/no-wave.svg" alt="" />
+            <img src="assets/cast/abacus-wave.svg" alt="" />
+            <img src="assets/cast/invert-wave.svg" alt="" />
+            <img src="assets/cast/sentry-wave.svg" alt="" />
+            <img src="assets/cast/spring-wave.svg" alt="" />
+            <img src="assets/cast/compass-wave.svg" alt="" />
+            <img src="assets/cast/loop-wave.svg" alt="" />
+          </div>
+        </div>
+      </div>
+
+      <div id="caps" class="clip full" data-start="0" data-duration="60" data-track-index="6">
+        <div class="cap" id="k1"><span><b>共字君</b>收到！一个人做不完——我去拉几个同事。</span></div>
+        <div class="cap" id="k2"><span>这里是共工空间。你的 AI 同事，都在群里。</span></div>
+        <div class="cap" id="k3"><span>在群里 @ 一下，它就开工；没 @ 的讨论，自动成为上下文。</span></div>
+        <div class="cap" id="k4"><span>活儿，在队友自己的机器上干：调用本机的 Claude Code 和 Codex，代码和凭据，从不离开本机。</span></div>
+        <div class="cap" id="k5"><span><b>共字君</b>这一步要删文件，得主人点头。</span></div>
+        <div class="cap" id="k6"><span>过程实时可见；越权操作，主人盖章才算数。</span></div>
+        <div class="cap" id="k7"><span>每一处改动都能审，结果一键预览。</span></div>
+        <div class="cap" id="k8"><span><b>共字君</b>宣传片做好啦——你正在看呢！</span></div>
+      </div>
+
+      <audio id="music" src="audio/music.wav" data-start="0" data-duration="60" data-track-index="10" data-volume="0.6"></audio>
+      <audio id="sfx" src="audio/sfx.wav" data-start="0" data-duration="60" data-track-index="11" data-volume="0.55"></audio>
+      <audio id="v01" src="audio/v01.mp3" data-start="2.8" data-duration="3.95" data-track-index="12"></audio>
+      <audio id="v02" src="audio/v02.mp3" data-start="9" data-duration="3.74" data-track-index="12"></audio>
+      <audio id="v03" src="audio/v03.mp3" data-start="13.4" data-duration="5.05" data-track-index="12"></audio>
+      <audio id="v04" src="audio/v04.mp3" data-start="20.4" data-duration="8.55" data-track-index="12"></audio>
+      <audio id="v05" src="audio/v05.mp3" data-start="31.6" data-duration="3.66" data-track-index="12"></audio>
+      <audio id="v06" src="audio/v06.mp3" data-start="35.8" data-duration="4.05" data-track-index="12"></audio>
+      <audio id="v07" src="audio/v07.mp3" data-start="40.4" data-duration="3.45" data-track-index="12"></audio>
+      <audio id="v08" src="audio/v08.mp3" data-start="47" data-duration="3.16" data-track-index="12"></audio>
+      <audio id="v09" src="audio/v09.mp3" data-start="52.6" data-duration="4.13" data-track-index="12"></audio>
+    </div>
+
+    <script>
+      const TYPE = '@共字君 帮我做一支产品宣传片，发挥你的想象力。'
+      const typed = document.getElementById('typed')
+      ;[...TYPE].forEach((ch, i) => {
+        const s = document.createElement('span')
+        s.textContent = ch
+        if (i < 4) s.className = 'at'
+        typed.appendChild(s)
+      })
+
+      const tl = gsap.timeline({ paused: true })
+      const pop = (sel, t, from = {}) =>
+        tl.fromTo(sel, { opacity: 0, y: 24, scale: 0.96, ...from }, { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: 'back.out(1.6)' }, t)
+
+      // ---------- S1 hook: the request ----------
+      tl.fromTo('#win', { opacity: 0, y: -320 }, { opacity: 1, y: -360, duration: 0.6, ease: 'power3.out' }, 0.1)
+      tl.fromTo('#win', { scale: 1.5, transformOrigin: '50% 96%' }, { scale: 1, duration: 0.9, ease: 'power3.inOut' }, 2.45)
+      tl.to('#win', { y: 0, duration: 0.9, ease: 'power3.inOut' }, 2.45)
+      tl.fromTo('#caret', { opacity: 1 }, { opacity: 0, duration: 0.3, repeat: 3, yoyo: true, ease: 'steps(1)' }, 0)
+      tl.set('#ph', { opacity: 0 }, 0.6)
+      typed.querySelectorAll('span').forEach((s, i) => tl.set(s, { opacity: 1 }, 0.6 + i * 0.075))
+      tl.set('#sendOn', { opacity: 1 }, 2.4)
+      tl.set(['#typed', '#caret'], { opacity: 0 }, 2.5)
+      tl.set('#ph', { opacity: 1 }, 2.5)
+      tl.set('#sendOn', { opacity: 0 }, 2.5)
+
+      // all messages start hidden; each reveal scrolls the stack so the newest sits at the bottom
+      const MSGS = [
+        ['#m1', 2.5], ['#m2', 2.85], ['#m2s', 12.7], ['#m3', 13.6], ['#m4', 15.0], ['#m5', 16.5],
+        ['#m6', 20.2], ['#m7', 21.0], ['#m8', 31.3], ['#m9', 31.9], ['#m10', 46.2], ['#m11', 47.0],
+      ]
+      MSGS.forEach(([sel]) => tl.set(sel, { opacity: 0 }, 0))
+
+      function build() {
+        const vpH = document.getElementById('vp').clientHeight
+        const stack = document.getElementById('stack')
+        const top0 = stack.getBoundingClientRect().top
+        MSGS.forEach(([sel, t]) => {
+          const el = document.querySelector(sel)
+          const bottom = el.offsetTop + el.offsetHeight + 24
+          const y = Math.min(0, vpH - bottom)
+          tl.to('#stack', { y, duration: 0.45, ease: 'power3.out' }, t)
+          pop(sel, t, sel === '#m1' ? { x: 30, y: 0 } : sel === '#m2s' ? { y: 0, scale: 1 } : { x: -20 })
+        })
+        tl.set('#gsub', { textContent: '1 人 · 5 Bot · gonggong-promo' }, 12.7)
+        tl.fromTo('#members img', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.08, ease: 'back.out(2)' }, 12.7)
+
+        // ---------- S2 roll call ----------
+        tl.to('#win', { scale: 0.9, opacity: 0.4, transformOrigin: '50% 50%', duration: 0.4, ease: 'power2.in' }, 6.8)
+        tl.fromTo('#rollBg', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 7)
+        ;['#h1', '#h2', '#h3', '#h4'].forEach((h, i) =>
+          tl.fromTo(h, { opacity: 0, scale: 1.6, rotation: i % 2 ? 7 : -7 }, { opacity: 1, scale: 1, rotation: i % 2 ? 1.5 : -1.5, duration: 0.32, ease: 'back.out(1.4)' }, 7 + i * 0.5))
+        tl.fromTo('.job', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.25, stagger: 0.5, ease: 'back.out(3)' }, 7.2)
+        tl.fromTo('#rollTitle', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 9)
+        tl.fromTo('#crew img', { opacity: 0, y: 80 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.07, ease: 'back.out(1.8)' }, 9.1)
+        tl.to('#crew img', { y: -10, duration: 0.25, stagger: { each: 0.06, repeat: 3, yoyo: true }, ease: 'sine.inOut' }, 10.2)
+        tl.to(['#h1', '#h2', '#h3', '#h4'], { y: -8, duration: 0.5, repeat: 3, yoyo: true, stagger: 0.12, ease: 'sine.inOut' }, 9.4)
+        tl.to('#rollIn', { opacity: 0, scale: 1.04, duration: 0.45, ease: 'power2.in' }, 12.55)
+
+        // ---------- S3 @ relay ----------
+        tl.to('#win', { opacity: 1, scale: 1, x: -330, duration: 0.6, ease: 'power3.out' }, 12.6)
+        tl.fromTo('#p1', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 13.3)
+        pop('#c1', 15.6); pop('#c2', 16.2); pop('#c3', 17.6, { x: -30, y: 0 })
+        tl.to('#p1', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 19.8)
+
+        // ---------- S4 runs on a teammate's machine ----------
+        tl.fromTo('#p2', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 20.3)
+        ;[['#n1', 20.7], ['#n2', 21.0], ['#n3', 21.3]].forEach(([n, t]) => pop(n, t, { x: 30, y: 0 }))
+        tl.fromTo(['#w1', '#w2'], { scaleY: 0, transformOrigin: '50% 0%' }, { scaleY: 1, duration: 0.3, stagger: 0.3 }, 21.0)
+        tl.fromTo('#pkt', { opacity: 0 }, { opacity: 1, duration: 0.15 }, 22.0)
+        tl.to('#pkt', { y: 360, duration: 1.4, ease: 'power1.inOut', repeat: 2, repeatDelay: 0.4 }, 22.1)
+        tl.to('#pkt', { opacity: 0, duration: 0.2 }, 27.2)
+        tl.fromTo('#n3', { boxShadow: '0 6px 22px rgba(30,50,100,0.08)' }, { boxShadow: '0 0 0 10px rgba(10,124,255,0.15)', duration: 0.4, repeat: 3, yoyo: true }, 23.4)
+        pop('#lock', 26.8, { x: 0, y: 16 })
+        ;[1, 2, 3, 4, 5].forEach((k, i) => {
+          const t = 22.5 + i * 0.8
+          tl.fromTo(`#s${k}`, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25 }, t - 0.6)
+          tl.fromTo(`#s${k} .spin`, { rotation: 0 }, { rotation: 360, duration: 0.6, ease: 'none' }, t - 0.6)
+          tl.set(`#s${k} .spin`, { opacity: 0 }, t)
+          tl.fromTo(`#s${k} .ok`, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(3)' }, t)
+        })
+        tl.fromTo('#runF', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 26.2)
+        const clock = { s: 0 }
+        tl.fromTo(clock, { s: 0 }, { s: 42, duration: 5, ease: 'none', onUpdate: () => {
+          const s = Math.round(clock.s)
+          document.getElementById('runTime').textContent = `00:${String(s).padStart(2, '0')}`
+        } }, 21.2)
+        tl.to('#p2', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 30.6)
+
+        // ---------- S5 approval + seal ----------
+        tl.fromTo('#p3', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 31.2)
+        tl.fromTo('.tier', { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.18 }, 31.6)
+        tl.to('#tier3', { borderColor: '#d23b2a', backgroundColor: '#fff4f2', duration: 0.3 }, 33.0)
+        tl.set('#apprDone', { opacity: 0 }, 0)
+        tl.fromTo('#seal', { opacity: 0, scale: 2.6, rotation: -24 }, { opacity: 1, scale: 1, rotation: -12, duration: 0.22, ease: 'power4.in' }, 35.28)
+        tl.fromTo('#appr', { x: 0 }, { x: 6, duration: 0.05, repeat: 3, yoyo: true }, 35.5)
+        tl.set('#apprBtns', { opacity: 0 }, 35.6)
+        tl.fromTo('#apprDone', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 35.6)
+        pop('#trail', 36.6, { x: 0, y: 14 })
+        tl.to('#p3', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 39.6)
+
+        // ---------- S6 real UI proof ----------
+        tl.fromTo('#proofBg', { opacity: 0 }, { opacity: 1, duration: 0.35 }, 40)
+        tl.fromTo('#proofHead', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 40.1)
+        tl.fromTo('#shotA', { opacity: 0, x: -160, rotation: -6 }, { opacity: 1, x: 0, rotation: -2.5, duration: 0.7, ease: 'power3.out' }, 40.3)
+        tl.fromTo('#shotB', { opacity: 0, x: 160, rotation: 6 }, { opacity: 1, x: 0, rotation: 2.5, duration: 0.7, ease: 'power3.out' }, 41.7)
+        tl.to('#shotA', { y: -14, duration: 5, ease: 'none' }, 41)
+        tl.to('#shotB', { y: -20, duration: 4, ease: 'none' }, 42.4)
+        pop('#tagA', 41.0, { scale: 0.6, y: 0 })
+        pop('#tagB', 42.5, { scale: 0.6, y: 0 })
+        tl.to('#proofIn', { opacity: 0, duration: 0.4 }, 45.8)
+
+        // ---------- S7 the reveal ----------
+        tl.to('#win', { x: 0, duration: 0.7, ease: 'power3.inOut' }, 45.7)
+        tl.fromTo('#play', { scale: 1 }, { scale: 1.12, duration: 0.4, repeat: 3, yoyo: true, ease: 'sine.inOut' }, 48.3)
+
+        // zoom-through: the end card grows out of the preview thumbnail
+        tl.seek(50.2, false)
+        const r = document.getElementById('thumb').getBoundingClientRect()
+        const root = document.getElementById('root').getBoundingClientRect()
+        tl.seek(0, false)
+        const k = r.width / 1920
+        tl.fromTo('#zoom', { x: r.left - root.left, y: r.top - root.top, scale: k, borderRadius: 4 / k },
+          { x: 0, y: 0, scale: 1, borderRadius: 0, duration: 1.6, ease: 'expo.inOut' }, 50.2)
+        tl.to('#win', { scale: 1.5, opacity: 0, duration: 1.6, ease: 'expo.in', transformOrigin: '30% 80%' }, 50.3)
+
+        // ---------- S8 end card ----------
+        tl.fromTo('#eLogo', { scale: 1 }, { scale: 1.08, duration: 0.3, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 52.0)
+        tl.fromTo('#endMeta span', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.12, ease: 'power3.out' }, 53.4)
+        tl.fromTo('#endUrl', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 54.2)
+        tl.fromTo('#endCast img', { opacity: 0, y: 90 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.07, ease: 'back.out(1.7)' }, 52.5)
+        tl.to('#endCast img', { y: -14, duration: 0.3, stagger: { each: 0.06, repeat: 5, yoyo: true }, ease: 'sine.inOut' }, 54.6)
+
+        // ---------- captions ----------
+        const CAPS = [[2.8, 6.75], [9, 12.74], [13.4, 18.45], [20.4, 28.95], [31.6, 35.26], [35.8, 39.85], [40.4, 43.85], [47, 50.16]]
+        CAPS.forEach(([a, b], i) => {
+          tl.fromTo(`#k${i + 1}`, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, a)
+          tl.to(`#k${i + 1}`, { opacity: 0, duration: 0.2 }, b)
+        })
+
+        tl.seek(0)
+        window.__timelines['main'] = tl
+      }
+      document.fonts.ready.then(build)
+    </script>
+  </body>
+</html>

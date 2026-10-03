@@ -13,11 +13,11 @@ async function say(page: Page, text: string) {
 }
 
 /** Sends a message that triggers one run and waits for that run's card to finish. */
-async function runTo(page: Page, text: string, status = '已完成') {
+async function runTo(page: Page, text: string) {
   const before = await say(page, text)
   await expect(page.getByTestId('run-card')).toHaveCount(before + 1)
   const card = page.getByTestId('run-card').nth(before)
-  await expect(card).toContainText(status, { timeout: 5 * 60_000 })
+  await expect(card).toHaveAttribute('data-status', 'completed', { timeout: 5 * 60_000 })
   return card
 }
 
@@ -55,9 +55,8 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
       repo: { url: repo.url, branch: 'main' },
     })
     await page.goto(`/g/${group.id}`)
-    await expect(page.getByTestId(`ws-banner-${claude.id}`)).toBeVisible()
 
-    // The owner picks managed clones for both bots; the status bar shows them on main.
+    // Repo groups start on managed clones for both bots; the status bar shows them on main.
     await bindManaged(page.request, group.id, [claude.id, codex.id])
     const bar = page.getByTestId('git-bar')
     await expect(bar).toContainText('仓库 Claude')
@@ -76,11 +75,9 @@ test('partition mode: managed clones, git default actions, status bar, /cd and /
       repo.git(repo.root, '--git-dir', `${repo.root}/remote.git`, 'branch', '--list', 'feat/hello'),
     ).toContain('feat/hello')
 
-    // Someone pushes to main; Codex's clean main fast-forwards before its turn.
-    repo.commit('from-main.txt', 'x\n')
+    // Codex works in its own clone (the daemon no longer fetches / fast-forwards before each turn).
     await runTo(page, '@仓库 Codex 列出当前目录下的文件名（不含隐藏文件），每行一个，不要做其他事。')
-    await expect(page.getByTestId('bot-reply').last()).toContainText('from-main.txt')
-    await expect(bar.getByTestId(`git-${codex.id}`)).not.toContainText('↓')
+    await expect(page.getByTestId('bot-reply').last()).toContainText('README.md')
 
     // /cd to a matching local clone → status shows 本机目录; a clone of another repo is refused.
     const local = repo.cloneTo('local-clone')
