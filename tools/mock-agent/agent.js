@@ -5,7 +5,8 @@
 //   "mock:slow"  stream text until cancelled
 //   "mock:crash" stream one chunk, then exit with code 3
 //   "mock:commands" report available commands (compact, new), then reply "ok"
-//   "mock:sh <command>" run the rest of the prompt with sh in the session cwd (like Codex editing via shell)
+//   "mock:sh <command>" run the rest of the prompt (from its last "mock:sh") with sh in the session cwd (like Codex
+//                editing via shell)
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
 //   "mock:ask <json>" call the injected gonggong MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
@@ -127,7 +128,8 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await say('ok')
     return { stopReason: 'end_turn' }
   }
-  const sh = text.indexOf('mock:sh ')
+  // The trigger comes last: earlier group messages in the context may hold other bots' commands.
+  const sh = text.lastIndexOf('mock:sh ')
   if (sh >= 0) {
     await say(execSync(text.slice(sh + 8), { cwd: s.cwd, encoding: 'utf8' }))
     return { stopReason: 'end_turn' }

@@ -49,7 +49,6 @@ export const protocolEn = {
   没有运行中的轮次: 'No turns are running',
   '/new 需要同时 @ 一个 Bot，如 /new @{bot}': '/new needs a Bot mention, e.g. /new @{bot}',
   '{bot} 下一轮将开新会话': '{bot} will start a new session next turn',
-  '/{command} 仅在强制同步群可用': '/{command} is only available in force-sync groups',
   '/cd 仅分区模式可用；强制同步群里非托管工作区的 Bot 为「不参与」':
     '/cd is only available in partition mode; in force-sync groups, Bots without a managed workspace sit out',
   '/cd 需要 @ 一个 Bot，如 /cd @{bot} /本机/绝对路径，或 /cd @{bot} --reset 回到托管':

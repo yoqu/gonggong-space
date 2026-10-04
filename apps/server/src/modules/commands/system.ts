@@ -36,7 +36,3 @@ export const newSession: CommandHandler = async (ctx, input) => {
     await postEvent(ctx, group.id, '{bot} 下一轮将开新会话', { bot: bot.name })
   }
 }
-
-/** /hold, /release: the group lock only exists in force-sync groups (P2). */
-export const forceSyncOnly: CommandHandler = (ctx, { group, command }) =>
-  postEvent(ctx, group.id, '/{command} 仅在强制同步群可用', { command: command.name }).then(() => undefined)

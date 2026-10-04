@@ -657,16 +657,32 @@ impl Replicas {
         Ok(RunSyncDone::Error { reason: t!("本轮异常结束，改动未提交，待 Bot 主人处理").into() })
     }
 
-    /// Puts each conflicting file back to the replica's side of the held change, so no conflict markers stay behind.
+    /// Puts the tree back to the replica's side of the held change (the base plus its changes), so no conflict
+    /// markers stay behind and nothing else the turn touched goes in with the resolution later; those other edits are
+    /// backed up first.
     async fn restore(&self, r: &Replica, mut held: Held) -> Result<(), String> {
         let client = self.client()?;
-        for c in &held.conflicts {
-            let Some(mine) = held.changes.iter().find(|m| m.path == c.path) else { continue };
-            let bytes = match &mine.hash {
+        let side: Vec<SyncEntry> = held
+            .changes
+            .iter()
+            .map(|c| SyncEntry { path: c.path.clone(), hash: c.hash.clone(), exec: c.exec })
+            .collect();
+        let side = sync::advance(&r.base()?.files, &side);
+        let strays = sync::diff(&side, &r.tree().await?.manifest());
+        let conflicted: HashSet<&str> = held.conflicts.iter().map(|c| c.path.as_str()).collect();
+        r.backup(
+            &strays
+                .iter()
+                .filter(|c| !conflicted.contains(c.path.as_str()))
+                .map(|c| c.path.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        for c in strays {
+            let bytes = match &c.base_hash {
                 Some(h) => Some(download(client, r, h).await?),
                 None => None,
             };
-            r.put(&c.path, bytes.as_deref(), mine.exec)?;
+            r.put(&c.path, bytes.as_deref(), side.get(&c.path).is_some_and(|f| f.exec))?;
         }
         held.merging = false;
         r.set_held(Some(&held))

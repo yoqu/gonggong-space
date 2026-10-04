@@ -241,8 +241,6 @@ describe('command candidates', () => {
     const res = (await w.asAlice.get<CommandCandidatesDto>(`${url}?botId=${w.bot.id}`)).body
     expect(res.system).toEqual([
       { name: 'stop', hint: '停止运行（未 @ Bot 时停止本群全部）' },
-      { name: 'hold', hint: '连续占用群锁' },
-      { name: 'release', hint: '释放群锁' },
       { name: 'new', hint: '开新会话' },
       { name: 'cd', hint: '绑定本机目录（仅分区）' },
     ])

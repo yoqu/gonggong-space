@@ -264,6 +264,31 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
   if (updated) await publishRun(ctx, updated)
 }
 
+/**
+ * The replica's local edits were settled from the sync panel (F12): a /stop'ped run whose changes they are gets its
+ * choice closed the same way, so the next turn does not settle it as kept.
+ */
+export async function closeStoppedChoice(
+  ctx: Ctx,
+  groupId: string,
+  botId: string,
+  choice: 'submit' | 'discard',
+) {
+  const closed = await ctx.db
+    .update(runs)
+    .set({ interrupt: choice === 'submit' ? 'kept' : 'discarded' })
+    .where(
+      and(
+        eq(runs.groupId, groupId),
+        eq(runs.botId, botId),
+        eq(runs.interrupt, 'pending'),
+        sql`${runs.sync}->>'outcome' = 'stopped'`,
+      ),
+    )
+    .returning()
+  for (const run of closed) await publishRun(ctx, run)
+}
+
 /** Sends run.discard and waits for the daemon's answer; null when the machine is offline or silent. */
 function discard(ctx: Ctx, machineId: string, runId: string) {
   return new Promise<RunDiscarded | null>((resolve) => {

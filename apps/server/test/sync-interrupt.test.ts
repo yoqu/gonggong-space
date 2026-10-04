@@ -167,6 +167,37 @@ describe('/stop in a force group (F21)', () => {
     expect((await runRow(again)).interrupt).toBe('discarded')
   })
 
+  it('settling the paused replica from the sync panel closes the choice the same way', async () => {
+    const api = client(t, await t.seed.cookie(w.wang.id))
+    const url = `/api/groups/${w.g.id}/sync/replicas/${w.a.id}/drift`
+    const id = await stopped()
+    expect((await api.post(url, { choice: 'discard' })).status).toBe(200)
+    expect((await runRow(id)).interrupt).toBe('discarded')
+    expect((await api.post(`/api/runs/${id}/interrupt`, { choice: 'keep' })).status).toBe(409)
+    from('A', {
+      t: 'sync.applied',
+      groupId: w.g.id,
+      botId: w.a.id,
+      version: 1,
+      rootHash: root({ 'a.txt': 'x' }),
+    })
+    await vi.waitFor(async () => expect((await replica(w.a.id)).issue).toBeNull())
+    // The next turn tells the agent the changes were discarded, not kept.
+    const next = await queue(w.a.id)
+    await vi.waitFor(() =>
+      expect(starts('A', next)[0]?.prompt.context.map((m) => m.body)).toContain(
+        '上一轮被 /stop 中断；本轮改动已备份后丢弃，工作区已回到同步版本。',
+      ),
+    )
+    expect((await runRow(id)).interrupt).toBe('discarded')
+    done('A', next, { outcome: 'unchanged', version: 1 })
+    await vi.waitFor(async () => expect((await runRow(next)).status).toBe('completed'))
+
+    const again = await stopped(false)
+    expect((await api.post(url, { choice: 'submit' })).status).toBe(200)
+    expect((await runRow(again)).interrupt).toBe('kept')
+  })
+
   it('is refused while the machine is offline, leaving the choice open', async () => {
     const id = await stopped()
     t.ctx.hub.unregister(w.A.machine.id, conns.A)

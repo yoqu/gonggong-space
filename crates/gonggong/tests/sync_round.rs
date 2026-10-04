@@ -818,6 +818,21 @@ async fn discarding_a_stopped_turn_backs_its_changes_up_and_rolls_back_to_the_he
 }
 
 #[tokio::test]
+async fn after_discarding_a_stopped_turn_the_next_turn_submits_only_its_own_changes() {
+    let mut r = rig().await;
+    r.stopped().await;
+    // From the run card or the sync panel alike: the same sync.action.
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Discard }));
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("other.txt", "o\n")])));
+    assert_eq!(r.replica().stopped().unwrap(), None);
+
+    r.run("r2", "mock:sh printf 'n\\n' > new.txt", at(2, Some(2)));
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.base_version, s.kind), (Some("r2"), 2, SyncSubmitKind::Run));
+    assert_eq!(s.changes, vec![change("new.txt", Some("n\n"), None)]);
+}
+
+#[tokio::test]
 async fn a_failed_turn_submits_nothing_and_reports_its_changes_as_local_edits() {
     let mut r = rig().await;
     r.join(&[("a.txt", "one\n")]);
@@ -881,6 +896,34 @@ async fn a_stopped_merge_turn_leaves_the_conflict_held_without_markers() {
     assert_eq!((r.read("a.txt").as_deref(), r.read("b.txt").as_deref()), (Some("mine\n2\n"), Some("b mine\n")));
     assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Held));
     assert!(!r.replica().held().unwrap().unwrap().merging);
+}
+
+#[tokio::test]
+async fn a_stopped_merge_turn_also_restores_the_files_it_changed_outside_the_conflict() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "1\n2\n"), ("c.txt", "c\n")]);
+    r.run("r1", "mock:sh printf 'mine\\n2\\n' > a.txt && printf 'c mine\\n' > c.txt", at(1, Some(1)));
+    let s = r.submit().await;
+    r.store.lock().unwrap().push(&[("a.txt", Some("theirs\n2\n"))]);
+    r.answer(&s, SyncSubmitResult::Conflict { head_version: 2, conflicts: vec![head("a.txt", Some("theirs\n2\n"))] });
+    assert_eq!(r.next().await, state(SyncReplicaIssue::Held, &["a.txt"]));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Held { files: 1 }));
+
+    let mut sync = at(2, Some(1));
+    sync.resolve = Some(vec![SyncDecision { path: "a.txt".into(), choice: SyncChoice::Bot }]);
+    r.run("r2", "mock:slow", sync);
+    r.streaming().await;
+    // Besides the markers, the agent edits a file of the held change and adds one.
+    r.write("c.txt", "agent\n");
+    r.write("stray.txt", "stray\n");
+    r.send(ServerToDaemon::RunCancel { run_id: "r2".into() });
+    let done = r.done().await;
+    assert_eq!((done.outcome, done.sync), (RunOutcome::Interrupted, Some(RunSyncDone::Held { files: 1 })));
+    assert_eq!(r.read("a.txt").as_deref(), Some("mine\n2\n"));
+    assert_eq!((r.read("c.txt").as_deref(), r.read("stray.txt")), (Some("c mine\n"), None));
+    let backups = r.backups();
+    assert_eq!(std::fs::read_to_string(backups[0].join("c.txt")).unwrap(), "agent\n");
+    assert_eq!(std::fs::read_to_string(backups[0].join("stray.txt")).unwrap(), "stray\n");
 }
 
 #[tokio::test]

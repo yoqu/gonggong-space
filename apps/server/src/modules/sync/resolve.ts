@@ -18,6 +18,7 @@ import { authorName, messageDto, postEvent, publishMessage } from '../messages/s
 import { notify } from '../notifications/notify.js'
 import { publishRun, type RunRow } from '../runs/dto.js'
 import { ACTIVE, schedule } from '../runs/scheduler.js'
+import { closeStoppedChoice } from '../runs/stop.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { onlineMachine } from '../workspaces/provision.js'
 import { blobPath, blobSize, isBinary } from './blobs.js'
@@ -83,6 +84,7 @@ export async function driftAction(
   const row = await requireDecider(ctx, userId, groupId, botId)
   if (row.issue !== 'drift') return fail('conflict', '该副本没有待处理的本地改动')
   sendAction(ctx, row.machineId, groupId, botId, { kind: 'drift', choice })
+  await closeStoppedChoice(ctx, groupId, botId, choice)
 }
 
 async function openConflict(ctx: Ctx, userId: string, groupId: string, conflictId: string) {

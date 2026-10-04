@@ -223,8 +223,6 @@ export const en = {
     "{branch} mirror unavailable · the server can't reach the repo",
   与系统命令重名: 'Same name as a system command',
   '停止运行（未 @ Bot 时停止本群全部）': 'Stop runs (all in the group when no Bot is mentioned)',
-  连续占用群锁: 'Keep holding the group lock',
-  释放群锁: 'Release the group lock',
   开新会话: 'Start a new session',
   '绑定本机目录（仅分区）': 'Bind a local directory (partition mode only)',
 

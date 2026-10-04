@@ -140,16 +140,12 @@ describe('system commands', () => {
     expect(await w.eventsText()).toHaveLength(1)
   })
 
-  it('/hold and /release are force-sync only; /stop reports nothing running', async () => {
+  it('/stop reports nothing running; there is no group lock to /hold or /release', async () => {
     const w = await world()
     await w.say(w.asWang, '/hold')
     await w.say(w.asWang, '/release')
     await w.say(w.asWang, '/stop')
-    expect(await w.eventsText()).toEqual([
-      '/hold 仅在强制同步群可用',
-      '/release 仅在强制同步群可用',
-      '没有运行中的轮次',
-    ])
+    expect(await w.eventsText()).toEqual(['没有运行中的轮次'])
   })
 })
 
