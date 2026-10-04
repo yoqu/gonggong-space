@@ -166,14 +166,21 @@ describe('run card sync line', () => {
     expect(line({ outcome: 'unchanged', version: 14 })).toBe('无文件改动 · v14')
     expect(line({ outcome: 'error', reason: '超过单版体积上限' })).toBe('同步失败：超过单版体积上限')
     expect(line(null)).toBe('')
-    expect(line({ outcome: 'waiting', issue: 'drift' })).toBe('')
+    expect(line({ outcome: 'waiting', issue: 'drift' })).toBe('等待处理本地改动')
   })
 
   it('a held turn offers 处理 to the bot owner or a group admin only', async () => {
-    mockApi({ 'GET /groups/g1/sync/conflicts': [conflict] })
+    mockApi({
+      'GET /groups/g1/sync': status([
+        replica({ state: 'conflict', issue: 'held' }),
+        replica({ botId: 'b2', botName: 'Codex', ownerId: 'u2', state: 'conflict', issue: 'held' }),
+      ]),
+      'GET /groups/g1/sync/conflicts': [conflict],
+    })
+    render(<RunSyncLine run={{ groupId: 'g1', botId: 'b1', sync: { outcome: 'held', files: 2 } }} />)
+    const settle = await screen.findByRole('button', { name: '处理' })
     expect(line({ outcome: 'held', files: 2 }, 'b2')).toBe('冲突待处理 · 2 个文件')
-    expect(line({ outcome: 'held', files: 2 })).toBe('冲突待处理 · 2 个文件处理')
-    fireEvent.click(screen.getAllByRole('button', { name: '处理' })[0]!)
+    fireEvent.click(settle)
     expect(await screen.findByText('处理 Claude 的同步冲突')).toBeTruthy()
   })
 })

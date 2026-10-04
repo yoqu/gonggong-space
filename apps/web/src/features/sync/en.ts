@@ -4,6 +4,7 @@ export default {
   落后: 'Behind',
   本地有改动: 'Local changes',
   冲突待处理: 'Conflict pending',
+  提交失败: 'Submit failed',
   不参与: 'Not participating',
   离线: 'Offline',
   初始: 'Initial',
@@ -14,13 +15,13 @@ export default {
   '{n} 冲突': '{n} {n:conflict|conflicts}',
   '{n} 同步中': '{n} syncing',
   '{n} 落后': '{n} behind',
-  '{n} 本地有改动': '{n} {n:local change|local changes}',
+  '{n} 提交失败': '{n} {n:submit|submits} failed',
+  '{n} 本地有改动': '{n} {n:Bot has|Bots have} local changes',
   '{n} 离线': '{n} offline',
   '{a}/{b} 一致': '{a}/{b} in sync',
   同步状态: 'Sync status',
-  副本: 'Replicas',
+  '各 Bot': 'Bots',
   版本历史: 'Version history',
-  还没有副本: 'No replicas yet',
   还没有版本: 'No versions yet',
   '等 {n} 个文件': '({n} {n:file|files} in total)',
   '{n} 个文件': '{n} {n:file|files}',
@@ -31,21 +32,22 @@ export default {
   '不参与（有未提交的改动）': 'Not participating (uncommitted changes)',
   '对齐（机器离线，上线后对齐）': 'Align (machine offline, aligns once it connects)',
   '对齐（工作区就绪后对齐）': 'Align (once its workspace is ready)',
-  '不参与（daemon 版本过旧，请升级）': 'Left out (daemon too old, please upgrade)',
+  '不参与（共工空间客户端版本过旧，请升级）':
+    'Not participating (Gonggong Space client too old, please upgrade)',
   基准: 'Base',
   对齐: 'Align',
   正在切换为强制同步: 'Switching to force sync',
   '基准 Bot': 'Base Bot',
-  '它当前的工作树（含未提交改动）生成第一个版本，其他 Bot 的工作区对齐到它':
-    "Its current work tree (uncommitted changes included) becomes the first version; the other Bots' workspaces align to it",
+  '它当前的工作区文件（含未提交改动）生成第一个版本，其他 Bot 的工作区对齐到它':
+    "Its current workspace files (uncommitted changes included) become the first version; the other Bots' workspaces align to it",
   '选择基准 Bot': 'Choose the base Bot',
   '没有可作为基准的 Bot': 'No Bot can be the base',
   '切换后各 Bot 的处理方式': 'What happens to each Bot',
   '对齐会把工作区覆盖为基准版本，被覆盖的文件先备份到本机。已在运行的轮次照分区模式跑完，期间的新触发等切换完成后再运行。':
     'Aligning overwrites a workspace with the base version, backing up overwritten files on its machine first. Turns already running finish in partition mode; new triggers run once the switch is done.',
   确认切换: 'Switch',
-  '正在切换：等待基准 Bot 提交工作树，新触发的轮次稍后运行':
-    'Switching: waiting for the base Bot to submit its work tree; new turns run afterwards',
+  '正在切换：等待基准 Bot 提交工作区文件，新触发的轮次稍后运行':
+    'Switching: waiting for the base Bot to submit its workspace files; new turns run afterwards',
   '各 Bot 在自己的工作区独立工作，互不同步': 'Each Bot works in its own workspace, nothing is synced',
   切回分区模式: 'Switch back to partition mode',
   '停止同步，各 Bot 保留当前文件各自发展；服务器存档保留 30 天':
@@ -66,17 +68,21 @@ export default {
   未加入: 'Not joined',
   加入: 'Join',
   丢弃本地改动并加入: 'Discard local changes and join',
-  '{bot} 的工作区将与权威版本保持一致。': "{bot}'s workspace will match the authoritative version.",
-  '未提交的改动和权威版本没有的文件会先备份到本机，再被覆盖或删除':
-    'Uncommitted changes and files the authoritative version lacks are backed up on the machine, then overwritten or deleted',
+  '{bot} 的工作区将与最新版本保持一致。': "{bot}'s workspace will match the latest version.",
+  '未提交的改动和最新版本没有的文件会先备份到本机，再被覆盖或删除':
+    'Uncommitted changes and files the latest version lacks are backed up on the machine, then overwritten or deleted',
   '备份可在本机桌面端的「工作区」页找到':
     'Backups are on the Workspaces page of the desktop app on that machine',
   丢弃并加入: 'Discard and join',
   已开始加入强制同步: 'Joining force sync',
+  已开始加入: 'Joining',
+  '或先在本机提交、清理后再加入': 'Or commit and clean up on the machine first, then join',
+  下一轮会自动重试: 'The next turn retries automatically',
+  可在同步模式设置中切回分区模式以取消: 'To cancel, switch back to partition mode in the sync mode settings',
   同步模式设置: 'Sync mode settings',
   切换中: 'Switching',
-  '正在切换为强制同步，等待基准 Bot 提交工作树…':
-    'Switching to force sync, waiting for the base Bot to submit its work tree…',
+  '正在切换为强制同步，等待基准 Bot 提交工作区文件…':
+    'Switching to force sync, waiting for the base Bot to submit its workspace files…',
   '我的改动（相对 v{v}）': 'My changes (from v{v})',
   '最新版本的改动（v{v}）': 'Changes in the latest version (v{v})',
   二进制文件: 'Binary file',
@@ -107,6 +113,8 @@ export default {
   '无文件改动 · v{v}': 'No file changes · v{v}',
   '冲突待处理 · {n} 个文件': 'Conflict pending · {n} {n:file|files}',
   '同步失败：{reason}': 'Sync failed: {reason}',
+  等待处理本地改动: 'Waiting for local changes to be settled',
+  等待处理同步冲突: 'Waiting for the sync conflict to be resolved',
   已开始提交本地改动: 'Submitting local changes',
   提交本地改动: 'Submit local changes',
   丢弃本地改动: 'Discard local changes',

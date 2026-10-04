@@ -45,6 +45,12 @@ const DATA: Workspaces = {
   ],
   backups: [
     {
+      name: 'g1/0923-100233-b1-2',
+      path: '/Users/wl/.gonggong/backups/g1/0923-100233-b1-2',
+      size: '2 KB',
+      modifiedMs: 0,
+    },
+    {
       name: 'web-site/0923-1002',
       path: '/Users/wl/.gonggong/backups/web-site/0923-1002',
       size: '6 KB',
@@ -88,8 +94,10 @@ describe('工作区', () => {
     expect(within(rowOf('旧版后台')).getByText('已移出 · 412 MB')).toBeTruthy()
 
     expect(screen.getByText('本机备份 · 不上传')).toBeTruthy()
+    expect(screen.getByText('支付服务重构 · 小王的 Claude · 09-23 10:02:33 · 2 KB')).toBeTruthy()
+    expect(screen.getByText('web-site/0923-1002 · 6 KB')).toBeTruthy()
     expect(screen.getByText('~/.gonggong/backups/web-site/0923-1002')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '在 Finder 中显示' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '在 Finder 中显示' })[1]!)
     expect(m.reveal).toHaveBeenCalledWith('/Users/wl/.gonggong/backups/web-site/0923-1002')
   })
 

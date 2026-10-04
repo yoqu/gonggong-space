@@ -41,7 +41,7 @@ const STEP: Partial<Record<Key, number>> = { forceSyncMinBandwidthMbps: 0.1 }
 
 const SECTIONS: { title: string; keys: Key[] }[] = [
   {
-    title: t('同步与锁'),
+    title: t('同步'),
     keys: ['writerDisconnectReleaseSec', 'forceSyncMaxLatencyMs', 'forceSyncMinBandwidthMbps'],
   },
   { title: t('运行与会话'), keys: ['sessionReplayCount', 'contextInlineMax', 'questionsPerCard'] },

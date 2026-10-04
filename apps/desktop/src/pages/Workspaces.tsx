@@ -35,6 +35,16 @@ const RESET_RELOAD_MS = 2000
 
 const fail = (e: unknown) => toast({ type: 'error', message: String(e) })
 
+/** A sync backup is `<groupId>/<MMDD-HHMMSS>-<botId>[-n]`: named after the group and Bot when a workspace row knows them. */
+function backupLabel(name: string, rows: WorkspaceRow[]) {
+  const m = /^([^/]+)\/(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)-(.+)$/.exec(name)
+  if (!m) return name
+  const [, groupId, mo, d, h, mi, s, rest] = m
+  const group = rows.find((r) => r.groupId === groupId)?.group
+  const bot = rows.find((r) => rest === r.botId || rest?.startsWith(`${r.botId}-`))?.bot
+  return group && bot ? `${group} · ${bot} · ${mo}-${d} ${h}:${mi}:${s}` : name
+}
+
 export function WorkspacesPage(_: PageProps) {
   const os = useDaemon((s) => s.info?.machine.os)
   const [data, setData] = useState<Workspaces | null>(null)
@@ -150,7 +160,7 @@ export function WorkspacesPage(_: PageProps) {
               <Icon name="archive" size={16} color="var(--system-brown)" />
               <div className="dk-row__main">
                 <span className="dk-ellipsis">
-                  {b.name} · {b.size}
+                  {backupLabel(b.name, data.rows)} · {b.size}
                 </span>
                 <span className="dk-mono dk-sub dk-ellipsis" title={b.path}>
                   {tildify(b.path)}

@@ -69,7 +69,7 @@ function FileRow({
   const [open, setOpen] = useState(false)
   return (
     <div className="sync-conflict__file" data-testid={`conflict-${f.path}`}>
-      <div className="sync-row">
+      <div className="sync-row sync-conflict__row">
         <span className="sync-row__main">
           <span className="sync-row__title sync-mono">{f.path}</span>
           {f.binary ? <span className="sync-muted">{t('二进制文件')}</span> : null}
@@ -105,11 +105,14 @@ function FileRow({
 export function ConflictDialog({
   groupId,
   botId,
+  conflictId = null,
   botName,
   onClose,
 }: {
   groupId: string
   botId: string
+  /** The held change to open; without it, the bot's open one. */
+  conflictId?: string | null
   botName: string
   onClose: () => void
 }) {
@@ -119,13 +122,13 @@ export function ConflictDialog({
   const [discard, setDiscard] = useState(false)
   useEffect(() => {
     syncApi.conflicts(groupId).then(
-      (list) => setConflict(list.find((c) => c.botId === botId) ?? null),
+      (list) => setConflict(list.find((c) => (conflictId ? c.id === conflictId : c.botId === botId)) ?? null),
       (e) => {
         toastError(e)
         setConflict(null)
       },
     )
-  }, [groupId, botId])
+  }, [groupId, botId, conflictId])
 
   const files = conflict?.files ?? []
   const decided = files.length > 0 && files.every((f) => choices[f.path])

@@ -177,7 +177,7 @@ describe('group settings inspector', () => {
     expect(within(within(d).getByRole('region', { name: '群成员' })).getByText('2')).toBeTruthy()
     expect(within(d).getByRole('button', { name: /^Bot.*2 个$/ })).toBeTruthy()
     expect(within(d).getByRole('switch', { name: /消息免打扰/ })).toBeTruthy()
-    expect(within(d).getByText('普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒')).toBeTruthy()
+    expect(within(d).getByText('普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒')).toBeTruthy()
     expect(within(d).getByText('只对我生效，审批与提问卡片始终展开')).toBeTruthy()
     expect(within(d).getByText('你是群管理员')).toBeTruthy()
     expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()

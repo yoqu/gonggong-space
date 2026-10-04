@@ -27,7 +27,7 @@ const EXCLUDED: Record<SyncPreviewReason, string> = {
   dirty: t('不参与（有未提交的改动）'),
   offline: t('对齐（机器离线，上线后对齐）'),
   not_ready: t('对齐（工作区就绪后对齐）'),
-  outdated: t('不参与（daemon 版本过旧，请升级）'),
+  outdated: t('不参与（共工空间客户端版本过旧，请升级）'),
 }
 
 type Bot = SyncPreviewDto['bots'][number]
@@ -45,11 +45,28 @@ function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => vo
   const [error, setError] = useState<string | null>(null)
   const [baseId, setBaseId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
+  const load = () => {
+    setError(null)
     syncApi.preview(group.id).then(setPreview, (e) => setError(errorText(e)))
-  }, [group.id])
+  }
+  useEffect(load, [group.id])
 
-  if (error) return <EmptyState title={error} />
+  if (error)
+    return (
+      <EmptyState
+        title={error}
+        action={
+          <>
+            <Button size="small" onClick={load}>
+              {t('重试')}
+            </Button>
+            <Button size="small" onClick={onCancel}>
+              {t('取消')}
+            </Button>
+          </>
+        }
+      />
+    )
   if (!preview) return <Spinner />
   const bases = preview.bots.filter((b) => b.canBase)
   const confirm = async () => {
@@ -68,7 +85,7 @@ function EnableWizard({ group, onCancel }: { group: GroupDto; onCancel: () => vo
       <GroupBox>
         <GroupRow
           label={t('基准 Bot')}
-          description={t('它当前的工作树（含未提交改动）生成第一个版本，其他 Bot 的工作区对齐到它')}
+          description={t('它当前的工作区文件（含未提交改动）生成第一个版本，其他 Bot 的工作区对齐到它')}
         >
           <Select
             label={t('基准 Bot')}
@@ -130,7 +147,7 @@ export function SyncModeTab({ group }: { group: GroupDto }) {
           description={
             force
               ? status?.switching
-                ? t('正在切换：等待基准 Bot 提交工作树，新触发的轮次稍后运行')
+                ? t('正在切换：等待基准 Bot 提交工作区文件，新触发的轮次稍后运行')
                 : status
                   ? `v${status.headVersion} · ${t('{a}/{b} 一致', { a: status.consistent, b: status.total })}`
                   : undefined

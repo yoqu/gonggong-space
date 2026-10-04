@@ -288,7 +288,7 @@ function DisableDialog({
       consequences={[
         t('立即吊销其所有 daemon token 和 Web 会话'),
         t('daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）'),
-        t('其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理'),
+        t('其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理'),
         t('群消息与审计记录保留'),
       ]}
       label={t('停用')}

@@ -1,5 +1,5 @@
 import type { SyncReplicaDto, SyncStatusDto, SyncVersionDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
@@ -13,13 +13,14 @@ import {
   EmptyState,
   GroupBox,
   Presence,
+  Spinner,
   Tabs,
   Tag,
   toast,
 } from '../../ui'
 import { ConflictDialog } from './ConflictDialog'
-import { STATE, TAG } from './model'
-import { syncApi, useSyncStatus, VERSIONS_PAGE } from './store'
+import { STATE, shownState, TAG } from './model'
+import { syncApi, useSyncLoad, VERSIONS_PAGE } from './store'
 import './sync.css'
 
 const FILES_SHOWN = 3
@@ -30,22 +31,45 @@ const excludedText = (r: SyncReplicaDto) =>
 
 type Confirm = 'join' | 'discard' | null
 
-function Replica({ r, groupId, canAct }: { r: SyncReplicaDto; groupId: string; canAct: boolean }) {
-  const state = STATE[r.state]
+function Replica({
+  r,
+  groupId,
+  canAct,
+  focus,
+}: {
+  r: SyncReplicaDto
+  groupId: string
+  canAct: boolean
+  focus: boolean
+}) {
+  const shown = shownState(r)
+  const state = STATE[shown]
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [conflict, setConflict] = useState(false)
+  const row = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focus) row.current?.scrollIntoView?.({ block: 'center' })
+  }, [focus])
   const join = (force: boolean) => syncApi.join(groupId, r.botId, force)
   const joinable = canAct && r.state === 'excluded' && r.workspace === 'managed'
+  // Uncommitted changes would block a plain join again: they must be discarded (or cleaned up on the machine).
+  const dirty = r.issue === 'dirty'
   const drift = canAct && r.issue === 'drift'
   const reason = r.reason ?? (r.state === 'excluded' ? excludedText(r) : null)
   return (
-    <div className="sync-row" data-testid={`replica-${r.botId}`}>
+    <div
+      ref={row}
+      className={focus ? 'sync-row sync-row--focus' : 'sync-row'}
+      data-testid={`replica-${r.botId}`}
+    >
       <span className="sync-row__main">
         <span className="sync-row__title">
           <span>{r.botName}</span>
           {r.machineName ? <span className="sync-muted">{r.machineName}</span> : null}
         </span>
         {reason ? <span className="sync-muted">{reason}</span> : null}
+        {shown === 'error' ? <span className="sync-muted">{t('下一轮会自动重试')}</span> : null}
+        {joinable && dirty ? <span className="sync-muted">{t('或先在本机提交、清理后再加入')}</span> : null}
         {r.files.length ? (
           <span className="sync-muted sync-mono">
             {r.files.slice(0, FILES_SHOWN).join(t('、'))}
@@ -57,15 +81,22 @@ function Replica({ r, groupId, canAct }: { r: SyncReplicaDto; groupId: string; c
         <span className="sync-mono">{r.version === null ? '—' : `v${r.version}`}</span>
         <Tag tone={state.tone}>{state.label}</Tag>
         {r.updatedAt ? <span className="sync-muted">{ago(r.updatedAt)}</span> : null}
+      </span>
+      <span className="sync-row__actions">
+        {joinable && !dirty ? (
+          <Button
+            size="small"
+            onClick={() =>
+              void join(false).then(() => toast({ type: 'success', message: t('已开始加入') }), toastError)
+            }
+          >
+            {t('加入')}
+          </Button>
+        ) : null}
         {joinable ? (
-          <>
-            <Button size="small" onClick={() => void join(false).catch(toastError)}>
-              {t('加入')}
-            </Button>
-            <Button size="small" onClick={() => setConfirm('join')}>
-              {t('丢弃本地改动并加入')}
-            </Button>
-          </>
+          <Button size="small" onClick={() => setConfirm('join')}>
+            {t('丢弃本地改动并加入')}
+          </Button>
         ) : null}
         {drift ? (
           <>
@@ -120,9 +151,9 @@ function Replica({ r, groupId, canAct }: { r: SyncReplicaDto; groupId: string; c
         {confirm === 'join' ? (
           <ConfirmActionDialog
             title={t('丢弃本地改动并加入')}
-            message={t('{bot} 的工作区将与权威版本保持一致。', { bot: r.botName })}
+            message={t('{bot} 的工作区将与最新版本保持一致。', { bot: r.botName })}
             consequences={[
-              t('未提交的改动和权威版本没有的文件会先备份到本机，再被覆盖或删除'),
+              t('未提交的改动和最新版本没有的文件会先备份到本机，再被覆盖或删除'),
               t('备份可在本机桌面端的「工作区」页找到'),
             ]}
             label={t('丢弃并加入')}
@@ -136,16 +167,30 @@ function Replica({ r, groupId, canAct }: { r: SyncReplicaDto; groupId: string; c
   )
 }
 
-function Replicas({ status, isAdmin }: { status: SyncStatusDto; isAdmin: boolean }) {
+function Replicas({
+  status,
+  isAdmin,
+  focusBotId,
+}: {
+  status: SyncStatusDto
+  isAdmin: boolean
+  focusBotId: string | null
+}) {
   const me = useSession((s) => s.user)
   return status.replicas.length ? (
     <GroupBox>
       {status.replicas.map((r) => (
-        <Replica key={r.botId} r={r} groupId={status.groupId} canAct={isAdmin || r.ownerId === me?.id} />
+        <Replica
+          key={r.botId}
+          r={r}
+          groupId={status.groupId}
+          canAct={isAdmin || r.ownerId === me?.id}
+          focus={r.botId === focusBotId}
+        />
       ))}
     </GroupBox>
   ) : (
-    <EmptyState title={t('还没有副本')} />
+    <EmptyState title={t('还没有 Bot')} />
   )
 }
 
@@ -228,22 +273,33 @@ function Versions({ groupId, head }: { groupId: string; head: number }) {
  */
 export function SyncPanel({
   groupId,
+  focusBotId = null,
   isAdmin = false,
   onSettings,
   onClose,
 }: {
   groupId: string
+  /** Highlighted and scrolled to, e.g. from a notification. */
+  focusBotId?: string | null
   isAdmin?: boolean
   onSettings?: () => void
   onClose: () => void
 }) {
-  const status = useSyncStatus({ id: groupId, mode: 'force' })
+  const { status, error, retry } = useSyncLoad({ id: groupId, mode: 'force' })
   const [tab, setTab] = useState<'replicas' | 'versions'>('replicas')
   return (
     <Dialog open width={640} title={t('同步状态')} onClose={onClose}>
       <div className="sync-panel">
         {status?.switching ? (
-          <Alert variant="info" description={t('正在切换为强制同步，等待基准 Bot 提交工作树…')} />
+          <Alert
+            variant="info"
+            description={
+              <>
+                {t('正在切换为强制同步，等待基准 Bot 提交工作区文件…')}
+                {isAdmin ? <div>{t('可在同步模式设置中切回分区模式以取消')}</div> : null}
+              </>
+            }
+          />
         ) : null}
         {onSettings ? (
           <div className="sync-panel__head">
@@ -255,7 +311,7 @@ export function SyncPanel({
         <Tabs
           aria-label={t('同步状态')}
           items={[
-            { value: 'replicas', label: t('副本') },
+            { value: 'replicas', label: t('各 Bot') },
             { value: 'versions', label: t('版本历史') },
           ]}
           value={tab}
@@ -263,11 +319,22 @@ export function SyncPanel({
         />
         {status ? (
           tab === 'replicas' ? (
-            <Replicas status={status} isAdmin={isAdmin} />
+            <Replicas status={status} isAdmin={isAdmin} focusBotId={focusBotId} />
           ) : (
             <Versions groupId={groupId} head={status.headVersion} />
           )
-        ) : null}
+        ) : error ? (
+          <EmptyState
+            title={error}
+            action={
+              <Button size="small" onClick={retry}>
+                {t('重试')}
+              </Button>
+            }
+          />
+        ) : (
+          <Spinner />
+        )}
       </div>
     </Dialog>
   )

@@ -5,6 +5,8 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, ChatNotice, Icon, Presence } from '../../ui'
 import { ConflictDialog } from './ConflictDialog'
+import { SyncPanel } from './SyncPanel'
+import { useSyncStatus } from './store'
 import './sync.css'
 
 /** Group admins and the bot's owner may settle its replica (F11, F12). */
@@ -18,11 +20,32 @@ export function useCanSettle(groupId: string, botId: string) {
   )
 }
 
-/** 「处理」 opening the bot's conflict dialog, for who may settle it. */
-function Settle({ groupId, botId }: { groupId: string; botId: string }) {
+/**
+ * 「处理」 for a replica waiting on a conflict (`held`, opens its conflict dialog) or local edits (`drift`, opens the
+ * sync panel on it), for who may settle it; 「已处理」 once the replica no longer waits on it.
+ */
+function Settle({
+  groupId,
+  botId,
+  issue,
+  conflictId = null,
+}: {
+  groupId: string
+  botId: string
+  issue: 'held' | 'drift'
+  conflictId?: string | null
+}) {
   const allowed = useCanSettle(groupId, botId)
+  const me = useSession((s) => s.user?.id)
+  const isAdmin = useWorkspace(
+    (s) => !!s.groups.find((g) => g.id === groupId)?.members.some((m) => m.userId === me && m.isAdmin),
+  )
   const botName = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.name ?? '')
+  const status = useSyncStatus({ id: groupId, mode: 'force' })
   const [open, setOpen] = useState(false)
+  if (!status) return null
+  if (status.replicas.find((r) => r.botId === botId)?.issue !== issue)
+    return <span className="sync-muted">{t('已处理')}</span>
   if (!allowed) return null
   return (
     <>
@@ -31,18 +54,36 @@ function Settle({ groupId, botId }: { groupId: string; botId: string }) {
       </Button>
       <Presence>
         {open ? (
-          <ConflictDialog groupId={groupId} botId={botId} botName={botName} onClose={() => setOpen(false)} />
+          issue === 'held' ? (
+            <ConflictDialog
+              groupId={groupId}
+              botId={botId}
+              conflictId={conflictId}
+              botName={botName}
+              onClose={() => setOpen(false)}
+            />
+          ) : (
+            <SyncPanel
+              groupId={groupId}
+              focusBotId={botId}
+              isAdmin={isAdmin}
+              onClose={() => setOpen(false)}
+            />
+          )
         ) : null}
       </Presence>
     </>
   )
 }
 
+/** Daemon reasons often start with 同步 already (同步失败：…); don't say it twice. */
+const failure = (reason: string) => (reason.startsWith('同步') ? reason : t('同步失败：{reason}', { reason }))
+
 /** How a force-group turn's changes went in (plan §4 运行卡片底部); nothing outside force groups. */
 export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | 'sync'> }) {
   const s = run.sync
   // A stopped turn's changes are settled on its interrupt block.
-  if (!s || s.outcome === 'waiting' || s.outcome === 'stopped') return null
+  if (!s || s.outcome === 'stopped') return null
   const text =
     s.outcome === 'accepted'
       ? s.merged
@@ -52,24 +93,34 @@ export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | '
         ? t('无文件改动 · v{v}', { v: s.version })
         : s.outcome === 'held'
           ? t('冲突待处理 · {n} 个文件', { n: s.files })
-          : t('同步失败：{reason}', { reason: s.reason })
+          : s.outcome === 'waiting'
+            ? s.issue === 'held'
+              ? t('等待处理同步冲突')
+              : t('等待处理本地改动')
+            : failure(s.reason)
+  const settle = s.outcome === 'held' ? 'held' : s.outcome === 'waiting' ? s.issue : null
   return (
     <span className="sync-line" data-outcome={s.outcome} data-testid="run-sync">
       <Icon name="arrow-clockwise" size={12} />
       <span>{text}</span>
-      {s.outcome === 'held' ? <Settle groupId={run.groupId} botId={run.botId} /> : null}
+      {settle ? <Settle groupId={run.groupId} botId={run.botId} issue={settle} /> : null}
     </span>
   )
 }
 
 /** The group's conflict card (§3.3): 「@Bot 的改动与 v15 冲突：3 个文件」 with 处理. */
-export function ConflictEvent({ m }: { m: MessageDto & { syncConflict: { botId: string } } }) {
+export function ConflictEvent({ m }: { m: MessageDto & { syncConflict: { id: string; botId: string } } }) {
   return (
     <ChatNotice>
       <span className="tl-event sync-conflict-event" data-testid="sync-conflict-card">
         <Icon name="exclamation-circle" size={13} />
         <span className="tl-event__text">{m.i18n ? t.text(m.i18n) : m.body}</span>
-        <Settle groupId={m.groupId} botId={m.syncConflict.botId} />
+        <Settle
+          groupId={m.groupId}
+          botId={m.syncConflict.botId}
+          issue="held"
+          conflictId={m.syncConflict.id}
+        />
       </span>
     </ChatNotice>
   )

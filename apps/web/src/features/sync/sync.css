@@ -4,12 +4,17 @@
   padding: var(--space-6) var(--space-16);
   border-bottom: 1px solid var(--separator);
   font-size: var(--text-subheadline-size);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sync-bar::-webkit-scrollbar {
+  display: none;
 }
 .sync-bar__btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  min-width: 0;
+  flex: none;
   height: var(--control-small);
   padding: 0 var(--space-8);
   border: 0;
@@ -62,6 +67,9 @@
   gap: var(--space-8);
   padding: var(--space-8) var(--space-12);
 }
+.sync-row--focus {
+  background: var(--selection-fill);
+}
 .sync-row + .sync-row {
   border-top: 0.5px solid var(--separator);
 }
@@ -83,7 +91,8 @@
   gap: var(--space-6);
   font-weight: 500;
 }
-.sync-row__meta {
+.sync-row__meta,
+.sync-row__actions {
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -115,6 +124,9 @@
 .sync-line > svg {
   flex: none;
 }
+.sync-line[data-outcome="waiting"] {
+  color: var(--tint-orange-text);
+}
 .sync-line[data-outcome="held"],
 .sync-line[data-outcome="error"] {
   color: var(--tint-red-text);
@@ -144,4 +156,16 @@
   gap: var(--space-4);
   max-height: 280px;
   overflow: auto;
+}
+
+@media (max-width: 767px) {
+  .sync-row {
+    flex-wrap: wrap;
+  }
+  /* Replica actions and a conflicting file's choices take their own line. */
+  .sync-row__actions:not(:empty),
+  .sync-conflict__row .sync-row__meta {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+  }
 }

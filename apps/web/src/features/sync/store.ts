@@ -8,12 +8,22 @@ import type {
 } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 
-/** Each force group's sync status, loaded on first use and replaced by `group.sync` events. */
-const useStore = create<Record<string, SyncStatusDto>>()(() => ({}))
+/** Each force group's sync status, loaded on first use and replaced by `group.sync` events; `error` = the load failed. */
+const useStore = create<{ status: Record<string, SyncStatusDto>; error: Record<string, string> }>()(() => ({
+  status: {},
+  error: {},
+}))
 const loading = new Set<string>()
+
+const clearError = (groupId: string) => {
+  const { [groupId]: _, ...error } = useStore.getState().error
+  return error
+}
+const put = (s: SyncStatusDto) =>
+  useStore.setState((x) => ({ status: { ...x.status, [s.groupId]: s }, error: clearError(s.groupId) }))
 
 let synced = false
 function sync() {
@@ -22,12 +32,14 @@ function sync() {
   realtime.subscribe((e) => {
     if (e.t === 'group.sync') {
       const { t: _, ...s } = e
-      useStore.setState({ [s.groupId]: s })
+      put(s)
     }
   })
-  // Events missed while offline: the next use reloads.
+  // Events missed while offline: reload what is shown, keeping it until the answer arrives.
   realtime.onStatus((s) => {
-    if (s === 'open') useStore.setState({}, true)
+    if (s !== 'open') return
+    const { status, error } = useStore.getState()
+    for (const id of new Set([...Object.keys(status), ...Object.keys(error)])) load(id)
   })
 }
 
@@ -36,22 +48,38 @@ function load(groupId: string) {
   loading.add(groupId)
   api
     .get<SyncStatusDto>(`/groups/${groupId}/sync`)
-    .then((r) => useStore.setState({ [groupId]: r }))
-    .catch(() => {})
+    .then(put)
+    .catch((e) => useStore.setState((x) => ({ error: { ...x.error, [groupId]: errorText(e) } })))
     .finally(() => loading.delete(groupId))
 }
 
 /** Undefined for partition groups and until loaded. */
 export function useSyncStatus(group: Pick<GroupDto, 'id' | 'mode'>): SyncStatusDto | undefined {
+  return useSyncLoad(group).status
+}
+
+/** The status with the load error, if any, and a retry after one. */
+export function useSyncLoad(group: Pick<GroupDto, 'id' | 'mode'>) {
   const force = group.mode === 'force'
-  const status = useStore((s) => (force ? s[group.id] : undefined))
+  const status = useStore((s) => (force ? s.status[group.id] : undefined))
+  const error = useStore((s) => (force ? s.error[group.id] : undefined))
   useEffect(() => {
     if (!force) return
     sync()
-    if (!status) load(group.id)
-  }, [group.id, force, status])
-  return status
+    if (!status && !error) load(group.id)
+  }, [group.id, force, status, error])
+  // Clearing the error reloads.
+  return { status, error, retry: () => useStore.setState({ error: clearError(group.id) }) }
 }
+
+/** Which group's sync panel is open, and the bot it focuses; set from outside (e.g. a notification's `?sync=`). */
+export const useSyncPanel = create<{ groupId: string | null; botId: string | null }>()(() => ({
+  groupId: null,
+  botId: null,
+}))
+export const openSyncPanel = (groupId: string, botId: string | null = null) =>
+  useSyncPanel.setState({ groupId, botId })
+export const closeSyncPanel = () => useSyncPanel.setState({ groupId: null, botId: null })
 
 export const VERSIONS_PAGE = 50
 
@@ -63,9 +91,7 @@ export const syncApi = {
   preview: (groupId: string) => api.get<SyncPreviewDto>(`/groups/${groupId}/sync/preview`),
   /** `force` = 丢弃本地改动并加入. */
   join: (groupId: string, botId: string, force: boolean) =>
-    api
-      .post<SyncStatusDto>(`/groups/${groupId}/sync/replicas/${botId}/join`, { force })
-      .then((s) => useStore.setState({ [groupId]: s })),
+    api.post<SyncStatusDto>(`/groups/${groupId}/sync/replicas/${botId}/join`, { force }).then(put),
   /** 提交本地改动 / 丢弃本地改动 (F12). */
   drift: (groupId: string, botId: string, choice: 'submit' | 'discard') =>
     api.post(`/groups/${groupId}/sync/replicas/${botId}/drift`, { choice }),
@@ -82,7 +108,8 @@ export const syncApi = {
 
 /** Tests: forget loaded statuses and the realtime hook-up. */
 export function resetSync() {
-  useStore.setState({}, true)
+  useStore.setState({ status: {}, error: {} })
+  closeSyncPanel()
   loading.clear()
   synced = false
 }

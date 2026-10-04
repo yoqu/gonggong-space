@@ -82,7 +82,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
           n: p('files'),
         }),
         group,
-        href: at(''),
+        href: p('botId') ? `/g/${p('groupId')}?sync=${p('botId')}` : at(''),
       }
     case 'sync_conflict':
       return {

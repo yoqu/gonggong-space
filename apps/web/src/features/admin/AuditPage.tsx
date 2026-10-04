@@ -30,7 +30,7 @@ const FILTERS: { label: string; category?: string }[] = [
   { label: t('全部') },
   { label: t('审批'), category: 'approval' },
   { label: t('提问'), category: 'question' },
-  { label: t('锁与同步'), category: 'lock' },
+  { label: t('同步'), category: 'lock' },
   { label: t('管理'), category: 'admin' },
   { label: t('运行'), category: 'run' },
   { label: t('预览'), category: 'preview' },
@@ -236,7 +236,7 @@ export function AuditPage() {
   return (
     <AdminPage
       title={t('审计记录')}
-      desc={t('审批、提问、锁与同步事件、管理员操作，永久保存。')}
+      desc={t('审批、提问、同步事件、管理员操作，永久保存。')}
       subtitle={loaded === null ? undefined : t('已载入 {n} 条', { n: loaded })}
       actions={<TeamFilter value={teamId} onChange={setTeamId} />}
       search={

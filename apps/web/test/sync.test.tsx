@@ -242,12 +242,12 @@ describe('joining a left-out replica', () => {
     ],
   })
 
-  it('offers 加入 and 丢弃本地改动并加入 to the bot owner; a group admin may join any managed replica', async () => {
+  it('offers 丢弃本地改动并加入 to the bot owner; a group admin may join any managed replica', async () => {
     mockApi({ 'GET /groups/g1/sync': left })
     const { unmount } = render(<SyncPanel groupId="g1" onClose={() => {}} />)
     const mine = await screen.findByTestId('replica-b1')
     expect(within(mine).getByText('有未提交的改动')).toBeTruthy()
-    expect(within(mine).getByRole('button', { name: '加入' })).toBeTruthy()
+    expect(within(mine).queryByRole('button', { name: '加入' })).toBeNull()
     expect(within(mine).getByRole('button', { name: '丢弃本地改动并加入' })).toBeTruthy()
     expect(within(screen.getByTestId('replica-b2')).queryByRole('button', { name: '加入' })).toBeNull()
     expect(within(screen.getByTestId('replica-b2')).getByText('未加入')).toBeTruthy()
@@ -264,10 +264,11 @@ describe('joining a left-out replica', () => {
     const calls = mockApi({
       'GET /groups/g1/sync': left,
       'POST /groups/g1/sync/replicas/b1/join': left,
+      'POST /groups/g1/sync/replicas/b2/join': left,
     })
-    render(<SyncPanel groupId="g1" onClose={() => {}} />)
+    render(<SyncPanel groupId="g1" isAdmin onClose={() => {}} />)
     const mine = await screen.findByTestId('replica-b1')
-    fireEvent.click(within(mine).getByRole('button', { name: '加入' }))
+    fireEvent.click(within(screen.getByTestId('replica-b2')).getByRole('button', { name: '加入' }))
     await waitFor(() =>
       expect(calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([{ force: false }]),
     )

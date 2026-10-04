@@ -41,7 +41,7 @@ describe('sync in English', () => {
     render(<SyncBar group={{ id: 'g1', mode: 'force' }} />)
     const bar = await screen.findByRole('button', { name: /Force sync · v3 · 1\/3 in sync/ })
     expect(bar.textContent).toContain('1 conflict')
-    expect(bar.textContent).toContain('1 local change')
+    expect(bar.textContent).toContain('1 Bot has local changes')
     render(<SyncPanel groupId="g1" onClose={() => {}} />)
     expect(within(await screen.findByTestId('replica-b2')).getByText('Conflict pending')).toBeTruthy()
     expect(within(screen.getByTestId('replica-b3')).getByText('Local changes')).toBeTruthy()

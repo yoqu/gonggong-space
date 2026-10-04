@@ -1,58 +1,84 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect } from 'react'
+import { useSearchParams } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { t } from '../../i18n'
 import { Icon, Presence } from '../../ui'
 import { issues, STATE } from './model'
 import { SyncPanel } from './SyncPanel'
-import { useSyncStatus } from './store'
+import { closeSyncPanel, openSyncPanel, useSyncPanel, useSyncStatus } from './store'
 import './sync.css'
 
-/** Force groups' persistent line under the header (plan §4): head version, consistency, issues; opens the panel. */
+/** `?sync=<botId>` (a local-changes notification) opens the group's sync panel on that bot, then leaves the URL. */
+export function useLinkedSync(groupId: string) {
+  const [params, setParams] = useSearchParams()
+  const botId = params.get('sync')
+  useEffect(() => {
+    if (!botId) return
+    openSyncPanel(groupId, botId)
+    setParams(
+      (p) => {
+        p.delete('sync')
+        return p
+      },
+      { replace: true },
+    )
+  }, [botId, groupId, setParams])
+}
+
+/**
+ * Force groups' persistent line under the header (plan §4): head version, consistency, issues; opens the panel,
+ * which also opens from elsewhere through `openSyncPanel`. `hidden` keeps only the panel.
+ */
 export function SyncBar({
   group,
   isAdmin = false,
+  hidden = false,
   onSettings,
 }: {
   group: Pick<GroupDto, 'id' | 'mode'>
   isAdmin?: boolean
+  hidden?: boolean
   /** Admins: opens the mode settings from the panel. */
   onSettings?: () => void
 }) {
   const status = useSyncStatus(group)
-  const [open, setOpen] = useState(false)
-  if (!status) return null
+  const panel = useSyncPanel()
+  const open = panel.groupId === group.id
   return (
     <>
-      <div className="sync-bar">
-        <button type="button" className="sync-bar__btn" onClick={() => setOpen(true)}>
-          <Icon name="arrow-clockwise" size={12} />
-          <span>
-            {GROUP_MODE_LABEL.force} · v{status.headVersion} ·{' '}
-            {t('{a}/{b} 一致', { a: status.consistent, b: status.total })}
-          </span>
-          {status.switching ? <span className="sync-bar__issue sync-tone--blue">{t('切换中')}</span> : null}
-          {issues(status).map((x) => (
-            <span key={x.state} className={`sync-bar__issue sync-tone--${STATE[x.state].tone}`}>
-              {x.text}
+      {status && !hidden ? (
+        <div className="sync-bar">
+          <button type="button" className="sync-bar__btn" onClick={() => openSyncPanel(group.id)}>
+            <Icon name="arrow-clockwise" size={12} />
+            <span>
+              {GROUP_MODE_LABEL.force} · v{status.headVersion} ·{' '}
+              {t('{a}/{b} 一致', { a: status.consistent, b: status.total })}
             </span>
-          ))}
-          <Icon name="chevron-right" size={11} />
-        </button>
-      </div>
+            {status.switching ? <span className="sync-bar__issue sync-tone--blue">{t('切换中')}</span> : null}
+            {issues(status).map((x) => (
+              <span key={x.state} className={`sync-bar__issue sync-tone--${STATE[x.state].tone}`}>
+                {x.text}
+              </span>
+            ))}
+            <Icon name="chevron-right" size={11} />
+          </button>
+        </div>
+      ) : null}
       <Presence>
         {open ? (
           <SyncPanel
             groupId={group.id}
+            focusBotId={panel.botId}
             isAdmin={isAdmin}
             onSettings={
               onSettings &&
               (() => {
-                setOpen(false)
+                closeSyncPanel()
                 onSettings()
               })
             }
-            onClose={() => setOpen(false)}
+            onClose={closeSyncPanel}
           />
         ) : null}
       </Presence>

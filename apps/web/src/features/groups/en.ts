@@ -18,8 +18,8 @@ export default {
   退出群: 'Leave group',
   '你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。':
     'You are the only group admin. Appoint another group admin under "Members" before leaving.',
-  '退出后你的 Bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。':
-    'Your Bots leave the group with you; a turn holding the lock is treated as interrupted. Click again to confirm.',
+  '退出后你的 Bot 一并移出本群；运行中的轮次按非主动中断处理。再次点击确认。':
+    'Your Bots leave the group with you; running turns are treated as interrupted. Click again to confirm.',
   确认删除: 'Confirm delete',
   删除私聊: 'Delete chat',
   确认解散: 'Confirm dissolve',
@@ -38,8 +38,8 @@ export default {
   已隐藏: 'Hidden',
   暂无: 'None',
   消息免打扰: 'Mute messages',
-  '普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒':
-    "No alerts for regular messages; still alerts for @me, my Bots' approvals, questions to me and my lock turn",
+  '普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒':
+    "No alerts for regular messages; still alerts for @me, my Bots' approvals and questions to me",
   置顶群: 'Pin group',
   运行卡片默认折叠: 'Collapse run cards by default',
   '只对我生效，审批与提问卡片始终展开': 'Only for me; approval and question cards stay expanded',
@@ -61,11 +61,11 @@ export default {
   '未带入 Bot': 'No Bots brought',
   取消管理员: 'Remove admin',
   设为管理员: 'Make admin',
-  '移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。':
-    'Removing a member also removes their Bots; a Bot holding the lock is treated as interrupted.',
+  '移出成员时，其 Bot 一并移出；运行中的 Bot 按非主动中断处理。':
+    'Removing a member also removes their Bots; a running Bot is treated as interrupted.',
   '移出成员 {name}': 'Remove member {name}',
-  '其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。':
-    'Their Bots leave the group too; a Bot holding the lock is treated as interrupted.',
+  '其 Bot 一并移出本群；运行中的 Bot 按非主动中断处理。':
+    'Their Bots leave the group too; a running Bot is treated as interrupted.',
   '{n} 个 · 在线 {online}': '{n} · {online} online',
   '拉入 Bot': 'Add Bot',
   ' · 主人将一并加入': ' · owner joins too',

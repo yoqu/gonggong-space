@@ -145,7 +145,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('审计记录'),
         icon: 'doc-text',
         color: 'var(--system-brown)',
-        desc: t('审批、提问、锁与同步事件、管理员操作，永久保存。'),
+        desc: t('审批、提问、同步事件、管理员操作，永久保存。'),
         element: <AuditPage />,
       },
     ],

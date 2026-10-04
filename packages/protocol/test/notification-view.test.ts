@@ -72,6 +72,9 @@ describe('notificationView', () => {
       href: '/g/g1',
     })
     expect(
+      notificationView(n('sync_drift', { groupId: 'g1', botId: 'b1', botName: 'C', files: 1 })).href,
+    ).toBe('/g/g1?sync=b1')
+    expect(
       notificationView(n('sync_conflict', { groupId: 'g1', botName: 'C', version: 15, files: 2 })),
     ).toMatchObject({ label: '同步冲突', text: '@C 的改动与 v15 冲突：2 个文件', href: '/g/g1' })
   })

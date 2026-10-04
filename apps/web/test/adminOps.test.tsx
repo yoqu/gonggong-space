@@ -113,7 +113,7 @@ describe('账号与角色 · 停用 / 启用', () => {
     for (const line of [
       '立即吊销其所有 daemon token 和 Web 会话',
       'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
-      '其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理',
+      '其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理',
       '群消息与审计记录保留',
     ])
       expect(within(dialog).getByText(new RegExp(line.replace(/[()（）]/g, '.')))).toBeTruthy()
@@ -502,7 +502,7 @@ describe('审计记录', () => {
     expect(auditRows().at(-1)!.textContent).toContain('系统')
     expect(screen.queryByRole('button', { name: '加载更多' })).toBeNull()
 
-    for (const chip of ['全部', '审批', '提问', '锁与同步', '管理', '运行'])
+    for (const chip of ['全部', '审批', '提问', '同步', '管理', '运行'])
       expect(screen.getByRole('radio', { name: chip })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: '管理' }))
     await waitFor(() => expect(auditRows()).toHaveLength(1))
@@ -573,7 +573,7 @@ describe('系统参数', () => {
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     expect(retention.value).toBe('30')
-    for (const h of ['同步与锁', '运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
+    for (const h of ['同步', '运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy()
     expect((screen.getByLabelText('持锁 Bot 断线后自动释放锁') as HTMLInputElement).value).toBe('60')
     expect(screen.getByLabelText('机器心跳间隔')).toBeTruthy()

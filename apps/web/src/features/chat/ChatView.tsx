@@ -33,7 +33,7 @@ import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
-import { SyncBar } from '../sync/SyncBar'
+import { SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -155,6 +155,7 @@ export function ChatView({
   const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
+  useLinkedSync(group.id)
   const linkPages = useRef(0)
   const [flash, setFlash] = useState<string | null>(null)
   /** Unread count when entering; the divider stays where it was placed while new messages arrive. */
@@ -433,13 +434,12 @@ export function ChatView({
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
         ) : null}
       </Presence>
-      {readOnly ? null : (
-        <SyncBar
-          group={group}
-          isAdmin={isAdmin}
-          onSettings={isAdmin ? () => setSettings('mode') : undefined}
-        />
-      )}
+      <SyncBar
+        group={group}
+        isAdmin={isAdmin}
+        hidden={readOnly}
+        onSettings={isAdmin ? () => setSettings('mode') : undefined}
+      />
       {readOnly ? null : <GitBar group={group} />}
       <div className="chat-view__body">
         {drag.over ? (

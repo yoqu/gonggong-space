@@ -36,7 +36,7 @@ import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { SchedulesView } from '../schedules/SchedulesView'
 import { useSchedules } from '../schedules/store'
-import { SyncPanel } from '../sync/SyncPanel'
+import { openSyncPanel, useSyncStatus } from '../sync/store'
 import { groupsApi, paramsSummary } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
@@ -203,7 +203,7 @@ function MainView({
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
   const [confirm, setConfirm] = useState<'leave' | 'dissolve' | null>(null)
-  const [syncOpen, setSyncOpen] = useState(false)
+  const sync = useSyncStatus(group)
   const dm = group.kind === 'dm'
   const admins = group.members.filter((m) => m.isAdmin)
   const onlyAdmin = isAdmin && admins.length === 1 && group.members.length > 1
@@ -269,7 +269,7 @@ function MainView({
               confirm === 'leave'
                 ? onlyAdmin
                   ? t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')
-                  : t('退出后你的 Bot 一并移出本群；持锁中的轮次按非主动中断处理。再次点击确认。')
+                  : t('退出后你的 Bot 一并移出本群；运行中的轮次按非主动中断处理。再次点击确认。')
                 : undefined,
           },
         ]
@@ -301,131 +301,117 @@ function MainView({
   ]
 
   return (
-    <>
-      <ChatInfoBody
-        avatar={<GroupAvatar group={group} size={56} />}
-        name={group.name}
-        tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
-        description={
-          group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
-        }
-        shortcuts={[
-          ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
-          ...(isAdmin
-            ? [
-                ...(dm
-                  ? []
-                  : [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]),
-                { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
-              ]
-            : []),
-        ]}
-        members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
-        memberCount={group.members.length}
-        onAddMember={isAdmin ? () => setView('members', true) : undefined}
-        onShowAllMembers={() => setView('members')}
-        settings={[
-          {
-            rows: [
-              {
-                label: 'Bot',
-                description: (
-                  <span className="gs-chips">
-                    {gBots.map((b) => (
-                      <span key={b.id} className="gs-chip">
-                        <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
-                        {b.name}
-                      </span>
-                    ))}
-                  </span>
-                ),
-                value: t('{n} 个', { n: group.botIds.length }),
-                onClick: () => setView('bots'),
-              },
-              {
-                label: t('仓库与工作区'),
-                value: group.repo ? repoPath(group.repo.url) : t('未绑定'),
-                onClick: () => setView('repo'),
-              },
-              {
-                label: t('预览与服务'),
-                value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
-                onClick: () => setView('previews'),
-              },
-              {
-                label: t('定时任务'),
-                value: schedules ? t('{n} 个', { n: schedules.length }) : undefined,
-                onClick: () => setView('schedules'),
-              },
+    <ChatInfoBody
+      avatar={<GroupAvatar group={group} size={56} />}
+      name={group.name}
+      tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
+      description={
+        group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
+      }
+      shortcuts={[
+        ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
+        ...(isAdmin
+          ? [
               ...(dm
                 ? []
-                : [
-                    {
-                      label: t('群公告'),
-                      description: group.notice || undefined,
-                      value: group.noticeHidden ? t('已隐藏') : group.notice ? undefined : t('暂无'),
-                      onClick: () => setView('notices'),
-                    },
-                  ]),
-            ],
-          },
-          {
-            rows: [
-              pref(
-                'muted',
-                t('消息免打扰'),
-                t('普通消息不提醒；@我、我的 Bot 待审批、向我提问、锁轮到我仍提醒'),
+                : [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]),
+              { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
+            ]
+          : []),
+      ]}
+      members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
+      memberCount={group.members.length}
+      onAddMember={isAdmin ? () => setView('members', true) : undefined}
+      onShowAllMembers={() => setView('members')}
+      settings={[
+        {
+          rows: [
+            {
+              label: 'Bot',
+              description: (
+                <span className="gs-chips">
+                  {gBots.map((b) => (
+                    <span key={b.id} className="gs-chip">
+                      <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
+                      {b.name}
+                    </span>
+                  ))}
+                </span>
               ),
-              pref('pinned', t('置顶群')),
-              pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
-            ],
-          },
-          {
-            title: dm ? t('设置') : t('群管理'),
-            note: dm
-              ? undefined
-              : isAdmin
-                ? t('你是群管理员')
-                : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
-            rows: [
-              ...(dm ? [] : [manage(t('群名称与公告'), group.name, () => setView('info'))]),
-              manage(
-                t('仓库与基准分支'),
-                <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? t('未绑定')}</span>,
-                () => onSettings('repo'),
-              ),
-              group.mode === 'force'
-                ? { label: t('同步模式'), value: GROUP_MODE_LABEL.force, onClick: () => setSyncOpen(true) }
-                : manage(t('同步模式'), GROUP_MODE_LABEL[group.mode], () => onSettings('mode')),
-              paramsFailed
-                ? {
-                    label: t('群级参数'),
-                    value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
-                  }
-                : manage(t('群级参数'), params ? paramsSummary(params) : '', () => onSettings('params')),
-            ],
-          },
-        ]}
-        danger={danger}
-      />
-      <Presence>
-        {syncOpen ? (
-          <SyncPanel
-            groupId={group.id}
-            isAdmin={isAdmin}
-            onSettings={
-              isAdmin
-                ? () => {
-                    setSyncOpen(false)
-                    onSettings('mode')
-                  }
-                : undefined
-            }
-            onClose={() => setSyncOpen(false)}
-          />
-        ) : null}
-      </Presence>
-    </>
+              value: t('{n} 个', { n: group.botIds.length }),
+              onClick: () => setView('bots'),
+            },
+            {
+              label: t('仓库与工作区'),
+              value: group.repo ? repoPath(group.repo.url) : t('未绑定'),
+              onClick: () => setView('repo'),
+            },
+            ...(group.mode === 'force'
+              ? [
+                  {
+                    label: t('同步状态'),
+                    value: sync
+                      ? `v${sync.headVersion} · ${t('{a}/{b} 一致', { a: sync.consistent, b: sync.total })}`
+                      : undefined,
+                    onClick: () => openSyncPanel(group.id),
+                  },
+                ]
+              : []),
+            {
+              label: t('预览与服务'),
+              value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
+              onClick: () => setView('previews'),
+            },
+            {
+              label: t('定时任务'),
+              value: schedules ? t('{n} 个', { n: schedules.length }) : undefined,
+              onClick: () => setView('schedules'),
+            },
+            ...(dm
+              ? []
+              : [
+                  {
+                    label: t('群公告'),
+                    description: group.notice || undefined,
+                    value: group.noticeHidden ? t('已隐藏') : group.notice ? undefined : t('暂无'),
+                    onClick: () => setView('notices'),
+                  },
+                ]),
+          ],
+        },
+        {
+          rows: [
+            pref('muted', t('消息免打扰'), t('普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒')),
+            pref('pinned', t('置顶群')),
+            pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
+          ],
+        },
+        {
+          title: dm ? t('设置') : t('群管理'),
+          note: dm
+            ? undefined
+            : isAdmin
+              ? t('你是群管理员')
+              : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
+          rows: [
+            ...(dm ? [] : [manage(t('群名称与公告'), group.name, () => setView('info'))]),
+            manage(
+              t('仓库与基准分支'),
+              <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? t('未绑定')}</span>,
+              () => onSettings('repo'),
+            ),
+            manage(t('同步模式'), GROUP_MODE_LABEL[group.mode], () => onSettings('mode')),
+            paramsFailed
+              ? {
+                  label: t('群级参数'),
+                  value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
+                }
+              : manage(t('群级参数'), params ? paramsSummary(params) : '', () => onSettings('params')),
+          ],
+        },
+      ]}
+      danger={danger}
+    />
   )
 }
 
@@ -508,12 +494,12 @@ function MembersView({
             )
           })}
       </GroupBox>
-      <div className="gs-foot">{t('移出成员时，其 Bot 一并移出；持锁中的 Bot 按非主动中断处理。')}</div>
+      <div className="gs-foot">{t('移出成员时，其 Bot 一并移出；运行中的 Bot 按非主动中断处理。')}</div>
       <Presence>
         {removing ? (
           <ConfirmRemove
             title={t('移出成员 {name}', { name: removing.name })}
-            desc={t('其 Bot 一并移出本群；持锁中的 Bot 按非主动中断处理。')}
+            desc={t('其 Bot 一并移出本群；运行中的 Bot 按非主动中断处理。')}
             onClose={() => setRemoving(null)}
             onConfirm={() =>
               removeWithToast(() => groupsApi.removeMember(group.id, removing.userId), removing.name)

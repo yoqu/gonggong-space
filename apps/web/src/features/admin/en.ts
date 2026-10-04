@@ -6,7 +6,7 @@ export default {
   '该页面正在开发中。': 'This page is under construction.',
   全部: 'All',
   审批: 'Approvals',
-  锁与同步: 'Lock & sync',
+  同步: 'Sync',
   管理: 'Admin',
   运行: 'Runs',
   系统: 'System',
@@ -16,8 +16,8 @@ export default {
   操作人: 'Actor',
   摘要: 'Summary',
   详情: 'Details',
-  '审批、提问、锁与同步事件、管理员操作，永久保存。':
-    'Approvals, questions, lock and sync events, and admin actions, kept permanently.',
+  '审批、提问、同步事件、管理员操作，永久保存。':
+    'Approvals, questions, sync events and admin actions, kept permanently.',
   '已载入 {n} 条': '{n} loaded',
   搜索审计记录: 'Search audit log',
   '搜索摘要、群或操作人': 'Search summary, group or actor',
@@ -89,7 +89,6 @@ export default {
   '公开链接#nav': 'Public links',
   'Bot 预览的外部公开链接：到期或收回后立即失效，访问记入审计。':
     'Public links to Bot previews: they stop working once expired or revoked, and every visit is audited.',
-  同步与锁: 'Sync & lock',
   运行与会话: 'Runs & sessions',
   '附件#nav': 'Attachments',
   机器连接: 'Machine connections',
@@ -159,8 +158,8 @@ export default {
   '立即吊销其所有 daemon token 和 Web 会话': 'Immediately revokes all their daemon tokens and web sessions',
   'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）':
     'The daemon wipes team keys and managed workspaces after its next failed connection (best effort, not guaranteed)',
-  '其 Bot 从所有群移除；持锁中的 Bot 按非主动中断处理':
-    'Their Bots are removed from every group; a Bot holding the lock is treated as interrupted',
+  '其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理':
+    'Their Bots are removed from every group; a running Bot is treated as interrupted',
   群消息与审计记录保留: 'Group messages and audit records are kept',
   停用: 'Disable',
   '已停用 {name}': 'Disabled {name}',
