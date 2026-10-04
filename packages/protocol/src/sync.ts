@@ -82,9 +82,11 @@ export const SyncApplied = z.object({
 /**
  * Why a replica stopped taking versions: `drift` = local edits found (F12), `held` = a conflict waits for a decision
  * (F11), `dirty` = uncommitted git changes at the mode switch (not participating), `error` = a cross-platform or size
- * limit was hit (F17, F18; `reason` in the daemon's words). `files` = the paths concerned, at most SYNC_FILES_MAX.
+ * limit was hit (F17, F18; `reason` in the daemon's words), `lost` = the daemon has no sync state for a replica the
+ * server counts as joined (home wiped, reinstalled): the server realigns it. `files` = the paths concerned, at most
+ * SYNC_FILES_MAX.
  */
-export const SyncReplicaIssue = z.enum(['drift', 'held', 'dirty', 'error'])
+export const SyncReplicaIssue = z.enum(['drift', 'held', 'dirty', 'error', 'lost'])
 export type SyncReplicaIssue = z.infer<typeof SyncReplicaIssue>
 export const SyncState = z.object({
   t: z.literal('sync.state'),

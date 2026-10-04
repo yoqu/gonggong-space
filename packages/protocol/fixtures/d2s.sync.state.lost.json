@@ -1,0 +1,9 @@
+{
+  "t": "sync.state",
+  "groupId": "g1",
+  "botId": "b1",
+  "state": "lost",
+  "files": [],
+  "total": 0,
+  "reason": null
+}

@@ -998,6 +998,7 @@ pub enum SyncReplicaIssue {
     Held,
     Dirty,
     Error,
+    Lost,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

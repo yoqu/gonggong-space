@@ -148,7 +148,7 @@ impl Replicas {
             }
             Some(SyncReplicaIssue::Drift | SyncReplicaIssue::Dirty) => return Err(Refusal::Wait(SyncWaitIssue::Drift)),
             // Its own turn's changes that could not be submitted: this turn's submit carries them again.
-            Some(SyncReplicaIssue::Error) => {}
+            Some(SyncReplicaIssue::Error | SyncReplicaIssue::Lost) => {}
             None if self.drifted(&replica, out).await? => return Err(Refusal::Wait(SyncWaitIssue::Drift)),
             None => {}
         }
