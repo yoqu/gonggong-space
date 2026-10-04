@@ -7,9 +7,11 @@ import {
   RunDone,
   RunStart,
   ServerToDaemon,
+  SYNC_SUBMIT_CHANGES_MAX,
   SyncChange,
   type SyncEntry,
   SyncPath,
+  SyncSubmit,
   syncRootText,
   WebEvent,
 } from '../src/index.js'
@@ -23,7 +25,20 @@ const H = 'a'.repeat(64)
 
 describe('sync paths', () => {
   it('accepts posix paths relative to the workspace root', () => {
-    for (const p of ['a.txt', 'src/main.rs', '.github/ci.yml', 'docs/中文.md', 'a..b/c'])
+    for (const p of [
+      'a.txt',
+      'src/main.rs',
+      '.github/ci.yml',
+      'docs/中文.md',
+      'a..b/c',
+      'console.txt',
+      'com10',
+      'lpt0.txt',
+      'a/.gonggong/x',
+      '.gitignore',
+      'git~x',
+      '.git2',
+    ])
       expect(SyncPath.safeParse(p).success, p).toBe(true)
   })
 
@@ -42,6 +57,57 @@ describe('sync paths', () => {
       '.git/config',
     ])
       expect(SyncPath.safeParse(p).success, JSON.stringify(p)).toBe(false)
+  })
+
+  it('rejects names some platform cannot hold or that alias .git / the daemon state (F4, F17)', () => {
+    for (const p of [
+      'c:x',
+      'a/b:stream',
+      'a\tb',
+      'a\x1fb',
+      'a\x7fb',
+      'a/b.',
+      'a/b ',
+      'dir./x',
+      'CON',
+      'con.txt',
+      'src/Aux.c',
+      'NUL.tar.gz',
+      'com1',
+      'COM9.log',
+      'lpt5.txt',
+      'prn .txt',
+      '.GIT/config',
+      'x/.Git',
+      '.git.',
+      '.git ',
+      '.git../x',
+      'GIT~1/config',
+      'a/git~12',
+      '.g\u200cit/config',
+      '.gonggong/state.json',
+      '.GongGong',
+    ])
+      expect(SyncPath.safeParse(p).success, JSON.stringify(p)).toBe(false)
+  })
+})
+
+describe('sync submit', () => {
+  it('caps the changes per submit', () => {
+    const change = { path: 'a', hash: H, exec: false, baseHash: null }
+    const msg = (n: number) => ({
+      t: 'sync.submit',
+      groupId: 'g',
+      botId: 'b',
+      submitId: '00000000-0000-4000-8000-000000000000',
+      runId: null,
+      baseVersion: 0,
+      kind: 'run',
+      merged: false,
+      changes: Array.from({ length: n }, () => change),
+    })
+    expect(SyncSubmit.safeParse(msg(SYNC_SUBMIT_CHANGES_MAX)).success).toBe(true)
+    expect(SyncSubmit.safeParse(msg(SYNC_SUBMIT_CHANGES_MAX + 1)).success).toBe(false)
   })
 })
 

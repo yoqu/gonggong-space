@@ -106,7 +106,7 @@ describe('applied and status', () => {
       version: 1,
       state: 'consistent',
     })
-    expect(by(w.b.id)).toMatchObject({ state: 'drift', version: 1 })
+    expect(by(w.b.id)).toMatchObject({ state: 'error', version: 1 })
     expect(by(w.b.id).reason).toContain('v1')
     expect(by(w.c.id)).toMatchObject({ state: 'syncing', version: null })
   })

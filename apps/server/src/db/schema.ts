@@ -212,8 +212,8 @@ export const groups = pgTable('groups', {
   noticeId: uuid('notice_id'),
   /** 'partition' | 'force' (P2) */
   mode: text('mode').notNull().default('partition'),
-  /** Switching to force (§3.5): who started it with which base bot, until the base's tree is in; new turns wait. */
-  syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string }>(),
+  /** Switching to force (§3.5): who started it when with which base bot, until the base's tree is in; new turns wait. */
+  syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string; at?: string }>(),
   /** Switched back to partition: the group's sync data is purged 30 days later unless force is enabled again. */
   syncArchivedAt: ts('sync_archived_at'),
   /** Per-group overrides of system params, e.g. { approvalTimeoutMin: 30, chainMaxHops: 3 }. */
@@ -475,7 +475,11 @@ export const runs = pgTable(
     /** Force group: RunSyncDone as reported with run.done. */
     sync: jsonb('sync').$type<RunSyncDone>(),
   },
-  (t) => [index('runs_bot_status').on(t.botId, t.status), index('runs_group').on(t.groupId)],
+  (t) => [
+    index('runs_bot_status').on(t.botId, t.status),
+    index('runs_group').on(t.groupId),
+    index('runs_group_bot_ended').on(t.groupId, t.botId, t.endedAt),
+  ],
 )
 
 /** Full run process (thoughts, tool calls, output, diffs). Redacted; purged after retention. */

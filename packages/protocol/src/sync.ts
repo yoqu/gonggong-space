@@ -8,21 +8,33 @@ export const SYNC_VERSION_MAX_BYTES = 200 * 1024 * 1024
 export const SYNC_CHANGED_MAX = 20
 /** Paths a sync.state report or a replica row lists; `total` tells how many there were. */
 export const SYNC_FILES_MAX = 50
+/** Changes per sync.submit (a whole tree at the mode switch included). */
+export const SYNC_SUBMIT_CHANGES_MAX = 100_000
 /** Hashes per POST …/blobs/missing. */
 export const SYNC_MISSING_MAX = 1000
 
 /** sha256 of a file's bytes, lowercase hex: the blob's address. */
 export const SyncHash = z.string().regex(/^[0-9a-f]{64}$/)
-/** Relative to the workspace root, `/`-separated, canonical; `.git` is never synced (F4). */
+/** Windows device names, reserved with any extension (`con.txt`, `com1 .log`). */
+const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/
+/** Code points HFS+ ignores in names, so `.g\u200cit` is `.git` on macOS. */
+const IGNORABLE = /[\u200b-\u200f\u202a-\u202e\u206a-\u206f\ufeff]/g
+function syncSegmentOk(s: string, i: number) {
+  if (s === '' || /[. ]$/.test(s)) return false
+  const name = s.replace(IGNORABLE, '').toLowerCase()
+  if (name === '.git' || /^git~\d+$/.test(name) || (i === 0 && name === '.gonggong')) return false
+  return !WIN_RESERVED.test((name.split('.')[0] ?? '').trimEnd())
+}
+/**
+ * Relative to the workspace root, `/`-separated, canonical, and valid on every platform (F17): no `\\`, `:` or control
+ * characters, no segment ending in `.` or a space, no Windows device name. `.git` (in any spelling a filesystem
+ * folds to it) is never synced (F4), nor the daemon's own `.gonggong` directory at the root.
+ */
+const syncPathChar = (c: string) => c !== '\\' && c !== ':' && c > '\x1f' && c !== '\x7f'
 export const SyncPath = z
   .string()
   .min(1)
-  .refine(
-    (p) =>
-      !/[\\\0]/.test(p) &&
-      p.split('/').every((s) => s !== '' && s !== '.' && s !== '..' && s.toLowerCase() !== '.git'),
-    { message: '路径无效' },
-  )
+  .refine((p) => [...p].every(syncPathChar) && p.split('/').every(syncSegmentOk), { message: '路径无效' })
 /** A path's state in a version: `hash` null = deleted. */
 export const SyncEntry = z.object({ path: SyncPath, hash: SyncHash.nullable(), exec: z.boolean() })
 export type SyncEntry = z.infer<typeof SyncEntry>
@@ -68,7 +80,7 @@ export const SyncSubmit = z.object({
   baseVersion: z.number().int().min(0),
   kind: SyncSubmitKind,
   merged: z.boolean(),
-  changes: z.array(SyncChange),
+  changes: z.array(SyncChange).max(SYNC_SUBMIT_CHANGES_MAX),
 })
 export type SyncSubmit = z.infer<typeof SyncSubmit>
 /** The replica now matches `version`; the server compares `rootHash` with that version's tree (F14). */
@@ -221,6 +233,8 @@ export const SyncReplicaState = z.enum([
   'behind',
   'drift',
   'conflict',
+  /** Not taking versions after a failure (cross-platform or size limit, root hash mismatch, F14, F17, F18). */
+  'error',
   'excluded',
   'offline',
 ])

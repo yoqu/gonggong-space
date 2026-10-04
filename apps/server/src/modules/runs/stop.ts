@@ -8,7 +8,7 @@ import {
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groups, messages, notifications, runs, teams, users } from '../../db/schema.js'
+import { bots, groups, messages, notifications, runs, syncReplicas, teams, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
@@ -241,7 +241,21 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     })
   if ((run.sync as RunSyncDone | null)?.outcome === 'stopped') {
     // Force group (F21): the daemon submits the changes as a version (kind interrupted) or backs them up and rolls
-    // back to the head, reporting like settled local edits.
+    // back to the head, reporting like settled local edits. Once the replica no longer syncs (back to partition, left)
+    // neither applies and the files stay as they are; the partition discard has no snapshot of a force turn.
+    const [synced] = await ctx.db
+      .select({ botId: syncReplicas.botId })
+      .from(syncReplicas)
+      .innerJoin(groups, eq(groups.id, syncReplicas.groupId))
+      .where(
+        and(
+          eq(syncReplicas.groupId, run.groupId),
+          eq(syncReplicas.botId, run.botId),
+          eq(groups.mode, 'force'),
+          isNotNull(syncReplicas.joinedAt),
+        ),
+      )
+    if (!synced) return fail('conflict', '该 Bot 已不在强制同步中，本轮改动留在工作区')
     const action = { kind: 'drift', choice: choice === 'keep' ? 'submit' : 'discard' } as const
     const msg = { t: 'sync.action', groupId: run.groupId, botId: run.botId, action } as const
     if (!machineId || !ctx.hub.send(machineId, msg)) return fail('conflict', 'Bot 所在机器离线，上线后再处理')

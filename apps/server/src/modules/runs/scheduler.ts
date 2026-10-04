@@ -111,6 +111,8 @@ export async function schedule(ctx: Ctx, botId: string) {
             status: 'running',
             step: '',
             startedAt: ctx.now(),
+            // A requeued turn's waiting reason is over.
+            sync: null,
             ...start.config,
             // Known up front so the live round already starts its own session; run.done may refine it.
             newSessionReason: start.msg.resumeSessionId ? null : (start.msg.newSessionReason ?? 'first'),
@@ -221,6 +223,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
   const config = resolveConfig(await botCatalog(tx, bot), meta.runOptions?.[bot.id], gb, bot)
   const note = [
     ...(interrupted ? [interrupted.note] : []),
+    ...(run.parentRunId ? await relayNote(tx, run.parentRunId, trigger.at.toISOString()) : []),
     ...(meta.scheduleOf ? [await scheduleNote(tx, meta.scheduleOf, trigger.at.toISOString())] : []),
   ]
   const msg: RunStart = {
@@ -267,6 +270,22 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
     sync: synced ? await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
+}
+
+/** A relay hop whose previous hop's changes did not make it into a version is told so (F10); the chain goes on. */
+async function relayNote(tx: Tx, parentRunId: string, at: string): Promise<ContextMessage[]> {
+  const [parent] = await tx.select({ sync: runs.sync }).from(runs).where(eq(runs.id, parentRunId))
+  const s = parent?.sync
+  const why =
+    s?.outcome === 'error'
+      ? `its submit failed (${s.reason})`
+      : s?.outcome === 'held'
+        ? `${s.files} file(s) conflict with a newer version and wait for a decision`
+        : null
+  if (!why) return []
+  // Agent-facing: not translated.
+  const body = `The previous relay hop's changes were not synced: ${why}. They are not in your workspace; check before relying on them.`
+  return [{ seq: 0, author: '共工空间', kind: 'user', body, at, attachments: [] }]
 }
 
 /** Tells the agent its turn came from a scheduled task, so it can retire the task once it is no longer needed. */

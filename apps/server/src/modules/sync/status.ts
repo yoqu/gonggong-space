@@ -30,7 +30,7 @@ export const SYNCING_MS = 60_000
 
 /**
  * F14, in order: not managed or on a daemon that cannot sync → excluded; not joined → syncing / offline while its sync.init is due, else excluded;
- * machine offline → offline; held → conflict; drift or error (limits, root hash mismatch) → drift; at head →
+ * machine offline → offline; held → conflict; error (limits, root hash mismatch) → error; drift → drift; at head →
  * consistent; else syncing while the head is fresh, behind after.
  */
 function replicaState(
@@ -49,12 +49,18 @@ function replicaState(
   if (!o.joined) return o.pending ? (o.online ? 'syncing' : 'offline') : 'excluded'
   if (!o.online) return 'offline'
   if (o.issue === 'held') return 'conflict'
+  if (o.issue === 'error') return 'error'
   if (o.issue) return 'drift'
   if (o.version === head.version) return 'consistent'
   return head.fresh ? 'syncing' : 'behind'
 }
 
 export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusDto> {
+  return (await statusOf(ctx, groupId)).dto
+}
+
+/** The status, and when the head stops being fresh while a replica shows syncing (it may turn behind then). */
+async function statusOf(ctx: Ctx, groupId: string) {
   const [rows, [head], [group]] = await Promise.all([
     ctx.db
       .select({
@@ -104,7 +110,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
           managed,
           outdated,
           joined: !!r.replica?.joinedAt,
-          pending: !!r.replica?.pending,
+          pending: !!r.replica?.pending && r.replica.pending !== 'leave',
           online: !!r.machineId && ctx.hub.isOnline(r.machineId),
           issue,
           version: r.replica?.version ?? null,
@@ -117,7 +123,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
       reason: outdated ? t('daemon 版本过旧，请升级') : issue ? (r.replica?.reason ?? null) : null,
     }
   })
-  return {
+  const dto: SyncStatusDto = {
     groupId,
     headVersion: h.version,
     consistent: replicas.filter((r) => r.state === 'consistent').length,
@@ -125,14 +131,35 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
     switching: !!group?.syncSwitch,
     replicas,
   }
+  const turns = head && h.fresh && replicas.some((r) => r.state === 'syncing')
+  return { dto, behindAt: turns ? head.createdAt.getTime() + SYNCING_MS : null }
+}
+
+/** Per group: the push due when the head stops being fresh (F14: a lagging replica turns behind, nothing else tells). */
+const behindTimers = new Map<string, NodeJS.Timeout>()
+export function stopSyncTimers() {
+  for (const timer of behindTimers.values()) clearTimeout(timer)
+  behindTimers.clear()
 }
 
 /** Pushes `group.sync` to the members of a force group. */
 export async function publishSync(ctx: Ctx, groupId: string) {
+  clearTimeout(behindTimers.get(groupId))
+  behindTimers.delete(groupId)
   const [g] = await ctx.db.select({ mode: groups.mode }).from(groups).where(eq(groups.id, groupId))
   if (g?.mode !== 'force') return
-  const dto = await syncStatus(ctx, groupId)
+  const { dto, behindAt } = await statusOf(ctx, groupId)
   ctx.bus.publish(await memberIds(ctx, groupId), { t: 'group.sync', ...dto })
+  if (behindAt === null) return
+  const timer = setTimeout(
+    () => {
+      behindTimers.delete(groupId)
+      publishSync(ctx, groupId).catch((err) => console.error('sync status:', err))
+    },
+    Math.max(0, behindAt - ctx.now().getTime()) + 50,
+  )
+  timer.unref()
+  behindTimers.set(groupId, timer)
 }
 
 export async function syncVersionList(ctx: Ctx, groupId: string, o: { before?: number; limit: number }) {

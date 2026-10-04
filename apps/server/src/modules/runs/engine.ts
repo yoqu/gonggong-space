@@ -341,7 +341,8 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   await pushDelta(ctx, owned, tail)
   // A repeated run.done for a run that already ended: only its follow-up work is left.
   if (owned.finalizing) return finalize(ctx, owned)
-  if (done.sync?.outcome === 'waiting') return requeueRun(ctx, owned, done.sync.issue)
+  // A stopped turn that never started just ends.
+  if (done.sync?.outcome === 'waiting' && !owned.stoppedBy) return requeueRun(ctx, owned, done.sync.issue)
   const ended = await terminate(ctx, owned, done)
   if (!ended) return
   if (done.sync?.outcome === 'stopped') await pauseStopped(ctx, ended, done.sync.files)

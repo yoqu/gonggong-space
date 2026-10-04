@@ -1,5 +1,5 @@
-import type { GitStatus, SyncPreviewDto, SyncRole } from '@gonggong/protocol'
-import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import type { GitStatus, I18nText, SyncPreviewDto, SyncRole } from '@gonggong/protocol'
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
@@ -16,11 +16,12 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { activeBots, publishGroup, requireAdmin, requireMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
+import { resolveNotifications } from '../notifications/notify.js'
 import { ACTIVE, schedule } from '../runs/scheduler.js'
 import { runStep } from '../runs/step.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { publishSync } from './status.js'
-import { upsertReplica } from './store.js'
+import { closeConflicts, upsertReplica } from './store.js'
 
 // Mode switch (docs/plan/强制同步-开发计划.md §3.5): partition ⇄ force, replicas joining and leaving.
 
@@ -40,6 +41,11 @@ export function forgetMachineInits(machineId: string) {
 /** The machine is online with a daemon that cannot sync (no `sync` feature): its replicas sit out. */
 export const syncOutdated = (ctx: Ctx, machineId: string | null) =>
   !!machineId && ctx.hub.isOnline(machineId) && !ctx.hub.features(machineId).includes('sync')
+
+/** sync.init that sets a replica up (base / align, F2); 'leave' is a leave still owed to an offline machine. */
+const INITS = ['base', 'align', 'force']
+/** The base bot's tree must be in by then, or the switch fails back to partition. */
+export const SWITCH_TIMEOUT_MS = 10 * 60_000
 
 const SWITCH_WAIT = runStep('等待切换为强制同步')
 const ALIGN_WAIT = runStep('等待同步对齐')
@@ -67,7 +73,7 @@ export async function syncHeld(db: Q, botId: string) {
         eq(groups.mode, 'force'),
         or(
           isNotNull(groups.syncSwitch),
-          isNotNull(syncReplicas.pending),
+          inArray(syncReplicas.pending, INITS),
           and(isNotNull(syncReplicas.joinedAt), inArray(syncReplicas.issue, ['drift', 'held'])),
         ),
       ),
@@ -76,7 +82,7 @@ export async function syncHeld(db: Q, botId: string) {
     rows.map((r) => {
       const step = r.switching
         ? SWITCH_WAIT
-        : r.replica?.pending
+        : r.replica?.pending && INITS.includes(r.replica.pending)
           ? ALIGN_WAIT
           : r.replica?.issue === 'held'
             ? HELD_WAIT
@@ -108,7 +114,7 @@ export async function sendDueInits(ctx: Ctx, botId: string) {
     .where(
       and(
         eq(syncReplicas.botId, botId),
-        isNotNull(syncReplicas.pending),
+        inArray(syncReplicas.pending, INITS),
         isNull(groupBots.removedAt),
         eq(groupBots.workspaceKind, 'managed'),
         isNull(bots.deletedAt),
@@ -139,17 +145,41 @@ export async function sendDueInits(ctx: Ctx, botId: string) {
   }
 }
 
-function sendLeave(ctx: Ctx, groupId: string, bot: { id: string; machineId: string | null }) {
+const leaveMsg = (groupId: string, botId: string) =>
+  ({ t: 'sync.init', groupId, botId, role: 'leave', force: false, repoId: null }) as const
+
+/** Tells the machine to forget the replica's sync state; an offline one is told once it connects (sendOwedLeaves). */
+async function sendLeave(ctx: Ctx, groupId: string, bot: { id: string; machineId: string | null }) {
   const machineId = onlineMachine(ctx, bot.machineId)
-  if (machineId)
-    ctx.hub.send(machineId, {
-      t: 'sync.init',
-      groupId,
-      botId: bot.id,
-      role: 'leave',
-      force: false,
-      repoId: null,
-    })
+  if (machineId && ctx.hub.send(machineId, leaveMsg(groupId, bot.id))) return
+  await upsertReplica(ctx.db, groupId, bot.id, { pending: 'leave' })
+}
+
+/** A connected machine gets the leaves it missed while offline. */
+export async function sendOwedLeaves(ctx: Ctx, machineId: string) {
+  const owed = await ctx.db
+    .select({ groupId: syncReplicas.groupId, botId: syncReplicas.botId })
+    .from(syncReplicas)
+    .innerJoin(bots, eq(bots.id, syncReplicas.botId))
+    .where(and(eq(bots.machineId, machineId), eq(syncReplicas.pending, 'leave')))
+  for (const r of owed)
+    if (ctx.hub.send(machineId, leaveMsg(r.groupId, r.botId)))
+      await ctx.db
+        .update(syncReplicas)
+        .set({ pending: null })
+        .where(
+          and(
+            eq(syncReplicas.groupId, r.groupId),
+            eq(syncReplicas.botId, r.botId),
+            eq(syncReplicas.pending, 'leave'),
+          ),
+        )
+}
+
+/** Closing a replica's conflicts and local edits settles what its notifications asked about. */
+async function settleNotices(ctx: Ctx, groupId: string, conflictIds: string[], botIds: string[]) {
+  await resolveNotifications(ctx, 'sync_conflict', 'conflictId', conflictIds)
+  await resolveNotifications(ctx, 'sync_drift', 'botId', botIds, groupId)
 }
 
 const LEFT: Partial<typeof syncReplicas.$inferInsert> = {
@@ -245,13 +275,22 @@ export async function enableSync(ctx: Ctx, userId: string, groupId: string, base
   await ctx.db.transaction(async (tx) => {
     await tx
       .update(groups)
-      .set({ mode: 'force', syncSwitch: { userId, botId: baseBotId }, syncArchivedAt: null })
+      .set({
+        mode: 'force',
+        syncSwitch: { userId, botId: baseBotId, at: ctx.now().toISOString() },
+        syncArchivedAt: null,
+      })
       .where(eq(groups.id, groupId))
-    // A previous force period's replicas start over; its versions stay as history.
+    // A previous force period's replicas start over; its versions stay as history. Owed leaves stay owed.
     await tx
       .update(syncReplicas)
       .set({ ...LEFT, version: null, rootHash: null })
-      .where(eq(syncReplicas.groupId, groupId))
+      .where(
+        and(
+          eq(syncReplicas.groupId, groupId),
+          or(isNull(syncReplicas.pending), ne(syncReplicas.pending, 'leave')),
+        ),
+      )
     await tx
       .update(syncConflicts)
       .set({ resolvedAt: ctx.now() })
@@ -271,8 +310,18 @@ export async function enableSync(ctx: Ctx, userId: string, groupId: string, base
   await sendDueInits(ctx, baseBotId)
 }
 
-/** Ends the switch once, returning who started it with which base; null when it was already over. */
-async function endSwitch(ctx: Ctx, groupId: string, set: Partial<typeof groups.$inferInsert> = {}) {
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
+
+/**
+ * Ends the switch once, with `then` in the same transaction; returns who started it with which base, null when it was
+ * already over.
+ */
+async function endSwitch(
+  ctx: Ctx,
+  groupId: string,
+  set: Partial<typeof groups.$inferInsert>,
+  then: (tx: Tx) => Promise<unknown>,
+) {
   return ctx.db.transaction(async (tx) => {
     const [g] = await tx
       .select({ syncSwitch: groups.syncSwitch })
@@ -284,6 +333,7 @@ async function endSwitch(ctx: Ctx, groupId: string, set: Partial<typeof groups.$
       .update(groups)
       .set({ syncSwitch: null, ...set })
       .where(eq(groups.id, groupId))
+    await then(tx)
     return g.syncSwitch
   })
 }
@@ -294,22 +344,23 @@ async function endSwitch(ctx: Ctx, groupId: string, set: Partial<typeof groups.$
  */
 export async function onBaseAccepted(ctx: Ctx, groupId: string, botId: string) {
   forgetInit(groupId, botId)
-  const by = await endSwitch(ctx, groupId)
+  const by = await endSwitch(ctx, groupId, {}, async (tx) => {
+    const others = await tx
+      .select({ botId: groupBots.botId })
+      .from(groupBots)
+      .innerJoin(bots, eq(bots.id, groupBots.botId))
+      .where(
+        and(
+          eq(groupBots.groupId, groupId),
+          isNull(groupBots.removedAt),
+          isNull(bots.deletedAt),
+          eq(groupBots.workspaceKind, 'managed'),
+          sql`${groupBots.botId} <> ${botId}`,
+        ),
+      )
+    for (const o of others) await upsertReplica(tx, groupId, o.botId, { pending: 'align' })
+  })
   if (!by) return
-  const others = await ctx.db
-    .select({ botId: groupBots.botId })
-    .from(groupBots)
-    .innerJoin(bots, eq(bots.id, groupBots.botId))
-    .where(
-      and(
-        eq(groupBots.groupId, groupId),
-        isNull(groupBots.removedAt),
-        isNull(bots.deletedAt),
-        eq(groupBots.workspaceKind, 'managed'),
-        sql`${groupBots.botId} <> ${botId}`,
-      ),
-    )
-  for (const o of others) await upsertReplica(ctx.db, groupId, o.botId, { pending: 'align' })
   const [base] = await ctx.db.select({ name: bots.name }).from(bots).where(eq(bots.id, botId))
   await postEvent(ctx, groupId, '{user} 将同步模式切换为强制同步，基准 Bot：{bot}', {
     user: await userName(ctx, by.userId),
@@ -319,16 +370,58 @@ export async function onBaseAccepted(ctx: Ctx, groupId: string, botId: string) {
   await rescheduleGroup(ctx, groupId)
 }
 
-/** The base could not submit its tree: the group goes back to partition mode. */
-export async function onBaseFailed(ctx: Ctx, groupId: string, botId: string, reason: string | null) {
+/**
+ * The base could not submit its tree (it reported why, left the group, or `timedOut`): the group goes back to
+ * partition mode.
+ */
+export async function onBaseFailed(
+  ctx: Ctx,
+  groupId: string,
+  botId: string,
+  reason: string | I18nText | null,
+  timedOut = false,
+) {
   forgetInit(groupId, botId)
-  if (!(await endSwitch(ctx, groupId, { mode: 'partition', syncArchivedAt: ctx.now() }))) return
-  await ctx.db.update(syncReplicas).set({ pending: null }).where(eq(syncReplicas.groupId, groupId))
-  await postEvent(ctx, groupId, '切换为强制同步失败，仍为分区模式：{reason}', {
-    reason: reason ?? { key: '未知错误' },
-  })
+  const ended = await endSwitch(ctx, groupId, { mode: 'partition', syncArchivedAt: ctx.now() }, (tx) =>
+    tx
+      .update(syncReplicas)
+      .set({ pending: null })
+      .where(and(eq(syncReplicas.groupId, groupId), inArray(syncReplicas.pending, INITS))),
+  )
+  if (!ended) return
+  if (timedOut) await postEvent(ctx, groupId, '基准 Bot 未能在 10 分钟内完成首版，已退回分区模式')
+  else
+    await postEvent(ctx, groupId, '切换为强制同步失败，仍为分区模式：{reason}', {
+      reason: reason ?? { key: '未知错误' },
+    })
   await publishGroup(ctx, groupId)
   await rescheduleGroup(ctx, groupId)
+}
+
+/** Switches whose base has not submitted its tree within SWITCH_TIMEOUT_MS fail back to partition (§3.5). */
+export async function expireSwitches(ctx: Ctx) {
+  const cutoff = new Date(ctx.now().getTime() - SWITCH_TIMEOUT_MS).toISOString()
+  const due = await ctx.db
+    .select({ id: groups.id, syncSwitch: groups.syncSwitch })
+    .from(groups)
+    .where(
+      and(
+        isNotNull(groups.syncSwitch),
+        sql`coalesce((${groups.syncSwitch}->>'at')::timestamptz, '-infinity') < ${cutoff}::timestamptz`,
+      ),
+    )
+  for (const g of due) if (g.syncSwitch) await onBaseFailed(ctx, g.id, g.syncSwitch.botId, null, true)
+}
+
+/** The base bot left the group or was deleted mid-switch: the switch cannot finish. */
+async function baseLeft(ctx: Ctx, groupIds: string[], botIds: string[]) {
+  if (!groupIds.length) return
+  const hit = await ctx.db
+    .select({ id: groups.id, syncSwitch: groups.syncSwitch })
+    .from(groups)
+    .where(and(inArray(groups.id, groupIds), inArray(sql`${groups.syncSwitch}->>'botId'`, botIds)))
+  for (const g of hit)
+    if (g.syncSwitch) await onBaseFailed(ctx, g.id, g.syncSwitch.botId, { key: '基准 Bot 已离开群' })
 }
 
 /** An aligning replica answered (applied or a report): its runs may go, a late joiner catches up past its version. */
@@ -344,7 +437,7 @@ export async function onAligned(ctx: Ctx, groupId: string, botId: string) {
 export async function disableSync(ctx: Ctx, userId: string, groupId: string) {
   const { group } = await requireAdmin(ctx, groupId, userId)
   if (group.mode !== 'force') return fail('conflict', '群不是强制同步模式')
-  await ctx.db.transaction(async (tx) => {
+  const closed = await ctx.db.transaction(async (tx) => {
     await tx
       .update(groups)
       .set({ mode: 'partition', syncSwitch: null, syncArchivedAt: ctx.now() })
@@ -353,6 +446,11 @@ export async function disableSync(ctx: Ctx, userId: string, groupId: string) {
       .update(syncReplicas)
       .set({ joinedAt: null, pending: null })
       .where(eq(syncReplicas.groupId, groupId))
+    return tx
+      .update(syncConflicts)
+      .set({ resolvedAt: ctx.now() })
+      .where(and(eq(syncConflicts.groupId, groupId), isNull(syncConflicts.resolvedAt)))
+      .returning({ id: syncConflicts.id })
   })
   forgetGroup(groupId)
   const hosted = await ctx.db
@@ -360,7 +458,13 @@ export async function disableSync(ctx: Ctx, userId: string, groupId: string) {
     .from(syncReplicas)
     .innerJoin(bots, eq(bots.id, syncReplicas.botId))
     .where(eq(syncReplicas.groupId, groupId))
-  for (const bot of hosted) sendLeave(ctx, groupId, bot)
+  for (const bot of hosted) await sendLeave(ctx, groupId, bot)
+  await settleNotices(
+    ctx,
+    groupId,
+    closed.map((c) => c.id),
+    hosted.map((b) => b.id),
+  )
   await postEvent(ctx, groupId, '{user} 将同步模式切回分区模式，各 Bot 保留当前文件', {
     user: await userName(ctx, userId),
   })
@@ -439,38 +543,60 @@ export async function autoAlign(ctx: Ctx, groupId: string, botId: string) {
       ),
     )
   const r = row?.replica
-  if (!row || r?.joinedAt || r?.pending || r?.issue) return
+  if (!row || r?.joinedAt || (r?.pending && r.pending !== 'leave') || r?.issue) return
   await upsertReplica(ctx.db, groupId, botId, { pending: 'align' })
   await publishSync(ctx, groupId)
 }
 
 /** The bot left the group: its replica stops syncing and its machine forgets the sync state. */
 export async function leaveReplica(ctx: Ctx, groupId: string, bot: { id: string; machineId: string | null }) {
-  const [r] = await ctx.db
-    .update(syncReplicas)
-    .set(LEFT)
-    .where(and(eq(syncReplicas.groupId, groupId), eq(syncReplicas.botId, bot.id)))
-    .returning()
-  if (!r) return
+  await baseLeft(ctx, [groupId], [bot.id])
+  const left = await ctx.db.transaction(async (tx) => {
+    const [r] = await tx
+      .update(syncReplicas)
+      .set(LEFT)
+      .where(and(eq(syncReplicas.groupId, groupId), eq(syncReplicas.botId, bot.id)))
+      .returning()
+    return r && closeConflicts(tx, ctx.now(), groupId, [bot.id])
+  })
+  if (!left) return
   forgetInit(groupId, bot.id)
-  sendLeave(ctx, groupId, bot)
+  await sendLeave(ctx, groupId, bot)
+  await settleNotices(ctx, groupId, left, [bot.id])
   await publishSync(ctx, groupId)
 }
 
 /** The bots were deleted: their replicas stop syncing everywhere, their open conflicts close, their machines forget. */
 export async function leaveBots(ctx: Ctx, botIds: string[]) {
   if (!botIds.length) return
-  const left = await ctx.db.transaction(async (tx) => {
-    await tx
+  const switching = await ctx.db
+    .select({ groupId: syncReplicas.groupId })
+    .from(syncReplicas)
+    .where(and(inArray(syncReplicas.botId, botIds), eq(syncReplicas.pending, 'base')))
+  await baseLeft(
+    ctx,
+    switching.map((r) => r.groupId),
+    botIds,
+  )
+  const { left, closed } = await ctx.db.transaction(async (tx) => {
+    const closed = await tx
       .update(syncConflicts)
       .set({ resolvedAt: ctx.now() })
       .where(and(inArray(syncConflicts.botId, botIds), isNull(syncConflicts.resolvedAt)))
-    return tx
+      .returning({ id: syncConflicts.id })
+    const left = await tx
       .update(syncReplicas)
       .set(LEFT)
       .where(inArray(syncReplicas.botId, botIds))
       .returning({ groupId: syncReplicas.groupId, botId: syncReplicas.botId })
+    return { left, closed }
   })
+  await resolveNotifications(
+    ctx,
+    'sync_conflict',
+    'conflictId',
+    closed.map((c) => c.id),
+  )
   const machineOf = new Map(
     (
       await ctx.db
@@ -481,7 +607,8 @@ export async function leaveBots(ctx: Ctx, botIds: string[]) {
   )
   for (const r of left) {
     forgetInit(r.groupId, r.botId)
-    sendLeave(ctx, r.groupId, { id: r.botId, machineId: machineOf.get(r.botId) ?? null })
+    await sendLeave(ctx, r.groupId, { id: r.botId, machineId: machineOf.get(r.botId) ?? null })
+    await resolveNotifications(ctx, 'sync_drift', 'botId', [r.botId], r.groupId)
   }
   for (const groupId of new Set(left.map((r) => r.groupId))) await publishSync(ctx, groupId)
 }

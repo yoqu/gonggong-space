@@ -1,12 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readdir, rename, rm, stat, unlink } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm, stat, unlink, utimes } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PassThrough, type Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
 import { SYNC_FILE_MAX_BYTES } from '@gonggong/protocol'
-import { and, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm'
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groups, syncChanges, syncConflicts, syncHead, syncReplicas, syncVersions } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
@@ -14,9 +14,11 @@ import { isUuid } from '../../lib/ids.js'
 import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
 import { dataDir } from '../attachments/service.js'
 
-/** F16: blobs referenced by versions of the last 30 days are kept (merge bases); uploads get a day to be submitted. */
+/** F16: content live in the head within the last 30 days is kept (merge bases); uploads get a day to be submitted. */
 const KEEP_MS = 30 * 86_400_000
 const UPLOAD_GRACE_MS = 86_400_000
+/** Sealed bytes a group may store; an object so tests can lower it. */
+export const blobQuota = { bytes: 5 * 1024 ** 3 }
 /** git's heuristic: a NUL byte in the first 8000 bytes means binary. */
 const SNIFF = 8000
 
@@ -32,6 +34,33 @@ export async function blobSize(groupId: string, hash: string) {
   }
 }
 
+/**
+ * Plaintext size like blobSize; an existing blob counts as freshly uploaded (a deduplicated upload or missing check
+ * is about to reference it, so the sweep's upload grace must not drop it first).
+ */
+export async function touchBlob(groupId: string, hash: string) {
+  const size = await blobSize(groupId, hash)
+  if (size !== null) {
+    const now = new Date()
+    await utimes(blobPath(groupId, hash), now, now).catch(() => {})
+  }
+  return size
+}
+
+/** Sealed bytes stored per group, counted once from disk, then kept up to date by uploads and sweeps. */
+const usage = new Map<string, number>()
+async function groupUsage(groupId: string) {
+  const known = usage.get(groupId)
+  if (known !== undefined) return known
+  let n = 0
+  for (const name of await readdir(groupDir(groupId)).catch(() => [] as string[]))
+    n += (await stat(join(groupDir(groupId), name)).catch(() => null))?.size ?? 0
+  usage.set(groupId, n)
+  return n
+}
+
+export class QuotaExceeded extends Error {}
+
 export const openBlob = (groupId: string, hash: string) =>
   openFile(blobPath(groupId, hash)).catch(() => fail('not_found', '文件内容不存在'))
 
@@ -40,11 +69,13 @@ export async function writeBlob(groupId: string, hash: string, body: Readable, g
   await mkdir(groupDir(groupId), { recursive: true })
   const tmp = blobPath(groupId, `.${hash}.${randomUUID()}`)
   const digest = createHash('sha256')
+  const room = blobQuota.bytes - (await groupUsage(groupId)) - FILE_OVERHEAD
   let size = 0
   const check = new Transform({
     transform(chunk: Buffer, _enc, done) {
       size += chunk.length
       if (size > SYNC_FILE_MAX_BYTES) return done(new TooLarge())
+      if (size > room) return done(new QuotaExceeded())
       digest.update(chunk)
       done(null, chunk)
     },
@@ -55,6 +86,7 @@ export async function writeBlob(groupId: string, hash: string, body: Readable, g
     await pipeline([src, ...(gzip ? [createGunzip()] : []), check, sealStream(), createWriteStream(tmp)])
     if (digest.digest('hex') !== hash) fail('invalid', '文件内容与哈希不符')
     await rename(tmp, blobPath(groupId, hash))
+    usage.set(groupId, (await groupUsage(groupId)) + size + FILE_OVERHEAD)
   } catch (e) {
     await unlink(tmp).catch(() => {})
     if (e instanceof TooLarge)
@@ -108,50 +140,65 @@ async function purgeGroup(ctx: Ctx, groupId: string) {
 }
 
 /**
- * F16: deletes blobs neither the head, a recent version, an open conflict nor a fresh upload needs, and whole
- * archives past their 30 days.
+ * Hashes the group still needs (F16): the head, content a version of the last 30 days overwrote (it was live then,
+ * a replica may still merge against it), and every side of a refused submit or an open conflict.
  */
+async function neededHashes(ctx: Ctx, groupId: string, cutoff: Date) {
+  const [live, overwritten, refused, open] = await Promise.all([
+    ctx.db.select({ hash: syncHead.hash }).from(syncHead).where(eq(syncHead.groupId, groupId)),
+    ctx.db.execute<{ hash: string }>(sql`
+      select distinct x.hash from (
+        select ${syncChanges.hash} as hash,
+          lead(${syncChanges.version}) over (partition by ${syncChanges.path} order by ${syncChanges.version}) as next
+        from ${syncChanges} where ${syncChanges.groupId} = ${groupId}
+      ) x
+      join ${syncVersions} v on v.group_id = ${groupId} and v.version = x.next
+      where x.hash is not null and v.created_at >= ${cutoff.toISOString()}::timestamptz`),
+    ctx.db
+      .select({ last: syncReplicas.lastConflict })
+      .from(syncReplicas)
+      .where(eq(syncReplicas.groupId, groupId)),
+    ctx.db
+      .select({ changes: syncConflicts.changes, conflicts: syncConflicts.conflicts })
+      .from(syncConflicts)
+      .where(and(eq(syncConflicts.groupId, groupId), isNull(syncConflicts.resolvedAt))),
+  ])
+  type Sides = {
+    changes?: { hash: string | null; baseHash: string | null }[]
+    conflicts?: { hash: string | null }[]
+  }
+  const sides = [...refused.map((r) => r.last as Sides | null), ...(open as Sides[])]
+  return new Set<string | null>([
+    ...live.map((r) => r.hash),
+    ...overwritten.map((r) => r.hash),
+    ...sides.flatMap((c) => [
+      ...(c?.changes ?? []).flatMap((ch) => [ch.hash, ch.baseHash]),
+      ...(c?.conflicts ?? []).map((e) => e.hash),
+    ]),
+  ])
+}
+
+/** F16: deletes blobs the group no longer needs once past the upload grace, and whole archives past their 30 days. */
 export async function purgeSyncBlobs(ctx: Ctx) {
   const root = join(dataDir(), 'sync')
   const groupIds = await readdir(root).catch(() => [] as string[])
   const now = ctx.now().getTime()
   for (const groupId of groupIds) {
-    if (isUuid(groupId) && (await archiveExpired(ctx, groupId, new Date(now - KEEP_MS)))) {
+    if (!isUuid(groupId)) continue
+    usage.delete(groupId)
+    if (await archiveExpired(ctx, groupId, new Date(now - KEEP_MS))) {
       await purgeGroup(ctx, groupId)
       continue
     }
-    const [live, recent, open] = await Promise.all([
-      ctx.db.select({ hash: syncHead.hash }).from(syncHead).where(eq(syncHead.groupId, groupId)),
-      ctx.db
-        .select({ hash: syncChanges.hash })
-        .from(syncChanges)
-        .innerJoin(
-          syncVersions,
-          and(eq(syncVersions.groupId, syncChanges.groupId), eq(syncVersions.version, syncChanges.version)),
-        )
-        .where(
-          and(
-            eq(syncChanges.groupId, groupId),
-            isNotNull(syncChanges.hash),
-            gte(syncVersions.createdAt, new Date(now - KEEP_MS)),
-          ),
-        ),
-      ctx.db
-        .select({ changes: syncConflicts.changes })
-        .from(syncConflicts)
-        .where(and(eq(syncConflicts.groupId, groupId), isNull(syncConflicts.resolvedAt))),
-    ])
-    const keep = new Set<string | null>([...live, ...recent].map((r) => r.hash))
-    for (const c of open)
-      for (const ch of c.changes as { hash: string | null; baseHash: string | null }[]) {
-        keep.add(ch.hash)
-        keep.add(ch.baseHash)
-      }
+    const keep = await neededHashes(ctx, groupId, new Date(now - KEEP_MS))
     for (const name of await readdir(groupDir(groupId))) {
       if (keep.has(name)) continue
       const path = join(groupDir(groupId), name)
-      const { mtimeMs } = await stat(path)
-      if (now - mtimeMs > UPLOAD_GRACE_MS) await unlink(path)
+      try {
+        if (now - (await stat(path)).mtimeMs > UPLOAD_GRACE_MS) await unlink(path)
+      } catch (err) {
+        console.error('sync blob purge:', err)
+      }
     }
   }
 }

@@ -15,17 +15,18 @@ import {
   type SyncStatusDto,
   type SyncVersionDto,
 } from '@gonggong/protocol'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { bots, groupBots, groups } from '../../db/schema.js'
+import { bots, groupBots, groups, syncReplicas } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { groupDto, requireMember } from '../groups/service.js'
-import { blobSize, openBlob, writeBlob } from './blobs.js'
+import { blobQuota, openBlob, QuotaExceeded, touchBlob, writeBlob } from './blobs.js'
 import { conflictText, discardConflict, driftAction, resolveConflict } from './resolve.js'
 import { openConflicts, syncStatus, syncVersionList } from './status.js'
 import { changesSince } from './store.js'
@@ -38,7 +39,10 @@ const VersionsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
-/** Only a machine hosting a bot of the force group may read or write its sync data. */
+/**
+ * Only a machine hosting a managed replica of the force group that takes part (joined) or is being set up by a
+ * sync.init (base / align) may read or write its sync data.
+ */
 async function requireReplicaMachine(ctx: Ctx, req: GroupReq) {
   const machine = await requireMachine(ctx, req)
   const groupId = idParam(req.params.groupId, '群不存在或你已不在群内')
@@ -47,14 +51,20 @@ async function requireReplicaMachine(ctx: Ctx, req: GroupReq) {
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
+    .innerJoin(
+      syncReplicas,
+      and(eq(syncReplicas.groupId, groupBots.groupId), eq(syncReplicas.botId, groupBots.botId)),
+    )
     .where(
       and(
         eq(groupBots.groupId, groupId),
         eq(bots.machineId, machine.id),
         isNull(groupBots.removedAt),
+        eq(groupBots.workspaceKind, 'managed'),
         isNull(bots.deletedAt),
         eq(groups.mode, 'force'),
         isNull(groups.archivedAt),
+        or(isNotNull(syncReplicas.joinedAt), inArray(syncReplicas.pending, ['base', 'align', 'force'])),
       ),
     )
     .limit(1)
@@ -78,8 +88,14 @@ export function syncRoutes(ctx: Ctx) {
       try {
         const groupId = await requireReplicaMachine(ctx, req)
         const hash = hashParam(req)
-        if ((await blobSize(groupId, hash)) === null)
+        if ((await touchBlob(groupId, hash)) === null)
           await writeBlob(groupId, hash, body, req.headers['content-encoding'] === 'gzip')
+      } catch (e) {
+        if (!(e instanceof QuotaExceeded)) throw e
+        const gb = blobQuota.bytes / 1024 ** 3
+        return reply
+          .status(413)
+          .send({ error: 'invalid', message: t('群的同步存储已超过 {gb} GB 上限', { gb }) })
       } finally {
         body.resume()
       }
@@ -96,7 +112,7 @@ export function syncRoutes(ctx: Ctx) {
     app.post('/api/daemon/sync/:groupId/blobs/missing', async (req: GroupReq): Promise<SyncMissingRes> => {
       const groupId = await requireReplicaMachine(ctx, req)
       const { hashes } = SyncMissingReq.parse(req.body)
-      const sizes = await Promise.all(hashes.map((h) => blobSize(groupId, h)))
+      const sizes = await Promise.all(hashes.map((h) => touchBlob(groupId, h)))
       return { missing: hashes.filter((_, i) => sizes[i] === null) }
     })
 

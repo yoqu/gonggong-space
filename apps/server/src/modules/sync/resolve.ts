@@ -1,4 +1,4 @@
-import type { SyncActionKind, SyncDecision } from '@gonggong/protocol'
+import type { SyncActionKind, SyncChange, SyncDecision, SyncEntry } from '@gonggong/protocol'
 import { and, eq, inArray, isNotNull, isNull, max, ne, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
@@ -179,8 +179,11 @@ export async function conflictText(
   hash: string,
 ) {
   const { c } = await openConflict(ctx, userId, groupId, conflictId)
-  const sides = (await conflictFiles(c)).flatMap((f) => [f.mineHash, f.theirsHash, f.baseHash])
-  if (!sides.includes(hash)) return fail('not_found', '文件内容不存在')
+  const mine = new Map((c.changes as SyncChange[]).map((ch) => [ch.path, ch]))
+  const sides = new Set(
+    (c.conflicts as SyncEntry[]).flatMap((e) => [e.hash, mine.get(e.path)?.hash, mine.get(e.path)?.baseHash]),
+  )
+  if (!sides.has(hash)) return fail('not_found', '文件内容不存在')
   const size = await blobSize(groupId, hash)
   if (size === null) return fail('not_found', '文件内容不存在')
   if (await isBinary(groupId, hash)) return fail('invalid', '二进制文件')
@@ -250,14 +253,20 @@ export async function pauseStopped(ctx: Ctx, run: RunRow, files: number) {
 
 /**
  * run.done `waiting`: the daemon found local edits or a held conflict before the turn started, so the run goes back
- * to the queue and waits for the issue (F12). The start never reached the agent: the context cursor and a pending
+ * to the queue and waits for the issue (F12), its card telling which. The start never reached the agent: the context cursor and a pending
  * new-session request are restored so the next dispatch carries them again.
  */
 export async function requeueRun(ctx: Ctx, run: RunRow, issue: 'drift' | 'held') {
   const back = await ctx.db.transaction(async (tx) => {
     const [row] = await tx
       .update(runs)
-      .set({ status: 'queued', step: '', stepI18n: null, startedAt: null })
+      .set({
+        status: 'queued',
+        step: '',
+        stepI18n: null,
+        startedAt: null,
+        sync: { outcome: 'waiting', issue },
+      })
       .where(and(eq(runs.id, run.id), inArray(runs.status, ACTIVE)))
       .returning()
     if (!row) return null

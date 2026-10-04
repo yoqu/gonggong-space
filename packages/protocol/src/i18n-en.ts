@@ -22,6 +22,9 @@ export const protocolEn = {
     '{user} switched the group back to partition mode, each Bot keeps its current files',
   '切换为强制同步失败，仍为分区模式：{reason}':
     'Switching to force sync failed, still in partition mode: {reason}',
+  '基准 Bot 未能在 10 分钟内完成首版，已退回分区模式':
+    'The base Bot did not submit the first version within 10 minutes, back to partition mode',
+  '基准 Bot 已离开群': 'the base Bot left the group',
   '{user} 修改了名称': '{user} changed the name',
   '{user} 修改了群名称与公告': '{user} changed the group name and notice',
   '{user} 移除了群公告': '{user} removed the group notice',

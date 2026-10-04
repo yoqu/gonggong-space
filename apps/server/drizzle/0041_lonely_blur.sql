@@ -1,0 +1,1 @@
+CREATE INDEX "runs_group_bot_ended" ON "runs" USING btree ("group_id","bot_id","ended_at");
