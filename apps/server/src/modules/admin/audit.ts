@@ -69,7 +69,8 @@ function paramChanges(d: Detail) {
   const url = changes.publicUrl
     ? [t('对外地址改为 {url}', { url: str(changes.publicUrl[1]) || t('未设置') })]
     : []
-  return [...reg, ...single, ...creation, ...feishu, ...url, ...numeric].join(t('；'))
+  const demo = changes.demoMode ? [t(changes.demoMode[1] ? '开启演示模式' : '关闭演示模式')] : []
+  return [...reg, ...single, ...creation, ...feishu, ...url, ...demo, ...numeric].join(t('；'))
 }
 
 /** One-line description of an audit row (prototype 审计记录); unknown actions fall back to the action id. */

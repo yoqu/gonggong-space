@@ -175,6 +175,7 @@ export function BotDetail({
   const [picking, setPicking] = useState<string | null | false>(false)
   const owner = me.id === bot.ownerId
   const canEdit = owner || me.role === 'sysadmin'
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '--'
   const idOf = (name: string) => users.find((u) => u.name === name)?.id
   const usage = useUsage(`by=user&days=7&botId=${bot.id}`).rows
@@ -341,7 +342,11 @@ export function BotDetail({
               setTier(v)
               if (v === 'full' && scope === 'all') setScope('list')
             }}
-            items={TIERS.map((t) => ({ value: t, label: TIER_LABEL[t], disabled: !canEdit }))}
+            items={TIERS.map((t) => ({
+              value: t,
+              label: TIER_LABEL[t],
+              disabled: !canEdit || (demo && t === 'full'),
+            }))}
           />
         </FormRow>
 

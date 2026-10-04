@@ -139,6 +139,7 @@ export const MeDto = UserDto.extend({
   singleTeamMode: z.boolean(),
   /** 系统参数 · teamCreation allows the caller to create teams, and single-team mode is off. */
   canCreateTeam: z.boolean(),
+  demoMode: z.boolean(),
 })
 export type MeDto = z.infer<typeof MeDto>
 const TeamName = z.string().trim().min(1).max(40)
@@ -1229,6 +1230,9 @@ export const SystemParams = GroupParams.extend({
   feishuAutoSignup: z.boolean(),
   /** How browsers reach this server (OAuth redirect, links in Feishu cards); '' = not set. */
   publicUrl: z.union([z.literal(''), z.url().regex(/^https?:\/\/[^/]+$/)]),
+  /** Public demo site: no public preview links or Feishu preview cards, no full tier, no remote control,
+   * accounts and shared data stay as they are for everyone but the sysadmin. */
+  demoMode: z.boolean(),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 /** Params a team may override for its groups (plan D9). */
@@ -1267,7 +1271,7 @@ export const UpdateSystemParamsReq = SystemParams.partial()
 export const SYSTEM_PARAM_VIEW: {
   key: Exclude<
     keyof SystemParams,
-    'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'feishuAutoSignup' | 'publicUrl'
+    'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'feishuAutoSignup' | 'publicUrl' | 'demoMode'
   >
   label: string
   unit: string

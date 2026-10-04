@@ -1,5 +1,6 @@
 import type { PreviewDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
@@ -22,6 +23,7 @@ export function PreviewActions({
 }) {
   const [busy, setBusy] = useState<string>()
   const [sharing, setSharing] = useState(false)
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const run = async (key: string, path: string, body?: unknown) => {
     setBusy(key)
     try {
@@ -80,7 +82,7 @@ export function PreviewActions({
               {'play' as const}
             </IconButton>
           ) : null}
-          {share && web ? (
+          {share && web && !demo ? (
             <IconButton size="small" title={t('公开链接')} onClick={() => setSharing(true)}>
               {'link' as const}
             </IconButton>

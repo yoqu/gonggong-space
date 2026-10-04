@@ -6,6 +6,7 @@ import { bots, groupBots, groupRepos, groups, messages, runs, teams, users } fro
 import { FEISHU_HINT } from '../agent-tools/feishu.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
+import { runTier } from '../bots/tier.js'
 import { boundChat } from '../feishu/mirror.js'
 import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
@@ -207,7 +208,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
       systemPrompt: feishu
         ? [FEISHU_HINT, bot.systemPrompt].filter((s) => s.trim()).join('\n\n')
         : bot.systemPrompt,
-      tier: (gb.tier ?? bot.tier) as Tier,
+      tier: await runTier(tx, (gb.tier ?? bot.tier) as Tier),
       approval: bot.approval as Approval,
       allowlist: bot.allowlist,
       ...config,

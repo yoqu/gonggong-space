@@ -389,6 +389,7 @@ describe('system params', () => {
       teamCreation: 'sysadmin',
       feishuAutoSignup: true,
       publicUrl: '',
+      demoMode: false,
     })
   })
 

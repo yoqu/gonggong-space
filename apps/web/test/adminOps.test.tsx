@@ -56,6 +56,7 @@ const PARAMS: SystemParams = {
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
   publicUrl: '',
+  demoMode: false,
 }
 
 class NoopSocket {
@@ -650,6 +651,22 @@ describe('系统参数 · 团队', () => {
       expect(
         (screen.getByRole('radio', { name: '所有人' }) as HTMLInputElement).getAttribute('aria-checked'),
       ).toBe('true'),
+    )
+  })
+})
+
+describe('系统参数 · 演示', () => {
+  it('switches demo mode at once and explains what it closes', async () => {
+    const calls = mockApi({
+      'GET /admin/params': PARAMS,
+      'PUT /admin/params': (body: unknown) => ({ ...PARAMS, ...(body as object) }),
+    })
+    renderAt('/admin/params')
+    expect(await screen.findByText(/不能创建公开链接，已发出的公开链接立即失效/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('switch', { name: '演示模式' }))
+    await waitFor(() => expect(calls.at(-1)?.body).toEqual({ demoMode: true }))
+    await waitFor(() =>
+      expect((screen.getByRole('switch', { name: '演示模式' }) as HTMLInputElement).checked).toBe(true),
     )
   })
 })

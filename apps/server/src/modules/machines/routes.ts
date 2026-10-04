@@ -19,6 +19,7 @@ import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { Throttle } from '../../lib/throttle.js'
+import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { onMachineBound } from '../bots/binding.js'
 import { machineDto, publishBots } from '../bots/dto.js'
@@ -243,6 +244,7 @@ export function machineRoutes(ctx: Ctx) {
         .where(and(eq(machines.id, id), isNull(machines.revokedAt)))
       if (!m) return fail('not_found', '机器不存在')
       if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能吊销自己的机器')
+      await assertNotDemo(ctx, user)
       const [{ n } = { n: 0 }] = await ctx.db
         .select({ n: count() })
         .from(bots)

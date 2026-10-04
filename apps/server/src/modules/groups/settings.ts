@@ -5,6 +5,7 @@ import type { Ctx } from '../../context.js'
 import { groupMembers, groupNotices, groups, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
@@ -200,6 +201,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.post<P>('/api/groups/:id/dissolve', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
+      await assertNotDemo(ctx, me)
       await ctx.db.update(groups).set({ archivedAt: ctx.now() }).where(eq(groups.id, group.id))
       await stopRuns(ctx, { groupId: group.id }, me)
       await audit(ctx, {

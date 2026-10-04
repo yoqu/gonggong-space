@@ -662,9 +662,13 @@ const FOLLOW = 'follow'
 
 /** This group's tier override; 跟随全局 clears it. */
 function GroupTierPicker({ groupId, bot, tier }: { groupId: string; bot: BotDto; tier: Tier | null }) {
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const options = [
     { value: FOLLOW, label: t('跟随全局（{tier}）', { tier: TIER_LABEL[bot.tier] }) },
-    ...TIERS.map((x) => ({ value: x, label: TIER_LABEL[x] })),
+    ...TIERS.filter((x) => !demo || x !== 'full' || tier === 'full').map((x) => ({
+      value: x,
+      label: TIER_LABEL[x],
+    })),
   ]
   return (
     <PopUpButton

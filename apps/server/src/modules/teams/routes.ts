@@ -23,7 +23,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { listAudit } from '../admin/audit.js'
 import { adminGroupDtos } from '../admin/groups.js'
-import { sysParams } from '../admin/params.js'
+import { assertNotDemo, sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { teamOverrides } from '../groups/params.js'
 import { groupDto, publishGroup } from '../groups/service.js'
@@ -167,6 +167,7 @@ export function teamRoutes(ctx: Ctx) {
     app.post<P>('/api/teams/:id/archive', async (req) => {
       const me = await requireUser(ctx, req)
       const { team } = await requireTeam(ctx, me.id, req.params.id, 'owner')
+      await assertNotDemo(ctx, me)
       await archiveTeam(ctx, team, me)
       return { ok: true }
     })
@@ -226,6 +227,7 @@ export function teamRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const self = req.params.userId === me.id
       const { team, role: myRole } = await requireTeam(ctx, me.id, req.params.id, self ? 'member' : 'admin')
+      if (!self) await assertNotDemo(ctx, me)
       const target = await memberOf(team.id, idParam(req.params.userId, '该用户不在团队内'))
       if (target.role === 'owner') {
         if (myRole !== 'owner') return fail('forbidden', '仅团队所有者可操作')

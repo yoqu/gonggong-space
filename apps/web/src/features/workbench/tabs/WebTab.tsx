@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSession } from '../../../app/session'
 import { useWorkbench } from '../../../app/workbench'
 import { Button, EmptyState, Icon, Presence, SegmentedControl, TextField } from '../../../ui'
 import '../../previews/previews.css'
@@ -41,6 +42,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
   const [draft, setDraft] = useState(tab.path)
   const [viewport, setViewport] = useState(() => loadViewport(tab.previewId))
   const [sharing, setSharing] = useState(false)
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const stage = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState({ width: 0, height: 0 })
   useEffect(() => setDraft(tab.path), [tab.path])
@@ -108,7 +110,7 @@ export function WebTab({ tab, tabKey: key }: TabProps<'web'>) {
         >
           <Icon name="external" size={14} />
         </a>
-        {p?.canManage ? (
+        {p?.canManage && !demo ? (
           <Button size="small" variant="plain" icon="link" onClick={() => setSharing(true)}>
             {t('公开链接…')}
           </Button>

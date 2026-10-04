@@ -16,6 +16,7 @@ import {
   runs,
   users,
 } from '../../db/schema.js'
+import { sysParams } from '../admin/params.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
 import {
@@ -590,7 +591,7 @@ async function syncApprovals(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: st
 
 /** Called on every preview change (publishPreviews): mirrors the group's preview cards to the bound chat. */
 export async function mirrorPreviews(ctx: Ctx, groupId: string) {
-  if (!(await boundChat(ctx.db, groupId))) return
+  if ((await sysParams(ctx.db)).demoMode || !(await boundChat(ctx.db, groupId))) return
   enqueue(ctx, groupId, () => syncPreviewCards(ctx, groupId))
 }
 

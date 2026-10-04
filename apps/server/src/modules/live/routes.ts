@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { fail } from '../../lib/errors.js'
+import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { requireOpenPreview } from '../previews/routes.js'
@@ -49,6 +50,8 @@ export function liveRoutes(ctx: Ctx) {
       const preview = await requireLivePreview(ctx, (req.params as { id: string }).id)
       await requireMember(ctx, preview.groupId, user.id)
       const body = ControlReq.parse(req.body)
+      if ((body.action === 'request' || body.action === 'grant') && (await sysParams(ctx.db)).demoMode)
+        fail('forbidden', '演示模式下实时画面只能观看')
       const manages = await isManager(ctx, preview.groupId, preview.botId, user.id)
       await control(ctx, preview, { id: user.id, name: user.name }, body, manages)
       return reply.status(204).send()

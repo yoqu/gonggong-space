@@ -23,6 +23,7 @@ import {
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
@@ -206,6 +207,7 @@ export function groupRoutes(ctx: Ctx) {
     app.delete<{ Params: { id: string; userId: string } }>('/api/groups/:id/members/:userId', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
+      await assertNotDemo(ctx, me)
       const { userId } = req.params
       const members = await ctx.db.select().from(groupMembers).where(eq(groupMembers.groupId, group.id))
       const target = members.find((m) => m.userId === userId)

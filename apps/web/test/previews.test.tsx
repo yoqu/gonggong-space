@@ -191,6 +191,17 @@ describe('preview card', () => {
     expect(screen.queryByRole('button', { name: '重新开放' })).toBeNull()
   })
 
+  it('hands out no public links in demo mode', async () => {
+    useSession.setState({
+      tenancy: { teams: [], singleTeamMode: true, canCreateTeam: false, demoMode: true },
+    })
+    mockApi({ 'GET /groups/g1/previews': list([preview({ canManage: true })]) })
+    render(<PreviewCard previewId="p1" groupId="g1" botId="b1" fallback="预览：登录页" />)
+    await screen.findByRole('button', { name: '重新截图' })
+    expect(screen.queryByRole('button', { name: '公开链接' })).toBeNull()
+    useSession.setState({ tenancy: null })
+  })
+
   it('lets the bot owner or a group admin hand out an expiring public link', async () => {
     const calls = mockApi({
       'GET /groups/g1/previews': list([preview({ canManage: true })]),

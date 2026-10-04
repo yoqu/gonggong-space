@@ -14,7 +14,7 @@ import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
-import { sysParams } from '../admin/params.js'
+import { assertNotDemo, sysParams } from '../admin/params.js'
 import { publishBots } from '../bots/dto.js'
 import { publishGroup } from '../groups/service.js'
 import { meDto } from '../teams/dto.js'
@@ -108,6 +108,7 @@ export function authRoutes(ctx: Ctx) {
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
       const patch = UpdateMeReq.parse(req.body)
+      if (patch.name !== undefined && patch.name !== user.name) await assertNotDemo(ctx, user)
       if (!Object.keys(patch).length) return meDto(ctx, user)
       const [row] = await ctx.db.update(users).set(patch).where(eq(users.id, user.id)).returning()
       if (patch.name !== undefined && patch.name !== user.name) {
@@ -124,6 +125,8 @@ export function authRoutes(ctx: Ctx) {
     app.post('/api/auth/password', async (req) => {
       const user = await requireUser(ctx, req, { allowPending: true })
       const { oldPassword, newPassword } = ChangePasswordReq.parse(req.body)
+      // A shared demo account keeps its password; a forced first change still has to go through.
+      if (!user.mustChangePassword) await assertNotDemo(ctx, user)
       if (!user.passwordHash || !(await verify(user.passwordHash, oldPassword)))
         return fail('invalid', '当前密码错误')
       if (oldPassword === newPassword) return fail('invalid', '新密码不能与当前密码相同')

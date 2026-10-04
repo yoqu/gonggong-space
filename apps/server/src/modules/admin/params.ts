@@ -32,6 +32,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   teamCreation: 'sysadmin',
   feishuAutoSignup: true,
   publicUrl: '',
+  demoMode: false,
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]
@@ -48,6 +49,12 @@ export async function sysParams(db: Pick<Db, 'select'>): Promise<SystemParams> {
     if (SystemParams.shape[key].safeParse(r.value).success) out[key] = r.value
   }
   return out as SystemParams
+}
+
+/** Demo mode keeps shared demo data and accounts as they are: only the sysadmin may change them. */
+export async function assertNotDemo(ctx: Ctx, user: { role: string }) {
+  if (user.role !== 'sysadmin' && (await sysParams(ctx.db)).demoMode)
+    fail('forbidden', '演示模式下不可执行此操作')
 }
 
 /** Saves the changed params and audits them as `{ key: [old, new] }`. */

@@ -5,8 +5,8 @@ import { storedTeam, storeTeam } from '../lib/team'
 
 type SessionStatus = 'idle' | 'loading' | 'ready' | 'error'
 
-/** What /api/me says about teams; null until a MeDto arrived. */
-export type Tenancy = Pick<MeDto, 'teams' | 'singleTeamMode' | 'canCreateTeam'>
+/** What /api/me says about teams and the platform; null until a MeDto arrived. */
+export type Tenancy = Pick<MeDto, 'teams' | 'singleTeamMode' | 'canCreateTeam' | 'demoMode'>
 
 interface SessionState {
   user: UserDto | null
@@ -38,9 +38,9 @@ export const useSession = create<SessionState>()((set) => ({
   },
   setUser(user) {
     if (user && 'teams' in user) {
-      const { teams, singleTeamMode, canCreateTeam, ...rest } = user
+      const { teams, singleTeamMode, canCreateTeam, demoMode, ...rest } = user
       syncTeam(teams)
-      set({ user: rest, tenancy: { teams, singleTeamMode, canCreateTeam }, status: 'ready' })
+      set({ user: rest, tenancy: { teams, singleTeamMode, canCreateTeam, demoMode }, status: 'ready' })
     } else set(user ? { user, status: 'ready' } : { user, tenancy: null, status: 'ready' })
   },
   setTeams: (update) =>

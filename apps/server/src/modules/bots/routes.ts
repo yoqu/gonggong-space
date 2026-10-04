@@ -30,6 +30,7 @@ import {
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
+import { assertNotDemo } from '../admin/params.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
 import { reloadFeishu } from '../feishu/gateway.js'
 import { teamParams } from '../groups/params.js'
@@ -42,7 +43,7 @@ import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
 import { assertCanConfigure, assertPick, pickCatalog } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
-import { applyTier, TIER_LABEL } from './tier.js'
+import { applyTier, assertTierAllowed, TIER_LABEL } from './tier.js'
 
 type BotRow = typeof bots.$inferSelect
 type IdParams = { Params: { id: string } }
@@ -266,6 +267,7 @@ export function botRoutes(ctx: Ctx) {
       if ((body.approval !== undefined || body.allowlist !== undefined) && user.id !== bot.ownerId)
         fail('forbidden', '命令审批只有 Bot 主人能修改')
       if (body.allowlist) body.allowlist = normalizeAllowlist(body.allowlist)
+      await assertTierAllowed(ctx, body.tier)
       const name = body.name?.trim()
       if (name !== undefined) {
         if (!name) fail('invalid', '名称不能为空')
@@ -325,6 +327,7 @@ export function botRoutes(ctx: Ctx) {
           )
         if (!gb) return fail('not_found', '该 Bot 不在群内')
         assertCanManage(user, bot)
+        await assertTierAllowed(ctx, tier)
         if (gb.tier === tier) return reply.status(204).send()
         await updateBotState(ctx, groupId, bot.id, { tier })
         await auditForeign(ctx, user, bot, 'bot.groupTier', { groupId, tier })
@@ -394,6 +397,7 @@ export function botRoutes(ctx: Ctx) {
       const user = await requireUser(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
       assertCanManage(user, bot)
+      await assertNotDemo(ctx, user)
       await ctx.db.update(bots).set({ deletedAt: ctx.now() }).where(eq(bots.id, bot.id))
       await ctx.db
         .update(groupBots)

@@ -73,6 +73,7 @@ describe('login / logout / me', () => {
       teams: [expect.objectContaining({ name: '默认团队', role: 'owner' })],
       singleTeamMode: true,
       canCreateTeam: false,
+      demoMode: false,
     })
     const c = res.cookies.find((x) => x.name === 'gonggong_session')
     expect(c).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })

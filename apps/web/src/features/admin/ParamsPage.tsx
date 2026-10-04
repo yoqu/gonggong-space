@@ -18,7 +18,7 @@ import {
 import { AdminPage } from './AdminPage'
 
 type Key = (typeof SYSTEM_PARAM_VIEW)[number]['key']
-type Toggle = 'registrationOpen' | 'singleTeamMode' | 'teamCreation'
+type Toggle = 'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'demoMode'
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
 export function useSystemParams(enabled = true) {
@@ -170,6 +170,22 @@ export function ParamsPage() {
                   { value: 'all' as const, label: t('所有人') },
                   { value: 'sysadmin' as const, label: t('仅系统管理员') },
                 ]}
+              />
+            </GroupRow>
+          </GroupBox>
+          <h2 className="admin-params__title">{t('演示')}</h2>
+          <GroupBox>
+            <GroupRow
+              label={t('演示模式')}
+              description={t(
+                '对外公开演示时开启，防止内容经内网穿透的域名流到互联网、访客破坏演示环境：预览只能登录后在群内查看，不能创建公开链接，已发出的公开链接立即失效，预览卡片不同步到飞书；实时画面只能观看不能操控；Bot 不能使用「完全访问」档位，已设为完全访问的按「工作区写入」运行；除系统管理员外不能改密码和昵称，不能解散群、移除成员、删除 Bot、吊销机器、归档团队。',
+              )}
+            >
+              <Switch
+                ariaLabel={t('演示模式')}
+                label={saved.demoMode ? t('已开启') : t('已关闭#off')}
+                checked={saved.demoMode}
+                onChange={(v) => void apply({ demoMode: v }, v ? t('已开启演示模式') : t('已关闭演示模式'))}
               />
             </GroupRow>
           </GroupBox>

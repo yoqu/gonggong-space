@@ -47,6 +47,8 @@ export const en = {
   关闭自助注册: 'Closed self-registration',
   开启单团队模式: 'Turned single-team mode on',
   关闭单团队模式: 'Turned single-team mode off',
+  开启演示模式: 'Turned demo mode on',
+  关闭演示模式: 'Turned demo mode off',
   建团队权限改为所有人: 'Anyone may now create teams',
   建团队权限改为仅系统管理员: 'Only system admins may now create teams',
   修改团队参数: 'Changed the team parameters',
@@ -461,4 +463,8 @@ export const en = {
   '自动配置失败：{reason}': 'Automatic configuration failed: {reason}',
   尚未绑定飞书应用: 'No Feishu app is bound yet',
   扫码会话不存在或已过期: 'The scan session does not exist or has expired',
+  演示模式下不可执行此操作: 'Not allowed in demo mode',
+  演示模式下不能创建公开链接: 'Public links cannot be created in demo mode',
+  演示模式下不能使用完全访问档位: 'The full access tier is not available in demo mode',
+  演示模式下实时画面只能观看: 'The live view is watch-only in demo mode',
 } satisfies Record<string, string>

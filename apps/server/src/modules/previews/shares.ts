@@ -53,8 +53,9 @@ async function listShares(ctx: Ctx, where?: SQL): Promise<PreviewShareDto[]> {
 
 const byId = async (ctx: Ctx, id: string) => (await listShares(ctx, eq(previewShares.id, id)))[0]
 
-/** Valid links let their visitor in; checked on every request so a revoke or expiry takes effect at once. */
+/** Valid links let their visitor in; checked on every request so a revoke, expiry or demo mode takes effect at once. */
 export async function shareAllows(ctx: Ctx, shareId: string, previewId: string) {
+  if ((await sysParams(ctx.db)).demoMode) return false
   const [row] = await ctx.db
     .select({ id: previewShares.id })
     .from(previewShares)
@@ -71,6 +72,7 @@ export async function shareAllows(ctx: Ctx, shareId: string, previewId: string) 
 
 /** `/__gg/share/<token>` on the preview origin: counts the visit and returns the share id, or null when not valid. */
 export async function redeemShare(ctx: Ctx, preview: Preview, token: string) {
+  if ((await sysParams(ctx.db)).demoMode) return null
   const [s] = await ctx.db
     .update(previewShares)
     .set({ visitCount: sql`${previewShares.visitCount} + 1`, lastVisitAt: ctx.now() })
@@ -109,7 +111,8 @@ export function shareRoutes(ctx: Ctx) {
       const preview = await requireWebPreview(ctx, (req.params as { id: string }).id)
       await requireManager(ctx, preview.groupId, preview.botId, user.id)
       const { days } = CreatePreviewShareReq.parse(req.body ?? {})
-      const { previewShareMaxDays } = await sysParams(ctx.db)
+      const { previewShareMaxDays, demoMode } = await sysParams(ctx.db)
+      if (demoMode) fail('forbidden', '演示模式下不能创建公开链接')
       if (days > previewShareMaxDays)
         fail('invalid', '公开链接最长有效 {days} 天', { days: previewShareMaxDays })
       const token = newToken('ps')

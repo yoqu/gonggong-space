@@ -1,7 +1,7 @@
 import { type GroupBotStateDto, PROTOCOL_VERSION, type RunDto, type ServerToDaemon } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { approvals, messages, runs } from '../src/db/schema.js'
+import { approvals, bots, messages, runs, systemParams } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -72,6 +72,16 @@ describe('per-group tier', () => {
     expect((await w.setTier(w.owners, w.g1.id, null)).status).toBe(204)
     const after = await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.g1.id}/bot-states`)
     expect(after.body[0]!.tier).toBeNull()
+  })
+
+  it('demo mode refuses the full tier and runs a full bot at workspace', async () => {
+    const w = await world()
+    await t.db.update(bots).set({ tier: 'full' }).where(eq(bots.id, w.bot.id))
+    await t.db.insert(systemParams).values({ key: 'demoMode', value: true })
+    expect((await w.setTier(w.owners, w.g1.id, 'full')).status).toBe(403)
+    expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { tier: 'full' })).status).toBe(403)
+    await w.trigger(w.g1.id)
+    expect((await w.start()).bot.tier).toBe('workspace')
   })
 
   it('a full override limits triggers to the explicit list like a full bot', async () => {

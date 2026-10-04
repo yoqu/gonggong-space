@@ -99,7 +99,8 @@ const chatGroup = (o: Partial<GroupDto> = {}): GroupDto => ({
 
 const chatRoutes = { 'GET /groups': [], 'GET /bots': [], 'GET /machines': [], 'GET /notifications': [] }
 
-const signIn = (tenancy: Tenancy | null) => useSession.setState({ user: me, tenancy, status: 'ready' })
+const signIn = (tenancy: Omit<Tenancy, 'demoMode'> | null) =>
+  useSession.setState({ user: me, tenancy: tenancy && { ...tenancy, demoMode: false }, status: 'ready' })
 
 let assign: ReturnType<typeof vi.fn>
 beforeEach(() => {

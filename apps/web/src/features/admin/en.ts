@@ -204,6 +204,12 @@ export default {
     'Hides team switching and puts new accounts in the only team; can be turned on only when exactly one live team exists.',
   已开启: 'On',
   已开启单团队模式: 'Single-team mode turned on',
+  演示: 'Demo',
+  演示模式: 'Demo mode',
+  '对外公开演示时开启，防止内容经内网穿透的域名流到互联网、访客破坏演示环境：预览只能登录后在群内查看，不能创建公开链接，已发出的公开链接立即失效，预览卡片不同步到飞书；实时画面只能观看不能操控；Bot 不能使用「完全访问」档位，已设为完全访问的按「工作区写入」运行；除系统管理员外不能改密码和昵称，不能解散群、移除成员、删除 Bot、吊销机器、归档团队。':
+    'Turn on for public demos, so content cannot leak to the internet through tunnel domains and visitors cannot break the demo: previews can only be viewed in their group after signing in, public links cannot be created and existing ones stop working at once, preview cards are not sent to Feishu; live views are watch-only; bots cannot use the Full access tier, and those set to it run at Workspace write; apart from system admins, nobody can change passwords or nicknames, dissolve groups, remove members, delete bots, revoke machines or archive teams.',
+  已开启演示模式: 'Demo mode turned on',
+  已关闭演示模式: 'Demo mode turned off',
   已关闭单团队模式: 'Single-team mode turned off',
   建团队权限: 'Who can create teams',
   '单团队模式下任何人都不能新建团队。': 'Nobody can create teams in single-team mode.',

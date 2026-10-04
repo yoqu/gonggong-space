@@ -145,4 +145,11 @@ describe('preview cards in Feishu', () => {
     await publish(group.id)
     expect(previewCards()).toEqual([])
   })
+
+  it('stays out of Feishu in demo mode', async () => {
+    const { group } = await setup()
+    await t.db.insert(systemParams).values({ key: 'demoMode', value: true })
+    await publish(group.id)
+    expect(previewCards()).toEqual([])
+  })
 })
