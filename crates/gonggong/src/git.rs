@@ -26,6 +26,11 @@ pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     run_git(dir, args, None).await
 }
 
+/// Raw stdout, for `-z` output whose paths may not be UTF-8.
+pub(crate) async fn git_bytes(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
+    run_git_raw(dir, args, None).await
+}
+
 /// `index` swaps in another index file (GIT_INDEX_FILE), leaving the workspace's own index untouched.
 async fn run_git(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<String, String> {
     run_git_raw(dir, args, index).await.map(|out| String::from_utf8_lossy(&out).into_owned())

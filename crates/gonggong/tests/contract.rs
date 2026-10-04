@@ -78,6 +78,23 @@ fn tunnel_frames_match_the_shared_cases() {
     assert!(Frame::decode(vec![0, 0, 0, 1, 9].into()).is_err());
 }
 
+#[derive(serde::Deserialize)]
+struct RootCase {
+    name: String,
+    entries: Vec<gonggong::protocol::SyncEntry>,
+    hash: String,
+}
+
+#[test]
+fn sync_root_hash_matches_the_shared_cases() {
+    let raw = fs::read_to_string(protocol_dir().join("cases/sync-root.json")).unwrap();
+    let cases: Vec<RootCase> = serde_json::from_str(&raw).unwrap();
+    assert!(!cases.is_empty());
+    for c in cases {
+        assert_eq!(gonggong::sync::root_hash(&c.entries), c.hash, "{}", c.name);
+    }
+}
+
 fn unhex(s: &str) -> Vec<u8> {
     (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
 }

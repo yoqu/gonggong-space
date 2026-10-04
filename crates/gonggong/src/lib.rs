@@ -35,6 +35,7 @@ mod session;
 pub mod snapshot;
 pub mod static_site;
 pub mod status;
+pub mod sync;
 pub mod tls;
 pub mod tools;
 pub mod tunnel;
