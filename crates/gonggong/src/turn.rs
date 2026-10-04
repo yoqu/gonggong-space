@@ -49,7 +49,16 @@ pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], omitted: u
 }
 
 /// Force group (F20): what others changed in the shared tree since this bot last worked; None when nothing did.
-pub fn sync_hint(sync: &RunSyncStart) -> Option<String> {
+/// `behind`: the version the workspace is still at when catching up before the turn failed.
+pub fn sync_hint(sync: &RunSyncStart, behind: Option<u64>) -> Option<String> {
+    if let Some(at) = behind {
+        let head = format!("强制同步：工作区未能更新，仍停在 v{at}（权威版本已到 v{}）", sync.head_version);
+        if sync.changed_total == 0 {
+            return Some(head);
+        }
+        let files = format!("以下改动不在工作区中：{}（共 {} 个）", sync.changed.join("、"), sync.changed_total);
+        return Some(format!("{head}，{files}"));
+    }
     let last = sync.last_version.filter(|_| sync.changed_total > 0)?;
     Some(format!(
         "强制同步：自你上次工作后权威版本 v{last}→v{}，改动文件：{}（共 {} 个）",
@@ -486,11 +495,19 @@ mod tests {
             resolve: None,
         };
         assert_eq!(
-            sync_hint(&sync(Some(12), &["a.ts", "b/c.ts"], 25)).as_deref(),
+            sync_hint(&sync(Some(12), &["a.ts", "b/c.ts"], 25), None).as_deref(),
             Some("强制同步：自你上次工作后权威版本 v12→v17，改动文件：a.ts、b/c.ts（共 25 个）")
         );
-        assert_eq!(sync_hint(&sync(Some(17), &[], 0)), None);
-        assert_eq!(sync_hint(&sync(None, &[], 0)), None);
+        assert_eq!(sync_hint(&sync(Some(17), &[], 0), None), None);
+        assert_eq!(sync_hint(&sync(None, &[], 0), None), None);
+        assert_eq!(
+            sync_hint(&sync(Some(12), &["a.ts"], 1), Some(12)).as_deref(),
+            Some("强制同步：工作区未能更新，仍停在 v12（权威版本已到 v17），以下改动不在工作区中：a.ts（共 1 个）")
+        );
+        assert_eq!(
+            sync_hint(&sync(None, &[], 0), Some(3)).as_deref(),
+            Some("强制同步：工作区未能更新，仍停在 v3（权威版本已到 v17）")
+        );
     }
 
     #[test]

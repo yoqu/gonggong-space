@@ -52,6 +52,8 @@ pub(crate) struct TurnReq {
     pub local: LocalSettings,
     /// Force group: the replica, caught up and held until the turn's changes are submitted.
     pub sync: Option<SyncTurn>,
+    /// The version the replica is still at when catching up before the turn failed.
+    pub behind: Option<u64>,
 }
 
 /// An active turn and the provider it runs with.
@@ -1056,7 +1058,7 @@ impl Conversation<'_> {
         self.shared.stream(self.cx, &session);
         let text = s.command.clone().unwrap_or_else(|| {
             let prompt = compose_prompt(&s.prompt, history, omitted);
-            match s.sync.as_ref().and_then(sync_hint) {
+            match s.sync.as_ref().and_then(|sync| sync_hint(sync, req.behind)) {
                 Some(hint) => format!("{hint}\n\n{prompt}"),
                 None => prompt,
             }

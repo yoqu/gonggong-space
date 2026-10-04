@@ -4,15 +4,17 @@
 //! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed), `base.json` (the
 //! manifest at the version the replica last matched; it exists once the replica joined), `work` (the workspace path,
 //! so idle replicas can be found), `issue.json` (why it stopped taking versions, if it did), `held.json` (the held
-//! change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21)
-//! and `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect).
+//! change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21),
+//! `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect) and
+//! `applying.json` (the version being written, so an apply a crash cut off is finished rather than taken for edits).
 mod apply;
 mod check;
 mod client;
 mod manifest;
 mod merge;
+mod path;
 
-pub use apply::ApplyError;
+pub use apply::{ApplyError, Applying};
 pub use check::{Issue, Violation, check};
 pub use client::Client;
 pub use manifest::{Stat, Tree};
@@ -25,6 +27,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// A live file in a version.
@@ -48,6 +51,7 @@ pub struct Base {
 /// the head hash each path is rebased on (clean merges, then decisions; None = absent in the head), and whether a bot
 /// merge turn is due to resolve markers written into the tree.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Held {
     pub changes: Vec<SyncChange>,
     pub conflicts: Vec<SyncEntry>,
@@ -60,6 +64,7 @@ pub struct Held {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pending {
     pub submit: SyncSubmit,
+    #[serde(default)]
     pub files: Manifest,
 }
 
@@ -155,8 +160,17 @@ impl Replica {
         write_json(&self.state.join("pending.json"), &pending)
     }
 
+    pub fn applying(&self) -> Result<Option<Applying>, String> {
+        read_json(&self.state.join("applying.json"))
+    }
+
+    pub fn set_applying(&self, applying: Option<&Applying>) -> Result<(), String> {
+        write_json(&self.state.join("applying.json"), &applying)
+    }
+
     /// Settled: takes versions again.
     pub fn clear(&self) -> Result<(), String> {
+        self.set_applying(None)?;
         self.set_held(None)?;
         self.set_stopped(None)?;
         self.set_pending(None)?;
@@ -170,15 +184,25 @@ impl Replica {
 
     pub fn set_base(&self, base: &Base) -> Result<(), String> {
         write_json(&self.state.join("base.json"), base)?;
-        std::fs::write(self.state.join("work"), self.work.to_string_lossy().as_bytes())
-            .map_err(|e| t!("无法保存同步状态：{e}", e = e))
+        let (file, work) = (self.state.join("work"), self.work.to_string_lossy());
+        if std::fs::read(&file).ok().as_deref() == Some(work.as_bytes()) {
+            return Ok(());
+        }
+        std::fs::write(file, work.as_bytes()).map_err(|e| t!("无法保存同步状态：{e}", e = e))
     }
 
-    /// The work tree now (F4), rehashing only files whose size or mtime changed since the last scan.
+    /// The work tree now (F4), rehashing only files whose size or mtime changed since the last scan. Sparse-checkout
+    /// entries are not on disk: they stay as the base has them.
     pub async fn tree(&self) -> Result<Tree, String> {
         let cache: BTreeMap<String, Stat> = read_json(&self.state.join("cache.json"))?;
-        let tree = manifest::scan(&self.work, cache).await?;
-        self.save_cache(&tree.files)?;
+        let (mut tree, cache) = manifest::scan(&self.work, cache).await?;
+        if tree.files != cache {
+            self.save_cache(&tree.files)?;
+        }
+        if !tree.sparse.is_empty() {
+            let base = self.base()?.files;
+            tree.kept = tree.sparse.iter().filter_map(|p| Some((p.clone(), base.get(p)?.clone()))).collect();
+        }
         Ok(tree)
     }
 
@@ -247,11 +271,6 @@ pub fn diff(base: &Manifest, current: &Manifest) -> Vec<SyncChange> {
     out
 }
 
-/// Whether the tree differs from the version it last matched: local edits (F12).
-pub fn drift(base: &Manifest, current: &Manifest) -> bool {
-    base != current
-}
-
 /// `base` with a version's entries applied (hash None = deleted).
 pub fn advance(base: &Manifest, entries: &[SyncEntry]) -> Manifest {
     let mut out = base.clone();
@@ -310,7 +329,8 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     let err = |e: std::io::Error| t!("无法保存同步状态：{e}", e = e);
     std::fs::create_dir_all(path.parent().expect("state files have a parent")).map_err(err)?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, serde_json::to_vec(value).expect("serializable")).map_err(err)?;
+    let mut file = std::fs::File::create(&tmp).map_err(err)?;
+    file.write_all(&serde_json::to_vec(value).expect("serializable")).and_then(|_| file.sync_all()).map_err(err)?;
     std::fs::rename(&tmp, path).map_err(err)
 }
 
@@ -393,8 +413,6 @@ mod tests {
                 change("run.sh", Some("sh"), true, Some("sh")),
             ]
         );
-        assert!(drift(&base, &now));
-        assert!(!drift(&base, &base.clone()));
         assert!(diff(&base, &base).is_empty());
     }
 
@@ -463,6 +481,19 @@ mod tests {
         assert_ne!(again, dir);
         assert_eq!(r.backup(&["missing".into()]).unwrap(), None);
         assert_eq!(crate::workspace::backups(&fx.home()).len(), 2);
+    }
+
+    #[test]
+    fn state_files_missing_newer_fields_still_load() {
+        let fx = Fixture::new();
+        let r = fx.replica();
+        let dir = fx.home().join("sync/g1/b1");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("held.json"), r#"{"changes":[],"future":1}"#).unwrap();
+        assert_eq!(r.held().unwrap(), Some(Held::default()));
+        let submit = r#"{"groupId":"g1","botId":"b1","submitId":"s","runId":null,"baseVersion":1,"kind":"run","merged":false,"changes":[]}"#;
+        std::fs::write(dir.join("pending.json"), format!(r#"{{"submit":{submit}}}"#)).unwrap();
+        assert_eq!(r.pending().unwrap().unwrap().files, Manifest::new());
     }
 
     #[tokio::test]

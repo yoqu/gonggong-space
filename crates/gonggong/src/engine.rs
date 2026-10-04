@@ -350,7 +350,6 @@ impl Handler for Engine {
                 let init = Init { group: group_id, bot: bot_id, role, force, repo_id };
                 self.0.replicas.on_init(init, out)
             }
-            // Settling drift and conflicts (S5, S6) comes later.
             ServerToDaemon::SyncAction { group_id, bot_id, action } => {
                 self.0.replicas.on_action(group_id, bot_id, action, out)
             }
@@ -419,6 +418,7 @@ impl Inner {
         let sync = match self.replicas.before_turn(&start, &cwd, &out).await {
             Ok(sync) => sync,
             Err(Refusal::Wait(issue)) => return out.send(waiting(&start.run_id, issue)),
+            Err(Refusal::Lost(reason)) => return out.send(lost(&start.run_id, reason)),
             Err(Refusal::Failed(e)) => return out.send(failed(&start.run_id, e)),
         };
         let ask =
@@ -443,7 +443,8 @@ impl Inner {
             Actor { tx, shared }
         });
         actor.shared.enqueue(&start.run_id);
-        let _ = actor.tx.send(TurnReq { start, cwd, out, local, sync });
+        let behind = sync.as_ref().and_then(|s| s.behind());
+        let _ = actor.tx.send(TurnReq { start, cwd, out, local, sync, behind });
     }
 
     /// Hands an answer / append to the conversation running `run_id`, once its attachments are in that workspace.
@@ -556,6 +557,12 @@ fn waiting(run_id: &str, issue: SyncWaitIssue) -> DaemonToServer {
         SyncWaitIssue::Held => t!("强制同步有冲突待处理，处理后才能继续运行"),
     };
     DaemonToServer::RunDone(RunDone { sync: Some(RunSyncDone::Waiting { issue }), ..failed_done(run_id, error.into()) })
+}
+
+/// The turn did not start: the server realigns the replica whose sync state this machine lost.
+fn lost(run_id: &str, reason: String) -> DaemonToServer {
+    let sync = Some(RunSyncDone::Error { reason: reason.clone() });
+    DaemonToServer::RunDone(RunDone { sync, ..failed_done(run_id, reason) })
 }
 
 pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {

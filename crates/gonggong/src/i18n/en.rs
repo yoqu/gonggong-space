@@ -548,4 +548,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("强制同步还没有版本", "Force sync has no version yet"),
     ("上传同步内容失败：{e}", "Couldn't upload sync content: {e}"),
     ("下载同步内容失败：{e}", "Couldn't download sync content: {e}"),
+    (
+        "同步版本含有不安全的路径，已拒绝整版：{path}",
+        "The sync version contains an unsafe path; the whole version was refused: {path}",
+    ),
+    ("本机同步状态丢失，正在重新对齐", "This machine lost its sync state; realigning"),
+    ("同步传输超时", "Sync transfer timed out"),
 ];

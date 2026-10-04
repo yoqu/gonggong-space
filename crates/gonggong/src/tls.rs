@@ -161,12 +161,16 @@ pub fn bound(config: &Config) -> Result<Option<Pinning>> {
 /// HTTP client for the team server. Direct like the daemon WebSocket: an OS-level proxy must not intercept
 /// (or 502) an intranet/localhost server.
 pub fn http(pinning: Option<&Pinning>) -> Result<reqwest::Client> {
+    Ok(builder(pinning).build()?)
+}
+
+/// `http`'s settings, for a client that adds its own (timeouts).
+pub fn builder(pinning: Option<&Pinning>) -> reqwest::ClientBuilder {
     let builder = reqwest::Client::builder().no_proxy();
-    let builder = match pinning {
+    match pinning {
         Some(p) => builder.use_preconfigured_tls((*p.config).clone()),
         None => builder,
-    };
-    Ok(builder.build()?)
+    }
 }
 
 /// HTTP client of a bound daemon.

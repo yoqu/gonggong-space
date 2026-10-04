@@ -4,7 +4,7 @@ use gonggong::config::Config;
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::protocol::*;
 use gonggong::service::{Handler, Outbox, OutboxRx};
-use gonggong::sync::{Base, FileRef, Manifest, Pending, Replica, hash_bytes, manifest_root};
+use gonggong::sync::{Applying, Base, FileRef, Manifest, Pending, Replica, hash_bytes, manifest_root};
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
@@ -24,6 +24,9 @@ use tokio::net::TcpListener;
 struct Store {
     blobs: HashMap<String, Vec<u8>>,
     versions: Vec<Vec<SyncEntry>>,
+    /// `changes` requests served, and whether they fail.
+    changes_calls: usize,
+    fail_changes: bool,
 }
 
 impl Store {
@@ -82,7 +85,11 @@ async fn handle(store: Arc<Mutex<Store>>, req: Request<Incoming>) -> Result<Resp
             s.blobs.insert(r.strip_prefix("blobs/").unwrap().into(), body.to_vec());
             reply(StatusCode::NO_CONTENT, vec![])
         }
+        ("GET", "changes") if s.fail_changes => {
+            reply(StatusCode::INTERNAL_SERVER_ERROR, br#"{"message":"down"}"#.to_vec())
+        }
         ("GET", "changes") => {
+            s.changes_calls += 1;
             let from: u64 = query.strip_prefix("from=").unwrap().parse().unwrap();
             let res = serde_json::json!({ "headVersion": s.head(), "entries": s.changes(from) });
             reply(StatusCode::OK, serde_json::to_vec(&res).unwrap())
@@ -462,11 +469,117 @@ async fn local_edits_found_before_a_turn_are_reported_and_the_turn_does_not_run(
 }
 
 #[tokio::test]
-async fn a_replica_that_has_not_joined_runs_without_sync() {
+async fn a_replica_without_its_local_sync_state_reports_lost_and_does_not_run() {
     let mut r = rig().await;
-    r.run("r1", "mock:echo", at(0, None));
+    r.run("r1", "mock:echo", at(1, Some(1)));
+    let reason = "本机同步状态丢失，正在重新对齐".to_string();
+    assert_eq!(
+        r.next().await,
+        DaemonToServer::SyncState {
+            group_id: "g1".into(),
+            bot_id: "b1".into(),
+            state: SyncReplicaIssue::Lost,
+            files: vec![],
+            total: 0,
+            reason: Some(reason.clone()),
+        }
+    );
     let done = r.done().await;
-    assert_eq!((done.outcome, done.sync), (RunOutcome::Completed, None));
+    assert_eq!((done.outcome, done.sync), (RunOutcome::Failed, Some(RunSyncDone::Error { reason })));
+}
+
+#[tokio::test]
+async fn an_apply_cut_off_by_a_crash_resumes_instead_of_counting_as_local_edits() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n"), ("b.txt", "b\n")]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n")), ("b.txt", None), ("c.txt", Some("c\n"))]);
+    // The daemon died after writing a.txt of v2.
+    r.write("a.txt", "two\n");
+    let entries = r.store.lock().unwrap().changes(1);
+    let applying = Applying { version: 2, base: r.replica().base().unwrap(), entries };
+    r.replica().set_applying(Some(&applying)).unwrap();
+    r.run("r1", "mock:echo", at(2, Some(1)));
+
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "two\n"), ("c.txt", "c\n")])));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Unchanged { version: 2 }));
+    assert_eq!((r.read("b.txt"), r.replica().applying().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn a_failed_catch_up_before_a_turn_is_reported_and_the_agent_is_told_it_is_behind() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
+    r.store.lock().unwrap().fail_changes = true;
+    let sync = RunSyncStart {
+        head_version: 2,
+        last_version: Some(1),
+        changed: vec!["b.txt".into()],
+        changed_total: 1,
+        resolve: None,
+    };
+    r.run("r1", "mock:echo", sync);
+
+    match r.next().await {
+        DaemonToServer::SyncState { state: SyncReplicaIssue::Error, reason: Some(reason), .. } => {
+            assert!(reason.contains("down"), "{reason}")
+        }
+        other => panic!("expected sync.state error, got {other:?}"),
+    }
+    let done = r.done().await;
+    let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
+    let prompt = echo["prompt"].as_str().unwrap();
+    assert!(
+        prompt.starts_with(
+            "强制同步：工作区未能更新，仍停在 v1（权威版本已到 v2），以下改动不在工作区中：b.txt（共 1 个）\n\n"
+        ),
+        "{prompt}"
+    );
+    assert_eq!(r.read("b.txt"), None);
+}
+
+#[tokio::test]
+async fn an_unanswered_pending_submit_holds_a_turn_back_only_briefly() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.write("a.txt", "two\n");
+    let submit = SyncSubmit {
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        submit_id: "0a1b2c3d-8b3d-4f5a-9c7e-1d2b3a4c5e6f".into(),
+        run_id: Some("r0".into()),
+        base_version: 1,
+        kind: SyncSubmitKind::Run,
+        merged: false,
+        changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
+    };
+    r.replica().set_pending(Some(&Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) })).unwrap();
+    r.replica().set_issue(Some(SyncReplicaIssue::Error)).unwrap();
+    let started = std::time::Instant::now();
+    r.run("r1", "mock:echo", at(1, Some(1)));
+
+    assert_eq!(r.submit().await, submit);
+    let s = r.submit().await;
+    assert!(started.elapsed() < Duration::from_secs(15), "{:?}", started.elapsed());
+    assert_eq!((s.run_id.as_deref(), s.changes.clone()), (Some("r1"), submit.changes.clone()));
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 2 });
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "two\n")])));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Accepted { version: 2, merged: false }));
+}
+
+#[tokio::test]
+async fn bursts_of_sync_available_are_coalesced_per_replica() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
+    for _ in 0..10 {
+        r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    }
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("b.txt", "b\n")])));
+    r.quiet(300).await;
+    let calls = r.store.lock().unwrap().changes_calls;
+    assert!(calls <= 2, "{calls} catch-ups for one burst");
 }
 
 // ── Mode switch (§3.5, S8) ───────────────────────────────────────────────────
@@ -583,6 +696,30 @@ async fn uncommitted_changes_leave_a_replica_out_unless_it_joins_discarding_them
     let backups = r.backups();
     assert_eq!(std::fs::read_to_string(backups[0].join("a.txt")).unwrap(), "wip\n");
     assert_eq!(std::fs::read_to_string(backups[0].join("note.txt")).unwrap(), "n\n");
+}
+
+#[tokio::test]
+async fn aligning_backs_up_an_ignored_local_file_the_head_replaces() {
+    let mut r = rig().await;
+    r.store.lock().unwrap().push(&[(".gitignore", Some("*.local\n")), ("db.local", Some("theirs\n"))]);
+    r.clone_with(&[(".gitignore", "*.local\n")]);
+    r.write("db.local", "mine\n");
+    r.send(init(SyncRole::Align, false));
+
+    assert_eq!(r.next().await, applied(1, r.root(&[(".gitignore", "*.local\n"), ("db.local", "theirs\n")])));
+    assert_eq!(r.read("db.local").as_deref(), Some("theirs\n"));
+    assert_eq!(std::fs::read_to_string(r.backups()[0].join("db.local")).unwrap(), "mine\n");
+}
+
+#[tokio::test]
+async fn aligning_a_joined_replica_keeps_its_held_conflict() {
+    let mut r = rig().await;
+    r.held().await;
+    r.send(init(SyncRole::Align, false));
+    assert_eq!(r.next().await, state(SyncReplicaIssue::Held, &["a.txt", "b.txt"]));
+    assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Held));
+    assert!(r.replica().held().unwrap().is_some());
+    assert_eq!(r.read("a.txt").as_deref(), Some("mine\n2\n"));
 }
 
 #[tokio::test]
@@ -875,6 +1012,39 @@ async fn a_pending_submit_is_resent_with_its_id_and_an_accepted_one_becomes_the_
     assert_eq!(r.next().await, applied(3, r.root(&files)));
     assert_eq!(r.replica().base().unwrap(), Base { version: 3, files: manifest(&files) });
     assert_eq!((r.replica().issue().unwrap(), r.replica().pending().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn a_late_acceptance_of_an_older_pending_submit_does_not_move_the_base_back() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.write("a.txt", "two\n");
+    r.replica().set_base(&Base { version: 2, files: manifest(&[("a.txt", "two\n")]) }).unwrap();
+    let submit = SyncSubmit {
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        submit_id: "1b2c3d4e-8b3d-4f5a-9c7e-1d2b3a4c5e6f".into(),
+        run_id: Some("r0".into()),
+        base_version: 1,
+        kind: SyncSubmitKind::Run,
+        merged: false,
+        changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
+    };
+    r.replica().set_pending(Some(&Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) })).unwrap();
+    r.replica().set_issue(Some(SyncReplicaIssue::Drift)).unwrap();
+    r.replica().set_stopped(Some("r9")).unwrap();
+
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    assert_eq!(r.submit().await, submit);
+    r.answer(&submit, SyncSubmitResult::Accepted { version: 2 });
+    r.quiet(300).await;
+    let replica = r.replica();
+    assert_eq!((replica.base().unwrap().version, replica.pending().unwrap()), (2, None));
+    assert_eq!(
+        (replica.issue().unwrap(), replica.stopped().unwrap()),
+        (Some(SyncReplicaIssue::Drift), Some("r9".into()))
+    );
 }
 
 #[tokio::test]

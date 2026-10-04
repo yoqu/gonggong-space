@@ -12,7 +12,7 @@ use crate::protocol::{
     SyncSubmitResult, SyncWaitIssue,
 };
 use crate::service::Outbox;
-use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica};
+use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica, Tree};
 use crate::t;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -24,8 +24,12 @@ use tokio::sync::{OwnedMutexGuard, oneshot};
 /// it stays pending for the next sync.available (a reconnect brings one) or turn.
 const RESULT_TIMEOUT: Duration = Duration::from_secs(60);
 const SEND_ATTEMPTS: usize = 2;
-/// Catch-up attempts after settling a replica, waiting 1 s, 2 s, 4 s… in between.
+/// Catch-up attempts after settling a replica or on sync.available, waiting 1 s, 2 s, 4 s… in between; before a turn,
+/// which should not wait long, fewer.
 const CATCH_UP_ATTEMPTS: u32 = 5;
+const TURN_CATCH_UP_ATTEMPTS: u32 = 2;
+/// How long a turn waits for a pending submit's result before it starts anyway; its submit carries the changes again.
+const FLUSH_WAIT: Duration = Duration::from_secs(5);
 /// Submits per turn: the first plus re-submits after clean auto merges (F7); a conflict past that is held (F11).
 const SUBMIT_ATTEMPTS: usize = 3;
 
@@ -44,12 +48,16 @@ pub(crate) struct Replicas {
     /// Replicas whose state the server may have missed (a catch-up that kept failing, a reconnect): their next idle
     /// catch-up reports where they are even at the head, which clears an issue the server still holds.
     unreported: Mutex<HashSet<(String, String)>>,
+    /// Replicas with an idle catch-up under way: true once another sync.available came meanwhile, so it runs again.
+    available: Mutex<HashMap<(String, String), bool>>,
 }
 
 /// Why a force-group turn did not start.
 pub(crate) enum Refusal {
     /// The replica waits for its local edits or held conflict to be settled: the server queues the run again.
     Wait(SyncWaitIssue),
+    /// The server counts the replica as joined but this machine has no sync state for it: it realigns it.
+    Lost(String),
     Failed(String),
 }
 
@@ -68,6 +76,8 @@ pub(crate) struct SyncTurn {
     replica: Replica,
     run_id: String,
     out: Outbox,
+    /// The version the tree is still at when catching up before the turn failed.
+    behind: Option<u64>,
     _lock: OwnedMutexGuard<()>,
 }
 
@@ -81,6 +91,7 @@ impl Replicas {
             waiting: Mutex::default(),
             prepared: Mutex::default(),
             unreported: Mutex::default(),
+            available: Mutex::default(),
         })
     }
 
@@ -114,27 +125,26 @@ impl Replicas {
         }
         let replica = Replica::new(&self.home, &start.group_id, &start.bot.id, cwd.to_path_buf());
         if !replica.joined() {
-            tracing::warn!(
-                "run {}: replica {}/{} has not joined force sync",
-                start.run_id,
-                start.group_id,
-                start.bot.id
-            );
-            return Ok(None);
+            let reason = t!("本机同步状态丢失，正在重新对齐").to_string();
+            report(out, &replica, SyncReplicaIssue::Lost, &[], Some(reason.clone()));
+            return Err(Refusal::Lost(reason));
         }
         let lock = self.lock(&start.group_id, &start.bot.id).await;
         self.prepare(cwd).await;
-        if let Err(e) = self.flush(&replica, out).await {
-            tracing::warn!("run {}: resending the pending sync submit failed: {e}", start.run_id);
+        match tokio::time::timeout(FLUSH_WAIT, self.flush(&replica, out)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("run {}: resending the pending sync submit failed: {e}", start.run_id),
+            Err(_) => tracing::warn!("run {}: the pending sync submit is still unanswered", start.run_id),
         }
-        let turn = |replica| SyncTurn {
+        let turn = |replica, behind| SyncTurn {
             replicas: self.clone(),
             replica,
             run_id: start.run_id.clone(),
             out: out.clone(),
+            behind,
             _lock: lock,
         };
-        match replica.issue()? {
+        let tree = match replica.issue()? {
             Some(SyncReplicaIssue::Held) => {
                 match (replica.held()?, &sync_start.resolve) {
                     (Some(held), _) if held.merging => {}
@@ -144,41 +154,79 @@ impl Replicas {
                     _ => return Err(Refusal::Wait(SyncWaitIssue::Held)),
                 }
                 // Stays on its base until the merge is in: the head's side of each file is already decided.
-                return Ok(Some(turn(replica)));
+                return Ok(Some(turn(replica, None)));
             }
             Some(SyncReplicaIssue::Drift | SyncReplicaIssue::Dirty) => return Err(Refusal::Wait(SyncWaitIssue::Drift)),
             // Its own turn's changes that could not be submitted: this turn's submit carries them again.
-            Some(SyncReplicaIssue::Error | SyncReplicaIssue::Lost) => {}
-            None if self.drifted(&replica, out).await? => return Err(Refusal::Wait(SyncWaitIssue::Drift)),
-            None => {}
-        }
-        if let Err(e) = self.catch_up(&replica, out).await {
-            tracing::warn!("run {}: catch-up failed, running behind: {e}", start.run_id);
-        }
-        Ok(Some(turn(replica)))
+            Some(SyncReplicaIssue::Error | SyncReplicaIssue::Lost) => None,
+            None => match self.settled_tree(&replica, out).await? {
+                Some(tree) => Some(tree),
+                None => return Err(Refusal::Wait(SyncWaitIssue::Drift)),
+            },
+        };
+        let behind = match self.catch_up_retrying(&replica, out, tree, TURN_CATCH_UP_ATTEMPTS).await {
+            Ok(_) => None,
+            Err(ApplyError::Drift(paths)) => {
+                report(out, &replica, SyncReplicaIssue::Drift, &paths, None);
+                replica.set_issue(Some(SyncReplicaIssue::Drift))?;
+                return Err(Refusal::Wait(SyncWaitIssue::Drift));
+            }
+            Err(ApplyError::Failed(e)) => {
+                tracing::warn!("run {}: catch-up failed, running behind: {e}", start.run_id);
+                report(out, &replica, SyncReplicaIssue::Error, &[], Some(e));
+                self.mark_unreported(&replica);
+                Some(replica.base()?.version)
+            }
+        };
+        Ok(Some(turn(replica, behind)))
     }
 
     /// A new version is out: each idle, settled replica of the group catches up; one with a turn running waits for it.
+    /// One task per replica: versions arriving while it runs make it run once more, however many they are.
     pub fn on_available(self: &Arc<Self>, group: &str, out: &Outbox) {
         if self.client.is_none() {
             return;
         }
         for replica in Replica::joined_in(&self.home, group) {
+            let key = (replica.group().to_string(), replica.bot().to_string());
+            match self.available.lock().unwrap().entry(key.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut again) => {
+                    again.insert(true);
+                    continue;
+                }
+                std::collections::hash_map::Entry::Vacant(v) => drop(v.insert(false)),
+            }
             let (me, out) = (self.clone(), out.clone());
             tokio::spawn(async move {
-                let _lock = me.lock(replica.group(), replica.bot()).await;
-                if let Err(e) = me.flush(&replica, &out).await {
-                    tracing::warn!(
-                        "resending the pending sync submit of {}/{} failed: {e}",
-                        replica.group(),
-                        replica.bot()
-                    );
-                }
-                if let Err(e) = me.catch_up_idle(&replica, &out).await {
-                    tracing::warn!("sync catch-up of {}/{} failed: {e}", replica.group(), replica.bot());
+                loop {
+                    me.idle(&replica, &out).await;
+                    if !me.again(&key) {
+                        break;
+                    }
                 }
             });
         }
+    }
+
+    async fn idle(&self, replica: &Replica, out: &Outbox) {
+        let _lock = self.lock(replica.group(), replica.bot()).await;
+        if let Err(e) = self.flush(replica, out).await {
+            tracing::warn!("resending the pending sync submit of {}/{} failed: {e}", replica.group(), replica.bot());
+        }
+        if let Err(e) = self.catch_up_idle(replica, out).await {
+            tracing::warn!("sync catch-up of {}/{} failed: {e}", replica.group(), replica.bot());
+        }
+    }
+
+    /// Whether the idle catch-up of `key` runs once more; done otherwise.
+    fn again(&self, key: &(String, String)) -> bool {
+        let mut available = self.available.lock().unwrap();
+        if available.get(key) == Some(&true) {
+            available.insert(key.clone(), false);
+            return true;
+        }
+        available.remove(key);
+        false
     }
 
     /// A new connection: the server may have missed reports sent while away.
@@ -289,12 +337,21 @@ impl Replicas {
 
     /// Joins a replica: its tree becomes exactly the head (files the head lacks are deleted). Uncommitted git changes
     /// leave it out (`dirty`) unless `force`; whatever is overwritten is backed up first, except on a replica still
-    /// matching a version it synced, whose files are all in the server's history.
+    /// matching a version it synced, whose files are all in the server's history. A joined replica (synced content is
+    /// never committed, so git always sees changes) keeps a paused state and local edits unless `force`.
     async fn align(&self, r: &Replica, force: bool, out: &Outbox) -> Result<(), String> {
         self.prepare(r.work()).await;
-        let current = r.tree().await?.manifest();
-        let synced = r.joined() && r.issue()?.is_none() && !sync::drift(&r.base()?.files, &current);
-        if !force && !synced {
+        if r.joined() && !force {
+            if let Some(issue) = r.issue()? {
+                report(out, r, issue, &paused_paths(r).await?, None);
+                return Ok(());
+            }
+            return match self.settled_tree(r, out).await? {
+                Some(tree) => self.reset(r, tree, false, out).await,
+                None => Ok(()),
+            };
+        }
+        if !force {
             let dirty: Vec<String> = git::porcelain(r.work()).await?.into_keys().collect();
             if !dirty.is_empty() {
                 r.forget()?;
@@ -302,17 +359,20 @@ impl Replicas {
                 return Ok(());
             }
         }
-        self.reset(r, current, !synced, out).await
+        let tree = r.tree().await?;
+        let synced = r.joined() && r.issue()?.is_none() && r.base()?.files == tree.manifest();
+        self.reset(r, tree, !synced, out).await
     }
 
     /// Makes the tree exactly the head (files the head lacks are deleted; with `backup` whatever is overwritten is
-    /// backed up first), settles the replica and reports it.
-    async fn reset(&self, r: &Replica, current: Manifest, backup: bool, out: &Outbox) -> Result<(), String> {
+    /// backed up first), settles the replica and reports it. Ignored local files in the head's way are always backed up.
+    async fn reset(&self, r: &Replica, tree: Tree, backup: bool, out: &Outbox) -> Result<(), String> {
         let client = self.client()?;
         let res = client.changes(r.group(), 0).await.map_err(|e| format!("{e:#}"))?;
         if res.head_version == 0 {
             return Err(t!("强制同步还没有版本").into());
         }
+        let current = tree.manifest();
         let head = sync::advance(&Manifest::new(), &res.entries);
         if backup {
             let overwritten: Vec<String> =
@@ -325,10 +385,19 @@ impl Replicas {
             hash: None,
             exec: false,
         }));
-        let group = r.group();
-        let fetch = |hash: String| async move { client.download(group, &hash).await.map_err(|e| format!("{e:#}")) };
+        let fetch = |hash, to| fetch_to(client, r.group(), hash, to);
         let base = Base { version: 0, files: current };
-        let root_hash = r.apply_from(base, res.head_version, &entries, fetch).await.map_err(|e| e.to_string())?;
+        let root_hash = match r.apply_on(tree, base.clone(), res.head_version, &entries, &fetch).await {
+            Err(ApplyError::Drift(paths)) => {
+                r.backup(&paths)?;
+                for p in &paths {
+                    r.put(p, None, false)?;
+                }
+                r.apply_from(base, res.head_version, &entries, &fetch).await
+            }
+            done => done,
+        }
+        .map_err(|e| e.to_string())?;
         r.clear()?;
         applied(out, r, res.head_version, root_hash);
         Ok(())
@@ -336,10 +405,10 @@ impl Replicas {
 
     /// 丢弃 (F12) / 整版丢弃 (F11): what changed since the base is backed up, then the tree becomes the head.
     async fn discard(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
-        let current = r.tree().await?.manifest();
-        let changed: Vec<String> = sync::diff(&r.base()?.files, &current).into_iter().map(|c| c.path).collect();
+        let tree = r.tree().await?;
+        let changed: Vec<String> = sync::diff(&r.base()?.files, &tree.manifest()).into_iter().map(|c| c.path).collect();
         r.backup(&changed)?;
-        self.reset(r, current, false, out).await
+        self.reset(r, tree, false, out).await
     }
 
     /// 提交为一版 (F12): the local edits go in like a turn's, conflicts included (F7, F11); a /stop'ped turn's changes
@@ -418,24 +487,36 @@ impl Replicas {
     /// After settling: catches up to the head, or reports the version it is at, which clears the server's issue. A
     /// failed catch-up is retried a few times, then left to the next sync.available (a reconnect brings one).
     async fn settle(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
+        match self.catch_up_retrying(r, out, None, CATCH_UP_ATTEMPTS).await {
+            Ok(true) => Ok(()),
+            Ok(false) => self.report_base(r, out),
+            Err(e) => {
+                self.mark_unreported(r);
+                Err(e.to_string())
+            }
+        }
+    }
+
+    /// `catch_up`, tried again after a failure (not after drift) up to `attempts` times in all.
+    async fn catch_up_retrying(
+        &self,
+        r: &Replica,
+        out: &Outbox,
+        mut tree: Option<Tree>,
+        attempts: u32,
+    ) -> Result<bool, ApplyError> {
         let mut delay = Duration::from_secs(1);
-        let mut attempt = 1;
-        loop {
-            match self.catch_up(r, out).await {
-                Ok(true) => return Ok(()),
-                Ok(false) => return self.report_base(r, out),
-                Err(ApplyError::Failed(e)) if attempt < CATCH_UP_ATTEMPTS => {
+        for attempt in 1.. {
+            match self.catch_up(r, out, tree.take()).await {
+                Err(ApplyError::Failed(e)) if attempt < attempts => {
                     tracing::warn!("sync catch-up of {}/{} failed, retrying: {e}", r.group(), r.bot());
                     tokio::time::sleep(delay).await;
                     delay *= 2;
-                    attempt += 1;
                 }
-                Err(e) => {
-                    self.mark_unreported(r);
-                    return Err(e.to_string());
-                }
+                done => return done,
             }
         }
+        unreachable!("the last attempt returns")
     }
 
     fn report_base(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
@@ -445,13 +526,17 @@ impl Replicas {
     }
 
     /// Resends the submit a timeout or a restart left unsettled, with its id: the server answers an accepted one with
-    /// its version again. Accepted, its tree becomes the base and the replica is settled; otherwise it is dropped and
-    /// its changes stay in the tree for the next submit.
+    /// its version again. Accepted, its tree becomes the base (unless the base moved past it meanwhile) and a failed
+    /// submit's error clears; otherwise it is dropped and its changes stay in the tree for the next submit. Other
+    /// paused states are left as they are.
     async fn flush(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
         let Some(p) = r.pending()? else { return Ok(()) };
-        if let SyncSubmitResult::Accepted { .. } = self.send(&p, out).await? {
+        let accepted = matches!(self.send(&p, out).await?, SyncSubmitResult::Accepted { .. });
+        if accepted && p.submit.base_version >= r.base()?.version {
             r.set_base(&Base { version: p.submit.base_version, files: p.files })?;
-            return r.clear();
+            if r.issue()? == Some(SyncReplicaIssue::Error) {
+                r.set_issue(None)?;
+            }
         }
         r.set_pending(None)
     }
@@ -462,15 +547,17 @@ impl Replicas {
             return Ok(());
         }
         self.prepare(r.work()).await;
-        if self.drifted(r, out).await? {
-            return Ok(());
-        }
-        match self.catch_up(r, out).await {
+        let Some(tree) = self.settled_tree(r, out).await? else { return Ok(()) };
+        match self.catch_up_retrying(r, out, Some(tree), CATCH_UP_ATTEMPTS).await {
             Err(ApplyError::Drift(paths)) => {
                 report(out, r, SyncReplicaIssue::Drift, &paths, None);
                 r.set_issue(Some(SyncReplicaIssue::Drift))
             }
-            Err(ApplyError::Failed(e)) => Err(e),
+            Err(ApplyError::Failed(e)) => {
+                report(out, r, SyncReplicaIssue::Error, &[], Some(e.clone()));
+                self.mark_unreported(r);
+                Err(e)
+            }
             Ok(true) => {
                 self.take_unreported(r);
                 Ok(())
@@ -480,30 +567,59 @@ impl Replicas {
         }
     }
 
-    /// Local edits since the base (F12) are reported and pause the replica.
-    async fn drifted(&self, r: &Replica, out: &Outbox) -> Result<bool, String> {
-        let changes = sync::diff(&r.base()?.files, &r.tree().await?.manifest());
+    /// The tree when it matches its base, after finishing an apply a crash cut off. None: it has local edits (F12),
+    /// reported, and the replica is paused.
+    async fn settled_tree(&self, r: &Replica, out: &Outbox) -> Result<Option<Tree>, String> {
+        match self.resume(r, out).await {
+            Ok(_) | Err(ApplyError::Drift(_)) => {}
+            Err(ApplyError::Failed(e)) => return Err(e),
+        }
+        let tree = r.tree().await?;
+        let changes = sync::diff(&r.base()?.files, &tree.manifest());
         if changes.is_empty() {
-            return Ok(false);
+            return Ok(Some(tree));
         }
         let paths: Vec<_> = changes.into_iter().map(|c| c.path).collect();
         report(out, r, SyncReplicaIssue::Drift, &paths, None);
         r.set_issue(Some(SyncReplicaIssue::Drift))?;
-        Ok(true)
+        Ok(None)
+    }
+
+    /// Finishes the apply `applying.json` records, from the base it started on; true when there was one. Drift found
+    /// meanwhile drops it: the tree is then local edits to settle like any other.
+    async fn resume(&self, r: &Replica, out: &Outbox) -> Result<bool, ApplyError> {
+        let Some(a) = r.applying()? else { return Ok(false) };
+        let client = self.client()?;
+        match r.apply_from(a.base, a.version, &a.entries, |hash, to| fetch_to(client, r.group(), hash, to)).await {
+            Ok(root_hash) => {
+                applied(out, r, a.version, root_hash);
+                Ok(true)
+            }
+            Err(e @ ApplyError::Drift(_)) => {
+                r.set_applying(None)?;
+                Err(e)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Applies what changed since the base up to the head and reports the tree's root hash (F14); false when it was
-    /// at the head already.
-    async fn catch_up(&self, r: &Replica, out: &Outbox) -> Result<bool, ApplyError> {
+    /// at the head already. `tree`: the tree just scanned, if it was.
+    async fn catch_up(&self, r: &Replica, out: &Outbox, tree: Option<Tree>) -> Result<bool, ApplyError> {
         let Some(client) = &self.client else { return Ok(false) };
+        let tree = if self.resume(r, out).await? { None } else { tree };
         let base = r.base()?;
         let res = client.changes(r.group(), base.version).await.map_err(|e| format!("{e:#}"))?;
         if res.head_version <= base.version {
             return Ok(false);
         }
-        let group = r.group();
-        let fetch = |hash: String| async move { client.download(group, &hash).await.map_err(|e| format!("{e:#}")) };
-        let root_hash = r.apply(res.head_version, &res.entries, fetch).await?;
+        let tree = match tree {
+            Some(tree) => tree,
+            None => r.tree().await?,
+        };
+        let root_hash = r
+            .apply_on(tree, base, res.head_version, &res.entries, |hash, to| fetch_to(client, r.group(), hash, to))
+            .await?;
         applied(out, r, res.head_version, root_hash);
         Ok(true)
     }
@@ -572,7 +688,7 @@ impl Replicas {
 
     /// Versions that came out during the turn (F8).
     async fn catch_up_after(&self, r: &Replica, out: &Outbox) {
-        if let Err(e) = self.catch_up(r, out).await {
+        if let Err(e) = self.catch_up(r, out, None).await {
             tracing::warn!("sync catch-up of {}/{} after the turn failed: {e}", r.group(), r.bot());
         }
     }
@@ -612,19 +728,16 @@ impl Replicas {
 
     /// Sends a submit and waits for its sync.result, sending it again while none comes.
     async fn send(&self, p: &Pending, out: &Outbox) -> Result<SyncSubmitResult, String> {
-        let id = p.submit.submit_id.clone();
         let (tx, mut rx) = oneshot::channel();
-        self.waiting.lock().unwrap().insert(id.clone(), tx);
-        let mut result = None;
+        self.waiting.lock().unwrap().insert(p.submit.submit_id.clone(), tx);
+        let _waiting = Waiting(self, &p.submit.submit_id);
         for _ in 0..SEND_ATTEMPTS {
             out.send(DaemonToServer::SyncSubmit(p.submit.clone()));
             if let Ok(answer) = tokio::time::timeout(RESULT_TIMEOUT, &mut rx).await {
-                result = answer.ok();
-                break;
+                return answer.map_err(|_| t!("等待服务器确认同步提交超时").into());
             }
         }
-        self.waiting.lock().unwrap().remove(&id);
-        result.ok_or_else(|| t!("等待服务器确认同步提交超时").into())
+        Err(t!("等待服务器确认同步提交超时").into())
     }
 
     /// A stopped or failed turn submits nothing (F21). A merge turn leaves its conflict held as it was, the files back
@@ -690,6 +803,10 @@ impl Replicas {
 }
 
 impl SyncTurn {
+    pub fn behind(&self) -> Option<u64> {
+        self.behind
+    }
+
     /// After the turn, before run.done (F10): submits a completed turn's changes and settles them.
     pub async fn finish(self, outcome: RunOutcome) -> RunSyncDone {
         let r = &self.replica;
@@ -758,6 +875,20 @@ fn report(out: &Outbox, r: &Replica, state: SyncReplicaIssue, paths: &[String], 
     });
 }
 
+/// Removes a submit's waiter however its wait ends (a turn stops waiting for a pending submit after FLUSH_WAIT).
+struct Waiting<'a>(&'a Replicas, &'a str);
+
+impl Drop for Waiting<'_> {
+    fn drop(&mut self) {
+        self.0.waiting.lock().unwrap().remove(self.1);
+    }
+}
+
+/// Blob fetching for an apply: streamed into the file it is given.
+async fn fetch_to(client: &Client, group: &str, hash: String, to: PathBuf) -> Result<(), String> {
+    client.download_to(group, &hash, &to).await.map_err(|e| t!("下载同步内容失败：{e}", e = format!("{e:#}")))
+}
+
 async fn download(client: &Client, r: &Replica, hash: &str) -> Result<Vec<u8>, String> {
     client.download(r.group(), hash).await.map_err(|e| t!("下载同步内容失败：{e}", e = format!("{e:#}")))
 }
@@ -801,13 +932,13 @@ async fn merge(
         };
         let their_bytes = fetch(their_hash).await?;
         match r.merge(&mine_bytes, base.as_deref(), &their_bytes).await? {
-            Merge::Clean(bytes) => merged.push((&mine.path, their_hash, bytes)),
+            Merge::Clean(bytes) => merged.push((mine, their_hash, bytes)),
             Merge::Conflict(_) | Merge::Binary => return Ok(false),
         }
     }
-    for (path, their_hash, bytes) in merged {
-        std::fs::write(r.work().join(path), bytes).map_err(|e| t!("无法写入 {path}：{e}", path = path, e = e))?;
-        rebased.insert(path.clone(), Some(their_hash.clone()));
+    for (mine, their_hash, bytes) in merged {
+        r.put(&mine.path, Some(&bytes), mine.exec)?;
+        rebased.insert(mine.path.clone(), Some(their_hash.clone()));
     }
     Ok(true)
 }
