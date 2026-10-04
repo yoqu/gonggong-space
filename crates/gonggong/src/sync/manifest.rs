@@ -6,9 +6,9 @@ use crate::git;
 use crate::t;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 /// Suffix of the temp file a write goes through; one left behind is an apply cut off.
@@ -52,8 +52,8 @@ impl Tree {
     }
 }
 
-/// The tree, and the cache it was scanned with (to tell whether it changed).
-pub(super) async fn scan(work: &Path, cache: BTreeMap<String, Stat>) -> Result<(Tree, BTreeMap<String, Stat>), String> {
+/// The tree, and the cache it was scanned with (handed back whatever happens).
+pub(super) async fn scan(work: &Path, cache: BTreeMap<String, Stat>) -> (Result<Tree, String>, BTreeMap<String, Stat>) {
     let excludes = format!("core.excludesFile={}", if cfg!(windows) { "NUL" } else { "/dev/null" });
     let args = [
         "-c",
@@ -66,19 +66,63 @@ pub(super) async fn scan(work: &Path, cache: BTreeMap<String, Stat>) -> Result<(
         ".",
         ":(exclude).gonggong",
     ];
-    let listed = git::git_bytes(work, &args).await?;
+    let listed = match git::git_bytes(work, &args).await {
+        Ok(listed) => listed,
+        Err(e) => return (Err(e), cache),
+    };
     let work = work.to_path_buf();
-    tokio::task::spawn_blocking(move || scan_listed(&work, &listed, &cache).map(|t| (t, cache)))
-        .await
-        .map_err(|e| e.to_string())?
+    let task = tokio::task::spawn_blocking(move || (scan_listed(&work, &listed, &cache), cache));
+    // A panicked scan loses the cache: the next scan hashes every file again.
+    task.await.unwrap_or_else(|e| (Err(e.to_string()), BTreeMap::new()))
 }
 
+/// Listed entries per thread below which a scan uses fewer threads; stat and hashing run in parallel above it.
+const SCAN_CHUNK: usize = 4096;
+const SCAN_THREADS: usize = 8;
+
 fn scan_listed(work: &Path, listed: &[u8], cache: &BTreeMap<String, Stat>) -> Result<Tree, String> {
-    let mut tree = Tree::default();
-    let mut names = case_insensitive(work).then(Names::default);
     // `<tag> <path>`: `?` untracked (as spelled on disk), `S` skip-worktree, else tracked (as spelled in the index).
     // A nested repository is listed as `dir/`; submodule gitlinks and deleted tracked files fail the is_file check.
-    for raw in listed.split(|b| *b == 0).filter(|r| r.len() > 2 && !r.ends_with(b"/")) {
+    let entries: Vec<&[u8]> = listed.split(|b| *b == 0).filter(|r| r.len() > 2 && !r.ends_with(b"/")).collect();
+    let insensitive = case_insensitive(work);
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(SCAN_THREADS);
+    let threads = threads.min(entries.len().div_ceil(SCAN_CHUNK)).max(1);
+    let parts: Vec<_> = std::thread::scope(|s| {
+        let parts: Vec<_> = entries
+            .chunks(entries.len().div_ceil(threads).max(1))
+            .map(|chunk| s.spawn(move || scan_part(work, chunk, cache, insensitive)))
+            .collect();
+        parts.into_iter().map(|p| p.join().expect("scan thread panicked")).collect()
+    });
+    let mut tree = Tree::default();
+    let mut files = vec![];
+    for part in parts {
+        let (part, listed) = part?;
+        files.extend(listed);
+        tree.odd.extend(part.odd);
+        tree.untracked.extend(part.untracked);
+        tree.sparse.extend(part.sparse);
+        tree.hashed += part.hashed;
+    }
+    // The listing is sorted but for respelled paths.
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    files.dedup_by(|later, first| later.0 == first.0);
+    tree.files = files.into_iter().collect();
+    Ok(tree)
+}
+
+/// A run of listed entries: the tree but its files, and the files in listing order.
+fn scan_part(
+    work: &Path,
+    entries: &[&[u8]],
+    cache: &BTreeMap<String, Stat>,
+    insensitive: bool,
+) -> Result<(Tree, Vec<(String, Stat)>), String> {
+    let mut tree = Tree::default();
+    let mut names = insensitive.then(Names::default);
+    let mut files: Vec<(String, Stat)> = vec![];
+    let mut cached = Cursor::new(cache);
+    for raw in entries {
         let (tag, raw) = (raw[0], &raw[2..]);
         let Ok(path) = std::str::from_utf8(raw) else {
             tree.odd.push(Violation { path: String::from_utf8_lossy(raw).into_owned(), issue: Issue::NotUtf8 });
@@ -92,7 +136,8 @@ fn scan_listed(work: &Path, listed: &[u8], cache: &BTreeMap<String, Stat>) -> Re
             Some(names) if tag != b'?' => names.on_disk(work, path),
             _ => path.to_string(),
         };
-        if tree.files.contains_key(&path) {
+        // An unmerged path is listed once per stage.
+        if files.last().is_some_and(|(last, _)| *last == path) {
             continue;
         }
         let full = work.join(&path);
@@ -114,7 +159,7 @@ fn scan_listed(work: &Path, listed: &[u8], cache: &BTreeMap<String, Stat>) -> Re
         let size = meta.len();
         let mtime = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
         let mtime = mtime as u64;
-        let cached = cache.get(&path);
+        let cached = cached.get(&path);
         let hash = match cached {
             Some(c) if c.size == size && c.mtime == mtime => c.hash.clone(),
             _ => {
@@ -126,9 +171,40 @@ fn scan_listed(work: &Path, listed: &[u8], cache: &BTreeMap<String, Stat>) -> Re
         if tag == b'?' {
             tree.untracked.insert(path.clone());
         }
-        tree.files.insert(path, Stat { size, mtime, hash, exec });
+        files.push((path, Stat { size, mtime, hash, exec }));
     }
-    Ok(tree)
+    Ok((tree, files))
+}
+
+/// Lookups in the cache by paths that come mostly in order: a cursor walks it instead of searching it for each.
+struct Cursor<'a> {
+    cache: &'a BTreeMap<String, Stat>,
+    at: std::collections::btree_map::Range<'a, String, Stat>,
+    next: Option<(&'a String, &'a Stat)>,
+}
+
+impl<'a> Cursor<'a> {
+    /// Steps taken before a lookup falls back to a search.
+    const STEPS: usize = 16;
+
+    fn new(cache: &'a BTreeMap<String, Stat>) -> Self {
+        let mut at = cache.range::<str, _>(..);
+        let next = at.next();
+        Cursor { cache, at, next }
+    }
+
+    fn get(&mut self, path: &str) -> Option<&'a Stat> {
+        for _ in 0..Self::STEPS {
+            match self.next {
+                Some((k, _)) if k.as_str() < path => self.next = self.at.next(),
+                Some((k, v)) if k == path => return Some(v),
+                _ => break,
+            }
+        }
+        self.at = self.cache.range::<str, _>((std::ops::Bound::Included(path), std::ops::Bound::Unbounded));
+        self.next = self.at.next();
+        self.next.filter(|(k, _)| *k == path).map(|(_, v)| v)
+    }
 }
 
 /// Whether the workspace's file system ignores case (macOS and Windows by default).
@@ -137,29 +213,53 @@ fn case_insensitive(work: &Path) -> bool {
 }
 
 /// Directory listings, to spell paths as they are on disk: after a case-only rename on a case-insensitive file system
-/// the index keeps the old spelling, while the file (and every other replica) has the new one.
+/// the index keeps the old spelling, while the file (and every other replica) has the new one. Each listing has its
+/// directory's on-disk path and is found by the path as asked for; paths come sorted, so most share the last one's.
 #[derive(Default)]
-pub(super) struct Names(HashMap<PathBuf, Vec<String>>);
+pub(super) struct Names {
+    dirs: Vec<Listing>,
+    asked: HashMap<String, usize>,
+    last: Option<(String, usize)>,
+}
+
+struct Listing {
+    path: String,
+    names: HashSet<String>,
+    /// Lowercase → name, built on the first miss.
+    lower: Option<HashMap<String, String>>,
+}
 
 impl Names {
     /// `path` with each component spelled as on disk; a component not found ignoring case stays as it is.
     pub(super) fn on_disk(&mut self, work: &Path, path: &str) -> String {
-        let mut dir = PathBuf::new();
-        let mut out = vec![];
-        for seg in path.split('/') {
-            let names = self.0.entry(dir.clone()).or_insert_with(|| {
-                let entries = std::fs::read_dir(work.join(&dir)).into_iter().flatten().flatten();
-                entries.map(|e| e.file_name().to_string_lossy().into_owned()).collect()
-            });
-            let lower = seg.to_lowercase();
-            let name = match names.iter().any(|n| n == seg) {
-                true => seg.to_string(),
-                false => names.iter().find(|n| n.to_lowercase() == lower).cloned().unwrap_or_else(|| seg.into()),
-            };
-            dir.push(&name);
-            out.push(name);
-        }
-        out.join("/")
+        let (dir, name) = path.rsplit_once('/').unwrap_or(("", path));
+        let i = match &self.last {
+            Some((last, i)) if last == dir => *i,
+            _ => {
+                let i = match self.asked.get(dir) {
+                    Some(i) => *i,
+                    None => {
+                        let path = if dir.is_empty() { String::new() } else { self.on_disk(work, dir) };
+                        let entries = std::fs::read_dir(work.join(&path)).into_iter().flatten().flatten();
+                        let names = entries.map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+                        self.dirs.push(Listing { path, names, lower: None });
+                        self.asked.insert(dir.into(), self.dirs.len() - 1);
+                        self.dirs.len() - 1
+                    }
+                };
+                self.last = Some((dir.into(), i));
+                i
+            }
+        };
+        let Listing { path: dir, names, lower } = &mut self.dirs[i];
+        let name = match names.contains(name) {
+            true => name,
+            false => {
+                let lower = lower.get_or_insert_with(|| names.iter().map(|n| (n.to_lowercase(), n.clone())).collect());
+                lower.get(&name.to_lowercase()).map_or(name, String::as_str)
+            }
+        };
+        if dir.is_empty() { name.to_string() } else { format!("{dir}/{name}") }
     }
 }
 
@@ -294,15 +394,18 @@ mod tests {
         let fx = Fixture::new();
         fx.write("a.txt", "a");
         let r = fx.replica();
+        r.set_base(&super::super::Base::default()).unwrap();
         r.tree().await.unwrap();
-        let cache = fx.home().join("sync/g1/b1/cache.json");
-        let old = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
-        std::fs::File::options().write(true).open(&cache).unwrap().set_modified(old).unwrap();
+        let journal = fx.home().join("sync/g1/b1/journal.jsonl");
+        let len = || std::fs::metadata(&journal).unwrap().len();
+        let written = len();
         r.tree().await.unwrap();
-        assert_eq!(std::fs::metadata(&cache).unwrap().modified().unwrap(), old);
+        assert_eq!(len(), written);
         fx.write("b.txt", "b");
         r.tree().await.unwrap();
-        assert_ne!(std::fs::metadata(&cache).unwrap().modified().unwrap(), old);
+        assert!(len() > written);
+        let again = Replica::new(&fx.home(), "g1", "b1", fx.work());
+        assert_eq!(again.tree().await.unwrap().hashed, 0, "the cache survives a restart");
     }
 
     #[tokio::test]

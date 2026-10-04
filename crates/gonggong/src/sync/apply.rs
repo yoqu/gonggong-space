@@ -34,11 +34,13 @@ impl std::fmt::Display for ApplyError {
     }
 }
 
-/// A version being written: applying `entries` to `base` gives it.
+/// A version being written: applying `entries` to `base` gives it; None = the replica's base, which stays as it is
+/// until the version is written.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Applying {
     pub version: u64,
-    pub base: Base,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<Base>,
     pub entries: Vec<SyncEntry>,
 }
 
@@ -51,13 +53,13 @@ impl Replica {
         F: Fn(String, PathBuf) -> Fut,
         Fut: Future<Output = Result<(), String>>,
     {
-        self.apply_from(self.base()?, version, entries, fetch).await
+        self.apply_from(None, version, entries, fetch).await
     }
 
     /// `apply` from a given base instead of the stored one: aligning takes the tree as it is for the base (§3.5).
     pub async fn apply_from<F, Fut>(
         &self,
-        base: Base,
+        base: Option<Base>,
         version: u64,
         entries: &[SyncEntry],
         fetch: F,
@@ -74,7 +76,7 @@ impl Replica {
     pub(crate) async fn apply_on<F, Fut>(
         &self,
         mut tree: Tree,
-        base: Base,
+        from: Option<Base>,
         version: u64,
         entries: &[SyncEntry],
         fetch: F,
@@ -83,6 +85,10 @@ impl Replica {
         F: Fn(String, PathBuf) -> Fut,
         Fut: Future<Output = Result<(), String>>,
     {
+        let base = match &from {
+            Some(base) => base.clone(),
+            None => self.base()?,
+        };
         for e in entries {
             path::safe(&self.work, &e.path)?;
         }
@@ -127,14 +133,13 @@ impl Replica {
                     }
                 })
                 .await?;
-            self.set_applying(Some(&Applying { version, base: base.clone(), entries: entries.to_vec() }))?;
+            self.set_applying(Some(&Applying { version, base: from, entries: entries.to_vec() }))?;
             self.write(&mut tree, &staging, &deletes, &writes)
         }
         .await;
         let _ = std::fs::remove_dir_all(&staging);
         result?;
-        self.save_cache(&tree.files)?;
-        self.set_base(&Base { version, files: advance(&base.files, entries) })?;
+        self.commit_base(&Base { version, files: advance(&base.files, entries) }, Some(&tree.files))?;
         self.set_applying(None)?;
         Ok(super::manifest_root(&tree.manifest()))
     }
@@ -502,8 +507,8 @@ mod tests {
         assert!(leftovers(&fx.work()).is_empty());
         assert!(leftovers(&fx.home()).is_empty());
         let applying = r.applying().unwrap().unwrap();
-        assert_eq!((applying.version, applying.entries), (2, entries));
-        assert_eq!(applying.base.version, 1);
+        assert_eq!((applying.version, &applying.base, applying.entries), (2, &None, entries));
+        assert_eq!(r.version().unwrap(), 1);
         // Once the way is clear, applying again from the recorded base finishes the version.
         std::fs::remove_dir_all(fx.work().join("x")).unwrap();
         let entries =

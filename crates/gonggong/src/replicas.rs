@@ -13,7 +13,7 @@ use crate::protocol::{
     SyncSubmitResult, SyncWaitIssue,
 };
 use crate::service::Outbox;
-use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica, TRANSFERS, Tree};
+use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Memory, Merge, Pending, Replica, TRANSFERS, Tree};
 use crate::{reason, t};
 use futures_util::{TryStreamExt, stream};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -47,6 +47,8 @@ pub(crate) struct Replicas {
     /// None without server REST access (tests): nothing is synced.
     client: Option<Client>,
     locks: Locks,
+    /// Each replica's base and stat cache, loaded once and used under its lock.
+    memory: Mutex<HashMap<(String, String), Memory>>,
     /// Submits awaiting their sync.result, by submit id.
     waiting: Mutex<HashMap<String, oneshot::Sender<SyncSubmitResult>>>,
     /// Workspaces already set up for byte-exact sync.
@@ -100,6 +102,7 @@ impl Replicas {
             home,
             client,
             locks: Mutex::default(),
+            memory: Mutex::default(),
             waiting: Mutex::default(),
             prepared: Mutex::default(),
             unreported: Mutex::default(),
@@ -110,6 +113,13 @@ impl Replicas {
     async fn lock(&self, group: &str, bot: &str) -> OwnedMutexGuard<()> {
         let lock = self.locks.lock().unwrap().entry((group.into(), bot.into())).or_default().clone();
         lock.lock_owned().await
+    }
+
+    /// `r` sharing the replica's state in memory with every other handle on it.
+    fn shared(&self, r: Replica) -> Replica {
+        let key = (r.group().to_string(), r.bot().to_string());
+        let memory = self.memory.lock().unwrap().entry(key).or_default().clone();
+        r.sharing(memory)
     }
 
     async fn prepare(&self, work: &Path) {
@@ -135,7 +145,7 @@ impl Replicas {
         if start.workspace.cd_path.is_some() || self.client.is_none() {
             return Ok(None);
         }
-        let replica = Replica::new(&self.home, &start.group_id, &start.bot.id, cwd.to_path_buf());
+        let replica = self.shared(Replica::new(&self.home, &start.group_id, &start.bot.id, cwd.to_path_buf()));
         if !replica.joined() {
             let reason = reason!("本机同步状态丢失，正在重新对齐");
             report(out, &replica, SyncReplicaIssue::Lost, &[], Some(reason.clone()));
@@ -187,7 +197,7 @@ impl Replicas {
                 tracing::warn!("run {}: catch-up failed, running behind: {e}", start.run_id);
                 report(out, &replica, SyncReplicaIssue::Error, &[], Some(e.into()));
                 self.mark_unreported(&replica);
-                Some(replica.base()?.version)
+                Some(replica.version()?)
             }
         };
         Ok(Some(turn(replica, behind)))
@@ -199,7 +209,7 @@ impl Replicas {
         if self.client.is_none() {
             return;
         }
-        for replica in Replica::joined_in(&self.home, group) {
+        for replica in Replica::joined_in(&self.home, group).into_iter().map(|r| self.shared(r)) {
             let key = (replica.group().to_string(), replica.bot().to_string());
             match self.available.lock().unwrap().entry(key.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut again) => {
@@ -266,7 +276,7 @@ impl Replicas {
         let (me, out) = (self.clone(), out.clone());
         tokio::spawn(async move {
             let _lock = me.lock(&group, &bot).await;
-            let Some(r) = Replica::find(&me.home, &group, &bot) else {
+            let Some(r) = Replica::find(&me.home, &group, &bot).map(|r| me.shared(r)) else {
                 return tracing::warn!("sync.action for {group}/{bot}: no such joined replica");
             };
             let result = match action {
@@ -294,7 +304,7 @@ impl Replicas {
         tokio::spawn(async move {
             let lock = me.lock(&init.group, &init.bot).await;
             let work = crate::workspace::managed_path(&me.home, &init.group, &init.bot, init.repo_id.as_deref());
-            let r = Replica::new(&me.home, &init.group, &init.bot, work);
+            let r = me.shared(Replica::new(&me.home, &init.group, &init.bot, work));
             let result = match init.role {
                 SyncRole::Leave => r.forget().map_err(Reason::from),
                 SyncRole::Base => me.become_base(&r, &out).await,
@@ -312,6 +322,7 @@ impl Replicas {
                 let key = (init.group, init.bot);
                 if locks.get(&key).is_some_and(|l| Arc::strong_count(l) == 1) {
                     locks.remove(&key);
+                    me.memory.lock().unwrap().remove(&key);
                 }
             }
         });
@@ -335,7 +346,7 @@ impl Replicas {
             return Ok(());
         }
         upload(client, r, &changes).await?;
-        match self.submit(r, None, SyncSubmitKind::Init, out, 0, false, changes, &files).await? {
+        match self.submit(r, None, SyncSubmitKind::Init, out, 0, false, changes).await? {
             SyncSubmitResult::Accepted { version } => {
                 r.set_base(&Base { version, files: files.clone() })?;
                 r.clear()?;
@@ -399,13 +410,13 @@ impl Replicas {
         }));
         let fetch = |hash, to| fetch_to(client, r.group(), hash, to);
         let base = Base { version: 0, files: current };
-        let root_hash = match r.apply_on(tree, base.clone(), res.head_version, &entries, &fetch).await {
+        let root_hash = match r.apply_on(tree, Some(base.clone()), res.head_version, &entries, &fetch).await {
             Err(ApplyError::Drift(paths)) => {
                 r.backup(&paths)?;
                 for p in &paths {
                     r.put(p, None, false)?;
                 }
-                r.apply_from(base, res.head_version, &entries, &fetch).await
+                r.apply_from(Some(base), res.head_version, &entries, &fetch).await
             }
             done => done,
         }
@@ -429,7 +440,7 @@ impl Replicas {
         let stopped = r.stopped()?;
         let kind = if stopped.is_some() { SyncSubmitKind::Interrupted } else { SyncSubmitKind::Local };
         match self.submit_tree(r, stopped.as_deref(), kind, out).await? {
-            RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. } => self.settle(r, out).await,
+            (RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. }, tree) => self.settle(r, out, tree).await,
             // Reported already.
             _ => Ok(()),
         }
@@ -443,7 +454,7 @@ impl Replicas {
             return Ok(());
         }
         match self.submit_tree(r, None, SyncSubmitKind::Merge, out).await? {
-            RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. } => self.settle(r, out).await,
+            (RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. }, tree) => self.settle(r, out, tree).await,
             _ => Ok(()),
         }
     }
@@ -498,8 +509,8 @@ impl Replicas {
 
     /// After settling: catches up to the head, or reports the version it is at, which clears the server's issue. A
     /// failed catch-up is retried a few times, then left to the next sync.available (a reconnect brings one).
-    async fn settle(&self, r: &Replica, out: &Outbox) -> Result<(), Reason> {
-        match self.catch_up_retrying(r, out, None, CATCH_UP_ATTEMPTS).await {
+    async fn settle(&self, r: &Replica, out: &Outbox, tree: Option<Tree>) -> Result<(), Reason> {
+        match self.catch_up_retrying(r, out, tree, CATCH_UP_ATTEMPTS).await {
             Ok(true) => Ok(()),
             Ok(false) => self.report_base(r, out),
             Err(e) => {
@@ -544,8 +555,10 @@ impl Replicas {
     async fn flush(&self, r: &Replica, out: &Outbox) -> Result<(), Reason> {
         let Some(p) = r.pending()? else { return Ok(()) };
         let accepted = matches!(self.send(&p, out).await?, SyncSubmitResult::Accepted { .. });
-        if accepted && p.submit.base_version >= r.base()?.version {
-            r.set_base(&Base { version: p.submit.base_version, files: p.files })?;
+        let base = r.base()?;
+        if accepted && p.submit.base_version >= base.version {
+            let entries: Vec<SyncEntry> = p.submit.changes.iter().map(entry).collect();
+            r.set_base(&Base { version: p.submit.base_version, files: sync::advance(&base.files, &entries) })?;
             if r.issue()? == Some(SyncReplicaIssue::Error) {
                 r.set_issue(None)?;
             }
@@ -621,9 +634,9 @@ impl Replicas {
     async fn catch_up(&self, r: &Replica, out: &Outbox, tree: Option<Tree>) -> Result<bool, ApplyError> {
         let Some(client) = &self.client else { return Ok(false) };
         let tree = if self.resume(r, out).await? { None } else { tree };
-        let base = r.base()?;
-        let res = client.changes(r.group(), base.version).await.map_err(|e| format!("{e:#}"))?;
-        if res.head_version <= base.version {
+        let version = r.version()?;
+        let res = client.changes(r.group(), version).await.map_err(|e| format!("{e:#}"))?;
+        if res.head_version <= version {
             return Ok(false);
         }
         let tree = match tree {
@@ -631,7 +644,7 @@ impl Replicas {
             None => r.tree().await?,
         };
         let root_hash = r
-            .apply_on(tree, base, res.head_version, &res.entries, |hash, to| fetch_to(client, r.group(), hash, to))
+            .apply_on(tree, None, res.head_version, &res.entries, |hash, to| fetch_to(client, r.group(), hash, to))
             .await?;
         applied(out, r, res.head_version, root_hash);
         Ok(true)
@@ -644,7 +657,10 @@ impl Replicas {
         if res.head_version <= base.version {
             return Ok(true);
         }
-        if sync::advance(&base.files, &res.entries) != base.files {
+        let same = |e: &SyncEntry| {
+            base.files.get(&e.path).map(|f| (f.hash.as_str(), f.exec)) == e.hash.as_deref().map(|h| (h, e.exec))
+        };
+        if !res.entries.iter().all(same) {
             return Ok(false);
         }
         let root_hash = sync::manifest_root(&base.files);
@@ -661,7 +677,7 @@ impl Replicas {
         run_id: Option<&str>,
         kind: SyncSubmitKind,
         out: &Outbox,
-    ) -> Result<RunSyncDone, Reason> {
+    ) -> Result<(RunSyncDone, Option<Tree>), Reason> {
         let client = self.client()?;
         let base = r.base()?;
         let held = r.held()?;
@@ -672,14 +688,14 @@ impl Replicas {
         let mut changes = sync::diff(&base.files, &tree.manifest());
         if changes.is_empty() {
             r.clear()?;
-            return Ok(RunSyncDone::Unchanged { version: base.version });
+            return Ok((RunSyncDone::Unchanged { version: base.version }, Some(tree)));
         }
         let violations = sync::check(&tree, &changes);
         if let Some(first) = violations.first() {
             let paths: Vec<_> = violations.iter().map(|v| v.path.clone()).collect();
             report(out, r, SyncReplicaIssue::Error, &paths, Some(first.reason()));
             r.set_issue(Some(SyncReplicaIssue::Error))?;
-            return Ok(sync_error(first.reason()));
+            return Ok((sync_error(first.reason()), None));
         }
         for attempt in 0..SUBMIT_ATTEMPTS {
             for c in &mut changes {
@@ -689,14 +705,12 @@ impl Replicas {
             }
             upload(client, r, &changes).await?;
             let merged = attempt > 0;
-            let files = tree.manifest();
-            let submitted = self.submit(r, run_id, kind, out, base.version, merged, changes.clone(), &files);
-            match submitted.await? {
+            match self.submit(r, run_id, kind, out, base.version, merged, changes.clone()).await? {
                 SyncSubmitResult::Accepted { version } => {
                     // The submitted tree on top of the old base: catching up from there brings in the others' changes.
-                    r.set_base(&Base { version: base.version, files })?;
+                    r.set_base(&Base { version: base.version, files: tree.manifest() })?;
                     r.clear()?;
-                    return Ok(RunSyncDone::Accepted { version, merged });
+                    return Ok((RunSyncDone::Accepted { version, merged }, Some(tree)));
                 }
                 SyncSubmitResult::Rejected { reason } => return Err(rejected(reason)),
                 SyncSubmitResult::Conflict { conflicts, .. } => {
@@ -705,7 +719,7 @@ impl Replicas {
                         r.set_held(Some(&Held { changes, conflicts, rebased, merging: false }))?;
                         r.set_issue(Some(SyncReplicaIssue::Held))?;
                         report(out, r, SyncReplicaIssue::Held, &paths, None);
-                        return Ok(RunSyncDone::Held { files: paths.len() as u32 });
+                        return Ok((RunSyncDone::Held { files: paths.len() as u32 }, None));
                     }
                     tree = r.tree().await?;
                     changes = sync::diff(&base.files, &tree.manifest());
@@ -715,11 +729,11 @@ impl Replicas {
         unreachable!("the last attempt returns")
     }
 
-    /// Versions that came out during the turn (F8). The base holds the tree just submitted: when the head is that
-    /// same tree (no one else's version came in), only the base's version moves, sparing a scan of the whole tree.
-    async fn catch_up_after(&self, r: &Replica, out: &Outbox) {
+    /// Versions that came out during the turn (F8), applied on `tree`, the tree just submitted, which the base holds:
+    /// when the head is that same tree (no one else's version came in), only the base's version moves.
+    async fn catch_up_after(&self, r: &Replica, out: &Outbox, tree: Option<Tree>) {
         let caught_up = match self.head_is_base(r, out).await {
-            Ok(false) => self.catch_up(r, out, None).await.map(drop).map_err(|e| e.to_string()),
+            Ok(false) => self.catch_up(r, out, tree).await.map(drop).map_err(|e| e.to_string()),
             done => done.map(drop).map_err(|e| e.text),
         };
         if let Err(e) = caught_up {
@@ -727,8 +741,8 @@ impl Replicas {
         }
     }
 
-    /// Submits `changes` (taking the tree to `files`), kept as pending until a result settles it: a refused one is
-    /// dropped here, an accepted one by the caller once its base is set.
+    /// Submits `changes`, kept as pending until a result settles it: a refused one is dropped here, an accepted one by
+    /// the caller once its base is set.
     #[allow(clippy::too_many_arguments)]
     async fn submit(
         &self,
@@ -739,7 +753,6 @@ impl Replicas {
         base_version: u64,
         merged: bool,
         changes: Vec<SyncChange>,
-        files: &Manifest,
     ) -> Result<SyncSubmitResult, Reason> {
         let submit = SyncSubmit {
             group_id: r.group().into(),
@@ -751,7 +764,7 @@ impl Replicas {
             merged,
             changes,
         };
-        let p = Pending { submit, files: files.clone() };
+        let p = Pending { submit };
         r.set_pending(Some(&p))?;
         let result = self.send(&p, out).await?;
         if !matches!(result, SyncSubmitResult::Accepted { .. }) {
@@ -784,25 +797,25 @@ impl Replicas {
         run_id: &str,
         outcome: RunOutcome,
         out: &Outbox,
-    ) -> Result<RunSyncDone, Reason> {
+    ) -> Result<(RunSyncDone, Option<Tree>), Reason> {
         if let Some(held) = r.held()?.filter(|h| h.merging) {
             let files = held.conflicts.len() as u32;
             self.restore(r, held).await?;
-            return Ok(RunSyncDone::Held { files });
+            return Ok((RunSyncDone::Held { files }, None));
         }
         let base = r.base()?;
-        let paths: Vec<String> =
-            sync::diff(&base.files, &r.tree().await?.manifest()).into_iter().map(|c| c.path).collect();
+        let tree = r.tree().await?;
+        let paths: Vec<String> = sync::diff(&base.files, &tree.manifest()).into_iter().map(|c| c.path).collect();
         if paths.is_empty() {
-            return Ok(RunSyncDone::Unchanged { version: base.version });
+            return Ok((RunSyncDone::Unchanged { version: base.version }, Some(tree)));
         }
         r.set_issue(Some(SyncReplicaIssue::Drift))?;
         if outcome == RunOutcome::Interrupted {
             r.set_stopped(Some(run_id))?;
-            return Ok(RunSyncDone::Stopped { files: paths.len() as u32 });
+            return Ok((RunSyncDone::Stopped { files: paths.len() as u32 }, None));
         }
         report(out, r, SyncReplicaIssue::Drift, &paths, None);
-        Ok(sync_error(reason!("本轮异常结束，改动未提交，待 Bot 主人处理")))
+        Ok((sync_error(reason!("本轮异常结束，改动未提交，待 Bot 主人处理")), None))
     }
 
     /// Puts the tree back to the replica's side of the held change (the base plus its changes), so no conflict
@@ -810,11 +823,7 @@ impl Replicas {
     /// backed up first.
     async fn restore(&self, r: &Replica, mut held: Held) -> Result<(), Reason> {
         let client = self.client()?;
-        let side: Vec<SyncEntry> = held
-            .changes
-            .iter()
-            .map(|c| SyncEntry { path: c.path.clone(), hash: c.hash.clone(), exec: c.exec })
-            .collect();
+        let side: Vec<SyncEntry> = held.changes.iter().map(entry).collect();
         let side = sync::advance(&r.base()?.files, &side);
         let strays = sync::diff(&side, &r.tree().await?.manifest());
         let conflicted: HashSet<&str> = held.conflicts.iter().map(|c| c.path.as_str()).collect();
@@ -852,11 +861,11 @@ impl SyncTurn {
             _ => self.replicas.unsubmitted(r, &self.run_id, outcome, &self.out).await,
         };
         match settled {
-            Ok(done @ (RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. })) => {
-                self.replicas.catch_up_after(r, &self.out).await;
+            Ok((done @ (RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. }), tree)) => {
+                self.replicas.catch_up_after(r, &self.out, tree).await;
                 done
             }
-            Ok(done) => done,
+            Ok((done, _)) => done,
             Err(reason) => {
                 report(&self.out, r, SyncReplicaIssue::Error, &[], Some(reason.clone()));
                 if let Err(e) = r.set_issue(Some(SyncReplicaIssue::Error)) {
@@ -887,6 +896,10 @@ fn rejected(reason: SyncRejectReason) -> Reason {
         SyncRejectReason::NotParticipating => reason!("同步提交被拒绝：该副本未参与强制同步"),
         SyncRejectReason::BadBase => reason!("同步提交被拒绝：基准版本无效"),
     }
+}
+
+fn entry(c: &SyncChange) -> SyncEntry {
+    SyncEntry { path: c.path.clone(), hash: c.hash.clone(), exec: c.exec }
 }
 
 /// A turn's submit that did not go in, as run.done reports it.
@@ -1009,7 +1022,7 @@ mod tests {
             merged: false,
             changes: vec![change; n],
         };
-        Pending { submit, files: Manifest::new() }
+        Pending { submit }
     }
 
     async fn sent_id(rx: &mut OutboxRx) -> String {

@@ -108,6 +108,17 @@ struct Rig {
     rx: OutboxRx,
     home: tempfile::TempDir,
     store: Arc<Mutex<Store>>,
+    api: Config,
+}
+
+fn engine(home: &Path, api: &Config) -> Engine {
+    let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/mock-agent/agent.js");
+    Engine::new(EngineConfig {
+        home: home.to_path_buf(),
+        adapter_cmd: Some(format!("node {}", agent.display())),
+        idle: Duration::from_secs(60),
+        api: Some(api.clone()),
+    })
 }
 
 async fn rig() -> Rig {
@@ -127,21 +138,16 @@ async fn rig() -> Rig {
         }
     });
     let home = tempfile::tempdir().unwrap();
-    let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/mock-agent/agent.js");
-    let engine = Engine::new(EngineConfig {
-        home: home.path().to_path_buf(),
-        adapter_cmd: Some(format!("node {}", agent.display())),
-        idle: Duration::from_secs(60),
-        api: Some(Config {
-            server: format!("http://127.0.0.1:{port}"),
-            token: "mt_1".into(),
-            machine_id: "m1".into(),
-            owner_name: "王磊".into(),
-            cert_sha256: None,
-        }),
-    });
+    let api = Config {
+        server: format!("http://127.0.0.1:{port}"),
+        token: "mt_1".into(),
+        machine_id: "m1".into(),
+        owner_name: "王磊".into(),
+        cert_sha256: None,
+    };
+    let engine = engine(home.path(), &api);
     let (out, rx) = Outbox::channel();
-    Rig { engine, out, rx, home, store }
+    Rig { engine, out, rx, home, store, api }
 }
 
 fn git(dir: &Path, args: &[&str]) {
@@ -153,6 +159,12 @@ fn manifest(files: &[(&str, &str)]) -> Manifest {
 }
 
 impl Rig {
+    /// The daemon dies (whatever it was doing is cut off) and starts again on the same home.
+    fn restart(&mut self) {
+        self.engine = engine(self.home.path(), &self.api);
+        (self.out, self.rx) = Outbox::channel();
+    }
+
     fn work(&self) -> PathBuf {
         self.home.path().join("workspaces/g1/b1/_empty")
     }
@@ -520,7 +532,7 @@ async fn an_apply_cut_off_by_a_crash_resumes_instead_of_counting_as_local_edits(
     // The daemon died after writing a.txt of v2.
     r.write("a.txt", "two\n");
     let entries = r.store.lock().unwrap().changes(1);
-    let applying = Applying { version: 2, base: r.replica().base().unwrap(), entries };
+    let applying = Applying { version: 2, base: None, entries };
     r.replica().set_applying(Some(&applying)).unwrap();
     r.run("r1", "mock:echo", at(2, Some(1)));
 
@@ -577,7 +589,7 @@ async fn an_unanswered_pending_submit_holds_a_turn_back_only_briefly() {
         merged: false,
         changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
     };
-    r.replica().set_pending(Some(&Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) })).unwrap();
+    r.replica().set_pending(Some(&Pending { submit: submit.clone() })).unwrap();
     r.replica().set_issue(Some(SyncReplicaIssue::Error)).unwrap();
     let started = std::time::Instant::now();
     r.run("r1", "mock:echo", at(1, Some(1)));
@@ -604,6 +616,71 @@ async fn bursts_of_sync_available_are_coalesced_per_replica() {
     r.quiet(300).await;
     let calls = r.store.lock().unwrap().changes_calls;
     assert!(calls <= 2, "{calls} catch-ups for one burst");
+}
+
+#[tokio::test]
+async fn a_turn_scans_the_tree_once_before_and_once_after_and_an_idle_catch_up_once() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
+    let scans = gonggong::sync::scans(&r.work());
+    r.run("r1", "mock:sh printf 'two\\n' > a.txt", at(2, Some(1)));
+
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("b.txt", "b\n")])));
+    let s = r.submit().await;
+    // Another replica's version lands during the turn: it is applied after the submit, on the tree just scanned.
+    r.store.lock().unwrap().push(&[("c.txt", Some("c\n"))]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 4 });
+    let files = [("a.txt", "two\n"), ("b.txt", "b\n"), ("c.txt", "c\n")];
+    assert_eq!(r.next().await, applied(4, r.root(&files)));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Accepted { version: 4, merged: false }));
+    assert_eq!(gonggong::sync::scans(&r.work()) - scans, 2);
+
+    r.store.lock().unwrap().push(&[("d.txt", Some("d\n"))]);
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 5 });
+    assert!(matches!(r.next().await, DaemonToServer::SyncApplied { version: 5, .. }));
+    assert_eq!(gonggong::sync::scans(&r.work()) - scans, 3);
+    assert_eq!(
+        r.replica().base().unwrap().files,
+        manifest(&[("a.txt", "two\n"), ("b.txt", "b\n"), ("c.txt", "c\n"), ("d.txt", "d\n")])
+    );
+}
+
+#[tokio::test]
+async fn a_submit_accepted_while_the_daemon_was_down_becomes_the_base_after_a_restart() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n"), ("b.txt", "b\n")]);
+    r.run("r1", "mock:sh printf 'two\\n' > a.txt && rm b.txt", at(1, Some(1)));
+    let s = r.submit().await;
+    // The server takes it as v2, and the daemon dies before its answer arrives.
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n")), ("b.txt", None)]);
+    r.restart();
+
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    assert_eq!(r.submit().await, s);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 2 });
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "two\n")])));
+    let replica = r.replica();
+    assert_eq!(replica.base().unwrap(), Base { version: 2, files: manifest(&[("a.txt", "two\n")]) });
+    assert_eq!((replica.pending().unwrap(), replica.issue().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn a_version_written_but_not_yet_reported_is_reported_after_a_restart() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    // The daemon died after recording v2 as its base, before clearing applying.json and telling the server.
+    r.write("a.txt", "two\n");
+    let entries = r.store.lock().unwrap().changes(1);
+    r.replica().set_applying(Some(&Applying { version: 2, base: None, entries })).unwrap();
+    r.replica().set_base(&Base { version: 2, files: manifest(&[("a.txt", "two\n")]) }).unwrap();
+
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "two\n")])));
+    r.quiet(300).await;
+    assert_eq!((r.replica().applying().unwrap(), r.replica().issue().unwrap()), (None, None));
 }
 
 // ── Mode switch (§3.5, S8) ───────────────────────────────────────────────────
@@ -1072,7 +1149,7 @@ async fn a_pending_submit_is_resent_with_its_id_and_an_accepted_one_becomes_the_
         merged: false,
         changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
     };
-    let pending = Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) };
+    let pending = Pending { submit: submit.clone() };
     r.replica().set_pending(Some(&pending)).unwrap();
     r.replica().set_issue(Some(SyncReplicaIssue::Error)).unwrap();
     r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
@@ -1105,7 +1182,7 @@ async fn a_late_acceptance_of_an_older_pending_submit_does_not_move_the_base_bac
         merged: false,
         changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
     };
-    r.replica().set_pending(Some(&Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) })).unwrap();
+    r.replica().set_pending(Some(&Pending { submit: submit.clone() })).unwrap();
     r.replica().set_issue(Some(SyncReplicaIssue::Drift)).unwrap();
     r.replica().set_stopped(Some("r9")).unwrap();
 
@@ -1211,4 +1288,65 @@ async fn after_a_reconnect_a_replica_at_the_head_says_where_it_is_once() {
     assert_eq!(r.next().await, applied(1, r.root(&[("a.txt", "one\n")])));
     r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 1 });
     r.quiet(300).await;
+}
+
+// ── Bench (opt-in) ───────────────────────────────────────────────────────────
+
+/// Times a scan and a one-file round on a big tree:
+/// `GG_BENCH_FILES=100000 cargo test [--release] --test sync_round bench -- --ignored --nocapture`.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn bench_a_one_file_round_on_a_big_tree() {
+    let n: usize = std::env::var("GG_BENCH_FILES").ok().and_then(|v| v.parse().ok()).unwrap_or(100_000);
+    let mut r = rig().await;
+    std::fs::create_dir_all(r.work()).unwrap();
+    git(&r.work(), &["init", "-q"]);
+    let bodies: Vec<(String, String)> =
+        (0..n).map(|i| (format!("big/{}/f{i}.txt", i / 500), format!("file {i}\n"))).collect();
+    for (p, b) in &bodies {
+        let path = r.work().join(p);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, b).unwrap();
+    }
+    r.write("a.txt", "one\n");
+    git(&r.work(), &["add", "-A"]);
+    git(&r.work(), &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"]);
+    let mut files: Vec<(&str, Option<&str>)> = bodies.iter().map(|(p, b)| (p.as_str(), Some(b.as_str()))).collect();
+    files.push(("a.txt", Some("one\n")));
+    r.store.lock().unwrap().push(&files);
+    let replica = r.replica();
+    let t = std::time::Instant::now();
+    let tree = replica.tree().await.unwrap();
+    let cold = t.elapsed();
+    let t = std::time::Instant::now();
+    replica.tree().await.unwrap();
+    let warm = t.elapsed();
+    replica.set_base(&Base { version: 1, files: tree.manifest() }).unwrap();
+    drop((tree, replica));
+
+    // The first catch-up after the daemon starts loads the replica's state.
+    let t = std::time::Instant::now();
+    r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    assert!(matches!(r.next().await, DaemonToServer::SyncApplied { version: 2, .. }));
+    let first = t.elapsed();
+
+    let t = std::time::Instant::now();
+    r.run("r1", "mock:sh printf 'two\\n' > a.txt", at(2, Some(2)));
+    let s = r.submit().await;
+    let submitted = t.elapsed();
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 3 });
+    assert!(matches!(r.next().await, DaemonToServer::SyncApplied { version: 3, .. }));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Accepted { version: 3, merged: false }));
+    let round = t.elapsed();
+
+    let t = std::time::Instant::now();
+    r.store.lock().unwrap().push(&[("c.txt", Some("c\n"))]);
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 4 });
+    assert!(matches!(r.next().await, DaemonToServer::SyncApplied { version: 4, .. }));
+    let idle = t.elapsed();
+    println!(
+        "[bench] files={n} scan cold={cold:?} warm={warm:?} | first catch-up={first:?} | round: to submit={submitted:?} total={round:?} | idle catch-up={idle:?}"
+    );
 }

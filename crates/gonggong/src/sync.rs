@@ -1,10 +1,10 @@
 //! Force sync on the daemon side (docs/plan/强制同步-开发计划.md §3, S3): a replica's manifest and its diff against the
 //! last known version, the cross-platform and size checks, blob transfer, apply and three-way merge.
 //! A replica is one (group, bot) managed workspace; its state lives in `<home>/sync/<group>/<bot>/`, never in the
-//! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed), `base.json` (the
-//! manifest at the version the replica last matched; it exists once the replica joined), `work` (the workspace path,
-//! so idle replicas can be found), `issue.json` (why it stopped taking versions, if it did), `held.json` (the held
-//! change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21),
+//! workspace: `state.json` + `journal.jsonl` (the manifest at the version the replica last matched, and the stat
+//! cache: path → size, mtime, hash, exec, so only touched files are rehashed; they exist once the replica joined; see
+//! `state`), `work` (the workspace path, so idle replicas can be found), `issue.json` (why it stopped taking versions,
+//! if it did), `held.json` (the held change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21),
 //! `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect) and
 //! `applying.json` (the version being written, so an apply a crash cut off is finished rather than taken for edits).
 mod apply;
@@ -13,12 +13,14 @@ mod client;
 mod manifest;
 mod merge;
 mod path;
+mod state;
 
 pub use apply::{ApplyError, Applying};
 pub use check::{Issue, Violation, check};
 pub use client::{Client, TRANSFERS};
 pub use manifest::{Stat, Tree};
 pub use merge::Merge;
+pub(crate) use state::Memory;
 
 use crate::git;
 use crate::protocol::{SyncChange, SyncEntry, SyncReplicaIssue, SyncSubmit};
@@ -26,9 +28,11 @@ use crate::t;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use state::State;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 /// A live file in a version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,13 +63,12 @@ pub struct Held {
     pub merging: bool,
 }
 
-/// A submit on its way: resent as it is until a result settles it; `files` = the tree it carries, the replica's new
-/// base files once accepted.
+/// A submit on its way: resent as it is until a result settles it. Accepted, the tree it carries (its changes on top of
+/// the base it was made on) becomes the replica's base; the base moves on only by catching up, which also moves its
+/// version, or by settling, which clears the pending submit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pending {
     pub submit: SyncSubmit,
-    #[serde(default)]
-    pub files: Manifest,
 }
 
 pub struct Replica {
@@ -74,6 +77,8 @@ pub struct Replica {
     backups: PathBuf,
     group: String,
     bot: String,
+    /// Its base and stat cache once loaded, shared by every handle on the replica the daemon makes.
+    memory: Memory,
 }
 
 impl Replica {
@@ -84,7 +89,13 @@ impl Replica {
             backups: home.join("backups").join(group),
             group: group.into(),
             bot: bot.into(),
+            memory: Memory::default(),
         }
+    }
+
+    /// This handle with the state in `memory` (one per replica, kept by the caller).
+    pub(crate) fn sharing(self, memory: Memory) -> Self {
+        Replica { memory, ..self }
     }
 
     /// The joined replica of (`group`, `bot`) on this machine.
@@ -124,7 +135,27 @@ impl Replica {
 
     /// It matched a version once (mode switch or join, S8); until then its tree is not synced.
     pub fn joined(&self) -> bool {
-        self.state.join("base.json").is_file()
+        let joined = State::joined(&self.state);
+        let mut memory = self.memory.lock().unwrap();
+        if !joined && memory.as_ref().is_some_and(State::saved) {
+            // Its state was removed under the daemon: what is in memory is gone too.
+            *memory = None;
+        }
+        joined
+    }
+
+    /// Runs `f` on the loaded state. On failure the memory is dropped, to be read from disk again: it may be ahead.
+    fn with_state<T>(&self, f: impl FnOnce(&mut State, &Path) -> Result<T, String>) -> Result<T, String> {
+        let mut memory = self.memory.lock().unwrap();
+        let state = match memory.as_mut() {
+            Some(state) => state,
+            None => memory.insert(State::load(&self.state)?),
+        };
+        let result = f(state, &self.state);
+        if result.is_err() {
+            *memory = None;
+        }
+        result
     }
 
     pub fn issue(&self) -> Result<Option<SyncReplicaIssue>, String> {
@@ -179,11 +210,24 @@ impl Replica {
 
     /// Version 0 with no files before the replica ever matched one.
     pub fn base(&self) -> Result<Base, String> {
-        read_json(&self.state.join("base.json"))
+        self.with_state(|s, _| Ok(s.base.clone()))
     }
 
+    pub fn version(&self) -> Result<u64, String> {
+        self.with_state(|s, _| Ok(s.base.version))
+    }
+
+    /// Persisted before it returns; the first base joins the replica.
     pub fn set_base(&self, base: &Base) -> Result<(), String> {
-        write_json(&self.state.join("base.json"), base)?;
+        self.commit_base(base, None)
+    }
+
+    /// `set_base`, with the stat cache now `cache` (a tree just written) in the same journal entry.
+    fn commit_base(&self, base: &Base, cache: Option<&BTreeMap<String, Stat>>) -> Result<(), String> {
+        self.with_state(|s, dir| {
+            let cache = cache.map(|c| state::changes(&s.cache, c)).unwrap_or_default();
+            s.record(dir, cache, Some(base))
+        })?;
         let (file, work) = (self.state.join("work"), self.work.to_string_lossy());
         if std::fs::read(&file).ok().as_deref() == Some(work.as_bytes()) {
             return Ok(());
@@ -194,24 +238,28 @@ impl Replica {
     /// The work tree now (F4), rehashing only files whose size or mtime changed since the last scan. Sparse-checkout
     /// entries are not on disk: they stay as the base has them.
     pub async fn tree(&self) -> Result<Tree, String> {
-        let cache: BTreeMap<String, Stat> = read_json(&self.state.join("cache.json"))?;
-        let (mut tree, cache) = manifest::scan(&self.work, cache).await?;
-        if tree.files != cache {
-            self.save_cache(&tree.files)?;
-        }
+        count_scan(&self.work);
+        let cache = self.with_state(|s, _| Ok(std::mem::take(&mut s.cache)))?;
+        let (tree, cache) = manifest::scan(&self.work, cache).await;
+        self.with_state(|s, dir| {
+            s.cache = cache;
+            let Ok(tree) = &tree else { return Ok(()) };
+            let changed = state::changes(&s.cache, &tree.files);
+            s.record(dir, changed, None)
+        })?;
+        let mut tree = tree?;
         if !tree.sparse.is_empty() {
-            let base = self.base()?.files;
-            tree.kept = tree.sparse.iter().filter_map(|p| Some((p.clone(), base.get(p)?.clone()))).collect();
+            let kept = self.with_state(|s, _| {
+                Ok(tree.sparse.iter().filter_map(|p| Some((p.clone(), s.base.files.get(p)?.clone()))).collect())
+            })?;
+            tree.kept = kept;
         }
         Ok(tree)
     }
 
-    fn save_cache(&self, files: &BTreeMap<String, Stat>) -> Result<(), String> {
-        write_json(&self.state.join("cache.json"), files)
-    }
-
     /// Leaves force sync: the replica's state goes (its group's directory too once empty); the work tree stays.
     pub fn forget(&self) -> Result<(), String> {
+        *self.memory.lock().unwrap() = None;
         match std::fs::remove_dir_all(&self.state) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 return Err(t!("无法清除同步状态：{e}", e = e));
@@ -251,23 +299,17 @@ impl Replica {
 
 /// Changes taking `base` to `current`, each with the path's hash in `base` (F6).
 pub fn diff(base: &Manifest, current: &Manifest) -> Vec<SyncChange> {
-    let mut out: Vec<_> = current
-        .iter()
-        .filter(|(p, f)| base.get(*p) != Some(f))
-        .map(|(p, f)| SyncChange {
-            path: p.clone(),
-            hash: Some(f.hash.clone()),
-            exec: f.exec,
-            base_hash: base.get(p).map(|b| b.hash.clone()),
-        })
-        .chain(base.iter().filter(|(p, _)| !current.contains_key(*p)).map(|(p, b)| SyncChange {
-            path: p.clone(),
-            hash: None,
-            exec: false,
-            base_hash: Some(b.hash.clone()),
-        }))
-        .collect();
-    out.sort_by(|a, b| a.path.cmp(&b.path));
+    let mut out = vec![];
+    state::walk(base, current, |path, b, c| {
+        if b != c {
+            out.push(SyncChange {
+                path: path.clone(),
+                hash: c.map(|c| c.hash.clone()),
+                exec: c.is_some_and(|c| c.exec),
+                base_hash: b.map(|b| b.hash.clone()),
+            });
+        }
+    });
     out
 }
 
@@ -308,6 +350,18 @@ pub fn hash_bytes(bytes: &[u8]) -> String {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Full scans of each work tree by this process, for tests to count.
+static SCANS: Mutex<BTreeMap<PathBuf, usize>> = Mutex::new(BTreeMap::new());
+
+fn count_scan(work: &Path) {
+    *SCANS.lock().unwrap().entry(work.to_path_buf()).or_default() += 1;
+}
+
+#[doc(hidden)]
+pub fn scans(work: &Path) -> usize {
+    SCANS.lock().unwrap().get(work).copied().unwrap_or(0)
 }
 
 /// Synced bytes are taken as they are (F17): no line-ending conversion in a managed workspace.
@@ -446,8 +500,9 @@ mod tests {
         let base = Base { version: 3, files: Manifest::from([("a".into(), f("a", false))]) };
         r.set_base(&base).unwrap();
         assert_eq!(r.base().unwrap(), base);
-        assert!(fx.home().join("sync/g1/b1/base.json").is_file());
-        assert!(!fx.work().join("base.json").exists());
+        assert!(fx.home().join("sync/g1/b1/state.json").is_file());
+        assert!(!fx.work().join("state.json").exists());
+        assert_eq!(Replica::new(&fx.home(), "g1", "b1", fx.work()).base().unwrap(), base);
     }
 
     #[test]
@@ -492,8 +547,12 @@ mod tests {
         std::fs::write(dir.join("held.json"), r#"{"changes":[],"future":1}"#).unwrap();
         assert_eq!(r.held().unwrap(), Some(Held::default()));
         let submit = r#"{"groupId":"g1","botId":"b1","submitId":"s","runId":null,"baseVersion":1,"kind":"run","merged":false,"changes":[]}"#;
-        std::fs::write(dir.join("pending.json"), format!(r#"{{"submit":{submit}}}"#)).unwrap();
-        assert_eq!(r.pending().unwrap().unwrap().files, Manifest::new());
+        // An older daemon's pending submit also carried its tree.
+        std::fs::write(dir.join("pending.json"), format!(r#"{{"submit":{submit},"files":{{}}}}"#)).unwrap();
+        assert_eq!(r.pending().unwrap().unwrap().submit.submit_id, "s");
+        let applying = r#"{"version":2,"base":{"version":1,"files":{}},"entries":[]}"#;
+        std::fs::write(dir.join("applying.json"), applying).unwrap();
+        assert_eq!(r.applying().unwrap().unwrap().base, Some(Base { version: 1, files: Manifest::new() }));
     }
 
     #[tokio::test]
