@@ -108,6 +108,7 @@ describe('applied and status', () => {
     })
     expect(by(w.b.id)).toMatchObject({ state: 'error', version: 1 })
     expect(by(w.b.id).reason).toContain('v1')
+    expect(by(w.b.id).reasonI18n).toEqual({ key: '副本内容与 v{version} 不一致', params: { version: 1 } })
     expect(by(w.c.id)).toMatchObject({ state: 'syncing', version: null })
   })
 
@@ -127,6 +128,7 @@ describe('applied and status', () => {
       files: ['a.txt'],
       total: 1,
       reason: null,
+      reasonI18n: null,
     })
     await vi.waitFor(async () => {
       const [r] = await t.db.select().from(syncReplicas).where(eq(syncReplicas.botId, w.b.id))
@@ -135,7 +137,25 @@ describe('applied and status', () => {
     let body = (await status()).body
     const by = (id: string) => body.replicas.find((r) => r.botId === id)!
     expect(by(w.a.id).state).toBe('behind')
-    expect(by(w.b.id)).toMatchObject({ state: 'drift', files: ['a.txt'] })
+    expect(by(w.b.id)).toMatchObject({ state: 'drift', files: ['a.txt'], reasonI18n: null })
+
+    const reasonI18n = { key: '{path} 是符号链接，不能同步', params: { path: 'link' } }
+    from('B', {
+      t: 'sync.state',
+      groupId: w.g.id,
+      botId: w.b.id,
+      state: 'error',
+      files: ['link'],
+      total: 1,
+      reason: 'link 是符号链接，不能同步',
+      reasonI18n,
+    })
+    await vi.waitFor(async () => {
+      const [r] = await t.db.select().from(syncReplicas).where(eq(syncReplicas.botId, w.b.id))
+      expect(r?.issue).toBe('error')
+    })
+    body = (await status()).body
+    expect(by(w.b.id)).toMatchObject({ state: 'error', reason: 'link 是符号链接，不能同步', reasonI18n })
 
     from('A', {
       t: 'sync.state',
@@ -145,6 +165,7 @@ describe('applied and status', () => {
       files: ['x'],
       total: 1,
       reason: null,
+      reasonI18n: null,
     })
     await vi.waitFor(async () => {
       const [r] = await t.db.select().from(syncReplicas).where(eq(syncReplicas.botId, w.c.id))
@@ -170,6 +191,7 @@ describe('applied and status', () => {
       files: ['a.txt'],
       total: 1,
       reason: null,
+      reasonI18n: null,
     })
     const li = client(t, await t.seed.cookie(w.li.id))
     const list = await vi.waitFor(async () => {

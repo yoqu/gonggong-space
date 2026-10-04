@@ -8,6 +8,14 @@ use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u32 = 1;
 
+/// A translatable text (`I18nText`): the Chinese source template and its params, rendered in each viewer's language.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct I18nText {
+    pub key: String,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub params: std::collections::BTreeMap<String, String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentKind {
@@ -1100,6 +1108,8 @@ pub enum RunSyncDone {
     },
     Error {
         reason: String,
+        #[serde(rename = "reasonI18n", default)]
+        reason_i18n: Option<I18nText>,
     },
     Waiting {
         issue: SyncWaitIssue,
@@ -1235,6 +1245,8 @@ pub enum DaemonToServer {
         files: Vec<String>,
         total: u32,
         reason: Option<String>,
+        #[serde(default)]
+        reason_i18n: Option<I18nText>,
     },
 }
 

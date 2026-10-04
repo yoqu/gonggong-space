@@ -172,8 +172,6 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
 const commandCandidates = (agent: CommandCandidatesDto['agent'] = []): CommandCandidatesDto => ({
   system: [
     { name: 'stop', hint: '停止运行（未 @ Bot 时停止本群全部）' },
-    { name: 'hold', hint: '连续占用群锁' },
-    { name: 'release', hint: '释放群锁' },
     { name: 'new', hint: '开新会话' },
     { name: 'cd', hint: '绑定本机目录（仅分区）' },
   ],
@@ -610,8 +608,6 @@ describe('chat view', () => {
     const options = within(within(list).getByRole('group', { name: '系统命令' })).getAllByRole('option')
     expect(options.map((o) => o.textContent)).toEqual([
       '/stop停止运行（未 @ Bot 时停止本群全部）',
-      '/hold连续占用群锁',
-      '/release释放群锁',
       '/new开新会话',
       '/cd绑定本机目录（仅分区）',
     ])

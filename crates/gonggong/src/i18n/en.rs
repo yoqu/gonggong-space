@@ -507,6 +507,10 @@ pub(super) const EN: &[(&str, &str)] = &[
         "{path} and {other} differ only in case and clash on macOS and Windows",
     ),
     ("{path} 在 Windows 上是非法文件名", "{path} isn't a valid file name on Windows"),
+    (
+        "疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区",
+        "{path} looks like a secret file and isn't tracked by git; add it to .gitignore or move it out of the workspace",
+    ),
     ("{path} 路径超过 260 个字符", "{path} is longer than 260 characters"),
     (
         "{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore",

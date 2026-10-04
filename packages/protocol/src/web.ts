@@ -472,7 +472,6 @@ export const UpdateBotReq = z.object({
 export const NotificationType = z.enum([
   'approval',
   'question',
-  'lock',
   'offline_expired',
   'chain_done',
   'bot_confirm',
@@ -498,7 +497,6 @@ export type NotificationDto = z.infer<typeof NotificationDto>
 export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'approval',
   'question',
-  'lock',
   'offline_expired',
   'chain_done',
 ]
@@ -1209,11 +1207,6 @@ export type AdminMachineDto = z.infer<typeof AdminMachineDto>
 
 /** System-wide defaults editable by the sysadmin (spec §10); group params override the group-level ones. */
 export const SystemParams = GroupParams.extend({
-  /** Lock release after the writer disconnects (P2, 待定 until measured). */
-  writerDisconnectReleaseSec: z.number().int().min(1).max(3600).nullable(),
-  /** Network thresholds for enabling force sync (P2, 需实测). */
-  forceSyncMaxLatencyMs: z.number().int().min(1).max(10_000),
-  forceSyncMinBandwidthMbps: z.number().min(0.1).max(10_000),
   sessionReplayCount: z.number().int().min(1).max(500),
   contextInlineMax: z.number().int().min(1).max(200),
   runRetentionDays: z.number().int().min(1).max(3650),
@@ -1280,7 +1273,7 @@ export const UpdateTeamReq = z.object({
   params: TeamParams.optional(),
 })
 export const UpdateSystemParamsReq = SystemParams.partial()
-/** Display order, labels and units of 系统参数 (also used by audit summaries); `measure` = 需实测 (spec §10 待定). */
+/** Display order, labels and units of 系统参数 (also used by audit summaries). */
 export const SYSTEM_PARAM_VIEW: {
   key: Exclude<
     keyof SystemParams,
@@ -1288,11 +1281,7 @@ export const SYSTEM_PARAM_VIEW: {
   >
   label: string
   unit: string
-  measure?: true
 }[] = [
-  { key: 'writerDisconnectReleaseSec', label: '持锁 Bot 断线后自动释放锁', unit: '秒', measure: true },
-  { key: 'forceSyncMaxLatencyMs', label: '开启强制同步 · 延迟阈值', unit: 'ms', measure: true },
-  { key: 'forceSyncMinBandwidthMbps', label: '开启强制同步 · 带宽阈值', unit: 'Mbps', measure: true },
   { key: 'sessionReplayCount', label: '会话恢复失败时补送群消息数', unit: '条' },
   { key: 'contextInlineMax', label: '每轮随消息附带的群聊上下文', unit: '条' },
   { key: 'runRetentionDays', label: '完整运行过程保留', unit: '天' },

@@ -138,13 +138,6 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   gap: var(--space-4);
   white-space: nowrap;
 }
-.admin-table__bad {
-  color: var(--tint-red-text);
-}
-.admin-table__bad-icon {
-  margin-right: 3px;
-  vertical-align: -2px;
-}
 
 /* Status: a dot plus text, never color alone */
 .admin-status {

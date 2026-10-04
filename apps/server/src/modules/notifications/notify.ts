@@ -1,4 +1,4 @@
-import { type NotificationDto, PUSHED_NOTIFICATION_TYPES } from '@gonggong/protocol'
+import { type NotificationDto, NotificationType, PUSHED_NOTIFICATION_TYPES } from '@gonggong/protocol'
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { notifications } from '../../db/schema.js'
@@ -7,6 +7,9 @@ import { teamOfBot, teamOfGroup } from '../teams/service.js'
 import { sendPush } from './push.js'
 
 type Row = typeof notifications.$inferSelect
+
+/** Rows of retired types (the lock era's 'lock') stay stored but are neither listed nor counted. */
+export const knownNotification = inArray(notifications.type, NotificationType.options)
 
 export const notificationDto = (n: Row): NotificationDto => ({
   id: n.id,
@@ -86,7 +89,7 @@ export async function resolveNotifications(
     const [unread] = await ctx.db
       .select({ n: count() })
       .from(notifications)
-      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt), knownNotification))
     ctx.bus.publish([userId], {
       t: 'notification.resolved',
       notifications: rows.filter((r) => r.userId === userId).map(notificationDto),

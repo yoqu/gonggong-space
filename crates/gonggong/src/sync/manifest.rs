@@ -6,7 +6,7 @@ use crate::git;
 use crate::t;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -28,6 +28,8 @@ pub struct Stat {
 pub struct Tree {
     pub files: BTreeMap<String, Stat>,
     pub odd: Vec<Violation>,
+    /// Files git does not track (`?`): only these can be refused as secrets, tracked ones are in the repo already.
+    pub untracked: BTreeSet<String>,
     /// Sparse-checkout (skip-worktree) entries, absent on disk, and the base's state of those it has.
     pub(super) sparse: Vec<String>,
     pub(super) kept: Manifest,
@@ -121,6 +123,9 @@ fn scan_listed(work: &Path, listed: &[u8], cache: &BTreeMap<String, Stat>) -> Re
             }
         };
         let exec = exec_bit(&meta, cached);
+        if tag == b'?' {
+            tree.untracked.insert(path.clone());
+        }
         tree.files.insert(path, Stat { size, mtime, hash, exec });
     }
     Ok(tree)
@@ -220,6 +225,7 @@ mod tests {
         assert_eq!(tree.files["src/main.rs"].hash, hash_bytes(b"fn main() {}\n"));
         assert_eq!(tree.files["src/main.rs"].size, 13);
         assert!(tree.odd.is_empty());
+        assert_eq!(tree.untracked.iter().collect::<Vec<_>>(), ["notes/todo.md", "中文/文件.md"]);
     }
 
     #[tokio::test]

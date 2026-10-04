@@ -8,13 +8,13 @@ import type {
   UserDto,
 } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { ConflictDialog } from '../src/features/sync/ConflictDialog'
 import { ConflictEvent, RunSyncLine } from '../src/features/sync/RunSyncLine'
-import { SyncBar, useLinkedSync } from '../src/features/sync/SyncBar'
+import { LinkedConflict, SyncBar, useLinkedSync } from '../src/features/sync/SyncBar'
 import { SyncModeTab } from '../src/features/sync/SyncModeTab'
 import { SyncPanel } from '../src/features/sync/SyncPanel'
 import { resetSync } from '../src/features/sync/store'
@@ -37,6 +37,7 @@ const replica = (o: Partial<SyncReplicaDto> = {}): SyncReplicaDto => ({
   issue: null,
   files: [],
   reason: null,
+  reasonI18n: null,
   ...o,
 })
 
@@ -120,9 +121,9 @@ describe('run card: a turn waiting for its replica', () => {
 
   it('does not repeat 同步 in a failure reason', () => {
     mockApi({ 'GET /groups/g1/sync': status([replica()]) })
-    expect(line({ outcome: 'error', reason: '同步失败：网络断开' }).container.textContent).toBe(
-      '同步失败：网络断开',
-    )
+    expect(
+      line({ outcome: 'error', reason: '同步失败：网络断开', reasonI18n: null }).container.textContent,
+    ).toBe('同步失败：网络断开')
   })
 })
 
@@ -234,6 +235,26 @@ describe('deep link to a replica', () => {
     )
     expect(await screen.findByRole('dialog', { name: '同步状态' })).toBeTruthy()
     expect((await screen.findByTestId('replica-b1')).className).toContain('sync-row--focus')
+  })
+
+  it('?conflict=<conflictId> opens that conflict and leaves the URL', async () => {
+    mockApi({
+      'GET /groups/g1/sync/conflicts': [conflict({ id: 'c0', headVersion: 9 }), conflict({ id: 'c2' })],
+    })
+    let search = ''
+    function Spy() {
+      search = useLocation().search
+      return null
+    }
+    render(
+      <MemoryRouter initialEntries={['/g/g1?conflict=c2']}>
+        <LinkedConflict groupId="g1" />
+        <Spy />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('dialog', { name: '处理 Claude 的同步冲突' })).toBeTruthy()
+    expect(await screen.findByText('基于 v12 的改动与 v15 冲突：1 个文件')).toBeTruthy()
+    expect(search).toBe('')
   })
 })
 

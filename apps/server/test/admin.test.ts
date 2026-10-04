@@ -18,6 +18,7 @@ import {
   machines,
   messages,
   runs,
+  systemParams,
   webSessions,
 } from '../src/db/schema.js'
 import { summarize } from '../src/modules/admin/audit.js'
@@ -368,9 +369,6 @@ describe('system params', () => {
       approvalTimeoutMin: 30,
       chainMaxHops: 3,
       offlineWaitMin: 30,
-      writerDisconnectReleaseSec: 60,
-      forceSyncMaxLatencyMs: 120,
-      forceSyncMinBandwidthMbps: 10,
       sessionReplayCount: 50,
       contextInlineMax: 20,
       runRetentionDays: 30,
@@ -412,16 +410,19 @@ describe('system params', () => {
     )
   })
 
-  it('persists across restarts, including params cleared to unset', async () => {
+  it('persists across restarts and ignores rows of retired params', async () => {
     const cookie = await t.seed.cookie(adminId)
-    await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: 90, sessionReplayCount: 20 })
-    await put(cookie, '/api/admin/params', { writerDisconnectReleaseSec: null })
-    expect(await sysParams(t.db)).toMatchObject({
-      writerDisconnectReleaseSec: null,
-      sessionReplayCount: 20,
-    })
-    const [a] = (await admin.get<AuditDto[]>('/api/admin/audit')).body
-    expect(a?.summary).toBe('修改系统参数：持锁 Bot 断线后自动释放锁 90 → 未设置')
+    await t.db.insert(systemParams).values([
+      { key: 'writerDisconnectReleaseSec', value: 60 },
+      { key: 'forceSyncMaxLatencyMs', value: 120 },
+    ])
+    expect((await put(cookie, '/api/admin/params', { sessionReplayCount: 20 })).status).toBe(200)
+    const params = await sysParams(t.db)
+    expect(params.sessionReplayCount).toBe(20)
+    expect(params).not.toHaveProperty('writerDisconnectReleaseSec')
+    expect((await admin.get<SystemParams>('/api/admin/params')).body).not.toHaveProperty(
+      'forceSyncMaxLatencyMs',
+    )
   })
 
   it('the attachment limits bound uploads and message sends', async () => {

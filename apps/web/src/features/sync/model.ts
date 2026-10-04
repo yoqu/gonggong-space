@@ -1,4 +1,10 @@
-import type { SyncReplicaDto, SyncReplicaState, SyncStatusDto, SyncVersionTag } from '@gonggong/protocol'
+import type {
+  I18nText,
+  SyncReplicaDto,
+  SyncReplicaState,
+  SyncStatusDto,
+  SyncVersionTag,
+} from '@gonggong/protocol'
 import { t } from '../../i18n'
 import type { TagTone } from '../../ui'
 
@@ -15,6 +21,10 @@ export const STATE: Record<ShownState, { label: string; tone: TagTone }> = {
   excluded: { label: t('不参与'), tone: 'gray' },
   offline: { label: t('离线'), tone: 'gray' },
 }
+
+/** A sync failure reason in the viewer's language; older daemons only sent the text, in their machine's language. */
+export const reasonText = <R extends string | null>(r: { reason: R; reasonI18n?: I18nText | null }) =>
+  r.reasonI18n ? t.text(r.reasonI18n) : r.reason
 
 /** Servers that predate the `error` state report a failed submit as drift with issue `error`. */
 export const shownState = (r: SyncReplicaDto): ShownState =>

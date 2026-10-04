@@ -237,7 +237,7 @@ export async function announceConflict(
 export async function pauseStopped(ctx: Ctx, run: RunRow, files: number) {
   const paused = await ctx.db
     .update(syncReplicas)
-    .set({ issue: 'drift', files: [], total: files, reason: null, updatedAt: new Date() })
+    .set({ issue: 'drift', files: [], total: files, reason: null, reasonI18n: null, updatedAt: new Date() })
     .where(
       and(
         eq(syncReplicas.groupId, run.groupId),

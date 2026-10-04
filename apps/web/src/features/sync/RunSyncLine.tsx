@@ -1,10 +1,11 @@
-import type { MessageDto, RunDto } from '@gonggong/protocol'
+import type { I18nText, MessageDto, RunDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Button, ChatNotice, Icon, Presence } from '../../ui'
 import { ConflictDialog } from './ConflictDialog'
+import { reasonText } from './model'
 import { SyncPanel } from './SyncPanel'
 import { useSyncStatus } from './store'
 import './sync.css'
@@ -76,8 +77,14 @@ function Settle({
   )
 }
 
-/** Daemon reasons often start with 同步 already (同步失败：…); don't say it twice. */
-const failure = (reason: string) => (reason.startsWith('同步') ? reason : t('同步失败：{reason}', { reason }))
+/**
+ * Some reasons say 同步 already (同步提交被拒绝：…); don't say it twice. Told by the Chinese source, so it holds in
+ * every language; a legacy reason without one is checked as it reads.
+ */
+const failure = (s: { reason: string; reasonI18n?: I18nText | null }) => {
+  const reason = reasonText(s)
+  return (s.reasonI18n?.key ?? s.reason).startsWith('同步') ? reason : t('同步失败：{reason}', { reason })
+}
 
 /** How a force-group turn's changes went in (plan §4 运行卡片底部); nothing outside force groups. */
 export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | 'sync'> }) {
@@ -97,7 +104,7 @@ export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | '
             ? s.issue === 'held'
               ? t('等待处理同步冲突')
               : t('等待处理本地改动')
-            : failure(s.reason)
+            : failure(s)
   const settle = s.outcome === 'held' ? 'held' : s.outcome === 'waiting' ? s.issue : null
   return (
     <span className="sync-line" data-outcome={s.outcome} data-testid="run-sync">

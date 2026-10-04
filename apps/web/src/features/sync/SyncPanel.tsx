@@ -19,7 +19,7 @@ import {
   toast,
 } from '../../ui'
 import { ConflictDialog } from './ConflictDialog'
-import { STATE, shownState, TAG } from './model'
+import { reasonText, STATE, shownState, TAG } from './model'
 import { syncApi, useSyncLoad, VERSIONS_PAGE } from './store'
 import './sync.css'
 
@@ -55,7 +55,7 @@ function Replica({
   // Uncommitted changes would block a plain join again: they must be discarded (or cleaned up on the machine).
   const dirty = r.issue === 'dirty'
   const drift = canAct && r.issue === 'drift'
-  const reason = r.reason ?? (r.state === 'excluded' ? excludedText(r) : null)
+  const reason = reasonText(r) ?? (r.state === 'excluded' ? excludedText(r) : null)
   return (
     <div
       ref={row}

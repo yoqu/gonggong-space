@@ -486,6 +486,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
         ...base,
         issue: null,
         reason: null,
+        reasonI18n: null,
         lastConflict: null,
         ...(aligning && { joinedAt: self.joinedAt ?? now, pending: null }),
       })
@@ -496,6 +497,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
       ...base,
       issue: 'error',
       reason: t('副本内容与 v{version} 不一致', { version: msg.version }),
+      reasonI18n: { key: '副本内容与 v{version} 不一致', params: { version: msg.version } },
       ...(aligning && { pending: null }),
     })
     return { aligning, joined: false, cleared: false, settled: [] as string[] }
@@ -544,6 +546,7 @@ export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<type
         files: [],
         total: 0,
         reason: null,
+        reasonI18n: null,
         lastConflict: null,
       })
       const closed = await closeConflicts(tx, ctx.now(), msg.groupId, [msg.botId])
@@ -555,6 +558,7 @@ export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<type
       files: msg.files.slice(0, SYNC_FILES_MAX),
       total: msg.total,
       reason: msg.reason,
+      reasonI18n: msg.reasonI18n,
       ...(self.pending && { pending: null }),
       ...(msg.state === 'dirty' && { joinedAt: null }),
     })

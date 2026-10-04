@@ -25,6 +25,7 @@ export const protocolEn = {
   '基准 Bot 未能在 10 分钟内完成首版，已退回分区模式':
     'The base Bot did not submit the first version within 10 minutes, back to partition mode',
   '基准 Bot 已离开群': 'the base Bot left the group',
+  '基准 Bot 所在机器离线超过 10 分钟': "the base Bot's machine has been offline for over 10 minutes",
   '{user} 修改了名称': '{user} changed the name',
   '{user} 修改了群名称与公告': '{user} changed the group name and notice',
   '{user} 移除了群公告': '{user} removed the group notice',
@@ -139,8 +140,6 @@ export const protocolEn = {
   提问: 'Question',
   待回答: 'Awaiting answer',
   '{bot} 向你提了 {n} 个问题': '{bot} asked you {n} {n:question|questions}',
-  锁轮到你: 'Your turn for the lock',
-  '{bot} 在 {group} 拿到群锁': '{bot} got the group lock in {group}',
   'Bot 离线作废': 'Expired: Bot offline',
   '你 @{bot} 的请求等待 {n} 分钟未上线，已作废':
     'Your request to @{bot} expired after {n} {n:minute|minutes} waiting for it to come online',
@@ -173,9 +172,6 @@ export const protocolEn = {
   '版本号需为 x.y.z': 'Version must be x.y.z',
 
   // System parameters
-  '持锁 Bot 断线后自动释放锁': 'Release the lock after its holder Bot disconnects',
-  '开启强制同步 · 延迟阈值': 'Enable force sync · latency threshold',
-  '开启强制同步 · 带宽阈值': 'Enable force sync · bandwidth threshold',
   会话恢复失败时补送群消息数: 'Group messages replayed when a session cannot resume',
   每轮随消息附带的群聊上下文: 'Group chat context sent with each turn',
   完整运行过程保留: 'Keep full run details for',
@@ -239,5 +235,39 @@ export const protocolEn = {
   同步冲突: 'Sync conflict',
   '@{bot} 的改动与 v{version} 冲突：{n} 个文件':
     "@{bot}'s changes conflict with v{version}: {n} {n:file|files}",
+  // Force sync failure reasons: the daemon's `reason!` templates (crates/gonggong) and the server's own
+  '{path} 不是冲突文件': '{path} is not a conflicting file',
+  '{path} 不能交给 Bot 合并': '{path} cannot be merged by the Bot',
+  '{path} 与 {other} 只有大小写不同，在 macOS 与 Windows 上会冲突':
+    '{path} and {other} differ only in case and clash on macOS and Windows',
+  '{path} 在 Windows 上是非法文件名': "{path} isn't a valid file name on Windows",
+  '{path} 是符号链接，不能同步': "{path} is a symbolic link and can't be synced",
+  '{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore':
+    '{path} is {size} MB, over the {max} MB per-file limit; add it to .gitignore',
+  '{path} 的文件名不是 UTF-8 编码': "The name of {path} isn't UTF-8",
+  '{path} 路径超过 260 个字符': '{path} is longer than 260 characters',
+  '上传同步内容失败：{e}': "Couldn't upload sync content: {e}",
+  '下载同步内容失败：{e}': "Couldn't download sync content: {e}",
+  '同步提交被拒绝：与权威版本冲突': 'Sync submit rejected: it conflicts with the authoritative version',
+  '同步提交被拒绝：基准版本无效': 'Sync submit rejected: its base version is invalid',
+  '同步提交被拒绝：文件内容未上传完整': 'Sync submit rejected: not all file contents were uploaded',
+  '同步提交被拒绝：该副本未参与强制同步':
+    'Sync submit rejected: this replica does not take part in force sync',
+  '同步提交被拒绝：超过单版体积上限': 'Sync submit rejected: over the per-version size limit',
+  强制同步还没有版本: 'Force sync has no version yet',
+  找不到待处理的同步冲突: 'No held sync conflict found',
+  '找不到待处理的同步冲突，无法合并': 'No held sync conflict found; cannot merge',
+  '无法读取 {path}：{e}': "Couldn't read {path}: {e}",
+  无法连接服务器同步接口: "Can't reach the server's sync API",
+  '本机同步状态丢失，正在重新对齐': 'This machine lost its sync state; realigning',
+  '本版改动共 {size} MB，超过单版上限 {max} MB（最大的是 {path}），请把大文件加入 .gitignore':
+    "This version's changes total {size} MB, over the {max} MB per-version limit (largest: {path}); add large files to .gitignore",
+  '本轮异常结束，改动未提交，待 Bot 主人处理':
+    'The turn ended abnormally; its changes were not submitted and wait for the Bot owner',
+  '疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区':
+    "{path} looks like a secret file and isn't tracked by git; add it to .gitignore or move it out of the workspace",
+  等待服务器确认同步提交超时: 'Timed out waiting for the server to confirm the sync submit',
+  '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
+  'daemon 版本过旧，请升级': 'The daemon is too old to sync, please upgrade',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

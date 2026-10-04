@@ -69,8 +69,6 @@ export default {
     '{list}. The server rejected the connection and asked for an upgrade.',
   '{name} 运行 v{version}（协议 v{protocol}）': '{name} runs v{version} (protocol v{protocol})',
   '、': ', ',
-  '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ {latency} ms，带宽 ≥ {bandwidth} Mbps。':
-    'Members measure network quality in the daemon (gg net or "Measure latency & bandwidth" in the desktop app); it is not shown in groups. Force sync requires latency ≤ {latency} ms and bandwidth ≥ {bandwidth} Mbps.',
   '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。':
     'Members measure network quality in the daemon (gg net or "Measure latency & bandwidth" in the desktop app); it is not shown in groups.',
   账号与角色: 'Accounts & roles',

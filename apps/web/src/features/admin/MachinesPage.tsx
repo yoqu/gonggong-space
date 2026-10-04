@@ -7,7 +7,6 @@ import { ago } from '../../lib/time'
 import {
   Alert,
   EmptyState,
-  Icon,
   NoMachinesArt,
   NoResultsArt,
   Presence,
@@ -24,7 +23,6 @@ import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
 import { hasUpdate } from '../machines/ToolsPanel'
 import { AdminPage } from './AdminPage'
-import { useSystemParams } from './ParamsPage'
 
 const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION
 
@@ -37,16 +35,10 @@ function lastHeartbeat(m: AdminMachineDto) {
   return m.lastSeenAt ? ago(m.lastSeenAt) : t('从未连接')
 }
 
-/** Latest measurement reported by the daemon; red with a warning sign past the force-sync thresholds. */
-function Net({ text, bad, at }: { text: string; bad: boolean; at: string | null }) {
+/** Latest measurement reported by the daemon. */
+function Net({ text, at }: { text: string; at: string | null }) {
   return (
-    <span
-      className={bad ? 'admin-table__bad' : undefined}
-      title={at ? t('测量于 {time}', { time: new Date(at).toLocaleString() }) : undefined}
-    >
-      {bad ? <Icon name="warning" size={12} className="admin-table__bad-icon" /> : null}
-      {text}
-    </span>
+    <span title={at ? t('测量于 {time}', { time: new Date(at).toLocaleString() }) : undefined}>{text}</span>
   )
 }
 
@@ -58,7 +50,6 @@ export function MachinesPage() {
   const [revoking, setRevoking] = useState<AdminMachineDto | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  const params = useSystemParams()
   const load = useCallback(
     () =>
       api
@@ -193,13 +184,7 @@ export function MachinesPage() {
               sortable: true,
               sortValue: (m) => m.latencyMs ?? Number.POSITIVE_INFINITY,
               render: (m) =>
-                m.latencyMs == null ? null : (
-                  <Net
-                    text={`${m.latencyMs} ms`}
-                    bad={!!params && m.latencyMs > params.forceSyncMaxLatencyMs}
-                    at={m.netMeasuredAt}
-                  />
-                ),
+                m.latencyMs == null ? null : <Net text={`${m.latencyMs} ms`} at={m.netMeasuredAt} />,
             },
             {
               key: 'bandwidthMbps',
@@ -210,11 +195,7 @@ export function MachinesPage() {
               sortValue: (m) => m.bandwidthMbps ?? -1,
               render: (m) =>
                 m.bandwidthMbps == null ? null : (
-                  <Net
-                    text={`${Number(m.bandwidthMbps.toFixed(1))} Mbps`}
-                    bad={!!params && m.bandwidthMbps < params.forceSyncMinBandwidthMbps}
-                    at={m.netMeasuredAt}
-                  />
+                  <Net text={`${Number(m.bandwidthMbps.toFixed(1))} Mbps`} at={m.netMeasuredAt} />
                 ),
             },
             {
@@ -289,12 +270,7 @@ export function MachinesPage() {
         />
       ) : null}
       <p className="admin__foot">
-        {params
-          ? t(
-              '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ {latency} ms，带宽 ≥ {bandwidth} Mbps。',
-              { latency: params.forceSyncMaxLatencyMs, bandwidth: params.forceSyncMinBandwidthMbps },
-            )
-          : t('网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。')}
+        {t('网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。')}
       </p>
     </AdminPage>
   )

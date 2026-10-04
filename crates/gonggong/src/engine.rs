@@ -9,6 +9,7 @@ use crate::explorer;
 use crate::files;
 use crate::git;
 use crate::hosted::Services;
+use crate::i18n::Reason;
 use crate::inject;
 use crate::local::LocalSettings;
 use crate::manage::Manage;
@@ -17,7 +18,7 @@ use crate::protocol::{
     RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
 };
 use crate::providers::Selection;
-use crate::replicas::{Init, Refusal, Replicas};
+use crate::replicas::{Init, Refusal, Replicas, sync_error};
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -419,7 +420,7 @@ impl Inner {
             Ok(sync) => sync,
             Err(Refusal::Wait(issue)) => return out.send(waiting(&start.run_id, issue)),
             Err(Refusal::Lost(reason)) => return out.send(lost(&start.run_id, reason)),
-            Err(Refusal::Failed(e)) => return out.send(failed(&start.run_id, e)),
+            Err(Refusal::Failed(e)) => return out.send(failed(&start.run_id, e.text)),
         };
         let ask =
             match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone(), self.services.clone())).await {
@@ -560,9 +561,9 @@ fn waiting(run_id: &str, issue: SyncWaitIssue) -> DaemonToServer {
 }
 
 /// The turn did not start: the server realigns the replica whose sync state this machine lost.
-fn lost(run_id: &str, reason: String) -> DaemonToServer {
-    let sync = Some(RunSyncDone::Error { reason: reason.clone() });
-    DaemonToServer::RunDone(RunDone { sync, ..failed_done(run_id, reason) })
+fn lost(run_id: &str, reason: Reason) -> DaemonToServer {
+    let error = reason.text.clone();
+    DaemonToServer::RunDone(RunDone { sync: Some(sync_error(reason)), ..failed_done(run_id, error) })
 }
 
 pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {

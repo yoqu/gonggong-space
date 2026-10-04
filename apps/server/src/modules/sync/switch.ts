@@ -44,7 +44,10 @@ export const syncOutdated = (ctx: Ctx, machineId: string | null) =>
 
 /** sync.init that sets a replica up (base / align, F2); 'leave' is a leave still owed to an offline machine. */
 const INITS = ['base', 'align', 'force']
-/** The base bot's tree must be in by then, or the switch fails back to partition. */
+/**
+ * The base bot's tree must be in this long after its sync.init went out, and an unsent one may wait no longer for the
+ * base machine to come back (or for anything but the base's running turn), or the switch fails back to partition.
+ */
 export const SWITCH_TIMEOUT_MS = 10 * 60_000
 
 const SWITCH_WAIT = runStep('等待切换为强制同步')
@@ -131,18 +134,35 @@ export async function sendDueInits(ctx: Ctx, botId: string) {
       inFlight.get(key(r.groupId, botId)) === machineId
     )
       continue
-    const [busy] = await ctx.db
-      .select({ id: runs.id })
-      .from(runs)
-      .where(and(eq(runs.groupId, r.groupId), eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
-      .limit(1)
-    if (busy) continue
+    if (await runsIn(ctx, r.groupId, botId)) continue
     const repo = await currentRepo(ctx, r.groupId)
     const role: SyncRole = r.pending === 'base' ? 'base' : 'align'
     const msg = { t: 'sync.init', groupId: r.groupId, botId, role, force: r.pending === 'force' } as const
-    if (ctx.hub.send(machineId, { ...msg, repoId: repo?.id ?? null }))
-      inFlight.set(key(r.groupId, botId), machineId)
+    if (!ctx.hub.send(machineId, { ...msg, repoId: repo?.id ?? null })) continue
+    inFlight.set(key(r.groupId, botId), machineId)
+    if (role === 'base')
+      await ctx.db
+        .update(groups)
+        .set({
+          syncSwitch: sql`${groups.syncSwitch} || jsonb_build_object('sentAt', ${ctx.now().toISOString()}::text)`,
+        })
+        .where(
+          and(
+            eq(groups.id, r.groupId),
+            sql`${groups.syncSwitch}->>'botId' = ${botId}`,
+            sql`${groups.syncSwitch}->>'sentAt' is null`,
+          ),
+        )
   }
+}
+
+async function runsIn(ctx: Ctx, groupId: string, botId: string) {
+  const [busy] = await ctx.db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.groupId, groupId), eq(runs.botId, botId), inArray(runs.status, ACTIVE)))
+    .limit(1)
+  return !!busy
 }
 
 const leaveMsg = (groupId: string, botId: string) =>
@@ -189,6 +209,7 @@ const LEFT: Partial<typeof syncReplicas.$inferInsert> = {
   files: [],
   total: 0,
   reason: null,
+  reasonI18n: null,
   lastConflict: null,
 }
 
@@ -398,19 +419,39 @@ export async function onBaseFailed(
   await rescheduleGroup(ctx, groupId)
 }
 
-/** Switches whose base has not submitted its tree within SWITCH_TIMEOUT_MS fail back to partition (§3.5). */
+/**
+ * Switches stuck past SWITCH_TIMEOUT_MS fail back to partition (§3.5): the base's tree is not in that long after its
+ * sync.init, or it was never sent because the base machine has been offline that long, or for some reason other than
+ * a turn the base is still finishing.
+ */
 export async function expireSwitches(ctx: Ctx) {
-  const cutoff = new Date(ctx.now().getTime() - SWITCH_TIMEOUT_MS).toISOString()
-  const due = await ctx.db
-    .select({ id: groups.id, syncSwitch: groups.syncSwitch })
+  const cutoff = ctx.now().getTime() - SWITCH_TIMEOUT_MS
+  const stale = (...at: (string | Date | null | undefined)[]) =>
+    Math.max(...at.map((x) => (x ? new Date(x).getTime() : Number.NEGATIVE_INFINITY))) < cutoff
+  const switching = await ctx.db
+    .select({
+      id: groups.id,
+      sw: groups.syncSwitch,
+      machineId: bots.machineId,
+      lastSeenAt: machines.lastSeenAt,
+    })
     .from(groups)
-    .where(
-      and(
-        isNotNull(groups.syncSwitch),
-        sql`coalesce((${groups.syncSwitch}->>'at')::timestamptz, '-infinity') < ${cutoff}::timestamptz`,
-      ),
-    )
-  for (const g of due) if (g.syncSwitch) await onBaseFailed(ctx, g.id, g.syncSwitch.botId, null, true)
+    .leftJoin(bots, sql`${bots.id}::text = ${groups.syncSwitch}->>'botId'`)
+    .leftJoin(machines, eq(machines.id, bots.machineId))
+    .where(isNotNull(groups.syncSwitch))
+  for (const { id, sw, machineId, lastSeenAt } of switching) {
+    if (!sw) continue
+    if (sw.sentAt) {
+      if (stale(sw.sentAt)) await onBaseFailed(ctx, id, sw.botId, null, true)
+    } else if (!onlineMachine(ctx, machineId)) {
+      if (stale(sw.at, lastSeenAt))
+        await onBaseFailed(ctx, id, sw.botId, { key: '基准 Bot 所在机器离线超过 10 分钟' })
+    } else if (stale(sw.at) && !(await runsIn(ctx, id, sw.botId))) {
+      await sendDueInits(ctx, sw.botId)
+      const [g] = await ctx.db.select({ sw: groups.syncSwitch }).from(groups).where(eq(groups.id, id))
+      if (g?.sw && !g.sw.sentAt) await onBaseFailed(ctx, id, sw.botId, null, true)
+    }
+  }
 }
 
 /** The base bot left the group or was deleted mid-switch: the switch cannot finish. */

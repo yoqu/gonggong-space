@@ -279,6 +279,10 @@ fn change(path: &str, body: Option<&str>, base: Option<&str>) -> SyncChange {
     }
 }
 
+fn text(key: &str, params: &[(&str, &str)]) -> I18nText {
+    I18nText { key: key.into(), params: params.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() }
+}
+
 fn applied(version: u64, root_hash: String) -> DaemonToServer {
     DaemonToServer::SyncApplied { group_id: "g1".into(), bot_id: "b1".into(), version, root_hash }
 }
@@ -387,6 +391,7 @@ async fn an_overlapping_conflict_is_held_for_a_person_and_pauses_the_replica() {
             files: vec!["a.txt".into()],
             total: 1,
             reason: None,
+            reason_i18n: None,
         }
     );
     assert_eq!(r.done().await.sync, Some(RunSyncDone::Held { files: 1 }));
@@ -455,6 +460,7 @@ async fn local_edits_found_before_a_turn_are_reported_and_the_turn_does_not_run(
             files: vec!["a.txt".into()],
             total: 1,
             reason: None,
+            reason_i18n: None,
         }
     );
     let done = r.done().await;
@@ -473,6 +479,7 @@ async fn a_replica_without_its_local_sync_state_reports_lost_and_does_not_run() 
     let mut r = rig().await;
     r.run("r1", "mock:echo", at(1, Some(1)));
     let reason = "本机同步状态丢失，正在重新对齐".to_string();
+    let reason_i18n = Some(text(&reason, &[]));
     assert_eq!(
         r.next().await,
         DaemonToServer::SyncState {
@@ -482,10 +489,11 @@ async fn a_replica_without_its_local_sync_state_reports_lost_and_does_not_run() 
             files: vec![],
             total: 0,
             reason: Some(reason.clone()),
+            reason_i18n: reason_i18n.clone(),
         }
     );
     let done = r.done().await;
-    assert_eq!((done.outcome, done.sync), (RunOutcome::Failed, Some(RunSyncDone::Error { reason })));
+    assert_eq!((done.outcome, done.sync), (RunOutcome::Failed, Some(RunSyncDone::Error { reason, reason_i18n })));
 }
 
 #[tokio::test]
@@ -596,6 +604,7 @@ fn dirty(files: &[&str]) -> DaemonToServer {
         files: files.iter().map(|f| f.to_string()).collect(),
         total: files.len() as u32,
         reason: None,
+        reason_i18n: None,
     }
 }
 
@@ -650,6 +659,53 @@ async fn the_base_submits_its_whole_tree_with_uncommitted_changes_and_joins() {
     assert_eq!(r.replica().base().unwrap(), Base { version: 4, files: manifest(&files) });
     let crlf = Command::new("git").args(["config", "--local", "core.autocrlf"]).current_dir(r.work()).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&crlf.stdout).trim(), "false");
+}
+
+const SECRET: &str = "疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区";
+
+fn secret(path: &str) -> DaemonToServer {
+    DaemonToServer::SyncState {
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        state: SyncReplicaIssue::Error,
+        files: vec![path.into()],
+        total: 1,
+        reason: Some(SECRET.replace("{path}", path)),
+        reason_i18n: Some(text(SECRET, &[("path", path)])),
+    }
+}
+
+#[tokio::test]
+async fn the_base_refuses_an_untracked_key_file_and_submits_nothing() {
+    let mut r = rig().await;
+    r.clone_with(&[
+        (
+            "a.txt", "a
+",
+        ),
+        (
+            ".env",
+            "TRACKED=1
+",
+        ),
+    ]);
+    r.write(".env.example", "KEY=\n");
+    r.write("deploy.KEY", "-----BEGIN PRIVATE KEY-----\n");
+    r.send(init(SyncRole::Base, false));
+    assert_eq!(r.next().await, secret("deploy.KEY"));
+    r.quiet(300).await;
+}
+
+#[tokio::test]
+async fn a_turn_that_leaves_an_untracked_env_file_is_refused() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.run("r1", "mock:sh printf 'S=1\\n' > .env", at(1, Some(1)));
+    assert_eq!(r.next().await, secret(".env"));
+    let done = r.done().await;
+    let reason = SECRET.replace("{path}", ".env");
+    assert_eq!(done.sync, Some(RunSyncDone::Error { reason, reason_i18n: Some(text(SECRET, &[("path", ".env")])) }));
+    assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Error));
 }
 
 #[tokio::test]
@@ -751,6 +807,7 @@ fn state(state: SyncReplicaIssue, files: &[&str]) -> DaemonToServer {
         files: files.iter().map(|f| f.to_string()).collect(),
         total: files.len() as u32,
         reason: None,
+        reason_i18n: None,
     }
 }
 
@@ -977,7 +1034,8 @@ async fn a_failed_turn_submits_nothing_and_reports_its_changes_as_local_edits() 
     assert_eq!(r.next().await, state(SyncReplicaIssue::Drift, &["a.txt"]));
     let done = r.done().await;
     assert_eq!(done.outcome, RunOutcome::Failed);
-    assert_eq!(done.sync, Some(RunSyncDone::Error { reason: "本轮异常结束，改动未提交，待 Bot 主人处理".into() }));
+    let reason = "本轮异常结束，改动未提交，待 Bot 主人处理";
+    assert_eq!(done.sync, Some(RunSyncDone::Error { reason: reason.into(), reason_i18n: Some(text(reason, &[])) }));
     assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Drift));
     assert_eq!(r.read("a.txt").as_deref(), Some("two\n"));
 }

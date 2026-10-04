@@ -1,9 +1,10 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { t } from '../../i18n'
 import { Icon, Presence } from '../../ui'
+import { ConflictDialog } from './ConflictDialog'
 import { issues, STATE } from './model'
 import { SyncPanel } from './SyncPanel'
 import { closeSyncPanel, openSyncPanel, useSyncPanel, useSyncStatus } from './store'
@@ -24,6 +25,31 @@ export function useLinkedSync(groupId: string) {
       { replace: true },
     )
   }, [botId, groupId, setParams])
+}
+
+/** `?conflict=<conflictId>` (a sync conflict notification) opens that conflict, then leaves the URL. */
+export function LinkedConflict({ groupId }: { groupId: string }) {
+  const [params, setParams] = useSearchParams()
+  const linked = params.get('conflict')
+  const [open, setOpen] = useState<{ groupId: string; conflictId: string } | null>(null)
+  useEffect(() => {
+    if (!linked) return
+    setOpen({ groupId, conflictId: linked })
+    setParams(
+      (p) => {
+        p.delete('conflict')
+        return p
+      },
+      { replace: true },
+    )
+  }, [linked, groupId, setParams])
+  return (
+    <Presence>
+      {open?.groupId === groupId ? (
+        <ConflictDialog groupId={groupId} conflictId={open.conflictId} onClose={() => setOpen(null)} />
+      ) : null}
+    </Presence>
+  )
 }
 
 /**

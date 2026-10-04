@@ -1,0 +1,1 @@
+ALTER TABLE "sync_replicas" ADD COLUMN "reason_i18n" jsonb;

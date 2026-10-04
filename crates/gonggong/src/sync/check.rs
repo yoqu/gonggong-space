@@ -1,7 +1,9 @@
-//! What must hold before a version is submitted (F17, F18); any violation holds the whole version.
+//! What must hold before a version is submitted (F17, F18, and no untracked secret files); any violation holds the
+//! whole version.
 use super::Tree;
+use crate::i18n::Reason;
 use crate::protocol::{SYNC_FILE_MAX_BYTES, SYNC_VERSION_MAX_BYTES, SyncChange};
-use crate::t;
+use crate::reason;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
@@ -19,6 +21,8 @@ pub enum Issue {
     FileTooLarge(u64),
     /// The version's new content totals this many bytes; reported on its largest file.
     VersionTooLarge(u64),
+    /// Named like a secret (`.env`, private keys, credentials) and not tracked by git.
+    Secret,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,28 +32,33 @@ pub struct Violation {
 }
 
 impl Violation {
-    pub fn reason(&self) -> String {
+    pub fn reason(&self) -> Reason {
         let mb = |n: u64| n.div_ceil(1024 * 1024);
         match &self.issue {
-            Issue::Symlink => t!("{path} 是符号链接，不能同步", path = self.path),
-            Issue::NotUtf8 => t!("{path} 的文件名不是 UTF-8 编码", path = self.path),
-            Issue::CaseClash(other) => {
-                t!("{path} 与 {other} 只有大小写不同，在 macOS 与 Windows 上会冲突", path = self.path, other = other)
-            }
-            Issue::WindowsName => t!("{path} 在 Windows 上是非法文件名", path = self.path),
-            Issue::TooLong => t!("{path} 路径超过 260 个字符", path = self.path),
-            Issue::FileTooLarge(n) => t!(
+            Issue::Symlink => reason!("{path} 是符号链接，不能同步", path = self.path),
+            Issue::NotUtf8 => reason!("{path} 的文件名不是 UTF-8 编码", path = self.path),
+            Issue::CaseClash(other) => reason!(
+                "{path} 与 {other} 只有大小写不同，在 macOS 与 Windows 上会冲突",
+                path = self.path,
+                other = other
+            ),
+            Issue::WindowsName => reason!("{path} 在 Windows 上是非法文件名", path = self.path),
+            Issue::TooLong => reason!("{path} 路径超过 260 个字符", path = self.path),
+            Issue::FileTooLarge(n) => reason!(
                 "{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore",
                 path = self.path,
                 size = mb(*n),
                 max = mb(SYNC_FILE_MAX_BYTES)
             ),
-            Issue::VersionTooLarge(n) => t!(
+            Issue::VersionTooLarge(n) => reason!(
                 "本版改动共 {size} MB，超过单版上限 {max} MB（最大的是 {path}），请把大文件加入 .gitignore",
                 path = self.path,
                 size = mb(*n),
                 max = mb(SYNC_VERSION_MAX_BYTES)
             ),
+            Issue::Secret => {
+                reason!("疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区", path = self.path)
+            }
         }
     }
 }
@@ -69,6 +78,9 @@ pub fn check(tree: &Tree, changes: &[SyncChange]) -> Vec<Violation> {
         let size = tree.files.get(&c.path).map_or(0, |s| s.size);
         if size > SYNC_FILE_MAX_BYTES {
             push(&c.path, Issue::FileTooLarge(size));
+        }
+        if tree.untracked.contains(&c.path) && secret_name(&c.path) {
+            push(&c.path, Issue::Secret);
         }
         total += size;
         if size >= largest.1 {
@@ -101,6 +113,19 @@ fn case_clashes<'a>(paths: impl Iterator<Item = &'a String>) -> Vec<Violation> {
         }
     }
     out
+}
+
+/// Whether the file name looks like it holds credentials (case-insensitive); `.env` templates are fine.
+fn secret_name(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path).to_lowercase();
+    let env = name == ".env"
+        || (name.starts_with(".env.") && !matches!(name.as_str(), ".env.example" | ".env.sample" | ".env.template"));
+    let ext = name.rsplit_once('.').map(|(_, e)| e);
+    env || matches!(ext, Some("pem" | "key" | "p12" | "pfx"))
+        || matches!(
+            name.as_str(),
+            "id_rsa" | "id_dsa" | "id_ecdsa" | "id_ed25519" | ".npmrc" | ".netrc" | "credentials.json"
+        )
 }
 
 fn windows_name(path: &str) -> bool {
@@ -192,10 +217,57 @@ mod tests {
     }
 
     #[test]
-    fn reasons_name_the_path() {
+    fn reasons_name_the_path_and_carry_their_template() {
         let v = Violation { path: "a/CON".into(), issue: Issue::WindowsName };
-        assert!(v.reason().contains("a/CON"));
+        assert!(v.reason().text.contains("a/CON"));
         let v = Violation { path: "big".into(), issue: Issue::FileTooLarge(SYNC_FILE_MAX_BYTES + 1) };
-        assert!(v.reason().contains("51 MB"));
+        let r = v.reason();
+        assert!(r.text.contains("51 MB"));
+        let i18n = r.i18n.unwrap();
+        assert_eq!(i18n.key, "{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore");
+        assert_eq!((i18n.params["path"].as_str(), i18n.params["size"].as_str()), ("big", "51"));
+    }
+
+    fn untracked(mut t: Tree, paths: &[&str]) -> Tree {
+        t.untracked = paths.iter().map(|p| p.to_string()).collect();
+        t
+    }
+
+    #[test]
+    fn refuses_untracked_files_named_like_secrets() {
+        let secrets = [
+            ".env",
+            "app/.ENV.local",
+            "certs/server.pem",
+            "tls.Key",
+            "a.p12",
+            "b.pfx",
+            "id_rsa",
+            "home/.ssh/id_ed25519",
+            "id_dsa",
+            "id_ecdsa",
+            ".npmrc",
+            ".netrc",
+            "gcp/credentials.json",
+        ];
+        let fine = [".env.example", ".env.sample", ".env.template", "id_rsa.pub", "keys.txt", "env", "src/key.rs"];
+        let all: Vec<_> = secrets.iter().chain(&fine).copied().collect();
+        let t = untracked(tree(&all.iter().map(|p| (*p, 1)).collect::<Vec<_>>()), &all);
+        let found: Vec<_> =
+            issues(&t, &added(&all)).into_iter().filter(|(_, i)| *i == Issue::Secret).map(|(p, _)| p).collect();
+        assert_eq!(found, secrets);
+    }
+
+    #[test]
+    fn tracked_secret_files_are_never_refused() {
+        let t = untracked(tree(&[(".env", 1), ("other.txt", 1)]), &["other.txt"]);
+        assert!(check(&t, &added(&[".env", "other.txt"])).is_empty());
+    }
+
+    #[test]
+    fn the_secret_reason_names_the_path() {
+        let r = Violation { path: "app/.env".into(), issue: Issue::Secret }.reason();
+        assert_eq!(r.text, "疑似密钥文件 app/.env，未被 git 跟踪，请加入 .gitignore 或移出工作区");
+        assert_eq!(r.i18n.unwrap().key, "疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区");
     }
 }

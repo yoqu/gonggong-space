@@ -61,6 +61,20 @@ describe('notification center', () => {
     expect((await b.api.get<NotificationDto[]>('/api/notifications')).body).toHaveLength(1)
   })
 
+  it('skips notifications of retired types (the lock era)', async () => {
+    const a = await login()
+    const g = await someGroup(a.user.id)
+    await notify(t.ctx, a.user.id, 'chain_done', { groupId: g, hops: 2 })
+    const [kept] = await t.db.select().from(notifications)
+    await t.db
+      .insert(notifications)
+      .values({ userId: a.user.id, teamId: kept!.teamId, type: 'lock', payload: { groupId: g } })
+    const list = (await a.api.get<NotificationDto[]>('/api/notifications')).body
+    expect(list.map((n) => n.type)).toEqual(['chain_done'])
+    const me = (await a.api.get<{ teams: { unread: number }[] }>('/api/me')).body
+    expect(me.teams.map((x) => x.unread)).toEqual([1])
+  })
+
   it('clears my read notifications, keeping unread ones', async () => {
     const a = await login()
     const b = await login()

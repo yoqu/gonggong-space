@@ -36,14 +36,8 @@ export function useSystemParams(enabled = true) {
 type Values = Record<Key, number | null>
 const toForm = (p: SystemParams) =>
   Object.fromEntries(SYSTEM_PARAM_VIEW.map(({ key }) => [key, p[key]])) as Values
-/** Step (and so displayed precision) per param; everything else is a whole number. */
-const STEP: Partial<Record<Key, number>> = { forceSyncMinBandwidthMbps: 0.1 }
 
 const SECTIONS: { title: string; keys: Key[] }[] = [
-  {
-    title: t('同步'),
-    keys: ['writerDisconnectReleaseSec', 'forceSyncMaxLatencyMs', 'forceSyncMinBandwidthMbps'],
-  },
   { title: t('运行与会话'), keys: ['sessionReplayCount', 'contextInlineMax', 'questionsPerCard'] },
   { title: t('附件#nav'), keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
   { title: t('机器连接'), keys: ['heartbeatSec', 'offlineMisses'] },
@@ -214,7 +208,7 @@ export function ParamsPage() {
                       aria-label={label}
                       unit={unit}
                       min={0}
-                      step={STEP[key] ?? 1}
+                      step={1}
                       width={80}
                       value={form?.[key] ?? null}
                       onChange={(v) => setForm((f) => f && { ...f, [key]: v })}

@@ -277,6 +277,7 @@ describe('switch to force: flow', () => {
       files: ['wip.txt'],
       total: 1,
       reason: null,
+      reasonI18n: null,
     })
     await vi.waitFor(async () => expect((await replica(w.b.id))?.issue).toBe('dirty'))
     expect((await status()).replicas.find((r) => r.botId === w.b.id)).toMatchObject({
@@ -344,6 +345,7 @@ describe('switch to force: flow', () => {
       files: ['CON'],
       total: 1,
       reason: 'Windows 保留名',
+      reasonI18n: null,
     })
     await vi.waitFor(async () => expect((await group()).mode).toBe('partition'))
     expect(await events()).toContain('切换为强制同步失败，仍为分区模式：Windows 保留名')

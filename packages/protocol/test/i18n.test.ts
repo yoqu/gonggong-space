@@ -1,5 +1,7 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createTranslator, resolveLocale } from '../src/index.js'
+import { createTranslator, protocolEn, resolveLocale } from '../src/index.js'
 
 describe('i18n', () => {
   it('resolves locale tags, defaulting to Chinese', () => {
@@ -35,5 +37,23 @@ describe('i18n', () => {
     expect(createTranslator('en', en)('关闭#off')).toBe('Off')
     expect(createTranslator('zh', en)('关闭#off')).toBe('关闭')
     expect(createTranslator('en', {}).text({ key: '关闭#off' })).toBe('关闭')
+  })
+
+  it('has English for every sync failure reason the daemon sends as a template', () => {
+    const root = join(import.meta.dirname, '../../../crates/gonggong/src')
+    const files = readdirSync(root, { recursive: true, encoding: 'utf8' }).filter(
+      (f) => f.endsWith('.rs') && f !== 'i18n.rs',
+    )
+    const keys = files.flatMap((f) =>
+      [...readFileSync(join(root, f), 'utf8').matchAll(/\breason!\(\s*"((?:[^"\\]|\\.)*)"/g)].map(
+        (m) => m[1] ?? '',
+      ),
+    )
+    expect(keys).toContain('疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区')
+    expect(keys.filter((k) => !(k in protocolEn))).toEqual([])
+    const t = createTranslator('en', protocolEn)
+    expect(t.text({ key: '{path} 是符号链接，不能同步', params: { path: 'a' } })).toBe(
+      "a is a symbolic link and can't be synced",
+    )
   })
 })

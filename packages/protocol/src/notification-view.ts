@@ -32,13 +32,6 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group,
         href: at('runId'),
       }
-    case 'lock':
-      return {
-        label: say('锁轮到你'),
-        text: say('{bot} 在 {group} 拿到群锁', { bot, group }),
-        group,
-        href: at('runId'),
-      }
     case 'offline_expired':
       return {
         label: say('Bot 离线作废'),
@@ -93,7 +86,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
           n: p('files'),
         }),
         group,
-        href: at(''),
+        href: p('conflictId') ? `/g/${p('groupId')}?conflict=${p('conflictId')}` : at(''),
       }
     case 'bot_confirm':
       return {

@@ -1,5 +1,6 @@
 import type { SyncConflictDto, SyncDecision } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
@@ -106,17 +107,20 @@ export function ConflictDialog({
   groupId,
   botId,
   conflictId = null,
-  botName,
+  botName: named,
   onClose,
 }: {
   groupId: string
-  botId: string
-  /** The held change to open; without it, the bot's open one. */
+  /** Without `conflictId`, opens this bot's open conflict. */
+  botId?: string
   conflictId?: string | null
-  botName: string
+  /** Defaults to the conflict's bot as the workspace knows it. */
+  botName?: string
   onClose: () => void
 }) {
   const [conflict, setConflict] = useState<SyncConflictDto | null | undefined>()
+  const known = useWorkspace((s) => s.bots.find((b) => b.id === (botId ?? conflict?.botId))?.name)
+  const botName = named ?? known ?? ''
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [busy, setBusy] = useState(false)
   const [discard, setDiscard] = useState(false)

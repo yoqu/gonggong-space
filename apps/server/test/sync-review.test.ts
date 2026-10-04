@@ -17,6 +17,7 @@ import {
   groupBots,
   groupRepos,
   groups,
+  machines,
   messages,
   notifications,
   runs,
@@ -138,7 +139,16 @@ const done = (
   })
 
 const state = (k: K, botId: string, s: 'drift' | 'held' | 'lost' | 'error', files: string[] = []) =>
-  from(k, { t: 'sync.state', groupId: w.g.id, botId, state: s, files, total: files.length, reason: null })
+  from(k, {
+    t: 'sync.state',
+    groupId: w.g.id,
+    botId,
+    state: s,
+    files,
+    total: files.length,
+    reason: null,
+    reasonI18n: null,
+  })
 
 /** v1 a.txt=x by a, v2 a.txt=y by a; b's edit on top of v1 is held. */
 async function heldOnB(content = 'z') {
@@ -250,7 +260,7 @@ describe('blob retention (F16)', () => {
 })
 
 describe('the mode switch cannot get stuck (§3.5)', () => {
-  async function switching() {
+  async function partition() {
     await t.db.delete(syncReplicas)
     await t.db.update(groups).set({ mode: 'partition' }).where(eq(groups.id, w.g.id))
     await t.db.insert(groupRepos).values({
@@ -260,8 +270,32 @@ describe('the mode switch cannot get stuck (§3.5)', () => {
     })
     connect('A')
     connect('B')
+  }
+  const enable = async () =>
     expect((await (await api(w.wang.id)).post(url('/enable'), { baseBotId: w.b.id })).status).toBe(200)
+  async function switching() {
+    await partition()
+    await enable()
     await vi.waitFor(() => expect(inits('B').map((m) => m.role)).toEqual(['base']))
+  }
+  /** Moves the switch's timestamps `min` minutes into the past. */
+  async function ago(min: number, keys: ('at' | 'sentAt')[]) {
+    const g = await group()
+    const past = new Date(Date.now() - min * 60_000).toISOString()
+    await t.db
+      .update(groups)
+      .set({ syncSwitch: { ...g.syncSwitch!, ...Object.fromEntries(keys.map((k) => [k, past])) } })
+      .where(eq(groups.id, w.g.id))
+  }
+  /** The base is still in a partition-mode turn when the switch starts. */
+  async function busySwitch() {
+    await partition()
+    const runId = await queue(w.b.id)
+    await vi.waitFor(() => expect(starts('B', runId)).toHaveLength(1))
+    await enable()
+    expect(inits('B')).toEqual([])
+    expect((await group()).syncSwitch?.sentAt).toBeUndefined()
+    return runId
   }
 
   it('the base bot removed from the group fails the switch back to partition', async () => {
@@ -278,21 +312,51 @@ describe('the mode switch cannot get stuck (§3.5)', () => {
     await vi.waitFor(async () => expect((await group()).mode).toBe('partition'))
   })
 
-  it('a base that does not submit its tree within 10 minutes fails the switch', async () => {
+  it('a base that does not submit its tree within 10 minutes of its sync.init fails the switch', async () => {
     await switching()
+    expect((await group()).syncSwitch?.sentAt).toBeTruthy()
     await expireSwitches(t.ctx)
     expect((await group()).mode).toBe('force')
-    const g = await group()
-    await t.db
-      .update(groups)
-      .set({ syncSwitch: { ...g.syncSwitch!, at: new Date(Date.now() - 11 * 60_000).toISOString() } })
-      .where(eq(groups.id, w.g.id))
+    await ago(11, ['at', 'sentAt'])
     await expireSwitches(t.ctx)
     expect((await group()).mode).toBe('partition')
     expect(await events()).toContain('基准 Bot 未能在 10 分钟内完成首版，已退回分区模式')
     // A late tree is not taken.
     const late = await submit('B', w.msg(w.b.id, [await change(w, 'a.txt', 'x')], { kind: 'init' }))
     expect(late).toEqual({ outcome: 'rejected', reason: 'not_participating' })
+  })
+
+  it('the 10 minutes start when the base sync.init is sent, not while the base finishes its turn', async () => {
+    const runId = await busySwitch()
+    await ago(30, ['at'])
+    await expireSwitches(t.ctx)
+    expect((await group()).mode).toBe('force')
+    done('B', runId, null)
+    await vi.waitFor(() => expect(inits('B').map((m) => m.role)).toEqual(['base']))
+    expect((await group()).syncSwitch?.sentAt).toBeTruthy()
+    await expireSwitches(t.ctx)
+    expect((await group()).mode).toBe('force')
+    await ago(11, ['sentAt'])
+    await expireSwitches(t.ctx)
+    expect((await group()).mode).toBe('partition')
+  })
+
+  it('a base machine offline for 10 minutes before its sync.init fails the switch', async () => {
+    await busySwitch()
+    t.ctx.hub.unregister(w.B.machine.id, conns.B)
+    const offlineFor = (min: number) =>
+      t.db
+        .update(machines)
+        .set({ lastSeenAt: new Date(Date.now() - min * 60_000) })
+        .where(eq(machines.id, w.B.machine.id))
+    await ago(30, ['at'])
+    await offlineFor(2)
+    await expireSwitches(t.ctx)
+    expect((await group()).mode).toBe('force')
+    await offlineFor(11)
+    await expireSwitches(t.ctx)
+    expect((await group()).mode).toBe('partition')
+    expect(await events()).toContain('切换为强制同步失败，仍为分区模式：基准 Bot 所在机器离线超过 10 分钟')
   })
 })
 
@@ -374,13 +438,19 @@ describe('turns and runs', () => {
     connect('A')
     connect('B')
     const first = await queue(w.a.id, { handoffs: [{ botId: w.b.id, task: '接着做' }] })
-    done('A', first, { outcome: 'error', reason: 'offline' })
+    const sync = {
+      outcome: 'error',
+      reason: '上传同步内容失败：offline',
+      reasonI18n: { key: '上传同步内容失败：{e}', params: { e: 'offline' } },
+    } as const
+    done('A', first, sync)
     const hop = await vi.waitFor(() => {
       const s = starts('B')[0]
       if (!s) throw new Error('no hop yet')
       return s
     })
     expect(hop.prompt.context.map((c) => c.body).join('\n')).toContain('were not synced')
+    expect((await runRow(first)).sync).toEqual(sync)
   })
 })
 

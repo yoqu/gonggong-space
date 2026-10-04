@@ -53,10 +53,6 @@ describe('notificationView', () => {
     expect(notificationView(n('chain_done', { groupId: 'g1', hops: 2, stopped: true })).text).toBe(
       '2 跳 · 已被 /stop 中断',
     )
-    expect(notificationView(n('lock', { groupId: 'g2', groupName: '官网', botName: 'C' }))).toMatchObject({
-      label: '锁轮到你',
-      href: '/g/g2',
-    })
     expect(notificationView(n('bot_confirm', { botName: 'B', byName: '陈晨' }))).toEqual({
       label: '待确认 Bot',
       text: '陈晨 为你创建了 B，请确认绑定',
@@ -77,6 +73,9 @@ describe('notificationView', () => {
     expect(
       notificationView(n('sync_conflict', { groupId: 'g1', botName: 'C', version: 15, files: 2 })),
     ).toMatchObject({ label: '同步冲突', text: '@C 的改动与 v15 冲突：2 个文件', href: '/g/g1' })
+    expect(notificationView(n('sync_conflict', { groupId: 'g1', conflictId: 'c1', botName: 'C' })).href).toBe(
+      '/g/g1?conflict=c1',
+    )
   })
   it("renders in the reader's language, nested reasons included", () => {
     const en = createTranslator('en', protocolEn).text

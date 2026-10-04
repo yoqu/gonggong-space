@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { I18nText } from './i18n.js'
 
 // ── Force sync (docs/plan/强制同步-开发计划.md) ──────────────────────────────
 /** Defaults of the system parameters (F18): a bigger file or version is held and the owner told to .gitignore it. */
@@ -108,6 +109,8 @@ export const SyncState = z.object({
   files: z.array(z.string()).max(SYNC_FILES_MAX),
   total: z.number().int().min(0),
   reason: z.string().nullable(),
+  /** `reason` as its Chinese template and params, so each viewer reads it in their own language (older daemons: null). */
+  reasonI18n: I18nText.nullable().default(null),
 })
 
 // ── server → daemon ─────────────────────────────────────────────────────────
@@ -204,7 +207,11 @@ export const RunSyncDone = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1), merged: z.boolean() }),
   z.object({ outcome: z.literal('unchanged'), version: z.number().int().min(0) }),
   z.object({ outcome: z.literal('held'), files: z.number().int().min(1) }),
-  z.object({ outcome: z.literal('error'), reason: z.string() }),
+  z.object({
+    outcome: z.literal('error'),
+    reason: z.string(),
+    reasonI18n: I18nText.nullable().default(null),
+  }),
   z.object({ outcome: z.literal('waiting'), issue: z.enum(['drift', 'held']) }),
   z.object({ outcome: z.literal('stopped'), files: z.number().int().min(1) }),
 ])
@@ -256,6 +263,8 @@ export const SyncReplicaDto = z.object({
   /** With drift / conflict / excluded: the paths concerned (capped) and why, as the daemon reported. */
   files: z.array(z.string()),
   reason: z.string().nullable(),
+  /** Preferred over `reason` when known: rendered in the viewer's language. */
+  reasonI18n: I18nText.nullable().default(null),
 })
 export type SyncReplicaDto = z.infer<typeof SyncReplicaDto>
 export const SyncVersionTag = z.enum(['init', 'auto_merge', 'interrupted', 'local', 'merge'])

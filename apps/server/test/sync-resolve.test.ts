@@ -50,7 +50,16 @@ async function submit(k: 'A' | 'B', m: ReturnType<typeof w.msg>) {
 }
 
 const state = (k: 'A' | 'B', botId: string, s: 'drift' | 'held', files: string[]) =>
-  from(k, { t: 'sync.state', groupId: w.g.id, botId, state: s, files, total: files.length, reason: null })
+  from(k, {
+    t: 'sync.state',
+    groupId: w.g.id,
+    botId,
+    state: s,
+    files,
+    total: files.length,
+    reason: null,
+    reasonI18n: null,
+  })
 
 const replica = async (botId: string) =>
   (await t.db.select().from(syncReplicas).where(eq(syncReplicas.botId, botId)))[0]!

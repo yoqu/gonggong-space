@@ -44,6 +44,7 @@ const replica = (o: Partial<SyncReplicaDto>): SyncReplicaDto => ({
   issue: null,
   files: [],
   reason: null,
+  reasonI18n: null,
   ...o,
 })
 
@@ -164,7 +165,9 @@ describe('run card sync line', () => {
     expect(line({ outcome: 'accepted', version: 15, merged: false })).toBe('提交为 v15')
     expect(line({ outcome: 'accepted', version: 15, merged: true })).toBe('提交为 v15（自动合并）')
     expect(line({ outcome: 'unchanged', version: 14 })).toBe('无文件改动 · v14')
-    expect(line({ outcome: 'error', reason: '超过单版体积上限' })).toBe('同步失败：超过单版体积上限')
+    expect(line({ outcome: 'error', reason: '超过单版体积上限', reasonI18n: null })).toBe(
+      '同步失败：超过单版体积上限',
+    )
     expect(line(null)).toBe('')
     expect(line({ outcome: 'waiting', issue: 'drift' })).toBe('等待处理本地改动')
   })

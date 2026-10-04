@@ -213,7 +213,8 @@ export const groups = pgTable('groups', {
   /** 'partition' | 'force' (P2) */
   mode: text('mode').notNull().default('partition'),
   /** Switching to force (§3.5): who started it when with which base bot, until the base's tree is in; new turns wait. */
-  syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string; at?: string }>(),
+  /** Partition → force in progress: started `at`, the base sync.init first sent at `sentAt`. */
+  syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string; at?: string; sentAt?: string }>(),
   /** Switched back to partition: the group's sync data is purged 30 days later unless force is enabled again. */
   syncArchivedAt: ts('sync_archived_at'),
   /** Per-group overrides of system params, e.g. { approvalTimeoutMin: 30, chainMaxHops: 3 }. */
@@ -803,6 +804,8 @@ export const syncReplicas = pgTable(
     files: jsonb('files').$type<string[]>().notNull().default([]),
     total: integer('total').notNull().default(0),
     reason: text('reason'),
+    /** `reason` as a translatable template (daemon-reported or the server's own); null from older daemons. */
+    reasonI18n: jsonb('reason_i18n').$type<I18nText>(),
     /** The latest conflict result with the change it refused, turned into a sync_conflicts row once reported held. */
     lastConflict: jsonb('last_conflict'),
     syncedAt: ts('synced_at'),
@@ -858,7 +861,7 @@ export const notifications = pgTable(
       .references(() => users.id),
     /** Team of the group / bot it is about; null for platform-level notices. */
     teamId: uuid('team_id').references(() => teams.id),
-    /** 'approval' | 'question' | 'lock' | 'offline_expired' | 'chain_done' | 'bot_confirm' */
+    /** NotificationType; rows of retired types are kept but ignored. */
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
     readAt: ts('read_at'),

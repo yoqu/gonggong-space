@@ -149,6 +149,20 @@ describe('run sync fields', () => {
       issue: 'drift',
     })
   })
+
+  it('failure reasons carry their template; older daemons send none', () => {
+    expect(RunDone.parse(fixture('d2s.run.done.sync.error.json')).sync).toMatchObject({
+      outcome: 'error',
+      reasonI18n: { key: '{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore' },
+    })
+    const state = fixture('d2s.sync.state.error.json')
+    expect(DaemonToServer.parse(state)).toMatchObject({ reasonI18n: { params: { path: 'readme.md' } } })
+    const { reasonI18n: _, ...old } = state
+    expect(DaemonToServer.parse(old)).toMatchObject({ reasonI18n: null })
+    const done = fixture('d2s.run.done.sync.error.json')
+    const legacy = { ...done, sync: { outcome: 'error', reason: 'x' } }
+    expect(RunDone.parse(legacy).sync).toEqual({ outcome: 'error', reason: 'x', reasonI18n: null })
+  })
 })
 
 describe('sync messages', () => {

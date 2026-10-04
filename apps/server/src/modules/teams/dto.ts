@@ -5,6 +5,7 @@ import { notifications, type teamInvites, teamMembers, teams, users } from '../.
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { unreadByTeam } from '../groups/service.js'
+import { knownNotification } from '../notifications/notify.js'
 import { toUserDto } from '../users/dto.js'
 import { teamUserIds } from './service.js'
 
@@ -32,7 +33,12 @@ export async function myTeams(ctx: Ctx, userId: string, where?: SQL): Promise<Te
       .select({ teamId: notifications.teamId, n: count() })
       .from(notifications)
       .where(
-        and(eq(notifications.userId, userId), isNull(notifications.readAt), isNotNull(notifications.teamId)),
+        and(
+          eq(notifications.userId, userId),
+          isNull(notifications.readAt),
+          isNotNull(notifications.teamId),
+          knownNotification,
+        ),
       )
       .groupBy(notifications.teamId),
   ])

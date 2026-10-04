@@ -5,5 +5,12 @@
   "state": "error",
   "files": ["README.md", "readme.md"],
   "total": 2,
-  "reason": "大小写冲突：README.md、readme.md"
+  "reason": "readme.md 与 README.md 只有大小写不同，在 macOS 与 Windows 上会冲突",
+  "reasonI18n": {
+    "key": "{path} 与 {other} 只有大小写不同，在 macOS 与 Windows 上会冲突",
+    "params": {
+      "path": "readme.md",
+      "other": "README.md"
+    }
+  }
 }

@@ -46,13 +46,12 @@ const PROVIDERS: Record<string, MessageKey> = {
 const TEAM_ROLE: Record<string, MessageKey> = { owner: '所有者', admin: '管理员', member: '成员' }
 const teamRole = (v: unknown) => (TEAM_ROLE[str(v)] ? t(TEAM_ROLE[str(v)] as MessageKey) : str(v))
 const role = (v: unknown) => (ROLE[str(v)] ? t(ROLE[str(v)] as MessageKey) : str(v))
-const paramValue = (v: unknown, unit: string) => (v === null ? t('未设置') : `${v}${unit}`)
 
 function paramChanges(d: Detail) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
   const numeric = SYSTEM_PARAM_VIEW.filter((p) => p.key in changes).map(({ key, label, unit }) => {
     const [from, to] = changes[key] as [unknown, unknown]
-    return `${t(label as MessageKey)} ${paramValue(from, '')} → ${paramValue(to, ` ${t(unit as MessageKey)}`)}`
+    return `${t(label as MessageKey)} ${from} → ${to} ${t(unit as MessageKey)}`
   })
   const reg = changes.registrationOpen
     ? [t(changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册')]

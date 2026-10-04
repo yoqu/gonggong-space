@@ -28,7 +28,6 @@ import { t } from '../../i18n'
 const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> = {
   approval: { icon: 'shield-warning', color: 'var(--system-orange)' },
   question: { icon: 'bubble-question', color: 'var(--system-indigo)' },
-  lock: { icon: 'lock', color: 'var(--system-blue)' },
   offline_expired: { icon: 'wifi', color: 'var(--system-orange)' },
   chain_done: { icon: 'link', color: 'var(--system-gray)' },
   bot_confirm: { icon: 'bot', color: 'var(--system-orange)' },

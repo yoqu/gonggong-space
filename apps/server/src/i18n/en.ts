@@ -486,13 +486,11 @@ export const en = {
   该副本已参与强制同步: 'This replica already takes part in force sync',
   '强制同步群不能更换仓库，请先切回分区模式':
     'A force-sync group cannot change its repo; switch back to partition mode first',
-  '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
   'Bot 所在机器离线，上线后再处理': "The Bot's machine is offline; try again once it connects",
   该副本没有待处理的本地改动: 'This replica has no local changes to settle',
   '该 Bot 已不在强制同步中，本轮改动留在工作区':
     'This Bot no longer takes part in force sync; the changes stay in its workspace',
   '群的同步存储已超过 {gb} GB 上限': "The group's sync storage exceeds its {gb} GB limit",
-  'daemon 版本过旧，请升级': 'The daemon is too old to sync, please upgrade',
   '基准 Bot 所在机器的 daemon 版本过旧，请升级':
     "The base bot's machine runs a daemon too old to sync, please upgrade",
   冲突不存在或已处理: 'The conflict does not exist or was already settled',

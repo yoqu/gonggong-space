@@ -33,7 +33,7 @@ import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
-import { SyncBar, useLinkedSync } from '../sync/SyncBar'
+import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -440,6 +440,7 @@ export function ChatView({
         hidden={readOnly}
         onSettings={isAdmin ? () => setSettings('mode') : undefined}
       />
+      <LinkedConflict groupId={group.id} />
       {readOnly ? null : <GitBar group={group} />}
       <div className="chat-view__body">
         {drag.over ? (

@@ -21,6 +21,14 @@
   "appendsApplied": 0,
   "sync": {
     "outcome": "error",
-    "reason": "assets/video.mp4 超过 50 MB"
+    "reason": "assets/video.mp4 有 51 MB，超过单文件上限 50 MB，请加入 .gitignore",
+    "reasonI18n": {
+      "key": "{path} 有 {size} MB，超过单文件上限 {max} MB，请加入 .gitignore",
+      "params": {
+        "path": "assets/video.mp4",
+        "size": "51",
+        "max": "50"
+      }
+    }
   }
 }

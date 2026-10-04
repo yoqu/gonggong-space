@@ -28,6 +28,7 @@ const replica = (o: Partial<SyncReplicaDto> = {}): SyncReplicaDto => ({
   updatedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
   files: [],
   reason: null,
+  reasonI18n: null,
   ...o,
 })
 

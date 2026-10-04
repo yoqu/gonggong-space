@@ -109,6 +109,48 @@ macro_rules! t {
     };
 }
 
+/// A failure shown to people: `text` in this machine's language for old clients and logs, `i18n` (when the source is
+/// a known template) so each viewer reads it in their own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reason {
+    pub text: String,
+    pub i18n: Option<crate::protocol::I18nText>,
+}
+
+impl Reason {
+    pub fn new(zh: &'static str, params: Vec<(&str, String)>) -> Self {
+        let text = fill(tr(zh), &params);
+        let params = params.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+        Reason { text, i18n: Some(crate::protocol::I18nText { key: zh.into(), params }) }
+    }
+}
+
+impl From<String> for Reason {
+    fn from(text: String) -> Self {
+        Reason { text, i18n: None }
+    }
+}
+
+impl From<&str> for Reason {
+    fn from(text: &str) -> Self {
+        text.to_string().into()
+    }
+}
+
+impl std::fmt::Display for Reason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
+/// `reason!("中文 {x}", x = v)` → [`Reason`]: the `t!` text plus the template and params for the viewer's language.
+#[macro_export]
+macro_rules! reason {
+    ($zh:literal $(, $k:ident = $v:expr)* $(,)?) => {
+        $crate::i18n::Reason::new($zh, vec![$((stringify!($k), ($v).to_string())),*])
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,10 +171,19 @@ mod tests {
         assert_eq!(fill("{n:item|items}", &[("n", "2".to_string())]), "items");
     }
 
-    /// Every `t!` literal in the crate has an English entry.
+    #[test]
+    fn reasons_carry_the_template() {
+        let r = crate::reason!("{path} 是符号链接，不能同步", path = "a/b");
+        assert_eq!(r.text, "a/b 是符号链接，不能同步");
+        let i18n = r.i18n.unwrap();
+        assert_eq!(i18n.key, "{path} 是符号链接，不能同步");
+        assert_eq!(i18n.params["path"], "a/b");
+    }
+
+    /// Every `t!` / `reason!` literal in the crate has an English entry.
     #[test]
     fn english_covers_every_literal() {
-        let re = regex::Regex::new(r#"\bt!\(\s*"((?:[^"\\]|\\.)*)""#).unwrap();
+        let re = regex::Regex::new(r#"\b(?:t|reason)!\(\s*"((?:[^"\\]|\\.)*)""#).unwrap();
         let keys: std::collections::HashSet<_> = en::EN.iter().map(|(k, _)| *k).collect();
         let mut missing = vec![];
         let mut dirs = vec![std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src"))];

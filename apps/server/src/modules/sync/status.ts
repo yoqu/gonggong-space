@@ -121,6 +121,11 @@ async function statusOf(ctx: Ctx, groupId: string) {
       issue: managed ? ((issue as SyncReplicaIssue | null) ?? null) : null,
       files: issue ? (r.replica?.files ?? []) : [],
       reason: outdated ? t('daemon 版本过旧，请升级') : issue ? (r.replica?.reason ?? null) : null,
+      reasonI18n: outdated
+        ? { key: 'daemon 版本过旧，请升级' }
+        : issue
+          ? (r.replica?.reasonI18n ?? null)
+          : null,
     }
   })
   const dto: SyncStatusDto = {

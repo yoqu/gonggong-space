@@ -35,9 +35,6 @@ const PARAMS: SystemParams = {
   approvalTimeoutMin: 30,
   chainMaxHops: 3,
   offlineWaitMin: 30,
-  writerDisconnectReleaseSec: null,
-  forceSyncMaxLatencyMs: 120,
-  forceSyncMinBandwidthMbps: 10,
   sessionReplayCount: 50,
   contextInlineMax: 20,
   runRetentionDays: 30,
@@ -371,11 +368,6 @@ describe('机器与网络', () => {
     expect(screen.getByText('可升级').closest('[title]')?.getAttribute('title')).toBe(
       '最新版本 2.1.285 · 共工空间托管',
     )
-    await waitFor(() => expect(screen.getByText('180 ms').className).toContain('admin-table__bad'))
-    expect(screen.getByText('4.2 Mbps').className).toContain('admin-table__bad')
-    expect(screen.getByText('38 ms').className).not.toContain('admin-table__bad')
-    expect(screen.getByText('180 ms').querySelector('svg.admin-table__bad-icon')).toBeTruthy()
-    expect(screen.getByText('38 ms').querySelector('svg')).toBeNull()
     expect(screen.getByText('38 ms').title).toMatch(/^测量于 /)
     // Selecting a row enables 机器详情…; Enter opens it too.
     const details = screen.getByRole('button', { name: '机器详情…' }) as HTMLButtonElement
@@ -397,7 +389,7 @@ describe('机器与网络', () => {
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
       await screen.findByText(
-        '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。强制同步开启阈值：延迟 ≤ 120 ms，带宽 ≥ 10 Mbps。',
+        '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。',
       ),
     ).toBeTruthy()
   })
@@ -563,19 +555,15 @@ describe('系统参数', () => {
 
   it('groups params into sections, marks edits and saves only what changed from the save bar', async () => {
     const calls = mockApi({
-      'GET /admin/params': { ...PARAMS, writerDisconnectReleaseSec: 60 },
-      'PUT /admin/params': (body: unknown) => ({
-        ...PARAMS,
-        writerDisconnectReleaseSec: 60,
-        ...(body as object),
-      }),
+      'GET /admin/params': PARAMS,
+      'PUT /admin/params': (body: unknown) => ({ ...PARAMS, ...(body as object) }),
     })
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     expect(retention.value).toBe('30')
-    for (const h of ['同步', '运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
+    for (const h of ['运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy()
-    expect((screen.getByLabelText('持锁 Bot 断线后自动释放锁') as HTMLInputElement).value).toBe('60')
+    expect(screen.queryByRole('heading', { name: '同步' })).toBeNull()
     expect(screen.getByLabelText('机器心跳间隔')).toBeTruthy()
     expect(screen.getByLabelText('机器离线判定（连续未收到心跳）')).toBeTruthy()
     expect(screen.queryByText(/daemon/)).toBeNull()

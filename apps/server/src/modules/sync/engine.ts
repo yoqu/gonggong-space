@@ -66,7 +66,7 @@ async function onState(ctx: Ctx, machineId: string, msg: Extract<DaemonToServer,
     await resolveNotifications(ctx, 'sync_drift', 'botId', [msg.botId], msg.groupId)
     return schedule(ctx, msg.botId)
   }
-  if (r.pending === 'base') return onBaseFailed(ctx, msg.groupId, msg.botId, msg.reason)
+  if (r.pending === 'base') return onBaseFailed(ctx, msg.groupId, msg.botId, msg.reasonI18n ?? msg.reason)
   if (r.pending) return onAligned(ctx, msg.groupId, msg.botId)
   if (r.newDrift) await notifyDrift(ctx, msg.groupId, msg.botId, msg.total)
   if (r.opened) await announceConflict(ctx, msg.groupId, msg.botId, r.opened)

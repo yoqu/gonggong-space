@@ -236,6 +236,7 @@ async function heldOnB() {
     files: ['a.txt'],
     total: 1,
     reason: null,
+    reasonI18n: null,
   })
   return vi.waitFor(async () => {
     const res = await client(t, await t.seed.cookie(w.li.id)).get<SyncConflictDto[]>(
@@ -268,6 +269,7 @@ describe('conflicts', () => {
       files: ['q.txt'],
       total: 1,
       reason: null,
+      reasonI18n: null,
     })
     await vi.waitFor(async () => {
       const rows = await t.db.select().from(notifications)
@@ -315,6 +317,7 @@ describe('daemons without sync (old versions)', () => {
     expect(status.body.replicas.find((r) => r.botId === w.b.id)).toMatchObject({
       state: 'excluded',
       reason: 'daemon 版本过旧，请升级',
+      reasonI18n: { key: 'daemon 版本过旧，请升级' },
     })
   })
 

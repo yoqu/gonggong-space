@@ -8,7 +8,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { currentTeam } from '../teams/service.js'
-import { notificationDto, withGroupTitles } from './notify.js'
+import { knownNotification, notificationDto, withGroupTitles } from './notify.js'
 import { vapidKeys } from './push.js'
 
 const LIMIT = 100
@@ -24,7 +24,7 @@ export function notificationRoutes(ctx: Ctx) {
       const rows = await ctx.db
         .select()
         .from(notifications)
-        .where(and(eq(notifications.userId, user.id), await inTeam(req, user.id)))
+        .where(and(eq(notifications.userId, user.id), knownNotification, await inTeam(req, user.id)))
         .orderBy(desc(notifications.createdAt))
         .limit(LIMIT)
       const payloads = await withGroupTitles(
