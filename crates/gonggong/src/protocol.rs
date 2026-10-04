@@ -827,6 +827,7 @@ pub struct TunnelReset {
 pub const FEATURE_TOOLS: &str = "tools";
 pub const FEATURE_PROVIDERS: &str = "providers";
 pub const FEATURE_CC_SWITCH: &str = "ccSwitch";
+pub const FEATURE_SYNC: &str = "sync";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolsSettings {
@@ -1005,6 +1006,7 @@ pub enum SyncRejectReason {
     BlobsMissing,
     TooLarge,
     NotParticipating,
+    BadBase,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1085,11 +1087,26 @@ pub enum SyncWaitIssue {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "lowercase")]
 pub enum RunSyncDone {
-    Accepted { version: u64, merged: bool },
-    Unchanged { version: u64 },
-    Held { files: u32 },
-    Error { reason: String },
-    Waiting { issue: SyncWaitIssue },
+    Accepted {
+        version: u64,
+        merged: bool,
+    },
+    Unchanged {
+        version: u64,
+    },
+    Held {
+        files: u32,
+    },
+    Error {
+        reason: String,
+    },
+    Waiting {
+        issue: SyncWaitIssue,
+    },
+    /// /stop left `files` changed and unsubmitted (F21): kept or discarded by the initiator.
+    Stopped {
+        files: u32,
+    },
 }
 
 /// Response of `POST /api/daemon/sync/:groupId/blobs/missing`.
@@ -1120,7 +1137,7 @@ pub enum DaemonToServer {
         active_runs: Vec<String>,
         #[serde(default)]
         services: Vec<ServiceInfo>,
-        /// Optional capabilities: [`FEATURE_TOOLS`], [`FEATURE_PROVIDERS`], [`FEATURE_CC_SWITCH`].
+        /// Optional capabilities: [`FEATURE_TOOLS`], [`FEATURE_PROVIDERS`], [`FEATURE_CC_SWITCH`], [`FEATURE_SYNC`].
         #[serde(default)]
         features: Vec<String>,
     },

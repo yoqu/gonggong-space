@@ -1,4 +1,10 @@
-import { type ContextMessage, type RunDiscarded, type RunDone, TERMINAL_RUN_STATUS } from '@gonggong/protocol'
+import {
+  type ContextMessage,
+  type RunDiscarded,
+  type RunDone,
+  type RunSyncDone,
+  TERMINAL_RUN_STATUS,
+} from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -105,12 +111,23 @@ export async function stopRuns(ctx: Ctx, target: StopTarget, by: User): Promise<
   return stopped
 }
 
-/** Fields for run.done of a stopped run: step and, for partition edits in a repo, the pending keep/discard choice. */
+/**
+ * Fields for run.done of a stopped run: step and the pending keep/discard choice, for partition edits in a repo or
+ * force-group changes the daemon left unsubmitted (F21).
+ */
 export async function stoppedDone(ctx: Ctx, run: RunRow, done: RunDone): Promise<Partial<RunRow>> {
   if (!run.stoppedBy || done.outcome === 'completed') return {}
   const [by] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, run.stoppedBy))
-  const kept = done.filesChanged > 0 && done.git !== null
   const step = (await stoppedByEdit(ctx, run)) ? runStep(EDITED_STEP) : stopStep(by?.name ?? '', run)
+  if (done.sync?.outcome === 'stopped')
+    return {
+      ...runStep('{step} · 强制同步：已改的 {n} 个文件待处理，未提交', {
+        step: step.stepI18n,
+        n: done.sync.files,
+      }),
+      interrupt: 'pending',
+    }
+  const kept = done.filesChanged > 0 && done.git !== null && !done.sync
   return kept
     ? {
         ...runStep('{step} · 分区模式：已改的 {n} 个文件留在工作区，未提交', {
@@ -180,8 +197,12 @@ export async function interruptNote(tx: Tx, run: RunRow, at: string) {
       ? (await tx.update(runs).set({ interrupt: 'kept' }).where(eq(runs.id, prev.id)).returning())[0]
       : undefined
   const n = prev.filesChanged
-  const detail =
-    prev.interrupt === 'discarded'
+  const force = (prev.sync as RunSyncDone | null)?.outcome === 'stopped'
+  const detail = force
+    ? prev.interrupt === 'discarded'
+      ? '；本轮改动已备份后丢弃，工作区已回到同步版本'
+      : '；本轮改动已保留并提交为一版'
+    : prev.interrupt === 'discarded'
       ? `；本轮改动已丢弃，上一轮改动的 ${n} 个文件已还原到该轮开始前的状态`
       : n > 0
         ? `；本轮改动已保留，上一轮改动的 ${n} 个文件仍在工作区，未提交`
@@ -218,7 +239,14 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
       groupId: run.groupId,
       detail: { runId, ...detail },
     })
-  if (choice === 'discard') {
+  if ((run.sync as RunSyncDone | null)?.outcome === 'stopped') {
+    // Force group (F21): the daemon submits the changes as a version (kind interrupted) or backs them up and rolls
+    // back to the head, reporting like settled local edits.
+    const action = { kind: 'drift', choice: choice === 'keep' ? 'submit' : 'discard' } as const
+    const msg = { t: 'sync.action', groupId: run.groupId, botId: run.botId, action } as const
+    if (!machineId || !ctx.hub.send(machineId, msg)) return fail('conflict', 'Bot 所在机器离线，上线后再处理')
+    await record({})
+  } else if (choice === 'discard') {
     const res = machineId ? await discard(ctx, machineId, runId) : null
     const error = res ? (res.ok ? null : (res.error ?? '未知错误')) : 'Bot 离线'
     await record({ ok: !error, files: res?.files ?? 0, error })

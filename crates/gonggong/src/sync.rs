@@ -3,8 +3,9 @@
 //! A replica is one (group, bot) managed workspace; its state lives in `<home>/sync/<group>/<bot>/`, never in the
 //! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed), `base.json` (the
 //! manifest at the version the replica last matched; it exists once the replica joined), `work` (the workspace path,
-//! so idle replicas can be found), `issue.json` (why it stopped taking versions, if it did) and `held.json` (the held
-//! change while a conflict waits, F11).
+//! so idle replicas can be found), `issue.json` (why it stopped taking versions, if it did), `held.json` (the held
+//! change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21)
+//! and `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect).
 mod apply;
 mod check;
 mod client;
@@ -18,7 +19,7 @@ pub use manifest::{Stat, Tree};
 pub use merge::Merge;
 
 use crate::git;
-use crate::protocol::{SyncChange, SyncEntry, SyncReplicaIssue};
+use crate::protocol::{SyncChange, SyncEntry, SyncReplicaIssue, SyncSubmit};
 use crate::t;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,14 @@ pub struct Held {
     pub merging: bool,
 }
 
+/// A submit on its way: resent as it is until a result settles it; `files` = the tree it carries, the replica's new
+/// base files once accepted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pending {
+    pub submit: SyncSubmit,
+    pub files: Manifest,
+}
+
 pub struct Replica {
     state: PathBuf,
     work: PathBuf,
@@ -76,6 +85,12 @@ impl Replica {
     /// The joined replica of (`group`, `bot`) on this machine.
     pub fn find(home: &Path, group: &str, bot: &str) -> Option<Replica> {
         Self::joined_in(home, group).into_iter().find(|r| r.bot == bot)
+    }
+
+    /// Every joined replica on this machine.
+    pub fn all(home: &Path) -> Vec<Replica> {
+        let Ok(groups) = std::fs::read_dir(home.join("sync")) else { return vec![] };
+        groups.flatten().flat_map(|g| Self::joined_in(home, &g.file_name().to_string_lossy())).collect()
     }
 
     /// The joined replicas of `group` on this machine.
@@ -123,9 +138,28 @@ impl Replica {
         write_json(&self.state.join("held.json"), &held)
     }
 
+    /// The run whose /stop left its changes waiting for keep / discard (F21).
+    pub fn stopped(&self) -> Result<Option<String>, String> {
+        read_json(&self.state.join("stopped.json"))
+    }
+
+    pub fn set_stopped(&self, run_id: Option<&str>) -> Result<(), String> {
+        write_json(&self.state.join("stopped.json"), &run_id)
+    }
+
+    pub fn pending(&self) -> Result<Option<Pending>, String> {
+        read_json(&self.state.join("pending.json"))
+    }
+
+    pub fn set_pending(&self, pending: Option<&Pending>) -> Result<(), String> {
+        write_json(&self.state.join("pending.json"), &pending)
+    }
+
     /// Settled: takes versions again.
     pub fn clear(&self) -> Result<(), String> {
         self.set_held(None)?;
+        self.set_stopped(None)?;
+        self.set_pending(None)?;
         self.set_issue(None)
     }
 

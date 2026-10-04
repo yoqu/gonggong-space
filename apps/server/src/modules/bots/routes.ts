@@ -38,6 +38,7 @@ import { publishDmsOf } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { stepI18nOf } from '../runs/step.js'
+import { leaveBots } from '../sync/switch.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
@@ -403,6 +404,7 @@ export function botRoutes(ctx: Ctx) {
         .update(groupBots)
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.botId, bot.id), isNull(groupBots.removedAt)))
+      await leaveBots(ctx, [bot.id])
       await ctx.db.delete(feishuApps).where(eq(feishuApps.botId, bot.id))
       await reloadFeishu(ctx)
       await auditForeign(ctx, user, bot, 'bot.delete')

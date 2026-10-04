@@ -37,7 +37,7 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-const connect = (k: 'A' | 'B') => t.ctx.hub.register(w[k].machine.id, conns[k])
+const connect = (k: 'A' | 'B') => t.ctx.hub.register(w[k].machine.id, conns[k], ['sync'])
 const from = (k: 'A' | 'B', m: Exclude<DaemonToServer, { t: 'hello' | 'heartbeat' }>) =>
   t.ctx.hub.emit('message', w[k].machine.id, m)
 

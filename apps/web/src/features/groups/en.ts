@@ -101,7 +101,7 @@ export default {
   '移除后所有成员都不再看到这条公告，仍可在群设置「群公告」中查看历史。':
     'No member will see this notice anymore; its history stays under "Group notice" in group settings.',
   '已隐藏，可在群设置「群公告」中查看': 'Hidden. Find it under "Group notice" in group settings',
-  '权限审批等待 · 分区（分钟）': 'Approval wait (minutes)',
+  '权限审批等待（分钟）': 'Approval wait (minutes)',
   '接力链长上限（跳）': 'Max relay chain length (hops)',
   'Bot 离线等待上线（分钟）': 'Wait for offline Bot (minutes)',
   基本信息: 'General',

@@ -567,7 +567,7 @@ describe('group settings dialog', () => {
     expect(within(dlg).queryByText(/\/hold/)).toBeNull()
     const hops = (await within(dlg).findByLabelText('接力链长上限（跳）')) as HTMLInputElement
     expect(hops.value).toBe('3')
-    expect((within(dlg).getByLabelText('权限审批等待 · 分区（分钟）') as HTMLInputElement).value).toBe('30')
+    expect((within(dlg).getByLabelText('权限审批等待（分钟）') as HTMLInputElement).value).toBe('30')
     expect((within(dlg).getByLabelText('Bot 离线等待上线（分钟）') as HTMLInputElement).value).toBe('30')
     fireEvent.change(hops, { target: { value: '1' } })
     fireEvent.blur(hops)

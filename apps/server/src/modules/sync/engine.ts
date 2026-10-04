@@ -2,11 +2,12 @@ import type { DaemonToServer, SyncSubmit } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups } from '../../db/schema.js'
+import { resolveNotifications } from '../notifications/notify.js'
 import { schedule } from '../runs/scheduler.js'
 import { announceConflict, notifyDrift } from './resolve.js'
 import { publishSync } from './status.js'
 import { headVersion, recordApplied, recordState, replicaMachines, submitTx } from './store.js'
-import { forgetMachineInits, onAligned, onBaseAccepted, onBaseFailed } from './switch.js'
+import { forgetMachineInits, onAligned, onBaseAccepted, onBaseFailed, syncOutdated } from './switch.js'
 
 /** Answers sync.submit; on a new version tells the other replicas' machines (F8) and the members. */
 export async function handleSubmit(ctx: Ctx, machineId: string, msg: SyncSubmit) {
@@ -21,7 +22,7 @@ export async function handleSubmit(ctx: Ctx, machineId: string, msg: SyncSubmit)
   if (base && result.outcome === 'accepted') await onBaseAccepted(ctx, msg.groupId, msg.botId)
   if (version === undefined) return
   for (const m of await replicaMachines(ctx.db, msg.groupId, msg.botId))
-    ctx.hub.send(m, { t: 'sync.available', groupId: msg.groupId, version })
+    if (!syncOutdated(ctx, m)) ctx.hub.send(m, { t: 'sync.available', groupId: msg.groupId, version })
   await publishSync(ctx, msg.groupId)
 }
 
@@ -29,6 +30,8 @@ async function onApplied(ctx: Ctx, machineId: string, msg: Extract<DaemonToServe
   const r = await recordApplied(ctx, machineId, msg)
   if (!r) return
   await publishSync(ctx, msg.groupId)
+  await resolveNotifications(ctx, 'sync_conflict', 'conflictId', r.settled)
+  if (r.cleared) await resolveNotifications(ctx, 'sync_drift', 'botId', [msg.botId], msg.groupId)
   if (!r.joined && !r.cleared) return
   // A version that came out while it aligned or was paused (F11, F12).
   const head = await headVersion(ctx.db, msg.groupId)
@@ -88,7 +91,8 @@ export function startSyncEngine(ctx: Ctx) {
     enqueue(machineId, async () => {
       for (const groupId of await machineGroups(ctx, machineId)) {
         const version = await headVersion(ctx.db, groupId)
-        if (version > 0) ctx.hub.send(machineId, { t: 'sync.available', groupId, version })
+        if (version > 0 && !syncOutdated(ctx, machineId))
+          ctx.hub.send(machineId, { t: 'sync.available', groupId, version })
         await publishSync(ctx, groupId)
       }
     })

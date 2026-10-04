@@ -394,6 +394,7 @@ impl Handler for Engine {
     fn connected(&self, tunnel: bool) {
         self.0.tunnel.send_replace(tunnel);
         self.0.manage.connected();
+        self.0.replicas.connected();
     }
 
     fn active_runs(&self) -> Vec<String> {

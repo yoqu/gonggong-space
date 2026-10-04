@@ -12,7 +12,7 @@ import { requeueAppends } from '../messages/append.js'
 import { authorName, memberIds, messageDto, publishMessage } from '../messages/service.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
 import { settleSchedule } from '../schedules/engine.js'
-import { requeueRun } from '../sync/resolve.js'
+import { pauseStopped, requeueRun } from '../sync/resolve.js'
 import { publishBotState, updateBotState } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { redact, redactDeep } from './redact.js'
@@ -343,7 +343,9 @@ async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
   if (owned.finalizing) return finalize(ctx, owned)
   if (done.sync?.outcome === 'waiting') return requeueRun(ctx, owned, done.sync.issue)
   const ended = await terminate(ctx, owned, done)
-  if (ended) await finalize(ctx, ended)
+  if (!ended) return
+  if (done.sync?.outcome === 'stopped') await pauseStopped(ctx, ended, done.sync.files)
+  await finalize(ctx, ended)
 }
 
 /**

@@ -106,6 +106,8 @@ export const protocolEn = {
   '{user} 执行了 /stop': '{user} ran /stop',
   '{step} · 分区模式：已改的 {n} 个文件留在工作区，未提交':
     '{step} · partition mode: {n} changed {n:file stays|files stay} in the workspace, uncommitted',
+  '{step} · 强制同步：已改的 {n} 个文件待处理，未提交':
+    '{step} · force sync: {n} changed {n:file awaits|files await} a decision, not submitted',
   'Bot 离线超过 {n} 分钟，已作废并通知 {user}':
     'Bot offline for over {n} {n:minute|minutes}, voided and {user} was notified',
   'agent 异常：{error}': 'Agent error: {error}',
@@ -184,7 +186,7 @@ export const protocolEn = {
   '机器离线判定（连续未收到心跳）': 'Machine offline after (missed heartbeats in a row)',
   '服务器备份（每日）保留': 'Keep daily server backups for',
   删群后存档保留: 'Keep archives of deleted groups for',
-  '权限审批等待（分区模式）· 群默认': 'Approval wait (partition mode) · group default',
+  '权限审批等待 · 群默认': 'Approval wait · group default',
   '接力链长上限 · 群默认': 'Max relay length · group default',
   'Bot 离线时请求等待上线 · 群默认': 'Wait for an offline Bot · group default',
   'Bot 并发上限 · 新建默认': 'Bot concurrency limit · default for new Bots',

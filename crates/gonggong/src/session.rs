@@ -419,9 +419,25 @@ impl Shared {
         }
     }
 
+    /// How the active turn ends, as `finish` will report it; `result` is the prompt's (Err = it failed).
+    fn ending(&self, result: Result<&PromptResponse, ()>) -> RunOutcome {
+        let s = self.0.lock().unwrap();
+        let Some(a) = s.active.as_ref() else { return RunOutcome::Failed };
+        let cancelled = s.cancelled.contains(&a.run_id);
+        match result {
+            Ok(resp) if !cancelled && (a.turn.failure.is_some() || session_failure(resp.meta.as_ref()).is_some()) => {
+                RunOutcome::Failed
+            }
+            Ok(resp) if cancelled || resp.stop_reason == StopReason::Cancelled => RunOutcome::Interrupted,
+            Ok(_) => RunOutcome::Completed,
+            Err(()) if cancelled => RunOutcome::Interrupted,
+            Err(()) => RunOutcome::Failed,
+        }
+    }
+
     /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn, then
-    /// (force group) submits the turn's changes, so run.done reports them settled.
-    async fn post_turn(&self) {
+    /// (force group) settles the turn's changes by how it ended, so run.done reports them settled.
+    async fn post_turn(&self, outcome: RunOutcome) {
         let Some((run_id, git, sync)) =
             self.0.lock().unwrap().active.as_mut().map(|a| (a.run_id.clone(), a.git.take(), a.sync.take()))
         else {
@@ -443,7 +459,7 @@ impl Shared {
             s.last = Some((run_id, g));
         }
         if let Some(sync) = sync {
-            let done = sync.finish().await;
+            let done = sync.finish(outcome).await;
             if let Some(a) = self.0.lock().unwrap().active.as_mut() {
                 a.turn.sync = Some(done);
             }
@@ -873,7 +889,7 @@ pub(crate) async fn run(
         };
         if shared.0.lock().unwrap().active.is_some() {
             tracing::warn!("adapter ended mid-turn: {error}");
-            shared.post_turn().await;
+            shared.post_turn(shared.ending(Err(()))).await;
             shared.finish(Err(error), resume.as_ref(), None);
         }
     }
@@ -1068,7 +1084,7 @@ impl Conversation<'_> {
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
-                self.shared.post_turn().await;
+                self.shared.post_turn(self.shared.ending(result.as_ref().map_err(drop))).await;
                 self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
                 // A failed prompt may mean a broken adapter: restart it for the next turn.
                 error.map_or(Ok(()), Err)

@@ -157,7 +157,8 @@ export async function resolveConflict(
     .returning()
   if (!message) return
   await publishMessage(ctx, messageDto(message, await authorName(ctx, message)))
-  await triggerRuns(ctx, message)
+  // The decider is a group admin or the bot's owner: the bot's trigger scope does not apply.
+  await triggerRuns(ctx, message, { anyScope: true })
 }
 
 /** 整版丢弃: the daemon backs up the held change and makes the tree the head. */
@@ -222,6 +223,27 @@ export async function announceConflict(
       version: c.headVersion,
       files: c.files,
     })
+}
+
+/**
+ * run.done `stopped` (F21): the turn's changes wait in the tree, so the replica pauses like with local edits. The
+ * stopper decides on the run card (keep / discard); without one its owner is told as for local edits.
+ */
+export async function pauseStopped(ctx: Ctx, run: RunRow, files: number) {
+  const paused = await ctx.db
+    .update(syncReplicas)
+    .set({ issue: 'drift', files: [], total: files, reason: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(syncReplicas.groupId, run.groupId),
+        eq(syncReplicas.botId, run.botId),
+        isNotNull(syncReplicas.joinedAt),
+      ),
+    )
+    .returning({ botId: syncReplicas.botId })
+  if (!paused.length) return
+  await publishSync(ctx, run.groupId)
+  if (run.interrupt !== 'pending') await notifyDrift(ctx, run.groupId, run.botId, files)
 }
 
 /**

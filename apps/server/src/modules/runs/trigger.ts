@@ -33,6 +33,8 @@ interface Trigger {
   triggerUserId: string | null
   hop: number
   parentRunId: string | null
+  /** The origin was authorized otherwise (a sync merge turn's decider): only the binding is checked. */
+  anyScope?: boolean
 }
 
 /**
@@ -68,7 +70,10 @@ async function createRuns(ctx: Ctx, t: Trigger) {
     )
   await Promise.all(
     targets.map(async (bot) => {
-      const refused = refusal({ ...bot, tier: bot.groupTier ?? bot.tier }, t.originUserId)
+      const refused = refusal(
+        { ...bot, tier: bot.groupTier ?? bot.tier },
+        t.anyScope ? bot.ownerId : t.originUserId,
+      )
       if (!refused && bot.workspaceState === 'unbound')
         return void (await postEvent(
           ctx,
@@ -111,12 +116,17 @@ async function createRuns(ctx: Ctx, t: Trigger) {
 
 /**
  * Called by the chat module right after a user message is stored. Creates one run per mentioned bot
- * (message.meta.mentions) that is in the group, then dispatches it.
+ * (message.meta.mentions) that is in the group, then dispatches it. `anyScope`: see Trigger.
  */
-export async function triggerRuns(ctx: Ctx, message: typeof messages.$inferSelect): Promise<void> {
+export async function triggerRuns(
+  ctx: Ctx,
+  message: typeof messages.$inferSelect,
+  o: { anyScope?: boolean } = {},
+): Promise<void> {
   const author = message.authorUserId
   if (!author) return
   await createRuns(ctx, {
+    ...o,
     groupId: message.groupId,
     messageId: message.id,
     botIds: [...new Set((message.meta as { mentions?: string[] }).mentions ?? [])],

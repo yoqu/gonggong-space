@@ -54,12 +54,16 @@ export async function notify(
     void sendPush(ctx, userId, dto).catch((e) => console.warn('web push failed:', e))
 }
 
-/** The requests these notifications asked about were settled: mark them handled (and read) for every recipient. */
+/**
+ * The requests these notifications asked about were settled: mark them handled (and read) for every recipient.
+ * `groupId` narrows payloads keyed by something not unique across groups (a bot).
+ */
 export async function resolveNotifications(
   ctx: Ctx,
-  type: 'approval' | 'question',
-  key: 'approvalId' | 'questionSetId',
+  type: 'approval' | 'question' | 'sync_conflict' | 'sync_drift',
+  key: 'approvalId' | 'questionSetId' | 'conflictId' | 'botId',
   ids: string[],
+  groupId?: string,
 ) {
   if (!ids.length) return
   const now = ctx.now()
@@ -74,6 +78,7 @@ export async function resolveNotifications(
         eq(notifications.type, type),
         isNull(notifications.resolvedAt),
         inArray(sql`${notifications.payload}->>${key}`, ids),
+        groupId === undefined ? undefined : sql`${notifications.payload}->>'groupId' = ${groupId}`,
       ),
     )
     .returning()) as Row[]

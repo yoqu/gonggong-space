@@ -14,8 +14,6 @@ type Approval = typeof approvals.$inferSelect
 type Settled = 'approved' | 'rejected' | 'expired'
 export type VoidReason = 'stopped' | 'chain_stopped' | 'ended'
 
-/** Force-sync default (P2); partition groups default to the system param. Group admins override both. */
-const FORCE_TIMEOUT_MIN = 5
 const TICK_MS = 15_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
@@ -33,10 +31,9 @@ const scoped = (ctx: Ctx) =>
     .innerJoin(runs, eq(runs.id, approvals.runId))
     .innerJoin(bots, eq(bots.id, runs.botId))
 
+/** Group → team → platform default, in every sync mode (F22). */
 export async function timeoutMin(ctx: Ctx, group: typeof groups.$inferSelect) {
-  const custom = (group.params as { approvalTimeoutMin?: unknown }).approvalTimeoutMin
-  if (typeof custom === 'number' && custom > 0) return custom
-  return group.mode === 'force' ? FORCE_TIMEOUT_MIN : (await groupParams(ctx, group)).approvalTimeoutMin
+  return (await groupParams(ctx, group)).approvalTimeoutMin
 }
 
 /** A live run's permission request from the machine running it: store it, await the owner, notify them. */

@@ -587,7 +587,8 @@ export const CastState = z.object({
  * `tools`: tools.cmd; `providers`: providers.cmd; `ccSwitch`: ccswitch.* (only when the machine has CC Switch).
  * Provider settings live on the machine only: the server relays them in memory and never stores or logs them.
  */
-export const DaemonFeature = z.enum(['tools', 'providers', 'ccSwitch'])
+/** `sync`: takes part in force sync; a replica on a daemon without it sits out (runs go unsynced). */
+export const DaemonFeature = z.enum(['tools', 'providers', 'ccSwitch', 'sync'])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
 export const ToolKind = z.enum(['node', 'claude', 'codex'])

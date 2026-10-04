@@ -59,7 +59,7 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-const connect = (k: K) => t.ctx.hub.register(w[k].machine.id, conns[k])
+const connect = (k: K) => t.ctx.hub.register(w[k].machine.id, conns[k], ['sync'])
 const from = (k: K, m: Exclude<DaemonToServer, { t: 'hello' | 'heartbeat' }>) =>
   t.ctx.hub.emit('message', w[k].machine.id, m)
 const inits = (k: K) => sent[k].filter((m): m is Init => m.t === 'sync.init')

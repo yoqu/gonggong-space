@@ -537,6 +537,11 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("同步提交被拒绝：文件内容未上传完整", "Sync submit rejected: not all file contents were uploaded"),
     ("同步提交被拒绝：超过单版体积上限", "Sync submit rejected: over the per-version size limit"),
     ("同步提交被拒绝：该副本未参与强制同步", "Sync submit rejected: this replica does not take part in force sync"),
+    ("同步提交被拒绝：基准版本无效", "Sync submit rejected: its base version is invalid"),
+    (
+        "本轮异常结束，改动未提交，待 Bot 主人处理",
+        "The turn ended abnormally; its changes were not submitted and wait for the Bot owner",
+    ),
     ("同步提交被拒绝：与权威版本冲突", "Sync submit rejected: it conflicts with the authoritative version"),
     ("无法清除同步状态：{e}", "Couldn't clear the sync state: {e}"),
     ("无法连接服务器同步接口", "Can't reach the server's sync API"),

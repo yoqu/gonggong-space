@@ -20,20 +20,23 @@ import {
   syncVersions,
   users,
 } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { memberIds } from '../messages/service.js'
 import { isBinary } from './blobs.js'
+import { syncOutdated } from './switch.js'
 
 /** A replica behind a head this fresh is still catching up (sync.available just went out); older, it lags. */
 export const SYNCING_MS = 60_000
 
 /**
- * F14, in order: not managed → excluded; not joined → syncing / offline while its sync.init is due, else excluded;
+ * F14, in order: not managed or on a daemon that cannot sync → excluded; not joined → syncing / offline while its sync.init is due, else excluded;
  * machine offline → offline; held → conflict; drift or error (limits, root hash mismatch) → drift; at head →
  * consistent; else syncing while the head is fresh, behind after.
  */
 function replicaState(
   o: {
     managed: boolean
+    outdated: boolean
     joined: boolean
     pending: boolean
     online: boolean
@@ -42,7 +45,7 @@ function replicaState(
   },
   head: { version: number; fresh: boolean },
 ): SyncReplicaState {
-  if (!o.managed) return 'excluded'
+  if (!o.managed || o.outdated) return 'excluded'
   if (!o.joined) return o.pending ? (o.online ? 'syncing' : 'offline') : 'excluded'
   if (!o.online) return 'offline'
   if (o.issue === 'held') return 'conflict'
@@ -88,6 +91,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
   const replicas = rows.map((r) => {
     const issue = r.replica?.issue ?? null
     const managed = r.workspaceKind === 'managed'
+    const outdated = managed && syncOutdated(ctx, r.machineId)
     return {
       botId: r.botId,
       botName: r.botName,
@@ -98,6 +102,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
       state: replicaState(
         {
           managed,
+          outdated,
           joined: !!r.replica?.joinedAt,
           pending: !!r.replica?.pending,
           online: !!r.machineId && ctx.hub.isOnline(r.machineId),
@@ -109,7 +114,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
       updatedAt: r.replica?.syncedAt?.toISOString() ?? null,
       issue: managed ? ((issue as SyncReplicaIssue | null) ?? null) : null,
       files: issue ? (r.replica?.files ?? []) : [],
-      reason: issue ? (r.replica?.reason ?? null) : null,
+      reason: outdated ? t('daemon 版本过旧，请升级') : issue ? (r.replica?.reason ?? null) : null,
     }
   })
   return {

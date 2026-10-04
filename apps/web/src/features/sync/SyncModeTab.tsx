@@ -27,6 +27,7 @@ const EXCLUDED: Record<SyncPreviewReason, string> = {
   dirty: t('不参与（有未提交的改动）'),
   offline: t('对齐（机器离线，上线后对齐）'),
   not_ready: t('对齐（工作区就绪后对齐）'),
+  outdated: t('不参与（daemon 版本过旧，请升级）'),
 }
 
 type Bot = SyncPreviewDto['bots'][number]

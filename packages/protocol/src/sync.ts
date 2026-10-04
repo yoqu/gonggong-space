@@ -99,9 +99,10 @@ export const SyncState = z.object({
 // ── server → daemon ─────────────────────────────────────────────────────────
 /**
  * Answer to sync.submit. `conflict`: nothing was taken; `conflicts` = the head's state of each conflicting path, to
- * three-way merge against (F7). `rejected`: blobs not uploaded, over the size limit, or the replica no longer takes part.
+ * three-way merge against (F7). `rejected`: blobs not uploaded, over the size limit, the replica no longer takes part,
+ * or `bad_base`: its base version is past the head.
  */
-export const SyncRejectReason = z.enum(['blobs_missing', 'too_large', 'not_participating'])
+export const SyncRejectReason = z.enum(['blobs_missing', 'too_large', 'not_participating', 'bad_base'])
 export const SyncSubmitResult = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1) }),
   z.object({
@@ -182,7 +183,8 @@ export type RunSyncStart = z.infer<typeof RunSyncStart>
  * as `version` (`merged` after a clean auto merge), `unchanged` = nothing to submit, the replica is at `version`;
  * `held` = `files` conflicts wait for a decision; `error` = not submitted (limits, offline…), in the daemon's words;
  * `waiting` = the turn never started: the replica has local edits or a held conflict (F11, F12), so the server queues
- * the run again until the issue is settled.
+ * the run again until the issue is settled; `stopped` = /stop left `files` changed and unsubmitted (F21): the replica
+ * waits like with local edits until the initiator keeps (kind `interrupted`) or discards them.
  */
 export const RunSyncDone = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1), merged: z.boolean() }),
@@ -190,6 +192,7 @@ export const RunSyncDone = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('held'), files: z.number().int().min(1) }),
   z.object({ outcome: z.literal('error'), reason: z.string() }),
   z.object({ outcome: z.literal('waiting'), issue: z.enum(['drift', 'held']) }),
+  z.object({ outcome: z.literal('stopped'), files: z.number().int().min(1) }),
 ])
 export type RunSyncDone = z.infer<typeof RunSyncDone>
 
@@ -272,9 +275,10 @@ export const SyncEnableReq = z.object({ baseBotId: z.string() })
 export const SyncJoinReq = z.object({ force: z.boolean().default(false) })
 /**
  * Why a bot would sit out or align late: `cd` a local directory, `offline` its machine (aligns once it connects),
- * `dirty` uncommitted git changes as last reported (the daemon decides at the switch), `not_ready` no clone yet.
+ * `dirty` uncommitted git changes as last reported (the daemon decides at the switch), `not_ready` no clone yet,
+ * `outdated` its daemon cannot sync (no `sync` feature).
  */
-export const SyncPreviewReason = z.enum(['cd', 'offline', 'dirty', 'not_ready'])
+export const SyncPreviewReason = z.enum(['cd', 'offline', 'dirty', 'not_ready', 'outdated'])
 export type SyncPreviewReason = z.infer<typeof SyncPreviewReason>
 /** GET /api/groups/:id/sync/preview: what switching would do to each bot; `canBase` = may be the base. */
 export const SyncPreviewDto = z.object({

@@ -14,7 +14,7 @@ import { BotsView, type SettingsTab } from './GroupInfo'
 
 /** Only the P1 params are adjustable (spec §10); /hold, forced-sync approval wait and dispatch timeout are P2. */
 const PARAMS: { key: keyof GroupParams; label: string }[] = [
-  { key: 'approvalTimeoutMin', label: t('权限审批等待 · 分区（分钟）') },
+  { key: 'approvalTimeoutMin', label: t('权限审批等待（分钟）') },
   { key: 'chainMaxHops', label: t('接力链长上限（跳）') },
   { key: 'offlineWaitMin', label: t('Bot 离线等待上线（分钟）') },
 ]

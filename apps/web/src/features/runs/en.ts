@@ -31,6 +31,13 @@ export default {
   '仅 Bot 主人 {name} 可操作，你只能查看': 'Only the Bot owner {name} can decide; you can only view',
   '已停止 · 本轮改动 {n} 个文件留在工作区':
     'Stopped · {n} {n:file|files} changed this turn left in the workspace',
+  '已停止 · 强制同步：本轮改动 {n} 个文件待处理，未提交':
+    'Stopped · force sync: {n} {n:file|files} changed this turn, awaiting a decision, not submitted',
+  '已保留本轮改动 · 提交为一版': "Kept this turn's changes · submitted as a version",
+  '已丢弃本轮改动 · 已备份并回滚到同步版本':
+    "Discarded this turn's changes · backed up and rolled back to the synced version",
+  '保留即提交为一版（标「中断」）；丢弃先备份，再回滚到同步版本。处理前该 Bot 在本群的新触发排队。仅发起人 {name} 或 Bot 主人可选，无超时。':
+    'Keep submits them as a version (tagged “interrupted”); discard backs them up, then rolls back to the synced version. Until then this bot’s new requests in the group wait. Only the initiator {name} or the bot owner may choose; no timeout.',
   '已保留本轮改动 · 留在工作区，未提交': "Kept this turn's changes · left in the workspace, uncommitted",
   '已丢弃本轮改动 · 之前已有的未提交内容不动':
     "Discarded this turn's changes · earlier uncommitted work is untouched",

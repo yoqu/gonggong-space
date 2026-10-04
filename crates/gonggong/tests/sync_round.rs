@@ -4,7 +4,7 @@ use gonggong::config::Config;
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::protocol::*;
 use gonggong::service::{Handler, Outbox, OutboxRx};
-use gonggong::sync::{Base, FileRef, Manifest, Replica, hash_bytes, manifest_root};
+use gonggong::sync::{Base, FileRef, Manifest, Pending, Replica, hash_bytes, manifest_root};
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
@@ -757,4 +757,171 @@ async fn discarding_a_held_change_backs_it_up_and_makes_the_tree_the_head() {
     let backups = r.backups();
     assert_eq!(std::fs::read_to_string(backups[0].join("a.txt")).unwrap(), "mine\n2\n");
     assert_eq!((r.replica().issue().unwrap(), r.replica().held().unwrap()), (None, None));
+}
+
+// ── Interrupts and disconnects (F21, S7) ─────────────────────────────────────
+
+impl Rig {
+    /// Waits for the running turn's first streamed event.
+    async fn streaming(&mut self) {
+        loop {
+            if let DaemonToServer::RunEvent { .. } = self.rx.recv().await.unwrap() {
+                return;
+            }
+        }
+    }
+
+    /// Joined at v1 with a.txt; a turn edits it to `two` and is stopped. v2 (other.txt) came out meanwhile.
+    async fn stopped(&mut self) {
+        self.join(&[("a.txt", "one\n")]);
+        self.run("r1", "mock:slow", at(1, Some(1)));
+        self.streaming().await;
+        self.write("a.txt", "two\n");
+        self.store.lock().unwrap().push(&[("other.txt", Some("o\n"))]);
+        self.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
+        let done = self.done().await;
+        assert_eq!((done.outcome, done.sync), (RunOutcome::Interrupted, Some(RunSyncDone::Stopped { files: 1 })));
+    }
+}
+
+#[tokio::test]
+async fn a_stopped_turn_submits_nothing_and_its_replica_waits_for_keep_or_discard() {
+    let mut r = rig().await;
+    r.stopped().await;
+    assert_eq!(r.read("a.txt").as_deref(), Some("two\n"));
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+    r.quiet(300).await;
+    assert_eq!(r.read("other.txt"), None, "paused until decided");
+    r.run("r2", "mock:echo", at(2, Some(1)));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Waiting { issue: SyncWaitIssue::Drift }));
+
+    // 保留: the changes go in as the stopped run's, tagged interrupted.
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Submit }));
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.base_version, s.kind), (Some("r1"), 1, SyncSubmitKind::Interrupted));
+    assert_eq!(s.changes, vec![change("a.txt", Some("two\n"), Some("one\n"))]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 3 });
+    assert_eq!(r.next().await, applied(3, r.root(&[("a.txt", "two\n"), ("other.txt", "o\n")])));
+    assert_eq!((r.replica().issue().unwrap(), r.replica().stopped().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn discarding_a_stopped_turn_backs_its_changes_up_and_rolls_back_to_the_head() {
+    let mut r = rig().await;
+    r.stopped().await;
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Discard }));
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("other.txt", "o\n")])));
+    assert_eq!(r.read("a.txt").as_deref(), Some("one\n"));
+    assert_eq!(std::fs::read_to_string(r.backups()[0].join("a.txt")).unwrap(), "two\n");
+    assert_eq!((r.replica().issue().unwrap(), r.replica().stopped().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn a_failed_turn_submits_nothing_and_reports_its_changes_as_local_edits() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.run("r1", "mock:sh printf 'two\\n' > a.txt && exit 1", at(1, Some(1)));
+    assert_eq!(r.next().await, state(SyncReplicaIssue::Drift, &["a.txt"]));
+    let done = r.done().await;
+    assert_eq!(done.outcome, RunOutcome::Failed);
+    assert_eq!(done.sync, Some(RunSyncDone::Error { reason: "本轮异常结束，改动未提交，待 Bot 主人处理".into() }));
+    assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Drift));
+    assert_eq!(r.read("a.txt").as_deref(), Some("two\n"));
+}
+
+#[tokio::test]
+async fn a_pending_submit_is_resent_with_its_id_and_an_accepted_one_becomes_the_base() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    // The daemon went away after submitting; the server took it as v2 and its answer was lost.
+    r.write("a.txt", "two\n");
+    let submit = SyncSubmit {
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        submit_id: "6f1c2a4e-8b3d-4f5a-9c7e-1d2b3a4c5e6f".into(),
+        run_id: Some("r1".into()),
+        base_version: 1,
+        kind: SyncSubmitKind::Run,
+        merged: false,
+        changes: vec![change("a.txt", Some("two\n"), Some("one\n"))],
+    };
+    let pending = Pending { submit: submit.clone(), files: manifest(&[("a.txt", "two\n")]) };
+    r.replica().set_pending(Some(&pending)).unwrap();
+    r.replica().set_issue(Some(SyncReplicaIssue::Error)).unwrap();
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
+
+    // A reconnect brings sync.available.
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 3 });
+    assert_eq!(r.submit().await, submit);
+    r.answer(&submit, SyncSubmitResult::Accepted { version: 2 });
+    let files = [("a.txt", "two\n"), ("b.txt", "b\n")];
+    assert_eq!(r.next().await, applied(3, r.root(&files)));
+    assert_eq!(r.replica().base().unwrap(), Base { version: 3, files: manifest(&files) });
+    assert_eq!((r.replica().issue().unwrap(), r.replica().pending().unwrap()), (None, None));
+}
+
+#[tokio::test]
+async fn a_stopped_merge_turn_leaves_the_conflict_held_without_markers() {
+    let mut r = rig().await;
+    r.held().await;
+    let mut sync = at(2, Some(1));
+    sync.resolve = Some(vec![
+        SyncDecision { path: "a.txt".into(), choice: SyncChoice::Bot },
+        SyncDecision { path: "b.txt".into(), choice: SyncChoice::Theirs },
+    ]);
+    r.run("r2", "mock:slow", sync);
+    r.streaming().await;
+    assert!(r.read("a.txt").unwrap().contains("<<<<<<< mine"));
+    r.send(ServerToDaemon::RunCancel { run_id: "r2".into() });
+    // Nothing is submitted or reported: the conflict stays as it was.
+    let done = r.done().await;
+    assert_eq!((done.outcome, done.sync), (RunOutcome::Interrupted, Some(RunSyncDone::Held { files: 2 })));
+    assert_eq!((r.read("a.txt").as_deref(), r.read("b.txt").as_deref()), (Some("mine\n2\n"), Some("b mine\n")));
+    assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Held));
+    assert!(!r.replica().held().unwrap().unwrap().merging);
+}
+
+#[tokio::test]
+async fn letting_the_bot_merge_again_starts_from_the_held_side_not_leftover_markers() {
+    let mut r = rig().await;
+    r.held().await;
+    let resolve = Some(vec![
+        SyncDecision { path: "a.txt".into(), choice: SyncChoice::Bot },
+        SyncDecision { path: "b.txt".into(), choice: SyncChoice::Mine },
+    ]);
+    let mut sync = at(2, Some(1));
+    sync.resolve = resolve.clone();
+    r.run("r2", "mock:sh printf '<<<<<<< half done\\n' > a.txt && exit 1", sync);
+    let done = r.done().await;
+    assert_eq!((done.outcome, done.sync), (RunOutcome::Failed, Some(RunSyncDone::Held { files: 2 })));
+    assert_eq!(r.read("a.txt").as_deref(), Some("mine\n2\n"));
+
+    // Markers left in the tree (an older daemon) are not merged again.
+    r.write("a.txt", "<<<<<<< mine\nmine\n=======\ntheirs\n>>>>>>> theirs\n2\n");
+    let mut sync = at(2, Some(1));
+    sync.resolve = resolve;
+    r.run(
+        "r3",
+        "mock:sh test $(grep -c '<<<<<<<' a.txt) -eq 1 && grep -qx mine a.txt && printf 'both\\n2\\n' > a.txt",
+        sync,
+    );
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.kind), (Some("r3"), SyncSubmitKind::Merge));
+    assert_eq!(s.changes[0], change("a.txt", Some("both\n2\n"), Some("theirs\n2\n")));
+}
+
+#[tokio::test]
+async fn after_a_reconnect_a_replica_at_the_head_says_where_it_is_once() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 1 });
+    r.quiet(300).await;
+    // The server may have missed a report (a catch-up that kept failing after a decision): its issue clears.
+    r.engine.connected(false);
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 1 });
+    assert_eq!(r.next().await, applied(1, r.root(&[("a.txt", "one\n")])));
+    r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 1 });
+    r.quiet(300).await;
 }

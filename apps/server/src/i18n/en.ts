@@ -491,6 +491,9 @@ export const en = {
   '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
   'Bot 所在机器离线，上线后再处理': "The Bot's machine is offline; try again once it connects",
   该副本没有待处理的本地改动: 'This replica has no local changes to settle',
+  'daemon 版本过旧，请升级': 'The daemon is too old to sync, please upgrade',
+  '基准 Bot 所在机器的 daemon 版本过旧，请升级':
+    "The base bot's machine runs a daemon too old to sync, please upgrade",
   冲突不存在或已处理: 'The conflict does not exist or was already settled',
   需要为每个冲突文件选择处理方式: 'Choose what to do with every conflicting file',
   '只有双方都存在的文本文件可以交给 Bot 合并':

@@ -52,5 +52,5 @@
       "exitCode": null
     }
   ],
-  "features": ["tools", "providers", "ccSwitch"]
+  "features": ["tools", "providers", "ccSwitch", "sync"]
 }

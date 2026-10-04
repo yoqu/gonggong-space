@@ -280,6 +280,7 @@ export async function submitTx(ctx: Ctx, machineId: string, msg: SyncSubmit) {
       if (done) return { result: { outcome: 'accepted', version: done.version } }
 
       const current = await headVersion(tx, msg.groupId)
+      if (msg.baseVersion > current) return { result: { outcome: 'rejected', reason: 'bad_base' } }
       const head = await loadHead(tx, msg.groupId)
       const joined = base ? { joinedAt: ctx.now(), pending: null } : {}
       const { conflicts, effective, next } = base
@@ -411,7 +412,7 @@ const ALIGNING = ['align', 'force']
 /**
  * The replica now holds `version`: clean when its root hash matches that version's (F14), which settles its issue and
  * open conflicts, and joins a replica that was aligning (§3.5); otherwise it is flagged. Returns null when the report
- * was not the replica's to make, else whether it just joined or had its issue cleared.
+ * was not the replica's to make, else whether it just joined or had its issue cleared, and the conflicts it settled.
  */
 export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<typeof SyncApplied>) {
   return ctx.db.transaction(async (tx) => {
@@ -429,7 +430,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
         lastConflict: null,
         ...(aligning && { joinedAt: self.joinedAt ?? now, pending: null }),
       })
-      await tx
+      const settled = await tx
         .update(syncConflicts)
         .set({ resolvedAt: now })
         .where(
@@ -439,7 +440,8 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
             isNull(syncConflicts.resolvedAt),
           ),
         )
-      return { joined: aligning, cleared: !!self.issue }
+        .returning({ id: syncConflicts.id })
+      return { joined: aligning, cleared: !!self.issue, settled: settled.map((c) => c.id) }
     }
     await upsertReplica(tx, msg.groupId, msg.botId, {
       ...base,
@@ -447,7 +449,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
       reason: t('副本内容与 v{version} 不一致', { version: msg.version }),
       ...(aligning && { pending: null }),
     })
-    return { joined: false, cleared: false }
+    return { joined: false, cleared: false, settled: [] }
   })
 }
 

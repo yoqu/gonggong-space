@@ -18,6 +18,7 @@ import { publishBotRemoved } from '../bots/dto.js'
 import { publishGroup, removeMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
+import { leaveBots } from '../sync/switch.js'
 import { publishMember } from './dto.js'
 import { teamUserIds } from './service.js'
 
@@ -82,6 +83,10 @@ export async function removeFromTeam(ctx: Ctx, teamId: string, user: User, by: U
     await tx.delete(teamMembers).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, user.id)))
     return owned
   })
+  await leaveBots(
+    ctx,
+    owned.map((b) => b.id),
+  )
   for (const b of owned) await publishBotRemoved(ctx, b.id)
   ctx.bus.publish([user.id], { t: 'team.removed', teamId })
   ctx.bus.publish(await teamUserIds(ctx, teamId), { t: 'team.member_removed', teamId, userId: user.id })

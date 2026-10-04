@@ -31,6 +31,7 @@ export default {
   '不参与（有未提交的改动）': 'Not participating (uncommitted changes)',
   '对齐（机器离线，上线后对齐）': 'Align (machine offline, aligns once it connects)',
   '对齐（工作区就绪后对齐）': 'Align (once its workspace is ready)',
+  '不参与（daemon 版本过旧，请升级）': 'Left out (daemon too old, please upgrade)',
   基准: 'Base',
   对齐: 'Align',
   正在切换为强制同步: 'Switching to force sync',

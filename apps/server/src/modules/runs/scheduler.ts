@@ -22,7 +22,7 @@ import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
 import { runSyncStart } from '../sync/store.js'
-import { sendDueInits, syncHeld } from '../sync/switch.js'
+import { sendDueInits, syncHeld, syncOutdated } from '../sync/switch.js'
 import { unreadyGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { runStep } from './step.js'
@@ -59,7 +59,9 @@ export async function schedule(ctx: Ctx, botId: string) {
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
       .orderBy(asc(messages.seq))
     if (!waiting.length) return { out: [], dispatches: [] }
-    const held = await syncHeld(tx, botId)
+    // A daemon that cannot sync runs its turns unsynced; nothing of force sync holds them.
+    const unsynced = syncOutdated(ctx, bot.machineId)
+    const held = unsynced ? new Map() : await syncHeld(tx, botId)
     const active = await tx
       .select({ groupId: runs.groupId })
       .from(runs)
@@ -99,7 +101,7 @@ export async function schedule(ctx: Ctx, botId: string) {
         continue
       }
       if (machineId && busy < bot.concurrency) {
-        const start = await buildRunStart(tx, bot, run)
+        const start = await buildRunStart(tx, bot, run, !unsynced)
         if (start.settled) out.push(start.settled)
         // Marked running inside the transaction, sent only after it committed: a fast run.done then finds the
         // committed running row, and a rollback never leaves a daemon executing a run the server has queued.
@@ -158,7 +160,7 @@ export async function schedule(ctx: Ctx, botId: string) {
   await sendDueInits(ctx, botId)
 }
 
-async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
+async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
   const [trigger] = await tx
     .select({
       seq: messages.seq,
@@ -262,7 +264,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     },
     mcpServers: await enabledMcpServers(tx, run.groupId),
     command,
-    sync: await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null),
+    sync: synced ? await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
 }

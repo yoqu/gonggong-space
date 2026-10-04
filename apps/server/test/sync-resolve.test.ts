@@ -33,7 +33,7 @@ beforeEach(async () => {
     A: { send: (m) => void sent.A.push(m), close() {} },
     B: { send: (m) => void sent.B.push(m), close() {} },
   }
-  for (const k of ['A', 'B'] as const) t.ctx.hub.register(w[k].machine.id, conns[k])
+  for (const k of ['A', 'B'] as const) t.ctx.hub.register(w[k].machine.id, conns[k], ['sync'])
 })
 afterEach(() => t.close())
 

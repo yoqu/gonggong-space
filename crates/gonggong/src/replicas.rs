@@ -7,12 +7,12 @@
 use crate::config::Config;
 use crate::git;
 use crate::protocol::{
-    DaemonToServer, DriftChoice, RunStart, RunSyncDone, SYNC_FILES_MAX, SyncActionKind, SyncChange, SyncChoice,
-    SyncDecision, SyncEntry, SyncRejectReason, SyncReplicaIssue, SyncRole, SyncSubmit, SyncSubmitKind,
+    DaemonToServer, DriftChoice, RunOutcome, RunStart, RunSyncDone, SYNC_FILES_MAX, SyncActionKind, SyncChange,
+    SyncChoice, SyncDecision, SyncEntry, SyncRejectReason, SyncReplicaIssue, SyncRole, SyncSubmit, SyncSubmitKind,
     SyncSubmitResult, SyncWaitIssue,
 };
 use crate::service::Outbox;
-use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Replica};
+use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica};
 use crate::t;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -20,8 +20,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{OwnedMutexGuard, oneshot};
 
-/// How long a submit waits for its sync.result.
+/// How long a submit waits for its sync.result before it is sent again, and how often it is sent; still unanswered,
+/// it stays pending for the next sync.available (a reconnect brings one) or turn.
 const RESULT_TIMEOUT: Duration = Duration::from_secs(60);
+const SEND_ATTEMPTS: usize = 2;
+/// Catch-up attempts after settling a replica, waiting 1 s, 2 s, 4 s… in between.
+const CATCH_UP_ATTEMPTS: u32 = 5;
 /// Submits per turn: the first plus re-submits after clean auto merges (F7); a conflict past that is held (F11).
 const SUBMIT_ATTEMPTS: usize = 3;
 
@@ -34,9 +38,12 @@ pub(crate) struct Replicas {
     client: Option<Client>,
     locks: Locks,
     /// Submits awaiting their sync.result, by submit id.
-    pending: Mutex<HashMap<String, oneshot::Sender<SyncSubmitResult>>>,
+    waiting: Mutex<HashMap<String, oneshot::Sender<SyncSubmitResult>>>,
     /// Workspaces already set up for byte-exact sync.
     prepared: Mutex<HashSet<PathBuf>>,
+    /// Replicas whose state the server may have missed (a catch-up that kept failing, a reconnect): their next idle
+    /// catch-up reports where they are even at the head, which clears an issue the server still holds.
+    unreported: Mutex<HashSet<(String, String)>>,
 }
 
 /// Why a force-group turn did not start.
@@ -71,8 +78,9 @@ impl Replicas {
             home,
             client,
             locks: Mutex::default(),
-            pending: Mutex::default(),
+            waiting: Mutex::default(),
             prepared: Mutex::default(),
+            unreported: Mutex::default(),
         })
     }
 
@@ -116,6 +124,9 @@ impl Replicas {
         }
         let lock = self.lock(&start.group_id, &start.bot.id).await;
         self.prepare(cwd).await;
+        if let Err(e) = self.flush(&replica, out).await {
+            tracing::warn!("run {}: resending the pending sync submit failed: {e}", start.run_id);
+        }
         let turn = |replica| SyncTurn {
             replicas: self.clone(),
             replica,
@@ -156,6 +167,13 @@ impl Replicas {
             let (me, out) = (self.clone(), out.clone());
             tokio::spawn(async move {
                 let _lock = me.lock(replica.group(), replica.bot()).await;
+                if let Err(e) = me.flush(&replica, &out).await {
+                    tracing::warn!(
+                        "resending the pending sync submit of {}/{} failed: {e}",
+                        replica.group(),
+                        replica.bot()
+                    );
+                }
                 if let Err(e) = me.catch_up_idle(&replica, &out).await {
                     tracing::warn!("sync catch-up of {}/{} failed: {e}", replica.group(), replica.bot());
                 }
@@ -163,8 +181,22 @@ impl Replicas {
         }
     }
 
+    /// A new connection: the server may have missed reports sent while away.
+    pub fn connected(&self) {
+        let mut unreported = self.unreported.lock().unwrap();
+        unreported.extend(Replica::all(&self.home).iter().map(|r| (r.group().to_string(), r.bot().to_string())));
+    }
+
+    fn mark_unreported(&self, r: &Replica) {
+        self.unreported.lock().unwrap().insert((r.group().into(), r.bot().into()));
+    }
+
+    fn take_unreported(&self, r: &Replica) -> bool {
+        self.unreported.lock().unwrap().remove(&(r.group().into(), r.bot().into()))
+    }
+
     pub fn on_result(&self, submit_id: &str, result: SyncSubmitResult) {
-        if let Some(tx) = self.pending.lock().unwrap().remove(submit_id) {
+        if let Some(tx) = self.waiting.lock().unwrap().remove(submit_id) {
             let _ = tx.send(result);
         }
     }
@@ -243,10 +275,10 @@ impl Replicas {
             return Ok(());
         }
         upload(client, r, &changes).await?;
-        match self.submit(r, None, SyncSubmitKind::Init, out, 0, false, changes).await? {
+        match self.submit(r, None, SyncSubmitKind::Init, out, 0, false, changes, &files).await? {
             SyncSubmitResult::Accepted { version } => {
                 r.set_base(&Base { version, files: files.clone() })?;
-                r.set_issue(None)?;
+                r.clear()?;
                 applied(out, r, version, sync::manifest_root(&files));
                 Ok(())
             }
@@ -310,9 +342,12 @@ impl Replicas {
         self.reset(r, current, false, out).await
     }
 
-    /// 提交为一版 (F12): the local edits go in like a turn's, conflicts included (F7, F11).
+    /// 提交为一版 (F12): the local edits go in like a turn's, conflicts included (F7, F11); a /stop'ped turn's changes
+    /// kept by its initiator go in as that run's, kind `interrupted` (F21).
     async fn submit_local(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
-        match self.submit_tree(r, None, SyncSubmitKind::Local, out).await? {
+        let stopped = r.stopped()?;
+        let kind = if stopped.is_some() { SyncSubmitKind::Interrupted } else { SyncSubmitKind::Local };
+        match self.submit_tree(r, stopped.as_deref(), kind, out).await? {
             RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. } => self.settle(r, out).await,
             // Reported already.
             _ => Ok(()),
@@ -336,9 +371,7 @@ impl Replicas {
     /// writes the head's, let the bot merge writes the three-way merge with conflict markers for a merge turn.
     async fn decide(&self, r: &Replica, mut held: Held, decisions: &[SyncDecision]) -> Result<(), String> {
         let client = self.client()?;
-        let fetch = async |hash: &str| {
-            client.download(r.group(), hash).await.map_err(|e| t!("下载同步内容失败：{e}", e = format!("{e:#}")))
-        };
+        let fetch = async |hash: &str| download(client, r, hash).await;
         for d in decisions {
             let theirs = held
                 .conflicts
@@ -360,8 +393,11 @@ impl Replicas {
                     let (Some(mine), Some(their_hash)) = (mine, &theirs.hash) else {
                         return Err(t!("{path} 不能交给 Bot 合并", path = d.path));
                     };
-                    let mine_bytes = std::fs::read(r.work().join(&d.path))
-                        .map_err(|e| t!("无法读取 {path}：{e}", path = d.path, e = e))?;
+                    let Some(mine_hash) = &mine.hash else {
+                        return Err(t!("{path} 不能交给 Bot 合并", path = d.path));
+                    };
+                    // The held side, never the tree: a merge turn that did not finish may have left markers there.
+                    let mine_bytes = fetch(mine_hash).await?;
                     let base = match &mine.base_hash {
                         Some(h) => Some(fetch(h).await?),
                         None => None,
@@ -379,13 +415,45 @@ impl Replicas {
         r.set_held(Some(&held))
     }
 
-    /// After settling: catches up to the head, or reports the version it is at, which clears the server's issue.
+    /// After settling: catches up to the head, or reports the version it is at, which clears the server's issue. A
+    /// failed catch-up is retried a few times, then left to the next sync.available (a reconnect brings one).
     async fn settle(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
-        if !self.catch_up(r, out).await.map_err(|e| e.to_string())? {
-            let base = r.base()?;
-            applied(out, r, base.version, sync::manifest_root(&base.files));
+        let mut delay = Duration::from_secs(1);
+        let mut attempt = 1;
+        loop {
+            match self.catch_up(r, out).await {
+                Ok(true) => return Ok(()),
+                Ok(false) => return self.report_base(r, out),
+                Err(ApplyError::Failed(e)) if attempt < CATCH_UP_ATTEMPTS => {
+                    tracing::warn!("sync catch-up of {}/{} failed, retrying: {e}", r.group(), r.bot());
+                    tokio::time::sleep(delay).await;
+                    delay *= 2;
+                    attempt += 1;
+                }
+                Err(e) => {
+                    self.mark_unreported(r);
+                    return Err(e.to_string());
+                }
+            }
         }
+    }
+
+    fn report_base(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
+        let base = r.base()?;
+        applied(out, r, base.version, sync::manifest_root(&base.files));
         Ok(())
+    }
+
+    /// Resends the submit a timeout or a restart left unsettled, with its id: the server answers an accepted one with
+    /// its version again. Accepted, its tree becomes the base and the replica is settled; otherwise it is dropped and
+    /// its changes stay in the tree for the next submit.
+    async fn flush(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
+        let Some(p) = r.pending()? else { return Ok(()) };
+        if let SyncSubmitResult::Accepted { .. } = self.send(&p, out).await? {
+            r.set_base(&Base { version: p.submit.base_version, files: p.files })?;
+            return r.clear();
+        }
+        r.set_pending(None)
     }
 
     async fn catch_up_idle(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
@@ -403,7 +471,12 @@ impl Replicas {
                 r.set_issue(Some(SyncReplicaIssue::Drift))
             }
             Err(ApplyError::Failed(e)) => Err(e),
-            Ok(_) => Ok(()),
+            Ok(true) => {
+                self.take_unreported(r);
+                Ok(())
+            }
+            Ok(false) if self.take_unreported(r) => self.report_base(r, out),
+            Ok(false) => Ok(()),
         }
     }
 
@@ -471,11 +544,12 @@ impl Replicas {
             }
             upload(client, r, &changes).await?;
             let merged = attempt > 0;
-            let submitted = self.submit(r, run_id, kind, out, base.version, merged, changes.clone());
+            let files = tree.manifest();
+            let submitted = self.submit(r, run_id, kind, out, base.version, merged, changes.clone(), &files);
             match submitted.await? {
                 SyncSubmitResult::Accepted { version } => {
                     // The submitted tree on top of the old base: catching up from there brings in the others' changes.
-                    r.set_base(&Base { version: base.version, files: tree.manifest() })?;
+                    r.set_base(&Base { version: base.version, files })?;
                     r.clear()?;
                     return Ok(RunSyncDone::Accepted { version, merged });
                 }
@@ -503,6 +577,8 @@ impl Replicas {
         }
     }
 
+    /// Submits `changes` (taking the tree to `files`), kept as pending until a result settles it: a refused one is
+    /// dropped here, an accepted one by the caller once its base is set.
     #[allow(clippy::too_many_arguments)]
     async fn submit(
         &self,
@@ -513,34 +589,101 @@ impl Replicas {
         base_version: u64,
         merged: bool,
         changes: Vec<SyncChange>,
+        files: &Manifest,
     ) -> Result<SyncSubmitResult, String> {
-        let submit_id = uuid::Uuid::new_v4().to_string();
-        let (tx, rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(submit_id.clone(), tx);
-        out.send(DaemonToServer::SyncSubmit(SyncSubmit {
+        let submit = SyncSubmit {
             group_id: r.group().into(),
             bot_id: r.bot().into(),
-            submit_id: submit_id.clone(),
+            submit_id: uuid::Uuid::new_v4().to_string(),
             run_id: run_id.map(Into::into),
             base_version,
             kind,
             merged,
             changes,
-        }));
-        let result = tokio::time::timeout(RESULT_TIMEOUT, rx).await;
-        self.pending.lock().unwrap().remove(&submit_id);
-        match result {
-            Ok(Ok(result)) => Ok(result),
-            _ => Err(t!("等待服务器确认同步提交超时").into()),
+        };
+        let p = Pending { submit, files: files.clone() };
+        r.set_pending(Some(&p))?;
+        let result = self.send(&p, out).await?;
+        if !matches!(result, SyncSubmitResult::Accepted { .. }) {
+            r.set_pending(None)?;
         }
+        Ok(result)
+    }
+
+    /// Sends a submit and waits for its sync.result, sending it again while none comes.
+    async fn send(&self, p: &Pending, out: &Outbox) -> Result<SyncSubmitResult, String> {
+        let id = p.submit.submit_id.clone();
+        let (tx, mut rx) = oneshot::channel();
+        self.waiting.lock().unwrap().insert(id.clone(), tx);
+        let mut result = None;
+        for _ in 0..SEND_ATTEMPTS {
+            out.send(DaemonToServer::SyncSubmit(p.submit.clone()));
+            if let Ok(answer) = tokio::time::timeout(RESULT_TIMEOUT, &mut rx).await {
+                result = answer.ok();
+                break;
+            }
+        }
+        self.waiting.lock().unwrap().remove(&id);
+        result.ok_or_else(|| t!("等待服务器确认同步提交超时").into())
+    }
+
+    /// A stopped or failed turn submits nothing (F21). A merge turn leaves its conflict held as it was, the files back
+    /// on the replica's side; otherwise the changes wait in the tree like local edits: a stop's for its initiator to
+    /// keep or discard, a failure's for the bot's owner (F12).
+    async fn unsubmitted(
+        &self,
+        r: &Replica,
+        run_id: &str,
+        outcome: RunOutcome,
+        out: &Outbox,
+    ) -> Result<RunSyncDone, String> {
+        if let Some(held) = r.held()?.filter(|h| h.merging) {
+            let files = held.conflicts.len() as u32;
+            self.restore(r, held).await?;
+            return Ok(RunSyncDone::Held { files });
+        }
+        let base = r.base()?;
+        let paths: Vec<String> =
+            sync::diff(&base.files, &r.tree().await?.manifest()).into_iter().map(|c| c.path).collect();
+        if paths.is_empty() {
+            return Ok(RunSyncDone::Unchanged { version: base.version });
+        }
+        r.set_issue(Some(SyncReplicaIssue::Drift))?;
+        if outcome == RunOutcome::Interrupted {
+            r.set_stopped(Some(run_id))?;
+            return Ok(RunSyncDone::Stopped { files: paths.len() as u32 });
+        }
+        report(out, r, SyncReplicaIssue::Drift, &paths, None);
+        Ok(RunSyncDone::Error { reason: t!("本轮异常结束，改动未提交，待 Bot 主人处理").into() })
+    }
+
+    /// Puts each conflicting file back to the replica's side of the held change, so no conflict markers stay behind.
+    async fn restore(&self, r: &Replica, mut held: Held) -> Result<(), String> {
+        let client = self.client()?;
+        for c in &held.conflicts {
+            let Some(mine) = held.changes.iter().find(|m| m.path == c.path) else { continue };
+            let bytes = match &mine.hash {
+                Some(h) => Some(download(client, r, h).await?),
+                None => None,
+            };
+            r.put(&c.path, bytes.as_deref(), mine.exec)?;
+        }
+        held.merging = false;
+        r.set_held(Some(&held))
     }
 }
 
 impl SyncTurn {
-    /// After the turn, before run.done (F10): submits its changes and settles them.
-    pub async fn finish(self) -> RunSyncDone {
+    /// After the turn, before run.done (F10): submits a completed turn's changes and settles them.
+    pub async fn finish(self, outcome: RunOutcome) -> RunSyncDone {
         let r = &self.replica;
-        match self.replicas.submit_tree(r, Some(&self.run_id), SyncSubmitKind::Run, &self.out).await {
+        let settled = match outcome {
+            RunOutcome::Completed => {
+                self.replicas.submit_tree(r, Some(&self.run_id), SyncSubmitKind::Run, &self.out).await
+            }
+            _ => self.replicas.unsubmitted(r, &self.run_id, outcome, &self.out).await,
+        };
+        match settled {
             Ok(done @ (RunSyncDone::Accepted { .. } | RunSyncDone::Unchanged { .. })) => {
                 self.replicas.catch_up_after(r, &self.out).await;
                 done
@@ -570,6 +713,7 @@ fn rejected(reason: SyncRejectReason) -> String {
         SyncRejectReason::BlobsMissing => t!("同步提交被拒绝：文件内容未上传完整"),
         SyncRejectReason::TooLarge => t!("同步提交被拒绝：超过单版体积上限"),
         SyncRejectReason::NotParticipating => t!("同步提交被拒绝：该副本未参与强制同步"),
+        SyncRejectReason::BadBase => t!("同步提交被拒绝：基准版本无效"),
     }
     .into()
 }
@@ -598,6 +742,10 @@ fn report(out: &Outbox, r: &Replica, state: SyncReplicaIssue, paths: &[String], 
     });
 }
 
+async fn download(client: &Client, r: &Replica, hash: &str) -> Result<Vec<u8>, String> {
+    client.download(r.group(), hash).await.map_err(|e| t!("下载同步内容失败：{e}", e = format!("{e:#}")))
+}
+
 /// Uploads the new contents the server lacks (F15).
 async fn upload(client: &Client, r: &Replica, changes: &[SyncChange]) -> Result<(), String> {
     let mut paths: HashMap<&str, &str> = HashMap::new();
@@ -624,9 +772,7 @@ async fn merge(
     conflicts: &[SyncEntry],
     rebased: &mut Rebased,
 ) -> Result<bool, String> {
-    let fetch = async |hash: &str| {
-        client.download(r.group(), hash).await.map_err(|e| t!("下载同步内容失败：{e}", e = format!("{e:#}")))
-    };
+    let fetch = async |hash: &str| download(client, r, hash).await;
     let mut merged = vec![];
     for theirs in conflicts {
         let Some(mine) = changes.iter().find(|c| c.path == theirs.path) else { return Ok(false) };

@@ -37,6 +37,10 @@ export function forgetMachineInits(machineId: string) {
   for (const [k, m] of inFlight) if (m === machineId) inFlight.delete(k)
 }
 
+/** The machine is online with a daemon that cannot sync (no `sync` feature): its replicas sit out. */
+export const syncOutdated = (ctx: Ctx, machineId: string | null) =>
+  !!machineId && ctx.hub.isOnline(machineId) && !ctx.hub.features(machineId).includes('sync')
+
 const SWITCH_WAIT = runStep('等待切换为强制同步')
 const ALIGN_WAIT = runStep('等待同步对齐')
 const DRIFT_WAIT = runStep('等待处理本地改动')
@@ -114,7 +118,13 @@ export async function sendDueInits(ctx: Ctx, botId: string) {
     )
   for (const r of rows) {
     const machineId = onlineMachine(ctx, r.machineId)
-    if (!machineId || r.state !== 'ready' || inFlight.get(key(r.groupId, botId)) === machineId) continue
+    if (
+      !machineId ||
+      syncOutdated(ctx, machineId) ||
+      r.state !== 'ready' ||
+      inFlight.get(key(r.groupId, botId)) === machineId
+    )
+      continue
     const [busy] = await ctx.db
       .select({ id: runs.id })
       .from(runs)
@@ -193,6 +203,7 @@ export async function syncPreview(ctx: Ctx, groupId: string): Promise<SyncPrevie
       })
       if (r.kind === 'cd') return plan('excluded', 'cd', false)
       if (!onlineMachine(ctx, r.machineId)) return plan('align', 'offline', false)
+      if (syncOutdated(ctx, r.machineId)) return plan('excluded', 'outdated', false)
       if (r.state !== 'ready') return plan('align', 'not_ready', false)
       if ((r.git as GitStatus | null)?.dirty) return plan('excluded', 'dirty', true)
       return plan('align', null, true)
@@ -229,6 +240,7 @@ export async function enableSync(ctx: Ctx, userId: string, groupId: string, base
   if (base.kind !== 'managed') return fail('invalid', '基准 Bot 使用本机目录，不能作为基准')
   if (base.state !== 'ready') return fail('invalid', '基准 Bot 的托管工作区尚未就绪')
   if (!onlineMachine(ctx, base.machineId)) return fail('invalid', '基准 Bot 所在机器离线')
+  if (syncOutdated(ctx, base.machineId)) return fail('invalid', '基准 Bot 所在机器的 daemon 版本过旧，请升级')
 
   await ctx.db.transaction(async (tx) => {
     await tx
@@ -443,4 +455,33 @@ export async function leaveReplica(ctx: Ctx, groupId: string, bot: { id: string;
   forgetInit(groupId, bot.id)
   sendLeave(ctx, groupId, bot)
   await publishSync(ctx, groupId)
+}
+
+/** The bots were deleted: their replicas stop syncing everywhere, their open conflicts close, their machines forget. */
+export async function leaveBots(ctx: Ctx, botIds: string[]) {
+  if (!botIds.length) return
+  const left = await ctx.db.transaction(async (tx) => {
+    await tx
+      .update(syncConflicts)
+      .set({ resolvedAt: ctx.now() })
+      .where(and(inArray(syncConflicts.botId, botIds), isNull(syncConflicts.resolvedAt)))
+    return tx
+      .update(syncReplicas)
+      .set(LEFT)
+      .where(inArray(syncReplicas.botId, botIds))
+      .returning({ groupId: syncReplicas.groupId, botId: syncReplicas.botId })
+  })
+  const machineOf = new Map(
+    (
+      await ctx.db
+        .select({ id: bots.id, machineId: bots.machineId })
+        .from(bots)
+        .where(inArray(bots.id, botIds))
+    ).map((b) => [b.id, b.machineId]),
+  )
+  for (const r of left) {
+    forgetInit(r.groupId, r.botId)
+    sendLeave(ctx, r.groupId, { id: r.botId, machineId: machineOf.get(r.botId) ?? null })
+  }
+  for (const groupId of new Set(left.map((r) => r.groupId))) await publishSync(ctx, groupId)
 }

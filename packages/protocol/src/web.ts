@@ -1305,7 +1305,7 @@ export const SYSTEM_PARAM_VIEW: {
   { key: 'offlineMisses', label: '机器离线判定（连续未收到心跳）', unit: '次' },
   { key: 'backupRetentionDays', label: '服务器备份（每日）保留', unit: '天' },
   { key: 'archiveRetentionDays', label: '删群后存档保留', unit: '天' },
-  { key: 'approvalTimeoutMin', label: '权限审批等待（分区模式）· 群默认', unit: '分钟' },
+  { key: 'approvalTimeoutMin', label: '权限审批等待 · 群默认', unit: '分钟' },
   { key: 'chainMaxHops', label: '接力链长上限 · 群默认', unit: '跳' },
   { key: 'offlineWaitMin', label: 'Bot 离线时请求等待上线 · 群默认', unit: '分钟' },
   { key: 'botConcurrencyDefault', label: 'Bot 并发上限 · 新建默认', unit: '个' },

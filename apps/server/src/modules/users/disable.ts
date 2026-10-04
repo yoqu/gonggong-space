@@ -13,6 +13,7 @@ import { publishRun } from '../runs/dto.js'
 import { forgetStream } from '../runs/engine.js'
 import { runStep } from '../runs/step.js'
 import { notifyChainDone, stopRuns } from '../runs/stop.js'
+import { leaveBots } from '../sync/switch.js'
 import { toUserDto } from './dto.js'
 
 async function load(ctx: Ctx, id: string) {
@@ -74,6 +75,7 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
     : []
   // Stopped before the kick so run.cancel still reaches the daemon and it winds its agents down.
   for (const { groupId } of unfinished) await stopRuns(ctx, { groupId, botIds }, actor)
+  await leaveBots(ctx, botIds)
   for (const m of revoked) ctx.hub.kick(m.id, CLOSE.revoked, 'revoked')
   // Live runs normally end on the daemon's run.done, which a revoked daemon never sends.
   const cut = botIds.length

@@ -41,7 +41,8 @@ function Settle({ groupId, botId }: { groupId: string; botId: string }) {
 /** How a force-group turn's changes went in (plan §4 运行卡片底部); nothing outside force groups. */
 export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | 'sync'> }) {
   const s = run.sync
-  if (!s || s.outcome === 'waiting') return null
+  // A stopped turn's changes are settled on its interrupt block.
+  if (!s || s.outcome === 'waiting' || s.outcome === 'stopped') return null
   const text =
     s.outcome === 'accepted'
       ? s.merged

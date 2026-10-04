@@ -131,4 +131,25 @@ describe('interrupt block', () => {
     rerender(<InterruptBlock run={stopped({ interrupt: null })} />)
     expect(screen.queryByText(note)).toBeNull()
   })
+
+  it('in a force group: the changes wait unsubmitted; keep submits a version, discard rolls back (F21)', async () => {
+    const force = (o: Partial<RunDto> = {}) => stopped({ sync: { outcome: 'stopped', files: 2 }, ...o })
+    act(() => me('u-wang'))
+    const { rerender } = render(<InterruptBlock run={force()} />)
+    expect(screen.getByText('已停止 · 强制同步：本轮改动 2 个文件待处理，未提交')).toBeTruthy()
+    expect(
+      screen.getByText(
+        '保留即提交为一版（标「中断」）；丢弃先备份，再回滚到同步版本。处理前该 Bot 在本群的新触发排队。仅发起人 王磊 或 Bot 主人可选，无超时。',
+      ),
+    ).toBeTruthy()
+    const calls = mockApi({ 'POST /runs/r1/interrupt': { ok: true } })
+    fireEvent.click(screen.getByRole('button', { name: '保留改动' }))
+    await waitFor(() =>
+      expect(calls).toEqual([{ method: 'POST', path: '/runs/r1/interrupt', body: { choice: 'keep' } }]),
+    )
+    rerender(<InterruptBlock run={force({ interrupt: 'kept' })} />)
+    expect(screen.getByText('已保留本轮改动 · 提交为一版')).toBeTruthy()
+    rerender(<InterruptBlock run={force({ interrupt: 'discarded' })} />)
+    expect(screen.getByText('已丢弃本轮改动 · 已备份并回滚到同步版本')).toBeTruthy()
+  })
 })

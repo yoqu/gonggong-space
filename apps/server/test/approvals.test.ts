@@ -252,12 +252,12 @@ describe('approvals', () => {
     expect((await w.decide(w.owners, approval, 'allow')).status).toBe(409)
   })
 
-  it('times out after 5 minutes in force-sync groups and cancels when no reject option exists', async () => {
+  it('uses the group default in force-sync groups too (F22) and cancels when no reject option exists', async () => {
     const w = await world()
     await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.group.id))
     const { runId, approval } = await w.request('req-9', [OPTIONS[0]!])
-    expect(approval.expiresAt).toBe(new Date(clock.getTime() + 5 * 60_000).toISOString())
-    clock = new Date(clock.getTime() + 5 * 60_000)
+    expect(approval.expiresAt).toBe(new Date(clock.getTime() + 30 * 60_000).toISOString())
+    clock = new Date(clock.getTime() + 30 * 60_000)
     await expireApprovals(t.ctx)
     expect(await w.d.next()).toEqual({ t: 'approval.decision', runId, requestId: 'req-9', optionId: null })
   })
