@@ -149,10 +149,11 @@ cargo build -p gonggong               # 生成 target/debug/gg
 
 ## 交流
 
-扫码或搜索微信 `yoqu2020` 加我。
+扫码加入 QQ 群（群号 1045614717），或加微信 `yoqu2020`。
 
 <table>
   <tr>
+    <td align="center"><img src="docs/community/qq-group.jpg" width="220" alt="QQ 群二维码"><br>QQ 群：1045614717</td>
     <td align="center"><img src="docs/community/wechat.png" width="220" alt="微信二维码"><br>微信：yoqu2020</td>
   </tr>
 </table>
