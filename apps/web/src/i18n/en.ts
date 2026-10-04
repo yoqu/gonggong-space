@@ -19,6 +19,7 @@ import runs from '../features/runs/en'
 import schedules from '../features/schedules/en'
 import search from '../features/search/en'
 import settings from '../features/settings/en'
+import sync from '../features/sync/en'
 import teams from '../features/teams/en'
 import usage from '../features/usage/en'
 import users from '../features/users/en'
@@ -50,6 +51,7 @@ export const en = {
   ...runs,
   ...schedules,
   ...search,
+  ...sync,
   ...teams,
   ...settings,
   ...usage,

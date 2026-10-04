@@ -32,6 +32,7 @@ import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
+import { SyncBar } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -429,6 +430,7 @@ export function ChatView({
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
         ) : null}
       </Presence>
+      {readOnly ? null : <SyncBar group={group} />}
       {readOnly ? null : <GitBar group={group} />}
       <div className="chat-view__body">
         {drag.over ? (
