@@ -340,6 +340,11 @@ impl Handler for Engine {
                 tokio::spawn(async move { out.send(DaemonToServer::RepoProbeResult(repo::probe(req).await)) });
             }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
+            // Force sync is not handled by this daemon yet; the server only sends it to replicas that joined.
+            ServerToDaemon::SyncResult { .. }
+            | ServerToDaemon::SyncAvailable { .. }
+            | ServerToDaemon::SyncAction { .. }
+            | ServerToDaemon::SyncInit { .. } => {}
             ServerToDaemon::ServiceStop { service_id } => {
                 let services = self.0.services.clone();
                 tokio::spawn(async move { services.stop_id(&service_id).await });
@@ -542,5 +547,6 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         git: None,
         patch: None,
         appends_applied: 0,
+        sync: None,
     })
 }

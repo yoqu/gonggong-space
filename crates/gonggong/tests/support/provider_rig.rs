@@ -52,6 +52,7 @@ pub fn start(run_id: &str, kind: AgentKind) -> RunStart {
         new_session_reason: None,
         mcp_servers: vec![],
         command: None,
+        sync: None,
         prompt: RunPrompt {
             text: "mock:echo".into(),
             triggered_by: "王磊".into(),

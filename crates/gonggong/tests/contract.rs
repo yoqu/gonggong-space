@@ -1,5 +1,7 @@
 use gonggong::bots::Bot;
-use gonggong::protocol::{DaemonToServer, ServerToDaemon, TunnelHead, TunnelOpen, TunnelReset};
+use gonggong::protocol::{
+    DaemonToServer, ServerToDaemon, SyncChangesRes, SyncMissingRes, TunnelHead, TunnelOpen, TunnelReset,
+};
 use gonggong::tunnel::{Frame, FrameType};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -27,6 +29,8 @@ fn every_shared_fixture_round_trips() {
             ["tunnel", "open"] => round_trip::<TunnelOpen>(&raw, &name),
             ["tunnel", "head"] => round_trip::<TunnelHead>(&raw, &name),
             ["tunnel", "reset"] => round_trip::<TunnelReset>(&raw, &name),
+            ["http", "sync-changes"] => round_trip::<SyncChangesRes>(&raw, &name),
+            ["http", "sync-missing"] => round_trip::<SyncMissingRes>(&raw, &name),
             ["http", "daemon-bots"] => {
                 // `Bot` keeps the subset the CLI and desktop app use: every field it keeps must survive.
                 let back = round_trip::<Vec<Bot>>(&raw, &name);

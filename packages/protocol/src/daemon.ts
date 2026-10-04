@@ -13,6 +13,17 @@ import {
   Tier,
   Usage,
 } from './common.js'
+import {
+  RunSyncDone,
+  RunSyncStart,
+  SyncAction,
+  SyncApplied,
+  SyncAvailable,
+  SyncInit,
+  SyncResult,
+  SyncState,
+  SyncSubmit,
+} from './sync.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
@@ -251,6 +262,8 @@ export const RunStart = z.object({
   mcpServers: z.array(McpServer),
   /** An agent command (`/compact …`): sent verbatim as the prompt so the adapter runs it; `prompt` is not composed. */
   command: z.string().nullable().default(null),
+  /** Force groups only (null in partition groups). */
+  sync: RunSyncStart.nullable().default(null),
 })
 export type RunStart = z.infer<typeof RunStart>
 
@@ -365,6 +378,8 @@ export const RunDone = z.object({
   patch: z.string().nullable(),
   /** run.append messages actually fed into this run; the server queues the rest as new runs (spec §8.9 fallback). */
   appendsApplied: z.number().int(),
+  /** Force groups only (null in partition groups). */
+  sync: RunSyncDone.nullable().default(null),
 })
 export type RunDone = z.infer<typeof RunDone>
 
@@ -772,6 +787,9 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   ProvidersResult,
   CcSwitchResult,
   BotsProviderState,
+  SyncSubmit,
+  SyncApplied,
+  SyncState,
 ])
 export type DaemonToServer = z.infer<typeof DaemonToServer>
 
@@ -1026,5 +1044,9 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   ProvidersCmd,
   CcSwitchRead,
   CcSwitchApply,
+  SyncResult,
+  SyncAvailable,
+  SyncAction,
+  SyncInit,
 ])
 export type ServerToDaemon = z.infer<typeof ServerToDaemon>

@@ -1,0 +1,8 @@
+{
+  "t": "sync.action",
+  "groupId": "g1",
+  "botId": "b1",
+  "action": {
+    "kind": "discard"
+  }
+}

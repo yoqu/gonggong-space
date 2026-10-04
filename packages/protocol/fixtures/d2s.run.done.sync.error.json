@@ -1,0 +1,26 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "completed",
+  "reply": "已完成。\n\n```bash\nls\n```",
+  "filesChanged": 1,
+  "usage": {
+    "totalTokens": 1500
+  },
+  "sessionId": "sess-1",
+  "newSessionReason": "first",
+  "error": null,
+  "git": {
+    "branch": "feat/refund-v2",
+    "ahead": 3,
+    "behind": 0,
+    "dirty": true,
+    "workspace": "managed"
+  },
+  "patch": "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-x\n+y\n",
+  "appendsApplied": 0,
+  "sync": {
+    "outcome": "error",
+    "reason": "assets/video.mp4 超过 50 MB"
+  }
+}

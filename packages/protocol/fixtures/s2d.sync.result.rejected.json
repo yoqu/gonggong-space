@@ -1,0 +1,10 @@
+{
+  "t": "sync.result",
+  "groupId": "g1",
+  "botId": "b1",
+  "submitId": "6f1c2a4e-8b3d-4f5a-9c7e-1d2b3a4c5e6f",
+  "result": {
+    "outcome": "rejected",
+    "reason": "blobs_missing"
+  }
+}

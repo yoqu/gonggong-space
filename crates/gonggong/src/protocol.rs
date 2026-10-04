@@ -462,6 +462,9 @@ pub struct RunStart {
     /// An agent command sent verbatim as the prompt instead of the composed group context.
     #[serde(default)]
     pub command: Option<String>,
+    /// Force groups only.
+    #[serde(default)]
+    pub sync: Option<RunSyncStart>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -591,6 +594,9 @@ pub struct RunDone {
     pub git: Option<GitStatus>,
     pub patch: Option<String>,
     pub appends_applied: u32,
+    /// Force groups only.
+    #[serde(default)]
+    pub sync: Option<RunSyncDone>,
 }
 
 pub const PATCH_MAX_BYTES: usize = 512 * 1024;
@@ -936,6 +942,158 @@ pub struct ProviderStateItem {
     pub effective: String,
 }
 
+// ── Force sync (docs/plan/强制同步-开发计划.md) ──────────────────────────────
+pub const SYNC_FILE_MAX_BYTES: u64 = 50 * 1024 * 1024;
+pub const SYNC_VERSION_MAX_BYTES: u64 = 200 * 1024 * 1024;
+pub const SYNC_CHANGED_MAX: usize = 20;
+pub const SYNC_FILES_MAX: usize = 50;
+pub const SYNC_MISSING_MAX: usize = 1000;
+
+/// A path's state in a version: `hash` (sha256 hex) `None` = deleted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncEntry {
+    pub path: String,
+    pub hash: Option<String>,
+    pub exec: bool,
+}
+
+/// `base_hash`: the path's hash at the replica's base version, `None` = it did not exist.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncChange {
+    pub path: String,
+    pub hash: Option<String>,
+    pub exec: bool,
+    pub base_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncSubmitKind {
+    Init,
+    Run,
+    Local,
+    Interrupted,
+    Merge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncSubmit {
+    pub group_id: String,
+    pub bot_id: String,
+    pub submit_id: String,
+    pub run_id: Option<String>,
+    pub base_version: u64,
+    pub kind: SyncSubmitKind,
+    pub merged: bool,
+    pub changes: Vec<SyncChange>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncReplicaIssue {
+    Drift,
+    Held,
+    Dirty,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncRejectReason {
+    BlobsMissing,
+    TooLarge,
+    NotParticipating,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "camelCase")]
+pub enum SyncSubmitResult {
+    Accepted {
+        version: u64,
+    },
+    #[serde(rename_all = "camelCase")]
+    Conflict {
+        head_version: u64,
+        conflicts: Vec<SyncEntry>,
+    },
+    Rejected {
+        reason: SyncRejectReason,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncChoice {
+    Mine,
+    Theirs,
+    Bot,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncDecision {
+    pub path: String,
+    pub choice: SyncChoice,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DriftChoice {
+    Submit,
+    Discard,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum SyncActionKind {
+    Drift { choice: DriftChoice },
+    Conflict { decisions: Vec<SyncDecision> },
+    Discard,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncRole {
+    Base,
+    Align,
+    Leave,
+}
+
+/// run.start in a force group: catch up to `head_version` first; `changed` since this bot's last turn.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunSyncStart {
+    pub head_version: u64,
+    pub last_version: Option<u64>,
+    pub changed: Vec<String>,
+    pub changed_total: u32,
+}
+
+/// How a force-group turn's submit settled before run.done.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "lowercase")]
+pub enum RunSyncDone {
+    Accepted { version: u64, merged: bool },
+    Unchanged { version: u64 },
+    Held { files: u32 },
+    Error { reason: String },
+}
+
+/// Response of `POST /api/daemon/sync/:groupId/blobs/missing`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncMissingRes {
+    pub missing: Vec<String>,
+}
+
+/// Response of `GET /api/daemon/sync/:groupId/changes?from=N`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncChangesRes {
+    pub head_version: u64,
+    pub entries: Vec<SyncEntry>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t")]
 pub enum DaemonToServer {
@@ -1035,6 +1193,19 @@ pub enum DaemonToServer {
     },
     #[serde(rename = "bots.providerState")]
     BotsProviderState { items: Vec<ProviderStateItem> },
+    #[serde(rename = "sync.submit")]
+    SyncSubmit(SyncSubmit),
+    #[serde(rename = "sync.applied", rename_all = "camelCase")]
+    SyncApplied { group_id: String, bot_id: String, version: u64, root_hash: String },
+    #[serde(rename = "sync.state", rename_all = "camelCase")]
+    SyncState {
+        group_id: String,
+        bot_id: String,
+        state: SyncReplicaIssue,
+        files: Vec<String>,
+        total: u32,
+        reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1128,4 +1299,12 @@ pub enum ServerToDaemon {
     CcSwitchRead { request_id: String },
     #[serde(rename = "ccswitch.apply", rename_all = "camelCase")]
     CcSwitchApply { request_id: String, keys: Vec<String>, set_default: bool },
+    #[serde(rename = "sync.result", rename_all = "camelCase")]
+    SyncResult { group_id: String, bot_id: String, submit_id: String, result: SyncSubmitResult },
+    #[serde(rename = "sync.available", rename_all = "camelCase")]
+    SyncAvailable { group_id: String, version: u64 },
+    #[serde(rename = "sync.action", rename_all = "camelCase")]
+    SyncAction { group_id: String, bot_id: String, action: SyncActionKind },
+    #[serde(rename = "sync.init", rename_all = "camelCase")]
+    SyncInit { group_id: String, bot_id: String, role: SyncRole, force: bool },
 }

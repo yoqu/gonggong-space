@@ -69,6 +69,7 @@ async function world() {
       git: null,
       patch: null,
       appendsApplied: 0,
+      sync: null,
     })
   const marker = () => emit({ t: 'session.config', runId, model: 'drained', effort: null })
   const drained = () => seen.some((e) => e.t === 'run.updated' && e.run.model === 'drained')

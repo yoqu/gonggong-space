@@ -1,0 +1,7 @@
+{
+  "t": "sync.init",
+  "groupId": "g1",
+  "botId": "b1",
+  "role": "align",
+  "force": false
+}

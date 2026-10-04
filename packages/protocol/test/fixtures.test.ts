@@ -6,6 +6,8 @@ import {
   DaemonBotDto,
   DaemonToServer,
   ServerToDaemon,
+  SyncChangesRes,
+  SyncMissingRes,
   TunnelHead,
   TunnelOpen,
   TunnelReset,
@@ -15,7 +17,11 @@ const dir = join(import.meta.dirname, '../fixtures')
 const schemas = { d2s: DaemonToServer, s2d: ServerToDaemon }
 const tunnel = { open: TunnelOpen, head: TunnelHead, reset: TunnelReset }
 /** Machine-token REST bodies the daemon parses. */
-const http = { 'daemon-bots': z.array(DaemonBotDto) }
+const http = {
+  'daemon-bots': z.array(DaemonBotDto),
+  'sync-changes': SyncChangesRes,
+  'sync-missing': SyncMissingRes,
+}
 
 describe('wire fixtures (shared with the Rust daemon)', () => {
   for (const file of readdirSync(dir)) {

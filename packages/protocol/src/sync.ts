@@ -1,0 +1,259 @@
+import { z } from 'zod'
+
+// ── Force sync (docs/plan/强制同步-开发计划.md) ──────────────────────────────
+/** Defaults of the system parameters (F18): a bigger file or version is held and the owner told to .gitignore it. */
+export const SYNC_FILE_MAX_BYTES = 50 * 1024 * 1024
+export const SYNC_VERSION_MAX_BYTES = 200 * 1024 * 1024
+/** Changed paths listed in a run's context hint (F20); `changedTotal` tells how many there were. */
+export const SYNC_CHANGED_MAX = 20
+/** Paths a sync.state report or a replica row lists; `total` tells how many there were. */
+export const SYNC_FILES_MAX = 50
+/** Hashes per POST …/blobs/missing. */
+export const SYNC_MISSING_MAX = 1000
+
+/** sha256 of a file's bytes, lowercase hex: the blob's address. */
+export const SyncHash = z.string().regex(/^[0-9a-f]{64}$/)
+/** Relative to the workspace root, `/`-separated, canonical; `.git` is never synced (F4). */
+export const SyncPath = z
+  .string()
+  .min(1)
+  .refine(
+    (p) =>
+      !/[\\\0]/.test(p) &&
+      p.split('/').every((s) => s !== '' && s !== '.' && s !== '..' && s.toLowerCase() !== '.git'),
+    { message: '路径无效' },
+  )
+/** A path's state in a version: `hash` null = deleted. */
+export const SyncEntry = z.object({ path: SyncPath, hash: SyncHash.nullable(), exec: z.boolean() })
+export type SyncEntry = z.infer<typeof SyncEntry>
+/** `baseHash`: the path's hash at the replica's base version, null = it did not exist (F6). */
+export const SyncChange = SyncEntry.extend({ baseHash: SyncHash.nullable() })
+export type SyncChange = z.infer<typeof SyncChange>
+
+/**
+ * What rootHash (F14) is the sha256 of: live entries sorted by the UTF-8 bytes of their path, one
+ * `path NUL x|- NUL hash LF` line each. The Rust daemon builds the same text (cases/sync-root.json).
+ */
+export function syncRootText(entries: readonly SyncEntry[]) {
+  const enc = new TextEncoder()
+  const cmp = (a: Uint8Array, b: Uint8Array) => {
+    const i = a.findIndex((x, j) => x !== b[j])
+    return i < 0 || i >= b.length ? a.length - b.length : (a[i] ?? 0) - (b[i] ?? 0)
+  }
+  return entries
+    .filter((e) => e.hash !== null)
+    .map((e) => ({ e, key: enc.encode(e.path) }))
+    .sort((a, b) => cmp(a.key, b.key))
+    .map(({ e }) => `${e.path}\0${e.exec ? 'x' : '-'}\0${e.hash}\n`)
+    .join('')
+}
+
+// ── daemon → server ─────────────────────────────────────────────────────────
+/**
+ * `init`: the base replica's whole tree as v1 (mode switch); `run`: a turn's changes; `local`: the owner submitted
+ * local edits (F12); `interrupted`: /stop → 保留 (F21); `merge`: re-submitted after manual conflict decisions (F11).
+ */
+export const SyncSubmitKind = z.enum(['init', 'run', 'local', 'interrupted', 'merge'])
+export type SyncSubmitKind = z.infer<typeof SyncSubmitKind>
+/**
+ * A replica's changes against `baseVersion`, sent once every new blob is uploaded. `submitId` makes retries after a
+ * reconnect idempotent; `merged` = rebased by a clean three-way merge after a conflict (F7).
+ */
+export const SyncSubmit = z.object({
+  t: z.literal('sync.submit'),
+  groupId: z.string(),
+  botId: z.string(),
+  submitId: z.uuid(),
+  runId: z.string().nullable(),
+  baseVersion: z.number().int().min(0),
+  kind: SyncSubmitKind,
+  merged: z.boolean(),
+  changes: z.array(SyncChange),
+})
+export type SyncSubmit = z.infer<typeof SyncSubmit>
+/** The replica now matches `version`; the server compares `rootHash` with that version's tree (F14). */
+export const SyncApplied = z.object({
+  t: z.literal('sync.applied'),
+  groupId: z.string(),
+  botId: z.string(),
+  version: z.number().int().min(0),
+  rootHash: SyncHash,
+})
+/**
+ * Why a replica stopped taking versions: `drift` = local edits found (F12), `held` = a conflict waits for a decision
+ * (F11), `dirty` = uncommitted git changes at the mode switch (not participating), `error` = a cross-platform or size
+ * limit was hit (F17, F18; `reason` in the daemon's words). `files` = the paths concerned, at most SYNC_FILES_MAX.
+ */
+export const SyncReplicaIssue = z.enum(['drift', 'held', 'dirty', 'error'])
+export type SyncReplicaIssue = z.infer<typeof SyncReplicaIssue>
+export const SyncState = z.object({
+  t: z.literal('sync.state'),
+  groupId: z.string(),
+  botId: z.string(),
+  state: SyncReplicaIssue,
+  files: z.array(z.string()).max(SYNC_FILES_MAX),
+  total: z.number().int().min(0),
+  reason: z.string().nullable(),
+})
+
+// ── server → daemon ─────────────────────────────────────────────────────────
+/**
+ * Answer to sync.submit. `conflict`: nothing was taken; `conflicts` = the head's state of each conflicting path, to
+ * three-way merge against (F7). `rejected`: blobs not uploaded, over the size limit, or the replica no longer takes part.
+ */
+export const SyncRejectReason = z.enum(['blobs_missing', 'too_large', 'not_participating'])
+export const SyncSubmitResult = z.discriminatedUnion('outcome', [
+  z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1) }),
+  z.object({
+    outcome: z.literal('conflict'),
+    headVersion: z.number().int().min(0),
+    conflicts: z.array(SyncEntry),
+  }),
+  z.object({ outcome: z.literal('rejected'), reason: SyncRejectReason }),
+])
+export type SyncSubmitResult = z.infer<typeof SyncSubmitResult>
+export const SyncResult = z.object({
+  t: z.literal('sync.result'),
+  groupId: z.string(),
+  botId: z.string(),
+  submitId: z.string(),
+  result: SyncSubmitResult,
+})
+/** The group has a new head: idle, clean replicas of it catch up (F8, F12). */
+export const SyncAvailable = z.object({
+  t: z.literal('sync.available'),
+  groupId: z.string(),
+  version: z.number().int().min(1),
+})
+/**
+ * Someone settled a replica's issue: local edits submitted or discarded (F12), each conflicting file decided (F11:
+ * keep mine / take the head / let the bot merge), or the whole held change discarded. Discards back files up first.
+ */
+export const SyncDecision = z.object({ path: SyncPath, choice: z.enum(['mine', 'theirs', 'bot']) })
+export const SyncActionKind = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('drift'), choice: z.enum(['submit', 'discard']) }),
+  z.object({ kind: z.literal('conflict'), decisions: z.array(SyncDecision).min(1) }),
+  z.object({ kind: z.literal('discard') }),
+])
+export type SyncActionKind = z.infer<typeof SyncActionKind>
+export const SyncAction = z.object({
+  t: z.literal('sync.action'),
+  groupId: z.string(),
+  botId: z.string(),
+  action: SyncActionKind,
+})
+/**
+ * Mode switch for one replica (§3.5): `base` submits its whole tree as v1 (kind `init`); `align` overwrites the tree
+ * with the head after a backup, or reports `dirty` when git has uncommitted changes unless `force`; `leave` stops syncing.
+ */
+export const SyncInit = z.object({
+  t: z.literal('sync.init'),
+  groupId: z.string(),
+  botId: z.string(),
+  role: z.enum(['base', 'align', 'leave']),
+  force: z.boolean(),
+})
+
+// ── Run fields ──────────────────────────────────────────────────────────────
+/**
+ * run.start in a force group: catch up to `headVersion` first (F9); `changed` (at most SYNC_CHANGED_MAX) lists what
+ * changed since this bot's last turn at `lastVersion` (null = first turn), for the context hint (F20).
+ */
+export const RunSyncStart = z.object({
+  headVersion: z.number().int().min(0),
+  lastVersion: z.number().int().min(0).nullable(),
+  changed: z.array(z.string()).max(SYNC_CHANGED_MAX),
+  changedTotal: z.number().int().min(0),
+})
+export type RunSyncStart = z.infer<typeof RunSyncStart>
+/**
+ * run.done in a force group, sent once the submit settled so a relay can start right away (F10): `accepted` = taken
+ * as `version` (`merged` after a clean auto merge), `unchanged` = nothing to submit, the replica is at `version`;
+ * `held` = `files` conflicts wait for a decision; `error` = not submitted (limits, offline…), in the daemon's words.
+ */
+export const RunSyncDone = z.discriminatedUnion('outcome', [
+  z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1), merged: z.boolean() }),
+  z.object({ outcome: z.literal('unchanged'), version: z.number().int().min(0) }),
+  z.object({ outcome: z.literal('held'), files: z.number().int().min(1) }),
+  z.object({ outcome: z.literal('error'), reason: z.string() }),
+])
+export type RunSyncDone = z.infer<typeof RunSyncDone>
+
+// ── REST for the daemon (machine token): /api/daemon/sync/:groupId/… ─────────
+/** POST …/blobs/missing: which of `hashes` the server lacks, so only those are uploaded (F15). */
+export const SyncMissingReq = z.object({ hashes: z.array(SyncHash).max(SYNC_MISSING_MAX) })
+export const SyncMissingRes = z.object({ missing: z.array(SyncHash) })
+export type SyncMissingRes = z.infer<typeof SyncMissingRes>
+/**
+ * PUT / GET …/blobs/:hash: the raw bytes, gzip `Content-Encoding` allowed; the server checks the hash on upload and
+ * serves any blob a version of the group still references (also the merge base, F16).
+ */
+export const SYNC_BLOB_CONTENT_TYPE = 'application/octet-stream'
+/** GET …/changes?from=N: the latest entry of each path changed in (from, head]; from=0 = the whole head. */
+export const SyncChangesQuery = z.object({ from: z.coerce.number().int().min(0) })
+export const SyncChangesRes = z.object({ headVersion: z.number().int().min(0), entries: z.array(SyncEntry) })
+export type SyncChangesRes = z.infer<typeof SyncChangesRes>
+
+// ── Web ─────────────────────────────────────────────────────────────────────
+/** A replica as the sync panel shows it (F14). */
+export const SyncReplicaState = z.enum([
+  'consistent',
+  'syncing',
+  'behind',
+  'drift',
+  'conflict',
+  'excluded',
+  'offline',
+])
+export type SyncReplicaState = z.infer<typeof SyncReplicaState>
+export const SyncReplicaDto = z.object({
+  botId: z.string(),
+  botName: z.string(),
+  machineName: z.string().nullable(),
+  /** Version the replica last applied; null before it joined. */
+  version: z.number().int().nullable(),
+  state: SyncReplicaState,
+  updatedAt: z.string().nullable(),
+  /** With drift / conflict / excluded: the paths concerned (capped) and why, as the daemon reported. */
+  files: z.array(z.string()),
+  reason: z.string().nullable(),
+})
+export type SyncReplicaDto = z.infer<typeof SyncReplicaDto>
+export const SyncVersionTag = z.enum(['init', 'auto_merge', 'interrupted', 'local', 'merge'])
+export type SyncVersionTag = z.infer<typeof SyncVersionTag>
+export const SyncVersionDto = z.object({
+  version: z.number().int(),
+  author: z.object({ kind: z.enum(['bot', 'user']), id: z.string(), name: z.string() }),
+  runId: z.string().nullable(),
+  tags: z.array(SyncVersionTag),
+  files: z.number().int(),
+  createdAt: z.string(),
+})
+export type SyncVersionDto = z.infer<typeof SyncVersionDto>
+/** GET /api/groups/:id/sync, and live as `group.sync`; `consistent` of `total` participating replicas. */
+export const SyncStatusDto = z.object({
+  groupId: z.string(),
+  headVersion: z.number().int(),
+  consistent: z.number().int(),
+  total: z.number().int(),
+  replicas: z.array(SyncReplicaDto),
+})
+export type SyncStatusDto = z.infer<typeof SyncStatusDto>
+/** A held change: per file the replica's, the head's and the base's content hash (null = absent / deleted). */
+export const SyncConflictDto = z.object({
+  id: z.string(),
+  botId: z.string(),
+  versionBase: z.number().int(),
+  headVersion: z.number().int(),
+  files: z.array(
+    z.object({
+      path: z.string(),
+      binary: z.boolean(),
+      mineHash: z.string().nullable(),
+      theirsHash: z.string().nullable(),
+      baseHash: z.string().nullable(),
+    }),
+  ),
+  createdAt: z.string(),
+})
+export type SyncConflictDto = z.infer<typeof SyncConflictDto>

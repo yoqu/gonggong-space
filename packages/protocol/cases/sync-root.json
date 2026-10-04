@@ -1,0 +1,48 @@
+[
+  {
+    "name": "empty tree",
+    "entries": [],
+    "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "mixed",
+    "entries": [
+      {
+        "path": "src/main.rs",
+        "hash": "536e506bb90914c243a12b397b9a998f85ae2cbd9ba02dfd03a9e155ca5ca0f4",
+        "exec": false
+      },
+      {
+        "path": "scripts/run.sh",
+        "hash": "a8076d3d28d21e02012b20eaf7dbf75409a6277134439025f282e368e3305abf",
+        "exec": true
+      },
+      {
+        "path": "README.md",
+        "hash": "045d2d07c2db3b9e6cef022457ee89434045a508c2dadccf9abe182ad633c273",
+        "exec": false
+      },
+      {
+        "path": "gone.txt",
+        "hash": null,
+        "exec": false
+      },
+      {
+        "path": "docs/中文.md",
+        "hash": "a20758305f24aa08fdd593d564de930e95c652027327bd291c5559db3d03f76c",
+        "exec": false
+      },
+      {
+        "path": "emoji/😀.txt",
+        "hash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "exec": false
+      },
+      {
+        "path": "emoji/～.txt",
+        "hash": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+        "exec": false
+      }
+    ],
+    "hash": "fbdead8da69a860e0366a9d51a4bb28bce28eb4e56381289c4861cb4de40fe05"
+  }
+]

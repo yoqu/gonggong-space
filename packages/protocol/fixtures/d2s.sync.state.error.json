@@ -1,0 +1,9 @@
+{
+  "t": "sync.state",
+  "groupId": "g1",
+  "botId": "b1",
+  "state": "error",
+  "files": ["README.md", "readme.md"],
+  "total": 2,
+  "reason": "大小写冲突：README.md、readme.md"
+}

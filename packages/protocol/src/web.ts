@@ -39,6 +39,7 @@ import {
 } from './daemon.js'
 import { I18nText } from './i18n.js'
 import { GroupSchedulesDto } from './schedules.js'
+import { SyncStatusDto } from './sync.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -1386,6 +1387,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** The group's previews or services changed; replaces both lists (`canManage` is per receiving user). */
   GroupPreviewsDto.extend({ t: z.literal('group.previews'), groupId: z.string() }),
   GroupSchedulesDto.extend({ t: z.literal('group.schedules'), groupId: z.string() }),
+  /** Force groups: the replicas' sync status changed; replaces it. */
+  SyncStatusDto.extend({ t: z.literal('group.sync') }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
   /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
   ReactionsDto.extend({ t: z.literal('message.reactions') }),

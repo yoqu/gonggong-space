@@ -250,6 +250,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     },
     mcpServers: await enabledMcpServers(tx, run.groupId),
     command,
+    sync: null,
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
 }

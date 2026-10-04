@@ -111,6 +111,7 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
         new_session_reason: None,
         mcp_servers: vec![],
         command: None,
+        sync: None,
         prompt: RunPrompt {
             text: "mock:echo 看图".into(),
             triggered_by: "王磊".into(),

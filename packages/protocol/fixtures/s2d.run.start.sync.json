@@ -1,0 +1,97 @@
+{
+  "t": "run.start",
+  "runId": "r1",
+  "groupId": "g1",
+  "groupName": "支付服务重构",
+  "bot": {
+    "id": "b1",
+    "name": "小王的 Claude",
+    "agentKind": "claude",
+    "systemPrompt": "后端接口开发，只改 server/ 目录",
+    "tier": "workspace",
+    "model": "opus",
+    "effort": "high",
+    "approval": "allowlist",
+    "allowlist": ["go build", "npm test"]
+  },
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null
+  },
+  "resumeSessionId": "sess-0",
+  "prompt": {
+    "text": "@小王的 Claude 写个脚本",
+    "triggeredBy": "王磊",
+    "context": [
+      {
+        "seq": 3,
+        "author": "陈晨",
+        "kind": "user",
+        "body": "退款 v1 下周一下线",
+        "at": "2026-09-23T10:12:00Z",
+        "attachments": [
+          {
+            "id": "a1",
+            "name": "shot.png",
+            "size": 312000,
+            "mime": "image/png",
+            "messageId": "m9"
+          }
+        ]
+      }
+    ],
+    "omitted": 12,
+    "fallbackContext": [
+      {
+        "seq": 1,
+        "author": "王磊",
+        "kind": "user",
+        "body": "早",
+        "at": "2026-09-23T09:00:00Z",
+        "attachments": []
+      }
+    ],
+    "attachments": [
+      {
+        "id": "a1",
+        "name": "shot.png",
+        "size": 312000,
+        "mime": "image/png",
+        "messageId": "m9"
+      }
+    ],
+    "quote": {
+      "author": "小王的 Claude",
+      "body": "字段变化如下"
+    }
+  },
+  "newSessionReason": null,
+  "mcpServers": [
+    {
+      "transport": "stdio",
+      "name": "wiki-search",
+      "command": "npx",
+      "args": ["@corp/mcp-wiki"],
+      "env": {
+        "WIKI_TOKEN": "x"
+      }
+    },
+    {
+      "transport": "http",
+      "name": "grafana",
+      "url": "https://mcp.corp/grafana",
+      "headers": {}
+    }
+  ],
+  "sync": {
+    "headVersion": 17,
+    "lastVersion": 12,
+    "changed": ["server/pay.go", "web/src/api.ts"],
+    "changedTotal": 2
+  }
+}

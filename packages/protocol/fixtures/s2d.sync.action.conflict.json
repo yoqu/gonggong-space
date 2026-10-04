@@ -1,0 +1,18 @@
+{
+  "t": "sync.action",
+  "groupId": "g1",
+  "botId": "b1",
+  "action": {
+    "kind": "conflict",
+    "decisions": [
+      {
+        "path": "server/pay.go",
+        "choice": "bot"
+      },
+      {
+        "path": "docs/旧接口.md",
+        "choice": "theirs"
+      }
+    ]
+  }
+}

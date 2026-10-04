@@ -665,6 +665,7 @@ fn done(
         git,
         patch: turn.patch,
         appends_applied: turn.appends_applied,
+        sync: None,
     })
 }
 

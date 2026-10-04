@@ -1,0 +1,30 @@
+{
+  "t": "sync.submit",
+  "groupId": "g1",
+  "botId": "b1",
+  "submitId": "6f1c2a4e-8b3d-4f5a-9c7e-1d2b3a4c5e6f",
+  "runId": "r1",
+  "baseVersion": 12,
+  "kind": "run",
+  "merged": false,
+  "changes": [
+    {
+      "path": "server/pay.go",
+      "hash": "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d",
+      "exec": false,
+      "baseHash": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    },
+    {
+      "path": "scripts/deploy.sh",
+      "hash": "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6",
+      "exec": true,
+      "baseHash": null
+    },
+    {
+      "path": "docs/旧接口.md",
+      "hash": null,
+      "exec": false,
+      "baseHash": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    }
+  ]
+}

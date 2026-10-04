@@ -1,0 +1,9 @@
+{
+  "t": "sync.state",
+  "groupId": "g1",
+  "botId": "b1",
+  "state": "drift",
+  "files": ["server/pay.go"],
+  "total": 1,
+  "reason": null
+}
