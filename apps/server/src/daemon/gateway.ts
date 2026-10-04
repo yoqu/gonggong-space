@@ -114,8 +114,15 @@ export function daemonGateway(ctx: Ctx) {
         })
         ws.on('message', (data) => {
           armTimeout()
-          const msg = DaemonToServer.safeParse(parseJson(String(data)))
-          if (!msg.success) return app.log.warn({ machineId }, 'invalid daemon message')
+          const json = parseJson(String(data))
+          const msg = DaemonToServer.safeParse(json)
+          // Dropped messages leave their sender waiting (a sync.submit times out): always say so, logger or not.
+          if (!msg.success)
+            return console.error(
+              `invalid daemon message from ${machineId}:`,
+              (json as { t?: unknown } | undefined)?.t,
+              msg.error.issues[0],
+            )
           if (msg.data.t !== 'hello' && msg.data.t !== 'heartbeat')
             ctx.hub.emit('message', machineId, msg.data)
         })

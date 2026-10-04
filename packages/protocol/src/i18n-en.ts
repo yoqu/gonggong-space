@@ -262,6 +262,8 @@ export const protocolEn = {
   '本机同步状态丢失，正在重新对齐': 'This machine lost its sync state; realigning',
   '本版改动共 {size} MB，超过单版上限 {max} MB（最大的是 {path}），请把大文件加入 .gitignore':
     "This version's changes total {size} MB, over the {max} MB per-version limit (largest: {path}); add large files to .gitignore",
+  '本版改动共 {n} 个文件，超过单版上限 {max} 个（最多的是 {path}），请把生成的文件加入 .gitignore':
+    'This version changes {n} files, over the {max}-file per-version limit (most in {path}); add generated files to .gitignore',
   '本轮异常结束，改动未提交，待 Bot 主人处理':
     'The turn ended abnormally; its changes were not submitted and wait for the Bot owner',
   '疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区':

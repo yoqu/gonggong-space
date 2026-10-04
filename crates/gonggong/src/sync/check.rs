@@ -2,7 +2,7 @@
 //! whole version.
 use super::Tree;
 use crate::i18n::Reason;
-use crate::protocol::{SYNC_FILE_MAX_BYTES, SYNC_VERSION_MAX_BYTES, SyncChange};
+use crate::protocol::{SYNC_FILE_MAX_BYTES, SYNC_SUBMIT_CHANGES_MAX, SYNC_VERSION_MAX_BYTES, SyncChange};
 use crate::reason;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -23,6 +23,8 @@ pub enum Issue {
     VersionTooLarge(u64),
     /// Named like a secret (`.env`, private keys, credentials) and not tracked by git.
     Secret,
+    /// The version changes this many files, more than a submit carries; reported on the top-level entry with most.
+    TooManyFiles(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +61,12 @@ impl Violation {
             Issue::Secret => {
                 reason!("疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区", path = self.path)
             }
+            Issue::TooManyFiles(n) => reason!(
+                "本版改动共 {n} 个文件，超过单版上限 {max} 个（最多的是 {path}），请把生成的文件加入 .gitignore",
+                n = n,
+                max = SYNC_SUBMIT_CHANGES_MAX,
+                path = self.path
+            ),
         }
     }
 }
@@ -89,6 +97,14 @@ pub fn check(tree: &Tree, changes: &[SyncChange]) -> Vec<Violation> {
     }
     if total > SYNC_VERSION_MAX_BYTES {
         push(largest.0, Issue::VersionTooLarge(total));
+    }
+    if changes.len() > SYNC_SUBMIT_CHANGES_MAX {
+        let mut tops: HashMap<&str, usize> = HashMap::new();
+        for c in changes {
+            *tops.entry(c.path.split('/').next().unwrap_or_default()).or_default() += 1;
+        }
+        let top = tops.into_iter().max_by_key(|&(p, n)| (n, std::cmp::Reverse(p))).map_or("", |(p, _)| p);
+        push(top, Issue::TooManyFiles(changes.len()));
     }
     out.extend(case_clashes(tree.files.keys()));
     out
@@ -206,6 +222,16 @@ mod tests {
         let t = tree(&files.iter().map(|(p, s)| (p.as_str(), *s)).collect::<Vec<_>>());
         let total = files.iter().map(|(_, s)| s).sum();
         assert_eq!(issues(&t, &added(&["p0", "p1", "p2", "p3", "p4"])), [("p4".into(), Issue::VersionTooLarge(total))]);
+    }
+
+    #[test]
+    fn a_version_with_more_files_than_a_submit_carries_is_refused_on_its_biggest_directory() {
+        let mut paths: Vec<String> = (0..SYNC_SUBMIT_CHANGES_MAX).map(|i| format!("gen/{i}")).collect();
+        paths.push("README.md".into());
+        let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+        let changes = added(&refs);
+        assert_eq!(issues(&tree(&[]), &changes), [("gen".into(), Issue::TooManyFiles(SYNC_SUBMIT_CHANGES_MAX + 1))]);
+        assert!(check(&tree(&[]), &changes[1..]).is_empty());
     }
 
     #[test]

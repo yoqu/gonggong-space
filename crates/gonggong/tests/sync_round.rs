@@ -318,6 +318,22 @@ async fn a_turn_s_edits_are_submitted_against_its_base_before_run_done() {
 }
 
 #[tokio::test]
+async fn a_turn_whose_submit_is_the_head_moves_its_base_to_that_version() {
+    let mut r = rig().await;
+    r.join(&[("a.txt", "one\n")]);
+    r.run("r1", "mock:sh printf 'two\\n' > a.txt", at(1, Some(1)));
+
+    let s = r.submit().await;
+    r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 2 });
+
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "two\n")])));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Accepted { version: 2, merged: false }));
+    let base = Replica::new(r.home.path(), "g1", "b1", r.work()).base().unwrap();
+    assert_eq!((base.version, base.files), (2, manifest(&[("a.txt", "two\n")])));
+}
+
+#[tokio::test]
 async fn catches_up_before_the_turn_and_tells_the_agent_what_changed() {
     let mut r = rig().await;
     r.join(&[("a.txt", "one\n")]);

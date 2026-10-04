@@ -957,6 +957,7 @@ pub const SYNC_VERSION_MAX_BYTES: u64 = 200 * 1024 * 1024;
 pub const SYNC_CHANGED_MAX: usize = 20;
 pub const SYNC_FILES_MAX: usize = 50;
 pub const SYNC_MISSING_MAX: usize = 1000;
+pub const SYNC_SUBMIT_CHANGES_MAX: usize = 200_000;
 
 /// A path's state in a version: `hash` (sha256 hex) `None` = deleted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

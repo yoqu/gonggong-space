@@ -9,8 +9,9 @@ export const SYNC_VERSION_MAX_BYTES = 200 * 1024 * 1024
 export const SYNC_CHANGED_MAX = 20
 /** Paths a sync.state report or a replica row lists; `total` tells how many there were. */
 export const SYNC_FILES_MAX = 50
-/** Changes per sync.submit (a whole tree at the mode switch included). */
-export const SYNC_SUBMIT_CHANGES_MAX = 100_000
+/** Changes per sync.submit (a whole tree at the mode switch included); even at 260-char paths the message stays under
+ * the WebSocket's 100 MiB payload limit. */
+export const SYNC_SUBMIT_CHANGES_MAX = 200_000
 /** Hashes per POST …/blobs/missing. */
 export const SYNC_MISSING_MAX = 1000
 

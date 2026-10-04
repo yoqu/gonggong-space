@@ -11,6 +11,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Blob uploads or downloads in flight at once: a big tree is mostly small files, so round trips dominate.
+pub const TRANSFERS: usize = 16;
 const KEEPALIVE: Duration = Duration::from_secs(30);
 
 /// `meta` bounds a JSON request; a blob transfer gets `meta` plus `per_mb` for each MB.

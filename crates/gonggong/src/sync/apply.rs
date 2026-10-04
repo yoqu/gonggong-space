@@ -2,9 +2,10 @@
 //! files are replaced by rename one by one, so the tree is half-updated for milliseconds rather than for the length of
 //! the downloads. `applying.json` records the version meanwhile, so a crash in between is resumed, not taken for edits.
 use super::manifest::{self, Names, TEMP_SUFFIX, Tree};
-use super::{Base, Replica, advance, path};
+use super::{Base, Replica, TRANSFERS, advance, path};
 use crate::protocol::SyncEntry;
 use crate::t;
+use futures_util::{TryStreamExt, stream};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashSet};
 use std::future::Future;
@@ -113,13 +114,19 @@ impl Replica {
         let result = async {
             let needed: BTreeSet<&str> = writes.iter().filter(|w| !w.2).map(|w| w.1.as_str()).collect();
             std::fs::create_dir_all(&staging).map_err(|e| t!("无法暂存下载内容：{e}", e = e))?;
-            for hash in needed {
-                let to = staging.join(hash);
-                fetch(hash.to_string(), to.clone()).await?;
-                if manifest::hash_file(&to).map_err(|e| t!("无法暂存下载内容：{e}", e = e))? != hash {
-                    return Err(t!("下载内容校验失败：{hash}", hash = hash));
-                }
-            }
+            stream::iter(needed.into_iter().map(Ok))
+                .try_for_each_concurrent(TRANSFERS, |hash| {
+                    let to = staging.join(hash);
+                    let fetched = fetch(hash.to_string(), to.clone());
+                    async move {
+                        fetched.await?;
+                        if manifest::hash_file(&to).map_err(|e| t!("无法暂存下载内容：{e}", e = e))? != hash {
+                            return Err(t!("下载内容校验失败：{hash}", hash = hash));
+                        }
+                        Ok(())
+                    }
+                })
+                .await?;
             self.set_applying(Some(&Applying { version, base: base.clone(), entries: entries.to_vec() }))?;
             self.write(&mut tree, &staging, &deletes, &writes)
         }
@@ -258,12 +265,15 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    /// An in-memory blob store that counts fetches.
+    /// An in-memory blob store that counts fetches and how many run at once.
     #[derive(Default)]
     struct Store {
         blobs: HashMap<String, Vec<u8>>,
         fetched: Mutex<Vec<String>>,
+        running: AtomicUsize,
+        peak: AtomicUsize,
     }
 
     impl Store {
@@ -275,6 +285,10 @@ mod tests {
 
         async fn fetch(&self, hash: String, to: std::path::PathBuf) -> Result<(), String> {
             self.fetched.lock().unwrap().push(hash.clone());
+            let now = self.running.fetch_add(1, Ordering::SeqCst) + 1;
+            self.peak.fetch_max(now, Ordering::SeqCst);
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            self.running.fetch_sub(1, Ordering::SeqCst);
             let bytes = self.blobs.get(&hash).ok_or_else(|| "missing".to_string())?;
             std::fs::write(to, bytes).map_err(|e| e.to_string())
         }
@@ -329,6 +343,27 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(std::fs::metadata(w.join("src/bin/run.sh")).unwrap().permissions().mode() & 0o111, 0o111);
         }
+    }
+
+    #[tokio::test]
+    async fn fetches_blobs_concurrently_within_the_bound() {
+        let fx = Fixture::new();
+        let r = at_v1(&fx, &[]).await;
+        let mut store = Store::default();
+        let n = TRANSFERS * 3;
+        let entries: Vec<_> = (0..n)
+            .map(|i| {
+                let h = store.put(&format!("body {i}"));
+                entry(&format!("d{}/f{i}.txt", i % 4), Some(&h), false)
+            })
+            .collect();
+        let root = r.apply(2, &entries, |h, to| store.fetch(h, to)).await.unwrap();
+        assert_eq!(store.peak.load(Ordering::SeqCst), TRANSFERS);
+        assert_eq!(store.fetched.lock().unwrap().len(), n);
+        let expected: Manifest =
+            (0..n).map(|i| (format!("d{}/f{i}.txt", i % 4), f(&format!("body {i}"), false))).collect();
+        assert_eq!(root, manifest_root(&expected));
+        assert_eq!(r.tree().await.unwrap().manifest(), expected);
     }
 
     #[tokio::test]

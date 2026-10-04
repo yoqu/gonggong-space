@@ -16,7 +16,7 @@ mod path;
 
 pub use apply::{ApplyError, Applying};
 pub use check::{Issue, Violation, check};
-pub use client::Client;
+pub use client::{Client, TRANSFERS};
 pub use manifest::{Stat, Tree};
 pub use merge::Merge;
 

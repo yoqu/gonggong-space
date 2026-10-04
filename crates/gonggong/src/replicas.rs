@@ -13,18 +13,23 @@ use crate::protocol::{
     SyncSubmitResult, SyncWaitIssue,
 };
 use crate::service::Outbox;
-use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica, Tree};
+use crate::sync::{self, ApplyError, Base, Client, Held, Manifest, Merge, Pending, Replica, TRANSFERS, Tree};
 use crate::{reason, t};
+use futures_util::{TryStreamExt, stream};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{OwnedMutexGuard, oneshot};
 
-/// How long a submit waits for its sync.result before it is sent again, and how often it is sent; still unanswered,
-/// it stays pending for the next sync.available (a reconnect brings one) or turn.
+/// How long a submit waits for its sync.result before it is sent again (plus RESULT_TIMEOUT_PER_1K for each 1000
+/// changes: a whole tree takes the server a while), and how often it is sent; still unanswered, it stays pending for
+/// the next sync.available (a reconnect brings one) or turn. A mode switch's base keeps resending longer: giving up
+/// fails the switch.
 const RESULT_TIMEOUT: Duration = Duration::from_secs(60);
+const RESULT_TIMEOUT_PER_1K: Duration = Duration::from_secs(1);
 const SEND_ATTEMPTS: usize = 2;
+const INIT_SEND_ATTEMPTS: usize = 4;
 /// Catch-up attempts after settling a replica or on sync.available, waiting 1 s, 2 s, 4 s… in between; before a turn,
 /// which should not wait long, fewer.
 const CATCH_UP_ATTEMPTS: u32 = 5;
@@ -632,6 +637,22 @@ impl Replicas {
         Ok(true)
     }
 
+    /// True when nothing is left to write: the head is the base's version, or holds exactly the base's files.
+    async fn head_is_base(&self, r: &Replica, out: &Outbox) -> Result<bool, Reason> {
+        let base = r.base()?;
+        let res = self.client()?.changes(r.group(), base.version).await.map_err(|e| format!("{e:#}"))?;
+        if res.head_version <= base.version {
+            return Ok(true);
+        }
+        if sync::advance(&base.files, &res.entries) != base.files {
+            return Ok(false);
+        }
+        let root_hash = sync::manifest_root(&base.files);
+        r.set_base(&Base { version: res.head_version, files: base.files })?;
+        applied(out, r, res.head_version, root_hash);
+        Ok(true)
+    }
+
     /// Submits the tree's changes since the base as a version (F6), three-way merging conflicts (F7) and holding what
     /// still conflicts (F11). Settling a held change submits as kind `merge`, its decided paths rebased on the head.
     async fn submit_tree(
@@ -694,9 +715,14 @@ impl Replicas {
         unreachable!("the last attempt returns")
     }
 
-    /// Versions that came out during the turn (F8).
+    /// Versions that came out during the turn (F8). The base holds the tree just submitted: when the head is that
+    /// same tree (no one else's version came in), only the base's version moves, sparing a scan of the whole tree.
     async fn catch_up_after(&self, r: &Replica, out: &Outbox) {
-        if let Err(e) = self.catch_up(r, out, None).await {
+        let caught_up = match self.head_is_base(r, out).await {
+            Ok(false) => self.catch_up(r, out, None).await.map(drop).map_err(|e| e.to_string()),
+            done => done.map(drop).map_err(|e| e.text),
+        };
+        if let Err(e) = caught_up {
             tracing::warn!("sync catch-up of {}/{} after the turn failed: {e}", r.group(), r.bot());
         }
     }
@@ -739,9 +765,10 @@ impl Replicas {
         let (tx, mut rx) = oneshot::channel();
         self.waiting.lock().unwrap().insert(p.submit.submit_id.clone(), tx);
         let _waiting = Waiting(self, &p.submit.submit_id);
-        for _ in 0..SEND_ATTEMPTS {
+        let attempts = if p.submit.kind == SyncSubmitKind::Init { INIT_SEND_ATTEMPTS } else { SEND_ATTEMPTS };
+        for _ in 0..attempts {
             out.send(DaemonToServer::SyncSubmit(p.submit.clone()));
-            if let Ok(answer) = tokio::time::timeout(RESULT_TIMEOUT, &mut rx).await {
+            if let Ok(answer) = tokio::time::timeout(result_timeout(p.submit.changes.len()), &mut rx).await {
                 return answer.map_err(|_| reason!("等待服务器确认同步提交超时"));
             }
         }
@@ -849,6 +876,10 @@ async fn paused_paths(r: &Replica) -> Result<Vec<String>, Reason> {
     Ok(sync::diff(&r.base()?.files, &r.tree().await?.manifest()).into_iter().map(|c| c.path).collect())
 }
 
+fn result_timeout(changes: usize) -> Duration {
+    RESULT_TIMEOUT + RESULT_TIMEOUT_PER_1K * changes.div_ceil(1000) as u32
+}
+
 fn rejected(reason: SyncRejectReason) -> Reason {
     match reason {
         SyncRejectReason::BlobsMissing => reason!("同步提交被拒绝：文件内容未上传完整"),
@@ -917,11 +948,14 @@ async fn upload(client: &Client, r: &Replica, changes: &[SyncChange]) -> Result<
     }
     let hashes: Vec<String> = paths.keys().map(|h| h.to_string()).collect();
     let fail = |e: anyhow::Error| reason!("上传同步内容失败：{e}", e = format!("{e:#}"));
-    for hash in client.missing(r.group(), &hashes).await.map_err(fail)? {
-        let path = r.work().join(paths[hash.as_str()]);
-        client.upload(r.group(), &hash, &path).await.map_err(fail)?;
-    }
-    Ok(())
+    let missing = client.missing(r.group(), &hashes).await.map_err(fail)?;
+    stream::iter(missing.into_iter().map(Ok))
+        .try_for_each_concurrent(TRANSFERS, |hash| {
+            let path = r.work().join(paths[hash.as_str()]);
+            async move { client.upload(r.group(), &hash, &path).await }
+        })
+        .await
+        .map_err(fail)
 }
 
 /// Three-way merges every conflicting file (base / mine / the head's); writes them only when all merge cleanly and
@@ -955,4 +989,74 @@ async fn merge(
         rebased.insert(mine.path.clone(), Some(their_hash.clone()));
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::OutboxRx;
+    use tokio::time::Instant;
+
+    fn pending(kind: SyncSubmitKind, n: usize) -> Pending {
+        let change = SyncChange { path: "a".into(), hash: Some("0".repeat(64)), exec: false, base_hash: None };
+        let submit = SyncSubmit {
+            group_id: "g".into(),
+            bot_id: "b".into(),
+            submit_id: "s1".into(),
+            run_id: None,
+            base_version: 0,
+            kind,
+            merged: false,
+            changes: vec![change; n],
+        };
+        Pending { submit, files: Manifest::new() }
+    }
+
+    async fn sent_id(rx: &mut OutboxRx) -> String {
+        match rx.recv().await {
+            Some(DaemonToServer::SyncSubmit(s)) => s.submit_id,
+            other => panic!("expected sync.submit, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_result_wait_grows_with_the_submit() {
+        assert_eq!(result_timeout(0), RESULT_TIMEOUT);
+        assert_eq!(result_timeout(1), RESULT_TIMEOUT + Duration::from_secs(1));
+        assert_eq!(result_timeout(100_003), RESULT_TIMEOUT + Duration::from_secs(101));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_unanswered_init_is_resent_with_the_same_id_until_answered() {
+        let dir = tempfile::tempdir().unwrap();
+        let replicas = Replicas::new(dir.path().into(), None);
+        let (out, mut rx) = Outbox::channel();
+        let p = pending(SyncSubmitKind::Init, 5000);
+        let wait = result_timeout(5000);
+        let task = tokio::spawn({
+            let replicas = replicas.clone();
+            async move { replicas.send(&p, &out).await }
+        });
+        let start = Instant::now();
+        for i in 0..=SEND_ATTEMPTS as u32 {
+            assert_eq!(sent_id(&mut rx).await, "s1");
+            assert_eq!(start.elapsed(), wait * i);
+        }
+        replicas.on_result("s1", SyncSubmitResult::Accepted { version: 1 });
+        assert!(matches!(task.await.unwrap(), Ok(SyncSubmitResult::Accepted { version: 1 })));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_turn_submit_gives_up_after_its_attempts() {
+        let dir = tempfile::tempdir().unwrap();
+        let replicas = Replicas::new(dir.path().into(), None);
+        let (out, mut rx) = Outbox::channel();
+        let start = Instant::now();
+        assert!(replicas.send(&pending(SyncSubmitKind::Run, 1), &out).await.is_err());
+        assert_eq!(start.elapsed(), result_timeout(1) * SEND_ATTEMPTS as u32);
+        for _ in 0..SEND_ATTEMPTS {
+            assert_eq!(sent_id(&mut rx).await, "s1");
+        }
+        assert!(rx.try_recv().is_err());
+    }
 }

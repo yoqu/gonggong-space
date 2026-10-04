@@ -214,6 +214,32 @@ describe('submit (§3.2 compare-and-swap)', () => {
     expect(await t.db.select().from(syncVersions).where(eq(syncVersions.groupId, w.g.id))).toHaveLength(2)
   })
 
+  it('a switch base larger than one insert batch replaces the head whole, and its resubmit answers the same', async () => {
+    await init()
+    await t.db.update(syncReplicas).set({ pending: 'base' }).where(eq(syncReplicas.botId, w.a.id))
+    for (const s of ['x', 'y']) await w.put(s)
+    const tree = Array.from({ length: 12_001 }, (_, i) => ({
+      path: `big/${Math.floor(i / 500)}/f${i}.txt`,
+      hash: sha(i % 2 ? 'x' : 'y'),
+      baseHash: null,
+      exec: i % 7 === 0,
+    }))
+    const m = w.msg(w.a.id, tree, { kind: 'init' })
+    expect(await submitA(m)).toEqual({ outcome: 'accepted', version: 2 })
+    expect(await submitA(m)).toEqual({ outcome: 'accepted', version: 2 })
+    const entries = await head()
+    expect(entries).toHaveLength(12_001)
+    expect(entries.some((e) => e.path === 'readme.md')).toBe(false)
+    const [v] = await t.db
+      .select()
+      .from(syncVersions)
+      .where(and(eq(syncVersions.groupId, w.g.id), eq(syncVersions.version, 2)))
+    expect(v).toMatchObject({ files: 12_003, tags: ['init'] })
+    expect(v!.rootHash).toBe(sha(syncRootText(tree)))
+    const res = await t.app.inject({ url: `/api/daemon/sync/${w.g.id}/changes?from=1`, headers: w.auth() })
+    expect((res.json() as SyncChangesRes).entries).toHaveLength(12_003)
+  }, 30_000)
+
   it('rejects changes whose blobs were not uploaded', async () => {
     const res = await submitA(w.msg(w.a.id, [{ path: 'a', hash: sha('never'), baseHash: null, exec: false }]))
     expect(res).toEqual({ outcome: 'rejected', reason: 'blobs_missing' })

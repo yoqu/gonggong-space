@@ -520,6 +520,10 @@ pub(super) const EN: &[(&str, &str)] = &[
         "本版改动共 {size} MB，超过单版上限 {max} MB（最大的是 {path}），请把大文件加入 .gitignore",
         "This version's changes total {size} MB, over the {max} MB per-version limit (largest: {path}); add large files to .gitignore",
     ),
+    (
+        "本版改动共 {n} 个文件，超过单版上限 {max} 个（最多的是 {path}），请把生成的文件加入 .gitignore",
+        "This version changes {n} files, over the {max}-file per-version limit (most in {path}); add generated files to .gitignore",
+    ),
     ("合并失败：{e}", "Merge failed: {e}"),
     ("本地有改动：{paths}", "Local edits: {paths}"),
     ("下载内容校验失败：{hash}", "Downloaded content failed verification: {hash}"),
