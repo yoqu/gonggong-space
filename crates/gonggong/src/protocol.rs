@@ -1306,5 +1306,5 @@ pub enum ServerToDaemon {
     #[serde(rename = "sync.action", rename_all = "camelCase")]
     SyncAction { group_id: String, bot_id: String, action: SyncActionKind },
     #[serde(rename = "sync.init", rename_all = "camelCase")]
-    SyncInit { group_id: String, bot_id: String, role: SyncRole, force: bool },
+    SyncInit { group_id: String, bot_id: String, role: SyncRole, force: bool, repo_id: Option<String> },
 }

@@ -27,4 +27,53 @@ export default {
   加载更多: 'Load more',
   重试: 'Retry',
   '、': ', ',
+  '不参与（本机目录）': 'Not participating (local directory)',
+  '不参与（有未提交的改动）': 'Not participating (uncommitted changes)',
+  '对齐（机器离线，上线后对齐）': 'Align (machine offline, aligns once it connects)',
+  '对齐（工作区就绪后对齐）': 'Align (once its workspace is ready)',
+  基准: 'Base',
+  对齐: 'Align',
+  正在切换为强制同步: 'Switching to force sync',
+  '基准 Bot': 'Base Bot',
+  '它当前的工作树（含未提交改动）生成第一个版本，其他 Bot 的工作区对齐到它':
+    "Its current work tree (uncommitted changes included) becomes the first version; the other Bots' workspaces align to it",
+  '选择基准 Bot': 'Choose the base Bot',
+  '没有可作为基准的 Bot': 'No Bot can be the base',
+  '切换后各 Bot 的处理方式': 'What happens to each Bot',
+  '对齐会把工作区覆盖为基准版本，被覆盖的文件先备份到本机。已在运行的轮次照分区模式跑完，期间的新触发等切换完成后再运行。':
+    'Aligning overwrites a workspace with the base version, backing up overwritten files on its machine first. Turns already running finish in partition mode; new triggers run once the switch is done.',
+  确认切换: 'Switch',
+  '正在切换：等待基准 Bot 提交工作树，新触发的轮次稍后运行':
+    'Switching: waiting for the base Bot to submit its work tree; new turns run afterwards',
+  '各 Bot 在自己的工作区独立工作，互不同步': 'Each Bot works in its own workspace, nothing is synced',
+  切回分区模式: 'Switch back to partition mode',
+  '停止同步，各 Bot 保留当前文件各自发展；服务器存档保留 30 天':
+    'Stops syncing; each Bot keeps its current files and goes its own way. The server keeps an archive for 30 days',
+  '参与的 Bot 工作区保持一致：每轮结束后改动自动分发给其他 Bot（不同步 .git）':
+    "Participating Bots' workspaces stay identical: each turn's changes go to the other Bots (.git is not synced)",
+  绑定仓库后才能切换为强制同步: 'Bind a repo before switching to force sync',
+  切换为强制同步: 'Switch to force sync',
+  仅群管理员可切换同步模式: 'Only group admins can switch the sync mode',
+  '「{name}」将停止强制同步。': '"{name}" will stop force sync.',
+  '各 Bot 保留当前文件，此后各自独立工作':
+    'Each Bot keeps its current files and works on its own from now on',
+  '同步版本存档保留 30 天后清除': 'The sync version archive is deleted after 30 days',
+  '之后可以重新切换为强制同步，届时重新选择基准 Bot':
+    'You can switch to force sync again later, picking a base Bot anew',
+  已切回分区模式: 'Switched back to partition mode',
+  有未提交的改动: 'Uncommitted changes',
+  未加入: 'Not joined',
+  加入: 'Join',
+  丢弃本地改动并加入: 'Discard local changes and join',
+  '{bot} 的工作区将与权威版本保持一致。': "{bot}'s workspace will match the authoritative version.",
+  '未提交的改动和权威版本没有的文件会先备份到本机，再被覆盖或删除':
+    'Uncommitted changes and files the authoritative version lacks are backed up on the machine, then overwritten or deleted',
+  '备份可在本机桌面端的「工作区」页找到':
+    'Backups are on the Workspaces page of the desktop app on that machine',
+  丢弃并加入: 'Discard and join',
+  已开始加入强制同步: 'Joining force sync',
+  同步模式设置: 'Sync mode settings',
+  切换中: 'Switching',
+  '正在切换为强制同步，等待基准 Bot 提交工作树…':
+    'Switching to force sync, waiting for the base Bot to submit its work tree…',
 }

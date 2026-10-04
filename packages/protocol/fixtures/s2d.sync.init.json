@@ -3,5 +3,6 @@
   "groupId": "g1",
   "botId": "b1",
   "role": "align",
-  "force": false
+  "force": false,
+  "repoId": "r1"
 }

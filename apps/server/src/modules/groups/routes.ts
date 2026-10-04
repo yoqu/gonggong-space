@@ -28,6 +28,7 @@ import { requireUser } from '../auth/session.js'
 import { postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
 import { recordRepo } from '../repos/service.js'
+import { leaveReplica } from '../sync/switch.js'
 import { currentTeam } from '../teams/service.js'
 import { joinWorkspace } from '../workspaces/provision.js'
 import { repoProblem } from './repo.js'
@@ -268,6 +269,7 @@ export function groupRoutes(ctx: Ctx) {
       assertBindable(url, branch)
       const [old] = await ctx.db.select().from(groupRepos).where(eq(groupRepos.groupId, group.id))
       if (old?.url === url && old.baseBranch === branch) return groupDto(ctx, me.id, group.id)
+      if (group.mode === 'force') return fail('conflict', '强制同步群不能更换仓库，请先切回分区模式')
 
       await ctx.db.transaction(async (tx) => {
         await tx.delete(groupRepos).where(eq(groupRepos.groupId, group.id))
@@ -316,6 +318,7 @@ export function groupRoutes(ctx: Ctx) {
         .update(groupBots)
         .set({ removedAt: ctx.now() })
         .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+      await leaveReplica(ctx, group.id, bot)
       await postEvent(ctx, group.id, '{bot} 被移出 · 工作区保留', { bot: bot.name })
       await auditAdmin(me.id, group.id, 'group.bot.remove', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)

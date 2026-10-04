@@ -13,7 +13,7 @@ import {
   type SyncVersionTag,
   syncRootText,
 } from '@gonggong/protocol'
-import { and, desc, eq, gt, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -68,17 +68,21 @@ export async function headVersion(db: Q, groupId: string) {
 }
 
 /**
- * run.start's `sync` for a bot's turn in a force group with a managed workspace, else null (F9, F20). `lastVersion` is
+ * run.start's `sync` for a bot's turn in a force group with a joined managed replica, else null (F9, F20). `lastVersion` is
  * the version the bot's previous turn in the group ended at (its run.done: accepted / unchanged), so `changed` lists
  * the paths changed in (lastVersion, head] — what others did since it last worked.
  */
 export async function runSyncStart(db: Q, groupId: string, botId: string): Promise<RunSyncStart | null> {
   const [row] = await db
-    .select({ mode: groups.mode, kind: groupBots.workspaceKind })
+    .select({ mode: groups.mode, kind: groupBots.workspaceKind, joinedAt: syncReplicas.joinedAt })
     .from(groupBots)
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
+    .leftJoin(
+      syncReplicas,
+      and(eq(syncReplicas.groupId, groupBots.groupId), eq(syncReplicas.botId, groupBots.botId)),
+    )
     .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
-  if (row?.mode !== 'force' || row.kind !== 'managed') return null
+  if (row?.mode !== 'force' || row.kind !== 'managed' || !row.joinedAt) return null
   const head = await headVersion(db, groupId)
   const done = sql`(${runs.sync}->>'version')::int`
   const [prev] = await db
@@ -121,11 +125,16 @@ async function rootHashOf(db: Q, groupId: string, version: number) {
 
 /**
  * The replica (group × bot) if `machineId` hosts it in a force group with a managed workspace (F2). It takes part in
- * versions unless reported dirty at the mode switch; reports (applied, state) are taken either way.
+ * versions once joined; until then only the answers to its sync.init (`pending`) are taken.
  */
 async function replica(db: Q, machineId: string, groupId: string, botId: string) {
   const [row] = await db
-    .select({ ownerId: bots.ownerId, issue: syncReplicas.issue })
+    .select({
+      ownerId: bots.ownerId,
+      issue: syncReplicas.issue,
+      joinedAt: syncReplicas.joinedAt,
+      pending: syncReplicas.pending,
+    })
     .from(groupBots)
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
     .innerJoin(bots, eq(bots.id, groupBots.botId))
@@ -148,13 +157,16 @@ async function replica(db: Q, machineId: string, groupId: string, botId: string)
   return row
 }
 
-/** Machines to send sync.available to: those hosting a participating replica other than `exceptBotId`. */
+/**
+ * Machines to send sync.available to: those hosting a joined replica other than `exceptBotId` that takes versions
+ * (one with an issue waits for it to be settled, F11, F12).
+ */
 export async function replicaMachines(db: Q, groupId: string, exceptBotId: string) {
   const rows = await db
     .selectDistinct({ machineId: bots.machineId })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
-    .leftJoin(
+    .innerJoin(
       syncReplicas,
       and(eq(syncReplicas.groupId, groupBots.groupId), eq(syncReplicas.botId, groupBots.botId)),
     )
@@ -165,7 +177,8 @@ export async function replicaMachines(db: Q, groupId: string, exceptBotId: strin
         eq(groupBots.workspaceKind, 'managed'),
         isNull(bots.deletedAt),
         sql`${bots.id} <> ${exceptBotId}`,
-        sql`${syncReplicas.issue} is distinct from 'dirty'`,
+        isNotNull(syncReplicas.joinedAt),
+        isNull(syncReplicas.issue),
       ),
     )
   return rows.flatMap((r) => (r.machineId ? [r.machineId] : []))
@@ -226,95 +239,119 @@ export async function submitSync(ctx: Ctx, machineId: string, msg: SyncSubmit): 
   return (await submitTx(ctx, machineId, msg)).result
 }
 
+/** The base's whole tree replaces the head (§3.5): every path that differs, and deletions of the rest. */
+function replaceHead(head: Head, tree: SyncChange[]) {
+  const next: Head = new Map(tree.flatMap((c) => (c.hash ? [[c.path, { hash: c.hash, exec: c.exec }]] : [])))
+  const effective: SyncChange[] = [
+    ...[...next]
+      .filter(([path, e]) => head.get(path)?.hash !== e.hash || head.get(path)?.exec !== e.exec)
+      .map(([path, e]) => ({ path, ...e, baseHash: head.get(path)?.hash ?? null })),
+    ...[...head]
+      .filter(([path]) => !next.has(path))
+      .map(([path, e]) => ({ path, hash: null, exec: false, baseHash: e.hash })),
+  ]
+  return { conflicts: [] as string[], effective, next }
+}
+
 /**
  * Takes a replica's changes as the group's next version when none conflicts with the head (F6), atomically and
  * serialized per group. A submit that changes nothing answers the current head (an empty v1 when there is none yet).
  * Resubmitting an accepted submitId answers its version again. `version` is set when a new version was written.
+ * The base of a mode switch (kind `init`) replaces the head with its tree and joins; `base` tells it did.
  */
 export async function submitTx(ctx: Ctx, machineId: string, msg: SyncSubmit) {
-  return ctx.db.transaction(async (tx): Promise<{ result: SyncSubmitResult; version?: number }> => {
-    await tx.select({ id: groups.id }).from(groups).where(eq(groups.id, msg.groupId)).for('update')
-    const self = await replica(tx, machineId, msg.groupId, msg.botId)
-    if (!self || self.issue === 'dirty')
-      return { result: { outcome: 'rejected', reason: 'not_participating' } }
-    const [done] = await tx
-      .select({ version: syncVersions.version })
-      .from(syncVersions)
-      .where(and(eq(syncVersions.groupId, msg.groupId), eq(syncVersions.submitId, msg.submitId)))
-    if (done) return { result: { outcome: 'accepted', version: done.version } }
+  return ctx.db.transaction(
+    async (tx): Promise<{ result: SyncSubmitResult; version?: number; base?: boolean }> => {
+      await tx.select({ id: groups.id }).from(groups).where(eq(groups.id, msg.groupId)).for('update')
+      const self = await replica(tx, machineId, msg.groupId, msg.botId)
+      const base = self?.pending === 'base' && msg.kind === 'init'
+      if (!self || !(self.joinedAt || base))
+        return { result: { outcome: 'rejected', reason: 'not_participating' } }
+      const [done] = await tx
+        .select({ version: syncVersions.version })
+        .from(syncVersions)
+        .where(and(eq(syncVersions.groupId, msg.groupId), eq(syncVersions.submitId, msg.submitId)))
+      if (done) return { result: { outcome: 'accepted', version: done.version } }
 
-    const current = await headVersion(tx, msg.groupId)
-    const head = await loadHead(tx, msg.groupId)
-    const { conflicts, effective, next } = compareAndSwap(head, msg.changes)
-    if (conflicts.length || !next) {
-      const result = {
-        outcome: 'conflict' as const,
-        headVersion: current,
-        conflicts: conflicts.map((path) => ({
-          path,
-          hash: head.get(path)?.hash ?? null,
-          exec: head.get(path)?.exec ?? false,
-        })),
+      const current = await headVersion(tx, msg.groupId)
+      const head = await loadHead(tx, msg.groupId)
+      const joined = base ? { joinedAt: ctx.now(), pending: null } : {}
+      const { conflicts, effective, next } = base
+        ? replaceHead(head, msg.changes)
+        : compareAndSwap(head, msg.changes)
+      if (conflicts.length || !next) {
+        const result = {
+          outcome: 'conflict' as const,
+          headVersion: current,
+          conflicts: conflicts.map((path) => ({
+            path,
+            hash: head.get(path)?.hash ?? null,
+            exec: head.get(path)?.exec ?? false,
+          })),
+        }
+        const lastConflict: LastConflict = {
+          submitId: msg.submitId,
+          baseVersion: msg.baseVersion,
+          headVersion: current,
+          changes: msg.changes,
+          conflicts: result.conflicts,
+        }
+        await upsertReplica(tx, msg.groupId, msg.botId, { lastConflict })
+        return { result }
       }
-      const lastConflict: LastConflict = {
+      if (!effective.length && current > 0) {
+        if (base) await upsertReplica(tx, msg.groupId, msg.botId, joined)
+        return { result: { outcome: 'accepted', version: current }, base }
+      }
+
+      let bytes = 0
+      for (const hash of new Set(effective.flatMap((c) => (c.hash ? [c.hash] : [])))) {
+        const size = await blobSize(msg.groupId, hash)
+        if (size === null) return { result: { outcome: 'rejected', reason: 'blobs_missing' } }
+        bytes += size
+      }
+      if (bytes > SYNC_VERSION_MAX_BYTES) return { result: { outcome: 'rejected', reason: 'too_large' } }
+
+      const version = current + 1
+      const tag = TAG[msg.kind]
+      await tx.insert(syncVersions).values({
+        groupId: msg.groupId,
+        version,
         submitId: msg.submitId,
-        baseVersion: msg.baseVersion,
-        headVersion: current,
-        changes: msg.changes,
-        conflicts: result.conflicts,
-      }
-      await upsertReplica(tx, msg.groupId, msg.botId, { lastConflict })
-      return { result }
-    }
-    if (!effective.length && current > 0) return { result: { outcome: 'accepted', version: current } }
-
-    let bytes = 0
-    for (const hash of new Set(effective.flatMap((c) => (c.hash ? [c.hash] : [])))) {
-      const size = await blobSize(msg.groupId, hash)
-      if (size === null) return { result: { outcome: 'rejected', reason: 'blobs_missing' } }
-      bytes += size
-    }
-    if (bytes > SYNC_VERSION_MAX_BYTES) return { result: { outcome: 'rejected', reason: 'too_large' } }
-
-    const version = current + 1
-    const tag = TAG[msg.kind]
-    await tx.insert(syncVersions).values({
-      groupId: msg.groupId,
-      version,
-      submitId: msg.submitId,
-      authorKind: msg.kind === 'local' ? 'user' : 'bot',
-      authorId: msg.kind === 'local' ? self.ownerId : msg.botId,
-      runId: msg.runId,
-      tags: [...(tag ? [tag] : []), ...(msg.merged ? (['auto_merge'] as const) : [])],
-      files: effective.length,
-      rootHash: sha256(syncRootText(entries(next))),
-    })
-    for (const part of chunks(effective))
-      await tx
-        .insert(syncChanges)
-        .values(
-          part.map((c) => ({ groupId: msg.groupId, version, path: c.path, hash: c.hash, exec: c.exec })),
-        )
-    const gone = effective.filter((c) => c.hash === null).map((c) => c.path)
-    for (const part of chunks(gone))
-      await tx.delete(syncHead).where(and(eq(syncHead.groupId, msg.groupId), inArray(syncHead.path, part)))
-    const live = effective.flatMap((c) =>
-      c.hash ? [{ groupId: msg.groupId, path: c.path, hash: c.hash, exec: c.exec }] : [],
-    )
-    for (const part of chunks(live))
-      await tx
-        .insert(syncHead)
-        .values(part)
-        .onConflictDoUpdate({
-          target: [syncHead.groupId, syncHead.path],
-          set: { hash: sql`excluded.hash`, exec: sql`excluded.exec` },
-        })
-    await upsertReplica(tx, msg.groupId, msg.botId, { lastConflict: null })
-    return { result: { outcome: 'accepted', version }, version }
-  })
+        authorKind: msg.kind === 'local' ? 'user' : 'bot',
+        authorId: msg.kind === 'local' ? self.ownerId : msg.botId,
+        runId: msg.runId,
+        tags: [...(tag ? [tag] : []), ...(msg.merged ? (['auto_merge'] as const) : [])],
+        files: effective.length,
+        rootHash: sha256(syncRootText(entries(next))),
+      })
+      for (const part of chunks(effective))
+        await tx
+          .insert(syncChanges)
+          .values(
+            part.map((c) => ({ groupId: msg.groupId, version, path: c.path, hash: c.hash, exec: c.exec })),
+          )
+      const gone = effective.filter((c) => c.hash === null).map((c) => c.path)
+      for (const part of chunks(gone))
+        await tx.delete(syncHead).where(and(eq(syncHead.groupId, msg.groupId), inArray(syncHead.path, part)))
+      const live = effective.flatMap((c) =>
+        c.hash ? [{ groupId: msg.groupId, path: c.path, hash: c.hash, exec: c.exec }] : [],
+      )
+      for (const part of chunks(live))
+        await tx
+          .insert(syncHead)
+          .values(part)
+          .onConflictDoUpdate({
+            target: [syncHead.groupId, syncHead.path],
+            set: { hash: sql`excluded.hash`, exec: sql`excluded.exec` },
+          })
+      await upsertReplica(tx, msg.groupId, msg.botId, { lastConflict: null, ...joined })
+      return { result: { outcome: 'accepted', version }, version, base }
+    },
+  )
 }
 
-async function upsertReplica(
+export async function upsertReplica(
   db: Q,
   groupId: string,
   botId: string,
@@ -363,15 +400,20 @@ export async function changesSince(ctx: Ctx, groupId: string, from: number) {
   )
 }
 
+const ALIGNING = ['align', 'force']
+
 /**
  * The replica now holds `version`: clean when its root hash matches that version's (F14), which settles its issue and
- * open conflicts; otherwise it is flagged. Returns false when the report was not the replica's to make.
+ * open conflicts, and joins a replica that was aligning (§3.5); otherwise it is flagged. Returns null when the report
+ * was not the replica's to make, else whether it just joined.
  */
 export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<typeof SyncApplied>) {
   return ctx.db.transaction(async (tx) => {
-    if (!(await replica(tx, machineId, msg.groupId, msg.botId))) return false
+    const self = await replica(tx, machineId, msg.groupId, msg.botId)
+    const aligning = ALIGNING.includes(self?.pending ?? '')
+    if (!self || !(self.joinedAt || aligning)) return null
     const expected = await rootHashOf(tx, msg.groupId, msg.version)
-    const now = new Date()
+    const now = ctx.now()
     const base = { version: msg.version, rootHash: msg.rootHash, syncedAt: now, files: [], total: 0 }
     if (expected === msg.rootHash) {
       await upsertReplica(tx, msg.groupId, msg.botId, {
@@ -379,6 +421,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
         issue: null,
         reason: null,
         lastConflict: null,
+        ...(aligning && { joinedAt: self.joinedAt ?? now, pending: null }),
       })
       await tx
         .update(syncConflicts)
@@ -390,29 +433,37 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
             isNull(syncConflicts.resolvedAt),
           ),
         )
-    } else
-      await upsertReplica(tx, msg.groupId, msg.botId, {
-        ...base,
-        issue: 'error',
-        reason: t('副本内容与 v{version} 不一致', { version: msg.version }),
-      })
-    return true
+      return { joined: aligning }
+    }
+    await upsertReplica(tx, msg.groupId, msg.botId, {
+      ...base,
+      issue: 'error',
+      reason: t('副本内容与 v{version} 不一致', { version: msg.version }),
+      ...(aligning && { pending: null }),
+    })
+    return { joined: false }
   })
 }
 
-/** Stores why a replica stopped taking versions; `held` opens a conflict from its last refused submit (F11). */
+/**
+ * Stores why a replica stopped taking versions; `held` opens a conflict from its last refused submit (F11). An answer
+ * to sync.init ends it (`pending` tells which it answered): `dirty` leaves the replica out.
+ */
 export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<typeof SyncState>) {
   return ctx.db.transaction(async (tx) => {
     const [row] = await tx
       .select({ lastConflict: syncReplicas.lastConflict })
       .from(syncReplicas)
       .where(and(eq(syncReplicas.groupId, msg.groupId), eq(syncReplicas.botId, msg.botId)))
-    if (!(await replica(tx, machineId, msg.groupId, msg.botId))) return false
+    const self = await replica(tx, machineId, msg.groupId, msg.botId)
+    if (!self || !(self.joinedAt || self.pending)) return null
     await upsertReplica(tx, msg.groupId, msg.botId, {
       issue: msg.state,
       files: msg.files.slice(0, SYNC_FILES_MAX),
       total: msg.total,
       reason: msg.reason,
+      ...(self.pending && { pending: null }),
+      ...(msg.state === 'dirty' && { joinedAt: null }),
     })
     const last = row?.lastConflict as LastConflict | null | undefined
     if (msg.state === 'held' && last)
@@ -420,6 +471,6 @@ export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<type
         .insert(syncConflicts)
         .values({ groupId: msg.groupId, botId: msg.botId, ...last })
         .onConflictDoNothing({ target: syncConflicts.submitId })
-    return true
+    return { pending: self.pending }
   })
 }

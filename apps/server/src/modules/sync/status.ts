@@ -2,6 +2,7 @@ import type {
   SyncChange,
   SyncConflictDto,
   SyncEntry,
+  SyncReplicaIssue,
   SyncReplicaState,
   SyncStatusDto,
   SyncVersionDto,
@@ -26,14 +27,23 @@ import { isBinary } from './blobs.js'
 export const SYNCING_MS = 60_000
 
 /**
- * F14, in order: not managed or dirty → excluded; machine offline → offline; held → conflict; drift or error (limits,
- * root hash mismatch) → drift; at head → consistent; else syncing while the head is fresh, behind after.
+ * F14, in order: not managed → excluded; not joined → syncing / offline while its sync.init is due, else excluded;
+ * machine offline → offline; held → conflict; drift or error (limits, root hash mismatch) → drift; at head →
+ * consistent; else syncing while the head is fresh, behind after.
  */
 function replicaState(
-  o: { managed: boolean; online: boolean; issue: string | null; version: number | null },
+  o: {
+    managed: boolean
+    joined: boolean
+    pending: boolean
+    online: boolean
+    issue: string | null
+    version: number | null
+  },
   head: { version: number; fresh: boolean },
 ): SyncReplicaState {
-  if (!o.managed || o.issue === 'dirty') return 'excluded'
+  if (!o.managed) return 'excluded'
+  if (!o.joined) return o.pending ? (o.online ? 'syncing' : 'offline') : 'excluded'
   if (!o.online) return 'offline'
   if (o.issue === 'held') return 'conflict'
   if (o.issue) return 'drift'
@@ -42,11 +52,12 @@ function replicaState(
 }
 
 export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusDto> {
-  const [rows, [head]] = await Promise.all([
+  const [rows, [head], [group]] = await Promise.all([
     ctx.db
       .select({
         botId: bots.id,
         botName: bots.name,
+        ownerId: bots.ownerId,
         machineId: bots.machineId,
         machineName: machines.name,
         machineLabel: machines.label,
@@ -68,6 +79,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
       .where(eq(syncVersions.groupId, groupId))
       .orderBy(desc(syncVersions.version))
       .limit(1),
+    ctx.db.select({ syncSwitch: groups.syncSwitch }).from(groups).where(eq(groups.id, groupId)),
   ])
   const h = {
     version: head?.version ?? 0,
@@ -75,14 +87,19 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
   }
   const replicas = rows.map((r) => {
     const issue = r.replica?.issue ?? null
+    const managed = r.workspaceKind === 'managed'
     return {
       botId: r.botId,
       botName: r.botName,
+      ownerId: r.ownerId,
       machineName: r.machineLabel ?? r.machineName,
+      workspace: managed ? ('managed' as const) : ('cd' as const),
       version: r.replica?.version ?? null,
       state: replicaState(
         {
-          managed: r.workspaceKind === 'managed',
+          managed,
+          joined: !!r.replica?.joinedAt,
+          pending: !!r.replica?.pending,
           online: !!r.machineId && ctx.hub.isOnline(r.machineId),
           issue,
           version: r.replica?.version ?? null,
@@ -90,6 +107,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
         h,
       ),
       updatedAt: r.replica?.syncedAt?.toISOString() ?? null,
+      issue: managed ? ((issue as SyncReplicaIssue | null) ?? null) : null,
       files: issue ? (r.replica?.files ?? []) : [],
       reason: issue ? (r.replica?.reason ?? null) : null,
     }
@@ -99,6 +117,7 @@ export async function syncStatus(ctx: Ctx, groupId: string): Promise<SyncStatusD
     headVersion: h.version,
     consistent: replicas.filter((r) => r.state === 'consistent').length,
     total: replicas.filter((r) => r.state !== 'excluded').length,
+    switching: !!group?.syncSwitch,
     replicas,
   }
 }

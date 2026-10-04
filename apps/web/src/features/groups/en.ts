@@ -110,10 +110,6 @@ export default {
   群级参数已保存: 'Group parameters saved',
   保存后对新会话生效: 'Applies to new sessions after saving',
   当前模式: 'Current mode',
-  '切换到强制同步后，同一时刻只有一个写入者，每轮结束后所有在线机器的工作树保持一致（不同步 .git）。':
-    'With force sync there is one writer at a time, and after each turn every online machine has the same working tree (.git is not synced).',
-  强制同步暂未开放: 'Force sync is not available yet',
-  切换到强制同步: 'Switch to force sync',
   私聊名: 'Chat name',
   群名: 'Group name',
   类型: 'Type',

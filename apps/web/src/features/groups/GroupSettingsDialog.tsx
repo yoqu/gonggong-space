@@ -1,6 +1,5 @@
 import { type GroupDto, GroupParams } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
@@ -9,6 +8,7 @@ import { Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Spinner, Stepp
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
+import { SyncModeTab } from '../sync/SyncModeTab'
 import { groupsApi } from './api'
 import { BotsView, type SettingsTab } from './GroupInfo'
 
@@ -119,21 +119,7 @@ export function GroupSettingsDialog({
           ) : tab === 'feishu' ? (
             <GroupFeishuTab group={group} />
           ) : tab === 'mode' ? (
-            <div className="gs-mode">
-              <GroupBox>
-                <GroupRow
-                  label={t('当前模式')}
-                  description={t(
-                    '切换到强制同步后，同一时刻只有一个写入者，每轮结束后所有在线机器的工作树保持一致（不同步 .git）。',
-                  )}
-                >
-                  <span className="gs-value">{GROUP_MODE_LABEL[group.mode]}</span>
-                </GroupRow>
-                <GroupRow label={t('强制同步')} description={t('强制同步暂未开放')}>
-                  <Button disabled>{t('切换到强制同步')}</Button>
-                </GroupRow>
-              </GroupBox>
-            </div>
+            <SyncModeTab group={group} />
           ) : params ? (
             <GroupBox>
               {PARAMS.map((p) => (

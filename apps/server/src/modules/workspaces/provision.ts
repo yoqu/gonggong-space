@@ -15,6 +15,7 @@ import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
 import { forgetLocalPath, recordRepo } from '../repos/service.js'
 import { schedule } from '../runs/scheduler.js'
+import { autoAlign } from '../sync/switch.js'
 import { updateBotState } from './state.js'
 
 type BotRef = { id: string; name: string; machineId: string | null }
@@ -278,7 +279,10 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   // Clones fail from ensure and from `/cd --reset` alike.
   if (msg.state === 'failed' && msg.reason && PAUSING.includes(msg.reason) && msg.error !== row.error)
     await notifyPaused(ctx, msg, row)
-  if (msg.state === 'ready') await schedule(ctx, msg.botId)
+  if (msg.state === 'ready') {
+    await autoAlign(ctx, msg.groupId, msg.botId)
+    await schedule(ctx, msg.botId)
+  }
 }
 
 /** A ready /cd directory: its remotes go to the repo history, with where they live on this machine. */

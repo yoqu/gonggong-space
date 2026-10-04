@@ -93,3 +93,14 @@
   display: flex;
   justify-content: center;
 }
+.sync-panel__head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: calc(-1 * var(--space-8));
+}
+.sync-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}

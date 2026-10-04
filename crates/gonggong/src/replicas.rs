@@ -1,14 +1,16 @@
 //! Force sync in the run lifecycle (docs/plan/强制同步-开发计划.md §3.1, S4): a replica catches up before a turn,
 //! submits the turn's changes after it (three-way merging conflicts), and idle replicas catch up when a new version is
-//! out. Every step on a replica holds its lock, and a turn holds it from catch-up to submit, so a version arriving
-//! meanwhile is applied only once the turn's changes are in (F8).
+//! out; the mode switch (§3.5, S8) makes a replica the base, aligns it or lets it leave. Every step on a replica holds
+//! its lock, and a turn holds it from catch-up to submit, so a version arriving meanwhile is applied only once the
+//! turn's changes are in (F8).
 use crate::config::Config;
+use crate::git;
 use crate::protocol::{
     DaemonToServer, RunStart, RunSyncDone, SYNC_FILES_MAX, SyncChange, SyncEntry, SyncRejectReason, SyncReplicaIssue,
-    SyncSubmit, SyncSubmitKind, SyncSubmitResult,
+    SyncRole, SyncSubmit, SyncSubmitKind, SyncSubmitResult,
 };
 use crate::service::Outbox;
-use crate::sync::{self, ApplyError, Base, Client, Merge, Replica};
+use crate::sync::{self, ApplyError, Base, Client, Manifest, Merge, Replica};
 use crate::t;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -136,6 +138,107 @@ impl Replicas {
         }
     }
 
+    /// sync.init (§3.5): becomes the base, aligns to the head or leaves, under the replica's lock. Repeating one is
+    /// harmless: the base resubmits the same tree, a replica still at a synced version aligns without loss.
+    pub fn on_init(self: &Arc<Self>, init: Init, out: &Outbox) {
+        let (me, out) = (self.clone(), out.clone());
+        tokio::spawn(async move {
+            let lock = me.lock(&init.group, &init.bot).await;
+            let work = crate::workspace::managed_path(&me.home, &init.group, &init.bot, init.repo_id.as_deref());
+            let r = Replica::new(&me.home, &init.group, &init.bot, work);
+            let result = match init.role {
+                SyncRole::Leave => r.forget(),
+                SyncRole::Base => me.become_base(&r, &out).await,
+                SyncRole::Align => me.align(&r, init.force, &out).await,
+            };
+            if let Err(e) = result {
+                tracing::warn!("sync.init {:?} of {}/{} failed: {e}", init.role, init.group, init.bot);
+                if init.role != SyncRole::Leave {
+                    report(&out, &r, SyncReplicaIssue::Error, &[], Some(e));
+                }
+            }
+            drop(lock);
+            if init.role == SyncRole::Leave {
+                let mut locks = me.locks.lock().unwrap();
+                let key = (init.group, init.bot);
+                if locks.get(&key).is_some_and(|l| Arc::strong_count(l) == 1) {
+                    locks.remove(&key);
+                }
+            }
+        });
+    }
+
+    fn client(&self) -> Result<&Client, String> {
+        self.client.as_ref().ok_or_else(|| t!("无法连接服务器同步接口").to_string())
+    }
+
+    /// The base of a mode switch: its whole tree, uncommitted changes included, replaces the head.
+    async fn become_base(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
+        let client = self.client()?;
+        self.prepare(r.work()).await;
+        let tree = r.tree().await?;
+        let files = tree.manifest();
+        let changes = sync::diff(&Manifest::new(), &files);
+        let violations = sync::check(&tree, &changes);
+        if let Some(first) = violations.first() {
+            let paths: Vec<_> = violations.iter().map(|v| v.path.clone()).collect();
+            report(out, r, SyncReplicaIssue::Error, &paths, Some(first.reason()));
+            return Ok(());
+        }
+        upload(client, r, &changes).await?;
+        match self.submit(r, None, SyncSubmitKind::Init, out, 0, false, changes).await? {
+            SyncSubmitResult::Accepted { version } => {
+                r.set_base(&Base { version, files: files.clone() })?;
+                r.set_issue(None)?;
+                applied(out, r, version, sync::manifest_root(&files));
+                Ok(())
+            }
+            SyncSubmitResult::Rejected { reason } => Err(rejected(reason)),
+            SyncSubmitResult::Conflict { .. } => Err(t!("同步提交被拒绝：与权威版本冲突").into()),
+        }
+    }
+
+    /// Joins a replica: its tree becomes exactly the head (files the head lacks are deleted). Uncommitted git changes
+    /// leave it out (`dirty`) unless `force`; whatever is overwritten is backed up first, except on a replica still
+    /// matching a version it synced, whose files are all in the server's history.
+    async fn align(&self, r: &Replica, force: bool, out: &Outbox) -> Result<(), String> {
+        let client = self.client()?;
+        self.prepare(r.work()).await;
+        let current = r.tree().await?.manifest();
+        let synced = r.joined() && r.issue()?.is_none() && !sync::drift(&r.base()?.files, &current);
+        if !force && !synced {
+            let dirty: Vec<String> = git::porcelain(r.work()).await?.into_keys().collect();
+            if !dirty.is_empty() {
+                r.forget()?;
+                report(out, r, SyncReplicaIssue::Dirty, &dirty, None);
+                return Ok(());
+            }
+        }
+        let res = client.changes(r.group(), 0).await.map_err(|e| format!("{e:#}"))?;
+        if res.head_version == 0 {
+            return Err(t!("强制同步还没有版本").into());
+        }
+        let head = sync::advance(&Manifest::new(), &res.entries);
+        let mut entries = res.entries;
+        entries.extend(current.keys().filter(|p| !head.contains_key(*p)).map(|p| SyncEntry {
+            path: p.clone(),
+            hash: None,
+            exec: false,
+        }));
+        if !synced {
+            let overwritten: Vec<String> =
+                current.iter().filter(|(p, f)| head.get(*p) != Some(*f)).map(|(p, _)| p.clone()).collect();
+            r.backup(&overwritten)?;
+        }
+        let group = r.group();
+        let fetch = |hash: String| async move { client.download(group, &hash).await.map_err(|e| format!("{e:#}")) };
+        let base = Base { version: 0, files: current };
+        let root_hash = r.apply_from(base, res.head_version, &entries, fetch).await.map_err(|e| e.to_string())?;
+        r.set_issue(None)?;
+        applied(out, r, res.head_version, root_hash);
+        Ok(())
+    }
+
     async fn catch_up_idle(&self, r: &Replica, out: &Outbox) -> Result<(), String> {
         // Paused until someone settles it (F11, F12).
         if r.issue()?.is_some() {
@@ -178,12 +281,7 @@ impl Replicas {
         let group = r.group();
         let fetch = |hash: String| async move { client.download(group, &hash).await.map_err(|e| format!("{e:#}")) };
         let root_hash = r.apply(res.head_version, &res.entries, fetch).await?;
-        out.send(DaemonToServer::SyncApplied {
-            group_id: group.into(),
-            bot_id: r.bot().into(),
-            version: res.head_version,
-            root_hash,
-        });
+        applied(out, r, res.head_version, root_hash);
         Ok(())
     }
 
@@ -213,7 +311,9 @@ impl Replicas {
             }
             upload(client, r, &changes).await?;
             let merged = attempt > 0;
-            match self.submit(r, run_id, out, base.version, merged, changes.clone()).await? {
+            let submitted =
+                self.submit(r, Some(run_id), SyncSubmitKind::Run, out, base.version, merged, changes.clone());
+            match submitted.await? {
                 SyncSubmitResult::Accepted { version } => {
                     // The submitted tree on top of the old base: catching up from there brings in the others' changes.
                     r.set_base(&Base { version: base.version, files: tree.manifest() })?;
@@ -244,10 +344,12 @@ impl Replicas {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn submit(
         &self,
         r: &Replica,
-        run_id: &str,
+        run_id: Option<&str>,
+        kind: SyncSubmitKind,
         out: &Outbox,
         base_version: u64,
         merged: bool,
@@ -260,9 +362,9 @@ impl Replicas {
             group_id: r.group().into(),
             bot_id: r.bot().into(),
             submit_id: submit_id.clone(),
-            run_id: Some(run_id.into()),
+            run_id: run_id.map(Into::into),
             base_version,
-            kind: SyncSubmitKind::Run,
+            kind,
             merged,
             changes,
         }));
@@ -303,6 +405,19 @@ fn rejected(reason: SyncRejectReason) -> String {
         SyncRejectReason::NotParticipating => t!("同步提交被拒绝：该副本未参与强制同步"),
     }
     .into()
+}
+
+/// A sync.init as the engine hands it over.
+pub(crate) struct Init {
+    pub group: String,
+    pub bot: String,
+    pub role: SyncRole,
+    pub force: bool,
+    pub repo_id: Option<String>,
+}
+
+fn applied(out: &Outbox, r: &Replica, version: u64, root_hash: String) {
+    out.send(DaemonToServer::SyncApplied { group_id: r.group().into(), bot_id: r.bot().into(), version, root_hash });
 }
 
 fn report(out: &Outbox, r: &Replica, state: SyncReplicaIssue, paths: &[String], reason: Option<String>) {

@@ -1,4 +1,4 @@
-import type { GroupDto, SyncStatusDto, SyncVersionDto } from '@gonggong/protocol'
+import type { GroupDto, SyncPreviewDto, SyncStatusDto, SyncVersionDto } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
@@ -53,6 +53,12 @@ export const syncApi = {
     api.get<SyncVersionDto[]>(
       `/groups/${groupId}/sync/versions?${before ? `before=${before}&` : ''}limit=${VERSIONS_PAGE}`,
     ),
+  preview: (groupId: string) => api.get<SyncPreviewDto>(`/groups/${groupId}/sync/preview`),
+  /** `force` = 丢弃本地改动并加入. */
+  join: (groupId: string, botId: string, force: boolean) =>
+    api
+      .post<SyncStatusDto>(`/groups/${groupId}/sync/replicas/${botId}/join`, { force })
+      .then((s) => useStore.setState({ [groupId]: s })),
 }
 
 /** Tests: forget loaded statuses and the realtime hook-up. */

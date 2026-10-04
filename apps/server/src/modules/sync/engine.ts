@@ -4,10 +4,11 @@ import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups } from '../../db/schema.js'
 import { publishSync } from './status.js'
 import { headVersion, recordApplied, recordState, replicaMachines, submitTx } from './store.js'
+import { forgetMachineInits, onAligned, onBaseAccepted, onBaseFailed } from './switch.js'
 
 /** Answers sync.submit; on a new version tells the other replicas' machines (F8) and the members. */
 export async function handleSubmit(ctx: Ctx, machineId: string, msg: SyncSubmit) {
-  const { result, version } = await submitTx(ctx, machineId, msg)
+  const { result, version, base } = await submitTx(ctx, machineId, msg)
   ctx.hub.send(machineId, {
     t: 'sync.result',
     groupId: msg.groupId,
@@ -15,10 +16,31 @@ export async function handleSubmit(ctx: Ctx, machineId: string, msg: SyncSubmit)
     submitId: msg.submitId,
     result,
   })
+  if (base && result.outcome === 'accepted') await onBaseAccepted(ctx, msg.groupId, msg.botId)
   if (version === undefined) return
   for (const m of await replicaMachines(ctx.db, msg.groupId, msg.botId))
     ctx.hub.send(m, { t: 'sync.available', groupId: msg.groupId, version })
   await publishSync(ctx, msg.groupId)
+}
+
+async function onApplied(ctx: Ctx, machineId: string, msg: Extract<DaemonToServer, { t: 'sync.applied' }>) {
+  const r = await recordApplied(ctx, machineId, msg)
+  if (!r) return
+  await publishSync(ctx, msg.groupId)
+  if (!r.joined) return
+  // A version that came out while it aligned.
+  const head = await headVersion(ctx.db, msg.groupId)
+  if (head > msg.version)
+    ctx.hub.send(machineId, { t: 'sync.available', groupId: msg.groupId, version: head })
+  await onAligned(ctx, msg.groupId, msg.botId)
+}
+
+async function onState(ctx: Ctx, machineId: string, msg: Extract<DaemonToServer, { t: 'sync.state' }>) {
+  const r = await recordState(ctx, machineId, msg)
+  if (!r) return
+  await publishSync(ctx, msg.groupId)
+  if (r.pending === 'base') await onBaseFailed(ctx, msg.groupId, msg.botId, msg.reason)
+  else if (r.pending) await onAligned(ctx, msg.groupId, msg.botId)
 }
 
 /** Force groups with a bot on `machineId`: their replicas' online state changed. */
@@ -45,19 +67,12 @@ export function startSyncEngine(ctx: Ctx) {
   }
   const onMessage = (machineId: string, msg: DaemonToServer) => {
     if (msg.t === 'sync.submit') enqueue(msg.groupId, () => handleSubmit(ctx, machineId, msg))
-    else if (msg.t === 'sync.applied')
-      enqueue(
-        msg.groupId,
-        async () => (await recordApplied(ctx, machineId, msg)) && publishSync(ctx, msg.groupId),
-      )
-    else if (msg.t === 'sync.state')
-      enqueue(
-        msg.groupId,
-        async () => (await recordState(ctx, machineId, msg)) && publishSync(ctx, msg.groupId),
-      )
+    else if (msg.t === 'sync.applied') enqueue(msg.groupId, () => onApplied(ctx, machineId, msg))
+    else if (msg.t === 'sync.state') enqueue(msg.groupId, () => onState(ctx, machineId, msg))
   }
   const onPresence = (machineId: string) =>
     enqueue(machineId, async () => {
+      forgetMachineInits(machineId)
       for (const id of await machineGroups(ctx, machineId)) await publishSync(ctx, id)
     })
   // A reconnected daemon catches its replicas up to the head it missed while away (F9).

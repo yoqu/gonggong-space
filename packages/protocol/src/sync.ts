@@ -143,15 +143,20 @@ export const SyncAction = z.object({
   action: SyncActionKind,
 })
 /**
- * Mode switch for one replica (§3.5): `base` submits its whole tree as v1 (kind `init`); `align` overwrites the tree
- * with the head after a backup, or reports `dirty` when git has uncommitted changes unless `force`; `leave` stops syncing.
+ * Mode switch for one replica (§3.5): `base` submits its whole tree as the next version (kind `init`, replacing the
+ * head); `align` makes the tree exactly the head after backing up what it overwrites, or reports `dirty` when git has
+ * uncommitted changes unless `force`; `leave` stops syncing and forgets the replica's sync state. `repoId` names the
+ * managed workspace (null for `leave`).
  */
+export const SyncRole = z.enum(['base', 'align', 'leave'])
+export type SyncRole = z.infer<typeof SyncRole>
 export const SyncInit = z.object({
   t: z.literal('sync.init'),
   groupId: z.string(),
   botId: z.string(),
-  role: z.enum(['base', 'align', 'leave']),
+  role: SyncRole,
   force: z.boolean(),
+  repoId: z.string().nullable(),
 })
 
 // ── Run fields ──────────────────────────────────────────────────────────────
@@ -209,11 +214,17 @@ export type SyncReplicaState = z.infer<typeof SyncReplicaState>
 export const SyncReplicaDto = z.object({
   botId: z.string(),
   botName: z.string(),
+  /** The bot's owner may join its replica, like a group admin. */
+  ownerId: z.string(),
   machineName: z.string().nullable(),
+  /** A /cd directory never takes part (F2). */
+  workspace: z.enum(['managed', 'cd']),
   /** Version the replica last applied; null before it joined. */
   version: z.number().int().nullable(),
   state: SyncReplicaState,
   updatedAt: z.string().nullable(),
+  /** What the daemon last reported, if anything is wrong (`dirty` = left out at the switch, may join later). */
+  issue: SyncReplicaIssue.nullable(),
   /** With drift / conflict / excluded: the paths concerned (capped) and why, as the daemon reported. */
   files: z.array(z.string()),
   reason: z.string().nullable(),
@@ -236,9 +247,40 @@ export const SyncStatusDto = z.object({
   headVersion: z.number().int(),
   consistent: z.number().int(),
   total: z.number().int(),
+  /** Switching from partition: the base bot's tree is not in yet; new turns wait (§3.5). */
+  switching: z.boolean(),
   replicas: z.array(SyncReplicaDto),
 })
 export type SyncStatusDto = z.infer<typeof SyncStatusDto>
+
+// ── Mode switch (§3.5, group admins) ────────────────────────────────────────
+/** POST /api/groups/:id/sync/enable: partition → force with `baseBotId`'s tree as the first version. */
+export const SyncEnableReq = z.object({ baseBotId: z.string() })
+/**
+ * POST /api/groups/:id/sync/replicas/:botId/join (group admin or the bot's owner): align a left-out replica;
+ * `force` = 丢弃并加入, its uncommitted changes are backed up and overwritten.
+ */
+export const SyncJoinReq = z.object({ force: z.boolean().default(false) })
+/**
+ * Why a bot would sit out or align late: `cd` a local directory, `offline` its machine (aligns once it connects),
+ * `dirty` uncommitted git changes as last reported (the daemon decides at the switch), `not_ready` no clone yet.
+ */
+export const SyncPreviewReason = z.enum(['cd', 'offline', 'dirty', 'not_ready'])
+export type SyncPreviewReason = z.infer<typeof SyncPreviewReason>
+/** GET /api/groups/:id/sync/preview: what switching would do to each bot; `canBase` = may be the base. */
+export const SyncPreviewDto = z.object({
+  bots: z.array(
+    z.object({
+      botId: z.string(),
+      botName: z.string(),
+      machineName: z.string().nullable(),
+      plan: z.enum(['align', 'excluded']),
+      reason: SyncPreviewReason.nullable(),
+      canBase: z.boolean(),
+    }),
+  ),
+})
+export type SyncPreviewDto = z.infer<typeof SyncPreviewDto>
 /** A held change: per file the replica's, the head's and the base's content hash (null = absent / deleted). */
 export const SyncConflictDto = z.object({
   id: z.string(),

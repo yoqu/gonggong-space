@@ -17,7 +17,7 @@ use crate::protocol::{
     ServerToDaemon, ServiceInfo, Tier,
 };
 use crate::providers::Selection;
-use crate::replicas::Replicas;
+use crate::replicas::{Init, Replicas};
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -346,8 +346,12 @@ impl Handler for Engine {
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
             ServerToDaemon::SyncResult { submit_id, result, .. } => self.0.replicas.on_result(&submit_id, result),
             ServerToDaemon::SyncAvailable { group_id, .. } => self.0.replicas.on_available(&group_id, out),
-            // Settling drift and conflicts (S5, S6) and the mode switch (S8) come later.
-            ServerToDaemon::SyncAction { .. } | ServerToDaemon::SyncInit { .. } => {}
+            ServerToDaemon::SyncInit { group_id, bot_id, role, force, repo_id } => {
+                let init = Init { group: group_id, bot: bot_id, role, force, repo_id };
+                self.0.replicas.on_init(init, out)
+            }
+            // Settling drift and conflicts (S5, S6) comes later.
+            ServerToDaemon::SyncAction { .. } => {}
             ServerToDaemon::ServiceStop { service_id } => {
                 let services = self.0.services.clone();
                 tokio::spawn(async move { services.stop_id(&service_id).await });

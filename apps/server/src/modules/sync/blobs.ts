@@ -1,15 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PassThrough, type Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
 import { SYNC_FILE_MAX_BYTES } from '@gonggong/protocol'
-import { and, eq, gte, isNotNull, isNull } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, isNull, lt, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { syncChanges, syncConflicts, syncHead, syncVersions } from '../../db/schema.js'
+import { groups, syncChanges, syncConflicts, syncHead, syncReplicas, syncVersions } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { isUuid } from '../../lib/ids.js'
 import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
 import { dataDir } from '../attachments/service.js'
 
@@ -80,12 +81,45 @@ export async function isBinary(groupId: string, hash: string | null) {
   return Buffer.concat(chunks).subarray(0, SNIFF).includes(0)
 }
 
-/** F16: deletes blobs neither the head, a recent version, an open conflict nor a fresh upload needs. */
+/** Switched back to partition, or dissolved, more than 30 days ago: the archive goes (§3.5, spec §9). */
+async function archiveExpired(ctx: Ctx, groupId: string, cutoff: Date) {
+  const [g] = await ctx.db
+    .select({ id: groups.id })
+    .from(groups)
+    .where(
+      and(
+        eq(groups.id, groupId),
+        or(
+          and(eq(groups.mode, 'partition'), lt(groups.syncArchivedAt, cutoff)),
+          lt(groups.archivedAt, cutoff),
+        ),
+      ),
+    )
+  return !!g
+}
+
+async function purgeGroup(ctx: Ctx, groupId: string) {
+  await ctx.db.transaction(async (tx) => {
+    for (const table of [syncConflicts, syncReplicas, syncChanges, syncHead, syncVersions])
+      await tx.delete(table).where(eq(table.groupId, groupId))
+    await tx.update(groups).set({ syncArchivedAt: null }).where(eq(groups.id, groupId))
+  })
+  await rm(groupDir(groupId), { recursive: true, force: true })
+}
+
+/**
+ * F16: deletes blobs neither the head, a recent version, an open conflict nor a fresh upload needs, and whole
+ * archives past their 30 days.
+ */
 export async function purgeSyncBlobs(ctx: Ctx) {
   const root = join(dataDir(), 'sync')
   const groupIds = await readdir(root).catch(() => [] as string[])
   const now = ctx.now().getTime()
   for (const groupId of groupIds) {
+    if (isUuid(groupId) && (await archiveExpired(ctx, groupId, new Date(now - KEEP_MS)))) {
+      await purgeGroup(ctx, groupId)
+      continue
+    }
     const [live, recent, open] = await Promise.all([
       ctx.db.select({ hash: syncHead.hash }).from(syncHead).where(eq(syncHead.groupId, groupId)),
       ctx.db

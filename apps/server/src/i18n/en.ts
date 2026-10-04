@@ -475,5 +475,18 @@ export const en = {
   文件内容与哈希不符: 'The content does not match its hash',
   哈希无效: 'Invalid hash',
   '该机器上没有这个强制同步群的 Bot': 'This machine hosts no Bot of this force-sync group',
+  群已是强制同步模式: 'The group is already in force sync mode',
+  群不是强制同步模式: 'The group is not in force sync mode',
+  '群未绑定仓库，不能切换为强制同步': 'Bind a repo to the group before switching to force sync',
+  '基准 Bot 不在群内': 'The base Bot is not in the group',
+  '基准 Bot 使用本机目录，不能作为基准': 'The base Bot uses a local directory and cannot be the base',
+  '基准 Bot 的托管工作区尚未就绪': "The base Bot's managed workspace is not ready yet",
+  '基准 Bot 所在机器离线': "The base Bot's machine is offline",
+  '仅群管理员或 Bot 主人可操作': "Only group admins or the Bot's owner can do this",
+  '正在切换为强制同步，请稍后再试': 'The group is switching to force sync, try again shortly',
+  '使用本机目录的 Bot 不参与强制同步': 'Bots using a local directory do not take part in force sync',
+  该副本已参与强制同步: 'This replica already takes part in force sync',
+  '强制同步群不能更换仓库，请先切回分区模式':
+    'A force-sync group cannot change its repo; switch back to partition mode first',
   '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
 } satisfies Record<string, string>

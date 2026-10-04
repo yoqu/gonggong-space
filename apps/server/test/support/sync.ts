@@ -2,12 +2,12 @@ import { createHash, randomUUID } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import type { SyncChange, SyncSubmit } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
-import { groups } from '../../src/db/schema.js'
+import { groups, syncReplicas } from '../../src/db/schema.js'
 import type { TestApp } from './app.js'
 
 export const sha = (s: string | Buffer) => createHash('sha256').update(s).digest('hex')
 
-/** Two machines, three bots (a and c share machine A), a force group with all three. */
+/** Two machines, three bots (a and c share machine A), a force group with all three replicas joined. */
 export async function syncWorld(t: TestApp) {
   const wang = await t.seed.user({ name: '王磊' })
   const li = await t.seed.user({ name: '李建国' })
@@ -24,6 +24,9 @@ export async function syncWorld(t: TestApp) {
     botIds: [a.id, b.id, c.id],
   })
   await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, g.id))
+  await t.db
+    .insert(syncReplicas)
+    .values([a, b, c].map((bot) => ({ groupId: g.id, botId: bot.id, joinedAt: new Date() })))
   const auth = (token = A.token) => ({ authorization: `Bearer ${token}` })
 
   const put = (content: string | Buffer, o: { hash?: string; token?: string; gzip?: boolean } = {}) =>

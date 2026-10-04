@@ -409,7 +409,21 @@ function MainView({
         danger={danger}
       />
       <Presence>
-        {syncOpen ? <SyncPanel groupId={group.id} onClose={() => setSyncOpen(false)} /> : null}
+        {syncOpen ? (
+          <SyncPanel
+            groupId={group.id}
+            isAdmin={isAdmin}
+            onSettings={
+              isAdmin
+                ? () => {
+                    setSyncOpen(false)
+                    onSettings('mode')
+                  }
+                : undefined
+            }
+            onClose={() => setSyncOpen(false)}
+          />
+        ) : null}
       </Presence>
     </>
   )

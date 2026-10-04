@@ -37,7 +37,21 @@ impl Replica {
         F: Fn(String) -> Fut,
         Fut: Future<Output = Result<Vec<u8>, String>>,
     {
-        let base = self.base()?;
+        self.apply_from(self.base()?, version, entries, fetch).await
+    }
+
+    /// `apply` from a given base instead of the stored one: aligning takes the tree as it is for the base (§3.5).
+    pub async fn apply_from<F, Fut>(
+        &self,
+        base: Base,
+        version: u64,
+        entries: &[SyncEntry],
+        fetch: F,
+    ) -> Result<String, ApplyError>
+    where
+        F: Fn(String) -> Fut,
+        Fut: Future<Output = Result<Vec<u8>, String>>,
+    {
         let mut tree = self.tree().await?;
         let (mut drift, mut writes, mut deletes) = (vec![], vec![], vec![]);
         for e in entries {

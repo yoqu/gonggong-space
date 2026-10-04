@@ -212,6 +212,10 @@ export const groups = pgTable('groups', {
   noticeId: uuid('notice_id'),
   /** 'partition' | 'force' (P2) */
   mode: text('mode').notNull().default('partition'),
+  /** Switching to force (§3.5): who started it with which base bot, until the base's tree is in; new turns wait. */
+  syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string }>(),
+  /** Switched back to partition: the group's sync data is purged 30 days later unless force is enabled again. */
+  syncArchivedAt: ts('sync_archived_at'),
   /** Per-group overrides of system params, e.g. { approvalTimeoutMin: 30, chainMaxHops: 3 }. */
   params: jsonb('params').notNull().default({}),
   createdBy: uuid('created_by')
@@ -783,6 +787,10 @@ export const syncReplicas = pgTable(
     botId: uuid('bot_id')
       .notNull()
       .references(() => bots.id),
+    /** Takes part in versions since then (base accepted or aligned at the switch, or joined later); null = left out. */
+    joinedAt: ts('joined_at'),
+    /** sync.init due or in flight: 'base' | 'align' | 'force' (align discarding uncommitted changes). */
+    pending: text('pending'),
     /** Last version applied with a matching rootHash; null before it joined. */
     version: integer('version'),
     rootHash: text('root_hash'),

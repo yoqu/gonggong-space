@@ -16,6 +16,12 @@ export const protocolEn = {
   '{owner} 作为 {bot} 的主人一并加入群': "{owner} joined the group as {bot}'s owner",
   '{bot} 被移出 · 工作区保留': '{bot} was removed · workspace kept',
   '{bot} 被移出 · {user} 的账号已停用': "{bot} was removed · {user}'s account was disabled",
+  '{user} 将同步模式切换为强制同步，基准 Bot：{bot}':
+    '{user} switched the group to force sync, base Bot: {bot}',
+  '{user} 将同步模式切回分区模式，各 Bot 保留当前文件':
+    '{user} switched the group back to partition mode, each Bot keeps its current files',
+  '切换为强制同步失败，仍为分区模式：{reason}':
+    'Switching to force sync failed, still in partition mode: {reason}',
   '{user} 修改了名称': '{user} changed the name',
   '{user} 修改了群名称与公告': '{user} changed the group name and notice',
   '{user} 移除了群公告': '{user} removed the group notice',
@@ -84,6 +90,8 @@ export const protocolEn = {
   // Run steps
   'Bot 离线，等待上线': 'Bot offline, waiting for it to come online',
   工作区准备中: 'Preparing the workspace',
+  等待切换为强制同步: 'Waiting for the switch to force sync',
+  等待同步对齐: 'Waiting for the workspace to align with force sync',
   '本群上一轮未结束，排第 {n}': 'Previous turn in this group still running, #{n} in line',
   '该 Bot 忙，排第 {n}': 'This Bot is busy, #{n} in line',
   'daemon 重启，本轮已中断': 'The daemon restarted, this turn was interrupted',

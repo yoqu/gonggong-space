@@ -121,6 +121,20 @@ impl Replica {
         write_json(&self.state.join("cache.json"), files)
     }
 
+    /// Leaves force sync: the replica's state goes (its group's directory too once empty); the work tree stays.
+    pub fn forget(&self) -> Result<(), String> {
+        match std::fs::remove_dir_all(&self.state) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(t!("无法清除同步状态：{e}", e = e));
+            }
+            _ => {}
+        }
+        if let Some(group) = self.state.parent() {
+            let _ = std::fs::remove_dir(group);
+        }
+        Ok(())
+    }
+
     /// Copies the existing ones of `paths` to `<home>/backups/<group>/<MMDD-HHMMSS>-<bot>/` before they are
     /// overwritten or discarded; None when none exists.
     pub fn backup(&self, paths: &[String]) -> Result<Option<PathBuf>, String> {

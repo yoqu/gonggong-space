@@ -91,7 +91,15 @@ describe('sync messages', () => {
   })
 
   it('the web gets the group sync status live', () => {
-    const ev = { t: 'group.sync', groupId: 'g1', headVersion: 3, consistent: 0, total: 0, replicas: [] }
+    const ev = {
+      t: 'group.sync',
+      groupId: 'g1',
+      headVersion: 3,
+      consistent: 0,
+      total: 0,
+      switching: false,
+      replicas: [],
+    }
     expect(WebEvent.parse(ev)).toEqual(ev)
   })
 })

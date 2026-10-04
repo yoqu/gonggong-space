@@ -151,6 +151,7 @@ export function ChatView({
   const benchTabs = useWorkbench((s) => s.benches[group.id]?.tabs.length ?? 0)
   const benchOpen = useWorkbench((s) => s.open)
   const [settings, setSettings] = useState<SettingsTab | null>(null)
+  const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
   const linkPages = useRef(0)
@@ -430,7 +431,13 @@ export function ChatView({
           <GroupSettingsDialog group={group} tab={settings} onClose={() => setSettings(null)} />
         ) : null}
       </Presence>
-      {readOnly ? null : <SyncBar group={group} />}
+      {readOnly ? null : (
+        <SyncBar
+          group={group}
+          isAdmin={isAdmin}
+          onSettings={isAdmin ? () => setSettings('mode') : undefined}
+        />
+      )}
       {readOnly ? null : <GitBar group={group} />}
       <div className="chat-view__body">
         {drag.over ? (

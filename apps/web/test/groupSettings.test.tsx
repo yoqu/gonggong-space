@@ -597,14 +597,13 @@ describe('group settings dialog', () => {
     expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
   })
 
-  it('shows the sync mode as partition with forced sync not yet available', async () => {
+  it('shows the sync mode as partition with the switch to force sync', async () => {
     mockApi(routes([group()]))
     renderAt('/g/g1')
     fireEvent.click(within(await openDrawer()).getByRole('button', { name: /同步模式/ }))
     const dlg = await screen.findByRole('dialog', { name: '同步模式 · 支付服务重构' })
     expect(within(dlg).getAllByText('分区模式').length).toBeGreaterThan(0)
-    expect(within(dlg).getByRole('button', { name: '切换到强制同步' }).hasAttribute('disabled')).toBe(true)
-    expect(within(dlg).getByText('强制同步暂未开放')).toBeTruthy()
+    expect(within(dlg).getByRole('button', { name: '切换为强制同步' }).hasAttribute('disabled')).toBe(false)
     fireEvent.click(within(dlg).getByRole('button', { name: '群级参数' }))
     expect(await screen.findByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()
   })

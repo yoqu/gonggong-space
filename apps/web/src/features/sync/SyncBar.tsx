@@ -9,7 +9,16 @@ import { useSyncStatus } from './store'
 import './sync.css'
 
 /** Force groups' persistent line under the header (plan §4): head version, consistency, issues; opens the panel. */
-export function SyncBar({ group }: { group: Pick<GroupDto, 'id' | 'mode'> }) {
+export function SyncBar({
+  group,
+  isAdmin = false,
+  onSettings,
+}: {
+  group: Pick<GroupDto, 'id' | 'mode'>
+  isAdmin?: boolean
+  /** Admins: opens the mode settings from the panel. */
+  onSettings?: () => void
+}) {
   const status = useSyncStatus(group)
   const [open, setOpen] = useState(false)
   if (!status) return null
@@ -22,6 +31,7 @@ export function SyncBar({ group }: { group: Pick<GroupDto, 'id' | 'mode'> }) {
             {GROUP_MODE_LABEL.force} · v{status.headVersion} ·{' '}
             {t('{a}/{b} 一致', { a: status.consistent, b: status.total })}
           </span>
+          {status.switching ? <span className="sync-bar__issue sync-tone--blue">{t('切换中')}</span> : null}
           {issues(status).map((x) => (
             <span key={x.state} className={`sync-bar__issue sync-tone--${STATE[x.state].tone}`}>
               {x.text}
@@ -30,7 +40,22 @@ export function SyncBar({ group }: { group: Pick<GroupDto, 'id' | 'mode'> }) {
           <Icon name="chevron-right" size={11} />
         </button>
       </div>
-      <Presence>{open ? <SyncPanel groupId={group.id} onClose={() => setOpen(false)} /> : null}</Presence>
+      <Presence>
+        {open ? (
+          <SyncPanel
+            groupId={group.id}
+            isAdmin={isAdmin}
+            onSettings={
+              onSettings &&
+              (() => {
+                setOpen(false)
+                onSettings()
+              })
+            }
+            onClose={() => setOpen(false)}
+          />
+        ) : null}
+      </Presence>
     </>
   )
 }

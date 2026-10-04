@@ -4,9 +4,12 @@ import {
   SyncChangesQuery,
   type SyncChangesRes,
   type SyncConflictDto,
+  SyncEnableReq,
   SyncHash,
+  SyncJoinReq,
   SyncMissingReq,
   type SyncMissingRes,
+  type SyncPreviewDto,
   type SyncStatusDto,
   type SyncVersionDto,
 } from '@gonggong/protocol'
@@ -19,10 +22,11 @@ import { bots, groupBots, groups } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
-import { requireMember } from '../groups/service.js'
+import { groupDto, requireMember } from '../groups/service.js'
 import { blobSize, openBlob, writeBlob } from './blobs.js'
 import { openConflicts, syncStatus, syncVersionList } from './status.js'
 import { changesSince } from './store.js'
+import { disableSync, enableSync, joinReplica, syncPreview } from './switch.js'
 
 type GroupReq = FastifyRequest<{ Params: { groupId: string; hash?: string } }>
 
@@ -110,6 +114,37 @@ export function syncRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         await requireMember(ctx, req.params.id, me.id)
         return syncVersionList(ctx, req.params.id, VersionsQuery.parse(req.query))
+      },
+    )
+
+    app.get<{ Params: { id: string } }>(
+      '/api/groups/:id/sync/preview',
+      async (req): Promise<SyncPreviewDto> => {
+        const me = await requireUser(ctx, req)
+        await requireMember(ctx, req.params.id, me.id)
+        return syncPreview(ctx, req.params.id)
+      },
+    )
+
+    app.post<{ Params: { id: string } }>('/api/groups/:id/sync/enable', async (req) => {
+      const me = await requireUser(ctx, req)
+      await enableSync(ctx, me.id, req.params.id, SyncEnableReq.parse(req.body).baseBotId)
+      return groupDto(ctx, me.id, req.params.id)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/groups/:id/sync/disable', async (req) => {
+      const me = await requireUser(ctx, req)
+      await disableSync(ctx, me.id, req.params.id)
+      return groupDto(ctx, me.id, req.params.id)
+    })
+
+    app.post<{ Params: { id: string; botId: string } }>(
+      '/api/groups/:id/sync/replicas/:botId/join',
+      async (req): Promise<SyncStatusDto> => {
+        const me = await requireUser(ctx, req)
+        const { force } = SyncJoinReq.parse(req.body ?? {})
+        await joinReplica(ctx, me.id, req.params.id, idParam(req.params.botId, '该 Bot 不在群内'), force)
+        return syncStatus(ctx, req.params.id)
       },
     )
 

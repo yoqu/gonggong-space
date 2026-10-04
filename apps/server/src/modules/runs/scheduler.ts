@@ -22,6 +22,7 @@ import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
 import { runSyncStart } from '../sync/store.js'
+import { sendDueInits, syncHeld } from '../sync/switch.js'
 import { unreadyGroups } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { runStep } from './step.js'
@@ -32,7 +33,7 @@ type Bot = typeof bots.$inferSelect
 
 const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
-const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+export const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
 const WORKSPACE_WAIT = runStep('工作区准备中')
 
@@ -58,6 +59,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
       .orderBy(asc(messages.seq))
     if (!waiting.length) return { out: [], dispatches: [] }
+    const held = await syncHeld(tx, botId)
     const active = await tx
       .select({ groupId: runs.groupId })
       .from(runs)
@@ -80,6 +82,13 @@ export async function schedule(ctx: Ctx, botId: string) {
         const step = runStep('本群上一轮未结束，排第 {n}', { n })
         if (run.status !== 'queued' || run.step !== step.step)
           await setRun(run.id, { status: 'queued', ...step })
+        continue
+      }
+      // A mode switch holds new turns until it is done (§3.5); the sync engine reschedules then.
+      const hold = machineId && held.get(run.groupId)
+      if (hold) {
+        if (run.status !== 'queued' || run.step !== hold.step)
+          await setRun(run.id, { status: 'queued', ...hold })
         continue
       }
       // Dispatch only once the bot's clone / directory is ready; the workspace engine reschedules then.
@@ -145,6 +154,7 @@ export async function schedule(ctx: Ctx, botId: string) {
   const settled = changed.out.map((r) => unsent.get(r.id) ?? r)
   for (const run of settled) await publishRun(ctx, run)
   if (settled.some((r) => r.status === 'running')) await publishBot(ctx, botId)
+  await sendDueInits(ctx, botId)
 }
 
 async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
