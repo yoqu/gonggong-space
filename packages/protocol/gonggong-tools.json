@@ -282,5 +282,135 @@
       },
       "required": ["bot", "task"]
     }
+  },
+  {
+    "name": "schedule_create",
+    "title": "创建定时任务",
+    "description": "在本群建一个定时任务，立即生效：到点以发起本轮的人的名义 @ 一个 Bot 执行 prompt（按 bots 顺序选第一个可用的），群里会出现任务卡片。用户要求定期、或在将来某个时间做某事时用它；不要自己 sleep 等待或要求用户回头再来。返回接下来几次执行时间，请回报给用户核对。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "任务名称，简短说明做什么"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "到点发给执行 Bot 的完整指令：它看不到本轮对话，写清要做什么、范围和产出"
+        },
+        "cron": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 100,
+          "description": "5 段 cron：分 时 日 月 周（0=周日），按 timezone 解释；如 0 9 * * 1-5 = 每个工作日 9:00，*/30 * * * * = 每 30 分钟。间隔不得小于 5 分钟"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "description": "只执行一次的时刻，带时区偏移的 ISO 8601，如 2026-10-05T09:00:00+08:00"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "IANA 时区，默认 Asia/Shanghai"
+        },
+        "bots": {
+          "minItems": 1,
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": "候选 Bot 名字（get_group_info 列出的本群 Bot），按擅长此任务的程度从高到低排列；到点时由第一个可用（在线、空闲）的执行。默认只有你自己"
+        }
+      },
+      "required": ["name", "prompt"]
+    }
+  },
+  {
+    "name": "schedule_list",
+    "title": "定时任务列表",
+    "description": "本群的定时任务：id、名称、候选 Bot、执行时间、启用状态、下次执行与最近结果。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "schedule_update",
+    "title": "修改定时任务",
+    "description": "修改本群的定时任务（只给要改的字段），enabled=false 暂停、true 恢复。只能改你创建或候选里有你的任务。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "schedule_list 列出的任务 id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "cron": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 100,
+          "description": "5 段 cron：分 时 日 月 周（0=周日），按 timezone 解释；如 0 9 * * 1-5 = 每个工作日 9:00，*/30 * * * * = 每 30 分钟。间隔不得小于 5 分钟"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "description": "只执行一次的时刻，带时区偏移的 ISO 8601，如 2026-10-05T09:00:00+08:00"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "IANA 时区，默认 Asia/Shanghai"
+        },
+        "bots": {
+          "minItems": 1,
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": "候选 Bot 名字（get_group_info 列出的本群 Bot），按擅长此任务的程度从高到低排列；到点时由第一个可用（在线、空闲）的执行。默认只有你自己"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "false = 暂停，true = 恢复"
+        }
+      },
+      "required": ["id"]
+    }
+  },
+  {
+    "name": "schedule_delete",
+    "title": "删除定时任务",
+    "description": "删除本群的定时任务。由定时任务触发的一轮里，任务已完成使命（如等待的条件已满足）时可删除它自己。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "schedule_list 列出的任务 id"
+        }
+      },
+      "required": ["id"]
+    }
   }
 ]

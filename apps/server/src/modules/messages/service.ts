@@ -32,6 +32,10 @@ export type MessageMeta = {
   runOptions?: Record<string, RunConfigPick>
   /** Preview card (plan 结果预览): the preview id. */
   preview?: string
+  /** Scheduled task card (plan 定时任务): the schedule id. */
+  schedule?: string
+  /** Posted by this scheduled task when it fired. */
+  scheduleOf?: string
   i18n?: I18nText
 }
 
@@ -55,6 +59,8 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     recalled,
     editedAt: m.editedAt?.toISOString() ?? null,
     ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
+    ...((m.meta as MessageMeta).schedule && { scheduleId: (m.meta as MessageMeta).schedule }),
+    ...((m.meta as MessageMeta).scheduleOf && { scheduledBy: (m.meta as MessageMeta).scheduleOf }),
     ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
   }
 }

@@ -233,4 +233,17 @@ export default {
   '对方成为所有者（未加入则自动加入）；原所有者改为管理员。':
     'They become an owner (joining if needed); the previous owners become admins.',
   选择账号: 'Choose an account',
-} satisfies Record<string, string>
+  '各群与私聊的定时任务，可停用或删除任意任务。':
+    'Scheduled tasks of every group and direct chat; turn off or delete any of them.',
+  '各群与私聊的定时任务：到点由候选 Bot 中第一个可用的执行。可在此停用或删除任意任务。':
+    'Scheduled tasks of every group and direct chat: the first available candidate Bot runs each. Turn off or delete any of them here.',
+  '{n} 个任务': '{n} {n:task|tasks}',
+  '{owner} 的私聊': "{owner}'s direct chat",
+  '搜索任务、群或 Bot': 'Search tasks, groups or Bots',
+  '24 小时内触发': 'Fired in 24 h',
+  '24 小时内失败': 'Failed in 24 h',
+  已自动停用: 'Turned off automatically',
+  定时任务列表: 'Scheduled tasks',
+  没有匹配的任务: 'No matching tasks',
+  任务: 'Task',
+}

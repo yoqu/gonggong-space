@@ -11,6 +11,7 @@ import { mirrorDelta } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
 import { authorName, memberIds, messageDto, publishMessage } from '../messages/service.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
+import { settleSchedule } from '../schedules/engine.js'
 import { publishBotState, updateBotState } from '../workspaces/state.js'
 import { publishRun, type RunRow } from './dto.js'
 import { redact, redactDeep } from './redact.js'
@@ -415,6 +416,7 @@ async function finalize(ctx: Ctx, run: RunRow) {
   await schedule(ctx, run.botId)
   await publishBot(ctx, run.botId)
   await triggerChain(ctx, run)
+  await settleSchedule(ctx, run)
   await requeueAppends(ctx, run, run.appendsApplied)
   // Last: a relay hop created above keeps the chain open.
   await notifyChainDone(ctx, run)

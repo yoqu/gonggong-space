@@ -31,13 +31,23 @@ import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
+import { ScheduleCard } from '../schedules/ScheduleCard'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
 import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
-import { BotReply, dayLabel, EventFold, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
+import {
+  BotReply,
+  dayLabel,
+  EventFold,
+  EventRow,
+  eventText,
+  RecallRow,
+  RunCard,
+  UserMessage,
+} from './TimelineItems'
 import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
 import './chat.css'
@@ -326,6 +336,8 @@ export function ChatView({
   const renderMessage = (m: MessageDto, compact: boolean) => {
     const run = replyRun(m)
     if (run) return card(run, m)
+    if (m.scheduleId)
+      return <ScheduleCard scheduleId={m.scheduleId} groupId={m.groupId} fallback={eventText(m)} />
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
     if (m.kind === 'bot') return <BotReply m={m} compact={compact} />

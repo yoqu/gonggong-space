@@ -98,6 +98,57 @@ export const HandOffArgs = z.object({
   task: z.string().min(1).max(2000).describe('交代给它的任务：要做什么、需要的上下文、做到什么程度算完成'),
 })
 
+const scheduleCron = z
+  .string()
+  .min(9)
+  .max(100)
+  .describe(
+    '5 段 cron：分 时 日 月 周（0=周日），按 timezone 解释；如 0 9 * * 1-5 = 每个工作日 9:00，*/30 * * * * = 每 30 分钟。间隔不得小于 5 分钟',
+  )
+const scheduleAt = z.iso
+  .datetime({ offset: true })
+  .describe('只执行一次的时刻，带时区偏移的 ISO 8601，如 2026-10-05T09:00:00+08:00')
+const scheduleBots = z
+  .array(z.string().min(1).max(64))
+  .min(1)
+  .max(10)
+  .describe(
+    '候选 Bot 名字（get_group_info 列出的本群 Bot），按擅长此任务的程度从高到低排列；到点时由第一个可用（在线、空闲）的执行。默认只有你自己',
+  )
+const scheduleTz = z.string().describe('IANA 时区，默认 Asia/Shanghai')
+const atMostOneTiming = (a: { cron?: unknown; at?: unknown }) => !(a.cron !== undefined && a.at !== undefined)
+
+export const ScheduleCreateArgs = z
+  .object({
+    name: z.string().min(1).max(60).describe('任务名称，简短说明做什么'),
+    prompt: z
+      .string()
+      .min(1)
+      .max(4000)
+      .describe('到点发给执行 Bot 的完整指令：它看不到本轮对话，写清要做什么、范围和产出'),
+    cron: scheduleCron.optional(),
+    at: scheduleAt.optional(),
+    timezone: scheduleTz.optional(),
+    bots: scheduleBots.optional(),
+  })
+  .refine((a) => atMostOneTiming(a) && (a.cron !== undefined || a.at !== undefined), {
+    message: 'cron 与 at 需要且只能给一个',
+  })
+export const ScheduleListArgs = z.object({})
+export const ScheduleUpdateArgs = z
+  .object({
+    id: z.string().describe('schedule_list 列出的任务 id'),
+    name: z.string().min(1).max(60).optional(),
+    prompt: z.string().min(1).max(4000).optional(),
+    cron: scheduleCron.optional(),
+    at: scheduleAt.optional(),
+    timezone: scheduleTz.optional(),
+    bots: scheduleBots.optional(),
+    enabled: z.boolean().describe('false = 暂停，true = 恢复').optional(),
+  })
+  .refine(atMostOneTiming, { message: 'cron 与 at 最多给一个' })
+export const ScheduleDeleteArgs = z.object({ id: z.string().describe('schedule_list 列出的任务 id') })
+
 export const GONGGONG_TOOLS = {
   list_messages: {
     title: '读取聊天记录',
@@ -161,6 +212,30 @@ export const GONGGONG_TOOLS = {
       '让本群另一个 Bot 接手工作：本轮结束后，群里会发出一条你 @ 它并交代任务的消息，它随即开始运行。' +
       '回复正文里写 @名字 只是提及、不会让对方开始工作；只有需要对方真正动手时才调用本工具。',
     input: HandOffArgs,
+  },
+  schedule_create: {
+    title: '创建定时任务',
+    description:
+      '在本群建一个定时任务，立即生效：到点以发起本轮的人的名义 @ 一个 Bot 执行 prompt（按 bots 顺序选第一个可用的），群里会出现任务卡片。' +
+      '用户要求定期、或在将来某个时间做某事时用它；不要自己 sleep 等待或要求用户回头再来。返回接下来几次执行时间，请回报给用户核对。',
+    input: ScheduleCreateArgs,
+  },
+  schedule_list: {
+    title: '定时任务列表',
+    description: '本群的定时任务：id、名称、候选 Bot、执行时间、启用状态、下次执行与最近结果。',
+    input: ScheduleListArgs,
+  },
+  schedule_update: {
+    title: '修改定时任务',
+    description:
+      '修改本群的定时任务（只给要改的字段），enabled=false 暂停、true 恢复。只能改你创建或候选里有你的任务。',
+    input: ScheduleUpdateArgs,
+  },
+  schedule_delete: {
+    title: '删除定时任务',
+    description:
+      '删除本群的定时任务。由定时任务触发的一轮里，任务已完成使命（如等待的条件已满足）时可删除它自己。',
+    input: ScheduleDeleteArgs,
   },
 } as const
 

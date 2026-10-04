@@ -64,6 +64,16 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group,
         href: at(''),
       }
+    case 'schedule_paused':
+      return {
+        label: say('定时任务已停用'),
+        text: say('定时任务「{name}」已停用：{reason}', {
+          name: p('name'),
+          reason: (n.payload.reason as I18nText | undefined) ?? '',
+        }),
+        group,
+        href: at(''),
+      }
     case 'bot_confirm':
       return {
         label: say('待确认 Bot'),

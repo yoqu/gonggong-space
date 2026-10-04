@@ -306,6 +306,13 @@ export const UserMessage = memo(function UserMessage({
           self={mine}
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} />}
+          meta={
+            m.scheduledBy ? (
+              <Tag tone="gray" icon="clock">
+                {t('定时任务')}
+              </Tag>
+            ) : undefined
+          }
           bare={!text}
           actionBar={bar}
           footer={

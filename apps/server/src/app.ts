@@ -56,6 +56,8 @@ import { startRetention } from './modules/runs/retention.js'
 import { runRoutes } from './modules/runs/routes.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
+import { startScheduleEngine } from './modules/schedules/engine.js'
+import { scheduleRoutes } from './modules/schedules/routes.js'
 import { searchRoutes } from './modules/search/routes.js'
 import { teamRoutes } from './modules/teams/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
@@ -117,6 +119,9 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   app.addHook('onClose', startOfflineExpiry(ctx))
   const stopRetention = startRetention(ctx)
   app.addHook('onClose', stopRetention)
+  const stopScheduleEngine = startScheduleEngine(ctx)
+  app.addHook('onClose', stopScheduleEngine)
+  await app.register(scheduleRoutes(ctx))
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
   const stopApprovalTimer = startApprovalTimer(ctx)

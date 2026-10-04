@@ -34,6 +34,8 @@ import { usePreviews } from '../previews/store'
 import { repoPath } from '../repos/RepoPicker'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
+import { SchedulesView } from '../schedules/SchedulesView'
+import { useSchedules } from '../schedules/store'
 import { groupsApi, paramsSummary } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
@@ -41,7 +43,7 @@ import { BotPicker, MemberPicker } from './pickers'
 import './groups.css'
 
 export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params' | 'mcp' | 'feishu'
-export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices' | 'previews'
+export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices' | 'previews' | 'schedules'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
 
@@ -139,6 +141,7 @@ export function GroupInfo({
     info: t('群名称与公告'),
     notices: t('群公告'),
     previews: t('预览与服务'),
+    schedules: t('定时任务'),
   }[view]
   return (
     <InspectorPanel
@@ -169,6 +172,8 @@ export function GroupInfo({
         <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
       ) : view === 'previews' ? (
         <PreviewsView groupId={group.id} onOpen={onClose} />
+      ) : view === 'schedules' ? (
+        <SchedulesView groupId={group.id} />
       ) : (
         <InfoForm group={group} onSaved={() => setView('main')} />
       )}
@@ -192,6 +197,7 @@ function MainView({
   const navigate = useNavigate()
   const allBots = useWorkspace((s) => s.bots)
   const previews = usePreviews(group.id)
+  const schedules = useSchedules(group.id)
   const [params, setParams] = useState<GroupParams | null>(null)
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
@@ -342,6 +348,11 @@ function MainView({
               label: t('预览与服务'),
               value: previews ? t('{n} 个预览', { n: previews.previews.length }) : undefined,
               onClick: () => setView('previews'),
+            },
+            {
+              label: t('定时任务'),
+              value: schedules ? t('{n} 个', { n: schedules.length }) : undefined,
+              onClick: () => setView('schedules'),
             },
             ...(dm
               ? []

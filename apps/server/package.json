@@ -16,6 +16,7 @@
     "@gonggong/protocol": "workspace:*",
     "@larksuiteoapi/node-sdk": "1.74.0",
     "@node-rs/argon2": "2.2.1",
+    "croner": "10.0.1",
     "drizzle-orm": "0.45.3",
     "fastify": "5.12.5",
     "livekit-server-sdk": "2.19.1",

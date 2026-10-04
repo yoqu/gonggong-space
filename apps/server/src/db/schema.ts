@@ -676,6 +676,47 @@ export const mcpServers = pgTable(
   (t) => [unique().on(t.scope, t.teamId, t.groupId, t.name).nullsNotDistinct()],
 )
 
+/** Scheduled tasks (plan 定时任务): at each firing the first available bot of `botIds` is @-ed in the owner's name. */
+export const schedules = pgTable(
+  'schedules',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    /** Fires in this member's name and is authorized against them. */
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id),
+    /** Set when a bot created it with the gonggong tools. */
+    createdByBotId: uuid('created_by_bot_id').references(() => bots.id),
+    createdByRunId: uuid('created_by_run_id'),
+    name: text('name').notNull(),
+    prompt: text('prompt').notNull(),
+    /** Exactly one of `cron` (recurring, in `timezone`) and `runAt` (once). */
+    cron: text('cron'),
+    runAt: ts('run_at'),
+    timezone: text('timezone').notNull(),
+    /** Candidates, most suitable first. */
+    botIds: jsonb('bot_ids').$type<string[]>().notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    /** Why the server turned it off; null when off by hand. */
+    pausedReason: jsonb('paused_reason').$type<I18nText>(),
+    /** Null while disabled. */
+    nextRunAt: ts('next_run_at'),
+    lastFiredAt: ts('last_fired_at'),
+    lastRunId: uuid('last_run_id'),
+    lastBotId: uuid('last_bot_id'),
+    /** Firings in a row whose run did not complete. */
+    failStreak: integer('fail_streak').notNull().default(0),
+    /** Its card in the group. */
+    messageId: uuid('message_id'),
+    createdAt: createdAt(),
+    deletedAt: ts('deleted_at'),
+  },
+  (t) => [index('schedules_due').on(t.nextRunAt), index('schedules_group').on(t.groupId)],
+)
+
 /** Web Push subscriptions (plan D13). */
 export const pushSubscriptions = pgTable('push_subscriptions', {
   id: id(),

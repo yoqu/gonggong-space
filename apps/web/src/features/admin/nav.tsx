@@ -11,6 +11,7 @@ import { GroupsPage } from './GroupsPage'
 import { MachinesPage } from './MachinesPage'
 import { ParamsPage } from './ParamsPage'
 import { ReleasesPage } from './ReleasesPage'
+import { SchedulesPage } from './SchedulesPage'
 import { TeamsPage } from './TeamsPage'
 import { UsersPage } from './UsersPage'
 
@@ -62,6 +63,14 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         color: 'var(--system-green)',
         desc: t('所有群的模式、仓库与权威副本状态。'),
         element: <GroupsPage />,
+      },
+      {
+        path: 'schedules',
+        label: t('定时任务'),
+        icon: 'clock',
+        color: 'var(--system-orange)',
+        desc: t('各群与私聊的定时任务，可停用或删除任意任务。'),
+        element: <SchedulesPage />,
       },
     ],
   },

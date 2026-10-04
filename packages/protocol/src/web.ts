@@ -38,6 +38,7 @@ import {
   ToolsSettings,
 } from './daemon.js'
 import { I18nText } from './i18n.js'
+import { GroupSchedulesDto } from './schedules.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -475,6 +476,7 @@ export const NotificationType = z.enum([
   'chain_done',
   'bot_confirm',
   'repo_access',
+  'schedule_paused',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -672,6 +674,10 @@ export const MessageDto = z.object({
   editedAt: z.string().nullable().optional(),
   /** A bot's preview card; its live state is in the group's preview list (group.previews). */
   previewId: z.string().nullable().optional(),
+  /** A scheduled task's card; its live state is in the group's schedule list (group.schedules). */
+  scheduleId: z.string().nullable().optional(),
+  /** Posted by this scheduled task when it fired (in its owner's name). */
+  scheduledBy: z.string().nullable().optional(),
   /** An event's translatable source; `body` holds its Chinese rendering. */
   i18n: I18nText.optional(),
 })
@@ -1379,6 +1385,7 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
   /** The group's previews or services changed; replaces both lists (`canManage` is per receiving user). */
   GroupPreviewsDto.extend({ t: z.literal('group.previews'), groupId: z.string() }),
+  GroupSchedulesDto.extend({ t: z.literal('group.schedules'), groupId: z.string() }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
   /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
   ReactionsDto.extend({ t: z.literal('message.reactions') }),

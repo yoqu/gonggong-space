@@ -28,6 +28,7 @@ import type { MessageMeta } from '../messages/service.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
 import { answerText } from '../questions/dto.js'
 import { listFeishuMessages } from './feishu.js'
+import { scheduleCreate, scheduleDelete, scheduleList, scheduleUpdate } from './schedules.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -43,6 +44,8 @@ export const refuse = (message: string): never => {
 }
 
 const BODY_MAX = 2000
+/** Enough of a bot's instructions to tell what it is good at (schedule_create orders bots by it). */
+const INTRO_MAX = 200
 const PATCH_MAX = 20_000
 const TYPE: Record<Question['type'], string> = {
   single: '单选',
@@ -221,7 +224,9 @@ async function getGroupInfo(ctx: Ctx, s: Scope, a: Args<'get_group_info'>): Prom
     ...botRows.map(({ bot, owner }) => {
       const online = bot.machineId && ctx.hub.isOnline(bot.machineId)
       const self = bot.id === s.run.botId ? '（你）' : ''
-      return `- ${bot.name}${self} · 主人 ${owner} · ${bot.agentKind} · ${online ? '在线' : '离线'}`
+      const intro = bot.systemPrompt.trim().replace(/\s+/g, ' ')
+      const about = intro ? ` · 介绍：${clip(intro, INTRO_MAX)}` : ''
+      return `- ${bot.name}${self} · 主人 ${owner} · ${bot.agentKind} · ${online ? '在线' : '离线'}${about}`
     }),
     ...(others.length ? ['其他可读的群：', ...others.map((x) => `- ${x.name}（id: ${x.id}）`)] : []),
   ]
@@ -355,6 +360,10 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),
   hand_off: handOff,
+  schedule_create: (ctx, s, a) => scheduleCreate(ctx, s.run, a),
+  schedule_list: (ctx, s) => scheduleList(ctx, s.run),
+  schedule_update: (ctx, s, a) => scheduleUpdate(ctx, s.run, a),
+  schedule_delete: (ctx, s, a) => scheduleDelete(ctx, s.run, a),
 }
 
 export async function callTool(

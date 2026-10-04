@@ -467,4 +467,8 @@ export const en = {
   演示模式下不能创建公开链接: 'Public links cannot be created in demo mode',
   演示模式下不能使用完全访问档位: 'The full access tier is not available in demo mode',
   演示模式下实时画面只能观看: 'The live view is watch-only in demo mode',
+  定时任务不存在: 'Scheduled task not found',
+  仅任务主人或群管理员可操作: 'Only the task owner or a group admin can do this',
+  '候选 Bot 须是本群的 Bot': 'Candidate Bots must be Bots in this group',
+  '每个群最多 {n} 个定时任务': 'A group can have at most {n} scheduled tasks',
 } satisfies Record<string, string>

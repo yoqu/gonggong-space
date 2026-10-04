@@ -2,7 +2,17 @@ import type { AgentKind, Approval, ContextMessage, GitProtocol, RunStart, Tier }
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groupBots, groupRepos, groups, messages, runs, teams, users } from '../../db/schema.js'
+import {
+  bots,
+  groupBots,
+  groupRepos,
+  groups,
+  messages,
+  runs,
+  schedules,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { FEISHU_HINT } from '../agent-tools/feishu.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
@@ -195,7 +205,10 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
   const interrupted = await interruptNote(tx, run, trigger.at.toISOString())
   const feishu = await boundChat(tx, run.groupId)
   const config = resolveConfig(await botCatalog(tx, bot), meta.runOptions?.[bot.id], gb, bot)
-  const note = interrupted ? [interrupted.note] : []
+  const note = [
+    ...(interrupted ? [interrupted.note] : []),
+    ...(meta.scheduleOf ? [await scheduleNote(tx, meta.scheduleOf, trigger.at.toISOString())] : []),
+  ]
   const msg: RunStart = {
     t: 'run.start',
     runId: run.id,
@@ -239,6 +252,19 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     command,
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
+}
+
+/** Tells the agent its turn came from a scheduled task, so it can retire the task once it is no longer needed. */
+async function scheduleNote(tx: Tx, id: string, at: string): Promise<ContextMessage> {
+  const [s] = await tx.select({ name: schedules.name }).from(schedules).where(eq(schedules.id, id))
+  return {
+    seq: 0,
+    author: '共工空间',
+    kind: 'user',
+    body: `本轮由定时任务「${s?.name ?? ''}」（id ${id}）触发。任务不再需要时，可用 gonggong 的 schedule_delete 删除它。`,
+    at,
+    attachments: [],
+  }
 }
 
 const contextFilter = (where: SQL | undefined) =>

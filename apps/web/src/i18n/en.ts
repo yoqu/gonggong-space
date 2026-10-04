@@ -16,6 +16,7 @@ import previews from '../features/previews/en'
 import reactions from '../features/reactions/en'
 import repos from '../features/repos/en'
 import runs from '../features/runs/en'
+import schedules from '../features/schedules/en'
 import search from '../features/search/en'
 import settings from '../features/settings/en'
 import teams from '../features/teams/en'
@@ -47,6 +48,7 @@ export const en = {
   ...reactions,
   ...repos,
   ...runs,
+  ...schedules,
   ...search,
   ...teams,
   ...settings,
