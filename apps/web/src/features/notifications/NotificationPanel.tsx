@@ -34,6 +34,8 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   bot_confirm: { icon: 'bot', color: 'var(--system-orange)' },
   repo_access: { icon: 'git-branch', color: 'var(--system-red)' },
   schedule_paused: { icon: 'clock', color: 'var(--system-orange)' },
+  sync_drift: { icon: 'arrow-clockwise', color: 'var(--system-orange)' },
+  sync_conflict: { icon: 'exclamation-circle', color: 'var(--system-red)' },
 }
 
 function PushAction() {

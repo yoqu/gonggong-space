@@ -26,7 +26,7 @@ const teamHeader = (): Record<string, string> => {
   return team ? { 'x-gg-team': team } : {}
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, plain = false): Promise<T> {
   const init: RequestInit = {
     method,
     credentials: 'include',
@@ -42,7 +42,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   } catch {
     throw new ApiError(0, 'network_error', t('网络连接失败，请检查网络后重试'))
   }
-  if (res.ok) return (res.status === 204 ? undefined : await res.json()) as T
+  if (res.ok) return (res.status === 204 ? undefined : plain ? await res.text() : await res.json()) as T
 
   if (res.status === 401) onUnauthorized?.()
   const text = await res.text()
@@ -59,6 +59,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
+  /** A plain-text body. */
+  text: (path: string) => request<string>('GET', path, undefined, true),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),

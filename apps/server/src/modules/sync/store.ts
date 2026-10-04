@@ -6,6 +6,7 @@ import {
   SYNC_VERSION_MAX_BYTES,
   type SyncApplied,
   type SyncChange,
+  type SyncDecision,
   type SyncEntry,
   type SyncState,
   type SyncSubmit,
@@ -70,9 +71,14 @@ export async function headVersion(db: Q, groupId: string) {
 /**
  * run.start's `sync` for a bot's turn in a force group with a joined managed replica, else null (F9, F20). `lastVersion` is
  * the version the bot's previous turn in the group ended at (its run.done: accepted / unchanged), so `changed` lists
- * the paths changed in (lastVersion, head] — what others did since it last worked.
+ * the paths changed in (lastVersion, head] — what others did since it last worked. `resolve`: a merge turn's decisions.
  */
-export async function runSyncStart(db: Q, groupId: string, botId: string): Promise<RunSyncStart | null> {
+export async function runSyncStart(
+  db: Q,
+  groupId: string,
+  botId: string,
+  resolve: SyncDecision[] | null = null,
+): Promise<RunSyncStart | null> {
   const [row] = await db
     .select({ mode: groups.mode, kind: groupBots.workspaceKind, joinedAt: syncReplicas.joinedAt })
     .from(groupBots)
@@ -92,7 +98,7 @@ export async function runSyncStart(db: Q, groupId: string, botId: string): Promi
     .orderBy(desc(runs.endedAt))
     .limit(1)
   const lastVersion = prev?.version ?? null
-  const none = { headVersion: head, lastVersion, changed: [], changedTotal: 0 }
+  const none = { headVersion: head, lastVersion, changed: [], changedTotal: 0, resolve }
   if (lastVersion === null || lastVersion >= head) return none
   const range = and(
     eq(syncChanges.groupId, groupId),
@@ -405,7 +411,7 @@ const ALIGNING = ['align', 'force']
 /**
  * The replica now holds `version`: clean when its root hash matches that version's (F14), which settles its issue and
  * open conflicts, and joins a replica that was aligning (§3.5); otherwise it is flagged. Returns null when the report
- * was not the replica's to make, else whether it just joined.
+ * was not the replica's to make, else whether it just joined or had its issue cleared.
  */
 export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<typeof SyncApplied>) {
   return ctx.db.transaction(async (tx) => {
@@ -433,7 +439,7 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
             isNull(syncConflicts.resolvedAt),
           ),
         )
-      return { joined: aligning }
+      return { joined: aligning, cleared: !!self.issue }
     }
     await upsertReplica(tx, msg.groupId, msg.botId, {
       ...base,
@@ -441,22 +447,25 @@ export async function recordApplied(ctx: Ctx, machineId: string, msg: z.infer<ty
       reason: t('副本内容与 v{version} 不一致', { version: msg.version }),
       ...(aligning && { pending: null }),
     })
-    return { joined: false }
+    return { joined: false, cleared: false }
   })
 }
 
 /**
- * Stores why a replica stopped taking versions; `held` opens a conflict from its last refused submit (F11). An answer
- * to sync.init ends it (`pending` tells which it answered): `dirty` leaves the replica out.
+ * Stores why a replica stopped taking versions; `held` opens a conflict from its last refused submit (F11), settling
+ * any older one of the replica. An answer to sync.init ends it (`pending` tells which it answered): `dirty` leaves the
+ * replica out. Returns whether local edits are newly reported (none known, or only flagged by a waiting turn) and the
+ * conflict just opened, if any.
  */
 export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<typeof SyncState>) {
   return ctx.db.transaction(async (tx) => {
     const [row] = await tx
-      .select({ lastConflict: syncReplicas.lastConflict })
+      .select({ lastConflict: syncReplicas.lastConflict, total: syncReplicas.total })
       .from(syncReplicas)
       .where(and(eq(syncReplicas.groupId, msg.groupId), eq(syncReplicas.botId, msg.botId)))
     const self = await replica(tx, machineId, msg.groupId, msg.botId)
     if (!self || !(self.joinedAt || self.pending)) return null
+    const newDrift = msg.state === 'drift' && (self.issue !== 'drift' || !row?.total)
     await upsertReplica(tx, msg.groupId, msg.botId, {
       issue: msg.state,
       files: msg.files.slice(0, SYNC_FILES_MAX),
@@ -466,11 +475,47 @@ export async function recordState(ctx: Ctx, machineId: string, msg: z.infer<type
       ...(msg.state === 'dirty' && { joinedAt: null }),
     })
     const last = row?.lastConflict as LastConflict | null | undefined
-    if (msg.state === 'held' && last)
-      await tx
-        .insert(syncConflicts)
-        .values({ groupId: msg.groupId, botId: msg.botId, ...last })
-        .onConflictDoNothing({ target: syncConflicts.submitId })
-    return { pending: self.pending }
+    const opened =
+      msg.state === 'held' && last ? await openConflict(tx, ctx.now(), msg.groupId, msg.botId, last) : null
+    return { pending: self.pending, newDrift, opened }
   })
+}
+
+async function openConflict(tx: Tx, now: Date, groupId: string, botId: string, last: LastConflict) {
+  const [done] = await tx
+    .select({ id: syncConflicts.id })
+    .from(syncConflicts)
+    .where(eq(syncConflicts.submitId, last.submitId))
+  if (done) return null
+  const open = and(
+    eq(syncConflicts.groupId, groupId),
+    eq(syncConflicts.botId, botId),
+    isNull(syncConflicts.resolvedAt),
+  )
+  await tx.update(syncConflicts).set({ resolvedAt: now }).where(open)
+  const [row] = await tx
+    .insert(syncConflicts)
+    .values({ groupId, botId, ...last })
+    .returning({ id: syncConflicts.id, headVersion: syncConflicts.headVersion })
+  return row ? { ...row, files: last.conflicts.length } : null
+}
+
+/**
+ * A turn found the replica unsettled before it started (run.done `waiting`): the issue is recorded unless one is
+ * already known, so its runs wait. Returns whether it was new.
+ */
+export async function raiseIssue(db: Q, groupId: string, botId: string, issue: 'drift' | 'held') {
+  const rows = await db
+    .update(syncReplicas)
+    .set({ issue, updatedAt: new Date() })
+    .where(
+      and(
+        eq(syncReplicas.groupId, groupId),
+        eq(syncReplicas.botId, botId),
+        isNotNull(syncReplicas.joinedAt),
+        isNull(syncReplicas.issue),
+      ),
+    )
+    .returning({ botId: syncReplicas.botId })
+  return rows.length > 0
 }

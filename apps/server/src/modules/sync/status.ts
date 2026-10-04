@@ -160,6 +160,26 @@ export async function syncVersionList(ctx: Ctx, groupId: string, o: { before?: n
   )
 }
 
+type ConflictRow = typeof syncConflicts.$inferSelect
+
+/** Each conflicting file of a held change: the replica's, the head's and the base's content. */
+export async function conflictFiles(c: ConflictRow): Promise<SyncConflictDto['files']> {
+  const mine = new Map((c.changes as SyncChange[]).map((ch) => [ch.path, ch]))
+  return Promise.all(
+    (c.conflicts as SyncEntry[]).map(async (theirs) => {
+      const m = mine.get(theirs.path)
+      const mineHash = m?.hash ?? null
+      return {
+        path: theirs.path,
+        binary: (await isBinary(c.groupId, mineHash)) || (await isBinary(c.groupId, theirs.hash)),
+        mineHash,
+        theirsHash: theirs.hash,
+        baseHash: m?.baseHash ?? null,
+      }
+    }),
+  )
+}
+
 export async function openConflicts(ctx: Ctx, groupId: string): Promise<SyncConflictDto[]> {
   const rows = await ctx.db
     .select()
@@ -167,28 +187,13 @@ export async function openConflicts(ctx: Ctx, groupId: string): Promise<SyncConf
     .where(and(eq(syncConflicts.groupId, groupId), isNull(syncConflicts.resolvedAt)))
     .orderBy(asc(syncConflicts.createdAt))
   return Promise.all(
-    rows.map(async (c) => {
-      const mine = new Map((c.changes as SyncChange[]).map((ch) => [ch.path, ch]))
-      return {
-        id: c.id,
-        botId: c.botId,
-        versionBase: c.baseVersion,
-        headVersion: c.headVersion,
-        files: await Promise.all(
-          (c.conflicts as SyncEntry[]).map(async (theirs) => {
-            const m = mine.get(theirs.path)
-            const mineHash = m?.hash ?? null
-            return {
-              path: theirs.path,
-              binary: (await isBinary(groupId, mineHash)) || (await isBinary(groupId, theirs.hash)),
-              mineHash,
-              theirsHash: theirs.hash,
-              baseHash: m?.baseHash ?? null,
-            }
-          }),
-        ),
-        createdAt: c.createdAt.toISOString(),
-      }
-    }),
+    rows.map(async (c) => ({
+      id: c.id,
+      botId: c.botId,
+      versionBase: c.baseVersion,
+      headVersion: c.headVersion,
+      files: await conflictFiles(c),
+      createdAt: c.createdAt.toISOString(),
+    })),
   )
 }

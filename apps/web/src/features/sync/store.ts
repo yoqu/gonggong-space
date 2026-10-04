@@ -1,4 +1,11 @@
-import type { GroupDto, SyncPreviewDto, SyncStatusDto, SyncVersionDto } from '@gonggong/protocol'
+import type {
+  GroupDto,
+  SyncConflictDto,
+  SyncDecision,
+  SyncPreviewDto,
+  SyncStatusDto,
+  SyncVersionDto,
+} from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
@@ -59,6 +66,18 @@ export const syncApi = {
     api
       .post<SyncStatusDto>(`/groups/${groupId}/sync/replicas/${botId}/join`, { force })
       .then((s) => useStore.setState({ [groupId]: s })),
+  /** 提交本地改动 / 丢弃本地改动 (F12). */
+  drift: (groupId: string, botId: string, choice: 'submit' | 'discard') =>
+    api.post(`/groups/${groupId}/sync/replicas/${botId}/drift`, { choice }),
+  conflicts: (groupId: string) => api.get<SyncConflictDto[]>(`/groups/${groupId}/sync/conflicts`),
+  resolve: (groupId: string, conflictId: string, decisions: SyncDecision[]) =>
+    api.post(`/groups/${groupId}/sync/conflicts/${conflictId}/resolve`, { decisions }),
+  /** 整版丢弃. */
+  discard: (groupId: string, conflictId: string) =>
+    api.post(`/groups/${groupId}/sync/conflicts/${conflictId}/discard`),
+  /** One side of a conflicting text file. */
+  text: (groupId: string, conflictId: string, hash: string) =>
+    api.text(`/groups/${groupId}/sync/conflicts/${conflictId}/blobs/${hash}`),
 }
 
 /** Tests: forget loaded statuses and the realtime hook-up. */

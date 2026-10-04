@@ -1,0 +1,18 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "failed",
+  "reply": "",
+  "filesChanged": 0,
+  "usage": null,
+  "sessionId": null,
+  "newSessionReason": null,
+  "error": "工作区有未处理的本地改动（强制同步），处理后才能继续运行",
+  "git": null,
+  "patch": null,
+  "appendsApplied": 0,
+  "sync": {
+    "outcome": "waiting",
+    "issue": "drift"
+  }
+}

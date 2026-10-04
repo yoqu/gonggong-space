@@ -1068,6 +1068,17 @@ pub struct RunSyncStart {
     pub last_version: Option<u64>,
     pub changed: Vec<String>,
     pub changed_total: u32,
+    /// A merge turn: the held change's decisions, applied before the turn; its submit is kind `merge`.
+    #[serde(default)]
+    pub resolve: Option<Vec<SyncDecision>>,
+}
+
+/// Why a turn did not start: the replica waits for its local edits or held conflict to be settled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncWaitIssue {
+    Drift,
+    Held,
 }
 
 /// How a force-group turn's submit settled before run.done.
@@ -1078,6 +1089,7 @@ pub enum RunSyncDone {
     Unchanged { version: u64 },
     Held { files: u32 },
     Error { reason: String },
+    Waiting { issue: SyncWaitIssue },
 }
 
 /// Response of `POST /api/daemon/sync/:groupId/blobs/missing`.

@@ -119,6 +119,28 @@ impl Replica {
     }
 }
 
+impl Replica {
+    /// Writes (Some) or deletes (None) one file of the work tree: a conflict decision (F11).
+    pub fn put(&self, path: &str, bytes: Option<&[u8]>, exec: bool) -> Result<(), String> {
+        let to = self.work.join(path);
+        let fail = |e: std::io::Error| t!("无法写入 {path}：{e}", path = path, e = e);
+        match bytes {
+            Some(bytes) => {
+                std::fs::create_dir_all(to.parent().expect("workspace paths have a parent")).map_err(fail)?;
+                std::fs::write(&to, bytes).and_then(|_| set_exec(&to, exec)).map_err(fail)
+            }
+            None => {
+                match std::fs::remove_file(&to) {
+                    Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(fail(e)),
+                    _ => {}
+                }
+                prune(&self.work, path);
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Removes the directories `path` leaves empty, up to the workspace root.
 fn prune(work: &Path, path: &str) {
     for dir in Path::new(path).ancestors().skip(1).filter(|d| !d.as_os_str().is_empty()) {

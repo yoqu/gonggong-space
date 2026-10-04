@@ -58,7 +58,7 @@ export function eventFolds(messages: MessageDto[], breakAt?: string | null) {
     const prev = messages[i - 1]
     const joins = start >= 0 && !!prev && sameDay(prev.createdAt, m.createdAt) && m.id !== breakAt
     // A scheduled task's card stays in view: it carries actions.
-    const event = m.kind === 'event' && !m.recalled && !m.scheduleId
+    const event = m.kind === 'event' && !m.recalled && !m.scheduleId && !m.syncConflict
     if (!event || !joins) close(i - 1)
     if (event && start < 0) start = i
   })

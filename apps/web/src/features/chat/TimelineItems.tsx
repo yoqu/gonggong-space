@@ -31,6 +31,7 @@ import { runMascot } from '../runs/mascot'
 import { stepText, toolTitle } from '../runs/mcp'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
+import { RunSyncLine } from '../sync/RunSyncLine'
 import { UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
 import { Clamp } from './Clamp'
@@ -560,6 +561,7 @@ export const RunCard = memo(function RunCard({
         {started !== null ? <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={false} /> : null}
         <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
         <DelegationFacts d={run.delegation} />
+        <RunSyncLine run={run} />
         {sessionNote ? (
           <span className="run-card__session">
             <Icon name="arrow-clockwise" size={12} />
@@ -645,6 +647,7 @@ export const RunCard = memo(function RunCard({
                           <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
                           <DelegationFacts d={run.delegation} />
+                          <RunSyncLine run={run} />
                         </div>
                       ) : null}
                       {sessionNote ? (

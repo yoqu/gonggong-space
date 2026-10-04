@@ -3,7 +3,8 @@
 //! A replica is one (group, bot) managed workspace; its state lives in `<home>/sync/<group>/<bot>/`, never in the
 //! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed), `base.json` (the
 //! manifest at the version the replica last matched; it exists once the replica joined), `work` (the workspace path,
-//! so idle replicas can be found) and `issue.json` (why it stopped taking versions, if it did).
+//! so idle replicas can be found), `issue.json` (why it stopped taking versions, if it did) and `held.json` (the held
+//! change while a conflict waits, F11).
 mod apply;
 mod check;
 mod client;
@@ -42,6 +43,17 @@ pub struct Base {
     pub files: Manifest,
 }
 
+/// A held change (F11) until it is settled: the refused submit's changes, the head's state of each conflicting path,
+/// the head hash each path is rebased on (clean merges, then decisions; None = absent in the head), and whether a bot
+/// merge turn is due to resolve markers written into the tree.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Held {
+    pub changes: Vec<SyncChange>,
+    pub conflicts: Vec<SyncEntry>,
+    pub rebased: BTreeMap<String, Option<String>>,
+    pub merging: bool,
+}
+
 pub struct Replica {
     state: PathBuf,
     work: PathBuf,
@@ -59,6 +71,11 @@ impl Replica {
             group: group.into(),
             bot: bot.into(),
         }
+    }
+
+    /// The joined replica of (`group`, `bot`) on this machine.
+    pub fn find(home: &Path, group: &str, bot: &str) -> Option<Replica> {
+        Self::joined_in(home, group).into_iter().find(|r| r.bot == bot)
     }
 
     /// The joined replicas of `group` on this machine.
@@ -96,6 +113,20 @@ impl Replica {
 
     pub fn set_issue(&self, issue: Option<SyncReplicaIssue>) -> Result<(), String> {
         write_json(&self.state.join("issue.json"), &issue)
+    }
+
+    pub fn held(&self) -> Result<Option<Held>, String> {
+        read_json(&self.state.join("held.json"))
+    }
+
+    pub fn set_held(&self, held: Option<&Held>) -> Result<(), String> {
+        write_json(&self.state.join("held.json"), &held)
+    }
+
+    /// Settled: takes versions again.
+    pub fn clear(&self) -> Result<(), String> {
+        self.set_held(None)?;
+        self.set_issue(None)
     }
 
     /// Version 0 with no files before the replica ever matched one.

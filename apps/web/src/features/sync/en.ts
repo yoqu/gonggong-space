@@ -76,4 +76,43 @@ export default {
   切换中: 'Switching',
   '正在切换为强制同步，等待基准 Bot 提交工作树…':
     'Switching to force sync, waiting for the base Bot to submit its work tree…',
+  '我的改动（相对 v{v}）': 'My changes (from v{v})',
+  '最新版本的改动（v{v}）': 'Changes in the latest version (v{v})',
+  二进制文件: 'Binary file',
+  收起预览: 'Hide preview',
+  '{path} 的处理方式': 'What to do with {path}',
+  保留我的: 'Keep mine',
+  采用最新: 'Take latest',
+  '交给 Bot 合并': 'Let the Bot merge',
+  '已交给 {bot} 合并': 'Handed to {bot} to merge',
+  已提交处理: 'Submitted',
+  '处理 {bot} 的同步冲突': "Resolve {bot}'s sync conflict",
+  '基于 v{base} 的改动与 v{head} 冲突：{n} 个文件':
+    'Changes made on v{base} conflict with v{head}: {n} {n:file|files}',
+  整版丢弃: 'Discard all',
+  提交: 'Submit',
+  冲突已处理: 'The conflict was already resolved',
+  '选「交给 Bot 合并」的文件会写入冲突标记，由 {bot} 发起一轮合并，结束后自动提交':
+    'Files set to "Let the Bot merge" get conflict markers; {bot} runs a merge turn and its result is submitted automatically',
+  '保留我的：以我的内容为准；采用最新：放弃我对该文件的改动':
+    'Keep mine: my content wins. Take latest: my change to that file is dropped',
+  '{bot} 这次的改动将全部放弃，工作区回到最新版本。':
+    "All of {bot}'s held changes are dropped and its workspace returns to the latest version.",
+  被放弃的文件会先备份到本机: 'Dropped files are backed up on the machine first',
+  已丢弃冲突改动: 'Conflicting changes discarded',
+  处理: 'Resolve',
+  '提交为 v{v}（自动合并）': 'Submitted as v{v} (auto-merged)',
+  '提交为 v{v}': 'Submitted as v{v}',
+  '无文件改动 · v{v}': 'No file changes · v{v}',
+  '冲突待处理 · {n} 个文件': 'Conflict pending · {n} {n:file|files}',
+  '同步失败：{reason}': 'Sync failed: {reason}',
+  已开始提交本地改动: 'Submitting local changes',
+  提交本地改动: 'Submit local changes',
+  丢弃本地改动: 'Discard local changes',
+  处理冲突: 'Resolve conflict',
+  '{bot} 的工作区将回到最新版本。': "{bot}'s workspace will return to the latest version.",
+  '本地改动的文件会先备份到本机，再被覆盖或删除':
+    'Locally changed files are backed up on the machine first, then overwritten or deleted',
+  丢弃: 'Discard',
+  已开始丢弃本地改动: 'Discarding local changes',
 }

@@ -39,14 +39,17 @@ export function forgetMachineInits(machineId: string) {
 
 const SWITCH_WAIT = runStep('等待切换为强制同步')
 const ALIGN_WAIT = runStep('等待同步对齐')
+const DRIFT_WAIT = runStep('等待处理本地改动')
+const HELD_WAIT = runStep('等待处理同步冲突')
 
 /**
- * The bot's groups whose new turns wait (§3.5 step 4): the group is switching, or this replica's sync.init is due —
- * a turn must not run in a tree about to be overwritten. Maps each to its run step.
+ * The bot's groups whose new turns wait, each with its run step: the group is switching or this replica's sync.init
+ * is due (§3.5 step 4: a turn must not run in a tree about to be overwritten), or the replica has local edits (F12) or
+ * a held conflict (F11) to be settled first. `held`: only a merge turn of that conflict may go.
  */
 export async function syncHeld(db: Q, botId: string) {
   const rows = await db
-    .select({ groupId: groupBots.groupId, switching: groups.syncSwitch })
+    .select({ groupId: groupBots.groupId, switching: groups.syncSwitch, replica: syncReplicas })
     .from(groupBots)
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
     .leftJoin(
@@ -58,10 +61,25 @@ export async function syncHeld(db: Q, botId: string) {
         eq(groupBots.botId, botId),
         isNull(groupBots.removedAt),
         eq(groups.mode, 'force'),
-        or(isNotNull(groups.syncSwitch), isNotNull(syncReplicas.pending)),
+        or(
+          isNotNull(groups.syncSwitch),
+          isNotNull(syncReplicas.pending),
+          and(isNotNull(syncReplicas.joinedAt), inArray(syncReplicas.issue, ['drift', 'held'])),
+        ),
       ),
     )
-  return new Map(rows.map((r) => [r.groupId, r.switching ? SWITCH_WAIT : ALIGN_WAIT]))
+  return new Map(
+    rows.map((r) => {
+      const step = r.switching
+        ? SWITCH_WAIT
+        : r.replica?.pending
+          ? ALIGN_WAIT
+          : r.replica?.issue === 'held'
+            ? HELD_WAIT
+            : DRIFT_WAIT
+      return [r.groupId, { step, held: step === HELD_WAIT }]
+    }),
+  )
 }
 
 /**

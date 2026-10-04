@@ -53,7 +53,7 @@ export async function schedule(ctx: Ctx, botId: string) {
     if (!row || row.archivedAt) return { out: [], dispatches: [] }
     const { bot } = row
     const waiting = await tx
-      .select({ run: runs })
+      .select({ run: runs, meta: messages.meta })
       .from(runs)
       .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
       .where(and(eq(runs.botId, botId), inArray(runs.status, WAITING)))
@@ -74,7 +74,7 @@ export async function schedule(ctx: Ctx, botId: string) {
     const dispatches: { run: RunRow; machineId: string; msg: RunStart; triggerSeq: number }[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
-    for (const { run } of waiting) {
+    for (const { run, meta } of waiting) {
       const machineId = bot.machineId && ctx.hub.isOnline(bot.machineId) ? bot.machineId : null
       if (machineId && busyGroups.has(run.groupId)) {
         const n = (groupQueue.get(run.groupId) ?? 0) + 1
@@ -84,11 +84,12 @@ export async function schedule(ctx: Ctx, botId: string) {
           await setRun(run.id, { status: 'queued', ...step })
         continue
       }
-      // A mode switch holds new turns until it is done (§3.5); the sync engine reschedules then.
+      // A mode switch, local edits or a held conflict hold new turns until settled (§3.5, F11, F12); the sync engine
+      // reschedules then. The merge turn settling a held conflict is the one that goes.
       const hold = machineId && held.get(run.groupId)
-      if (hold) {
-        if (run.status !== 'queued' || run.step !== hold.step)
-          await setRun(run.id, { status: 'queued', ...hold })
+      if (hold && !(hold.held && (meta as MessageMeta).syncResolve)) {
+        if (run.status !== 'queued' || run.step !== hold.step.step)
+          await setRun(run.id, { status: 'queued', ...hold.step })
         continue
       }
       // Dispatch only once the bot's clone / directory is ready; the workspace engine reschedules then.
@@ -261,7 +262,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow) {
     },
     mcpServers: await enabledMcpServers(tx, run.groupId),
     command,
-    sync: await runSyncStart(tx, run.groupId, bot.id),
+    sync: await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null),
   }
   return { msg, config, triggerSeq: command ? 0 : trigger.seq, settled: interrupted?.settled }
 }

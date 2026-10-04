@@ -104,3 +104,44 @@
   gap: var(--space-8);
   margin-top: var(--space-12);
 }
+
+/* Run card sync line (plan §4) */
+.sync-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--label-secondary);
+}
+.sync-line > svg {
+  flex: none;
+}
+.sync-line[data-outcome="held"],
+.sync-line[data-outcome="error"] {
+  color: var(--tint-red-text);
+}
+.sync-conflict-event > svg {
+  color: var(--tint-red-text);
+}
+
+/* Conflict dialog (F11, §3.3) */
+.sync-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.sync-conflict__file + .sync-conflict__file {
+  border-top: 1px solid var(--separator);
+}
+.sync-conflict__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0 var(--space-12) var(--space-12);
+}
+.sync-conflict__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 280px;
+  overflow: auto;
+}

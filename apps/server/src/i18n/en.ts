@@ -489,4 +489,13 @@ export const en = {
   '强制同步群不能更换仓库，请先切回分区模式':
     'A force-sync group cannot change its repo; switch back to partition mode first',
   '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
+  'Bot 所在机器离线，上线后再处理': "The Bot's machine is offline; try again once it connects",
+  该副本没有待处理的本地改动: 'This replica has no local changes to settle',
+  冲突不存在或已处理: 'The conflict does not exist or was already settled',
+  需要为每个冲突文件选择处理方式: 'Choose what to do with every conflicting file',
+  '只有双方都存在的文本文件可以交给 Bot 合并':
+    'Only text files present on both sides can be merged by the Bot',
+  '正在由 Bot 合并，请等待本轮结束': 'The Bot is merging; wait for its turn to end',
+  二进制文件: 'Binary file',
+  '文件过大，无法预览': 'File too large to preview',
 } satisfies Record<string, string>

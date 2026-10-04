@@ -92,6 +92,8 @@ export const protocolEn = {
   工作区准备中: 'Preparing the workspace',
   等待切换为强制同步: 'Waiting for the switch to force sync',
   等待同步对齐: 'Waiting for the workspace to align with force sync',
+  等待处理本地改动: 'Waiting for its local changes to be settled',
+  等待处理同步冲突: 'Waiting for its sync conflict to be settled',
   '本群上一轮未结束，排第 {n}': 'Previous turn in this group still running, #{n} in line',
   '该 Bot 忙，排第 {n}': 'This Bot is busy, #{n} in line',
   'daemon 重启，本轮已中断': 'The daemon restarted, this turn was interrupted',
@@ -227,5 +229,11 @@ export const protocolEn = {
   主人已不在群内: 'its owner left the group',
   '错过执行时间超过 24 小时': 'it missed its time by over 24 hours',
   定时任务已停用: 'Scheduled task turned off',
+  本地有改动: 'Local changes',
+  '{bot} 的工作区有 {n} 个文件被本地修改，强制同步已暂停，请提交或丢弃':
+    "{n} {n:file|files} in {bot}'s workspace changed locally; force sync is paused until they are submitted or discarded",
+  同步冲突: 'Sync conflict',
+  '@{bot} 的改动与 v{version} 冲突：{n} 个文件':
+    "@{bot}'s changes conflict with v{version}: {n} {n:file|files}",
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

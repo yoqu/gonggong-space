@@ -14,10 +14,10 @@ use crate::local::LocalSettings;
 use crate::manage::Manage;
 use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
-    ServerToDaemon, ServiceInfo, Tier,
+    RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
 };
 use crate::providers::Selection;
-use crate::replicas::{Init, Replicas};
+use crate::replicas::{Init, Refusal, Replicas};
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -351,7 +351,9 @@ impl Handler for Engine {
                 self.0.replicas.on_init(init, out)
             }
             // Settling drift and conflicts (S5, S6) comes later.
-            ServerToDaemon::SyncAction { .. } => {}
+            ServerToDaemon::SyncAction { group_id, bot_id, action } => {
+                self.0.replicas.on_action(group_id, bot_id, action, out)
+            }
             ServerToDaemon::ServiceStop { service_id } => {
                 let services = self.0.services.clone();
                 tokio::spawn(async move { services.stop_id(&service_id).await });
@@ -415,7 +417,8 @@ impl Inner {
         };
         let sync = match self.replicas.before_turn(&start, &cwd, &out).await {
             Ok(sync) => sync,
-            Err(e) => return out.send(failed(&start.run_id, e)),
+            Err(Refusal::Wait(issue)) => return out.send(waiting(&start.run_id, issue)),
+            Err(Refusal::Failed(e)) => return out.send(failed(&start.run_id, e)),
         };
         let ask =
             match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone(), self.services.clone())).await {
@@ -545,8 +548,21 @@ fn installed_version(pkg: &Path) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
 }
 
+/// The turn did not start: the server queues it again until the replica is settled (F11, F12).
+fn waiting(run_id: &str, issue: SyncWaitIssue) -> DaemonToServer {
+    let error = match issue {
+        SyncWaitIssue::Drift => t!("工作区有未处理的本地改动（强制同步），处理后才能继续运行"),
+        SyncWaitIssue::Held => t!("强制同步有冲突待处理，处理后才能继续运行"),
+    };
+    DaemonToServer::RunDone(RunDone { sync: Some(RunSyncDone::Waiting { issue }), ..failed_done(run_id, error.into()) })
+}
+
 pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
-    DaemonToServer::RunDone(RunDone {
+    DaemonToServer::RunDone(failed_done(run_id, error))
+}
+
+fn failed_done(run_id: &str, error: String) -> RunDone {
+    RunDone {
         run_id: run_id.into(),
         outcome: RunOutcome::Failed,
         reply: String::new(),
@@ -559,5 +575,5 @@ pub(crate) fn failed(run_id: &str, error: String) -> DaemonToServer {
         patch: None,
         appends_applied: 0,
         sync: None,
-    })
+    }
 }

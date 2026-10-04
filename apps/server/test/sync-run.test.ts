@@ -104,7 +104,13 @@ describe('run.start sync', () => {
     connect('A')
     await submit('A', w.msg(w.a.id, [await change(w, 'a.txt', 'x')], { kind: 'init' }))
     const start = await dispatch('A', w.a.id)
-    expect(start.sync).toEqual({ headVersion: 1, lastVersion: null, changed: [], changedTotal: 0 })
+    expect(start.sync).toEqual({
+      headVersion: 1,
+      lastVersion: null,
+      changed: [],
+      changedTotal: 0,
+      resolve: null,
+    })
   })
 
   it('lists what changed since the version the previous turn ended at, capped', async () => {
@@ -128,6 +134,7 @@ describe('run.start sync', () => {
       lastVersion: 1,
       changed: many.slice(0, SYNC_CHANGED_MAX).map((c) => c.path),
       changedTotal: SYNC_CHANGED_MAX + 3,
+      resolve: null,
     })
   })
 

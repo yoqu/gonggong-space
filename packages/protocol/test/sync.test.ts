@@ -68,11 +68,19 @@ describe('run sync fields', () => {
       lastVersion: 12,
       changed: ['server/pay.go', 'web/src/api.ts'],
       changedTotal: 2,
+      resolve: [
+        { path: 'server/pay.go', choice: 'bot' },
+        { path: 'web/src/api.ts', choice: 'mine' },
+      ],
     })
     expect(RunDone.parse(fixture('d2s.run.done.sync.json')).sync).toEqual({
       outcome: 'accepted',
       version: 18,
       merged: true,
+    })
+    expect(RunDone.parse(fixture('d2s.run.done.sync.waiting.json')).sync).toEqual({
+      outcome: 'waiting',
+      issue: 'drift',
     })
   })
 })

@@ -483,6 +483,7 @@ mod tests {
             last_version: last,
             changed: changed.iter().map(|s| s.to_string()).collect(),
             changed_total: total,
+            resolve: None,
         };
         assert_eq!(
             sync_hint(&sync(Some(12), &["a.ts", "b/c.ts"], 25)).as_deref(),

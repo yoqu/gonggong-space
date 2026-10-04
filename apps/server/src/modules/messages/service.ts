@@ -6,6 +6,7 @@ import type {
   ProtocolKey,
   ReactionDto,
   RunConfigPick,
+  SyncDecision,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -37,6 +38,10 @@ export type MessageMeta = {
   /** Posted by this scheduled task when it fired. */
   scheduleOf?: string
   i18n?: I18nText
+  /** A force-sync conflict card (F11). */
+  syncConflict?: { id: string; botId: string }
+  /** The merge turn settling this held conflict with these decisions (交给 Bot 合并). */
+  syncResolve?: { conflictId: string; decisions: SyncDecision[] }
 }
 
 /** A recalled message keeps only its envelope (its body, attachments and quote are already erased). */
@@ -62,6 +67,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).schedule && { scheduleId: (m.meta as MessageMeta).schedule }),
     ...((m.meta as MessageMeta).scheduleOf && { scheduledBy: (m.meta as MessageMeta).scheduleOf }),
     ...((m.meta as MessageMeta).i18n && { i18n: (m.meta as MessageMeta).i18n }),
+    ...((m.meta as MessageMeta).syncConflict && { syncConflict: (m.meta as MessageMeta).syncConflict }),
   }
 }
 
@@ -98,5 +104,16 @@ export async function postMessage(ctx: Ctx, values: typeof messages.$inferInsert
 }
 
 /** Stored in Chinese for search and agent context; clients render `i18n` in their own language. */
-export const postEvent = (ctx: Ctx, groupId: string, key: ProtocolKey, params?: I18nParams) =>
-  postMessage(ctx, { groupId, kind: 'event', body: zh(key, params), meta: { i18n: { key, params } } })
+export const postEvent = (
+  ctx: Ctx,
+  groupId: string,
+  key: ProtocolKey,
+  params?: I18nParams,
+  meta: Omit<MessageMeta, 'i18n'> = {},
+) =>
+  postMessage(ctx, {
+    groupId,
+    kind: 'event',
+    body: zh(key, params),
+    meta: { ...meta, i18n: { key, params } },
+  })

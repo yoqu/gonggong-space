@@ -4,12 +4,14 @@ import {
   SyncChangesQuery,
   type SyncChangesRes,
   type SyncConflictDto,
+  SyncDriftReq,
   SyncEnableReq,
   SyncHash,
   SyncJoinReq,
   SyncMissingReq,
   type SyncMissingRes,
   type SyncPreviewDto,
+  SyncResolveReq,
   type SyncStatusDto,
   type SyncVersionDto,
 } from '@gonggong/protocol'
@@ -24,6 +26,7 @@ import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { groupDto, requireMember } from '../groups/service.js'
 import { blobSize, openBlob, writeBlob } from './blobs.js'
+import { conflictText, discardConflict, driftAction, resolveConflict } from './resolve.js'
 import { openConflicts, syncStatus, syncVersionList } from './status.js'
 import { changesSince } from './store.js'
 import { disableSync, enableSync, joinReplica, syncPreview } from './switch.js'
@@ -154,6 +157,44 @@ export function syncRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         await requireMember(ctx, req.params.id, me.id)
         return openConflicts(ctx, req.params.id)
+      },
+    )
+
+    app.post<{ Params: { id: string; botId: string } }>(
+      '/api/groups/:id/sync/replicas/:botId/drift',
+      async (req) => {
+        const me = await requireUser(ctx, req)
+        const { choice } = SyncDriftReq.parse(req.body)
+        await driftAction(ctx, me.id, req.params.id, idParam(req.params.botId, '该 Bot 不在群内'), choice)
+        return { ok: true }
+      },
+    )
+
+    app.post<{ Params: { id: string; conflictId: string } }>(
+      '/api/groups/:id/sync/conflicts/:conflictId/resolve',
+      async (req) => {
+        const me = await requireUser(ctx, req)
+        const { decisions } = SyncResolveReq.parse(req.body)
+        await resolveConflict(ctx, me.id, req.params.id, req.params.conflictId, decisions)
+        return { ok: true }
+      },
+    )
+
+    app.post<{ Params: { id: string; conflictId: string } }>(
+      '/api/groups/:id/sync/conflicts/:conflictId/discard',
+      async (req) => {
+        const me = await requireUser(ctx, req)
+        await discardConflict(ctx, me.id, req.params.id, req.params.conflictId)
+        return { ok: true }
+      },
+    )
+
+    app.get<{ Params: { id: string; conflictId: string; hash: string } }>(
+      '/api/groups/:id/sync/conflicts/:conflictId/blobs/:hash',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const text = await conflictText(ctx, me.id, req.params.id, req.params.conflictId, req.params.hash)
+        return reply.header('content-type', 'text/plain; charset=utf-8').send(text)
       },
     )
   }

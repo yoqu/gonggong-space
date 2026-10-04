@@ -15,7 +15,9 @@ import {
   Presence,
   Tabs,
   Tag,
+  toast,
 } from '../../ui'
+import { ConflictDialog } from './ConflictDialog'
 import { STATE, TAG } from './model'
 import { syncApi, useSyncStatus, VERSIONS_PAGE } from './store'
 import './sync.css'
@@ -26,11 +28,15 @@ const FILES_SHOWN = 3
 const excludedText = (r: SyncReplicaDto) =>
   r.workspace === 'cd' ? t('本机目录') : r.issue === 'dirty' ? t('有未提交的改动') : t('未加入')
 
-function Replica({ r, groupId, canJoin }: { r: SyncReplicaDto; groupId: string; canJoin: boolean }) {
+type Confirm = 'join' | 'discard' | null
+
+function Replica({ r, groupId, canAct }: { r: SyncReplicaDto; groupId: string; canAct: boolean }) {
   const state = STATE[r.state]
-  const [confirm, setConfirm] = useState(false)
+  const [confirm, setConfirm] = useState<Confirm>(null)
+  const [conflict, setConflict] = useState(false)
   const join = (force: boolean) => syncApi.join(groupId, r.botId, force)
-  const joinable = canJoin && r.state === 'excluded' && r.workspace === 'managed'
+  const joinable = canAct && r.state === 'excluded' && r.workspace === 'managed'
+  const drift = canAct && r.issue === 'drift'
   const reason = r.reason ?? (r.state === 'excluded' ? excludedText(r) : null)
   return (
     <div className="sync-row" data-testid={`replica-${r.botId}`}>
@@ -56,14 +62,62 @@ function Replica({ r, groupId, canJoin }: { r: SyncReplicaDto; groupId: string; 
             <Button size="small" onClick={() => void join(false).catch(toastError)}>
               {t('加入')}
             </Button>
-            <Button size="small" onClick={() => setConfirm(true)}>
+            <Button size="small" onClick={() => setConfirm('join')}>
               {t('丢弃本地改动并加入')}
             </Button>
           </>
         ) : null}
+        {drift ? (
+          <>
+            <Button
+              size="small"
+              onClick={() =>
+                void syncApi
+                  .drift(groupId, r.botId, 'submit')
+                  .then(() => toast({ type: 'success', message: t('已开始提交本地改动') }), toastError)
+              }
+            >
+              {t('提交本地改动')}
+            </Button>
+            <Button size="small" onClick={() => setConfirm('discard')}>
+              {t('丢弃本地改动')}
+            </Button>
+          </>
+        ) : null}
+        {canAct && r.issue === 'held' ? (
+          <Button size="small" onClick={() => setConflict(true)}>
+            {t('处理冲突')}
+          </Button>
+        ) : null}
       </span>
       <Presence>
-        {confirm ? (
+        {conflict ? (
+          <ConflictDialog
+            groupId={groupId}
+            botId={r.botId}
+            botName={r.botName}
+            onClose={() => setConflict(false)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {confirm === 'discard' ? (
+          <ConfirmActionDialog
+            title={t('丢弃本地改动')}
+            message={t('{bot} 的工作区将回到最新版本。', { bot: r.botName })}
+            consequences={[
+              t('本地改动的文件会先备份到本机，再被覆盖或删除'),
+              t('备份可在本机桌面端的「工作区」页找到'),
+            ]}
+            label={t('丢弃')}
+            done={t('已开始丢弃本地改动')}
+            run={() => syncApi.drift(groupId, r.botId, 'discard')}
+            onClose={() => setConfirm(null)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {confirm === 'join' ? (
           <ConfirmActionDialog
             title={t('丢弃本地改动并加入')}
             message={t('{bot} 的工作区将与权威版本保持一致。', { bot: r.botName })}
@@ -74,7 +128,7 @@ function Replica({ r, groupId, canJoin }: { r: SyncReplicaDto; groupId: string; 
             label={t('丢弃并加入')}
             done={t('已开始加入强制同步')}
             run={() => join(true)}
-            onClose={() => setConfirm(false)}
+            onClose={() => setConfirm(null)}
           />
         ) : null}
       </Presence>
@@ -87,7 +141,7 @@ function Replicas({ status, isAdmin }: { status: SyncStatusDto; isAdmin: boolean
   return status.replicas.length ? (
     <GroupBox>
       {status.replicas.map((r) => (
-        <Replica key={r.botId} r={r} groupId={status.groupId} canJoin={isAdmin || r.ownerId === me?.id} />
+        <Replica key={r.botId} r={r} groupId={status.groupId} canAct={isAdmin || r.ownerId === me?.id} />
       ))}
     </GroupBox>
   ) : (
@@ -169,7 +223,8 @@ function Versions({ groupId, head }: { groupId: string; head: number }) {
 
 /**
  * 同步面板 (plan §4): each Bot's replica and the version history of a force group. Group admins and a bot's owner
- * may join a left-out replica; `onSettings` (admins) leads to the mode settings.
+ * may join a left-out replica, settle its local edits or handle its conflict; `onSettings` (admins) leads to the mode
+ * settings.
  */
 export function SyncPanel({
   groupId,

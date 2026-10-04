@@ -2,6 +2,8 @@ import type { DaemonToServer, SyncSubmit } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups } from '../../db/schema.js'
+import { schedule } from '../runs/scheduler.js'
+import { announceConflict, notifyDrift } from './resolve.js'
 import { publishSync } from './status.js'
 import { headVersion, recordApplied, recordState, replicaMachines, submitTx } from './store.js'
 import { forgetMachineInits, onAligned, onBaseAccepted, onBaseFailed } from './switch.js'
@@ -27,20 +29,26 @@ async function onApplied(ctx: Ctx, machineId: string, msg: Extract<DaemonToServe
   const r = await recordApplied(ctx, machineId, msg)
   if (!r) return
   await publishSync(ctx, msg.groupId)
-  if (!r.joined) return
-  // A version that came out while it aligned.
+  if (!r.joined && !r.cleared) return
+  // A version that came out while it aligned or was paused (F11, F12).
   const head = await headVersion(ctx.db, msg.groupId)
   if (head > msg.version)
     ctx.hub.send(machineId, { t: 'sync.available', groupId: msg.groupId, version: head })
-  await onAligned(ctx, msg.groupId, msg.botId)
+  if (r.joined) await onAligned(ctx, msg.groupId, msg.botId)
+  // Its waiting turns go.
+  else await schedule(ctx, msg.botId)
 }
 
 async function onState(ctx: Ctx, machineId: string, msg: Extract<DaemonToServer, { t: 'sync.state' }>) {
   const r = await recordState(ctx, machineId, msg)
   if (!r) return
   await publishSync(ctx, msg.groupId)
-  if (r.pending === 'base') await onBaseFailed(ctx, msg.groupId, msg.botId, msg.reason)
-  else if (r.pending) await onAligned(ctx, msg.groupId, msg.botId)
+  if (r.pending === 'base') return onBaseFailed(ctx, msg.groupId, msg.botId, msg.reason)
+  if (r.pending) return onAligned(ctx, msg.groupId, msg.botId)
+  if (r.newDrift) await notifyDrift(ctx, msg.groupId, msg.botId, msg.total)
+  if (r.opened) await announceConflict(ctx, msg.groupId, msg.botId, r.opened)
+  // Its queued turns show why they wait.
+  if (msg.state === 'drift' || msg.state === 'held') await schedule(ctx, msg.botId)
 }
 
 /** Force groups with a bot on `machineId`: their replicas' online state changed. */

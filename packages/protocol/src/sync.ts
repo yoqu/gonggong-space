@@ -130,6 +130,7 @@ export const SyncAvailable = z.object({
  * keep mine / take the head / let the bot merge), or the whole held change discarded. Discards back files up first.
  */
 export const SyncDecision = z.object({ path: SyncPath, choice: z.enum(['mine', 'theirs', 'bot']) })
+export type SyncDecision = z.infer<typeof SyncDecision>
 export const SyncActionKind = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('drift'), choice: z.enum(['submit', 'discard']) }),
   z.object({ kind: z.literal('conflict'), decisions: z.array(SyncDecision).min(1) }),
@@ -169,18 +170,26 @@ export const RunSyncStart = z.object({
   lastVersion: z.number().int().min(0).nullable(),
   changed: z.array(z.string()).max(SYNC_CHANGED_MAX),
   changedTotal: z.number().int().min(0),
+  /**
+   * A merge turn (交给 Bot 合并, F11): the held change's decisions, applied under the replica's lock before the turn
+   * (bot = conflict markers written for the agent); the turn's submit is kind `merge`.
+   */
+  resolve: z.array(SyncDecision).nullable().default(null),
 })
 export type RunSyncStart = z.infer<typeof RunSyncStart>
 /**
  * run.done in a force group, sent once the submit settled so a relay can start right away (F10): `accepted` = taken
  * as `version` (`merged` after a clean auto merge), `unchanged` = nothing to submit, the replica is at `version`;
- * `held` = `files` conflicts wait for a decision; `error` = not submitted (limits, offline…), in the daemon's words.
+ * `held` = `files` conflicts wait for a decision; `error` = not submitted (limits, offline…), in the daemon's words;
+ * `waiting` = the turn never started: the replica has local edits or a held conflict (F11, F12), so the server queues
+ * the run again until the issue is settled.
  */
 export const RunSyncDone = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal('accepted'), version: z.number().int().min(1), merged: z.boolean() }),
   z.object({ outcome: z.literal('unchanged'), version: z.number().int().min(0) }),
   z.object({ outcome: z.literal('held'), files: z.number().int().min(1) }),
   z.object({ outcome: z.literal('error'), reason: z.string() }),
+  z.object({ outcome: z.literal('waiting'), issue: z.enum(['drift', 'held']) }),
 ])
 export type RunSyncDone = z.infer<typeof RunSyncDone>
 
@@ -281,6 +290,14 @@ export const SyncPreviewDto = z.object({
   ),
 })
 export type SyncPreviewDto = z.infer<typeof SyncPreviewDto>
+/** POST /api/groups/:id/sync/replicas/:botId/drift (group admin or the bot's owner): settle local edits (F12). */
+export const SyncDriftReq = z.object({ choice: z.enum(['submit', 'discard']) })
+/**
+ * POST /api/groups/:id/sync/conflicts/:conflictId/resolve (group admin or the bot's owner): one decision per
+ * conflicting file (F11); any `bot` starts a merge turn of that bot, otherwise the replica re-submits at once.
+ * POST …/discard drops the whole held change after a backup.
+ */
+export const SyncResolveReq = z.object({ decisions: z.array(SyncDecision).min(1) })
 /** A held change: per file the replica's, the head's and the base's content hash (null = absent / deleted). */
 export const SyncConflictDto = z.object({
   id: z.string(),

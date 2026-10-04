@@ -92,6 +92,16 @@
     "headVersion": 17,
     "lastVersion": 12,
     "changed": ["server/pay.go", "web/src/api.ts"],
-    "changedTotal": 2
+    "changedTotal": 2,
+    "resolve": [
+      {
+        "path": "server/pay.go",
+        "choice": "bot"
+      },
+      {
+        "path": "web/src/api.ts",
+        "choice": "mine"
+      }
+    ]
   }
 }

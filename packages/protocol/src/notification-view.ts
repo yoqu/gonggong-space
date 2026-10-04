@@ -74,6 +74,27 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group,
         href: at(''),
       }
+    case 'sync_drift':
+      return {
+        label: say('本地有改动'),
+        text: say('{bot} 的工作区有 {n} 个文件被本地修改，强制同步已暂停，请提交或丢弃', {
+          bot,
+          n: p('files'),
+        }),
+        group,
+        href: at(''),
+      }
+    case 'sync_conflict':
+      return {
+        label: say('同步冲突'),
+        text: say('@{bot} 的改动与 v{version} 冲突：{n} 个文件', {
+          bot,
+          version: p('version'),
+          n: p('files'),
+        }),
+        group,
+        href: at(''),
+      }
     case 'bot_confirm':
       return {
         label: say('待确认 Bot'),

@@ -478,6 +478,8 @@ export const NotificationType = z.enum([
   'bot_confirm',
   'repo_access',
   'schedule_paused',
+  'sync_drift',
+  'sync_conflict',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -681,6 +683,8 @@ export const MessageDto = z.object({
   scheduledBy: z.string().nullable().optional(),
   /** An event's translatable source; `body` holds its Chinese rendering. */
   i18n: I18nText.optional(),
+  /** A force-sync conflict card (F11): the held change and whose replica it is. */
+  syncConflict: z.object({ id: z.string(), botId: z.string() }).nullable().optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 

@@ -525,6 +525,10 @@ pub(super) const EN: &[(&str, &str)] = &[
         "强制同步有冲突待处理，处理后才能继续运行",
         "Force sync has a conflict waiting for a decision; settle it before running again",
     ),
+    ("找不到待处理的同步冲突，无法合并", "No held sync conflict found; cannot merge"),
+    ("找不到待处理的同步冲突", "No held sync conflict found"),
+    ("{path} 不是冲突文件", "{path} is not a conflicting file"),
+    ("{path} 不能交给 Bot 合并", "{path} cannot be merged by the Bot"),
     (
         "工作区有未处理的本地改动（强制同步），处理后才能继续运行",
         "The workspace has unsettled local edits (force sync); settle them before running again",

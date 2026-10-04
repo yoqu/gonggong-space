@@ -32,6 +32,7 @@ import { GroupNotice } from '../groups/GroupNotice'
 import { GroupSettingsDialog } from '../groups/GroupSettingsDialog'
 import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
+import { ConflictEvent } from '../sync/RunSyncLine'
 import { SyncBar } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { GitBar } from './GitBar'
@@ -340,6 +341,7 @@ export function ChatView({
     if (run) return card(run, m)
     if (m.scheduleId)
       return <ScheduleCard scheduleId={m.scheduleId} groupId={m.groupId} fallback={eventText(m)} />
+    if (m.syncConflict) return <ConflictEvent m={{ ...m, syncConflict: m.syncConflict }} />
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
     if (m.kind === 'bot') return <BotReply m={m} compact={compact} />

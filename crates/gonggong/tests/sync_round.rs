@@ -260,7 +260,7 @@ impl Rig {
 }
 
 fn at(head: u64, last: Option<u64>) -> RunSyncStart {
-    RunSyncStart { head_version: head, last_version: last, changed: vec![], changed_total: 0 }
+    RunSyncStart { head_version: head, last_version: last, changed: vec![], changed_total: 0, resolve: None }
 }
 
 fn change(path: &str, body: Option<&str>, base: Option<&str>) -> SyncChange {
@@ -311,7 +311,13 @@ async fn catches_up_before_the_turn_and_tells_the_agent_what_changed() {
     let mut r = rig().await;
     r.join(&[("a.txt", "one\n")]);
     r.store.lock().unwrap().push(&[("b.txt", Some("b\n"))]);
-    let sync = RunSyncStart { head_version: 2, last_version: Some(1), changed: vec!["b.txt".into()], changed_total: 1 };
+    let sync = RunSyncStart {
+        head_version: 2,
+        last_version: Some(1),
+        changed: vec!["b.txt".into()],
+        changed_total: 1,
+        resolve: None,
+    };
     r.run("r1", "mock:echo", sync);
 
     assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("b.txt", "b\n")])));
@@ -385,8 +391,8 @@ async fn an_overlapping_conflict_is_held_for_a_person_and_pauses_the_replica() {
     r.run("r2", "mock:echo", at(2, Some(1)));
     let done = r.done().await;
     assert_eq!(
-        (done.outcome, done.error.as_deref()),
-        (RunOutcome::Failed, Some("强制同步有冲突待处理，处理后才能继续运行"))
+        (done.outcome, done.sync),
+        (RunOutcome::Failed, Some(RunSyncDone::Waiting { issue: SyncWaitIssue::Held }))
     );
 }
 
@@ -446,7 +452,7 @@ async fn local_edits_found_before_a_turn_are_reported_and_the_turn_does_not_run(
     );
     let done = r.done().await;
     assert_eq!(done.outcome, RunOutcome::Failed);
-    assert_eq!(done.error.as_deref(), Some("工作区有未处理的本地改动（强制同步），处理后才能继续运行"));
+    assert_eq!(done.sync, Some(RunSyncDone::Waiting { issue: SyncWaitIssue::Drift }), "queued again, not failed");
 
     // Paused: a new version does not overwrite the edit (F12).
     r.store.lock().unwrap().push(&[("a.txt", Some("two\n"))]);
@@ -592,4 +598,163 @@ async fn leaving_forgets_the_sync_state_and_keeps_the_files() {
     r.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
     r.quiet(300).await;
     assert_eq!(r.read("a.txt").as_deref(), Some("one\n"));
+}
+
+// ── Settling a paused replica (F11, F12, S5, S6) ─────────────────────────────
+
+fn action(action: SyncActionKind) -> ServerToDaemon {
+    ServerToDaemon::SyncAction { group_id: "g1".into(), bot_id: "b1".into(), action }
+}
+
+fn state(state: SyncReplicaIssue, files: &[&str]) -> DaemonToServer {
+    DaemonToServer::SyncState {
+        group_id: "g1".into(),
+        bot_id: "b1".into(),
+        state,
+        files: files.iter().map(|f| f.to_string()).collect(),
+        total: files.len() as u32,
+        reason: None,
+    }
+}
+
+fn head(path: &str, body: Option<&str>) -> SyncEntry {
+    SyncEntry { path: path.into(), hash: body.map(|b| hash_bytes(b.as_bytes())), exec: false }
+}
+
+impl Rig {
+    /// Joined at v1 with `files`, then `edits` by hand: the next sync.available finds the drift.
+    async fn drifted(&mut self, files: &[(&str, &str)], edits: &[(&str, &str)]) {
+        self.join(files);
+        for (p, b) in edits {
+            self.write(p, b);
+        }
+        self.store.lock().unwrap().push(&[("other.txt", Some("o\n"))]);
+        self.send(ServerToDaemon::SyncAvailable { group_id: "g1".into(), version: 2 });
+        let paths: Vec<_> = edits.iter().map(|(p, _)| *p).collect();
+        assert_eq!(self.next().await, state(SyncReplicaIssue::Drift, &paths));
+    }
+
+    /// A turn's edits of `a.txt` and `b.txt` against v1 held after both conflicted with v2.
+    async fn held(&mut self) {
+        self.join(&[("a.txt", "1\n2\n"), ("b.txt", "b\n")]);
+        self.run("r1", "mock:sh printf 'mine\\n2\\n' > a.txt && printf 'b mine\\n' > b.txt", at(1, Some(1)));
+        let s = self.submit().await;
+        self.store.lock().unwrap().push(&[("a.txt", Some("theirs\n2\n")), ("b.txt", Some("b theirs\n"))]);
+        let conflicts = vec![head("a.txt", Some("theirs\n2\n")), head("b.txt", Some("b theirs\n"))];
+        self.answer(&s, SyncSubmitResult::Conflict { head_version: 2, conflicts });
+        assert_eq!(self.next().await, state(SyncReplicaIssue::Held, &["a.txt", "b.txt"]));
+        assert_eq!(self.done().await.sync, Some(RunSyncDone::Held { files: 2 }));
+    }
+}
+
+#[tokio::test]
+async fn submitting_local_edits_makes_them_a_local_version_and_catches_up() {
+    let mut r = rig().await;
+    r.drifted(&[("a.txt", "one\n")], &[("a.txt", "hand\n")]).await;
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Submit }));
+
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.base_version, s.kind), (None, 1, SyncSubmitKind::Local));
+    assert_eq!(s.changes, vec![change("a.txt", Some("hand\n"), Some("one\n"))]);
+    r.store.lock().unwrap().push(&[("a.txt", Some("hand\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 3 });
+    assert_eq!(r.next().await, applied(3, r.root(&[("a.txt", "hand\n"), ("other.txt", "o\n")])));
+    assert_eq!(r.replica().issue().unwrap(), None);
+}
+
+#[tokio::test]
+async fn submitted_local_edits_that_overlap_the_head_are_held() {
+    let mut r = rig().await;
+    r.drifted(&[("a.txt", "1\n2\n")], &[("a.txt", "hand\n2\n")]).await;
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Submit }));
+    let s = r.submit().await;
+    r.store.lock().unwrap().push(&[("a.txt", Some("theirs\n2\n"))]);
+    r.answer(&s, SyncSubmitResult::Conflict { head_version: 3, conflicts: vec![head("a.txt", Some("theirs\n2\n"))] });
+    assert_eq!(r.next().await, state(SyncReplicaIssue::Held, &["a.txt"]));
+    assert_eq!(r.replica().issue().unwrap(), Some(SyncReplicaIssue::Held));
+    assert_eq!(r.read("a.txt").as_deref(), Some("hand\n2\n"));
+}
+
+#[tokio::test]
+async fn discarding_local_edits_backs_them_up_and_makes_the_tree_the_head() {
+    let mut r = rig().await;
+    r.drifted(&[("a.txt", "one\n")], &[("a.txt", "hand\n"), ("note.txt", "n\n")]).await;
+    r.send(action(SyncActionKind::Drift { choice: DriftChoice::Discard }));
+
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "one\n"), ("other.txt", "o\n")])));
+    assert_eq!((r.read("a.txt").as_deref(), r.read("note.txt")), (Some("one\n"), None));
+    let backups = r.backups();
+    assert_eq!(backups.len(), 1);
+    assert_eq!(std::fs::read_to_string(backups[0].join("a.txt")).unwrap(), "hand\n");
+    assert_eq!(std::fs::read_to_string(backups[0].join("note.txt")).unwrap(), "n\n");
+    assert_eq!(r.replica().issue().unwrap(), None);
+}
+
+#[tokio::test]
+async fn keep_mine_and_take_theirs_are_resubmitted_at_once_on_top_of_the_head() {
+    let mut r = rig().await;
+    r.held().await;
+    let decisions = vec![
+        SyncDecision { path: "a.txt".into(), choice: SyncChoice::Mine },
+        SyncDecision { path: "b.txt".into(), choice: SyncChoice::Theirs },
+    ];
+    r.send(action(SyncActionKind::Conflict { decisions }));
+
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.base_version, s.kind), (None, 1, SyncSubmitKind::Merge));
+    assert_eq!(
+        s.changes,
+        vec![
+            change("a.txt", Some("mine\n2\n"), Some("theirs\n2\n")),
+            change("b.txt", Some("b theirs\n"), Some("b theirs\n")),
+        ]
+    );
+    assert_eq!(r.read("b.txt").as_deref(), Some("b theirs\n"));
+    r.store.lock().unwrap().push(&[("a.txt", Some("mine\n2\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 3 });
+    assert_eq!(r.next().await, applied(3, r.root(&[("a.txt", "mine\n2\n"), ("b.txt", "b theirs\n")])));
+    assert_eq!(r.replica().issue().unwrap(), None);
+    assert_eq!(r.replica().held().unwrap(), None);
+}
+
+#[tokio::test]
+async fn a_bot_merge_turn_gets_the_conflict_markers_and_submits_its_resolution_as_a_merge() {
+    let mut r = rig().await;
+    r.held().await;
+    let mut sync = at(2, Some(1));
+    sync.resolve = Some(vec![
+        SyncDecision { path: "a.txt".into(), choice: SyncChoice::Bot },
+        SyncDecision { path: "b.txt".into(), choice: SyncChoice::Mine },
+    ]);
+    r.run(
+        "r2",
+        "mock:sh grep -q '<<<<<<< mine' a.txt && grep -q '>>>>>>> theirs' a.txt && printf 'both\\n2\\n' > a.txt",
+        sync,
+    );
+
+    let s = r.submit().await;
+    assert_eq!((s.run_id.as_deref(), s.kind), (Some("r2"), SyncSubmitKind::Merge));
+    assert_eq!(
+        s.changes,
+        vec![
+            change("a.txt", Some("both\n2\n"), Some("theirs\n2\n")),
+            change("b.txt", Some("b mine\n"), Some("b theirs\n"))
+        ]
+    );
+    r.store.lock().unwrap().push(&[("a.txt", Some("both\n2\n")), ("b.txt", Some("b mine\n"))]);
+    r.answer(&s, SyncSubmitResult::Accepted { version: 3 });
+    assert_eq!(r.next().await, applied(3, r.root(&[("a.txt", "both\n2\n"), ("b.txt", "b mine\n")])));
+    assert_eq!(r.done().await.sync, Some(RunSyncDone::Accepted { version: 3, merged: false }));
+    assert_eq!(r.replica().issue().unwrap(), None);
+}
+
+#[tokio::test]
+async fn discarding_a_held_change_backs_it_up_and_makes_the_tree_the_head() {
+    let mut r = rig().await;
+    r.held().await;
+    r.send(action(SyncActionKind::Discard));
+    assert_eq!(r.next().await, applied(2, r.root(&[("a.txt", "theirs\n2\n"), ("b.txt", "b theirs\n")])));
+    let backups = r.backups();
+    assert_eq!(std::fs::read_to_string(backups[0].join("a.txt")).unwrap(), "mine\n2\n");
+    assert_eq!((r.replica().issue().unwrap(), r.replica().held().unwrap()), (None, None));
 }

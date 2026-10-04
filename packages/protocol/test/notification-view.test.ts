@@ -63,6 +63,17 @@ describe('notificationView', () => {
       group: '',
       href: '/admin/bots',
     })
+    expect(
+      notificationView(n('sync_drift', { groupId: 'g1', groupName: '支付', botName: 'C', files: 3 })),
+    ).toEqual({
+      label: '本地有改动',
+      text: 'C 的工作区有 3 个文件被本地修改，强制同步已暂停，请提交或丢弃',
+      group: '支付',
+      href: '/g/g1',
+    })
+    expect(
+      notificationView(n('sync_conflict', { groupId: 'g1', botName: 'C', version: 15, files: 2 })),
+    ).toMatchObject({ label: '同步冲突', text: '@C 的改动与 v15 冲突：2 个文件', href: '/g/g1' })
   })
   it("renders in the reader's language, nested reasons included", () => {
     const en = createTranslator('en', protocolEn).text
