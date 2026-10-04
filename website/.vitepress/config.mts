@@ -18,6 +18,7 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
         en: 'Getting Started',
         items: [
           ['/guide/introduction', '共工空间是什么', 'What is Gonggong Space'],
+          ['/guide/videos', '视频介绍', 'Videos'],
           ['/guide/concepts', '核心概念', 'Core Concepts'],
           ['/guide/architecture', '系统架构', 'Architecture'],
           ['/guide/quick-start', '快速上手', 'Quick Start'],

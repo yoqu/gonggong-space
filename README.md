@@ -26,6 +26,15 @@
 
 共工空间是面向小团队的自托管 AI 协作平台。每个成员把自己的机器接进来，机器上的 Claude Code / Codex 就成了群里可以 @ 的 **Bot**。人和 Bot 在同一个群里讨论、派活、接力，过程、改动和结果对全员可见。
 
+## 视频介绍
+
+<table>
+  <tr>
+    <td align="center"><a href="https://yoqu.github.io/gonggong-space/guide/videos"><img src="website/public/videos/promo.jpg" width="400" alt="产品宣传片"></a><br>▶ <a href="https://yoqu.github.io/gonggong-space/guide/videos">产品宣传片（60 秒）</a></td>
+    <td align="center"><a href="https://yoqu.github.io/gonggong-space/guide/videos"><img src="website/public/videos/explainer.jpg" width="400" alt="功能讲解"></a><br>▶ <a href="https://yoqu.github.io/gonggong-space/guide/videos">功能讲解：八关通关（3 分 56 秒）</a></td>
+  </tr>
+</table>
+
 ## 为什么做它
 
 - **上下文散落在各自终端里**：你让 Claude 改了接口，队友的 Codex 并不知道。放进群里，没 @ 的消息也会作为上下文带给 Bot，大家共享同一份来龙去脉。

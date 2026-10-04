@@ -26,6 +26,15 @@ Documentation: [English](https://yoqu.github.io/gonggong-space/en/) · [中文](
 
 Gonggong Space is a self-hosted AI collaboration platform for small teams. Each member connects their own machine, and the Claude Code / Codex on that machine becomes a **Bot** anyone in the group can @. People and Bots discuss, hand out work, and pass tasks along in the same group, with the process, changes, and results visible to everyone.
 
+## Videos
+
+<table>
+  <tr>
+    <td align="center"><a href="https://yoqu.github.io/gonggong-space/en/guide/videos"><img src="website/public/videos/promo.jpg" width="400" alt="Product video"></a><br>▶ <a href="https://yoqu.github.io/gonggong-space/en/guide/videos">Product video (60 s)</a></td>
+    <td align="center"><a href="https://yoqu.github.io/gonggong-space/en/guide/videos"><img src="website/public/videos/explainer.jpg" width="400" alt="Feature walkthrough"></a><br>▶ <a href="https://yoqu.github.io/gonggong-space/en/guide/videos">Feature walkthrough (3 min 56 s, Chinese narration)</a></td>
+  </tr>
+</table>
+
 ## Why we built it
 
 - **Context is scattered across individual terminals**: you had Claude change an API, but your teammate's Codex has no idea. Put it in a group, and even messages that don't @ the Bot are passed to it as context, so everyone shares the same backstory.
