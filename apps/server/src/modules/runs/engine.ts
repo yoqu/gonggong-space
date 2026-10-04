@@ -367,6 +367,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
         endedAt: ctx.now(),
         finalizing: true,
         appendsApplied: done.appendsApplied,
+        sync: done.sync,
         ...stopped,
       })
       .where(and(eq(runs.id, owned.id), inArray(runs.status, LIVE)))

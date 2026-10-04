@@ -48,6 +48,7 @@ export const runDto = (
   delegation: delegationDto(r.delegation as Delegation),
   model: r.model,
   effort: r.effort,
+  sync: r.sync ?? null,
 })
 
 export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }

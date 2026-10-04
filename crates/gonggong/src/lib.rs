@@ -28,6 +28,7 @@ pub mod previews;
 pub mod protocol;
 pub mod provider_cli;
 pub mod providers;
+mod replicas;
 pub mod repo;
 pub mod revoke;
 pub mod service;

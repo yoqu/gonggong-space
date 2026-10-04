@@ -2,8 +2,8 @@
 use crate::attachments::rel_path;
 use crate::mcp_call;
 use crate::protocol::{
-    self, AgentKind, ContextMessage, ContextUsage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, SubagentState,
-    TaskState, Tier, ToolStatus, Usage,
+    self, AgentKind, ContextMessage, ContextUsage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, RunSyncDone,
+    RunSyncStart, SubagentState, TaskState, Tier, ToolStatus, Usage,
 };
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
@@ -46,6 +46,17 @@ pub fn compose_prompt(prompt: &RunPrompt, history: &[ContextMessage], omitted: u
         out.push_str(&format!("\n附件：{}", rel_path(a)));
     }
     out
+}
+
+/// Force group (F20): what others changed in the shared tree since this bot last worked; None when nothing did.
+pub fn sync_hint(sync: &RunSyncStart) -> Option<String> {
+    let last = sync.last_version.filter(|_| sync.changed_total > 0)?;
+    Some(format!(
+        "强制同步：自你上次工作后权威版本 v{last}→v{}，改动文件：{}（共 {} 个）",
+        sync.head_version,
+        sync.changed.join("、"),
+        sync.changed_total
+    ))
 }
 
 /// "2026-09-23T10:12:00.123Z" → "2026-09-23 10:12" (UTC, as sent by the server).
@@ -264,6 +275,8 @@ pub struct Turn {
     pub git: Option<(GitStatus, usize)>,
     /// Repo workspaces only: unified diff of the turn's changes.
     pub patch: Option<String>,
+    /// Force group: how the turn's submit settled.
+    pub sync: Option<RunSyncDone>,
     tools: HashMap<(Option<String>, String), ToolState>,
     /// Subagents spawned this turn, by their ACP session id.
     subagents: HashMap<String, Subagent>,
@@ -461,6 +474,22 @@ mod tests {
             "群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: 退款 v1 下线\n[#1 2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
         );
         assert_eq!(compose_prompt(&prompt(), &[], 0), "王磊 说：@小王 写个脚本");
+    }
+
+    #[test]
+    fn sync_hint_lists_what_changed_since_the_last_turn() {
+        let sync = |last, changed: &[&str], total| RunSyncStart {
+            head_version: 17,
+            last_version: last,
+            changed: changed.iter().map(|s| s.to_string()).collect(),
+            changed_total: total,
+        };
+        assert_eq!(
+            sync_hint(&sync(Some(12), &["a.ts", "b/c.ts"], 25)).as_deref(),
+            Some("强制同步：自你上次工作后权威版本 v12→v17，改动文件：a.ts、b/c.ts（共 25 个）")
+        );
+        assert_eq!(sync_hint(&sync(Some(17), &[], 0)), None);
+        assert_eq!(sync_hint(&sync(None, &[], 0)), None);
     }
 
     #[test]

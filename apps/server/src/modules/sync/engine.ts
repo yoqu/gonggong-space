@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups } from '../../db/schema.js'
 import { publishSync } from './status.js'
-import { recordApplied, recordState, replicaMachines, submitTx } from './store.js'
+import { headVersion, recordApplied, recordState, replicaMachines, submitTx } from './store.js'
 
 /** Answers sync.submit; on a new version tells the other replicas' machines (F8) and the members. */
 export async function handleSubmit(ctx: Ctx, machineId: string, msg: SyncSubmit) {
@@ -60,12 +60,21 @@ export function startSyncEngine(ctx: Ctx) {
     enqueue(machineId, async () => {
       for (const id of await machineGroups(ctx, machineId)) await publishSync(ctx, id)
     })
+  // A reconnected daemon catches its replicas up to the head it missed while away (F9).
+  const onOnline = (machineId: string) =>
+    enqueue(machineId, async () => {
+      for (const groupId of await machineGroups(ctx, machineId)) {
+        const version = await headVersion(ctx.db, groupId)
+        if (version > 0) ctx.hub.send(machineId, { t: 'sync.available', groupId, version })
+        await publishSync(ctx, groupId)
+      }
+    })
   ctx.hub.on('message', onMessage)
-  ctx.hub.on('online', onPresence)
+  ctx.hub.on('online', onOnline)
   ctx.hub.on('offline', onPresence)
   return async () => {
     ctx.hub.off('message', onMessage)
-    ctx.hub.off('online', onPresence)
+    ctx.hub.off('online', onOnline)
     ctx.hub.off('offline', onPresence)
     await Promise.all(chains.values())
   }

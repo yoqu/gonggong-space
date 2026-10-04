@@ -1,4 +1,4 @@
-import type { I18nText } from '@gonggong/protocol'
+import type { I18nText, RunSyncDone } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
 import {
   bigint,
@@ -468,6 +468,8 @@ export const runs = pgTable(
     /** Requested at dispatch, then as the daemon reported them in effect (session.config). */
     model: text('model'),
     effort: text('effort'),
+    /** Force group: RunSyncDone as reported with run.done. */
+    sync: jsonb('sync').$type<RunSyncDone>(),
   },
   (t) => [index('runs_bot_status').on(t.botId, t.status), index('runs_group').on(t.groupId)],
 )

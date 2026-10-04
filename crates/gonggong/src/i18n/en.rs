@@ -521,4 +521,18 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("下载内容校验失败：{hash}", "Downloaded content failed verification: {hash}"),
     ("无法暂存下载内容：{e}", "Couldn't stage the downloaded content: {e}"),
     ("无法写入 {path}：{e}", "Couldn't write {path}: {e}"),
+    (
+        "强制同步有冲突待处理，处理后才能继续运行",
+        "Force sync has a conflict waiting for a decision; settle it before running again",
+    ),
+    (
+        "工作区有未处理的本地改动（强制同步），处理后才能继续运行",
+        "The workspace has unsettled local edits (force sync); settle them before running again",
+    ),
+    ("等待服务器确认同步提交超时", "Timed out waiting for the server to confirm the sync submit"),
+    ("同步提交被拒绝：文件内容未上传完整", "Sync submit rejected: not all file contents were uploaded"),
+    ("同步提交被拒绝：超过单版体积上限", "Sync submit rejected: over the per-version size limit"),
+    ("同步提交被拒绝：该副本未参与强制同步", "Sync submit rejected: this replica does not take part in force sync"),
+    ("上传同步内容失败：{e}", "Couldn't upload sync content: {e}"),
+    ("下载同步内容失败：{e}", "Couldn't download sync content: {e}"),
 ];

@@ -39,7 +39,7 @@ import {
 } from './daemon.js'
 import { I18nText } from './i18n.js'
 import { GroupSchedulesDto } from './schedules.js'
-import { SyncStatusDto } from './sync.js'
+import { RunSyncDone, SyncStatusDto } from './sync.js'
 
 /** REST base: /api. Auth: httpOnly cookie `gonggong_session`. Errors: { error: ErrorCode, message }. */
 export const ErrorCode = z.enum([
@@ -970,6 +970,8 @@ export const RunDto = z.object({
   /** Model and thought level of the turn: as requested, then as the daemon reported them in effect. */
   model: z.string().nullable(),
   effort: z.string().nullable(),
+  /** Force group: how the turn's submit settled (F10, F14); null elsewhere or before run.done. */
+  sync: RunSyncDone.nullable().optional(),
 })
 export type RunDto = z.infer<typeof RunDto>
 

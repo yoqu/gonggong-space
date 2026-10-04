@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
+  type RunSyncStart,
+  SYNC_CHANGED_MAX,
   SYNC_FILES_MAX,
   SYNC_VERSION_MAX_BYTES,
   type SyncApplied,
@@ -19,6 +21,7 @@ import {
   bots,
   groupBots,
   groups,
+  runs,
   syncChanges,
   syncConflicts,
   syncHead,
@@ -62,6 +65,48 @@ export async function headVersion(db: Q, groupId: string) {
     .orderBy(desc(syncVersions.version))
     .limit(1)
   return row?.version ?? 0
+}
+
+/**
+ * run.start's `sync` for a bot's turn in a force group with a managed workspace, else null (F9, F20). `lastVersion` is
+ * the version the bot's previous turn in the group ended at (its run.done: accepted / unchanged), so `changed` lists
+ * the paths changed in (lastVersion, head] — what others did since it last worked.
+ */
+export async function runSyncStart(db: Q, groupId: string, botId: string): Promise<RunSyncStart | null> {
+  const [row] = await db
+    .select({ mode: groups.mode, kind: groupBots.workspaceKind })
+    .from(groupBots)
+    .innerJoin(groups, eq(groups.id, groupBots.groupId))
+    .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
+  if (row?.mode !== 'force' || row.kind !== 'managed') return null
+  const head = await headVersion(db, groupId)
+  const done = sql`(${runs.sync}->>'version')::int`
+  const [prev] = await db
+    .select({ version: sql<number>`${done}` })
+    .from(runs)
+    .where(and(eq(runs.groupId, groupId), eq(runs.botId, botId), sql`${done} is not null`))
+    .orderBy(desc(runs.endedAt))
+    .limit(1)
+  const lastVersion = prev?.version ?? null
+  const none = { headVersion: head, lastVersion, changed: [], changedTotal: 0 }
+  if (lastVersion === null || lastVersion >= head) return none
+  const range = and(
+    eq(syncChanges.groupId, groupId),
+    gt(syncChanges.version, lastVersion),
+    lte(syncChanges.version, head),
+  )
+  const paths = await db
+    .select({ path: syncChanges.path })
+    .from(syncChanges)
+    .where(range)
+    .groupBy(syncChanges.path)
+    .orderBy(sql`${syncChanges.path} collate "C"`)
+    .limit(SYNC_CHANGED_MAX)
+  const [n] = await db
+    .select({ n: sql<number>`count(distinct ${syncChanges.path})::int` })
+    .from(syncChanges)
+    .where(range)
+  return { ...none, changed: paths.map((p) => p.path), changedTotal: n?.n ?? 0 }
 }
 
 /** Root hash of `version`; version 0 is the empty tree. */

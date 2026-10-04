@@ -11,11 +11,12 @@ use crate::protocol::{
     ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
+use crate::replicas::SyncTurn;
 use crate::service::Outbox;
 use crate::t;
 use crate::turn::{
-    ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, system_prompt,
-    wire_options,
+    ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, sync_hint,
+    system_prompt, wire_options,
 };
 use crate::workspace;
 use agent_client_protocol::schema::ProtocolVersion;
@@ -49,6 +50,8 @@ pub(crate) struct TurnReq {
     pub out: Outbox,
     /// The owner's local settings as of this run.
     pub local: LocalSettings,
+    /// Force group: the replica, caught up and held until the turn's changes are submitted.
+    pub sync: Option<SyncTurn>,
 }
 
 /// An active turn and the provider it runs with.
@@ -61,8 +64,8 @@ struct Planned {
 
 /// Makes `req` the active turn and decides its provider from the store as of now, so CLI / desktop edits apply from
 /// the next turn on. None: it will not run (cancelled while queued, or no provider to run with).
-fn plan(engine: &Inner, shared: &Shared, req: TurnReq) -> Option<Planned> {
-    if !shared.begin(&req) {
+fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Planned> {
+    if !shared.begin(&mut req) {
         return None;
     }
     let home = &engine.config.home;
@@ -96,6 +99,7 @@ struct Active {
     streaming: bool,
     /// Set when the turn runs in a repo workspace.
     git: Option<GitTurn>,
+    sync: Option<SyncTurn>,
     /// The last prompt has ended: no more appends (spec §8.9) are taken.
     sealed: bool,
 }
@@ -371,7 +375,7 @@ impl Shared {
     }
 
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued.
-    fn begin(&self, req: &TurnReq) -> bool {
+    fn begin(&self, req: &mut TurnReq) -> bool {
         let mut s = self.0.lock().unwrap();
         let run_id = &req.start.run_id;
         if s.cancelled.remove(run_id) {
@@ -392,6 +396,7 @@ impl Shared {
             turn: Turn::default(),
             streaming: false,
             git: None,
+            sync: req.sync.take(),
             sealed: false,
         });
         true
@@ -414,23 +419,35 @@ impl Shared {
         }
     }
 
-    /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn.
+    /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn, then
+    /// (force group) submits the turn's changes, so run.done reports them settled.
     async fn post_turn(&self) {
-        let Some((run_id, g)) =
-            self.0.lock().unwrap().active.as_mut().and_then(|a| Some((a.run_id.clone(), a.git.take()?)))
+        let Some((run_id, git, sync)) =
+            self.0.lock().unwrap().active.as_mut().map(|a| (a.run_id.clone(), a.git.take(), a.sync.take()))
         else {
             return;
         };
-        let result =
-            async { Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?)) };
-        let patch = git::patch_since(&g.cwd, &g.snap).await.inspect_err(|e| tracing::warn!("git patch failed: {e}"));
-        let git = result.await.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
-        let mut s = self.0.lock().unwrap();
-        if let Some(a) = s.active.as_mut() {
-            a.turn.patch = git.as_ref().and(patch.ok().flatten());
-            a.turn.git = git;
+        // Before the submit: catching up afterwards writes the others' changes into the tree.
+        if let Some(g) = git {
+            let result = async {
+                Ok::<_, String>((git::status(&g.cwd, g.kind).await?, git::changed_since(&g.cwd, &g.snap).await?))
+            };
+            let patch =
+                git::patch_since(&g.cwd, &g.snap).await.inspect_err(|e| tracing::warn!("git patch failed: {e}"));
+            let git = result.await.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
+            let mut s = self.0.lock().unwrap();
+            if let Some(a) = s.active.as_mut() {
+                a.turn.patch = git.as_ref().and(patch.ok().flatten());
+                a.turn.git = git;
+            }
+            s.last = Some((run_id, g));
         }
-        s.last = Some((run_id, g));
+        if let Some(sync) = sync {
+            let done = sync.finish().await;
+            if let Some(a) = self.0.lock().unwrap().active.as_mut() {
+                a.turn.sync = Some(done);
+            }
+        }
     }
 
     /// What the live turn `run_id` changed so far; None when it is not this conversation's active turn.
@@ -665,7 +682,7 @@ fn done(
         git,
         patch: turn.patch,
         appends_applied: turn.appends_applied,
-        sync: None,
+        sync: turn.sync,
     })
 }
 
@@ -1021,7 +1038,13 @@ impl Conversation<'_> {
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
-        let text = s.command.clone().unwrap_or_else(|| compose_prompt(&s.prompt, history, omitted));
+        let text = s.command.clone().unwrap_or_else(|| {
+            let prompt = compose_prompt(&s.prompt, history, omitted);
+            match s.sync.as_ref().and_then(sync_hint) {
+                Some(hint) => format!("{hint}\n\n{prompt}"),
+                None => prompt,
+            }
+        });
         let image = self.init.agent_capabilities.prompt_capabilities.image;
         let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
         let mut spent: Option<AcpUsage> = None;

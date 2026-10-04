@@ -1,8 +1,9 @@
 //! Force sync on the daemon side (docs/plan/强制同步-开发计划.md §3, S3): a replica's manifest and its diff against the
 //! last known version, the cross-platform and size checks, blob transfer, apply and three-way merge.
 //! A replica is one (group, bot) managed workspace; its state lives in `<home>/sync/<group>/<bot>/`, never in the
-//! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed) and `base.json` (the
-//! manifest at the version the replica last matched).
+//! workspace: `cache.json` (path → size, mtime, hash, exec, so only touched files are rehashed), `base.json` (the
+//! manifest at the version the replica last matched; it exists once the replica joined), `work` (the workspace path,
+//! so idle replicas can be found) and `issue.json` (why it stopped taking versions, if it did).
 mod apply;
 mod check;
 mod client;
@@ -16,7 +17,7 @@ pub use manifest::{Stat, Tree};
 pub use merge::Merge;
 
 use crate::git;
-use crate::protocol::{SyncChange, SyncEntry};
+use crate::protocol::{SyncChange, SyncEntry, SyncReplicaIssue};
 use crate::t;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -45,6 +46,7 @@ pub struct Replica {
     state: PathBuf,
     work: PathBuf,
     backups: PathBuf,
+    group: String,
     bot: String,
 }
 
@@ -54,12 +56,46 @@ impl Replica {
             state: home.join("sync").join(group).join(bot),
             work,
             backups: home.join("backups").join(group),
+            group: group.into(),
             bot: bot.into(),
         }
     }
 
+    /// The joined replicas of `group` on this machine.
+    pub fn joined_in(home: &Path, group: &str) -> Vec<Replica> {
+        let Ok(dirs) = std::fs::read_dir(home.join("sync").join(group)) else { return vec![] };
+        dirs.flatten()
+            .filter_map(|d| {
+                let work = std::fs::read_to_string(d.path().join("work")).ok()?;
+                let r = Replica::new(home, group, &d.file_name().to_string_lossy(), work.into());
+                r.joined().then_some(r)
+            })
+            .collect()
+    }
+
     pub fn work(&self) -> &Path {
         &self.work
+    }
+
+    pub fn group(&self) -> &str {
+        &self.group
+    }
+
+    pub fn bot(&self) -> &str {
+        &self.bot
+    }
+
+    /// It matched a version once (mode switch or join, S8); until then its tree is not synced.
+    pub fn joined(&self) -> bool {
+        self.state.join("base.json").is_file()
+    }
+
+    pub fn issue(&self) -> Result<Option<SyncReplicaIssue>, String> {
+        read_json(&self.state.join("issue.json"))
+    }
+
+    pub fn set_issue(&self, issue: Option<SyncReplicaIssue>) -> Result<(), String> {
+        write_json(&self.state.join("issue.json"), &issue)
     }
 
     /// Version 0 with no files before the replica ever matched one.
@@ -68,7 +104,9 @@ impl Replica {
     }
 
     pub fn set_base(&self, base: &Base) -> Result<(), String> {
-        write_json(&self.state.join("base.json"), base)
+        write_json(&self.state.join("base.json"), base)?;
+        std::fs::write(self.state.join("work"), self.work.to_string_lossy().as_bytes())
+            .map_err(|e| t!("无法保存同步状态：{e}", e = e))
     }
 
     /// The work tree now (F4), rehashing only files whose size or mtime changed since the last scan.
@@ -313,6 +351,23 @@ mod tests {
         assert_eq!(r.base().unwrap(), base);
         assert!(fx.home().join("sync/g1/b1/base.json").is_file());
         assert!(!fx.work().join("base.json").exists());
+    }
+
+    #[test]
+    fn a_replica_joins_with_its_first_base_and_is_found_by_group() {
+        let fx = Fixture::new();
+        let r = fx.replica();
+        assert!(!r.joined());
+        r.set_issue(Some(SyncReplicaIssue::Drift)).unwrap();
+        assert!(Replica::joined_in(&fx.home(), "g1").is_empty());
+        r.set_base(&Base::default()).unwrap();
+        let found = Replica::joined_in(&fx.home(), "g1");
+        assert_eq!(
+            found.iter().map(|r| (r.group(), r.bot(), r.work())).collect::<Vec<_>>(),
+            [("g1", "b1", fx.work().as_path())]
+        );
+        assert_eq!(found[0].issue().unwrap(), Some(SyncReplicaIssue::Drift));
+        assert!(Replica::joined_in(&fx.home(), "other").is_empty());
     }
 
     #[test]

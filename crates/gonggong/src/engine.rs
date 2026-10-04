@@ -17,6 +17,7 @@ use crate::protocol::{
     ServerToDaemon, ServiceInfo, Tier,
 };
 use crate::providers::Selection;
+use crate::replicas::Replicas;
 use crate::repo;
 use crate::service::{Handler, Outbox};
 use crate::session::{self, Shared, TurnReq};
@@ -76,6 +77,7 @@ pub(crate) struct Inner {
     diff_slots: Arc<tokio::sync::Semaphore>,
     /// Agent tools and providers driven from the Web.
     manage: Manage,
+    replicas: Arc<Replicas>,
 }
 
 type DiffResult = Result<(Option<String>, Option<String>), String>;
@@ -103,6 +105,7 @@ impl Engine {
         let casts =
             Casts::new(config.api.clone(), config.home.clone(), services.clone(), bin, crate::wechatide::devtools());
         let home = config.home.clone();
+        let replicas = Replicas::new(home.clone(), config.api.as_ref());
         Engine(Arc::new(Inner {
             config,
             workspaces,
@@ -117,6 +120,7 @@ impl Engine {
             diffs: Coalesce::default(),
             diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
             manage: Manage::new(home, crate::config::user_home().join(".cc-switch")),
+            replicas,
         }))
     }
 
@@ -340,11 +344,10 @@ impl Handler for Engine {
                 tokio::spawn(async move { out.send(DaemonToServer::RepoProbeResult(repo::probe(req).await)) });
             }
             ServerToDaemon::Welcome { .. } | ServerToDaemon::Reject { .. } => {}
-            // Force sync is not handled by this daemon yet; the server only sends it to replicas that joined.
-            ServerToDaemon::SyncResult { .. }
-            | ServerToDaemon::SyncAvailable { .. }
-            | ServerToDaemon::SyncAction { .. }
-            | ServerToDaemon::SyncInit { .. } => {}
+            ServerToDaemon::SyncResult { submit_id, result, .. } => self.0.replicas.on_result(&submit_id, result),
+            ServerToDaemon::SyncAvailable { group_id, .. } => self.0.replicas.on_available(&group_id, out),
+            // Settling drift and conflicts (S5, S6) and the mode switch (S8) come later.
+            ServerToDaemon::SyncAction { .. } | ServerToDaemon::SyncInit { .. } => {}
             ServerToDaemon::ServiceStop { service_id } => {
                 let services = self.0.services.clone();
                 tokio::spawn(async move { services.stop_id(&service_id).await });
@@ -406,6 +409,10 @@ impl Inner {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };
+        let sync = match self.replicas.before_turn(&start, &cwd, &out).await {
+            Ok(sync) => sync,
+            Err(e) => return out.send(failed(&start.run_id, e)),
+        };
         let ask =
             match self.ask.get_or_try_init(|| AskServer::start(self.config.api.clone(), self.services.clone())).await {
                 Ok(ask) => ask,
@@ -428,7 +435,7 @@ impl Inner {
             Actor { tx, shared }
         });
         actor.shared.enqueue(&start.run_id);
-        let _ = actor.tx.send(TurnReq { start, cwd, out, local });
+        let _ = actor.tx.send(TurnReq { start, cwd, out, local, sync });
     }
 
     /// Hands an answer / append to the conversation running `run_id`, once its attachments are in that workspace.
