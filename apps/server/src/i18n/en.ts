@@ -471,4 +471,9 @@ export const en = {
   仅任务主人或群管理员可操作: 'Only the task owner or a group admin can do this',
   '候选 Bot 须是本群的 Bot': 'Candidate Bots must be Bots in this group',
   '每个群最多 {n} 个定时任务': 'A group can have at most {n} scheduled tasks',
+  文件内容不存在: 'File content not found',
+  文件内容与哈希不符: 'The content does not match its hash',
+  哈希无效: 'Invalid hash',
+  '该机器上没有这个强制同步群的 Bot': 'This machine hosts no Bot of this force-sync group',
+  '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
 } satisfies Record<string, string>

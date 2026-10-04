@@ -267,6 +267,13 @@
       "when": 1791025422306,
       "tag": "0037_chubby_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791085258712,
+      "tag": "0038_quick_guardsmen",
+      "breakpoints": true
     }
   ]
 }

@@ -59,6 +59,8 @@ import { stopRoutes } from './modules/runs/stop-routes.js'
 import { startScheduleEngine } from './modules/schedules/engine.js'
 import { scheduleRoutes } from './modules/schedules/routes.js'
 import { searchRoutes } from './modules/search/routes.js'
+import { startSyncEngine } from './modules/sync/engine.js'
+import { syncRoutes } from './modules/sync/routes.js'
 import { teamRoutes } from './modules/teams/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
@@ -122,6 +124,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   const stopScheduleEngine = startScheduleEngine(ctx)
   app.addHook('onClose', stopScheduleEngine)
   await app.register(scheduleRoutes(ctx))
+  app.addHook('onClose', startSyncEngine(ctx))
+  await app.register(syncRoutes(ctx))
   const stopWorkspaceEngine = startWorkspaceEngine(ctx)
   app.addHook('onClose', stopWorkspaceEngine)
   const stopApprovalTimer = startApprovalTimer(ctx)

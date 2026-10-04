@@ -717,6 +717,110 @@ export const schedules = pgTable(
   (t) => [index('schedules_due').on(t.nextRunAt), index('schedules_group').on(t.groupId)],
 )
 
+// ── Force sync (plan 强制同步) ───────────────────────────────────────────────
+/** A force group's versions (F5); metadata is kept forever. */
+export const syncVersions = pgTable(
+  'sync_versions',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    version: integer('version').notNull(),
+    /** The daemon's SyncSubmit.submitId: a resubmission returns this version. */
+    submitId: uuid('submit_id').unique(),
+    /** 'bot' | 'user' */
+    authorKind: text('author_kind').notNull(),
+    authorId: uuid('author_id').notNull(),
+    runId: uuid('run_id'),
+    /** SyncVersionTag[] */
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    files: integer('files').notNull(),
+    /** sha256 of syncRootText over the head after this version (F14). */
+    rootHash: text('root_hash').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.version] })],
+)
+
+/** What each version changed: `hash` null = deleted. */
+export const syncChanges = pgTable(
+  'sync_changes',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    version: integer('version').notNull(),
+    path: text('path').notNull(),
+    hash: text('hash'),
+    exec: boolean('exec').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.version, t.path] })],
+)
+
+/** The live files of the group's latest version. */
+export const syncHead = pgTable(
+  'sync_head',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    path: text('path').notNull(),
+    hash: text('hash').notNull(),
+    exec: boolean('exec').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.path] })],
+)
+
+/** A replica (group × bot, F3) as its daemon last reported it. */
+export const syncReplicas = pgTable(
+  'sync_replicas',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    /** Last version applied with a matching rootHash; null before it joined. */
+    version: integer('version'),
+    rootHash: text('root_hash'),
+    /** SyncReplicaIssue, null while clean; a matching sync.applied clears it. */
+    issue: text('issue'),
+    files: jsonb('files').$type<string[]>().notNull().default([]),
+    total: integer('total').notNull().default(0),
+    reason: text('reason'),
+    /** The latest conflict result with the change it refused, turned into a sync_conflicts row once reported held. */
+    lastConflict: jsonb('last_conflict'),
+    syncedAt: ts('synced_at'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.botId] })],
+)
+
+/** A held change waiting for a decision (F11). */
+export const syncConflicts = pgTable(
+  'sync_conflicts',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    submitId: uuid('submit_id').notNull().unique(),
+    baseVersion: integer('base_version').notNull(),
+    headVersion: integer('head_version').notNull(),
+    /** SyncChange[]: the whole refused change. */
+    changes: jsonb('changes').notNull(),
+    /** SyncEntry[]: the head's state of each conflicting path. */
+    conflicts: jsonb('conflicts').notNull(),
+    resolvedAt: ts('resolved_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('sync_conflicts_group').on(t.groupId, t.resolvedAt)],
+)
+
 /** Web Push subscriptions (plan D13). */
 export const pushSubscriptions = pgTable('push_subscriptions', {
   id: id(),

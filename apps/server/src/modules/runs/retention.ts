@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, lt } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { runEvents, runs, systemParams } from '../../db/schema.js'
+import { purgeSyncBlobs } from '../sync/blobs.js'
 
 export const DEFAULT_RUN_RETENTION_DAYS = 30
 const DAY_MS = 86_400_000
@@ -45,12 +46,13 @@ export async function purgeExpiredRuns(ctx: Ctx, batch = PURGE_BATCH): Promise<n
   }
 }
 
-/** Purges now and then every `everyMs`; the returned function stops and waits for a purge in flight. */
+/** Purges runs and unneeded sync blobs (F16) now and then every `everyMs`; the returned function stops and waits for a purge in flight. */
 export function startRetention(ctx: Ctx, everyMs = HOUR_MS) {
   let pending = Promise.resolve()
   const tick = () => {
     pending = pending
       .then(() => purgeExpiredRuns(ctx))
+      .then(() => purgeSyncBlobs(ctx))
       .then(
         () => {},
         (err) => console.error('run retention:', err),
