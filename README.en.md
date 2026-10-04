@@ -151,11 +151,10 @@ The name comes from Gonggong (共工), the ancient Chinese water god; in oracle 
 
 ## Community
 
-Join the QQ group (1045614717) or add WeChat `yoqu2020`.
+Add me on WeChat: `yoqu2020`.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/community/qq-group.jpg" width="220" alt="QQ group QR code"><br>QQ group: 1045614717</td>
     <td align="center"><img src="docs/community/wechat.png" width="220" alt="WeChat QR code"><br>WeChat: yoqu2020</td>
   </tr>
 </table>
