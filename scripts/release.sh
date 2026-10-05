@@ -90,7 +90,8 @@ if [ ${#docker_targets[@]} -gt 0 ]; then
   done
   builder "$out" "$script"
   host="linux-$(docker_arch)"
-  for p in "${docker_targets[@]}"; do
+  # GONGGONG_SKIP_DOCKER_CAST=1: release without the Linux/Windows gg-cast (their image needs apt.llvm.org + crates.io).
+  [ "${GONGGONG_SKIP_DOCKER_CAST:-}" = 1 ] || for p in "${docker_targets[@]}"; do
     key="${p%%:*}" target="$(cast_target "${p%%:*}" "${p#*:}")" exe="" build=build platform=""
     [[ $key == windows-* ]] && exe=.exe build=xwin\ build
     [[ $key == linux-* && $key != "$host" ]] && platform="linux/${key#linux-}"
@@ -137,6 +138,12 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   # ASCII names: GitHub release assets do not keep the Chinese product name.
   bundle="$ROOT/target/release/bundle"
   cp "$bundle"/dmg/*.dmg "$out/Gonggong_${version}_$arch.dmg"
+  # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
+  if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
+    xcrun notarytool submit "$out/Gonggong_${version}_$arch.dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
+      --issuer "$APPLE_API_ISSUER" --wait
+    xcrun stapler staple "$out/Gonggong_${version}_$arch.dmg"
+  fi
   cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"
   cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
 fi
