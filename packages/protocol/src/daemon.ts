@@ -807,6 +807,11 @@ export const Welcome = z.object({
   upgrade: UpgradeInfo.nullable(),
   /** This server serves previews: the daemon opens `/ws/daemon/tunnel` (older servers leave it out). */
   tunnel: z.boolean().default(false),
+  /**
+   * This server publishes a daemon build for this machine's OS/arch: the daemon upgrades from it only. Otherwise (and
+   * with older servers, which leave it out) it checks GitHub Releases itself.
+   */
+  release: z.boolean().default(false),
 })
 export const RejectReason = z.enum(['protocol', 'revoked', 'unauthorized'])
 export const Reject = z.object({

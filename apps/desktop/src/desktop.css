@@ -403,3 +403,12 @@ code,
 .dk-onboarding .ui-field {
   min-width: 0;
 }
+
+/* Downloaded app update: a notice above the content, never blocking it. */
+.dk-update {
+  position: fixed;
+  top: var(--space-16);
+  right: var(--space-16);
+  z-index: 50;
+  width: 344px;
+}

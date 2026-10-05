@@ -7,5 +7,6 @@
     "url": "https://gonggong.corp.cn/downloads/gonggong-0.2.0-aarch64-apple-darwin",
     "sha256": "abababababababababababababababababababababababababababababababab"
   },
-  "tunnel": true
+  "tunnel": true,
+  "release": true
 }

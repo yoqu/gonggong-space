@@ -93,12 +93,17 @@ impl Host {
         }
     }
 
-    /// Stops the daemon and removes the binding, team secrets and managed workspaces like a revocation does;
-    /// backups and /cd directories stay.
-    pub fn unbind(&self) {
+    /// Stops the daemon and its hosted services (before an update relaunch); the binding stays.
+    pub fn stop(&self) {
         if let State::Running(daemon) = std::mem::replace(&mut *self.state.lock().unwrap(), State::Idle) {
             daemon.stop();
         }
+    }
+
+    /// Stops the daemon and removes the binding, team secrets and managed workspaces like a revocation does;
+    /// backups and /cd directories stay.
+    pub fn unbind(&self) {
+        self.stop();
         gonggong::revoke::wipe(&self.home);
         (self.notify)(Snapshot::Unbound);
     }

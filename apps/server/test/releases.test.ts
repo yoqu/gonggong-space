@@ -73,12 +73,12 @@ describe('daemon release publishing', () => {
     const admin = await t.seed.user({ role: 'sysadmin' })
     await put(await t.seed.cookie(admin.id), release)
     const { token } = await t.seed.machine(admin.id)
-    const hello = (protocol: number, daemonVersion: string) => ({
+    const hello = (protocol: number, daemonVersion: string, os = 'macos') => ({
       t: 'hello',
       protocol,
       token,
       daemonVersion,
-      machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
+      machine: { name: 'mbp', os, arch: 'aarch64' },
       agents: [],
     })
     const connect = async (msg: unknown) => {
@@ -91,8 +91,22 @@ describe('daemon release publishing', () => {
       return reply
     }
     const upgrade = { version: '0.2.0', url: '/downloads/gonggong-0.2.0-macos-aarch64', sha256: sha('a') }
-    expect(await connect(hello(PROTOCOL_VERSION, '0.1.0'))).toMatchObject({ t: 'welcome', upgrade })
-    expect(await connect(hello(PROTOCOL_VERSION, '0.2.0'))).toMatchObject({ t: 'welcome', upgrade: null })
+    expect(await connect(hello(PROTOCOL_VERSION, '0.1.0'))).toMatchObject({
+      t: 'welcome',
+      upgrade,
+      release: true,
+    })
+    expect(await connect(hello(PROTOCOL_VERSION, '0.2.0'))).toMatchObject({
+      t: 'welcome',
+      upgrade: null,
+      release: true,
+    })
+    // No build for this platform: the daemon looks for updates elsewhere (GitHub Releases).
+    expect(await connect(hello(PROTOCOL_VERSION, '0.1.0', 'windows'))).toMatchObject({
+      t: 'welcome',
+      upgrade: null,
+      release: false,
+    })
     expect(await connect(hello(PROTOCOL_VERSION - 1, '0.0.1'))).toMatchObject({
       t: 'reject',
       reason: 'protocol',

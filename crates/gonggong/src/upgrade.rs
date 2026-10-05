@@ -1,5 +1,6 @@
 //! Self-upgrade (plan D17): the server offers a newer build for this OS/arch; the daemon downloads it, verifies its
-//! sha256, swaps its own executable and re-execs itself once no run is active.
+//! sha256, swaps its own executable and re-execs itself once no run is active. When the server publishes no build for
+//! this platform, the daemon looks for one in the latest GitHub release instead (same manifest, absolute URLs).
 use crate::config::{Config, Settings};
 use crate::protocol::UpgradeInfo;
 use anyhow::Context;
@@ -9,8 +10,18 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tokio::sync::watch;
 
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
+const GITHUB_API: &str = "https://api.github.com";
+const GITHUB_REPO: &str = "yoqu/gonggong-space";
+const GITHUB_CHECK: Duration = Duration::from_secs(6 * 3600);
+
+/// This machine's key in a release manifest's `builds`, as the daemon reports it in hello.
+pub fn platform() -> String {
+    format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
+}
 
 /// `candidate` is a strictly newer dotted numeric version than `current` (pre-release suffixes ignored).
 pub fn is_newer(candidate: &str, current: &str) -> bool {
@@ -127,6 +138,7 @@ struct State {
     refused: HashSet<String>,
 }
 
+#[derive(Clone)]
 pub struct Upgrader {
     home: PathBuf,
     server: String,
@@ -134,11 +146,14 @@ pub struct Upgrader {
     exe: PathBuf,
     args: Vec<OsString>,
     state: Arc<Mutex<State>>,
+    /// Whether the server publishes a build for this platform, from its last welcome; `None` before the first.
+    server_release: Arc<watch::Sender<Option<bool>>>,
 }
 
 impl Upgrader {
     pub fn new(home: PathBuf, server: String, http: reqwest::Client, exe: PathBuf, args: Vec<OsString>) -> Self {
-        Upgrader { home, server, http, exe, args, state: Arc::default() }
+        let server_release = Arc::new(watch::Sender::new(None));
+        Upgrader { home, server, http, exe, args, state: Arc::default(), server_release }
     }
 
     /// For the running daemon of `config`; `None` when `GONGGONG_NO_AUTO_UPGRADE=1` or auto upgrade is off in settings.
@@ -186,6 +201,32 @@ impl Upgrader {
         true
     }
 
+    /// The server's welcome said whether it publishes a build for this platform.
+    pub fn server_release(&self, release: bool) {
+        self.server_release.send_replace(Some(release));
+    }
+
+    /// Every 6 hours, starting once the server has welcomed us: offers the latest GitHub release while the server
+    /// publishes no build for this platform. Failures are logged once per check and retried at the next one.
+    pub async fn watch_github(self, source: GithubSource) {
+        let mut rx = self.server_release.subscribe();
+        loop {
+            if rx.wait_for(Option::is_some).await.is_err() {
+                return;
+            }
+            if *rx.borrow() == Some(false) {
+                match source.latest(CURRENT).await {
+                    Ok(Some(info)) => {
+                        self.offer(info);
+                    }
+                    Ok(None) => {}
+                    Err(e) => tracing::info!("GitHub update check failed, next in 6h: {e:#}"),
+                }
+            }
+            tokio::time::sleep(GITHUB_CHECK).await;
+        }
+    }
+
     pub fn staged(&self) -> Option<PathBuf> {
         self.state.lock().unwrap().staged.as_ref().map(|(_, p)| p.clone())
     }
@@ -217,5 +258,111 @@ impl Upgrader {
             }
             Err(e) => tracing::error!(version = info.version, "daemon upgrade failed: {e}"),
         }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CheckError {
+    /// 403 / 429 from the GitHub API: wait for the next check.
+    #[error("GitHub API rate limit")]
+    RateLimited,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+/// The latest release of a GitHub repository (`/releases/latest` skips drafts and pre-releases).
+pub struct GithubSource {
+    api: String,
+    repo: String,
+    http: reqwest::Client,
+}
+
+#[derive(serde::Deserialize)]
+struct Release {
+    tag_name: String,
+    #[serde(default)]
+    assets: Vec<Asset>,
+}
+
+#[derive(serde::Deserialize)]
+struct Asset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Manifest {
+    version: String,
+    builds: std::collections::HashMap<String, Build>,
+}
+
+#[derive(serde::Deserialize)]
+struct Build {
+    url: String,
+    sha256: String,
+}
+
+impl GithubSource {
+    /// A client of its own: GitHub is reached through the system proxy settings, not the server's pinned client.
+    pub fn new(api: &str, repo: &str) -> anyhow::Result<Self> {
+        let http = reqwest::Client::builder()
+            .user_agent(format!("gonggong/{CURRENT}"))
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()?;
+        Ok(GithubSource { api: api.trim_end_matches('/').into(), repo: repo.into(), http })
+    }
+
+    /// `None` when `GONGGONG_UPDATE=off`; the repository is `GONGGONG_UPDATE_REPO` or yoqu/gonggong-space.
+    pub fn from_env() -> Option<Self> {
+        if std::env::var("GONGGONG_UPDATE").is_ok_and(|v| v == "off") {
+            return None;
+        }
+        let repo = std::env::var("GONGGONG_UPDATE_REPO").ok().filter(|r| !r.trim().is_empty());
+        GithubSource::new(GITHUB_API, repo.as_deref().unwrap_or(GITHUB_REPO).trim())
+            .inspect_err(|e| tracing::warn!("GitHub update check disabled: {e:#}"))
+            .ok()
+    }
+
+    pub fn repo(&self) -> &str {
+        &self.repo
+    }
+
+    /// This platform's build from the latest release's `manifest.json` asset, when that release is newer than
+    /// `current`. A repository without releases has none.
+    pub async fn latest(&self, current: &str) -> Result<Option<UpgradeInfo>, CheckError> {
+        let url = format!("{}/repos/{}/releases/latest", self.api, self.repo);
+        let res = self
+            .http
+            .get(&url)
+            .header("accept", "application/vnd.github+json")
+            .send()
+            .await
+            .with_context(|| format!("GET {url}"))?;
+        match res.status() {
+            reqwest::StatusCode::FORBIDDEN | reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                return Err(CheckError::RateLimited);
+            }
+            reqwest::StatusCode::NOT_FOUND => return Ok(None),
+            _ => {}
+        }
+        let release: Release =
+            res.error_for_status().context("GitHub latest release")?.json().await.context("GitHub latest release")?;
+        if !is_newer(release.tag_name.trim_start_matches('v'), current) {
+            return Ok(None);
+        }
+        let Some(asset) = release.assets.iter().find(|a| a.name == "manifest.json") else {
+            return Ok(None);
+        };
+        let manifest: Manifest = async {
+            let res = self.http.get(&asset.browser_download_url).send().await?.error_for_status()?;
+            anyhow::Ok(res.json().await?)
+        }
+        .await
+        .with_context(|| format!("download {}", asset.browser_download_url))?;
+        let Some(build) = manifest.builds.get(&platform()).filter(|_| is_newer(&manifest.version, current)) else {
+            return Ok(None);
+        };
+        Ok(Some(UpgradeInfo { version: manifest.version, url: build.url.clone(), sha256: build.sha256.clone() }))
     }
 }

@@ -33,6 +33,10 @@ export async function daemonRelease(ctx: Ctx): Promise<DaemonRelease | null> {
   return (row?.value as DaemonRelease | undefined) ?? null
 }
 
+/** The release has a build for this machine's platform, whatever its version. */
+export const hasBuild = (release: DaemonRelease | null, machine: Pick<MachineInfo, 'os' | 'arch'>) =>
+  !!release?.builds[`${machine.os}-${machine.arch}`]
+
 /** The build for this machine when it is newer than the daemon it runs; the daemon never downgrades. */
 export function upgradeFor(
   release: DaemonRelease | null,

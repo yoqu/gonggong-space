@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Release builds of the gonggong daemon (plan D16/D17).
 #   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop] [--publish <server-url>]
+#                      [--github [--notes <file>]]
 # Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], gg-cast-<version>-<os>-<arch>[.exe] (the desktop
 # preview publisher, crates/gg-cast, downloaded by daemons on their first live preview), SHA256SUMS, manifest.json
 # ({version, builds: {<os>-<arch>: {url, sha256}}, cast: {…same}}) and the macOS desktop .dmg (apps/desktop). URLs are
@@ -8,23 +9,31 @@
 # --publish copies the builds into $GONGGONG_DATA_DIR/downloads (when set) and PUTs the manifest to
 # <server-url>/api/admin/daemon-release as GONGGONG_ADMIN_ACCOUNT (default admin) / GONGGONG_ADMIN_PASSWORD;
 # GONGGONG_CACERT trusts a self-signed server certificate.
+# GitHub Releases (GONGGONG_GITHUB_REPO, default yoqu/gonggong-space): github/manifest.json is the same manifest with
+# absolute release download URLs (daemons whose server publishes no build check it), github/latest.json the Tauri
+# updater feed of the desktop app (Gonggong_<v>_<arch>.app.tar.gz + .sig, signed with TAURI_SIGNING_PRIVATE_KEY /
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD). --github then runs `gh release create v<version>` with every artifact and the
+# notes file (default dist/<version>/RELEASE_NOTES.md, copied from docs/release-notes/v<version>.md).
 # macOS builds need a macOS host with rustup targets; Linux (glibc ≥ 2.31) and Windows (mingw-w64) build in Docker.
 # gg-cast links libwebrtc's prebuilt archives: on Linux and Windows (MSVC, through cargo-xwin) it builds in the image
 # of release/cast.Dockerfile, natively for the Docker host's Linux arch and emulated (`--platform`) for the other.
 set -euo pipefail
 source "$(dirname "$0")/release/lib.sh"
 
-only="" publish=""
+only="" publish="" github="" notes=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --only) only="$2"; shift 2 ;;
     --publish) publish="$2"; shift 2 ;;
+    --github) github=1; shift ;;
+    --notes) notes="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
 version="$(gonggong_version)"
 out="$ROOT/dist/$version"
+repo="${GONGGONG_GITHUB_REPO:-yoqu/gonggong-space}"
 rm -rf "$out" && mkdir -p "$out"
 # <os>-<arch> as the daemon reports it (std::env::consts) → Rust target.
 PLATFORMS=(
@@ -94,6 +103,14 @@ fi
 # Desktop app (Tauri; only macOS is bundled in P1): `--only desktop` or a full release.
 if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
   echo "== desktop (.app/.dmg)"
+  # The updater feed is signed: the app must carry the public key and the build the private one.
+  conf="$ROOT/apps/desktop/src-tauri/tauri.conf.json"
+  grep -q "\"version\": \"$version\"" "$conf" || { echo "error: $conf is not at version $version" >&2; exit 1; }
+  if grep -q REPLACE_WITH_UPDATER_PUBKEY "$conf"; then
+    echo "error: put the updater public key (tauri signer generate) into plugins.updater.pubkey of $conf" >&2
+    exit 1
+  fi
+  : "${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY (path or content) is required to sign the app update}"
   rm -rf "$ROOT/target/release/bundle"
   # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
   # so everyday desktop builds do not need libwebrtc.
@@ -117,27 +134,46 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   # DYLD_* on the way) and so could not strip the binary.
   (cd "$ROOT" && env -u RUSTC pnpm --filter @gonggong/desktop tauri build --bundles app,dmg \
     --config '{"bundle":{"externalBin":["binaries/gg-cast"]}}')
-  cp "$ROOT"/target/release/bundle/dmg/*.dmg "$out/"
+  # ASCII names: GitHub release assets do not keep the Chinese product name.
+  bundle="$ROOT/target/release/bundle"
+  cp "$bundle"/dmg/*.dmg "$out/Gonggong_${version}_$arch.dmg"
+  cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"
+  cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
 fi
 
 cd "$out"
+shopt -s nullglob
 : > SHA256SUMS
-# entries <artifact-fn>: the manifest's {<os>-<arch>: {url, sha256}} of the files built; adds them to SHA256SUMS.
+for file in gonggong-"$version"-* gg-cast-"$version"-*; do
+  echo "$(sha256_of "$file")  $file" >> SHA256SUMS
+done
+# entries <artifact-fn> <url-base>: the manifest's {<os>-<arch>: {url, sha256}} of the files built.
 entries() {
-  local p key file sum json="" sep=""
+  local p key file json="" sep=""
   for p in "${PLATFORMS[@]}"; do
     key="${p%%:*}" file="$("$1" "$key")"
     [ -f "$file" ] || continue
-    sum="$(sha256_of "$file")"
-    echo "$sum  $file" >> SHA256SUMS
-    json+="$sep\"$key\":{\"url\":\"${GONGGONG_DOWNLOAD_BASE:-/downloads}/$file\",\"sha256\":\"$sum\"}" sep=","
+    json+="$sep\"$key\":{\"url\":\"$2/$file\",\"sha256\":\"$(sha256_of "$file")\"}" sep=","
   done
   echo "{$json}"
 }
-builds="$(entries artifact)" cast="$(entries cast_artifact)"
-echo "{\"version\":\"$version\",\"builds\":$builds,\"cast\":$cast}" > manifest.json
+manifest() { echo "{\"version\":\"$version\",\"builds\":$(entries artifact "$1"),\"cast\":$(entries cast_artifact "$1")}"; }
+manifest "${GONGGONG_DOWNLOAD_BASE:-/downloads}" > manifest.json
+gh_base="https://github.com/$repo/releases/download/v$version"
+mkdir -p github
+manifest "$gh_base" > github/manifest.json
+# Tauri updater feed: one darwin-<arch> entry per desktop build made.
+platforms="" sep=""
+for file in Gonggong_"$version"_*.app.tar.gz; do
+  arch="${file#Gonggong_"$version"_}" arch="${arch%.app.tar.gz}"
+  platforms+="$sep\"darwin-$arch\":{\"signature\":\"$(tr -d '\n' < "$file.sig")\",\"url\":\"$gh_base/$file\"}" sep=","
+done
+if [ -n "$platforms" ]; then
+  echo "{\"version\":\"$version\",\"notes\":\"https://github.com/$repo/releases/tag/v$version\",\"pub_date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"platforms\":{$platforms}}" > github/latest.json
+fi
+[ -f "$ROOT/docs/release-notes/v$version.md" ] && cp "$ROOT/docs/release-notes/v$version.md" RELEASE_NOTES.md
 echo "== dist/$version"
-ls -l "$out"
+ls -l "$out" "$out/github"
 
 if [ -n "$publish" ]; then
   if [ -n "${GONGGONG_DATA_DIR:-}" ]; then
@@ -153,4 +189,14 @@ if [ -n "$publish" ]; then
   "${curl[@]}" -X PUT "$publish/api/admin/daemon-release" --data @manifest.json
   echo
   echo "published $version to $publish"
+fi
+
+if [ -n "$github" ]; then
+  notes="${notes:-$out/RELEASE_NOTES.md}"
+  [ -f "$notes" ] || { echo "error: release notes not found: $notes" >&2; exit 1; }
+  [ -f github/latest.json ] || echo "warning: no desktop build, the release has no app update feed (latest.json)" >&2
+  # github/manifest.json and github/latest.json upload as manifest.json and latest.json.
+  gh release create "v$version" gonggong-"$version"-* gg-cast-"$version"-* Gonggong_"$version"_* SHA256SUMS \
+    github/*.json --repo "$repo" --title "共工空间 v$version" --notes-file "$notes"
+  echo "released v$version on github.com/$repo"
 fi

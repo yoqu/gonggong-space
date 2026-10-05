@@ -34,6 +34,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         settings::set_mirror,
         settings::set_launch_at_login,
         settings::unbind,
+        settings::stop_daemon,
         workspaces::workspaces,
         workspaces::reveal,
         workspaces::reset_cd,

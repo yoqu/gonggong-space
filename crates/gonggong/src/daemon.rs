@@ -10,7 +10,7 @@ use crate::protocol::{AgentInfo, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, Status};
 use crate::tools::ToolKind;
-use crate::upgrade::Upgrader;
+use crate::upgrade::{GithubSource, Upgrader};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -28,8 +28,8 @@ pub struct Options {
     pub config: Config,
     /// Replaces the ACP adapter command for every agent (debugging / tests).
     pub adapter_cmd: Option<String>,
-    /// Replace and re-exec the running executable when the server offers a newer build. Only the `gonggong` CLI does
-    /// this; the desktop app is upgraded as an app bundle.
+    /// Replace and re-exec the running executable when the server (or, without a server build, GitHub) offers a newer
+    /// build. Only the `gonggong` CLI does this; the desktop app is upgraded as an app bundle.
     pub self_upgrade: bool,
 }
 
@@ -42,8 +42,8 @@ pub struct Stopped {
 pub struct Daemon {
     monitor: Monitor,
     agents: watch::Sender<Vec<AgentInfo>>,
-    /// Re-detection, catalog probing and the preview tunnel.
-    background: [JoinHandle<()>; 3],
+    /// Re-detection, catalog probing, the preview tunnel and the GitHub update check.
+    background: Vec<JoinHandle<()>>,
     task: JoinHandle<Stopped>,
     services: Services,
     _lock: Lock,
@@ -67,7 +67,7 @@ impl Daemon {
         });
         engine.watch_agents(agents.clone());
         let services = engine.services();
-        let background = [
+        let mut background = vec![
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
             tokio::spawn(crate::tunnel::run(
@@ -77,6 +77,11 @@ impl Daemon {
                 engine.tunnel_offered(),
             )),
         ];
+        if let Some(up) = &upgrader
+            && let Some(source) = GithubSource::from_env()
+        {
+            background.push(tokio::spawn(up.clone().watch_github(source)));
+        }
         let service = Service {
             config: opts.config,
             machine: machine_info(),

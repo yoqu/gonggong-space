@@ -19,8 +19,10 @@ import { locale, setLocale, t } from '../i18n'
 import { ipc, type Mirror, type Settings } from '../ipc'
 import { host } from '../lib/labels'
 import { PathValue } from '../lib/ui'
+import { useRestartToUpdate } from '../shell/UpdateBanner'
 import { useDaemon } from '../store'
 import { getTheme, setTheme, type ThemePreference } from '../theme'
+import { checkForUpdate, type UpdatePhase, useUpdate } from '../updater'
 import type { PageProps } from '.'
 
 const LANGUAGES: { value: Locale; label: string }[] = [
@@ -101,6 +103,49 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
   )
 }
 
+function updateLabel(s: UpdatePhase) {
+  switch (s.phase) {
+    case 'idle':
+      return null
+    case 'checking':
+      return t('正在检查更新…')
+    case 'latest':
+      return t('已是最新版本')
+    case 'downloading':
+      return t('正在下载 v{v}…', { v: s.version })
+    case 'ready':
+      return t('v{v} 已下载，重启以更新', { v: s.version })
+    case 'installing':
+      return t('正在安装 v{v}…', { v: s.version })
+    case 'error':
+      return t('检查更新失败：{message}', { message: s.message })
+  }
+}
+
+/** 版本: this app's version, the update status and 检查更新 / 立即重启. */
+function VersionRow({ version }: { version: string | undefined }) {
+  const state = useUpdate((s) => s.state)
+  const restart = useRestartToUpdate()
+  const busy = state.phase === 'checking' || state.phase === 'downloading' || state.phase === 'installing'
+  return (
+    <GroupRow label={t('版本')} description={updateLabel(state) ?? undefined}>
+      <span className="dk-inline">
+        <span className="dk-value">{version ? `v${version}` : ''}</span>
+        {state.phase === 'ready' ? (
+          <Button variant="primary" onClick={restart.request}>
+            {t('立即重启')}
+          </Button>
+        ) : (
+          <Button disabled={busy} onClick={() => void checkForUpdate()}>
+            {t('检查更新')}
+          </Button>
+        )}
+      </span>
+      {restart.dialog}
+    </GroupRow>
+  )
+}
+
 export function SettingsPage(_: PageProps) {
   const info = useDaemon((s) => s.info)
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -169,7 +214,8 @@ export function SettingsPage(_: PageProps) {
         </GroupRow>
       </GroupBox>
       <GroupBox>
-        <GroupRow label={t('自动升级')}>
+        <VersionRow version={info?.version} />
+        <GroupRow label={t('自动升级')} description={t('自动下载新版本，重启后生效')}>
           <span className="dk-inline">
             <HelpButton help={t('服务器公布协议版本，不兼容时拒绝连接并提示升级。')} />
             <Switch

@@ -289,13 +289,16 @@ impl<H: Handler> Service<H> {
         };
         send(&mut ws, &hello).await?;
         let heartbeat_sec = match next_msg(&mut ws).await? {
-            ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade, tunnel } => {
+            ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade, tunnel, release } => {
                 tracing::info!(machine_id, "connected");
                 self.monitor.online(heartbeat_sec);
                 self.handler.connected(tunnel);
                 self.handler.report(outbox);
-                if let (Some(up), Some(info)) = (&self.upgrader, upgrade) {
-                    up.offer(info);
+                if let Some(up) = &self.upgrader {
+                    up.server_release(release);
+                    if let Some(info) = upgrade {
+                        up.offer(info);
+                    }
                 }
                 heartbeat_sec
             }

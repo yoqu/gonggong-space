@@ -8,7 +8,9 @@ import { PermissionsGuide } from './onboarding/Permissions'
 import { closeGuide, openGuide, refreshPermissions, usePermissions } from './permissions'
 import { Shell } from './shell/Shell'
 import { TitleBar } from './shell/TitleBar'
+import { UpdateBanner } from './shell/UpdateBanner'
 import { connectDaemon, refreshInfo, useDaemon } from './store'
+import { startUpdater } from './updater'
 
 /** The guide opens by itself once per install (and after every binding); later only from the reminders. */
 const GUIDE_SEEN = 'gg.permissionsGuide'
@@ -66,6 +68,8 @@ export function App() {
     }
   }, [])
 
+  useEffect(startUpdater, [])
+
   // Unbinding (or rebinding after a revocation) stops the daemon: re-read the binding.
   useEffect(() => {
     if (phase === 'unbound') refreshInfo()
@@ -94,6 +98,7 @@ export function App() {
       ) : (
         <Shell />
       )}
+      <UpdateBanner />
       <Toaster />
     </div>
   )

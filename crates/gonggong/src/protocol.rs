@@ -1276,6 +1276,9 @@ pub enum ServerToDaemon {
         upgrade: Option<UpgradeInfo>,
         #[serde(default)]
         tunnel: bool,
+        /// The server publishes a build for this platform: upgrades come from it only, never from GitHub.
+        #[serde(default)]
+        release: bool,
     },
     #[serde(rename = "reject", rename_all = "camelCase")]
     Reject {

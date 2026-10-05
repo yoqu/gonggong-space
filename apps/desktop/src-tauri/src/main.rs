@@ -78,6 +78,9 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        // App updates from GitHub Releases (`plugins.updater` in tauri.conf.json), driven by `src/updater.ts`.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(commands::handler())
         .setup(move |app| {
             let handle = app.handle().clone();

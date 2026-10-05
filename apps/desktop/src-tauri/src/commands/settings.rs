@@ -62,6 +62,12 @@ pub fn set_launch_at_login(on: bool, app: AppHandle) -> Result<()> {
     if on { autostart.enable() } else { autostart.disable() }.map_err(|e| e.to_string())
 }
 
+/// Right before the app relaunches into a downloaded update.
+#[tauri::command]
+pub fn stop_daemon(host: State<'_, Host>) {
+    host.stop();
+}
+
 /// Best effort: the local unbind proceeds even when the server can't be told.
 #[tauri::command]
 pub async fn unbind(host: State<'_, Host>) -> Result<()> {
