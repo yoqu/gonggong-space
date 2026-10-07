@@ -119,7 +119,10 @@ describe('FeishuAppForm', () => {
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
     expect(await screen.findByText('自动配置失败：scope not granted')).toBeTruthy()
-    expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
+    expect(screen.getByText(/点「更新权限」扫码补齐/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: '飞书后台配置说明' }).getAttribute('href')).toBe(
+      'https://yoqu.github.io/gonggong-space/admin/feishu',
+    )
     fireEvent.click(screen.getByRole('button', { name: '重试自动配置' }))
     await waitFor(() => expect(screen.queryByText('自动配置失败：scope not granted')).toBeNull())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/bots/b1/feishu/configure')).toBe(true)

@@ -47,7 +47,7 @@ export const BOT_TENANT_SCOPES = [
 export const BOT_EVENTS = ['im.message.receive_v1', 'im.message.recalled_v1']
 export const BOT_CALLBACKS = ['card.action.trigger']
 
-/** What 扫码创建 pre-fills on Feishu's confirm page; `appId` updates that app instead of creating one. */
+/** What 扫码创建 pre-fills on Feishu's confirm page; `appId` updates that app instead of letting the admin choose. */
 export interface FeishuRegistration {
   name: string
   desc: string
@@ -469,7 +469,8 @@ export function larkApi(): FeishuApi {
             events: { items: { tenant: reg.events } },
             callbacks: { items: reg.callbacks },
           },
-          ...(reg.appId ? { appId: reg.appId } : { createOnly: true }),
+          // Without `appId` Feishu's page offers both creating an app and picking an existing one.
+          ...(reg.appId && { appId: reg.appId }),
           onQRCodeReady: ({ url, expireIn }) => reg.onUrl(url, expireIn),
         })
         return { appId: r.client_id, appSecret: r.client_secret }

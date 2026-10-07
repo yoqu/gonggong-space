@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { FeishuRegisterDto, FeishuRegisterStatus, I18nParams } from '@gonggong/protocol'
-import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { feishuApps } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { appDto, botApp, mainApp, saveApp } from './apps.js'
@@ -15,7 +13,7 @@ import {
   MAIN_TENANT_SCOPES,
   USER_SCOPES,
 } from './client.js'
-import { configErrorText, configureApp } from './config.js'
+import { configErrorText } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
 
 /** Whose app a session creates (or, with `update`, re-confirms). */
@@ -37,8 +35,6 @@ interface Session {
 
 /** Settled sessions stay readable this long so the dialog can show the outcome. */
 const KEEP_MS = 10 * 60_000
-/** The bot app's long-connection mode only saves while the app holds a connection. */
-const CONNECT_WAIT_MS = 15_000
 
 const sessions = new WeakMap<Ctx, Map<string, Session>>()
 const of = (ctx: Ctx) => {
@@ -82,8 +78,8 @@ export function stopRegister(ctx: Ctx) {
 }
 
 /**
- * 扫码创建: starts Feishu's device flow and resolves with the QR link. The admin's confirmation is awaited in the
- * background; the app is then saved like a manual entry and its sensitive dev config applied.
+ * 扫码创建: starts Feishu's device flow and resolves with the QR link. The admin's confirmation (a new app, or an
+ * existing one picked on Feishu's page) is awaited in the background; the app is then saved like a manual entry.
  */
 export async function startRegister(
   ctx: Ctx,
@@ -160,17 +156,6 @@ async function finish(ctx: Ctx, s: Session, target: RegisterTarget, creds: Feish
     s.error = { key: '飞书创建应用失败：{reason}', params: { reason: (err as Error).message } }
     return
   }
-  if (target.kind === 'bot') await connected(ctx, creds.appId)
-  const row = await rowOf(ctx, target)
-  s.app = row && (await configureApp(ctx, row))
+  s.app = await rowOf(ctx, target)
   s.status = 'succeeded'
-}
-
-async function connected(ctx: Ctx, appId: string) {
-  const until = Date.now() + CONNECT_WAIT_MS
-  while (Date.now() < until) {
-    const [row] = await ctx.db.select().from(feishuApps).where(eq(feishuApps.appId, appId))
-    if (row?.status === 'connected') return
-    await new Promise((r) => setTimeout(r, 500))
-  }
 }

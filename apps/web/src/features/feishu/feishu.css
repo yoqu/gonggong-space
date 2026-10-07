@@ -33,11 +33,16 @@
 
 .feishu-app__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.feishu-app__or {
+.feishu-app__or,
+.feishu-app__guide {
   align-self: center;
+}
+
+.feishu-app__or {
   color: var(--label-tertiary);
 }
 

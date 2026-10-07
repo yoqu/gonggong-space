@@ -109,6 +109,10 @@ For switching within a group and per-message overrides, see [Directing Bots in a
 
 Bot details also show the number of groups it's in, the agent version, usage over the last 7 days, and a breakdown of who used it. If the machine's CLI version is below what the adapter requires, a 「agent 版本低于适配器要求」 ("agent version below adapter requirement") notice appears at the top; upgrade it under [Agent tools](/en/user/agents-providers#agent-tools).
 
+## Feishu app
+
+The Bot's owner can bind a Feishu custom app to it under 「飞书应用」 (Feishu app) in Bot details, so people can @ it in Feishu chats. For binding methods and the Feishu console setup, see [Feishu](/en/admin/feishu).
+
 ## Delete a Bot
 
 Click 「删除 Bot」 (Delete Bot) in the bottom-left of Bot details and confirm with 「删除」 (Delete):

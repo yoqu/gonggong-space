@@ -984,6 +984,7 @@ async function sceneAdmin(A) {
     ['groups', 'admin-groups'],
     ['config', 'admin-config'],
     ['params', 'admin-params'],
+    ['feishu', 'admin-feishu'],
     ['releases', 'admin-releases'],
     ['machines', 'admin-machines'],
     ['usage', 'admin-usage'],

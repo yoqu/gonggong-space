@@ -6,7 +6,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { seal } from '../../lib/seal.js'
 import { FeishuError } from './client.js'
-import { configErrorText } from './config.js'
+import { configErrorText, configureApp } from './config.js'
 import { type FeishuAppRow, reloadFeishu } from './gateway.js'
 
 export const appDto = (row: FeishuAppRow | undefined): FeishuAppDto | null =>
@@ -34,7 +34,12 @@ export async function botApp(ctx: Ctx, botId: string) {
 
 type Owner = { kind: 'main' } | { kind: 'bot'; botId: string; teamId: string }
 
-/** Verifies the credentials with Feishu, then stores them (sealed) for `owner` and (re)connects. */
+const CONNECT_WAIT_MS = 15_000
+
+/**
+ * Verifies the credentials with Feishu, stores them (sealed) for `owner`, (re)connects, then applies the dev config
+ * (an existing app bound by hand gets it too; a refusal stays on the row as `config_error`).
+ */
 export async function saveApp(ctx: Ctx, owner: Owner, req: FeishuAppReq, actorUserId: string) {
   if (!/^cli_[0-9a-z]+$/.test(req.appId)) fail('invalid', 'App ID 应以 cli_ 开头')
   const current = owner.kind === 'main' ? await mainApp(ctx) : await botApp(ctx, owner.botId)
@@ -72,7 +77,19 @@ export async function saveApp(ctx: Ctx, owner: Owner, req: FeishuAppReq, actorUs
     action: 'feishu.app.save',
     detail: { kind: owner.kind, appId: req.appId, ...(owner.kind === 'bot' && { botId: owner.botId }) },
   })
-  return appDto(owner.kind === 'main' ? await mainApp(ctx) : await botApp(ctx, owner.botId))
+  const row = (owner.kind === 'main' ? await mainApp(ctx) : await botApp(ctx, owner.botId)) as FeishuAppRow
+  if (row.kind === 'bot') await connected(ctx, row.id)
+  return appDto(await configureApp(ctx, row))
+}
+
+/** The bot app's long-connection mode only saves while the app holds a connection. */
+async function connected(ctx: Ctx, id: string) {
+  const until = Date.now() + CONNECT_WAIT_MS
+  while (Date.now() < until) {
+    const [row] = await ctx.db.select().from(feishuApps).where(eq(feishuApps.id, id))
+    if (row?.status !== 'connecting') return
+    await new Promise((r) => setTimeout(r, 500))
+  }
 }
 
 export async function removeApp(ctx: Ctx, row: FeishuAppRow | undefined, actorUserId: string) {

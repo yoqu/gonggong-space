@@ -81,20 +81,23 @@ export default {
   '飞书群里 @Bot 将不再触发运行': '@ mentions of bots in the Feishu chat no longer start runs',
   已同步的消息保留: 'Messages already mirrored are kept',
   已解绑飞书群: 'Feishu chat unbound',
-  扫码创建: 'Create by scanning',
+  扫码创建或绑定: 'Create or bind by scanning',
   更新权限: 'Update permissions',
   或手动填写已有应用的凭证: "or enter an existing app's credentials",
+  飞书后台配置说明: 'Feishu console setup',
   更新飞书应用权限: 'Update Feishu app permissions',
-  扫码创建飞书应用: 'Create a Feishu app by scanning',
+  扫码创建或绑定飞书应用: 'Create or bind a Feishu app by scanning',
+  '用飞书扫码，可新建应用或选择已有应用，确认后自动完成配置':
+    'Scan with Feishu, create a new app or pick an existing one, and confirm; setup finishes automatically',
   '用飞书扫码，确认后自动完成配置': 'Scan with Feishu and confirm there; setup finishes automatically',
   飞书扫码: 'Scan with Feishu',
   在飞书中打开: 'Open in Feishu',
   '{n} 秒后过期': 'Expires in {n}s',
   二维码已过期: 'The QR code has expired',
-  飞书应用已创建并连接: 'Feishu app created and connected',
+  飞书应用已绑定并连接: 'Feishu app bound and connected',
   '应用已保存。飞书管理员审核通过后会自动完成配置，也可稍后在应用设置中重试。':
     'The app is saved. Setup finishes automatically once a Feishu admin approves it; you can also retry later in the app settings.',
-  '飞书管理员审核通过后会自动完成，也可以现在重试。':
-    'This finishes automatically once a Feishu admin approves the app; you can also retry now.',
+  '缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。':
+    'If permissions are missing, use “Update permissions” to add them. This finishes automatically once a Feishu admin approves the app; you can also retry now.',
   重试自动配置: 'Retry setup',
 } satisfies Record<string, string>

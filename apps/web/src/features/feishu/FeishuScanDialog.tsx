@@ -8,7 +8,7 @@ import { Alert, Dialog, toast } from '../../ui'
 const POLL_MS = 1500
 
 /**
- * 扫码创建 / 更新权限 of the Feishu app at `path`: the admin scans the QR in Feishu and confirms there; the server
+ * 扫码创建或绑定 / 更新权限 of the Feishu app at `path`: the admin scans the QR in Feishu and confirms there; the server
  * saves the app and sets the long connection (and the main app's redirect URL) by itself.
  */
 export function FeishuScanDialog({
@@ -55,7 +55,7 @@ export function FeishuScanDialog({
     if (!succeeded) return
     onDone()
     if (!session?.configError) {
-      toast({ type: 'success', message: t('飞书应用已创建并连接') })
+      toast({ type: 'success', message: t('飞书应用已绑定并连接') })
       onClose()
     }
   }, [succeeded, session?.configError, onDone, onClose])
@@ -72,8 +72,12 @@ export function FeishuScanDialog({
     <Dialog
       open
       width={420}
-      title={update ? t('更新飞书应用权限') : t('扫码创建飞书应用')}
-      message={t('用飞书扫码，确认后自动完成配置')}
+      title={update ? t('更新飞书应用权限') : t('扫码创建或绑定飞书应用')}
+      message={
+        update
+          ? t('用飞书扫码，确认后自动完成配置')
+          : t('用飞书扫码，可新建应用或选择已有应用，确认后自动完成配置')
+      }
       onClose={cancel}
       closeOnBackdrop={false}
       actions={[

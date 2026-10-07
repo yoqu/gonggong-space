@@ -2,6 +2,7 @@ import type { AuthOptionsDto, FeishuAppView, SystemParams } from '@gonggong/prot
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { feishuApps, users } from '../src/db/schema.js'
+import { BOT_CALLBACKS, BOT_EVENTS } from '../src/modules/feishu/client.js'
 import { onFeishu, reloadFeishu } from '../src/modules/feishu/gateway.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -37,6 +38,24 @@ describe('main app (管理后台 · 飞书)', () => {
     expect(row).toMatchObject({ kind: 'main', teamId: null, botId: null })
     expect(row!.appSecret).not.toContain('main-secret')
     expect(t.feishu.connected('cli_main01')).toBe(true)
+  })
+
+  it('applies the redirect URL to an existing app bound by hand, or says why it could not', async () => {
+    const { http } = await sysadmin()
+    const unset = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
+    expect(unset.body.app?.configError).toMatch(/对外地址/)
+
+    await http.put('/api/admin/params', { publicUrl: 'https://gg.example.com' })
+    t.feishu.configureError = 'scope not granted'
+    const refused = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
+    expect(refused.body.app?.configError).toContain('scope not granted')
+
+    t.feishu.configureError = null
+    const ok = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
+    expect(ok.body.app?.configError).toBeNull()
+    expect(t.feishu.configs).toEqual([
+      { appId: 'cli_main01', config: { redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'] } },
+    ])
   })
 
   it('rejects an App ID that is not a Feishu app id', async () => {
@@ -101,6 +120,9 @@ describe('bot app', () => {
     const [row] = await t.db.select().from(feishuApps)
     expect(row).toMatchObject({ kind: 'bot', botId: bot.id, teamId: bot.teamId })
     expect(t.feishu.connected('cli_bot01')).toBe(true)
+    expect(t.feishu.configs).toEqual([
+      { appId: 'cli_bot01', config: { websocket: { events: BOT_EVENTS, callbacks: BOT_CALLBACKS } } },
+    ])
 
     expect((await http.del(`/api/bots/${bot.id}/feishu`)).status).toBe(204)
     expect(t.feishu.connected('cli_bot01')).toBe(false)

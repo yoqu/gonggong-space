@@ -23,7 +23,7 @@ const bound: FeishuAppView = {
   },
 }
 
-describe('扫码创建', () => {
+describe('扫码创建或绑定', () => {
   it('shows the QR, then the created app once confirmed in Feishu', async () => {
     let view: FeishuAppView = { app: null }
     let session = waiting
@@ -33,7 +33,7 @@ describe('扫码创建', () => {
       'GET /feishu/register/s1': () => session,
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建' }))
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByTitle('飞书扫码')).toBeTruthy()
     expect(within(dialog).getByRole('link', { name: '在飞书中打开' }).getAttribute('href')).toBe(waiting.url)
@@ -57,7 +57,7 @@ describe('扫码创建', () => {
       },
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建' }))
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
     expect(await screen.findByText('自动配置失败：no permission', undefined, { timeout: 4000 })).toBeTruthy()
     expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
   })
@@ -84,7 +84,7 @@ describe('扫码创建', () => {
       'GET /feishu/register/s1': { ...waiting, status: 'expired' },
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建' }))
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
     expect(await screen.findByText('二维码已过期', undefined, { timeout: 4000 })).toBeTruthy()
     expect(screen.getByRole('button', { name: '重新生成' })).toBeTruthy()
   })

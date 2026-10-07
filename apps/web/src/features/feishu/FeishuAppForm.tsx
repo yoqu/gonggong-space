@@ -1,6 +1,6 @@
 import type { FeishuAppDto, FeishuAppStatus, FeishuAppView } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
-import { t } from '../../i18n'
+import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { useGet } from '../../lib/useGet'
 import {
@@ -16,6 +16,8 @@ import {
 } from '../../ui'
 import { FeishuScanDialog } from './FeishuScanDialog'
 import './feishu.css'
+
+const GUIDE = `https://yoqu.github.io/gonggong-space/${locale === 'en' ? 'en/' : ''}admin/feishu`
 
 const STATUS: Record<FeishuAppStatus, { label: string; tone: TagTone }> = {
   connecting: { label: t('连接中'), tone: 'blue' },
@@ -92,7 +94,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
         <Alert
           variant="warning"
           title={app.configError}
-          description={t('飞书管理员审核通过后会自动完成，也可以现在重试。')}
+          description={t('缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。')}
         >
           <Button size="small" disabled={retrying} onClick={() => void retry()}>
             {t('重试自动配置')}
@@ -101,7 +103,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
       ) : null}
       <div className="feishu-app__actions">
         <Button size="small" variant="primary" onClick={() => setScan('create')}>
-          {t('扫码创建')}
+          {t('扫码创建或绑定')}
         </Button>
         {app ? (
           <Button size="small" variant="plain" onClick={() => setScan('update')}>
@@ -109,6 +111,9 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
           </Button>
         ) : null}
         <span className="feishu-app__or">{t('或手动填写已有应用的凭证')}</span>
+        <a className="feishu-app__guide" href={GUIDE} target="_blank" rel="noreferrer">
+          {t('飞书后台配置说明')}
+        </a>
       </div>
       <div className="feishu-app__fields">
         <TextField

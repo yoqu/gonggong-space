@@ -131,6 +131,7 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
           ['/admin/bots-groups', 'Bot 与群', 'Bots & Groups'],
           ['/admin/config', '配置中心', 'Configuration Center'],
           ['/admin/params', '系统参数', 'System Parameters'],
+          ['/admin/feishu', '飞书', 'Feishu'],
           ['/admin/releases', '客户端发布', 'Client Releases'],
           ['/admin/machines', '机器', 'Machines'],
           ['/admin/usage', '用量', 'Usage'],
