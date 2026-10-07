@@ -6,6 +6,7 @@
 - 默认演示环境 / Default demo environment：[http://gg.uyoqu.com](http://gg.uyoqu.com/)，注册即可体验 / sign up and try it without deploying
 - Windows 桌面端 / Windows desktop app：NSIS 安装包（内置 daemon、托盘、自动更新），由 GitHub Actions 在发布时构建并加入更新源 / NSIS installer (built-in daemon, tray, auto update), built by GitHub Actions on release and added to the update feed
 - Windows：双击 `gg.exe` 不再一闪而过，改为说明用法并等待回车；桌面端启动的 git、node 等子进程不再弹出控制台窗口；首次运行不再打印日志目录错误 / Double-clicking `gg.exe` explains how to run it instead of flashing; child processes of the desktop app open no console windows; no log-directory error on first run
+- Windows 目录选择器可切换磁盘，「上一级」停在盘符根目录 / The Windows folder picker switches between drives, and Up stops at the drive root
 - 仓库统一 LF 换行（`.gitattributes`），修复 Windows 检出后 Docker 部署的服务端无法启动 / LF line endings everywhere (`.gitattributes`): the Docker server failed to start from a Windows checkout
 
 ## v0.2.0 — 2026-10-05
