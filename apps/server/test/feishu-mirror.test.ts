@@ -14,7 +14,7 @@ import {
   teams,
 } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
-import { saveSysParams } from '../src/modules/admin/params.js'
+import { forgetSysParams, saveSysParams } from '../src/modules/admin/params.js'
 import { onApprovalRequest } from '../src/modules/approvals/service.js'
 import { feishuIdle, mirrorDelta } from '../src/modules/feishu/mirror.js'
 import { onQuestionAsk } from '../src/modules/questions/service.js'
@@ -52,6 +52,7 @@ async function setup(o: { bind?: boolean } = {}) {
     200,
   )
   await t.db.insert(systemParams).values({ key: 'publicUrl', value: BASE })
+  forgetSysParams(t.db)
   const ownerFs = await link(owner.id)
   t.feishu.members.set(CHAT, [ownerFs.unionId])
   if (o.bind !== false)
@@ -200,6 +201,36 @@ describe('飞书 → 共工', () => {
       msgType: 'interactive',
       replyTo: messageId,
     })
+  })
+
+  it('a group bound after its runs were already pushed mirrors the next run card', async () => {
+    const { ownerHttp, ownerFs, group, bot, owner } = await setup({ bind: false })
+    const [m] = await t.db
+      .insert(messages)
+      .values({ groupId: group.id, kind: 'user', body: 'x', meta: { mentions: [] } })
+      .returning()
+    const [early] = await t.db
+      .insert(runs)
+      .values({
+        groupId: group.id,
+        botId: bot.id,
+        triggerMessageId: m!.id,
+        originUserId: owner.id,
+        status: 'queued',
+      })
+      .returning()
+    await publishRun(t.ctx, early!)
+    expect((await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })).status).toBe(200)
+    const at = [{ key: '@_user_1', name: 'codex', openId: 'ou_bot' }]
+    const { messageId, done } = t.feishu.message(BOT_APP, {
+      chatId: CHAT,
+      from: ownerFs,
+      text: '@_user_1 hi',
+      mentions: at,
+    })
+    await done
+    await feishuIdle(t.ctx)
+    expect(lastSent()).toMatchObject({ appId: BOT_APP, msgType: 'interactive', replyTo: messageId })
   })
 
   it('an @ replying to a run card or a mirrored message quotes it', async () => {

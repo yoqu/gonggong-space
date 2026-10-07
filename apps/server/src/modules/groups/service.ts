@@ -16,7 +16,7 @@ import {
 import { zhText } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { type MessageMeta, memberIds, postEvent } from '../messages/service.js'
+import { forgetMembers, type MessageMeta, memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
 import { groupTitle } from './title.js'
 
@@ -237,6 +237,7 @@ export async function removeMember(ctx: Ctx, groupId: string, userId: string, by
       .delete(groupMembers)
       .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
   })
+  forgetMembers(groupId)
   if (botIds.length) await stopRuns(ctx, { groupId, botIds }, by)
   for (const b of theirBots) await postEvent(ctx, groupId, '{bot} 被移出 · 工作区保留', { bot: b.name })
   ctx.bus.publish([userId], { t: 'group.removed', groupId })

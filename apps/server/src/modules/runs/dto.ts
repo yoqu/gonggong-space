@@ -134,8 +134,13 @@ export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: st
   return rows.map(await runDtoLoader(ctx, rows))
 }
 
-export async function publishRun(ctx: Ctx, run: RunRow) {
-  const toDto = await runDtoLoader(ctx, [run])
-  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
-  await mirrorRun(ctx, run)
+export const publishRun = (ctx: Ctx, run: RunRow) => publishRuns(ctx, [run])
+
+/** Pushes several run cards with one load. */
+export async function publishRuns(ctx: Ctx, rows: RunRow[]) {
+  const toDto = await runDtoLoader(ctx, rows)
+  for (const run of rows) {
+    ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
+    await mirrorRun(ctx, run)
+  }
 }

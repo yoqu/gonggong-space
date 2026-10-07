@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
 import { teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { startSweep } from '../../lib/sweep.js'
 import { groupParams } from '../groups/params.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
@@ -143,10 +144,7 @@ export async function voidApprovals(ctx: Ctx, runId: string, reason: VoidReason)
 }
 
 export function startApprovalTimer(ctx: Ctx) {
-  const timer = setInterval(() => {
-    expireApprovals(ctx).catch((err) => console.error('approval timeout:', err))
-  }, TICK_MS)
-  return () => clearInterval(timer)
+  return startSweep('approval timeout', () => expireApprovals(ctx), TICK_MS)
 }
 
 /** Records the outcome once (a racing decision/timeout loses), answers the daemon and audits it. */

@@ -24,7 +24,7 @@ import type { MessageMeta } from '../messages/service.js'
 import { runSyncStart } from '../sync/store.js'
 import { sendDueInits, syncHeld, syncOutdated } from '../sync/switch.js'
 import { unreadyGroups } from '../workspaces/state.js'
-import { publishRun, type RunRow } from './dto.js'
+import { publishRuns, type RunRow } from './dto.js'
 import { runStep } from './step.js'
 import { interruptNote } from './stop.js'
 
@@ -157,7 +157,7 @@ export async function schedule(ctx: Ctx, botId: string) {
     }
   }
   const settled = changed.out.map((r) => unsent.get(r.id) ?? r)
-  for (const run of settled) await publishRun(ctx, run)
+  await publishRuns(ctx, settled)
   if (settled.some((r) => r.status === 'running')) await publishBot(ctx, botId)
   await sendDueInits(ctx, botId)
 }

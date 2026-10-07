@@ -2,6 +2,7 @@ import { type GroupBotStateDto, PROTOCOL_VERSION, type RunDto, type ServerToDaem
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { approvals, bots, messages, runs, systemParams } from '../src/db/schema.js'
+import { forgetSysParams } from '../src/modules/admin/params.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -78,6 +79,7 @@ describe('per-group tier', () => {
     const w = await world()
     await t.db.update(bots).set({ tier: 'full' }).where(eq(bots.id, w.bot.id))
     await t.db.insert(systemParams).values({ key: 'demoMode', value: true })
+    forgetSysParams(t.db)
     expect((await w.setTier(w.owners, w.g1.id, 'full')).status).toBe(403)
     expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { tier: 'full' })).status).toBe(403)
     await w.trigger(w.g1.id)

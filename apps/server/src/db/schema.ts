@@ -319,7 +319,7 @@ export const groupMembers = pgTable(
     lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),
     joinedAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index('group_members_user').on(t.userId)],
 )
 
 export const groupBots = pgTable(
@@ -386,7 +386,14 @@ export const messages = pgTable(
     /** Recalled by its author: body and meta attachments/quote are erased at that moment. */
     recalledAt: ts('recalled_at'),
   },
-  (t) => [index('messages_group_seq').on(t.groupId, t.seq)],
+  (t) => [
+    index('messages_group_seq').on(t.groupId, t.seq),
+    index('messages_run').on(t.runId).where(sql`${t.runId} is not null`),
+    // Send idempotency lookup (messages/routes.ts); not unique, the advisory lock serializes retries.
+    index('messages_client_id')
+      .on(t.groupId, t.authorUserId, sql`(${t.meta}->>'clientId')`)
+      .where(sql`(${t.meta}->>'clientId') is not null`),
+  ],
 )
 
 /** 删除: messages a user hid from their own timeline only. */
@@ -480,6 +487,11 @@ export const runs = pgTable(
     index('runs_bot_status').on(t.botId, t.status),
     index('runs_group').on(t.groupId),
     index('runs_group_bot_ended').on(t.groupId, t.botId, t.endedAt),
+    index('runs_trigger').on(t.triggerMessageId),
+    index('runs_started').on(t.startedAt),
+    index('runs_waiting').on(t.queuedAt).where(sql`${t.status} = 'offline_wait'`),
+    index('runs_finalizing').on(t.botId).where(sql`${t.finalizing}`),
+    index('runs_unpurged_ended').on(t.endedAt).where(sql`${t.purgedAt} is null`),
   ],
 )
 
@@ -869,7 +881,11 @@ export const notifications = pgTable(
     resolvedAt: ts('resolved_at'),
     createdAt: createdAt(),
   },
-  (t) => [index('notifications_user').on(t.userId, t.createdAt)],
+  (t) => [
+    index('notifications_user').on(t.userId, t.createdAt),
+    // resolveNotifications binds the payload key as a parameter, so an expression index on it would never match.
+    index('notifications_unresolved').on(t.type).where(sql`${t.resolvedAt} is null`),
+  ],
 )
 
 export const auditLogs = pgTable(

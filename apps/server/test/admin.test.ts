@@ -22,7 +22,7 @@ import {
   webSessions,
 } from '../src/db/schema.js'
 import { summarize } from '../src/modules/admin/audit.js'
-import { sysParams } from '../src/modules/admin/params.js'
+import { forgetSysParams, sysParams } from '../src/modules/admin/params.js'
 import { timeoutMin } from '../src/modules/approvals/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -416,6 +416,7 @@ describe('system params', () => {
       { key: 'writerDisconnectReleaseSec', value: 60 },
       { key: 'forceSyncMaxLatencyMs', value: 120 },
     ])
+    forgetSysParams(t.db)
     expect((await put(cookie, '/api/admin/params', { sessionReplayCount: 20 })).status).toBe(200)
     const params = await sysParams(t.db)
     expect(params.sessionReplayCount).toBe(20)

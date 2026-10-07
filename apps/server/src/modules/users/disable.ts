@@ -90,7 +90,7 @@ export async function disableUser(ctx: Ctx, id: string, actor: SessionUser) {
         .returning()
     : []
   for (const run of cut) {
-    forgetStream(run.id)
+    await forgetStream(run.id)
     await publishRun(ctx, run)
     await notifyChainDone(ctx, run)
   }

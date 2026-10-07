@@ -16,6 +16,7 @@ import {
   runs,
   users,
 } from '../../db/schema.js'
+import { remember } from '../../lib/lru.js'
 import { sysParams } from '../admin/params.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
@@ -44,6 +45,9 @@ export const WORKING_EMOJI = 'Typing'
 export const DONE_EMOJI = 'DONE'
 /** CardKit sequences only grow: time-based (0.1 s since 2026) survives restarts, +1 keeps fast calls apart. */
 const SEQUENCE_EPOCH = Date.UTC(2026, 0, 1)
+/** Cards and snapshots remembered; a forgotten one is only sent or uploaded once more. */
+const RENDERED_MAX = 2000
+const IMAGES_MAX = 500
 
 type Row = typeof runs.$inferSelect
 type Link = typeof feishuMessageLinks.$inferSelect
@@ -61,6 +65,8 @@ interface Mirror {
   streams: Map<string, Stream>
   /** Runs whose working reaction Feishu refused, so it is not retried on every change. */
   noReaction: Set<string>
+  /** Per group: whether it was ever bound to a Feishu chat; only then can its messages be mirrored. */
+  everBound: Map<string, Promise<boolean>>
 }
 
 interface Stream {
@@ -91,6 +97,7 @@ function state(ctx: Ctx) {
       images: new Map(),
       streams: new Map(),
       noReaction: new Set(),
+      everBound: new Map(),
     }
     mirrors.set(ctx, m)
   }
@@ -137,6 +144,28 @@ export async function boundChat(db: Pick<Db, 'select'>, groupId: string) {
     .from(feishuChats)
     .where(and(eq(feishuChats.groupId, groupId), isNull(feishuChats.unboundAt)))
   return row
+}
+
+/** A binding row outlives its unbind, so once true this stays true. */
+function everBound(ctx: Ctx, groupId: string) {
+  const { everBound } = state(ctx)
+  let hit = everBound.get(groupId)
+  if (!hit) {
+    hit = ctx.db
+      .select({ id: feishuChats.id })
+      .from(feishuChats)
+      .where(eq(feishuChats.groupId, groupId))
+      .limit(1)
+      .then((rows) => rows.length > 0)
+    everBound.set(groupId, hit)
+    hit.catch(() => everBound.get(groupId) === hit && everBound.delete(groupId))
+  }
+  return hit
+}
+
+/** Called after a group was bound to a Feishu chat. */
+export function markBound(ctx: Ctx, groupId: string) {
+  state(ctx).everBound.set(groupId, Promise.resolve(true))
 }
 
 /** Ends the group's binding (history kept); runs already mirrored keep their cards up to date until they end. */
@@ -259,6 +288,7 @@ export async function mirrorEdit(
  * is in. Keyed on the trigger rather than the binding, so a run live at unbind still ends properly in Feishu.
  */
 export async function mirrorRun(ctx: Ctx, run: Row) {
+  if (!(await everBound(ctx, run.groupId))) return
   const [trigger] = await ctx.db
     .select({ id: feishuMessageLinks.id })
     .from(feishuMessageLinks)
@@ -387,13 +417,13 @@ async function putCard(
   if (existing) {
     if (rendered.get(existing.feishuMessageId) === json) return
     await ctx.feishu.api.updateCard(credsOf(app), existing.feishuMessageId, json)
-    rendered.set(existing.feishuMessageId, json)
+    remember(rendered, existing.feishuMessageId, json, RENDERED_MAX)
     return
   }
   const sent = await ctx.feishu.api.send(credsOf(app), trigger.chatId, cardBody(card), {
     replyTo: trigger.feishuMessageId,
   })
-  rendered.set(sent.messageId, json)
+  remember(rendered, sent.messageId, json, RENDERED_MAX)
   await ctx.db.insert(feishuMessageLinks).values({
     feishuMessageId: sent.messageId,
     chatId: trigger.chatId,
@@ -405,7 +435,7 @@ async function putCard(
 
 /** Remembers what a card callback answered with, so the next sync does not update the card again. */
 export function markRendered(ctx: Ctx, feishuMessageId: string, card: object) {
-  state(ctx).rendered.set(feishuMessageId, JSON.stringify(card))
+  remember(state(ctx).rendered, feishuMessageId, JSON.stringify(card), RENDERED_MAX)
 }
 
 /**
@@ -685,6 +715,6 @@ async function snapshotKey(ctx: Ctx, app: FeishuAppRow, p: typeof previews.$infe
     console.error('feishu snapshot upload:', `${err.code} ${err.message}`)
     return null
   })
-  if (key) images.set(p.id, { at, key })
+  if (key) remember(images, p.id, { at, key }, IMAGES_MAX)
   return key
 }

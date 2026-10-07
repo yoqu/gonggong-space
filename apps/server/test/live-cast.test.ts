@@ -2,6 +2,7 @@ import type { DaemonToServer, GroupPreviewsDto, ServerToDaemon, ServiceInfo } fr
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { messages, previews, runs, services, systemParams } from '../src/db/schema.js'
+import { forgetSysParams } from '../src/modules/admin/params.js'
 import { reapWatches } from '../src/modules/live/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -262,6 +263,7 @@ describe('desktop app previews', () => {
       key: 'daemonRelease',
       value: { version: '0.2.0', builds: {}, cast: { 'macos-aarch64': build } },
     })
+    forgetSysParams(t.db)
     const res = await get()
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual({ version: '0.2.0', ...build })

@@ -25,7 +25,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
-import { postEvent } from '../messages/service.js'
+import { forgetMembers, postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
 import { recordRepo } from '../repos/service.js'
 import { leaveReplica } from '../sync/switch.js'
@@ -198,6 +198,7 @@ export function groupRoutes(ctx: Ctx) {
       const user = await oneUser(ctx, group.teamId, userId)
       if (!(await isMember(ctx, group.id, user.id))) {
         await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: user.id })
+        forgetMembers(group.id)
         await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member: user.name })
         await auditAdmin(me.id, group.id, 'group.member.add', { userId: user.id, name: user.name })
         await publishGroup(ctx, group.id)
@@ -245,6 +246,7 @@ export function groupRoutes(ctx: Ctx) {
           })
         if (ownerJoins) await tx.insert(groupMembers).values({ groupId: group.id, userId: bot.ownerId })
       })
+      if (ownerJoins) forgetMembers(group.id)
       if (ownerJoins) {
         const [owner] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, bot.ownerId))
         await postEvent(ctx, group.id, '{owner} 作为 {bot} 的主人一并加入群', {

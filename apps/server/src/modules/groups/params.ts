@@ -18,11 +18,33 @@ export function teamOverrides(raw: unknown): TeamParams {
   ) as TeamParams
 }
 
+/** Overrides per team, read on hot paths like system params; `PATCH /api/teams/:id` is their only writer. */
+const overrides = new WeakMap<object, Map<string, Promise<TeamParams>>>()
+
+export function forgetTeamParams(db: object, teamId: string) {
+  overrides.get(db)?.delete(teamId)
+}
+
 /** Platform defaults under the team's overrides (plan D9). */
 export async function teamParams(db: Pick<Db, 'select'>, teamId: string): Promise<SystemParams> {
   const platform = await sysParams(db)
-  const [team] = await db.select({ params: teams.params }).from(teams).where(eq(teams.id, teamId))
-  return { ...platform, ...teamOverrides(team?.params ?? {}) }
+  let byTeam = overrides.get(db)
+  if (!byTeam) {
+    byTeam = new Map()
+    overrides.set(db, byTeam)
+  }
+  let hit = byTeam.get(teamId)
+  if (!hit) {
+    const map = byTeam
+    hit = db
+      .select({ params: teams.params })
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .then(([team]) => teamOverrides(team?.params ?? {}))
+    map.set(teamId, hit)
+    hit.catch(() => map.get(teamId) === hit && map.delete(teamId))
+  }
+  return { ...platform, ...(await hit) }
 }
 
 /** A group's own overrides (`groups.params`) over `defaults`. */

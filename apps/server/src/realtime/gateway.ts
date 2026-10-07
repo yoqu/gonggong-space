@@ -19,9 +19,9 @@ export function webGateway(ctx: Ctx) {
       if (!user) return ws.close(4401, 'unauthorized')
       detach = ctx.bus.attach(
         user.id,
-        (event) => {
+        (_, json) => {
           if (ws.bufferedAmount > MAX_BUFFERED_BYTES) ws.terminate()
-          else ws.send(JSON.stringify(event))
+          else ws.send(json())
         },
         () => ws.close(4401, 'unauthorized'),
       )

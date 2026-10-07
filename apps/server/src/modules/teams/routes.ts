@@ -25,9 +25,9 @@ import { listAudit } from '../admin/audit.js'
 import { adminGroupDtos } from '../admin/groups.js'
 import { assertNotDemo, sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
-import { teamOverrides } from '../groups/params.js'
+import { forgetTeamParams, teamOverrides } from '../groups/params.js'
 import { groupDto, publishGroup } from '../groups/service.js'
-import { postEvent } from '../messages/service.js'
+import { forgetMembers, postEvent } from '../messages/service.js'
 import { inviteDto, memberDtos, myTeam, myTeams, publishMember, publishTeam } from './dto.js'
 import { acceptInvite, archiveTeam, findInvite, removeFromTeam } from './members.js'
 import { createTeam, requireTeam } from './service.js'
@@ -75,6 +75,7 @@ export function teamRoutes(ctx: Ctx) {
         .update(teams)
         .set({ ...patch, avatar: patch.avatar === undefined ? undefined : patch.avatar || null })
         .where(eq(teams.id, team.id))
+      forgetTeamParams(ctx.db, team.id)
       await auditTeam(me.id, team.id, 'team.update', patch)
       await publishTeam(ctx, team.id)
       return myTeam(ctx, me.id, team.id)
@@ -139,6 +140,7 @@ export function teamRoutes(ctx: Ctx) {
         .insert(groupMembers)
         .values({ groupId: group.id, userId: me.id, isAdmin: true })
         .onConflictDoUpdate({ target: [groupMembers.groupId, groupMembers.userId], set: { isAdmin: true } })
+      forgetMembers(group.id)
       await postEvent(
         ctx,
         group.id,

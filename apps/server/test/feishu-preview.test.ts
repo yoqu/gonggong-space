@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { feishuIdentities, feishuMessageLinks, previews, runs, systemParams } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
+import { forgetSysParams } from '../src/modules/admin/params.js'
 import { feishuIdle } from '../src/modules/feishu/mirror.js'
 import { publishPreviews, snapshotFile } from '../src/modules/previews/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -35,6 +36,7 @@ async function setup(o: { bind?: boolean } = {}) {
   await adminHttp.put('/api/admin/feishu', { appId: MAIN, appSecret: 's' })
   await ownerHttp.put(`/api/bots/${bot.id}/feishu`, { appId: BOT_APP, appSecret: 's' })
   await t.db.insert(systemParams).values({ key: 'publicUrl', value: BASE })
+  forgetSysParams(t.db)
   const fu = t.feishu.user()
   const tokens = await t.feishu.api.exchangeCode({ appId: MAIN, appSecret: 's' }, t.feishu.authorize(fu), '')
   await t.db.insert(feishuIdentities).values({
@@ -150,6 +152,7 @@ describe('preview cards in Feishu', () => {
   it('stays out of Feishu in demo mode', async () => {
     const { group } = await setup()
     await t.db.insert(systemParams).values({ key: 'demoMode', value: true })
+    forgetSysParams(t.db)
     await publish(group.id)
     expect(previewCards()).toEqual([])
   })

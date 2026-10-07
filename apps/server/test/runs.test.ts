@@ -1,7 +1,9 @@
 import { PROTOCOL_VERSION, type RunStart, type WebEvent } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { groupBots, messages, runEvents, runs, systemParams } from '../src/db/schema.js'
+import { forgetSysParams } from '../src/modules/admin/params.js'
+import { publishRuns } from '../src/modules/runs/dto.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
@@ -182,6 +184,7 @@ describe('run engine', () => {
     const w = await world()
     const d = await daemon(w.token)
     await t.db.insert(systemParams).values({ key: 'contextInlineMax', value: 2 })
+    forgetSysParams(t.db)
     await t.db.update(groupBots).set({ sessionId: 'sess-0' }).where(eq(groupBots.botId, w.bot.id))
     for (const body of ['一', '二', '三', '四']) await w.say(body, { userId: w.bob.id })
     const trigger = await w.mention('@小王的 Claude hi')
@@ -205,6 +208,27 @@ describe('run engine', () => {
     const start = await d.next()
     expect(start.runId).toBe(waiting.run.id)
     await web.until(runUpdated('running', start.runId))
+  })
+
+  it('pushes several run cards with as many queries as one', async () => {
+    const w = await world()
+    for (const body of ['一', '二', '三', '四']) await w.mention(`@bot ${body}`)
+    const rows = await w.runsOf()
+    expect(rows).toHaveLength(4)
+    const queries = async (batch: typeof rows) => {
+      const select = vi.spyOn(t.ctx.db, 'select')
+      await publishRuns(t.ctx, batch)
+      const n = select.mock.calls.length
+      select.mockRestore()
+      return n
+    }
+    await queries(rows.slice(0, 1))
+    expect(await queries(rows)).toBe(await queries(rows.slice(0, 1)))
+    const web = watch(w.bob.id)
+    await publishRuns(t.ctx, rows)
+    expect(
+      web.seen.filter((e) => e.t === 'run.updated').map((e) => e.t === 'run.updated' && e.run.id),
+    ).toEqual(rows.map((r) => r.id))
   })
 
   it('queues beyond the bot concurrency and dequeues in order', async () => {

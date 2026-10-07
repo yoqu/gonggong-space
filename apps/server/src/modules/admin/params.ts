@@ -34,11 +34,29 @@ export const PARAM_DEFAULTS: SystemParams = {
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]
 
+/** Read on hot paths (every run card); one server process, and `saveSysParams` is the only writer of these keys. */
+const cached = new WeakMap<object, Promise<SystemParams>>()
+
 /**
- * Each param is one `system_params` row keyed by its name, read on use so every module sees a change at once.
- * A stored value that no longer validates falls back to its default.
+ * Each param is one `system_params` row keyed by its name; a stored value that no longer validates falls back
+ * to its default.
  */
 export async function sysParams(db: Pick<Db, 'select'>): Promise<SystemParams> {
+  let hit = cached.get(db)
+  if (!hit) {
+    hit = loadSysParams(db)
+    cached.set(db, hit)
+    hit.catch(() => cached.get(db) === hit && cached.delete(db))
+  }
+  return { ...(await hit) }
+}
+
+/** After writing `system_params` rows outside `saveSysParams`. */
+export function forgetSysParams(db: object) {
+  cached.delete(db)
+}
+
+async function loadSysParams(db: Pick<Db, 'select'>) {
   const rows = await db.select().from(systemParams).where(inArray(systemParams.key, KEYS))
   const out: Record<string, unknown> = { ...PARAM_DEFAULTS }
   for (const r of rows) {
@@ -78,6 +96,7 @@ export async function saveSysParams(ctx: Ctx, patch: Partial<SystemParams>, acto
         .onConflictDoUpdate({ target: systemParams.key, set: { value } })
     }
   })
+  forgetSysParams(ctx.db)
   await audit(ctx, { category: 'admin', actorUserId, action: 'params.update', detail: { changes } })
   return next
 }

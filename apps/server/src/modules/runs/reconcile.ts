@@ -28,7 +28,7 @@ export async function reconcileRuns(ctx: Ctx, machineId: string, activeRuns: str
     )
     .returning()
   for (const run of lost) {
-    forgetStream(run.id)
+    await forgetStream(run.id)
     await voidApprovals(ctx, run.id, 'ended')
     await voidQuestions(ctx, run.id)
     await publishRun(ctx, run)

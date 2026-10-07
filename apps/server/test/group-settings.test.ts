@@ -2,6 +2,7 @@ import type { GroupDto, GroupNoticeDto, GroupParams, TimelineDto } from '@gonggo
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, groupMembers, groups, messages, runs, systemParams } from '../src/db/schema.js'
+import { forgetSysParams } from '../src/modules/admin/params.js'
 import { timeoutMin } from '../src/modules/approvals/service.js'
 import { triggerChain } from '../src/modules/runs/trigger.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -179,6 +180,7 @@ describe('group params', () => {
       { key: 'chainMaxHops', value: 5 },
       { key: 'offlineWaitMin', value: 45 },
     ])
+    forgetSysParams(t.db)
     const got = await w.as.wang.get<GroupParams>(`/api/groups/${w.g.id}/params`)
     expect(got.body).toEqual({ approvalTimeoutMin: 30, chainMaxHops: 5, offlineWaitMin: 45 })
   })

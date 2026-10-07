@@ -8,6 +8,7 @@ import { fail } from '../../lib/errors.js'
 import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { runDtoLoader } from './dto.js'
+import { flushStream } from './engine.js'
 import { runRetentionDays } from './retention.js'
 import { openEvent } from './sealed.js'
 
@@ -47,6 +48,7 @@ export function runRoutes(ctx: Ctx) {
     app.get('/api/runs/:id', async (req): Promise<RunDetailDto> => {
       const row = await visibleRun(req)
       const { since } = RunDetailQuery.parse(req.query)
+      await flushStream(row.run.id)
       const events = await ctx.db
         .select()
         .from(runEvents)

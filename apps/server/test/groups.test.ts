@@ -283,6 +283,25 @@ describe('membership management', () => {
     ])
   })
 
+  it('pushes to the members as they are now, however recently the group was pushed to', async () => {
+    const p = await people()
+    const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    const zhao = events(t, p.zhao.id)
+    const li = events(t, p.li.id)
+    const pushed = async () => {
+      zhao.length = 0
+      li.length = 0
+      await publishGroup(t.ctx, g.id)
+      return { zhao: zhao.some((e) => e.t === 'group.updated'), li: li.some((e) => e.t === 'group.updated') }
+    }
+    expect(await pushed()).toEqual({ zhao: false, li: true })
+    await p.asWang.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })
+    await p.asWang.del(`/api/groups/${g.id}/members/${p.li.id}`)
+    expect(await pushed()).toEqual({ zhao: true, li: false })
+    await p.asWang.post(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
+    expect(await pushed()).toEqual({ zhao: true, li: true })
+  })
+
   it('the last admin cannot be removed', async () => {
     const p = await people()
     const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })

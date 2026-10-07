@@ -107,6 +107,7 @@ export function startRunEngine(ctx: Ctx) {
     ctx.hub.off('message', onMessage)
     ctx.hub.off('online', onOnline)
     await Promise.all([...chains.values()].map((c) => c.tail))
+    for (const [runId, st] of streams) if (st.ctx === ctx) await forgetStream(runId)
   }
 }
 
@@ -143,7 +144,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
     await pushDelta(ctx, run, await appendStream(ctx, runId, raw))
     return
   }
-  await pushDelta(ctx, run, closeStream(runId))
+  await pushDelta(ctx, run, await closeStream(runId))
   const event = redactDeep(raw)
   await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: sealEvent(event) })
   const patch =
@@ -200,7 +201,7 @@ async function onSessionConfig(
 }
 
 type Stream = Extract<RunEvent, { kind: 'text' | 'thought' }>
-/** The stream row being extended; no `id` once it rolled over and the next chunk starts a new row. */
+/** A stream row; no `id` until it was first stored. */
 type Segment = {
   id?: number
   kind: Stream['kind']
@@ -208,24 +209,63 @@ type Segment = {
   plain: string
   /** Length of the redacted text of `plain` already pushed to viewers. */
   sent: number
+  /** The `plain` end last pushed up to: an unchanged end has nothing new to push. */
+  upto: number
+  /** Length of `plain` already stored. */
+  saved: number
 }
+/** A run's open stream: its latest segment, stored on a debounce through one ordered write chain. */
+type Open = { ctx: Ctx; runId: string; seg?: Segment; timer?: NodeJS.Timeout; write: Promise<void> }
 
-/** Each chunk rewrites its whole row, so rows roll over at a line end past this size to keep appends linear. */
+/** Rows roll over at a line end past this size, so a store (rewriting the whole row) stays bounded. */
 const SEGMENT = 8 * 1024
 /** A line that never ends rolls over here anyway, the one place a secret may be cut. */
 const SEGMENT_MAX = 32 * 1024
+/** Streamed text is stored at most this often per run; readers flush first, so it is never seen stale. */
+const STREAM_SAVE_MS = 500
 const OPEN_KEY = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?![\s\S]*-----END [A-Z0-9 ]*PRIVATE KEY-----)/
 
 const HEADER = /-----BEGIN[^\n]*$/
 /** Continuations that turn a still-open quote into a match; a label alone is masked by the cumulative redaction. */
 const PROBES = ['a'.repeat(64), 'a"', "a'"]
 
-/** Plaintext of each live run's stream row, so appends skip reading and decrypting it back. */
-const segments = new Map<string, Segment>()
+/** Each live run's stream, so appends skip reading and decrypting the row back. */
+const streams = new Map<string, Open>()
 
-/** A run that ended without run.done (daemon lost, account disabled) no longer streams. */
-export function forgetStream(runId: string) {
-  segments.delete(runId)
+/** Stores what the run streamed so far; readers of its process call this first. */
+export async function flushStream(runId: string) {
+  const st = streams.get(runId)
+  if (!st) return
+  clearTimeout(st.timer)
+  st.timer = undefined
+  if (st.seg) await save(st, st.seg)
+  await st.write
+}
+
+/** A run that ended without run.done (daemon lost, account disabled) no longer streams; what it sent is kept. */
+export async function forgetStream(runId: string) {
+  await flushStream(runId)
+  streams.delete(runId)
+}
+
+/** Writes are chained so rows are inserted in stream order; a failed write is retried by the next save. */
+function save(st: Open, seg: Segment) {
+  const job = st.write.then(async () => {
+    const plain = seg.plain
+    if (!plain || seg.saved === plain.length) return
+    seg.id = await writeSegment(st.ctx, st.runId, { ...seg, plain })
+    seg.saved = plain.length
+  })
+  st.write = job.catch(() => {})
+  return job
+}
+
+function saveLater(st: Open) {
+  if (st.timer) return
+  st.timer = setTimeout(() => {
+    st.timer = undefined
+    if (st.seg) save(st, st.seg).catch((err) => console.error('run stream save:', err))
+  }, STREAM_SAVE_MS).unref()
 }
 
 /** Where `plain` rolls over into a new row, if it does: after its last line, never inside a private key block. */
@@ -243,6 +283,8 @@ const live = ({ kind, agentId }: Segment) => kind === 'text' && !agentId
 
 /** Redacted text of `seg.plain` up to `end` that viewers have not received yet. */
 function unsent(seg: Segment, end: number) {
+  if (end === seg.upto) return ''
+  seg.upto = end
   const text = redact(seg.plain.slice(0, end)).slice(seg.sent)
   seg.sent += text.length
   return text
@@ -271,40 +313,58 @@ function closed(text: string) {
   return PROBES.every((probe) => redact(tail + probe).startsWith(masked))
 }
 
+const segment = (kind: Stream['kind'], agentId: string | undefined, plain: string): Segment => ({
+  kind,
+  agentId,
+  plain,
+  sent: 0,
+  upto: 0,
+  saved: 0,
+})
+
 /**
  * Streamed chunks extend the run's latest event of the same kind and agent, so redaction sees whole lines even
  * when a secret is split across chunks. Returns the redacted text now safe to push live.
  */
 async function appendStream(ctx: Ctx, runId: string, { kind, delta, agentId }: Stream) {
-  const prev = segments.get(runId) ?? (await lastSegment(ctx, runId))
-  const same = prev?.kind === kind && prev.agentId === agentId
-  let out = prev && !same && live(prev) ? unsent(prev, prev.plain.length) : ''
-  const seg: Segment = {
-    id: same ? prev.id : undefined,
-    kind,
-    agentId,
-    plain: same ? prev.plain + delta : delta,
-    sent: same ? prev.sent : 0,
+  let st = streams.get(runId)
+  if (!st) {
+    st = { ctx, runId, seg: await lastSegment(ctx, runId), write: Promise.resolve() }
+    streams.set(runId, st)
+  }
+  const prev = st.seg
+  let out = ''
+  let seg: Segment
+  if (prev?.kind === kind && prev.agentId === agentId) {
+    seg = prev
+    seg.plain += delta
+  } else {
+    if (prev) {
+      if (live(prev)) out += unsent(prev, prev.plain.length)
+      await save(st, prev)
+    }
+    seg = segment(kind, agentId, delta)
   }
   const cut = rollover(seg.plain)
   if (cut) {
-    await writeSegment(ctx, runId, { ...seg, plain: seg.plain.slice(0, cut) })
+    const rest = seg.plain.slice(cut)
+    seg.plain = seg.plain.slice(0, cut)
     if (live(seg)) out += unsent(seg, cut)
-    seg.id = undefined
-    seg.plain = seg.plain.slice(cut)
-    seg.sent = 0
+    await save(st, seg)
+    seg = segment(kind, agentId, rest)
   }
-  if (seg.plain) seg.id = await writeSegment(ctx, runId, seg)
+  st.seg = seg
   if (live(seg)) out += unsent(seg, settled(seg.plain))
-  segments.set(runId, seg)
+  saveLater(st)
   return out
 }
 
-/** The stream ends: what was held back for a possible secret can go out. */
-function closeStream(runId: string) {
-  const seg = segments.get(runId)
-  segments.delete(runId)
-  return seg && live(seg) ? unsent(seg, seg.plain.length) : ''
+/** The stream ends: it is stored, and what was held back for a possible secret can go out. */
+async function closeStream(runId: string) {
+  const seg = streams.get(runId)?.seg
+  const out = seg && live(seg) ? unsent(seg, seg.plain.length) : ''
+  await forgetStream(runId)
+  return out
 }
 
 async function writeSegment(ctx: Ctx, runId: string, { id, kind, agentId, plain }: Segment) {
@@ -330,12 +390,21 @@ async function lastSegment(ctx: Ctx, runId: string): Promise<Segment | undefined
     .limit(1)
   if (!last) return
   const e = last.payload as RunEvent
-  if (e.kind === 'text' || e.kind === 'thought')
-    return { id: last.id, kind: e.kind, agentId: e.agentId, plain: open(e.delta), sent: open(e.delta).length }
+  if (e.kind !== 'text' && e.kind !== 'thought') return
+  const plain = open(e.delta)
+  return {
+    id: last.id,
+    kind: e.kind,
+    agentId: e.agentId,
+    plain,
+    sent: plain.length,
+    upto: -1,
+    saved: plain.length,
+  }
 }
 
 async function onDone(ctx: Ctx, machineId: string, done: RunDone) {
-  const tail = closeStream(done.runId)
+  const tail = await closeStream(done.runId)
   const owned = await liveRun(ctx, machineId, done.runId, 'unfinished')
   if (!owned) return
   await pushDelta(ctx, owned, tail)

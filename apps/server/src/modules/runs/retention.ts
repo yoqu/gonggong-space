@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, lt } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, lt, lte, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { runEvents, runs, systemParams } from '../../db/schema.js'
+import { bindCodes, runEvents, runs, systemParams, webSessions } from '../../db/schema.js'
 import { purgeSyncBlobs } from '../sync/blobs.js'
 
 export const DEFAULT_RUN_RETENTION_DAYS = 30
@@ -46,13 +46,23 @@ export async function purgeExpiredRuns(ctx: Ctx, batch = PURGE_BATCH): Promise<n
   }
 }
 
-/** Purges runs and unneeded sync blobs (F16) now and then every `everyMs`; the returned function stops and waits for a purge in flight. */
+/** Drops sessions that can no longer sign in, and bind codes a day past expiry (until then a retry reads 已过期, not 无效). */
+export async function purgeExpiredLogins(ctx: Ctx) {
+  const now = ctx.now()
+  await ctx.db
+    .delete(webSessions)
+    .where(or(lte(webSessions.expiresAt, now), isNotNull(webSessions.revokedAt)))
+  await ctx.db.delete(bindCodes).where(lt(bindCodes.expiresAt, new Date(now.getTime() - DAY_MS)))
+}
+
+/** Purges runs, unneeded sync blobs (F16) and dead logins now and then every `everyMs`; the returned function stops and waits for a purge in flight. */
 export function startRetention(ctx: Ctx, everyMs = HOUR_MS) {
   let pending = Promise.resolve()
   const tick = () => {
     pending = pending
       .then(() => purgeExpiredRuns(ctx))
       .then(() => purgeSyncBlobs(ctx))
+      .then(() => purgeExpiredLogins(ctx))
       .then(
         () => {},
         (err) => console.error('run retention:', err),

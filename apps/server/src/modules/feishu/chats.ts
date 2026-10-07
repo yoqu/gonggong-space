@@ -10,7 +10,7 @@ import { activeBots, requireAdmin } from '../groups/service.js'
 import { botApp, mainApp } from './apps.js'
 import { FeishuError } from './client.js'
 import { credsOf } from './gateway.js'
-import { boundChat, unbindChat } from './mirror.js'
+import { boundChat, markBound, unbindChat } from './mirror.js'
 
 type Params = { Params: { id: string } }
 
@@ -101,6 +101,7 @@ export function feishuChatRoutes(ctx: Ctx) {
         .onConflictDoNothing()
         .returning()
       if (!row) return fail('conflict', '该飞书群已绑定其他群')
+      markBound(ctx, group.id)
       await audit(ctx, {
         category: 'admin',
         actorUserId: user.id,

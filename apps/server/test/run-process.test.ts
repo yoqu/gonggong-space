@@ -8,7 +8,7 @@ import {
   type WebEvent,
 } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { approvals, groupBots, groups, messages, runEvents, runs } from '../src/db/schema.js'
 import { open } from '../src/lib/seal.js'
 import { MASK } from '../src/modules/runs/redact.js'
@@ -88,7 +88,10 @@ async function world() {
     )
   const ended = (runId: string) =>
     expect
-      .poll(() => seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.endedAt))
+      // Long runs persist many segments; the default 1s is tight under full-suite load.
+      .poll(() => seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.endedAt), {
+        timeout: 5000,
+      })
       .toBe(true)
   const detail = async (runId: string, userId = bob.id) =>
     (
@@ -181,6 +184,33 @@ describe('run process', () => {
 
     const full = chunks.join('').replace(GH, MASK).replace(pem.slice(0, -1), MASK)
     expect((await w.detail(runId)).events.map((e) => e.event)).toEqual([{ kind: 'text', delta: full }])
+  })
+
+  it('stores streamed text on a debounce rather than per chunk; readers always see all of it', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const update = vi.spyOn(t.ctx.db, 'update')
+    const chunks = Array.from({ length: 60 }, (_, i) => `part${i} `)
+    for (const delta of chunks) w.send(runId, { kind: 'text', delta })
+    w.send(runId, { kind: 'status', status: 'running', step: 'marker' })
+    await expect
+      .poll(async () => (await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))).length)
+      .toBe(2)
+    expect(update.mock.calls.filter(([table]) => table === runEvents).length).toBeLessThan(3)
+    expect((await w.detail(runId)).events[0]?.event).toEqual({ kind: 'text', delta: chunks.join('') })
+
+    // Still streaming: the row catches up on its own, and a reader flushes it at once.
+    w.send(runId, { kind: 'thought', delta: '想一想' })
+    await expect
+      .poll(async () => {
+        const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))
+        return rows.map((r) => openEvent(r.payload as RunEvent)).at(-1)
+      })
+      .toEqual({ kind: 'thought', delta: '想一想' })
+    w.send(runId, { kind: 'thought', delta: '再想' })
+    await expect
+      .poll(async () => (await w.detail(runId)).events.at(-1)?.event)
+      .toEqual({ kind: 'thought', delta: '想一想再想' })
   })
 
   describe('live stream redaction', () => {

@@ -302,6 +302,13 @@
       "when": 1791102489441,
       "tag": "0042_acoustic_senator_kelly",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791383217758,
+      "tag": "0043_handy_vargas",
+      "breakpoints": true
     }
   ]
 }

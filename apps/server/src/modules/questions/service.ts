@@ -4,6 +4,7 @@ import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, questionSets, runs } from '../../db/schema.js'
 import { teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { startSweep } from '../../lib/sweep.js'
 import { timeoutMin } from '../approvals/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
@@ -188,10 +189,7 @@ export async function voidQuestions(ctx: Ctx, runId: string, requestId?: string)
 }
 
 export function startQuestionTimer(ctx: Ctx) {
-  const timer = setInterval(() => {
-    expireQuestions(ctx).catch((err) => console.error('question timeout:', err))
-  }, TICK_MS)
-  return () => clearInterval(timer)
+  return startSweep('question timeout', () => expireQuestions(ctx), TICK_MS)
 }
 
 /** Records the outcome once (a racing answer / timeout loses) and audits it. */

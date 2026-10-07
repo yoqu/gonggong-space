@@ -83,12 +83,28 @@ export async function authorName(ctx: Ctx, m: Pick<MessageRow, 'authorUserId' | 
   return ''
 }
 
-export async function memberIds(ctx: Ctx, groupId: string) {
-  const rows = await ctx.db
-    .select({ userId: groupMembers.userId })
-    .from(groupMembers)
-    .where(eq(groupMembers.groupId, groupId))
-  return rows.map((r) => r.userId)
+/**
+ * Member ids by group, read on every publish (each streamed chunk included). The server is one process, so the
+ * cache stays exact as long as every write adding or removing a member calls `forgetMembers` after it committed.
+ */
+const members = new Map<string, Promise<string[]>>()
+
+export function memberIds(ctx: Ctx, groupId: string) {
+  let ids = members.get(groupId)
+  if (!ids) {
+    ids = ctx.db
+      .select({ userId: groupMembers.userId })
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, groupId))
+      .then((rows) => rows.map((r) => r.userId))
+    members.set(groupId, ids)
+    ids.catch(() => members.get(groupId) === ids && members.delete(groupId))
+  }
+  return ids
+}
+
+export function forgetMembers(groupId: string) {
+  members.delete(groupId)
 }
 
 export async function publishMessage(ctx: Ctx, dto: MessageDto) {

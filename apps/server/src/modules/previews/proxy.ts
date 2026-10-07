@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { previews } from '../../db/schema.js'
 import { type MessageKey, translator } from '../../i18n/index.js'
+import { remember } from '../../lib/lru.js'
 import { foreignCookies, redeemCode, setCookie, verifyCookie } from './access.js'
 import { redeemShare, shareAllows } from './shares.js'
 
@@ -39,11 +40,13 @@ const OFFLINE = '预览所在的机器离线，稍后再试。'
 const UNKNOWN = '请从共工空间的预览卡片打开这个预览。'
 
 const lastWrite = new Map<string, number>()
+/** Previews whose last write is remembered; a forgotten one is only written once more. */
+const LAST_WRITE_MAX = 1000
 /** Idle previews are closed (plan P11); a write a minute is enough to tell. */
 function touch(ctx: Ctx, id: string) {
   const now = ctx.now()
   if (now.getTime() - (lastWrite.get(id) ?? 0) < 60_000) return
-  lastWrite.set(id, now.getTime())
+  remember(lastWrite, id, now.getTime(), LAST_WRITE_MAX)
   void ctx.db
     .update(previews)
     .set({ lastAccessAt: now })
