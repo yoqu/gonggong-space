@@ -269,3 +269,37 @@ async fn hello_carries_features_and_state_is_reported_after_welcome_and_each_run
     assert_eq!(text(&mut ws).await["t"], "bots.providerState");
     task.abort();
 }
+
+#[tokio::test]
+async fn a_silent_link_is_dropped_at_the_next_heartbeat_and_unconfirmed_run_done_is_resent() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let s = service(port, Recorder::default());
+    let reporter = Service {
+        config: s.config,
+        machine: s.machine,
+        agents: s.agents,
+        handler: Reporter,
+        max_backoff: s.max_backoff,
+        upgrader: None,
+        monitor: Default::default(),
+    };
+    let task = tokio::spawn(reporter.run());
+
+    // Half-open link: the server stops reading after welcome, so pings go unanswered and run.done is never seen.
+    let (s, _) = listener.accept().await.unwrap();
+    let mut stale = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut stale).await["t"], "hello");
+    stale.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":1}"#)).await.unwrap();
+    stale.send(Message::text(r#"{"t":"run.cancel","runId":"r1"}"#)).await.unwrap();
+
+    let (s, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept()).await.unwrap().unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    let hello = text(&mut ws).await;
+    assert_eq!(hello["activeRuns"], serde_json::json!(["r1"]), "r1 ended locally; its run.done is resent");
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60}"#)).await.unwrap();
+    let done = text(&mut ws).await;
+    assert_eq!((done["t"].as_str(), done["runId"].as_str()), (Some("run.done"), Some("r1")));
+    drop(stale);
+    task.abort();
+}

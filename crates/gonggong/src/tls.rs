@@ -7,6 +7,7 @@ use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signat
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
 use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
 
@@ -72,6 +73,9 @@ pub fn builder() -> reqwest::ClientBuilder {
 
 pub type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+/// A server that accepts TCP but stalls the TLS handshake or the upgrade would otherwise hang the connect forever.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
 /// The daemon WebSocket.
 pub async fn connect_ws(config: &Config) -> Result<Ws> {
     connect_url(config.ws_url()).await
@@ -83,7 +87,11 @@ where
     R: tokio_tungstenite::tungstenite::client::IntoClientRequest + Unpin,
 {
     let connector = Some(Connector::Rustls(TLS.clone()));
-    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(request, None, false, connector).await?;
+    let connect = tokio_tungstenite::connect_async_tls_with_config(request, None, false, connector);
+    let Ok(connected) = tokio::time::timeout(CONNECT_TIMEOUT, connect).await else {
+        anyhow::bail!("{}", crate::t!("连接服务器超时"));
+    };
+    let (ws, _) = connected?;
     Ok(ws)
 }
 

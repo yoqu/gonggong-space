@@ -150,6 +150,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("无法连接本机端口 {port}", "Can't connect to local port {port}"),
     ("工作区文件不支持升级连接", "Workspace files don't support connection upgrades"),
     ("连接已断开", "Disconnected"),
+    ("连接服务器超时", "Timed out connecting to the server"),
+    ("服务器无响应", "The server stopped responding"),
     ("新增供应商需要 --key-stdin 传入 API Key", "Adding a provider needs the API key via --key-stdin"),
     ("没有 {agent} 预设 {id}，可用 gg provider presets 查看", "No {agent} preset {id}; see gg provider presets"),
     ("已新增 {label}（{id}），并设为本机默认", "Added {label} ({id}) and made it this machine's default"),

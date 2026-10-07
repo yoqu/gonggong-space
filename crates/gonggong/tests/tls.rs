@@ -85,3 +85,14 @@ async fn wss_accepts_a_self_signed_certificate() {
     let url = serve(Reply::WebSocket).await;
     tls::connect_ws(&config(&url)).await.unwrap();
 }
+
+#[tokio::test(start_paused = true)]
+async fn connecting_gives_up_on_a_server_that_never_answers_the_upgrade() {
+    // The kernel completes the TCP handshake, but nobody ever answers the WebSocket upgrade.
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    let config = config(&url);
+    let connect = tokio::time::timeout(std::time::Duration::from_secs(60), tls::connect_ws(&config));
+    assert!(connect.await.expect("connect must time out on its own").is_err());
+    drop(listener);
+}

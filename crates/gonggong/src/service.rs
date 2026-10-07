@@ -160,6 +160,11 @@ struct Backlog {
     msgs: VecDeque<DaemonToServer>,
     bytes: usize,
     dropping: bool,
+    /// run.done written but not yet confirmed by a pong: a half-open link swallows writes silently. Only run.done is
+    /// kept for a resend, since the server applies a repeated one idempotently (run events and asks it does not).
+    unconfirmed: Vec<DaemonToServer>,
+    /// How many of `unconfirmed` were written before the outstanding ping, i.e. what its pong confirms.
+    pinged: usize,
 }
 
 impl Backlog {
@@ -201,6 +206,32 @@ impl Backlog {
         let msg = self.msgs.pop_front()?;
         self.bytes -= weight(&msg);
         Some(msg)
+    }
+
+    /// The front message was written to the socket.
+    fn written(&mut self) {
+        if let Some(msg) = self.pop_front()
+            && matches!(msg, DaemonToServer::RunDone(_))
+        {
+            self.unconfirmed.push(msg);
+        }
+    }
+
+    fn pinged(&mut self) {
+        self.pinged = self.unconfirmed.len();
+    }
+
+    fn ponged(&mut self) {
+        self.unconfirmed.drain(..std::mem::take(&mut self.pinged));
+    }
+
+    /// A new connection: what the last one never confirmed goes out first again.
+    fn resend_unconfirmed(&mut self) {
+        self.pinged = 0;
+        for msg in self.unconfirmed.drain(..).rev() {
+            self.bytes += weight(&msg);
+            self.msgs.push_front(msg);
+        }
     }
 
     /// Runs whose run.done is still waiting here: they ended locally and must not be reconciled as lost.
@@ -270,6 +301,7 @@ impl<H: Handler> Service<H> {
         backlog: &mut Backlog,
     ) -> anyhow::Result<Option<Fatal>> {
         let mut ws = crate::tls::connect_ws(&self.config).await?;
+        backlog.resend_unconfirmed();
         while let Ok(msg) = rx.try_recv() {
             self.queue(backlog, msg);
         }
@@ -314,15 +346,20 @@ impl<H: Handler> Service<H> {
         beat.tick().await;
         let mut idle = tokio::time::interval(Duration::from_secs(1));
         // Latency = round trip of a WebSocket ping sent with each heartbeat (and right after welcome).
+        // Doubles as liveness: a ping still unanswered at the next heartbeat means a dead link.
         let mut ping_at = Some(Instant::now());
+        backlog.pinged();
         ws.send(Message::Ping(Default::default())).await?;
         loop {
             // A message leaves the backlog only once written: a failed send keeps it for the next connection.
             while let Some(msg) = backlog.front() {
                 send(&mut ws, msg).await?;
-                backlog.pop_front();
+                backlog.written();
             }
+            // Biased: a pong already waiting (say after a long flush) is read before the heartbeat checks for it, and
+            // a busy outbox cannot hold the heartbeat back.
             tokio::select! {
+                biased;
                 incoming = ws.next() => match incoming {
                     Some(Ok(Message::Text(t))) => match serde_json::from_str::<ServerToDaemon>(&t) {
                         Ok(msg) => {
@@ -334,12 +371,23 @@ impl<H: Handler> Service<H> {
                     Some(Ok(Message::Pong(_))) => {
                         if let Some(at) = ping_at.take() {
                             self.monitor.latency(at.elapsed());
+                            backlog.ponged();
                         }
                     }
                     Some(Ok(Message::Close(_))) | None => return Ok(None),
                     Some(Ok(_)) => {}
                     Some(Err(e)) => return Err(e.into()),
                 },
+                _ = beat.tick() => {
+                    if ping_at.is_some() {
+                        anyhow::bail!("{}", crate::t!("服务器无响应"));
+                    }
+                    send(&mut ws, &DaemonToServer::Heartbeat).await?;
+                    self.monitor.heartbeat();
+                    ping_at = Some(Instant::now());
+                    backlog.pinged();
+                    ws.send(Message::Ping(Default::default())).await?;
+                }
                 Some(out) = rx.recv() => {
                     let done = matches!(out, DaemonToServer::RunDone(_));
                     self.queue(backlog, out);
@@ -351,12 +399,6 @@ impl<H: Handler> Service<H> {
                     let list = agents.borrow_and_update().clone();
                     self.monitor.agents(list.clone());
                     send(&mut ws, &DaemonToServer::AgentsUpdate { agents: list }).await?;
-                }
-                _ = beat.tick() => {
-                    send(&mut ws, &DaemonToServer::Heartbeat).await?;
-                    self.monitor.heartbeat();
-                    ping_at = Some(Instant::now());
-                    ws.send(Message::Ping(Default::default())).await?;
                 }
                 _ = idle.tick() => {
                     // Restart into a staged build only when nothing runs or waits to be reported.
@@ -514,6 +556,24 @@ mod tests {
         assert_eq!(b.bytes, 0, "bytes are released as messages are sent");
         b.push(text("r1", "again"));
         assert_eq!(b.msgs.len(), 1, "run events are accepted again once there is room");
+    }
+
+    #[test]
+    fn a_pong_confirms_only_the_run_done_written_before_its_ping() {
+        let mut b = Backlog::default();
+        b.push(failed("r1", "x".into()));
+        b.push(text("r1", "a"));
+        b.written();
+        b.written();
+        b.pinged();
+        b.push(failed("r2", "x".into()));
+        b.written();
+        b.ponged();
+        b.push(text("r3", "b"));
+        b.resend_unconfirmed();
+        assert_eq!(b.finished_runs().collect::<Vec<_>>(), vec!["r2".to_string()], "run events are never resent");
+        assert!(matches!(b.front(), Some(DaemonToServer::RunDone(_))), "the resend goes out first");
+        assert_eq!(b.msgs.len(), 2);
     }
 
     #[test]
