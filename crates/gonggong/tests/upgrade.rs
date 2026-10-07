@@ -1,7 +1,6 @@
 use gonggong::protocol::UpgradeInfo;
-use gonggong::upgrade::{CURRENT, StageError, Upgrader, install, is_newer, restart_command, stage};
+use gonggong::upgrade::{CURRENT, StageError, Upgrader, is_newer, stage};
 use sha2::{Digest, Sha256};
-use std::path::Path;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -108,6 +107,8 @@ async fn an_offer_stages_once() {
 #[cfg(unix)]
 #[test]
 fn replaces_the_executable_and_restarts_it_with_the_same_arguments() {
+    use gonggong::upgrade::{install, restart_command};
+    use std::path::Path;
     let dir = tempfile::tempdir().unwrap();
     let script = |p: &Path, tag: &str| {
         std::fs::write(p, format!("#!/bin/sh\necho \"{tag} $@\" > \"$(dirname \"$0\")/ran\"\n")).unwrap();

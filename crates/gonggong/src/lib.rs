@@ -25,6 +25,7 @@ pub mod mcp_call;
 pub mod net;
 pub mod permission;
 pub mod previews;
+pub mod proc;
 pub mod protocol;
 pub mod provider_cli;
 pub mod providers;

@@ -1,0 +1,2 @@
+# LF everywhere, also in Windows checkouts: the shell scripts run in Linux containers and biome expects LF.
+* text=auto eol=lf

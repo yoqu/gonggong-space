@@ -43,7 +43,7 @@ pub async fn capture(port: u16, path: &str) -> anyhow::Result<Option<Vec<u8>>> {
     let dir = std::env::temp_dir().join(format!("gg-snapshot-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&dir).await?;
     // Own profile: a running browser would otherwise take the command over.
-    let mut child = tokio::process::Command::new(&bin)
+    let mut child = crate::proc::async_command(&bin)
         .current_dir(&dir)
         .args(["--headless", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check"])
         .args(["--virtual-time-budget=5000", "--window-size=1280,800", "--screenshot"])

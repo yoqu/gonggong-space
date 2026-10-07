@@ -34,8 +34,13 @@ fn tray_menu<R: Runtime>(app: &impl Manager<R>) -> tauri::Result<Menu<R>> {
 
 /// Menu-bar icon: the daemon keeps running with the window closed; 退出 is the only way to stop it.
 fn tray(app: &tauri::App) -> tauri::Result<()> {
+    // The black template icon is recolored by the macOS menu bar only; a dark Windows taskbar would swallow it.
+    let icon = match app.default_window_icon() {
+        Some(icon) if !cfg!(target_os = "macos") => icon.clone(),
+        _ => tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?,
+    };
     TrayIconBuilder::with_id("main")
-        .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
+        .icon(icon)
         .icon_as_template(true)
         .tooltip(tr!("共工空间"))
         .menu(&tray_menu(app)?)

@@ -142,7 +142,7 @@ fn describe(e: &Entry) -> String {
 }
 
 fn git_cmd(dir: &Path, args: &[&str]) -> Command {
-    let mut cmd = Command::new("git");
+    let mut cmd = crate::proc::async_command("git");
     cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").kill_on_drop(true);
     if std::env::var_os("GIT_SSH_COMMAND").is_none() {
         cmd.env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes");

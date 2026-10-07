@@ -144,6 +144,8 @@ impl<S: Subscriber> Layer<S> for Sink {
 /// Installs the global subscriber: stderr (filtered by `GONGGONG_LOG`) plus the file and ring. Keep the guard alive for
 /// the life of the process; dropping it flushes the file.
 pub fn init(home: &Path) -> anyhow::Result<(Logs, WorkerGuard)> {
+    // The appender prunes old files before it creates the directory, which prints an error on the first run.
+    std::fs::create_dir_all(dir(home))?;
     let appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
         .filename_prefix("daemon")

@@ -17,7 +17,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::process::Command;
 use tokio::sync::{Notify, watch};
 use tokio::task::{AbortHandle, JoinHandle};
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
@@ -238,7 +237,7 @@ async fn publish(
         None => Some(Relay::start(api.clone()).await?),
     };
     let url = relay.as_ref().map(Relay::url).or(token.url).unwrap_or_default();
-    let mut cmd = Command::new(&bin);
+    let mut cmd = crate::proc::async_command(&bin);
     if let Some(display) = display {
         cmd.env("DISPLAY", display).env("XDG_SESSION_TYPE", "x11").env_remove("WAYLAND_DISPLAY");
     }

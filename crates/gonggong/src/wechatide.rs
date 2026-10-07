@@ -601,7 +601,7 @@ fn ask_authorization() -> bool {
         {
             return true;
         }
-        *auth = std::process::Command::new(CLI)
+        *auth = crate::proc::command(CLI)
             .args(["auth", "-c", CLIENT])
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())

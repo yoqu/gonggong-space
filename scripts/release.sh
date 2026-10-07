@@ -14,6 +14,8 @@
 # updater feed of the desktop app (Gonggong_<v>_<arch>.app.tar.gz + .sig, signed with TAURI_SIGNING_PRIVATE_KEY /
 # TAURI_SIGNING_PRIVATE_KEY_PASSWORD). --github then runs `gh release create v<version>` with every artifact and the
 # notes file (default dist/<version>/RELEASE_NOTES.md, copied from docs/release-notes/v<version>.md).
+# The Windows desktop installer is built by .github/workflows/desktop-windows.yml once the release is published; it
+# adds its windows-x86_64 entry to latest.json.
 # macOS builds need a macOS host with rustup targets; Linux (glibc ≥ 2.31) and Windows (mingw-w64) build in Docker.
 # gg-cast links libwebrtc's prebuilt archives: on Linux and Windows (MSVC, through cargo-xwin) it builds in the image
 # of release/cast.Dockerfile, natively for the Docker host's Linux arch and emulated (`--platform`) for the other.

@@ -1,5 +1,5 @@
 use anyhow::{Context, bail};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use gonggong::bind::machine_info;
 use gonggong::config::{self, Config};
 use gonggong::configure;
@@ -147,8 +147,34 @@ async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
 }
 
+/// Double-clicked in Explorer: the console is gg's own and closes the moment it exits, so the usage would only flash
+/// by. Explain how to run it instead and keep the window until Enter.
+#[cfg(windows)]
+fn explain_double_click() {
+    let mut pids = [0u32; 2];
+    // SAFETY: the buffer outlives the call, which writes at most its length.
+    let alone = unsafe { windows::Win32::System::Console::GetConsoleProcessList(&mut pids) } == 1;
+    if !alone || std::env::args_os().len() > 1 {
+        return;
+    }
+    let _ = Cli::command().print_help();
+    let exe = std::env::current_exe().ok();
+    let exe = exe.as_ref().and_then(|p| p.file_name()).map_or("gg.exe".into(), |n| n.to_string_lossy());
+    println!(
+        "\n{}",
+        t!(
+            "{exe} 是命令行程序，双击不会启动。请在 PowerShell 或命令提示符中运行：先 {exe} login '<接入链接>' 绑定本机，再 {exe} run。\n按回车键关闭窗口",
+            exe = exe
+        )
+    );
+    let _ = std::io::stdin().read_line(&mut String::new());
+    std::process::exit(0);
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    #[cfg(windows)]
+    explain_double_click();
     let cli = Cli::parse();
     if let Some(lang) = &cli.lang {
         gonggong::i18n::set_locale(gonggong::i18n::resolve(lang));

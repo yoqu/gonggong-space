@@ -539,7 +539,7 @@ async fn virtual_display(program: &Path) -> Result<Screen, String> {
     if !cfg!(target_os = "linux") {
         return Err("虚拟显示（display: virtual）只支持 Linux".into());
     }
-    let mut cmd = Command::new(program);
+    let mut cmd = crate::proc::async_command(program);
     cmd.args(["-displayfd", "1", "-screen", "0", "1280x800x24", "-nolisten", "tcp"]);
     #[cfg(unix)]
     cmd.process_group(0);
@@ -596,7 +596,7 @@ async fn wait_ready(port: u16, mut exited: watch::Receiver<bool>) -> Ready {
 
 #[cfg(unix)]
 fn shell(command: &str) -> Command {
-    let mut cmd = Command::new("sh");
+    let mut cmd = crate::proc::async_command("sh");
     cmd.arg("-c").arg(command).process_group(0);
     cmd
 }
@@ -605,14 +605,14 @@ fn shell(command: &str) -> Command {
 fn shell(command: &str) -> Command {
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     let mut cmd = Command::new("cmd");
-    cmd.arg("/C").arg(command).creation_flags(CREATE_NEW_PROCESS_GROUP);
+    cmd.arg("/C").arg(command).creation_flags(CREATE_NEW_PROCESS_GROUP | crate::proc::CREATE_NO_WINDOW);
     cmd
 }
 
 #[cfg(unix)]
 fn kill_group(pid: u32, force: bool) {
     let signal = if force { "-KILL" } else { "-TERM" };
-    let _ = std::process::Command::new("kill")
+    let _ = crate::proc::command("kill")
         .args([signal, "--", &format!("-{pid}")])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -621,7 +621,7 @@ fn kill_group(pid: u32, force: bool) {
 
 #[cfg(windows)]
 fn kill_group(pid: u32, _force: bool) {
-    let _ = std::process::Command::new("taskkill")
+    let _ = crate::proc::command("taskkill")
         .args(["/T", "/F", "/PID", &pid.to_string()])
         .stdout(Stdio::null())
         .stderr(Stdio::null())

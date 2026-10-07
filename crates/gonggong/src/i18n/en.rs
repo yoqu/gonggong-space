@@ -1,5 +1,9 @@
 pub(super) const EN: &[(&str, &str)] = &[
     ("尚未绑定，请先执行 gg login", "Not bound yet; run gg login first"),
+    (
+        "{exe} 是命令行程序，双击不会启动。请在 PowerShell 或命令提示符中运行：先 {exe} login '<接入链接>' 绑定本机，再 {exe} run。\n按回车键关闭窗口",
+        "{exe} is a command-line program and does nothing when double-clicked. Run it in PowerShell or Command Prompt: {exe} login '<join link>' to bind this machine, then {exe} run.\nPress Enter to close this window",
+    ),
     ("本机还没有工作区", "No workspaces on this machine yet"),
     ("本机备份 · 不上传", "Local backups · never uploaded"),
     ("（无）", "(none)"),

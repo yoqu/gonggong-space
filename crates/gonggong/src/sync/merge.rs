@@ -1,7 +1,6 @@
 //! Three-way merge of one conflicting file (F7) with `git merge-file`.
 use super::Replica;
 use crate::t;
-use tokio::process::Command;
 
 /// Bytes git reads to tell binary from text.
 const SNIFF: usize = 8000;
@@ -30,7 +29,7 @@ impl Replica {
             }
             // Labels are read by the agent resolving the markers.
             let args = ["merge-file", "-p", "-L", "mine", "-L", "base", "-L", "theirs", "mine", "base", "theirs"];
-            Command::new("git").args(args).current_dir(&dir).output().await.map_err(err)
+            crate::proc::async_command("git").args(args).current_dir(&dir).output().await.map_err(err)
         }
         .await;
         let _ = std::fs::remove_dir_all(&dir);

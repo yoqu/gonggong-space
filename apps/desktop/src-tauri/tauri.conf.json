@@ -37,7 +37,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": { "languages": ["SimpChinese", "English"] }
+    }
   },
   "plugins": {
     "deep-link": {

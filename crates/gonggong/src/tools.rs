@@ -166,7 +166,7 @@ impl Node {
         let mut cmd = if self.managed {
             let root = if cfg!(windows) { self.dir() } else { self.dir().parent().context("node has no root")? };
             let lib = if cfg!(windows) { root.to_path_buf() } else { root.join("lib") };
-            let mut cmd = tokio::process::Command::new(&self.path);
+            let mut cmd = crate::proc::async_command(&self.path);
             cmd.arg(lib.join("node_modules/npm/bin/npm-cli.js"));
             cmd
         } else {
@@ -176,7 +176,7 @@ impl Node {
                 .find(|p| p.is_file())
                 .or_else(|| agents::find("npm"))
                 .context(t!("未找到 npm"))?;
-            tokio::process::Command::new(npm)
+            crate::proc::async_command(npm)
         };
         cmd.env("PATH", self.path_env());
         Ok(cmd)
@@ -184,7 +184,7 @@ impl Node {
 }
 
 fn node_version(path: &Path) -> Option<String> {
-    let out = std::process::Command::new(path).arg("--version").output().ok()?;
+    let out = crate::proc::command(path).arg("--version").output().ok()?;
     let v = String::from_utf8_lossy(&out.stdout).trim().trim_start_matches('v').to_string();
     v.starts_with(|c: char| c.is_ascii_digit()).then_some(v)
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 未发布 / Unreleased
+
+- Windows 桌面端 / Windows desktop app：NSIS 安装包（内置 daemon、托盘、自动更新），由 GitHub Actions 在发布时构建并加入更新源 / NSIS installer (built-in daemon, tray, auto update), built by GitHub Actions on release and added to the update feed
+- Windows：双击 `gg.exe` 不再一闪而过，改为说明用法并等待回车；桌面端启动的 git、node 等子进程不再弹出控制台窗口；首次运行不再打印日志目录错误 / Double-clicking `gg.exe` explains how to run it instead of flashing; child processes of the desktop app open no console windows; no log-directory error on first run
+- 仓库统一 LF 换行（`.gitattributes`），修复 Windows 检出后 Docker 部署的服务端无法启动 / LF line endings everywhere (`.gitattributes`): the Docker server failed to start from a Windows checkout
+
 ## v0.2.0 — 2026-10-05
 
 - 强制同步 / Force sync：同一个群里多台机器上的 Bot 共享一份工作区——乐观并发替代群锁，逐路径提交，冲突时自动三方合并，合并不了交给管理员或 Bot 主人逐文件处理；群顶部状态栏与同步面板显示版本与各副本状态；离线补齐、本地改动保留或丢弃、疑似密钥文件拦截；已在两台机器间跨机验证（10 万文件仓库）

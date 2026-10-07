@@ -2,7 +2,6 @@ use crate::engine::ADAPTERS;
 use crate::local::{LocalSettings, load_catalogs};
 use crate::protocol::{AgentInfo, AgentKind};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 pub fn binary(kind: AgentKind) -> &'static str {
     match kind {
@@ -97,6 +96,7 @@ fn extra_dirs() -> Vec<PathBuf> {
     dirs
 }
 
+#[cfg(unix)]
 const PATH_MARK: &str = "__GONGGONG_PATH__";
 
 /// PATH as the user's interactive login shell builds it (nvm, volta, asdf…). Apps opened from Finder/Dock only get
@@ -107,7 +107,7 @@ pub fn login_shell_path() -> Option<String> {
     use std::time::Duration;
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
     let script = format!("printf '{PATH_MARK}%s{PATH_MARK}' \"$PATH\"");
-    let child = Command::new(shell)
+    let child = crate::proc::command(shell)
         .args(["-ilc", &script])
         .stdin(Stdio::null())
         .stderr(Stdio::null())
@@ -122,6 +122,7 @@ pub fn login_shell_path() -> Option<String> {
 }
 
 /// The PATH between the markers, ignoring whatever the rc files print around it.
+#[cfg(unix)]
 fn marked_path(out: &str) -> Option<String> {
     let rest = &out[out.find(PATH_MARK)? + PATH_MARK.len()..];
     Some(rest[..rest.find(PATH_MARK)?].to_string()).filter(|p| !p.is_empty())
@@ -130,7 +131,7 @@ fn marked_path(out: &str) -> Option<String> {
 /// First semver-looking token of `<bin> --version`, e.g. "codex-cli 0.156.1" → "0.156.1". npm installs the CLIs as
 /// node scripts, so the managed Node goes first on PATH.
 fn version(home: &Path, path: &Path) -> Option<String> {
-    let mut cmd = Command::new(path);
+    let mut cmd = crate::proc::command(path);
     if let Some(bin) = crate::tools::runtime_bin(home) {
         cmd.env("PATH", crate::tools::prepend_path(&bin));
     }
@@ -144,7 +145,7 @@ pub fn login_status(kind: AgentKind, cli: &Path) -> Option<String> {
         AgentKind::Claude => ["auth", "status"],
         AgentKind::Codex => ["login", "status"],
     };
-    let out = Command::new(cli).args(args).output().ok()?;
+    let out = crate::proc::command(cli).args(args).output().ok()?;
     let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     login_label(kind, &text)
 }
@@ -187,10 +188,12 @@ pub fn parse_version(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{file_names, marked_path, parse_version};
+    use super::{file_names, parse_version};
 
+    #[cfg(unix)]
     #[test]
     fn extracts_the_path_from_noisy_shell_output() {
+        use super::marked_path;
         let out = "Welcome!\n__GONGGONG_PATH__/a/bin:/usr/bin__GONGGONG_PATH__\nbye";
         assert_eq!(marked_path(out).as_deref(), Some("/a/bin:/usr/bin"));
         assert_eq!(marked_path("__GONGGONG_PATH____GONGGONG_PATH__"), None);

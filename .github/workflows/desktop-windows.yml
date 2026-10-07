@@ -1,0 +1,89 @@
+name: Windows desktop
+
+# Builds the Windows desktop app (NSIS installer, signed for the Tauri updater). A published release (scripts/release.sh
+# --github) gets the installer attached and a windows-x86_64 entry merged into its latest.json, so installed apps
+# update. Run by hand to attach a build to an existing release (tag) or, without one, only as a workflow artifact.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the installer to (e.g. v0.2.0); empty = workflow artifact only
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check version
+        id: version
+        run: |
+          version="$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
+          if [ -n "$TAG" ] && [ "v$version" != "$TAG" ]; then
+            echo "::error::tauri.conf.json is at $version, the release is $TAG"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # The desktop frontend imports the web app's design system.
+      - run: pnpm install --frozen-lockfile --filter "@gonggong/desktop..." --filter "@gonggong/web..."
+      - name: Build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::set the TAURI_SIGNING_PRIVATE_KEY (and _PASSWORD) repository secrets: the updater feed is signed"
+            exit 1
+          fi
+          pnpm --filter @gonggong/desktop tauri build --bundles nsis
+      # ASCII names: GitHub release assets do not keep the Chinese product name.
+      - name: Collect
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          mkdir out
+          cp target/release/bundle/nsis/*-setup.exe "out/Gonggong_${v}_x64-setup.exe"
+          cp target/release/bundle/nsis/*-setup.exe.sig "out/Gonggong_${v}_x64-setup.exe.sig"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gonggong-windows-${{ steps.version.outputs.version }}
+          path: out/*
+      - name: Attach to the release
+        if: env.TAG != ''
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          repo="${{ github.repository }}"
+          exe="Gonggong_${v}_x64-setup.exe"
+          gh release upload "$TAG" "out/$exe" "out/$exe.sig" --repo "$repo" --clobber
+          # The macOS release writes latest.json; merge this platform in (or start it when there is none).
+          gh release download "$TAG" --repo "$repo" --pattern latest.json --dir feed || true
+          node -e '
+            const fs = require("fs")
+            const [file, version, repo, tag, exe] = process.argv.slice(1)
+            const feed = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {
+              version, notes: `https://github.com/${repo}/releases/tag/${tag}`, pub_date: new Date().toISOString(), platforms: {},
+            }
+            feed.platforms["windows-x86_64"] = {
+              signature: fs.readFileSync(`out/${exe}.sig`, "utf8").trim(),
+              url: `https://github.com/${repo}/releases/download/${tag}/${exe}`,
+            }
+            fs.writeFileSync("out/latest.json", JSON.stringify(feed))
+          ' feed/latest.json "$v" "$repo" "$TAG" "$exe"
+          gh release upload "$TAG" out/latest.json --repo "$repo" --clobber

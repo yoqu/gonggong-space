@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::AsyncReadExt;
-use tokio::process::Command;
 
 /// Daemon-private files inside a workspace; never reported as the agent's changes.
 pub(crate) const PRIVATE_DIR: &str = ".gonggong/";
@@ -37,7 +36,7 @@ async fn run_git(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<Stri
 }
 
 async fn run_git_raw(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<Vec<u8>, String> {
-    let mut cmd = Command::new("git");
+    let mut cmd = crate::proc::async_command("git");
     cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").kill_on_drop(true);
     if let Some(index) = index {
         cmd.env("GIT_INDEX_FILE", index);
@@ -53,7 +52,7 @@ fn failure(stderr: &[u8]) -> String {
 
 /// Like [`git`], but reads at most `limit` bytes of output: past it git is killed and the output cut there.
 async fn git_capped(dir: &Path, args: &[&str], limit: usize) -> Result<String, String> {
-    let mut child = Command::new("git")
+    let mut child = crate::proc::async_command("git")
         .arg("-C")
         .arg(dir)
         .args(args)
