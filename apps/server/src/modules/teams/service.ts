@@ -6,7 +6,6 @@ import type { Db } from '../../db/client.js'
 import { bots, groups, teamMembers, teams, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { sysParams } from '../admin/params.js'
 
 /** Picks the team of list and create endpoints (plan D7); everything else derives it from the resource. */
 export const TEAM_HEADER = 'x-gg-team'
@@ -60,15 +59,6 @@ export async function teamUserIds(ctx: Ctx, teamId: string) {
     .innerJoin(users, eq(users.id, teamMembers.userId))
     .where(and(eq(teamMembers.teamId, teamId), isNull(users.disabledAt)))
   return rows.map((r) => r.id)
-}
-
-/** Single-team mode (plan D11): a new account joins the one live team. */
-export async function joinDefaultTeam(db: Db, userId: string) {
-  if (!(await sysParams(db)).singleTeamMode) return
-  const live = await db.select({ id: teams.id }).from(teams).where(isNull(teams.archivedAt)).limit(2)
-  const [only] = live
-  if (only && live.length === 1)
-    await db.insert(teamMembers).values({ teamId: only.id, userId }).onConflictDoNothing()
 }
 
 export async function createTeam(db: Pick<Db, 'insert'>, name: string, ownerId: string) {

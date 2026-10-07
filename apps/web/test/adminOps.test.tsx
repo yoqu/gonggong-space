@@ -641,6 +641,28 @@ describe('系统参数 · 团队', () => {
       ).toBe('true'),
     )
   })
+
+  it('warns that self sign-ups need an invite when only sysadmins create teams', async () => {
+    const hint = '自助注册的账号不能新建团队，需凭邀请链接加入团队。'
+    mockApi({
+      'GET /admin/params': {
+        ...PARAMS,
+        singleTeamMode: false,
+        registrationOpen: true,
+        teamCreation: 'sysadmin',
+      },
+      'PUT /admin/params': (body: unknown) => ({
+        ...PARAMS,
+        singleTeamMode: false,
+        registrationOpen: true,
+        ...(body as object),
+      }),
+    })
+    renderAt('/admin/params')
+    expect(await screen.findByText(hint)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: '所有人' }))
+    await waitFor(() => expect(screen.queryByText(hint)).toBeNull())
+  })
 })
 
 describe('系统参数 · 演示', () => {

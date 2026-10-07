@@ -211,6 +211,8 @@ export default {
   建团队权限: 'Who can create teams',
   '单团队模式下任何人都不能新建团队。': 'Nobody can create teams in single-team mode.',
   建团队权限已保存: 'Team creation setting saved',
+  '自助注册的账号不能新建团队，需凭邀请链接加入团队。':
+    'Self-registered accounts can’t create teams; they need an invite link to join one.',
   所有人: 'Everyone',
   仅系统管理员: 'System admins only',
   '全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。':

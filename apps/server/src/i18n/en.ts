@@ -262,6 +262,7 @@ export const en = {
   仅团队管理员可操作: 'Only team admins can do this',
   仅团队所有者可操作: 'Only team owners can do this',
   单团队模式下不能新建团队: "Teams can't be created in single-team mode",
+  单团队模式下不能归档唯一的团队: "The only team can't be archived in single-team mode",
   仅系统管理员可新建团队: 'Only system admins can create teams',
   '仅在恰好有一个未归档团队时才能开启单团队模式（当前 {n} 个）':
     'Single-team mode needs exactly one live team ({n} now)',

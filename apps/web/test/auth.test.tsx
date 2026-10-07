@@ -127,6 +127,22 @@ describe('self sign-up', () => {
     })
   })
 
+  it('goes straight in after signing up with an invite, which already joined the team', async () => {
+    mockApi({
+      'GET /me': () => apiError(401, 'unauthorized'),
+      'GET /auth/options': { registrationOpen: false },
+      'POST /auth/register': { ...me, mustChangePassword: false },
+    })
+    renderAt('/register?invite=ggi_abc')
+    fill('账号', 'wanglei')
+    fill('姓名', '王磊')
+    fill('密码', 'password123')
+    fill('确认密码', 'password123')
+    fireEvent.click(await screen.findByRole('button', { name: '注册并进入' }))
+    expect(await screen.findByRole('navigation', { name: '会话列表' }, { timeout: 3000 })).toBeTruthy()
+    expect(screen.queryByTestId('join-page')).toBeNull()
+  })
+
   it('keeps the admin-contact line when registration is closed, and the register page says so', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),

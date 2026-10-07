@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
   bots,
@@ -13,6 +13,7 @@ import {
 import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
+import { sysParams } from '../admin/params.js'
 import type { SessionUser } from '../auth/session.js'
 import { publishBotRemoved } from '../bots/dto.js'
 import { publishGroup, removeMember } from '../groups/service.js'
@@ -101,6 +102,11 @@ export async function removeFromTeam(ctx: Ctx, teamId: string, user: User, by: U
 
 /** Plan D15 (by its owner or a sysadmin): members lose it, its groups go read-only and their runs stop. */
 export async function archiveTeam(ctx: Ctx, team: typeof teams.$inferSelect, by: SessionUser) {
+  if ((await sysParams(ctx.db)).singleTeamMode) {
+    // New accounts join the one live team (plan T4 S5); archiving it would leave them with none.
+    const [live] = await ctx.db.select({ n: count() }).from(teams).where(isNull(teams.archivedAt))
+    if ((live?.n ?? 0) <= 1) fail('conflict', '单团队模式下不能归档唯一的团队')
+  }
   const audience = await teamUserIds(ctx, team.id)
   await ctx.db.update(teams).set({ archivedAt: ctx.now() }).where(eq(teams.id, team.id))
   const live = await ctx.db
@@ -171,4 +177,14 @@ export async function acceptInvite(ctx: Ctx, found: FoundInvite, user: User) {
     action: 'team.invite.accept',
     detail: { inviteId: invite.id, userId: user.id, name: user.name, role: invite.role },
   })
+}
+
+/** A new account's teams (plan T4): the invite's team if any; in single-team mode also the one live team, else none. */
+export async function onboardUser(ctx: Ctx, user: User, invite: FoundInvite | null) {
+  if (invite) await acceptInvite(ctx, invite, user)
+  if (!(await sysParams(ctx.db)).singleTeamMode) return
+  const live = await ctx.db.select({ id: teams.id }).from(teams).where(isNull(teams.archivedAt)).limit(2)
+  const [only] = live
+  if (only && live.length === 1)
+    await ctx.db.insert(teamMembers).values({ teamId: only.id, userId: user.id }).onConflictDoNothing()
 }

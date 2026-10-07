@@ -167,6 +167,9 @@ export function ParamsPage() {
               />
             </GroupRow>
           </GroupBox>
+          {saved.registrationOpen && !saved.singleTeamMode && saved.teamCreation === 'sysadmin' ? (
+            <Alert variant="warning" description={t('自助注册的账号不能新建团队，需凭邀请链接加入团队。')} />
+          ) : null}
           <h2 className="admin-params__title">{t('演示')}</h2>
           <GroupBox>
             <GroupRow

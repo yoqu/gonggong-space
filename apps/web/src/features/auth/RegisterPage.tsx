@@ -52,7 +52,8 @@ export function RegisterPage() {
       setPhase('done')
       setTimeout(() => {
         setUser(me)
-        navigate(invite ? `/join/${invite}` : '/', { replace: true })
+        // A sign-up with an invite has already joined its team.
+        navigate('/', { replace: true })
       }, 420)
     } catch (err) {
       fail(errorText(err))

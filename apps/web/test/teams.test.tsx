@@ -140,12 +140,23 @@ describe('team switcher', () => {
     expect(assign).toHaveBeenCalledWith('/')
   })
 
-  it('sends someone in no team to /welcome', async () => {
+  it('sends someone in no team to /welcome, offering to create a team or join by invite', async () => {
     mockApi(chatRoutes)
     signIn({ teams: [], singleTeamMode: false, canCreateTeam: true })
     renderAt('/')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/welcome'))
-    expect(screen.getByRole('button', { name: '新建团队' })).toBeTruthy()
+    expect(screen.getByText('新建一个团队，或粘贴团队管理员发给你的邀请链接加入。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '新建团队' }).closest('.auth__foot')).toBeNull()
+  })
+
+  it('tells someone who may not create teams to ask for an invite', async () => {
+    mockApi(chatRoutes)
+    signIn({ teams: [], singleTeamMode: false, canCreateTeam: false })
+    renderAt('/welcome')
+    expect(
+      await screen.findByText('需要加入团队才能使用。请向团队管理员索取邀请链接，粘贴到下方加入。'),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '新建团队' })).toBeNull()
   })
 })
 

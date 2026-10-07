@@ -15,8 +15,7 @@ import { FeishuError, type FeishuTokens, type FeishuUser } from '../feishu/clien
 import { credsOf } from '../feishu/gateway.js'
 import { publicUrl } from '../feishu/identity.js'
 import { meDto } from '../teams/dto.js'
-import { acceptInvite, findInvite } from '../teams/members.js'
-import { joinDefaultTeam } from '../teams/service.js'
+import { findInvite, onboardUser } from '../teams/members.js'
 import { requireUser, resolveSession, SESSION_COOKIE, startSession } from './session.js'
 
 const TTL_MS = 10 * 60_000
@@ -234,8 +233,7 @@ export function feishuAuthRoutes(ctx: Ctx) {
         .returning()
       if (!user) return fail('conflict', '账号已存在')
       await link(ctx, user.id, ticket.user, ticket.tokens)
-      if (invite) await acceptInvite(ctx, invite, user)
-      await joinDefaultTeam(ctx.db, user.id)
+      await onboardUser(ctx, user, invite)
       await audit(ctx, {
         category: 'admin',
         actorUserId: user.id,

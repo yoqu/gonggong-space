@@ -18,8 +18,7 @@ import { assertNotDemo, sysParams } from '../admin/params.js'
 import { publishBots } from '../bots/dto.js'
 import { publishGroup } from '../groups/service.js'
 import { meDto } from '../teams/dto.js'
-import { acceptInvite, findInvite } from '../teams/members.js'
-import { joinDefaultTeam } from '../teams/service.js'
+import { findInvite, onboardUser } from '../teams/members.js'
 import { feishuLoginReady } from './feishu.js'
 import { requireUser, SESSION_COOKIE, startSession } from './session.js'
 
@@ -79,8 +78,7 @@ export function authRoutes(ctx: Ctx) {
         .onConflictDoNothing({ target: users.account })
         .returning()
       if (!user) return fail('conflict', '账号已存在')
-      if (invite) await acceptInvite(ctx, invite, user)
-      await joinDefaultTeam(ctx.db, user.id)
+      await onboardUser(ctx, user, invite)
       signups.fail(req.ip)
       await audit(ctx, {
         category: 'admin',

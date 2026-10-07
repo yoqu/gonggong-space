@@ -14,7 +14,8 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
-import { currentTeam, joinDefaultTeam } from '../teams/service.js'
+import { onboardUser } from '../teams/members.js'
+import { currentTeam } from '../teams/service.js'
 import { userCard } from './card.js'
 import { disableUser, enableUser } from './disable.js'
 import { toUserDto } from './dto.js'
@@ -62,7 +63,7 @@ export function userRoutes(ctx: Ctx) {
         .onConflictDoNothing({ target: users.account })
         .returning()
       if (!user) return fail('conflict', '账号已存在')
-      await joinDefaultTeam(ctx.db, user.id)
+      await onboardUser(ctx, user, null)
       await audit(ctx, {
         category: 'admin',
         actorUserId: actor.id,

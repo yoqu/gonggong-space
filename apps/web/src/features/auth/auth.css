@@ -429,3 +429,17 @@
     animation: none;
   }
 }
+.auth__or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-footnote-size);
+  color: var(--label-tertiary);
+}
+.auth__or::before,
+.auth__or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--separator);
+}

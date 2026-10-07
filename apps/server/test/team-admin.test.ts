@@ -509,4 +509,30 @@ describe('sign-up routing (T3)', () => {
     await saveSysParams(t.ctx, { singleTeamMode: false }, root.createdBy)
     expect((await register('free')).teams).toEqual([])
   })
+
+  it('joins only the invite team in multi-team mode', async () => {
+    const w = await world()
+    await saveSysParams(t.ctx, { singleTeamMode: false }, w.root.id)
+    const { token } = (
+      await (
+        await w.as(w.alice)
+      ).post<{ token: string }>(`/api/teams/${w.teamA}/invites`, { expiresInDays: 7, maxUses: null })
+    ).body
+    const res = await t.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { account: 'invited', name: 'invited', password: 'password123', inviteToken: token },
+    })
+    expect(res.json<MeDto>().teams.map((x) => x.id)).toEqual([w.teamA])
+  })
+
+  it('refuses to archive the last live team in single-team mode', async () => {
+    const w = await world()
+    await t.db.update(teams).set({ archivedAt: new Date() }).where(eq(teams.id, w.teamB))
+    const root = client(t, await t.seed.cookie(w.root.id))
+    expect((await root.post(`/api/admin/teams/${w.teamA}/archive`)).status).toBe(409)
+    expect((await (await w.as(w.alice)).post(`/api/teams/${w.teamA}/archive`)).status).toBe(409)
+    await saveSysParams(t.ctx, { singleTeamMode: false }, w.root.id)
+    expect((await root.post(`/api/admin/teams/${w.teamA}/archive`)).status).toBe(200)
+  })
 })

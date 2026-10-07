@@ -79,8 +79,11 @@ export default {
   已加入: 'Joined',
   登录后加入: 'Log in to join',
   注册并加入: 'Sign up and join',
-  '你还没有加入任何团队。粘贴团队管理员发给你的邀请链接即可加入。':
-    "You're not in any team yet. Paste the invite link your team admin sent you to join.",
+  加入或新建团队: 'Join or create a team',
+  '新建一个团队，或粘贴团队管理员发给你的邀请链接加入。':
+    'Create a team, or paste the invite link your team admin sent you to join one.',
+  '需要加入团队才能使用。请向团队管理员索取邀请链接，粘贴到下方加入。':
+    'You need to join a team first. Ask your team admin for an invite link and paste it below.',
   进入管理后台: 'Open the admin console',
   '对本团队所有群生效；与平台层同名时以团队层为准，群管理员可在群设置中再覆盖。':
     'Applies to every group of the team; replaces a same-named platform server, and group admins may override it in group settings.',

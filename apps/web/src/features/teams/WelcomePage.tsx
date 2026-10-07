@@ -8,13 +8,14 @@ import { logout } from '../auth/logout'
 import { tokenOf } from './store'
 import { NewTeamSheet } from './TeamSwitcher'
 
-/** /welcome — signed in but in no team yet: paste an invite link, or create a team when allowed. */
+/** /welcome — signed in but in no team yet (plan T4): create a team when allowed, or paste an invite link. */
 export function WelcomePage() {
   const tenancy = useSession((s) => s.tenancy)
   const admin = useSession((s) => s.user?.role === 'sysadmin')
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [creating, setCreating] = useState(false)
+  const canCreate = !!tenancy?.canCreateTeam
   if (tenancy?.teams.length) return <Navigate to="/" replace />
   const token = tokenOf(text)
   const join = (e: FormEvent) => {
@@ -26,16 +27,15 @@ export function WelcomePage() {
       <AuthCard
         testId="welcome-page"
         variant="register"
-        title={t('加入团队')}
-        subtitle={t('你还没有加入任何团队。粘贴团队管理员发给你的邀请链接即可加入。')}
+        title={canCreate ? t('加入或新建团队') : t('加入团队')}
+        subtitle={
+          canCreate
+            ? t('新建一个团队，或粘贴团队管理员发给你的邀请链接加入。')
+            : t('需要加入团队才能使用。请向团队管理员索取邀请链接，粘贴到下方加入。')
+        }
         onSubmit={join}
         footer={
           <p className="auth__foot">
-            {tenancy?.canCreateTeam ? (
-              <Button variant="plain" onClick={() => setCreating(true)}>
-                {t('新建团队')}
-              </Button>
-            ) : null}
             {admin ? (
               <Button variant="plain" onClick={() => navigate('/admin')}>
                 {t('进入管理后台')}
@@ -58,6 +58,14 @@ export function WelcomePage() {
           />
         </div>
         <AuthSubmit phase="idle" label={t('下一步')} busy="" done="" />
+        {canCreate ? (
+          <>
+            <p className="auth__or">{t('或')}</p>
+            <Button size="xlarge" fullWidth onClick={() => setCreating(true)}>
+              {t('新建团队')}
+            </Button>
+          </>
+        ) : null}
       </AuthCard>
       <Presence>{creating ? <NewTeamSheet onClose={() => setCreating(false)} /> : null}</Presence>
     </>
