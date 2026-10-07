@@ -14,7 +14,7 @@ If your admin has already set up the server, just ask them for the "URL + accoun
 
 ## 1. Admin: start the server
 
-On one machine, install Node.js 22+, pnpm, and PostgreSQL, then run from the project root:
+On one machine, install Node.js 24+, pnpm, and PostgreSQL, then run from the project root:
 
 ```bash
 pnpm install

@@ -4,7 +4,7 @@
 
 ## 前置依赖
 
-- **Node.js 22+** 与 **pnpm**：`corepack enable` 即可，pnpm 版本由根 `package.json` 锁定。
+- **Node.js 24+** 与 **pnpm**：`corepack enable` 即可，pnpm 版本由根 `package.json` 锁定。
 - **PostgreSQL**（推荐 17）。只需装好命令行工具，不需要启动系统服务：
   - macOS：Postgres.app 或 `brew install postgresql@17`，脚本会自动找到，无需改 PATH。
   - Debian/Ubuntu：`sudo apt install postgresql`，再把 `/usr/lib/postgresql/<版本>/bin` 加入 PATH。

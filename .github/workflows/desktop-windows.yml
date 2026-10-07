@@ -29,9 +29,9 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
-      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - run: rustup toolchain install # the version in rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
       - name: Check version
         id: version

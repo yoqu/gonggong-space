@@ -17,7 +17,7 @@
 | 代码检查 | Biome（格式化 + lint）、TypeScript | Biome 2.5、TypeScript 5.9 |
 | 文档站 `website` | VitePress | 1.6 |
 
-包管理器为 pnpm（版本由根 `package.json` 的 `packageManager` 字段锁定，`corepack enable` 即可）。前置环境：Node.js 22+、PostgreSQL、Rust 1.95+。
+包管理器为 pnpm（版本由根 `package.json` 的 `packageManager` 字段锁定，`corepack enable` 即可）。前置环境：Node.js 24+、PostgreSQL、Rust 1.95+。
 
 ## 从哪里读起
 

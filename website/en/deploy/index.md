@@ -57,7 +57,7 @@ For a LAN-only trial you can skip Nginx: start with `pnpm dev:server` + `pnpm de
 | Software | Requirement |
 | --- | --- |
 | Operating system | Linux or macOS |
-| Node.js | 22 or later |
+| Node.js | 24 or later |
 | pnpm | Enable with `corepack enable`; the version is pinned in the root `package.json` |
 | PostgreSQL | 17 recommended |
 | git | The server uses it to maintain base-branch mirrors of group repositories (for `@` file suggestions and file search) and must be able to access those repositories. See [Deploy from source](/en/deploy/install#repository-access-credentials) |

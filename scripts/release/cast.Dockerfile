@@ -2,7 +2,7 @@
 # Chromium's clang and hermetic libc++ (webrtc-sys refuses GCC), and for Windows with the MSVC ABI, which mingw cannot
 # link: Windows builds go through cargo-xwin (clang-cl + lld-link + the downloaded MSVC CRT/SDK). Debian bullseye keeps
 # the glibc baseline of the daemon (2.31). Linux builds are native to the image's arch (`--platform` for the other).
-FROM rust:1.98-bullseye
+FROM rust:1.98.0-bullseye
 ARG LLVM=21
 # Bullseye is past its security support: deb.debian.org's bullseye-security index lists packages its pool no longer
 # serves (404), so that suite comes from the snapshot the base image was built from.

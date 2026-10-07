@@ -8,7 +8,7 @@ The examples assume the code lives in `/srv/gonggong`, the data directory is `/v
 
 | Software | Version |
 | --- | --- |
-| Node.js | 22 or later |
+| Node.js | 24 or later |
 | pnpm | Provided by corepack; the version is pinned by `packageManager` in the root `package.json` |
 | PostgreSQL | 17 recommended |
 | git | Any recent version |
@@ -16,7 +16,7 @@ The examples assume the code lives in `/srv/gonggong`, the data directory is `/v
 
 ```bash
 sudo corepack enable      # enable pnpm
-node --version            # make sure it's ≥ 22
+node --version            # make sure it's ≥ 24
 ```
 
 ## 2. Get the code and install dependencies

@@ -14,7 +14,7 @@
 
 ## 1. 管理员：启动服务
 
-在一台机器上准备好 Node.js 22+、pnpm、PostgreSQL，然后在项目根目录执行：
+在一台机器上准备好 Node.js 24+、pnpm、PostgreSQL，然后在项目根目录执行：
 
 ```bash
 pnpm install

@@ -8,7 +8,7 @@
 
 | 软件 | 版本 |
 | --- | --- |
-| Node.js | 22 或更高 |
+| Node.js | 24 或更高 |
 | pnpm | 由 corepack 提供，版本按根目录 `package.json` 的 `packageManager` 锁定 |
 | PostgreSQL | 推荐 17 |
 | git | 任意较新版本 |
@@ -16,7 +16,7 @@
 
 ```bash
 sudo corepack enable      # 启用 pnpm
-node --version            # 确认 ≥ 22
+node --version            # 确认 ≥ 24
 ```
 
 ## 2. 获取代码并安装依赖

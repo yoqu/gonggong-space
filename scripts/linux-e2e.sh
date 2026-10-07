@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Linux daemon integration (plan D16). The server runs on this host (fresh DB, dev TLS certificate); the Linux
-# `gonggong` build runs in a Debian bookworm container with Node 22, git and the mock ACP agent. The container binds
+# `gonggong` build runs in a Debian bookworm container with Node 24, git and the mock ACP agent. The container binds
 # with a one-time code over https (self-signed certificate), then the API drives two bot turns: in a group without
 # a repo, and in a repo group cloned from a file:// bare repo copied into the container at the same path.
 # Usage: bash scripts/linux-e2e.sh   (Docker, jq, Postgres from `pnpm db:up`; GONGGONG_LINUX_BIN reuses a build)

@@ -109,7 +109,7 @@ git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
 GONGGONG_ADMIN_PASSWORD=<initial password> docker compose up -d   # open https://localhost
 ```
 
-For LAN use, certificates and volumes, see [Docker deployment](https://yoqu.github.io/gonggong-space/en/deploy/docker). Without Docker (Node.js 22+, pnpm):
+For LAN use, certificates and volumes, see [Docker deployment](https://yoqu.github.io/gonggong-space/en/deploy/docker). Without Docker (Node.js 24+, pnpm):
 
 ```bash
 pnpm install
@@ -137,7 +137,7 @@ For the full steps, see [Quick start](https://yoqu.github.io/gonggong-space/en/g
 | --- | --- |
 | Agent | Claude Code, Codex |
 | daemon | CLI `gg`: macOS, Linux (glibc 2.31+), Windows; desktop app: macOS |
-| Server | Node.js 22+, PostgreSQL 17 |
+| Server | Node.js 24+, PostgreSQL 17 |
 
 ## Development
 
@@ -156,7 +156,7 @@ pnpm typecheck && pnpm lint           # checks
 cargo build -p gonggong               # produces target/debug/gg
 ```
 
-Prerequisites: Node.js 22+, pnpm, PostgreSQL, Rust 1.95+. See [Local development](https://yoqu.github.io/gonggong-space/en/dev/local) and the [Contributing guide](https://yoqu.github.io/gonggong-space/en/dev/contributing).
+Prerequisites: Node.js 24+, pnpm, PostgreSQL, Rust 1.95+. See [Local development](https://yoqu.github.io/gonggong-space/en/dev/local) and the [Contributing guide](https://yoqu.github.io/gonggong-space/en/dev/contributing).
 
 ## Where the name comes from
 

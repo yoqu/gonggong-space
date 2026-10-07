@@ -17,7 +17,7 @@ Gonggong Space is a pnpm + Cargo monorepo: TypeScript for the server and the Web
 | Code checks | Biome (formatting + lint), TypeScript | Biome 2.5, TypeScript 5.9 |
 | Docs site `website` | VitePress | 1.6 |
 
-The package manager is pnpm (its version is pinned by the `packageManager` field in the root `package.json`; just run `corepack enable`). Prerequisites: Node.js 22+, PostgreSQL, Rust 1.95+.
+The package manager is pnpm (its version is pinned by the `packageManager` field in the root `package.json`; just run `corepack enable`). Prerequisites: Node.js 24+, PostgreSQL, Rust 1.95+.
 
 ## Where to start reading
 

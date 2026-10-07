@@ -57,7 +57,7 @@ server 按**单实例**设计：浏览器实时推送、daemon 连接、预览�
 | 软件 | 要求 |
 | --- | --- |
 | 操作系统 | Linux 或 macOS |
-| Node.js | 22 或更高 |
+| Node.js | 24 或更高 |
 | pnpm | 通过 `corepack enable` 启用，版本由根目录 `package.json` 锁定 |
 | PostgreSQL | 推荐 17 |
 | git | server 用它维护群仓库的基准分支镜像（`@` 文件候选和文件搜索），需要能访问群仓库，见 [从源码部署](/deploy/install#仓库访问凭据) |

@@ -3,7 +3,15 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: ['website/**', '.github/workflows/docs.yml']
+    # The home page imports the web app's personas (and through them its i18n and the protocol package) and mascot.css.
+    paths:
+      - website/**
+      - apps/web/src/features/bots/personas.ts
+      - apps/web/src/i18n/**
+      - apps/web/src/**/en.ts
+      - apps/web/src/ui/mascot.css
+      - packages/protocol/**
+      - .github/workflows/docs.yml
   workflow_dispatch:
 
 permissions:
@@ -25,7 +33,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter "@gonggong/website..."
       - run: pnpm --filter @gonggong/website build

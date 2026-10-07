@@ -1,0 +1,5 @@
+# Same release as the Linux/Windows build images (scripts/release/*Dockerfile), so their pre-added targets apply.
+[toolchain]
+channel = "1.98.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

@@ -4,7 +4,7 @@ This page covers how to run the server, Web, and daemon on your machine, plus th
 
 ## Prerequisites
 
-- **Node.js 22+** and **pnpm**: just run `corepack enable`; the pnpm version is pinned by the root `package.json`.
+- **Node.js 24+** and **pnpm**: just run `corepack enable`; the pnpm version is pinned by the root `package.json`.
 - **PostgreSQL** (17 recommended). You only need the command-line tools installed; the system service does not need to be running:
   - macOS: Postgres.app or `brew install postgresql@17`. The script finds it automatically, so you don't need to change PATH.
   - Debian/Ubuntu: `sudo apt install postgresql`, then add `/usr/lib/postgresql/<version>/bin` to PATH.

@@ -109,7 +109,7 @@ git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
 GONGGONG_ADMIN_PASSWORD=初始密码 docker compose up -d   # 打开 https://localhost
 ```
 
-局域网使用、证书与数据卷见 [Docker 部署](https://yoqu.github.io/gonggong-space/deploy/docker)。不用 Docker 时（Node.js 22+、pnpm）：
+局域网使用、证书与数据卷见 [Docker 部署](https://yoqu.github.io/gonggong-space/deploy/docker)。不用 Docker 时（Node.js 24+、pnpm）：
 
 ```bash
 pnpm install
@@ -135,7 +135,7 @@ gg run
 | --- | --- |
 | Agent | Claude Code、Codex |
 | daemon | 命令行 `gg`：macOS、Linux（glibc 2.31+）、Windows；桌面端：macOS |
-| 服务器 | Node.js 22+、PostgreSQL 17 |
+| 服务器 | Node.js 24+、PostgreSQL 17 |
 
 ## 参与开发
 
@@ -154,7 +154,7 @@ pnpm typecheck && pnpm lint           # 检查
 cargo build -p gonggong               # 生成 target/debug/gg
 ```
 
-前置：Node.js 22+、pnpm、PostgreSQL、Rust 1.95+。详见 [本地开发](https://yoqu.github.io/gonggong-space/dev/local) 与 [贡献指南](https://yoqu.github.io/gonggong-space/dev/contributing)。
+前置：Node.js 24+、pnpm、PostgreSQL、Rust 1.95+。详见 [本地开发](https://yoqu.github.io/gonggong-space/dev/local) 与 [贡献指南](https://yoqu.github.io/gonggong-space/dev/contributing)。
 
 ## 名字由来
 
