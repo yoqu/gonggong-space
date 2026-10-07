@@ -217,7 +217,9 @@ export default defineConfig({
   // so resolve it here rather than from apps/web/node_modules.
   vite: {
     resolve: {
-      alias: { '@gonggong/protocol': fileURLToPath(new URL('../../packages/protocol/src/index.ts', import.meta.url)) },
+      alias: {
+        '@gonggong/protocol': fileURLToPath(new URL('../../packages/protocol/src/index.ts', import.meta.url)),
+      },
     },
   },
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/gonggong-space/logo.svg' }]],

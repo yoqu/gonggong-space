@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Release builds of the gonggong daemon (plan D16/D17).
 #   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop] [--publish <server-url>]
-#                      [--github [--notes <file>]]
+#                      [--github [--notes <file>]] [--allow-dirty]
+# Builds come from the working tree, so it must be clean (git status --porcelain empty) unless --allow-dirty.
 # Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], gg-cast-<version>-<os>-<arch>[.exe] (the desktop
 # preview publisher, crates/gg-cast, downloaded by daemons on their first live preview), SHA256SUMS, manifest.json
 # ({version, builds: {<os>-<arch>: {url, sha256}}, cast: {…same}}) and the macOS desktop .dmg (apps/desktop). URLs are
@@ -22,16 +23,22 @@
 set -euo pipefail
 source "$(dirname "$0")/release/lib.sh"
 
-only="" publish="" github="" notes=""
+only="" publish="" github="" notes="" allow_dirty=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --only) only="$2"; shift 2 ;;
     --publish) publish="$2"; shift 2 ;;
     --github) github=1; shift ;;
+    --allow-dirty) allow_dirty=1; shift ;;
     --notes) notes="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+
+if [ -z "$allow_dirty" ] && [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
+  echo "error: the working tree has uncommitted changes (git status), commit or stash them, or pass --allow-dirty" >&2
+  exit 1
+fi
 
 version="$(gonggong_version)"
 out="$ROOT/dist/$version"
@@ -193,8 +200,10 @@ if [ -n "$publish" ]; then
   jar="$(mktemp)"
   trap 'rm -f "$jar"' EXIT
   curl=(curl -sS --fail-with-body -b "$jar" -c "$jar" -H 'content-type: application/json' ${GONGGONG_CACERT:+--cacert "$GONGGONG_CACERT"})
-  "${curl[@]}" -o /dev/null "$publish/api/auth/login" \
-    -d "{\"account\":\"${GONGGONG_ADMIN_ACCOUNT:-admin}\",\"password\":\"$GONGGONG_ADMIN_PASSWORD\"}"
+  # Body built from the environment and sent on stdin: safe for any password and kept out of `ps`.
+  GONGGONG_ADMIN_ACCOUNT="${GONGGONG_ADMIN_ACCOUNT:-admin}" GONGGONG_ADMIN_PASSWORD="$GONGGONG_ADMIN_PASSWORD" node -e \
+    'const e = process.env; process.stdout.write(JSON.stringify({ account: e.GONGGONG_ADMIN_ACCOUNT, password: e.GONGGONG_ADMIN_PASSWORD }))' |
+    "${curl[@]}" -o /dev/null "$publish/api/auth/login" --data @-
   "${curl[@]}" -X PUT "$publish/api/admin/daemon-release" --data @manifest.json
   echo
   echo "published $version to $publish"

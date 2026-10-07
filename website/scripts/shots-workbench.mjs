@@ -4,10 +4,11 @@
 // answered inside the page from shots-workbench.data.json (the demo team, recorded from the shots-web.sh stack), and
 // the preview pages, simulator and desktop window are constructed screens. livekit-client is swapped for a stand-in
 // that "receives" a canvas stream of those screens, so the live views render their playing state.
+
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { readFileSync } from 'node:fs'
 import { chromium } from '@playwright/test'
 
 const ROOT = join(import.meta.dirname, '../..')
@@ -249,7 +250,13 @@ const TREE = (() => {
   }
   return dirs
 })()
-const MIME = { md: 'text/markdown', json: 'application/json', js: 'text/javascript', html: 'text/html', css: 'text/css' }
+const MIME = {
+  md: 'text/markdown',
+  json: 'application/json',
+  js: 'text/javascript',
+  html: 'text/html',
+  css: 'text/css',
+}
 
 function answer(method, path, q, screens) {
   const g = `/groups/${G}`
@@ -266,7 +273,12 @@ function answer(method, path, q, screens) {
     [`GET ${g}/notices`]: D.notices,
     [`GET ${g}/params`]: D.params,
     [`GET ${g}/local-paths`]: [],
-    [`GET ${g}/bots/${FE}/diff`]: { scope: q.get('scope'), patch: D.patch, base: 'origin/main', branch: 'main' },
+    [`GET ${g}/bots/${FE}/diff`]: {
+      scope: q.get('scope'),
+      patch: D.patch,
+      base: 'origin/main',
+      branch: 'main',
+    },
   }
   const key = `${method} ${path}`
   if (key in table) return { json: table[key] }
@@ -280,7 +292,9 @@ function answer(method, path, q, screens) {
     const p = q.get('path')
     const text = D.files[p]
     const ext = p.split('.').pop()
-    return { json: { path: p, size: Buffer.byteLength(text), binary: false, mime: MIME[ext] ?? 'text/plain', text } }
+    return {
+      json: { path: p, size: Buffer.byteLength(text), binary: false, mime: MIME[ext] ?? 'text/plain', text },
+    }
   }
   m = path.match(/^\/previews\/([^/]+)\/(snapshot|open|live|watch)$/)
   if (m) {
@@ -346,7 +360,10 @@ async function newPage(browser, screens, { active, mode = 'split', viewport, sca
     r.fulfill({ body: LIVEKIT, contentType: 'text/javascript' }),
   )
   await ctx.route('**/__shots/*.png', (r) =>
-    r.fulfill({ body: screens[r.request().url().split('/').pop().replace('.png', '')], contentType: 'image/png' }),
+    r.fulfill({
+      body: screens[r.request().url().split('/').pop().replace('.png', '')],
+      contentType: 'image/png',
+    }),
   )
   await ctx.route(`${WEB}/api/**`, (r) => {
     const url = new URL(r.request().url())
@@ -363,7 +380,10 @@ async function newPage(browser, screens, { active, mode = 'split', viewport, sca
   const page = await ctx.newPage()
   page.on('pageerror', (e) => log('pageerror', e.message))
   await page.goto(`/g/${G}`)
-  await page.getByRole('button', { name: /^工作台/ }).first().click()
+  await page
+    .getByRole('button', { name: /^工作台/ })
+    .first()
+    .click()
   await page.locator('section[aria-label="工作台"]').waitFor()
   if (mode === 'full') await page.getByRole('button', { name: '全屏', exact: true }).click()
   return page
@@ -409,7 +429,7 @@ const SCENES = {
     viewport: { width: 390, height: 844 },
     scale: 3,
     mobile: true,
-    then: async (page) => {
+    act: async (page) => {
       // A phone mounts only the shown tab: visit the run once so the list knows its round.
       const pick = async (name) => {
         await page.getByRole('button', { name: '全部标签页' }).click()
@@ -444,7 +464,7 @@ try {
   for (const [name, s] of Object.entries(SCENES)) {
     if (ONLY.size && !ONLY.has(name)) continue
     const page = await newPage(browser, screens, { viewport: DESKTOP, ...s })
-    await s.then?.(page)
+    await s.act?.(page)
     await shot(page, name, { wait: s.wait })
     await page.context().close()
   }
