@@ -106,7 +106,12 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
               <GroupRow label={t('服务器')} wideValue value={host(parsed.server)} />
               <GroupRow label={t('绑定码')} value={parsed.code} />
               {parsed.fingerprint ? (
-                <GroupRow label={t('证书')} description={parsed.fingerprint} value={t('已固定证书指纹')} />
+                <GroupRow
+                  className="dk-onboarding__fingerprint"
+                  label={t('证书')}
+                  description={parsed.fingerprint}
+                  value={t('已固定证书指纹')}
+                />
               ) : null}
             </GroupBox>
           ) : null}
