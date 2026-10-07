@@ -59,7 +59,12 @@ export function LogsPage(_: PageProps) {
   }, [])
 
   useEffect(() => {
-    const load = () => ipc.recentLogs(level, LOG_LIMIT).then(setLines, () => {})
+    // Unchanged logs keep the old list, so a quiet log doesn't re-render every refresh.
+    const load = () =>
+      ipc.recentLogs(level, LOG_LIMIT).then(
+        (next) => setLines((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next)),
+        () => {},
+      )
     load()
     const timer = setInterval(load, REFRESH_MS)
     return () => clearInterval(timer)

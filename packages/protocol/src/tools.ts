@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 
 /**
  * Tools of the built-in `gonggong` MCP server answered by the server (the daemon forwards them; `ask_group_members`
@@ -151,88 +152,88 @@ export const ScheduleDeleteArgs = z.object({ id: z.string().describe('schedule_l
 
 export const GONGGONG_TOOLS = {
   list_messages: {
-    title: '读取聊天记录',
+    title: GONGGONG_TOOL_TITLES.list_messages,
     description:
       '按时间顺序读取群聊记录（人的发言与 bot 的最终回复）。消息以 #seq 标识；用 before / after / around 翻页或定位。',
     input: ListMessagesArgs,
   },
   search_messages: {
-    title: '检索聊天记录',
+    title: GONGGONG_TOOL_TITLES.search_messages,
     description: '按关键词检索聊天记录，返回命中片段（从新到旧）；group=all 检索你所在的所有群。',
     input: SearchMessagesArgs,
   },
   get_group_info: {
-    title: '群信息与成员',
+    title: GONGGONG_TOOL_TITLES.get_group_info,
     description: '群名、公告、模式、绑定仓库、成员（人与 bot 及其状态），以及你还能读取的其他群。',
     input: GetGroupInfoArgs,
   },
   get_run: {
-    title: '查看运行记录',
+    title: GONGGONG_TOOL_TITLES.get_run,
     description: 'bot 某一轮的触发消息、状态、摘要、改动文件、用量、提问与回答；include_patch 附带 diff。',
     input: GetRunArgs,
   },
   list_questions: {
-    title: '提问卡片历史',
+    title: GONGGONG_TOOL_TITLES.list_questions,
     description: '群里过往的提问卡片与群成员的回答，复用已拍板的决策。',
     input: ListQuestionsArgs,
   },
   fetch_attachments: {
-    title: '下载历史附件',
+    title: GONGGONG_TOOL_TITLES.fetch_attachments,
     description: '把某条消息的附件下载到工作区 .gonggong/attachments/ 下，返回相对路径。',
     input: FetchAttachmentsArgs,
   },
   list_feishu_messages: {
-    title: '读取飞书群消息',
+    title: GONGGONG_TOOL_TITLES.list_feishu_messages,
     description:
       '实时读取当前群绑定的飞书群的近期消息（以触发人的飞书身份读取，结果不保存）。' +
       '飞书里只有与 Bot 交互的消息会同步到共工，需要了解飞书群里此前的讨论时用它。',
     input: ListFeishuMessagesArgs,
   },
   preview_expose: {
-    title: '发布预览',
+    title: GONGGONG_TOOL_TITLES.preview_expose,
     description:
       '把本机端口上的网页或服务发布给群成员：返回预览链接，并在群里发一张可内嵌打开的预览卡片。服务请先用 service_start 启动。',
     input: PreviewExposeArgs,
   },
   preview_gui: {
-    title: '发布桌面应用预览',
+    title: GONGGONG_TOOL_TITLES.preview_gui,
     description:
       '把 service_start 启动的桌面应用（如 Electron、Tauri 应用）的窗口实时推给群成员：群里出现一张预览卡片，' +
       '成员打开后看到实时画面，经 Bot 主人同意可以远程操作。只推这个服务进程的窗口，不推整个屏幕。',
     input: PreviewGuiArgs,
   },
   preview_close: {
-    title: '关闭预览',
+    title: GONGGONG_TOOL_TITLES.preview_close,
     description: '关闭一个预览链接（服务本身不停止）。',
     input: PreviewCloseArgs,
   },
   hand_off: {
-    title: '交给其他 Bot',
+    title: GONGGONG_TOOL_TITLES.hand_off,
     description:
       '让本群另一个 Bot 接手工作：本轮结束后，群里会发出一条你 @ 它并交代任务的消息，它随即开始运行。' +
       '回复正文里写 @名字 只是提及、不会让对方开始工作；只有需要对方真正动手时才调用本工具。',
     input: HandOffArgs,
   },
   schedule_create: {
-    title: '创建定时任务',
+    title: GONGGONG_TOOL_TITLES.schedule_create,
     description:
       '在本群建一个定时任务，立即生效：到点以发起本轮的人的名义 @ 一个 Bot 执行 prompt（按 bots 顺序选第一个可用的），群里会出现任务卡片。' +
       '用户要求定期、或在将来某个时间做某事时用它；不要自己 sleep 等待或要求用户回头再来。返回接下来几次执行时间，请回报给用户核对。',
     input: ScheduleCreateArgs,
   },
   schedule_list: {
-    title: '定时任务列表',
+    title: GONGGONG_TOOL_TITLES.schedule_list,
     description: '本群的定时任务：id、名称、候选 Bot、执行时间、启用状态、下次执行与最近结果。',
     input: ScheduleListArgs,
   },
   schedule_update: {
-    title: '修改定时任务',
+    title: GONGGONG_TOOL_TITLES.schedule_update,
     description:
       '修改本群的定时任务（只给要改的字段），enabled=false 暂停、true 恢复。只能改你创建或候选里有你的任务。',
     input: ScheduleUpdateArgs,
   },
   schedule_delete: {
-    title: '删除定时任务',
+    title: GONGGONG_TOOL_TITLES.schedule_delete,
     description:
       '删除本群的定时任务。由定时任务触发的一轮里，任务已完成使命（如等待的条件已满足）时可删除它自己。',
     input: ScheduleDeleteArgs,

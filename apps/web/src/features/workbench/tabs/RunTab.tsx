@@ -37,6 +37,7 @@ import type { DiffSource } from '../../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
 import { ProcessView } from '../../runs/ProcessView'
 import { approvalText, buildSteps } from '../../runs/process'
+import type { Step } from '../../runs/steps'
 import { openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
 import { locateFile } from './DiffTab'
@@ -54,6 +55,11 @@ const FAILED = ['forbidden', 'interrupted', 'expired']
 const PURGED = t('运行过程已过期，仅保留摘要')
 /** Coalesces bursts of run.updated / run.progress into one refetch. */
 const REFETCH_MS = 300
+/** How long streamed text is gathered before it is shown. */
+const DELTA_FLUSH_MS = 100
+
+/** Text streamed since the last stored event, not yet in the refetched process. */
+type Tail = { at: string; text: string }
 
 /** What the open run tabs learned about their runs, for the tab bar's title and mark. */
 const useRunInfo = create<{ runs: Record<string, RunDto>; rounds: Record<string, number> }>(() => ({
@@ -63,10 +69,11 @@ const useRunInfo = create<{ runs: Record<string, RunDto>; rounds: Record<string,
 
 /**
  * GET /api/runs/:id, kept live while shown: card updates refetch the process from its last stored event on, streamed
- * text is appended in place. A hidden tab only keeps the card current and catches up once shown again.
+ * text is kept as a tail after it. A hidden tab only keeps the card current and catches up once shown again.
  */
 function useRunDetail(runId: string, active: boolean) {
   const [detail, setDetail] = useState<RunDetailDto | null>(null)
+  const [tail, setTail] = useState<Tail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const current = useRef(detail)
   current.current = detail
@@ -78,19 +85,31 @@ function useRunDetail(runId: string, active: boolean) {
     let timer: ReturnType<typeof setTimeout> | undefined
     // Only the newest request may write: it was sent last, so it saw the newest server state.
     let seq = 0
+    let pending = ''
+    let flushTimer: ReturnType<typeof setTimeout> | undefined
     current.current = null
+    setTail(null)
+    const flush = () => {
+      flushTimer = undefined
+      const text = pending
+      pending = ''
+      setTail((t) => ({ at: t?.at ?? new Date().toISOString(), text: (t?.text ?? '') + text }))
+    }
     const load = () => {
       const mine = ++seq
-      const since = current.current?.events.findLast((e) => e.id > 0)?.id
+      const since = current.current?.events.at(-1)?.id
       api.get<RunDetailDto>(`/runs/${runId}${since ? `?since=${since}` : ''}`).then(
-        (d) =>
-          alive &&
-          mine === seq &&
+        (d) => {
+          if (!alive || mine !== seq) return
+          // The stored events now hold what was streamed so far.
+          pending = ''
+          clearTimeout(flushTimer)
+          flushTimer = undefined
+          setTail(null)
           setDetail((prev) =>
-            since && prev
-              ? { ...d, events: [...prev.events.filter((e) => e.id > 0 && e.id < since), ...d.events] }
-              : d,
-          ),
+            since && prev ? { ...d, events: [...prev.events.filter((e) => e.id < since), ...d.events] } : d,
+          )
+        },
         (e: Error) => alive && mine === seq && setError(e.message),
       )
     }
@@ -105,26 +124,10 @@ function useRunDetail(runId: string, active: boolean) {
         else catchUp.current = load
       } else if (e.t === 'run.delta' && e.runId === runId) {
         if (!shown.current) catchUp.current = load
-        else
-          setDetail((d) => {
-            if (!d) return d
-            const last = d.events.at(-1)
-            const events =
-              last?.event.kind === 'text' && !last.event.agentId
-                ? [
-                    ...d.events.slice(0, -1),
-                    { ...last, event: { kind: 'text' as const, delta: last.event.delta + e.text } },
-                  ]
-                : [
-                    ...d.events,
-                    {
-                      id: -Date.now(),
-                      at: new Date().toISOString(),
-                      event: { kind: 'text' as const, delta: e.text },
-                    },
-                  ]
-            return { ...d, events }
-          })
+        else {
+          pending += e.text
+          flushTimer ??= setTimeout(flush, DELTA_FLUSH_MS)
+        }
       }
     })
     // Refill anything missed while the socket was down.
@@ -141,6 +144,7 @@ function useRunDetail(runId: string, active: boolean) {
       off()
       offStatus()
       clearTimeout(timer)
+      clearTimeout(flushTimer)
       catchUp.current = null
     }
   }, [runId])
@@ -149,14 +153,34 @@ function useRunDetail(runId: string, active: boolean) {
     catchUp.current()
     catchUp.current = null
   }, [active])
-  return { detail, error }
+  return { detail, tail, error }
+}
+
+/** The streamed tail continues the last stored reply, or follows the stored steps as the reply being written. */
+function withTail(steps: Step[], d: RunDetailDto, tail: Tail | null, live: boolean): Step[] {
+  if (!tail) return steps
+  const last = d.events.at(-1)
+  if (last?.event.kind === 'text' && !last.event.agentId) {
+    const key = `e${last.id}`
+    return steps.map((s) => (s.key === key ? { ...s, body: (s.body ?? '') + tail.text } : s))
+  }
+  // Only the last text or thought counts as the current step.
+  const prev = steps.at(-1)
+  const head =
+    prev?.running && (prev.kind === 'text' || prev.kind === 'thought')
+      ? [...steps.slice(0, -1), { ...prev, running: false }]
+      : steps
+  return [
+    ...head,
+    { key: 'tail', kind: 'text', label: t('回复'), body: tail.text, at: tail.at, running: live },
+  ]
 }
 
 /** One run in the workbench (design §4.3): header facts, then 过程 / 改动 / 审批记录. */
 export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   const { runId, view, file } = tab
   const patch = useWorkbench((s) => s.patch)
-  const { detail, error } = useRunDetail(runId, active)
+  const { detail, tail, error } = useRunDetail(runId, active)
   const bots = useWorkspace((s) => s.bots)
   const groups = useWorkspace((s) => s.groups)
   const run = detail?.run
@@ -178,9 +202,13 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
   const turn = useWorkspaceDiff(active ? source : null, 'turn', live ? undefined : (detail?.patch ?? null))
   // The clock re-renders every second; the process only changes with the detail or the live patch.
-  const steps = useMemo(
+  const stored = useMemo(
     () => detail && buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail),
     [detail, live, turn.patch],
+  )
+  const steps = useMemo(
+    () => stored && detail && withTail(stored, detail, tail, detail.run.status === 'running'),
+    [stored, detail, tail],
   )
   // Machine and session id are rarely needed; hidden behind ⓘ so the process gets the height.
   const [more, setMore] = useState(false)

@@ -1,4 +1,4 @@
-import { GONGGONG_TOOLS, type I18nText, type Question, type RunEvent } from '@gonggong/protocol'
+import { GONGGONG_TOOL_TITLES, type I18nText, type Question, type RunEvent } from '@gonggong/protocol'
 import { t } from '../../i18n'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
@@ -6,7 +6,7 @@ export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
 const GONGGONG: Record<string, string> = {
   ask_group_members: t('向群成员提问'),
   ...Object.fromEntries(
-    Object.entries(GONGGONG_TOOLS).map(([name, tool]) => [name, t.text({ key: tool.title })]),
+    Object.entries(GONGGONG_TOOL_TITLES).map(([name, title]) => [name, t.text({ key: title })]),
   ),
 }
 const VALUE_MAX = 60

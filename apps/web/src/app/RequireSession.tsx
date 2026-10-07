@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
+import { useShallow } from 'zustand/react/shallow'
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage'
 import { useFeishuLinkResult } from '../features/feishu/login'
 import { applyTeamEvent } from '../features/teams/store'
@@ -11,7 +12,9 @@ import { useSession } from './session'
 import { loadWorkspace, useWorkspace } from './workspace'
 
 export function RequireSession() {
-  const { user, tenancy, status, load } = useSession()
+  const { user, tenancy, status, load } = useSession(
+    useShallow((s) => ({ user: s.user, tenancy: s.tenancy, status: s.status, load: s.load })),
+  )
   const { pathname, search } = useLocation()
   // Without a team there is nothing to chat in (plan /welcome); sysadmins may still run the platform from /admin.
   const teamless = tenancy?.teams.length === 0

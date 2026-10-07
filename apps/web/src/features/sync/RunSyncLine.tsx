@@ -1,5 +1,5 @@
 import type { I18nText, MessageDto, RunDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -116,19 +116,20 @@ export function RunSyncLine({ run }: { run: Pick<RunDto, 'groupId' | 'botId' | '
 }
 
 /** The group's conflict card (§3.3): 「@Bot 的改动与 v15 冲突：3 个文件」 with 处理. */
-export function ConflictEvent({ m }: { m: MessageDto & { syncConflict: { id: string; botId: string } } }) {
+export const ConflictEvent = memo(function ConflictEvent({
+  m,
+  conflict,
+}: {
+  m: MessageDto
+  conflict: { id: string; botId: string }
+}) {
   return (
     <ChatNotice>
       <span className="tl-event sync-conflict-event" data-testid="sync-conflict-card">
         <Icon name="exclamation-circle" size={13} />
         <span className="tl-event__text">{m.i18n ? t.text(m.i18n) : m.body}</span>
-        <Settle
-          groupId={m.groupId}
-          botId={m.syncConflict.botId}
-          issue="held"
-          conflictId={m.syncConflict.id}
-        />
+        <Settle groupId={m.groupId} botId={conflict.botId} issue="held" conflictId={conflict.id} />
       </span>
     </ChatNotice>
   )
-}
+})

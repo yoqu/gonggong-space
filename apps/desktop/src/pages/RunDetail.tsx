@@ -10,6 +10,8 @@ import { useHeading } from '../store'
 
 /** Local IPC is cheap: polling keeps the view simple and also follows background tasks after the run ended. */
 const POLL_MS = 1000
+/** Once the run ended only background tasks still change it. */
+const ENDED_POLL_MS = 5000
 const OUTCOME = {
   completed: { text: t('已完成'), variant: 'success' },
   interrupted: { text: t('已中断'), variant: 'secondary' },
@@ -21,16 +23,28 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
   const [process, setProcess] = useState<RunProcess | null | undefined>(undefined)
   useEffect(() => {
     let alive = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // An unchanged poll keeps the old object, so the process is not rebuilt every second.
+    let last = ''
     const load = () =>
       ipc.runProcess(runId).then(
-        (p) => alive && setProcess(p),
-        () => {},
+        (p) => {
+          if (!alive) return
+          const json = JSON.stringify(p)
+          if (json !== last) {
+            last = json
+            setProcess(p)
+          }
+          timer = setTimeout(load, p && p.endedMs === null ? POLL_MS : ENDED_POLL_MS)
+        },
+        () => {
+          if (alive) timer = setTimeout(load, POLL_MS)
+        },
       )
     load()
-    const timer = setInterval(load, POLL_MS)
     return () => {
       alive = false
-      clearInterval(timer)
+      clearTimeout(timer)
     }
   }, [runId])
   const live = !!process && process.endedMs === null

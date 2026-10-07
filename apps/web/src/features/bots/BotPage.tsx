@@ -26,20 +26,35 @@ import { agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import './bots.css'
 import { t } from '../../i18n'
 
+/** Coalesces a burst of run updates into one refetch. */
+const REFETCH_MS = 300
+
 /** Groups the bot is in; refetched whenever one of its runs changes. */
 function usePlaces(botId: string, enabled: boolean) {
   const [places, setPlaces] = useState<BotPlaceDto[] | null>(null)
   useEffect(() => {
     if (!enabled) return
-    const load = () =>
-      api
-        .get<BotPlaceDto[]>(`/bots/${botId}/activity`)
-        .then(setPlaces)
-        .catch(() => setPlaces([]))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // Only the newest request may write: an older, slower answer is stale.
+    let seq = 0
+    const load = () => {
+      const mine = ++seq
+      api.get<BotPlaceDto[]>(`/bots/${botId}/activity`).then(
+        (p) => mine === seq && setPlaces(p),
+        () => mine === seq && setPlaces([]),
+      )
+    }
     load()
-    return realtime.subscribe((e) => {
-      if (e.t === 'run.updated' && e.run.botId === botId) load()
+    const off = realtime.subscribe((e) => {
+      if (e.t !== 'run.updated' || e.run.botId !== botId) return
+      clearTimeout(timer)
+      timer = setTimeout(load, REFETCH_MS)
     })
+    return () => {
+      seq++
+      clearTimeout(timer)
+      off()
+    }
   }, [botId, enabled])
   return places
 }

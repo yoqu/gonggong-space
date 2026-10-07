@@ -1,5 +1,14 @@
 import type { GroupDto, MessageDto, RunDto } from '@gonggong/protocol'
-import { type DragEvent, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  type DragEvent,
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useSearchParams } from 'react-router'
 import { InspectorPortal, useInspector } from '../../app/inspector'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
@@ -35,6 +44,7 @@ import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
+import { useRunDeltas } from './deltas'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MessageComposer } from './MessageComposer'
@@ -182,8 +192,8 @@ export function ChatView({
   }, [group.id, lastSeq, readOnly])
 
   const runCount = Object.keys(tl.runs).length
-  // Runs and streamed deltas grow cards too, so they must re-pin the view.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tl.runs / tl.deltas are intentional triggers
+  // Runs grow cards too, so they must re-pin the view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tl.runs is an intentional trigger
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
@@ -199,7 +209,19 @@ export function ChatView({
       if (added) setUnseen((n) => n + added)
     }
     seen.current = { first, seq: lastSeq, runs: runCount }
-  }, [tl.messages, tl.runs, tl.deltas])
+  }, [tl.messages, tl.runs])
+
+  // Streamed text grows run cards without re-rendering this view: re-pin once the cards have committed.
+  useEffect(
+    () =>
+      useRunDeltas.subscribe(() =>
+        requestAnimationFrame(() => {
+          const el = box.current
+          if (el && stick.current) el.scrollTop = el.scrollHeight
+        }),
+      ),
+    [],
+  )
 
   const loadOlder = () => {
     const el = box.current
@@ -297,7 +319,7 @@ export function ChatView({
 
   const names = useMemo(
     () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
-    [bots, group],
+    [bots, group.members],
   )
   const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
 
@@ -307,7 +329,6 @@ export function ChatView({
       <RunCard
         key={r.id}
         run={r}
-        delta={tl.deltas[r.id]}
         reply={reply}
         botName={bot?.name ?? 'bot'}
         agent={bot ? AGENT_LABEL[bot.agentKind] : ''}
@@ -319,10 +340,14 @@ export function ChatView({
     )
   }
 
+  /** Each fold's events by its first index; stable slices keep the memoized folds from re-rendering. */
   const { folds, folded } = useMemo(() => {
-    const folds = eventFolds(tl.messages, unreadAt)
+    const folds = new Map<number, MessageDto[]>()
     const folded = new Set<number>()
-    for (const [start, end] of folds) for (let i = start + 1; i <= end; i++) folded.add(i)
+    for (const [start, end] of eventFolds(tl.messages, unreadAt)) {
+      folds.set(start, tl.messages.slice(start, end + 1))
+      for (let i = start + 1; i <= end; i++) folded.add(i)
+    }
     return { folds, folded }
   }, [tl.messages, unreadAt])
   const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
@@ -342,7 +367,7 @@ export function ChatView({
     if (run) return card(run, m)
     if (m.scheduleId)
       return <ScheduleCard scheduleId={m.scheduleId} groupId={m.groupId} fallback={eventText(m)} />
-    if (m.syncConflict) return <ConflictEvent m={{ ...m, syncConflict: m.syncConflict }} />
+    if (m.syncConflict) return <ConflictEvent m={m} conflict={m.syncConflict} />
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
     if (m.kind === 'bot') return <BotReply m={m} compact={compact} />
@@ -357,6 +382,15 @@ export function ChatView({
       />
     )
   }
+
+  const { addMessage } = tl
+  const onSent = useCallback(
+    (m: MessageDto) => {
+      stick.current = true
+      addMessage(m)
+    },
+    [addMessage],
+  )
 
   const botCount = group.botIds.length
   const dm = group.kind === 'dm'
@@ -494,7 +528,7 @@ export function ChatView({
             ) : tl.messages.length ? (
               tl.messages.map((m, i) => {
                 const prev = tl.messages[i - 1]
-                const foldEnd = folds.get(i)
+                const fold = folds.get(i)
                 if (folded.has(i)) return null
                 return (
                   <Fragment key={m.id}>
@@ -502,7 +536,7 @@ export function ChatView({
                       <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
                     )}
                     {m.id === unreadAt ? <ChatNotice kind="unread" /> : null}
-                    {foldEnd === undefined ? (
+                    {fold === undefined ? (
                       <div
                         inert={readOnly}
                         data-msg-id={m.id}
@@ -515,7 +549,7 @@ export function ChatView({
                         {renderMessage(m, isCompact(prev, m))}
                       </div>
                     ) : (
-                      <EventFold events={tl.messages.slice(i, foldEnd + 1)} flash={flash} />
+                      <EventFold events={fold} flash={flash} />
                     )}
                     {runsByTrigger.get(m.id)?.map((r) =>
                       replies.has(r.id) ? null : readOnly ? (
@@ -557,14 +591,7 @@ export function ChatView({
         <>
           <PreviewTags groupId={group.id} />
           <ProviderBanner group={group} />
-          <MessageComposer
-            group={group}
-            dropFiles={dropFiles}
-            onSent={(m) => {
-              stick.current = true
-              tl.addMessage(m)
-            }}
-          />
+          <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} />
         </>
       )}
     </div>

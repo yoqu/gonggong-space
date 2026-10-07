@@ -1,6 +1,6 @@
 import type { FeishuAppView, FeishuRegisterDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { FeishuAppForm } from '../src/features/feishu/FeishuAppForm'
 import { mockApi } from './mockApi'
 
@@ -23,6 +23,9 @@ const bound: FeishuAppView = {
   },
 }
 
+// The dialog is lazy; a cold first import can outlast findBy's default timeout.
+beforeAll(() => import('../src/features/feishu/FeishuScanDialog'))
+
 describe('扫码创建或绑定', () => {
   it('shows the QR, then the created app once confirmed in Feishu', async () => {
     let view: FeishuAppView = { app: null }
@@ -35,7 +38,7 @@ describe('扫码创建或绑定', () => {
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
     fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByTitle('飞书扫码')).toBeTruthy()
+    expect(await within(dialog).findByTitle('飞书扫码')).toBeTruthy()
     expect(within(dialog).getByRole('link', { name: '在飞书中打开' }).getAttribute('href')).toBe(waiting.url)
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ update: false })
 

@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
+import { useRunDeltas } from './deltas'
 
 const PAGE = 50
 /** Streaming text kept per run; only the tail is shown on the card. */
@@ -18,7 +19,6 @@ const DELTA_FLUSH_MS = 100
 interface TimelineState {
   messages: MessageDto[]
   runs: Record<string, RunDto>
-  deltas: Record<string, string>
   /** Messages that arrived live after the first page; only these play the enter animation. */
   arrived: ReadonlySet<string>
   hasMore: boolean
@@ -30,7 +30,6 @@ interface TimelineState {
 const EMPTY: TimelineState = {
   messages: [],
   runs: {},
-  deltas: {},
   arrived: new Set(),
   hasMore: false,
   loaded: false,
@@ -134,21 +133,17 @@ export function useTimeline(groupId: string) {
       } else if (e.groupId === groupId) setState((s) => withdraw(s, e))
     }
     local.add(onLocal)
-    // Streamed text is applied in batches: each update re-renders the whole timeline and re-pins the scroll.
+    // Streamed text is applied in batches: each update re-renders its run card and re-pins the scroll.
+    // Other groups' runs stream over the same socket too; no card of theirs is mounted to re-render.
     const pending = new Map<string, string>()
     let flushTimer: ReturnType<typeof setTimeout> | undefined
     const flushDeltas = () => {
       flushTimer = undefined
-      const batch = [...pending]
+      const deltas = useRunDeltas.getState()
+      const next: Record<string, string> = {}
+      for (const [runId, text] of pending) next[runId] = ((deltas[runId] ?? '') + text).slice(-DELTA_KEEP)
       pending.clear()
-      setState((s) => {
-        // Every group's runs stream over the one socket; another group's text must not re-render this one.
-        const mine = batch.filter(([runId]) => s.runs[runId])
-        if (!mine.length) return s
-        const deltas = { ...s.deltas }
-        for (const [runId, text] of mine) deltas[runId] = ((deltas[runId] ?? '') + text).slice(-DELTA_KEEP)
-        return { ...s, deltas }
-      })
+      useRunDeltas.setState(next)
     }
     const offEvents = realtime.subscribe((e) => {
       if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
@@ -169,6 +164,7 @@ export function useTimeline(groupId: string) {
     return () => {
       alive = false
       clearTimeout(flushTimer)
+      useRunDeltas.setState({}, true)
       local.delete(onLocal)
       offEvents()
       offStatus()

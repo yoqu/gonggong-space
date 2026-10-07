@@ -131,15 +131,8 @@ describe('conflict card', () => {
   const card = (id = 'c1') =>
     render(
       <ConflictEvent
-        m={
-          {
-            groupId: 'g1',
-            body: '@Claude 的改动与 v15 冲突：1 个文件',
-            syncConflict: { id, botId: 'b1' },
-          } as MessageDto & {
-            syncConflict: { id: string; botId: string }
-          }
-        }
+        m={{ groupId: 'g1', body: '@Claude 的改动与 v15 冲突：1 个文件' } as MessageDto}
+        conflict={{ id, botId: 'b1' }}
       />,
     )
 

@@ -1,4 +1,4 @@
-import { motion, useAnimationControls } from 'motion/react'
+import { m, useAnimationControls } from 'motion/react'
 import { type FormEvent, type ReactNode, useEffect } from 'react'
 import { Button, Icon, Logo, Spinner } from '../../ui'
 import { AuthStage, type AuthVariant, LocaleToggle, ThemeToggle } from './AuthStage'
@@ -43,14 +43,14 @@ export function AuthCard({
       </div>
       <main className="auth__panel">
         <div className="auth__card">
-          <motion.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">
+          <m.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">
             <div className="auth__head">
               <Logo size={40} className="auth__logo" />
               <h1 className="auth__title">{title}</h1>
               <p className="auth__subtitle">{subtitle}</p>
             </div>
             {children}
-          </motion.form>
+          </m.form>
           {footer}
         </div>
       </main>

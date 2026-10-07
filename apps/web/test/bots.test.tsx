@@ -292,7 +292,7 @@ describe('新建 Bot', () => {
     routes['POST /api/bots'] = () =>
       bot({ createdBy: 'u9', binding: 'pending_confirm', presence: 'pending_confirm' })
     renderAt('/admin/bots', admin)
-    fireEvent.click(screen.getAllByRole('button', { name: '新建 Bot…' })[0]!)
+    fireEvent.click((await screen.findAllByRole('button', { name: '新建 Bot…' }))[0]!)
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '归属人' }))
     fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '王磊 · 1 台机器' }))
@@ -355,7 +355,7 @@ describe('新建 Bot', () => {
   it('previews confirmation and pending_bind when an admin creates for others', async () => {
     routes['GET /api/bots/owners'] = owners
     renderAt('/admin/bots', admin)
-    fireEvent.click(screen.getAllByRole('button', { name: '新建 Bot…' })[0]!)
+    fireEvent.click((await screen.findAllByRole('button', { name: '新建 Bot…' }))[0]!)
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     await within(dialog).findByText('陈晨 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。')
     const owner = within(dialog).getByRole('button', { name: '归属人' })

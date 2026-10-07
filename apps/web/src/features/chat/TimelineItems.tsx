@@ -36,6 +36,7 @@ import { UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
 import { Clamp } from './Clamp'
 import { citeInChat } from './cite'
+import { useRunDeltas } from './deltas'
 import { isRich, replyFiles } from './grouping'
 import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
@@ -167,7 +168,13 @@ export const EventRow = memo(function EventRow({ m }: { m: MessageDto }) {
  * Consecutive system events (join, repo bound, workspace ready…) folded into one quiet row that expands in place,
  * so setup noise never pushes the conversation off screen. Opens by itself when a deep link targets an event inside.
  */
-export function EventFold({ events, flash }: { events: MessageDto[]; flash: string | null }) {
+export const EventFold = memo(function EventFold({
+  events,
+  flash,
+}: {
+  events: MessageDto[]
+  flash: string | null
+}) {
   const holdsFlash = !!flash && events.some((e) => e.id === flash)
   const [open, setOpen] = useState(holdsFlash)
   if (holdsFlash && !open) setOpen(true)
@@ -200,7 +207,7 @@ export function EventFold({ events, flash }: { events: MessageDto[]; flash: stri
       ) : null}
     </div>
   )
-}
+})
 
 /** A recalled message: the Pane recalled notice in place of the content (no 重新编辑: the body is gone). */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
@@ -483,7 +490,6 @@ const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
  */
 export const RunCard = memo(function RunCard({
   run,
-  delta,
   reply,
   botName,
   agent,
@@ -491,7 +497,6 @@ export const RunCard = memo(function RunCard({
   foldable = false,
 }: {
   run: RunDto
-  delta?: string
   reply?: MessageDto
   botName: string
   agent: string
@@ -507,7 +512,9 @@ export const RunCard = memo(function RunCard({
     (s) => s.open && !!s.groupId && s.benches[s.groupId]?.active === `run:${run.id}`,
   )
   const quote = useQuote((s) => s.set)
-  const streamed = run.status === 'running' ? delta?.trim().split('\n').at(-1) : undefined
+  const streamed = useRunDeltas((s) =>
+    run.status === 'running' ? s[run.id]?.trim().split('\n').at(-1) : undefined,
+  )
   const note = NOTE.includes(run.status)
   const step = note || reply ? '' : streamed || toolTitle(stepText(run))
   const working = !note && !reply && run.status === 'running'

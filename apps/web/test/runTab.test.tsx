@@ -395,6 +395,21 @@ describe('run tab', () => {
     )
   })
 
+  it('streams text onto the stored reply and drops it once the process is refetched', async () => {
+    const [tool] = detail().events.slice(-1)
+    let current = detail({ events: [tool!, { id: 4, at, event: { kind: 'text', delta: '改完了' } }] })
+    mockApi(() => current)
+    renderChat()
+    const rail = await openProcess()
+    expect(await within(rail).findByText('改完了')).toBeTruthy()
+    push({ t: 'run.delta', runId: 'r1', text: '，' })
+    push({ t: 'run.delta', runId: 'r1', text: '收尾' })
+    expect(await within(rail).findByText('改完了，收尾')).toBeTruthy()
+    current = detail({ events: [{ id: 4, at, event: { kind: 'text', delta: '改完了，收尾。' } }] })
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+    expect(await within(rail).findByText('改完了，收尾。')).toBeTruthy()
+  })
+
   it('refetches the process only from its last event, and nothing while the tab is hidden', async () => {
     let current = detail()
     mockApi(() => current)

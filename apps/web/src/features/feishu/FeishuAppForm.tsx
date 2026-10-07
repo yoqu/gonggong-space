@@ -1,5 +1,5 @@
 import type { FeishuAppDto, FeishuAppStatus, FeishuAppView } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { useGet } from '../../lib/useGet'
@@ -14,8 +14,12 @@ import {
   TextField,
   toast,
 } from '../../ui'
-import { FeishuScanDialog } from './FeishuScanDialog'
 import './feishu.css'
+
+// The QR code library is only needed once someone scans.
+const FeishuScanDialog = lazy(() =>
+  import('./FeishuScanDialog').then((m) => ({ default: m.FeishuScanDialog })),
+)
 
 const GUIDE = `https://yoqu.github.io/gonggong-space/${locale === 'en' ? 'en/' : ''}admin/feishu`
 
@@ -146,12 +150,14 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
       </div>
       <Presence>
         {scan ? (
-          <FeishuScanDialog
-            path={path}
-            update={scan === 'update'}
-            onClose={() => setScan(null)}
-            onDone={reload}
-          />
+          <Suspense fallback={null}>
+            <FeishuScanDialog
+              path={path}
+              update={scan === 'update'}
+              onClose={() => setScan(null)}
+              onDone={reload}
+            />
+          </Suspense>
         ) : null}
       </Presence>
       <Presence>

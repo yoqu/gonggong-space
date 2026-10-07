@@ -1,6 +1,7 @@
 import type { GroupDto, MessageDto } from '@gonggong/protocol'
 import {
   type KeyboardEvent,
+  memo,
   type RefObject,
   useEffect,
   useId,
@@ -72,7 +73,7 @@ export async function postMessage(groupId: string, req: SendBody): Promise<Messa
   }
 }
 
-export function MessageComposer({
+export const MessageComposer = memo(function MessageComposer({
   group,
   onSent,
   dropFiles,
@@ -287,4 +288,4 @@ export function MessageComposer({
       />
     </div>
   )
-}
+})

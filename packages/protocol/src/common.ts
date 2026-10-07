@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export { compareVersions } from './version.js'
+
 export const AgentKind = z.enum(['claude', 'codex'])
 export type AgentKind = z.infer<typeof AgentKind>
 
@@ -88,17 +90,6 @@ export const Answer = z.object({
   text: z.string().nullable(),
 })
 export type Answer = z.infer<typeof Answer>
-
-/** Orders dotted numeric versions ("0.10.1" > "0.9"); pre-release / build suffixes are ignored. */
-export function compareVersions(a: string, b: string): number {
-  const parts = (v: string) => (v.split(/[-+]/)[0] ?? '').split('.').map((n) => Number.parseInt(n, 10) || 0)
-  const [x, y] = [parts(a), parts(b)]
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const d = (x[i] ?? 0) - (y[i] ?? 0)
-    if (d) return d
-  }
-  return 0
-}
 
 /** macOS privacy permissions the desktop previews need, held by the app running the daemon (gg-cast inherits them). */
 export const Permission = z.enum(['screen_recording', 'accessibility'])

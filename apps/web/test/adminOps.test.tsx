@@ -455,6 +455,30 @@ describe('机器与网络 · 实时', () => {
     await waitFor(() => expect(within(rowOf('cc-mbp')).getByText('在线')).toBeTruthy())
     expect(calls.filter((c) => c.path === '/admin/machines').length).toBe(2)
   })
+
+  it('catches the machine list up when a hidden tab is shown again', async () => {
+    const calls = mockApi({
+      'GET /admin/machines': [],
+      'GET /admin/params': PARAMS,
+      'GET /bots': [],
+      'GET /machines': [],
+      'GET /notifications': [],
+    })
+    renderAt('/admin/machines')
+    await screen.findByText('还没有机器')
+    const loads = () => calls.filter((c) => c.path === '/admin/machines').length
+    const before = loads()
+    const setHidden = (hidden: boolean) => {
+      Object.defineProperty(document, 'hidden', { value: hidden, configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    setHidden(true)
+    expect(loads()).toBe(before)
+    setHidden(false)
+    await waitFor(() => expect(loads()).toBe(before + 1))
+    // jsdom's own getter is on the prototype; drop the override.
+    delete (document as { hidden?: boolean }).hidden
+  })
 })
 
 describe('审计记录', () => {

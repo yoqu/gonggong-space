@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { m } from 'motion/react'
 import { t } from '../i18n'
 import { SPRING } from '../lib/motion'
 import { Button, Icon, type IconName, Mascot } from '../ui'
@@ -66,7 +66,7 @@ export function Welcome({
       </p>
       <ol className="welcome__steps">
         {steps.map((s, i) => (
-          <motion.li
+          <m.li
             key={s.title}
             className="welcome__step"
             data-state={s.done ? 'done' : i === current ? 'current' : 'todo'}
@@ -89,7 +89,7 @@ export function Welcome({
                 {s.action}
               </Button>
             )}
-          </motion.li>
+          </m.li>
         ))}
       </ol>
     </section>

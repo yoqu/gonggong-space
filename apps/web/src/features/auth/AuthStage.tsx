@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { resolveTheme, setTheme } from '../../app/theme'
 import { locale, setLocale, t } from '../../i18n'
@@ -126,14 +126,14 @@ function RelayDemo() {
         <span className="relay__members">{t('3 人 · 2 Bot')}</span>
       </div>
       <AnimatePresence mode="wait">
-        <motion.div
+        <m.div
           key={cycle}
           className="relay__body"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.35 } }}
         >
           {SCRIPT.slice(0, lines).map((l, i) => (
-            <motion.div
+            <m.div
               key={l.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -158,7 +158,7 @@ function RelayDemo() {
                       {done ? t('已完成') : t('运行中')}
                     </span>
                     {STEPS.slice(0, steps).map((s) => (
-                      <motion.span
+                      <m.span
                         key={s}
                         className="relay__step"
                         initial={{ opacity: 0, x: -6 }}
@@ -167,16 +167,16 @@ function RelayDemo() {
                       >
                         <Icon name="arrow-turn-down-right" size={12} />
                         {s}
-                      </motion.span>
+                      </m.span>
                     ))}
                   </div>
                 ) : (
                   l.text
                 )}
               </Message>
-            </motion.div>
+            </m.div>
           ))}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   )

@@ -1,6 +1,6 @@
 import { toolTitle } from '@web/features/runs/mcp'
 import { Alert, Badge, Button, EmptyState, GroupBox, Icon } from '@web/ui'
-import { type ReactNode, useEffect, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type DaemonStatus, ipc, type MachineBot, type Tunnels } from '../ipc'
 import { CONN_STAT, connKind, runBadge } from '../lib/labels'
@@ -9,7 +9,9 @@ import { openGuide, PERMISSIONS, useMissing } from '../permissions'
 import { useDaemon, useNow } from '../store'
 import type { PageProps } from '.'
 import { isLive } from './Live'
-import { RunDetail } from './RunDetail'
+
+// The run process renders markdown and code: loaded only when a run is opened.
+const RunDetail = lazy(() => import('./RunDetail').then((m) => ({ default: m.RunDetail })))
 
 const REFRESH_MS = 15_000
 
@@ -51,7 +53,12 @@ export function OverviewPage({ go }: PageProps) {
   const agents = status?.agents ?? []
   const secure = info?.server?.startsWith('https') ? t('加密连接') : t('未加密连接')
 
-  if (detail) return <RunDetail runId={detail} onBack={() => setDetail(null)} />
+  if (detail)
+    return (
+      <Suspense>
+        <RunDetail runId={detail} onBack={() => setDetail(null)} />
+      </Suspense>
+    )
   return (
     <>
       {status ? <ConnAlert status={status} version={info?.version} protocol={info?.protocol} /> : null}

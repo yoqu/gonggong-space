@@ -1,7 +1,7 @@
 import type { FeishuAppView, SystemParams, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { FeishuAppForm } from '../src/features/feishu/FeishuAppForm'
@@ -20,6 +20,9 @@ const admin: UserDto = {
 class NoopSocket {
   close() {}
 }
+
+// The admin area is a lazy route; a cold first import can outlast findBy's default timeout.
+beforeAll(() => import('../src/features/admin/AdminRoutes'))
 
 beforeEach(() => {
   vi.stubGlobal('WebSocket', NoopSocket)

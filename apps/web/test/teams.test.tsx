@@ -145,7 +145,7 @@ describe('team switcher', () => {
     signIn({ teams: [], singleTeamMode: false, canCreateTeam: true })
     renderAt('/')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/welcome'))
-    expect(screen.getByText('新建一个团队，或粘贴团队管理员发给你的邀请链接加入。')).toBeTruthy()
+    expect(await screen.findByText('新建一个团队，或粘贴团队管理员发给你的邀请链接加入。')).toBeTruthy()
     expect(screen.getByRole('button', { name: '新建团队' }).closest('.auth__foot')).toBeNull()
   })
 
@@ -353,7 +353,7 @@ describe('join page', () => {
       '/register?invite=ggi_abc',
     )
     fireEvent.click(screen.getByRole('button', { name: '登录后加入' }))
-    expect(screen.getByTestId('where').textContent).toBe('/login')
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/login'))
   })
 
   it('joins a signed-in user and switches to the team', async () => {

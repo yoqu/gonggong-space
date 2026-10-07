@@ -1,5 +1,5 @@
 import type { UserDto } from '@gonggong/protocol'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import { type FormEvent, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -142,14 +142,14 @@ function PasswordChangeFields({
       </ul>
       <AnimatePresence initial={false}>
         {error ? (
-          <motion.div
+          <m.div
             key="error"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
           >
             <Alert variant="error" description={error} />
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       {submitLabel ? (

@@ -1,70 +1,53 @@
-import { lazy, Suspense } from 'react'
-import { Link, Route, Routes } from 'react-router'
+import { type ComponentType, lazy, type ReactNode, Suspense } from 'react'
+import { Route, Routes } from 'react-router'
 import { AppShell } from './app/AppShell'
 import { ChatPage } from './app/ChatPage'
+import { NotFound } from './app/NotFound'
 import { RequireSession } from './app/RequireSession'
-import { AdminIndex, AdminLayout } from './features/admin/AdminLayout'
-import { AdminPlaceholder } from './features/admin/AdminPage'
-import { ADMIN_NAV } from './features/admin/nav'
-import { LoginPage } from './features/auth/LoginPage'
-import { RegisterPage } from './features/auth/RegisterPage'
-import { FeishuChoosePage } from './features/feishu/FeishuChoosePage'
-import { JoinPage } from './features/teams/JoinPage'
-import { WelcomePage } from './features/teams/WelcomePage'
-import { EmptyState } from './ui'
+import { Mascot } from './ui'
 import './app/shell.css'
 
-const UiGallery = lazy(() => import('./app/UiGallery'))
+const named = <K extends string, M extends Record<K, ComponentType>>(load: () => Promise<M>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })))
 
-function NotFound() {
-  return (
-    <div className="not-found">
-      <EmptyState
-        bare
-        title="页面不存在"
-        description="链接可能已失效，或你没有访问权限。"
-        actions={
-          <Link to="/" className="ui-btn ui-btn--primary ui-btn--md">
-            返回消息
-          </Link>
-        }
-      />
-    </div>
-  )
-}
+const LoginPage = named(() => import('./features/auth/LoginPage'), 'LoginPage')
+const RegisterPage = named(() => import('./features/auth/RegisterPage'), 'RegisterPage')
+const FeishuChoosePage = named(() => import('./features/feishu/FeishuChoosePage'), 'FeishuChoosePage')
+const JoinPage = named(() => import('./features/teams/JoinPage'), 'JoinPage')
+const WelcomePage = named(() => import('./features/teams/WelcomePage'), 'WelcomePage')
+const AdminRoutes = lazy(() => import('./features/admin/AdminRoutes'))
+// Behind the DEV check so production builds don't emit the gallery chunk at all.
+const UiGallery = import.meta.env.DEV ? lazy(() => import('./app/UiGallery')) : null
+
+// Same delayed splash as the session boot, so a fast chunk load shows nothing.
+const loading = (
+  <div className="app-center app-splash" role="status">
+    <Mascot action="wait" size={96} />
+  </div>
+)
+/** Inside the session gate, so loading a page never unmounts it (and its realtime connection). */
+const later = (page: ReactNode) => <Suspense fallback={loading}>{page}</Suspense>
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/feishu/choose" element={<FeishuChoosePage />} />
-      <Route path="/join/:token" element={<JoinPage />} />
-      {import.meta.env.DEV ? (
-        <Route
-          path="/_ui"
-          element={
-            <Suspense>
-              <UiGallery />
-            </Suspense>
-          }
-        />
-      ) : null}
-      <Route element={<RequireSession />}>
-        <Route path="welcome" element={<WelcomePage />} />
-        <Route element={<AppShell />}>
-          <Route index element={<ChatPage />} />
-          <Route path="g/:groupId" element={<ChatPage />} />
-          <Route path="bot/:botId" element={<ChatPage />} />
+    <Suspense fallback={loading}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/feishu/choose" element={<FeishuChoosePage />} />
+        <Route path="/join/:token" element={<JoinPage />} />
+        {UiGallery ? <Route path="/_ui" element={<UiGallery />} /> : null}
+        <Route element={<RequireSession />}>
+          <Route path="welcome" element={later(<WelcomePage />)} />
+          <Route element={<AppShell />}>
+            <Route index element={<ChatPage />} />
+            <Route path="g/:groupId" element={<ChatPage />} />
+            <Route path="bot/:botId" element={<ChatPage />} />
+          </Route>
+          <Route path="admin/*" element={later(<AdminRoutes />)} />
+          <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="admin" element={<AdminLayout />}>
-          <Route index element={<AdminIndex />} />
-          {ADMIN_NAV.flatMap((g) => g.items).map((i) => (
-            <Route key={i.path} path={i.path} element={i.element ?? <AdminPlaceholder item={i} />} />
-          ))}
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }

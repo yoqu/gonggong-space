@@ -1,5 +1,5 @@
 import type { RunDto, RunStatus } from '@gonggong/protocol'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { SPRING } from '../../lib/motion'
 import { Icon } from '../../ui'
@@ -21,7 +21,7 @@ const BUBBLE = 'M3 3h10a1 1 0 0 1 1 1v6.2a1 1 0 0 1-1 1H7.2L4.5 13.6v-2.4H3a1 1 
 function Check() {
   const reduced = useReducedMotion()
   return (
-    <motion.path
+    <m.path
       d="M5.2 8.3l1.9 1.9 3.8-4.3"
       {...STROKE}
       initial={reduced ? false : { pathLength: 0 }}
@@ -117,7 +117,7 @@ export function RunStatusIcon({ status, spelled }: { status: RunStatus; spelled?
     <span className="run-status" data-status={status} title={label}>
       <span className="run-status__glyph" aria-hidden="true">
         <AnimatePresence initial={false}>
-          <motion.svg
+          <m.svg
             key={status}
             viewBox="0 0 16 16"
             width="15"
@@ -128,7 +128,7 @@ export function RunStatusIcon({ status, spelled }: { status: RunStatus; spelled?
             transition={status === 'completed' ? SPRING.bouncy : SPRING.snappy}
           >
             {GLYPH[status]}
-          </motion.svg>
+          </m.svg>
         </AnimatePresence>
       </span>
       <span className={spelled || SPELLED.includes(status) ? 'run-status__text' : 'run-vh'}>{label}</span>
@@ -269,7 +269,7 @@ export function FanOut({ bots }: { bots: string[] }) {
         {bots.map((_, i) => {
           const x = i * FAN_STEP + FAN_STEP / 2
           return (
-            <motion.path
+            <m.path
               // biome-ignore lint/suspicious/noArrayIndexKey: one branch per run, in queue order
               key={i}
               d={`M${w / 2} 0C${w / 2} 7 ${x} 5 ${x} 12`}

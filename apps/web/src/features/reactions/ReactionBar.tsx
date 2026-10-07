@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import { Fragment } from 'react'
 import { SPRING } from '../../lib/motion'
 import { Emoji } from '../../ui'
@@ -17,7 +17,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
   return (
     <AnimatePresence initial={false}>
       {reactions.length ? (
-        <motion.div
+        <m.div
           key="bar"
           className="pn-reactions reaction-bar"
           role="group"
@@ -29,7 +29,7 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
         >
           <AnimatePresence initial={false} mode="popLayout">
             {reactions.map((r) => (
-              <motion.div
+              <m.div
                 key={r.emoji}
                 layout
                 className="pn-reaction reaction-pill"
@@ -63,10 +63,10 @@ export function ReactionBar({ message }: { message: ReactionTarget }) {
                   ))}
                   {r.count > SHOWN ? t(' 等 {n} 人', { n: r.count }) : null}
                 </span>
-              </motion.div>
+              </m.div>
             ))}
           </AnimatePresence>
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   )

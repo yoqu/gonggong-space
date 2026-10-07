@@ -69,20 +69,23 @@ function useLongPress(bar: RefObject<HTMLDivElement | null>) {
     if (!host) return
     let timer: ReturnType<typeof setTimeout> | undefined
     const cancel = () => clearTimeout(timer)
+    // Listens on the document only while open: a long timeline would otherwise hold one listener per row.
+    const outside = (e: PointerEvent) => {
+      if (host.contains(e.target as Node)) return
+      host.dataset.actions = ''
+      document.removeEventListener('pointerdown', outside)
+    }
     const down = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') return
       cancel()
       timer = setTimeout(() => {
         host.dataset.actions = 'open'
+        document.addEventListener('pointerdown', outside)
       }, LONG_PRESS_MS)
-    }
-    const outside = (e: PointerEvent) => {
-      if (!host.contains(e.target as Node)) host.dataset.actions = ''
     }
     host.dataset.actions = ''
     host.addEventListener('pointerdown', down)
     for (const t of ['pointerup', 'pointercancel', 'pointermove'] as const) host.addEventListener(t, cancel)
-    document.addEventListener('pointerdown', outside)
     return () => {
       cancel()
       host.removeEventListener('pointerdown', down)

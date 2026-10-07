@@ -1,5 +1,5 @@
 import type { MeDto } from '@gonggong/protocol'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -153,7 +153,7 @@ export function LoginPage() {
       </div>
       <AnimatePresence initial={false}>
         {forgot ? (
-          <motion.p
+          <m.p
             key="forgot"
             className="auth__note"
             initial={{ opacity: 0, height: 0 }}
@@ -161,7 +161,7 @@ export function LoginPage() {
             exit={{ opacity: 0, height: 0 }}
           >
             {t('请联系系统管理员重置密码，用拿到的临时密码登录后再修改。')}
-          </motion.p>
+          </m.p>
         ) : null}
       </AnimatePresence>
       <AuthSubmit phase={phase} label={t('登录')} busy={t('登录中…')} done={t('登录成功')} />

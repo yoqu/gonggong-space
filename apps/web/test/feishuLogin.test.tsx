@@ -1,7 +1,7 @@
 import type { FeishuIdentityView, FeishuTicketDto, SystemParams, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { apiError, mockApi } from './mockApi'
@@ -30,6 +30,9 @@ const renderAt = (path: string) =>
 const UA = navigator.userAgent
 const setUserAgent = (ua: string) =>
   Object.defineProperty(navigator, 'userAgent', { value: ua, configurable: true })
+
+// The admin area is a lazy route; a cold first import can outlast findBy's default timeout.
+beforeAll(() => import('../src/features/admin/AdminRoutes'))
 
 beforeEach(() => {
   vi.stubGlobal('WebSocket', NoopSocket)
@@ -110,6 +113,8 @@ describe('first 飞书登录', () => {
         password: 'password123',
       }),
     )
+    // The page signs in after its success animation; let that land before the next test sets its own user.
+    await waitFor(() => expect(useSession.getState().user).toBeTruthy())
   })
 
   it('creates a new account in one click', async () => {
@@ -122,6 +127,7 @@ describe('first 飞书登录', () => {
     renderAt('/feishu/choose?ticket=ft_1')
     fireEvent.click(await screen.findByRole('button', { name: '新建账号' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/auth/feishu/ticket/ft_1/create')).toBe(true))
+    await waitFor(() => expect(useSession.getState().user).toBeTruthy())
   })
 
   it('only offers binding while 飞书自动开户 is off', async () => {

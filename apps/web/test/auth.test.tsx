@@ -56,7 +56,7 @@ describe('login page', () => {
       'POST /auth/login': me,
     })
     renderAt('/login')
-    expect(screen.getByRole('heading', { name: '登录' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '登录' })).toBeTruthy()
     // Accounts are issued by the sysadmin: no sign-up entry, only the form's own affordances.
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
       'English',
@@ -78,6 +78,7 @@ describe('login page', () => {
   it('remembers the account, reveals the password and explains a forgotten password', async () => {
     mockApi({ 'GET /me': () => apiError(401, 'unauthorized'), 'POST /auth/login': me })
     renderAt('/login')
+    await screen.findByTestId('login-page')
     fill('账号', 'wanglei')
     fill('密码', 'password123')
     fireEvent.click(screen.getByRole('button', { name: '显示明文' }))
@@ -93,6 +94,7 @@ describe('login page', () => {
   it('shows the server error', async () => {
     mockApi({ 'POST /auth/login': () => apiError(401, 'unauthorized', '账号或密码错误') })
     renderAt('/login')
+    await screen.findByTestId('login-page')
     fill('账号', 'wanglei')
     fill('密码', 'nope')
     fireEvent.click(screen.getByRole('button', { name: '登录' }))

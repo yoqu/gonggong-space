@@ -1,6 +1,7 @@
 import type { GroupDto, GroupPreviewsDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { useShallow } from 'zustand/react/shallow'
 import { BotDialog } from '../features/bots/BotDialog'
 import { BotPage } from '../features/bots/BotPage'
 import { confirmBot } from '../features/bots/model'
@@ -121,7 +122,9 @@ export function ChatPage() {
   const navigate = useNavigate()
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
-  const { groups, bots, machines, loaded: workspaceLoaded } = useWorkspace()
+  const { groups, bots, machines, workspaceLoaded } = useWorkspace(
+    useShallow((s) => ({ groups: s.groups, bots: s.bots, machines: s.machines, workspaceLoaded: s.loaded })),
+  )
   const [groupsState, retryGroups] = useChatData()
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const [binding, setBinding] = useState(false)

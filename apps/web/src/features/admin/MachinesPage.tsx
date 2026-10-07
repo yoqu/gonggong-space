@@ -63,7 +63,12 @@ export function MachinesPage() {
   )
   useEffect(() => {
     void load()
-    const timer = setInterval(() => void load(), POLL_MS)
+    // A hidden tab skips the poll and catches up once shown.
+    const poll = () => {
+      if (!document.hidden) void load()
+    }
+    const timer = setInterval(poll, POLL_MS)
+    document.addEventListener('visibilitychange', poll)
     const offEvents = realtime.subscribe((e) => {
       if (e.t === 'machine.updated' || e.t === 'machine.removed') void load()
     })
@@ -72,6 +77,7 @@ export function MachinesPage() {
     })
     return () => {
       clearInterval(timer)
+      document.removeEventListener('visibilitychange', poll)
       offEvents()
       offStatus()
     }
