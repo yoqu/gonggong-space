@@ -5,5 +5,6 @@
   "entries": [{ "name": "pay-server", "git": true }, { "name": "notes", "git": false }],
   "git": null,
   "unusable": null,
+  "roots": ["/"],
   "error": null
 }

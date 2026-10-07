@@ -3,6 +3,7 @@ export default {
   选择此目录: 'Choose this folder',
   上一级: 'Up one level',
   目录路径: 'Folder path',
+  磁盘: 'Drive',
   'git 仓库 · {branch}': 'git repo · {branch}',
   '游离 HEAD': 'detached HEAD',
   '无 remote': 'no remote',

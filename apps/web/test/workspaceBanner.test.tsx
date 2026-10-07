@@ -43,6 +43,7 @@ const listing = (path: string) => ({
   entries: [{ name: 'pay', git: true }],
   git: null,
   unusable: null,
+  roots: ['/'],
 })
 
 beforeEach(() => useSession.setState({ user: { id: 'u1' } as UserDto, status: 'ready' }))
@@ -76,6 +77,33 @@ describe('workspace banner', () => {
       }),
     )
     await waitFor(() => expect(screen.queryByText('选择此目录')).toBeNull())
+  })
+
+  it('goes up to the drive root and switches drives on Windows', async () => {
+    useWorkspace.setState({ bots: [bot()], botStates: unbound() })
+    const [c, d] = ['C:\\', 'D:\\']
+    const win = (path: string, name: string) => ({
+      ...listing(path),
+      entries: [{ name, git: false }],
+      roots: [c, d],
+    })
+    const calls = mockApi({
+      'GET /machines/m1/dirs': win('C:\\Users', 'w'),
+      [`GET /machines/m1/dirs?path=${encodeURIComponent(c)}`]: win(c, 'Users'),
+      [`GET /machines/m1/dirs?path=${encodeURIComponent(d)}`]: win(d, 'code'),
+    })
+    render(<WorkspaceBanner group={group()} />)
+    fireEvent.click(screen.getByText('绑定工作区'))
+    await screen.findByText('w')
+    fireEvent.click(screen.getByRole('button', { name: '上一级' }))
+    await screen.findByText('Users')
+    expect(screen.getByRole('button', { name: '上一级' }).hasAttribute('disabled')).toBe(true)
+    const drive = screen.getByRole('button', { name: '磁盘' })
+    expect(drive.textContent).toContain('C:')
+    fireEvent.click(drive)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'D:' }))
+    await screen.findByText('code')
+    expect(calls.at(-1)?.path).toBe(`/machines/m1/dirs?path=${encodeURIComponent(d)}`)
   })
 
   it('opens on a too-broad home directory with a neutral hint instead of an error', async () => {

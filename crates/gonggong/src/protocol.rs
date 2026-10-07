@@ -297,6 +297,8 @@ pub struct DirResult {
     pub entries: Vec<DirEntry>,
     pub git: Option<DirGit>,
     pub unusable: Option<String>,
+    #[serde(default)]
+    pub roots: Vec<String>,
     pub error: Option<String>,
 }
 

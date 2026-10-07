@@ -364,6 +364,8 @@ export const DirListingDto = z.object({
   git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
   /** Why `path` cannot be a workspace; null = selectable. */
   unusable: z.string().nullable(),
+  /** Filesystem roots of the machine (Windows drives, `/` elsewhere). */
+  roots: z.array(z.string()),
 })
 export type DirListingDto = z.infer<typeof DirListingDto>
 /** PUT /api/bots/:id/default-workspace; null clears it. */

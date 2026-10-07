@@ -301,6 +301,11 @@ async fn dir_list_shows_subdirectories_with_git_info() {
     let names: Vec<_> = d.entries.iter().map(|e| (e.name.as_str(), e.git)).collect();
     assert_eq!(names, [("remote.git", false), ("seed", true)]);
     assert_eq!((d.git, d.unusable, d.error), (None, None, None));
+    if cfg!(windows) {
+        assert!(d.roots.iter().any(|r| r == "C:\\"), "{:?}", d.roots);
+    } else {
+        assert_eq!(d.roots, ["/"]);
+    }
 
     let seed = root.join("seed");
     list(&r, "d2", Some(&seed));
@@ -316,6 +321,12 @@ async fn dir_list_shows_subdirectories_with_git_info() {
 
     list(&r, "d4", Some(&root.join("missing")));
     assert_eq!(dir_result(&mut r.rx).await.error.as_deref(), Some("目录不存在"));
+
+    if cfg!(windows) {
+        list(&r, "d5", Some(Path::new("C:")));
+        let d = dir_result(&mut r.rx).await;
+        assert_eq!((d.path.as_str(), d.error), ("C:\\", None));
+    }
 }
 
 #[tokio::test]

@@ -2,15 +2,20 @@ import type { DirListingDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { Alert, Button, Dialog, Icon, Input, Spinner } from '../../ui'
+import { Alert, Button, Dialog, Icon, Input, Select, Spinner } from '../../ui'
 import './workspaces.css'
 
 const parentOf = (path: string) => {
   const trimmed = path.replace(/[\\/]+$/, '')
   const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
   if (cut < 0) return null
-  return cut === 0 ? '/' : trimmed.slice(0, cut) || null
+  // A root keeps its separator (`/`, `C:\`): a bare `C:` is not an absolute path on Windows.
+  const parent = trimmed.slice(0, cut + 1)
+  return /^([A-Za-z]:)?[\\/]$/.test(parent) ? parent : parent.slice(0, -1)
 }
+/** The root `path` lives on; compared case-insensitively since Windows drives are. */
+const rootOf = (path: string, roots: string[]) =>
+  roots.find((r) => path.toLowerCase().startsWith(r.toLowerCase())) ?? null
 const join = (dir: string, name: string) =>
   `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${name}`
 
@@ -54,6 +59,7 @@ export function DirPicker({
   }, [machineId, path])
 
   const up = dir && parentOf(dir.path)
+  const roots = dir?.roots ?? []
   return (
     <Dialog
       open
@@ -90,6 +96,14 @@ export function DirPicker({
             disabled={!up}
             onClick={() => up && setPath(up)}
           />
+          {roots.length > 1 ? (
+            <Select
+              label={t('磁盘')}
+              options={roots.map((r) => ({ value: r, label: r.replace(/[\\/]$/, '') }))}
+              value={dir && rootOf(dir.path, roots)}
+              onChange={setPath}
+            />
+          ) : null}
           <Input
             size="sm"
             mono

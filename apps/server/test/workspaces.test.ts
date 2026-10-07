@@ -462,6 +462,7 @@ describe('directory picker and default workspace', () => {
     entries: [{ name: 'pay', git: true }],
     git: null,
     unusable: null,
+    roots: ['/'],
     error: null,
     ...o,
   })
@@ -479,6 +480,7 @@ describe('directory picker and default workspace', () => {
       entries: [{ name: 'pay', git: true }],
       git: null,
       unusable: null,
+      roots: ['/'],
     })
 
     const home = w.asAlice.get<DirListingDto>(dirs)

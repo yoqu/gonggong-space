@@ -537,6 +537,8 @@ export const DirResult = z.object({
   git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
   /** Why `path` cannot be a workspace (root, home, system dir, …); null = usable. */
   unusable: z.string().nullable(),
+  /** Filesystem roots to browse from (Windows drives, `/` elsewhere); older daemons omit it. */
+  roots: z.array(z.string()).default([]),
   error: z.string().nullable(),
 })
 export type DirResult = z.infer<typeof DirResult>

@@ -364,15 +364,36 @@ async fn remotes(dir: &Path) -> Vec<String> {
 
 const DIR_LIST_MAX: usize = 500;
 
+/// A bare drive like `D:` means the drive's current directory to Windows, not its root.
+fn drive_root(mut path: String) -> String {
+    if cfg!(windows) && path.len() == 2 && path.ends_with(':') {
+        path.push('\\');
+    }
+    path
+}
+
+#[cfg(windows)]
+fn fs_roots() -> Vec<String> {
+    // GetLogicalDrives only reads a bitmask, so a disconnected network drive cannot stall the listing.
+    let mask = unsafe { windows::Win32::Storage::FileSystem::GetLogicalDrives() };
+    (b'A'..=b'Z').filter(|l| mask & (1 << (l - b'A')) != 0).map(|l| format!("{}:\\", l as char)).collect()
+}
+
+#[cfg(not(windows))]
+fn fs_roots() -> Vec<String> {
+    vec!["/".into()]
+}
+
 /// dir.list for the workspace picker: subdirectories of `path` (home when None) and the repo containing it.
 pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
-    let dir = path.map(PathBuf::from).unwrap_or_else(user_home);
+    let dir = path.map(drive_root).map(PathBuf::from).unwrap_or_else(user_home);
     let mut result = DirResult {
         request_id,
         path: dir.to_string_lossy().into_owned(),
         entries: vec![],
         git: None,
         unusable: None,
+        roots: fs_roots(),
         error: None,
     };
     if let Err(e) = existing_dir(&dir) {

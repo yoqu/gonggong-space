@@ -70,12 +70,12 @@ export function workspaceRoutes(ctx: Ctx) {
         if (!m) return fail('not_found', '机器不存在')
         if (m.ownerId !== me.id) return fail('forbidden', '只能浏览自己机器上的目录')
         const at = { name: m.name, machineId: m.id }
-        const { path, entries, git, unusable } = await listDirs(
+        const { path, entries, git, unusable, roots } = await listDirs(
           at,
           req.query.path || null,
           '{name} 离线，无法浏览目录',
         )
-        return { path, entries, git, unusable }
+        return { path, entries, git, unusable, roots }
       },
     )
 
