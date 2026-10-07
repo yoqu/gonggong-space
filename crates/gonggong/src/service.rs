@@ -17,9 +17,13 @@ use tokio_tungstenite::tungstenite::Message;
 /// Past it `run.event`s are shed (see [`over_budget`]); every other message is kept.
 const MAX_QUEUED_BYTES: usize = 16 << 20;
 /// A merged text/thought delta stops growing here; the next delta starts a new one.
-const MAX_MERGED_DELTA: usize = 64 << 10;
+pub(crate) const MAX_MERGED_DELTA: usize = 64 << 10;
 /// Fixed weight of any message, so a flood of tiny events is bounded as well.
 const MESSAGE_OVERHEAD: usize = 256;
+/// Messages taken from the outbox per wakeup, so a busy producer cannot hold the heartbeat back.
+const MAX_BATCH: usize = 1024;
+/// Hello → welcome; a server that upgrades the socket but never answers must not hang the daemon.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Approximate memory a waiting message holds. Only streamed payloads are measured; the rest is small.
 fn weight(msg: &DaemonToServer) -> usize {
@@ -274,9 +278,10 @@ impl<H: Handler> Service<H> {
                     format!("{e:#}")
                 }
             };
-            tracing::info!("reconnecting in {backoff:?}");
-            self.monitor.offline(backoff, error);
-            let wait = tokio::time::sleep(backoff);
+            let delay = jitter(backoff);
+            tracing::info!("reconnecting in {delay:?}");
+            self.monitor.offline(delay, error);
+            let wait = tokio::time::sleep(delay);
             tokio::pin!(wait);
             loop {
                 tokio::select! {
@@ -319,8 +324,14 @@ impl<H: Handler> Service<H> {
             services: self.handler.services(),
             features: self.handler.features(),
         };
-        send(&mut ws, &hello).await?;
-        let heartbeat_sec = match next_msg(&mut ws).await? {
+        let welcome = async {
+            send(&mut ws, &hello).await?;
+            next_msg(&mut ws).await
+        };
+        let Ok(welcome) = tokio::time::timeout(HANDSHAKE_TIMEOUT, welcome).await else {
+            anyhow::bail!("{}", crate::t!("服务器无响应"));
+        };
+        let heartbeat_sec = match welcome? {
             ServerToDaemon::Welcome { heartbeat_sec, machine_id, upgrade, tunnel, release } => {
                 tracing::info!(machine_id, "connected");
                 self.monitor.online(heartbeat_sec);
@@ -342,19 +353,27 @@ impl<H: Handler> Service<H> {
             }
             other => anyhow::bail!("unexpected first message {other:?}"),
         };
-        let mut beat = tokio::time::interval(Duration::from_secs(heartbeat_sec.max(1)));
+        let every = Duration::from_secs(heartbeat_sec.max(1));
+        // A socket whose peer stopped reading blocks writes once its buffer is full, and then no heartbeat would
+        // notice: each write must make progress within a few heartbeats.
+        let stall = every * 3;
+        let mut beat = tokio::time::interval(every);
         beat.tick().await;
         let mut idle = tokio::time::interval(Duration::from_secs(1));
         // Latency = round trip of a WebSocket ping sent with each heartbeat (and right after welcome).
         // Doubles as liveness: a ping still unanswered at the next heartbeat means a dead link.
         let mut ping_at = Some(Instant::now());
         backlog.pinged();
-        ws.send(Message::Ping(Default::default())).await?;
+        within(stall, ws.send(Message::Ping(Default::default()))).await?;
         loop {
-            // A message leaves the backlog only once written: a failed send keeps it for the next connection.
-            while let Some(msg) = backlog.front() {
-                send(&mut ws, msg).await?;
-                backlog.written();
+            // A message leaves the backlog once handed to the socket, then all go out with one flush. A failed write
+            // keeps the rest for the next connection; a run.done lost with the link is resent (see `unconfirmed`).
+            if backlog.front().is_some() {
+                while let Some(msg) = backlog.front() {
+                    within(stall, ws.feed(Message::text(serde_json::to_string(msg)?))).await?;
+                    backlog.written();
+                }
+                within(stall, ws.flush()).await?;
             }
             // Biased: a pong already waiting (say after a long flush) is read before the heartbeat checks for it, and
             // a busy outbox cannot hold the heartbeat back.
@@ -382,15 +401,19 @@ impl<H: Handler> Service<H> {
                     if ping_at.is_some() {
                         anyhow::bail!("{}", crate::t!("服务器无响应"));
                     }
-                    send(&mut ws, &DaemonToServer::Heartbeat).await?;
+                    within(stall, ws.feed(Message::text(serde_json::to_string(&DaemonToServer::Heartbeat)?))).await?;
+                    within(stall, ws.send(Message::Ping(Default::default()))).await?;
                     self.monitor.heartbeat();
                     ping_at = Some(Instant::now());
                     backlog.pinged();
-                    ws.send(Message::Ping(Default::default())).await?;
                 }
                 Some(out) = rx.recv() => {
-                    let done = matches!(out, DaemonToServer::RunDone(_));
-                    self.queue(backlog, out);
+                    // Whatever else is already waiting joins the same write, its deltas merged in the backlog.
+                    let mut done = false;
+                    for out in std::iter::once(out).chain(std::iter::from_fn(|| rx.try_recv().ok()).take(MAX_BATCH)) {
+                        done |= matches!(out, DaemonToServer::RunDone(_));
+                        self.queue(backlog, out);
+                    }
                     if done {
                         self.handler.report(outbox);
                     }
@@ -398,7 +421,8 @@ impl<H: Handler> Service<H> {
                 Ok(()) = agents.changed() => {
                     let list = agents.borrow_and_update().clone();
                     self.monitor.agents(list.clone());
-                    send(&mut ws, &DaemonToServer::AgentsUpdate { agents: list }).await?;
+                    let update = Message::text(serde_json::to_string(&DaemonToServer::AgentsUpdate { agents: list })?);
+                    within(stall, ws.send(update)).await?;
                 }
                 _ = idle.tick() => {
                     // Restart into a staged build only when nothing runs or waits to be reported.
@@ -412,6 +436,22 @@ impl<H: Handler> Service<H> {
                 }
             }
         }
+    }
+}
+
+/// Reconnect delays spread over 0.5–1.5× so daemons dropped together (a server restart) do not return in lockstep.
+pub(crate) fn jitter(delay: Duration) -> Duration {
+    let unit = (uuid::Uuid::new_v4().as_u128() % 1_000_000) as f64 / 1_000_000.0;
+    delay.mul_f64(0.5 + unit)
+}
+
+async fn within<F>(limit: Duration, write: F) -> anyhow::Result<()>
+where
+    F: Future<Output = Result<(), tokio_tungstenite::tungstenite::Error>>,
+{
+    match tokio::time::timeout(limit, write).await {
+        Ok(written) => Ok(written?),
+        Err(_) => anyhow::bail!("{}", crate::t!("服务器无响应")),
     }
 }
 
@@ -574,6 +614,15 @@ mod tests {
         assert_eq!(b.finished_runs().collect::<Vec<_>>(), vec!["r2".to_string()], "run events are never resent");
         assert!(matches!(b.front(), Some(DaemonToServer::RunDone(_))), "the resend goes out first");
         assert_eq!(b.msgs.len(), 2);
+    }
+
+    #[test]
+    fn reconnect_delays_are_spread_around_the_backoff() {
+        let delays: Vec<_> = (0..200).map(|_| jitter(Duration::from_secs(10))).collect();
+        assert!(delays.iter().all(|d| (Duration::from_secs(5)..Duration::from_secs(15)).contains(d)), "{delays:?}");
+        assert!(
+            delays.iter().any(|d| *d < Duration::from_secs(9)) && delays.iter().any(|d| *d > Duration::from_secs(11))
+        );
     }
 
     #[test]

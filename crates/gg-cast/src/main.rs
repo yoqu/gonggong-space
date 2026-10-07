@@ -352,28 +352,36 @@ fn capture(
             }
         };
         let _ = ready.send(Ok(()));
-        let mut moved_at = Instant::now();
+        // A cut-out window may be moved or closed; its display's capture would not say. Looking it up lists every
+        // window, so that runs beside the frames, not between them.
+        let polled = cut.as_ref().map(|(id, _)| {
+            let (id, (tx, rx)) = (*id, std::sync::mpsc::channel());
+            std::thread::spawn(move || {
+                while tx.send(region(id)).is_ok() {
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            });
+            rx
+        });
         loop {
             let t = Instant::now();
             let period = Duration::from_secs_f64(1.0 / fps.load(Ordering::Relaxed) as f64);
             capturer.capture_frame();
-            // A cut-out window may be moved or closed; its display's capture would not say.
-            if let Some((id, at)) = &cut
-                && moved_at.elapsed() >= Duration::from_millis(500)
-            {
-                moved_at = Instant::now();
-                match region(*id) {
-                    Ok(r) => {
-                        let mut at = at.lock().unwrap();
-                        // Moved to another display: follow it there.
-                        if cfg!(target_os = "macos") && r.display != at.display {
-                            capturer.select_source(r.display as u64);
+            if let (Some((_, at)), Some(polled)) = (&cut, &polled) {
+                for polled in polled.try_iter() {
+                    match polled {
+                        Ok(r) => {
+                            let mut at = at.lock().unwrap();
+                            // Moved to another display: follow it there.
+                            if cfg!(target_os = "macos") && r.display != at.display {
+                                capturer.select_source(r.display as u64);
+                            }
+                            *at = r;
                         }
-                        *at = r;
-                    }
-                    Err(e) => {
-                        let _ = ended.send(e.to_string());
-                        return;
+                        Err(e) => {
+                            let _ = ended.send(e.to_string());
+                            return;
+                        }
                     }
                 }
             }

@@ -104,6 +104,33 @@ async fn an_offer_stages_once() {
     assert!(!up.offer(offer), "already staged");
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_stalled_download_fails_and_the_version_can_be_offered_again() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://127.0.0.1:{}/gg", listener.local_addr().unwrap().port());
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        loop {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = s.read(&mut buf).await;
+            held.push(s);
+        }
+    });
+    let home = tempfile::tempdir().unwrap();
+    let up =
+        Upgrader::new(home.path().into(), "http://127.0.0.1:1".into(), reqwest::Client::new(), "/x".into(), vec![]);
+    let offer = info("9.0.0", &url, sha(b"x"));
+    assert!(up.offer(offer.clone()));
+    tokio::time::timeout(Duration::from_secs(3600), async {
+        while !up.offer(offer.clone()) {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    })
+    .await
+    .expect("the download gives up and is no longer busy");
+}
+
 #[cfg(unix)]
 #[test]
 fn replaces_the_executable_and_restarts_it_with_the_same_arguments() {

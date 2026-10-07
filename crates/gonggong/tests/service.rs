@@ -303,3 +303,76 @@ async fn a_silent_link_is_dropped_at_the_next_heartbeat_and_unconfirmed_run_done
     drop(stale);
     task.abort();
 }
+
+/// On run.cancel, emits `count` run events at once, each with `bytes` of tool detail (0: a one-letter text delta).
+struct Flood {
+    count: usize,
+    bytes: usize,
+}
+impl Handler for Flood {
+    fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
+        let ServerToDaemon::RunCancel { run_id } = msg else { return };
+        for _ in 0..self.count {
+            let event = match self.bytes {
+                0 => RunEvent::Text { delta: "x".into(), agent_id: None },
+                n => RunEvent::Tool {
+                    agent_id: None,
+                    tool_call_id: "t".into(),
+                    title: "t".into(),
+                    tool_kind: "execute".into(),
+                    status: gonggong::protocol::ToolStatus::InProgress,
+                    detail: Some("x".repeat(n)),
+                    mcp: None,
+                },
+            };
+            out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
+        }
+    }
+}
+
+fn flood(port: u16, handler: Flood) -> Service<Flood> {
+    let s = service(port, Recorder::default());
+    Service {
+        config: s.config,
+        machine: s.machine,
+        agents: s.agents,
+        handler,
+        max_backoff: s.max_backoff,
+        upgrader: None,
+        monitor: Default::default(),
+    }
+}
+
+#[tokio::test]
+async fn deltas_queued_while_online_go_out_merged() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let task = tokio::spawn(flood(port, Flood { count: 100, bytes: 0 }).run());
+    let (s, _) = listener.accept().await.unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut ws).await["t"], "hello");
+    ws.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":60}"#)).await.unwrap();
+    ws.send(Message::text(r#"{"t":"run.cancel","runId":"r1"}"#)).await.unwrap();
+    assert_eq!(text(&mut ws).await["event"]["delta"], "x".repeat(100));
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_write_stuck_on_a_full_socket_reconnects() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let task = tokio::spawn(flood(port, Flood { count: 64, bytes: 1 << 20 }).run());
+
+    // The server stops reading after asking for the flood: the daemon's writes fill the socket and then block.
+    let (s, _) = listener.accept().await.unwrap();
+    let mut stale = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut stale).await["t"], "hello");
+    stale.send(Message::text(r#"{"t":"welcome","machineId":"m1","heartbeatSec":1}"#)).await.unwrap();
+    stale.send(Message::text(r#"{"t":"run.cancel","runId":"r1"}"#)).await.unwrap();
+
+    let (s, _) = tokio::time::timeout(Duration::from_secs(10), listener.accept()).await.unwrap().unwrap();
+    let mut ws = tokio_tungstenite::accept_async(s).await.unwrap();
+    assert_eq!(text(&mut ws).await["t"], "hello");
+    drop(stale);
+    task.abort();
+}

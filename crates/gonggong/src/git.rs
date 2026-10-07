@@ -2,7 +2,7 @@
 use crate::protocol::{GitStatus, PATCH_MAX_BYTES, WorkspaceKind};
 use crate::t;
 use std::collections::{BTreeMap, BTreeSet};
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{DefaultHasher, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -164,19 +164,40 @@ async fn head(dir: &Path) -> Option<String> {
 
 /// Porcelain entries plus a content fingerprint, so edits to an already-dirty file still register.
 async fn tree(dir: &Path, subs: &BTreeSet<String>) -> Result<BTreeMap<String, (String, Option<u64>)>, String> {
-    Ok(porcelain(dir)
-        .await?
-        .into_iter()
-        .filter(|(path, _)| !subs.contains(path))
-        .map(|(path, xy)| {
-            let hash = std::fs::read(dir.join(&path)).ok().map(|bytes| {
-                let mut h = DefaultHasher::new();
-                bytes.hash(&mut h);
-                h.finish()
-            });
-            (path, (xy, hash))
-        })
-        .collect())
+    let entries: Vec<_> = porcelain(dir).await?.into_iter().filter(|(path, _)| !subs.contains(path)).collect();
+    let dir = dir.to_path_buf();
+    // Dirty files can be large and many: read them off the async workers.
+    tokio::task::spawn_blocking(move || {
+        entries
+            .into_iter()
+            .map(|(path, xy)| {
+                let hash = fingerprint(&dir.join(&path));
+                (path, (xy, hash))
+            })
+            .collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Streamed content hash; None when the path can't be read as a file.
+fn fingerprint(path: &Path) -> Option<u64> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let (mut h, mut buf, mut len) = (DefaultHasher::new(), [0u8; 64 * 1024], 0u64);
+    loop {
+        match file.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                h.write(&buf[..n]);
+                len += n as u64;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) => return None,
+        }
+    }
+    h.write_u64(len);
+    Some(h.finish())
 }
 
 pub async fn snapshot(dir: &Path) -> Result<Snapshot, String> {
@@ -195,9 +216,11 @@ async fn work_tree(dir: &Path) -> Result<String, String> {
     let index = PathBuf::from(git(dir, &["rev-parse", "--path-format=absolute", "--git-path", "index"]).await?.trim());
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     let scratch = std::env::temp_dir().join(format!("gonggong-index-{}-{nanos}", std::process::id()));
-    if index.exists() {
-        std::fs::copy(&index, &scratch).map_err(|e| t!("无法复制 git index：{e}", e = e))?;
-    }
+    let copy = scratch.clone();
+    tokio::task::spawn_blocking(move || if index.exists() { std::fs::copy(&index, &copy).map(drop) } else { Ok(()) })
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| t!("无法复制 git index：{e}", e = e))?;
     // Naming an ignored path in a pathspec is an error, so the exclusion is only spelled out when git doesn't ignore it.
     let ignored = git(dir, &["check-ignore", "-q", ".gonggong"]).await.is_ok();
     let spec: &[&str] = if ignored { &["."] } else { &[".", ":(exclude).gonggong"] };
@@ -774,6 +797,20 @@ mod tests {
         assert!(capped.ends_with(patch_truncated()));
         let body = capped.strip_suffix(patch_truncated()).unwrap();
         assert!(body.ends_with('\n') && body.lines().all(|l| l == line.trim_end()));
+    }
+
+    #[test]
+    fn fingerprints_follow_content_across_read_chunks() {
+        let d = tempfile::tempdir().unwrap();
+        let (a, b) = (d.path().join("a"), d.path().join("b"));
+        let body = "y".repeat(200_000);
+        fs::write(&a, &body).unwrap();
+        fs::write(&b, &body).unwrap();
+        assert_eq!(fingerprint(&a), fingerprint(&b));
+        fs::write(&b, format!("{body}z")).unwrap();
+        assert_ne!(fingerprint(&a), fingerprint(&b));
+        assert_eq!(fingerprint(d.path()), None);
+        assert_eq!(fingerprint(&d.path().join("missing")), None);
     }
 
     #[tokio::test]

@@ -64,6 +64,8 @@ pub(crate) struct Inner {
     pub(crate) workspaces: Workspaces,
     actors: Mutex<HashMap<(String, String), Actor>>,
     install: tokio::sync::Mutex<()>,
+    /// Node the adapters were last verified installed for, keyed by the managed runtime it was resolved against.
+    adapter_node: Mutex<Option<(Option<PathBuf>, tools::Node)>>,
     /// Started with the first run.
     ask: tokio::sync::OnceCell<AskServer>,
     /// Runs received but still preparing (workspace, attachments): already active for hello reconciliation.
@@ -112,6 +114,7 @@ impl Engine {
             workspaces,
             actors: Mutex::default(),
             install: tokio::sync::Mutex::default(),
+            adapter_node: Mutex::default(),
             ask: tokio::sync::OnceCell::new(),
             preparing: Mutex::default(),
             services,
@@ -521,17 +524,32 @@ impl Inner {
     }
 
     /// Installs the pinned adapters once (and the managed Node when no Node ≥ 22 is found), from the configured
-    /// mirror; returns (node, adapter script).
+    /// mirror; returns (node, adapter script). Once verified, later starts skip probing Node and the install lock
+    /// until the managed runtime changes (a Node install or upgrade switches it).
     async fn ensure_adapter(&self, kind: AgentKind) -> anyhow::Result<(tools::Node, PathBuf)> {
-        let _guard = self.install.lock().await;
         let home = &self.config.home;
+        let modules = home.join("adapters").join("node_modules");
+        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
+        let script = modules.join(name).join("dist/index.js");
+        let cached = self.adapter_node.lock().unwrap().clone();
+        if let Some((key, node)) = cached {
+            let (h, exe) = (home.clone(), node.path.clone());
+            let probe = move || (tools::runtime_bin(&h), exe.is_file());
+            let (now, alive) = tokio::task::spawn_blocking(probe).await?;
+            if alive && now == key {
+                return Ok((node, script));
+            }
+        }
+        let _guard = self.install.lock().await;
         let log = |line: &str| tracing::info!("{line}");
         let node = tools::ensure_node(home, &log)
             .await
             .context(t!("ACP 适配器需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))?;
-        let dir = home.join("adapters");
-        let modules = dir.join("node_modules");
-        if !ADAPTERS.iter().all(|(_, name, ver)| installed_version(&modules.join(name)).as_deref() == Some(*ver)) {
+        let m = modules.clone();
+        let installed =
+            move || ADAPTERS.iter().all(|(_, name, ver)| installed_version(&m.join(name)).as_deref() == Some(*ver));
+        if !tokio::task::spawn_blocking(installed).await? {
+            let dir = home.join("adapters");
             let registry = Settings::load(home)?.mirror.registry().to_string();
             tokio::fs::create_dir_all(&dir).await?;
             tracing::info!("installing ACP adapters into {} from {registry}", dir.display());
@@ -541,8 +559,10 @@ impl Inner {
                 .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")));
             tools::run(npm, &log).await.context(t!("安装 ACP 适配器失败"))?;
         }
-        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
-        Ok((node, modules.join(name).join("dist/index.js")))
+        let h = home.clone();
+        let key = tokio::task::spawn_blocking(move || tools::runtime_bin(&h)).await?;
+        *self.adapter_node.lock().unwrap() = Some((key, node.clone()));
+        Ok((node, script))
     }
 }
 

@@ -34,7 +34,7 @@ pub async fn fetch<'a>(api: &Config, cwd: &Path, list: impl IntoIterator<Item = 
     for a in list.into_iter().filter(|a| seen.insert(&a.id)) {
         any = true;
         let path = cwd.join(rel_path(a));
-        if std::fs::metadata(&path).is_ok_and(|m| m.len() == a.size) {
+        if tokio::fs::metadata(&path).await.is_ok_and(|m| m.len() == a.size) {
             continue;
         }
         download(api, a, &path).await.map_err(|e| t!("附件下载失败：{name}：{e}", name = a.name, e = e))?;
@@ -63,22 +63,29 @@ async fn download(api: &Config, a: &Attachment, path: &Path) -> anyhow::Result<(
 
 async fn exclude(cwd: &Path) -> Result<(), String> {
     let file = cwd.join(git::git(cwd, &["rev-parse", "--git-path", "info/exclude"]).await?.trim());
-    let current = std::fs::read_to_string(&file).unwrap_or_default();
+    let current = tokio::fs::read_to_string(&file).await.unwrap_or_default();
     if current.lines().any(|l| l.trim() == EXCLUDE) {
         return Ok(());
     }
     let sep = if current.is_empty() || current.ends_with('\n') { "" } else { "\n" };
-    std::fs::create_dir_all(file.parent().expect("exclude has a parent")).map_err(|e| e.to_string())?;
-    std::fs::write(&file, format!("{current}{sep}{EXCLUDE}\n")).map_err(|e| e.to_string())
+    tokio::fs::create_dir_all(file.parent().expect("exclude has a parent")).await.map_err(|e| e.to_string())?;
+    tokio::fs::write(&file, format!("{current}{sep}{EXCLUDE}\n")).await.map_err(|e| e.to_string())
 }
 
 /// The prompt text, then the trigger's images when the agent accepts image content.
-pub fn prompt_blocks(cwd: &Path, text: String, attachments: &[Attachment], image: bool) -> Vec<ContentBlock> {
-    let images = attachments.iter().filter(|a| inline_image(a, image)).filter_map(|a| {
-        let bytes = std::fs::read(cwd.join(rel_path(a))).inspect_err(|e| tracing::warn!("{}: {e}", a.name)).ok()?;
-        Some(ContentBlock::Image(ImageContent::new(BASE64_STANDARD.encode(bytes), a.mime.clone())))
-    });
-    std::iter::once(ContentBlock::Text(TextContent::new(text))).chain(images).collect()
+pub async fn prompt_blocks(cwd: &Path, text: String, attachments: &[Attachment], image: bool) -> Vec<ContentBlock> {
+    let mut blocks = vec![ContentBlock::Text(TextContent::new(text))];
+    for a in attachments.iter().filter(|a| inline_image(a, image)) {
+        let path = cwd.join(rel_path(a));
+        // Up to 5 MB read and base64-encoded: off the async workers.
+        let encoded = tokio::task::spawn_blocking(move || std::fs::read(path).map(|b| BASE64_STANDARD.encode(b))).await;
+        match encoded {
+            Ok(Ok(data)) => blocks.push(ContentBlock::Image(ImageContent::new(data, a.mime.clone()))),
+            Ok(Err(e)) => tracing::warn!("{}: {e}", a.name),
+            Err(e) => tracing::warn!("{}: {e}", a.name),
+        }
+    }
+    blocks
 }
 
 #[cfg(test)]

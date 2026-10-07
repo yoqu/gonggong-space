@@ -121,19 +121,24 @@ fn classify(stderr: &str) -> Failure {
 }
 
 /// ssh must fail instead of asking (host key, passphrase) on the daemon's tty; the user's own ssh command wins.
-static BATCH_SSH: LazyLock<Option<&'static str>> = LazyLock::new(|| {
-    let configured = crate::proc::command("git").args(["config", "--get", "core.sshCommand"]).output();
-    let configured = configured.is_ok_and(|o| o.status.success());
-    (std::env::var_os("GIT_SSH_COMMAND").is_none() && !configured)
-        .then_some("ssh -o BatchMode=yes -o ConnectTimeout=15")
-});
+async fn batch_ssh() -> Option<&'static str> {
+    static BATCH_SSH: tokio::sync::OnceCell<Option<&'static str>> = tokio::sync::OnceCell::const_new();
+    *BATCH_SSH
+        .get_or_init(async || {
+            let configured = crate::proc::async_command("git").args(["config", "--get", "core.sshCommand"]).output();
+            let configured = configured.await.is_ok_and(|o| o.status.success());
+            (std::env::var_os("GIT_SSH_COMMAND").is_none() && !configured)
+                .then_some("ssh -o BatchMode=yes -o ConnectTimeout=15")
+        })
+        .await
+}
 
 /// Runs a git remote command non-interactively in the C locale, so failures classify the same on every machine.
 /// `limit` None = no time limit (clones of big repos).
 pub async fn remote_git(dir: &Path, args: &[&str], limit: Option<Duration>) -> Result<String, Failure> {
     let mut cmd = crate::proc::async_command("git");
     cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").env("LC_ALL", "C").kill_on_drop(true);
-    if let Some(ssh) = *BATCH_SSH {
+    if let Some(ssh) = batch_ssh().await {
         cmd.env("GIT_SSH_COMMAND", ssh);
     }
     let out = match limit {

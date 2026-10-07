@@ -41,3 +41,5 @@ tokio = { version = "1.53.1", features = ["test-util"] }
 # Downloaded by daemons: B0 measured 29 MB → 22 MB stripped.
 [profile.release]
 strip = true
+lto = "thin"
+codegen-units = 1

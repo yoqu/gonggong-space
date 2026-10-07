@@ -96,3 +96,23 @@ async fn connecting_gives_up_on_a_server_that_never_answers_the_upgrade() {
     assert!(connect.await.expect("connect must time out on its own").is_err());
     drop(listener);
 }
+
+#[tokio::test(start_paused = true)]
+async fn a_server_that_never_answers_fails_the_request_instead_of_hanging_it() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://127.0.0.1:{}/api/health", listener.local_addr().unwrap().port());
+    let (got, request) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        let (mut tcp, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 1024];
+        let _ = tcp.read(&mut buf).await;
+        let _ = got.send(());
+        std::future::pending::<()>().await;
+    });
+    let err = tokio::time::timeout(std::time::Duration::from_secs(3600), tls::http().unwrap().get(url).send())
+        .await
+        .expect("the client's own timeout fires first")
+        .unwrap_err();
+    assert!(err.is_timeout(), "{err:?}");
+    request.await.expect("the request reached the server: the response was what stalled");
+}

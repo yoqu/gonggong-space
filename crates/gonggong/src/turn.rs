@@ -190,6 +190,13 @@ pub enum ExtUpdate {
     AsyncTaskStateUpdate(TaskPatch),
 }
 
+impl ExtUpdate {
+    /// Whether a `sessionUpdate` tag is one of these, so standard updates (every text chunk) skip a doomed parse.
+    pub fn is_ext(tag: &str) -> bool {
+        tag.starts_with("subagent_") || tag.starts_with("async_task_")
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskPatch {
@@ -729,7 +736,15 @@ mod tests {
     }
 
     fn ext(v: serde_json::Value) -> ExtUpdate {
+        assert!(ExtUpdate::is_ext(v["sessionUpdate"].as_str().unwrap()));
         serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn standard_updates_are_not_taken_for_extensions() {
+        for tag in ["agent_message_chunk", "agent_thought_chunk", "tool_call", "tool_call_update", "plan"] {
+            assert!(!ExtUpdate::is_ext(tag), "{tag}");
+        }
     }
 
     #[test]

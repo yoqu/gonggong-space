@@ -1,6 +1,7 @@
 //! Live daemon status for UIs (the desktop app): connection, heartbeat, latency and the runs executing here.
 //! `Service` feeds it from the messages it relays; readers take snapshots or watch for changes.
 use crate::protocol::{AgentInfo, DaemonToServer, RejectReason, RunEvent, RunOutcome, RunStatus, ServerToDaemon};
+use crate::service::MAX_MERGED_DELTA;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -86,7 +87,7 @@ pub struct TimedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct Process {
     pub run: RunInfo,
-    pub events: Vec<TimedEvent>,
+    pub events: VecDeque<TimedEvent>,
     pub ended_ms: Option<u64>,
     pub outcome: Option<RunOutcome>,
 }
@@ -101,11 +102,11 @@ impl Journal {
     fn record(&mut self, run_id: &str, event: &RunEvent) {
         let Some(p) = self.runs.iter_mut().find(|p| p.run.run_id == run_id) else { return };
         progress(&mut p.run, event);
-        if let Some(last) = p.events.last_mut() {
+        if let Some(last) = p.events.back_mut() {
             match (&mut last.event, event) {
                 (RunEvent::Text { delta: a, agent_id: x }, RunEvent::Text { delta: b, agent_id: y })
                 | (RunEvent::Thought { delta: a, agent_id: x }, RunEvent::Thought { delta: b, agent_id: y })
-                    if x == y =>
+                    if x == y && a.len() + b.len() <= MAX_MERGED_DELTA =>
                 {
                     return a.push_str(b);
                 }
@@ -113,10 +114,10 @@ impl Journal {
             }
         }
         if p.events.len() >= MAX_EVENTS {
-            p.events.remove(0);
+            p.events.pop_front();
         }
         self.next_id += 1;
-        p.events.push(TimedEvent { id: self.next_id, at_ms: now_ms(), event: event.clone() });
+        p.events.push_back(TimedEvent { id: self.next_id, at_ms: now_ms(), event: event.clone() });
     }
 
     fn end(&mut self, run_id: &str, outcome: RunOutcome) {
@@ -133,20 +134,23 @@ impl Journal {
     }
 }
 
-fn progress(run: &mut RunInfo, event: &RunEvent) {
-    match event {
-        RunEvent::Status { status, step } => {
-            run.status = Some(*status);
-            run.step = step.clone();
-        }
-        RunEvent::Tool { title, .. } => {
-            run.status = Some(RunStatus::Running);
-            run.step = title.clone();
-        }
+/// Whether `event` changed what `run` shows.
+fn progress(run: &mut RunInfo, event: &RunEvent) -> bool {
+    let (status, step) = match event {
+        RunEvent::Status { status, step } => (*status, step),
+        RunEvent::Tool { title, .. } => (RunStatus::Running, title),
         _ => {
+            let changed = run.status.is_none();
             run.status.get_or_insert(RunStatus::Running);
+            return changed;
         }
+    };
+    let changed = run.status != Some(status) || run.step != *step;
+    if changed {
+        run.status = Some(status);
+        run.step.clone_from(step);
     }
+    changed
 }
 
 pub fn now_ms() -> u64 {
@@ -179,42 +183,51 @@ impl Monitor {
         self.journal.lock().unwrap().runs.iter().find(|p| p.run.run_id == run_id).cloned()
     }
 
-    /// Notifies watchers only on a real change: streamed text deltas must not flood the UI.
-    fn update(&self, f: impl FnOnce(&mut Status)) {
-        self.status.send_if_modified(|s| {
-            let before = s.clone();
-            f(s);
-            *s != before
+    /// `f` reports whether it changed anything: watchers are notified only then, so streamed text deltas do not
+    /// flood the UI.
+    fn update(&self, f: impl FnOnce(&mut Status) -> bool) {
+        self.status.send_if_modified(f);
+    }
+
+    /// Sets a field, reporting whether its value changed.
+    fn set<T: PartialEq>(&self, field: impl FnOnce(&mut Status) -> &mut T, value: T) {
+        self.update(|s| {
+            let slot = field(s);
+            *slot != value && {
+                *slot = value;
+                true
+            }
         });
     }
 
     pub(crate) fn agents(&self, agents: Vec<AgentInfo>) {
-        self.update(|s| s.agents = agents);
+        self.set(|s| &mut s.agents, agents);
     }
 
     pub(crate) fn online(&self, heartbeat_sec: u64) {
         self.update(|s| {
             s.conn = Conn::Online { since_ms: now_ms() };
             s.heartbeat_sec = Some(heartbeat_sec);
+            true
         });
     }
 
     pub(crate) fn offline(&self, retry_in: Duration, error: String) {
         let retry_at_ms = now_ms() + retry_in.as_millis() as u64;
-        self.update(|s| s.conn = Conn::Offline { retry_at_ms, error });
+        self.set(|s| &mut s.conn, Conn::Offline { retry_at_ms, error });
     }
 
     pub(crate) fn rejected(&self, reason: RejectReason, message: String, wiped: &[PathBuf]) {
         let wiped = wiped.iter().map(|p| p.display().to_string()).collect();
-        self.update(|s| s.conn = Conn::Rejected { reason, message, wiped });
+        self.set(|s| &mut s.conn, Conn::Rejected { reason, message, wiped });
     }
 
     pub(crate) fn heartbeat(&self) {
-        self.update(|s| s.last_heartbeat_ms = Some(now_ms()));
+        self.set(|s| &mut s.last_heartbeat_ms, Some(now_ms()));
     }
 
     pub(crate) fn latency(&self, rtt: Duration) {
-        self.update(|s| s.latency_ms = Some(rtt.as_millis() as u64));
+        self.set(|s| &mut s.latency_ms, Some(rtt.as_millis() as u64));
     }
 
     pub(crate) fn inbound(&self, msg: &ServerToDaemon) {
@@ -233,13 +246,14 @@ impl Monitor {
         };
         self.journal.lock().unwrap().runs.push_back(Process {
             run: run.clone(),
-            events: vec![],
+            events: VecDeque::new(),
             ended_ms: None,
             outcome: None,
         });
         self.update(|s| {
             s.runs.push(run);
             mark_queued(&mut s.runs);
+            true
         });
     }
 
@@ -247,17 +261,15 @@ impl Monitor {
         match msg {
             DaemonToServer::RunEvent { run_id, event } => {
                 self.journal.lock().unwrap().record(run_id, event);
-                self.update(|s| {
-                    if let Some(run) = s.runs.iter_mut().find(|r| &r.run_id == run_id) {
-                        progress(run, event);
-                    }
-                })
+                self.update(|s| s.runs.iter_mut().find(|r| &r.run_id == run_id).is_some_and(|run| progress(run, event)))
             }
             DaemonToServer::RunDone(done) => {
                 self.journal.lock().unwrap().end(&done.run_id, done.outcome);
                 self.update(|s| {
+                    let before = s.runs.len();
                     s.runs.retain(|r| r.run_id != done.run_id);
                     mark_queued(&mut s.runs);
+                    s.runs.len() != before
                 })
             }
             _ => {}
@@ -367,5 +379,57 @@ mod tests {
         }
         assert!(m.process("r1").is_none(), "only the last {KEEP_ENDED} finished runs are kept");
         assert!(m.process("x0").is_some());
+    }
+
+    #[test]
+    fn notifies_watchers_only_when_the_status_changes() {
+        let m = Monitor::default();
+        m.inbound(&start("r1", "g1"));
+        let mut rx = m.subscribe();
+        rx.mark_unchanged();
+        m.outbound(&event("r1", RunEvent::Text { delta: "a".into(), agent_id: None }));
+        assert!(rx.has_changed().unwrap(), "the first output marks the run running");
+        rx.mark_unchanged();
+        m.outbound(&event("r1", RunEvent::Text { delta: "b".into(), agent_id: None }));
+        let step = RunEvent::Status { status: RunStatus::Running, step: String::new() };
+        m.inbound(&ServerToDaemon::RunCancel { run_id: "r1".into() });
+        m.latency(Duration::ZERO);
+        rx.mark_unchanged();
+        m.latency(Duration::ZERO);
+        m.agents(vec![]);
+        m.outbound(&event("r1", RunEvent::Text { delta: "c".into(), agent_id: None }));
+        assert!(!rx.has_changed().unwrap(), "streamed deltas and repeated reports do not notify");
+        m.outbound(&event("r1", step));
+        assert!(rx.has_changed().unwrap(), "a new step does");
+    }
+
+    #[test]
+    fn a_journaled_delta_stops_growing_at_its_cap_and_old_events_are_evicted() {
+        let m = Monitor::default();
+        m.inbound(&start("r1", "g1"));
+        let piece = "y".repeat(1000);
+        let pieces = 3 * MAX_MERGED_DELTA / piece.len();
+        for _ in 0..pieces {
+            m.outbound(&event("r1", RunEvent::Text { delta: piece.clone(), agent_id: None }));
+        }
+        let deltas: Vec<_> = m
+            .process("r1")
+            .unwrap()
+            .events
+            .iter()
+            .map(|e| match &e.event {
+                RunEvent::Text { delta, .. } => delta.len(),
+                other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert!(deltas.len() >= 3 && deltas.iter().all(|n| *n <= MAX_MERGED_DELTA), "{deltas:?}");
+        assert_eq!(deltas.iter().sum::<usize>(), pieces * piece.len());
+
+        for i in 0..MAX_EVENTS + 1 {
+            m.outbound(&event("r1", RunEvent::Status { status: RunStatus::Running, step: i.to_string() }));
+        }
+        let events = m.process("r1").unwrap().events;
+        assert_eq!(events.len(), MAX_EVENTS);
+        assert!(matches!(&events[0].event, RunEvent::Status { step, .. } if step == "1"), "the oldest go first");
     }
 }

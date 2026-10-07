@@ -43,6 +43,9 @@ const STILL_OPENING: &str = "微信开发者工具还在启动或打开项目（
 const TOOL_BUDGET: std::time::Duration = std::time::Duration::from_secs(45);
 #[cfg(test)]
 const TOOL_BUDGET: std::time::Duration = std::time::Duration::from_secs(2);
+/// Server tools answer quickly; bounded so that a call which first waited out the 45-second budget (opening the
+/// devtools) still returns within the agent's minute.
+const FORWARD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const AWAITING_LOGIN: &str = "本机的微信开发者工具还没有登录：卡片上显示了登录二维码，Bot 主人用微信扫码后，卡片会自动打开这个页面，不需要再调用。";
 
 /// The conversation behind a session's URL: relays questions to the group and scopes the server tools to its run.
@@ -302,6 +305,7 @@ async fn forward(api: Option<&Config>, asker: &dyn Asker, name: &str, args: &Val
             .post(url)
             .bearer_auth(&api.token)
             .json(&json!({ "arguments": args }))
+            .timeout(FORWARD_TIMEOUT)
             .send()
             .await?
             .error_for_status()?;
@@ -740,6 +744,24 @@ mod tests {
             forward(Some(&config("http://x".into())), &idle, "list_messages", &json!({})).await,
             Err(NOT_RUNNING.into())
         );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn gives_up_on_a_server_tool_that_does_not_answer_within_the_agents_minute() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (s, _) = listener.accept().await.unwrap();
+            std::future::pending::<()>().await;
+            drop(s);
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
+        let started = tokio::time::Instant::now();
+        let err = forward(Some(&config(base)), &live, "list_messages", &json!({})).await.unwrap_err();
+        assert!(err.starts_with("查询失败"), "{err}");
+        assert!(started.elapsed() <= FORWARD_TIMEOUT, "{:?}", started.elapsed());
     }
 
     #[tokio::test]

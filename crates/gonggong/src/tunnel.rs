@@ -81,6 +81,8 @@ pub fn set_allowed(allow: &Allow, previews: HashMap<String, u16>) {
 }
 
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// The server answers each ping; nothing heard for two intervals means a dead link (a half-open socket never closes).
+const PING_EVERY: Duration = Duration::from_secs(20);
 /// Frames waiting for the socket; a full queue slows down reading local responses.
 const OUTBOX: usize = 256;
 /// Frames a stream's local end may lag behind; beyond it the stream is reset rather than buffered without bound.
@@ -103,7 +105,7 @@ pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio
             }
             Err(e) => tracing::debug!("tunnel connect failed: {e:#}"),
         }
-        tokio::time::sleep(backoff).await;
+        tokio::time::sleep(crate::service::jitter(backoff)).await;
         backoff = (backoff * 2).min(MAX_BACKOFF);
     }
 }
@@ -143,8 +145,16 @@ where
     let (mut sink, mut source) = ws.split();
     let (tx, mut rx) = mpsc::channel::<Frame>(OUTBOX);
     let writer = tokio::spawn(async move {
-        while let Some(frame) = rx.recv().await {
-            if sink.send(Message::Binary(frame.encode())).await.is_err() {
+        let mut ping = tokio::time::interval(PING_EVERY);
+        loop {
+            let msg = tokio::select! {
+                frame = rx.recv() => match frame {
+                    Some(frame) => Message::Binary(frame.encode()),
+                    None => break,
+                },
+                _ = ping.tick() => Message::Ping(Default::default()),
+            };
+            if sink.send(msg).await.is_err() {
                 break;
             }
         }
@@ -154,7 +164,11 @@ where
     // that a lot), which must stop reading the file.
     let mut cancels: HashMap<u32, oneshot::Sender<()>> = HashMap::new();
     let result = async {
-        while let Some(msg) = source.next().await {
+        loop {
+            let Ok(next) = tokio::time::timeout(PING_EVERY * 2, source.next()).await else {
+                anyhow::bail!("tunnel server stopped answering");
+            };
+            let Some(msg) = next else { break };
             let bytes = match msg? {
                 Message::Binary(b) => b,
                 Message::Close(_) => break,

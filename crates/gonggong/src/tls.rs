@@ -60,10 +60,18 @@ static TLS: LazyLock<Arc<ClientConfig>> = LazyLock::new(|| {
     Arc::new(config)
 });
 
-/// HTTP client for the team server. Direct like the daemon WebSocket: an OS-level proxy must not intercept
-/// (or 502) an intranet/localhost server.
+/// A stalled server fails a request once nothing arrives for this long; it also bounds the wait for the response
+/// head, so no team-server call may take longer to answer.
+const READ_TIMEOUT: Duration = Duration::from_secs(60);
+
+static HTTP: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
+    builder().connect_timeout(CONNECT_TIMEOUT).read_timeout(READ_TIMEOUT).build().map_err(|e| format!("{e:#}"))
+});
+
+/// HTTP client for the team server, shared (one connection pool). Direct like the daemon WebSocket: an OS-level proxy
+/// must not intercept (or 502) an intranet/localhost server.
 pub fn http() -> Result<reqwest::Client> {
-    Ok(builder().build()?)
+    HTTP.clone().map_err(anyhow::Error::msg)
 }
 
 /// `http`'s settings, for a client that adds its own (timeouts).

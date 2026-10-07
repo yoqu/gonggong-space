@@ -13,15 +13,21 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader, BufWriter};
 use tokio::process::Command;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 
 pub const MAX_PER_BOT: usize = 5;
 const READY_TIMEOUT: Duration = Duration::from_secs(60);
 const STOP_GRACE: Duration = Duration::from_secs(5);
 const LOG_LINES: usize = 2000;
 const REPLY_LINES: usize = 50;
+/// Longer output lines are cut: a process printing without newlines must not grow the daemon unbounded.
+const LINE_MAX: usize = 16 * 1024;
+/// The log file is rotated to `<name>.log.1` past this size.
+const LOG_FILE_MAX: u64 = 4 << 20;
+/// Stopped services kept for a server restart.
+const ENDED_MAX: usize = 64;
 
 /// The live run a tool call belongs to.
 pub struct Scope {
@@ -67,7 +73,7 @@ struct Inner {
     xvfb: PathBuf,
     list: Mutex<Vec<Hosted>>,
     /// Stopped ones by id, until their (group, bot, name) starts again: the server may still restart them.
-    ended: Mutex<HashMap<String, Hosted>>,
+    ended: Mutex<VecDeque<Hosted>>,
 }
 
 #[derive(Clone)]
@@ -141,7 +147,7 @@ impl Services {
         if let Some(old) = self.find(&scope.group_id, &scope.bot_id, name) {
             self.end(old).await;
         }
-        self.0.ended.lock().unwrap().retain(|_, h| {
+        self.0.ended.lock().unwrap().retain(|h| {
             let i = h.info.lock().unwrap();
             !(i.group_id == scope.group_id && i.bot_id == scope.bot_id && i.name == name)
         });
@@ -207,7 +213,7 @@ impl Services {
         let log_dir = scope.root.join(".gonggong/services");
         tokio::fs::create_dir_all(&log_dir).await.map_err(|e| format!("无法创建日志目录：{e}"))?;
         let log_path = log_dir.join(format!("{}.log", args.name));
-        let log = tokio::fs::File::create(&log_path).await.map_err(|e| format!("无法写入日志：{e}"))?;
+        let log_file = tokio::fs::File::create(&log_path).await.map_err(|e| format!("无法写入日志：{e}"))?;
         let screen = match args.display {
             Some(Display::Virtual) => Some(virtual_display(&self.0.xvfb).await?),
             None => None,
@@ -245,7 +251,8 @@ impl Services {
         scope.out.send(DaemonToServer::ServiceState { service: info.clone() });
         let info = Arc::new(Mutex::new(info));
         let logs = Arc::new(Mutex::new(VecDeque::new()));
-        let log = Arc::new(tokio::sync::Mutex::new(log));
+        let (log, lines) = tokio::sync::mpsc::channel(1024);
+        tokio::spawn(write_log(lines, log_path, log_file));
         let pumps = [
             tokio::spawn(pump(child.stdout.take().unwrap(), logs.clone(), log.clone())),
             tokio::spawn(pump(child.stderr.take().unwrap(), logs.clone(), log)),
@@ -399,7 +406,7 @@ impl Services {
     pub async fn restart_id(&self, id: &str, out: &Outbox) -> Result<String, String> {
         let h = self
             .find_id(id)
-            .or_else(|| self.0.ended.lock().unwrap().get(id).cloned())
+            .or_else(|| self.0.ended.lock().unwrap().iter().find(|h| h.info.lock().unwrap().id == id).cloned())
             .ok_or(crate::t!("本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动"))?;
         let (group_id, bot_id, name) = {
             let i = h.info.lock().unwrap();
@@ -455,19 +462,22 @@ impl Services {
                 let _ = exited.wait_for(|e| *e).await;
             }
             Stop::Group(pid) => {
-                kill_group(*pid, false);
+                kill_group_async(*pid, false).await;
                 if tokio::time::timeout(STOP_GRACE, exited.wait_for(|e| *e)).await.is_err() {
-                    kill_group(*pid, true);
+                    kill_group_async(*pid, true).await;
                     let _ = exited.wait_for(|e| *e).await;
                 }
                 // The leader is gone; children that ignored TERM go too.
-                kill_group(*pid, true);
+                kill_group_async(*pid, true).await;
             }
         }
         self.0.list.lock().unwrap().retain(|x| !Arc::ptr_eq(&x.info, &h.info));
         self.0.save_pids();
-        let id = h.info.lock().unwrap().id.clone();
-        self.0.ended.lock().unwrap().insert(id, h);
+        let mut ended = self.0.ended.lock().unwrap();
+        ended.push_back(h);
+        if ended.len() > ENDED_MAX {
+            ended.pop_front();
+        }
     }
 }
 
@@ -516,20 +526,68 @@ pub(crate) fn inside(root: &Path, rel: &str) -> Result<PathBuf, String> {
     if dir.starts_with(&root) && dir.is_dir() { Ok(dir) } else { Err(OUTSIDE.into()) }
 }
 
-async fn pump(
-    stream: impl AsyncRead + Unpin,
-    logs: Arc<Mutex<VecDeque<String>>>,
-    file: Arc<tokio::sync::Mutex<tokio::fs::File>>,
-) {
-    let mut lines = BufReader::new(stream).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        let _ = file.lock().await.write_all(format!("{line}\n").as_bytes()).await;
+async fn pump(stream: impl AsyncRead + Unpin, logs: Arc<Mutex<VecDeque<String>>>, file: mpsc::Sender<String>) {
+    let mut reader = BufReader::new(stream);
+    let mut buf = Vec::new();
+    while let Ok(true) = read_line(&mut reader, &mut buf).await {
+        let line = String::from_utf8_lossy(&buf).into_owned();
+        let _ = file.send(line.clone()).await;
         let mut logs = logs.lock().unwrap();
         if logs.len() == LOG_LINES {
             logs.pop_front();
         }
         logs.push_back(line);
     }
+}
+
+/// Next line into `buf` without its line ending, cut at LINE_MAX; false at end of stream.
+async fn read_line(reader: &mut (impl AsyncBufRead + Unpin), buf: &mut Vec<u8>) -> std::io::Result<bool> {
+    buf.clear();
+    let mut any = false;
+    loop {
+        let chunk = reader.fill_buf().await?;
+        if chunk.is_empty() {
+            break;
+        }
+        any = true;
+        let (take, end) = match chunk.iter().position(|b| *b == b'\n') {
+            Some(i) => (i + 1, true),
+            None => (chunk.len(), false),
+        };
+        let keep = take.min(LINE_MAX.saturating_sub(buf.len()));
+        buf.extend_from_slice(&chunk[..keep]);
+        reader.consume(take);
+        if end {
+            break;
+        }
+    }
+    while buf.last().is_some_and(|b| *b == b'\n' || *b == b'\r') {
+        buf.pop();
+    }
+    Ok(any)
+}
+
+/// Writes both pumps' lines to the service log, flushing whenever they pause, and rotates it past LOG_FILE_MAX.
+async fn write_log(mut lines: mpsc::Receiver<String>, path: PathBuf, file: tokio::fs::File) {
+    let mut out = BufWriter::new(file);
+    let mut size = 0;
+    while let Some(line) = lines.recv().await {
+        let _ = out.write_all(line.as_bytes()).await;
+        let _ = out.write_all(b"\n").await;
+        size += line.len() as u64 + 1;
+        if size > LOG_FILE_MAX {
+            let _ = out.flush().await;
+            let _ = tokio::fs::rename(&path, path.with_extension("log.1")).await;
+            match tokio::fs::File::create(&path).await {
+                Ok(f) => (out, size) = (BufWriter::new(f), 0),
+                Err(e) => return tracing::warn!("cannot reopen {}: {e}", path.display()),
+            }
+        }
+        if lines.is_empty() {
+            let _ = out.flush().await;
+        }
+    }
+    let _ = out.flush().await;
 }
 
 const DISPLAY_TIMEOUT: Duration = Duration::from_secs(10);
@@ -557,7 +615,7 @@ async fn virtual_display(program: &Path) -> Result<Screen, String> {
     match number {
         Ok(Ok(Some(n))) if n.trim().parse::<u32>().is_ok() => Ok(Screen { pid, name: format!(":{}", n.trim()) }),
         _ => {
-            kill_group(pid, true);
+            kill_group_async(pid, true).await;
             Err("虚拟显示没有启动成功（Xvfb 未报告显示编号）".into())
         }
     }
@@ -609,21 +667,57 @@ fn shell(command: &str) -> Command {
     cmd
 }
 
-#[cfg(unix)]
-fn kill_group(pid: u32, force: bool) {
-    let signal = if force { "-KILL" } else { "-TERM" };
-    let _ = crate::proc::command("kill")
-        .args([signal, "--", &format!("-{pid}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+/// `kill` / `taskkill` invocation ending the process group led by `pid`.
+fn kill_command(pid: u32, force: bool) -> (&'static str, Vec<String>) {
+    if cfg!(windows) {
+        ("taskkill", vec!["/T".into(), "/F".into(), "/PID".into(), pid.to_string()])
+    } else {
+        ("kill", vec![if force { "-KILL" } else { "-TERM" }.into(), "--".into(), format!("-{pid}")])
+    }
 }
 
-#[cfg(windows)]
-fn kill_group(pid: u32, _force: bool) {
-    let _ = crate::proc::command("taskkill")
-        .args(["/T", "/F", "/PID", &pid.to_string()])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+/// For callers that cannot wait (daemon start, the desktop's unbind).
+fn kill_group(pid: u32, force: bool) {
+    let (program, args) = kill_command(pid, force);
+    let _ = crate::proc::command(program).args(args).stdout(Stdio::null()).stderr(Stdio::null()).status();
+}
+
+async fn kill_group_async(pid: u32, force: bool) {
+    let (program, args) = kill_command(pid, force);
+    let _ = crate::proc::async_command(program).args(args).stdout(Stdio::null()).stderr(Stdio::null()).status().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn lines_are_cut_at_the_cap_and_lose_their_endings() {
+        let long = "x".repeat(LINE_MAX + 100);
+        let input = format!("a\r\n{long}\nb");
+        let mut reader = BufReader::with_capacity(1000, input.as_bytes());
+        let mut buf = Vec::new();
+        let mut got = vec![];
+        while read_line(&mut reader, &mut buf).await.unwrap() {
+            got.push(String::from_utf8(buf.clone()).unwrap());
+        }
+        assert_eq!(got, ["a".to_string(), "x".repeat(LINE_MAX), "b".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn the_log_file_rotates_past_its_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("web.log");
+        let (tx, rx) = mpsc::channel(8);
+        let writer = tokio::spawn(write_log(rx, path.clone(), tokio::fs::File::create(&path).await.unwrap()));
+        let line = "y".repeat(1 << 20);
+        for _ in 0..4 {
+            tx.send(line.clone()).await.unwrap();
+        }
+        tx.send("last".into()).await.unwrap();
+        drop(tx);
+        writer.await.unwrap();
+        assert_eq!(std::fs::metadata(path.with_extension("log.1")).unwrap().len(), 4 * ((1 << 20) + 1));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "last\n");
+    }
 }

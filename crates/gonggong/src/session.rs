@@ -506,7 +506,10 @@ impl Shared {
     /// `session/update` parsed by hand: the draft subagent / async-task updates are unknown to the schema crate.
     fn on_raw(&self, params: serde_json::Value) {
         let session = params.get("sessionId").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-        if let Some(Ok(ext)) = params.get("update").map(ExtUpdate::deserialize) {
+        if let Some(update) = params.get("update")
+            && update.get("sessionUpdate").and_then(|t| t.as_str()).is_some_and(ExtUpdate::is_ext)
+            && let Ok(ext) = ExtUpdate::deserialize(update)
+        {
             return self.on_ext(&session, ext);
         }
         match serde_json::from_value::<SessionNotification>(params) {
@@ -1064,7 +1067,7 @@ impl Conversation<'_> {
             }
         });
         let image = self.init.agent_capabilities.prompt_capabilities.image;
-        let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image);
+        let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image).await;
         let mut spent: Option<AcpUsage> = None;
         // 打断并追加 cancels a prompt and continues the same turn with the appended text (spec §8.9).
         let result = loop {
@@ -1076,7 +1079,7 @@ impl Conversation<'_> {
             });
             match self.shared.take_append() {
                 Some((text, files)) if result.is_ok() => {
-                    blocks = attachments::prompt_blocks(&req.cwd, text, &files, image);
+                    blocks = attachments::prompt_blocks(&req.cwd, text, &files, image).await;
                 }
                 _ => break result,
             }

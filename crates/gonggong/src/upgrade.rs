@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 use tokio::sync::watch;
 
@@ -42,6 +42,13 @@ pub enum StageError {
     Other(#[from] anyhow::Error),
 }
 
+/// For builds hosted elsewhere. A read timeout rather than a total one: a slow link may take long, a stalled one must
+/// fail, or the version would stay in flight and never be offered again.
+static EXTERNAL: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
+    let builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(15));
+    builder.read_timeout(Duration::from_secs(60)).build().map_err(|e| format!("{e:#}"))
+});
+
 /// Downloads a published build and verifies it. Server-relative URLs (`/downloads/...`) resolve against `server` and
 /// go through its (pinned) client `http`; builds hosted elsewhere use the system trust store. Either way the sha256
 /// decides.
@@ -54,7 +61,7 @@ pub async fn download(
     let (url, http) = if url.starts_with('/') {
         (format!("{}{url}", server.trim_end_matches('/')), http.clone())
     } else {
-        (url.to_string(), reqwest::Client::new())
+        (url.to_string(), EXTERNAL.clone().map_err(anyhow::Error::msg)?)
     };
     let bytes = async {
         let res = http.get(&url).send().await?.error_for_status()?;

@@ -338,3 +338,20 @@ async fn a_reset_stops_reading_the_workspace_file() {
     }
     assert!(got < size, "{got}");
 }
+
+#[tokio::test(start_paused = true)]
+async fn pings_the_server_and_closes_a_link_that_stops_answering() {
+    use tokio_tungstenite::tungstenite::protocol::Role;
+    let (daemon, server) = tokio::io::duplex(1 << 16);
+    let daemon = WebSocketStream::from_raw_socket(daemon, Role::Client, None).await;
+    let mut server = WebSocketStream::from_raw_socket(server, Role::Server, None).await;
+    let served = tokio::spawn(tunnel::serve(daemon, allow(&[]), std::env::temp_dir()));
+
+    // Read (and so answer) the first ping: the link stays up past its interval.
+    let ping = tokio::time::timeout(Duration::from_secs(60), server.next()).await.unwrap().unwrap().unwrap();
+    assert!(matches!(ping, Message::Ping(_)), "{ping:?}");
+    server.flush().await.unwrap();
+    // Then go silent: no pong, so the daemon gives the connection up instead of waiting forever.
+    let ended = tokio::time::timeout(Duration::from_secs(120), served).await.unwrap().unwrap();
+    assert!(ended.is_err(), "a silent tunnel ends with an error");
+}

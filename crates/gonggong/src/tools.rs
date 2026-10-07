@@ -207,7 +207,9 @@ pub fn node(home: &Path) -> Option<Node> {
 
 /// `node`, installing the managed Node first when there is none.
 pub async fn ensure_node(home: &Path, progress: Progress<'_>) -> Result<Node> {
-    if let Some(node) = node(home) {
+    let h = home.to_path_buf();
+    // Probing runs `node --version`: keep it off the async workers.
+    if let Some(node) = tokio::task::spawn_blocking(move || node(&h)).await? {
         return Ok(node);
     }
     let _busy = busy(home)?;
@@ -349,8 +351,13 @@ fn forward(pipe: impl AsyncRead + Unpin + Send + 'static, tx: tokio::sync::mpsc:
     });
 }
 
+/// Shared, so its connection pool is; a download that stops arriving fails instead of hanging the install.
 fn http() -> Result<reqwest::Client> {
-    Ok(reqwest::Client::builder().connect_timeout(Duration::from_secs(10)).build()?)
+    static HTTP: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
+        let builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(10));
+        builder.read_timeout(Duration::from_secs(30)).build().map_err(|e| format!("{e:#}"))
+    });
+    HTTP.clone().map_err(anyhow::Error::msg)
 }
 
 async fn get_text(http: &reqwest::Client, url: &str) -> Result<String> {
