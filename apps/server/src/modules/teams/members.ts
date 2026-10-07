@@ -16,6 +16,7 @@ import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import type { SessionUser } from '../auth/session.js'
 import { publishBotRemoved } from '../bots/dto.js'
+import { unbindChat } from '../feishu/mirror.js'
 import { publishGroup, removeMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
@@ -113,7 +114,10 @@ export async function archiveTeam(ctx: Ctx, team: typeof teams.$inferSelect, by:
     .select({ id: groups.id })
     .from(groups)
     .where(and(eq(groups.teamId, team.id), isNull(groups.archivedAt)))
-  for (const g of live) await stopRuns(ctx, { groupId: g.id }, by)
+  for (const g of live) {
+    await unbindChat(ctx, g.id)
+    await stopRuns(ctx, { groupId: g.id }, by)
+  }
   await audit(ctx, {
     category: 'admin',
     actorUserId: by.id,

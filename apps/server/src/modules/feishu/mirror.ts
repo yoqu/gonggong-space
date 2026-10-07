@@ -139,6 +139,16 @@ export async function boundChat(db: Pick<Db, 'select'>, groupId: string) {
   return row
 }
 
+/** Ends the group's binding (history kept); runs already mirrored keep their cards up to date until they end. */
+export async function unbindChat(ctx: Ctx, groupId: string) {
+  const [row] = await ctx.db
+    .update(feishuChats)
+    .set({ unboundAt: ctx.now() })
+    .where(and(eq(feishuChats.groupId, groupId), isNull(feishuChats.unboundAt)))
+    .returning()
+  return row
+}
+
 /** The 共工 account behind a Feishu user (by union_id), if linked and enabled. */
 export async function userOfFeishu(ctx: Ctx, unionId: string | undefined) {
   if (!unionId) return undefined
@@ -244,9 +254,18 @@ export async function mirrorEdit(
   })
 }
 
-/** Called on every run change (publishRun): mirrors its card, question and approval cards to the bound chat. */
+/**
+ * Called on every run change (publishRun): mirrors its card, question and approval cards to the chat its trigger
+ * is in. Keyed on the trigger rather than the binding, so a run live at unbind still ends properly in Feishu.
+ */
 export async function mirrorRun(ctx: Ctx, run: Row) {
-  if (!(await boundChat(ctx.db, run.groupId))) return
+  const [trigger] = await ctx.db
+    .select({ id: feishuMessageLinks.id })
+    .from(feishuMessageLinks)
+    .where(
+      and(eq(feishuMessageLinks.messageId, run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
+    )
+  if (!trigger) return
   // Registered before any Feishu call so text streamed meanwhile is kept for the card.
   const { streams } = state(ctx)
   if (!TERMINAL_RUN_STATUS.includes(run.status as RunStatus) && !streams.has(run.id))

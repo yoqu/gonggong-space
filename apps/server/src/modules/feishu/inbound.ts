@@ -25,6 +25,7 @@ import { sysParams } from '../admin/params.js'
 import { decideApproval } from '../approvals/service.js'
 import { dataDir, safeName } from '../attachments/service.js'
 import { activeBots } from '../groups/service.js'
+import { resolveQuote } from '../messages/quote.js'
 import { recallMessage } from '../messages/recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
 import { answerQuestions } from '../questions/service.js'
@@ -134,6 +135,25 @@ async function fetchFiles(
   return stored
 }
 
+/** A Feishu reply to a mirrored message or a run's card quotes it, as a web quote would. */
+async function quoteOf(ctx: Ctx, groupId: string, parentId: string | undefined) {
+  const link = parentId ? await linkOf(ctx, parentId) : undefined
+  const ref =
+    link?.kind === 'message' && link.messageId
+      ? { kind: 'message' as const, id: link.messageId }
+      : link?.runId
+        ? { kind: 'run' as const, id: link.runId }
+        : undefined
+  if (!ref) return undefined
+  return resolveQuote(ctx, groupId, ref).then(
+    (q) => q.quote,
+    (err) => {
+      if (!(err instanceof HttpError)) throw err
+      return undefined
+    },
+  )
+}
+
 const reply = (ctx: Ctx, app: FeishuAppRow, ev: Receive, card: object) =>
   ctx.feishu.api.send(
     credsOf(app),
@@ -187,6 +207,7 @@ async function onReceive(ctx: Ctx, app: FeishuAppRow, ev: Receive) {
   const uploads = known
     ? []
     : await fetchFiles(ctx, app, msg.message_id, files, { uploaderId: user.id, groupId })
+  const quote = known ? undefined : await quoteOf(ctx, groupId, msg.parent_id)
   // Every @-ed bot's app delivers the same message: the first stores it, the others add their bot to it.
   const { row, created } = await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`feishu:${msg.message_id}`}))`)
@@ -208,6 +229,7 @@ async function onReceive(ctx: Ctx, app: FeishuAppRow, ev: Receive) {
     const meta: MessageMeta = {
       mentions: [botId],
       ...(uploads.length && { attachments: uploads.map((a) => ({ ...a, messageId: id })) }),
+      ...(quote && { quote }),
     }
     const [m] = (await tx
       .insert(messages)

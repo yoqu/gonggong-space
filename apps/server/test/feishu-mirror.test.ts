@@ -1,20 +1,25 @@
 import type { GroupFeishuView, MessageDto } from '@gonggong/protocol'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approvals,
+  feishuChats,
   feishuIdentities,
   feishuMessageLinks,
+  groupMembers,
   messages,
   questionSets,
   runs,
   systemParams,
+  teams,
 } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
+import { saveSysParams } from '../src/modules/admin/params.js'
 import { onApprovalRequest } from '../src/modules/approvals/service.js'
 import { feishuIdle, mirrorDelta } from '../src/modules/feishu/mirror.js'
 import { onQuestionAsk } from '../src/modules/questions/service.js'
 import { publishRun } from '../src/modules/runs/dto.js'
+import { archiveTeam } from '../src/modules/teams/members.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import type { FakeUser } from './support/feishu.js'
 import { client } from './support/http.js'
@@ -47,9 +52,10 @@ async function setup(o: { bind?: boolean } = {}) {
     200,
   )
   await t.db.insert(systemParams).values({ key: 'publicUrl', value: BASE })
+  const ownerFs = await link(owner.id)
+  t.feishu.members.set(CHAT, [ownerFs.unionId])
   if (o.bind !== false)
     expect((await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })).status).toBe(200)
-  const ownerFs = await link(owner.id)
   return { owner, member, bot, group, machine, ownerHttp, ownerFs }
 }
 
@@ -110,6 +116,41 @@ describe('群设置 · 飞书 binding', () => {
     expect((await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })).status).toBe(409)
   })
 
+  it('refuses a binder without Feishu or outside the chat', async () => {
+    const { group, member } = await setup({ bind: false })
+    await t.db.update(groupMembers).set({ isAdmin: true }).where(eq(groupMembers.userId, member.id))
+    const memberHttp = client(t, await t.seed.cookie(member.id))
+    const unlinked = await memberHttp.put<{ message: string }>(`/api/groups/${group.id}/feishu`, {
+      chatId: CHAT,
+    })
+    expect(unlinked.status).toBe(400)
+    expect(unlinked.body.message).toContain('请先在个人设置中绑定飞书账号')
+    await link(member.id)
+    const outside = await memberHttp.put<{ message: string }>(`/api/groups/${group.id}/feishu`, {
+      chatId: CHAT,
+    })
+    expect(outside.status).toBe(400)
+    expect(outside.body.message).toContain('你不在该飞书群中')
+  })
+
+  it('dissolving the group frees the chat; a Feishu @ no longer runs anything', async () => {
+    const { ownerHttp, group, ownerFs, owner } = await setup()
+    expect((await ownerHttp.post(`/api/groups/${group.id}/dissolve`)).status).toBe(200)
+    await t.feishu.message(BOT_APP, { chatId: CHAT, from: ownerFs, text: 'hi' }).done
+    expect(await t.db.select().from(messages).where(eq(messages.groupId, group.id))).toEqual([])
+    expect(JSON.stringify(lastSent()?.content)).toContain('还没有绑定共工群')
+    const other = await t.seed.group({ createdBy: owner.id })
+    expect((await ownerHttp.put(`/api/groups/${other.id}/feishu`, { chatId: CHAT })).status).toBe(200)
+  })
+
+  it('archiving the team unbinds its groups', async () => {
+    const { group, owner } = await setup()
+    const [team] = await t.db.select().from(teams).where(eq(teams.id, group.teamId))
+    await saveSysParams(t.ctx, { singleTeamMode: false }, owner.id)
+    await archiveTeam(t.ctx, team!, owner)
+    expect(await t.db.select().from(feishuChats).where(isNull(feishuChats.unboundAt))).toEqual([])
+  })
+
   it('adds a bot app missing from the chat through the main app', async () => {
     const { ownerHttp, group, bot } = await setup()
     t.feishu.chats.set(BOT_APP, [])
@@ -159,6 +200,36 @@ describe('飞书 → 共工', () => {
       msgType: 'interactive',
       replyTo: messageId,
     })
+  })
+
+  it('an @ replying to a run card or a mirrored message quotes it', async () => {
+    const { ownerHttp, group, ownerFs } = await setup()
+    const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 跑',
+      clientId: 'client-1',
+    })
+    await feishuIdle(t.ctx)
+    const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
+    const mirrored = t.feishu.sent.find((s) => s.msgType === 'text')!.messageId
+    const card = t.feishu.sent.find((s) => s.msgType === 'interactive')!.messageId
+    const at = [{ key: '@_user_1', name: 'codex', openId: 'ou_bot' }]
+    const reply = (parentId: string) =>
+      t.feishu.message(BOT_APP, {
+        chatId: CHAT,
+        from: ownerFs,
+        text: '@_user_1 继续',
+        mentions: at,
+        parentId,
+      }).done
+    await reply(card)
+    await reply(mirrored)
+    const quotes = (await t.db.select().from(messages).where(eq(messages.groupId, group.id)))
+      .filter((m) => m.id !== sent.body.id)
+      .map((m) => (m.meta as { quote?: { kind: string; id: string } }).quote)
+    expect(quotes).toEqual([
+      expect.objectContaining({ kind: 'run', id: run!.id }),
+      expect.objectContaining({ kind: 'message', id: sent.body.id }),
+    ])
   })
 
   it('reminds an unlinked Feishu user to verify, without storing or running anything', async () => {
@@ -458,6 +529,20 @@ describe('question and approval cards', () => {
     await feishuIdle(t.ctx)
     return { ...s, run: run! }
   }
+
+  it('a run live when the chat is unbound still gets its final card and reactions', async () => {
+    const { run, ownerHttp, group } = await liveRun()
+    expect((await ownerHttp.del(`/api/groups/${group.id}/feishu`)).status).toBe(204)
+    await setRun(run.id, { status: 'completed' })
+    const cardId = t.feishu.sent
+      .map((s) => (s.content.data as { card_id?: string } | undefined)?.card_id)
+      .find(Boolean)!
+    expect(t.feishu.cards.get(cardId)!.streaming).toBe(false)
+    expect(t.feishu.reactions.map((r) => [r.emoji, r.removed])).toEqual([
+      ['Typing', true],
+      ['DONE', false],
+    ])
+  })
 
   it('questions arrive as a form; the trigger user answers from Feishu', async () => {
     const { machine, run, ownerFs } = await liveRun()

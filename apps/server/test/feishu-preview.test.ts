@@ -35,7 +35,6 @@ async function setup(o: { bind?: boolean } = {}) {
   await adminHttp.put('/api/admin/feishu', { appId: MAIN, appSecret: 's' })
   await ownerHttp.put(`/api/bots/${bot.id}/feishu`, { appId: BOT_APP, appSecret: 's' })
   await t.db.insert(systemParams).values({ key: 'publicUrl', value: BASE })
-  if (o.bind !== false) await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
   const fu = t.feishu.user()
   const tokens = await t.feishu.api.exchangeCode({ appId: MAIN, appSecret: 's' }, t.feishu.authorize(fu), '')
   await t.db.insert(feishuIdentities).values({
@@ -46,6 +45,8 @@ async function setup(o: { bind?: boolean } = {}) {
     accessToken: seal(tokens.accessToken),
     expiresAt: tokens.expiresAt,
   })
+  t.feishu.members.set(CHAT, [fu.unionId])
+  if (o.bind !== false) await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
   const sent = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
     body: '@codex 起个预览',
     clientId: 'client-1',

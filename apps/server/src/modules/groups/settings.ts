@@ -7,6 +7,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
+import { unbindChat } from '../feishu/mirror.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
 import { groupParams } from './params.js'
@@ -203,6 +204,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       await assertNotDemo(ctx, me)
       await ctx.db.update(groups).set({ archivedAt: ctx.now() }).where(eq(groups.id, group.id))
+      await unbindChat(ctx, group.id)
       await stopRuns(ctx, { groupId: group.id }, me)
       await audit(ctx, {
         category: 'admin',

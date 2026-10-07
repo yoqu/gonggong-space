@@ -2,7 +2,7 @@ import { BindFeishuChatReq, type GroupFeishuView } from '@gonggong/protocol'
 import { eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { feishuChats } from '../../db/schema.js'
+import { feishuChats, feishuIdentities } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
@@ -10,7 +10,7 @@ import { activeBots, requireAdmin } from '../groups/service.js'
 import { botApp, mainApp } from './apps.js'
 import { FeishuError } from './client.js'
 import { credsOf } from './gateway.js'
-import { boundChat } from './mirror.js'
+import { boundChat, unbindChat } from './mirror.js'
 
 type Params = { Params: { id: string } }
 
@@ -87,6 +87,14 @@ export function feishuChatRoutes(ctx: Ctx) {
       if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已绑定飞书群，请先解绑')
       const chat = (await feishu(ctx.feishu.api.listChats(credsOf(main)))).find((c) => c.chatId === chatId)
       if (!chat) return fail('invalid', '主应用不在该飞书群中')
+      // The main app is shared by every team: only someone in the Feishu chat may tie it to their group.
+      const [identity] = await ctx.db
+        .select({ unionId: feishuIdentities.unionId })
+        .from(feishuIdentities)
+        .where(eq(feishuIdentities.userId, user.id))
+      if (!identity) return fail('invalid', '请先在个人设置中绑定飞书账号')
+      if (!(await feishu(ctx.feishu.api.chatMembers(credsOf(main), chatId))).includes(identity.unionId))
+        return fail('invalid', '你不在该飞书群中，不能绑定')
       const [row] = await ctx.db
         .insert(feishuChats)
         .values({ groupId: group.id, chatId, name: chat.name, boundBy: user.id, createdAt: ctx.now() })
@@ -106,9 +114,8 @@ export function feishuChatRoutes(ctx: Ctx) {
 
     app.delete<Params>('/api/groups/:id/feishu', async (req, reply) => {
       const { user, group } = await admin(req, req.params.id)
-      const chat = await boundChat(ctx.db, group.id)
-      if (chat) {
-        await ctx.db.update(feishuChats).set({ unboundAt: ctx.now() }).where(eq(feishuChats.id, chat.id))
+      const chat = await unbindChat(ctx, group.id)
+      if (chat)
         await audit(ctx, {
           category: 'admin',
           actorUserId: user.id,
@@ -117,7 +124,6 @@ export function feishuChatRoutes(ctx: Ctx) {
           action: 'feishu.chat.unbind',
           detail: { chatId: chat.chatId },
         })
-      }
       return reply.status(204).send()
     })
 

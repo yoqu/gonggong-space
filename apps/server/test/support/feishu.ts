@@ -68,6 +68,8 @@ export class FakeFeishu {
   cardkitError: string | null = null
   /** Chats each app's bot is in. */
   readonly chats = new Map<string, FeishuChat[]>()
+  /** Union ids of the users in each chat (bots excluded, as Feishu does). */
+  readonly members = new Map<string, string[]>()
   /** Chat history by chat id, oldest first (read by `listMessages`). */
   readonly history = new Map<string, FeishuHistoryItem[]>()
   /** Attachments by file key. */
@@ -370,6 +372,10 @@ export class FakeFeishu {
     listChats: async (app) => {
       this.check(app.appId)
       return this.chats.get(app.appId) ?? []
+    },
+    chatMembers: async (app, chatId) => {
+      this.check(app.appId)
+      return this.members.get(chatId) ?? []
     },
     listMessages: async (app, chatId, userToken, { before, limit }) => {
       this.check(app.appId)

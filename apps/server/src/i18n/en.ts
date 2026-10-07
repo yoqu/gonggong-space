@@ -441,6 +441,8 @@ export const en = {
   '该群已绑定飞书群，请先解绑': 'This group is already bound to a Feishu chat, unbind it first',
   主应用不在该飞书群中: "The main app isn't in that Feishu chat",
   该飞书群已绑定其他群: 'That Feishu chat is already bound to another group',
+  请先在个人设置中绑定飞书账号: 'Link your Feishu account in your settings first',
+  '你不在该飞书群中，不能绑定': "You aren't in that Feishu chat, so you can't bind it",
   该群尚未绑定飞书群: "This group isn't bound to a Feishu chat yet",
   '该 Bot 没有绑定飞书应用': "This Bot doesn't have a Feishu app",
   '这个飞书群还没有绑定共工群，请群管理员在共工的群设置中绑定。':

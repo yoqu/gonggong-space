@@ -165,6 +165,8 @@ export interface FeishuApi {
   userInfo(app: FeishuCreds, userToken: string): Promise<FeishuUser>
   /** Chats the app's bot is in. */
   listChats(app: FeishuCreds): Promise<FeishuChat[]>
+  /** Union ids of the chat's users (Feishu leaves bots out); the calling app must be in it. */
+  chatMembers(app: FeishuCreds, chatId: string): Promise<string[]>
   /** Recent messages of a chat read as the user, oldest first, ending before `before` when given. */
   listMessages(
     app: FeishuCreds,
@@ -395,6 +397,21 @@ export function larkApi(): FeishuApi {
         }))
           for (const c of page?.items ?? [])
             if (c.chat_id) out.push({ chatId: c.chat_id, name: c.name ?? '', avatar: c.avatar ?? null })
+      } catch (err) {
+        if (err instanceof FeishuError) throw err
+        throw new FeishuError(0, (err as Error).message)
+      }
+      return out
+    },
+
+    async chatMembers(app, chatId) {
+      const out: string[] = []
+      try {
+        for await (const page of await client(app).im.v1.chatMembers.getWithIterator({
+          path: { chat_id: chatId },
+          params: { member_id_type: 'union_id', page_size: 100 },
+        }))
+          for (const m of page?.items ?? []) if (m.member_id) out.push(m.member_id)
       } catch (err) {
         if (err instanceof FeishuError) throw err
         throw new FeishuError(0, (err as Error).message)
