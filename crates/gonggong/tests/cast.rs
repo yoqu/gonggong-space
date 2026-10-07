@@ -16,7 +16,7 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 fn config(server: String) -> Config {
     gonggong::i18n::set_locale(gonggong::i18n::Locale::Zh);
-    Config { server, token: "mt-1".into(), machine_id: "m1".into(), owner_name: "王磊".into(), cert_sha256: None }
+    Config { server, token: "mt-1".into(), machine_id: "m1".into(), owner_name: "王磊".into() }
 }
 
 type Route = Box<dyn Fn(&str) -> (u16, Vec<u8>) + Send + Sync>;

@@ -56,7 +56,7 @@ pub struct Client {
 impl Client {
     pub fn new(config: &Config) -> Result<Self> {
         Ok(Self {
-            http: crate::tls::client(config)?,
+            http: crate::tls::http()?,
             base: config.server.trim_end_matches('/').to_owned(),
             token: config.token.clone(),
         })

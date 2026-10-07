@@ -162,7 +162,7 @@ impl Upgrader {
             return Ok(None);
         }
         let exe = std::env::current_exe()?;
-        let http = crate::tls::client(config)?;
+        let http = crate::tls::http()?;
         Ok(Some(Upgrader::new(home, config.server.clone(), http, exe, std::env::args_os().skip(1).collect())))
     }
 

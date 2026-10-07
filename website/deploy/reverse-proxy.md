@@ -217,8 +217,8 @@ acme.sh --install-cert -d example-preview.com \
 - 凭据会保存在 acme.sh 配置里，安装时自动加入定时任务，到期前自动续期并执行 `--reloadcmd`。
 - 主站证书用同样方法签发（`-d gg.example.com`，也可用 `--nginx` 走 HTTP-01）。
 
-::: warning 主站证书续期会影响 daemon
-daemon 只连主站，并固定主站证书的指纹，**主站**证书续期后成员需要重新绑定；预览域名证书续期不影响 daemon。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
+::: tip 证书续期不影响 daemon
+daemon 只连主站且不固定证书，主站和预览域名证书续期后都不需要重新绑定。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
 :::
 
 也可以用 Caddy 代替 Nginx：它能自动申请和续期证书，泛域名证书需要使用带对应 DNS 服务商插件的 Caddy 构建。

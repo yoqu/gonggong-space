@@ -6,6 +6,8 @@
 
 帮助手册：[中文](https://yoqu.github.io/gonggong-space/) · [English](https://yoqu.github.io/gonggong-space/en/)
 
+演示环境：[http://gg.uyoqu.com](http://gg.uyoqu.com/)（默认环境，注册账号即可直接体验，无需自己部署）
+
 <p align="center"><b>在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工，做完的网页直接在群里打开。</b></p>
 
 <p align="center">
@@ -92,13 +94,15 @@ flowchart LR
 
 - Bot 默认在隔离的托管工作区（`~/.gonggong/workspaces/`）里干活，权限档位与命令审批只有 Bot 主人能改；
 - 触发范围可设为「仅本人 / 指定名单 / 任何群成员」；
-- daemon 连接非本机服务器必须走 HTTPS，支持证书指纹固定；所有操作留有审计记录。
+- 服务器可启用 HTTPS 加密传输（daemon 接受自签证书，绑定即用）；所有操作留有审计记录。
 
 **建议**：Bot 跑在专用机器或虚拟机上；如果用日常工作机，保持「工作区写入」档位，不要对群开放「完全访问」。详见 [安全说明](https://yoqu.github.io/gonggong-space/deploy/security)。
 
 ## 快速开始
 
-**1. 起服务**（Docker）
+**0. 直接用演示环境**：打开默认演示环境 [http://gg.uyoqu.com](http://gg.uyoqu.com/) 注册账号，跳过第 1 步，从第 2 步绑定机器开始（`gg login --server http://gg.uyoqu.com --code <绑定码>`）。演示环境仅供体验，请勿存放敏感代码和数据。
+
+**1. 起服务**（Docker，自己部署）
 
 ```bash
 git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space

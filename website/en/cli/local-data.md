@@ -8,7 +8,7 @@ The `gg` command line and the desktop app share the same data directory, `~/.gon
 
 ```text
 ~/.gonggong/
-├── config.json          binding info: server address, machine credential (token), owner, pinned certificate fingerprint
+├── config.json          binding info: server address, machine credential (token), owner
 ├── settings.json        local preferences: auto-upgrade switch, mirror (kept after unbinding)
 ├── local.json           manually specified Agent CLI paths
 ├── providers.json       local model providers and API keys, machine default, per-Bot overrides
@@ -89,11 +89,6 @@ The bundle does not include `providers.json` or workspace contents.
 | `GONGGONG_NO_AUTO_UPGRADE` | When set to `1`, `gg run` doesn't auto-upgrade; same as turning off 「自动升级」 (Auto-upgrade) in settings |
 | `GONGGONG_BROWSER` | Path to the browser executable used to generate preview card screenshots. When unset, Chrome / Edge / Chromium on this machine is found automatically |
 | `GONGGONG_MACHINE_ID` | Overrides the hardware ID used to identify the machine. Use it only when running multiple isolated instances on one host (each with its own `GONGGONG_HOME`) |
-| `GONGGONG_INSECURE_DEV` | When set to `1`, turns off server certificate pinning, so the connection can be impersonated by a man-in-the-middle. Use only for local development |
-
-::: danger
-Never set `GONGGONG_INSECURE_DEV=1` in production. When it's set, the 「服务器连接」 (Server connection) item in `gg doctor` shows 「证书固定已关闭」 ("certificate pinning disabled").
-:::
 
 Examples:
 

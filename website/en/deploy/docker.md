@@ -23,8 +23,8 @@ The first start builds the images (a few minutes). Then open `GONGGONG_PUBLIC_UR
 On first start the server generates a self-signed certificate in the data volume (covering the host name of `GONGGONG_PUBLIC_URL`, `localhost` and `127.0.0.1`), shared by Nginx and the server:
 
 - Browsers warn that the certificate is untrusted; confirm to continue.
-- The command copied from 「绑定新机器」 (Bind new machine) carries the certificate fingerprint, and the daemon pins it, so the connection is still secure.
-- After changing the host name in `GONGGONG_PUBLIC_URL`, delete `tls/` in the data volume and restart to regenerate it; members then need to run `gg login` again.
+- The daemon accepts the self-signed certificate as is, so members bind with the command copied from 「绑定新机器」 (Bind new machine) without extra steps. The connection is encrypted, but the daemon doesn't verify the certificate; see [Security model](/en/deploy/security).
+- After changing the host name in `GONGGONG_PUBLIC_URL`, delete `tls/` in the data volume and restart to regenerate it. Bound machines don't need to rebind for the new certificate.
 
 For production, use a trusted certificate or follow [Deploy from Source](/en/deploy/install); see [HTTPS & Certificates](/en/deploy/https).
 

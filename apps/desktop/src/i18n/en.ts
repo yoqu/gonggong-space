@@ -28,8 +28,6 @@ export const en = {
   '粘贴网页上复制的接入链接或 gg login 命令': 'Paste the join link or gg login command copied from the Web',
   服务器: 'Server',
   绑定码: 'Binding code',
-  证书: 'Certificate',
-  已固定证书指纹: 'Certificate fingerprint pinned',
   '请确认这是你们团队的服务器，再点「绑定」。': 'Make sure this is your team\'s server, then click "Bind".',
   '绑定中…': 'Binding…',
   绑定: 'Bind',

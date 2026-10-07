@@ -8,7 +8,7 @@
 
 ```text
 ~/.gonggong/
-├── config.json          绑定信息：服务器地址、机器凭据（token）、归属人、固定的证书指纹
+├── config.json          绑定信息：服务器地址、机器凭据（token）、归属人
 ├── settings.json        本机偏好：自动升级开关、镜像源（解除绑定后保留）
 ├── local.json           手动指定的 Agent CLI 路径
 ├── providers.json       本机模型供应商与 API Key、本机默认、Bot 单独设置
@@ -89,11 +89,6 @@ Bot 运行时如果要覆盖工作区里未提交的本地修改，或者一轮�
 | `GONGGONG_NO_AUTO_UPGRADE` | 设为 `1` 时 `gg run` 不自动升级，效果同在设置里关闭「自动升级」 |
 | `GONGGONG_BROWSER` | 生成预览卡片截图用的浏览器可执行文件路径。不设置时自动查找本机的 Chrome / Edge / Chromium |
 | `GONGGONG_MACHINE_ID` | 覆盖用于识别机器的硬件 ID。只在一台主机上运行多份相互隔离的实例（各自一个 `GONGGONG_HOME`）时使用 |
-| `GONGGONG_INSECURE_DEV` | 设为 `1` 时关闭服务器证书固定，连接可被中间人冒充，只可用于本地开发 |
-
-::: danger
-不要在正式环境设置 `GONGGONG_INSECURE_DEV=1`。设置后 `gg doctor` 的「服务器连接」会显示「证书固定已关闭」。
-:::
 
 示例：
 

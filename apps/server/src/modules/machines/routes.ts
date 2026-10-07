@@ -45,10 +45,9 @@ const publicOrigin = (req: FastifyRequest) => {
   return origin ?? `${req.protocol}://${req.host}`
 }
 
-/** Plan J1: `gonggong://bind?server=…&code=…[&fp=sha256:…]`. */
-function bindLink(server: string, code: string, fingerprint: string | null) {
-  const fp = fingerprint ? `&fp=${encodeURIComponent(fingerprint)}` : ''
-  return `gonggong://bind?server=${encodeURIComponent(server)}&code=${code}${fp}`
+/** Plan J1: `gonggong://bind?server=…&code=…`. */
+function bindLink(server: string, code: string) {
+  return `gonggong://bind?server=${encodeURIComponent(server)}&code=${code}`
 }
 
 export function machineRoutes(ctx: Ctx) {
@@ -105,9 +104,8 @@ export function machineRoutes(ctx: Ctx) {
           .onConflictDoNothing()
           .returning()
         if (row) {
-          const { fingerprint } = ctx.config
-          const link = bindLink(publicOrigin(req), row.code, fingerprint)
-          return { code: row.code, expiresAt: row.expiresAt.toISOString(), fingerprint, link }
+          const link = bindLink(publicOrigin(req), row.code)
+          return { code: row.code, expiresAt: row.expiresAt.toISOString(), link }
         }
       }
     })

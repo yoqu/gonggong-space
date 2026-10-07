@@ -24,9 +24,8 @@ This page lists common Gonggong Space terms by topic. Because the product UI is 
 | 群管理员 | group admin | group admin | Can manage a group's settings, members, and Bots |
 | 机器 | machine | machine | A machine with the daemon installed and bound to an account |
 | 绑定 | bind | bind / login | Assigning a machine to an account; `gg login` |
-| 接入链接 | connect link | bind link | A one-time link of the form `gonggong://bind?…` containing the server URL, bind code, and certificate fingerprint |
+| 接入链接 | connect link | bind link | A one-time link of the form `gonggong://bind?server=…&code=…` containing the server URL and bind code |
 | 绑定码 | bind code | bind code | A one-time code like `XXXX-XXXX` that expires |
-| 证书指纹 | certificate fingerprint | certificate fingerprint | The SHA-256 of the server certificate; the daemon uses it to pin the server certificate |
 | 心跳 | heartbeat | heartbeat | The periodic online signal the daemon sends to the server |
 | 吊销 | revoke | revoke | After an account is deactivated or a machine removed, the server refuses that machine's connections |
 

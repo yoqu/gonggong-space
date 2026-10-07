@@ -66,7 +66,6 @@ fn rig(server: &str) -> Rig {
             token: TOKEN.into(),
             machine_id: "mc1".into(),
             owner_name: "王磊".into(),
-            cert_sha256: None,
         }),
     });
     let (out, rx) = Outbox::channel();

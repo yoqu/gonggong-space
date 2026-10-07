@@ -57,37 +57,33 @@ Arguments:
 Options:
       --server <SERVER>
       --code <CODE>
-      --fingerprint <FINGERPRINT>  Expected server certificate SHA-256 (sha256:AB:CD:…) as published by the admin
 ```
 
 Two forms; use either one:
 
 ```bash
-# 1. Pass the connect link directly (this is what you copy from 「绑定新机器」 → 「使用命令行」 on the web)
+# 1. Pass the connect link directly (from 「复制接入链接」 on the web)
 gg login 'gonggong://bind?server=https%3A%2F%2Fgg.example.com&code=K7QM-4X2P'
 
-# 2. Pass the server and bind code separately
+# 2. Pass the server and bind code separately (this is what you copy from 「绑定新机器」 → 「使用命令行」 on the web)
 gg login --server https://gg.example.com --code K7QM-4X2P
 ```
 
 | Option | Description |
 | --- | --- |
-| `LINK` | Connect link. Mutually exclusive with `--server`, `--code`, and `--fingerprint` |
-| `--server` | Server address; must be used together with `--code`. Non-local addresses must use `https://` |
+| `LINK` | Connect link. Mutually exclusive with `--server` and `--code` |
+| `--server` | Server address; must be used together with `--code`. Either `https://` or `http://` (unencrypted); the server certificate isn't verified |
 | `--code` | Bind code in the format `XXXX-XXXX`, case-insensitive |
-| `--fingerprint` | The server certificate's SHA-256 fingerprint as published by your admin, e.g. `sha256:AB:CD:…`. When specified, a mismatched certificate fails immediately |
 
 Sample output:
 
 ```text
 绑定成功：本机已归属 王磊（wanglei-mbp）
-已固定服务器证书 sha256:AB:CD:…
-请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员
 ```
 
-This reads: "Bound successfully: this machine now belongs to 王磊 (wanglei-mbp). Server certificate sha256:AB:CD:… pinned. Compare it with the fingerprint your admin published; if it doesn't match, run gg logout immediately and contact your admin."
+This reads: "Bound successfully: this machine now belongs to 王磊 (wanglei-mbp)."
 
-- Without `--fingerprint`, the certificate the server currently presents is trusted and pinned, and the fingerprint is printed for you to check.
+- To try the public demo server, use `gg login --server http://gg.uyoqu.com --code <bind code>` with a bind code generated there.
 - If this machine was bound before (and you ran `gg logout`), the original machine record is restored, and the output says 「已恢复本机原有机器记录（…），原有 Bot 绑定保持不变」 ("restored this machine's original record (…); existing Bot bindings unchanged").
 - Bind codes are single-use and expire. If one is no longer valid, generate a new one on the web.
 
@@ -219,7 +215,7 @@ A custom mirror requires both the npm registry URL and `--node-mirror` (the dire
 Checks the server connection, Agents, git credentials, disk, and line endings; on macOS it also checks Screen Recording and Accessibility permissions.
 
 ```text
-✓ 服务器连接	WSS 正常 · 证书固定通过
+✓ 服务器连接	HTTPS 正常
 ✓ Agent	Claude Code 2.1.285 · Codex 0.156.1 可用
 - git 凭据	本机暂无托管仓库
 ✓ 磁盘	工作区 0 B · 剩余 880 GB
@@ -228,7 +224,7 @@ Checks the server connection, Agents, git credentials, disk, and line endings; o
 ✓ 辅助功能	已授权
 ```
 
-The items are server connection (WSS OK · certificate pinning passed), Agent (available), git credentials, disk (workspace usage · free space), line endings, Screen Recording, and Accessibility (已授权 granted). 本机暂无托管仓库 means "no managed repositories on this machine yet".
+The items are server connection (HTTPS OK; for an `http://` server, 「HTTP 正常（未加密）」 "HTTP OK (unencrypted)"), Agent (available), git credentials, disk (workspace usage · free space), line endings, Screen Recording, and Accessibility (已授权 granted). 本机暂无托管仓库 means "no managed repositories on this machine yet".
 
 Markers: `✓` OK, `!` warning, `✗` error, `-` skipped. If any item is an error, the exit code is 1. When not bound, 「服务器连接」 (Server connection) shows 「未绑定，请先执行 gg login」 ("not bound; run gg login first").
 

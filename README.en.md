@@ -6,6 +6,8 @@ English | [简体中文](README.md)
 
 Documentation: [English](https://yoqu.github.io/gonggong-space/en/) · [中文](https://yoqu.github.io/gonggong-space/)
 
+Demo: [http://gg.uyoqu.com](http://gg.uyoqu.com/) (the default environment — sign up and try it right away, no deployment needed)
+
 <p align="center"><b>@ a Bot in your group chat and Claude Code / Codex gets to work on a teammate's machine; open the finished web page right in the group.</b></p>
 
 <p align="center">
@@ -92,11 +94,13 @@ Letting others @ your Bot means allowing them to run an Agent on your machine. G
 
 - By default, a Bot works in an isolated managed workspace (`~/.gonggong/workspaces/`), and only the Bot owner can change its permission tier and command approvals;
 - The trigger scope can be set to "only me / a specific list / any group member";
-- The daemon must use HTTPS to connect to a non-local server, with support for certificate fingerprint pinning; every action leaves an audit log.
+- The server can enable HTTPS for encrypted transport (the daemon accepts self-signed certificates, so binding just works); every action leaves an audit log.
 
 **Recommendation**: run Bots on a dedicated machine or virtual machine. If you use your everyday workstation, keep it on the "Workspace write" tier and don't open "Full access" to the group. See [Security](https://yoqu.github.io/gonggong-space/en/deploy/security).
 
 ## Quick start
+
+**0. Use the demo**: open the default demo environment [http://gg.uyoqu.com](http://gg.uyoqu.com/), sign up, skip step 1 and start from step 2 to connect a machine (`gg login --server http://gg.uyoqu.com --code <code>`). The demo is for trying things out; don't put sensitive code or data there.
 
 **1. Start the services** (Docker)
 

@@ -79,7 +79,6 @@ export const INFO: AppInfo = {
   machine: { name: 'wanglei-mbp', os: 'macos', arch: 'aarch64' },
   ownerName: '王磊',
   server: 'https://gonggong.corp.cn',
-  certPinned: true,
   workspacesDir: '/Users/wl/.gonggong/workspaces',
   backupsDir: '/Users/wl/.gonggong/backups',
   adapters: [

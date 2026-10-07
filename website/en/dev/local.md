@@ -80,22 +80,22 @@ pnpm --filter @gonggong/desktop tauri dev
 
 ## HTTPS development
 
-The daemon only allows plain http connections to loopback addresses. To let other machines on the LAN connect, or to debug the HTTPS path, start with a certificate:
+The daemon connects over plain http to any address, so other machines on the LAN can bind without a certificate. To encrypt the connection or debug the HTTPS path, start with a certificate:
 
 ```bash
 bash scripts/dev-cert.sh        # generate a self-signed certificate (covering localhost, 127.0.0.1, and this machine's LAN IP)
 ```
 
-By default the script writes the certificate to `.gonggong-dev/tls/` and prints two things: the `GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…` environment variables, and the certificate's `sha256:` fingerprint.
+By default the script writes the certificate to `.gonggong-dev/tls/` and prints the `GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…` environment variables.
 
 ```bash
 export GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…     # paste the values printed in the previous step
 GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
 WEB_HOST=0.0.0.0 pnpm dev:web                    # the server and Web share this certificate
-./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码> --fingerprint sha256:…
+./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码>
 ```
 
-The daemon pins the server certificate's fingerprint at login and trusts only that certificate afterward. If you omit `--fingerprint`, it trusts the certificate currently presented and prints its fingerprint for you to verify. See [HTTPS and certificates](/en/deploy/https).
+The daemon accepts the self-signed certificate without verifying it, so no extra trust step is needed. See [HTTPS and certificates](/en/deploy/https).
 
 ## Testing
 

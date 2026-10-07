@@ -81,7 +81,7 @@ pub async fn run(home: &Path, config: Option<&Config>) -> Vec<Check> {
     ]
 }
 
-/// Reaches the server over the pinned transport with the machine token (the same TLS setup as the daemon WebSocket).
+/// Reaches the server with the machine token (the same transport as the daemon WebSocket).
 pub async fn server(config: Option<&Config>) -> Check {
     let Some(config) = config else {
         return check(CheckKind::Server, Status::Error, t!("未绑定，请先执行 gg login"));
@@ -89,15 +89,8 @@ pub async fn server(config: Option<&Config>) -> Check {
     let result = async { crate::bots::Client::new(config)?.list().await }.await;
     match result {
         Err(e) => check(CheckKind::Server, Status::Error, format!("{e:#}")),
-        Ok(_) if !config.server.starts_with("https:") => {
-            check(CheckKind::Server, Status::Ok, t!("HTTP 正常 · 本机回环（未加密）"))
-        }
-        Ok(_) if std::env::var(crate::tls::INSECURE_ENV).is_ok_and(|v| v == "1") => check(
-            CheckKind::Server,
-            Status::Warn,
-            t!("HTTPS 正常 · 证书固定已关闭（{env}=1）", env = crate::tls::INSECURE_ENV),
-        ),
-        Ok(_) => check(CheckKind::Server, Status::Ok, t!("WSS 正常 · 证书固定通过")),
+        Ok(_) if config.server.starts_with("https:") => check(CheckKind::Server, Status::Ok, t!("HTTPS 正常")),
+        Ok(_) => check(CheckKind::Server, Status::Ok, t!("HTTP 正常（未加密）")),
     }
 }
 
@@ -443,7 +436,6 @@ mod tests {
             token: token.into(),
             machine_id: "m1".into(),
             owner_name: "王磊".into(),
-            cert_sha256: Some("AB:CD".into()),
         };
         let checks = vec![check(CheckKind::Disk, Status::Ok, "工作区 1.8 GB · 剩余 212 GB")];
         let dest = home.path().join("diag.zip");
@@ -462,10 +454,7 @@ mod tests {
         }
         assert!(read("logs/daemon.2026-09-23.log").contains("WARN  git     https://[REDACTED]@git.corp/x"));
         let cfg: Value = serde_json::from_str(&read("config.json")).unwrap();
-        assert_eq!(
-            cfg,
-            json!({"server": "https://gonggong.corp", "machineId": "m1", "ownerName": "王磊", "certSha256": "AB:CD"})
-        );
+        assert_eq!(cfg, json!({"server": "https://gonggong.corp", "machineId": "m1", "ownerName": "王磊"}));
         let local: Value = serde_json::from_str(&read("local.json")).unwrap();
         assert_eq!(local["bots"]["b1"]["model"], "opus");
         assert!(local.get("githubToken").is_none());

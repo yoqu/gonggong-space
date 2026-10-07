@@ -9,8 +9,7 @@ const m = vi.mocked(ipc)
 
 const LINK = 'gonggong://bind?server=https%3A%2F%2Fgonggong.corp.cn&code=K7QM-4X2P'
 const COMMAND = 'gg login --server https://gonggong.corp.cn --code k7qm-4x2p'
-const PARSED: BindLink = { server: 'https://gonggong.corp.cn', code: 'K7QM-4X2P', fingerprint: null }
-const PINNED: BindLink = { ...PARSED, fingerprint: 'sha256:AB:CD' }
+const PARSED: BindLink = { server: 'https://gonggong.corp.cn', code: 'K7QM-4X2P' }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -20,7 +19,6 @@ beforeEach(() => {
   m.readClipboard.mockResolvedValue('')
   m.parseLink.mockImplementation(async (input) => {
     if (input.trim() === LINK || input.trim() === COMMAND) return PARSED
-    if (input.includes('fp=')) return PINNED
     throw '无法识别：请粘贴接入链接或 gg login 命令'
   })
 })
@@ -43,7 +41,6 @@ describe('onboarding', () => {
     paste(COMMAND)
     await screen.findByText('gonggong.corp.cn')
     expect(screen.getByText('K7QM-4X2P')).toBeTruthy()
-    expect(screen.queryByText('已固定证书指纹')).toBeNull()
     expect(m.login).not.toHaveBeenCalled()
 
     fireEvent.click(bindButton())
@@ -60,15 +57,15 @@ describe('onboarding', () => {
     expect(bindButton()).toHaveProperty('disabled', true)
   })
 
-  it('shows a pinned certificate and why binding failed', async () => {
+  it('shows why binding failed', async () => {
     m.login.mockRejectedValue('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
     const onDone = vi.fn()
     render(<Onboarding link={null} onDone={onDone} />)
-    paste(`${LINK}&fp=sha256:ab:cd`)
-    await screen.findByText('已固定证书指纹')
+    paste(LINK)
+    await screen.findByText('gonggong.corp.cn')
     fireEvent.click(bindButton())
     await screen.findByText('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
-    expect(m.login).toHaveBeenCalledWith(PINNED)
+    expect(m.login).toHaveBeenCalledWith(PARSED)
     expect(onDone).not.toHaveBeenCalled()
   })
 

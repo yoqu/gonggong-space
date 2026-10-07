@@ -76,22 +76,22 @@ pnpm --filter @gonggong/desktop tauri dev
 
 ## HTTPS 开发
 
-daemon 只允许用明文 http 连接回环地址。要让局域网里的其他机器接入，或调试 HTTPS 路径，需要带证书启动：
+daemon 用 http 或 https 都能连接任意地址。要调试 HTTPS 路径，或让局域网里的其他机器加密接入，需要带证书启动：
 
 ```bash
 bash scripts/dev-cert.sh        # 生成自签证书（含 localhost、127.0.0.1 和本机局域网 IP）
 ```
 
-脚本默认把证书写到 `.gonggong-dev/tls/`，并打印两样东西：`GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…` 环境变量，以及证书的 `sha256:` 指纹。
+脚本默认把证书写到 `.gonggong-dev/tls/`，并打印 `GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…` 环境变量。
 
 ```bash
 export GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…     # 粘贴上一步打印的值
 GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
 WEB_HOST=0.0.0.0 pnpm dev:web                    # 服务器与 Web 共用这份证书
-./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码> --fingerprint sha256:…
+./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码>
 ```
 
-daemon 在登录时固定服务器证书指纹，之后只信任这张证书。不传 `--fingerprint` 时会信任当前出示的证书并把指纹打印出来供核对。详见 [HTTPS 与证书](/deploy/https)。
+daemon 接受自签证书，不校验指纹。详见 [HTTPS 与证书](/deploy/https)。
 
 ## 测试
 

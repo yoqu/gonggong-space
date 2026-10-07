@@ -4,6 +4,10 @@
 
 整体流程：**管理员起服务 → 登录改密 → 绑定机器 → 建 Bot → 建群 → @Bot**。
 
+::: tip 直接用演示环境
+不想自己部署？默认的演示环境 [http://gg.uyoqu.com](http://gg.uyoqu.com/) 可以直接使用：打开网址注册账号，跳过第 1 步，从 [第 3 步](#bind) 绑定机器开始，绑定命令形如 `gg login --server http://gg.uyoqu.com --code K7QM-4X2P`。演示环境仅供体验，请勿存放敏感代码和数据。
+:::
+
 ::: tip 普通成员
 如果管理员已经把服务搭好，你只需要向他要「网址 + 账号 + 初始密码」，从 [第 2 步](#login) 开始。
 :::
@@ -21,8 +25,8 @@ pnpm dev:web                                      # 网页，默认 http://127.0
 
 首次启动会用 `GONGGONG_ADMIN_PASSWORD` 创建系统管理员账号 `admin`，数据库表自动创建。
 
-::: warning 其他机器要接入时
-daemon 只允许用 `https://` 连接非本机的服务器。团队其他成员的机器要接入，需要先配置证书，见 [HTTPS 与证书](/deploy/https)。完整部署步骤见 [从源码部署](/deploy/install)。
+::: tip 其他机器要接入时
+其他成员的机器可以直接用服务器地址（`http://` 或 `https://`）绑定。跨网络使用建议配置 HTTPS 加密传输，见 [HTTPS 与证书](/deploy/https)。完整部署步骤见 [从源码部署](/deploy/install)。
 :::
 
 ## 2. 登录并修改密码 {#login}
@@ -34,7 +38,7 @@ daemon 只允许用 `https://` 连接非本机的服务器。团队其他成员�
 
 管理员登录后，在左侧「管理后台」→「账号与角色」点击「新建账号…」为每位成员建账号，把网址、账号和初始密码发给他们。详见 [登录与账号](/user/login)、[账号与角色](/admin/users)。
 
-## 3. 绑定你的机器
+## 3. 绑定你的机器 {#bind}
 
 先在要跑 Bot 的机器上准备好：
 
@@ -50,7 +54,7 @@ daemon 只允许用 `https://` 连接非本机的服务器。团队其他成员�
    - 用命令行：展开「使用命令行」，点击「复制命令」，在机器终端里执行，形如：
 
    ```bash
-   gg login --server https://gg.example.com --code K7QM-4X2P --fingerprint sha256:…
+   gg login --server https://gg.example.com --code K7QM-4X2P
    ```
 
 3. 终端显示「绑定成功」后，启动 daemon（桌面端用户跳过这一步，保持 App 运行即可）：

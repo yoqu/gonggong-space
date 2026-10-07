@@ -209,14 +209,10 @@ export const CreateAdminTeamReq = z.object({ name: TeamName, ownerId: z.string()
 export const SetTeamOwnerReq = z.object({ userId: z.string() })
 
 // ── Machines ────────────────────────────────────────────────────────────────
-/**
- * `link` is the 接入链接 `gonggong://bind?server=…&code=…[&fp=sha256:…]` the desktop app opens or parses;
- * `fingerprint` is the server's TLS certificate (null without TLS).
- */
+/** `link` is the 接入链接 `gonggong://bind?server=…&code=…` the desktop app opens or parses. */
 export const BindCodeDto = z.object({
   code: z.string(),
   expiresAt: z.string(),
-  fingerprint: z.string().nullable(),
   link: z.string(),
 })
 export type BindCodeDto = z.infer<typeof BindCodeDto>

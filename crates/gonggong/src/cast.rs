@@ -355,7 +355,7 @@ struct CastToken {
 async fn cast_token(api: &Config, preview_id: &str) -> Result<CastToken, String> {
     let fetch = async {
         let url = format!("{}/api/daemon/previews/{preview_id}/cast", api.server.trim_end_matches('/'));
-        let res = crate::tls::client(api)?.post(url).bearer_auth(&api.token).send().await?;
+        let res = crate::tls::http()?.post(url).bearer_auth(&api.token).send().await?;
         anyhow::Ok(crate::bots::ok(res).await?.json::<CastToken>().await?)
     };
     fetch.await.map_err(|e| t!("无法取得推流凭据：{e}", e = format!("{e:#}")))
@@ -370,7 +370,7 @@ struct CastBuild {
 
 /// The server's published gg-cast for this platform, downloaded into `<home>/bin` once per build and verified.
 pub async fn binary(api: &Config, home: &Path) -> Result<PathBuf, String> {
-    let http = crate::tls::client(api).map_err(|e| format!("{e:#}"))?;
+    let http = crate::tls::http().map_err(|e| format!("{e:#}"))?;
     let lookup = async {
         let url = format!("{}/api/daemon/cast-build", api.server.trim_end_matches('/'));
         let res = http.get(url).bearer_auth(&api.token).send().await?;
@@ -451,7 +451,7 @@ async fn bridge(config: &Config, tcp: TcpStream) -> anyhow::Result<()> {
     if let Some(auth) = auth {
         request.headers_mut().insert("authorization", auth);
     }
-    let upstream = crate::tls::connect_url(config, request).await?;
+    let upstream = crate::tls::connect_url(request).await?;
     let (mut local_tx, mut local_rx) = local.split();
     let (mut up_tx, mut up_rx) = upstream.split();
     let up = async {
@@ -488,7 +488,6 @@ mod tests {
             token: "mt".into(),
             machine_id: "m".into(),
             owner_name: "王磊".into(),
-            cert_sha256: None,
         };
         let casts =
             Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools)
@@ -528,7 +527,6 @@ mod tests {
             token: "mt".into(),
             machine_id: "m".into(),
             owner_name: "王磊".into(),
-            cert_sha256: None,
         };
         let casts =
             Casts::new(Some(api), home.path().into(), Services::new(home.path()), Some("gg-cast".into()), devtools)

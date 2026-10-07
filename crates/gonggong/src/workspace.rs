@@ -418,14 +418,14 @@ pub struct Pair {
 
 pub async fn fetch_pairs(config: &Config) -> anyhow::Result<Vec<Pair>> {
     let url = format!("{}/api/daemon/workspaces", config.server.trim_end_matches('/'));
-    let res = crate::tls::client(config)?.get(url).bearer_auth(&config.token).send().await?;
+    let res = crate::tls::http()?.get(url).bearer_auth(&config.token).send().await?;
     Ok(crate::bots::ok(res).await?.json().await?)
 }
 
 /// 改回托管: the server treats it as `/cd @bot --reset` from the bot owner.
 pub async fn reset_cd(config: &Config, group: &str, bot: &str) -> anyhow::Result<()> {
     let url = format!("{}/api/daemon/workspaces/{group}/{bot}/reset-cd", config.server.trim_end_matches('/'));
-    let res = crate::tls::client(config)?.post(url).bearer_auth(&config.token).send().await?;
+    let res = crate::tls::http()?.post(url).bearer_auth(&config.token).send().await?;
     crate::bots::ok(res).await.map(drop)
 }
 

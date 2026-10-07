@@ -1,71 +1,28 @@
-//! Transport to the team server (spec §13, plan D18): HTTPS/WSS with the server's leaf certificate pinned by its
-//! SHA-256 instead of a CA chain, so a self-signed server certificate is as trustworthy as a public one. Plain http
-//! is accepted only for loopback servers (local dev and tests).
+//! Transport to the team server: http(s)/ws(s) to any host. Binding should just work, so https accepts whatever
+//! certificate the server presents (self-signed included) without pinning or CA checks.
 use crate::config::Config;
-use crate::t;
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
-use std::net::IpAddr;
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, LazyLock};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
 
-/// Disables pinning for bound daemons (dev only).
-pub const INSECURE_ENV: &str = "GONGGONG_INSECURE_DEV";
-
-/// `AB:CD:…`, the form `openssl x509 -noout -fingerprint -sha256` prints.
-pub fn fingerprint(der: &[u8]) -> String {
-    let digest = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, der);
-    digest.as_ref().iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(":")
-}
-
-/// Accepts `sha256:ab:cd…`, `AB:CD…` or bare hex; returns the canonical `AB:CD:…`.
-pub fn parse_fingerprint(s: &str) -> Result<String> {
-    let s = s.trim();
-    let hex: String = s
-        .get(..7)
-        .filter(|p| p.eq_ignore_ascii_case("sha256:"))
-        .map_or(s, |_| &s[7..])
-        .chars()
-        .filter(|c| *c != ':')
-        .collect();
-    if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        bail!(t!("证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）"));
-    }
-    let hex = hex.to_ascii_uppercase();
-    Ok(hex.as_bytes().chunks(2).map(|p| std::str::from_utf8(p).unwrap()).collect::<Vec<_>>().join(":"))
-}
-
-/// Accepts the leaf whose fingerprint equals `pin` (any leaf when `None`) and remembers the one it saw.
 #[derive(Debug)]
-struct PinVerifier {
-    pin: Option<String>,
-    seen: Arc<Mutex<Option<String>>>,
-    provider: Arc<CryptoProvider>,
-}
+struct AcceptAny(Arc<CryptoProvider>);
 
-impl ServerCertVerifier for PinVerifier {
+impl ServerCertVerifier for AcceptAny {
     fn verify_server_cert(
         &self,
-        end_entity: &CertificateDer<'_>,
+        _end_entity: &CertificateDer<'_>,
         _intermediates: &[CertificateDer<'_>],
         _server_name: &ServerName<'_>,
         _ocsp: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        let actual = fingerprint(end_entity);
-        *self.seen.lock().unwrap() = Some(actual.clone());
-        match &self.pin {
-            Some(pin) if *pin != actual => {
-                let msg = t!("服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}", pin = pin, actual = actual);
-                tracing::error!("{msg}");
-                Err(rustls::Error::General(msg))
-            }
-            _ => Ok(ServerCertVerified::assertion()),
-        }
+        Ok(ServerCertVerified::assertion())
     }
 
     fn verify_tls12_signature(
@@ -74,7 +31,7 @@ impl ServerCertVerifier for PinVerifier {
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        verify_tls12_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+        verify_tls12_signature(message, cert, dss, &self.0.signature_verification_algorithms)
     }
 
     fn verify_tls13_signature(
@@ -83,114 +40,49 @@ impl ServerCertVerifier for PinVerifier {
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        verify_tls13_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+        verify_tls13_signature(message, cert, dss, &self.0.signature_verification_algorithms)
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.provider.signature_verification_algorithms.supported_schemes()
+        self.0.signature_verification_algorithms.supported_schemes()
     }
 }
 
-/// TLS settings for one https server.
-pub struct Pinning {
-    config: Arc<ClientConfig>,
-    seen: Arc<Mutex<Option<String>>>,
-}
-
-impl Pinning {
-    fn new(pin: Option<String>) -> Result<Pinning> {
-        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
-        let seen = Arc::new(Mutex::new(None));
-        let verifier = PinVerifier { pin, seen: seen.clone(), provider: provider.clone() };
-        let config = ClientConfig::builder_with_provider(provider)
-            .with_safe_default_protocol_versions()?
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(verifier))
-            .with_no_client_auth();
-        Ok(Pinning { config: Arc::new(config), seen })
-    }
-
-    /// Fingerprint of the certificate the server presented on the last handshake.
-    pub fn seen(&self) -> Option<String> {
-        self.seen.lock().unwrap().clone()
-    }
-}
-
-/// `Some` for https servers (pinned to `pin`, or trusting on first use when `None`); `None` for loopback http.
-pub fn pinning(server: &str, pin: Option<String>) -> Result<Option<Pinning>> {
-    let url = reqwest::Url::parse(server).with_context(|| t!("服务器地址无效：{server}", server = server))?;
-    match url.scheme() {
-        "https" => Ok(Some(Pinning::new(pin)?)),
-        "http" if is_loopback(url.host_str().unwrap_or_default()) => Ok(None),
-        "http" => bail!(t!("只允许通过 https:// 连接非本机服务器：{server}", server = server)),
-        other => bail!(t!("不支持的服务器协议 {scheme}://，请使用 https://", scheme = other)),
-    }
-}
-
-fn is_loopback(host: &str) -> bool {
-    host.eq_ignore_ascii_case("localhost")
-        || host.trim_matches(['[', ']']).parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
-}
-
-/// Pinning of a bound daemon: the fingerprint recorded at login, unless GONGGONG_INSECURE_DEV=1 disables it.
-pub fn bound(config: &Config) -> Result<Option<Pinning>> {
-    let insecure = std::env::var(INSECURE_ENV).is_ok_and(|v| v == "1");
-    let pin = match (&config.cert_sha256, insecure) {
-        (_, true) => {
-            static WARN: Once = Once::new();
-            WARN.call_once(|| {
-                eprintln!(
-                    "{}",
-                    t!(
-                        "警告：{env}=1，已关闭服务器证书固定，连接可被中间人冒充。只可用于本地开发！",
-                        env = INSECURE_ENV
-                    )
-                )
-            });
-            None
-        }
-        (Some(pin), false) => Some(pin.clone()),
-        (None, false) if config.server.starts_with("https:") => {
-            bail!(t!("本机配置缺少服务器证书指纹（certSha256），请重新执行 gg login"))
-        }
-        (None, false) => None,
-    };
-    pinning(&config.server, pin)
-}
+static TLS: LazyLock<Arc<ClientConfig>> = LazyLock::new(|| {
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let config = ClientConfig::builder_with_provider(provider.clone())
+        .with_safe_default_protocol_versions()
+        .expect("aws-lc-rs supports the default protocol versions")
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(AcceptAny(provider)))
+        .with_no_client_auth();
+    Arc::new(config)
+});
 
 /// HTTP client for the team server. Direct like the daemon WebSocket: an OS-level proxy must not intercept
 /// (or 502) an intranet/localhost server.
-pub fn http(pinning: Option<&Pinning>) -> Result<reqwest::Client> {
-    Ok(builder(pinning).build()?)
+pub fn http() -> Result<reqwest::Client> {
+    Ok(builder().build()?)
 }
 
 /// `http`'s settings, for a client that adds its own (timeouts).
-pub fn builder(pinning: Option<&Pinning>) -> reqwest::ClientBuilder {
-    let builder = reqwest::Client::builder().no_proxy();
-    match pinning {
-        Some(p) => builder.use_preconfigured_tls((*p.config).clone()),
-        None => builder,
-    }
-}
-
-/// HTTP client of a bound daemon.
-pub fn client(config: &Config) -> Result<reqwest::Client> {
-    http(bound(config)?.as_ref())
+pub fn builder() -> reqwest::ClientBuilder {
+    reqwest::Client::builder().no_proxy().use_preconfigured_tls((**TLS).clone())
 }
 
 pub type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-/// The daemon WebSocket (`wss://` pinned, or `ws://` to loopback).
+/// The daemon WebSocket.
 pub async fn connect_ws(config: &Config) -> Result<Ws> {
-    connect_url(config, config.ws_url()).await
+    connect_url(config.ws_url()).await
 }
 
-/// Any WebSocket on the bound server, pinned like the daemon's own.
-pub async fn connect_url<R>(config: &Config, request: R) -> Result<Ws>
+/// Any WebSocket on the bound server.
+pub async fn connect_url<R>(request: R) -> Result<Ws>
 where
     R: tokio_tungstenite::tungstenite::client::IntoClientRequest + Unpin,
 {
-    let connector = bound(config)?.map(|p| Connector::Rustls(p.config));
+    let connector = Some(Connector::Rustls(TLS.clone()));
     let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(request, None, false, connector).await?;
     Ok(ws)
 }
@@ -200,30 +92,5 @@ pub async fn connect_tunnel(config: &Config) -> Result<Ws> {
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     let mut req = config.tunnel_url().into_client_request()?;
     req.headers_mut().insert("authorization", format!("Bearer {}", config.token).parse()?);
-    let connector = bound(config)?.map(|p| Connector::Rustls(p.config));
-    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(req, None, false, connector).await?;
-    Ok(ws)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const ABC: &str = "BA:78:16:BF:8F:01:CF:EA:41:41:40:DE:5D:AE:22:23:B0:03:61:A3:96:17:7A:9C:B4:10:FF:61:F2:00:15:AD";
-
-    #[test]
-    fn fingerprints_are_uppercase_sha256_pairs() {
-        assert_eq!(fingerprint(b"abc"), ABC);
-    }
-
-    #[test]
-    fn parses_fingerprints_in_the_usual_spellings() {
-        let spellings = [ABC.to_string(), format!("sha256:{ABC}"), format!(" SHA256:{} ", ABC.to_lowercase())];
-        for s in spellings.iter().chain([&ABC.replace(':', "")]) {
-            assert_eq!(parse_fingerprint(s).unwrap(), ABC, "{s}");
-        }
-        for bad in ["", "sha256:AB:CD", &ABC.replace('B', "G")] {
-            assert!(parse_fingerprint(bad).is_err(), "{bad}");
-        }
-    }
+    connect_url(req).await
 }

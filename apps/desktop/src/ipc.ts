@@ -71,7 +71,6 @@ export interface AppInfo {
   machine: { name: string; os: string; arch: string }
   ownerName: string | null
   server: string | null
-  certPinned: boolean
   workspacesDir: string
   backupsDir: string
   adapters: { kind: AgentKind; package: string; version: string }[]
@@ -96,11 +95,10 @@ export type MachineBot = Pick<
   teamName: string | null
 }
 
-/** A parsed 接入链接 (or `gg login` command); `fingerprint` like `sha256:AB:CD:…`. */
+/** A parsed 接入链接 (or `gg login` command). */
 export interface BindLink {
   server: string
   code: string
-  fingerprint: string | null
 }
 
 /** 概览 · 工作区 card: `count` workspaces, `detail` like `托管 4 · 本机目录 1 · 1.8 GB`. */

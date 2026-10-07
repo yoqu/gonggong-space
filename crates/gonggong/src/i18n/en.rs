@@ -17,11 +17,6 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("绑定成功：本机已归属 {owner}（{name}）", "Bound: this machine now belongs to {owner} ({name})"),
     (
-        "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员",
-        "Pinned server certificate sha256:{fp}\nCompare it with the fingerprint published by your admin; if it differs, run gg logout immediately and contact the admin",
-    ),
-    ("已按指定指纹固定服务器证书 sha256:{fp}", "Pinned the server certificate to the given fingerprint sha256:{fp}"),
-    (
         "未能通知服务器（{e}），本机凭据仍会删除；如需停用该机器请在 Web 端移除",
         "Couldn't notify the server ({e}); local credentials will still be removed. To disable this machine, remove it on the Web",
     ),
@@ -147,28 +142,6 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("文件不存在", "File not found"),
     ("读取文件失败", "Failed to read the file"),
     ("路径无效", "Invalid path"),
-    (
-        "证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）",
-        "Malformed certificate fingerprint; expected sha256:AB:CD:… (64 hex digits)",
-    ),
-    (
-        "服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}",
-        "Server certificate fingerprint mismatch, connection refused: expected {pin}, got {actual}",
-    ),
-    ("服务器地址无效：{server}", "Invalid server address: {server}"),
-    (
-        "只允许通过 https:// 连接非本机服务器：{server}",
-        "Servers other than this machine must be reached over https://: {server}",
-    ),
-    ("不支持的服务器协议 {scheme}://，请使用 https://", "Unsupported server scheme {scheme}://; use https://"),
-    (
-        "警告：{env}=1，已关闭服务器证书固定，连接可被中间人冒充。只可用于本地开发！",
-        "Warning: {env}=1 disables server certificate pinning, so the connection can be impersonated by a man in the middle. For local development only!",
-    ),
-    (
-        "本机配置缺少服务器证书指纹（certSha256），请重新执行 gg login",
-        "The local config has no server certificate fingerprint (certSha256); run gg login again",
-    ),
     ("open 无效：{e}", "Invalid open: {e}"),
     ("端口 {port} 未开放预览", "Port {port} isn't open for preview"),
     ("本机没有可用于截图的 Chrome / Edge", "No Chrome / Edge on this machine to take screenshots"),
@@ -339,9 +312,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("屏幕录制", "Screen Recording"),
     ("辅助功能", "Accessibility"),
     ("未绑定，请先执行 gg login", "Not bound; run gg login first"),
-    ("HTTP 正常 · 本机回环（未加密）", "HTTP OK · local loopback (unencrypted)"),
-    ("HTTPS 正常 · 证书固定已关闭（{env}=1）", "HTTPS OK · certificate pinning disabled ({env}=1)"),
-    ("WSS 正常 · 证书固定通过", "WSS OK · certificate pin verified"),
+    ("HTTPS 正常", "HTTPS OK"),
+    ("HTTP 正常（未加密）", "HTTP OK (unencrypted)"),
     ("未检测到 Claude Code 或 Codex", "Neither Claude Code nor Codex found"),
     ("{agent} {v} 低于 {min}", "{agent} {v} is older than {min}"),
     ("{agents} 可用", "{agents} available"),

@@ -10,4 +10,3 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 
   -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1$lan" 2>/dev/null
 chmod 600 "$dir/key.pem"
 echo "GONGGONG_TLS_CERT=$dir/cert.pem GONGGONG_TLS_KEY=$dir/key.pem"
-openssl x509 -in "$dir/cert.pem" -noout -fingerprint -sha256 | sed 's/.*=/sha256:/'

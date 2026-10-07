@@ -57,7 +57,6 @@ Arguments:
 Options:
       --server <SERVER>
       --code <CODE>
-      --fingerprint <FINGERPRINT>  Expected server certificate SHA-256 (sha256:AB:CD:…) as published by the admin
 ```
 
 两种写法，任选其一：
@@ -68,24 +67,23 @@ gg login 'gonggong://bind?server=https%3A%2F%2Fgg.example.com&code=K7QM-4X2P'
 
 # 2. 分别传服务器和绑定码
 gg login --server https://gg.example.com --code K7QM-4X2P
+
+# 演示环境
+gg login --server http://gg.uyoqu.com --code K7QM-4X2P
 ```
 
 | 参数 | 说明 |
 | --- | --- |
-| `LINK` | 接入链接。与 `--server`、`--code`、`--fingerprint` 互斥 |
-| `--server` | 服务器地址，必须与 `--code` 同时使用。非本机地址只允许 `https://` |
+| `LINK` | 接入链接。与 `--server`、`--code` 互斥 |
+| `--server` | 服务器地址，必须与 `--code` 同时使用。`http://`、`https://` 均可，`https://` 不校验证书（自签证书也能直接绑定） |
 | `--code` | 绑定码，格式 `XXXX-XXXX`，大小写不限 |
-| `--fingerprint` | 管理员公布的服务器证书 SHA-256 指纹，如 `sha256:AB:CD:…`。指定后证书不一致会直接失败 |
 
 输出示例：
 
 ```text
 绑定成功：本机已归属 王磊（wanglei-mbp）
-已固定服务器证书 sha256:AB:CD:…
-请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员
 ```
 
-- 不带 `--fingerprint` 时，信任服务器当前出示的证书并固定下来，打印指纹供你核对。
 - 这台机器之前绑定过（执行过 `gg logout`）时会恢复原有机器记录，输出「已恢复本机原有机器记录（…），原有 Bot 绑定保持不变」。
 - 绑定码一次性有效、会过期，失效了在网页上重新生成。
 
@@ -211,7 +209,7 @@ Node.js	https://npmmirror.com/mirrors/node
 检查服务器连接、Agent、git 凭据、磁盘和换行符；macOS 上还检查屏幕录制、辅助功能权限。
 
 ```text
-✓ 服务器连接	WSS 正常 · 证书固定通过
+✓ 服务器连接	HTTPS 正常
 ✓ Agent	Claude Code 2.1.285 · Codex 0.156.1 可用
 - git 凭据	本机暂无托管仓库
 ✓ 磁盘	工作区 0 B · 剩余 880 GB

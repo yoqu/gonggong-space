@@ -14,7 +14,7 @@ beforeEach(() => {
   useDaemon.setState({ info: null, snapshot: { phase: 'unbound' } })
   m.snapshot.mockResolvedValue({ phase: 'unbound' })
   m.readClipboard.mockResolvedValue('')
-  m.parseLink.mockResolvedValue({ server: 'https://evil.example', code: 'K7QM-4X2P', fingerprint: null })
+  m.parseLink.mockResolvedValue({ server: 'https://evil.example', code: 'K7QM-4X2P' })
   vi.mocked(onOpenLinks).mockImplementation(async (cb) => {
     cb([LINK])
     return () => {}

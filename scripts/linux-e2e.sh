@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Linux daemon integration (plan D16). The server runs on this host (fresh DB, dev TLS certificate); the Linux
 # `gonggong` build runs in a Debian bookworm container with Node 22, git and the mock ACP agent. The container binds
-# with a one-time code over https with the pinned fingerprint, then the API drives two bot turns: in a group without
+# with a one-time code over https (self-signed certificate), then the API drives two bot turns: in a group without
 # a repo, and in a repo group cloned from a file:// bare repo copied into the container at the same path.
 # Usage: bash scripts/linux-e2e.sh   (Docker, jq, Postgres from `pnpm db:up`; GONGGONG_LINUX_BIN reuses a build)
 set -Eeuo pipefail
@@ -48,8 +48,7 @@ docker build -q -t gonggong-linux-e2e -f "$ROOT/scripts/release/e2e.Dockerfile" 
 
 echo "== server on $URL (db $DB)"
 bash "$ROOT/scripts/pg.sh" reset "$DB"
-bash "$ROOT/scripts/dev-cert.sh" "$WORK/tls" > "$WORK/cert.txt"
-fingerprint="$(tail -1 "$WORK/cert.txt")"
+bash "$ROOT/scripts/dev-cert.sh" "$WORK/tls" >/dev/null
 (cd "$ROOT" && GONGGONG_DB=$DB GONGGONG_ADMIN_PASSWORD=admin-init GONGGONG_DATA_DIR="$WORK/data" PORT=$PORT \
   GONGGONG_TLS_CERT="$WORK/tls/cert.pem" GONGGONG_TLS_KEY="$WORK/tls/key.pem" \
   pnpm --filter @gonggong/server start > "$WORK/server.log" 2>&1 &)
@@ -68,7 +67,7 @@ git -C "$WORK/seed" push -q origin main
 echo "== member machine: $(basename "$GONGGONG_LINUX_BIN") in a container"
 box="$(docker create --add-host host.docker.internal:host-gateway \
   -e GONGGONG_LOG=info -e GONGGONG_NO_AUTO_UPGRADE=1 -e GONGGONG_ADAPTER_CMD='node /opt/mock-agent/agent.js' gonggong-linux-e2e \
-  sh -ec "gg login --server https://host.docker.internal:$PORT --code $code --fingerprint $fingerprint; exec gg run")"
+  sh -ec "gg login --server https://host.docker.internal:$PORT --code $code; exec gg run")"
 docker cp "$GONGGONG_LINUX_BIN" "$box:/usr/local/bin/gg" >/dev/null
 COPYFILE_DISABLE=1 tar --no-xattrs -C / -cf - "${WORK#/}/repo.git" | docker cp - "$box:/" >/dev/null
 docker start "$box" >/dev/null
@@ -79,7 +78,7 @@ wait_for "daemon online" 60 online
 machine="$(api GET /api/machines | jq -c '.[0] | {id, os, arch, daemonVersion}')"
 echo "machine: $machine"
 [ "$(jq -r .os <<<"$machine")" = linux ]
-grep -q "已按指定指纹固定服务器证书" "$WORK/daemon.log"
+grep -q "绑定成功" "$WORK/daemon.log"
 
 bot="$(api POST /api/bots -d "{\"name\":\"$BOT\",\"ownerId\":\"$me\",\"agentKind\":\"claude\",\
 \"machineId\":$(jq .id <<<"$machine"),\"systemPrompt\":\"\"}" | jq -r .id)"

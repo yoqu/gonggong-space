@@ -217,8 +217,8 @@ acme.sh --install-cert -d example-preview.com \
 - The credentials are saved in the acme.sh config, and installation adds a scheduled job automatically that renews before expiry and runs `--reloadcmd`.
 - Issue the main site's certificate the same way (`-d gg.example.com`), or use `--nginx` for HTTP-01.
 
-::: warning Main site certificate renewal affects daemons
-Daemons connect only to the main site and pin the main site's certificate fingerprint, so members must rebind after the **main site** certificate is renewed; renewing the preview domain certificate doesn't affect daemons. See [HTTPS and certificates · Renewal and replacement](/en/deploy/https#renewal-and-replacement).
+::: tip Certificate renewal doesn't affect daemons
+Daemons connect only to the main site and don't pin its certificate, so renewing either the main site or the preview domain certificate doesn't require members to rebind. See [HTTPS and certificates · Renewal and replacement](/en/deploy/https#renewal-and-replacement).
 :::
 
 You can also use Caddy instead of Nginx: it obtains and renews certificates automatically, though wildcard certificates require a Caddy build with the plugin for your DNS provider.

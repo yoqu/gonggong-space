@@ -113,7 +113,6 @@ describe('app', () => {
     m.parseLink.mockResolvedValue({
       server: 'https://gonggong.corp.cn',
       code: 'K7QM-4X2P',
-      fingerprint: null,
     })
     m.login.mockResolvedValue()
     m.startDaemon.mockResolvedValue()

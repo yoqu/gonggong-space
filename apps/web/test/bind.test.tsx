@@ -55,18 +55,16 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const linkOf = (code: string, fp: string | null) =>
-  `gonggong://bind?server=${encodeURIComponent(location.origin)}&code=${code}${fp ? `&fp=${fp}` : ''}`
+const linkOf = (code: string) => `gonggong://bind?server=${encodeURIComponent(location.origin)}&code=${code}`
 
-const api = (ttlMs = 10 * 60_000, fingerprint: string | null = null) =>
+const api = (ttlMs = 10 * 60_000) =>
   mockApi({
     'POST /bind-codes': () => {
       const code = codes.shift() as string
       return {
         code,
         expiresAt: new Date(Date.now() + ttlMs).toISOString(),
-        fingerprint,
-        link: linkOf(code, fingerprint),
+        link: linkOf(code),
       }
     },
     'GET /machines': [old],
@@ -80,7 +78,7 @@ describe('bind machine dialog', () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     api()
     render(<BindMachineDialog open onClose={() => {}} />)
-    expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P', null))
+    expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P'))
     expect(await screen.findByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
     expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
     for (const step of ['生成接入链接', '客户端绑定', '上报机器与 agent'])
@@ -88,15 +86,15 @@ describe('bind machine dialog', () => {
     expect(screen.queryByText('确认 Bot')).toBeNull()
     expect(screen.getByText('等待客户端确认绑定…')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '复制接入链接' }))
-    expect(writeText).toHaveBeenCalledWith(linkOf('K7QM-4X2P', null))
+    expect(writeText).toHaveBeenCalledWith(linkOf('K7QM-4X2P'))
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
   })
 
-  it('keeps the gg login command, with the fingerprint, under 使用命令行', async () => {
-    api(undefined, 'sha256:ab12')
+  it('keeps the gg login command under 使用命令行', async () => {
+    api()
     render(<BindMachineDialog open onClose={() => {}} />)
     await openLink()
-    const command = `gg login --server ${location.origin} --code K7QM-4X2P --fingerprint sha256:ab12`
+    const command = `gg login --server ${location.origin} --code K7QM-4X2P`
     expect(screen.queryByText(command)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '使用命令行' }))
     expect(screen.getByText(command)).toBeTruthy()
@@ -153,7 +151,7 @@ describe('bind machine dialog', () => {
     expect(screen.getByText('接入链接已失效')).toBeTruthy()
     expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '重新生成' }))
-    expect((await openLink()).getAttribute('href')).toBe(linkOf('ABCD-EFGH', null))
+    expect((await openLink()).getAttribute('href')).toBe(linkOf('ABCD-EFGH'))
     expect(calls.filter((c) => c.path === '/bind-codes')).toHaveLength(2)
   })
 })

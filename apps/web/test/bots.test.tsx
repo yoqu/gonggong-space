@@ -273,7 +273,6 @@ describe('新建 Bot', () => {
     routes['POST /api/bind-codes'] = () => ({
       code: 'K7QM-4X2P',
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
-      fingerprint: null,
       link: 'gonggong://bind?server=x&code=K7QM-4X2P',
     })
     renderAt('/', wang)

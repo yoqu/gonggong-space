@@ -1,6 +1,6 @@
 # Bind a machine
 
-Bots run on members' own machines. This page covers how to bind a machine to your account, verify the server certificate, view machine details, and revoke a machine.
+Bots run on members' own machines. This page covers how to bind a machine to your account, view machine details, and revoke a machine.
 
 ## Before you start
 
@@ -31,14 +31,20 @@ When the connect link expires, the dialog shows 「接入链接已失效」 ("co
 - Open the web page on the Mac you want to bind and click 「在客户端中打开」 (Open in client); the desktop app picks up the link automatically.
 - Or click 「复制接入链接」 (Copy connect link) and paste it into the 「接入链接」 (Connect link) field in the desktop app's first-run setup.
 
-The desktop app shows the server address, bind code, and certificate info. Once you've confirmed it's your team's server, click 「绑定」 (Bind). See [Desktop first-run setup](/en/desktop/onboarding).
+The desktop app shows the server address and bind code. Once you've confirmed it's your team's server, click 「绑定」 (Bind). See [Desktop first-run setup](/en/desktop/onboarding).
 
 ### Option 2: Command line
 
 Expand 「使用命令行」 (Use the command line) in the dialog, click the copy button, and run the command in the machine's terminal. It looks like:
 
 ```bash
-gg login --server https://gg.example.com --code ABCD-EF23 --fingerprint sha256:AB:CD:…
+gg login --server https://gg.example.com --code ABCD-EF23
+```
+
+On the public demo server, the server address is `http://gg.uyoqu.com`:
+
+```bash
+gg login --server http://gg.uyoqu.com --code ABCD-EF23
 ```
 
 You can also pass the connect link straight to `gg login`:
@@ -62,28 +68,11 @@ Once binding succeeds, the web dialog switches to 「绑定成功」 (Bound) and
 ::: warning Common errors
 - 「绑定码已失效（已过期或已被使用），请在 Web 端重新生成」 ("bind code invalid (expired or already used), regenerate it on the web"): Go back to the web app and generate a new connect link.
 - 「尝试次数过多，绑定码已锁定」 ("too many attempts, bind code locked"): Too many wrong attempts from the same network in a short time. Wait 10 minutes and regenerate.
-- 「只允许通过 https:// 连接非本机服务器」 ("only https:// is allowed for non-local servers"): The client may use `http://` only for a server on the same machine; servers on other machines require `https://`. Ask your admin to set up HTTPS — see [HTTPS and certificates](/en/deploy/https).
 :::
 
-## Verify the certificate fingerprint
+## Connection security
 
-When connecting to the server over `https://`, the client **pins** the server certificate's fingerprint at bind time and trusts only that certificate afterward.
-
-- If the server has a certificate configured, the copied command and connect link include the fingerprint automatically (`--fingerprint sha256:…`). The client verifies against it and refuses to connect on a mismatch.
-- If no fingerprint is included, the client trusts the certificate it sees this time and prints:
-
-  ```text
-  已固定服务器证书 sha256:AB:CD:…
-  请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员
-  ```
-
-  (This says the server certificate has been pinned; compare it with the fingerprint your admin published, and if it doesn't match, run `gg logout` immediately and contact your admin.)
-
-  Compare it character by character with the fingerprint your admin published.
-
-::: danger
-A mismatched fingerprint may mean you've connected to an impostor server. Run `gg logout` immediately, contact your admin, and stop using it.
-:::
+The client accepts whatever certificate the server presents (self-signed included) and doesn't verify it, so binding works the same whether the server uses `https://` or `http://`. With `https://`, traffic is encrypted; with `http://`, it isn't. When the server is reached over an untrusted network, ask your admin to use HTTPS and connect over a trusted network or VPN — see [Security model](/en/deploy/security).
 
 ## Multiple machines
 

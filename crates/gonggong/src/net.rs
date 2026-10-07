@@ -26,7 +26,7 @@ pub fn median(samples: &mut [f64]) -> f64 {
 
 /// Median of PINGS `GET /api/health` round trips, then `PROBE_BYTES` timed from the response head to the last byte.
 pub async fn measure(config: &Config) -> Result<NetResult> {
-    let http = crate::tls::client(config)?;
+    let http = crate::tls::http()?;
     let base = config.server.trim_end_matches('/');
     let mut rtts = Vec::with_capacity(PINGS);
     for _ in 0..PINGS {
@@ -54,7 +54,7 @@ pub async fn measure(config: &Config) -> Result<NetResult> {
 
 pub async fn report(config: &Config, result: &NetResult) -> Result<()> {
     let url = format!("{}/api/daemon/net", config.server.trim_end_matches('/'));
-    let res = crate::tls::client(config)?.post(url).bearer_auth(&config.token).json(result).send().await?;
+    let res = crate::tls::http()?.post(url).bearer_auth(&config.token).json(result).send().await?;
     crate::bots::ok(res).await.map(drop)
 }
 

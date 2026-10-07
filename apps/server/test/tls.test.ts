@@ -10,7 +10,7 @@ import { DaemonHub } from '../src/daemon/hub.js'
 import { liveKitFromEnv } from '../src/modules/live/livekit.js'
 import { TunnelHub } from '../src/modules/previews/tunnel.js'
 import { Bus } from '../src/realtime/bus.js'
-import { certFingerprint, tlsOptions } from '../src/tls.js'
+import { tlsOptions } from '../src/tls.js'
 import { createTestDb } from './support/db.js'
 import { FakeFeishu } from './support/feishu.js'
 
@@ -27,28 +27,10 @@ describe('tlsOptions', () => {
     expect(tlsOptions(env)).toEqual({ cert: ca, key: readFileSync(env.GONGGONG_TLS_KEY) })
   })
 
-  it('dev-cert.sh prints the env to use and the SHA-256 fingerprint', () => {
-    const fp = execFileSync(
-      'openssl',
-      ['x509', '-in', env.GONGGONG_TLS_CERT, '-noout', '-fingerprint', '-sha256'],
-      {
-        encoding: 'utf8',
-      },
+  it('dev-cert.sh prints the env to use', () => {
+    expect(out).toContain(
+      `GONGGONG_TLS_CERT=${env.GONGGONG_TLS_CERT} GONGGONG_TLS_KEY=${env.GONGGONG_TLS_KEY}`,
     )
-    expect(out).toContain(`GONGGONG_TLS_CERT=${env.GONGGONG_TLS_CERT}`)
-    expect(out).toContain(`sha256:${fp.split('=')[1]!.trim()}`)
-  })
-
-  it('fingerprints the certificate as sha256:<lowercase hex> of its DER bytes', () => {
-    const fp = execFileSync(
-      'openssl',
-      ['x509', '-in', env.GONGGONG_TLS_CERT, '-noout', '-fingerprint', '-sha256'],
-      {
-        encoding: 'utf8',
-      },
-    )
-    const hex = fp.split('=')[1]!.trim().replaceAll(':', '').toLowerCase()
-    expect(certFingerprint(ca)).toBe(`sha256:${hex}`)
   })
 })
 
@@ -71,7 +53,6 @@ describe('server over TLS', () => {
       config: {
         heartbeatSec: 15,
         secureCookies: true,
-        fingerprint: null,
         preview: { domain: null, ports: [0, 0] as [number, number], publicUrl: null },
       },
     }

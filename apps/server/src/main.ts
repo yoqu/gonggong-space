@@ -11,7 +11,7 @@ import { liveKitFromEnv } from './modules/live/livekit.js'
 import { previewConfig } from './modules/previews/config.js'
 import { TunnelHub } from './modules/previews/tunnel.js'
 import { Bus } from './realtime/bus.js'
-import { certFingerprint, tlsOptions } from './tls.js'
+import { tlsOptions } from './tls.js'
 
 const https = tlsOptions()
 const { db } = openDb()
@@ -28,7 +28,6 @@ const ctx: Ctx = {
   config: {
     heartbeatSec: Number(process.env.GONGGONG_HEARTBEAT_SEC ?? heartbeatSec),
     secureCookies: !!https || process.env.GONGGONG_SECURE_COOKIES === '1',
-    fingerprint: https ? certFingerprint(https.cert) : null,
     preview: previewConfig(),
   },
 }

@@ -49,7 +49,7 @@ A single server can run every server-side component:
 See [Reverse proxy and preview domains](/en/deploy/reverse-proxy) for the configuration.
 
 ::: tip Trying it on a LAN
-For a LAN-only trial you can skip Nginx: start with `pnpm dev:server` + `pnpm dev:web`. The web dev server proxies `/api`, `/ws`, and `/livekit` to the server, and together with a self-signed certificate lets members on the LAN connect. See [HTTPS and certificates](/en/deploy/https#generate-a-self-signed-certificate) and [Quick start](/en/guide/quick-start).
+For a LAN-only trial you can skip Nginx: start with `pnpm dev:server` + `pnpm dev:web`. The web dev server proxies `/api`, `/ws`, and `/livekit` to the server, and lets members on the LAN connect; add a self-signed certificate to encrypt the traffic. See [HTTPS and certificates](/en/deploy/https#generate-a-self-signed-certificate) and [Quick start](/en/guide/quick-start).
 :::
 
 ## Software requirements

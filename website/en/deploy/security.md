@@ -25,11 +25,12 @@ This page summarizes the security design of Gonggong Space: who can sign in, how
 - A machine token can only be used for the daemon's own endpoints and has **no permission to modify Bots**; the desktop app and `gg` have read-only access to Bot settings.
 - After a machine is revoked or the account is deactivated, the token stops working immediately and the daemon cleans up the local managed workspaces.
 
-## Transport and certificate pinning
+## Transport
 
-- The daemon only connects to non-local servers over `https://`; `http://` is limited to loopback addresses.
-- The daemon pins the SHA-256 fingerprint of the server's leaf certificate instead of relying on the CA chain, and refuses to connect on a mismatch. Binding for the first time without a fingerprint is "trust on first use": always check against the fingerprint published by the admin, or bind with `--fingerprint` / a connect link.
-- After a certificate change (including auto-renewal), members must rebind.
+- With `GONGGONG_TLS_CERT` / `GONGGONG_TLS_KEY` set, the server serves only HTTPS/WSS and the session cookie gets `Secure`.
+- The daemon connects over `https://` or `http://` to any server address. `http://` is unencrypted, so use it only on networks you trust.
+- The daemon **doesn't verify the server certificate**: it accepts any certificate, self-signed included, without fingerprint pinning or a CA check. HTTPS encrypts the traffic but doesn't prove the server's identity, so on an untrusted network a man in the middle can impersonate the server. Use HTTPS on a trusted network or over a VPN.
+- Renewing or replacing the certificate doesn't require members to rebind.
 
 See [HTTPS and certificates](/en/deploy/https) for details.
 
@@ -114,7 +115,7 @@ Admin actions (accounts, managing Bots for others, revoking machines, MCP, syste
 
 - Anyone with both `GONGGONG_DATA_KEY` and the database can decrypt all encrypted data; plaintext is visible in the server process's memory.
 - Messages, cards, and approval commands are redacted but stored in plaintext.
-- If a first-use binding (without a fingerprint) happens to meet a man in the middle, the wrong certificate gets pinned—always verify the fingerprint.
+- The daemon doesn't authenticate the server certificate, so on an untrusted network a man in the middle can intercept the machine token and the traffic. Keep daemon connections on a trusted network or VPN.
 - Without disk encryption, base-branch code is written to disk in plaintext.
 - Attachment integrity is only checked when reading reaches the end, so tampering shows up as an aborted download rather than an upfront rejection.
 - When the server is behind a reverse proxy, IP-based rate limits are shared by everyone. See [Reverse proxy · Client IP](/en/deploy/reverse-proxy#client-ip).

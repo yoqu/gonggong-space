@@ -119,7 +119,7 @@
 | `snapshot.rs` | 用本机 Chrome 系浏览器渲染预览首屏截图 |
 | `cast.rs` | 实时画面：按需启动 gg-cast 把窗口推到 LiveKit |
 | `wechatide.rs` | 微信开发者工具：打开小程序项目并截模拟器画面 |
-| `tls.rs` | 连接服务器的 HTTPS/WSS，按证书 SHA-256 指纹固定；明文 http 只允许回环地址 |
+| `tls.rs` | 连接服务器的 HTTP(S)/WS(S)：接受任何服务器证书（不固定指纹），http 可连任意地址 |
 | `net.rs` | 测量到服务器的延迟与带宽 |
 | `upgrade.rs` | 自升级：下载新版本、校验 sha256、替换自身并重启 |
 | `revoke.rs` | 机器被吊销后清理托管工作区与令牌 |

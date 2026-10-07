@@ -34,15 +34,14 @@ enum Cmd {
     /// (gg login 'gonggong://bind?…') or --server and --code.
     Login {
         /// The 接入链接 copied from the Web.
-        #[arg(conflicts_with_all = ["server", "code", "fingerprint"], required_unless_present_all = ["server", "code"])]
+        #[arg(conflicts_with_all = ["server", "code"], required_unless_present_all = ["server", "code"])]
         link: Option<String>,
         #[arg(long, requires = "code")]
         server: Option<String>,
         #[arg(long, requires = "server")]
         code: Option<String>,
-        /// Expected server certificate SHA-256 (sha256:AB:CD:…) as published by the admin; without it the certificate
-        /// presented now is trusted and printed for you to compare.
-        #[arg(long)]
+        /// Ignored: certificates are no longer pinned (accepted for commands copied from older servers).
+        #[arg(long, hide = true)]
         fingerprint: Option<String>,
     },
     /// Unbind this machine locally (removes the saved token).
@@ -189,18 +188,17 @@ async fn main() -> anyhow::Result<()> {
     };
     match cli.cmd {
         Cmd::Agents { cmd } => gonggong::tools::cli(&config::home(), cmd).await?,
-        Cmd::Login { link, server, code, fingerprint } => {
-            let (server, code, fingerprint) = match (link, server, code) {
+        Cmd::Login { link, server, code, fingerprint: _ } => {
+            let (server, code) = match (link, server, code) {
                 (Some(link), _, _) => {
                     let link = gonggong::bind::parse_link(&link)?;
-                    (link.server, link.code, link.fingerprint)
+                    (link.server, link.code)
                 }
-                (None, Some(server), Some(code)) => (server, code, fingerprint),
+                (None, Some(server), Some(code)) => (server, code),
                 _ => unreachable!("clap requires a link or --server and --code"),
             };
             let machine = machine_info();
-            let (config, restored) =
-                gonggong::bind::login(&server, &code, machine.clone(), fingerprint.as_deref()).await?;
+            let (config, restored) = gonggong::bind::login(&server, &code, machine.clone()).await?;
             config.save()?;
             if restored {
                 println!(
@@ -212,17 +210,6 @@ async fn main() -> anyhow::Result<()> {
                     "{}",
                     t!("绑定成功：本机已归属 {owner}（{name}）", owner = config.owner_name, name = machine.name)
                 );
-            }
-            match (&config.cert_sha256, fingerprint) {
-                (Some(fp), None) => println!(
-                    "{}",
-                    t!(
-                        "已固定服务器证书 sha256:{fp}\n请与管理员公布的指纹核对；不一致请立即执行 gg logout 并联系管理员",
-                        fp = fp
-                    )
-                ),
-                (Some(fp), Some(_)) => println!("{}", t!("已按指定指纹固定服务器证书 sha256:{fp}", fp = fp)),
-                (None, _) => {}
             }
         }
         Cmd::Logout => {

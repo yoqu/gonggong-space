@@ -35,7 +35,6 @@ async fn serve(replies: Vec<(u16, &'static str)>) -> (Config, JoinHandle<Vec<Str
         token: "mt_1".into(),
         machine_id: "m1".into(),
         owner_name: "王磊".into(),
-        cert_sha256: None,
     };
     (config, task)
 }

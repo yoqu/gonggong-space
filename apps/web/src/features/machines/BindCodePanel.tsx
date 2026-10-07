@@ -40,8 +40,7 @@ export function useBindCode(open: boolean, done = false): BindCode {
   return { code, error, remaining, expired: !!code && !done && remaining <= 0, generate }
 }
 
-export const loginCommand = (code: BindCodeDto) =>
-  `gg login --server ${location.origin} --code ${code.code}${code.fingerprint ? ` --fingerprint ${code.fingerprint}` : ''}`
+export const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
 
 const copy = (text: string, message: string) => void copyWithToast(text, message)
 

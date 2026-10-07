@@ -309,7 +309,6 @@ describe('sidebar', () => {
       'POST /bind-codes': () => ({
         code: 'K7QM-4X2P',
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
-        fingerprint: null,
         link: 'gonggong://bind?server=x&code=K7QM-4X2P',
       }),
       'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }],

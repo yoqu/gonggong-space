@@ -79,11 +79,8 @@ The server only schedules and relays: reading and writing code and running comma
 ## Connections and authentication
 
 - **daemon authentication**: in the web app, a member uses 「绑定新机器」 (Bind new machine) to generate a one-time connect link (`gonggong://bind?…`) or a `gg login` command, which the daemon exchanges for a long-lived machine token.
-- **Encrypted connections only**: once the server is configured with a certificate (`GONGGONG_TLS_CERT` + `GONGGONG_TLS_KEY`), it serves only HTTPS / WSS. The daemon allows `http://` only for the local loopback address; everything else requires `https://`.
-- **Certificate fingerprint pinning**: the daemon doesn't rely on a CA chain; it pins the SHA-256 fingerprint of the server certificate, so self-signed certificates are just as secure:
-  - The connect link and the bind command copied from the web app include the fingerprint (`--fingerprint sha256:…`) and accept only that certificate;
-  - Without a fingerprint, the daemon trusts the current certificate on first use and prints its fingerprint—check it against the value your admin published;
-  - Every later connection is verified, and a mismatch is refused. After the server changes certificates, run `gg login` again.
+- **HTTPS or HTTP**: once the server is configured with a certificate (`GONGGONG_TLS_CERT` + `GONGGONG_TLS_KEY`), it serves only HTTPS / WSS. The daemon connects to any server over `https://` or plain `http://` (unencrypted).
+- **No certificate pinning**: the daemon accepts any server certificate, self-signed included, without fingerprint or CA checks, so binding just works and certificate changes don't require rebinding. HTTPS encrypts the traffic but doesn't authenticate the server; on untrusted networks, use a trusted network or VPN.
 - **Heartbeat**: once connected, the daemon sends heartbeats periodically (every 15 seconds by default); after several consecutive misses it's considered offline.
 - **Revocation**: after an admin deactivates an account or revokes a machine, the daemon's next connection is refused, and it clears the local credentials and managed workspaces.
 

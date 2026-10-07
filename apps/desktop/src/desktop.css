@@ -400,10 +400,6 @@ code,
   text-align: center;
   text-wrap: pretty;
 }
-/* The fingerprint has no break opportunities (colon-separated hex). */
-.dk-onboarding__fingerprint .ui-group__desc {
-  overflow-wrap: anywhere;
-}
 .dk-onboarding .ui-field {
   min-width: 0;
 }

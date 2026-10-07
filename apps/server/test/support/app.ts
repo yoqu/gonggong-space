@@ -46,7 +46,6 @@ export async function createTestApp(
     config: {
       heartbeatSec: opts.heartbeatSec ?? 15,
       secureCookies: false,
-      fingerprint: null,
       preview: { domain: null, ports: [0, 0], publicUrl: null },
     },
   }

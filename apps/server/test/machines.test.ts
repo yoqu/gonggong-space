@@ -75,14 +75,13 @@ describe('bind codes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('returns the 接入链接 for the origin the browser uses, without a fingerprint over plain HTTP', async () => {
+  it('returns the 接入链接 for the origin the browser uses', async () => {
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/bind-codes',
       headers: { cookie, origin: 'http://192.168.1.5:5173', host: '192.168.1.5:5173' },
     })
-    const { code, fingerprint, link } = res.json<BindCodeDto>()
-    expect(fingerprint).toBeNull()
+    const { code, link } = res.json<BindCodeDto>()
     expect(link).toBe(`gonggong://bind?server=${encodeURIComponent('http://192.168.1.5:5173')}&code=${code}`)
   })
 
@@ -103,21 +102,6 @@ describe('bind codes', () => {
       headers: { cookie, origin: 'null', host: 'gonggong.lan:8787' },
     })
     expect(res.statusCode).toBe(403)
-  })
-
-  it('adds the TLS certificate fingerprint to the link', async () => {
-    const fp = `sha256:${'ab'.repeat(32)}`
-    t.ctx.config.fingerprint = fp
-    const res = await t.app.inject({
-      method: 'POST',
-      url: '/api/bind-codes',
-      headers: { cookie, origin: 'https://gonggong.lan', host: 'gonggong.lan' },
-    })
-    const { code, fingerprint, link } = res.json<BindCodeDto>()
-    expect(fingerprint).toBe(fp)
-    expect(link).toBe(
-      `gonggong://bind?server=${encodeURIComponent('https://gonggong.lan')}&code=${code}&fp=${encodeURIComponent(fp)}`,
-    )
   })
 })
 

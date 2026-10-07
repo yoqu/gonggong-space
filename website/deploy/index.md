@@ -49,7 +49,7 @@ server 按**单实例**设计：浏览器实时推送、daemon 连接、预览�
 具体配置见 [反向代理与预览域名](/deploy/reverse-proxy)。
 
 ::: tip 局域网试用
-只在局域网里试用，可以不装 Nginx：用 `pnpm dev:server` + `pnpm dev:web` 启动，网页开发服务器会代理 `/api`、`/ws`、`/livekit` 到 server，配合自签证书即可让局域网成员接入，见 [HTTPS 与证书](/deploy/https#生成自签证书) 和 [快速上手](/guide/quick-start)。
+只在局域网里试用，可以不装 Nginx：用 `pnpm dev:server` + `pnpm dev:web` 启动，网页开发服务器会代理 `/api`、`/ws`、`/livekit` 到 server，局域网成员即可接入；想加密传输再配上自签证书，见 [HTTPS 与证书](/deploy/https#生成自签证书) 和 [快速上手](/guide/quick-start)。
 :::
 
 ## 软件要求

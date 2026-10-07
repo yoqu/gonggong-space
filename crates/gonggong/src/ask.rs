@@ -298,7 +298,7 @@ async fn forward(api: Option<&Config>, asker: &dyn Asker, name: &str, args: &Val
     let (run_id, cwd) = asker.active_run().ok_or(NOT_RUNNING)?;
     let url = format!("{}/api/daemon/runs/{run_id}/tools/{name}", api.server.trim_end_matches('/'));
     let send = async {
-        let res = tls::client(api)?
+        let res = tls::http()?
             .post(url)
             .bearer_auth(&api.token)
             .json(&json!({ "arguments": args }))
@@ -712,7 +712,7 @@ mod tests {
     }
 
     fn config(server: String) -> Config {
-        Config { server, token: "mt_1".into(), machine_id: "m".into(), owner_name: "王磊".into(), cert_sha256: None }
+        Config { server, token: "mt_1".into(), machine_id: "m".into(), owner_name: "王磊".into() }
     }
 
     #[tokio::test]

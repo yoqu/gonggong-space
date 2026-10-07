@@ -15,5 +15,5 @@ export interface Ctx {
   livekit: LiveKit
   feishu: { api: FeishuApi; connector: FeishuConnector }
   now: () => Date
-  config: { heartbeatSec: number; secureCookies: boolean; fingerprint: string | null; preview: PreviewConfig }
+  config: { heartbeatSec: number; secureCookies: boolean; preview: PreviewConfig }
 }

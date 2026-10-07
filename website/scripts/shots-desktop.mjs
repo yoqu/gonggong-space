@@ -190,7 +190,7 @@ function fakeTauri({ unbound }) {
     snapshot: () => snapshot,
     parse_link: ({ input }) => {
       if (!input.includes('gonggong://bind')) throw '不是接入链接或 gg login 命令'
-      return { server: 'https://gg.example.com', code: 'K7QM-4X2P', fingerprint: null }
+      return { server: 'https://gg.example.com', code: 'K7QM-4X2P' }
     },
     'plugin:clipboard-manager|read_text': () =>
       "gg login 'gonggong://bind?server=https%3A%2F%2Fgg.example.com&code=K7QM-4X2P'",
@@ -502,11 +502,7 @@ try {
     await page.addInitScript(fakeTauri, { unbound: !!shot.unbound })
     await page.goto(URL)
     if (shot.unbound) {
-      await page
-        .getByText('已固定证书指纹')
-        .or(page.getByText('请确认这是你们团队的服务器'))
-        .first()
-        .waitFor()
+      await page.getByText('请确认这是你们团队的服务器').waitFor()
     } else {
       await page.locator('.dk-sidebar').waitFor()
       if (shot.nav) await page.locator('.dk-sidebar').getByText(shot.nav, { exact: true }).click()

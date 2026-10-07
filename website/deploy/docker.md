@@ -23,8 +23,8 @@ GONGGONG_ADMIN_PASSWORD=<初始密码> GONGGONG_PUBLIC_URL=https://<服务器 IP
 首次启动时 server 在数据卷里生成自签证书（包含 `GONGGONG_PUBLIC_URL` 的主机名、`localhost`、`127.0.0.1`），Nginx 与 server 共用：
 
 - 浏览器会提示证书不受信任，确认继续即可；
-- 网页「绑定新机器」复制的命令带有证书指纹，daemon 固定这张证书，连接同样安全；
-- 改了 `GONGGONG_PUBLIC_URL` 的主机名后，删掉数据卷里的 `tls/` 目录重启以重新生成，成员需重新 `gg login`。
+- daemon 直接接受这张自签证书，网页「绑定新机器」复制的命令拿来就能绑定；
+- 改了 `GONGGONG_PUBLIC_URL` 的主机名后，删掉数据卷里的 `tls/` 目录重启以重新生成，已绑定的机器无需重新绑定。
 
 正式环境建议换成受信任证书或按 [从源码部署](/deploy/install) 配置，见 [HTTPS 与证书](/deploy/https)。
 

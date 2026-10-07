@@ -24,9 +24,8 @@
 | 群管理员 | group admin | 可管理某个群的设置、成员与 Bot |
 | 机器 | machine | 装有 daemon 并绑定到某个账号的机器 |
 | 绑定 | bind / login | 把机器归属到账号的过程，`gg login` |
-| 接入链接 | bind link | `gonggong://bind?…` 形式的一次性链接，含服务器地址、绑定码和证书指纹 |
+| 接入链接 | bind link | `gonggong://bind?…` 形式的一次性链接，含服务器地址和绑定码 |
 | 绑定码 | bind code | 形如 `XXXX-XXXX` 的一次性码，有有效期 |
-| 证书指纹 | certificate fingerprint | 服务器证书的 SHA-256，daemon 据此固定（pin）服务器证书 |
 | 心跳 | heartbeat | daemon 定期发给服务器的在线信号 |
 | 吊销 | revoke | 停用账号或移除机器后，服务器拒绝该机器连接 |
 

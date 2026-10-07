@@ -1,22 +1,21 @@
 /**
- * Opt-in (plan D18): server over HTTPS/WSS with a dev certificate, daemon pinning it.
+ * Opt-in (plan D18): server over HTTPS/WSS with a self-signed dev certificate; the daemon binds without pinning.
  * Run: GONGGONG_E2E_TLS=1 pnpm exec playwright test -c e2e/tls.config.ts
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, request, test } from '@playwright/test'
-import { bindManaged, buildDaemon, GONGGONG_BIN, machine, ROOT } from './helpers'
+import { bindManaged, buildDaemon, machine, ROOT } from './helpers'
 
 test.skip(process.env.GONGGONG_E2E_TLS !== '1', 'set GONGGONG_E2E_TLS=1 to run the TLS path')
 test.beforeAll(buildDaemon)
 
-test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a changed one', async () => {
+test('tls: daemon binds and runs over HTTPS/WSS with a self-signed certificate', async () => {
   test.setTimeout(5 * 60_000)
   const dir = mkdtempSync(join(tmpdir(), 'gonggong-e2e-tls-'))
-  const out = execFileSync('bash', ['scripts/dev-cert.sh', dir], { cwd: ROOT, encoding: 'utf8' })
-  const fingerprint = out.match(/^sha256:(.+)$/m)![1]!
+  execFileSync('bash', ['scripts/dev-cert.sh', dir], { cwd: ROOT })
   execFileSync('bash', ['scripts/pg.sh', 'reset', 'gonggong_e2e_tls'], { cwd: ROOT })
   const port = 8792
   const base = `https://127.0.0.1:${port}`
@@ -46,11 +45,7 @@ test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a chang
     })
     const me = await (await api.get('/api/me')).json()
     const { code } = await (await api.post('/api/bind-codes')).json()
-    // Trust on first use: the pinned fingerprint is printed and recorded.
-    expect(m.login(code)).toContain(`sha256:${fingerprint}`)
-    const configPath = join(m.home, 'config.json')
-    const config = JSON.parse(readFileSync(configPath, 'utf8'))
-    expect(config.certSha256).toBe(fingerprint)
+    expect(m.login(code)).toContain('绑定成功')
 
     m.start()
     const machineOnline = async () => (await (await api.get('/api/machines')).json())[0]?.online
@@ -80,19 +75,6 @@ test('tls: daemon pins the server certificate over HTTPS/WSS and refuses a chang
       .poll(async () => (await timeline()).runs[0]?.status, { timeout: 3 * 60_000 })
       .toBe('completed')
     expect((await timeline()).messages.some((x: { body: string }) => x.body.includes('pong-tls'))).toBe(true)
-
-    // A different certificate (here: a tampered pin) is refused by every connection.
-    m.stop()
-    await m.exited()
-    await expect.poll(machineOnline, { timeout: 30_000 }).toBe(false)
-    const wrong = `${fingerprint.startsWith('00') ? 'FF' : '00'}${fingerprint.slice(2)}`
-    writeFileSync(configPath, JSON.stringify({ ...config, certSha256: wrong }))
-    expect(() =>
-      execFileSync(GONGGONG_BIN, ['bots'], { env: { ...process.env, GONGGONG_HOME: m.home }, stdio: 'pipe' }),
-    ).toThrow(/证书指纹不匹配/)
-    m.start()
-    await new Promise((r) => setTimeout(r, 8_000))
-    expect(await machineOnline()).toBe(false)
   } finally {
     m.stop()
     await api.dispose()

@@ -130,7 +130,7 @@ Connection, ACP, git, and sync logs; run process data is redacted before it's st
 
 | Check | What it checks |
 | --- | --- |
-| 服务器连接 (Server connection) | Whether the server is reachable and certificate pinning passes |
+| 服务器连接 (Server connection) | Whether the server is reachable over HTTPS, or over unencrypted HTTP for an `http://` server |
 | Agent | Whether Claude Code / Codex are installed and meet the version requirement |
 | git 凭据 (git credentials) | Whether this machine's managed repositories can access their remotes |
 | 磁盘 (Disk) | Workspace usage and free space |
@@ -159,7 +159,7 @@ Appearance, upgrades, mirror, launch at login, and storage locations.
 | 镜像源 (Mirror) | Download source for installing and upgrading Node.js, Claude Code, and Codex: Taobao mirror (npmmirror, default) / official / custom. For custom, enter the npm registry and the Node.js download URL (the directory containing `index.json`), then click 「保存」 (Save) |
 | 工作区根目录 (Workspace root) | Directory for managed workspaces and attachments; shown read-only |
 | 备份目录 (Backup directory) | Overwritten local changes and half-finished work from interrupted runs; shown read-only |
-| 服务器 (Server) | The currently bound server; outbound connections only (HTTPS / WSS) |
+| 服务器 (Server) | The currently bound server; outbound connections only (HTTPS / WSS, or HTTP / WS for an `http://` server) |
 
 **「解除绑定…」 (Unbind…)**: after you confirm, this machine disconnects, clears the team key and managed workspaces (directories bound with `/cd` and local backups are kept), and returns to [First-run setup](/en/desktop/onboarding). This can't be undone.
 

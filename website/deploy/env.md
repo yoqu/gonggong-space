@@ -82,7 +82,7 @@
 | `GONGGONG_CACERT` | `release.sh --publish` | server 使用自签证书时，信任的证书文件 |
 | `GONGGONG_DOWNLOAD_BASE` | `release.sh` | 安装包放在 CDN 时的下载地址前缀，默认 `/downloads` |
 
-daemon（成员机器上的 `gg`）读取的环境变量，如 `GONGGONG_INSECURE_DEV`、`GONGGONG_NO_AUTO_UPGRADE`，见 [命令参考](/cli/reference) 与 [本地数据与日志](/cli/local-data)。
+daemon（成员机器上的 `gg`）读取的环境变量，如 `GONGGONG_NO_AUTO_UPGRADE`，见 [命令参考](/cli/reference) 与 [本地数据与日志](/cli/local-data)。
 
 ## 相关页面
 

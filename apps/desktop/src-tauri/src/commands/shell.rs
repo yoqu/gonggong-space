@@ -14,7 +14,6 @@ pub struct AppInfo {
     /// `None` until bound.
     owner_name: Option<String>,
     server: Option<String>,
-    cert_pinned: bool,
     workspaces_dir: String,
     backups_dir: String,
     adapters: Vec<Adapter>,
@@ -37,7 +36,6 @@ pub fn app_info(host: State<'_, Host>) -> Result<AppInfo> {
         machine: gonggong::bind::machine_info(),
         owner_name: config.as_ref().map(|c| c.owner_name.clone()),
         server: config.as_ref().map(|c| c.server.clone()),
-        cert_pinned: config.as_ref().is_some_and(|c| c.cert_sha256.is_some()),
         workspaces_dir: host.home.join("workspaces").display().to_string(),
         backups_dir: host.home.join("backups").display().to_string(),
         adapters: gonggong::engine::ADAPTERS

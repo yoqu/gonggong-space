@@ -82,7 +82,7 @@ Only read when running the web dev server with `pnpm dev:web`. Production uses t
 | `GONGGONG_CACERT` | `release.sh --publish` | Certificate file to trust when the server uses a self-signed certificate |
 | `GONGGONG_DOWNLOAD_BASE` | `release.sh` | Download URL prefix when installers are hosted on a CDN; defaults to `/downloads` |
 
-For environment variables read by the daemon (`gg` on members' machines), such as `GONGGONG_INSECURE_DEV` and `GONGGONG_NO_AUTO_UPGRADE`, see [Command reference](/en/cli/reference) and [Local data and logs](/en/cli/local-data).
+For environment variables read by the daemon (`gg` on members' machines), such as `GONGGONG_HOME` and `GONGGONG_NO_AUTO_UPGRADE`, see [Command reference](/en/cli/reference) and [Local data and logs](/en/cli/local-data).
 
 ## Related pages
 

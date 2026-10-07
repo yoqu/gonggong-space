@@ -85,7 +85,6 @@ async fn serve(token: &str) -> (Client, Arc<Mutex<Server>>) {
         token: token.into(),
         machine_id: "m1".into(),
         owner_name: "王磊".into(),
-        cert_sha256: None,
     };
     (Client::new(&config).unwrap(), state)
 }

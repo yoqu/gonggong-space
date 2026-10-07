@@ -119,7 +119,7 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` CLI entry point, and `l
 | `snapshot.rs` | Renders a first-screen screenshot of a preview with a local Chrome-family browser |
 | `cast.rs` | Live view: starts gg-cast on demand to stream a window to LiveKit |
 | `wechatide.rs` | WeChat DevTools: opens mini program projects and captures the simulator screen |
-| `tls.rs` | HTTPS/WSS connection to the server, pinned by the certificate's SHA-256 fingerprint; plain http is only allowed for loopback addresses |
+| `tls.rs` | HTTPS/WSS connection to the server, accepting any certificate (no pinning); plain http is allowed to any host |
 | `net.rs` | Measures latency and bandwidth to the server |
 | `upgrade.rs` | Self-upgrade: downloads the new version, verifies sha256, replaces itself, and restarts |
 | `revoke.rs` | Cleans up managed workspaces and tokens after the machine is revoked |

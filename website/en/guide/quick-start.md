@@ -2,6 +2,10 @@
 
 This page takes the shortest path to getting Gonggong Space running and making your first @Bot. Each step lists only the minimum actions; follow the links for details.
 
+::: tip Try the demo without deploying
+The public demo server [http://gg.uyoqu.com/](http://gg.uyoqu.com/) is ready to use: open it, register an account, and start from [step 3](#bind-your-machine). Bind your machine with `gg login --server http://gg.uyoqu.com --code <bind code>`, or paste the connect link into the desktop app. The demo uses plain `http://`, so traffic isn't encrypted; don't put private code or credentials on it.
+:::
+
 Overall flow: **admin starts the server → sign in and change password → bind a machine → create a Bot → create a group → @ the Bot**.
 
 ::: tip Members
@@ -23,8 +27,8 @@ pnpm dev:web                                      # web app, default http://127.
 
 On first start, the server creates the sysadmin account `admin` using `GONGGONG_ADMIN_PASSWORD`, and database tables are created automatically.
 
-::: warning When other machines need to connect
-The daemon only allows `https://` connections to a server that isn't on the same machine. For teammates' machines to connect, you need to configure a certificate first; see [HTTPS and certificates](/en/deploy/https). For full deployment steps, see [Deploy from source](/en/deploy/install).
+::: tip When other machines need to connect
+Teammates' machines can bind to the server over `http://` or `https://`. Plain `http://` isn't encrypted, so configure a certificate when traffic crosses a network you don't trust; see [HTTPS and certificates](/en/deploy/https). For full deployment steps, see [Deploy from source](/en/deploy/install).
 :::
 
 ## 2. Sign in and change your password {#login}
@@ -36,7 +40,7 @@ The daemon only allows `https://` connections to a server that isn't on the same
 
 After the admin signs in, go to 「管理后台」 (Admin console) →「账号与角色」 (Accounts & roles) in the left sidebar and click 「新建账号…」 (New account…) to create an account for each member, then send them the URL, account, and initial password. See [Sign-in and accounts](/en/user/login) and [Accounts and roles](/en/admin/users).
 
-## 3. Bind your machine
+## 3. Bind your machine {#bind-your-machine}
 
 First, prepare the machine that will run your Bots:
 
@@ -52,7 +56,7 @@ Then bind it:
    - CLI: expand 「使用命令行」 (Use the command line), click 「复制命令」 (Copy command), and run it in the machine's terminal. It looks like:
 
    ```bash
-   gg login --server https://gg.example.com --code K7QM-4X2P --fingerprint sha256:…
+   gg login --server https://gg.example.com --code K7QM-4X2P
    ```
 
 3. When the terminal shows 「绑定成功」 ("bound successfully"), start the daemon (desktop app users skip this step; just keep the app running):

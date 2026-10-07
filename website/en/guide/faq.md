@@ -8,13 +8,13 @@ This page collects the most common problems and how to fix them. For anything no
 2. **Self-check**: `gg doctor` checks, in order, the server connection, agents, git credentials, disk, line endings, and on macOS the Screen Recording and Accessibility permissions. The mark at the start of each line: `✓` OK, `!` warning, `✗` error, `-` skipped. If there are errors, the command exits with a non-zero status.
 
    ```text
-   ✓ 服务器连接	WSS 正常 · 证书固定通过
+   ✓ 服务器连接	HTTPS 正常
    ✓ Agent	Claude Code 2.1.3 · Codex 0.46.0 可用
    ✓ git 凭据	SSH · 可访问 · todo-app × 后端助手
    ✓ 磁盘	工作区 1.8 GB · 剩余 212 GB
    ```
 
-   The output is in Chinese. The rows are: 服务器连接 (server connection: WSS OK, certificate pinning passed), Agent (Claude Code 2.1.3 and Codex 0.46.0 available), git 凭据 (git credentials: SSH, accessible, for todo-app × 后端助手), and 磁盘 (disk: workspaces 1.8 GB, 212 GB free).
+   The output is in Chinese. The rows are: 服务器连接 (server connection: HTTPS OK; for an `http://` server it shows 「HTTP 正常（未加密）」, "HTTP OK (unencrypted)"), Agent (Claude Code 2.1.3 and Codex 0.46.0 available), git 凭据 (git credentials: SSH, accessible, for todo-app × 后端助手), and 磁盘 (disk: workspaces 1.8 GB, 212 GB free).
 
 3. **Check logs**: `gg logs` shows recent daemon logs; filter with `--level error|warn|info|debug` and `--lines <count>`.
 4. **Export a diagnostics bundle**: `gg logs --export` creates a zip (on your Desktop by default, named `gonggong-diag-<date>-<time>.zip`; or specify one with `gg logs --export <path>.zip`) containing redacted logs, self-check results, version info, and the local config with tokens removed. You can send it straight to your admin.
@@ -75,27 +75,10 @@ Connect links and bind codes are single-use and expire (the dialog shows a count
 - 「尝试次数过多，绑定码已锁定」 ("too many attempts; bind code locked"): generate a new one later.
 - 「绑定码格式错误，应为 XXXX-XXXX」 ("invalid bind code format; expected XXXX-XXXX"): check that you copied it completely.
 
-### Certificate errors
-
-| Error | Cause and fix |
-| --- | --- |
-| `只允许通过 https:// 连接非本机服务器` ("only https:// is allowed for non-local servers") | The daemon allows `http://` only for the local loopback address. The server needs a certificate, and you must bind with an `https://` URL; see [HTTPS and certificates](/en/deploy/https) |
-| `服务器证书指纹不匹配，拒绝连接：期望 …，实际 …` ("server certificate fingerprint mismatch, connection refused: expected …, got …") | The server changed its certificate, there's a certificate-replacing proxy in between, or you may be facing a man-in-the-middle. First verify the new fingerprint with your admin; once confirmed, generate a new bind code in the web app and run `gg login` again |
-| `本机配置缺少服务器证书指纹（certSha256），请重新执行 gg login` ("local config is missing the server certificate fingerprint (certSha256); run gg login again") | The local config is incomplete; just bind again |
-| `证书指纹格式错误，应为 sha256:AB:CD:…` ("invalid fingerprint format; expected sha256:AB:CD:…") | The `--fingerprint` value was copied incompletely |
-
-::: warning Reverse proxies
-The fingerprint in the connect link comes from the server process's own certificate. If a certificate-replacing reverse proxy sits in front of the server, the daemon sees the proxy's certificate, the fingerprint doesn't match, and binding is refused. For such deployments, have the proxy pass TLS through, or use the bind command without `--fingerprint` and verify the fingerprint manually. See [Reverse proxy and preview domain](/en/deploy/reverse-proxy).
-:::
-
-::: danger
-When you bind for the first time without a fingerprint, the daemon trusts the certificate it sees at that moment and prints its fingerprint. Always check it against the fingerprint your admin published; if it doesn't match, run `gg logout` and contact your admin.
-:::
-
 ### How do other machines on the LAN connect
 
 - **Web**: LAN members can open the web app directly at the server's address. With a self-signed certificate the browser will warn that it's not trusted; confirm and continue.
-- **daemon**: non-local connections must use `https://`. The admin runs `bash scripts/dev-cert.sh` to generate a self-signed certificate that includes the machine's LAN IP, sets `GONGGONG_TLS_CERT` / `GONGGONG_TLS_KEY` as instructed, starts the server and web app, and publishes the printed fingerprint to members. The web dev server listens only on localhost by default; to expose it to the LAN, set `WEB_HOST=0.0.0.0`. See [HTTPS and certificates](/en/deploy/https) and [Local development and testing](/en/dev/local).
+- **daemon**: binds with the server's LAN address over `http://` or `https://`; plain `http://` is unencrypted. For HTTPS, the admin runs `bash scripts/dev-cert.sh` to generate a self-signed certificate that includes the machine's LAN IP, sets `GONGGONG_TLS_CERT` / `GONGGONG_TLS_KEY` as instructed, and starts the server and web app; the daemon accepts the self-signed certificate as is. The web dev server listens only on localhost by default; to expose it to the LAN, set `WEB_HOST=0.0.0.0`. See [HTTPS and certificates](/en/deploy/https) and [Local development and testing](/en/dev/local).
 - If you open the web app over a plain `http://` LAN address, some browser features are restricted. If clicking 「复制命令」 (Copy command) doesn't show the 「已复制」 (Copied) message, select the command text and copy it manually.
 
 ## Installation and system
