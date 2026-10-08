@@ -710,7 +710,7 @@ describe('bot page ux', () => {
     expect(within(dialog).queryByText(/优先级/)).toBeNull()
   })
 
-  it('lists the bots running on a machine in its detail dialog', async () => {
+  it('lists the bots running on a machine on its page', async () => {
     routes['GET /api/bots'] = () => [
       bot({}),
       bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex', presence: 'running' }),
@@ -720,8 +720,8 @@ describe('bot page ux', () => {
     renderAt('/', wang)
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     const section = await within(nav).findByRole('region', { name: '我的机器' })
-    fireEvent.click(await within(section).findByRole('button', { name: /wanglei-mbp/ }))
-    const dialog = await screen.findByRole('dialog', { name: '机器详情' })
+    fireEvent.click(await within(section).findByRole('link', { name: /wanglei-mbp/ }))
+    const dialog = await screen.findByRole('region', { name: '机器详情' })
     const list = within(dialog).getByRole('list', { name: '运行的 Bot' })
     const rows = within(list)
       .getAllByRole('listitem')
@@ -729,6 +729,6 @@ describe('bot page ux', () => {
     expect(rows).toEqual(['小王的 Claude在线空闲', '小王的 Codex运行中'])
     fireEvent.click(within(list).getByRole('link', { name: /小王的 Codex/ }))
     expect(await screen.findByRole('region', { name: 'Bot 概况' })).toBeTruthy()
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '机器详情' })).toBeNull())
+    expect(screen.queryByRole('region', { name: '机器详情' })).toBeNull()
   })
 })

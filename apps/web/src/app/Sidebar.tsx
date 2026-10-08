@@ -35,7 +35,6 @@ export interface SidebarProps {
   onBindMachine?: () => void
   onNewBot?: () => void
   onNewGroup?: () => void
-  onOpenMachine?: (machineId: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
   onConfirmBot?: (botId: string) => void
 }
@@ -245,7 +244,6 @@ export function Sidebar({
   guide = true,
   onBindMachine,
   onNewBot,
-  onOpenMachine,
   onConfirmBot,
 }: SidebarProps) {
   const { scroll, pathname } = useSelectionCapsule(groups)
@@ -343,11 +341,10 @@ export function Sidebar({
                     .join(' · ')
                   return (
                     <div key={m.id} className="sidebar__row">
-                      <button
-                        type="button"
+                      <NavLink
+                        to={`/machine/${m.id}`}
                         className="sidebar__open"
                         title={[m.name, m.online ? t('在线') : t('离线'), meta].filter(Boolean).join(' · ')}
-                        onClick={() => onOpenMachine?.(m.id)}
                       >
                         <span
                           className="sidebar__dot"
@@ -357,7 +354,7 @@ export function Sidebar({
                           <span className="sidebar__name">{m.name}</span>
                           {meta ? <span className="sidebar__meta">{meta}</span> : null}
                         </span>
-                      </button>
+                      </NavLink>
                     </div>
                   )
                 })

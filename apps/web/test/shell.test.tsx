@@ -288,7 +288,7 @@ describe('sidebar rows', () => {
     mockApi(routes([], [bare]))
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    const row = await within(nav).findByRole('button', { name: /^m1/ })
+    const row = await within(nav).findByRole('link', { name: /^m1/ })
     expect(row.textContent).not.toContain('undefined')
     expect(row.getAttribute('title')).toBe('m1 · 在线')
   })

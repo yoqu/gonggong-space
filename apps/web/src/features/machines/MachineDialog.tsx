@@ -36,7 +36,11 @@ const cpuText = (m: MachineDto) =>
 export const hardwareText = (m: MachineDto) =>
   [cpuText(m), memoryText(m.system?.memoryBytes)].filter(Boolean).join(' · ') || null
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '--')
-const OS_ICON: Record<MachineDto['os'], IconName> = { macos: 'apple', linux: 'linux', windows: 'windows' }
+export const OS_ICON: Record<MachineDto['os'], IconName> = {
+  macos: 'apple',
+  linux: 'linux',
+  windows: 'windows',
+}
 
 type Tab = 'overview' | 'tools' | 'providers'
 const TAB_NAME = { tools: t('Agent 工具'), providers: t('供应商#nav') }
@@ -53,25 +57,25 @@ function blockedNote(m: MachineDto) {
     : null
 }
 
-/** Details of one machine; its owner or a sysadmin can rename or revoke it. */
-export function MachineDialog({
+/** Tabs and overview of one machine, shared by its page and the admin dialog. */
+export function MachineDetails({
   machine,
   ownerName,
   bots,
   onChanged,
-  onClose,
+  onLeave,
 }: {
   machine: MachineDto
   ownerName?: string
   /** Bots bound to this machine, when the caller has them. */
   bots?: BotDto[]
-  /** Rename or revoke done: machine events reach only the owner, so a sysadmin's list must reload itself. */
+  /** Rename done: machine events reach only the owner, so a sysadmin's list must reload itself. */
   onChanged?: () => void
-  onClose: () => void
+  /** Following a link out of the details. */
+  onLeave?: () => void
 }) {
   const [name, setName] = useState(machine.name === machine.hostname ? '' : machine.name)
   const [saving, setSaving] = useState(false)
-  const [revoking, setRevoking] = useState(false)
   const [tab, setTab] = useState<Tab>('overview')
   const owner = useSession((st) => st.user?.id === machine.ownerId)
   const formId = useId()
@@ -95,6 +99,162 @@ export function MachineDialog({
   ]
   return (
     <>
+      {owner ? (
+        <div className="machine__tabs">
+          <Tabs<Tab>
+            aria-label={t('机器详情')}
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: 'overview', label: t('概览') },
+              { value: 'tools', label: TAB_NAME.tools, disabled: !!blocked(machine, 'tools') },
+              { value: 'providers', label: TAB_NAME.providers, disabled: !!blocked(machine, 'providers') },
+            ]}
+          />
+          {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
+        </div>
+      ) : null}
+      {tab === 'overview' ? null : blocked(machine, tab) ? (
+        <EmptyState
+          compact
+          title={blocked(machine, tab) === 'offline' ? t('机器离线') : t('请先升级该机器的 daemon')}
+          description={
+            blocked(machine, tab) === 'offline'
+              ? t('供应商与 Agent 工具只保存在机器上，机器上线后才能查看和修改。')
+              : t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')
+          }
+        />
+      ) : tab === 'tools' ? (
+        <ToolsPanel machine={machine} />
+      ) : (
+        <ProvidersPanel machine={machine} />
+      )}
+      {tab === 'overview' ? (
+        <div className="machine">
+          <section className="machine__hero" data-os={machine.os}>
+            <span className="machine__os">
+              <Icon name={OS_ICON[machine.os]} size={30} label={OS_LABEL[machine.os]} />
+            </span>
+            <span className="machine__id">
+              <span className="machine__host">{machine.hostname}</span>
+              <span className="machine__tags">
+                <span className="machine__tag">{osText(machine)}</span>
+                <span className="machine__tag">{machine.arch}</span>
+                {machine.daemonVersion ? (
+                  <span className="machine__tag">daemon v{machine.daemonVersion}</span>
+                ) : null}
+              </span>
+            </span>
+            <span className="machine__status" data-online={machine.online}>
+              {machine.online ? t('在线') : t('离线')}
+            </span>
+          </section>
+          <Form id={formId} onSubmit={() => void save()}>
+            <FormRow label={t('名称')} hint={t('留空则使用主机名。')}>
+              <span className="machine__rename">
+                <TextField
+                  aria-label={t('名称')}
+                  value={name}
+                  placeholder={machine.hostname}
+                  maxLength={64}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <Button type="submit" disabled={saving}>
+                  {t('保存')}
+                </Button>
+              </span>
+            </FormRow>
+          </Form>
+          <div className="machine__specs">
+            {specs
+              .filter((r): r is [IconName, string, string] => r[2] !== null)
+              .map(([icon, k, v]) => (
+                <div key={k} className="machine__spec">
+                  <Icon name={icon} size={18} className="machine__spec-icon" />
+                  <span className="machine__spec-label">{k}</span>
+                  <span className="machine__spec-value">{v}</span>
+                </div>
+              ))}
+          </div>
+          <section className="machine__card" aria-label="Agent">
+            <span className="machine__card-title">Agent</span>
+            {machine.agents.length ? (
+              machine.agents.map((a) => (
+                <span key={a.kind} className="machine__agent" data-available={a.available}>
+                  <Icon name="bot" size={16} />
+                  <span className="machine__agent-name">{AGENT_LABEL[a.kind]}</span>
+                  <span className="machine__agent-version">
+                    {a.available ? (a.version ?? t('已安装')) : t('未安装')}
+                  </span>
+                </span>
+              ))
+            ) : (
+              <span className="machine__muted">{t('未检测到 Agent')}</span>
+            )}
+          </section>
+          {bots?.length ? (
+            <section className="machine__card">
+              <span className="machine__card-title">{t('运行的 Bot')}</span>
+              <ul className="machine__bots" aria-label={t('运行的 Bot')}>
+                {bots.map((b) => (
+                  <li key={b.id}>
+                    <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onLeave}>
+                      <BotAvatar id={b.id} name={b.name} size={20} />
+                      <span className="machine__agent-name">{b.name}</span>
+                      <span className="machine__bot-state">
+                        <span
+                          className="machine__bot-dot"
+                          style={{ background: PRESENCE[b.presence].color }}
+                        />
+                        {PRESENCE[b.presence].label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          <dl className="machine__meta">
+            {ownerName ? (
+              <>
+                <dt>{t('主人')}</dt>
+                <dd>{ownerName}</dd>
+              </>
+            ) : null}
+            {machine.online ? null : (
+              <>
+                <dt>{t('最后在线')}</dt>
+                <dd>{dateText(machine.lastSeenAt)}</dd>
+              </>
+            )}
+            <dt>{t('首次绑定')}</dt>
+            <dd>{dateText(machine.createdAt)}</dd>
+            <dt>{t('最近绑定')}</dt>
+            <dd>{dateText(machine.boundAt)}</dd>
+          </dl>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+/** A machine opened from the admin list; its owner or a sysadmin can rename or revoke it. */
+export function MachineDialog({
+  machine,
+  ownerName,
+  onChanged,
+  onClose,
+}: {
+  machine: MachineDto
+  ownerName?: string
+  /** Rename or revoke done: machine events reach only the owner, so a sysadmin's list must reload itself. */
+  onChanged?: () => void
+  onClose: () => void
+}) {
+  const [revoking, setRevoking] = useState(false)
+  const owner = useSession((st) => st.user?.id === machine.ownerId)
+  return (
+    <>
       <Dialog
         open={!revoking}
         title={t('机器详情')}
@@ -108,141 +268,7 @@ export function MachineDialog({
         }
         actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}
       >
-        {owner ? (
-          <div className="machine__tabs">
-            <Tabs<Tab>
-              aria-label={t('机器详情')}
-              value={tab}
-              onChange={setTab}
-              items={[
-                { value: 'overview', label: t('概览') },
-                { value: 'tools', label: TAB_NAME.tools, disabled: !!blocked(machine, 'tools') },
-                { value: 'providers', label: TAB_NAME.providers, disabled: !!blocked(machine, 'providers') },
-              ]}
-            />
-            {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
-          </div>
-        ) : null}
-        {tab === 'overview' ? null : blocked(machine, tab) ? (
-          <EmptyState
-            compact
-            title={blocked(machine, tab) === 'offline' ? t('机器离线') : t('请先升级该机器的 daemon')}
-            description={
-              blocked(machine, tab) === 'offline'
-                ? t('供应商与 Agent 工具只保存在机器上，机器上线后才能查看和修改。')
-                : t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')
-            }
-          />
-        ) : tab === 'tools' ? (
-          <ToolsPanel machine={machine} />
-        ) : (
-          <ProvidersPanel machine={machine} />
-        )}
-        {tab === 'overview' ? (
-          <div className="machine">
-            <section className="machine__hero" data-os={machine.os}>
-              <span className="machine__os">
-                <Icon name={OS_ICON[machine.os]} size={30} label={OS_LABEL[machine.os]} />
-              </span>
-              <span className="machine__id">
-                <span className="machine__host">{machine.hostname}</span>
-                <span className="machine__tags">
-                  <span className="machine__tag">{osText(machine)}</span>
-                  <span className="machine__tag">{machine.arch}</span>
-                  {machine.daemonVersion ? (
-                    <span className="machine__tag">daemon v{machine.daemonVersion}</span>
-                  ) : null}
-                </span>
-              </span>
-              <span className="machine__status" data-online={machine.online}>
-                {machine.online ? t('在线') : t('离线')}
-              </span>
-            </section>
-            <Form id={formId} onSubmit={() => void save()}>
-              <FormRow label={t('名称')} hint={t('留空则使用主机名。')}>
-                <span className="machine__rename">
-                  <TextField
-                    aria-label={t('名称')}
-                    value={name}
-                    placeholder={machine.hostname}
-                    maxLength={64}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                  <Button type="submit" disabled={saving}>
-                    {t('保存')}
-                  </Button>
-                </span>
-              </FormRow>
-            </Form>
-            <div className="machine__specs">
-              {specs
-                .filter((r): r is [IconName, string, string] => r[2] !== null)
-                .map(([icon, k, v]) => (
-                  <div key={k} className="machine__spec">
-                    <Icon name={icon} size={18} className="machine__spec-icon" />
-                    <span className="machine__spec-label">{k}</span>
-                    <span className="machine__spec-value">{v}</span>
-                  </div>
-                ))}
-            </div>
-            <section className="machine__card" aria-label="Agent">
-              <span className="machine__card-title">Agent</span>
-              {machine.agents.length ? (
-                machine.agents.map((a) => (
-                  <span key={a.kind} className="machine__agent" data-available={a.available}>
-                    <Icon name="bot" size={16} />
-                    <span className="machine__agent-name">{AGENT_LABEL[a.kind]}</span>
-                    <span className="machine__agent-version">
-                      {a.available ? (a.version ?? t('已安装')) : t('未安装')}
-                    </span>
-                  </span>
-                ))
-              ) : (
-                <span className="machine__muted">{t('未检测到 Agent')}</span>
-              )}
-            </section>
-            {bots?.length ? (
-              <section className="machine__card">
-                <span className="machine__card-title">{t('运行的 Bot')}</span>
-                <ul className="machine__bots" aria-label={t('运行的 Bot')}>
-                  {bots.map((b) => (
-                    <li key={b.id}>
-                      <Link to={`/bot/${b.id}`} className="machine__bot" onClick={onClose}>
-                        <BotAvatar id={b.id} name={b.name} size={20} />
-                        <span className="machine__agent-name">{b.name}</span>
-                        <span className="machine__bot-state">
-                          <span
-                            className="machine__bot-dot"
-                            style={{ background: PRESENCE[b.presence].color }}
-                          />
-                          {PRESENCE[b.presence].label}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <dl className="machine__meta">
-              {ownerName ? (
-                <>
-                  <dt>{t('主人')}</dt>
-                  <dd>{ownerName}</dd>
-                </>
-              ) : null}
-              {machine.online ? null : (
-                <>
-                  <dt>{t('最后在线')}</dt>
-                  <dd>{dateText(machine.lastSeenAt)}</dd>
-                </>
-              )}
-              <dt>{t('首次绑定')}</dt>
-              <dd>{dateText(machine.createdAt)}</dd>
-              <dt>{t('最近绑定')}</dt>
-              <dd>{dateText(machine.boundAt)}</dd>
-            </dl>
-          </div>
-        ) : null}
+        <MachineDetails machine={machine} ownerName={ownerName} onChanged={onChanged} onLeave={onClose} />
       </Dialog>
       <Presence>
         {revoking ? (

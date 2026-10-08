@@ -441,3 +441,38 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* 机器页（内容区） */
+.machine-page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.machine-page__body {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-20) var(--space-32) var(--space-32);
+}
+.machine-page__avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-field);
+  background: var(--control-track);
+  color: var(--label-secondary);
+}
+.machine-page__avatar[data-online="true"] {
+  color: var(--system-green);
+}
+@media (max-width: 640px) {
+  .machine-page__body {
+    padding: var(--space-16);
+  }
+}

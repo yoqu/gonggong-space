@@ -9,7 +9,7 @@ import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
 import { type GroupKind, NewGroupDialog } from '../features/chat/NewGroupDialog'
 import { BindMachineDialog } from '../features/machines/BindMachineDialog'
-import { MachineDialog } from '../features/machines/MachineDialog'
+import { MachinePage } from '../features/machines/MachinePage'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
 import { openTab } from '../features/workbench/open'
@@ -118,7 +118,7 @@ function useLinkedBot() {
 }
 
 export function ChatPage() {
-  const { groupId, botId } = useParams()
+  const { groupId, botId, machineId } = useParams()
   const navigate = useNavigate()
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
@@ -130,10 +130,9 @@ export function ChatPage() {
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
   const [settingBotId, setSettingBotId] = useState<string | null>(null)
-  const [machineId, setMachineId] = useState<string | null>(null)
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
-  const firstRun = !groupId && !botId && groupsState === 'ready' && !groups.length
+  const firstRun = !groupId && !botId && !machineId && groupsState === 'ready' && !groups.length
   const openBot = bots.find((b) => b.id === botId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
@@ -145,7 +144,7 @@ export function ChatPage() {
   useLinkedPreview(group?.id)
   useLinkedBot()
   const viewed = useGroupOutsideList(groupId, groupsState === 'ready' && !group)
-  const benchGroup = botId ? null : (group?.id ?? null)
+  const benchGroup = botId || machineId ? null : (group?.id ?? null)
   useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
   const benchShown = useWorkbench(
     (s) => !!benchGroup && s.groupId === benchGroup && s.open && !!s.benches[benchGroup]?.tabs.length,
@@ -155,15 +154,15 @@ export function ChatPage() {
   }, [group])
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
-    if (groupId || botId || mobile || groupsState !== 'ready' || !groups.length) return
+    if (groupId || botId || machineId || mobile || groupsState !== 'ready' || !groups.length) return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, botId, mobile, groupsState, groups, navigate])
+  }, [groupId, botId, machineId, mobile, groupsState, groups, navigate])
 
   return (
     <>
       <ChatLayout
-        mobileView={groupId || botId ? 'chat' : 'list'}
+        mobileView={groupId || botId || machineId ? 'chat' : 'list'}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={benchShown ? <Workbench /> : undefined}
         strip={<ConversationStrip groups={groups} />}
@@ -187,12 +186,28 @@ export function ChatPage() {
             loaded={workspaceLoaded && groupsState === 'ready'}
             onBindMachine={() => setBinding(true)}
             onNewBot={() => setNewBot(true)}
-            onOpenMachine={setMachineId}
             onConfirmBot={(id) => void confirmBot(id)}
           />
         }
       >
-        {botId ? (
+        {machineId ? (
+          openMachine ? (
+            <MachinePage
+              key={openMachine.id}
+              machine={openMachine}
+              bots={myBots.filter((b) => b.machineId === openMachine.id)}
+              onBack={mobile ? () => navigate('/') : undefined}
+            />
+          ) : (
+            <div className="chat__placeholder">
+              {workspaceLoaded ? (
+                <EmptyState illustration={<DeniedArt />} title={t('机器不存在或已吊销')} />
+              ) : (
+                <Mascot action="wait" size={72} label={t('加载中')} />
+              )}
+            </div>
+          )
+        ) : botId ? (
           openBot && me ? (
             <BotPage
               key={openBot.id}
@@ -261,15 +276,6 @@ export function ChatPage() {
       <Presence>
         {openBot && openBot.id === settingBotId && me ? (
           <BotDialog bot={openBot} me={me} onClose={() => setSettingBotId(null)} />
-        ) : null}
-      </Presence>
-      <Presence>
-        {openMachine ? (
-          <MachineDialog
-            machine={openMachine}
-            bots={myBots.filter((b) => b.machineId === openMachine.id)}
-            onClose={() => setMachineId(null)}
-          />
         ) : null}
       </Presence>
     </>

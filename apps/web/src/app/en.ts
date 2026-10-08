@@ -14,6 +14,7 @@ export default {
   展开聊天: 'Expand chat',
   调整聊天栏宽度: 'Resize chat',
   'Bot 不存在或已删除': "This Bot doesn't exist or was deleted",
+  机器不存在或已吊销: "This machine doesn't exist or was revoked",
   加载中: 'Loading',
   加载失败: 'Failed to load',
   '无法获取群列表，请检查网络后重试。': "Couldn't load groups. Check your network and try again.",
