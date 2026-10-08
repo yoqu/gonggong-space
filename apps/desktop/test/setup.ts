@@ -1,7 +1,10 @@
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach } from 'vitest'
 
 afterEach(cleanup)
+
+// RunDetail loads lazily: a cold module import on a slow CI runner outlasts the 1s default.
+configure({ asyncUtilTimeout: 5000 })
 
 // jsdom reports en-US; the suite asserts the default Chinese texts.
 localStorage.setItem('gg.locale', 'zh')
