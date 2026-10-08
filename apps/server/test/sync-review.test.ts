@@ -484,6 +484,7 @@ describe('conflict and notification cleanup', () => {
     connect('A')
     connect('B')
     await heldOnB()
+    await vi.waitFor(async () => expect((await openNotes('sync_conflict')).length).toBeGreaterThan(0))
     expect((await (await api(w.wang.id)).del(`/api/groups/${w.g.id}/bots/${w.b.id}`)).status).toBe(200)
     expect(await t.db.select().from(syncConflicts).where(isNull(syncConflicts.resolvedAt))).toEqual([])
     expect(await openNotes('sync_conflict')).toEqual([])

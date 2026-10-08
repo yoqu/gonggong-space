@@ -5,7 +5,10 @@ localStorage.setItem('gg.locale', 'zh')
 
 // jsdom has no AnimationEvent, which makes React listen for `webkitAnimationEnd`; define it before react-dom loads.
 if (!('AnimationEvent' in window)) Object.assign(window, { AnimationEvent: Event })
-const { cleanup } = await import('@testing-library/react')
+const { cleanup, configure } = await import('@testing-library/react')
+
+// Routes load lazily: a cold module import on a slow CI runner outlasts the 1s default.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(cleanup)
 
