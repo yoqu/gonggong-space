@@ -348,7 +348,10 @@ describe('switch to force: flow', () => {
       reasonI18n: null,
     })
     await vi.waitFor(async () => expect((await group()).mode).toBe('partition'))
-    expect(await events()).toContain('切换为强制同步失败，仍为分区模式：Windows 保留名')
+    // The event is posted after the mode commits.
+    await vi.waitFor(async () =>
+      expect(await events()).toContain('切换为强制同步失败，仍为分区模式：Windows 保留名'),
+    )
   })
 })
 
