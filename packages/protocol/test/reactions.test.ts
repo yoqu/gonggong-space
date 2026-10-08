@@ -34,7 +34,15 @@ describe('reactions', () => {
   })
 
   it('user card carries only non-sensitive fields', () => {
-    const card = { id: 'u1', name: '王磊', account: 'wang', role: 'member', groupAdmin: true, online: false }
+    const card = {
+      id: 'u1',
+      name: '王磊',
+      account: 'wang',
+      avatar: null,
+      role: 'member',
+      groupAdmin: true,
+      online: false,
+    }
     expect(UserCardDto.parse({ ...card, passwordHash: 'x', mustChangePassword: true })).toEqual(card)
   })
 })
