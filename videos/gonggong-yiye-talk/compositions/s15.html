@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s15-wrap { position: absolute; inset: 0; }
+        #s15-a { position: absolute; inset: 0; }
+        #s15-warn { position: absolute; left: 110px; top: 140px; width: 860px; }
+        #s15-warn .kicker { display: block; margin-bottom: 24px; color: var(--warn); }
+        #s15-w1, #s15-w2 { display: block; font-size: 84px; }
+        #s15-w2 { margin-top: 18px; }
+        #s15-eq { color: var(--warn); }
+        #s15-note { display: block; margin-top: 26px; font-size: 32px; color: var(--mute); }
+
+        #s15-tiers { position: absolute; left: 110px; top: 500px; width: 800px; height: 340px; }
+        #s15-tiers .kicker { position: absolute; left: 0; top: 0; }
+        .s15-tier { position: absolute; bottom: 0; width: 240px; border-radius: 14px 14px 0 0; border: 2px solid var(--line-strong); border-bottom: none; background: rgba(61, 123, 255, 0.12); display: flex; flex-direction: column; justify-content: flex-start; padding: 18px 20px; gap: 6px; transform-origin: 50% 100%; }
+        .s15-tier b { font-size: 30px; font-weight: 800; color: var(--fg); }
+        .s15-tier span { font-family: var(--mono); font-size: 20px; color: var(--mute); }
+        #s15-t1 { left: 0; height: 130px; }
+        #s15-t2 { left: 270px; height: 200px; border-color: var(--teal); background: rgba(31, 200, 187, 0.12); }
+        #s15-t3 { left: 540px; height: 270px; border-color: rgba(255, 106, 92, 0.8); background: rgba(255, 106, 92, 0.1); }
+        #s15-t3 b { color: var(--warn); }
+        #s15-jump { position: absolute; left: 300px; top: -8px; width: 300px; text-align: center; font-family: var(--mono); font-size: 22px; font-weight: 700; color: #ffcf7a; }
+        #s15-jumpsvg { position: absolute; left: 380px; top: 24px; width: 300px; height: 120px; }
+
+        #s15-appr { left: 1000px; top: 250px; width: 820px; }
+        #s15-appr img { width: 1400px; max-width: none; }
+        #s15-owner { position: absolute; left: 1000px; top: 180px; }
+        #s15-owner .chip { border-color: #ffcf7a; color: #ffcf7a; background: rgba(255, 190, 80, 0.1); }
+
+        #s15-b { position: absolute; inset: 0; }
+        #s15-tip { position: absolute; left: 110px; top: 200px; width: 1700px; }
+        #s15-tip .kicker { display: block; margin-bottom: 22px; }
+        #s15-tip .big { display: block; font-size: 88px; }
+        #s15-cards { position: absolute; left: 110px; top: 470px; display: flex; gap: 40px; }
+        .s15-card { width: 520px; height: 300px; border-radius: 22px; border: 2px solid var(--line-strong); background: var(--panel); display: flex; flex-direction: column; justify-content: center; padding: 0 44px; gap: 14px; }
+        .s15-card .kicker { font-size: 22px; }
+        .s15-card b { font-family: var(--display); font-weight: 400; font-size: 76px; color: var(--fg); }
+        .s15-card span.d { font-size: 28px; color: var(--mute); }
+        #s15-or { align-self: center; font-family: var(--display); font-size: 64px; color: var(--accent-hi); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s15" data-width="1920" data-height="1080">
+        <div id="s15-wrap">
+          <div id="s15-a">
+            <div id="s15-warn">
+              <span class="kicker">// 说白了</span>
+              <span class="big" id="s15-w1">别人 <span class="hl">@</span> 你的 Bot</span>
+              <span class="big" id="s15-w2"><span id="s15-eq">=</span> 在你电脑上跑 AI</span>
+              <span id="s15-note">所以权限做得比较保守</span>
+            </div>
+
+            <div id="s15-tiers">
+              <span class="kicker">权限 · 三档</span>
+              <div class="s15-tier" id="s15-t1"><b>只读</b><span>只看不改</span></div>
+              <div class="s15-tier" id="s15-t2"><b>工作区可写</b><span>只改工作区</span></div>
+              <div class="s15-tier" id="s15-t3"><b>完全访问</b><span>啥都能干</span></div>
+              <div id="s15-jump">越档 → 要审批</div>
+              <svg id="s15-jumpsvg" viewBox="0 0 300 120"><path id="s15-jp" d="M10 110 Q 140 0 280 40" fill="none" stroke="#ffcf7a" stroke-width="4" stroke-dasharray="10 8" stroke-linecap="round" /></svg>
+            </div>
+
+            <div id="s15-owner"><span class="chip">只有 Bot 主人能批</span></div>
+            <div class="win" id="s15-appr">
+              <div class="win-bar"><i></i><i></i><i></i><span>审批卡片</span></div>
+              <img src="assets/shots/approval.webp" alt="" />
+            </div>
+          </div>
+
+          <div id="s15-b">
+            <div id="s15-tip">
+              <span class="kicker">// 我自己的建议</span>
+              <span class="big">我的建议：<span class="hl">单独找台机器跑</span></span>
+            </div>
+            <div id="s15-cards">
+              <div class="s15-card" id="s15-c1"><span class="kicker">option a</span><b>闲置电脑</b><span class="d">角落里吃灰的那台</span></div>
+              <span id="s15-or">/</span>
+              <div class="s15-card" id="s15-c2"><span class="kicker">option b</span><b>虚拟机</b><span class="d">隔离干净，坏了重来</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s15-warn .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s15-w1", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.45, ease: "expo.out" }, 0.2);
+        tl.fromTo("#s15-w2", { opacity: 0, x: -120 }, { opacity: 1, x: 0, duration: 0.5, ease: "back.out(1.6)" }, 3.4);
+        tl.fromTo("#s15-eq", { scale: 1 }, { scale: 1.35, duration: 0.18, yoyo: true, repeat: 1, ease: "power2.out" }, 3.95);
+        tl.fromTo("#s15-note", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 6.2);
+
+        tl.fromTo("#s15-tiers .kicker", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 7.0);
+        tl.fromTo("#s15-t1", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.4, ease: "power3.out" }, 7.2);
+        tl.fromTo("#s15-t2", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.4, ease: "power3.out" }, 7.45);
+        tl.fromTo("#s15-t3", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.45, ease: "back.out(1.4)" }, 7.7);
+        tl.fromTo("#s15-jp", { strokeDashoffset: 400, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 0.6, ease: "power2.out" }, 8.9);
+        tl.fromTo("#s15-jump", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 9.1);
+
+        tl.fromTo("#s15-appr", { opacity: 0, y: 80, rotationX: 20, transformPerspective: 1400 }, { opacity: 1, y: 0, rotationX: 0, duration: 0.6, ease: "power3.out" }, 10.1);
+        tl.fromTo("#s15-owner", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "back.out(2)" }, 10.5);
+
+        tl.fromTo("#s15-a", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.96, duration: 0.35, ease: "power2.in" }, 12.3);
+        tl.fromTo("#s15-tip", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }, 12.6);
+        tl.fromTo("#s15-c1", { opacity: 0, x: -100 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 13.5);
+        tl.fromTo("#s15-or", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 14.0);
+        tl.fromTo("#s15-c2", { opacity: 0, x: 100 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 14.4);
+
+        tl.fromTo("#s15-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 16.42);
+        window.__ggRetime(tl, "s15");
+        window.__timelines["s15"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

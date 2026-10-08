@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s13-wrap { position: absolute; inset: 0; }
+        #s13-head { position: absolute; left: 110px; top: 116px; display: flex; align-items: flex-end; gap: 30px; }
+        #s13-no { font-family: var(--display); font-size: 150px; line-height: 0.9; color: var(--accent-hi); }
+        #s13-head .kicker { display: block; margin-bottom: 12px; }
+        #s13-head .big { display: block; font-size: 76px; }
+
+        .s13-ph { position: absolute; left: 0; right: 0; top: 290px; height: 590px; }
+        #s13-t1 { position: absolute; left: 110px; top: 90px; width: 640px; }
+        #s13-t1 .big { display: block; font-size: 88px; }
+        #s13-meh { margin-top: 34px; color: var(--mute); border-color: var(--line); background: transparent; }
+        #s13-web { left: 900px; top: 0; width: 900px; }
+        #s13-cur1 { position: absolute; left: 0; top: 0; width: 34px; height: 34px; display: block; }
+
+        .s13-live { top: 20px; width: 820px; }
+        #s13-desk { left: 110px; }
+        #s13-mini { left: 990px; }
+        .s13-badge { position: absolute; right: 18px; top: 60px; display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px; background: rgba(5, 8, 15, 0.82); border: 2px solid rgba(255, 106, 92, 0.7); font-family: var(--mono); font-size: 20px; font-weight: 700; color: #fff; }
+        .s13-badge i { width: 12px; height: 12px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 12px var(--warn); display: block; }
+        .s13-cap { position: absolute; left: 0; right: 0; bottom: -64px; text-align: center; font-size: 30px; font-weight: 800; color: var(--fg); }
+        #s13-remote { position: absolute; left: 1150px; top: 300px; display: flex; flex-direction: column; gap: 14px; padding: 22px 26px; border-radius: 18px; background: rgba(10, 18, 34, 0.94); border: 2px solid var(--accent); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+        #s13-remote .h { font-size: 26px; font-weight: 800; }
+        #s13-remote .s { font-family: var(--mono); font-size: 20px; color: var(--mute); }
+        #s13-ok { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--teal); }
+        #s13-cur2 { position: absolute; left: 0; top: 0; width: 34px; height: 34px; display: block; }
+        #s13-ripple { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--teal); display: block; opacity: 0; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s13" data-width="1920" data-height="1080">
+        <div id="s13-wrap">
+          <div id="s13-head">
+            <span id="s13-no">02</span>
+            <div><span class="kicker">不一样 · 02 / 03</span><span class="big">做出来的东西，<span class="hl">直接在群里打开</span></span></div>
+          </div>
+
+          <div class="s13-ph" id="s13-p1">
+            <div id="s13-t1">
+              <span class="big">网页</span>
+              <span class="big">点一下就开</span>
+              <span class="chip" id="s13-meh">这个不稀奇</span>
+            </div>
+            <div class="win" id="s13-web">
+              <div class="win-bar"><i></i><i></i><i></i><span>预览工作台 · 网页</span></div>
+              <img src="assets/shots/preview-workbench.webp" alt="" />
+            </div>
+            <svg id="s13-cur1" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#05080f" stroke-width="1.6" stroke-linejoin="round" /></svg>
+          </div>
+
+          <div class="s13-ph" id="s13-p2">
+            <div class="win s13-live" id="s13-desk">
+              <div class="win-bar"><i></i><i></i><i></i><span>Todo Desktop · 桌面应用窗口</span></div>
+              <img src="assets/shots/workbench-live.webp" alt="" />
+              <span class="s13-badge"><i></i>实时</span>
+            </div>
+            <div class="win s13-live" id="s13-mini">
+              <div class="win-bar"><i></i><i></i><i></i><span>待办清单小程序 · 模拟器</span></div>
+              <img src="assets/shots/workbench-miniprogram.webp" alt="" />
+              <span class="s13-badge"><i></i>实时</span>
+            </div>
+            <div id="s13-remote">
+              <span class="h">李娜 申请远程操控</span>
+              <span class="s">同一时间只有一个人操作</span>
+              <span id="s13-ok">✓ 王磊 已同意</span>
+            </div>
+            <span id="s13-ripple"></span>
+            <svg id="s13-cur2" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#05080f" stroke-width="1.6" stroke-linejoin="round" /></svg>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s13-no", { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 0.0);
+        tl.fromTo("#s13-head .kicker", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 0.15);
+        tl.fromTo("#s13-head .big", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.3);
+
+        // Phase 1 — web preview
+        tl.fromTo("#s13-web", { opacity: 0, scale: 0.82, rotationX: 14, transformPerspective: 1800 }, { opacity: 1, scale: 1, rotationX: 0, duration: 0.8, ease: "power3.out" }, 0.9);
+        tl.fromTo("#s13-web img", { scale: 1 }, { scale: 1.08, duration: 4.4, ease: "sine.inOut" }, 1.4);
+        tl.fromTo("#s13-t1 .big", { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.4, ease: "back.out(1.5)", stagger: 0.25 }, 3.25);
+        tl.fromTo("#s13-cur1", { x: 1500, y: 640, opacity: 0 }, { x: 1300, y: 300, opacity: 1, duration: 0.6, ease: "power3.inOut" }, 3.3);
+        tl.fromTo("#s13-cur1", { scale: 1 }, { scale: 0.75, duration: 0.08, yoyo: true, repeat: 1, immediateRender: false }, 4.0);
+        tl.fromTo("#s13-meh", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 4.5);
+        tl.fromTo("#s13-p1", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.96, duration: 0.35, ease: "power2.in" }, 5.6);
+
+        // Phase 2 — live desktop + mini-program
+        tl.fromTo("#s13-p2", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 5.75);
+        tl.fromTo("#s13-desk", { opacity: 0, x: -160, rotationY: 24, transformPerspective: 1800 }, { opacity: 1, x: 0, rotationY: 8, duration: 0.7, ease: "power3.out" }, 5.8);
+        tl.fromTo("#s13-mini", { opacity: 0, x: 160, rotationY: -24, transformPerspective: 1800 }, { opacity: 1, x: 0, rotationY: -8, duration: 0.7, ease: "power3.out" }, 7.2);
+        tl.fromTo("#s13-desk .s13-badge", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2.5)" }, 6.5);
+        tl.fromTo("#s13-mini .s13-badge", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2.5)" }, 7.9);
+        tl.fromTo(".s13-badge i", { opacity: 1 }, { opacity: 0.25, duration: 0.5, ease: "steps(1)", yoyo: true, repeat: 6, immediateRender: false }, 8.2);
+
+        // Phase 3 — remote control
+        tl.fromTo("#s13-remote", { opacity: 0, y: 30, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "back.out(1.8)" }, 10.65);
+        tl.fromTo("#s13-ok", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 11.3);
+        tl.fromTo("#s13-cur2", { x: 1700, y: 560, opacity: 0 }, { x: 1580, y: 350, opacity: 1, duration: 0.6, ease: "power3.inOut" }, 11.4);
+        tl.fromTo("#s13-cur2", { scale: 1 }, { scale: 0.75, duration: 0.08, yoyo: true, repeat: 1, immediateRender: false }, 12.05);
+        tl.fromTo("#s13-ripple", { x: 1552, y: 322, opacity: 0.9, scale: 0.3 }, { x: 1552, y: 322, opacity: 0, scale: 1.6, duration: 0.5, ease: "power2.out", immediateRender: false }, 12.1);
+
+        tl.fromTo("#s13-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 12.646);
+        window.__ggRetime(tl, "s13");
+        window.__timelines["s13"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

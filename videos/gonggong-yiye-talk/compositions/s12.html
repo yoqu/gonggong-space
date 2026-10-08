@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s12-wrap { position: absolute; inset: 0; }
+        #s12-head { position: absolute; left: 110px; top: 116px; display: flex; align-items: flex-end; gap: 30px; }
+        #s12-no { font-family: var(--display); font-size: 150px; line-height: 0.9; color: var(--accent-hi); }
+        #s12-head .kicker { display: block; margin-bottom: 12px; }
+        #s12-head .big { display: block; font-size: 76px; }
+
+        .s12-ph { position: absolute; left: 0; right: 0; top: 300px; height: 570px; }
+
+        #s12-env { position: absolute; left: 110px; top: 40px; display: flex; flex-direction: column; gap: 26px; }
+        .s12-row { display: flex; align-items: center; gap: 22px; font-size: 44px; font-weight: 800; }
+        .s12-ck { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: rgba(31, 200, 187, 0.16); border: 2px solid var(--teal); color: var(--teal); font-size: 30px; }
+        .s12-row small { font-family: var(--mono); font-size: 22px; font-weight: 400; color: var(--mute); }
+        #s12-use { position: absolute; left: 110px; top: 400px; font-family: var(--display); font-size: 72px; }
+        #s12-cm { left: 820px; top: 60px; width: 990px; }
+        #s12-cm-hl { position: absolute; left: 16px; top: 74px; width: 362px; height: 44px; border-radius: 10px; border: 3px solid var(--accent-hi); box-shadow: 0 0 24px rgba(122, 166, 255, 0.8); display: block; }
+
+        #s12-feed { position: absolute; left: 110px; top: 20px; width: 760px; display: flex; flex-direction: column; gap: 22px; }
+        #s12-feed .bubble { font-size: 26px; }
+        .s12-noat { font-family: var(--mono); font-size: 16px; color: var(--dim); border: 1px dashed var(--dim); border-radius: 6px; padding: 1px 8px; margin-left: 8px; }
+        #s12-flow { position: absolute; left: 0; top: 0; width: 1920px; height: 570px; overflow: visible; }
+        #s12-flow path { fill: none; stroke: #bcd2ff; stroke-width: 4; stroke-linecap: round; }
+        #s12-ctx { left: 1160px; top: 40px; width: 640px; padding: 0 0 28px; }
+        #s12-ctx .msg { padding: 26px 28px 10px; }
+        #s12-ctx-list { padding: 0 28px; display: flex; flex-direction: column; gap: 12px; }
+        .s12-line { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 20px; color: #c8d3ea; padding: 10px 14px; border-radius: 10px; background: rgba(61, 123, 255, 0.1); border: 1px solid var(--line); }
+        .s12-line b { color: var(--teal); }
+        #s12-again { position: absolute; left: 1160px; top: 470px; }
+
+        .s12-card { position: absolute; top: 120px; width: 600px; padding: 30px; border-radius: 22px; background: var(--panel); border: 2px solid var(--line-strong); }
+        .s12-card .msg-name { font-size: 26px; color: var(--fg); }
+        .s12-card .tag { display: block; margin-top: 18px; font-family: var(--mono); font-size: 22px; color: var(--mute); }
+        #s12-be { left: 150px; }
+        #s12-fe { left: 1170px; }
+        #s12-arrow { position: absolute; left: 760px; top: 220px; width: 400px; height: 40px; overflow: visible; }
+        #s12-arrow path { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+        #s12-pkt { position: absolute; left: 640px; top: 40px; width: 640px; text-align: center; }
+        #s12-pkt .bubble { display: inline-block; border-radius: 18px; font-size: 26px; }
+        #s12-relay { position: absolute; left: 860px; top: 380px; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s12" data-width="1920" data-height="1080">
+        <div id="s12-wrap">
+          <div id="s12-head">
+            <span id="s12-no">01</span>
+            <div><span class="kicker">不一样 · 01 / 03</span><span class="big">用同事电脑上<span class="hl">现成的环境</span></span></div>
+          </div>
+
+          <div class="s12-ph" id="s12-p1">
+            <div id="s12-env">
+              <div class="s12-row"><span class="s12-ck">✓</span>仓库 <small>git clone 好了</small></div>
+              <div class="s12-row"><span class="s12-ck">✓</span>依赖 <small>node_modules 装好了</small></div>
+              <div class="s12-row"><span class="s12-ck">✓</span>登录 <small>Agent 已登录</small></div>
+            </div>
+            <span id="s12-use">你 <span class="hl">@</span> 一下就能用</span>
+            <div class="win" id="s12-cm">
+              <div class="win-bar"><i></i><i></i><i></i><span>输入 @ 选择 Bot</span></div>
+              <img src="assets/shots/composer-mention.webp" alt="" />
+              <span id="s12-cm-hl"></span>
+            </div>
+          </div>
+
+          <div class="s12-ph" id="s12-p2">
+            <div id="s12-feed">
+              <div class="msg"><span class="ava">王</span><div class="msg-body"><span class="msg-name">王磊<span class="s12-noat">没 @</span></span><div class="bubble">筛选状态记在 localStorage 里吧</div></div></div>
+              <div class="msg"><span class="ava">李</span><div class="msg-body"><span class="msg-name">李娜<span class="s12-noat">没 @</span></span><div class="bubble">README 也补一句说明</div></div></div>
+              <div class="msg"><span class="ava">王</span><div class="msg-body"><span class="msg-name">王磊<span class="s12-noat">没 @</span></span><div class="bubble">按钮放在列表右上角</div></div></div>
+            </div>
+            <svg id="s12-flow" viewBox="0 0 1920 570">
+              <path pathLength="1" stroke-dasharray="0.04 0.12" d="M890 80 C 1000 80 1040 150 1150 170" />
+              <path pathLength="1" stroke-dasharray="0.04 0.12" d="M720 220 C 900 220 1000 230 1150 240" />
+              <path pathLength="1" stroke-dasharray="0.04 0.12" d="M760 360 C 950 360 1030 320 1150 310" />
+            </svg>
+            <div class="win" id="s12-ctx">
+              <div class="msg"><span class="ava bot">前</span><div class="msg-body"><span class="msg-name">前端小助手<b>BOT</b></span><span class="msg-name">带上的群聊背景</span></div></div>
+              <div id="s12-ctx-list">
+                <div class="s12-line"><b>+</b>筛选状态 → localStorage</div>
+                <div class="s12-line"><b>+</b>README 补说明</div>
+                <div class="s12-line"><b>+</b>按钮在右上角</div>
+              </div>
+            </div>
+            <span class="chip" id="s12-again"><span class="dot"></span>前面聊过的，不用再讲一遍</span>
+          </div>
+
+          <div class="s12-ph" id="s12-p3">
+            <div id="s12-pkt"><div class="bubble">接口改完了，交给 <span class="at">@前端小助手</span></div></div>
+            <div class="s12-card" id="s12-be">
+              <div class="msg"><span class="ava bot">后</span><div class="msg-body"><span class="msg-name">后端助手<b>BOT</b></span></div></div>
+              <span class="tag">Codex · 李娜的 Linux</span>
+              <span class="tag">✓ api/todos.js 已修改</span>
+            </div>
+            <svg id="s12-arrow" viewBox="0 0 400 40">
+              <path pathLength="1" d="M10 20 L 380 20 M 360 6 L 384 20 L 360 34" />
+            </svg>
+            <div class="s12-card" id="s12-fe">
+              <div class="msg"><span class="ava bot">前</span><div class="msg-body"><span class="msg-name">前端小助手<b>BOT</b></span></div></div>
+              <span class="tag">Claude Code · 王磊的 Mac</span>
+              <span class="tag" id="s12-fe-st">… 接着改页面</span>
+            </div>
+            <span class="chip" id="s12-relay"><span class="dot"></span>Bot 接力</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s12-no", { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 0.0);
+        tl.fromTo("#s12-head .kicker", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 0.15);
+        tl.fromTo("#s12-head .big", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.3);
+
+        // Phase 1 — ready-made environment
+        tl.fromTo("#s12-cm", { opacity: 0, x: 140, rotationY: -20, transformPerspective: 1800 }, { opacity: 1, x: 0, rotationY: -7, duration: 0.7, ease: "power3.out" }, 1.0);
+        gsap.utils.toArray("#s12-env .s12-row").forEach((r, i) => {
+          tl.fromTo(r, { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.35, ease: "back.out(1.6)" }, 3.45 + i * 0.75);
+          tl.fromTo(r.querySelector(".s12-ck"), { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(3)" }, 3.6 + i * 0.75);
+        });
+        tl.fromTo("#s12-cm-hl", { opacity: 0, scale: 1.2 }, { opacity: 1, scale: 1, duration: 0.3, ease: "power2.out" }, 6.6);
+        tl.fromTo("#s12-use", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 7.0);
+        tl.fromTo("#s12-p1", { opacity: 1, y: 0 }, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in" }, 8.9);
+
+        // Phase 2 — un-@ messages travel as context
+        tl.fromTo("#s12-p2", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 9.1);
+        gsap.utils.toArray("#s12-feed .msg").forEach((m, i) => {
+          tl.fromTo(m, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 9.15 + i * 0.22);
+        });
+        tl.fromTo("#s12-ctx", { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 9.4);
+        gsap.utils.toArray("#s12-flow path").forEach((p, i) => {
+          tl.fromTo(p, { opacity: 0, strokeDashoffset: 0 }, { opacity: 1, strokeDashoffset: -1, duration: 1.2, ease: "none", repeat: 2 }, 10.0 + i * 0.15);
+        });
+        gsap.utils.toArray("#s12-ctx-list .s12-line").forEach((l, i) => {
+          tl.fromTo(l, { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 10.7 + i * 0.4);
+        });
+        tl.fromTo("#s12-again", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2.2)" }, 12.65);
+        tl.fromTo("#s12-p2", { opacity: 1, y: 0 }, { opacity: 0, y: -40, duration: 0.35, ease: "power2.in", immediateRender: false }, 14.5);
+
+        // Phase 3 — bot relay
+        tl.fromTo("#s12-p3", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 14.8);
+        tl.fromTo("#s12-be", { opacity: 0, x: -120 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 14.85);
+        tl.fromTo("#s12-fe", { opacity: 0, x: 120 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 15.1);
+        tl.fromTo("#s12-arrow path", { strokeDasharray: 1, strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.7, ease: "power2.inOut" }, 16.3);
+        tl.fromTo("#s12-pkt", { opacity: 0, x: -300, scale: 0.8 }, { opacity: 1, x: 0, scale: 1, duration: 0.8, ease: "power3.out" }, 16.4);
+        tl.fromTo("#s12-fe", { borderColor: "rgba(110,150,255,0.5)", boxShadow: "0 0 0 rgba(31,200,187,0)" }, { borderColor: "#1fc8bb", boxShadow: "0 0 50px rgba(31,200,187,0.5)", duration: 0.4, immediateRender: false }, 17.3);
+        tl.fromTo("#s12-fe-st", { color: "#93a2c0" }, { color: "#1fc8bb", duration: 0.3 }, 17.4);
+        tl.fromTo("#s12-relay", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(2)" }, 17.6);
+
+        tl.fromTo("#s12-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 19.27);
+        window.__ggRetime(tl, "s12");
+        window.__timelines["s12"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

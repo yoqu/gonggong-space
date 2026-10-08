@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s01-wrap { position: absolute; inset: 0; }
+        #s01-title { position: absolute; left: 110px; top: 210px; width: 760px; }
+        #s01-title .kicker { margin-bottom: 26px; display: block; }
+        #s01-l1, #s01-l2 { display: block; font-size: 124px; }
+        #s01-l2 { margin-top: 10px; }
+        #s01-sub { margin-top: 40px; font-size: 34px; color: var(--mute); display: block; }
+        #s01-sub b { color: var(--teal); font-weight: 800; }
+
+        #s01-chat { left: 930px; top: 170px; width: 880px; height: 560px; }
+        #s01-feed { padding: 34px 34px; display: flex; flex-direction: column; gap: 30px; }
+        #s01-run { display: flex; align-items: center; gap: 14px; font-family: var(--mono); font-size: 22px; color: var(--accent-hi); }
+        #s01-run .bar { width: 260px; height: 8px; border-radius: 4px; background: #1b2944; overflow: hidden; display: block; }
+        #s01-run .bar i { width: 100%; height: 100%; background: var(--accent); display: block; transform-origin: 0 50%; }
+        #s01-appr { border: 2px solid rgba(255, 190, 80, 0.55); background: rgba(255, 190, 80, 0.08); border-radius: 16px; padding: 20px 24px; width: 690px; }
+        #s01-appr .h { font-size: 24px; font-weight: 800; color: #ffcf7a; }
+        #s01-appr code { display: block; margin-top: 10px; font-family: var(--mono); font-size: 20px; color: #c8d3ea; }
+        #s01-btns { margin-top: 18px; display: flex; gap: 14px; }
+        #s01-ok { padding: 10px 30px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 24px; font-weight: 800; display: block; }
+        #s01-no { padding: 10px 26px; border-radius: 10px; border: 2px solid var(--line-strong); color: var(--mute); font-size: 24px; display: block; }
+        #s01-stamp { position: absolute; right: 70px; bottom: 70px; width: 210px; height: 210px; border-radius: 50%; border: 6px solid var(--teal); color: var(--teal); display: grid; place-items: center; font-family: var(--display); font-size: 64px; box-shadow: 0 0 40px rgba(31, 200, 187, 0.45); }
+        #s01-cursor { position: absolute; left: 0; top: 0; width: 34px; height: 34px; display: block; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s01" data-width="1920" data-height="1080">
+        <div id="s01-wrap">
+          <div id="s01-title">
+            <span class="kicker">// 现在的工作方式</span>
+            <span class="big" id="s01-l1">产品经理</span>
+            <span class="big" id="s01-l2"><span class="hl">@</span> 我的电脑</span>
+            <span id="s01-sub">我只管最后点个 <b>审批</b></span>
+          </div>
+
+          <div class="win" id="s01-chat">
+            <div class="win-bar"><i></i><i></i><i></i><span># todo-app 开发群</span></div>
+            <div id="s01-feed">
+              <div class="msg" id="s01-m1">
+                <span class="ava">产</span>
+                <div class="msg-body">
+                  <span class="msg-name">产品经理</span>
+                  <div class="bubble"><span class="at">@前端小助手</span> 给待办列表加个「只看未完成」筛选</div>
+                </div>
+              </div>
+              <div class="msg" id="s01-m2">
+                <span class="ava bot">前</span>
+                <div class="msg-body">
+                  <span class="msg-name">前端小助手<b>BOT</b> · yoqu 的 Mac</span>
+                  <div id="s01-run"><span>运行中</span><span class="bar"><i id="s01-bar"></i></span></div>
+                  <div id="s01-appr">
+                    <span class="h">等待审批 · 越档操作</span>
+                    <code>$ git commit -m "只看未完成筛选"</code>
+                    <div id="s01-btns"><span id="s01-ok">批准</span><span id="s01-no">拒绝</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="s01-stamp">✓ 批准</div>
+          </div>
+          <svg id="s01-cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#05080f" stroke-width="1.6" stroke-linejoin="round" /></svg>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s01-title .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s01-l1", { opacity: 0, scale: 1.6, y: -20 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "expo.out" }, 0.1);
+        tl.fromTo("#s01-l2", { opacity: 0, x: -120 }, { opacity: 1, x: 0, duration: 0.5, ease: "back.out(1.6)" }, 1.55);
+        tl.fromTo("#s01-chat", { opacity: 0, x: 140, rotationY: -18, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -6, duration: 0.7, ease: "power3.out" }, 0.25);
+        tl.fromTo("#s01-m1", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.75);
+        tl.fromTo("#s01-m2", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 2.2);
+        tl.fromTo("#s01-bar", { scaleX: 0 }, { scaleX: 1, duration: 1.8, ease: "power1.inOut" }, 2.35);
+        tl.fromTo("#s01-appr", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(2)" }, 3.3);
+        tl.fromTo("#s01-sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 4.3);
+        tl.fromTo("#s01-cursor", { x: 1700, y: 900, opacity: 0 }, { x: 1100, y: 595, opacity: 1, duration: 0.7, ease: "power3.inOut" }, 3.7);
+        tl.fromTo("#s01-cursor", { scale: 1 }, { scale: 0.8, duration: 0.08, yoyo: true, repeat: 1, immediateRender: false }, 4.55);
+        tl.fromTo("#s01-ok", { backgroundColor: "#3d7bff" }, { backgroundColor: "#1fc8bb", duration: 0.15 }, 4.6);
+        tl.fromTo("#s01-stamp", { opacity: 0, scale: 2.4, rotation: -24 }, { opacity: 1, scale: 1, rotation: -12, duration: 0.32, ease: "expo.in" }, 4.7);
+        tl.fromTo("#s01-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 6.23);
+        window.__ggRetime(tl, "s01");
+        window.__timelines["s01"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

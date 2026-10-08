@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s17-wrap { position: absolute; inset: 0; }
+        #s17-a { position: absolute; inset: 0; }
+        #s17-head { position: absolute; left: 110px; top: 150px; width: 1700px; }
+        #s17-head .kicker { display: block; margin-bottom: 20px; }
+        #s17-title { display: block; font-size: 100px; }
+        #s17-repo { left: 110px; top: 420px; width: 900px; }
+        #s17-repo .body { padding: 30px 36px; display: flex; flex-direction: column; gap: 18px; }
+        #s17-repo .name { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--fg); }
+        #s17-repo .name span { color: var(--mute); font-weight: 400; }
+        #s17-repo .desc { font-size: 28px; color: var(--mute); }
+        #s17-repo .tags { display: flex; gap: 14px; }
+        #s17-down { font-family: var(--mono); font-size: 26px; color: var(--accent-hi); }
+        #s17-demo { left: 1070px; top: 420px; width: 740px; border-color: rgba(31, 200, 187, 0.6); }
+        #s17-demo .body { padding: 30px 36px; display: flex; flex-direction: column; gap: 16px; }
+        #s17-demo .kicker { color: var(--teal); }
+        #s17-demo b { font-family: var(--display); font-weight: 400; font-size: 64px; color: var(--fg); }
+        #s17-demo .url { font-family: var(--mono); font-size: 30px; color: var(--teal); }
+
+        #s17-b { position: absolute; inset: 0; }
+        #s17-q { position: absolute; left: 110px; top: 190px; width: 1700px; }
+        #s17-q1, #s17-q2 { display: block; font-size: 84px; color: var(--mute); }
+        #s17-q2 { margin-top: 20px; }
+        #s17-q1 .hl, #s17-q2 .hl { color: var(--fg); }
+        #s17-try { position: absolute; left: 110px; top: 560px; display: flex; align-items: center; gap: 40px; }
+        #s17-try1 { font-family: var(--display); font-size: 72px; color: var(--accent-hi); }
+        #s17-cmt { display: flex; align-items: center; gap: 22px; padding: 22px 40px; border-radius: 22px; border: 3px solid var(--accent); background: rgba(61, 123, 255, 0.16); box-shadow: 0 0 50px rgba(61, 123, 255, 0.35); }
+        #s17-cmt b { font-family: var(--display); font-weight: 400; font-size: 84px; color: var(--fg); }
+        #s17-cmt svg { width: 70px; height: 70px; display: block; }
+
+        #s17-end { position: absolute; left: 0; right: 0; top: 300px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+        #s17-end img { width: 200px; height: 200px; display: block; }
+        #s17-end .big { font-size: 120px; }
+        #s17-end .kicker { color: var(--mute); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s17" data-width="1920" data-height="1080">
+        <div id="s17-wrap">
+          <div id="s17-a">
+            <div id="s17-head">
+              <span class="kicker">// 想试试的话</span>
+              <span class="big" id="s17-title">开源，<span class="hl">注册就能玩</span></span>
+            </div>
+            <div class="win" id="s17-repo">
+              <div class="win-bar"><i></i><i></i><i></i><span>github.com</span></div>
+              <div class="body">
+                <span class="name"><span>yoqu /</span> gonggong-space</span>
+                <span class="desc">团队共用彼此电脑上的 Claude Code / Codex</span>
+                <div class="tags"><span class="chip">Apache-2.0</span><span class="chip">TypeScript · Rust</span></div>
+                <span id="s17-down">↓ 地址放在简介里</span>
+              </div>
+            </div>
+            <div class="win" id="s17-demo">
+              <div class="win-bar"><i></i><i></i><i></i><span>演示环境</span></div>
+              <div class="body">
+                <span class="kicker">demo · 不用部署</span>
+                <b>注册就能玩</b>
+                <span class="url">gg.uyoqu.com</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="s17-b">
+            <div id="s17-q">
+              <span class="big" id="s17-q1">每个人<span class="hl">各开一个终端</span>跑 AI？</span>
+              <span class="big" id="s17-q2">需求在群里<span class="hl">传来传去</span>？</span>
+            </div>
+            <div id="s17-try">
+              <span id="s17-try1">欢迎试试 →</span>
+              <div id="s17-cmt">
+                <svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="#7aa6ff" stroke-width="2" stroke-linejoin="round" /><path d="M8 9.5h8M8 12.5h5" stroke="#7aa6ff" stroke-width="2" stroke-linecap="round" /></svg>
+                <b>评论区直接吐槽</b>
+              </div>
+            </div>
+          </div>
+
+          <div id="s17-end">
+            <img src="assets/logo.svg" alt="" />
+            <span class="big">共工空间</span>
+            <span class="kicker">gonggong space · open source</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s17-head .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s17-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }, 0.15);
+        tl.fromTo("#s17-repo", { opacity: 0, x: -100, rotationY: 14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 4, duration: 0.6, ease: "power3.out" }, 0.6);
+        tl.fromTo("#s17-down", { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.35, ease: "back.out(2)" }, 1.8);
+        tl.fromTo("#s17-down", { y: 0 }, { y: 8, duration: 0.4, yoyo: true, repeat: 5, ease: "sine.inOut", immediateRender: false }, 2.2);
+        tl.fromTo("#s17-demo", { opacity: 0, x: 100, rotationY: -14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -4, duration: 0.6, ease: "power3.out" }, 2.9);
+
+        tl.fromTo("#s17-a", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.96, duration: 0.35, ease: "power2.in" }, 4.85);
+        tl.fromTo("#s17-q1", { opacity: 0, x: -80 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 5.15);
+        tl.fromTo("#s17-q2", { opacity: 0, x: -80 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 9.0);
+        tl.fromTo("#s17-try1", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 10.7);
+        tl.fromTo("#s17-cmt", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 12.0);
+        tl.fromTo("#s17-cmt", { scale: 1 }, { scale: 1.05, duration: 0.3, yoyo: true, repeat: 1, ease: "sine.inOut", immediateRender: false }, 12.6);
+
+        tl.fromTo("#s17-b", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 13.85);
+        tl.fromTo("#s17-end img", { opacity: 0, scale: 0.6, rotation: -10 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.5, ease: "back.out(1.8)" }, 14.1);
+        tl.fromTo("#s17-end .big", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "expo.out" }, 14.3);
+        tl.fromTo("#s17-end .kicker", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 14.55);
+        window.__ggRetime(tl, "s17");
+        window.__timelines["s17"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

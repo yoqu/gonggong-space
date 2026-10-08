@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s03-wrap { position: absolute; inset: 0; }
+        #s03-wrap .term { white-space: normal; }
+        #s03-wrap .term .line { white-space: pre; }
+        #s03-head { position: absolute; left: 110px; top: 130px; width: 1700px; }
+        #s03-head .kicker { display: block; }
+        #s03-hl { display: block; margin-top: 18px; font-size: 84px; }
+
+        #s03-solo { position: absolute; inset: 0; }
+        .s03-t { top: 400px; width: 780px; height: 300px; }
+        #s03-cc { left: 110px; }
+        #s03-cx { left: 1030px; }
+        .s03-t .term { font-size: 28px; line-height: 1.7; }
+        .s03-t .line { display: block; min-height: 40px; }
+        .s03-tag { position: absolute; right: 24px; top: 64px; font-family: var(--display); font-size: 56px; color: var(--accent-hi); display: block; }
+        #s03-cx .s03-tag { color: var(--teal); }
+
+        #s03-verdict { position: absolute; left: 0; right: 0; top: 330px; display: flex; justify-content: center; gap: 120px; }
+        #s03-v1, #s03-v2 { font-size: 120px; display: block; }
+
+        #s03-team { position: absolute; left: 110px; right: 110px; top: 500px; height: 330px; }
+        .s03-mini { position: absolute; top: 0; width: 460px; height: 300px; overflow: visible; }
+        #s03-m1 { left: 0; }
+        #s03-m2 { left: 620px; }
+        #s03-m3 { left: 1240px; }
+        .s03-mini .term { font-size: 22px; line-height: 1.6; }
+        .s03-who { position: absolute; left: 0; right: 0; bottom: -54px; text-align: center; font-size: 28px; font-weight: 800; color: var(--fg); display: block; }
+        .s03-link { position: absolute; top: 130px; width: 160px; height: 40px; display: block; }
+        #s03-x1 { left: 460px; }
+        #s03-x2 { left: 1080px; }
+        .s03-link .ln { position: absolute; left: 0; right: 0; top: 18px; height: 0; border-top: 4px dashed var(--warn); display: block; }
+        .s03-link .x { position: absolute; left: 50%; top: -14px; width: 64px; height: 64px; margin-left: -32px; border-radius: 50%; background: #2a0f12; border: 3px solid var(--warn); color: var(--warn); font-family: var(--mono); font-size: 34px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 24px rgba(255, 106, 92, 0.55); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s03" data-width="1920" data-height="1080">
+        <div id="s03-wrap">
+          <div id="s03-head">
+            <span class="kicker">// 我们团队现在写代码</span>
+            <span class="big" id="s03-hl">基本离不开 <span class="hl">Claude Code</span> 和 <span class="hl-ok">Codex</span></span>
+          </div>
+          <div id="s03-solo">
+            <div class="win s03-t" id="s03-cc">
+              <div class="win-bar"><i></i><i></i><i></i><span>claude — ~/todo-app</span></div>
+              <span class="s03-tag">Claude Code</span>
+              <div class="term">
+                <span class="line"><span class="p">$</span> <span id="s03-c0"></span></span>
+                <span class="line a" id="s03-c1"></span>
+                <span class="line" id="s03-c2"></span>
+                <span class="line p" id="s03-c3"></span>
+              </div>
+            </div>
+            <div class="win s03-t" id="s03-cx">
+              <div class="win-bar"><i></i><i></i><i></i><span>codex — ~/todo-api</span></div>
+              <span class="s03-tag">Codex</span>
+              <div class="term">
+                <span class="line"><span class="p">$</span> <span id="s03-x0"></span></span>
+                <span class="line a" id="s03-xa"></span>
+                <span class="line" id="s03-xb"></span>
+                <span class="line p" id="s03-xc"></span>
+              </div>
+            </div>
+          </div>
+          <div id="s03-verdict">
+            <span class="big" id="s03-v1">一个人：<span class="hl-ok">真爽</span></span>
+            <span class="big" id="s03-v2">几个人：<span class="hl-warn">别扭</span></span>
+          </div>
+          <div id="s03-team">
+            <div class="win s03-mini" id="s03-m1"><div class="win-bar"><i></i><i></i><i></i><span>claude</span></div><div class="term"><span class="p">$</span> 改接口…</div><span class="s03-who">我</span></div>
+            <div class="win s03-mini" id="s03-m2"><div class="win-bar"><i></i><i></i><i></i><span>codex</span></div><div class="term"><span class="p">$</span> 写页面…</div><span class="s03-who">同事 A</span></div>
+            <div class="win s03-mini" id="s03-m3"><div class="win-bar"><i></i><i></i><i></i><span>claude</span></div><div class="term"><span class="p">$</span> 跑测试…</div><span class="s03-who">同事 B</span></div>
+            <span class="s03-link" id="s03-x1"><span class="ln"></span><span class="x">×</span></span>
+            <span class="s03-link" id="s03-x2"><span class="ln"></span><span class="x">×</span></span>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const TYPES = [];
+        const type = (id, text, at, dur) => TYPES.push([document.getElementById(id), text, at, dur]);
+        tl.fromTo("#s03-head .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s03-hl", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.3);
+        tl.fromTo("#s03-cc", { opacity: 0, x: -140, rotationY: 16, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 4, duration: 0.6, ease: "power3.out" }, 1.5);
+        tl.fromTo("#s03-cx", { opacity: 0, x: 140, rotationY: -16, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -4, duration: 0.6, ease: "back.out(1.4)" }, 2.6);
+        type("s03-c0", "claude", 1.8, 0.3);
+        type("s03-c1", "✻ Welcome to Claude Code", 2.2, 0.4);
+        type("s03-c2", "> 给列表加个筛选按钮", 2.7, 0.5);
+        type("s03-c3", "✓ Edited src/App.jsx", 3.4, 0.4);
+        type("s03-x0", "codex", 2.9, 0.3);
+        type("s03-xa", ">_ OpenAI Codex", 3.3, 0.35);
+        type("s03-xb", "> 补一下接口的单元测试", 3.8, 0.5);
+        type("s03-xc", "✓ tests passed", 4.5, 0.35);
+
+        tl.fromTo("#s03-solo", { opacity: 1, y: 0 }, { opacity: 0, y: 60, duration: 0.4, ease: "power2.in", immediateRender: false }, 4.85);
+        tl.fromTo("#s03-head", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power1.in", immediateRender: false }, 4.85);
+        tl.fromTo("#s03-verdict", { y: 0 }, { y: -160, duration: 0.6, ease: "power3.inOut" }, 6.8);
+        tl.fromTo("#s03-v1", { opacity: 0, scale: 1.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "expo.out" }, 5.15);
+        tl.fromTo("#s03-v2", { opacity: 0, x: 120 }, { opacity: 1, x: 0, duration: 0.45, ease: "back.out(1.6)" }, 7.0);
+        tl.fromTo(".s03-mini", { opacity: 0, y: 60, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "power3.out", stagger: 0.14 }, 7.15);
+        tl.fromTo(".s03-link", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.35, ease: "power2.out", stagger: 0.12 }, 7.75);
+        tl.fromTo(".s03-link .x", { x: 0 }, { x: 6, duration: 0.06, ease: "none", yoyo: true, repeat: 5, immediateRender: false }, 8.15);
+        tl.fromTo("#s03-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 8.97);
+        const clock = { t: 0 };
+        const paint = (t) => {
+          for (const [el, text, at, dur] of TYPES) el.textContent = text.slice(0, Math.round(Math.min(1, Math.max(0, (t - at) / dur)) * text.length));
+        };
+        tl.fromTo(clock, { t: 0 }, { t: 9.324, duration: 9.324, ease: "none", onUpdate: () => paint(clock.t) }, 0);
+        paint(0);
+        window.__ggRetime(tl, "s03");
+        window.__timelines["s03"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

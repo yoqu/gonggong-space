@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s04-wrap { position: absolute; inset: 0; }
+        #s04-wrap .term { white-space: normal; }
+        #s04-wrap .term .line { white-space: pre; }
+        #s04-tag { position: absolute; left: 110px; top: 120px; display: flex; align-items: baseline; gap: 28px; }
+        #s04-no { font-family: var(--mono); font-size: 26px; letter-spacing: 0.16em; color: var(--warn); border: 2px solid rgba(255, 106, 92, 0.6); border-radius: 8px; padding: 6px 14px; display: block; }
+        #s04-tt { font-size: 76px; display: block; }
+
+        .s04-t { top: 300px; width: 760px; height: 250px; overflow: visible; }
+        #s04-me { left: 110px; }
+        #s04-mate { left: 1050px; }
+        .s04-t .term { font-size: 27px; line-height: 1.7; }
+        .s04-t .line { display: block; min-height: 40px; }
+        .s04-who { position: absolute; left: 0; right: 0; bottom: -56px; text-align: center; font-size: 28px; font-weight: 800; display: block; }
+
+        #s04-gap { position: absolute; left: 870px; top: 395px; width: 180px; height: 60px; }
+        #s04-gap .ln { position: absolute; left: 0; right: 0; top: 28px; border-top: 4px dashed rgba(255, 106, 92, 0.75); display: block; }
+        #s04-gap .x { position: absolute; left: 50%; top: -2px; width: 64px; height: 64px; margin-left: -32px; border-radius: 50%; background: #2a0f12; border: 3px solid var(--warn); color: var(--warn); font-family: var(--mono); font-size: 34px; font-weight: 700; display: grid; place-items: center; }
+        #s04-qm { position: absolute; left: 1640px; top: 300px; font-family: var(--display); font-size: 240px; line-height: 1; color: var(--warn); text-shadow: 0 0 40px rgba(255, 106, 92, 0.5); display: block; }
+
+        #s04-shout { position: absolute; left: 560px; top: 700px; width: 800px; }
+        #s04-shout .bubble { font-size: 36px; font-weight: 800; border-color: rgba(255, 190, 80, 0.6); background: rgba(255, 190, 80, 0.1); }
+        #s04-mega { width: 44px; height: 44px; display: inline-block; vertical-align: -8px; margin-right: 12px; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s04" data-width="1920" data-height="1080">
+        <div id="s04-wrap">
+          <div id="s04-tag"><span class="big" id="s04-tt">上下文是<span class="hl-warn">割裂</span>的</span></div>
+          <div class="win s04-t" id="s04-me">
+            <div class="win-bar"><i></i><i></i><i></i><span>我的 Claude Code</span></div>
+            <div class="term">
+              <span class="line"><span class="a">&gt;</span> <span id="s04-a0"></span></span>
+              <span class="line" id="s04-a1"></span>
+              <span class="line p" id="s04-a2"></span>
+            </div>
+            <span class="s04-who">我</span>
+          </div>
+          <div id="s04-gap"><span class="ln"></span><span class="x">×</span></div>
+          <div class="win s04-t" id="s04-mate">
+            <div class="win-bar"><i></i><i></i><i></i><span>同事的 Codex</span></div>
+            <div class="term">
+              <span class="line"><span class="a">&gt;</span> <span id="s04-b0"></span></span>
+              <span class="line c" id="s04-b1"></span>
+              <span class="line w" id="s04-b2"></span>
+            </div>
+            <span class="s04-who">同事</span>
+          </div>
+          <span id="s04-qm">?</span>
+          <div class="msg" id="s04-shout">
+            <span class="ava">我</span>
+            <div class="msg-body">
+              <span class="msg-name">我 · 群消息</span>
+              <div class="bubble"><svg id="s04-mega" viewBox="0 0 24 24"><path d="M3 10v4h3l6 4V6L6 10z" fill="#ffcf7a" /><path d="M15 8.5a5 5 0 0 1 0 7M17.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="#ffcf7a" stroke-width="2" stroke-linecap="round" /></svg><span class="at">@所有人</span> 接口改了啊！</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const TYPES = [];
+        const type = (id, text, at, dur) => TYPES.push([document.getElementById(id), text, at, dur]);
+        tl.fromTo("#s04-tt", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.15);
+        tl.fromTo("#s04-me", { opacity: 0, x: -120, rotationY: 14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 4, duration: 0.55, ease: "power3.out" }, 0.3);
+        type("s04-a0", "把 /api/todos 改成分页返回", 0.7, 0.6);
+        type("s04-a1", "Editing api/todos.js …", 1.45, 0.35);
+        type("s04-a2", "✓ 接口已修改", 1.9, 0.3);
+        tl.fromTo("#s04-mate", { opacity: 0, x: 120, rotationY: -14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -4, duration: 0.55, ease: "back.out(1.3)" }, 2.1);
+        type("s04-b0", "用 /api/todos 渲染列表", 2.5, 0.5);
+        type("s04-b1", "按旧的数组结构处理 …", 3.1, 0.35);
+        type("s04-b2", "✗ 拿到的结构对不上？", 3.55, 0.35);
+        tl.fromTo("#s04-gap", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.4, ease: "power2.out" }, 2.7);
+        tl.fromTo("#s04-qm", { opacity: 0, scale: 2, rotation: -20 }, { opacity: 1, scale: 1, rotation: 10, duration: 0.4, ease: "expo.out" }, 3.75);
+        tl.fromTo("#s04-shout", { opacity: 0, y: 60, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "back.out(2)" }, 4.4);
+        tl.fromTo("#s04-mega", { rotation: 0 }, { rotation: -14, duration: 0.08, ease: "none", yoyo: true, repeat: 7 }, 4.85);
+        tl.fromTo("#s04-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 6.81);
+        const clock = { t: 0 };
+        const paint = (t) => {
+          for (const [el, text, at, dur] of TYPES) el.textContent = text.slice(0, Math.round(Math.min(1, Math.max(0, (t - at) / dur)) * text.length));
+        };
+        tl.fromTo(clock, { t: 0 }, { t: 7.164, duration: 7.164, ease: "none", onUpdate: () => paint(clock.t) }, 0);
+        paint(0);
+        window.__ggRetime(tl, "s04");
+        window.__timelines["s04"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

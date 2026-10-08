@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s05-wrap { position: absolute; inset: 0; }
+        #s05-tag { position: absolute; left: 110px; top: 120px; display: flex; align-items: baseline; gap: 28px; }
+        #s05-no { font-family: var(--mono); font-size: 26px; letter-spacing: 0.16em; color: var(--warn); border: 2px solid rgba(255, 106, 92, 0.6); border-radius: 8px; padding: 6px 14px; display: block; }
+        #s05-tt { font-size: 76px; display: block; }
+
+        .s05-pc { top: 260px; width: 700px; height: 400px; }
+        #s05-mine { left: 110px; border-color: rgba(31, 200, 187, 0.5); }
+        #s05-theirs { left: 1110px; }
+        .s05-h { padding: 24px 32px 8px; font-size: 34px; font-weight: 800; display: block; }
+        .s05-row { display: flex; align-items: center; gap: 22px; padding: 16px 32px; font-size: 30px; }
+        .s05-row .k { width: 110px; color: var(--mute); display: block; }
+        .s05-row .v { flex: 1; font-family: var(--mono); font-size: 24px; color: #c8d3ea; display: block; }
+        .s05-row .m { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-family: var(--mono); font-size: 28px; font-weight: 700; }
+        #s05-mine .m { background: rgba(31, 200, 187, 0.16); color: var(--teal); border: 2px solid var(--teal); }
+        #s05-theirs .m { background: rgba(255, 106, 92, 0.12); color: var(--warn); border: 2px solid rgba(255, 106, 92, 0.7); }
+        #s05-theirs .v { color: var(--dim); }
+
+        #s05-arrow { position: absolute; left: 850px; top: 420px; width: 220px; height: 60px; display: block; }
+
+        #s05-opts { position: absolute; left: 110px; right: 110px; top: 720px; display: flex; gap: 40px; align-items: center; }
+        .s05-opt { display: flex; align-items: center; gap: 18px; padding: 16px 28px; border-radius: 16px; background: var(--panel); border: 2px solid var(--line-strong); font-size: 34px; font-weight: 800; }
+        .s05-opt b { font-family: var(--mono); color: var(--accent-hi); font-size: 30px; }
+        #s05-bar { width: 360px; height: 14px; border-radius: 7px; background: #1b2944; overflow: hidden; display: block; }
+        #s05-fill { width: 100%; height: 100%; background: var(--warn); transform-origin: 0 50%; display: block; }
+        #s05-npm { font-family: var(--mono); font-size: 22px; color: var(--mute); display: block; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s05" data-width="1920" data-height="1080">
+        <div id="s05-wrap">
+          <div id="s05-tag"><span class="big" id="s05-tt">环境是<span class="hl-warn">重复</span>的</span></div>
+          <div class="win s05-pc" id="s05-mine">
+            <div class="win-bar"><i></i><i></i><i></i><span>yoqu 的 Mac</span></div>
+            <span class="s05-h">我的电脑</span>
+            <div class="s05-row" id="s05-r1"><span class="k">仓库</span><span class="v">~/todo-app</span><span class="m">✓</span></div>
+            <div class="s05-row" id="s05-r2"><span class="k">依赖</span><span class="v">node_modules</span><span class="m">✓</span></div>
+            <div class="s05-row" id="s05-r3"><span class="k">登录</span><span class="v">Claude Code · git</span><span class="m">✓</span></div>
+          </div>
+          <svg id="s05-arrow" viewBox="0 0 220 60"><path d="M10 30 H190" stroke="#5d6b88" stroke-width="4" stroke-dasharray="10 10" fill="none" /><path d="M180 14 L206 30 L180 46" stroke="#5d6b88" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <div class="win s05-pc" id="s05-theirs">
+            <div class="win-bar"><i></i><i></i><i></i><span>同事的电脑</span></div>
+            <span class="s05-h">同事想用？</span>
+            <div class="s05-row" id="s05-t1"><span class="k">仓库</span><span class="v">— 没有 —</span><span class="m">✗</span></div>
+            <div class="s05-row" id="s05-t2"><span class="k">依赖</span><span class="v">— 没装 —</span><span class="m">✗</span></div>
+            <div class="s05-row" id="s05-t3"><span class="k">登录</span><span class="v">— 没登 —</span><span class="m">✗</span></div>
+          </div>
+          <div id="s05-opts">
+            <div class="s05-opt" id="s05-o1"><b>A</b>来找我</div>
+            <div class="s05-opt" id="s05-o2"><b>B</b>从头再配一遍<span id="s05-bar"><i id="s05-fill"></i></span></div>
+            <span id="s05-npm">npm install …</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s05-tt", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.15);
+        tl.fromTo("#s05-mine", { opacity: 0, x: -120, rotationY: 14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 4, duration: 0.55, ease: "power3.out" }, 0.25);
+        tl.fromTo("#s05-mine .s05-row", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out", stagger: 0.55 }, 0.75);
+        tl.fromTo("#s05-mine .m", { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(3)", stagger: 0.55 }, 0.95);
+        tl.fromTo("#s05-arrow", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 3.0);
+        tl.fromTo("#s05-theirs", { opacity: 0, x: 120, rotationY: -14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -4, duration: 0.55, ease: "back.out(1.3)" }, 3.2);
+        tl.fromTo("#s05-theirs .s05-row", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out", stagger: 0.15 }, 3.6);
+        tl.fromTo("#s05-theirs .m", { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: 0.3, ease: "back.out(2.5)", stagger: 0.15 }, 3.75);
+        tl.fromTo("#s05-o1", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.7);
+        tl.fromTo("#s05-o2", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.6)" }, 6.0);
+        tl.fromTo("#s05-npm", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, 6.3);
+        tl.fromTo("#s05-fill", { scaleX: 0 }, { scaleX: 0.92, duration: 0.6, ease: "power1.inOut", repeat: 2 }, 6.2);
+        tl.fromTo("#s05-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 7.71);
+        window.__ggRetime(tl, "s05");
+        window.__timelines["s05"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

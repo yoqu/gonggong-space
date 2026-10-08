@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s10-wrap { position: absolute; inset: 0; }
+        #s10-pa { position: absolute; left: 130px; top: 250px; width: 1660px; }
+        #s10-pa .kicker { display: block; margin-bottom: 30px; }
+        #s10-no { position: relative; display: inline-block; font-size: 92px; color: var(--mute); }
+        #s10-strike { position: absolute; left: -10px; right: -10px; top: 52%; height: 8px; border-radius: 4px; background: var(--warn); display: block; transform-origin: 0 50%; box-shadow: 0 0 16px rgba(255, 106, 92, 0.6); }
+        #s10-yes { display: block; margin-top: 30px; font-size: 150px; }
+
+        #s10-net { position: absolute; inset: 0; }
+        #s10-netk { position: absolute; left: 130px; top: 120px; }
+        #s10-svg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+        #s10-svg .ln { fill: none; stroke: var(--accent); stroke-width: 3; opacity: 0.85; }
+        #s10-svg .fl { fill: none; stroke: #bcd2ff; stroke-width: 6; stroke-linecap: round; }
+        #s10-hub { position: absolute; left: 850px; top: 360px; width: 220px; height: 220px; border-radius: 50%; border: 3px solid var(--accent); background: radial-gradient(circle, #13254a, #0a1426 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 0 60px rgba(61, 123, 255, 0.55); }
+        #s10-hub img { width: 84px; height: 84px; display: block; }
+        #s10-hub span { font-family: var(--mono); font-size: 22px; color: var(--fg); }
+        #s10-halo { position: absolute; left: 820px; top: 330px; width: 280px; height: 280px; border-radius: 50%; border: 2px solid rgba(61, 123, 255, 0.5); display: block; opacity: 0; }
+        .s10-n .node-box { overflow: visible; }
+        .s10-n .st { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 18px; }
+        .s10-n .on { color: var(--teal); }
+        .s10-n .glow { position: absolute; inset: -3px; border-radius: 14px; border: 3px solid var(--accent); box-shadow: 0 0 28px rgba(61, 123, 255, 0.75); display: block; }
+        .s10-agent { position: absolute; left: 50%; top: -50px; width: 160px; margin-left: -80px; text-align: center; font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--accent-hi); padding: 4px 0; border-radius: 999px; border: 2px solid var(--line-strong); background: #0d1a33; display: block; }
+        .s10-bot { position: absolute; right: -30px; bottom: -24px; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; font-size: 22px; color: #fff; background: linear-gradient(135deg, #2f6bff, #0fa3a0); box-shadow: 0 0 22px rgba(31, 200, 187, 0.7); }
+        .s10-at { position: absolute; left: -26px; bottom: -22px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-weight: 700; font-size: 24px; color: #fff; background: var(--accent); }
+
+        #s10-fin { position: absolute; inset: 0; }
+        #s10-fin-t { position: absolute; left: 110px; top: 300px; width: 640px; }
+        #s10-fin-t .big { display: block; font-size: 104px; }
+        #s10-fin-t .kicker { display: block; margin-bottom: 26px; }
+        #s10-win { left: 780px; top: 150px; width: 1060px; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s10" data-width="1920" data-height="1080">
+        <div id="s10-wrap">
+          <div id="s10-pa">
+            <span class="kicker">// 换个思路</span>
+            <span id="s10-no">不把代码搬上云<span id="s10-strike"></span></span>
+            <span class="big" id="s10-yes">把大家的电脑<span class="hl">组个队</span></span>
+          </div>
+
+          <div id="s10-net">
+            <span class="kicker" id="s10-netk">// 每台电脑接进来 → 群里的一个 Bot</span>
+            <svg id="s10-svg" viewBox="0 0 1920 1080">
+              <path class="ln" pathLength="1" d="M330 300 Q 620 330 870 430" />
+              <path class="ln" pathLength="1" d="M300 640 Q 600 610 860 520" />
+              <path class="ln" pathLength="1" d="M1590 300 Q 1300 330 1050 430" />
+              <path class="ln" pathLength="1" d="M1620 640 Q 1320 610 1060 520" />
+              <path class="ln" pathLength="1" d="M700 770 Q 790 650 900 570" />
+              <path class="ln" pathLength="1" d="M1220 770 Q 1130 650 1020 570" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M330 300 Q 620 330 870 430" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M300 640 Q 600 610 860 520" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M1590 300 Q 1300 330 1050 430" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M1620 640 Q 1320 610 1060 520" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M700 770 Q 790 650 900 570" />
+              <path class="fl" pathLength="1" stroke-dasharray="0.03 0.22" d="M1220 770 Q 1130 650 1020 570" />
+            </svg>
+            <span id="s10-halo"></span>
+            <div id="s10-hub"><img src="assets/logo.svg" alt="" /><span># 团队群</span></div>
+
+            <div class="node s10-n" style="left:230px;top:248px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Claude Code</span><span class="s10-bot">前</span><span class="s10-at">@</span></div><span class="node-label">王磊的 Mac</span></div>
+            <div class="node s10-n" style="left:200px;top:588px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Codex</span><span class="s10-bot">后</span><span class="s10-at">@</span></div><span class="node-label">李娜的 Linux</span></div>
+            <div class="node s10-n" style="left:1490px;top:248px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Claude Code</span><span class="s10-bot">我</span><span class="s10-at">@</span></div><span class="node-label">我的 Mac</span></div>
+            <div class="node s10-n" style="left:1520px;top:588px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Codex</span><span class="s10-bot">测</span><span class="s10-at">@</span></div><span class="node-label">闲置的 Mac mini</span></div>
+            <div class="node s10-n" style="left:600px;top:718px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Claude Code</span><span class="s10-bot">文</span><span class="s10-at">@</span></div><span class="node-label">同事的 Windows</span></div>
+            <div class="node s10-n" style="left:1120px;top:718px"><div class="node-box"><span class="glow"></span><span class="st off">离线</span><span class="st on">在线</span><span class="s10-agent">Codex</span><span class="s10-bot">运</span><span class="s10-at">@</span></div><span class="node-label">角落那台旧电脑</span></div>
+          </div>
+
+          <div id="s10-fin">
+            <div id="s10-fin-t">
+              <span class="kicker">// 群聊就是指挥台</span>
+              <span class="big">谁要干活</span>
+              <span class="big">就 <span class="hl">@</span> 谁的电脑</span>
+            </div>
+            <div class="win" id="s10-win">
+              <div class="win-bar"><i></i><i></i><i></i><span>共工空间 · todo-app 开发群</span></div>
+              <img src="assets/shots/interface.webp" alt="" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const nodes = gsap.utils.toArray("#s10-net .s10-n");
+        const lns = gsap.utils.toArray("#s10-svg .ln");
+        const fls = gsap.utils.toArray("#s10-svg .fl");
+
+        // Phase A — the pivot line
+        tl.fromTo("#s10-pa .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s10-no", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.9);
+        tl.fromTo("#s10-strike", { scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: "power2.inOut" }, 2.0);
+        tl.fromTo("#s10-yes", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 2.75);
+        tl.fromTo("#s10-pa", { opacity: 1, y: 0 }, { opacity: 0, y: -60, duration: 0.4, ease: "power2.in" }, 4.55);
+
+        // Phase B — machines join the group
+        tl.fromTo("#s10-netk", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 4.85);
+        tl.fromTo("#s10-hub", { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.8)" }, 4.9);
+        tl.fromTo("#s10-halo", { opacity: 0.9, scale: 0.8 }, { opacity: 0, scale: 1.5, duration: 1.4, ease: "sine.out", repeat: 5, immediateRender: false }, 5.2);
+        nodes.forEach((n, i) => {
+          tl.fromTo(n, { opacity: 0, scale: 0.6, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: "back.out(1.7)" }, 4.95 + i * 0.09);
+        });
+        lns.forEach((p, i) => {
+          tl.fromTo(p, { strokeDasharray: 1, strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.8, ease: "power2.inOut" }, 5.4 + i * 0.12);
+        });
+        fls.forEach((p, i) => {
+          tl.fromTo(p, { opacity: 0 }, { opacity: 1, duration: 0.3 }, 6.3 + i * 0.12);
+          tl.fromTo(p, { strokeDashoffset: 0 }, { strokeDashoffset: -1, duration: 1.6, ease: "none", repeat: 3, immediateRender: false }, 6.3 + i * 0.12);
+        });
+        nodes.forEach((n, i) => {
+          const at = 6.2 + i * 0.12;
+          tl.fromTo(n.querySelector(".glow"), { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, at);
+          tl.fromTo(n.querySelector(".off"), { opacity: 1 }, { opacity: 0, duration: 0.2 }, at);
+          tl.fromTo(n.querySelector(".on"), { opacity: 0 }, { opacity: 1, duration: 0.2 }, at + 0.1);
+          tl.fromTo(n.querySelector(".s10-agent"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 6.6 + i * 0.22);
+          tl.fromTo(n.querySelector(".s10-bot"), { opacity: 0, scale: 0, rotation: -40 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.45, ease: "back.out(2.4)" }, 9.7 + i * 0.1);
+          tl.fromTo(n.querySelector(".s10-at"), { opacity: 0, scale: 2 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 10.4 + i * 0.08);
+        });
+        tl.fromTo("#s10-hub", { boxShadow: "0 0 60px rgba(61,123,255,0.55)" }, { boxShadow: "0 0 120px rgba(31,200,187,0.85)", duration: 0.5, ease: "power2.out", immediateRender: false }, 9.8);
+        tl.fromTo("#s10-net", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.86, duration: 0.6, ease: "power2.inOut" }, 11.2);
+
+        // Phase C — the real group
+        tl.fromTo("#s10-fin-t .kicker", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 11.35);
+        tl.fromTo("#s10-fin-t .big", { opacity: 0, x: -80 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out", stagger: 0.18 }, 11.4);
+        tl.fromTo("#s10-win", { opacity: 0, x: 160, rotationY: -22, scale: 0.9, transformPerspective: 1800 }, { opacity: 1, x: 0, rotationY: -8, scale: 1, duration: 0.7, ease: "power3.out" }, 11.3);
+
+        tl.fromTo("#s10-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 12.86);
+        window.__ggRetime(tl, "s10");
+        window.__timelines["s10"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

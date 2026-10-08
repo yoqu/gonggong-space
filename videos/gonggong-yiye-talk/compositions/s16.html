@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s16-wrap { position: absolute; inset: 0; }
+        #s16-head { position: absolute; left: 110px; top: 140px; width: 1700px; display: flex; align-items: baseline; gap: 30px; }
+        #s16-title { font-size: 92px; }
+        #s16-term { left: 110px; top: 300px; width: 1700px; height: 540px; }
+        #s16-term .term { font-size: 34px; line-height: 1.75; white-space: normal; }
+        .s16-line { display: block; white-space: nowrap; font-family: var(--sans); font-size: 40px; line-height: 1.9; color: var(--fg); }
+        .s16-tag { display: inline-block; min-width: 44px; font-weight: 900; }
+        .s16-tag.w { color: #ffcf7a; }
+        .s16-tag.i { color: var(--accent-hi); }
+        .s16-tag.e { color: var(--warn); }
+        .s16-v { color: var(--fg); }
+        #s16-l4 .s16-v { color: var(--warn); font-weight: 700; }
+        #s16-caret { display: inline-block; width: 18px; height: 38px; background: var(--teal); vertical-align: middle; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s16" data-width="1920" data-height="1080">
+        <div id="s16-wrap">
+          <div id="s16-head">
+            <span class="big" id="s16-title">说点实在的</span>
+            <span class="kicker" id="s16-k">// 现在的不足</span>
+          </div>
+          <div class="win" id="s16-term">
+            <div class="win-bar"><i></i><i></i><i></i><span>现在的不足</span></div>
+            <div class="term">
+              <span class="s16-line" id="s16-l0"></span>
+              <span class="s16-line" id="s16-l1"><span class="s16-tag w">·</span> <span class="s16-v">才 v0.3.0，国庆前后连发了 3 个版本</span></span>
+              <span class="s16-line" id="s16-l2"><span class="s16-tag w">·</span> <span class="s16-v">毛病肯定不少</span></span>
+              <span class="s16-line" id="s16-l3"><span class="s16-tag i">·</span> <span class="s16-v">目前只支持 Claude Code · Codex</span></span>
+              <span class="s16-line" id="s16-l4"><span class="s16-tag e">·</span> <span class="s16-v">安全：我心里最没底</span></span>
+              <span class="s16-line" id="s16-l5"><span class="p">$</span> <span id="s16-caret"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const type = (sel, at, d, n) => tl.fromTo(sel, { clipPath: "inset(0 100% 0 0)", opacity: 1 }, { clipPath: "inset(0 0% 0 0)", opacity: 1, duration: d, ease: "steps(" + n + ")" }, at);
+        tl.fromTo("#s16-title", { opacity: 0, scale: 1.4 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 0.0);
+        tl.fromTo("#s16-k", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.3);
+        tl.fromTo("#s16-term", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.4);
+        type("#s16-l0", 0.7, 0.4, 18);
+        type("#s16-l1", 1.0, 1.0, 24);
+        type("#s16-l2", 3.3, 0.5, 8);
+        type("#s16-l3", 5.3, 0.9, 22);
+        type("#s16-l4", 9.15, 0.6, 12);
+        tl.fromTo("#s16-l4", { x: 0 }, { x: 10, duration: 0.05, yoyo: true, repeat: 5, ease: "none", immediateRender: false }, 9.8);
+        type("#s16-l5", 10.0, 0.1, 1);
+        tl.fromTo("#s16-caret", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "steps(1)", yoyo: true, repeat: 1 }, 10.1);
+        tl.fromTo("#s16-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 10.88);
+        window.__ggRetime(tl, "s16");
+        window.__timelines["s16"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

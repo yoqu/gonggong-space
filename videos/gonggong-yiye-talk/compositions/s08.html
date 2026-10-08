@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s08-wrap { position: absolute; inset: 0; }
+        #s08-a, #s08-b { position: absolute; inset: 0; }
+        #s08-q { position: absolute; left: 110px; top: 210px; }
+        #s08-q .kicker { display: block; margin-bottom: 18px; }
+        #s08-q .big { display: block; font-size: 130px; }
+        #s08-q .sub { display: block; margin-top: 28px; font-size: 36px; color: var(--mute); }
+        #s08-cloud { position: absolute; left: 1180px; top: 130px; width: 520px; height: 340px; display: block; filter: drop-shadow(0 0 30px rgba(61, 123, 255, 0.55)); }
+        #s08-laptop { position: absolute; left: 1290px; top: 640px; width: 300px; height: 190px; display: block; }
+        .s08-file { position: absolute; left: 1410px; top: 640px; width: 64px; height: 76px; border-radius: 10px; border: 2px solid var(--accent-hi); background: #10203d; color: var(--accent-hi); font-family: var(--mono); font-size: 20px; font-weight: 700; display: grid; place-items: center; }
+        #s08-ok { position: absolute; left: 110px; top: 690px; }
+        #s08-ok .chip { border-color: rgba(31, 200, 187, 0.6); background: rgba(31, 200, 187, 0.12); font-family: var(--sans); font-size: 30px; font-weight: 700; padding: 12px 26px; }
+
+        #s08-bh { position: absolute; left: 0; right: 0; top: 120px; text-align: center; }
+        #s08-bh .kicker { display: block; margin-bottom: 14px; }
+        #s08-bh .big { font-size: 84px; }
+        #s08-pc { position: absolute; left: 760px; top: 380px; width: 400px; display: flex; flex-direction: column; align-items: center; }
+        #s08-screen { width: 400px; height: 250px; border-radius: 22px; border: 3px solid var(--accent); background: radial-gradient(circle at 50% 40%, #173264, #0b1630 70%); box-shadow: 0 0 80px rgba(61, 123, 255, 0.45); display: grid; place-items: center; font-family: var(--mono); font-size: 26px; color: var(--accent-hi); }
+        #s08-stand { width: 120px; height: 34px; background: #1c2a47; display: block; }
+        #s08-base { width: 240px; height: 12px; border-radius: 6px; background: #22345a; display: block; }
+        #s08-pcname { margin-top: 16px; font-size: 32px; font-weight: 800; }
+        #s08-rays { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+        .s08-card { position: absolute; width: 470px; padding: 22px 26px; border-radius: 18px; background: var(--panel); border: 2px solid var(--line-strong); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+        .s08-card .t { display: block; font-size: 34px; font-weight: 800; }
+        .s08-card code { display: block; margin-top: 10px; font-family: var(--mono); font-size: 22px; color: var(--teal); }
+        #s08-c1 { left: 140px; top: 360px; }
+        #s08-c2 { left: 140px; top: 600px; }
+        #s08-c3 { left: 1250px; top: 470px; width: 560px; }
+      </style>
+      <div id="root" class="scene" data-composition-id="s08" data-width="1920" data-height="1080">
+        <div id="s08-wrap">
+          <div id="s08-a">
+            <div id="s08-q">
+              <span class="kicker">// 你可能会说</span>
+              <span class="big">云端 <span class="hl">Agent</span>？</span>
+              <span class="sub">把代码搬到云上跑，不就完了</span>
+            </div>
+            <svg id="s08-cloud" viewBox="0 -40 520 340" fill="none" stroke="#7aa6ff" stroke-width="6" stroke-linejoin="round"><path d="M120 250h300a90 90 0 0 0 0-180 130 130 0 0 0-245-20A100 100 0 0 0 120 250z" fill="rgba(61,123,255,0.14)" /><text x="260" y="190" fill="#eaf0fb" stroke="none" font-family="JetBrains Mono" font-size="40" font-weight="700" text-anchor="middle">云</text></svg>
+            <svg id="s08-laptop" viewBox="0 0 300 190" fill="none" stroke="#5d6b88" stroke-width="5"><rect x="40" y="10" width="220" height="140" rx="12" fill="#0e182c" /><path d="M10 170h280l-20 16H30z" fill="#1c2a47" /></svg>
+            <span class="s08-file" id="s08-f1">&lt;/&gt;</span>
+            <span class="s08-file" id="s08-f2">.ts</span>
+            <span class="s08-file" id="s08-f3">.git</span>
+            <div id="s08-ok"><span class="chip"><span class="dot"></span>嗯，思路没问题</span></div>
+          </div>
+
+          <div id="s08-b">
+            <div id="s08-bh">
+              <span class="kicker">// 但对小团队来说</span>
+              <span class="big">真正干活的环境，在<span class="hl">自己电脑</span>上</span>
+            </div>
+            <svg id="s08-rays" viewBox="0 0 1920 1080" fill="none" stroke="#3d7bff" stroke-width="3" stroke-dasharray="8 8">
+              <path id="s08-r1" d="M760 500 C 680 470 640 430 610 430" />
+              <path id="s08-r2" d="M760 560 C 680 620 640 660 610 670" />
+              <path id="s08-r3" d="M1160 520 C 1200 530 1230 540 1250 540" />
+            </svg>
+            <div id="s08-pc">
+              <div id="s08-screen">~/work ▍</div>
+              <span id="s08-stand"></span><span id="s08-base"></span>
+              <span id="s08-pcname">我的电脑</span>
+            </div>
+            <div class="s08-card" id="s08-c1"><span class="t">私有依赖</span><code>npm i @team/private-sdk</code></div>
+            <div class="s08-card" id="s08-c2"><span class="t">内网服务</span><code>http://10.0.0.12:8080</code></div>
+            <div class="s08-card" id="s08-c3"><span class="t">只在某台 Mac 上跑的模拟器</span><code>iOS Simulator</code></div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s08-q .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s08-q .big", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }, 0.15);
+        tl.fromTo("#s08-cloud", { opacity: 0, y: -60, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 0.6);
+        tl.fromTo("#s08-cloud", { y: 0 }, { y: -14, duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: 3, immediateRender: false }, 1.3);
+        tl.fromTo("#s08-laptop", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.4);
+        tl.fromTo("#s08-q .sub", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 3.8);
+        [["#s08-f1", -80], ["#s08-f2", 0], ["#s08-f3", 80]].forEach(([s, dx], i) => {
+          tl.fromTo(s, { opacity: 0, x: 0, y: 0, scale: 0.6 }, { opacity: 1, x: dx, y: -330, scale: 1, duration: 1.1, ease: "power2.in" }, 3.9 + i * 0.25);
+          tl.fromTo(s, { opacity: 1 }, { opacity: 0, duration: 0.2, ease: "none", immediateRender: false }, 4.95 + i * 0.25);
+        });
+        tl.fromTo("#s08-ok", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2.2)" }, 5.95);
+        tl.fromTo("#s08-a", { opacity: 1, x: 0 }, { opacity: 0, x: -80, duration: 0.4, ease: "power2.in" }, 7.1);
+
+        tl.fromTo("#s08-bh", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 7.45);
+        tl.fromTo("#s08-pc", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.5)" }, 8.6);
+        tl.fromTo("#s08-screen", { boxShadow: "0 0 20px rgba(61,123,255,0.2)" }, { boxShadow: "0 0 110px rgba(61,123,255,0.65)", duration: 1.6, ease: "sine.inOut", yoyo: true, repeat: 3, immediateRender: false }, 9.2);
+        tl.fromTo("#s08-r1", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 12.0);
+        tl.fromTo("#s08-c1", { opacity: 0, x: -80 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 12.05);
+        tl.fromTo("#s08-r2", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 13.2);
+        tl.fromTo("#s08-c2", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.45, ease: "back.out(1.6)" }, 13.25);
+        tl.fromTo("#s08-r3", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 14.3);
+        tl.fromTo("#s08-c3", { opacity: 0, x: 80, rotationY: -25, transformPerspective: 1400 }, { opacity: 1, x: 0, rotationY: 0, duration: 0.55, ease: "expo.out" }, 14.35);
+        tl.fromTo("#s08-rays", { strokeDashoffset: 0 }, { strokeDashoffset: -160, duration: 5, ease: "none" }, 12.0);
+        tl.fromTo("#s08-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 17.0);
+        window.__ggRetime(tl, "s08");
+        window.__timelines["s08"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s14-wrap { position: absolute; inset: 0; }
+        #s14-head { position: absolute; left: 110px; top: 130px; width: 1700px; }
+        #s14-head .kicker { display: block; margin-bottom: 18px; }
+        #s14-title { display: block; font-size: 96px; }
+        #s14-svg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+        .s14-box { position: absolute; top: 420px; height: 330px; }
+        .s14-box .win-bar { font-size: 20px; }
+        .s14-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; }
+        #s14-browser { left: 110px; width: 380px; }
+        #s14-server { left: 640px; width: 460px; }
+        #s14-pc { left: 1360px; width: 460px; border-color: var(--line-strong); }
+        .s14-row { display: flex; align-items: center; gap: 14px; font-size: 28px; color: var(--fg); }
+        .s14-row .m { font-family: var(--mono); font-size: 26px; font-weight: 700; width: 36px; display: block; text-align: center; }
+        .s14-ok .m { color: var(--teal); }
+        .s14-no { color: var(--mute); }
+        .s14-no .m { color: var(--warn); }
+        .s14-no .t { text-decoration: line-through; text-decoration-color: var(--warn); text-decoration-thickness: 3px; }
+        #s14-bubbles { display: flex; flex-direction: column; gap: 12px; }
+        #s14-bubbles span { display: block; height: 30px; border-radius: 8px; background: #1a2a4a; }
+        #s14-bubbles span:nth-child(2) { width: 70%; background: rgba(61, 123, 255, 0.35); }
+        #s14-bubbles span:nth-child(3) { width: 85%; }
+        .s14-vault { display: flex; gap: 16px; }
+        .s14-chipbig { flex: 1; height: 110px; border-radius: 16px; border: 2px solid var(--line-strong); background: rgba(61, 123, 255, 0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--accent-hi); }
+        .s14-chipbig small { font-family: var(--sans); font-size: 20px; font-weight: 600; color: var(--mute); }
+        #s14-lock { display: flex; align-items: center; gap: 10px; font-size: 24px; color: var(--teal); font-weight: 700; }
+        #s14-wall { position: absolute; left: 1196px; top: 390px; width: 64px; height: 390px; border-radius: 6px; background: repeating-linear-gradient(0deg, rgba(255, 106, 92, 0.85) 0 26px, #3a1820 26px 30px); border: 2px solid rgba(255, 106, 92, 0.9); box-shadow: 0 0 30px rgba(255, 106, 92, 0.35); }
+        #s14-walllabel { position: absolute; left: 1128px; top: 790px; width: 200px; text-align: center; font-size: 22px; font-weight: 700; color: var(--warn); }
+        #s14-out { position: absolute; left: 1110px; top: 330px; width: 360px; text-align: center; }
+        #s14-nat { position: absolute; left: 640px; top: 790px; width: 460px; display: flex; justify-content: center; }
+        #s14-nat .chip { font-size: 24px; }
+        #s14-nat s { text-decoration-color: var(--warn); text-decoration-thickness: 3px; color: var(--mute); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s14" data-width="1920" data-height="1080">
+        <div id="s14-wrap">
+          <div id="s14-head">
+            <span class="kicker">03 / 第三点</span>
+            <span class="big" id="s14-title"><span class="hl">Key</span> 和代码，不离开你的电脑</span>
+          </div>
+
+          <svg id="s14-svg" viewBox="0 0 1920 1080">
+            <line id="s14-l1" x1="490" y1="585" x2="640" y2="585" stroke="#7aa6ff" stroke-width="4" stroke-dasharray="12 10" />
+            <line id="s14-l2" x1="1360" y1="585" x2="1100" y2="585" stroke="#1fc8bb" stroke-width="5" stroke-dasharray="14 10" />
+            <path id="s14-arrow" d="M1122 570 L1100 585 L1122 600" fill="none" stroke="#1fc8bb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+
+          <div class="win s14-box" id="s14-browser">
+            <div class="win-bar"><i></i><i></i><i></i><span>浏览器 · 群聊</span></div>
+            <div class="s14-body"><div id="s14-bubbles"><span></span><span></span><span></span><span></span></div></div>
+          </div>
+
+          <div class="win s14-box" id="s14-server">
+            <div class="win-bar"><i></i><i></i><i></i><span>共工服务器</span></div>
+            <div class="s14-body">
+              <div class="s14-row s14-ok" id="s14-r1"><span class="m">✓</span><span class="t">转发消息</span></div>
+              <div class="s14-row s14-ok" id="s14-r2"><span class="m">✓</span><span class="t">记录过程</span></div>
+              <div class="s14-row s14-no" id="s14-r3"><span class="m">✕</span><span class="t">模型 Key</span></div>
+              <div class="s14-row s14-no" id="s14-r4"><span class="m">✕</span><span class="t">你的代码</span></div>
+            </div>
+          </div>
+
+          <div id="s14-wall"></div>
+          <div id="s14-walllabel">防火墙 / NAT</div>
+          <div id="s14-out"><span class="chip"><span class="dot"></span>只往外连</span></div>
+
+          <div class="win s14-box" id="s14-pc">
+            <div class="win-bar"><i></i><i></i><i></i><span>你的电脑 · daemon</span></div>
+            <div class="s14-body">
+              <div class="s14-vault">
+                <div class="s14-chipbig" id="s14-key">KEY<small>模型 Key</small></div>
+                <div class="s14-chipbig" id="s14-code">&lt;/&gt;<small>代码 · git 凭据</small></div>
+              </div>
+              <div id="s14-lock"><span class="dot"></span>留在本机</div>
+            </div>
+          </div>
+
+          <div id="s14-nat"><span class="chip">不用折腾 <s>内网穿透</s></span></div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s14-head .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s14-title", { opacity: 0, y: 40, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "expo.out" }, 0.15);
+        tl.fromTo("#s14-pc", { opacity: 0, x: 120 }, { opacity: 1, x: 0, duration: 0.6, ease: "power3.out" }, 0.9);
+        tl.fromTo("#s14-key", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2.2)" }, 1.4);
+        tl.fromTo("#s14-code", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2.2)" }, 1.6);
+        tl.fromTo("#s14-lock", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 2.1);
+
+        tl.fromTo("#s14-server", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 3.0);
+        tl.fromTo("#s14-browser", { opacity: 0, x: -80 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 3.15);
+        tl.fromTo("#s14-l1", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 3.5);
+        tl.fromTo("#s14-l1", { strokeDashoffset: 0 }, { strokeDashoffset: -220, duration: 10.4, ease: "none", immediateRender: false }, 3.5);
+        tl.fromTo("#s14-r1", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 3.6);
+        tl.fromTo("#s14-r2", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 4.4);
+        tl.fromTo("#s14-r3", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 5.6);
+        tl.fromTo("#s14-r4", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 7.0);
+
+        tl.fromTo("#s14-wall", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.5, ease: "expo.out" }, 8.35);
+        tl.fromTo("#s14-walllabel", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 8.6);
+        tl.fromTo("#s14-l2", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 9.0);
+        tl.fromTo("#s14-arrow", { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 9.0);
+        tl.fromTo("#s14-l2", { strokeDashoffset: 0 }, { strokeDashoffset: 240, duration: 5, ease: "none", immediateRender: false }, 9.0);
+        tl.fromTo("#s14-out", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.8)" }, 9.4);
+        tl.fromTo("#s14-nat", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 12.27);
+
+        tl.fromTo("#s14-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 13.76);
+        window.__ggRetime(tl, "s14");
+        window.__timelines["s14"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

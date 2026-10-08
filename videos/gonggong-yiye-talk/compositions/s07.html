@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s07-wrap { position: absolute; inset: 0; }
+        #s07-slam { position: absolute; left: 0; right: 0; top: 330px; text-align: center; }
+        #s07-slam .big { font-size: 170px; display: inline-block; }
+        #s07-head { position: absolute; left: 110px; top: 130px; }
+        #s07-head .kicker { display: block; margin-bottom: 14px; color: var(--warn); }
+        #s07-head .big { display: block; font-size: 84px; }
+        #s07-lines { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+        .s07-node { position: absolute; top: 400px; width: 260px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        .s07-face { width: 150px; height: 150px; border-radius: 34px; display: grid; place-items: center; font-size: 62px; font-weight: 900; color: #fff; background: #33405e; border: 3px solid var(--line-strong); }
+        .s07-face.bot { background: linear-gradient(135deg, #2f6bff, #0fa3a0); font-family: var(--mono); font-size: 52px; }
+        #s07-me .s07-face { border-radius: 50%; overflow: hidden; border-color: var(--accent); box-shadow: 0 0 40px rgba(61, 123, 255, 0.5); }
+        #s07-me .s07-face img { width: 150px; height: 150px; display: block; }
+        .s07-name { font-size: 32px; font-weight: 800; }
+        .s07-role { font-family: var(--mono); font-size: 20px; color: var(--mute); letter-spacing: 0.1em; }
+        #s07-pm { left: 230px; }
+        #s07-me { left: 830px; }
+        #s07-ai { left: 1430px; }
+        .s07-pkt { position: absolute; top: 360px; left: 0; padding: 10px 22px; border-radius: 14px 14px 14px 4px; background: #16233d; border: 2px solid var(--line-strong); font-size: 26px; font-weight: 700; color: var(--fg); white-space: nowrap; }
+        #s07-score { position: absolute; left: 790px; top: 690px; width: 340px; text-align: center; font-family: var(--mono); font-size: 30px; color: var(--mute); }
+        #s07-score b { font-size: 64px; color: var(--fg); margin-left: 10px; }
+        #s07-stamp { position: absolute; left: 815px; top: 360px; width: 290px; padding: 16px 0; text-align: center; border: 6px solid var(--warn); border-radius: 18px; color: var(--warn); font-family: var(--display); font-size: 78px; background: rgba(5, 8, 15, 0.82); box-shadow: 0 0 40px rgba(255, 106, 92, 0.5); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s07" data-width="1920" data-height="1080">
+        <div id="s07-wrap">
+          <div id="s07-slam"><span class="big">还有一个<span class="hl-warn">最痛的</span></span></div>
+
+          <div id="s07-body">
+            <div id="s07-head">
+              <span class="kicker">// 痛点 04</span>
+              <span class="big">需求要<span class="hl-warn">转述两遍</span></span>
+            </div>
+            <svg id="s07-lines" viewBox="0 0 1920 1080" fill="none">
+              <line id="s07-ln1" x1="520" y1="475" x2="920" y2="475" stroke="#3d7bff" stroke-width="4" stroke-dasharray="10 10" />
+              <line id="s07-ln2" x1="1120" y1="475" x2="1520" y2="475" stroke="#3d7bff" stroke-width="4" stroke-dasharray="10 10" />
+            </svg>
+            <div class="s07-node" id="s07-pm"><span class="s07-face">产</span><span class="s07-name">产品经理</span></div>
+            <div class="s07-node" id="s07-me"><span class="s07-face"><img src="assets/avatar.png" alt="" /></span><span class="s07-name">我</span><span class="s07-role">先听懂一遍</span></div>
+            <div class="s07-node" id="s07-ai"><span class="s07-face bot">AI</span><span class="s07-name">Claude Code</span><span class="s07-role">再讲一遍</span></div>
+            <span class="s07-pkt" id="s07-p1">需求</span>
+            <span class="s07-pkt" id="s07-p2">原样转述</span>
+            <div id="s07-score">判断<b id="s07-num">+0</b></div>
+            <div id="s07-stamp">传话筒</div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s07-slam .big", { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 0.05);
+        tl.fromTo("#s07-slam", { opacity: 1, y: 0 }, { opacity: 0, y: -60, duration: 0.3, ease: "power2.in" }, 1.3);
+        tl.fromTo("#s07-head", { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 1.5);
+        tl.fromTo("#s07-pm", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.45, ease: "back.out(1.7)" }, 1.55);
+        tl.fromTo("#s07-me", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.7)" }, 1.7);
+        tl.fromTo("#s07-ai", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 1.85);
+        tl.fromTo("#s07-ln1", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 1.9);
+        tl.fromTo("#s07-ln2", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 2.0);
+        tl.fromTo("#s07-ln1", { strokeDashoffset: 0 }, { strokeDashoffset: -200, duration: 9, ease: "none", immediateRender: false }, 2.0);
+        tl.fromTo("#s07-ln2", { strokeDashoffset: 0 }, { strokeDashoffset: -200, duration: 9, ease: "none", immediateRender: false }, 2.0);
+        tl.fromTo("#s07-p1", { opacity: 0, x: 520, y: 0 }, { opacity: 1, x: 560, y: 0, duration: 0.3, ease: "power2.out" }, 2.1);
+        tl.fromTo("#s07-p1", { x: 560 }, { x: 880, duration: 1.4, ease: "power2.inOut", immediateRender: false }, 2.4);
+        tl.fromTo("#s07-p1", { opacity: 1 }, { opacity: 0, duration: 0.25, ease: "none", immediateRender: false }, 3.75);
+        tl.fromTo("#s07-me .s07-face", { scale: 1 }, { scale: 1.12, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.out" }, 3.8);
+        tl.fromTo("#s07-p2", { opacity: 0, x: 1120 }, { opacity: 1, x: 1150, duration: 0.3, ease: "power2.out" }, 4.4);
+        tl.fromTo("#s07-p2", { x: 1150 }, { x: 1440, duration: 1.4, ease: "power2.inOut", immediateRender: false }, 4.7);
+        tl.fromTo("#s07-p2", { opacity: 1 }, { opacity: 0, duration: 0.25, ease: "none", immediateRender: false }, 6.05);
+        tl.fromTo("#s07-score", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 6.7);
+        tl.fromTo("#s07-num", { color: "#eaf0fb" }, { color: "#ff6a5c", duration: 0.3, ease: "none" }, 7.6);
+        tl.fromTo("#s07-stamp", { opacity: 0, scale: 2.6, rotation: -20 }, { opacity: 1, scale: 1, rotation: -8, duration: 0.32, ease: "expo.in" }, 9.3);
+        tl.fromTo("#s07-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 10.99);
+        window.__ggRetime(tl, "s07");
+        window.__timelines["s07"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

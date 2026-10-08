@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        #s06-wrap { position: absolute; inset: 0; }
+        #s06-head { position: absolute; left: 110px; top: 130px; }
+        #s06-head .kicker { display: block; margin-bottom: 14px; color: var(--warn); }
+        #s06-h { display: block; font-size: 96px; }
+        #s06-term { left: 110px; top: 380px; width: 800px; height: 330px; }
+        #s06-term .term { font-size: 26px; }
+        .s06-ln { display: block; }
+        #s06-tag1, #s06-tag2 { position: absolute; font-family: var(--mono); font-size: 22px; letter-spacing: 0.1em; color: var(--mute); }
+        #s06-tag1 { left: 110px; top: 728px; }
+        #s06-tag2 { left: 1010px; top: 728px; }
+        #s06-tag1 b, #s06-tag2 b { color: var(--fg); font-family: var(--sans); letter-spacing: 0; margin-left: 8px; }
+        #s06-br { left: 1010px; top: 200px; width: 820px; height: 510px; }
+        #s06-url { margin: 14px 18px 0; height: 46px; border-radius: 23px; background: #0a1324; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 20px; font-family: var(--mono); font-size: 22px; color: var(--mute); gap: 12px; }
+        #s06-url i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--dim); display: block; }
+        #s06-err { position: absolute; left: 0; right: 0; top: 150px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        #s06-err svg { width: 110px; height: 110px; display: block; }
+        #s06-err .t { font-size: 44px; font-weight: 800; color: var(--fg); }
+        #s06-err .c { font-family: var(--mono); font-size: 26px; color: var(--warn); letter-spacing: 0.04em; }
+        #s06-link { position: absolute; left: 910px; top: 520px; width: 100px; height: 4px; display: block; }
+        #s06-x { position: absolute; left: 930px; top: 488px; width: 64px; height: 64px; border-radius: 50%; background: var(--warn); color: #fff; display: grid; place-items: center; font-size: 40px; font-weight: 900; box-shadow: 0 0 30px rgba(255, 106, 92, 0.7); }
+        #s06-chips { position: absolute; left: 1010px; top: 790px; display: flex; gap: 22px; }
+        .s06-chip { border-color: rgba(255, 106, 92, 0.55); background: rgba(255, 106, 92, 0.1); font-family: var(--sans); font-size: 26px; font-weight: 700; }
+        .s06-chip svg { width: 28px; height: 28px; display: block; }
+        #s06-chips .note { align-self: center; font-size: 24px; color: var(--mute); }
+      </style>
+      <div id="root" class="scene" data-composition-id="s06" data-width="1920" data-height="1080">
+        <div id="s06-wrap">
+          <div id="s06-head">
+            <span class="kicker">// 痛点 03</span>
+            <span class="big" id="s06-h">结果<span class="hl-warn">看不见</span></span>
+          </div>
+
+          <div class="win" id="s06-term">
+            <div class="win-bar"><i></i><i></i><i></i><span>yoqu@mac ~/todo-app</span></div>
+            <div class="term"><span class="s06-ln" id="s06-l1"><span class="p">$</span> npm run dev</span><span class="s06-ln c" id="s06-l2">&gt; vite --port 5173</span><span class="s06-ln" id="s06-l3"><span class="p">✓</span> Server running at</span><span class="s06-ln a" id="s06-l4">  http://localhost:5173</span><span class="s06-ln c" id="s06-l5">  AI：服务已经跑起来了 ✓</span></div>
+          </div>
+          <span id="s06-tag1"><b>我的电脑</b></span>
+
+          <svg id="s06-link" viewBox="0 0 100 4"><line x1="0" y1="2" x2="100" y2="2" stroke="#ff6a5c" stroke-width="4" stroke-dasharray="8 8" /></svg>
+
+          <div class="win" id="s06-br">
+            <div class="win-bar"><i></i><i></i><i></i><span>新标签页</span></div>
+            <div id="s06-url"><i></i>localhost:5173</div>
+            <div id="s06-err">
+              <svg viewBox="0 0 64 64" fill="none" stroke="#ff6a5c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 6h22l12 12v40H16z" /><path d="M38 6v12h12" /><path d="M25 34l14 14M39 34L25 48" /></svg>
+              <span class="t">无法访问此网站</span>
+              <span class="c">ERR_CONNECTION_REFUSED</span>
+            </div>
+          </div>
+          <span id="s06-tag2"><b>同事的电脑</b></span>
+          <span id="s06-x">×</span>
+
+          <div id="s06-chips">
+            <span class="chip s06-chip" id="s06-c1"><svg viewBox="0 0 24 24" fill="none" stroke="#ff8a7e" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2" /><circle cx="12" cy="13.5" r="3.5" /><path d="M8 7l2-3h4l2 3" /></svg>截图</span>
+            <span class="chip s06-chip" id="s06-c2"><svg viewBox="0 0 24 24" fill="none" stroke="#ff8a7e" stroke-width="2"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" fill="#ff6a5c" /></svg>录屏</span>
+            <span class="note" id="s06-note">才能给别人看</span>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#s06-head .kicker", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 0.05);
+        tl.fromTo("#s06-h", { opacity: 0, y: 40, skewX: -8 }, { opacity: 1, y: 0, skewX: 0, duration: 0.5, ease: "expo.out" }, 0.1);
+        tl.fromTo("#s06-term", { opacity: 0, x: -80, rotationY: 14, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 6, duration: 0.6, ease: "power3.out" }, 0.15);
+        tl.fromTo("#s06-tag1", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "none" }, 0.5);
+        ["#s06-l1", "#s06-l2", "#s06-l3", "#s06-l4", "#s06-l5"].forEach((s, i) => {
+          tl.fromTo(s, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: i === 0 ? 0.5 : 0.3, ease: "steps(14)" }, [0.5, 1.05, 1.45, 1.75, 2.15][i]);
+        });
+        tl.fromTo("#s06-br", { opacity: 0, x: 120, rotationY: -20, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: -6, duration: 0.6, ease: "power3.out" }, 2.75);
+        tl.fromTo("#s06-tag2", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "none" }, 3.1);
+        tl.fromTo("#s06-err", { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 3.3);
+        tl.fromTo("#s06-br", { x: 0 }, { x: 10, duration: 0.05, ease: "none", yoyo: true, repeat: 5, immediateRender: false }, 3.75);
+        tl.fromTo("#s06-link", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.4, ease: "power2.out" }, 3.5);
+        tl.fromTo("#s06-x", { opacity: 0, scale: 2.2 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.in" }, 3.9);
+        tl.fromTo("#s06-c1", { opacity: 0, y: 40, rotation: -8 }, { opacity: 1, y: 0, rotation: 0, duration: 0.4, ease: "back.out(2)" }, 5.6);
+        tl.fromTo("#s06-c2", { opacity: 0, y: 40, rotation: 8 }, { opacity: 1, y: 0, rotation: 0, duration: 0.4, ease: "back.out(2)" }, 6.1);
+        tl.fromTo("#s06-note", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, 6.5);
+        tl.fromTo("#s06-wrap", { opacity: 1, y: 0 }, { opacity: 0, y: -30, duration: 0.35, ease: "power2.in" }, 7.49);
+        window.__ggRetime(tl, "s06");
+        window.__timelines["s06"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
