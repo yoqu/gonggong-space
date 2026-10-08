@@ -14,6 +14,7 @@
       "!**/test-results",
       "!**/playwright-report",
       "!website/.vitepress/cache",
+      "!videos",
       "!website/scripts/shots-workbench.data.json",
       "!apps/web/src/ui/im/twemoji"
     ]
