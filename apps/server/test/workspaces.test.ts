@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { requestCd } from '../src/modules/workspaces/cd.js'
+import { ensureWorkspace } from '../src/modules/workspaces/provision.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { bareRepo } from './support/git.js'
 import { client } from './support/http.js'
@@ -171,6 +172,18 @@ describe('joining a repo group', () => {
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'pending', workspace: 'managed' })
     const d = await daemon(w.a.token)
     d.send(reply(await joinEnsure(d, g.id)))
+    await until(async () => (await w.stateOf(g.id)).state === 'ready')
+  })
+
+  it('asks a connected daemon once while its clone is in flight (a reconnect catch-up may race the join)', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const g = await w.createGroup()
+    const req = await joinEnsure(d, g.id)
+    await ensureWorkspace(t.ctx, g.id, { id: w.bot.id, name: w.bot.name, machineId: w.a.machine.id })
+    const late = Promise.race([d.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
+    expect(await late).toBe('quiet')
+    d.send(reply(req))
     await until(async () => (await w.stateOf(g.id)).state === 'ready')
   })
 

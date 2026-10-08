@@ -136,8 +136,7 @@ export class HostedLiveKit implements LiveKit {
         tail.splice(0, Math.max(0, tail.length - 20))
       })
     this.child = child
-    await mkdir(this.opts.dir, { recursive: true })
-    await writeFile(this.pidFile, String(child.pid))
+    // Listen before any await: a binary that fails at once may exit while the pid file is written.
     const exited = new Promise<never>((_, reject) =>
       child.once('exit', (code) =>
         reject(new Error(`livekit-server 退出（${code ?? 'signal'}）：${tail.join('\n')}`)),
@@ -145,6 +144,8 @@ export class HostedLiveKit implements LiveKit {
     )
     exited.catch(() => {})
     child.once('exit', () => void this.onExit(child))
+    await mkdir(this.opts.dir, { recursive: true })
+    await writeFile(this.pidFile, String(child.pid))
     await Promise.race([waitHealthy(this.port), exited])
     this.ready = true
     this.backoff = 1000
@@ -218,11 +219,14 @@ export class HostedLiveKit implements LiveKit {
     this.closed = true
     const child = this.child
     if (!child) return
-    const gone = new Promise((r) => child.once('exit', r))
-    child.kill('SIGTERM')
-    const timer = setTimeout(() => child.kill('SIGKILL'), 5000)
-    await gone
-    clearTimeout(timer)
+    // An already exited child never emits 'exit' again.
+    if (child.exitCode === null && child.signalCode === null) {
+      const gone = new Promise((r) => child.once('exit', r))
+      child.kill('SIGTERM')
+      const timer = setTimeout(() => child.kill('SIGKILL'), 5000)
+      await gone
+      clearTimeout(timer)
+    }
     await rm(this.pidFile, { force: true })
   }
 }

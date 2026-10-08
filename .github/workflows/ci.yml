@@ -44,6 +44,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: node --test tools/*.test.mjs
+      # backup.sh runs pg_dump, which must match the server's major (the runner ships 16; pg_wrapper picks the newest).
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
       - run: pnpm -r test
       # The Tauri desktop crate needs webkit2gtk & co. on Linux: its tests stay local (macOS) for now.
       - run: cargo test --workspace --exclude gonggong-desktop

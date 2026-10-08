@@ -213,7 +213,11 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef) {
   await updateBotState(ctx, groupId, bot.id, { workspaceState: machineId ? 'cloning' : 'pending' })
   if (!machineId) return
   for (const [id, p] of pending)
-    if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) pending.delete(id)
+    if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) {
+      // Already asked on this connection (going offline clears pending): a reconnect catch-up can race a join.
+      if (p.machineId === machineId && p.repoId === repo.id) return
+      pending.delete(id)
+    }
   const requestId = track({
     kind: 'ensure',
     machineId,
