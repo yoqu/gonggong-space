@@ -12,7 +12,6 @@ it('renders English when the saved locale is en, and switching back stores Chine
     autoUpgrade: true,
     launchAtLogin: false,
     mirror: { kind: 'npmmirror' },
-    proxy: null,
     env: {},
   })
   const { SettingsPage } = await import('../src/pages/Settings')

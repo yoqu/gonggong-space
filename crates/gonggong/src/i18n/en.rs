@@ -236,6 +236,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("供应商名称不能为空", "The provider name can't be empty"),
     ("Base URL 必须以 http:// 或 https:// 开头", "The base URL must start with http:// or https://"),
     ("API Key 不能为空", "The API key can't be empty"),
+    ("代理地址必须以 http:// 或 https:// 开头", "The proxy must start with http:// or https://"),
     ("providers.json 已损坏", "providers.json is corrupted"),
     ("供应商 {id} 不存在", "Provider {id} doesn't exist"),
     (

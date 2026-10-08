@@ -29,12 +29,15 @@ pub struct Providers {
     store: StoreView,
     /// This machine has a CC Switch to import from.
     cc_switch: bool,
+    /// Provider id → proxy; local only, so a proxy password never leaves the machine in a [`ProviderView`].
+    proxies: BTreeMap<String, String>,
 }
 
 #[tauri::command]
 pub fn providers(host: State<'_, Host>) -> Result<Providers> {
     let store = Store::load(&host.home).map_err(err)?;
-    Ok(Providers { store: store.view(), cc_switch: cc_switch_dir().is_dir() })
+    let proxies = store.providers.iter().filter_map(|p| Some((p.id.clone(), p.proxy.clone()?))).collect();
+    Ok(Providers { store: store.view(), cc_switch: cc_switch_dir().is_dir(), proxies })
 }
 
 #[tauri::command]
@@ -59,6 +62,9 @@ pub struct Draft {
     models: Option<ModelMap>,
     #[serde(default)]
     env: BTreeMap<String, String>,
+    /// Empty = direct.
+    #[serde(default)]
+    proxy: Option<String>,
 }
 
 fn some(s: Option<String>) -> Option<String> {
@@ -80,6 +86,7 @@ impl Draft {
             .map(|m| ModelMap { haiku: some(m.haiku), sonnet: some(m.sonnet), opus: some(m.opus) })
             .filter(|m| *m != ModelMap::default());
         p.env = self.env;
+        p.proxy = some(self.proxy);
         let key = self.api_key.trim();
         if !key.is_empty() {
             p.api_key = key.to_string();
@@ -259,6 +266,16 @@ mod tests {
         assert_eq!((p.name.as_str(), p.api_key.as_str(), p.model.as_deref(), p.revision), ("Kimi 2", KEY, None, 2));
         save(&mut store, draft(serde_json::json!({ "id": id, "apiKey": "sk-rotated-000000000000" }))).unwrap();
         assert_eq!(store.get(&id).unwrap().api_key, "sk-rotated-000000000000");
+    }
+
+    #[test]
+    fn saves_the_proxy_an_empty_one_meaning_direct() {
+        let mut store = Store::default();
+        assert!(save(&mut store, draft(serde_json::json!({ "proxy": "127.0.0.1:7890" }))).is_err());
+        let id = save(&mut store, draft(serde_json::json!({ "proxy": " http://127.0.0.1:7890 " }))).unwrap();
+        assert_eq!(store.get(&id).unwrap().proxy.as_deref(), Some("http://127.0.0.1:7890"));
+        save(&mut store, draft(serde_json::json!({ "id": id, "proxy": " " }))).unwrap();
+        assert_eq!(store.get(&id).unwrap().proxy, None);
     }
 
     #[test]

@@ -139,6 +139,9 @@ pub struct Provider {
     pub models: Option<ModelMap>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
+    /// `http(s)://[user:pass@]host:port` the agent reaches the provider through; `None` = direct.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<String>,
     /// Codex only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_api: Option<String>,
@@ -178,6 +181,7 @@ impl Provider {
             model: None,
             models: None,
             env: BTreeMap::new(),
+            proxy: None,
             wire_api: (agent == AgentKind::Codex).then(|| WIRE_RESPONSES.into()),
             effort: None,
             source: None,
@@ -194,7 +198,27 @@ impl Provider {
         if self.api_key.trim().is_empty() {
             bail!(t!("API Key 不能为空"));
         }
+        if self.proxy.as_deref().is_some_and(|u| !(u.starts_with("http://") || u.starts_with("https://"))) {
+            bail!(t!("代理地址必须以 http:// 或 https:// 开头"));
+        }
         Ok(())
+    }
+
+    /// The agent process's env as if exported in a terminal: the proxy (both cases, loopback direct so the agent
+    /// still reaches the daemon's local MCP endpoint), then the provider's own variables.
+    pub fn process_env(&self) -> BTreeMap<String, String> {
+        let mut env = self.env.clone();
+        if let Some(url) = &self.proxy {
+            for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
+                env.entry(k.into()).or_insert_with(|| url.clone());
+            }
+            let user = self.env.get("NO_PROXY").or(self.env.get("no_proxy"));
+            let bypass =
+                ["localhost", "127.0.0.1", "::1"].into_iter().chain(user.map(String::as_str)).collect::<Vec<_>>();
+            env.insert("NO_PROXY".into(), bypass.join(","));
+            env.insert("no_proxy".into(), bypass.join(","));
+        }
+        env
     }
 
     fn same_connection(&self, other: &Provider) -> bool {
@@ -619,6 +643,36 @@ mod tests {
 
     fn kimi(store: &mut Store) -> String {
         store.add(Provider::from_preset(preset(Claude, "kimi-coding").unwrap(), KEY.into())).unwrap()
+    }
+
+    #[test]
+    fn process_env_is_the_proxy_then_the_providers_env() {
+        let mut p = Provider::custom(Codex, "x".into(), "https://x.test".into(), KEY.into());
+        p.env.insert("FOO".into(), "1".into());
+        assert_eq!(p.process_env(), BTreeMap::from([("FOO".into(), "1".into())]), "no proxy: direct");
+
+        p.proxy = Some("http://127.0.0.1:7890".into());
+        p.env.insert("no_proxy".into(), "corp.cn, 10.0.0.0/8".into());
+        p.env.insert("HTTPS_PROXY".into(), "http://other:8080".into());
+        let env = p.process_env();
+        assert_eq!(env["HTTP_PROXY"], "http://127.0.0.1:7890");
+        assert_eq!(env["http_proxy"], "http://127.0.0.1:7890");
+        assert_eq!(env["https_proxy"], "http://127.0.0.1:7890");
+        assert_eq!(env["HTTPS_PROXY"], "http://other:8080", "the provider's own variables win");
+        assert_eq!(env["NO_PROXY"], "localhost,127.0.0.1,::1,corp.cn, 10.0.0.0/8", "loopback stays direct");
+        assert_eq!(env["no_proxy"], env["NO_PROXY"]);
+        assert_eq!(env["FOO"], "1");
+    }
+
+    #[test]
+    fn a_proxy_must_be_an_http_url() {
+        let mut p = Provider::custom(Codex, "x".into(), "https://x.test".into(), KEY.into());
+        p.proxy = Some("127.0.0.1:7890".into());
+        assert!(Store::default().add(p.clone()).is_err());
+        p.proxy = Some("socks5://127.0.0.1:7890".into());
+        assert!(Store::default().add(p.clone()).is_err());
+        p.proxy = Some("http://user:pw@127.0.0.1:7890".into());
+        Store::default().add(p).unwrap();
     }
 
     #[test]

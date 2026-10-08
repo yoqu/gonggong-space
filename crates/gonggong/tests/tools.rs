@@ -1,6 +1,6 @@
 #![cfg(unix)]
 //! Managed tools against a fake npm registry and Node mirror (design §4.1).
-use gonggong::config::{Mirror, Proxy, Settings};
+use gonggong::config::{Mirror, Settings};
 use gonggong::local::LocalSettings;
 use gonggong::tools::{self, ToolKind};
 use sha2::{Digest, Sha256};
@@ -160,30 +160,15 @@ async fn installs_agent_clis_into_the_managed_prefix_from_the_configured_registr
 }
 
 #[tokio::test]
-async fn npm_runs_with_the_proxy_and_the_user_env() {
+async fn npm_runs_with_the_user_env() {
     let home = tempfile::tempdir().unwrap();
     let mirror = Mirror::Custom { registry: "http://127.0.0.1:9/npm".into(), node: "http://127.0.0.1:9/node".into() };
-    let proxy = Some(Proxy { url: "http://proxy.test:3128".into(), no_proxy: String::new() });
     let env = [("GG_EXTRA".to_string(), "1".to_string())].into();
-    Settings { mirror, proxy, env, ..Settings::default() }.save(home.path()).unwrap();
+    Settings { mirror, env, ..Settings::default() }.save(home.path()).unwrap();
     fake_managed_node(home.path());
     let _ = tools::install(home.path(), ToolKind::Codex, Some("0.159.2"), &|_: &str| {}).await;
     let env = std::fs::read_to_string(home.path().join("npm-env.txt")).unwrap();
-    assert!(env.lines().any(|l| l == "HTTPS_PROXY=http://proxy.test:3128"), "{env}");
     assert!(env.lines().any(|l| l == "GG_EXTRA=1"), "{env}");
-}
-
-#[tokio::test]
-async fn downloads_go_through_the_configured_proxy() {
-    let home = tempfile::tempdir().unwrap();
-    let routes: Routes = Arc::default();
-    routes.lock().unwrap().insert("http://mirror.invalid/node/index.json".into(), INDEX.into());
-    let proxy = serve(routes, Arc::default()).await;
-    let mirror =
-        Mirror::Custom { registry: "http://mirror.invalid/npm".into(), node: "http://mirror.invalid/node".into() };
-    let proxy = Some(Proxy { url: proxy, no_proxy: String::new() });
-    Settings { mirror, proxy, ..Settings::default() }.save(home.path()).unwrap();
-    assert_eq!(tools::latest(home.path(), ToolKind::Node, true).await.unwrap(), "24.2.0");
 }
 
 #[tokio::test]

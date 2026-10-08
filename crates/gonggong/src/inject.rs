@@ -2,7 +2,7 @@
 //! file named in `_meta` (process env loses to `~/.claude/settings.json`; an inline object would land on argv). Codex:
 //! the adapter's env only. The official login injects nothing. Keys go to the 0600 file or the child's env, never to
 //! argv, logs or errors.
-use crate::providers::{self, API_KEY, AUTH_TOKEN, EXTRA_ENV, Provider, Store};
+use crate::providers::{self, API_KEY, AUTH_TOKEN, Provider, Store};
 use crate::t;
 use anyhow::{Result, bail};
 use serde_json::{Map, Value, json};
@@ -40,7 +40,7 @@ pub fn claude_settings(p: &Provider) -> Result<Value> {
     };
     let models = p.models.clone().unwrap_or_default();
     let or_blank = |v: &Option<String>| v.clone().unwrap_or_default();
-    let mut env: Map<String, Value> = [
+    let connection = [
         ("ANTHROPIC_BASE_URL", p.base_url.clone()),
         (key_field, p.api_key.clone()),
         (other, String::new()),
@@ -48,14 +48,15 @@ pub fn claude_settings(p: &Provider) -> Result<Value> {
         ("ANTHROPIC_DEFAULT_HAIKU_MODEL", or_blank(&models.haiku)),
         ("ANTHROPIC_DEFAULT_SONNET_MODEL", or_blank(&models.sonnet)),
         ("ANTHROPIC_DEFAULT_OPUS_MODEL", or_blank(&models.opus)),
-    ]
-    .into_iter()
-    .chain(CLAUDE_RESET.map(|(k, v)| (k, v.to_string())))
-    .map(|(k, v)| (k.to_string(), Value::String(v)))
-    .collect();
-    for (k, v) in p.env.iter().filter(|(k, _)| EXTRA_ENV.contains(&k.as_str())) {
-        env.insert(k.clone(), Value::String(v.clone()));
-    }
+    ];
+    // A later entry wins: the provider's env may set what the reset blanks, never the connection.
+    let env: Map<String, Value> = CLAUDE_RESET
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .into_iter()
+        .chain(p.process_env())
+        .chain(connection.map(|(k, v)| (k.to_string(), v)))
+        .map(|(k, v)| (k, Value::String(v)))
+        .collect();
     Ok(json!({ "apiKeyHelper": "", "env": env }))
 }
 

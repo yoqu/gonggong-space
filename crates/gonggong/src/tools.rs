@@ -352,14 +352,13 @@ fn forward(pipe: impl AsyncRead + Unpin + Send + 'static, tx: tokio::sync::mpsc:
     });
 }
 
-/// A download that stops arriving fails instead of hanging the install.
-fn http(settings: &Settings) -> Result<reqwest::Client> {
-    let mut builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(10));
-    if let Some(proxy) = &settings.proxy {
-        let no_proxy = reqwest::NoProxy::from_string(&proxy.bypass());
-        builder = builder.proxy(reqwest::Proxy::all(&proxy.url)?.no_proxy(no_proxy));
-    }
-    Ok(builder.read_timeout(Duration::from_secs(30)).build()?)
+/// Shared, so its connection pool is; a download that stops arriving fails instead of hanging the install.
+fn http() -> Result<reqwest::Client> {
+    static HTTP: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
+        let builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(10));
+        builder.read_timeout(Duration::from_secs(30)).build().map_err(|e| format!("{e:#}"))
+    });
+    HTTP.clone().map_err(anyhow::Error::msg)
 }
 
 async fn get_text(http: &reqwest::Client, url: &str) -> Result<String> {
@@ -419,7 +418,7 @@ fn checksum<'a>(sums: &'a str, file: &str) -> Option<&'a str> {
 }
 
 async fn install_node(home: &Path, settings: &Settings, version: Option<String>, progress: Progress<'_>) -> Result<()> {
-    let http = http(settings)?;
+    let http = http()?;
     let dist = settings.mirror.node_dist();
     let version = match version {
         Some(v) => v,
@@ -556,7 +555,7 @@ pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> 
     {
         return Ok(c.version.clone());
     }
-    let body = get_text(&http(&settings)?, &source).await?;
+    let body = get_text(&http()?, &source).await?;
     let version = match kind.package() {
         Some(_) => {
             let v: serde_json::Value = serde_json::from_str(&body).context(t!("npm 版本信息格式错误"))?;

@@ -27,7 +27,6 @@ beforeEach(() => {
     autoUpgrade: true,
     launchAtLogin: false,
     mirror: { kind: 'npmmirror' },
-    proxy: null,
     env: {},
   })
   useDaemon.setState({ info: INFO })

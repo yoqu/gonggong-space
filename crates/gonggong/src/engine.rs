@@ -17,7 +17,7 @@ use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
     RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
 };
-use crate::providers::Selection;
+use crate::providers::{Provider, Selection};
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
 use crate::repo;
 use crate::service::{Handler, Outbox};
@@ -520,6 +520,7 @@ impl Inner {
                     inject::codex_config(&mut config, p);
                 }
                 base.env("CODEX_CONFIG", serde_json::Value::Object(config).to_string())
+                    .envs(provider.map(Provider::process_env).into_iter().flatten())
                     .envs(provider.map(inject::codex_env).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }

@@ -99,6 +99,7 @@ export function ProviderBox({
         <ProviderEditor
           agent={agent}
           editing={open.editing}
+          proxy={open.editing ? (data.proxies[open.editing.id] ?? '') : ''}
           onClose={close}
           onSaved={(id, setDefault) => {
             close()

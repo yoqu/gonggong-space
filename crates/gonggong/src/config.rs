@@ -66,34 +66,13 @@ pub struct Settings {
     pub auto_upgrade: bool,
     /// Where Node and the agent CLIs are downloaded from.
     pub mirror: Mirror,
-    /// For the agents, npm and tool downloads; the team server is always reached directly.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proxy: Option<Proxy>,
     /// Extra environment of the agent processes and npm.
     pub env: BTreeMap<String, String>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { auto_upgrade: true, mirror: Mirror::default(), proxy: None, env: BTreeMap::new() }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Proxy {
-    /// `http(s)://[user:pass@]host:port`.
-    pub url: String,
-    /// Comma-separated hosts, domains or CIDRs that bypass the proxy.
-    #[serde(default)]
-    pub no_proxy: String,
-}
-
-impl Proxy {
-    /// `no_proxy` with loopback first: the agents reach the daemon's local MCP endpoint there.
-    pub fn bypass(&self) -> String {
-        let user = self.no_proxy.split(',').map(str::trim).filter(|h| !h.is_empty());
-        ["localhost", "127.0.0.1", "::1"].into_iter().chain(user).collect::<Vec<_>>().join(",")
+        Settings { auto_upgrade: true, mirror: Mirror::default(), env: BTreeMap::new() }
     }
 }
 
@@ -146,19 +125,9 @@ impl Settings {
         Ok(())
     }
 
-    /// Environment for child processes, in order (a later entry wins): the proxy, then the user's variables.
+    /// The user's variables for child processes.
     pub fn child_env(&self) -> Vec<(String, String)> {
-        let mut env = Vec::new();
-        if let Some(proxy) = &self.proxy {
-            for name in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
-                env.push((name.to_string(), proxy.url.clone()));
-            }
-            let bypass = proxy.bypass();
-            env.push(("NO_PROXY".to_string(), bypass.clone()));
-            env.push(("no_proxy".to_string(), bypass));
-        }
-        env.extend(self.env.iter().map(|(k, v)| (k.clone(), v.clone())));
-        env
+        self.env.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 }
 
@@ -176,7 +145,7 @@ fn restrict_permissions(_: &std::path::Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Mirror, Proxy, Settings};
+    use super::{Mirror, Settings};
 
     #[test]
     fn settings_default_to_auto_upgrade_and_round_trip() {
@@ -205,24 +174,11 @@ mod tests {
     }
 
     #[test]
-    fn child_env_carries_the_proxy_then_the_user_variables() {
-        assert!(Settings::default().child_env().is_empty());
-        let settings = Settings {
-            proxy: Some(Proxy { url: "http://127.0.0.1:7890".into(), no_proxy: " corp.cn, ,10.0.0.0/8".into() }),
-            env: [("FOO", "1"), ("HTTPS_PROXY", "http://other:8080")].map(|(k, v)| (k.into(), v.into())).into(),
-            ..Settings::default()
-        };
-        let env = settings.child_env();
-        let get = |k: &str| env.iter().rev().find(|(n, _)| n == k).map(|(_, v)| v.as_str());
-        assert_eq!(get("HTTP_PROXY"), Some("http://127.0.0.1:7890"));
-        assert_eq!(get("https_proxy"), Some("http://127.0.0.1:7890"));
-        assert_eq!(get("NO_PROXY"), Some("localhost,127.0.0.1,::1,corp.cn,10.0.0.0/8"));
-        assert_eq!(get("no_proxy"), get("NO_PROXY"));
-        assert_eq!(get("FOO"), Some("1"));
-        assert_eq!(get("HTTPS_PROXY"), Some("http://other:8080"), "the user's own variables win");
-
+    fn child_env_carries_the_user_variables_and_ignores_a_former_global_proxy() {
         let home = tempfile::tempdir().unwrap();
-        settings.save(home.path()).unwrap();
-        assert_eq!(Settings::load(home.path()).unwrap(), settings);
+        let old = r#"{"autoUpgrade":true,"proxy":{"url":"http://127.0.0.1:7890"},"env":{"FOO":"1"}}"#;
+        std::fs::write(home.path().join("settings.json"), old).unwrap();
+        let settings = Settings::load(home.path()).unwrap();
+        assert_eq!(settings.child_env(), vec![("FOO".to_string(), "1".to_string())]);
     }
 }

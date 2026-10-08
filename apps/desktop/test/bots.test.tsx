@@ -89,6 +89,7 @@ it('sets a bot’s provider: inherit, official or one of its agent, confirming w
       provider({ id: 'ds-1', agent: 'codex', name: 'DeepSeek' }),
     ],
     ccSwitch: false,
+    proxies: {},
   })
   m.chooseProvider.mockResolvedValue()
   render(<BotsPage go={() => {}} />)

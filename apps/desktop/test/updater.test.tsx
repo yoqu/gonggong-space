@@ -33,7 +33,6 @@ beforeEach(() => {
     autoUpgrade: true,
     launchAtLogin: false,
     mirror: { kind: 'npmmirror' },
-    proxy: null,
     env: {},
   })
   m.checkUpdate.mockResolvedValue(fakeUpdate(calls))
@@ -61,7 +60,6 @@ it('does not check by itself while 自动升级 is off', async () => {
     autoUpgrade: false,
     launchAtLogin: false,
     mirror: { kind: 'npmmirror' },
-    proxy: null,
     env: {},
   })
   const stop = startUpdater()

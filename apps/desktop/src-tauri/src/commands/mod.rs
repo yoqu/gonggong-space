@@ -32,7 +32,6 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         settings::get_settings,
         settings::set_auto_upgrade,
         settings::set_mirror,
-        settings::set_proxy,
         settings::set_env,
         settings::set_launch_at_login,
         settings::unbind,

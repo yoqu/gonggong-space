@@ -14,7 +14,6 @@ beforeEach(() => {
     autoUpgrade: true,
     launchAtLogin: false,
     mirror: { kind: 'npmmirror' },
-    proxy: null,
     env: { FOO: '1' },
   })
   m.setAutoUpgrade.mockResolvedValue()
@@ -74,24 +73,6 @@ it('switches the download mirror, a custom one only with both addresses', async 
       node: 'https://r.corp.cn/node',
     }),
   )
-})
-
-it('saves the proxy, an empty address meaning direct', async () => {
-  m.setProxy.mockResolvedValue()
-  render(<SettingsPage go={() => {}} />)
-  const url = (await screen.findByRole('textbox', { name: '代理地址' })) as HTMLInputElement
-  const save = screen.getByRole('button', { name: '保存代理' }) as HTMLButtonElement
-  expect(save.disabled).toBe(true)
-  fireEvent.change(url, { target: { value: ' http://127.0.0.1:7890 ' } })
-  fireEvent.change(screen.getByRole('textbox', { name: '不走代理' }), { target: { value: '.corp.cn' } })
-  fireEvent.click(save)
-  await waitFor(() =>
-    expect(m.setProxy).toHaveBeenCalledWith({ url: 'http://127.0.0.1:7890', noProxy: '.corp.cn' }),
-  )
-  await waitFor(() => expect(save.disabled).toBe(true))
-  fireEvent.change(url, { target: { value: '' } })
-  fireEvent.click(save)
-  await waitFor(() => expect(m.setProxy).toHaveBeenLastCalledWith(null))
 })
 
 it('saves the agent environment as KEY=VALUE lines and refuses a malformed line', async () => {

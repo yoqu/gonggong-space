@@ -34,6 +34,7 @@ interface Fields {
   model: string
   models: Required<Record<(typeof TIERS)[number], string>>
   env: string
+  proxy: string
 }
 
 function fieldsOf(p: Pick<Preset, 'name' | 'baseUrl' | 'model' | 'models' | 'env'>): Fields {
@@ -44,6 +45,7 @@ function fieldsOf(p: Pick<Preset, 'name' | 'baseUrl' | 'model' | 'models' | 'env
     model: p.model ?? '',
     models: { haiku: p.models?.haiku ?? '', sonnet: p.models?.sonnet ?? '', opus: p.models?.opus ?? '' },
     env: formatEnv(p.env),
+    proxy: '',
   }
 }
 
@@ -53,19 +55,22 @@ const EMPTY: Fields = fieldsOf({ name: '', baseUrl: '', model: null, models: nul
 export function ProviderEditor({
   agent,
   editing,
+  proxy,
   onClose,
   onSaved,
 }: {
   agent: AgentKind
   /** null = a new provider. */
   editing: ProviderView | null
+  /** The edited provider's proxy (not in its view); '' = direct. */
+  proxy: string
   onClose: () => void
   onSaved: (id: string, setDefault: boolean) => void
 }) {
   const [presets, setPresets] = useState<Preset[] | null>(null)
   /** undefined while picking the vendor; null = 自定义. */
   const [preset, setPreset] = useState<Preset | null | undefined>(editing ? null : undefined)
-  const [f, setF] = useState<Fields>(editing ? { ...fieldsOf(editing), apiKey: '' } : EMPTY)
+  const [f, setF] = useState<Fields>(editing ? { ...fieldsOf(editing), proxy } : EMPTY)
   const [setDefault, setSetDefault] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -107,6 +112,7 @@ export function ProviderEditor({
       model: f.model || null,
       models,
       env,
+      proxy: f.proxy.trim() || null,
     }
     setSaving(true)
     try {
@@ -147,7 +153,10 @@ export function ProviderEditor({
       width={560}
       footer={
         editing && preset ? (
-          <Button variant="plain" onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey })}>
+          <Button
+            variant="plain"
+            onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey, proxy: f.proxy })}
+          >
             {t('恢复为预设值')}
           </Button>
         ) : undefined
@@ -213,9 +222,8 @@ export function ProviderEditor({
         {advanced ? (
           <>
             {preset ? baseUrl : null}
-            {agent === 'claude' ? (
-              <>
-                {TIERS.map((tier) => (
+            {agent === 'claude'
+              ? TIERS.map((tier) => (
                   <FormRow
                     key={tier}
                     label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
@@ -226,18 +234,25 @@ export function ProviderEditor({
                       onChange={(e) => set({ models: { ...f.models, [tier]: e.target.value } })}
                     />
                   </FormRow>
-                ))}
-                <FormRow label={t('额外环境变量')} align="top" hint={t('每行一个 KEY=VALUE')}>
-                  <TextField
-                    multiline
-                    aria-label={t('额外环境变量')}
-                    rows={3}
-                    value={f.env}
-                    onChange={(e) => set({ env: e.target.value })}
-                  />
-                </FormRow>
-              </>
-            ) : null}
+                ))
+              : null}
+            <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
+              <TextField
+                aria-label={t('代理地址')}
+                placeholder="http://127.0.0.1:7890"
+                value={f.proxy}
+                onChange={(e) => set({ proxy: e.target.value })}
+              />
+            </FormRow>
+            <FormRow label={t('环境变量')} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
+              <TextField
+                multiline
+                aria-label={t('环境变量')}
+                rows={3}
+                value={f.env}
+                onChange={(e) => set({ env: e.target.value })}
+              />
+            </FormRow>
           </>
         ) : null}
         {error ? (

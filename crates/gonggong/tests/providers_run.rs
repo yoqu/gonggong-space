@@ -189,20 +189,49 @@ async fn a_third_party_provider_runs_its_own_model() {
 }
 
 #[tokio::test]
-async fn the_proxy_and_the_user_env_reach_the_agent_under_the_provider() {
+async fn codex_runs_with_the_providers_proxy_and_env_over_the_users() {
     let mut r = rig(Duration::from_secs(60));
-    r.add(AgentKind::Codex, "zhipu", true);
-    let settings = gonggong::config::Settings {
-        proxy: Some(gonggong::config::Proxy { url: "http://127.0.0.1:7890".into(), no_proxy: "corp.cn".into() }),
-        env: [("GG_EXTRA", "1"), ("GG_PROVIDER_KEY", "user")].map(|(k, v)| (k.into(), v.into())).into(),
-        ..Default::default()
-    };
+    let id = r.add(AgentKind::Codex, "zhipu", true);
+    let env = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    Store::update(r.home(), |s| {
+        s.edit(&id, |p| {
+            p.proxy = Some("http://127.0.0.1:7890".into());
+            p.env = env(&[("GG_EXTRA", "provider"), ("NO_PROXY", "corp.cn"), ("GG_PROVIDER_KEY", "nope")]);
+        })
+    })
+    .unwrap();
+    let settings = gonggong::config::Settings { env: env(&[("GG_EXTRA", "user")]), ..Default::default() };
     settings.save(r.home()).unwrap();
     r.run(start("r1", AgentKind::Codex));
     let e = echo(&r.finish("r1").await);
     assert_eq!(
         e["settingsEnv"],
-        json!({ "HTTPS_PROXY": "http://127.0.0.1:7890", "NO_PROXY": "localhost,127.0.0.1,::1,corp.cn", "GG_EXTRA": "1" })
+        json!({ "HTTPS_PROXY": "http://127.0.0.1:7890", "NO_PROXY": "localhost,127.0.0.1,::1,corp.cn", "GG_EXTRA": "provider" })
     );
-    assert_eq!(e["env"]["GG_PROVIDER_KEY"], KEY, "the provider's own variables win");
+    assert_eq!(e["env"]["GG_PROVIDER_KEY"], KEY, "the connection wins over the provider's env");
+}
+
+#[tokio::test]
+async fn claude_gets_the_providers_proxy_and_env_in_its_settings_file() {
+    let mut r = rig(Duration::from_secs(60));
+    let id = r.add(AgentKind::Claude, "kimi-coding", true);
+    Store::update(r.home(), |s| {
+        s.edit(&id, |p| {
+            p.proxy = Some("http://127.0.0.1:7890".into());
+            p.env.insert("GG_EXTRA".into(), "1".into());
+        })
+    })
+    .unwrap();
+    r.run(start("r1", AgentKind::Claude));
+    r.finish("r1").await;
+    let settings: Value = serde_json::from_slice(&std::fs::read(r.settings_file(&id)).unwrap()).unwrap();
+    let env = &settings["env"];
+    for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
+        assert_eq!(env[k], "http://127.0.0.1:7890", "{k}");
+    }
+    assert_eq!(
+        (env["NO_PROXY"].as_str(), env["no_proxy"].as_str()),
+        (Some("localhost,127.0.0.1,::1"), Some("localhost,127.0.0.1,::1"))
+    );
+    assert_eq!(env["GG_EXTRA"], "1");
 }

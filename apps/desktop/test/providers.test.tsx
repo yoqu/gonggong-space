@@ -16,6 +16,7 @@ const DATA: Providers = {
     provider({ id: 'ds-1', agent: 'codex', name: 'DeepSeek' }),
   ],
   ccSwitch: true,
+  proxies: { 'kimi-1': 'http://127.0.0.1:7890' },
 }
 
 beforeEach(() => {
@@ -97,7 +98,7 @@ it('adds a provider from a preset: pick the vendor, fill only the key, then make
   expect((form.getByRole('textbox', { name: 'Base URL' }) as HTMLInputElement).value).toBe(
     'https://api.kimi.com/coding/',
   )
-  expect((form.getByRole('textbox', { name: '额外环境变量' }) as HTMLTextAreaElement).value).toBe(
+  expect((form.getByRole('textbox', { name: '环境变量' }) as HTMLTextAreaElement).value).toBe(
     'CLAUDE_CODE_MAX_CONTEXT_TOKENS=262144',
   )
   fireEvent.change(form.getByRole('textbox', { name: 'opus 模型' }), { target: { value: 'kimi-k2' } })
@@ -113,12 +114,13 @@ it('adds a provider from a preset: pick the vendor, fill only the key, then make
       model: 'kimi-for-coding',
       models: { haiku: 'kimi-for-coding', sonnet: 'kimi-for-coding', opus: 'kimi-k2' },
       env: { CLAUDE_CODE_MAX_CONTEXT_TOKENS: '262144' },
+      proxy: null,
     }),
   )
   await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('claude', 'kimi-coding-9f3e', undefined))
 })
 
-it('adds a custom provider with its own Base URL', async () => {
+it('adds a custom provider with its own Base URL, proxy and environment', async () => {
   render(<AgentsPage go={() => {}} />)
   fireEvent.click((await box('Codex')).getByRole('button', { name: '新增…' }))
   fireEvent.click(await screen.findByText('自定义'))
@@ -129,6 +131,13 @@ it('adds a custom provider with its own Base URL', async () => {
   })
   fireEvent.change(form.getByLabelText('API Key'), { target: { value: 'sk-relay-12345678' } })
   fireEvent.change(form.getByRole('combobox', { name: '模型' }), { target: { value: 'gpt-6' } })
+  fireEvent.click(form.getByRole('button', { name: /高级/ }))
+  fireEvent.change(form.getByRole('textbox', { name: '代理地址' }), {
+    target: { value: ' http://127.0.0.1:7890 ' },
+  })
+  fireEvent.change(form.getByRole('textbox', { name: '环境变量' }), {
+    target: { value: 'NO_PROXY=.corp.cn' },
+  })
   fireEvent.click(form.getByRole('button', { name: '保存' }))
   await waitFor(() =>
     expect(m.saveProvider).toHaveBeenCalledWith(
@@ -137,6 +146,8 @@ it('adds a custom provider with its own Base URL', async () => {
         presetId: null,
         baseUrl: 'https://relay.corp.cn/v1',
         model: 'gpt-6',
+        proxy: 'http://127.0.0.1:7890',
+        env: { NO_PROXY: '.corp.cn' },
       }),
     ),
   )
@@ -154,10 +165,17 @@ it('edits without ever showing the stored key, and removes after confirming', as
   expect(form.getByText('留空则保留已保存的 Key')).toBeTruthy()
   expect(await form.findByRole('button', { name: '恢复为预设值' })).toBeTruthy()
   fireEvent.change(form.getByRole('textbox', { name: '名称' }), { target: { value: 'Kimi 公司账号' } })
+  fireEvent.click(form.getByRole('button', { name: /高级/ }))
+  const proxy = form.getByRole('textbox', { name: '代理地址' }) as HTMLInputElement
+  expect(proxy.value).toBe('http://127.0.0.1:7890')
+  fireEvent.click(form.getByRole('button', { name: '恢复为预设值' }))
+  expect(proxy.value).toBe('http://127.0.0.1:7890')
+  fireEvent.change(form.getByRole('textbox', { name: '名称' }), { target: { value: 'Kimi 公司账号' } })
+  fireEvent.change(proxy, { target: { value: '' } })
   fireEvent.click(form.getByRole('button', { name: '保存' }))
   await waitFor(() =>
     expect(m.saveProvider).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'kimi-1', name: 'Kimi 公司账号', apiKey: '' }),
+      expect.objectContaining({ id: 'kimi-1', name: 'Kimi 公司账号', apiKey: '', proxy: null }),
     ),
   )
 
