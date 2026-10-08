@@ -95,7 +95,8 @@ describe('dispatch', () => {
       .from(groupBots)
       .where(and(eq(groupBots.groupId, a.group.id), eq(groupBots.botId, w.bot.id)))
     expect(gb?.contextSeq).toBe(0)
-    expect(statuses).toEqual(['offline_wait'])
+    // Never shown as running. Registering the machine also schedules in the background, which may publish it again.
+    expect([...new Set(statuses)]).toEqual(['offline_wait'])
   })
 
   it('advances the context cursor once the start was sent', async () => {
