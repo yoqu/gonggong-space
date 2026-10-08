@@ -13,6 +13,7 @@
     },
     "env": {
       "ENABLE_TOOL_SEARCH": "1"
-    }
+    },
+    "proxy": "http://127.0.0.1:7890"
   }
 }

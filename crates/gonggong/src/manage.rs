@@ -8,7 +8,7 @@ use crate::protocol::{
     ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult,
     ToolsAction, ToolsCmd, ToolsSettings,
 };
-use crate::providers::{self, API_KEY, AUTH_TOKEN, EXTRA_ENV, INHERIT, Provider, Selection, Store};
+use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
 use crate::t;
 use crate::tools;
@@ -332,7 +332,6 @@ fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
     store.add(p)
 }
 
-/// Only connection settings and the whitelisted extra env: nothing that could run code on this machine.
 fn apply(p: &mut Provider, input: ProviderInput) {
     let text = |s: String| Some(s.trim().to_string()).filter(|s| !s.is_empty());
     if let Some(name) = input.name {
@@ -354,7 +353,12 @@ fn apply(p: &mut Provider, input: ProviderInput) {
         p.models = (models != ModelMap::default()).then_some(models);
     }
     if let Some(env) = input.env {
-        p.env = env.into_iter().filter(|(k, _)| EXTRA_ENV.contains(&k.as_str())).collect();
+        p.env = env;
+    }
+    if let Some(proxy) =
+        input.proxy.filter(|x| Some(x.trim().to_string()) != p.proxy.as_deref().map(providers::mask_proxy))
+    {
+        p.proxy = text(proxy);
     }
     if let Some(effort) = input.effort {
         p.effort = text(effort);
@@ -420,8 +424,37 @@ mod tests {
             model: None,
             models: None,
             env: None,
+            proxy: None,
             effort: None,
         }
+    }
+
+    #[test]
+    fn saves_the_proxy_keeping_it_when_the_masked_one_comes_back() {
+        let home = tempfile::tempdir().unwrap();
+        let save = |provider: ProviderInput| {
+            let mut c = cmd(ProvidersAction::Save);
+            c.provider = Some(provider);
+            providers_op(home.path(), c, &[])
+        };
+        let new = ProviderInput {
+            name: Some("K".into()),
+            base_url: Some("https://k.example".into()),
+            api_key: Some(KEY.into()),
+            ..input(AgentKind::Codex)
+        };
+        assert!(save(ProviderInput { proxy: Some("127.0.0.1:7890".into()), ..new.clone() }).is_err());
+        let r = save(ProviderInput { proxy: Some(" http://bob:pw@10.0.0.2:3128 ".into()), ..new }).unwrap();
+        let id = r.id.unwrap();
+        assert_eq!(r.view.unwrap().providers[0].proxy.as_deref(), Some("http://bob:****@10.0.0.2:3128"));
+        let proxy = |home: &Path| Store::load(home).unwrap().get(&id).unwrap().proxy.clone();
+
+        let edit =
+            |proxy: &str| ProviderInput { id: Some(id.clone()), proxy: Some(proxy.into()), ..input(AgentKind::Codex) };
+        save(edit("http://bob:****@10.0.0.2:3128")).unwrap();
+        assert_eq!(proxy(home.path()).as_deref(), Some("http://bob:pw@10.0.0.2:3128"), "masked = unchanged");
+        save(edit(" ")).unwrap();
+        assert_eq!(proxy(home.path()), None, "empty = direct");
     }
 
     #[test]
@@ -429,7 +462,7 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let mut save = cmd(ProvidersAction::Save);
         save.set_default = Some(true);
-        let env = [("NODE_OPTIONS", "--require /tmp/x.js"), ("ENABLE_TOOL_SEARCH", "1")];
+        let env = [("HTTP_TIMEOUT", "30"), ("ENABLE_TOOL_SEARCH", "1")];
         save.provider = Some(ProviderInput {
             preset_id: Some("kimi-coding".into()),
             api_key: Some(KEY.into()),
@@ -442,7 +475,7 @@ mod tests {
         assert_eq!(view.machine.get(&AgentKind::Claude), Some(&id));
         let p = &view.providers[0];
         assert_eq!((p.api_key.as_str(), p.preset_id.as_deref()), ("****abcd", Some("kimi-coding")));
-        assert_eq!(p.env.keys().collect::<Vec<_>>(), vec!["ENABLE_TOOL_SEARCH"], "env outside the whitelist dropped");
+        assert_eq!(p.env.keys().collect::<Vec<_>>(), vec!["ENABLE_TOOL_SEARCH", "HTTP_TIMEOUT"]);
         let json = serde_json::to_string(&DaemonToServer::ProvidersResult(r)).unwrap();
         assert!(!json.contains(KEY));
 
@@ -453,6 +486,14 @@ mod tests {
         let stored = Store::load(home.path()).unwrap();
         let p = stored.get(&id).unwrap();
         assert_eq!((p.api_key.as_str(), p.model.as_deref(), p.revision), (KEY, Some("k2"), 2), "key kept when absent");
+
+        let mut bad_env = cmd(ProvidersAction::Save);
+        bad_env.provider = Some(ProviderInput {
+            id: Some(id.clone()),
+            env: Some([("A-B".to_string(), "1".to_string())].into()),
+            ..input(AgentKind::Claude)
+        });
+        assert!(providers_op(home.path(), bad_env, &[]).is_err());
 
         let mut wrong = cmd(ProvidersAction::Save);
         wrong.provider = Some(ProviderInput { id: Some(id.clone()), ..input(AgentKind::Codex) });

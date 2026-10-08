@@ -1,6 +1,6 @@
 import type { BotDto, MachineDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -76,7 +76,8 @@ export function MachineDetails({
 }) {
   const [name, setName] = useState(machine.name === machine.hostname ? '' : machine.name)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<Tab>('overview')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'providers' ? 'providers' : 'overview')
   const owner = useSession((st) => st.user?.id === machine.ownerId)
   const formId = useId()
   const save = async () => {

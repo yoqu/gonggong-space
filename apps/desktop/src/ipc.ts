@@ -250,6 +250,8 @@ export interface ProviderView {
   model: string | null
   models: ModelMap | null
   env: Record<string, string>
+  /** Password masked; null = direct. */
+  proxy: string | null
   wireApi: string | null
   effort: string | null
   source: { kind: 'cc-switch' | 'link'; id?: string } | null
@@ -264,54 +266,6 @@ export interface Providers {
   /** Per-bot override; absent = inherit the machine default. */
   bots: Record<string, ProviderChoice>
   providers: ProviderView[]
-  /** This machine has CC Switch (~/.cc-switch) to import from. */
-  ccSwitch: boolean
-  /** Provider id → its proxy; absent = direct. */
-  proxies: Record<string, string>
-}
-
-/** A built-in vendor (CC Switch presets). */
-export interface Preset {
-  id: string
-  agent: AgentKind
-  name: string
-  group: 'cn' | 'aggregator' | 'global'
-  websiteUrl: string | null
-  apiKeyUrl: string | null
-  baseUrl: string
-  model: string | null
-  models: ModelMap | null
-  modelOptions: string[]
-  env: Record<string, string>
-}
-
-/** The provider form; an empty `apiKey` keeps the stored key when editing. */
-export interface ProviderDraft {
-  id: string | null
-  agent: AgentKind
-  presetId: string | null
-  name: string
-  baseUrl: string
-  apiKey: string
-  model: string | null
-  models: ModelMap | null
-  env: Record<string, string>
-  /** null = direct. */
-  proxy: string | null
-}
-
-/** A CC Switch provider that can be imported, key masked. */
-export interface Candidate {
-  key: string
-  agent: AgentKind
-  name: string
-  baseUrl: string
-  apiKey: string
-  model: string | null
-  /** CC Switch's current provider for that agent. */
-  current: boolean
-  /** The local provider it would update. */
-  existing: string | null
 }
 
 /** A group's session that keeps `from` after a switch until a new session starts on `to`. */
@@ -370,24 +324,16 @@ export const ipc = {
   /** Output lines arrive through `onToolProgress(opId, …)`. */
   runTool: (op: ToolOp, kind: ToolKind, opId: string) => invoke<ToolStatus>('run_tool', { op, kind, opId }),
   providers: () => invoke<Providers>('providers'),
-  providerPresets: () => invoke<Preset[]>('provider_presets'),
-  /** Resolves with the provider id. */
-  saveProvider: (draft: ProviderDraft) => invoke<string>('save_provider', { draft }),
-  removeProvider: (id: string) => invoke<void>('remove_provider', { id }),
   /** The machine default of `agent`, or `bot`'s override. */
   chooseProvider: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
     invoke<void>('choose_provider', { agent, choice, bot: bot ?? null }),
   providerImpact: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
     invoke<Impact[]>('provider_impact', { agent, choice, bot: bot ?? null }),
-  ccswitchPreview: () => invoke<Candidate[]>('ccswitch_preview'),
-  /** Resolves with the local ids, in the order of `keys`. */
-  ccswitchImport: (keys: string[]) => invoke<string[]>('ccswitch_import', { keys }),
-  importProviderLink: (link: string) => invoke<ProviderView>('import_provider_link', { link }),
-  /** 获取 Key: the preset's key page in the default browser. */
-  openKeyPage: (agent: AgentKind, presetId: string) => invoke<void>('open_key_page', { agent, presetId }),
   bots: () => invoke<MachineBot[]>('bots'),
   /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
   openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),
+  /** 在 Web 中管理: this machine's 供应商 tab. */
+  openProvidersInWeb: () => invoke<void>('open_providers_in_web'),
   tunnels: () => invoke<Tunnels>('tunnels'),
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),

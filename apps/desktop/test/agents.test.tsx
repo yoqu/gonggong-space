@@ -83,7 +83,10 @@ it('upgrades a managed tool and shows the upgrade command of the user’s own', 
     tool({ kind: 'claude', version: '2.1.4', latest: '2.2.0', managed: true }),
     tool({ kind: 'codex', version: '0.150.0', latest: '0.159.2', path: '/opt/homebrew/bin/codex' }),
   ])
-  m.agents.mockResolvedValue([CLAUDE, { ...CODEX, available: true, version: '0.150.0', path: '/opt/homebrew/bin/codex' }])
+  m.agents.mockResolvedValue([
+    CLAUDE,
+    { ...CODEX, available: true, version: '0.150.0', path: '/opt/homebrew/bin/codex' },
+  ])
   m.runTool.mockRejectedValue('本机已有工具安装或升级在进行中，请稍后再试')
   render(<AgentsPage go={() => {}} />)
   const node = within((await screen.findByText('Node.js')).closest('.ui-group') as HTMLElement)

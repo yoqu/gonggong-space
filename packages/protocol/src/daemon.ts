@@ -662,6 +662,8 @@ export const ProviderView = z.object({
   model: z.string().nullable(),
   models: ModelMap.nullable(),
   env: z.record(z.string(), z.string()),
+  /** Password masked; null = direct. */
+  proxy: z.string().nullable(),
   wireApi: z.string().nullable(),
   effort: z.string().nullable(),
   source: z.object({ kind: z.enum(['cc-switch', 'link']), id: z.string().optional() }).nullable(),
@@ -697,6 +699,8 @@ export const ProviderInput = z.object({
   model: z.string().trim().max(128).optional(),
   models: ModelMap.optional(),
   env: z.record(z.string(), z.string()).optional(),
+  /** '' = direct; the masked one from the view = unchanged. */
+  proxy: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
   effort: z.string().max(32).optional(),
 })
 export type ProviderInput = z.infer<typeof ProviderInput>

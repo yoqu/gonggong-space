@@ -41,7 +41,7 @@ function parseEnv(text: string): Record<string, string> {
     const line = raw.trim()
     if (!line) continue
     const at = line.indexOf('=')
-    if (at <= 0) throw new Error(t('额外环境变量每行一个 KEY=VALUE：{line}', { line }))
+    if (at <= 0) throw new Error(t('环境变量每行一个 KEY=VALUE：{line}', { line }))
     env[line.slice(0, at).trim()] = line.slice(at + 1).trim()
   }
   return env
@@ -54,6 +54,7 @@ interface Fields {
   model: string
   models: Record<(typeof TIERS)[number], string>
   env: string
+  proxy: string
 }
 
 const fieldsOf = (p: Pick<ProviderPreset, 'name' | 'baseUrl' | 'model' | 'models' | 'env'>): Fields => ({
@@ -65,6 +66,7 @@ const fieldsOf = (p: Pick<ProviderPreset, 'name' | 'baseUrl' | 'model' | 'models
   env: Object.entries(p.env)
     .map(([k, v]) => `${k}=${v}`)
     .join('\n'),
+  proxy: '',
 })
 
 const EMPTY = fieldsOf({ name: '', baseUrl: '', model: null, models: null, env: {} })
@@ -90,7 +92,7 @@ export function ProviderEditor({
   const [presets, setPresets] = useState<ProviderPreset[] | null>(null)
   /** undefined while picking the vendor; null = 自定义. */
   const [preset, setPreset] = useState<ProviderPreset | null | undefined>(editing ? null : undefined)
-  const [f, setF] = useState<Fields>(editing ? fieldsOf(editing) : EMPTY)
+  const [f, setF] = useState<Fields>(editing ? { ...fieldsOf(editing), proxy: editing.proxy ?? '' } : EMPTY)
   const [setDefault, setSetDefault] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -133,7 +135,9 @@ export function ProviderEditor({
       baseUrl: f.baseUrl.trim(),
       ...(f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
       model: f.model.trim(),
-      ...(agent === 'claude' && { models, env }),
+      env,
+      proxy: f.proxy.trim(),
+      ...(agent === 'claude' && { models }),
     }
     setSaving(true)
     try {
@@ -176,7 +180,10 @@ export function ProviderEditor({
       width={560}
       footer={
         editing && preset ? (
-          <Button variant="plain" onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey })}>
+          <Button
+            variant="plain"
+            onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey, proxy: f.proxy })}
+          >
             {t('恢复为预设值')}
           </Button>
         ) : undefined
@@ -238,9 +245,8 @@ export function ProviderEditor({
         {advanced ? (
           <>
             {preset ? baseUrl : null}
-            {agent === 'claude' ? (
-              <>
-                {TIERS.map((tier) => (
+            {agent === 'claude'
+              ? TIERS.map((tier) => (
                   <FormRow
                     key={tier}
                     label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
@@ -251,18 +257,25 @@ export function ProviderEditor({
                       onChange={(e) => set({ models: { ...f.models, [tier]: e.target.value } })}
                     />
                   </FormRow>
-                ))}
-                <FormRow label={t('额外环境变量')} align="top" hint={t('每行一个 KEY=VALUE')}>
-                  <TextField
-                    multiline
-                    aria-label={t('额外环境变量')}
-                    rows={3}
-                    value={f.env}
-                    onChange={(e) => set({ env: e.target.value })}
-                  />
-                </FormRow>
-              </>
-            ) : null}
+                ))
+              : null}
+            <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
+              <TextField
+                aria-label={t('代理地址')}
+                placeholder="http://127.0.0.1:7890"
+                value={f.proxy}
+                onChange={(e) => set({ proxy: e.target.value })}
+              />
+            </FormRow>
+            <FormRow label={t('环境变量')} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
+              <TextField
+                multiline
+                aria-label={t('环境变量')}
+                rows={3}
+                value={f.env}
+                onChange={(e) => set({ env: e.target.value })}
+              />
+            </FormRow>
           </>
         ) : null}
         {error ? (

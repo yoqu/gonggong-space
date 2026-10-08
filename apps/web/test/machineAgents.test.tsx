@@ -95,6 +95,7 @@ const kimi: ProviderView = {
   model: 'kimi-for-coding',
   models: null,
   env: {},
+  proxy: 'http://bob:****@10.0.0.2:3128',
   wireApi: null,
   effort: null,
   source: null,
@@ -137,9 +138,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const open = (machine: MachineDto = mbp) =>
+const open = (machine: MachineDto = mbp, url = '/') =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <MachineDialog machine={machine} onClose={() => {}} />
     </MemoryRouter>,
   )
@@ -273,6 +274,15 @@ describe('供应商', () => {
   }
   const keyIn = (calls: Call[]) => calls.filter((c) => JSON.stringify(c.body ?? {}).includes('sk-new'))
 
+  it("opens on the 供应商 tab from ?tab=providers (the desktop app's 在 Web 中管理)", async () => {
+    mockApi({
+      'GET /machines/m1/providers': VIEW,
+      'GET /machines/m1/providers/presets?agent=claude': PRESETS,
+    })
+    open(mbp, '/?tab=providers')
+    expect(await screen.findByRole('region', { name: 'Claude Code 供应商' })).toBeTruthy()
+  })
+
   it('lists official login and the providers with masked keys', async () => {
     const { claude } = await openProviders()
     expect((within(claude).getByRole('radio', { name: /官方登录/ }) as HTMLInputElement).checked).toBe(true)
@@ -355,6 +365,58 @@ describe('供应商', () => {
     const body = calls.find((c) => c.method === 'PUT')?.body as Record<string, unknown>
     expect(body).toMatchObject({ agent: 'claude', name: 'Kimi 2' })
     expect(body).not.toHaveProperty('apiKey')
+  })
+
+  it('edits the proxy and environment of either agent under 高级', async () => {
+    const codex: ProviderView = {
+      ...kimi,
+      id: 'p2',
+      agent: 'codex',
+      name: 'GLM',
+      presetId: null,
+      proxy: null,
+    }
+    const { calls } = await openProviders(
+      {
+        'PUT /machines/m1/providers/p2': { id: 'p2', view: VIEW },
+        'GET /machines/m1/providers/presets?agent=codex': [],
+      },
+      { ...VIEW, providers: [kimi, codex] },
+    )
+    const region = screen.getByRole('region', { name: 'Codex 供应商' })
+    fireEvent.click(within(region).getByRole('button', { name: '编辑…' }))
+    const form = await screen.findByRole('form', { name: '编辑供应商' })
+    fireEvent.click(within(form).getByRole('button', { name: '高级' }))
+    fireEvent.change(within(form).getByRole('textbox', { name: '代理地址' }), {
+      target: { value: ' http://127.0.0.1:7890 ' },
+    })
+    fireEvent.change(within(form).getByRole('textbox', { name: '环境变量' }), {
+      target: { value: 'NODE_OPTIONS=--max-old-space-size=4096' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      agent: 'codex',
+      proxy: 'http://127.0.0.1:7890',
+      env: { NODE_OPTIONS: '--max-old-space-size=4096' },
+    })
+  })
+
+  it('shows the stored proxy masked and sends it back untouched', async () => {
+    const { calls, claude } = await openProviders({
+      'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
+    })
+    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const form = await screen.findByRole('form', { name: '编辑供应商' })
+    fireEvent.click(within(form).getByRole('button', { name: '高级' }))
+    expect((within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement).value).toBe(
+      'http://bob:****@10.0.0.2:3128',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      proxy: 'http://bob:****@10.0.0.2:3128',
+    })
   })
 
   it('opens a fresh editor each time', async () => {

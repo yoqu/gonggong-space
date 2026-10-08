@@ -1,4 +1,5 @@
 import { type AgentKind, compareVersions } from '@gonggong/protocol'
+import { hasUpdate, selfUpgradeCommand } from '@web/features/machines/tools'
 import { Button, Disclosure, GroupBox, GroupRow, Icon, type IconName, Skeleton, Tag, toast } from '@web/ui'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { t } from '../i18n'
@@ -12,7 +13,6 @@ import {
   type ToolOp,
   type ToolStatus,
 } from '../ipc'
-import { hasUpdate, selfUpgradeCommand } from '@web/features/machines/tools'
 import { AGENTS, VENDOR } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
 import { ProviderBox } from '../providers/ProviderBox'
@@ -134,14 +134,7 @@ export function AgentsPage(_: PageProps) {
             onPickPath={() => pickPath(a.kind)}
             onResetPath={() => ipc.resetAgentPath(a.kind).then(load, fail)}
           />
-          {providers ? (
-            <ProviderBox
-              agent={a.kind}
-              data={providers}
-              onChange={loadProviders}
-              onSwitch={switcher.request}
-            />
-          ) : null}
+          {providers ? <ProviderBox agent={a.kind} data={providers} onSwitch={switcher.request} /> : null}
         </div>
       ))}
       {switcher.dialog}

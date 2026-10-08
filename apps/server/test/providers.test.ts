@@ -110,6 +110,7 @@ const masked = {
   model: null,
   models: null,
   env: {},
+  proxy: null,
   wireApi: null,
   effort: null,
   source: null,

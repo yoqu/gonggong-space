@@ -29,6 +29,7 @@
         "env": {
           "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144"
         },
+        "proxy": "http://user:****@10.0.0.2:3128",
         "wireApi": null,
         "effort": null,
         "source": {
@@ -48,6 +49,7 @@
         "model": "glm-5.3",
         "models": null,
         "env": {},
+        "proxy": null,
         "wireApi": "responses",
         "effort": "high",
         "source": null

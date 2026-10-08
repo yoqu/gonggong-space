@@ -7,8 +7,6 @@ const EN: &[(&str, &str)] = &[
     ("共工空间", "Gonggong Space"),
     ("尚未绑定", "Not bound yet"),
     ("环境变量名不合法：{name}", "Invalid environment variable name: {name}"),
-    ("没有预设 {id}", "No preset {id}"),
-    ("该厂商没有提供获取 Key 的地址", "This vendor provides no page for getting a key"),
     ("不是有效的 http(s) 地址：{url}", "Not a valid http(s) URL: {url}"),
     ("工作区不存在或已变化，请刷新", "The workspace is gone or has changed. Refresh and try again"),
     ("托管 {managed} · 本机目录 {cd} · {size}", "Managed {managed} · local directories {cd} · {size}"),

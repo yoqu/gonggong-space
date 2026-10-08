@@ -60,7 +60,7 @@ pub fn set_mirror(mirror: Mirror, host: State<'_, Host>) -> Result<()> {
 }
 
 fn save_env(home: &Path, env: BTreeMap<String, String>) -> Result<()> {
-    if let Some(k) = env.keys().find(|k| !super::providers::env_name(k)) {
+    if let Some(k) = env.keys().find(|k| !gonggong::providers::env_name(k)) {
         return Err(tr!("环境变量名不合法：{name}", name = k));
     }
     let mut settings = Settings::load(home).map_err(|e| e.to_string())?;

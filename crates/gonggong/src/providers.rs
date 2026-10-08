@@ -198,6 +198,9 @@ impl Provider {
         if self.api_key.trim().is_empty() {
             bail!(t!("API Key 不能为空"));
         }
+        if let Some(k) = self.env.keys().find(|k| !env_name(k)) {
+            bail!(t!("环境变量名不合法：{name}", name = k));
+        }
         if self.proxy.as_deref().is_some_and(|u| !(u.starts_with("http://") || u.starts_with("https://"))) {
             bail!(t!("代理地址必须以 http:// 或 https:// 开头"));
         }
@@ -240,6 +243,7 @@ impl Provider {
             model: self.model.clone(),
             models: self.models.clone(),
             env: self.env.clone(),
+            proxy: self.proxy.as_deref().map(mask_proxy),
             wire_api: self.wire_api.clone(),
             effort: self.effort.clone(),
             source: self.source.clone(),
@@ -254,6 +258,22 @@ pub fn mask_key(key: &str) -> String {
         return "****".into();
     }
     format!("****{}", chars[chars.len() - 4..].iter().collect::<String>())
+}
+
+pub fn env_name(k: &str) -> bool {
+    k.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// A proxy leaves the machine with its password masked.
+pub fn mask_proxy(proxy: &str) -> String {
+    match url::Url::parse(proxy) {
+        Ok(mut u) if u.password().is_some() => {
+            let _ = u.set_password(Some("****"));
+            u.to_string().trim_end_matches('/').to_string()
+        }
+        _ => proxy.to_string(),
+    }
 }
 
 /// [`Provider`] without the key, for the server, the Web and the logs.
@@ -271,6 +291,7 @@ pub struct ProviderView {
     pub model: Option<String>,
     pub models: Option<ModelMap>,
     pub env: BTreeMap<String, String>,
+    pub proxy: Option<String>,
     pub wire_api: Option<String>,
     pub effort: Option<String>,
     pub source: Option<Source>,
@@ -859,5 +880,16 @@ mod tests {
         assert_eq!(view.providers[0].id, a);
         assert_eq!(mask_key("sk-12345"), "****");
         assert_eq!(mask_key("密钥密钥密钥密钥密钥"), "****密钥密钥");
+    }
+
+    #[test]
+    fn view_masks_the_proxy_password() {
+        let mut store = Store::default();
+        let id = kimi(&mut store);
+        store.edit(&id, |p| p.proxy = Some("http://bob:s3cret@10.0.0.2:3128".into())).unwrap();
+        let view = store.view();
+        assert_eq!(view.providers[0].proxy.as_deref(), Some("http://bob:****@10.0.0.2:3128"));
+        assert!(!serde_json::to_string(&view).unwrap().contains("s3cret"));
+        assert_eq!(mask_proxy("http://127.0.0.1:7890"), "http://127.0.0.1:7890");
     }
 }
