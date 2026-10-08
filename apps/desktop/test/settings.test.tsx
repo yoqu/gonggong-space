@@ -10,7 +10,13 @@ const m = vi.mocked(ipc)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
+  m.settings.mockResolvedValue({
+    autoUpgrade: true,
+    launchAtLogin: false,
+    mirror: { kind: 'npmmirror' },
+    proxy: null,
+    env: { FOO: '1' },
+  })
   m.setAutoUpgrade.mockResolvedValue()
   m.setLaunchAtLogin.mockResolvedValue()
   m.unbind.mockResolvedValue()
@@ -68,4 +74,37 @@ it('switches the download mirror, a custom one only with both addresses', async 
       node: 'https://r.corp.cn/node',
     }),
   )
+})
+
+it('saves the proxy, an empty address meaning direct', async () => {
+  m.setProxy.mockResolvedValue()
+  render(<SettingsPage go={() => {}} />)
+  const url = (await screen.findByRole('textbox', { name: '代理地址' })) as HTMLInputElement
+  const save = screen.getByRole('button', { name: '保存代理' }) as HTMLButtonElement
+  expect(save.disabled).toBe(true)
+  fireEvent.change(url, { target: { value: ' http://127.0.0.1:7890 ' } })
+  fireEvent.change(screen.getByRole('textbox', { name: '不走代理' }), { target: { value: '.corp.cn' } })
+  fireEvent.click(save)
+  await waitFor(() =>
+    expect(m.setProxy).toHaveBeenCalledWith({ url: 'http://127.0.0.1:7890', noProxy: '.corp.cn' }),
+  )
+  await waitFor(() => expect(save.disabled).toBe(true))
+  fireEvent.change(url, { target: { value: '' } })
+  fireEvent.click(save)
+  await waitFor(() => expect(m.setProxy).toHaveBeenLastCalledWith(null))
+})
+
+it('saves the agent environment as KEY=VALUE lines and refuses a malformed line', async () => {
+  m.setEnv.mockResolvedValue()
+  render(<SettingsPage go={() => {}} />)
+  const env = (await screen.findByRole('textbox', { name: '环境变量' })) as HTMLTextAreaElement
+  expect(env.value).toBe('FOO=1')
+  const save = screen.getByRole('button', { name: '保存环境变量' }) as HTMLButtonElement
+  fireEvent.change(env, { target: { value: 'FOO=1\nbroken' } })
+  fireEvent.click(save)
+  expect(await screen.findByText('环境变量每行一个 KEY=VALUE：broken')).toBeTruthy()
+  expect(m.setEnv).not.toHaveBeenCalled()
+  fireEvent.change(env, { target: { value: 'FOO=1\n BAR = a=b \n' } })
+  fireEvent.click(save)
+  await waitFor(() => expect(m.setEnv).toHaveBeenCalledWith({ FOO: '1', BAR: 'a=b' }))
 })

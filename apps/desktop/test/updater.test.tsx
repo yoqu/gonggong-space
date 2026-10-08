@@ -29,7 +29,13 @@ beforeEach(() => {
   calls = []
   useUpdate.setState({ state: { phase: 'idle' }, dismissed: false })
   useDaemon.setState({ info: INFO, snapshot: { phase: 'running', status: status() } })
-  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
+  m.settings.mockResolvedValue({
+    autoUpgrade: true,
+    launchAtLogin: false,
+    mirror: { kind: 'npmmirror' },
+    proxy: null,
+    env: {},
+  })
   m.checkUpdate.mockResolvedValue(fakeUpdate(calls))
   m.stopDaemon.mockImplementation(async () => {
     calls.push('stop')
@@ -51,7 +57,13 @@ it('downloads an update at launch, offers a restart and can be put off', async (
 })
 
 it('does not check by itself while 自动升级 is off', async () => {
-  m.settings.mockResolvedValue({ autoUpgrade: false, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
+  m.settings.mockResolvedValue({
+    autoUpgrade: false,
+    launchAtLogin: false,
+    mirror: { kind: 'npmmirror' },
+    proxy: null,
+    env: {},
+  })
   const stop = startUpdater()
   await act(async () => {})
   expect(m.checkUpdate).not.toHaveBeenCalled()

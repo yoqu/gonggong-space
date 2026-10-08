@@ -13,7 +13,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   m.bots.mockResolvedValue([])
   m.overview.mockResolvedValue({ workspaces: { count: 0, detail: '' } })
-  m.settings.mockResolvedValue({ autoUpgrade: true, launchAtLogin: false, mirror: { kind: 'npmmirror' } })
+  m.settings.mockResolvedValue({
+    autoUpgrade: true,
+    launchAtLogin: false,
+    mirror: { kind: 'npmmirror' },
+    proxy: null,
+    env: {},
+  })
   useDaemon.setState({
     info: INFO,
     snapshot: { phase: 'running', status: status({ runs: [run({ runId: 'r1', groupName: '官网改版' })] }) },

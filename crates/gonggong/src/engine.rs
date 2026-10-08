@@ -486,13 +486,16 @@ impl Inner {
         local: &LocalSettings,
         selection: &Selection,
     ) -> anyhow::Result<AcpAgentConfig> {
+        // First, so the variables set below win over the user's.
+        let env = Settings::load(&self.config.home)?.child_env();
         let base = match &self.config.adapter_cmd {
-            Some(cmd) => AcpAgent::from_str(cmd)?.into_config(),
+            Some(cmd) => AcpAgent::from_str(cmd)?.into_config().envs(env),
             None => {
                 let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
                 // The agent CLIs npm installs are node scripts: they must find this Node too.
                 AcpAgentConfig::new(&node.path)
                     .arg(script.to_string_lossy())
+                    .envs(env)
                     .env("PATH", node.path_env().to_string_lossy())
             }
         };
@@ -550,13 +553,15 @@ impl Inner {
             move || ADAPTERS.iter().all(|(_, name, ver)| installed_version(&m.join(name)).as_deref() == Some(*ver));
         if !tokio::task::spawn_blocking(installed).await? {
             let dir = home.join("adapters");
-            let registry = Settings::load(home)?.mirror.registry().to_string();
+            let settings = Settings::load(home)?;
+            let registry = settings.mirror.registry();
             tokio::fs::create_dir_all(&dir).await?;
             tracing::info!("installing ACP adapters into {} from {registry}", dir.display());
             let mut npm = node.npm().context(t!("无法安装 ACP 适配器"))?;
-            npm.args(["install", "--no-audit", "--no-fund", "--registry", &registry, "--prefix"])
+            npm.args(["install", "--no-audit", "--no-fund", "--registry", registry, "--prefix"])
                 .arg(&dir)
-                .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")));
+                .args(ADAPTERS.iter().map(|(_, name, ver)| format!("{name}@{ver}")))
+                .envs(settings.child_env());
             tools::run(npm, &log).await.context(t!("安装 ACP 适配器失败"))?;
         }
         let h = home.clone();

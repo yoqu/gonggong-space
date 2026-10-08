@@ -187,3 +187,22 @@ async fn a_third_party_provider_runs_its_own_model() {
     assert_eq!(echo(&second)["configSets"], json!(["model=haiku"]));
     assert_eq!(r.configs.pop(), Some(("r2".into(), Some("haiku".into()))));
 }
+
+#[tokio::test]
+async fn the_proxy_and_the_user_env_reach_the_agent_under_the_provider() {
+    let mut r = rig(Duration::from_secs(60));
+    r.add(AgentKind::Codex, "zhipu", true);
+    let settings = gonggong::config::Settings {
+        proxy: Some(gonggong::config::Proxy { url: "http://127.0.0.1:7890".into(), no_proxy: "corp.cn".into() }),
+        env: [("GG_EXTRA", "1"), ("GG_PROVIDER_KEY", "user")].map(|(k, v)| (k.into(), v.into())).into(),
+        ..Default::default()
+    };
+    settings.save(r.home()).unwrap();
+    r.run(start("r1", AgentKind::Codex));
+    let e = echo(&r.finish("r1").await);
+    assert_eq!(
+        e["settingsEnv"],
+        json!({ "HTTPS_PROXY": "http://127.0.0.1:7890", "NO_PROXY": "localhost,127.0.0.1,::1,corp.cn", "GG_EXTRA": "1" })
+    );
+    assert_eq!(e["env"]["GG_PROVIDER_KEY"], KEY, "the provider's own variables win");
+}

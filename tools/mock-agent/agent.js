@@ -106,6 +106,11 @@ async function prompt({ sessionId, prompt: blocks }, client) {
           GG_PROVIDER_KEY: process.env.GG_PROVIDER_KEY ?? null,
           CODEX_CONFIG: process.env.CODEX_CONFIG ? JSON.parse(process.env.CODEX_CONFIG) : null,
         },
+        settingsEnv: {
+          HTTPS_PROXY: process.env.HTTPS_PROXY ?? null,
+          NO_PROXY: process.env.NO_PROXY ?? null,
+          GG_EXTRA: process.env.GG_EXTRA ?? null,
+        },
         mcpServers: s.mcpServers,
         prompt: text,
         blocks: blocks.map((b) =>

@@ -221,6 +221,19 @@ export const en = {
   'index.json 所在的目录': 'The directory containing index.json',
   保存: 'Save',
   镜像源已保存: 'Mirror saved',
+  代理地址: 'Proxy',
+  'Agent、npm 与工具下载经此代理，留空为直连；团队服务器始终直连':
+    'Agents, npm and tool downloads go through this proxy; leave empty for a direct connection. The team server is always reached directly',
+  不走代理: 'Bypass proxy',
+  '逗号分隔的主机、域名或网段，本机地址总是直连':
+    'Comma-separated hosts, domains or CIDRs; local addresses are always direct',
+  保存代理: 'Save proxy',
+  代理已保存: 'Proxy saved',
+  环境变量: 'Environment variables',
+  '启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效':
+    'Added when an agent starts, one KEY=VALUE per line; applies to newly started agent processes',
+  保存环境变量: 'Save environment variables',
+  环境变量已保存: 'Environment variables saved',
   语言: 'Language',
   主题: 'Theme',
   玻璃效果: 'Glass effect',
@@ -339,7 +352,7 @@ export const en = {
   国内厂商: 'China vendors',
   聚合平台: 'Aggregators',
   海外: 'International',
-  '额外环境变量每行一个 KEY=VALUE：{line}': 'Extra environment variables take one KEY=VALUE per line: {line}',
+  '环境变量每行一个 KEY=VALUE：{line}': 'Environment variables take one KEY=VALUE per line: {line}',
   请填写名称: 'Enter a name',
   '请填写 Base URL': 'Enter a Base URL',
   '请填写 API Key': 'Enter an API key',

@@ -1,8 +1,9 @@
 use super::Result;
 use crate::host::Host;
 use crate::i18n::tr;
-use gonggong::config::{Mirror, Settings};
+use gonggong::config::{Mirror, Proxy, Settings};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::Path;
 use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;
@@ -13,6 +14,8 @@ pub struct SettingsDto {
     auto_upgrade: bool,
     launch_at_login: bool,
     mirror: Mirror,
+    proxy: Option<Proxy>,
+    env: BTreeMap<String, String>,
 }
 
 #[tauri::command]
@@ -22,6 +25,8 @@ pub fn get_settings(app: AppHandle, host: State<'_, Host>) -> Result<SettingsDto
         auto_upgrade: settings.auto_upgrade,
         launch_at_login: app.autolaunch().is_enabled().map_err(|e| e.to_string())?,
         mirror: settings.mirror,
+        proxy: settings.proxy,
+        env: settings.env,
     })
 }
 
@@ -56,6 +61,37 @@ pub fn set_mirror(mirror: Mirror, host: State<'_, Host>) -> Result<()> {
     save_mirror(&host.home, mirror)
 }
 
+fn save_proxy(home: &Path, proxy: Option<Proxy>) -> Result<()> {
+    let proxy = match proxy {
+        Some(p) => Some(Proxy { url: http_url(&p.url)?, no_proxy: p.no_proxy.trim().to_string() }),
+        None => None,
+    };
+    let mut settings = Settings::load(home).map_err(|e| e.to_string())?;
+    settings.proxy = proxy;
+    settings.save(home).map_err(|e| e.to_string())
+}
+
+/// 网络代理 of the agents, npm and tool downloads; `None` = direct.
+#[tauri::command]
+pub fn set_proxy(proxy: Option<Proxy>, host: State<'_, Host>) -> Result<()> {
+    save_proxy(&host.home, proxy)
+}
+
+fn save_env(home: &Path, env: BTreeMap<String, String>) -> Result<()> {
+    if let Some(k) = env.keys().find(|k| !super::providers::env_name(k)) {
+        return Err(tr!("环境变量名不合法：{name}", name = k));
+    }
+    let mut settings = Settings::load(home).map_err(|e| e.to_string())?;
+    settings.env = env;
+    settings.save(home).map_err(|e| e.to_string())
+}
+
+/// 环境变量 of the agent processes, from their next start.
+#[tauri::command]
+pub fn set_env(env: BTreeMap<String, String>, host: State<'_, Host>) -> Result<()> {
+    save_env(&host.home, env)
+}
+
 #[tauri::command]
 pub fn set_launch_at_login(on: bool, app: AppHandle) -> Result<()> {
     let autostart = app.autolaunch();
@@ -83,6 +119,7 @@ pub async fn unbind(host: State<'_, Host>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     #[test]
     fn custom_mirrors_need_http_urls() {
@@ -96,5 +133,24 @@ mod tests {
         save_mirror(home.path(), Mirror::Official).unwrap();
         let settings = Settings::load(home.path()).unwrap();
         assert_eq!((settings.mirror, settings.auto_upgrade), (Mirror::Official, true), "other settings kept");
+    }
+
+    #[test]
+    fn proxy_needs_an_http_url_and_env_valid_names() {
+        let home = tempfile::tempdir().unwrap();
+        let proxy = |url: &str| Some(Proxy { url: url.into(), no_proxy: " corp.cn ".into() });
+        assert!(save_proxy(home.path(), proxy("127.0.0.1:7890")).is_err());
+        save_proxy(home.path(), proxy(" http://127.0.0.1:7890 ")).unwrap();
+        let expected = Proxy { url: "http://127.0.0.1:7890".into(), no_proxy: "corp.cn".into() };
+        assert_eq!(Settings::load(home.path()).unwrap().proxy, Some(expected));
+        save_proxy(home.path(), None).unwrap();
+        assert_eq!(Settings::load(home.path()).unwrap().proxy, None);
+
+        let env = |k: &str| BTreeMap::from([(k.to_string(), "1".to_string())]);
+        assert!(save_env(home.path(), env("1BAD")).is_err());
+        assert!(save_env(home.path(), env("A-B")).is_err());
+        save_env(home.path(), env("GOOD_1")).unwrap();
+        let settings = Settings::load(home.path()).unwrap();
+        assert_eq!((settings.env, settings.auto_upgrade), (env("GOOD_1"), true), "other settings kept");
     }
 }

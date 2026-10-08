@@ -213,15 +213,15 @@ pub async fn ensure_node(home: &Path, progress: Progress<'_>) -> Result<Node> {
         return Ok(node);
     }
     let _busy = busy(home)?;
-    ensure_node_locked(home, &Settings::load(home)?.mirror, progress).await
+    ensure_node_locked(home, &Settings::load(home)?, progress).await
 }
 
-async fn ensure_node_locked(home: &Path, mirror: &Mirror, progress: Progress<'_>) -> Result<Node> {
+async fn ensure_node_locked(home: &Path, settings: &Settings, progress: Progress<'_>) -> Result<Node> {
     if let Some(node) = node(home) {
         return Ok(node);
     }
     progress(&t!("未找到 Node.js ≥ {v}，安装共工空间托管版", v = MIN_NODE_MAJOR));
-    install_node(home, mirror, None, progress).await?;
+    install_node(home, settings, None, progress).await?;
     managed_node(home).context(t!("托管 Node.js 安装后无法运行"))
 }
 
@@ -264,10 +264,10 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
     }
     {
         let _busy = busy(home)?;
-        let mirror = Settings::load(home)?.mirror;
+        let settings = Settings::load(home)?;
         match kind.package() {
-            None => install_node(home, &mirror, version, progress).await?,
-            Some(pkg) => install_package(home, &mirror, pkg, version, progress).await?,
+            None => install_node(home, &settings, version, progress).await?,
+            Some(pkg) => install_package(home, &settings, pkg, version, progress).await?,
         }
     }
     Ok(with_latest(home, current(home, kind)?).await)
@@ -297,19 +297,20 @@ pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Res
 
 async fn install_package(
     home: &Path,
-    mirror: &Mirror,
+    settings: &Settings,
     pkg: &str,
     version: Option<String>,
     progress: Progress<'_>,
 ) -> Result<()> {
-    let node = ensure_node_locked(home, mirror, progress).await?;
+    let node = ensure_node_locked(home, settings, progress).await?;
+    let mirror = &settings.mirror;
     let spec = format!("{pkg}@{}", version.as_deref().unwrap_or("latest"));
     progress(&t!("安装 {spec}（{registry}）", spec = spec, registry = mirror.registry()));
     let prefix = tools_dir(home);
     std::fs::create_dir_all(&prefix)?;
     let mut npm = node.npm()?;
     npm.args(["i", "-g", "--prefix"]).arg(&prefix).args(["--registry", mirror.registry(), "--no-audit", "--no-fund"]);
-    npm.arg(&spec);
+    npm.arg(&spec).envs(settings.child_env());
     run(npm, progress).await
 }
 
@@ -351,13 +352,14 @@ fn forward(pipe: impl AsyncRead + Unpin + Send + 'static, tx: tokio::sync::mpsc:
     });
 }
 
-/// Shared, so its connection pool is; a download that stops arriving fails instead of hanging the install.
-fn http() -> Result<reqwest::Client> {
-    static HTTP: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
-        let builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(10));
-        builder.read_timeout(Duration::from_secs(30)).build().map_err(|e| format!("{e:#}"))
-    });
-    HTTP.clone().map_err(anyhow::Error::msg)
+/// A download that stops arriving fails instead of hanging the install.
+fn http(settings: &Settings) -> Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(10));
+    if let Some(proxy) = &settings.proxy {
+        let no_proxy = reqwest::NoProxy::from_string(&proxy.bypass());
+        builder = builder.proxy(reqwest::Proxy::all(&proxy.url)?.no_proxy(no_proxy));
+    }
+    Ok(builder.read_timeout(Duration::from_secs(30)).build()?)
 }
 
 async fn get_text(http: &reqwest::Client, url: &str) -> Result<String> {
@@ -416,9 +418,9 @@ fn checksum<'a>(sums: &'a str, file: &str) -> Option<&'a str> {
     })
 }
 
-async fn install_node(home: &Path, mirror: &Mirror, version: Option<String>, progress: Progress<'_>) -> Result<()> {
-    let http = http()?;
-    let dist = mirror.node_dist();
+async fn install_node(home: &Path, settings: &Settings, version: Option<String>, progress: Progress<'_>) -> Result<()> {
+    let http = http(settings)?;
+    let dist = settings.mirror.node_dist();
     let version = match version {
         Some(v) => v,
         None => {
@@ -537,7 +539,8 @@ pub fn cached_latest(home: &Path, kind: ToolKind) -> Option<String> {
 
 /// Latest version of `kind` on the configured mirror, cached for 6 hours unless `force`.
 pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> {
-    let mirror = Settings::load(home)?.mirror;
+    let settings = Settings::load(home)?;
+    let mirror = &settings.mirror;
     let source = match kind.package() {
         Some(pkg) => format!("{}/{pkg}/latest", mirror.registry()),
         None => format!("{}/index.json", mirror.node_dist()),
@@ -553,7 +556,7 @@ pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> 
     {
         return Ok(c.version.clone());
     }
-    let body = get_text(&http()?, &source).await?;
+    let body = get_text(&http(&settings)?, &source).await?;
     let version = match kind.package() {
         Some(_) => {
             let v: serde_json::Value = serde_json::from_str(&body).context(t!("npm 版本信息格式错误"))?;

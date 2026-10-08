@@ -211,6 +211,15 @@ export interface Settings {
   autoUpgrade: boolean
   launchAtLogin: boolean
   mirror: Mirror
+  /** For the agents, npm and tool downloads; `null` = direct. */
+  proxy: ProxyConfig | null
+  /** Extra environment of the agent processes. */
+  env: Record<string, string>
+}
+
+export interface ProxyConfig {
+  url: string
+  noProxy: string
 }
 
 export type ToolKind = 'node' | AgentKind
@@ -343,6 +352,8 @@ export const ipc = {
   settings: () => invoke<Settings>('get_settings'),
   setAutoUpgrade: (on: boolean) => invoke<void>('set_auto_upgrade', { on }),
   setMirror: (mirror: Mirror) => invoke<void>('set_mirror', { mirror }),
+  setProxy: (proxy: ProxyConfig | null) => invoke<void>('set_proxy', { proxy }),
+  setEnv: (env: Record<string, string>) => invoke<void>('set_env', { env }),
   setLaunchAtLogin: (on: boolean) => invoke<void>('set_launch_at_login', { on }),
   unbind: () => invoke<void>('unbind'),
   workspaces: () => invoke<Workspaces>('workspaces'),

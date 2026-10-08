@@ -16,7 +16,8 @@ import {
 import { useEffect, useState } from 'react'
 import logo from '../assets/logo.svg'
 import { locale, setLocale, t } from '../i18n'
-import { ipc, type Mirror, type Settings } from '../ipc'
+import { ipc, type Mirror, type ProxyConfig, type Settings } from '../ipc'
+import { formatEnv, parseEnv } from '../lib/env'
 import { host } from '../lib/labels'
 import { PathValue } from '../lib/ui'
 import { useRestartToUpdate } from '../shell/UpdateBanner'
@@ -103,6 +104,105 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
   )
 }
 
+/** 网络代理 of the agents, npm and tool downloads; an empty address saves a direct connection. */
+function ProxyRows({
+  proxy,
+  onSave,
+}: {
+  proxy: ProxyConfig | null
+  onSave: (p: ProxyConfig | null) => Promise<void>
+}) {
+  const [url, setUrl] = useState(proxy?.url ?? '')
+  const [noProxy, setNoProxy] = useState(proxy?.noProxy ?? '')
+  const changed = url.trim() !== (proxy?.url ?? '') || noProxy.trim() !== (proxy?.noProxy ?? '')
+  return (
+    <>
+      <GroupRow
+        label={t('代理地址')}
+        description={t('Agent、npm 与工具下载经此代理，留空为直连；团队服务器始终直连')}
+      >
+        <TextField
+          aria-label={t('代理地址')}
+          style={{ width: 320 }}
+          placeholder="http://127.0.0.1:7890"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+      </GroupRow>
+      <GroupRow label={t('不走代理')} description={t('逗号分隔的主机、域名或网段，本机地址总是直连')}>
+        <TextField
+          aria-label={t('不走代理')}
+          style={{ width: 320 }}
+          placeholder=".corp.cn,10.0.0.0/8"
+          value={noProxy}
+          onChange={(e) => setNoProxy(e.target.value)}
+        />
+      </GroupRow>
+      <div className="dk-row">
+        <span className="dk-row__main" />
+        <Button
+          variant="primary"
+          aria-label={t('保存代理')}
+          disabled={!changed}
+          onClick={() => onSave(url.trim() ? { url: url.trim(), noProxy: noProxy.trim() } : null)}
+        >
+          {t('保存')}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+/** 环境变量 the agents start with, edited as `KEY=VALUE` lines. */
+function EnvRows({
+  env,
+  onSave,
+}: {
+  env: Record<string, string>
+  onSave: (e: Record<string, string>) => Promise<void>
+}) {
+  const [text, setText] = useState(() => formatEnv(env))
+  const [error, setError] = useState<string | null>(null)
+  const save = () => {
+    try {
+      const parsed = parseEnv(text)
+      setError(null)
+      void onSave(parsed)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+  return (
+    <>
+      <GroupRow
+        label={t('环境变量')}
+        description={t('启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效')}
+      >
+        <TextField
+          multiline
+          rows={3}
+          aria-label={t('环境变量')}
+          style={{ width: 320 }}
+          placeholder="KEY=VALUE"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </GroupRow>
+      <div className="dk-row">
+        <span className="dk-row__main">{error ? <span className="dk-danger">{error}</span> : null}</span>
+        <Button
+          variant="primary"
+          aria-label={t('保存环境变量')}
+          disabled={text === formatEnv(env)}
+          onClick={save}
+        >
+          {t('保存')}
+        </Button>
+      </div>
+    </>
+  )
+}
+
 function updateLabel(s: UpdatePhase) {
   switch (s.phase) {
     case 'idle':
@@ -177,6 +277,26 @@ export function SettingsPage(_: PageProps) {
     }
   }
 
+  const saveProxy = async (proxy: ProxyConfig | null) => {
+    try {
+      await ipc.setProxy(proxy)
+      setSettings((s) => s && { ...s, proxy })
+      toast({ type: 'success', message: t('代理已保存') })
+    } catch (e) {
+      toast({ type: 'error', message: String(e) })
+    }
+  }
+
+  const saveEnv = async (env: Record<string, string>) => {
+    try {
+      await ipc.setEnv(env)
+      setSettings((s) => s && { ...s, env })
+      toast({ type: 'success', message: t('环境变量已保存') })
+    } catch (e) {
+      toast({ type: 'error', message: String(e) })
+    }
+  }
+
   return (
     <>
       <GroupBox>
@@ -244,6 +364,16 @@ export function SettingsPage(_: PageProps) {
           </GroupRow>
         )}
       </GroupBox>
+      {settings ? (
+        <>
+          <GroupBox>
+            <ProxyRows proxy={settings.proxy} onSave={saveProxy} />
+          </GroupBox>
+          <GroupBox>
+            <EnvRows env={settings.env} onSave={saveEnv} />
+          </GroupBox>
+        </>
+      ) : null}
       <GroupBox>
         <GroupRow label={t('工作区根目录')} description={t('托管工作区与附件目录')}>
           {info ? <PathValue path={info.workspacesDir} /> : <Skeleton count={1} width={160} />}

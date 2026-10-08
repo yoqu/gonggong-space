@@ -65,7 +65,7 @@ fn some(s: Option<String>) -> Option<String> {
     s.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
-fn env_name(k: &str) -> bool {
+pub(super) fn env_name(k: &str) -> bool {
     k.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
