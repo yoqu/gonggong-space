@@ -317,6 +317,8 @@ describe('管理后台 · 公开链接', () => {
     mustChangePassword: false,
     disabled: false,
     gitProtocol: 'auto',
+    email: null,
+    avatar: null,
   }
 
   it('lists every public link and revokes or extends it', async () => {

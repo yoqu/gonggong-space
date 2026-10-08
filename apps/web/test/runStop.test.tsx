@@ -45,9 +45,9 @@ beforeEach(() => {
       {
         id: 'g1',
         members: [
-          { userId: 'u-wang', name: '王磊', isAdmin: true },
-          { userId: 'u-li', name: '李建国', isAdmin: false },
-          { userId: 'u-zhao', name: '赵敏', isAdmin: false },
+          { userId: 'u-wang', name: '王磊', avatar: null, isAdmin: true },
+          { userId: 'u-li', name: '李建国', avatar: null, isAdmin: false },
+          { userId: 'u-zhao', name: '赵敏', avatar: null, isAdmin: false },
         ],
       } as GroupDto,
     ],

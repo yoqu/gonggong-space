@@ -18,6 +18,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const note = (o: Partial<NotificationDto>): NotificationDto => ({

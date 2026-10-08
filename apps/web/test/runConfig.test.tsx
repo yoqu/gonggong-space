@@ -32,6 +32,8 @@ const user = (id: string, name: string): UserDto => ({
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 })
 const wang = user('u1', '王磊')
 const li = user('u2', '李建国')
@@ -46,8 +48,8 @@ const group: GroupDto = {
   noticeHidden: false,
   repo: null,
   members: [
-    { userId: 'u1', name: '王磊', isAdmin: false },
-    { userId: 'u2', name: '李建国', isAdmin: false },
+    { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+    { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },
   ],
   botIds: ['b1'],
   unread: 0,

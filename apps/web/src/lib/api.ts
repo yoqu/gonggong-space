@@ -32,7 +32,8 @@ async function request<T>(method: string, path: string, body?: unknown, plain = 
     credentials: 'include',
     headers: { 'accept-language': locale, ...teamHeader() },
   }
-  if (body !== undefined) {
+  if (body instanceof FormData) init.body = body
+  else if (body !== undefined) {
     init.headers = { ...init.headers, 'content-type': 'application/json' }
     init.body = JSON.stringify(body)
   }

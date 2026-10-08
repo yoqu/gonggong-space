@@ -239,7 +239,7 @@ describe('workspace banner', () => {
       } as const,
     },
   }
-  const members = (admin: boolean) => [{ userId: 'u2', name: '陈晨', isAdmin: admin }]
+  const members = (admin: boolean) => [{ userId: 'u2', name: '陈晨', avatar: null, isAdmin: admin }]
 
   it('shows paused bots; their owner rechecks', async () => {
     useWorkspace.setState({ bots: [bot()], botStates: paused })

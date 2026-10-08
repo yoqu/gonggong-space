@@ -15,6 +15,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const group: GroupDto = {
@@ -27,8 +29,8 @@ const group: GroupDto = {
   noticeHidden: false,
   repo: null,
   members: [
-    { userId: 'u1', name: '王磊', isAdmin: true },
-    { userId: 'u2', name: '李建国', isAdmin: false },
+    { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
+    { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },
   ],
   botIds: [],
   unread: 0,

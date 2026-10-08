@@ -63,6 +63,7 @@ import { startSyncEngine } from './modules/sync/engine.js'
 import { syncRoutes } from './modules/sync/routes.js'
 import { teamRoutes } from './modules/teams/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
+import { avatarRoutes } from './modules/users/avatar.js'
 import { userRoutes } from './modules/users/routes.js'
 import { startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
@@ -137,6 +138,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(authRoutes(ctx))
   await app.register(feishuAuthRoutes(ctx))
   await app.register(userRoutes(ctx))
+  await app.register(avatarRoutes(ctx))
   await app.register(teamRoutes(ctx))
   await app.register(machineRoutes(ctx))
   await app.register(providerRoutes(ctx))

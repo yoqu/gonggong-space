@@ -54,9 +54,9 @@ describe('create group', () => {
     expect(new Set(g.botIds)).toEqual(new Set([p.wangBot.id, p.liBot.id]))
     expect(g.members).toEqual(
       expect.arrayContaining([
-        { userId: p.wang.id, name: '王磊', isAdmin: true },
-        { userId: p.zhao.id, name: '赵敏', isAdmin: false },
-        { userId: p.li.id, name: '李建国', isAdmin: false },
+        { userId: p.wang.id, name: '王磊', avatar: null, isAdmin: true },
+        { userId: p.zhao.id, name: '赵敏', avatar: null, isAdmin: false },
+        { userId: p.li.id, name: '李建国', avatar: null, isAdmin: false },
       ]),
     )
     expect(g.members).toHaveLength(3)
@@ -82,7 +82,7 @@ describe('create group', () => {
       botIds: [p.wangBot.id],
     })
     expect(res.status).toBe(200)
-    expect(res.body.members).toEqual([{ userId: p.wang.id, name: '王磊', isAdmin: true }])
+    expect(res.body.members).toEqual([{ userId: p.wang.id, name: '王磊', avatar: null, isAdmin: true }])
     expect(res.body.repo).toBeNull()
     expect(await bodies(p.asWang, res.body.id)).toEqual([
       '王磊 创建了私聊 · 仅你和你的 Bot',

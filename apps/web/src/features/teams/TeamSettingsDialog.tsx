@@ -248,7 +248,7 @@ function MembersTab({ team }: { team: TeamDto }) {
         <GroupBox>
           {data.map((m) => (
             <div key={m.userId} className="gs-member" data-testid={`team-member-${m.userId}`}>
-              <Avatar name={m.name} size={28} />
+              <Avatar name={m.name} src={m.avatar ?? undefined} size={28} />
               <div className="gs-member__main">
                 <span className="gs-member__name">
                   {m.name}

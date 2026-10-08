@@ -26,6 +26,9 @@ export const users = pgTable('users', {
   id: id(),
   account: text('account').notNull().unique(),
   name: text('name').notNull(),
+  email: text('email'),
+  /** `avatars/<uuid>` under the data dir, or an https URL (the Feishu avatar); null = generated from the name. */
+  avatar: text('avatar'),
   /** null for accounts created by 飞书登录 that never set a password: password login always fails. */
   passwordHash: text('password_hash'),
   /** 'sysadmin' | 'member'; group admin is per group (groupMembers.isAdmin). */

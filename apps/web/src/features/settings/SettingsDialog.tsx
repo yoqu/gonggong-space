@@ -1,5 +1,13 @@
-import type { GitAccountDto, GitProvider, Locale, UserDto } from '@gonggong/protocol'
-import { type FormEvent, useEffect, useState } from 'react'
+import {
+  AVATAR_MAX_BYTES,
+  AVATAR_TYPES,
+  type FeishuIdentityView,
+  type GitAccountDto,
+  type GitProvider,
+  type Locale,
+  type UserDto,
+} from '@gonggong/protocol'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
@@ -7,8 +15,10 @@ import { locale, setLocale, t } from '../../i18n'
 import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Alert,
+  Avatar,
   Button,
   Dialog,
   GroupBox,
@@ -368,17 +378,26 @@ function AddAccountSheet({
 }
 
 function AccountPage() {
-  const name = useSession((s) => s.user?.name)
+  const user = useSession((s) => s.user)
   const [changing, setChanging] = useState(false)
-  const [renaming, setRenaming] = useState(false)
+  const [editing, setEditing] = useState<ProfileField | null>(null)
   return (
     <>
       <GroupBox>
+        <AvatarRow />
         <GroupRow label={t('显示名')}>
           <span className="gs-value-line">
-            {name}
-            <Button size="small" onClick={() => setRenaming(true)}>
+            {user?.name}
+            <Button size="small" onClick={() => setEditing('name')}>
               {t('修改显示名…')}
+            </Button>
+          </span>
+        </GroupRow>
+        <GroupRow label={t('邮箱')}>
+          <span className="gs-value-line">
+            {user?.email ?? <span className="settings-account__login">{t('未设置')}</span>}
+            <Button size="small" onClick={() => setEditing('email')}>
+              {t('修改邮箱…')}
             </Button>
           </span>
         </GroupRow>
@@ -390,30 +409,115 @@ function AccountPage() {
         <FeishuIdentityRow />
       </GroupBox>
       <Presence>{changing ? <ChangePasswordDialog onClose={() => setChanging(false)} /> : null}</Presence>
-      <RenameSheet open={renaming} current={name ?? ''} onClose={() => setRenaming(false)} />
+      <ProfileSheet
+        field={editing ?? 'name'}
+        open={editing !== null}
+        current={(editing && user?.[editing]) ?? ''}
+        onClose={() => setEditing(null)}
+      />
     </>
   )
 }
 
-function RenameSheet({ open, current, onClose }: { open: boolean; current: string; onClose: () => void }) {
-  const [name, setName] = useState(current)
+/** Upload a picture, take the linked Feishu avatar, or fall back to the generated one. */
+function AvatarRow() {
+  const user = useSession((s) => s.user)
+  const { data: feishu } = useGet<FeishuIdentityView>('/me/feishu')
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  if (!user) return null
+  const run = async (call: () => Promise<UserDto>) => {
+    setBusy(true)
+    try {
+      useSession.getState().setUser(await call())
+    } catch (err) {
+      toastError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const pick = (file: File | undefined) => {
+    if (input.current) input.current.value = ''
+    if (!file) return
+    if (!(AVATAR_TYPES as readonly string[]).includes(file.type))
+      return toastError(new Error(t('头像仅支持 PNG、JPEG、WebP 或 GIF 图片')))
+    if (file.size > AVATAR_MAX_BYTES) return toastError(new Error(t('头像不能超过 {maxMb} MB', { maxMb: 2 })))
+    const form = new FormData()
+    form.append('file', file)
+    void run(() => api.put<UserDto>('/me/avatar', form))
+  }
+  const feishuAvatar = feishu?.identity?.avatar
+  return (
+    <GroupRow label={t('头像')}>
+      <span className="gs-value-line">
+        <Avatar name={user.name} src={user.avatar ?? undefined} size={40} />
+        <input
+          ref={input}
+          type="file"
+          accept={AVATAR_TYPES.join(',')}
+          hidden
+          aria-label={t('上传头像')}
+          onChange={(e) => pick(e.target.files?.[0])}
+        />
+        <Button size="small" disabled={busy} onClick={() => input.current?.click()}>
+          {t('上传头像…')}
+        </Button>
+        {feishuAvatar && feishuAvatar !== user.avatar ? (
+          <Button
+            size="small"
+            disabled={busy}
+            onClick={() => run(() => api.post<UserDto>('/me/avatar/feishu'))}
+          >
+            {t('使用飞书头像')}
+          </Button>
+        ) : null}
+        {user.avatar ? (
+          <Button size="small" disabled={busy} onClick={() => run(() => api.del<UserDto>('/me/avatar'))}>
+            {t('移除头像')}
+          </Button>
+        ) : null}
+      </span>
+    </GroupRow>
+  )
+}
+
+type ProfileField = 'name' | 'email'
+
+const PROFILE_SHEET: Record<ProfileField, { title: string; label: string; hint: string; max: number }> = {
+  name: { title: t('修改显示名'), label: t('显示名'), hint: t('在群成员与消息里显示'), max: 40 },
+  email: { title: t('修改邮箱'), label: t('邮箱'), hint: t('留空即清除'), max: 120 },
+}
+
+function ProfileSheet({
+  field,
+  open,
+  current,
+  onClose,
+}: {
+  field: ProfileField
+  open: boolean
+  current: string
+  onClose: () => void
+}) {
+  const [value, setValue] = useState(current)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
     if (!open) return
-    setName(current)
+    setValue(current)
     setError('')
   }, [open, current])
 
-  const next = name.trim()
-  const disabled = busy || !next || next === current
+  const spec = PROFILE_SHEET[field]
+  const next = value.trim()
+  const disabled = busy || (field === 'name' && !next) || next === current
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (disabled) return
     setBusy(true)
     setError('')
     try {
-      useSession.getState().setUser(await api.patch<UserDto>('/me', { name: next }))
+      useSession.getState().setUser(await api.patch<UserDto>('/me', { [field]: next }))
       onClose()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('保存失败，请重试'))
@@ -425,20 +529,21 @@ function RenameSheet({ open, current, onClose }: { open: boolean; current: strin
     <Sheet
       open={open}
       onClose={onClose}
-      title={t('修改显示名')}
+      title={spec.title}
       width={420}
       actions={[
         { label: t('取消'), onClick: onClose },
-        { label: t('保存'), variant: 'primary', type: 'submit', form: 'rename-me', disabled },
+        { label: t('保存'), variant: 'primary', type: 'submit', form: 'edit-me', disabled },
       ]}
     >
-      <form id="rename-me" className="settings-add" onSubmit={submit} noValidate>
+      <form id="edit-me" className="settings-add" onSubmit={submit} noValidate>
         <TextField
-          label={t('显示名')}
-          value={name}
-          maxLength={40}
-          hint={t('在群成员与消息里显示，头像取首字')}
-          onChange={(e) => setName(e.target.value)}
+          label={spec.label}
+          type={field === 'email' ? 'email' : 'text'}
+          value={value}
+          maxLength={spec.max}
+          hint={spec.hint}
+          onChange={(e) => setValue(e.target.value)}
         />
         {error ? <Alert variant="error" description={error} /> : null}
       </form>

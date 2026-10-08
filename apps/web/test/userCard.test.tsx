@@ -11,6 +11,7 @@ const card = (o: Partial<UserCardDto> = {}): UserCardDto => ({
   id,
   name: '王磊',
   account: 'wanglei',
+  avatar: null,
   role: 'member',
   groupAdmin: true,
   online: true,

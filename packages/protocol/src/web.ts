@@ -68,18 +68,30 @@ export const UserDto = z.object({
   mustChangePassword: z.boolean(),
   disabled: z.boolean(),
   gitProtocol: GitProtocol,
+  email: z.string().nullable(),
+  /** Image URL (uploaded file or Feishu avatar); null = generated from the name. */
+  avatar: z.string().nullable(),
 })
 export type UserDto = z.infer<typeof UserDto>
-/** PATCH /api/me: the caller's own preferences and display name (same rule as sign-up). */
+/** PATCH /api/me: the caller's own preferences and profile (same name rule as sign-up); `email: ''` clears it. */
 export const UpdateMeReq = z.object({
   gitProtocol: GitProtocol.optional(),
   name: z.string().trim().min(1).max(40).optional(),
+  email: z.union([z.literal(''), z.string().trim().toLowerCase().pipe(z.email().max(120))]).optional(),
 })
+/** PUT /api/me/avatar (multipart `file`): raster images only, SVG could carry script. */
+export const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024
 
 export const LoginReq = z.object({ account: z.string(), password: z.string() })
 export const ChangePasswordReq = z.object({ oldPassword: z.string(), newPassword: z.string().min(8) })
 /** Minimal user reference for pickers (GET /api/users). */
-export const UserBriefDto = z.object({ id: z.string(), name: z.string(), account: z.string() })
+export const UserBriefDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  account: z.string(),
+  avatar: z.string().nullable(),
+})
 export type UserBriefDto = z.infer<typeof UserBriefDto>
 /** GET /api/users/:id/card?groupId= — hover card; `groupAdmin` is for `groupId`, `online` = has a live web session. */
 export const UserCardDto = UserBriefDto.extend({ role: Role, groupAdmin: z.boolean(), online: z.boolean() })
@@ -164,6 +176,7 @@ export const TeamMemberDto = z.object({
   userId: z.string(),
   name: z.string(),
   account: z.string(),
+  avatar: z.string().nullable(),
   role: TeamRole,
   joinedAt: z.string(),
 })
@@ -524,7 +537,9 @@ export const GroupDto = z.object({
   /** The caller closed the current notice for themselves; a newer notice shows again. */
   noticeHidden: z.boolean(),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable(),
-  members: z.array(z.object({ userId: z.string(), name: z.string(), isAdmin: z.boolean() })),
+  members: z.array(
+    z.object({ userId: z.string(), name: z.string(), avatar: z.string().nullable(), isAdmin: z.boolean() }),
+  ),
   botIds: z.array(z.string()),
   unread: z.number().int(),
   lastSeq: z.number().int(),

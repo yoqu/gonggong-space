@@ -16,6 +16,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto => ({

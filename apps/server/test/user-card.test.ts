@@ -40,6 +40,7 @@ describe('user card', () => {
       id: s.wang.id,
       name: '王磊',
       account: 'wanglei',
+      avatar: null,
       role: 'member',
       groupAdmin: true,
       online: false,

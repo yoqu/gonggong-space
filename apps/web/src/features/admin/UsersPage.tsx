@@ -173,7 +173,7 @@ export function UsersPage() {
               sortable: true,
               render: (u) => (
                 <>
-                  <Avatar name={u.name} size={18} />
+                  <Avatar name={u.name} src={u.avatar ?? undefined} size={18} />
                   {u.name}
                 </>
               ),

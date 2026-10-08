@@ -15,6 +15,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
@@ -27,8 +29,8 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   noticeHidden: false,
   repo: { url: 'git@git.corp:pay/pay-server.git', branch: 'main' },
   members: [
-    { userId: 'u1', name: '王磊', isAdmin: true },
-    { userId: 'u2', name: '李建国', isAdmin: false },
+    { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
+    { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },
   ],
   botIds: ['b1', 'b2'],
   unread: 0,
@@ -208,8 +210,8 @@ describe('group settings inspector', () => {
       routes([
         group({
           members: [
-            { userId: 'u2', name: '李建国', isAdmin: true },
-            { userId: 'u1', name: '王磊', isAdmin: false },
+            { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+            { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
           ],
         }),
       ]),
@@ -260,8 +262,8 @@ describe('group settings inspector', () => {
   it('lets a member hide the notice for themselves and bring it back from the history', async () => {
     const member = {
       members: [
-        { userId: 'u2', name: '李建国', isAdmin: true },
-        { userId: 'u1', name: '王磊', isAdmin: false },
+        { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+        { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
       ],
     }
     const calls = mockApi(
@@ -329,7 +331,7 @@ describe('group settings inspector', () => {
         group({
           kind: 'dm',
           name: '小王的 Claude',
-          members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
+          members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
         }),
       ]),
     )
@@ -350,8 +352,8 @@ describe('group settings inspector', () => {
         [
           group({
             members: [
-              { userId: 'u2', name: '李建国', isAdmin: true },
-              { userId: 'u1', name: '王磊', isAdmin: false },
+              { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+              { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
             ],
           }),
         ],
@@ -374,8 +376,8 @@ describe('group settings inspector', () => {
       routes([group()], {
         'POST /groups/g1/admins/u2': group({
           members: [
-            { userId: 'u1', name: '王磊', isAdmin: true },
-            { userId: 'u2', name: '李建国', isAdmin: true },
+            { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
+            { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
           ],
         }),
       }),
@@ -441,7 +443,7 @@ describe('group settings inspector', () => {
   })
 
   it('hides leaving when I am the only member; dissolving stays in the danger zone', async () => {
-    mockApi(routes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: true }] })]))
+    mockApi(routes([group({ members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }] })]))
     renderAt('/g/g1')
     const d = await openDrawer()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
@@ -452,7 +454,9 @@ describe('group settings inspector', () => {
   it('confirms removing a member, blocks double submits and reports success', async () => {
     const calls = mockApi(
       routes([group()], {
-        'DELETE /groups/g1/members/u2': group({ members: [{ userId: 'u1', name: '王磊', isAdmin: true }] }),
+        'DELETE /groups/g1/members/u2': group({
+          members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
+        }),
       }),
     )
     renderAt('/g/g1')

@@ -58,6 +58,8 @@ beforeEach(() => {
       mustChangePassword: false,
       disabled: false,
       gitProtocol: 'auto',
+      email: null,
+      avatar: null,
     },
   } as never)
 })

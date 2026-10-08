@@ -16,6 +16,8 @@ const wang: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 const admin: UserDto = { ...wang, id: 'u9', account: 'chenchen', name: '陈晨', role: 'sysadmin' }
 

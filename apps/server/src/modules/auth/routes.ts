@@ -9,16 +9,15 @@ import { hash, verify } from '@node-rs/argon2'
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groupMembers, users, webSessions } from '../../db/schema.js'
+import { users, webSessions } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { Throttle } from '../../lib/throttle.js'
 import { assertNotDemo, sysParams } from '../admin/params.js'
-import { publishBots } from '../bots/dto.js'
-import { publishGroup } from '../groups/service.js'
 import { meDto } from '../teams/dto.js'
 import { findInvite, onboardUser } from '../teams/members.js'
+import { publishProfile } from '../users/avatar.js'
 import { feishuLoginReady } from './feishu.js'
 import { requireUser, SESSION_COOKIE, startSession } from './session.js'
 
@@ -105,18 +104,13 @@ export function authRoutes(ctx: Ctx) {
 
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
-      const patch = UpdateMeReq.parse(req.body)
-      if (patch.name !== undefined && patch.name !== user.name) await assertNotDemo(ctx, user)
-      if (!Object.keys(patch).length) return meDto(ctx, user)
-      const [row] = await ctx.db.update(users).set(patch).where(eq(users.id, user.id)).returning()
-      if (patch.name !== undefined && patch.name !== user.name) {
-        const mine = await ctx.db
-          .select({ id: groupMembers.groupId })
-          .from(groupMembers)
-          .where(eq(groupMembers.userId, user.id))
-        for (const g of mine) await publishGroup(ctx, g.id)
-        await publishBots(ctx, eq(bots.ownerId, user.id))
-      }
+      const { email, ...patch } = UpdateMeReq.parse(req.body)
+      const renamed = patch.name !== undefined && patch.name !== user.name
+      if (renamed || email !== undefined) await assertNotDemo(ctx, user)
+      const set = { ...patch, ...(email !== undefined && { email: email || null }) }
+      if (!Object.keys(set).length) return meDto(ctx, user)
+      const [row] = await ctx.db.update(users).set(set).where(eq(users.id, user.id)).returning()
+      if (renamed) await publishProfile(ctx, user.id)
       return meDto(ctx, row ?? user)
     })
 

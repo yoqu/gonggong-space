@@ -18,6 +18,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { forgetMembers, type MessageMeta, memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
+import { avatarUrl } from '../users/dto.js'
 import { groupTitle } from './title.js'
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -131,6 +132,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
         groupId: groupMembers.groupId,
         userId: users.id,
         name: users.name,
+        avatar: users.avatar,
         isAdmin: groupMembers.isAdmin,
       })
       .from(groupMembers)
@@ -187,7 +189,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,
       members: members
         .filter((m) => m.groupId === g.id)
-        .map(({ userId, name, isAdmin }) => ({ userId, name, isAdmin })),
+        .map(({ userId, name, avatar, isAdmin }) => ({ userId, name, avatar: avatarUrl(avatar), isAdmin })),
       botIds: groupBotRows.filter((b) => b.groupId === g.id).map((b) => b.botId),
       unread,
       lastSeq: Number(lastSeq ?? 0),

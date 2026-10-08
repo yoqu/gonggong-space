@@ -109,6 +109,7 @@ export function UserCardTrigger({
           {card ? (
             <ProfileCard
               name={card.name}
+              avatar={card.avatar ?? undefined}
               status={card.online ? 'online' : 'offline'}
               statusText={card.online ? t('在线') : t('离线')}
               title={card.account}

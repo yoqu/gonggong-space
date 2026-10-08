@@ -465,7 +465,7 @@ function MembersView({
             const theirs = bots.filter((b) => b.ownerId === m.userId).map((b) => b.name)
             return (
               <div key={m.userId} className="gs-member" data-testid={`member-${m.userId}`}>
-                <Avatar name={m.name} size={28} />
+                <Avatar name={m.name} src={m.avatar ?? undefined} size={28} />
                 <div className="gs-member__main">
                   <span className="gs-member__name">
                     {m.name}

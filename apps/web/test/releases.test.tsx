@@ -14,6 +14,8 @@ const admin: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 const sha = (c: string) => c.repeat(64)
 const release: DaemonRelease = {

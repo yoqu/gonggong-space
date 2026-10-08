@@ -70,6 +70,8 @@ describe('login / logout / me', () => {
       mustChangePassword: false,
       disabled: false,
       gitProtocol: 'auto',
+      email: null,
+      avatar: null,
       teams: [expect.objectContaining({ name: '默认团队', role: 'owner' })],
       singleTeamMode: true,
       canCreateTeam: false,

@@ -148,8 +148,8 @@ describe('user picker', () => {
     const res = await req('GET', '/api/users', await t.seed.cookie(m.id))
     expect(res.statusCode).toBe(200)
     expect(res.json()).toEqual([
-      { id: adminId, account: 'chenchen', name: '陈晨' },
-      { id: m.id, account: 'wanglei', name: '王磊' },
+      { id: adminId, account: 'chenchen', name: '陈晨', avatar: null },
+      { id: m.id, account: 'wanglei', name: '王磊', avatar: null },
     ])
     expect((await req('GET', '/api/users', '')).statusCode).toBe(401)
   })

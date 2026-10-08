@@ -1,6 +1,6 @@
 import { FeishuBindReq, type FeishuIdentityView, type FeishuTicketDto } from '@gonggong/protocol'
 import { verify } from '@node-rs/argon2'
-import { eq, or } from 'drizzle-orm'
+import { eq, or, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { feishuIdentities, users } from '../../db/schema.js'
@@ -43,7 +43,8 @@ interface Ticket {
   expiresAt: number
 }
 
-/** Stores the Feishu identity (and its tokens) for `userId`; one identity per account and per Feishu user. */
+/** Stores the Feishu identity (and its tokens) for `userId`; one identity per account and per Feishu user.
+ * A first link fills the account's empty email and avatar from Feishu. */
 async function link(ctx: Ctx, userId: string, user: FeishuUser, tokens: FeishuTokens) {
   const values = {
     unionId: user.unionId,
@@ -64,9 +65,18 @@ async function link(ctx: Ctx, userId: string, user: FeishuUser, tokens: FeishuTo
     .where(or(eq(feishuIdentities.userId, userId), eq(feishuIdentities.unionId, user.unionId)))
   if (taken.some((r) => r.userId !== userId || r.unionId !== user.unionId))
     return fail('conflict', '该账号或飞书身份已绑定其他身份')
-  if (taken.length)
+  if (taken.length) {
     await ctx.db.update(feishuIdentities).set(values).where(eq(feishuIdentities.userId, userId))
-  else await ctx.db.insert(feishuIdentities).values({ userId, ...values })
+    return
+  }
+  await ctx.db.insert(feishuIdentities).values({ userId, ...values })
+  await ctx.db
+    .update(users)
+    .set({
+      email: sql`coalesce(${users.email}, ${user.email?.toLowerCase() ?? null})`,
+      avatar: sql`coalesce(${users.avatar}, ${user.avatar})`,
+    })
+    .where(eq(users.id, userId))
 }
 
 /** Lowercase email prefix fitted to the account rule, or `feishu`; a numeric suffix avoids taken accounts. */
@@ -211,7 +221,8 @@ export function feishuAuthRoutes(ctx: Ctx) {
         detail: { userId: user.id, feishu: ticket.user.name },
       })
       await startSession(ctx, reply, user.id)
-      return meDto(ctx, user)
+      const [fresh] = await ctx.db.select().from(users).where(eq(users.id, user.id))
+      return meDto(ctx, fresh ?? user)
     })
 
     app.post('/api/auth/feishu/ticket/:ticket/create', async (req, reply) => {
@@ -234,6 +245,7 @@ export function feishuAuthRoutes(ctx: Ctx) {
       if (!user) return fail('conflict', '账号已存在')
       await link(ctx, user.id, ticket.user, ticket.tokens)
       await onboardUser(ctx, user, invite)
+      const [fresh] = await ctx.db.select().from(users).where(eq(users.id, user.id))
       await audit(ctx, {
         category: 'admin',
         actorUserId: user.id,
@@ -241,7 +253,7 @@ export function feishuAuthRoutes(ctx: Ctx) {
         detail: { userId: user.id, account: user.account, via: 'feishu' },
       })
       await startSession(ctx, reply, user.id)
-      return reply.status(201).send(await meDto(ctx, user))
+      return reply.status(201).send(await meDto(ctx, fresh ?? user))
     })
 
     app.get('/api/me/feishu', async (req): Promise<FeishuIdentityView> => {

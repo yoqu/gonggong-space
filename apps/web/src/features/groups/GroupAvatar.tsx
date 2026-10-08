@@ -19,6 +19,6 @@ export function GroupAvatar({
   }
   if (group.kind === 'dm' && tiles[0])
     return <Avatar name={group.name} shape="square" size={size} src={tiles[0].src} />
-  const members = [...group.members.map((m) => ({ name: m.name })), ...tiles]
+  const members = [...group.members.map((m) => ({ name: m.name, src: m.avatar ?? undefined })), ...tiles]
   return <Avatar name={group.name} shape="square" size={size} members={members} />
 }

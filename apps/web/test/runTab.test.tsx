@@ -24,6 +24,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 const group: GroupDto = {
   id: 'g1',
@@ -34,7 +36,7 @@ const group: GroupDto = {
   notice: '',
   noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
-  members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
+  members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
   botIds: ['b1'],
   unread: 0,
   lastSeq: 3,

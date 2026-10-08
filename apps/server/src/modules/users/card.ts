@@ -5,6 +5,7 @@ import type { Ctx } from '../../context.js'
 import { groupMembers, groups, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import type { SessionUser } from '../auth/session.js'
+import { avatarUrl } from './dto.js'
 
 /** Visible to sysadmins, oneself, and anyone sharing a live group (`groupId` narrows to that group); others get not_found. */
 export async function userCard(
@@ -28,6 +29,7 @@ export async function userCard(
     id: user.id,
     name: user.name,
     account: user.account,
+    avatar: avatarUrl(user.avatar),
     role: user.role as UserCardDto['role'],
     groupAdmin: Boolean(groupId && memberships[0]?.isAdmin),
     online: ctx.bus.isConnected(user.id),

@@ -15,6 +15,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): GroupDto => ({

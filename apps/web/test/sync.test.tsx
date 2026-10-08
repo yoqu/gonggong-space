@@ -302,8 +302,8 @@ const group = (o: Partial<GroupDto> = {}) =>
     mode: 'partition',
     repo: { url: 'git@git.corp:pay/pay.git', branch: 'main' },
     members: [
-      { userId: 'u1', name: '王磊', isAdmin: true },
-      { userId: 'u2', name: '李建国', isAdmin: false },
+      { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
+      { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },
     ],
     ...o,
   }) as GroupDto

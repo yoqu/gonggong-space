@@ -68,7 +68,12 @@ beforeEach(() => {
       { id: 'b1', name: 'Claude', ownerId: 'u1' },
       { id: 'b2', name: 'Codex', ownerId: 'u2' },
     ] as never,
-    groups: [{ id: 'g1', members: [{ userId: 'u1', name: '王磊', isAdmin: false }] } as unknown as GroupDto],
+    groups: [
+      {
+        id: 'g1',
+        members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }],
+      } as unknown as GroupDto,
+    ],
   })
   resetSync()
   vi.stubGlobal('WebSocket', NoopSocket)

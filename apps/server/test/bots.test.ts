@@ -419,7 +419,7 @@ describe('owners, users and notifications', () => {
     const wang = await actor({ name: '王磊', account: 'wanglei' })
     await t.seed.user({ disabledAt: new Date() })
     expect((await wang.req('GET', '/api/users')).json()).toEqual([
-      { id: wang.user.id, name: '王磊', account: 'wanglei' },
+      { id: wang.user.id, name: '王磊', account: 'wanglei', avatar: null },
     ])
     expect((await t.app.inject('/api/users')).statusCode).toBe(401)
   })

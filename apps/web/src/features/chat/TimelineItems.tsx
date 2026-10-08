@@ -246,13 +246,13 @@ const messageTarget = (m: MessageDto, own = false, onEdit?: () => void): ActionT
 })
 
 /** Another member: avatar and name open their user card. */
-function person(m: MessageDto): MessageAuthor {
+function person(m: MessageDto, avatar?: string): MessageAuthor {
   const id = m.authorId ?? ''
   return {
     name: m.authorName,
     avatarNode: (
       <UserCardTrigger userId={id} groupId={m.groupId} tabIndex={-1} className="user-card-trigger--block">
-        <Avatar name={m.authorName} size={32} />
+        <Avatar name={m.authorName} src={avatar} size={32} />
       </UserCardTrigger>
     ),
     nameNode: (
@@ -306,11 +306,14 @@ export const UserMessage = memo(function UserMessage({
 }) {
   const text = !!(m.body || m.quote)
   const [editing, setEditing] = useState(false)
+  const avatar = useWorkspace(
+    (s) => s.groups.find((g) => g.id === m.groupId)?.members.find((x) => x.userId === m.authorId)?.avatar,
+  )
   return (
     <MessageMenu {...messageTarget(m, mine, mine ? () => setEditing(true) : undefined)}>
       {(bar) => (
         <Message
-          author={mine ? { name: m.authorName } : person(m)}
+          author={mine ? { name: m.authorName, avatar: avatar ?? undefined } : person(m, avatar ?? undefined)}
           self={mine}
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} />}

@@ -15,7 +15,8 @@ export function mockApi(routes: Record<string, Reply>) {
     vi.fn(async (input: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
       const path = input.replace(/^\/api/, '')
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      const body =
+        init?.body instanceof FormData ? init.body : init?.body ? JSON.parse(String(init.body)) : undefined
       calls.push({ method, path, body })
       const key = `${method} ${path}`
       if (!(key in routes))

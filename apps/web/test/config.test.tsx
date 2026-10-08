@@ -14,6 +14,8 @@ const admin: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const wiki: McpServerDto = {

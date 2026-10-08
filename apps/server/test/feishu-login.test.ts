@@ -203,7 +203,8 @@ describe('first 飞书登录 (ticket)', () => {
   it('creates a password-less account named after the Feishu user, de-duplicating the account', async () => {
     await configure()
     await t.seed.user({ account: 'wanglei' })
-    const fu = t.feishu.user({ name: '王磊', email: 'WangLei@corp.com' })
+    const avatar = 'https://s1-imfile.feishucdn.com/static-resource/v1/wang~'
+    const fu = t.feishu.user({ name: '王磊', email: 'WangLei@corp.com', avatar })
     const { location } = await feishuLogin(fu)
     const res = await t.app.inject({
       method: 'POST',
@@ -211,7 +212,7 @@ describe('first 飞书登录 (ticket)', () => {
     })
     expect(res.statusCode).toBe(201)
     const me = res.json() as MeDto
-    expect(me).toMatchObject({ name: '王磊', account: 'wanglei2' })
+    expect(me).toMatchObject({ name: '王磊', account: 'wanglei2', email: 'wanglei@corp.com', avatar })
     const [row] = await t.db.select().from(users).where(eq(users.id, me.id))
     expect(row!.passwordHash).toBeNull()
     expect(row!.mustChangePassword).toBe(false)
@@ -271,9 +272,12 @@ describe('个人设置 · 飞书', () => {
     const http = client(t, cookie)
     expect((await http.get<FeishuIdentityView>('/api/me/feishu')).body).toEqual({ identity: null })
 
-    const fu = t.feishu.user({ name: '王磊' })
+    const avatar = 'https://s1-imfile.feishucdn.com/static-resource/v1/wang~'
+    const fu = t.feishu.user({ name: '王磊', email: 'wang@corp.com', avatar })
     const { location } = await feishuLogin(fu, { cookie, mode: 'link', next: '/g/x' })
     expect(location).toBe('/g/x?feishu=linked')
+    // Linking fills only what the account lacks.
+    expect((await http.get<MeDto>('/api/me')).body).toMatchObject({ email: 'wang@corp.com', avatar })
     expect((await http.get<FeishuIdentityView>('/api/me/feishu')).body.identity).toMatchObject({
       name: '王磊',
     })

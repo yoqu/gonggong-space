@@ -68,7 +68,7 @@ export function AccountMenu({
         items={items}
         onSelect={select}
       >
-        <Avatar name={user.name} size={size} />
+        <Avatar name={user.name} src={user.avatar ?? undefined} size={size} />
       </MenuButton>
       <BindMachineDialog open={dialog === 'bind'} onClose={() => setDialog(null)} />
       <Presence>

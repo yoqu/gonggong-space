@@ -16,6 +16,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const team = (o: Partial<TeamDto> = {}): TeamDto => ({
@@ -30,8 +32,8 @@ const team = (o: Partial<TeamDto> = {}): TeamDto => ({
 })
 
 const members: TeamMemberDto[] = [
-  { userId: 'u1', name: '王磊', account: 'wanglei', role: 'member', joinedAt: '' },
-  { userId: 'u2', name: '李建国', account: 'lijg', role: 'owner', joinedAt: '' },
+  { userId: 'u1', name: '王磊', account: 'wanglei', avatar: null, role: 'member', joinedAt: '' },
+  { userId: 'u2', name: '李建国', account: 'lijg', avatar: null, role: 'owner', joinedAt: '' },
 ]
 
 class FakeSocket {
@@ -70,7 +72,7 @@ const teamGroup = (o: Partial<TeamGroupDto>): TeamGroupDto => ({
   ...o,
 })
 
-const mine = { userId: 'u1', name: '王磊', isAdmin: true }
+const mine = { userId: 'u1', name: '王磊', avatar: null, isAdmin: true }
 
 /** A group of team t1 that I (u1) am not in. */
 const chatGroup = (o: Partial<GroupDto> = {}): GroupDto => ({
@@ -83,8 +85,8 @@ const chatGroup = (o: Partial<GroupDto> = {}): GroupDto => ({
   noticeHidden: false,
   repo: null,
   members: [
-    { userId: 'u2', name: '李建国', isAdmin: true },
-    { userId: 'u3', name: '赵敏', isAdmin: false },
+    { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+    { userId: 'u3', name: '赵敏', avatar: null, isAdmin: false },
   ],
   botIds: [],
   unread: 0,

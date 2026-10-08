@@ -72,7 +72,12 @@ beforeEach(() => {
       { id: 'b1', name: 'Claude', ownerId: 'u1' },
       { id: 'b2', name: 'Codex', ownerId: 'u2' },
     ] as never,
-    groups: [{ id: 'g1', members: [{ userId: 'u1', name: '王磊', isAdmin: false }] } as unknown as GroupDto],
+    groups: [
+      {
+        id: 'g1',
+        members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }],
+      } as unknown as GroupDto,
+    ],
   })
   useToasts.setState({ items: [] })
   resetSync()
@@ -292,7 +297,7 @@ describe('switching', () => {
       name: '支付',
       mode: 'partition',
       repo: { url: 'git@x:y.git', branch: 'main' },
-      members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
+      members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
     } as unknown as GroupDto
     render(<SyncModeTab group={group} />)
     fireEvent.click(screen.getByRole('button', { name: '切换为强制同步' }))
@@ -313,7 +318,7 @@ describe('switching', () => {
       name: '支付',
       mode: 'partition',
       repo: { url: 'git@x:y.git', branch: 'main' },
-      members: [{ userId: 'u1', name: '王磊', isAdmin: true }],
+      members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
     } as unknown as GroupDto
     render(<SyncModeTab group={group} />)
     fireEvent.click(screen.getByRole('button', { name: '切换为强制同步' }))

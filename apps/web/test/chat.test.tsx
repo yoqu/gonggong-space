@@ -26,6 +26,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 const group = (o: Partial<GroupDto> = {}): GroupDto => ({
@@ -38,8 +40,8 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },
   members: [
-    { userId: 'u1', name: '王磊', isAdmin: true },
-    { userId: 'u2', name: '李建国', isAdmin: false },
+    { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
+    { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },
   ],
   botIds: ['b1', 'b2'],
   unread: 0,
@@ -1112,7 +1114,7 @@ describe('repo and workspaces', () => {
 
   it('shows every member where each bot works; only the owner can move it', async () => {
     const calls = mockApi({
-      ...baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: false }] })]),
+      ...baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }] })]),
       'GET /groups/g1/bot-states': () => states,
       'POST /groups/g1/bots/b2/recheck': () => ({}),
     })
@@ -1150,7 +1152,7 @@ describe('repo and workspaces', () => {
   })
 
   it('locks repo binding for non-admins', async () => {
-    mockApi(baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', isAdmin: false }] })]))
+    mockApi(baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }] })]))
     renderAt('/g/g1')
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))

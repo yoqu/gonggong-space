@@ -18,7 +18,7 @@ import { onboardUser } from '../teams/members.js'
 import { currentTeam } from '../teams/service.js'
 import { userCard } from './card.js'
 import { disableUser, enableUser } from './disable.js'
-import { toUserDto } from './dto.js'
+import { avatarUrl, toUserDto } from './dto.js'
 
 export function userRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -133,11 +133,12 @@ export function userRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const teamId = await currentTeam(ctx, req, me.id)
       return ctx.db
-        .select({ id: users.id, name: users.name, account: users.account })
+        .select({ id: users.id, name: users.name, account: users.account, avatar: users.avatar })
         .from(users)
         .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
         .where(isNull(users.disabledAt))
         .orderBy(asc(users.createdAt))
+        .then((rows) => rows.map((u) => ({ ...u, avatar: avatarUrl(u.avatar) })))
     })
 
     app.get<{ Params: { id: string }; Querystring: { groupId?: string } }>(

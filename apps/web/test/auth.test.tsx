@@ -16,6 +16,8 @@ const me: UserDto = {
   mustChangePassword: false,
   disabled: false,
   gitProtocol: 'auto',
+  email: null,
+  avatar: null,
 }
 
 class NoopSocket {
@@ -239,7 +241,7 @@ describe('account menu', () => {
     const calls = mockApi({
       'GET /me': me,
       'GET /me/git-accounts': [],
-      'PATCH /me': { ...me, gitProtocol: 'https' },
+      'PATCH /me': { ...me, gitProtocol: 'https', email: null, avatar: null },
     })
     renderAt('/')
     const settings = await openSettings()
@@ -326,7 +328,7 @@ describe('account menu', () => {
     renderAt('/')
     const settings = await openSettings()
     fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
-    expect(within(settings).getByText('王磊')).toBeTruthy()
+    expect(within(settings).getByText('王磊', { ignore: '.ui-avatar__text' })).toBeTruthy()
     fireEvent.click(within(settings).getByRole('button', { name: '修改显示名…' }))
     const sheet = await screen.findByRole('dialog', { name: '修改显示名' })
     const save = within(sheet).getByRole('button', { name: '保存' })
@@ -337,7 +339,62 @@ describe('account menu', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '修改显示名' })).toBeNull())
     expect(calls.find((c) => c.method === 'PATCH' && c.path === '/me')?.body).toEqual({ name: '王小磊' })
     expect(useSession.getState().user?.name).toBe('王小磊')
-    expect(within(settings).getByText('王小磊')).toBeTruthy()
+    expect(within(settings).getByText('王小磊', { ignore: '.ui-avatar__text' })).toBeTruthy()
+  })
+
+  it('uploads an avatar, switches to the Feishu one and removes it', async () => {
+    const feishu = 'https://s1-imfile.feishucdn.com/static-resource/v1/wang~'
+    const uploaded = '/api/avatars/0b7e7c1e-0000-4000-8000-000000000000.png'
+    const calls = mockApi({
+      'GET /me': me,
+      'GET /me/feishu': { identity: { name: '王磊', avatar: feishu, email: null, boundAt: '' } },
+      'PUT /me/avatar': { ...me, avatar: uploaded },
+      'POST /me/avatar/feishu': { ...me, avatar: feishu },
+      'DELETE /me/avatar': { ...me, avatar: null },
+    })
+    renderAt('/')
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
+    expect(within(settings).queryByRole('button', { name: '移除头像' })).toBeNull()
+
+    const file = new File([new Uint8Array([0x89, 0x50])], 'me.png', { type: 'image/png' })
+    fireEvent.change(within(settings).getByLabelText('上传头像'), { target: { files: [file] } })
+    await waitFor(() => expect(useSession.getState().user?.avatar).toBe(uploaded))
+    const put = calls.find((c) => c.method === 'PUT' && c.path === '/me/avatar')?.body as FormData
+    expect((put.get('file') as File).name).toBe('me.png')
+
+    fireEvent.click(await within(settings).findByRole('button', { name: '使用飞书头像' }))
+    await waitFor(() => expect(useSession.getState().user?.avatar).toBe(feishu))
+    expect(within(settings).queryByRole('button', { name: '使用飞书头像' })).toBeNull()
+
+    fireEvent.click(within(settings).getByRole('button', { name: '移除头像' }))
+    await waitFor(() => expect(useSession.getState().user?.avatar).toBeNull())
+  })
+
+  it('refuses a non-image avatar before uploading', async () => {
+    const calls = mockApi({ 'GET /me': me })
+    renderAt('/')
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
+    const file = new File(['<svg/>'], 'a.svg', { type: 'image/svg+xml' })
+    fireEvent.change(within(settings).getByLabelText('上传头像'), { target: { files: [file] } })
+    expect(await screen.findByText('头像仅支持 PNG、JPEG、WebP 或 GIF 图片')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/me/avatar')).toBe(false)
+  })
+
+  it('sets my email from settings', async () => {
+    const calls = mockApi({ 'GET /me': me, 'PATCH /me': { ...me, email: 'wang@corp.com' } })
+    renderAt('/')
+    const settings = await openSettings()
+    fireEvent.click(within(settings).getByRole('button', { name: /账户/ }))
+    fireEvent.click(within(settings).getByRole('button', { name: '修改邮箱…' }))
+    const sheet = await screen.findByRole('dialog', { name: '修改邮箱' })
+    fill('邮箱', 'wang@corp.com')
+    fireEvent.click(within(sheet).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(within(settings).getByText('wang@corp.com')).toBeTruthy())
+    expect(calls.find((c) => c.method === 'PATCH' && c.path === '/me')?.body).toEqual({
+      email: 'wang@corp.com',
+    })
   })
 })
 

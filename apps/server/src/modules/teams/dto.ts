@@ -6,7 +6,7 @@ import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { unreadByTeam } from '../groups/service.js'
 import { knownNotification } from '../notifications/notify.js'
-import { toUserDto } from '../users/dto.js'
+import { avatarUrl, toUserDto } from '../users/dto.js'
 import { teamUserIds } from './service.js'
 
 const teamDto = (team: typeof teams.$inferSelect, role: string, unread: number): TeamDto => ({
@@ -66,7 +66,7 @@ export async function meDto(ctx: Ctx, user: typeof users.$inferSelect): Promise<
 /** Enabled members, earliest joined first; `userId` narrows to one. */
 export async function memberDtos(ctx: Ctx, teamId: string, userId?: string): Promise<TeamMemberDto[]> {
   const rows = await ctx.db
-    .select({ member: teamMembers, name: users.name, account: users.account })
+    .select({ member: teamMembers, name: users.name, account: users.account, avatar: users.avatar })
     .from(teamMembers)
     .innerJoin(users, eq(users.id, teamMembers.userId))
     .where(
@@ -77,10 +77,11 @@ export async function memberDtos(ctx: Ctx, teamId: string, userId?: string): Pro
       ),
     )
     .orderBy(asc(teamMembers.joinedAt), asc(teamMembers.userId))
-  return rows.map(({ member, name, account }) => ({
+  return rows.map(({ member, name, account, avatar }) => ({
     userId: member.userId,
     name,
     account,
+    avatar: avatarUrl(avatar),
     role: member.role as TeamRole,
     joinedAt: member.joinedAt.toISOString(),
   }))
