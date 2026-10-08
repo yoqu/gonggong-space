@@ -47,7 +47,7 @@
       "desktop": { "schemes": ["gonggong"] }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBMUFGNjVBRkVDMDlENjgKUldSb25jRCtXdllhcWxibSs3TGZncWRlSDZQLzZ5Tmt4bi9MSzQrUVpwMlNLbXF2Y2dvV3puaGwK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4QTQyRTlDRjg4MTFCOTAKUldTUUc0SDRuQzZrR0dJL1A3SjdDbGQzanBXTHkrTVlEdGc5NklRdVJPcWJHMGw4WGRnSGdSZ0oK",
       "endpoints": ["https://github.com/yoqu/gonggong-space/releases/latest/download/latest.json"]
     }
   }
