@@ -1,5 +1,5 @@
 use anyhow::{Context, bail};
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use gonggong::bind::machine_info;
 use gonggong::config::{self, Config};
 use gonggong::configure;
@@ -156,7 +156,7 @@ fn explain_double_click() {
     if !alone || std::env::args_os().len() > 1 {
         return;
     }
-    let _ = Cli::command().print_help();
+    let _ = <Cli as clap::CommandFactory>::command().print_help();
     let exe = std::env::current_exe().ok();
     let exe = exe.as_ref().and_then(|p| p.file_name()).map_or("gg.exe".into(), |n| n.to_string_lossy());
     println!(

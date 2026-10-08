@@ -13,7 +13,7 @@
 # GitHub Releases (GONGGONG_GITHUB_REPO, default yoqu/gonggong-space): github/manifest.json is the same manifest with
 # absolute release download URLs (daemons whose server publishes no build check it), github/latest.json the Tauri
 # updater feed of the desktop app (Gonggong_<v>_<arch>.app.tar.gz + .sig, signed with TAURI_SIGNING_PRIVATE_KEY /
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD). --github then runs `gh release create v<version>` with every artifact and the
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD; default ~/.tauri/gonggong.key, the password is prompted when unset). --github then runs `gh release create v<version>` with every artifact and the
 # notes file (default dist/<version>/RELEASE_NOTES.md, copied from docs/release-notes/v<version>.md).
 # The Windows desktop installer is built by .github/workflows/desktop-windows.yml once the release is published; it
 # adds its windows-x86_64 entry to latest.json.
@@ -120,7 +120,13 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
     echo "error: put the updater public key (tauri signer generate) into plugins.updater.pubkey of $conf" >&2
     exit 1
   fi
+  # Defaults to the key `tauri signer generate -w ~/.tauri/gonggong.key` wrote.
+  [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] || [ ! -f "$HOME/.tauri/gonggong.key" ] || export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/gonggong.key"
   : "${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY (path or content) is required to sign the app update}"
+  if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ]; then
+    read -rsp "updater private key password: " TAURI_SIGNING_PRIVATE_KEY_PASSWORD && echo
+    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+  fi
   rm -rf "$ROOT/target/release/bundle"
   # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
   # so everyday desktop builds do not need libwebrtc.
