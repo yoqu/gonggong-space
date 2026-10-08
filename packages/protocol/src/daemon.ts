@@ -238,6 +238,8 @@ export const RunStart = z.object({
     effort: z.string().nullable().default(null),
     approval: Approval.default('ask'),
     allowlist: z.array(z.string()).default([]),
+    /** Author and committer of the agent's git commits; null = the machine's git config. */
+    git: z.object({ name: z.string(), email: z.string() }).nullable().default(null),
   }),
   workspace: WorkspaceSpec,
   /** Resume this ACP session if possible; null → start a new one. */

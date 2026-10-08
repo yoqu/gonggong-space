@@ -320,6 +320,15 @@ pub struct RunBot {
     /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
     #[serde(default)]
     pub allowlist: Vec<String>,
+    /// Author and committer of the agent's git commits; `None` = the machine's git config.
+    #[serde(default)]
+    pub git: Option<GitIdentity>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitIdentity {
+    pub name: String,
+    pub email: String,
 }
 
 /// The bot owner's preferred protocol: tried first, then the other one (ssh ↔ https).

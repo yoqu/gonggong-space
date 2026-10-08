@@ -106,6 +106,12 @@ async function prompt({ sessionId, prompt: blocks }, client) {
           GG_PROVIDER_KEY: process.env.GG_PROVIDER_KEY ?? null,
           CODEX_CONFIG: process.env.CODEX_CONFIG ? JSON.parse(process.env.CODEX_CONFIG) : null,
         },
+        gitEnv: Object.fromEntries(
+          ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL'].map((k) => [
+            k,
+            process.env[k] ?? null,
+          ]),
+        ),
         settingsEnv: {
           HTTPS_PROXY: process.env.HTTPS_PROXY ?? null,
           NO_PROXY: process.env.NO_PROXY ?? null,

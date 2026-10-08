@@ -11,6 +11,7 @@ import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, machines, runs, teamMembers, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { teamOfBot, teamUserIds } from '../teams/service.js'
+import { defaultGitEmail } from './git.js'
 
 type BotRow = typeof bots.$inferSelect
 type MachineRow = typeof machines.$inferSelect
@@ -101,6 +102,9 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       catalog: agent?.catalog ?? null,
       approval: bot.approval as BotDto['approval'],
       allowlist: bot.allowlist,
+      gitName: bot.gitName,
+      gitEmail: bot.gitEmail,
+      gitDefaultEmail: defaultGitEmail(bot.id),
     }
   })
 }

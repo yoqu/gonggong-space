@@ -169,6 +169,8 @@ export function BotDetail({
     approval: bot.approval,
     allowlist: bot.allowlist,
   })
+  const [gitName, setGitName] = useState(bot.gitName ?? '')
+  const [gitEmail, setGitEmail] = useState(bot.gitEmail ?? '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   /** false = closed; otherwise the folder the picker opens at. */
@@ -197,6 +199,8 @@ export function BotDetail({
         ...(owner && approval.approval !== bot.approval && { approval: approval.approval }),
         ...(owner &&
           approval.allowlist.join('\n') !== bot.allowlist.join('\n') && { allowlist: approval.allowlist }),
+        ...(owner && (gitName.trim() || null) !== bot.gitName && { gitName: gitName.trim() || null }),
+        ...(owner && (gitEmail.trim() || null) !== bot.gitEmail && { gitEmail: gitEmail.trim() || null }),
       })
       toast({ type: 'success', message: t('{name} 已保存 · 下一次新开会话时生效', { name: bot.name }) })
     } catch (e) {
@@ -365,6 +369,35 @@ export function BotDetail({
           )}
         </FormRow>
         <ApprovalFields owner={owner} value={approval} onChange={setApproval} />
+        {owner ? (
+          <FormRow
+            label={t('Git 提交身份')}
+            align="top"
+            hint={t('Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 agent 时生效')}
+          >
+            <div className="bots-detail__git">
+              <TextField
+                aria-label={t('Git 提交名')}
+                value={gitName}
+                placeholder={bot.name}
+                onChange={(e) => setGitName(e.target.value)}
+              />
+              <TextField
+                aria-label={t('Git 提交邮箱')}
+                type="email"
+                value={gitEmail}
+                placeholder={bot.gitDefaultEmail}
+                onChange={(e) => setGitEmail(e.target.value)}
+              />
+            </div>
+          </FormRow>
+        ) : (
+          <FormRow label={t('Git 提交身份')} hint={t('只有 Bot 主人能修改 Git 提交身份')}>
+            <span className="bots-detail__mono">
+              {`${bot.gitName ?? bot.name} <${bot.gitEmail ?? bot.gitDefaultEmail}>`}
+            </span>
+          </FormRow>
+        )}
         {canEdit ? (
           <FormRow
             label={t('飞书应用')}

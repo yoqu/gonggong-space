@@ -10,6 +10,12 @@ export default {
   全部自动: 'Auto for all',
   命令审批: 'Command approval',
   '只有 Bot 主人能修改命令审批': 'Only the Bot owner can change command approval',
+  'Git 提交身份': 'Git commit identity',
+  'Git 提交名': 'Git commit name',
+  'Git 提交邮箱': 'Git commit email',
+  'Bot 提交代码时的作者名和邮箱，留空用默认值；下次启动 agent 时生效':
+    'Author name and email of the commits the Bot makes; blank uses the default. Takes effect the next time the agent starts',
+  '只有 Bot 主人能修改 Git 提交身份': 'Only the Bot owner can change the Git commit identity',
   '、': ', ',
   命令白名单: 'Command allowlist',
   输入命令前缀后按: 'Type a command prefix and press',

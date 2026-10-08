@@ -193,6 +193,9 @@ export const bots = pgTable('bots', {
   /** Default model / thought level as the adapter names them; null = the adapter's default. */
   model: text('model'),
   effort: text('effort'),
+  /** Author/committer of the agent's git commits; null = bot name / `defaultGitEmail`. */
+  gitName: text('git_name'),
+  gitEmail: text('git_email'),
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),

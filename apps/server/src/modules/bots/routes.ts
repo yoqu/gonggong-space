@@ -267,6 +267,8 @@ export function botRoutes(ctx: Ctx) {
       // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
       if ((body.approval !== undefined || body.allowlist !== undefined) && user.id !== bot.ownerId)
         fail('forbidden', '命令审批只有 Bot 主人能修改')
+      if ((body.gitName !== undefined || body.gitEmail !== undefined) && user.id !== bot.ownerId)
+        fail('forbidden', 'Git 提交身份只有 Bot 主人能修改')
       if (body.allowlist) body.allowlist = normalizeAllowlist(body.allowlist)
       await assertTierAllowed(ctx, body.tier)
       const name = body.name?.trim()

@@ -59,6 +59,11 @@
   display: flex;
   gap: var(--space-8);
 }
+.bots-detail__git {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
 .bots-detail__mono {
   font-family: var(--font-mono);
   font-size: var(--text-subheadline-size);

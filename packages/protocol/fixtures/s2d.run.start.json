@@ -12,7 +12,8 @@
     "model": "opus",
     "effort": "high",
     "approval": "allowlist",
-    "allowlist": ["go build", "npm test"]
+    "allowlist": ["go build", "npm test"],
+    "git": { "name": "小王的 Claude", "email": "b1@bots.gonggong.local" }
   },
   "workspace": {
     "repo": { "id": "r_pay", "url": "git@git.corp:pay/pay-server.git", "branch": "main", "protocol": "auto" },

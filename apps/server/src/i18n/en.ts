@@ -205,6 +205,7 @@ export const en = {
   请选择执行机器: 'Choose a machine to run on',
   执行机器不属于归属人或已吊销: "The machine isn't the owner's or was revoked",
   '命令审批只有 Bot 主人能修改': "Only the Bot's owner can change command approvals",
+  'Git 提交身份只有 Bot 主人能修改': "Only the Bot's owner can change its Git commit identity",
   'full 档位强制使用指定名单': 'The Full access tier requires an allowlist',
   '该 Bot 不在群内': 'This Bot is not in the group',
   只有机器主人可以确认: "Only the machine's owner can confirm",

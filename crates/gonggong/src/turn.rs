@@ -537,6 +537,7 @@ mod tests {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            git: None,
         };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));

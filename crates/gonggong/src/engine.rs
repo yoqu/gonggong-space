@@ -160,6 +160,7 @@ impl Engine {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            git: None,
         };
         let agent = AcpAgent::new(self.0.adapter(&bot, &local, &Selection::Official).await?);
         let dir = self.0.config.home.join("probe");
@@ -498,6 +499,15 @@ impl Inner {
                     .envs(env)
                     .env("PATH", node.path_env().to_string_lossy())
             }
+        };
+        // After the user's variables: commits are the bot's, whatever the machine is configured with.
+        let base = match &bot.git {
+            Some(g) => base
+                .env("GIT_AUTHOR_NAME", &g.name)
+                .env("GIT_AUTHOR_EMAIL", &g.email)
+                .env("GIT_COMMITTER_NAME", &g.name)
+                .env("GIT_COMMITTER_EMAIL", &g.email),
+            None => base,
         };
         let cli = agents::locate(&self.config.home, bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
         let provider = match selection {

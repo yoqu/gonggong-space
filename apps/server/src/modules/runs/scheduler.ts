@@ -16,6 +16,7 @@ import {
 import { FEISHU_HINT } from '../agent-tools/feishu.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
+import { gitIdentity } from '../bots/git.js'
 import { runTier } from '../bots/tier.js'
 import { boundChat } from '../feishu/mirror.js'
 import { effectiveParams } from '../groups/params.js'
@@ -241,6 +242,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
       tier: await runTier(tx, (gb.tier ?? bot.tier) as Tier),
       approval: bot.approval as Approval,
       allowlist: bot.allowlist,
+      git: gitIdentity(bot),
       ...config,
     },
     workspace: {

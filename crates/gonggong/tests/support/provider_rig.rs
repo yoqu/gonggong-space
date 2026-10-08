@@ -46,6 +46,7 @@ pub fn start(run_id: &str, kind: AgentKind) -> RunStart {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            git: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
         resume_session_id: None,

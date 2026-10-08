@@ -85,6 +85,9 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   model: null,
   effort: null,
   catalog: null,
+  gitName: null,
+  gitEmail: null,
+  gitDefaultEmail: 'b1@bots.gonggong.local',
   ...o,
 })
 
@@ -440,6 +443,42 @@ describe('bot detail', () => {
     const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
     expect(body.concurrency).toBe(3)
     expect('approval' in body || 'allowlist' in body).toBe(false)
+  })
+
+  it('lets the owner set the git commit identity, blank = default', async () => {
+    routes['GET /api/bots'] = () => [bot({ gitEmail: 'old@corp.com' })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    const name = within(detail).getByRole('textbox', { name: 'Git 提交名' }) as HTMLInputElement
+    const email = within(detail).getByRole('textbox', { name: 'Git 提交邮箱' }) as HTMLInputElement
+    expect([name.placeholder, email.placeholder, email.value]).toEqual([
+      '小王的 Claude',
+      'b1@bots.gonggong.local',
+      'old@corp.com',
+    ])
+    fireEvent.change(name, { target: { value: ' CC Bot ' } })
+    fireEvent.change(email, { target: { value: ' ' } })
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({
+        gitName: 'CC Bot',
+        gitEmail: null,
+      }),
+    )
+  })
+
+  it('shows the git commit identity read-only to a sysadmin who is not the owner', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/admin/bots', admin)
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    expect(within(detail).queryByRole('textbox', { name: 'Git 提交名' })).toBeNull()
+    expect(within(detail).getByText('小王的 Claude <b1@bots.gonggong.local>')).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
+    const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
+    expect('gitName' in body || 'gitEmail' in body).toBe(false)
   })
 
   it('opens a bot page from the ?bot= deep link', async () => {

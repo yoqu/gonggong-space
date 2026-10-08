@@ -351,6 +351,10 @@ export const BotDto = z.object({
   catalog: AgentCatalog.nullable(),
   approval: Approval,
   allowlist: z.array(z.string()),
+  /** Git commit identity; null = the bot name / `gitDefaultEmail`. */
+  gitName: z.string().nullable(),
+  gitEmail: z.string().nullable(),
+  gitDefaultEmail: z.string(),
 })
 export type BotDto = z.infer<typeof BotDto>
 /** GET /api/daemon/bots (machine token): a machine serves bots of several teams, so each names its own (plan D20). */
@@ -464,6 +468,9 @@ export const UpdateBotReq = z.object({
   /** Bot owner only. */
   approval: Approval.optional(),
   allowlist: Allowlist.optional(),
+  /** Bot owner only; null = default. */
+  gitName: z.string().trim().min(1).max(80).nullable().optional(),
+  gitEmail: z.email().max(200).nullable().optional(),
 })
 
 // ── Notifications ───────────────────────────────────────────────────────────
