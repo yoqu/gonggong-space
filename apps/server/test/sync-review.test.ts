@@ -29,6 +29,7 @@ import {
 import { schedule } from '../src/modules/runs/scheduler.js'
 import { stopRuns } from '../src/modules/runs/stop.js'
 import { blobPath, blobQuota, purgeSyncBlobs } from '../src/modules/sync/blobs.js'
+import { handleSubmit } from '../src/modules/sync/engine.js'
 import { publishSync } from '../src/modules/sync/status.js'
 import { runSyncStart, submitSync } from '../src/modules/sync/store.js'
 import { expireSwitches } from '../src/modules/sync/switch.js'
@@ -531,7 +532,11 @@ describe('leave reaches offline machines', () => {
 
   it('a connecting machine is not told the head of an archived group', async () => {
     connect('A')
-    await submit('A', w.msg(w.a.id, [await change(w, 'a.txt', 'x')], { kind: 'init' }))
+    await handleSubmit(
+      t.ctx,
+      w.A.machine.id,
+      w.msg(w.a.id, [await change(w, 'a.txt', 'x')], { kind: 'init' }),
+    )
     await t.db.update(groups).set({ archivedAt: new Date() }).where(eq(groups.id, w.g.id))
     connect('B')
     await new Promise((r) => setTimeout(r, 100))
