@@ -383,6 +383,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.mx-mono {
+  font-family: var(--font-mono);
+  user-select: text;
+}
 .mx-inline {
   display: inline-flex;
   align-items: center;

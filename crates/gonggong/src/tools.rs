@@ -282,7 +282,7 @@ pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Res
     }
     if !status.managed {
         bail!(t!(
-            "{tool} 为自行安装（{path}），共工空间不代为升级，可改为安装共工空间托管版",
+            "{tool} 为自行安装（{path}），共工空间不代为升级，请用原安装方式升级",
             tool = kind.label(),
             path = status.path.as_deref().unwrap_or("-")
         ));

@@ -21,7 +21,7 @@ import { AGENT_LABEL } from '../bots/model'
 import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
 import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
-import { hasUpdate } from '../machines/ToolsPanel'
+import { hasUpdate } from '../machines/tools'
 import { AdminPage } from './AdminPage'
 
 const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION

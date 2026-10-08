@@ -67,11 +67,7 @@ it('installs a missing agent with a live log, then detects it again', async () =
   const log = within(await codex.findByRole('log', { name: '安装日志' }))
   expect(log.getByText('安装 @openai/codex@latest（https://registry.npmmirror.com）')).toBeTruthy()
   expect(codex.getByText('正在安装…')).toBeTruthy()
-  expect(
-    screen
-      .getAllByRole('button', { name: '安装共工空间托管版' })
-      .every((b) => (b as HTMLButtonElement).disabled),
-  ).toBe(true)
+  expect(screen.queryByRole('button', { name: '安装共工空间托管版' })).toBeNull()
 
   m.agents.mockResolvedValue([CLAUDE, { ...CODEX, available: true, version: '0.159.2', path: '/x/codex' }])
   m.tools.mockResolvedValue([tool({ kind: 'codex', version: '0.159.2', managed: true, latest: '0.159.2' })])
@@ -81,12 +77,13 @@ it('installs a missing agent with a live log, then detects it again', async () =
   expect(screen.getByText('共工空间托管')).toBeTruthy()
 })
 
-it('upgrades a managed tool and offers the managed install next to the user’s own', async () => {
+it('upgrades a managed tool and shows the upgrade command of the user’s own', async () => {
   m.tools.mockResolvedValue([
     tool({ kind: 'node', version: '20.1.0', path: '/usr/local/bin/node' }),
     tool({ kind: 'claude', version: '2.1.4', latest: '2.2.0', managed: true }),
-    tool({ kind: 'codex', installed: false }),
+    tool({ kind: 'codex', version: '0.150.0', latest: '0.159.2', path: '/opt/homebrew/bin/codex' }),
   ])
+  m.agents.mockResolvedValue([CLAUDE, { ...CODEX, available: true, version: '0.150.0', path: '/opt/homebrew/bin/codex' }])
   m.runTool.mockRejectedValue('本机已有工具安装或升级在进行中，请稍后再试')
   render(<AgentsPage go={() => {}} />)
   const node = within((await screen.findByText('Node.js')).closest('.ui-group') as HTMLElement)
@@ -94,8 +91,14 @@ it('upgrades a managed tool and offers the managed install next to the user’s 
   expect(node.getByText(/低于 22，ACP 适配器无法运行/)).toBeTruthy()
   expect(node.getByText('自行安装')).toBeTruthy()
 
+  const codex = within(await card('Codex'))
+  expect(await codex.findByText('有更新')).toBeTruthy()
+  expect(codex.getByText('brew upgrade codex')).toBeTruthy()
+  expect(codex.queryByRole('button', { name: '安装共工空间托管版' })).toBeNull()
+
   const claude = within(await card('Claude Code'))
   expect(await claude.findByText('有更新')).toBeTruthy()
+  expect(claude.queryByText('claude update')).toBeNull()
   expect(claude.getByText('共工空间托管')).toBeTruthy()
   fireEvent.click(claude.getByRole('button', { name: '升级到 2.2.0' }))
   await waitFor(() => expect(m.runTool).toHaveBeenCalledWith('upgrade', 'claude', expect.any(String)))

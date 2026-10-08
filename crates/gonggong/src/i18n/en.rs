@@ -270,8 +270,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("ACP 适配器需要 Node.js ≥ {min}，不能安装 {v}", "The ACP adapter needs Node.js ≥ {min}; can't install {v}"),
     ("{tool} 未安装", "{tool} is not installed"),
     (
-        "{tool} 为自行安装（{path}），共工空间不代为升级，可改为安装共工空间托管版",
-        "{tool} was installed by you ({path}); Gonggong Space won't upgrade it. You can install the Gonggong Space managed version instead",
+        "{tool} 为自行安装（{path}），共工空间不代为升级，请用原安装方式升级",
+        "{tool} was installed by you ({path}); Gonggong Space won't upgrade it; upgrade it the way you installed it",
     ),
     ("{tool} 已是最新版本 {v}", "{tool} is already the latest version {v}"),
     ("安装 {spec}（{registry}）", "Installing {spec} ({registry})"),

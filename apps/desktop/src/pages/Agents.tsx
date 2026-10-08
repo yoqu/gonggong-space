@@ -12,6 +12,7 @@ import {
   type ToolOp,
   type ToolStatus,
 } from '../ipc'
+import { hasUpdate, selfUpgradeCommand } from '@web/features/machines/tools'
 import { AGENTS, VENDOR } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
 import { ProviderBox } from '../providers/ProviderBox'
@@ -33,9 +34,6 @@ interface Op {
   running: boolean
   failed: boolean
 }
-
-const hasUpdate = (s: ToolStatus | undefined) =>
-  !!(s?.latest && s.version && compareVersions(s.latest, s.version) > 0)
 
 export function AgentsPage(_: PageProps) {
   const [agents, setAgents] = useState<AgentCard[] | null>(null)
@@ -151,7 +149,7 @@ export function AgentsPage(_: PageProps) {
   )
 }
 
-/** 安装 when missing, 升级 for a managed tool with an update, 安装共工空间托管版 next to the user's own install. */
+/** 安装 when missing, 升级 for a managed tool with an update; the user's own install is theirs to upgrade. */
 function ToolActions({
   tool: s,
   busy,
@@ -171,18 +169,11 @@ function ToolActions({
       </Button>
     )
   }
-  if (s.managed) {
-    return hasUpdate(s) ? (
-      <Button variant="primary" disabled={busy} onClick={() => onRun('upgrade')}>
-        {t('升级到 {version}', { version: s.latest ?? '' })}
-      </Button>
-    ) : null
-  }
-  return (
-    <Button disabled={busy} onClick={() => onRun('install')}>
-      {t('安装共工空间托管版')}
+  return s.managed && hasUpdate(s) ? (
+    <Button variant="primary" disabled={busy} onClick={() => onRun('upgrade')}>
+      {t('升级到 {version}', { version: s.latest ?? '' })}
     </Button>
-  )
+  ) : null
 }
 
 function ToolLog({ op }: { op: Op }) {
@@ -205,10 +196,11 @@ function ToolLog({ op }: { op: Op }) {
   )
 }
 
-/** 版本 · 共工空间托管 / 自行安装 · 最新版本 rows of a detected tool. */
+/** 版本 · 共工空间托管 / 自行安装 · 最新版本 rows of a detected tool, and how to upgrade the user's own install. */
 function toolRows(s: ToolStatus | undefined, loaded: boolean) {
   if (!loaded) return <GroupRow label={t('最新版本')} wideValue value={t('检查中…')} />
   if (!s?.installed) return null
+  const command = !s.managed && hasUpdate(s) ? selfUpgradeCommand(s.kind, s.path) : null
   return (
     <>
       <GroupRow label={t('来源')} wideValue value={s.managed ? t('共工空间托管') : t('自行安装')} />
@@ -222,6 +214,14 @@ function toolRows(s: ToolStatus | undefined, loaded: boolean) {
           </span>
         }
       />
+      {command ? (
+        <GroupRow
+          label={t('升级命令')}
+          description={t('自行安装的版本由你在本机终端升级')}
+          wideValue
+          value={<span className="dk-mono">{command}</span>}
+        />
+      ) : null}
     </>
   )
 }
