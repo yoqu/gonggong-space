@@ -123,6 +123,8 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   # Defaults to the key `tauri signer generate -w ~/.tauri/gonggong.key` wrote.
   [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] || [ ! -f "$HOME/.tauri/gonggong.key" ] || export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/gonggong.key"
   : "${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY (path or content) is required to sign the app update}"
+  # Unset, Tauri prompts on a terminal even for a key without password.
+  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
   rm -rf "$ROOT/target/release/bundle"
   # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
   # so everyday desktop builds do not need libwebrtc.
