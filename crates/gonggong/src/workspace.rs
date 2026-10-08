@@ -619,10 +619,11 @@ pub fn dir_size(path: &Path, max_entries: usize) -> u64 {
             if seen > max_entries {
                 return total;
             }
+            // DirEntry metadata does not follow symlinks: a link is neither, so neither its target nor its own size counts.
             match e.metadata() {
                 Ok(m) if m.is_dir() => stack.push(e.path()),
-                Ok(m) => total += m.len(),
-                Err(_) => {}
+                Ok(m) if m.is_file() => total += m.len(),
+                _ => {}
             }
         }
     }
@@ -825,7 +826,7 @@ mod tests {
         }
         #[cfg(unix)]
         std::os::unix::fs::symlink(big.path(), dir.path().join("link")).unwrap();
-        assert!(dir_size(dir.path(), 1000) < 1000);
+        assert_eq!(dir_size(dir.path(), 1000), 50);
         assert!(dir_size(dir.path(), 2) <= 20);
         assert_eq!(dir_size(&dir.path().join("missing"), 10), 0);
     }
