@@ -211,7 +211,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
               ? '上传 {kind} {version}（{platform}）'
               : '移除 {kind} {version}（{platform}）',
             {
-              kind: d.kind === 'cast' ? 'gg-cast' : 'daemon',
+              kind: d.kind === 'cast' ? 'gg-cast' : d.kind === 'desktop' ? t('桌面端') : 'daemon',
               version: str(d.version),
               platform: str(d.platform),
             },

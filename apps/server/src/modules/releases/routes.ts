@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import multipart from '@fastify/multipart'
 import {
+  ClientDownloads,
   compareVersions,
   DaemonRelease,
   type MachineInfo,
@@ -19,7 +20,7 @@ import { systemParams } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { dataDir } from '../attachments/service.js'
-import { requireSysadmin } from '../auth/session.js'
+import { requireSysadmin, requireUser } from '../auth/session.js'
 
 const KEY = 'daemonRelease'
 const FILE = /^\w[\w.-]*$/
@@ -62,7 +63,9 @@ async function removeHosted(url: string) {
 }
 
 const hostedUrls = (r: DaemonRelease) =>
-  [...Object.values(r.builds), ...Object.values(r.cast ?? {})].map((b) => b.url)
+  [...Object.values(r.builds), ...Object.values(r.cast ?? {}), ...Object.values(r.desktop ?? {})].map(
+    (b) => b.url,
+  )
 
 export function releaseRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -71,6 +74,12 @@ export function releaseRoutes(ctx: Ctx) {
     app.get('/api/admin/daemon-release', async (req) => {
       await requireSysadmin(ctx, req)
       return daemonRelease(ctx)
+    })
+
+    app.get('/api/client-downloads', async (req) => {
+      await requireUser(ctx, req)
+      const release = await daemonRelease(ctx)
+      return release ? ClientDownloads.parse(release) : null
     })
 
     app.put('/api/admin/daemon-release', async (req) => {
@@ -180,7 +189,10 @@ export function releaseRoutes(ctx: Ctx) {
         ))
       )
         return fail('not_found', '文件不存在')
-      return reply.header('content-type', 'application/octet-stream').send(createReadStream(path))
+      return reply
+        .header('content-type', 'application/octet-stream')
+        .header('content-disposition', `attachment; filename="${file}"`)
+        .send(createReadStream(path))
     })
   }
 }

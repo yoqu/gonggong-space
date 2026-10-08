@@ -1114,6 +1114,8 @@ export const DaemonRelease = z.object({
   builds: z.record(z.string(), DaemonBuild),
   /** gg-cast (desktop preview publisher) per platform, downloaded by the daemon on its first live preview. */
   cast: z.record(z.string(), DaemonBuild).optional(),
+  /** Desktop app installers (Tauri dmg / setup.exe) offered on the 绑定新机器 page. */
+  desktop: z.record(z.string(), DaemonBuild).optional(),
 })
 export type DaemonRelease = z.infer<typeof DaemonRelease>
 /** `<os>-<arch>` built by scripts/release.sh. */
@@ -1124,7 +1126,7 @@ export const RELEASE_PLATFORMS = [
   'linux-aarch64',
   'windows-x86_64',
 ] as const
-export const ReleaseKind = z.enum(['builds', 'cast'])
+export const ReleaseKind = z.enum(['builds', 'cast', 'desktop'])
 export type ReleaseKind = z.infer<typeof ReleaseKind>
 export interface ReleaseFile {
   kind: ReleaseKind
@@ -1133,15 +1135,28 @@ export interface ReleaseFile {
 }
 const RELEASE_FILE =
   /^(gonggong|gg-cast)-(\d+\.\d+\.\d+)-((?:macos|linux)-(?:x86_64|aarch64)|windows-x86_64)(\.exe)?$/
+const DESKTOP_FILE = /^Gonggong_(\d+\.\d+\.\d+)_(aarch64\.dmg|x86_64\.dmg|x64-setup\.exe)$/
+const DESKTOP_PLATFORM: Record<string, string> = {
+  'aarch64.dmg': 'macos-aarch64',
+  'x86_64.dmg': 'macos-x86_64',
+  'x64-setup.exe': 'windows-x86_64',
+}
 /**
  * POST /api/admin/daemon-release/files takes scripts/release.sh artifacts as named (`gonggong-0.2.0-macos-aarch64`,
- * `gg-cast-0.2.0-windows-x86_64.exe`): the name alone says what the file is, so admins just drop dist/<version>/.
+ * `gg-cast-0.2.0-windows-x86_64.exe`, `Gonggong_0.2.0_aarch64.dmg`): the name alone says what the file is, so admins
+ * just drop dist/<version>/.
  */
 export function parseReleaseFile(name: string): ReleaseFile | null {
+  const [, desktopVersion, bundle] = DESKTOP_FILE.exec(name) ?? []
+  if (desktopVersion && bundle)
+    return { kind: 'desktop', version: desktopVersion, platform: DESKTOP_PLATFORM[bundle] as string }
   const [, prefix, version, platform, exe] = RELEASE_FILE.exec(name) ?? []
   if (!version || !platform || platform.startsWith('windows') !== Boolean(exe)) return null
   return { kind: prefix === 'gonggong' ? 'builds' : 'cast', version, platform }
 }
+/** GET /api/client-downloads → installers a member can download, or null before any is published. */
+export const ClientDownloads = DaemonRelease.pick({ version: true, builds: true, desktop: true })
+export type ClientDownloads = z.infer<typeof ClientDownloads>
 /** GET /api/daemon/cast-build (machine token) → gg-cast for its platform; 404 when none is published. */
 export const CastBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
 export type CastBuildDto = z.infer<typeof CastBuildDto>

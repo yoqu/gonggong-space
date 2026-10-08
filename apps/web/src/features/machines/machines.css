@@ -77,6 +77,12 @@
 .bind__link:hover {
   text-decoration: underline;
 }
+.bind__downloads {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-left: 4px;
+}
 
 /* 机器详情 */
 .machine__rename {

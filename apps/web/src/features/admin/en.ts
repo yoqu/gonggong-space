@@ -80,8 +80,8 @@ export default {
   '平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。':
     'Platform defaults; team admins override some of them in team settings, and group admins adjust group-level params in group settings.',
   客户端发布: 'Client releases',
-  '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。':
-    "Daemons on members' machines upgrade to this version when they connect; gg-cast downloads on demand the first time a live view is streamed.",
+  '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载。':
+    "Daemons on members' machines upgrade to this version when they connect; gg-cast downloads on demand the first time a live view is streamed; members download the desktop installers and the Linux daemon from Bind new machine.",
   观测: 'Observability',
   用量: 'Usage',
   '公开链接#nav': 'Public links',
@@ -109,18 +109,22 @@ export default {
   保存: 'Save',
   未发布: 'Not released',
   已发布: 'Released',
-  '不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64':
-    'Not a release artifact; the file name should look like gonggong-0.2.0-macos-aarch64',
+  '不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg':
+    'Not a release artifact; the file name should look like gonggong-0.2.0-macos-aarch64 or Gonggong_0.2.0_aarch64.dmg',
   '已移除 {kind}（{platform}）': 'Removed {kind} ({platform})',
   '当前版本 {version}': 'Current version {version}',
   尚未发布: 'Not released yet',
   拖入发布产物: 'Drop release artifacts',
-  '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 gg-cast-* 文件拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。':
-    'After running scripts/release.sh, drop the gonggong-* and gg-cast-* files from dist/<version>/ here. File names determine platform and version; a higher version replaces the whole release.',
+  '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-*、gg-cast-* 与 Gonggong_*.dmg / Gonggong_*-setup.exe 拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。':
+    'After running scripts/release.sh, drop the gonggong-*, gg-cast-* and Gonggong_*.dmg / Gonggong_*-setup.exe files from dist/<version>/ here. File names determine platform and version; a higher version replaces the whole release.',
   各平台发布文件: 'Release files by platform',
   平台: 'Platform',
   标识: 'ID',
   'gg-cast（实时画面）': 'gg-cast (live view)',
+  桌面端: 'Desktop app',
+  桌面端安装包: 'Desktop installer',
+  '成员将无法在「绑定新机器」中下载该平台的安装包，直到重新上传。':
+    'Members cannot download the installer for this platform from Bind new machine until it is uploaded again.',
   '移除 {kind}…': 'Remove {kind}…',
   '要移除 {platform} 的 {kind} 吗？': 'Remove {kind} for {platform}?',
   '该平台的机器将不再自动升级，直到重新上传。':

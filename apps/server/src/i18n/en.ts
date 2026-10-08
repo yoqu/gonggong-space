@@ -88,6 +88,7 @@ export const en = {
   '停用账号 {account}': 'Disabled account {account}',
   '启用账号 {account}': 'Enabled account {account}',
   '发布 daemon {version}（{platforms}）': 'Released daemon {version} ({platforms})',
+  桌面端: 'desktop app',
   '上传 {kind} {version}（{platform}）': 'Uploaded {kind} {version} ({platform})',
   '移除 {kind} {version}（{platform}）': 'Removed {kind} {version} ({platform})',
   '吊销 {user} 的机器 {name}': "Revoked {user}'s machine {name}",
@@ -440,9 +441,9 @@ export const en = {
   系统管理员尚未配置飞书主应用: "The system admin hasn't configured the Feishu main app yet",
   '该群已绑定飞书群，请先解绑': 'This group is already bound to a Feishu chat, unbind it first',
   主应用不在该飞书群中: "The main app isn't in that Feishu chat",
-  该飞书群已绑定其他群: 'That Feishu chat is already bound to another group',
   请先在个人设置中绑定飞书账号: 'Link your Feishu account in your settings first',
   '你不在该飞书群中，不能绑定': "You aren't in that Feishu chat, so you can't bind it",
+  该飞书群已绑定其他群: 'That Feishu chat is already bound to another group',
   该群尚未绑定飞书群: "This group isn't bound to a Feishu chat yet",
   '该 Bot 没有绑定飞书应用': "This Bot doesn't have a Feishu app",
   '这个飞书群还没有绑定共工群，请群管理员在共工的群设置中绑定。':

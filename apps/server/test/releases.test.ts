@@ -213,6 +213,30 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     expect(existsSync(downloaded('gonggong.exe'))).toBe(false)
   })
 
+  it('offers desktop installers and daemon builds to signed-in members', async () => {
+    const cookie = await admin()
+    expect((await t.app.inject('/api/client-downloads')).statusCode).toBe(401)
+    const member = await t.seed.cookie((await t.seed.user()).id)
+    const list = async () =>
+      (await t.app.inject({ url: '/api/client-downloads', headers: { cookie: member } })).json()
+    expect(await list()).toBeNull()
+    await upload(cookie, 'Gonggong_0.2.0_aarch64.dmg', 'dmg')
+    await upload(cookie, 'gonggong-0.2.0-linux-x86_64', 'cli')
+    await upload(cookie, 'gg-cast-0.2.0-macos-aarch64', 'cast')
+    expect(await list()).toEqual({
+      version: '0.2.0',
+      builds: { 'linux-x86_64': { url: '/downloads/gonggong-0.2.0-linux-x86_64', sha256: digest('cli') } },
+      desktop: { 'macos-aarch64': { url: '/downloads/Gonggong_0.2.0_aarch64.dmg', sha256: digest('dmg') } },
+    })
+    const dmg = await t.app.inject('/downloads/Gonggong_0.2.0_aarch64.dmg')
+    expect(dmg.headers['content-disposition']).toBe('attachment; filename="Gonggong_0.2.0_aarch64.dmg"')
+
+    await upload(cookie, 'gonggong-0.3.0-linux-x86_64', 'new')
+    expect(existsSync(downloaded('Gonggong_0.2.0_aarch64.dmg'))).toBe(false)
+    const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
+    expect(audit.json().at(-1).summary).toBe('上传 桌面端 0.2.0（macos-aarch64）')
+  })
+
   it('removes one platform build and its file', async () => {
     const cookie = await admin()
     await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'a')

@@ -90,6 +90,43 @@ describe('bind machine dialog', () => {
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
   })
 
+  it('links the installers published on this server, or GitHub before any is published', async () => {
+    const sha256 = 'a'.repeat(64)
+    mockApi({
+      'POST /bind-codes': {
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        link: '',
+      },
+      'GET /machines': [],
+      'GET /client-downloads': {
+        version: '0.3.0',
+        builds: { 'linux-x86_64': { url: '/downloads/gonggong-0.3.0-linux-x86_64', sha256 } },
+        desktop: {
+          'macos-aarch64': { url: '/downloads/Gonggong_0.3.0_aarch64.dmg', sha256 },
+          'windows-x86_64': { url: '/downloads/Gonggong_0.3.0_x64-setup.exe', sha256 },
+        },
+      },
+    })
+    const { unmount } = render(<BindMachineDialog open onClose={() => {}} />)
+    expect((await screen.findByRole('link', { name: 'macOS（Apple 芯片）' })).getAttribute('href')).toBe(
+      '/downloads/Gonggong_0.3.0_aarch64.dmg',
+    )
+    expect(screen.getByRole('link', { name: 'Windows' }).getAttribute('href')).toBe(
+      '/downloads/Gonggong_0.3.0_x64-setup.exe',
+    )
+    expect(screen.getByRole('link', { name: 'Linux x86_64（命令行）' }).getAttribute('href')).toBe(
+      '/downloads/gonggong-0.3.0-linux-x86_64',
+    )
+    unmount()
+
+    api()
+    render(<BindMachineDialog open onClose={() => {}} />)
+    expect((await screen.findByRole('link', { name: '前往 GitHub 下载' })).getAttribute('href')).toBe(
+      'https://github.com/yoqu/gonggong-space/releases/latest',
+    )
+  })
+
   it('keeps the gg login command under 使用命令行', async () => {
     api()
     render(<BindMachineDialog open onClose={() => {}} />)

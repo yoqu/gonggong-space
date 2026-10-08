@@ -108,7 +108,9 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('客户端发布'),
         icon: 'download',
         color: 'var(--system-blue)',
-        desc: t('成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。'),
+        desc: t(
+          '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载。',
+        ),
         element: <ReleasesPage />,
       },
     ],

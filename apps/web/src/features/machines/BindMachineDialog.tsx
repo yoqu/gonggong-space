@@ -1,8 +1,8 @@
-import type { MachineDto } from '@gonggong/protocol'
+import type { ClientDownloads, MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus, toast } from '../../ui'
+import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { BindCodePanel, useBindCode } from './BindCodePanel'
 import './machines.css'
@@ -84,18 +84,58 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
               {t(
                 '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。还没安装共工空间客户端？',
               )}
-              <button
-                type="button"
-                className="bind__link"
-                onClick={() => toast({ message: t('安装包下载即将上线，请先从源码构建') })}
-              >
-                {t('下载 macOS / Linux / Windows 版')}
-              </button>
+              <DownloadLinks open={open} />
             </p>
           </>
         )}
       </div>
     </Dialog>
+  )
+}
+
+const GITHUB_RELEASES = 'https://github.com/yoqu/gonggong-space/releases/latest'
+const DESKTOP_LABEL: Record<string, string> = {
+  'macos-aarch64': t('macOS（Apple 芯片）'),
+  'macos-x86_64': t('macOS（Intel）'),
+  'windows-x86_64': 'Windows',
+}
+
+/** Installers hosted by this server (管理后台 · 客户端发布); Linux has no desktop app, so it gets the gg CLI. */
+function DownloadLinks({ open }: { open: boolean }) {
+  const [downloads, setDownloads] = useState<ClientDownloads | null>(null)
+  useEffect(() => {
+    if (open)
+      void api
+        .get<ClientDownloads | null>('/client-downloads')
+        .then(setDownloads)
+        .catch(() => {})
+  }, [open])
+
+  const links = [
+    ...Object.entries(downloads?.desktop ?? {})
+      .filter(([p]) => DESKTOP_LABEL[p])
+      .map(([p, b]) => ({ label: DESKTOP_LABEL[p] as string, url: b.url })),
+    ...Object.entries(downloads?.builds ?? {})
+      .filter(([p]) => p.startsWith('linux-'))
+      .map(([p, b]) => ({
+        label: t('Linux {arch}（命令行）', { arch: p.slice('linux-'.length) }),
+        url: b.url,
+      })),
+  ]
+  if (!links.length)
+    return (
+      <a className="bind__link" href={GITHUB_RELEASES} target="_blank" rel="noreferrer">
+        {t('前往 GitHub 下载')}
+      </a>
+    )
+  return (
+    <span className="bind__downloads">
+      {links.map((l) => (
+        <a key={l.url} className="bind__link" href={l.url} download>
+          {l.label}
+        </a>
+      ))}
+    </span>
   )
 }
 

@@ -25,8 +25,10 @@ export default {
   '等待客户端确认绑定…': 'Waiting for the client to confirm…',
   '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。还没安装共工空间客户端？':
     'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex; rebinding the same machine restores its record. No Gonggong Space client yet?',
-  '安装包下载即将上线，请先从源码构建': 'Installer downloads are coming soon; build from source for now',
-  '下载 macOS / Linux / Windows 版': 'Download for macOS / Linux / Windows',
+  'macOS（Apple 芯片）': 'macOS (Apple silicon)',
+  'macOS（Intel）': 'macOS (Intel)',
+  'Linux {arch}（命令行）': 'Linux {arch} (CLI)',
+  '前往 GitHub 下载': 'Download from GitHub',
   已恢复原有机器: 'Existing machine restored',
   绑定成功: 'Bound',
   '{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）':

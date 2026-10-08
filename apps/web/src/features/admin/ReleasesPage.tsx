@@ -19,10 +19,11 @@ interface Row {
   id: string
   builds?: Build
   cast?: Build
+  desktop?: Build
   machines: number
 }
 
-const KIND_LABEL: Record<ReleaseKind, string> = { builds: 'daemon', cast: 'gg-cast' }
+const KIND_LABEL: Record<ReleaseKind, string> = { builds: 'daemon', cast: 'gg-cast', desktop: t('桌面端') }
 
 function platformText(key: string) {
   const os = key.slice(0, key.indexOf('-')) as keyof typeof OS_LABEL
@@ -68,7 +69,10 @@ export function ReleasesPage() {
     ])
     for (const [i, file] of files.entries()) {
       if (!parseReleaseFile(file.name)) {
-        set(i, { progress: undefined, error: t('不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64') })
+        set(i, {
+          progress: undefined,
+          error: t('不是发布产物，文件名应形如 gonggong-0.2.0-macos-aarch64 或 Gonggong_0.2.0_aarch64.dmg'),
+        })
         continue
       }
       const form = new FormData()
@@ -108,19 +112,23 @@ export function ReleasesPage() {
     ...RELEASE_PLATFORMS,
     ...Object.keys(release?.builds ?? {}),
     ...Object.keys(release?.cast ?? {}),
+    ...Object.keys(release?.desktop ?? {}),
     ...machines.map((m) => `${m.os}-${m.arch}`),
   ])
   const rows: Row[] = [...keys].map((id) => ({
     id,
     builds: release?.builds[id],
     cast: release?.cast?.[id],
+    desktop: release?.desktop?.[id],
     machines: count(id),
   }))
 
   return (
     <AdminPage
       title={t('客户端发布')}
-      desc={t('成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载。')}
+      desc={t(
+        '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载。',
+      )}
       subtitle={
         release === undefined
           ? undefined
@@ -135,7 +143,7 @@ export function ReleasesPage() {
         onFiles={(files) => void upload(files)}
         title={t('拖入发布产物')}
         description={t(
-          '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-* 与 gg-cast-* 文件拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。',
+          '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-*、gg-cast-* 与 Gonggong_*.dmg / Gonggong_*-setup.exe 拖到这里。文件名决定平台与版本；更高的版本会替换整个发布。',
         )}
         files={uploads}
         onRemove={(i) => setUploads((list) => list.filter((_, j) => j !== i))}
@@ -160,10 +168,15 @@ export function ReleasesPage() {
               title: t('gg-cast（实时画面）'),
               render: (r) => <BuildCell build={r.cast} needed={false} />,
             },
+            {
+              key: 'desktop',
+              title: t('桌面端安装包'),
+              render: (r) => <BuildCell build={r.desktop} needed={false} />,
+            },
             { key: 'machines', title: t('机器#count'), width: 72, align: 'right' },
           ]}
           rowActions={(r) =>
-            (['builds', 'cast'] as const)
+            (['builds', 'cast', 'desktop'] as const)
               .filter((k) => r[k])
               .map((k) => ({
                 label: t('移除 {kind}…', { kind: KIND_LABEL[k] }),
@@ -182,9 +195,11 @@ export function ReleasesPage() {
             kind: KIND_LABEL[removing.kind],
           })}
           message={
-            removing.kind === 'builds'
-              ? t('该平台的机器将不再自动升级，直到重新上传。')
-              : t('该平台的机器将无法推送实时画面，直到重新上传。')
+            {
+              builds: t('该平台的机器将不再自动升级，直到重新上传。'),
+              cast: t('该平台的机器将无法推送实时画面，直到重新上传。'),
+              desktop: t('成员将无法在「绑定新机器」中下载该平台的安装包，直到重新上传。'),
+            }[removing.kind]
           }
           onClose={() => setRemoving(null)}
           actions={[

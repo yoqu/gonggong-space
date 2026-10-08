@@ -77,7 +77,7 @@ const cells = (text: string) =>
   within(rowOf(text))
     .getAllByRole('gridcell')
     .map((c) => c.textContent)
-    .slice(0, 5)
+    .slice(0, 6)
 
 describe('管理后台 · 客户端发布', () => {
   it('shows every platform with its daemon and gg-cast builds and the machines that need them', async () => {
@@ -97,10 +97,18 @@ describe('管理后台 · 客户端发布', () => {
       'macos-aarch64',
       `已发布 ${'a'.repeat(12)}`,
       '未发布',
+      '未发布',
       '2',
     ])
-    expect(cells('windows-x86_64')).toEqual(['Windows x86_64', 'windows-x86_64', '未发布', '未发布', '1'])
-    expect(cells('linux-aarch64')[4]).toBe('0')
+    expect(cells('windows-x86_64')).toEqual([
+      'Windows x86_64',
+      'windows-x86_64',
+      '未发布',
+      '未发布',
+      '未发布',
+      '1',
+    ])
+    expect(cells('linux-aarch64')[5]).toBe('0')
   })
 
   it('uploads dropped release artifacts one by one and rejects other files without sending them', async () => {
