@@ -454,7 +454,7 @@ async fn publishes_a_virtual_display_as_a_whole_screen() {
     assert_eq!(next_cast(&mut rx).await, (CastPhase::Live, None));
     // The display belongs to the service alone: its whole screen is the app's windows.
     let args = std::fs::read_to_string(&seen).unwrap();
-    assert_eq!(args.lines().next().unwrap(), "--url wss://lk.example.com --screen");
+    assert_eq!(args.lines().next().unwrap(), "--url wss://lk.example.com --screen --fps 30");
     assert_eq!(std::fs::read_to_string(&env).unwrap().trim(), "DISPLAY=:42 WAYLAND=none");
     casts.sync(vec![], &out);
     services.stop_all().await;
