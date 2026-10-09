@@ -215,6 +215,17 @@ describe('自动配置 pending until the first version is approved', () => {
     expect(row?.configError).toBeNull()
   })
 
+  it('an app Feishu will not let us modify needs manual setup and is not retried', async () => {
+    t.feishu.configureErrorCode = 210021
+    await pendingMain()
+    const http = await sysadmin()
+    expect((await http.get<FeishuAppView>('/api/admin/feishu')).body.app?.configError).toMatch(/手动配置/)
+    const { retryFeishuConfig } = await import('../src/modules/feishu/config.js')
+    t.feishu.configureError = null
+    await retryFeishuConfig(t.ctx)
+    expect(t.feishu.configs).toEqual([])
+  })
+
   it('bot app: the owner retries; needs a bound app', async () => {
     const owner = await t.seed.user()
     const bot = await t.seed.bot({ ownerId: owner.id })

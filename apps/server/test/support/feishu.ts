@@ -78,6 +78,7 @@ export class FakeFeishu {
   readonly configs: { appId: string; config: FeishuDevConfig }[] = []
   /** `configure` fails with this message when set. */
   configureError: string | null = null
+  configureErrorCode = 99991672
   /** 扫码创建 sessions waiting for the admin to scan; settle them with `approve` / `deny`. */
   readonly registrations: (FeishuRegistration & { url: string; settle: (r: FeishuCreds | Error) => void })[] =
     []
@@ -411,7 +412,7 @@ export class FakeFeishu {
       }),
     configure: async (app, config) => {
       this.check(app.appId)
-      if (this.configureError) throw new FeishuError(99991672, this.configureError)
+      if (this.configureError) throw new FeishuError(this.configureErrorCode, this.configureError)
       this.configs.push({ appId: app.appId, config })
     },
   }
