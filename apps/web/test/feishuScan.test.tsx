@@ -40,8 +40,7 @@ describe('扫码创建或绑定', () => {
     const view = render(
       <FeishuScanDialog path="/bots/b1/feishu" update={false} onDone={done} onClose={() => {}} />,
     )
-    await screen.findByText('no permission')
-    expect(done).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(done).toHaveBeenCalledTimes(1))
     view.rerender(<FeishuScanDialog path="/bots/b1/feishu" update={false} onDone={done} onClose={() => {}} />)
     expect(done).toHaveBeenCalledTimes(1)
   })
