@@ -36,6 +36,7 @@ export default {
   '打开已预填（{fields}）的创建页': 'Open the prefilled creation page ({fields})',
   先填写实例地址: 'Enter the instance URL first',
   '在 {provider} 创建 Token': 'Create token on {provider}',
+  '页面 404？旧版 GitLab（17.4 及以下）点这里': 'Got a 404? Use this link for older GitLab (17.4 and below)',
   'Token 只用于列出仓库和分支，加密保存在服务器，不用于 clone。':
     'The token is only used to list repos and branches, is stored encrypted on the server, and is never used to clone.',
   '连接失败，请重试': 'Connection failed, please try again',

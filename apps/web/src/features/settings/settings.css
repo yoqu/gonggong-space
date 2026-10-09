@@ -54,6 +54,11 @@
   width: fit-content;
   margin-top: var(--space-4);
 }
+.settings-guide__legacy {
+  display: block;
+  width: fit-content;
+  margin-top: var(--space-4);
+}
 .settings-guide__note {
   margin: 0;
   color: var(--label-tertiary);

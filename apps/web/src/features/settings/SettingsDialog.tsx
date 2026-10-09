@@ -232,14 +232,20 @@ function GitPage() {
 const TOKEN_NAME = t('共工空间')
 const TOKEN_NOTE = t('共工空间：列出我的仓库和分支（只读）')
 
-/** Creation page with the name and read-only permission prefilled; unknown parameters are ignored by older instances. */
-export function tokenUrl(provider: GitProvider, base: string) {
+/**
+ * Creation page with the name and read-only permission prefilled; unknown parameters are ignored by older instances.
+ * GitLab moved the page from /-/profile to /-/user_settings in 16.x and dropped the old redirect in 17.5,
+ * so `legacy` (<= 17.4) is offered as a fallback since the version can't be detected before sign-in.
+ */
+export function tokenUrl(provider: GitProvider, base: string, legacy = false) {
   const q =
     provider === 'github'
       ? new URLSearchParams({ name: TOKEN_NAME, description: TOKEN_NOTE, expires_in: '90', contents: 'read' })
       : new URLSearchParams({ name: TOKEN_NAME, description: TOKEN_NOTE, scopes: 'read_api' })
   const path =
-    provider === 'github' ? '/settings/personal-access-tokens/new' : '/-/user_settings/personal_access_tokens'
+    provider === 'github'
+      ? '/settings/personal-access-tokens/new'
+      : `/-/${legacy ? 'profile' : 'user_settings'}/personal_access_tokens`
   return `${base}${path}?${q}`
 }
 
@@ -278,6 +284,16 @@ function TokenGuide({ provider, base }: { provider: GitProvider; base: string })
           >
             {t('在 {provider} 创建 Token', { provider: LABEL[provider] })}
           </Button>
+          {provider === 'gitlab' && ready && (
+            <a
+              className="settings-guide__legacy"
+              href={tokenUrl(provider, base, true)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('页面 404？旧版 GitLab（17.4 及以下）点这里')}
+            </a>
+          )}
         </li>
         {guide.steps.map((step) => (
           <li key={step}>{step}</li>

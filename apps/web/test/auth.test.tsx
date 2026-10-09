@@ -290,6 +290,13 @@ describe('account menu', () => {
     const gitlab = new URL(open.mock.calls[1]?.[0])
     expect(gitlab.origin + gitlab.pathname).toBe('https://gl.corp/-/user_settings/personal_access_tokens')
     expect(gitlab.searchParams.get('scopes')).toBe('read_api')
+    const legacy = new URL(
+      within(guide)
+        .getByRole('link', { name: /旧版 GitLab/ })
+        .getAttribute('href') ?? '',
+    )
+    expect(legacy.origin + legacy.pathname).toBe('https://gl.corp/-/profile/personal_access_tokens')
+    expect(legacy.searchParams.get('scopes')).toBe('read_api')
     fill('Token', 'glpat-1')
     fireEvent.click(within(sheet).getByRole('button', { name: '连接' }))
     expect(await within(sheet).findByText('Token 无效或已过期')).toBeTruthy()
