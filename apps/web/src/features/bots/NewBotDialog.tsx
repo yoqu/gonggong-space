@@ -1,13 +1,10 @@
 import {
-  type AgentCatalog,
   type AgentKind,
   type BotAvatar,
-  type BotCatalogDto,
   type BotDto,
   type BotOwnerDto,
   INHERIT_PROVIDER,
   type MachineDto,
-  type ProviderStoreView,
   type UserDto,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useId, useState } from 'react'
@@ -32,11 +29,12 @@ import {
 } from '../../ui'
 import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/BindMachineDialog'
-import { botProviderOptions, providerBlocked } from '../machines/providers'
+import { providerBlocked } from '../machines/providers'
 import { DirPicker } from '../workspaces/DirPicker'
-import { type AgentConfig, AgentConfigFields } from './AgentConfig'
+import type { AgentConfig } from './AgentConfig'
 import { RolePicker, roleHint } from './avatars'
-import { WorkspacePath } from './BotsAdminPage'
+import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
+import { WorkspacePath } from './BotSettings'
 import { AGENT_LABEL, AGENTS, botsApi, reportedAgent } from './model'
 
 interface Props {
@@ -82,11 +80,8 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
   }
 }
 
-/**
- * 供应商 and 模型 of a new bot, offered as on its detail page: the models are those of the provider picked, asked of
- * the machine. Only the owner of the bot and its online machine can pick; others get what the machine reported.
- */
-function ProviderConfigFields({
+/** 供应商 and 模型 of a new bot, offered as in its settings; others than the owner get what the machine reported. */
+function NewBotProviderFields({
   machine,
   meId,
   ownerId,
@@ -104,47 +99,18 @@ function ProviderConfigFields({
   onChange: (next: { provider: string; config: AgentConfig }) => void
 }) {
   const reason = providerBlocked(meId, ownerId, machine)
-  const [view, setView] = useState<ProviderStoreView | null>(null)
-  const [catalog, setCatalog] = useState<AgentCatalog | null>(null)
-
-  useEffect(() => {
-    setView(null)
-    if (reason) return
-    api.get<ProviderStoreView>(`/machines/${machine.id}/providers`).then(setView, (e) => toastError(e))
-  }, [machine.id, reason])
-
-  useEffect(() => {
-    setCatalog(null)
-    if (reason) return
-    let live = true
-    const query = new URLSearchParams({ agent, provider })
-    api.get<BotCatalogDto>(`/machines/${machine.id}/catalog?${query}`).then(
-      (r) => live && setCatalog(r.catalog),
-      (e) => live && toastError(e),
-    )
-    return () => {
-      live = false
-    }
-  }, [machine.id, agent, provider, reason])
-
+  const [view] = useMachineProviders(machine.id, !!reason)
+  const catalog = useProviderCatalog(machine.id, agent, reason ? null : provider)
   return (
-    <>
-      <FormRow label={t('供应商')} hint={reason ?? t('只保存在 Bot 所在的机器上')}>
-        <PopUpButton
-          aria-label={t('供应商')}
-          value={view ? provider : null}
-          placeholder={reason ? '--' : t('读取中…')}
-          disabled={!!reason || !view}
-          options={view ? botProviderOptions(view, agent) : []}
-          onChange={(next) => onChange({ provider: next, config: NO_CONFIG })}
-        />
-      </FormRow>
-      <AgentConfigFields
-        catalog={reason ? (reportedAgent(machine, agent)?.catalog ?? null) : catalog}
-        value={config}
-        onChange={(next) => onChange({ provider, config: next })}
-      />
-    </>
+    <ProviderModelFields
+      reason={reason}
+      view={view}
+      agent={agent}
+      provider={provider}
+      catalog={reason ? (reportedAgent(machine, agent)?.catalog ?? null) : catalog}
+      config={config}
+      onChange={onChange}
+    />
   )
 }
 
@@ -234,6 +200,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<BotDto | null>(null)
   const [picking, setPicking] = useState<string | null | false>(false)
+  const [more, setMore] = useState(false)
   const live = useWorkspace((s) => s.machines)
   const formId = useId()
 
@@ -357,23 +324,25 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
     >
       <Form id={formId} onSubmit={() => void create()}>
         <Divider label={t('基本信息')} />
-        <FormRow label={t('归属人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
-          <PopUpButton
-            aria-label={t('归属人')}
-            value={owner.id}
-            options={owners.map((o) => ({
-              value: o.id,
-              label:
-                o.id === me.id
-                  ? t('{name}（我）', { name: o.name })
-                  : t('{name} · {n} 台机器', { name: o.name, n: machinesOf(o).length }),
-            }))}
-            onChange={(id) => {
-              const o = owners.find((x) => x.id === id)
-              if (o) setDraft(draftFor(o, machinesOf(o), draft.prompt))
-            }}
-          />
-        </FormRow>
+        {owners.length > 1 ? (
+          <FormRow label={t('归属人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
+            <PopUpButton
+              aria-label={t('归属人')}
+              value={owner.id}
+              options={owners.map((o) => ({
+                value: o.id,
+                label:
+                  o.id === me.id
+                    ? t('{name}（我）', { name: o.name })
+                    : t('{name} · {n} 台机器', { name: o.name, n: machinesOf(o).length }),
+              }))}
+              onChange={(id) => {
+                const o = owners.find((x) => x.id === id)
+                if (o) setDraft(draftFor(o, machinesOf(o), draft.prompt))
+              }}
+            />
+          </FormRow>
+        ) : null}
 
         <FormRow label={t('名称')}>
           <TextField
@@ -463,8 +432,15 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           />
         </FormRow>
 
-        {m ? (
-          <ProviderConfigFields
+        {m && !more ? (
+          <FormRow hint={t('都可以在创建后的 Bot 设置里修改')}>
+            <Button size="small" onClick={() => setMore(true)}>
+              {t('设置供应商、模型与默认工作区…')}
+            </Button>
+          </FormRow>
+        ) : null}
+        {m && more ? (
+          <NewBotProviderFields
             machine={m}
             meId={me.id}
             ownerId={owner.id}
@@ -475,7 +451,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           />
         ) : null}
 
-        {self && m?.online ? (
+        {more && self && m?.online ? (
           <FormRow
             label={t('默认工作区')}
             hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认托管克隆。')}

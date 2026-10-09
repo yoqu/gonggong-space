@@ -78,6 +78,17 @@
 .bots-detail__confirm {
   margin-top: var(--space-8);
 }
+/* The Feishu credentials take the row's width and stack when two fields don't fit. */
+.bots-detail .feishu-app {
+  align-self: stretch;
+}
+.bots-detail .feishu-app__fields {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.bots-detail .feishu-app__fields > * {
+  min-width: 0;
+  max-width: none;
+}
 .bots-detail__actions {
   display: flex;
   align-items: center;
@@ -119,6 +130,10 @@
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
+}
+/* The admin side panel is narrower than a dialog: the presets wrap to five per row instead of squeezing seven. */
+.bots-detail:not(.bots-detail--plain) .role-picker {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 .role-card {
   position: relative;

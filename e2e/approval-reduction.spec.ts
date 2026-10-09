@@ -72,6 +72,7 @@ test('ask mode: read-only chains run unasked; 始终允许 persists a prefix acr
     await page.goto(`/bot/${b.id}`)
     await page.getByRole('button', { name: '编辑 Bot' }).click()
     const dialog = page.getByRole('dialog', { name: 'Bot 详情' })
+    await dialog.getByRole('tab', { name: '权限' }).click()
     await expect(dialog.getByRole('button', { name: '移除 git tag' })).toBeVisible()
     await page.keyboard.press('Escape')
 
@@ -88,6 +89,7 @@ test('ask mode: read-only chains run unasked; 始终允许 persists a prefix acr
     // 4. Removing the rule in Bot settings brings the request back.
     await page.goto(`/bot/${b.id}`)
     await page.getByRole('button', { name: '编辑 Bot' }).click()
+    await dialog.getByRole('tab', { name: '权限' }).click()
     await dialog.getByRole('button', { name: '移除 git tag' }).click()
     await dialog.getByRole('button', { name: '保存' }).click()
     await expect(page.getByText('降频 Bot 已保存')).toBeVisible()

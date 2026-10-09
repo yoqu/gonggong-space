@@ -60,6 +60,27 @@ const saveBot = (bot: BotDto) => {
   return bot
 }
 
+/** PATCH /bots/:id; approval, rules and the git identity are the owner's alone (plan J9). */
+export type BotPatch = Partial<
+  Pick<
+    BotDto,
+    | 'name'
+    | 'avatar'
+    | 'systemPrompt'
+    | 'tier'
+    | 'triggerScope'
+    | 'triggerList'
+    | 'model'
+    | 'effort'
+    | 'concurrency'
+    | 'approval'
+    | 'allowlist'
+    | 'alwaysAllow'
+    | 'gitName'
+    | 'gitEmail'
+  >
+>
+
 export const botsApi = {
   create: (body: {
     name: string
@@ -71,24 +92,7 @@ export const botsApi = {
     model: string | null
     effort: string | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),
-  update: (
-    id: string,
-    body: Partial<
-      Pick<
-        BotDto,
-        | 'avatar'
-        | 'systemPrompt'
-        | 'tier'
-        | 'triggerScope'
-        | 'triggerList'
-        | 'model'
-        | 'effort'
-        | 'concurrency'
-        | 'approval'
-        | 'allowlist'
-      >
-    >,
-  ) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
+  update: (id: string, body: BotPatch) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
   setDefaultWorkspace: (id: string, path: string | null) =>
     api.put<BotDto>(`/bots/${id}/default-workspace`, { path }).then(saveBot),
   remove: async (id: string) => {

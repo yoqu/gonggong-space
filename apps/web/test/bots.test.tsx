@@ -151,6 +151,13 @@ async function openMyBot(name = '小王的 Claude') {
   return screen.findByRole('complementary', { name: 'Bot 详情' })
 }
 
+/** Settings are grouped in tabs: 基本信息 / 运行配置 / 权限 / 高级 (+ 用量 in the admin panel). */
+function openTab(detail: HTMLElement, name: string) {
+  fireEvent.click(within(detail).getByRole('tab', { name }))
+}
+
+const MORE = '设置供应商、模型与默认工作区…'
+
 describe('workspace store', () => {
   it('loads bots, machines and unread notifications, then follows realtime events', async () => {
     routes['GET /api/bots'] = () => [bot({})]
@@ -238,6 +245,8 @@ describe('新建 Bot', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(within(dialog).getByText('创建后立即可用')).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '归属人' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: '模型' })).toBeNull()
     fireEvent.change(name, { target: { value: '小王的 Claude' } })
     const roles = within(dialog).getByRole('radiogroup', { name: '角色' })
     expect(within(roles).getAllByRole('radio')).toHaveLength(13)
@@ -314,6 +323,7 @@ describe('新建 Bot', () => {
     renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     const model = await within(dialog).findByRole('button', { name: '模型' })
     expect(model.textContent).toContain('默认（Sonnet）')
     expect(within(dialog).getByRole('button', { name: '推理强度' }).textContent).toContain('默认（中）')
@@ -376,6 +386,7 @@ describe('新建 Bot', () => {
     renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     const select = await within(dialog).findByRole('button', { name: '供应商' })
     await waitFor(() => expect(select.textContent).toContain('继承机器（当前：官方登录）'))
     fireEvent.click(select)
@@ -406,7 +417,8 @@ describe('新建 Bot', () => {
     renderAt('/', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
-    fireEvent.click(await within(dialog).findByRole('button', { name: '选择目录…' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '选择目录…' }))
     const picker = await screen.findByRole('dialog', { name: '默认工作区' })
     await within(picker).findByText('没有子目录')
     fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
@@ -442,6 +454,8 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    fireEvent.click(within(detail).getByRole('radio', { name: /算盘/ }))
+    openTab(detail, '权限')
     expect(within(detail).getByText('李建国')).toBeTruthy()
     for (const t of ['只读', '工作区写入', '完全访问'])
       expect(within(detail).getByRole('radio', { name: t })).toBeTruthy()
@@ -454,14 +468,10 @@ describe('bot detail', () => {
     expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
     expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
     expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(within(detail).getByRole('radio', { name: /算盘/ }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
         avatar: 'role-abacus',
-        systemPrompt: '',
-        triggerScope: 'list',
-        triggerList: ['u2'],
         tier: 'full',
       }),
     )
@@ -472,8 +482,10 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '高级')
     expect((within(detail).getByRole('spinbutton', { name: '并发上限' }) as HTMLInputElement).value).toBe('2')
     fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
+    openTab(detail, '权限')
     expect(within(detail).getByRole('radio', { name: '每次询问' }).getAttribute('aria-checked')).toBe('true')
     expect(within(detail).queryByRole('combobox', { name: '命令白名单' })).toBeNull()
     fireEvent.click(within(detail).getByRole('radio', { name: '白名单自动' }))
@@ -498,6 +510,7 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '权限')
     const field = within(detail).getByRole('combobox', { name: '始终允许' })
     expect(within(detail).getByText(/来自审批卡片上的「始终允许」/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '移除 npm run build' }))
@@ -521,6 +534,7 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '高级')
     fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
@@ -535,11 +549,13 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', admin)
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    openTab(detail, '权限')
     expect(within(detail).queryByRole('radio', { name: '每次询问' })).toBeNull()
     expect(within(detail).getByText('白名单自动 · go build')).toBeTruthy()
     expect(within(detail).getByText('只有 Bot 主人能修改命令审批')).toBeTruthy()
     expect(within(detail).getByText('npm run build、tail')).toBeTruthy()
     expect(within(detail).queryByRole('combobox', { name: '始终允许' })).toBeNull()
+    openTab(detail, '高级')
     fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
@@ -553,6 +569,7 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '高级')
     const name = within(detail).getByRole('textbox', { name: 'Git 提交名' }) as HTMLInputElement
     const email = within(detail).getByRole('textbox', { name: 'Git 提交邮箱' }) as HTMLInputElement
     expect([name.placeholder, email.placeholder, email.value]).toEqual([
@@ -576,8 +593,10 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', admin)
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    openTab(detail, '高级')
     expect(within(detail).queryByRole('textbox', { name: 'Git 提交名' })).toBeNull()
     expect(within(detail).getByText('小王的 Claude <b1@bots.gonggong.local>')).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
     const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
@@ -622,6 +641,7 @@ describe('bot detail', () => {
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '运行配置')
     fireEvent.click(within(detail).getByRole('button', { name: '模型' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Opus' }))
     expect(within(detail).getByRole('button', { name: '推理强度' }).textContent).toContain('低')
@@ -635,22 +655,48 @@ describe('bot detail', () => {
     routes['GET /api/bots'] = () => [bot({})]
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '运行配置')
     expect(within(detail).getByText('跟随默认 · 机器上报可选模型后可设置')).toBeTruthy()
   })
 
-  it('shows the default workspace to its owner only, who can clear it', async () => {
+  it('shows the default workspace to its owner only, who clears it on 保存', async () => {
     routes['GET /api/bots'] = () => [bot({ defaultWorkspace: '/src/pay' })]
     routes['PUT /api/bots/b1/default-workspace'] = () => bot({})
     const { unmount } = renderAt('/admin/bots', admin)
     const other = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    openTab(other, '运行配置')
     expect(within(other).queryByTestId('default-workspace')).toBeNull()
     unmount()
     renderAt('/', wang)
     const detail = await openMyBot()
+    openTab(detail, '运行配置')
     expect(within(detail).getByTestId('default-workspace').title).toBe('/src/pay')
     fireEvent.click(within(detail).getByRole('button', { name: '清除' }))
-    await waitFor(() => expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置'))
-    expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({ path: null })
+    expect(within(detail).getByTestId('default-workspace').textContent).toBe('未设置')
+    expect(calls.some((c) => c.key === 'PUT /api/bots/b1/default-workspace')).toBe(false)
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PUT /api/bots/b1/default-workspace')?.body).toEqual({ path: null }),
+    )
+    expect(calls.some((c) => c.key === 'PATCH /api/bots/b1')).toBe(false)
+  })
+
+  it('renames the bot, saving only once something changed', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    expect(within(detail).queryByRole('tab', { name: '用量' })).toBeNull()
+    const save = within(detail).getByRole('button', { name: '保存' }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    const name = within(detail).getByRole('textbox', { name: '名称' })
+    fireEvent.change(name, { target: { value: '  ' } })
+    expect(save.disabled).toBe(true)
+    fireEvent.change(name, { target: { value: ' 支付助手 ' } })
+    fireEvent.click(save)
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ name: '支付助手' }),
+    )
   })
 
   it('deletes a bot from its row menu in the admin list', async () => {
@@ -690,14 +736,15 @@ describe('bot detail', () => {
     expect(within(detail).getByText(/claude-code 1.0.128 低于 ACP 适配器要求的 2.0.0/)).toBeTruthy()
   })
 
-  it('shows last-7-day usage and who used the bot', async () => {
+  it('shows last-7-day usage and who used the bot in the admin panel', async () => {
     routes['GET /api/bots'] = () => [bot({})]
     routes['GET /api/usage?by=user&days=7&botId=b1'] = () => [
       { key: 'u1', name: '王磊', runs: 3, totalTokens: 256_000, unreported: 0 },
       { key: 'u2', name: '李建国', runs: 1, totalTokens: 0, unreported: 1 },
     ]
-    renderAt('/', wang)
-    const detail = await openMyBot()
+    renderAt('/admin/bots', admin)
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    openTab(detail, '用量')
     expect(await within(detail).findByText('256k tokens · 4 轮')).toBeTruthy()
     const rows = within(detail)
       .getAllByTestId('usage-row')

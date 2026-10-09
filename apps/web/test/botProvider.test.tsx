@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkspace } from '../src/app/workspace'
-import { BotDetail } from '../src/features/bots/BotsAdminPage'
+import { BotDetail } from '../src/features/bots/BotSettings'
 import { mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -116,12 +116,16 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-const renderDetail = (b: BotDto = bot(), user: UserDto = me) =>
-  render(
+/** Renders the settings on the 运行配置 tab, where the provider and models are. */
+const renderDetail = (b: BotDto = bot(), user: UserDto = me) => {
+  const out = render(
     <MemoryRouter>
       <BotDetail bot={b} me={user} users={[]} />
     </MemoryRouter>,
   )
+  fireEvent.click(screen.getByRole('tab', { name: '运行配置' }))
+  return out
+}
 
 describe('bot provider', () => {
   it('offers inherit (naming the machine default), official and the same-agent providers', async () => {
@@ -137,32 +141,33 @@ describe('bot provider', () => {
     expect(names).toEqual(['继承机器（当前：Kimi）', '官方登录', 'Kimi', 'GLM'])
   })
 
-  it('sets the provider and takes model options from its catalog', async () => {
-    let switched = false
+  it('offers the models of the provider picked, and sets both on 保存, the provider first', async () => {
     const calls = mockApi({
       'GET /machines/m1/providers': { ...VIEW, machine: {} },
-      'PUT /bots/b1/provider': () => {
-        switched = true
-        return { ...VIEW, machine: {}, bots: { b1: 'p2' } }
-      },
-      'GET /bots/b1/catalog': () => ({ catalog: switched ? KIMI : OFFICIAL }),
+      'GET /bots/b1/catalog': { catalog: OFFICIAL },
+      'GET /machines/m1/catalog?agent=claude&provider=p2': { catalog: KIMI },
+      'PUT /bots/b1/provider': { ...VIEW, machine: {}, bots: { b1: 'p2' } },
+      'PATCH /bots/b1': bot({ model: 'kimi-k2' }),
     })
     renderDetail()
+    const save = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
     fireEvent.click(await screen.findByRole('button', { name: '供应商' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'GLM' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
-        path: '/bots/b1/provider',
-        body: { choice: 'p2' },
-      }),
-    )
-    await waitFor(() => expect(calls.filter((c) => c.path === '/bots/b1/catalog').length).toBeGreaterThan(1))
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
     fireEvent.click(await screen.findByRole('button', { name: '模型' }))
-    await waitFor(() => expect(screen.getByRole('menuitemcheckbox', { name: 'kimi-k2' })).toBeTruthy())
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'kimi-k2' }))
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Sonnet' })).toBeNull()
+    fireEvent.click(save)
+    await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+    const writes = calls.filter((c) => c.method !== 'GET')
+    expect(writes).toEqual([
+      { method: 'PUT', path: '/bots/b1/provider', body: { choice: 'p2' } },
+      { method: 'PATCH', path: '/bots/b1', body: { model: 'kimi-k2' } },
+    ])
   })
 
-  it('confirms when sessions of the bot keep the old provider', async () => {
+  it('confirms on 保存 when sessions of the bot keep the old provider; 取消 saves nothing', async () => {
     const view = {
       ...VIEW,
       sessions: [{ groupId: 'g1', botId: 'b1', agent: 'claude' as const, provider: 'p1' }],
@@ -171,14 +176,21 @@ describe('bot provider', () => {
     const calls = mockApi({
       'GET /machines/m1/providers': view,
       'GET /bots/b1/catalog': { catalog: KIMI },
+      'GET /machines/m1/catalog?agent=claude&provider=official': { catalog: OFFICIAL },
       'PUT /bots/b1/provider': { ...view, bots: { b1: 'official' } },
     })
     renderDetail()
     fireEvent.click(await screen.findByRole('button', { name: '供应商' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '官方登录' }))
-    const alert = await screen.findByRole('alertdialog')
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    let alert = await screen.findByRole('alertdialog')
     expect(alert.textContent).toContain('1 个群的会话仍在使用 Kimi，开启新会话后才会切换到 官方登录')
     expect(within(alert).getByText('前端组（小王的 Claude）')).toBeTruthy()
+    fireEvent.click(within(alert).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(calls.some((c) => c.method !== 'GET')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    alert = await screen.findByRole('alertdialog')
     fireEvent.click(within(alert).getByRole('button', { name: '切换' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ choice: 'official' }))
   })

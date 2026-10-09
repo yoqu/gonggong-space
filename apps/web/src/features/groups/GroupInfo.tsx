@@ -605,7 +605,9 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
         ) : null}
       </Presence>
       <Presence>
-        {editing && me ? <BotDialog bot={editing} me={me} onClose={() => setEditingId(null)} /> : null}
+        {editing && me ? (
+          <BotDialog bot={editing} me={me} tab="access" onClose={() => setEditingId(null)} />
+        ) : null}
       </Presence>
     </>
   )

@@ -61,11 +61,8 @@ export default {
   '只能在自己的机器上设置 Bot 的供应商': "A Bot's provider can only be set on your own machine",
   '机器离线，上线后才能设置': 'The machine is offline; set this once it is online',
   '请先升级该机器的 daemon': "Upgrade this machine's daemon first",
-  '{name} 的供应商已切换，新会话生效': "{name}'s provider switched; applies to new sessions",
   '继承机器（当前：{name}）': 'Inherit from machine (currently: {name})',
   供应商: 'Provider',
-  '只保存在 Bot 所在的机器上；进行中的会话开启新会话后才切换':
-    "Stored only on the Bot's machine; ongoing sessions switch once a new session starts",
   '读取中…': 'Loading…',
   完全访问档位只允许指定名单触发: 'The Full access tier only allows a specified list to trigger',
   '等待 {owner} 确认': 'Waiting for {owner} to confirm',
@@ -230,4 +227,9 @@ export default {
   '直率 × 暖心 × 透明': 'Candid × Warm × Transparent',
   '只保存在 Bot 所在的机器上': "Stored only on the bot's machine",
   运行配置: 'Runtime',
+  权限: 'Access',
+  '该 Bot 专属的飞书自建应用，用于在飞书群里被 @；单独保存，不随下方「保存」':
+    "This bot's own Feishu app, used to @ it in Feishu chats; saved on its own, not with Save below",
+  '都可以在创建后的 Bot 设置里修改': "All can be changed in the bot's settings later",
+  '设置供应商、模型与默认工作区…': 'Set provider, model and default workspace…',
 } satisfies Record<string, string>
