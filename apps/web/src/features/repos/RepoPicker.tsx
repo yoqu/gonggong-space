@@ -160,6 +160,7 @@ export function RepoPicker({
         <Popover
           width={360}
           placement="bottom-end"
+          portal
           aria-label={t('选择仓库')}
           trigger={
             <button
