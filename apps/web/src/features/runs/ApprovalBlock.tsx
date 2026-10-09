@@ -68,7 +68,10 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
   if (!a) return null
   const mine = !!me && me.id === bot?.ownerId
   const allow = pick(a.options, ['allow_once', 'allow_always'])
-  const always = a.options.find((o) => o.kind === 'allow_always' && o !== allow)
+  // Without rules to remember, 始终允许 would silently behave like 批准 (plan A7).
+  const always = a.remember.length
+    ? a.options.find((o) => o.kind === 'allow_always' && o !== allow)
+    : undefined
   const reject = pick(a.options, ['reject_once', 'reject_always'])
   const tier = t('超出「{tier}」档位', { tier: TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace'] })
   const left = Date.parse(a.expiresAt) - now
@@ -122,6 +125,11 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
           <Button size="small" disabled={!mine || busy || !reject} onClick={() => reject && decide(reject)}>
             {t('拒绝#reject')}
           </Button>
+          {always && (
+            <span className="approval__hint">
+              {t('将始终允许：{rules}', { rules: a.remember.join(t('、')) })}
+            </span>
+          )}
           <span className="approval__hint">
             {mine
               ? t('你是 Bot 主人')

@@ -7,6 +7,8 @@
   "detail": "go build ./... && go vet ./server/refund/...",
   "options": [
     { "optionId": "allow", "name": "Allow", "kind": "allow_once" },
+    { "optionId": "always", "name": "Always Allow", "kind": "allow_always" },
     { "optionId": "reject", "name": "Reject", "kind": "reject_once" }
-  ]
+  ],
+  "remember": ["go build", "go vet"]
 }

@@ -12,7 +12,8 @@
     "model": null,
     "effort": null,
     "approval": "ask",
-    "allowlist": []
+    "allowlist": [],
+    "alwaysAllow": []
   },
   "workspace": { "repo": null, "cdPath": null },
   "resumeSessionId": "sess-0",

@@ -126,7 +126,7 @@ struct State {
     agent: Option<ConnectionTo<Agent>>,
     /// Permission requests of the active turn awaiting the bot owner, by request id.
     approvals: HashMap<String, Approval>,
-    /// Commands the owner allowed always, trusted for the rest of the conversation.
+    /// Rules the owner allowed always, trusted for the rest of the conversation.
     always: Vec<String>,
     requests: u64,
     /// The last finished turn's snapshot (run id), kept for run.discard until the next turn starts (plan D7).
@@ -164,7 +164,8 @@ enum Reply {
 
 struct Approval {
     title: String,
-    command: Option<String>,
+    /// What allow_always trusts from now on (`local::remember`).
+    remember: Vec<String>,
     options: Vec<PermissionOption>,
     tx: oneshot::Sender<Option<PermissionOptionId>>,
 }
@@ -337,10 +338,12 @@ impl Shared {
         let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
         let Some(p) = s.approvals.remove(request_id) else { return false };
         let choice = option_id.and_then(|id| p.options.into_iter().find(|o| *o.option_id.0 == *id));
-        if let Some(command) =
-            p.command.filter(|_| choice.as_ref().is_some_and(|o| o.kind == PermissionOptionKind::AllowAlways))
-        {
-            s.always.extend(local::remembered(&command));
+        if choice.as_ref().is_some_and(|o| o.kind == PermissionOptionKind::AllowAlways) {
+            for rule in p.remember {
+                if !s.always.contains(&rule) {
+                    s.always.push(rule);
+                }
+            }
         }
         let allowed = choice
             .as_ref()
@@ -586,7 +589,7 @@ impl Shared {
             unreachable!("tool call updates always map to tool events")
         };
         let command = command.filter(|_| tool_kind == "execute");
-        match a.rules.decide(a.tier, command.as_deref(), &a.cwd, &s.always) {
+        match a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always) {
             Decision::Full => return Permission::Now(permission_response(auto_allow(&req.options))),
             Decision::Local if let Some(allow) = auto_allow(&req.options) => {
                 let step = t!("已按命令审批规则自动批准：{command}", command = command.unwrap_or(title));
@@ -601,6 +604,7 @@ impl Shared {
             RunEvent::Status { status: RunStatus::AwaitingApproval, step: t!("等待审批：{title}", title = title) };
         out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
         let request_id = format!("{run_id}/{n}");
+        let remember = local::remember(command.as_deref(), &title, &a.cwd);
         out.send(DaemonToServer::ApprovalRequest(ApprovalRequest {
             run_id,
             request_id: request_id.clone(),
@@ -608,9 +612,10 @@ impl Shared {
             title: title.clone(),
             tool_kind,
             options: wire_options(&req.options),
+            remember: remember.clone(),
         }));
         let (tx, rx) = oneshot::channel();
-        s.approvals.insert(request_id, Approval { title, command, options: req.options, tx });
+        s.approvals.insert(request_id, Approval { title, remember, options: req.options, tx });
         Permission::Ask(rx)
     }
 

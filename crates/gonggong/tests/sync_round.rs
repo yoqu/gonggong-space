@@ -203,6 +203,7 @@ impl Rig {
                 effort: None,
                 approval: Approval::Ask,
                 allowlist: vec![],
+                always_allow: vec![],
                 git: None,
             },
             workspace: WorkspaceSpec { repo: None, cd_path: None },

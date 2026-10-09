@@ -7,6 +7,7 @@ export const en = {
   操作失败: 'Operation failed',
   '；': '; ',
   '，': ', ',
+  '、': ', ',
 
   // Audit summaries
   '批准 {bot} 执行 {title}': 'Approved {bot} to run {title}',
@@ -80,6 +81,8 @@ export const en = {
   '删除 {user} 的 Bot {name}': "Deleted {user}'s Bot {name}",
   '确认 Bot {name}': 'Confirmed Bot {name}',
   '修改 Bot {name} 的审批设置': 'Changed the approval settings of Bot {name}',
+  'Bot {name} 始终允许：{rules}': 'Bot {name} always allows: {rules}',
+  '将始终允许：{rules}': 'Will always allow: {rules}',
   '新建账号 {account}（{role}）': 'Created account {account} ({role})',
   '姓名改为 {name}': 'name set to {name}',
   '角色改为 {role}': 'role set to {role}',

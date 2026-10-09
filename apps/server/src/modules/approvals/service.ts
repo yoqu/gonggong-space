@@ -1,10 +1,12 @@
-import type { ApprovalRequest, PermissionOption } from '@gonggong/protocol'
+import { Allowlist, type ApprovalRequest, type PermissionOption } from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
-import { teamOfGroupSql } from '../../lib/audit.js'
+import { audit, teamOfGroupSql } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { startSweep } from '../../lib/sweep.js'
+import { normalizeAllowlist } from '../bots/allowlist.js'
+import { publishBot } from '../bots/dto.js'
 import { groupParams } from '../groups/params.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { approvalDto, publishRun } from '../runs/dto.js'
@@ -16,11 +18,14 @@ type Settled = 'approved' | 'rejected' | 'expired'
 export type VoidReason = 'stopped' | 'chain_stopped' | 'ended'
 
 const TICK_MS = 15_000
+/** Allowlist's max length: the owner must still be able to save the list. */
+const ALWAYS_MAX = 100
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 const scope = {
   a: approvals,
   groupId: runs.groupId,
+  botId: bots.id,
   machineId: bots.machineId,
   ownerId: bots.ownerId,
 }
@@ -57,6 +62,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       toolKind: req.toolKind,
       detail: req.detail,
       options: req.options,
+      remember: rememberable(raw.remember),
       expiresAt,
       createdAt: ctx.now(),
     })
@@ -90,7 +96,41 @@ export async function decideApproval(
   if (!option) return fail('invalid', '无效的审批选项')
   const status = option.kind.startsWith('allow') ? 'approved' : 'rejected'
   const settled = await settle(ctx, row, status, optionId, user.id)
-  return settled ? approvalDto(settled, user.name) : fail('conflict', '该请求已处理')
+  if (!settled) return fail('conflict', '该请求已处理')
+  if (option.kind === 'allow_always' && settled.remember.length)
+    await alwaysAllow(ctx, user.id, row.botId, settled)
+  return approvalDto(settled, user.name)
+}
+
+/** Rules the bot settings can hold and show: valid allowlist entries without secrets. */
+const rememberable = (rules: string[]) =>
+  normalizeAllowlist(rules).filter((r) => Allowlist.element.safeParse(r).success && redact(r) === r)
+
+/** 始终允许 persists the request's rules on the bot (A4); the row lock keeps concurrent decisions from dropping each other's. */
+async function alwaysAllow(ctx: Ctx, actorUserId: string, botId: string, a: Approval) {
+  const changed = await ctx.db.transaction(async (tx) => {
+    const [bot] = await tx
+      .select({ name: bots.name, teamId: bots.teamId, rules: bots.alwaysAllow })
+      .from(bots)
+      .where(eq(bots.id, botId))
+      .for('update')
+    const added = bot ? a.remember.filter((r) => !bot.rules.includes(r)) : []
+    if (!bot || !added.length) return null
+    await tx
+      .update(bots)
+      .set({ alwaysAllow: [...bot.rules, ...added].slice(-ALWAYS_MAX) })
+      .where(eq(bots.id, botId))
+    return { ...bot, added }
+  })
+  if (!changed) return
+  await audit(ctx, {
+    category: 'admin',
+    actorUserId,
+    teamId: changed.teamId,
+    action: 'bot.always_allow',
+    detail: { botId, name: changed.name, added: changed.added, approvalId: a.id },
+  })
+  await publishBot(ctx, botId)
 }
 
 /** The run's tier was raised to full: its pending requests are approved on the actor's behalf. */

@@ -78,6 +78,7 @@ const bot = (o: Partial<BotDto> = {}): BotDto => ({
   gitDefaultEmail: 'b1@bots.gonggong.local',
   approval: 'ask',
   allowlist: [],
+  alwaysAllow: [],
   model: null,
   effort: null,
   catalog: OFFICIAL,

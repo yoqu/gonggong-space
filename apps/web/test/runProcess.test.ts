@@ -121,6 +121,7 @@ const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
   toolKind: 'execute',
   detail: 'go build ./...',
   options: [],
+  remember: [],
   status: 'pending',
   voidReason: null,
   decidedBy: null,

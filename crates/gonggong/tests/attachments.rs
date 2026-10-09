@@ -104,6 +104,7 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cwd.to_string_lossy().into_owned()) },

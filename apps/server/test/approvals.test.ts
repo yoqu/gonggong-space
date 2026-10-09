@@ -7,7 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { auditLogs, groups, messages, notifications, runs } from '../src/db/schema.js'
+import { auditLogs, bots, groups, messages, notifications, runs } from '../src/db/schema.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
 import { MASK } from '../src/modules/runs/redact.js'
@@ -79,7 +79,7 @@ async function world() {
   const ownerWeb = watch(owner.id)
   const viewerWeb = watch(viewer.id)
   /** Triggers a run and has the daemon ask for approval; resolves with the pending approval. */
-  const request = async (requestId = 'req-1', options = OPTIONS) => {
+  const request = async (requestId = 'req-1', options = OPTIONS, remember?: string[]) => {
     const [m] = await t.db
       .insert(messages)
       .values({
@@ -101,6 +101,7 @@ async function world() {
       toolKind: 'execute',
       detail: 'go build ./...',
       options,
+      ...(remember && { remember }),
     })
     const run = await viewerWeb.run((r) => r.id === start.runId && r.status === 'awaiting_approval')
     return { runId: start.runId, approval: run.approvals[0]! }
@@ -352,5 +353,89 @@ describe('approvals', () => {
     await new Promise((r) => setTimeout(r, 100))
     const [listed] = await listRuns(t.ctx, w.group.id)
     expect(listed?.approvals.map((a) => a.status)).toEqual(['void'])
+  })
+})
+
+describe('始终允许 rules', () => {
+  const alwaysAllow = async (botId: string) =>
+    (await t.db.select({ v: bots.alwaysAllow }).from(bots).where(eq(bots.id, botId)))[0]!.v
+  /** Another request on the same run; resolves with it once pushed. */
+  const more = async (
+    w: Awaited<ReturnType<typeof world>>,
+    runId: string,
+    n: number,
+    remember?: string[],
+  ) => {
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: `req-${n}`,
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'ls',
+      options: OPTIONS,
+      ...(remember && { remember }),
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === n)
+    return run.approvals[n - 1]!
+  }
+
+  it('stores the remember rules and shows them on the card; old daemons send none', async () => {
+    const w = await world()
+    const { runId, approval } = await w.request('req-1', OPTIONS, ['npm run build', 'tail'])
+    expect(approval.remember).toEqual(['npm run build', 'tail'])
+    expect((await more(w, runId, 2)).remember).toEqual([])
+    // A rule holding a secret would leak it into the bot settings; it is not offered.
+    const secret = 'curl -H "Authorization: Bearer abcDEF0123456789xyz" x'
+    expect((await more(w, runId, 3, [secret, 'tail', 'x'.repeat(201)])).remember).toEqual(['tail'])
+  })
+
+  it('allow_always merges remember into the bot alwaysAllow, deduped, broadcasts the bot and audits', async () => {
+    const w = await world()
+    await t.db
+      .update(bots)
+      .set({ alwaysAllow: ['npm test'] })
+      .where(eq(bots.id, w.bot.id))
+    const { approval } = await w.request('req-1', OPTIONS, ['npm test', 'npm  run build', 'npm run build'])
+    const res = await w.decide(w.owners, approval, 'always')
+    expect(res.body).toMatchObject({ status: 'approved', remember: ['npm test', 'npm run build'] })
+    expect(await alwaysAllow(w.bot.id)).toEqual(['npm test', 'npm run build'])
+    await vi.waitFor(() => {
+      const ev = w.viewerWeb.seen.findLast((e) => e.t === 'bot.updated')
+      if (ev?.t !== 'bot.updated') throw new Error('not yet')
+      expect(ev.bot.alwaysAllow).toEqual(['npm test', 'npm run build'])
+    })
+    const rows = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.always_allow'))
+    expect(rows).toMatchObject([
+      {
+        category: 'admin',
+        actorUserId: w.owner.id,
+        detail: { botId: w.bot.id, name: '小王的 Claude', added: ['npm run build'], approvalId: approval.id },
+      },
+    ])
+  })
+
+  it('allow_once, reject and an empty remember leave alwaysAllow untouched', async () => {
+    const w = await world()
+    const { runId, approval } = await w.request('req-1', OPTIONS, ['go build'])
+    const rejected = await more(w, runId, 2, ['go build'])
+    const empty = await more(w, runId, 3)
+    await w.decide(w.owners, approval, 'allow')
+    await w.decide(w.owners, rejected, 'reject')
+    expect((await w.decide(w.owners, empty, 'always')).body).toMatchObject({ status: 'approved' })
+    expect(await alwaysAllow(w.bot.id)).toEqual([])
+    expect((await w.audit()).map((a) => a.action)).not.toContain('bot.always_allow')
+  })
+
+  it('a rule already allowed is not re-added or re-audited', async () => {
+    const w = await world()
+    await t.db
+      .update(bots)
+      .set({ alwaysAllow: ['go build'] })
+      .where(eq(bots.id, w.bot.id))
+    const { approval } = await w.request('req-1', OPTIONS, ['go build'])
+    await w.decide(w.owners, approval, 'always')
+    expect(await alwaysAllow(w.bot.id)).toEqual(['go build'])
+    expect((await w.audit()).map((a) => a.action)).not.toContain('bot.always_allow')
   })
 })

@@ -49,6 +49,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: None },
@@ -171,6 +172,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
                     kind: PermissionKind::RejectOnce
                 },
             ],
+            remember: vec!["tool:Write hello.txt".into()],
         }
     );
     // Decisions for unknown requests are ignored.
@@ -928,8 +930,9 @@ async fn server_sent_ask_goes_to_the_owner_whatever_the_old_local_file_says() {
 #[tokio::test]
 async fn always_allowing_a_command_trusts_it_for_the_conversation() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(start("r1", "mock:exec pnpm lint"));
+    r.run(start("r1", "mock:exec pnpm lint --fix"));
     let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.remember, ["pnpm lint"]);
     decide(&r, &approval, Some("always"));
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.reply, "ran");
@@ -941,6 +944,26 @@ async fn always_allowing_a_command_trusts_it_for_the_conversation() {
 
     r.run(follow_up("r3", "mock:exec pnpm lint && rm -rf x", &done));
     let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, Some("reject"));
+    assert_eq!(r.finish("r3").await.1.reply, "denied");
+}
+
+#[tokio::test]
+async fn the_bots_always_allow_rules_apply_and_the_floor_still_asks() {
+    let mut r = rig(Duration::from_secs(60));
+    let s = start("r1", "mock:exec pnpm lint --fix");
+    let rules = |s: RunStart| RunStart { bot: RunBot { always_allow: vec!["pnpm lint".into()], ..s.bot.clone() }, ..s };
+    r.run(rules(s));
+    let (events, done) = r.finish("r1").await;
+    assert!(events.contains(&running("已按命令审批规则自动批准：pnpm lint --fix")));
+
+    r.run(rules(follow_up("r2", "mock:exec git status && ls", &done)));
+    let (_, done) = r.finish("r2").await;
+    assert_eq!(done.reply, "ran");
+
+    r.run(with_rules(follow_up("r3", "mock:exec sudo ls", &done), Approval::All, &[]));
+    let (_, approval) = until_approval(&mut r).await;
+    assert!(approval.remember.is_empty());
     decide(&r, &approval, Some("reject"));
     assert_eq!(r.finish("r3").await.1.reply, "denied");
 }

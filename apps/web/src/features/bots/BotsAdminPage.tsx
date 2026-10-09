@@ -168,6 +168,7 @@ export function BotDetail({
   const [approval, setApproval] = useState<ApprovalValue>({
     approval: bot.approval,
     allowlist: bot.allowlist,
+    alwaysAllow: bot.alwaysAllow,
   })
   const [gitName, setGitName] = useState(bot.gitName ?? '')
   const [gitEmail, setGitEmail] = useState(bot.gitEmail ?? '')
@@ -199,6 +200,10 @@ export function BotDetail({
         ...(owner && approval.approval !== bot.approval && { approval: approval.approval }),
         ...(owner &&
           approval.allowlist.join('\n') !== bot.allowlist.join('\n') && { allowlist: approval.allowlist }),
+        ...(owner &&
+          approval.alwaysAllow.join('\n') !== bot.alwaysAllow.join('\n') && {
+            alwaysAllow: approval.alwaysAllow,
+          }),
         ...(owner && (gitName.trim() || null) !== bot.gitName && { gitName: gitName.trim() || null }),
         ...(owner && (gitEmail.trim() || null) !== bot.gitEmail && { gitEmail: gitEmail.trim() || null }),
       })

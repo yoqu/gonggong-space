@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approvals,
+  bots,
   feishuChats,
   feishuIdentities,
   feishuMessageLinks,
@@ -649,6 +650,7 @@ describe('question and approval cards', () => {
         toolKind: 'execute',
         detail: 'rm -rf build',
         options,
+        remember: [],
       })
     await ask('r1')
     await feishuIdle(t.ctx)
@@ -676,5 +678,43 @@ describe('question and approval cards', () => {
     await feishuIdle(t.ctx)
     const update = t.feishu.cardUpdates.find((u) => u.messageId === second.messageId)
     expect(JSON.stringify(update?.card)).toContain('已由 王磊 拒绝')
+  })
+
+  it('始终允许 shows its scope and is hidden without one; deciding it from Feishu adds the rules to the bot', async () => {
+    const { machine, run, bot, ownerFs } = await liveRun()
+    const ask = (requestId: string, remember: string[]) =>
+      onApprovalRequest(t.ctx, machine.id, {
+        t: 'approval.request',
+        runId: run.id,
+        requestId,
+        title: '执行命令',
+        toolKind: 'execute',
+        detail: 'npm run build -- --watch=false',
+        options: [
+          { optionId: 'once', name: '允许一次', kind: 'allow_once' },
+          { optionId: 'always', name: '始终允许', kind: 'allow_always' },
+        ],
+        remember,
+      })
+    await ask('r0', [])
+    await feishuIdle(t.ctx)
+    const bare = JSON.stringify(t.feishu.sent.at(-1)!.content)
+    expect(bare).toContain('允许一次')
+    expect(bare).not.toContain('始终允许')
+
+    await ask('r1', ['npm run build', 'tail'])
+    await feishuIdle(t.ctx)
+    const scoped = JSON.stringify(t.feishu.sent.at(-1)!.content)
+    expect(scoped).toContain('将始终允许：npm run build、tail')
+    expect(scoped).toContain('"always"')
+    const [a] = await t.db.select().from(approvals).where(eq(approvals.requestId, 'r1'))
+    await t.feishu.cardAction(BOT_APP, {
+      messageId: t.feishu.sent.at(-1)!.messageId,
+      chatId: CHAT,
+      operator: ownerFs,
+      value: { k: 'approve', a: a!.id, o: 'always' },
+    })
+    const [row] = await t.db.select({ v: bots.alwaysAllow }).from(bots).where(eq(bots.id, bot.id))
+    expect(row?.v).toEqual(['npm run build', 'tail'])
   })
 })

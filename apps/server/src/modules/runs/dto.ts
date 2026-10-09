@@ -69,6 +69,7 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
   toolKind: a.toolKind,
   detail: a.detail,
   options: a.options as ApprovalDto['options'],
+  remember: a.remember,
   status: a.status as ApprovalDto['status'],
   voidReason: a.voidReason as ApprovalDto['voidReason'],
   decidedBy: a.decidedBy,

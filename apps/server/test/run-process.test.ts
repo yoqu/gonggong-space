@@ -511,6 +511,7 @@ describe('run process', () => {
         toolKind: 'execute',
         detail: 'echo hello-approval',
         options: [{ optionId: 'ok', name: '允许', kind: 'allow_once' }],
+        remember: [],
         status: 'approved',
         voidReason: null,
         decidedBy: w.alice.id,

@@ -19,8 +19,14 @@ export default {
   '、': ', ',
   命令白名单: 'Command allowlist',
   输入命令前缀后按: 'Type a command prefix and press',
-  '添加。以这些前缀开头的命令自动批准；用 &&、;、| 连接时每一段都要在白名单内（cat、ls、git status 等只读命令除外），写文件的重定向或 $( ) 仍需你审批。':
-    'to add it. Commands starting with these prefixes are approved automatically; when chained with &&, ; or |, every part must be on the allowlist (read-only commands like cat, ls, git status excepted). Redirects that write files and $( ) still need your approval.',
+  '添加。以这些前缀开头的命令自动批准；用 &&、;、| 连接时每一段都要在白名单内（只读命令除外），写文件的重定向或 $( ) 仍需你审批。':
+    'to add it. Commands starting with these prefixes are approved automatically; when chained with &&, ; or |, every part must be on the allowlist (read-only commands excepted). Redirects that write files and $( ) still need your approval.',
+  'cat、ls、git status 等只读命令在「每次询问」模式下也自动批准；sudo、git push --force、rm -rf / 等高危命令任何模式都需要你审批。':
+    'Read-only commands like cat, ls, git status are approved automatically even in "Ask every time" mode; dangerous commands like sudo, git push --force, rm -rf / always need your approval in every mode.',
+  始终允许: 'Always allow',
+  '来自审批卡片上的「始终允许」，在这个 Bot 所在的所有群生效；以这些前缀开头的命令（或 tool:工具名）自动批准。删除后再次需要你审批。':
+    'Added from "Always allow" on approval cards and applied in every group this Bot is in; commands starting with these prefixes (or tool:<tool name>) are approved automatically. Remove one to be asked again.',
+  '命令前缀或 tool:工具名': 'Command prefix or tool:<tool name>',
   '命令前缀，如 go build': 'Command prefix, e.g. go build',
   'Bot 详情': 'Bot details',
   托管工作区: 'Managed workspace',

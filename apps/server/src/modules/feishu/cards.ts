@@ -171,6 +171,8 @@ export function approvalCard(o: {
   title: string
   detail: string
   options: PermissionOption[]
+  /** Rules 始终允许 adds; empty → its scope can't be shown, so it isn't offered (plan A7). */
+  remember: string[]
   status: string
   by: string | null
 }) {
@@ -180,7 +182,11 @@ export function approvalCard(o: {
       ...head,
       markdown(settledNote(o.status, o.by)),
     ])
-  const buttons = o.options.map((opt) => {
+  const options = o.options.filter((opt) => opt.kind !== 'allow_always' || o.remember.length)
+  const scope = options.some((opt) => opt.kind === 'allow_always')
+    ? [markdown(truncated(zt('将始终允许：{rules}', { rules: o.remember.join(zt('、')) })))]
+    : []
+  const buttons = options.map((opt) => {
     const value: CardValue = { k: 'approve', a: o.id, o: opt.optionId }
     return {
       tag: 'button',
@@ -189,7 +195,7 @@ export function approvalCard(o: {
       behaviors: [{ type: 'callback', value }],
     }
   })
-  return card(zt('{bot} 请求审批', { bot: o.bot }), 'orange', [...head, ...buttons])
+  return card(zt('{bot} 请求审批', { bot: o.bot }), 'orange', [...head, ...scope, ...buttons])
 }
 
 export type PreviewState = 'online' | 'offline' | 'login' | 'closed'

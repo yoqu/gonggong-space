@@ -21,8 +21,21 @@ The card shows:
 | Button | Effect |
 | --- | --- |
 | 批准 (Approve) | Allow this once |
-| 始终允许 (Always allow) | Remember this command for this Agent session; identical commands are approved automatically afterward (shown only if the Agent offers this option) |
+| 始终允许 (Always allow) | Saves the rules listed in 「将始终允许：…」 ("Will always allow: …") on the card to this Bot; matching requests are approved automatically afterward (see below) |
 | 拒绝 (Reject) | Reject this once; the Agent will find another way |
+
+### Always allow
+
+「始终允许」 (Always allow) appears only when the Agent offers that option and Gonggong can work out a rule to remember; next to the button the card states the scope, e.g. 「将始终允许：npm run build、tail」 ("Will always allow: npm run build, tail"). When there's no rule to remember, only 「批准」 (Approve) and 「拒绝」 (Reject) are shown.
+
+Rules are kept as narrow as possible:
+
+- Commands are remembered as a **prefix**: up to the first 3 plain words, stopping at an argument starting with `-`, a path, a quote, or `=`. For example, `npm run build -- --watch=false` is remembered as `npm run build`, so `npm run build` with any arguments is approved automatically afterward.
+- Dangerous programs, or ones that can run arbitrary code, such as `rm`, `mv`, `sudo`, `sh`, `bash`, `python`, `node`, `curl`, `ssh`, `chmod`, and `kill`, are remembered as the **whole command text**; changed arguments need approval again.
+- Read-only commands and `cd` within the workspace are already exempt from approval, so they aren't remembered.
+- Requests that aren't commands (such as MCP tools or network access) are remembered as `tool:<tool name>`; only the tool with that exact name is approved automatically.
+
+Rules are stored **on the Bot**, apply in every group the Bot is in, and survive daemon restarts. The Bot owner can view, delete, or add them manually in the 「始终允许」 (Always allow) list under 「命令审批」 (Command approval) in the Bot settings; once a rule is deleted, approval is required again. See [Bot settings and permissions](/en/user/bot-settings). With 「全部自动」 (Auto for all), the list is hidden because it isn't needed.
 
 After it's handled, the card shows the outcome, e.g. 「某某 已批准 · 14:32」 ("X approved · 14:32") or 「某某 已拒绝 · 14:32 · agent 将自行绕路」 ("X rejected · 14:32 · the agent will work around it").
 
@@ -49,12 +62,29 @@ Each request is decided in this order:
 
 1. Gonggong Space's built-in tools (such as asking group members a question or reading group messages) are always allowed.
 2. If the tier is Full access: allowed automatically.
-3. If it matches the Bot's 「命令审批」 (Command approval) rules: approved automatically, and the process shows 「已按命令审批规则自动批准」 ("Automatically approved by command approval rules").
-4. Otherwise, the Bot owner is asked to approve.
+3. If it hits the hard floor (see below): the Bot owner is always asked to approve.
+4. If the whole command consists only of read-only commands (such as `cat`, `ls`, `git status`) and `cd` within the workspace: approved automatically under both 「每次询问」 (Ask every time) and 「白名单自动」 (Auto for allowlist).
+5. If it matches the Bot's 「命令审批」 (Command approval) rules (allowlist, always allow, or auto for all): approved automatically, and the process shows 「已按命令审批规则自动批准」 ("Automatically approved by command approval rules").
+6. Otherwise, the Bot owner is asked to approve.
 
 「命令审批」 (Command approval) is configured by the Bot owner in the Bot's settings, with the options 「每次询问」 (Ask every time), 「白名单自动」 (Auto for allowlist), and 「全部自动」 (Auto for all); see [Bot settings and permissions](/en/user/bot-settings).
 
+### Hard floor
+
+The following commands **always need the Bot owner's approval**, whatever the command approval mode (including 「全部自动」 (Auto for all)) and whatever the allowlist or always-allow rules say:
+
+- Commands run with `sudo`, `su`, or `doas`;
+- `rm` with `-r`/`-f`-style flags whose target is `/`, `/*`, `~`, `~/…`, `$HOME…`, `..`, `.`, or `*`;
+- `git push` with `-f`, `--force`, `--force-with-lease`, `--mirror`, `--delete`, or a refspec starting with `:` (deleting a remote branch);
+- `git reset --hard`; `git clean` with `-f`;
+- A pipe into `sh`, `bash`, `zsh`, `python`, or `node` (e.g. `curl … | sh`);
+- `chmod -R`, `chown -R`; `dd of=…`; `mkfs…`.
+
+When a command can't be parsed, 「全部自动」 (Auto for all) still lets it through, but if the text contains `sudo `, `rm -rf /`, `| sh`, or `| bash`, it goes to the owner for approval as well. With the Full access tier the Agent sends no permission requests, so the floor doesn't apply.
+
 ::: tip Want fewer approvals?
+- Read-only commands are already exempt, so there's no need to allowlist them.
+- Click 「始终允许」 (Always allow) once for a common command, and no group will ask again.
 - The Bot owner can enable the allowlist in 「命令审批」 (Command approval) and add common command prefixes (e.g. `pnpm test`).
 - Or raise this group's tier under 「群设置 → Bot」 (Group settings → Bot). Tier changes take effect immediately on turns in progress; when raised to Full access, pending requests are approved automatically.
 :::

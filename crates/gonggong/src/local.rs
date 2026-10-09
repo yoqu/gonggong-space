@@ -29,13 +29,15 @@ pub struct AgentSettings {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Rules {
     pub approval: Approval,
-    /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
+    /// Command prefixes (e.g. `go build`) or `tool:<title>` auto-approved in `allowlist` mode.
     pub allowlist: Vec<String>,
+    /// Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode (plan A4).
+    pub always_allow: Vec<String>,
 }
 
 impl From<&RunBot> for Rules {
     fn from(bot: &RunBot) -> Self {
-        Self { approval: bot.approval, allowlist: bot.allowlist.clone() }
+        Self { approval: bot.approval, allowlist: bot.allowlist.clone(), always_allow: bot.always_allow.clone() }
     }
 }
 
@@ -96,55 +98,58 @@ impl LocalSettings {
 }
 
 impl Rules {
-    /// Plan D15. `command` is the shell command of an execute-kind tool call, `None` for any other request; `cwd` is
-    /// the run's workspace and `always` the commands the owner allowed always in this conversation.
-    pub fn decide(&self, tier: Tier, command: Option<&str>, cwd: &Path, always: &[String]) -> Decision {
+    /// Plan D15. `command` is the shell command of an execute-kind tool call, `None` for any other request, which
+    /// `tool:<title>` rules match; `cwd` is the run's workspace and `always` the rules the owner allowed always in this
+    /// conversation. The floor (plan A6) always goes to the owner.
+    pub fn decide(&self, tier: Tier, command: Option<&str>, title: &str, cwd: &Path, always: &[String]) -> Decision {
+        if tier == Tier::Full {
+            return Decision::Full;
+        }
+        if command.is_some_and(floor_hit) {
+            return Decision::Ask;
+        }
+        let trusted = self.always_allow.iter().chain(always);
         let local = match self.approval {
             Approval::All => true,
-            Approval::Allowlist => {
-                command.is_some_and(|c| allowlisted(self.allowlist.iter().chain(always), c, cwd, true))
-            }
-            Approval::Ask => command.is_some_and(|c| allowlisted(always, c, cwd, false)),
+            Approval::Allowlist => allowed(self.allowlist.iter().chain(trusted), command, title, cwd),
+            Approval::Ask => allowed(trusted, command, title, cwd),
         };
-        match (tier, local) {
-            (Tier::Full, _) => Decision::Full,
-            (_, true) => Decision::Local,
-            _ => Decision::Ask,
-        }
+        if local { Decision::Local } else { Decision::Ask }
     }
 }
+
+fn allowed<'a>(rules: impl Iterator<Item = &'a String>, command: Option<&str>, title: &str, cwd: &Path) -> bool {
+    let (tools, prefixes): (Vec<&String>, Vec<&String>) = rules.partition(|r| r.starts_with(TOOL));
+    match command {
+        Some(c) => allowlisted(prefixes, c, cwd),
+        None => tools.iter().any(|r| r[TOOL.len()..] == *title),
+    }
+}
+
+const TOOL: &str = "tool:";
 
 fn normalize(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Commands that only read, allowed in `allowlist` mode without being listed.
+/// Commands that only read, trusted without being listed.
 const READ_ONLY: &[&str] =
     &["cat", "head", "tail", "wc", "grep", "ls", "pwd", "echo", "git status", "git diff", "git log", "git show"];
 
 /// Every command of a chain or pipeline starts with a trusted prefix at a word boundary, or is harmless on its own:
-/// a read-only command or a `cd` within `cwd`. At least one must be trusted, and read-only ones count as trusted only
-/// if `read_only_trusted`. Anything the shell could substitute or write elsewhere is never allowed (see `commands`).
-fn allowlisted<'a>(
-    prefixes: impl IntoIterator<Item = &'a String>,
-    command: &str,
-    cwd: &Path,
-    read_only_trusted: bool,
-) -> bool {
+/// a read-only command or a `cd` within `cwd`. Anything the shell could substitute or write elsewhere is never allowed
+/// (see `commands`).
+fn allowlisted<'a>(prefixes: impl IntoIterator<Item = &'a String>, command: &str, cwd: &Path) -> bool {
     let Some(commands) = commands(command) else { return false };
     let prefixes: Vec<String> = prefixes.into_iter().map(|p| normalize(p)).collect();
-    let mut trusted = false;
-    for words in &commands {
+    commands.iter().all(|words| {
         let line = words.join(" ");
-        if starts_with_any(&line, prefixes.iter().map(String::as_str)) {
-            trusted = true;
-        } else if read_only(&line, words) {
-            trusted |= read_only_trusted;
-        } else if !cd_within(words, cwd) {
-            return false;
-        }
-    }
-    trusted
+        starts_with_any(&line, prefixes.iter().map(String::as_str)) || harmless(&line, words, cwd)
+    })
+}
+
+fn harmless(line: &str, words: &[String], cwd: &Path) -> bool {
+    read_only(line, words) || cd_within(words, cwd)
 }
 
 fn starts_with_any<'a>(line: &str, prefixes: impl IntoIterator<Item = &'a str>) -> bool {
@@ -169,16 +174,156 @@ fn cd_within(words: &[String], cwd: &Path) -> bool {
         && (path.is_relative() || path.starts_with(cwd))
 }
 
-/// The commands the owner allowed by answering "always" to `command`, as trusted prefixes for the conversation.
-pub fn remembered(command: &str) -> Vec<String> {
-    commands(command).unwrap_or_default().iter().map(|words| words.join(" ")).collect()
+/// What an allow_always answer to a request trusts from now on (plan A2/A3); nothing for the floor.
+pub fn remember(command: Option<&str>, title: &str, cwd: &Path) -> Vec<String> {
+    match command {
+        Some(c) if floor_hit(c) => vec![],
+        Some(c) => remembered(c, cwd),
+        None => vec![format!("{TOOL}{title}")],
+    }
+}
+
+/// Programs whose arguments decide what they do: remembered with all of them.
+const EXACT: &[&str] = &[
+    "rm", "sudo", "su", "doas", "sh", "bash", "zsh", "fish", "python", "python3", "node", "deno", "bun", "perl",
+    "ruby", "php", "eval", "exec", "xargs", "env", "curl", "wget", "ssh", "scp", "rsync", "dd", "chmod", "chown",
+    "kill", "pkill", "killall", "mv",
+];
+
+/// The smallest prefix of each command that is not harmless: up to 3 plain words (`npm run build`), or the whole
+/// command if it has fewer than 2 before other words, or runs an `EXACT` program.
+pub fn remembered(command: &str, cwd: &Path) -> Vec<String> {
+    let mut rules: Vec<String> = Vec::new();
+    for words in commands(command).unwrap_or_default() {
+        let line = words.join(" ");
+        if harmless(&line, &words, cwd) {
+            continue;
+        }
+        let plain: Vec<&str> = words.iter().map(String::as_str).take_while(|w| plain_word(w)).take(3).collect();
+        let rule = if EXACT.contains(&base(&words[0])) || (plain.len() < 2 && words.len() > plain.len()) {
+            line
+        } else {
+            plain.join(" ")
+        };
+        if !rules.contains(&rule) {
+            rules.push(rule);
+        }
+    }
+    rules
+}
+
+fn plain_word(w: &str) -> bool {
+    let mut chars = w.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || "._:@+-".contains(c))
+}
+
+/// A word without its quotes, and the file name of a program path.
+fn unquote(w: &str) -> &str {
+    w.trim_matches(['"', '\''])
+}
+
+fn base(w: &str) -> &str {
+    let w = unquote(w);
+    w.rsplit('/').next().unwrap_or(w)
+}
+
+/// Programs that run the next word as a command.
+const WRAPPERS: &[&str] = &["env", "command", "exec", "nohup", "time", "nice", "xargs"];
+
+/// The program a command runs (file name) and its arguments, past variable assignments and wrappers.
+fn program(words: &[String]) -> Option<(&str, &[String])> {
+    let i = words.iter().position(|w| {
+        let name = w.split_once('=').map_or(w.as_str(), |(n, _)| n);
+        let assignment = w.contains('=') && plain_word(name) && !name.contains(['.', ':', '@', '+', '-']);
+        !assignment && !WRAPPERS.contains(&base(w))
+    })?;
+    Some((base(&words[i]), &words[i + 1..]))
+}
+
+/// A short option cluster (`-rf`) containing one of `letters`.
+fn short_has(w: &str, letters: &str) -> bool {
+    w.starts_with('-') && !w.starts_with("--") && w.chars().skip(1).any(|c| letters.contains(c))
+}
+
+/// Plan A6: never trusted by any rule.
+fn floor_hit(command: &str) -> bool {
+    match segments(command) {
+        Some(all) => all.iter().any(|(piped, words)| floor_segment(*piped, words)),
+        None => {
+            let line = normalize(command);
+            ["sudo ", "rm -rf /", "| sh", "| bash"].iter().any(|k| line.contains(k))
+        }
+    }
+}
+
+fn floor_segment(piped: bool, words: &[String]) -> bool {
+    let Some((name, args)) = program(words) else { return false };
+    let args: Vec<&str> = args.iter().map(|a| unquote(a)).collect();
+    let has = |a: &str| args.contains(&a);
+    match name {
+        "sudo" | "su" | "doas" => true,
+        "sh" | "bash" | "zsh" | "node" => piped,
+        _ if name.starts_with("python") => piped,
+        _ if name.starts_with("mkfs") => true,
+        "rm" => {
+            let forced = args.iter().any(|a| short_has(a, "rRf") || matches!(*a, "--recursive" | "--force"));
+            forced && args.iter().any(|a| sweeping(a))
+        }
+        "chmod" | "chown" => args.iter().any(|a| short_has(a, "R") || *a == "--recursive"),
+        "dd" => args.iter().any(|a| a.starts_with("of=")),
+        "git" => {
+            let Some((sub, rest)) = git_subcommand(&args) else { return false };
+            match sub {
+                "push" => rest.iter().any(|a| {
+                    short_has(a, "fd")
+                        || a.starts_with("--force")
+                        || matches!(*a, "--mirror" | "--delete")
+                        || a.starts_with([':', '+'])
+                }),
+                "reset" => has("--hard"),
+                "clean" => rest.iter().any(|a| short_has(a, "f") || *a == "--force"),
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+/// An `rm` target that sweeps a whole tree: the root, home, the current or parent directory, or everything.
+fn sweeping(target: &str) -> bool {
+    let t = target.trim_end_matches('/');
+    let t = if t.is_empty() && !target.is_empty() { "/" } else { t };
+    matches!(t, "/" | "/*" | "~" | "." | ".." | "*")
+        || t.starts_with("~/")
+        || t.starts_with("$HOME")
+        || t.starts_with("${HOME")
+}
+
+/// `git [-C dir] [-c k=v] [--flag] <sub> <args>`.
+fn git_subcommand<'a>(args: &'a [&'a str]) -> Option<(&'a str, &'a [&'a str])> {
+    let mut i = 0;
+    while let Some(a) = args.get(i) {
+        match *a {
+            "-C" | "-c" => i += 2,
+            _ if a.starts_with('-') => i += 1,
+            _ => return Some((a, &args[i + 1..])),
+        }
+    }
+    None
+}
+
+/// The simple commands of a shell line, see `segments`.
+fn commands(line: &str) -> Option<Vec<Vec<String>>> {
+    Some(segments(line)?.into_iter().map(|(_, words)| words).collect())
 }
 
 /// Splits a shell line into its simple commands (words as written, quotes kept) at `&&`, `||`, `;`, `|` and newlines,
 /// dropping redirections to a file descriptor or /dev/null. `None` if the shell could run or write anything else:
-/// substitutions, subshells, other redirections, heredocs, background jobs, unterminated quotes.
-fn commands(line: &str) -> Option<Vec<Vec<String>>> {
-    let (mut all, mut words, mut word) = (Vec::new(), Vec::<String>::new(), String::new());
+/// substitutions, subshells, other redirections, heredocs, background jobs, unterminated quotes. Each command comes
+/// with whether it reads the previous one's output through `|`.
+fn segments(line: &str) -> Option<Vec<(bool, Vec<String>)>> {
+    let (mut all, mut words, mut word, mut piped) = (Vec::new(), Vec::<String>::new(), String::new(), false);
     let (mut single, mut double, mut chars) = (false, false, line.chars().peekable());
     let end_word = |words: &mut Vec<String>, word: &mut String| {
         if !word.is_empty() {
@@ -208,16 +353,17 @@ fn commands(line: &str) -> Option<Vec<Vec<String>>> {
             _ if double => word.push(c),
             ' ' | '\t' => end_word(&mut words, &mut word),
             ';' | '\n' | '|' | '&' if !(c == '&' && chars.peek() == Some(&'>')) => {
-                match (c, chars.peek()) {
+                let pipe = match (c, chars.peek()) {
                     ('|', Some('|')) | ('&', Some('&')) => {
                         chars.next();
+                        false
                     }
                     ('|', Some('&')) | ('&', _) => return None,
-                    _ => {}
-                }
+                    _ => c == '|',
+                };
                 end_word(&mut words, &mut word);
                 if !words.is_empty() {
-                    all.push(std::mem::take(&mut words));
+                    all.push((std::mem::replace(&mut piped, pipe), std::mem::take(&mut words)));
                 }
             }
             '>' | '&' => {
@@ -253,7 +399,7 @@ fn commands(line: &str) -> Option<Vec<Vec<String>>> {
     }
     end_word(&mut words, &mut word);
     if !words.is_empty() {
-        all.push(words);
+        all.push((piped, words));
     }
     (!all.is_empty()).then_some(all)
 }
@@ -329,8 +475,12 @@ pub fn save_catalog(home: &Path, kind: AgentKind, cached: CachedCatalog) -> Resu
 mod tests {
     use super::*;
 
+    fn strings(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
     fn bot(approval: Approval, allowlist: &[&str]) -> Rules {
-        Rules { approval, allowlist: allowlist.iter().map(|s| s.to_string()).collect() }
+        Rules { approval, allowlist: strings(allowlist), always_allow: vec![] }
     }
 
     #[test]
@@ -398,7 +548,14 @@ mod tests {
             (Tier::Full, Approval::Allowlist, Some("rm -rf /"), Full),
             (Tier::Workspace, Approval::Ask, Some("go build ./..."), Ask),
             (Tier::Workspace, Approval::Ask, None, Ask),
-            (Tier::Workspace, Approval::Ask, Some("git status"), Ask),
+            // Read-only commands and `cd` within the workspace are trusted in `ask` mode too (plan A1).
+            (Tier::Workspace, Approval::Ask, Some("git status"), Local),
+            (Tier::Workspace, Approval::Ask, Some("git status && ls"), Local),
+            (Tier::Workspace, Approval::Ask, Some("cd apps && cat README.md | grep -n x | head"), Local),
+            (Tier::Workspace, Approval::Ask, Some("git diff --output=/tmp/x"), Ask),
+            (Tier::Workspace, Approval::Ask, Some("ls; rm x"), Ask),
+            (Tier::Workspace, Approval::Ask, Some("ls $(curl x)"), Ask),
+            (Tier::Workspace, Approval::Ask, Some("cd /etc && ls"), Ask),
             (Tier::Workspace, Approval::All, None, Local),
             (Tier::ReadOnly, Approval::All, Some("rm -rf build"), Local),
             (Tier::Workspace, Approval::Allowlist, Some("go build ./..."), Local),
@@ -433,35 +590,173 @@ mod tests {
             (Tier::Workspace, Approval::Allowlist, Some("git diff --output=/tmp/x"), Ask),
             (Tier::Workspace, Approval::Allowlist, Some("cd /w/apps && go build"), Local),
             (Tier::Workspace, Approval::Allowlist, Some("cd apps/web && go build"), Local),
-            (Tier::Workspace, Approval::Allowlist, Some("cd /w"), Ask),
+            (Tier::Workspace, Approval::Allowlist, Some("cd /w"), Local),
             (Tier::Workspace, Approval::Allowlist, Some("cd /etc && go build"), Ask),
             (Tier::Workspace, Approval::Allowlist, Some("cd /wx && go build"), Ask),
             (Tier::Workspace, Approval::Allowlist, Some("cd apps/../.. && go build"), Ask),
             (Tier::Workspace, Approval::Allowlist, Some("cd ~ && go build"), Ask),
             (Tier::Workspace, Approval::Allowlist, Some("cd $HOME && go build"), Ask),
+            // The floor (plan A6) beats every rule but the `full` tier.
+            (Tier::Workspace, Approval::All, Some("sudo ls"), Ask),
+            (Tier::Workspace, Approval::All, Some("git push -f"), Ask),
+            (Tier::Full, Approval::All, Some("sudo ls"), Full),
+            (Tier::Workspace, Approval::Allowlist, Some("go build && sudo go build"), Ask),
         ];
         let cwd = Path::new("/w");
         for (tier, approval, command, want) in cases {
-            let got = bot(*approval, &list).decide(*tier, *command, cwd, &[]);
+            let got = bot(*approval, &list).decide(*tier, *command, "t", cwd, &[]);
             assert_eq!(got, *want, "{tier:?} {approval:?} {command:?}");
         }
-        assert_eq!(bot(Approval::Allowlist, &[]).decide(Tier::Workspace, Some("go build"), cwd, &[]), Ask);
+        assert_eq!(bot(Approval::Allowlist, &[]).decide(Tier::Workspace, Some("go build"), "t", cwd, &[]), Ask);
         let node = bot(Approval::Allowlist, &["node -e"]);
-        assert_eq!(node.decide(Tier::Workspace, Some("node -e \"console.log(1 + 1)\""), cwd, &[]), Local);
+        assert_eq!(node.decide(Tier::Workspace, Some("node -e \"console.log(1 + 1)\""), "t", cwd, &[]), Local);
     }
 
     #[test]
     fn always_allowed_commands_apply_in_every_mode() {
         let cwd = Path::new("/w");
-        let always = remembered("cd /w && pnpm lint 2>&1 | tail -3");
-        assert_eq!(always, ["cd /w", "pnpm lint", "tail -3"]);
+        let always = remembered("cd /w && pnpm lint 2>&1 | tail -3", cwd);
+        assert_eq!(always, ["pnpm lint"]);
+        let from_server = |approval| Rules { always_allow: always.clone(), ..bot(approval, &[]) };
+        for approval in [Approval::Ask, Approval::Allowlist] {
+            for (b, mem) in [(bot(approval, &[]), always.as_slice()), (from_server(approval), &[])] {
+                assert_eq!(b.decide(Tier::Workspace, Some("pnpm lint --fix | head"), "t", cwd, mem), Decision::Local);
+                assert_eq!(b.decide(Tier::Workspace, Some("pnpm lint && rm x"), "t", cwd, mem), Decision::Ask);
+                assert_eq!(b.decide(Tier::Workspace, None, "t", cwd, mem), Decision::Ask);
+                assert_eq!(b.decide(Tier::Workspace, Some("sudo pnpm lint"), "t", cwd, mem), Decision::Ask);
+            }
+        }
+        assert!(remembered("python3 - <<EOF", cwd).is_empty());
+    }
+
+    #[test]
+    fn tool_rules_match_the_request_title_exactly() {
+        let cwd = Path::new("/w");
+        let always = remember(None, "mcp__github__create_issue", cwd);
+        assert_eq!(always, ["tool:mcp__github__create_issue"]);
         for approval in [Approval::Ask, Approval::Allowlist] {
             let b = bot(approval, &[]);
-            assert_eq!(b.decide(Tier::Workspace, Some("pnpm lint --fix | head"), cwd, &always), Decision::Local);
-            assert_eq!(b.decide(Tier::Workspace, Some("pnpm lint && rm x"), cwd, &always), Decision::Ask);
-            assert_eq!(b.decide(Tier::Workspace, None, cwd, &always), Decision::Ask);
+            assert_eq!(b.decide(Tier::Workspace, None, "mcp__github__create_issue", cwd, &always), Decision::Local);
+            assert_eq!(b.decide(Tier::Workspace, None, "mcp__github__create_issue2", cwd, &always), Decision::Ask);
+            assert_eq!(b.decide(Tier::Workspace, None, "mcp__github", cwd, &always), Decision::Ask);
+            // A tool rule never trusts a command.
+            let cmd = Some("tool:mcp__github__create_issue");
+            assert_eq!(b.decide(Tier::Workspace, cmd, "mcp__github__create_issue", cwd, &always), Decision::Ask);
         }
-        assert!(remembered("python3 - <<EOF").is_empty());
+        let listed = bot(Approval::Allowlist, &["tool:Fetch"]);
+        assert_eq!(listed.decide(Tier::Workspace, None, "Fetch", cwd, &[]), Decision::Local);
+        assert_eq!(bot(Approval::Ask, &["tool:Fetch"]).decide(Tier::Workspace, None, "Fetch", cwd, &[]), Decision::Ask);
+    }
+
+    #[test]
+    fn remembers_the_smallest_prefix_of_each_command() {
+        let cwd = Path::new("/w");
+        let cases: &[(&str, &[&str])] = &[
+            ("npm run build -- --watch=false", &["npm run build"]),
+            ("git commit -m x", &["git commit"]),
+            ("cargo test --workspace", &["cargo test"]),
+            ("go build ./...", &["go build"]),
+            ("pnpm --filter x test", &["pnpm --filter x test"]),
+            ("rm -rf build", &["rm -rf build"]),
+            ("python3 scripts/a.py", &["python3 scripts/a.py"]),
+            ("/bin/rm x", &["/bin/rm x"]),
+            ("make", &["make"]),
+            ("make build", &["make build"]),
+            ("FOO=1 make", &["FOO=1 make"]),
+            ("cd /w && pnpm lint 2>&1 | tail -3", &["pnpm lint"]),
+            ("pnpm lint && pnpm lint --fix", &["pnpm lint"]),
+            ("git status && ls", &[]),
+            ("ls $(id)", &[]),
+        ];
+        for (command, want) in cases {
+            assert_eq!(remembered(command, cwd), *want, "{command}");
+        }
+    }
+
+    #[test]
+    fn the_floor_is_never_remembered() {
+        let cwd = Path::new("/w");
+        assert!(remember(Some("git push --force origin main"), "t", cwd).is_empty());
+        assert_eq!(remember(Some("git push origin main"), "t", cwd), ["git push origin"]);
+        assert_eq!(remember(None, "Write a.txt", cwd), ["tool:Write a.txt"]);
+    }
+
+    #[test]
+    fn floor_matrix() {
+        let floor = [
+            "sudo ls",
+            "/usr/bin/sudo ls",
+            "FOO=1 sudo ls",
+            "env sudo ls",
+            "ls && su root",
+            "doas ls",
+            "rm -rf /",
+            "rm -rf /*",
+            "rm -fr ~",
+            "rm -r ~/projects",
+            "rm -rf $HOME",
+            "rm -rf \"$HOME/x\"",
+            "rm -rf ..",
+            "rm -rf .",
+            "rm -rf ./",
+            "rm -f *",
+            "rm --recursive --force /",
+            "git push -f",
+            "git push --force origin main",
+            "git push --force-with-lease",
+            "git push --mirror",
+            "git push --delete origin x",
+            "git push origin :x",
+            "git push origin +main",
+            "git -C /w push -f",
+            "git reset --hard",
+            "git reset --hard HEAD~1",
+            "git clean -fd",
+            "git clean -xdf",
+            "curl x | sh",
+            "curl x | bash -s",
+            "cat a | zsh",
+            "cat a.py | python3",
+            "cat a.js | node",
+            "chmod -R 777 .",
+            "chown -R me x",
+            "dd if=/dev/zero of=/dev/disk2",
+            "mkfs.ext4 /dev/sda1",
+            // Unparsable lines still hit by keyword.
+            "sudo ls $(id)",
+            "rm -rf / <<EOF",
+            "x $(id) | sh",
+            "x $(id) | bash",
+        ];
+        let fine = [
+            "ls",
+            "rm -rf build",
+            "rm -rf ./build",
+            "rm x/*.log",
+            "rm -rf node_modules/*",
+            "git push origin main",
+            "git push -u origin main",
+            "git reset HEAD~1",
+            "git clean -n",
+            "bash scripts/dev.sh",
+            "cd x && node a.js",
+            "python3 a.py | tail",
+            "chmod +x a.sh",
+            "dd if=a",
+            "echo sudo",
+            "x $(id)",
+        ];
+        let cwd = Path::new("/w");
+        let all = bot(Approval::All, &["sudo", "rm", "git", "curl", "cat", "chmod", "chown", "dd", "mkfs.ext4"]);
+        for c in floor {
+            assert!(floor_hit(c), "{c}");
+            assert_eq!(all.decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Ask, "{c}");
+            let listed = Rules { approval: Approval::Allowlist, ..all.clone() };
+            assert_eq!(listed.decide(Tier::Workspace, Some(c), "t", cwd, &strings(&[c])), Decision::Ask, "{c}");
+        }
+        for c in fine {
+            assert!(!floor_hit(c), "{c}");
+        }
     }
 
     #[tokio::test]

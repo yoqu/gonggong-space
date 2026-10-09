@@ -369,6 +369,8 @@ export const BotDto = z.object({
   catalog: AgentCatalog.nullable(),
   approval: Approval,
   allowlist: z.array(z.string()),
+  /** Rules from 始终允许 (see RunStart.bot.alwaysAllow). */
+  alwaysAllow: z.array(z.string()),
   /** Git commit identity; null = the bot name / `gitDefaultEmail`. */
   gitName: z.string().nullable(),
   gitEmail: z.string().nullable(),
@@ -488,6 +490,7 @@ export const UpdateBotReq = z.object({
   /** Bot owner only. */
   approval: Approval.optional(),
   allowlist: Allowlist.optional(),
+  alwaysAllow: Allowlist.optional(),
   /** Bot owner only; null = default. */
   gitName: z.string().trim().min(1).max(80).nullable().optional(),
   gitEmail: z.email().max(200).nullable().optional(),
@@ -918,6 +921,8 @@ export const ApprovalDto = z.object({
   toolKind: z.string(),
   detail: z.string(),
   options: z.array(PermissionOption),
+  /** What 始终允许 would add to the bot's alwaysAllow. */
+  remember: z.array(z.string()),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
   status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
   /** Why a request became void: the run was stopped, its relay chain was stopped, or the run ended first. */

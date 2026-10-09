@@ -191,6 +191,8 @@ export const bots = pgTable('bots', {
   /** 'ask' | 'allowlist' | 'all'; set by the owner only (plan J9). */
   approval: text('approval').notNull().default('ask'),
   allowlist: jsonb('allowlist').$type<string[]>().notNull().default([]),
+  /** Rules the owner chose 始终允许 for (command prefixes or `tool:<title>`), across groups. */
+  alwaysAllow: jsonb('always_allow').$type<string[]>().notNull().default([]),
   /** Owner's local directory used when a group has no binding of its own. */
   defaultWorkspace: text('default_workspace'),
   /** Default model / thought level as the adapter names them; null = the adapter's default. */
@@ -530,6 +532,8 @@ export const approvals = pgTable(
     toolKind: text('tool_kind').notNull(),
     detail: text('detail').notNull(),
     options: jsonb('options').notNull(),
+    /** What an allow_always answer adds to the bot's alwaysAllow. */
+    remember: jsonb('remember').$type<string[]>().notNull().default([]),
     /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */
     status: text('status').notNull().default('pending'),
     /** 'stopped' | 'chain_stopped' | 'ended' when status = 'void'. */

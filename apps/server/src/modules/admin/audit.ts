@@ -143,6 +143,11 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('确认 Bot {name}', { name: str(d.name) })
         case 'bot.approval':
           return t('修改 Bot {name} 的审批设置', { name: str(d.name) })
+        case 'bot.always_allow':
+          return t('Bot {name} 始终允许：{rules}', {
+            name: str(d.name),
+            rules: (Array.isArray(d.added) ? d.added : []).join(t('、')),
+          })
         case 'feishu.app.save':
           return d.kind === 'main'
             ? t('配置飞书主应用 {appId}', { appId: str(d.appId) })

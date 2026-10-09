@@ -509,6 +509,7 @@ mod tests {
                 tool_kind: "execute".into(),
                 detail: String::new(),
                 options: Vec::new(),
+                remember: Vec::new(),
             }),
             DaemonToServer::QuestionWithdraw { run_id: "r1".into(), request_id: "q1".into() },
         ]

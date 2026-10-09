@@ -160,6 +160,7 @@ impl Engine {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         };
         let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));

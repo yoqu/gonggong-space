@@ -238,6 +238,8 @@ export const RunStart = z.object({
     effort: z.string().nullable().default(null),
     approval: Approval.default('ask'),
     allowlist: z.array(z.string()).default([]),
+    /** Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode: command prefixes or `tool:<title>`. */
+    alwaysAllow: z.array(z.string()).default([]),
     /** Author and committer of the agent's git commits; null = the machine's git config. */
     git: z.object({ name: z.string(), email: z.string() }).nullable().default(null),
   }),
@@ -440,6 +442,8 @@ export const ApprovalRequest = z.object({
   /** Command line / path / URL the agent wants to touch. */
   detail: z.string(),
   options: z.array(PermissionOption),
+  /** Rules an allow_always answer adds to the bot's alwaysAllow; empty → the scope can't be shown, so don't offer it. */
+  remember: z.array(z.string()).default([]),
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 

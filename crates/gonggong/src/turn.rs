@@ -537,6 +537,7 @@ mod tests {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         };
         let s = system_prompt(&bot);

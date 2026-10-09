@@ -27,6 +27,7 @@
     "catalog": null,
     "approval": "allowlist",
     "allowlist": ["go build"],
+    "alwaysAllow": [],
     "gitName": null,
     "gitEmail": null,
     "gitDefaultEmail": "b1@bots.gonggong.local"

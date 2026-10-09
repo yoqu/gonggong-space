@@ -26,6 +26,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
     { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
+  remember: [],
   status: 'pending',
   voidReason: null,
   decidedBy: null,
@@ -94,18 +95,40 @@ describe('ApprovalBlock', () => {
     })
   })
 
-  it('offers allow-always only when the agent does', async () => {
+  it('offers allow-always only when the agent does and there is something to remember', async () => {
     login('u1', '王磊')
     const calls = mockApi({ 'POST /runs/r1/approvals/a1': approval({ status: 'approved' }) })
-    const { rerender } = render(<ApprovalBlock run={run([approval()])} />)
+    const remember = ['npm run build', 'tail']
+    const { rerender } = render(<ApprovalBlock run={run([approval({ remember })])} />)
     expect(screen.queryByRole('button', { name: '始终允许' })).toBeNull()
+    expect(screen.queryByText(/将始终允许/)).toBeNull()
     const options = [
       { optionId: 'always', name: 'Always', kind: 'allow_always' },
       ...approval().options,
     ] as ApprovalDto['options']
     rerender(<ApprovalBlock run={run([approval({ options })])} />)
+    expect(screen.queryByRole('button', { name: '始终允许' })).toBeNull()
+    expect(screen.getByRole('button', { name: '批准' })).toBeTruthy()
+    rerender(<ApprovalBlock run={run([approval({ options, remember })])} />)
+    expect(screen.getByText('将始终允许：npm run build、tail')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '始终允许' }))
     await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'always' }))
+  })
+
+  it('hides the allow-always scope once decided', () => {
+    login('u1', '王磊')
+    const options = [
+      { optionId: 'always', name: 'Always', kind: 'allow_always' },
+      ...approval().options,
+    ] as ApprovalDto['options']
+    render(
+      <ApprovalBlock
+        run={run([
+          approval({ options, remember: ['tail'], status: 'approved', decidedAt: NOW.toISOString() }),
+        ])}
+      />,
+    )
+    expect(screen.queryByText(/将始终允许/)).toBeNull()
   })
 
   it('counts down from the moment a request arrives', () => {

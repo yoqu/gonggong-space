@@ -631,6 +631,7 @@ async function syncApprovals(ctx: Ctx, app: FeishuAppRow, trigger: Link, bot: st
       title: a.title,
       detail: a.detail,
       options: a.options as PermissionOption[],
+      remember: a.remember,
       status: a.status,
       by,
     })

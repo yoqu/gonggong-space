@@ -326,6 +326,7 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
       title: row.a.title,
       detail: row.a.detail,
       options: [],
+      remember: [],
       status: decided.status,
       by: user.name,
     })

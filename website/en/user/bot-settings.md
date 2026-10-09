@@ -54,15 +54,31 @@ How commands are handled under the Read-only and Workspace write tiers:
 
 | Option | Meaning |
 | --- | --- |
-| 每次询问 (Ask every time) | Default; every command needs approval |
+| 每次询问 (Ask every time) | Default; every command except read-only ones needs approval |
 | 白名单自动 (Auto-approve allowlist) | Commands matching the allowlist are approved automatically; others still need approval |
-| 全部自动 (Auto-approve all) | All commands are approved automatically |
+| 全部自动 (Auto-approve all) | All commands except dangerous ones are approved automatically |
+
+In every mode:
+
+- Read-only commands such as `cat`, `ls`, `git status` (and `cd` within the workspace) are approved automatically, even under Ask every time;
+- Dangerous commands such as `sudo`, `git push --force`, `rm -rf /` always need your approval, even under Auto-approve all. For the full list, see [Approvals and questions](/en/user/approvals#hard-floor).
 
 After choosing Auto-approve allowlist, a 「命令白名单」 (Command allowlist) appears: type a command prefix and press Enter to add it, e.g. `go build`, `npm test`. Rules:
 
 - Commands starting with these prefixes are approved automatically;
-- For commands chained with `&&`, `;`, or `|`, every segment must be on the allowlist (except read-only commands such as `cat`, `ls`, `git status`);
-- File-writing redirects (like `> file`) or `$( )` still need approval.
+- For commands chained with `&&`, `;`, or `|`, every segment must be on the allowlist (read-only commands excepted);
+- File-writing redirects (like `> file`) or `$( )` still need approval;
+- You can also write `tool:<tool name>` to auto-approve requests that aren't commands (such as MCP tools) for the tool with that exact name.
+
+### Always allow
+
+Under Ask every time and Auto-approve allowlist there is also an 「始终允许」 (Always allow) list. When you click 「始终允许」 (Always allow) on an approval card, the rules the card lists under 「将始终允许：…」 ("Will always allow: …") are added here and apply in every group the Bot is in.
+
+- A rule is a command prefix (such as `npm run build`) or `tool:<tool name>`; matching requests are approved automatically;
+- Click × on a rule to delete it, after which approval is required again; you can also type a prefix and press Enter to add one manually;
+- The list is hidden under Auto-approve all.
+
+For how rules are generated and which commands are remembered as their whole text, see [Approvals and questions](/en/user/approvals#always-allow).
 
 ::: tip
 The Full access tier never asks for approval, so this setting has no effect on it. For who approves and how, see [Approvals and questions](/en/user/approvals).

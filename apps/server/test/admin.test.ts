@@ -347,6 +347,9 @@ describe('audit query', () => {
       summarize({ category, action }, d, n)
     expect(s('admin', 'group.notice.remove', { notice: '周五发布' })).toBe('删除群公告')
     expect(s('admin', 'bot.approval', { name: '设计师' })).toBe('修改 Bot 设计师 的审批设置')
+    expect(s('admin', 'bot.always_allow', { name: '设计师', added: ['npm test', 'tail'] })).toBe(
+      'Bot 设计师 始终允许：npm test、tail',
+    )
     expect(s('admin', 'machine.transfer', { name: 'mac-mini', fromOwnerId: 'u1' })).toBe(
       '将 王磊 的机器 mac-mini 转移到名下',
     )

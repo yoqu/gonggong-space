@@ -43,6 +43,7 @@ import { stepI18nOf } from '../runs/step.js'
 import { leaveBots } from '../sync/switch.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 import { updateBotState } from '../workspaces/state.js'
+import { normalizeAllowlist } from './allowlist.js'
 import { confirmBot } from './binding.js'
 import { assertCanConfigure, assertPick, choiceCatalog, pickCatalog, providersCmd } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
@@ -84,9 +85,6 @@ function assertCanManage(user: SessionUser, bot: BotRow) {
   if (user.id !== bot.ownerId && user.role !== 'sysadmin')
     fail('forbidden', '只有归属人或系统管理员可以修改该 Bot')
 }
-
-/** Same command, same entry: `go  build` and `go build` are one prefix. */
-const normalizeAllowlist = (list: string[]) => [...new Set(list.map((s) => s.trim().split(/\s+/).join(' ')))]
 
 /** Sysadmin actions on someone else's bot are audited (spec 9: all admin operations). */
 async function auditForeign(ctx: Ctx, user: SessionUser, bot: BotRow, action: string, detail: object = {}) {
@@ -290,11 +288,15 @@ export function botRoutes(ctx: Ctx) {
       const bot = await loadBot(ctx, req.params.id)
       assertCanManage(user, bot)
       // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
-      if ((body.approval !== undefined || body.allowlist !== undefined) && user.id !== bot.ownerId)
+      if (
+        (body.approval !== undefined || body.allowlist !== undefined || body.alwaysAllow !== undefined) &&
+        user.id !== bot.ownerId
+      )
         fail('forbidden', '命令审批只有 Bot 主人能修改')
       if ((body.gitName !== undefined || body.gitEmail !== undefined) && user.id !== bot.ownerId)
         fail('forbidden', 'Git 提交身份只有 Bot 主人能修改')
       if (body.allowlist) body.allowlist = normalizeAllowlist(body.allowlist)
+      if (body.alwaysAllow) body.alwaysAllow = normalizeAllowlist(body.alwaysAllow)
       await assertTierAllowed(ctx, body.tier)
       const name = body.name?.trim()
       if (name !== undefined) {
@@ -321,8 +323,13 @@ export function botRoutes(ctx: Ctx) {
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
-      const approval = { approval: body.approval ?? bot.approval, allowlist: body.allowlist ?? bot.allowlist }
-      if (approval.approval !== bot.approval || approval.allowlist.join('\n') !== bot.allowlist.join('\n'))
+      const from = { approval: bot.approval, allowlist: bot.allowlist, alwaysAllow: bot.alwaysAllow }
+      const approval = {
+        approval: body.approval ?? bot.approval,
+        allowlist: body.allowlist ?? bot.allowlist,
+        alwaysAllow: body.alwaysAllow ?? bot.alwaysAllow,
+      }
+      if (JSON.stringify(approval) !== JSON.stringify(from))
         await audit(ctx, {
           category: 'admin',
           actorUserId: user.id,
@@ -331,7 +338,7 @@ export function botRoutes(ctx: Ctx) {
           detail: {
             botId: bot.id,
             name: bot.name,
-            from: { approval: bot.approval, allowlist: bot.allowlist },
+            from,
             to: approval,
           },
         })

@@ -242,6 +242,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
       tier: await runTier(tx, (gb.tier ?? bot.tier) as Tier),
       approval: bot.approval as Approval,
       allowlist: bot.allowlist,
+      alwaysAllow: bot.alwaysAllow,
       git: gitIdentity(bot),
       ...config,
     },

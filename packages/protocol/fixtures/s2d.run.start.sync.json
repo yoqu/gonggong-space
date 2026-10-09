@@ -12,7 +12,8 @@
     "model": "opus",
     "effort": "high",
     "approval": "allowlist",
-    "allowlist": ["go build", "npm test"]
+    "allowlist": ["go build", "npm test"],
+    "alwaysAllow": []
   },
   "workspace": {
     "repo": {

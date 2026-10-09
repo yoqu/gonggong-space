@@ -84,6 +84,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   defaultWorkspace: null,
   approval: 'ask',
   allowlist: [],
+  alwaysAllow: [],
   model: null,
   effort: null,
   catalog: null,
@@ -492,20 +493,59 @@ describe('bot detail', () => {
     )
   })
 
+  it('lets the owner edit the always-allow rules in ask and allowlist modes', async () => {
+    routes['GET /api/bots'] = () => [bot({ alwaysAllow: ['npm run build', 'tool:Fetch'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    const field = within(detail).getByRole('combobox', { name: '始终允许' })
+    expect(within(detail).getByText(/来自审批卡片上的「始终允许」/)).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '移除 npm run build' }))
+    fireEvent.change(field, { target: { value: '  cargo   test ' } })
+    fireEvent.keyDown(field, { key: 'Enter' })
+    fireEvent.click(within(detail).getByRole('radio', { name: '全部自动' }))
+    expect(within(detail).queryByRole('combobox', { name: '始终允许' })).toBeNull()
+    fireEvent.click(within(detail).getByRole('radio', { name: '白名单自动' }))
+    expect(within(detail).getByRole('combobox', { name: '始终允许' })).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({
+        approval: 'allowlist',
+        alwaysAllow: ['tool:Fetch', 'cargo test'],
+      }),
+    )
+  })
+
+  it('leaves unchanged always-allow rules out of the update', async () => {
+    routes['GET /api/bots'] = () => [bot({ alwaysAllow: ['tail'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
+    const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
+    expect('alwaysAllow' in body).toBe(false)
+  })
+
   it('shows command approval read-only to a sysadmin who is not the owner', async () => {
-    routes['GET /api/bots'] = () => [bot({ approval: 'allowlist', allowlist: ['go build'] })]
+    routes['GET /api/bots'] = () => [
+      bot({ approval: 'allowlist', allowlist: ['go build'], alwaysAllow: ['npm run build', 'tail'] }),
+    ]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', admin)
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     expect(within(detail).queryByRole('radio', { name: '每次询问' })).toBeNull()
     expect(within(detail).getByText('白名单自动 · go build')).toBeTruthy()
     expect(within(detail).getByText('只有 Bot 主人能修改命令审批')).toBeTruthy()
+    expect(within(detail).getByText('npm run build、tail')).toBeTruthy()
+    expect(within(detail).queryByRole('combobox', { name: '始终允许' })).toBeNull()
     fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
     const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
     expect(body.concurrency).toBe(3)
-    expect('approval' in body || 'allowlist' in body).toBe(false)
+    expect('approval' in body || 'allowlist' in body || 'alwaysAllow' in body).toBe(false)
   })
 
   it('lets the owner set the git commit identity, blank = default', async () => {

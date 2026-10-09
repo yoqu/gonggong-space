@@ -15,6 +15,7 @@ export default {
   已拒绝: 'Rejected',
   已超时: 'Timed out',
   已作废: 'Void',
+  '将始终允许：{rules}': 'Will always allow: {rules}',
   '{name} 已批准 · {at}': 'Approved by {name} · {at}',
   '{name} 已拒绝 · {at} · agent 将自行绕路': 'Rejected by {name} · {at} · the agent will work around it',
   '超时未处理，已自动拒绝 · {at} · agent 将自行绕路':

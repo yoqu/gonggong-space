@@ -320,6 +320,9 @@ pub struct RunBot {
     /// Command prefixes auto-approved in `allowlist` mode, e.g. `go build`.
     #[serde(default)]
     pub allowlist: Vec<String>,
+    /// Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode: command prefixes or `tool:<title>`.
+    #[serde(default)]
+    pub always_allow: Vec<String>,
     /// Author and committer of the agent's git commits; `None` = the machine's git config.
     #[serde(default)]
     pub git: Option<GitIdentity>,
@@ -646,6 +649,9 @@ pub struct ApprovalRequest {
     pub tool_kind: String,
     pub detail: String,
     pub options: Vec<PermissionOption>,
+    /// Rules an allow_always answer adds to the bot's `always_allow`; empty → don't offer it.
+    #[serde(default)]
+    pub remember: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

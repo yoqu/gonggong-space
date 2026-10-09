@@ -26,7 +26,21 @@ describe('bot approval settings', () => {
   it('defaults to ask with an empty allowlist', async () => {
     const w = await world()
     const res = await w.owners.get<BotDto>(`/api/bots/${w.bot.id}`)
-    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [] })
+    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [], alwaysAllow: [] })
+  })
+
+  it('the owner edits alwaysAllow, normalized, and the change is audited', async () => {
+    const w = await world()
+    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, {
+      alwaysAllow: [' npm   test', 'tool:Fetch', 'npm test'],
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.alwaysAllow).toEqual(['npm test', 'tool:Fetch'])
+    const rows = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.approval'))
+    expect(rows[0]?.detail).toMatchObject({
+      from: { alwaysAllow: [] },
+      to: { alwaysAllow: ['npm test', 'tool:Fetch'] },
+    })
   })
 
   it('the owner sets approval and a normalized allowlist', async () => {
@@ -53,8 +67,8 @@ describe('bot approval settings', () => {
       detail: {
         botId: w.bot.id,
         name: 'cc',
-        from: { approval: 'ask', allowlist: [] },
-        to: { approval: 'all', allowlist: [] },
+        from: { approval: 'ask', allowlist: [], alwaysAllow: [] },
+        to: { approval: 'all', allowlist: [], alwaysAllow: [] },
       },
     })
   })
@@ -67,7 +81,7 @@ describe('bot approval settings', () => {
 
   it('a sysadmin cannot change approval or allowlist of another bot, but can change the rest', async () => {
     const w = await world()
-    for (const body of [{ approval: 'all' }, { allowlist: ['ls'] }]) {
+    for (const body of [{ approval: 'all' }, { allowlist: ['ls'] }, { alwaysAllow: ['ls'] }]) {
       const res = await w.admins.patch(`/api/bots/${w.bot.id}`, body)
       expect(res.status).toBe(403)
       expect(res.body.error).toBe('forbidden')
@@ -89,9 +103,13 @@ describe('bot approval settings', () => {
     expect(res.body).toMatchObject({ approval: 'ask', allowlist: [] })
   })
 
-  it('run.start carries the bot approval and allowlist', async () => {
+  it('run.start carries the bot approval, allowlist and alwaysAllow', async () => {
     const w = await world()
-    await w.owners.patch(`/api/bots/${w.bot.id}`, { approval: 'allowlist', allowlist: ['go build'] })
+    await w.owners.patch(`/api/bots/${w.bot.id}`, {
+      approval: 'allowlist',
+      allowlist: ['go build'],
+      alwaysAllow: ['npm test'],
+    })
 
     const ws = t.ws('/ws/daemon')
     const box = inbox(ws)
@@ -121,7 +139,11 @@ describe('bot approval settings', () => {
     await triggerRuns(t.ctx, m!)
     const start = await box.next<ServerToDaemon>()
     if (start.t !== 'run.start') throw new Error(`unexpected ${start.t}`)
-    expect(start.bot).toMatchObject({ approval: 'allowlist', allowlist: ['go build'] })
+    expect(start.bot).toMatchObject({
+      approval: 'allowlist',
+      allowlist: ['go build'],
+      alwaysAllow: ['npm test'],
+    })
     ws.close()
   })
 })

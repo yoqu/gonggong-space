@@ -373,6 +373,7 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         },
         workspace: WorkspaceSpec {
@@ -447,6 +448,7 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
             effort: None,
             approval: Approval::Ask,
             allowlist: vec![],
+            always_allow: vec![],
             git: None,
         },
         workspace: WorkspaceSpec { repo: None, cd_path: Some(cd.to_string_lossy().into_owned()) },
