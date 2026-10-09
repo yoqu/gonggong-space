@@ -1,6 +1,6 @@
 import type { FeishuRegisterDto } from '@gonggong/protocol'
 import { QRCodeSVG } from 'qrcode.react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Alert, Dialog, toast } from '../../ui'
@@ -25,6 +25,7 @@ export function FeishuScanDialog({
   const [session, setSession] = useState<FeishuRegisterDto | null>(null)
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
+  const handled = useRef<string | null>(null)
 
   const start = useCallback(() => {
     setSession(null)
@@ -40,25 +41,38 @@ export function FeishuScanDialog({
   const id = session?.status === 'waiting' ? session.id : null
   useEffect(() => {
     if (!id) return
-    const timer = setInterval(() => {
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout>
+    const poll = async () => {
       setNow(Date.now())
-      api
-        .get<FeishuRegisterDto>(`/feishu/register/${id}`)
-        .then(setSession)
-        .catch(() => {})
-    }, POLL_MS)
-    return () => clearInterval(timer)
+      try {
+        const next = await api.get<FeishuRegisterDto>(`/feishu/register/${id}`, controller.signal)
+        if (controller.signal.aborted) return
+        setSession(next)
+        if (next.status !== 'waiting') return
+      } catch {
+        if (controller.signal.aborted) return
+      }
+      timer = setTimeout(poll, POLL_MS)
+    }
+    timer = setTimeout(poll, POLL_MS)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
   }, [id])
 
   const succeeded = session?.status === 'succeeded'
   useEffect(() => {
-    if (!succeeded) return
+    if (!succeeded || !session || handled.current === session.id) return
+    // Record completion before refreshing the parent, which may replace callbacks.
+    handled.current = session.id
     onDone()
     if (!session?.configError) {
       toast({ type: 'success', message: t('飞书应用已绑定并连接') })
       onClose()
     }
-  }, [succeeded, session?.configError, onDone, onClose])
+  }, [succeeded, session, onDone, onClose])
 
   const cancel = () => {
     if (id) void api.del(`/feishu/register/${id}`).catch(() => {})

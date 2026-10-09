@@ -26,11 +26,18 @@ const teamHeader = (): Record<string, string> => {
   return team ? { 'x-gg-team': team } : {}
 }
 
-async function request<T>(method: string, path: string, body?: unknown, plain = false): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  plain = false,
+  signal?: AbortSignal,
+): Promise<T> {
   const init: RequestInit = {
     method,
     credentials: 'include',
     headers: { 'accept-language': locale, ...teamHeader() },
+    signal,
   }
   if (body instanceof FormData) init.body = body
   else if (body !== undefined) {
@@ -59,7 +66,7 @@ async function request<T>(method: string, path: string, body?: unknown, plain = 
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>('GET', path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, false, signal),
   /** A plain-text body. */
   text: (path: string) => request<string>('GET', path, undefined, true),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),

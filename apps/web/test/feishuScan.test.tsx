@@ -1,7 +1,8 @@
 import type { FeishuAppView, FeishuRegisterDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { FeishuAppForm } from '../src/features/feishu/FeishuAppForm'
+import { FeishuScanDialog } from '../src/features/feishu/FeishuScanDialog'
 import { mockApi } from './mockApi'
 
 const waiting: FeishuRegisterDto = {
@@ -27,6 +28,55 @@ const bound: FeishuAppView = {
 beforeAll(() => import('../src/features/feishu/FeishuScanDialog'))
 
 describe('扫码创建或绑定', () => {
+  it('handles success only once when parent callbacks change', async () => {
+    mockApi({
+      'POST /bots/b1/feishu/register': {
+        ...waiting,
+        status: 'succeeded',
+        configError: 'no permission',
+      },
+    })
+    const done = vi.fn()
+    const view = render(
+      <FeishuScanDialog path="/bots/b1/feishu" update={false} onDone={done} onClose={() => {}} />,
+    )
+    await screen.findByText('no permission')
+    expect(done).toHaveBeenCalledTimes(1)
+    view.rerender(<FeishuScanDialog path="/bots/b1/feishu" update={false} onDone={done} onClose={() => {}} />)
+    expect(done).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for a slow poll and aborts it on unmount', async () => {
+    vi.useFakeTimers()
+    mockApi({ 'POST /bots/b1/feishu/register': waiting })
+    const view = render(
+      <FeishuScanDialog path="/bots/b1/feishu" update={false} onDone={() => {}} onClose={() => {}} />,
+    )
+    await act(async () => {})
+    expect(screen.getByTitle('飞书扫码')).toBeTruthy()
+    const fetchMock = vi.mocked(fetch)
+    let signal: AbortSignal | undefined
+    fetchMock.mockImplementation((_input, init) => {
+      signal = init?.signal ?? undefined
+      return new Promise(() => {})
+    })
+    fetchMock.mockClear()
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6000)
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      view.unmount()
+      expect(signal?.aborted).toBe(true)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6000)
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows the QR, then the created app once confirmed in Feishu', async () => {
     let view: FeishuAppView = { app: null }
     let session = waiting
