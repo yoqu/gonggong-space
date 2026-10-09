@@ -65,6 +65,8 @@ export default {
     "The system admin hasn't configured the Feishu main app yet, so Feishu chats can't be bound.",
   '绑定后，成员在飞书群里 @Bot 即可使用；只同步发给 Bot 的消息和 Bot 的回复。':
     "Once bound, members can @ bots in the Feishu chat; only messages to bots and the bots' replies are mirrored.",
+  '成员自动同步：飞书群里已绑定飞书账号的团队成员会加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。':
+    'Members sync automatically: team members in the Feishu chat who linked Feishu join this group and leave it when they leave the chat; members added here are added to the Feishu chat too.',
   飞书群: 'Feishu chat',
   一个共工群只能绑定一个飞书群: 'A Gonggong group can be bound to one Feishu chat',
   '解绑#feishu': 'Unbind',
@@ -100,4 +102,11 @@ export default {
   '缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。':
     'If permissions are missing, use “Update permissions” to add them. This finishes automatically once a Feishu admin approves the app; you can also retry now.',
   重试自动配置: 'Retry setup',
+  '已与飞书群「{name}」同步，点击在飞书中打开':
+    'Synced with the Feishu chat “{name}”; click to open it in Feishu',
+  '在飞书中打开「{name}」': 'Open “{name}” in Feishu',
+  '与飞书群名「{name}」不一致，改成一样便于两边对应':
+    'Differs from the Feishu chat name “{name}”; matching it makes the two easy to pair',
+  改为飞书群名: 'Use Feishu chat name',
+  已改为飞书群名称: 'Renamed after the Feishu chat',
 } satisfies Record<string, string>

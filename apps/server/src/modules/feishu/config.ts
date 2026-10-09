@@ -2,7 +2,7 @@ import { and, eq, isNotNull, ne } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { feishuApps } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
-import { BOT_CALLBACKS, BOT_EVENTS, type FeishuDevConfig, FeishuError } from './client.js'
+import { BOT_CALLBACKS, BOT_EVENTS, type FeishuDevConfig, FeishuError, MAIN_EVENTS } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
 import { publicUrl } from './identity.js'
 
@@ -26,23 +26,25 @@ export const configErrorText = (raw: string | null) =>
 
 /**
  * Applies what scan-created apps cannot get through `addons`: the long connection for a bot app's events and
- * callbacks, the OAuth redirect URL for the main app. The outcome is kept on the row (`config_error`).
+ * callbacks, the member events and OAuth redirect URL for the main app. The outcome is kept on the row (`config_error`).
  */
 export async function configureApp(ctx: Ctx, row: FeishuAppRow) {
   let error: string | null = null
-  let config: FeishuDevConfig | null = { websocket: { events: BOT_EVENTS, callbacks: BOT_CALLBACKS } }
+  let config: FeishuDevConfig = { websocket: { events: BOT_EVENTS, callbacks: BOT_CALLBACKS } }
   if (row.kind === 'main') {
     const base = await publicUrl(ctx)
-    config = base ? { redirectUrls: [`${base}/api/auth/feishu/callback`] } : null
-    if (!config) error = NO_PUBLIC_URL
-  }
-  if (config)
-    try {
-      await ctx.feishu.api.configure(credsOf(row), config)
-    } catch (err) {
-      if (!(err instanceof FeishuError)) throw err
-      error = err.code === NOT_MODIFIABLE_CODE ? NOT_MODIFIABLE : err.message
+    config = {
+      websocket: { events: MAIN_EVENTS, callbacks: [] },
+      ...(base && { redirectUrls: [`${base}/api/auth/feishu/callback`] }),
     }
+    if (!base) error = NO_PUBLIC_URL
+  }
+  try {
+    await ctx.feishu.api.configure(credsOf(row), config)
+  } catch (err) {
+    if (!(err instanceof FeishuError)) throw err
+    error = err.code === NOT_MODIFIABLE_CODE ? NOT_MODIFIABLE : err.message
+  }
   const [saved] = await ctx.db
     .update(feishuApps)
     .set({ configError: error })

@@ -36,14 +36,39 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       <div className="gs-note">
         {t('绑定后，成员在飞书群里 @Bot 即可使用；只同步发给 Bot 的消息和 Bot 的回复。')}
       </div>
+      <div className="gs-note">
+        {t(
+          '成员自动同步：飞书群里已绑定飞书账号的团队成员会加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。',
+        )}
+      </div>
       <GroupBox>
         {data.chat ? (
-          <GroupRow label={t('飞书群')} description={t('一个共工群只能绑定一个飞书群')}>
-            <span className="gs-value">{data.chat.name}</span>
-            <Button disabled={busy} onClick={() => setUnbinding(true)}>
-              {t('解绑#feishu')}
-            </Button>
-          </GroupRow>
+          <>
+            <GroupRow label={t('飞书群')} description={t('一个共工群只能绑定一个飞书群')}>
+              <span className="gs-value">{data.chat.name}</span>
+              <Button disabled={busy} onClick={() => setUnbinding(true)}>
+                {t('解绑#feishu')}
+              </Button>
+            </GroupRow>
+            {group.name !== data.chat.name ? (
+              <GroupRow
+                label={t('群名称')}
+                description={t('与飞书群名「{name}」不一致，改成一样便于两边对应', { name: data.chat.name })}
+              >
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => api.patch(`/groups/${group.id}`, { name: data.chat?.name.slice(0, 60) }),
+                      t('已改为飞书群名称'),
+                    )
+                  }
+                >
+                  {t('改为飞书群名')}
+                </Button>
+              </GroupRow>
+            ) : null}
+          </>
         ) : (
           <GroupRow label={t('飞书群')} description={t('列出主应用所在尚未绑定的飞书群')}>
             <PopUpButton

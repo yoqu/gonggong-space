@@ -24,6 +24,8 @@ export interface ChatHeaderProps {
   /** Replaces the default avatar; `null` hides it. */
   avatar?: ReactNode
   tags?: TagSpec[]
+  /** Marks after the tags, e.g. a linked-service icon. */
+  badges?: ReactNode
   /** At most 4 glass capsule buttons. */
   actions?: ChatHeaderAction[]
   tabs?: { value: string; label: ReactNode }[]
@@ -41,6 +43,7 @@ export function ChatHeader({
   group,
   avatar,
   tags,
+  badges,
   actions,
   tabs = [],
   tab,
@@ -76,6 +79,7 @@ export function ChatHeader({
                 {t.label}
               </Tag>
             ))}
+            {badges}
           </div>
           {subtitle && <div className="pn-chathead__sub">{subtitle}</div>}
         </div>

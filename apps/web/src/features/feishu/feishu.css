@@ -80,3 +80,20 @@
 .feishu-scan__hint {
   color: var(--label-secondary);
 }
+
+.feishu-chat-link {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-capsule);
+  color: #3370ff;
+}
+.feishu-chat-link:hover {
+  background: var(--selection-fill);
+}
+.feishu-chat-link:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
+}

@@ -25,6 +25,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
+import { pullIntoChat } from '../feishu/members.js'
 import { forgetMembers, postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
 import { recordRepo } from '../repos/service.js'
@@ -202,6 +203,7 @@ export function groupRoutes(ctx: Ctx) {
         await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member: user.name })
         await auditAdmin(me.id, group.id, 'group.member.add', { userId: user.id, name: user.name })
         await publishGroup(ctx, group.id)
+        await pullIntoChat(ctx, group.id, user)
       }
       return groupDto(ctx, me.id, group.id)
     })

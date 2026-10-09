@@ -6,10 +6,11 @@ import { feishuChats, feishuIdentities } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
-import { activeBots, requireAdmin } from '../groups/service.js'
+import { activeBots, publishGroup, requireAdmin } from '../groups/service.js'
 import { botApp, mainApp } from './apps.js'
 import { FeishuError } from './client.js'
 import { credsOf } from './gateway.js'
+import { joinFromFeishu } from './members.js'
 import { boundChat, markBound, unbindChat } from './mirror.js'
 
 type Params = { Params: { id: string } }
@@ -28,7 +29,18 @@ async function feishu<T>(call: Promise<T>) {
 async function view(ctx: Ctx, groupId: string, added?: string): Promise<GroupFeishuView> {
   const main = await mainApp(ctx)
   if (!main) return { available: false, chat: null, chats: [], bots: [] }
-  const chat = await boundChat(ctx.db, groupId)
+  let chat = await boundChat(ctx.db, groupId)
+  const all = await feishu(ctx.feishu.api.listChats(credsOf(main)))
+  // Renamed on Feishu since binding: the stored name follows, so the group can offer to match it.
+  const current = chat && all.find((c) => c.chatId === chat?.chatId)
+  if (chat && current && current.name !== chat.name) {
+    ;[chat] = await ctx.db
+      .update(feishuChats)
+      .set({ name: current.name })
+      .where(eq(feishuChats.id, chat.id))
+      .returning()
+    await publishGroup(ctx, groupId)
+  }
   const taken = new Set(
     (
       await ctx.db
@@ -39,9 +51,7 @@ async function view(ctx: Ctx, groupId: string, added?: string): Promise<GroupFei
   )
   const chats = chat
     ? []
-    : (await feishu(ctx.feishu.api.listChats(credsOf(main))))
-        .filter((c) => !taken.has(c.chatId))
-        .map((c) => ({ chatId: c.chatId, name: c.name }))
+    : all.filter((c) => !taken.has(c.chatId)).map((c) => ({ chatId: c.chatId, name: c.name }))
   const bots = await Promise.all(
     (await activeBots(ctx, groupId)).map(async (b) => {
       const app = await botApp(ctx, b.id)
@@ -93,8 +103,8 @@ export function feishuChatRoutes(ctx: Ctx) {
         .from(feishuIdentities)
         .where(eq(feishuIdentities.userId, user.id))
       if (!identity) return fail('invalid', '请先在个人设置中绑定飞书账号')
-      if (!(await feishu(ctx.feishu.api.chatMembers(credsOf(main), chatId))).includes(identity.unionId))
-        return fail('invalid', '你不在该飞书群中，不能绑定')
+      const members = await feishu(ctx.feishu.api.chatMembers(credsOf(main), chatId))
+      if (!members.includes(identity.unionId)) return fail('invalid', '你不在该飞书群中，不能绑定')
       const [row] = await ctx.db
         .insert(feishuChats)
         .values({ groupId: group.id, chatId, name: chat.name, boundBy: user.id, createdAt: ctx.now() })
@@ -102,6 +112,8 @@ export function feishuChatRoutes(ctx: Ctx) {
         .returning()
       if (!row) return fail('conflict', '该飞书群已绑定其他群')
       markBound(ctx, group.id)
+      await joinFromFeishu(ctx, group, members)
+      await publishGroup(ctx, group.id)
       await audit(ctx, {
         category: 'admin',
         actorUserId: user.id,
@@ -116,7 +128,7 @@ export function feishuChatRoutes(ctx: Ctx) {
     app.delete<Params>('/api/groups/:id/feishu', async (req, reply) => {
       const { user, group } = await admin(req, req.params.id)
       const chat = await unbindChat(ctx, group.id)
-      if (chat)
+      if (chat) {
         await audit(ctx, {
           category: 'admin',
           actorUserId: user.id,
@@ -125,6 +137,8 @@ export function feishuChatRoutes(ctx: Ctx) {
           action: 'feishu.chat.unbind',
           detail: { chatId: chat.chatId },
         })
+        await publishGroup(ctx, group.id)
+      }
       return reply.status(204).send()
     })
 

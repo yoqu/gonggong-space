@@ -1,7 +1,13 @@
 import type { FeishuAppView, FeishuRegisterDto } from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, feishuApps } from '../src/db/schema.js'
-import { BOT_CALLBACKS, BOT_EVENTS, BOT_TENANT_SCOPES, USER_SCOPES } from '../src/modules/feishu/client.js'
+import {
+  BOT_CALLBACKS,
+  BOT_EVENTS,
+  BOT_TENANT_SCOPES,
+  MAIN_EVENTS,
+  USER_SCOPES,
+} from '../src/modules/feishu/client.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -36,7 +42,7 @@ describe('扫码创建 · main app', () => {
     expect(reg.appId).toBeUndefined()
     expect(reg.scopes.user).toEqual(USER_SCOPES)
     expect(reg.scopes.tenant).toContain('im:chat.members:write_only')
-    expect(reg.events).toEqual([])
+    expect(reg.events).toEqual(MAIN_EVENTS)
 
     t.feishu.approve({ appId: 'cli_new01', appSecret: 'new-secret' })
     await settled(http, start.body.id)
@@ -48,7 +54,10 @@ describe('扫码创建 · main app', () => {
     expect(t.feishu.configs).toEqual([
       {
         appId: 'cli_new01',
-        config: { redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'] },
+        config: {
+          websocket: { events: MAIN_EVENTS, callbacks: [] },
+          redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'],
+        },
       },
     ])
     const audits = await t.db.select().from(auditLogs)
@@ -63,7 +72,9 @@ describe('扫码创建 · main app', () => {
     const done = (await http.get<FeishuRegisterDto>(`/api/feishu/register/${start.body.id}`)).body
     expect(done.status).toBe('succeeded')
     expect(done.configError).toMatch(/对外地址/)
-    expect(t.feishu.configs).toEqual([])
+    expect(t.feishu.configs).toEqual([
+      { appId: 'cli_new01', config: { websocket: { events: MAIN_EVENTS, callbacks: [] } } },
+    ])
   })
 
   it('keeps the app but reports when Feishu refuses the dev config', async () => {
@@ -198,7 +209,13 @@ describe('自动配置 pending until the first version is approved', () => {
     const ok = await http.post<FeishuAppView>('/api/admin/feishu/configure', {})
     expect(ok.body.app?.configError).toBeNull()
     expect(t.feishu.configs).toEqual([
-      { appId: 'cli_new01', config: { redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'] } },
+      {
+        appId: 'cli_new01',
+        config: {
+          websocket: { events: MAIN_EVENTS, callbacks: [] },
+          redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'],
+        },
+      },
     ])
   })
 

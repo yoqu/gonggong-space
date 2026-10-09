@@ -46,6 +46,20 @@ describe('群设置 · 飞书', () => {
     expect(await screen.findByText('已在群中')).toBeTruthy()
   })
 
+  it('offers to rename the group after its Feishu chat when the names differ', async () => {
+    const bound: GroupFeishuView = {
+      ...unbound,
+      chats: [],
+      chat: { groupId: 'g1', chatId: 'oc_1', name: '飞书研发群', boundAt: '2026-10-01T00:00:00Z' },
+    }
+    const calls = mockApi({ 'GET /groups/g1/feishu': bound, 'PATCH /groups/g1': group })
+    const { rerender } = render(<GroupFeishuTab group={group} />)
+    fireEvent.click(await screen.findByRole('button', { name: '改为飞书群名' }))
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: '飞书研发群' }))
+    rerender(<GroupFeishuTab group={{ ...group, name: '飞书研发群' }} />)
+    expect(screen.queryByRole('button', { name: '改为飞书群名' })).toBeNull()
+  })
+
   it('explains that the main app must be configured first', async () => {
     mockApi({ 'GET /groups/g1/feishu': { available: false, chat: null, chats: [], bots: [] } })
     render(<GroupFeishuTab group={group} />)

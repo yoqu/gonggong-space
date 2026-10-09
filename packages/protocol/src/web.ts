@@ -563,6 +563,8 @@ export const GroupDto = z.object({
   foldRuns: z.boolean(),
   /** Bot turns live here (running, or waiting on an approval or answer); non-empty tags the conversation. */
   liveRunIds: z.array(z.string()),
+  /** The Feishu chat the group is bound to; absent when unbound. */
+  feishu: z.object({ chatId: z.string(), name: z.string() }).optional(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 /** GET /api/groups/:id/notices — every published notice, newest first. */

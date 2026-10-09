@@ -35,6 +35,7 @@ import {
 } from '../../ui'
 import { useBotCostume } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
+import { FeishuChatLink } from '../feishu/FeishuChatLink'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
@@ -402,6 +403,7 @@ export function ChatView({
         title={group.name}
         onBack={onBack}
         tags={dm ? undefined : [{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
+        badges={group.feishu ? <FeishuChatLink chat={group.feishu} /> : null}
         subtitle={
           <>
             {group.muted ? (

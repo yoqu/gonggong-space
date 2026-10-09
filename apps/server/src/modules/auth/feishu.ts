@@ -14,6 +14,7 @@ import { mainApp } from '../feishu/apps.js'
 import { FeishuError, type FeishuTokens, type FeishuUser } from '../feishu/client.js'
 import { credsOf } from '../feishu/gateway.js'
 import { publicUrl } from '../feishu/identity.js'
+import { joinBoundChats } from '../feishu/members.js'
 import { meDto } from '../teams/dto.js'
 import { findInvite, onboardUser } from '../teams/members.js'
 import { requireUser, resolveSession, SESSION_COOKIE, startSession } from './session.js'
@@ -77,6 +78,7 @@ async function link(ctx: Ctx, userId: string, user: FeishuUser, tokens: FeishuTo
       avatar: sql`coalesce(${users.avatar}, ${user.avatar})`,
     })
     .where(eq(users.id, userId))
+  await joinBoundChats(ctx, userId, user.unionId)
 }
 
 /** Account stem: the email prefix, else the user_id, fitted to the account rule; else `feishu`. */

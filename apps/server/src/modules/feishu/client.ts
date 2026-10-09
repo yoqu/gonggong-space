@@ -46,6 +46,12 @@ export const BOT_TENANT_SCOPES = [
   'application:application:patch',
 ]
 export const BOT_EVENTS = ['im.message.receive_v1', 'im.message.recalled_v1']
+/** The main app follows who joins and leaves the chats it is in (a bound chat's members mirror the group). */
+export const MAIN_EVENTS = [
+  'im.chat.member.user.added_v1',
+  'im.chat.member.user.deleted_v1',
+  'im.chat.member.user.withdrawn_v1',
+]
 export const BOT_CALLBACKS = ['card.action.trigger']
 
 /** What 扫码创建 pre-fills on Feishu's confirm page; `appId` updates that app instead of letting the admin choose. */
@@ -177,6 +183,8 @@ export interface FeishuApi {
   ): Promise<FeishuHistoryItem[]>
   /** Adds the bot of `botAppId` to the chat (the calling app must be in it). */
   addBot(app: FeishuCreds, chatId: string, botAppId: string): Promise<void>
+  /** Adds users (by union id) to the chat; the calling app must be in it. */
+  addUsers(app: FeishuCreds, chatId: string, unionIds: string[]): Promise<void>
   /** 扫码创建: resolves once the scanning admin confirmed; throws FeishuRegisterError otherwise. */
   register(reg: FeishuRegistration): Promise<FeishuCreds>
   /** Applies dev config the QR cannot carry; the app must already hold its long connection for `websocket`. */
@@ -453,6 +461,16 @@ export function larkApi(): FeishuApi {
           path: { chat_id: chatId },
           params: { member_id_type: 'app_id' },
           data: { id_list: [botAppId] },
+        }),
+      )
+    },
+
+    async addUsers(app, chatId, unionIds) {
+      await call(
+        client(app).im.v1.chatMembers.create({
+          path: { chat_id: chatId },
+          params: { member_id_type: 'union_id', succeed_type: 2 },
+          data: { id_list: unionIds },
         }),
       )
     },

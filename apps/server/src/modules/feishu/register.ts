@@ -10,6 +10,7 @@ import {
   BOT_TENANT_SCOPES,
   type FeishuCreds,
   FeishuRegisterError,
+  MAIN_EVENTS,
   MAIN_TENANT_SCOPES,
   USER_SCOPES,
 } from './client.js'
@@ -111,7 +112,7 @@ export async function startRegister(
     scopes: main
       ? { tenant: MAIN_TENANT_SCOPES, user: USER_SCOPES }
       : { tenant: BOT_TENANT_SCOPES, user: [] },
-    events: main ? [] : BOT_EVENTS,
+    events: main ? MAIN_EVENTS : BOT_EVENTS,
     callbacks: main ? [] : BOT_CALLBACKS,
     ...(update && { appId: update.appId }),
     signal: s.abort.signal,

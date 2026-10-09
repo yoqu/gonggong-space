@@ -494,6 +494,22 @@ describe('chat view', () => {
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain1未提交托管')
   })
 
+  it('marks a group bound to a Feishu chat with a link that opens the chat in the Feishu client', async () => {
+    mockApi(baseRoutes([group({ feishu: { chatId: 'oc_1', name: '飞书研发群' } }), group({ id: 'g2' })]))
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    const link = await within(main).findByRole('link', { name: '在飞书中打开「飞书研发群」' })
+    expect(link.getAttribute('href')).toBe('https://applink.feishu.cn/client/chat/open?openChatId=oc_1')
+  })
+
+  it('shows no Feishu mark for an unbound group', async () => {
+    mockApi(baseRoutes([group()]))
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    await within(main).findByRole('heading', { name: '退款 v2 迁移' })
+    expect(within(main).queryByRole('link', { name: /在飞书中打开/ })).toBeNull()
+  })
+
   it('plays the enter animation only for messages that arrive after the first load', async () => {
     mockApi(baseRoutes([group()]))
     renderAt('/g/g1')

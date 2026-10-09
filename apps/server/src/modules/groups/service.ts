@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
   bots,
+  feishuChats,
   groupBots,
   groupMembers,
   groupRepos,
@@ -126,7 +127,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
   if (!gids.length) return []
   const lastIds = [...new Set(rows.flatMap((r) => (r.lastId ? [r.lastId] : [])))]
 
-  const [members, groupBotRows, repos, lasts, live] = await Promise.all([
+  const [members, groupBotRows, repos, lasts, live, chats] = await Promise.all([
     ctx.db
       .select({
         groupId: groupMembers.groupId,
@@ -168,10 +169,15 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       .from(runs)
       .where(and(inArray(runs.groupId, gids), inArray(runs.status, LIVE)))
       .orderBy(asc(runs.queuedAt)),
+    ctx.db
+      .select({ groupId: feishuChats.groupId, chatId: feishuChats.chatId, name: feishuChats.name })
+      .from(feishuChats)
+      .where(and(inArray(feishuChats.groupId, gids), isNull(feishuChats.unboundAt))),
   ])
 
   return rows.map(({ group: g, title, me, lastSeq, unread }) => {
     const repo = repos.find((r) => r.groupId === g.id)
+    const chat = chats.find((c) => c.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
     const lastI18n = last?.recalledAt
       ? recallNote(last.authorUserId === me.userId, last.userName)
@@ -203,6 +209,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       muted: me.muted,
       foldRuns: me.foldRuns,
       liveRunIds: live.filter((r) => r.groupId === g.id).map((r) => r.id),
+      ...(chat && { feishu: { chatId: chat.chatId, name: chat.name } }),
     }
     return { userId: me.userId, group }
   })

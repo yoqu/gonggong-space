@@ -2,7 +2,7 @@ import type { AuthOptionsDto, FeishuAppView, SystemParams } from '@gonggong/prot
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { feishuApps, users } from '../src/db/schema.js'
-import { BOT_CALLBACKS, BOT_EVENTS } from '../src/modules/feishu/client.js'
+import { BOT_CALLBACKS, BOT_EVENTS, MAIN_EVENTS } from '../src/modules/feishu/client.js'
 import { onFeishu, reloadFeishu } from '../src/modules/feishu/gateway.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -54,7 +54,14 @@ describe('main app (管理后台 · 飞书)', () => {
     const ok = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
     expect(ok.body.app?.configError).toBeNull()
     expect(t.feishu.configs).toEqual([
-      { appId: 'cli_main01', config: { redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'] } },
+      { appId: 'cli_main01', config: { websocket: { events: MAIN_EVENTS, callbacks: [] } } },
+      {
+        appId: 'cli_main01',
+        config: {
+          websocket: { events: MAIN_EVENTS, callbacks: [] },
+          redirectUrls: ['https://gg.example.com/api/auth/feishu/callback'],
+        },
+      },
     ])
   })
 

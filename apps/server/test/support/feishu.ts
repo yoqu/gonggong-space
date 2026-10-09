@@ -43,6 +43,9 @@ export class FakeFeishu {
   readonly edits: { appId: string; messageId: string; body: FeishuBody; userToken?: string }[] = []
   readonly recalls: { appId: string; messageId: string; userToken?: string }[] = []
   readonly botsAdded: { appId: string; chatId: string; botAppId: string }[] = []
+  readonly usersAdded: { appId: string; chatId: string; unionIds: string[] }[] = []
+  /** `addUsers` fails with this message when set (e.g. only owners and admins may add members). */
+  addUsersError: string | null = null
   /** Images uploaded per app; the key is `img_<n>`. */
   readonly images: { appId: string; key: string; data: Buffer }[] = []
   /** Emoji reactions added through the API; `removed` once taken back. */
@@ -204,6 +207,31 @@ export class FakeFeishu {
       message_id: o.messageId,
       chat_id: o.chatId,
       recall_type: 'message_owner',
+    })
+  }
+
+  /** Users join or leave `chatId` on Feishu (membership updated), announced to `appId`. */
+  memberEvent(
+    appId: string,
+    type:
+      | 'im.chat.member.user.added_v1'
+      | 'im.chat.member.user.deleted_v1'
+      | 'im.chat.member.user.withdrawn_v1',
+    chatId: string,
+    users: FakeUser[],
+  ) {
+    const ids = users.map((u) => u.unionId)
+    const now = this.members.get(chatId) ?? []
+    this.members.set(
+      chatId,
+      type === 'im.chat.member.user.added_v1' ? [...now, ...ids] : now.filter((id) => !ids.includes(id)),
+    )
+    return this.emit(appId, type, {
+      chat_id: chatId,
+      users: users.map((u) => ({
+        name: u.name,
+        user_id: { union_id: u.unionId, open_id: u.openId, user_id: u.userId ?? undefined },
+      })),
     })
   }
 
@@ -387,6 +415,12 @@ export class FakeFeishu {
     addBot: async (app, chatId, botAppId) => {
       this.check(app.appId)
       this.botsAdded.push({ appId: app.appId, chatId, botAppId })
+    },
+    addUsers: async (app, chatId, unionIds) => {
+      this.check(app.appId)
+      if (this.addUsersError) throw new FeishuError(232017, this.addUsersError)
+      this.usersAdded.push({ appId: app.appId, chatId, unionIds })
+      this.members.set(chatId, [...(this.members.get(chatId) ?? []), ...unionIds])
     },
     register: (reg) =>
       new Promise<FeishuCreds>((resolve, reject) => {

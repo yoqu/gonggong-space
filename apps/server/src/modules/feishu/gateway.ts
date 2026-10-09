@@ -12,6 +12,15 @@ export type FeishuAppRow = typeof feishuApps.$inferSelect
 export interface FeishuInbound {
   'im.message.receive_v1': Parameters<NonNullable<lark.EventHandles['im.message.receive_v1']>>[0]
   'im.message.recalled_v1': Parameters<NonNullable<lark.EventHandles['im.message.recalled_v1']>>[0]
+  'im.chat.member.user.added_v1': Parameters<
+    NonNullable<lark.EventHandles['im.chat.member.user.added_v1']>
+  >[0]
+  'im.chat.member.user.deleted_v1': Parameters<
+    NonNullable<lark.EventHandles['im.chat.member.user.deleted_v1']>
+  >[0]
+  'im.chat.member.user.withdrawn_v1': Parameters<
+    NonNullable<lark.EventHandles['im.chat.member.user.withdrawn_v1']>
+  >[0]
   'card.action.trigger': lark.RawCardActionEvent & {
     action?: { form_value?: Record<string, unknown>; input_value?: string }
   }
@@ -20,6 +29,9 @@ export type FeishuEventType = keyof FeishuInbound
 export const FEISHU_EVENTS = [
   'im.message.receive_v1',
   'im.message.recalled_v1',
+  'im.chat.member.user.added_v1',
+  'im.chat.member.user.deleted_v1',
+  'im.chat.member.user.withdrawn_v1',
   'card.action.trigger',
 ] as const satisfies readonly FeishuEventType[]
 
