@@ -886,6 +886,7 @@ pub enum ProvidersAction {
     ImportLink,
     Catalog,
     BotCatalog,
+    Official,
 }
 
 /// Adds (no `id`) or edits a provider; absent fields keep the stored (or preset) value.
@@ -933,10 +934,23 @@ pub struct ProvidersCmd {
     pub choice: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<ProviderInput>,
+    /// For `official`, with `agent`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub official: Option<OfficialInput>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub set_default: Option<bool>,
+}
+
+/// The official login's extras; absent fields keep what is stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfficialInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env: Option<std::collections::BTreeMap<String, String>>,
+    /// Empty = direct; the masked one from the view = unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

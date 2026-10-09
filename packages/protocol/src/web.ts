@@ -27,6 +27,7 @@ import {
   GitProtocol,
   MachineInfo,
   McpServer,
+  OfficialInput,
   PermissionOption,
   ProviderInput,
   ProviderStateItem,
@@ -260,6 +261,7 @@ export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
  *   PUT    /api/machines/:id/providers/:pid   SaveProviderReq → ProviderSavedDto
  *   DELETE /api/machines/:id/providers/:pid                 → ProviderStoreView
  *   PUT    /api/machines/:id/providers/default  UseProviderReq → ProviderStoreView
+ *   PUT    /api/machines/:id/providers/official OfficialProviderReq → ProviderStoreView
  *   POST   /api/machines/:id/providers/import-link ImportLinkReq → ProviderSavedDto
  *   GET    /api/machines/:id/ccswitch                       → CcSwitchPreviewDto
  *   POST   /api/machines/:id/ccswitch/apply   CcSwitchApplyReq → CcSwitchImportedDto
@@ -281,6 +283,8 @@ export const ProviderSavedDto = z.object({ id: z.string(), view: ProviderStoreVi
 export type ProviderSavedDto = z.infer<typeof ProviderSavedDto>
 /** `choice`: a provider id of `agent` or `official`. */
 export const UseProviderReq = z.object({ agent: AgentKind, choice: z.string().min(1) })
+export const OfficialProviderReq = OfficialInput.extend({ agent: AgentKind })
+export type OfficialProviderReq = z.input<typeof OfficialProviderReq>
 /** `choice`: a provider id of the bot's agent, `official` or `inherit`. */
 export const BotProviderReq = z.object({ choice: z.string().min(1) })
 /** What a new session of the bot may pick: asked live of its machine, else what it reported. */

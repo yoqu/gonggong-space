@@ -102,6 +102,13 @@ export default {
   'Agent 经此代理访问供应商，留空为直连':
     'The agent reaches the provider through this proxy; leave empty for a direct connection',
   '启动 Agent 时附加，每行一个 KEY=VALUE': 'Added when the agent starts, one KEY=VALUE per line',
+  'Agent 经此代理联网，留空为直连':
+    'The agent goes online through this proxy; leave empty for a direct connection',
+  '{agent} 官方登录设置': '{agent} official login settings',
+  '登录与配置仍用这台机器上 CLI 自己的，以下设置在启动 Agent 时附加':
+    "The CLI's own login and config on this machine stay in use; these settings are added when the agent starts",
+  '{n} 个环境变量': '{n} environment {n:variable|variables}',
+  官方登录设置已保存: 'Official login settings saved',
   搜索厂商: 'Search vendors',
   '手动填写 Base URL': 'Enter the Base URL manually',
   '从 CC Switch 导入 {agent} 供应商': 'Import {agent} providers from CC Switch',

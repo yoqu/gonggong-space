@@ -93,6 +93,7 @@ async function daemon(
 
 const view = (o: Partial<ProviderStoreView> = {}): ProviderStoreView => ({
   machine: {},
+  official: {},
   bots: {},
   providers: [],
   sessions: [],
@@ -224,6 +225,14 @@ describe('agent tools and providers relayed to the machine', () => {
     d.send({ t: 'providers.result', requestId: useCmd.requestId, ok: true, error: null, view: view() })
     expect((await def).status).toBe(200)
 
+    const official = { env: { DISABLE_TELEMETRY: '1' }, proxy: 'http://127.0.0.1:7890' }
+    const off = w.asWang.put<ProviderStoreView>(`${base}/official`, { agent: 'codex', ...official })
+    const offCmd = await d.next()
+    expect(offCmd).toMatchObject({ action: 'official', agent: 'codex', official })
+    const offView = view({ official: { codex: official } })
+    d.send({ t: 'providers.result', requestId: offCmd.requestId, ok: true, error: null, view: offView })
+    expect((await off).body).toEqual(offView)
+
     const link = `ccswitch://v1/import?resource=provider&app=claude&name=x&endpoint=${BASE_URL}&apiKey=${KEY}`
     const imp = w.asWang.post<ProviderSavedDto>(`${base}/import-link`, { link })
     const impCmd = await d.next()
@@ -269,6 +278,7 @@ describe('agent tools and providers relayed to the machine', () => {
     expect(trail.map((r) => [r.action, r.detail])).toEqual([
       ['machine.providers.save', { machineId: w.a.machine.id }],
       ['machine.providers.default', { machineId: w.a.machine.id }],
+      ['machine.providers.official', { machineId: w.a.machine.id }],
       ['machine.providers.import', { machineId: w.a.machine.id }],
     ])
     // Nor the log.

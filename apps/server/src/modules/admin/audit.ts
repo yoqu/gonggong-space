@@ -40,6 +40,7 @@ const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存机器的供应商',
   'machine.providers.remove': '删除机器的供应商',
   'machine.providers.default': '修改机器的默认供应商',
+  'machine.providers.official': '修改机器的官方登录设置',
   'machine.providers.import': '导入机器的供应商',
 }
 

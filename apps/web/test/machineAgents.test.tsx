@@ -102,6 +102,7 @@ const kimi: ProviderView = {
 }
 const VIEW: ProviderStoreView = {
   machine: {},
+  official: {},
   bots: {},
   providers: [kimi],
   sessions: [
@@ -416,6 +417,36 @@ describe('供应商', () => {
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
     expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
       proxy: 'http://bob:****@10.0.0.2:3128',
+    })
+  })
+
+  it("sets the official login's proxy and environment, showing the stored ones masked", async () => {
+    const official = { claude: { env: { DISABLE_TELEMETRY: '1' }, proxy: 'http://bob:****@10.0.0.2:3128' } }
+    const { calls, claude } = await openProviders(
+      { 'PUT /machines/m1/providers/official': { ...VIEW, official } },
+      { ...VIEW, official },
+    )
+    expect(
+      within(claude)
+        .getByRole('radio', { name: /官方登录/ })
+        .closest('label')?.textContent,
+    ).toContain('http://bob:****@10.0.0.2:3128')
+    fireEvent.click(within(claude).getByRole('button', { name: '设置…' }))
+    const form = await screen.findByRole('form', { name: 'Claude Code 官方登录设置' })
+    const proxy = within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement
+    expect(proxy.value).toBe('http://bob:****@10.0.0.2:3128')
+    const env = within(form).getByRole('textbox', { name: '环境变量' })
+    expect((env as HTMLTextAreaElement).value).toBe('DISABLE_TELEMETRY=1')
+    fireEvent.change(env, { target: { value: 'DISABLE_TELEMETRY=1\nNO_PROXY=.corp' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+      path: '/machines/m1/providers/official',
+      body: {
+        agent: 'claude',
+        proxy: 'http://bob:****@10.0.0.2:3128',
+        env: { DISABLE_TELEMETRY: '1', NO_PROXY: '.corp' },
+      },
     })
   })
 

@@ -103,6 +103,7 @@ const provider = (id: string, name: string, agent: 'claude' | 'codex' = 'claude'
 })
 
 const VIEW: ProviderStoreView = {
+  official: {},
   machine: { claude: 'p1' },
   bots: {},
   providers: [provider('p1', 'Kimi'), provider('p2', 'GLM'), provider('p3', 'Codex 中转', 'codex')],

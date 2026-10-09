@@ -17,7 +17,7 @@ use crate::protocol::{
     AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
     RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
 };
-use crate::providers::{Provider, Selection};
+use crate::providers::{Selection, Store};
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
 use crate::repo;
 use crate::service::{Handler, Outbox};
@@ -162,7 +162,8 @@ impl Engine {
             allowlist: vec![],
             git: None,
         };
-        let agent = AcpAgent::new(self.0.adapter(&bot, &local, &Selection::Official).await?);
+        let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
+        let agent = AcpAgent::new(self.0.adapter(&bot, &local, &official).await?);
         let dir = self.0.config.home.join("probe");
         tokio::fs::create_dir_all(&dir).await?;
         let probe = session::probe(agent, &dir);
@@ -510,14 +511,16 @@ impl Inner {
             None => base,
         };
         let cli = agents::locate(&self.config.home, bot.agent_kind, local).map(|p| p.to_string_lossy().into_owned());
-        let provider = match selection {
-            Selection::Official => None,
-            Selection::Provider(p) => Some(p.as_ref()),
+        let (provider, extra_env) = match selection {
+            Selection::Official(o) => (None, o.process_env()),
+            Selection::Provider(p) => (Some(p.as_ref()), p.process_env()),
         };
         Ok(match bot.agent_kind {
             AgentKind::Claude => {
-                if let Some(p) = provider {
-                    inject::write_claude_settings(&self.config.home, p)?;
+                match selection {
+                    Selection::Provider(p) => inject::write_claude_settings(&self.config.home, p)?,
+                    Selection::Official(o) if !o.is_empty() => inject::write_official_settings(&self.config.home, o)?,
+                    Selection::Official(_) => {}
                 }
                 base.env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
                     .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
@@ -530,7 +533,7 @@ impl Inner {
                     inject::codex_config(&mut config, p);
                 }
                 base.env("CODEX_CONFIG", serde_json::Value::Object(config).to_string())
-                    .envs(provider.map(Provider::process_env).into_iter().flatten())
+                    .envs(extra_env)
                     .envs(provider.map(inject::codex_env).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }

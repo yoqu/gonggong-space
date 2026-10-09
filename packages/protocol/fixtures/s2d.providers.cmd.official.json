@@ -1,0 +1,12 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-3",
+  "action": "official",
+  "agent": "codex",
+  "official": {
+    "env": {
+      "DISABLE_TELEMETRY": "1"
+    },
+    "proxy": ""
+  }
+}

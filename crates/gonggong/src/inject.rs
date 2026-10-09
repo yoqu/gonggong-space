@@ -1,8 +1,8 @@
 //! Puts a run's third-party provider into its adapter process (design §4.4, S0 findings §10). Claude: a flag-settings
 //! file named in `_meta` (process env loses to `~/.claude/settings.json`; an inline object would land on argv). Codex:
-//! the adapter's env only. The official login injects nothing. Keys go to the 0600 file or the child's env, never to
+//! the adapter's env only. The official login gets only its extra variables and proxy, the same way. Keys go to the 0600 file or the child's env, never to
 //! argv, logs or errors.
-use crate::providers::{self, API_KEY, AUTH_TOKEN, Provider, Store};
+use crate::providers::{self, API_KEY, AUTH_TOKEN, OFFICIAL, Official, Provider, Store};
 use crate::t;
 use anyhow::{Result, bail};
 use serde_json::{Map, Value, json};
@@ -62,9 +62,18 @@ pub fn claude_settings(p: &Provider) -> Result<Value> {
 
 /// Writes `p`'s settings file ([`claude_settings_path`], 0600, atomic) unless it is current.
 pub fn write_claude_settings(home: &Path, p: &Provider) -> Result<()> {
-    let path = claude_settings_path(home, &p.id);
-    let bytes = serde_json::to_vec_pretty(&claude_settings(p)?)?;
-    if std::fs::read(&path).is_ok_and(|current| current == bytes) {
+    write_settings(&claude_settings_path(home, &p.id), &claude_settings(p)?)
+}
+
+/// The official login's extras as flag settings ([`claude_settings_path`] of [`OFFICIAL`]): they win over
+/// `~/.claude/settings.json` like a provider's, and leave its login alone.
+pub fn write_official_settings(home: &Path, o: &Official) -> Result<()> {
+    write_settings(&claude_settings_path(home, OFFICIAL), &json!({ "env": o.process_env() }))
+}
+
+fn write_settings(path: &Path, settings: &Value) -> Result<()> {
+    let bytes = serde_json::to_vec_pretty(settings)?;
+    if std::fs::read(path).is_ok_and(|current| current == bytes) {
         return Ok(());
     }
     let dir = path.parent().expect("under <home>/run");
@@ -78,7 +87,7 @@ pub fn write_claude_settings(home: &Path, p: &Provider) -> Result<()> {
         let mut file = options.open(&tmp)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
-        std::fs::rename(&tmp, &path)?;
+        std::fs::rename(&tmp, path)?;
         anyhow::Ok(())
     })();
     if written.is_err() {
@@ -95,7 +104,8 @@ pub fn prune(home: &Path, store: &Store) {
         let Some(id) = name.to_str().and_then(|n| n.strip_prefix(SETTINGS_PREFIX)?.strip_suffix(".json")) else {
             continue;
         };
-        if store.get(id).is_none()
+        if id != OFFICIAL
+            && store.get(id).is_none()
             && let Err(e) = std::fs::remove_file(entry.path())
         {
             tracing::warn!("removing {} failed: {e}", entry.path().display());
@@ -166,7 +176,13 @@ mod tests {
             write_claude_settings(home.path(), p).unwrap();
         }
         std::fs::write(home.path().join("run/other.json"), "{}").unwrap();
+        let official = Official { env: Default::default(), proxy: Some("http://p.test:1".into()) };
+        write_official_settings(home.path(), &official).unwrap();
         prune(home.path(), &store);
+        let official: Value =
+            serde_json::from_slice(&std::fs::read(claude_settings_path(home.path(), OFFICIAL)).unwrap()).unwrap();
+        assert_eq!(official, json!({ "env": official["env"].clone() }), "no apiKeyHelper: the login stays");
+        assert_eq!(official["env"]["HTTPS_PROXY"], "http://p.test:1");
         assert!(claude_settings_path(home.path(), &kept).exists());
         assert!(!claude_settings_path(home.path(), "gone-1").exists());
         assert!(home.path().join("run/other.json").exists());

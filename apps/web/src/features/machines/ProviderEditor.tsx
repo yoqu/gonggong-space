@@ -1,8 +1,11 @@
 import type {
   AgentKind,
   ModelMap,
+  OfficialProviderReq,
+  OfficialSettings,
   ProviderPreset,
   ProviderSavedDto,
+  ProviderStoreView,
   ProviderView,
   SaveProviderReq,
 } from '@gonggong/protocol'
@@ -33,6 +36,7 @@ const GROUPS: { key: ProviderPreset['group']; label: string }[] = [
 ]
 const TIERS = ['haiku', 'sonnet', 'opus'] as const
 const FORM_ID = 'provider-form'
+const OFFICIAL_FORM_ID = 'official-form'
 
 /** `KEY=VALUE` per line; throws on a line without `=`. */
 function parseEnv(text: string): Record<string, string> {
@@ -46,6 +50,11 @@ function parseEnv(text: string): Record<string, string> {
   }
   return env
 }
+
+const envText = (env: Record<string, string>) =>
+  Object.entries(env)
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n')
 
 interface Fields {
   name: string
@@ -63,9 +72,7 @@ const fieldsOf = (p: Pick<ProviderPreset, 'name' | 'baseUrl' | 'model' | 'models
   apiKey: '',
   model: p.model ?? '',
   models: { haiku: p.models?.haiku ?? '', sonnet: p.models?.sonnet ?? '', opus: p.models?.opus ?? '' },
-  env: Object.entries(p.env)
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n'),
+  env: envText(p.env),
   proxy: '',
 })
 
@@ -259,25 +266,116 @@ export function ProviderEditor({
                   </FormRow>
                 ))
               : null}
-            <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
-              <TextField
-                aria-label={t('代理地址')}
-                placeholder="http://127.0.0.1:7890"
-                value={f.proxy}
-                onChange={(e) => set({ proxy: e.target.value })}
-              />
-            </FormRow>
-            <FormRow label={t('环境变量')} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
-              <TextField
-                multiline
-                aria-label={t('环境变量')}
-                rows={3}
-                value={f.env}
-                onChange={(e) => set({ env: e.target.value })}
-              />
-            </FormRow>
+            <ExtraRows
+              proxy={f.proxy}
+              env={f.env}
+              proxyHint={t('Agent 经此代理访问供应商，留空为直连')}
+              onChange={set}
+            />
           </>
         ) : null}
+        {error ? (
+          <FormRow>
+            <span className="mx-danger" role="alert">
+              {error}
+            </span>
+          </FormRow>
+        ) : null}
+      </Form>
+    </Dialog>
+  )
+}
+
+function ExtraRows({
+  proxy,
+  env,
+  proxyHint,
+  onChange,
+}: {
+  proxy: string
+  env: string
+  proxyHint: string
+  onChange: (patch: { proxy?: string; env?: string }) => void
+}) {
+  return (
+    <>
+      <FormRow label={t('代理地址')} hint={proxyHint}>
+        <TextField
+          aria-label={t('代理地址')}
+          placeholder="http://127.0.0.1:7890"
+          value={proxy}
+          onChange={(e) => onChange({ proxy: e.target.value })}
+        />
+      </FormRow>
+      <FormRow label={t('环境变量')} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
+        <TextField
+          multiline
+          aria-label={t('环境变量')}
+          rows={3}
+          value={env}
+          onChange={(e) => onChange({ env: e.target.value })}
+        />
+      </FormRow>
+    </>
+  )
+}
+
+/** The official login's proxy and extra variables; the CLI's own login and config stay as they are. */
+export function OfficialEditor({
+  machineId,
+  agent,
+  official,
+  onClose,
+  onSaved,
+}: {
+  machineId: string
+  agent: AgentKind
+  official: OfficialSettings | undefined
+  onClose: () => void
+  onSaved: (view: ProviderStoreView) => void
+}) {
+  const [f, setF] = useState({ proxy: official?.proxy ?? '', env: envText(official?.env ?? {}) })
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const title = t('{agent} 官方登录设置', { agent: AGENT_LABEL[agent] })
+
+  const save = async () => {
+    let env: Record<string, string>
+    try {
+      env = parseEnv(f.env)
+    } catch (e) {
+      return setError((e as Error).message)
+    }
+    const body: OfficialProviderReq = { agent, env, proxy: f.proxy.trim() }
+    setSaving(true)
+    try {
+      onSaved(await api.put<ProviderStoreView>(`/machines/${machineId}/providers/official`, body))
+    } catch (e) {
+      setError(errorText(e))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      closeOnBackdrop={false}
+      title={title}
+      message={t('登录与配置仍用这台机器上 CLI 自己的，以下设置在启动 Agent 时附加')}
+      width={560}
+      actions={[
+        { label: t('取消'), onClick: onClose },
+        { label: t('保存'), variant: 'primary', type: 'submit', form: OFFICIAL_FORM_ID, disabled: saving },
+      ]}
+    >
+      <Form id={OFFICIAL_FORM_ID} aria-label={title} onSubmit={() => void save()}>
+        <ExtraRows
+          proxy={f.proxy}
+          env={f.env}
+          proxyHint={t('Agent 经此代理联网，留空为直连')}
+          onChange={(patch) => setF((x) => ({ ...x, ...patch }))}
+        />
         {error ? (
           <FormRow>
             <span className="mx-danger" role="alert">

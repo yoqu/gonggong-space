@@ -8,6 +8,14 @@
       "claude": "kimi-coding-1a2b",
       "codex": "official"
     },
+    "official": {
+      "claude": {
+        "env": {
+          "DISABLE_TELEMETRY": "1"
+        },
+        "proxy": "http://user:****@10.0.0.2:3128"
+      }
+    },
     "bots": {
       "22222222-2222-4222-8222-222222222222": "official"
     },

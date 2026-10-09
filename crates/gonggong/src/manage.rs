@@ -249,7 +249,7 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
                 None => store.machine_default(agent)?,
             };
             r.catalog = match selection {
-                Selection::Official => {
+                Selection::Official(_) => {
                     agents.iter().find(|a| a.kind == agent && a.available).and_then(|a| a.catalog.clone())
                 }
                 Selection::Provider(p) => Some(catalog(&p)),
@@ -285,6 +285,21 @@ fn providers_op(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<
                     None if choice == INHERIT => bail!(t!("本机默认不能选择「继承」")),
                     None => s.use_machine(agent, &choice)?,
                 }
+                Ok(s.view())
+            })?);
+        }
+        ProvidersAction::Official => {
+            let agent = cmd.agent.context(t!("缺少 agent"))?;
+            let input = cmd.official.context(t!("缺少官方登录设置"))?;
+            r.view = Some(Store::update(home, |s| {
+                let mut o = s.official(agent);
+                if let Some(env) = input.env {
+                    o.env = env;
+                }
+                if let Some(proxy) = input.proxy {
+                    set_proxy(&mut o.proxy, proxy);
+                }
+                s.set_official(agent, o)?;
                 Ok(s.view())
             })?);
         }
@@ -355,13 +370,19 @@ fn apply(p: &mut Provider, input: ProviderInput) {
     if let Some(env) = input.env {
         p.env = env;
     }
-    if let Some(proxy) =
-        input.proxy.filter(|x| Some(x.trim().to_string()) != p.proxy.as_deref().map(providers::mask_proxy))
-    {
-        p.proxy = text(proxy);
+    if let Some(proxy) = input.proxy {
+        set_proxy(&mut p.proxy, proxy);
     }
     if let Some(effort) = input.effort {
         p.effort = text(effort);
+    }
+}
+
+/// '' = direct; the masked one from the view = unchanged.
+fn set_proxy(stored: &mut Option<String>, input: String) {
+    let input = input.trim();
+    if Some(input.to_string()) != stored.as_deref().map(providers::mask_proxy) {
+        *stored = Some(input.to_string()).filter(|s| !s.is_empty());
     }
 }
 
@@ -394,7 +415,7 @@ fn catalog(p: &Provider) -> AgentCatalog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::AgentKind;
+    use crate::protocol::{AgentKind, OfficialInput};
 
     const KEY: &str = "sk-test-0123456789abcd";
 
@@ -407,6 +428,7 @@ mod tests {
             id: None,
             choice: None,
             provider: None,
+            official: None,
             link: None,
             set_default: None,
         }
@@ -458,6 +480,35 @@ mod tests {
     }
 
     #[test]
+    fn sets_the_official_logins_env_and_proxy_per_agent() {
+        let home = tempfile::tempdir().unwrap();
+        let set = |env: Option<&[(&str, &str)]>, proxy: Option<&str>| {
+            let mut c = cmd(ProvidersAction::Official);
+            c.agent = Some(AgentKind::Claude);
+            c.official = Some(OfficialInput {
+                env: env.map(|e| e.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
+                proxy: proxy.map(String::from),
+            });
+            providers_op(home.path(), c, &[])
+        };
+        assert!(set(Some(&[("BAD-NAME", "1")]), None).is_err());
+        assert!(set(None, Some("127.0.0.1:7890")).is_err());
+        let view = set(Some(&[("DISABLE_TELEMETRY", "1")]), Some("http://bob:pw@10.0.0.2:3128")).unwrap().view.unwrap();
+        let o = &view.official[&AgentKind::Claude];
+        assert_eq!(o.proxy.as_deref(), Some("http://bob:****@10.0.0.2:3128"));
+        assert_eq!(o.env["DISABLE_TELEMETRY"], "1");
+        assert!(!view.official.contains_key(&AgentKind::Codex));
+
+        set(None, Some("http://bob:****@10.0.0.2:3128")).unwrap();
+        let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
+        assert_eq!(stored.proxy.as_deref(), Some("http://bob:pw@10.0.0.2:3128"), "masked = unchanged");
+        assert_eq!(stored.env.len(), 1, "absent env = unchanged");
+
+        let view = set(Some(&[]), Some("")).unwrap().view.unwrap();
+        assert!(view.official.is_empty(), "cleared");
+    }
+
+    #[test]
     fn saves_from_a_preset_and_only_masked_keys_come_back() {
         let home = tempfile::tempdir().unwrap();
         let mut save = cmd(ProvidersAction::Save);
@@ -506,7 +557,7 @@ mod tests {
         let id = Store::update(home.path(), |s| {
             let id =
                 s.add(Provider::custom(AgentKind::Claude, "Kimi".into(), "https://k.example".into(), KEY.into()))?;
-            s.pin("sess-1", AgentKind::Claude, "g1", "b1", &providers::Selection::Official);
+            s.pin("sess-1", AgentKind::Claude, "g1", "b1", &providers::Selection::Official(Default::default()));
             Ok(id)
         })
         .unwrap();

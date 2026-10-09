@@ -250,6 +250,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("缺少供应商", "Missing provider"),
     ("缺少 agent", "Missing agent"),
     ("缺少供应商内容", "Missing provider details"),
+    ("缺少官方登录设置", "Missing official login settings"),
     ("缺少 agent 或要使用的供应商", "Missing the agent or the provider to use"),
     ("本机默认不能选择「继承」", "The machine default can't be \"inherit\""),
     ("缺少导入链接", "Missing import link"),

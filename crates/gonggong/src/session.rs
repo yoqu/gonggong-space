@@ -10,7 +10,7 @@ use crate::protocol::{
     AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer,
     ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, Tier, Usage, WorkspaceKind,
 };
-use crate::providers::{RunPlan, Selection, Store};
+use crate::providers::{OFFICIAL, RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
 use crate::service::Outbox;
 use crate::t;
@@ -1169,7 +1169,7 @@ impl Conversation<'_> {
         // A third-party provider only serves its own models; its default one is injected with the process, and the
         // adapter's catalog may not list it.
         let (model, injected) = match &self.selection {
-            Selection::Official => (bot.model.clone(), None),
+            Selection::Official(_) => (bot.model.clone(), None),
             Selection::Provider(p) => {
                 let model = inject::model(p, bot.model.as_deref());
                 let injected = model.clone().filter(|m| p.model.as_ref() == Some(m));
@@ -1241,8 +1241,12 @@ impl Conversation<'_> {
         }
         let mut meta = Meta::new();
         meta.insert("systemPrompt".into(), serde_json::json!({ "append": system_prompt(&start.bot) }));
-        if let Selection::Provider(p) = &self.selection {
-            let settings = inject::claude_settings_path(self.home, &p.id);
+        let settings = match &self.selection {
+            Selection::Provider(p) => Some(&p.id[..]),
+            Selection::Official(o) => (!o.is_empty()).then_some(OFFICIAL),
+        };
+        if let Some(id) = settings {
+            let settings = inject::claude_settings_path(self.home, id);
             meta.insert("claudeCode".into(), serde_json::json!({ "options": { "settings": settings } }));
         }
         Some(meta)

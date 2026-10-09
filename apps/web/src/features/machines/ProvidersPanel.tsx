@@ -11,7 +11,7 @@ import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Alert, AlertDialog, Button, GroupBox, Presence, Skeleton, toast } from '../../ui'
 import { AGENT_LABEL, AGENTS } from '../bots/model'
-import { ProviderEditor } from './ProviderEditor'
+import { OfficialEditor, ProviderEditor } from './ProviderEditor'
 import { CcSwitchImport, LinkImport } from './ProviderImports'
 import { OFFICIAL_NAME, removalLines, SessionLines, useProviderSwitch } from './providers'
 
@@ -58,6 +58,7 @@ export function ProvidersPanel({ machine }: { machine: MachineDto }) {
 
 type Open =
   | { kind: 'editor'; editing: ProviderView | null }
+  | { kind: 'official' }
   | { kind: 'ccswitch' }
   | { kind: 'link' }
   | { kind: 'remove'; provider: ProviderView }
@@ -88,6 +89,8 @@ function ProviderBox({
   const close = () => setOpen(null)
   const current = view.machine[agent] ?? OFFICIAL_PROVIDER
   const list = view.providers.filter((p) => p.agent === agent)
+  const official = view.official[agent]
+  const envCount = Object.keys(official?.env ?? {}).length
   const removing = open?.kind === 'remove' ? open.provider : null
   const title = t('{agent} 供应商', { agent: AGENT_LABEL[agent] })
 
@@ -141,7 +144,20 @@ function ProviderBox({
         </span>
       </div>
       <GroupBox>
-        {row(OFFICIAL_PROVIDER, OFFICIAL_NAME, t('使用这台机器上 CLI 自己的登录与配置'))}
+        {row(
+          OFFICIAL_PROVIDER,
+          OFFICIAL_NAME,
+          [
+            t('使用这台机器上 CLI 自己的登录与配置'),
+            official?.proxy,
+            envCount ? t('{n} 个环境变量', { n: envCount }) : '',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          <Button size="small" onClick={() => setOpen({ kind: 'official' })}>
+            {t('设置…')}
+          </Button>,
+        )}
         {list.map((p) =>
           row(
             p.id,
@@ -184,6 +200,22 @@ function ProviderBox({
               onView(v)
               toast({ type: 'success', message: t('供应商已保存') })
               if (setDefault) onSwitch(agent, id, v)
+            }}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {open?.kind === 'official' ? (
+          <OfficialEditor
+            key={seq}
+            machineId={machine.id}
+            agent={agent}
+            official={official}
+            onClose={close}
+            onSaved={(v) => {
+              close()
+              onView(v)
+              toast({ type: 'success', message: t('官方登录设置已保存') })
             }}
           />
         ) : null}

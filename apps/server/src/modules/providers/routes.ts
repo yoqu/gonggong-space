@@ -7,6 +7,7 @@ import {
   type CcSwitchImportedDto,
   type CcSwitchPreviewDto,
   ImportLinkReq,
+  OfficialProviderReq,
   type ProviderPreset,
   type ProviderSavedDto,
   type ProviderStoreView,
@@ -114,6 +115,18 @@ export function providerRoutes(ctx: Ctx) {
         const { agent, choice } = UseProviderReq.parse(req.body)
         const res = view((await cmd(m.id, { action: 'use', agent, choice })).view)
         await trail(me.id, 'machine.providers.default', { machineId: m.id })
+        return res
+      },
+    )
+
+    app.put<{ Params: Params }>(
+      '/api/machines/:id/providers/official',
+      async (req): Promise<ProviderStoreView> => {
+        const me = await requireUser(ctx, req)
+        const m = await owned(req, me.id)
+        const { agent, ...official } = OfficialProviderReq.parse(req.body)
+        const res = view((await cmd(m.id, { action: 'official', agent, official })).view)
+        await trail(me.id, 'machine.providers.official', { machineId: m.id })
         return res
       },
     )

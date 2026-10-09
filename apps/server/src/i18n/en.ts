@@ -41,6 +41,7 @@ export const en = {
   保存机器的供应商: "Saved a machine's provider",
   删除机器的供应商: "Deleted a machine's provider",
   修改机器的默认供应商: "Changed a machine's default provider",
+  修改机器的官方登录设置: "Changed a machine's official login settings",
   导入机器的供应商: "Imported a machine's providers",
   未设置: 'not set',
   开放自助注册: 'Opened self-registration',

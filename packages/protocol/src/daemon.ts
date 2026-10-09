@@ -672,9 +672,17 @@ export type ProviderView = z.infer<typeof ProviderView>
 /** `official` = the CLI's own login (nothing injected); a bot without an override inherits the machine default. */
 export const OFFICIAL_PROVIDER = 'official'
 export const INHERIT_PROVIDER = 'inherit'
+/** What an official login runs with besides the CLI's own config; proxy password masked, null = direct. */
+export const OfficialSettings = z.object({
+  env: z.record(z.string(), z.string()),
+  proxy: z.string().nullable(),
+})
+export type OfficialSettings = z.infer<typeof OfficialSettings>
 export const ProviderStoreView = z.object({
   /** Default per agent: a provider id or `official`; absent = official. */
   machine: z.partialRecord(AgentKind, z.string()),
+  /** Official login extras per agent; absent = none. */
+  official: z.partialRecord(AgentKind, OfficialSettings).default({}),
   /** Bot overrides: bot id → provider id or `official`; absent = inherit. */
   bots: z.record(z.string(), z.string()),
   providers: z.array(ProviderView),
@@ -704,6 +712,12 @@ export const ProviderInput = z.object({
   effort: z.string().max(32).optional(),
 })
 export type ProviderInput = z.infer<typeof ProviderInput>
+/** Sets an official login's extras; absent fields keep what is there. */
+export const OfficialInput = z.object({
+  env: ProviderInput.shape.env,
+  proxy: ProviderInput.shape.proxy,
+})
+export type OfficialInput = z.infer<typeof OfficialInput>
 /** CC Switch import preview row: `key` is what ccswitch.apply takes; `existing` = the local provider it updates. */
 export const CcSwitchCandidate = z.object({
   key: z.string(),
@@ -1010,12 +1024,24 @@ export type ToolsCmd = z.infer<typeof ToolsCmd>
 export const ProvidersCmd = z.object({
   t: z.literal('providers.cmd'),
   requestId: z.string(),
-  action: z.enum(['presets', 'list', 'save', 'remove', 'use', 'importLink', 'catalog', 'botCatalog']),
+  action: z.enum([
+    'presets',
+    'list',
+    'save',
+    'remove',
+    'use',
+    'importLink',
+    'catalog',
+    'botCatalog',
+    'official',
+  ]),
   agent: AgentKind.optional(),
   botId: z.string().optional(),
   id: z.string().optional(),
   choice: z.string().optional(),
   provider: ProviderInput.optional(),
+  /** For `official`, with `agent`. */
+  official: OfficialInput.optional(),
   link: z.string().optional(),
   setDefault: z.boolean().optional(),
 })

@@ -198,30 +198,11 @@ impl Provider {
         if self.api_key.trim().is_empty() {
             bail!(t!("API Key 不能为空"));
         }
-        if let Some(k) = self.env.keys().find(|k| !env_name(k)) {
-            bail!(t!("环境变量名不合法：{name}", name = k));
-        }
-        if self.proxy.as_deref().is_some_and(|u| !(u.starts_with("http://") || u.starts_with("https://"))) {
-            bail!(t!("代理地址必须以 http:// 或 https:// 开头"));
-        }
-        Ok(())
+        validate_extras(&self.env, self.proxy.as_deref())
     }
 
-    /// The agent process's env as if exported in a terminal: the proxy (both cases, loopback direct so the agent
-    /// still reaches the daemon's local MCP endpoint), then the provider's own variables.
     pub fn process_env(&self) -> BTreeMap<String, String> {
-        let mut env = self.env.clone();
-        if let Some(url) = &self.proxy {
-            for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
-                env.entry(k.into()).or_insert_with(|| url.clone());
-            }
-            let user = self.env.get("NO_PROXY").or(self.env.get("no_proxy"));
-            let bypass =
-                ["localhost", "127.0.0.1", "::1"].into_iter().chain(user.map(String::as_str)).collect::<Vec<_>>();
-            env.insert("NO_PROXY".into(), bypass.join(","));
-            env.insert("no_proxy".into(), bypass.join(","));
-        }
-        env
+        process_env(&self.env, self.proxy.as_deref())
     }
 
     fn same_connection(&self, other: &Provider) -> bool {
@@ -249,6 +230,63 @@ impl Provider {
             source: self.source.clone(),
         }
     }
+}
+
+/// The agent process's env as if exported in a terminal: the proxy (both cases, loopback direct so the agent still
+/// reaches the daemon's local MCP endpoint), then the user's own variables.
+fn process_env(vars: &BTreeMap<String, String>, proxy: Option<&str>) -> BTreeMap<String, String> {
+    let mut env = vars.clone();
+    if let Some(url) = proxy {
+        for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
+            env.entry(k.into()).or_insert_with(|| url.into());
+        }
+        let user = vars.get("NO_PROXY").or(vars.get("no_proxy"));
+        let bypass = ["localhost", "127.0.0.1", "::1"].into_iter().chain(user.map(String::as_str)).collect::<Vec<_>>();
+        env.insert("NO_PROXY".into(), bypass.join(","));
+        env.insert("no_proxy".into(), bypass.join(","));
+    }
+    env
+}
+
+fn validate_extras(env: &BTreeMap<String, String>, proxy: Option<&str>) -> Result<()> {
+    if let Some(k) = env.keys().find(|k| !env_name(k)) {
+        bail!(t!("环境变量名不合法：{name}", name = k));
+    }
+    if proxy.is_some_and(|u| !(u.starts_with("http://") || u.starts_with("https://"))) {
+        bail!(t!("代理地址必须以 http:// 或 https:// 开头"));
+    }
+    Ok(())
+}
+
+/// What an agent's official login runs with besides the CLI's own config: extra variables and a proxy.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Official {
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub env: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<String>,
+}
+
+impl Official {
+    pub fn is_empty(&self) -> bool {
+        self.env.is_empty() && self.proxy.is_none()
+    }
+
+    pub fn process_env(&self) -> BTreeMap<String, String> {
+        process_env(&self.env, self.proxy.as_deref())
+    }
+
+    /// Password masked, as for a provider.
+    pub fn view(&self) -> OfficialView {
+        OfficialView { env: self.env.clone(), proxy: self.proxy.as_deref().map(mask_proxy) }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfficialView {
+    pub env: BTreeMap<String, String>,
+    pub proxy: Option<String>,
 }
 
 /// Keys leave the machine as their last 4 characters at most; short ones not at all.
@@ -301,6 +339,8 @@ pub struct ProviderView {
 #[serde(rename_all = "camelCase")]
 pub struct StoreView {
     pub machine: BTreeMap<AgentKind, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub official: BTreeMap<AgentKind, OfficialView>,
     pub bots: BTreeMap<String, String>,
     pub providers: Vec<ProviderView>,
     /// Latest session of each (group, bot), so a switch can say which groups keep the old provider.
@@ -331,7 +371,8 @@ pub struct SessionPin {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Selection {
-    Official,
+    /// Carries the agent's [`Official`] extras so a change to them restarts the adapter like a provider edit.
+    Official(Official),
     Provider(Box<Provider>),
 }
 
@@ -339,14 +380,14 @@ impl Selection {
     /// What `machine`, `bots` and session pins store.
     pub fn key(&self) -> &str {
         match self {
-            Selection::Official => OFFICIAL,
+            Selection::Official(_) => OFFICIAL,
             Selection::Provider(p) => &p.id,
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            Selection::Official => OFFICIAL_NAME,
+            Selection::Official(_) => OFFICIAL_NAME,
             Selection::Provider(p) => &p.name,
         }
     }
@@ -377,6 +418,9 @@ pub struct Stale {
 pub struct Store {
     /// Machine default per agent: a provider id or [`OFFICIAL`]; absent = official.
     pub machine: BTreeMap<AgentKind, String>,
+    /// Official login extras per agent; absent = none.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub official: BTreeMap<AgentKind, Official>,
     /// Per-bot override: a provider id or [`OFFICIAL`]; absent = inherit the machine default.
     pub bots: BTreeMap<String, String>,
     pub providers: Vec<Provider>,
@@ -536,9 +580,23 @@ impl Store {
         Ok(())
     }
 
+    pub fn official(&self, agent: AgentKind) -> Official {
+        self.official.get(&agent).cloned().unwrap_or_default()
+    }
+
+    pub fn set_official(&mut self, agent: AgentKind, official: Official) -> Result<()> {
+        validate_extras(&official.env, official.proxy.as_deref())?;
+        if official.is_empty() {
+            self.official.remove(&agent);
+        } else {
+            self.official.insert(agent, official);
+        }
+        Ok(())
+    }
+
     fn select(&self, agent: AgentKind, key: &str) -> Result<Selection> {
         match key {
-            OFFICIAL => Ok(Selection::Official),
+            OFFICIAL => Ok(Selection::Official(self.official(agent))),
             id => Ok(Selection::Provider(Box::new(self.get_for(agent, id)?.clone()))),
         }
     }
@@ -562,7 +620,7 @@ impl Store {
         };
         Ok(match self.sessions.get(session).map(|pin| pin.provider.as_str()) {
             // Sessions started before providers existed ran on the official login.
-            None | Some(OFFICIAL) => RunPlan::Resume(Selection::Official),
+            None | Some(OFFICIAL) => RunPlan::Resume(Selection::Official(self.official(agent))),
             Some(id) => match self.get(id) {
                 Some(p) => RunPlan::Resume(Selection::Provider(Box::new(p.clone()))),
                 None => RunPlan::New { selection: self.effective(agent, bot_id)?, provider_removed: true },
@@ -619,6 +677,7 @@ impl Store {
     pub fn view(&self) -> StoreView {
         StoreView {
             machine: self.machine.clone(),
+            official: self.official.iter().map(|(a, o)| (*a, o.view())).collect(),
             bots: self.bots.clone(),
             providers: self.providers.iter().map(Provider::view).collect(),
             sessions: self
@@ -740,7 +799,7 @@ mod tests {
         let id = kimi(&mut store);
         store.use_machine(Claude, &id).unwrap();
         store.use_bot("bot-1", Claude, OFFICIAL).unwrap();
-        store.pin("sess-1", Claude, "g1", "bot-1", &Selection::Official);
+        store.pin("sess-1", Claude, "g1", "bot-1", &Selection::Official(Default::default()));
         store.save(home.path()).unwrap();
         assert_eq!(Store::load(home.path()).unwrap(), store);
         let raw: serde_json::Value = serde_json::from_slice(&std::fs::read(Store::path(home.path())).unwrap()).unwrap();
@@ -770,9 +829,24 @@ mod tests {
     }
 
     #[test]
+    fn the_official_selection_carries_the_agents_extras() {
+        let mut store = Store::default();
+        let o = Official { env: BTreeMap::from([("A".into(), "1".into())]), proxy: Some("http://p.test:1".into()) };
+        store.set_official(Claude, o.clone()).unwrap();
+        assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official(o.clone()));
+        assert_eq!(store.effective(Codex, "b").unwrap(), Selection::Official(Official::default()));
+        assert_eq!(store.resolve_run(Claude, "b", Some("legacy")).unwrap(), RunPlan::Resume(Selection::Official(o)));
+        let env = store.official(Claude).process_env();
+        assert_eq!((env["A"].as_str(), env["HTTPS_PROXY"].as_str()), ("1", "http://p.test:1"));
+        assert_eq!(env["NO_PROXY"], "localhost,127.0.0.1,::1");
+        store.set_official(Claude, Official::default()).unwrap();
+        assert!(store.official.is_empty(), "nothing stored for an empty one");
+    }
+
+    #[test]
     fn effective_precedence_is_bot_then_machine_then_official() {
         let mut store = Store::default();
-        assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official);
+        assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official(Default::default()));
         let a = kimi(&mut store);
         let b = kimi(&mut store);
         store.use_machine(Claude, &a).unwrap();
@@ -781,10 +855,10 @@ mod tests {
         assert_eq!(store.effective(Claude, "b").unwrap().key(), b);
         assert_eq!(store.effective(Claude, "other").unwrap().key(), a);
         store.use_bot("b", Claude, OFFICIAL).unwrap();
-        assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official);
+        assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official(Default::default()));
         store.use_bot("b", Claude, INHERIT).unwrap();
         assert_eq!(store.effective(Claude, "b").unwrap().key(), a);
-        assert_eq!(store.effective(Codex, "b").unwrap(), Selection::Official);
+        assert_eq!(store.effective(Codex, "b").unwrap(), Selection::Official(Default::default()));
         assert!(store.use_bot("b", Codex, &a).is_err(), "override must match the bot's agent");
         assert!(store.use_machine(Claude, "nope").is_err());
     }
@@ -812,11 +886,14 @@ mod tests {
             panic!()
         };
         assert_eq!(p.revision, 2);
-        assert_eq!(store.resolve_run(Claude, "bot", Some("legacy")).unwrap(), RunPlan::Resume(Selection::Official));
+        assert_eq!(
+            store.resolve_run(Claude, "bot", Some("legacy")).unwrap(),
+            RunPlan::Resume(Selection::Official(Default::default()))
+        );
         let stale = store.stale().unwrap();
         assert_eq!(stale.len(), 1);
         assert_eq!((stale[0].session.as_str(), stale[0].effective.as_str()), ("Kimi For Coding", OFFICIAL_NAME));
-        store.pin("s2", Claude, "g", "bot", &Selection::Official);
+        store.pin("s2", Claude, "g", "bot", &Selection::Official(Default::default()));
         store.sessions.get_mut("s2").unwrap().pinned_at += 1;
         assert!(store.stale().unwrap().is_empty(), "only the latest session of a (group, bot) counts");
     }
@@ -832,7 +909,7 @@ mod tests {
         assert!(store.machine.is_empty() && store.bots.is_empty());
         assert_eq!(
             store.resolve_run(Claude, "bot", Some("s1")).unwrap(),
-            RunPlan::New { selection: Selection::Official, provider_removed: true }
+            RunPlan::New { selection: Selection::Official(Default::default()), provider_removed: true }
         );
         assert!(store.stale().unwrap().is_empty());
         assert!(store.remove(&a).is_err());

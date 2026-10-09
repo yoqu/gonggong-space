@@ -116,10 +116,10 @@ mod tests {
         let kimi = store
             .add(Provider::custom(Claude, "Kimi".into(), "https://k.test".into(), "sk-0123456789abcd".into()))
             .unwrap();
-        store.pin("s1", Claude, "g1", "inherits", &Selection::Official);
-        store.pin("s2", Claude, "g2", "overridden", &Selection::Official);
+        store.pin("s1", Claude, "g1", "inherits", &Selection::Official(Default::default()));
+        store.pin("s2", Claude, "g2", "overridden", &Selection::Official(Default::default()));
         store.use_bot("overridden", Claude, OFFICIAL).unwrap();
-        store.pin("s3", Codex, "g1", "codex-bot", &Selection::Official);
+        store.pin("s3", Codex, "g1", "codex-bot", &Selection::Official(Default::default()));
 
         let machine = affected(&store, Claude, &kimi, None).unwrap();
         assert_eq!(machine.len(), 1);
