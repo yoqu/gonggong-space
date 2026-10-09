@@ -2,14 +2,20 @@
 .ui-popup {
   position: relative;
   display: inline-block;
+  min-width: 0;
+  max-width: 100%;
 }
+/* Capped so a long choice truncates instead of squeezing the row's label into a column. */
 .ui-popup__btn {
   justify-content: space-between;
   min-width: 120px;
+  max-width: min(100%, 280px);
   padding-right: var(--space-6);
 }
 .ui-popup__value {
+  min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 .ui-popup__placeholder {

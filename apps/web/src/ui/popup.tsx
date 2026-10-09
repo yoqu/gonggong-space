@@ -129,7 +129,10 @@ export function PopUpButton<V extends string>({
           show()
         }}
       >
-        <span className={cx('ui-popup__value', !selected && 'ui-popup__placeholder')}>
+        <span
+          className={cx('ui-popup__value', !selected && 'ui-popup__placeholder')}
+          title={typeof selected?.label === 'string' ? selected.label : undefined}
+        >
           {selected ? selected.label : placeholder}
         </span>
         <span className="ui-popup__chev">
