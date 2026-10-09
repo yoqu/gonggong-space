@@ -189,4 +189,6 @@ export default {
   发布桌面应用预览: 'Publish desktop app preview',
   关闭预览: 'Close preview',
   '交给其他 Bot': 'Hand off to another Bot',
+  '子 agent {n} 个运行中': '{n} {n:subagent|subagents} running',
+  后台运行: 'Running in background',
 } satisfies Record<string, string>

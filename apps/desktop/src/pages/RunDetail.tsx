@@ -1,3 +1,4 @@
+import { ActivityDock } from '@web/features/runs/ActivityDock'
 import { ProcessView } from '@web/features/runs/ProcessView'
 import { processSteps } from '@web/features/runs/steps'
 import { Badge, Button, EmptyState, GroupBox, Icon, Spinner } from '@web/ui'
@@ -100,6 +101,14 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
           )}
         </GroupBox>
       </Section>
+      <div className="dk-dock">
+        <ActivityDock
+          steps={steps}
+          onLocate={(key) =>
+            document.querySelector(`[data-step="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center' })
+          }
+        />
+      </div>
     </>
   )
 }

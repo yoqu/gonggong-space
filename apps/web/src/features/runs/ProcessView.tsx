@@ -131,7 +131,7 @@ function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
   const calls = children.filter((c) => !['text', 'thought', 'status'].includes(c.kind)).length
   const state = stateOf(s)
   return (
-    <li className="act-item" data-state={state} data-family="subagent">
+    <li className="act-item" data-state={state} data-family="subagent" data-step={a.key}>
       <button
         type="button"
         className="act-row act-row--head"
@@ -273,7 +273,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
     <div className="act-row">{head}</div>
   )
   return (
-    <li className="act-item" data-state={state} data-family={a.family}>
+    <li className="act-item" data-state={state} data-family={a.family} data-step={a.key}>
       {s.stop && onStopTask ? (
         <div className="act-line">
           {row}
@@ -289,7 +289,7 @@ function ActionRow({ action: a, open: opened, toggle, onOpenDiff, onStopTask }: 
 }
 
 /** Stays disabled once asked: the task's own update ends the row's running state. */
-function StopTask({
+export function StopTask({
   id,
   name,
   onStop,

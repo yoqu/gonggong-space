@@ -272,3 +272,27 @@ button.act-row:hover .act-row__target--file {
 .act-ask__opts {
   color: var(--label-secondary);
 }
+/* Pinned under the run: running subagents and background tasks stay in sight while the process scrolls. */
+.act-dock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-16);
+  border-top: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.act-dock__list {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.act-dock__count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--label);
+  white-space: nowrap;
+}
+.act-row[aria-expanded="true"] .act-dock__chevron {
+  transform: rotate(180deg);
+}

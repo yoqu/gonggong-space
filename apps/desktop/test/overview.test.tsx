@@ -129,6 +129,7 @@ describe('overview', () => {
     fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
     expect(await screen.findByText('Explore')).toBeTruthy()
     expect(m.runProcess).toHaveBeenCalledWith('r1')
+    expect(within(screen.getByTestId('activity-dock')).getByText('子 agent 1 个运行中')).toBeTruthy()
     expect(screen.getByText('找调用方')).toBeTruthy()
     expect(screen.getByText('子报告')).toBeTruthy()
     expect(screen.getByText('主进度')).toBeTruthy()

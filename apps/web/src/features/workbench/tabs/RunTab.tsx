@@ -35,6 +35,7 @@ import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
 import { DiffPane } from '../../diff/DiffPane'
 import type { DiffSource } from '../../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
+import { ActivityDock } from '../../runs/ActivityDock'
 import { ProcessView } from '../../runs/ProcessView'
 import { approvalText, buildSteps } from '../../runs/process'
 import type { Step } from '../../runs/steps'
@@ -217,10 +218,18 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   )
   // Machine and session id are rarely needed; hidden behind ⓘ so the process gets the height.
   const [more, setMore] = useState(false)
+  // A dock row leads back to its process row, switching to the process view first.
+  const tabRef = useRef<HTMLDivElement>(null)
+  const [locate, setLocate] = useState<string | null>(null)
+  useEffect(() => {
+    if (!locate || view !== 'process') return
+    tabRef.current?.querySelector(`[data-step="${CSS.escape(locate)}"]`)?.scrollIntoView({ block: 'center' })
+    setLocate(null)
+  }, [locate, view])
   const started = run?.startedAt ? Date.parse(run.startedAt) : null
   const ended = run?.endedAt ? Date.parse(run.endedAt) : now
   return (
-    <div className="run-tab" data-testid="run-tab">
+    <div className="run-tab" data-testid="run-tab" ref={tabRef}>
       <Toolbar
         className="run-tab__bar"
         scrolled={false}
@@ -315,6 +324,16 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
           </div>
         )}
       </div>
+      {steps && !detail?.purged ? (
+        <ActivityDock
+          steps={steps}
+          onStopTask={(taskId) => stopTask(runId, taskId)}
+          onLocate={(key) => {
+            patch(tabKey, { view: 'process' })
+            setLocate(key)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

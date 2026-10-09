@@ -222,6 +222,11 @@ code,
   user-select: text;
   -webkit-user-select: text;
 }
+/* Running subagents and background tasks stay in sight at the bottom while the process scrolls. */
+.dk-dock {
+  position: sticky;
+  bottom: 0;
+}
 .ui-group > * + *,
 .ui-group > * > .dk-row + .dk-row {
   border-top: 1px solid var(--separator);

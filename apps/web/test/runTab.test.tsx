@@ -748,6 +748,18 @@ describe('process timeline', () => {
     expect(within(list).getByText('详情不可见')).toBeTruthy()
     fireEvent.click(within(list).getByRole('button', { name: '停止后台任务 pnpm dev' }))
     await waitFor(() => expect(calls).toContain('POST /runs/r1/tasks/bg1/stop'))
+    // The dock under the run counts them on every view and leads back to the row.
+    fireEvent.click(within(rail).getByRole('tab', { name: '改动' }))
+    const dock = within(rail).getByTestId('activity-dock')
+    const head = within(dock).getByRole('button', { name: /子 agent 1 个运行中\s*后台任务 1 个运行中/ })
+    fireEvent.click(head)
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fireEvent.click(within(dock).getByRole('button', { name: /^pnpm dev/ }))
+    expect(tabs()[0]).toMatchObject({ view: 'process' })
+    await waitFor(() => expect(scroll).toHaveBeenCalled())
+    expect((scroll.mock.contexts[0] as HTMLElement).dataset.family).toBe('task')
+    delete (Element.prototype as Partial<Element>).scrollIntoView
   })
 
   it('tucks a finished turn under 已工作 and clamps the final reply', async () => {

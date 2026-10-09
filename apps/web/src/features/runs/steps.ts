@@ -104,6 +104,14 @@ export function processSteps(
   return finish(lists.get('') ?? [], live)
 }
 
+/** Subagents (nested ones too) and background tasks still running; tasks may outlive the run. */
+export function runningWork(steps: Step[]): Step[] {
+  return steps.flatMap((s) => [
+    ...(s.running && (s.kind === 'subagent' || s.kind === 'task') ? [s] : []),
+    ...runningWork(s.children ?? []),
+  ])
+}
+
 const SUBAGENT_STATE: Record<string, string> = {
   running: t('进行中'),
   completed: t('已完成'),
