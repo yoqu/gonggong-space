@@ -958,7 +958,7 @@ describe('repo picker', () => {
       expect(calls.some((c) => c.path === '/git-accounts/a1/branches?repo=acme%2Fshop&q=')).toBe(true),
     )
     fireEvent.click(within(dialog).getAllByRole('button', { name: '显示选项' }).at(-1)!)
-    const branches = await within(dialog).findByRole('listbox', { name: '' })
+    const branches = await screen.findByRole('listbox', { name: '' })
     expect(
       within(branches)
         .getAllByRole('option')

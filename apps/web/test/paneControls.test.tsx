@@ -236,6 +236,18 @@ describe('PopUpButton', () => {
     expect(onChange).toHaveBeenCalledWith('kind')
   })
 
+  it('portals the menu out of a clipping ancestor such as a dialog body', () => {
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
+        <PopUpButton options={options} defaultValue="name" />
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '名称' }))
+    const menu = screen.getByRole('menu')
+    expect(screen.getByTestId('clip').contains(menu)).toBe(false)
+    expect(menu.classList.contains('ui-float--fixed')).toBe(true)
+  })
+
   it('shows the placeholder when nothing is selected', () => {
     render(<PopUpButton options={options} value={null} placeholder="请选择" />)
     expect(screen.getByRole('button', { name: '请选择' })).toBeTruthy()

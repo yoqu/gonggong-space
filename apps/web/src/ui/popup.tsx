@@ -1,10 +1,11 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { nextEnabled, useControlled } from './controlled'
 import { Button, type ButtonSize } from './controls'
 import { Icon } from './icon'
-import { Float, useDismiss } from './popover'
+import { Float, useDismiss, useFixedPosition } from './popover'
 import './popup.css'
 
 export interface PopUpOption<V extends string> {
@@ -83,7 +84,9 @@ export function PopUpButton<V extends string>({
     setOpen(false)
     if (refocus) trigger.current?.focus()
   }
-  useDismiss(open, root, close)
+  useDismiss(open, root, close, list)
+  // Portalled so a scrolling ancestor (a Dialog body) cannot clip a long list.
+  useFixedPosition(open, trigger, list, 'bottom-start', 4, () => close(false), true)
 
   const show = () => {
     const i = options.findIndex((o) => o.value === current)
@@ -105,7 +108,7 @@ export function PopUpButton<V extends string>({
       e.preventDefault()
       const o = options[active]
       if (o) pick(o)
-    } else if (e.key === 'Tab') close(false)
+    } else if (e.key === 'Tab') close(true)
   }
   const selected = options.find((o) => o.value === current)
 
@@ -133,39 +136,43 @@ export function PopUpButton<V extends string>({
           <Icon name="chevron-updown" weight={2.2} />
         </span>
       </Button>
-      <Float
-        ref={list}
-        open={open}
-        kind="menu"
-        role="menu"
-        tabIndex={-1}
-        aria-label={aria['aria-label']}
-        aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
-        className="ui-popup__menu"
-        onKeyDown={onListKey}
-      >
-        {options.map((o, i) => (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is handled by the menu (aria-activedescendant)
-          <div
-            key={o.value}
-            id={`${id}-${i}`}
-            role="menuitemcheckbox"
-            tabIndex={-1}
-            className="ui-float__item"
-            data-active={i === active || undefined}
-            aria-checked={o.value === current}
-            aria-disabled={o.disabled || undefined}
-            onMouseEnter={() => !o.disabled && setActive(i)}
-            onMouseLeave={() => setActive(-1)}
-            onClick={() => pick(o)}
-          >
-            <span className="ui-popup__check">
-              {o.value === current ? <Icon name="check" weight={2} /> : null}
-            </span>
-            <span className="ui-float__label">{o.label}</span>
-          </div>
-        ))}
-      </Float>
+      {createPortal(
+        <Float
+          ref={list}
+          open={open}
+          kind="menu"
+          role="menu"
+          tabIndex={-1}
+          aria-label={aria['aria-label']}
+          aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
+          className="ui-popup__menu ui-float--fixed"
+          onKeyDown={onListKey}
+        >
+          {options.map((o, i) => (
+            // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is handled by the menu (aria-activedescendant)
+            <div
+              key={o.value}
+              id={`${id}-${i}`}
+              role="menuitemcheckbox"
+              tabIndex={-1}
+              className="ui-float__item"
+              ref={i === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
+              data-active={i === active || undefined}
+              aria-checked={o.value === current}
+              aria-disabled={o.disabled || undefined}
+              onMouseEnter={() => !o.disabled && setActive(i)}
+              onMouseLeave={() => setActive(-1)}
+              onClick={() => pick(o)}
+            >
+              <span className="ui-popup__check">
+                {o.value === current ? <Icon name="check" weight={2} /> : null}
+              </span>
+              <span className="ui-float__label">{o.label}</span>
+            </div>
+          ))}
+        </Float>,
+        document.body,
+      )}
     </div>
   )
 }

@@ -1,10 +1,11 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { useControlled } from './controlled'
 import { type LineFieldProps, TextField } from './form'
 import { Icon } from './icon'
-import { useDismiss } from './popover'
+import { useDismiss, useFixedPosition } from './popover'
 import './fields.css'
 
 export interface SecureFieldProps extends Omit<LineFieldProps, 'type' | 'multiline'> {
@@ -239,11 +240,15 @@ export function ComboBox({
   const [filtering, setFiltering] = useState(false)
   const [active, setActive] = useState(-1)
   const root = useRef<HTMLDivElement>(null)
-  useDismiss(open, root, () => setOpen(false))
+  const wrap = useRef<HTMLSpanElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  useDismiss(open, root, () => setOpen(false), listRef)
   const all = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
   const q = text.toLowerCase()
   const list = filtering && q ? all.filter((o) => o.label.toLowerCase().includes(q)) : all
   const shown = open && list.length > 0
+  // Portalled so a scrolling ancestor (a Dialog body) cannot clip the list.
+  useFixedPosition(shown, wrap, listRef, 'bottom-start', 4, () => setOpen(false), true)
   const choose = (o: ComboOption) => {
     setText(o.label)
     setOpen(false)
@@ -258,7 +263,7 @@ export function ComboBox({
           {label}
         </label>
       ) : null}
-      <span className={cx('ui-inputwrap', disabled && 'ui-disabled')}>
+      <span ref={wrap} className={cx('ui-inputwrap', disabled && 'ui-disabled')}>
         <input
           id={id}
           className="ui-input ui-input--bare"
@@ -309,29 +314,37 @@ export function ComboBox({
           <Icon name="chevron-down" weight={2.2} />
         </button>
       </span>
-      {shown ? (
-        <div id={listId} role="listbox" className="ui-float ui-float--menu ui-combo__list">
-          {list.map((o, i) => (
+      {shown
+        ? createPortal(
             <div
-              key={o.value}
-              id={`${listId}-${i}`}
-              role="option"
-              tabIndex={-1}
-              aria-selected={i === active}
-              data-active={i === active || undefined}
-              className="ui-float__item"
-              onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => {
-                e.preventDefault()
-                choose(o)
-              }}
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              className="ui-float ui-float--menu ui-float--fixed ui-combo__list"
             >
-              <span className="ui-float__label">{o.label}</span>
-              {o.detail ? <span className="ui-float__detail">{o.detail}</span> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
+              {list.map((o, i) => (
+                <div
+                  key={o.value}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={i === active}
+                  data-active={i === active || undefined}
+                  className="ui-float__item"
+                  onMouseEnter={() => setActive(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    choose(o)
+                  }}
+                >
+                  <span className="ui-float__label">{o.label}</span>
+                  {o.detail ? <span className="ui-float__detail">{o.detail}</span> : null}
+                </div>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
@@ -376,7 +389,10 @@ export function TokenField({
   const [tokens, setTokens] = useControlled(value, defaultValue)
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
+  const [hidden, setHidden] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const labels = tokens.map((t) => tokenOf(t).label)
   const matches = text
     ? suggestions
@@ -384,6 +400,8 @@ export function TokenField({
         .filter((s) => s.label.toLowerCase().includes(text.toLowerCase()) && !labels.includes(s.label))
         .slice(0, 6)
     : []
+  const shown = matches.length > 0 && !hidden
+  useFixedPosition(shown, box, listRef, 'bottom-start', 4, () => setHidden(true), true)
   const set = (next: Token[]) => {
     setTokens(next)
     onChange?.(next)
@@ -408,6 +426,7 @@ export function TokenField({
       ) : null}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: pressing the empty box area focuses the input */}
       <div
+        ref={box}
         className="ui-tokenfield__box"
         onMouseDown={(e) => {
           if (e.target !== e.currentTarget) return
@@ -440,26 +459,27 @@ export function TokenField({
           placeholder={tokens.length ? '' : placeholder}
           role="combobox"
           aria-label={label ? undefined : ariaLabel}
-          aria-expanded={matches.length > 0}
+          aria-expanded={shown}
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={matches.length ? `${listId}-${active}` : undefined}
+          aria-activedescendant={shown ? `${listId}-${active}` : undefined}
           onChange={(e) => {
             const v = e.target.value
             if (/[,，;；]$/.test(v)) add({ label: v.slice(0, -1) })
             else {
               setText(v)
               setActive(0)
+              setHidden(false)
             }
           }}
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) return
-            if (matches.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            if (shown && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
               e.preventDefault()
               setActive((active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length)
             } else if ((e.key === 'Enter' || e.key === 'Tab') && text) {
               e.preventDefault()
-              add(matches[active] ?? { label: text })
+              add((shown && matches[active]) || { label: text })
             } else if (e.key === 'Backspace' && !text && tokens.length) remove(tokens.length - 1)
             else if (e.key === 'Escape') setText('')
           }}
@@ -468,29 +488,37 @@ export function TokenField({
           }}
         />
       </div>
-      {matches.length ? (
-        <div id={listId} role="listbox" className="ui-float ui-float--menu ui-combo__list">
-          {matches.map((s, i) => (
+      {shown
+        ? createPortal(
             <div
-              key={s.label}
-              id={`${listId}-${i}`}
-              role="option"
-              tabIndex={-1}
-              aria-selected={i === active}
-              data-active={i === active || undefined}
-              className="ui-float__item"
-              onMouseEnter={() => setActive(i)}
-              onMouseDown={(e) => {
-                e.preventDefault()
-                add(s)
-              }}
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              className="ui-float ui-float--menu ui-float--fixed ui-combo__list"
             >
-              <span className="ui-float__label">{s.label}</span>
-              {s.detail ? <span className="ui-float__detail">{s.detail}</span> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
+              {matches.map((s, i) => (
+                <div
+                  key={s.label}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={i === active}
+                  data-active={i === active || undefined}
+                  className="ui-float__item"
+                  onMouseEnter={() => setActive(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    add(s)
+                  }}
+                >
+                  <span className="ui-float__label">{s.label}</span>
+                  {s.detail ? <span className="ui-float__detail">{s.detail}</span> : null}
+                </div>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
       {hint ? <span className="ui-field__hint">{hint}</span> : null}
     </div>
   )

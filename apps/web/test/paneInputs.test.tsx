@@ -253,6 +253,18 @@ describe('ComboBox', () => {
     fireEvent.keyDown(box, { key: 'Escape' })
     expect(screen.queryByRole('listbox')).toBeNull()
   })
+
+  it('portals the list out of a clipping ancestor and closes when it scrolls', () => {
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
+        <ComboBox label="所在城市" options={cities} />
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '显示选项' }))
+    expect(screen.getByTestId('clip').contains(screen.getByRole('listbox'))).toBe(false)
+    fireEvent.scroll(screen.getByTestId('clip'))
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
 })
 
 describe('TokenField', () => {
@@ -297,6 +309,20 @@ describe('TokenField', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onChange).toHaveBeenLastCalledWith(['李娜'])
+  })
+
+  it('portals the suggestions out of a clipping ancestor and hides them when it scrolls', () => {
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
+        <TokenField label="成员" suggestions={['李思远', '李娜']} />
+      </div>,
+    )
+    const input = screen.getByRole('combobox', { name: '成员' })
+    fireEvent.change(input, { target: { value: '李' } })
+    expect(screen.getByTestId('clip').contains(screen.getByRole('listbox'))).toBe(false)
+    fireEvent.scroll(screen.getByTestId('clip'))
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect((input as HTMLInputElement).value).toBe('李')
   })
 })
 

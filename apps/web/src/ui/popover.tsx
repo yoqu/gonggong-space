@@ -69,6 +69,53 @@ export function Float({
   )
 }
 
+/**
+ * Places a portalled `.ui-float--fixed` panel in viewport coordinates next to `anchor`: below unless there is
+ * more room above. `list` caps it to that room (the list scrolls) and widens it to the anchor. A fixed panel
+ * would drift from its anchor, so scrolling elsewhere or resizing calls `onDrift`.
+ */
+export function useFixedPosition(
+  enabled: boolean,
+  anchor: RefObject<HTMLElement | null>,
+  panel: RefObject<HTMLElement | null>,
+  placement: Placement,
+  gap: number,
+  onDrift: () => void,
+  list = false,
+) {
+  const drift = useRef(onDrift)
+  drift.current = onDrift
+  // Every render: filtering a list changes its height, and a list placed above must move with it.
+  useLayoutEffect(() => {
+    const el = panel.current
+    if (!enabled || !el || !anchor.current) return
+    const r = anchor.current.getBoundingClientRect()
+    if (list) {
+      el.style.minWidth = `${r.width}px`
+      el.style.maxHeight = ''
+    }
+    const { width: w, height: h } = el.getBoundingClientRect()
+    const room = { below: window.innerHeight - r.bottom - 2 * gap, above: r.top - 2 * gap }
+    const below = h <= room.below || room.below >= room.above
+    const height = list ? Math.min(h, below ? room.below : room.above) : h
+    if (list) el.style.maxHeight = `${height}px`
+    el.style.top = `${below ? r.bottom + gap : Math.max(gap, r.top - gap - height)}px`
+    el.style.left = `${Math.max(gap, Math.min(placement.endsWith('end') ? r.right - w : r.left, window.innerWidth - gap - w))}px`
+  })
+  useEffect(() => {
+    if (!enabled) return
+    const dismiss = (e: Event) => {
+      if (!panel.current?.contains(e.target as Node)) drift.current()
+    }
+    document.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      document.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('resize', dismiss)
+    }
+  }, [enabled, panel])
+}
+
 export interface PopoverProps {
   /** Toggles the panel on click; an element gets `aria-haspopup` / `aria-expanded`. */
   trigger: ReactNode
@@ -124,28 +171,7 @@ export function Popover({
   }
   useDismiss(shown, root, close, panel)
 
-  useLayoutEffect(() => {
-    const el = panel.current
-    if (!portal || !shown || !el || !root.current) return
-    const r = root.current.getBoundingClientRect()
-    const { width: w, height: h } = el.getBoundingClientRect()
-    const below = r.bottom + GAP + h <= window.innerHeight - GAP || r.top < window.innerHeight - r.bottom
-    el.style.top = `${below ? r.bottom + GAP : Math.max(GAP, r.top - GAP - h)}px`
-    el.style.left = `${Math.max(GAP, Math.min(placement.endsWith('end') ? r.right - w : r.left, window.innerWidth - GAP - w))}px`
-  }, [portal, shown, placement])
-  // A fixed panel would drift from its trigger, so scrolling elsewhere or resizing closes it.
-  useEffect(() => {
-    if (!portal || !shown) return
-    const dismiss = (e: Event) => {
-      if (!panel.current?.contains(e.target as Node)) close(false)
-    }
-    document.addEventListener('scroll', dismiss, true)
-    window.addEventListener('resize', dismiss)
-    return () => {
-      document.removeEventListener('scroll', dismiss, true)
-      window.removeEventListener('resize', dismiss)
-    }
-  })
+  useFixedPosition(portal === true && shown, root, panel, placement, GAP, () => close(false))
 
   // Only a user-opened panel takes focus; a demo shown on mount leaves it where it is.
   useEffect(() => {

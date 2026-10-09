@@ -28,8 +28,8 @@
   height: 9px;
 }
 .ui-popup__menu {
-  z-index: 1000;
-  min-width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .ui-popup__check {
   display: grid;

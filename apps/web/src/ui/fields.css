@@ -65,11 +65,9 @@
   position: relative;
 }
 .ui-combo__list {
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   max-height: 220px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* TokenField */

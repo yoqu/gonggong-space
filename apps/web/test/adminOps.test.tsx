@@ -741,7 +741,7 @@ describe('团队', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建团队' })
     fireEvent.change(within(dialog).getByLabelText('团队名称'), { target: { value: '平台组' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '所有者' }))
-    fireEvent.click(within(dialog).getByRole('menuitemcheckbox', { name: '王磊 · wanglei' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '王磊 · wanglei' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'POST' && c.path === '/admin/teams')).toBe(true),
