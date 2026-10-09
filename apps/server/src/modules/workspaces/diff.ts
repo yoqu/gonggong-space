@@ -35,7 +35,7 @@ export function workspaceDiffRoutes(ctx: Ctx) {
         if (scope === 'turn') {
           if (!runId) return fail('invalid', '缺少运行 ID')
           const [run] = await ctx.db
-            .select({ status: runs.status, patch: runs.patch })
+            .select({ status: runs.status, patch: runs.patch, patchRepos: runs.patchRepos })
             .from(runs)
             .where(
               and(
@@ -47,7 +47,13 @@ export function workspaceDiffRoutes(ctx: Ctx) {
           if (!run) return fail('not_found', '运行不存在')
           // A finished turn's patch was stored with run.done; the daemon only knows the live one.
           if (!LIVE.includes(run.status))
-            return { scope, patch: run.patch && open(run.patch), base: null, branch: null }
+            return {
+              scope,
+              patch: run.patch && open(run.patch),
+              base: null,
+              branch: null,
+              repos: run.patchRepos,
+            }
         }
         const machineId = onlineMachine(ctx, bot.machineId)
         if (!machineId) return fail('conflict', OFFLINE)
@@ -69,7 +75,13 @@ export function workspaceDiffRoutes(ctx: Ctx) {
           (await ctx.hub.request(machineId, ask, 'workspace.diff.result', DIFF_TIMEOUT_MS)) ??
           fail('conflict', OFFLINE)
         if (res.error) throw new HttpError('conflict', res.error)
-        return { scope, patch: res.patch && redact(res.patch), base: res.base, branch: res.branch }
+        return {
+          scope,
+          patch: res.patch && redact(res.patch),
+          base: res.base,
+          branch: res.branch,
+          repos: res.repos,
+        }
       },
     )
   }

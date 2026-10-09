@@ -5,6 +5,7 @@ import { groupBots, messages, runEvents, runs, systemParams } from '../src/db/sc
 import { forgetSysParams } from '../src/modules/admin/params.js'
 import { publishRuns } from '../src/modules/runs/dto.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
+import { listBotStates } from '../src/modules/workspaces/state.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
 let t: TestApp
@@ -329,7 +330,16 @@ describe('run engine', () => {
 
     await w.mention('again')
     const { runId } = await d.next()
-    const git = { branch: 'feat/x', ahead: 1, behind: 0, dirty: true, workspace: 'managed' as const }
+    const git = {
+      branch: 'feat/x',
+      ahead: 1,
+      behind: 0,
+      dirty: true,
+      workspace: 'managed' as const,
+      repos: [
+        { path: 'libs/core', kind: 'submodule' as const, branch: 'main', ahead: 0, behind: 2, dirty: true },
+      ],
+    }
     d.send(done(runId, { git }))
     const pushed = await web.until<Extract<WebEvent, { t: 'group.botState' }>>(
       (e) => e.t === 'group.botState',
@@ -356,6 +366,11 @@ describe('run engine', () => {
       .from(groupBots)
       .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
     expect(gb?.gitStatus).toEqual(git)
+
+    // A status stored before repos were tracked still reads with an empty list.
+    const { repos: _, ...old } = git
+    await t.db.update(groupBots).set({ gitStatus: old }).where(eq(groupBots.groupId, w.group.id))
+    expect((await listBotStates(t.ctx, w.group.id))[0]?.git).toEqual({ ...old, repos: [] })
   })
 
   it('stores and publishes the context occupancy reported by usage events', async () => {
@@ -436,7 +451,12 @@ describe('run engine', () => {
     await w.mention('hi')
     const { runId } = await d.next()
     d.send({ t: 'run.event', runId, event: { kind: 'text', delta: '好' } })
-    d.send(done(runId))
+    const patch = 'diff --git a/libs/core/a.txt b/libs/core/a.txt\n'
+    const repos = [
+      { path: '', kind: 'root', branch: 'main', base: null, truncated: false },
+      { path: 'libs/core', kind: 'submodule', branch: 'feat/x', base: 'origin/main', truncated: false },
+    ]
+    d.send(done(runId, { patch, repos }))
     await web.until(runUpdated('completed', runId))
 
     const res = await t.app.inject({
@@ -447,6 +467,7 @@ describe('run engine', () => {
     const body = res.json()
     expect(body.run).toMatchObject({ id: runId, status: 'completed', triggerUserId: w.alice.id })
     expect(body.events).toMatchObject([{ event: { kind: 'text', delta: '好' } }])
+    expect(body).toMatchObject({ patch, patchRepos: repos })
 
     const outsider = await t.seed.user()
     const denied = await t.app.inject({

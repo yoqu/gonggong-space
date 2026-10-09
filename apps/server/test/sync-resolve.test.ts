@@ -113,6 +113,7 @@ const done = (k: 'A' | 'B', runId: string, sync: RunSyncDone | null, outcome = '
     error: null,
     git: null,
     patch: null,
+    repos: [],
     appendsApplied: 0,
     sync,
   })

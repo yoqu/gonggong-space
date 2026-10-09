@@ -29,7 +29,7 @@ export async function purgeExpiredRuns(ctx: Ctx, batch = PURGE_BATCH): Promise<n
         .limit(batch)
       const expired = await tx
         .update(runs)
-        .set({ patch: null, purgedAt: ctx.now() })
+        .set({ patch: null, patchRepos: [], purgedAt: ctx.now() })
         .where(inArray(runs.id, due))
         .returning({ id: runs.id })
       if (expired.length)

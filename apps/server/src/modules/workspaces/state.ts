@@ -1,4 +1,10 @@
-import type { ContextUsage, GitStatus, GroupBotStateDto, RepoAccessReason, Tier } from '@gonggong/protocol'
+import {
+  type ContextUsage,
+  GitStatus,
+  type GroupBotStateDto,
+  type RepoAccessReason,
+  type Tier,
+} from '@gonggong/protocol'
 import { and, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
@@ -11,7 +17,8 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   workspace: r.workspaceKind === 'cd' ? 'cd' : 'managed',
   state: r.workspaceState as GroupBotStateDto['state'],
   path: r.workspacePath,
-  git: (r.gitStatus as GitStatus | null) ?? null,
+  // Parsed so statuses stored before `repos` existed gain its default.
+  git: r.gitStatus ? GitStatus.parse(r.gitStatus) : null,
   error: r.workspaceError,
   reason: r.workspaceState === 'failed' ? (r.workspaceReason as RepoAccessReason | null) : null,
   tier: r.tier as Tier | null,

@@ -1,4 +1,4 @@
-import type { I18nText, RunSyncDone } from '@gonggong/protocol'
+import type { DiffRepo, I18nText, RunSyncDone } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
 import {
   bigint,
@@ -473,6 +473,8 @@ export const runs = pgTable(
     stoppedBy: uuid('stopped_by').references(() => users.id),
     /** Unified diff of the turn (redacted); purged with run_events after retention. */
     patch: text('patch'),
+    /** Repos `patch` spans (RunDone.repos); purged with it. */
+    patchRepos: jsonb('patch_repos').$type<DiffRepo[]>().notNull().default([]),
     /** Latest state of each subagent / background task by id: { subagents: {id: state}, tasks: {id: state} }. */
     delegation: jsonb('delegation').notNull().default({}),
     /** Bots that take over once this run completes (the hand_off tool); an @ in the reply alone relays nothing. */

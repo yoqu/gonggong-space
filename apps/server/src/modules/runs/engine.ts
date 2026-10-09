@@ -436,6 +436,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
           : { step: '' }),
         filesChanged: done.filesChanged,
         patch: done.patch && seal(redact(done.patch)),
+        patchRepos: done.repos,
         ...(done.usage && { usage: done.usage }),
         ...(done.newSessionReason && { newSessionReason: done.newSessionReason }),
         endedAt: ctx.now(),

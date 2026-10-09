@@ -62,6 +62,7 @@ export function runRoutes(ctx: Ctx) {
       return {
         run: toDto(row.run),
         patch: row.run.patch && open(row.run.patch),
+        patchRepos: row.run.patchRepos,
         purged: row.run.purgedAt !== null,
         sessionId: gb?.sessionId ?? null,
         retentionDays: await runRetentionDays(ctx),

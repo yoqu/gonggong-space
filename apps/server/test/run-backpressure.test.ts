@@ -68,6 +68,7 @@ async function world() {
       error: null,
       git: null,
       patch: null,
+      repos: [],
       appendsApplied: 0,
       sync: null,
     })

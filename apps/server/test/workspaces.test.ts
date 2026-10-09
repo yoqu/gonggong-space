@@ -66,7 +66,7 @@ async function until(check: () => Promise<boolean> | boolean, ms = 3000) {
   }
 }
 
-const git = { branch: 'main', ahead: 0, behind: 0, dirty: false, workspace: 'managed' as const }
+const git = { branch: 'main', ahead: 0, behind: 0, dirty: false, workspace: 'managed' as const, repos: [] }
 const reply = (req: Msg, o: Record<string, unknown> = {}) => ({
   t: 'workspace.state',
   groupId: req.groupId,

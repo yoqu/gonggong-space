@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "patch_repos" jsonb DEFAULT '[]'::jsonb NOT NULL;

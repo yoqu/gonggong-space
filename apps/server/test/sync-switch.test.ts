@@ -142,6 +142,7 @@ const done = (k: K, runId: string) =>
     error: null,
     git: null,
     patch: null,
+    repos: [],
     appendsApplied: 0,
     sync: null,
   })

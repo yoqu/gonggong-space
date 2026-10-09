@@ -33,7 +33,7 @@ it('updates a workspace state and pushes it to group members only', async () => 
       context: null,
     },
   ])
-  const git = { branch: 'main', ahead: 0, behind: 0, dirty: false, workspace: 'managed' as const }
+  const git = { branch: 'main', ahead: 0, behind: 0, dirty: false, workspace: 'managed' as const, repos: [] }
   await updateBotState(t.ctx, group.id, bot.id, { workspaceState: 'ready', gitStatus: git })
   expect(seen.a).toEqual([
     {

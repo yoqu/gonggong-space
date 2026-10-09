@@ -1,4 +1,9 @@
-import { PROTOCOL_VERSION, type ServerToDaemon, type WorkspaceDiffDto } from '@gonggong/protocol'
+import {
+  type DiffRepo,
+  PROTOCOL_VERSION,
+  type ServerToDaemon,
+  type WorkspaceDiffDto,
+} from '@gonggong/protocol'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { messages, runs } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
@@ -29,6 +34,10 @@ async function daemon(token: string) {
 }
 
 const PATCH = 'diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-a\n+b\n'
+const REPOS = [
+  { path: '', kind: 'root' as const, branch: 'feat/x', base: 'origin/main', truncated: false },
+  { path: 'libs/core', kind: 'submodule' as const, branch: null, base: null, truncated: true },
+] satisfies DiffRepo[]
 
 async function world() {
   const owner = await t.seed.user({ name: '王磊' })
@@ -40,7 +49,7 @@ async function world() {
   const members = client(t, await t.seed.cookie(member.id))
   const outsiders = client(t, await t.seed.cookie(outsider.id))
   const url = (q: string) => `/api/groups/${group.id}/bots/${bot.id}/diff?${q}`
-  const run = async (status: string, patch: string | null = null) => {
+  const run = async (status: string, patch: string | null = null, patchRepos: DiffRepo[] = []) => {
     const [m] = await t.db
       .insert(messages)
       .values({ groupId: group.id, kind: 'user', authorUserId: owner.id, body: '@cc' })
@@ -54,6 +63,7 @@ async function world() {
         originUserId: owner.id,
         status,
         patch: patch && seal(patch),
+        patchRepos,
       })
       .returning()
     return r!
@@ -82,12 +92,13 @@ describe('GET /api/groups/:id/bots/:botId/diff', () => {
       patch: PATCH,
       base: 'origin/main',
       branch: 'feat/x',
+      repos: REPOS,
       error: null,
     })
     const res = await pending
     expect(res).toEqual({
       status: 200,
-      body: { scope: 'base', patch: PATCH, base: 'origin/main', branch: 'feat/x' },
+      body: { scope: 'base', patch: PATCH, base: 'origin/main', branch: 'feat/x', repos: REPOS },
     })
   })
 
@@ -107,11 +118,18 @@ describe('GET /api/groups/:id/bots/:botId/diff', () => {
       branch: 'main',
       error: null,
     })
-    expect((await pending).body).toEqual({ scope: 'turn', patch: null, base: null, branch: 'main' })
+    // An older daemon sends no repos.
+    expect((await pending).body).toEqual({
+      scope: 'turn',
+      patch: null,
+      base: null,
+      branch: 'main',
+      repos: [],
+    })
 
-    const done = await w.run('completed', PATCH)
+    const done = await w.run('completed', PATCH, REPOS)
     const res = await w.members.get<WorkspaceDiffDto>(w.url(`scope=turn&runId=${done.id}`))
-    expect(res.body).toEqual({ scope: 'turn', patch: PATCH, base: null, branch: null })
+    expect(res.body).toEqual({ scope: 'turn', patch: PATCH, base: null, branch: null, repos: REPOS })
   })
 
   it('reports an offline bot, a daemon error, and refuses outsiders or bad input', async () => {

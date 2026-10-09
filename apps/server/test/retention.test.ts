@@ -36,6 +36,7 @@ async function world() {
         status: daysAgo === null ? 'running' : 'completed',
         filesChanged: 1,
         patch: 'diff --git a/x b/x\n',
+        patchRepos: [{ path: '', kind: 'root', branch: 'main', base: null, truncated: false }],
         startedAt: new Date(clock.getTime() - 60 * DAY),
         endedAt: daysAgo === null ? null : new Date(clock.getTime() - daysAgo * DAY),
       })
@@ -61,6 +62,7 @@ describe('run retention', () => {
     expect(await eventsOf(old.id)).toBe(0)
     expect(await rowOf(old.id)).toMatchObject({
       patch: null,
+      patchRepos: [],
       purgedAt: clock,
       filesChanged: 1,
       status: 'completed',
@@ -75,7 +77,13 @@ describe('run retention', () => {
       url: `/api/runs/${old.id}`,
       headers: { cookie: await t.seed.cookie(w.user.id) },
     })
-    expect(res.json()).toMatchObject({ purged: true, patch: null, events: [], retentionDays: 30 })
+    expect(res.json()).toMatchObject({
+      purged: true,
+      patch: null,
+      patchRepos: [],
+      events: [],
+      retentionDays: 30,
+    })
   })
 
   it('purges in bounded batches, each its own transaction', async () => {
