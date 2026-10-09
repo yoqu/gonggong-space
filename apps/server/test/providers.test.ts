@@ -405,6 +405,60 @@ describe('agent tools and providers relayed to the machine', () => {
     expect((await w.asWang.patch(url, { model: 'opus' })).status).toBe(200)
   })
 
+  it('creates a bot on the provider its owner picks, checking the model against that provider', async () => {
+    const w = await world()
+    const official: AgentCatalog = {
+      models: [{ value: 'opus', name: 'Opus', efforts: [], effort: null }],
+      current: 'opus',
+      efforts: [],
+      effort: null,
+    }
+    const kimi: AgentCatalog = {
+      models: [{ value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null }],
+      current: 'kimi-for-coding',
+      efforts: [],
+      effort: null,
+    }
+    const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers'], official)
+    const catalogUrl = `/api/machines/${w.a.machine.id}/catalog?agent=claude&provider=${masked.id}`
+    const answerCatalog = async () => {
+      const cmd = await d.next()
+      expect(cmd).toMatchObject({ t: 'providers.cmd', action: 'catalog', id: masked.id })
+      d.send({ t: 'providers.result', requestId: cmd.requestId, ok: true, error: null, catalog: kimi })
+    }
+
+    const read = w.asWang.get<{ catalog: AgentCatalog | null }>(catalogUrl)
+    await answerCatalog()
+    expect((await read).body).toEqual({ catalog: kimi })
+    const officialUrl = `/api/machines/${w.a.machine.id}/catalog?agent=claude&provider=official`
+    expect((await w.asWang.get(officialUrl)).body).toEqual({ catalog: official })
+    expect((await w.asLi.get(catalogUrl)).status).toBe(403)
+
+    const req = {
+      name: '小王的 Kimi',
+      ownerId: w.wang.id,
+      agentKind: 'claude',
+      machineId: w.a.machine.id,
+      provider: masked.id,
+    }
+    const bogus = w.asWang.post<{ message: string }>('/api/bots', { ...req, model: 'opus' })
+    await answerCatalog()
+    expect([(await bogus).status, (await bogus).body.message]).toEqual([400, '不支持的模型：opus'])
+
+    const created = w.asWang.post<BotDto>('/api/bots', { ...req, model: 'kimi-for-coding' })
+    await answerCatalog()
+    const use = await d.next()
+    expect(use).toMatchObject({ t: 'providers.cmd', action: 'use', agent: 'claude', choice: masked.id })
+    d.send({ t: 'providers.result', requestId: use.requestId, ok: true, error: null, view: view() })
+    const bot = await created
+    expect([bot.status, bot.body.id, bot.body.model]).toEqual([200, use.botId, 'kimi-for-coding'])
+
+    // Only on the creator's own machine, for their own bot.
+    const admin = client(t, await t.seed.cookie((await t.seed.user({ name: '管理员', role: 'sysadmin' })).id))
+    const forOther = await admin.post('/api/bots', { ...req, name: '代建的 Kimi' })
+    expect(forOther.status).toBe(403)
+  })
+
   it("lets the bot's group members read the catalog of its new sessions, live and never stored", async () => {
     const w = await world()
     const official: AgentCatalog = {

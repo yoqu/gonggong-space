@@ -1,4 +1,15 @@
-import type { AgentKind, BotAvatar, BotDto, BotOwnerDto, MachineDto, UserDto } from '@gonggong/protocol'
+import {
+  type AgentCatalog,
+  type AgentKind,
+  type BotAvatar,
+  type BotCatalogDto,
+  type BotDto,
+  type BotOwnerDto,
+  INHERIT_PROVIDER,
+  type MachineDto,
+  type ProviderStoreView,
+  type UserDto,
+} from '@gonggong/protocol'
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -8,6 +19,7 @@ import {
   Alert,
   Button,
   Dialog,
+  Divider,
   Form,
   FormRow,
   type ModalAction,
@@ -20,6 +32,7 @@ import {
 } from '../../ui'
 import { BindCodePanel, useBindCode } from '../machines/BindCodePanel'
 import { OS_LABEL } from '../machines/BindMachineDialog'
+import { botProviderOptions, providerBlocked } from '../machines/providers'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields } from './AgentConfig'
 import { RolePicker, roleHint } from './avatars'
@@ -42,6 +55,8 @@ interface Draft {
   prompt: string
   /** Default workspace; only the owner may browse their own online machine (plan W1). */
   workspace: string | null
+  /** Provider id, `official` or `inherit`; set on the machine with the bot. */
+  provider: string
   config: AgentConfig
 }
 
@@ -62,8 +77,75 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     avatar: 'role-gong',
     prompt,
     workspace: null,
+    provider: INHERIT_PROVIDER,
     config: NO_CONFIG,
   }
+}
+
+/**
+ * 供应商 and 模型 of a new bot, offered as on its detail page: the models are those of the provider picked, asked of
+ * the machine. Only the owner of the bot and its online machine can pick; others get what the machine reported.
+ */
+function ProviderConfigFields({
+  machine,
+  meId,
+  ownerId,
+  agent,
+  provider,
+  config,
+  onChange,
+}: {
+  machine: MachineDto
+  meId: string
+  ownerId: string
+  agent: AgentKind
+  provider: string
+  config: AgentConfig
+  onChange: (next: { provider: string; config: AgentConfig }) => void
+}) {
+  const reason = providerBlocked(meId, ownerId, machine)
+  const [view, setView] = useState<ProviderStoreView | null>(null)
+  const [catalog, setCatalog] = useState<AgentCatalog | null>(null)
+
+  useEffect(() => {
+    setView(null)
+    if (reason) return
+    api.get<ProviderStoreView>(`/machines/${machine.id}/providers`).then(setView, (e) => toastError(e))
+  }, [machine.id, reason])
+
+  useEffect(() => {
+    setCatalog(null)
+    if (reason) return
+    let live = true
+    const query = new URLSearchParams({ agent, provider })
+    api.get<BotCatalogDto>(`/machines/${machine.id}/catalog?${query}`).then(
+      (r) => live && setCatalog(r.catalog),
+      (e) => live && toastError(e),
+    )
+    return () => {
+      live = false
+    }
+  }, [machine.id, agent, provider, reason])
+
+  return (
+    <>
+      <FormRow label={t('供应商')} hint={reason ?? t('只保存在 Bot 所在的机器上')}>
+        <PopUpButton
+          aria-label={t('供应商')}
+          value={view ? provider : null}
+          placeholder={reason ? '--' : t('读取中…')}
+          disabled={!!reason || !view}
+          options={view ? botProviderOptions(view, agent) : []}
+          onChange={(next) => onChange({ provider: next, config: NO_CONFIG })}
+        />
+      </FormRow>
+      <AgentConfigFields
+        catalog={reason ? (reportedAgent(machine, agent)?.catalog ?? null) : catalog}
+        value={config}
+        onChange={(next) => onChange({ provider, config: next })}
+      />
+    </>
+  )
 }
 
 function Shell({
@@ -145,7 +227,7 @@ function NextStep({ created, self }: { created: BotDto; self: boolean }) {
   )
 }
 
-/** 新建 Bot (管理后台.dc.html): owner → machine → agent → name/prompt, previewing the resulting binding. */
+/** 新建 Bot (管理后台.dc.html): who and what it is, then where it runs, previewing the resulting binding. */
 export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -195,7 +277,6 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
   const m = machines.find((x) => x.id === draft.machineId)
   const self = owner.id === me.id
   const ver = m && reportedAgent(m, draft.agent)
-  const catalog = ver?.catalog ?? null
   const agentName = AGENT_LABEL[draft.agent]
   const result: { tone: keyof typeof RESULT_VARIANT; title: string; desc: string } = !m
     ? {
@@ -247,6 +328,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
         systemPrompt: draft.prompt,
         avatar: draft.avatar,
         ...draft.config,
+        ...(draft.provider !== INHERIT_PROVIDER && { provider: draft.provider }),
       })
       if (draft.workspace)
         await botsApi
@@ -274,6 +356,7 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
       }}
     >
       <Form id={formId} onSubmit={() => void create()}>
+        <Divider label={t('基本信息')} />
         <FormRow label={t('归属人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
           <PopUpButton
             aria-label={t('归属人')}
@@ -292,6 +375,30 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
           />
         </FormRow>
 
+        <FormRow label={t('名称')}>
+          <TextField
+            aria-label={t('名称')}
+            value={draft.name}
+            onChange={(e) => set({ name: e.target.value, touched: true })}
+          />
+        </FormRow>
+
+        <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar)}>
+          <RolePicker value={draft.avatar} onChange={(avatar) => set({ avatar })} />
+        </FormRow>
+
+        <FormRow label={t('系统提示词')} align="top" hint={t('同时作为群内简介。')}>
+          <TextField
+            multiline
+            aria-label={t('系统提示词')}
+            rows={3}
+            value={draft.prompt}
+            placeholder={t('后端接口开发，只改 server/ 目录')}
+            onChange={(e) => set({ prompt: e.target.value })}
+          />
+        </FormRow>
+
+        <Divider label={t('运行配置')} />
         <FormRow label={t('执行机器')} align={machines.length ? 'top' : 'center'}>
           {machines.length ? (
             <RadioGroup
@@ -314,7 +421,14 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 const agent = reportedAgent(x, draft.agent)
                   ? draft.agent
                   : (AGENTS.find((k) => reportedAgent(x, k)) ?? draft.agent)
-                set({ machineId: x.id, agent, workspace: null, config: NO_CONFIG, ...named(agent) })
+                set({
+                  machineId: x.id,
+                  agent,
+                  workspace: null,
+                  provider: INHERIT_PROVIDER,
+                  config: NO_CONFIG,
+                  ...named(agent),
+                })
               }}
             />
           ) : (
@@ -345,50 +459,37 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
                 ),
               }
             })}
-            onChange={(k) => set({ agent: k, config: NO_CONFIG, ...named(k) })}
+            onChange={(k) => set({ agent: k, provider: INHERIT_PROVIDER, config: NO_CONFIG, ...named(k) })}
           />
         </FormRow>
 
         {m ? (
-          <AgentConfigFields catalog={catalog} value={draft.config} onChange={(config) => set({ config })} />
+          <ProviderConfigFields
+            machine={m}
+            meId={me.id}
+            ownerId={owner.id}
+            agent={draft.agent}
+            provider={draft.provider}
+            config={draft.config}
+            onChange={set}
+          />
         ) : null}
-
-        <FormRow label={t('名称')}>
-          <TextField
-            aria-label={t('名称')}
-            value={draft.name}
-            onChange={(e) => set({ name: e.target.value, touched: true })}
-          />
-        </FormRow>
-
-        <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar)}>
-          <RolePicker value={draft.avatar} onChange={(avatar) => set({ avatar })} />
-        </FormRow>
-
-        <FormRow label={t('系统提示词')} align="top" hint={t('同时作为群内简介。')}>
-          <TextField
-            multiline
-            aria-label={t('系统提示词')}
-            rows={3}
-            value={draft.prompt}
-            placeholder={t('后端接口开发，只改 server/ 目录')}
-            onChange={(e) => set({ prompt: e.target.value })}
-          />
-        </FormRow>
 
         {self && m?.online ? (
           <FormRow
             label={t('默认工作区')}
             hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认托管克隆。')}
           >
-            {draft.workspace ? (
-              <WorkspacePath path={draft.workspace} onPick={setPicking} />
-            ) : (
-              <span className="newbot__muted">{t('未设置')}</span>
-            )}
-            <Button size="small" onClick={() => setPicking(draft.workspace)}>
-              {t('选择目录…')}
-            </Button>
+            <div className="newbot__inline">
+              {draft.workspace ? (
+                <WorkspacePath path={draft.workspace} onPick={setPicking} />
+              ) : (
+                <span className="newbot__muted">{t('未设置')}</span>
+              )}
+              <Button size="small" onClick={() => setPicking(draft.workspace)}>
+                {t('选择目录…')}
+              </Button>
+            </div>
             <Presence>
               {picking !== false ? (
                 <DirPicker

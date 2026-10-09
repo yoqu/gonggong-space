@@ -12,7 +12,12 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { FormRow, PopUpButton, toast } from '../../ui'
-import { effectiveProvider, OFFICIAL_NAME, providerName, useProviderSwitch } from '../machines/providers'
+import {
+  botProviderOptions,
+  effectiveProvider,
+  providerBlocked,
+  useProviderSwitch,
+} from '../machines/providers'
 import { useBotCatalog } from './AgentConfig'
 
 /**
@@ -31,16 +36,7 @@ export function BotProviderField({
 }) {
   const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
   const [view, setView] = useState<ProviderStoreView | null>(null)
-  const reason =
-    bot.ownerId !== me.id
-      ? t('只有 Bot 主人可以设置其供应商')
-      : machine?.ownerId !== me.id
-        ? t('只能在自己的机器上设置 Bot 的供应商')
-        : !machine.online
-          ? t('机器离线，上线后才能设置')
-          : machine.features.includes('providers')
-            ? null
-            : t('请先升级该机器的 daemon')
+  const reason = providerBlocked(me.id, bot.ownerId, machine)
   const base = `/machines/${bot.machineId}/providers`
 
   useEffect(() => {
@@ -61,19 +57,7 @@ export function BotProviderField({
     }
   })
 
-  const machineDefault = view?.machine[bot.agentKind] ?? OFFICIAL_PROVIDER
-  const options = view
-    ? [
-        {
-          value: INHERIT_PROVIDER,
-          label: t('继承机器（当前：{name}）', { name: providerName(view, machineDefault) }),
-        },
-        { value: OFFICIAL_PROVIDER, label: OFFICIAL_NAME },
-        ...view.providers
-          .filter((p) => p.agent === bot.agentKind)
-          .map((p) => ({ value: p.id, label: p.name })),
-      ]
-    : []
+  const options = view ? botProviderOptions(view, bot.agentKind) : []
   return (
     <FormRow
       label={t('供应商')}

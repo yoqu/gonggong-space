@@ -359,3 +359,9 @@ a.bot-page__group:hover {
     padding: var(--space-16);
   }
 }
+.newbot__inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}

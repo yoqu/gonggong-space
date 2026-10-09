@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
   type BotOwnerDto,
   type BotPlaceDto,
@@ -7,6 +8,7 @@ import {
   fitEffort,
   GroupBotConfigReq,
   GroupBotTierReq,
+  INHERIT_PROVIDER,
   modelName,
   TERMINAL_RUN_STATUS,
   type Tier,
@@ -42,7 +44,7 @@ import { leaveBots } from '../sync/switch.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 import { updateBotState } from '../workspaces/state.js'
 import { confirmBot } from './binding.js'
-import { assertCanConfigure, assertPick, pickCatalog } from './config.js'
+import { assertCanConfigure, assertPick, choiceCatalog, pickCatalog, providersCmd } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
 import { applyTier, assertTierAllowed, TIER_LABEL } from './tier.js'
 
@@ -230,15 +232,31 @@ export function botRoutes(ctx: Ctx) {
         fail('invalid', '执行机器不属于归属人或已吊销')
       }
       await assertNameFree(ctx, name)
+      const provider = body.provider ?? INHERIT_PROVIDER
+      if (provider !== INHERIT_PROVIDER && (owner.id !== user.id || !body.machineId))
+        fail('forbidden', '只能在自己的机器上设置 Bot 的供应商')
       if (body.model || body.effort) {
-        const catalog = await pickCatalog(ctx, { machineId: body.machineId, agentKind: body.agentKind })
+        const catalog = body.machineId
+          ? await choiceCatalog(ctx, { machineId: body.machineId, agentKind: body.agentKind }, provider)
+          : null
         assertPick(catalog, { model: body.model, effort: body.effort }, null)
+      }
+      // The machine takes the choice first: a provider it rejects leaves no bot behind.
+      const id = randomUUID()
+      if (provider !== INHERIT_PROVIDER && body.machineId) {
+        await providersCmd(ctx, body.machineId, {
+          action: 'use',
+          agent: body.agentKind,
+          botId: id,
+          choice: provider,
+        })
       }
 
       const binding = !body.machineId ? 'pending_bind' : owner.id === user.id ? 'bound' : 'pending_confirm'
       const [bot] = (await ctx.db
         .insert(bots)
         .values({
+          id,
           teamId,
           name,
           ownerId: owner.id,
@@ -256,6 +274,13 @@ export function botRoutes(ctx: Ctx) {
       if (binding === 'pending_confirm')
         await notify(ctx, owner.id, 'bot_confirm', { botId: bot.id, botName: name, byName: user.name })
       await auditForeign(ctx, user, bot, 'bot.create')
+      if (provider !== INHERIT_PROVIDER)
+        await audit(ctx, {
+          category: 'admin',
+          actorUserId: user.id,
+          action: 'bot.provider',
+          detail: { machineId: bot.machineId, botId: bot.id },
+        })
       return publishBot(ctx, bot.id)
     })
 

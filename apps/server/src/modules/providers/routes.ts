@@ -7,11 +7,11 @@ import {
   type CcSwitchImportedDto,
   type CcSwitchPreviewDto,
   ImportLinkReq,
+  INHERIT_PROVIDER,
   OfficialProviderReq,
   type ProviderPreset,
   type ProviderSavedDto,
   type ProviderStoreView,
-  type ProvidersCmd,
   SaveProviderReq,
   UseProviderReq,
 } from '@gonggong/protocol'
@@ -24,7 +24,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
-import { pickCatalog } from '../bots/config.js'
+import { choiceCatalog, pickCatalog, providersCmd } from '../bots/config.js'
 import { ownMachine, quietErrors, relay, requireFeature } from '../machines/relay.js'
 import { providerStateRoutes } from './state.js'
 
@@ -42,11 +42,6 @@ export function providerRoutes(ctx: Ctx) {
     quietErrors(app)
     await app.register(providerStateRoutes(ctx))
 
-    const cmd = async (machineId: string, body: Omit<ProvidersCmd, 't' | 'requestId'>) => {
-      requireFeature(ctx, machineId, 'providers')
-      const msg = { t: 'providers.cmd', requestId: randomUUID(), ...body } as const
-      return relay(ctx, machineId, msg, 'providers.result', TIMEOUT_MS)
-    }
     const view = (v: ProviderStoreView | undefined) => v ?? fail('invalid', '机器未返回供应商列表')
     const saved = (res: { id?: string; view?: ProviderStoreView }): ProviderSavedDto => ({
       id: res.id ?? fail('invalid', '机器未返回供应商'),
@@ -59,7 +54,7 @@ export function providerRoutes(ctx: Ctx) {
     app.get<{ Params: Params }>('/api/machines/:id/providers', async (req): Promise<ProviderStoreView> => {
       const me = await requireUser(ctx, req)
       const m = await owned(req, me.id)
-      return view((await cmd(m.id, { action: 'list' })).view)
+      return view((await providersCmd(ctx, m.id, { action: 'list' })).view)
     })
 
     app.get<{ Params: Params }>(
@@ -68,7 +63,7 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { agent } = z.object({ agent: AgentKind.optional() }).parse(req.query)
-        return (await cmd(m.id, { action: 'presets', agent })).presets ?? []
+        return (await providersCmd(ctx, m.id, { action: 'presets', agent })).presets ?? []
       },
     )
 
@@ -77,7 +72,7 @@ export function providerRoutes(ctx: Ctx) {
       const m = await owned(req, me.id)
       const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
       if (!provider.apiKey) fail('invalid', '请填写 API Key')
-      const res = saved(await cmd(m.id, { action: 'save', provider, setDefault }))
+      const res = saved(await providersCmd(ctx, m.id, { action: 'save', provider, setDefault }))
       await trail(me.id, 'machine.providers.save', { machineId: m.id })
       return res
     })
@@ -89,7 +84,11 @@ export function providerRoutes(ctx: Ctx) {
         const m = await owned(req, me.id)
         const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
         const res = saved(
-          await cmd(m.id, { action: 'save', provider: { ...provider, id: req.params.pid }, setDefault }),
+          await providersCmd(ctx, m.id, {
+            action: 'save',
+            provider: { ...provider, id: req.params.pid },
+            setDefault,
+          }),
         )
         await trail(me.id, 'machine.providers.save', { machineId: m.id })
         return res
@@ -101,7 +100,7 @@ export function providerRoutes(ctx: Ctx) {
       async (req): Promise<ProviderStoreView> => {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
-        const res = view((await cmd(m.id, { action: 'remove', id: req.params.pid })).view)
+        const res = view((await providersCmd(ctx, m.id, { action: 'remove', id: req.params.pid })).view)
         await trail(me.id, 'machine.providers.remove', { machineId: m.id })
         return res
       },
@@ -113,7 +112,7 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { agent, choice } = UseProviderReq.parse(req.body)
-        const res = view((await cmd(m.id, { action: 'use', agent, choice })).view)
+        const res = view((await providersCmd(ctx, m.id, { action: 'use', agent, choice })).view)
         await trail(me.id, 'machine.providers.default', { machineId: m.id })
         return res
       },
@@ -125,7 +124,7 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { agent, ...official } = OfficialProviderReq.parse(req.body)
-        const res = view((await cmd(m.id, { action: 'official', agent, official })).view)
+        const res = view((await providersCmd(ctx, m.id, { action: 'official', agent, official })).view)
         await trail(me.id, 'machine.providers.official', { machineId: m.id })
         return res
       },
@@ -137,11 +136,21 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { link, setDefault } = ImportLinkReq.parse(req.body)
-        const res = saved(await cmd(m.id, { action: 'importLink', link, setDefault }))
+        const res = saved(await providersCmd(ctx, m.id, { action: 'importLink', link, setDefault }))
         await trail(me.id, 'machine.providers.import', { machineId: m.id })
         return res
       },
     )
+
+    // 新建 Bot: the models a bot about to be created would get with this provider.
+    app.get<{ Params: Params }>('/api/machines/:id/catalog', async (req): Promise<BotCatalogDto> => {
+      const me = await requireUser(ctx, req)
+      const m = await owned(req, me.id)
+      const { agent, provider } = z
+        .object({ agent: AgentKind, provider: z.string().min(1).default(INHERIT_PROVIDER) })
+        .parse(req.query)
+      return { catalog: await choiceCatalog(ctx, { machineId: m.id, agentKind: agent }, provider) }
+    })
 
     const ccSwitch = (machineId: string) => {
       const noCcSwitch = ctx.hub.features(machineId).includes('providers')
@@ -189,7 +198,7 @@ export function providerRoutes(ctx: Ctx) {
       const { choice } = BotProviderReq.parse(req.body)
       const res = view(
         (
-          await cmd(bot.machineId, {
+          await providersCmd(ctx, bot.machineId, {
             action: 'use',
             agent: bot.agentKind as AgentKind,
             botId: bot.id,

@@ -267,6 +267,7 @@ export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
  *   POST   /api/machines/:id/ccswitch/apply   CcSwitchApplyReq → CcSwitchImportedDto
  *   PUT    /api/bots/:id/provider             BotProviderReq  → ProviderStoreView (bot owner who owns its machine)
  *   GET    /api/bots/:id/catalog                            → BotCatalogDto (its owner, sysadmins and its groups' members)
+ *   GET    /api/machines/:id/catalog?agent=&provider=       → BotCatalogDto (a new bot's models on that provider)
  *   GET    /api/groups/:id/provider-state                   → GroupProviderStateDto
  */
 export const ToolsStateDto = z.object({ tools: z.array(ToolStatus), settings: ToolsSettings })
@@ -471,6 +472,8 @@ export const CreateBotReq = z.object({
   avatar: BotAvatar.default('role-gong'),
   model: z.string().nullable().default(null),
   effort: z.string().nullable().default(null),
+  /** A provider id of `agentKind`, `official` or `inherit` (default); only for one's own bot on one's own machine. */
+  provider: z.string().min(1).optional(),
 })
 export const UpdateBotReq = z.object({
   name: z.string().min(1).max(40).optional(),

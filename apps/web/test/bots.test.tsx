@@ -336,6 +336,67 @@ describe('新建 Bot', () => {
     )
   })
 
+  it('picks the provider like editing does, offering the models of that provider', async () => {
+    const withProviders = { ...mbp, features: ['tools', 'providers'] }
+    const kimi: AgentCatalog = {
+      current: 'kimi-for-coding',
+      efforts: [],
+      effort: null,
+      models: [{ value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null }],
+    }
+    const p = (id: string, name: string, agent: 'claude' | 'codex') => ({
+      id,
+      agent,
+      name,
+      presetId: null,
+      revision: 1,
+      baseUrl: 'https://x.example.com',
+      apiKey: '****abcd',
+      apiKeyField: null,
+      model: null,
+      models: null,
+      env: {},
+      proxy: null,
+      wireApi: null,
+      effort: null,
+      source: null,
+    })
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [withProviders] }]
+    routes['GET /api/machines/m1/providers'] = () => ({
+      official: {},
+      machine: {},
+      bots: {},
+      providers: [p('p1', 'Kimi', 'claude'), p('p2', 'Codex 中转', 'codex')],
+      sessions: [],
+    })
+    routes['GET /api/machines/m1/catalog?agent=claude&provider=inherit'] = () => ({ catalog: CATALOG })
+    routes['GET /api/machines/m1/catalog?agent=claude&provider=p1'] = () => ({ catalog: kimi })
+    routes['POST /api/bots'] = () => bot({})
+    renderAt('/', wang)
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    const select = await within(dialog).findByRole('button', { name: '供应商' })
+    await waitFor(() => expect(select.textContent).toContain('继承机器（当前：官方登录）'))
+    fireEvent.click(select)
+    expect(screen.getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual([
+      '继承机器（当前：官方登录）',
+      '官方登录',
+      'Kimi',
+    ])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi' }))
+    const model = await within(dialog).findByRole('button', { name: '模型' })
+    await waitFor(() => expect(model.textContent).toContain('默认（kimi-for-coding）'))
+    fireEvent.click(model)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'kimi-for-coding' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /api/bots')?.body).toMatchObject({
+        provider: 'p1',
+        model: 'kimi-for-coding',
+      }),
+    )
+  })
+
   it('lets the owner pick a default workspace on their online machine and saves it after creating', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = () => bot({})

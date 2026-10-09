@@ -1,6 +1,7 @@
 import {
   type AgentKind,
   INHERIT_PROVIDER,
+  type MachineDto,
   OFFICIAL_PROVIDER,
   type ProviderStoreView,
 } from '@gonggong/protocol'
@@ -21,6 +22,30 @@ export const providerName = (view: ProviderStoreView, id: string) =>
 /** What a new session of `botId` uses: its own choice, else the machine default of its agent (§4.2). */
 export const effectiveProvider = (view: ProviderStoreView, agent: AgentKind, botId: string) =>
   view.bots[botId] ?? view.machine[agent] ?? OFFICIAL_PROVIDER
+
+/** Why the bot's provider cannot be set here (§5: its owner, on their own online machine), null when it can. */
+export const providerBlocked = (meId: string, botOwnerId: string, machine: MachineDto | undefined) =>
+  botOwnerId !== meId
+    ? t('只有 Bot 主人可以设置其供应商')
+    : machine?.ownerId !== meId
+      ? t('只能在自己的机器上设置 Bot 的供应商')
+      : !machine.online
+        ? t('机器离线，上线后才能设置')
+        : machine.features.includes('providers')
+          ? null
+          : t('请先升级该机器的 daemon')
+
+/** 继承机器（当前：X） / 官方登录 / the machine's providers of `agent`. */
+export const botProviderOptions = (view: ProviderStoreView, agent: AgentKind) => [
+  {
+    value: INHERIT_PROVIDER,
+    label: t('继承机器（当前：{name}）', {
+      name: providerName(view, view.machine[agent] ?? OFFICIAL_PROVIDER),
+    }),
+  },
+  { value: OFFICIAL_PROVIDER, label: OFFICIAL_NAME },
+  ...view.providers.filter((p) => p.agent === agent).map((p) => ({ value: p.id, label: p.name })),
+]
 
 /** A machine default (no `botId`) or a bot's choice (`inherit` drops it). */
 export interface ProviderChange {

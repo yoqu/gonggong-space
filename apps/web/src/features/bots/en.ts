@@ -222,4 +222,6 @@ export default {
     'Lays problems out in the open to help people grow; reviews every milestone.',
   复盘: 'Retro',
   '直率 × 暖心 × 透明': 'Candid × Warm × Transparent',
+  '只保存在 Bot 所在的机器上': "Stored only on the bot's machine",
+  运行配置: 'Runtime',
 } satisfies Record<string, string>

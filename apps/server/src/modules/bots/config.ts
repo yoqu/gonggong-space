@@ -3,7 +3,10 @@ import {
   type AgentCatalog,
   type AgentKind,
   fitEffort,
+  INHERIT_PROVIDER,
   modelEfforts,
+  OFFICIAL_PROVIDER,
+  type ProvidersCmd,
   type RunConfigPick,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
@@ -12,7 +15,7 @@ import type { Db } from '../../db/client.js'
 import { bots, groupBots, groupMembers, groups, machines } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import type { SessionUser } from '../auth/session.js'
-import { relay } from '../machines/relay.js'
+import { relay, requireFeature } from '../machines/relay.js'
 import { machineAgents } from './dto.js'
 
 type Bot = Pick<typeof bots.$inferSelect, 'agentKind' | 'machineId'>
@@ -36,14 +39,26 @@ export async function pickCatalog(ctx: Ctx, bot: Bot & { id?: string }): Promise
   const { machineId } = bot
   if (!machineId || !ctx.hub.isOnline(machineId) || !ctx.hub.features(machineId).includes('providers'))
     return botCatalog(ctx.db, bot)
-  const msg = {
-    t: 'providers.cmd',
-    requestId: randomUUID(),
+  const res = await providersCmd(ctx, machineId, {
     action: 'botCatalog',
     agent: bot.agentKind as AgentKind,
     botId: bot.id,
-  } as const
-  return (await relay(ctx, machineId, msg, 'providers.result', 15_000)).catalog ?? null
+  })
+  return res.catalog ?? null
+}
+
+/** A providers command relayed live to the machine, which alone stores them. */
+export async function providersCmd(ctx: Ctx, machineId: string, body: Omit<ProvidersCmd, 't' | 'requestId'>) {
+  requireFeature(ctx, machineId, 'providers')
+  const msg = { t: 'providers.cmd', requestId: randomUUID(), ...body } as const
+  return relay(ctx, machineId, msg, 'providers.result', 15_000)
+}
+
+/** What a new bot on `machineId` may pick with provider `choice` (official, inherit or a provider id). */
+export async function choiceCatalog(ctx: Ctx, bot: Bot & { machineId: string }, choice: string) {
+  if (choice === INHERIT_PROVIDER) return pickCatalog(ctx, bot)
+  if (choice === OFFICIAL_PROVIDER) return botCatalog(ctx.db, bot)
+  return (await providersCmd(ctx, bot.machineId, { action: 'catalog', id: choice })).catalog ?? null
 }
 
 /**
