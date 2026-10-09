@@ -54,6 +54,7 @@ export function FeishuAdminPage() {
         <h2 className="admin-params__title">{t('主应用')}</h2>
         <GroupBox>
           <GroupRow
+            className="feishu-creds"
             label={t('凭证')}
             description={t('在飞书开发者后台「凭证与基础信息」中获取；保存前会向飞书校验。')}
           >

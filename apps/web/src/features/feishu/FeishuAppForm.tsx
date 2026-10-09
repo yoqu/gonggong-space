@@ -95,14 +95,15 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
     <div className="feishu-app">
       {app ? <FeishuAppStatusLine app={app} /> : <span className="feishu-app__unset">{t('未配置')}</span>}
       {app?.configError ? (
-        <Alert
-          variant="warning"
-          title={app.configError}
-          description={t('缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。')}
-        >
-          <Button size="small" disabled={retrying} onClick={() => void retry()}>
-            {t('重试自动配置')}
-          </Button>
+        <Alert variant="warning" description={app.configError}>
+          <div className="feishu-app__retry">
+            <span>
+              {t('缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。')}
+            </span>
+            <Button size="small" disabled={retrying} onClick={() => void retry()}>
+              {t('重试自动配置')}
+            </Button>
+          </div>
         </Alert>
       ) : null}
       <div className="feishu-app__actions">
@@ -123,12 +124,14 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
         <TextField
           aria-label="App ID"
           placeholder={app ? app.appId : 'cli_…'}
+          autoComplete="off"
           value={appId}
           onChange={(e) => setAppId(e.target.value)}
         />
         <SecureField
           aria-label="App Secret"
           placeholder={app ? t('留空保持不变') : 'App Secret'}
+          autoComplete="new-password"
           value={appSecret}
           onChange={(e) => setAppSecret(e.target.value)}
         />

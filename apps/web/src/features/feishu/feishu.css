@@ -5,6 +5,25 @@
   min-width: 0;
 }
 
+.ui-group__row.feishu-creds {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.feishu-app .ui-alert__desc {
+  overflow-wrap: anywhere;
+}
+
+.feishu-app__retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+
 .feishu-app__status {
   display: flex;
   flex-wrap: wrap;
