@@ -6,6 +6,7 @@ import {
   Attachment,
   ContextUsage,
   DevtoolsBlocker,
+  DiffRepo,
   GitStatus,
   Permission,
   Question,
@@ -380,6 +381,8 @@ export const RunDone = z.object({
   git: GitStatus.nullable(),
   /** Unified diff of what this turn changed (repo workspaces; capped by the daemon, see PATCH_MAX_BYTES). */
   patch: z.string().nullable(),
+  /** The repos `patch` spans, root first. */
+  repos: z.array(DiffRepo).default([]),
   /** run.append messages actually fed into this run; the server queues the rest as new runs (spec §8.9 fallback). */
   appendsApplied: z.number().int(),
   /** Force groups only (null in partition groups). */
@@ -485,6 +488,8 @@ export const WorkspaceDiffResult = z.object({
   patch: z.string().nullable(),
   base: z.string().nullable(),
   branch: z.string().nullable(),
+  /** Every repo of the workspace (root first, then submodules / nested repos by path), each with its own base. */
+  repos: z.array(DiffRepo).default([]),
   error: z.string().nullable(),
 })
 

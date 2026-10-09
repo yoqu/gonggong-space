@@ -7,6 +7,7 @@ import {
   Attachment,
   ContextUsage,
   DevtoolsBlocker,
+  DiffRepo,
   GitStatus,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
@@ -408,6 +409,8 @@ export const WorkspaceDiffDto = z.object({
   /** Main branch compared against (scope base); null when HEAD is on it. */
   base: z.string().nullable(),
   branch: z.string().nullable(),
+  /** Repos the patch spans; the web groups files by the longest matching `path`. */
+  repos: z.array(DiffRepo),
 })
 export type WorkspaceDiffDto = z.infer<typeof WorkspaceDiffDto>
 /**
@@ -1024,6 +1027,8 @@ export const RunDetailDto = z.object({
   run: RunDto,
   /** null once the full process has been purged by retention (card keeps the summary). */
   patch: z.string().nullable(),
+  /** Repos `patch` spans (empty for runs recorded before repos were tracked). */
+  patchRepos: z.array(DiffRepo),
   purged: z.boolean(),
   /** The (group, bot) conversation's current agent session. */
   sessionId: z.string().nullable(),

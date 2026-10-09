@@ -1,0 +1,27 @@
+{
+  "t": "run.done",
+  "runId": "r1",
+  "outcome": "completed",
+  "reply": "ok",
+  "filesChanged": 2,
+  "usage": null,
+  "sessionId": "sess-1",
+  "newSessionReason": null,
+  "error": null,
+  "git": {
+    "branch": "main",
+    "ahead": 0,
+    "behind": 0,
+    "dirty": true,
+    "workspace": "cd",
+    "repos": [
+      { "path": "sub", "kind": "submodule", "branch": "feat/y", "ahead": 1, "behind": null, "dirty": true }
+    ]
+  },
+  "patch": "diff --git a/sub/a.txt b/sub/a.txt\n--- a/sub/a.txt\n+++ b/sub/a.txt\n@@ -1 +1 @@\n-x\n+y\n",
+  "repos": [
+    { "path": "", "kind": "root", "branch": "main", "base": null, "truncated": false },
+    { "path": "sub", "kind": "submodule", "branch": "feat/y", "base": null, "truncated": false }
+  ],
+  "appendsApplied": 0
+}

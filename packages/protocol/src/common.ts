@@ -46,6 +46,33 @@ export type Usage = z.infer<typeof Usage>
 export const ContextUsage = z.object({ used: z.number().int(), size: z.number().int() })
 export type ContextUsage = z.infer<typeof ContextUsage>
 
+/** Where a repo sits in a workspace: the root itself, a git submodule, or an independent repo found below a non-git root. */
+export const RepoKind = z.enum(['root', 'submodule', 'nested'])
+export type RepoKind = z.infer<typeof RepoKind>
+
+/** Git state of one repo inside a workspace other than the root; `path` is relative to the workspace root. */
+export const RepoStatus = z.object({
+  path: z.string(),
+  kind: RepoKind,
+  branch: z.string().nullable(),
+  ahead: z.number().int().nullable(),
+  behind: z.number().int().nullable(),
+  dirty: z.boolean(),
+})
+export type RepoStatus = z.infer<typeof RepoStatus>
+
+/** One repo's share of a workspace patch; its files are the patch paths under `path/` ('' = the root repo). */
+export const DiffRepo = z.object({
+  path: z.string(),
+  kind: RepoKind,
+  branch: z.string().nullable(),
+  /** Main branch this repo is compared against (scope base); null when it is on it or the scope has no base. */
+  base: z.string().nullable(),
+  /** The workspace patch hit its size cap before (all of) this repo's changes. */
+  truncated: z.boolean(),
+})
+export type DiffRepo = z.infer<typeof DiffRepo>
+
 /** Partition-mode git state of one (group, bot) workspace, refreshed after every turn (spec §5.3). */
 export const GitStatus = z.object({
   branch: z.string().nullable(),
@@ -54,6 +81,8 @@ export const GitStatus = z.object({
   behind: z.number().int().nullable(),
   dirty: z.boolean(),
   workspace: z.enum(['managed', 'cd']),
+  /** Submodules and nested repos (not the root), outermost first; the root fields are null/false when the root is not a repo. */
+  repos: z.array(RepoStatus).default([]),
 })
 export type GitStatus = z.infer<typeof GitStatus>
 

@@ -1,0 +1,12 @@
+{
+  "t": "workspace.diff.result",
+  "requestId": "q2",
+  "patch": "diff --git a/lib/a.txt b/lib/a.txt\n--- a/lib/a.txt\n+++ b/lib/a.txt\n@@ -1 +1 @@\n-a\n+b\n",
+  "base": null,
+  "branch": null,
+  "repos": [
+    { "path": "lib", "kind": "nested", "branch": "feat/x", "base": "main", "truncated": false },
+    { "path": "lib/vendor", "kind": "submodule", "branch": null, "base": null, "truncated": true }
+  ],
+  "error": null
+}
