@@ -27,6 +27,7 @@ export function DiffTab({ tab, tabKey }: TabProps<'diff'>) {
         scope={tab.scope}
         turn={false}
         file={tab.file}
+        repo={tab.repo}
         onScope={(scope) => patch(tabKey, { scope, file: null })}
         onFile={(file) => patch(tabKey, { file })}
         onLocate={(path) => locateFile(tab.botId, path)}

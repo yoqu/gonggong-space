@@ -200,7 +200,12 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
     [groupId, botId, id],
   )
   // This turn's changes: stored once it ended, read from the bot's machine while it runs (process counts use it too).
-  const turn = useWorkspaceDiff(active ? source : null, 'turn', live ? undefined : (detail?.patch ?? null))
+  const turn = useWorkspaceDiff(
+    active ? source : null,
+    'turn',
+    live ? undefined : (detail?.patch ?? null),
+    detail?.patchRepos,
+  )
   // The clock re-renders every second; the process only changes with the detail or the live patch.
   const stored = useMemo(
     () => detail && buildSteps(live && turn.patch !== null ? { ...detail, patch: turn.patch } : detail),

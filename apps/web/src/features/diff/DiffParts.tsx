@@ -1,8 +1,17 @@
-import type { DiffScope } from '@gonggong/protocol'
+import type { DiffRepo, DiffScope } from '@gonggong/protocol'
 import { type CSSProperties, Fragment, type ReactNode, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { Icon, IconButton, langOf, SegmentedControl, Tokens, useHighlight } from '../../ui'
-import { type DiffFile, type DiffNode, diffCells, diffTree } from './patch'
+import {
+  type DiffFile,
+  type DiffNode,
+  diffCells,
+  diffTree,
+  groupByRepo,
+  isMultiRepo,
+  type RepoGroup,
+  repoPrefix,
+} from './patch'
 import { useDiffLayout } from './store'
 import './diff.css'
 import { t } from '../../i18n'
@@ -22,31 +31,70 @@ export function DiffBar({ add, del }: { add: number; del: number }) {
 
 interface FileListProps {
   files: DiffFile[]
+  /** Repos the files span; more than the root lists them per repo. */
+  repos?: DiffRepo[]
   active?: DiffFile
   onPick: (path: string) => void
   /** Offers 「在文件浏览器中定位」 on each file. */
   onLocate?: (path: string) => void
 }
 
-/** Changed files, flat or as a folder tree per the shared layout switch. */
-export function DiffFileList(props: FileListProps) {
-  const layout = useDiffLayout((s) => s.layout)
+/** Changed files, flat or as a folder tree per the shared layout switch; grouped under a header per repo. */
+export function DiffFileList({ repos = [], ...props }: FileListProps) {
   return (
     <div className="diff__files">
-      {layout === 'tree' ? (
-        <DiffTree {...props} />
+      {isMultiRepo(repos) ? (
+        groupByRepo(props.files, repos)
+          .filter((g) => g.files.length || g.repo.truncated)
+          .map((g) => <RepoFiles key={g.repo.path} group={g} {...props} />)
       ) : (
-        props.files.map((f) => (
-          <DiffFileRow
-            key={f.path}
-            file={f}
-            active={f === props.active}
-            onPick={props.onPick}
-            onLocate={props.onLocate}
-          />
-        ))
+        <Files {...props} prefix="" />
       )}
     </div>
+  )
+}
+
+function Files(props: Omit<FileListProps, 'repos'> & { prefix: string }) {
+  const layout = useDiffLayout((s) => s.layout)
+  if (layout === 'tree') return <DiffTree {...props} />
+  return props.files.map((f) => (
+    <DiffFileRow
+      key={f.path}
+      file={f}
+      prefix={props.prefix}
+      active={f === props.active}
+      onPick={props.onPick}
+      onLocate={props.onLocate}
+    />
+  ))
+}
+
+function RepoFiles({ group, ...props }: Omit<FileListProps, 'repos'> & { group: RepoGroup }) {
+  const [open, setOpen] = useState(true)
+  const { repo } = group
+  return (
+    <>
+      <button
+        type="button"
+        className="diff__file diff__repo"
+        title={repo.path || undefined}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span className={cx('ui-disclosure', open && 'ui-disclosure--open')}>
+          <Icon name="chevron-right" weight={2} />
+        </span>
+        <span className="diff__repo-name">{repo.path || t('根仓库')}</span>
+        <span className="diff__repo-branch">
+          {repo.base ? `${repo.branch ?? 'HEAD'} → ${repo.base}` : repo.branch}
+        </span>
+        <span className="diff__repo-count">{t('{n} 个文件', { n: group.files.length })}</span>
+        <span className="diff__add">+{group.add}</span>
+        <span className="diff__del">−{group.del}</span>
+        {repo.truncated ? <span className="diff__repo-cut">{t('已截断')}</span> : null}
+      </button>
+      {open ? <Files {...props} files={group.files} prefix={repoPrefix(repo.path)} /> : null}
+    </>
   )
 }
 
@@ -64,7 +112,13 @@ export function DiffLayoutToggle() {
   )
 }
 
-function DiffTree({ files, active, onPick, onLocate }: FileListProps) {
+function DiffTree({
+  files,
+  prefix,
+  active,
+  onPick,
+  onLocate,
+}: Omit<FileListProps, 'repos'> & { prefix: string }) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
   const toggle = (path: string) =>
     setClosed((s) => {
@@ -107,13 +161,14 @@ function DiffTree({ files, active, onPick, onLocate }: FileListProps) {
         </Fragment>
       )
     })
-  return <>{rows(diffTree(files), 0)}</>
+  return <>{rows(diffTree(files, prefix), 0)}</>
 }
 
 const indent = (depth: number) => ({ '--depth': depth }) as CSSProperties
 
 function DiffFileRow({
   file,
+  prefix = '',
   name,
   depth,
   active,
@@ -121,6 +176,8 @@ function DiffFileRow({
   onLocate,
 }: {
   file: DiffFile
+  /** Shown paths drop it: the repo the row is grouped under. */
+  prefix?: string
   /** Tree rows show the bare name; list rows show the name plus its folder. */
   name?: string
   depth?: number
@@ -128,6 +185,7 @@ function DiffFileRow({
   onPick: (path: string) => void
   onLocate?: (path: string) => void
 }) {
+  const parts = file.path.slice(prefix.length).split('/')
   const row = (
     <button
       type="button"
@@ -142,8 +200,8 @@ function DiffFileRow({
     >
       <Icon name="doc-code" size={13} />
       <span className="diff__path">
-        <span className="diff__base">{name ?? file.path.split('/').at(-1)}</span>
-        {name ? null : <span className="diff__dir">{file.path.split('/').slice(0, -1).join('/')}</span>}
+        <span className="diff__base">{name ?? parts.at(-1)}</span>
+        {name ? null : <span className="diff__dir">{parts.slice(0, -1).join('/')}</span>}
       </span>
       <span className="diff__add">+{file.add}</span>
       <span className="diff__del">−{file.del}</span>

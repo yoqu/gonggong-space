@@ -285,6 +285,54 @@
 .git-bar__act:disabled {
   opacity: 0.35;
 }
+.git-bar__subs {
+  height: 20px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+  white-space: nowrap;
+}
+.git-bar__subs[data-changed="true"] {
+  color: var(--tint-orange-text);
+}
+.git-bar__subs:hover {
+  background: var(--selection-fill);
+}
+.git-subs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  max-height: 50vh;
+  overflow: auto;
+}
+.git-subs__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: var(--control-regular);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-check);
+  background: none;
+  color: var(--label);
+  font-size: var(--text-subheadline-size);
+  text-align: left;
+  white-space: nowrap;
+}
+.git-subs__item:hover {
+  background: var(--selection-fill);
+}
+.git-subs__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+}
 .git-bar__error {
   color: var(--tint-red-text);
   cursor: help;

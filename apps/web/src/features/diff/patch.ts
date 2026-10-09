@@ -1,3 +1,5 @@
+import type { DiffRepo } from '@gonggong/protocol'
+
 export interface DiffFile {
   path: string
   status: 'added' | 'deleted' | 'modified'
@@ -57,10 +59,10 @@ export interface DiffDir {
 export type DiffNode = DiffDir | { kind: 'file'; name: string; file: DiffFile }
 
 /** Files grouped by folder, folders first; a folder holding only one folder folds into `a/b` like IDE trees. */
-export function diffTree(files: DiffFile[]): DiffNode[] {
+export function diffTree(files: DiffFile[], prefix = ''): DiffNode[] {
   const root: DiffDir = { kind: 'dir', path: '', name: '', children: [] }
   for (const file of files) {
-    const parts = file.path.split('/')
+    const parts = file.path.slice(prefix.length).split('/')
     const name = parts.pop() ?? file.path
     let dir = root
     for (const part of parts) {
@@ -87,6 +89,34 @@ function tidy(dir: DiffDir): DiffDir {
 function fold(dir: DiffDir): DiffDir {
   const [only, ...rest] = dir.children
   return only?.kind === 'dir' && !rest.length ? { ...only, name: `${dir.name}/${only.name}` } : dir
+}
+
+export interface RepoGroup {
+  repo: DiffRepo
+  files: DiffFile[]
+  add: number
+  del: number
+}
+
+/** The path prefix of a repo's files ('' for the root). */
+export const repoPrefix = (path: string) => (path ? `${path}/` : '')
+
+/** Whether the patch spans more than the root repo, so its files are listed per repo. */
+export const isMultiRepo = (repos: DiffRepo[]) =>
+  repos.length > 1 || (repos.length === 1 && repos[0]?.path !== '')
+
+/** Each file goes to the repo with the longest path prefixing it; groups keep the repos' order. */
+export function groupByRepo(files: DiffFile[], repos: DiffRepo[]): RepoGroup[] {
+  const groups = repos.map((repo) => ({ repo, files: [] as DiffFile[], add: 0, del: 0 }))
+  const byDepth = [...groups].sort((a, b) => b.repo.path.length - a.repo.path.length)
+  for (const file of files) {
+    const g = byDepth.find((g) => file.path.startsWith(repoPrefix(g.repo.path)))
+    if (!g) continue
+    g.files.push(file)
+    g.add += file.add
+    g.del += file.del
+  }
+  return groups
 }
 
 export type DiffCell = 'add' | 'del' | 'none'

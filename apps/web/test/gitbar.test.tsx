@@ -1,4 +1,4 @@
-import type { BotDto, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
+import type { BotDto, GroupBotStateDto, GroupDto, RepoStatus } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
@@ -49,6 +49,7 @@ const git = (o: Partial<NonNullable<GroupBotStateDto['git']>> = {}) => ({
   behind: 0,
   dirty: false,
   workspace: 'managed' as const,
+  repos: [],
   ...o,
 })
 
@@ -167,6 +168,63 @@ describe('git status bar', () => {
       .getState()
       .applyEvent({ t: 'group.botState', groupId: 'g1', state: state('b1', { state: 'unbound' }) })
     await waitFor(() => expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude待绑定托管'))
+  })
+
+  it('summarizes sub-repos and opens the diff tab on the picked one', async () => {
+    const sub = (path: string, o: Partial<RepoStatus> = {}): RepoStatus => ({
+      path,
+      kind: 'submodule',
+      branch: 'main',
+      ahead: 0,
+      behind: 0,
+      dirty: false,
+      ...o,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify([
+              state('b1', {
+                git: git({
+                  repos: [
+                    sub('lib', { dirty: true }),
+                    sub('vendor/x', { branch: null, ahead: 2, behind: 1 }),
+                    sub('docs'),
+                  ],
+                }),
+              }),
+              state('b2', { git: git({ repos: [sub('lib')] }) }),
+              // The root itself is not a repo: the summary stands in for the branch.
+              state('b3', {
+                git: git({ branch: null, ahead: null, behind: null, repos: [sub('a', { kind: 'nested' })] }),
+              }),
+            ]),
+          ),
+      ),
+    )
+    useWorkbench.setState({ groupId: 'g1', benches: {} })
+    render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
+    const b1 = await screen.findByTestId('git-b1')
+    expect(within(b1).getByRole('button', { name: '+2 个子仓库有改动' })).toBeTruthy()
+    expect(within(screen.getByTestId('git-b2')).getByRole('button', { name: '1 个子仓库' })).toBeTruthy()
+    expect(screen.getByTestId('git-b3').textContent).toBe('阿杰的 Claude1 个子仓库托管')
+
+    fireEvent.click(within(b1).getByRole('button', { name: '+2 个子仓库有改动' }))
+    const pop = await screen.findByRole('dialog', { name: '小王的 Claude 的子仓库' })
+    const lib = within(pop).getByRole('button', { name: /^lib/ })
+    expect(lib.textContent).toBe('libmain未提交')
+    const vendor = within(pop).getByRole('button', { name: /^vendor\/x/ })
+    expect(vendor.textContent).toBe('vendor/x游离12')
+    expect(within(vendor).getByRole('img', { name: '领先 2 个提交' })).toBeTruthy()
+
+    fireEvent.click(lib)
+    const tabs = () => useWorkbench.getState().benches.g1?.tabs
+    expect(tabs()).toEqual([{ kind: 'diff', botId: 'b1', scope: 'uncommitted', file: null, repo: 'lib' }])
+    fireEvent.click(within(b1).getByRole('button', { name: '+2 个子仓库有改动' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^vendor\/x/ }))
+    expect(tabs()?.at(-1)).toEqual({ kind: 'diff', botId: 'b1', scope: 'base', file: null, repo: 'vendor/x' })
   })
 
   it('outside partition groups with a repo shows only bots whose context is known', async () => {

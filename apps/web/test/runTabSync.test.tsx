@@ -62,6 +62,7 @@ const detail = (o: Partial<RunDetailDto> & { events: RunDetailDto['events'] }): 
   run: run(),
   patch: null,
   purged: false,
+  patchRepos: [],
   sessionId: null,
   retentionDays: 30,
   ...o,
@@ -89,7 +90,7 @@ function stubRuns() {
         )
       }
       if (p!.endsWith('/session')) return new Response(JSON.stringify({ rounds: [] }))
-      return new Response(JSON.stringify({ scope: 'turn', patch: null, base: null, branch: null }))
+      return new Response(JSON.stringify({ scope: 'turn', patch: null, base: null, branch: null, repos: [] }))
     }),
   )
   return { urls, pending }

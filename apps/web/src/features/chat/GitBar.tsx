@@ -1,9 +1,9 @@
-import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
+import type { GroupBotStateDto, GroupDto, RepoStatus } from '@gonggong/protocol'
 import { useEffect } from 'react'
 import { loadBotStates, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { realtime } from '../../lib/realtime'
-import { Icon, type IconName } from '../../ui'
+import { Icon, type IconName, Popover } from '../../ui'
 import { openTab } from '../workbench/open'
 import { ContextMeter } from './ContextMeter'
 
@@ -15,6 +15,56 @@ function Commits({ icon, name, n }: { icon: IconName; name: string; n: number })
       <Icon name={icon} size={12} />
       {n}
     </span>
+  )
+}
+
+/** Submodules / nested repos of a bot workspace: a count that opens the list, each entry opening its diff. */
+function SubRepos({ botId, name, repos }: { botId: string; name: string; repos: RepoStatus[] }) {
+  const changed = repos.filter((r) => r.dirty || !!r.ahead).length
+  return (
+    <Popover
+      portal
+      placement="bottom-start"
+      width={300}
+      aria-label={t('{name} 的子仓库', { name })}
+      trigger={
+        <button type="button" className="git-bar__subs" data-changed={changed > 0}>
+          {changed ? t('+{n} 个子仓库有改动', { n: changed }) : t('{n} 个子仓库', { n: repos.length })}
+        </button>
+      }
+    >
+      {(close) => (
+        <div className="git-subs">
+          {repos.map((r) => (
+            <button
+              key={r.path}
+              type="button"
+              className="git-subs__item"
+              onClick={() => {
+                close()
+                openTab({
+                  kind: 'diff',
+                  botId,
+                  scope: r.dirty ? 'uncommitted' : 'base',
+                  file: null,
+                  repo: r.path,
+                })
+              }}
+            >
+              <span className="git-subs__path">{r.path}</span>
+              <span className="git-bar__branch">{r.branch ?? t('游离')}</span>
+              {r.behind ? (
+                <Commits icon="arrow-down" name={t('落后 {n} 个提交', { n: r.behind })} n={r.behind} />
+              ) : null}
+              {r.ahead ? (
+                <Commits icon="arrow-up" name={t('领先 {n} 个提交', { n: r.ahead })} n={r.ahead} />
+              ) : null}
+              {r.dirty ? <span className="git-bar__dirty">{t('未提交')}</span> : null}
+            </button>
+          ))}
+        </div>
+      )}
+    </Popover>
   )
 }
 
@@ -30,6 +80,8 @@ function Item({
   git: boolean
 }) {
   const git = s.git
+  // States stored before repos were reported have none.
+  const subs = git?.repos ?? []
   const hint =
     s.state === 'unbound' ? (
       <span className="git-bar__hint">{t('待绑定')}</span>
@@ -57,7 +109,9 @@ function Item({
         <>
           {hint ?? (
             <>
-              <span className="git-bar__branch">{git?.branch ?? '—'}</span>
+              {git?.branch == null && subs.length ? null : (
+                <span className="git-bar__branch">{git?.branch ?? '—'}</span>
+              )}
               {git?.behind ? (
                 <Commits icon="arrow-down" name={t('落后 {n} 个提交', { n: git.behind })} n={git.behind} />
               ) : null}
@@ -65,6 +119,7 @@ function Item({
                 <Commits icon="arrow-up" name={t('领先 {n} 个提交', { n: git.ahead })} n={git.ahead} />
               ) : null}
               {git?.dirty ? <span className="git-bar__dirty">{t('未提交')}</span> : null}
+              {subs.length ? <SubRepos botId={s.botId} name={name} repos={subs} /> : null}
             </>
           )}
           <span className="git-bar__ws">{WORKSPACE_LABEL[s.workspace]}</span>

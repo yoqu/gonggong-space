@@ -15,4 +15,7 @@ export default {
   '{branch} 相对 {base} 没有改动': '{branch} has no changes against {base}',
   当前分支: 'The current branch',
   '当前就在主分支，没有可对比的改动': 'Already on the main branch; nothing to compare',
+  根仓库: 'Root repo',
+  已截断: 'Truncated',
+  '{n} 个仓库': '{n} {n:repo|repos}',
 } satisfies Record<string, string>

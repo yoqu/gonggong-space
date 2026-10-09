@@ -3,7 +3,7 @@ import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } fro
 import { t } from '../../i18n'
 import { EmptyState, Icon, NoChangesArt, Spinner } from '../../ui'
 import { DiffFileList, DiffLayoutToggle, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
-import { findFile } from './patch'
+import { findFile, groupByRepo, isMultiRepo } from './patch'
 import type { WorkspaceDiff } from './useWorkspaceDiff'
 
 /** Below this the file list folds into a dropdown above the diff (design §4.4). */
@@ -30,8 +30,10 @@ interface DiffPaneProps {
   scope: DiffScope
   /** Offer 本轮 (the pane belongs to a run). */
   turn: boolean
-  /** The picked file; null shows the first one. */
+  /** The picked file; null shows the first one (of `repo` when given). */
   file: string | null
+  /** Repo path to open on ('' = root). */
+  repo?: string | null
   onScope: (scope: DiffScope) => void
   onFile: (path: string) => void
   onLocate: (path: string) => void
@@ -40,21 +42,39 @@ interface DiffPaneProps {
 }
 
 /** Scope bar, then the changed files beside (or, when narrow, in a dropdown above) the picked file's diff. */
-export function DiffPane({ diff, scope, turn, file, onScope, onFile, onLocate, notice }: DiffPaneProps) {
+export function DiffPane({
+  diff,
+  scope,
+  turn,
+  file,
+  repo,
+  onScope,
+  onFile,
+  onLocate,
+  notice,
+}: DiffPaneProps) {
   const root = useRef<HTMLDivElement>(null)
   const wide = useWide(root, WIDE_PX)
   const [listOpen, setListOpen] = useState(false)
-  const picked = file === null ? diff.files[0] : findFile(diff.files, file)
+  const multi = isMultiRepo(diff.repos)
+  const first = () =>
+    (repo != null && groupByRepo(diff.files, diff.repos).find((g) => g.repo.path === repo)?.files[0]) ||
+    diff.files[0]
+  const picked = file === null ? first() : findFile(diff.files, file)
   const pick = (path: string) => {
     setListOpen(false)
     onFile(path)
   }
-  const list = <DiffFileList files={diff.files} active={picked} onPick={pick} onLocate={onLocate} />
+  const list = (
+    <DiffFileList files={diff.files} repos={diff.repos} active={picked} onPick={pick} onLocate={onLocate} />
+  )
   return (
     <div ref={root} className="diff-pane" data-testid="diff-pane" data-layout={wide ? 'wide' : 'narrow'}>
       <div className="diff-pane__bar">
         <DiffScopeBar scope={scope} turn={turn} onChange={onScope} />
-        <span className="diff-pane__branch">{scopeNote(scope, diff.branch, diff.base)}</span>
+        <span className="diff-pane__branch">
+          {multi ? t('{n} 个仓库', { n: diff.repos.length }) : scopeNote(scope, diff.branch, diff.base)}
+        </span>
         <DiffLayoutToggle />
       </div>
       {notice ? (

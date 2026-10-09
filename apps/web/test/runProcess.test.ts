@@ -138,6 +138,7 @@ describe('process steps', () => {
       run: run({ newSessionReason: 'resume_failed', approvals: [approval({})] }),
       patch,
       purged: false,
+      patchRepos: [],
       sessionId: 's1',
       retentionDays: 30,
       events: [
@@ -219,6 +220,7 @@ describe('process steps', () => {
       }),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: 's1',
       retentionDays: 30,
       events: [
@@ -244,6 +246,7 @@ describe('process steps', () => {
       run: run(),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: 's1',
       retentionDays: 30,
       events: [
@@ -268,6 +271,7 @@ describe('process steps', () => {
       run: run(),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: 's1',
       retentionDays: 30,
       events: [
@@ -287,6 +291,7 @@ describe('process steps', () => {
       run: run(),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: null,
       retentionDays: 30,
       events: [],
@@ -316,6 +321,7 @@ describe('process steps', () => {
       run: run({ status: 'running', approvals: [approval({ createdAt: at(1) })] }),
       patch,
       purged: false,
+      patchRepos: [],
       sessionId: null,
       retentionDays: 30,
       events: [
@@ -378,6 +384,7 @@ describe('process steps', () => {
       run: run({ status: 'running' }),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: null,
       retentionDays: 30,
       events: [
@@ -424,6 +431,7 @@ describe('process steps', () => {
       run: run({ status: 'completed' }),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: null,
       retentionDays: 30,
       events: [
@@ -448,6 +456,7 @@ describe('process steps', () => {
       run: run({ status: 'completed' }),
       patch: null,
       purged: false,
+      patchRepos: [],
       sessionId: null,
       retentionDays: 30,
       events: [{ id: 1, at: at(1), event: { kind: 'text', delta: '完成' } }],

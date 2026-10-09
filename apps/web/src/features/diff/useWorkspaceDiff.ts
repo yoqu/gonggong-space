@@ -1,11 +1,19 @@
-import type { DiffScope, WorkspaceDiffDto } from '@gonggong/protocol'
+import type { DiffRepo, DiffScope, WorkspaceDiffDto } from '@gonggong/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { type DiffFile, parsePatch } from './patch'
 import type { DiffSource } from './store'
 
-const EMPTY: WorkspaceDiff = { patch: null, files: [], base: null, branch: null, error: null, loading: true }
+const EMPTY: WorkspaceDiff = {
+  patch: null,
+  files: [],
+  repos: [],
+  base: null,
+  branch: null,
+  error: null,
+  loading: true,
+}
 
 /** A live turn keeps changing: refetch its diff at most this often while its run moves. */
 const LIVE_REFETCH_MS = 2000
@@ -13,6 +21,8 @@ const LIVE_REFETCH_MS = 2000
 export interface WorkspaceDiff {
   patch: string | null
   files: DiffFile[]
+  /** Repos the patch spans (root first); empty when unknown (turns recorded before repos were tracked). */
+  repos: DiffRepo[]
   base: string | null
   branch: string | null
   error: string | null
@@ -27,6 +37,7 @@ export function useWorkspaceDiff(
   source: DiffSource | null,
   scope: DiffScope,
   patch?: string | null,
+  patchRepos: DiffRepo[] = [],
 ): WorkspaceDiff {
   const [state, setState] = useState<WorkspaceDiff>(EMPTY)
   const stored = scope === 'turn' && patch !== undefined
@@ -46,6 +57,7 @@ export function useWorkspaceDiff(
             setState({
               patch: d.patch,
               files: parsePatch(d.patch ?? ''),
+              repos: d.repos,
               base: d.base,
               branch: d.branch,
               error: null,
@@ -70,6 +82,15 @@ export function useWorkspaceDiff(
     }
   }, [stored, groupId, botId, runId, scope])
   const files = useMemo(() => parsePatch(patch ?? ''), [patch])
-  if (stored) return { patch: patch ?? null, files, base: null, branch: null, error: null, loading: false }
+  if (stored)
+    return {
+      patch: patch ?? null,
+      files,
+      repos: patchRepos,
+      base: null,
+      branch: null,
+      error: null,
+      loading: false,
+    }
   return state
 }

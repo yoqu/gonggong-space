@@ -164,6 +164,7 @@ const detail = (o: Partial<RunDetailDto> = {}): RunDetailDto => ({
   run: run({ model: 'opus', effort: 'high' }),
   patch,
   purged: false,
+  patchRepos: [],
   sessionId: 'sess-7f3a',
   retentionDays: 30,
   events: [
@@ -240,9 +241,11 @@ function mockApi(runDetail: () => RunDetailDto, extra: Record<string, () => unkn
   // A bot workspace's changes: this turn's patch, other scopes from the fixtures below.
   const diff = (url: string) => {
     const scope = new URL(url, 'http://x').searchParams.get('scope')
-    if (scope === 'turn') return { scope, patch: runDetail().patch, base: null, branch: 'feat/refund' }
-    if (scope === 'uncommitted') return { scope, patch: UNCOMMITTED, base: null, branch: 'feat/refund' }
-    return { scope, patch: null, base: 'main', branch: 'feat/refund' }
+    if (scope === 'turn')
+      return { scope, patch: runDetail().patch, base: null, branch: 'feat/refund', repos: [] }
+    if (scope === 'uncommitted')
+      return { scope, patch: UNCOMMITTED, base: null, branch: 'feat/refund', repos: [] }
+    return { scope, patch: null, base: 'main', branch: 'feat/refund', repos: [] }
   }
   vi.stubGlobal(
     'fetch',

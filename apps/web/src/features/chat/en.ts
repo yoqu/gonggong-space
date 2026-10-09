@@ -160,4 +160,8 @@ export default {
     "Choose a workspace for {name} before it can work; @-mentions won't run it until then",
   '等待 {owner} 为 {name} 绑定工作区': 'Waiting for {owner} to bind a workspace for {name}',
   绑定工作区: 'Bind workspace',
+  '+{n} 个子仓库有改动': '+{n} {n:sub-repo|sub-repos} changed',
+  '{n} 个子仓库': '{n} {n:sub-repo|sub-repos}',
+  '{name} 的子仓库': "{name}'s sub-repos",
+  游离: 'Detached',
 } satisfies Record<string, string>
