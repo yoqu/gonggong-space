@@ -95,7 +95,7 @@ it('sets a bot’s provider: inherit, official or one of its agent, confirming w
   const select = await claude.findByRole('button', { name: '小王的 Claude 的供应商' })
   expect(select.textContent).toContain('继承机器（当前：Kimi）')
   fireEvent.click(select)
-  const menu = within(claude.getByRole('menu', { name: '小王的 Claude 的供应商' }))
+  const menu = within(screen.getByRole('menu', { name: '小王的 Claude 的供应商' }))
   expect(menu.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual([
     '继承机器（当前：Kimi）',
     '官方登录',
@@ -119,7 +119,11 @@ it('sets a bot’s provider: inherit, official or one of its agent, confirming w
   expect(codex.getByRole('button', { name: '小王的 Codex 的供应商' }).textContent).toContain('官方登录')
   fireEvent.click(codex.getByRole('button', { name: '小王的 Codex 的供应商' }))
   m.providerImpact.mockResolvedValue([])
-  fireEvent.click(within(codex.getByRole('menu')).getByRole('menuitemcheckbox', { name: /继承机器/ }))
+  fireEvent.click(
+    within(screen.getByRole('menu', { name: '小王的 Codex 的供应商' })).getByRole('menuitemcheckbox', {
+      name: /继承机器/,
+    }),
+  )
   await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('codex', 'inherit', 'b2'))
 })
 
