@@ -79,19 +79,14 @@ async function link(ctx: Ctx, userId: string, user: FeishuUser, tokens: FeishuTo
     .where(eq(users.id, userId))
 }
 
-/** Lowercase email prefix fitted to the account rule, or `feishu`; a numeric suffix avoids taken accounts. */
-async function freeAccount(ctx: Ctx, email: string | null) {
-  const base =
-    (email?.split('@')[0] ?? '')
+/** Account stem: the email prefix, else the user_id, fitted to the account rule; else `feishu`. */
+function accountStem(user: FeishuUser) {
+  const clean = (s: string | null | undefined) =>
+    (s ?? '')
       .toLowerCase()
       .replace(/[^a-z0-9_.-]/g, '')
-      .slice(0, 28) || 'feishu'
-  const stem = base.length < 2 ? 'feishu' : base
-  for (let i = 1; ; i++) {
-    const account = i === 1 ? stem : `${stem}${i}`
-    const [hit] = await ctx.db.select({ id: users.id }).from(users).where(eq(users.account, account))
-    if (!hit) return account
-  }
+      .slice(0, 28)
+  return [clean(user.email?.split('@')[0]), clean(user.userId)].find((s) => s.length >= 2) ?? 'feishu'
 }
 
 /** The team invite a login started from (`next` = /join/:token), when still usable. */
@@ -232,17 +227,22 @@ export function feishuAuthRoutes(ctx: Ctx) {
       if (!(await sysParams(ctx.db)).feishuAutoSignup && !invite)
         return fail('forbidden', '未开启飞书自动开户，请绑定已有账号或联系系统管理员')
       tickets.delete(key)
-      const [user] = await ctx.db
-        .insert(users)
-        .values({
-          account: await freeAccount(ctx, ticket.user.email),
-          name: ticket.user.name.slice(0, 40),
-          role: 'member',
-          passwordHash: null,
-          mustChangePassword: false,
-        })
-        .returning()
-      if (!user) return fail('conflict', '账号已存在')
+      const stem = accountStem(ticket.user)
+      let user: typeof users.$inferSelect | undefined
+      // A numeric suffix skips taken accounts; the conflict check also covers concurrent sign-ups.
+      for (let i = 1; !user; i++) {
+        ;[user] = await ctx.db
+          .insert(users)
+          .values({
+            account: i === 1 ? stem : `${stem}${i}`,
+            name: ticket.user.name.slice(0, 40),
+            role: 'member',
+            passwordHash: null,
+            mustChangePassword: false,
+          })
+          .onConflictDoNothing({ target: users.account })
+          .returning()
+      }
       await link(ctx, user.id, ticket.user, ticket.tokens)
       await onboardUser(ctx, user, invite)
       const [fresh] = await ctx.db.select().from(users).where(eq(users.id, user.id))

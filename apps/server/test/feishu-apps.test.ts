@@ -225,5 +225,7 @@ describe('larkApi', () => {
       state: 's1',
     })
     expect(USER_SCOPES).toContain('offline_access')
+    // user_id names accounts created by 飞书登录 when there is no email.
+    expect(USER_SCOPES).toContain('contact:user.employee_id:readonly')
   })
 })

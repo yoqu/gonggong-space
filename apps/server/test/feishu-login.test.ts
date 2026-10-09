@@ -225,11 +225,22 @@ describe('first 飞书登录 (ticket)', () => {
     expect(pw.status).toBe(401)
   })
 
-  it('falls back to a generic account when the email gives nothing usable', async () => {
+  it('names the account after the Feishu user_id when there is no email', async () => {
     await configure()
-    const { location } = await feishuLogin(t.feishu.user({ email: null }))
+    await t.seed.user({ account: 'jiang.wc' })
+    const { location } = await feishuLogin(t.feishu.user({ email: null, userId: 'Jiang.WC' }))
     const res = await anon().post<MeDto>(`/api/auth/feishu/ticket/${ticketOf(location)}/create`)
-    expect(res.body.account).toMatch(/^feishu/)
+    expect(res.body.account).toBe('jiang.wc2')
+  })
+
+  it('falls back to a numbered generic account when neither email nor user_id gives anything usable', async () => {
+    await configure()
+    const create = async () => {
+      const { location } = await feishuLogin(t.feishu.user({ email: null, userId: null }))
+      return (await anon().post<MeDto>(`/api/auth/feishu/ticket/${ticketOf(location)}/create`)).body.account
+    }
+    expect(await create()).toBe('feishu')
+    expect(await create()).toBe('feishu2')
   })
 
   it('offers no 新建账号 while 飞书自动开户 is off, unless the login started from an invite', async () => {

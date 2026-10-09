@@ -17,6 +17,7 @@ export interface FeishuBody {
 export const USER_SCOPES = [
   'offline_access',
   'contact:user.email:readonly',
+  'contact:user.employee_id:readonly',
   'im:message',
   'im:message.send_as_user',
   'im:message.group_msg:get_as_user',
