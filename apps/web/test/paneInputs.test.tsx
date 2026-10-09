@@ -20,6 +20,15 @@ import {
 } from '../src/ui'
 import { PANE_PATHS } from '../src/ui/icons/pane'
 
+/** Scrolls `el` so everything inside it (a popup's anchor included) moves up. */
+function scrollAway(el: HTMLElement) {
+  const rect = vi
+    .spyOn(Element.prototype, 'getBoundingClientRect')
+    .mockReturnValue(new DOMRect(0, -20, 100, 20))
+  fireEvent.scroll(el)
+  rect.mockRestore()
+}
+
 describe('Button loading', () => {
   it('swaps the icon for a spinner, disables and marks busy', () => {
     const onClick = vi.fn()
@@ -254,6 +263,17 @@ describe('ComboBox', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 
+  it('stays open on a late scroll event that did not move its anchor', () => {
+    render(
+      <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
+        <ComboBox label="所在城市" options={cities} />
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '显示选项' }))
+    fireEvent.scroll(screen.getByTestId('clip'))
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
   it('portals the list out of a clipping ancestor and closes when it scrolls', () => {
     render(
       <div data-testid="clip" style={{ overflow: 'auto', height: 40 }}>
@@ -262,7 +282,7 @@ describe('ComboBox', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '显示选项' }))
     expect(screen.getByTestId('clip').contains(screen.getByRole('listbox'))).toBe(false)
-    fireEvent.scroll(screen.getByTestId('clip'))
+    scrollAway(screen.getByTestId('clip'))
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 })
@@ -320,7 +340,7 @@ describe('TokenField', () => {
     const input = screen.getByRole('combobox', { name: '成员' })
     fireEvent.change(input, { target: { value: '李' } })
     expect(screen.getByTestId('clip').contains(screen.getByRole('listbox'))).toBe(false)
-    fireEvent.scroll(screen.getByTestId('clip'))
+    scrollAway(screen.getByTestId('clip'))
     expect(screen.queryByRole('listbox')).toBeNull()
     expect((input as HTMLInputElement).value).toBe('李')
   })
@@ -517,7 +537,7 @@ describe('PullDownButton', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /会议/ }))
     expect(onSelect).toHaveBeenCalledWith('meet')
     fireEvent.click(btn)
-    fireEvent.scroll(screen.getByTestId('clip'))
+    scrollAway(screen.getByTestId('clip'))
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
   })
 })

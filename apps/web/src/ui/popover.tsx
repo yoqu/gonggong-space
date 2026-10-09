@@ -72,7 +72,8 @@ export function Float({
 /**
  * Places a portalled `.ui-float--fixed` panel in viewport coordinates next to `anchor`: below unless there is
  * more room above. `list` caps it to that room (the list scrolls) and widens it to the anchor. A fixed panel
- * would drift from its anchor, so scrolling elsewhere or resizing calls `onDrift`.
+ * would drift from its anchor, so a scroll that moved the anchor, or a resize, calls `onDrift`. Scroll events land
+ * a frame late, so the one from scrolling the trigger into view (before it was clicked) must not dismiss.
  */
 export function useFixedPosition(
   enabled: boolean,
@@ -85,11 +86,13 @@ export function useFixedPosition(
 ) {
   const drift = useRef(onDrift)
   drift.current = onDrift
+  const placed = useRef({ top: 0, left: 0 })
   // Every render: filtering a list changes its height, and a list placed above must move with it.
   useLayoutEffect(() => {
     const el = panel.current
     if (!enabled || !el || !anchor.current) return
     const r = anchor.current.getBoundingClientRect()
+    placed.current = { top: r.top, left: r.left }
     if (list) {
       el.style.minWidth = `${r.width}px`
       el.style.maxHeight = ''
@@ -104,16 +107,19 @@ export function useFixedPosition(
   })
   useEffect(() => {
     if (!enabled) return
-    const dismiss = (e: Event) => {
-      if (!panel.current?.contains(e.target as Node)) drift.current()
+    const scrolled = (e: Event) => {
+      const r = anchor.current?.getBoundingClientRect()
+      const moved = !r || r.top !== placed.current.top || r.left !== placed.current.left
+      if (moved && !panel.current?.contains(e.target as Node)) drift.current()
     }
-    document.addEventListener('scroll', dismiss, true)
-    window.addEventListener('resize', dismiss)
+    const resized = () => drift.current()
+    document.addEventListener('scroll', scrolled, true)
+    window.addEventListener('resize', resized)
     return () => {
-      document.removeEventListener('scroll', dismiss, true)
-      window.removeEventListener('resize', dismiss)
+      document.removeEventListener('scroll', scrolled, true)
+      window.removeEventListener('resize', resized)
     }
-  }, [enabled, panel])
+  }, [enabled, anchor, panel])
 }
 
 export interface PopoverProps {

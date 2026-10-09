@@ -80,17 +80,6 @@ const header = (list: Locator, name: string) =>
     has: list.page().locator('.diff__repo-name', { hasText: new RegExp(`^${name}$`) }),
   })
 
-/**
- * The bar scrolls sideways when its bots overflow, and any scroll closes the popover: bring the trigger into view and
- * let that scroll event pass before opening it.
- */
-async function openSubRepos(item: Locator, name: string) {
-  const trigger = item.getByRole('button', { name })
-  await trigger.scrollIntoViewIfNeeded()
-  await item.page().evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-  await trigger.click()
-}
-
 /** The diff tab in front (others stay mounted, hidden). */
 const diffPane = (page: Page) => page.getByTestId('diff-pane').filter({ visible: true })
 
@@ -149,7 +138,7 @@ test('multi-repo workspace: GitBar sub repos and diff grouped per repo', async (
     await test.step('GitBar lists the nested repos, not node_modules', async () => {
       // No root repo: no branch of its own, just the sub repo summary.
       await expect(multiItem.locator('.git-bar__branch')).toHaveCount(0)
-      await openSubRepos(multiItem, '+2 个子仓库有改动')
+      await multiItem.getByRole('button', { name: '+2 个子仓库有改动' }).click()
       const pop = page.getByRole('dialog', { name: `${multiName} 的子仓库` })
       await expect(pop.locator('.git-subs__path')).toHaveText(['app', 'libs/core'])
       await expect(pop).not.toContainText('node_modules')
@@ -196,7 +185,7 @@ test('multi-repo workspace: GitBar sub repos and diff grouped per repo', async (
 
     await test.step('a root on main still shows its submodule’s branch against the submodule’s main', async () => {
       await expect(subItem.locator('.git-bar__branch')).toHaveText('main')
-      await openSubRepos(subItem, '1 个子仓库')
+      await subItem.getByRole('button', { name: '1 个子仓库' }).click()
       const pop = page.getByRole('dialog', { name: `${subName} 的子仓库` })
       await expect(pop.locator('.git-subs__path')).toHaveText(['sub'])
       await pop.locator('.git-subs__item', { hasText: 'sub' }).click()
