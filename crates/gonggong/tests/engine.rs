@@ -430,6 +430,7 @@ async fn repo_workspace_is_left_alone_before_the_turn_and_reports_git_changes() 
         behind: Some(0),
         dirty: false,
         workspace: WorkspaceKind::Managed,
+        repos: vec![],
     };
     assert_eq!(done.git, Some(clean.clone()));
     assert_eq!(done.files_changed, 0);
@@ -441,6 +442,8 @@ async fn repo_workspace_is_left_alone_before_the_turn_and_reports_git_changes() 
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
     assert_eq!(done.files_changed, 3);
     assert_eq!(done.git, Some(GitStatus { ahead: Some(1), dirty: true, ..clean }));
+    let repos: Vec<_> = done.repos.iter().map(|r| (r.path.as_str(), r.branch.as_deref())).collect();
+    assert_eq!(repos, [("", Some("main"))]);
 }
 
 #[tokio::test]

@@ -102,6 +102,40 @@ pub struct GitStatus {
     pub behind: Option<u32>,
     pub dirty: bool,
     pub workspace: WorkspaceKind,
+    /// Submodules and nested repos (not the root), outermost first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repos: Vec<RepoStatus>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RepoKind {
+    Root,
+    Submodule,
+    Nested,
+}
+
+/// Git state of a non-root repo; `path` is relative to the workspace root.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RepoStatus {
+    pub path: String,
+    pub kind: RepoKind,
+    pub branch: Option<String>,
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    pub dirty: bool,
+}
+
+/// One repo's share of a workspace patch ('' = the root repo).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiffRepo {
+    pub path: String,
+    pub kind: RepoKind,
+    pub branch: Option<String>,
+    /// Main branch this repo is compared against; None when on it or the scope has no base.
+    pub base: Option<String>,
+    /// The patch hit its size cap before (all of) this repo's changes.
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -615,6 +649,9 @@ pub struct RunDone {
     pub error: Option<String>,
     pub git: Option<GitStatus>,
     pub patch: Option<String>,
+    /// The repos `patch` spans, root first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repos: Vec<DiffRepo>,
     pub appends_applied: u32,
     /// Force groups only.
     #[serde(default)]
@@ -1222,6 +1259,8 @@ pub enum DaemonToServer {
         patch: Option<String>,
         base: Option<String>,
         branch: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        repos: Vec<DiffRepo>,
         error: Option<String>,
     },
     #[serde(rename = "question.ask", rename_all = "camelCase")]

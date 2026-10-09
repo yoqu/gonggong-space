@@ -2,8 +2,8 @@
 use crate::attachments::rel_path;
 use crate::mcp_call;
 use crate::protocol::{
-    self, AgentKind, ContextMessage, ContextUsage, GitStatus, McpCall, RunBot, RunEvent, RunPrompt, RunSyncDone,
-    RunSyncStart, SubagentState, TaskState, Tier, ToolStatus, Usage,
+    self, AgentKind, ContextMessage, ContextUsage, DiffRepo, GitStatus, McpCall, RunBot, RunEvent, RunPrompt,
+    RunSyncDone, RunSyncStart, SubagentState, TaskState, Tier, ToolStatus, Usage,
 };
 use agent_client_protocol::schema::v1::{
     ContentBlock, PermissionOption, PermissionOptionId, PermissionOptionKind, SessionUpdate, ToolCallContent,
@@ -291,6 +291,8 @@ pub struct Turn {
     pub git: Option<(GitStatus, usize)>,
     /// Repo workspaces only: unified diff of the turn's changes.
     pub patch: Option<String>,
+    /// The repos `patch` spans.
+    pub repos: Vec<DiffRepo>,
     /// Force group: how the turn's submit settled.
     pub sync: Option<RunSyncDone>,
     tools: HashMap<(Option<String>, String), ToolState>,

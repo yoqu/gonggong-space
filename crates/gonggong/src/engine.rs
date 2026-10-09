@@ -14,8 +14,8 @@ use crate::inject;
 use crate::local::LocalSettings;
 use crate::manage::Manage;
 use crate::protocol::{
-    AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RunBot, RunDone, RunOutcome, RunStart,
-    RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
+    AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome,
+    RunStart, RunSyncDone, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier,
 };
 use crate::providers::{Selection, Store};
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
@@ -83,7 +83,7 @@ pub(crate) struct Inner {
     replicas: Arc<Replicas>,
 }
 
-type DiffResult = Result<(Option<String>, Option<String>), String>;
+type DiffResult = Result<git::Diff, String>;
 /// Workspace diffs computed at once; more wait for a slot.
 const DIFF_SLOTS: usize = 2;
 
@@ -175,24 +175,19 @@ impl Engine {
     }
 }
 
-/// (patch, main branch compared against) of one workspace diff request.
 /// How long the server waits for a workspace diff (DIFF_TIMEOUT_MS).
 const DIFF_TIMEOUT: Duration = Duration::from_secs(10);
 
 async fn workspace_diff(dir: &Path, scope: DiffScope, run_id: Option<&str>, shared: Option<Arc<Shared>>) -> DiffResult {
     let ended = t!("该轮已结束或不在本机运行");
-    if scope == DiffScope::Turn {
-        let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ended.into()) };
-        return Ok((shared.live_patch(run_id).await.ok_or(ended)??, None));
+    match scope {
+        DiffScope::Turn => {
+            let (Some(run_id), Some(shared)) = (run_id, shared) else { return Err(ended.into()) };
+            shared.live_patch(run_id).await.ok_or(ended)?
+        }
+        DiffScope::Uncommitted => git::uncommitted_patch(dir).await,
+        DiffScope::Base => git::base_patch(dir).await,
     }
-    if !git::is_repo(dir) {
-        return Err(session::not_git().into());
-    }
-    if scope == DiffScope::Uncommitted {
-        return Ok((git::uncommitted_patch(dir).await?, None));
-    }
-    let b = git::base_patch(dir).await?;
-    Ok((b.patch, b.base))
 }
 
 impl Handler for Engine {
@@ -332,16 +327,19 @@ impl Handler for Engine {
                             .unwrap_or_else(|_| Err(t!("读取工作区改动超时").into()))
                     };
                     let result = inner.diffs.run(key, compute).await;
-                    let (patch, base, error) = match result {
-                        Ok((patch, base)) => (patch, base, None),
-                        Err(e) => (None, None, Some(e)),
+                    let (patch, repos, error) = match result {
+                        Ok(d) => (d.patch, d.repos, None),
+                        Err(e) => (None, vec![], Some(e)),
                     };
+                    let root = repos.first().filter(|r| r.kind == RepoKind::Root);
+                    let base = root.and_then(|r| r.base.clone());
                     let branch = if git::is_repo(&dir) { git::branch(&dir).await } else { None };
                     out.send(DaemonToServer::WorkspaceDiffResult {
                         request_id: req.request_id,
                         patch,
                         base,
                         branch,
+                        repos,
                         error,
                     });
                 });
@@ -622,6 +620,7 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
         error: Some(error),
         git: None,
         patch: None,
+        repos: vec![],
         appends_applied: 0,
         sync: None,
     }

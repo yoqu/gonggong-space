@@ -37,9 +37,6 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 
 const ERROR_MAX: usize = 800;
-pub(crate) fn not_git() -> &'static str {
-    t!("工作区不是 git 仓库")
-}
 const RESUME_FAILED: &str = "resume_failed";
 /// The session to resume was pinned to a provider since deleted (§4.3).
 const PROVIDER_REMOVED: &str = "provider_removed";
@@ -458,7 +455,9 @@ impl Shared {
             let git = result.await.inspect_err(|e| tracing::warn!("git post-turn failed: {e}")).ok();
             let mut s = self.0.lock().unwrap();
             if let Some(a) = s.active.as_mut() {
-                a.turn.patch = git.as_ref().and(patch.ok().flatten());
+                if let Some(d) = git.as_ref().and(patch.ok()) {
+                    (a.turn.patch, a.turn.repos) = (d.patch, d.repos);
+                }
                 a.turn.git = git;
             }
             s.last = Some((run_id, g));
@@ -472,13 +471,13 @@ impl Shared {
     }
 
     /// What the live turn `run_id` changed so far; None when it is not this conversation's active turn.
-    pub(crate) async fn live_patch(&self, run_id: &str) -> Option<Result<Option<String>, String>> {
+    pub(crate) async fn live_patch(&self, run_id: &str) -> Option<Result<git::Diff, String>> {
         let git = {
             let s = self.0.lock().unwrap();
             let a = s.active.as_ref().filter(|a| a.run_id == run_id)?;
             a.git.as_ref().map(|g| (g.cwd.clone(), g.snap.clone()))
         };
-        let Some((cwd, snap)) = git else { return Some(Err(not_git().into())) };
+        let Some((cwd, snap)) = git else { return Some(Err(t!("本轮改动仅支持 git 工作区").into())) };
         Some(git::patch_since(&cwd, &snap).await)
     }
 
@@ -707,6 +706,7 @@ fn done(
         error,
         git,
         patch: turn.patch,
+        repos: turn.repos,
         appends_applied: turn.appends_applied,
         sync: turn.sync,
     })

@@ -126,7 +126,7 @@ impl Rig {
 }
 
 fn clean(branch: &str, workspace: WorkspaceKind) -> GitStatus {
-    GitStatus { branch: Some(branch.into()), ahead: Some(0), behind: Some(0), dirty: false, workspace }
+    GitStatus { branch: Some(branch.into()), ahead: Some(0), behind: Some(0), dirty: false, workspace, repos: vec![] }
 }
 
 #[test]
@@ -346,7 +346,8 @@ async fn git_status_tracks_ahead_behind_dirty_and_missing_upstream() {
             ahead: Some(1),
             behind: Some(2),
             dirty: true,
-            workspace: WorkspaceKind::Managed
+            workspace: WorkspaceKind::Managed,
+            repos: vec![],
         }
     );
 

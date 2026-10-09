@@ -370,6 +370,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("读取文件失败：{e}", "Failed to read the file: {e}"),
     ("不是文件：{path}", "Not a file: {path}"),
     ("工作区不是 git 仓库", "The workspace isn't a git repository"),
+    ("本轮改动仅支持 git 工作区", "This turn's changes are only tracked in git workspaces"),
     ("{from} 打断并追加", "{from} interrupted & appended"),
     ("群成员", "Group member"),
     ("{who} 已回答", "{who} answered"),

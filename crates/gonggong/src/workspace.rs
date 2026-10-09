@@ -179,10 +179,12 @@ impl Workspaces {
             Some(path) => {
                 let dir = PathBuf::from(path);
                 match check_cd(&dir, req.repo.as_ref().filter(|_| !req.force)).await {
-                    Ok(()) => match git::is_repo(&dir) {
-                        true => Ok((dir.clone(), git::status(&dir, WorkspaceKind::Cd).await.ok(), remotes(&dir).await)),
-                        false => Ok((dir, None, vec![])),
-                    },
+                    Ok(()) => {
+                        // A non-git dir still reports the repos below it.
+                        let status = git::status(&dir, WorkspaceKind::Cd).await.ok();
+                        let remotes = if git::is_repo(&dir) { remotes(&dir).await } else { vec![] };
+                        Ok((dir, status, remotes))
+                    }
                     Err(e) => Err(e.into()),
                 }
             }

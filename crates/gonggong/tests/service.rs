@@ -162,6 +162,7 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
         error: None,
         git: None,
         patch: None,
+        repos: vec![],
         appends_applied: 0,
         sync: None,
     }));
@@ -229,6 +230,7 @@ impl Handler for Reporter {
                 error: None,
                 git: None,
                 patch: None,
+                repos: vec![],
                 appends_applied: 0,
                 sync: None,
             }));
