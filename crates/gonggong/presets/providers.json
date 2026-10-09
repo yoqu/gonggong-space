@@ -1,5 +1,5 @@
 {
-  "source": "cc-switch@36d9504",
+  "source": "cc-switch@889b797",
   "presets": [
     {
       "id": "kimi",
@@ -15,7 +15,7 @@
         "sonnet": "kimi-k2.7-code",
         "opus": "kimi-k2.7-code"
       },
-      "modelOptions": ["kimi-k2.7-code"]
+      "modelOptions": ["kimi-k2.7-code", "kimi-k3", "kimi-k2.7-code-highspeed", "kimi-k2.6"]
     },
     {
       "id": "kimi-global",
@@ -31,7 +31,7 @@
         "sonnet": "kimi-k2.7-code",
         "opus": "kimi-k2.7-code"
       },
-      "modelOptions": ["kimi-k2.7-code"]
+      "modelOptions": ["kimi-k2.7-code", "kimi-k3", "kimi-k2.7-code-highspeed", "kimi-k2.6"]
     },
     {
       "id": "kimi-coding",
@@ -47,7 +47,7 @@
         "sonnet": "kimi-for-coding",
         "opus": "kimi-for-coding"
       },
-      "modelOptions": ["kimi-for-coding"],
+      "modelOptions": ["kimi-for-coding", "kimi-for-coding-highspeed", "k3", "k3-256k"],
       "env": {
         "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
         "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
@@ -67,7 +67,7 @@
         "sonnet": "kimi-for-coding",
         "opus": "kimi-for-coding"
       },
-      "modelOptions": ["kimi-for-coding"],
+      "modelOptions": ["kimi-for-coding", "kimi-for-coding-highspeed", "k3", "k3-256k"],
       "env": {
         "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
         "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
@@ -104,7 +104,7 @@
         "sonnet": "glm-5.3",
         "opus": "glm-5.3"
       },
-      "modelOptions": ["glm-5.3"]
+      "modelOptions": ["glm-5.3", "glm-5.3-flash", "glm-5-turbo"]
     },
     {
       "id": "zhipu-en",
@@ -121,7 +121,7 @@
         "sonnet": "glm-5.3",
         "opus": "glm-5.3"
       },
-      "modelOptions": ["glm-5.3"]
+      "modelOptions": ["glm-5.3", "glm-5.3-flash"]
     },
     {
       "id": "qwen",
@@ -138,7 +138,7 @@
         "sonnet": "qwen3.7-plus",
         "opus": "qwen3.8-max"
       },
-      "modelOptions": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash"],
+      "modelOptions": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash", "qwen3.8-2.4t-a95b", "qwen3.8-27b"],
       "env": {
         "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
       }
@@ -151,7 +151,7 @@
       "websiteUrl": "https://bailian.console.aliyun.com/",
       "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
       "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
-      "modelOptions": []
+      "modelOptions": ["qwen3-coder-plus", "qwen3-max"]
     },
     {
       "id": "qwen-intl",
@@ -168,7 +168,14 @@
         "sonnet": "qwen3.7-plus",
         "opus": "qwen3.8-max"
       },
-      "modelOptions": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash"]
+      "modelOptions": [
+        "qwen3.8-max",
+        "qwen3.7-plus",
+        "qwen3.8-flash",
+        "qwen3.7-max",
+        "qwen3.8-2.4t-a95b",
+        "qwen3.8-27b"
+      ]
     },
     {
       "id": "qwen-coding-intl",
@@ -185,7 +192,7 @@
         "sonnet": "qwen3.7-plus",
         "opus": "qwen3.7-plus"
       },
-      "modelOptions": ["qwen3.7-plus"]
+      "modelOptions": ["qwen3.7-plus", "qwen3.6-plus", "qwen3-coder-plus"]
     },
     {
       "id": "volcengine-coding",
@@ -202,7 +209,15 @@
         "sonnet": "ark-code-latest",
         "opus": "ark-code-latest"
       },
-      "modelOptions": ["ark-code-latest"]
+      "modelOptions": [
+        "ark-code-latest",
+        "doubao-seed-2.1-pro",
+        "kimi-k3",
+        "glm-5.3",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "minimax-m3"
+      ]
     },
     {
       "id": "volcengine-agent",
@@ -219,7 +234,15 @@
         "sonnet": "ark-code-latest",
         "opus": "ark-code-latest"
       },
-      "modelOptions": ["ark-code-latest"]
+      "modelOptions": [
+        "ark-code-latest",
+        "doubao-seed-2.1-pro",
+        "kimi-k3",
+        "glm-5.3",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "minimax-m3"
+      ]
     },
     {
       "id": "volcengine",
@@ -236,7 +259,14 @@
         "sonnet": "doubao-seed-2-1-pro-260628",
         "opus": "doubao-seed-2-1-pro-260628"
       },
-      "modelOptions": ["doubao-seed-2-1-pro-260628"]
+      "modelOptions": [
+        "doubao-seed-2-1-pro-260628",
+        "doubao-seed-2-1-pro-260915",
+        "deepseek-v4-1-flash-260910",
+        "deepseek-v4-pro-ga-260813",
+        "glm-5-3-flash-260828",
+        "glm-5-2-260617"
+      ]
     },
     {
       "id": "byteplus",
@@ -253,7 +283,15 @@
         "sonnet": "ark-code-latest",
         "opus": "ark-code-latest"
       },
-      "modelOptions": ["ark-code-latest"]
+      "modelOptions": [
+        "ark-code-latest",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "glm-5.3-flash",
+        "glm-5.2",
+        "dola-seed-2.0-pro",
+        "dola-seed-2.0-code"
+      ]
     },
     {
       "id": "minimax",
@@ -270,7 +308,7 @@
         "sonnet": "MiniMax-M3[1M]",
         "opus": "MiniMax-M3[1M]"
       },
-      "modelOptions": ["MiniMax-M3[1M]"],
+      "modelOptions": ["MiniMax-M3[1M]", "MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"],
       "env": {
         "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000"
       }
@@ -290,7 +328,7 @@
         "sonnet": "MiniMax-M3[1M]",
         "opus": "MiniMax-M3[1M]"
       },
-      "modelOptions": ["MiniMax-M3[1M]"],
+      "modelOptions": ["MiniMax-M3[1M]", "MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"],
       "env": {
         "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000"
       }
@@ -310,7 +348,13 @@
         "sonnet": "step-3.5-flash-2603",
         "opus": "step-3.5-flash-2603"
       },
-      "modelOptions": ["step-3.5-flash-2603"]
+      "modelOptions": [
+        "step-3.5-flash-2603",
+        "step-3.7-flash",
+        "step-3.5-flash",
+        "step-5-preview",
+        "step-router-v1"
+      ]
     },
     {
       "id": "stepfun-en",
@@ -327,7 +371,13 @@
         "sonnet": "step-3.5-flash-2603",
         "opus": "step-3.5-flash-2603"
       },
-      "modelOptions": ["step-3.5-flash-2603"]
+      "modelOptions": [
+        "step-3.5-flash-2603",
+        "step-3.7-flash",
+        "step-3.5-flash",
+        "step-5-preview",
+        "step-router-v1"
+      ]
     },
     {
       "id": "qianfan-coding",
@@ -344,7 +394,7 @@
         "sonnet": "qianfan-code-latest",
         "opus": "qianfan-code-latest"
       },
-      "modelOptions": ["qianfan-code-latest"]
+      "modelOptions": ["qianfan-code-latest", "deepseek-v4-pro", "glm-5.1"]
     },
     {
       "id": "tencent-token-plan",
@@ -361,7 +411,17 @@
         "sonnet": "tc-code-latest",
         "opus": "tc-code-latest"
       },
-      "modelOptions": ["tc-code-latest"]
+      "modelOptions": [
+        "tc-code-latest",
+        "deepseek-v4-flash-202605",
+        "deepseek-v4-pro-202606",
+        "minimax-m2.7",
+        "glm-5",
+        "glm-5.1",
+        "glm-5.2",
+        "hy3",
+        "hy3-preview"
+      ]
     },
     {
       "id": "mimo",
@@ -378,7 +438,13 @@
         "sonnet": "mimo-v2.6-pro",
         "opus": "mimo-v2.6-pro"
       },
-      "modelOptions": ["mimo-v2.6-pro"]
+      "modelOptions": [
+        "mimo-v2.6-pro",
+        "mimo-v2.6-flash",
+        "mimo-v2.6-pro-ultraspeed",
+        "mimo-v2.5-pro",
+        "mimo-v2.5"
+      ]
     },
     {
       "id": "longcat",
@@ -395,7 +461,7 @@
         "sonnet": "LongCat-2.0",
         "opus": "LongCat-2.0"
       },
-      "modelOptions": ["LongCat-2.0"],
+      "modelOptions": ["LongCat-2.0", "LongCat-2.5-Preview"],
       "env": {
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "131072",
         "ANTHROPIC_SMALL_FAST_MODEL": "LongCat-2.0"
@@ -416,7 +482,7 @@
         "sonnet": "Ling-2.6-1T",
         "opus": "Ling-2.6-1T"
       },
-      "modelOptions": ["Ling-2.6-1T"]
+      "modelOptions": ["Ling-2.6-1T", "Ling-3.0-flash", "Ring-2.6-1T", "Ling-2.6-flash"]
     },
     {
       "id": "openrouter",
@@ -433,7 +499,17 @@
         "sonnet": "anthropic/claude-sonnet-5",
         "opus": "anthropic/claude-opus-5"
       },
-      "modelOptions": ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5", "anthropic/claude-haiku-4.5"]
+      "modelOptions": [
+        "anthropic/claude-sonnet-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-haiku-4.5",
+        "anthropic/claude-opus-5.5",
+        "anthropic/claude-fable-5.1",
+        "openai/gpt-5.6-sol",
+        "google/gemini-3.6-flash",
+        "openai/gpt-6-astra",
+        "google/gemini-3.8-flash"
+      ]
     },
     {
       "id": "siliconflow",
@@ -449,7 +525,13 @@
         "sonnet": "Pro/MiniMaxAI/MiniMax-M2.5",
         "opus": "Pro/MiniMaxAI/MiniMax-M2.5"
       },
-      "modelOptions": ["Pro/MiniMaxAI/MiniMax-M2.5"]
+      "modelOptions": [
+        "Pro/MiniMaxAI/MiniMax-M2.5",
+        "deepseek-ai/DeepSeek-V4-Flash",
+        "Pro/deepseek-ai/DeepSeek-V4",
+        "Pro/zai-org/GLM-5.2",
+        "moonshotai/Kimi-K2.7-Code"
+      ]
     },
     {
       "id": "siliconflow-en",
@@ -465,7 +547,13 @@
         "sonnet": "MiniMaxAI/MiniMax-M3",
         "opus": "MiniMaxAI/MiniMax-M3"
       },
-      "modelOptions": ["MiniMaxAI/MiniMax-M3"]
+      "modelOptions": [
+        "MiniMaxAI/MiniMax-M3",
+        "deepseek-ai/DeepSeek-V4-Pro-0813",
+        "deepseek-ai/DeepSeek-V4-Flash",
+        "moonshotai/Kimi-K2.6",
+        "zai-org/GLM-5.1"
+      ]
     },
     {
       "id": "modelscope",
@@ -481,7 +569,12 @@
         "sonnet": "ZhipuAI/GLM-5.2",
         "opus": "ZhipuAI/GLM-5.2"
       },
-      "modelOptions": ["ZhipuAI/GLM-5.2"]
+      "modelOptions": [
+        "ZhipuAI/GLM-5.2",
+        "deepseek-ai/DeepSeek-V4.1-Flash",
+        "deepseek-ai/DeepSeek-V4-Pro-0813",
+        "MiniMax/MiniMax-M3"
+      ]
     },
     {
       "id": "aihubmix",
@@ -492,7 +585,14 @@
       "apiKeyUrl": "https://aihubmix.com/",
       "baseUrl": "https://aihubmix.com",
       "apiKeyField": "ANTHROPIC_API_KEY",
-      "modelOptions": []
+      "modelOptions": [
+        "claude-sonnet-5",
+        "claude-opus-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "gpt-5.6-sol",
+        "gpt-6-astra"
+      ]
     },
     {
       "id": "ppio",
@@ -508,7 +608,15 @@
         "sonnet": "deepseek/deepseek-v4-flash-0731",
         "opus": "deepseek/deepseek-v4-flash-0731"
       },
-      "modelOptions": ["deepseek/deepseek-v4-flash-0731"]
+      "modelOptions": [
+        "deepseek/deepseek-v4-flash-0731",
+        "deepseek/deepseek-v4-pro-0813",
+        "deepseek/deepseek-v4.1-flash",
+        "zai-org/glm-5.3",
+        "moonshotai/kimi-k3",
+        "minimax/minimax-m3",
+        "qwen/qwen3.8-max"
+      ]
     },
     {
       "id": "novita",
@@ -525,7 +633,7 @@
         "sonnet": "zai-org/glm-5.1",
         "opus": "zai-org/glm-5.1"
       },
-      "modelOptions": ["zai-org/glm-5.1"]
+      "modelOptions": ["zai-org/glm-5.1", "zai-org/glm-5.3", "zai-org/glm-5.3-flash", "moonshotai/kimi-k3"]
     },
     {
       "id": "kimi",
@@ -537,7 +645,7 @@
       "baseUrl": "https://api.moonshot.cn/v1",
       "wireApi": "responses",
       "model": "kimi-k3",
-      "modelOptions": ["kimi-k3", "kimi-k2.7-code"],
+      "modelOptions": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6"],
       "effort": "high"
     },
     {
@@ -550,7 +658,7 @@
       "baseUrl": "https://api.moonshot.ai/v1",
       "wireApi": "responses",
       "model": "kimi-k3",
-      "modelOptions": ["kimi-k3", "kimi-k2.7-code"],
+      "modelOptions": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6"],
       "effort": "high"
     },
     {
@@ -628,7 +736,7 @@
       "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "wireApi": "responses",
       "model": "qwen3.8-max",
-      "modelOptions": ["qwen3.8-max", "qwen3.8-2.4t-a95b", "qwen3.8-27b"],
+      "modelOptions": ["qwen3.8-max", "qwen3.8-2.4t-a95b", "qwen3.8-27b", "qwen3.8-flash"],
       "effort": "high"
     },
     {
@@ -654,7 +762,15 @@
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
       "wireApi": "responses",
       "model": "ark-code-latest",
-      "modelOptions": ["ark-code-latest"],
+      "modelOptions": [
+        "ark-code-latest",
+        "doubao-seed-2.1-pro",
+        "kimi-k3",
+        "glm-5.3",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "minimax-m3"
+      ],
       "effort": "high"
     },
     {
@@ -667,7 +783,15 @@
       "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
       "wireApi": "responses",
       "model": "ark-code-latest",
-      "modelOptions": ["ark-code-latest"],
+      "modelOptions": [
+        "ark-code-latest",
+        "doubao-seed-2.1-pro",
+        "kimi-k3",
+        "glm-5.3",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "minimax-m3"
+      ],
       "effort": "high"
     },
     {
@@ -680,7 +804,14 @@
       "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
       "wireApi": "responses",
       "model": "doubao-seed-2-1-pro-260628",
-      "modelOptions": ["doubao-seed-2-1-pro-260628"],
+      "modelOptions": [
+        "doubao-seed-2-1-pro-260628",
+        "doubao-seed-2-1-pro-260915",
+        "deepseek-v4-1-flash-260910",
+        "deepseek-v4-pro-ga-260813",
+        "glm-5-3-flash-260828",
+        "glm-5-2-260617"
+      ],
       "effort": "high"
     },
     {
@@ -693,7 +824,15 @@
       "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
       "wireApi": "responses",
       "model": "ark-code-latest",
-      "modelOptions": ["ark-code-latest"],
+      "modelOptions": [
+        "ark-code-latest",
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "glm-5.3-flash",
+        "glm-5.2",
+        "dola-seed-2.0-pro",
+        "dola-seed-2.0-code"
+      ],
       "effort": "high"
     },
     {
@@ -706,7 +845,7 @@
       "baseUrl": "https://api.minimax.cn/v1",
       "wireApi": "responses",
       "model": "MiniMax-M3",
-      "modelOptions": ["MiniMax-M3"],
+      "modelOptions": ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"],
       "effort": "high"
     },
     {
@@ -719,7 +858,7 @@
       "baseUrl": "https://api.minimax.io/v1",
       "wireApi": "responses",
       "model": "MiniMax-M3",
-      "modelOptions": ["MiniMax-M3"],
+      "modelOptions": ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"],
       "effort": "high"
     },
     {
@@ -732,7 +871,7 @@
       "baseUrl": "https://api.stepfun.com/v1",
       "wireApi": "responses",
       "model": "step-3.7-flash",
-      "modelOptions": ["step-3.7-flash"],
+      "modelOptions": ["step-3.7-flash", "step-5-preview", "step-3.5-flash"],
       "effort": "high"
     },
     {
@@ -745,7 +884,7 @@
       "baseUrl": "https://api.stepfun.ai/v1",
       "wireApi": "responses",
       "model": "step-3.7-flash",
-      "modelOptions": ["step-3.7-flash"],
+      "modelOptions": ["step-3.7-flash", "step-5-preview", "step-3.5-flash"],
       "effort": "high"
     },
     {
@@ -803,7 +942,7 @@
       "baseUrl": "https://api.longcat.chat/openai/v1",
       "wireApi": "responses",
       "model": "LongCat-2.0",
-      "modelOptions": ["LongCat-2.0"],
+      "modelOptions": ["LongCat-2.0", "LongCat-2.5-Preview"],
       "effort": "high"
     },
     {
@@ -816,7 +955,14 @@
       "baseUrl": "https://maas-coding-api.cn-huabei-1.xf-yun.com/v1",
       "wireApi": "responses",
       "model": "astron-code-latest",
-      "modelOptions": ["astron-code-latest"],
+      "modelOptions": [
+        "astron-code-latest",
+        "xopglm52",
+        "xopkimi27code",
+        "xopdeepseekv4pro",
+        "xopdeepseekv4flash",
+        "xsparkx2"
+      ],
       "effort": "high"
     },
     {
@@ -829,7 +975,18 @@
       "baseUrl": "https://openrouter.ai/api/v1",
       "wireApi": "responses",
       "model": "gpt-5.6-sol",
-      "modelOptions": ["gpt-5.6-sol"],
+      "modelOptions": [
+        "gpt-5.6-sol",
+        "anthropic/claude-sonnet-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-opus-5.5",
+        "anthropic/claude-fable-5.1",
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.6-sol",
+        "google/gemini-3.6-flash",
+        "openai/gpt-6-astra",
+        "google/gemini-3.8-flash"
+      ],
       "effort": "high"
     },
     {
@@ -841,7 +998,14 @@
       "baseUrl": "https://aihubmix.com/v1",
       "wireApi": "responses",
       "model": "gpt-5.6-sol",
-      "modelOptions": ["gpt-5.6-sol"],
+      "modelOptions": [
+        "gpt-5.6-sol",
+        "claude-sonnet-5",
+        "claude-opus-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "gpt-6-astra"
+      ],
       "effort": "high"
     },
     {

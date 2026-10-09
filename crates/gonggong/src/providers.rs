@@ -768,8 +768,14 @@ mod tests {
         assert_eq!(zhipu.name, "智谱 GLM");
         assert!(zhipu.model_options.contains(&"glm-5.3".to_string()));
         assert!(preset(Claude, "xai").is_none(), "xAI is codex-only");
+        let kimi = |agent| preset(agent, "kimi-coding").unwrap().model_options.clone();
+        assert!(kimi(Claude).len() > 1, "claude presets get the vendor's models listed by the other apps");
+        assert_eq!(kimi(Claude), kimi(Codex));
         let mut urls = presets(None).flat_map(|p| [&p.website_url, &p.api_key_url]).flatten();
-        assert!(urls.all(|u| !u.contains("aff=") && !u.contains("ref=")), "referral params stripped");
+        assert!(
+            urls.all(|u| !u.contains("aff=") && !u.contains("ref=") && !u.contains("track_id=")),
+            "referral params stripped"
+        );
         let mut ids: Vec<_> = presets(None).map(|p| (p.agent, &p.id)).collect();
         ids.sort();
         ids.dedup();

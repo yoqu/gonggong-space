@@ -74,6 +74,80 @@ const WHITELIST = {
   },
 }
 
+// Models CC Switch does not list, from the vendors' own docs (checked 2026-10-09), keyed by our preset id.
+const VOLC_PLAN = [
+  'doubao-seed-2.1-pro',
+  'kimi-k3',
+  'glm-5.3',
+  'deepseek-v4.1-flash',
+  'deepseek-v4-pro',
+  'minimax-m3',
+]
+const STEP = ['step-5-preview', 'step-3.7-flash', 'step-3.5-flash']
+const MINIMAX = ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.7-highspeed']
+const EXTRA_MODELS = {
+  // docs.volcengine.com/docs/ark/coding-plan-personal-plan-overview, agent-plan-personal-plan-overview
+  'volcengine-coding': VOLC_PLAN,
+  'volcengine-agent': VOLC_PLAN,
+  // docs.volcengine.com/docs/ark/deep-thinking
+  volcengine: [
+    'doubao-seed-2-1-pro-260915',
+    'deepseek-v4-1-flash-260910',
+    'deepseek-v4-pro-ga-260813',
+    'glm-5-3-flash-260828',
+    'glm-5-2-260617',
+  ],
+  // docs.byteplus.com/en/docs/modelark/coding-plan-personal-ai-codex
+  byteplus: [
+    'deepseek-v4.1-flash',
+    'deepseek-v4-pro',
+    'glm-5.3-flash',
+    'glm-5.2',
+    'dola-seed-2.0-pro',
+    'dola-seed-2.0-code',
+  ],
+  // platform.minimax.io/docs/api-reference/text-anthropic-api
+  minimax: MINIMAX,
+  'minimax-en': MINIMAX,
+  // platform.stepfun.com/docs/zh/step-plan/integrations/reasoning-api (step-router-v1: step_plan only)
+  stepfun: [...STEP, 'step-router-v1'],
+  'stepfun-en': [...STEP, 'step-router-v1'],
+  'stepfun-api': STEP,
+  'stepfun-api-en': STEP,
+  // longcat.chat/platform/docs/zh/
+  longcat: ['LongCat-2.5-Preview', 'LongCat-2.0'],
+  // developer.ant-ling.com/zh-CN/docs/api-reference/anthropic
+  bailing: ['Ling-3.0-flash', 'Ring-2.6-1T', 'Ling-2.6-flash'],
+  // cloud.baidu.cn/doc/qianfan/s/imlg0beiu (Coding Plan gets no new models)
+  'qianfan-coding': ['deepseek-v4-pro', 'glm-5.1'],
+  // www.xfyun.cn/doc/spark/CodingPlan.html (which ones depends on the plan tier)
+  'astron-coding': ['xopglm52', 'xopkimi27code', 'xopdeepseekv4pro', 'xopdeepseekv4flash', 'xsparkx2'],
+  // docs.siliconflow.cn / docs.siliconflow.com chat-completions
+  siliconflow: [
+    'Pro/deepseek-ai/DeepSeek-V4',
+    'deepseek-ai/DeepSeek-V4-Flash',
+    'Pro/zai-org/GLM-5.2',
+    'moonshotai/Kimi-K2.7-Code',
+  ],
+  'siliconflow-en': [
+    'deepseek-ai/DeepSeek-V4-Pro-0813',
+    'deepseek-ai/DeepSeek-V4-Flash',
+    'moonshotai/Kimi-K2.6',
+    'zai-org/GLM-5.1',
+  ],
+  // api-inference.modelscope.cn/v1/models
+  modelscope: ['deepseek-ai/DeepSeek-V4.1-Flash', 'deepseek-ai/DeepSeek-V4-Pro-0813', 'MiniMax/MiniMax-M3'],
+  // api.ppio.com/openai/v1/models, those with an anthropic endpoint
+  ppio: [
+    'deepseek/deepseek-v4-pro-0813',
+    'deepseek/deepseek-v4.1-flash',
+    'zai-org/glm-5.3',
+    'moonshotai/kimi-k3',
+    'minimax/minimax-m3',
+    'qwen/qwen3.8-max',
+  ],
+}
+
 // Claude env keys copied besides the connection keys (§4.2.1).
 const EXTRA_ENV = [
   'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
@@ -97,6 +171,7 @@ const TRACKING = new Set([
   'from',
   'source',
   'code',
+  'track_id',
 ])
 
 // Invite codes carried in the path (`/i/<code>`, `/activity/ccswitch`) have no clean equivalent: drop the link.
@@ -125,9 +200,9 @@ function loadEsbuild() {
 async function loadPresets(ccSwitch) {
   const result = loadEsbuild().buildSync({
     stdin: {
-      contents:
-        "export { providerPresets } from './src/config/claudeProviderPresets'\n" +
-        "export { codexProviderPresets } from './src/config/codexProviderPresets'\n",
+      contents: Object.entries(PRESET_FILES)
+        .map(([name, file]) => `export { ${name} } from './src/config/${file}'\n`)
+        .join(''),
       resolveDir: ccSwitch,
       loader: 'ts',
     },
@@ -139,6 +214,26 @@ async function loadPresets(ccSwitch) {
   })
   const code = Buffer.from(result.outputFiles[0].text).toString('base64')
   return import(`data:text/javascript;base64,${code}`)
+}
+
+// Each CC Switch app's presets; the others only lend the model lists they keep for the same vendor.
+const PRESET_FILES = {
+  providerPresets: 'claudeProviderPresets',
+  codexProviderPresets: 'codexProviderPresets',
+  opencodeProviderPresets: 'opencodeProviderPresets',
+  mcodeProviderPresets: 'mcodeProviderPresets',
+  hermesProviderPresets: 'hermesProviderPresets',
+  openclawProviderPresets: 'openclawProviderPresets',
+  piProviderPresets: 'piProviderPresets',
+}
+
+/** Model ids a preset of any CC Switch app lists: Codex `modelCatalog`, `models` maps or `{ id }` lists. */
+function listedModels(p) {
+  const models = p.settingsConfig?.models
+  return [
+    ...(p.modelCatalog ?? []).map((m) => m.model),
+    ...(Array.isArray(models) ? models.map((m) => m.id) : Object.keys(models ?? {})),
+  ]
 }
 
 // Just enough TOML for CC Switch's generated Codex configs: top-level keys and [a.b] tables of scalars.
@@ -162,7 +257,7 @@ function parseToml(text) {
 
 const unique = (xs) => [...new Set(xs.filter(Boolean))]
 
-function claudePreset(p, [id, name, group]) {
+function claudePreset(p, [id, name, group], known) {
   if (!['anthropic', undefined].includes(p.apiFormat)) return null
   const env = p.settingsConfig.env ?? {}
   const baseUrl = env.ANTHROPIC_BASE_URL
@@ -184,12 +279,12 @@ function claudePreset(p, [id, name, group]) {
     apiKeyField: p.apiKeyField ?? 'ANTHROPIC_AUTH_TOKEN',
     model: env.ANTHROPIC_MODEL,
     models: Object.values(models).some(Boolean) ? models : undefined,
-    modelOptions: unique([env.ANTHROPIC_MODEL, models.sonnet, models.opus, models.haiku]),
+    modelOptions: unique([env.ANTHROPIC_MODEL, models.sonnet, models.opus, models.haiku, ...known]),
     env: Object.keys(extra).length ? extra : undefined,
   }
 }
 
-function codexPreset(p, [id, name, group]) {
+function codexPreset(p, [id, name, group], known) {
   if (p.apiFormat === 'openai_chat') return null
   const config = parseToml(p.config)
   const provider = config.model_providers?.[config.model_provider] ?? {}
@@ -205,7 +300,7 @@ function codexPreset(p, [id, name, group]) {
     baseUrl,
     wireApi: 'responses',
     model: config.model,
-    modelOptions: unique([config.model, ...(p.modelCatalog ?? []).map((m) => m.model)]),
+    modelOptions: unique([config.model, ...known]),
     effort: config.model_reasoning_effort,
   }
 }
@@ -219,13 +314,20 @@ async function main() {
   const commit = execFileSync('git', ['-C', ccSwitch, 'rev-parse', '--short', 'HEAD'], {
     encoding: 'utf8',
   }).trim()
-  const { providerPresets, codexProviderPresets } = await loadPresets(resolve(ccSwitch))
+  const all = await loadPresets(resolve(ccSwitch))
+  const { providerPresets, codexProviderPresets } = all
+  // A vendor's preset has the same name in every app; Codex's catalog first, it is the most carefully kept.
+  const known = (ccName) =>
+    Object.keys(PRESET_FILES)
+      .sort((a, b) => +(b === 'codexProviderPresets') - +(a === 'codexProviderPresets'))
+      .flatMap((list) => all[list].filter((p) => p.name === ccName).flatMap(listedModels))
   const sources = { claude: [providerPresets, claudePreset], codex: [codexProviderPresets, codexPreset] }
   const presets = []
   for (const [agent, [list, map]] of Object.entries(sources)) {
     for (const [ccName, entry] of Object.entries(WHITELIST[agent])) {
       const preset = list.find((p) => p.name === ccName)
-      const mapped = preset && !excluded(preset) ? map(preset, entry) : null
+      const models = [...known(ccName), ...(EXTRA_MODELS[entry[0]] ?? [])]
+      const mapped = preset && !excluded(preset) ? map(preset, entry, models) : null
       if (!mapped)
         throw new Error(`${agent} preset "${ccName}" is missing or no longer usable; update WHITELIST`)
       presets.push(mapped)
