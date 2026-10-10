@@ -175,7 +175,11 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   ...o,
 })
 
-const commandCandidates = (agent: CommandCandidatesDto['agent'] = []): CommandCandidatesDto => ({
+const commandCandidates = (
+  agent: CommandCandidatesDto['agent'] = [],
+  skill: CommandCandidatesDto['skill'] = [],
+): CommandCandidatesDto => ({
+  skill,
   system: [
     { name: 'stop', hint: '停止运行（未 @ Bot 时停止本群全部）' },
     { name: 'new', hint: '开新会话' },
@@ -741,6 +745,34 @@ describe('chat view', () => {
     ).toEqual(['/compactCompact the conversation'])
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('@小王的 Claude /compact ')
+  })
+
+  it('lists team skills between system and agent commands', async () => {
+    mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/candidates/commands': () =>
+        commandCandidates(
+          [{ name: 'compact', hint: 'Compact', botId: 'b1', botName: '小王的 Claude' }],
+          [{ name: 'gonggong-team:review-pr', hint: '按团队规范审查 diff' }],
+        ),
+    })
+    renderAt('/g/g1')
+    await screen.findByTestId('bot-reply')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
+    const list = await screen.findByRole('listbox', { name: '/ 命令' })
+    const skills = await within(list).findByRole('group', { name: '团队 Skill' })
+    expect(skills.textContent).toContain('配置中心')
+    expect(
+      within(list)
+        .getAllByRole('group')
+        .map((g) => g.getAttribute('aria-label')),
+    ).toEqual(['系统命令', '团队 Skill', 'AGENT 命令'])
+    fireEvent.change(box, { target: { value: '/review', selectionStart: 7 } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(box.value).toBe('/gonggong-team:review-pr ')
   })
 
   it('shows a not-found state for groups I am not in', async () => {

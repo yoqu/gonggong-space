@@ -250,4 +250,34 @@ describe('command candidates', () => {
     ])
     expect((await w.asAlice.get<CommandCandidatesDto>(url)).body.agent).toEqual([])
   })
+
+  it('lists the merged team skills, and hides the same skills reported back by the bot', async () => {
+    const w = await world()
+    const root = client(t, await t.seed.cookie((await t.seed.user({ role: 'sysadmin', teamId: null })).id))
+    const md = (name: string, description: string) => [
+      { path: 'SKILL.md', content: `---\nname: ${name}\ndescription: ${description}\n---\n` },
+    ]
+    await root.post('/api/admin/skills', { files: md('review', '平台审查') })
+    await root.post('/api/admin/skills', { enabled: false, files: md('off', '已停用') })
+    await w.asAlice.post(`/api/groups/${w.group.id}/skills`, { files: md('review', '本群审查') })
+    const url = `/api/groups/${w.group.id}/candidates/commands`
+    expect((await w.asAlice.get<CommandCandidatesDto>(url)).body.skill).toEqual([
+      { name: 'gonggong-team:review', hint: '本群审查' },
+    ])
+
+    const d = await daemon(w.a.token, w.a.machine.id)
+    const commands = [
+      { name: 'gonggong-team:review', description: 'x' },
+      { name: '$gonggong-team:review', description: 'x' },
+      { name: 'compact', description: 'Compact' },
+    ]
+    d.send({ t: 'commands.update', groupId: w.group.id, botId: w.bot.id, commands })
+    await until(
+      async () =>
+        (await w.asAlice.get<CommandCandidatesDto>(`${url}?botId=${w.bot.id}`)).body.agent.length > 0,
+    )
+    const res = (await w.asAlice.get<CommandCandidatesDto>(`${url}?botId=${w.bot.id}`)).body
+    expect(res.skill.map((c) => c.name)).toEqual(['gonggong-team:review'])
+    expect(res.agent.map((c) => c.name)).toEqual(['compact'])
+  })
 })

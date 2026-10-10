@@ -120,6 +120,7 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
     .select({
       scope: skills.scope,
       name: skills.name,
+      description: skills.description,
       versionId: skillVersions.id,
       digest: skillVersions.digest,
     })
@@ -139,7 +140,7 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
   for (const r of rows.sort((a, b) => RANK[a.scope as Scope] - RANK[b.scope as Scope])) merged.set(r.name, r)
   return [...merged.values()]
     .sort((a, b) => (a.name < b.name ? -1 : 1))
-    .map(({ name, versionId, digest }) => ({ name, versionId, digest }))
+    .map(({ name, description, versionId, digest }) => ({ name, description, versionId, digest }))
 }
 
 function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Authorize) {

@@ -159,6 +159,20 @@ export function useCandidates(group: GroupDto, before: string | null) {
               })),
           },
           {
+            label: t('团队 Skill'),
+            src: t('配置中心'),
+            items: (commands?.value.skill ?? [])
+              .filter((c) => has(c.name))
+              .map((c) => ({
+                key: `skill:${c.name}`,
+                icon: 'star',
+                label: `/${c.name}`,
+                mono: true,
+                hint: c.hint,
+                insert: `/${c.name}`,
+              })),
+          },
+          {
             label: t('AGENT 命令'),
             src: t('ACP 上报'),
             items: (commands?.value.agent ?? [])

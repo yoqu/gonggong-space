@@ -1,9 +1,10 @@
-import type {
-  SkillDetailDto,
-  SkillDto,
-  SkillFile,
-  SkillVersionDetailDto,
-  SkillVersionDto,
+import {
+  SKILL_PLUGIN,
+  type SkillDetailDto,
+  type SkillDto,
+  type SkillFile,
+  type SkillVersionDetailDto,
+  type SkillVersionDto,
 } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
@@ -27,9 +28,6 @@ import {
   toast,
 } from '../../ui'
 import { folderSkillFiles, zipSkillFiles } from './skillFiles'
-
-/** Both agents list team skills under this plugin namespace (plan 团队Skill · K0). */
-export const SKILL_NAMESPACE = 'gonggong-team'
 
 const TEMPLATE = `---
 name: my-skill
@@ -89,7 +87,7 @@ export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
               className="cfg__item"
               label={
                 <span className="cfg__name-line">
-                  <span className="cfg__name">{`/${SKILL_NAMESPACE}:${s.name}`}</span>
+                  <span className="cfg__name">{`/${SKILL_PLUGIN}:${s.name}`}</span>
                   <Tag tone="blue">{tag}</Tag>
                   <Tag tone="gray">{`v${s.version}`}</Tag>
                 </span>

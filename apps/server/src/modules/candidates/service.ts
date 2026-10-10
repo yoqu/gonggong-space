@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type {
-  CommandCandidatesDto,
-  DaemonToServer,
-  FileCandidatesDto,
-  ServerToDaemon,
+import {
+  type CommandCandidatesDto,
+  type DaemonToServer,
+  type FileCandidatesDto,
+  type ServerToDaemon,
+  SKILL_PLUGIN,
 } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -13,6 +14,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { commandPrefix, commands } from '../commands/index.js'
 import { activeBots } from '../groups/service.js'
+import { enabledSkills } from '../skills/routes.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { pick } from './match.js'
 import type { Mirrors } from './mirror.js'
@@ -117,8 +119,8 @@ async function onCommandsUpdate(ctx: Ctx, machineId: string, msg: CommandsUpdate
 }
 
 /**
- * / candidates (spec §8.7): system commands first; agent commands of the given bots, a name taken by a system
- * command shown as `/bot名:命令`. Server-side skill layers are P3.
+ * / candidates (spec §8.7): system commands first, then the group's team skills; agent commands of the given bots,
+ * a name taken by a system command shown as `/bot名:命令`, the team skills they report back left out.
  */
 export async function commandCandidates(
   ctx: Ctx,
@@ -143,16 +145,23 @@ export async function commandCandidates(
         )
     : []
   rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+  const skill = (await enabledSkills(ctx.db, groupId)).map((s) => ({
+    name: `${SKILL_PLUGIN}:${s.name}`,
+    hint: s.description,
+  }))
+  const team = new Set(skill.map((s) => s.name))
   const agent = rows.flatMap((b) =>
-    (b.commands as AgentCommand[]).map((c) => ({
-      ...(reserved.has(c.name)
-        ? { name: `${commandPrefix(b.name)}:${c.name}`, hint: t('与系统命令重名') }
-        : { name: c.name, hint: c.description }),
-      botId: b.id,
-      botName: b.name,
-    })),
+    (b.commands as AgentCommand[])
+      .filter((c) => !team.has(c.name.replace(/^\$/, '')))
+      .map((c) => ({
+        ...(reserved.has(c.name)
+          ? { name: `${commandPrefix(b.name)}:${c.name}`, hint: t('与系统命令重名') }
+          : { name: c.name, hint: c.description }),
+        botId: b.id,
+        botName: b.name,
+      })),
   )
-  return { system, agent }
+  return { system, skill, agent }
 }
 
 /** Wires commands.update from daemons. Returns a drain-and-detach fn. */

@@ -1084,7 +1084,9 @@ export type FileCandidatesDto = z.infer<typeof FileCandidatesDto>
 
 export const CommandCandidatesDto = z.object({
   system: z.array(z.object({ name: z.string(), hint: z.string() })),
-  /** P1: agent commands reported over ACP (Claude reports skills as commands); server skill layers are P3. */
+  /** Team skills merged over the platform, team and group layers, as the agents name them. */
+  skill: z.array(z.object({ name: z.string(), hint: z.string() })).default([]),
+  /** Agent commands reported over ACP (Claude reports repo skills as commands), minus the team skills above. */
   agent: z.array(z.object({ name: z.string(), hint: z.string(), botId: z.string(), botName: z.string() })),
 })
 export type CommandCandidatesDto = z.infer<typeof CommandCandidatesDto>

@@ -270,7 +270,11 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
       quote: quoteOf(meta),
     },
     mcpServers: await enabledMcpServers(tx, run.groupId),
-    skills: await enabledSkills(tx, run.groupId),
+    skills: (await enabledSkills(tx, run.groupId)).map(({ name, versionId, digest }) => ({
+      name,
+      versionId,
+      digest,
+    })),
     command,
     sync: synced ? await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
   }

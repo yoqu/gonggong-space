@@ -194,6 +194,8 @@ export const SkillFile = z.object({
   encoding: z.enum(['utf8', 'base64']).default('utf8'),
 })
 export type SkillFile = z.infer<typeof SkillFile>
+/** Both agents list team skills under this plugin namespace (plan 团队Skill · K0). */
+export const SKILL_PLUGIN = 'gonggong-team'
 /** A merged team skill for the run (plan 团队Skill); the daemon fetches its files by `versionId`, cached by `digest`. */
 export const SkillRef = z.object({ name: z.string(), versionId: z.string(), digest: z.string() })
 export type SkillRef = z.infer<typeof SkillRef>
