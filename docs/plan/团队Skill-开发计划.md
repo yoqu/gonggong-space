@@ -38,7 +38,7 @@
 | 切片 | 内容 | 验收 |
 | --- | --- | --- |
 | K0 实测 ✅ | Claude/Codex 的 skill 落地位置、热加载、ACP 注入可行性，产出映射表 | `acp-capabilities.md` 补表 |
-| K1 存储与 API | 表、迁移、CRUD、版本、三层合并、校验 | server 集成测试 |
+| K1 存储与 API ✅ | 表、迁移、CRUD、版本、三层合并、校验 | server 集成测试 |
 | K2 配置中心 UI | 列表/上传/编辑/版本回滚，中英词条 | web 单测 + 原型对齐 |
 | K3 下发 | protocol + fixture + Rust 解析、缓存、落地、exclude、同名冲突提示 | cargo test + fixture 往返 |
 | K4 候选与端到端 | `/` 候选合并；e2e：管理员上传 → bot 下一轮可用 → 工作树干净 | Playwright |

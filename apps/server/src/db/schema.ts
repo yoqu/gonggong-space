@@ -711,6 +711,46 @@ export const mcpServers = pgTable(
   (t) => [unique().on(t.scope, t.teamId, t.groupId, t.name).nullsNotDistinct()],
 )
 
+/** Team skills (plan 团队Skill), layered like `mcp_servers`; `name` / `description` mirror the current version. */
+export const skills = pgTable(
+  'skills',
+  {
+    id: id(),
+    /** 'platform' | 'team' | 'group' */
+    scope: text('scope').notNull(),
+    teamId: uuid('team_id').references(() => teams.id),
+    groupId: uuid('group_id').references(() => groups.id),
+    name: text('name').notNull(),
+    description: text('description').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    /** Not a foreign key: versions reference the skill, and the first one is inserted after it. */
+    versionId: uuid('version_id'),
+    updatedBy: uuid('updated_by').references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.scope, t.teamId, t.groupId, t.name).nullsNotDistinct()],
+)
+
+/** Immutable snapshots of a skill folder; rolling back only moves `skills.version_id`. */
+export const skillVersions = pgTable(
+  'skill_versions',
+  {
+    id: id(),
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    /** SkillFile[] sorted by path. */
+    files: jsonb('files').notNull(),
+    /** sha256 over the files: the daemon's cache key. */
+    digest: text('digest').notNull(),
+    size: integer('size').notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [unique().on(t.skillId, t.version)],
+)
+
 /** Scheduled tasks (plan 定时任务): at each firing the first available bot of `botIds` is @-ed in the owner's name. */
 export const schedules = pgTable(
   'schedules',

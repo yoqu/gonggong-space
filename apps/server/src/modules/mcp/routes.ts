@@ -12,14 +12,14 @@ import { requireAdmin } from '../groups/service.js'
 import { requireTeam } from '../teams/service.js'
 
 type Row = typeof mcpServers.$inferSelect
-type Scope = 'platform' | 'team' | 'group'
+export type Scope = 'platform' | 'team' | 'group'
 /** One layer's rows (plan D8): platform has neither id, team rows a team, group rows both. */
-type Layer = { scope: Scope; teamId: string | null; groupId: string | null }
+export type Layer = { scope: Scope; teamId: string | null; groupId: string | null }
 type Params = { Params: { id?: string; mcpId?: string } }
 
 /** The daemon injects the built-in ask server under this name (spec §8.8). */
 const RESERVED = 'gonggong'
-const RANK: Record<Scope, number> = { platform: 0, team: 1, group: 2 }
+export const RANK: Record<Scope, number> = { platform: 0, team: 1, group: 2 }
 
 const dto = (r: Row): McpServerDto => ({
   id: r.id,
@@ -84,12 +84,7 @@ async function forceNewSessions(ctx: Ctx, l: Layer) {
 }
 
 /** The same list / create / update / delete under `base` for each layer; `authorize` resolves the caller's layer. */
-function layerRoutes(
-  ctx: Ctx,
-  app: FastifyInstance,
-  base: string,
-  authorize: (req: FastifyRequest<Params>) => Promise<{ actorId: string; layer: Layer }>,
-) {
+function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Authorize) {
   const save = async (actorId: string, l: Layer, action: string, row: Row | undefined, force: boolean) => {
     if (!row) return fail('not_found', 'MCP 不存在')
     if (force) await forceNewSessions(ctx, l)
@@ -158,22 +153,29 @@ function layerRoutes(
   })
 }
 
+export type Authorize = (
+  req: FastifyRequest<{ Params: { id?: string } }>,
+) => Promise<{ actorId: string; layer: Layer }>
+
 /** Platform layer for sysadmins, team layer for team admins, group layer for group admins (plan D8). */
+export function eachLayer(ctx: Ctx, segment: string, routes: (base: string, authorize: Authorize) => void) {
+  routes(`/api/admin/${segment}`, async (req) => ({
+    actorId: (await requireSysadmin(ctx, req)).id,
+    layer: { scope: 'platform', teamId: null, groupId: null },
+  }))
+  routes(`/api/teams/:id/${segment}`, async (req) => {
+    const me = await requireUser(ctx, req)
+    const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
+    return { actorId: me.id, layer: { scope: 'team', teamId: team.id, groupId: null } }
+  })
+  routes(`/api/groups/:id/${segment}`, async (req) => {
+    const me = await requireUser(ctx, req)
+    const { group } = await requireAdmin(ctx, req.params.id ?? '', me.id)
+    return { actorId: me.id, layer: { scope: 'group', teamId: group.teamId, groupId: group.id } }
+  })
+}
+
 export function mcpRoutes(ctx: Ctx) {
-  return async (app: FastifyInstance) => {
-    layerRoutes(ctx, app, '/api/admin/mcp', async (req) => ({
-      actorId: (await requireSysadmin(ctx, req)).id,
-      layer: { scope: 'platform', teamId: null, groupId: null },
-    }))
-    layerRoutes(ctx, app, '/api/teams/:id/mcp', async (req) => {
-      const me = await requireUser(ctx, req)
-      const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
-      return { actorId: me.id, layer: { scope: 'team', teamId: team.id, groupId: null } }
-    })
-    layerRoutes(ctx, app, '/api/groups/:id/mcp', async (req) => {
-      const me = await requireUser(ctx, req)
-      const { group } = await requireAdmin(ctx, req.params.id ?? '', me.id)
-      return { actorId: me.id, layer: { scope: 'group', teamId: group.teamId, groupId: group.id } }
-    })
-  }
+  return async (app: FastifyInstance) =>
+    eachLayer(ctx, 'mcp', (base, authorize) => layerRoutes(ctx, app, base, authorize))
 }

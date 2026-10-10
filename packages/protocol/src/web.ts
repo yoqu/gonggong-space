@@ -1103,6 +1103,49 @@ export const SaveMcpReq = z.object({
   forceNewSession: z.boolean().default(false),
 })
 
+// ── Team skills (plan 团队Skill): platform → team → group layers, versioned ────
+export const SKILL_MAX_BYTES = 5 * 1024 * 1024
+export const SKILL_MAX_FILES = 200
+/** A file of the skill folder; `path` is relative (`SKILL.md`, `scripts/run.sh`), binary files in base64. */
+export const SkillFile = z.object({
+  path: z.string().min(1).max(255),
+  content: z.string(),
+  encoding: z.enum(['utf8', 'base64']).default('utf8'),
+})
+export type SkillFile = z.infer<typeof SkillFile>
+/** `name` / `description` come from the SKILL.md frontmatter of the current version. */
+export const SkillDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  enabled: z.boolean(),
+  versionId: z.string(),
+  version: z.number().int(),
+  size: z.number().int(),
+  updatedBy: z.string().nullable(),
+  updatedAt: z.string(),
+})
+export type SkillDto = z.infer<typeof SkillDto>
+export const SkillDetailDto = SkillDto.extend({ files: z.array(SkillFile) })
+export type SkillDetailDto = z.infer<typeof SkillDetailDto>
+export const SkillVersionDto = z.object({
+  id: z.string(),
+  version: z.number().int(),
+  digest: z.string(),
+  size: z.number().int(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+  current: z.boolean(),
+})
+export type SkillVersionDto = z.infer<typeof SkillVersionDto>
+export const SkillVersionDetailDto = SkillVersionDto.extend({ files: z.array(SkillFile) })
+export type SkillVersionDetailDto = z.infer<typeof SkillVersionDetailDto>
+const SkillFiles = z.array(SkillFile).min(1).max(SKILL_MAX_FILES)
+export const CreateSkillReq = z.object({ enabled: z.boolean().default(true), files: SkillFiles })
+/** New files make a new version unless identical to the current one. */
+export const UpdateSkillReq = z.object({ enabled: z.boolean().optional(), files: SkillFiles.optional() })
+export const RollbackSkillReq = z.object({ versionId: z.string() })
+
 // ── Search (⌘K, plan D9) ────────────────────────────────────────────────────
 export const SearchQuery = z.object({ q: z.string().min(1).max(200), tab: z.enum(['msg', 'file', 'run']) })
 export const SearchResultDto = z.object({

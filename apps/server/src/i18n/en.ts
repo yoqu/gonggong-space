@@ -337,6 +337,20 @@ export const en = {
   'MCP 不存在': 'MCP not found',
   'MCP 名称已存在': 'An MCP with this name already exists',
 
+  // Skills
+  'Skill 不存在': 'Skill not found',
+  'Skill 名称已存在': 'A skill with this name already exists',
+  版本不存在: 'Version not found',
+  '缺少 SKILL.md': 'SKILL.md is missing',
+  'SKILL.md 缺少 frontmatter': 'SKILL.md has no frontmatter',
+  'SKILL.md 的 name 只能用小写字母、数字和连字符，最长 64 个字符':
+    'The name in SKILL.md may only use lowercase letters, digits and hyphens, up to 64 characters',
+  'SKILL.md 缺少 description（最长 1024 个字符）': 'SKILL.md needs a description (up to 1024 characters)',
+  '文件路径不合法：{path}': 'Invalid file path: {path}',
+  '文件重复：{path}': 'Duplicate file: {path}',
+  '文件内容不是合法的 base64：{path}': 'File content is not valid base64: {path}',
+  'Skill 不能超过 5 MB': 'A skill cannot exceed 5 MB',
+
   // Messages
   引用的内容不存在: 'Quoted content not found',
   引用的消息不存在: 'Quoted message not found',
