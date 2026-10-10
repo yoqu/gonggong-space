@@ -25,6 +25,9 @@ pub fn is_repo(dir: &Path) -> bool {
     dir.join(".git").exists()
 }
 
+/// Git escapes non-ASCII paths as octal (`\345\233...`) by default; keep them readable in patches and listings.
+const UNQUOTED: [&str; 2] = ["-c", "core.quotePath=false"];
+
 pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     run_git(dir, args, None).await
 }
@@ -41,7 +44,7 @@ async fn run_git(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<Stri
 
 async fn run_git_raw(dir: &Path, args: &[&str], index: Option<&Path>) -> Result<Vec<u8>, String> {
     let mut cmd = crate::proc::async_command("git");
-    cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").kill_on_drop(true);
+    cmd.arg("-C").arg(dir).args(UNQUOTED).args(args).env("GIT_TERMINAL_PROMPT", "0").kill_on_drop(true);
     if let Some(index) = index {
         cmd.env("GIT_INDEX_FILE", index);
     }
@@ -59,6 +62,7 @@ async fn git_capped(dir: &Path, args: &[&str], limit: usize) -> Result<String, S
     let mut child = crate::proc::async_command("git")
         .arg("-C")
         .arg(dir)
+        .args(UNQUOTED)
         .args(args)
         .env("GIT_TERMINAL_PROMPT", "0")
         .stdin(Stdio::null())
@@ -699,6 +703,15 @@ mod tests {
         let p = uncommitted_patch(&w).await.unwrap().patch.unwrap();
         assert!(p.contains("diff --git a/README.md b/README.md") && p.contains("+changed"));
         assert!(p.contains("b/new.txt") && p.contains("+untracked"));
+    }
+
+    #[tokio::test]
+    async fn patches_keep_non_ascii_paths_readable() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        fs::write(w.join("计划.md"), "中文\n").unwrap();
+        let p = uncommitted_patch(&w).await.unwrap().patch.unwrap();
+        assert!(p.contains("diff --git a/计划.md b/计划.md"), "{p}");
     }
 
     #[tokio::test]
