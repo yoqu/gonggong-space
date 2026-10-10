@@ -30,6 +30,7 @@ const group = (id: string, name: string): GroupDto => ({
   name,
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: null,

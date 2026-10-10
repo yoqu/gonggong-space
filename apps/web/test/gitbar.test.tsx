@@ -11,6 +11,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   name: '退款 v2 迁移',
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: { url: 'git@git.corp:pay/refund.git', branch: 'main' },

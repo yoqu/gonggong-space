@@ -191,8 +191,9 @@ export function groupRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/members', async (req) => {
       const me = await requireUser(ctx, req)
-      const { group } = await requireAdmin(ctx, req.params.id, me.id)
+      const { group, member: mine } = await requireMember(ctx, req.params.id, me.id)
       if (group.kind === 'dm') return fail('invalid', '私聊不能添加成员')
+      if (group.adminOnlyInvite && !mine.isAdmin) return fail('forbidden', '本群仅群管理员可拉人')
       const { userIds } = GroupMemberReq.parse(req.body)
       const wanted = await activeUsers(ctx, group.teamId, uniq(userIds))
       const current = await ctx.db
@@ -234,9 +235,10 @@ export function groupRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/bots', async (req) => {
       const me = await requireUser(ctx, req)
-      const { group } = await requireAdmin(ctx, req.params.id, me.id)
+      const { group, member: mine } = await requireMember(ctx, req.params.id, me.id)
       const { botId } = GroupBotReq.parse(req.body)
       const bot = await oneBot(ctx, group.teamId, botId)
+      if (!mine.isAdmin && bot.ownerId !== me.id) return fail('forbidden', '只能拉入你自己的 Bot')
       if (group.kind === 'dm' && bot.ownerId !== group.createdBy)
         return fail('forbidden', '私聊只能拉入你自己的 Bot')
       if ((await activeBots(ctx, group.id)).some((b) => b.id === bot.id))

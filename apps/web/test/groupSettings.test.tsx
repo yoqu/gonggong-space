@@ -25,6 +25,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   name: '支付服务重构',
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: { url: 'git@git.corp:pay/pay-server.git', branch: 'main' },
@@ -224,6 +225,58 @@ describe('group settings inspector', () => {
     for (const name of [/群名称与公告/, /仓库与基准分支/, /同步模式/, /群级参数/])
       expect(within(d).getByRole('button', { name }).hasAttribute('disabled')).toBe(true)
     expect(within(d).queryByRole('button', { name: '解散群' })).toBeNull()
+  })
+
+  it('lets plain members invite people and pull in their own bots, unless only admins may invite', async () => {
+    const plain = {
+      members: [
+        { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+        { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+      ],
+      botIds: ['b2'],
+    }
+    mockApi(routes([group(plain)], { 'GET /bots': bots }))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    expect(within(d).getByRole('switch', { name: '仅群管理员可拉人' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
+    expect(within(d).getByRole('button', { name: '添加成员' })).toBeTruthy()
+    fireEvent.click(within(d).getByRole('button', { name: '返回' }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    expect(
+      within(pick)
+        .getAllByRole('menuitemcheckbox')
+        .map((b) => b.textContent),
+    ).toEqual([expect.stringContaining('小王的 Claude')])
+    expect(within(d).queryByRole('button', { name: '移出' })).toBeNull()
+  })
+
+  it('hides inviting from plain members when only admins may invite; an admin flips it', async () => {
+    const plain = group({
+      adminOnlyInvite: true,
+      members: [
+        { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+        { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+      ],
+    })
+    mockApi(routes([plain]))
+    const view = renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
+    expect(within(d).queryByRole('button', { name: '添加成员' })).toBeNull()
+    view.unmount()
+
+    const calls = mockApi(
+      routes([group()], { 'PATCH /groups/g1': (b: unknown) => group(b as Partial<GroupDto>) }),
+    )
+    renderAt('/g/g1')
+    const admin = await openDrawer()
+    fireEvent.click(within(admin).getByRole('switch', { name: '仅群管理员可拉人' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ adminOnlyInvite: true }),
+    )
   })
 
   it('edits the name and notice, then shows the notice bar', async () => {

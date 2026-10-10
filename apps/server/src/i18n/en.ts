@@ -260,6 +260,8 @@ export const en = {
   填写群名: 'Enter a group name',
   '私聊只能包含你和你的 Bot': 'A direct chat can only include you and your Bots',
   '私聊只能拉入你自己的 Bot': 'Only your own Bots can join a direct chat',
+  '只能拉入你自己的 Bot': 'You can only add your own Bots',
+  本群仅群管理员可拉人: 'Only group admins can invite people to this group',
   私聊不能添加成员: "Direct chats can't have more members",
   该用户不在群内: 'This user is not in the group',
   '唯一的群管理员不能被移出，请先指定继任者':

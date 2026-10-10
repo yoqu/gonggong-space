@@ -26,6 +26,7 @@ const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto =>
   name,
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: null,

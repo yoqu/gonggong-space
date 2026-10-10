@@ -351,6 +351,13 @@
       "when": 1791613262387,
       "tag": "0049_rapid_carmella_unuscione",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791624477671,
+      "tag": "0050_wealthy_william_stryker",
+      "breakpoints": true
     }
   ]
 }

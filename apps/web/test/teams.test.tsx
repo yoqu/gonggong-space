@@ -81,6 +81,7 @@ const chatGroup = (o: Partial<GroupDto> = {}): GroupDto => ({
   name: '支付服务重构',
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: null,

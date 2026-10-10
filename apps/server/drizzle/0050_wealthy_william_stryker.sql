@@ -1,0 +1,1 @@
+ALTER TABLE "groups" ADD COLUMN "admin_only_invite" boolean DEFAULT false NOT NULL;

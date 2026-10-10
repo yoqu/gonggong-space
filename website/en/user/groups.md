@@ -45,7 +45,7 @@ From top to bottom, the sidebar contains:
 
 - **Group name and mode**: the group name is labeled 「分区模式」 (partition mode), followed by the repository URL and base branch. When no repository is bound, it shows 「未绑定仓库 · 各 Bot 使用本机目录」 ("No repository bound · each Bot uses a local directory").
 - **Quick buttons**: 「成员」 (Members), 「公告」 (Announcement), 「设置」 (Settings). The last two are visible only to group admins.
-- **Member avatars**: group admins can add members here.
+- **Member avatars**: add members here (only group admins can once 「仅群管理员可拉人」 (Only admins can invite) is on).
 - **Bot**, **仓库与工作区** (Repositories and workspaces), **预览与服务** (Previews and services), **群公告** (Group announcement): click to open the corresponding subpage.
 - **Personal toggles** (affect only you):
 
@@ -55,7 +55,7 @@ From top to bottom, the sidebar contains:
 | 置顶群 (Pin group) | Pin the group to the top of the left sidebar |
 | 运行卡片默认折叠 (Collapse run cards by default) | Affects only you; approval and question cards are always expanded |
 
-- **Group management**: 「群名称与公告」 (Group name and announcement), 「仓库与基准分支」 (Repository and base branch), 「同步模式」 (Sync mode), 「群级参数」 (Group-level parameters). Only group admins can use these; other members see 「仅群管理员 · 某某」 ("Group admins only · X").
+- **Group management**: 「群名称与公告」 (Group name and announcement), 「仓库与基准分支」 (Repository and base branch), 「同步模式」 (Sync mode), 「群级参数」 (Group-level parameters), 「仅群管理员可拉人」 (Only admins can invite). Only group admins can use these; other members see 「仅群管理员 · 某某」 ("Group admins only · X"). 「仅群管理员可拉人」 is off by default: any member can add members; when on, only group admins can.
 - At the bottom: 「退出群」 (Leave group) and 「解散群」 (Disband group) (「删除私聊」 (Delete direct chat) in a direct chat).
 
 You can't set a group avatar manually: a group's avatar is composed automatically from its members' and Bots' avatars, and a direct chat shows the Bot's avatar.
@@ -67,13 +67,15 @@ A group has only two roles: **group admin** and **member**. The creator is the f
 Click 「成员」 (Members) in the sidebar to open the 「群成员」 (Group members) page:
 
 - Each member is shown with whether they're a 「群管理员」 (group admin), and which Bots they brought in (「带入 某某」 ("Brought in X") or 「未带入 Bot」 ("No Bots brought in")).
-- Group admins can 「添加成员」 (Add member), and for other members, 「设为管理员」 (Make admin), 「取消管理员」 (Remove admin), or 「移出」 (Remove).
+- Members can 「添加成员」 (Add member), picking several at once (only group admins can once 「仅群管理员可拉人」 is on). Group admins can also, for other members, 「设为管理员」 (Make admin), 「取消管理员」 (Remove admin), or 「移出」 (Remove).
 
 | Action | Who can do it |
 | --- | --- |
-| Add or remove members | Group admin |
+| Add members | Any member (group admins only once 「仅群管理员可拉人」 is on) |
+| Remove members | Group admin |
 | Make or remove an admin | Group admin |
-| Add or remove Bots | Group admin |
+| Add your own Bots | Any member |
+| Add someone else's Bot, remove Bots | Group admin |
 | Rename the group, post or remove the announcement | Group admin |
 | Change the repository, edit group-level parameters | Group admin |
 | Disband the group | Group admin |
@@ -90,7 +92,7 @@ Click 「成员」 (Members) in the sidebar to open the 「群成员」 (Group m
 
 Click 「Bot」 in the sidebar to open the Bot page, which shows 「N 个 · 在线 M」 ("N total · M online").
 
-- Group admins click 「拉入 Bot」 (Add Bot) to add one. If a candidate Bot's owner isn't in the group, it's labeled 「主人将一并加入」 ("owner will also join").
+- Click 「拉入 Bot」 (Add Bot) to add one: members can add only their own Bots; group admins can add any Bot in the team. If a candidate Bot's owner isn't in the group, it's labeled 「主人将一并加入」 ("owner will also join").
 - Each Bot shows its permission tier (labeled 「本群」 (This group) when set specifically for this group) and its trigger scope (any group member / 「仅本人」 (Only me) / specified list).
 - In 「本群档位」 (Tier in this group), the Bot owner can choose 「只读」 (Read-only), 「工作区写入」 (Workspace write), or 「完全访问」 (Full access) specifically for this group, or 「跟随全局」 (Follow global). Changes take effect immediately on turns in progress. When this group's tier is Full access, only the specified list can trigger the Bot.
 - 「全局设置」 (Global settings) jumps to the Bot's own settings; see [Bot settings and permissions](/en/user/bot-settings).

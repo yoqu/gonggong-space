@@ -1,7 +1,7 @@
 import type { GroupDto, TimelineDto } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { auditLogs, groupBots, groupRepos, messages, runs } from '../src/db/schema.js'
+import { auditLogs, groupBots, groupRepos, groups, messages, runs } from '../src/db/schema.js'
 import { publishGroup } from '../src/modules/groups/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client, events } from './support/http.js'
@@ -245,10 +245,22 @@ describe('reading groups', () => {
 })
 
 describe('membership management', () => {
-  it('admin adds a member; non-admins cannot', async () => {
+  it('any member adds a member unless the group lets only admins invite', async () => {
     const p = await people()
     const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    await t.db.update(groups).set({ adminOnlyInvite: true }).where(eq(groups.id, g.id))
     expect((await p.asLi.post(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })).status).toBe(403)
+    await t.db.update(groups).set({ adminOnlyInvite: false }).where(eq(groups.id, g.id))
+    const res = await p.asLi.post<GroupDto>(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })
+    expect(res.status).toBe(200)
+    expect(res.body.members.map((m) => m.userId)).toContain(p.zhao.id)
+    expect((await bodies(p.asZhao, g.id)).at(-1)).toBe('李建国 邀请 赵敏 加入群')
+  })
+
+  it('admin adds a member', async () => {
+    const p = await people()
+    const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    await t.db.update(groups).set({ adminOnlyInvite: true }).where(eq(groups.id, g.id))
     const zhaoEvents = events(t, p.zhao.id)
     const res = await p.asWang.post<GroupDto>(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })
     expect(res.status).toBe(200)
@@ -345,6 +357,17 @@ describe('membership management', () => {
 
     const again = await p.asWang.post<GroupDto>(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
     expect(again.body.botIds).toEqual([p.liBot.id])
+  })
+
+  it('a member pulls in only their own bots; admins pull in anyone’s', async () => {
+    const p = await people()
+    const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    expect((await p.asLi.post(`/api/groups/${g.id}/bots`, { botId: p.wangBot.id })).status).toBe(403)
+    const res = await p.asLi.post<GroupDto>(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
+    expect(res.status).toBe(200)
+    expect(res.body.botIds).toEqual([p.liBot.id])
+    expect((await p.asLi.del(`/api/groups/${g.id}/bots/${p.liBot.id}`)).status).toBe(403)
+    expect((await p.asWang.post(`/api/groups/${g.id}/bots`, { botId: p.wangBot.id })).status).toBe(200)
   })
 
   it('a DM only accepts the creator’s own bots and no other members', async () => {

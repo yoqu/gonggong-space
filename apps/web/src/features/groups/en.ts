@@ -54,6 +54,9 @@ export default {
   搜索成员: 'Search members',
   添加成员: 'Add member',
   '添加 {n} 人': 'Add {n} {n:person|people}',
+  仅群管理员可拉人: 'Only admins can invite',
+  '关闭时所有成员都能拉人；成员始终可拉入自己的 Bot':
+    'When off, every member can invite people; members can always add their own Bots',
   成员列表加载失败: 'Failed to load members',
   所有账号都已在群里: 'Every account is already in the group',
   '（我）': ' (me)',

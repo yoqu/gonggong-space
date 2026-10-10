@@ -132,6 +132,7 @@ export function GroupInfo({
   const [adding, setAdding] = useState(false)
   const dm = group.kind === 'dm'
   const isAdmin = !readOnly && group.members.some((m) => m.userId === me?.id && m.isAdmin)
+  const canInvite = !readOnly && !dm && (isAdmin || !group.adminOnlyInvite)
   const label = dm ? t('私聊设置') : t('群设置')
   useEscape(onClose)
   const title = {
@@ -156,6 +157,7 @@ export function GroupInfo({
         <MainView
           group={group}
           isAdmin={isAdmin}
+          canInvite={canInvite}
           setView={(v, add = false) => {
             setAdding(add)
             setView(v)
@@ -164,9 +166,9 @@ export function GroupInfo({
           onSettings={onSettings}
         />
       ) : view === 'members' ? (
-        <MembersView group={group} isAdmin={isAdmin} initialAdding={adding} />
+        <MembersView group={group} isAdmin={isAdmin} canInvite={canInvite} initialAdding={adding} />
       ) : view === 'bots' ? (
-        <BotsView group={group} isAdmin={isAdmin} />
+        <BotsView group={group} isAdmin={isAdmin} member={!readOnly} />
       ) : view === 'repo' ? (
         <RepoWorkspaceView group={group} isAdmin={isAdmin} />
       ) : view === 'notices' ? (
@@ -185,12 +187,14 @@ export function GroupInfo({
 function MainView({
   group,
   isAdmin,
+  canInvite,
   setView,
   onClose,
   onSettings,
 }: {
   group: GroupDto
   isAdmin: boolean
+  canInvite: boolean
   setView: (v: InfoView, add?: boolean) => void
   onClose: () => void
   onSettings: (tab: SettingsTab) => void
@@ -321,7 +325,7 @@ function MainView({
       ]}
       members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
       memberCount={group.members.length}
-      onAddMember={isAdmin ? () => setView('members', true) : undefined}
+      onAddMember={canInvite ? () => setView('members', true) : undefined}
       onShowAllMembers={() => setView('members')}
       settings={[
         {
@@ -407,6 +411,24 @@ function MainView({
                   value: <LoadError text={t('群级参数加载失败')} onRetry={loadParams} />,
                 }
               : manage(t('群级参数'), params ? paramsSummary(params) : '', () => onSettings('params')),
+            ...(dm
+              ? []
+              : [
+                  {
+                    label: t('仅群管理员可拉人'),
+                    description: t('关闭时所有成员都能拉人；成员始终可拉入自己的 Bot'),
+                    control: (
+                      <Switch
+                        aria-label={t('仅群管理员可拉人')}
+                        checked={group.adminOnlyInvite}
+                        disabled={!isAdmin}
+                        onChange={(v) =>
+                          void attempt(() => groupsApi.update(group.id, { adminOnlyInvite: v }))
+                        }
+                      />
+                    ),
+                  },
+                ]),
           ],
         },
       ]}
@@ -418,10 +440,12 @@ function MainView({
 function MembersView({
   group,
   isAdmin,
+  canInvite,
   initialAdding,
 }: {
   group: GroupDto
   isAdmin: boolean
+  canInvite: boolean
   /** Opened from the 添加 tile: the candidate list is shown at once. */
   initialAdding: boolean
 }) {
@@ -440,7 +464,7 @@ function MembersView({
     <>
       <div className="gs-toolbar">
         <SearchField className="gs-search" placeholder={t('搜索成员')} value={q} onChange={setQ} />
-        {isAdmin ? (
+        {canInvite ? (
           <MemberPicker
             placement="bottom-end"
             trigger={<Button size="small">{t('添加成员')}</Button>}
@@ -511,7 +535,7 @@ function MembersView({
   )
 }
 
-export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) {
+export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin: boolean; member: boolean }) {
   const me = useSession((s) => s.user)
   const allBots = useWorkspace((s) => s.bots)
   const [removing, setRemoving] = useState<BotDto | null>(null)
@@ -519,7 +543,8 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
   const states = useWorkspace((s) => s.botStates[group.id])
   const editing = allBots.find((b) => b.id === editingId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
-  const choices = allBots.filter((b) => group.kind === 'group' || b.ownerId === me?.id)
+  // Members pull in only their own bots; admins anyone's (a DM only takes its owner's).
+  const choices = allBots.filter((b) => (group.kind === 'group' && isAdmin) || b.ownerId === me?.id)
   const inGroup = (userId: string) => group.members.some((m) => m.userId === userId)
 
   return (
@@ -531,7 +556,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
             online: bots.filter((b) => b.presence === 'online' || b.presence === 'running').length,
           })}
         </span>
-        {isAdmin ? (
+        {member ? (
           <BotPicker
             placement="bottom-end"
             trigger={<Button size="small">{t('拉入 Bot')}</Button>}
@@ -539,6 +564,7 @@ export function BotsView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean
             isOn={(id) => group.botIds.includes(id)}
             onPick={(b, close) => {
               if (!group.botIds.includes(b.id)) return void attempt(() => groupsApi.addBot(group.id, b.id))
+              if (!isAdmin) return
               close()
               setRemoving(b)
             }}

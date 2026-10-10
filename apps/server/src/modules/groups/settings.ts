@@ -49,28 +49,43 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.patch<P>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const { notice, ...body } = UpdateGroupReq.parse(req.body)
+      const { notice, adminOnlyInvite, ...body } = UpdateGroupReq.parse(req.body)
       if (body.name)
         await ctx.db
           .update(groups)
           .set({ ...body, renamed: group.kind === 'dm' })
           .where(eq(groups.id, group.id))
       if (notice !== undefined && notice !== group.notice) await setNotice(ctx, group.id, notice, me.id)
+      const inviteChanged = adminOnlyInvite !== undefined && adminOnlyInvite !== group.adminOnlyInvite
+      if (inviteChanged) await ctx.db.update(groups).set({ adminOnlyInvite }).where(eq(groups.id, group.id))
       await audit(ctx, {
         category: 'admin',
         actorUserId: me.id,
         action: 'group.update',
         groupId: group.id,
-        detail: { before: { name: group.name, notice: group.notice }, ...body, notice },
-      })
-      await postEvent(
-        ctx,
-        group.id,
-        group.kind === 'dm' ? '{user} 修改了名称' : '{user} 修改了群名称与公告',
-        {
-          user: me.name,
+        detail: {
+          before: { name: group.name, notice: group.notice, adminOnlyInvite: group.adminOnlyInvite },
+          ...body,
+          notice,
+          adminOnlyInvite,
         },
-      )
+      })
+      if (body.name !== undefined || notice !== undefined)
+        await postEvent(
+          ctx,
+          group.id,
+          group.kind === 'dm' ? '{user} 修改了名称' : '{user} 修改了群名称与公告',
+          {
+            user: me.name,
+          },
+        )
+      if (inviteChanged)
+        await postEvent(
+          ctx,
+          group.id,
+          adminOnlyInvite ? '{user} 开启了「仅群管理员可拉人」' : '{user} 关闭了「仅群管理员可拉人」',
+          { user: me.name },
+        )
       await publishGroup(ctx, group.id)
       return groupDto(ctx, me.id, group.id)
     })

@@ -222,6 +222,8 @@ export const groups = pgTable('groups', {
   noticeId: uuid('notice_id'),
   /** 'partition' | 'force' (P2) */
   mode: text('mode').notNull().default('partition'),
+  /** Off: any member invites people; on: only group admins do. */
+  adminOnlyInvite: boolean('admin_only_invite').notNull().default(false),
   /** Switching to force (§3.5): who started it when with which base bot, until the base's tree is in; new turns wait. */
   /** Partition → force in progress: started `at`, the base sync.init first sent at `sentAt`. */
   syncSwitch: jsonb('sync_switch').$type<{ userId: string; botId: string; at?: string; sentAt?: string }>(),

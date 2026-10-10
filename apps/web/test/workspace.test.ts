@@ -9,6 +9,7 @@ const g: GroupDto = {
   name: 'A',
   kind: 'group',
   mode: 'partition',
+  adminOnlyInvite: false,
   notice: '',
   noticeHidden: false,
   repo: null,

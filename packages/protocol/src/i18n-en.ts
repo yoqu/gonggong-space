@@ -31,6 +31,8 @@ export const protocolEn = {
   '基准 Bot 所在机器离线超过 10 分钟': "the base Bot's machine has been offline for over 10 minutes",
   '{user} 修改了名称': '{user} changed the name',
   '{user} 修改了群名称与公告': '{user} changed the group name and notice',
+  '{user} 开启了「仅群管理员可拉人」': '{user} turned on “Only admins can invite”',
+  '{user} 关闭了「仅群管理员可拉人」': '{user} turned off “Only admins can invite”',
   '{user} 移除了群公告': '{user} removed the group notice',
   '{user} 将 {member} 设为群管理员': '{user} made {member} a group admin',
   '{user} 取消了 {member} 的群管理员': '{user} revoked group admin from {member}',

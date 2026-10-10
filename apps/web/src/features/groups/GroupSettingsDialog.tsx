@@ -113,7 +113,7 @@ export function GroupSettingsDialog({
           {tab === 'basic' ? (
             <BasicTab group={group} />
           ) : tab === 'bots' ? (
-            <BotsView group={group} isAdmin />
+            <BotsView group={group} isAdmin member />
           ) : tab === 'repo' ? (
             <RepoWorkspaceView group={group} isAdmin />
           ) : tab === 'mcp' ? (

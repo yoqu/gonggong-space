@@ -547,6 +547,8 @@ export const GroupDto = z.object({
   name: z.string(),
   kind: GroupKind,
   mode: z.enum(['partition', 'force']),
+  /** Only group admins may invite people; members always may pull in their own bots. */
+  adminOnlyInvite: z.boolean(),
   notice: z.string(),
   /** The caller closed the current notice for themselves; a newer notice shows again. */
   noticeHidden: z.boolean(),
@@ -1177,7 +1179,9 @@ export type GroupParams = z.infer<typeof GroupParams>
 export const UpdateGroupReq = z.object({
   name: z.string().trim().min(1, '填写群名称').max(60).optional(),
   notice: z.string().trim().max(500).optional(),
+  adminOnlyInvite: z.boolean().optional(),
 })
+export type UpdateGroupReq = z.infer<typeof UpdateGroupReq>
 /** PUT /api/groups/:id/prefs — only for the caller. */
 export const GroupPrefsReq = z
   .object({ muted: z.boolean(), pinned: z.boolean(), foldRuns: z.boolean(), noticeHidden: z.boolean() })

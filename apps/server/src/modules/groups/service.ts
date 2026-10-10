@@ -191,6 +191,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       name: title,
       kind: g.kind as GroupDto['kind'],
       mode: g.mode as GroupDto['mode'],
+      adminOnlyInvite: g.adminOnlyInvite,
       notice: g.notice,
       noticeHidden: !!g.noticeId && me.hiddenNoticeId === g.noticeId,
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,

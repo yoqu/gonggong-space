@@ -99,6 +99,23 @@ describe('name and notice', () => {
     expect(row?.detail).toMatchObject({ name: '支付服务重构', notice: '每个 Bot 独立分支，走 PR' })
   })
 
+  it('admin turns 仅群管理员可拉人 on and off; members see it', async () => {
+    const w = await world()
+    const url = `/api/groups/${w.g.id}`
+    expect((await w.as.li.patch(url, { adminOnlyInvite: true })).status).toBe(403)
+    expect((await w.as.wang.get<GroupDto>(url)).body.adminOnlyInvite).toBe(false)
+    const res = await w.as.wang.patch<GroupDto>(url, { adminOnlyInvite: true })
+    expect(res.status).toBe(200)
+    expect(res.body.adminOnlyInvite).toBe(true)
+    expect(res.body.name).toBe('支付')
+    expect((await w.as.li.get<GroupDto>(url)).body.adminOnlyInvite).toBe(true)
+    await w.as.wang.patch(url, { adminOnlyInvite: false })
+    expect((await bodies(w.as.li, w.g.id)).slice(-2)).toEqual([
+      '王磊 开启了「仅群管理员可拉人」',
+      '王磊 关闭了「仅群管理员可拉人」',
+    ])
+  })
+
   it('rejects non-admins, non-members and an empty name', async () => {
     const w = await world()
     expect((await w.as.li.patch(`/api/groups/${w.g.id}`, { name: 'x' })).status).toBe(403)
