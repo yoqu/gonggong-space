@@ -1,6 +1,7 @@
 import { and, asc, count, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
+  botShares,
   bots,
   groupBots,
   groupMembers,
@@ -83,6 +84,14 @@ export async function removeFromTeam(ctx: Ctx, teamId: string, user: User, by: U
           ),
         )
     await tx.delete(teamMembers).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, user.id)))
+    await tx
+      .delete(botShares)
+      .where(
+        and(
+          eq(botShares.userId, user.id),
+          inArray(botShares.botId, tx.select({ id: bots.id }).from(bots).where(eq(bots.teamId, teamId))),
+        ),
+      )
     return owned
   })
   await leaveBots(

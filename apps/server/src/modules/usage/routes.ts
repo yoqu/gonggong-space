@@ -6,6 +6,7 @@ import { bots, groups, runs, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { isSharedWith } from '../bots/shares.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 
 const DAY_MS = 86_400_000
@@ -21,7 +22,7 @@ const unreported = sql<number>`count(*) filter (where ${runs.usage}->>'totalToke
 
 /**
  * Runs of the current team's bots: sysadmins see all of them; members only their own bots' runs, and a botId filter
- * only for bots they own. With `teamId`, a team admin sees the whole team (团队设置 · 用量).
+ * only for bots they own (or their own runs of a bot shared with them). With `teamId`, a team admin sees the whole team (团队设置 · 用量).
  */
 async function scope(ctx: Ctx, req: FastifyRequest, q: { botId?: string; teamId?: string }) {
   const me = await requireUser(ctx, req)
@@ -34,6 +35,9 @@ async function scope(ctx: Ctx, req: FastifyRequest, q: { botId?: string; teamId?
     const [bot] = isUuid(q.botId)
       ? await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, q.botId))
       : []
+    // Someone the bot is shared with sees their own turns only.
+    if (bot && bot.ownerId !== me.id && (await isSharedWith(ctx, q.botId, me.id)))
+      return and(eq(bots.teamId, teamId), byBot(), eq(runs.originUserId, me.id))
     if (bot?.ownerId !== me.id) return fail('forbidden', '仅 Bot 主人或系统管理员可查看该 Bot 的用量')
   }
   return and(eq(bots.teamId, teamId), byBot(), admin ? undefined : eq(bots.ownerId, me.id))

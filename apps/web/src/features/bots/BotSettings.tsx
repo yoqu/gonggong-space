@@ -40,6 +40,7 @@ import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfi
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
 import { BotAvatar, RolePicker, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
+import { BotShares } from './BotShares'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import {
   AGENT_LABEL,
@@ -153,7 +154,7 @@ function UsageTab({ bot }: { bot: BotDto }) {
   )
 }
 
-export type BotTab = 'basic' | 'run' | 'access' | 'advanced'
+export type BotTab = 'basic' | 'run' | 'access' | 'advanced' | 'share'
 
 const sameList = (a: string[], b: string[]) => a.join('\n') === b.join('\n')
 
@@ -491,6 +492,9 @@ export function BotDetail({
     { value: 'run', label: t('运行配置'), content: run },
     { value: 'access', label: t('权限'), content: access },
     { value: 'advanced', label: t('高级'), content: advanced },
+    ...(canEdit
+      ? [{ value: 'share', label: t('共享'), content: <BotShares bot={bot} users={users} /> }]
+      : []),
     ...(plain ? [] : [{ value: 'usage', label: t('用量'), content: <UsageTab bot={bot} /> }]),
   ]
 
@@ -516,7 +520,7 @@ export function BotDetail({
             {t('删除 Bot')}
           </Button>
           <span className="spacer" />
-          {tab === 'usage' ? null : (
+          {tab === 'usage' || tab === 'share' ? null : (
             <Button variant="primary" disabled={!dirty || saving || !name.trim()} onClick={save}>
               {t('保存')}
             </Button>

@@ -208,6 +208,24 @@ export const bots = pgTable('bots', {
   createdAt: createdAt(),
 })
 
+/** Members a bot is shared with: they may DM it, each DM in a managed workspace of its own. */
+export const botShares = pgTable(
+  'bot_shares',
+  {
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.botId, t.userId] }), index('bot_shares_user').on(t.userId)],
+)
+
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const groups = pgTable('groups', {
   id: id(),

@@ -414,6 +414,9 @@ export function ChatView({
 
   const botCount = group.botIds.length
   const dm = group.kind === 'dm'
+  const sharer = dm ? bots.find((b) => b.id === group.botIds[0] && b.ownerId !== meId)?.ownerName : undefined
+  // Its bot was unshared or deleted: the history stays, nothing can be asked any more.
+  const closed = dm && !botCount
   return (
     <div className="chat-view" {...(readOnly ? {} : drag.handlers)}>
       <ChatHeader
@@ -429,7 +432,9 @@ export function ChatView({
               <Icon name="bell-slash" size={11} label={t('消息免打扰#muted')} className="chat-view__muted" />
             ) : null}
             {dm
-              ? t('仅你和你的 Bot · ')
+              ? sharer
+                ? t('{owner} 共享的 Bot · ', { owner: sharer })
+                : t('仅你和你的 Bot · ')
               : botCount
                 ? t('{n} 人 · {bots} Bot · ', { n: group.members.length, bots: botCount })
                 : t('{n} 人 · ', { n: group.members.length })}
@@ -514,6 +519,13 @@ export function ChatView({
         <div className="chat-scroll" ref={box} onScroll={onScroll}>
           <div className="chat-view__banners">
             {readOnly ? <ReadOnlyBanner group={group} /> : null}
+            {closed && !readOnly ? (
+              <PinnedBanner
+                icon="eye"
+                title={t('只读')}
+                text={t('Bot 已取消共享或已删除，只能查看历史消息。')}
+              />
+            ) : null}
             <GroupNotice group={group} readOnly={readOnly} />
             {readOnly ? null : <WorkspaceBanner group={group} />}
           </div>
@@ -608,7 +620,7 @@ export function ChatView({
           ) : null}
         </div>
       </div>
-      {readOnly ? null : (
+      {readOnly || closed ? null : (
         <>
           <PreviewTags groupId={group.id} />
           <LiveRunsBar runs={runList} onLocate={locate} />

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   type BotOwnerDto,
   type BotPlaceDto,
+  BotSharesReq,
   CreateBotReq,
   type DaemonBotDto,
   effortName,
@@ -47,6 +48,7 @@ import { normalizeAllowlist } from './allowlist.js'
 import { confirmBot } from './binding.js'
 import { assertCanConfigure, assertPick, choiceCatalog, pickCatalog, providersCmd } from './config.js'
 import { botDto, listBotDtos, machineDto, publishBot, publishBotRemoved, publishBots } from './dto.js'
+import { setShares } from './shares.js'
 import { applyTier, assertTierAllowed, TIER_LABEL } from './tier.js'
 
 type BotRow = typeof bots.$inferSelect
@@ -344,6 +346,17 @@ export function botRoutes(ctx: Ctx) {
         })
       if (tier !== bot.tier) await applyTier(ctx, user.id, bot.id)
       if (name !== undefined && name !== bot.name) await publishDmsOf(ctx, bot.id)
+      return publishBot(ctx, bot.id)
+    })
+
+    app.put<IdParams>('/api/bots/:id/shares', async (req) => {
+      const user = await requireUser(ctx, req)
+      const { userIds } = BotSharesReq.parse(req.body)
+      const bot = await loadBot(ctx, req.params.id)
+      assertCanManage(user, bot)
+      const changes = await setShares(ctx, user, bot, userIds)
+      if (changes.added.length || changes.removed.length)
+        await auditForeign(ctx, user, bot, 'bot.share', changes)
       return publishBot(ctx, bot.id)
     })
 

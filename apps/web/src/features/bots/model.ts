@@ -93,6 +93,7 @@ export const botsApi = {
     effort: string | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),
   update: (id: string, body: BotPatch) => api.patch<BotDto>(`/bots/${id}`, body).then(saveBot),
+  share: (id: string, userIds: string[]) => api.put<BotDto>(`/bots/${id}/shares`, { userIds }).then(saveBot),
   setDefaultWorkspace: (id: string, path: string | null) =>
     api.put<BotDto>(`/bots/${id}/default-workspace`, { path }).then(saveBot),
   remove: async (id: string) => {

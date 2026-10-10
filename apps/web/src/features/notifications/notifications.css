@@ -183,3 +183,9 @@
     transform-origin: bottom center;
   }
 }
+/* Decisions on an approval from a chat the owner is not in, under its text */
+.notif__actions {
+  display: flex;
+  gap: var(--space-8);
+  padding: 0 var(--space-8) var(--space-8) 54px;
+}

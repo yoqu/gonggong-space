@@ -59,6 +59,12 @@ describe('notificationView', () => {
       group: '',
       href: '/admin/bots',
     })
+    expect(notificationView(n('bot_shared', { botId: 'b1', botName: 'B', byName: '王磊' }))).toEqual({
+      label: '共享 Bot',
+      text: '王磊 将 B 共享给你，可以和它私聊',
+      group: '',
+      href: '/bot/b1',
+    })
     expect(
       notificationView(n('sync_drift', { groupId: 'g1', groupName: '支付', botName: 'C', files: 3 })),
     ).toEqual({

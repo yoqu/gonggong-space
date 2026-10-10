@@ -2,27 +2,31 @@ import {
   agentConfigLabel,
   type BotDto,
   type BotPlaceDto,
+  type FeishuAppView,
+  type GroupDto,
   type UsageDayDto,
   type UsageRowDto,
   type UserBriefDto,
   type UserDto,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
+import { toastError } from '../../lib/errors'
 import { fmtTokens } from '../../lib/format'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { ChatHeader, Tag } from '../../ui'
+import { Button, ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { stepText } from '../runs/mcp'
 import { TIER_LABEL } from '../runs/tier'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { APPROVAL_LABEL } from './ApprovalFields'
 import { BotAvatar, ROLES } from './avatars'
-import { BotWarning } from './BotSettings'
-import { agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
+import { type BotTab, BotWarning } from './BotSettings'
+import { agentCliVersion, agentLine, BINDING_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import './bots.css'
 import { t } from '../../i18n'
 
@@ -82,7 +86,7 @@ function idleText(bot: BotDto) {
 
 function Card({ title, meta, children }: { title: string; meta?: ReactNode; children: ReactNode }) {
   return (
-    <section className="usage-card">
+    <section className="usage-card" aria-label={title}>
       <div className="usage-card__head">
         <span className="usage-card__title">{title}</span>
         {meta ? <span className="usage-card__meta">{meta}</span> : null}
@@ -144,17 +148,17 @@ function Places({ places }: { places: BotPlaceDto[] }) {
   )
 }
 
-function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
+function Usage({ botId, groupCount, mine }: { botId: string; groupCount: number; mine: boolean }) {
   const q = `days=${WINDOW}&botId=${botId}`
   const byUser = useGet<UsageRowDto[]>(`/usage?by=user&${q}`).data
-  const byGroup = useGet<UsageRowDto[]>(`/usage?by=group&${q}`).data
+  const byGroup = useGet<UsageRowDto[]>(mine ? null : `/usage?by=group&${q}`).data
   const daily = useGet<UsageDayDto[]>(`/usage/daily?${q}&tz=${encodeURIComponent(TZ)}`).data
   const sum = (k: 'runs' | 'totalTokens' | 'unreported') => (byUser ?? []).reduce((n, r) => n + r[k], 0)
   const tiles = [
     { label: t('token 合计'), value: byUser ? fmtTokens(sum('totalTokens')) : '--' },
     { label: t('运行轮次'), value: byUser ? String(sum('runs')) : '--' },
     { label: t('未上报轮次'), value: byUser ? String(sum('unreported')) : '--' },
-    { label: t('所在群'), value: String(groupCount) },
+    ...(mine ? [] : [{ label: t('所在群'), value: String(groupCount) }]),
   ]
   return (
     <>
@@ -167,7 +171,7 @@ function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
         ))}
       </div>
       {daily && sum('runs') ? <Trend daily={daily} /> : null}
-      {byUser?.length ? (
+      {!mine && byUser?.length ? (
         <div className="bot-page__pair">
           <Card title={t('谁用了')}>
             <UsageBars rows={byUser} />
@@ -181,18 +185,9 @@ function Usage({ botId, groupCount }: { botId: string; groupCount: number }) {
   )
 }
 
-function Config({ bot }: { bot: BotDto }) {
-  const rows: [string, ReactNode][] = [
-    [t('权限档位'), TIER_LABEL[bot.tier]],
-    [t('触发范围'), TRIGGER_SCOPE_LABEL[bot.triggerScope]],
-    [t('模型'), agentConfigLabel(bot.catalog, bot.model, bot.effort)],
-    [t('并发上限'), t('{n} 个群并行', { n: bot.concurrency })],
-    [t('命令审批'), APPROVAL_LABEL[bot.approval]],
-    [
-      t('默认工作区'),
-      bot.defaultWorkspace ? <WorkspacePath key="path" path={bot.defaultWorkspace} /> : t('未设置'),
-    ],
-  ]
+type Row = [string, ReactNode]
+
+function Rows({ rows }: { rows: Row[] }) {
   return (
     <dl className="bot-page__config">
       {rows.map(([k, v]) => (
@@ -205,7 +200,147 @@ function Config({ bot }: { bot: BotDto }) {
   )
 }
 
-/** A bot opened from the sidebar: what it is, whether and where it works, and what it used; settings open a dialog. */
+const unset = () => <span className="bot-page__muted">{t('未设置')}</span>
+
+/**
+ * Everything the editor holds, in its tabs' order. The owner's directory, Feishu app and share list stay with
+ * those who can edit the bot.
+ */
+function Profile({
+  bot,
+  users,
+  canEdit,
+  onSettings,
+}: {
+  bot: BotDto
+  users: UserBriefDto[]
+  canEdit: boolean
+  onSettings: (tab?: BotTab) => void
+}) {
+  const feishu = useGet<FeishuAppView>(canEdit ? `/bots/${bot.id}/feishu` : null).data
+  const role = ROLES[bot.avatar]
+  const names = (ids: string[]) => ids.map((id) => users.find((u) => u.id === id)?.name ?? '--').join(t('、'))
+  const sections: [string, Row[], ReactNode?][] = [
+    [
+      t('基本信息'),
+      [
+        [t('角色'), `${role.name} · ${role.mix}`],
+        [
+          t('系统提示词'),
+          bot.systemPrompt ? (
+            <p key="prompt" className="bot-page__text">
+              {bot.systemPrompt}
+            </p>
+          ) : (
+            unset()
+          ),
+        ],
+      ],
+    ],
+    [
+      t('运行配置'),
+      [
+        [t('执行机器'), bot.machineName ?? BINDING_LABEL.pending_bind],
+        [
+          'Agent',
+          <span key="agent" className="bot-page__mono">
+            {agentCliVersion(bot)}
+          </span>,
+        ],
+        [t('模型'), agentConfigLabel(bot.catalog, bot.model, bot.effort)],
+        ...(canEdit
+          ? ([
+              [
+                t('默认工作区'),
+                bot.defaultWorkspace ? <WorkspacePath key="path" path={bot.defaultWorkspace} /> : unset(),
+              ],
+            ] as Row[])
+          : []),
+      ],
+    ],
+    [
+      t('权限'),
+      [
+        [t('权限档位'), TIER_LABEL[bot.tier]],
+        [
+          t('触发范围'),
+          bot.triggerScope === 'list'
+            ? `${TRIGGER_SCOPE_LABEL.list} · ${names(bot.triggerList) || '--'}`
+            : TRIGGER_SCOPE_LABEL[bot.triggerScope],
+        ],
+        [
+          t('命令审批'),
+          bot.approval === 'allowlist' && bot.allowlist.length
+            ? `${APPROVAL_LABEL.allowlist} · ${bot.allowlist.join(t('、'))}`
+            : APPROVAL_LABEL[bot.approval],
+        ],
+        ...(bot.alwaysAllow.length ? ([[t('始终允许'), bot.alwaysAllow.join(t('、'))]] as Row[]) : []),
+      ],
+    ],
+    [
+      t('高级'),
+      [
+        [t('并发上限'), t('{n} 个群并行', { n: bot.concurrency })],
+        [
+          t('Git 提交身份'),
+          <span key="git" className="bot-page__mono">
+            {`${bot.gitName ?? bot.name} <${bot.gitEmail ?? bot.gitDefaultEmail}>`}
+          </span>,
+        ],
+        ...(canEdit ? ([[t('飞书应用'), feishu?.app?.appId ?? (feishu ? unset() : '--')]] as Row[]) : []),
+      ],
+    ],
+    ...(canEdit
+      ? ([
+          [
+            t('共享'),
+            [[t('共享给'), bot.sharedWith.length ? names(bot.sharedWith) : t('未共享')]],
+            <Button key="share" size="small" variant="plain" onClick={() => onSettings('share')}>
+              {t('管理共享')}
+            </Button>,
+          ],
+        ] as [string, Row[], ReactNode][])
+      : []),
+  ]
+  return (
+    <>
+      {sections.map(([title, rows, meta]) => (
+        <Card key={title} title={title} meta={meta}>
+          <Rows rows={rows} />
+        </Card>
+      ))}
+    </>
+  )
+}
+
+/** Opens the caller's DM with the bot, starting one when there is none. */
+function useDm(bot: BotDto) {
+  const navigate = useNavigate()
+  const dm = useWorkspace((s) =>
+    s.groups.find((g) => g.kind === 'dm' && g.botIds.length === 1 && g.botIds[0] === bot.id),
+  )
+  return async () => {
+    if (dm) return navigate(`/g/${dm.id}`)
+    try {
+      const group = await api.post<GroupDto>('/groups', {
+        name: bot.name,
+        kind: 'dm',
+        memberIds: [],
+        botIds: [bot.id],
+        repo: null,
+      })
+      useWorkspace.getState().applyEvent({ t: 'group.updated', group })
+      navigate(`/g/${group.id}`)
+    } catch (e) {
+      toastError(e)
+    }
+  }
+}
+
+/**
+ * A bot opened from the sidebar: what it is and how it is set up, whether and where it works, what it used.
+ * Those it is shared with see their own usage; settings open a dialog.
+ */
 export function BotPage({
   bot,
   me,
@@ -214,13 +349,15 @@ export function BotPage({
 }: {
   bot: BotDto
   me: UserDto
-  onSettings: () => void
+  onSettings: (tab?: BotTab) => void
   onBack?: () => void
 }) {
   const owner = me.id === bot.ownerId
   const canView = owner || me.role === 'sysadmin'
+  const shared = bot.sharedWith.includes(me.id)
   const places = usePlaces(bot.id, canView)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
+  const openDm = useDm(bot)
   const role = ROLES[bot.avatar]
   const presence = PRESENCE[bot.presence]
 
@@ -232,9 +369,19 @@ export function BotPage({
         subtitle={[agentLine(bot), bot.machineName, bot.ownerName].filter(Boolean).join(' · ')}
         onBack={onBack}
         actions={[
-          canView
-            ? { icon: 'gear', label: t('编辑 Bot'), text: t('编辑'), onClick: onSettings }
-            : { icon: 'info', label: t('Bot 详情'), text: t('详情'), onClick: onSettings },
+          ...(owner || shared
+            ? [
+                {
+                  icon: 'bubble' as const,
+                  label: t('私聊#chat'),
+                  text: t('私聊#chat'),
+                  onClick: () => void openDm(),
+                },
+              ]
+            : []),
+          ...(canView
+            ? [{ icon: 'gear' as const, label: t('编辑 Bot'), text: t('编辑'), onClick: () => onSettings() }]
+            : []),
         ]}
       />
       <div className="bot-page__body">
@@ -249,31 +396,39 @@ export function BotPage({
                 <span className="bot-page__dot" style={{ background: presence.color }} />
                 {presence.label}
               </span>
+              {shared ? <Tag tone="blue">{t('{owner} 共享给你', { owner: bot.ownerName })}</Tag> : null}
             </div>
-            <p className="bot-page__prompt">{bot.systemPrompt || role.line}</p>
+            <p className="bot-page__prompt">{role.line}</p>
           </div>
         </div>
 
         <BotWarning bot={bot} users={users} owner={owner} />
 
-        {canView ? (
-          <>
-            <Card title={t('正在工作')}>
-              <Live bot={bot} places={places} />
-            </Card>
-            {places ? (
-              <Card title={t('工作位置')} meta={t('{n} 个群', { n: places.length })}>
-                <Places places={places} />
-              </Card>
-            ) : null}
-            <h2 className="bot-page__heading">{t('近 {n} 天用量', { n: WINDOW })}</h2>
-            <Usage botId={bot.id} groupCount={bot.groupCount} />
-          </>
-        ) : null}
-
-        <Card title={t('配置')}>
-          <Config bot={bot} />
-        </Card>
+        <div className={canView || shared ? 'bot-page__columns' : 'bot-page__cards'}>
+          {canView || shared ? (
+            <div className="bot-page__main">
+              {canView ? (
+                <>
+                  <Card title={t('正在工作')}>
+                    <Live bot={bot} places={places} />
+                  </Card>
+                  {places ? (
+                    <Card title={t('工作位置')} meta={t('{n} 个群', { n: places.length })}>
+                      <Places places={places} />
+                    </Card>
+                  ) : null}
+                </>
+              ) : null}
+              <h2 className="bot-page__heading">
+                {canView ? t('近 {n} 天用量', { n: WINDOW }) : t('我的近 {n} 天用量', { n: WINDOW })}
+              </h2>
+              <Usage botId={bot.id} groupCount={bot.groupCount} mine={!canView} />
+            </div>
+          ) : null}
+          <div className="bot-page__side">
+            <Profile bot={bot} users={users} canEdit={canView} onSettings={onSettings} />
+          </div>
+        </div>
       </div>
     </section>
   )

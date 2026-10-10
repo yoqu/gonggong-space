@@ -1,4 +1,4 @@
-import { type NotificationDto, notificationView } from '@gonggong/protocol'
+import { type NotificationDto, notificationView, type PermissionOption } from '@gonggong/protocol'
 import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
@@ -31,10 +31,47 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   offline_expired: { icon: 'wifi', color: 'var(--system-orange)' },
   chain_done: { icon: 'link', color: 'var(--system-gray)' },
   bot_confirm: { icon: 'bot', color: 'var(--system-orange)' },
+  bot_shared: { icon: 'bot', color: 'var(--system-blue)' },
   repo_access: { icon: 'git-branch', color: 'var(--system-red)' },
   schedule_paused: { icon: 'clock', color: 'var(--system-orange)' },
   sync_drift: { icon: 'arrow-clockwise', color: 'var(--system-orange)' },
   sync_conflict: { icon: 'exclamation-circle', color: 'var(--system-red)' },
+}
+
+/**
+ * 批准 / 拒绝 of an approval raised in a chat the owner is not in (someone's DM with a bot shared with them): there is
+ * no card to decide on, so the notification carries the options. The settled notification arrives over realtime.
+ */
+function ApprovalActions({ n }: { n: NotificationDto }) {
+  const [busy, setBusy] = useState(false)
+  const options = (n.payload.options ?? []) as PermissionOption[]
+  const allow = options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always')
+  const reject =
+    options.find((o) => o.kind === 'reject_once') ?? options.find((o) => o.kind === 'reject_always')
+  const decide = async (o: PermissionOption) => {
+    setBusy(true)
+    try {
+      await api.post(`/runs/${n.payload.runId}/approvals/${n.payload.approvalId}`, { optionId: o.optionId })
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="notif__actions">
+      {allow ? (
+        <Button size="small" variant="primary" disabled={busy} onClick={() => void decide(allow)}>
+          {t('批准')}
+        </Button>
+      ) : null}
+      {reject ? (
+        <Button size="small" disabled={busy} onClick={() => void decide(reject)}>
+          {t('拒绝#reject')}
+        </Button>
+      ) : null}
+    </div>
+  )
 }
 
 function PushAction() {
@@ -78,6 +115,12 @@ function Panel({
   const [items, setItems] = useState<NotificationDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const count = useWorkspace((s) => s.notifCount)
+  const groups = useWorkspace((s) => s.groups)
+  const outside = (n: NotificationDto) =>
+    n.type === 'approval' &&
+    !n.resolvedAt &&
+    !!n.payload.options &&
+    !groups.some((g) => g.id === n.payload.groupId)
   useEscape(onClose, state === 'open')
 
   const load = useCallback(() => {
@@ -223,6 +266,7 @@ function Panel({
                         {v.group ? <div className="notif__group">{v.group}</div> : null}
                       </div>
                     </button>
+                    {outside(n) ? <ApprovalActions n={n} /> : null}
                     <IconButton
                       size="small"
                       variant="plain"

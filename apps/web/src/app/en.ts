@@ -68,4 +68,6 @@ export default {
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',
   '三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。':
     'Three steps to get your first Bot working. Or wait for a teammate to add you to a group and jump right in.',
+  共享给我: 'Shared with me',
+  '{owner} 共享': 'Shared by {owner}',
 } satisfies Record<string, string>

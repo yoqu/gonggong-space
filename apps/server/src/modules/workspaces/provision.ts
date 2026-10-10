@@ -10,6 +10,7 @@ import {
 import { and, asc, eq, isNull, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupRepos, groups, users } from '../../db/schema.js'
+import { inSharedDm } from '../bots/shares.js'
 import { onCdResult } from '../commands/cd.js'
 import { postEvent } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'
@@ -146,6 +147,12 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
         : '{bot} · daemon 离线，上线后克隆托管工作区',
       { bot: lead },
     )
+    return ensureWorkspace(ctx, groupId, bot)
+  }
+  // The owner's directories are theirs alone: a shared bot works apart in each DM opened with it.
+  if (await inSharedDm(ctx, groupId, bot.id)) {
+    await updateBotState(ctx, groupId, bot.id, MANAGED)
+    await postEvent(ctx, groupId, '{bot} · 使用独立的托管工作区', { bot: lead })
     return ensureWorkspace(ctx, groupId, bot)
   }
   const [row] = await ctx.db.select({ path: bots.defaultWorkspace }).from(bots).where(eq(bots.id, bot.id))

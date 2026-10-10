@@ -30,6 +30,7 @@
     "alwaysAllow": [],
     "gitName": null,
     "gitEmail": null,
-    "gitDefaultEmail": "b1@bots.gonggong.local"
+    "gitDefaultEmail": "b1@bots.gonggong.local",
+    "sharedWith": []
   }
 ]

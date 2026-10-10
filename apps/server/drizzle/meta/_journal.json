@@ -358,6 +358,13 @@
       "when": 1791624477671,
       "tag": "0050_wealthy_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791634186709,
+      "tag": "0051_striped_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

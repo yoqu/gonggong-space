@@ -78,7 +78,7 @@ const renderShell = () =>
 
 beforeEach(() => {
   useSession.setState({ user: me, status: 'ready' })
-  useWorkspace.setState({ notifCount: 2 })
+  useWorkspace.setState({ notifCount: 2, groups: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -126,6 +126,47 @@ describe('notification center', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1?run=r2'))
     expect(calls.some((c) => c.path === '/notifications/n1/read')).toBe(true)
     await waitFor(() => expect(screen.queryByTestId('notification-list')).toBeNull())
+  })
+
+  it('decides right there an approval from a chat the owner is not in, e.g. a shared bot’s DM', async () => {
+    const options = [
+      { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+      { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+    ]
+    const payload = { ...note({}).payload, approvalId: 'a1', options }
+    useWorkspace.setState({ groups: [{ id: 'g2' } as never] })
+    const calls = mockApi({
+      'GET /notifications': [
+        note({ payload }),
+        note({ id: 'n2', payload: { ...payload, groupId: 'g2', approvalId: 'a2' } }),
+      ],
+      'POST /runs/r2/approvals/a1': { status: 'approved' },
+    })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    await within(list).findAllByText('待审批')
+    // In a chat of mine the card in the chat is where to decide.
+    expect(within(list).getAllByRole('button', { name: '批准' })).toHaveLength(1)
+    fireEvent.click(within(list).getByRole('button', { name: '批准' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/runs/r2/approvals/a1')?.body).toEqual({ optionId: 'allow' }),
+    )
+    expect(screen.getByTestId('where').textContent).toBe('/')
+  })
+
+  it('opens a bot shared with me from its notification', async () => {
+    mockApi({
+      'GET /notifications': [
+        note({ type: 'bot_shared', payload: { botId: 'b1', botName: '小王的 Claude', byName: '王磊' } }),
+      ],
+      'POST /notifications/n1/read': undefined,
+    })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    fireEvent.click(await within(list).findByText('王磊 将 小王的 Claude 共享给你，可以和它私聊'))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/bot/b1'))
   })
 
   it('shows handled items as 已处理, follows live resolutions and clamps long text', async () => {

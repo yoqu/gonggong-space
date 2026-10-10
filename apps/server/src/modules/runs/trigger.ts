@@ -56,9 +56,12 @@ async function createRuns(ctx: Ctx, t: Trigger) {
       workspaceState: groupBots.workspaceState,
       workspaceReason: groupBots.workspaceReason,
       groupTier: groupBots.tier,
+      // A DM someone opened with a bot shared with them: the share itself allows it.
+      sharedDm: sql<boolean>`${groups.kind} = 'dm' and ${groups.createdBy} <> ${bots.ownerId}`,
     })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
+    .innerJoin(groups, eq(groups.id, groupBots.groupId))
     .innerJoin(users, eq(users.id, bots.ownerId))
     .where(
       and(
@@ -72,7 +75,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
     targets.map(async (bot) => {
       const refused = refusal(
         { ...bot, tier: bot.groupTier ?? bot.tier },
-        t.anyScope ? bot.ownerId : t.originUserId,
+        t.anyScope || bot.sharedDm ? bot.ownerId : t.originUserId,
       )
       if (!refused && bot.workspaceState === 'unbound')
         return void (await postEvent(

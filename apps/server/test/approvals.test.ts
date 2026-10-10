@@ -145,6 +145,8 @@ describe('approvals', () => {
         approvalId: approval.id,
         botName: '小王的 Claude',
         detail: 'go build ./...',
+        // Lets the owner decide from the notification when the run is in a chat they are not in (a shared bot's DM).
+        options: OPTIONS,
       },
     })
     expect(w.ownerWeb.seen.some((e) => e.t === 'notification.new')).toBe(true)

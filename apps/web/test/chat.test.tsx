@@ -86,6 +86,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   gitName: null,
   gitEmail: null,
   gitDefaultEmail: 'b1@bots.gonggong.local',
+  sharedWith: [],
   approval: 'ask',
   allowlist: [],
   alwaysAllow: [],
@@ -433,6 +434,20 @@ describe('my machines and bots', () => {
 })
 
 describe('chat view', () => {
+  it('names the sharer in a DM with a shared bot, and turns it read-only once unshared', async () => {
+    const dm = group({ kind: 'dm', name: '老李的 Codex · 李建国', repo: null, botIds: ['b2'], members: [] })
+    mockApi(baseRoutes([dm]))
+    renderAt('/g/g1')
+    const main = screen.getByRole('main')
+    expect(await within(main).findByText(/李建国 共享的 Bot/)).toBeTruthy()
+    expect(within(main).getByPlaceholderText(/输入消息/)).toBeTruthy()
+
+    act(() => useWorkspace.getState().applyEvent({ t: 'group.updated', group: { ...dm, botIds: [] } }))
+    expect(await within(main).findByText('只读')).toBeTruthy()
+    expect(within(main).getByText('Bot 已取消共享或已删除，只能查看历史消息。')).toBeTruthy()
+    expect(within(main).queryByPlaceholderText(/输入消息/)).toBeNull()
+  })
+
   it('renders events, messages, markdown replies and run cards', async () => {
     const calls = mockApi(baseRoutes([group()]))
     renderAt('/g/g1')
@@ -862,6 +877,19 @@ describe('new group dialog', () => {
       botIds: ['b1'],
       repo: null,
     })
+  })
+
+  it('offers bots shared with me for a DM', async () => {
+    mockApi({
+      ...baseRoutes([]),
+      'GET /bots': () => bots.map((b) => (b.id === 'b2' ? { ...b, sharedWith: ['u1'] } : b)),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '新建私聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建私聊' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加 Bot…' }))
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    expect(within(pick).getByRole('menuitemcheckbox', { name: /老李的 Codex/ })).toBeTruthy()
   })
 
   it('checks the repo on its own and marks the result on each bot row', async () => {

@@ -1,6 +1,9 @@
 export default {
   '消息免打扰#muted': 'Muted',
   '仅你和你的 Bot · ': 'Only you and your Bot · ',
+  '{owner} 共享的 Bot · ': 'Bot shared by {owner} · ',
+  'Bot 已取消共享或已删除，只能查看历史消息。':
+    'The Bot is no longer shared or was deleted; only the history can be read.',
   '{n} 人 · {bots} Bot · ': '{n} {n:member|members} · {bots} {bots:Bot|Bots} · ',
   '{n} 人 · ': '{n} {n:member|members} · ',
   '未绑定仓库 · Bot 使用本机目录': 'No repo · the Bot uses a local folder',

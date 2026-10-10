@@ -377,6 +377,8 @@ export const BotDto = z.object({
   gitName: z.string().nullable(),
   gitEmail: z.string().nullable(),
   gitDefaultEmail: z.string(),
+  /** Members the owner shared the bot with: each may DM it (in a managed workspace of its own) and see its details. */
+  sharedWith: z.array(z.string()),
 })
 export type BotDto = z.infer<typeof BotDto>
 /** GET /api/daemon/bots (machine token): a machine serves bots of several teams, so each names its own (plan D20). */
@@ -499,6 +501,8 @@ export const UpdateBotReq = z.object({
   gitName: z.string().trim().min(1).max(80).nullable().optional(),
   gitEmail: z.email().max(200).nullable().optional(),
 })
+/** PUT /api/bots/:id/shares (owner or sysadmin): the full list of members the bot is shared with. */
+export const BotSharesReq = z.object({ userIds: z.array(z.string()).max(200) })
 
 // ── Notifications ───────────────────────────────────────────────────────────
 export const NotificationType = z.enum([
@@ -507,6 +511,7 @@ export const NotificationType = z.enum([
   'offline_expired',
   'chain_done',
   'bot_confirm',
+  'bot_shared',
   'repo_access',
   'schedule_paused',
   'sync_drift',

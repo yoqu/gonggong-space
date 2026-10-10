@@ -77,6 +77,8 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
     botName: row.bot.name,
     title: req.title,
     detail: req.detail,
+    // Decided right from the notification when the run is in a DM the owner is not in (a shared bot's).
+    options: req.options,
   })
 }
 

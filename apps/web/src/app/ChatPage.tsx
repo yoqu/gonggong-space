@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useShallow } from 'zustand/react/shallow'
 import { BotDialog } from '../features/bots/BotDialog'
 import { BotPage } from '../features/bots/BotPage'
+import type { BotTab } from '../features/bots/BotSettings'
 import { confirmBot } from '../features/bots/model'
 import { NewBotDialog } from '../features/bots/NewBotDialog'
 import { ChatView } from '../features/chat/ChatView'
@@ -129,8 +130,9 @@ export function ChatPage() {
   const [creating, setCreating] = useState<GroupKind | null>(null)
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
-  const [settingBotId, setSettingBotId] = useState<string | null>(null)
+  const [setting, setSetting] = useState<{ botId: string; tab?: BotTab } | null>(null)
   const myBots = bots.filter((b) => b.ownerId === me?.id)
+  const sharedBots = bots.filter((b) => !!me && b.sharedWith.includes(me.id))
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
   const firstRun = !groupId && !botId && !machineId && groupsState === 'ready' && !groups.length
   const openBot = bots.find((b) => b.id === botId)
@@ -178,6 +180,7 @@ export function ChatPage() {
           <Sidebar
             groups={groups}
             bots={myBots}
+            sharedBots={sharedBots}
             machines={myMachines}
             guide={!firstRun || mobile}
             header={<ShellBar onNewGroup={() => setCreating('group')} />}
@@ -213,7 +216,7 @@ export function ChatPage() {
               key={openBot.id}
               bot={openBot}
               me={me}
-              onSettings={() => setSettingBotId(openBot.id)}
+              onSettings={(tab) => setSetting({ botId: openBot.id, tab })}
               onBack={mobile ? () => navigate('/') : undefined}
             />
           ) : (
@@ -274,8 +277,8 @@ export function ChatPage() {
       <BindMachineDialog open={binding} onClose={() => setBinding(false)} />
       <Presence>{newBot && me ? <NewBotDialog me={me} onClose={() => setNewBot(false)} /> : null}</Presence>
       <Presence>
-        {openBot && openBot.id === settingBotId && me ? (
-          <BotDialog bot={openBot} me={me} onClose={() => setSettingBotId(null)} />
+        {openBot && openBot.id === setting?.botId && me ? (
+          <BotDialog bot={openBot} me={me} tab={setting.tab} onClose={() => setSetting(null)} />
         ) : null}
       </Presence>
     </>

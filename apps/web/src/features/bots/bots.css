@@ -234,9 +234,38 @@
   flex-direction: column;
   gap: var(--space-16);
   width: 100%;
-  max-width: 880px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-20) var(--space-32) var(--space-32);
+  container-type: inline-size;
+}
+/* Work and usage on the left, the settings beside them; one column when narrow, settings first. */
+.bot-page__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-16);
+  align-items: start;
+}
+.bot-page__main,
+.bot-page__side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+/* Nothing to show but the settings: their cards share the width. */
+.bot-page__cards .bot-page__side {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+@container (max-width: 760px) {
+  .bot-page__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bot-page__side {
+    order: -1;
+  }
 }
 .bot-page__hero {
   display: flex;
@@ -355,9 +384,18 @@ a.bot-page__group:hover {
 }
 .bot-page__config {
   margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-12) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.bot-page__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bot-page__mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
 }
 .bot-page__config dt {
   font-size: var(--text-subheadline-size);
@@ -366,8 +404,7 @@ a.bot-page__group:hover {
 .bot-page__config dd {
   margin: 2px 0 0;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
   .bot-page__body {
@@ -379,4 +416,21 @@ a.bot-page__group:hover {
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
+}
+
+/* 共享 tab: who the bot is shared with */
+.bot-shares {
+  align-self: stretch;
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  list-style: none;
+}
+.bot-shares__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+}
+.bot-shares__row + .bot-shares__row {
+  border-top: 1px solid var(--separator);
 }

@@ -8,7 +8,7 @@ import {
 } from '@gonggong/protocol'
 import { and, asc, count, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groups, machines, runs, teamMembers, users } from '../../db/schema.js'
+import { botShares, bots, groupBots, groups, machines, runs, teamMembers, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { teamOfBot, teamUserIds } from '../teams/service.js'
 import { defaultGitEmail } from './git.js'
@@ -57,7 +57,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
     .orderBy(asc(bots.createdAt))
   if (!rows.length) return []
   const ids = rows.map((r) => r.bot.id)
-  const [busy, memberships] = await Promise.all([
+  const [busy, memberships, shares] = await Promise.all([
     ctx.db
       .selectDistinct({ botId: runs.botId })
       .from(runs)
@@ -68,6 +68,11 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       .innerJoin(groups, eq(groups.id, groupBots.groupId))
       .where(and(inArray(groupBots.botId, ids), isNull(groupBots.removedAt), isNull(groups.archivedAt)))
       .groupBy(groupBots.botId),
+    ctx.db
+      .select({ botId: botShares.botId, userId: botShares.userId })
+      .from(botShares)
+      .where(inArray(botShares.botId, ids))
+      .orderBy(asc(botShares.createdAt)),
   ])
   const running = new Set(busy.map((r) => r.botId))
   const groupCount = new Map(memberships.map((r) => [r.botId, r.n]))
@@ -106,6 +111,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       gitName: bot.gitName,
       gitEmail: bot.gitEmail,
       gitDefaultEmail: defaultGitEmail(bot.id),
+      sharedWith: shares.filter((s) => s.botId === bot.id).map((s) => s.userId),
     }
   })
 }

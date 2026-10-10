@@ -232,4 +232,16 @@ export default {
     "This bot's own Feishu app, used to @ it in Feishu chats; saved on its own, not with Save below",
   '都可以在创建后的 Bot 设置里修改': "All can be changed in the bot's settings later",
   '设置供应商、模型与默认工作区…': 'Set provider, model and default workspace…',
+  共享: 'Sharing',
+  共享给: 'Shared with',
+  未共享: 'Not shared',
+  管理共享: 'Manage sharing',
+  '{owner} 共享给你': 'Shared by {owner}',
+  '我的近 {n} 天用量': 'My usage, last {n} days',
+  '私聊#chat': 'Message',
+  共享对象: 'Shared with',
+  还没有共享给任何人: 'Not shared with anyone yet',
+  '添加成员…': 'Add members…',
+  '对方可以和 Bot 私聊、查看它的配置，每个私聊使用独立的托管工作区，命令审批仍由 Bot 主人处理；取消共享后对方的私聊转为只读。即时生效':
+    'They can message the Bot directly and see its settings. Each of their chats gets a managed workspace of its own; command approvals stay with the Bot owner. Once unshared, their chats turn read-only. Saved at once',
 } satisfies Record<string, string>

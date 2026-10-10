@@ -25,6 +25,8 @@ const CONN = {
 export interface SidebarProps {
   groups: GroupDto[]
   bots: BotDto[]
+  /** Others' bots shared with me. */
+  sharedBots?: BotDto[]
   machines: MachineDto[]
   /** Toolbar row and search above the list. */
   header?: ReactNode
@@ -237,9 +239,28 @@ function Footer({ machines }: { machines: MachineDto[] }) {
   )
 }
 
+function BotRow({ b, meta, action }: { b: BotDto; meta: string; action?: ReactNode }) {
+  return (
+    <div className="sidebar__row">
+      <NavLink to={`/bot/${b.id}`} className="sidebar__open" title={`${b.name} · ${meta}`}>
+        <span className="sidebar__avatar">
+          <BotAvatar id={b.id} name={b.name} size={28} />
+          <span className="sidebar__presence" style={{ background: PRESENCE[b.presence].color }} />
+        </span>
+        <span className="sidebar__text">
+          <span className="sidebar__name">{b.name}</span>
+          <span className="sidebar__meta">{meta}</span>
+        </span>
+      </NavLink>
+      {action}
+    </div>
+  )
+}
+
 export function Sidebar({
   groups,
   bots,
+  sharedBots = [],
   machines,
   header,
   onNewGroup,
@@ -302,34 +323,38 @@ export function Sidebar({
           <div className="sidebar__list">
             {bots.length
               ? bots.map((b) => (
-                  <div key={b.id} className="sidebar__row">
-                    <NavLink
-                      to={`/bot/${b.id}`}
-                      className="sidebar__open"
-                      title={`${b.name} · ${botStateText(b)}`}
-                    >
-                      <span className="sidebar__avatar">
-                        <BotAvatar id={b.id} name={b.name} size={28} />
-                        <span
-                          className="sidebar__presence"
-                          style={{ background: PRESENCE[b.presence].color }}
-                        />
-                      </span>
-                      <span className="sidebar__text">
-                        <span className="sidebar__name">{b.name}</span>
-                        <span className="sidebar__meta">{botStateText(b)}</span>
-                      </span>
-                    </NavLink>
-                    {b.binding === 'pending_confirm' && onConfirmBot ? (
-                      <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
-                        {t('确认')}
-                      </Button>
-                    ) : null}
-                  </div>
+                  <BotRow
+                    key={b.id}
+                    b={b}
+                    meta={botStateText(b)}
+                    action={
+                      b.binding === 'pending_confirm' && onConfirmBot ? (
+                        <Button size="small" variant="primary" onClick={() => onConfirmBot(b.id)}>
+                          {t('确认')}
+                        </Button>
+                      ) : null
+                    }
+                  />
                 ))
               : empty(t('还没有 Bot'))}
           </div>
         </section>
+        {sharedBots.length ? (
+          <section aria-label={t('共享给我')}>
+            <SectionHead label={t('共享给我')} />
+            <div className="sidebar__list">
+              {sharedBots.map((b) => (
+                <BotRow
+                  key={b.id}
+                  b={b}
+                  meta={[t('{owner} 共享', { owner: b.ownerName }), botStateText(b)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
         <section aria-label={t('我的机器')}>
           <SectionHead
             label={t('我的机器')}

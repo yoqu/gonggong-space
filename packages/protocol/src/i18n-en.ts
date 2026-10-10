@@ -2,6 +2,11 @@
 export const protocolEn = {
   // Group events
   '{user} 创建了私聊 · 仅你和你的 Bot': '{user} started a direct chat · only you and your Bots',
+  '{user} 创建了私聊 · 使用 {owner} 共享的 Bot':
+    '{user} started a direct chat · with a Bot shared by {owner}',
+  '{bot} · 使用独立的托管工作区': '{bot} · using a managed workspace of its own',
+  '{user} 取消了 {bot} 的共享 · 私聊转为只读': '{user} stopped sharing {bot} · this chat is now read-only',
+  '{user} 重新共享了 {bot}': '{user} shared {bot} again',
   '{user} 创建了群 · 成为群管理员': '{user} created the group · now group admin',
   '{user} 创建了群 · 成为群管理员 · 邀请 {invited}':
     '{user} created the group · now group admin · invited {invited}',
@@ -156,6 +161,8 @@ export const protocolEn = {
     '{bot}\'s machine cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
   '待确认 Bot': 'Bot to confirm',
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you, please confirm the binding',
+  '共享 Bot': 'Shared Bot',
+  '{by} 将 {bot} 共享给你，可以和它私聊': '{by} shared {bot} with you, you can now chat with it directly',
 
   // Agent config
   默认模型: 'Default model',

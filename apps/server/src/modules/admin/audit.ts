@@ -143,6 +143,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('确认 Bot {name}', { name: str(d.name) })
         case 'bot.approval':
           return t('修改 Bot {name} 的审批设置', { name: str(d.name) })
+        case 'bot.share':
+          return t('修改 {user} 的 Bot {name} 的共享', { user: n.user(d.ownerId), name: str(d.name) })
         case 'bot.always_allow':
           return t('Bot {name} 始终允许：{rules}', {
             name: str(d.name),

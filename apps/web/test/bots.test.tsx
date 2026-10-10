@@ -91,6 +91,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   gitName: null,
   gitEmail: null,
   gitDefaultEmail: 'b1@bots.gonggong.local',
+  sharedWith: [],
   ...o,
 })
 
@@ -807,6 +808,166 @@ describe('bot page', () => {
     renderAt('/bot/b1', wang)
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
     expect(await within(page).findByText('空闲，在群里 @ 它即可开工')).toBeTruthy()
+  })
+})
+
+describe('bot page profile', () => {
+  const li: UserDto = { ...wang, id: 'u2', account: 'lijg', name: '李建国' }
+  const zhao: UserDto = { ...wang, id: 'u3', account: 'zhaom', name: '赵敏' }
+  const full = bot({
+    systemPrompt: '负责支付服务\n只改 src/pay',
+    catalog: CATALOG,
+    model: 'opus',
+    effort: 'high',
+    defaultWorkspace: '/Users/wang/pay',
+    triggerScope: 'list',
+    triggerList: ['u2'],
+    approval: 'allowlist',
+    allowlist: ['go build'],
+    alwaysAllow: ['tail'],
+    concurrency: 3,
+    gitName: 'CC',
+    gitEmail: 'cc@corp.com',
+    sharedWith: ['u2'],
+  })
+  /** The text of the `label` row in the `name` section, label included. */
+  const row = (page: HTMLElement, name: string, label: string) =>
+    within(within(page).getByRole('region', { name })).getByText(label).closest('div')?.textContent
+
+  it('shows every setting of the editor, grouped like its tabs', async () => {
+    routes['GET /api/bots'] = () => [full]
+    routes['GET /api/bots/b1/feishu'] = () => ({
+      app: { appId: 'cli_a1', status: 'connected', error: null, configError: null, updatedAt: '' },
+    })
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(row(page, '基本信息', '角色')).toBe('角色说不 · 果断 × 本分 × 聚焦')
+    expect(row(page, '基本信息', '系统提示词')).toBe('系统提示词负责支付服务\n只改 src/pay')
+    expect(row(page, '运行配置', '执行机器')).toBe('执行机器wanglei-mbp')
+    expect(row(page, '运行配置', 'Agent')).toBe('Agentclaude-code 2.1.4')
+    expect(row(page, '运行配置', '模型')).toBe('模型Opus · 高')
+    expect(row(page, '运行配置', '默认工作区')).toBe('默认工作区~/pay')
+    expect(row(page, '权限', '权限档位')).toBe('权限档位工作区写入')
+    await waitFor(() => expect(row(page, '权限', '触发范围')).toBe('触发范围指定名单 · 李建国'))
+    expect(row(page, '权限', '命令审批')).toBe('命令审批白名单自动 · go build')
+    expect(row(page, '权限', '始终允许')).toBe('始终允许tail')
+    expect(row(page, '高级', '并发上限')).toBe('并发上限3 个群并行')
+    expect(row(page, '高级', 'Git 提交身份')).toBe('Git 提交身份CC <cc@corp.com>')
+    await waitFor(() => expect(row(page, '高级', '飞书应用')).toBe('飞书应用cli_a1'))
+    expect(row(page, '共享', '共享给')).toBe('共享给李建国')
+
+    fireEvent.click(within(page).getByRole('button', { name: '管理共享' }))
+    const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
+    expect(within(detail).getByRole('tab', { name: '共享' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('keeps the owner’s directory, Feishu app and share list from other members', async () => {
+    routes['GET /api/bots'] = () => [full]
+    renderAt('/bot/b1', zhao)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(row(page, '运行配置', '模型')).toBe('模型Opus · 高')
+    expect(within(page).queryByText('默认工作区')).toBeNull()
+    expect(within(page).queryByText('飞书应用')).toBeNull()
+    expect(within(page).queryByRole('region', { name: '共享' })).toBeNull()
+    expect(within(page).queryByRole('button', { name: '私聊' })).toBeNull()
+    expect(within(page).queryByRole('heading', { name: /用量/ })).toBeNull()
+    expect(calls.some((c) => c.key.startsWith('GET /api/bots/b1/feishu'))).toBe(false)
+  })
+
+  it('lets someone it is shared with see it in the sidebar, chat with it and see their own usage', async () => {
+    routes['GET /api/bots'] = () => [full, bot({ id: 'b2', name: '别人的', ownerId: 'u9' })]
+    routes['GET /api/usage?by=user&days=30&botId=b1'] = () => [
+      { key: 'u2', name: '李建国', runs: 2, totalTokens: 12_000, unreported: 0 },
+    ]
+    routes['POST /api/groups'] = () => ({
+      id: 'g9',
+      teamId: 't1',
+      name: '小王的 Claude · 王磊',
+      kind: 'dm',
+      mode: 'partition',
+      members: [],
+      botIds: ['b1'],
+      unread: 0,
+      lastSeq: 0,
+      liveRunIds: [],
+    })
+    renderAt('/', li)
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const shared = await within(nav).findByRole('region', { name: '共享给我' })
+    expect(within(shared).getByRole('link', { name: /小王的 Claude/ }).textContent).toContain('王磊 共享')
+    expect(within(nav).queryByText('别人的')).toBeNull()
+    fireEvent.click(within(shared).getByRole('link', { name: /小王的 Claude/ }))
+
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(within(page).getByText('王磊 共享给你')).toBeTruthy()
+    expect(within(page).queryByRole('button', { name: '编辑 Bot' })).toBeNull()
+    expect(within(page).getByRole('heading', { name: '我的近 30 天用量' })).toBeTruthy()
+    const tile = (label: string) => within(page).getByText(label).closest('.usage-stat')?.textContent
+    await waitFor(() => expect(tile('token 合计')).toBe('token 合计12k'))
+    expect(calls.some((c) => c.key === 'GET /api/bots/b1/activity')).toBe(false)
+
+    fireEvent.click(within(page).getByRole('button', { name: '私聊' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /api/groups')?.body).toMatchObject({
+        kind: 'dm',
+        botIds: ['b1'],
+      }),
+    )
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Bot 概况' })).toBeNull())
+  })
+
+  it('opens the existing DM instead of starting another', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['GET /api/groups'] = () => [
+      {
+        id: 'g1',
+        teamId: 't1',
+        name: '小王的 Claude',
+        kind: 'dm',
+        mode: 'partition',
+        members: [],
+        botIds: ['b1'],
+        unread: 0,
+        lastSeq: 0,
+        liveRunIds: [],
+      },
+    ]
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    fireEvent.click(within(page).getByRole('button', { name: '私聊' }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Bot 概况' })).toBeNull())
+    expect(calls.some((c) => c.key === 'POST /api/groups')).toBe(false)
+  })
+
+  it('lets the owner share the bot and stop sharing it, saved at once', async () => {
+    routes['GET /api/bots'] = () => [bot({ sharedWith: ['u2'] })]
+    routes['GET /api/users'] = () => [
+      { id: 'u1', name: '王磊', account: 'wanglei' },
+      { id: 'u2', name: '李建国', account: 'lijg' },
+      { id: 'u3', name: '赵敏', account: 'zhaom' },
+    ]
+    routes['PUT /api/bots/b1/shares'] = (b) => bot({ sharedWith: (b as { userIds: string[] }).userIds })
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '共享')
+    expect(within(detail).queryByRole('button', { name: '保存' })).toBeNull()
+    const list = within(detail).getByRole('list', { name: '共享对象' })
+    expect(within(list).getByText('李建国')).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('button', { name: '添加成员…' }))
+    const picker = await screen.findByRole('dialog', { name: '添加成员' })
+    expect(within(picker).queryByText('王磊')).toBeNull()
+    expect(within(picker).queryByText('李建国')).toBeNull()
+    fireEvent.click(within(picker).getByRole('menuitemcheckbox', { name: /赵敏/ }))
+    fireEvent.click(within(picker).getByRole('button', { name: '添加 1 人' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PUT /api/bots/b1/shares')?.body).toEqual({ userIds: ['u2', 'u3'] }),
+    )
+    fireEvent.click(await within(detail).findByRole('button', { name: '移除 李建国' }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === 'PUT /api/bots/b1/shares').at(-1)?.body).toEqual({
+        userIds: ['u3'],
+      }),
+    )
   })
 })
 

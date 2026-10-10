@@ -25,6 +25,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
+import { isSharedWith } from '../bots/shares.js'
 import { pullIntoChat } from '../feishu/members.js'
 import { forgetMembers, postEvent } from '../messages/service.js'
 import { branchKnownMissing } from '../repos/probe.js'
@@ -65,8 +66,15 @@ async function liveBots(ctx: Ctx, teamId: string, ids: string[]) {
   if (!ids.length) return []
   if (!ids.every(isUuid)) return fail('invalid', 'Bot 不存在或已删除')
   const rows = await ctx.db
-    .select({ id: bots.id, name: bots.name, ownerId: bots.ownerId, machineId: bots.machineId })
+    .select({
+      id: bots.id,
+      name: bots.name,
+      ownerId: bots.ownerId,
+      ownerName: users.name,
+      machineId: bots.machineId,
+    })
     .from(bots)
+    .innerJoin(users, eq(users.id, bots.ownerId))
     .where(and(inArray(bots.id, ids), eq(bots.teamId, teamId), isNull(bots.deletedAt)))
   if (rows.length !== ids.length) return fail('invalid', 'Bot 不存在或已删除')
   return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
@@ -117,12 +125,18 @@ export function groupRoutes(ctx: Ctx) {
       const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)
       if (dm && invitedIds.length) return fail('invalid', '私聊只能包含你和你的 Bot')
       const picked = await liveBots(ctx, teamId, uniq(body.botIds))
-      if (dm && picked.some((b) => b.ownerId !== me.id)) return fail('forbidden', '私聊只能拉入你自己的 Bot')
-      const invited = await activeUsers(
-        ctx,
-        teamId,
-        uniq([...invitedIds, ...picked.map((b) => b.ownerId)]).filter((id) => id !== me.id),
-      )
+      for (const b of dm ? picked : [])
+        if (b.ownerId !== me.id && !(await isSharedWith(ctx, b.id, me.id)))
+          return fail('forbidden', '私聊只能拉入你自己或共享给你的 Bot')
+      // A DM with a shared bot leaves its owner out.
+      const invited = dm
+        ? []
+        : await activeUsers(
+            ctx,
+            teamId,
+            uniq([...invitedIds, ...picked.map((b) => b.ownerId)]).filter((id) => id !== me.id),
+          )
+      const sharer = picked.find((b) => b.ownerId !== me.id)
 
       const group = { id: randomUUID() }
       await ctx.db.transaction(async (tx) => {
@@ -143,11 +157,17 @@ export function groupRoutes(ctx: Ctx) {
         ctx,
         group.id,
         dm
-          ? '{user} 创建了私聊 · 仅你和你的 Bot'
+          ? sharer
+            ? '{user} 创建了私聊 · 使用 {owner} 共享的 Bot'
+            : '{user} 创建了私聊 · 仅你和你的 Bot'
           : invited.length
             ? '{user} 创建了群 · 成为群管理员 · 邀请 {invited}'
             : '{user} 创建了群 · 成为群管理员',
-        { user: me.name, invited: invited.map((u) => u.name).join('、') },
+        {
+          user: me.name,
+          invited: invited.map((u) => u.name).join('、'),
+          ...(sharer && { owner: sharer.ownerName }),
+        },
       )
       await postEvent(
         ctx,
@@ -239,12 +259,13 @@ export function groupRoutes(ctx: Ctx) {
       const { botId } = GroupBotReq.parse(req.body)
       const bot = await oneBot(ctx, group.teamId, botId)
       if (!mine.isAdmin && bot.ownerId !== me.id) return fail('forbidden', '只能拉入你自己的 Bot')
-      if (group.kind === 'dm' && bot.ownerId !== group.createdBy)
-        return fail('forbidden', '私聊只能拉入你自己的 Bot')
+      const dm = group.kind === 'dm'
+      if (dm && bot.ownerId !== group.createdBy && !(await isSharedWith(ctx, bot.id, group.createdBy)))
+        return fail('forbidden', '私聊只能拉入你自己或共享给你的 Bot')
       if ((await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
         return groupDto(ctx, me.id, group.id)
 
-      const ownerJoins = !(await isMember(ctx, group.id, bot.ownerId))
+      const ownerJoins = !dm && !(await isMember(ctx, group.id, bot.ownerId))
       await ctx.db.transaction(async (tx) => {
         await tx
           .insert(groupBots)

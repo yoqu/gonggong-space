@@ -95,5 +95,12 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: '/admin/bots',
       }
+    case 'bot_shared':
+      return {
+        label: say('共享 Bot'),
+        text: say('{by} 将 {bot} 共享给你，可以和它私聊', { by: p('byName'), bot }),
+        group: '',
+        href: `/bot/${p('botId')}`,
+      }
   }
 }

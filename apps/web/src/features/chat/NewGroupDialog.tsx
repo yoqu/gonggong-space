@@ -45,7 +45,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
     if (o.url !== undefined && !nameTouched) setName(o.url ? repoName(o.url) : '')
   }
 
-  const choices = allBots.filter((b) => !dm || b.ownerId === me.id)
+  const choices = allBots.filter((b) => !dm || b.ownerId === me.id || b.sharedWith.includes(me.id))
   const picked = botIds.map((id) => allBots.find((b) => b.id === id)).filter((b): b is BotDto => !!b)
   const owners = [...new Set(picked.filter((b) => b.ownerId !== me.id).map((b) => b.ownerId))]
   const manual = people.filter((id) => !owners.includes(id))
