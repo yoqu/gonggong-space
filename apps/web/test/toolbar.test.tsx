@@ -99,7 +99,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
 })
 
 describe('Sidebar rows', () => {
-  it("tags Bot DMs, prefixes another group's unsent draft and keeps it off the open one", () => {
+  it("tags Bot DMs with their workspace path, prefixes another group's unsent draft and keeps it off the open one", () => {
     sessionStorage.setItem('gonggong:draft:g1', '周报晚点补')
     sessionStorage.setItem('gonggong:draft:g2', '当前草稿')
     try {
@@ -109,7 +109,11 @@ describe('Sidebar rows', () => {
             groups={[
               group('g1', '前端'),
               group('g2', '后端'),
-              { ...group('d1', '脚本实验', 'dm'), last: '设计师大象：**快速开始**' },
+              {
+                ...group('d1', '脚本实验', 'dm'),
+                last: '设计师大象：**快速开始**',
+                workspacePath: '/Users/wang/.gonggong/workspaces/t1/g1/d1/scripts',
+              },
             ]}
             bots={[]}
             machines={[]}
@@ -121,7 +125,7 @@ describe('Sidebar rows', () => {
       const preview = (id: string) => screen.getByTestId(id).querySelector('.pn-conv__preview')?.textContent
       expect(preview('group-item-g1')).toBe('[草稿] 周报晚点补')
       expect(preview('group-item-g2')).toBe('0 人 · 分区模式')
-      expect(preview('group-item-d1')).toBe('设计师大象：快速开始')
+      expect(preview('group-item-d1')).toBe('/Users/wang/.gonggo…es/t1/g1/d1/scripts')
     } finally {
       sessionStorage.clear()
     }

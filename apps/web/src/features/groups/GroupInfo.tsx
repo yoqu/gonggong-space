@@ -139,7 +139,7 @@ export function GroupInfo({
     members: t('群成员 · {n}', { n: group.members.length }),
     bots: `Bot · ${group.botIds.length}`,
     repo: t('仓库与工作区'),
-    info: t('群名称与公告'),
+    info: dm ? t('私聊名称') : t('群名称与公告'),
     notices: t('群公告'),
     previews: t('预览与服务'),
     schedules: t('定时任务'),
@@ -394,7 +394,7 @@ function MainView({
               ? t('你是群管理员')
               : t('仅群管理员 · {names}', { names: admins.map((m) => m.name).join(t('、')) }),
           rows: [
-            ...(dm ? [] : [manage(t('群名称与公告'), group.name, () => setView('info'))]),
+            manage(dm ? t('私聊名称') : t('群名称与公告'), group.name, () => setView('info')),
             manage(
               t('仓库与基准分支'),
               <span className={group.repo ? 'gs-mono' : undefined}>{group.repo?.url ?? t('未绑定')}</span>,
@@ -709,23 +709,31 @@ function InfoForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) 
   const [name, setName] = useState(group.name)
   const [notice, setNotice] = useState(group.notice)
   const [saving, setSaving] = useState(false)
+  const dm = group.kind === 'dm'
   const save = async () => {
     setSaving(true)
-    if (await attempt(() => groupsApi.update(group.id, { name, notice }))) onSaved()
+    if (await attempt(() => groupsApi.update(group.id, dm ? { name } : { name, notice }))) onSaved()
     setSaving(false)
   }
   return (
     <div className="gs-form">
-      <TextField label={t('群名称')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
       <TextField
-        multiline
-        label={t('群公告 · 置顶展示在对话顶部')}
-        rows={4}
-        value={notice}
-        maxLength={500}
-        placeholder={t('如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线')}
-        onChange={(e) => setNotice(e.target.value)}
+        label={dm ? t('私聊名称') : t('群名称')}
+        value={name}
+        maxLength={60}
+        onChange={(e) => setName(e.target.value)}
       />
+      {dm ? null : (
+        <TextField
+          multiline
+          label={t('群公告 · 置顶展示在对话顶部')}
+          rows={4}
+          value={notice}
+          maxLength={500}
+          placeholder={t('如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线')}
+          onChange={(e) => setNotice(e.target.value)}
+        />
+      )}
       <div className="gs-form__foot">
         <Button variant="primary" disabled={!name.trim() || saving} onClick={() => void save()}>
           {t('保存')}

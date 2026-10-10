@@ -1,0 +1,1 @@
+ALTER TABLE "groups" ADD COLUMN "renamed" boolean DEFAULT false NOT NULL;

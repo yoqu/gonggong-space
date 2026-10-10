@@ -6,6 +6,7 @@ import { botStateText, PRESENCE } from '../features/bots/model'
 import { draftKey } from '../features/chat/MessageComposer'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { OS_LABEL } from '../features/machines/BindMachineDialog'
+import { middle } from '../features/repos/RepoWorkspaceView'
 import { t } from '../i18n'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
@@ -63,10 +64,13 @@ const draftOf = (groupId: string) => {
 
 function GroupRow({ g, current, tabStop }: { g: GroupDto; current: boolean; tabStop: boolean }) {
   const dm = g.kind === 'dm'
-  // The mode lives in the chat header; the row's second line is for the latest message.
-  const preview =
-    (g.last && plainText(lastText(g))) ||
-    (dm ? t('仅你和你的 Bot') : t('{n} 人 · {mode}', { n: g.members.length, mode: GROUP_MODE_LABEL[g.mode] }))
+  // The mode lives in the chat header; a group's second line is for the latest message, a DM's for where its Bot works.
+  const preview = dm
+    ? g.workspacePath
+      ? middle(g.workspacePath)
+      : t('未选择工作区')
+    : (g.last && plainText(lastText(g))) ||
+      t('{n} 人 · {mode}', { n: g.members.length, mode: GROUP_MODE_LABEL[g.mode] })
   return (
     <NavLink
       to={`/g/${g.id}`}

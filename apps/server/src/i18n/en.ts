@@ -284,7 +284,6 @@ export const en = {
   不能转让给自己: "You can't transfer to yourself",
   邀请链接无效: 'Invalid invite link',
   邀请链接已失效: 'This invite link has expired',
-  '私聊以 Bot 名称命名，不能改名': "A direct chat is named after its Bot and can't be renamed",
   '唯一的群管理员不能取消，请先指定继任者':
     "The only group admin can't be revoked, appoint another admin first",
   '私聊不能退出，可删除私聊': "You can't leave a direct chat, delete it instead",

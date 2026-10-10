@@ -2,6 +2,7 @@ import type { AdminGroupDto, GroupDto, NotificationDto, SearchResultDto } from '
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { messages } from '../src/db/schema.js'
 import { notify } from '../src/modules/notifications/notify.js'
+import { updateBotState } from '../src/modules/workspaces/state.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client, events } from './support/http.js'
 
@@ -57,9 +58,20 @@ describe('DM title follows its Bot', () => {
     })
   })
 
-  it('a DM cannot be renamed', async () => {
+  it('a renamed DM keeps its own name over the Bot name', async () => {
     const w = await world()
-    expect((await w.asWang.patch(`/api/groups/${w.dm.id}`, { name: '新名字' })).status).toBe(400)
+    const res = await w.asWang.patch<GroupDto>(`/api/groups/${w.dm.id}`, { name: '重构登录' })
+    expect(res.status).toBe(200)
+    expect(res.body.name).toBe('重构登录')
+    await w.asWang.patch(`/api/bots/${w.bot.id}`, { name: '代码助手' })
+    expect((await dmOf(w))?.name).toBe('重构登录')
+  })
+
+  it("carries the Bot's workspace path", async () => {
+    const w = await world()
+    expect((await dmOf(w))?.workspacePath).toBeNull()
+    await updateBotState(t.ctx, w.dm.id, w.bot.id, { workspacePath: '/Users/wang/code/pay' })
+    expect((await dmOf(w))?.workspacePath).toBe('/Users/wang/code/pay')
   })
 
   it('shows as <owner> ⇄ <Bot> material in the admin list', async () => {

@@ -110,7 +110,7 @@ export default {
   群级参数已保存: 'Group parameters saved',
   保存后对新会话生效: 'Applies to new sessions after saving',
   当前模式: 'Current mode',
-  私聊名: 'Chat name',
+  私聊名称: 'Chat name',
   群名: 'Group name',
   类型: 'Type',
   '私聊 · 仅你和你的 Bot，不能邀请他人': 'Private chat · only you and your Bots; no one else can be invited',

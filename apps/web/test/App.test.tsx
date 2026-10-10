@@ -1,5 +1,5 @@
 import type { GroupDto, UserDto } from '@gonggong/protocol'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -110,6 +110,36 @@ describe('chat shell', () => {
     ).toBe('page')
     expect(within(nav).getByRole('link', { name: /王磊的私聊/ })).toBeTruthy()
     expect(within(screen.getByRole('main')).getByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
+  })
+
+  it("shows a DM's workspace path under its name and follows the Bot's workspace", () => {
+    useWorkspace.setState({
+      groups: [{ ...group('d1', '重构登录', 'dm'), botIds: ['b1'], workspacePath: null, last: '王磊：在吗' }],
+    })
+    renderAt('/')
+    const row = screen.getByTestId('group-item-d1')
+    expect(row.textContent).toContain('未选择工作区')
+    expect(row.textContent).not.toContain('在吗')
+    act(() =>
+      useWorkspace.getState().applyEvent({
+        t: 'group.botState',
+        groupId: 'd1',
+        state: {
+          botId: 'b1',
+          workspace: 'cd',
+          state: 'ready',
+          path: '/Users/wang/code/login',
+          git: null,
+          error: null,
+          reason: null,
+          tier: null,
+          model: null,
+          effort: null,
+          context: null,
+        },
+      }),
+    )
+    expect(row.textContent).toContain('/Users/wang/code/login')
   })
 
   it('shows either the list or the chat under 768px', () => {

@@ -141,7 +141,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       .where(inArray(groupMembers.groupId, gids))
       .orderBy(asc(groupMembers.joinedAt)),
     ctx.db
-      .select({ groupId: groupBots.groupId, botId: groupBots.botId })
+      .select({ groupId: groupBots.groupId, botId: groupBots.botId, workspacePath: groupBots.workspacePath })
       .from(groupBots)
       .innerJoin(bots, eq(bots.id, groupBots.botId))
       .where(and(inArray(groupBots.groupId, gids), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
@@ -178,6 +178,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
   return rows.map(({ group: g, title, me, lastSeq, unread }) => {
     const repo = repos.find((r) => r.groupId === g.id)
     const chat = chats.find((c) => c.groupId === g.id)
+    const gbots = groupBotRows.filter((b) => b.groupId === g.id)
     const last = lasts.find((l) => l.groupId === g.id)
     const lastI18n = last?.recalledAt
       ? recallNote(last.authorUserId === me.userId, last.userName)
@@ -196,7 +197,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       members: members
         .filter((m) => m.groupId === g.id)
         .map(({ userId, name, avatar, isAdmin }) => ({ userId, name, avatar: avatarUrl(avatar), isAdmin })),
-      botIds: groupBotRows.filter((b) => b.groupId === g.id).map((b) => b.botId),
+      botIds: gbots.map((b) => b.botId),
       unread,
       lastSeq: Number(lastSeq ?? 0),
       last: !last
@@ -210,6 +211,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       foldRuns: me.foldRuns,
       liveRunIds: live.filter((r) => r.groupId === g.id).map((r) => r.id),
       ...(chat && { feishu: { chatId: chat.chatId, name: chat.name } }),
+      ...(g.kind === 'dm' && { workspacePath: gbots[0]?.workspacePath ?? null }),
     }
     return { userId: me.userId, group }
   })

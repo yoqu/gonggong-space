@@ -153,7 +153,7 @@ function BasicTab({ group }: { group: GroupDto }) {
   const me = useSession((s) => s.user)
   const dm = group.kind === 'dm'
   const rows = [
-    { k: dm ? t('私聊名') : t('群名'), v: group.name },
+    { k: dm ? t('私聊名称') : t('群名'), v: group.name },
     dm
       ? { k: t('类型'), v: t('私聊 · 仅你和你的 Bot，不能邀请他人') }
       : {

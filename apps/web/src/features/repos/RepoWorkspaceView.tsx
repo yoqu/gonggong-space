@@ -19,7 +19,7 @@ const PAUSING: Partial<Record<RepoAccessReason, string>> = {
 }
 
 /** Keeps both ends of a long path: `/Users/w/…/pay/refund`. */
-const middle = (path: string, max = 40) =>
+export const middle = (path: string, max = 40) =>
   path.length <= max ? path : `${path.slice(0, max / 2 - 1)}…${path.slice(-(max / 2 - 1))}`
 
 function workspaceText(s: GroupBotStateDto | undefined, online: boolean) {

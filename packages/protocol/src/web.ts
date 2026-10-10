@@ -569,6 +569,8 @@ export const GroupDto = z.object({
   liveRunIds: z.array(z.string()),
   /** The Feishu chat the group is bound to; absent when unbound. */
   feishu: z.object({ chatId: z.string(), name: z.string() }).optional(),
+  /** DMs only: where the Bot works, null until its workspace is set up. */
+  workspacePath: z.string().nullable().optional(),
 })
 export type GroupDto = z.infer<typeof GroupDto>
 /** GET /api/groups/:id/notices — every published notice, newest first. */

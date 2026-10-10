@@ -215,6 +215,8 @@ export const groups = pgTable('groups', {
   name: text('name').notNull(),
   /** 'group' | 'dm' */
   kind: text('kind').notNull(),
+  /** A DM renamed by its owner shows `name`; otherwise it follows its Bot's name. */
+  renamed: boolean('renamed').notNull().default(false),
   notice: text('notice').notNull().default(''),
   /** The `group_notices` row behind `notice`; null when there is none. */
   noticeId: uuid('notice_id'),

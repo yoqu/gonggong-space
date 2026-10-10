@@ -326,7 +326,7 @@ describe('group settings inspector', () => {
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/dissolve')).toBe(true)
   })
 
-  it('calls a DM deletion 删除私聊, offers no leaving and no renaming', async () => {
+  it('calls a DM deletion 删除私聊, offers no leaving', async () => {
     mockApi(
       routes([
         group({
@@ -339,12 +339,35 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
     const d = await screen.findByRole('complementary', { name: '私聊设置' })
-    // A DM is titled by its Bot.
-    expect(within(d).queryByRole('button', { name: /名称/ })).toBeNull()
     expect(within(d).queryByRole('region', { name: '群成员' })).toBeNull()
     expect(within(d).queryByRole('button', { name: '退出群' })).toBeNull()
     fireEvent.click(within(d).getByRole('button', { name: '删除私聊' }))
     expect(within(d).getByRole('button', { name: '确认删除' })).toBeTruthy()
+  })
+
+  it('renames a DM without a notice', async () => {
+    const dm: Partial<GroupDto> = {
+      kind: 'dm',
+      members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: true }],
+    }
+    const calls = mockApi(
+      routes([group({ ...dm, name: '小王的 Claude' })], {
+        'PATCH /groups/g1': (b: unknown) => group({ ...dm, ...(b as Partial<GroupDto>) }),
+      }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
+    const d = await screen.findByRole('complementary', { name: '私聊设置' })
+    fireEvent.click(within(d).getByRole('button', { name: /私聊名称/ }))
+    expect(within(d).queryByLabelText(/群公告/)).toBeNull()
+    fireEvent.change(within(d).getByLabelText('私聊名称'), { target: { value: '重构登录' } })
+    fireEvent.click(within(d).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual(
+        expect.objectContaining({ method: 'PATCH', path: '/groups/g1', body: { name: '重构登录' } }),
+      ),
+    )
+    expect(await within(screen.getByRole('main')).findByRole('heading', { name: '重构登录' })).toBeTruthy()
   })
 
   it('a member confirms leaving', async () => {

@@ -101,6 +101,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
           ...s.botStates,
           [e.groupId]: { ...s.botStates[e.groupId], [e.state.botId]: e.state },
         },
+        groups: s.groups.map((g) =>
+          g.id === e.groupId && g.kind === 'dm' && g.botIds[0] === e.state.botId
+            ? { ...g, workspacePath: e.state.path }
+            : g,
+        ),
       }))
   },
 }))
