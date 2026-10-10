@@ -210,6 +210,7 @@ impl Rig {
             resume_session_id: None,
             new_session_reason: None,
             mcp_servers: vec![],
+            skills: vec![],
             command: None,
             sync: Some(sync),
             prompt: RunPrompt {

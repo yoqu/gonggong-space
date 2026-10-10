@@ -253,6 +253,37 @@ pub enum McpServer {
     Http { name: String, url: String, headers: std::collections::BTreeMap<String, String> },
 }
 
+/// A merged team skill for the run; its files are fetched by `version_id` and cached by `digest`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillRef {
+    pub name: String,
+    pub version_id: String,
+    pub digest: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SkillEncoding {
+    #[default]
+    Utf8,
+    Base64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillFile {
+    pub path: String,
+    pub content: String,
+    #[serde(default)]
+    pub encoding: SkillEncoding,
+}
+
+/// `GET /api/daemon/skills/:versionId`
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DaemonSkillRes {
+    pub files: Vec<SkillFile>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Quote {
     pub author: String,
@@ -515,6 +546,8 @@ pub struct RunStart {
     pub new_session_reason: Option<String>,
     pub prompt: RunPrompt,
     pub mcp_servers: Vec<McpServer>,
+    #[serde(default)]
+    pub skills: Vec<SkillRef>,
     /// An agent command sent verbatim as the prompt instead of the composed group context.
     #[serde(default)]
     pub command: Option<String>,

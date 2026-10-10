@@ -40,7 +40,7 @@ pub async fn fetch<'a>(api: &Config, cwd: &Path, list: impl IntoIterator<Item = 
         download(api, a, &path).await.map_err(|e| t!("附件下载失败：{name}：{e}", name = a.name, e = e))?;
     }
     if any && git::is_repo(cwd) {
-        exclude(cwd).await.map_err(|e| t!("无法写入 .git/info/exclude：{e}", e = e))?;
+        git::exclude(cwd, EXCLUDE).await.map_err(|e| t!("无法写入 .git/info/exclude：{e}", e = e))?;
     }
     Ok(())
 }
@@ -59,17 +59,6 @@ async fn download(api: &Config, a: &Attachment, path: &Path) -> anyhow::Result<(
     file.flush().await?;
     tokio::fs::rename(&part, path).await?;
     Ok(())
-}
-
-async fn exclude(cwd: &Path) -> Result<(), String> {
-    let file = cwd.join(git::git(cwd, &["rev-parse", "--git-path", "info/exclude"]).await?.trim());
-    let current = tokio::fs::read_to_string(&file).await.unwrap_or_default();
-    if current.lines().any(|l| l.trim() == EXCLUDE) {
-        return Ok(());
-    }
-    let sep = if current.is_empty() || current.ends_with('\n') { "" } else { "\n" };
-    tokio::fs::create_dir_all(file.parent().expect("exclude has a parent")).await.map_err(|e| e.to_string())?;
-    tokio::fs::write(&file, format!("{current}{sep}{EXCLUDE}\n")).await.map_err(|e| e.to_string())
 }
 
 /// The prompt text, then the trigger's images when the agent accepts image content.

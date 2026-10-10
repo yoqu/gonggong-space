@@ -53,6 +53,7 @@ pub fn start(run_id: &str, kind: AgentKind) -> RunStart {
         resume_session_id: None,
         new_session_reason: None,
         mcp_servers: vec![],
+        skills: vec![],
         command: None,
         sync: None,
         prompt: RunPrompt {

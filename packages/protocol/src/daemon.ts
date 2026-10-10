@@ -187,6 +187,20 @@ export const McpServer = z.discriminatedUnion('transport', [
 ])
 export type McpServer = z.infer<typeof McpServer>
 
+/** A file of a team skill folder; `path` is relative (`SKILL.md`, `scripts/run.sh`), binary files in base64. */
+export const SkillFile = z.object({
+  path: z.string().min(1).max(255),
+  content: z.string(),
+  encoding: z.enum(['utf8', 'base64']).default('utf8'),
+})
+export type SkillFile = z.infer<typeof SkillFile>
+/** A merged team skill for the run (plan 团队Skill); the daemon fetches its files by `versionId`, cached by `digest`. */
+export const SkillRef = z.object({ name: z.string(), versionId: z.string(), digest: z.string() })
+export type SkillRef = z.infer<typeof SkillRef>
+/** `GET /api/daemon/skills/:versionId` */
+export const DaemonSkillRes = z.object({ files: z.array(SkillFile) })
+export type DaemonSkillRes = z.infer<typeof DaemonSkillRes>
+
 /** The bot owner's preferred protocol; the daemon tries it first, then falls back to the other (ssh ↔ https). */
 export const GitProtocol = z.enum(['auto', 'ssh', 'https'])
 export type GitProtocol = z.infer<typeof GitProtocol>
@@ -265,6 +279,8 @@ export const RunStart = z.object({
   }),
   /** Global MCP servers (spec §7.2, P1 global layer), injected on session creation only (§7.4). */
   mcpServers: z.array(McpServer),
+  /** Platform → team → group skills merged by name; applied every turn (content) and on adapter start (the set). */
+  skills: z.array(SkillRef).default([]),
   /** An agent command (`/compact …`): sent verbatim as the prompt so the adapter runs it; `prompt` is not composed. */
   command: z.string().nullable().default(null),
   /** Force groups only (null in partition groups). */

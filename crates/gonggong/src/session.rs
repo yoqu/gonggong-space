@@ -13,6 +13,7 @@ use crate::protocol::{
 use crate::providers::{OFFICIAL, RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
 use crate::service::Outbox;
+use crate::skills;
 use crate::t;
 use crate::turn::{
     ExtUpdate, TaskSnap, Turn, auto_allow, client_meta, compose_prompt, mode_for, session_failure, sync_hint,
@@ -59,6 +60,7 @@ struct Planned {
     selection: Selection,
     /// Its session's pinned provider is gone: start a new session instead of resuming.
     removed: bool,
+    skills: skills::Installed,
 }
 
 /// Makes `req` the active turn and decides its provider from the store as of now, so CLI / desktop edits apply from
@@ -81,7 +83,29 @@ fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Planned> {
             return None;
         }
     };
-    Some(Planned { req, selection, removed })
+    Some(Planned { req, selection, removed, skills: skills::Installed::default() })
+}
+
+/// Installs the turn's team skills before its adapter is chosen. None: it fails (and is reported) instead.
+async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Planned> {
+    let Some(api) = &engine.config.api else { return Some(turn) };
+    let s = &turn.req.start;
+    let dir = skills::set_dir(&engine.config.home, &s.group_id, &s.bot.id);
+    match skills::install(api, &dir, s.bot.agent_kind, &turn.req.cwd, &s.skills).await {
+        Ok(installed) => {
+            if !installed.skipped.is_empty() {
+                let step = t!("已跳过团队 skill {names}：仓库里已有同名 skill", names = installed.skipped.join("、"));
+                let event = RunEvent::Status { status: RunStatus::Running, step };
+                turn.req.out.send(DaemonToServer::RunEvent { run_id: s.run_id.clone(), event });
+            }
+            turn.skills = installed;
+            Some(turn)
+        }
+        Err(e) => {
+            shared.finish(Err(e), None, None);
+            None
+        }
+    }
 }
 
 struct Active {
@@ -871,7 +895,10 @@ pub(crate) async fn run(
             Some(turn) => turn,
             None => match rx.recv().await {
                 Some(req) => match plan(&engine, &shared, req) {
-                    Some(turn) => turn,
+                    Some(turn) => match ready(&engine, &shared, turn).await {
+                        Some(turn) => turn,
+                        None => continue,
+                    },
                     None => continue,
                 },
                 None => break,
@@ -963,6 +990,7 @@ async fn connect(
                 ask,
                 home: &engine.config.home,
                 selection: first.selection.clone(),
+                skills: first.skills.clone(),
                 session: None,
                 mode: None,
                 options: vec![],
@@ -973,18 +1001,23 @@ async fn connect(
             loop {
                 {
                     let _dir = engine.workspaces.occupy(&turn.req, shared).await;
+                    conv.skills = turn.skills.clone();
                     conv.turn(turn.req, turn.removed, resume).await?;
                 }
                 turn = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
                         Ok(Some(next)) => match plan(engine, shared, next) {
-                            Some(turn) => break turn,
+                            Some(turn) => match ready(engine, shared, turn).await {
+                                Some(turn) => break turn,
+                                None => continue,
+                            },
                             None => continue,
                         },
                         Ok(None) | Err(_) => return Ok(None),
                     }
                 };
-                if turn.selection != conv.selection {
+                // Claude only sees the plugin's skill list as it was when the process started.
+                if turn.selection != conv.selection || turn.skills.names != conv.skills.names {
                     return Ok(Some(turn));
                 }
             }
@@ -1002,6 +1035,8 @@ struct Conversation<'a> {
     home: &'a Path,
     /// The provider this adapter process was started with.
     selection: Selection,
+    /// The team skills of the current turn; their names are those the process started with.
+    skills: skills::Installed,
     session: Option<SessionId>,
     mode: Option<String>,
     /// The session's config options as last reported, their values when it was opened, and the values we set
@@ -1250,9 +1285,15 @@ impl Conversation<'_> {
             Selection::Provider(p) => Some(&p.id[..]),
             Selection::Official(o) => (!o.is_empty()).then_some(OFFICIAL),
         };
+        let mut options = serde_json::Map::new();
         if let Some(id) = settings {
-            let settings = inject::claude_settings_path(self.home, id);
-            meta.insert("claudeCode".into(), serde_json::json!({ "options": { "settings": settings } }));
+            options.insert("settings".into(), serde_json::json!(inject::claude_settings_path(self.home, id)));
+        }
+        if !self.skills.names.is_empty() {
+            options.insert("plugins".into(), serde_json::json!([{ "type": "local", "path": self.skills.dir }]));
+        }
+        if !options.is_empty() {
+            meta.insert("claudeCode".into(), serde_json::json!({ "options": options }));
         }
         Some(meta)
     }

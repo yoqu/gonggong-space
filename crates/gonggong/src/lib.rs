@@ -34,6 +34,7 @@ pub mod repo;
 pub mod revoke;
 pub mod service;
 mod session;
+pub mod skills;
 pub mod snapshot;
 pub mod static_site;
 pub mod status;

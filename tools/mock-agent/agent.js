@@ -63,6 +63,7 @@ function open(sessionId, params) {
     cwd: params.cwd,
     systemPrompt: params._meta?.systemPrompt?.append ?? null,
     settings: params._meta?.claudeCode?.options?.settings ?? null,
+    plugins: params._meta?.claudeCode?.options?.plugins ?? null,
     mcpServers: params.mcpServers,
     mode: 'default',
     model: 'default',
@@ -101,6 +102,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         configSets: s.configSets,
         systemPrompt: s.systemPrompt,
         settings: s.settings,
+        plugins: s.plugins,
         env: {
           MODEL_PROVIDER: process.env.MODEL_PROVIDER ?? null,
           GG_PROVIDER_KEY: process.env.GG_PROVIDER_KEY ?? null,

@@ -22,6 +22,7 @@ import { boundChat } from '../feishu/mirror.js'
 import { effectiveParams } from '../groups/params.js'
 import { enabledMcpServers } from '../mcp/routes.js'
 import type { MessageMeta } from '../messages/service.js'
+import { enabledSkills } from '../skills/routes.js'
 import { runSyncStart } from '../sync/store.js'
 import { sendDueInits, syncHeld, syncOutdated } from '../sync/switch.js'
 import { unreadyGroups } from '../workspaces/state.js'
@@ -269,6 +270,7 @@ async function buildRunStart(tx: Tx, bot: Bot, run: RunRow, synced: boolean) {
       quote: quoteOf(meta),
     },
     mcpServers: await enabledMcpServers(tx, run.groupId),
+    skills: await enabledSkills(tx, run.groupId),
     command,
     sync: synced ? await runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
   }

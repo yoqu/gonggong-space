@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "SKILL.md",
+      "content": "---\nname: review-pr\ndescription: 按团队规范审查 diff\n---\n审查步骤…\n",
+      "encoding": "utf8"
+    },
+    {
+      "path": "assets/logo.png",
+      "content": "iVBORw0K",
+      "encoding": "base64"
+    }
+  ]
+}

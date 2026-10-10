@@ -32,6 +32,18 @@ pub(crate) async fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     run_git(dir, args, None).await
 }
 
+/// Adds `pattern` to the repo's `.git/info/exclude` unless already there: kept out of git, not shared by sync.
+pub(crate) async fn exclude(cwd: &Path, pattern: &str) -> Result<(), String> {
+    let file = cwd.join(git(cwd, &["rev-parse", "--git-path", "info/exclude"]).await?.trim());
+    let current = tokio::fs::read_to_string(&file).await.unwrap_or_default();
+    if current.lines().any(|l| l.trim() == pattern) {
+        return Ok(());
+    }
+    let sep = if current.is_empty() || current.ends_with('\n') { "" } else { "\n" };
+    tokio::fs::create_dir_all(file.parent().expect("exclude has a parent")).await.map_err(|e| e.to_string())?;
+    tokio::fs::write(&file, format!("{current}{sep}{pattern}\n")).await.map_err(|e| e.to_string())
+}
+
 /// Raw stdout, for `-z` output whose paths may not be UTF-8.
 pub(crate) async fn git_bytes(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     run_git_raw(dir, args, None).await

@@ -544,4 +544,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("本机同步状态丢失，正在重新对齐", "This machine lost its sync state; realigning"),
     ("同步传输超时", "Sync transfer timed out"),
+    ("无法安装团队 skill：{e}", "Can't install team skills: {e}"),
+    ("无法下载团队 skill {name}：{e}", "Can't download team skill {name}: {e}"),
+    ("文件路径不合法：{path}", "Invalid file path: {path}"),
+    ("已跳过团队 skill {names}：仓库里已有同名 skill", "Skipped team skill {names}: the repo has a skill of that name"),
 ];

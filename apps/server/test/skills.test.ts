@@ -1,4 +1,6 @@
 import {
+  PROTOCOL_VERSION,
+  type RunStart,
   SKILL_MAX_BYTES,
   type SkillDetailDto,
   type SkillDto,
@@ -7,9 +9,10 @@ import {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, skillVersions, teamMembers } from '../src/db/schema.js'
+import { auditLogs, groupBots, messages, skillVersions, teamMembers, users } from '../src/db/schema.js'
+import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { enabledSkills } from '../src/modules/skills/routes.js'
-import { createTestApp, type TestApp } from './support/app.js'
+import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
 let t: TestApp
@@ -212,5 +215,82 @@ describe('skill layers', () => {
     })
     const [first] = await enabledSkills(t.db, w.groupA.id)
     expect(first!.digest).toMatch(/^[0-9a-f]{64}$/)
+  })
+})
+
+describe('skills for the daemon', () => {
+  it('sends the merged skills in run.start', async () => {
+    const w = await world()
+    const owner = await t.seed.user({ name: '王磊' })
+    const { machine, token } = await t.seed.machine(owner.id)
+    const bot = await t.seed.bot({ ownerId: owner.id, machineId: machine.id, binding: 'bound' })
+    const group = await t.seed.group({ createdBy: owner.id, botIds: [bot.id] })
+    const root = await w.as(w.root)
+    const made = (await root.post<SkillDetailDto>('/api/admin/skills', { files: skill('review') })).body
+    await root.post('/api/admin/skills', { enabled: false, files: skill('lint') })
+
+    const ws = t.ws('/ws/daemon')
+    const box = inbox(ws)
+    await box.opened
+    ws.send(
+      JSON.stringify({
+        t: 'hello',
+        protocol: PROTOCOL_VERSION,
+        token,
+        daemonVersion: '0.1.0',
+        machine: { name: 'mbp', os: 'macos', arch: 'aarch64' },
+        agents: [],
+      }),
+    )
+    expect(await box.next()).toMatchObject({ t: 'welcome' })
+    const [m] = await t.db
+      .insert(messages)
+      .values({
+        groupId: group.id,
+        kind: 'user',
+        authorUserId: owner.id,
+        body: '@bot hi',
+        meta: { mentions: [bot.id] },
+      })
+      .returning()
+    await triggerRuns(t.ctx, m!)
+    const start = await box.next<RunStart>()
+    expect(start.skills).toEqual([{ name: 'review', versionId: made.versionId, digest: expect.any(String) }])
+    ws.close()
+  })
+
+  it('serves a version only to machines hosting a group the skill applies to', async () => {
+    const w = await world()
+    const owner = await t.seed.user({ name: '王磊' })
+    const { machine, token } = await t.seed.machine(owner.id)
+    const bot = await t.seed.bot({ ownerId: owner.id, machineId: machine.id, binding: 'bound' })
+    await t.db.insert(groupBots).values({ groupId: w.groupA.id, botId: bot.id })
+    const idle = await t.seed.machine(owner.id)
+
+    const files = [...skill('review'), { path: 'run.sh', content: 'echo\n', encoding: 'utf8' }]
+    const platform = (await (await w.as(w.root)).post<SkillDetailDto>('/api/admin/skills', { files })).body
+    const team = (
+      await (await w.as(w.bob)).post<SkillDetailDto>(`/api/teams/${w.teamA}/skills`, { files: skill('t') })
+    ).body
+    const carol = await t.db.select().from(users).where(eq(users.name, '卡罗尔'))
+    const other = (
+      await client(t, await t.seed.cookie(carol[0]!.id)).post<SkillDetailDto>(
+        `/api/groups/${w.groupB.id}/skills`,
+        {
+          files: skill('b'),
+        },
+      )
+    ).body
+    const get = (versionId: string, as = token) =>
+      t.app.inject({ url: `/api/daemon/skills/${versionId}`, headers: { authorization: `Bearer ${as}` } })
+
+    const res = await get(platform.versionId)
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ files: platform.files })
+    expect((await get(team.versionId)).statusCode).toBe(200)
+    expect((await get(other.versionId)).statusCode).toBe(403)
+    expect((await get(platform.versionId, idle.token)).statusCode).toBe(403)
+    expect((await get('00000000-0000-0000-0000-000000000000')).statusCode).toBe(404)
+    expect((await get(platform.versionId, 'nope')).statusCode).toBe(401)
   })
 })

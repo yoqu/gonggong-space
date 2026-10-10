@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   DaemonBotDto,
+  DaemonSkillRes,
   DaemonToServer,
   ServerToDaemon,
   SyncChangesRes,
@@ -19,6 +20,7 @@ const tunnel = { open: TunnelOpen, head: TunnelHead, reset: TunnelReset }
 /** Machine-token REST bodies the daemon parses. */
 const http = {
   'daemon-bots': z.array(DaemonBotDto),
+  'daemon-skill': DaemonSkillRes,
   'sync-changes': SyncChangesRes,
   'sync-missing': SyncMissingRes,
 }

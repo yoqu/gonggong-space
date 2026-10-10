@@ -13,8 +13,9 @@ import { and, asc, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { parse as parseYaml } from 'yaml'
 import type { Ctx } from '../../context.js'
+import { requireMachine } from '../../daemon/auth.js'
 import type { Db } from '../../db/client.js'
-import { groups, skills, skillVersions, users } from '../../db/schema.js'
+import { bots, groupBots, groups, skills, skillVersions, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
@@ -318,7 +319,42 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
   })
 }
 
+/** A skill version for a machine hosting a bot in some group the skill applies to. */
+function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
+  app.get<{ Params: { versionId: string } }>('/api/daemon/skills/:versionId', async (req) => {
+    const machine = await requireMachine(ctx, req)
+    const [found] = await ctx.db
+      .select({ skill: skills, files: skillVersions.files })
+      .from(skillVersions)
+      .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+      .where(eq(skillVersions.id, idParam(req.params.versionId, '版本不存在')))
+    if (!found) return fail('not_found', '版本不存在')
+    const { scope, teamId, groupId } = found.skill
+    const [hosted] = await ctx.db
+      .select({ id: groupBots.groupId })
+      .from(groupBots)
+      .innerJoin(bots, eq(bots.id, groupBots.botId))
+      .innerJoin(groups, eq(groups.id, groupBots.groupId))
+      .where(
+        and(
+          eq(bots.machineId, machine.id),
+          isNull(groupBots.removedAt),
+          scope === 'group'
+            ? eq(groups.id, groupId!)
+            : scope === 'team'
+              ? eq(groups.teamId, teamId!)
+              : undefined,
+        ),
+      )
+      .limit(1)
+    if (!hosted) return fail('forbidden', '该机器上没有可使用这个 skill 的 Bot')
+    return { files: found.files as SkillFile[] }
+  })
+}
+
 export function skillRoutes(ctx: Ctx) {
-  return async (app: FastifyInstance) =>
+  return async (app: FastifyInstance) => {
     eachLayer(ctx, 'skills', (base, authorize) => layerRoutes(ctx, app, base, authorize))
+    daemonRoutes(ctx, app)
+  }
 }

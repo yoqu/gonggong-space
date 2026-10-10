@@ -35,6 +35,7 @@ import {
   ProviderStoreView,
   RepoAccessReason,
   RunEvent,
+  SkillFile,
   TOOL_VERSION,
   ToolStatus,
   ToolsSettings,
@@ -1106,13 +1107,6 @@ export const SaveMcpReq = z.object({
 // ── Team skills (plan 团队Skill): platform → team → group layers, versioned ────
 export const SKILL_MAX_BYTES = 5 * 1024 * 1024
 export const SKILL_MAX_FILES = 200
-/** A file of the skill folder; `path` is relative (`SKILL.md`, `scripts/run.sh`), binary files in base64. */
-export const SkillFile = z.object({
-  path: z.string().min(1).max(255),
-  content: z.string(),
-  encoding: z.enum(['utf8', 'base64']).default('utf8'),
-})
-export type SkillFile = z.infer<typeof SkillFile>
 /** `name` / `description` come from the SKILL.md frontmatter of the current version. */
 export const SkillDto = z.object({
   id: z.string(),

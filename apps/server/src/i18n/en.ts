@@ -350,6 +350,7 @@ export const en = {
   '文件重复：{path}': 'Duplicate file: {path}',
   '文件内容不是合法的 base64：{path}': 'File content is not valid base64: {path}',
   'Skill 不能超过 5 MB': 'A skill cannot exceed 5 MB',
+  '该机器上没有可使用这个 skill 的 Bot': 'No Bot on this machine can use this skill',
 
   // Messages
   引用的内容不存在: 'Quoted content not found',
