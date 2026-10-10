@@ -247,7 +247,26 @@ const WHAT = (a: Action) =>
             ? t('调度了子 agent')
             : t('调用了工具')
 
-function segment(actions: Action[], running: boolean): Item[] {
+/** The daemon's status for a call its command rules let through (crates/gonggong i18n, either language). */
+const AUTO_APPROVED = /^(?:已按命令审批规则自动批准：|Auto-approved by command approval rules: )/
+
+/** Each auto-approval repeats the command row that follows it: a segment's ones fold into a single row. */
+function foldAutoApproved(actions: Action[]): Action[] {
+  const auto = (a: Action) => a.family === 'status' && AUTO_APPROVED.test(a.step.body ?? '')
+  const first = actions.find(auto)
+  if (!first) return actions
+  const commands = actions.filter(auto).map((a) => (a.step.body ?? '').replace(AUTO_APPROVED, ''))
+  const folded: Action = {
+    ...first,
+    verb: t('自动批准'),
+    target: t('{n} 条命令', { n: commands.length }),
+    step: { ...first.step, out: commands.join('\n') },
+  }
+  return actions.flatMap((a) => (a === first ? [folded] : auto(a) ? [] : [a]))
+}
+
+function segment(all: Action[], running: boolean): Item[] {
+  const actions = foldAutoApproved(all)
   const calls = actions.filter((a) => !PASSIVE.has(a.family))
   const [first] = actions
   if (!first || calls.length < 2) return actions.map((a) => ({ kind: 'action', ...a }))

@@ -130,6 +130,32 @@ describe('groupActions', () => {
     expect(worked).toMatchObject({ kind: 'work', summary: '子 agent 1' })
   })
 
+  it('folds a segment’s auto-approvals into one row listing the commands', () => {
+    const auto = (cmd: string) => step('status', { body: `已按命令审批规则自动批准：${cmd}` })
+    const items = groupActions(
+      acts([
+        auto('pnpm lint'),
+        exec('pnpm lint'),
+        step('status', { body: 'Auto-approved by command approval rules: pnpm test' }),
+        exec('pnpm test'),
+        step('text', { body: '好了' }),
+        auto('make'),
+        exec('make'),
+      ]),
+      true,
+    )
+    const group = items[0] as Group
+    expect(group.actions.map((a) => a.family)).toEqual(['status', 'execute', 'execute'])
+    expect(group.actions[0]).toMatchObject({ verb: '自动批准', target: '2 条命令' })
+    expect(group.actions[0]?.step.out).toBe('pnpm lint\npnpm test')
+    expect(items.slice(1).map((i) => (i.kind === 'action' ? i.family : i.kind))).toEqual([
+      'text',
+      'status',
+      'execute',
+    ])
+    expect(items[2]).toMatchObject({ target: '1 条命令' })
+  })
+
   it('a segment is running while it is the live tail, even if its calls have all finished', () => {
     const steps = acts([read('a.ts'), read('b.ts')])
     expect((groupActions(steps, true)[0] as Group).running).toBe(true)

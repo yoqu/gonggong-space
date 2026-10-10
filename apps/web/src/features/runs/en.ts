@@ -135,6 +135,8 @@ export default {
   '、': ', ',
   '调度了子 agent': 'Directed subagents',
   调用了工具: 'Called tools',
+  自动批准: 'Auto-approved',
+  '{n} 条命令': '{n} {n:command|commands}',
   '{n} 小时': '{n}h',
   '{n} 分': '{n}m',
   '{n} 秒': '{n}s',
