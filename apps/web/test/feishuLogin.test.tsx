@@ -74,7 +74,9 @@ describe('login page · 飞书登录', () => {
     vi.stubGlobal('location', { ...window.location, replace })
     mockApi({ 'GET /me': () => apiError(401, 'unauthorized'), 'GET /auth/options': options(true) })
     renderAt('/g/abc')
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/api/auth/feishu/start?next=%2Fg%2Fabc'))
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith('/api/auth/feishu/start?mode=silent&next=%2Fg%2Fabc'),
+    )
   })
 
   it('does not loop back into Feishu after a failed attempt', async () => {

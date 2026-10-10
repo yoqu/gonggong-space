@@ -32,7 +32,10 @@ const cookieOf = (res: { cookies: { name: string; value: string }[] }) => {
 }
 
 /** Runs /start → (consent) → /callback in one browser; returns the final redirect and any session cookie. */
-async function feishuLogin(user: FakeUser, o: { next?: string; cookie?: string; mode?: 'link' } = {}) {
+async function feishuLogin(
+  user: FakeUser,
+  o: { next?: string; cookie?: string; mode?: 'link' | 'silent' } = {},
+) {
   const qs = new URLSearchParams({ ...(o.next && { next: o.next }), ...(o.mode && { mode: o.mode }) })
   const start = await t.app.inject({
     method: 'GET',
@@ -272,6 +275,78 @@ describe('first 飞书登录 (ticket)', () => {
     const { location } = await feishuLogin(t.feishu.user())
     clock += 11 * 60_000
     expect((await anon().get(`/api/auth/feishu/ticket/${ticketOf(location)}`)).status).toBe(410)
+  })
+})
+
+describe('飞书客户端内静默登录 (mode=silent)', () => {
+  it('creates and signs in an unlinked Feishu user without the choose page', async () => {
+    await configure()
+    const fu = t.feishu.user({ name: '王磊', email: 'wanglei@corp.com' })
+    const { location, cookie } = await feishuLogin(fu, { mode: 'silent', next: '/g/abc' })
+    expect(location).toBe('/g/abc')
+    const me = (await client(t, cookie).get<MeDto>('/api/me')).body
+    expect(me).toMatchObject({ name: '王磊', account: 'wanglei', email: 'wanglei@corp.com' })
+    expect(await t.db.select().from(teamMembers).where(eq(teamMembers.userId, me.id))).toHaveLength(1)
+    expect(await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'user.register'))).toHaveLength(1)
+    expect((await feishuLogin(fu, { mode: 'silent' })).location).toBe('/')
+    expect(await t.db.select().from(users).where(eq(users.name, '王磊'))).toHaveLength(1)
+  })
+
+  it('links an existing account with the same email instead of creating one', async () => {
+    await configure()
+    const me = await t.seed.user({ account: 'wang', email: 'wanglei@corp.com' })
+    const fu = t.feishu.user({ email: 'WangLei@Corp.com' })
+    const { location, cookie } = await feishuLogin(fu, { mode: 'silent' })
+    expect(location).toBe('/')
+    expect((await client(t, cookie).get<MeDto>('/api/me')).body.id).toBe(me.id)
+    const [identity] = await t.db.select().from(feishuIdentities).where(eq(feishuIdentities.userId, me.id))
+    expect(identity!.unionId).toBe(fu.unionId)
+  })
+
+  it('does not take over an email-matched account already linked to another Feishu user', async () => {
+    await configure()
+    const other = await t.seed.user({ account: 'wang', email: 'wanglei@corp.com' })
+    const first = t.feishu.user()
+    await t.db
+      .insert(feishuIdentities)
+      .values({ userId: other.id, unionId: first.unionId, openId: first.openId, name: first.name })
+    const { cookie } = await feishuLogin(t.feishu.user({ email: 'wanglei@corp.com' }), { mode: 'silent' })
+    expect((await client(t, cookie).get<MeDto>('/api/me')).body.id).not.toBe(other.id)
+  })
+
+  it('refuses a disabled email-matched account', async () => {
+    await configure()
+    await t.seed.user({ email: 'wanglei@corp.com', disabledAt: new Date() })
+    const res = await feishuLogin(t.feishu.user({ email: 'wanglei@corp.com' }), { mode: 'silent' })
+    expect(res.location).toBe('/login?feishu=disabled')
+    expect(res.cookie).toBe('')
+  })
+
+  it('falls back to the choose page while 飞书自动开户 is off, unless the login started from an invite', async () => {
+    const admin = await configure({ autoSignup: false })
+    const { location, cookie } = await feishuLogin(t.feishu.user(), { mode: 'silent' })
+    expect(location).toMatch(/^\/feishu\/choose\?ticket=/)
+    expect(cookie).toBe('')
+
+    const team = await t.seed.team({ ownerId: admin.id, name: '支付组' })
+    await t.db.insert(teamInvites).values({
+      teamId: team.id,
+      tokenHash: sha256('inv-token'),
+      expiresAt: new Date(clock + 86400_000),
+      createdBy: admin.id,
+    })
+    const invited = await feishuLogin(t.feishu.user(), { mode: 'silent', next: '/join/inv-token' })
+    expect(invited.location).toBe('/join/inv-token')
+    const me = (await client(t, invited.cookie).get<MeDto>('/api/me')).body
+    const joined = await t.db.select().from(teamMembers).where(eq(teamMembers.userId, me.id))
+    expect(joined.map((m) => m.teamId)).toContain(team.id)
+  })
+
+  it('keeps the choose page for a browser 飞书登录 even when the email matches', async () => {
+    await configure()
+    await t.seed.user({ email: 'wanglei@corp.com' })
+    const { location } = await feishuLogin(t.feishu.user({ email: 'wanglei@corp.com' }))
+    expect(location).toMatch(/^\/feishu\/choose\?ticket=/)
   })
 })
 

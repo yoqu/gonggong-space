@@ -50,7 +50,7 @@ export function LoginPage() {
   // 回链免登: inside the Feishu client the main app authorizes without a click.
   const autoFeishu = !user && !!options?.feishuLogin && !feishuResult && inFeishuClient()
   useEffect(() => {
-    if (autoFeishu) location.replace(feishuStartUrl(next))
+    if (autoFeishu) location.replace(feishuStartUrl(next, 'silent'))
   }, [autoFeishu, next])
 
   if (user && phase !== 'done') return <Navigate to={next} replace />

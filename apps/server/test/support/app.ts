@@ -73,6 +73,7 @@ export async function createTestApp(
         .values({
           account: o.account ?? `u${n}`,
           name: o.name ?? `用户${n}`,
+          email: o.email ?? null,
           role: o.role ?? 'member',
           mustChangePassword: o.mustChangePassword ?? false,
           passwordHash: await hash(o.password ?? 'password123'),

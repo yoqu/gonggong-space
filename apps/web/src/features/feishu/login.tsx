@@ -15,7 +15,8 @@ export const FEISHU_RESULT: Record<string, string> = {
   linked: t('已绑定飞书'),
 }
 
-export const feishuStartUrl = (next: string, mode?: 'link') =>
+/** `silent`: inside the Feishu client an unlinked user is signed up (or matched by email) without the choose page. */
+export const feishuStartUrl = (next: string, mode?: 'link' | 'silent') =>
   `/api/auth/feishu/start?${new URLSearchParams({ ...(mode && { mode }), next })}`
 
 /** Running inside the Feishu / Lark client, where authorizing the main app needs no click. */

@@ -1,6 +1,6 @@
 import { FeishuBindReq, type FeishuIdentityView, type FeishuTicketDto } from '@gonggong/protocol'
 import { verify } from '@node-rs/argon2'
-import { eq, or, sql } from 'drizzle-orm'
+import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { feishuIdentities, users } from '../../db/schema.js'
@@ -35,6 +35,8 @@ interface State {
   next: string
   /** Set when a signed-in user links their account (个人设置). */
   linkUserId?: string
+  /** Started inside the Feishu client (网页应用): an unlinked user is matched by email or signed up, no choose page. */
+  silent?: boolean
   expiresAt: number
 }
 interface Ticket {
@@ -103,6 +105,53 @@ async function inviteOf(ctx: Ctx, next: string) {
   }
 }
 
+/** A password-less account named after the Feishu user, linked and onboarded. */
+async function createAccount(
+  ctx: Ctx,
+  feishuUser: FeishuUser,
+  tokens: FeishuTokens,
+  invite: Awaited<ReturnType<typeof inviteOf>>,
+) {
+  const stem = accountStem(feishuUser)
+  let user: typeof users.$inferSelect | undefined
+  // A numeric suffix skips taken accounts; the conflict check also covers concurrent sign-ups.
+  for (let i = 1; !user; i++) {
+    ;[user] = await ctx.db
+      .insert(users)
+      .values({
+        account: i === 1 ? stem : `${stem}${i}`,
+        name: feishuUser.name.slice(0, 40),
+        role: 'member',
+        passwordHash: null,
+        mustChangePassword: false,
+      })
+      .onConflictDoNothing({ target: users.account })
+      .returning()
+  }
+  await link(ctx, user.id, feishuUser, tokens)
+  await onboardUser(ctx, user, invite)
+  await audit(ctx, {
+    category: 'admin',
+    actorUserId: user.id,
+    action: 'user.register',
+    detail: { userId: user.id, account: user.account, via: 'feishu' },
+  })
+  const [fresh] = await ctx.db.select().from(users).where(eq(users.id, user.id))
+  return fresh ?? user
+}
+
+/** The single account with the Feishu user's email and no Feishu identity yet; ambiguous matches count as none. */
+async function accountByEmail(ctx: Ctx, email: string | null) {
+  if (!email) return null
+  const found = await ctx.db
+    .select({ user: users })
+    .from(users)
+    .leftJoin(feishuIdentities, eq(feishuIdentities.userId, users.id))
+    .where(and(eq(sql`lower(${users.email})`, email.toLowerCase()), isNull(feishuIdentities.userId)))
+    .limit(2)
+  return found.length === 1 ? found[0]!.user : null
+}
+
 export function feishuAuthRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     // One server holds the Feishu connections, so pending logins live in memory; a restart only voids them.
@@ -130,7 +179,12 @@ export function feishuAuthRoutes(ctx: Ctx) {
         linkUserId = user.id
       }
       const state = newToken('fs')
-      states.set(state, { next: safeNext(q.next), linkUserId, expiresAt: ctx.now().getTime() + TTL_MS })
+      states.set(state, {
+        next: safeNext(q.next),
+        linkUserId,
+        silent: q.mode === 'silent',
+        expiresAt: ctx.now().getTime() + TTL_MS,
+      })
       return reply.redirect(ctx.feishu.api.authorizeUrl(main.appId, `${base}${CALLBACK}`, state))
     })
 
@@ -181,6 +235,27 @@ export function feishuAuthRoutes(ctx: Ctx) {
         await startSession(ctx, reply, linked.user.id)
         return reply.redirect(state.next)
       }
+      if (state.silent) {
+        const matched = await accountByEmail(ctx, user.email)
+        if (matched?.disabledAt) return back('disabled')
+        if (matched) {
+          await link(ctx, matched.id, user, tokens)
+          await audit(ctx, {
+            category: 'admin',
+            actorUserId: matched.id,
+            action: 'user.feishu.link',
+            detail: { userId: matched.id, feishu: user.name },
+          })
+          await startSession(ctx, reply, matched.id)
+          return reply.redirect(state.next)
+        }
+        const invite = await inviteOf(ctx, state.next)
+        if ((await sysParams(ctx.db)).feishuAutoSignup || invite) {
+          const created = await createAccount(ctx, user, tokens, invite)
+          await startSession(ctx, reply, created.id)
+          return reply.redirect(state.next)
+        }
+      }
       const ticket = newToken('ft')
       tickets.set(ticket, { user, tokens, next: state.next, expiresAt: ctx.now().getTime() + TTL_MS })
       return reply.redirect(`/feishu/choose?ticket=${encodeURIComponent(ticket)}`)
@@ -229,33 +304,9 @@ export function feishuAuthRoutes(ctx: Ctx) {
       if (!(await sysParams(ctx.db)).feishuAutoSignup && !invite)
         return fail('forbidden', '未开启飞书自动开户，请绑定已有账号或联系系统管理员')
       tickets.delete(key)
-      const stem = accountStem(ticket.user)
-      let user: typeof users.$inferSelect | undefined
-      // A numeric suffix skips taken accounts; the conflict check also covers concurrent sign-ups.
-      for (let i = 1; !user; i++) {
-        ;[user] = await ctx.db
-          .insert(users)
-          .values({
-            account: i === 1 ? stem : `${stem}${i}`,
-            name: ticket.user.name.slice(0, 40),
-            role: 'member',
-            passwordHash: null,
-            mustChangePassword: false,
-          })
-          .onConflictDoNothing({ target: users.account })
-          .returning()
-      }
-      await link(ctx, user.id, ticket.user, ticket.tokens)
-      await onboardUser(ctx, user, invite)
-      const [fresh] = await ctx.db.select().from(users).where(eq(users.id, user.id))
-      await audit(ctx, {
-        category: 'admin',
-        actorUserId: user.id,
-        action: 'user.register',
-        detail: { userId: user.id, account: user.account, via: 'feishu' },
-      })
+      const user = await createAccount(ctx, ticket.user, ticket.tokens, invite)
       await startSession(ctx, reply, user.id)
-      return reply.status(201).send(await meDto(ctx, fresh ?? user))
+      return reply.status(201).send(await meDto(ctx, user))
     })
 
     app.get('/api/me/feishu', async (req): Promise<FeishuIdentityView> => {
