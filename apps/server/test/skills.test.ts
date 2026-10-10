@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groupBots, messages, skillVersions, teamMembers, users } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
-import { enabledSkills } from '../src/modules/skills/routes.js'
+import { enabledSkills } from '../src/modules/skills/service.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 

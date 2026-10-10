@@ -1,5 +1,7 @@
 import { z } from 'zod'
+import { SkillFile } from './daemon.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
+import { SKILL_MAX_FILES } from './web.js'
 
 /**
  * Tools of the built-in `gonggong` MCP server answered by the server (the daemon forwards them; `ask_group_members`
@@ -150,6 +152,60 @@ export const ScheduleUpdateArgs = z
   .refine(atMostOneTiming, { message: 'cron 与 at 最多给一个' })
 export const ScheduleDeleteArgs = z.object({ id: z.string().describe('schedule_list 列出的任务 id') })
 
+const skillName = z
+  .string()
+  .min(1)
+  .max(64)
+  .describe('Skill 名称（SKILL.md frontmatter 的 name，skill_list 可查）')
+const skillLayer = z
+  .enum(['group', 'team'])
+  .describe('作用层级：group = 仅本群，team = 本群所属团队的所有群。默认 group')
+const skillFiles = z
+  .array(SkillFile)
+  .min(1)
+  .max(SKILL_MAX_FILES)
+  .describe(
+    '文件列表：path 为相对路径（SKILL.md、scripts/run.sh、references/api.md），二进制文件用 encoding=base64',
+  )
+export const SkillListArgs = z.object({})
+export const SkillGetArgs = z.object({
+  name: skillName,
+  layer: z
+    .enum(['platform', 'team', 'group'])
+    .describe('读哪一层的同名 Skill，默认本群实际生效的那一个')
+    .optional(),
+  version: z.number().int().min(1).describe('读历史版本，默认当前版本').optional(),
+})
+export const SkillCreateArgs = z.object({ layer: skillLayer.optional(), files: skillFiles })
+export const SkillUpdateArgs = z.object({
+  name: skillName,
+  layer: skillLayer.optional(),
+  files: skillFiles
+    .min(0)
+    .describe('新增或覆盖的文件（未列出的保留）；改 SKILL.md 的 name 即重命名')
+    .optional(),
+  remove: z.array(z.string().min(1).max(255)).max(SKILL_MAX_FILES).describe('要删除的文件路径').optional(),
+})
+export const SkillDeleteArgs = z.object({ name: skillName, layer: skillLayer.optional() })
+export const SkillToggleArgs = z.object({
+  name: skillName,
+  layer: skillLayer.optional(),
+  enabled: z.boolean().describe('true = 启用，false = 停用（保留内容与版本）'),
+})
+export const SkillVersionsArgs = z.object({ name: skillName, layer: skillLayer.optional() })
+export const SkillRollbackArgs = z.object({
+  name: skillName,
+  layer: skillLayer.optional(),
+  version: z.number().int().min(1).describe('skill_versions 列出的版本号；当前版本切回该版本，不新增版本'),
+})
+
+const SKILL_WRITE =
+  '以发起本轮的人的身份执行：群层需其为本群管理员，团队层需其为团队管理员；平台层只读。改动下一轮生效。'
+const SKILL_FORMAT =
+  'Skill 是一个文件夹，必须有 SKILL.md，开头是 YAML frontmatter：name（小写字母、数字、连字符，≤64 字符，同层唯一）' +
+  '与 description（≤1024 字符，写清做什么、何时使用，agent 靠它决定是否加载）；正文写给 agent 的操作步骤，保持精简，' +
+  '细节拆到 references/ 下按需读取，可执行脚本放 scripts/。整个文件夹不超过 5 MB、200 个文件。'
+
 export const GONGGONG_TOOLS = {
   list_messages: {
     title: GONGGONG_TOOL_TITLES.list_messages,
@@ -237,6 +293,47 @@ export const GONGGONG_TOOLS = {
     description:
       '删除本群的定时任务。由定时任务触发的一轮里，任务已完成使命（如等待的条件已满足）时可删除它自己。',
     input: ScheduleDeleteArgs,
+  },
+  skill_list: {
+    title: GONGGONG_TOOL_TITLES.skill_list,
+    description:
+      '本群可见的团队 Skill（平台、团队、群三层，含已停用的）：名称、层级、说明、版本、是否生效（同名时下层覆盖上层）、发起人能否修改。',
+    input: SkillListArgs,
+  },
+  skill_get: {
+    title: GONGGONG_TOOL_TITLES.skill_get,
+    description: '读取 Skill 的全部文件内容，可指定层级与历史版本。',
+    input: SkillGetArgs,
+  },
+  skill_create: {
+    title: GONGGONG_TOOL_TITLES.skill_create,
+    description: `新建团队 Skill。${SKILL_FORMAT}${SKILL_WRITE}`,
+    input: SkillCreateArgs,
+  },
+  skill_update: {
+    title: GONGGONG_TOOL_TITLES.skill_update,
+    description: `修改 Skill 的文件，每次修改生成一个新版本。${SKILL_FORMAT}${SKILL_WRITE}`,
+    input: SkillUpdateArgs,
+  },
+  skill_delete: {
+    title: GONGGONG_TOOL_TITLES.skill_delete,
+    description: `删除 Skill 及其全部版本，不可恢复；只想暂时不用时用 skill_toggle 停用。${SKILL_WRITE}`,
+    input: SkillDeleteArgs,
+  },
+  skill_toggle: {
+    title: GONGGONG_TOOL_TITLES.skill_toggle,
+    description: `启用或停用 Skill。${SKILL_WRITE}`,
+    input: SkillToggleArgs,
+  },
+  skill_versions: {
+    title: GONGGONG_TOOL_TITLES.skill_versions,
+    description: 'Skill 的版本历史：版本号、大小、修改人、时间，标出当前版本。',
+    input: SkillVersionsArgs,
+  },
+  skill_rollback: {
+    title: GONGGONG_TOOL_TITLES.skill_rollback,
+    description: `把 Skill 回滚到某个历史版本。${SKILL_WRITE}`,
+    input: SkillRollbackArgs,
   },
 } as const
 

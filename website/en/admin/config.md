@@ -23,7 +23,7 @@ The 「合并预览 · 全部 Bot」 (Merge preview · all Bots) panel on the ri
 
 ## What you can configure
 
-In the layer switcher on the top left, only 「服务器全局层」 (Server-global layer) is selectable. The type switcher on the right has four options — 「MCP」, 「Skill」, 「指令」 (Instructions), and 「团队密钥」 (Team secrets) — but **only MCP can be configured for now**; the other types show 「暂不支持」 (Not supported yet).
+In the layer switcher on the top left, only 「服务器全局层」 (Server-global layer) is selectable. The type switcher on the right has four options — 「MCP」, 「Skill」, 「指令」 (Instructions), and 「团队密钥」 (Team secrets) — MCP and Skill can be configured for now; the other types show 「暂不支持」 (Not supported yet). Team- and group-layer skills are managed in team and group settings, and agents can maintain them on behalf of the run initiator through the built-in gonggong `skill_*` tools.
 
 ### Built-in gonggong
 

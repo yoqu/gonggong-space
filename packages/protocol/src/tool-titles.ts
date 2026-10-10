@@ -15,4 +15,12 @@ export const GONGGONG_TOOL_TITLES = {
   schedule_list: '定时任务列表',
   schedule_update: '修改定时任务',
   schedule_delete: '删除定时任务',
+  skill_list: 'Skill 列表',
+  skill_get: '读取 Skill',
+  skill_create: '新建 Skill',
+  skill_update: '修改 Skill',
+  skill_delete: '删除 Skill',
+  skill_toggle: '启用/停用 Skill',
+  skill_versions: 'Skill 版本历史',
+  skill_rollback: '回滚 Skill',
 } as const

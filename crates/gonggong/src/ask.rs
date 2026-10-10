@@ -632,6 +632,14 @@ mod tests {
                 "schedule_list",
                 "schedule_update",
                 "schedule_delete",
+                "skill_list",
+                "skill_get",
+                "skill_create",
+                "skill_update",
+                "skill_delete",
+                "skill_toggle",
+                "skill_versions",
+                "skill_rollback",
                 "service_start",
                 "service_list",
                 "service_logs",
@@ -906,6 +914,7 @@ mod tests {
         assert!(is_builtin("mcp__gonggong__list_messages"));
         assert!(is_builtin("mcp__gonggong__preview_expose"));
         assert!(is_builtin("mcp__gonggong__service_logs"));
+        assert!(is_builtin("mcp__gonggong__skill_create"), "the server checks the run's originator is an admin");
         assert!(!is_builtin("mcp__gonggong__service_start"), "runs a command: the owner decides");
         assert!(!is_builtin("mcp__gonggong__preview_miniprogram"), "runs the project's code in the simulator");
         assert!(!is_builtin("mcp__wiki__list_messages"));

@@ -67,13 +67,14 @@ For each session, the daemon opens an MCP server named `gonggong` on the local l
 | Category | Tools | Answered by |
 | --- | --- | --- |
 | Asking group members | `ask_group_members` | The daemon turns it into a question card and waits for group members to answer or for it to time out |
-| Server tools (`gonggong-tools.json`) | `list_messages`, `search_messages`, `get_group_info`, `get_run`, `list_questions`, `fetch_attachments`, `preview_expose`, `preview_gui`, `preview_close`, `hand_off` | The daemon forwards the call with its machine token to `POST /api/daemon/runs/:runId/tools/:name`; the server queries, authorizes, and returns text |
+| Server tools (`gonggong-tools.json`) | `list_messages`, `search_messages`, `get_group_info`, `get_run`, `list_questions`, `fetch_attachments`, `list_feishu_messages`, `preview_expose`, `preview_gui`, `preview_close`, `hand_off`, `schedule_create`, `schedule_list`, `schedule_update`, `schedule_delete`, `skill_list`, `skill_get`, `skill_create`, `skill_update`, `skill_delete`, `skill_toggle`, `skill_versions`, `skill_rollback` | The daemon forwards the call with its machine token to `POST /api/daemon/runs/:runId/tools/:name`; the server queries, authorizes, and returns text |
 | daemon tools (`gonggong-daemon-tools.json`) | `service_start`, `service_list`, `service_logs`, `service_stop`, `preview_static`, `preview_miniprogram` | The daemon answers them itself (managed services, static sites, mini programs) |
 
 Key points:
 
 - The single source of truth for the tools is `packages/protocol/src/tools.ts` (zod); both JSON files are generated from it. The daemon compiles them into the binary with `include_str!`, and the server validates inputs with zod. `packages/protocol/test/tools.test.ts` asserts that the JSON matches the zod definitions, so if you change a tool definition you must update the JSON too.
 - Server tools use the **in-progress run** as the credential: the group and Bot are derived from the run, not trusted from the arguments. Calls made between turns fail immediately.
+- The `skill_*` writes (create, update, delete, toggle, roll back) are authorized as the run's originator: the group layer needs a group admin, the team layer a team admin, and the platform layer is read-only. Changes take effect next turn.
 - Except for `service_start` and `preview_miniprogram` (which execute code) and so go through the Bot's command approval, all other built-in tools are allowed automatically.
 - Global MCP servers that admins add in the configuration center are also injected when a session is created; the name `gonggong` is reserved for the built-in server.
 

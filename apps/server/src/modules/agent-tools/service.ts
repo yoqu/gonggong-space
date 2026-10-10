@@ -19,6 +19,7 @@ import {
   runs,
   users,
 } from '../../db/schema.js'
+import { HttpError } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
@@ -29,6 +30,16 @@ import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.j
 import { answerText } from '../questions/dto.js'
 import { listFeishuMessages } from './feishu.js'
 import { scheduleCreate, scheduleDelete, scheduleList, scheduleUpdate } from './schedules.js'
+import {
+  listSkillVersions,
+  skillCreate,
+  skillDelete,
+  skillGet,
+  skillList,
+  skillRollback,
+  skillToggle,
+  skillUpdate,
+} from './skills.js'
 
 type Run = typeof runs.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -41,6 +52,15 @@ export type ToolOutput = { text: string; attachments?: Attachment[]; groups: str
 export class ToolError extends Error {}
 export const refuse = (message: string): never => {
   throw new ToolError(message)
+}
+
+/** The services' HTTP errors become tool errors the agent can correct. */
+export async function asTool<T>(f: () => Promise<T>) {
+  try {
+    return await f()
+  } catch (e) {
+    return e instanceof HttpError ? refuse(e.message) : Promise.reject(e)
+  }
 }
 
 const BODY_MAX = 2000
@@ -364,6 +384,14 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   schedule_list: (ctx, s) => scheduleList(ctx, s.run),
   schedule_update: (ctx, s, a) => scheduleUpdate(ctx, s.run, a),
   schedule_delete: (ctx, s, a) => scheduleDelete(ctx, s.run, a),
+  skill_list: (ctx, s) => skillList(ctx, s.run),
+  skill_get: (ctx, s, a) => skillGet(ctx, s.run, a),
+  skill_create: (ctx, s, a) => skillCreate(ctx, s.run, a),
+  skill_update: (ctx, s, a) => skillUpdate(ctx, s.run, a),
+  skill_delete: (ctx, s, a) => skillDelete(ctx, s.run, a),
+  skill_toggle: (ctx, s, a) => skillToggle(ctx, s.run, a),
+  skill_versions: (ctx, s, a) => listSkillVersions(ctx, s.run, a),
+  skill_rollback: (ctx, s, a) => skillRollback(ctx, s.run, a),
 }
 
 export async function callTool(

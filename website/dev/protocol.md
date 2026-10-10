@@ -65,13 +65,14 @@ daemon 为每个会话在本机回环地址上开一个名为 `gonggong` 的 MCP
 | 类别 | 工具 | 由谁应答 |
 | --- | --- | --- |
 | 向群成员提问 | `ask_group_members` | daemon 转成提问卡片，等群成员回答或超时 |
-| 服务器工具（`gonggong-tools.json`） | `list_messages`、`search_messages`、`get_group_info`、`get_run`、`list_questions`、`fetch_attachments`、`preview_expose`、`preview_gui`、`preview_close`、`hand_off` | daemon 带机器令牌转发到 `POST /api/daemon/runs/:runId/tools/:name`，由服务器查询、鉴权并返回文本 |
+| 服务器工具（`gonggong-tools.json`） | `list_messages`、`search_messages`、`get_group_info`、`get_run`、`list_questions`、`fetch_attachments`、`list_feishu_messages`、`preview_expose`、`preview_gui`、`preview_close`、`hand_off`、`schedule_create`、`schedule_list`、`schedule_update`、`schedule_delete`、`skill_list`、`skill_get`、`skill_create`、`skill_update`、`skill_delete`、`skill_toggle`、`skill_versions`、`skill_rollback` | daemon 带机器令牌转发到 `POST /api/daemon/runs/:runId/tools/:name`，由服务器查询、鉴权并返回文本 |
 | daemon 工具（`gonggong-daemon-tools.json`） | `service_start`、`service_list`、`service_logs`、`service_stop`、`preview_static`、`preview_miniprogram` | daemon 自己应答（托管服务、静态站点、小程序） |
 
 要点：
 
 - 工具的唯一来源是 `packages/protocol/src/tools.ts`（zod），两个 JSON 文件由它生成；daemon 用 `include_str!` 编译进二进制，服务器用 zod 校验入参。`packages/protocol/test/tools.test.ts` 断言 JSON 与 zod 定义一致，改了工具定义必须同步更新 JSON。
 - 服务器工具以**正在进行的运行**为凭据：群和 Bot 都从运行推出，不信任参数；两轮之间调用会直接报错。
+- `skill_*` 的写操作（新建、修改、删除、启停、回滚）以本轮发起人的身份鉴权：群层需其为群管理员，团队层需其为团队管理员，平台层只读；改动下一轮生效。
 - 除 `service_start` 和 `preview_miniprogram`（会执行代码）需要走 Bot 的命令审批外，其余内置工具自动放行。
 - 管理员在配置中心添加的全局 MCP 服务也会在建会话时注入，名称 `gonggong` 保留给内置服务。
 

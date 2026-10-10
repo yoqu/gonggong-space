@@ -4,7 +4,6 @@ import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { groupMembers, type runs, schedules } from '../../db/schema.js'
 import { zhText } from '../../i18n/index.js'
-import { HttpError } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { activeBots } from '../groups/service.js'
 import {
@@ -16,7 +15,7 @@ import {
   updateSchedule,
 } from '../schedules/service.js'
 import { nextFires } from '../schedules/timing.js'
-import { refuse, type ToolOutput } from './service.js'
+import { asTool, refuse, type ToolOutput } from './service.js'
 
 type Run = typeof runs.$inferSelect
 type Args<N extends keyof typeof GONGGONG_TOOLS> = z.infer<(typeof GONGGONG_TOOLS)[N]['input']>
@@ -27,15 +26,6 @@ const STATUS: Record<string, string> = {
   interrupted: '中断',
   forbidden: '无权触发',
   expired: '离线作废',
-}
-
-/** The service's HTTP errors become tool errors the agent can correct. */
-async function asTool<T>(f: () => Promise<T>) {
-  try {
-    return await f()
-  } catch (e) {
-    return e instanceof HttpError ? refuse(e.message) : Promise.reject(e)
-  }
 }
 
 async function botIdsOf(ctx: Ctx, run: Run, names: string[] | undefined) {

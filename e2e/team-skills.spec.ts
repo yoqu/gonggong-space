@@ -117,3 +117,75 @@ test('a group admin adds a skill; Claude gets the plugin, Codex a git-excluded l
     m.stop()
   }
 })
+
+test('a group admin has a bot create a skill through gonggong; settings and / list it, the next turn gets it', async ({
+  page,
+}) => {
+  test.setTimeout(4 * 60_000)
+  const tag = Date.now().toString(36)
+  const { m, api } = await memberWithMachine(page, `skt${tag}`, { env: { GONGGONG_ADAPTER_CMD: MOCK } })
+  const me = await api.me()
+  const botName = `${tag} Bot`
+  const bot = await api.call<{ id: string }>('post', '/api/bots', {
+    name: botName,
+    ownerId: me.id,
+    agentKind: 'claude',
+    machineId: await api.machineId(),
+    systemPrompt: '',
+  })
+  m.start()
+  try {
+    const group = await api.call<{ id: string }>('post', '/api/groups', {
+      name: 'Skill 自助',
+      kind: 'group',
+      botIds: [bot.id],
+      repo: null,
+    })
+    await bindManaged(page.request, group.id, [bot.id])
+    await page.goto(`/g/${group.id}`)
+    const main = page.getByRole('main')
+    const box = page.getByPlaceholder(composer)
+    const runs = page.getByTestId('run-card')
+    const turn = async (text: string, nth: number) => {
+      await box.fill(text)
+      await page.getByRole('button', { name: '发送' }).click()
+      await expect(runs).toHaveCount(nth, { timeout: 60_000 })
+      await expect(runs.nth(nth - 1)).toHaveAttribute('data-status', 'completed', { timeout: 60_000 })
+    }
+
+    const skill =
+      '---\nname: release-notes\ndescription: 按团队格式整理发布说明\n---\n先列合并的 PR 再分类。\n'
+    await turn(
+      `@${botName} mock:tool skill_create ${JSON.stringify({ files: [{ path: 'SKILL.md', content: skill }] })}`,
+      1,
+    )
+
+    await test.step('群设置 · Skill shows it at v1', async () => {
+      await main.getByRole('button', { name: '群设置' }).click()
+      await page
+        .getByRole('complementary', { name: '群设置' })
+        .getByRole('button', { name: /同步模式/ })
+        .click()
+      const settings = page.getByRole('dialog', { name: /Skill 自助/ })
+      await settings.getByRole('button', { name: 'Skill', exact: true }).click()
+      await expect(settings.getByText('/gonggong-team:release-notes')).toBeVisible()
+      await expect(settings.getByText('v1', { exact: true })).toBeVisible()
+      await page.keyboard.press('Escape')
+    })
+
+    await test.step('/ lists it', async () => {
+      await box.fill('/release')
+      const skills = page.getByRole('listbox', { name: '/ 命令' }).getByRole('group', { name: '团队 Skill' })
+      await expect(skills.getByRole('option', { name: /gonggong-team:release-notes/ })).toBeVisible()
+      await box.fill('')
+    })
+
+    await test.step('the next turn starts with the skill plugin', async () => {
+      await turn(`@${botName} mock:echo`, 2)
+      const plugin = join(m.home, 'skill-sets', `${group.id}-${bot.id}`)
+      expect(readFileSync(join(plugin, 'skills/release-notes/SKILL.md'), 'utf8')).toContain('先列合并的 PR')
+    })
+  } finally {
+    m.stop()
+  }
+})
