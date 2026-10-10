@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { type DaemonRelease, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs } from '../src/db/schema.js'
+import { auditLogs, messages, runs } from '../src/db/schema.js'
 import { upgradeFor } from '../src/modules/releases/routes.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
@@ -251,5 +251,49 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     expect((await del('/api/admin/daemon-release/docs/macos-aarch64')).statusCode).toBe(400)
     const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
     expect(audit.json()[0].summary).toBe('移除 gg-cast 0.2.0（macos-aarch64）')
+  })
+
+  it('takes a file from the machine of a live run a sysadmin started (gonggong MCP client_release_publish)', async () => {
+    const admin = await t.seed.user({ role: 'sysadmin', name: '管理员' })
+    const member = await t.seed.user()
+    const { machine, token } = await t.seed.machine(member.id)
+    const { token: other } = await t.seed.machine(member.id)
+    const bot = await t.seed.bot({ ownerId: member.id, machineId: machine.id })
+    const group = await t.seed.group({ createdBy: admin.id, memberIds: [member.id], botIds: [bot.id] })
+    const [msg] = await t.db
+      .insert(messages)
+      .values({ groupId: group.id, kind: 'user', authorUserId: admin.id, body: '发布客户端' })
+      .returning()
+    const run = async (originUserId: string, status = 'running') =>
+      (
+        await t.db
+          .insert(runs)
+          .values({ groupId: group.id, botId: bot.id, triggerMessageId: msg!.id, originUserId, status })
+          .returning()
+      )[0]!
+    const send = async (runId: string, bearer: string, name = 'gonggong-0.3.1-macos-aarch64') => {
+      const form = new FormData()
+      form.set('file', new Blob(['daemon']), name)
+      const res = await fetch(t.url(`/api/daemon/runs/${runId}/release-files`), {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bearer}` },
+        body: form,
+      })
+      return { status: res.status, body: (await res.json()) as DaemonRelease & { message?: string } }
+    }
+
+    const mine = await run(admin.id)
+    expect((await send(mine.id, other)).status).toBe(404)
+    expect((await send((await run(member.id)).id, token)).status).toBe(403)
+    expect((await send((await run(admin.id, 'completed')).id, token)).status).toBe(404)
+    expect((await send(mine.id, token, 'notes.md')).status).toBe(400)
+    const ok = await send(mine.id, token)
+    expect(ok.status).toBe(200)
+    expect(ok.body.builds['macos-aarch64']).toEqual({
+      url: '/downloads/gonggong-0.3.1-macos-aarch64',
+      sha256: digest('daemon'),
+    })
+    const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'daemon.release.upload'))
+    expect(log?.actorUserId).toBe(admin.id)
   })
 })

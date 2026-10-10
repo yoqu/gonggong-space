@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.1 — 2026-10-10
+
+- Bot 共享 / Bot sharing：主人可把 Bot 共享给团队成员，对方能私聊它（每个私聊独立托管工作区，命令审批仍归主人，主人可在通知里直接批准）并查看配置；取消共享后私聊转为只读 / Owners share a Bot with teammates, who can DM it (each DM in its own managed workspace; approvals stay with the owner, who can decide right from the notification) and see its settings; unsharing turns those DMs read-only
+- Bot 详情页按编辑表单分组展示全部配置，宽屏双栏 / The Bot page shows every setting, grouped like the editor, in two columns on wide screens
+- 团队 Skill：上传、在线编辑、版本历史与回滚，随运行下发给 Claude Code / Codex，Agent 也能通过内置 MCP 管理 / Team Skills: upload, edit online, version history and rollback, delivered to Claude Code / Codex with each run, manageable by agents through the built-in MCP
+- 群成员批量添加、普通成员可拉人（可设为仅管理员）、私聊可改名；输入栏上方显示运行中的 Agent / Add several members at once, members may invite (or admins only), rename DMs; running agents pinned above the composer
+- 工作区 diff 与 Git 状态按仓库拆分（子模块 / 嵌套仓库）；中文文件名不再显示为转义 / Diffs and git status split per repo (submodules, nested repos); Chinese file names no longer escaped
+- 审批降频：只读命令免审、「始终允许」记为最小前缀并跨群生效、高危命令始终询问 / Fewer approvals: read-only commands run unasked, 始终允许 remembers the smallest prefix across groups, dangerous commands always ask
+- 内置 MCP 新增 `client_release_publish`：系统管理员可让 Bot 把本机构建的客户端直接发布到当前空间 / New built-in MCP tool `client_release_publish`: a sysadmin can have a Bot publish client builds made on its machine straight to the current space
+- 飞书：客户端内静默登录、群成员双向同步 / Feishu: silent sign-in inside the Feishu client, two-way group member sync
+
 ## v0.3.0 — 2026-10-07
 
 - 绑定即用 / Binding just works：`gg` 与桌面端不再校验或固定服务器 HTTPS 证书指纹（自签证书直接可用，换证书无需重新绑定），`http://` 可连接任意服务器；旧服务器生成的 `--fingerprint` / `fp=` 仍可粘贴，会被忽略 / `gg` and the desktop app no longer verify or pin the server's HTTPS certificate (self-signed works as is, no re-binding after a certificate change) and accept `http://` for any server; `--fingerprint` / `fp=` from older servers are still accepted and ignored

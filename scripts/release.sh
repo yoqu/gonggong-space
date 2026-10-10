@@ -152,9 +152,14 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   bundle="$ROOT/target/release/bundle"
   cp "$bundle"/dmg/*.dmg "$out/Gonggong_${version}_$arch.dmg"
   # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
+  # APPLE_NOTARY_PROFILE: a `xcrun notarytool store-credentials` keychain profile instead of the API key variables;
+  # the .app inside the .dmg is notarized with it.
   if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
     xcrun notarytool submit "$out/Gonggong_${version}_$arch.dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
       --issuer "$APPLE_API_ISSUER" --wait
+    xcrun stapler staple "$out/Gonggong_${version}_$arch.dmg"
+  elif [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
+    xcrun notarytool submit "$out/Gonggong_${version}_$arch.dmg" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait
     xcrun stapler staple "$out/Gonggong_${version}_$arch.dmg"
   fi
   cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"

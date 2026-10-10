@@ -205,6 +205,8 @@ export const en = {
   'Bot 不存在': 'Bot not found',
   '名称「{name}」已被占用': 'The name "{name}" is taken',
   指定名单包含不存在的成员: 'The allowlist contains unknown members',
+  运行不存在或已结束: 'The run does not exist or has ended',
+  只有系统管理员发起的运行可以发布客户端: 'Only runs started by a system admin can publish clients',
   '不能共享给 Bot 主人自己': "A Bot can't be shared with its own owner",
   共享对象包含不存在或已停用的成员: 'The share list contains unknown or disabled members',
   '只有归属人或系统管理员可以修改该 Bot': 'Only the owner or a system admin can change this Bot',

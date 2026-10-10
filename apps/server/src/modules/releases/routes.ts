@@ -13,14 +13,17 @@ import {
   ReleaseKind,
   type UpgradeInfo,
 } from '@gonggong/protocol'
-import { eq } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import { and, eq } from 'drizzle-orm'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { systemParams } from '../../db/schema.js'
+import { requireMachine } from '../../daemon/auth.js'
+import { bots, runs, systemParams, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { idParam } from '../../lib/ids.js'
 import { dataDir } from '../attachments/service.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
+import { LIVE } from '../runs/dto.js'
 
 const KEY = 'daemonRelease'
 const FILE = /^\w[\w.-]*$/
@@ -62,6 +65,58 @@ async function removeHosted(url: string) {
   if (FILE.test(file)) await unlink(join(downloads(), file)).catch(() => {})
 }
 
+/** Stores one uploaded artifact (multipart) and records it in the release; audited as `actorId`'s. */
+async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) {
+  const part = await req.file({ limits: { fileSize: MAX_FILE_MB * 1024 * 1024, files: 1 } })
+  if (!part) return fail('invalid', '缺少文件')
+  const file = parseReleaseFile(part.filename)
+  const current = await daemonRelease(ctx)
+  if (!file || (current && compareVersions(file.version, current.version) < 0)) {
+    part.file.resume()
+    return file
+      ? fail('invalid', '{file} 的版本低于当前发布的 {version}', {
+          file: part.filename,
+          version: current?.version ?? '',
+        })
+      : fail(
+          'invalid',
+          '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe',
+          { file: part.filename },
+        )
+  }
+  await mkdir(downloads(), { recursive: true })
+  const tmp = join(downloads(), `.upload-${randomUUID()}`)
+  const hash = createHash('sha256')
+  try {
+    await pipeline(
+      part.file,
+      async function* (src: AsyncIterable<Buffer>) {
+        for await (const chunk of src) {
+          hash.update(chunk)
+          yield chunk
+        }
+      },
+      createWriteStream(tmp),
+    )
+    if (part.file.truncated) fail('invalid', '单个文件不能超过 {mb} MB', { mb: MAX_FILE_MB })
+    await rename(tmp, join(downloads(), part.filename))
+  } catch (e) {
+    await unlink(tmp).catch(() => {})
+    throw e
+  }
+  const same = current?.version === file.version
+  const base: DaemonRelease = same && current ? current : { version: file.version, builds: {}, cast: {} }
+  const url = `/downloads/${part.filename}`
+  const release = {
+    ...base,
+    [file.kind]: { ...base[file.kind], [file.platform]: { url, sha256: hash.digest('hex') } },
+  }
+  await saveRelease(ctx, release)
+  if (current && !same) await Promise.all(hostedUrls(current).map(removeHosted))
+  await audit(ctx, { category: 'admin', actorUserId: actorId, action: 'daemon.release.upload', detail: file })
+  return release
+}
+
 const hostedUrls = (r: DaemonRelease) =>
   [...Object.values(r.builds), ...Object.values(r.cast ?? {}), ...Object.values(r.desktop ?? {})].map(
     (b) => b.url,
@@ -98,59 +153,23 @@ export function releaseRoutes(ctx: Ctx) {
     /** multipart: one release.sh artifact; its name decides kind, version and platform. A newer version starts a new release. */
     app.post('/api/admin/daemon-release/files', async (req) => {
       const actor = await requireSysadmin(ctx, req)
-      const part = await req.file({ limits: { fileSize: MAX_FILE_MB * 1024 * 1024, files: 1 } })
-      if (!part) return fail('invalid', '缺少文件')
-      const file = parseReleaseFile(part.filename)
-      const current = await daemonRelease(ctx)
-      if (!file || (current && compareVersions(file.version, current.version) < 0)) {
-        part.file.resume()
-        return file
-          ? fail('invalid', '{file} 的版本低于当前发布的 {version}', {
-              file: part.filename,
-              version: current?.version ?? '',
-            })
-          : fail(
-              'invalid',
-              '{file} 不是发布产物：文件名应形如 gonggong-0.2.0-macos-aarch64 或 gg-cast-0.2.0-windows-x86_64.exe',
-              { file: part.filename },
-            )
-      }
-      await mkdir(downloads(), { recursive: true })
-      const tmp = join(downloads(), `.upload-${randomUUID()}`)
-      const hash = createHash('sha256')
-      try {
-        await pipeline(
-          part.file,
-          async function* (src: AsyncIterable<Buffer>) {
-            for await (const chunk of src) {
-              hash.update(chunk)
-              yield chunk
-            }
-          },
-          createWriteStream(tmp),
-        )
-        if (part.file.truncated) fail('invalid', '单个文件不能超过 {mb} MB', { mb: MAX_FILE_MB })
-        await rename(tmp, join(downloads(), part.filename))
-      } catch (e) {
-        await unlink(tmp).catch(() => {})
-        throw e
-      }
-      const same = current?.version === file.version
-      const base: DaemonRelease = same && current ? current : { version: file.version, builds: {}, cast: {} }
-      const url = `/downloads/${part.filename}`
-      const release = {
-        ...base,
-        [file.kind]: { ...base[file.kind], [file.platform]: { url, sha256: hash.digest('hex') } },
-      }
-      await saveRelease(ctx, release)
-      if (current && !same) await Promise.all(hostedUrls(current).map(removeHosted))
-      await audit(ctx, {
-        category: 'admin',
-        actorUserId: actor.id,
-        action: 'daemon.release.upload',
-        detail: file,
-      })
-      return release
+      return storeReleaseFile(ctx, actor.id, req)
+    })
+
+    // The gonggong MCP `client_release_publish` of a live run: its bot's machine uploads a file it built, on behalf
+    // of whoever asked, who must be a sysadmin (the same right as uploading in the admin console).
+    app.post<{ Params: { runId: string } }>('/api/daemon/runs/:runId/release-files', async (req) => {
+      const machine = await requireMachine(ctx, req)
+      const [row] = await ctx.db
+        .select({ status: runs.status, origin: users })
+        .from(runs)
+        .innerJoin(bots, eq(bots.id, runs.botId))
+        .innerJoin(users, eq(users.id, runs.originUserId))
+        .where(and(eq(runs.id, idParam(req.params.runId, '运行不存在')), eq(bots.machineId, machine.id)))
+      if (!row || !LIVE.includes(row.status)) return fail('not_found', '运行不存在或已结束')
+      if (row.origin.role !== 'sysadmin' || row.origin.disabledAt)
+        return fail('forbidden', '只有系统管理员发起的运行可以发布客户端')
+      return storeReleaseFile(ctx, row.origin.id, req)
     })
 
     app.delete<{ Params: { kind: string; platform: string } }>(

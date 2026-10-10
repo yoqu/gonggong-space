@@ -35,7 +35,10 @@ const SERVER_TOOLS: &str = include_str!("../../../packages/protocol/gonggong-too
 const DAEMON_TOOLS: &str = include_str!("../../../packages/protocol/gonggong-daemon-tools.json");
 /// Run code (an arbitrary command; a mini program in the simulator, whose trust prompt is then answered), so they go
 /// through the bot's approval like the agent's own shell (plan P10).
-const NEEDS_APPROVAL: [&str; 2] = ["service_start", "preview_miniprogram"];
+/// `client_release_publish` puts a binary on every member's machine.
+const NEEDS_APPROVAL: [&str; 3] = ["service_start", "preview_miniprogram", "client_release_publish"];
+/// A desktop installer or gg-cast build is tens of MB; the server takes up to 300 MB.
+const UPLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 const NOT_RUNNING: &str = "当前不在运行中，无法查询";
 const STILL_OPENING: &str = "微信开发者工具还在启动或打开项目（首次打开需要编译，可能要一两分钟）：卡片会在打开后自动显示模拟器画面，不需要再调用。";
 /// Under the agents' own tool timeout (a minute for Claude Code and Codex).
@@ -204,6 +207,8 @@ async fn handle(
                 Some(call(asker.as_ref(), args).await)
             } else if is_server_tool(name) {
                 Some(forward(backends.api.as_ref().as_ref(), asker.as_ref(), name, args).await)
+            } else if name == "client_release_publish" {
+                Some(publish_release(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
             } else if is_daemon_tool(name) {
                 Some(hosted(&backends, asker.as_ref(), name, args).await)
             } else {
@@ -320,6 +325,43 @@ async fn forward(api: Option<&Config>, asker: &dyn Asker, name: &str, args: &Val
     }
     attachments::fetch(api, &cwd, &res.attachments).await?;
     Ok(format!("{}\n{}", res.text, attachment_note(&res.attachments)).trim_end().into())
+}
+
+#[derive(Deserialize)]
+struct ReleaseArgs {
+    file: String,
+}
+
+/// Uploads one release artifact of the workspace to the server, which takes it only for a run a sysadmin started.
+async fn publish_release(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> Result<String, String> {
+    let a = ReleaseArgs::deserialize(args).map_err(|e| format!("参数无效：{e}"))?;
+    let api = api.ok_or("未连接服务器，无法发布")?;
+    let (run_id, cwd) = asker.active_run().ok_or(NOT_RUNNING)?;
+    const OUTSIDE: &str = "文件必须是工作区内已存在的文件";
+    let root = cwd.canonicalize().map_err(|e| format!("工作区不可用：{e}"))?;
+    let path = root.join(&a.file).canonicalize().map_err(|_| OUTSIDE.to_string())?;
+    if !path.starts_with(&root) || !path.is_file() {
+        return Err(OUTSIDE.into());
+    }
+    let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let data = tokio::fs::read(&path).await.map_err(|e| format!("读取 {name} 失败：{e}"))?;
+    let size = data.len();
+    let form =
+        reqwest::multipart::Form::new().part("file", reqwest::multipart::Part::bytes(data).file_name(name.clone()));
+    let url = format!("{}/api/daemon/runs/{run_id}/release-files", api.server.trim_end_matches('/'));
+    let send = async {
+        let res = tls::http()?.post(url).bearer_auth(&api.token).multipart(form).timeout(UPLOAD_TIMEOUT).send().await?;
+        let status = res.status();
+        let body: Value = res.json().await.unwrap_or(Value::Null);
+        anyhow::Ok((status, body))
+    };
+    let (status, body) = send.await.map_err(|e| format!("上传 {name} 失败：{e:#}"))?;
+    if !status.is_success() {
+        let reason = body["message"].as_str().map_or_else(|| status.to_string(), String::from);
+        return Err(format!("服务器拒绝了 {name}：{reason}"));
+    }
+    let version = body["version"].as_str().unwrap_or_default();
+    Ok(format!("已发布 {name}（{:.1} MB）到当前空间，当前发布版本 {version}", size as f64 / 1_048_576.0))
 }
 
 #[derive(Deserialize)]
@@ -645,6 +687,7 @@ mod tests {
                 "service_logs",
                 "service_stop",
                 "preview_static",
+                "client_release_publish",
                 "preview_miniprogram"
             ]
         );
@@ -752,6 +795,32 @@ mod tests {
             forward(Some(&config("http://x".into())), &idle, "list_messages", &json!({})).await,
             Err(NOT_RUNNING.into())
         );
+    }
+
+    #[tokio::test]
+    async fn uploads_a_release_artifact_of_the_workspace_for_the_live_run() {
+        let (base, seen) = fake_server(r#"{"version":"0.3.1","builds":{}}"#).await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("dist")).unwrap();
+        std::fs::write(dir.path().join("dist/gonggong-0.3.1-macos-aarch64"), "daemon").unwrap();
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
+        let api = config(base);
+        let args = json!({ "file": "dist/gonggong-0.3.1-macos-aarch64" });
+
+        let text = publish_release(Some(&api), &live, &args).await.unwrap();
+        assert_eq!(text, "已发布 gonggong-0.3.1-macos-aarch64（0.0 MB）到当前空间，当前发布版本 0.3.1");
+        let req = seen.lock().unwrap()[0].clone();
+        assert!(req.starts_with("POST /api/daemon/runs/r1/release-files HTTP/1.1"), "{req}");
+        assert!(req.to_ascii_lowercase().contains("authorization: bearer mt_1"));
+        assert!(req.contains(r#"filename="gonggong-0.3.1-macos-aarch64""#) && req.contains("daemon"), "{req}");
+
+        for file in ["../x", "dist", "dist/missing"] {
+            let err = publish_release(Some(&api), &live, &json!({ "file": file })).await;
+            assert_eq!(err, Err("文件必须是工作区内已存在的文件".into()), "{file}");
+        }
+        assert_eq!(publish_release(Some(&api), &Fake::default(), &args).await, Err(NOT_RUNNING.into()));
+        assert!(is_builtin("mcp__gonggong__preview_static") && !is_builtin("mcp__gonggong__client_release_publish"));
     }
 
     #[tokio::test(start_paused = true)]

@@ -394,6 +394,16 @@ export const PreviewMiniprogramArgs = z.object({
   title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
 })
 
+export const ClientReleasePublishArgs = z.object({
+  file: z
+    .string()
+    .min(1)
+    .max(500)
+    .describe(
+      '要发布的产物路径（工作区内的相对路径，如 dist/0.3.1/gonggong-0.3.1-macos-aarch64）；文件名须是 scripts/release.sh 的产物名',
+    ),
+})
+
 /**
  * Tools of the built-in `gonggong` MCP server answered by the daemon itself (it owns the processes); generated into
  * `gonggong-daemon-tools.json`. `service_start` is not auto-approved: it runs an arbitrary command.
@@ -428,6 +438,13 @@ export const DAEMON_TOOLS = {
     description:
       '把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。',
     input: PreviewStaticArgs,
+  },
+  client_release_publish: {
+    title: '发布客户端到当前空间',
+    description:
+      '把本机构建好的一个客户端产物（gg daemon、gg-cast 或桌面端安装包 Gonggong_<版本>_*.dmg / *-setup.exe）上传到当前空间，' +
+      '成员的 daemon 随后自动升级、可在网页下载安装包。一次一个文件，有多个就逐个调用；只有系统管理员发起的对话可以发布。',
+    input: ClientReleasePublishArgs,
   },
   preview_miniprogram: {
     title: '发布小程序预览',

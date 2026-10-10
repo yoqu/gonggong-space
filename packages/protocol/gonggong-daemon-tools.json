@@ -123,6 +123,23 @@
     }
   },
   {
+    "name": "client_release_publish",
+    "title": "发布客户端到当前空间",
+    "description": "把本机构建好的一个客户端产物（gg daemon、gg-cast 或桌面端安装包 Gonggong_<版本>_*.dmg / *-setup.exe）上传到当前空间，成员的 daemon 随后自动升级、可在网页下载安装包。一次一个文件，有多个就逐个调用；只有系统管理员发起的对话可以发布。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "要发布的产物路径（工作区内的相对路径，如 dist/0.3.1/gonggong-0.3.1-macos-aarch64）；文件名须是 scripts/release.sh 的产物名"
+        }
+      },
+      "required": ["file"]
+    }
+  },
+  {
     "name": "preview_miniprogram",
     "title": "发布小程序预览",
     "description": "在本机微信开发者工具里打开工作区的小程序项目并跳到指定页面，在群里发一张带模拟器截图的预览卡片；同一项目再次调用会切换卡片的页面并重新截图。开发者工具的启动、登录（未登录时卡片上显示登录二维码，扫码后自动恢复）和「信任此项目」都由它处理：不要自己用 wechatide、cli 或其他命令操作开发者工具，也不要另发登录二维码。",
