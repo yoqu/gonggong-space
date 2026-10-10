@@ -899,7 +899,8 @@ describe('new group dialog', () => {
     const people = within(dialog).getByRole('group', { name: '成员' })
     expect(within(people).getByText('李建国').parentElement?.textContent).toContain('Bot 主人')
     fireEvent.click(within(people).getByRole('button', { name: '添加成员' }))
-    fireEvent.click(await screen.findByRole('button', { name: /赵敏/ }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /赵敏/ }))
+    fireEvent.click(screen.getByRole('button', { name: '添加 1 人' }))
     expect(within(dialog).getByText(/成员 · 3/)).toBeTruthy()
 
     const create = within(dialog).getByRole('button', { name: '创建' })

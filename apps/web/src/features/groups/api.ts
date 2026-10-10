@@ -19,8 +19,8 @@ export const groupsApi = {
   prefs: (id: string, body: GroupPrefsReq) => api.put<GroupDto>(`/groups/${id}/prefs`, body).then(apply),
   params: (id: string) => api.get<GroupParams>(`/groups/${id}/params`),
   saveParams: (id: string, body: GroupParams) => api.put<GroupParams>(`/groups/${id}/params`, body),
-  addMember: (id: string, userId: string) =>
-    api.post<GroupDto>(`/groups/${id}/members`, { userId }).then(apply),
+  addMembers: (id: string, userIds: string[]) =>
+    api.post<GroupDto>(`/groups/${id}/members`, { userIds }).then(apply),
   removeMember: (id: string, userId: string) =>
     api.del<GroupDto>(`/groups/${id}/members/${userId}`).then(apply),
   setAdmin: (id: string, userId: string, on: boolean) =>

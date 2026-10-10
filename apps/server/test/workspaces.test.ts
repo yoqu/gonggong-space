@@ -202,7 +202,7 @@ describe('joining a repo group', () => {
   it('only lets the bot owner bind, and only while the machine is online', async () => {
     const w = await world()
     const g = await w.createGroup()
-    await w.asAlice.post(`/api/groups/${g.id}/members`, { userId: w.bob.id })
+    await w.asAlice.post(`/api/groups/${g.id}/members`, { userIds: [w.bob.id] })
     const url = `/api/groups/${g.id}/bots/${w.bot.id}/workspace`
     expect((await w.asBob.put(url, { path: '/src/x' })).status).toBe(403)
     expect((await w.asAlice.put(url, { path: 'relative' })).status).toBe(400)
@@ -302,7 +302,7 @@ describe('rebinding the repo', () => {
   it('only admins may change it; unbinding is not allowed', async () => {
     const w = await world()
     const g = await w.createGroup()
-    await w.asAlice.post(`/api/groups/${g.id}/members`, { userId: w.bob.id })
+    await w.asAlice.post(`/api/groups/${g.id}/members`, { userIds: [w.bob.id] })
     expect((await w.asBob.patch(`/api/groups/${g.id}/repo`, { url: w.repo.url, branch: 'dev' })).status).toBe(
       403,
     )

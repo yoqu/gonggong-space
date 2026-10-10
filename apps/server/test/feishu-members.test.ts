@@ -135,8 +135,10 @@ describe('共工群 → 飞书群 members', () => {
     const plain = await t.seed.user({ name: '赵六' })
     const mateFs = await link(mate.id)
 
-    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userId: mate.id })).status).toBe(200)
-    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userId: plain.id })).status).toBe(200)
+    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userIds: [mate.id] })).status).toBe(200)
+    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userIds: [plain.id] })).status).toBe(
+      200,
+    )
     expect(t.feishu.usersAdded).toEqual([{ appId: MAIN, chatId: CHAT, unionIds: [mateFs.unionId] }])
   })
 
@@ -149,7 +151,7 @@ describe('共工群 → 飞书群 members', () => {
 
     expect((await ownerHttp.del(`/api/groups/${group.id}/members/${mate.id}`)).status).toBe(200)
     expect(t.feishu.members.get(CHAT)).toContain(mateFs.unionId)
-    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userId: mate.id })).status).toBe(200)
+    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userIds: [mate.id] })).status).toBe(200)
     expect(t.feishu.usersAdded).toEqual([])
   })
 
@@ -160,7 +162,7 @@ describe('共工群 → 飞书群 members', () => {
     await link(mate.id)
     t.feishu.addUsersError = 'only owner or admin can add members'
 
-    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userId: mate.id })).status).toBe(200)
+    expect((await ownerHttp.post(`/api/groups/${group.id}/members`, { userIds: [mate.id] })).status).toBe(200)
     expect(await memberIds(group.id)).toContain(mate.id)
     expect(await events(group.id)).toContain('未能将 李娜 拉入飞书群：only owner or admin can add members')
   })

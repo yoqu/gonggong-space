@@ -591,7 +591,7 @@ export const CreateGroupReq = z.object({
   botIds: z.array(z.string()).default([]),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),
 })
-export const GroupMemberReq = z.object({ userId: z.string() })
+export const GroupMemberReq = z.object({ userIds: z.array(z.string()).min(1).max(200) })
 export const GroupBotReq = z.object({ botId: z.string() })
 /** Moves the read cursor forward; omit `seq` to mark everything read. */
 export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })

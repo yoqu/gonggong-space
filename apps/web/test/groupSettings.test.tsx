@@ -85,6 +85,7 @@ const users = [
   { id: 'u1', name: '王磊', account: 'wanglei' },
   { id: 'u2', name: '李建国', account: 'lijg' },
   { id: 'u3', name: '赵敏', account: 'zhaomin' },
+  { id: 'u4', name: '周芳', account: 'zhoufang' },
 ]
 const params = { approvalTimeoutMin: 30, chainMaxHops: 3, offlineWaitMin: 30 }
 
@@ -431,9 +432,19 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     fireEvent.click(within(d).getByRole('button', { name: '添加成员' }))
-    fireEvent.click(await screen.findByRole('button', { name: /赵敏/ }))
+    const people = await screen.findByRole('dialog', { name: '添加成员' })
+    const add = within(people).getByRole('button', { name: '添加' })
+    expect(add.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(within(people).getByRole('menuitemcheckbox', { name: /赵敏/ }))
+    fireEvent.click(within(people).getByRole('menuitemcheckbox', { name: /周芳/ }))
+    expect(within(people).getByRole('menuitemcheckbox', { name: /周芳/ }).getAttribute('aria-checked')).toBe(
+      'true',
+    )
+    fireEvent.click(within(people).getByRole('button', { name: '添加 2 人' }))
     await waitFor(() =>
-      expect(calls.find((c) => c.path === '/groups/g1/members')?.body).toEqual({ userId: 'u3' }),
+      expect(calls.filter((c) => c.path === '/groups/g1/members').map((c) => c.body)).toEqual([
+        { userIds: ['u3', 'u4'] },
+      ]),
     )
 
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
@@ -461,7 +472,7 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '添加' }))
     expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
-    expect(await screen.findByRole('button', { name: /赵敏/ })).toBeTruthy()
+    expect(await screen.findByRole('menuitemcheckbox', { name: /赵敏/ })).toBeTruthy()
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
     expect(within(d).getByRole('heading', { name: '群设置' })).toBeTruthy()
   })
@@ -546,7 +557,7 @@ describe('group settings inspector', () => {
     expect(await within(pick).findByText('成员列表加载失败')).toBeTruthy()
     fail = false
     fireEvent.click(within(pick).getByRole('button', { name: '重试' }))
-    expect(await within(pick).findByRole('button', { name: /赵敏/ })).toBeTruthy()
+    expect(await within(pick).findByRole('menuitemcheckbox', { name: /赵敏/ })).toBeTruthy()
   })
 
   it("lets a bot owner set this group's tier; others only read the effective one", async () => {

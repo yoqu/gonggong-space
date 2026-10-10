@@ -447,7 +447,7 @@ function MembersView({
             users={candidates}
             defaultOpen={initialAdding}
             onOpen={() => (wanted ? usersQ.reload() : setWanted(true))}
-            onAdd={(id) => void attempt(() => groupsApi.addMember(group.id, id))}
+            onAdd={(ids) => void attempt(() => groupsApi.addMembers(group.id, ids))}
             status={
               usersQ.error ? (
                 <LoadError text={t('成员列表加载失败')} onRetry={usersQ.reload} />

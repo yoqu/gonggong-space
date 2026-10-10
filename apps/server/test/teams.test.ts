@@ -200,7 +200,9 @@ describe('isolation between teams', () => {
     const w = await world()
     const alice = await w.as(w.alice)
     expect((await alice.post(`/api/groups/${w.groupA.id}/bots`, { botId: w.carolBot.id })).status).toBe(400)
-    expect((await alice.post(`/api/groups/${w.groupA.id}/members`, { userId: w.carol.id })).status).toBe(400)
+    expect((await alice.post(`/api/groups/${w.groupA.id}/members`, { userIds: [w.carol.id] })).status).toBe(
+      400,
+    )
     expect((await alice.post(`/api/groups/${w.groupA.id}/bots`, { botId: w.eveBotA.id })).status).toBe(200)
     expect(
       (await alice.patch(`/api/bots/${w.aliceBot.id}`, { triggerScope: 'list', triggerList: [w.carol.id] }))

@@ -53,6 +53,7 @@ export default {
   群级参数加载失败: 'Failed to load group parameters',
   搜索成员: 'Search members',
   添加成员: 'Add member',
+  '添加 {n} 人': 'Add {n} {n:person|people}',
   成员列表加载失败: 'Failed to load members',
   所有账号都已在群里: 'Every account is already in the group',
   '（我）': ' (me)',

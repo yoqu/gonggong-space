@@ -39,7 +39,7 @@ describe('i18n', () => {
       method: 'POST',
       url: `/api/groups/${g.id}/members`,
       headers,
-      payload: { userId: zhao.id },
+      payload: { userIds: [zhao.id] },
     })
     const timeline = (
       await t.app.inject({ url: `/api/groups/${g.id}/timeline`, headers })

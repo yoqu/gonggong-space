@@ -72,8 +72,6 @@ async function liveBots(ctx: Ctx, teamId: string, ids: string[]) {
   return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
 }
 
-const oneUser = async (ctx: Ctx, teamId: string, id: string) =>
-  (await activeUsers(ctx, teamId, [id]))[0] ?? fail('invalid', '成员不存在')
 const oneBot = async (ctx: Ctx, teamId: string, id: string) =>
   (await liveBots(ctx, teamId, [id]))[0] ?? fail('invalid', 'Bot 不存在')
 
@@ -195,15 +193,22 @@ export function groupRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       if (group.kind === 'dm') return fail('invalid', '私聊不能添加成员')
-      const { userId } = GroupMemberReq.parse(req.body)
-      const user = await oneUser(ctx, group.teamId, userId)
-      if (!(await isMember(ctx, group.id, user.id))) {
-        await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: user.id })
+      const { userIds } = GroupMemberReq.parse(req.body)
+      const wanted = await activeUsers(ctx, group.teamId, uniq(userIds))
+      const current = await ctx.db
+        .select({ userId: groupMembers.userId })
+        .from(groupMembers)
+        .where(eq(groupMembers.groupId, group.id))
+      const added = wanted.filter((u) => !current.some((m) => m.userId === u.id))
+      if (added.length) {
+        await ctx.db.insert(groupMembers).values(added.map((u) => ({ groupId: group.id, userId: u.id })))
         forgetMembers(group.id)
-        await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member: user.name })
-        await auditAdmin(me.id, group.id, 'group.member.add', { userId: user.id, name: user.name })
+        const member = added.map((u) => u.name).join('、')
+        await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member })
+        for (const u of added)
+          await auditAdmin(me.id, group.id, 'group.member.add', { userId: u.id, name: u.name })
         await publishGroup(ctx, group.id)
-        await pullIntoChat(ctx, group.id, user)
+        for (const u of added) await pullIntoChat(ctx, group.id, u)
       }
       return groupDto(ctx, me.id, group.id)
     })

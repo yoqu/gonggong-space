@@ -205,7 +205,7 @@ export function NewGroupDialog({ me, kind, onClose }: { me: UserDto; kind: Group
                   users={users.filter(
                     (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
                   )}
-                  onAdd={(id) => setPeople([...people, id])}
+                  onAdd={(ids) => setPeople([...people, ...ids])}
                 />
               </fieldset>
             </GroupBox>

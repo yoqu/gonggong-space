@@ -248,14 +248,32 @@ describe('membership management', () => {
   it('admin adds a member; non-admins cannot', async () => {
     const p = await people()
     const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
-    expect((await p.asLi.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })).status).toBe(403)
+    expect((await p.asLi.post(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })).status).toBe(403)
     const zhaoEvents = events(t, p.zhao.id)
-    const res = await p.asWang.post<GroupDto>(`/api/groups/${g.id}/members`, { userId: p.zhao.id })
+    const res = await p.asWang.post<GroupDto>(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })
     expect(res.status).toBe(200)
     expect(res.body.members.map((m) => m.userId)).toContain(p.zhao.id)
     expect(zhaoEvents).toContainEqual({ t: 'group.updated', group: expect.objectContaining({ id: g.id }) })
     expect((await bodies(p.asZhao, g.id)).at(-1)).toBe('王磊 邀请 赵敏 加入群')
-    expect((await p.asWang.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })).status).toBe(200)
+    expect((await p.asWang.post(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })).status).toBe(200)
+  })
+
+  it('admin adds several members at once, announced in one event; one unknown id adds nobody', async () => {
+    const p = await people()
+    const zhou = await t.seed.user({ name: '周芳' })
+    const g = await t.seed.group({ createdBy: p.wang.id, memberIds: [p.li.id] })
+    const url = `/api/groups/${g.id}/members`
+    expect((await p.asWang.post(url, { userIds: [p.zhao.id, crypto.randomUUID()] })).status).toBe(400)
+    expect((await p.asWang.post(url, { userIds: [] })).status).toBe(400)
+    const res = await p.asWang.post<GroupDto>(url, { userIds: [p.li.id, p.zhao.id, zhou.id, p.zhao.id] })
+    expect(res.status).toBe(200)
+    expect(res.body.members.map((m) => m.userId)).toEqual(
+      expect.arrayContaining([p.wang.id, p.li.id, p.zhao.id, zhou.id]),
+    )
+    expect(res.body.members).toHaveLength(4)
+    expect((await bodies(p.asWang, g.id)).filter((b) => b?.includes('邀请'))).toEqual([
+      '王磊 邀请 赵敏、周芳 加入群',
+    ])
   })
 
   it('removing a member also removes their bots and tells them', async () => {
@@ -295,7 +313,7 @@ describe('membership management', () => {
       return { zhao: zhao.some((e) => e.t === 'group.updated'), li: li.some((e) => e.t === 'group.updated') }
     }
     expect(await pushed()).toEqual({ zhao: false, li: true })
-    await p.asWang.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })
+    await p.asWang.post(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })
     await p.asWang.del(`/api/groups/${g.id}/members/${p.li.id}`)
     expect(await pushed()).toEqual({ zhao: true, li: false })
     await p.asWang.post(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
@@ -333,7 +351,7 @@ describe('membership management', () => {
     const p = await people()
     const dm = await t.seed.group({ createdBy: p.wang.id, kind: 'dm' })
     expect((await p.asWang.post(`/api/groups/${dm.id}/bots`, { botId: p.liBot.id })).status).toBe(403)
-    expect((await p.asWang.post(`/api/groups/${dm.id}/members`, { userId: p.li.id })).status).toBe(400)
+    expect((await p.asWang.post(`/api/groups/${dm.id}/members`, { userIds: [p.li.id] })).status).toBe(400)
     expect((await p.asWang.post(`/api/groups/${dm.id}/bots`, { botId: p.wangBot.id })).status).toBe(200)
   })
 
@@ -342,7 +360,7 @@ describe('membership management', () => {
     const g = (
       await p.asWang.post<GroupDto>('/api/groups', { name: 'g', kind: 'group', memberIds: [], botIds: [] })
     ).body
-    await p.asWang.post(`/api/groups/${g.id}/members`, { userId: p.zhao.id })
+    await p.asWang.post(`/api/groups/${g.id}/members`, { userIds: [p.zhao.id] })
     await p.asWang.post(`/api/groups/${g.id}/bots`, { botId: p.liBot.id })
     await p.asWang.del(`/api/groups/${g.id}/bots/${p.liBot.id}`)
     await p.asWang.del(`/api/groups/${g.id}/members/${p.zhao.id}`)
