@@ -414,12 +414,10 @@ describe('hover action bar', () => {
     expect(screen.queryByRole('menuitem', { name: '查看过程' })).toBeNull()
   })
 
-  it('ends the list with the working Bots whose run card is not in view', async () => {
+  it('shows working Bots whose run card is not in view in the live runs bar, not as a typing row', async () => {
     renderChat({ messages: [msg({ seq: 2 })], runs: [run()] })
-    expect((await screen.findByText('小王的 Claude 正在处理…')).closest('[role=status]')).toBeTruthy()
-    const mascot = document.querySelector('.pn-typing .ui-mascot')
-    expect(mascot?.getAttribute('data-action')).toBe('think')
-    expect(mascot?.getAttribute('data-role')).toBe('no')
+    expect((await screen.findByTestId('live-runs')).textContent).toContain('小王的 Claude')
+    expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
   })
 
   it('shows no typing row for a Bot whose running card is in the timeline', async () => {

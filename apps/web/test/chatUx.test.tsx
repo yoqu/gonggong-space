@@ -366,6 +366,115 @@ describe('scroll position', () => {
   })
 })
 
+describe('live runs bar', () => {
+  const bar = () => screen.queryByTestId('live-runs')
+  const rows = () => [...(bar()?.querySelectorAll<HTMLElement>('.lr-row') ?? [])]
+
+  it('lists only executing runs above the composer, those waiting on someone first', async () => {
+    const started = new Date(Date.now() - 65_000).toISOString()
+    mockApi({
+      messages: [msg({ seq: 2, body: '@小王的 Claude 看下字段' })],
+      runs: [
+        run({ id: 'r1', startedAt: started, queuedAt: '2026-09-23T02:21:01.000Z' }),
+        run({ id: 'r2', status: 'queued', startedAt: null }),
+        run({ id: 'r3', status: 'completed', endedAt: at }),
+        run({ id: 'r4', botId: 'b2', status: 'awaiting_answer', queuedAt: '2026-09-23T02:21:03.000Z' }),
+        run({ id: 'r5', status: 'awaiting_approval', queuedAt: '2026-09-23T02:21:02.000Z' }),
+      ],
+    })
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(3))
+    expect(precedes(bar()!, box())).toBe(true)
+    const [approval, answer, running] = rows()
+    expect(approval!.textContent).toContain('小王的 Claude')
+    expect(approval!.textContent).toContain('等待审批')
+    expect(approval!.classList).toContain('lr-row--awaiting')
+    expect(answer!.textContent).toContain('老李的 Codex')
+    expect(answer!.textContent).toContain('等待回答')
+    expect(running!.textContent).toContain('读取 server/refund.go')
+    expect(running!.textContent).toMatch(/1 分 [56] 秒/)
+    expect(running!.classList).not.toContain('lr-row--awaiting')
+  })
+
+  it('shows three rows and folds the rest behind +N', async () => {
+    mockApi({
+      messages: [msg({ seq: 2 })],
+      runs: ['r1', 'r2', 'r3', 'r4', 'r5'].map((id) => run({ id })),
+    })
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(3))
+    fireEvent.click(within(bar()!).getByRole('button', { name: '+2' }))
+    expect(rows()).toHaveLength(5)
+    fireEvent.click(within(bar()!).getByRole('button', { name: '收起' }))
+    expect(rows()).toHaveLength(3)
+  })
+
+  it('opens the run process from 过程', async () => {
+    mockApi({ messages: [msg({ seq: 2 })], runs: [run()] })
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(1))
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: '过程' }))
+    expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
+      { kind: 'run', runId: 'r1', view: 'process', file: null },
+    ])
+  })
+
+  it('locates a run whose trigger is on an older page', async () => {
+    mockApi((path) =>
+      path.includes('before=')
+        ? { messages: page(1, 50), runs: [] }
+        : { messages: page(51, 50), runs: [run({ triggerMessageId: 'm7' })] },
+    )
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(1))
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    const target = await screen.findByText('第 7 条', {}, { timeout: 3000 })
+    const item = target.closest('[data-msg-id]') as HTMLElement
+    await waitFor(() => expect(item.className).toContain('tl-item--flash'))
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(''))
+    expect(useWorkbench.getState().benches.g1?.tabs ?? []).toEqual([])
+  })
+
+  it('locates a run at its reply once the card moved there', async () => {
+    mockApi({
+      messages: [msg({ seq: 2 }), reply({ seq: 3, body: '先问一下' })],
+      runs: [run({ status: 'awaiting_answer' })],
+    })
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(1))
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    const item = document.querySelector('[data-msg-id="m3"]') as HTMLElement
+    await waitFor(() => expect(item.className).toContain('tl-item--flash'))
+  })
+
+  it('opens the process when the run cannot be found in the timeline', async () => {
+    mockApi({ messages: [msg({ seq: 2 })], runs: [run({ triggerMessageId: 'm999' })] })
+    renderAt()
+    await waitFor(() => expect(rows()).toHaveLength(1))
+    expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
+    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    await waitFor(() =>
+      expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
+        { kind: 'run', runId: 'r1', view: 'process', file: null },
+      ]),
+    )
+    expect(screen.getByTestId('loc').textContent).toBe('')
+  })
+
+  it('is hidden without executing runs', async () => {
+    mockApi({
+      messages: [msg({ seq: 2 })],
+      runs: [run({ status: 'queued', startedAt: null }), run({ id: 'r2', status: 'completed', endedAt: at })],
+    })
+    renderAt()
+    await screen.findAllByTestId('run-card')
+    expect(bar()).toBeNull()
+    push({ t: 'run.updated', run: run({ status: 'running' }) })
+    expect(rows()).toHaveLength(1)
+  })
+})
+
 describe('read marks and timestamps', () => {
   it('does not mark read while the tab is hidden and flushes when it becomes visible', async () => {
     hidden = true

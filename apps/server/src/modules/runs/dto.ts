@@ -1,5 +1,5 @@
 import type { ApprovalDto, GroupParams, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, attachments, groups, questionSets, runs, users } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
@@ -120,15 +120,24 @@ export async function runDtoLoader(ctx: Ctx, rows: RunRow[]): Promise<(r: RunRow
 }
 
 /** Run cards of a group in trigger order, for the timeline; `triggerMessageIds` limits them to one page. */
-export async function listRuns(ctx: Ctx, groupId: string, triggerMessageIds?: string[]): Promise<RunDto[]> {
-  if (triggerMessageIds?.length === 0) return []
+export const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
+
+/** `withLive` also returns the group's live runs whose trigger is not among `triggerMessageIds`. */
+export async function listRuns(
+  ctx: Ctx,
+  groupId: string,
+  triggerMessageIds?: string[],
+  withLive = false,
+): Promise<RunDto[]> {
+  if (triggerMessageIds?.length === 0 && !withLive) return []
+  const byTrigger = triggerMessageIds?.length ? inArray(runs.triggerMessageId, triggerMessageIds) : undefined
   const rows = await ctx.db
     .select()
     .from(runs)
     .where(
       and(
         eq(runs.groupId, groupId),
-        triggerMessageIds ? inArray(runs.triggerMessageId, triggerMessageIds) : undefined,
+        triggerMessageIds && withLive ? or(byTrigger, inArray(runs.status, LIVE)) : byTrigger,
       ),
     )
     .orderBy(asc(runs.queuedAt))

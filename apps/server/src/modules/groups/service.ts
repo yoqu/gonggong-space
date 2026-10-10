@@ -18,11 +18,10 @@ import { zhText } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { forgetMembers, type MessageMeta, memberIds, postEvent } from '../messages/service.js'
+import { LIVE } from '../runs/dto.js'
 import { stopRuns } from '../runs/stop.js'
 import { avatarUrl } from '../users/dto.js'
 import { groupTitle } from './title.js'
-
-const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 
 /** Non-members (of the group or of its live team) get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {

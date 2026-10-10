@@ -45,9 +45,11 @@ import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
+import { openTab } from '../workbench/open'
 import { useRunDeltas } from './deltas'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
+import { LiveRunsBar } from './LiveRunsBar'
 import { MessageComposer } from './MessageComposer'
 import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
@@ -168,6 +170,8 @@ export function ChatView({
   const linked = params.get('msg')
   useLinkedSync(group.id)
   const linkPages = useRef(0)
+  /** Run located from the live runs bar: its process opens when the link target can't be found. */
+  const linkRun = useRef<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   /** Unread count when entering; the divider stays where it was placed while new messages arrive. */
   const [entryUnread] = useState(group.unread)
@@ -263,6 +267,8 @@ export function ChatView({
       tl.loadOlder().catch(() => {})
       return
     } else if (tl.older === 'loading') return
+    else if (linkRun.current) openTab({ kind: 'run', runId: linkRun.current, view: 'process', file: null })
+    linkRun.current = null
     setParams(
       (p) => {
         p.delete('msg')
@@ -302,7 +308,7 @@ export function ChatView({
     return out
   }, [runsByTrigger, botsById])
 
-  /** Executing runs whose card is not in the timeline (its trigger not loaded yet): a card already shows the rest. */
+  /** Read-only view (no live runs bar): executing runs whose card is not in the timeline end it as a typing row. */
   const offscreen = useMemo(
     () =>
       Object.values(tl.runs).filter(
@@ -317,6 +323,19 @@ export function ChatView({
     () => [...new Set(offscreen.map((r) => botsById.get(r.botId)?.name ?? 'Bot'))],
     [offscreen, botsById],
   )
+
+  const locate = (r: RunDto) => {
+    linkPages.current = 0
+    linkRun.current = r.id
+    setParams(
+      (p) => {
+        p.set('msg', replies.get(r.id)?.id ?? r.triggerMessageId)
+        return p
+      },
+      { replace: true },
+    )
+  }
+  const runList = useMemo(() => Object.values(tl.runs), [tl.runs])
 
   const names = useMemo(
     () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
@@ -573,7 +592,7 @@ export function ChatView({
                 description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
               />
             )}
-            {working.length ? (
+            {readOnly && working.length ? (
               <TypingIndicator
                 name={working}
                 action={t('正在处理')}
@@ -592,6 +611,7 @@ export function ChatView({
       {readOnly ? null : (
         <>
           <PreviewTags groupId={group.id} />
+          <LiveRunsBar runs={runList} onLocate={locate} />
           <ProviderBanner group={group} />
           <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} />
         </>

@@ -60,6 +60,7 @@ export function messageRoutes(ctx: Ctx) {
           ctx,
           req.params.id,
           page.map((m) => m.id),
+          !before,
         ),
       }
     })

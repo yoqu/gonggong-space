@@ -169,4 +169,30 @@ describe('timeline', () => {
     expect(small.messages.map((m) => m.body)).toEqual(['m55', 'm56', 'm57', 'm58', 'm59'])
     expect((await s.asLi.get(`/api/groups/${s.g.id}/timeline?limit=0`)).status).toBe(400)
   })
+
+  it('first page also includes live runs whose trigger is off the page', async () => {
+    const s = await setup()
+    const sent: MessageDto[] = []
+    for (let i = 0; i < 4; i++) sent.push((await send(s.asWang, s.g.id, `m${i}`)).body)
+    const base = { groupId: s.g.id, botId: s.codex.id, originUserId: s.wang.id }
+    const [live] = await t.db
+      .insert(runs)
+      .values({ ...base, triggerMessageId: sent[0]!.id, status: 'awaiting_approval' })
+      .returning()
+    await t.db.insert(runs).values({ ...base, triggerMessageId: sent[1]!.id, status: 'completed' })
+    const [onPage] = await t.db
+      .insert(runs)
+      .values({ ...base, triggerMessageId: sent[3]!.id, status: 'running' })
+      .returning()
+
+    const page1 = (await s.asLi.get<TimelineDto>(`/api/groups/${s.g.id}/timeline?limit=2`)).body
+    expect(page1.messages.map((m) => m.body)).toEqual(['m2', 'm3'])
+    expect(page1.runs.map((r) => r.id)).toEqual([live!.id, onPage!.id])
+
+    const page2 = (
+      await s.asLi.get<TimelineDto>(`/api/groups/${s.g.id}/timeline?before=${page1.messages[0]!.seq}&limit=1`)
+    ).body
+    expect(page2.messages.map((m) => m.body)).toEqual(['m1'])
+    expect(page2.runs.map((r) => r.status)).toEqual(['completed'])
+  })
 })
