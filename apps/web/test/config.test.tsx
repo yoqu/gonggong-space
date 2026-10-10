@@ -57,7 +57,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('配置中心', () => {
-  it('shows the layers and types of the prototype; only the global MCP list is live in P1', async () => {
+  it('shows the layers and types of the prototype; MCP and skills are live, other types not yet', async () => {
     mockApi({
       'GET /admin/mcp': [wiki, grafana],
       'GET /bots': [],
@@ -88,10 +88,10 @@ describe('配置中心', () => {
       (screen.getByRole('checkbox', { name: '强制相关 Bot 下一轮开新会话' }) as HTMLInputElement).checked,
     ).toBe(false)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Skill' }))
+    fireEvent.click(screen.getByRole('tab', { name: '指令' }))
     expect(
       screen
-        .getByText('暂不支持 Skill')
+        .getByText('暂不支持 指令')
         .closest('.ui-empty')
         ?.querySelector('.ui-empty__art svg[aria-hidden="true"]'),
     ).toBeTruthy()

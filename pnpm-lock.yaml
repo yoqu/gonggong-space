@@ -151,6 +151,9 @@ importers:
       '@shikijs/themes':
         specifier: 4.4.3
         version: 4.4.3
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       livekit-client:
         specifier: 2.22.3
         version: 2.22.3(@types/dom-mediacapture-record@1.0.22)

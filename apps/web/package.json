@@ -12,6 +12,7 @@
     "@gonggong/protocol": "workspace:*",
     "@shikijs/langs": "4.4.3",
     "@shikijs/themes": "4.4.3",
+    "fflate": "0.8.3",
     "livekit-client": "2.22.3",
     "motion": "13.4.2",
     "qrcode.react": "4.2.0",

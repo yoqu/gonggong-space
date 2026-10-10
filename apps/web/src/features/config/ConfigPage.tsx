@@ -24,6 +24,7 @@ import {
   UnsupportedArt,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
+import { SkillLayerList } from './SkillLayer'
 import './config.css'
 import { t } from '../../i18n'
 
@@ -277,11 +278,13 @@ export function ConfigPage() {
       </div>
       <div className="cfg">
         <div className="cfg__list">
-          {ctype !== 'mcp' ? (
+          {ctype === 'skill' ? (
+            <SkillLayerList base="/admin/skills" tag={t('平台层')} />
+          ) : ctype !== 'mcp' ? (
             <EmptyState
               illustration={<UnsupportedArt />}
               title={t('暂不支持 {type}', { type: CTYPES.find((c) => c.value === ctype)?.label ?? '' })}
-              description={t('目前只能配置 MCP。MCP 的环境变量以明文保存在配置中。')}
+              description={t('目前只能配置 MCP 与 Skill。MCP 的环境变量以明文保存在配置中。')}
             />
           ) : (
             <McpLayerList layer={layer} tag={t('平台层')} />
@@ -331,7 +334,7 @@ export function ConfigPage() {
           ))}
           <div className="cfg__note">
             {t(
-              '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent 本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。',
+              '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 由 daemon 缓存在本机，Claude 以插件注入，Codex 在工作区建软链并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。',
             )}
           </div>
           <McpSaved force={layer.savedForce} />

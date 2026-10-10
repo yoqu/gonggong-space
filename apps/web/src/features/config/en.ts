@@ -26,8 +26,8 @@ export default {
   配置加载失败: 'Failed to load configuration',
   重试: 'Retry',
   '暂不支持 {type}': '{type} is not supported yet',
-  '目前只能配置 MCP。MCP 的环境变量以明文保存在配置中。':
-    'Only MCP can be configured for now. MCP environment variables are stored in plain text.',
+  '目前只能配置 MCP 与 Skill。MCP 的环境变量以明文保存在配置中。':
+    'Only MCP and skills can be configured for now. MCP environment variables are stored in plain text.',
   未保存: 'Unsaved',
   '删除 {name}': 'Delete {name}',
   '启用 {name}': 'Enable {name}',
@@ -46,8 +46,8 @@ export default {
   '各 Bot 在 Bot 页设置': "Set on each Bot's page",
   仓库基线: 'Repo baseline',
   低: 'Low',
-  '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 与指令写入 agent 本地专用文件并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。':
-    "Merging happens in daemon memory. MCP is injected via ACP when a session starts and never written to disk; skills and instructions go to the agent's local-only files, added to .git/info/exclude. The built-in gonggong (questions, chat history, group info, etc.) is always injected.",
+  '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 由 daemon 缓存在本机，Claude 以插件注入，Codex 在工作区建软链并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。':
+    'Merging happens in daemon memory. MCP is injected via ACP when a session starts and never written to disk; skills are cached on the machine, injected as a plugin for Claude and symlinked into the workspace for Codex (added to .git/info/exclude). The built-in gonggong (questions, chat history, group info, etc.) is always injected.',
   '已保存，全员下一轮新会话生效': "Saved; applies to everyone's next new session",
   '已要求相关 Bot 下一轮开新会话，卡片会提示原因。':
     'Affected Bots will start a new session next run, with the reason shown on the card.',
@@ -75,4 +75,37 @@ export default {
   请求头: 'Headers',
   '每行一个 Key: Value；以明文保存，只在新建会话时经 ACP 注入。':
     'One Key: Value per line. Stored in plain text and injected via ACP only when a session starts.',
+
+  // Skills
+  '说明这个 skill 做什么、什么时候使用': 'What this skill does and when to use it',
+  '历史版本 {name}': 'Version history of {name}',
+  '编辑 {name}': 'Edit {name}',
+  '还没有 Skill': 'No skills yet',
+  '上传 SKILL.md 所在的文件夹或 zip，保存后相关 Bot 下一轮即可使用。':
+    'Upload the folder or zip containing SKILL.md; affected Bots can use it from their next run.',
+  '与仓库自带的同名 skill 冲突时跳过团队版，运行卡片会提示。':
+    'A team skill named like one in the repo is skipped, with a note on the run card.',
+  '添加 Skill…': 'Add Skill…',
+  '删除 Skill {name}？': 'Delete skill {name}?',
+  '删除后历史版本一并移除，无法恢复。': 'Its version history is removed too. This cannot be undone.',
+  '相关 Bot 下一轮起不再加载这个 skill': 'Affected Bots stop loading this skill from their next run',
+  '已删除 {name}': 'Deleted {name}',
+  导入文件夹: 'Import folder',
+  '导入文件夹…': 'Import Folder…',
+  '导入 zip': 'Import zip',
+  '导入 zip…': 'Import zip…',
+  没有读到文件: 'No files found',
+  '无法读取：{e}': 'Could not read: {e}',
+  '文件已存在：{path}': 'File already exists: {path}',
+  '已保存，相关 Bot 下一轮生效': 'Saved; affected Bots pick it up next run',
+  '编辑 Skill {name}': 'Edit Skill {name}',
+  '添加 Skill': 'Add Skill',
+  '名称与描述取自 SKILL.md 开头的 frontmatter；每次保存生成一个新版本。':
+    'Name and description come from the frontmatter of SKILL.md; each save creates a new version.',
+  新文件路径: 'New file path',
+  '只能整体替换，不能在线编辑。': 'It can only be replaced, not edited here.',
+  '已回滚到 v{n}，相关 Bot 下一轮生效': 'Rolled back to v{n}; affected Bots pick it up next run',
+  '{name} 的历史版本': 'Version history of {name}',
+  回滚到此版本: 'Roll Back to This Version',
+  'v{n} · {count} 个文件': 'v{n} · {count} {count:file|files}',
 } satisfies Record<string, string>

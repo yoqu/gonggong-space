@@ -100,3 +100,72 @@
 .cfg__retry {
   margin-top: var(--space-8);
 }
+.cfg__hint {
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+.skill-ed__bar {
+  display: flex;
+  gap: var(--space-8);
+}
+.skill-ed {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-12);
+  min-height: 320px;
+}
+.skill-ed__files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.skill-ed__file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.skill-ed__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-field);
+  background: none;
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  cursor: pointer;
+}
+.skill-ed__path[aria-selected="true"] {
+  background: var(--selection-inactive);
+}
+.skill-ed__body {
+  min-width: 0;
+}
+.skill-ed__text {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  resize: vertical;
+}
+.skill-ed__view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.skill-ed__pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  white-space: pre-wrap;
+}

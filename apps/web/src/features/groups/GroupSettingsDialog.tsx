@@ -6,6 +6,7 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { Button, Dialog, GroupBox, GroupRow, Icon, type IconName, Spinner, Stepper, toast } from '../../ui'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
+import { SkillLayerList } from '../config/SkillLayer'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { SyncModeTab } from '../sync/SyncModeTab'
@@ -47,6 +48,7 @@ export function GroupSettingsDialog({
       ? []
       : [
           { value: 'mcp' as const, label: 'MCP', icon: 'plug' as const },
+          { value: 'skill' as const, label: 'Skill', icon: 'star' as const },
           { value: 'feishu' as const, label: t('飞书'), icon: 'message' as const },
         ]),
   ]
@@ -116,6 +118,11 @@ export function GroupSettingsDialog({
             <RepoWorkspaceView group={group} isAdmin />
           ) : tab === 'mcp' ? (
             <GroupMcpTab group={group} />
+          ) : tab === 'skill' ? (
+            <>
+              <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
+              <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
+            </>
           ) : tab === 'feishu' ? (
             <GroupFeishuTab group={group} />
           ) : tab === 'mode' ? (

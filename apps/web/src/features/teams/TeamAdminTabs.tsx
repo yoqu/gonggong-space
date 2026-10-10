@@ -14,6 +14,7 @@ import { useGet } from '../../lib/useGet'
 import { Avatar, Button, Dialog, GroupBox, GroupRow, Presence, Spinner, Stepper, Tag, toast } from '../../ui'
 import { AuditPanel } from '../admin/AuditPage'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
+import { SkillLayerList } from '../config/SkillLayer'
 import { UsagePanel } from '../usage/UsagePage'
 import { teamsApi } from './store'
 import { TakeoverDialog } from './TakeoverDialog'
@@ -29,6 +30,18 @@ export function TeamMcpTab({ team }: { team: TeamDto }) {
       </div>
       <McpLayerList layer={layer} tag={t('团队层')} />
       <McpSaved force={layer.savedForce} />
+    </>
+  )
+}
+
+/** 团队设置 · Skill: the team layer, over the platform one and under each group's. */
+export function TeamSkillTab({ team }: { team: TeamDto }) {
+  return (
+    <>
+      <div className="gs-note">
+        {t('对本团队所有群生效；与平台层同名时以团队层为准，群管理员可在群设置中再覆盖。')}
+      </div>
+      <SkillLayerList base={`/teams/${team.id}/skills`} tag={t('团队层')} />
     </>
   )
 }

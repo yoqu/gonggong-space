@@ -43,7 +43,7 @@ import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
 import { BotPicker, MemberPicker } from './pickers'
 import './groups.css'
 
-export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params' | 'mcp' | 'feishu'
+export type SettingsTab = 'basic' | 'bots' | 'repo' | 'mode' | 'params' | 'mcp' | 'skill' | 'feishu'
 export type InfoView = 'main' | 'members' | 'bots' | 'repo' | 'info' | 'notices' | 'previews' | 'schedules'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
