@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DiffView } from '../src/features/diff/DiffParts'
 import type { DiffFile } from '../src/features/diff/patch'
@@ -109,5 +109,86 @@ describe('word highlights', () => {
   it('leaves rewritten lines whole', () => {
     const { container } = render(<DiffView file={file(['@@ -1 +1 @@', '-old', '+new'])} />)
     expect(marks(container)).toEqual({ del: [], add: [] })
+  })
+})
+
+/** Unchanged lines `from`..`to` of a patch. */
+const same = (from: number, to: number) =>
+  Array.from({ length: to - from + 1 }, (_, k) => ` line ${from + k}`)
+
+describe('folded unchanged lines', () => {
+  // Lines 1-9 unchanged, line 10 changed, lines 11-20 unchanged.
+  const whole = file(['@@ -1,20 +1,20 @@', ...same(1, 9), '-old 10', '+new 10', ...same(11, 20)])
+  const texts = () => Array.from(document.querySelectorAll('.diff__line'), (l) => l.textContent)
+  const fold = (n: number) => screen.getByRole('button', { name: `展开 ${n} 行未改动的内容` })
+
+  it('keeps three lines next to each change, the rest a row to expand, one by one or all at once', () => {
+    render(<DiffView file={whole} fold />)
+    expect(texts()).toEqual([
+      '@@ -1,20 +1,20 @@',
+      ' line 7',
+      ' line 8',
+      ' line 9',
+      '-old 10',
+      '+new 10',
+      ' line 11',
+      ' line 12',
+      ' line 13',
+    ])
+    fireEvent.click(fold(6))
+    expect(texts()).toHaveLength(15)
+    expect(texts()[1]).toBe(' line 1')
+    expect(fold(7)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '全部展开' }))
+    expect(texts()).toEqual(whole.lines)
+    expect(screen.queryByRole('button', { name: /展开 \d+ 行未改动的内容/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: '全部展开' })).toBeNull()
+  })
+
+  it('folds side by side too', () => {
+    render(<DiffView file={whole} fold view="split" />)
+    expect(document.querySelectorAll('.diff__pair')).toHaveLength(7)
+    fireEvent.click(fold(7))
+    expect(document.querySelectorAll('.diff__pair')).toHaveLength(14)
+    expect(sides(document.querySelectorAll('.diff__pair')[13]!)).toEqual([
+      ['20', 'line 20'],
+      ['20', 'line 20'],
+    ])
+  })
+
+  it('shows every line unless asked to fold', () => {
+    render(<DiffView file={whole} />)
+    expect(texts()).toEqual(whole.lines)
+    expect(screen.queryByRole('button', { name: '全部展开' })).toBeNull()
+  })
+})
+
+describe('jumping to the source', () => {
+  const f = file(['@@ -4,2 +4,2 @@', ' a', '-b', '+B'])
+
+  it('opens the new version at the line whose number is clicked; old numbers stay put', () => {
+    const opened: number[] = []
+    render(<DiffView file={f} onOpenLine={(n) => opened.push(n)} />)
+    const [, a, b, B] = [...document.querySelectorAll('.diff__line')].map((l) =>
+      l.querySelectorAll('.diff__num'),
+    )
+    fireEvent.click(a![1]!)
+    fireEvent.click(b![0]!)
+    fireEvent.click(b![1]!)
+    fireEvent.click(B![1]!)
+    expect(opened).toEqual([4, 5])
+  })
+
+  it('takes the new side’s numbers side by side', () => {
+    const opened: number[] = []
+    render(<DiffView file={f} view="split" onOpenLine={(n) => opened.push(n)} />)
+    for (const n of document.querySelectorAll('[data-side] .diff__num')) fireEvent.click(n)
+    expect(opened).toEqual([4, 5])
+  })
+
+  it('leaves the numbers alone without a file to open', () => {
+    render(<DiffView file={f} />)
+    expect(document.querySelector('[data-jump]')).toBeNull()
   })
 })

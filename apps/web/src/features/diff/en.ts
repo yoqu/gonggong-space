@@ -31,4 +31,13 @@ export default {
   显示完整文件: 'Show full file',
   上一处改动: 'Previous change',
   下一处改动: 'Next change',
+  上一个文件: 'Previous file',
+  下一个文件: 'Next file',
+  跳到源文件: 'Jump to source',
+  已是最后一处改动: 'This is the last change',
+  已是第一处改动: 'This is the first change',
+  '已是最后一处改动，再按 F7 转到下一个文件': 'Last change; press F7 again for the next file',
+  '已是第一处改动，再按 ⇧F7 转到上一个文件': 'First change; press ⇧F7 again for the previous file',
+  '展开 {n} 行未改动的内容': 'Show {n} unchanged {n:line|lines}',
+  全部展开: 'Expand all',
 } satisfies Record<string, string>

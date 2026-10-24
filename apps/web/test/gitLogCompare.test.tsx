@@ -77,7 +77,7 @@ describe('compare tab', () => {
     fireEvent.click(files.getByRole('button', { name: '新增：README.md' }))
     expect(tabs()[0]).toMatchObject({ file: 'README.md' })
     await waitFor(() => expect(diffText(tab)).toContain('+feat/x:README.md'))
-    expect(server.calls).toContain(api('diff?from=main&to=feat%2Fx&path=README.md'))
+    expect(server.calls).toContain(api('diff?from=main&to=feat%2Fx&path=README.md&context=100000'))
   })
 
   it('compares with the work tree by files only', async () => {
@@ -87,7 +87,7 @@ describe('compare tab', () => {
     expect(tab.queryByRole('button', { name: '交换两侧' })).toBeNull()
     await waitFor(() => expect(diffText(tab)).toContain(`-${hash('2')}:src/a.ts`))
     expect(server.calls).toContain(api(`compare?from=${hash('2')}`))
-    expect(server.calls).toContain(api(`diff?from=${hash('2')}&path=src%2Fa.ts`))
+    expect(server.calls).toContain(api(`diff?from=${hash('2')}&path=src%2Fa.ts&context=100000`))
   })
 
   it('names a stash’s versions short and opens on the file it was given', async () => {

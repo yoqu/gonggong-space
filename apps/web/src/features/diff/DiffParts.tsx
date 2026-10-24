@@ -23,7 +23,7 @@ import {
   type RepoGroup,
   repoPrefix,
 } from './patch'
-import { type DiffBlock, diffBlocks } from './split'
+import { changeLine, type DiffBlock, diffBlocks, type Fold, foldBlocks } from './split'
 import { type DiffViewMode, useDiffLayout, useDiffSettings } from './store'
 import { useWide } from './useWide'
 import { type WordRange, wordMarks } from './words'
@@ -247,23 +247,30 @@ type Side = 0 | 1
 type RowTokens = (row: number, side: Side) => HlToken[] | undefined
 
 /**
- * Syntax tokens per row once both sides are ready. Each side is tokenized as its own file (context lines belong to
- * both), so a string or comment opened on one side doesn't colour the other.
+ * Syntax tokens per shown row once both sides are ready. Each side is tokenized as its own file (context lines belong
+ * to both), so a string or comment opened on one side doesn't colour the other. Only the rows shown are: tokenizing a
+ * whole file costs about a second per 100 KB, and rows shown before keep their colours while newly expanded ones wait.
  */
-function useRowTokens(rows: DiffRow[], path: string): RowTokens | null {
+function useRowTokens(rows: DiffRow[], shown: number[], path: string): RowTokens | null {
   const { code, at } = useMemo(() => {
     const sides: [string[], string[]] = [[], []]
-    const at = rows.map((r) => [
-      r.kind === 'context' || r.kind === 'del' ? sides[0].push(r.text) - 1 : -1,
-      r.kind === 'context' || r.kind === 'add' ? sides[1].push(r.text) - 1 : -1,
-    ])
+    const at = new Map<number, [number, number]>()
+    for (const i of shown) {
+      const r = rows[i]
+      if (r)
+        at.set(i, [
+          r.kind === 'context' || r.kind === 'del' ? sides[0].push(r.text) - 1 : -1,
+          r.kind === 'context' || r.kind === 'add' ? sides[1].push(r.text) - 1 : -1,
+        ])
+    }
     return { code: sides.map((s) => s.join('\n')), at }
-  }, [rows])
+  }, [rows, shown])
   const lang = langOf(path)
   const old = useHighlight(code[0] ?? '', lang)
   const neu = useHighlight(code[1] ?? '', lang)
-  if (!old || !neu) return null
-  return (row, side) => (side ? neu : old)[at[row]?.[side] ?? -1]
+  const last = useRef<{ rows: DiffRow[]; get: RowTokens } | null>(null)
+  if (old && neu) last.current = { rows, get: (row, side) => (side ? neu : old)[at.get(row)?.[side] ?? -1] }
+  return last.current?.rows === rows ? last.current.get : null
 }
 
 /** The tokens' pieces within [from, to) of their line. */
@@ -311,18 +318,28 @@ function Code({
 
 const SIGN: Partial<Record<DiffRow['kind'], string>> = { add: '+', del: '-', context: ' ' }
 
+/** A row index, or a folded stretch of unchanged rows. */
+type Shown = number | Fold
+
 interface LinesProps {
   rows: DiffRow[]
   blocks: DiffBlock[]
+  /** Each block's rows as shown. */
+  shown: Shown[][]
+  /** Where each change sits in the new file. */
+  lines: number[]
   marks: Map<number, WordRange[]>
   tokens: RowTokens | null
+  /** New line numbers open the file there. */
+  jump: boolean
+  onExpand: (at: number) => void
 }
 
-/** A change is wrapped so the toolbar can step to it; other rows go as they are. */
-function blockOf(block: DiffBlock, children: ReactNode) {
+/** A change is wrapped so the toolbar can step to it (and F4 open its `line`); other rows go as they are. */
+function blockOf(block: DiffBlock, line: number | undefined, children: ReactNode) {
   const key = block.rows[0]
   return block.change ? (
-    <div key={key} className="diff__block" data-change="">
+    <div key={key} className="diff__block" data-change="" data-line={line}>
       {children}
     </div>
   ) : (
@@ -330,7 +347,24 @@ function blockOf(block: DiffBlock, children: ReactNode) {
   )
 }
 
-function UnifiedLines({ rows, blocks, marks, tokens }: LinesProps) {
+function FoldRow({ fold, onExpand }: { fold: Fold; onExpand: (at: number) => void }) {
+  return (
+    <button type="button" className="diff__fold" onClick={() => onExpand(fold.at)}>
+      <span className="diff__fold-label">
+        <Icon name="chevron-updown" size={12} />
+        {t('展开 {n} 行未改动的内容', { n: fold.rows.length })}
+      </span>
+    </button>
+  )
+}
+
+const JUMP = t('跳到源文件')
+
+/** A new line number that opens the file there. */
+const jumpable = (jump: boolean, n: number | null) =>
+  jump && n !== null ? { 'data-jump': '', title: `${JUMP} (F4)` } : undefined
+
+function UnifiedLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand }: LinesProps) {
   const line = (i: number) => {
     const row = rows[i]
     if (!row) return null
@@ -338,7 +372,7 @@ function UnifiedLines({ rows, blocks, marks, tokens }: LinesProps) {
     return (
       <div key={i} className={cx('diff__line', row.kind !== 'context' && `diff__line--${row.kind}`)}>
         <span className="diff__num" data-n={row.oldNo ?? undefined} />
-        <span className="diff__num" data-n={row.newNo ?? undefined} />
+        <span className="diff__num" data-n={row.newNo ?? undefined} {...jumpable(jump, row.newNo)} />
         <span className="diff__code">
           {sign === undefined ? (
             row.text
@@ -357,7 +391,9 @@ function UnifiedLines({ rows, blocks, marks, tokens }: LinesProps) {
       </div>
     )
   }
-  return <div className="diff__lines">{blocks.map((b) => blockOf(b, b.rows.map(line)))}</div>
+  const item = (it: Shown) =>
+    typeof it === 'number' ? line(it) : <FoldRow key={`f${it.at}`} fold={it} onExpand={onExpand} />
+  return <div className="diff__lines">{blocks.map((b, k) => blockOf(b, lines[k], shown[k]?.map(item)))}</div>
 }
 
 /** A selection stays on the side it starts on, so copying takes one file's code. */
@@ -366,14 +402,18 @@ function pickSide(e: MouseEvent<HTMLDivElement>) {
   if (side) e.currentTarget.dataset.select = side
 }
 
-function SplitLines({ rows, blocks, marks, tokens }: LinesProps) {
+function SplitLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand }: LinesProps) {
   const cell = (i: number | null, side: Side) => {
     const row = i === null ? undefined : rows[i]
     const name = side ? 'new' : 'old'
     if (i === null || !row) return <div className="diff__side diff__side--empty" data-side={name} />
     return (
       <div className={cx('diff__side', row.kind !== 'context' && `diff__side--${row.kind}`)} data-side={name}>
-        <span className="diff__num" data-n={(side ? row.newNo : row.oldNo) ?? undefined} />
+        <span
+          className="diff__num"
+          data-n={(side ? row.newNo : row.oldNo) ?? undefined}
+          {...(side ? jumpable(jump, row.newNo) : undefined)}
+        />
         <span className="diff__code">
           {row.kind === 'note' ? (
             row.text
@@ -400,10 +440,12 @@ function SplitLines({ rows, blocks, marks, tokens }: LinesProps) {
       </div>
     )
   }
+  const item = (it: Shown) =>
+    typeof it === 'number' ? pair([it, it]) : <FoldRow key={`f${it.at}`} fold={it} onExpand={onExpand} />
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: only keeps a text selection on one side
     <div className="diff__lines diff__lines--split" onMouseDown={pickSide}>
-      {blocks.map((b) => blockOf(b, b.pairs.map(pair)))}
+      {blocks.map((b, k) => blockOf(b, lines[k], b.change ? b.pairs.map(pair) : shown[k]?.map(item)))}
     </div>
   )
 }
@@ -412,22 +454,80 @@ function SplitLines({ rows, blocks, marks, tokens }: LinesProps) {
  * One file's diff with old and new line numbers: unified, or side by side when `view` (default: the stored choice)
  * asks for it and there is room.
  */
-export const DiffView = memo(function DiffView({ file, view }: { file: DiffFile; view?: DiffViewMode }) {
+export const DiffView = memo(function DiffView({
+  file,
+  view,
+  fold = false,
+  name,
+  onOpenLine,
+}: {
+  file: DiffFile
+  view?: DiffViewMode
+  /** Unchanged lines but those beside a change fold into rows to expand. */
+  fold?: boolean
+  /** Shown instead of the file's path, e.g. its path in the workspace rather than in its repo. */
+  name?: string
+  /** 跳到源文件: new line numbers open the file at that line. */
+  onOpenLine?: (line: number) => void
+}) {
   const stored = useDiffSettings((s) => s.view)
   const root = useRef<HTMLDivElement>(null)
   const roomy = useWide(root, SPLIT_MIN_PX)
-  const { rows, blocks, marks, digits } = useMemo(() => {
+  const { rows, blocks, marks, digits, folded, lines } = useMemo(() => {
     const rows = diffRows(file.lines)
     const blocks = diffBlocks(rows)
     const last = rows.reduce((n, r) => Math.max(n, r.oldNo ?? 0, r.newNo ?? 0), 0)
-    return { rows, blocks, marks: wordMarks(rows, blocks), digits: Math.max(2, String(last).length) }
+    return {
+      rows,
+      blocks,
+      marks: wordMarks(rows, blocks),
+      digits: Math.max(2, String(last).length),
+      folded: foldBlocks(rows, blocks),
+      lines: blocks.map((b) => changeLine(rows, b)),
+    }
   }, [file.lines])
-  const tokens = useRowTokens(rows, file.path)
+  const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
+  const [all, setAll] = useState(false)
+  // Only what is shown is drawn: a big file's folded stretches cost nothing.
+  const shown = useMemo(
+    () =>
+      fold && !all
+        ? folded.map((items) =>
+            items.flatMap((it) => (typeof it === 'number' || !open.has(it.at) ? [it] : it.rows)),
+          )
+        : blocks.map((b) => b.rows),
+    [fold, all, open, folded, blocks],
+  )
+  const visible = useMemo(() => shown.flat().filter((it) => typeof it === 'number'), [shown])
+  const closed = visible.length < rows.length
+  const tokens = useRowTokens(rows, visible, file.path)
   const Lines = (view ?? stored) === 'split' && roomy ? SplitLines : UnifiedLines
+  const onJump = (e: MouseEvent<HTMLDivElement>) => {
+    const n = (e.target as Element).closest<HTMLElement>('[data-jump]')?.dataset.n
+    if (n) onOpenLine?.(Number(n))
+  }
   return (
-    <div ref={root} className="diff" style={{ '--diff-digits': digits } as CSSProperties}>
-      <div className="diff__name">{file.path}</div>
-      <Lines rows={rows} blocks={blocks} marks={marks} tokens={tokens} />
+    // biome-ignore lint/a11y/noStaticElementInteractions: line numbers are a mouse shortcut; F4 is the keyboard's
+    // biome-ignore lint/a11y/useKeyWithClickEvents: see above
+    <div ref={root} className="diff" style={{ '--diff-digits': digits } as CSSProperties} onClick={onJump}>
+      <div className="diff__head">
+        <span className="diff__name">{name ?? file.path}</span>
+        {closed ? (
+          <button type="button" className="diff__expand" onClick={() => setAll(true)}>
+            {t('全部展开')}
+          </button>
+        ) : null}
+      </div>
+      <Lines
+        rows={rows}
+        blocks={blocks}
+        shown={shown}
+        lines={lines}
+        marks={marks}
+        tokens={tokens}
+        jump={!!onOpenLine}
+        onExpand={(at) => setOpen((s) => new Set(s).add(at))}
+      />
     </div>
   )
 })

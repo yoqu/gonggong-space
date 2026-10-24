@@ -56,7 +56,7 @@ import type { Step } from '../../runs/steps'
 import { SOURCE_LABEL } from '../../secrets/api'
 import { openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
-import { locateFile } from './DiffTab'
+import { locateFile, openFileAt } from './DiffTab'
 import '../../runs/runs.css'
 
 type RunView = TabProps<'run'>['tab']['view']
@@ -705,6 +705,7 @@ function Changes({
       }}
       onFile={onFile}
       onLocate={(path) => locateFile(source.botId, path)}
+      onOpenLine={(path, line) => openFileAt(source.botId, path, line)}
       notice={scope === 'turn' && purged ? PURGED : undefined}
     />
   )

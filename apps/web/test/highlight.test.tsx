@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { DiffView } from '../src/features/diff/DiffParts'
 import { CodeBlock, highlight, langFor, langOf } from '../src/ui'
@@ -54,5 +54,31 @@ describe('syntax highlighting', () => {
     expect(rows[0]?.querySelector('.hl')).toBeNull()
     expect(rows[2]?.className).toContain('diff__line--add')
     expect(rows[2]?.querySelector('.hl')?.textContent).toBe('const')
+  })
+
+  it('colours only the diff lines shown, those already coloured keeping it while expanded ones are', async () => {
+    const file = {
+      path: 'src/a.ts',
+      status: 'modified' as const,
+      add: 1,
+      del: 1,
+      binary: false,
+      lines: [
+        '@@ -1,10 +1,10 @@',
+        ...Array.from({ length: 9 }, (_, k) => ` const v${k + 1} = ${k + 1}`),
+        '-const a = 1',
+        '+const a = 2',
+      ],
+    }
+    const { container } = render(<DiffView file={file} fold />)
+    const row = (text: string) =>
+      [...container.querySelectorAll('.diff__line')].find((r) => r.textContent === text)
+    await waitFor(() => expect(row('+const a = 2')?.querySelector('.hl')).toBeTruthy())
+    expect(row(' const v9 = 9')?.querySelector('.hl')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '展开 6 行未改动的内容' }))
+    expect(row(' const v9 = 9')?.querySelector('.hl')).toBeTruthy()
+    expect(row(' const v1 = 1')?.querySelector('.hl')).toBeNull()
+    await waitFor(() => expect(row(' const v1 = 1')?.querySelector('.hl')).toBeTruthy())
   })
 })

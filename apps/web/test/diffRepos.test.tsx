@@ -175,21 +175,33 @@ describe('DiffPane grouped by repo', () => {
 })
 
 describe('diff tab targeting a repo', () => {
+  let calls: string[]
   beforeEach(() => {
+    calls = []
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        async () =>
-          new Response(
+      vi.fn(async (url: string) => {
+        calls.push(url)
+        // A sub-repo's file is read from git in that repo, by its path there.
+        if (url.includes('/git/diff?'))
+          return new Response(
             JSON.stringify({
-              scope: 'uncommitted',
-              patch: PATCH,
-              base: null,
-              branch: 'main',
-              repos: [repo(''), repo('lib')],
+              patch: ['diff --git a/src/x.ts b/src/x.ts', '@@ -0,0 +1,2 @@', '+lib change', '+more', ''].join(
+                '\n',
+              ),
+              truncated: false,
             }),
-          ),
-      ),
+          )
+        return new Response(
+          JSON.stringify({
+            scope: 'uncommitted',
+            patch: PATCH,
+            base: null,
+            branch: 'main',
+            repos: [repo(''), repo('lib')],
+          }),
+        )
+      }),
     )
     useWorkspace.setState({ bots: [{ id: 'b1', name: '小王的 Claude' } as BotDto] })
     useWorkbench.setState({ groupId: 'g1', open: true, benches: {} })
@@ -204,5 +216,9 @@ describe('diff tab targeting a repo', () => {
     render(<TabContent tab={tab} active />)
     expect(await screen.findByText('+lib change')).toBeTruthy()
     expect(tabKey(tab)).toBe('diff:b1')
+    expect(calls).toContain(
+      '/api/groups/g1/bots/b1/git/diff?from=HEAD&path=src%2Fx.ts&repo=lib&context=100000',
+    )
+    expect(document.querySelector('.diff__name')?.textContent).toBe('lib/src/x.ts')
   })
 })
