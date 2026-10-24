@@ -23,13 +23,13 @@ fn bot() -> GitIdentity {
     GitIdentity { name: "共字君".into(), email: "bot@gonggong.local".into() }
 }
 
-fn write(dir: &Path, file: &str, content: &str) {
+pub(super) fn write(dir: &Path, file: &str, content: &str) {
     let path = dir.join(file);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, content).unwrap();
 }
 
-fn read(dir: &Path, file: &str) -> Option<String> {
+pub(super) fn read(dir: &Path, file: &str) -> Option<String> {
     fs::read_to_string(dir.join(file)).ok()
 }
 
@@ -64,7 +64,7 @@ fn conflict(path: &str, ours: GitConflictSide, theirs: GitConflictSide) -> GitCo
     GitConflict { path: path.into(), ours, theirs }
 }
 
-fn a() -> GitActionArgs {
+pub(super) fn a() -> GitActionArgs {
     GitActionArgs::default()
 }
 
@@ -97,7 +97,11 @@ struct Shown {
 
 impl Rig {
     /// The action as the bot, `edit` applied: Ok(output) or Err(error), never refused as busy.
-    async fn git(&mut self, action: GitActionKind, edit: impl FnOnce(&mut GitAction)) -> Result<String, String> {
+    pub(super) async fn git(
+        &mut self,
+        action: GitActionKind,
+        edit: impl FnOnce(&mut GitAction),
+    ) -> Result<String, String> {
         let mut req = GitAction { identity: Some(bot()), ..self.action_req(action) };
         edit(&mut req);
         let (ok, busy, output, error) = self.act(req).await;

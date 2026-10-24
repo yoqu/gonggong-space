@@ -1,7 +1,7 @@
 //! The owner's manual git writes (git.action), run while no turn holds the directory: they never open an editor, are
 //! made as the bot's identity, and stop on conflicts, leaving them to resolve. Pushes are forced only on request, and
 //! then with a lease.
-use crate::git::{self, git, git_input, git_output};
+use crate::git::{self, EMPTY_TREE, git, git_input, git_output};
 use crate::git_ops::{self, NETWORK_TIMEOUT, arg, private, repo_dir, tree_path};
 use crate::protocol::{GitAction, GitActionKind, GitConflictPick, GitConflictSide, GitIdentity, GitOngoingKind};
 use crate::repo::{self, remote_git_with, remote_output};
@@ -33,7 +33,7 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<String, String> {
                 Some(b) => b.to_string(),
                 None => git::branch(dir).await.ok_or_else(|| missing("branch"))?,
             };
-            w.push(remote, &branch, on(a.force), on(a.tags)).await
+            w.push(remote, &branch, a.target.as_deref(), on(a.force), on(a.tags)).await
         }
         GitActionKind::BranchCreate => {
             w.branch_create(need(branch, "branch")?, a.from.as_deref(), on(a.checkout)).await
@@ -47,13 +47,22 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<String, String> {
         GitActionKind::CherryPick => w.pick(false, a.commits.as_deref().unwrap_or_default()).await,
         GitActionKind::Revert => w.pick(true, a.commits.as_deref().unwrap_or_default()).await,
         GitActionKind::Reset => w.reset(need(a.commit.as_deref(), "args.commit")?, a.mode.as_deref()).await,
-        GitActionKind::Discard => w.discard(req.paths.as_deref().unwrap_or_default()).await,
+        GitActionKind::Discard => w.discard(req.paths.as_deref().unwrap_or_default(), on(a.keep_added)).await,
         GitActionKind::Stash => w.stash(message, on(a.untracked), req.paths.as_deref()).await,
         GitActionKind::Unstash => {
             let stash = a.stash.ok_or_else(|| missing("args.stash"))?;
+            expect_stash(dir, stash, a.expect.as_deref()).await?;
             w.unstash(stash, on(a.pop), on(a.index), branch).await
         }
-        GitActionKind::StashDrop => w.stash_drop(a.stash).await,
+        GitActionKind::StashDrop => {
+            match (a.stash, a.expect.as_deref()) {
+                (Some(n), expect) => expect_stash(dir, n, expect).await?,
+                // A guard naming one stash never clears them all.
+                (None, Some(_)) => return Err(missing("args.stash")),
+                (None, None) => {}
+            }
+            w.stash_drop(a.stash).await
+        }
         GitActionKind::TagCreate => {
             w.tag_create(need(a.name.as_deref(), "args.name")?, a.from.as_deref(), message).await
         }
@@ -63,6 +72,8 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<String, String> {
         GitActionKind::Abort => w.abort().await,
         GitActionKind::Skip => w.skip().await,
         GitActionKind::Resolve => w.resolve(need(a.path.as_deref(), "args.path")?, a.side, a.content.as_deref()).await,
+        GitActionKind::Add => w.add(req.paths.as_deref().unwrap_or_default()).await,
+        GitActionKind::Ignore => ignore(dir, req.paths.as_deref().unwrap_or_default()),
     }
 }
 
@@ -211,16 +222,14 @@ impl Writer<'_> {
         if !has_ref(dir, &local).await {
             return Err(t!("分支不存在：{branch}", branch = branch));
         }
-        let config = async |key: &str| {
-            let value = git(dir, &["config", "--get", &format!("branch.{branch}.{key}")]).await.ok();
-            value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
-        };
-        let (Some(remote), Some(merge)) = (config("remote").await, config("merge").await) else {
+        let Some((remote, merge)) = upstream(dir, branch).await else {
             return Err(t!("分支 {branch} 没有上游分支，无法更新", branch = branch));
         };
         let short = async || git(dir, &["rev-parse", "--short", &local]).await.map(|h| h.trim().to_string());
         let before = short().await?;
-        let refspec = format!("{}:{local}", arg(&merge)?);
+        // A short `merge` would also match a tag of that name on the remote.
+        let from = if merge.starts_with("refs/") { merge } else { format!("refs/heads/{merge}") };
+        let refspec = format!("{from}:{local}");
         let out = remote_output(dir, &["fetch", arg(&remote)?, &refspec], Some(NETWORK_TIMEOUT)).await;
         let out = out.map_err(|f| f.detail)?;
         if !out.status.success() {
@@ -282,27 +291,49 @@ impl Writer<'_> {
         Ok(out.lines().next().unwrap_or_default().trim().to_string())
     }
 
-    /// Pushes `branch` to `remote`, setting the upstream when the branch has none; `force` with a lease, `tags` all of
-    /// them too. A rejection is returned as git reports it.
-    async fn push(&self, remote: &str, branch: &str, force: bool, tags: bool) -> Result<String, String> {
+    /// Pushes local `branch` to the branch `target` of `remote` (default: the upstream's when it is on `remote`, else
+    /// the same name), always as explicit refs: no name given can read as a refspec (`+a:b`, `:b`, `HEAD`). A branch
+    /// tracking nothing then tracks that one. `force` leases that one ref; `tags`: all of them too. A rejection is
+    /// returned as git reports it.
+    async fn push(
+        &self,
+        remote: &str,
+        branch: &str,
+        target: Option<&str>,
+        force: bool,
+        tags: bool,
+    ) -> Result<String, String> {
         let dir = self.dir;
         let (remote, branch) = (arg(remote)?, arg(branch)?);
-        let upstream = format!("{branch}@{{upstream}}");
+        let local = format!("refs/heads/{branch}");
+        if !has_ref(dir, &local).await {
+            return Err(t!("分支不存在：{branch}", branch = branch));
+        }
+        let upstream = upstream(dir, branch).await;
+        let dest = match target {
+            Some(t) => new_name(dir, t).await?,
+            None => upstream
+                .as_ref()
+                .filter(|(r, _)| r == remote)
+                .and_then(|(_, merge)| merge.strip_prefix("refs/heads/"))
+                .unwrap_or(branch),
+        };
+        let to = format!("refs/heads/{dest}");
+        let (refspec, lease) = (format!("{local}:{to}"), format!("--force-with-lease={to}"));
         let mut args = vec!["push", "--porcelain"];
-        if git(dir, &["rev-parse", "--abbrev-ref", &upstream]).await.is_err() {
+        if upstream.is_none() {
             args.push("-u");
         }
         if force {
-            args.push("--force-with-lease");
+            args.push(&lease);
         }
         if tags {
             args.push("--tags");
         }
-        args.extend([remote, branch]);
+        args.extend([remote, &refspec]);
         let pushed = push_refs(dir, &args, remote).await?;
-        let full = format!("refs/heads/{branch}");
-        let summary = pushed.iter().find(|(to, _)| *to == full).or(pushed.first()).map_or("", |(_, s)| s.as_str());
-        Ok(format!("{remote}/{branch} {summary}"))
+        let summary = pushed.iter().find(|(r, _)| *r == to).or(pushed.first()).map_or("", |(_, s)| s.as_str());
+        Ok(format!("{remote}/{dest} {summary}"))
     }
 
     /// New `name` at `from` (HEAD), tracking nothing until it is pushed; switched to when `checkout`.
@@ -335,7 +366,8 @@ impl Writer<'_> {
             return Err(t!("分支不存在：{branch}", branch = branch));
         }
         let (remote, name) = remote_of(dir, branch).await?;
-        let deleted = push_refs(dir, &["push", "--porcelain", remote, "--delete", name], remote).await?;
+        let full = format!("refs/heads/{name}");
+        let deleted = push_refs(dir, &["push", "--porcelain", remote, "--delete", &full], remote).await?;
         Ok(format!("{branch} {}", deleted.first().map_or("", |(_, s)| s.as_str())))
     }
 
@@ -416,8 +448,9 @@ impl Writer<'_> {
         head_line(self.dir).await
     }
 
-    /// `paths` back to HEAD, index and work tree; untracked ones deleted (a rename comes as both of its paths).
-    async fn discard(&self, paths: &[String]) -> Result<String, String> {
+    /// `paths` back to HEAD, index and work tree; untracked ones deleted (a rename comes as both of its paths), and so
+    /// are those the index adds unless `keep_added`: then they are only unstaged.
+    async fn discard(&self, paths: &[String], keep_added: bool) -> Result<String, String> {
         let dir = self.dir;
         let picked = picked(paths)?;
         if picked.is_empty() {
@@ -428,18 +461,32 @@ impl Writer<'_> {
         if let Some(d) = gone.iter().find(|p| dir.join(p).is_dir()) {
             return Err(t!("不是文件：{path}", path = d));
         }
+        let head = git::head(dir).await;
+        let (kept, tracked): (Vec<String>, Vec<String>) = match keep_added {
+            true => {
+                let base = head.as_deref().unwrap_or(EMPTY_TREE);
+                let args = ["diff", "--cached", "--no-renames", "--diff-filter=A", "--name-only", "-z", base, "--"];
+                let added = git(dir, &args).await?;
+                let added: HashSet<&str> = added.split('\0').collect();
+                tracked.into_iter().partition(|p| added.contains(p.as_str()))
+            }
+            false => (vec![], tracked),
+        };
+        let from_file = ["--pathspec-from-file=-", "--pathspec-file-nul"];
+        let unstage = ["--literal-pathspecs", "rm", "-q", "--cached", "-f"];
+        if !kept.is_empty() {
+            self.run_input(&[&unstage[..], &from_file].concat(), Some(&nul_list(&kept))).await?;
+        }
         if !tracked.is_empty() {
             let list = nul_list(&tracked);
-            let from_file = ["--pathspec-from-file=-", "--pathspec-file-nul"];
-            match git::head(dir).await {
+            match head {
                 Some(_) => {
                     let restore = ["--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree"];
                     self.run_input(&[&restore[..], &from_file].concat(), Some(&list)).await?;
                 }
                 // Before the first commit, HEAD has none of them.
                 None => {
-                    let rm = ["--literal-pathspecs", "rm", "-q", "--cached", "-f"];
-                    self.run_input(&[&rm[..], &from_file].concat(), Some(&list)).await?;
+                    self.run_input(&[&unstage[..], &from_file].concat(), Some(&list)).await?;
                     for p in &tracked {
                         git::remove(dir, &dir.join(p))?;
                     }
@@ -449,7 +496,18 @@ impl Writer<'_> {
         for p in &gone {
             git::remove(dir, &dir.join(p))?;
         }
-        Ok(t!("已回滚 {n} 个文件", n = tracked.len() + gone.len()))
+        Ok(t!("已回滚 {n} 个文件", n = kept.len() + tracked.len() + gone.len()))
+    }
+
+    /// Stages `paths` (work tree relative, taken literally) as the work tree has them.
+    async fn add(&self, paths: &[String]) -> Result<String, String> {
+        let picked = picked(paths)?;
+        if picked.is_empty() {
+            return Err(missing("paths"));
+        }
+        let args = ["--literal-pathspecs", "add", "--pathspec-from-file=-", "--pathspec-file-nul"];
+        self.run_input(&args, Some(&nul_list(&picked))).await?;
+        Ok(t!("已将 {n} 个文件加入版本控制", n = picked.len()))
     }
 
     /// Stashes the changes (`untracked` files too), or only those of `paths`.
@@ -702,6 +760,78 @@ fn nul_list(paths: &[String]) -> Vec<u8> {
 
 async fn stash_top(dir: &Path) -> Option<String> {
     git(dir, &["rev-parse", "-q", "--verify", "refs/stash"]).await.ok()
+}
+
+/// Refuses when `stash@{n}` is not the stash `expect` names (a full or abbreviated hash) any more: the list moved since
+/// it was shown.
+async fn expect_stash(dir: &Path, n: u32, expect: Option<&str>) -> Result<(), String> {
+    let Some(expect) = expect else { return Ok(()) };
+    let found = git(dir, &["rev-parse", "-q", "--verify", &format!("stash@{{{n}}}")]).await;
+    match !expect.is_empty() && found.is_ok_and(|hash| hash.trim().starts_with(expect)) {
+        true => Ok(()),
+        false => Err(t!("贮藏列表已变化，请刷新后重试").into()),
+    }
+}
+
+/// `(remote, merge ref)` local `branch` tracks, as configured.
+async fn upstream(dir: &Path, branch: &str) -> Option<(String, String)> {
+    let config = async |key: &str| {
+        let value = git(dir, &["config", "--get", &format!("branch.{branch}.{key}")]).await.ok();
+        value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+    };
+    Some((config("remote").await?, config("merge").await?))
+}
+
+/// Appends `paths` (work tree relative) to the repo's root .gitignore as lines matching each alone; lines already
+/// there are left as they are.
+fn ignore(dir: &Path, paths: &[String]) -> Result<String, String> {
+    let picked = picked(paths)?;
+    if picked.is_empty() {
+        return Err(missing("paths"));
+    }
+    let lines = picked.iter().map(|p| ignore_line(p)).collect::<Result<Vec<_>, _>>()?;
+    let file = dir.join(".gitignore");
+    // A link would have the lines written wherever it points.
+    if std::fs::symlink_metadata(&file).is_ok_and(|m| !m.is_file()) {
+        return Err(t!("不是文件：{path}", path = ".gitignore"));
+    }
+    let write_error = |e: std::io::Error| t!("无法写入 {path}：{e}", path = ".gitignore", e = e);
+    let mut text = match std::fs::read(&file) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => vec![],
+        Err(e) => return Err(write_error(e)),
+    };
+    let current = String::from_utf8_lossy(&text).into_owned();
+    let mut seen: HashSet<&str> = current.lines().map(|l| l.trim_end_matches('\r')).collect();
+    for line in &lines {
+        if seen.insert(line) {
+            if !text.is_empty() && !text.ends_with(b"\n") {
+                text.push(b'\n');
+            }
+            text.extend_from_slice(line.as_bytes());
+            text.push(b'\n');
+        }
+    }
+    std::fs::write(&file, text).map_err(write_error)?;
+    let distinct: HashSet<&String> = picked.iter().collect();
+    Ok(t!("已将 {n} 个路径加入 .gitignore", n = distinct.len()))
+}
+
+/// A .gitignore line matching the tree path `path` alone: anchored with `/`, glob characters and leading or trailing
+/// spaces (git trims the latter) escaped. A line break can't be escaped.
+fn ignore_line(path: &str) -> Result<String, String> {
+    if path.contains(['\n', '\r']) {
+        return Err(t!("无法加入 .gitignore：{path}", path = path.escape_debug()));
+    }
+    let (start, end) = (path.len() - path.trim_start_matches(' ').len(), path.trim_end_matches(' ').len());
+    let mut line = String::from("/");
+    for (i, c) in path.char_indices() {
+        if "*?[]\\!#".contains(c) || (c == ' ' && (i < start || i >= end)) {
+            line.push('\\');
+        }
+        line.push(c);
+    }
+    Ok(line)
 }
 
 /// `git push --porcelain …` to `remote`: (pushed ref, git's summary) per ref; any rejected ref fails it.

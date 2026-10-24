@@ -822,7 +822,7 @@ pub struct GitRefresh {
     pub fetch: bool,
 }
 
-/// All but the first four came with [`FEATURE_GIT_OPS3`].
+/// All but the first four came with [`FEATURE_GIT_OPS3`]; add and ignore with [`FEATURE_GIT_OPS4`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GitActionKind {
@@ -849,6 +849,8 @@ pub enum GitActionKind {
     Abort,
     Skip,
     Resolve,
+    Add,
+    Ignore,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -900,6 +902,12 @@ pub struct GitActionArgs {
     pub side: Option<GitConflictPick>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expect: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_added: Option<bool>,
 }
 
 /// git.action: a manual write, refused (`busy`) while a turn holds the directory; commits are made as `identity`.
@@ -920,6 +928,7 @@ pub struct GitAction {
     pub remote: Option<String>,
     pub message: Option<String>,
     /// commit, discard, stash: only these work-tree-relative paths; None = every change. Older servers never send it.
+    /// add, ignore: the paths they act on.
     #[serde(default)]
     pub paths: Option<Vec<String>>,
     pub identity: Option<GitIdentity>,
@@ -1567,6 +1576,9 @@ pub const FEATURE_GIT_REPOS: &str = "gitRepos";
 /// git.changes / show / blame / stashes / conflict, `repo` on every git read, log filters, diff options, tags and
 /// recent branches in git.refs, the GitStatus extras, and the git.action kinds past push with their `args`.
 pub const FEATURE_GIT_OPS3: &str = "gitOps3";
+/// Pushes to `args.target` as explicit refs (an older daemon pushes the same name), stash `args.expect`, discard
+/// `args.keepAdded` and the add / ignore actions: without it a server must not send them.
+pub const FEATURE_GIT_OPS4: &str = "gitOps4";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolsSettings {
@@ -2291,5 +2303,28 @@ mod tests {
         );
         let result = answer(include_str!("../../../packages/protocol/fixtures/d2s.git.refresh.result.json"));
         assert!(matches!(result, DaemonToServer::GitRefreshResult { error: None, .. }));
+    }
+
+    #[test]
+    fn git_ops4_fixtures_parse() {
+        let action = |raw: &str| match serde_json::from_str::<ServerToDaemon>(raw).unwrap() {
+            ServerToDaemon::GitAction(a) => *a,
+            other => panic!("unexpected {other:?}"),
+        };
+        let push = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.push.target.json"));
+        assert_eq!((push.action, push.branch.as_deref()), (GitActionKind::Push, Some("feat/refund")));
+        assert_eq!(push.args.unwrap().target.as_deref(), Some("feat/refund-v2"));
+        let add = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.add.json"));
+        assert_eq!((add.action, add.paths), (GitActionKind::Add, Some(vec!["notes/todo.md".to_string()])));
+        let ignore = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.ignore.json"));
+        assert_eq!((ignore.action, ignore.paths.map(|p| p.len())), (GitActionKind::Ignore, Some(2)));
+        let discard = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.discard.keep.json"));
+        assert_eq!((discard.action, discard.args.unwrap().keep_added), (GitActionKind::Discard, Some(true)));
+        let drop = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.stash-drop.expect.json"));
+        let args = drop.args.unwrap();
+        assert_eq!(
+            (drop.action, args.stash, args.expect.as_deref()),
+            (GitActionKind::StashDrop, Some(1), Some("5f2c9e1a"))
+        );
     }
 }
