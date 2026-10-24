@@ -1,0 +1,15 @@
+{
+  "t": "git.action.result",
+  "requestId": "q1",
+  "ok": false,
+  "busy": false,
+  "output": null,
+  "error": "Your local changes would be overwritten by checkout",
+  "detail": {
+    "code": "overwritten",
+    "paths": ["src/a.ts", "README.md"],
+    "ahead": null,
+    "behind": null,
+    "updated": null
+  }
+}

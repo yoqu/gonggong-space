@@ -2,6 +2,7 @@ import {
   type AgentSettingValues,
   type DiffRepo,
   type GitActionArgs,
+  type GitActionDetail,
   type GroupTabTarget,
   type I18nText,
   LIVE_RUN_STATUSES,
@@ -298,6 +299,8 @@ export const gitOperations = pgTable(
     decidedBy: uuid('decided_by').references(() => users.id),
     output: text('output'),
     error: text('error'),
+    /** What the outcome needs beyond its text (GitActionDetail, gitOps4); null from older daemons. */
+    detail: jsonb('detail').$type<GitActionDetail>(),
     createdAt: createdAt(),
     expiresAt: ts('expires_at').notNull(),
     finishedAt: ts('finished_at'),

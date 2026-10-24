@@ -1,0 +1,21 @@
+{
+  "t": "git.diff",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null
+  },
+  "from": "HEAD",
+  "to": null,
+  "path": "src/new.ts",
+  "maxBytes": 1048576,
+  "oldPath": "src/old.ts",
+  "whitespace": "ignore-blank"
+}

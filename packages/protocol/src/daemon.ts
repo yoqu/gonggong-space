@@ -898,8 +898,26 @@ export const GitActionArgs = z.object({
   target: z.string().optional(),
   expect: z.string().optional(),
   keepAdded: z.boolean().optional(),
+  patch: z.string().optional(),
+  localCommits: z.enum(['rebase', 'drop']).optional(),
 })
 export type GitActionArgs = z.infer<typeof GitActionArgs>
+/**
+ * gitOps4: what an action's outcome needs beyond its text. `code` overwritten: local changes in the way (`paths`), nothing
+ * done; diverged: a checked out remote branch's local one has commits of its own (`ahead`, `behind`), nothing done —
+ * ask whether to rebase them or drop them (checkout `args.localCommits`); conflicts: it went through but left `paths`
+ * conflicted (a smart checkout restoring the changes, an update stashing around). `updated`: what a pull brought in.
+ */
+export const GitActionDetail = z.object({
+  code: z.enum(['overwritten', 'diverged', 'conflicts']).nullable(),
+  paths: z.array(z.string()),
+  ahead: z.number().int().nullable(),
+  behind: z.number().int().nullable(),
+  updated: z
+    .object({ from: z.string(), to: z.string(), commits: z.number().int(), files: z.number().int() })
+    .nullable(),
+})
+export type GitActionDetail = z.infer<typeof GitActionDetail>
 /**
  * Answer to git.action. `busy`: a turn holds the directory (plan W10), nothing was run. `output`: git's summary
  * (new HEAD, pushed range…), credentials stripped.
@@ -911,6 +929,7 @@ export const GitActionResult = z.object({
   busy: z.boolean(),
   output: z.string().nullable(),
   error: z.string().nullable(),
+  detail: GitActionDetail.nullable().default(null),
 })
 export type GitActionResult = z.infer<typeof GitActionResult>
 
@@ -1050,7 +1069,8 @@ export const DaemonFeature = z.enum([
   'gitOps3',
   /**
    * The second IDEA pass (docs/plan/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
-   * discard `keepAdded`, the add / ignore actions.
+   * discard `keepAdded` / `patch`, the add / ignore actions, git.diff `oldPath` / `whitespace`, git.action.result
+   * `detail`, checkout `localCommits`, pull `from`, branch-create `force`.
    */
   'gitOps4',
 ])
@@ -1553,6 +1573,10 @@ export const GitDiff = z.object({
   maxBytes: z.number().int(),
   ignoreWhitespace: z.boolean().optional(),
   context: z.number().int().min(0).optional(),
+  /** gitOps4: a rename's source, diffed with `path` as one file. */
+  oldPath: z.string().nullable().optional(),
+  /** gitOps4, IDEA's modes: trim = -b, ignore = -w, ignore-blank = -w --ignore-blank-lines (over ignoreWhitespace). */
+  whitespace: z.enum(['trim', 'ignore', 'ignore-blank']).optional(),
 })
 /**
  * gitOps3: the work tree against HEAD as a commit would take it (untracked files flagged, line counts), unmerged paths
@@ -1586,15 +1610,22 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * A manual write, refused (`busy`) while a turn holds the directory; commits are made as `identity` (else the machine's
  * git config). Each action reads (`args` = GitActionArgs, gitOps3):
  * - checkout: `branch` (a remote branch creates its tracking local one); `args.detach`: a commit or tag, detached;
- *   `args.mode` keep (default: git refuses to overwrite changes) | smart (stash, switch, restore) | force (discard)
+ *   `args.mode` keep (default: git refuses to overwrite changes) | smart (stash, switch, restore) | force (discard).
+ *   gitOps4: changes in the way fail with detail overwritten; a smart checkout whose restore conflicts succeeds with
+ *   detail conflicts; a remote branch whose local one exists brings it up to the remote one (fast-forward), or when
+ *   that one has commits of its own fails with detail diverged unless `args.localCommits` rebase (onto the remote one)
+ *   | drop (reset to it)
  * - pull: the upstream into the current branch, `args.mode` ff-only (default) | merge | rebase, stashing changes
- *   around a merge or rebase; a `branch` other than the current one is fast-forwarded without checking it out
+ *   around a merge or rebase; a `branch` other than the current one is fast-forwarded without checking it out.
+ *   gitOps4: `args.from` a remote branch (`origin/feat`) instead of the upstream, fetched first; changes stashed
+ *   around every mode; detail updated
  * - commit: `paths` only (work tree relative; deletions and untracked files included) or everything when null, with
  *   `message`; `args.amend` rewrites the last commit (`paths` [] = only its message)
  * - push: local `branch` to `remote`, setting the upstream when missing; `args.force` = --force-with-lease, `args.tags`
  *   = all tags too. gitOps4: to the remote branch `args.target` (default: the upstream's branch when it is on `remote`,
  *   else the same name), always as explicit refs (`refs/heads/a:refs/heads/b`), never a refspec taken from input
- * - branch-create: new `branch` at `args.from` (default HEAD), switched to when `args.checkout`
+ * - branch-create: new `branch` at `args.from` (default HEAD), switched to when `args.checkout`; gitOps4: `args.force`
+ *   overwrites an existing one (not the current branch)
  * - branch-rename: `branch` to `args.name`
  * - branch-delete: `branch`, `args.force` even when unmerged; a remote-tracking `origin/x` deletes x on that remote
  * - merge: `branch` into the current one, `args.mode` default | no-ff | ff-only | squash, `args.noCommit`, `message`
@@ -1602,7 +1633,8 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * - cherry-pick, revert: `args.commits`, oldest first
  * - reset: the current branch to `args.commit`, `args.mode` soft | mixed | hard | keep
  * - discard: `paths` back to HEAD, untracked ones deleted; files added to the index are deleted too unless
- *   `args.keepAdded` (gitOps4), then only unstaged
+ *   `args.keepAdded` (gitOps4), then only unstaged. gitOps4: `args.patch` (a `git diff` of the work tree against HEAD
+ *   for the one path) reverts only those hunks, refused when it no longer applies
  * - add (gitOps4): untracked `paths` staged (`git add`)
  * - ignore (gitOps4): `paths` appended to the repo's root .gitignore as `/path` lines (glob characters escaped), the
  *   file created when missing

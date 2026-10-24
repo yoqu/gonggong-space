@@ -1,0 +1,20 @@
+{
+  "t": "git.action.result",
+  "requestId": "q1",
+  "ok": true,
+  "busy": false,
+  "output": "[feat/refund a1b2c3d] 修复退款金额",
+  "error": null,
+  "detail": {
+    "code": null,
+    "paths": [],
+    "ahead": null,
+    "behind": null,
+    "updated": {
+      "from": "1a2b3c4",
+      "to": "5d6e7f8",
+      "commits": 2,
+      "files": 3
+    }
+  }
+}

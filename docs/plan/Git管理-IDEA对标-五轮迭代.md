@@ -25,4 +25,6 @@
 | R4 | 交互式变基与改写历史（改说明 / Fixup / Squash / Drop）、还原 / 优选所选文件、从修订获取；三栏合并工具（结果可编辑、逐处接受、非冲突改动、魔法解决、未解决提示、进度持久化）、冲突列表批量、变基两侧标注、zdiff3 / AA / CRLF |
 | R5 | Git 控制台（命令与输出，`git_operations.log`）；注解着色、悬浮全文、注解上一修订；贮藏快捷恢复；视图选项与筛选补齐；e2e、规格同步；daemon 发版 |
 
+迁移：R2 加 `git_operations.detail`（0080，jsonb，GitActionDetail；R5 的控制台输出也放这里，不再加列）。
+
 每轮：先由共字君提交协议（C0），再按 daemon+服务端 / web 各区域派子 Agent 在独立 worktree 并行施工（TDD），合并后共字君跑 `pnpm check`、审 diff、截图、推送。

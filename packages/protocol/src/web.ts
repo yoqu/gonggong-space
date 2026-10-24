@@ -28,6 +28,7 @@ import {
   DiffScope,
   FileTreeEntry,
   GitActionArgs,
+  GitActionDetail,
   GitActionKind,
   GitBlameCommit,
   GitBlameRange,
@@ -582,6 +583,10 @@ export const GitDiffQuery = z.object({
   path: z.string().min(1).max(4096).optional(),
   ignoreWhitespace: queryFlag,
   context: z.coerce.number().int().min(0).max(1_000_000).optional(),
+  /** gitOps4: a rename's source, diffed with `path` as one file. */
+  oldPath: z.string().min(1).max(4096).optional(),
+  /** gitOps4 (else only ignore, as ignoreWhitespace): see GitDiff. */
+  whitespace: z.enum(['trim', 'ignore', 'ignore-blank']).optional(),
 })
 export const GitDiffDto = z.object({ patch: z.string().nullable(), truncated: z.boolean() })
 export type GitDiffDto = z.infer<typeof GitDiffDto>
@@ -632,6 +637,7 @@ const gitPaths = z.array(z.string().min(1).max(4096)).max(5000)
 const gitMessage = z.string().trim().min(1).max(10_000)
 /** Conflict resolutions are written into the work tree as is. */
 export const GIT_RESOLVE_MAX_BYTES = 2 * 1024 * 1024
+export const GIT_PATCH_MAX_BYTES = 1024 * 1024
 /**
  * POST …/git/actions (see GitAction in the daemon protocol for what each does). `confirmBase`: the owner's second
  * confirmation to push the protected base branch, which is never force-pushed nor deleted on the remote.
@@ -646,6 +652,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     detach: z.boolean().default(false),
     /** With changes in the way: keep them (git refuses to overwrite), smart (stash and restore) or force (discard). */
     mode: z.enum(['keep', 'smart', 'force']).default('keep'),
+    /** gitOps4: a remote branch whose local one has commits of its own: rebase them onto it, or drop them. */
+    localCommits: z.enum(['rebase', 'drop']).optional(),
   }),
   z.object({
     action: z.literal('pull'),
@@ -653,6 +661,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     mode: z.enum(['ff-only', 'merge', 'rebase']).default('ff-only'),
     /** A local branch other than the current one: fast-forwarded from its upstream. */
     branch: gitRefName.optional(),
+    /** gitOps4: a remote branch (`origin/feat`) pulled into the current one instead of its upstream. */
+    from: gitRefName.optional(),
   }),
   z.object({
     action: z.literal('commit'),
@@ -682,6 +692,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     name: gitRefName,
     from: gitRev.optional(),
     checkout: z.boolean().default(true),
+    /** gitOps4: replace an existing branch of that name (never the current one). */
+    overwrite: z.boolean().default(false),
   }),
   z.object({
     action: z.literal('branch-rename'),
@@ -725,6 +737,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     paths: gitPaths.min(1),
     /** gitOps4: files added to the index are only unstaged, kept on disk (IDEA: "Delete local copies" unticked). */
     keepAdded: z.boolean().default(false),
+    /** gitOps4: only these hunks of the one path (a `git diff` against HEAD), as IDEA's revert arrow in the diff. */
+    patch: z.string().min(1).max(GIT_PATCH_MAX_BYTES).optional(),
   }),
   /** gitOps4: IDEA's Add to VCS — untracked `paths` staged as added. */
   z.object({ action: z.literal('add'), repo: gitRepoPath, paths: gitPaths.min(1) }),
@@ -823,6 +837,8 @@ export const GitOperationDto = z.object({
   /** git's summary on success; why it failed otherwise. */
   output: z.string().nullable(),
   error: z.string().nullable(),
+  /** gitOps4: see GitActionDetail. */
+  detail: GitActionDetail.nullable(),
   createdAt: z.string(),
   expiresAt: z.string(),
   finishedAt: z.string().nullable(),

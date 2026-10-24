@@ -142,6 +142,7 @@ export const op = (o: Partial<GitOperationDto> = {}): GitOperationDto => ({
   decidedBy: null,
   output: null,
   error: null,
+  detail: null,
   createdAt: '2026-10-21T00:00:00.000Z',
   expiresAt: '2026-10-22T00:00:00.000Z',
   finishedAt: null,

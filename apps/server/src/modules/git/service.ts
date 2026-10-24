@@ -227,10 +227,17 @@ export function fields(req: GitActionReq): Columns {
     case 'checkout':
       return row(
         { branch: req.branch },
-        { detach: req.detach, mode: req.mode === 'keep' ? undefined : req.mode },
+        {
+          detach: req.detach,
+          mode: req.mode === 'keep' ? undefined : req.mode,
+          localCommits: req.localCommits,
+        },
       )
     case 'pull':
-      return row({ branch: req.branch }, { mode: req.mode === 'ff-only' ? undefined : req.mode })
+      return row(
+        { branch: req.branch },
+        { mode: req.mode === 'ff-only' ? undefined : req.mode, from: req.from },
+      )
     case 'commit':
       return row({ message: req.message, paths: req.paths }, { amend: req.amend })
     case 'push':
@@ -239,7 +246,7 @@ export function fields(req: GitActionReq): Columns {
         { force: req.force, tags: req.tags, target: req.target },
       )
     case 'branch-create':
-      return row({ branch: req.name }, { from: req.from, checkout: req.checkout })
+      return row({ branch: req.name }, { from: req.from, checkout: req.checkout, force: req.overwrite })
     case 'branch-rename':
       return row({ branch: req.branch }, { name: req.name })
     case 'branch-delete':
@@ -254,7 +261,7 @@ export function fields(req: GitActionReq): Columns {
     case 'reset':
       return row({}, { commit: req.commit, mode: req.mode })
     case 'discard':
-      return row({ paths: req.paths }, { keepAdded: req.keepAdded })
+      return row({ paths: req.paths }, { keepAdded: req.keepAdded, patch: req.patch })
     case 'add':
     case 'ignore':
       return row({ paths: req.paths })
@@ -398,14 +405,16 @@ export async function operationDtos(ctx: Ctx, rows: GitOperation[]): Promise<Git
     remote: r.remote,
     message: r.message,
     paths: r.paths,
-    // A resolution's merged text (up to 2 MiB) stays server-side: every member gets this DTO with each update.
-    args: r.args && (({ content: _, ...rest }) => rest)(r.args),
+    // A resolution's merged text (up to 2 MiB) and a reverted hunk's patch stay server-side: every member gets this DTO
+    // with each update.
+    args: r.args && (({ content: _, patch: __, ...rest }) => rest)(r.args),
     pushesBase: r.pushesBase,
     status: r.status as GitOperationStatus,
     requestedBy: who(r.requestedBy),
     decidedBy: r.decidedBy ? who(r.decidedBy) : null,
     output: r.output,
     error: r.error,
+    detail: r.detail,
     createdAt: r.createdAt.toISOString(),
     expiresAt: r.expiresAt.toISOString(),
     finishedAt: r.finishedAt?.toISOString() ?? null,
@@ -469,6 +478,7 @@ export async function execute(ctx: Ctx, op: GitOperation, t: GitTarget) {
       status: error ? 'failed' : 'succeeded',
       output: res?.output ? redact(res.output) : null,
       error: error && redact(error),
+      detail: res?.detail ?? null,
       finishedAt: ctx.now(),
     })
     .where(eq(gitOperations.id, op.id))
