@@ -1,0 +1,24 @@
+{
+  "t": "git.action",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null
+  },
+  "action": "add",
+  "branch": null,
+  "remote": null,
+  "message": null,
+  "paths": ["notes/todo.md"],
+  "identity": {
+    "name": "共字君",
+    "email": "bot@gonggong.local"
+  }
+}

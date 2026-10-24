@@ -863,6 +863,9 @@ export const GitActionKind = z.enum([
   'abort',
   'skip',
   'resolve',
+  /** gitOps4 */
+  'add',
+  'ignore',
 ])
 export type GitActionKind = z.infer<typeof GitActionKind>
 export const GitConflictPick = z.enum(['ours', 'theirs'])
@@ -891,6 +894,10 @@ export const GitActionArgs = z.object({
   path: z.string().optional(),
   side: GitConflictPick.optional(),
   content: z.string().optional(),
+  /** gitOps4 */
+  target: z.string().optional(),
+  expect: z.string().optional(),
+  keepAdded: z.boolean().optional(),
 })
 export type GitActionArgs = z.infer<typeof GitActionArgs>
 /**
@@ -1041,6 +1048,11 @@ export const DaemonFeature = z.enum([
    * diff options, tags and recent branches in git.refs, the new git.action kinds and their `args`.
    */
   'gitOps3',
+  /**
+   * The second IDEA pass (docs/plan/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
+   * discard `keepAdded`, the add / ignore actions.
+   */
+  'gitOps4',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1579,8 +1591,9 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  *   around a merge or rebase; a `branch` other than the current one is fast-forwarded without checking it out
  * - commit: `paths` only (work tree relative; deletions and untracked files included) or everything when null, with
  *   `message`; `args.amend` rewrites the last commit (`paths` [] = only its message)
- * - push: `branch` to `remote`, setting the upstream when missing; `args.force` = --force-with-lease, `args.tags` = all
- *   tags too
+ * - push: local `branch` to `remote`, setting the upstream when missing; `args.force` = --force-with-lease, `args.tags`
+ *   = all tags too. gitOps4: to the remote branch `args.target` (default: the upstream's branch when it is on `remote`,
+ *   else the same name), always as explicit refs (`refs/heads/a:refs/heads/b`), never a refspec taken from input
  * - branch-create: new `branch` at `args.from` (default HEAD), switched to when `args.checkout`
  * - branch-rename: `branch` to `args.name`
  * - branch-delete: `branch`, `args.force` even when unmerged; a remote-tracking `origin/x` deletes x on that remote
@@ -1588,14 +1601,18 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * - rebase: the current branch, or `branch` (switched to first), onto `args.onto`
  * - cherry-pick, revert: `args.commits`, oldest first
  * - reset: the current branch to `args.commit`, `args.mode` soft | mixed | hard | keep
- * - discard: `paths` back to HEAD, untracked ones deleted
+ * - discard: `paths` back to HEAD, untracked ones deleted; files added to the index are deleted too unless
+ *   `args.keepAdded` (gitOps4), then only unstaged
+ * - add (gitOps4): untracked `paths` staged (`git add`)
+ * - ignore (gitOps4): `paths` appended to the repo's root .gitignore as `/path` lines (glob characters escaped), the
+ *   file created when missing
  * - stash: `message`, `args.untracked` too, only `paths` when given
  * - unstash: `stash@{args.stash}`, dropped when `args.pop`, `args.index` reinstating the index; with `branch`: as that
- *   new branch
- * - stash-drop: `stash@{args.stash}`, every stash without it
+ *   new branch. gitOps4: `args.expect` = the stash commit it must still be, refused otherwise (the list moved)
+ * - stash-drop: `stash@{args.stash}`, every stash without it; `args.expect` as unstash's
  * - tag-create: `args.name` at `args.from` (default HEAD), annotated with `message` when given
- * - tag-delete: `args.name`, on `remote` too when given
- * - tag-push: `args.name` to `remote`
+ * - tag-delete: `args.name`, on `remote` too when given (gitOps4: as `refs/tags/<name>`)
+ * - tag-push: `args.name` to `remote` (gitOps4: as `refs/tags/<name>`)
  * - continue: the stopped merge / rebase / cherry-pick / revert, a merge commit with `message` when given
  * - abort, skip: the stopped operation
  * - resolve: `args.path` taking `args.side`, or written with `args.content`, then marked resolved

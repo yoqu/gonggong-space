@@ -1,0 +1,28 @@
+{
+  "t": "git.action",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null
+  },
+  "action": "stash-drop",
+  "branch": null,
+  "remote": null,
+  "message": null,
+  "paths": null,
+  "identity": {
+    "name": "共字君",
+    "email": "bot@gonggong.local"
+  },
+  "args": {
+    "stash": 1,
+    "expect": "5f2c9e1a"
+  }
+}

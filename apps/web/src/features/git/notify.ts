@@ -27,6 +27,8 @@ export const ACTION_LABEL: Record<GitActionKind, string> = {
   abort: t('中止'),
   skip: t('跳过'),
   resolve: t('解决冲突'),
+  add: t('加入版本控制'),
+  ignore: t('加入 .gitignore'),
 }
 
 /** The POST answer and the realtime event both report the end of an operation: toast it once. */

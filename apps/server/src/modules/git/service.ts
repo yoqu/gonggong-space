@@ -139,7 +139,14 @@ function verb(op: Omit<Columns, 'repo'>) {
     case 'commit':
       return `commit${a.amend ? ' --amend' : ''}「${subject(op.message)}」${chosen}`
     case 'push':
-      return words('push', a.force && '--force-with-lease', a.tags && '--tags', branch, '→', op.remote)
+      return words(
+        'push',
+        a.force && '--force-with-lease',
+        a.tags && '--tags',
+        branch,
+        '→',
+        a.target && a.target !== branch ? `${op.remote}/${a.target}` : op.remote,
+      )
     case 'branch-create':
       return words(a.checkout ? 'checkout -b' : 'branch', branch, a.from && short(a.from))
     case 'branch-rename':
@@ -159,6 +166,10 @@ function verb(op: Omit<Columns, 'repo'>) {
       return words('reset', `--${a.mode}`, short(a.commit ?? ''))
     case 'discard':
       return `rollback ${n === 1 ? op.paths?.[0] : files(n)}`
+    case 'add':
+      return `add ${n === 1 ? op.paths?.[0] : files(n)}`
+    case 'ignore':
+      return `ignore ${n === 1 ? op.paths?.[0] : files(n)}`
     case 'stash':
       return `stash push${a.untracked ? ' -u' : ''}${op.message ? `「${subject(op.message)}」` : ''}${chosen}`
     case 'unstash':
@@ -205,7 +216,10 @@ export function fields(req: GitActionReq): Columns {
     case 'commit':
       return row({ message: req.message, paths: req.paths }, { amend: req.amend })
     case 'push':
-      return row({ branch: req.branch, remote: req.remote }, { force: req.force, tags: req.tags })
+      return row(
+        { branch: req.branch, remote: req.remote },
+        { force: req.force, tags: req.tags, target: req.target },
+      )
     case 'branch-create':
       return row({ branch: req.name }, { from: req.from, checkout: req.checkout })
     case 'branch-rename':
@@ -222,13 +236,19 @@ export function fields(req: GitActionReq): Columns {
     case 'reset':
       return row({}, { commit: req.commit, mode: req.mode })
     case 'discard':
+      return row({ paths: req.paths }, { keepAdded: req.keepAdded })
+    case 'add':
+    case 'ignore':
       return row({ paths: req.paths })
     case 'stash':
       return row({ message: req.message, paths: req.paths }, { untracked: req.untracked })
     case 'unstash':
-      return row({ branch: req.branch }, { stash: req.stash, pop: req.pop, index: req.index })
+      return row(
+        { branch: req.branch },
+        { stash: req.stash, expect: req.expect, pop: req.pop, index: req.index },
+      )
     case 'stash-drop':
-      return row({}, { stash: req.stash })
+      return row({}, { stash: req.stash, expect: req.expect })
     case 'tag-create':
       return row({ message: req.message }, { name: req.name, from: req.commit })
     case 'tag-delete':

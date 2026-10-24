@@ -482,8 +482,40 @@ const queryFlag = z
   .enum(['0', '1', 'false', 'true'])
   .transform((v) => v === '1' || v === 'true')
   .optional()
-/** A branch, tag, commit or rev expression (`main..feat`, `stash@{0}^1`). */
-const gitRev = z.string().trim().min(1).max(255)
+/** A branch, tag, commit or rev expression (`main..feat`, `stash@{0}^1`); never an option (`-x`) nor spaced. */
+const hasControl = (s: string) => [...s].some((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f)
+const gitRev = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .refine((s) => !s.startsWith('-') && !/\s/.test(s) && !hasControl(s), '无效的修订')
+/**
+ * A short branch or tag name as `git check-ref-format --branch` takes it, never `HEAD` nor `refs/…`: nothing a refspec
+ * would read as more (`+a:b`, `:b`, `HEAD`), so a push or delete only ever names the branch it says.
+ */
+export function isGitRefName(s: string) {
+  return (
+    s !== 'HEAD' &&
+    s !== '@' &&
+    !s.startsWith('refs/') &&
+    !/^[-+/]/.test(s) &&
+    !/[/.]$/.test(s) &&
+    !/[ ~^:?*[\\]/.test(s) &&
+    !hasControl(s) &&
+    !s.includes('..') &&
+    !s.includes('@{') &&
+    s.split('/').every((p) => p !== '' && !p.startsWith('.') && !p.endsWith('.lock'))
+  )
+}
+const gitRefName = z.string().trim().min(1).max(255).refine(isGitRefName, '无效的分支或标签名')
+/** A configured remote's name (`origin`), never a URL or a path. */
+const gitRemoteName = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9][\w.-]{0,99}$/, '无效的远程名称')
+/** A full or abbreviated object name. */
+const gitHash = z.string().regex(/^[0-9a-f]{4,64}$/)
 /** GET …/git/refs?repo= */
 export const GitRefsQuery = z.object({ repo: gitRepoPath })
 /** GET …/git/refs — `tags` and `recent` stay empty from daemons without gitOps3. */
@@ -596,7 +628,6 @@ export type GitConflictDto = z.infer<typeof GitConflictDto>
 export const GitRefreshReq = z.object({ fetch: z.boolean().default(false) })
 export type GitRefreshReq = z.infer<typeof GitRefreshReq>
 
-const gitBranchName = z.string().trim().min(1).max(255)
 const gitPaths = z.array(z.string().min(1).max(4096)).max(5000)
 const gitMessage = z.string().trim().min(1).max(10_000)
 /** Conflict resolutions are written into the work tree as is. */
@@ -609,7 +640,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('checkout'),
     repo: gitRepoPath,
-    branch: gitBranchName,
+    /** A branch (a remote one creates its tracking local one), or with `detach` any revision. */
+    branch: gitRev,
     /** A commit or tag: detached HEAD. */
     detach: z.boolean().default(false),
     /** With changes in the way: keep them (git refuses to overwrite), smart (stash and restore) or force (discard). */
@@ -620,7 +652,7 @@ export const GitActionReq = z.discriminatedUnion('action', [
     repo: gitRepoPath,
     mode: z.enum(['ff-only', 'merge', 'rebase']).default('ff-only'),
     /** A local branch other than the current one: fast-forwarded from its upstream. */
-    branch: gitBranchName.optional(),
+    branch: gitRefName.optional(),
   }),
   z.object({
     action: z.literal('commit'),
@@ -633,8 +665,12 @@ export const GitActionReq = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('push'),
     repo: gitRepoPath,
-    remote: gitBranchName.default('origin'),
-    branch: gitBranchName,
+    remote: gitRemoteName.default('origin'),
+    /** The local branch pushed. */
+    branch: gitRefName,
+    /** gitOps4: the branch on the remote it goes to; omitted = its upstream's when on `remote`, else the same name. */
+    target: gitRefName.optional(),
+    /** Needed when the branch on the remote (`target`) is the protected base branch. */
     confirmBase: z.boolean().default(false),
     /** --force-with-lease; refused for the protected base branch. */
     force: z.boolean().default(false),
@@ -643,21 +679,21 @@ export const GitActionReq = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('branch-create'),
     repo: gitRepoPath,
-    name: gitBranchName,
+    name: gitRefName,
     from: gitRev.optional(),
     checkout: z.boolean().default(true),
   }),
   z.object({
     action: z.literal('branch-rename'),
     repo: gitRepoPath,
-    branch: gitBranchName,
-    name: gitBranchName,
+    branch: gitRefName,
+    name: gitRefName,
   }),
   z.object({
     action: z.literal('branch-delete'),
     repo: gitRepoPath,
     /** A remote-tracking `origin/x` deletes x on that remote. */
-    branch: gitBranchName,
+    branch: gitRefName,
     force: z.boolean().default(false),
   }),
   z.object({
@@ -673,7 +709,7 @@ export const GitActionReq = z.discriminatedUnion('action', [
     repo: gitRepoPath,
     onto: gitRev,
     /** Rebase this branch (switched to first) instead of the current one. */
-    branch: gitBranchName.optional(),
+    branch: gitRefName.optional(),
   }),
   z.object({ action: z.literal('cherry-pick'), repo: gitRepoPath, commits: z.array(gitRev).min(1).max(100) }),
   z.object({ action: z.literal('revert'), repo: gitRepoPath, commits: z.array(gitRev).min(1).max(100) }),
@@ -683,7 +719,17 @@ export const GitActionReq = z.discriminatedUnion('action', [
     commit: gitRev,
     mode: z.enum(['soft', 'mixed', 'hard', 'keep']).default('mixed'),
   }),
-  z.object({ action: z.literal('discard'), repo: gitRepoPath, paths: gitPaths.min(1) }),
+  z.object({
+    action: z.literal('discard'),
+    repo: gitRepoPath,
+    paths: gitPaths.min(1),
+    /** gitOps4: files added to the index are only unstaged, kept on disk (IDEA: "Delete local copies" unticked). */
+    keepAdded: z.boolean().default(false),
+  }),
+  /** gitOps4: IDEA's Add to VCS — untracked `paths` staged as added. */
+  z.object({ action: z.literal('add'), repo: gitRepoPath, paths: gitPaths.min(1) }),
+  /** gitOps4: IDEA's Add to .gitignore — `paths` appended to the repo's root .gitignore as `/path`. */
+  z.object({ action: z.literal('ignore'), repo: gitRepoPath, paths: gitPaths.min(1) }),
   z.object({
     action: z.literal('stash'),
     repo: gitRepoPath,
@@ -695,21 +741,25 @@ export const GitActionReq = z.discriminatedUnion('action', [
     action: z.literal('unstash'),
     repo: gitRepoPath,
     stash: z.number().int().min(0),
+    /** gitOps4: the stash's commit as listed; refused when `stash@{n}` is another one by then. */
+    expect: gitHash.optional(),
     pop: z.boolean().default(false),
     index: z.boolean().default(false),
     /** Restore it as this new branch (made at the stash's base) instead. */
-    branch: gitBranchName.optional(),
+    branch: gitRefName.optional(),
   }),
   z.object({
     action: z.literal('stash-drop'),
     repo: gitRepoPath,
     /** Omitted = every stash. */
     stash: z.number().int().min(0).optional(),
+    /** gitOps4: as unstash's. */
+    expect: gitHash.optional(),
   }),
   z.object({
     action: z.literal('tag-create'),
     repo: gitRepoPath,
-    name: gitBranchName,
+    name: gitRefName,
     commit: gitRev.optional(),
     /** Makes it an annotated tag. */
     message: gitMessage.optional(),
@@ -717,15 +767,15 @@ export const GitActionReq = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('tag-delete'),
     repo: gitRepoPath,
-    name: gitBranchName,
+    name: gitRefName,
     /** Deletes it on this remote too. */
-    remote: gitBranchName.optional(),
+    remote: gitRemoteName.optional(),
   }),
   z.object({
     action: z.literal('tag-push'),
     repo: gitRepoPath,
-    name: gitBranchName,
-    remote: gitBranchName.default('origin'),
+    name: gitRefName,
+    remote: gitRemoteName.default('origin'),
   }),
   z.object({ action: z.literal('continue'), repo: gitRepoPath, message: gitMessage.optional() }),
   z.object({ action: z.literal('abort'), repo: gitRepoPath }),

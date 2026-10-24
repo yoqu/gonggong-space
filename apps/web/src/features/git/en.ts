@@ -383,4 +383,6 @@ export default {
   '{n} 个文件有冲突': '{n} {n:file has|files have} conflicts',
   '在合并工具里逐处选择保留哪一方，或手动编辑结果':
     'Pick a side for each conflict in the merge tool, or edit the result',
+  加入版本控制: 'Add to VCS',
+  '加入 .gitignore': 'Add to .gitignore',
 } satisfies Record<string, string>
