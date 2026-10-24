@@ -45,7 +45,6 @@ import { notify, resolveNotifications } from '../notifications/notify.js'
 import { groupRedactor } from '../secrets/resolve.js'
 import { onlineMachine } from '../workspaces/provision.js'
 import {
-  assertAllowed,
   assertIdle,
   assertValid,
   auditDetail,
@@ -55,6 +54,7 @@ import {
   type GitOperation,
   type GitTarget,
   gitTarget,
+  guardBase,
   operationDtos,
   PENDING_MS,
   publishOperation,
@@ -291,14 +291,13 @@ export function gitRoutes(ctx: Ctx) {
         const { group } = await requireMember(ctx, req.params.id, me.id)
         const body = GitActionReq.parse(req.body)
         assertValid(body)
-        const columns = fields(body)
-        const target = await gitTarget(ctx, group, req.params.botId, featureFor(columns))
-        assertAllowed(columns, target)
-        const base = target.workspace.repo.branch
-        const pushesBase = body.action === 'push' && target.group.protectBase && body.branch === base
+        const asked = fields(body)
+        const target = await gitTarget(ctx, group, req.params.botId, featureFor(asked))
+        const { op: columns, pushesBase } = await guardBase(ctx, asked, target)
         const owner = target.bot.ownerId === me.id
         if (owner) {
-          if (pushesBase && !body.confirmBase) fail('conflict', '推送基准分支需要再次确认')
+          if (pushesBase && body.action === 'push' && !body.confirmBase)
+            fail('conflict', '推送基准分支需要再次确认')
           await assertIdle(ctx, target)
         }
         const [op] = (await ctx.db
@@ -350,8 +349,10 @@ export function gitRoutes(ctx: Ctx) {
         if (target.bot.ownerId !== me.id) return fail('forbidden', '只有 Bot 主人可以处理 Git 操作申请')
         if (row.op.status !== 'pending_approval') return fail('conflict', '该操作已处理')
         if (row.op.expiresAt <= ctx.now()) return fail('conflict', '该操作已过期')
-        if (approve) {
-          assertAllowed(row.op, target)
+        const guarded = approve ? await guardBase(ctx, row.op, target) : undefined
+        if (guarded) {
+          // An approval confirms the push the owner was shown, not one found to land on the base branch only now.
+          if (guarded.pushesBase && !row.op.pushesBase) fail('conflict', '推送基准分支需要再次确认')
           await assertIdle(ctx, target)
         }
         const [op] = await ctx.db
@@ -359,6 +360,7 @@ export function gitRoutes(ctx: Ctx) {
           .set({
             status: approve ? 'running' : 'rejected',
             decidedBy: me.id,
+            ...(guarded && { args: guarded.op.args }),
             ...(!approve && { finishedAt: ctx.now() }),
           })
           .where(and(eq(gitOperations.id, row.op.id), eq(gitOperations.status, 'pending_approval')))
