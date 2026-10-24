@@ -133,9 +133,9 @@ describe('Git tab toolbar', () => {
     fireEvent.click((await openGit()).getByRole('button', { name: '更新…' }))
     let d = await dialog('更新 feat/refund-v2')
     expect(d.getByText('从 origin/feat/refund-v2 获取')).toBeTruthy()
-    expect((d.getByRole('radio', { name: /^仅快进/ }) as HTMLInputElement).checked).toBe(true)
+    expect((d.getByRole('radio', { name: /^合并/ }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(d.getByRole('radio', { name: /^变基/ }))
-    expect(d.getByText('未提交的改动会先自动贮藏，更新后恢复')).toBeTruthy()
+    expect(d.getByText('本地改动会先贮藏，更新后自动恢复')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '更新' }))
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'rebase' }]))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '更新 feat/refund-v2' })).toBeNull())
@@ -156,7 +156,7 @@ describe('Git tab toolbar', () => {
     const d = await dialog('更新 feat/refund-v2')
     expect(d.getByText('需要 Bot 主人 小王 批准后才会执行')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '提交申请' }))
-    await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'ff-only' }]))
+    await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'merge' }]))
     await waitFor(() => expect(toasts()).toContain('已提交申请，等待 Bot 主人 小王 审批'))
   })
 
@@ -242,7 +242,7 @@ describe('Git tab toolbar', () => {
     fireEvent.click(tab.getByRole('button', { name: '更新…' }))
     fireEvent.click((await dialog('更新 dev')).getByRole('button', { name: '更新' }))
     await waitFor(() =>
-      expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'ff-only', repo: 'libs/core' }]),
+      expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'merge', repo: 'libs/core' }]),
     )
   })
 })
@@ -301,37 +301,14 @@ describe('branch popup', () => {
     expect(pop.getByRole('searchbox', { name: '搜索分支和标签' })).toBeTruthy()
   })
 
-  it('checks out a clean tree at once; changes in the way ask for a smart, plain or force checkout', async () => {
-    const calls = mockApi(
-      routes({
-        'GET /groups/g1/bot-states': [state({ git: status({ dirty: false, dirtyCount: 0 }) })],
-        [`POST ${BASE}/actions`]: done,
-      }),
-    )
-    const { unmount } = render(<Page />)
-    let pop = await popup()
+  it('checks a branch out at once, uncommitted changes or not (git says when they are in the way)', async () => {
+    const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
+    render(<Page />)
+    const pop = await popup()
     fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
     fireEvent.click(pop.getByRole('button', { name: '检出' }))
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'checkout', branch: 'main' }]))
-    await waitFor(() => expect(toasts()).toContain('小王的 Claude：切换分支完成'))
-    unmount()
-
-    useWorkbench.setState({ benches: {} })
-    const calls2 = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
-    render(<Page />)
-    pop = await popup()
-    fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '检出' }))
-    const d = await dialog('检出 main')
-    expect(d.getByText('工作区有未提交的改动')).toBeTruthy()
-    expect((d.getByRole('radio', { name: /^智能检出/ }) as HTMLInputElement).checked).toBe(true)
-    fireEvent.click(d.getByRole('radio', { name: /^强制检出/ }))
-    fireEvent.click(d.getByRole('button', { name: '强制检出' }))
-    await waitFor(() =>
-      expect(actionsCalled(calls2)).toEqual([
-        { action: 'checkout', branch: 'main', detach: false, mode: 'force' },
-      ]),
-    )
+    expect(screen.queryByRole('dialog', { name: '检出 main' })).toBeNull()
   })
 
   it('checks a tag out detached, after saying what that means', async () => {
@@ -365,9 +342,9 @@ describe('branch popup', () => {
     expect(d.getByText('分支 feat/fee 已存在')).toBeTruthy()
     expect(create.disabled).toBe(true)
     fireEvent.change(name, { target: { value: 'feat/my fee' } })
-    expect(d.getByText('名称不能包含空格')).toBeTruthy()
+    expect(d.getByText('无效的分支名')).toBeTruthy()
     fireEvent.change(name, { target: { value: 'feat/..x' } })
-    expect(d.getByText('名称不合法：feat/..x')).toBeTruthy()
+    expect(d.getByText('无效的分支名')).toBeTruthy()
     fireEvent.change(name, { target: { value: 'feat/refund-fee' } })
     fireEvent.change(d.getByRole('combobox'), { target: { value: 'origin/main' } })
     fireEvent.click(d.getByRole('checkbox', { name: '创建后检出' }))
@@ -451,7 +428,7 @@ describe('branch popup', () => {
     )
   })
 
-  it('renames and deletes branches; an unmerged one needs a second confirmation, a remote one deletes on the remote', async () => {
+  it('renames and deletes branches; one git finds unmerged is deleted anyway, a remote one on the remote', async () => {
     const calls = mockApi(
       routes({
         [`POST ${BASE}/actions`]: (b: { action: string; force?: boolean; branch: string }) =>
@@ -484,12 +461,12 @@ describe('branch popup', () => {
     fireEvent.click(pop.getByRole('button', { name: '删除…' }))
     d = await dialog('删除分支 feat/fee')
     expect(d.getByText('删除本地分支 feat/fee')).toBeTruthy()
-    fireEvent.click(d.getByRole('button', { name: '删除' }))
+    // The unmerged commits can't be read here (no log): git's refusal tells.
+    const del = d.getByRole('button', { name: '删除' }) as HTMLButtonElement
+    await waitFor(() => expect(del.disabled).toBe(false))
+    fireEvent.click(del)
     expect(await d.findByText(/有尚未合并的提交/)).toBeTruthy()
-    const again = d.getByRole('button', { name: '仍然删除' }) as HTMLButtonElement
-    expect(again.disabled).toBe(true)
-    fireEvent.click(d.getByRole('checkbox', { name: '我确认删除未合并的分支' }))
-    fireEvent.click(again)
+    fireEvent.click(d.getByRole('button', { name: '仍然删除' }))
     await waitFor(() =>
       expect(actionsCalled(calls).slice(-2)).toEqual([
         { action: 'branch-delete', branch: 'feat/fee', force: false },

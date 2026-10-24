@@ -93,13 +93,18 @@ export function HUD({
 
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export interface ToastItem {
   id: number
   type: ToastType
   title?: ReactNode
   message: ReactNode
-  /** E.g. 「编辑说明」: clicking it dismisses the toast, which stays longer to give time for it. */
-  action?: { label: string; onClick: () => void }
+  /** E.g. 「编辑说明」, or several: clicking one dismisses the toast, which stays longer to give time for it. */
+  action?: ToastAction | ToastAction[]
   /** Identical toasts raised while this one is shown fold into it. */
   count: number
 }
@@ -147,12 +152,13 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
     if (!presence.mounted) onExited()
   }, [presence.mounted])
   const persistent = t.type === 'error'
+  const actions = [t.action ?? []].flat()
   // biome-ignore lint/correctness/useExhaustiveDependencies: a repeat (count) restarts the timer
   useEffect(() => {
     if (persistent || hover || !open) return
-    const timer = setTimeout(() => dismissToast(t.id), t.action ? ACTION_DURATION : DURATION)
+    const timer = setTimeout(() => dismissToast(t.id), actions.length ? ACTION_DURATION : DURATION)
     return () => clearTimeout(timer)
-  }, [persistent, hover, open, t.id, t.count, t.action])
+  }, [persistent, hover, open, t.id, t.count, actions.length])
   if (!presence.mounted) return null
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover only pauses the auto-dismiss timer
@@ -170,18 +176,19 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
         <div className="ui-toast__message">{t.message}</div>
       </div>
       {t.count > 1 ? <span className="ui-toast__count">×{t.count}</span> : null}
-      {t.action ? (
+      {actions.map((a) => (
         <button
+          key={a.label}
           type="button"
           className="ui-toast__action"
           onClick={() => {
             dismissToast(t.id)
-            t.action?.onClick()
+            a.onClick()
           }}
         >
-          {t.action.label}
+          {a.label}
         </button>
-      ) : null}
+      ))}
       {persistent ? (
         <button
           type="button"

@@ -2,7 +2,7 @@ import type { GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Icon, MenuButton, type MenuItem, PopUpButton, Spinner, Tooltip } from '../../ui'
+import { Icon, MenuButton, type MenuItem, PopUpButton, Spinner, Tooltip, toast } from '../../ui'
 import { type GitTarget, refreshGit } from './api'
 import { BranchPopup } from './BranchPopup'
 import { gitCommands } from './commands'
@@ -51,6 +51,7 @@ export function GitToolbar({
     setFetching(true)
     try {
       await refreshGit(target.groupId, target.botId, true)
+      toast({ type: 'success', message: t('获取完成') })
     } catch (e) {
       toastError(e)
     }

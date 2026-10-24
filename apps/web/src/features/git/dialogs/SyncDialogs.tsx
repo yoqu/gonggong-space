@@ -2,12 +2,11 @@ import type { GitLogDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { ago } from '../../../lib/time'
 import { Alert, Checkbox, Dialog, PopUpButton, RadioGroup, Spinner, TextField } from '../../../ui'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { type GitTarget, gitBase, gitUrls, useGitGet, useGitRefs } from '../api'
 import { Choice } from './BranchDialogs'
-import { GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
+import { CommitList, GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
 
 interface Props {
   target: GitTarget
@@ -18,10 +17,13 @@ type PullMode = 'ff-only' | 'merge' | 'rebase'
 const PULL_MODE = 'gg.git.pull-mode'
 const savedPullMode = (): PullMode => {
   const v = localStorage.getItem(PULL_MODE)
-  return v === 'merge' || v === 'rebase' ? v : 'ff-only'
+  return v === 'ff-only' || v === 'rebase' ? v : 'merge'
 }
 
-/** IDEA's Update Project: the upstream's commits merged, rebased onto or fast-forwarded; the choice is remembered. */
+/**
+ * IDEA's Update Project: the upstream's commits merged (its default), rebased onto or fast-forwarded, local changes
+ * stashed around it in any case; the choice is remembered.
+ */
 export function PullDialog({ target, onClose }: Props) {
   const status = useRepoStatus(target)
   const stamp = useGitStamp(target.groupId, target.botId)
@@ -86,9 +88,7 @@ export function PullDialog({ target, onClose }: Props) {
             },
           ]}
         />
-        {mode !== 'ff-only' && status?.dirty ? (
-          <p className="git-form__hint">{t('未提交的改动会先自动贮藏，更新后恢复')}</p>
-        ) : null}
+        <p className="git-form__hint">{t('本地改动会先贮藏，更新后自动恢复')}</p>
         <GitError error={error} />
       </div>
     </Dialog>
@@ -174,18 +174,7 @@ export function PushDialog({ target, branch: start, onClose }: Props & { branch:
               {t('首次推送，会在远程创建 {branch} 并设为上游', { branch: name })}
             </p>
           ) : commits.length ? (
-            <ul className="git-push__list">
-              {commits.map((c) => (
-                <li key={c.hash} className="git-push__commit">
-                  <span className="git-push__subject">{c.subject}</span>
-                  <span className="git-push__meta">
-                    {c.author} · {ago(c.at)}
-                  </span>
-                  <span className="git-push__hash">{c.shortHash}</span>
-                </li>
-              ))}
-              {log.data?.hasMore ? <li className="git-push__more">{t('还有更多提交…')}</li> : null}
-            </ul>
+            <CommitList commits={commits} more={!!log.data?.hasMore} />
           ) : (
             <p className="git-push__empty">{t('{dest} 已包含全部提交，没有新的提交可推送', { dest })}</p>
           )}
