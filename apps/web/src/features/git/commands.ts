@@ -1,12 +1,23 @@
-import type { GitActionInput, GitHeadCommit, GitOngoing, GitStash } from '@gonggong/protocol'
+import type {
+  GitActionInput,
+  GitChangesDto,
+  GitDiffDto,
+  GitHeadCommit,
+  GitOngoing,
+  GitStash,
+} from '@gonggong/protocol'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
 import type { GitLogTabFilter } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
+import { toastError } from '../../lib/errors'
+import { toast } from '../../ui'
 import { openTab } from '../workbench/open'
-import { type GitTarget, repoStatus, runGitAction, shortRev } from './api'
+import { type GitTarget, gitBase, gitUrls, repoStatus, runGitAction, shortRev } from './api'
+import type { TreeChange } from './ChangeTree'
 
 /** A commit as the dialogs name it. */
 export interface CommitInfo {
@@ -42,6 +53,7 @@ export type GitDialog =
   | { kind: 'tag-delete'; name: string }
   | { kind: 'stash'; paths: string[] | null }
   | { kind: 'unstash'; stash: GitStash }
+  | { kind: 'rollback'; changes: TreeChange[] }
   | { kind: 'confirm'; confirm: GitConfirm }
 
 interface DialogState {
@@ -89,6 +101,8 @@ export function gitCommands(target: GitTarget) {
   }
   const current = () => status()?.branch ?? 'HEAD'
   const names = (commits: CommitInfo[]) => commits.map((c) => c.shortHash).join(', ')
+  // The workbench names files from the workspace root, where a sub-repo is a folder.
+  const inWorkspace = (path: string) => (target.repo ? `${target.repo}/${path}` : path)
   return {
     /** A clean tree switches at once (the owner's); changes in the way or a request ask first. */
     checkout(ref: string, detach = false) {
@@ -135,6 +149,17 @@ export function gitCommands(target: GitTarget) {
         req: { action: 'reset', commit: 'HEAD~1', mode: 'soft' },
       }),
     reword: (head: GitHeadCommit) => show({ kind: 'reword', head }),
+    /** Edit Commit Message for HEAD as it is now, e.g. the commit just made. */
+    rewordLast: async () => {
+      try {
+        const { head } = await api.get<GitChangesDto>(
+          gitUrls.changes(gitBase(target.groupId, target.botId), target.repo),
+        )
+        if (head) show({ kind: 'reword', head })
+      } catch (e) {
+        toastError(e)
+      }
+    },
     newTag: (commit: CommitInfo | null = null) => show({ kind: 'tag-create', commit }),
     deleteTag: (name: string) => show({ kind: 'tag-delete', name }),
     pushTag: (name: string, remote = 'origin') => void run({ action: 'tag-push', name, remote }),
@@ -147,7 +172,7 @@ export function gitCommands(target: GitTarget) {
         consequences: [t('删除后无法恢复')],
         label: t('删除'),
         destructive: true,
-        req: { action: 'stash-drop', stash: stash.index },
+        req: { action: 'stash-drop', stash: stash.index, expect: stash.hash },
       }),
     clearStashes: (n: number) =>
       confirm({
@@ -158,19 +183,43 @@ export function gitCommands(target: GitTarget) {
         destructive: true,
         req: { action: 'stash-drop' },
       }),
-    /** IDEA's Rollback: tracked files back to HEAD, untracked ones deleted; `files` counts a rename's two paths once. */
-    discard: (paths: string[], untracked: number, files = paths.length) =>
+    /** IDEA's Rollback Changes dialog for tracked `changes`. */
+    rollback: (changes: TreeChange[]) => show({ kind: 'rollback', changes }),
+    /** IDEA's Delete for untracked files: nothing to roll back to, so they go. */
+    deleteFiles: (paths: string[]) =>
       confirm({
-        title: t('回滚改动'),
-        message: t('将 {n} 个文件恢复到上次提交的状态', { n: files }),
-        consequences: [
-          t('这些文件未提交的改动会丢失'),
-          ...(untracked ? [t('{n} 个未跟踪文件会被删除', { n: untracked })] : []),
-        ],
-        label: t('回滚'),
+        title: t('删除未跟踪的文件'),
+        message: t('从磁盘删除 {n} 个未跟踪的文件', { n: paths.length }),
+        consequences: [...paths, t('删除后无法恢复')],
+        label: t('删除'),
         destructive: true,
         req: { action: 'discard', paths },
       }),
+    /** IDEA's Add to VCS: untracked files staged as added. */
+    addToVcs: (paths: string[]) => void run({ action: 'add', paths }),
+    /** IDEA's Add to .gitignore: each file as a `/path` line of the repo's .gitignore. */
+    ignore: (paths: string[]) =>
+      confirm({
+        title: t('加入 .gitignore'),
+        message: t('在 .gitignore 末尾添加 {n} 行', { n: paths.length }),
+        consequences: paths.map((p) => `/${p}`),
+        label: t('添加'),
+        req: { action: 'ignore', paths },
+      }),
+    /** The work tree's changes of `paths` against HEAD as one patch on the clipboard. */
+    copyPatch: async (paths: string[]) => {
+      const base = gitBase(target.groupId, target.botId)
+      try {
+        const diffs = await Promise.all(
+          paths.map((p) => api.get<GitDiffDto>(gitUrls.diff(base, 'HEAD', null, p, target.repo))),
+        )
+        if (diffs.some((d) => d.truncated))
+          return void toast({ type: 'error', message: t('改动过大，无法创建补丁') })
+        await copyWithToast(diffs.map((d) => d.patch ?? '').join(''), t('已复制补丁'))
+      } catch (e) {
+        toastError(e)
+      }
+    },
     continueOngoing: (ongoing: GitOngoing) =>
       ongoing.kind === 'merge' ? show({ kind: 'continue', ongoing }) : void run({ action: 'continue' }),
     abortOngoing: (ongoing: GitOngoing | null) =>
@@ -206,6 +255,21 @@ export function gitCommands(target: GitTarget) {
         filter: opts.filter ?? null,
       }),
     openMerge: (path: string) => openTab({ kind: 'git-merge', botId: target.botId, repo: target.repo, path }),
+    /** A work tree change in the bot's diff tab. */
+    openChange: (path: string) =>
+      openTab({
+        kind: 'diff',
+        botId: target.botId,
+        scope: 'uncommitted',
+        file: inWorkspace(path),
+        repo: target.repo,
+      }),
+    /** A work tree file in its own tab; `annotate` shows who changed each line (each request anew). */
+    openFile: (path: string, annotate = false) =>
+      openTab({
+        kind: 'file',
+        source: { botId: target.botId, path: inWorkspace(path), ...(annotate && { annotate: Date.now() }) },
+      }),
     /** The work tree's files at a version. */
     browse: (rev: string) =>
       openTab({ kind: 'files', botId: target.botId, dir: '', selected: null, rev, base: null }),

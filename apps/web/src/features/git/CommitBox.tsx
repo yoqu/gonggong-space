@@ -1,9 +1,10 @@
-import type { GitHeadCommit } from '@gonggong/protocol'
+import type { GitActionInput, GitHeadCommit, GitOngoing } from '@gonggong/protocol'
 import { type KeyboardEvent, useState } from 'react'
 import { t } from '../../i18n'
-import { Button, Checkbox, Icon, Popover, Spinner, Tooltip } from '../../ui'
+import { Button, Checkbox, Icon, Popover, Spinner, Tooltip, toast } from '../../ui'
 import { type GitTarget, gitActionTaken, runGitAction } from './api'
-import { gitCommands, inTarget } from './commands'
+import { gitCommands, inTarget, ongoingLabel } from './commands'
+import { useCommitDraft } from './draft'
 import { useOwner } from './owner'
 
 const HISTORY = 'gg.git.messages'
@@ -26,9 +27,19 @@ const remember = (botId: string, message: string) => {
   }
 }
 
+/** IDEA's commit message inspections: a subject line of at most 72 characters, then a blank line before the body. */
+function inspect(message: string): string[] {
+  const [subject = '', second] = message.split('\n')
+  return [
+    ...([...subject].length > 72 ? [t('首行超过 72 个字符')] : []),
+    ...(second?.trim() ? [t('首行与正文之间应空一行')] : []),
+  ]
+}
+
 /**
- * IDEA's commit message area: the message (with the ones committed before), Amend of the last commit, and Commit /
- * Commit and Push; ⌘↩ commits. `paths` are the picked files (a rename's both sides); none with Amend rewords only.
+ * IDEA's commit message area: the message (a draft kept until it is committed, with the ones committed before), Amend
+ * of the last commit, and Commit / Commit and Push; ⌘↩ commits. `paths` are the picked files (a rename's both sides);
+ * none with Amend rewords only. A merge, pick or revert in progress is finished instead, with git's message.
  */
 export function CommitBox({
   target,
@@ -36,7 +47,8 @@ export function CommitBox({
   count,
   head,
   total,
-  onCommitted,
+  ongoing,
+  conflicts,
 }: {
   target: GitTarget
   paths: string[]
@@ -45,28 +57,43 @@ export function CommitBox({
   head: GitHeadCommit | null
   /** Files in the change list, to tell "nothing picked" from "nothing changed". */
   total: number
-  onCommitted: () => void
+  ongoing: GitOngoing | null
+  /** Conflicts left: git commits nothing in progress until they are resolved. */
+  conflicts: number
 }) {
   const { owner } = useOwner(target.botId)
-  const [message, setMessage] = useState('')
-  const [amend, setAmend] = useState(false)
+  const { draft, update, clear } = useCommitDraft(target)
   const [busy, setBusy] = useState(false)
+  const message = draft.message ?? ongoing?.message ?? ''
+  const amend = draft.amend && !ongoing
   const text = message.trim()
-  const ready = !busy && !!text && (paths.length > 0 || amend)
+  const ready = !busy && (ongoing ? !conflicts : !!text && (paths.length > 0 || amend))
   const commit = async (push: boolean) => {
     if (!ready) return
     setBusy(true)
+    // git takes no partial commit while something is in progress: finishing it commits what it staged.
+    const req: GitActionInput = ongoing
+      ? { action: 'continue', ...(text && { message: text }) }
+      : { action: 'commit', message: text, paths, amend }
+    const subject = text.split('\n')[0] ?? ''
+    const committed = () =>
+      toast({
+        type: 'success',
+        message: count
+          ? t('已提交 {n} 个文件：{subject}', { n: count, subject })
+          : t('已修改提交说明：{subject}', { subject }),
+        action: { label: t('编辑说明'), onClick: () => void gitCommands(target).rewordLast() },
+      })
     const op = await runGitAction(
       target.groupId,
       target.botId,
-      inTarget(target, { action: 'commit', message: text, paths, amend }),
+      inTarget(target, req),
+      ongoing ? undefined : committed,
     )
     setBusy(false)
     if (!gitActionTaken(op)) return
-    remember(target.botId, text)
-    setMessage('')
-    setAmend(false)
-    onCommitted()
+    if (!ongoing) remember(target.botId, text)
+    clear()
     if (push && op?.status === 'succeeded') gitCommands(target).push()
   }
   const keyDown = (e: KeyboardEvent) => {
@@ -75,15 +102,30 @@ export function CommitBox({
     void commit(false)
   }
   const toggleAmend = (on: boolean) => {
-    setAmend(on)
-    if (on && !text && head) setMessage(head.message.trim())
-    if (!on && head && text === head.message.trim()) setMessage('')
+    if (on && !text && head) update({ amend: on, message: head.message.trim() })
+    else if (!on && head && text === head.message.trim()) update({ amend: on, message: null })
+    else update({ amend: on })
   }
   const history = loadHistory(target.botId)
+  const notes = inspect(message)
+  const label = !owner
+    ? t('提交申请')
+    : ongoing
+      ? ongoing.kind === 'merge'
+        ? t('提交合并')
+        : t('继续{op}', { op: ongoingLabel(ongoing.kind) })
+      : amend
+        ? t('修改提交')
+        : t('提交')
   return (
     <div className="gc-box">
       <div className="gc-box__head">
-        <Checkbox label={t('修改上一次提交')} checked={amend} disabled={!head} onChange={toggleAmend} />
+        <Checkbox
+          label={t('修改上一次提交')}
+          checked={amend}
+          disabled={!head || !!ongoing}
+          onChange={toggleAmend}
+        />
         {amend && head?.pushed ? (
           <Tooltip content={t('该提交已推送，修改后需要强制推送才能更新远程')}>
             <span className="gc-box__warn" role="img" aria-label={t('已推送')}>
@@ -117,7 +159,7 @@ export function CommitBox({
                     type="button"
                     className="gc-history__item"
                     onClick={() => {
-                      setMessage(m)
+                      update({ message: m })
                       close()
                     }}
                   >
@@ -135,28 +177,39 @@ export function CommitBox({
         placeholder={amend ? t('修改后的提交说明') : t('提交说明')}
         value={message}
         rows={3}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={(e) => update({ message: e.target.value })}
         onKeyDown={keyDown}
       />
+      {notes.length ? (
+        <div className="gc-box__notes">
+          {notes.map((n) => (
+            <span key={n}>{n}</span>
+          ))}
+        </div>
+      ) : null}
       <div className="gc-box__actions">
         <span className="gc-box__hint">
-          {count
-            ? t('已选 {n} / {total} 个文件', { n: count, total })
-            : amend
-              ? t('只修改提交说明')
-              : total
-                ? t('勾选要提交的文件')
-                : ''}
+          {ongoing
+            ? conflicts
+              ? t('{n} 个文件有冲突，解决后才能继续', { n: conflicts })
+              : ''
+            : count
+              ? t('已选 {n} / {total} 个文件', { n: count, total })
+              : amend
+                ? t('只修改提交说明')
+                : total
+                  ? t('勾选要提交的文件')
+                  : ''}
         </span>
         <span className="spacer" />
-        {owner ? (
+        {owner && (!ongoing || ongoing.kind === 'merge') ? (
           <Button size="small" disabled={!ready} onClick={() => void commit(true)}>
             {amend ? t('修改并推送…') : t('提交并推送…')}
           </Button>
         ) : null}
         <Button size="small" variant="primary" disabled={!ready} onClick={() => void commit(false)}>
           {busy ? <Spinner size={12} /> : null}
-          {owner ? (amend ? t('修改提交') : t('提交')) : t('提交申请')}
+          {label}
         </Button>
       </div>
     </div>

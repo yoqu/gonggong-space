@@ -91,7 +91,7 @@ test('IDEA-style git: a new branch, a merge that conflicts resolved in the merge
     await test.step('stashes work in progress and pops it back', async () => {
       writeFileSync(join(dir, 'wip.txt'), 'half done\n')
       await git.getByRole('button', { name: '获取远程更新' }).click()
-      await expect(git).toContainText('已选 1 / 1 个文件', { timeout: 30_000 })
+      await expect(git.getByRole('button', { name: '未跟踪：wip.txt' })).toBeVisible({ timeout: 30_000 })
       await git.getByRole('tab', { name: /^贮藏/ }).click()
       await git.getByRole('button', { name: '贮藏改动…' }).click()
       const s = page.getByRole('dialog', { name: '贮藏改动' })

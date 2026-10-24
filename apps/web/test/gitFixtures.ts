@@ -12,6 +12,7 @@ import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { useChangeLayout } from '../src/features/git/ChangeTree'
 import { useGitDialogs } from '../src/features/git/commands'
+import { useCommitDrafts } from '../src/features/git/draft'
 import { useToasts } from '../src/ui'
 import type { Call } from './mockApi'
 
@@ -173,6 +174,7 @@ export function resetStores() {
   useToasts.setState({ items: [] })
   useGitDialogs.setState({ open: null })
   useChangeLayout.setState({ layout: 'tree' })
+  useCommitDrafts.setState({ drafts: {} })
   localStorage.clear()
 }
 

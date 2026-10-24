@@ -124,12 +124,13 @@ export function repoStatus(git: GitStatus, repo: string | null): RepoStatus | nu
 
 /**
  * Runs (owner) or requests (anyone else) a git action; resolves the operation, or null when the server refused it
- * (a busy bot's 409 and other refusals toast the server's message).
+ * (a busy bot's 409 and other refusals toast the server's message). `succeeded` replaces the plain 「…完成」 toast.
  */
 export async function runGitAction(
   groupId: string,
   botId: string,
   req: GitActionInput,
+  succeeded?: () => void,
 ): Promise<GitOperationDto | null> {
   try {
     const op = await api.post<GitOperationDto>(`${gitBase(groupId, botId)}/actions`, req)
@@ -138,7 +139,7 @@ export async function runGitAction(
     if (op.status === 'pending_approval') {
       const owner = bots.find((b) => b.id === botId)?.ownerName ?? ''
       toast({ type: 'info', message: t('已提交申请，等待 Bot 主人 {name} 审批', { name: owner }) })
-    } else gitOperationSettled(op, bots)
+    } else gitOperationSettled(op, bots, succeeded)
     return op
   } catch (e) {
     toastError(e)

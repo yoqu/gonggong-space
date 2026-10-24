@@ -1,23 +1,24 @@
 import type { GitChangesDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { type KeyboardEvent, useState } from 'react'
 import { t } from '../../i18n'
 import { Alert, Button, EmptyState, Icon, type MenuItem, Spinner, Tooltip } from '../../ui'
-import { openTab } from '../workbench/open'
 import type { GitTarget } from './api'
 import {
   type ChangeGroup,
   type ChangeTarget,
   ChangeTree,
+  commitPaths,
   folderPaths,
   type TreeChange,
   useChangeLayout,
 } from './ChangeTree'
 import { CommitBox } from './CommitBox'
 import { gitCommands, ongoingLabel } from './commands'
+import { useCommitDraft } from './draft'
 
-/** A rename commits both sides: the old path's removal and the new one. */
-export const commitPaths = (changes: TreeChange[]) =>
-  changes.flatMap((c) => (c.oldPath ? [c.oldPath, c.path] : [c.path]))
+const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent)
+/** IDEA's keys for Show Diff, Rollback and Jump to Source, as the menu names them. */
+const KEYS = { diff: MAC ? '⌘D' : 'Ctrl+D', rollback: MAC ? '⌘⌥Z' : 'Ctrl+Alt+Z', open: 'F4' }
 
 /** The change list's groups: conflicts first, then tracked changes, then untracked files. */
 export function changeGroups(data: GitChangesDto): ChangeGroup[] {
@@ -37,68 +38,71 @@ export function changeGroups(data: GitChangesDto): ChangeGroup[] {
   ]
 }
 
+const tracked = (changes: TreeChange[]) => changes.filter((c) => !c.conflict && !c.untracked)
+const unversioned = (changes: TreeChange[]) => changes.filter((c) => c.untracked).map((c) => c.path)
+
 /**
- * IDEA's Commit window: the toolbar, the change tree with commit checkboxes and a context menu per file or folder, and
- * the message area. `onPick` shows a change (beside it when wide, in its own tab otherwise).
+ * IDEA's Commit window: the toolbar, the change tree with commit checkboxes and a context menu for the selected files or
+ * a folder, and the message area, which stays while the changes load. `onSelect` shows a change (beside it when wide);
+ * a double click, Enter or ⌘D opens it in its own tab.
  */
 export function CommitView({
   target,
   data,
   error,
   selected,
-  onPick,
+  onSelect,
   onReload,
 }: {
   target: GitTarget
   data: GitChangesDto | null
   error: string | null
   selected: string | null
-  onPick: (c: TreeChange) => void
+  onSelect: (c: TreeChange) => void
   onReload: () => void
 }) {
   const layout = useChangeLayout((s) => s.layout)
   const toggleLayout = useChangeLayout((s) => s.toggle)
-  // Unpicked rather than picked: files that turn up later start picked.
-  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set())
+  const { draft, check } = useCommitDraft(target)
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
+  const [several, setSeveral] = useState<ReadonlySet<string>>(new Set())
   const cmd = gitCommands(target)
-  if (error) return <Alert variant="error" description={t('读取改动失败：{error}', { error })} />
-  if (!data)
-    return (
-      <div className="git-refs__note">
-        <Spinner size={14} />
-      </div>
-    )
-  const groups = changeGroups(data)
-  const all = data.changes
-  const checked = new Set(all.filter((c) => !skipped.has(c.path)).map((c) => c.path))
+  const groups = data ? changeGroups(data) : []
+  const all = data?.changes ?? []
+  const rows = groups.flatMap((g) => g.changes)
+  // Unversioned files stay out of a commit until picked (IDEA); what was picked or left out by hand stays so.
+  const checked = new Set(all.filter((c) => draft.checks[c.path] ?? !c.untracked).map((c) => c.path))
   const picked = all.filter((c) => checked.has(c.path))
-  const pickedOrAll = (target: ChangeTarget) => target.changes.filter((c) => !c.conflict)
-  const check = (paths: string[], on: boolean) =>
-    setSkipped((s) => {
-      const next = new Set(s)
-      for (const p of paths) {
-        if (on) next.delete(p)
-        else next.add(p)
-      }
-      return next
-    })
+  const lead = rows.find((c) => c.path === selected) ?? null
+  // Selected with the lead; once the lead moved elsewhere (its tab, a refresh) it is selected alone.
+  const selection: ReadonlySet<string> =
+    lead && several.has(lead.path) ? several : new Set(lead ? [lead.path] : [])
+  const chosen = rows.filter((c) => selection.has(c.path))
   const toggleFolder = (key: string) =>
     setClosed((s) => {
       const next = new Set(s)
       if (!next.delete(key)) next.add(key)
       return next
     })
-  const open = (c: TreeChange) =>
-    c.conflict
-      ? cmd.openMerge(c.path)
-      : openTab({ kind: 'diff', botId: target.botId, scope: 'uncommitted', file: c.path, repo: target.repo })
-  const rollback = (changes: TreeChange[]) =>
-    changes.length &&
-    cmd.discard(commitPaths(changes), changes.filter((c) => c.untracked).length, changes.length)
+  const open = (c: TreeChange) => (c.conflict ? cmd.openMerge(c.path) : cmd.openChange(c.path))
+  /** Untracked files have nothing to roll back to: they are deleted instead. */
+  const rollback = (changes: TreeChange[]) => {
+    const files = tracked(changes)
+    if (files.length) cmd.rollback(files)
+  }
+  const keys = (e: KeyboardEvent<HTMLElement>) => {
+    const mod = e.metaKey || e.ctrlKey
+    // ⌥ changes the character typed (⌥Z is Ω on a Mac), so Z is read by its place.
+    if (mod && e.altKey && e.code === 'KeyZ') rollback(chosen)
+    else if (mod && !e.altKey && e.key.toLowerCase() === 'd') {
+      if (lead) open(lead)
+    } else if (e.key === 'F4') {
+      if (lead && lead.change !== 'deleted') cmd.openFile(lead.path)
+    } else return
+    e.preventDefault()
+  }
   const menu = (tg: ChangeTarget): MenuItem[] => {
     const f = tg.file
-    const files = pickedOrAll(tg)
     if (f?.conflict)
       return [
         { value: 'merge', label: t('合并…'), icon: 'git-merge' },
@@ -107,16 +111,46 @@ export function CommitView({
         { separator: true },
         { value: 'copy', label: t('复制路径'), icon: 'copy' },
       ]
+    const files = tg.changes.filter((c) => !c.conflict)
     return [
       ...(f
         ? ([
-            { value: 'diff', label: t('显示差异'), icon: 'doc-text' },
-            ...(f.change !== 'deleted' ? [{ value: 'open', label: t('打开文件'), icon: 'doc' }] : []),
+            { value: 'diff', label: t('显示差异'), icon: 'doc-text', shortcut: KEYS.diff },
+            {
+              value: 'open',
+              label: t('打开文件'),
+              icon: 'doc',
+              shortcut: KEYS.open,
+              disabled: f.change === 'deleted',
+            },
+            // git blames what HEAD has: nothing for a new or deleted file, nor an uncommitted rename.
+            {
+              value: 'annotate',
+              label: t('注解'),
+              icon: 'person',
+              disabled: !!f.untracked || f.change !== 'modified',
+            },
             { separator: true },
           ] as MenuItem[])
         : []),
-      { value: 'rollback', label: t('回滚…'), icon: 'undo', destructive: true, disabled: !files.length },
+      {
+        value: 'rollback',
+        label: t('回滚…'),
+        icon: 'undo',
+        shortcut: KEYS.rollback,
+        destructive: true,
+        disabled: !tracked(files).length,
+      },
+      ...(files.some((c) => c.untracked)
+        ? ([
+            { value: 'delete', label: t('删除…'), icon: 'trash', destructive: true },
+            { value: 'add', label: t('加入版本控制'), icon: 'plus' },
+            { value: 'ignore', label: t('加入 .gitignore…'), icon: 'eye-slash' },
+          ] as MenuItem[])
+        : []),
+      { separator: true },
       { value: 'stash', label: t('贮藏所选文件…'), icon: 'archive', disabled: !files.length },
+      { value: 'patch', label: t('复制为补丁'), icon: 'doc-code', disabled: !files.length },
       ...(f
         ? ([
             { separator: true },
@@ -128,21 +162,22 @@ export function CommitView({
   }
   const onMenu = (value: string, tg: ChangeTarget) => {
     const f = tg.file
-    const files = pickedOrAll(tg)
+    const files = tg.changes.filter((c) => !c.conflict)
     if (value === 'diff' && f) open(f)
-    else if (value === 'open' && f)
-      openTab({
-        kind: 'file',
-        source: { botId: target.botId, path: target.repo ? `${target.repo}/${f.path}` : f.path },
-      })
+    else if (value === 'open' && f) cmd.openFile(f.path)
+    else if (value === 'annotate' && f) cmd.openFile(f.path, true)
     else if (value === 'rollback') rollback(files)
+    else if (value === 'delete') cmd.deleteFiles(unversioned(files))
+    else if (value === 'add') cmd.addToVcs(unversioned(files))
+    else if (value === 'ignore') cmd.ignore(unversioned(files))
     else if (value === 'stash') cmd.stash(commitPaths(files))
+    else if (value === 'patch') void cmd.copyPatch(commitPaths(files))
     else if (value === 'history' && f) cmd.openLog({ path: f.path })
-    else if (value === 'copy' && f) cmd.copy(f.path)
+    else if (value === 'copy') cmd.copy(tg.changes.map((c) => c.path).join('\n'))
     else if (value === 'merge' && f) cmd.openMerge(f.path)
     else if ((value === 'ours' || value === 'theirs') && f) void cmd.resolve(f.path, value)
   }
-  const ongoing = data.ongoing
+  const ongoing = data?.ongoing ?? null
   return (
     <div className="gc">
       <div className="gc-bar" role="toolbar" aria-label={t('更改')}>
@@ -150,18 +185,10 @@ export function CommitView({
         <ToolIcon
           icon="undo"
           label={t('回滚所选文件…')}
-          disabled={!picked.length}
-          onClick={() => rollback(picked)}
+          disabled={!tracked(chosen).length}
+          onClick={() => rollback(chosen)}
         />
-        <ToolIcon
-          icon="doc-text"
-          label={t('显示差异')}
-          disabled={!selected}
-          onClick={() => {
-            const c = groups.flatMap((g) => g.changes).find((x) => x.path === selected)
-            if (c) open(c)
-          }}
-        />
+        <ToolIcon icon="doc-text" label={t('显示差异')} disabled={!lead} onClick={() => lead && open(lead)} />
         <ToolIcon
           icon="archive"
           label={t('贮藏…')}
@@ -186,25 +213,36 @@ export function CommitView({
             type="button"
             className="gc-bar__all"
             onClick={() =>
-              setSkipped(picked.length === all.length ? new Set(all.map((c) => c.path)) : new Set())
+              check(
+                all.map((c) => c.path),
+                picked.length !== all.length,
+              )
             }
           >
             {picked.length === all.length ? t('取消全选') : t('全选')}
           </button>
         ) : null}
       </div>
-      {data.limited ? (
+      {data?.limited ? (
         <Alert
           description={t('Bot 所在机器的客户端版本较旧：未跟踪文件、冲突与修改上一次提交需升级后使用')}
         />
       ) : null}
       <div className="gc-tree">
-        {all.length || data.conflicts.length ? (
+        {error ? (
+          <Alert variant="error" description={t('读取改动失败：{error}', { error })} />
+        ) : !data ? (
+          <div className="git-refs__note">
+            <Spinner size={14} />
+          </div>
+        ) : all.length || data.conflicts.length ? (
           <ChangeTree
             groups={groups}
             layout={layout}
-            selected={selected}
-            onSelect={onPick}
+            selected={lead?.path ?? null}
+            selection={selection}
+            onSelect={onSelect}
+            onSelection={setSeveral}
             onOpen={open}
             checked={checked}
             onCheck={check}
@@ -212,6 +250,7 @@ export function CommitView({
             onToggleFolder={toggleFolder}
             menu={menu}
             onMenu={onMenu}
+            onKeyDown={keys}
             label={t('要提交的文件')}
           />
         ) : (
@@ -227,9 +266,10 @@ export function CommitView({
         target={target}
         paths={commitPaths(picked)}
         count={picked.length}
-        head={data.head}
+        head={data?.head ?? null}
         total={all.length}
-        onCommitted={() => setSkipped(new Set())}
+        ongoing={ongoing}
+        conflicts={data?.conflicts.length ?? 0}
       />
     </div>
   )

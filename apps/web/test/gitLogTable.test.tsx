@@ -113,7 +113,7 @@ describe('commit table', () => {
     expect(row(tab, '3').getAttribute('aria-selected')).toBe('true')
   })
 
-  it('picks several with ⌘ and ⇧: cherry-picks them oldest first and reverts them newest first', async () => {
+  it('picks several with ⌘ and ⇧: cherry-picks and reverts them oldest first (the daemon reverts the newest first)', async () => {
     const tab = await openLog()
     fireEvent.click(row(tab, '1'))
     fireEvent.click(row(tab, '2'), { metaKey: true })
@@ -129,7 +129,7 @@ describe('commit table', () => {
     })
     menu(tab, '2', '还原提交')
     expect(dialog()).toMatchObject({
-      confirm: { req: { action: 'revert', commits: [hash('1'), hash('2'), hash('5')] } },
+      confirm: { req: { action: 'revert', commits: [hash('5'), hash('2'), hash('1')] } },
     })
 
     // ⇧ picks the range from the last one clicked; right-clicking another commit picks it alone.

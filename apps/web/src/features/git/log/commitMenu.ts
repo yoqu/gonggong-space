@@ -112,7 +112,7 @@ export async function runCommitAction(value: string, picked: GitCommit[], ctx: C
   const { cmd } = ctx
   const [c] = picked
   if (!c) return
-  // Oldest first, as they were made; a revert undoes the newest first so each one applies cleanly.
+  // Oldest first, as they were made (the daemon reverts the newest first, so each one applies cleanly).
   const oldest = [...picked].reverse().map(commitInfo)
   switch (value) {
     case 'copy-hash':
@@ -128,7 +128,7 @@ export async function runCommitAction(value: string, picked: GitCommit[], ctx: C
     case 'cherry-pick':
       return cmd.cherryPick(oldest)
     case 'revert':
-      return cmd.revert(picked.map(commitInfo))
+      return cmd.revert(oldest)
     case 'checkout':
       return cmd.checkout(c.hash, true)
     case 'browse':
