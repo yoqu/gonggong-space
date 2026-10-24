@@ -218,6 +218,8 @@ export interface FileViewerProps {
   onCite?: () => void
   /** A bot's file in a repo: annotate and history in the bar. */
   git?: FileGit
+  /** Shows the annotations, on opening and anew whenever it changes (IDEA's Annotate from elsewhere). */
+  annotate?: number
 }
 
 /** One file by type (design §4.6): shared by the files tab, file tabs and attachments. */
@@ -232,21 +234,29 @@ export function FileViewer({
   onOpenTab,
   onCite,
   git,
+  annotate: annotateAsked,
 }: FileViewerProps) {
   const textual = TEXTUAL.includes(kind)
   const [annotate, setAnnotate] = useState<{ lines: BlameLine[] | null; error: string | null } | null>(null)
-  const toggleAnnotate = () => {
-    if (annotate || !git) return setAnnotate(null)
+  const showAnnotations = (g: FileGit) => {
     setAnnotate({ lines: null, error: null })
-    git.blame().then(
+    g.blame().then(
       (b) => setAnnotate((a) => a && { lines: blameLines(b), error: null }),
       (e: unknown) => setAnnotate((a) => a && { lines: null, error: errorText(e) }),
     )
   }
+  const toggleAnnotate = () => {
+    if (annotate || !git) return setAnnotate(null)
+    showAnnotations(git)
+  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each new request shows them, even after they were hidden
+  useEffect(() => {
+    if (annotateAsked && git) showAnnotations(git)
+  }, [annotateAsked, git])
   const [text, setText] = useState<TextRead | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [md, setMd] = useState<'preview' | 'source'>(line ? 'source' : 'preview')
+  const [md, setMd] = useState<'preview' | 'source'>(line || annotateAsked ? 'source' : 'preview')
   const [fit, setFit] = useState<'fit' | 'actual'>('fit')
   const [dim, setDim] = useState<string | null>(null)
 
@@ -481,12 +491,14 @@ export function BotFileViewer({
   path,
   line,
   rev,
+  annotate,
   onOpenTab,
 }: {
   botId: string
   path: string
   line?: LineRange
   rev?: string | null
+  annotate?: number
   onOpenTab?: () => void
 }) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -525,6 +537,7 @@ export function BotFileViewer({
       onOpenTab={onOpenTab}
       onCite={() => citeInChat(groupId, `@${path}`)}
       git={git}
+      annotate={annotate}
     />
   )
 }

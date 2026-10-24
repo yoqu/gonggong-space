@@ -74,11 +74,9 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
     : []
   const picked = all.find((c) => c.path === tab.file) ?? (wide ? all.find((c) => !c.conflict) : undefined)
   const setView = (v: GitTabView) => patch(tabKey, { view: v, focus: null })
-  const pick = (c: TreeChange) => {
-    if (c.conflict) return gitCommands(target).openMerge(c.path)
-    if (wide) patch(tabKey, { file: c.path })
-    else openTab({ kind: 'diff', botId: tab.botId, scope: 'uncommitted', file: c.path, repo: target.repo })
-  }
+  // Selecting only shows a change (beside the list when wide); opening it is the commit view's double click or Enter.
+  const select = (c: TreeChange) => patch(tabKey, { file: c.path })
+  const conflict = picked?.conflict ? picked.path : data?.conflicts[0]?.path
 
   const left: ReactNode = (
     <div className="wb-git__side">
@@ -108,7 +106,7 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
             data={data}
             error={changes.error}
             selected={picked?.path ?? null}
-            onPick={pick}
+            onSelect={select}
             onReload={() => {
               changes.reload()
               refreshGitQuietly(groupId, tab.botId)
@@ -156,33 +154,27 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
         path={picked.path}
         stamp={stamp}
         actions={
-          <Button
-            size="small"
-            variant="plain"
-            icon="undo"
-            onClick={() =>
-              gitCommands(target).discard(
-                picked.oldPath ? [picked.oldPath, picked.path] : [picked.path],
-                picked.untracked ? 1 : 0,
-                1,
-              )
-            }
-          >
-            {t('回滚')}
-          </Button>
+          // An untracked file has nothing to roll back to.
+          picked.untracked ? undefined : (
+            <Button
+              size="small"
+              variant="plain"
+              icon="undo"
+              onClick={() => gitCommands(target).rollback([picked])}
+            >
+              {t('回滚')}
+            </Button>
+          )
         }
       />
-    ) : data?.conflicts[0] ? (
+    ) : data && conflict ? (
       <EmptyState
         compact
         icon="git-merge"
         title={t('{n} 个文件有冲突', { n: data.conflicts.length })}
         description={t('在合并工具里逐处选择保留哪一方，或手动编辑结果')}
         action={
-          <Button
-            variant="primary"
-            onClick={() => gitCommands(target).openMerge(data.conflicts[0]?.path ?? '')}
-          >
+          <Button variant="primary" onClick={() => gitCommands(target).openMerge(conflict)}>
             {t('解决冲突')}
           </Button>
         }

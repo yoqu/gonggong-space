@@ -82,6 +82,20 @@ describe('annotate (git blame) and history in the file viewer', () => {
     expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-log', repo: 'libs/core', path: 'x.ts', ref: 'v1' })
   })
 
+  it('opens annotated when asked to (IDEA’s Annotate from the commit window), each time it is asked', async () => {
+    useWorkspace.setState({ botStates: { g1: { b1: state() } } })
+    mockApi({
+      'GET /groups/g1/bots/b1/files/text?path=src%2Fa.ts': TEXT,
+      [`GET ${BASE}/blame?path=src%2Fa.ts`]: BLAME,
+    })
+    const { rerender } = render(<BotFileViewer botId="b1" path="src/a.ts" annotate={1} />)
+    await waitFor(() => expect(document.querySelectorAll('.pv-line__blame')).toHaveLength(4))
+    fireEvent.click(screen.getByRole('button', { name: '注解（Git Blame）' }))
+    expect(document.querySelectorAll('.pv-line__blame')).toHaveLength(0)
+    rerender(<BotFileViewer botId="b1" path="src/a.ts" annotate={2} />)
+    await waitFor(() => expect(document.querySelectorAll('.pv-line__blame')).toHaveLength(4))
+  })
+
   it('has no git buttons outside a repo', async () => {
     useWorkspace.setState({ botStates: { g1: { b1: state({ git: null }) } } })
     useWorkbench.setState({ groupId: 'g1' })

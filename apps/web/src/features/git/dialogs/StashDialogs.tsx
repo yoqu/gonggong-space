@@ -82,9 +82,10 @@ export function UnstashDialog({ target, stash, onClose }: Props & { stash: GitSt
           disabled: busy || !!invalid,
           onClick: () =>
             void submit(
+              // `expect`: refused if the list moved since and stash@{n} is another one by then.
               b
-                ? { action: 'unstash', stash: stash.index, branch: b }
-                : { action: 'unstash', stash: stash.index, pop, index },
+                ? { action: 'unstash', stash: stash.index, expect: stash.hash, branch: b }
+                : { action: 'unstash', stash: stash.index, expect: stash.hash, pop, index },
             ),
         },
       ]}

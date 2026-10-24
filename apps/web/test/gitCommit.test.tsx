@@ -47,7 +47,7 @@ const box = (tab: ReturnType<typeof within>) =>
   tab.getByRole('textbox', { name: '提交说明' }) as HTMLTextAreaElement
 
 describe('commit view', () => {
-  it('groups tracked changes and untracked files, in IDEA’s colours with line counts, all picked', async () => {
+  it('groups tracked changes and untracked files, in IDEA’s colours with line counts, tracked ones picked', async () => {
     mockApi(routes())
     const tab = await openGit()
     const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
@@ -58,15 +58,17 @@ describe('commit view', () => {
     expect(a.textContent).toBe('a.ts+12−3M')
     expect(tree.getByRole('button', { name: '重命名：b.ts' }).getAttribute('title')).toBe('old.ts → b.ts')
     expect(tree.getByRole('button', { name: '未跟踪：src/new.ts' }).className).toContain('gt-file--untracked')
-    expect(tree.getAllByRole('checkbox').every((c) => (c as HTMLInputElement).checked)).toBe(true)
-    expect(tab.getByText('已选 3 / 3 个文件')).toBeTruthy()
+    expect((tree.getByRole('checkbox', { name: '选择 更改' }) as HTMLInputElement).checked).toBe(true)
+    expect((tree.getByRole('checkbox', { name: '选择 未跟踪的文件' }) as HTMLInputElement).checked).toBe(
+      false,
+    )
+    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
   })
 
   it('commits the picked files (a rename’s both sides) with the message, ⌘↩ too, and remembers it', async () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     const tab = await openGit()
-    const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
-    fireEvent.click(tree.getByRole('checkbox', { name: '选择 src/new.ts' }))
+    await tab.findByRole('region', { name: '要提交的文件' })
     const commit = tab.getByRole('button', { name: '提交' }) as HTMLButtonElement
     expect(commit.disabled).toBe(true)
     fireEvent.change(box(tab), { target: { value: '修复退款' } })
@@ -88,10 +90,10 @@ describe('commit view', () => {
     const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
     // src holds a tracked change and an untracked file: a folder per group.
     fireEvent.click(tree.getAllByRole('checkbox', { name: '选择 src' })[0] as HTMLElement)
-    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
+    expect(tab.getByText('已选 1 / 3 个文件')).toBeTruthy()
     expect((tree.getByRole('checkbox', { name: '选择 更改' }) as HTMLInputElement).indeterminate).toBe(true)
     fireEvent.click(tree.getByRole('checkbox', { name: '选择 未跟踪的文件' }))
-    expect(tab.getByText('已选 1 / 3 个文件')).toBeTruthy()
+    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
     fireEvent.click(tab.getByRole('button', { name: '全选' }))
     expect(tab.getByText('已选 3 / 3 个文件')).toBeTruthy()
     fireEvent.click(tab.getByRole('button', { name: '取消全选' }))
@@ -102,7 +104,7 @@ describe('commit view', () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     const tab = await openGit()
     await tab.findByRole('region', { name: '要提交的文件' })
-    fireEvent.click(tab.getByRole('button', { name: '取消全选' }))
+    fireEvent.click(tab.getByRole('checkbox', { name: '选择 更改' }))
     fireEvent.click(tab.getByRole('checkbox', { name: '修改上一次提交' }))
     expect(box(tab).value).toBe('修复退款金额\n\n按原路退回。')
     expect(tab.getByText('只修改提交说明')).toBeTruthy()
@@ -163,12 +165,15 @@ describe('commit view', () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     const tab = await openGit()
     const tree = await tab.findByRole('region', { name: '要提交的文件' })
-    fireEvent.contextMenu(within(tree).getByRole('button', { name: /^未跟踪的文件/ }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '回滚…' }))
+    fireEvent.contextMenu(within(tree).getByRole('button', { name: /^更改/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^回滚…/ }))
     const d = await dialog('回滚改动')
-    expect(d.getByText('1 个未跟踪文件会被删除')).toBeTruthy()
+    expect(d.getByText('将 2 个文件恢复到上次提交的状态')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '回滚' }))
-    await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'discard', paths: ['src/new.ts'] }]))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([{ action: 'discard', paths: ['src/a.ts', 'old.ts', 'b.ts'] }]),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '回滚改动' })).toBeNull())
 
     fireEvent.contextMenu(within(tree).getByRole('button', { name: /^更改/ }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '贮藏所选文件…' }))
@@ -259,8 +264,11 @@ describe('merge or rebase in progress', () => {
     expect(banner.getByText('2 个文件有冲突，解决后才能继续')).toBeTruthy()
     const tree = within(tab.getByRole('region', { name: '要提交的文件' }))
     expect(tree.getByRole('button', { name: /^合并冲突/ })).toBeTruthy()
-    fireEvent.click(tree.getByRole('button', { name: '冲突：src/order.ts' }))
-    expect(benchTabs().at(-1)).toEqual({ kind: 'git-merge', botId: 'b1', repo: null, path: 'src/order.ts' })
+    // A click selects the conflict, a double click opens it.
+    fireEvent.click(tree.getByRole('button', { name: '冲突：src/legacy.ts' }))
+    expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', file: 'src/legacy.ts' }])
+    fireEvent.doubleClick(tree.getByRole('button', { name: '冲突：src/legacy.ts' }))
+    expect(benchTabs().at(-1)).toEqual({ kind: 'git-merge', botId: 'b1', repo: null, path: 'src/legacy.ts' })
     fireEvent.click(banner.getByRole('button', { name: '解决冲突' }))
     expect(benchTabs().at(-1)).toEqual({ kind: 'git-merge', botId: 'b1', repo: null, path: 'src/order.ts' })
   })
@@ -341,6 +349,7 @@ describe('stashes', () => {
     ],
   }
   const S0 = 'c0ffee0000000000000000000000000000000001'
+  const S1 = 'c0ffee0000000000000000000000000000000002'
 
   it('lists them; one unfolds the files it holds, tracked and untracked, a pick shows its diff', async () => {
     const calls = mockApi(
@@ -368,7 +377,7 @@ describe('stashes', () => {
     )
   })
 
-  it('unstashes (popping, reinstating the index, or as a new branch), drops one or clears them all', async () => {
+  it('unstashes (popping, reinstating the index, or as a new branch), drops one or clears them all, naming the stash they mean', async () => {
     const calls = mockApi(routes({ [`GET ${BASE}/stashes`]: STASHES, [`POST ${BASE}/actions`]: done }))
     const tab = await openGit(status({ stashes: 2 }))
     fireEvent.click(tab.getByRole('tab', { name: '贮藏 · 2' }))
@@ -377,7 +386,9 @@ describe('stashes', () => {
     fireEvent.click(d.getByRole('checkbox', { name: '同时恢复暂存区（--index）' }))
     fireEvent.click(d.getByRole('button', { name: '弹出' }))
     await waitFor(() =>
-      expect(actionsCalled(calls)).toEqual([{ action: 'unstash', stash: 0, pop: true, index: true }]),
+      expect(actionsCalled(calls)).toEqual([
+        { action: 'unstash', stash: 0, expect: S0, pop: true, index: true },
+      ]),
     )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /恢复贮藏/ })).toBeNull())
 
@@ -388,13 +399,20 @@ describe('stashes', () => {
     })
     fireEvent.click(d.getByRole('button', { name: '恢复为新分支' }))
     await waitFor(() =>
-      expect(actionsCalled(calls).at(-1)).toEqual({ action: 'unstash', stash: 1, branch: 'try/fee' }),
+      expect(actionsCalled(calls).at(-1)).toEqual({
+        action: 'unstash',
+        stash: 1,
+        expect: S1,
+        branch: 'try/fee',
+      }),
     )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /恢复贮藏/ })).toBeNull())
 
     fireEvent.click(tab.getByRole('button', { name: '删除 stash@{1}' }))
     fireEvent.click((await dialog('删除贮藏')).getByRole('button', { name: '删除' }))
-    await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop', stash: 1 }))
+    await waitFor(() =>
+      expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop', stash: 1, expect: S1 }),
+    )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '删除贮藏' })).toBeNull())
 
     fireEvent.click(tab.getByRole('button', { name: '清空' }))

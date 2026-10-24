@@ -98,11 +98,14 @@ export interface ToastItem {
   type: ToastType
   title?: ReactNode
   message: ReactNode
+  /** E.g. 「编辑说明」: clicking it dismisses the toast, which stays longer to give time for it. */
+  action?: { label: string; onClick: () => void }
   /** Identical toasts raised while this one is shown fold into it. */
   count: number
 }
 
 const DURATION = 4000
+const ACTION_DURATION = 8000
 let nextId = 1
 
 export const useToasts = create<{ items: ToastItem[] }>()(() => ({ items: [] }))
@@ -115,6 +118,7 @@ export function toast({
   type = 'info',
   title,
   message,
+  action,
 }: Omit<ToastItem, 'id' | 'type' | 'count'> & { type?: ToastType }) {
   const { items } = useToasts.getState()
   const same = items.find((t) => t.type === type && t.title === title && t.message === message)
@@ -123,7 +127,7 @@ export function toast({
     return same.id
   }
   const id = nextId++
-  useToasts.setState({ items: [...items, { id, type, title, message, count: 1 }] })
+  useToasts.setState({ items: [...items, { id, type, title, message, action, count: 1 }] })
   return id
 }
 
@@ -146,9 +150,9 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
   // biome-ignore lint/correctness/useExhaustiveDependencies: a repeat (count) restarts the timer
   useEffect(() => {
     if (persistent || hover || !open) return
-    const timer = setTimeout(() => dismissToast(t.id), DURATION)
+    const timer = setTimeout(() => dismissToast(t.id), t.action ? ACTION_DURATION : DURATION)
     return () => clearTimeout(timer)
-  }, [persistent, hover, open, t.id, t.count])
+  }, [persistent, hover, open, t.id, t.count, t.action])
   if (!presence.mounted) return null
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover only pauses the auto-dismiss timer
@@ -166,6 +170,18 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
         <div className="ui-toast__message">{t.message}</div>
       </div>
       {t.count > 1 ? <span className="ui-toast__count">×{t.count}</span> : null}
+      {t.action ? (
+        <button
+          type="button"
+          className="ui-toast__action"
+          onClick={() => {
+            dismissToast(t.id)
+            t.action?.onClick()
+          }}
+        >
+          {t.action.label}
+        </button>
+      ) : null}
       {persistent ? (
         <button
           type="button"

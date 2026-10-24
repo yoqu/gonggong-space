@@ -33,6 +33,14 @@
   font-size: var(--text-subheadline-size);
 }
 
+.git-rollback__files {
+  max-height: 260px;
+  overflow: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+}
+
 .git-push__commits {
   max-height: 220px;
   overflow: auto;

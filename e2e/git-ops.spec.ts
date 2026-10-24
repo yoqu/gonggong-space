@@ -97,13 +97,15 @@ test('manual git: the owner switches branch, sees its tree, commits and pushes; 
       writeFileSync(join(dir, 'later.txt'), 'not yet\n')
       // Fetching re-reads the status, so files written outside a turn show up.
       await git.getByRole('button', { name: '获取远程更新' }).click()
-      await expect(git).toContainText('已选 2 / 2 个文件', { timeout: 30_000 })
-      await git.locator('label', { hasText: 'later.txt' }).click()
+      // New files start unpicked, as IDEA's unversioned files.
+      await expect(git.getByRole('button', { name: '未跟踪：later.txt' })).toBeVisible({ timeout: 30_000 })
+      await git.locator('label', { hasText: 'hello.txt' }).click()
       await expect(git).toContainText('已选 1 / 2 个文件')
       await git.getByRole('textbox', { name: '提交说明' }).fill('add hello')
       await git.getByRole('button', { name: '提交', exact: true }).click()
-      // What was left out stays, picked for the next commit.
-      await expect(git).toContainText('已选 1 / 1 个文件', { timeout: 30_000 })
+      // What was left out stays, unpicked.
+      await expect(git.getByRole('button', { name: '未跟踪：hello.txt' })).toBeHidden({ timeout: 30_000 })
+      await expect(git).toContainText('勾选要提交的文件')
       const left = await api.call<GitCompareDto>('get', `${base}/git/compare?from=HEAD`)
       expect(left.changes.map((c) => c.path)).toEqual(['later.txt'])
       await expect(page.getByText(/提交了 .* 的改动：add hello/).first()).toBeAttached({ timeout: 30_000 })

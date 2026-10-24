@@ -8,6 +8,7 @@ import {
   RevisionDialog,
 } from './BranchDialogs'
 import { ContinueDialog, DeleteTagDialog, NewTagDialog, ResetDialog, RewordDialog } from './HistoryDialogs'
+import { RollbackDialog } from './RollbackDialog'
 import { ConfirmDialog, StashDialog, UnstashDialog } from './StashDialogs'
 import { MergeDialog, PullDialog, PushDialog, RebaseDialog } from './SyncDialogs'
 import '../dialogs.css'
@@ -62,6 +63,8 @@ function Body({
       return <StashDialog {...p} paths={d.paths} />
     case 'unstash':
       return <UnstashDialog {...p} stash={d.stash} />
+    case 'rollback':
+      return <RollbackDialog {...p} changes={d.changes} />
     case 'confirm':
       return <ConfirmDialog {...p} confirm={d.confirm} />
   }

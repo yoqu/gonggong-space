@@ -238,6 +238,21 @@ describe('Toast', () => {
     expect(screen.queryByText('已保存')).toBeNull()
   })
 
+  it('runs a toast’s action, which dismisses it; such toasts stay longer', async () => {
+    vi.useFakeTimers()
+    const onClick = vi.fn()
+    render(<Toaster />)
+    act(() => {
+      toast({ type: 'success', message: '已提交', action: { label: '编辑说明', onClick } })
+    })
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    fireEvent.click(screen.getByRole('button', { name: '编辑说明' }))
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(useToasts.getState().items).toEqual([])
+  })
+
   it('closes a toast manually', async () => {
     render(<Toaster />)
     act(() => {

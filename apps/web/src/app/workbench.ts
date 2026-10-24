@@ -27,8 +27,9 @@ export type WorkbenchTab =
     }
   | {
       kind: 'file'
+      /** `annotate` shows who changed each line (IDEA's Annotate), anew each time it changes. */
       source:
-        | { botId: string; path: string; line?: LineRange; rev?: string }
+        | { botId: string; path: string; line?: LineRange; rev?: string; annotate?: number }
         | { attachment: Attachment; from: string }
     }
   /**

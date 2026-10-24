@@ -34,12 +34,17 @@ export const ACTION_LABEL: Record<GitActionKind, string> = {
 /** The POST answer and the realtime event both report the end of an operation: toast it once. */
 const told = new Set<string>()
 
-/** Tells the requester how their operation ended. */
-export function gitOperationSettled(op: GitOperationDto, bots: Pick<BotDto, 'id' | 'name'>[]) {
+/** Tells the requester how their operation ended; `succeeded` says it its own way when it worked. */
+export function gitOperationSettled(
+  op: GitOperationDto,
+  bots: Pick<BotDto, 'id' | 'name'>[],
+  succeeded?: () => void,
+) {
   if (op.requestedBy.id !== useSession.getState().user?.id || told.has(op.id)) return
   const bot = bots.find((b) => b.id === op.botId)?.name ?? 'Bot'
   const action = ACTION_LABEL[op.action]
-  if (op.status === 'succeeded')
+  if (op.status === 'succeeded' && succeeded) succeeded()
+  else if (op.status === 'succeeded')
     toast({ type: 'success', message: t('{bot}：{action}完成', { bot, action }) })
   else if (op.status === 'failed')
     toast({ type: 'error', title: t('{bot}：{action}失败', { bot, action }), message: op.error ?? '' })

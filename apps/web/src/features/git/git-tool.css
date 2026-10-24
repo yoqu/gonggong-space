@@ -248,6 +248,14 @@
   outline-offset: -1px;
   border-color: transparent;
 }
+/* IDEA's commit message inspections: hints only, they never stop a commit. */
+.gc-box__notes {
+  display: flex;
+  flex-direction: column;
+  margin-top: -2px;
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
 .gc-box__actions {
   display: flex;
   align-items: center;
