@@ -707,6 +707,7 @@ export const en = {
   请选择保留哪一方或填写合并结果: 'Choose which side to keep or fill in the merge result',
   '合并结果含有已脱敏的内容，请保留一方或在本机解决':
     'The merge result contains redacted text; keep one side or resolve it on the machine',
+  逐块回滚只能针对一个文件: 'Hunks can only be rolled back in one file at a time',
   // GitActionReq's own messages (packages/protocol), answered by the ZodError handler
   请填写提交说明: 'Enter a commit message',
   无效的分支或标签名: 'Invalid branch or tag name',

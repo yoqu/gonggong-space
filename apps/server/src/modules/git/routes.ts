@@ -192,7 +192,13 @@ export function gitRoutes(ctx: Ctx) {
     app.get('/api/groups/:id/bots/:botId/git/diff', async (req: Req): Promise<GitDiffDto> => {
       const q = GitDiffQuery.parse(req.query)
       const options = setOnly({ ignoreWhitespace: q.ignoreWhitespace, context: q.context })
-      const { target } = await member(req, q.repo || options ? 'gitOps3' : 'gitOps2')
+      const { target } = await member(req, q.repo || options || q.whitespace ? 'gitOps3' : 'gitOps2')
+      const machineId = target.bot.machineId
+      // An older daemon gets what it always did: any whitespace mode as ignoring it all, the rename's two sides apart.
+      const modes =
+        machineId && ctx.hub.features(machineId).includes('gitOps4')
+          ? setOnly({ oldPath: (q.oldPath && strip(q.oldPath)) || undefined, whitespace: q.whitespace })
+          : q.whitespace && { ignoreWhitespace: true }
       const msg = {
         t: 'git.diff',
         repo: q.repo,
@@ -201,6 +207,7 @@ export function gitRoutes(ctx: Ctx) {
         path: (q.path && strip(q.path)) || null,
         maxBytes: DIFF_MAX_BYTES,
         ...options,
+        ...modes,
       } as const
       const res = await ask(target, msg, 'git.diff.result')
       const redact = await groupRedactor(ctx, target.group.id)
