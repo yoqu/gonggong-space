@@ -2,7 +2,9 @@ import { Presence } from '../../../ui'
 import { type GitDialog, useGitDialogs } from '../commands'
 import {
   CheckoutDialog,
+  CheckoutProblemDialog,
   DeleteBranchDialog,
+  DivergedDialog,
   NewBranchDialog,
   RenameBranchDialog,
   RevisionDialog,
@@ -33,6 +35,10 @@ function Body({
   switch (d.kind) {
     case 'checkout':
       return <CheckoutDialog {...p} rev={d.ref} detach={d.detach} />
+    case 'checkout-problem':
+      return <CheckoutProblemDialog {...p} op={d.op} />
+    case 'diverged':
+      return <DivergedDialog {...p} op={d.op} />
     case 'revision':
       return <RevisionDialog {...p} />
     case 'branch-create':

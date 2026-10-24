@@ -33,6 +33,20 @@
   font-size: var(--text-subheadline-size);
 }
 
+.git-paths {
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-4) var(--space-12);
+  list-style: none;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--quote-fill);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: 1.6;
+}
+
 .git-rollback__files {
   max-height: 260px;
   overflow: auto;

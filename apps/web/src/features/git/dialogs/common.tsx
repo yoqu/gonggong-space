@@ -1,8 +1,9 @@
-import type { GitActionInput, GitChangesDto, GitOperationDto } from '@gonggong/protocol'
+import type { GitActionInput, GitChangesDto, GitCommit, GitOperationDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
 import { api } from '../../../lib/api'
+import { ago } from '../../../lib/time'
 import { Alert, ComboBox } from '../../../ui'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import {
@@ -69,6 +70,24 @@ export function OwnerNote({ botId }: { botId: string }) {
 
 export function GitError({ error }: { error: string | null }) {
   return error ? <Alert variant="error" description={error} /> : null
+}
+
+/** Commits a dialog is about, one per line; `more`: the list goes on. */
+export function CommitList({ commits, more }: { commits: GitCommit[]; more: boolean }) {
+  return (
+    <ul className="git-push__list">
+      {commits.map((c) => (
+        <li key={c.hash} className="git-push__commit">
+          <span className="git-push__subject">{c.subject}</span>
+          <span className="git-push__meta">
+            {c.author} · {ago(c.at)}
+          </span>
+          <span className="git-push__hash">{c.shortHash}</span>
+        </li>
+      ))}
+      {more ? <li className="git-push__more">{t('还有更多提交…')}</li> : null}
+    </ul>
+  )
 }
 
 /** The repo's status line from the live git status. */

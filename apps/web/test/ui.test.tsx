@@ -253,6 +253,27 @@ describe('Toast', () => {
     expect(useToasts.getState().items).toEqual([])
   })
 
+  it('offers several actions, any of which dismisses the toast', () => {
+    const restore = vi.fn()
+    const remove = vi.fn()
+    render(<Toaster />)
+    act(() => {
+      toast({
+        type: 'success',
+        message: '已删除分支 x',
+        action: [
+          { label: '恢复', onClick: restore },
+          { label: '删除跟踪分支', onClick: remove },
+        ],
+      })
+    })
+    expect(screen.getByRole('button', { name: '恢复' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '删除跟踪分支' }))
+    expect(remove).toHaveBeenCalledOnce()
+    expect(restore).not.toHaveBeenCalled()
+    expect(useToasts.getState().items).toEqual([])
+  })
+
   it('closes a toast manually', async () => {
     render(<Toaster />)
     act(() => {

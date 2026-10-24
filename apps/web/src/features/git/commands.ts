@@ -4,6 +4,7 @@ import type {
   GitDiffDto,
   GitHeadCommit,
   GitOngoing,
+  GitOperationDto,
   GitStash,
 } from '@gonggong/protocol'
 import { create } from 'zustand'
@@ -38,6 +39,9 @@ export interface GitConfirm {
 
 export type GitDialog =
   | { kind: 'checkout'; ref: string; detach: boolean }
+  /** A checkout git refused (`op` failed with detail overwritten, or diverged), asked again as chosen. */
+  | { kind: 'checkout-problem'; op: GitOperationDto }
+  | { kind: 'diverged'; op: GitOperationDto }
   | { kind: 'revision' }
   | { kind: 'branch-create'; from: string | null }
   | { kind: 'branch-rename'; branch: string }
@@ -104,10 +108,12 @@ export function gitCommands(target: GitTarget) {
   // The workbench names files from the workspace root, where a sub-repo is a folder.
   const inWorkspace = (path: string) => (target.repo ? `${target.repo}/${path}` : path)
   return {
-    /** A clean tree switches at once (the owner's); changes in the way or a request ask first. */
+    /**
+     * As IDEA, the owner's branch checkout runs at once, changes or not: changes in the way ask then (see notify). A
+     * detached one (what that means said first) or a request opens its dialog.
+     */
     checkout(ref: string, detach = false) {
-      if (!status()?.dirty && ownsBot(target.botId) && !detach)
-        return void run({ action: 'checkout', branch: ref })
+      if (ownsBot(target.botId) && !detach) return void run({ action: 'checkout', branch: ref })
       show({ kind: 'checkout', ref, detach })
     },
     checkoutRevision: () => show({ kind: 'revision' }),

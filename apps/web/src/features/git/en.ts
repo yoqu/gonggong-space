@@ -99,7 +99,6 @@ export default {
   '{n} 个文件有冲突，解决后才能继续': '{n} {n:file has|files have} conflicts; resolve them to continue',
   '{status}：{path}': '{status}: {path}',
   '与 {branch} 比较': 'Compare with {branch}',
-  '与目标分支冲突时 git 会拒绝切换': 'git refuses to switch if they conflict with the target branch',
   '丢弃之后的提交和所有未提交的改动，无法恢复':
     'Discards the later commits and every uncommitted change, for good',
   '丢弃之后的提交，保留未提交的改动；两者冲突时拒绝':
@@ -188,12 +187,10 @@ export default {
   '将处于游离 HEAD 状态：新的提交不属于任何分支，切走前记得新建分支保存':
     'This leaves a detached HEAD: new commits belong to no branch, so create one before switching away',
   '展开一个贮藏，选择文件查看改动': 'Expand a stash and pick a file to see its changes',
-  工作区有未提交的改动: 'The work tree has uncommitted changes',
   '工作区有未提交的改动，与合并冲突时 git 会拒绝':
     'The work tree has uncommitted changes; git refuses if they conflict with the merge',
   已推送: 'Pushed',
   已解决的冲突会丢失: 'Resolved conflicts are lost',
-  带着改动切换: 'Keep the changes',
   平铺显示: 'Flat list',
   应用: 'Apply',
   弹出: 'Pop',
@@ -208,7 +205,6 @@ export default {
   '恢复为新分支（可选）': 'As a new branch (optional)',
   恢复后删除这个贮藏: 'Drop the stash after restoring',
   '恢复贮藏 {ref}': 'Unstash {ref}',
-  我确认删除未合并的分支: 'I confirm deleting the unmerged branch',
   打开文件: 'Open file',
   '把上游的提交合并进来，分叉时生成合并提交':
     "Merges the upstream's commits in, with a merge commit when diverged",
@@ -244,9 +240,6 @@ export default {
   更新方式: 'Update method',
   最近的提交说明: 'Recent commit messages',
   有未解决的冲突: 'Unresolved conflicts',
-  未提交的改动: 'Uncommitted changes',
-  '未提交的改动会先自动贮藏，更新后恢复':
-    'Uncommitted changes are stashed first and restored after the update',
   未跟踪: 'Untracked',
   未跟踪的文件: 'Untracked files',
   '标签 {name} 已存在': 'Tag {name} already exists',
@@ -398,4 +391,53 @@ export default {
   '已提交 {n} 个文件：{subject}': '{n} {n:file|files} committed: {subject}',
   '已修改提交说明：{subject}': 'Commit message amended: {subject}',
   编辑说明: 'Edit message',
+  'Git 检出问题': 'Git Checkout Problem',
+  '检出 {branch} 会覆盖以下文件的本地改动':
+    'Checking out {branch} would overwrite your local changes to these files',
+  会被覆盖的文件: 'Files that would be overwritten',
+  不检出: "Don't checkout",
+  确认强制检出: 'Confirm force checkout',
+  '这些文件的本地改动会丢失，无法恢复': 'The local changes to these files will be lost for good',
+  '本地分支 {local} 与 {remote} 已分叉': 'The local branch {local} and {remote} have diverged',
+  '本地独有 {ahead} 个提交，远程独有 {behind} 个提交':
+    '{ahead} {ahead:commit|commits} only here, {behind} only on the remote',
+  变基到远程: 'Rebase onto remote',
+  丢弃本地提交: 'Drop local commits',
+  确认丢弃本地提交: 'Confirm dropping local commits',
+  '把 {local} 独有的提交重放到 {remote} 之后': 'Replays the commits only on {local} on top of {remote}',
+  '把 {local} 重置为 {remote}': 'Resets {local} to {remote}',
+  '{local} 独有的 {n} 个提交会被丢弃，只能从引用日志找回':
+    'The {n} {n:commit|commits} only on {local} will be dropped; only the reflog can bring them back',
+  '智能检出…': 'Smart checkout…',
+  '处理分叉…': 'Resolve divergence…',
+  '已检出 {branch}，恢复本地改动时 {n} 个文件有冲突':
+    'Checked out {branch}; restoring local changes left {n} {n:file|files} conflicted',
+  '已更新，恢复本地改动时 {n} 个文件有冲突':
+    'Updated; restoring local changes left {n} {n:file|files} conflicted',
+  '本地改动会先贮藏，更新后自动恢复': 'Local changes are stashed first and restored after the update',
+  '已更新 {files} 个文件（{commits} 个提交）':
+    '{files} {files:file|files} updated in {commits} {commits:commit|commits}',
+  已是最新: 'All files are up to date',
+  查看提交: 'View commits',
+  获取完成: 'Fetched successfully',
+  无效的分支名: 'Invalid branch name',
+  '与已有分支 {name} 冲突': 'Clashes with the existing branch {name}',
+  '{name} 是当前分支，不能覆盖': "{name} is the current branch and can't be overwritten",
+  覆盖已存在的分支: 'Overwrite existing branch',
+  '{n} 个提交未合并到 {target}': '{n} {n:commit is|commits are} not merged into {target}',
+  未合并的提交: 'Unmerged commits',
+  '已删除分支 {branch}': 'Deleted branch {branch}',
+  '恢复#restore': 'Restore',
+  删除跟踪分支: 'Delete tracked branch',
+  '已检出 {branch}': 'Checked out {branch}',
+  '已推送到 {remote}/{branch}': 'Pushed to {remote}/{branch}',
+  '已创建分支 {name}': 'Created branch {name}',
+  '已将分支 {branch} 重命名为 {name}': 'Renamed branch {branch} to {name}',
+  '已合并 {branch}': 'Merged {branch}',
+  '已变基到 {onto}': 'Rebased onto {onto}',
+  '已优选 {n} 个提交': 'Cherry-picked {n} {n:commit|commits}',
+  '已还原 {n} 个提交': 'Reverted {n} {n:commit|commits}',
+  '已创建标签 {name}': 'Created tag {name}',
+  '已删除标签 {name}': 'Deleted tag {name}',
+  '已推送标签 {name} 到 {remote}': 'Pushed tag {name} to {remote}',
 } satisfies Record<string, string>
