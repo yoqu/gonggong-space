@@ -5,9 +5,9 @@ use crate::config::{Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_CC_SWITCH, FEATURE_GIT_OPS,
-    FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_REPOS, FEATURE_PLUGINS, FEATURE_PROVIDERS, FEATURE_REPROBE,
-    FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput, ProviderStateItem,
-    ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_PLUGINS, FEATURE_PROVIDERS,
+    FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput,
+    ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -58,6 +58,7 @@ impl Manage {
             FEATURE_GIT_OPS2.to_string(),
             FEATURE_GIT_REPOS.to_string(),
             FEATURE_GIT_OPS3.to_string(),
+            FEATURE_GIT_OPS4.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -764,7 +765,8 @@ mod tests {
                 "gitOps",
                 "gitOps2",
                 "gitRepos",
-                "gitOps3"
+                "gitOps3",
+                "gitOps4"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -782,6 +784,7 @@ mod tests {
                 "gitOps2",
                 "gitRepos",
                 "gitOps3",
+                "gitOps4",
                 "ccSwitch"
             ]
         );

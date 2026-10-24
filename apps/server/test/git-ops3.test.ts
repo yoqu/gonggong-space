@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { auditLogs, groups, notifications } from '../src/db/schema.js'
 import { MASK } from '../src/modules/runs/redact.js'
 import { createTestApp, type TestApp } from './support/app.js'
-import { gitDaemon, gitWorld, groupEvents } from './support/git-daemon.js'
+import { gitBranch, gitDaemon, gitWorld, groupEvents } from './support/git-daemon.js'
 
 let t: TestApp
 beforeEach(async () => {
@@ -604,8 +604,17 @@ describe('gitOps3 actions', () => {
     expect(await w.members.post(`${w.base}/actions`, force)).toMatchObject(noForce)
     const noDelete = { status: 409, body: { message: '受保护的基准分支不能在远程删除' } }
     const remote = { action: 'branch-delete', branch: 'origin/main' }
-    expect(await w.owners.post(`${w.base}/actions`, remote)).toMatchObject(noDelete)
-    expect(await w.members.post(`${w.base}/actions`, { ...remote, force: true })).toMatchObject(noDelete)
+    // A branch ending in the base branch's name is looked up: a local one of that name is deleted locally instead.
+    const refs = {
+      branches: [gitBranch('origin/main', 'remote'), gitBranch('origin/feat/main', 'remote')],
+      remotes: ['origin'],
+    }
+    const owned = w.owners.post(`${w.base}/actions`, remote)
+    await d.refs(refs)
+    expect(await owned).toMatchObject(noDelete)
+    const requested = w.members.post(`${w.base}/actions`, { ...remote, force: true })
+    await d.refs(refs)
+    expect(await requested).toMatchObject(noDelete)
     expect((await ops(w)).body.operations).toEqual([])
 
     for (const input of [
@@ -614,6 +623,7 @@ describe('gitOps3 actions', () => {
       { action: 'branch-delete', branch: 'origin/feat/main' },
     ]) {
       const res = w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+      if (input.branch.endsWith('/main')) await d.refs(refs)
       expect(await d.act()).toMatchObject({ action: input.action, branch: input.branch })
       expect((await res).body.status).toBe('succeeded')
     }

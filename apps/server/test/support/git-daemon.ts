@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type ServerToDaemon } from '@gonggong/protocol'
+import { type GitBranch, type GitRemote, PROTOCOL_VERSION, type ServerToDaemon } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { expect } from 'vitest'
 import { groupBots, groupRepos, messages, runs } from '../../src/db/schema.js'
@@ -45,8 +45,39 @@ export async function gitDaemon(t: TestApp, token: string, features = ['gitOps',
     })
     return req
   }
-  return { send, next, act, close: () => ws.close() }
+  /** Answers the next git.refs with these branches and remotes, or `error`. */
+  const refs = async (o: { branches?: GitBranch[]; remotes?: string[]; error?: string | null } = {}) => {
+    const req = await next('git.refs')
+    send({
+      t: 'git.refs.result',
+      requestId: req.requestId,
+      branches: o.branches ?? [],
+      remotes: (o.remotes ?? []).map((name): GitRemote => ({ name, url: `git@git.corp:${name}/pay.git` })),
+      tags: [],
+      recent: [],
+      error: o.error ?? null,
+    })
+    return req
+  }
+  return { send, next, act, refs, close: () => ws.close() }
 }
+
+/** A branch as git.refs lists it: `upstream` given = a local branch tracking it. */
+export const gitBranch = (
+  name: string,
+  kind: GitBranch['kind'] = 'local',
+  upstream: string | null = null,
+) => ({
+  name,
+  kind,
+  current: false,
+  upstream,
+  ahead: upstream ? 0 : null,
+  behind: upstream ? 0 : null,
+  commit: 'a1b2c3d',
+  subject: 's',
+  at: '2026-10-24T08:00:00+08:00',
+})
 
 /** A partition group with a repo (base `main`) and the bot cc of 王磊, ready; 陈晨 is a member. */
 export async function gitWorld(t: TestApp) {

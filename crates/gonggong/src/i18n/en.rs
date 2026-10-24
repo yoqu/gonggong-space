@@ -623,4 +623,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("已解决 {path}", "Resolved {path}"),
     ("{files} 等", "{files} and more"),
     ("有 {n} 个冲突待解决：{files}", "{n} {n:conflict|conflicts} to resolve: {files}"),
+    ("贮藏列表已变化，请刷新后重试", "The stash list changed; refresh and try again"),
+    ("已将 {n} 个文件加入版本控制", "Added {n} {n:file|files} to version control"),
+    ("已将 {n} 个路径加入 .gitignore", "Added {n} {n:path|paths} to .gitignore"),
+    ("无法加入 .gitignore：{path}", "Can't add to .gitignore: {path}"),
 ];

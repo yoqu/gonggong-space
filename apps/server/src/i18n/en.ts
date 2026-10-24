@@ -707,4 +707,9 @@ export const en = {
   请选择保留哪一方或填写合并结果: 'Choose which side to keep or fill in the merge result',
   '合并结果含有已脱敏的内容，请保留一方或在本机解决':
     'The merge result contains redacted text; keep one side or resolve it on the machine',
+  // GitActionReq's own messages (packages/protocol), answered by the ZodError handler
+  请填写提交说明: 'Enter a commit message',
+  无效的分支或标签名: 'Invalid branch or tag name',
+  无效的远程名称: 'Invalid remote name',
+  无效的修订: 'Invalid revision',
 } satisfies Record<string, string>

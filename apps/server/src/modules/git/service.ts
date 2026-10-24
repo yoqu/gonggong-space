@@ -6,6 +6,7 @@ import type {
   GitActionReq,
   GitOperationDto,
   GitOperationStatus,
+  GitRemote,
 } from '@gonggong/protocol'
 import { and, eq, inArray, lte, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -31,6 +32,7 @@ type Columns = Pick<GitOperation, 'repo' | 'action' | 'branch' | 'remote' | 'mes
 export const PENDING_MS = 30 * 60_000
 /** The daemon gives network git 120 s. */
 const ACTION_TIMEOUT_MS = 130_000
+const REFS_TIMEOUT_MS = 15_000
 const SWEEP_MS = 30_000
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 /** Stored once for every reader. */
@@ -47,14 +49,30 @@ export function setOnly<T extends Record<string, unknown>>(o: T): Partial<T> | u
 const needsOps3 = (op: Pick<Columns, 'action' | 'branch' | 'args'>) =>
   !LEGACY.includes(op.action) || !!op.args || (op.action === 'pull' && !!op.branch)
 
+/** add / ignore, the stash guard, keeping added files, or a push to another remote branch than its own name. */
+const needsOps4 = ({ action, branch, args }: Pick<Columns, 'action' | 'branch' | 'args'>) =>
+  action === 'add' ||
+  action === 'ignore' ||
+  !!args?.expect ||
+  !!args?.keepAdded ||
+  (!!args?.target && args.target !== branch)
+
 /**
  * What the bot's daemon must support for an operation: committing chosen paths came with gitOps2, sub-repos with
- * gitRepos, the other actions and every option (`args`) with gitOps3.
+ * gitRepos, the other actions and every option (`args`) with gitOps3, those of the second IDEA pass with gitOps4.
  */
 export const featureFor = (
   op: Pick<Columns, 'action' | 'branch' | 'paths' | 'repo' | 'args'>,
 ): DaemonFeature =>
-  needsOps3(op) ? 'gitOps3' : op.repo ? 'gitRepos' : op.action === 'commit' && op.paths ? 'gitOps2' : 'gitOps'
+  needsOps4(op)
+    ? 'gitOps4'
+    : needsOps3(op)
+      ? 'gitOps3'
+      : op.repo
+        ? 'gitRepos'
+        : op.action === 'commit' && op.paths
+          ? 'gitOps2'
+          : 'gitOps'
 
 /** The bot's workspace in a partition group with a repo: the only place manual git is offered. */
 export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, feature: DaemonFeature = 'gitOps') {
@@ -275,16 +293,72 @@ export function assertValid(req: GitActionReq) {
 }
 
 /**
- * The protected base branch is never force-pushed nor deleted on a remote. Remote names are not known here, so any
- * `<remote>/<base>` counts as its remote-tracking branch.
+ * The protected base branch is never force-pushed nor deleted on a remote, and a push landing on it needs a second
+ * confirmation (`pushesBase`). Judged by where the operation lands on the remote, which the bot's daemon is asked
+ * about when the request doesn't say; returns the operation as it is to run, a push's target pinned (see pinTarget).
  */
-export function assertAllowed(op: Pick<Columns, 'action' | 'branch' | 'args'>, t: GitTarget) {
-  if (!t.group.protectBase) return
+export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
+  if (!t.group.protectBase) return { op, pushesBase: false }
   const base = t.workspace.repo.branch
-  if (op.action === 'push' && op.args?.force && op.branch === base)
-    fail('conflict', '受保护的基准分支不能强制推送')
-  if (op.action === 'branch-delete' && /^[^/]+\/(.+)$/.exec(op.branch ?? '')?.[1] === base)
+  if (op.action === 'push') {
+    const pinned = await pinTarget(ctx, op, t)
+    const pushesBase = (pinned.args?.target ?? pinned.branch) === base
+    if (pushesBase && op.args?.force) fail('conflict', '受保护的基准分支不能强制推送')
+    return { op: pinned, pushesBase }
+  }
+  if (op.action === 'branch-delete' && (await deletesRemote(ctx, op, t, base)))
     fail('conflict', '受保护的基准分支不能在远程删除')
+  return { op, pushesBase: false }
+}
+
+/**
+ * A push without a target lands on the branch's upstream when that is on `remote` (gitOps4; an older daemon pushes
+ * the same name). An online gitOps4 daemon is asked (git.refs) and the push pinned to that branch, or to its own name
+ * when the daemon can't tell, so the checks, the owner's approval and the push itself all go by the same one. An
+ * offline daemon can't push either: the push is taken to land on its own name until the approval asks again.
+ */
+async function pinTarget(ctx: Ctx, op: Columns, t: GitTarget): Promise<Columns> {
+  const machineId = onlineMachine(ctx, t.bot.machineId)
+  if (op.args?.target || !op.branch || !machineId || !ctx.hub.features(machineId).includes('gitOps4'))
+    return op
+  const refs = await refsNow(ctx, t, op.repo)
+  const upstream = refs?.branches.find((b) => b.kind === 'local' && b.name === op.branch)?.upstream
+  const tracked = upstream && refs && remoteOf(upstream, refs.remotes) === op.remote
+  const target = tracked ? upstream.slice(`${op.remote}/`.length) : op.branch
+  return { ...op, args: { ...op.args, target } }
+}
+
+/**
+ * Whether deleting `op.branch` deletes `base` on a remote: the daemon deletes a local branch of that name when there
+ * is one, else the remote-tracking `<remote>/<x>`'s x on that remote. When the daemon can't tell, any `<x>/<base>`
+ * counts.
+ */
+async function deletesRemote(ctx: Ctx, op: Columns, t: GitTarget, base: string) {
+  const branch = op.branch ?? ''
+  if (!branch.endsWith(`/${base}`)) return false
+  const refs = await refsNow(ctx, t, op.repo)
+  if (!refs) return /^[^/]+\/(.+)$/.exec(branch)?.[1] === base
+  if (refs.branches.some((b) => b.kind === 'local' && b.name === branch)) return false
+  return refs.remotes.some((r) => branch === `${r.name}/${base}`)
+}
+
+/** The remote a remote-tracking name (`origin/feat`) belongs to: the longest remote name it starts with. */
+const remoteOf = (name: string, remotes: GitRemote[]) =>
+  remotes.filter((r) => name.startsWith(`${r.name}/`)).sort((a, b) => b.name.length - a.name.length)[0]?.name
+
+/** The bot's branches and remotes as its daemon has them now; null when it can't tell. */
+async function refsNow(ctx: Ctx, t: GitTarget, repo: string | null) {
+  const machineId = onlineMachine(ctx, t.bot.machineId)
+  const msg = {
+    t: 'git.refs',
+    requestId: randomUUID(),
+    groupId: t.group.id,
+    botId: t.bot.id,
+    workspace: t.workspace,
+    ...(repo && { repo }),
+  } as const
+  const res = machineId && (await ctx.hub.request(machineId, msg, 'git.refs.result', REFS_TIMEOUT_MS))
+  return res && !res.error ? res : null
 }
 
 /** The operation's audit detail; `files` counts the chosen paths, a resolution's text is left out. */
