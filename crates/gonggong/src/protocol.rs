@@ -756,6 +756,21 @@ pub struct GitDiff {
     /// Context lines (`-U`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<u32>,
+    /// [`FEATURE_GIT_OPS4`]: a rename's source, diffed with `path` as one file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
+    /// [`FEATURE_GIT_OPS4`], over `ignore_whitespace`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub whitespace: Option<GitWhitespace>,
+}
+
+/// IDEA's whitespace modes of a diff: trim = `-b`, ignore = `-w`, ignore-blank = `-w --ignore-blank-lines`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GitWhitespace {
+    Trim,
+    Ignore,
+    IgnoreBlank,
 }
 
 /// git.changes: the work tree against HEAD as a commit would take it, unmerged paths apart, what stopped midway and
@@ -908,6 +923,46 @@ pub struct GitActionArgs {
     pub expect: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keep_added: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_commits: Option<GitLocalCommits>,
+}
+
+/// What a checkout of a remote branch does with the commits its local one has of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GitLocalCommits {
+    Rebase,
+    Drop,
+}
+
+/// [`FEATURE_GIT_OPS4`]: what an action's outcome needs beyond its text (see GitActionDetail in daemon.ts).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct GitActionDetail {
+    pub code: Option<GitActionCode>,
+    pub paths: Vec<String>,
+    /// diverged: the local branch's own commits, and the remote one's.
+    pub ahead: Option<u32>,
+    pub behind: Option<u32>,
+    /// What a pull brought in.
+    pub updated: Option<GitUpdated>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GitActionCode {
+    Overwritten,
+    Diverged,
+    Conflicts,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitUpdated {
+    pub from: String,
+    pub to: String,
+    pub commits: u32,
+    pub files: u32,
 }
 
 /// git.action: a manual write, refused (`busy`) while a turn holds the directory; commits are made as `identity`.
@@ -1577,7 +1632,9 @@ pub const FEATURE_GIT_REPOS: &str = "gitRepos";
 /// recent branches in git.refs, the GitStatus extras, and the git.action kinds past push with their `args`.
 pub const FEATURE_GIT_OPS3: &str = "gitOps3";
 /// Pushes to `args.target` as explicit refs (an older daemon pushes the same name), stash `args.expect`, discard
-/// `args.keepAdded` and the add / ignore actions: without it a server must not send them.
+/// `args.keepAdded` / `args.patch`, the add / ignore actions, git.diff `old_path` / `whitespace`, checkout
+/// `args.localCommits`, pull `args.from`, branch-create `args.force`: without it a server must not send them. Answers
+/// git.action with `detail`.
 pub const FEATURE_GIT_OPS4: &str = "gitOps4";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2032,7 +2089,15 @@ pub enum DaemonToServer {
     #[serde(rename = "git.refresh.result", rename_all = "camelCase")]
     GitRefreshResult { request_id: String, error: Option<String> },
     #[serde(rename = "git.action.result", rename_all = "camelCase")]
-    GitActionResult { request_id: String, ok: bool, busy: bool, output: Option<String>, error: Option<String> },
+    GitActionResult {
+        request_id: String,
+        ok: bool,
+        busy: bool,
+        output: Option<String>,
+        error: Option<String>,
+        #[serde(default)]
+        detail: Option<GitActionDetail>,
+    },
     #[serde(rename = "workspace.diff.result", rename_all = "camelCase")]
     WorkspaceDiffResult {
         request_id: String,
@@ -2326,5 +2391,83 @@ mod tests {
             (drop.action, args.stash, args.expect.as_deref()),
             (GitActionKind::StashDrop, Some(1), Some("5f2c9e1a"))
         );
+    }
+
+    #[test]
+    fn git_ops4_detail_fixtures_parse() {
+        let ServerToDaemon::GitDiff(diff) =
+            serde_json::from_str(include_str!("../../../packages/protocol/fixtures/s2d.git.diff.rename.json")).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(
+            (diff.path.as_deref(), diff.old_path.as_deref(), diff.whitespace),
+            (Some("src/new.ts"), Some("src/old.ts"), Some(GitWhitespace::IgnoreBlank))
+        );
+
+        let action = |raw: &str| match serde_json::from_str::<ServerToDaemon>(raw).unwrap() {
+            ServerToDaemon::GitAction(a) => (a.action, a.branch.clone(), a.args.unwrap()),
+            other => panic!("unexpected {other:?}"),
+        };
+        let (kind, _, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.discard.patch.json"));
+        assert_eq!(kind, GitActionKind::Discard);
+        assert!(args.patch.unwrap().starts_with("diff --git a/src/a.ts b/src/a.ts\n"));
+        let (kind, branch, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.checkout.drop.json"));
+        assert_eq!(
+            (kind, branch.as_deref(), args.local_commits),
+            (GitActionKind::Checkout, Some("origin/feat"), Some(GitLocalCommits::Drop))
+        );
+        let (kind, _, args) = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.pull.from.json"));
+        assert_eq!(
+            (kind, args.mode.as_deref(), args.from.as_deref()),
+            (GitActionKind::Pull, Some("rebase"), Some("origin/feat"))
+        );
+        let (kind, branch, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.branch-create.force.json"));
+        assert_eq!(
+            (kind, branch.as_deref(), args.from.as_deref(), args.checkout, args.force),
+            (GitActionKind::BranchCreate, Some("feat/x"), Some("origin/feat/x"), Some(true), Some(true))
+        );
+
+        let detail = |raw: &str| match serde_json::from_str::<DaemonToServer>(raw).unwrap() {
+            DaemonToServer::GitActionResult { ok, detail, .. } => (ok, detail.unwrap()),
+            other => panic!("unexpected {other:?}"),
+        };
+        let (ok, overwritten) =
+            detail(include_str!("../../../packages/protocol/fixtures/d2s.git.action.result.overwritten.json"));
+        assert!(!ok);
+        assert_eq!(
+            overwritten,
+            GitActionDetail {
+                code: Some(GitActionCode::Overwritten),
+                paths: vec!["src/a.ts".into(), "README.md".into()],
+                ..GitActionDetail::default()
+            }
+        );
+        let (ok, updated) =
+            detail(include_str!("../../../packages/protocol/fixtures/d2s.git.action.result.updated.json"));
+        assert!(ok);
+        let to = GitUpdated { from: "1a2b3c4".into(), to: "5d6e7f8".into(), commits: 2, files: 3 };
+        assert_eq!(updated, GitActionDetail { updated: Some(to), ..GitActionDetail::default() });
+
+        // Every field goes out, null when unset; an older daemon's answer has no detail.
+        let none = serde_json::to_value(GitActionDetail::default()).unwrap();
+        assert_eq!(
+            none,
+            serde_json::json!({"code": null, "paths": [], "ahead": null, "behind": null, "updated": null})
+        );
+        let result = DaemonToServer::GitActionResult {
+            request_id: "q1".into(),
+            ok: true,
+            busy: false,
+            output: None,
+            error: None,
+            detail: None,
+        };
+        assert_eq!(serde_json::to_value(&result).unwrap()["detail"], serde_json::Value::Null);
+        let older = r#"{"t":"git.action.result","requestId":"q1","ok":true,"busy":false,"output":"x","error":null}"#;
+        assert!(matches!(serde_json::from_str(older).unwrap(), DaemonToServer::GitActionResult { detail: None, .. }));
     }
 }
