@@ -1,7 +1,13 @@
-import type { GitActionInput, GitOperationDto, GitOperationsDto } from '@gonggong/protocol'
+import type {
+  GitActionDetail,
+  GitActionInput,
+  GitDiffDto,
+  GitOperationDto,
+  GitOperationsDto,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groups, notifications } from '../src/db/schema.js'
+import { auditLogs, groups, notifications } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { gitBranch, gitDaemon, gitWorld, groupEvents } from './support/git-daemon.js'
 
@@ -23,6 +29,17 @@ type World = Awaited<ReturnType<typeof gitWorld>>
 const ops = (w: World) => w.members.get<GitOperationsDto>(`/api/groups/${w.group.id}/git/operations`)
 const protect = (w: World) => t.db.update(groups).set({ protectBase: true }).where(eq(groups.id, w.group.id))
 const said = (summary: string) => `王磊 在 cc 的工作区执行了 ${summary}`
+const PATCH =
+  'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,2 +1,2 @@\n-const a = 1\n+const a = 2\n' +
+  ' const b = 1\n@@ -9,2 +9,2 @@\n-x\n+y\n z\n'
+const detail = (o: Partial<GitActionDetail>): GitActionDetail => ({
+  code: null,
+  paths: [],
+  ahead: null,
+  behind: null,
+  updated: null,
+  ...o,
+})
 
 describe('gitOps4 names', () => {
   it('refuses with 400 any name a refspec, an option or a URL would read as more', async () => {
@@ -81,6 +98,10 @@ describe('gitOps4 actions', () => {
       { action: 'unstash', stash: 0, expect: 'a1b2c3d' },
       { action: 'stash-drop', stash: 1, expect: hash },
       { action: 'discard', paths: ['a.txt'], keepAdded: true },
+      { action: 'discard', paths: ['a.txt'], patch: PATCH },
+      { action: 'checkout', branch: 'origin/feat', localCommits: 'drop' },
+      { action: 'pull', from: 'origin/feat' },
+      { action: 'branch-create', name: 'feat', overwrite: true },
     ]
     for (const input of inputs) {
       expect(await w.owners.post(`${w.base}/actions`, input), input.action).toMatchObject(old)
@@ -95,6 +116,13 @@ describe('gitOps4 actions', () => {
     })
     expect(await d.act()).toMatchObject({ action: 'push', branch: 'feat', args: { target: 'feat' } })
     expect((await same).body.status).toBe('succeeded')
+    const created = w.owners.post<GitOperationDto>(`${w.base}/actions`, {
+      action: 'branch-create',
+      name: 'feat',
+      overwrite: false,
+    })
+    expect((await d.act()).args).toEqual({ checkout: true })
+    expect((await created).body.status).toBe('succeeded')
     const discard = w.owners.post<GitOperationDto>(`${w.base}/actions`, {
       action: 'discard',
       paths: ['a.txt'],
@@ -142,6 +170,31 @@ describe('gitOps4 actions', () => {
         { args: { stash: 0, expect: hash } },
         said('stash drop stash@{0}'),
       ],
+      [
+        { action: 'checkout', branch: 'origin/feat', localCommits: 'rebase' },
+        { branch: 'origin/feat', args: { localCommits: 'rebase' } },
+        said('checkout origin/feat (rebase local commits)'),
+      ],
+      [
+        { action: 'checkout', branch: 'origin/feat', mode: 'smart', localCommits: 'drop' },
+        { branch: 'origin/feat', args: { mode: 'smart', localCommits: 'drop' } },
+        said('checkout origin/feat (drop local commits)'),
+      ],
+      [
+        { action: 'pull', mode: 'rebase', from: 'origin/feat' },
+        { args: { mode: 'rebase', from: 'origin/feat' } },
+        said('pull --rebase from origin/feat'),
+      ],
+      [
+        { action: 'branch-create', name: 'feat/x', from: 'origin/feat/x', overwrite: true },
+        { branch: 'feat/x', args: { from: 'origin/feat/x', checkout: true, force: true } },
+        said('checkout -B feat/x origin/feat/x'),
+      ],
+      [
+        { action: 'branch-create', name: 'feat/x', checkout: false, overwrite: true },
+        { branch: 'feat/x', args: { force: true } },
+        said('branch -f feat/x'),
+      ],
     ]
     for (const [input, stored] of cases) {
       const res = w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
@@ -182,6 +235,128 @@ describe('gitOps4 actions', () => {
       said('add notes/todo.md'),
       '陈晨 在 cc 的工作区执行了 ignore dist（王磊 批准）',
     ])
+  })
+
+  it('reverts hunks of one file, the patch kept out of what members see', async () => {
+    const w = await gitWorld(t)
+    const d = await gitDaemon(t, w.token, ALL)
+    expect(
+      await w.owners.post(`${w.base}/actions`, { action: 'discard', paths: ['a.ts', 'b.ts'], patch: PATCH }),
+    ).toMatchObject({ status: 400, body: { message: '逐块回滚只能针对一个文件' } })
+
+    const res = w.owners.post<GitOperationDto>(`${w.base}/actions`, {
+      action: 'discard',
+      paths: ['src/a.ts'],
+      patch: PATCH,
+    })
+    expect(await d.act()).toMatchObject({ action: 'discard', paths: ['src/a.ts'], args: { patch: PATCH } })
+    const op = (await res).body
+    expect(op).toMatchObject({ status: 'succeeded', paths: ['src/a.ts'] })
+    expect(op.args).toEqual({})
+
+    const one = PATCH.slice(0, PATCH.lastIndexOf('@@ -9'))
+    const asked = await w.members.post<GitOperationDto>(`${w.base}/actions`, {
+      action: 'discard',
+      paths: ['src/a.ts'],
+      patch: one,
+    })
+    expect(asked.body.args).toEqual({})
+    const [note] = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+    expect(note!.payload).toMatchObject({ summary: 'rollback 1 hunk in src/a.ts' })
+    const approved = w.owners.post(`/api/git-operations/${asked.body.id}/decide`, { approve: true })
+    expect((await d.act()).args).toEqual({ patch: one })
+    expect((await approved).status).toBe(200)
+    expect((await ops(w)).body.operations.map((o) => o.args)).toEqual([{}, {}])
+    const logs = await t.db.select().from(auditLogs)
+    expect(logs.map((l) => l.action).sort()).toEqual(['git.decide', 'git.request', 'git.run', 'git.run'])
+    expect(JSON.stringify(logs.map((l) => l.detail))).not.toContain('const a')
+    expect(await groupEvents(t, w.group.id)).toEqual([
+      said('rollback 2 hunks in src/a.ts'),
+      '陈晨 在 cc 的工作区执行了 rollback 1 hunk in src/a.ts（王磊 批准）',
+    ])
+  })
+
+  it('keeps what a checkout or a pull came to and tells the group', async () => {
+    const w = await gitWorld(t)
+    const d = await gitDaemon(t, w.token, ALL)
+    const post = (input: GitActionInput) => w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+    const conflicts = detail({ code: 'conflicts', paths: ['src/a.ts'] })
+    const checkout = post({ action: 'checkout', branch: 'main', mode: 'smart' })
+    await d.act({ output: '[main a1b2c3d] init', detail: conflicts })
+    const switched = (await checkout).body
+    expect(switched).toMatchObject({ status: 'succeeded', detail: conflicts })
+
+    const updated = { from: '1a2b3c4', to: '5d6e7f8', commits: 2, files: 3 }
+    const pulled = post({ action: 'pull' })
+    await d.act({ detail: detail({ updated }) })
+    expect((await pulled).body).toMatchObject({ status: 'succeeded', detail: { updated } })
+    const merged = post({ action: 'pull', mode: 'merge', from: 'origin/feat' })
+    const both = { code: 'conflicts', paths: ['a.ts', 'b.ts'], updated: { ...updated, commits: 1, files: 1 } }
+    await d.act({ detail: detail(both as Partial<GitActionDetail>) })
+    expect((await merged).body.status).toBe('succeeded')
+    const nothing = post({ action: 'pull' })
+    await d.act({ detail: detail({}) })
+    expect((await nothing).body.detail).toEqual(detail({}))
+
+    const diverged = detail({ code: 'diverged', ahead: 1, behind: 2 })
+    const refused = post({ action: 'checkout', branch: 'origin/feat' })
+    await d.act({ ok: false, error: 'feat 与 origin/feat 已分叉', detail: diverged })
+    expect((await refused).body).toMatchObject({ status: 'failed', detail: diverged })
+    // An older daemon's answer has none.
+    const older = post({ action: 'pull' })
+    await d.act()
+    expect((await older).body.detail).toBeNull()
+
+    const listed = (await ops(w)).body.operations
+    expect(listed.find((o) => o.id === switched.id)?.detail).toEqual(conflicts)
+    expect(await groupEvents(t, w.group.id)).toEqual([
+      said('checkout main (local changes restored with conflicts in 1 file)'),
+      said('pull (2 commits, 3 files)'),
+      said(
+        'pull --no-rebase from origin/feat (1 commit, 1 file; local changes restored with conflicts in 2 files)',
+      ),
+      '王磊 为 cc 拉取了更新',
+      '王磊 为 cc 拉取了更新',
+    ])
+  })
+})
+
+describe('gitOps4 diffs', () => {
+  it("passes a whitespace mode and a rename's source on to a daemon that has them, else as before", async () => {
+    const w = await gitWorld(t)
+    const answer = (d: Awaited<ReturnType<typeof gitDaemon>>, requestId: string) =>
+      d.send({ t: 'git.diff.result', requestId, patch: null, truncated: false, error: null })
+    const url = `${w.base}/diff?${new URLSearchParams({
+      from: 'HEAD',
+      path: '/src/new.ts',
+      oldPath: 'src/old.ts/',
+      whitespace: 'ignore-blank',
+    })}`
+    let d = await gitDaemon(t, w.token, ALL)
+    let res = w.members.get<GitDiffDto>(url)
+    const r1 = await d.next('git.diff')
+    expect(r1).toMatchObject({ path: 'src/new.ts', oldPath: 'src/old.ts', whitespace: 'ignore-blank' })
+    expect('ignoreWhitespace' in r1).toBe(false)
+    answer(d, r1.requestId)
+    expect((await res).status).toBe(200)
+
+    d = await gitDaemon(t, w.token, OPS3)
+    res = w.members.get<GitDiffDto>(url)
+    const r2 = await d.next('git.diff')
+    expect(r2).toMatchObject({ path: 'src/new.ts', ignoreWhitespace: true })
+    expect('oldPath' in r2 || 'whitespace' in r2).toBe(false)
+    answer(d, r2.requestId)
+    expect((await res).status).toBe(200)
+
+    // Only the rename's source: left out, so the oldest daemon still answers.
+    d = await gitDaemon(t, w.token, ['gitOps', 'gitOps2'])
+    res = w.members.get<GitDiffDto>(`${w.base}/diff?from=HEAD&path=src%2Fnew.ts&oldPath=src%2Fold.ts`)
+    const r3 = await d.next('git.diff')
+    expect(r3).toMatchObject({ path: 'src/new.ts' })
+    expect('oldPath' in r3 || 'ignoreWhitespace' in r3).toBe(false)
+    answer(d, r3.requestId)
+    expect((await res).status).toBe(200)
+    expect(await w.members.get(`${w.base}/diff?from=HEAD&whitespace=trim`)).toMatchObject(old)
   })
 })
 

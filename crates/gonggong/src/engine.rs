@@ -668,7 +668,9 @@ impl Handler for Engine {
                     let max = usize::try_from(req.max_bytes).unwrap_or(usize::MAX);
                     let options = git_ops::DiffOptions {
                         ignore_whitespace: req.ignore_whitespace == Some(true),
+                        whitespace: req.whitespace,
                         context: req.context,
+                        old_path: req.old_path.clone(),
                     };
                     let diff = async {
                         let repo = repo_in(&dir, &req.workspace, req.repo.as_deref())?;
@@ -685,8 +687,9 @@ impl Handler for Engine {
                 let dir = self.0.workspaces.dir(&req.group_id, &req.bot_id, &req.workspace);
                 let out = out.clone();
                 tokio::spawn(async move {
+                    let extras: Vec<PathBuf> = req.workspace.extra_dirs.iter().map(PathBuf::from).collect();
                     let error = match req.fetch {
-                        true => git_ops::fetch(&dir).await.err(),
+                        true => git_ops::fetch(&dir, &extras).await.err(),
                         false => None,
                     };
                     workspace::report_git(&out, &req.group_id, &req.bot_id, &req.workspace, &dir).await;
@@ -705,6 +708,7 @@ impl Handler for Engine {
                         busy: true,
                         output: None,
                         error,
+                        detail: None,
                     });
                 };
                 let out = out.clone();
@@ -712,11 +716,11 @@ impl Handler for Engine {
                     // The run holds the workspace root; the action works in the chosen repo of it.
                     let result = match repo_in(&dir, &req.workspace, req.repo.as_deref()) {
                         Ok(repo) => git_write::act(&repo, &req).await,
-                        Err(e) => Err(e),
+                        Err(e) => Err(e.into()),
                     };
-                    let (ok, output, error) = match result {
-                        Ok(output) => (true, Some(output), None),
-                        Err(e) => (false, None, Some(e)),
+                    let (ok, output, error, detail) = match result {
+                        Ok(done) => (true, Some(done.output), None, done.detail),
+                        Err(failed) => (false, None, Some(failed.error), failed.detail.map(|d| *d)),
                     };
                     out.send(DaemonToServer::GitActionResult {
                         request_id: req.request_id,
@@ -724,6 +728,7 @@ impl Handler for Engine {
                         busy: false,
                         output,
                         error,
+                        detail,
                     });
                     // Read before a waiting turn gets the directory, so the status is the action's own.
                     workspace::report_git(&out, &req.group_id, &req.bot_id, &req.workspace, &dir).await;

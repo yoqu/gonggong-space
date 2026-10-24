@@ -47,6 +47,8 @@ pub(super) struct Rig {
     pub(super) other: PathBuf,
     /// The workspace.state sent after the last action.
     pub(super) state: Option<WorkspaceState>,
+    /// The last action's answer beyond its text.
+    pub(super) detail: Option<GitActionDetail>,
 }
 
 /// remote.git: main (README.md, src/a.txt, docs/old.md, logo.png) and feat (a.txt changed, b.txt added, old.md
@@ -100,6 +102,7 @@ pub(super) fn rig() -> Rig {
         work: p.join("work"),
         other: p.join("other"),
         state: None,
+        detail: None,
     }
 }
 
@@ -246,6 +249,8 @@ impl Rig {
             max_bytes,
             ignore_whitespace: None,
             context: None,
+            old_path: None,
+            whitespace: None,
         };
         self.send(ServerToDaemon::GitDiff(req));
         match self.next().await {
@@ -303,7 +308,10 @@ impl Rig {
     pub(super) async fn act(&mut self, req: GitAction) -> (bool, bool, Option<String>, Option<String>) {
         self.send(ServerToDaemon::GitAction(Box::new(req)));
         let result = match self.next().await {
-            DaemonToServer::GitActionResult { ok, busy, output, error, .. } => (ok, busy, output, error),
+            DaemonToServer::GitActionResult { ok, busy, output, error, detail, .. } => {
+                self.detail = detail;
+                (ok, busy, output, error)
+            }
             other => panic!("unexpected {other:?}"),
         };
         // Whatever the outcome, the group's git bar is refreshed right after.

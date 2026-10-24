@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type {
   DaemonFeature,
   GitActionArgs,
+  GitActionDetail,
   GitActionKind,
   GitActionReq,
   GitOperationDto,
@@ -49,13 +50,21 @@ export function setOnly<T extends Record<string, unknown>>(o: T): Partial<T> | u
 const needsOps3 = (op: Pick<Columns, 'action' | 'branch' | 'args'>) =>
   !LEGACY.includes(op.action) || !!op.args || (op.action === 'pull' && !!op.branch)
 
-/** add / ignore, the stash guard, keeping added files, or a push to another remote branch than its own name. */
+/**
+ * add / ignore, the stash guard, keeping added files, a push to another remote branch than its own name, reverting
+ * hunks, a remote branch's checkout told what to do with local commits, a pull of another remote branch, or a branch
+ * replaced.
+ */
 const needsOps4 = ({ action, branch, args }: Pick<Columns, 'action' | 'branch' | 'args'>) =>
   action === 'add' ||
   action === 'ignore' ||
   !!args?.expect ||
   !!args?.keepAdded ||
-  (!!args?.target && args.target !== branch)
+  (!!args?.target && args.target !== branch) ||
+  !!args?.patch ||
+  !!args?.localCommits ||
+  (action === 'pull' && !!args?.from) ||
+  (action === 'branch-create' && !!args?.force)
 
 /**
  * What the bot's daemon must support for an operation: committing chosen paths came with gitOps2, sub-repos with
@@ -141,8 +150,12 @@ export function summary(op: Columns) {
 }
 
 const short = (rev: string) => (/^[0-9a-f]{8,}$/.test(rev) ? rev.slice(0, 7) : rev)
-const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+const files = (n: number) => count(n, 'file', 'files')
 const words = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ')
+/** A `git diff` patch's hunks, each headed by an `@@ -` line. */
+const hunks = (patch: string) =>
+  count(patch.split('\n').filter((l) => l.startsWith('@@ -')).length, 'hunk', 'hunks')
 
 function verb(op: Omit<Columns, 'repo'>) {
   const a = op.args ?? {}
@@ -151,9 +164,21 @@ function verb(op: Omit<Columns, 'repo'>) {
   const chosen = n ? ` (${files(n)})` : ''
   switch (op.action as GitActionKind) {
     case 'checkout':
-      return words('checkout', a.mode === 'force' && '--force', a.detach && '--detach', short(branch))
+      return words(
+        'checkout',
+        a.mode === 'force' && '--force',
+        a.detach && '--detach',
+        short(branch),
+        a.localCommits && `(${a.localCommits} local commits)`,
+      )
     case 'pull':
-      return words('pull', a.mode === 'rebase' && '--rebase', a.mode === 'merge' && '--no-rebase', op.branch)
+      return words(
+        'pull',
+        a.mode === 'rebase' && '--rebase',
+        a.mode === 'merge' && '--no-rebase',
+        op.branch,
+        a.from && `from ${a.from}`,
+      )
     case 'commit':
       return `commit${a.amend ? ' --amend' : ''}「${subject(op.message)}」${chosen}`
     case 'push':
@@ -166,7 +191,11 @@ function verb(op: Omit<Columns, 'repo'>) {
         a.target && a.target !== branch ? `${op.remote}/${a.target}` : op.remote,
       )
     case 'branch-create':
-      return words(a.checkout ? 'checkout -b' : 'branch', branch, a.from && short(a.from))
+      return words(
+        a.checkout ? `checkout ${a.force ? '-B' : '-b'}` : a.force ? 'branch -f' : 'branch',
+        branch,
+        a.from && short(a.from),
+      )
     case 'branch-rename':
       return words('branch -m', branch, a.name)
     case 'branch-delete':
@@ -183,7 +212,9 @@ function verb(op: Omit<Columns, 'repo'>) {
     case 'reset':
       return words('reset', `--${a.mode}`, short(a.commit ?? ''))
     case 'discard':
-      return `rollback ${n === 1 ? op.paths?.[0] : files(n)}`
+      return a.patch
+        ? `rollback ${hunks(a.patch)} in ${op.paths?.[0]}`
+        : `rollback ${n === 1 ? op.paths?.[0] : files(n)}`
     case 'add':
       return `add ${n === 1 ? op.paths?.[0] : files(n)}`
     case 'ignore':
@@ -292,6 +323,9 @@ export function fields(req: GitActionReq): Columns {
 /** What the request schema alone cannot refuse. */
 export function assertValid(req: GitActionReq) {
   if (req.action === 'commit' && req.paths?.length === 0 && !req.amend) fail('invalid', '请选择要提交的文件')
+  // What the owner approves names the hunks of one file.
+  if (req.action === 'discard' && req.patch !== undefined && req.paths.length !== 1)
+    fail('invalid', '逐块回滚只能针对一个文件')
   if (req.action !== 'resolve') return
   if ((req.side === undefined) === (req.content === undefined))
     fail('invalid', '请选择保留哪一方或填写合并结果')
@@ -368,9 +402,12 @@ async function refsNow(ctx: Ctx, t: GitTarget, repo: string | null) {
   return res && !res.error ? res : null
 }
 
-/** The operation's audit detail; `files` counts the chosen paths, a resolution's text is left out. */
+/**
+ * The operation's audit detail; `files` counts the chosen paths, a resolution's text and a reverted patch are left
+ * out.
+ */
 export const auditDetail = (op: GitOperation) => {
-  const { content: _, ...args } = op.args ?? {}
+  const { content: _, patch: __, ...args } = op.args ?? {}
   return {
     operationId: op.id,
     botId: op.botId,
@@ -491,13 +528,25 @@ export async function execute(ctx: Ctx, op: GitOperation, t: GitTarget) {
     detail: { ...auditDetail(op), status: done.status },
   })
   const operation = await publishOperation(ctx, done)
-  if (done.status === 'succeeded') await announce(ctx, operation, t.bot.name)
+  // With its args whole: the summary counts the hunks of a reverted patch, which the DTO leaves out.
+  if (done.status === 'succeeded') await announce(ctx, { ...operation, args: done.args }, t.bot.name)
   return { operation, busy: !!res?.busy }
+}
+
+/** What a write came to beyond its verb (gitOps4): what a pull brought in, conflicts restoring the changes stashed. */
+function outcome(detail: GitActionDetail | null) {
+  const parts = [
+    detail?.updated &&
+      `${count(detail.updated.commits, 'commit', 'commits')}, ${files(detail.updated.files)}`,
+    detail?.code === 'conflicts' && `local changes restored with conflicts in ${files(detail.paths.length)}`,
+  ].filter(Boolean)
+  return parts.length ? ` (${parts.join('; ')})` : ''
 }
 
 /**
  * Tells the whole group what a manual write changed in the bot's workspace: what an older daemon could do keeps its own
- * text, anything else is named by its git verb; resolving one conflicting file is left out (plan decision 3).
+ * text unless the daemon told more (see outcome), anything else is named by its git verb; resolving one conflicting
+ * file is left out (plan decision 3).
  */
 function announce(ctx: Ctx, op: GitOperationDto, bot: string) {
   if (op.action === 'resolve') return
@@ -506,8 +555,9 @@ function announce(ctx: Ctx, op: GitOperationDto, bot: string) {
     bot,
     approval: op.decidedBy ? { key: '（{owner} 批准）', params: { owner: op.decidedBy.name } } : '',
   }
-  if (needsOps3(op)) {
-    const ran = { ...who, summary: verb(op) }
+  const more = outcome(op.detail)
+  if (needsOps3(op) || more) {
+    const ran = { ...who, summary: `${verb(op)}${more}` }
     return op.repo
       ? postEvent(ctx, op.groupId, '{user} 在 {bot} 的 {repo} 执行了 {summary}{approval}', {
           ...ran,

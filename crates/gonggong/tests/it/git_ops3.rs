@@ -240,6 +240,8 @@ impl Rig {
                 max_bytes: 1 << 20,
                 ignore_whitespace: ignore_whitespace,
                 context: context,
+                old_path: None,
+                whitespace: None,
             }
         );
         self.send(ServerToDaemon::GitDiff(req));
@@ -1039,10 +1041,12 @@ async fn checkout_detaches_stashes_around_the_switch_or_forces_it() {
     );
     assert_eq!(sh(&w, &["stash", "list"]), "", "restored and dropped");
 
-    // A change that clashes with the other branch stays in conflict, its stash kept.
+    // A change that clashes with the other branch: switched all the same, the change left in conflict, its stash kept.
     write(&w, "src/a.txt", "mine\n");
-    let error = r.git(GitActionKind::Checkout, checkout("main", false, "smart")).await.unwrap_err();
-    assert_eq!(error, "有 1 个冲突待解决：src/a.txt");
+    let output = r.git(GitActionKind::Checkout, checkout("main", false, "smart")).await.unwrap();
+    assert!(output.starts_with("[main ") && output.ends_with("；恢复本地改动时有冲突，改动仍保留在贮藏中"), "{output}");
+    let detail = r.detail.take().unwrap();
+    assert_eq!((detail.code, detail.paths), (Some(GitActionCode::Conflicts), vec!["src/a.txt".to_string()]));
     assert_eq!(r.current(), "main");
     assert_eq!(r.git_state().conflicts, Some(1));
     assert!(sh(&w, &["stash", "list"]).contains("gonggong: smart checkout"));

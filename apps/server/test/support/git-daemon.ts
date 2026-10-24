@@ -1,4 +1,10 @@
-import { type GitBranch, type GitRemote, PROTOCOL_VERSION, type ServerToDaemon } from '@gonggong/protocol'
+import {
+  type GitActionDetail,
+  type GitBranch,
+  type GitRemote,
+  PROTOCOL_VERSION,
+  type ServerToDaemon,
+} from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { expect } from 'vitest'
 import { groupBots, groupRepos, messages, runs } from '../../src/db/schema.js'
@@ -30,9 +36,15 @@ export async function gitDaemon(t: TestApp, token: string, features = ['gitOps',
       if (m.t === type) return m as Extract<GitAsk, { t: T }>
     }
   }
-  /** Answers the next git.action with ok / busy. */
+  /** Answers the next git.action with ok / busy, and a detail when given (gitOps4). */
   const act = async (
-    o: { ok?: boolean; busy?: boolean; output?: string | null; error?: string | null } = {},
+    o: {
+      ok?: boolean
+      busy?: boolean
+      output?: string | null
+      error?: string | null
+      detail?: GitActionDetail
+    } = {},
   ) => {
     const req = await next('git.action')
     send({
@@ -42,6 +54,7 @@ export async function gitDaemon(t: TestApp, token: string, features = ['gitOps',
       busy: o.busy ?? false,
       output: o.output ?? 'done',
       error: o.error ?? null,
+      ...(o.detail && { detail: o.detail }),
     })
     return req
   }

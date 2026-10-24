@@ -627,4 +627,18 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("已将 {n} 个文件加入版本控制", "Added {n} {n:file|files} to version control"),
     ("已将 {n} 个路径加入 .gitignore", "Added {n} {n:path|paths} to .gitignore"),
     ("无法加入 .gitignore：{path}", "Can't add to .gitignore: {path}"),
+    ("逐块回滚只能针对一个文件", "Hunks can only be rolled back in one file at a time"),
+    ("补丁超过 {max} 字节", "The patch is over {max} bytes"),
+    ("补丁只能包含 {path} 的改动", "The patch may only hold changes to {path}"),
+    ("改动已变化，请刷新后重试", "The changes have changed; refresh and try again"),
+    ("已回滚 {path} 中的 {n} 处改动", "Rolled back {n} {n:change|changes} in {path}"),
+    (
+        "{branch} 与 {remote} 已分叉：本地有 {ahead} 个提交不在远程分支上，远程分支有 {behind} 个新提交",
+        "{branch} and {remote} have diverged: {ahead} local {ahead:commit is|commits are} not on the remote branch, which has {behind} new {behind:commit|commits}",
+    ),
+    (
+        "{output}；恢复本地改动时有冲突，改动仍保留在贮藏中",
+        "{output}; restoring the local changes left conflicts, and they are still in the stash",
+    ),
+    ("不能覆盖当前分支 {branch}", "Can't overwrite the current branch {branch}"),
 ];

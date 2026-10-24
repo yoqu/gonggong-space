@@ -108,7 +108,7 @@ pub fn redact(text: &str) -> String {
     USERINFO.replace_all(text, "$1").into_owned()
 }
 
-fn classify(stderr: &str) -> Failure {
+pub(crate) fn classify(stderr: &str) -> Failure {
     let lower = stderr.to_lowercase();
     let detail = explain(stderr);
     let reason = if lower.contains("remote branch") && lower.contains("not found") {
@@ -167,7 +167,7 @@ pub(crate) async fn remote_output(
     remote_output_with(dir, args, &[], limit).await
 }
 
-async fn remote_output_with(
+pub(crate) async fn remote_output_with(
     dir: &Path,
     args: &[&str],
     env: &[(&str, &str)],

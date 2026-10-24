@@ -389,6 +389,18 @@ fn merged_branch(message: &str) -> Option<String> {
     Some(rest.split_once('\'')?.0.to_string())
 }
 
+/// The directory of each repo of the workspace `dir` and of its additional directories `extras`, with its path as
+/// GitStatus.repos has it ('' = the root).
+pub(crate) async fn repos(dir: &Path, extras: &[PathBuf]) -> Vec<(String, PathBuf)> {
+    let mut repos = vec![];
+    for (root, label) in roots(dir, extras) {
+        for r in discover(&root).await {
+            repos.push((under(&label, &r.path), root.join(&r.path)));
+        }
+    }
+    repos
+}
+
 /// The workspace (label '') and each additional directory, labelled with its absolute path.
 fn roots(dir: &Path, extras: &[PathBuf]) -> Vec<(PathBuf, String)> {
     let extras = extras.iter().map(|e| (e.clone(), e.to_string_lossy().into_owned()));

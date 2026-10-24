@@ -4,11 +4,12 @@ use crate::explorer::{self, SNIFF_BYTES};
 use crate::git::{self, EMPTY_TREE, git, git_bytes, git_capped_bytes, git_output};
 use crate::protocol::{
     GitBlameCommit, GitBlameRange, GitBranch, GitBranchKind, GitChange, GitChangeKind, GitCommit, GitConflict,
-    GitConflictSide, GitHeadCommit, GitLogFilter, GitLogOrder, GitOngoing, GitRemote, GitStash, GitTag, GitWorkChange,
-    TreeEntry,
+    GitConflictSide, GitHeadCommit, GitLogFilter, GitLogOrder, GitOngoing, GitRemote, GitStash, GitTag, GitWhitespace,
+    GitWorkChange, TreeEntry,
 };
 use crate::repo::{self, remote_git};
 use crate::t;
+use futures_util::StreamExt;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
@@ -402,11 +403,14 @@ pub async fn compare(dir: &Path, from: &str, to: Option<&str>) -> Result<Vec<Git
     Ok(changes)
 }
 
-/// How git.diff shows changes: `-w`, and context lines (`-U`).
-#[derive(Debug, Clone, Copy, Default)]
+/// How git.diff shows changes: whitespace (`-w`, or one of IDEA's modes over it), context lines (`-U`), and the source
+/// of a rename to pair with the path.
+#[derive(Debug, Clone, Default)]
 pub struct DiffOptions {
     pub ignore_whitespace: bool,
+    pub whitespace: Option<GitWhitespace>,
     pub context: Option<u32>,
+    pub old_path: Option<String>,
 }
 
 /// The patch from `from` to `to` (None = the work tree with its untracked files), of `path` only when given, cut at
@@ -422,17 +426,23 @@ pub async fn diff(
     repo_dir(dir)?;
     let from = arg(from)?;
     let path = path.map(tree_path).transpose()?;
+    let old_path = options.old_path.as_deref().map(tree_path).transpose()?;
     let to = match to {
         Some(to) => arg(to)?.to_string(),
         None => git::work_tree(dir).await?,
     };
     let context = options.context.map(|n| format!("-U{n}"));
     let mut args = vec!["--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "-M"];
-    if options.ignore_whitespace {
-        args.push("-w");
-    }
+    args.extend(match (options.whitespace, options.ignore_whitespace) {
+        (Some(GitWhitespace::Trim), _) => &["-b"][..],
+        (Some(GitWhitespace::Ignore), _) | (None, true) => &["-w"],
+        (Some(GitWhitespace::IgnoreBlank), _) => &["-w", "--ignore-blank-lines"],
+        (None, false) => &[],
+    });
     args.extend(context.as_deref());
     args.extend([from, &to, "--"]);
+    // A rename's two paths together: the new one alone would be a file added.
+    args.extend(old_path.as_deref().filter(|p| !p.is_empty()));
     args.extend(path.as_deref().filter(|p| !p.is_empty()));
     let out = git_capped_bytes(dir, &args, max_bytes.saturating_add(1)).await?;
     let truncated = out.len() > max_bytes;
@@ -772,10 +782,17 @@ impl Drop for Scratch {
     }
 }
 
-/// `git fetch --prune` of every remote.
-pub async fn fetch(dir: &Path) -> Result<(), String> {
-    repo_dir(dir)?;
-    remote_git(dir, &["fetch", "--prune", "--all"], Some(NETWORK_TIMEOUT)).await.map(drop).map_err(|f| f.detail)
+/// Repos fetched at the same time.
+const FETCHES: usize = 4;
+
+/// `git fetch --prune` of every remote, in each repo of the workspace `dir` and of its additional directories `extras`
+/// (GitStatus.repos); the first failure, named by its repo unless that is the root, is the error.
+pub async fn fetch(dir: &Path, extras: &[PathBuf]) -> Result<(), String> {
+    let fetches = futures_util::stream::iter(git::repos(dir, extras).await).map(|(name, repo)| async move {
+        let fetched = remote_git(&repo, &["fetch", "--prune", "--all"], Some(NETWORK_TIMEOUT)).await;
+        fetched.map(drop).map_err(|f| if name.is_empty() { f.detail } else { format!("{name}: {}", f.detail) })
+    });
+    fetches.buffered(FETCHES).collect::<Vec<_>>().await.into_iter().collect()
 }
 
 #[cfg(test)]
