@@ -139,17 +139,21 @@ describe('commit view', () => {
   it('shows the picked file’s diff beside the list, with a rollback in its toolbar', async () => {
     const calls = mockApi(
       routes({
-        [`GET ${BASE}/diff?from=HEAD&path=b.ts`]: { patch: '', truncated: false },
+        [`GET ${BASE}/diff?from=HEAD&path=b.ts&context=100000`]: { patch: '', truncated: false },
         [`POST ${BASE}/actions`]: done,
       }),
     )
     const tab = await openGit()
     await waitFor(() =>
-      expect(calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=src%2Fa.ts`)).toBe(true),
+      expect(calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=src%2Fa.ts&context=100000`)).toBe(
+        true,
+      ),
     )
     fireEvent.click(tab.getByRole('button', { name: '重命名：b.ts' }))
     expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', file: 'b.ts' }])
-    await waitFor(() => expect(calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=b.ts`)).toBe(true))
+    await waitFor(() =>
+      expect(calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=b.ts&context=100000`)).toBe(true),
+    )
     fireEvent.click(tab.getByRole('button', { name: '回滚' }))
     const d = await dialog('回滚改动')
     expect(d.getByText('将 1 个文件恢复到上次提交的状态')).toBeTruthy()
@@ -352,7 +356,10 @@ describe('stashes', () => {
         [`GET ${BASE}/compare?from=4b825dc642cb6eb9a060e54bf8d69288fbee4904&to=${S0}%5E3`]: {
           changes: [{ path: 'notes.md', change: 'added', oldPath: null }],
         },
-        [`GET ${BASE}/diff?from=${S0}%5E1&to=${S0}&path=src%2Fa.ts`]: { patch: '', truncated: false },
+        [`GET ${BASE}/diff?from=${S0}%5E1&to=${S0}&path=src%2Fa.ts&context=100000`]: {
+          patch: '',
+          truncated: false,
+        },
       }),
     )
     const tab = await openGit(status({ stashes: 2 }))
@@ -364,7 +371,9 @@ describe('stashes', () => {
     expect(files.getByRole('button', { name: '未跟踪：notes.md' })).toBeTruthy()
     fireEvent.click(files.getByRole('button', { name: '修改：src/a.ts' }))
     await waitFor(() =>
-      expect(calls.some((c) => c.path === `${BASE}/diff?from=${S0}%5E1&to=${S0}&path=src%2Fa.ts`)).toBe(true),
+      expect(
+        calls.some((c) => c.path === `${BASE}/diff?from=${S0}%5E1&to=${S0}&path=src%2Fa.ts&context=100000`),
+      ).toBe(true),
     )
   })
 

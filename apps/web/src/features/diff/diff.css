@@ -147,13 +147,72 @@
   font-family: var(--font-mono);
   font-size: var(--text-callout-size);
   line-height: var(--diff-line);
+  /* The current change's outline stays under the sticky toolbar. */
+  isolation: isolate;
 }
-.diff__name {
+.diff__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   padding: var(--space-4) var(--space-12);
   border-bottom: 1px solid var(--separator);
   background: var(--diff-gutter);
+}
+.diff__name {
+  flex: 1;
+  min-width: 0;
   color: var(--label-secondary);
   overflow-wrap: anywhere;
+}
+.diff__expand {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-subheadline-size);
+  cursor: pointer;
+}
+.diff__expand:hover {
+  text-decoration: underline;
+}
+/* A folded stretch of unchanged lines: one row to expand, its label kept in view when the code scrolls sideways. */
+.diff__fold {
+  display: flex;
+  align-items: center;
+  justify-self: stretch;
+  min-height: var(--diff-line);
+  padding: 0;
+  border: 0;
+  background: var(--diff-hunk);
+  color: var(--accent-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-subheadline-size);
+  text-align: left;
+  cursor: pointer;
+}
+.diff__fold:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--content-bg));
+}
+.diff__fold-label {
+  position: sticky;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-12) 0 calc(2 * var(--diff-num) + var(--space-8));
+}
+.diff__lines--split .diff__fold-label {
+  padding-left: calc(var(--diff-num) + var(--space-8));
+}
+/* New line numbers open the file at that line. */
+.diff__num[data-jump] {
+  cursor: pointer;
+}
+.diff__num[data-jump]:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
 }
 /* Rows stretch to the longest line, so their tints reach across when the code scrolls sideways. */
 .diff__lines {
@@ -258,9 +317,18 @@
 .diff__lines--split[data-select] .diff__line--hunk {
   user-select: none;
 }
-/* The change the toolbar stepped to flashes. */
+/* The change the toolbar stepped to flashes, then keeps a light outline. */
 .diff__block {
   position: relative;
+}
+.diff__block[data-current]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
 }
 .diff__block[data-flash]::after {
   content: "";
@@ -344,7 +412,8 @@
   gap: var(--space-12);
 }
 .diff-pane__main > .diff__files,
-.diff-pane__main > .diff {
+.diff-pane__view {
+  min-width: 0;
   overflow: auto;
 }
 .diff-pane[data-layout="narrow"] .diff-pane__main {
@@ -401,7 +470,7 @@
   color: var(--label-secondary);
 }
 
-/* One file's diff read from git (commit history, files tab compare). */
+/* One file's diff under its toolbar (git views, diff panes). */
 .git-diff {
   display: flex;
   flex-direction: column;
@@ -435,6 +504,17 @@
   align-items: center;
   gap: var(--space-2);
   margin-left: auto;
+}
+.diff-toolbar__hint {
+  margin-right: var(--space-6);
+  color: var(--label-tertiary);
+  font-size: var(--text-subheadline-size);
+  animation: diff-hint-in 0.2s ease-out;
+}
+@keyframes diff-hint-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* The diff tab body fills the workbench. */

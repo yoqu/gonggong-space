@@ -42,3 +42,53 @@ export function diffBlocks(rows: DiffRow[]): DiffBlock[] {
   if (last?.change) pair(last)
   return blocks
 }
+
+/** A stretch of unchanged rows shown as one row to expand. */
+export interface Fold {
+  /** Its first row, which names it. */
+  at: number
+  rows: number[]
+}
+
+/** Unchanged lines kept beside a change when the rest fold (git's default context). */
+const FOLD_CONTEXT = 3
+/** Shorter stretches stay shown: a row to expand them would hardly save room. */
+const FOLD_MIN = 3
+
+/**
+ * Each block's rows with its stretches of unchanged lines folded (IDEA's Collapse Unchanged Fragments): a run of
+ * context lines keeps FOLD_CONTEXT lines beside each change it borders and folds the rest.
+ */
+export function foldBlocks(rows: DiffRow[], blocks: DiffBlock[]): (number | Fold)[][] {
+  return blocks.map((block, b) => {
+    if (block.change) return block.rows
+    const out: (number | Fold)[] = []
+    let run: number[] = []
+    const flush = (ends: boolean) => {
+      const head = run[0] === block.rows[0] && blocks[b - 1]?.change ? FOLD_CONTEXT : 0
+      const tail = ends && blocks[b + 1]?.change ? FOLD_CONTEXT : 0
+      const hidden = run.slice(head, Math.max(head, run.length - tail))
+      const [at] = hidden
+      if (at !== undefined && hidden.length >= FOLD_MIN)
+        out.push(...run.slice(0, head), { at, rows: hidden }, ...run.slice(head + hidden.length))
+      else out.push(...run)
+      run = []
+    }
+    for (const i of block.rows) {
+      if (rows[i]?.kind === 'context') run.push(i)
+      else {
+        flush(false)
+        out.push(i)
+      }
+    }
+    flush(true)
+    return out
+  })
+}
+
+/** Where a change sits in the new file: its first added line, or for deletions only the line now in their place. */
+export function changeLine(rows: DiffRow[], block: DiffBlock) {
+  const first = block.rows[0] ?? 0
+  const added = block.rows.find((i) => rows[i]?.newNo != null)
+  return rows[added ?? (block.rows.at(-1) ?? first) + 1]?.newNo ?? rows[first - 1]?.newNo ?? 1
+}

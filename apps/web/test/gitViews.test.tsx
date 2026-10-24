@@ -206,7 +206,7 @@ describe('commit history tab', () => {
     await waitFor(() => expect(diffText(tab)).toContain(`+${'2'.repeat(40)}:src/a.ts`))
     expect(diffText(tab)).toContain(`-${'3'.repeat(40)}:src/a.ts`)
     expect(calls).toContain(
-      `/api/groups/g1/bots/b1/git/diff?from=${'3'.repeat(40)}&to=${'2'.repeat(40)}&path=src%2Fa.ts`,
+      `/api/groups/g1/bots/b1/git/diff?from=${'3'.repeat(40)}&to=${'2'.repeat(40)}&path=src%2Fa.ts&context=100000`,
     )
 
     fireEvent.click(files.getByRole('button', { name: '删除：gone.ts' }))
@@ -327,7 +327,7 @@ describe('files tab versions', () => {
     expect(within(list.getByRole('button', { name: /old\.ts/ })).getByTitle('删除').textContent).toBe('D')
     fireEvent.click(list.getByRole('button', { name: /old\.ts/ }))
     await waitFor(() => expect(diffText(files)).toContain('-main:old.ts'))
-    expect(calls).toContain('/api/groups/g1/bots/b1/git/diff?from=main&path=old.ts')
+    expect(calls).toContain('/api/groups/g1/bots/b1/git/diff?from=main&path=old.ts&context=100000')
     fireEvent.click(files.getByRole('radio', { name: '文件' }))
     expect(await files.findByText('main:old.ts')).toBeTruthy()
   })
@@ -348,7 +348,9 @@ describe('files tab versions', () => {
     const files = within(screen.getByTestId('files:b1'))
     await waitFor(() => expect(diffText(files)).toContain('+feat/x:README.md'))
     expect(diffText(files)).toContain('-main:README.md')
-    expect(calls).toContain('/api/groups/g1/bots/b1/git/diff?from=main&to=feat%2Fx&path=README.md')
+    expect(calls).toContain(
+      '/api/groups/g1/bots/b1/git/diff?from=main&to=feat%2Fx&path=README.md&context=100000',
+    )
     expect(files.getByRole('radio', { name: '差异' }).getAttribute('aria-checked')).toBe('true')
 
     fireEvent.click(files.getByRole('radio', { name: '文件' }))

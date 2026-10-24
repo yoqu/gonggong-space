@@ -137,18 +137,36 @@ export const repoPrefix = (path: string) => (path ? `${path}/` : '')
 export const isMultiRepo = (repos: DiffRepo[]) =>
   repos.length > 1 || (repos.length === 1 && repos[0]?.path !== '')
 
-/** Each file goes to the repo with the longest path prefixing it; groups keep the repos' order. */
+/** The repo holding a file: the one with the longest path prefixing it. */
+export function repoOf(path: string, repos: DiffRepo[]) {
+  let best: DiffRepo | undefined
+  for (const r of repos)
+    if (path.startsWith(repoPrefix(r.path)) && (!best || r.path.length > best.path.length)) best = r
+  return best
+}
+
+/** Each file goes to the repo holding it; groups keep the repos' order. */
 export function groupByRepo(files: DiffFile[], repos: DiffRepo[]): RepoGroup[] {
   const groups = repos.map((repo) => ({ repo, files: [] as DiffFile[], add: 0, del: 0 }))
-  const byDepth = [...groups].sort((a, b) => b.repo.path.length - a.repo.path.length)
   for (const file of files) {
-    const g = byDepth.find((g) => file.path.startsWith(repoPrefix(g.repo.path)))
+    const repo = repoOf(file.path, repos)
+    const g = groups.find((g) => g.repo === repo)
     if (!g) continue
     g.files.push(file)
     g.add += file.add
     g.del += file.del
   }
   return groups
+}
+
+/** Files in the order the list shows them: per repo when it spans several, folders first when shown as a tree. */
+export function listOrder(files: DiffFile[], repos: DiffRepo[], tree: boolean): DiffFile[] {
+  const groups = isMultiRepo(repos)
+    ? groupByRepo(files, repos).map((g) => ({ files: g.files, prefix: repoPrefix(g.repo.path) }))
+    : [{ files, prefix: '' }]
+  const walk = (nodes: DiffNode[]): DiffFile[] =>
+    nodes.flatMap((n) => (n.kind === 'file' ? [n.file] : walk(n.children)))
+  return groups.flatMap((g) => (tree ? walk(diffTree(g.files, g.prefix)) : g.files))
 }
 
 export type DiffCell = 'add' | 'del' | 'none'
