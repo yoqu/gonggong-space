@@ -136,6 +136,10 @@ function visibleRows(groups: ChangeGroup[], layout: 'tree' | 'list', closed: Rea
   return out
 }
 
+/** Every file in the order the tree lists them, folders unfolded: the order F7 and ⌥⇧→ step through. */
+export const fileOrder = (groups: ChangeGroup[], layout: 'tree' | 'list') =>
+  visibleRows(groups, layout, new Set()).flatMap((r) => (r.file ? [r.file] : []))
+
 /** Moves the keyboard focus to a row's button, scrolled into view. */
 function focusRow(tree: HTMLElement, key: string) {
   const row = [...tree.querySelectorAll<HTMLElement>('[data-gt-row]')].find((r) => r.dataset.gtRow === key)

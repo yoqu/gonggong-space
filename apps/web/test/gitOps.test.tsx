@@ -649,6 +649,38 @@ describe('push dialog', () => {
     )
   })
 
+  it("pushes a branch to its upstream's branch, and asks twice when that is the protected base", async () => {
+    const calls = mockApi(
+      routes({
+        'GET /groups/g1/bot-states': [state({ git: status({ branch: 'feat/hotfix' }) })],
+        [`GET ${BASE}/refs`]: {
+          ...REFS,
+          branches: [branch('main'), branch('feat/hotfix', { current: true, upstream: 'origin/main' })],
+        },
+        [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Fhotfix&skip=0`]: LOG,
+        [`POST ${BASE}/actions`]: done,
+      }),
+    )
+    render(<Page />)
+    const tab = await openGit()
+    fireEvent.click(tab.getByRole('button', { name: /^推送…/ }))
+    const d = await dialog('推送')
+    expect(d.getByText('feat/hotfix → origin/main')).toBeTruthy()
+    expect(d.getByText(/main 是受保护的基准分支/)).toBeTruthy()
+    const push = d.getByRole('button', { name: '推送' }) as HTMLButtonElement
+    expect(push.disabled).toBe(true)
+    fireEvent.click(d.getByRole('checkbox', { name: '我确认推送到基准分支' }))
+    fireEvent.click(push)
+    await waitFor(() =>
+      expect(actionsCalled(calls).at(-1)).toMatchObject({
+        action: 'push',
+        branch: 'feat/hotfix',
+        target: 'main',
+        confirmBase: true,
+      }),
+    )
+  })
+
   it('explains the first push, and the way out when the remote rejects it', async () => {
     mockApi(
       routes({

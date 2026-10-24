@@ -9,8 +9,8 @@ import { useWide } from '../../diff/DiffPane'
 import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { gitBase, gitUrls, refreshGitQuietly, repoStatus, useGitGet } from '../../git/api'
-import type { TreeChange } from '../../git/ChangeTree'
-import { CommitView, OngoingBanner } from '../../git/CommitView'
+import { fileOrder, type TreeChange, useChangeLayout } from '../../git/ChangeTree'
+import { CommitView, changeGroups, OngoingBanner } from '../../git/CommitView'
 import { gitCommands } from '../../git/commands'
 import { GitOperationList, useGitOps } from '../../git/GitOperations'
 import { GitToolbar } from '../../git/GitToolbar'
@@ -18,6 +18,7 @@ import { Split } from '../../git/Split'
 import { StashView, stashDiff } from '../../git/StashView'
 import { openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
+import { openFileAt } from './DiffTab'
 import '../../git/git-tool.css'
 
 /** Below this the picked file's diff opens in its own tab instead of beside the list. */
@@ -52,6 +53,9 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   )
   const view: GitTabView = tab.focus ? 'ops' : (tab.view ?? 'commit')
   const [stashFile, setStashFile] = useState<{ stash: string; path: string; url: string } | null>(null)
+  const layout = useChangeLayout((s) => s.layout)
+  // A file reached by stepping (F7, ⌥⇧→…) lands on its first (1) or last (-1) change.
+  const [start, setStart] = useState<1 | -1>()
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refresh once each time the tab is shown
   useEffect(() => {
@@ -75,7 +79,19 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   const picked = all.find((c) => c.path === tab.file) ?? (wide ? all.find((c) => !c.conflict) : undefined)
   const setView = (v: GitTabView) => patch(tabKey, { view: v, focus: null })
   // Selecting only shows a change (beside the list when wide); opening it is the commit view's double click or Enter.
-  const select = (c: TreeChange) => patch(tabKey, { file: c.path })
+  const select = (c: TreeChange) => {
+    setStart(undefined)
+    patch(tabKey, { file: c.path })
+  }
+  const order = data ? fileOrder(changeGroups(data), layout).filter((c) => !c.conflict) : []
+  const at = picked ? order.findIndex((c) => c.path === picked.path) : -1
+  const stepTo = (c: TreeChange | undefined) =>
+    c &&
+    ((land: 1 | -1) => {
+      setStart(land)
+      patch(tabKey, { file: c.path })
+    })
+  const inWorkspace = (path: string) => (target.repo ? `${target.repo}/${path}` : path)
   const conflict = picked?.conflict ? picked.path : data?.conflicts[0]?.path
 
   const left: ReactNode = (
@@ -153,6 +169,13 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
         url={gitUrls.diff(base, 'HEAD', null, picked.path, target.repo)}
         path={picked.path}
         stamp={stamp}
+        files={order.length > 1 ? { prev: stepTo(order[at - 1]), next: stepTo(order[at + 1]) } : undefined}
+        start={start}
+        onOpenLine={
+          picked.change === 'deleted'
+            ? undefined
+            : (line) => openFileAt(tab.botId, inWorkspace(picked.path), line)
+        }
         actions={
           // An untracked file has nothing to roll back to.
           picked.untracked ? undefined : (

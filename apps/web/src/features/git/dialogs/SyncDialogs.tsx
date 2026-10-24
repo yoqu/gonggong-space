@@ -123,14 +123,16 @@ export function PushDialog({ target, branch: start, onClose }: Props & { branch:
     : null
   const picked =
     remote ?? upstreamRemote ?? remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name ?? 'origin'
-  const dest = `${picked}/${name}`
+  // As IDEA (and the daemon): a branch goes to its upstream when that is on the remote picked, else to its own name.
+  const onto = upstreamRemote === picked && local?.upstream ? local.upstream.slice(picked.length + 1) : name
+  const dest = `${picked}/${onto}`
   const published = !!refs?.branches.some((b) => b.kind === 'remote' && b.name === dest)
   const range = !name ? null : published ? `${dest}..${name}` : base ? `${picked}/${base}..${name}` : null
   const log = useGitGet<GitLogDto>(
     range ? gitUrls.log(gitBase(target.groupId, target.botId), range, 0, target.repo) : null,
     stamp,
   )
-  const toBase = !!base && name === base
+  const toBase = !!base && onto === base
   const rejected = !!error && REJECTED.test(error)
   const commits = log.data?.commits ?? []
   return (
@@ -148,7 +150,15 @@ export function PushDialog({ target, branch: start, onClose }: Props & { branch:
           variant: force || toBase ? 'destructive' : 'primary',
           disabled: busy || !name || (toBase && !confirmed),
           onClick: () =>
-            void submit({ action: 'push', remote: picked, branch: name, confirmBase: toBase, force, tags }),
+            void submit({
+              action: 'push',
+              remote: picked,
+              branch: name,
+              ...(onto !== name && { target: onto }),
+              confirmBase: toBase,
+              force,
+              tags,
+            }),
         },
       ]}
     >
@@ -198,7 +208,7 @@ export function PushDialog({ target, branch: start, onClose }: Props & { branch:
         {toBase ? (
           <Alert
             variant="warning"
-            description={t('{branch} 是受保护的基准分支，推送会直接改动它', { branch: name })}
+            description={t('{branch} 是受保护的基准分支，推送会直接改动它', { branch: onto })}
           >
             <Checkbox label={t('我确认推送到基准分支')} checked={confirmed} onChange={setConfirmed} />
           </Alert>
