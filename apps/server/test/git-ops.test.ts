@@ -304,8 +304,8 @@ describe('git actions', () => {
         startedAt: '2026-10-25T04:00:00.000Z',
         durationMs: 12,
         exitCode: 1,
-        stdout: 'token ghp_abcdefghijklmnopqrstuvwxyz0123456789AB',
-        stderr: 'rejected',
+        stdout: 'src/a.ts\0src/b.ts\0\ntoken ghp_abcdefghijklmnopqrstuvwxyz0123456789AB',
+        stderr: 'rejected\0\x07\n',
         truncated: false,
       },
     ]
@@ -317,7 +317,9 @@ describe('git actions', () => {
       detail: { code: null, paths: [], ahead: null, behind: null, updated: null, commands },
     })
     const failed = (await pending).body
-    expect(failed.detail?.commands).toEqual([{ ...commands[0], stdout: `token ${MASK}` }])
+    expect(failed.detail?.commands).toEqual([
+      { ...commands[0], stdout: `src/a.ts\\0src/b.ts\\0\ntoken ${MASK}`, stderr: 'rejected\\0\\x07\n' },
+    ])
     const [stored] = await t.db.select().from(gitOperations).where(eq(gitOperations.id, failed.id))
     expect(stored!.detail).toEqual(failed.detail)
     expect((await ops(w)).body.operations[0]?.detail).toEqual(failed.detail)

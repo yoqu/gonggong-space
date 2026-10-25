@@ -88,7 +88,7 @@ impl Started {
                 }
                 return;
             }
-            let command = crate::logs::redact(&self.command, &[]);
+            let command = printable(&crate::logs::redact(&self.command, &[]));
             let (command, command_cut) = bounded(&command, COMMAND_MAX_BYTES);
             let (stdout, out_cut) = text(stdout);
             let (stderr, err_cut) = text(stderr);
@@ -118,7 +118,18 @@ fn quote(arg: &str) -> String {
 
 fn text(bytes: &[u8]) -> (String, bool) {
     let text = crate::logs::redact(&String::from_utf8_lossy(bytes), &[]);
-    bounded(&text, STREAM_MAX_BYTES)
+    bounded(&printable(&text), STREAM_MAX_BYTES)
+}
+
+fn printable(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| match c {
+            '\0' => "\\0".chars().collect::<Vec<_>>(),
+            '\n' | '\t' => vec![c],
+            c if c.is_control() => format!("\\x{:02x}", c as u32).chars().collect(),
+            c => vec![c],
+        })
+        .collect()
 }
 
 fn bounded(text: &str, limit: usize) -> (String, bool) {
@@ -135,6 +146,14 @@ fn bounded(text: &str, limit: usize) -> (String, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nul_and_control_characters_are_readable_and_database_safe() {
+        let (out, cut) = text(b"src/a.ts\0src/b.ts\0\n\tbell:\x07 escape:\x1b end:\x7f\r\n");
+        assert!(!cut);
+        assert_eq!(out, "src/a.ts\\0src/b.ts\\0\n\tbell:\\x07 escape:\\x1b end:\\x7f\\x0d\n");
+        assert!(!out.chars().any(|c| c.is_control() && !matches!(c, '\n' | '\t')));
+    }
 
     #[test]
     fn masks_credentials_and_marks_utf8_safe_truncation_and_shell_quoting() {

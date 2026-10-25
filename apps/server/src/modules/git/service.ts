@@ -594,7 +594,7 @@ export async function execute(ctx: Ctx, op: GitOperation, t: GitTarget) {
       status: error ? 'failed' : 'succeeded',
       output: res?.output ? redact(res.output) : null,
       error: error && redact(error),
-      detail: res?.detail ? redactDeep(res.detail, redact) : null,
+      detail: res?.detail ? redactDeep(res.detail, (text) => consoleText(redact(text))) : null,
       finishedAt: ctx.now(),
     })
     .where(eq(gitOperations.id, op.id))
@@ -611,6 +611,16 @@ export async function execute(ctx: Ctx, op: GitOperation, t: GitTarget) {
   if (done.status === 'succeeded') await announce(ctx, { ...operation, args: done.args }, t.bot.name)
   return { operation, busy: !!res?.busy }
 }
+
+const consoleText = (text: string) =>
+  [...text]
+    .map((c) => {
+      if (c === '\0') return '\\0'
+      if (c === '\n' || c === '\t') return c
+      const code = c.charCodeAt(0)
+      return code < 0x20 || (code >= 0x7f && code <= 0x9f) ? `\\x${code.toString(16).padStart(2, '0')}` : c
+    })
+    .join('')
 
 /** What a write came to beyond its verb (gitOps4): what a pull brought in, conflicts restoring the changes stashed. */
 function outcome(detail: GitActionDetail | null) {
