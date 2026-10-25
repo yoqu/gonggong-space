@@ -1,16 +1,18 @@
-import type { GitCompareDto } from '@gonggong/protocol'
+import type { GitCompareDto, GitShowDto } from '@gonggong/protocol'
 import { useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { t } from '../../../i18n'
-import { Button, EmptyState, type MenuItem, SegmentedControl } from '../../../ui'
+import { Button, EmptyState, type MenuItem, SegmentedControl, Spinner } from '../../../ui'
 import { useWide } from '../../diff/DiffPane'
 import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { type GitTarget, gitBase, gitUrls, useGitGet, useGitRefs } from '../../git/api'
 import type { TreeChange } from '../../git/ChangeTree'
-import { gitCommands } from '../../git/commands'
+import { type GitCommands, gitCommands } from '../../git/commands'
 import { ChangesPane } from '../../git/log/ChangesPane'
+import { CommitDetails } from '../../git/log/CommitDetails'
 import { CommitTable } from '../../git/log/CommitTable'
+import { commitMenu, runCommitAction } from '../../git/log/commitMenu'
 import { revLabel } from '../../git/log/query'
 import { useLog } from '../../git/log/useLog'
 import { Split } from '../../git/Split'
@@ -25,23 +27,32 @@ const NO_PICKS: ReadonlySet<string> = new Set()
 
 type View = 'commits' | 'files'
 
-/** The commits `range` (`a..b`) lists, each opening in the log. */
+/** The commits `range` (`a..b`) lists, picked to show their details, with the log's commit menu. */
 function CommitsOnly({
   target,
+  cmd,
   title,
   range,
   remotes,
   stamp,
-  onOpen,
+  selected,
+  shown,
+  pickOnMenu,
+  onSelect,
 }: {
   target: GitTarget
+  cmd: GitCommands
   title: string
   range: string
   remotes: readonly string[]
   stamp: string
-  onOpen: (hash: string) => void
+  selected: string | null
+  shown: GitShowDto | null
+  pickOnMenu: boolean
+  onSelect: (hash: string) => void
 }) {
   const log = useLog(gitBase(target.groupId, target.botId), target.repo, range, NO_FILTER, stamp)
+  const listed = (hashes: string[]) => log.commits.filter((c) => hashes.includes(c.hash))
   return (
     <section className="gcmp__column" aria-label={title}>
       <div className="gcmp__head">
@@ -57,9 +68,26 @@ function CommitsOnly({
         commits={log.commits}
         remotes={remotes}
         partial
-        selected={null}
-        picked={NO_PICKS}
-        onPick={onOpen}
+        selected={selected}
+        picked={selected ? new Set([selected]) : NO_PICKS}
+        onPick={onSelect}
+        onGo={onSelect}
+        menu={(hashes) => commitMenu(listed(hashes), log.commits, { remotes, rootRepo: !target.repo })}
+        onMenuTarget={(hash) => {
+          // On a phone the details would take the list, menu and all.
+          if (pickOnMenu) onSelect(hash)
+          return [hash]
+        }}
+        onMenu={(value, hashes) =>
+          void runCommitAction(value, listed(hashes), {
+            target,
+            cmd,
+            remotes,
+            all: log.commits,
+            shown,
+            select: onSelect,
+          })
+        }
         hasMore={log.hasMore}
         loading={log.loading}
         error={log.error}
@@ -91,6 +119,7 @@ function FilesDiffer({
   onFile: (path: string | null) => void
 }) {
   const base = gitBase(target.groupId, target.botId)
+  const inWorkspace = (path: string) => (target.repo ? `${target.repo}/${path}` : path)
   // The work tree changes under the bot; versions don't.
   const live = to ? '' : stamp
   const compare = useGitGet<GitCompareDto>(gitUrls.compare(base, from, to, target.repo), live)
@@ -100,16 +129,15 @@ function FilesDiffer({
     openTab({
       kind: 'file',
       source: to
-        ? { botId: target.botId, path: c.path, rev: c.change === 'deleted' ? from : to }
-        : { botId: target.botId, path: target.repo ? `${target.repo}/${c.path}` : c.path },
+        ? { botId: target.botId, path: inWorkspace(c.path), rev: c.change === 'deleted' ? from : to }
+        : { botId: target.botId, path: inWorkspace(c.path) },
     })
   const fileItems = (c: TreeChange): MenuItem[] => [
-    // The file tab reads versions of the root repo only.
     {
       value: 'open',
       label: to ? t('打开此版本') : t('打开文件'),
       icon: 'doc',
-      disabled: (!!to && !!target.repo) || (!to && c.change === 'deleted'),
+      disabled: !to && c.change === 'deleted',
     },
   ]
   const files = (
@@ -179,6 +207,7 @@ function FilesDiffer({
 export function GitCompareTab({ tab, tabKey }: TabProps<'git-compare'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
   const patch = useWorkbench((s) => s.patch)
+  const replace = useWorkbench((s) => s.replace)
   const root = useRef<HTMLDivElement>(null)
   const wide = useWide(root, WIDE_PX)
   const stamp = useGitStamp(groupId, tab.botId)
@@ -186,8 +215,86 @@ export function GitCompareTab({ tab, tabKey }: TabProps<'git-compare'>) {
   const { refs } = useGitRefs(groupId, tab.botId, target.repo, stamp)
   const remotes = refs ? refs.remotes.map((r) => r.name) : ['origin']
   const [view, setView] = useState<View>(tab.to && !tab.file ? 'commits' : 'files')
+  const [detailFile, setDetailFile] = useState<string | null>(null)
   const shown: View = tab.to ? view : 'files'
   const cmd = gitCommands(target)
+  const show = useGitGet<GitShowDto>(
+    tab.to && tab.commit ? gitUrls.show(gitBase(groupId, tab.botId), tab.commit, target.repo) : null,
+  )
+  const select = (hash: string | null) => {
+    if (hash === (tab.commit ?? null)) return
+    setDetailFile(null)
+    patch(tabKey, { commit: hash })
+  }
+  const commit = show.data && show.data.commit.hash === tab.commit ? show.data.commit : null
+  const details = !tab.commit ? null : commit ? (
+    <CommitDetails
+      key={commit.hash}
+      target={target}
+      commit={commit}
+      show={show}
+      remotes={remotes}
+      file={detailFile}
+      historyPath={null}
+      narrow={!wide}
+      onFile={setDetailFile}
+      onJump={select}
+      onBack={() => select(null)}
+    />
+  ) : show.error ? (
+    <EmptyState compact icon="warning" title={t('无法读取提交')} description={show.error} />
+  ) : (
+    <div className="glog-note">
+      <Spinner />
+    </div>
+  )
+  const columns = (to: string) => (
+    <div className="gcmp__commits">
+      <CommitsOnly
+        target={target}
+        cmd={cmd}
+        title={t('仅在 {ref} 中', { ref: revLabel(to) })}
+        range={`${tab.from}..${to}`}
+        remotes={remotes}
+        stamp={stamp}
+        selected={tab.commit ?? null}
+        shown={show.data}
+        pickOnMenu={wide}
+        onSelect={select}
+      />
+      <CommitsOnly
+        target={target}
+        cmd={cmd}
+        title={t('仅在 {ref} 中', { ref: revLabel(tab.from) })}
+        range={`${to}..${tab.from}`}
+        remotes={remotes}
+        stamp={stamp}
+        selected={tab.commit ?? null}
+        shown={show.data}
+        pickOnMenu={wide}
+        onSelect={select}
+      />
+    </div>
+  )
+  // As in the log, the picked commit's details fill the room below its list; on a phone they take the tab.
+  const commits = (to: string) =>
+    !wide ? (
+      (details ?? columns(to))
+    ) : (
+      <Split
+        dir="column"
+        storageKey="gg.git.compare.commits"
+        initial={240}
+        min={120}
+        label={t('调整提交列表高度')}
+        first={columns(to)}
+        second={
+          <div className="glog__details">
+            {details ?? <EmptyState compact icon="git-commit" title={t('选择一个提交查看变更')} />}
+          </div>
+        }
+      />
+    )
   return (
     <div ref={root} className="gcmp" data-layout={wide ? 'wide' : 'narrow'}>
       <div className="gcmp__bar">
@@ -200,7 +307,9 @@ export function GitCompareTab({ tab, tabKey }: TabProps<'git-compare'>) {
             className="gcmp__swap"
             aria-label={t('交换两侧')}
             title={t('交换两侧')}
-            onClick={() => patch(tabKey, { from: tab.to ?? tab.from, to: tab.from, file: null })}
+            onClick={() =>
+              replace(tabKey, { ...tab, from: tab.to ?? tab.from, to: tab.from, file: null, commit: null })
+            }
           >
             ⇄
           </button>
@@ -228,24 +337,7 @@ export function GitCompareTab({ tab, tabKey }: TabProps<'git-compare'>) {
       </div>
       <div className="gcmp__main">
         {shown === 'commits' && tab.to ? (
-          <div className="gcmp__commits">
-            <CommitsOnly
-              target={target}
-              title={t('仅在 {ref} 中', { ref: revLabel(tab.to) })}
-              range={`${tab.from}..${tab.to}`}
-              remotes={remotes}
-              stamp={stamp}
-              onOpen={(hash) => cmd.openLog({ ref: tab.to, commit: hash })}
-            />
-            <CommitsOnly
-              target={target}
-              title={t('仅在 {ref} 中', { ref: revLabel(tab.from) })}
-              range={`${tab.to}..${tab.from}`}
-              remotes={remotes}
-              stamp={stamp}
-              onOpen={(hash) => cmd.openLog({ ref: tab.from, commit: hash })}
-            />
-          </div>
+          commits(tab.to)
         ) : (
           <FilesDiffer
             target={target}

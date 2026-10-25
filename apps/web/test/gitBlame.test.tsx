@@ -48,9 +48,17 @@ describe('annotate (git blame) and history in the file viewer', () => {
     expect(cells).toEqual(['aaaaaaa 张三 刚刚', '', '未提交', 'aaaaaaa 张三 刚刚'])
     expect(calls.some((c) => c.path === `${BASE}/blame?path=src%2Fa.ts`)).toBe(true)
     fireEvent.click(screen.getAllByRole('button', { name: 'aaaaaaa 张三 刚刚' })[0] as HTMLElement)
-    expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-log', botId: 'b1', commit: 'a'.repeat(40) })
+    expect(benchTabs().at(-1)).toMatchObject({
+      kind: 'git-log',
+      botId: 'b1',
+      path: 'src/a.ts',
+      commit: 'a'.repeat(40),
+    })
     fireEvent.click(screen.getByRole('button', { name: '显示历史' }))
-    expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-log', botId: 'b1', path: 'src/a.ts', commit: null })
+    // The file's history is the tab the commit opened in, brought forward as it is.
+    expect(benchTabs()).toEqual([
+      expect.objectContaining({ kind: 'git-log', path: 'src/a.ts', commit: 'a'.repeat(40) }),
+    ])
     fireEvent.click(screen.getByRole('button', { name: '注解（Git Blame）' }))
     expect(document.querySelectorAll('.pv-line__blame')).toHaveLength(0)
   })
@@ -70,7 +78,10 @@ describe('annotate (git blame) and history in the file viewer', () => {
       },
     })
     const calls = mockApi({
-      'GET /groups/g1/bots/b1/git/text?ref=v1&path=libs%2Fcore%2Fx.ts': { ...TEXT, path: 'libs/core/x.ts' },
+      'GET /groups/g1/bots/b1/git/text?ref=v1&path=x.ts&repo=libs%2Fcore': {
+        ...TEXT,
+        path: 'libs/core/x.ts',
+      },
       [`GET ${BASE}/blame?path=x.ts&ref=v1&repo=libs%2Fcore`]: BLAME,
     })
     render(<BotFileViewer botId="b1" path="libs/core/x.ts" rev="v1" />)
