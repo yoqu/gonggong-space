@@ -1,8 +1,9 @@
 import { defineConfig } from '@playwright/test'
 import { SERVER_LOG } from './helpers'
 
-const SERVER_PORT = 8790
-const WEB_PORT = 5190
+const SERVER_PORT = Number(process.env.GONGGONG_E2E_PORT ?? 8790)
+const WEB_PORT = Number(process.env.GONGGONG_E2E_WEB_PORT ?? 5190)
+const DB = process.env.GONGGONG_E2E_DB ?? 'gonggong_e2e'
 
 export default defineConfig({
   testDir: '.',
@@ -18,11 +19,11 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: 'retain-on-failure', locale: 'zh-CN' },
   webServer: [
     {
-      command: `bash ../scripts/pg.sh reset gonggong_e2e && pnpm --filter @gonggong/server start 2>&1 | tee ${SERVER_LOG}`,
+      command: `bash ../scripts/pg.sh reset ${DB} && pnpm --filter @gonggong/server start 2>&1 | tee ${SERVER_LOG}`,
       env: {
         PORT: String(SERVER_PORT),
         GONGGONG_LOG: '1',
-        GONGGONG_DB: 'gonggong_e2e',
+        GONGGONG_DB: DB,
         GONGGONG_ADMIN_PASSWORD: 'admin-init-pass',
       },
       url: `http://127.0.0.1:${SERVER_PORT}/api/health`,

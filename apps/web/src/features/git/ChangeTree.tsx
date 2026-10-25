@@ -408,7 +408,18 @@ export function ChangeTree({
           return
         }
         if (tg?.file) pick(tg.file, 'one')
-        setTarget(tg)
+        setTarget(tg?.file ? { changes: [tg.file], file: tg.file } : tg)
+      }}
+      onKeyDownCapture={(e: KeyboardEvent<HTMLElement>) => {
+        if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return
+        const tg = targetOf(e.target as HTMLElement)
+        if (tg?.file && isSelected(tg.file.path) && (selection?.size ?? 0) > 1) {
+          onSelect(tg.file)
+          setTarget({ changes: selectedFiles(), file: tg.file })
+          return
+        }
+        if (tg?.file) pick(tg.file, 'one')
+        setTarget(tg?.file ? { changes: [tg.file], file: tg.file } : tg)
       }}
     >
       {groups.map((g) => {

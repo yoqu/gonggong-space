@@ -213,6 +213,30 @@ describe('commit details', () => {
     })
   })
 
+  it('targets the focused file when its context menu opens from the keyboard', async () => {
+    const { files } = await details()
+    const file = files.getByRole('button', { name: '修改：src/a.ts' })
+    file.focus()
+    fireEvent.keyDown(file, { key: 'F10', shiftKey: true })
+    fireEvent.click(screen.getByRole('menuitem', { name: '从该版本取回文件…' }))
+    expect(dialog()).toMatchObject({
+      kind: 'confirm',
+      confirm: { req: { action: 'restore', commit: hash('2'), paths: ['src/a.ts'] } },
+    })
+  })
+
+  it('applies only the newly clicked file after several files were selected', async () => {
+    const { files } = await details()
+    fireEvent.click(files.getByRole('button', { name: '修改：src/a.ts' }))
+    fireEvent.click(files.getByRole('button', { name: '重命名：src/new.ts' }), { metaKey: true })
+    fireEvent.contextMenu(files.getByRole('button', { name: '删除：gone.ts' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '优选所选改动' }))
+    expect(dialog()).toMatchObject({
+      kind: 'confirm',
+      confirm: { req: { action: 'apply', commit: hash('2'), paths: ['gone.ts'], reverse: false } },
+    })
+  })
+
   it('links the hashes of the repo’s commits and the URLs in the message', async () => {
     bodies[hash('2')] =
       `提交 2\n\nReverts ${'3'.repeat(9)}, see https://example.com/issues/7. Not 1234567 nor ${'2'.repeat(7)}.`

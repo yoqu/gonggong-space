@@ -184,6 +184,11 @@ export function CommitTable({
         const hash = (e.target as HTMLElement).closest<HTMLElement>('[data-hash]')?.dataset.hash
         setMenuFor(hash && onMenuTarget ? onMenuTarget(hash) : null)
       }}
+      onKeyDownCapture={(e) => {
+        if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return
+        const hash = (e.target as HTMLElement).closest<HTMLElement>('[data-hash]')?.dataset.hash
+        setMenuFor(hash && onMenuTarget ? onMenuTarget(hash) : null)
+      }}
     >
       {commits.map((c, i) => {
         const row = rows[i]
