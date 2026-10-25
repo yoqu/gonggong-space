@@ -84,7 +84,10 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
 
     await test.step('file annotations use a time gradient and open the previous revision read-only', async () => {
       await page.getByRole('button', { name: '新建标签页', exact: true }).click()
-      await page.getByRole('menuitem', { name: botName, exact: true }).and(page.locator('[data-value^="files:"]')).click()
+      await page
+        .getByRole('menuitem', { name: botName, exact: true })
+        .and(page.locator('[data-value^="files:"]'))
+        .click()
       await page.getByRole('treeitem', { name: 'annotate.ts' }).click()
       const viewer = page.locator('.wt-files__view')
       await viewer.getByRole('button', { name: '注解（Git Blame）' }).click()
@@ -129,7 +132,11 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
     })
 
     await test.step('an empty stash failure stays in the console with structured commands and exit codes', async () => {
-      await page.getByTestId('git-bar').getByTestId(`git-${bot.id}`).getByRole('button', { name: `打开 ${botName} 的 Git` }).click()
+      await page
+        .getByTestId('git-bar')
+        .getByTestId(`git-${bot.id}`)
+        .getByRole('button', { name: `打开 ${botName} 的 Git` })
+        .click()
       await gitTab.getByRole('tab', { name: /^贮藏/ }).click()
       await gitTab.getByRole('button', { name: '贮藏改动…' }).click()
       const empty = page.getByRole('dialog', { name: '贮藏改动' })
@@ -147,7 +154,10 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
       await empty.press('Escape')
       await expect(empty).toBeHidden()
       await gitTab.getByRole('tab', { name: '控制台', exact: true }).click()
-      const failed = gitTab.locator('.git-console__op[data-status="failed"]').filter({ hasText: '贮藏' }).first()
+      const failed = gitTab
+        .locator('.git-console__op[data-status="failed"]')
+        .filter({ hasText: '贮藏' })
+        .first()
       await expect(failed).toContainText('失败', { timeout: 30_000 })
       const stashCommand = failed.locator('.git-console__command-line').filter({ hasText: 'stash push' })
       await expect(stashCommand.locator('code')).toContainText(/git -C .*stash push/)
@@ -171,15 +181,23 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
 
       await gitTab.getByRole('button', { name: /apply shortcut/ }).click({ button: 'right' })
       await page.getByRole('menuitem', { name: '应用', exact: true }).click()
-      await page.getByRole('dialog', { name: /恢复贮藏/ }).getByRole('button', { name: '应用', exact: true }).click()
+      await page
+        .getByRole('dialog', { name: /恢复贮藏/ })
+        .getByRole('button', { name: '应用', exact: true })
+        .click()
       const lastUnstashStatus = async () => {
-        const { operations } = await api.call<GitOperationsDto>('get', `/api/groups/${group.id}/git/operations`)
+        const { operations } = await api.call<GitOperationsDto>(
+          'get',
+          `/api/groups/${group.id}/git/operations`,
+        )
         return operations.find((op) => op.action === 'unstash')?.status
       }
       await expect.poll(lastUnstashStatus).toBe('succeeded')
       await expect.poll(async () => (await stashes()).stashes.length).toBe(1)
       await expect
-        .poll(() => (existsSync(join(dir, 'apply.txt')) ? readFileSync(join(dir, 'apply.txt'), 'utf8') : null))
+        .poll(() =>
+          existsSync(join(dir, 'apply.txt')) ? readFileSync(join(dir, 'apply.txt'), 'utf8') : null,
+        )
         .toBe('apply me\n')
 
       rmSync(join(dir, 'apply.txt'))
@@ -190,7 +208,10 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
       await stash(gitTab, 'pop shortcut')
       await gitTab.getByRole('button', { name: /pop shortcut/ }).click({ button: 'right' })
       await page.getByRole('menuitem', { name: '弹出', exact: true }).click()
-      await page.getByRole('dialog', { name: /恢复贮藏/ }).getByRole('button', { name: '弹出', exact: true }).click()
+      await page
+        .getByRole('dialog', { name: /恢复贮藏/ })
+        .getByRole('button', { name: '弹出', exact: true })
+        .click()
       await expect.poll(lastUnstashStatus).toBe('succeeded')
       await expect.poll(async () => (await stashes()).stashes.length).toBe(1)
       await expect.poll(() => readFileSync(join(dir, 'apply.txt'), 'utf8')).toBe('apply me\n')
