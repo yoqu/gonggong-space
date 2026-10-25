@@ -44,9 +44,10 @@ describe('rolling back one change of the work tree (IDEA’s revert arrow)', () 
     )
     expect(toasts()).toEqual(['已回滚 1 处改动'])
     const [shown] = useToasts.getState().items
-    expect(shown?.action?.label).toBe('撤销')
+    const [undoAction] = [shown?.action ?? []].flat()
+    expect(undoAction?.label).toBe('撤销')
 
-    shown?.action?.onClick()
+    undoAction?.onClick()
     const undo = [...LAST, '@@ -4,5 +4,5 @@', ' d', ' e', ' f', '+g', '-G', ' h', ''].join('\n')
     await waitFor(() =>
       expect(actionsCalled(calls)[1]).toEqual({ action: 'discard', paths: ['a.txt'], patch: undo }),
