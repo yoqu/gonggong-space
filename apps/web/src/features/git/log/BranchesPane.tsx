@@ -139,8 +139,9 @@ function Highlight({ text, q }: { text: string; q: string }) {
 
 /**
  * IDEA's Branches pane of the Git log: all branches, HEAD, local (starred first, `/` folders, ahead/behind), remote
- * and tags. A click filters the log to the ref (`onFilter`), a double click checks it out, a right click lists its
- * actions. `picker`: the pane inside the branch filter, picking only.
+ * and tags. A click goes to the ref's commit in the log (`onLocate`), a double click filters the log to it
+ * (`onFilter`), a right click lists its actions (checkout among them). `picker`: the pane inside the branch filter,
+ * where a click filters.
  */
 export function BranchesPane({
   target,
@@ -148,6 +149,7 @@ export function BranchesPane({
   error,
   selected,
   onFilter,
+  onLocate,
   picker,
   header,
 }: {
@@ -157,6 +159,7 @@ export function BranchesPane({
   /** The log's ref filter: every branch, or a ref (null = HEAD). */
   selected: { all: boolean; ref: string | null }
   onFilter: (ref: string | null, all: boolean) => void
+  onLocate?: (ref: string) => void
   picker?: boolean
   /** Above the search, e.g. a way back on a phone. */
   header?: ReactNode
@@ -185,6 +188,11 @@ export function BranchesPane({
     : { rows: [], nodes: [] }
   const refsByKey = new Map(rows.flatMap((r) => (r.kind === 'ref' ? [[r.key, r.ref] as const] : [])))
 
+  /** A click: the picker filters, the pane goes to the ref (HEAD for null) and filters on a double click. */
+  const press = (ref: string | null) => ({
+    onClick: () => (picker || !onLocate ? onFilter(ref, false) : onLocate(ref ?? 'HEAD')),
+    onDoubleClick: () => !picker && onFilter(ref, false),
+  })
   const toggle = (key: string, now: boolean) => setOpen((m) => new Map(m).set(key, !now))
   const toggleStar = (name: string) => {
     const next = new Set(favorites)
@@ -205,7 +213,7 @@ export function BranchesPane({
   const row = (r: PaneRow) => {
     const pad = { paddingLeft: 8 + ('depth' in r ? r.depth : 0) * 14 }
     if (r.kind === 'all' || r.kind === 'head') {
-      const on = r.kind === 'all' ? selected.all : !selected.all && !selected.ref
+      const on = r.kind === 'all' ? selected.all : !selected.all && (!selected.ref || selected.ref === 'HEAD')
       return (
         <button
           key={r.key}
@@ -213,7 +221,7 @@ export function BranchesPane({
           className="glb-row"
           style={pad}
           aria-current={on || undefined}
-          onClick={() => onFilter(null, r.kind === 'all')}
+          {...(r.kind === 'all' ? { onClick: () => onFilter(null, true) } : press(null))}
         >
           <span className="glb-row__icon">
             <Icon name={r.kind === 'all' ? 'git-fork' : 'git-commit'} size={13} />
@@ -267,8 +275,7 @@ export function BranchesPane({
           aria-label={ref.name}
           aria-current={(!selected.all && selected.ref === ref.name) || undefined}
           title={title}
-          onClick={() => onFilter(ref.name, false)}
-          onDoubleClick={() => !picker && !isCurrent && cmd.checkout(ref.name, ref.kind === 'tag')}
+          {...press(ref.name)}
         >
           <span className="glb-row__icon" data-star={(star && !isCurrent) || undefined}>
             <Icon
@@ -343,7 +350,11 @@ export function BranchesPane({
       </div>
       {picker ? null : (
         <div className="glb__tools" role="toolbar" aria-label={t('分支操作')}>
-          <Tool icon="git-branch" label={t('新建分支…')} onClick={() => cmd.newBranch(selected.ref)} />
+          <Tool
+            icon="git-branch"
+            label={t('新建分支…')}
+            onClick={() => cmd.newBranch(selected.ref === 'HEAD' ? null : selected.ref)}
+          />
           <Tool
             icon="arrow-clockwise"
             label={fetching ? t('正在获取远程更新…') : t('获取远程更新')}

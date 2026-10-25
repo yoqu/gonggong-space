@@ -133,6 +133,7 @@ beforeEach(() => {
     groups: [{ id: 'g1', mode: 'partition', repo: { url: 'git@x:r.git', branch: 'main' } } as GroupDto],
   })
   useWorkbench.setState({ groupId: 'g1', open: true, benches: {} })
+  localStorage.removeItem('gg.git.log.branch')
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -182,7 +183,7 @@ describe('commit history tab', () => {
     const tab = within(screen.getByTestId('git-log:b1'))
     expect(tab.getByRole('heading', { level: 2 }).textContent).toBe('提交历史 · 小王的 Claude')
     const first = await tab.findByRole('option', { name: /提交 1/ })
-    expect(calls).toContain('/api/groups/g1/bots/b1/git/log?skip=0')
+    expect(calls).toContain('/api/groups/g1/bots/b1/git/log?skip=0&all=1')
     expect(first.textContent).toContain('1111111')
     expect(first.textContent).toContain('小王')
     // HEAD's branch and its remote twin share one label.
@@ -191,7 +192,7 @@ describe('commit history tab', () => {
 
     fireEvent.click(tab.getByRole('button', { name: '加载更多' }))
     expect(await tab.findByRole('option', { name: /提交 3/ })).toBeTruthy()
-    expect(calls).toContain('/api/groups/g1/bots/b1/git/log?skip=2')
+    expect(calls).toContain('/api/groups/g1/bots/b1/git/log?skip=2&all=1')
     expect(tab.queryByRole('button', { name: '加载更多' })).toBeNull()
 
     fireEvent.click(tab.getByRole('option', { name: /提交 2/ }))
@@ -232,7 +233,9 @@ describe('commit history tab', () => {
     fireEvent.click(tab.getByRole('option', { name: /提交 1/ }))
     expect(current()[0]).toMatchObject({ commit: '1'.repeat(40), file: null })
 
-    fireEvent.click(within(tab.getByRole('region', { name: '分支' })).getByRole('button', { name: 'main' }))
+    fireEvent.doubleClick(
+      within(tab.getByRole('region', { name: '分支' })).getByRole('button', { name: 'main' }),
+    )
     expect(await tab.findByRole('option', { name: /提交 7/ })).toBeTruthy()
     expect(calls).toContain('/api/groups/g1/bots/b1/git/log?ref=main&skip=0')
   })
