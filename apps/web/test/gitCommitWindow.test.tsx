@@ -12,6 +12,7 @@ import {
   benchTabs,
   CHANGES,
   done,
+  HEAD_COMMIT,
   REFS,
   resetStores,
   routes,
@@ -125,7 +126,13 @@ describe('commit message draft', () => {
     fireEvent.click(tab.getByRole('button', { name: '修改提交' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([
-        { action: 'commit', message: '修复退款', paths: ['src/a.ts', 'old.ts', 'b.ts'], amend: true },
+        {
+          action: 'commit',
+          message: '修复退款',
+          paths: ['src/a.ts', 'old.ts', 'b.ts'],
+          amend: true,
+          expectHead: HEAD_COMMIT.hash,
+        },
       ]),
     )
     await waitFor(() => expect(box(tab).value).toBe(''))

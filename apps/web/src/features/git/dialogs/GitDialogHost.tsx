@@ -54,7 +54,7 @@ function Body({
     case 'pull':
       return <PullDialog {...p} />
     case 'push':
-      return <PushDialog {...p} branch={d.branch} />
+      return <PushDialog {...p} branch={d.branch} upTo={d.upTo} />
     case 'reset':
       return <ResetDialog {...p} commit={d.commit} />
     case 'reword':

@@ -1070,7 +1070,7 @@ export const DaemonFeature = z.enum([
   /**
    * The second IDEA pass (docs/plan/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
    * discard `keepAdded` / `patch`, the add / ignore actions, git.diff `oldPath` / `whitespace`, git.action.result
-   * `detail`, checkout `localCommits`, pull `from`, branch-create `force`.
+   * `detail`, checkout `localCommits`, pull `from`, branch-create `force`, push `commit`, reset / amend `expect`.
    */
   'gitOps4',
 ])
@@ -1620,10 +1620,12 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  *   gitOps4: `args.from` a remote branch (`origin/feat`) instead of the upstream, fetched first; changes stashed
  *   around every mode; detail updated
  * - commit: `paths` only (work tree relative; deletions and untracked files included) or everything when null, with
- *   `message`; `args.amend` rewrites the last commit (`paths` [] = only its message)
+ *   `message`; `args.amend` rewrites the last commit (`paths` [] = only its message), refused when HEAD is no longer
+ *   `args.expect` (gitOps4)
  * - push: local `branch` to `remote`, setting the upstream when missing; `args.force` = --force-with-lease, `args.tags`
  *   = all tags too. gitOps4: to the remote branch `args.target` (default: the upstream's branch when it is on `remote`,
- *   else the same name), always as explicit refs (`refs/heads/a:refs/heads/b`), never a refspec taken from input
+ *   else the same name), always as explicit refs (`refs/heads/a:refs/heads/b`), never a refspec taken from input;
+ *   `args.commit` pushes only up to that commit of the branch (`<hash>:refs/heads/b`), refused when it is not on it
  * - branch-create: new `branch` at `args.from` (default HEAD), switched to when `args.checkout`; gitOps4: `args.force`
  *   overwrites an existing one (not the current branch)
  * - branch-rename: `branch` to `args.name`
@@ -1631,7 +1633,8 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * - merge: `branch` into the current one, `args.mode` default | no-ff | ff-only | squash, `args.noCommit`, `message`
  * - rebase: the current branch, or `branch` (switched to first), onto `args.onto`
  * - cherry-pick, revert: `args.commits`, oldest first
- * - reset: the current branch to `args.commit`, `args.mode` soft | mixed | hard | keep
+ * - reset: the current branch to `args.commit`, `args.mode` soft | mixed | hard | keep; gitOps4: `args.expect` = the
+ *   HEAD it must still be at, refused otherwise (as with commit `args.amend`)
  * - discard: `paths` back to HEAD, untracked ones deleted; files added to the index are deleted too unless
  *   `args.keepAdded` (gitOps4), then only unstaged. gitOps4: `args.patch` (a `git diff` of the work tree against HEAD
  *   for the one path) reverts only those hunks, refused when it no longer applies

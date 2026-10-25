@@ -270,11 +270,11 @@ export function fields(req: GitActionReq): Columns {
         { mode: req.mode === 'ff-only' ? undefined : req.mode, from: req.from },
       )
     case 'commit':
-      return row({ message: req.message, paths: req.paths }, { amend: req.amend })
+      return row({ message: req.message, paths: req.paths }, { amend: req.amend, expect: req.expectHead })
     case 'push':
       return row(
         { branch: req.branch, remote: req.remote },
-        { force: req.force, tags: req.tags, target: req.target },
+        { force: req.force, tags: req.tags, target: req.target, commit: req.commit },
       )
     case 'branch-create':
       return row({ branch: req.name }, { from: req.from, checkout: req.checkout, force: req.overwrite })
@@ -290,7 +290,7 @@ export function fields(req: GitActionReq): Columns {
     case 'revert':
       return row({}, { commits: req.commits })
     case 'reset':
-      return row({}, { commit: req.commit, mode: req.mode })
+      return row({}, { commit: req.commit, mode: req.mode, expect: req.expectHead })
     case 'discard':
       return row({ paths: req.paths }, { keepAdded: req.keepAdded, patch: req.patch })
     case 'add':

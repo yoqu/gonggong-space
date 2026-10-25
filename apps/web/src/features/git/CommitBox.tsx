@@ -74,7 +74,7 @@ export function CommitBox({
     // git takes no partial commit while something is in progress: finishing it commits what it staged.
     const req: GitActionInput = ongoing
       ? { action: 'continue', ...(text && { message: text }) }
-      : { action: 'commit', message: text, paths, amend }
+      : { action: 'commit', message: text, paths, amend, ...(amend && head && { expectHead: head.hash }) }
     const subject = text.split('\n')[0] ?? ''
     const committed = () =>
       toast({

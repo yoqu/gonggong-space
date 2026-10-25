@@ -671,6 +671,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     /** Work-tree-relative paths to commit (as listed by git changes); omitted = every change; [] = none (amend only). */
     paths: gitPaths.optional(),
     amend: z.boolean().default(false),
+    /** gitOps4, with amend: HEAD as the requester saw it; refused when it moved (a reword approved late). */
+    expectHead: gitHash.optional(),
   }),
   z.object({
     action: z.literal('push'),
@@ -685,6 +687,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     /** --force-with-lease; refused for the protected base branch. */
     force: z.boolean().default(false),
     tags: z.boolean().default(false),
+    /** gitOps4: only up to this commit of the branch (IDEA's Push All up to Here). */
+    commit: gitHash.optional(),
   }),
   z.object({
     action: z.literal('branch-create'),
@@ -730,6 +734,8 @@ export const GitActionReq = z.discriminatedUnion('action', [
     repo: gitRepoPath,
     commit: gitRev,
     mode: z.enum(['soft', 'mixed', 'hard', 'keep']).default('mixed'),
+    /** gitOps4: HEAD as the requester saw it; refused when it moved before the reset ran (an Undo Commit approved late). */
+    expectHead: gitHash.optional(),
   }),
   z.object({
     action: z.literal('discard'),

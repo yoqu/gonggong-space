@@ -5,6 +5,7 @@ import { t } from '../../../i18n'
 import { Alert, Checkbox, Dialog, PopUpButton, RadioGroup, Spinner, TextField } from '../../../ui'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { type GitTarget, gitBase, gitUrls, useGitGet, useGitRefs } from '../api'
+import type { CommitInfo } from '../commands'
 import { Choice } from './BranchDialogs'
 import { CommitList, GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
 
@@ -102,7 +103,11 @@ const REJECTED = /rejected|non-fast-forward|fetch first|stale info/i
  * IDEA's Push dialog: the commits going out, the remote, pushing tags too, and a force push (with lease) for history
  * rewritten by an amend or rebase; never for the protected base branch.
  */
-export function PushDialog({ target, branch: start, onClose }: Props & { branch: string | null }) {
+export function PushDialog({
+  target,
+  branch: start,
+  onClose,
+}: Props & { branch: string | null; upTo?: CommitInfo }) {
   const status = useRepoStatus(target)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === target.groupId))
   const stamp = useGitStamp(target.groupId, target.botId)

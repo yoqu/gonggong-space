@@ -49,7 +49,8 @@ export type GitDialog =
   | { kind: 'merge'; branch: string | null }
   | { kind: 'rebase'; onto: string | null; branch: string | null }
   | { kind: 'pull' }
-  | { kind: 'push'; branch: string | null }
+  /** `upTo`: IDEA's Push All up to Here, only the branch's commits up to that one. */
+  | { kind: 'push'; branch: string | null; upTo?: CommitInfo }
   | { kind: 'reset'; commit: CommitInfo }
   | { kind: 'reword'; head: GitHeadCommit }
   | { kind: 'continue'; ongoing: GitOngoing }
@@ -152,7 +153,7 @@ export function gitCommands(target: GitTarget) {
         req,
       })
     },
-    push: (branch: string | null = null) => show({ kind: 'push', branch }),
+    push: (branch: string | null = null, upTo?: CommitInfo) => show({ kind: 'push', branch, upTo }),
     cherryPick: (commits: CommitInfo[]) =>
       confirm({
         title: t('优选提交'),
@@ -178,7 +179,8 @@ export function gitCommands(target: GitTarget) {
         message: t('撤销 {hash}，它的改动回到未提交的更改', { hash: head.shortHash }),
         consequences: head.pushed ? [t('该提交已推送，撤销后需要强制推送才能更新远程')] : undefined,
         label: t('撤销提交'),
-        req: { action: 'reset', commit: 'HEAD~1', mode: 'soft' },
+        // HEAD~1 of the HEAD shown: an Undo Commit approved after another commit landed is refused, not run on it.
+        req: { action: 'reset', commit: 'HEAD~1', mode: 'soft', expectHead: head.hash },
       }),
     reword: (head: GitHeadCommit) => show({ kind: 'reword', head }),
     /** Edit Commit Message for HEAD as it is now, e.g. the commit just made. */

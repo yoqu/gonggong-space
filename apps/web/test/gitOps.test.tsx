@@ -16,6 +16,7 @@ import {
   branch,
   done,
   group,
+  HEAD_COMMIT,
   op,
   REFS,
   refreshes,
@@ -204,7 +205,13 @@ describe('Git tab toolbar', () => {
     fireEvent.click(reword.getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([
-        { action: 'commit', message: '修复退款金额的计算', paths: [], amend: true },
+        {
+          action: 'commit',
+          message: '修复退款金额的计算',
+          paths: [],
+          amend: true,
+          expectHead: HEAD_COMMIT.hash,
+        },
       ]),
     )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑提交说明' })).toBeNull())
@@ -215,7 +222,12 @@ describe('Git tab toolbar', () => {
     expect(undo.getByText('撤销 a1b2c3d，它的改动回到未提交的更改')).toBeTruthy()
     fireEvent.click(undo.getByRole('button', { name: '撤销提交' }))
     await waitFor(() =>
-      expect(actionsCalled(calls).at(-1)).toEqual({ action: 'reset', commit: 'HEAD~1', mode: 'soft' }),
+      expect(actionsCalled(calls).at(-1)).toEqual({
+        action: 'reset',
+        commit: 'HEAD~1',
+        mode: 'soft',
+        expectHead: HEAD_COMMIT.hash,
+      }),
     )
   })
 

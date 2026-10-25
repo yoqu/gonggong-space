@@ -12,6 +12,7 @@ import {
   benchTabs,
   CHANGES,
   done,
+  HEAD_COMMIT,
   op,
   resetStores,
   routes,
@@ -112,7 +113,13 @@ describe('commit view', () => {
     fireEvent.click(tab.getByRole('button', { name: '修改并推送…' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([
-        { action: 'commit', message: '修复退款金额的计算', paths: [], amend: true },
+        {
+          action: 'commit',
+          message: '修复退款金额的计算',
+          paths: [],
+          amend: true,
+          expectHead: HEAD_COMMIT.hash,
+        },
       ]),
     )
     expect(await dialog('推送')).toBeTruthy()

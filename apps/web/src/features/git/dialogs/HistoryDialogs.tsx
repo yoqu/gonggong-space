@@ -104,7 +104,14 @@ export function RewordDialog({ target, head, onClose }: Props & { head: GitHeadC
           label: label(t('保存')),
           variant: 'primary',
           disabled: busy || !message.trim() || message.trim() === head.message.trim(),
-          onClick: () => void submit({ action: 'commit', message: message.trim(), paths: [], amend: true }),
+          onClick: () =>
+            void submit({
+              action: 'commit',
+              message: message.trim(),
+              paths: [],
+              amend: true,
+              expectHead: head.hash,
+            }),
         },
       ]}
     >
