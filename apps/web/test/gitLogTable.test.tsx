@@ -208,9 +208,7 @@ describe('commit menu', () => {
     const action = screen.getByRole('menuitem', { name: '从此提交之后交互式变基…' })
     expect(action.hasAttribute('disabled')).toBe(false)
     fireEvent.click(action)
-    await waitFor(() =>
-      expect(dialog()).toMatchObject({ kind: 'rebase-todo', commit: { hash: hash('2') } }),
-    )
+    await waitFor(() => expect(dialog()).toMatchObject({ kind: 'rebase-todo', commit: { hash: hash('2') } }))
   })
 
   it('copies, checks out, browses, compares, resets, branches, tags and walks to parent and child', async () => {

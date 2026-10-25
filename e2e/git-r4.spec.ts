@@ -66,7 +66,9 @@ async function selectCommit(page: Page, subject: string) {
   return page.getByRole('region', { name: '变更文件' })
 }
 
-test('R4 interactive rebase rewords one commit and drops another in the real branch history', async ({ page }) => {
+test('R4 interactive rebase rewords one commit and drops another in the real branch history', async ({
+  page,
+}) => {
   test.setTimeout(6 * 60_000)
   const w = await workspace(page, 'r4rebase')
   try {
@@ -98,13 +100,15 @@ test('R4 interactive rebase rewords one commit and drops another in the real bra
     await page.getByRole('menuitemcheckbox', { name: 'Drop', exact: true }).last().click()
     await dialog.getByRole('button', { name: '提交 old commit message 的动作' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Reword', exact: true }).last().click()
-    await dialog.getByRole('textbox', { name: '提交 old commit message 的提交说明' }).fill('rewritten commit message')
+    await dialog
+      .getByRole('textbox', { name: '提交 old commit message 的提交说明' })
+      .fill('rewritten commit message')
     await dialog.getByRole('button', { name: '开始变基' }).click()
     await expect(dialog).toBeHidden({ timeout: 30_000 })
 
-    await expect.poll(() => git(w.dir, 'log', '-4', '--format=%s'), { timeout: 30_000 }).toBe(
-      'rewritten commit message\nkeep this commit\nbase for interactive rebase\ninit',
-    )
+    await expect
+      .poll(() => git(w.dir, 'log', '-4', '--format=%s'), { timeout: 30_000 })
+      .toBe('rewritten commit message\nkeep this commit\nbase for interactive rebase\ninit')
     expect(readFileSync(join(w.dir, 'keep.txt'), 'utf8')).toBe('keep.txt\n')
     expect(readFileSync(join(w.dir, 'reword.txt'), 'utf8')).toBe('reword.txt\n')
     expect(() => readFileSync(join(w.dir, 'drop.txt'))).toThrow()
@@ -189,9 +193,9 @@ test('R4 commit file menu applies only the chosen file change without committing
     expect(apply?.stderr).not.toContain('untouched.txt')
     await expect(dialog).toBeHidden({ timeout: 30_000 })
 
-    await expect.poll(() => readFileSync(join(w.dir, 'picked.txt'), 'utf8'), { timeout: 30_000 }).toBe(
-      'before\npicked change\nchosen commit addition\n',
-    )
+    await expect
+      .poll(() => readFileSync(join(w.dir, 'picked.txt'), 'utf8'), { timeout: 30_000 })
+      .toBe('before\npicked change\nchosen commit addition\n')
     expect(readFileSync(join(w.dir, 'untouched.txt'), 'utf8')).toBe('before\nother change\n')
     expect(git(w.dir, 'log', '-1', '--format=%s')).toBe('change two files')
     expect(git(w.dir, 'status', '--porcelain')).toBe('M  picked.txt')
@@ -222,9 +226,9 @@ test('R4 commit file menu restores a file from an older revision over local edit
     await dialog.getByRole('button', { name: '取回文件' }).click()
     await expect(dialog).toBeHidden({ timeout: 30_000 })
 
-    await expect.poll(() => readFileSync(join(w.dir, 'README.md'), 'utf8'), { timeout: 30_000 }).toBe(
-      '# old revision\n',
-    )
+    await expect
+      .poll(() => readFileSync(join(w.dir, 'README.md'), 'utf8'), { timeout: 30_000 })
+      .toBe('# old revision\n')
     expect(git(w.dir, 'log', '-1', '--format=%s')).toBe('current file contents')
     expect(git(w.dir, 'status', '--porcelain')).toBe('M  README.md')
   } finally {
