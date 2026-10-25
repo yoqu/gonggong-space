@@ -26,7 +26,10 @@ const commit = (n: string, parents = 1): GitCommit => ({
 })
 const LOG = [commit('1'), commit('2'), commit('3'), commit('4')]
 const logRoute = {
-  [`GET ${BASE}/log?ref=${encodeURIComponent(`${BASE_COMMIT}..HEAD`)}&skip=0`]: { commits: LOG, hasMore: false },
+  [`GET ${BASE}/log?ref=${encodeURIComponent(`${BASE_COMMIT}..HEAD`)}&skip=0`]: {
+    commits: LOG,
+    hasMore: false,
+  },
 }
 const open = (pushed = false) => {
   render(
@@ -55,12 +58,11 @@ describe('interactive rebase', () => {
     })
     expect(await dialog().findByText('变基到 4444444')).toBeTruthy()
     await waitFor(() => expect(dialog().getAllByRole('option')).toHaveLength(4))
-    expect(dialog().getAllByRole('option').map((r) => r.textContent?.match(/提交 \d/)?.[0])).toEqual([
-      '提交 4',
-      '提交 3',
-      '提交 2',
-      '提交 1',
-    ])
+    expect(
+      dialog()
+        .getAllByRole('option')
+        .map((r) => r.textContent?.match(/提交 \d/)?.[0]),
+    ).toEqual(['提交 4', '提交 3', '提交 2', '提交 1'])
   })
 
   it('reorders, rewords, squashes, fixups and drops, sending the complete plan', async () => {
@@ -70,7 +72,9 @@ describe('interactive rebase', () => {
     await waitFor(() => expect(dialog().getAllByRole('option')).toHaveLength(4))
     fireEvent.click(within(row('4')).getByRole('button', { name: '下移 提交 4' }))
     await pickAction('4', 'Reword')
-    fireEvent.change(dialog().getByRole('textbox', { name: '提交 提交 4 的提交说明' }), { target: { value: '' } })
+    fireEvent.change(dialog().getByRole('textbox', { name: '提交 提交 4 的提交说明' }), {
+      target: { value: '' },
+    })
     const message = dialog().getByRole('textbox', { name: '提交 提交 4 的提交说明' })
     fireEvent.change(message, { target: { value: '重写的说明\n\n正文' } })
     await pickAction('2', 'Squash')
@@ -104,7 +108,9 @@ describe('interactive rebase', () => {
     expect(dialog().getByText('第一个保留的提交不能 Squash 或 Fixup')).toBeTruthy()
     expect((dialog().getByRole('button', { name: '开始变基' }) as HTMLButtonElement).disabled).toBe(true)
     await pickAction('4', 'Reword')
-    fireEvent.change(dialog().getByRole('textbox', { name: '提交 提交 4 的提交说明' }), { target: { value: '' } })
+    fireEvent.change(dialog().getByRole('textbox', { name: '提交 提交 4 的提交说明' }), {
+      target: { value: '' },
+    })
     expect((dialog().getByRole('button', { name: '开始变基' }) as HTMLButtonElement).disabled).toBe(true)
     expect(dialog().getByText('Reword 和 Squash 必须填写非空说明')).toBeTruthy()
     expect(actionsCalled(calls)).toEqual([])
@@ -165,7 +171,9 @@ describe('interactive rebase', () => {
     )
     open()
     await waitFor(() => expect(dialog().getAllByRole('option')).toHaveLength(4))
-    expect(calls.map((c) => c.path)).toContain(`${BASE}/log?ref=${encodeURIComponent(`${BASE_COMMIT}..HEAD`)}&skip=2`)
+    expect(calls.map((c) => c.path)).toContain(
+      `${BASE}/log?ref=${encodeURIComponent(`${BASE_COMMIT}..HEAD`)}&skip=2`,
+    )
     expect((dialog().getByRole('button', { name: '开始变基' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
