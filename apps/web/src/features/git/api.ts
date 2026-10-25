@@ -12,7 +12,7 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
-import { gitOperationSettled } from './notify'
+import { gitOperationSettled, wordSettled } from './notify'
 
 export const gitBase = (groupId: string, botId: string) => `/groups/${groupId}/bots/${botId}/git`
 
@@ -132,16 +132,20 @@ export async function runGitAction(
   req: GitActionInput,
   succeeded?: () => void,
 ): Promise<GitOperationDto | null> {
+  wordSettled(groupId, botId, req.action, succeeded)
   try {
     const op = await api.post<GitOperationDto>(`${gitBase(groupId, botId)}/actions`, req)
     putGitOperation(op)
     const { bots } = useWorkspace.getState()
     if (op.status === 'pending_approval') {
+      // Approved later, it is told the plain way.
+      wordSettled(groupId, botId, req.action)
       const owner = bots.find((b) => b.id === botId)?.ownerName ?? ''
       toast({ type: 'info', message: t('已提交申请，等待 Bot 主人 {name} 审批', { name: owner }) })
     } else gitOperationSettled(op, bots, succeeded)
     return op
   } catch (e) {
+    wordSettled(groupId, botId, req.action)
     toastError(e)
     return null
   }

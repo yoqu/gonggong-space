@@ -37,6 +37,19 @@ export const ACTION_LABEL: Record<GitActionKind, string> = {
 const told = new Set<string>()
 
 /**
+ * Success notices a caller words itself (runGitAction's `succeeded`), by bot and action until the operation settles:
+ * the realtime event usually beats the POST answer, the only one that knows the operation's id.
+ */
+const worded = new Map<string, () => void>()
+const wordedKey = (groupId: string, botId: string, action: GitActionKind) => `${groupId}:${botId}:${action}`
+/** Words the next settling of `action` on the bot with `succeeded`; none forgets an earlier one. */
+export function wordSettled(groupId: string, botId: string, action: GitActionKind, succeeded?: () => void) {
+  const key = wordedKey(groupId, botId, action)
+  if (succeeded) worded.set(key, succeeded)
+  else worded.delete(key)
+}
+
+/**
  * The remote branches local ones being deleted track, as the delete dialog saw them: by the time the deletion is told
  * the branch is gone with its config, and IDEA offers to delete the tracked one too.
  */
@@ -66,9 +79,12 @@ export function gitOperationSettled(
   succeeded?: () => void,
 ) {
   if (op.requestedBy.id !== useSession.getState().user?.id || told.has(op.id)) return
+  const key = wordedKey(op.groupId, op.botId, op.action)
+  const own = succeeded ?? worded.get(key)
+  if (op.status === 'succeeded' || op.status === 'failed' || op.status === 'rejected') worded.delete(key)
   const bot = bots.find((b) => b.id === op.botId)?.name ?? 'Bot'
   const action = ACTION_LABEL[op.action]
-  if (op.status === 'succeeded' && succeeded) succeeded()
+  if (op.status === 'succeeded' && own) own()
   else if (op.status === 'succeeded')
     toast(doneNotice(op) ?? { type: 'success', message: t('{bot}：{action}完成', { bot, action }) })
   else if (op.status === 'failed') {
