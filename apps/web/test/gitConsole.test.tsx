@@ -101,6 +101,7 @@ describe('Git console', () => {
     render(<GitConsole groupId="g1" botId="b1" />)
     const commands = screen.getAllByTestId(/^git-command-/)
     expect(within(commands[0] as HTMLElement).getByText('git -C /repo push origin main')).toBeTruthy()
+    expect(within(commands[0] as HTMLElement).getByText('退出码 1')).toBeTruthy()
     expect(within(commands[0] as HTMLElement).getByText(/25 ms/)).toBeTruthy()
     expect(within(commands[0] as HTMLElement).getByText('rejected')).toBeTruthy()
     expect(within(commands[0] as HTMLElement).getByText('输出已截断')).toBeTruthy()
