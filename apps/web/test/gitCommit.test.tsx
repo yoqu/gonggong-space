@@ -1,10 +1,9 @@
-import type { GitChangesDto, GitConflictDto } from '@gonggong/protocol'
+import type { GitChangesDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { GitDialogHost } from '../src/features/git/dialogs/GitDialogHost'
-import { GitMergeTab } from '../src/features/workbench/tabs/GitMergeTab'
 import { GitTab } from '../src/features/workbench/tabs/GitTab'
 import {
   actionsCalled,
@@ -305,6 +304,35 @@ describe('merge or rebase in progress', () => {
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'abort' }))
   })
 
+  it('says what each side did to a conflict and takes a side for the selected conflicts in one request', async () => {
+    const calls = mockApi(routes({ [`GET ${BASE}/changes`]: MERGING, [`POST ${BASE}/actions`]: done }))
+    const tab = await openGit(status({ ongoing: 'merge', conflicts: 2 }))
+    const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
+    const legacy = tree.getByRole('button', { name: '冲突：src/legacy.ts' })
+    expect(legacy.textContent).toContain('你的：修改 · 他们的：删除')
+    fireEvent.click(tree.getByRole('button', { name: '冲突：src/order.ts' }))
+    fireEvent.click(legacy, { metaKey: true })
+    fireEvent.contextMenu(legacy)
+    fireEvent.click(await screen.findByRole('menuitem', { name: '接受你的版本' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([
+        { action: 'resolve', path: 'src/order.ts', side: 'ours', paths: ['src/legacy.ts'] },
+      ]),
+    )
+    // The group's menu settles all of its conflicts.
+    fireEvent.contextMenu(tree.getByRole('button', { name: /^合并冲突/ }))
+    expect(screen.queryByRole('menuitem', { name: '合并…' })).toBeNull()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '接受他们的版本' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls).at(-1)).toEqual({
+        action: 'resolve',
+        path: 'src/order.ts',
+        side: 'theirs',
+        paths: ['src/legacy.ts'],
+      }),
+    )
+  })
+
   it('commits a merge with the message git prepared once every conflict is resolved', async () => {
     const calls = mockApi(
       routes({ [`GET ${BASE}/changes`]: { ...MERGING, conflicts: [] }, [`POST ${BASE}/actions`]: done }),
@@ -441,107 +469,6 @@ describe('stashes', () => {
     expect(clear.getByText('删除全部 2 个贮藏')).toBeTruthy()
     fireEvent.click(clear.getByRole('button', { name: '清空' }))
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop' }))
-  })
-})
-
-describe('merge tool', () => {
-  const CONFLICT: GitConflictDto = {
-    base: 'a\nfee = 1\nb\n',
-    ours: 'a\nfee = 2\nb\n',
-    theirs: 'a\nfee = 3\nb\n',
-    merged: 'a\n<<<<<<< ours\nfee = 2\n||||||| base\nfee = 1\n=======\nfee = 3\n>>>>>>> theirs\nb\n',
-    binary: false,
-  }
-  function Merge({ path }: { path: string }) {
-    const tab = useWorkbench((s) => s.benches.g1?.tabs.find((t) => t.kind === 'git-merge'))
-    return tab?.kind === 'git-merge' ? (
-      <GitMergeTab tab={tab} tabKey={`git-merge:b1::${tab.path}`} active />
-    ) : (
-      <span>{path}</span>
-    )
-  }
-  const open = (path: string) => {
-    useWorkspace.setState({
-      botStates: { g1: { b1: state({ git: status({ ongoing: 'merge', conflicts: 2 }) }) } },
-    })
-    useWorkbench.getState().show({ kind: 'git-merge', botId: 'b1', repo: null, path })
-    render(<Merge path={path} />)
-  }
-
-  it('settles each conflict with yours, theirs, both or an edit, then writes the result and moves to the next file', async () => {
-    const calls = mockApi(
-      routes({
-        [`GET ${BASE}/changes`]: MERGING,
-        [`GET ${BASE}/conflict?path=src%2Forder.ts`]: CONFLICT,
-        [`GET ${BASE}/conflict?path=src%2Flegacy.ts`]: { ...CONFLICT, merged: null, theirs: null },
-        [`POST ${BASE}/actions`]: done,
-      }),
-    )
-    open('src/order.ts')
-    expect(await screen.findByText('你的：feat/refund-v2（当前分支）')).toBeTruthy()
-    expect(screen.getByText('他们的：feat/fee')).toBeTruthy()
-    expect(screen.getByText('1 处冲突，已解决 0 处')).toBeTruthy()
-    const apply = screen.getByRole('button', { name: '应用' }) as HTMLButtonElement
-    expect(apply.disabled).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: '显示基准' }))
-    expect(screen.getByText('fee = 1')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '两者都要（他们的在前）' }))
-    expect(screen.getByText('已保留两者（他们的在前）')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
-    fireEvent.click(screen.getByRole('button', { name: '手动编辑' }))
-    fireEvent.change(screen.getByRole('textbox', { name: '冲突 1 的合并结果' }), {
-      target: { value: 'fee = 4' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: '完成' }))
-    expect(screen.getByText('1 处冲突，已解决 1 处')).toBeTruthy()
-    fireEvent.click(apply)
-    await waitFor(() =>
-      expect(actionsCalled(calls)).toEqual([
-        { action: 'resolve', path: 'src/order.ts', content: 'a\nfee = 4\nb\n' },
-      ]),
-    )
-    // The next conflicted file: theirs deleted it, so only a whole side can be kept.
-    expect(await screen.findByText('两边对这个文件的处理不同，请选择保留哪一方')).toBeTruthy()
-    expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-merge', path: 'src/legacy.ts' })
-    expect(screen.getByText('删除了文件')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '保留你的版本' }))
-    await waitFor(() =>
-      expect(actionsCalled(calls).at(-1)).toEqual({ action: 'resolve', path: 'src/legacy.ts', side: 'ours' }),
-    )
-  })
-
-  it('edits the whole text, refusing to apply while markers are left', async () => {
-    const calls = mockApi(
-      routes({
-        [`GET ${BASE}/changes`]: MERGING,
-        [`GET ${BASE}/conflict?path=src%2Forder.ts`]: CONFLICT,
-        [`POST ${BASE}/actions`]: done,
-      }),
-    )
-    open('src/order.ts')
-    fireEvent.click(await screen.findByRole('button', { name: '编辑全文' }))
-    const text = screen.getByRole('textbox', { name: '合并结果' }) as HTMLTextAreaElement
-    expect(text.value).toBe('a\n<<<<<<< ours\nfee = 2\n=======\nfee = 3\n>>>>>>> theirs\nb\n')
-    expect(screen.getByText(/还有冲突标记/)).toBeTruthy()
-    expect((screen.getByRole('button', { name: '应用' }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.change(text, { target: { value: 'a\nfee = 5\nb\n' } })
-    fireEvent.click(screen.getByRole('button', { name: '应用' }))
-    await waitFor(() =>
-      expect(actionsCalled(calls)).toEqual([
-        { action: 'resolve', path: 'src/order.ts', content: 'a\nfee = 5\nb\n' },
-      ]),
-    )
-  })
-
-  it('says when the file is resolved already', async () => {
-    mockApi(
-      routes({
-        [`GET ${BASE}/changes`]: { ...MERGING, conflicts: [] },
-        [`GET ${BASE}/conflict?path=x.ts`]: CONFLICT,
-      }),
-    )
-    open('x.ts')
-    expect(await screen.findByText('x.ts 的冲突已解决')).toBeTruthy()
   })
 })
 

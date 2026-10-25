@@ -1,41 +1,60 @@
-import type { GitChangesDto, GitConflict, GitConflictDto, GitOngoing } from '@gonggong/protocol'
-import { type ReactNode, useState } from 'react'
+import type { GitChangesDto, GitConflict, GitConflictDto } from '@gonggong/protocol'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { Alert, Button, EmptyState, Icon, MenuButton, Spinner } from '../../../ui'
+import { Alert, AlertDialog, Button, EmptyState, Icon, MenuButton, Spinner } from '../../../ui'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { gitActionTaken, gitBase, gitUrls, repoStatus, runGitAction, useGitGet } from '../../git/api'
+import { ToolIcon } from '../../git/CommitView'
 import { inTarget, ongoingLabel } from '../../git/commands'
 import {
-  assemble,
-  hasMarkers,
-  type MergeSegment,
-  parseMerge,
-  type Resolution,
-  resolved,
-  sameOnBothSides,
+  applySide,
+  ignoreSide,
+  initialState,
+  isResolved,
+  joinText,
+  magic,
+  mergeDraftKey,
+  openState,
+  type Piece,
+  type PieceState,
+  splitTexts,
+  threeWay,
+  useMergeDrafts,
 } from '../../git/merge'
 import { useOwner } from '../../git/owner'
 import type { TabMeta, TabProps } from '../types'
 import '../../git/merge.css'
 
-type Conflict = Extract<MergeSegment, { kind: 'conflict' }>
+type Side = 'ours' | 'theirs'
 
-/** Agreed runs longer than this fold to their first and last lines. */
-const FOLD = 8
-const EDGE = 3
-
-/** Who "ours" and "theirs" are in what stopped midway (in a rebase, ours is the branch rebased onto). */
-function sides(ongoing: GitOngoing | null, branch: string | null) {
+/**
+ * What each side is. In a rebase git's "ours" is the branch rebased onto (with the commits replayed so far) and
+ * "theirs" the commit being replayed, as IDEA names them.
+ */
+function sides(data: GitChangesDto | null, branch: string | null) {
+  const ongoing = data?.ongoing ?? null
   const subject = ongoing?.subject ?? ''
-  const current = branch ? t('{branch}（当前分支）', { branch }) : t('当前 HEAD')
-  if (!ongoing) return { ours: current, theirs: t('恢复的贮藏') }
-  if (ongoing.kind === 'rebase')
-    return { ours: t('变基到的分支'), theirs: t('正在重放的 {subject}', { subject }) }
-  if (ongoing.kind === 'cherry-pick') return { ours: current, theirs: t('正在优选的 {subject}', { subject }) }
-  if (ongoing.kind === 'revert') return { ours: current, theirs: t('还原 {subject} 的改动', { subject }) }
-  return { ours: current, theirs: subject || t('合并进来的分支') }
+  const ours = t('你的 · {branch}', { branch: branch ?? t('当前 HEAD') })
+  if (!ongoing) return { ours, theirs: t('要并入的改动（贮藏或 squash 合并）') }
+  if (ongoing.kind === 'rebase') {
+    const head = data?.head?.shortHash
+    return {
+      ours: head ? t('已变基的提交 · {head}', { head }) : t('已变基的提交'),
+      theirs: subject ? t('正在重放的提交 · {subject}', { subject }) : t('正在重放的提交'),
+    }
+  }
+  if (ongoing.kind === 'cherry-pick') return { ours, theirs: t('正在优选的提交 · {subject}', { subject }) }
+  if (ongoing.kind === 'revert') return { ours, theirs: t('还原 {subject} 的改动', { subject }) }
+  return { ours, theirs: t('他们的 · {subject}', { subject: subject || t('合并进来的分支') }) }
 }
 
 const SIDE: Record<GitConflict['ours'], string> = {
@@ -45,9 +64,10 @@ const SIDE: Record<GitConflict['ours'], string> = {
 }
 
 /**
- * IDEA's Merge Revisions for one conflicted file: git's merge with each conflict shown as yours | theirs (the base on
- * demand), settled one by one (yours, theirs, both, or edited) or all at once, or the whole file edited; applying
- * writes the result and marks it resolved, then moves on to the next conflicted file.
+ * IDEA's Merge Revisions for one conflicted file: yours | result | theirs, worked out from the three versions, changes
+ * of one side already taken, each conflict settled with » / « / × or by typing into the result; applying writes the
+ * result and marks it resolved, then moves on to the next conflicted file. A delete, add or binary conflict can only
+ * take a whole side.
  */
 export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -58,33 +78,25 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
   const target = { groupId, botId: tab.botId, repo: tab.repo ?? null }
   const stamp = useGitStamp(groupId, tab.botId)
   const base = gitBase(groupId, tab.botId)
+  const draftKey = mergeDraftKey(tab.botId, target.repo, tab.path)
+  const saveDraft = useMergeDrafts((s) => s.save)
   // Read once per file: a status change while resolving must not throw the choices away.
   const read = useGitGet<GitConflictDto>(gitUrls.conflict(base, tab.path, target.repo))
   const changes = useGitGet<GitChangesDto>(gitUrls.changes(base, target.repo), stamp)
-  const [choices, setChoices] = useState<{ path: string; map: ReadonlyMap<number, Resolution> }>({
-    path: tab.path,
-    map: new Map(),
-  })
-  const [editing, setEditing] = useState<number | null>(null)
-  const [whole, setWhole] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const map = choices.path === tab.path ? choices.map : new Map<number, Resolution>()
-  const setMap = (next: ReadonlyMap<number, Resolution>) => setChoices({ path: tab.path, map: next })
 
   const conflicts = changes.data?.conflicts ?? []
   const mine = conflicts.find((c) => c.path === tab.path) ?? null
   const at = conflicts.findIndex((c) => c.path === tab.path)
   const status = git ? repoStatus(git, target.repo) : null
-  const label = sides(changes.data?.ongoing ?? null, status?.branch ?? null)
+  const label = sides(changes.data, status?.branch ?? null)
   const go = (path: string) => {
-    setWhole(null)
-    setEditing(null)
     setError(null)
     patch(tabKey, { path })
   }
 
-  const finish = async (req: { side?: 'ours' | 'theirs'; content?: string }) => {
+  const finish = async (req: { side?: Side; content?: string }) => {
     setBusy(true)
     setError(null)
     const op = await runGitAction(
@@ -95,6 +107,7 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
     setBusy(false)
     if (!gitActionTaken(op)) return setError(op?.error ?? null)
     if (op?.status !== 'succeeded') return
+    saveDraft(draftKey, null)
     const left = conflicts.filter((c) => c.path !== tab.path)
     const next = left[at] ?? left[0]
     if (next) go(next.path)
@@ -128,32 +141,12 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
     )
 
   const data = read.data
-  const segments = data.merged != null ? parseMerge(data.merged) : null
-  const blocks = (segments ?? []).filter((s): s is Conflict => s.kind === 'conflict')
-  const done = blocks.filter((c) => map.has(c.id)).length
-  const set = (id: number, r: Resolution | null) => {
-    const next = new Map(map)
-    if (r) next.set(id, r)
-    else next.delete(id)
-    setMap(next)
-  }
-  const all = (r: Resolution) => setMap(new Map(blocks.map((c) => [c.id, r])))
-  const result = whole ?? (segments ? assemble(segments, map) : (data.merged ?? ''))
-  const ready = whole != null ? !hasMarkers(whole) : !!segments && done === blocks.length
-  const apply = owner ? t('应用') : t('提交申请')
-
   const header = (
     <div className="gm-bar">
       <Icon name="git-merge" size={15} />
-      <div className="gm-bar__title">
-        <span className="gm-bar__path" title={tab.path}>
-          {tab.path}
-        </span>
-        <span className="gm-bar__sides">
-          <span className="gm-ours">{t('你的：{label}', { label: label.ours })}</span>
-          <span className="gm-theirs">{t('他们的：{label}', { label: label.theirs })}</span>
-        </span>
-      </div>
+      <span className="gm-bar__path" title={tab.path}>
+        {tab.path}
+      </span>
       <span className="spacer" />
       {conflicts.length > 1 ? (
         <span className="gm-nav">
@@ -176,31 +169,35 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
           </button>
         </span>
       ) : null}
-      <MenuButton
-        className="gtb-btn"
-        aria-label={t('整个文件取一方')}
-        align="end"
-        items={[
-          { value: 'ours', label: t('整个文件用你的版本') },
-          { value: 'theirs', label: t('整个文件用他们的版本') },
-          { separator: true },
-          { value: 'reload', label: t('重新读取冲突'), icon: 'arrow-clockwise' },
-        ]}
-        onSelect={(v) => {
-          if (v === 'reload') {
-            setChoices({ path: tab.path, map: new Map() })
-            setWhole(null)
-            read.reload()
-          } else void finish({ side: v === 'ours' ? 'ours' : 'theirs' })
+      <ToolIcon
+        icon="arrow-clockwise"
+        label={t('重新读取冲突')}
+        onClick={() => {
+          saveDraft(draftKey, null)
+          read.reload()
         }}
-      >
-        <Icon name="more" size={14} />
-      </MenuButton>
+      />
     </div>
   )
+  const footer = (apply: ReactNode) => (
+    <>
+      {owner ? null : <Alert description={t('解决冲突需要 Bot 主人批准后才会写入')} />}
+      {error ? <Alert variant="error" description={error} /> : null}
+      <div className="gm-foot">
+        <Button size="small" disabled={busy} onClick={() => void finish({ side: 'ours' })}>
+          {t('全部接受你的')}
+        </Button>
+        <Button size="small" disabled={busy} onClick={() => void finish({ side: 'theirs' })}>
+          {t('全部接受他们的')}
+        </Button>
+        <span className="spacer" />
+        {apply}
+      </div>
+    </>
+  )
 
-  // A side deleted the file, a side added it, or it is binary: only a whole side can be taken.
-  if (data.merged == null)
+  // A side deleted the file, a side added it as something else, or it is binary: only a whole side can be taken.
+  if (data.merged == null || data.ours == null || data.theirs == null)
     return (
       <div className="gm">
         {header}
@@ -237,91 +234,394 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
     )
 
   return (
-    <div className="gm">
+    <MergeView
+      key={draftKey}
+      texts={[data.base ?? '', data.ours, data.theirs]}
+      draftKey={draftKey}
+      labels={label}
+      header={header}
+      footer={footer}
+      busy={busy}
+      applyLabel={owner ? t('应用') : t('提交申请')}
+      onApply={(content) => void finish({ content })}
+    />
+  )
+}
+
+/** The three panes, their tools, and the result written on 应用. */
+function MergeView({
+  texts,
+  draftKey,
+  labels,
+  header,
+  footer,
+  busy,
+  applyLabel,
+  onApply,
+}: {
+  texts: [string, string, string]
+  draftKey: string
+  labels: { ours: string; theirs: string }
+  header: ReactNode
+  footer: (apply: ReactNode) => ReactNode
+  busy: boolean
+  applyLabel: string
+  onApply: (content: string) => void
+}) {
+  const [baseText, oursText, theirsText] = texts
+  const split = useMemo(() => splitTexts([baseText, oursText, theirsText]), [baseText, oursText, theirsText])
+  const source = `${baseText}\0${oursText}\0${theirsText}`
+  const stored = useMergeDrafts((s) => s.drafts[draftKey])
+  const saveDraft = useMergeDrafts((s) => s.save)
+  // A draft of other contents (the file was merged again since) is stale.
+  const draft = stored?.source === source ? stored : null
+  const ignoreWhitespace = draft?.ignoreWhitespace ?? false
+  const compute = (ws: boolean) => {
+    const [b = [], o = [], th = []] = split.sides
+    return threeWay(b, o, th, ws)
+  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: recomputed only when the texts or the option change
+  const pieces = useMemo(() => compute(ignoreWhitespace), [split, ignoreWhitespace])
+  const fresh = useMemo(() => pieces.map(initialState), [pieces])
+  const states = draft?.states.length === pieces.length ? draft.states : fresh
+  const save = (next: PieceState[], ws = ignoreWhitespace) =>
+    saveDraft(draftKey, { source, ignoreWhitespace: ws, states: next })
+  const update = (i: number, s: PieceState) => save(states.map((x, k) => (k === i ? s : x)))
+
+  const [showBase, setShowBase] = useState(false)
+  const [current, setCurrent] = useState<number | null>(() => {
+    const at = pieces.findIndex((p, i) => p.kind === 'conflict' && !isResolved(states[i] as PieceState))
+    return at < 0 ? null : at
+  })
+  const [confirming, setConfirming] = useState(false)
+  const doc = useRef<HTMLDivElement>(null)
+
+  const conflictAt = pieces.flatMap((p, i) => (p.kind === 'conflict' ? [i] : []))
+  const open = conflictAt.filter((i) => !isResolved(states[i] as PieceState))
+  const canMagic = pieces.some((p, i) => magic(p, states[i] as PieceState))
+  const nonConflict = (side: Side | 'all') =>
+    pieces.flatMap((p, i) =>
+      (p.kind === 'ours' || p.kind === 'theirs') &&
+      (side === 'all' || side === p.kind) &&
+      states[i]?.[p.kind] === 'open'
+        ? [i]
+        : [],
+    )
+
+  const jump = (i: number) => {
+    setCurrent(i)
+    doc.current?.querySelector(`[data-piece="${i}"]`)?.scrollIntoView?.({ block: 'center' })
+  }
+  /** F7 / ⇧F7: the next (previous) unresolved conflict, any conflict once all are resolved. */
+  const step = (dir: 1 | -1) => {
+    const list = open.length ? open : conflictAt
+    if (!list.length) return
+    const from = current ?? (dir === 1 ? -1 : pieces.length)
+    const next =
+      dir === 1 ? (list.find((i) => i > from) ?? list[0]) : (list.findLast((i) => i < from) ?? list.at(-1))
+    if (next != null) jump(next)
+  }
+  const result = joinText(
+    states.flatMap((s) => s.lines),
+    split.eol,
+    split.trailing,
+  )
+  const keys = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key !== 'F7') return
+    e.preventDefault()
+    step(e.shiftKey ? -1 : 1)
+  }
+
+  const no = { base: 1, ours: 1, result: 1, theirs: 1 }
+  let changeNo = 0
+  let conflictNo = 0
+  const rows = pieces.map((p, i) => {
+    const s = states[i] as PieceState
+    const from = { ...no }
+    no.base += p.base.length
+    no.ours += p.ours.length
+    no.result += s.lines.length
+    no.theirs += p.theirs.length
+    if (p.kind === 'same')
+      return (
+        // biome-ignore lint/suspicious/noArrayIndexKey: pieces are worked out anew only with the texts
+        <div key={i} className="gm3-row" data-piece={i}>
+          {showBase ? <Cell col="base" lines={p.base} from={from.base} /> : null}
+          <Cell col="ours" lines={p.ours} from={from.ours} />
+          <span className="gm3-gutter" />
+          <ResultCell
+            lines={s.lines}
+            from={from.result}
+            label={t('第 {line} 行起的合并结果', { line: from.result })}
+            onEdit={(lines) => update(i, { ...s, lines })}
+          />
+          <span className="gm3-gutter" />
+          <Cell col="theirs" lines={p.theirs} from={from.theirs} />
+        </div>
+      )
+    changeNo++
+    const n = p.kind === 'conflict' ? ++conflictNo : changeNo
+    const done = isResolved(s)
+    const touched = s.edited || s.ours !== openState(p).ours || s.theirs !== openState(p).theirs
+    const tone = (side: Side) =>
+      p.kind === 'conflict'
+        ? 'conflict'
+        : p.kind !== side && p.kind !== 'both'
+          ? undefined
+          : !p.base.length
+            ? 'inserted'
+            : !p[side].length
+              ? 'deleted'
+              : 'modified'
+    const name = p.kind === 'conflict' ? t('冲突 {n}#nth', { n }) : t('改动 {n}#nth', { n })
+    return (
+      // biome-ignore lint/a11y/useSemanticElements: a row of the three panes, not a form fieldset
+      // biome-ignore lint/suspicious/noArrayIndexKey: pieces are worked out anew only with the texts
+      <div
+        key={i}
+        className="gm3-row"
+        role="group"
+        aria-label={name}
+        data-piece={i}
+        data-kind={p.kind}
+        data-done={done || undefined}
+        data-current={current === i || undefined}
+      >
+        {showBase ? <Cell col="base" lines={p.base} from={from.base} tone="base" /> : null}
+        <Cell col="ours" lines={p.ours} from={from.ours} tone={tone('ours')} />
+        <Gutter
+          side="ours"
+          state={s.ours}
+          onApply={() => update(i, applySide(p, s, 'ours'))}
+          onIgnore={() => update(i, ignoreSide(s, 'ours'))}
+          onUndo={touched ? () => update(i, openState(p)) : undefined}
+        />
+        <ResultCell
+          lines={s.lines}
+          from={from.result}
+          tone={p.kind === 'conflict' && !done ? 'conflict' : 'merged'}
+          label={
+            p.kind === 'conflict'
+              ? t('冲突 {n} 的合并结果', { n })
+              : t('第 {line} 行起的合并结果', { line: from.result })
+          }
+          onEdit={(lines) => update(i, { ...s, lines, edited: true })}
+        />
+        <Gutter
+          side="theirs"
+          state={s.theirs}
+          onApply={() => update(i, applySide(p, s, 'theirs'))}
+          onIgnore={() => update(i, ignoreSide(s, 'theirs'))}
+        />
+        <Cell col="theirs" lines={p.theirs} from={from.theirs} tone={tone('theirs')} />
+      </div>
+    )
+  })
+
+  const applyAll = (side: Side | 'all') => {
+    const at = new Set(nonConflict(side))
+    save(
+      states.map((s, i) =>
+        at.has(i) ? applySide(pieces[i] as Piece, s, (pieces[i] as Piece).kind as Side) : s,
+      ),
+    )
+  }
+  return (
+    <section className="gm" aria-label={t('合并工具')} onKeyDown={keys}>
       {header}
-      <div className="gm-tools">
+      <div className="gm-tools" role="toolbar">
         <span className="gm-tools__count">
-          {segments
-            ? t('{n} 处冲突，已解决 {done} 处', { n: blocks.length, done })
-            : t('无法识别冲突标记，请直接编辑全文')}
+          {t('{n} 处冲突，已解决 {done} 处', { n: conflictAt.length, done: conflictAt.length - open.length })}
         </span>
+        <span className="gm-tools__sep" />
+        <ToolIcon
+          icon="arrow-up"
+          label={t('上一处冲突')}
+          disabled={!conflictAt.length}
+          onClick={() => step(-1)}
+        />
+        <ToolIcon
+          icon="arrow-down"
+          label={t('下一处冲突')}
+          disabled={!conflictAt.length}
+          onClick={() => step(1)}
+        />
+        <MenuButton
+          className="gtb-btn"
+          aria-label={t('应用非冲突改动')}
+          disabled={!nonConflict('all').length}
+          items={[
+            { value: 'ours', label: t('应用左侧的非冲突改动'), disabled: !nonConflict('ours').length },
+            { value: 'all', label: t('应用所有非冲突改动') },
+            { value: 'theirs', label: t('应用右侧的非冲突改动'), disabled: !nonConflict('theirs').length },
+          ]}
+          onSelect={(v) => applyAll(v as Side | 'all')}
+        >
+          <span className="gm3-arrows">»«</span>
+        </MenuButton>
+        <ToolIcon
+          icon="bolt"
+          label={t('解决简单冲突')}
+          disabled={!canMagic}
+          onClick={() => save(states.map((s, i) => magic(pieces[i] as Piece, s) ?? s))}
+        />
         <span className="spacer" />
-        {whole == null && segments ? (
-          <>
-            <Button size="small" variant="plain" onClick={() => all('ours')}>
-              {t('冲突处都用你的')}
-            </Button>
-            <Button size="small" variant="plain" onClick={() => all('theirs')}>
-              {t('冲突处都用他们的')}
-            </Button>
-            {done ? (
-              <Button size="small" variant="plain" onClick={() => setMap(new Map())}>
-                {t('全部撤销')}
-              </Button>
-            ) : null}
-          </>
-        ) : null}
-        {whole == null ? (
-          <Button size="small" icon="doc-text" onClick={() => setWhole(result)}>
-            {t('编辑全文')}
-          </Button>
-        ) : segments ? (
-          <Button size="small" onClick={() => setWhole(null)}>
-            {t('放弃全文编辑')}
-          </Button>
-        ) : null}
+        <Button
+          size="small"
+          variant="plain"
+          aria-pressed={ignoreWhitespace}
+          onClick={() => save(compute(!ignoreWhitespace).map(initialState), !ignoreWhitespace)}
+        >
+          {t('忽略空白')}
+        </Button>
+        <Button size="small" variant="plain" aria-pressed={showBase} onClick={() => setShowBase(!showBase)}>
+          {t('显示基准')}
+        </Button>
+      </div>
+      <div className="gm3" ref={doc} data-base={showBase || undefined}>
+        <div className="gm3-row gm3-head">
+          {showBase ? <span className="gm3-title">{t('基准')}</span> : null}
+          <span className="gm3-title gm-ours">{labels.ours}</span>
+          <span />
+          <span className="gm3-title">{t('结果')}</span>
+          <span />
+          <span className="gm3-title gm-theirs">{labels.theirs}</span>
+        </div>
+        {rows}
+      </div>
+      {footer(
         <Button
           size="small"
           variant="primary"
-          disabled={busy || !ready}
-          onClick={() => void finish({ content: result })}
+          disabled={busy}
+          onClick={() => (open.length ? setConfirming(true) : onApply(result))}
         >
           {busy ? <Spinner size={12} /> : null}
-          {apply}
-        </Button>
-      </div>
-      {error ? <Alert variant="error" description={error} /> : null}
-      {whole != null || !segments ? (
-        <div className="gm-whole">
-          {whole != null && hasMarkers(whole) ? (
-            <Alert
-              variant="warning"
-              description={t('文本里还有冲突标记（<<<<<<< / >>>>>>>），删掉后才能应用')}
-            />
-          ) : null}
-          <textarea
-            className="gm-whole__text"
-            aria-label={t('合并结果')}
-            spellCheck={false}
-            value={whole ?? data.merged ?? ''}
-            onChange={(e) => setWhole(e.target.value)}
-          />
-        </div>
-      ) : (
-        <div className="gm-doc" role="document" aria-label={t('合并结果')}>
-          {segments.map((s, i) =>
-            s.kind === 'same' ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: agreed runs sit between numbered conflicts
-              <Same key={`s${i}`} lines={s.lines} first={i === 0} last={i === segments.length - 1} />
-            ) : (
-              <Block
-                key={s.id}
-                c={s}
-                n={s.id + 1}
-                r={map.get(s.id) ?? null}
-                editing={editing === s.id}
-                onEdit={(on) => setEditing(on ? s.id : null)}
-                onResolve={(r) => {
-                  set(s.id, r)
-                  setEditing(null)
-                }}
-                labels={label}
-              />
-            ),
-          )}
-        </div>
+          {applyLabel}
+        </Button>,
       )}
+      <AlertDialog
+        open={confirming}
+        title={t('还有未解决的冲突')}
+        message={t('还有 {n} 处冲突未解决，仍然应用并标记为已解决？', { n: open.length })}
+        onClose={() => setConfirming(false)}
+        actions={[
+          { label: t('取消'), onClick: () => setConfirming(false) },
+          {
+            label: t('仍然应用'),
+            variant: 'destructive',
+            onClick: () => {
+              setConfirming(false)
+              onApply(result)
+            },
+          },
+        ]}
+      />
+    </section>
+  )
+}
+
+const numbers = (from: number, n: number) => Array.from({ length: n }, (_, k) => from + k).join('\n')
+const height = (n: number) => ({ '--n': n }) as CSSProperties
+
+function Cell({ col, lines, from, tone }: { col: string; lines: string[]; from: number; tone?: string }) {
+  return (
+    <div className="gm3-cell" data-col={col} data-tone={tone} data-empty={!lines.length || undefined}>
+      <pre className="gm3-no" aria-hidden="true" style={height(lines.length)}>
+        {numbers(from, lines.length)}
+      </pre>
+      <pre className="gm3-code" style={height(lines.length)}>
+        {lines.join('\n')}
+      </pre>
     </div>
+  )
+}
+
+/** The result's lines of a piece, typed into directly. */
+function ResultCell({
+  lines,
+  from,
+  tone,
+  label,
+  onEdit,
+}: {
+  lines: string[]
+  from: number
+  tone?: string
+  label: string
+  onEdit: (lines: string[]) => void
+}) {
+  return (
+    <div className="gm3-cell" data-col="result" data-tone={tone} data-empty={!lines.length || undefined}>
+      <pre className="gm3-no" aria-hidden="true" style={height(lines.length)}>
+        {numbers(from, lines.length)}
+      </pre>
+      {lines.length ? (
+        <textarea
+          className="gm3-code gm3-edit"
+          aria-label={label}
+          wrap="off"
+          spellCheck={false}
+          style={height(lines.length)}
+          value={lines.join('\n')}
+          onChange={(e) => onEdit(e.target.value.split('\n'))}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/** IDEA's » / « (take this side) and × (leave it out) beside a side's change; ↺ puts the change back as it was. */
+function Gutter({
+  side,
+  state,
+  onApply,
+  onIgnore,
+  onUndo,
+}: {
+  side: Side
+  state: PieceState['ours']
+  onApply: () => void
+  onIgnore: () => void
+  onUndo?: () => void
+}) {
+  const ours = side === 'ours'
+  return (
+    <span className="gm3-gutter" data-side={side}>
+      {state === 'open' ? (
+        <>
+          <button
+            type="button"
+            className="gm3-act"
+            aria-label={ours ? t('接受你的') : t('接受他们的')}
+            title={ours ? t('接受你的') : t('接受他们的')}
+            onClick={onApply}
+          >
+            {ours ? '»' : '«'}
+          </button>
+          <button
+            type="button"
+            className="gm3-act gm3-act--x"
+            aria-label={ours ? t('忽略你的') : t('忽略他们的')}
+            title={ours ? t('忽略你的') : t('忽略他们的')}
+            onClick={onIgnore}
+          >
+            ×
+          </button>
+        </>
+      ) : null}
+      {onUndo ? (
+        <button
+          type="button"
+          className="gm3-act"
+          aria-label={t('撤销此处')}
+          title={t('撤销此处')}
+          onClick={onUndo}
+        >
+          <Icon name="undo" size={11} />
+        </button>
+      ) : null}
+    </span>
   )
 }
 
@@ -340,7 +640,7 @@ function SideCard({
   text: string | null
   action: ReactNode
   onPick: () => void
-  tone: 'ours' | 'theirs'
+  tone: Side
 }) {
   return (
     <section className="gm-side" data-tone={tone} aria-label={title}>
@@ -356,175 +656,6 @@ function SideCard({
         {action}
       </Button>
     </section>
-  )
-}
-
-/** An agreed run; long ones fold to their edges with a line to unfold them. */
-function Same({ lines, first, last }: { lines: string[]; first: boolean; last: boolean }) {
-  const [open, setOpen] = useState(false)
-  const shown = lines.at(-1) === '' && last ? lines.slice(0, -1) : lines
-  if (open || shown.length <= FOLD) return <Lines lines={shown} />
-  const head = first ? [] : shown.slice(0, EDGE)
-  const tail = last ? [] : shown.slice(-EDGE)
-  const hidden = shown.length - head.length - tail.length
-  return (
-    <>
-      <Lines lines={head} />
-      <button type="button" className="gm-fold" onClick={() => setOpen(true)}>
-        {t('… {n} 行相同的内容', { n: hidden })}
-      </button>
-      <Lines lines={tail} />
-    </>
-  )
-}
-
-function Lines({ lines, tone }: { lines: string[]; tone?: string }) {
-  if (!lines.length) return null
-  return (
-    <pre className="gm-lines" data-tone={tone}>
-      {lines.join('\n')}
-    </pre>
-  )
-}
-
-const CHOICE: Record<Exclude<Resolution, { text: string }>, string> = {
-  ours: t('已用你的'),
-  theirs: t('已用他们的'),
-  'ours-theirs': t('已保留两者（你的在前）'),
-  'theirs-ours': t('已保留两者（他们的在前）'),
-}
-
-/** One conflict: yours | theirs side by side with the base on demand, or what it was settled with. */
-function Block({
-  c,
-  n,
-  r,
-  editing,
-  onEdit,
-  onResolve,
-  labels,
-}: {
-  c: Conflict
-  n: number
-  r: Resolution | null
-  editing: boolean
-  onEdit: (on: boolean) => void
-  onResolve: (r: Resolution | null) => void
-  labels: { ours: string; theirs: string }
-}) {
-  const [showBase, setShowBase] = useState(false)
-  const [text, setText] = useState('')
-  if (r && !editing)
-    return (
-      <div className="gm-block gm-block--done" data-conflict={n}>
-        <div className="gm-block__head">
-          <Icon name="checkmark-circle" size={13} />
-          <span>{t('冲突 {n}#nth', { n })}</span>
-          <span className="gm-block__choice">{typeof r === 'object' ? t('已手动编辑') : CHOICE[r]}</span>
-          <span className="spacer" />
-          <button type="button" className="gm-link" onClick={() => onResolve(null)}>
-            {t('撤销')}
-          </button>
-        </div>
-        <Lines lines={resolved(c, r)} tone="result" />
-      </div>
-    )
-  if (editing)
-    return (
-      <div className="gm-block gm-block--edit" data-conflict={n}>
-        <div className="gm-block__head">
-          <span>{t('编辑冲突 {n}', { n })}</span>
-        </div>
-        <textarea
-          className="gm-block__text"
-          aria-label={t('冲突 {n} 的合并结果', { n })}
-          spellCheck={false}
-          // biome-ignore lint/a11y/noAutofocus: the editor opens on request, ready to type
-          autoFocus
-          value={text}
-          rows={Math.min(16, Math.max(4, c.ours.length + c.theirs.length + 1))}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <div className="gm-block__actions">
-          <Button size="small" variant="primary" onClick={() => onResolve({ text })}>
-            {t('完成')}
-          </Button>
-          <Button size="small" variant="plain" onClick={() => onEdit(false)}>
-            {t('取消')}
-          </Button>
-        </div>
-      </div>
-    )
-  const same = sameOnBothSides(c)
-  return (
-    <div className="gm-block" data-conflict={n}>
-      <div className="gm-block__head">
-        <Icon name="warning" size={13} />
-        <span>{t('冲突 {n}#nth', { n })}</span>
-        {same ? <span className="gm-block__choice">{t('两边改得一样')}</span> : null}
-        <span className="spacer" />
-        {c.base.length ? (
-          <button
-            type="button"
-            className="gm-link"
-            aria-pressed={showBase}
-            onClick={() => setShowBase(!showBase)}
-          >
-            {showBase ? t('隐藏基准') : t('显示基准')}
-          </button>
-        ) : null}
-      </div>
-      {showBase ? (
-        <div className="gm-base">
-          <span className="gm-base__label">{t('共同的基准版本')}</span>
-          <Lines lines={c.base} tone="base" />
-        </div>
-      ) : null}
-      <div className="gm-block__sides">
-        <div className="gm-block__side" data-tone="ours">
-          <span className="gm-block__label">{t('你的 · {label}', { label: labels.ours })}</span>
-          {c.ours.length ? (
-            <Lines lines={c.ours} tone="ours" />
-          ) : (
-            <span className="gm-empty">{t('（删除了这几行）')}</span>
-          )}
-          <Button size="small" onClick={() => onResolve('ours')}>
-            {t('接受你的')}
-          </Button>
-        </div>
-        <div className="gm-block__side" data-tone="theirs">
-          <span className="gm-block__label">{t('他们的 · {label}', { label: labels.theirs })}</span>
-          {c.theirs.length ? (
-            <Lines lines={c.theirs} tone="theirs" />
-          ) : (
-            <span className="gm-empty">{t('（删除了这几行）')}</span>
-          )}
-          <Button size="small" onClick={() => onResolve('theirs')}>
-            {t('接受他们的')}
-          </Button>
-        </div>
-      </div>
-      <div className="gm-block__actions">
-        <Button size="small" variant="plain" onClick={() => onResolve('ours-theirs')}>
-          {t('两者都要（你的在前）')}
-        </Button>
-        <Button size="small" variant="plain" onClick={() => onResolve('theirs-ours')}>
-          {t('两者都要（他们的在前）')}
-        </Button>
-        <span className="spacer" />
-        <Button
-          size="small"
-          variant="plain"
-          icon="doc-text"
-          onClick={() => {
-            setText([...c.ours, ...c.theirs].join('\n'))
-            onEdit(true)
-          }}
-        >
-          {t('手动编辑')}
-        </Button>
-      </div>
-    </div>
   )
 }
 

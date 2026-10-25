@@ -271,7 +271,9 @@ export function gitCommands(target: GitTarget) {
         req: { action: 'abort' },
       }),
     skipCommit: () => void run({ action: 'skip' }),
-    resolve: (path: string, side: 'ours' | 'theirs') => run({ action: 'resolve', path, side }),
+    /** Takes a side for conflicted files; several in one request (gitOps4), one as before. */
+    resolve: ([path, ...more]: [string, ...string[]], side: 'ours' | 'theirs') =>
+      run({ action: 'resolve', path, side, ...(more.length > 0 && { paths: more }) }),
     /** Two versions side by side; `to` null = the work tree. */
     compare: (from: string, to: string | null) =>
       openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from, to, file: null }),
