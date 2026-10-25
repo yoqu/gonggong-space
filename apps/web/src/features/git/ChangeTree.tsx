@@ -73,6 +73,13 @@ export function statusOf(c: TreeChange): { tone: string; letter: string; label: 
   }
 }
 
+/** What each side of a merge did to a conflicted file (IDEA's Conflicts dialog columns). */
+const CONFLICT_SIDE: Record<GitConflict['ours'], string> = {
+  modified: t('修改'),
+  added: t('新增'),
+  deleted: t('删除'),
+}
+
 const filesOf = (n: DiffNode<TreeChange>): TreeChange[] =>
   n.kind === 'file' ? [n.file] : n.children.flatMap(filesOf)
 const dirOf = (path: string) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
@@ -274,6 +281,14 @@ export function ChangeTree({
           <span className="gt-file__name">{nameOf(c.path)}</span>
           {dir ? <span className="gt-file__dir">{dir}</span> : null}
           {c.oldPath && !flat ? <span className="gt-file__dir">← {nameOf(c.oldPath)}</span> : null}
+          {c.conflict ? (
+            <span className="gt-file__dir">
+              {t('你的：{ours} · 他们的：{theirs}', {
+                ours: CONFLICT_SIDE[c.conflict.ours],
+                theirs: CONFLICT_SIDE[c.conflict.theirs],
+              })}
+            </span>
+          ) : null}
           <span className="spacer" />
           {c.add || c.del ? (
             <span className="gt-file__stat">

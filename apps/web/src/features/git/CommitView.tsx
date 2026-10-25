@@ -101,11 +101,14 @@ export function CommitView({
     } else return
     e.preventDefault()
   }
+  /** IDEA's Conflicts dialog: a conflicted file (or the conflicts selected, a folder's, the group's) settled as one. */
+  const conflictMenu = (tg: ChangeTarget) =>
+    tg.file?.conflict || (!tg.file && tg.changes.every((c) => c.conflict))
   const menu = (tg: ChangeTarget): MenuItem[] => {
     const f = tg.file
-    if (f?.conflict)
+    if (conflictMenu(tg))
       return [
-        { value: 'merge', label: t('合并…'), icon: 'git-merge' },
+        ...(f ? [{ value: 'merge', label: t('合并…'), icon: 'git-merge' } as MenuItem] : []),
         { value: 'ours', label: t('接受你的版本') },
         { value: 'theirs', label: t('接受他们的版本') },
         { separator: true },
@@ -175,7 +178,10 @@ export function CommitView({
     else if (value === 'history' && f) cmd.openLog({ path: f.path })
     else if (value === 'copy') cmd.copy(tg.changes.map((c) => c.path).join('\n'))
     else if (value === 'merge' && f) cmd.openMerge(f.path)
-    else if ((value === 'ours' || value === 'theirs') && f) void cmd.resolve(f.path, value)
+    else if (value === 'ours' || value === 'theirs') {
+      const [first, ...more] = tg.changes.filter((c) => c.conflict).map((c) => c.path)
+      if (first) void cmd.resolve([first, ...more], value)
+    }
   }
   const ongoing = data?.ongoing ?? null
   return (
