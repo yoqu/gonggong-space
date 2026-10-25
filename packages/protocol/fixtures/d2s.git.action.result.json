@@ -4,5 +4,32 @@
   "ok": true,
   "busy": false,
   "output": "[feat/refund a1b2c3d] 修复退款金额",
-  "error": null
+  "error": null,
+  "detail": {
+    "code": null,
+    "paths": [],
+    "ahead": null,
+    "behind": null,
+    "updated": null,
+    "commands": [
+      {
+        "command": "git add -A -- src/a.ts",
+        "startedAt": "2026-10-25T04:00:00.000Z",
+        "durationMs": 12,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": "",
+        "truncated": false
+      },
+      {
+        "command": "git commit -m 修复退款金额",
+        "startedAt": "2026-10-25T04:00:00.012Z",
+        "durationMs": 35,
+        "exitCode": 0,
+        "stdout": "[feat/refund a1b2c3d] 修复退款金额\n",
+        "stderr": "",
+        "truncated": false
+      }
+    ]
+  }
 }

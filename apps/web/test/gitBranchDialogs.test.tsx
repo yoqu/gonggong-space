@@ -65,6 +65,7 @@ const detail = (o: Partial<GitActionDetail>): GitActionDetail => ({
   ahead: null,
   behind: null,
   updated: null,
+  commands: null,
   ...o,
 })
 const OVERWRITTEN = detail({ code: 'overwritten', paths: ['src/a.ts', 'README.md'] })

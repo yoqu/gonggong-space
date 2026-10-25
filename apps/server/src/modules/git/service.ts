@@ -22,7 +22,7 @@ import { gitIdentity } from '../bots/git.js'
 import { activeBots } from '../groups/service.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { resolveNotifications } from '../notifications/notify.js'
-import { MASK } from '../runs/redact.js'
+import { MASK, redactDeep } from '../runs/redact.js'
 import { groupRedactor } from '../secrets/resolve.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 
@@ -530,7 +530,7 @@ export async function operationDtos(ctx: Ctx, rows: GitOperation[]): Promise<Git
     decidedBy: r.decidedBy ? who(r.decidedBy) : null,
     output: r.output,
     error: r.error,
-    detail: r.detail,
+    detail: r.detail && { ...r.detail, commands: r.detail.commands ?? null },
     createdAt: r.createdAt.toISOString(),
     expiresAt: r.expiresAt.toISOString(),
     finishedAt: r.finishedAt?.toISOString() ?? null,
@@ -594,7 +594,7 @@ export async function execute(ctx: Ctx, op: GitOperation, t: GitTarget) {
       status: error ? 'failed' : 'succeeded',
       output: res?.output ? redact(res.output) : null,
       error: error && redact(error),
-      detail: res?.detail ?? null,
+      detail: res?.detail ? redactDeep(res.detail, redact) : null,
       finishedAt: ctx.now(),
     })
     .where(eq(gitOperations.id, op.id))

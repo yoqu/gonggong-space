@@ -173,6 +173,7 @@ pub(crate) async fn remote_output_with(
     env: &[(&str, &str)],
     limit: Option<Duration>,
 ) -> Result<std::process::Output, Failure> {
+    let started = crate::git_console::start(dir, args);
     let mut cmd = crate::proc::async_command("git");
     cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").env("LC_ALL", "C").kill_on_drop(true);
     cmd.envs(env.iter().copied());
@@ -181,12 +182,26 @@ pub(crate) async fn remote_output_with(
     }
     let out = match limit {
         None => cmd.output().await,
-        Some(limit) => tokio::time::timeout(limit, cmd.output()).await.map_err(|_| Failure {
-            reason: RepoAccessReason::Timeout,
-            detail: t!("{s} 秒内无响应", s = limit.as_secs()),
-        })?,
+        Some(limit) => match tokio::time::timeout(limit, cmd.output()).await {
+            Ok(out) => out,
+            Err(_) => {
+                let detail = t!("{s} 秒内无响应", s = limit.as_secs());
+                started.error(&detail);
+                return Err(Failure { reason: RepoAccessReason::Timeout, detail: detail.into() });
+            }
+        },
     };
-    out.map_err(|e| Failure { reason: RepoAccessReason::Denied, detail: t!("无法执行 git：{e}", e = e) })
+    match out {
+        Ok(out) => {
+            started.output(&out);
+            Ok(out)
+        }
+        Err(e) => {
+            let failure = Failure { reason: RepoAccessReason::Denied, detail: t!("无法执行 git：{e}", e = e) };
+            started.error(&failure.detail);
+            Err(failure)
+        }
+    }
 }
 
 struct Listing {

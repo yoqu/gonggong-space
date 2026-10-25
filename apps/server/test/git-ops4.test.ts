@@ -1,5 +1,6 @@
 import type {
   GitActionDetail,
+  GitActionResultDetail,
   GitActionInput,
   GitDiffDto,
   GitOperationDto,
@@ -32,12 +33,13 @@ const said = (summary: string) => `王磊 在 cc 的工作区执行了 ${summary
 const PATCH =
   'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,2 +1,2 @@\n-const a = 1\n+const a = 2\n' +
   ' const b = 1\n@@ -9,2 +9,2 @@\n-x\n+y\n z\n'
-const detail = (o: Partial<GitActionDetail>): GitActionDetail => ({
+const detail = (o: Partial<GitActionResultDetail>): GitActionResultDetail => ({
   code: null,
   paths: [],
   ahead: null,
   behind: null,
   updated: null,
+  commands: null,
   ...o,
 })
 

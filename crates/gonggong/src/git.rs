@@ -124,7 +124,7 @@ async fn spawn<V: AsRef<std::ffi::OsStr>>(
     env: &[(&str, V)],
     input: Option<&[u8]>,
 ) -> Result<std::process::Output, String> {
-    let mut child = crate::proc::async_command("git")
+    let child = crate::proc::async_command("git")
         .arg("-C")
         .arg(dir)
         .args(UNQUOTED)
@@ -135,8 +135,16 @@ async fn spawn<V: AsRef<std::ffi::OsStr>>(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
-        .spawn()
-        .map_err(|e| t!("无法执行 git：{e}", e = e))?;
+        .spawn();
+    let mut child = match child {
+        Ok(child) => child,
+        Err(e) => {
+            let error = t!("无法执行 git：{e}", e = e);
+            crate::git_console::start(dir, args).error(&error);
+            return Err(error);
+        }
+    };
+    let started = crate::git_console::start(dir, args);
     // Written aside so a child filling its stdout before reading all of stdin cannot deadlock.
     let writer = child.stdin.take().zip(input).map(|(mut stdin, input)| {
         let input = input.to_vec();
@@ -146,6 +154,7 @@ async fn spawn<V: AsRef<std::ffi::OsStr>>(
     if let Some(writer) = writer {
         let _ = writer.await;
     }
+    started.output(&out);
     Ok(out)
 }
 

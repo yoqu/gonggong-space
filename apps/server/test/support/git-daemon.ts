@@ -1,5 +1,6 @@
 import {
   type GitActionDetail,
+  type GitActionResultDetail,
   type GitBranch,
   type GitRemote,
   PROTOCOL_VERSION,
@@ -43,7 +44,7 @@ export async function gitDaemon(t: TestApp, token: string, features = ['gitOps',
       busy?: boolean
       output?: string | null
       error?: string | null
-      detail?: GitActionDetail
+      detail?: GitActionResultDetail
     } = {},
   ) => {
     const req = await next('git.action')

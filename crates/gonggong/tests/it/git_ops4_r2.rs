@@ -223,7 +223,9 @@ async fn a_remote_branch_brings_its_local_one_up_to_it_unless_that_has_commits_o
     sh(&w, &["branch", "feat", "main"]);
     let output = r.git(GitActionKind::Checkout, from_remote(None)).await.unwrap();
     assert!(output.starts_with("[feat ") && output.ends_with("feat work"), "{output}");
-    assert_eq!((r.head(), r.detail.take()), (sh(&w, &["rev-parse", "origin/feat"]), None));
+    let detail = r.detail.take().unwrap();
+    assert_eq!(r.head(), sh(&w, &["rev-parse", "origin/feat"]));
+    assert_eq!(GitActionDetail { commands: None, ..detail }, GitActionDetail::default());
     assert_eq!(sh(&w, &["rev-parse", "--abbrev-ref", "feat@{upstream}"]), "origin/feat");
 
     // Ahead of it: only switched to.
@@ -289,11 +291,15 @@ async fn pulls_stash_around_every_mode_and_say_what_came_in() {
     assert_eq!(read(&w, "README.md").as_deref(), Some("mine\nhello\ntheirs\n"), "stashed around a fast-forward");
     let to = short(&w, "HEAD");
     let updated = GitUpdated { from: before, to, commits: 2, files: 2 };
-    assert_eq!(r.took(), GitActionDetail { updated: Some(updated), ..GitActionDetail::default() });
+    let detail = r.took();
+    assert_eq!(
+        GitActionDetail { commands: None, ..detail },
+        GitActionDetail { updated: Some(updated), ..GitActionDetail::default() }
+    );
     assert_eq!(sh(&w, &["stash", "list"]), "");
 
     r.git(GitActionKind::Pull, pull(None, None)).await.unwrap();
-    assert_eq!(r.took(), GitActionDetail::default(), "nothing came in");
+    assert_eq!(GitActionDetail { commands: None, ..r.took() }, GitActionDetail::default(), "nothing came in");
 
     // Restoring clashes with what came in: pulled all the same, the clash left to resolve, the stash kept.
     commit(&r.other, "README.md", "hello\ntheirs again\n", "theirs 3");
@@ -343,7 +349,9 @@ async fn merges_and_rebases_stash_around_and_name_what_stopped_them() {
     write(&w, "README.md", "mine\nhello\n");
     r.git(GitActionKind::Merge, merge("side")).await.unwrap();
     assert_eq!(read(&w, "README.md").as_deref(), Some("mine\nhello\nside\n"));
-    assert_eq!((r.detail.take(), sh(&w, &["stash", "list"])), (None, String::new()));
+    let detail = r.detail.take().unwrap();
+    assert_eq!(GitActionDetail { commands: None, ..detail }, GitActionDetail::default());
+    assert_eq!(sh(&w, &["stash", "list"]), "");
 
     sh(&w, &["checkout", "--", "README.md"]);
     let error = r.git(GitActionKind::Merge, merge("clash")).await.unwrap_err();

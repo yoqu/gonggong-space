@@ -15,6 +15,7 @@ pub mod engine;
 pub mod explorer;
 pub mod files;
 pub mod git;
+mod git_console;
 pub mod git_ops;
 pub mod git_write;
 pub mod hosted;

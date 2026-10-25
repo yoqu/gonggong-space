@@ -972,6 +972,21 @@ pub struct GitActionDetail {
     pub behind: Option<u32>,
     /// What a pull brought in.
     pub updated: Option<GitUpdated>,
+    #[serde(default)]
+    pub commands: Option<Vec<GitCommandRecord>>,
+}
+
+/// One process run by a manual git action, in execution order. Environment and stdin never enter this audit record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommandRecord {
+    pub command: String,
+    pub started_at: String,
+    pub duration_ms: u64,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2481,7 +2496,7 @@ mod tests {
         let none = serde_json::to_value(GitActionDetail::default()).unwrap();
         assert_eq!(
             none,
-            serde_json::json!({"code": null, "paths": [], "ahead": null, "behind": null, "updated": null})
+            serde_json::json!({"code": null, "paths": [], "ahead": null, "behind": null, "updated": null, "commands": null})
         );
         let result = DaemonToServer::GitActionResult {
             request_id: "q1".into(),
