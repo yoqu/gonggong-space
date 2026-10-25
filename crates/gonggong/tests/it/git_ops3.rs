@@ -69,19 +69,19 @@ pub(super) fn a() -> GitActionArgs {
 }
 
 #[derive(Debug)]
-struct Work {
-    changes: Vec<GitWorkChange>,
-    conflicts: Vec<GitConflict>,
-    ongoing: Option<GitOngoing>,
+pub(super) struct Work {
+    pub(super) changes: Vec<GitWorkChange>,
+    pub(super) conflicts: Vec<GitConflict>,
+    pub(super) ongoing: Option<GitOngoing>,
     head: Option<GitHeadCommit>,
 }
 
 #[derive(Debug)]
-struct Sides {
-    base: Option<String>,
-    ours: Option<String>,
-    theirs: Option<String>,
-    merged: Option<String>,
+pub(super) struct Sides {
+    pub(super) base: Option<String>,
+    pub(super) ours: Option<String>,
+    pub(super) theirs: Option<String>,
+    pub(super) merged: Option<String>,
     binary: bool,
 }
 
@@ -128,7 +128,7 @@ impl Rig {
         }
     }
 
-    async fn work(&mut self) -> Work {
+    pub(super) async fn work(&mut self) -> Work {
         self.work_in(None).await.unwrap()
     }
 
@@ -218,7 +218,7 @@ impl Rig {
         }
     }
 
-    async fn conflict(&mut self, path: &str) -> Result<Sides, String> {
+    pub(super) async fn conflict(&mut self, path: &str) -> Result<Sides, String> {
         self.conflict_in(None, path, 1 << 20).await
     }
 
@@ -451,9 +451,13 @@ async fn conflicts_take_either_side_and_abort_puts_everything_back() {
     assert_eq!((binary.base, binary.ours, binary.theirs, binary.merged), (None, None, None, None));
     let added = r.conflict("both.txt").await.unwrap();
     assert_eq!(
-        (added.base, added.ours.as_deref(), added.merged),
-        (None, Some("main side\n"), None),
-        "no base to merge from"
+        (added.base, added.ours.as_deref(), added.merged.as_deref()),
+        (
+            None,
+            Some("main side\n"),
+            Some("<<<<<<< ours\nmain side\n||||||| base\n=======\nfeat side\n>>>>>>> theirs\n")
+        ),
+        "merged from an empty base"
     );
 
     let side = |path: &str, side| {
