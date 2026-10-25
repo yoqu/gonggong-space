@@ -16,7 +16,7 @@ const same = (a: GitCommit, b: GitCommit | undefined) =>
 
 /**
  * A repo's log, a page at a time (`more` appends the next). A new query starts over; a new `stamp` (the git status
- * changed) re-reads the first page and keeps what is loaded when that page is unchanged.
+ * changed) re-reads as many commits as are listed, keeping the list as it was when nothing changed.
  */
 export function useLog(
   base: string,
@@ -31,15 +31,13 @@ export function useLog(
   const [state, setState] = useState(fresh)
   const shown = state.key === key ? state : fresh
 
-  const load = (skip: number, mode: 'append' | 'refresh') => {
-    setState((s) => (s.key !== key ? fresh : mode === 'append' ? { ...s, loading: true, error: null } : s))
+  const load = (skip: number) => {
+    setState((s) => (s.key !== key ? fresh : { ...s, loading: true, error: null }))
     api.get<GitLogDto>(page(skip)).then(
       (r) =>
         setState((s) => {
           if (s.key !== key) return s
-          if (mode === 'refresh' && s.commits.length && r.commits.every((c, i) => same(c, s.commits[i])))
-            return { ...s, loading: false }
-          const kept = mode === 'append' ? s.commits.slice(0, skip) : []
+          const kept = s.commits.slice(0, skip)
           // A commit made between two pages shifts the history: the next page repeats the last ones listed.
           const listed = new Set(kept.map((c) => c.hash))
           const commits = [...kept, ...r.commits.filter((c) => !listed.has(c.hash))]
@@ -47,35 +45,56 @@ export function useLog(
           const hasMore = r.hasMore && commits.length > kept.length
           return { key, commits, hasMore, loading: false, error: null }
         }),
-      // A failed refresh keeps the list it would have replaced.
-      (e: unknown) =>
-        setState((s) =>
-          s.key !== key || (mode === 'refresh' && s.commits.length)
-            ? s
-            : { ...s, loading: false, error: errorText(e) },
-        ),
+      (e: unknown) => setState((s) => (s.key !== key ? s : { ...s, loading: false, error: errorText(e) })),
     )
   }
-  const latest = useRef(load)
-  latest.current = load
+  const loaded = useRef(shown.commits.length)
+  loaded.current = shown.commits.length
+  /** Reads as many commits as are listed again (IDEA keeps the scroll), keeping the list when nothing changed. */
+  const refresh = async () => {
+    const want = Math.max(loaded.current, 1)
+    let commits: GitCommit[] = []
+    let hasMore = true
+    try {
+      while (hasMore && commits.length < want) {
+        const r = await api.get<GitLogDto>(page(commits.length))
+        const listed = new Set(commits.map((c) => c.hash))
+        const added = r.commits.filter((c) => !listed.has(c.hash))
+        commits = [...commits, ...added]
+        hasMore = r.hasMore && added.length > 0
+      }
+    } catch (e) {
+      // A failed refresh keeps the list it would have replaced.
+      setState((s) => (s.key !== key || s.commits.length ? s : { ...s, loading: false, error: errorText(e) }))
+      return
+    }
+    setState((s) => {
+      if (s.key !== key) return s
+      if (s.commits.length === commits.length && commits.every((c, i) => same(c, s.commits[i])))
+        return s.loading ? { ...s, loading: false } : s
+      return { key, commits, hasMore, loading: false, error: null }
+    })
+  }
+  const latest = useRef({ load, refresh })
+  latest.current = { load, refresh }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new query starts the list over
-  useEffect(() => latest.current(0, 'append'), [key])
+  useEffect(() => latest.current.load(0), [key])
   const seen = useRef(stamp)
   useEffect(() => {
     if (seen.current === stamp) return
     seen.current = stamp
-    latest.current(0, 'refresh')
+    void latest.current.refresh()
   }, [stamp])
 
   return {
     ...shown,
     more: () => {
-      if (shown.hasMore && !shown.loading) load(shown.commits.length, 'append')
+      if (shown.hasMore && !shown.loading) load(shown.commits.length)
     },
-    /** Reads the first page again. */
-    reload: () => load(0, 'refresh'),
+    /** Reads what is listed again. */
+    reload: () => void refresh(),
     /** Retries the page that failed. */
-    retry: () => load(shown.commits.length, 'append'),
+    retry: () => load(shown.commits.length),
   }
 }

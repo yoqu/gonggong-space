@@ -18,18 +18,52 @@ export const commitInfo = (c: GitCommit): CommitInfo => ({
 export const isHead = (c: GitCommit, remotes: readonly string[]) =>
   parseRefs(c.refs, remotes).some((r) => r.kind === 'head')
 
+/** The listed commits reachable from `starts` through their parents. */
+function ancestors(byHash: ReadonlyMap<string, GitCommit>, starts: string[]) {
+  const seen = new Set<string>()
+  const stack = [...starts]
+  for (let h = stack.pop(); h !== undefined; h = stack.pop()) {
+    const c = byHash.get(h)
+    if (!c || seen.has(h)) continue
+    seen.add(h)
+    stack.push(...c.parents)
+  }
+  return seen
+}
+
+/**
+ * The listed commits of HEAD's branch not pushed yet: reachable from HEAD but not from its upstream (without one, from
+ * no remote branch). Nothing when the upstream's commit is not listed, as then it can't be told.
+ */
+export function unpushed(all: readonly GitCommit[], remotes: readonly string[], upstream: string | null) {
+  const head = all.find((c) => isHead(c, remotes))
+  if (!head) return new Set<string>()
+  const tips = all.filter((c) =>
+    parseRefs(c.refs, remotes).some((r) => r.kind === 'remote' && (!upstream || r.name === upstream)),
+  )
+  if (upstream && !tips.length) return new Set<string>()
+  const byHash = new Map(all.map((c) => [c.hash, c]))
+  const pushed = ancestors(
+    byHash,
+    tips.map((c) => c.hash),
+  )
+  return new Set([...ancestors(byHash, [head.hash])].filter((h) => !pushed.has(h)))
+}
+
 /**
  * IDEA's commit context menu for the commits picked (list order, newest first): what works on several stays on, the
- * rest needs one; undo and reword only for HEAD.
+ * rest needs one; undo and reword only for HEAD, 推送到此处为止 only for a commit of the current branch not pushed yet
+ * (`unpushed`), 比较版本 for two.
  */
 export function commitMenu(
   picked: GitCommit[],
   all: readonly GitCommit[],
-  o: { remotes: readonly string[]; rootRepo: boolean },
+  o: { remotes: readonly string[]; rootRepo: boolean; unpushed?: ReadonlySet<string> },
 ): MenuItem[] {
   const [c] = picked
   const one = picked.length === 1 && !!c
   const head = one && isHead(c, o.remotes)
+  const push = one && !!o.unpushed?.has(c.hash)
   return [
     { value: 'copy-hash', label: t('复制提交哈希'), icon: 'copy' },
     { value: 'copy-message', label: t('复制提交说明') },
@@ -41,6 +75,7 @@ export function commitMenu(
     { value: 'checkout', label: t('检出此修订'), icon: 'check', disabled: !one },
     { value: 'browse', label: t('显示此修订的仓库'), icon: 'folder', disabled: !one || !o.rootRepo },
     { value: 'compare', label: t('与本地比较'), icon: 'git-compare', disabled: !one },
+    ...(picked.length === 2 ? ([{ value: 'compare-versions', label: t('比较版本') }] as MenuItem[]) : []),
     { separator: true },
     { value: 'reset', label: t('将当前分支重置到此处…'), disabled: !one },
     ...(head
@@ -49,6 +84,7 @@ export function commitMenu(
           { value: 'reword', label: t('编辑提交说明…') },
         ] as MenuItem[])
       : []),
+    ...(push ? ([{ value: 'push-up-to', label: t('推送到此处为止…'), icon: 'arrow-up' }] as MenuItem[]) : []),
     { separator: true },
     { value: 'branch', label: t('新建分支…'), icon: 'git-branch', disabled: !one },
     { value: 'tag', label: t('新建标签…'), icon: 'tag', disabled: !one },
@@ -67,6 +103,8 @@ interface Context {
   /** git/show of the commit shown in the details, when loaded. */
   shown: GitShowDto | null
   select: (hash: string) => void
+  /** The current branch; null when detached. */
+  branch: string | null
 }
 
 /** The commit's whole message, committer and branches; null from daemons without git/show. */
@@ -135,6 +173,12 @@ export async function runCommitAction(value: string, picked: GitCommit[], ctx: C
       return cmd.browse(c.hash)
     case 'compare':
       return cmd.compare(c.hash, null)
+    case 'compare-versions': {
+      const [newer, older] = picked
+      return newer && older && cmd.compare(older.hash, newer.hash)
+    }
+    case 'push-up-to':
+      return ctx.branch && cmd.push(ctx.branch, commitInfo(c))
     case 'reset':
       return cmd.reset(commitInfo(c))
     case 'undo':

@@ -293,7 +293,8 @@
   flex: none;
   color: var(--label-tertiary);
 }
-.glf-option:hover {
+.glf-option:hover,
+.glf-option[data-active] {
   background: var(--selection-fill);
 }
 .glf-option[aria-pressed="true"] {
@@ -348,10 +349,10 @@
 }
 .glog-row {
   --git-graph-ring: var(--content-bg);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px 84px 60px;
+  /* Flex rather than a grid: columns hidden in the view options leave no gap. */
+  display: flex;
   align-items: center;
-  column-gap: 10px;
+  gap: 10px;
   width: 100%;
   height: 26px;
   padding: 0 10px 0 6px;
@@ -383,6 +384,7 @@
 }
 .glog-row__subject {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -405,6 +407,14 @@
 .glog-row[data-merge] .glog-row__text {
   color: var(--label-secondary);
 }
+.glog-row__author {
+  flex: none;
+  width: 112px;
+}
+.glog-row__date {
+  flex: none;
+  width: 84px;
+}
 .glog-row__author,
 .glog-row__date {
   min-width: 0;
@@ -417,23 +427,26 @@
   font-variant-numeric: tabular-nums;
 }
 .glog-row__hash {
+  flex: none;
+  width: 60px;
   overflow: hidden;
   color: var(--label-tertiary);
   font-family: var(--font-mono);
   font-size: 11px;
   white-space: nowrap;
 }
+.glog-row[data-mine] .glog-row__text,
+.glog-row[data-mine] .glog-row__author {
+  font-weight: 600;
+}
 @container glog-table (max-width: 620px) {
-  .glog-row {
-    grid-template-columns: minmax(0, 1fr) 84px 60px;
-  }
   .glog-row__author {
     display: none;
   }
 }
 @container glog-table (max-width: 440px) {
-  .glog-row {
-    grid-template-columns: minmax(0, 1fr) 76px;
+  .glog-row__date {
+    width: 76px;
   }
   .glog-row__hash {
     display: none;

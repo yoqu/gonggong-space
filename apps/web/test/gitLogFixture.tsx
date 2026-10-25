@@ -148,6 +148,8 @@ export function seed(o: { owner?: boolean; git?: Partial<GitStatus> } = {}) {
   useSession.setState({ user: { id: o.owner ? 'u1' : 'u2' } as UserDto })
   useWorkbench.setState({ groupId: 'g1', open: true, benches: {} })
   useGitDialogs.setState({ open: null })
+  localStorage.removeItem('gg.git.log.branch')
+  localStorage.removeItem('gg.git.log.view')
 }
 
 function Bench() {

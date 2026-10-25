@@ -30,11 +30,55 @@ export function logQuery(tab: Pick<LogTab, 'filter' | 'path'>): LogFilter {
 export const partialLog = (q: LogFilter) =>
   !!(q.author || q.text || q.since || q.until || q.path || q.noMerges || q.firstParent)
 
-/** Whether a filter narrows the log (清除筛选 clears these; the graph options stay). */
+/** Whether a filter narrows the log (清除筛选 clears these; the graph options stay); all branches is IDEA's default. */
 export const narrowed = (tab: Pick<LogTab, 'filter' | 'path' | 'ref'>) => {
   const f = tab.filter ?? {}
-  return !!(tab.ref || tab.path || f.all || f.author || f.text || f.since || f.until)
+  return !!(tab.ref || tab.path || f.author || f.text || f.since || f.until)
 }
+
+const BRANCH_KEY = 'gg.git.log.branch'
+const branchSlot = (botId: string, repo: string | null) => `${botId}:${repo ?? ''}`
+const readJson = (key: string): Record<string, unknown> => {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+const writeJson = (key: string, slot: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...readJson(key), [slot]: value }))
+  } catch {
+    // storage unavailable: kept for this page only
+  }
+}
+
+/** The branch filter last picked in this browser for a bot's repo: 'all', 'HEAD' or a ref. */
+export function loadLogBranch(botId: string, repo: string | null): string | null {
+  const v = readJson(BRANCH_KEY)[branchSlot(botId, repo)]
+  return typeof v === 'string' ? v : null
+}
+
+export const saveLogBranch = (botId: string, repo: string | null, value: string) =>
+  writeJson(BRANCH_KEY, branchSlot(botId, repo), value)
+
+/** The tab with its branch filter set: one opened without a ref gets the last one picked, else all branches. */
+export function withBranch(tab: LogTab, last: string | null): LogTab {
+  if (tab.ref || tab.filter?.all) return tab
+  const v = last ?? 'all'
+  return v === 'all' ? { ...tab, filter: { ...tab.filter, all: true } } : { ...tab, ref: v }
+}
+
+/** What the view options change: the user's commits in bold, and columns hidden. */
+export interface LogView {
+  mine?: boolean
+  hidden?: ('author' | 'date' | 'hash')[]
+}
+const VIEW_KEY = 'gg.git.log.view'
+
+export const loadLogView = (botId: string): LogView =>
+  (readJson(VIEW_KEY)[botId] as LogView | undefined) ?? {}
+export const saveLogView = (botId: string, view: LogView) => writeJson(VIEW_KEY, botId, view)
 
 /** The filter without its unset fields; null when none is left. */
 export function cleanFilter(f: GitLogTabFilter): GitLogTabFilter | null {

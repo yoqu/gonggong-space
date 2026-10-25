@@ -154,7 +154,7 @@ describe('commit table', () => {
     const tab = await openLog()
     fireEvent.click(tab.getByRole('button', { name: '加载更多' }))
     expect(await tab.findByRole('option', { name: /提交 5/ })).toBeTruthy()
-    expect(server.calls).toContain('/api/groups/g1/bots/b1/git/log?skip=2')
+    expect(server.calls).toContain('/api/groups/g1/bots/b1/git/log?skip=2&all=1')
     expect(tab.queryByRole('button', { name: '加载更多' })).toBeNull()
   })
 })

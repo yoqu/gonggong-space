@@ -25,7 +25,8 @@ beforeEach(() => {
     'GET git/refs': () => REFS,
     'GET git/log': () => ({ commits: LOG, hasMore: false }),
     'GET git/show': (q) => {
-      const c = LOG.find((x) => x.hash.startsWith(q.get('commit') ?? '-'))
+      const rev = q.get('commit') ?? '-'
+      const c = rev === 'HEAD' ? LOG[0] : LOG.find((x) => x.hash.startsWith(rev))
       return c
         ? {
             commit: c,
@@ -69,11 +70,11 @@ describe('log filters', () => {
     const search = tab.getByRole('searchbox', { name: '文本或哈希' })
     fireEvent.change(search, { target: { value: 'fix' } })
     await waitFor(() => expect(logTab().filter).toEqual({ text: 'fix' }))
-    await waitFor(() => expect(lastLog()).toBe('skip=0&text=fix'))
+    await waitFor(() => expect(lastLog()).toBe('skip=0&all=1&text=fix'))
     fireEvent.click(tab.getByRole('button', { name: '正则表达式' }))
     fireEvent.click(tab.getByRole('button', { name: '区分大小写' }))
     expect(tab.getByRole('button', { name: '正则表达式' }).getAttribute('aria-pressed')).toBe('true')
-    await waitFor(() => expect(lastLog()).toBe('skip=0&text=fix&regexp=1&matchCase=1'))
+    await waitFor(() => expect(lastLog()).toBe('skip=0&all=1&text=fix&regexp=1&matchCase=1'))
 
     // Enter applies at once; a hash-looking text offers to go to that commit.
     fireEvent.change(search, { target: { value: '2222222' } })
@@ -81,7 +82,6 @@ describe('log filters', () => {
     expect(logTab().filter).toMatchObject({ text: '2222222' })
     fireEvent.click(tab.getByRole('button', { name: '转到提交 2222222' }))
     await waitFor(() => expect(logTab().commit).toBe(hash('2')))
-    expect(server.calls).toContain('/api/groups/g1/bots/b1/git/show?commit=2222222')
     expect(logTab().filter?.text).toBeUndefined()
     expect((search as HTMLInputElement).value).toBe('')
 
@@ -140,10 +140,10 @@ describe('log filters', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('历史 · app')
     await waitFor(() => expect(lastLog()).toContain('&path=src%2Fapp'))
 
-    fireEvent.click(tab.getByRole('button', { name: '提交图选项' }))
+    fireEvent.click(tab.getByRole('button', { name: '视图选项' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '仅第一父提交' }))
     expect(logTab().filter).toMatchObject({ firstParent: true })
-    fireEvent.click(tab.getByRole('button', { name: '提交图选项' }))
+    fireEvent.click(tab.getByRole('button', { name: '视图选项' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '按拓扑排序' }))
     await waitFor(() => expect(lastLog()).toMatch(/&path=src%2Fapp&firstParent=1&order=topo$/))
 
@@ -151,7 +151,7 @@ describe('log filters', () => {
     fireEvent.click(tab.getByRole('button', { name: '清除筛选' }))
     expect(logTab()).toMatchObject({ ref: null, path: null })
     expect(logTab().filter).toEqual({ firstParent: true, order: 'topo' })
-    await waitFor(() => expect(lastLog()).toBe('skip=0&firstParent=1&order=topo'))
+    await waitFor(() => expect(lastLog()).toBe('skip=0&all=1&firstParent=1&order=topo'))
     expect(tab.queryByRole('button', { name: '清除筛选' })).toBeNull()
     panel = await pick(tab.getByRole('button', { name: '用户' }), '按用户筛选')
     fireEvent.click(panel.getByRole('button', { name: '小王' }))
@@ -169,7 +169,7 @@ describe('log filters', () => {
     fireEvent.click(tab.getByRole('button', { name: '仓库' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'lib' }))
     expect(logTab()).toMatchObject({ repo: 'lib' })
-    await waitFor(() => expect(lastLog()).toBe('skip=0&repo=lib'))
+    await waitFor(() => expect(lastLog()).toBe('skip=0&repo=lib&all=1'))
     expect(server.calls).toContain('/api/groups/g1/bots/b1/git/refs?repo=lib')
   })
 })
@@ -204,7 +204,8 @@ describe('branches pane', () => {
       '标签',
       'v1.0',
     ])
-    expect(el.getByRole('button', { name: 'HEAD feat/x' }).getAttribute('aria-current')).toBe('true')
+    // All branches by default, as in IDEA.
+    expect(el.getByRole('button', { name: '全部分支' }).getAttribute('aria-current')).toBe('true')
     // A row is named by its whole ref; a remote's branches show without the remote.
     expect(el.getByRole('button', { name: 'origin/main' }).textContent).toBe('main')
     fireEvent.click(el.getByRole('button', { name: 'fix' }))
@@ -222,20 +223,33 @@ describe('branches pane', () => {
     expect(rows(el)).toEqual(expect.arrayContaining(['a', 'x']))
   })
 
-  it('filters the log on a click, checks out on a double click and offers each branch’s actions', async () => {
+  it('goes to a branch on a click, filters on a double click, never checks out, and offers each branch’s actions', async () => {
+    const scrolled: unknown[] = []
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, o?: unknown) {
+      scrolled.push([this.dataset.hash, o])
+    }
     const tab = await openLog()
     const el = await pane(tab)
     fireEvent.click(el.getByRole('button', { name: 'main' }))
-    expect(logTab()).toMatchObject({ ref: 'main', commit: null })
+    await waitFor(() => expect(logTab().commit).toBe(hash('4')))
+    expect(logTab().ref).toBeNull()
+    await waitFor(() => expect(scrolled).toContainEqual([hash('4'), { block: 'center' }]))
+    expect(dialog()).toBeUndefined()
+
+    fireEvent.doubleClick(el.getByRole('button', { name: 'main' }))
+    expect(logTab()).toMatchObject({ ref: 'main' })
     await waitFor(() => expect(logCalls(server.calls)).toContain('ref=main&skip=0'))
     expect(el.getByRole('button', { name: 'main' }).getAttribute('aria-current')).toBe('true')
+    expect(dialog()).toBeUndefined()
     fireEvent.click(el.getByRole('button', { name: '全部分支' }))
     expect(logTab()).toMatchObject({ ref: null, filter: { all: true } })
     fireEvent.click(el.getByRole('button', { name: 'HEAD feat/x' }))
-    expect(logTab()).toMatchObject({ ref: null, filter: null })
+    await waitFor(() => expect(logTab().commit).toBe(hash('1')))
+    fireEvent.doubleClick(el.getByRole('button', { name: 'HEAD feat/x' }))
+    expect(logTab()).toMatchObject({ ref: 'HEAD', filter: null })
+    await waitFor(() => expect(lastLog()).toBe('skip=0'))
+    expect(el.getByRole('button', { name: 'HEAD feat/x' }).getAttribute('aria-current')).toBe('true')
 
-    fireEvent.doubleClick(el.getByRole('button', { name: 'main' }))
-    expect(dialog()).toEqual({ kind: 'checkout', ref: 'main', detach: false })
     fireEvent.contextMenu(el.getByRole('button', { name: 'main' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '与 feat/x 比较' }))
     expect(tabs().find((t) => t.kind === 'git-compare')).toMatchObject({ from: 'feat/x', to: 'main' })
@@ -262,7 +276,7 @@ describe('branches pane', () => {
     fireEvent.click(tab.getByRole('button', { name: '分支面板' }))
     const el = await pane(tab)
     expect(tab.queryByRole('listbox', { name: '提交' })).toBeNull()
-    fireEvent.click(el.getByRole('button', { name: 'main' }))
+    fireEvent.doubleClick(el.getByRole('button', { name: 'main' }))
     expect(logTab()).toMatchObject({ ref: 'main' })
     expect(await tab.findByRole('listbox', { name: '提交' })).toBeTruthy()
     w.mockRestore()
@@ -273,7 +287,7 @@ describe('file history', () => {
   it('is titled by the file, filtered by its path, and shows that file’s diff first', async () => {
     const tab = await openLog({ path: 'src/a.ts' })
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('历史 · a.ts')
-    expect(logCalls(server.calls)).toContain('skip=0&path=src%2Fa.ts')
+    expect(logCalls(server.calls)).toContain('skip=0&all=1&path=src%2Fa.ts')
     fireEvent.click(tab.getByRole('option', { name: /提交 2/ }))
     await waitFor(() => expect(diffText(tab)).toContain(`+${hash('2')}:src/a.ts`))
     const files = within(tab.getByRole('region', { name: '变更文件' }))

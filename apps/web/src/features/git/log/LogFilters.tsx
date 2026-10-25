@@ -1,5 +1,5 @@
 import type { GitRefsDto } from '@gonggong/protocol'
-import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import type { GitLogTabFilter } from '../../../app/workbench'
 import { t } from '../../../i18n'
 import { pad } from '../../../lib/time'
@@ -16,7 +16,8 @@ import {
 } from '../../../ui'
 import { type GitTarget, shortRev } from '../api'
 import { BranchesPane } from './BranchesPane'
-import { baseName, type LogTab, narrowed } from './query'
+import type { LogColumn } from './CommitTable'
+import { baseName, type LogTab, type LogView, narrowed } from './query'
 import { Tool } from './Tool'
 
 /** What the filter bar and the branches pane change in the log tab. */
@@ -26,7 +27,7 @@ export interface LogControl {
   setRef: (ref: string | null, all: boolean) => void
   setPath: (path: string | null) => void
   setRepo: (repo: string | null) => void
-  /** Shows the commit a hash (or ref) names, clearing the text filter; resolves whether it was found. */
+  /** Goes to the commit a hash (or ref) names, clearing the text filter; resolves whether it was found. */
   goTo: (rev: string) => Promise<boolean>
   /** Clears the filters, keeping the graph options. */
   clear: () => void
@@ -200,10 +201,13 @@ function FilterMenu({
 
 function UserPanel({
   authors,
+  me,
   value,
   onPick,
 }: {
   authors: string[]
+  /** The user's identities as an author filter; null when none is known. */
+  me: string | null
   value: string | null
   onPick: (author: string) => void
 }) {
@@ -222,6 +226,14 @@ function UserPanel({
           if (e.key === 'Enter' && text.trim()) onPick(text.trim())
         }}
       />
+      {me && !q ? (
+        <div className="glf-options">
+          <button type="button" className="glf-option" aria-pressed={me === value} onClick={() => onPick(me)}>
+            <Icon name="person" size={12} />
+            {t('我')}
+          </button>
+        </div>
+      ) : null}
       {shown.length ? (
         <div className="glf-options">
           {shown.map((a) => (
@@ -353,19 +365,128 @@ function PathPanel({ value, onApply }: { value: string; onApply: (path: string |
   )
 }
 
-function graphItems(f: GitLogTabFilter): MenuItem[] {
+const COLUMNS: { col: LogColumn; label: string }[] = [
+  { col: 'author', label: t('作者') },
+  { col: 'date', label: t('日期') },
+  { col: 'hash', label: t('哈希') },
+]
+
+/** IDEA's View Options: the graph, 高亮 the user's commits, and the columns shown. */
+function viewItems(f: GitLogTabFilter, view: LogView, me: boolean): MenuItem[] {
   return [
     { value: 'first-parent', label: t('仅第一父提交'), checked: !!f.firstParent },
     { value: 'no-merges', label: t('不显示合并提交'), checked: !!f.noMerges },
     { separator: true },
     { value: 'date', label: t('按日期排序'), checked: f.order !== 'topo' },
     { value: 'topo', label: t('按拓扑排序'), checked: f.order === 'topo' },
+    { separator: true },
+    { header: t('高亮') },
+    { value: 'mine', label: t('我的提交'), checked: !!view.mine, disabled: !me },
+    { separator: true },
+    { header: t('列') },
+    ...COLUMNS.map(({ col, label }) => ({
+      value: `col:${col}`,
+      label,
+      checked: !view.hidden?.includes(col),
+    })),
   ]
+}
+
+const MAX_TARGETS = 30
+
+/** IDEA's Go to Hash/Branch/Tag: a typed hash or a matching branch or tag, ↑↓ to pick, Enter to go. */
+function GoToPanel({
+  refs,
+  onGo,
+  close,
+}: {
+  refs: GitRefsDto | null
+  onGo: (rev: string) => Promise<boolean>
+  close: () => void
+}) {
+  const [text, setText] = useState('')
+  const [active, setActive] = useState(0)
+  const id = useId()
+  const q = text.trim()
+  const names = [
+    ...(refs?.branches.filter((b) => !b.name.endsWith('/HEAD')).map((b) => ({ name: b.name, tag: false })) ??
+      []),
+    ...(refs?.tags.map((tag) => ({ name: tag.name, tag: true })) ?? []),
+  ]
+  const lower = q.toLowerCase()
+  const targets = [
+    ...(HASH.test(q) ? [{ name: q, hash: true, tag: false }] : []),
+    ...names
+      .filter((n) => !lower || n.name.toLowerCase().includes(lower))
+      .slice(0, MAX_TARGETS)
+      .map((n) => ({ ...n, hash: false })),
+  ]
+  const at = Math.min(active, targets.length - 1)
+  const go = (rev: string) =>
+    void onGo(rev).then((found) => {
+      if (found) close()
+    })
+  return (
+    <div className="glf-panel">
+      <Input
+        type="text"
+        role="combobox"
+        aria-label={t('转到哈希、分支或标签')}
+        placeholder={t('哈希、分支或标签')}
+        aria-expanded={targets.length > 0}
+        aria-controls={`${id}-list`}
+        aria-activedescendant={targets.length ? `${id}-${at}` : undefined}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setActive(0)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            const n = targets.length
+            if (n) setActive((at + (e.key === 'ArrowDown' ? 1 : n - 1)) % n)
+          } else if (e.key === 'Enter') {
+            e.preventDefault()
+            const pick = targets[at]?.name ?? q
+            if (pick) go(pick)
+          }
+        }}
+      />
+      {targets.length ? (
+        <div className="glf-options" role="listbox" id={`${id}-list`} aria-label={t('转到哈希、分支或标签')}>
+          {targets.map((x, i) => (
+            <div
+              key={`${x.hash}:${x.tag}:${x.name}`}
+              id={`${id}-${i}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === at}
+              className="glf-option"
+              data-active={i === at || undefined}
+              onMouseEnter={() => setActive(i)}
+              onMouseDown={(e) => {
+                // The focus stays in the field, as in a combo box.
+                e.preventDefault()
+                go(x.name)
+              }}
+            >
+              <Icon name={x.hash ? 'git-commit' : x.tag ? 'tag' : 'git-branch'} size={12} />
+              {x.hash ? t('提交 {hash}', { hash: x.name }) : x.name}
+            </div>
+          ))}
+        </div>
+      ) : q ? (
+        <div className="glf-hint">{t('没有匹配的分支或标签')}</div>
+      ) : null}
+    </div>
+  )
 }
 
 /**
  * IDEA's log filter bar: the branches pane toggle, the repo, text (regexp, match case, or a hash to go to), branch,
- * user, date and path filters, 清除筛选, refresh and the graph options.
+ * user, date and path filters, 清除筛选, go to a hash, branch or tag (`finding`, ⌘F in the table), refresh and the
+ * view options.
  */
 export function LogFilters({
   tab,
@@ -377,6 +498,11 @@ export function LogFilters({
   pane,
   onPane,
   control,
+  me,
+  view,
+  onView,
+  finding,
+  onFinding,
 }: {
   tab: LogTab
   target: GitTarget
@@ -388,8 +514,15 @@ export function LogFilters({
   pane: boolean
   onPane: () => void
   control: LogControl
+  /** The user's identities as an author filter (see UserPanel). */
+  me: string | null
+  view: LogView
+  onView: (view: LogView) => void
+  finding: boolean
+  onFinding: (open: boolean) => void
 }) {
   const f = tab.filter ?? {}
+  const author = f.author == null ? null : f.author === me ? t('我') : f.author.replace(/\n/g, ', ')
   const date =
     f.since && f.until
       ? `${f.since} ~ ${f.until}`
@@ -418,11 +551,11 @@ export function LogFilters({
       />
       <FilterMenu
         label={t('分支')}
-        value={f.all ? t('全部分支') : tab.ref ? shortRev(tab.ref) : null}
+        value={tab.ref ? shortRev(tab.ref) : null}
         title={tab.ref ?? undefined}
         panel={t('按分支筛选')}
         width={300}
-        onClear={() => control.setRef(null, false)}
+        onClear={() => control.setRef(null, true)}
       >
         {(close) => (
           <BranchesPane
@@ -440,7 +573,7 @@ export function LogFilters({
       </FilterMenu>
       <FilterMenu
         label={t('用户')}
-        value={f.author ?? null}
+        value={author}
         panel={t('按用户筛选')}
         width={260}
         onClear={() => control.setFilter({ author: undefined })}
@@ -448,6 +581,7 @@ export function LogFilters({
         {(close) => (
           <UserPanel
             authors={authors()}
+            me={me}
             value={f.author ?? null}
             onPick={(author) => {
               control.setFilter({ author })
@@ -499,14 +633,43 @@ export function LogFilters({
         </button>
       ) : null}
       <span className="spacer" />
+      <Popover
+        portal
+        placement="bottom-end"
+        width={300}
+        aria-label={t('转到哈希、分支或标签')}
+        open={finding}
+        onOpenChange={onFinding}
+        trigger={
+          <button
+            type="button"
+            className="glog-tool"
+            aria-label={t('转到哈希、分支或标签')}
+            title={t('转到哈希、分支或标签')}
+          >
+            <Icon name="git-commit" size={14} />
+          </button>
+        }
+      >
+        {(close) => <GoToPanel refs={refs} onGo={control.goTo} close={close} />}
+      </Popover>
       <Tool icon="arrow-clockwise" label={t('刷新')} onClick={control.refresh} />
       <MenuButton
         className="glog-tool"
-        aria-label={t('提交图选项')}
-        title={t('提交图选项')}
+        aria-label={t('视图选项')}
+        title={t('视图选项')}
         align="end"
-        items={graphItems(f)}
-        onSelect={(v) =>
+        items={viewItems(f, view, !!me)}
+        onSelect={(v) => {
+          if (v === 'mine') return onView({ ...view, mine: !view.mine })
+          if (v.startsWith('col:')) {
+            const col = v.slice(4) as LogColumn
+            const hidden = view.hidden ?? []
+            return onView({
+              ...view,
+              hidden: hidden.includes(col) ? hidden.filter((c) => c !== col) : [...hidden, col],
+            })
+          }
           control.setFilter(
             v === 'first-parent'
               ? { firstParent: !f.firstParent }
@@ -514,7 +677,7 @@ export function LogFilters({
                 ? { noMerges: !f.noMerges }
                 : { order: v === 'topo' ? 'topo' : undefined },
           )
-        }
+        }}
       >
         <Icon name="slider-horizontal" size={14} />
       </MenuButton>
