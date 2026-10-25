@@ -1,12 +1,13 @@
 import type { GitCompareDto, GitShowDto } from '@gonggong/protocol'
 import { useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
+import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
 import { Button, EmptyState, type MenuItem, SegmentedControl, Spinner } from '../../../ui'
 import { useWide } from '../../diff/DiffPane'
 import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
-import { type GitTarget, gitBase, gitUrls, useGitGet, useGitRefs } from '../../git/api'
+import { type GitTarget, gitBase, gitUrls, repoStatus, useGitGet, useGitRefs } from '../../git/api'
 import type { TreeChange } from '../../git/ChangeTree'
 import { type GitCommands, gitCommands } from '../../git/commands'
 import { ChangesPane } from '../../git/log/ChangesPane'
@@ -86,6 +87,7 @@ function CommitsOnly({
             all: log.commits,
             shown,
             select: onSelect,
+            branch: currentBranch(target),
           })
         }
         hasMore={log.hasMore}
@@ -362,4 +364,10 @@ export function useGitCompareTabMeta(tab: TabProps<'git-compare'>['tab']): TabMe
       to: tab.to ? revLabel(tab.to) : t('工作区'),
     }),
   }
+}
+
+/** The repo's current branch as last reported; null when detached or unknown. */
+function currentBranch(target: GitTarget) {
+  const git = useWorkspace.getState().botStates[target.groupId]?.[target.botId]?.git
+  return (git && repoStatus(git, target.repo)?.branch) || null
 }
