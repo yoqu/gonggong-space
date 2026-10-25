@@ -472,4 +472,25 @@ export default {
     'The current branch has no upstream; select the remote branch to pull',
   拉取方式: 'Pull mode',
   '本地改动会先贮藏，拉取后自动恢复': 'Local changes are stashed first and restored after the pull',
+  '交互式变基 {branch}': 'Interactively rebase {branch}',
+  开始变基: 'Start rebase',
+  '这些提交已经推送，变基会改写公开历史，之后需要强制推送。':
+    'These commits are published. Rebasing rewrites public history and requires a force push.',
+  我确认改写已推送的历史: 'I confirm rewriting published history',
+  '重排或改写提交会生成新的提交哈希，已推送的提交之后需要强制推送。':
+    'Reordering or rewriting commits creates new hashes; published commits require a force push.',
+  '变基到 {onto}': 'Onto {onto}',
+  '正在读取提交…': 'Loading commits…',
+  '变基提交，按执行顺序排列': 'Rebase commits in execution order',
+  '提交 {subject} 的动作': 'Action for {subject}',
+  '提交 {subject} 的提交说明': 'Commit message for {subject}',
+  '上移 {subject}': 'Move {subject} up',
+  '下移 {subject}': 'Move {subject} down',
+  '上移（Alt+↑）': 'Move up (Alt+Up)',
+  '下移（Alt+↓）': 'Move down (Alt+Down)',
+  当前分支在所选提交之上没有提交: 'The current branch has no commits above the selected one',
+  '范围内有合并提交，不能在这里重排；请使用普通变基。':
+    'The range contains a merge commit; use a regular rebase instead.',
+  '第一个保留的提交不能 Squash 或 Fixup': 'The first retained commit cannot be squashed or fixed up',
+  'Reword 和 Squash 必须填写非空说明': 'Reword and squash require a non-empty message',
 } satisfies Record<string, string>

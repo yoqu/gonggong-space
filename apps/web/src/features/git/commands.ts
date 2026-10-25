@@ -48,6 +48,7 @@ export type GitDialog =
   | { kind: 'branch-delete'; branch: string }
   | { kind: 'merge'; branch: string | null }
   | { kind: 'rebase'; onto: string | null; branch: string | null }
+  | { kind: 'rebase-todo'; commit: CommitInfo; pushed: boolean }
   | { kind: 'pull' }
   /** IDEA's Pull…: a remote branch picked, the upstream's by default. */
   | { kind: 'pull-remote' }
@@ -126,6 +127,8 @@ export function gitCommands(target: GitTarget) {
     merge: (branch: string | null = null) => show({ kind: 'merge', branch }),
     rebase: (onto: string | null = null, branch: string | null = null) =>
       show({ kind: 'rebase', onto, branch }),
+    /** IDEA's Interactively Rebase from Here: `commit` is the exclusive base of the plan. */
+    rebaseInteractive: (commit: CommitInfo, pushed = false) => show({ kind: 'rebase-todo', commit, pushed }),
     pull: () => show({ kind: 'pull' }),
     pullRemote: () => show({ kind: 'pull-remote' }),
     /** Fast-forwards a local branch other than the current one from its upstream. */

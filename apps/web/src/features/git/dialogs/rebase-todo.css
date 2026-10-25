@@ -1,0 +1,69 @@
+.git-rebase-todo {
+  min-width: 0;
+}
+.git-rebase-todo__base {
+  margin: 0;
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+}
+.git-rebase-todo__list {
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+}
+.git-rebase-todo__row {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  gap: var(--space-8);
+  align-items: start;
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--separator);
+  outline: none;
+}
+.git-rebase-todo__row:last-child {
+  border-bottom: 0;
+}
+.git-rebase-todo__row[aria-selected='true'] {
+  background: var(--selection-fill);
+}
+.git-rebase-todo__row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.git-rebase-todo__commit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding-top: 5px;
+}
+.git-rebase-todo__subject {
+  overflow: hidden;
+  color: var(--label);
+  font-size: var(--text-subheadline-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-rebase-todo__meta {
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+}
+.git-rebase-todo__move {
+  display: flex;
+  gap: 2px;
+}
+.git-rebase-todo__row[data-dropped] .git-rebase-todo__subject,
+.git-rebase-todo__row[data-dropped] .git-rebase-todo__meta {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+@media (max-width: 560px) {
+  .git-rebase-todo__row {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .git-rebase-todo__move {
+    grid-column: 2;
+  }
+}
