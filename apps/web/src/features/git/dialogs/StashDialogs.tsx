@@ -59,8 +59,13 @@ export function StashDialog({ target, paths, onClose }: Props & { paths: string[
 }
 
 /** IDEA's Unstash: apply, pop, reinstate the index, or restore as a new branch. */
-export function UnstashDialog({ target, stash, onClose }: Props & { stash: GitStash }) {
-  const [pop, setPop] = useState(true)
+export function UnstashDialog({
+  target,
+  stash,
+  initialPop = true,
+  onClose,
+}: Props & { stash: GitStash; initialPop?: boolean }) {
+  const [pop, setPop] = useState(initialPop)
   const [index, setIndex] = useState(false)
   const [branch, setBranch] = useState('')
   const { busy, error, submit } = useGitRun(target, onClose)

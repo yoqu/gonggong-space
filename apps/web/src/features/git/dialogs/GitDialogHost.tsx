@@ -74,7 +74,7 @@ function Body({
     case 'stash':
       return <StashDialog {...p} paths={d.paths} />
     case 'unstash':
-      return <UnstashDialog {...p} stash={d.stash} />
+      return <UnstashDialog {...p} stash={d.stash} initialPop={d.initialPop} />
     case 'rollback':
       return <RollbackDialog {...p} changes={d.changes} />
     case 'confirm':
