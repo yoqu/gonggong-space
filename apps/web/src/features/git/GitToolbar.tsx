@@ -93,7 +93,7 @@ export function GitToolbar({
           options={repos}
         />
       ) : null}
-      <BranchPopup target={target} status={status}>
+      <BranchPopup target={target} status={status} git={git}>
         <Icon name="git-branch" size={13} />
         <BranchName status={status} head={head} />
       </BranchPopup>

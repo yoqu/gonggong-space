@@ -66,11 +66,8 @@ test('IDEA-style git: a new branch, a merge that conflicts resolved in the merge
     await test.step('merging origin/main stops on the conflict, resolved in the merge tool, then committed', async () => {
       await git.getByRole('button', { name: `切换 ${botName} 的分支` }).click()
       await page.getByTitle('origin/main').click()
-      await page.getByRole('button', { name: '将 origin/main 合并到 feat/fee' }).click()
-      await page
-        .getByRole('dialog', { name: '合并到 feat/fee' })
-        .getByRole('button', { name: '合并' })
-        .click()
+      // The owner's merge from a branch's actions runs at once, as IDEA's.
+      await page.getByRole('menuitem', { name: '将 origin/main 合并到 feat/fee' }).click()
       const banner = git.getByRole('status')
       await expect(banner).toContainText('正在合并', { timeout: 30_000 })
       await expect(banner).toContainText('1 个文件有冲突')

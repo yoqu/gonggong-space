@@ -440,4 +440,10 @@ export default {
   '已创建标签 {name}': 'Created tag {name}',
   '已删除标签 {name}': 'Deleted tag {name}',
   '已推送标签 {name} 到 {remote}': 'Pushed tag {name} to {remote}',
+  '使用合并拉取到 {branch}': 'Pull into {branch} using merge',
+  '使用变基拉取到 {branch}': 'Pull into {branch} using rebase',
+  '获取 {ref}，合并到 {branch}': 'Fetches {ref} and merges it into {branch}',
+  '获取 {ref}，把 {branch} 变基到它之上': 'Fetches {ref} and rebases {branch} onto it',
+  '仓库#group': 'Repositories',
+  '{n} 个改动': '{n} {n:change|changes}',
 } satisfies Record<string, string>

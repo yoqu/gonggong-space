@@ -15,18 +15,31 @@ export type RefAction =
 
 const SEP: RefAction = { separator: true }
 
+/** Where the actions run: the current branch (null = detached), the remote tags go to, the repo's branches. */
+export interface RefContext {
+  current: string | null
+  remote: string | null
+  branches: readonly GitBranch[]
+}
+
 /**
- * IDEA's per-branch actions (VCS widget and Branches pane) for `ref`, given the current branch (null = detached) and
- * the remote tags are pushed to.
+ * IDEA's per-branch actions (VCS widget and Branches pane) for `ref`. Merging, rebasing and pulling into the current
+ * branch run at once for the owner (commands decide); the current branch keeps New Branch, Update, Push and Rename.
  */
 export function refActions(
   cmd: GitCommands,
   ref: PickedRef,
-  current: string | null,
-  remote: string | null,
+  { current, remote, branches }: RefContext,
 ): RefAction[] {
   const isCurrent = ref.kind === 'local' && ref.name === current
   const cur = current ?? 'HEAD'
+  // A remote branch is checked out as the local branch tracking it.
+  const local =
+    ref.kind === 'local'
+      ? ref.name
+      : ref.kind === 'remote'
+        ? branches.find((b) => b.kind === 'local' && b.upstream === ref.name)?.name
+        : undefined
   const list: RefAction[] = []
   if (!isCurrent)
     list.push({
@@ -41,11 +54,11 @@ export function refActions(
     icon: 'git-branch',
     run: () => cmd.newBranch(ref.name),
   })
-  if (ref.kind === 'local' && !isCurrent && current)
+  if (local && current && local !== current)
     list.push({
       value: 'checkout-rebase',
       label: t('检出并变基到 {branch}', { branch: cur }),
-      run: () => cmd.rebase(cur, ref.name),
+      run: () => cmd.rebase(cur, local),
     })
   list.push(SEP)
   if (!isCurrent)
@@ -72,18 +85,19 @@ export function refActions(
     list.push({
       value: 'rebase',
       label: t('将 {branch} 变基到 {ref}', { branch: cur, ref: ref.name }),
-      run: () => cmd.rebase(ref.name),
+      run: () => cmd.rebaseCurrentOnto(ref.name),
     })
     list.push({
       value: 'merge',
       label: t('将 {ref} 合并到 {branch}', { ref: ref.name, branch: cur }),
       icon: 'git-merge',
-      run: () => cmd.merge(ref.name),
+      run: () => cmd.mergeIntoCurrent(ref.name),
     })
   }
   if (ref.kind === 'local') {
     list.push(SEP)
-    if (ref.branch.upstream)
+    // The current branch's Update is the Update Project dialog, which also says when there is no upstream.
+    if (isCurrent || ref.branch.upstream)
       list.push({
         value: 'update',
         label: isCurrent ? t('更新…') : t('更新'),
@@ -102,6 +116,21 @@ export function refActions(
         run: () => cmd.deleteBranch(ref.name),
       })
   } else if (ref.kind === 'remote') {
+    if (current)
+      list.push(
+        SEP,
+        {
+          value: 'pull-merge',
+          label: t('使用合并拉取到 {branch}', { branch: cur }),
+          icon: 'arrow-down',
+          run: () => cmd.pullFrom(ref.name, 'merge'),
+        },
+        {
+          value: 'pull-rebase',
+          label: t('使用变基拉取到 {branch}', { branch: cur }),
+          run: () => cmd.pullFrom(ref.name, 'rebase'),
+        },
+      )
     list.push(SEP, {
       value: 'delete',
       label: t('在远程删除…'),

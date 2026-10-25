@@ -136,15 +136,18 @@ test('multi-repo workspace: GitBar sub repos and diff grouped per repo', async (
     const subGit = subItem.getByRole('button', { name: `打开 ${subName} 的 Git` })
     const gitTab = page.getByTestId('git-tab').filter({ visible: true })
 
-    await test.step('the branch picker lists the nested repos, not node_modules', async () => {
+    await test.step('the branch popup lists the nested repos, not node_modules', async () => {
       // No root repo: no branch of its own, just the sub repo summary.
       await expect(multiGit).toHaveText('2 个子仓库有改动', { timeout: 60_000 })
       await multiGit.click()
       await gitTab.getByRole('button', { name: `切换 ${multiName} 的分支` }).click()
       const pop = page.getByRole('dialog', { name: `${multiName} 的分支` })
-      await expect(pop.locator('.git-tree__path')).toHaveText(['app', 'libs/core'])
+      // The popup's 仓库 group: a row per repo with its branch, opening that repo's branches and actions.
+      await expect(pop.locator('.gb__repo-path')).toHaveText(['app', 'libs/core'])
       await expect(pop).not.toContainText('node_modules')
-      await expect(pop.locator('.git-tree__row', { hasText: 'app' })).toContainText('feat/a')
+      await expect(pop.locator('[data-repo="app"] .gb__repo-branch')).toHaveText('feat/a')
+      await expect(pop.locator('[data-repo="libs/core"] .gb__repo-branch')).toHaveText('main')
+      await pop.locator('[data-repo="app"]').click()
       await pop.getByRole('button', { name: '查看 app 的改动' }).click()
       await expect(pop).toBeHidden()
     })
@@ -190,7 +193,9 @@ test('multi-repo workspace: GitBar sub repos and diff grouped per repo', async (
       await subGit.click()
       await gitTab.getByRole('button', { name: `切换 ${subName} 的分支` }).click()
       const pop = page.getByRole('dialog', { name: `${subName} 的分支` })
-      await expect(pop.locator('.git-tree__path')).toHaveText(['主仓库', 'sub'])
+      await expect(pop.locator('.gb__repo-path')).toHaveText(['主仓库', 'sub'])
+      await expect(pop.locator('[data-repo="sub"] .gb__repo-branch')).toHaveText('feat/s')
+      await pop.locator('[data-repo="sub"]').click()
       await pop.getByRole('button', { name: '查看 sub 的改动' }).click()
       const pane = diffPane(page)
       await expect(pane.getByRole('radio', { name: '对比主分支' })).toBeChecked()

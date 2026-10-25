@@ -81,7 +81,7 @@ test('manual git: the owner switches branch, sees its tree, commits and pushes; 
       await git.getByRole('button', { name: `切换 ${botName} 的分支` }).click()
       // The branch popup lists a branch's actions; a clean work tree checks out without asking.
       await page.getByTitle('origin/feat/x').click()
-      await page.getByRole('button', { name: '检出', exact: true }).click()
+      await page.getByRole('menuitem', { name: '检出', exact: true }).click()
       await expect(item).toContainText('feat/x', { timeout: 30_000 })
     })
 

@@ -126,6 +126,32 @@ export function gitCommands(target: GitTarget) {
     pull: () => show({ kind: 'pull' }),
     /** Fast-forwards a local branch other than the current one from its upstream. */
     updateBranch: (branch: string) => void run({ action: 'pull', branch }),
+    /** IDEA's Merge into Current from a branch's menu: the owner's runs at once, anyone else asks in the dialog. */
+    mergeIntoCurrent: (branch: string) =>
+      ownsBot(target.botId) ? void run({ action: 'merge', branch }) : show({ kind: 'merge', branch }),
+    /** IDEA's Rebase Current onto, as mergeIntoCurrent. */
+    rebaseCurrentOnto: (onto: string) =>
+      ownsBot(target.botId)
+        ? void run({ action: 'rebase', onto })
+        : show({ kind: 'rebase', onto, branch: null }),
+    /** IDEA's Pull into Current Using Merge / Rebase: the remote branch `from` instead of the upstream. */
+    pullFrom: (from: string, mode: 'merge' | 'rebase') => {
+      const req: GitActionInput = { action: 'pull', from, mode }
+      if (ownsBot(target.botId)) return void run(req)
+      const branch = current()
+      confirm({
+        title:
+          mode === 'merge'
+            ? t('使用合并拉取到 {branch}', { branch })
+            : t('使用变基拉取到 {branch}', { branch }),
+        message:
+          mode === 'merge'
+            ? t('获取 {ref}，合并到 {branch}', { ref: from, branch })
+            : t('获取 {ref}，把 {branch} 变基到它之上', { ref: from, branch }),
+        label: t('拉取'),
+        req,
+      })
+    },
     push: (branch: string | null = null) => show({ kind: 'push', branch }),
     cherryPick: (commits: CommitInfo[]) =>
       confirm({

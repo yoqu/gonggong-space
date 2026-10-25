@@ -291,6 +291,9 @@ export interface SearchFieldProps {
   className?: string
   style?: CSSProperties
   'aria-label'?: string
+  /** A list the field filters and whose current row the arrow keys move while it keeps the focus. */
+  'aria-controls'?: string
+  'aria-activedescendant'?: string
 }
 
 export function SearchField({
@@ -317,6 +320,8 @@ export function SearchField({
         placeholder={placeholder}
         value={text}
         aria-label={aria['aria-label'] ?? placeholder}
+        aria-controls={aria['aria-controls']}
+        aria-activedescendant={aria['aria-activedescendant']}
         onChange={(e) => set(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') onSubmit?.(text)
