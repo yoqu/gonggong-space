@@ -58,12 +58,33 @@ export function unpushed(all: readonly GitCommit[], remotes: readonly string[], 
 export function commitMenu(
   picked: GitCommit[],
   all: readonly GitCommit[],
-  o: { remotes: readonly string[]; rootRepo: boolean; unpushed?: ReadonlySet<string> },
+  o: {
+    remotes: readonly string[]
+    rootRepo: boolean
+    unpushed?: ReadonlySet<string>
+    /** Supplied by the interactive-rebase UI when it is available. */
+    interactiveRebase?: boolean
+  },
 ): MenuItem[] {
   const [c] = picked
   const one = picked.length === 1 && !!c
   const head = one && isHead(c, o.remotes)
   const push = one && !!o.unpushed?.has(c.hash)
+  const headCommit = all.find((commit) => isHead(commit, o.remotes))
+  const byHash = new Map(all.map((commit) => [commit.hash, commit]))
+  let base = headCommit
+  let onHead = false
+  while (base && !onHead) {
+    onHead = base.hash === c?.hash
+    base = base.parents[0] ? byHash.get(base.parents[0]) : undefined
+  }
+  const interactive =
+    one &&
+    !head &&
+    c.parents.length === 1 &&
+    !!o.interactiveRebase &&
+    !!headCommit &&
+    onHead
   return [
     { value: 'copy-hash', label: t('复制提交哈希'), icon: 'copy' },
     { value: 'copy-message', label: t('复制提交说明') },
@@ -78,6 +99,11 @@ export function commitMenu(
     ...(picked.length === 2 ? ([{ value: 'compare-versions', label: t('比较版本') }] as MenuItem[]) : []),
     { separator: true },
     { value: 'reset', label: t('将当前分支重置到此处…'), disabled: !one },
+    {
+      value: 'rebase-interactive',
+      label: t('从此提交之后交互式变基…'),
+      disabled: !interactive,
+    },
     ...(head
       ? ([
           { value: 'undo', label: t('撤销提交…'), icon: 'undo' },
@@ -96,7 +122,10 @@ export function commitMenu(
 
 interface Context {
   target: GitTarget
-  cmd: GitCommands
+  cmd: GitCommands & {
+    /** The rebase dialog's only entry point; supplied by its own UI slice. */
+    rebaseInteractive?: (commit: CommitInfo, pushed?: boolean) => void
+  }
   remotes: readonly string[]
   /** Every commit listed, newest first. */
   all: readonly GitCommit[]
@@ -181,6 +210,8 @@ export async function runCommitAction(value: string, picked: GitCommit[], ctx: C
       return ctx.branch && cmd.push(ctx.branch, commitInfo(c))
     case 'reset':
       return cmd.reset(commitInfo(c))
+    case 'rebase-interactive':
+      return cmd.rebaseInteractive?.(commitInfo(c), (await headOf(c, ctx)).pushed)
     case 'undo':
       return cmd.undoCommit(await headOf(c, ctx))
     case 'reword':

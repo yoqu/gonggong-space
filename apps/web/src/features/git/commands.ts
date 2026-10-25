@@ -271,7 +271,30 @@ export function gitCommands(target: GitTarget) {
         req: { action: 'abort' },
       }),
     skipCommit: () => void run({ action: 'skip' }),
-    resolve: (path: string, side: 'ours' | 'theirs') => run({ action: 'resolve', path, side }),
+    resolve: (paths: string[], side: 'ours' | 'theirs') => {
+      const path = paths[0]
+      if (path) return run({ action: 'resolve', path, ...(paths.length > 1 && { paths }), side })
+    },
+    /** IDEA's Cherry-Pick / Revert Selected Changes: uncommitted, only the changes to `paths`. */
+    applyChanges: (commit: CommitInfo, paths: string[], reverse: boolean) =>
+      confirm({
+        title: reverse ? t('还原所选改动') : t('优选所选改动'),
+        message: reverse
+          ? t('在工作区撤销 {hash} 的所选文件改动', { hash: commit.shortHash })
+          : t('把 {hash} 的所选文件改动应用到工作区，不创建提交', { hash: commit.shortHash }),
+        label: reverse ? t('还原') : t('优选'),
+        req: { action: 'apply', commit: commit.hash, paths, reverse },
+      }),
+    /** IDEA's Get from Revision: replaces the chosen work-tree paths, deleting ones absent at that revision. */
+    restoreFrom: (commit: CommitInfo, paths: string[]) =>
+      confirm({
+        title: t('从该版本取回文件'),
+        message: t('用 {hash} 的内容替换所选 {n} 个文件', { hash: commit.shortHash, n: paths.length }),
+        consequences: [...paths, t('这些文件中未提交的改动会被覆盖')],
+        label: t('取回文件'),
+        destructive: true,
+        req: { action: 'restore', commit: commit.hash, paths },
+      }),
     /** Two versions side by side; `to` null = the work tree. */
     compare: (from: string, to: string | null) =>
       openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from, to, file: null }),

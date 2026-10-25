@@ -305,6 +305,26 @@ describe('merge or rebase in progress', () => {
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'abort' }))
   })
 
+  it('accepts one side for every selected conflict in a single request', async () => {
+    const calls = mockApi(routes({ [`GET ${BASE}/changes`]: MERGING, [`POST ${BASE}/actions`]: done }))
+    const tab = await openGit(status({ ongoing: 'merge', conflicts: 2 }))
+    const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
+    fireEvent.click(tree.getByRole('button', { name: '冲突：src/order.ts' }))
+    fireEvent.click(tree.getByRole('button', { name: '冲突：src/legacy.ts' }), { metaKey: true })
+    fireEvent.contextMenu(tree.getByRole('button', { name: '冲突：src/legacy.ts' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '接受他们的版本' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([
+        {
+          action: 'resolve',
+          path: 'src/order.ts',
+          paths: ['src/order.ts', 'src/legacy.ts'],
+          side: 'theirs',
+        },
+      ]),
+    )
+  })
+
   it('commits a merge with the message git prepared once every conflict is resolved', async () => {
     const calls = mockApi(
       routes({ [`GET ${BASE}/changes`]: { ...MERGING, conflicts: [] }, [`POST ${BASE}/actions`]: done }),

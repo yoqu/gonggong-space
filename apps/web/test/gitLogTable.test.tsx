@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { fullTime } from '../src/lib/time'
+import { gitCommands } from '../src/features/git/commands'
+import { commitMenu, runCommitAction } from '../src/features/git/log/commitMenu'
 import {
   commit,
   conflict,
@@ -160,6 +162,44 @@ describe('commit table', () => {
 })
 
 describe('commit menu', () => {
+  it('opens interactive rebase from an ancestor of HEAD through the single command hook', async () => {
+    const tab = await openLog()
+    const c = LOG[1]!
+    expect(
+      commitMenu([c], LOG, {
+        remotes: ['origin'],
+        rootRepo: true,
+        interactiveRebase: true,
+      }).some((item) => 'value' in item && item.value === 'rebase-interactive' && !item.disabled),
+    ).toBe(true)
+    const rebaseInteractive = vi.fn()
+    await runCommitAction('rebase-interactive', [c], {
+      target: { groupId: 'g1', botId: 'b1', repo: null },
+      cmd: { ...gitCommands({ groupId: 'g1', botId: 'b1', repo: null }), rebaseInteractive },
+      remotes: ['origin'],
+      all: LOG,
+      shown: null,
+      select: vi.fn(),
+      branch: 'feat/x',
+    })
+    expect(rebaseInteractive).toHaveBeenCalledWith(
+      {
+        hash: c.hash,
+        shortHash: c.shortHash,
+        subject: c.subject,
+      },
+      false,
+    )
+    const enabled = (commit: GitCommit) =>
+      commitMenu([commit], LOG, { remotes: ['origin'], rootRepo: true, interactiveRebase: true }).find(
+        (item) => 'value' in item && item.value === 'rebase-interactive',
+      )
+    expect(enabled(LOG[0]!)).toMatchObject({ disabled: true })
+    expect(enabled(LOG[2]!)).toMatchObject({ disabled: true })
+    expect(enabled(LOG[4]!)).toMatchObject({ disabled: true })
+    expect(tab).toBeTruthy()
+  })
+
   it('copies, checks out, browses, compares, resets, branches, tags and walks to parent and child', async () => {
     const writeText = vi.fn(async (_: string) => {})
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })

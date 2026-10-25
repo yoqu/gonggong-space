@@ -294,7 +294,12 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
       hidden={look.hidden}
       mine={look.mine && me.emails.length ? (c) => me.emails.includes(c.email.toLowerCase()) : undefined}
       menu={(hashes) =>
-        commitMenu(listed(hashes), log.commits, { remotes, rootRepo: !repo, unpushed: ahead(log.commits) })
+        commitMenu(listed(hashes), log.commits, {
+          remotes,
+          rootRepo: !repo,
+          unpushed: ahead(log.commits),
+          interactiveRebase: true,
+        })
       }
       onMenuTarget={(hash) => {
         if (picked.includes(hash)) return picked

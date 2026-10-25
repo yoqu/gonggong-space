@@ -103,9 +103,10 @@ export function CommitView({
   }
   const menu = (tg: ChangeTarget): MenuItem[] => {
     const f = tg.file
-    if (f?.conflict)
+    const conflicts = tg.changes.filter((c) => c.conflict)
+    if (conflicts.length)
       return [
-        { value: 'merge', label: t('合并…'), icon: 'git-merge' },
+        { value: 'merge', label: t('合并…'), icon: 'git-merge', disabled: !f },
         { value: 'ours', label: t('接受你的版本') },
         { value: 'theirs', label: t('接受他们的版本') },
         { separator: true },
@@ -175,7 +176,8 @@ export function CommitView({
     else if (value === 'history' && f) cmd.openLog({ path: f.path })
     else if (value === 'copy') cmd.copy(tg.changes.map((c) => c.path).join('\n'))
     else if (value === 'merge' && f) cmd.openMerge(f.path)
-    else if ((value === 'ours' || value === 'theirs') && f) void cmd.resolve(f.path, value)
+    else if (value === 'ours' || value === 'theirs')
+      void cmd.resolve(tg.changes.filter((c) => c.conflict).map((c) => c.path), value)
   }
   const ongoing = data?.ongoing ?? null
   return (

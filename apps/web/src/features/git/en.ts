@@ -472,4 +472,15 @@ export default {
     'The current branch has no upstream; select the remote branch to pull',
   拉取方式: 'Pull mode',
   '本地改动会先贮藏，拉取后自动恢复': 'Local changes are stashed first and restored after the pull',
+  '从此提交之后交互式变基…': 'Interactively rebase from here…',
+  优选所选改动: 'Cherry-pick selected changes',
+  还原所选改动: 'Revert selected changes',
+  '从该版本取回文件…': 'Get from this revision…',
+  '把 {hash} 的所选文件改动应用到工作区，不创建提交':
+    'Apply the selected file changes from {hash} to the work tree without committing',
+  '在工作区撤销 {hash} 的所选文件改动': 'Undo the selected file changes from {hash} in the work tree',
+  从该版本取回文件: 'Get from this revision',
+  '用 {hash} 的内容替换所选 {n} 个文件': 'Replace {n} selected {n:file|files} with their contents at {hash}',
+  这些文件中未提交的改动会被覆盖: 'Uncommitted changes in these files will be overwritten',
+  取回文件: 'Get files',
 } satisfies Record<string, string>
