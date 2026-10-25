@@ -604,11 +604,6 @@ export function BotFileViewer({
   const status = useWorkspace((s) => s.botStates[groupId]?.[botId]?.git ?? null)
   const stamp = useGitStamp(groupId, botId)
   const base = `/groups/${groupId}/bots/${botId}`
-  const query = rev
-    ? `?ref=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}`
-    : `?path=${encodeURIComponent(path)}`
-  const text = `${base}/${rev ? 'git' : 'files'}/text${query}`
-  const read = useCallback(() => api.get<FileTextDto>(text), [text])
   const kind = viewKind(path)
   // The repo holding the file: the deepest sub-repo it sits in, else the root (when that is one).
   const sub = status?.repos
@@ -617,12 +612,17 @@ export function BotFileViewer({
   const inRepo = !!status && (!!sub || status.branch != null || status.head != null)
   const repo = sub?.path ?? null
   const rel = sub ? path.slice(sub.path.length + 1) : path
+  const query = `?path=${encodeURIComponent(path)}`
+  // A version is read from the repo holding the file.
+  const text = rev ? gitUrls.text(gitBase(groupId, botId), rev, rel, repo) : `${base}/files/text${query}`
+  const read = useCallback(() => api.get<FileTextDto>(text), [text])
   const git = useMemo<FileGit | undefined>(() => {
     if (!inRepo) return undefined
     const target = { groupId, botId, repo }
     return {
       blame: () => api.get<GitBlameDto>(gitUrls.blame(gitBase(groupId, botId), rel, rev ?? null, repo)),
-      onCommit: (hash) => gitCommands(target).openLog({ commit: hash, ref: rev ?? null }),
+      // In the file's own history: the repo's log keeps its filters and selection.
+      onCommit: (hash) => gitCommands(target).openLog({ path: rel, commit: hash, ref: rev ?? null }),
       onHistory: () => gitCommands(target).openLog({ path: rel, ref: rev ?? null }),
     }
   }, [inRepo, groupId, botId, repo, rel, rev])

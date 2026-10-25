@@ -415,6 +415,8 @@ export function useGitLogTabMeta(tab: TabProps<'git-log'>['tab']): TabMeta {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === tab.botId)?.name) ?? 'Bot'
   return {
     icon: 'clock',
-    title: tab.path ? t('历史 · {name}', { name: baseName(tab.path) }) : t('提交历史 · {name}', { name }),
+    title: tab.path
+      ? t('历史 · {name}', { name: baseName(tab.path) })
+      : t('提交历史 · {name}', { name: tab.repo ? `${name} · ${baseName(tab.repo)}` : name }),
   }
 }

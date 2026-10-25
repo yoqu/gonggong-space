@@ -34,11 +34,13 @@ export type WorkbenchTab =
     }
   /**
    * A bot workspace's commit history (IDEA's Git Log): `ref` null = HEAD, `commit` the one opened, `file` its file shown
-   * (null = first); `repo` a sub-repo; `path` a file's or folder's history; `filter` the log filters set.
+   * (null = first); `repo` a sub-repo; `path` a file's or folder's history; `filter` the log filters set. `scope` is the
+   * repo and path it was opened on (see logScope), fixed while its filters change: each scope is a tab of its own.
    */
   | {
       kind: 'git-log'
       botId: string
+      scope?: string | null
       ref: string | null
       commit: string | null
       file?: string | null
@@ -66,12 +68,18 @@ export type WorkbenchTab =
       from: string
       to: string | null
       file?: string | null
+      /** The commit whose details are shown under the commits. */
+      commit?: string | null
     }
   /** The three-way merge of one conflicted file. */
   | { kind: 'git-merge'; botId: string; repo?: string | null; path: string }
   /** A third-party page pinned in the group's tab bar (群标签栏). */
   | { kind: 'link'; url: string; title: string }
   | { kind: 'knowledge'; knowledgeId: string; title: string }
+
+/** The scope a log tab is opened on: none for a bot's root log, else its repo and path. */
+export const logScope = (repo: string | null | undefined, path: string | null | undefined) =>
+  repo || path ? `${repo ?? ''}:${path ?? ''}` : null
 
 export type GitTabView = 'commit' | 'stash' | 'ops'
 
@@ -111,6 +119,8 @@ interface WorkbenchState {
   activate: (key: string) => void
   /** Merges fields into an open tab (same kind), e.g. the picked file or the entered path. */
   patch: (key: string, fields: Partial<WorkbenchTab>) => void
+  /** Puts `tab` in the place of the tab at `key`, e.g. a change of what makes its key; a tab it now equals goes. */
+  replace: (key: string, tab: WorkbenchTab) => void
   closeTab: (key: string) => void
   closeOthers: (key: string) => void
   closeAll: () => void
@@ -142,11 +152,11 @@ export function tabKey(t: WorkbenchTab): string {
         ? `att:${t.source.attachment.id}`
         : `file:${t.source.botId}:${t.source.path}${t.source.rev ? `@${t.source.rev}` : ''}`
     case 'git-log':
-      return `git-log:${t.botId}`
+      return t.scope ? `git-log:${t.botId}:${t.scope}` : `git-log:${t.botId}`
     case 'git':
       return `git:${t.botId}`
     case 'git-compare':
-      return `git-compare:${t.botId}`
+      return `git-compare:${t.botId}:${t.repo ?? ''}:${t.from}:${t.to ?? ''}`
     case 'git-merge':
       return `git-merge:${t.botId}:${t.repo ?? ''}:${t.path}`
     case 'link':
@@ -231,6 +241,20 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
         ...b,
         tabs: b.tabs.map((t) => (tabKey(t) === key ? ({ ...t, ...fields } as WorkbenchTab) : t)),
       })),
+    replace: (key, tab) =>
+      update((b) => {
+        const next = tabKey(tab)
+        const tabs = b.tabs.flatMap((t) => {
+          const k = tabKey(t)
+          return k === key ? [tab] : k === next ? [] : [t]
+        })
+        const { [key]: at, ...used } = b.used
+        return {
+          tabs,
+          active: b.active === key ? next : b.active,
+          used: { ...used, [next]: at ?? Date.now() },
+        }
+      }),
     closeTab: (key) => {
       update((b) => {
         const at = b.tabs.findIndex((t) => tabKey(t) === key)

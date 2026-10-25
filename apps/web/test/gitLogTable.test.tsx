@@ -301,13 +301,13 @@ describe('commit details', () => {
       file: 'README.md',
     })
     fileMenu('显示差异')
-    expect(tabs().find((t) => t.kind === 'git-compare')).toMatchObject({
+    expect(tabs().at(-1)).toMatchObject({
       from: hash('3'),
       to: hash('2'),
       file: 'README.md',
     })
-    fileMenu('显示历史')
-    expect(logTab()).toMatchObject({ path: 'README.md', commit: null, ref: null })
+    fileMenu('显示到此为止的历史')
+    expect(tabs().at(-1)).toMatchObject({ kind: 'git-log', path: 'README.md', commit: null, ref: hash('2') })
   })
 
   it('shows what an old daemon says: the log’s refusal, and the details from the list', async () => {

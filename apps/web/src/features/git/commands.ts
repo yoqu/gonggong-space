@@ -9,7 +9,7 @@ import type {
 } from '@gonggong/protocol'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
-import type { GitLogTabFilter } from '../../app/workbench'
+import { type GitLogTabFilter, logScope, tabKey, useWorkbench, type WorkbenchTab } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -275,22 +275,32 @@ export function gitCommands(target: GitTarget) {
     /** Two versions side by side; `to` null = the work tree. */
     compare: (from: string, to: string | null) =>
       openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from, to, file: null }),
+    /**
+     * The repo's log, or a file's or folder's history (`path`), each in a tab of its own; asked for with nothing to
+     * show, an open one is only brought forward, its filters and selection kept.
+     */
     openLog: (opts: {
       ref?: string | null
       commit?: string | null
       path?: string | null
       filter?: GitLogTabFilter
-    }) =>
-      openTab({
+    }) => {
+      const tab: WorkbenchTab = {
         kind: 'git-log',
         botId: target.botId,
+        scope: logScope(target.repo, opts.path),
         repo: target.repo,
         ref: opts.ref ?? null,
         commit: opts.commit ?? null,
         file: null,
         path: opts.path ?? null,
         filter: opts.filter ?? null,
-      }),
+      }
+      const { groupId, benches } = useWorkbench.getState()
+      const key = tabKey(tab)
+      const open = groupId ? benches[groupId]?.tabs.find((x) => tabKey(x) === key) : undefined
+      return openTab(open && !opts.ref && !opts.commit && !opts.filter ? open : tab)
+    },
     openMerge: (path: string) => openTab({ kind: 'git-merge', botId: target.botId, repo: target.repo, path }),
     /** A work tree change in the bot's diff tab. */
     openChange: (path: string) =>
@@ -306,6 +316,23 @@ export function gitCommands(target: GitTarget) {
       openTab({
         kind: 'file',
         source: { botId: target.botId, path: inWorkspace(path), ...(annotate && { annotate: Date.now() }) },
+      }),
+    /** The file at `path` as of `rev`; `annotate` shows who changed each line. */
+    openVersion: (path: string, rev: string, annotate = false) =>
+      openTab({
+        kind: 'file',
+        source: {
+          botId: target.botId,
+          path: inWorkspace(path),
+          rev,
+          ...(annotate && { annotate: Date.now() }),
+        },
+      }),
+    /** A work tree file opened at a line (IDEA's Jump to Source). */
+    openLine: (path: string, line: number) =>
+      openTab({
+        kind: 'file',
+        source: { botId: target.botId, path: inWorkspace(path), line: { from: line, to: line } },
       }),
     /** The work tree's files at a version. */
     browse: (rev: string) =>

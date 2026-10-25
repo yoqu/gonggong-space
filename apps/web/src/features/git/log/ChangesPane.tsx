@@ -44,6 +44,7 @@ export function ChangesPane({
   onFileItem,
   group,
   extra,
+  history,
 }: {
   target: GitTarget
   /** null while loading. */
@@ -58,6 +59,8 @@ export function ChangesPane({
   group: string
   /** Before the tools, e.g. a merge's parent to compare against. */
   extra?: ReactNode
+  /** In place of 显示历史 (a path's whole history), e.g. its history up to a commit. */
+  history?: { label: string; open: (path: string) => void }
 }) {
   const layout = useDiffLayout((s) => s.layout)
   const toggleLayout = useDiffLayout((s) => s.toggle)
@@ -67,7 +70,7 @@ export function ChangesPane({
   const menu = (tg: ChangeTarget): MenuItem[] => {
     const path = tg.file?.path ?? commonDir(tg.changes)
     const common: MenuItem[] = [
-      { value: 'history', label: t('显示历史'), icon: 'clock' },
+      { value: 'history', label: history?.label ?? t('显示历史'), icon: 'clock' },
       { value: 'copy', label: t('复制路径'), icon: 'copy' },
     ]
     if (tg.file) return [...fileItems(tg.file), { separator: true }, ...common]
@@ -80,7 +83,7 @@ export function ChangesPane({
   }
   const onMenu = (value: string, tg: ChangeTarget) => {
     const path = tg.file?.path ?? commonDir(tg.changes)
-    if (value === 'history') cmd.openLog({ path })
+    if (value === 'history') (history?.open ?? ((p: string) => cmd.openLog({ path: p })))(path)
     else if (value === 'copy') cmd.copy(path)
     else if (value === 'expand') setClosed(new Set())
     else if (value === 'collapse') setClosed(new Set(folderPaths(groups)))

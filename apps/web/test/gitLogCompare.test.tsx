@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { tabKey, useWorkbench } from '../src/app/workbench'
 import {
   commit,
+  dialog,
   diffText,
   fakeDiff,
   hash,
@@ -36,6 +38,20 @@ beforeEach(() => {
       ],
     }),
     'GET git/diff': fakeDiff,
+    'GET git/show': (q) => {
+      const c =
+        [commit('1', { parents: [hash('2')] }), commit('2', { parents: [hash('4')] })].find(
+          (x) => x.hash === q.get('commit'),
+        ) ?? commit('4', { parents: [hash('6')] })
+      return {
+        commit: c,
+        body: c.subject,
+        committer: '小王',
+        committerEmail: 'w@corp',
+        committedAt: c.at,
+        branches: [],
+      }
+    },
   })
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -44,7 +60,7 @@ const api = (path: string) => `/api/groups/g1/bots/b1/git/${path}`
 const title = () => screen.getByRole('heading', { level: 2 }).textContent
 
 describe('compare tab', () => {
-  it('lists the commits only on either side, each opening in the log', async () => {
+  it('lists the commits only on either side, the picked one’s details shown in the tab', async () => {
     const tab = open({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: null })
     expect(title()).toBe('比较 · main ↔ feat/x')
     const onTo = within(await tab.findByRole('region', { name: '仅在 feat/x 中' }))
@@ -56,17 +72,56 @@ describe('compare tab', () => {
     expect(server.calls).toContain(api('log?ref=feat%2Fx..main&skip=0'))
 
     fireEvent.click(onTo.getByRole('option', { name: /提交 2/ }))
-    expect(logTab()).toMatchObject({ ref: 'feat/x', commit: hash('2') })
+    expect(tabs()).toHaveLength(1)
+    expect(tabs()[0]).toMatchObject({ commit: hash('2') })
+    const info = within(await tab.findByRole('region', { name: '提交详情' }))
+    expect(info.getByRole('heading', { name: '提交 2' })).toBeTruthy()
+    await waitFor(() => expect(diffText(tab)).toContain(`+${hash('2')}:src/a.ts`))
+    expect(server.calls).toContain(api(`compare?from=${hash('4')}&to=${hash('2')}`))
+
     fireEvent.click(onFrom.getByRole('option', { name: /提交 4/ }))
-    expect(logTab()).toMatchObject({ ref: 'main', commit: hash('4') })
+    await waitFor(() =>
+      expect(within(tab.getByRole('region', { name: '提交详情' })).getByRole('heading', { name: '提交 4' })),
+    )
+    expect(logTab()).toBeUndefined()
+  })
+
+  it('offers the log’s commit menu on either side', async () => {
+    const tab = open({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: null })
+    const onTo = within(await tab.findByRole('region', { name: '仅在 feat/x 中' }))
+    fireEvent.contextMenu(await onTo.findByRole('option', { name: /提交 2/ }))
+    expect(tabs()[0]).toMatchObject({ commit: hash('2') })
+    fireEvent.click(screen.getByRole('menuitem', { name: '新建分支…' }))
+    expect(dialog()).toEqual({ kind: 'branch-create', from: hash('2') })
+    fireEvent.contextMenu(onTo.getByRole('option', { name: /提交 1/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '优选' }))
+    expect(dialog()).toMatchObject({ kind: 'confirm', confirm: { req: { commits: [hash('1')] } } })
+    fireEvent.contextMenu(onTo.getByRole('option', { name: /提交 1/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '转到父提交' }))
+    expect(tabs()[0]).toMatchObject({ commit: hash('2') })
   })
 
   it('swaps the two sides', async () => {
     const tab = open({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: null })
     fireEvent.click(tab.getByRole('button', { name: '交换两侧' }))
+    expect(tabs()).toHaveLength(1)
     expect(tabs()[0]).toMatchObject({ from: 'feat/x', to: 'main' })
+    expect(useWorkbench.getState().benches.g1?.active).toBe('git-compare:b1::feat/x:main')
     expect(title()).toBe('比较 · feat/x ↔ main')
-    expect(await tab.findByRole('region', { name: '仅在 main 中' })).toBeTruthy()
+  })
+
+  it('opens each pair of versions in a tab of its own, going back to one already open', () => {
+    const s = useWorkbench.getState()
+    s.show({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: null })
+    s.show({ kind: 'git-compare', botId: 'b1', from: hash('2'), to: null, file: 'a.ts' })
+    s.show({ kind: 'git-compare', botId: 'b1', repo: 'libs/core', from: 'main', to: 'feat/x', file: null })
+    s.show({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: 'b.ts' })
+    expect(tabs().map(tabKey)).toEqual([
+      'git-compare:b1::main:feat/x',
+      `git-compare:b1::${hash('2')}:`,
+      'git-compare:b1:libs/core:main:feat/x',
+    ])
+    expect(useWorkbench.getState().benches.g1?.active).toBe('git-compare:b1::main:feat/x')
   })
 
   it('shows the files that differ and the picked one’s diff, kept in the tab', async () => {

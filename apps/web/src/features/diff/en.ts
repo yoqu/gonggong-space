@@ -41,6 +41,7 @@ export default {
   '展开 {n} 行未改动的内容': 'Show {n} unchanged {n:line|lines}',
   全部展开: 'Expand all',
   空白处理: 'Whitespace',
+  差异选项: 'Diff options',
   不忽略: 'Do not ignore',
   去掉首尾空白: 'Trim whitespace',
   忽略空白和空行: 'Ignore whitespace and empty lines',

@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { Checkbox, IconButton, PopUpButton, SegmentedControl } from '../../ui'
+import { Checkbox, Icon, IconButton, MenuButton, PopUpButton, SegmentedControl } from '../../ui'
 import { SPLIT_MIN_PX } from './DiffParts'
 import { type DiffHighlight, type DiffViewMode, type DiffWhitespace, useDiffSettings } from './store'
 import { useWide } from './useWide'
@@ -35,6 +35,8 @@ const HIGHLIGHT: { value: DiffHighlight; label: string }[] = [
   { value: 'none', label: t('不高亮') },
 ]
 
+/** From this width the settings show in the bar rather than in its options menu. */
+const SETTINGS_SHOWN_PX = 760
 /** Room kept above a change too tall to centre, clear of the sticky toolbar. */
 const TOP_GAP = 48
 /** How long 「已是最后一处改动」 waits for the key again. */
@@ -108,6 +110,8 @@ export function DiffToolbar({
   const { view, whitespace, highlight, fullContext, set } = useDiffSettings()
   const root = useRef<HTMLDivElement>(null)
   const roomy = useWide(root, SPLIT_MIN_PX)
+  // Narrower, the read and highlight settings fold into one menu so the bar stays one line, as IDEA's does.
+  const roomier = useWide(root, SETTINGS_SHOWN_PX)
   const current = useRef(-1)
   // Past an end: the key pressed again goes on to the neighbouring file.
   const [edge, setEdge] = useState<1 | -1 | null>(null)
@@ -206,7 +210,7 @@ export function DiffToolbar({
     { value: 'split', label: t('并排'), disabled: !roomy },
   ]
   return (
-    <div ref={root} className="diff-toolbar">
+    <div ref={root} className="diff-toolbar" data-compact={!roomier || undefined}>
       <SegmentedControl
         size="small"
         aria-label={t('差异视图')}
@@ -214,29 +218,72 @@ export function DiffToolbar({
         value={roomy ? view : 'unified'}
         onChange={(v) => set({ view: v })}
       />
-      {reread ? (
-        <PopUpButton
-          size="small"
-          aria-label={t('空白处理')}
-          options={WHITESPACE}
-          value={whitespace}
-          onChange={(v) => set({ whitespace: v })}
-        />
-      ) : null}
-      <PopUpButton
-        size="small"
-        aria-label={t('高亮方式')}
-        options={HIGHLIGHT}
-        value={highlight}
-        onChange={(v) => set({ highlight: v })}
-      />
-      {reread ? (
-        <Checkbox
-          label={t('显示完整文件')}
-          checked={fullContext}
-          onChange={(on) => set({ fullContext: on })}
-        />
-      ) : null}
+      {roomier ? (
+        <>
+          {reread ? (
+            <PopUpButton
+              size="small"
+              aria-label={t('空白处理')}
+              options={WHITESPACE}
+              value={whitespace}
+              onChange={(v) => set({ whitespace: v })}
+            />
+          ) : null}
+          <PopUpButton
+            size="small"
+            aria-label={t('高亮方式')}
+            options={HIGHLIGHT}
+            value={highlight}
+            onChange={(v) => set({ highlight: v })}
+          />
+          {reread ? (
+            <Checkbox
+              label={t('显示完整文件')}
+              checked={fullContext}
+              onChange={(on) => set({ fullContext: on })}
+            />
+          ) : null}
+        </>
+      ) : (
+        <MenuButton
+          className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon ui-icon-btn"
+          aria-label={t('差异选项')}
+          title={t('差异选项')}
+          items={[
+            ...(reread
+              ? [
+                  {
+                    value: 'whitespace',
+                    label: t('空白处理'),
+                    submenu: WHITESPACE.map((o) => ({
+                      value: `whitespace:${o.value}`,
+                      label: o.label,
+                      checked: o.value === whitespace,
+                    })),
+                  },
+                ]
+              : []),
+            {
+              value: 'highlight',
+              label: t('高亮方式'),
+              submenu: HIGHLIGHT.map((o) => ({
+                value: `highlight:${o.value}`,
+                label: o.label,
+                checked: o.value === highlight,
+              })),
+            },
+            ...(reread ? [{ value: 'full', label: t('显示完整文件'), checked: fullContext }] : []),
+          ]}
+          onSelect={(v) => {
+            const [kind, mode] = v.split(':')
+            if (kind === 'whitespace') set({ whitespace: mode as DiffWhitespace })
+            else if (kind === 'highlight') set({ highlight: mode as DiffHighlight })
+            else if (kind === 'full') set({ fullContext: !fullContext })
+          }}
+        >
+          <Icon name="gear" size={14} />
+        </MenuButton>
+      )}
       <span className="diff-toolbar__end">
         {hint ? (
           <span className="diff-toolbar__hint" role="status">

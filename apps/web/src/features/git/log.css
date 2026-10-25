@@ -717,6 +717,19 @@
   font: inherit;
   cursor: pointer;
 }
+/* Hashes and URLs inside the message keep its font. */
+.glog-info__ref,
+.glog-info__url {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.glog-info__ref:hover,
+.glog-info__url:hover,
 .glog-info__link:hover,
 .glog-info__more:hover {
   text-decoration: underline;
