@@ -337,15 +337,17 @@ async fn root_state(dir: &Path, scans: &Scans) -> RootState {
 const UNMERGED: [&str; 7] = ["DD", "AU", "UD", "UA", "DU", "AA", "UU"];
 
 /// What stopped midway in `dir`'s repo, read from the state git keeps in its git dir. A rebase wins over the merges,
-/// picks and reverts it may stop in; `git am` (rebase-apply without `rebasing`) is not reported.
+/// picks and reverts it may stop in; `git am` (rebase-apply without `rebasing`) is not reported. A squash merge keeps no
+/// MERGE_HEAD: it counts as a merge while its conflicts last.
 pub(crate) async fn ongoing(dir: &Path) -> Result<Option<GitOngoing>, String> {
-    let names = ["rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "MERGE_MSG"];
+    let names =
+        ["rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "MERGE_MSG", "SQUASH_MSG"];
     let mut args = vec!["rev-parse"];
     args.extend(names.iter().flat_map(|n| ["--git-path", n]));
     let raw = git(dir, &args).await?;
     // Relative to `dir` (absolute in a linked worktree or submodule), on every git version.
     let paths: Vec<PathBuf> = raw.lines().map(|p| dir.join(p)).collect();
-    let [merge_dir, apply_dir, merge_head, pick_head, revert_head, merge_msg] = &paths[..] else {
+    let [merge_dir, apply_dir, merge_head, pick_head, revert_head, merge_msg, squash_msg] = &paths[..] else {
         return Err(t!("git 执行失败").into());
     };
     let read = |p: &Path| std::fs::read_to_string(p).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
@@ -367,26 +369,36 @@ pub(crate) async fn ongoing(dir: &Path) -> Result<Option<GitOngoing>, String> {
         };
         (GitOngoingKind::Rebase, subject, number(step), number(total))
     } else if merge_head.exists() {
-        let subject = match message.as_deref().and_then(merged_branch) {
-            Some(branch) => Some(branch),
-            None => short(read(merge_head)).await,
-        };
-        (GitOngoingKind::Merge, subject, None, None)
+        (GitOngoingKind::Merge, merged(dir, read(merge_head)).await, None, None)
     } else if pick_head.exists() {
         (GitOngoingKind::CherryPick, short(read(pick_head)).await, None, None)
     } else if revert_head.exists() {
         (GitOngoingKind::Revert, short(read(revert_head)).await, None, None)
+    } else if squash_msg.exists() && !git(dir, &["ls-files", "-u"]).await?.is_empty() {
+        // `Squashed commit of the following:`, then `commit <hash>` per commit, the merged tip first.
+        let tip = read(squash_msg).and_then(|m| m.lines().find_map(|l| Some(l.strip_prefix("commit ")?.to_string())));
+        (GitOngoingKind::Merge, merged(dir, tip).await, None, None)
     } else {
         return Ok(None);
     };
     Ok(Some(GitOngoing { kind, subject, step, total, message }))
 }
 
-/// `x` of a prepared `Merge branch 'x'` / `Merge remote-tracking branch 'x'` message.
-fn merged_branch(message: &str) -> Option<String> {
-    let first = message.lines().next()?;
-    let rest = first.strip_prefix("Merge branch '").or_else(|| first.strip_prefix("Merge remote-tracking branch '"))?;
-    Some(rest.split_once('\'')?.0.to_string())
+/// What a merge of `hash` (a state file's first line) is named by: a local branch pointing at it, else a remote-tracking
+/// one (an update merging `origin/main`), else a tag, else its short hash.
+async fn merged(dir: &Path, hash: Option<String>) -> Option<String> {
+    let hash = hash?.lines().next()?.to_string();
+    let points_at = format!("--points-at={hash}");
+    let args = ["for-each-ref", &points_at, "--format=%(refname)", "refs/heads", "refs/remotes", "refs/tags"];
+    // Listed by full name: heads, then remotes, then tags.
+    let refs = git(dir, &args).await.unwrap_or_default();
+    let named = refs.lines().filter(|r| !r.ends_with("/HEAD")).find_map(|r| {
+        ["refs/heads/", "refs/remotes/", "refs/tags/"].iter().find_map(|p| r.strip_prefix(p)).map(String::from)
+    });
+    match named {
+        Some(name) => Some(name),
+        None => git(dir, &["rev-parse", "--short", &hash]).await.ok().map(|h| h.trim().to_string()),
+    }
 }
 
 /// The directory of each repo of the workspace `dir` and of its additional directories `extras`, with its path as

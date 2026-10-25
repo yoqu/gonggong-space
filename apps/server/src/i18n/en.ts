@@ -703,6 +703,7 @@ export const en = {
   提交不存在: 'Commit not found',
   受保护的基准分支不能强制推送: 'The protected base branch cannot be force-pushed',
   受保护的基准分支不能在远程删除: 'The protected base branch cannot be deleted on the remote',
+  受保护的基准分支不能改写历史: 'The protected base branch cannot have its history rewritten',
   请选择要提交的文件: 'Choose the files to commit',
   请选择要删除的贮藏: 'Choose the stash to drop',
   请选择保留哪一方或填写合并结果: 'Choose which side to keep or fill in the merge result',

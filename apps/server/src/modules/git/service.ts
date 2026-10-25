@@ -7,6 +7,7 @@ import type {
   GitActionReq,
   GitOperationDto,
   GitOperationStatus,
+  GitRebaseStep,
   GitRemote,
 } from '@gonggong/protocol'
 import { and, eq, inArray, lte, or } from 'drizzle-orm'
@@ -51,13 +52,17 @@ const needsOps3 = (op: Pick<Columns, 'action' | 'branch' | 'args'>) =>
   !LEGACY.includes(op.action) || !!op.args || (op.action === 'pull' && !!op.branch)
 
 /**
- * add / ignore, the stash guard, keeping added files, a push to another remote branch than its own name, reverting
- * hunks, a remote branch's checkout told what to do with local commits, a pull of another remote branch, a branch
- * replaced, or a push only up to a commit.
+ * add / ignore / apply / restore, the stash guard, keeping added files, a push to another remote branch than its own
+ * name, reverting hunks, a remote branch's checkout told what to do with local commits, a pull of another remote
+ * branch, a branch replaced, a push only up to a commit, an interactive rebase, or several files resolved at once.
  */
-const needsOps4 = ({ action, branch, args }: Pick<Columns, 'action' | 'branch' | 'args'>) =>
+const needsOps4 = ({ action, branch, args, paths }: Pick<Columns, 'action' | 'branch' | 'args' | 'paths'>) =>
   action === 'add' ||
   action === 'ignore' ||
+  action === 'apply' ||
+  action === 'restore' ||
+  !!args?.todo ||
+  (action === 'resolve' && !!paths) ||
   !!args?.expect ||
   !!args?.keepAdded ||
   (!!args?.target && args.target !== branch) ||
@@ -179,6 +184,14 @@ const words = (...parts: (string | false | null | undefined)[]) => parts.filter(
 const hunks = (patch: string) =>
   count(patch.split('\n').filter((l) => l.startsWith('@@ -')).length, 'hunk', 'hunks')
 
+/** What an interactive rebase does beyond picking, e.g. `(2 reword, 1 drop)`. */
+function rewrites(todo: GitRebaseStep[]) {
+  const steps = (['reword', 'squash', 'fixup', 'drop'] as const)
+    .map((action) => [action, todo.filter((s) => s.action === action).length] as const)
+    .filter(([, n]) => n > 0)
+  return steps.length > 0 && `(${steps.map(([action, n]) => `${n} ${action}`).join(', ')})`
+}
+
 function verb(op: Omit<Columns, 'repo'>) {
   const a = op.args ?? {}
   const branch = op.branch ?? ''
@@ -226,7 +239,14 @@ function verb(op: Omit<Columns, 'repo'>) {
     case 'merge':
       return words('merge', a.mode !== 'default' && `--${a.mode}`, a.noCommit && '--no-commit', short(branch))
     case 'rebase':
-      return words('rebase', op.branch, 'onto', short(a.onto ?? ''))
+      return words(
+        'rebase',
+        a.todo && '-i',
+        op.branch,
+        'onto',
+        short(a.onto ?? ''),
+        a.todo && rewrites(a.todo),
+      )
     case 'cherry-pick':
     case 'revert': {
       const [first = '', ...more] = a.commits ?? []
@@ -262,8 +282,10 @@ function verb(op: Omit<Columns, 'repo'>) {
       return words('tag -d', a.name, op.remote && `(local + ${op.remote})`)
     case 'tag-push':
       return words('push tag', a.name, '→', op.remote)
-    case 'resolve':
-      return words('resolve', n ? files(n) : a.path, a.side && `--${a.side}`)
+    case 'resolve': {
+      const all = new Set([a.path, ...(op.paths ?? [])]).size
+      return words('resolve', all > 1 ? files(all) : a.path, a.side && `--${a.side}`)
+    }
     case 'apply':
       return words(
         a.reverse ? 'revert' : 'cherry-pick',
@@ -379,8 +401,8 @@ export function assertValid(req: GitActionReq) {
 }
 
 /**
- * The protected base branch is never force-pushed nor deleted on a remote, and a push landing on it needs a second
- * confirmation (`pushesBase`). Judged by where the operation lands on the remote, which the bot's daemon is asked
+ * The protected base branch is never force-pushed, deleted on a remote nor rewritten by an interactive rebase, and a
+ * push landing on it needs a second confirmation (`pushesBase`). Judged by where the operation lands on the remote, which the bot's daemon is asked
  * about when the request doesn't say; returns the operation as it is to run, a push's target pinned (see pinTarget).
  */
 export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
@@ -394,6 +416,8 @@ export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
   }
   if (op.action === 'branch-delete' && (await deletesRemote(ctx, op, t, base)))
     fail('conflict', '受保护的基准分支不能在远程删除')
+  if (op.action === 'rebase' && op.args?.todo && (await rebased(ctx, op, t)) === base)
+    fail('conflict', '受保护的基准分支不能改写历史')
   return { op, pushesBase: false }
 }
 
@@ -426,6 +450,16 @@ async function deletesRemote(ctx: Ctx, op: Columns, t: GitTarget, base: string) 
   if (!refs) return /^[^/]+\/(.+)$/.exec(branch)?.[1] === base
   if (refs.branches.some((b) => b.kind === 'local' && b.name === branch)) return false
   return refs.remotes.some((r) => branch === `${r.name}/${base}`)
+}
+
+/**
+ * The branch an interactive rebase rewrites: the current one, which the daemon is asked for; undefined when it can't
+ * tell (offline, it can't rebase either, and an approval asks again).
+ */
+async function rebased(ctx: Ctx, op: Columns, t: GitTarget) {
+  if (op.branch) return op.branch
+  const refs = await refsNow(ctx, t, op.repo)
+  return refs?.branches.find((b) => b.kind === 'local' && b.current)?.name
 }
 
 /** The remote a remote-tracking name (`origin/feat`) belongs to: the longest remote name it starts with. */

@@ -762,39 +762,49 @@ pub async fn conflict(dir: &Path, rel: &str, max_bytes: u64) -> Result<Conflict,
     let [base, ours, theirs] = [&sides[0], &sides[1], &sides[2]].map(|s| s.as_ref().and_then(text));
     let merged = match (&base, &ours, &theirs) {
         (Some(base), Some(ours), Some(theirs)) => Some(merge_file(dir, base, ours, theirs).await?),
+        // Both added it: merged as git does, from nothing, so what they share is not in conflict.
+        (None, Some(ours), Some(theirs)) => Some(merge_file(dir, "", ours, theirs).await?),
         _ => None,
     };
     Ok(Conflict { base, ours, theirs, merged, binary: false })
 }
 
-/// `git merge-file --diff3` of the three texts, conflict markers labelled ours / base / theirs.
+/// `git merge-file --zdiff3` of the three texts (lines both sides share at a conflict's ends left out of it; plain
+/// `--diff3` before git 2.35), conflict markers labelled ours / base / theirs.
 async fn merge_file(dir: &Path, base: &str, ours: &str, theirs: &str) -> Result<String, String> {
-    let scratch = Scratch::new()?;
+    let scratch = Scratch::new("gonggong-merge")?;
     let files = [("ours", ours), ("base", base), ("theirs", theirs)].map(|(name, text)| {
         let file = scratch.0.join(name);
         std::fs::write(&file, text).map(|_| file.to_string_lossy().into_owned())
     });
     let [ours, base, theirs] = files;
     let (ours, base, theirs) = (ours.map_err(io)?, base.map_err(io)?, theirs.map_err(io)?);
-    let args = ["merge-file", "-p", "--diff3", "-L", "ours", "-L", "base", "-L", "theirs", &ours, &base, &theirs];
-    let out = git_output(dir, &args, &[], None).await?;
-    // The exit code is the number of conflicts (capped at 127); a negative one is an error.
-    match out.status.code() {
-        Some(0..=127) => Ok(String::from_utf8_lossy(&out.stdout).into_owned()),
-        _ => Err(String::from_utf8_lossy(&out.stderr).lines().next().unwrap_or(t!("git 执行失败")).to_string()),
+    let mut stderr = String::new();
+    for style in ["--zdiff3", "--diff3"] {
+        let args = ["merge-file", "-p", style, "-L", "ours", "-L", "base", "-L", "theirs", &ours, &base, &theirs];
+        let out = git_output(dir, &args, &[], None).await?;
+        // The exit code is the number of conflicts (capped at 127); a negative one is an error, as is an unknown option.
+        if let Some(0..=127) = out.status.code() {
+            return Ok(String::from_utf8_lossy(&out.stdout).into_owned());
+        }
+        stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+        if !stderr.contains("zdiff3") {
+            break;
+        }
     }
+    Err(stderr.lines().next().unwrap_or(t!("git 执行失败")).to_string())
 }
 
-fn io(e: std::io::Error) -> String {
+pub(crate) fn io(e: std::io::Error) -> String {
     t!("无法写入临时文件：{e}", e = e)
 }
 
-/// A temp dir for merge-file's inputs, removed however the merge ends.
-struct Scratch(PathBuf);
+/// A temp dir for what git is handed as files (merge-file's inputs, a rebase's todo), removed however it ends.
+pub(crate) struct Scratch(pub(crate) PathBuf);
 
 impl Scratch {
-    fn new() -> Result<Self, String> {
-        let dir = git::unique_temp("gonggong-merge");
+    pub(crate) fn new(prefix: &str) -> Result<Self, String> {
+        let dir = git::unique_temp(prefix);
         std::fs::create_dir_all(&dir).map_err(io)?;
         Ok(Scratch(dir))
     }

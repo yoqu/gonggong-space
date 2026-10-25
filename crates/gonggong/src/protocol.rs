@@ -837,7 +837,7 @@ pub struct GitRefresh {
     pub fetch: bool,
 }
 
-/// All but the first four came with [`FEATURE_GIT_OPS3`]; add and ignore with [`FEATURE_GIT_OPS4`].
+/// All but the first four came with [`FEATURE_GIT_OPS3`]; add, ignore, apply and restore with [`FEATURE_GIT_OPS4`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GitActionKind {
@@ -866,6 +866,8 @@ pub enum GitActionKind {
     Resolve,
     Add,
     Ignore,
+    Apply,
+    Restore,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -927,6 +929,29 @@ pub struct GitActionArgs {
     pub patch: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_commits: Option<GitLocalCommits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub todo: Option<Vec<GitRebaseStep>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverse: Option<bool>,
+}
+
+/// One line of an interactive rebase's todo; `message` for reword and squash.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitRebaseStep {
+    pub action: GitRebaseAction,
+    pub commit: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GitRebaseAction {
+    Pick,
+    Reword,
+    Squash,
+    Fixup,
+    Drop,
 }
 
 /// What a checkout of a remote branch does with the commits its local one has of its own.
@@ -983,7 +1008,7 @@ pub struct GitAction {
     pub remote: Option<String>,
     pub message: Option<String>,
     /// commit, discard, stash: only these work-tree-relative paths; None = every change. Older servers never send it.
-    /// add, ignore: the paths they act on.
+    /// add, ignore, apply, restore: the paths they act on; resolve: more conflicted paths to take a side for.
     #[serde(default)]
     pub paths: Option<Vec<String>>,
     pub identity: Option<GitIdentity>,
@@ -2469,6 +2494,53 @@ mod tests {
         assert_eq!(serde_json::to_value(&result).unwrap()["detail"], serde_json::Value::Null);
         let older = r#"{"t":"git.action.result","requestId":"q1","ok":true,"busy":false,"output":"x","error":null}"#;
         assert!(matches!(serde_json::from_str(older).unwrap(), DaemonToServer::GitActionResult { detail: None, .. }));
+    }
+
+    #[test]
+    fn git_ops4_r4_fixtures_parse() {
+        let action = |raw: &str| match serde_json::from_str::<ServerToDaemon>(raw).unwrap() {
+            ServerToDaemon::GitAction(a) => (a.action, a.paths.clone(), a.args.unwrap()),
+            other => panic!("unexpected {other:?}"),
+        };
+        let (kind, _, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.rebase.todo.json"));
+        assert_eq!((kind, args.onto.as_deref()), (GitActionKind::Rebase, Some("0f1e2d3c")));
+        let step = |action, commit: &str, message: Option<&str>| GitRebaseStep {
+            action,
+            commit: commit.into(),
+            message: message.map(String::from),
+        };
+        assert_eq!(
+            args.todo.unwrap(),
+            [
+                step(GitRebaseAction::Pick, "a1b2c3d4", None),
+                step(GitRebaseAction::Reword, "b2c3d4e5", Some("修复退款金额")),
+                step(GitRebaseAction::Fixup, "c3d4e5f6", None),
+                step(GitRebaseAction::Drop, "d4e5f6a7", None),
+            ]
+        );
+        let (kind, paths, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.resolve.paths.json"));
+        assert_eq!(
+            (kind, paths, args.path.as_deref(), args.side),
+            (
+                GitActionKind::Resolve,
+                Some(vec!["src/a.ts".into(), "src/b.ts".into()]),
+                Some("src/a.ts"),
+                Some(GitConflictPick::Theirs)
+            )
+        );
+        let (kind, paths, args) = action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.apply.json"));
+        assert_eq!(
+            (kind, paths, args.commit.as_deref(), args.reverse),
+            (GitActionKind::Apply, Some(vec!["src/a.ts".into()]), Some("a1b2c3d4"), Some(true))
+        );
+        let (kind, paths, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.restore.json"));
+        assert_eq!(
+            (kind, paths, args.commit.as_deref(), args.reverse),
+            (GitActionKind::Restore, Some(vec!["src/a.ts".into(), "README.md".into()]), Some("a1b2c3d4"), None)
+        );
     }
 
     #[test]

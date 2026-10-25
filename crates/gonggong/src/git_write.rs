@@ -1,11 +1,11 @@
 //! The owner's manual git writes (git.action), run while no turn holds the directory: they never open an editor, are
 //! made as the bot's identity, and stop on conflicts, leaving them to resolve. Pushes are forced only on request, and
 //! then with a lease.
-use crate::git::{self, EMPTY_TREE, git, git_input, git_output};
-use crate::git_ops::{self, NETWORK_TIMEOUT, arg, private, repo_dir, tree_path};
+use crate::git::{self, EMPTY_TREE, git, git_bytes, git_input, git_output};
+use crate::git_ops::{self, NETWORK_TIMEOUT, Scratch, arg, private, repo_dir, tree_path};
 use crate::protocol::{
     GitAction, GitActionCode, GitActionDetail, GitActionKind, GitConflictPick, GitConflictSide, GitIdentity,
-    GitLocalCommits, GitOngoingKind, GitUpdated,
+    GitLocalCommits, GitOngoingKind, GitRebaseAction, GitRebaseStep, GitUpdated,
 };
 use crate::repo::{self, remote_output, remote_output_with};
 use crate::t;
@@ -91,7 +91,13 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
         GitActionKind::Merge => {
             return w.merge(need(branch, "branch")?, a.mode.as_deref(), on(a.no_commit), message).await;
         }
-        GitActionKind::Rebase => return w.rebase(need(a.onto.as_deref(), "args.onto")?, branch).await,
+        GitActionKind::Rebase => {
+            let onto = need(a.onto.as_deref(), "args.onto")?;
+            return match a.todo.as_deref() {
+                Some(todo) => w.rebase_todo(onto, branch, todo).await,
+                None => w.rebase(onto, branch).await,
+            };
+        }
         GitActionKind::CherryPick => w.pick(false, a.commits.as_deref().unwrap_or_default()).await?,
         GitActionKind::Revert => w.pick(true, a.commits.as_deref().unwrap_or_default()).await?,
         GitActionKind::Reset => {
@@ -127,10 +133,12 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
         GitActionKind::Abort => w.abort().await?,
         GitActionKind::Skip => w.skip().await?,
         GitActionKind::Resolve => {
-            w.resolve(need(a.path.as_deref(), "args.path")?, a.side, a.content.as_deref()).await?
+            w.resolve(need(a.path.as_deref(), "args.path")?, paths, a.side, a.content.as_deref()).await?
         }
         GitActionKind::Add => w.add(paths).await?,
         GitActionKind::Ignore => ignore(dir, paths)?,
+        GitActionKind::Apply => w.apply(need(a.commit.as_deref(), "args.commit")?, paths, on(a.reverse)).await?,
+        GitActionKind::Restore => w.restore(need(a.commit.as_deref(), "args.commit")?, paths).await?,
     };
     Ok(output.into())
 }
@@ -196,9 +204,15 @@ impl Writer<'_> {
 
     /// [`Self::run`] for what may stop on conflicts: then they are the error, left in place to resolve.
     async fn merging(&self, args: &[&str]) -> Result<String, Failed> {
-        match self.run(args).await {
-            Ok(out) => Ok(out),
-            Err(e) => Err(stopped(self.dir).await.unwrap_or(e)),
+        self.merging_with(args, &[]).await
+    }
+
+    /// [`Self::merging`] with `env` on top of [`Self::env`].
+    async fn merging_with(&self, args: &[&str], env: &[(&str, &str)]) -> Result<String, Failed> {
+        let out = git_output(self.dir, &self.with(args), &[&self.env()[..], env].concat(), None).await?;
+        match out.status.success() {
+            true => Ok(String::from_utf8_lossy(&out.stdout).into_owned()),
+            false => Err(stopped(self.dir).await.unwrap_or_else(|| failed(&out))),
         }
     }
 
@@ -552,6 +566,53 @@ impl Writer<'_> {
         Ok(restored(self.dir, head_line(self.dir).await?, None).await)
     }
 
+    /// Rewrites the current branch's `onto..HEAD` as `todo` lists it (each of those commits once, none a merge), changes
+    /// stashed around it. git's own todo is replaced by the one planned here (the sequence editor copies it over), and
+    /// a reword's or squash's message is committed by an `exec` amending the commit just made, its file kept in the
+    /// rebase's state dir so that it outlives a stop on conflicts and goes with the rebase however it ends.
+    async fn rebase_todo(&self, onto: &str, branch: Option<&str>, todo: &[GitRebaseStep]) -> Result<Done, Failed> {
+        let dir = self.dir;
+        if let Some(b) = branch
+            && git::branch(dir).await.as_deref() != Some(b)
+        {
+            return Err(t!("交互式变基只能作用于当前分支").into());
+        }
+        let onto = commit_hash(dir, onto).await?;
+        let listed = git(dir, &["rev-list", "--reverse", "--parents", &format!("{onto}..HEAD"), "--"]).await?;
+        let mut commits = vec![];
+        for line in listed.lines() {
+            let hashes: Vec<&str> = line.split(' ').collect();
+            if hashes.len() > 2 {
+                return Err(t!("要变基的提交中有合并提交 {commit}", commit = &hashes[0][..7]).into());
+            }
+            commits.push(hashes[0]);
+        }
+        let (plan, messages) = rebase_plan(&commits, todo)?;
+        let scratch = Scratch::new("gonggong-rebase")?;
+        let write = |name: String, text: &str| std::fs::write(scratch.0.join(name), text).map_err(git_ops::io);
+        write("gg-todo".into(), &plan)?;
+        for (i, message) in messages.iter().enumerate() {
+            write(format!("gg-msg-{i}"), message)?;
+        }
+        // Run by git as `<editor> "$@"`, the todo's path in $1.
+        let from = scratch.0.to_string_lossy().replace('\'', "'\\''");
+        let editor = format!("f() {{ cp '{from}'/gg-* \"${{1%/*}}\" && cp '{from}'/gg-todo \"$1\"; }}; f");
+        let args = [
+            "rebase",
+            "-i",
+            "--autostash",
+            "--no-autosquash",
+            "--no-rebase-merges",
+            "--no-update-refs",
+            // Every step makes a commit, so that an exec amends the one it follows.
+            "--empty=keep",
+            "--reapply-cherry-picks",
+            &onto,
+        ];
+        self.merging_with(&args, &[("GIT_SEQUENCE_EDITOR", &editor)]).await?;
+        Ok(restored(dir, head_line(dir).await?, None).await)
+    }
+
     /// Cherry-picks `commits` (oldest first) onto HEAD, or reverts them, newest first so that no revert meets a later
     /// change to what it undoes. Merge commits take their first parent's side, and only on their own.
     async fn pick(&self, revert: bool, commits: &[String]) -> Result<String, Failed> {
@@ -763,6 +824,74 @@ impl Writer<'_> {
         Ok(format!("{remote}/{name} {}", pushed.first().map_or("", |(_, s)| s.as_str())))
     }
 
+    /// `commit`'s changes to `paths` (against its first parent) applied to the work tree, or undone when `reverse`;
+    /// what clashes is left in conflict. `git apply --3way` works through the index, which must match the work tree
+    /// for those paths: their unstaged changes are staged first, and the result is left staged too, uncommitted all
+    /// the same (IDEA leaves it in a changelist).
+    async fn apply(&self, commit: &str, paths: &[String], reverse: bool) -> Result<String, Failed> {
+        let dir = self.dir;
+        let picked = picked(paths)?;
+        if picked.is_empty() {
+            return Err(missing("paths").into());
+        }
+        let hash = commit_hash(dir, commit).await?;
+        let short = git(dir, &["rev-parse", "--short", &hash]).await?.trim().to_string();
+        let parents = git(dir, &["log", "-1", "--format=%P", &hash, "--"]).await?;
+        let parent = parents.split_whitespace().next().unwrap_or(EMPTY_TREE);
+        let diff = ["--literal-pathspecs", "diff-tree", "-p", "--binary", "--no-renames", parent, &hash, "--"];
+        let names: Vec<&str> = picked.iter().map(String::as_str).collect();
+        let patch = git_bytes(dir, &[&diff[..], &names].concat()).await?;
+        if patch.is_empty() {
+            return Err(t!("{commit} 没有改动所选文件", commit = short).into());
+        }
+        let unstaged = ["--literal-pathspecs", "diff", "--name-only", "-z", "--"];
+        let unstaged = git(dir, &[&unstaged[..], &names].concat()).await?;
+        if !unstaged.is_empty() {
+            let add = ["--literal-pathspecs", "add", "--pathspec-from-file=-", "--pathspec-file-nul"];
+            self.run_input(&add, Some(unstaged.as_bytes())).await?;
+        }
+        let mut apply = vec!["apply", "--3way", "--whitespace=nowarn"];
+        if reverse {
+            apply.push("-R");
+        }
+        if let Err(e) = self.run_input(&apply, Some(&patch)).await {
+            return Err(stopped(dir).await.unwrap_or(e));
+        }
+        let n = picked.len();
+        Ok(match reverse {
+            true => t!("已撤销 {commit} 对 {n} 个文件的改动", commit = short, n = n),
+            false => t!("已应用 {commit} 对 {n} 个文件的改动", commit = short, n = n),
+        })
+    }
+
+    /// `paths` as `commit` has them, into the index and the work tree; those it doesn't have are deleted from the work
+    /// tree, never through a link out of it.
+    async fn restore(&self, commit: &str, paths: &[String]) -> Result<String, Failed> {
+        let dir = self.dir;
+        let picked = picked(paths)?;
+        if picked.is_empty() {
+            return Err(missing("paths").into());
+        }
+        let hash = commit_hash(dir, commit).await?;
+        let names: Vec<&str> = picked.iter().map(String::as_str).collect();
+        let ls = ["--literal-pathspecs", "ls-tree", "-z", "--name-only", &hash, "--"];
+        let there = git(dir, &[&ls[..], &names].concat()).await?;
+        let there: HashSet<&str> = there.split('\0').collect();
+        let (kept, gone): (Vec<String>, Vec<String>) = picked.iter().cloned().partition(|p| there.contains(p.as_str()));
+        for p in &gone {
+            within(dir, p)?;
+        }
+        if !kept.is_empty() {
+            let checkout = ["--literal-pathspecs", "checkout", &hash, "--pathspec-from-file=-", "--pathspec-file-nul"];
+            self.run_input(&checkout, Some(&nul_list(&kept))).await?;
+        }
+        for p in &gone {
+            git::remove(dir, &dir.join(p))?;
+        }
+        let short = git(dir, &["rev-parse", "--short", &hash]).await?.trim().to_string();
+        Ok(t!("已从 {commit} 获取 {n} 个文件", commit = short, n = picked.len()))
+    }
+
     /// Goes on with what stopped: a merge is committed (with `message` when given), the others continued.
     async fn proceed(&self, message: Option<&str>) -> Result<String, Failed> {
         let Some(ongoing) = git::ongoing(self.dir).await? else { return Err(t!("没有进行中的操作").into()) };
@@ -777,7 +906,12 @@ impl Writer<'_> {
     /// Back to before what stopped; conflicts nothing is in progress for (a stash that did not apply cleanly) are
     /// reset away.
     async fn abort(&self) -> Result<String, Failed> {
-        match git::ongoing(self.dir).await? {
+        let dir = self.dir;
+        match git::ongoing(dir).await? {
+            // A squash merge, which `merge --abort` knows nothing of.
+            Some(o) if o.kind == GitOngoingKind::Merge && !has_merge_head(dir).await => {
+                self.run(&["reset", "--merge"]).await?
+            }
             Some(ongoing) => self.run(&[op(ongoing.kind), "--abort"]).await?,
             None if !git_ops::unmerged(self.dir).await?.is_empty() => self.run(&["reset", "--merge"]).await?,
             None => return Err(t!("没有进行中的操作").into()),
@@ -797,43 +931,65 @@ impl Writer<'_> {
         }
     }
 
-    /// Marks unmerged `path` resolved: written with `content`, or as `side` has it (removed when it deleted it).
+    /// Marks unmerged `path` resolved: written with `content`, or as `side` has it (removed when it deleted it); with
+    /// `side`, `more` paths too. Nothing is resolved unless every one of them is in conflict.
     async fn resolve(
         &self,
         path: &str,
+        more: &[String],
         side: Option<GitConflictPick>,
         content: Option<&str>,
     ) -> Result<String, Failed> {
         let dir = self.dir;
-        let path = tree_path(path)?;
+        let mut paths = vec![tree_path(path)?];
+        for p in more {
+            let p = tree_path(p)?;
+            if !paths.contains(&p) {
+                paths.push(p);
+            }
+        }
+        if paths.len() > 1 && side.is_none() {
+            return Err(missing("args.side").into());
+        }
         let unmerged = git_ops::unmerged(dir).await?;
-        let Some(conflict) = unmerged.into_iter().find(|c| c.path == path && !private(&path)) else {
-            return Err(t!("没有冲突：{path}", path = path).into());
-        };
+        let mut conflicts = vec![];
+        for path in &paths {
+            match unmerged.iter().find(|c| &c.path == path && !private(path)) {
+                Some(c) => conflicts.push(c),
+                None => return Err(t!("没有冲突：{path}", path = path).into()),
+            }
+        }
         let literal = "--literal-pathspecs";
         match (content, side) {
             (Some(content), _) => {
-                let file = dir.join(&path);
+                let path = &paths[0];
+                let file = dir.join(path);
                 let write =
                     file.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|_| std::fs::write(&file, content));
                 write.map_err(|e| t!("无法写入 {path}：{e}", path = path, e = e))?;
-                self.run(&[literal, "add", "--", &path]).await?;
+                self.run(&[literal, "add", "--", path]).await?;
             }
             (None, Some(side)) => {
-                let (flag, taken) = match side {
-                    GitConflictPick::Ours => ("--ours", conflict.ours),
-                    GitConflictPick::Theirs => ("--theirs", conflict.theirs),
-                };
-                if taken == GitConflictSide::Deleted {
-                    self.run(&[literal, "rm", "-q", "--", &path]).await?;
-                } else {
-                    self.run(&[literal, "checkout", flag, "--", &path]).await?;
-                    self.run(&[literal, "add", "--", &path]).await?;
+                for conflict in conflicts {
+                    let path = conflict.path.as_str();
+                    let (flag, taken) = match side {
+                        GitConflictPick::Ours => ("--ours", conflict.ours),
+                        GitConflictPick::Theirs => ("--theirs", conflict.theirs),
+                    };
+                    if taken == GitConflictSide::Deleted {
+                        self.run(&[literal, "rm", "-q", "--", path]).await?;
+                    } else {
+                        self.run(&[literal, "checkout", flag, "--", path]).await?;
+                        self.run(&[literal, "add", "--", path]).await?;
+                    }
                 }
             }
             (None, None) => return Err(missing("args.side").into()),
         }
-        Ok(t!("已解决 {path}", path = path))
+        Ok(match &paths[..] {
+            [path] => t!("已解决 {path}", path = path),
+            _ => t!("已解决 {n} 个文件", n = paths.len()),
+        })
     }
 }
 
@@ -1005,6 +1161,57 @@ fn hunk_counts(range: &str) -> Option<(u32, u32)> {
     Some((count(old)?, count(new)?))
 }
 
+/// The todo git runs for `steps` over `commits` (`onto..HEAD`, oldest first, full hashes), each listed once by its
+/// hash or a prefix of it, and the messages its execs commit (`gg-msg-<i>` in the rebase's state dir).
+fn rebase_plan(commits: &[&str], steps: &[GitRebaseStep]) -> Result<(String, Vec<String>), String> {
+    use GitRebaseAction as A;
+    if steps.iter().find(|s| s.action != A::Drop).is_some_and(|s| matches!(s.action, A::Squash | A::Fixup)) {
+        return Err(t!("第一个提交不能压缩或修正到前一个提交").into());
+    }
+    let (mut todo, mut messages, mut seen) = (String::new(), vec![], HashSet::new());
+    for s in steps {
+        let prefix = s.commit.to_ascii_lowercase();
+        let mut matching = commits.iter().filter(|c| c.starts_with(&prefix));
+        let (Some(hash), None) = (matching.next(), matching.next()) else {
+            return Err(t!("提交 {commit} 不在要变基的提交中", commit = s.commit));
+        };
+        if !seen.insert(*hash) {
+            return Err(t!("提交 {commit} 重复出现", commit = s.commit));
+        }
+        let command = match s.action {
+            A::Pick | A::Reword => "pick",
+            A::Squash => "squash",
+            A::Fixup => "fixup",
+            A::Drop => "drop",
+        };
+        todo.push_str(&format!("{command} {hash}\n"));
+        match (s.action, s.message.as_deref().filter(|m| !m.trim().is_empty())) {
+            (A::Reword, None) => return Err(t!("提交 {commit} 改写说明时缺少新的说明", commit = s.commit)),
+            (A::Reword | A::Squash, Some(m)) => {
+                // `-F` without an editor keeps the message as given, `#` lines too.
+                let file = format!("\"$(git rev-parse --git-path rebase-merge)/gg-msg-{}\"", messages.len());
+                todo.push_str(&format!("exec git commit -q --amend --no-verify --allow-empty -F {file}\n"));
+                messages.push(m.to_string());
+            }
+            _ => {}
+        }
+    }
+    if let Some(missing) = commits.iter().find(|c| !seen.contains(*c)) {
+        return Err(t!("缺少提交 {commit}：每个要变基的提交都要列出", commit = &missing[..7]));
+    }
+    Ok((todo, messages))
+}
+
+/// Refuses `rel` when its directory resolves out of `dir` (through a link): deleting it would reach elsewhere.
+fn within(dir: &Path, rel: &str) -> Result<(), String> {
+    let file = dir.join(rel);
+    let parent = file.parent().unwrap_or(dir);
+    match (parent.canonicalize(), dir.canonicalize()) {
+        (Ok(p), Ok(d)) if !p.starts_with(&d) => Err(t!("路径超出工作区：{path}", path = rel)),
+        _ => Ok(()),
+    }
+}
+
 /// `[label abc1234] subject` of `rev`.
 async fn ref_line(dir: &Path, rev: &str, label: &str) -> Result<String, String> {
     let line = git(dir, &["log", "-1", "--format=%h %s", rev, "--"]).await?;
@@ -1069,11 +1276,20 @@ async fn expect_stash(dir: &Path, n: u32, expect: Option<&str>) -> Result<(), St
     }
 }
 
-/// The full hash of `commit` when it is on local `branch`: no refspec syntax (`+`, `:`) can hide in it.
-async fn commit_on(dir: &Path, commit: &str, branch: &str) -> Result<String, String> {
+/// The full hash of `commit`.
+async fn commit_hash(dir: &Path, commit: &str) -> Result<String, String> {
     let rev = format!("{}^{{commit}}", arg(commit)?);
     let hash = git(dir, &["rev-parse", "-q", "--verify", &rev]).await;
-    let hash = hash.map_err(|_| t!("提交不存在：{commit}", commit = commit))?.trim().to_string();
+    Ok(hash.map_err(|_| t!("提交不存在：{commit}", commit = commit))?.trim().to_string())
+}
+
+async fn has_merge_head(dir: &Path) -> bool {
+    git(dir, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).await.is_ok()
+}
+
+/// The full hash of `commit` when it is on local `branch`: no refspec syntax (`+`, `:`) can hide in it.
+async fn commit_on(dir: &Path, commit: &str, branch: &str) -> Result<String, String> {
+    let hash = commit_hash(dir, commit).await?;
     match is_ancestor(dir, &hash, &format!("refs/heads/{branch}")).await {
         true => Ok(hash),
         false => Err(t!("该提交不在分支 {branch} 上", branch = branch)),
