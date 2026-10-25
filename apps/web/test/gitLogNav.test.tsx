@@ -246,7 +246,7 @@ describe('keyboard', () => {
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(hash('2')))
   })
 
-  it('only moves the selection in a reused table: the compare tab opens the log on Enter, not on ↓', async () => {
+  it('only moves the selection in a reused table: the compare tab keeps its commits to itself', async () => {
     log = [commit('1', { parents: [hash('2')] }), commit('2', { parents: [hash('4')] })]
     const tab = open({ kind: 'git-compare', botId: 'b1', from: 'main', to: 'feat/x', file: null })
     const side = within(await tab.findByRole('region', { name: '仅在 feat/x 中' }))
@@ -257,7 +257,7 @@ describe('keyboard', () => {
     expect(tabs().some((t) => t.kind === 'git-log')).toBe(false)
     expect(side.getByRole('option', { selected: true }).textContent).toContain('2222222')
     fireEvent.keyDown(table, { key: 'Enter' })
-    expect(logTab()).toMatchObject({ ref: 'feat/x', commit: hash('2') })
+    expect(tabs().some((t) => t.kind === 'git-log')).toBe(false)
   })
 })
 
