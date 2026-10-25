@@ -54,6 +54,15 @@ const popup = async () => {
   fireEvent.click(await tab.findByRole('button', { name: '切换 小王的 Claude 的分支' }))
   return dialog('小王的 Claude 的分支')
 }
+/** The merge dialog from ⋯ (the popup's merge runs at once for the owner), main picked. */
+const mergeDialog = async () => {
+  const tab = await openGit()
+  fireEvent.click(tab.getByRole('button', { name: '更多 Git 操作' }))
+  fireEvent.click(await screen.findByRole('menuitem', { name: '合并…' }))
+  const d = await dialog('合并到 feat/refund-v2')
+  fireEvent.change(d.getByRole('combobox'), { target: { value: 'main' } })
+  return d
+}
 
 describe('git status bar', () => {
   it('opens the Git tab from the branch or the workspace menu; git actions live there only', async () => {
@@ -284,20 +293,8 @@ describe('branch popup', () => {
     fireEvent.change(pop.getByRole('searchbox', { name: '搜索分支和标签' }), { target: { value: 'pay' } })
     expect(pop.queryByText('最近')).toBeNull()
     fireEvent.click(pop.getByTitle('origin/feat/pay'))
-    const actions = pop.getAllByRole('button').map((b) => b.textContent)
-    expect(actions).toEqual([
-      '',
-      '检出',
-      '从 origin/feat/pay 新建分支…',
-      '与 feat/refund-v2 比较',
-      '显示与工作区的差异',
-      '显示提交历史',
-      '将 feat/refund-v2 变基到 origin/feat/pay',
-      '将 origin/feat/pay 合并到 feat/refund-v2',
-      '在远程删除…',
-      '复制名称',
-    ])
-    fireEvent.click(pop.getByRole('button', { name: '返回' }))
+    const menu = within(await pop.findByRole('menu', { name: 'origin/feat/pay' }))
+    expect(menu.getAllByRole('menuitem')[0]?.textContent).toBe('检出')
     expect(pop.getByRole('searchbox', { name: '搜索分支和标签' })).toBeTruthy()
   })
 
@@ -311,7 +308,7 @@ describe('branch popup', () => {
     const { unmount } = render(<Page />)
     let pop = await popup()
     fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '检出' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '检出' }))
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'checkout', branch: 'main' }]))
     await waitFor(() => expect(toasts()).toContain('小王的 Claude：切换分支完成'))
     unmount()
@@ -321,7 +318,7 @@ describe('branch popup', () => {
     render(<Page />)
     pop = await popup()
     fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '检出' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '检出' }))
     const d = await dialog('检出 main')
     expect(d.getByText('工作区有未提交的改动')).toBeTruthy()
     expect((d.getByRole('radio', { name: /^智能检出/ }) as HTMLInputElement).checked).toBe(true)
@@ -344,7 +341,7 @@ describe('branch popup', () => {
     render(<Page />)
     const pop = await popup()
     fireEvent.click(await pop.findByTitle('v1.2'))
-    fireEvent.click(pop.getByRole('button', { name: '检出' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '检出' }))
     const d = await dialog('检出 v1.2')
     expect(d.getByText(/游离 HEAD/)).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '检出' }))
@@ -382,11 +379,7 @@ describe('branch popup', () => {
   it('merges a branch into the current one with the chosen strategy', async () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     render(<Page />)
-    const pop = await popup()
-    fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '将 main 合并到 feat/refund-v2' }))
-    const d = await dialog('合并到 feat/refund-v2')
-    expect((d.getByRole('combobox') as HTMLInputElement).value).toBe('main')
+    const d = await mergeDialog()
     fireEvent.click(d.getByRole('radio', { name: /^总是生成合并提交/ }))
     fireEvent.change(d.getByRole('textbox', { name: '合并提交说明（可选）' }), {
       target: { value: '合并主干' },
@@ -417,28 +410,24 @@ describe('branch popup', () => {
       }),
     )
     render(<Page />)
-    const pop = await popup()
-    fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '将 main 合并到 feat/refund-v2' }))
-    fireEvent.click((await dialog('合并到 feat/refund-v2')).getByRole('button', { name: '合并' }))
+    fireEvent.click((await mergeDialog()).getByRole('button', { name: '合并' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '合并到 feat/refund-v2' })).toBeNull())
     expect(toasts()).toContain('有 1 个冲突待解决：README.md')
   })
 
-  it('rebases the current branch, or checks a branch out and rebases it onto the current one', async () => {
+  it('rebases the current branch at once, or checks a branch out and rebases it onto the current one', async () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     render(<Page />)
     let pop = await popup()
     fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '将 feat/refund-v2 变基到 main' }))
-    fireEvent.click((await dialog('将 feat/refund-v2 变基')).getByRole('button', { name: '变基' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '将 feat/refund-v2 变基到 main' }))
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'rebase', onto: 'main' }]))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /变基/ })).toBeNull())
+    expect(screen.queryByRole('dialog', { name: /变基/ })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '切换 小王的 Claude 的分支' }))
     pop = await dialog('小王的 Claude 的分支')
     fireEvent.click((await pop.findAllByTitle('feat/fee'))[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '检出并变基到 feat/refund-v2' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '检出并变基到 feat/refund-v2' }))
     const d = await dialog('将 feat/fee 变基')
     expect(d.getByText('会先检出 feat/fee')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '变基' }))
@@ -467,7 +456,7 @@ describe('branch popup', () => {
     render(<Page />)
     let pop = await popup()
     fireEvent.click((await pop.findAllByTitle('feat/fee'))[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '重命名…' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '重命名…' }))
     let d = await dialog('重命名分支 feat/fee')
     fireEvent.change(d.getByRole('textbox', { name: '新名称' }), { target: { value: 'feat/fees' } })
     fireEvent.click(d.getByRole('button', { name: '重命名' }))
@@ -481,7 +470,7 @@ describe('branch popup', () => {
     fireEvent.click(screen.getByRole('button', { name: '切换 小王的 Claude 的分支' }))
     pop = await dialog('小王的 Claude 的分支')
     fireEvent.click((await pop.findAllByTitle('feat/fee'))[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '删除…' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '删除…' }))
     d = await dialog('删除分支 feat/fee')
     expect(d.getByText('删除本地分支 feat/fee')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '删除' }))
@@ -501,7 +490,7 @@ describe('branch popup', () => {
     fireEvent.click(screen.getByRole('button', { name: '切换 小王的 Claude 的分支' }))
     pop = await dialog('小王的 Claude 的分支')
     fireEvent.click(await pop.findByTitle('origin/feat/pay'))
-    fireEvent.click(pop.getByRole('button', { name: '在远程删除…' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '在远程删除…' }))
     d = await dialog('删除分支 origin/feat/pay')
     expect(d.getByText('在远程 origin 上删除分支 feat/pay，其他人将无法再拉取它')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '删除' }))
@@ -519,7 +508,7 @@ describe('branch popup', () => {
     render(<Page />)
     let pop = await popup()
     fireEvent.click(await pop.findByTitle('v1.2'))
-    fireEvent.click(pop.getByRole('button', { name: '推送到 origin' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '推送到 origin' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([{ action: 'tag-push', name: 'v1.2', remote: 'origin' }]),
     )
@@ -527,7 +516,7 @@ describe('branch popup', () => {
     fireEvent.click(screen.getByRole('button', { name: '切换 小王的 Claude 的分支' }))
     pop = await dialog('小王的 Claude 的分支')
     fireEvent.click(await pop.findByTitle('v1.2'))
-    fireEvent.click(pop.getByRole('button', { name: '删除标签…' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '删除标签…' }))
     const d = await dialog('删除标签 v1.2')
     fireEvent.click(d.getByRole('checkbox', { name: '同时从远程 origin 删除' }))
     fireEvent.click(d.getByRole('button', { name: '删除' }))
@@ -558,7 +547,7 @@ describe('branch popup', () => {
     render(<Page />)
     const pop = await popup()
     fireEvent.click(pop.getAllByRole('button', { name: /^main/ })[0] as HTMLElement)
-    fireEvent.click(pop.getByRole('button', { name: '检出' }))
+    fireEvent.click(await pop.findByRole('menuitem', { name: '检出' }))
     const d = await dialog('检出 main')
     expect(d.getByText('需要 Bot 主人 小王 批准后才会执行')).toBeTruthy()
     fireEvent.click(d.getByRole('button', { name: '提交申请' }))

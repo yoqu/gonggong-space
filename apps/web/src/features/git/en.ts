@@ -398,4 +398,10 @@ export default {
   '已提交 {n} 个文件：{subject}': '{n} {n:file|files} committed: {subject}',
   '已修改提交说明：{subject}': 'Commit message amended: {subject}',
   编辑说明: 'Edit message',
+  '使用合并拉取到 {branch}': 'Pull into {branch} using merge',
+  '使用变基拉取到 {branch}': 'Pull into {branch} using rebase',
+  '获取 {ref}，合并到 {branch}': 'Fetches {ref} and merges it into {branch}',
+  '获取 {ref}，把 {branch} 变基到它之上': 'Fetches {ref} and rebases {branch} onto it',
+  '仓库#group': 'Repositories',
+  '{n} 个改动': '{n} {n:change|changes}',
 } satisfies Record<string, string>

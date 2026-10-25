@@ -328,7 +328,7 @@ export function BranchesPane({
       {refs && q && !rows.length ? <div className="glog-note">{t('没有匹配的分支或标签')}</div> : null}
     </div>
   )
-  const actions = menuFor ? refActions(cmd, menuFor, current, remote) : []
+  const actions = menuFor ? refActions(cmd, menuFor, { current, remote, branches: refs?.branches ?? [] }) : []
   return (
     <section className="glb" aria-label={t('分支#pane')} data-picker={picker || undefined}>
       {header}

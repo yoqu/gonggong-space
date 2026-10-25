@@ -23,6 +23,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Not positioned: the actions flown out beside it are placed against the popup's panel. */
 .gb {
   display: flex;
   flex-direction: column;
@@ -52,19 +53,18 @@
   display: flex;
   align-items: center;
   padding-right: 6px;
-}
-.gb__item:hover {
-  background: var(--selection-fill);
+  border-radius: 6px;
 }
 .gb__row {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: 0;
   height: 26px;
   padding: 0 6px 0 10px;
   border: 0;
-  border-radius: 0;
+  border-radius: 6px;
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -73,25 +73,20 @@
   cursor: pointer;
 }
 .gb__row--action,
-.gb__row--folder {
+.gb__row--folder,
+.gb__row--repo {
   padding-right: 10px;
 }
-.gb__row:hover,
+/* The current row (data-active, below) shows where the keys are; the focus stays in the search. */
 .gb__row:focus-visible {
   outline: none;
-  background: var(--selection-fill);
-}
-.gb__item .gb__row:hover {
-  background: transparent;
-}
-.gb__row[data-destructive] {
-  color: var(--tint-red-text);
 }
 .gb__row:disabled {
   cursor: default;
   opacity: 0.6;
 }
-.gb__item[data-current] .gb__row {
+.gb__item[data-current] .gb__row,
+.gb__row--repo[data-current] {
   font-weight: 600;
 }
 .gb__icon {
@@ -101,7 +96,8 @@
   width: 16px;
   color: var(--label-secondary);
 }
-.gb__item[data-current] .gb__icon {
+.gb__item[data-current] .gb__icon,
+.gb__row--repo[data-current] .gb__icon {
   color: var(--accent-text);
 }
 .gb__name {
@@ -116,9 +112,26 @@
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   color: inherit;
 }
+/* The upstream gives way before the branch name. */
 .gb__track {
   display: inline-flex;
+  flex: 0 1 auto;
+  align-items: baseline;
   gap: 4px;
+  min-width: 0;
+  max-width: 50%;
+  font-size: var(--text-caption-size);
+}
+.gb__upstream {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gb__in,
+.gb__out {
+  flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-caption-size);
 }
@@ -127,6 +140,19 @@
 }
 .gb__out {
   color: var(--tint-green-text);
+}
+.gb__note {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gb__note--dirty {
+  color: var(--tint-orange-text);
 }
 .gb__more {
   flex: none;
@@ -146,9 +172,13 @@
   cursor: pointer;
   visibility: hidden;
 }
-.gb__item:hover .gb__star,
+.gb__item[data-active] .gb__star,
 .gb__star:focus-visible {
   visibility: visible;
+}
+.gb__star:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .gb__star[data-on] {
   color: var(--tint-orange-text);
@@ -158,6 +188,40 @@
 }
 .gb__icon[data-star] {
   color: var(--tint-orange-text);
+}
+/* One highlight for the pointer and the arrow keys: hovering a row makes it the current one. */
+.gb__item[data-active],
+.gb__list > .gb__row[data-active] {
+  background: var(--menu-highlight);
+  color: var(--on-accent);
+}
+.gb__item[data-active] .gb__row,
+.gb__item[data-active] :is(.gb__icon, .gb__more, .gb__upstream, .gb__in, .gb__out, .gb__star),
+.gb__row[data-active] :is(.gb__icon, .gb__more, .gb__note, .gb__in, .gb__out) {
+  color: inherit;
+}
+.gb__item[data-active] .gb__mark {
+  background: var(--glass-fill-clear);
+}
+/* A branch's actions (a ui Menu): a submenu beside the popup, or the popup's content where there is no room for one. */
+.ui-menu.gb__fly {
+  position: absolute;
+  left: calc(100% + 4px);
+  z-index: 1;
+  min-width: 220px;
+  animation: var(--fade-in) ui-fade-in;
+}
+.ui-menu.gb__drill-menu {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--space-4) 0 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .gb__drill {
   display: flex;
@@ -196,9 +260,16 @@
   white-space: nowrap;
 }
 .gb__drill-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
   overflow: hidden;
   color: var(--label-secondary);
   font-size: var(--text-caption-size);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.gb__drill-meta .gb__note {
+  max-width: none;
 }
