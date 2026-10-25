@@ -100,3 +100,158 @@
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
 }
+
+/* IDEA's Push Commits: the route and commits left, the picked commits' files right; stacked on a narrow screen. */
+.git-push {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-12);
+  min-height: 0;
+}
+@media (max-width: 640px) {
+  .git-push {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.git-push__pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 300px;
+  overflow: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--quote-fill);
+}
+@media (max-width: 640px) {
+  .git-push__pane {
+    height: 220px;
+  }
+}
+.git-push__route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-6) var(--space-12);
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+}
+.git-push__ref {
+  color: var(--label);
+}
+.git-push__sep {
+  color: var(--label-tertiary);
+}
+.git-push__target {
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.git-push__target:hover {
+  background: var(--selection-fill);
+}
+.git-push__edit {
+  flex: 1;
+  min-width: 140px;
+}
+.git-push__new {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-caption-size);
+}
+.git-push__invalid {
+  margin: 0;
+  padding: var(--space-4) var(--space-12);
+  color: var(--tint-red-text);
+  font-size: var(--text-subheadline-size);
+}
+.git-push__list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) 0;
+  outline: none;
+}
+button.git-push__commit {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+.git-push__commit[aria-selected="true"] {
+  background: var(--selection-fill);
+}
+.git-push__commit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.git-push__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+}
+.git-push__caption {
+  flex: 1;
+  min-width: 0;
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+}
+.git-push__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--label-secondary);
+}
+.git-push__tool:hover {
+  background: var(--selection-fill);
+  color: var(--label);
+}
+.git-push__foot {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+.git-push__split {
+  display: inline-flex;
+  gap: 1px;
+}
+.git-push__split > .ui-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.git-push__split .ui-pulldown__btn {
+  min-width: 0;
+  padding: 0 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.git-push__diff {
+  min-height: 50vh;
+}
+.git-form__link {
+  align-self: flex-start;
+}

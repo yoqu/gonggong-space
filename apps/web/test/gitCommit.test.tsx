@@ -122,7 +122,7 @@ describe('commit view', () => {
         },
       ]),
     )
-    expect(await dialog('推送')).toBeTruthy()
+    expect(await dialog('推送提交')).toBeTruthy()
   })
 
   it('keeps the message when git fails, with its reason', async () => {

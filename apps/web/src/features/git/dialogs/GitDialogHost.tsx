@@ -10,9 +10,10 @@ import {
   RevisionDialog,
 } from './BranchDialogs'
 import { ContinueDialog, DeleteTagDialog, NewTagDialog, ResetDialog, RewordDialog } from './HistoryDialogs'
+import { PushDialog } from './PushDialog'
 import { RollbackDialog } from './RollbackDialog'
 import { ConfirmDialog, StashDialog, UnstashDialog } from './StashDialogs'
-import { MergeDialog, PullDialog, PushDialog, RebaseDialog } from './SyncDialogs'
+import { MergeDialog, PullDialog, RebaseDialog, UpdateDialog } from './SyncDialogs'
 import '../dialogs.css'
 
 /** The git dialog open anywhere in the workbench; mounted once. */
@@ -52,6 +53,8 @@ function Body({
     case 'rebase':
       return <RebaseDialog {...p} onto={d.onto} branch={d.branch} />
     case 'pull':
+      return <UpdateDialog {...p} />
+    case 'pull-remote':
       return <PullDialog {...p} />
     case 'push':
       return <PushDialog {...p} branch={d.branch} upTo={d.upTo} />

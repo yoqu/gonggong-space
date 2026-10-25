@@ -49,6 +49,8 @@ export type GitDialog =
   | { kind: 'merge'; branch: string | null }
   | { kind: 'rebase'; onto: string | null; branch: string | null }
   | { kind: 'pull' }
+  /** IDEA's Pull…: a remote branch picked, the upstream's by default. */
+  | { kind: 'pull-remote' }
   /** `upTo`: IDEA's Push All up to Here, only the branch's commits up to that one. */
   | { kind: 'push'; branch: string | null; upTo?: CommitInfo }
   | { kind: 'reset'; commit: CommitInfo }
@@ -125,6 +127,7 @@ export function gitCommands(target: GitTarget) {
     rebase: (onto: string | null = null, branch: string | null = null) =>
       show({ kind: 'rebase', onto, branch }),
     pull: () => show({ kind: 'pull' }),
+    pullRemote: () => show({ kind: 'pull-remote' }),
     /** Fast-forwards a local branch other than the current one from its upstream. */
     updateBranch: (branch: string) => void run({ action: 'pull', branch }),
     /** IDEA's Merge into Current from a branch's menu: the owner's runs at once, anyone else asks in the dialog. */
