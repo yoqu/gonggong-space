@@ -56,4 +56,55 @@ describe('Git console', () => {
     fireEvent.click(screen.getByRole('button', { name: '展开输出' }))
     expect(screen.getByText(/line\s+line/)).toBeTruthy()
   })
+
+  it('shows structured commands in order, including failures and truncation', () => {
+    useWorkspace.setState({
+      gitOps: {
+        g1: [
+          op({
+            id: 'commands',
+            botId: 'b1',
+            groupId: 'g1',
+            status: 'succeeded',
+            action: 'push',
+            detail: {
+              code: null,
+              paths: [],
+              ahead: null,
+              behind: null,
+              updated: null,
+              commands: [
+                {
+                  command: 'git -C /repo push origin main',
+                  startedAt: '2026-10-25T01:00:00Z',
+                  durationMs: 25,
+                  exitCode: 1,
+                  stdout: '',
+                  stderr: 'rejected',
+                  truncated: true,
+                },
+                {
+                  command: 'git -C /repo status',
+                  startedAt: '2026-10-25T01:00:01Z',
+                  durationMs: 8,
+                  exitCode: 0,
+                  stdout: 'clean',
+                  stderr: '',
+                  truncated: false,
+                },
+              ],
+            },
+          }),
+        ],
+      },
+    })
+    render(<GitConsole groupId="g1" botId="b1" />)
+    const commands = screen.getAllByTestId(/^git-command-/)
+    expect(within(commands[0] as HTMLElement).getByText('git -C /repo push origin main')).toBeTruthy()
+    expect(within(commands[0] as HTMLElement).getByText(/25 ms/)).toBeTruthy()
+    expect(within(commands[0] as HTMLElement).getByText('rejected')).toBeTruthy()
+    expect(within(commands[0] as HTMLElement).getByText('输出已截断')).toBeTruthy()
+    expect(within(commands[1] as HTMLElement).getByText('git -C /repo status')).toBeTruthy()
+    expect(within(commands[1] as HTMLElement).getByText('clean')).toBeTruthy()
+  })
 })

@@ -1,4 +1,4 @@
-import type { GitOperationDto } from '@gonggong/protocol'
+import type { GitCommandRecord, GitOperationDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { fullTime } from '../../lib/time'
@@ -6,10 +6,39 @@ import { Button, EmptyState } from '../../ui'
 import { useGitOps } from './GitOperations'
 import { ACTION_LABEL } from './notify'
 
+function Command({ command }: { command: GitCommandRecord }) {
+  const [open, setOpen] = useState(false)
+  const output = [command.stdout, command.stderr].filter(Boolean).join('\n')
+  const long = output.length > 1600 || output.split('\n').length > 16
+  return (
+    <li className="git-console__command" data-testid={`git-command-${command.startedAt}`}>
+      <div className="git-console__command-line">
+        <code>{command.command}</code>
+        <span>
+          {command.exitCode === null ? t('未启动') : t('退出码 {code}', { code: command.exitCode })}
+        </span>
+        <span>{t('{duration} ms', { duration: command.durationMs })}</span>
+        {command.truncated ? <span>{t('输出已截断')}</span> : null}
+        {long ? (
+          <Button size="small" variant="plain" onClick={() => setOpen(!open)}>
+            {open ? t('收起输出') : t('展开输出')}
+          </Button>
+        ) : null}
+      </div>
+      {output && (!long || open) ? (
+        <pre className="git-console__output" data-error={command.exitCode !== 0 || undefined}>
+          {output}
+        </pre>
+      ) : null}
+    </li>
+  )
+}
+
 function Operation({ op }: { op: GitOperationDto }) {
   const [open, setOpen] = useState(false)
   const output = [op.output, op.error].filter(Boolean).join('\n')
   const long = output.length > 1600 || output.split('\n').length > 16
+  const commands = op.detail?.commands ?? []
   return (
     <li className="git-console__op" data-testid={`git-console-${op.id}`} data-status={op.status}>
       <div className="git-console__meta">
@@ -24,7 +53,13 @@ function Operation({ op }: { op: GitOperationDto }) {
           </Button>
         ) : null}
       </div>
-      {output && (!long || open) ? (
+      {commands.length ? (
+        <ol className="git-console__commands">
+          {commands.map((command) => (
+            <Command key={`${command.startedAt}-${command.command}`} command={command} />
+          ))}
+        </ol>
+      ) : output && (!long || open) ? (
         <pre className="git-console__output" data-error={!!op.error || undefined}>
           {output}
         </pre>

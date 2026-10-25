@@ -208,6 +208,28 @@
 .git-console__op[data-status="failed"] {
   box-shadow: inset 2px 0 0 var(--tint-red-text);
 }
+.git-console__commands {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.git-console__command-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  color: var(--label-secondary);
+  font-size: var(--text-caption-size);
+}
+.git-console__command-line code {
+  flex: 1 1 100%;
+  color: var(--label);
+  font: 12px / 1.55 var(--font-mono);
+  overflow-wrap: anywhere;
+}
 .git-console__output {
   max-height: 40vh;
   margin: 6px 0 0;
