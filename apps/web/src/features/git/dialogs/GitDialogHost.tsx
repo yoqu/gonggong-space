@@ -11,6 +11,7 @@ import {
 } from './BranchDialogs'
 import { ContinueDialog, DeleteTagDialog, NewTagDialog, ResetDialog, RewordDialog } from './HistoryDialogs'
 import { PushDialog } from './PushDialog'
+import { RebaseTodoDialog } from './RebaseTodoDialog'
 import { RollbackDialog } from './RollbackDialog'
 import { ConfirmDialog, StashDialog, UnstashDialog } from './StashDialogs'
 import { MergeDialog, PullDialog, RebaseDialog, UpdateDialog } from './SyncDialogs'
@@ -52,6 +53,8 @@ function Body({
       return <MergeDialog {...p} branch={d.branch} />
     case 'rebase':
       return <RebaseDialog {...p} onto={d.onto} branch={d.branch} />
+    case 'rebase-todo':
+      return <RebaseTodoDialog {...p} commit={d.commit} pushed={d.pushed} />
     case 'pull':
       return <UpdateDialog {...p} />
     case 'pull-remote':
