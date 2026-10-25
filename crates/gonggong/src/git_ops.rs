@@ -205,8 +205,8 @@ pub async fn log(
     let given = |s: Option<String>| s.filter(|s| !s.trim().is_empty());
     let (author, text, path) = (given(f.author), given(f.text), given(f.path).map(|p| tree_path(&p)).transpose()?);
     let regexp = on(f.regexp) && text.is_some();
-    let mut args: Vec<String> = ["--literal-pathspecs", "log", "--decorate=short"].map(String::from).to_vec();
-    args.extend([format!("--format={COMMIT_FORMAT}%x1e"), format!("--skip={skip}"), format!("-n{}", limit + 1)]);
+    // The revisions and what narrows them, for the page and for the names a file had alike.
+    let mut args: Vec<String> = vec![];
     args.push(if f.order == Some(GitLogOrder::Topo) { "--topo-order" } else { "--date-order" }.into());
     if on(f.first_parent) {
         args.push("--first-parent".into());
@@ -244,15 +244,23 @@ pub async fn log(
             range_tip(rev).to_string()
         }
     };
-    args.push("--".into());
-    if let Some(path) = path.filter(|p| !p.is_empty()) {
-        // A file's history goes on past its renames.
-        if is_file(dir, &tip, &path).await {
-            args.insert(args.len() - 1, "--follow".into());
-        }
-        args.push(path);
+    let paths = match path.filter(|p| !p.is_empty()) {
+        // --follow takes a file past its renames but rewrites no parents: every name it had instead.
+        Some(path) if is_file(dir, &tip, &path).await => names(dir, &args, skip + limit + 1, path).await?,
+        Some(path) => vec![path],
+        None => vec![],
+    };
+    if !paths.is_empty() {
+        // Parents rewritten to the nearest ones listed, so the graph links what it lists.
+        args.push("--parents".into());
     }
-    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let page = [format!("--format={COMMIT_FORMAT}%x1e"), format!("--skip={skip}"), format!("-n{}", limit + 1)];
+    let args: Vec<&str> = ["--literal-pathspecs", "log", "--decorate=short"]
+        .into_iter()
+        .chain(page.iter().chain(&args).map(String::as_str))
+        .chain(["--"])
+        .chain(paths.iter().map(String::as_str))
+        .collect();
     let raw = git(dir, &args).await?;
     let mut commits: Vec<GitCommit> = raw
         .split('\x1e')
@@ -261,6 +269,22 @@ pub async fn log(
     let more = commits.len() > limit as usize;
     commits.truncate(limit as usize);
     Ok((commits, more))
+}
+
+/// The names the file `rel` had in the first `n` commits of its history as `walk` (revisions and filters) lists it,
+/// its renames followed; `rel` first.
+async fn names(dir: &Path, walk: &[String], n: u32, rel: String) -> Result<Vec<String>, String> {
+    let n = format!("-n{n}");
+    let head = ["--literal-pathspecs", "log", "-z", "--follow", "--name-only", "--format=", &n];
+    let args: Vec<&str> = head.into_iter().chain(walk.iter().map(String::as_str)).chain(["--", &rel]).collect();
+    let raw = git(dir, &args).await?;
+    let mut names = vec![rel.clone()];
+    for name in raw.split('\0').filter(|n| !n.is_empty()) {
+        if !names.iter().any(|n| n == name) {
+            names.push(name.to_string());
+        }
+    }
+    Ok(names)
 }
 
 /// An extended regex matching `s` literally.

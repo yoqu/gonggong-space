@@ -95,8 +95,7 @@ describe('gitOps4 actions', () => {
       { action: 'add', paths: ['a.txt'] },
       { action: 'ignore', paths: ['dist'] },
       { action: 'push', branch: 'feat', target: 'feat-v2' },
-      { action: 'unstash', stash: 0, expect: 'a1b2c3d' },
-      { action: 'stash-drop', stash: 1, expect: hash },
+      { action: 'push', branch: 'feat', commit: 'a1b2c3d' },
       { action: 'discard', paths: ['a.txt'], keepAdded: true },
       { action: 'discard', paths: ['a.txt'], patch: PATCH },
       { action: 'checkout', branch: 'origin/feat', localCommits: 'drop' },
@@ -488,5 +487,97 @@ describe('the protected base branch', () => {
     const other = post('backup/feat')
     expect((await d.act()).branch).toBe('backup/feat')
     expect((await other).body.status).toBe('succeeded')
+  })
+})
+
+describe('pushing up to a commit, and HEAD expected', () => {
+  const undo = { action: 'reset', commit: 'HEAD~1', mode: 'soft', expectHead: hash } as const
+  const reword: GitActionInput = {
+    action: 'commit',
+    message: '改说明',
+    paths: [],
+    amend: true,
+    expectHead: hash,
+  }
+  const guarded: [GitActionInput, Record<string, unknown>, string][] = [
+    [{ action: 'unstash', stash: 0, expect: 'a1b2c3d' }, { stash: 0 }, 'a1b2c3d'],
+    [{ action: 'stash-drop', stash: 1, expect: hash }, { stash: 1 }, hash],
+    [undo, { commit: 'HEAD~1', mode: 'soft' }, hash],
+    [reword, { amend: true }, hash],
+  ]
+
+  it("runs the owner's own operation on an older daemon without the guard, which only a wait needs", async () => {
+    const w = await gitWorld(t)
+    let d = await gitDaemon(t, w.token, OPS3)
+    for (const [input, args] of guarded) {
+      const res = w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+      expect((await d.act()).args, input.action).toEqual(args)
+      expect((await res).body, input.action).toMatchObject({ status: 'succeeded', args })
+    }
+    // A daemon that has it gets it.
+    d = await gitDaemon(t, w.token, ALL)
+    for (const [input, args, expect_] of guarded) {
+      const res = w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+      expect((await d.act()).args, input.action).toEqual({ ...args, expect: expect_ })
+      expect((await res).body.status).toBe('succeeded')
+    }
+    const events = await groupEvents(t, w.group.id)
+    expect(events).toContain(said('reset --soft HEAD~1'))
+    expect(events).toContain(said('reset --soft HEAD~1 (undo a1b2c3d)'))
+  })
+
+  it("keeps a member's guard, whose approval then needs gitOps4", async () => {
+    const w = await gitWorld(t)
+    // Offline: asked all the same.
+    const asked = await w.members.post<GitOperationDto>(`${w.base}/actions`, undo)
+    expect(asked.body).toMatchObject({ status: 'pending_approval', args: { expect: hash } })
+    const [note] = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+    expect(note!.payload).toMatchObject({ summary: 'reset --soft HEAD~1 (undo a1b2c3d)' })
+    const decide = `/api/git-operations/${asked.body.id}/decide`
+    await gitDaemon(t, w.token, OPS3)
+    for (const [input] of guarded) expect(await w.members.post(`${w.base}/actions`, input)).toMatchObject(old)
+    expect(await w.owners.post(decide, { approve: true })).toMatchObject(old)
+    const d = await gitDaemon(t, w.token, ALL)
+    const approved = w.owners.post<GitOperationDto>(decide, { approve: true })
+    expect((await d.act()).args).toEqual({ commit: 'HEAD~1', mode: 'soft', expect: hash })
+    expect((await approved).body.status).toBe('succeeded')
+    expect(await groupEvents(t, w.group.id)).toEqual([
+      '陈晨 在 cc 的工作区执行了 reset --soft HEAD~1 (undo a1b2c3d)（王磊 批准）',
+    ])
+  })
+
+  it('refuses a stash guard naming no stash, which would clear them all without it', async () => {
+    const w = await gitWorld(t)
+    await gitDaemon(t, w.token, OPS3)
+    expect(await w.owners.post(`${w.base}/actions`, { action: 'stash-drop', expect: hash })).toMatchObject({
+      status: 400,
+      body: { message: '请选择要删除的贮藏' },
+    })
+  })
+
+  it('pushes up to a commit, named in the summary and judged by where it lands', async () => {
+    const w = await gitWorld(t)
+    const d = await gitDaemon(t, w.token, ALL)
+    const post = (input: GitActionInput) => w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+    const upTo = post({ action: 'push', branch: 'feat', target: 'feat', commit: hash })
+    expect(await d.act()).toMatchObject({ action: 'push', branch: 'feat', args: { commit: hash } })
+    expect((await upTo).body).toMatchObject({ status: 'succeeded', args: { commit: hash } })
+
+    await protect(w)
+    const toBase = { action: 'push', branch: 'feat', target: 'main', commit: hash } as const
+    expect(await post(toBase)).toMatchObject(confirm)
+    expect(await post({ ...toBase, force: true, confirmBase: true })).toMatchObject(noForce)
+    expect(await w.members.post(`${w.base}/actions`, { ...toBase, force: true })).toMatchObject(noForce)
+    const confirmed = post({ ...toBase, confirmBase: true })
+    expect((await d.act()).args).toEqual({ target: 'main', commit: hash })
+    expect((await confirmed).body).toMatchObject({ status: 'succeeded', pushesBase: true })
+    const asked = await w.members.post<GitOperationDto>(`${w.base}/actions`, toBase)
+    expect(asked.body).toMatchObject({ status: 'pending_approval', pushesBase: true })
+    const [note] = await t.db.select().from(notifications).where(eq(notifications.userId, w.owner.id))
+    expect(note!.payload).toMatchObject({ summary: 'push feat (up to a1b2c3d) → origin/main' })
+    expect(await groupEvents(t, w.group.id)).toEqual([
+      said('push feat (up to a1b2c3d) → origin'),
+      said('push feat (up to a1b2c3d) → origin/main'),
+    ])
   })
 })

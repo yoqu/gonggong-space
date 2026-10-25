@@ -52,8 +52,8 @@ const needsOps3 = (op: Pick<Columns, 'action' | 'branch' | 'args'>) =>
 
 /**
  * add / ignore, the stash guard, keeping added files, a push to another remote branch than its own name, reverting
- * hunks, a remote branch's checkout told what to do with local commits, a pull of another remote branch, or a branch
- * replaced.
+ * hunks, a remote branch's checkout told what to do with local commits, a pull of another remote branch, a branch
+ * replaced, or a push only up to a commit.
  */
 const needsOps4 = ({ action, branch, args }: Pick<Columns, 'action' | 'branch' | 'args'>) =>
   action === 'add' ||
@@ -61,6 +61,7 @@ const needsOps4 = ({ action, branch, args }: Pick<Columns, 'action' | 'branch' |
   !!args?.expect ||
   !!args?.keepAdded ||
   (!!args?.target && args.target !== branch) ||
+  (action === 'push' && !!args?.commit) ||
   !!args?.patch ||
   !!args?.localCommits ||
   (action === 'pull' && !!args?.from) ||
@@ -104,16 +105,37 @@ export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, featur
   if (!row) return fail('not_found', '该 Bot 不在群内')
   if (row.state === 'unbound' || row.state === 'confirm')
     return fail('conflict', '{bot} 尚未设置工作区', { bot: row.bot.name })
-  // A daemon predating the feature ignores its messages: say so now rather than after the request times out.
-  const machineId = row.bot.machineId
-  if (machineId && ctx.hub.isOnline(machineId) && !ctx.hub.features(machineId).includes(feature))
-    return fail('conflict', '{bot} 所在机器的客户端版本过旧，升级后才能使用 Git 操作', { bot: row.bot.name })
+  assertFeature(ctx, row.bot, feature)
   return {
     group,
     bot: row.bot,
     workspacePath: row.path,
     workspace: { repo, cdPath: row.cdPath, extraDirs: row.extraDirs },
   }
+}
+
+/** A daemon predating the feature ignores its messages: say so now rather than after the request times out. */
+export function assertFeature(
+  ctx: Ctx,
+  bot: Pick<typeof bots.$inferSelect, 'machineId' | 'name'>,
+  feature: DaemonFeature,
+) {
+  const machineId = bot.machineId
+  if (machineId && ctx.hub.isOnline(machineId) && !ctx.hub.features(machineId).includes(feature))
+    fail('conflict', '{bot} 所在机器的客户端版本过旧，升级后才能使用 Git 操作', { bot: bot.name })
+}
+
+/**
+ * `args.expect` (gitOps4) keeps an operation from acting on what changed while it awaited the owner's approval: another
+ * stash at that index, another HEAD to undo or reword. The owner's own operation runs at once, with no such wait: a
+ * daemon without gitOps4 gets it without the guard, as before, instead of refusing it as too old. A member's request
+ * keeps it, so approving it needs gitOps4.
+ */
+export function unguarded(ctx: Ctx, op: Columns, t: GitTarget): Columns {
+  const machineId = t.bot.machineId
+  if (!op.args?.expect || (machineId && ctx.hub.features(machineId).includes('gitOps4'))) return op
+  const { expect: _, ...args } = op.args
+  return { ...op, args: setOnly(args) ?? null }
 }
 
 /** A live run of the bot here, or of any bot working in the same directory of the same machine (plan W10). */
@@ -187,6 +209,7 @@ function verb(op: Omit<Columns, 'repo'>) {
         a.force && '--force-with-lease',
         a.tags && '--tags',
         branch,
+        a.commit && `(up to ${short(a.commit)})`,
         '→',
         a.target && a.target !== branch ? `${op.remote}/${a.target}` : op.remote,
       )
@@ -210,7 +233,13 @@ function verb(op: Omit<Columns, 'repo'>) {
       return words(op.action, short(first), more.length > 0 && `(+${more.length})`)
     }
     case 'reset':
-      return words('reset', `--${a.mode}`, short(a.commit ?? ''))
+      // The HEAD it must still be at: the commit an Undo Commit takes back, else where the branch moves from.
+      return words(
+        'reset',
+        `--${a.mode}`,
+        short(a.commit ?? ''),
+        a.expect && `(${a.commit === 'HEAD~1' ? 'undo' : 'from'} ${short(a.expect)})`,
+      )
     case 'discard':
       return a.patch
         ? `rollback ${hunks(a.patch)} in ${op.paths?.[0]}`
@@ -323,6 +352,9 @@ export function fields(req: GitActionReq): Columns {
 /** What the request schema alone cannot refuse. */
 export function assertValid(req: GitActionReq) {
   if (req.action === 'commit' && req.paths?.length === 0 && !req.amend) fail('invalid', '请选择要提交的文件')
+  // A guard names one stash: without it (see unguarded), an older daemon would clear them all.
+  if (req.action === 'stash-drop' && req.expect !== undefined && req.stash === undefined)
+    fail('invalid', '请选择要删除的贮藏')
   // What the owner approves names the hunks of one file.
   if (req.action === 'discard' && req.patch !== undefined && req.paths.length !== 1)
     fail('invalid', '逐块回滚只能针对一个文件')

@@ -13,6 +13,7 @@ mod git_ops;
 mod git_ops3;
 mod git_ops4;
 mod git_ops4_r2;
+mod git_ops4_r3;
 mod hosted;
 mod net;
 mod plugins;

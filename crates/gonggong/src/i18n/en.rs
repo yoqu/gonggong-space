@@ -641,4 +641,6 @@ pub(super) const EN: &[(&str, &str)] = &[
         "{output}; restoring the local changes left conflicts, and they are still in the stash",
     ),
     ("不能覆盖当前分支 {branch}", "Can't overwrite the current branch {branch}"),
+    ("该提交不在分支 {branch} 上", "That commit isn't on branch {branch}"),
+    ("HEAD 已变化（现在是 {short}），请刷新后重试", "HEAD moved (now {short}); refresh and try again"),
 ];
