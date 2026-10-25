@@ -170,6 +170,57 @@
   gap: var(--space-6);
 }
 
+.git-console {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--content-bg);
+}
+.git-console__tools,
+.git-console__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.git-console__tools {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--separator);
+}
+.git-console__hint,
+.git-console__meta,
+.git-console__status {
+  color: var(--label-secondary);
+  font-size: var(--text-caption-size);
+}
+.git-console__list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.git-console__op {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--separator);
+}
+.git-console__op[data-status="failed"] {
+  box-shadow: inset 2px 0 0 var(--tint-red-text);
+}
+.git-console__output {
+  max-height: 40vh;
+  margin: 6px 0 0;
+  overflow: auto;
+  color: var(--label);
+  font: 12px / 1.55 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.git-console__output[data-error] {
+  color: var(--tint-red-text);
+}
+
 /* Commit history tab */
 .git-log {
   display: flex;

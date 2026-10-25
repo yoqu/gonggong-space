@@ -12,6 +12,7 @@ import { gitBase, gitUrls, refreshGitQuietly, repoStatus, useGitGet } from '../.
 import { fileOrder, type TreeChange, useChangeLayout } from '../../git/ChangeTree'
 import { CommitView, changeGroups, OngoingBanner } from '../../git/CommitView'
 import { gitCommands } from '../../git/commands'
+import { GitConsole } from '../../git/GitConsole'
 import { GitOperationList, useGitOps } from '../../git/GitOperations'
 import { GitToolbar } from '../../git/GitToolbar'
 import { Split } from '../../git/Split'
@@ -112,6 +113,7 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
               label: git.stashes && !target.repo ? t('贮藏 · {n}', { n: git.stashes }) : t('贮藏'),
             },
             { value: 'ops', label: pending ? t('记录 · 待审批 {n}', { n: pending }) : t('记录') },
+            { value: 'console', label: t('控制台') },
           ]}
         />
       </div>
@@ -147,10 +149,12 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
                 })
             }}
           />
-        ) : (
+        ) : view === 'ops' ? (
           <div className="wb-git__ops">
             <GitOperationList groupId={groupId} botId={tab.botId} focus={tab.focus ?? null} />
           </div>
+        ) : (
+          <GitConsole groupId={groupId} botId={tab.botId} />
         )}
       </div>
     </div>

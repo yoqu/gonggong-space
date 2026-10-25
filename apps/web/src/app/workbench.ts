@@ -81,7 +81,7 @@ export type WorkbenchTab =
 export const logScope = (repo: string | null | undefined, path: string | null | undefined) =>
   repo || path ? `${repo ?? ''}:${path ?? ''}` : null
 
-export type GitTabView = 'commit' | 'stash' | 'ops'
+export type GitTabView = 'commit' | 'stash' | 'ops' | 'console'
 
 /** What the Git Log tab filters by (all combined); dates are ISO days. */
 export interface GitLogTabFilter {
