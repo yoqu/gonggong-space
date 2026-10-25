@@ -45,6 +45,11 @@ export function DiffTab({ tab, tabKey, active }: TabProps<'diff'>) {
             ? (repo, path) => gitUrls.diff(base, 'HEAD', null, path, repo || null)
             : undefined
         }
+        revert={
+          tab.scope === 'uncommitted' && groupId
+            ? (repo) => ({ groupId, botId: tab.botId, repo: repo || null })
+            : undefined
+        }
         onOpenLine={(path, line) => openFileAt(tab.botId, path, line)}
       />
     </div>

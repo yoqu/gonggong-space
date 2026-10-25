@@ -21,10 +21,15 @@ const key = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(doc
 const marked = () =>
   Array.from(document.querySelectorAll('[data-change]'), (b) => b.hasAttribute('data-current'))
 const TWO = reply('@@ -1,4 +1,4 @@', '-a', '+A', ' b', ' c', '-d', '+D')
+/** Picks `option` from the toolbar's pop-up button named `name`. */
+const pick = (name: string, option: string) => {
+  fireEvent.click(screen.getByRole('button', { name }))
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: option }))
+}
 
 beforeEach(() => {
   localStorage.clear()
-  useDiffSettings.setState({ view: 'unified', ignoreWhitespace: false, fullContext: false })
+  useDiffSettings.setState({ view: 'unified', whitespace: 'none', highlight: 'words', fullContext: false })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -47,7 +52,7 @@ describe('diff toolbar', () => {
   it('reads the whole file, folding what is unchanged until 显示完整文件, and reads again without whitespace', async () => {
     const calls = mockApi({
       [`GET ${WHOLE}`]: reply('@@ -1,12 +1,12 @@', ...same(1, 10), '-a  b', '+a b', ' c'),
-      [`GET ${URL}&ignoreWhitespace=1&context=100000`]: reply(),
+      [`GET ${URL}&whitespace=ignore&context=100000`]: reply(),
     })
     render(<GitFileDiff url={URL} path="a.txt" />)
     await waitFor(() =>
@@ -62,10 +67,45 @@ describe('diff toolbar', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '显示完整文件' }))
     expect(lines()).toHaveLength(7)
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '忽略空白' }))
-    expect(localStorage.getItem('gonggong.diffIgnoreWhitespace')).toBe('1')
+    pick('空白处理', '忽略空白')
+    expect(localStorage.getItem('gonggong.diffWhitespace')).toBe('ignore')
     expect(await screen.findByText('忽略空白后没有差异')).toBeTruthy()
-    expect(calls.map((c) => c.path)).toEqual([WHOLE, `${URL}&ignoreWhitespace=1&context=100000`])
+    expect(calls.map((c) => c.path)).toEqual([WHOLE, `${URL}&whitespace=ignore&context=100000`])
+  })
+
+  it.each([
+    ['去掉首尾空白', 'trim'],
+    ['忽略空白和空行', 'ignore-blank'],
+  ])('reads again with whitespace as IDEA’s %s does, and as it is', async (label, mode) => {
+    const calls = mockApi({ [`GET ${WHOLE}`]: TWO, [`GET ${URL}&whitespace=${mode}&context=100000`]: TWO })
+    render(<GitFileDiff url={URL} path="a.txt" />)
+    await waitFor(() => expect(marked()).toHaveLength(2))
+    expect(screen.getByRole('button', { name: '空白处理' }).textContent).toBe('不忽略')
+    pick('空白处理', label)
+    await waitFor(() => expect(calls.at(-1)?.path).toBe(`${URL}&whitespace=${mode}&context=100000`))
+    expect(useDiffSettings.getState().whitespace).toBe(mode)
+    pick('空白处理', '不忽略')
+    await waitFor(() => expect(calls.at(-1)?.path).toBe(WHOLE))
+    expect(calls).toHaveLength(3)
+  })
+
+  it('picks how changes are highlighted, kept across visits', async () => {
+    mockApi({ [`GET ${WHOLE}`]: reply('@@ -1 +1 @@', '-const total = price * 2', '+const total = cost * 2') })
+    render(<GitFileDiff url={URL} path="a.txt" />)
+    const words = () =>
+      Array.from(document.querySelectorAll('.diff__word--del, .diff__word--add'), (w) => w.textContent)
+    await waitFor(() => expect(words()).toEqual(['price', 'cost']))
+    expect(screen.getByRole('button', { name: '高亮方式' }).textContent).toBe('按词高亮')
+
+    pick('高亮方式', '按字符高亮')
+    expect(localStorage.getItem('gonggong.diffHighlight')).toBe('chars')
+    expect(words()).toEqual(['pri', 'e', 'ost'])
+    pick('高亮方式', '只高亮行')
+    expect(words()).toEqual([])
+    expect(document.querySelectorAll('.diff__line--add')).toHaveLength(1)
+    pick('高亮方式', '不高亮')
+    expect(document.querySelector('.diff')?.getAttribute('data-highlight')).toBe('none')
+    expect(localStorage.getItem('gonggong.diffHighlight')).toBe('none')
   })
 
   it('reads with git’s own context when the whole file is too big, unless the whole file is asked for', async () => {
@@ -86,13 +126,24 @@ describe('diff toolbar', () => {
     expect(calls.map((c) => c.path)).toEqual([WHOLE, URL])
   })
 
-  it('loads the saved settings', async () => {
+  it('loads the saved settings, an old 忽略空白 as ignoring whitespace', async () => {
     localStorage.setItem('gonggong.diffView', 'split')
     localStorage.setItem('gonggong.diffIgnoreWhitespace', '1')
     localStorage.setItem('gonggong.diffFullContext', '1')
     vi.resetModules()
     const { useDiffSettings: fresh } = await import('../src/features/diff/store')
-    expect(fresh.getState()).toMatchObject({ view: 'split', ignoreWhitespace: true, fullContext: true })
+    expect(fresh.getState()).toMatchObject({
+      view: 'split',
+      whitespace: 'ignore',
+      highlight: 'words',
+      fullContext: true,
+    })
+
+    localStorage.setItem('gonggong.diffWhitespace', 'trim')
+    localStorage.setItem('gonggong.diffHighlight', 'chars')
+    vi.resetModules()
+    const { useDiffSettings: again } = await import('../src/features/diff/store')
+    expect(again.getState()).toMatchObject({ whitespace: 'trim', highlight: 'chars' })
   })
 
   it('steps through the changes, flashing the one it moves to', async () => {

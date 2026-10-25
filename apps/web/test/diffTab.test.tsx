@@ -87,7 +87,7 @@ beforeEach(() => {
   )
   useWorkspace.setState({ bots: [{ id: 'b1', name: '小王的 Claude' } as BotDto], botStates: {} })
   useWorkbench.setState({ groupId: 'g1', open: true, benches: {} })
-  useDiffSettings.setState({ view: 'unified', ignoreWhitespace: false, fullContext: false })
+  useDiffSettings.setState({ view: 'unified', whitespace: 'none', highlight: 'words', fullContext: false })
   useDiffLayout.setState({ layout: 'list' })
 })
 afterEach(() => {
@@ -227,20 +227,27 @@ describe('diff tab', () => {
     // Named in the workspace's terms, like the list.
     expect(document.querySelector('.diff__name')?.textContent).toBe('src/app/a.ts')
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '忽略空白' }))
+    // The work tree's changes roll back one by one.
+    expect(screen.getAllByRole('button', { name: '回滚此处改动' })).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole('button', { name: '空白处理' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '忽略空白' }))
     await waitFor(() =>
       expect(calls.at(-1)).toBe(
-        '/api/groups/g1/bots/b1/git/diff?from=HEAD&path=src%2Fapp%2Fa.ts&ignoreWhitespace=1&context=100000',
+        '/api/groups/g1/bots/b1/git/diff?from=HEAD&path=src%2Fapp%2Fa.ts&whitespace=ignore&context=100000',
       ),
     )
-    fireEvent.click(screen.getByRole('checkbox', { name: '忽略空白' }))
+    fireEvent.click(screen.getByRole('button', { name: '空白处理' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '不忽略' }))
 
     // 对比主分支 has no git read to redo: the patch at hand, under the toolbar without those settings.
     fireEvent.click(screen.getByRole('radio', { name: '对比主分支' }))
     expect(await screen.findByText('+c')).toBeTruthy()
     expect(screen.getByRole('button', { name: '下一处改动' })).toBeTruthy()
-    expect(screen.queryByRole('checkbox', { name: '忽略空白' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '空白处理' })).toBeNull()
     expect(screen.queryByRole('checkbox', { name: '显示完整文件' })).toBeNull()
+    expect(screen.getByRole('button', { name: '高亮方式' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '回滚此处改动' })).toBeNull()
   })
 
   it('folds unchanged lines, a fold opening on click and all of them with 全部展开 or 显示完整文件', async () => {

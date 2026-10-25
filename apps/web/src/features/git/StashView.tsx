@@ -15,7 +15,7 @@ export const stashDiff = (target: GitTarget, stash: GitStash, c: TreeChange) => 
   const base = gitBase(target.groupId, target.botId)
   return c.untracked
     ? gitUrls.diff(base, EMPTY_TREE, `${stash.hash}^3`, c.path, target.repo)
-    : gitUrls.diff(base, `${stash.hash}^1`, stash.hash, c.path, target.repo)
+    : gitUrls.diff(base, `${stash.hash}^1`, stash.hash, c.path, target.repo, c.oldPath)
 }
 
 /**

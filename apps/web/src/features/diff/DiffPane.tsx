@@ -2,6 +2,7 @@ import type { DiffScope } from '@gonggong/protocol'
 import { type ReactNode, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { EmptyState, Icon, NoChangesArt, Spinner } from '../../ui'
+import type { GitTarget } from '../git/api'
 import { DiffFileList, DiffLayoutToggle, DiffScopeBar, DiffView, emptyText, scopeNote } from './DiffParts'
 import { DiffToolbar, type FileSteps } from './DiffToolbar'
 import { GitFileDiff } from './GitFileDiff'
@@ -34,6 +35,8 @@ interface DiffPaneProps {
    * inside the repo at `repo` ('' = the root), or null to show the patch at hand.
    */
   read?: (repo: string, path: string) => string | null
+  /** The work tree against HEAD, read again: each change rolls back in the repo at `repo` ('' = the root). */
+  revert?: (repo: string) => GitTarget
   /** 跳到源文件: a file at a line of its new version. */
   onOpenLine?: (path: string, line: number) => void
 }
@@ -50,6 +53,7 @@ export function DiffPane({
   onLocate,
   notice,
   read,
+  revert,
   onOpenLine,
 }: DiffPaneProps) {
   const root = useRef<HTMLDivElement>(null)
@@ -91,6 +95,7 @@ export function DiffPane({
         path={path}
         name={f.path}
         stamp={f.lines.join('\n')}
+        revert={revert?.(inRepo)}
         files={files}
         start={start}
         onOpenLine={open}

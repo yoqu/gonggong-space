@@ -4,8 +4,13 @@ import type { DiffBlock } from './split'
 /** A changed stretch of a line, [start, end) in string offsets. */
 export type WordRange = [start: number, end: number]
 
-/** Words, runs of whitespace, and any other single character (punctuation, each CJK character). */
-const TOKEN = /[\w$]+|\s+|[^\w$\s]/gu
+/** What a changed stretch is made of: words, or single characters (IDEA's Highlight characters). */
+export type MarkUnit = 'words' | 'chars'
+const TOKEN: Record<MarkUnit, RegExp> = {
+  /** Words, runs of whitespace, and any other single character (punctuation, each CJK character). */
+  words: /[\w$]+|\s+|[^\w$\s]/gu,
+  chars: /[\s\S]/gu,
+}
 /** Longer lines (minified code, data) keep plain line tints. */
 const MAX_LINE = 500
 /** Token pairs one line pair may compare once its common start and end are cut off. */
@@ -14,10 +19,10 @@ const MAX_CELLS = 40_000
 const MIN_COMMON = 0.3
 
 /** The changed ranges of an edited line on each side; null when the pair is too long or too different to mark. */
-export function wordDiff(a: string, b: string): [WordRange[], WordRange[]] | null {
+export function wordDiff(a: string, b: string, unit: MarkUnit = 'words'): [WordRange[], WordRange[]] | null {
   if (a.length > MAX_LINE || b.length > MAX_LINE) return null
-  const x = a.match(TOKEN) ?? []
-  const y = b.match(TOKEN) ?? []
+  const x = a.match(TOKEN[unit]) ?? []
+  const y = b.match(TOKEN[unit]) ?? []
   let head = 0
   while (head < x.length && head < y.length && x[head] === y[head]) head++
   let tail = 0
@@ -67,7 +72,11 @@ function ranges(tokens: string[], keep: boolean[]): WordRange[] {
 }
 
 /** Changed ranges by row index, for each deleted line paired with an added one side by side. */
-export function wordMarks(rows: DiffRow[], blocks: DiffBlock[]): Map<number, WordRange[]> {
+export function wordMarks(
+  rows: DiffRow[],
+  blocks: DiffBlock[],
+  unit: MarkUnit = 'words',
+): Map<number, WordRange[]> {
   const marks = new Map<number, WordRange[]>()
   for (const block of blocks) {
     if (!block.change) continue
@@ -76,7 +85,7 @@ export function wordMarks(rows: DiffRow[], blocks: DiffBlock[]): Map<number, Wor
       const a = rows[o]
       const b = rows[n]
       if (a?.kind !== 'del' || b?.kind !== 'add') continue
-      const d = wordDiff(a.text, b.text)
+      const d = wordDiff(a.text, b.text, unit)
       if (d?.[0].length) marks.set(o, d[0])
       if (d?.[1].length) marks.set(n, d[1])
     }

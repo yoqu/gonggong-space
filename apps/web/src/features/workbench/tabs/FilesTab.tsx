@@ -526,7 +526,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
                   {showDiff ? (
                     <GitFileDiff
                       key={tab.selected}
-                      url={gitUrls.diff(repo, tab.base, rev, tab.selected)}
+                      url={gitUrls.diff(repo, tab.base, rev, tab.selected, null, change.oldPath)}
                       path={tab.selected}
                       stamp={rev ? '' : stamp}
                     />

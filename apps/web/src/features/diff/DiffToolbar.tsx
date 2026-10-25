@@ -1,8 +1,8 @@
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
-import { Checkbox, IconButton, SegmentedControl } from '../../ui'
+import { Checkbox, IconButton, PopUpButton, SegmentedControl } from '../../ui'
 import { SPLIT_MIN_PX } from './DiffParts'
-import { type DiffViewMode, useDiffSettings } from './store'
+import { type DiffHighlight, type DiffViewMode, type DiffWhitespace, useDiffSettings } from './store'
 import { useWide } from './useWide'
 
 interface Span {
@@ -21,6 +21,19 @@ export function changeTarget(blocks: Span[], view: Span, current: number, dir: 1
     ? blocks.findIndex((b) => b.top >= view.top - 1)
     : blocks.findLastIndex((b) => b.top < view.top - 1)
 }
+
+const WHITESPACE: { value: DiffWhitespace; label: string }[] = [
+  { value: 'none', label: t('不忽略') },
+  { value: 'trim', label: t('去掉首尾空白') },
+  { value: 'ignore', label: t('忽略空白') },
+  { value: 'ignore-blank', label: t('忽略空白和空行') },
+]
+const HIGHLIGHT: { value: DiffHighlight; label: string }[] = [
+  { value: 'words', label: t('按词高亮') },
+  { value: 'chars', label: t('按字符高亮') },
+  { value: 'lines', label: t('只高亮行') },
+  { value: 'none', label: t('不高亮') },
+]
 
 /** Room kept above a change too tall to centre, clear of the sticky toolbar. */
 const TOP_GAP = 48
@@ -69,11 +82,11 @@ export interface FileSteps {
 }
 
 /**
- * IDEA-style controls over the diff in `target`: unified or side by side, whitespace and whole file (`reread`: the
- * diff can be read again with them), stepping through its changes (F7 / ⇧F7) and, given `files`, on to the next or
- * previous file (⌥⇧→ / ⌥⇧←, or F7 again past the last change), and F4 to open the new version at the current change.
- * Keys work while the diff is shown and nothing is typed. Once `content` (the diff shown) arrives, `start` steps onto
- * its first (1) or last (-1) change. The caller's `actions` sit at the right end.
+ * IDEA-style controls over the diff in `target`: unified or side by side, what is ignored and the whole file (`reread`:
+ * the diff can be read again with them), how changes are highlighted, stepping through them (F7 / ⇧F7) and, given
+ * `files`, on to the next or previous file (⌥⇧→ / ⌥⇧←, or F7 again past the last change), and F4 to open the new
+ * version at the current change. Keys work while the diff is shown and nothing is typed. Once `content` (the diff
+ * shown) arrives, `start` steps onto its first (1) or last (-1) change. The caller's `actions` sit at the right end.
  */
 export function DiffToolbar({
   target,
@@ -92,7 +105,7 @@ export function DiffToolbar({
   start?: 1 | -1
   content?: unknown
 }) {
-  const { view, ignoreWhitespace, fullContext, set } = useDiffSettings()
+  const { view, whitespace, highlight, fullContext, set } = useDiffSettings()
   const root = useRef<HTMLDivElement>(null)
   const roomy = useWide(root, SPLIT_MIN_PX)
   const current = useRef(-1)
@@ -202,18 +215,27 @@ export function DiffToolbar({
         onChange={(v) => set({ view: v })}
       />
       {reread ? (
-        <>
-          <Checkbox
-            label={t('忽略空白')}
-            checked={ignoreWhitespace}
-            onChange={(on) => set({ ignoreWhitespace: on })}
-          />
-          <Checkbox
-            label={t('显示完整文件')}
-            checked={fullContext}
-            onChange={(on) => set({ fullContext: on })}
-          />
-        </>
+        <PopUpButton
+          size="small"
+          aria-label={t('空白处理')}
+          options={WHITESPACE}
+          value={whitespace}
+          onChange={(v) => set({ whitespace: v })}
+        />
+      ) : null}
+      <PopUpButton
+        size="small"
+        aria-label={t('高亮方式')}
+        options={HIGHLIGHT}
+        value={highlight}
+        onChange={(v) => set({ highlight: v })}
+      />
+      {reread ? (
+        <Checkbox
+          label={t('显示完整文件')}
+          checked={fullContext}
+          onChange={(on) => set({ fullContext: on })}
+        />
       ) : null}
       <span className="diff-toolbar__end">
         {hint ? (

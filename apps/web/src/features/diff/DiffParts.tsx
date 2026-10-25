@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { cx } from '../../lib/cx'
 import { type HlToken, Icon, IconButton, langOf, SegmentedControl, Tokens, useHighlight } from '../../ui'
+import { changePatch } from './hunk'
 import {
   type DiffFile,
   type DiffNode,
@@ -332,6 +333,8 @@ interface LinesProps {
   tokens: RowTokens | null
   /** New line numbers open the file there. */
   jump: boolean
+  /** The rollback button of the change a row starts, if any. */
+  revert: ((row: number) => ReactNode) | null
   onExpand: (at: number) => void
 }
 
@@ -358,20 +361,43 @@ function FoldRow({ fold, onExpand }: { fold: Fold; onExpand: (at: number) => voi
   )
 }
 
+const REVERT = t('回滚此处改动')
+
+/** IDEA's revert arrow in the gutter: shown on hovering the change, or focused. */
+function RevertButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="diff__revert"
+      aria-label={REVERT}
+      title={REVERT}
+      // Side by side it can sit in a new line number, whose click opens the file.
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+    >
+      <Icon name="undo" size={12} weight={1.8} />
+    </button>
+  )
+}
+
 const JUMP = t('跳到源文件')
 
 /** A new line number that opens the file there. */
 const jumpable = (jump: boolean, n: number | null) =>
   jump && n !== null ? { 'data-jump': '', title: `${JUMP} (F4)` } : undefined
 
-function UnifiedLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand }: LinesProps) {
+function UnifiedLines({ rows, blocks, shown, lines, marks, tokens, jump, revert, onExpand }: LinesProps) {
   const line = (i: number) => {
     const row = rows[i]
     if (!row) return null
     const sign = SIGN[row.kind]
     return (
       <div key={i} className={cx('diff__line', row.kind !== 'context' && `diff__line--${row.kind}`)}>
-        <span className="diff__num" data-n={row.oldNo ?? undefined} />
+        <span className="diff__num" data-n={row.oldNo ?? undefined}>
+          {revert?.(i)}
+        </span>
         <span className="diff__num" data-n={row.newNo ?? undefined} {...jumpable(jump, row.newNo)} />
         <span className="diff__code">
           {sign === undefined ? (
@@ -402,7 +428,7 @@ function pickSide(e: MouseEvent<HTMLDivElement>) {
   if (side) e.currentTarget.dataset.select = side
 }
 
-function SplitLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand }: LinesProps) {
+function SplitLines({ rows, blocks, shown, lines, marks, tokens, jump, revert, onExpand }: LinesProps) {
   const cell = (i: number | null, side: Side) => {
     const row = i === null ? undefined : rows[i]
     const name = side ? 'new' : 'old'
@@ -413,7 +439,9 @@ function SplitLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand 
           className="diff__num"
           data-n={(side ? row.newNo : row.oldNo) ?? undefined}
           {...(side ? jumpable(jump, row.newNo) : undefined)}
-        />
+        >
+          {revert?.(i)}
+        </span>
         <span className="diff__code">
           {row.kind === 'note' ? (
             row.text
@@ -450,6 +478,8 @@ function SplitLines({ rows, blocks, shown, lines, marks, tokens, jump, onExpand 
   )
 }
 
+const NO_MARKS = new Map<number, WordRange[]>()
+
 /**
  * One file's diff with old and new line numbers: unified, or side by side when `view` (default: the stored choice)
  * asks for it and there is room.
@@ -460,6 +490,7 @@ export const DiffView = memo(function DiffView({
   fold = false,
   name,
   onOpenLine,
+  onRevert,
 }: {
   file: DiffFile
   view?: DiffViewMode
@@ -469,23 +500,40 @@ export const DiffView = memo(function DiffView({
   name?: string
   /** 跳到源文件: new line numbers open the file at that line. */
   onOpenLine?: (line: number) => void
+  /** Each change gets a rollback button handing over its patch (see changePatch). */
+  onRevert?: (patch: string) => void
 }) {
   const stored = useDiffSettings((s) => s.view)
+  const highlight = useDiffSettings((s) => s.highlight)
   const root = useRef<HTMLDivElement>(null)
   const roomy = useWide(root, SPLIT_MIN_PX)
-  const { rows, blocks, marks, digits, folded, lines } = useMemo(() => {
+  const { rows, blocks, digits, folded, lines } = useMemo(() => {
     const rows = diffRows(file.lines)
     const blocks = diffBlocks(rows)
     const last = rows.reduce((n, r) => Math.max(n, r.oldNo ?? 0, r.newNo ?? 0), 0)
     return {
       rows,
       blocks,
-      marks: wordMarks(rows, blocks),
       digits: Math.max(2, String(last).length),
       folded: foldBlocks(rows, blocks),
       lines: blocks.map((b) => changeLine(rows, b)),
     }
   }, [file.lines])
+  const marks = useMemo(
+    () => (highlight === 'words' || highlight === 'chars' ? wordMarks(rows, blocks, highlight) : NO_MARKS),
+    [rows, blocks, highlight],
+  )
+  // A change's button goes on its first row, the one shown first in either view.
+  const heads = useMemo(
+    () => new Map(blocks.filter((b) => b.change).map((b) => [b.rows[0], b] as const)),
+    [blocks],
+  )
+  const revert = onRevert
+    ? (i: number) => {
+        const b = heads.get(i)
+        return b ? <RevertButton onClick={() => onRevert(changePatch(file.path, rows, b))} /> : null
+      }
+    : null
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
   const [all, setAll] = useState(false)
   // Only what is shown is drawn: a big file's folded stretches cost nothing.
@@ -509,9 +557,18 @@ export const DiffView = memo(function DiffView({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: line numbers are a mouse shortcut; F4 is the keyboard's
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
-    <div ref={root} className="diff" style={{ '--diff-digits': digits } as CSSProperties} onClick={onJump}>
+    <div
+      ref={root}
+      className="diff"
+      data-highlight={highlight === 'none' ? 'none' : undefined}
+      data-revert={onRevert ? '' : undefined}
+      style={{ '--diff-digits': digits } as CSSProperties}
+      onClick={onJump}
+    >
       <div className="diff__head">
-        <span className="diff__name">{name ?? file.path}</span>
+        <span className="diff__name">
+          {name ?? (file.oldPath ? `${file.oldPath} → ${file.path}` : file.path)}
+        </span>
         {closed ? (
           <button type="button" className="diff__expand" onClick={() => setAll(true)}>
             {t('全部展开')}
@@ -526,6 +583,7 @@ export const DiffView = memo(function DiffView({
         marks={marks}
         tokens={tokens}
         jump={!!onOpenLine}
+        revert={revert}
         onExpand={(at) => setOpen((s) => new Set(s).add(at))}
       />
     </div>

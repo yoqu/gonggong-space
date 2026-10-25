@@ -20,4 +20,7 @@ export default {
   尚未提交的改动: 'Not committed yet',
   '无法读取注解：{error}': "Couldn't read the annotations: {error}",
   '注解（Git Blame）': 'Annotate (Git Blame)',
+  '新增：第 {range} 行': 'Added: {n:line|lines} {range}',
+  '修改：第 {range} 行': 'Modified: {n:line|lines} {range}',
+  '删除：{n} 行': 'Deleted: {n} {n:line|lines}',
 } satisfies Record<string, string>

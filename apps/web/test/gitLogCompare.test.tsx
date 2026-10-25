@@ -32,6 +32,7 @@ beforeEach(() => {
       changes: [
         { path: 'src/a.ts', change: 'modified', oldPath: null },
         { path: 'README.md', change: 'added', oldPath: null },
+        { path: 'src/b.ts', change: 'renamed', oldPath: 'src/old.ts' },
       ],
     }),
     'GET git/diff': fakeDiff,
@@ -78,6 +79,12 @@ describe('compare tab', () => {
     expect(tabs()[0]).toMatchObject({ file: 'README.md' })
     await waitFor(() => expect(diffText(tab)).toContain('+feat/x:README.md'))
     expect(server.calls).toContain(api('diff?from=main&to=feat%2Fx&path=README.md&context=100000'))
+    fireEvent.click(files.getByRole('button', { name: '重命名：src/b.ts' }))
+    await waitFor(() =>
+      expect(server.calls).toContain(
+        api('diff?from=main&to=feat%2Fx&path=src%2Fb.ts&oldPath=src%2Fold.ts&context=100000'),
+      ),
+    )
   })
 
   it('compares with the work tree by files only', async () => {

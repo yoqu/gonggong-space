@@ -2,6 +2,8 @@ import type { DiffRepo } from '@gonggong/protocol'
 
 export interface DiffFile {
   path: string
+  /** A rename's source. */
+  oldPath?: string
   status: 'added' | 'deleted' | 'modified'
   add: number
   del: number
@@ -29,6 +31,7 @@ export function parsePatch(patch: string): DiffFile[] {
     if (!inHunks) {
       if (line.startsWith('new file mode')) file.status = 'added'
       else if (line.startsWith('deleted file mode')) file.status = 'deleted'
+      else if (line.startsWith('rename from ')) file.oldPath = line.slice('rename from '.length)
       else if (line.startsWith('Binary files ')) {
         file.binary = true
         inHunks = true
