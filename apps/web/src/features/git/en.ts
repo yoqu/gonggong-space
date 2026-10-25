@@ -493,4 +493,15 @@ export default {
     'The range contains a merge commit; use a regular rebase instead.',
   '第一个保留的提交不能 Squash 或 Fixup': 'The first retained commit cannot be squashed or fixed up',
   'Reword 和 Squash 必须填写非空说明': 'Reword and squash require a non-empty message',
+  '从此提交之后交互式变基…': 'Interactively rebase from here…',
+  优选所选改动: 'Cherry-pick selected changes',
+  还原所选改动: 'Revert selected changes',
+  '从该版本取回文件…': 'Get from this revision…',
+  '把 {hash} 的所选文件改动应用到工作区，不创建提交':
+    'Apply the selected file changes from {hash} to the work tree without committing',
+  '在工作区撤销 {hash} 的所选文件改动': 'Undo the selected file changes from {hash} in the work tree',
+  从该版本取回文件: 'Get from this revision',
+  '用 {hash} 的内容替换所选 {n} 个文件': 'Replace {n} selected {n:file|files} with their contents at {hash}',
+  这些文件中未提交的改动会被覆盖: 'Uncommitted changes in these files will be overwritten',
+  取回文件: 'Get files',
 } satisfies Record<string, string>

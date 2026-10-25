@@ -8,8 +8,7 @@ import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useDiffLayout } from '../../diff/store'
 import { openTab } from '../../workbench/open'
 import { type GitTarget, gitBase, gitUrls, useGitGet } from '../api'
-import type { TreeChange } from '../ChangeTree'
-import { fileOrder } from '../ChangeTree'
+import { commitPaths, fileOrder, type TreeChange } from '../ChangeTree'
 import { type GitCommands, gitCommands } from '../commands'
 import { parseRefs } from '../refs'
 import { Split } from '../Split'
@@ -285,6 +284,7 @@ export function CommitDetails({
     })
   const withLocal = (rev: string, path: string) =>
     openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from: rev, to: null, file: path })
+  const commitInfo = { hash: commit.hash, shortHash: commit.shortHash, subject: commit.subject }
   const fileItems = (c: TreeChange): MenuItem[] => [
     { value: 'diff', label: t('显示差异'), icon: 'doc-text' },
     { value: 'local', label: t('与本地比较'), icon: 'git-compare', disabled: c.change === 'deleted' },
@@ -292,14 +292,32 @@ export function CommitDetails({
     { separator: true },
     { value: 'open', label: t('打开此版本'), icon: 'doc' },
     { value: 'annotate', label: t('注解此修订'), icon: 'person', disabled: c.change === 'deleted' },
+    { separator: true },
+    {
+      value: 'apply',
+      label: t('优选所选改动'),
+      icon: 'cherry',
+      disabled: commit.parents.length > 1 && parentAt !== 0,
+    },
+    {
+      value: 'reverse',
+      label: t('还原所选改动'),
+      icon: 'undo',
+      disabled: commit.parents.length > 1 && parentAt !== 0,
+    },
+    { value: 'restore', label: t('从该版本取回文件…'), icon: 'arrow-clockwise' },
   ]
-  const onFileItem = (value: string, c: TreeChange) => {
+  const onFileItem = (value: string, c: TreeChange, changes: TreeChange[]) => {
     if (value === 'diff') showDiff(c)
     else if (value === 'open') openVersion(c)
     else if (value === 'local') withLocal(commit.hash, c.path)
     // Before a rename the file had its old name.
     else if (value === 'before' && parent) withLocal(parent, c.oldPath ?? c.path)
     else if (value === 'annotate') cmd.openVersion(c.path, commit.hash, true)
+    else if (value === 'apply' || value === 'reverse')
+      cmd.applyChanges(commitInfo, commitPaths(changes), value === 'reverse')
+    else if (value === 'restore')
+      cmd.restoreFrom(commitInfo, changes.map((change) => change.path))
   }
 
   const info = (

@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { tabKey, useWorkbench } from '../src/app/workbench'
 import { gitCommands } from '../src/features/git/commands'
-import { diffText, fakeDiff, hash, LOG, open, REFS, seed, serve, tabs, width } from './gitLogFixture'
+import { dialog, diffText, fakeDiff, hash, LOG, open, REFS, seed, serve, tabs, width } from './gitLogFixture'
 
 const show = (c: GitCommit, body = `${c.subject}\n`): GitShowDto => ({
   commit: c,
@@ -112,6 +112,9 @@ describe('commit details', () => {
       '修订前版本与本地比较',
       '打开此版本',
       '注解此修订',
+      '优选所选改动',
+      '还原所选改动',
+      '从该版本取回文件…',
       '显示到此为止的历史',
       '复制路径',
     ])
@@ -166,6 +169,38 @@ describe('commit details', () => {
     fireEvent.contextMenu(files.getByRole('button', { name: '修改：src/a.ts' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '注解此修订' }))
     expect(tabs().at(-1)).toMatchObject({ source: { path: 'libs/core/src/a.ts', rev: hash('2') } })
+  })
+
+  it('applies or reverts only the selected files, and gets their current paths from this revision', async () => {
+    const { files } = await details()
+    fireEvent.click(files.getByRole('button', { name: '修改：src/a.ts' }))
+    fireEvent.click(files.getByRole('button', { name: '重命名：src/new.ts' }), { metaKey: true })
+    const action = (name: string) => {
+      fireEvent.contextMenu(files.getByRole('button', { name: '修改：src/a.ts' }))
+      fireEvent.click(screen.getByRole('menuitem', { name }))
+    }
+    action('优选所选改动')
+    expect(dialog()).toMatchObject({
+      kind: 'confirm',
+      confirm: {
+        req: { action: 'apply', commit: hash('2'), paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'], reverse: false },
+      },
+    })
+    action('还原所选改动')
+    expect(dialog()).toMatchObject({
+      kind: 'confirm',
+      confirm: {
+        req: { action: 'apply', commit: hash('2'), paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'], reverse: true },
+      },
+    })
+    action('从该版本取回文件…')
+    expect(dialog()).toMatchObject({
+      kind: 'confirm',
+      confirm: {
+        destructive: true,
+        req: { action: 'restore', commit: hash('2'), paths: ['src/a.ts', 'src/new.ts'] },
+      },
+    })
   })
 
   it('links the hashes of the repo’s commits and the URLs in the message', async () => {

@@ -53,8 +53,8 @@ export function ChangesPane({
   selected: string | null
   onSelect: (c: TreeChange) => void
   onOpen?: (c: TreeChange) => void
-  fileItems: (file: TreeChange) => MenuItem[]
-  onFileItem: (value: string, file: TreeChange) => void
+  fileItems: (file: TreeChange, changes: TreeChange[]) => MenuItem[]
+  onFileItem: (value: string, file: TreeChange, changes: TreeChange[]) => void
   /** The group's label. */
   group: string
   /** Before the tools, e.g. a merge's parent to compare against. */
@@ -65,6 +65,7 @@ export function ChangesPane({
   const layout = useDiffLayout((s) => s.layout)
   const toggleLayout = useDiffLayout((s) => s.toggle)
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
+  const [several, setSeveral] = useState<ReadonlySet<string>>(new Set())
   const cmd = gitCommands(target)
   const groups: ChangeGroup[] = [{ key: 'files', label: group, changes: changes ?? [] }]
   const menu = (tg: ChangeTarget): MenuItem[] => {
@@ -73,7 +74,7 @@ export function ChangesPane({
       { value: 'history', label: history?.label ?? t('显示历史'), icon: 'clock' },
       { value: 'copy', label: t('复制路径'), icon: 'copy' },
     ]
-    if (tg.file) return [...fileItems(tg.file), { separator: true }, ...common]
+    if (tg.file) return [...fileItems(tg.file, tg.changes), { separator: true }, ...common]
     return path
       ? common
       : [
@@ -87,7 +88,7 @@ export function ChangesPane({
     else if (value === 'copy') cmd.copy(path)
     else if (value === 'expand') setClosed(new Set())
     else if (value === 'collapse') setClosed(new Set(folderPaths(groups)))
-    else if (tg.file) onFileItem(value, tg.file)
+    else if (tg.file) onFileItem(value, tg.file, tg.changes)
   }
   return (
     <div className="glog-files">
@@ -113,7 +114,9 @@ export function ChangesPane({
           groups={groups}
           layout={layout}
           selected={selected}
+          selection={selected && several.has(selected) ? several : new Set(selected ? [selected] : [])}
           onSelect={onSelect}
+          onSelection={setSeveral}
           onOpen={onOpen}
           closed={closed}
           onToggleFolder={(key) =>

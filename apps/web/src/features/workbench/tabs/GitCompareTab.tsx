@@ -73,7 +73,9 @@ function CommitsOnly({
         picked={selected ? new Set([selected]) : NO_PICKS}
         onPick={onSelect}
         onGo={onSelect}
-        menu={(hashes) => commitMenu(listed(hashes), log.commits, { remotes, rootRepo: !target.repo })}
+        menu={(hashes) =>
+          commitMenu(listed(hashes), log.commits, { remotes, rootRepo: !target.repo, interactiveRebase: true })
+        }
         onMenuTarget={(hash) => {
           // On a phone the details would take the list, menu and all.
           if (pickOnMenu) onSelect(hash)
