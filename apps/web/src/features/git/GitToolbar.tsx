@@ -61,6 +61,7 @@ export function GitToolbar({
     { value: 'branch', label: t('新建分支…'), icon: 'git-branch' },
     { value: 'revision', label: t('检出标签或修订…'), icon: 'tag' },
     { separator: true },
+    { value: 'pull', label: t('拉取…'), icon: 'arrow-down' },
     { value: 'merge', label: t('合并…'), icon: 'git-merge' },
     { value: 'rebase', label: t('变基…') },
     { value: 'tag', label: t('新建标签…'), icon: 'tag' },
@@ -74,6 +75,7 @@ export function GitToolbar({
   const onMore = (v: string) => {
     if (v === 'branch') cmd.newBranch()
     else if (v === 'revision') cmd.checkoutRevision()
+    else if (v === 'pull') cmd.pullRemote()
     else if (v === 'merge') cmd.merge()
     else if (v === 'rebase') cmd.rebase()
     else if (v === 'tag') cmd.newTag()

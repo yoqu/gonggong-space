@@ -1,13 +1,11 @@
-import type { GitLogDto } from '@gonggong/protocol'
 import { useState } from 'react'
-import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { Alert, Checkbox, Dialog, PopUpButton, RadioGroup, Spinner, TextField } from '../../../ui'
+import { Button, Checkbox, Dialog, PopUpButton, RadioGroup, TextField } from '../../../ui'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
-import { type GitTarget, gitBase, gitUrls, useGitGet, useGitRefs } from '../api'
-import type { CommitInfo } from '../commands'
+import { type GitTarget, useGitRefs } from '../api'
+import { gitCommands } from '../commands'
 import { Choice } from './BranchDialogs'
-import { CommitList, GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
+import { GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
 
 interface Props {
   target: GitTarget
@@ -21,19 +19,9 @@ const savedPullMode = (): PullMode => {
   return v === 'ff-only' || v === 'rebase' ? v : 'merge'
 }
 
-/**
- * IDEA's Update Project: the upstream's commits merged (its default), rebased onto or fast-forwarded, local changes
- * stashed around it in any case; the choice is remembered.
- */
-export function PullDialog({ target, onClose }: Props) {
-  const status = useRepoStatus(target)
-  const stamp = useGitStamp(target.groupId, target.botId)
-  const { refs } = useGitRefs(target.groupId, target.botId, target.repo, stamp)
+/** How the Update and Pull dialogs bring commits in; the choice is remembered for both. */
+function usePullMode() {
   const [mode, setMode] = useState<PullMode>(savedPullMode)
-  const { busy, error, submit } = useGitRun(target, onClose)
-  const label = useActionLabel(target.botId)
-  const branch = status?.branch ?? null
-  const upstream = refs?.branches.find((b) => b.kind === 'local' && b.current)?.upstream ?? null
   const pick = (m: PullMode) => {
     setMode(m)
     try {
@@ -42,6 +30,54 @@ export function PullDialog({ target, onClose }: Props) {
       // the choice lasts for this dialog only
     }
   }
+  return [mode, pick] as const
+}
+
+function PullModes({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: PullMode
+  onChange: (m: PullMode) => void
+}) {
+  return (
+    <RadioGroup<PullMode>
+      aria-label={label}
+      value={value}
+      onChange={onChange}
+      options={[
+        {
+          value: 'merge',
+          label: <Choice title={t('合并')} detail={t('把上游的提交合并进来，分叉时生成合并提交')} />,
+        },
+        {
+          value: 'rebase',
+          label: <Choice title={t('变基')} detail={t('把本地提交重放到上游之后，历史保持一条直线')} />,
+        },
+        {
+          value: 'ff-only',
+          label: <Choice title={t('仅快进')} detail={t('只在没有分叉时更新，分叉时拒绝')} />,
+        },
+      ]}
+    />
+  )
+}
+
+/**
+ * IDEA's Update Project: the upstream's commits merged (its default), rebased onto or fast-forwarded, local changes
+ * stashed around it in any case. Without an upstream the Pull dialog picks a branch instead.
+ */
+export function UpdateDialog({ target, onClose }: Props) {
+  const status = useRepoStatus(target)
+  const stamp = useGitStamp(target.groupId, target.botId)
+  const { refs } = useGitRefs(target.groupId, target.botId, target.repo, stamp)
+  const [mode, pick] = usePullMode()
+  const { busy, error, submit } = useGitRun(target, onClose)
+  const label = useActionLabel(target.botId)
+  const branch = status?.branch ?? null
+  const upstream = refs?.branches.find((b) => b.kind === 'local' && b.current)?.upstream ?? null
   return (
     <Dialog
       open
@@ -70,25 +106,20 @@ export function PullDialog({ target, onClose }: Props) {
     >
       <div className="git-form">
         <OwnerNote botId={target.botId} />
-        <RadioGroup<PullMode>
-          aria-label={t('更新方式')}
-          value={mode}
-          onChange={pick}
-          options={[
-            {
-              value: 'merge',
-              label: <Choice title={t('合并')} detail={t('把上游的提交合并进来，分叉时生成合并提交')} />,
-            },
-            {
-              value: 'rebase',
-              label: <Choice title={t('变基')} detail={t('把本地提交重放到上游之后，历史保持一条直线')} />,
-            },
-            {
-              value: 'ff-only',
-              label: <Choice title={t('仅快进')} detail={t('只在没有分叉时更新，分叉时拒绝')} />,
-            },
-          ]}
-        />
+        {refs && !upstream && branch ? (
+          <Button
+            size="small"
+            variant="plain"
+            className="git-form__link"
+            onClick={() => {
+              onClose()
+              gitCommands(target).pullRemote()
+            }}
+          >
+            {t('从远程分支拉取…')}
+          </Button>
+        ) : null}
+        <PullModes label={t('更新方式')} value={mode} onChange={pick} />
         <p className="git-form__hint">{t('本地改动会先贮藏，更新后自动恢复')}</p>
         <GitError error={error} />
       </div>
@@ -96,137 +127,75 @@ export function PullDialog({ target, onClose }: Props) {
   )
 }
 
-/** git's words for a push the remote refused because it moved on. */
-const REJECTED = /rejected|non-fast-forward|fetch first|stale info/i
-
 /**
- * IDEA's Push dialog: the commits going out, the remote, pushing tags too, and a force push (with lease) for history
- * rewritten by an amend or rebase; never for the protected base branch.
+ * IDEA's Pull: a branch of a remote (default the current branch's upstream; one must be picked without it) merged,
+ * rebased onto or fast-forwarded into the current branch; any other than the upstream is sent as `from`.
  */
-export function PushDialog({
-  target,
-  branch: start,
-  onClose,
-}: Props & { branch: string | null; upTo?: CommitInfo }) {
+export function PullDialog({ target, onClose }: Props) {
   const status = useRepoStatus(target)
-  const group = useWorkspace((s) => s.groups.find((g) => g.id === target.groupId))
   const stamp = useGitStamp(target.groupId, target.botId)
   const { refs } = useGitRefs(target.groupId, target.botId, target.repo, stamp)
+  const [mode, pick] = usePullMode()
   const [remote, setRemote] = useState<string | null>(null)
-  const [branch, setBranch] = useState(start ?? status?.branch ?? '')
-  const [tags, setTags] = useState(false)
-  const [force, setForce] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
+  // undefined: the upstream's, until a branch of this remote is picked.
+  const [chosen, setChosen] = useState<string | undefined>(undefined)
   const { busy, error, submit } = useGitRun(target, onClose)
   const label = useActionLabel(target.botId)
-  const base = group?.protectBase ? (group.repo?.branch ?? null) : null
+  const branch = status?.branch ?? null
+  const upstream = refs?.branches.find((b) => b.kind === 'local' && b.current)?.upstream ?? null
   const remotes = refs?.remotes ?? []
-  const name = branch.trim()
-  const local = refs?.branches.find((b) => b.kind === 'local' && b.name === name)
-  const upstreamRemote = local?.upstream
-    ? remotes.find((r) => local.upstream?.startsWith(`${r.name}/`))?.name
-    : null
-  const picked =
-    remote ?? upstreamRemote ?? remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name ?? 'origin'
-  // As IDEA (and the daemon): a branch goes to its upstream when that is on the remote picked, else to its own name.
-  const onto = upstreamRemote === picked && local?.upstream ? local.upstream.slice(picked.length + 1) : name
-  const dest = `${picked}/${onto}`
-  const published = !!refs?.branches.some((b) => b.kind === 'remote' && b.name === dest)
-  const range = !name ? null : published ? `${dest}..${name}` : base ? `${picked}/${base}..${name}` : null
-  const log = useGitGet<GitLogDto>(
-    range ? gitUrls.log(gitBase(target.groupId, target.botId), range, 0, target.repo) : null,
-    stamp,
-  )
-  const toBase = !!base && onto === base
-  const rejected = !!error && REJECTED.test(error)
-  const commits = log.data?.commits ?? []
+  const upstreamRemote = upstream ? remotes.find((r) => upstream.startsWith(`${r.name}/`))?.name : null
+  const at =
+    remote ?? upstreamRemote ?? remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name ?? null
+  const options = (refs?.branches ?? [])
+    .filter((b) => b.kind === 'remote' && !!at && b.name.startsWith(`${at}/`) && !b.name.endsWith('/HEAD'))
+    .map((b) => b.name.slice((at?.length ?? 0) + 1))
+  const fallback = upstream && at && upstreamRemote === at ? upstream.slice(at.length + 1) : null
+  const picked = chosen ?? fallback
+  const from = at && picked ? `${at}/${picked}` : null
   return (
     <Dialog
       open
-      title={t('推送')}
-      message={name ? t('{branch} → {dest}', { branch: name, dest }) : undefined}
-      width={560}
+      title={t('拉取到 {branch}', { branch: branch ?? 'HEAD' })}
       onClose={onClose}
       closeOnBackdrop={false}
       actions={[
         { label: t('取消'), onClick: onClose },
         {
-          label: label(force ? t('强制推送') : t('推送')),
-          variant: force || toBase ? 'destructive' : 'primary',
-          disabled: busy || !name || (toBase && !confirmed),
-          onClick: () =>
-            void submit({
-              action: 'push',
-              remote: picked,
-              branch: name,
-              ...(onto !== name && { target: onto }),
-              confirmBase: toBase,
-              force,
-              tags,
-            }),
+          label: label(t('拉取')),
+          variant: 'primary',
+          disabled: busy || !branch || !from,
+          onClick: () => void submit({ action: 'pull', mode, ...(from && from !== upstream && { from }) }),
         },
       ]}
     >
       <div className="git-form">
         <OwnerNote botId={target.botId} />
-        <section className="git-push__commits" aria-label={t('待推送的提交')}>
-          {!refs || log.loading ? (
-            <div className="git-refs__note">
-              <Spinner size={14} />
-            </div>
-          ) : !published && !commits.length ? (
-            <p className="git-push__empty">
-              {t('首次推送，会在远程创建 {branch} 并设为上游', { branch: name })}
-            </p>
-          ) : commits.length ? (
-            <CommitList commits={commits} more={!!log.data?.hasMore} />
-          ) : (
-            <p className="git-push__empty">{t('{dest} 已包含全部提交，没有新的提交可推送', { dest })}</p>
-          )}
-        </section>
-        <div className="git-form__row">
-          <span className="git-form__label">{t('远程')}</span>
-          {remotes.length > 1 ? (
-            <PopUpButton
-              aria-label={t('远程')}
-              value={picked}
-              onChange={setRemote}
-              options={remotes.map((r) => ({ value: r.name, label: r.name }))}
-            />
-          ) : (
-            <span className="git-refs__name">{picked}</span>
-          )}
-        </div>
-        <TextField label={t('分支')} value={branch} onChange={(e) => setBranch(e.target.value)} />
-        <Checkbox label={t('同时推送标签')} checked={tags} onChange={setTags} />
-        {toBase ? (
-          <Alert
-            variant="warning"
-            description={t('{branch} 是受保护的基准分支，推送会直接改动它', { branch: onto })}
-          >
-            <Checkbox label={t('我确认推送到基准分支')} checked={confirmed} onChange={setConfirmed} />
-          </Alert>
-        ) : (
-          <Checkbox
-            label={t('强制推送（--force-with-lease）')}
-            checked={force}
-            onChange={(on) => {
-              setForce(on)
-              setConfirmed(false)
+        <div className="git-form__row git-pull__refs">
+          <PopUpButton
+            aria-label={t('远程')}
+            value={at}
+            placeholder={t('远程')}
+            onChange={(v) => {
+              setRemote(v)
+              setChosen(undefined)
             }}
+            options={remotes.map((r) => ({ value: r.name, label: r.name }))}
           />
-        )}
-        {force ? (
-          <Alert
-            variant="warning"
-            description={t('远程分支会被改成本地的历史，别人已推送但你还没获取的提交会让推送被拒绝')}
+          <PopUpButton
+            aria-label={t('分支')}
+            value={picked}
+            placeholder={t('选择分支')}
+            onChange={setChosen}
+            options={options.map((b) => ({ value: b, label: b }))}
           />
+        </div>
+        {refs && !upstream ? (
+          <p className="git-form__hint">{t('当前分支没有上游分支，选择要拉取的远程分支')}</p>
         ) : null}
-        {rejected && !force ? (
-          <Alert variant="warning" description={t('远程有新的提交：先更新再推送，或改写过历史时强制推送')} />
-        ) : (
-          <GitError error={error} />
-        )}
+        <PullModes label={t('拉取方式')} value={mode} onChange={pick} />
+        <p className="git-form__hint">{t('本地改动会先贮藏，拉取后自动恢复')}</p>
+        <GitError error={error} />
       </div>
     </Dialog>
   )

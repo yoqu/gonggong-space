@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { GitBar } from '../src/features/chat/GitBar'
+import { useGitDialogs } from '../src/features/git/commands'
 import { GitDialogHost } from '../src/features/git/dialogs/GitDialogHost'
 import { LinkedGitOperation } from '../src/features/git/GitOperations'
 import { GitTab } from '../src/features/workbench/tabs/GitTab'
@@ -548,41 +549,81 @@ describe('branch popup', () => {
 })
 
 describe('push dialog', () => {
-  const LOG = {
-    commits: [
-      {
-        hash: 'c1'.repeat(20),
-        shortHash: 'c1c1c1c',
-        author: '小王',
-        email: 'w@corp',
-        at: '2026-10-21T00:00:00.000Z',
-        subject: '退款按原路返回',
-        parents: [],
-        refs: [],
-      },
-    ],
-    hasMore: false,
+  const C0 = 'b0'.repeat(20)
+  const C1 = 'c1'.repeat(20)
+  const C2 = 'c2'.repeat(20)
+  const commit = (hash: string, subject: string, parent: string) => ({
+    hash,
+    shortHash: hash.slice(0, 7),
+    author: '小王',
+    email: 'w@corp',
+    at: '2026-10-21T00:00:00.000Z',
+    subject,
+    parents: [parent],
+    refs: [],
+  })
+  const LOG = { commits: [commit(C2, '加手续费', C1), commit(C1, '退款按原路返回', C0)], hasMore: false }
+  const PUBLISHED = {
+    ...REFS,
+    branches: [...REFS.branches, branch('origin/feat/refund-v2', { kind: 'remote' })],
   }
+  const change = (path: string, kind: 'added' | 'modified' = 'modified') => ({
+    path,
+    change: kind,
+    oldPath: null,
+  })
+  /** The branch published, two commits going out: C1 changes refund.ts, C2 adds fee.ts and changes refund.ts. */
+  const pushRoutes = (extra: Record<string, unknown> = {}) =>
+    routes({
+      [`GET ${BASE}/refs`]: PUBLISHED,
+      [`GET ${BASE}/log?ref=origin%2Ffeat%2Frefund-v2..feat%2Frefund-v2&skip=0`]: LOG,
+      [`GET ${BASE}/compare?from=${C0}&to=${C1}`]: { changes: [change('src/refund.ts')] },
+      [`GET ${BASE}/compare?from=${C1}&to=${C2}`]: {
+        changes: [change('src/fee.ts', 'added'), change('src/refund.ts')],
+      },
+      [`POST ${BASE}/actions`]: done,
+      ...extra,
+    })
+  const openPush = async () => {
+    fireEvent.click((await openGit()).getByRole('button', { name: /^推送…/ }))
+    return dialog('推送提交')
+  }
+  const route = (d: ReturnType<typeof within>) => d.getByRole('group', { name: '推送目标' }).textContent
+  const files = (d: ReturnType<typeof within>) =>
+    within(d.getByRole('region', { name: '变更文件' }))
+      .getAllByRole('button', { name: /：/ })
+      .map((b) => b.getAttribute('aria-label'))
 
-  it('lists the commits going out; pushes, force-pushes with lease, and confirms the protected base twice', async () => {
-    const calls = mockApi(
-      routes({
-        [`GET ${BASE}/refs`]: {
-          ...REFS,
-          branches: [...REFS.branches, branch('origin/feat/refund-v2', { kind: 'remote' })],
-        },
-        [`GET ${BASE}/log?ref=origin%2Ffeat%2Frefund-v2..feat%2Frefund-v2&skip=0`]: LOG,
-        [`GET ${BASE}/log?ref=origin%2Fmain..main&skip=0`]: { commits: [], hasMore: false },
-        [`POST ${BASE}/actions`]: done,
-      }),
-    )
+  it('lists the commits going out with the files they change; picks commits, shows a diff, pushes tags too', async () => {
+    const calls = mockApi(pushRoutes())
     render(<Page />)
-    const tab = await openGit()
-    fireEvent.click(tab.getByRole('button', { name: /^推送…/ }))
-    let d = await dialog('推送')
-    expect(d.getByText('feat/refund-v2 → origin/feat/refund-v2')).toBeTruthy()
-    expect(await d.findByText('退款按原路返回')).toBeTruthy()
-    fireEvent.click(d.getByRole('checkbox', { name: '同时推送标签' }))
+    const d = await openPush()
+    expect(route(d)).toBe('feat/refund-v2→origin:feat/refund-v2')
+    expect(d.queryByText('新')).toBeNull()
+    const list = within(await d.findByRole('listbox', { name: '待推送的提交' }))
+    expect((await list.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      expect.stringContaining('加手续费'),
+      expect.stringContaining('退款按原路返回'),
+    ])
+    // Nothing picked: every commit's files, each once.
+    await waitFor(() => expect(files(d)).toEqual(['新增：src/fee.ts', '修改：src/refund.ts']))
+    fireEvent.click(list.getByRole('option', { name: /退款按原路返回/ }))
+    await waitFor(() => expect(files(d)).toEqual(['修改：src/refund.ts']))
+    fireEvent.click(list.getByRole('option', { name: /加手续费/ }), { shiftKey: true })
+    expect(list.getAllByRole('option').map((o) => o.getAttribute('aria-selected'))).toEqual(['true', 'true'])
+    fireEvent.click(list.getByRole('option', { name: /加手续费/ }))
+    await waitFor(() => expect(files(d)).toEqual(['新增：src/fee.ts', '修改：src/refund.ts']))
+    fireEvent.doubleClick(d.getByRole('button', { name: '修改：src/refund.ts' }))
+    expect(await screen.findByRole('dialog', { name: 'src/refund.ts' })).toBeTruthy()
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.path.startsWith(`${BASE}/diff?from=${C1}&to=${C2}&path=src%2Frefund.ts`)),
+      ).toBe(true),
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: '关闭' }).at(-1) as HTMLElement)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'src/refund.ts' })).toBeNull())
+
+    fireEvent.click(d.getByRole('checkbox', { name: '推送标签' }))
     fireEvent.click(d.getByRole('button', { name: '推送' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([
@@ -596,31 +637,94 @@ describe('push dialog', () => {
         },
       ]),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '推送' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '推送提交' })).toBeNull())
+  })
 
-    fireEvent.click(tab.getByRole('button', { name: /^推送…/ }))
-    d = await dialog('推送')
-    fireEvent.click(d.getByRole('checkbox', { name: '强制推送（--force-with-lease）' }))
-    expect(d.getByText(/别人已推送但你还没获取的提交会让推送被拒绝/)).toBeTruthy()
-    fireEvent.click(d.getByRole('button', { name: '强制推送' }))
-    await waitFor(() =>
-      expect(actionsCalled(calls).at(-1)).toMatchObject({ force: true, branch: 'feat/refund-v2' }),
+  it('edits the branch pushed to: a new one is marked, a bad name refused, another one sent as target', async () => {
+    const calls = mockApi(
+      pushRoutes({
+        [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Frefund-v2&skip=0`]: LOG,
+        [`GET ${BASE}/log?ref=origin%2Ffeat%2Fpay..feat%2Frefund-v2&skip=0`]: LOG,
+      }),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '推送' })).toBeNull())
+    render(<Page />)
+    const d = await openPush()
+    const edit = (text: string) => {
+      fireEvent.click(d.getByRole('button', { name: '编辑目标分支' }))
+      const box = d.getByRole('combobox', { name: '目标分支' })
+      fireEvent.change(box, { target: { value: text } })
+      fireEvent.keyDown(box, { key: 'Enter' })
+    }
+    edit('feat/a..b')
+    expect(d.getByText('无效的分支名')).toBeTruthy()
+    expect((d.getByRole('button', { name: '推送' }) as HTMLButtonElement).disabled).toBe(true)
+    edit('feat/refund-v3')
+    expect(route(d)).toBe('feat/refund-v2→origin:feat/refund-v3新')
+    expect(await d.findByText('退款按原路返回')).toBeTruthy()
+    edit('feat/pay')
+    expect(route(d)).toBe('feat/refund-v2→origin:feat/pay')
+    fireEvent.click(d.getByRole('button', { name: '推送' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([
+        {
+          action: 'push',
+          remote: 'origin',
+          branch: 'feat/refund-v2',
+          target: 'feat/pay',
+          confirmBase: false,
+          force: false,
+          tags: false,
+        },
+      ]),
+    )
+  })
 
-    fireEvent.click(tab.getByRole('button', { name: /^推送…/ }))
-    d = await dialog('推送')
-    fireEvent.change(d.getByRole('textbox', { name: '分支' }), { target: { value: 'main' } })
+  it('force-pushes with lease from the push button’s menu, asked once more', async () => {
+    const calls = mockApi(pushRoutes())
+    render(<Page />)
+    const d = await openPush()
+    fireEvent.click(d.getByRole('button', { name: '更多选项' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '强制推送' }))
+    const ask = within(await screen.findByRole('alertdialog', { name: '强制推送 feat/refund-v2？' }))
+    expect(ask.getByText(/别人已推送但你还没获取的提交会让推送被拒绝/)).toBeTruthy()
+    expect(actionsCalled(calls)).toEqual([])
+    fireEvent.click(ask.getByRole('button', { name: '强制推送' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([
+        {
+          action: 'push',
+          remote: 'origin',
+          branch: 'feat/refund-v2',
+          confirmBase: false,
+          force: true,
+          tags: false,
+        },
+      ]),
+    )
+  })
+
+  it('asks twice to push the protected base branch, never by force', async () => {
+    const calls = mockApi(pushRoutes({ [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Frefund-v2&skip=0`]: LOG }))
+    render(<Page />)
+    const d = await openPush()
+    fireEvent.click(d.getByRole('button', { name: '编辑目标分支' }))
+    const box = d.getByRole('combobox', { name: '目标分支' })
+    fireEvent.change(box, { target: { value: 'main' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
     expect(d.getByText(/main 是受保护的基准分支/)).toBeTruthy()
-    expect(d.queryByRole('checkbox', { name: '强制推送（--force-with-lease）' })).toBeNull()
     const push = d.getByRole('button', { name: '推送' }) as HTMLButtonElement
     expect(push.disabled).toBe(true)
+    fireEvent.click(d.getByRole('button', { name: '更多选项' }))
+    expect(((await screen.findByRole('menuitem', { name: '强制推送' })) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     fireEvent.click(d.getByRole('checkbox', { name: '我确认推送到基准分支' }))
     fireEvent.click(push)
     await waitFor(() =>
       expect(actionsCalled(calls).at(-1)).toMatchObject({
         action: 'push',
-        branch: 'main',
+        branch: 'feat/refund-v2',
+        target: 'main',
         confirmBase: true,
         force: false,
       }),
@@ -633,17 +737,19 @@ describe('push dialog', () => {
         'GET /groups/g1/bot-states': [state({ git: status({ branch: 'feat/hotfix' }) })],
         [`GET ${BASE}/refs`]: {
           ...REFS,
-          branches: [branch('main'), branch('feat/hotfix', { current: true, upstream: 'origin/main' })],
+          branches: [
+            branch('main'),
+            branch('feat/hotfix', { current: true, upstream: 'origin/main' }),
+            branch('origin/main', { kind: 'remote' }),
+          ],
         },
         [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Fhotfix&skip=0`]: LOG,
         [`POST ${BASE}/actions`]: done,
       }),
     )
     render(<Page />)
-    const tab = await openGit()
-    fireEvent.click(tab.getByRole('button', { name: /^推送…/ }))
-    const d = await dialog('推送')
-    expect(d.getByText('feat/hotfix → origin/main')).toBeTruthy()
+    const d = await openPush()
+    expect(route(d)).toBe('feat/hotfix→origin:main')
     expect(d.getByText(/main 是受保护的基准分支/)).toBeTruthy()
     const push = d.getByRole('button', { name: '推送' }) as HTMLButtonElement
     expect(push.disabled).toBe(true)
@@ -659,7 +765,47 @@ describe('push dialog', () => {
     )
   })
 
-  it('explains the first push, and the way out when the remote rejects it', async () => {
+  it('pushes only up to a commit picked in the history', async () => {
+    const calls = mockApi(
+      pushRoutes({
+        [`GET ${BASE}/log?ref=origin%2Ffeat%2Frefund-v2..${C1}&skip=0`]: {
+          commits: [LOG.commits[1]],
+          hasMore: false,
+        },
+      }),
+    )
+    render(<Page />)
+    await openGit()
+    act(() =>
+      useGitDialogs
+        .getState()
+        .show(
+          { groupId: 'g1', botId: 'b1', repo: null },
+          { kind: 'push', branch: null, upTo: { hash: C1, shortHash: 'c1c1c1c', subject: '退款按原路返回' } },
+        ),
+    )
+    const d = await dialog('推送到 c1c1c1c 为止')
+    const list = within(await d.findByRole('listbox', { name: '待推送的提交' }))
+    expect((await list.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      expect.stringContaining('退款按原路返回'),
+    ])
+    fireEvent.click(d.getByRole('button', { name: '推送到 c1c1c1c 为止' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([
+        {
+          action: 'push',
+          remote: 'origin',
+          branch: 'feat/refund-v2',
+          confirmBase: false,
+          force: false,
+          tags: false,
+          commit: C1,
+        },
+      ]),
+    )
+  })
+
+  it('explains the first push of a branch', async () => {
     mockApi(
       routes({
         'GET /groups/g1/bot-states': [
@@ -667,20 +813,128 @@ describe('push dialog', () => {
         ],
         [`GET ${BASE}/refs`]: { ...REFS, branches: [branch('main'), branch('feat/x', { current: true })] },
         [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Fx&skip=0`]: { commits: [], hasMore: false },
+      }),
+    )
+    render(<Page />)
+    const d = await openPush()
+    expect(route(d)).toBe('feat/x→origin:feat/x新')
+    expect(await d.findByText('首次推送，会在远程创建 feat/x 并设为上游')).toBeTruthy()
+  })
+
+  it('offers the owner to merge or rebase when the remote rejects the push, then pushes again', async () => {
+    let pushes = 0
+    const calls = mockApi(
+      pushRoutes({
+        [`POST ${BASE}/actions`]: (b: { action: string }) =>
+          b.action === 'push' && ++pushes === 1
+            ? op({
+                status: 'failed',
+                requestedBy: { id: 'u1', name: '小王' },
+                error: 'origin/feat/refund-v2 [rejected] (fetch first)',
+              })
+            : done(b),
+      }),
+    )
+    render(<Page />)
+    const d = await openPush()
+    fireEvent.click(d.getByRole('button', { name: '推送' }))
+    const rejected = within(await screen.findByRole('alertdialog', { name: '推送被拒绝' }))
+    expect(rejected.getByText(/远程有新的提交/)).toBeTruthy()
+    fireEvent.click(rejected.getByRole('button', { name: '变基' }))
+    await waitFor(() =>
+      expect(
+        actionsCalled(calls).map(
+          (c) => (c as { action: string; mode?: string }).mode ?? (c as { action: string }).action,
+        ),
+      ).toEqual(['push', 'rebase', 'push']),
+    )
+    expect(actionsCalled(calls)[1]).toEqual({ action: 'pull', mode: 'rebase' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '推送提交' })).toBeNull())
+  })
+
+  it('only explains a rejected push it cannot update for: another branch than the current one', async () => {
+    mockApi(
+      pushRoutes({
+        [`GET ${BASE}/log?ref=origin%2Fmain..feat%2Ffee&skip=0`]: LOG,
         [`POST ${BASE}/actions`]: op({
           status: 'failed',
           requestedBy: { id: 'u1', name: '小王' },
-          error: 'origin/feat/x [rejected] (fetch first)',
+          error: 'feat/fee [rejected] (non-fast-forward)',
         }),
       }),
     )
     render(<Page />)
-    fireEvent.click((await openGit()).getByRole('button', { name: /^推送…/ }))
-    const d = await dialog('推送')
-    expect(await d.findByText('首次推送，会在远程创建 feat/x 并设为上游')).toBeTruthy()
+    await openGit()
+    act(() =>
+      useGitDialogs
+        .getState()
+        .show({ groupId: 'g1', botId: 'b1', repo: null }, { kind: 'push', branch: 'feat/fee' }),
+    )
+    const d = await dialog('推送提交')
     fireEvent.click(d.getByRole('button', { name: '推送' }))
-    expect(await d.findByText('远程有新的提交：先更新再推送，或改写过历史时强制推送')).toBeTruthy()
-    expect(screen.getByRole('dialog', { name: '推送' })).toBeTruthy()
+    const rejected = within(await screen.findByRole('alertdialog', { name: '推送被拒绝' }))
+    expect(rejected.queryByRole('button', { name: '合并' })).toBeNull()
+    fireEvent.click(rejected.getByRole('button', { name: '知道了' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.getByRole('dialog', { name: '推送提交' })).toBeTruthy()
+  })
+})
+
+describe('pull dialog', () => {
+  const openPull = async () => {
+    fireEvent.click((await openGit()).getByRole('button', { name: '更多 Git 操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '拉取…' }))
+    return dialog('拉取到 feat/refund-v2')
+  }
+
+  it('pulls the upstream by default, or another branch of the remote by from, in the mode chosen', async () => {
+    const calls = mockApi(
+      routes({
+        [`GET ${BASE}/refs`]: {
+          ...REFS,
+          branches: [...REFS.branches, branch('origin/feat/refund-v2', { kind: 'remote' })],
+        },
+        [`POST ${BASE}/actions`]: done,
+      }),
+    )
+    render(<Page />)
+    let d = await openPull()
+    expect(d.getByRole('button', { name: '分支' }).textContent).toBe('feat/refund-v2')
+    fireEvent.click(d.getByRole('button', { name: '拉取' }))
+    await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'merge' }]))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '拉取到 feat/refund-v2' })).toBeNull())
+
+    d = await openPull()
+    fireEvent.click(d.getByRole('button', { name: '分支' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'main' }))
+    fireEvent.click(d.getByRole('radio', { name: /^仅快进/ }))
+    fireEvent.click(d.getByRole('button', { name: '拉取' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls).at(-1)).toEqual({ action: 'pull', mode: 'ff-only', from: 'origin/main' }),
+    )
+  })
+
+  it('needs a branch picked when the current one has no upstream', async () => {
+    const calls = mockApi(
+      routes({
+        [`GET ${BASE}/refs`]: {
+          ...REFS,
+          branches: [branch('feat/refund-v2', { current: true }), branch('origin/main', { kind: 'remote' })],
+        },
+        [`POST ${BASE}/actions`]: done,
+      }),
+    )
+    render(<Page />)
+    const d = await openPull()
+    expect(d.getByText('当前分支没有上游分支，选择要拉取的远程分支')).toBeTruthy()
+    const pull = d.getByRole('button', { name: '拉取' }) as HTMLButtonElement
+    expect(pull.disabled).toBe(true)
+    fireEvent.click(d.getByRole('button', { name: '分支' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'main' }))
+    fireEvent.click(pull)
+    await waitFor(() =>
+      expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'merge', from: 'origin/main' }]),
+    )
   })
 })
 

@@ -446,4 +446,28 @@ export default {
   '获取 {ref}，把 {branch} 变基到它之上': 'Fetches {ref} and rebases {branch} onto it',
   '仓库#group': 'Repositories',
   '{n} 个改动': '{n} {n:change|changes}',
+  推送提交: 'Push Commits',
+  '推送到 {hash} 为止': 'Push up to {hash}',
+  '推送标签#tags': 'Push tags',
+  更多选项: 'More options',
+  推送目标: 'Push target',
+  编辑目标分支: 'Edit the target branch',
+  目标分支: 'Target branch',
+  新: 'New',
+  '{n} 个提交的改动': 'Changes of {n} {n:commit|commits}',
+  '强制推送 {branch}？': 'Force push {branch}?',
+  '{dest} 会被改成本地的历史；别人已推送但你还没获取的提交会让推送被拒绝（--force-with-lease）':
+    "{dest} is set to the local history; commits others pushed that you haven't fetched make the push fail (--force-with-lease)",
+  推送被拒绝: 'Push rejected',
+  '远程有新的提交：先把 {dest} 合并或变基到 {branch}，然后自动再推送':
+    'The remote has new commits: merge or rebase {dest} into {branch} first, then push again automatically',
+  知道了: 'OK',
+  '从远程分支拉取…': 'Pull from a remote branch…',
+  '拉取…': 'Pull…',
+  '拉取到 {branch}': 'Pull to {branch}',
+  选择分支: 'Select a branch',
+  '当前分支没有上游分支，选择要拉取的远程分支':
+    'The current branch has no upstream; select the remote branch to pull',
+  拉取方式: 'Pull mode',
+  '本地改动会先贮藏，拉取后自动恢复': 'Local changes are stashed first and restored after the pull',
 } satisfies Record<string, string>
