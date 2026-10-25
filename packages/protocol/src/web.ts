@@ -35,7 +35,6 @@ import {
   GitBranch,
   GitChange,
   GitCommit,
-  GitCommandRecord,
   GitConflict,
   GitConflictPick,
   GitHeadCommit,

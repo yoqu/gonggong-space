@@ -317,7 +317,10 @@ export function CommitDetails({
     else if (value === 'apply' || value === 'reverse')
       cmd.applyChanges(commitInfo, commitPaths(changes), value === 'reverse')
     else if (value === 'restore')
-      cmd.restoreFrom(commitInfo, changes.map((change) => change.path))
+      cmd.restoreFrom(
+        commitInfo,
+        changes.map((change) => change.path),
+      )
   }
 
   const info = (

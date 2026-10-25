@@ -25,7 +25,7 @@
 .git-rebase-todo__row:last-child {
   border-bottom: 0;
 }
-.git-rebase-todo__row[aria-selected='true'] {
+.git-rebase-todo__row[aria-selected="true"] {
   background: var(--selection-fill);
 }
 .git-rebase-todo__row:focus-visible {

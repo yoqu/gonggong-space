@@ -2,9 +2,9 @@ import type { GitCommit, GitShowDto } from '@gonggong/protocol'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
-import { fullTime } from '../src/lib/time'
 import { gitCommands } from '../src/features/git/commands'
 import { commitMenu, runCommitAction } from '../src/features/git/log/commitMenu'
+import { fullTime } from '../src/lib/time'
 import {
   commit,
   conflict,

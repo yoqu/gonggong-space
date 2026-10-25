@@ -317,9 +317,7 @@ describe('git actions', () => {
       detail: { code: null, paths: [], ahead: null, behind: null, updated: null, commands },
     })
     const failed = (await pending).body
-    expect(failed.detail?.commands).toEqual([
-      { ...commands[0], stdout: `token ${MASK}` },
-    ])
+    expect(failed.detail?.commands).toEqual([{ ...commands[0], stdout: `token ${MASK}` }])
     const [stored] = await t.db.select().from(gitOperations).where(eq(gitOperations.id, failed.id))
     expect(stored!.detail).toEqual(failed.detail)
     expect((await ops(w)).body.operations[0]?.detail).toEqual(failed.detail)

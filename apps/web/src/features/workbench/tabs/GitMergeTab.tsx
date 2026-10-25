@@ -1,12 +1,5 @@
 import type { GitChangesDto, GitConflict, GitConflictDto } from '@gonggong/protocol'
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type CSSProperties, type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
@@ -376,9 +369,8 @@ function MergeView({
     const name = p.kind === 'conflict' ? t('冲突 {n}#nth', { n }) : t('改动 {n}#nth', { n })
     return (
       // biome-ignore lint/a11y/useSemanticElements: a row of the three panes, not a form fieldset
-      // biome-ignore lint/suspicious/noArrayIndexKey: pieces are worked out anew only with the texts
       <div
-        key={i}
+        key={`${p.kind}-${from.ours}-${from.theirs}`}
         className="gm3-row"
         role="group"
         aria-label={name}

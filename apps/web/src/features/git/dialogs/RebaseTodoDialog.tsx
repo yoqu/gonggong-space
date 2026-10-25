@@ -2,7 +2,7 @@ import type { GitCommit, GitRebaseStep } from '@gonggong/protocol'
 import { type KeyboardEvent, useEffect, useState } from 'react'
 import { t } from '../../../i18n'
 import { Alert, Button, Checkbox, Dialog, PopUpButton, TextField } from '../../../ui'
-import { gitBase, type GitTarget, shortRev } from '../api'
+import { type GitTarget, gitBase, shortRev } from '../api'
 import type { CommitInfo } from '../commands'
 import { useLog } from '../log/useLog'
 import { GitError, OwnerNote, RefCombo, useActionLabel, useGitRun, useRepoStatus } from './common'
@@ -57,7 +57,11 @@ export function RebaseTodoDialog({
   const branch = status?.branch ?? null
   useEffect(() => {
     if (plannedFor !== range && !log.loading && !log.error && !log.hasMore) {
-      setSteps(log.commits.toReversed().map((commitInfo) => ({ action: 'pick', commit: commitInfo.hash, commitInfo })))
+      setSteps(
+        log.commits
+          .toReversed()
+          .map((commitInfo) => ({ action: 'pick', commit: commitInfo.hash, commitInfo })),
+      )
       setSelected(log.commits.at(-1)?.hash ?? commit.hash)
       setPlannedFor(range)
     }
@@ -106,7 +110,8 @@ export function RebaseTodoDialog({
         {
           label: label(t('开始变基')),
           variant: 'primary',
-          disabled: busy || !branch || !range || log.loading || !!log.error || !!invalid || (pushed && !confirmed),
+          disabled:
+            busy || !branch || !range || log.loading || !!log.error || !!invalid || (pushed && !confirmed),
           onClick: () =>
             void submit({
               action: 'rebase',
@@ -129,14 +134,12 @@ export function RebaseTodoDialog({
               variant="warning"
               description={t('这些提交已经推送，变基会改写公开历史，之后需要强制推送。')}
             />
-            <Checkbox
-              label={t('我确认改写已推送的历史')}
-              checked={confirmed}
-              onChange={setConfirmed}
-            />
+            <Checkbox label={t('我确认改写已推送的历史')} checked={confirmed} onChange={setConfirmed} />
           </>
         ) : (
-          <p className="git-form__hint">{t('重排或改写提交会生成新的提交哈希，已推送的提交之后需要强制推送。')}</p>
+          <p className="git-form__hint">
+            {t('重排或改写提交会生成新的提交哈希，已推送的提交之后需要强制推送。')}
+          </p>
         )}
         <RefCombo
           target={target}
@@ -167,7 +170,12 @@ export function RebaseTodoDialog({
                 <PopUpButton
                   aria-label={t('提交 {subject} 的动作', { subject: step.commitInfo.subject })}
                   value={step.action}
-                  onChange={(action) => edit(step.commit, { action, message: action === 'squash' ? step.commitInfo.subject : step.message })}
+                  onChange={(action) =>
+                    edit(step.commit, {
+                      action,
+                      message: action === 'squash' ? step.commitInfo.subject : step.message,
+                    })
+                  }
                   options={ACTIONS.map((value) => ({ value, label: ACTION_LABEL[value] }))}
                 />
                 <div className="git-rebase-todo__commit">

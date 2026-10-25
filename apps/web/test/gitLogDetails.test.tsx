@@ -183,14 +183,24 @@ describe('commit details', () => {
     expect(dialog()).toMatchObject({
       kind: 'confirm',
       confirm: {
-        req: { action: 'apply', commit: hash('2'), paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'], reverse: false },
+        req: {
+          action: 'apply',
+          commit: hash('2'),
+          paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'],
+          reverse: false,
+        },
       },
     })
     action('还原所选改动')
     expect(dialog()).toMatchObject({
       kind: 'confirm',
       confirm: {
-        req: { action: 'apply', commit: hash('2'), paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'], reverse: true },
+        req: {
+          action: 'apply',
+          commit: hash('2'),
+          paths: ['src/a.ts', 'src/old.ts', 'src/new.ts'],
+          reverse: true,
+        },
       },
     })
     action('从该版本取回文件…')

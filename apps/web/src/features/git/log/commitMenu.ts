@@ -79,12 +79,7 @@ export function commitMenu(
     base = base.parents[0] ? byHash.get(base.parents[0]) : undefined
   }
   const interactive =
-    one &&
-    !head &&
-    c.parents.length === 1 &&
-    !!o.interactiveRebase &&
-    !!headCommit &&
-    onHead
+    one && !head && c.parents.length === 1 && !!o.interactiveRebase && !!headCommit && onHead
   return [
     { value: 'copy-hash', label: t('复制提交哈希'), icon: 'copy' },
     { value: 'copy-message', label: t('复制提交说明') },

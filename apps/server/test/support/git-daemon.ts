@@ -1,5 +1,4 @@
 import {
-  type GitActionDetail,
   type GitActionResultDetail,
   type GitBranch,
   type GitRemote,

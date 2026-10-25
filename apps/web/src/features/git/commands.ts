@@ -296,7 +296,7 @@ export function gitCommands(target: GitTarget) {
         label: t('取回文件'),
         destructive: true,
         req: { action: 'restore', commit: commit.hash, paths },
-    }),
+      }),
     /** Two versions side by side; `to` null = the work tree. */
     compare: (from: string, to: string | null) =>
       openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from, to, file: null }),

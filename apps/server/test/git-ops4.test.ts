@@ -1,7 +1,7 @@
 import type {
   GitActionDetail,
-  GitActionResultDetail,
   GitActionInput,
+  GitActionResultDetail,
   GitDiffDto,
   GitOperationDto,
   GitOperationsDto,
