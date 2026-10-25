@@ -31,6 +31,8 @@ export const ACTION_LABEL: Record<GitActionKind, string> = {
   resolve: t('解决冲突'),
   add: t('加入版本控制'),
   ignore: t('加入 .gitignore'),
+  apply: t('应用所选改动'),
+  restore: t('从修订获取'),
 }
 
 /** The POST answer and the realtime event both report the end of an operation: toast it once. */

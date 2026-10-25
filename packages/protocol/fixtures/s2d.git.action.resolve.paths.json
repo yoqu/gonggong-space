@@ -1,0 +1,28 @@
+{
+  "t": "git.action",
+  "requestId": "q1",
+  "groupId": "g1",
+  "botId": "b1",
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null
+  },
+  "action": "resolve",
+  "branch": null,
+  "remote": null,
+  "message": null,
+  "paths": ["src/a.ts", "src/b.ts"],
+  "identity": {
+    "name": "共字君",
+    "email": "bot@gonggong.local"
+  },
+  "args": {
+    "path": "src/a.ts",
+    "side": "theirs"
+  }
+}

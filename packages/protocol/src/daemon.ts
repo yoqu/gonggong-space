@@ -866,10 +866,19 @@ export const GitActionKind = z.enum([
   /** gitOps4 */
   'add',
   'ignore',
+  'apply',
+  'restore',
 ])
 export type GitActionKind = z.infer<typeof GitActionKind>
 export const GitConflictPick = z.enum(['ours', 'theirs'])
 export type GitConflictPick = z.infer<typeof GitConflictPick>
+/** One line of an interactive rebase's todo (IDEA's Pick / Reword / Squash / Fixup / Drop); `message` for reword and squash. */
+export const GitRebaseStep = z.object({
+  action: z.enum(['pick', 'reword', 'squash', 'fixup', 'drop']),
+  commit: z.string().min(4).max(64),
+  message: z.string().min(1).max(10_000).optional(),
+})
+export type GitRebaseStep = z.infer<typeof GitRebaseStep>
 /**
  * git.action parameters beyond branch/remote/message/paths (gitOps3); each action reads its own, see GitAction. Absent
  * when the action has none, so a daemon without gitOps3 gets the same message as before.
@@ -900,6 +909,8 @@ export const GitActionArgs = z.object({
   keepAdded: z.boolean().optional(),
   patch: z.string().optional(),
   localCommits: z.enum(['rebase', 'drop']).optional(),
+  todo: z.array(GitRebaseStep).optional(),
+  reverse: z.boolean().optional(),
 })
 export type GitActionArgs = z.infer<typeof GitActionArgs>
 /**
@@ -1070,7 +1081,8 @@ export const DaemonFeature = z.enum([
   /**
    * The second IDEA pass (docs/plan/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
    * discard `keepAdded` / `patch`, the add / ignore actions, git.diff `oldPath` / `whitespace`, git.action.result
-   * `detail`, checkout `localCommits`, pull `from`, branch-create `force`, push `commit`, reset / amend `expect`.
+   * `detail`, checkout `localCommits`, pull `from`, branch-create `force`, push `commit`, reset / amend `expect`,
+   * rebase `todo`, resolve `paths`, the apply / restore actions.
    */
   'gitOps4',
 ])
@@ -1631,7 +1643,12 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * - branch-rename: `branch` to `args.name`
  * - branch-delete: `branch`, `args.force` even when unmerged; a remote-tracking `origin/x` deletes x on that remote
  * - merge: `branch` into the current one, `args.mode` default | no-ff | ff-only | squash, `args.noCommit`, `message`
- * - rebase: the current branch, or `branch` (switched to first), onto `args.onto`
+ * - rebase: the current branch, or `branch` (switched to first), onto `args.onto`. gitOps4 `args.todo`: interactive, the
+ *   current branch's `onto..HEAD` rewritten as listed (refused unless it lists each of those commits once, none a
+ *   merge); reword and squash take their `message`; stops on conflicts as any rebase
+ * - apply (gitOps4): `args.commit`'s changes to `paths` applied to the work tree, undone when `args.reverse`; conflicts
+ *   left as markers (git apply --3way)
+ * - restore (gitOps4): `paths` as they are at `args.commit`, written into the work tree (deleted when absent there)
  * - cherry-pick, revert: `args.commits`, oldest first
  * - reset: the current branch to `args.commit`, `args.mode` soft | mixed | hard | keep; gitOps4: `args.expect` = the
  *   HEAD it must still be at, refused otherwise (as with commit `args.amend`)
@@ -1650,7 +1667,8 @@ export const GitRefresh = z.object({ t: z.literal('git.refresh'), ...gitTarget, 
  * - tag-push: `args.name` to `remote` (gitOps4: as `refs/tags/<name>`)
  * - continue: the stopped merge / rebase / cherry-pick / revert, a merge commit with `message` when given
  * - abort, skip: the stopped operation
- * - resolve: `args.path` taking `args.side`, or written with `args.content`, then marked resolved
+ * - resolve: `args.path` taking `args.side`, or written with `args.content`, then marked resolved; gitOps4: with
+ *   `args.side`, `paths` as well
  * A merge, rebase, cherry-pick, revert, pull, unstash or continue that stops on conflicts fails with an error naming them
  * and leaves them to resolve. Pushes are never forced but by `args.force`.
  */

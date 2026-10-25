@@ -375,6 +375,8 @@ export default {
   '在合并工具里逐处选择保留哪一方，或手动编辑结果':
     'Pick a side for each conflict in the merge tool, or edit the result',
   加入版本控制: 'Add to VCS',
+  应用所选改动: 'Apply selected changes',
+  从修订获取: 'Get from revision',
   '加入 .gitignore': 'Add to .gitignore',
   '加入 .gitignore…': 'Add to .gitignore…',
   注解: 'Annotate',

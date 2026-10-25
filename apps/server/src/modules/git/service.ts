@@ -263,7 +263,16 @@ function verb(op: Omit<Columns, 'repo'>) {
     case 'tag-push':
       return words('push tag', a.name, '→', op.remote)
     case 'resolve':
-      return words('resolve', a.path, a.side && `--${a.side}`)
+      return words('resolve', n ? files(n) : a.path, a.side && `--${a.side}`)
+    case 'apply':
+      return words(
+        a.reverse ? 'revert' : 'cherry-pick',
+        short(a.commit ?? ''),
+        '--',
+        n === 1 ? op.paths?.[0] : files(n),
+      )
+    case 'restore':
+      return words('checkout', short(a.commit ?? ''), '--', n === 1 ? op.paths?.[0] : files(n))
     default:
       return op.action
   }
@@ -314,7 +323,7 @@ export function fields(req: GitActionReq): Columns {
     case 'merge':
       return row({ branch: req.branch, message: req.message }, { mode: req.mode, noCommit: req.noCommit })
     case 'rebase':
-      return row({ branch: req.branch }, { onto: req.onto })
+      return row({ branch: req.branch }, { onto: req.onto, todo: req.todo })
     case 'cherry-pick':
     case 'revert':
       return row({}, { commits: req.commits })
@@ -345,7 +354,11 @@ export function fields(req: GitActionReq): Columns {
     case 'skip':
       return row({})
     case 'resolve':
-      return row({}, { path: req.path, side: req.side, content: req.content })
+      return row({ paths: req.paths }, { path: req.path, side: req.side, content: req.content })
+    case 'apply':
+      return row({ paths: req.paths }, { commit: req.commit, reverse: req.reverse })
+    case 'restore':
+      return row({ paths: req.paths }, { commit: req.commit })
   }
 }
 

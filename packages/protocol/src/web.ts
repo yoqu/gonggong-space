@@ -40,6 +40,7 @@ import {
   GitHeadCommit,
   GitOngoing,
   GitProtocol,
+  GitRebaseStep,
   GitRemote,
   GitStash,
   GitTag,
@@ -726,6 +727,11 @@ export const GitActionReq = z.discriminatedUnion('action', [
     onto: gitRev,
     /** Rebase this branch (switched to first) instead of the current one. */
     branch: gitRefName.optional(),
+    /**
+     * gitOps4, IDEA's interactive rebase of the current branch: every commit of `onto..HEAD` once, oldest first, in the
+     * new order (no merge commits); the first can't be squashed or fixed up.
+     */
+    todo: z.array(GitRebaseStep).min(1).max(200).optional(),
   }),
   z.object({ action: z.literal('cherry-pick'), repo: gitRepoPath, commits: z.array(gitRev).min(1).max(100) }),
   z.object({ action: z.literal('revert'), repo: gitRepoPath, commits: z.array(gitRev).min(1).max(100) }),
@@ -807,7 +813,22 @@ export const GitActionReq = z.discriminatedUnion('action', [
     /** Take one side as is, or write `content`. */
     side: GitConflictPick.optional(),
     content: z.string().max(GIT_RESOLVE_MAX_BYTES).optional(),
+    /** gitOps4, with `side`: these conflicted paths too (IDEA's Accept Yours / Theirs on several files). */
+    paths: gitPaths.min(1).optional(),
   }),
+  /**
+   * gitOps4, IDEA's Cherry-Pick / Revert Selected Changes: `commit`'s changes to `paths` applied to the work tree
+   * (`reverse`: undone), uncommitted; conflicting hunks left as conflict markers.
+   */
+  z.object({
+    action: z.literal('apply'),
+    repo: gitRepoPath,
+    commit: gitRev,
+    paths: gitPaths.min(1),
+    reverse: z.boolean().default(false),
+  }),
+  /** gitOps4, IDEA's Get from Revision: `paths` as they are at `commit`, in the work tree (absent there = deleted). */
+  z.object({ action: z.literal('restore'), repo: gitRepoPath, commit: gitRev, paths: gitPaths.min(1) }),
 ])
 export type GitActionReq = z.infer<typeof GitActionReq>
 /** What a client sends: the defaults may be left out. */
