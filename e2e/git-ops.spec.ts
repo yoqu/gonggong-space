@@ -20,7 +20,7 @@ async function extraMember(page: Page, account: string) {
   const ctx = await page
     .context()
     .browser()!
-    .newContext({ baseURL: 'http://127.0.0.1:5190', locale: 'zh-CN' })
+    .newContext({ baseURL: test.info().project.use.baseURL, locale: 'zh-CN' })
   const other = await ctx.newPage()
   const r = other.request
   await r.post('/api/auth/login', { data: { account: 'admin', password: 'admin-pass-2' } })
