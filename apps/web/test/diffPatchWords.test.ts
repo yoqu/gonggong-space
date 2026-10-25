@@ -29,6 +29,16 @@ describe('wordDiff', () => {
     expect(wordDiff('  return x', '    return x')).toEqual([[[0, 2]], [[0, 4]]])
   })
 
+  it('marks single characters when asked to (IDEA’s Highlight characters)', () => {
+    expect(wordDiff('const total = price * 2', 'const total = cost * 2', 'chars')).toEqual([
+      [
+        [14, 17],
+        [18, 19],
+      ],
+      [[15, 18]],
+    ])
+  })
+
   it('gives up on rewritten lines and very long ones', () => {
     expect(wordDiff('old', 'new')).toBeNull()
     expect(wordDiff('const a = 1', 'return fetchAll()')).toBeNull()

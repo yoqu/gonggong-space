@@ -166,9 +166,10 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
     ) : picked && !picked.conflict ? (
       <GitFileDiff
         key={`${target.repo ?? ''}:${picked.path}`}
-        url={gitUrls.diff(base, 'HEAD', null, picked.path, target.repo)}
+        url={gitUrls.diff(base, 'HEAD', null, picked.path, target.repo, picked.oldPath)}
         path={picked.path}
         stamp={stamp}
+        revert={target}
         files={order.length > 1 ? { prev: stepTo(order[at - 1]), next: stepTo(order[at + 1]) } : undefined}
         start={start}
         onOpenLine={

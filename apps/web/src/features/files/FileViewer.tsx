@@ -1,5 +1,5 @@
 import { FILE_TEXT_MAX_BYTES, type FileTextDto, type GitBlameDto } from '@gonggong/protocol'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type LineRange, useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { api, errorText } from '../../lib/api'
@@ -18,6 +18,7 @@ import {
   type IconName,
   type Lang,
   langOf,
+  Popover,
   SegmentedControl,
   Spinner,
   Tabs,
@@ -27,6 +28,9 @@ import {
 import { fmtSize } from '../attachments/api'
 import { citeInChat } from '../chat/cite'
 import { Markdown } from '../chat/Markdown'
+import { revertChange, useGitDiff } from '../diff/GitFileDiff'
+import { type LineMark, lineMarks } from '../diff/hunk'
+import { useGitStamp } from '../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
 import './files.css'
@@ -104,6 +108,72 @@ function blameLines(b: GitBlameDto): BlameLine[] {
   return out
 }
 
+/** The work tree's changes against HEAD, marked beside the line numbers as in IDEA's editor; each rolls back alone. */
+export interface FileChanges {
+  marks: LineMark[]
+  revert: (m: LineMark) => void
+  showDiff: () => void
+}
+
+function markLabel(m: LineMark) {
+  if (m.kind === 'deleted') return t('删除：{n} 行', { n: m.old.length })
+  const lines = { range: m.to > m.from ? `${m.from}–${m.to}` : `${m.from}`, n: m.to - m.from + 1 }
+  return m.kind === 'added' ? t('新增：第 {range} 行', lines) : t('修改：第 {range} 行', lines)
+}
+
+/**
+ * A line's place in the change markers' column: the marker of the change starting there (a deletion past the last of
+ * the `count` lines is drawn under it), which opens what the change replaced, to roll it back or see the diff.
+ */
+function ChangeMark({ mark, count, changes }: { mark?: LineMark; count: number; changes: FileChanges }) {
+  if (!mark) return <span className="pv-line__mark" />
+  const label = markLabel(mark)
+  return (
+    <span
+      className="pv-line__mark"
+      data-kind={mark.kind}
+      data-end={mark.from > count || undefined}
+      style={{ '--lines': mark.to - mark.from + 1 } as CSSProperties}
+    >
+      <Popover
+        className="pv-mark"
+        portal
+        aria-label={label}
+        trigger={<button type="button" className="pv-mark__bar" aria-label={label} title={label} />}
+      >
+        {(close) => (
+          <div className="pv-change">
+            {mark.old.length ? <pre className="pv-change__old">{mark.old.join('\n')}</pre> : null}
+            <div className="pv-change__actions">
+              <Button
+                size="small"
+                icon="undo"
+                onClick={() => {
+                  close()
+                  changes.revert(mark)
+                }}
+              >
+                {t('回滚')}
+              </Button>
+              <Button
+                size="small"
+                variant="plain"
+                icon="doc-text"
+                onClick={() => {
+                  close()
+                  changes.showDiff()
+                }}
+              >
+                {t('显示差异')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Popover>
+    </span>
+  )
+}
+
 const Lines = memo(function Lines({
   text,
   colored,
@@ -111,6 +181,7 @@ const Lines = memo(function Lines({
   line,
   blame,
   onCommit,
+  changes,
 }: {
   text: string
   colored: boolean
@@ -118,12 +189,18 @@ const Lines = memo(function Lines({
   line?: LineRange
   blame?: BlameLine[]
   onCommit?: (hash: string) => void
+  changes?: FileChanges
 }) {
   const { count, shown, code } = useMemo(() => {
     const lines = text.replace(/\n$/, '').split('\n')
     const shown = lines.slice(0, LINES_MAX)
     return { count: lines.length, shown, code: shown.join('\n') }
   }, [text])
+  // Each change by the line it starts on; a deletion at the end of the file goes under the last line.
+  const marks = useMemo(
+    () => new Map(changes?.marks.map((m) => [Math.min(m.from, count), m] as const)),
+    [changes, count],
+  )
   const tokens = useHighlight(code, lang)
   const first = useRef<HTMLDivElement>(null)
   const from = line?.from
@@ -148,6 +225,7 @@ const Lines = memo(function Lines({
             >
               {blame ? <BlameCell b={blame[i]} onCommit={onCommit} /> : null}
               <span className="pv-line__n">{i + 1}</span>
+              {changes ? <ChangeMark mark={marks.get(i + 1)} count={count} changes={changes} /> : null}
               <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>
                 {lineTokens?.length ? <Tokens tokens={lineTokens} /> : l || ' '}
               </span>
@@ -220,6 +298,9 @@ export interface FileViewerProps {
   git?: FileGit
   /** Shows the annotations, on opening and anew whenever it changes (IDEA's Annotate from elsewhere). */
   annotate?: number
+  /** Reads the text again in place whenever it changes (the work tree did). */
+  stamp?: string
+  changes?: FileChanges
 }
 
 /** One file by type (design §4.6): shared by the files tab, file tabs and attachments. */
@@ -235,6 +316,8 @@ export function FileViewer({
   onCite,
   git,
   annotate: annotateAsked,
+  stamp,
+  changes,
 }: FileViewerProps) {
   const textual = TEXTUAL.includes(kind)
   const [annotate, setAnnotate] = useState<{ lines: BlameLine[] | null; error: string | null } | null>(null)
@@ -253,27 +336,33 @@ export function FileViewer({
   useEffect(() => {
     if (annotateAsked && git) showAnnotations(git)
   }, [annotateAsked, git])
-  const [text, setText] = useState<TextRead | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // Kept per read: a new stamp keeps the text shown until the fresh one arrives, another file starts empty.
+  const [got, setGot] = useState<{
+    read: FileViewerProps['read']
+    text: TextRead | null
+    error: string | null
+  }>()
   const [attempt, setAttempt] = useState(0)
   const [md, setMd] = useState<'preview' | 'source'>(line || annotateAsked ? 'source' : 'preview')
   const [fit, setFit] = useState<'fit' | 'actual'>('fit')
   const [dim, setDim] = useState<string | null>(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the read for 重试
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the read for 重试, a new stamp reads anew
   useEffect(() => {
     if (!textual) return
     let live = true
-    setText(null)
-    setError(null)
     read().then(
-      (r) => live && setText(r),
-      (e: unknown) => live && setError(e instanceof Error ? e.message : t('读取失败')),
+      (r) => live && setGot({ read, text: r, error: null }),
+      (e: unknown) =>
+        live && setGot({ read, text: null, error: e instanceof Error ? e.message : t('读取失败') }),
     )
     return () => {
       live = false
     }
-  }, [textual, read, attempt])
+  }, [textual, read, attempt, stamp])
+  const mine = got?.read === read
+  const text = mine ? got.text : null
+  const error = mine ? got.error : null
 
   const copy = () => copyWithToast(path, t('已复制路径'))
 
@@ -320,7 +409,16 @@ export function FileViewer({
           icon="warning"
           title={t('无法读取文件')}
           description={error}
-          action={<Button onClick={() => setAttempt((n) => n + 1)}>{t('重试')}</Button>}
+          action={
+            <Button
+              onClick={() => {
+                setGot(undefined)
+                setAttempt((n) => n + 1)
+              }}
+            >
+              {t('重试')}
+            </Button>
+          }
         />
       )
     if (!text)
@@ -362,6 +460,7 @@ export function FileViewer({
           line={line}
           blame={annotate?.lines ?? undefined}
           onCommit={git?.onCommit}
+          changes={changes}
         />
       </>
     )
@@ -503,6 +602,7 @@ export function BotFileViewer({
 }) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
   const status = useWorkspace((s) => s.botStates[groupId]?.[botId]?.git ?? null)
+  const stamp = useGitStamp(groupId, botId)
   const base = `/groups/${groupId}/bots/${botId}`
   const query = rev
     ? `?ref=${encodeURIComponent(rev)}&path=${encodeURIComponent(path)}`
@@ -526,6 +626,23 @@ export function BotFileViewer({
       onHistory: () => gitCommands(target).openLog({ path: rel, ref: rev ?? null }),
     }
   }, [inRepo, groupId, botId, repo, rel, rev])
+  // The work tree's file against HEAD, with git's three lines of context: a change's patch needs them to roll back.
+  const work = !rev && inRepo && TEXTUAL.includes(kind)
+  const diff = useGitDiff(
+    work ? `${gitUrls.diff(gitBase(groupId, botId), 'HEAD', null, rel, repo)}&context=3` : null,
+    stamp,
+  )
+  const changes = useMemo<FileChanges | undefined>(() => {
+    const file = diff?.files[0]
+    // A file new to git has nothing to roll back to; a cut patch may end inside a change.
+    if (!file || diff.truncated || file.status !== 'modified' || file.binary) return undefined
+    const target = { groupId, botId, repo }
+    return {
+      marks: lineMarks(file),
+      revert: (m) => void revertChange(target, rel, m.patch),
+      showDiff: () => gitCommands(target).openChange(rel),
+    }
+  }, [diff, groupId, botId, repo, rel])
   return (
     <FileViewer
       name={baseName(path)}
@@ -538,6 +655,8 @@ export function BotFileViewer({
       onCite={() => citeInChat(groupId, `@${path}`)}
       git={git}
       annotate={annotate}
+      stamp={rev ? undefined : stamp}
+      changes={changes}
     />
   )
 }

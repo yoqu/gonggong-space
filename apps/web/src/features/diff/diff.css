@@ -134,6 +134,9 @@
 .diff {
   --diff-line: 20px;
   --diff-num: calc(var(--diff-digits, 3) * 1ch + 2 * var(--space-8));
+  /* The first number column also holds the revert arrows, when there are any. */
+  --diff-revert: 0px;
+  --diff-num-first: calc(var(--diff-num) + var(--diff-revert));
   --diff-gutter: var(--window-bg);
   --diff-hunk: color-mix(in srgb, var(--accent) 7%, var(--content-bg));
   --diff-add-num: color-mix(in srgb, var(--system-green) 14%, var(--tint-green));
@@ -201,10 +204,52 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  padding: 0 var(--space-12) 0 calc(2 * var(--diff-num) + var(--space-8));
+  padding: 0 var(--space-12) 0 calc(var(--diff-num-first) + var(--diff-num) + var(--space-8));
 }
 .diff__lines--split .diff__fold-label {
-  padding-left: calc(var(--diff-num) + var(--space-8));
+  padding-left: calc(var(--diff-num-first) + var(--space-8));
+}
+/* IDEA's revert arrow, before the number of a change's first line: shown while the change is hovered or stepped to,
+   and when focused; always on touch screens. */
+.diff[data-revert] {
+  --diff-revert: 18px;
+}
+.diff__revert {
+  position: absolute;
+  top: calc((var(--diff-line) - 16px) / 2);
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-check);
+  background: var(--content-bg);
+  box-shadow: 0 0 0 1px var(--separator);
+  color: var(--accent-text);
+  cursor: pointer;
+  opacity: 0;
+}
+.diff__block:hover .diff__revert,
+.diff__block[data-current] .diff__revert,
+.diff__revert:focus-visible {
+  opacity: 1;
+}
+.diff__revert:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+@media (hover: none) {
+  .diff__revert {
+    opacity: 1;
+  }
+}
+/* 不高亮 (IDEA's Do not highlight): the code on a plain background; the line numbers keep the colours to find changes
+   by. */
+.diff[data-highlight="none"] :is(.diff__line--add, .diff__line--del, .diff__side--add, .diff__side--del) {
+  background: var(--content-bg);
+  color: var(--label-secondary);
 }
 /* New line numbers open the file at that line. */
 .diff__num[data-jump] {
@@ -221,7 +266,7 @@
 }
 .diff__line {
   display: grid;
-  grid-template-columns: var(--diff-num) var(--diff-num) 1fr;
+  grid-template-columns: var(--diff-num-first) var(--diff-num) 1fr;
   min-height: var(--diff-line);
   color: var(--label-secondary);
 }
@@ -236,7 +281,7 @@
   user-select: none;
 }
 .diff__num + .diff__num {
-  left: var(--diff-num);
+  left: var(--diff-num-first);
 }
 .diff__num::before {
   content: attr(data-n);
@@ -295,7 +340,7 @@
 }
 .diff__side {
   display: grid;
-  grid-template-columns: var(--diff-num) minmax(0, 1fr);
+  grid-template-columns: var(--diff-num-first) minmax(0, 1fr);
   min-height: var(--diff-line);
   color: var(--label-secondary);
 }
@@ -306,7 +351,7 @@
   background: var(--quote-fill);
 }
 .diff__lines--split > .diff__line {
-  grid-template-columns: var(--diff-num) minmax(0, 1fr);
+  grid-template-columns: var(--diff-num-first) minmax(0, 1fr);
 }
 .diff__lines--split .diff__code {
   white-space: pre-wrap;

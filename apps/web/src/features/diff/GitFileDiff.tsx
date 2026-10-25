@@ -2,9 +2,12 @@ import type { GitDiffDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { EmptyState, NoChangesArt, Spinner } from '../../ui'
+import { EmptyState, NoChangesArt, Spinner, toast } from '../../ui'
+import { type GitTarget, runGitAction } from '../git/api'
+import { inTarget } from '../git/commands'
 import { DiffView } from './DiffParts'
 import { DiffToolbar, type FileSteps } from './DiffToolbar'
+import { undoPatch } from './hunk'
 import { type DiffFile, parsePatch } from './patch'
 import { useDiffSettings } from './store'
 
@@ -36,6 +39,31 @@ export function useGitDiff(url: string | null, stamp = '') {
   return url !== null && state?.url === url ? state : null
 }
 
+/**
+ * IDEA's revert arrow: takes one change (`patch`, see changePatch) of a work tree file back to HEAD — run by the bot's
+ * owner, requested by anyone else — then offers to undo it.
+ */
+export function revertChange(target: GitTarget, path: string, patch: string) {
+  const discard = (p: string, done: () => void) =>
+    runGitAction(
+      target.groupId,
+      target.botId,
+      inTarget(target, { action: 'discard', paths: [path], patch: p }),
+      done,
+    )
+  return discard(patch, () =>
+    toast({
+      type: 'success',
+      message: t('已回滚 1 处改动'),
+      action: {
+        label: t('撤销#undo'),
+        onClick: () =>
+          void discard(undoPatch(patch), () => toast({ type: 'success', message: t('已撤销回滚') })),
+      },
+    }),
+  )
+}
+
 /** Whole-file context: more lines than any file the viewer would show. */
 const FULL_CONTEXT = 100_000
 
@@ -43,15 +71,16 @@ const withQuery = (url: string, query: string) => `${url}${url.includes('?') ? '
 
 /**
  * One file's diff read from `url` (gitUrls.diff with its path) under a DiffToolbar (`toolbar={false}` leaves it
- * out), read again as its whitespace setting changes; `stamp` re-reads a work tree diff. `actions` go at the
- * toolbar's right end; `name` is shown for the file (default: `path`); `files`, `start` and `onOpenLine` as in
- * DiffToolbar.
+ * out), read again as its whitespace setting changes; `stamp` re-reads a work tree diff. A diff of the work tree
+ * against HEAD of the repo `revert` rolls back change by change. `actions` go at the toolbar's right end; `name` is
+ * shown for the file (default: `path`); `files`, `start` and `onOpenLine` as in DiffToolbar.
  */
 export function GitFileDiff({
   url,
   path,
   name,
   stamp,
+  revert,
   toolbar = true,
   actions,
   files,
@@ -62,15 +91,16 @@ export function GitFileDiff({
   path: string
   name?: string
   stamp?: string
+  revert?: GitTarget
   toolbar?: boolean
   actions?: ReactNode
   files?: FileSteps
   start?: 1 | -1
   onOpenLine?: (line: number) => void
 }) {
-  const ignoreWhitespace = useDiffSettings((s) => s.ignoreWhitespace)
+  const whitespace = useDiffSettings((s) => s.whitespace)
   const fullContext = useDiffSettings((s) => s.fullContext)
-  const read = ignoreWhitespace ? withQuery(url, 'ignoreWhitespace=1') : url
+  const read = whitespace === 'none' ? url : withQuery(url, `whitespace=${whitespace}`)
   // The whole file comes as context and the view folds what is unchanged; one too big to come whole is read with
   // git's own context instead, unless the whole file is asked for.
   const whole = useGitDiff(withQuery(read, `context=${FULL_CONTEXT}`), stamp)
@@ -94,12 +124,22 @@ export function GitFileDiff({
         <EmptyState
           compact
           illustration={<NoChangesArt />}
-          title={ignoreWhitespace ? t('忽略空白后没有差异') : t('没有差异')}
+          title={whitespace === 'none' ? t('没有差异') : t('忽略空白后没有差异')}
         />
       )
     if (file.binary)
       return <EmptyState compact icon="doc" title={t('二进制文件，无法显示差异')} description={file.path} />
-    return <DiffView file={file} name={name} fold={!fullContext} onOpenLine={onOpenLine} />
+    // git applies a change back only as it is: not from a diff without whitespace, cut short, or of a file HEAD lacks.
+    const revertable = revert && whitespace === 'none' && !diff.truncated && file.status === 'modified'
+    return (
+      <DiffView
+        file={file}
+        name={name}
+        fold={!fullContext}
+        onOpenLine={onOpenLine}
+        onRevert={revertable ? (patch) => void revertChange(revert, path, patch) : undefined}
+      />
+    )
   }
   return (
     <div ref={root} className="git-diff" data-testid="git-diff">

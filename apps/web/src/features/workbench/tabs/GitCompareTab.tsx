@@ -127,7 +127,7 @@ function FilesDiffer({
   const diff = picked ? (
     <GitFileDiff
       key={`${from}:${to ?? ''}:${picked.path}`}
-      url={gitUrls.diff(base, from, to, picked.path, target.repo)}
+      url={gitUrls.diff(base, from, to, picked.path, target.repo, picked.oldPath)}
       path={picked.path}
       stamp={live}
     />

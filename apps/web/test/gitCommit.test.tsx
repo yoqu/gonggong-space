@@ -141,7 +141,10 @@ describe('commit view', () => {
   it('shows the picked file’s diff beside the list, with a rollback in its toolbar', async () => {
     const calls = mockApi(
       routes({
-        [`GET ${BASE}/diff?from=HEAD&path=b.ts&context=100000`]: { patch: '', truncated: false },
+        [`GET ${BASE}/diff?from=HEAD&path=b.ts&oldPath=old.ts&context=100000`]: {
+          patch: '',
+          truncated: false,
+        },
         [`POST ${BASE}/actions`]: done,
       }),
     )
@@ -154,7 +157,9 @@ describe('commit view', () => {
     fireEvent.click(tab.getByRole('button', { name: '重命名：b.ts' }))
     expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', file: 'b.ts' }])
     await waitFor(() =>
-      expect(calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=b.ts&context=100000`)).toBe(true),
+      expect(
+        calls.some((c) => c.path === `${BASE}/diff?from=HEAD&path=b.ts&oldPath=old.ts&context=100000`),
+      ).toBe(true),
     )
     fireEvent.click(tab.getByRole('button', { name: '回滚' }))
     const d = await dialog('回滚改动')

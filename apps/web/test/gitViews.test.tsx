@@ -252,6 +252,10 @@ describe('commit history tab', () => {
     open({ kind: 'git-log', botId: 'b1', ref: null, commit: '2'.repeat(40), file: 'b.ts' })
     const tab = within(screen.getByTestId('git-log:b1'))
     await waitFor(() => expect(diffText(tab)).toContain(`+${'2'.repeat(40)}:b.ts`))
+    // A rename is read as one file from its old path.
+    expect(calls).toContain(
+      `/api/groups/g1/bots/b1/git/diff?from=${'3'.repeat(40)}&to=${'2'.repeat(40)}&path=b.ts&oldPath=a.ts&context=100000`,
+    )
     expect(tab.queryByRole('option', { name: /提交 1/ })).toBeNull()
     expect(tab.queryByRole('region', { name: '变更文件' })).toBeNull()
 

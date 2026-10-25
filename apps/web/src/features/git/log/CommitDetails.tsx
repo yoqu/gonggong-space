@@ -236,7 +236,7 @@ export function CommitDetails({
   const diff = picked ? (
     <GitFileDiff
       key={`${from}:${picked.path}`}
-      url={gitUrls.diff(base, from, commit.hash, picked.path, target.repo)}
+      url={gitUrls.diff(base, from, commit.hash, picked.path, target.repo, picked.oldPath)}
       path={picked.path}
       actions={
         target.repo ? undefined : (

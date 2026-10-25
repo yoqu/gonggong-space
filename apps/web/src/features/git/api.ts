@@ -49,9 +49,16 @@ export const gitUrls = {
     `${base}/text?ref=${enc(ref)}&path=${enc(path)}${inRepo(repo)}`,
   compare: (base: string, from: string, to: string | null, repo?: string | null) =>
     `${base}/compare?from=${enc(from)}${to ? `&to=${enc(to)}` : ''}${inRepo(repo)}`,
-  /** `to` null = the work tree; `path` null = every file. */
-  diff: (base: string, from: string, to: string | null, path: string | null, repo?: string | null) =>
-    `${base}/diff?from=${enc(from)}${to ? `&to=${enc(to)}` : ''}${path ? `&path=${enc(path)}` : ''}${inRepo(repo)}`,
+  /** `to` null = the work tree; `path` null = every file; `oldPath`: a rename's source, diffed with `path` as one file. */
+  diff: (
+    base: string,
+    from: string,
+    to: string | null,
+    path: string | null,
+    repo?: string | null,
+    oldPath?: string | null,
+  ) =>
+    `${base}/diff?from=${enc(from)}${to ? `&to=${enc(to)}` : ''}${path ? `&path=${enc(path)}` : ''}${oldPath ? `&oldPath=${enc(oldPath)}` : ''}${inRepo(repo)}`,
   changes: (base: string, repo?: string | null) => `${base}/changes${inRepo(repo, true)}`,
   blame: (base: string, path: string, ref: string | null, repo?: string | null) =>
     `${base}/blame?path=${enc(path)}${ref ? `&ref=${enc(ref)}` : ''}${inRepo(repo)}`,

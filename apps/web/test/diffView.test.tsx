@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DiffView } from '../src/features/diff/DiffParts'
 import type { DiffFile } from '../src/features/diff/patch'
@@ -25,7 +25,9 @@ const marks = (el: Element) => ({
   add: Array.from(el.querySelectorAll('.diff__word--add'), (m) => m.textContent),
 })
 
-beforeEach(() => useDiffSettings.setState({ view: 'unified', ignoreWhitespace: false, fullContext: false }))
+beforeEach(() =>
+  useDiffSettings.setState({ view: 'unified', whitespace: 'none', highlight: 'words', fullContext: false }),
+)
 afterEach(() => vi.restoreAllMocks())
 
 describe('unified diff view', () => {
@@ -109,6 +111,25 @@ describe('word highlights', () => {
   it('leaves rewritten lines whole', () => {
     const { container } = render(<DiffView file={file(['@@ -1 +1 @@', '-old', '+new'])} />)
     expect(marks(container)).toEqual({ del: [], add: [] })
+  })
+
+  it('marks characters, only the lines, or nothing as the highlight setting says, in both views', () => {
+    const f = file(['@@ -1 +1 @@', '-const total = price * 2', '+const total = cost * 2'])
+    useDiffSettings.setState({ highlight: 'chars' })
+    const { container, rerender } = render(<DiffView file={f} />)
+    expect(marks(container)).toEqual({ del: ['pri', 'e'], add: ['ost'] })
+    rerender(<DiffView file={f} view="split" />)
+    expect(marks(container)).toEqual({ del: ['pri', 'e'], add: ['ost'] })
+
+    act(() => useDiffSettings.setState({ highlight: 'lines' }))
+    expect(marks(container)).toEqual({ del: [], add: [] })
+    expect(container.querySelectorAll('.diff__side--add')).toHaveLength(1)
+    expect(container.querySelector('.diff')?.hasAttribute('data-highlight')).toBe(false)
+
+    // IDEA's Do not highlight leaves the lines untinted too; their numbers keep the colours.
+    act(() => useDiffSettings.setState({ highlight: 'none' }))
+    expect(marks(container)).toEqual({ del: [], add: [] })
+    expect(container.querySelector('.diff')?.getAttribute('data-highlight')).toBe('none')
   })
 })
 

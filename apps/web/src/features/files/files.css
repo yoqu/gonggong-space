@@ -165,6 +165,98 @@
   color: var(--accent-text);
   text-decoration: underline;
 }
+/* IDEA's change markers beside the line numbers: a bar over the lines a change added (green) or modified (blue), a
+   notch where lines were taken out; each opens what the change replaced. The column takes no room of its own. */
+.pv-line__mark {
+  flex: none;
+  width: 6px;
+  margin: 0 calc(4px - var(--space-12)) 0 calc(2px - var(--space-12));
+}
+.pv-line__mark[data-kind] {
+  position: relative;
+}
+.pv-line__mark > .pv-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: calc(var(--lines) * var(--text-body-line));
+}
+.pv-line__mark[data-kind="deleted"] > .pv-mark {
+  top: -5px;
+  height: 10px;
+}
+.pv-line__mark[data-end] > .pv-mark {
+  top: auto;
+  bottom: -5px;
+}
+.pv-mark > .ui-popover__trigger {
+  width: 100%;
+  height: 100%;
+}
+.pv-mark__bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+.pv-mark__bar::before {
+  content: "";
+  display: block;
+  width: 3px;
+  height: 100%;
+  margin-left: 1px;
+  border-radius: 1px;
+  background: var(--system-green);
+}
+.pv-mark__bar:hover::before {
+  width: 5px;
+  margin-left: 0;
+}
+.pv-mark__bar:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.pv-line__mark[data-kind="modified"] .pv-mark__bar::before {
+  background: var(--system-blue);
+}
+.pv-line__mark[data-kind="deleted"] .pv-mark__bar::before {
+  width: 0;
+  height: 0;
+  margin: 1px 0 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--label-secondary);
+  border-radius: 0;
+  background: none;
+}
+.pv-change {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: min(560px, 80vw);
+}
+.pv-change__old {
+  max-height: 240px;
+  margin: 0;
+  padding: var(--space-6) var(--space-8);
+  overflow: auto;
+  border-radius: var(--radius-check);
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-body-line);
+  white-space: pre;
+}
+.pv-change__actions {
+  display: flex;
+  gap: var(--space-6);
+}
 .pv-line--hit {
   background: var(--accent-fill);
 }
