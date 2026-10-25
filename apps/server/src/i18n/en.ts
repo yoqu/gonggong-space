@@ -704,6 +704,7 @@ export const en = {
   受保护的基准分支不能强制推送: 'The protected base branch cannot be force-pushed',
   受保护的基准分支不能在远程删除: 'The protected base branch cannot be deleted on the remote',
   请选择要提交的文件: 'Choose the files to commit',
+  请选择要删除的贮藏: 'Choose the stash to drop',
   请选择保留哪一方或填写合并结果: 'Choose which side to keep or fill in the merge result',
   '合并结果含有已脱敏的内容，请保留一方或在本机解决':
     'The merge result contains redacted text; keep one side or resolve it on the machine',

@@ -1130,7 +1130,7 @@ async fn blame_attributes_lines_and_marks_uncommitted_ones() {
 }
 
 /// work/hist: a history of its own with set dates, authors, a rename, a merged side branch and an unmerged one.
-fn history(r: &Rig) -> std::path::PathBuf {
+pub(super) fn history(r: &Rig) -> std::path::PathBuf {
     let h = r.work.join("hist");
     fs::create_dir_all(&h).unwrap();
     sh(&h, &["init", "-q", "-b", "main"]);

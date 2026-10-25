@@ -45,6 +45,7 @@ import { notify, resolveNotifications } from '../notifications/notify.js'
 import { groupRedactor } from '../secrets/resolve.js'
 import { onlineMachine } from '../workspaces/provision.js'
 import {
+  assertFeature,
   assertIdle,
   assertValid,
   auditDetail,
@@ -60,6 +61,7 @@ import {
   publishOperation,
   setOnly,
   summary,
+  unguarded,
 } from './service.js'
 
 type Read = Extract<
@@ -298,10 +300,11 @@ export function gitRoutes(ctx: Ctx) {
         const { group } = await requireMember(ctx, req.params.id, me.id)
         const body = GitActionReq.parse(req.body)
         assertValid(body)
-        const asked = fields(body)
-        const target = await gitTarget(ctx, group, req.params.botId, featureFor(asked))
-        const { op: columns, pushesBase } = await guardBase(ctx, asked, target)
+        const target = await gitTarget(ctx, group, req.params.botId)
         const owner = target.bot.ownerId === me.id
+        const asked = owner ? unguarded(ctx, fields(body), target) : fields(body)
+        assertFeature(ctx, target.bot, featureFor(asked))
+        const { op: columns, pushesBase } = await guardBase(ctx, asked, target)
         if (owner) {
           if (pushesBase && body.action === 'push' && !body.confirmBase)
             fail('conflict', '推送基准分支需要再次确认')

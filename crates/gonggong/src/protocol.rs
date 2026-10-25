@@ -2470,4 +2470,24 @@ mod tests {
         let older = r#"{"t":"git.action.result","requestId":"q1","ok":true,"busy":false,"output":"x","error":null}"#;
         assert!(matches!(serde_json::from_str(older).unwrap(), DaemonToServer::GitActionResult { detail: None, .. }));
     }
+
+    #[test]
+    fn git_ops4_up_to_and_expect_head_fixtures_parse() {
+        let action = |raw: &str| match serde_json::from_str::<ServerToDaemon>(raw).unwrap() {
+            ServerToDaemon::GitAction(a) => (a.action, a.branch.clone(), a.args.unwrap()),
+            other => panic!("unexpected {other:?}"),
+        };
+        let (kind, branch, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.push.commit.json"));
+        assert_eq!(
+            (kind, branch.as_deref(), args.commit.as_deref(), args.target),
+            (GitActionKind::Push, Some("feat/refund"), Some("a1b2c3d4e5f6"), None)
+        );
+        let (kind, _, args) =
+            action(include_str!("../../../packages/protocol/fixtures/s2d.git.action.reset.expect.json"));
+        assert_eq!(
+            (kind, args.commit.as_deref(), args.mode.as_deref(), args.expect.as_deref()),
+            (GitActionKind::Reset, Some("0f1e2d3c4b5a"), Some("soft"), Some("a1b2c3d4e5f6"))
+        );
+    }
 }

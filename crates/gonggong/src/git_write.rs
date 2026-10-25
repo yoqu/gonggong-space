@@ -69,14 +69,17 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
             return w.checkout(target, on(a.detach), a.mode.as_deref(), a.local_commits).await;
         }
         GitActionKind::Pull => return w.pull(branch, a.mode.as_deref(), a.from.as_deref()).await,
-        GitActionKind::Commit => w.commit(message.unwrap_or_default(), req.paths.as_deref(), on(a.amend)).await?,
+        GitActionKind::Commit => {
+            expect_head(dir, a.expect.as_deref()).await?;
+            w.commit(message.unwrap_or_default(), req.paths.as_deref(), on(a.amend)).await?
+        }
         GitActionKind::Push => {
             let remote = need(remote, "remote")?;
             let branch = match branch {
                 Some(b) => b.to_string(),
                 None => git::branch(dir).await.ok_or_else(|| missing("branch"))?,
             };
-            w.push(remote, &branch, a.target.as_deref(), on(a.force), on(a.tags)).await?
+            w.push(remote, &branch, a.target.as_deref(), a.commit.as_deref(), on(a.force), on(a.tags)).await?
         }
         GitActionKind::BranchCreate => {
             w.branch_create(need(branch, "branch")?, a.from.as_deref(), on(a.checkout), on(a.force)).await?
@@ -91,7 +94,11 @@ pub async fn act(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
         GitActionKind::Rebase => return w.rebase(need(a.onto.as_deref(), "args.onto")?, branch).await,
         GitActionKind::CherryPick => w.pick(false, a.commits.as_deref().unwrap_or_default()).await?,
         GitActionKind::Revert => w.pick(true, a.commits.as_deref().unwrap_or_default()).await?,
-        GitActionKind::Reset => w.reset(need(a.commit.as_deref(), "args.commit")?, a.mode.as_deref()).await?,
+        GitActionKind::Reset => {
+            let commit = need(a.commit.as_deref(), "args.commit")?;
+            expect_head(dir, a.expect.as_deref()).await?;
+            w.reset(commit, a.mode.as_deref()).await?
+        }
         GitActionKind::Discard => match a.patch.as_deref() {
             Some(patch) => w.revert_hunks(paths, patch).await?,
             None => w.discard(paths, on(a.keep_added)).await?,
@@ -394,13 +401,14 @@ impl Writer<'_> {
 
     /// Pushes local `branch` to the branch `target` of `remote` (default: the upstream's when it is on `remote`, else
     /// the same name), always as explicit refs: no name given can read as a refspec (`+a:b`, `:b`, `HEAD`). A branch
-    /// tracking nothing then tracks that one. `force` leases that one ref; `tags`: all of them too. A rejection is
-    /// returned as git reports it.
+    /// tracking nothing then tracks that one. `commit`: only up to that commit of the branch. `force` leases that one
+    /// ref; `tags`: all of them too. A rejection is returned as git reports it.
     async fn push(
         &self,
         remote: &str,
         branch: &str,
         target: Option<&str>,
+        commit: Option<&str>,
         force: bool,
         tags: bool,
     ) -> Result<String, Failed> {
@@ -410,6 +418,10 @@ impl Writer<'_> {
         if !has_ref(dir, &local).await {
             return Err(t!("分支不存在：{branch}", branch = branch).into());
         }
+        let from = match commit {
+            Some(c) => commit_on(dir, c, branch).await?,
+            None => local,
+        };
         let upstream = upstream(dir, branch).await;
         let dest = match target {
             Some(t) => new_name(dir, t).await?,
@@ -420,9 +432,10 @@ impl Writer<'_> {
                 .unwrap_or(branch),
         };
         let to = format!("refs/heads/{dest}");
-        let (refspec, lease) = (format!("{local}:{to}"), format!("--force-with-lease={to}"));
+        let (refspec, lease) = (format!("{from}:{to}"), format!("--force-with-lease={to}"));
         let mut args = vec!["push", "--porcelain"];
-        if upstream.is_none() {
+        // `-u` only tracks a branch pushed, never a commit: that one is tracked below.
+        if upstream.is_none() && commit.is_none() {
             args.push("-u");
         }
         if force {
@@ -433,6 +446,11 @@ impl Writer<'_> {
         }
         args.extend([remote, &refspec]);
         let pushed = push_refs(dir, &args, remote).await?;
+        // The push updated the target's remote-tracking ref, unless no fetch refspec maps it.
+        let tracking = format!("refs/remotes/{remote}/{dest}");
+        if upstream.is_none() && commit.is_some() && has_ref(dir, &tracking).await {
+            self.run(&["branch", "-q", &format!("--set-upstream-to={tracking}"), branch]).await?;
+        }
         let summary = pushed.iter().find(|(r, _)| *r == to).or(pushed.first()).map_or("", |(_, s)| s.as_str());
         Ok(format!("{remote}/{dest} {summary}"))
     }
@@ -1049,6 +1067,29 @@ async fn expect_stash(dir: &Path, n: u32, expect: Option<&str>) -> Result<(), St
         true => Ok(()),
         false => Err(t!("贮藏列表已变化，请刷新后重试").into()),
     }
+}
+
+/// The full hash of `commit` when it is on local `branch`: no refspec syntax (`+`, `:`) can hide in it.
+async fn commit_on(dir: &Path, commit: &str, branch: &str) -> Result<String, String> {
+    let rev = format!("{}^{{commit}}", arg(commit)?);
+    let hash = git(dir, &["rev-parse", "-q", "--verify", &rev]).await;
+    let hash = hash.map_err(|_| t!("提交不存在：{commit}", commit = commit))?.trim().to_string();
+    match is_ancestor(dir, &hash, &format!("refs/heads/{branch}")).await {
+        true => Ok(hash),
+        false => Err(t!("该提交不在分支 {branch} 上", branch = branch)),
+    }
+}
+
+/// Refuses when HEAD is no longer the commit `expect` names (a full or abbreviated hash): it moved since it was shown.
+async fn expect_head(dir: &Path, expect: Option<&str>) -> Result<(), String> {
+    let Some(expect) = expect else { return Ok(()) };
+    let now = match git::head(dir).await {
+        Some(head) if !expect.is_empty() && head.starts_with(expect) => return Ok(()),
+        Some(head) => git(dir, &["rev-parse", "--short", &head]).await?.trim().to_string(),
+        // An unborn branch has no commit to name.
+        None => git::branch(dir).await.unwrap_or_default(),
+    };
+    Err(t!("HEAD 已变化（现在是 {short}），请刷新后重试", short = now))
 }
 
 /// `(remote, merge ref)` local `branch` tracks, as configured.
