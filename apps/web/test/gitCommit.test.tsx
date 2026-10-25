@@ -470,6 +470,53 @@ describe('stashes', () => {
     fireEvent.click(clear.getByRole('button', { name: '清空' }))
     await waitFor(() => expect(actionsCalled(calls).at(-1)).toEqual({ action: 'stash-drop' }))
   })
+
+  it('applies or pops from the stash context menu, confirms the mode, and keeps an old-client refusal visible', async () => {
+    let fail = false
+    const calls = mockApi(
+      routes({
+        [`GET ${BASE}/stashes`]: STASHES,
+        [`POST ${BASE}/actions`]: () =>
+          fail ? apiError(409, 'conflict', '小王的 Claude 所在机器的客户端版本过旧，请升级后使用') : done,
+      }),
+    )
+    const tab = await openGit(status({ stashes: 2 }))
+    fireEvent.click(tab.getByRole('tab', { name: '贮藏 · 2' }))
+    const stash = await tab.findByRole('button', { name: /WIP on feat\/refund-v2/ })
+    fireEvent.contextMenu(stash)
+    await screen.findByRole('menuitem', { name: '应用' })
+    fireEvent.keyDown(stash, { key: 'F10', shiftKey: true })
+    fireEvent.click(await screen.findByRole('menuitem', { name: '应用' }))
+    let d = await dialog('恢复贮藏 stash@{0}')
+    expect((d.getByRole('checkbox', { name: '恢复后删除这个贮藏' }) as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(d.getByRole('button', { name: '应用' }))
+    await waitFor(() =>
+      expect(actionsCalled(calls).at(-1)).toEqual({
+        action: 'unstash',
+        stash: 0,
+        expect: S0,
+        pop: false,
+        index: false,
+      }),
+    )
+
+    fail = true
+    fireEvent.contextMenu(stash)
+    fireEvent.keyDown(stash, { key: 'F10', shiftKey: true })
+    fireEvent.click(await screen.findByRole('menuitem', { name: '弹出' }))
+    d = await dialog('恢复贮藏 stash@{0}')
+    expect((d.getByRole('checkbox', { name: '恢复后删除这个贮藏' }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(d.getByRole('button', { name: '弹出' }))
+    await waitFor(() => expect(toasts()).toContain('小王的 Claude 所在机器的客户端版本过旧，请升级后使用'))
+    expect(screen.getByRole('dialog', { name: '恢复贮藏 stash@{0}' })).toBeTruthy()
+    expect(actionsCalled(calls).at(-1)).toEqual({
+      action: 'unstash',
+      stash: 0,
+      expect: S0,
+      pop: true,
+      index: false,
+    })
+  })
 })
 
 describe('status bar', () => {

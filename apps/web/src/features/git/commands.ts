@@ -59,7 +59,7 @@ export type GitDialog =
   | { kind: 'tag-create'; commit: CommitInfo | null }
   | { kind: 'tag-delete'; name: string }
   | { kind: 'stash'; paths: string[] | null }
-  | { kind: 'unstash'; stash: GitStash }
+  | { kind: 'unstash'; stash: GitStash; initialPop?: boolean }
   | { kind: 'rollback'; changes: TreeChange[] }
   | { kind: 'confirm'; confirm: GitConfirm }
 
@@ -201,7 +201,7 @@ export function gitCommands(target: GitTarget) {
     deleteTag: (name: string) => show({ kind: 'tag-delete', name }),
     pushTag: (name: string, remote = 'origin') => void run({ action: 'tag-push', name, remote }),
     stash: (paths: string[] | null = null) => show({ kind: 'stash', paths }),
-    unstash: (stash: GitStash) => show({ kind: 'unstash', stash }),
+    unstash: (stash: GitStash, initialPop?: boolean) => show({ kind: 'unstash', stash, initialPop }),
     dropStash: (stash: GitStash) =>
       confirm({
         title: t('删除贮藏'),

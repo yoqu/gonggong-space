@@ -134,6 +134,7 @@
 }
 /* Git blame (IDEA's Annotate): a band per run of lines from one commit, its hash, author and age on the first. */
 .pv-line__blame {
+  position: relative;
   flex: none;
   width: 220px;
   margin: 0 calc(var(--space-12) * -1 + 2px) 0 calc(var(--space-12) * -1);
@@ -146,6 +147,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   user-select: none;
+}
+.pv-line__blame.pv-line__blame[style] {
+  background: color-mix(in srgb, var(--accent) calc(4% + var(--blame-age, 0) * 18%), transparent);
 }
 .pv-line__blame[data-band="1"] {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
@@ -164,6 +168,27 @@
 .pv-blame__btn:hover {
   color: var(--accent-text);
   text-decoration: underline;
+}
+.pv-blame__previous {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--label-tertiary);
+  cursor: pointer;
+}
+.pv-blame__previous:hover:not(:disabled) {
+  color: var(--accent-text);
+}
+.pv-blame__previous:disabled {
+  cursor: default;
+  opacity: 0.35;
 }
 /* IDEA's change markers beside the line numbers: a bar over the lines a change added (green) or modified (blue), a
    notch where lines were taken out; each opens what the change replaced. The column takes no room of its own. */

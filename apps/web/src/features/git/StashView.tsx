@@ -65,6 +65,8 @@ export function StashView({
             menuFor
               ? [
                   { value: 'apply', label: t('恢复…'), icon: 'arrow-down' },
+                  { value: 'apply-only', label: t('应用'), icon: 'arrow-down' },
+                  { value: 'pop', label: t('弹出'), icon: 'arrow-up' },
                   { value: 'drop', label: t('删除…'), icon: 'trash', destructive: true },
                   { separator: true },
                   { value: 'copy', label: t('复制哈希'), icon: 'copy' },
@@ -74,6 +76,8 @@ export function StashView({
           onSelect={(v) => {
             if (!menuFor) return
             if (v === 'apply') cmd.unstash(menuFor)
+            else if (v === 'apply-only') cmd.unstash(menuFor, false)
+            else if (v === 'pop') cmd.unstash(menuFor, true)
             else if (v === 'drop') cmd.dropStash(menuFor)
             else if (v === 'copy') cmd.copy(menuFor.hash)
           }}

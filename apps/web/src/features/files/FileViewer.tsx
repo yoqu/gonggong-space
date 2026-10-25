@@ -1,4 +1,4 @@
-import { FILE_TEXT_MAX_BYTES, type FileTextDto, type GitBlameDto } from '@gonggong/protocol'
+import { FILE_TEXT_MAX_BYTES, type FileTextDto, type GitBlameDto, type GitShowDto } from '@gonggong/protocol'
 import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type LineRange, useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
@@ -88,22 +88,37 @@ const level = (line: string) => (/ERROR|FAIL/.test(line) ? 'error' : /WARN/.test
 /** One line's annotation: its commit (null = not committed yet), whether it starts a run, the run's band. */
 interface BlameLine {
   hash: string
+  shortHash: string
   label: string
   title: string
   first: boolean
   band: number
+  age: number | null
 }
 
 /** Git blame per line: runs of lines from one commit, labelled on their first line, banded alternately. */
 function blameLines(b: GitBlameDto): BlameLine[] {
   const commits = new Map(b.commits.map((c) => [c.hash, c]))
+  const times = b.commits.map((c) => Date.parse(c.at)).sort((a, b) => a - b)
   const out: BlameLine[] = []
   b.ranges.forEach((r, band) => {
     const c = commits.get(r.commit)
     const label = c ? `${c.shortHash} ${c.author} ${ago(c.at)}` : t('未提交')
-    const title = c ? `${c.subject}\n${c.author} · ${fullTime(c.at)}\n${c.hash}` : t('尚未提交的改动')
+    const title = c
+      ? `${c.subject}\n${c.author} <${c.email}> · ${fullTime(c.at)}\n${c.hash}`
+      : t('尚未提交的改动')
+    const at = c ? Date.parse(c.at) : 0
+    const age = c ? (at - (times[0] ?? at)) / Math.max(1, (times.at(-1) ?? at) - (times[0] ?? at)) : null
     for (let i = 0; i < r.count; i++)
-      out[r.start - 1 + i] = { hash: r.commit, label, title, first: i === 0, band }
+      out[r.start - 1 + i] = {
+        hash: r.commit,
+        shortHash: c?.shortHash ?? '',
+        label,
+        title,
+        first: i === 0,
+        band,
+        age,
+      }
   })
   return out
 }
@@ -181,6 +196,8 @@ const Lines = memo(function Lines({
   line,
   blame,
   onCommit,
+  onPrevious,
+  previousRevision,
   changes,
 }: {
   text: string
@@ -189,6 +206,8 @@ const Lines = memo(function Lines({
   line?: LineRange
   blame?: BlameLine[]
   onCommit?: (hash: string) => void
+  onPrevious?: (revision: string) => void
+  previousRevision?: (hash: string) => Promise<string | null>
   changes?: FileChanges
 }) {
   const { count, shown, code } = useMemo(() => {
@@ -223,7 +242,14 @@ const Lines = memo(function Lines({
               ref={hit && i + 1 === from ? first : undefined}
               className={hit ? 'pv-line pv-line--hit' : 'pv-line'}
             >
-              {blame ? <BlameCell b={blame[i]} onCommit={onCommit} /> : null}
+              {blame ? (
+                <BlameCell
+                  b={blame[i]}
+                  onCommit={onCommit}
+                  onPrevious={onPrevious}
+                  previousRevision={previousRevision}
+                />
+              ) : null}
               <span className="pv-line__n">{i + 1}</span>
               {changes ? <ChangeMark mark={marks.get(i + 1)} count={count} changes={changes} /> : null}
               <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>
@@ -242,15 +268,67 @@ const Lines = memo(function Lines({
   )
 })
 
-function BlameCell({ b, onCommit }: { b: BlameLine | undefined; onCommit?: (hash: string) => void }) {
+function BlameCell({
+  b,
+  onCommit,
+  onPrevious,
+  previousRevision,
+}: {
+  b: BlameLine | undefined
+  onCommit?: (hash: string) => void
+  onPrevious?: (revision: string) => void
+  previousRevision?: (hash: string) => Promise<string | null>
+}) {
+  const hash = b?.first ? b.hash : ''
+  const [previous, setPrevious] = useState<{
+    hash: string
+    revision: string | null | undefined
+    failed?: boolean
+  }>()
+  useEffect(() => {
+    let live = true
+    if (hash && previousRevision)
+      previousRevision(hash).then(
+        (revision) => live && setPrevious({ hash, revision }),
+        () => live && setPrevious({ hash, revision: undefined, failed: true }),
+      )
+    return () => {
+      live = false
+    }
+  }, [hash, previousRevision])
   if (!b) return <span className="pv-line__blame" />
+  const parent = previous?.hash === b.hash ? previous.revision : undefined
   return (
-    <span className="pv-line__blame" data-band={b.band % 2} data-mine={!b.hash || undefined} title={b.title}>
+    <span
+      className="pv-line__blame"
+      data-band={b.band % 2}
+      data-mine={!b.hash || undefined}
+      style={{ '--blame-age': b.age } as CSSProperties}
+      title={b.title}
+    >
       {b.first ? (
         b.hash ? (
-          <button type="button" className="pv-blame__btn" onClick={() => onCommit?.(b.hash)}>
-            {b.label}
-          </button>
+          <>
+            <button type="button" className="pv-blame__btn" onClick={() => onCommit?.(b.hash)}>
+              {b.label}
+            </button>
+            <button
+              type="button"
+              className="pv-blame__previous"
+              aria-label={t('注解上一修订：{hash}', { hash: b.shortHash })}
+              title={
+                previous?.failed
+                  ? t('无法读取上一修订')
+                  : parent === null
+                    ? t('根提交没有上一修订')
+                    : t('注解上一修订')
+              }
+              disabled={!parent || previous?.failed}
+              onClick={() => parent && onPrevious?.(parent)}
+            >
+              <Icon name="arrow-up" size={11} />
+            </button>
+          </>
         ) : (
           b.label
         )
@@ -262,6 +340,8 @@ function BlameCell({ b, onCommit }: { b: BlameLine | undefined; onCommit?: (hash
 /** Git for a bot's file: who changed each line (IDEA's Annotate) and the file's history. */
 export interface FileGit {
   blame: () => Promise<GitBlameDto>
+  previousRevision: (hash: string) => Promise<string | null>
+  openRevision: (path: string, revision: string) => void
   onCommit: (hash: string) => void
   onHistory: () => void
 }
@@ -321,6 +401,26 @@ export function FileViewer({
 }: FileViewerProps) {
   const textual = TEXTUAL.includes(kind)
   const [annotate, setAnnotate] = useState<{ lines: BlameLine[] | null; error: string | null } | null>(null)
+  const previousRevisions = useRef<{
+    git: FileGit | undefined
+    requests: Map<string, Promise<string | null>>
+  }>({
+    git: undefined,
+    requests: new Map(),
+  })
+  if (previousRevisions.current.git !== git) previousRevisions.current = { git, requests: new Map() }
+  const previousRevision = useCallback(
+    (hash: string) => {
+      if (!git) return Promise.resolve(null)
+      let request = previousRevisions.current.requests.get(hash)
+      if (!request) {
+        request = git.previousRevision(hash)
+        previousRevisions.current.requests.set(hash, request)
+      }
+      return request
+    },
+    [git],
+  )
   const showAnnotations = (g: FileGit) => {
     setAnnotate({ lines: null, error: null })
     g.blame().then(
@@ -460,6 +560,8 @@ export function FileViewer({
           line={line}
           blame={annotate?.lines ?? undefined}
           onCommit={git?.onCommit}
+          onPrevious={git ? (revision) => git.openRevision(path, revision) : undefined}
+          previousRevision={git ? previousRevision : undefined}
           changes={changes}
         />
       </>
@@ -621,6 +723,11 @@ export function BotFileViewer({
     const target = { groupId, botId, repo }
     return {
       blame: () => api.get<GitBlameDto>(gitUrls.blame(gitBase(groupId, botId), rel, rev ?? null, repo)),
+      previousRevision: (hash) =>
+        api
+          .get<GitShowDto>(gitUrls.show(gitBase(groupId, botId), hash, repo))
+          .then((d) => d.commit.parents[0] ?? null),
+      openRevision: (file, revision) => gitCommands(target).openVersion(file, revision, true),
       // In the file's own history: the repo's log keeps its filters and selection.
       onCommit: (hash) => gitCommands(target).openLog({ path: rel, commit: hash, ref: rev ?? null }),
       onHistory: () => gitCommands(target).openLog({ path: rel, ref: rev ?? null }),
