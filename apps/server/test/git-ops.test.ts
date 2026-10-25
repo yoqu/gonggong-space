@@ -10,7 +10,16 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, groupBots, groupRepos, groups, messages, notifications, runs } from '../src/db/schema.js'
+import {
+  auditLogs,
+  gitOperations,
+  groupBots,
+  groupRepos,
+  groups,
+  messages,
+  notifications,
+  runs,
+} from '../src/db/schema.js'
 import { expireGitOperations } from '../src/modules/git/service.js'
 import { MASK } from '../src/modules/runs/redact.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -284,6 +293,40 @@ describe('git actions', () => {
     expect((await fail).body).toMatchObject({ status: 'failed', error: 'not a fast-forward' })
     expect((await ops(w)).body.operations.map((o) => o.status)).toEqual(['failed', 'succeeded'])
     expect(await groupEvents(w.group.id)).toHaveLength(1)
+  })
+
+  it('persists and reads back redacted command logs, while accepting an old daemon', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    const commands = [
+      {
+        command: 'git push origin main',
+        startedAt: '2026-10-25T04:00:00.000Z',
+        durationMs: 12,
+        exitCode: 1,
+        stdout: 'token ghp_abcdefghijklmnopqrstuvwxyz0123456789AB',
+        stderr: 'rejected',
+        truncated: false,
+      },
+    ]
+    const pending = w.owners.post<GitOperationDto>(`${w.base}/actions`, { action: 'pull' })
+    await d.act({
+      ok: false,
+      output: null,
+      error: 'not a fast-forward',
+      detail: { code: null, paths: [], ahead: null, behind: null, updated: null, commands },
+    })
+    const failed = (await pending).body
+    expect(failed.detail?.commands).toEqual([
+      { ...commands[0], stdout: `token ${MASK}` },
+    ])
+    const [stored] = await t.db.select().from(gitOperations).where(eq(gitOperations.id, failed.id))
+    expect(stored!.detail).toEqual(failed.detail)
+    expect((await ops(w)).body.operations[0]?.detail).toEqual(failed.detail)
+
+    const old = w.owners.post<GitOperationDto>(`${w.base}/actions`, { action: 'pull' })
+    await d.act({ output: 'old daemon summary' })
+    expect((await old).body).toMatchObject({ output: 'old daemon summary', detail: null })
   })
 
   it('commits only the chosen paths, for the owner and on approval', async () => {

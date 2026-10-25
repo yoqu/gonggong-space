@@ -57,6 +57,20 @@ impl From<&str> for Failed {
 
 /// Runs one git.action in `dir`, the repo it is for.
 pub async fn act(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
+    let (result, commands) = crate::git_console::capture(act_inner(dir, req)).await;
+    match result {
+        Ok(mut done) => {
+            done.detail.get_or_insert_with(Default::default).commands = Some(commands);
+            Ok(done)
+        }
+        Err(mut failed) => {
+            failed.detail.get_or_insert_with(|| Box::new(GitActionDetail::default())).commands = Some(commands);
+            Err(failed)
+        }
+    }
+}
+
+async fn act_inner(dir: &Path, req: &GitAction) -> Result<Done, Failed> {
     repo_dir(dir)?;
     let w = Writer::new(dir, req.identity.as_ref());
     let a = req.args.clone().unwrap_or_default();

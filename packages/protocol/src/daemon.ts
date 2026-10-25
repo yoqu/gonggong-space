@@ -913,6 +913,18 @@ export const GitActionArgs = z.object({
   reverse: z.boolean().optional(),
 })
 export type GitActionArgs = z.infer<typeof GitActionArgs>
+
+/** One controlled Git process, in execution order. No environment or stdin is included; long text is marked cut. */
+export const GitCommandRecord = z.object({
+  command: z.string(),
+  startedAt: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  exitCode: z.number().int().nullable(),
+  stdout: z.string(),
+  stderr: z.string(),
+  truncated: z.boolean(),
+})
+export type GitCommandRecord = z.infer<typeof GitCommandRecord>
 /**
  * gitOps4: what an action's outcome needs beyond its text. `code` overwritten: local changes in the way (`paths`), nothing
  * done; diverged: a checked out remote branch's local one has commits of its own (`ahead`, `behind`), nothing done —
@@ -927,8 +939,13 @@ export const GitActionDetail = z.object({
   updated: z
     .object({ from: z.string(), to: z.string(), commits: z.number().int(), files: z.number().int() })
     .nullable(),
+  commands: z.array(GitCommandRecord).nullable(),
 })
 export type GitActionDetail = z.infer<typeof GitActionDetail>
+export const GitActionResultDetail = GitActionDetail.extend({
+  commands: GitCommandRecord.array().nullable().default(null),
+})
+export type GitActionResultDetail = z.infer<typeof GitActionResultDetail>
 /**
  * Answer to git.action. `busy`: a turn holds the directory (plan W10), nothing was run. `output`: git's summary
  * (new HEAD, pushed range…), credentials stripped.
@@ -940,7 +957,7 @@ export const GitActionResult = z.object({
   busy: z.boolean(),
   output: z.string().nullable(),
   error: z.string().nullable(),
-  detail: GitActionDetail.nullable().default(null),
+  detail: GitActionResultDetail.nullable().default(null),
 })
 export type GitActionResult = z.infer<typeof GitActionResult>
 
